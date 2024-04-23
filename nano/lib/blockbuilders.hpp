@@ -199,6 +199,8 @@ class send_block_builder : public abstract_builder<nano::send_block, send_block_
 public:
 	/** Creates a send block builder by calling make_block() */
 	send_block_builder ();
+	/** Initialize from an existing block */
+	send_block_builder & from (nano::send_block const & block);
 	/** Creates a new block with fields, signature and work set to sentinel values. All fields must be set or zeroed for build() to succeed. */
 	send_block_builder & make_block ();
 	/** Sets all hashables, signature and work to zero. */

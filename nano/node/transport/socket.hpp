@@ -39,8 +39,26 @@ enum class buffer_drop_policy
 	no_socket_drop
 };
 
+enum class socket_type
+{
+	undefined,
+	bootstrap,
+	realtime,
+	realtime_response_server // special type for tcp channel response server
+};
+
+std::string_view to_string (socket_type);
+
+enum class socket_endpoint
+{
+	server, // Socket was created by accepting an incoming connection
+	client, // Socket was created by initiating an outgoing connection
+};
+
+std::string_view to_string (socket_endpoint);
+
 /** Socket class for tcp clients and newly accepted connections */
-class socket final : public std::enable_shared_from_this<nano::transport::socket>
+class socket final : public std::enable_shared_from_this<socket>
 {
 	friend class tcp_server;
 	friend class tcp_channels;
@@ -49,37 +67,40 @@ class socket final : public std::enable_shared_from_this<nano::transport::socket
 public:
 	static std::size_t constexpr default_max_queue_size = 128;
 
-	enum class type_t
-	{
-		undefined,
-		bootstrap,
-		realtime,
-		realtime_response_server // special type for tcp channel response server
-	};
+public:
+	explicit socket (nano::node &, nano::transport::socket_endpoint = socket_endpoint::client, std::size_t max_queue_size = default_max_queue_size);
 
-	enum class endpoint_type_t
-	{
-		server,
-		client
-	};
+	// TODO: Accepting remote/local endpoints as a parameter is unnecessary, but is needed for now to keep compatibility with the legacy code
+	explicit socket (
+	nano::node &,
+	boost::asio::ip::tcp::socket,
+	boost::asio::ip::tcp::endpoint remote_endpoint,
+	boost::asio::ip::tcp::endpoint local_endpoint,
+	nano::transport::socket_endpoint = socket_endpoint::server,
+	std::size_t max_queue_size = default_max_queue_size);
 
-	/**
-	 * Constructor
-	 * @param node Owning node
-	 * @param endpoint_type_a The endpoint's type: either server or client
-	 */
-	explicit socket (nano::node & node, endpoint_type_t endpoint_type_a = endpoint_type_t::client, std::size_t max_queue_size = default_max_queue_size);
 	~socket ();
 
 	void start ();
-
-	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void (boost::system::error_code const &)>);
-	void async_read (std::shared_ptr<std::vector<uint8_t>> const &, std::size_t, std::function<void (boost::system::error_code const &, std::size_t)>);
-	void async_write (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> callback = {}, nano::transport::traffic_type = nano::transport::traffic_type::generic);
-
 	void close ();
+
+	void async_connect (
+	boost::asio::ip::tcp::endpoint const & endpoint,
+	std::function<void (boost::system::error_code const &)> callback);
+
+	void async_read (
+	std::shared_ptr<std::vector<uint8_t>> const & buffer,
+	std::size_t size,
+	std::function<void (boost::system::error_code const &, std::size_t)> callback);
+
+	void async_write (
+	nano::shared_const_buffer const &,
+	std::function<void (boost::system::error_code const &, std::size_t)> callback = {},
+	traffic_type = traffic_type::generic);
+
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;
 	boost::asio::ip::tcp::endpoint local_endpoint () const;
+
 	/** Returns true if the socket has timed out */
 	bool has_timed_out () const;
 	/** This can be called to change the maximum idle time, e.g. based on the type of traffic detected. */
@@ -87,28 +108,28 @@ public:
 	std::chrono::seconds get_default_timeout_value () const;
 	void set_timeout (std::chrono::seconds);
 
-	bool max (nano::transport::traffic_type = nano::transport::traffic_type::generic) const;
-	bool full (nano::transport::traffic_type = nano::transport::traffic_type::generic) const;
+	bool max (nano::transport::traffic_type = traffic_type::generic) const;
+	bool full (nano::transport::traffic_type = traffic_type::generic) const;
 
-	type_t type () const
+	nano::transport::socket_type type () const
 	{
 		return type_m;
 	};
-	void type_set (type_t type_a)
+	void type_set (nano::transport::socket_type type_a)
 	{
 		type_m = type_a;
 	}
-	endpoint_type_t endpoint_type () const
+	nano::transport::socket_endpoint endpoint_type () const
 	{
 		return endpoint_type_m;
 	}
 	bool is_realtime_connection () const
 	{
-		return type () == nano::transport::socket::type_t::realtime || type () == nano::transport::socket::type_t::realtime_response_server;
+		return type () == socket_type::realtime || type () == socket_type::realtime_response_server;
 	}
 	bool is_bootstrap_connection () const
 	{
-		return type () == nano::transport::socket::type_t::bootstrap;
+		return type () == socket_type::bootstrap;
 	}
 	bool is_closed () const
 	{
@@ -116,7 +137,7 @@ public:
 	}
 	bool alive () const
 	{
-		return !closed && tcp_socket.is_open ();
+		return !is_closed ();
 	}
 
 private:
@@ -151,9 +172,10 @@ private:
 	write_queue send_queue;
 
 protected:
+	std::weak_ptr<nano::node> node_w;
+
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 	boost::asio::ip::tcp::socket tcp_socket;
-	nano::node & node;
 
 	/** The other end of the connection */
 	boost::asio::ip::tcp::endpoint remote;
@@ -201,8 +223,8 @@ protected:
 	void read_impl (std::shared_ptr<std::vector<uint8_t>> const & data_a, std::size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a);
 
 private:
-	type_t type_m{ type_t::undefined };
-	endpoint_type_t endpoint_type_m;
+	nano::transport::socket_type type_m{ socket_type::undefined };
+	nano::transport::socket_endpoint endpoint_type_m;
 
 public:
 	std::size_t const max_queue_size;
@@ -210,8 +232,6 @@ public:
 public: // Logging
 	virtual void operator() (nano::object_stream &) const;
 };
-
-std::string_view to_string (socket::type_t type);
 
 using address_socket_mmap = std::multimap<boost::asio::ip::address, std::weak_ptr<socket>>;
 

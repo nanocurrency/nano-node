@@ -28,6 +28,7 @@ enum class type : uint8_t
 	ipc,
 	tcp,
 	tcp_channels,
+	tcp_listener,
 	channel,
 	socket,
 	confirmation_height,
@@ -59,6 +60,7 @@ enum class type : uint8_t
 	local_block_broadcaster,
 	rep_tiers,
 	syn_cookies,
+	peer_history,
 
 	bootstrap_ascending,
 	bootstrap_ascending_accounts,
@@ -81,6 +83,8 @@ enum class detail : uint8_t
 	ignored,
 	update,
 	updated,
+	inserted,
+	erased,
 	request,
 	broadcast,
 	cleanup,
@@ -228,21 +232,30 @@ enum class detail : uint8_t
 	// network
 	loop_keepalive,
 	loop_reachout,
+	loop_reachout_cached,
 	merge_peer,
+	reachout_live,
+	reachout_cached,
 
 	// tcp
-	tcp_accept_success,
-	tcp_accept_failure,
 	tcp_write_drop,
 	tcp_write_no_socket_drop,
-	tcp_excluded,
-	tcp_max_per_ip,
-	tcp_max_per_subnetwork,
 	tcp_silent_connection_drop,
 	tcp_io_timeout_drop,
 	tcp_connect_error,
 	tcp_read_error,
 	tcp_write_error,
+
+	// tcp_listener
+	accept_success,
+	accept_error,
+	accept_failure,
+	accept_limits_exceeded,
+	close_error,
+	max_per_ip,
+	max_per_subnetwork,
+	excluded,
+	erase_dead,
 
 	// tcp_server
 	handshake,

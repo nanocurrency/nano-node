@@ -68,10 +68,13 @@ TEST (peer_container, tcp_channel_cleanup_works)
 	// Disable the confirm_req messages avoiding them to affect the last_packet_set time
 	node_flags.disable_rep_crawler = true;
 	auto & node1 = *system.add_node (node_config, node_flags);
-	auto outer_node1 = nano::test::add_outer_node (system, node_flags);
-	outer_node1->config.network_params.network.keepalive_period = std::chrono::minutes (10);
-	auto outer_node2 = nano::test::add_outer_node (system, node_flags);
-	outer_node2->config.network_params.network.keepalive_period = std::chrono::minutes (10);
+
+	auto config1 = node_config;
+	config1.network_params.network.keepalive_period = std::chrono::minutes (10);
+	auto outer_node1 = nano::test::add_outer_node (system, config1, node_flags);
+	auto config2 = config1;
+	config2.network_params.network.keepalive_period = std::chrono::minutes (10);
+	auto outer_node2 = nano::test::add_outer_node (system, config2, node_flags);
 	auto now = std::chrono::steady_clock::now ();
 	auto channel1 = nano::test::establish_tcp (system, node1, outer_node1->network.endpoint ());
 	ASSERT_NE (nullptr, channel1);

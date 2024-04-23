@@ -5,6 +5,7 @@
 #include <nano/node/cli.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/daemonconfig.hpp>
+#include <nano/node/inactive_node.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/ledger.hpp>
 
@@ -702,11 +703,11 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 
 			if (vm.count ("use_defaults"))
 			{
-				std::cout << toml.to_string () << std::endl;
+				std::cout << toml.to_string (false) << std::endl;
 			}
 			else
 			{
-				std::cout << toml.to_string_commented_entries () << std::endl;
+				std::cout << toml.to_string (true) << std::endl;
 			}
 		}
 	}

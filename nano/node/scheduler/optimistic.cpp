@@ -127,7 +127,7 @@ void nano::scheduler::optimistic::run ()
 
 		if (predicate ())
 		{
-			auto transaction = ledger.store.tx_begin_read ();
+			auto transaction = ledger.tx_begin_read ();
 
 			while (predicate ())
 			{
@@ -149,13 +149,13 @@ void nano::scheduler::optimistic::run ()
 	}
 }
 
-void nano::scheduler::optimistic::run_one (store::transaction const & transaction, entry const & candidate)
+void nano::scheduler::optimistic::run_one (secure::transaction const & transaction, entry const & candidate)
 {
 	auto block = ledger.head_block (transaction, candidate.account);
 	if (block)
 	{
 		// Ensure block is not already confirmed
-		if (!node.block_confirmed_or_being_confirmed (block->hash ()))
+		if (!node.block_confirmed_or_being_confirmed (transaction, block->hash ()))
 		{
 			// Try to insert it into AEC
 			// We check for AEC vacancy inside our predicate

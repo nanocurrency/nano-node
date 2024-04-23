@@ -35,7 +35,7 @@ private:
 };
 }
 
-nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
+nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a, bool force_use_write_queue) :
 	// clang-format off
 	nano::store::component{
 		block_store,
@@ -47,7 +47,8 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 		confirmation_height_store,
 		final_vote_store,
 		version_store,
-		rep_weight_store
+		rep_weight_store,
+		!force_use_write_queue // write_queue use_noops
 	},
 	// clang-format on
 	block_store{ *this },
@@ -308,10 +309,10 @@ void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transacti
 		processed_accounts++;
 		if (processed_accounts % 250000 == 0)
 		{
-			logger.info (nano::log::type::lmdb, "processed {} accounts", processed_accounts);
+			logger.info (nano::log::type::lmdb, "Processed {} accounts", processed_accounts);
 		}
 	}
-	logger.info (nano::log::type::lmdb, "processed {} accounts", processed_accounts);
+	logger.info (nano::log::type::lmdb, "Processed {} accounts", processed_accounts);
 	version.put (transaction_a, 23);
 	logger.info (nano::log::type::rocksdb, "Upgrading database from v22 to v23 completed");
 }

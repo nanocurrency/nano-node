@@ -345,7 +345,7 @@ private:
 
 private:
 	std::map<origin_entry, entry> queues;
-	std::map<origin_entry, entry>::iterator iterator{ queues.end () };
+	typename std::map<origin_entry, entry>::iterator iterator{ queues.end () };
 	size_t counter{ 0 };
 
 	std::chrono::steady_clock::time_point last_update{};

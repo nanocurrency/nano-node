@@ -28,8 +28,6 @@ public:
 	nano::block_hash hash;
 };
 
-nano::stat::detail to_stat_detail (nano::election_behavior);
-
 // map of vote weight per block, ordered greater first
 using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::greater<nano::uint128_t>>;
 
@@ -43,6 +41,17 @@ struct election_extended_status final
 	void operator() (nano::object_stream &) const;
 };
 
+enum class election_state
+{
+	passive, // only listening for incoming votes
+	active, // actively request confirmations
+	confirmed, // confirmed but still listening for votes
+	expired_confirmed,
+	expired_unconfirmed
+};
+
+std::string_view to_string (election_state);
+
 class election final : public std::enable_shared_from_this<election>
 {
 	nano::id_t const id{ nano::next_id () }; // Track individual objects when tracing
@@ -54,18 +63,9 @@ private:
 	std::function<void (nano::account const &)> live_vote_action;
 
 private: // State management
-	enum class state_t
-	{
-		passive, // only listening for incoming votes
-		active, // actively request confirmations
-		confirmed, // confirmed but still listening for votes
-		expired_confirmed,
-		expired_unconfirmed
-	};
-
 	static unsigned constexpr passive_duration_factor = 5;
 	static unsigned constexpr active_request_count_min = 2;
-	nano::election::state_t state_m = { state_t::passive };
+	nano::election_state state_m{ election_state::passive };
 
 	std::chrono::steady_clock::duration state_start{ std::chrono::steady_clock::now ().time_since_epoch () };
 
@@ -76,8 +76,8 @@ private: // State management
 	/** The last time vote for this election was generated */
 	std::chrono::steady_clock::time_point last_vote{};
 
-	bool valid_change (nano::election::state_t, nano::election::state_t) const;
-	bool state_change (nano::election::state_t, nano::election::state_t);
+	bool valid_change (nano::election_state, nano::election_state) const;
+	bool state_change (nano::election_state, nano::election_state);
 
 public: // State transitions
 	bool transition_time (nano::confirmation_solicitor &);
@@ -118,6 +118,10 @@ public: // Interface
 	nano::vote_info get_last_vote (nano::account const & account);
 	void set_last_vote (nano::account const & account, nano::vote_info vote_info);
 	nano::election_status get_status () const;
+	std::chrono::steady_clock::time_point get_election_start () const
+	{
+		return election_start;
+	}
 
 private: // Dependencies
 	nano::node & node;
@@ -126,8 +130,10 @@ public: // Information
 	uint64_t const height;
 	nano::root const root;
 	nano::qualified_root const qualified_root;
+
 	std::vector<nano::vote_with_weight_info> votes_with_weight () const;
 	nano::election_behavior behavior () const;
+	nano::election_state state () const;
 
 private:
 	nano::tally_t tally_impl () const;

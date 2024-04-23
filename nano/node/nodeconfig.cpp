@@ -34,7 +34,8 @@ nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, 
 	ipc_config{ network_params.network },
 	external_address{ boost::asio::ip::address_v6{}.to_string () },
 	rep_crawler{ network_params.network },
-	block_processor{ network_params.network }
+	block_processor{ network_params.network },
+	peer_history{ network_params.network }
 {
 	if (peering_port == 0)
 	{
@@ -221,6 +222,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	vote_processor.serialize (vote_processor_l);
 	toml.put_child ("vote_processor", vote_processor_l);
 
+	nano::tomlconfig peer_history_l;
+	peer_history.serialize (peer_history_l);
+	toml.put_child ("peer_history", peer_history_l);
+
 	return toml.get_error ();
 }
 
@@ -306,6 +311,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto config_l = toml.get_required_child ("vote_processor");
 			vote_processor.deserialize (config_l);
+		}
+
+		if (toml.has_key ("peer_history"))
+		{
+			auto config_l = toml.get_required_child ("peer_history");
+			peer_history.deserialize (config_l);
 		}
 
 		if (toml.has_key ("work_peers"))

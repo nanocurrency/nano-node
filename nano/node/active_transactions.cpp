@@ -1,4 +1,5 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
@@ -11,7 +12,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
 
-#include <boost/format.hpp>
+#include <ranges>
 
 using namespace std::chrono;
 
@@ -109,7 +110,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 		status.type = nano::election_status_type::inactive_confirmation_height;
 	}
 	recently_cemented.put (status);
-	auto transaction = node.store.tx_begin_read ();
+	auto transaction = node.ledger.tx_begin_read ();
 	notify_observers (transaction, status, votes);
 	bool cemented_bootstrap_count_reached = node.ledger.cemented_count () >= node.ledger.bootstrap_weight_max_blocks;
 	bool was_active = status.type == nano::election_status_type::active_confirmed_quorum || status.type == nano::election_status_type::active_confirmation_height;
@@ -121,7 +122,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 	}
 }
 
-void nano::active_transactions::notify_observers (nano::store::read_transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes)
+void nano::active_transactions::notify_observers (nano::secure::read_transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes)
 {
 	auto block = status.winner;
 	auto account = block->account ();
@@ -140,7 +141,7 @@ void nano::active_transactions::notify_observers (nano::store::read_transaction 
 	}
 }
 
-void nano::active_transactions::activate_successors (nano::store::read_transaction const & transaction, std::shared_ptr<nano::block> const & block)
+void nano::active_transactions::activate_successors (nano::secure::read_transaction const & transaction, std::shared_ptr<nano::block> const & block)
 {
 	node.scheduler.priority.activate (block->account (), transaction);
 
@@ -278,6 +279,11 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 	node.stats.inc (completion_type (*election), to_stat_detail (election->behavior ()));
 	node.logger.trace (nano::log::type::active_transactions, nano::log::detail::active_stopped, nano::log::arg{ "election", election });
 
+	node.logger.debug (nano::log::type::active_transactions, "Erased election for blocks: {} (behavior: {}, state: {})",
+	fmt::join (std::views::keys (blocks_l), ", "),
+	to_string (election->behavior ()),
+	to_string (election->state ()));
+
 	lock_a.unlock ();
 
 	vacancy_update ();
@@ -405,6 +411,10 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 			node.logger.trace (nano::log::type::active_transactions, nano::log::detail::active_started,
 			nano::log::arg{ "behavior", election_behavior_a },
 			nano::log::arg{ "election", result.election });
+
+			node.logger.debug (nano::log::type::active_transactions, "Started new election for block: {} (behavior: {})",
+			hash.to_string (),
+			to_string (election_behavior_a));
 		}
 		else
 		{

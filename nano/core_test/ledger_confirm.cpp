@@ -33,7 +33,7 @@ TEST (ledger_confirm, single)
 				 .build ();
 
 	// Check confirmation heights before, should be uninitialized (1 for genesis).
-	auto transaction = node->store.tx_begin_write ();
+	auto transaction = node->ledger.tx_begin_write ();
 	ASSERT_EQ (1, node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub).value ().height);
 	ASSERT_EQ (nano::dev::genesis->hash (), node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub).value ().frontier);
 
@@ -157,7 +157,7 @@ TEST (ledger_confirm, multiple_accounts)
 					.work (*system.work.generate (send6->hash ()))
 					.build ();
 
-	auto transaction = node->store.tx_begin_write ();
+	auto transaction = node->ledger.tx_begin_write ();
 	ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send1));
 	ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send2));
 	ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send3));
@@ -323,7 +323,7 @@ TEST (ledger_confirm, send_receive_between_2_accounts)
 				 .build ();
 	// Unpocketed send
 
-	auto transaction = node->store.tx_begin_write ();
+	auto transaction = node->ledger.tx_begin_write ();
 	ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send1));
 	ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, open1));
 
@@ -422,7 +422,7 @@ TEST (ledger_confirm, send_receive_self)
 				 .work (*system.work.generate (receive3->hash ()))
 				 .build ();
 
-	auto transaction = node->store.tx_begin_write ();
+	auto transaction = node->ledger.tx_begin_write ();
 	ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send1));
 	ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, receive1));
 	ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send2));
@@ -631,7 +631,7 @@ TEST (ledger_confirm, all_block_types)
 						  .work (*system.work.generate (send1->hash ()))
 						  .build ();
 
-	auto transaction (store.tx_begin_write ());
+	auto transaction = node->ledger.tx_begin_write ();
 	ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send));
 	ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send1));
 	ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, open));
@@ -700,7 +700,7 @@ TEST (ledger_confirm, conflict_rollback_cemented)
 				  .work (*system.work.generate (genesis_hash))
 				  .build ();
 	{
-		auto transaction = node1->store.tx_begin_write ();
+		auto transaction = node1->ledger.tx_begin_write ();
 		ASSERT_EQ (nano::block_status::progress, node1->ledger.process (transaction, fork1a));
 		node1->ledger.confirm (transaction, fork1a->hash ());
 	}
@@ -744,7 +744,7 @@ TEST (ledger_confirm, observers)
 				 .work (*system.work.generate (latest1))
 				 .build ();
 
-	auto transaction = node1->store.tx_begin_write ();
+	auto transaction = node1->ledger.tx_begin_write ();
 	ASSERT_EQ (nano::block_status::progress, node1->ledger.process (transaction, send1));
 	node1->ledger.confirm (transaction, send1->hash ());
 	ASSERT_TRUE (node1->ledger.block_confirmed (transaction, send1->hash ()));
@@ -784,7 +784,7 @@ TEST (ledger_confirm, pruned_source)
 	nano::stats stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
-	nano::write_database_queue write_database_queue (false);
+	nano::store::write_queue write_queue (false);
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair key1, key2;
 	nano::block_builder builder;
@@ -838,7 +838,7 @@ TEST (ledger_confirm, pruned_source)
 				 .sign (key2.prv, key2.pub)
 				 .work (*pool.generate (key2.pub))
 				 .build ();
-	auto transaction (store->tx_begin_write ());
+	auto transaction = ledger.tx_begin_write ();
 	store->initialize (transaction, ledger.cache, nano::dev::constants);
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open1));
@@ -868,7 +868,7 @@ TEST (ledger_confirmDeathTest, rollback_added_block)
 		ASSERT_TRUE (!store->init_error ());
 		nano::stats stats;
 		nano::ledger ledger (*store, stats, nano::dev::constants);
-		nano::write_database_queue write_database_queue (false);
+		nano::store::write_queue write_queue (false);
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 		nano::keypair key1;
 		nano::block_builder builder;
@@ -880,7 +880,7 @@ TEST (ledger_confirmDeathTest, rollback_added_block)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*pool.generate (nano::dev::genesis->hash ()))
 					.build ();
-		auto transaction (store->tx_begin_write ());
+		auto transaction = ledger.tx_begin_write ();
 		store->initialize (transaction, ledger.cache, ledger.constants);
 		ASSERT_DEATH_IF_SUPPORTED (ledger.confirm (transaction, send->hash ()), "");
 	}

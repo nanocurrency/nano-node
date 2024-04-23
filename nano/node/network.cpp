@@ -34,6 +34,8 @@ nano::network::~network ()
 	debug_assert (processing_threads.empty ());
 	debug_assert (!cleanup_thread.joinable ());
 	debug_assert (!keepalive_thread.joinable ());
+	debug_assert (!reachout_thread.joinable ());
+	debug_assert (!reachout_cached_thread.joinable ());
 }
 
 void nano::network::start ()
@@ -51,6 +53,11 @@ void nano::network::start ()
 	reachout_thread = std::thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::network_reachout);
 		run_reachout ();
+	});
+
+	reachout_cached_thread = std::thread ([this] () {
+		nano::thread_role::set (nano::thread_role::name::network_reachout);
+		run_reachout_cached ();
 	});
 
 	if (!node.flags.disable_tcp_realtime)
@@ -84,18 +91,10 @@ void nano::network::stop ()
 	}
 	processing_threads.clear ();
 
-	if (keepalive_thread.joinable ())
-	{
-		keepalive_thread.join ();
-	}
-	if (cleanup_thread.joinable ())
-	{
-		cleanup_thread.join ();
-	}
-	if (reachout_thread.joinable ())
-	{
-		reachout_thread.join ();
-	}
+	join_or_pass (keepalive_thread);
+	join_or_pass (cleanup_thread);
+	join_or_pass (reachout_thread);
+	join_or_pass (reachout_cached_thread);
 
 	port = 0;
 }
@@ -203,11 +202,47 @@ void nano::network::run_reachout ()
 					return;
 				}
 
+				node.stats.inc (nano::stat::type::network, nano::stat::detail::reachout_live);
+
 				merge_peer (peer);
 
 				// Throttle reachout attempts
 				std::this_thread::sleep_for (node.network_params.network.merge_period);
 			}
+		}
+
+		lock.lock ();
+	}
+}
+
+void nano::network::run_reachout_cached ()
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	while (!stopped)
+	{
+		condition.wait_for (lock, node.network_params.network.merge_period);
+		if (stopped)
+		{
+			return;
+		}
+		lock.unlock ();
+
+		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_reachout_cached);
+
+		auto cached_peers = node.peer_history.peers ();
+		for (auto const & peer : cached_peers)
+		{
+			if (stopped)
+			{
+				return;
+			}
+
+			node.stats.inc (nano::stat::type::network, nano::stat::detail::reachout_cached);
+
+			merge_peer (peer);
+
+			// Throttle reachout attempts
+			std::this_thread::sleep_for (node.network_params.network.merge_period);
 		}
 
 		lock.lock ();
@@ -595,8 +630,6 @@ nano::endpoint nano::network::endpoint () const
 
 void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutoff)
 {
-	node.logger.debug (nano::log::type::network, "Performing cleanup, cutoff: {}s", nano::log::seconds_delta (cutoff));
-
 	tcp_channels.purge (cutoff);
 
 	if (node.network.empty ())
@@ -809,8 +842,6 @@ bool nano::syn_cookies::validate (nano::endpoint const & endpoint_a, nano::accou
 
 void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cutoff_a)
 {
-	logger.debug (nano::log::type::syn_cookies, "Purging syn cookies, cutoff: {}s", nano::log::seconds_delta (cutoff_a));
-
 	nano::lock_guard<nano::mutex> lock{ syn_cookie_mutex };
 	auto it (cookies.begin ());
 	while (it != cookies.end ())

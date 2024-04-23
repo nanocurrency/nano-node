@@ -241,35 +241,6 @@ void nano::transport::tcp_channels::random_fill (std::array<nano::endpoint, 8> &
 	}
 }
 
-bool nano::transport::tcp_channels::store_all (bool clear_peers)
-{
-	// We can't hold the mutex while starting a write transaction, so
-	// we collect endpoints to be saved and then relase the lock.
-	std::vector<nano::endpoint> endpoints;
-	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		endpoints.reserve (channels.size ());
-		std::transform (channels.begin (), channels.end (),
-		std::back_inserter (endpoints), [] (auto const & channel) { return nano::transport::map_tcp_to_endpoint (channel.endpoint ()); });
-	}
-	bool result (false);
-	if (!endpoints.empty ())
-	{
-		// Clear all peers then refresh with the current list of peers
-		auto transaction (node.store.tx_begin_write ({ tables::peers }));
-		if (clear_peers)
-		{
-			node.store.peer.clear (transaction);
-		}
-		for (auto const & endpoint : endpoints)
-		{
-			node.store.peer.put (transaction, nano::endpoint_key{ endpoint.address ().to_v6 ().to_bytes (), endpoint.port () });
-		}
-		result = true;
-	}
-	return result;
-}
-
 std::shared_ptr<nano::transport::channel_tcp> nano::transport::tcp_channels::find_node_id (nano::account const & node_id_a)
 {
 	std::shared_ptr<nano::transport::channel_tcp> result;
@@ -344,9 +315,9 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 					temporary_channel->set_node_id (node_id_a);
 					temporary_channel->set_network_version (message_a.header.version_using);
 					temporary_channel->temporary = true;
-					debug_assert (type_a == nano::transport::socket::type_t::realtime || type_a == nano::transport::socket::type_t::realtime_response_server);
+					debug_assert (type_a == nano::transport::socket_type::realtime || type_a == nano::transport::socket_type::realtime_response_server);
 					// Don't insert temporary channels for response_server
-					if (type_a == nano::transport::socket::type_t::realtime)
+					if (type_a == nano::transport::socket_type::realtime)
 					{
 						insert (temporary_channel, socket_a, nullptr);
 					}
@@ -383,7 +354,7 @@ bool nano::transport::tcp_channels::max_ip_connections (nano::tcp_endpoint const
 	}
 	if (result)
 	{
-		node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::out);
+		node.stats.inc (nano::stat::type::tcp, nano::stat::detail::max_per_ip, nano::stat::dir::out);
 	}
 	return result;
 }
@@ -404,7 +375,7 @@ bool nano::transport::tcp_channels::max_subnetwork_connections (nano::tcp_endpoi
 	}
 	if (result)
 	{
-		node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_subnetwork, nano::stat::dir::out);
+		node.stats.inc (nano::stat::type::tcp, nano::stat::detail::max_per_subnetwork, nano::stat::dir::out);
 	}
 	return result;
 }
@@ -463,8 +434,6 @@ std::unique_ptr<nano::container_info_component> nano::transport::tcp_channels::c
 void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point cutoff_deadline)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-
-	node.logger.debug (nano::log::type::tcp_channels, "Performing periodic channel cleanup, cutoff: {}s", nano::log::seconds_delta (cutoff_deadline));
 
 	auto should_close = [this, cutoff_deadline] (auto const & channel) {
 		// Remove channels that haven't successfully sent a message within the cutoff time
@@ -767,7 +736,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 			auto response_server = std::make_shared<nano::transport::tcp_server> (socket_l, node_l);
 			node_l->network.tcp_channels.insert (channel_a, socket_l, response_server);
 			// Listen for possible responses
-			response_server->socket->type_set (nano::transport::socket::type_t::realtime_response_server);
+			response_server->socket->type_set (nano::transport::socket_type::realtime_response_server);
 			response_server->remote_node_id = channel_a->get_node_id ();
 			response_server->start ();
 		});

@@ -31,7 +31,6 @@
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
-#include <nano/node/write_database_queue.hpp>
 #include <nano/secure/utility.hpp>
 
 #include <boost/program_options.hpp>
@@ -49,6 +48,7 @@ class confirming_set;
 class node;
 class vote_processor;
 class work_pool;
+class peer_history;
 
 namespace scheduler
 {
@@ -88,7 +88,6 @@ public:
 	void stop ();
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
-	void receive_confirmed (store::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a);
 	void process_confirmed (nano::election_status const &, uint64_t = 0);
 	void process_active (std::shared_ptr<nano::block> const &);
 	std::optional<nano::block_status> process_local (std::shared_ptr<nano::block> const &);
@@ -99,7 +98,6 @@ public:
 	nano::uint128_t weight (nano::account const &);
 	nano::uint128_t minimum_principal_weight ();
 	void ongoing_bootstrap ();
-	void ongoing_peer_store ();
 	void backup_wallet ();
 	void search_receivable_all ();
 	void bootstrap_wallet ();
@@ -120,7 +118,7 @@ public:
 	void add_initial_peers ();
 	void start_election (std::shared_ptr<nano::block> const & block);
 	bool block_confirmed (nano::block_hash const &);
-	bool block_confirmed_or_being_confirmed (nano::store::transaction const &, nano::block_hash const &);
+	bool block_confirmed_or_being_confirmed (nano::secure::transaction const &, nano::block_hash const &);
 	bool block_confirmed_or_being_confirmed (nano::block_hash const &);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string> const &, std::shared_ptr<std::string> const &, std::shared_ptr<boost::asio::ip::tcp::resolver> const &);
 	void ongoing_online_weight_calculation ();
@@ -135,10 +133,10 @@ public:
 	void bootstrap_block (nano::block_hash const &);
 	nano::account get_node_id () const;
 	nano::telemetry_data local_telemetry () const;
+	std::string identifier () const;
 
 public:
 	const nano::keypair node_id;
-	nano::write_database_queue write_database_queue;
 	std::shared_ptr<boost::asio::io_context> io_ctx_shared;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
@@ -163,7 +161,8 @@ public:
 	nano::telemetry telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;
 	nano::bootstrap_server bootstrap_server;
-	std::shared_ptr<nano::transport::tcp_listener> tcp_listener;
+	std::unique_ptr<nano::transport::tcp_listener> tcp_listener_impl;
+	nano::transport::tcp_listener & tcp_listener;
 	std::filesystem::path application_path;
 	nano::node_observers observers;
 	nano::port_mapping port_mapping;
@@ -187,11 +186,7 @@ public:
 	nano::vote_generator & generator;
 	std::unique_ptr<nano::vote_generator> final_generator_impl;
 	nano::vote_generator & final_generator;
-
-private: // Placed here to maintain initialization order
 	std::unique_ptr<nano::scheduler::component> scheduler_impl;
-
-public:
 	nano::scheduler::component & scheduler;
 	nano::request_aggregator aggregator;
 	nano::wallets wallets;
@@ -201,6 +196,8 @@ public:
 	nano::epoch_upgrader epoch_upgrader;
 	nano::local_block_broadcaster local_block_broadcaster;
 	nano::process_live_dispatcher process_live_dispatcher;
+	std::unique_ptr<nano::peer_history> peer_history_impl;
+	nano::peer_history & peer_history;
 
 	std::chrono::steady_clock::time_point const startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
@@ -223,7 +220,7 @@ public: // Testing convenience functions
 		Transaction is comitted before function return
 	 */
 	[[nodiscard]] nano::block_status process (std::shared_ptr<nano::block> block);
-	[[nodiscard]] nano::block_status process (store::write_transaction const &, std::shared_ptr<nano::block> block);
+	[[nodiscard]] nano::block_status process (secure::write_transaction const &, std::shared_ptr<nano::block> block);
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
 
@@ -239,26 +236,4 @@ std::unique_ptr<container_info_component> collect_container_info (node & node, s
 
 nano::node_flags const & inactive_node_flag_defaults ();
 
-class node_wrapper final
-{
-public:
-	node_wrapper (std::filesystem::path const & path_a, std::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a);
-	~node_wrapper ();
-
-	nano::network_params network_params;
-	std::shared_ptr<boost::asio::io_context> io_context;
-	nano::work_pool work;
-	std::shared_ptr<nano::node> node;
-};
-
-class inactive_node final
-{
-public:
-	inactive_node (std::filesystem::path const & path_a, nano::node_flags const & node_flags_a);
-	inactive_node (std::filesystem::path const & path_a, std::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a);
-
-	nano::node_wrapper node_wrapper;
-	std::shared_ptr<nano::node> node;
-};
-std::unique_ptr<nano::inactive_node> default_inactive_node (std::filesystem::path const &, boost::program_options::variables_map const &);
 }

@@ -107,6 +107,10 @@ add_library(
   node_observers.cpp
   node_rpc_config.hpp
   node_rpc_config.cpp
+  node_wrapper.hpp
+  node_wrapper.cpp
+  inactive_node.hpp
+  inactive_node.cpp
   node.hpp
   node.cpp
   online_reps.hpp
@@ -115,6 +119,8 @@ add_library(
   openclconfig.cpp
   openclwork.hpp
   openclwork.cpp
+  peer_history.hpp
+  peer_history.cpp
   peer_exclusion.hpp
   peer_exclusion.cpp
   portmapping.hpp
@@ -180,8 +186,6 @@ add_library(
   websocketconfig.cpp
   websocket_stream.hpp
   websocket_stream.cpp
-  write_database_queue.hpp
-  write_database_queue.cpp
   messages.hpp
   messages.cpp
   xorshift.hpp)

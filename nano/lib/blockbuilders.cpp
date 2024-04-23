@@ -516,6 +516,21 @@ nano::send_block_builder::send_block_builder ()
 	make_block ();
 }
 
+nano::send_block_builder & nano::send_block_builder::from (nano::send_block const & other_block)
+{
+	block->work = other_block.work;
+	build_state |= build_flags::work_present;
+	block->signature = other_block.signature;
+	build_state |= build_flags::signature_present;
+	block->hashables.balance = other_block.hashables.balance;
+	build_state |= build_flags::balance_present;
+	block->hashables.destination = other_block.hashables.destination;
+	build_state |= build_flags::link_present;
+	block->hashables.previous = other_block.hashables.previous;
+	build_state |= build_flags::previous_present;
+	return *this;
+}
+
 nano::send_block_builder & nano::send_block_builder::make_block ()
 {
 	construct_block ();

@@ -26,7 +26,8 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 		confirmation_height_store,
 		final_vote_store,
 		version_store,
-		rep_weight_store
+		rep_weight_store,
+		false // write_queue use_noops
 	},
 	// clang-format on
 	block_store{ *this },
@@ -275,10 +276,10 @@ void nano::store::lmdb::component::upgrade_v22_to_v23 (store::write_transaction 
 		processed_accounts++;
 		if (processed_accounts % 250000 == 0)
 		{
-			logger.info (nano::log::type::lmdb, "processed {} accounts", processed_accounts);
+			logger.info (nano::log::type::lmdb, "Processed {} accounts", processed_accounts);
 		}
 	}
-	logger.info (nano::log::type::lmdb, "processed {} accounts", processed_accounts);
+	logger.info (nano::log::type::lmdb, "Processed {} accounts", processed_accounts);
 	version.put (transaction_a, 23);
 	logger.info (nano::log::type::lmdb, "Upgrading database from v22 to v23 completed");
 }

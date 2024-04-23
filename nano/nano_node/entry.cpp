@@ -8,6 +8,7 @@
 #include <nano/node/cli.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/daemonconfig.hpp>
+#include <nano/node/inactive_node.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
@@ -1023,7 +1024,7 @@ int main (int argc, char * const * argv)
 			nano::uint128_t balance ((node->config.online_weight_minimum.number () / num_representatives) + 1);
 			for (auto i (0); i != num_representatives; ++i)
 			{
-				auto transaction (node->store.tx_begin_write ());
+				auto transaction = node->ledger.tx_begin_write ();
 				genesis_balance = genesis_balance - balance;
 
 				auto send = builder.state ()
@@ -1378,7 +1379,7 @@ int main (int argc, char * const * argv)
 				for (auto i (0U); i < threads_count; ++i)
 				{
 					threads.emplace_back ([&function_a, node, &mutex, &condition, &finished, &deque_a] () {
-						auto transaction (node->store.tx_begin_read ());
+						auto transaction = node->ledger.tx_begin_read ();
 						nano::unique_lock<nano::mutex> lock{ mutex };
 						while (!deque_a.empty () || !finished)
 						{
@@ -1399,7 +1400,7 @@ int main (int argc, char * const * argv)
 				}
 			};
 
-			auto check_account = [&print_error_message, &silent, &count, &block_count] (std::shared_ptr<nano::node> const & node, nano::store::read_transaction const & transaction, nano::account const & account, nano::account_info const & info) {
+			auto check_account = [&print_error_message, &silent, &count, &block_count] (std::shared_ptr<nano::node> const & node, nano::secure::read_transaction const & transaction, nano::account const & account, nano::account_info const & info) {
 				++count;
 				if (!silent && (count % 20000) == 0)
 				{
@@ -1626,7 +1627,7 @@ int main (int argc, char * const * argv)
 				std::cout << boost::str (boost::format ("Performing %1% threads blocks hash, signature, work validation...\n") % threads_count);
 			}
 			size_t const accounts_deque_overflow (32 * 1024);
-			auto transaction (node->store.tx_begin_read ());
+			auto transaction = node->ledger.tx_begin_read ();
 			for (auto i (node->store.account.begin (transaction)), n (node->store.account.end ()); i != n; ++i)
 			{
 				{
@@ -1672,7 +1673,7 @@ int main (int argc, char * const * argv)
 			finished = false;
 			std::deque<std::pair<nano::pending_key, nano::pending_info>> pending;
 
-			auto check_pending = [&print_error_message, &silent, &count] (std::shared_ptr<nano::node> const & node, nano::store::read_transaction const & transaction, nano::pending_key const & key, nano::pending_info const & info) {
+			auto check_pending = [&print_error_message, &silent, &count] (std::shared_ptr<nano::node> const & node, nano::secure::read_transaction const & transaction, nano::pending_key const & key, nano::pending_info const & info) {
 				++count;
 				if (!silent && (count % 500000) == 0)
 				{
@@ -1792,7 +1793,7 @@ int main (int argc, char * const * argv)
 				node_flags.generate_cache.block_count = true;
 				nano::inactive_node inactive_node (data_path, node_flags);
 				auto source_node = inactive_node.node;
-				auto transaction (source_node->store.tx_begin_read ());
+				auto transaction = source_node->ledger.tx_begin_read ();
 				block_count = source_node->ledger.block_count ();
 				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
 				for (auto i (source_node->store.account.begin (transaction)), n (source_node->store.account.end ()); i != n; ++i)
@@ -1855,11 +1856,10 @@ int main (int argc, char * const * argv)
 		{
 			auto inactive_node = nano::default_inactive_node (data_path, vm);
 			auto node = inactive_node->node;
-			auto transaction (node->store.tx_begin_read ());
-
-			for (auto i (node->store.peer.begin (transaction)), n (node->store.peer.end ()); i != n; ++i)
+			auto peers = node->peer_history.peers ();
+			for (auto const & peer : peers)
 			{
-				std::cout << boost::str (boost::format ("%1%\n") % nano::endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ()));
+				std::cout << peer << std::endl;
 			}
 		}
 		else if (vm.count ("debug_cemented_block_count"))

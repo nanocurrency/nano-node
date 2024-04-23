@@ -14,10 +14,9 @@ namespace nano
 {
 class block;
 class node;
-class write_database_queue;
 }
 
-namespace nano::store
+namespace nano::secure
 {
 class write_transaction;
 }
@@ -86,7 +85,7 @@ public: // Context
 	};
 
 public:
-	block_processor (nano::node &, nano::write_database_queue &);
+	block_processor (nano::node &);
 	~block_processor ();
 
 	void start ();
@@ -117,9 +116,9 @@ public: // Events
 private:
 	void run ();
 	// Roll back block in the ledger that conflicts with 'block'
-	void rollback_competitor (store::write_transaction const &, nano::block const & block);
-	nano::block_status process_one (store::write_transaction const &, context const &, bool forced = false);
-	void queue_unchecked (store::write_transaction const &, nano::hash_or_account const &);
+	void rollback_competitor (secure::write_transaction const &, nano::block const & block);
+	nano::block_status process_one (secure::write_transaction const &, context const &, bool forced = false);
+	void queue_unchecked (secure::write_transaction const &, nano::hash_or_account const &);
 	processed_batch_t process_batch (nano::unique_lock<nano::mutex> &);
 	context next ();
 	bool add_impl (context, std::shared_ptr<nano::transport::channel> const & channel = nullptr);
@@ -127,7 +126,6 @@ private:
 private: // Dependencies
 	block_processor_config const & config;
 	nano::node & node;
-	nano::write_database_queue & write_database_queue;
 
 private:
 	nano::fair_queue<context, block_source> queue;

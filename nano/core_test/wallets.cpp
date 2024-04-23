@@ -1,6 +1,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/inactive_node.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/versioning.hpp>
 #include <nano/test_common/system.hpp>
@@ -253,7 +254,7 @@ TEST (wallets, search_receivable)
 			node.wallets.search_receivable (wallet_id);
 		}
 		ASSERT_TIMELY_EQ (3s, node.balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount);
-		auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::dev::genesis_key.pub);
+		auto receive_hash = node.ledger.latest (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 		auto receive = node.block (receive_hash);
 		ASSERT_NE (nullptr, receive);
 		ASSERT_EQ (receive->sideband ().height, 3);

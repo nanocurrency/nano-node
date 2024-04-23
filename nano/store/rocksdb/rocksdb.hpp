@@ -64,7 +64,7 @@ public:
 	friend class nano::store::rocksdb::version;
 	friend class nano::store::rocksdb::rep_weight;
 
-	explicit component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
+	explicit component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false, bool force_use_write_queue = false);
 
 	store::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	store::read_transaction tx_begin_read () const override;

@@ -37,10 +37,9 @@ void nano::block_processor::context::set_result (result_t const & result)
  * block_processor
  */
 
-nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
+nano::block_processor::block_processor (nano::node & node_a) :
 	config{ node_a.config.block_processor },
 	node (node_a),
-	write_database_queue (write_database_queue_a),
 	next_log (std::chrono::steady_clock::now ())
 {
 	batch_processed.add ([this] (auto const & items) {
@@ -202,7 +201,7 @@ bool nano::block_processor::add_impl (context ctx, std::shared_ptr<nano::transpo
 	return added;
 }
 
-void nano::block_processor::rollback_competitor (store::write_transaction const & transaction, nano::block const & block)
+void nano::block_processor::rollback_competitor (secure::write_transaction const & transaction, nano::block const & block)
 {
 	auto hash = block.hash ();
 	auto successor_hash = node.ledger.successor (transaction, block.qualified_root ());
@@ -300,8 +299,8 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 {
 	processed_batch_t processed;
 
-	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
-	auto transaction (node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights }));
+	auto scoped_write_guard = node.store.write_queue.wait (nano::store::writer::process_batch);
+	auto transaction = node.ledger.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights });
 	nano::timer<std::chrono::milliseconds> timer_l;
 
 	lock_a.lock ();
@@ -356,7 +355,7 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 	return processed;
 }
 
-nano::block_status nano::block_processor::process_one (store::write_transaction const & transaction_a, context const & context, bool const forced_a)
+nano::block_status nano::block_processor::process_one (secure::write_transaction const & transaction_a, context const & context, bool const forced_a)
 {
 	auto block = context.block;
 	auto const hash = block->hash ();
@@ -453,7 +452,7 @@ nano::block_status nano::block_processor::process_one (store::write_transaction 
 	return result;
 }
 
-void nano::block_processor::queue_unchecked (store::write_transaction const & transaction_a, nano::hash_or_account const & hash_or_account_a)
+void nano::block_processor::queue_unchecked (secure::write_transaction const & transaction_a, nano::hash_or_account const & hash_or_account_a)
 {
 	node.unchecked.trigger (hash_or_account_a);
 }

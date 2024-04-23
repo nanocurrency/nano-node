@@ -23,19 +23,22 @@ nano::thread_runner::thread_runner (std::shared_ptr<boost::asio::io_context> io_
 			nano::thread_role::set (role);
 			try
 			{
-				logger.debug (nano::log::type::thread_runner, "Thread #{} ({}) started", i, to_string (role));
-				run (*io_ctx);
-				logger.debug (nano::log::type::thread_runner, "Thread #{} ({}) stopped", i, to_string (role));
+				logger.debug (nano::log::type::thread_runner, "Started thread #{} ({})", i, to_string (role));
+				run ();
+				logger.debug (nano::log::type::thread_runner, "Stopped thread #{} ({})", i, to_string (role));
 			}
 			catch (std::exception const & ex)
 			{
-				std::cerr << ex.what () << std::endl;
+				logger.critical (nano::log::type::thread_runner, "Error: {}", ex.what ());
+
 #ifndef NDEBUG
 				throw; // Re-throw to debugger in debug mode
 #endif
 			}
 			catch (...)
 			{
+				logger.critical (nano::log::type::thread_runner, "Unknown error");
+
 #ifndef NDEBUG
 				throw; // Re-throw to debugger in debug mode
 #endif
@@ -49,28 +52,30 @@ nano::thread_runner::~thread_runner ()
 	join ();
 }
 
-void nano::thread_runner::run (boost::asio::io_context & io_ctx_a)
+void nano::thread_runner::run ()
 {
-#if NANO_ASIO_HANDLER_TRACKING == 0
-	io_ctx_a.run ();
-#else
-	nano::timer<> timer;
-	timer.start ();
-	while (true)
+	if constexpr (nano::asio_handler_tracking_threshold () == 0)
 	{
-		timer.restart ();
-		// Run at most 1 completion handler and record the time it took to complete (non-blocking)
-		auto count = io_ctx_a.poll_one ();
-		if (count == 1 && timer.since_start ().count () >= NANO_ASIO_HANDLER_TRACKING)
-		{
-			auto timestamp = std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
-			std::cout << (boost::format ("[%1%] io_thread held for %2%ms") % timestamp % timer.since_start ().count ()).str () << std::endl;
-		}
-		// Sleep for a bit to give more time slices to other threads
-		std::this_thread::sleep_for (std::chrono::milliseconds (5));
-		std::this_thread::yield ();
+		io_ctx->run ();
 	}
-#endif
+	else
+	{
+		nano::timer<> timer;
+		timer.start ();
+		while (true)
+		{
+			timer.restart ();
+			// Run at most 1 completion handler and record the time it took to complete (non-blocking)
+			auto count = io_ctx->poll_one ();
+			if (count == 1 && timer.since_start ().count () >= nano::asio_handler_tracking_threshold ())
+			{
+				logger.warn (nano::log::type::system, "Async handler processing took too long: {}ms", timer.since_start ().count ());
+			}
+			// Sleep for a bit to give more time slices to other threads
+			std::this_thread::sleep_for (std::chrono::milliseconds (5));
+			std::this_thread::yield ();
+		}
+	}
 }
 
 void nano::thread_runner::join ()

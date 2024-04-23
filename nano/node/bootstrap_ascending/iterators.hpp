@@ -9,9 +9,8 @@ namespace nano
 class ledger;
 }
 
-namespace nano::store
+namespace nano::secure
 {
-class component;
 class transaction;
 }
 
@@ -28,7 +27,7 @@ public:
 
 	explicit database_iterator (nano::ledger & ledger, table_type);
 	nano::account operator* () const;
-	void next (nano::store::transaction & tx);
+	void next (secure::transaction & tx);
 
 private:
 	nano::ledger & ledger;

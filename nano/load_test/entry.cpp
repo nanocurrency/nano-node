@@ -6,6 +6,7 @@
 #include <nano/boost/process/child.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/logging.hpp>
+#include <nano/lib/signal_manager.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/tomlconfig.hpp>
@@ -595,13 +596,14 @@ int main (int argc, char * const * argv)
 	std::shared_ptr<boost::asio::io_context> ioc_shared = std::make_shared<boost::asio::io_context> ();
 	boost::asio::io_context & ioc{ *ioc_shared };
 
-	debug_assert (!nano::signal_handler_impl);
-	nano::signal_handler_impl = [&ioc] () {
+	nano::signal_manager sigman;
+
+	auto signal_handler = [&ioc] (int signum) {
 		ioc.stop ();
 	};
 
-	std::signal (SIGINT, &nano::signal_handler);
-	std::signal (SIGTERM, &nano::signal_handler);
+	sigman.register_signal_handler (SIGINT, signal_handler, true);
+	sigman.register_signal_handler (SIGTERM, signal_handler, false);
 
 	tcp::resolver resolver{ ioc };
 	auto const primary_node_results = resolver.resolve ("::1", std::to_string (rpc_port_start));

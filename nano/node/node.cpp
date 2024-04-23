@@ -10,6 +10,7 @@
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/peer_history.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/manual.hpp>
@@ -136,7 +137,6 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	io_ctx_shared{ io_ctx_a },
 	io_ctx{ *io_ctx_shared },
 	node_id{ load_or_create_node_id (application_path_a) },
-	write_database_queue (!flags_a.force_use_write_database_queue && (config_a.rocksdb_config.enable)),
 	node_initialized_latch (1),
 	config (config_a),
 	network_params{ config.network_params },
@@ -147,7 +147,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	flags (flags_a),
 	work (work_a),
 	distributed_work (*this),
-	store_impl (nano::make_store (logger, application_path_a, network_params.ledger, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade)),
+	store_impl (nano::make_store (logger, application_path_a, network_params.ledger, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade, flags.force_use_write_queue)),
 	store (*store_impl),
 	unchecked{ config.max_unchecked_blocks, stats, flags.disable_block_processor_unchecked_deletion },
 	wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
@@ -169,11 +169,12 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	//         Thus, be very careful if you change the order: if `bootstrap` gets constructed before `network`,
 	//         the latter would inherit the port from the former (if TCP is active, otherwise `network` picks first)
 	//
-	tcp_listener{ std::make_shared<nano::transport::tcp_listener> (network.port, *this, config.tcp_incoming_connections_max) },
+	tcp_listener_impl{ std::make_unique<nano::transport::tcp_listener> (network.port, *this, config.tcp_incoming_connections_max) },
+	tcp_listener{ *tcp_listener_impl },
 	application_path (application_path_a),
 	port_mapping (*this),
-	block_processor (*this, write_database_queue),
-	confirming_set_impl{ std::make_unique<nano::confirming_set> (ledger, write_database_queue, config.confirming_set_batch_time) },
+	block_processor (*this),
+	confirming_set_impl{ std::make_unique<nano::confirming_set> (ledger, config.confirming_set_batch_time) },
 	confirming_set{ *confirming_set_impl },
 	active_impl{ std::make_unique<nano::active_transactions> (*this, confirming_set, block_processor) },
 	active{ *active_impl },
@@ -195,12 +196,14 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	scheduler{ *scheduler_impl },
 	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
-	backlog{ nano::backlog_population_config (config), store, stats },
+	backlog{ nano::backlog_population_config (config), ledger, stats },
 	ascendboot{ config, block_processor, ledger, network, stats },
 	websocket{ config.websocket_config, observers, wallets, ledger, io_ctx, logger },
 	epoch_upgrader{ *this, ledger, store, network_params, logger },
 	local_block_broadcaster{ *this, block_processor, network, stats, !flags.disable_block_processor_republishing },
 	process_live_dispatcher{ ledger, scheduler.priority, vote_cache, websocket },
+	peer_history_impl{ std::make_unique<nano::peer_history> (config.peer_history, store, network, logger, stats) },
+	peer_history{ *peer_history_impl },
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq)
 {
@@ -216,7 +219,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 		return ledger.weight (rep);
 	};
 
-	backlog.activate_callback.add ([this] (store::transaction const & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info) {
+	backlog.activate_callback.add ([this] (secure::transaction const & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info) {
 		scheduler.priority.activate (account, transaction);
 		scheduler.optimistic.activate (account, account_info, conf_info);
 	});
@@ -476,8 +479,9 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 		confirming_set.cemented_observers.add ([this] (auto const & block) {
 			if (block->is_send ())
 			{
-				auto transaction = store.tx_begin_read ();
-				receive_confirmed (transaction, block->hash (), block->destination ());
+				workers.push_task ([this, hash = block->hash (), destination = block->destination ()] () {
+					wallets.receive_confirmed (hash, destination);
+				});
 			}
 		});
 	}
@@ -564,7 +568,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (node.ledger.collect_container_info ("ledger"));
 	composite->add_component (collect_container_info (node.active, "active"));
 	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
-	composite->add_component (node.tcp_listener->collect_container_info ("tcp_listener"));
+	composite->add_component (node.tcp_listener.collect_container_info ("tcp_listener"));
 	composite->add_component (collect_container_info (node.network, "network"));
 	composite->add_component (node.telemetry.collect_container_info ("telemetry"));
 	composite->add_component (collect_container_info (node.workers, "workers"));
@@ -596,14 +600,16 @@ void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 	block_processor.add (incoming);
 }
 
-[[nodiscard]] nano::block_status nano::node::process (store::write_transaction const & transaction, std::shared_ptr<nano::block> block)
+[[nodiscard]] nano::block_status nano::node::process (secure::write_transaction const & transaction, std::shared_ptr<nano::block> block)
 {
-	return ledger.process (transaction, block);
+	auto status = ledger.process (transaction, block);
+	logger.debug (nano::log::type::node, "Directly processed block: {} (status: {})", block->hash ().to_string (), to_string (status));
+	return status;
 }
 
 nano::block_status nano::node::process (std::shared_ptr<nano::block> block)
 {
-	auto const transaction = store.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights });
+	auto const transaction = ledger.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights });
 	return process (transaction, block);
 }
 
@@ -620,8 +626,9 @@ void nano::node::process_local_async (std::shared_ptr<nano::block> const & block
 void nano::node::start ()
 {
 	long_inactivity_cleanup ();
+
 	network.start ();
-	add_initial_peers ();
+
 	if (!flags.disable_legacy_bootstrap && !flags.disable_ongoing_bootstrap)
 	{
 		ongoing_bootstrap ();
@@ -637,27 +644,25 @@ void nano::node::start ()
 	{
 		rep_crawler.start ();
 	}
-	ongoing_peer_store ();
+
 	ongoing_online_weight_calculation_queue ();
 
 	bool tcp_enabled = false;
 	if (config.tcp_incoming_connections_max > 0 && !(flags.disable_bootstrap_listener && flags.disable_tcp_realtime))
 	{
-		tcp_listener->start ([this] (std::shared_ptr<nano::transport::socket> const & new_connection, boost::system::error_code const & ec_a) {
-			if (!ec_a)
-			{
-				tcp_listener->accept_action (ec_a, new_connection);
-			}
-			return true;
-		});
+		tcp_listener.start ();
 		tcp_enabled = true;
 
-		if (network.port != tcp_listener->endpoint ().port ())
+		if (network.port != tcp_listener.endpoint ().port ())
 		{
-			network.port = tcp_listener->endpoint ().port ();
+			network.port = tcp_listener.endpoint ().port ();
 		}
 
 		logger.info (nano::log::type::node, "Node peering port: {}", network.port.load ());
+	}
+	else
+	{
+		logger.warn (nano::log::type::node, "Node peering is disabled");
 	}
 
 	if (!flags.disable_backup)
@@ -681,6 +686,7 @@ void nano::node::start ()
 	{
 		port_mapping.start ();
 	}
+	unchecked.start ();
 	wallets.start ();
 	rep_tiers.start ();
 	vote_processor.start ();
@@ -699,6 +705,9 @@ void nano::node::start ()
 	websocket.start ();
 	telemetry.start ();
 	local_block_broadcaster.start ();
+	peer_history.start ();
+
+	add_initial_peers ();
 }
 
 void nano::node::stop ()
@@ -711,6 +720,7 @@ void nano::node::stop ()
 
 	logger.info (nano::log::type::node, "Node stopping...");
 
+	peer_history.stop ();
 	// Cancels ongoing work generation tasks, which may be blocking other threads
 	// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
 	distributed_work.stop ();
@@ -734,7 +744,7 @@ void nano::node::stop ()
 	websocket.stop ();
 	bootstrap_server.stop ();
 	bootstrap_initiator.stop ();
-	tcp_listener->stop ();
+	tcp_listener.stop ();
 	port_mapping.stop ();
 	wallets.stop ();
 	stats.stop ();
@@ -759,25 +769,23 @@ void nano::node::keepalive_preconfigured ()
 
 nano::block_hash nano::node::latest (nano::account const & account_a)
 {
-	auto const transaction (store.tx_begin_read ());
-	return ledger.latest (transaction, account_a);
+	return ledger.latest (ledger.tx_begin_read (), account_a);
 }
 
 nano::uint128_t nano::node::balance (nano::account const & account_a)
 {
-	auto const transaction (store.tx_begin_read ());
-	return ledger.account_balance (transaction, account_a);
+	return ledger.account_balance (ledger.tx_begin_read (), account_a);
 }
 
 std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)
 {
-	return ledger.block (store.tx_begin_read (), hash_a);
+	return ledger.block (ledger.tx_begin_read (), hash_a);
 }
 
 std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::account const & account_a, bool only_confirmed_a)
 {
 	std::pair<nano::uint128_t, nano::uint128_t> result;
-	auto const transaction (store.tx_begin_read ());
+	auto const transaction = ledger.tx_begin_read ();
 	result.first = ledger.account_balance (transaction, account_a, only_confirmed_a);
 	result.second = ledger.account_receivable (transaction, account_a, only_confirmed_a);
 	return result;
@@ -785,7 +793,7 @@ std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::a
 
 nano::uint128_t nano::node::weight (nano::account const & account_a)
 {
-	auto txn{ ledger.store.tx_begin_read () };
+	auto txn = ledger.tx_begin_read ();
 	return ledger.weight_exact (txn, account_a);
 }
 
@@ -874,18 +882,6 @@ void nano::node::ongoing_bootstrap ()
 	});
 }
 
-void nano::node::ongoing_peer_store ()
-{
-	const bool stored{ network.tcp_channels.store_all (true) };
-	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.network.peer_dump_interval, [node_w] () {
-		if (auto node_l = node_w.lock ())
-		{
-			node_l->ongoing_peer_store ();
-		}
-	});
-}
-
 void nano::node::backup_wallet ()
 {
 	auto transaction (wallets.tx_begin_read ());
@@ -943,7 +939,7 @@ bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & 
 {
 	uint64_t read_operations (0);
 	bool finish_transaction (false);
-	auto const transaction (store.tx_begin_read ());
+	auto const transaction = ledger.tx_begin_read ();
 	for (auto i (store.confirmation_height.begin (transaction, last_account_a)), n (store.confirmation_height.end ()); i != n && !finish_transaction;)
 	{
 		++read_operations;
@@ -1012,8 +1008,8 @@ void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_wei
 		transaction_write_count = 0;
 		if (!pruning_targets.empty () && !stopped)
 		{
-			auto scoped_write_guard = write_database_queue.wait (nano::writer::pruning);
-			auto write_transaction (store.tx_begin_write ({ tables::blocks, tables::pruned }));
+			auto scoped_write_guard = store.write_queue.wait (nano::store::writer::pruning);
+			auto write_transaction = ledger.tx_begin_write ({ tables::blocks, tables::pruned });
 			while (!pruning_targets.empty () && transaction_write_count < batch_size_a && !stopped)
 			{
 				auto const & pruning_hash (pruning_targets.front ());
@@ -1164,15 +1160,7 @@ void nano::node::add_initial_peers ()
 		return;
 	}
 
-	std::vector<nano::endpoint> initial_peers;
-	{
-		auto transaction = store.tx_begin_read ();
-		for (auto i (store.peer.begin (transaction)), n (store.peer.end ()); i != n; ++i)
-		{
-			nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
-			initial_peers.push_back (endpoint);
-		}
-	}
+	auto initial_peers = peer_history.peers ();
 
 	logger.info (nano::log::type::node, "Adding cached initial peers: {}", initial_peers.size ());
 
@@ -1189,18 +1177,17 @@ void nano::node::start_election (std::shared_ptr<nano::block> const & block)
 
 bool nano::node::block_confirmed (nano::block_hash const & hash_a)
 {
-	auto transaction (store.tx_begin_read ());
-	return ledger.block_confirmed (transaction, hash_a);
+	return ledger.block_confirmed (ledger.tx_begin_read (), hash_a);
 }
 
-bool nano::node::block_confirmed_or_being_confirmed (nano::store::transaction const & transaction, nano::block_hash const & hash_a)
+bool nano::node::block_confirmed_or_being_confirmed (nano::secure::transaction const & transaction, nano::block_hash const & hash_a)
 {
 	return confirming_set.exists (hash_a) || ledger.block_confirmed (transaction, hash_a);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & hash_a)
 {
-	return block_confirmed_or_being_confirmed (store.tx_begin_read (), hash_a);
+	return block_confirmed_or_being_confirmed (ledger.tx_begin_read (), hash_a);
 }
 
 void nano::node::ongoing_online_weight_calculation_queue ()
@@ -1225,45 +1212,11 @@ void nano::node::ongoing_online_weight_calculation ()
 	ongoing_online_weight_calculation_queue ();
 }
 
-void nano::node::receive_confirmed (store::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a)
-{
-	nano::unique_lock<nano::mutex> lk{ wallets.mutex };
-	auto wallets_l = wallets.get_wallets ();
-	auto wallet_transaction = wallets.tx_begin_read ();
-	lk.unlock ();
-	for ([[maybe_unused]] auto const & [id, wallet] : wallets_l)
-	{
-		if (wallet->store.exists (wallet_transaction, destination_a))
-		{
-			nano::account representative;
-			representative = wallet->store.representative (wallet_transaction);
-			auto pending = ledger.pending_info (block_transaction_a, nano::pending_key (destination_a, hash_a));
-			if (pending)
-			{
-				auto amount (pending->amount.number ());
-				wallet->receive_async (hash_a, representative, amount, destination_a, [] (std::shared_ptr<nano::block> const &) {});
-			}
-			else
-			{
-				if (!ledger.block_or_pruned_exists (block_transaction_a, hash_a))
-				{
-					logger.warn (nano::log::type::node, "Confirmed block is missing: {}", hash_a.to_string ());
-					debug_assert (false, "Confirmed block is missing");
-				}
-				else
-				{
-					logger.warn (nano::log::type::node, "Block has already been received: {}", hash_a.to_string ());
-				}
-			}
-		}
-	}
-}
-
 void nano::node::process_confirmed (nano::election_status const & status_a, uint64_t iteration_a)
 {
 	auto hash (status_a.winner->hash ());
 	decltype (iteration_a) const num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
-	if (auto block_l = ledger.block (ledger.store.tx_begin_read (), hash))
+	if (auto block_l = ledger.block (ledger.tx_begin_read (), hash))
 	{
 		logger.trace (nano::log::type::node, nano::log::detail::process_confirmed, nano::log::arg{ "block", block_l });
 
@@ -1380,80 +1333,13 @@ nano::telemetry_data nano::node::local_telemetry () const
 	return telemetry_data;
 }
 
+std::string nano::node::identifier () const
+{
+	return make_logger_identifier (node_id);
+}
+
 std::string nano::node::make_logger_identifier (const nano::keypair & node_id)
 {
 	// Node identifier consists of first 10 characters of node id
 	return node_id.pub.to_node_id ().substr (0, 10);
-}
-
-/*
- * node_wrapper
- */
-
-nano::node_wrapper::node_wrapper (std::filesystem::path const & path_a, std::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
-	network_params{ nano::network_constants::active_network },
-	io_context (std::make_shared<boost::asio::io_context> ()),
-	work{ network_params.network, 1 }
-{
-	/*
-	 * @warning May throw a filesystem exception
-	 */
-	std::filesystem::create_directories (path_a);
-
-	boost::system::error_code error_chmod;
-	nano::set_secure_perm_directory (path_a, error_chmod);
-
-	nano::daemon_config daemon_config{ path_a, network_params };
-	auto error = nano::read_node_config_toml (config_path_a, daemon_config, node_flags_a.config_overrides);
-	if (error)
-	{
-		std::cerr << "Error deserializing config file";
-		if (!node_flags_a.config_overrides.empty ())
-		{
-			std::cerr << " or --config option";
-		}
-		std::cerr << "\n"
-				  << error.get_message () << std::endl;
-		std::exit (1);
-	}
-
-	auto & node_config = daemon_config.node;
-	node_config.peering_port = 24000;
-
-	node = std::make_shared<nano::node> (io_context, path_a, node_config, work, node_flags_a);
-}
-
-nano::node_wrapper::~node_wrapper ()
-{
-	node->stop ();
-}
-
-/*
- * inactive_node
- */
-
-nano::inactive_node::inactive_node (std::filesystem::path const & path_a, std::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
-	node_wrapper (path_a, config_path_a, node_flags_a),
-	node (node_wrapper.node)
-{
-	node_wrapper.node->active.stop ();
-}
-
-nano::inactive_node::inactive_node (std::filesystem::path const & path_a, nano::node_flags const & node_flags_a) :
-	inactive_node (path_a, path_a, node_flags_a)
-{
-}
-
-nano::node_flags const & nano::inactive_node_flag_defaults ()
-{
-	static nano::node_flags node_flags;
-	node_flags.inactive_node = true;
-	node_flags.read_only = true;
-	node_flags.generate_cache.reps = false;
-	node_flags.generate_cache.cemented_count = false;
-	node_flags.generate_cache.unchecked_count = false;
-	node_flags.generate_cache.account_count = false;
-	node_flags.disable_bootstrap_listener = true;
-	node_flags.disable_tcp_realtime = true;
-	return node_flags;
 }

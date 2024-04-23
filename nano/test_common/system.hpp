@@ -33,7 +33,7 @@ namespace test
 		void generate_usage_traffic (uint32_t, uint32_t, size_t);
 		void generate_usage_traffic (uint32_t, uint32_t);
 		nano::account get_random_account (std::vector<nano::account> &);
-		nano::uint128_t get_random_amount (store::transaction const &, nano::node &, nano::account const &);
+		nano::uint128_t get_random_amount (secure::transaction const &, nano::node &, nano::account const &);
 		void generate_rollback (nano::node &, std::vector<nano::account> &);
 		void generate_change_known (nano::node &, std::vector<nano::account> &);
 		void generate_change_unknown (nano::node &, std::vector<nano::account> &);

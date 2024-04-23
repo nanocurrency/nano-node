@@ -11,6 +11,7 @@
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
+#include <nano/node/peer_history.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
@@ -141,6 +142,7 @@ public:
 	nano::rep_crawler_config rep_crawler;
 	nano::block_processor_config block_processor;
 	nano::vote_processor_config vote_processor;
+	nano::peer_history_config peer_history;
 
 public:
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
@@ -174,7 +176,7 @@ public:
 	bool allow_bootstrap_peers_duplicates{ false };
 	bool disable_max_peers_per_ip{ false }; // For testing only
 	bool disable_max_peers_per_subnetwork{ false }; // For testing only
-	bool force_use_write_database_queue{ false }; // For testing only. RocksDB does not use the database queue, but some tests rely on it being used.
+	bool force_use_write_queue{ false }; // For testing only. RocksDB does not use the database queue, but some tests rely on it being used.
 	bool disable_search_pending{ false }; // For testing only
 	bool enable_pruning{ false };
 	bool fast_bootstrap{ false };
