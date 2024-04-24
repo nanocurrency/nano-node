@@ -1047,6 +1047,7 @@ TEST (toml, merge_config_files)
 	nano::tomlconfig merged_toml;
 	nano::daemon_config default_config{ ".", network_params };
 	nano::daemon_config current_config{ ".", network_params };
+	nano::daemon_config merged_config{ ".", network_params };
 
 	std::stringstream ss;
 
@@ -1065,12 +1066,19 @@ TEST (toml, merge_config_files)
 	current_config.serialize_toml (current_toml);
 	default_config.serialize_toml (default_toml);
 
-	auto merged_config = current_toml.merge_defaults (current_toml, default_toml);
+	auto merged_config_string = current_toml.merge_defaults (current_toml, default_toml);
 
-	ASSERT_TRUE (merged_config.find ("active_elections_size = 999") != std::string::npos);
-	ASSERT_FALSE (merged_config.find ("active_elections_size = 5000") != std::string::npos);
-	ASSERT_TRUE (merged_config.find ("# backlog_scan_batch_size = 10000") != std::string::npos);
-	ASSERT_FALSE (merged_config.find ("backlog_scan_batch_size = 7777") != std::string::npos);
-	ASSERT_TRUE (merged_config.find ("block_wait_count = 33333") != std::string::npos);
-	ASSERT_FALSE (merged_config.find ("old_entry") != std::string::npos);
+	// Configs have been merged. Let's read and parse the new config file and verify the values
+
+	std::stringstream ss2;
+	ss2 << merged_config_string;
+
+	merged_toml.read (ss2);
+	merged_config.deserialize_toml (merged_toml);
+
+	ASSERT_NE (merged_config.node.active_elections_size, default_config.node.active_elections_size);
+	ASSERT_EQ (merged_config.node.active_elections_size, 999);
+	ASSERT_NE (merged_config.node.backlog_scan_batch_size, 7777);
+	ASSERT_EQ (merged_config.node.active_elections_size, 999);
+	ASSERT_TRUE (merged_config_string.find ("old_entry") == std::string::npos);
 }
