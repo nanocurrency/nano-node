@@ -1079,6 +1079,6 @@ TEST (toml, merge_config_files)
 	ASSERT_NE (merged_config.node.active_elections_size, default_config.node.active_elections_size);
 	ASSERT_EQ (merged_config.node.active_elections_size, 999);
 	ASSERT_NE (merged_config.node.backlog_scan_batch_size, 7777);
-	ASSERT_EQ (merged_config.node.active_elections_size, 999);
+	ASSERT_EQ (merged_config.node.bootstrap_ascending.block_wait_count, 33333);
 	ASSERT_TRUE (merged_config_string.find ("old_entry") == std::string::npos);
 }
