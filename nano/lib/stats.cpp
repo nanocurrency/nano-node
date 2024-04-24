@@ -12,6 +12,8 @@
 #include <fstream>
 #include <sstream>
 
+using namespace std::chrono_literals;
+
 /*
  * stat_log_sink
  */
@@ -38,6 +40,11 @@ nano::stats::~stats ()
 
 void nano::stats::start ()
 {
+	if (!should_run ())
+	{
+		return;
+	}
+
 	thread = std::thread ([this] {
 		nano::thread_role::set (nano::thread_role::name::stats);
 		run ();
@@ -242,35 +249,25 @@ void nano::stats::log_samples_impl (stat_log_sink & sink, tm & tm)
 	sink.finalize ();
 }
 
-// This is approximate, the actual interval will vary
-std::chrono::milliseconds nano::stats::calculate_run_interval () const
+bool nano::stats::should_run () const
 {
-	std::chrono::milliseconds interval = std::chrono::milliseconds::max ();
 	if (config.log_counters_interval.count () > 0)
 	{
-		interval = std::min (interval, config.log_counters_interval);
+		return true;
 	}
 	if (config.log_samples_interval.count () > 0)
 	{
-		interval = std::min (interval, config.log_samples_interval);
+		return true;
 	}
-	return interval;
+	return false;
 }
 
 void nano::stats::run ()
 {
-	auto const interval = calculate_run_interval ();
-
-	if (interval == std::chrono::milliseconds::max ())
-	{
-		return;
-	}
-
 	std::unique_lock lock{ mutex };
 	while (!stopped)
 	{
-		condition.wait_for (lock, interval);
-
+		condition.wait_for (lock, 1s);
 		if (!stopped)
 		{
 			run_one (lock);

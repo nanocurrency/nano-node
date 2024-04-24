@@ -186,7 +186,7 @@ private:
 private:
 	void run ();
 	void run_one (std::unique_lock<std::shared_mutex> & lock);
-	std::chrono::milliseconds calculate_run_interval () const;
+	bool should_run () const;
 
 	/** Unlocked implementation of log_counters() to avoid using recursive locking */
 	void log_counters_impl (stat_log_sink & sink, tm & tm);
