@@ -1046,7 +1046,8 @@ TEST (active_transactions, confirm_new)
 	// Add key to node2
 	system.wallet (1)->insert_adhoc (nano::dev::genesis_key.prv);
 	// Let node2 know about the block
-	ASSERT_TIMELY (5s, node2.block (send->hash ()));
+	auto send_copy = nano::send_block_builder ().make_block ().from (*send).build ();
+	ASSERT_TIMELY (5s, node2.block (send_copy->hash ()));
 	// Wait confirmation
 	ASSERT_TIMELY (5s, node1.ledger.cemented_count () == 2);
 	ASSERT_TIMELY (5s, node2.ledger.cemented_count () == 2);
