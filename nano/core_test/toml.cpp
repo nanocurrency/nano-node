@@ -1038,3 +1038,39 @@ TEST (toml, log_config_no_required)
 
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
 }
+
+TEST (toml, merge_config_files)
+{
+	nano::network_params network_params{ nano::network_constants::active_network };
+	nano::tomlconfig default_toml;
+	nano::tomlconfig current_toml;
+	nano::tomlconfig merged_toml;
+	nano::daemon_config default_config{ ".", network_params };
+	nano::daemon_config current_config{ ".", network_params };
+
+	std::stringstream ss;
+
+	ss << R"toml(
+	[node]
+	 active_elections_size = 999
+	 # backlog_scan_batch_size = 7777
+	[node.bootstrap_ascending]
+	 block_wait_count = 33333
+	 old_entry = 34
+	)toml";
+
+	current_toml.read (ss);
+	current_config.deserialize_toml (current_toml);
+
+	current_config.serialize_toml (current_toml);
+	default_config.serialize_toml (default_toml);
+
+	auto merged_config = current_toml.merge_defaults (current_toml, default_toml);
+
+	ASSERT_TRUE (merged_config.find ("active_elections_size = 999") != std::string::npos);
+	ASSERT_FALSE (merged_config.find ("active_elections_size = 5000") != std::string::npos);
+	ASSERT_TRUE (merged_config.find ("# backlog_scan_batch_size = 10000") != std::string::npos);
+	ASSERT_FALSE (merged_config.find ("backlog_scan_batch_size = 7777") != std::string::npos);
+	ASSERT_TRUE (merged_config.find ("block_wait_count = 33333") != std::string::npos);
+	ASSERT_FALSE (merged_config.find ("old_entry") != std::string::npos);
+}
