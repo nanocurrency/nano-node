@@ -194,6 +194,7 @@ private:
 	};
 
 	// Wrap in unique_ptrs because mutex/atomic members are not movable
+	// TODO: Compare performance of map vs unordered_map
 	std::map<counter_key, std::unique_ptr<counter_entry>> counters;
 	std::map<sampler_key, std::unique_ptr<sampler_entry>> samplers;
 

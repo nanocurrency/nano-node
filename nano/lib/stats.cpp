@@ -236,6 +236,7 @@ void nano::stats::log_samples_impl (stat_log_sink & sink, tm & tm)
 	sink.finalize ();
 }
 
+// This is approximate, the actual interval will vary
 std::chrono::milliseconds nano::stats::calculate_run_interval () const
 {
 	std::chrono::milliseconds interval = std::chrono::milliseconds::max ();
