@@ -102,7 +102,7 @@ TEST (confirmation_callback, observer_callbacks)
 	node->confirming_set.add (send1->hash ());
 
 	// Callback is performed for all blocks that are confirmed
-	ASSERT_TIMELY_EQ (5s, 2, node->ledger.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (5s, 2, node->ledger.stats.count (nano::stat::type::confirmation_observer, nano::stat::dir::out));
 
 	ASSERT_EQ (2, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 	ASSERT_EQ (3, node->ledger.cemented_count ());

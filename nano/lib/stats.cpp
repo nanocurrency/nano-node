@@ -74,8 +74,6 @@ void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, coun
 
 	// Updates need to happen while holding the mutex
 	auto update_counter = [this] (nano::stats::counter_key key, auto && updater) {
-		counter_key all_key{ key.type, stat::detail::all, key.dir };
-
 		// This is a two-step process to avoid exclusively locking the mutex in the common case
 		{
 			std::shared_lock lock{ mutex };
@@ -83,13 +81,6 @@ void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, coun
 			if (auto it = counters.find (key); it != counters.end ())
 			{
 				updater (*it->second);
-
-				if (key != all_key)
-				{
-					auto it_all = counters.find (all_key);
-					release_assert (it_all != counters.end ()); // The `all` counter should always be created together
-					updater (*it_all->second); // Also update the `all` counter
-				}
 
 				return;
 			}
@@ -100,14 +91,7 @@ void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, coun
 
 			// Insertions will be ignored if the key already exists
 			auto [it, inserted] = counters.emplace (key, std::make_unique<counter_entry> ());
-			auto [it_all, inserted_all] = counters.emplace (all_key, std::make_unique<counter_entry> ());
-
 			updater (*it->second);
-
-			if (key != all_key)
-			{
-				updater (*it_all->second); // Also update the `all` counter
-			}
 		}
 	};
 
@@ -116,7 +100,7 @@ void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, coun
 	});
 }
 
-auto nano::stats::count (stat::type type, stat::detail detail, stat::dir dir) const -> counter_value_t
+nano::stats::counter_value_t nano::stats::count (stat::type type, stat::detail detail, stat::dir dir) const
 {
 	std::shared_lock lock{ mutex };
 	if (auto it = counters.find (counter_key{ type, detail, dir }); it != counters.end ())
@@ -124,6 +108,22 @@ auto nano::stats::count (stat::type type, stat::detail detail, stat::dir dir) co
 		return it->second->value;
 	}
 	return 0;
+}
+
+nano::stats::counter_value_t nano::stats::count (stat::type type, stat::dir dir) const
+{
+	std::shared_lock lock{ mutex };
+	counter_value_t result = 0;
+	auto it = counters.lower_bound (counter_key{ type, stat::detail::all, dir });
+	while (it != counters.end () && it->first.type == type)
+	{
+		if (it->first.dir == dir)
+		{
+			result += it->second->value;
+		}
+		++it;
+	}
+	return result;
 }
 
 void nano::stats::sample (stat::sample sample, std::pair<sampler_value_t, sampler_value_t> expected_min_max, nano::stats::sampler_value_t value)
@@ -137,6 +137,7 @@ void nano::stats::sample (stat::sample sample, std::pair<sampler_value_t, sample
 			if (auto it = samplers.find (key); it != samplers.end ())
 			{
 				updater (*it->second);
+
 				return;
 			}
 		}

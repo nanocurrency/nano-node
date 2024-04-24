@@ -5350,14 +5350,14 @@ TEST (rpc, stats_clear)
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
 	nano::keypair key;
-	node->stats.inc (nano::stat::type::ledger, nano::stat::dir::in);
-	ASSERT_EQ (1, node->stats.count (nano::stat::type::ledger, nano::stat::dir::in));
+	node->stats.inc (nano::stat::type::ledger, nano::stat::detail::test, nano::stat::dir::in);
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::ledger, nano::stat::detail::test, nano::stat::dir::in));
 	boost::property_tree::ptree request;
 	request.put ("action", "stats_clear");
 	auto response (wait_response (system, rpc_ctx, request));
 	std::string success (response.get<std::string> ("success"));
 	ASSERT_TRUE (success.empty ());
-	ASSERT_EQ (0, node->stats.count (nano::stat::type::ledger, nano::stat::dir::in));
+	ASSERT_EQ (0, node->stats.count (nano::stat::type::ledger, nano::stat::detail::test, nano::stat::dir::in));
 	ASSERT_LE (node->stats.last_reset ().count (), 5);
 }
 

@@ -10,6 +10,8 @@ namespace nano::stat
 /** Primary statistics type */
 enum class type
 {
+	_invalid = 0, // Default value, should not be used
+
 	traffic_tcp,
 	error,
 	message,
@@ -72,13 +74,14 @@ enum class type
 /** Optional detail type */
 enum class detail
 {
-	all = 0,
+	_invalid = 0, // Default value, should not be used
 
-	// common
+	all,
 	ok,
+	test,
+	total,
 	loop,
 	loop_cleanup,
-	total,
 	process,
 	processed,
 	ignored,

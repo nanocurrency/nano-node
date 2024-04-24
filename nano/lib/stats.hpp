@@ -81,12 +81,6 @@ public:
 	void clear ();
 
 	/** Increments the given counter */
-	void inc (stat::type type, stat::dir dir = stat::dir::in)
-	{
-		add (type, dir, 1);
-	}
-
-	/** Increments the given counter */
 	void inc (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
 	{
 		add (type, detail, dir, 1);
@@ -99,22 +93,13 @@ public:
 	}
 
 	/** Adds \p value to the given counter */
-	void add (stat::type type, stat::dir dir, counter_value_t value)
-	{
-		add (type, stat::detail::all, dir, value);
-	}
-
-	/** Adds \p value to the given counter */
 	void add (stat::type type, stat::detail detail, stat::dir dir, counter_value_t value);
-
-	/** Returns current value for the given counter at the type level */
-	counter_value_t count (stat::type type, stat::dir dir = stat::dir::in) const
-	{
-		return count (type, stat::detail::all, dir);
-	}
 
 	/** Returns current value for the given counter at the detail level */
 	counter_value_t count (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in) const;
+
+	/** Returns current value for the given counter at the type level (sum of all details) */
+	counter_value_t count (stat::type type, stat::dir dir = stat::dir::in) const;
 
 	/** Adds a sample to the given sampler */
 	void sample (stat::sample sample, std::pair<sampler_value_t, sampler_value_t> expected_min_max, sampler_value_t value);

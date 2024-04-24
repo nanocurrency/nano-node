@@ -2418,7 +2418,7 @@ TEST (node, DISABLED_fork_invalid_block_signature)
 	// Send the vote with the corrupt block signature
 	node2.network.flood_vote (vote_corrupt, 1.0f);
 	// Wait for the rollback
-	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::rollback, nano::stat::detail::all));
+	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::rollback));
 	// Send the vote with the correct block
 	node2.network.flood_vote (vote, 1.0f);
 	ASSERT_TIMELY (10s, !node1.block (send1->hash ()));
