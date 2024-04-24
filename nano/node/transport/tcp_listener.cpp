@@ -21,8 +21,9 @@ nano::transport::tcp_listener::tcp_listener (uint16_t port_a, nano::node & node_
 	logger{ node_a.logger },
 	port{ port_a },
 	max_inbound_connections{ max_inbound_connections },
-	acceptor{ node_a.io_ctx },
-	local{ asio::ip::tcp::endpoint{ asio::ip::address_v6::any (), port_a } }
+	strand{ node_a.io_ctx.get_executor () },
+	cancellation{ strand },
+	acceptor{ strand }
 {
 	connection_accepted.add ([this] (auto const & socket, auto const & server) {
 		node.observers.socket_accepted.notify (*socket);
@@ -32,49 +33,66 @@ nano::transport::tcp_listener::tcp_listener (uint16_t port_a, nano::node & node_
 nano::transport::tcp_listener::~tcp_listener ()
 {
 	// Thread should be stopped before destruction
-	debug_assert (!thread.joinable ());
+	debug_assert (!cleanup_thread.joinable ());
+	debug_assert (!future.valid () || future.wait_for (0s) == std::future_status::ready);
 }
 
 void nano::transport::tcp_listener::start ()
 {
-	debug_assert (!thread.joinable ());
 	debug_assert (!cleanup_thread.joinable ());
+	debug_assert (!future.valid ());
 
 	try
 	{
-		acceptor.open (local.protocol ());
+		asio::ip::tcp::endpoint target{ asio::ip::address_v6::any (), port };
+
+		acceptor.open (target.protocol ());
 		acceptor.set_option (asio::ip::tcp::acceptor::reuse_address (true));
-		acceptor.bind (local);
+		acceptor.bind (target);
 		acceptor.listen (asio::socket_base::max_listen_connections);
+
+		{
+			std::lock_guard<nano::mutex> lock{ mutex };
+			local = acceptor.local_endpoint ();
+		}
 
 		logger.info (nano::log::type::tcp_listener, "Listening for incoming connections on: {}", fmt::streamed (acceptor.local_endpoint ()));
 	}
 	catch (boost::system::system_error const & ex)
 	{
 		logger.critical (nano::log::type::tcp_listener, "Error while binding for incoming TCP: {} (port: {})", ex.what (), port);
-
-		throw std::runtime_error (ex.code ().message ());
+		throw;
 	}
 
-	thread = std::thread ([this] {
-		nano::thread_role::set (nano::thread_role::name::tcp_listener);
+	future = asio::co_spawn (
+	strand, [this] () -> asio::awaitable<void> {
 		try
 		{
-			logger.debug (nano::log::type::tcp_listener, "Starting acceptor thread");
-			run ();
-			logger.debug (nano::log::type::tcp_listener, "Stopped acceptor thread");
+			logger.debug (nano::log::type::tcp_listener, "Starting acceptor");
+
+			try
+			{
+				co_await run ();
+			}
+			catch (boost::system::system_error const & ex)
+			{
+				// Operation aborted is expected when cancelling the acceptor
+				debug_assert (ex.code () == asio::error::operation_aborted);
+			}
+			debug_assert (strand.running_in_this_thread ());
+
+			logger.debug (nano::log::type::tcp_listener, "Stopped acceptor");
 		}
 		catch (std::exception const & ex)
 		{
 			logger.critical (nano::log::type::tcp_listener, "Error: {}", ex.what ());
-			release_assert (false); // Should be handled earlier
+			release_assert (false); // Unexpected error
 		}
 		catch (...)
 		{
 			logger.critical (nano::log::type::tcp_listener, "Unknown error");
-			release_assert (false); // Should be handled earlier
-		}
-	});
+			release_assert (false); // Unexpected error
+		} }, asio::bind_cancellation_slot (cancellation.slot (), asio::use_future));
 
 	cleanup_thread = std::thread ([this] {
 		nano::thread_role::set (nano::thread_role::name::tcp_listener);
@@ -87,26 +105,29 @@ void nano::transport::tcp_listener::stop ()
 	debug_assert (!stopped);
 
 	logger.info (nano::log::type::tcp_listener, "Stopping listening for incoming connections and closing all sockets...");
+
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
 		stopped = true;
-
-		boost::system::error_code ec;
-		acceptor.close (ec); // Best effort to close the acceptor, ignore errors
-		if (ec)
-		{
-			logger.error (nano::log::type::tcp_listener, "Error while closing acceptor: {}", ec.message ());
-		}
+		local = {};
 	}
 	condition.notify_all ();
 
-	if (thread.joinable ())
+	if (future.valid ())
 	{
-		thread.join ();
+		cancellation.emit ();
+		future.wait ();
 	}
 	if (cleanup_thread.joinable ())
 	{
 		cleanup_thread.join ();
+	}
+
+	boost::system::error_code ec;
+	acceptor.close (ec); // Best effort to close the acceptor, ignore errors
+	if (ec)
+	{
+		logger.error (nano::log::type::tcp_listener, "Error while closing acceptor: {}", ec.message ());
 	}
 
 	decltype (connections) connections_l;
@@ -157,23 +178,18 @@ void nano::transport::tcp_listener::cleanup ()
 	});
 }
 
-void nano::transport::tcp_listener::run ()
+asio::awaitable<void> nano::transport::tcp_listener::run ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	debug_assert (strand.running_in_this_thread ());
+
 	while (!stopped && acceptor.is_open ())
 	{
-		lock.unlock ();
-
-		wait_available_slots ();
-
-		if (stopped)
-		{
-			return;
-		}
+		co_await wait_available_slots ();
 
 		try
 		{
-			auto result = accept_one ();
+			auto socket = co_await accept_socket ();
+			auto result = accept_one (std::move (socket));
 			if (result != accept_result::accepted)
 			{
 				stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::accept_failure, nano::stat::dir::in);
@@ -186,10 +202,8 @@ void nano::transport::tcp_listener::run ()
 			logger.log (nano::log::level::debug, nano::log::type::tcp_listener, "Error accepting incoming connection: {}", ex.what ());
 		}
 
-		lock.lock ();
-
 		// Sleep for a while to prevent busy loop
-		condition.wait_for (lock, 10ms, [this] () { return stopped.load (); });
+		co_await nano::async::sleep_for (10ms);
 	}
 	if (!stopped)
 	{
@@ -198,20 +212,15 @@ void nano::transport::tcp_listener::run ()
 	}
 }
 
-asio::ip::tcp::socket nano::transport::tcp_listener::accept_socket ()
+asio::awaitable<asio::ip::tcp::socket> nano::transport::tcp_listener::accept_socket ()
 {
-	std::future<asio::ip::tcp::socket> future;
-	{
-		nano::unique_lock<nano::mutex> lock{ mutex };
-		future = acceptor.async_accept (asio::use_future);
-	}
-	future.wait ();
-	return future.get ();
+	debug_assert (strand.running_in_this_thread ());
+
+	co_return co_await acceptor.async_accept (asio::use_awaitable);
 }
 
-auto nano::transport::tcp_listener::accept_one () -> accept_result
+auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket) -> accept_result
 {
-	auto raw_socket = accept_socket ();
 	auto const remote_endpoint = raw_socket.remote_endpoint ();
 	auto const local_endpoint = raw_socket.local_endpoint ();
 
@@ -255,7 +264,7 @@ auto nano::transport::tcp_listener::accept_one () -> accept_result
 	return accept_result::accepted;
 }
 
-void nano::transport::tcp_listener::wait_available_slots ()
+asio::awaitable<void> nano::transport::tcp_listener::wait_available_slots () const
 {
 	nano::interval log_interval;
 	while (connection_count () >= max_inbound_connections && !stopped)
@@ -266,7 +275,7 @@ void nano::transport::tcp_listener::wait_available_slots ()
 			connection_count (), max_inbound_connections);
 		}
 
-		std::this_thread::sleep_for (100ms);
+		co_await nano::async::sleep_for (100ms);
 	}
 }
 
@@ -367,14 +376,7 @@ size_t nano::transport::tcp_listener::count_per_subnetwork (asio::ip::address co
 asio::ip::tcp::endpoint nano::transport::tcp_listener::endpoint () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	if (!stopped)
-	{
-		return { asio::ip::address_v6::loopback (), acceptor.local_endpoint ().port () };
-	}
-	else
-	{
-		return { asio::ip::address_v6::loopback (), 0 };
-	}
+	return { asio::ip::address_v6::loopback (), local.port () };
 }
 
 std::unique_ptr<nano::container_info_component> nano::transport::tcp_listener::collect_container_info (std::string const & name)

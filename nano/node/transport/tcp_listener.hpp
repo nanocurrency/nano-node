@@ -1,12 +1,15 @@
 #pragma once
 
+#include <nano/lib/async.hpp>
 #include <nano/node/common.hpp>
 
+#include <boost/asio.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index_container.hpp>
 
 #include <atomic>
+#include <future>
 #include <string_view>
 #include <thread>
 
@@ -54,10 +57,11 @@ private: // Dependencies
 	nano::logger & logger;
 
 private:
-	void run ();
+	asio::awaitable<void> run ();
+	asio::awaitable<void> wait_available_slots () const;
+
 	void run_cleanup ();
 	void cleanup ();
-	void wait_available_slots ();
 
 	enum class accept_result
 	{
@@ -68,9 +72,9 @@ private:
 		excluded,
 	};
 
-	accept_result accept_one ();
+	accept_result accept_one (asio::ip::tcp::socket);
 	accept_result check_limits (asio::ip::address const & ip);
-	asio::ip::tcp::socket accept_socket ();
+	asio::awaitable<asio::ip::tcp::socket> accept_socket ();
 
 	size_t count_per_ip (asio::ip::address const & ip) const;
 	size_t count_per_subnetwork (asio::ip::address const & ip) const;
@@ -103,13 +107,16 @@ private:
 	// clang-format on
 	ordered_connections connections;
 
+	nano::async::strand strand;
+	nano::async::cancellation cancellation;
+
 	asio::ip::tcp::acceptor acceptor;
 	asio::ip::tcp::endpoint local;
 
 	std::atomic<bool> stopped;
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
-	std::thread thread;
+	std::future<void> future;
 	std::thread cleanup_thread;
 };
 }
