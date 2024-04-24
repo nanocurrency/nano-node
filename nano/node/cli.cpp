@@ -62,7 +62,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("migrate_database_lmdb_to_rocksdb", "Migrates LMDB database to RocksDB")
 	("diagnostics", "Run internal diagnostics")
 	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node, rpc or log. See also use_defaults.")
-	("update_config", boost::program_options::value<std::string> (), "Reads the current node configuration and updates it with missing keys and values and delete keys that are no longer used. Updated configuration is written to stdout.")
+	("update_config", "Reads the current node configuration and updates it with missing keys and values and delete keys that are no longer used. Updated configuration is written to stdout.")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
 	("key_expand", "Derive public key and account number from <key>")
 	("wallet_add_adhoc", "Insert <key> in to <wallet>")
@@ -725,7 +725,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (error)
 		{
 			std::cerr << "Could not read existing config file\n";
-			ec = nano::error_cli::invalid_arguments;
+			ec = nano::error_cli::reading_config;
 		}
 		else
 		{
