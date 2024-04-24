@@ -189,8 +189,6 @@ void nano::tomlconfig::erase_default_values (tomlconfig & defaults_a)
 // Merges two TOML configurations and commenting values that are identical
 std::string nano::tomlconfig::merge_defaults (nano::tomlconfig & current_config, nano::tomlconfig & default_config)
 {
-	debug_assert (current_config != nullptr && default_config != nullptr);
-
 	// Serialize both configs to commented strings
 	std::string defaults_str = default_config.to_string (true);
 	std::string current_str = current_config.to_string (true);
