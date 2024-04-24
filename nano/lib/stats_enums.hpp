@@ -20,6 +20,9 @@ enum class type : uint8_t
 	network,
 	tcp_server,
 	vote,
+	vote_processor,
+	vote_processor_tier,
+	vote_processor_overfill,
 	election,
 	http_callback,
 	ipc,
@@ -389,6 +392,11 @@ enum class detail : uint8_t
 	broadcast_aggressive,
 	erase_old,
 	erase_confirmed,
+
+	// rep tiers
+	tier_1,
+	tier_2,
+	tier_3,
 
 	_last // Must be the last enum
 };

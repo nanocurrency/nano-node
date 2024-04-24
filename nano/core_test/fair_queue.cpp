@@ -25,7 +25,7 @@ enum class source_enum
 TEST (fair_queue, construction)
 {
 	nano::fair_queue<source_enum, int> queue;
-	ASSERT_EQ (queue.total_size (), 0);
+	ASSERT_EQ (queue.size (), 0);
 	ASSERT_TRUE (queue.empty ());
 }
 
@@ -36,7 +36,7 @@ TEST (fair_queue, process_one)
 	queue.max_size_query = [] (auto const &) { return 1; };
 
 	queue.push (7, { source_enum::live });
-	ASSERT_EQ (queue.total_size (), 1);
+	ASSERT_EQ (queue.size (), 1);
 	ASSERT_EQ (queue.queues_size (), 1);
 	ASSERT_EQ (queue.size ({ source_enum::live }), 1);
 	ASSERT_EQ (queue.size ({ source_enum::bootstrap }), 0);
@@ -58,7 +58,7 @@ TEST (fair_queue, fifo)
 	queue.push (7, { source_enum::live });
 	queue.push (8, { source_enum::live });
 	queue.push (9, { source_enum::live });
-	ASSERT_EQ (queue.total_size (), 3);
+	ASSERT_EQ (queue.size (), 3);
 	ASSERT_EQ (queue.queues_size (), 1);
 	ASSERT_EQ (queue.size ({ source_enum::live }), 3);
 
@@ -90,7 +90,7 @@ TEST (fair_queue, process_many)
 	queue.push (7, { source_enum::live });
 	queue.push (8, { source_enum::bootstrap });
 	queue.push (9, { source_enum::unchecked });
-	ASSERT_EQ (queue.total_size (), 3);
+	ASSERT_EQ (queue.size (), 3);
 	ASSERT_EQ (queue.queues_size (), 3);
 	ASSERT_EQ (queue.size ({ source_enum::live }), 1);
 	ASSERT_EQ (queue.size ({ source_enum::bootstrap }), 1);
@@ -124,7 +124,7 @@ TEST (fair_queue, max_queue_size)
 	queue.push (7, { source_enum::live });
 	queue.push (8, { source_enum::live });
 	queue.push (9, { source_enum::live });
-	ASSERT_EQ (queue.total_size (), 2);
+	ASSERT_EQ (queue.size (), 2);
 	ASSERT_EQ (queue.queues_size (), 1);
 	ASSERT_EQ (queue.size ({ source_enum::live }), 2);
 
@@ -169,7 +169,7 @@ TEST (fair_queue, round_robin_with_priority)
 	queue.push (13, { source_enum::unchecked });
 	queue.push (14, { source_enum::unchecked });
 	queue.push (15, { source_enum::unchecked });
-	ASSERT_EQ (queue.total_size (), 9);
+	ASSERT_EQ (queue.size (), 9);
 
 	// Processing 1x live, 2x bootstrap, 3x unchecked before moving to the next source
 	ASSERT_EQ (queue.next ().second.source, source_enum::live);
@@ -201,7 +201,7 @@ TEST (fair_queue, source_channel)
 	queue.push (7, { source_enum::live, channel2 });
 	queue.push (8, { source_enum::live, channel3 });
 	queue.push (9, { source_enum::live, channel1 }); // Channel 1 has multiple entries
-	ASSERT_EQ (queue.total_size (), 4);
+	ASSERT_EQ (queue.size (), 4);
 	ASSERT_EQ (queue.queues_size (), 3); // Each <source, channel> pair is a separate queue
 
 	ASSERT_EQ (queue.size ({ source_enum::live, channel1 }), 2);
@@ -253,7 +253,7 @@ TEST (fair_queue, cleanup)
 	queue.push (7, { source_enum::live, channel1 });
 	queue.push (8, { source_enum::live, channel2 });
 	queue.push (9, { source_enum::live, channel3 });
-	ASSERT_EQ (queue.total_size (), 3);
+	ASSERT_EQ (queue.size (), 3);
 	ASSERT_EQ (queue.queues_size (), 3);
 
 	ASSERT_EQ (queue.size ({ source_enum::live, channel1 }), 1);
@@ -267,7 +267,7 @@ TEST (fair_queue, cleanup)
 	ASSERT_TRUE (queue.periodic_update ());
 
 	// Only channel 3 should remain
-	ASSERT_EQ (queue.total_size (), 1);
+	ASSERT_EQ (queue.size (), 1);
 	ASSERT_EQ (queue.queues_size (), 1);
 
 	ASSERT_EQ (queue.size ({ source_enum::live, channel1 }), 0);

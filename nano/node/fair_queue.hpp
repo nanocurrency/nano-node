@@ -81,18 +81,22 @@ private:
 		{
 			// First compare source
 			if (auto cmp = source <=> other.source; cmp != 0)
+			{
 				return cmp;
+			}
 
 			if (maybe_channel && other.maybe_channel)
 			{
 				// Then compare channels by ownership, not by the channel's value or state
 				std::owner_less<std::weak_ptr<nano::transport::channel>> less;
 				if (less (*maybe_channel, *other.maybe_channel))
+				{
 					return std::strong_ordering::less;
+				}
 				if (less (*other.maybe_channel, *maybe_channel))
+				{
 					return std::strong_ordering::greater;
-
-				return std::strong_ordering::equivalent;
+				}
 			}
 			else
 			{
@@ -104,8 +108,9 @@ private:
 				{
 					return std::strong_ordering::less;
 				}
-				return std::strong_ordering::equivalent;
 			}
+
+			return std::strong_ordering::equivalent;
 		}
 
 		operator origin () const
@@ -181,7 +186,7 @@ public:
 		return it == queues.end () ? 0 : it->second.priority;
 	}
 
-	size_t total_size () const
+	size_t size () const
 	{
 		return std::accumulate (queues.begin (), queues.end (), 0, [] (size_t total, auto const & queue) {
 			return total + queue.second.size ();
@@ -349,8 +354,8 @@ public:
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name)
 	{
 		auto composite = std::make_unique<container_info_composite> (name);
-		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "queues", queues.size (), sizeof (typename decltype (queues)::value_type) }));
-		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "total_size", total_size (), sizeof (typename decltype (queues)::value_type) }));
+		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "queues", queues_size (), sizeof (typename decltype (queues)::value_type) }));
+		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "total_size", size (), sizeof (typename decltype (queues)::value_type) }));
 		return composite;
 	}
 };

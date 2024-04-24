@@ -29,7 +29,6 @@
 #include <nano/node/transport/tcp_server.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/vote_cache.hpp>
-#include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/utility.hpp>
@@ -47,6 +46,7 @@ namespace nano
 class active_transactions;
 class confirming_set;
 class node;
+class vote_processor;
 class work_pool;
 class peer_history;
 
@@ -174,7 +174,8 @@ public:
 	nano::online_reps online_reps;
 	nano::rep_crawler rep_crawler;
 	nano::rep_tiers rep_tiers;
-	nano::vote_processor vote_processor;
+	std::unique_ptr<nano::vote_processor> vote_processor_impl;
+	nano::vote_processor & vote_processor;
 	unsigned warmed_up;
 	std::unique_ptr<nano::local_vote_history> history_impl;
 	nano::local_vote_history & history;

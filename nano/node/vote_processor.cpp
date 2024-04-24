@@ -14,19 +14,47 @@
 
 using namespace std::chrono_literals;
 
-nano::vote_processor::vote_processor (nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a, nano::rep_tiers & rep_tiers_a) :
+nano::vote_processor::vote_processor (vote_processor_config const & config_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_flags & flags_a, nano::logger & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a, nano::rep_tiers & rep_tiers_a) :
+	config{ config_a },
 	active{ active_a },
 	observers{ observers_a },
 	stats{ stats_a },
-	config{ config_a },
 	logger{ logger_a },
 	online_reps{ online_reps_a },
 	rep_crawler{ rep_crawler_a },
 	ledger{ ledger_a },
 	network_params{ network_params_a },
-	rep_tiers{ rep_tiers_a },
-	max_votes{ flags_a.vote_processor_capacity }
+	rep_tiers{ rep_tiers_a }
 {
+	queue.max_size_query = [this] (auto const & origin) {
+		switch (origin.source)
+		{
+			case nano::rep_tier::tier_3:
+			case nano::rep_tier::tier_2:
+			case nano::rep_tier::tier_1:
+				return config.max_pr_queue;
+			case nano::rep_tier::none:
+				return config.max_non_pr_queue;
+		}
+		debug_assert (false);
+		return size_t{ 0 };
+	};
+
+	queue.priority_query = [this] (auto const & origin) {
+		switch (origin.source)
+		{
+			case nano::rep_tier::tier_3:
+				return config.pr_priority * config.pr_priority * config.pr_priority;
+			case nano::rep_tier::tier_2:
+				return config.pr_priority * config.pr_priority;
+			case nano::rep_tier::tier_1:
+				return config.pr_priority;
+			case nano::rep_tier::none:
+				return size_t{ 1 };
+		}
+		debug_assert (false);
+		return size_t{ 0 };
+	};
 }
 
 nano::vote_processor::~vote_processor ()
@@ -58,111 +86,86 @@ void nano::vote_processor::stop ()
 	}
 }
 
+bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel)
+{
+	debug_assert (channel != nullptr);
+
+	auto const tier = rep_tiers.tier (vote->account);
+
+	bool added = false;
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		added = queue.push (vote, { tier, channel });
+	}
+	if (added)
+	{
+		stats.inc (nano::stat::type::vote_processor, nano::stat::detail::process);
+		stats.inc (nano::stat::type::vote_processor_tier, to_stat_detail (tier));
+
+		condition.notify_all ();
+	}
+	else
+	{
+		stats.inc (nano::stat::type::vote_processor, nano::stat::detail::overfill);
+		stats.inc (nano::stat::type::vote_processor_overfill, to_stat_detail (tier));
+	}
+	return added;
+}
+
 void nano::vote_processor::run ()
 {
-	nano::timer<std::chrono::milliseconds> elapsed;
-	bool log_this_iteration;
-
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		if (!votes.empty ())
+		stats.inc (nano::stat::type::vote_processor, nano::stat::detail::loop);
+
+		if (!queue.empty ())
 		{
-			decltype (votes) votes_l;
-			votes_l.swap (votes);
-			lock.unlock ();
-			condition.notify_all ();
-
-			log_this_iteration = false;
-			// TODO: This is a temporary measure to prevent spamming the logs until we can implement a better solution
-			if (votes_l.size () > 1024 * 4)
-			{
-				/*
-				 * Only log the timing information for this iteration if
-				 * there are a sufficient number of items for it to be relevant
-				 */
-				log_this_iteration = true;
-				elapsed.restart ();
-			}
-			verify_votes (votes_l);
-			total_processed += votes_l.size ();
-
-			if (log_this_iteration && elapsed.stop () > std::chrono::milliseconds (100))
-			{
-				logger.debug (nano::log::type::vote_processor, "Processed {} votes in {} milliseconds (rate of {} votes per second)",
-				votes_l.size (),
-				elapsed.value ().count (),
-				((votes_l.size () * 1000ULL) / elapsed.value ().count ()));
-			}
+			run_batch (lock);
+			debug_assert (!lock.owns_lock ());
 
 			lock.lock ();
 		}
-		else
-		{
-			condition.wait (lock);
-		}
+
+		condition.wait (lock, [&] {
+			return stopped || !queue.empty ();
+		});
 	}
 }
 
-bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a)
+void nano::vote_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
 {
-	debug_assert (channel_a != nullptr);
-	bool process (false);
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	if (!stopped)
-	{
-		auto tier = rep_tiers.tier (vote_a->account);
+	debug_assert (lock.owns_lock ());
+	debug_assert (!mutex.try_lock ());
+	debug_assert (!queue.empty ());
 
-		// Level 0 (< 0.1%)
-		if (votes.size () < 6.0 / 9.0 * max_votes)
-		{
-			process = true;
-		}
-		// Level 1 (0.1-1%)
-		else if (votes.size () < 7.0 / 9.0 * max_votes)
-		{
-			process = (tier == nano::rep_tier::tier_1);
-		}
-		// Level 2 (1-5%)
-		else if (votes.size () < 8.0 / 9.0 * max_votes)
-		{
-			process = (tier == nano::rep_tier::tier_2);
-		}
-		// Level 3 (> 5%)
-		else if (votes.size () < max_votes)
-		{
-			process = (tier == nano::rep_tier::tier_3);
-		}
-		if (process)
-		{
-			votes.emplace_back (vote_a, channel_a);
-			lock.unlock ();
-			condition.notify_all ();
-			// Lock no longer required
-		}
-		else
-		{
-			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_overflow);
-		}
+	nano::timer<std::chrono::milliseconds> timer;
+
+	size_t const max_batch_size = 1024 * 4;
+	auto batch = queue.next_batch (max_batch_size);
+
+	lock.unlock ();
+
+	for (auto const & [vote, origin] : batch)
+	{
+		vote_blocking (vote, origin.channel);
 	}
-	return !process;
-}
 
-void nano::vote_processor::verify_votes (decltype (votes) const & votes_a)
-{
-	for (auto const & vote : votes_a)
+	total_processed += batch.size ();
+
+	if (batch.size () == max_batch_size && timer.stop () > 100ms)
 	{
-		if (!nano::validate_message (vote.first->account, vote.first->hash (), vote.first->signature))
-		{
-			vote_blocking (vote.first, vote.second, true);
-		}
+		logger.debug (nano::log::type::vote_processor, "Processed {} votes in {} milliseconds (rate of {} votes per second)",
+		batch.size (),
+		timer.value ().count (),
+		((batch.size () * 1000ULL) / timer.value ().count ()));
 	}
 }
 
-nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel, bool validated)
+nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel)
 {
 	auto result = nano::vote_code::invalid;
-	if (validated || !vote->validate ())
+	if (!vote->validate ()) // false => valid vote
 	{
 		auto vote_results = active.vote (vote);
 
@@ -188,40 +191,48 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 	return result;
 }
 
-void nano::vote_processor::flush ()
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	auto const cutoff = total_processed.load (std::memory_order_relaxed) + votes.size ();
-	bool success = condition.wait_for (lock, 60s, [this, &cutoff] () {
-		return stopped || votes.empty () || total_processed.load (std::memory_order_relaxed) >= cutoff;
-	});
-	if (!success)
-	{
-		logger.error (nano::log::type::vote_processor, "Flush timeout");
-		debug_assert (false && "vote_processor::flush timeout while waiting for flush");
-	}
-}
-
 std::size_t nano::vote_processor::size () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-	return votes.size ();
+	return queue.size ();
 }
 
 bool nano::vote_processor::empty () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-	return votes.empty ();
+	return queue.empty ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_processor & vote_processor, std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::vote_processor::collect_container_info (std::string const & name) const
 {
 	std::size_t votes_count;
 	{
-		nano::lock_guard<nano::mutex> guard{ vote_processor.mutex };
-		votes_count = vote_processor.votes.size ();
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		votes_count = queue.size ();
 	}
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "votes", votes_count, sizeof (decltype (vote_processor.votes)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "votes", votes_count, sizeof (decltype (queue)::value_type) }));
 	return composite;
+}
+
+/*
+ * vote_processor_config
+ */
+
+nano::error nano::vote_processor_config::serialize (nano::tomlconfig & toml) const
+{
+	toml.put ("max_pr_queue", max_pr_queue, "Maximum number of votes to queue from principal representatives. \ntype:uint64");
+	toml.put ("max_non_pr_queue", max_non_pr_queue, "Maximum number of votes to queue from non-principal representatives. \ntype:uint64");
+	toml.put ("pr_priority", pr_priority, "Priority for votes from principal representatives. Higher priority gets processed more frequently. Non-principal representatives have a baseline priority of 1. \ntype:uint64");
+
+	return toml.get_error ();
+}
+
+nano::error nano::vote_processor_config::deserialize (nano::tomlconfig & toml)
+{
+	toml.get ("max_pr_queue", max_pr_queue);
+	toml.get ("max_non_pr_queue", max_non_pr_queue);
+	toml.get ("pr_priority", pr_priority);
+
+	return toml.get_error ();
 }

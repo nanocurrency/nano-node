@@ -125,6 +125,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	[node.logging]
 	[node.statistics.log]
 	[node.statistics.sampling]
+	[node.vote_processor]
 	[node.websocket]
 	[node.lmdb]
 	[node.rocksdb]
@@ -261,6 +262,10 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.block_processor.priority_live, defaults.node.block_processor.priority_live);
 	ASSERT_EQ (conf.node.block_processor.priority_bootstrap, defaults.node.block_processor.priority_bootstrap);
 	ASSERT_EQ (conf.node.block_processor.priority_local, defaults.node.block_processor.priority_local);
+
+	ASSERT_EQ (conf.node.vote_processor.max_pr_queue, defaults.node.vote_processor.max_pr_queue);
+	ASSERT_EQ (conf.node.vote_processor.max_non_pr_queue, defaults.node.vote_processor.max_non_pr_queue);
+	ASSERT_EQ (conf.node.vote_processor.pr_priority, defaults.node.vote_processor.pr_priority);
 }
 
 TEST (toml, optional_child)
@@ -553,6 +558,11 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	max_size = 999
 	max_voters = 999
 
+	[node.vote_processor]
+	max_pr_queue = 999
+	max_non_pr_queue = 999
+	pr_priority = 999
+
 	[opencl]
 	device = 999
 	enable = true
@@ -700,6 +710,10 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.block_processor.priority_live, defaults.node.block_processor.priority_live);
 	ASSERT_NE (conf.node.block_processor.priority_bootstrap, defaults.node.block_processor.priority_bootstrap);
 	ASSERT_NE (conf.node.block_processor.priority_local, defaults.node.block_processor.priority_local);
+
+	ASSERT_NE (conf.node.vote_processor.max_pr_queue, defaults.node.vote_processor.max_pr_queue);
+	ASSERT_NE (conf.node.vote_processor.max_non_pr_queue, defaults.node.vote_processor.max_non_pr_queue);
+	ASSERT_NE (conf.node.vote_processor.pr_priority, defaults.node.vote_processor.pr_priority);
 }
 
 /** There should be no required values **/

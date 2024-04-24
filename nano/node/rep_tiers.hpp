@@ -26,6 +26,8 @@ enum class rep_tier
 	tier_3, // (> 5%) of online stake
 };
 
+nano::stat::detail to_stat_detail (rep_tier);
+
 class rep_tiers final
 {
 public:

@@ -5,6 +5,8 @@
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 
+#include <magic_enum.hpp>
+
 using namespace std::chrono_literals;
 
 nano::rep_tiers::rep_tiers (nano::ledger & ledger_a, nano::network_params & network_params_a, nano::online_reps & online_reps_a, nano::stats & stats_a, nano::logger & logger_a) :
@@ -141,4 +143,11 @@ std::unique_ptr<nano::container_info_component> nano::rep_tiers::collect_contain
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "representatives_2", representatives_2.size (), sizeof (decltype (representatives_2)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "representatives_3", representatives_3.size (), sizeof (decltype (representatives_3)::value_type) }));
 	return composite;
+}
+
+nano::stat::detail nano::to_stat_detail (nano::rep_tier tier)
+{
+	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (tier));
+	debug_assert (value);
+	return value.value_or (nano::stat::detail{});
 }

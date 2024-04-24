@@ -19,6 +19,7 @@
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/vote_generator.hpp>
+#include <nano/node/vote_processor.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/component.hpp>
@@ -179,7 +180,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	active{ *active_impl },
 	rep_crawler (config.rep_crawler, *this),
 	rep_tiers{ ledger, network_params, online_reps, stats, logger },
-	vote_processor{ active, observers, stats, config, flags, logger, online_reps, rep_crawler, ledger, network_params, rep_tiers },
+	vote_processor_impl{ std::make_unique<nano::vote_processor> (config.vote_processor, active, observers, stats, flags, logger, online_reps, rep_crawler, ledger, network_params, rep_tiers) },
+	vote_processor{ *vote_processor_impl },
 	warmed_up (0),
 	online_reps (ledger, config),
 	history_impl{ std::make_unique<nano::local_vote_history> (config.network_params.voting) },
@@ -344,7 +346,12 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 		});
 
 		observers.vote.add ([this] (std::shared_ptr<nano::vote> vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_code code) {
+			debug_assert (vote != nullptr);
 			debug_assert (code != nano::vote_code::invalid);
+			if (channel == nullptr)
+			{
+				return; // Channel expired when waiting for vote to be processed
+			}
 			bool active_in_rep_crawler = rep_crawler.process (vote, channel);
 			if (active_in_rep_crawler)
 			{
@@ -567,7 +574,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.workers, "workers"));
 	composite->add_component (collect_container_info (node.observers, "observers"));
 	composite->add_component (collect_container_info (node.wallets, "wallets"));
-	composite->add_component (collect_container_info (node.vote_processor, "vote_processor"));
+	composite->add_component (node.vote_processor.collect_container_info ("vote_processor"));
 	composite->add_component (node.rep_crawler.collect_container_info ("rep_crawler"));
 	composite->add_component (node.block_processor.collect_container_info ("block_processor"));
 	composite->add_component (collect_container_info (node.online_reps, "online_reps"));

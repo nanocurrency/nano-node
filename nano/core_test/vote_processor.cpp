@@ -30,10 +30,7 @@ TEST (vote_processor, codes)
 	auto channel (std::make_shared<nano::transport::inproc::channel> (node, node));
 
 	// Invalid signature
-	ASSERT_EQ (nano::vote_code::invalid, node.vote_processor.vote_blocking (vote_invalid, channel, false));
-
-	// Hint of pre-validation
-	ASSERT_NE (nano::vote_code::invalid, node.vote_processor.vote_blocking (vote_invalid, channel, true));
+	ASSERT_EQ (nano::vote_code::invalid, node.vote_processor.vote_blocking (vote_invalid, channel));
 
 	// No ongoing election (vote goes to vote cache)
 	ASSERT_EQ (nano::vote_code::indeterminate, node.vote_processor.vote_blocking (vote, channel));
@@ -58,20 +55,6 @@ TEST (vote_processor, codes)
 	ASSERT_EQ (nano::vote_code::indeterminate, node.vote_processor.vote_blocking (vote, channel));
 }
 
-TEST (vote_processor, flush)
-{
-	nano::test::system system (1);
-	auto & node (*system.nodes[0]);
-	auto channel (std::make_shared<nano::transport::inproc::channel> (node, node));
-	for (unsigned i = 0; i < 2000; ++i)
-	{
-		auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * (1 + i), 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
-		node.vote_processor.vote (vote, channel);
-	}
-	node.vote_processor.flush ();
-	ASSERT_TRUE (node.vote_processor.empty ());
-}
-
 TEST (vote_processor, invalid_signature)
 {
 	nano::test::system system{ 1 };
@@ -93,18 +76,6 @@ TEST (vote_processor, invalid_signature)
 	ASSERT_TIMELY_EQ (5s, 2, election->votes ().size ());
 }
 
-TEST (vote_processor, no_capacity)
-{
-	nano::test::system system;
-	nano::node_flags node_flags;
-	node_flags.vote_processor_capacity = 0;
-	auto & node (*system.add_node (node_flags));
-	nano::keypair key;
-	auto vote = nano::test::make_vote (key, { nano::dev::genesis }, nano::vote::timestamp_min * 1, 0);
-	auto channel (std::make_shared<nano::transport::inproc::channel> (node, node));
-	ASSERT_TRUE (node.vote_processor.vote (vote, channel));
-}
-
 TEST (vote_processor, overflow)
 {
 	nano::test::system system;
@@ -121,14 +92,14 @@ TEST (vote_processor, overflow)
 	size_t const total{ 1000 };
 	for (unsigned i = 0; i < total; ++i)
 	{
-		if (node.vote_processor.vote (vote, channel))
+		if (!node.vote_processor.vote (vote, channel))
 		{
 			++not_processed;
 		}
 	}
 	ASSERT_GT (not_processed, 0);
 	ASSERT_LT (not_processed, total);
-	ASSERT_EQ (not_processed, node.stats.count (nano::stat::type::vote, nano::stat::detail::vote_overflow));
+	ASSERT_EQ (not_processed, node.stats.count (nano::stat::type::vote_processor, nano::stat::detail::overfill));
 
 	// check that it did not timeout
 	ASSERT_LT (std::chrono::system_clock::now () - start_time, 10s);
