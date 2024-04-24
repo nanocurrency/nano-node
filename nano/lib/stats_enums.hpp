@@ -12,6 +12,7 @@ enum class type
 {
 	_invalid = 0, // Default value, should not be used
 
+	test,
 	traffic_tcp,
 	error,
 	message,
@@ -416,6 +417,8 @@ enum class dir
 
 enum class sample
 {
+	_invalid = 0, // Default value, should not be used
+
 	active_election_duration,
 	bootstrap_tag_duration,
 

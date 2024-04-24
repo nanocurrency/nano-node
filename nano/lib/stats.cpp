@@ -67,6 +67,9 @@ void nano::stats::clear ()
 
 void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, counter_value_t value)
 {
+	debug_assert (type != stat::type::_invalid);
+	debug_assert (detail != stat::detail::_invalid);
+
 	if (value == 0)
 	{
 		return;
@@ -128,6 +131,8 @@ nano::stats::counter_value_t nano::stats::count (stat::type type, stat::dir dir)
 
 void nano::stats::sample (stat::sample sample, std::pair<sampler_value_t, sampler_value_t> expected_min_max, nano::stats::sampler_value_t value)
 {
+	debug_assert (sample != stat::sample::_invalid);
+
 	// Updates need to happen while holding the mutex
 	auto update_sampler = [this, expected_min_max] (nano::stats::sampler_key key, auto && updater) {
 		// This is a two-step process to avoid exclusively locking the mutex in the common case
