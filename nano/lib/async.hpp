@@ -21,7 +21,7 @@ inline asio::awaitable<void> sleep_for (auto duration)
 
 /**
  * A cancellation signal that can be emitted from any thread.
- * I follows the same semantics as asio::cancellation_signal.
+ * It follows the same semantics as asio::cancellation_signal.
  */
 class cancellation
 {
