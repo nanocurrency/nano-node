@@ -1,3 +1,4 @@
+#include <nano/lib/thread_roles.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/backlog_population.hpp>
 #include <nano/node/nodeconfig.hpp>
