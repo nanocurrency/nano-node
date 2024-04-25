@@ -17,6 +17,9 @@ namespace nano
 class bootstrap_server_config final
 {
 public:
+	nano::error deserialize (nano::tomlconfig &);
+	nano::error serialize (nano::tomlconfig &) const;
+
 public:
 	size_t max_queue{ 16 };
 	size_t threads{ 1 };

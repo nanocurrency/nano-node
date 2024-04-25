@@ -10,7 +10,6 @@
 #include <nano/store/component.hpp>
 #include <nano/store/confirmation_height.hpp>
 
-// TODO: Make threads configurable
 nano::bootstrap_server::bootstrap_server (bootstrap_server_config const & config_a, nano::store::component & store_a, nano::ledger & ledger_a, nano::network_constants const & network_constants_a, nano::stats & stats_a) :
 	config{ config_a },
 	store{ store_a },
@@ -423,4 +422,26 @@ nano::stat::detail nano::to_stat_detail (nano::asc_pull_type type)
 		default:
 			return nano::stat::detail::invalid;
 	}
+}
+
+/*
+ * bootstrap_server_config
+ */
+
+nano::error nano::bootstrap_server_config::serialize (nano::tomlconfig & toml) const
+{
+	toml.put ("max_queue", max_queue, "Maximum number of queued requests per peer. \ntype:uint64");
+	toml.put ("threads", threads, "Number of threads to process requests. \ntype:uint64");
+	toml.put ("batch_size", batch_size, "Maximum number of requests to process in a single batch. \ntype:uint64");
+
+	return toml.get_error ();
+}
+
+nano::error nano::bootstrap_server_config::deserialize (nano::tomlconfig & toml)
+{
+	toml.get ("max_queue", max_queue);
+	toml.get ("threads", threads);
+	toml.get ("batch_size", batch_size);
+
+	return toml.get_error ();
 }
