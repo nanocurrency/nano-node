@@ -1,4 +1,5 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/thread_roles.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/transport/channel.hpp>
@@ -10,30 +11,53 @@
 #include <nano/store/confirmation_height.hpp>
 
 // TODO: Make threads configurable
-nano::bootstrap_server::bootstrap_server (nano::store::component & store_a, nano::ledger & ledger_a, nano::network_constants const & network_constants_a, nano::stats & stats_a) :
+nano::bootstrap_server::bootstrap_server (bootstrap_server_config const & config_a, nano::store::component & store_a, nano::ledger & ledger_a, nano::network_constants const & network_constants_a, nano::stats & stats_a) :
+	config{ config_a },
 	store{ store_a },
 	ledger{ ledger_a },
 	network_constants{ network_constants_a },
-	stats{ stats_a },
-	request_queue{ stats, nano::stat::type::bootstrap_server, nano::thread_role::name::bootstrap_server, /* threads */ 1, /* max size */ 1024 * 16, /* max batch */ 128 }
+	stats{ stats_a }
 {
-	request_queue.process_batch = [this] (auto & batch) {
-		process_batch (batch);
+	queue.max_size_query = [this] (auto const & origin) {
+		return config.max_queue;
+	};
+
+	queue.priority_query = [this] (auto const & origin) {
+		return size_t{ 1 };
 	};
 }
 
 nano::bootstrap_server::~bootstrap_server ()
 {
+	debug_assert (threads.empty ());
 }
 
 void nano::bootstrap_server::start ()
 {
-	request_queue.start ();
+	debug_assert (threads.empty ());
+
+	for (auto i = 0u; i < config.threads; ++i)
+	{
+		threads.push_back (std::thread ([this] () {
+			nano::thread_role::set (nano::thread_role::name::bootstrap_server);
+			run ();
+		}));
+	}
 }
 
 void nano::bootstrap_server::stop ()
 {
-	request_queue.stop ();
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		stopped = true;
+	}
+	condition.notify_all ();
+
+	for (auto & thread : threads)
+	{
+		thread.join ();
+	}
+	threads.clear ();
 }
 
 bool nano::bootstrap_server::verify_request_type (nano::asc_pull_type type) const
@@ -96,13 +120,30 @@ bool nano::bootstrap_server::request (nano::asc_pull_req const & message, std::s
 		return false;
 	}
 
-	request_queue.add (std::make_pair (message, channel));
-	return true;
+	bool added = false;
+	{
+		std::lock_guard guard{ mutex };
+		added = queue.push ({ message, channel }, { nano::no_value{}, channel });
+	}
+	if (added)
+	{
+		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::request);
+		stats.inc (nano::stat::type::bootstrap_server_request, to_stat_detail (message.type));
+
+		condition.notify_one ();
+	}
+	else
+	{
+		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::overfill);
+		stats.inc (nano::stat::type::bootstrap_server_overfill, to_stat_detail (message.type));
+	}
+	return added;
 }
 
-void nano::bootstrap_server::respond (nano::asc_pull_ack & response, std::shared_ptr<nano::transport::channel> & channel)
+void nano::bootstrap_server::respond (nano::asc_pull_ack & response, std::shared_ptr<nano::transport::channel> const & channel)
 {
 	stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::response, nano::stat::dir::out);
+	stats.inc (nano::stat::type::bootstrap_server_response, to_stat_detail (response.type));
 
 	// Increase relevant stats depending on payload type
 	struct stat_visitor
@@ -115,16 +156,13 @@ void nano::bootstrap_server::respond (nano::asc_pull_ack & response, std::shared
 		}
 		void operator() (nano::asc_pull_ack::blocks_payload const & pld)
 		{
-			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::response_blocks, nano::stat::dir::out);
 			stats.add (nano::stat::type::bootstrap_server, nano::stat::detail::blocks, nano::stat::dir::out, pld.blocks.size ());
 		}
 		void operator() (nano::asc_pull_ack::account_info_payload const & pld)
 		{
-			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::response_account_info, nano::stat::dir::out);
 		}
 		void operator() (nano::asc_pull_ack::frontiers_payload const & pld)
 		{
-			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::response_frontiers, nano::stat::dir::out);
 			stats.add (nano::stat::type::bootstrap_server, nano::stat::detail::frontiers, nano::stat::dir::out, pld.frontiers.size ());
 		}
 	};
@@ -142,16 +180,44 @@ void nano::bootstrap_server::respond (nano::asc_pull_ack & response, std::shared
 	nano::transport::buffer_drop_policy::limiter, nano::transport::traffic_type::bootstrap);
 }
 
-/*
- * Requests
- */
-
-void nano::bootstrap_server::process_batch (std::deque<request_t> & batch)
+void nano::bootstrap_server::run ()
 {
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	while (!stopped)
+	{
+		if (!queue.empty ())
+		{
+			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::loop);
+
+			run_batch (lock);
+			debug_assert (!lock.owns_lock ());
+
+			lock.lock ();
+		}
+		else
+		{
+			condition.wait (lock, [this] () { return stopped || !queue.empty (); });
+		}
+	}
+}
+
+void nano::bootstrap_server::run_batch (nano::unique_lock<nano::mutex> & lock)
+{
+	debug_assert (lock.owns_lock ());
+	debug_assert (!mutex.try_lock ());
+	debug_assert (!queue.empty ());
+
+	debug_assert (config.batch_size > 0);
+	auto batch = queue.next_batch (config.batch_size);
+
+	lock.unlock ();
+
 	auto transaction = ledger.tx_begin_read ();
 
-	for (auto & [request, channel] : batch)
+	for (auto const & [value, origin] : batch)
 	{
+		auto const & [request, channel] = value;
+
 		transaction.refresh_if_needed ();
 
 		if (!channel->max (nano::transport::traffic_type::bootstrap))
@@ -338,4 +404,23 @@ nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & 
 	response.payload = response_payload;
 	response.update_header ();
 	return response;
+}
+
+/*
+ *
+ */
+
+nano::stat::detail nano::to_stat_detail (nano::asc_pull_type type)
+{
+	switch (type)
+	{
+		case asc_pull_type::blocks:
+			return nano::stat::detail::blocks;
+		case asc_pull_type::account_info:
+			return nano::stat::detail::account_info;
+		case asc_pull_type::frontiers:
+			return nano::stat::detail::frontiers;
+		default:
+			return nano::stat::detail::invalid;
+	}
 }
