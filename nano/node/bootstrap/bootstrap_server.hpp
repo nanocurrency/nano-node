@@ -2,24 +2,14 @@
 
 #include <nano/lib/observer_set.hpp>
 #include <nano/lib/processing_queue.hpp>
+#include <nano/node/fwd.hpp>
 #include <nano/node/messages.hpp>
 
 #include <memory>
 #include <utility>
 
-namespace nano::secure
-{
-class transaction;
-}
-
 namespace nano
 {
-class ledger;
-namespace transport
-{
-	class channel;
-}
-
 /**
  * Processes bootstrap requests (`asc_pull_req` messages) and replies with bootstrap responses (`asc_pull_ack`)
  *
