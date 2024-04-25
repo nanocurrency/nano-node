@@ -250,7 +250,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const &,
  * Blocks request
  */
 
-nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & transaction, nano::asc_pull_req::id_t id, nano::asc_pull_req::blocks_payload const & request)
+nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & transaction, nano::asc_pull_req::id_t id, nano::asc_pull_req::blocks_payload const & request) const
 {
 	const std::size_t count = std::min (static_cast<std::size_t> (request.count), max_blocks);
 
@@ -280,7 +280,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & 
 	return prepare_empty_blocks_response (id);
 }
 
-nano::asc_pull_ack nano::bootstrap_server::prepare_response (secure::transaction const & transaction, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count)
+nano::asc_pull_ack nano::bootstrap_server::prepare_response (secure::transaction const & transaction, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count) const
 {
 	debug_assert (count <= max_blocks); // Should be filtered out earlier
 
@@ -299,7 +299,7 @@ nano::asc_pull_ack nano::bootstrap_server::prepare_response (secure::transaction
 	return response;
 }
 
-nano::asc_pull_ack nano::bootstrap_server::prepare_empty_blocks_response (nano::asc_pull_req::id_t id)
+nano::asc_pull_ack nano::bootstrap_server::prepare_empty_blocks_response (nano::asc_pull_req::id_t id) const
 {
 	nano::asc_pull_ack response{ network_constants };
 	response.id = id;
@@ -335,7 +335,7 @@ std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks
  * Account info request
  */
 
-nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & transaction, nano::asc_pull_req::id_t id, nano::asc_pull_req::account_info_payload const & request)
+nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & transaction, nano::asc_pull_req::id_t id, nano::asc_pull_req::account_info_payload const & request) const
 {
 	nano::asc_pull_ack response{ network_constants };
 	response.id = id;
@@ -385,7 +385,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & 
  * Frontiers request
  */
 
-nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & transaction, nano::asc_pull_req::id_t id, nano::asc_pull_req::frontiers_payload const & request)
+nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & transaction, nano::asc_pull_req::id_t id, nano::asc_pull_req::frontiers_payload const & request) const
 {
 	debug_assert (request.count <= max_frontiers); // Should be filtered out earlier
 
