@@ -443,7 +443,9 @@ TEST (inactive_votes_cache, election_start)
 	nano::node_config node_config = system.default_config ();
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	node_config.optimistic_scheduler.enabled = false;
-	auto & node = *system.add_node (node_config);
+	nano::node_flags node_flags;
+	node_flags.disable_activate_successors = true; // without this, an election can start for send2 on occasion
+	auto & node = *system.add_node (node_config, node_flags);
 	nano::block_hash latest (node.latest (nano::dev::genesis_key.pub));
 	nano::keypair key1, key2;
 	nano::send_block_builder send_block_builder;
