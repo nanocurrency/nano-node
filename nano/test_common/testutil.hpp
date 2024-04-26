@@ -322,6 +322,12 @@ namespace test
 	 */
 	bool exists (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
 	/*
+	 * Convenience function to confirm/cement a block in the ledger by setting the confirmation
+	 * height of the account to be the height of the block.
+	 * The blocks are confirmed in the order that they are given.
+	 */
+	void force_confirm (nano::ledger & ledger, std::vector<std::shared_ptr<nano::block>> const blocks);
+	/*
 	 * Convenience function to check whether *all* of the hashes exists in node ledger or in the pruned table.
 	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
 	 */

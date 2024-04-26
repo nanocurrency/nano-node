@@ -1327,7 +1327,6 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	node1->process_active (send1);
 
 	// send from genesis to key2
 	auto send2 = builder
@@ -1340,7 +1339,6 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send1->hash ()))
 				 .build ();
-	node1->process_active (send2);
 
 	// open account key1
 	auto open = builder
@@ -1351,7 +1349,6 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 				.sign (key1.prv, key1.pub)
 				.work (*system.work.generate (key1.pub))
 				.build ();
-	node1->process_active (open);
 
 	//  open account key2
 	auto state_open = builder
@@ -1365,11 +1362,13 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 					  .work (*system.work.generate (key2.pub))
 					  .build ();
 
-	node1->process_active (state_open);
-	ASSERT_TIMELY (5s, node1->block (state_open->hash ()) != nullptr);
-	// Confirm last block to prune previous
-	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send1, send2, open, state_open }, true));
-	ASSERT_TIMELY (5s, nano::test::confirmed (*node1, { send2, open, state_open }));
+	// add the blocks without starting elections because elections publish blocks
+	// and the publishing would interefere with the testing
+	std::vector<std::shared_ptr<nano::block>> const blocks{ send1, send2, open, state_open };
+	ASSERT_TRUE (nano::test::process (*node1, blocks));
+	ASSERT_TIMELY (5s, nano::test::exists (*node1, blocks));
+	nano::test::force_confirm (node1->ledger, blocks);
+	ASSERT_TIMELY (5s, nano::test::confirmed (*node1, blocks));
 	ASSERT_EQ (5, node1->ledger.block_count ());
 	ASSERT_EQ (5, node1->ledger.cemented_count ());
 
