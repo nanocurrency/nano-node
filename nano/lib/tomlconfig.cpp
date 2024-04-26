@@ -209,6 +209,8 @@ std::string nano::tomlconfig::merge_defaults (nano::tomlconfig & current_config,
 		{
 			// Non default value. Removing the # to uncomment
 			size_t pos = line_current.find ('#');
+			debug_assert (pos != std::string::npos);
+			debug_assert (pos < line_current.length ());
 			result += line_current.substr (0, pos) + line_current.substr (pos + 1) + "\n";
 		}
 	}
