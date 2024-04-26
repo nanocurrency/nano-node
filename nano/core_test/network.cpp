@@ -426,8 +426,9 @@ TEST (receivable_processor, send_with_receive)
 	ASSERT_EQ (0, node2.balance (key2.pub));
 	node1.process_active (block1);
 	ASSERT_TIMELY (5s, nano::test::exists (node1, { block1 }));
-	node2.process_active (block1);
-	ASSERT_TIMELY (5s, nano::test::exists (node2, { block1 }));
+	auto block1_copy = nano::send_block_builder ().make_block ().from (*block1).build ();
+	node2.process_active (block1_copy);
+	ASSERT_TIMELY (5s, nano::test::exists (node2, { block1_copy }));
 	ASSERT_EQ (amount - node1.config.receive_minimum.number (), node1.balance (nano::dev::genesis_key.pub));
 	ASSERT_EQ (0, node1.balance (key2.pub));
 	ASSERT_EQ (amount - node1.config.receive_minimum.number (), node2.balance (nano::dev::genesis_key.pub));
