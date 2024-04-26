@@ -116,7 +116,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 	bool was_active = status.type == nano::election_status_type::active_confirmed_quorum || status.type == nano::election_status_type::active_confirmation_height;
 
 	// Next-block activations are only done for blocks with previously active elections
-	if (cemented_bootstrap_count_reached && was_active)
+	if (cemented_bootstrap_count_reached && was_active && !node.flags.disable_activate_successors)
 	{
 		activate_successors (transaction, block);
 	}
