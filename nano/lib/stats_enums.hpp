@@ -46,6 +46,9 @@ enum class type : uint8_t
 	blockprocessor_result,
 	blockprocessor_overfill,
 	bootstrap_server,
+	bootstrap_server_request,
+	bootstrap_server_overfill,
+	bootstrap_server_response,
 	active,
 	active_started,
 	active_confirmed,
@@ -318,11 +321,9 @@ enum class detail : uint8_t
 	response,
 	write_error,
 	blocks,
-	response_blocks,
-	response_account_info,
 	channel_full,
-	response_frontiers,
 	frontiers,
+	account_info,
 
 	// backlog
 	activated,

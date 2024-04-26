@@ -15,7 +15,7 @@ namespace
 class responses_helper final
 {
 public:
-	void add (nano::asc_pull_ack & ack)
+	void add (nano::asc_pull_ack const & ack)
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
 		responses.push_back (ack);
