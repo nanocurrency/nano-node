@@ -1,11 +1,10 @@
+#include <nano/lib/enum_utils.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/utility.hpp>
 
-#include <magic_enum.hpp>
-
 std::string_view nano::thread_role::to_string (nano::thread_role::name name)
 {
-	return magic_enum::enum_name (name);
+	return nano::enum_name (name);
 }
 
 std::string nano::thread_role::get_string (nano::thread_role::name role)

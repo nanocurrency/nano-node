@@ -376,7 +376,7 @@ nano::stat::detail nano::to_stat_detail (nano::vote_source source)
 
 std::string_view nano::to_string (nano::block_status code)
 {
-	return magic_enum::enum_name (code);
+	return nano::enum_name (code);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::block_status code)

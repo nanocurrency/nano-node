@@ -392,5 +392,5 @@ nano::stat::detail nano::transport::to_stat_detail (nano::transport::parse_statu
 
 std::string_view nano::transport::to_string (nano::transport::parse_status status)
 {
-	return magic_enum::enum_name (status);
+	return nano::enum_name (status);
 }

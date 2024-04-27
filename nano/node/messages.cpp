@@ -1966,7 +1966,7 @@ void nano::asc_pull_ack::frontiers_payload::operator() (nano::object_stream & ob
 
 std::string_view nano::to_string (nano::message_type type)
 {
-	return magic_enum::enum_name (type);
+	return nano::enum_name (type);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::message_type type)

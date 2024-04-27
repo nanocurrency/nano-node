@@ -466,7 +466,7 @@ std::unique_ptr<nano::container_info_component> nano::block_processor::collect_c
 
 std::string_view nano::to_string (nano::block_source source)
 {
-	return magic_enum::enum_name (source);
+	return nano::enum_name (source);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::block_source type)

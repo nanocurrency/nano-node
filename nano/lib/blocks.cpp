@@ -1,5 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/enum_utils.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
@@ -11,7 +12,6 @@
 #include <bitset>
 
 #include <cryptopp/words.h>
-#include <magic_enum.hpp>
 
 size_t constexpr nano::send_block::size;
 size_t constexpr nano::receive_block::size;

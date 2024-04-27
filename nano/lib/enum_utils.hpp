@@ -13,6 +13,14 @@ namespace nano
 template <typename Index, typename Value>
 using enum_array = magic_enum::containers::array<Index, Value>;
 
+std::string_view enum_name (auto value)
+{
+	auto name = magic_enum::enum_name (value);
+	debug_assert (!name.empty ());
+	release_assert (name.size () < 64); // Safety check
+	return name;
+}
+
 /**
  * Same as `magic_enum::enum_values (...)` but ignores reserved values (starting with underscore)
  */
@@ -50,7 +58,7 @@ std::optional<E> enum_parse (std::string_view name, bool ignore_reserved = true)
 template <class T, class S>
 T enum_cast (S value)
 {
-	auto conv = magic_enum::enum_cast<T> (magic_enum::enum_name (value));
+	auto conv = magic_enum::enum_cast<T> (nano::enum_name (value));
 	debug_assert (conv);
 	return conv.value_or (T{});
 }

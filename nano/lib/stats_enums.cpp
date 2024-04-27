@@ -1,23 +1,22 @@
+#include <nano/lib/enum_utils.hpp>
 #include <nano/lib/stats_enums.hpp>
-
-#include <magic_enum.hpp>
 
 std::string_view nano::to_string (nano::stat::type type)
 {
-	return magic_enum::enum_name (type);
+	return nano::enum_name (type);
 }
 
 std::string_view nano::to_string (nano::stat::detail detail)
 {
-	return magic_enum::enum_name (detail);
+	return nano::enum_name (detail);
 }
 
 std::string_view nano::to_string (nano::stat::dir dir)
 {
-	return magic_enum::enum_name (dir);
+	return nano::enum_name (dir);
 }
 
 std::string_view nano::to_string (nano::stat::sample sample)
 {
-	return magic_enum::enum_name (sample);
+	return nano::enum_name (sample);
 }

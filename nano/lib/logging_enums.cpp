@@ -2,21 +2,19 @@
 #include <nano/lib/logging_enums.hpp>
 #include <nano/lib/utility.hpp>
 
-#include <magic_enum.hpp>
-
 std::string_view nano::log::to_string (nano::log::type tag)
 {
-	return magic_enum::enum_name (tag);
+	return nano::enum_name (tag);
 }
 
 std::string_view nano::log::to_string (nano::log::detail detail)
 {
-	return magic_enum::enum_name (detail);
+	return nano::enum_name (detail);
 }
 
 std::string_view nano::log::to_string (nano::log::level level)
 {
-	return magic_enum::enum_name (level);
+	return nano::enum_name (level);
 }
 
 const std::vector<nano::log::level> & nano::log::all_levels ()
@@ -80,7 +78,7 @@ nano::log::detail nano::log::parse_detail (std::string_view name)
 
 std::string_view nano::log::to_string (nano::log::tracing_format format)
 {
-	return magic_enum::enum_name (format);
+	return nano::enum_name (format);
 }
 
 nano::log::tracing_format nano::log::parse_tracing_format (std::string_view name)
