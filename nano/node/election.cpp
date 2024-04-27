@@ -798,15 +798,15 @@ void nano::election_extended_status::operator() (nano::object_stream & obs) cons
 
 std::string_view nano::to_string (nano::election_behavior behavior)
 {
-	return nano::enum_name (behavior);
+	return nano::enum_util::name (behavior);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::election_behavior behavior)
 {
-	return nano::enum_cast<nano::stat::detail> (behavior);
+	return nano::enum_util::cast<nano::stat::detail> (behavior);
 }
 
 std::string_view nano::to_string (nano::election_state state)
 {
-	return nano::enum_name (state);
+	return nano::enum_util::name (state);
 }

@@ -387,10 +387,10 @@ std::unique_ptr<nano::asc_pull_ack> nano::transport::message_deserializer::deser
 
 nano::stat::detail nano::transport::to_stat_detail (nano::transport::parse_status status)
 {
-	return nano::enum_cast<nano::stat::detail> (status);
+	return nano::enum_util::cast<nano::stat::detail> (status);
 }
 
 std::string_view nano::transport::to_string (nano::transport::parse_status status)
 {
-	return nano::enum_name (status);
+	return nano::enum_util::name (status);
 }

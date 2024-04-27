@@ -146,5 +146,5 @@ std::unique_ptr<nano::container_info_component> nano::rep_tiers::collect_contain
 
 nano::stat::detail nano::to_stat_detail (nano::rep_tier tier)
 {
-	return nano::enum_cast<nano::stat::detail> (tier);
+	return nano::enum_util::cast<nano::stat::detail> (tier);
 }

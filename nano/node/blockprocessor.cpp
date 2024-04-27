@@ -466,12 +466,12 @@ std::unique_ptr<nano::container_info_component> nano::block_processor::collect_c
 
 std::string_view nano::to_string (nano::block_source source)
 {
-	return nano::enum_name (source);
+	return nano::enum_util::name (source);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::block_source type)
 {
-	return nano::enum_cast<nano::stat::detail> (type);
+	return nano::enum_util::cast<nano::stat::detail> (type);
 }
 
 /*

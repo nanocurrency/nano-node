@@ -12,8 +12,12 @@ namespace nano
  */
 template <typename Index, typename Value>
 using enum_array = magic_enum::containers::array<Index, Value>;
+}
 
-std::string_view enum_name (auto value)
+// Needs nested namespace to avoid ADL collisions with magic_enum
+namespace nano::enum_util
+{
+std::string_view name (auto value)
 {
 	auto name = magic_enum::enum_name (value);
 	debug_assert (!name.empty ());
@@ -25,7 +29,7 @@ std::string_view enum_name (auto value)
  * Same as `magic_enum::enum_values (...)` but ignores reserved values (starting with underscore)
  */
 template <class E>
-std::vector<E> enum_values (bool ignore_reserved = true)
+std::vector<E> values (bool ignore_reserved = true)
 {
 	std::vector<E> result;
 	for (auto const & [val, name] : magic_enum::enum_entries<E> ())
@@ -43,7 +47,7 @@ std::vector<E> enum_values (bool ignore_reserved = true)
  * Case insensitive.
  */
 template <class E>
-std::optional<E> enum_parse (std::string_view name, bool ignore_reserved = true)
+std::optional<E> parse (std::string_view name, bool ignore_reserved = true)
 {
 	if (ignore_reserved && name.starts_with ('_'))
 	{
@@ -56,9 +60,9 @@ std::optional<E> enum_parse (std::string_view name, bool ignore_reserved = true)
 }
 
 template <class T, class S>
-T enum_cast (S value)
+T cast (S value)
 {
-	auto conv = magic_enum::enum_cast<T> (nano::enum_name (value));
+	auto conv = magic_enum::enum_cast<T> (nano::enum_util::name (value));
 	debug_assert (conv);
 	return conv.value_or (T{});
 }
