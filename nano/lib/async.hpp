@@ -72,6 +72,10 @@ private:
 	bool slotted{ false };
 };
 
+/**
+ * Wrapper with convenience functions and safety checks for asynchronous tasks.
+ * Aims to provide interface similar to std::thread.
+ */
 class task
 {
 public:
