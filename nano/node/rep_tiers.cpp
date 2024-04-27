@@ -1,11 +1,10 @@
+#include <nano/lib/enum_utils.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/node/online_reps.hpp>
 #include <nano/node/rep_tiers.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
-
-#include <magic_enum.hpp>
 
 using namespace std::chrono_literals;
 
@@ -147,7 +146,5 @@ std::unique_ptr<nano::container_info_component> nano::rep_tiers::collect_contain
 
 nano::stat::detail nano::to_stat_detail (nano::rep_tier tier)
 {
-	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (tier));
-	debug_assert (value);
-	return value.value_or (nano::stat::detail{});
+	return nano::enum_cast<nano::stat::detail> (tier);
 }

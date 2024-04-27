@@ -1,5 +1,7 @@
 #pragma once
 
+#include <nano/lib/utility.hpp>
+
 #include <magic_enum.hpp>
 #include <magic_enum_containers.hpp>
 
@@ -43,5 +45,13 @@ std::optional<E> parse_enum (std::string_view name)
 	{
 		return magic_enum::enum_cast<E> (name, magic_enum::case_insensitive);
 	}
+}
+
+template <class T, class S>
+T enum_cast (S value)
+{
+	auto conv = magic_enum::enum_cast<T> (magic_enum::enum_name (value));
+	debug_assert (conv);
+	return conv.value_or (T{});
 }
 }

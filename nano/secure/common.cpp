@@ -1,6 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/enum_utils.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
@@ -16,7 +17,6 @@
 
 #include <crypto/ed25519-donna/ed25519.h>
 #include <cryptopp/words.h>
-#include <magic_enum.hpp>
 
 nano::networks nano::network_constants::active_network = nano::networks::ACTIVE_NETWORK;
 
@@ -360,18 +360,18 @@ nano::block_hash const & nano::unchecked_key::key () const
 	return previous;
 }
 
+/*
+ *
+ */
+
 nano::stat::detail nano::to_stat_detail (nano::vote_code code)
 {
-	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (code));
-	debug_assert (value);
-	return value.value_or (nano::stat::detail{});
+	return nano::enum_cast<nano::stat::detail> (code);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::vote_source source)
 {
-	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (source));
-	debug_assert (value);
-	return value.value_or (nano::stat::detail{});
+	return nano::enum_cast<nano::stat::detail> (source);
 }
 
 std::string_view nano::to_string (nano::block_status code)
@@ -381,7 +381,5 @@ std::string_view nano::to_string (nano::block_status code)
 
 nano::stat::detail nano::to_stat_detail (nano::block_status code)
 {
-	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (code));
-	debug_assert (value);
-	return value.value_or (nano::stat::detail{});
+	return nano::enum_cast<nano::stat::detail> (code);
 }

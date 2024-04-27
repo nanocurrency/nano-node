@@ -1,4 +1,5 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/enum_utils.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
@@ -7,8 +8,6 @@
 #include <nano/node/node.hpp>
 #include <nano/node/vote_generator.hpp>
 #include <nano/secure/ledger.hpp>
-
-#include <magic_enum.hpp>
 
 using namespace std::chrono;
 
@@ -804,9 +803,7 @@ std::string_view nano::to_string (nano::election_behavior behavior)
 
 nano::stat::detail nano::to_stat_detail (nano::election_behavior behavior)
 {
-	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (behavior));
-	debug_assert (value);
-	return value.value_or (nano::stat::detail{});
+	return nano::enum_cast<nano::stat::detail> (behavior);
 }
 
 std::string_view nano::to_string (nano::election_state state)
