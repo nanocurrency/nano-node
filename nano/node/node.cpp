@@ -660,11 +660,11 @@ void nano::node::start ()
 			network.port = tcp_listener.endpoint ().port ();
 		}
 
-		logger.info (nano::log::type::node, "Node peering port: {}", network.port.load ());
+		logger.info (nano::log::type::node, "Peering port: {}", network.port.load ());
 	}
 	else
 	{
-		logger.warn (nano::log::type::node, "Node peering is disabled");
+		logger.warn (nano::log::type::node, "Peering is disabled");
 	}
 
 	if (!flags.disable_backup)
