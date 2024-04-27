@@ -35,7 +35,7 @@ std::vector<E> enum_values ()
  * Case insensitive.
  */
 template <class E>
-std::optional<E> parse_enum (std::string_view name)
+std::optional<E> enum_parse (std::string_view name)
 {
 	if (name.starts_with ('_'))
 	{
