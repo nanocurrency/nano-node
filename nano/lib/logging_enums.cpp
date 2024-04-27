@@ -1,3 +1,4 @@
+#include <nano/lib/enum_utils.hpp>
 #include <nano/lib/logging_enums.hpp>
 #include <nano/lib/utility.hpp>
 
@@ -21,7 +22,7 @@ std::string_view nano::log::to_string (nano::log::level level)
 const std::vector<nano::log::level> & nano::log::all_levels ()
 {
 	static std::vector<nano::log::level> all = [] () {
-		return nano::util::enum_values<nano::log::level> ();
+		return nano::enum_values<nano::log::level> ();
 	}();
 	return all;
 }
@@ -29,14 +30,14 @@ const std::vector<nano::log::level> & nano::log::all_levels ()
 const std::vector<nano::log::type> & nano::log::all_types ()
 {
 	static std::vector<nano::log::type> all = [] () {
-		return nano::util::enum_values<nano::log::type> ();
+		return nano::enum_values<nano::log::type> ();
 	}();
 	return all;
 }
 
 nano::log::level nano::log::parse_level (std::string_view name)
 {
-	auto value = nano::util::parse_enum<nano::log::level> (name);
+	auto value = nano::parse_enum<nano::log::level> (name);
 	if (value.has_value ())
 	{
 		return value.value ();
@@ -53,7 +54,7 @@ nano::log::level nano::log::parse_level (std::string_view name)
 
 nano::log::type nano::log::parse_type (std::string_view name)
 {
-	auto value = nano::util::parse_enum<nano::log::type> (name);
+	auto value = nano::parse_enum<nano::log::type> (name);
 	if (value.has_value ())
 	{
 		return value.value ();
@@ -66,7 +67,7 @@ nano::log::type nano::log::parse_type (std::string_view name)
 
 nano::log::detail nano::log::parse_detail (std::string_view name)
 {
-	auto value = nano::util::parse_enum<nano::log::detail> (name);
+	auto value = nano::parse_enum<nano::log::detail> (name);
 	if (value.has_value ())
 	{
 		return value.value ();
@@ -84,7 +85,7 @@ std::string_view nano::log::to_string (nano::log::tracing_format format)
 
 nano::log::tracing_format nano::log::parse_tracing_format (std::string_view name)
 {
-	auto value = magic_enum::enum_cast<nano::log::tracing_format> (name);
+	auto value = nano::parse_enum<nano::log::tracing_format> (name);
 	if (value.has_value ())
 	{
 		return value.value ();
@@ -102,12 +103,7 @@ nano::log::tracing_format nano::log::parse_tracing_format (std::string_view name
 const std::vector<nano::log::tracing_format> & nano::log::all_tracing_formats ()
 {
 	static std::vector<nano::log::tracing_format> all = [] () {
-		std::vector<nano::log::tracing_format> result;
-		for (auto const & fmt : magic_enum::enum_values<nano::log::tracing_format> ())
-		{
-			result.push_back (fmt);
-		}
-		return result;
+		return nano::enum_values<nano::log::tracing_format> ();
 	}();
 	return all;
 }
