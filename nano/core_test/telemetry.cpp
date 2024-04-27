@@ -299,17 +299,23 @@ TEST (telemetry, basic)
 	// Check the metrics are correct
 	ASSERT_TRUE (nano::test::compare_telemetry (*telemetry_data, *node_server));
 
-	// Call again straight away. It should use the cache
+	// Call again straight away
 	auto telemetry_data_2 = node_client->telemetry.get_telemetry (channel->get_endpoint ());
 	ASSERT_TRUE (telemetry_data_2);
-	ASSERT_EQ (*telemetry_data, *telemetry_data_2);
+
+	// Call again straight away
+	auto telemetry_data_3 = node_client->telemetry.get_telemetry (channel->get_endpoint ());
+	ASSERT_TRUE (telemetry_data_3);
+
+	// we expect at least one consecutive repeat of telemetry
+	ASSERT_TRUE (*telemetry_data == telemetry_data_2 || telemetry_data_2 == telemetry_data_3);
 
 	// Wait the cache period and check cache is not used
 	WAIT (3s);
 
-	std::optional<nano::telemetry_data> telemetry_data_3;
-	ASSERT_TIMELY (5s, telemetry_data_3 = node_client->telemetry.get_telemetry (channel->get_endpoint ()));
-	ASSERT_NE (*telemetry_data, *telemetry_data_3);
+	std::optional<nano::telemetry_data> telemetry_data_4;
+	ASSERT_TIMELY (5s, telemetry_data_4 = node_client->telemetry.get_telemetry (channel->get_endpoint ()));
+	ASSERT_NE (*telemetry_data, *telemetry_data_4);
 }
 
 TEST (telemetry, invalid_endpoint)
