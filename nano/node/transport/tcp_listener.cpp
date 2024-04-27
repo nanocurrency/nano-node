@@ -22,8 +22,8 @@ nano::transport::tcp_listener::tcp_listener (uint16_t port_a, nano::node & node_
 	port{ port_a },
 	max_inbound_connections{ max_inbound_connections },
 	strand{ node_a.io_ctx.get_executor () },
-	cancellation{ strand },
-	acceptor{ strand }
+	acceptor{ strand },
+	task{ strand }
 {
 	connection_accepted.add ([this] (auto const & socket, auto const & server) {
 		node.observers.socket_accepted.notify (*socket);
@@ -34,13 +34,13 @@ nano::transport::tcp_listener::~tcp_listener ()
 {
 	// Thread should be stopped before destruction
 	debug_assert (!cleanup_thread.joinable ());
-	debug_assert (!future.valid () || future.wait_for (0s) == std::future_status::ready);
+	debug_assert (!task.joinable ());
 }
 
 void nano::transport::tcp_listener::start ()
 {
 	debug_assert (!cleanup_thread.joinable ());
-	debug_assert (!future.valid ());
+	debug_assert (!task.joinable ());
 
 	try
 	{
@@ -64,8 +64,7 @@ void nano::transport::tcp_listener::start ()
 		throw;
 	}
 
-	future = asio::co_spawn (
-	strand, [this] () -> asio::awaitable<void> {
+	task = nano::async::spawn (strand, [this] () -> asio::awaitable<void> {
 		try
 		{
 			logger.debug (nano::log::type::tcp_listener, "Starting acceptor");
@@ -92,7 +91,7 @@ void nano::transport::tcp_listener::start ()
 		{
 			logger.critical (nano::log::type::tcp_listener, "Unknown error");
 			release_assert (false); // Unexpected error
-		} }, asio::bind_cancellation_slot (cancellation.slot (), asio::use_future));
+		} });
 
 	cleanup_thread = std::thread ([this] {
 		nano::thread_role::set (nano::thread_role::name::tcp_listener);
@@ -113,10 +112,10 @@ void nano::transport::tcp_listener::stop ()
 	}
 	condition.notify_all ();
 
-	if (future.valid ())
+	if (task.joinable ())
 	{
-		cancellation.emit ();
-		future.wait ();
+		task.cancel ();
+		task.join ();
 	}
 	if (cleanup_thread.joinable ())
 	{
