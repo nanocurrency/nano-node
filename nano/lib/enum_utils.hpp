@@ -17,12 +17,12 @@ using enum_array = magic_enum::containers::array<Index, Value>;
  * Same as `magic_enum::enum_values (...)` but ignores reserved values (starting with underscore)
  */
 template <class E>
-std::vector<E> enum_values ()
+std::vector<E> enum_values (bool ignore_reserved = true)
 {
 	std::vector<E> result;
 	for (auto const & [val, name] : magic_enum::enum_entries<E> ())
 	{
-		if (!name.starts_with ('_'))
+		if (!ignore_reserved || !name.starts_with ('_'))
 		{
 			result.push_back (val);
 		}
@@ -35,9 +35,9 @@ std::vector<E> enum_values ()
  * Case insensitive.
  */
 template <class E>
-std::optional<E> enum_parse (std::string_view name)
+std::optional<E> enum_parse (std::string_view name, bool ignore_reserved = true)
 {
-	if (name.starts_with ('_'))
+	if (ignore_reserved && name.starts_with ('_'))
 	{
 		return std::nullopt;
 	}
