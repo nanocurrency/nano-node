@@ -88,11 +88,14 @@ public:
 	{
 	}
 
-	task (nano::async::strand & strand, std::future<value_type> future, nano::async::cancellation cancellation) :
+	task (nano::async::strand & strand, auto && func) :
 		strand{ strand },
-		future{ std::move (future) },
-		cancellation{ std::move (cancellation) }
+		cancellation{ strand }
 	{
+		future = asio::co_spawn (
+		strand,
+		std::forward<decltype (func)> (func),
+		asio::bind_cancellation_slot (cancellation.slot (), asio::use_future));
 	}
 
 	~task ()
@@ -146,16 +149,4 @@ private:
 	std::future<value_type> future;
 	nano::async::cancellation cancellation;
 };
-
-auto spawn (nano::async::strand & strand, auto && func)
-{
-	nano::async::cancellation cancellation{ strand };
-
-	auto fut = asio::co_spawn (
-	strand,
-	std::forward<decltype (func)> (func),
-	asio::bind_cancellation_slot (cancellation.slot (), asio::use_future));
-
-	return task{ strand, std::move (fut), std::move (cancellation) };
-}
 }

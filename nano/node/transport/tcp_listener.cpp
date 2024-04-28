@@ -64,7 +64,7 @@ void nano::transport::tcp_listener::start ()
 		throw;
 	}
 
-	task = nano::async::spawn (strand, [this] () -> asio::awaitable<void> {
+	task = nano::async::task (strand, [this] () -> asio::awaitable<void> {
 		try
 		{
 			logger.debug (nano::log::type::tcp_listener, "Starting acceptor");

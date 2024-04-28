@@ -64,7 +64,7 @@ TEST (async, task)
 	// Default state, empty task
 	ASSERT_FALSE (task.joinable ());
 
-	task = nano::async::spawn (strand, [&] () -> asio::awaitable<void> {
+	task = nano::async::task (strand, [&] () -> asio::awaitable<void> {
 		co_await nano::async::sleep_for (500ms);
 	});
 
@@ -95,7 +95,7 @@ TEST (async, task_cancel)
 	nano::thread_runner runner{ io_ctx, 1 };
 	nano::async::strand strand{ io_ctx->get_executor () };
 
-	nano::async::task task = nano::async::spawn (strand, [&] () -> asio::awaitable<void> {
+	nano::async::task task = nano::async::task (strand, [&] () -> asio::awaitable<void> {
 		co_await nano::async::sleep_for (10s);
 	});
 
