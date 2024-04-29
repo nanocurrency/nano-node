@@ -853,9 +853,9 @@ TEST (network, tcp_no_accept_excluded_peers)
 	{
 		node0->network.excluded_peers.add (endpoint1_tcp);
 	}
-	ASSERT_EQ (0, node0->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::excluded));
+	ASSERT_EQ (0, node0->stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::excluded));
 	node1->network.merge_peer (node0->network.endpoint ());
-	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::excluded) >= 1);
+	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::excluded) >= 1);
 	ASSERT_EQ (nullptr, node0->network.find_node_id (node1->get_node_id ()));
 
 	// Should not actively reachout to excluded peers
