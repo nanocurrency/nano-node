@@ -26,8 +26,11 @@ TEST (peer_history, erase_old)
 {
 	nano::test::system system;
 
-	auto & node1 = *system.add_node ();
-	auto & node2 = *system.add_node ();
+	auto node_config = system.default_config ();
+	node_config.peer_history.erase_cutoff = 1s;
+
+	auto & node1 = *system.add_node (node_config);
+	auto & node2 = *system.add_node (node_config);
 
 	ASSERT_TIMELY (5s, node1.peer_history.exists (node2.network.endpoint ()));
 	ASSERT_TIMELY (5s, node2.peer_history.exists (node1.network.endpoint ()));
@@ -41,6 +44,7 @@ TEST (peer_history, erase_old)
 	ASSERT_EQ (cached1.size (), 1);
 	ASSERT_EQ (cached1[0], node2_endpoint);
 
+	ASSERT_TIMELY_EQ (5s, node1.network.size (), 0);
 	ASSERT_TIMELY (5s, !node1.peer_history.exists (node2_endpoint));
 
 	auto cached2 = node1.peer_history.peers ();
