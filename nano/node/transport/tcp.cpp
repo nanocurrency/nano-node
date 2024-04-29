@@ -27,6 +27,20 @@ nano::transport::channel_tcp::~channel_tcp ()
 	}
 }
 
+void nano::transport::channel_tcp::update_endpoints ()
+{
+	nano::lock_guard<nano::mutex> lk (channel_mutex);
+
+	debug_assert (endpoint == nano::endpoint{}); // Not initialized endpoint value
+	debug_assert (local_endpoint == nano::endpoint{}); // Not initialized endpoint value
+
+	if (auto socket_l = socket.lock ())
+	{
+		endpoint = socket_l->remote_endpoint ();
+		local_endpoint = socket_l->local_endpoint ();
+	}
+}
+
 void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a, nano::transport::buffer_drop_policy policy_a, nano::transport::traffic_type traffic_type)
 {
 	if (auto socket_l = socket.lock ())
@@ -210,7 +224,7 @@ std::shared_ptr<nano::transport::channel_tcp> nano::transport::tcp_channels::cre
 	node_id.to_node_id ());
 
 	auto channel = std::make_shared<nano::transport::channel_tcp> (node, socket);
-	channel->update_endpoint ();
+	channel->update_endpoints ();
 	channel->set_node_id (node_id);
 
 	attempts.get<endpoint_tag> ().erase (endpoint);
