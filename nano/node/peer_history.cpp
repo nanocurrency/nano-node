@@ -141,7 +141,7 @@ nano::peer_history_config::peer_history_config (nano::network_constants const & 
 	if (network.is_dev_network ())
 	{
 		check_interval = 1s;
-		erase_cutoff = 3s;
+		erase_cutoff = 10s;
 	}
 }
 
