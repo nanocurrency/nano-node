@@ -64,6 +64,7 @@ enum class type : uint8_t
 	rep_tiers,
 	syn_cookies,
 	peer_history,
+	port_mapping,
 
 	bootstrap_ascending,
 	bootstrap_ascending_accounts,

@@ -1,6 +1,10 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
+
 #include <miniupnp/miniupnpc/include/miniupnpc.h>
+
+#include <thread>
 
 namespace nano
 {
@@ -40,26 +44,38 @@ class port_mapping
 {
 public:
 	port_mapping (nano::node &);
+	~port_mapping ();
+
 	void start ();
 	void stop ();
+
 	void refresh_devices ();
 	nano::endpoint external_address ();
 	std::string to_string ();
 
 private:
+	void run ();
+
 	/** Add port mappings for the node port (not RPC). Refresh when the lease ends. */
 	void refresh_mapping ();
 	/** Check occasionally to refresh in case router loses mapping */
-	void check_mapping_loop ();
+	void check_mapping ();
 	/** Returns false if mapping still exists */
 	bool check_lost_or_old_mapping ();
 	std::string get_config_port (std::string const &);
-	upnp_state upnp;
+
+private: // Dependencies
 	nano::node & node;
+
+private:
+	upnp_state upnp;
 	boost::asio::ip::address_v4 address;
 	std::array<mapping_protocol, 2> protocols;
 	uint64_t check_count{ 0 };
-	std::atomic<bool> on{ false };
+
+	std::atomic<bool> stopped{ false };
+	nano::condition_variable condition;
 	nano::mutex mutex;
+	std::thread thread;
 };
 }

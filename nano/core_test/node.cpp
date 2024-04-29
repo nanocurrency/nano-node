@@ -3890,3 +3890,10 @@ TEST (node_config, node_id_private_key_persistence)
 	nano::keypair kp4 = nano::load_or_create_node_id (path);
 	ASSERT_EQ (kp4.prv, nano::keypair ("3F28D035B8AA75EA53DF753BFD065CF6138E742971B2C99B84FD8FE328FED2D9").prv);
 }
+
+TEST (node, port_mapping)
+{
+	nano::test::system system;
+	auto node = system.add_node ();
+	node->port_mapping.refresh_devices ();
+}

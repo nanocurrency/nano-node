@@ -540,20 +540,6 @@ TEST (network, endpoint_bad_fd)
 	ASSERT_TIMELY_EQ (10s, system.nodes[0]->network.endpoint ().port (), 0);
 }
 
-TEST (node, port_mapping)
-{
-	nano::test::system system (1);
-	auto node0 (system.nodes[0]);
-	node0->port_mapping.refresh_devices ();
-	node0->port_mapping.start ();
-	auto end (std::chrono::steady_clock::now () + std::chrono::seconds (500));
-	(void)end;
-	// while (std::chrono::steady_clock::now () < end)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-}
-
 TEST (tcp_listener, tcp_node_id_handshake)
 {
 	nano::test::system system (1);
