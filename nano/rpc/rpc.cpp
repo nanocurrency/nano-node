@@ -50,6 +50,7 @@ void nano::rpc::start ()
 		logger.critical (nano::log::type::rpc, "Error while binding for RPC on port: {} ({})", endpoint.port (), ec.message ());
 		throw std::runtime_error (ec.message ());
 	}
+	logger.info (nano::log::type::rpc, "RPC listening address: {}", fmt::streamed (acceptor.local_endpoint ()));
 	acceptor.listen ();
 	accept ();
 }
