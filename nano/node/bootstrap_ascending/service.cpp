@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/stats_enums.hpp>
+#include <nano/lib/thread_roles.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/network.hpp>
@@ -7,6 +8,7 @@
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
 #include <nano/store/account.hpp>
 #include <nano/store/component.hpp>
 
@@ -150,7 +152,7 @@ void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx
 		break;
 		case nano::block_status::gap_source:
 		{
-			const auto account = block.previous ().is_zero () ? block.account_field ().value () : ledger.account (tx, block.previous ()).value ();
+			const auto account = block.previous ().is_zero () ? block.account_field ().value () : ledger.any.block_account (tx, block.previous ()).value ();
 			const auto source = block.source_field ().value_or (block.link_field ().value_or (0).as_block_hash ());
 
 			// Mark account as blocked because it is missing the source block

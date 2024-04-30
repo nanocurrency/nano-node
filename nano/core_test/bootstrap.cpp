@@ -4,6 +4,7 @@
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -655,13 +656,13 @@ TEST (bootstrap_processor, push_diamond_pruning)
 		node1->ledger.confirm (transaction, open->hash ());
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, send1->hash (), 2));
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, open->hash (), 1));
-		ASSERT_TRUE (node1->ledger.block_exists (transaction, nano::dev::genesis->hash ()));
-		ASSERT_FALSE (node1->ledger.block_exists (transaction, send1->hash ()));
+		ASSERT_TRUE (node1->ledger.any.block_exists (transaction, nano::dev::genesis->hash ()));
+		ASSERT_FALSE (node1->ledger.any.block_exists (transaction, send1->hash ()));
 		ASSERT_TRUE (node1->store.pruned.exists (transaction, send1->hash ()));
-		ASSERT_FALSE (node1->ledger.block_exists (transaction, open->hash ()));
+		ASSERT_FALSE (node1->ledger.any.block_exists (transaction, open->hash ()));
 		ASSERT_TRUE (node1->store.pruned.exists (transaction, open->hash ()));
-		ASSERT_TRUE (node1->ledger.block_exists (transaction, send2->hash ()));
-		ASSERT_TRUE (node1->ledger.block_exists (transaction, receive->hash ()));
+		ASSERT_TRUE (node1->ledger.any.block_exists (transaction, send2->hash ()));
+		ASSERT_TRUE (node1->ledger.any.block_exists (transaction, receive->hash ()));
 		ASSERT_EQ (2, node1->ledger.pruned_count ());
 		ASSERT_EQ (5, node1->ledger.block_count ());
 	}
@@ -1293,10 +1294,10 @@ TEST (bootstrap_processor, lazy_destinations)
 
 	// Check processed blocks
 	ASSERT_TIMELY (5s, !node2->bootstrap_initiator.in_progress ());
-	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_TIMELY (5s, node2->ledger.block_or_pruned_exists (send2->hash ()));
-	ASSERT_FALSE (node2->ledger.block_or_pruned_exists (open->hash ()));
-	ASSERT_FALSE (node2->ledger.block_or_pruned_exists (state_open->hash ()));
+	ASSERT_TIMELY (5s, node2->block_or_pruned_exists (send1->hash ()));
+	ASSERT_TIMELY (5s, node2->block_or_pruned_exists (send2->hash ()));
+	ASSERT_FALSE (node2->block_or_pruned_exists (open->hash ()));
+	ASSERT_FALSE (node2->block_or_pruned_exists (state_open->hash ()));
 }
 
 TEST (bootstrap_processor, lazy_pruning_missing_block)
@@ -1327,7 +1328,6 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	node1->process_active (send1);
 
 	// send from genesis to key2
 	auto send2 = builder
@@ -1340,7 +1340,6 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send1->hash ()))
 				 .build ();
-	node1->process_active (send2);
 
 	// open account key1
 	auto open = builder
@@ -1351,7 +1350,6 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 				.sign (key1.prv, key1.pub)
 				.work (*system.work.generate (key1.pub))
 				.build ();
-	node1->process_active (open);
 
 	//  open account key2
 	auto state_open = builder
@@ -1365,11 +1363,13 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 					  .work (*system.work.generate (key2.pub))
 					  .build ();
 
-	node1->process_active (state_open);
-	ASSERT_TIMELY (5s, node1->block (state_open->hash ()) != nullptr);
-	// Confirm last block to prune previous
-	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send1, send2, open, state_open }, true));
-	ASSERT_TIMELY (5s, nano::test::confirmed (*node1, { send2, open, state_open }));
+	// add the blocks without starting elections because elections publish blocks
+	// and the publishing would interefere with the testing
+	std::vector<std::shared_ptr<nano::block>> const blocks{ send1, send2, open, state_open };
+	ASSERT_TRUE (nano::test::process (*node1, blocks));
+	ASSERT_TIMELY (5s, nano::test::exists (*node1, blocks));
+	nano::test::force_confirm (node1->ledger, blocks);
+	ASSERT_TIMELY (5s, nano::test::confirmed (*node1, blocks));
 	ASSERT_EQ (5, node1->ledger.block_count ());
 	ASSERT_EQ (5, node1->ledger.cemented_count ());
 
@@ -1518,7 +1518,7 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 		ASSERT_EQ (key2.pub.to_account (), wallet_attempt->id);
 	}
 	// Check processed blocks
-	ASSERT_TIMELY (10s, node1->ledger.block_or_pruned_exists (receive2->hash ()));
+	ASSERT_TIMELY (10s, node1->block_or_pruned_exists (receive2->hash ()));
 }
 
 TEST (bootstrap_processor, wallet_lazy_pending)
@@ -1582,7 +1582,7 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 	wallet->insert_adhoc (key2.prv);
 	node1->bootstrap_wallet ();
 	// Check processed blocks
-	ASSERT_TIMELY (10s, node1->ledger.block_or_pruned_exists (send2->hash ()));
+	ASSERT_TIMELY (10s, node1->block_or_pruned_exists (send2->hash ()));
 }
 
 TEST (bootstrap_processor, multiple_attempts)

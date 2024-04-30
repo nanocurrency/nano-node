@@ -108,7 +108,6 @@ private:
 	ordered_connections connections;
 
 	nano::async::strand strand;
-	nano::async::cancellation cancellation;
 
 	asio::ip::tcp::acceptor acceptor;
 	asio::ip::tcp::endpoint local;
@@ -116,7 +115,7 @@ private:
 	std::atomic<bool> stopped;
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
-	std::future<void> future;
+	nano::async::task task;
 	std::thread cleanup_thread;
 };
 }

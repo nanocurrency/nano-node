@@ -3,6 +3,7 @@
 #include <nano/node/epoch_upgrader.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
 
 nano::epoch_upgrader::epoch_upgrader (nano::node & node_a, nano::ledger & ledger_a, nano::store::component & store_a, nano::network_params & network_params_a, nano::logger & logger_a) :
 	node{ node_a },
@@ -113,9 +114,9 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 		while (!finished_accounts && count_limit != 0 && !stopped)
 		{
 			{
-				auto transaction (store.tx_begin_read ());
+				auto transaction (ledger.tx_begin_read ());
 				// Collect accounts to upgrade
-				for (auto i (store.account.begin (transaction)), n (store.account.end ()); i != n && accounts_list.size () < count_limit; ++i)
+				for (auto i (ledger.any.account_begin (transaction)), n (ledger.any.account_end ()); i != n && accounts_list.size () < count_limit; ++i)
 				{
 					nano::account const & account (i->first);
 					nano::account_info const & info (i->second);
@@ -135,7 +136,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 			for (auto i (accounts_list.get<modified_tag> ().begin ()), n (accounts_list.get<modified_tag> ().end ()); i != n && attempts < upgrade_batch_size && attempts < count_limit && !stopped; ++i)
 			{
 				nano::account const & account (i->account);
-				auto info = ledger.account_info (ledger.tx_begin_read (), account);
+				auto info = ledger.any.account_get (ledger.tx_begin_read (), account);
 				if (info && info->epoch () < epoch_a)
 				{
 					++attempts;
@@ -209,7 +210,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 			std::atomic<uint64_t> upgraded_pending (0);
 			uint64_t workers (0);
 			uint64_t attempts (0);
-			for (auto current = ledger.receivable_upper_bound (ledger.tx_begin_read (), 0), end = ledger.receivable_end (); current != end && attempts < upgrade_batch_size && attempts < count_limit && !stopped;)
+			for (auto current = ledger.any.receivable_upper_bound (ledger.tx_begin_read (), 0), end = ledger.any.receivable_end (); current != end && attempts < upgrade_batch_size && attempts < count_limit && !stopped;)
 			{
 				auto const & [key, info] = *current;
 				if (!store.account.exists (ledger.tx_begin_read (), key.account))
@@ -255,7 +256,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 						}
 					}
 					// Move to next pending item
-					current = ledger.receivable_upper_bound (ledger.tx_begin_read (), key.account, key.hash);
+					current = ledger.any.receivable_upper_bound (ledger.tx_begin_read (), key.account, key.hash);
 				}
 				else
 				{
@@ -266,7 +267,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 					}
 					else
 					{
-						current = ledger.receivable_upper_bound (ledger.tx_begin_read (), key.account);
+						current = ledger.any.receivable_upper_bound (ledger.tx_begin_read (), key.account);
 					}
 				}
 			}

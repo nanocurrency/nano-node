@@ -4,6 +4,7 @@
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/election.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
 #include <nano/store/lmdb/wallet_value.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -183,9 +184,9 @@ TEST (wallet, spend_all_one)
 	nano::keypair key2;
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max ()));
 	auto transaction = node1.ledger.tx_begin_read ();
-	auto info2 = node1.ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info2 = node1.ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_NE (latest1, info2->head);
-	auto block = node1.ledger.block (transaction, info2->head);
+	auto block = node1.ledger.any.block_get (transaction, info2->head);
 	ASSERT_NE (nullptr, block);
 	ASSERT_EQ (latest1, block->previous ());
 	ASSERT_TRUE (info2->balance.is_zero ());
@@ -217,10 +218,10 @@ TEST (wallet, spend)
 	ASSERT_EQ (nullptr, system.wallet (0)->send_action (0, key2.pub, 0));
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max ()));
 	auto transaction = node1.ledger.tx_begin_read ();
-	auto info2 = node1.ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info2 = node1.ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info2);
 	ASSERT_NE (latest1, info2->head);
-	auto block = node1.ledger.block (transaction, info2->head);
+	auto block = node1.ledger.any.block_get (transaction, info2->head);
 	ASSERT_NE (nullptr, block);
 	ASSERT_EQ (latest1, block->previous ());
 	ASSERT_TRUE (info2->balance.is_zero ());
@@ -242,7 +243,7 @@ TEST (wallet, spend_no_previous)
 	{
 		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 		auto transaction = system.nodes[0]->ledger.tx_begin_read ();
-		auto info1 = system.nodes[0]->ledger.account_info (transaction, nano::dev::genesis_key.pub);
+		auto info1 = system.nodes[0]->ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
 		ASSERT_TRUE (info1);
 		for (auto i (0); i < 50; ++i)
 		{
@@ -650,7 +651,7 @@ TEST (wallet, work_generate)
 	}
 	nano::keypair key;
 	auto block (wallet->send_action (nano::dev::genesis_key.pub, key.pub, 100));
-	ASSERT_TIMELY (10s, node1.ledger.account_balance (node1.ledger.tx_begin_read (), nano::dev::genesis_key.pub) != amount1);
+	ASSERT_TIMELY (10s, node1.ledger.any.account_balance (node1.ledger.tx_begin_read (), nano::dev::genesis_key.pub) != amount1);
 	system.deadline_set (10s);
 	auto again (true);
 	while (again)
@@ -1188,7 +1189,7 @@ TEST (wallet, search_receivable)
 	ASSERT_EQ (2, node.ledger.block_count ());
 	ASSERT_FALSE (wallet.search_receivable (wallet.wallets.tx_begin_read ()));
 	ASSERT_TIMELY_EQ (3s, node.balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount);
-	auto receive_hash = node.ledger.latest (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
+	auto receive_hash = node.ledger.any.account_head (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 	auto receive = node.block (receive_hash);
 	ASSERT_NE (nullptr, receive);
 	ASSERT_EQ (receive->sideband ().height, 3);
@@ -1225,13 +1226,13 @@ TEST (wallet, receive_pruned)
 		ASSERT_EQ (1, node2.ledger.pruning_action (transaction, send1->hash (), 2));
 	}
 	ASSERT_EQ (1, node2.ledger.pruned_count ());
-	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_FALSE (node2.ledger.block_exists (node2.ledger.tx_begin_read (), send1->hash ()));
+	ASSERT_TRUE (node2.block_or_pruned_exists (send1->hash ()));
+	ASSERT_FALSE (node2.ledger.any.block_exists (node2.ledger.tx_begin_read (), send1->hash ()));
 
 	wallet2.insert_adhoc (key.prv, false);
 
 	auto open1 = wallet2.receive_action (send1->hash (), key.pub, amount, send1->destination (), 1);
 	ASSERT_NE (nullptr, open1);
-	ASSERT_EQ (amount, node2.ledger.balance (node2.ledger.tx_begin_read (), open1->hash ()));
+	ASSERT_EQ (amount, node2.ledger.any.block_balance (node2.ledger.tx_begin_read (), open1->hash ()));
 	ASSERT_TIMELY_EQ (5s, node2.ledger.cemented_count (), 4);
 }

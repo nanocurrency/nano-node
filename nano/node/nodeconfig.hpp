@@ -10,6 +10,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
+#include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/repcrawler.hpp>
@@ -123,6 +124,7 @@ public:
 	/** Bootstrap traffic does not need bursts */
 	double bootstrap_bandwidth_burst_ratio{ 1. };
 	nano::bootstrap_ascending_config bootstrap_ascending;
+	nano::bootstrap_server_config bootstrap_server;
 	std::chrono::milliseconds confirming_set_batch_time{ 250 };
 	bool backup_before_upgrade{ false };
 	double max_work_generate_multiplier{ 64. };
@@ -157,6 +159,7 @@ public:
 	std::vector<std::string> config_overrides;
 	std::vector<std::string> rpc_config_overrides;
 	bool disable_add_initial_peers{ false }; // For testing only
+	bool disable_activate_successors{ false }; // For testing only
 	bool disable_backup{ false };
 	bool disable_lazy_bootstrap{ false };
 	bool disable_legacy_bootstrap{ false };

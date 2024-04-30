@@ -49,6 +49,9 @@ enum class type
 	blockprocessor_result,
 	blockprocessor_overfill,
 	bootstrap_server,
+	bootstrap_server_request,
+	bootstrap_server_overfill,
+	bootstrap_server_response,
 	active,
 	active_transactions,
 	active_started,
@@ -65,6 +68,7 @@ enum class type
 	rep_tiers,
 	syn_cookies,
 	peer_history,
+	port_mapping,
 
 	bootstrap_ascending,
 	bootstrap_ascending_accounts,
@@ -323,11 +327,9 @@ enum class detail
 	response,
 	write_error,
 	blocks,
-	response_blocks,
-	response_account_info,
 	channel_full,
-	response_frontiers,
 	frontiers,
+	account_info,
 
 	// backlog
 	activated,

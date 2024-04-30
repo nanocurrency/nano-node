@@ -8,6 +8,8 @@
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
+#include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -253,7 +255,7 @@ TEST (inactive_votes_cache, basic)
 	node.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node, node));
 	ASSERT_TIMELY_EQ (5s, node.vote_cache.size (), 1);
 	node.process_active (send);
-	ASSERT_TIMELY (5s, node.ledger.block_confirmed (node.ledger.tx_begin_read (), send->hash ()));
+	ASSERT_TIMELY (5s, node.ledger.confirmed.block_exists_or_pruned (node.ledger.tx_begin_read (), send->hash ()));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
 
@@ -430,7 +432,7 @@ TEST (inactive_votes_cache, multiple_votes)
 
 	ASSERT_TIMELY_EQ (5s, node.vote_cache.find (send1->hash ()).size (), 2);
 	ASSERT_EQ (1, node.vote_cache.size ());
-	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.ledger.tx_begin_read ());
+	node.scheduler.priority.activate (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 	std::shared_ptr<nano::election> election;
 	ASSERT_TIMELY (5s, election = node.active.election (send1->qualified_root ()));
 	ASSERT_EQ (3, election->votes ().size ()); // 2 votes and 1 default not_an_acount
@@ -1014,9 +1016,9 @@ TEST (active_transactions, confirmation_consistency)
 		auto block (system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::public_key (), node.config.receive_minimum.number ()));
 		ASSERT_NE (nullptr, block);
 		system.deadline_set (5s);
-		while (!node.ledger.block_confirmed (node.ledger.tx_begin_read (), block->hash ()))
+		while (!node.ledger.confirmed.block_exists_or_pruned (node.ledger.tx_begin_read (), block->hash ()))
 		{
-			node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.ledger.tx_begin_read ());
+			node.scheduler.priority.activate (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 			ASSERT_NO_ERROR (system.poll (5ms));
 		}
 		ASSERT_NO_ERROR (system.poll_until_true (1s, [&node, &block, i] {
@@ -1046,7 +1048,8 @@ TEST (active_transactions, confirm_new)
 	// Add key to node2
 	system.wallet (1)->insert_adhoc (nano::dev::genesis_key.prv);
 	// Let node2 know about the block
-	ASSERT_TIMELY (5s, node2.block (send->hash ()));
+	auto send_copy = nano::send_block_builder ().make_block ().from (*send).build ();
+	ASSERT_TIMELY (5s, node2.block (send_copy->hash ()));
 	// Wait confirmation
 	ASSERT_TIMELY (5s, node1.ledger.cemented_count () == 2);
 	ASSERT_TIMELY (5s, node2.ledger.cemented_count () == 2);
@@ -1157,19 +1160,19 @@ TEST (active_transactions, activate_account_chain)
 	ASSERT_EQ (nano::block_status::progress, node.process (open));
 	ASSERT_EQ (nano::block_status::progress, node.process (receive));
 
-	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.ledger.tx_begin_read ());
+	node.scheduler.priority.activate (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 	ASSERT_TIMELY (5s, node.active.election (send->qualified_root ()));
 	auto election1 = node.active.election (send->qualified_root ());
 	ASSERT_EQ (1, node.active.size ());
 	ASSERT_EQ (1, election1->blocks ().count (send->hash ()));
-	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.ledger.tx_begin_read ());
+	node.scheduler.priority.activate (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 	auto election2 = node.active.election (send->qualified_root ());
 	ASSERT_EQ (election2, election1);
 	election1->force_confirm ();
 	ASSERT_TIMELY (3s, node.block_confirmed (send->hash ()));
 	// On cementing, the next election is started
 	ASSERT_TIMELY (3s, node.active.active (send2->qualified_root ()));
-	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.ledger.tx_begin_read ());
+	node.scheduler.priority.activate (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 	auto election3 = node.active.election (send2->qualified_root ());
 	ASSERT_NE (nullptr, election3);
 	ASSERT_EQ (1, election3->blocks ().count (send2->hash ()));
@@ -1178,11 +1181,11 @@ TEST (active_transactions, activate_account_chain)
 	// On cementing, the next election is started
 	ASSERT_TIMELY (3s, node.active.active (open->qualified_root ()));
 	ASSERT_TIMELY (3s, node.active.active (send3->qualified_root ()));
-	node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.ledger.tx_begin_read ());
+	node.scheduler.priority.activate (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 	auto election4 = node.active.election (send3->qualified_root ());
 	ASSERT_NE (nullptr, election4);
 	ASSERT_EQ (1, election4->blocks ().count (send3->hash ()));
-	node.scheduler.priority.activate (key.pub, node.ledger.tx_begin_read ());
+	node.scheduler.priority.activate (node.ledger.tx_begin_read (), key.pub);
 	auto election5 = node.active.election (open->qualified_root ());
 	ASSERT_NE (nullptr, election5);
 	ASSERT_EQ (1, election5->blocks ().count (open->hash ()));
@@ -1190,7 +1193,7 @@ TEST (active_transactions, activate_account_chain)
 	ASSERT_TIMELY (3s, node.block_confirmed (open->hash ()));
 	// Until send3 is also confirmed, the receive block should not activate
 	std::this_thread::sleep_for (200ms);
-	node.scheduler.priority.activate (key.pub, node.ledger.tx_begin_read ());
+	node.scheduler.priority.activate (node.ledger.tx_begin_read (), key.pub);
 	election4->force_confirm ();
 	ASSERT_TIMELY (3s, node.block_confirmed (send3->hash ()));
 	ASSERT_TIMELY (3s, node.active.active (receive->qualified_root ()));
@@ -1331,7 +1334,7 @@ TEST (active_transactions, vacancy)
 		ASSERT_EQ (nano::block_status::progress, node.process (send));
 		ASSERT_EQ (1, node.active.vacancy ());
 		ASSERT_EQ (0, node.active.size ());
-		node.scheduler.priority.activate (nano::dev::genesis_key.pub, node.ledger.tx_begin_read ());
+		node.scheduler.priority.activate (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 		ASSERT_TIMELY (1s, updated);
 		updated = false;
 		ASSERT_EQ (0, node.active.vacancy ());
@@ -1521,7 +1524,7 @@ TEST (active_transactions, allow_limited_overflow)
 	// Insert the first part of the blocks into normal election scheduler
 	for (auto const & block : blocks1)
 	{
-		node.scheduler.priority.activate (block->account (), node.ledger.tx_begin_read ());
+		node.scheduler.priority.activate (node.ledger.tx_begin_read (), block->account ());
 	}
 
 	// Ensure number of active elections reaches AEC limit and there is no overfill
@@ -1583,7 +1586,7 @@ TEST (active_transactions, allow_limited_overflow_adapt)
 	// Insert the first part of the blocks into normal election scheduler
 	for (auto const & block : blocks1)
 	{
-		node.scheduler.priority.activate (block->account (), node.ledger.tx_begin_read ());
+		node.scheduler.priority.activate (node.ledger.tx_begin_read (), block->account ());
 	}
 
 	// Ensure number of active elections reaches AEC limit and there is no overfill

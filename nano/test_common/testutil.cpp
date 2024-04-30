@@ -7,7 +7,8 @@
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/secure/ledger.hpp>
-#include <nano/secure/pending_info.hpp>
+#include <nano/secure/ledger_set_any.hpp>
+#include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/store/block.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -121,12 +122,20 @@ bool nano::test::exists (nano::node & node, std::vector<std::shared_ptr<nano::bl
 	return exists (node, blocks_to_hashes (blocks));
 }
 
+void nano::test::force_confirm (nano::ledger & ledger, std::vector<std::shared_ptr<nano::block>> const blocks)
+{
+	for (auto const block : blocks)
+	{
+		ledger.force_confirm (ledger.tx_begin_write (), *block);
+	}
+}
+
 bool nano::test::block_or_pruned_all_exists (nano::node & node, std::vector<nano::block_hash> hashes)
 {
 	auto transaction = node.ledger.tx_begin_read ();
 	return std::all_of (hashes.begin (), hashes.end (),
 	[&] (const auto & hash) {
-		return node.ledger.block_or_pruned_exists (transaction, hash);
+		return node.ledger.any.block_exists_or_pruned (transaction, hash);
 	});
 }
 
@@ -140,7 +149,7 @@ bool nano::test::block_or_pruned_none_exists (nano::node & node, std::vector<nan
 	auto transaction = node.ledger.tx_begin_read ();
 	return std::none_of (hashes.begin (), hashes.end (),
 	[&] (const auto & hash) {
-		return node.ledger.block_or_pruned_exists (transaction, hash);
+		return node.ledger.any.block_exists_or_pruned (transaction, hash);
 	});
 }
 
@@ -282,23 +291,12 @@ bool nano::test::start_elections (nano::test::system & system_a, nano::node & no
 nano::account_info nano::test::account_info (nano::node const & node, nano::account const & acc)
 {
 	auto const tx = node.ledger.tx_begin_read ();
-	auto opt = node.ledger.account_info (tx, acc);
+	auto opt = node.ledger.any.account_get (tx, acc);
 	if (opt.has_value ())
 	{
 		return opt.value ();
 	}
 	return {};
-}
-
-uint64_t nano::test::account_height (nano::node const & node, nano::account const & acc)
-{
-	auto const tx = node.ledger.tx_begin_read ();
-	nano::confirmation_height_info height_info;
-	if (node.ledger.store.confirmation_height.get (tx, acc, height_info))
-	{
-		return 0;
-	}
-	return height_info.height;
 }
 
 void nano::test::print_all_receivable_entries (const nano::store::component & store)
@@ -325,7 +323,7 @@ void nano::test::print_all_account_info (const nano::ledger & ledger)
 		nano::confirmation_height_info height_info;
 		std::cout << "Account: " << acc.to_account () << std::endl;
 		std::cout << "  Unconfirmed Balance: " << acc_info.balance.to_string_dec () << std::endl;
-		std::cout << "  Confirmed Balance:   " << ledger.account_balance (tx, acc, true) << std::endl;
+		std::cout << "  Confirmed Balance:   " << ledger.confirmed.account_balance (tx, acc).value_or (0) << std::endl;
 		std::cout << "  Block Count:         " << acc_info.block_count << std::endl;
 		if (!ledger.store.confirmation_height.get (tx, acc, height_info))
 		{

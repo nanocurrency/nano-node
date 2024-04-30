@@ -19,6 +19,8 @@
 #include <nano/rpc_test/rpc_context.hpp>
 #include <nano/rpc_test/test_response.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
+#include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/telemetry.hpp>
@@ -256,7 +258,7 @@ TEST (rpc, send)
 	std::string block_text (response.get<std::string> ("block"));
 	nano::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
-	ASSERT_TRUE (node->ledger.block_or_pruned_exists (block));
+	ASSERT_TRUE (node->block_or_pruned_exists (block));
 	ASSERT_EQ (node->latest (nano::dev::genesis_key.pub), block);
 	ASSERT_NE (node->balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount);
 }
@@ -301,7 +303,7 @@ TEST (rpc, send_work)
 	std::string block_text (response2.get<std::string> ("block"));
 	nano::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
-	ASSERT_TRUE (node->ledger.block_or_pruned_exists (block));
+	ASSERT_TRUE (node->block_or_pruned_exists (block));
 	ASSERT_EQ (node->latest (nano::dev::genesis_key.pub), block);
 }
 
@@ -344,7 +346,7 @@ TEST (rpc, send_idempotent)
 	std::string block_text (response.get<std::string> ("block"));
 	nano::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
-	ASSERT_TRUE (node->ledger.block_or_pruned_exists (block));
+	ASSERT_TRUE (node->block_or_pruned_exists (block));
 	ASSERT_EQ (node->balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount / 4);
 	auto response2 (wait_response (system, rpc_ctx, request));
 	ASSERT_EQ ("", response2.get<std::string> ("error", ""));
@@ -557,7 +559,7 @@ TEST (rpc, wallet_representative_set_force)
 	while (representative != key.pub)
 	{
 		auto transaction = node->ledger.tx_begin_read ();
-		auto info = node->ledger.account_info (transaction, nano::dev::genesis_key.pub);
+		auto info = node->ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
 		if (info)
 		{
 			representative = info->representative;
@@ -2400,8 +2402,8 @@ TEST (rpc, account_representative_set)
 	nano::keypair key2;
 	wallet.insert_adhoc (key2.prv);
 	auto key2_open_block_hash = wallet.send_sync (nano::dev::genesis_key.pub, key2.pub, node->config.receive_minimum.number ());
-	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->ledger.tx_begin_read (), key2_open_block_hash));
-	auto key2_open_block = node->ledger.block (node->ledger.tx_begin_read (), key2_open_block_hash);
+	ASSERT_TIMELY (5s, node->ledger.confirmed.block_exists_or_pruned (node->ledger.tx_begin_read (), key2_open_block_hash));
+	auto key2_open_block = node->ledger.any.block_get (node->ledger.tx_begin_read (), key2_open_block_hash);
 	ASSERT_EQ (nano::dev::genesis_key.pub, key2_open_block->representative_field ().value ());
 
 	// now change the representative of key2 to be genesis
@@ -2418,9 +2420,9 @@ TEST (rpc, account_representative_set)
 	nano::block_hash hash;
 	ASSERT_FALSE (hash.decode_hex (block_text1));
 	ASSERT_FALSE (hash.is_zero ());
-	auto block = node->ledger.block (node->ledger.tx_begin_read (), hash);
+	auto block = node->ledger.any.block_get (node->ledger.tx_begin_read (), hash);
 	ASSERT_NE (block, nullptr);
-	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->ledger.tx_begin_read (), hash));
+	ASSERT_TIMELY (5s, node->ledger.confirmed.block_exists_or_pruned (node->ledger.tx_begin_read (), hash));
 	ASSERT_EQ (key2.pub, block->representative_field ().value ());
 }
 
@@ -2455,10 +2457,10 @@ TEST (rpc, account_representative_set_epoch_2_insufficient_work)
 	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_2));
 
 	// speed up the cementing process, otherwise the node waits for frontiers confirmation to notice the unconfirmed epoch blocks, which takes time
-	node->scheduler.priority.activate (nano::dev::genesis_key.pub, node->ledger.tx_begin_read ());
+	node->scheduler.priority.activate (node->ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 
 	// wait for the epoch blocks to be cemented
-	ASSERT_TIMELY_EQ (5s, node->get_confirmation_height (node->store.tx_begin_read (), nano::dev::genesis_key.pub), 3);
+	ASSERT_TIMELY_EQ (5s, node->ledger.confirmed.account_height (node->ledger.tx_begin_read (), nano::dev::genesis_key.pub), 3);
 
 	auto target_difficulty = nano::dev::network_params.work.threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, false, false, false));
 	ASSERT_LT (node->network_params.work.entry, target_difficulty);
@@ -2474,7 +2476,7 @@ TEST (rpc, account_representative_set_epoch_2_insufficient_work)
 	request.put ("representative", nano::keypair ().pub.to_account ());
 
 	// Test that the correct error is given if there is insufficient work
-	auto latest = node->ledger.latest (node->ledger.tx_begin_read (), nano::dev::genesis_key.pub);
+	auto latest = node->ledger.any.account_head (node->ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 	auto insufficient = system.work_generate_limited (latest, min_difficulty, target_difficulty);
 	request.put ("work", nano::to_string_hex (insufficient));
 	{
@@ -3314,7 +3316,7 @@ TEST (rpc, pending_exists)
 	request.put ("hash", hash0.to_string ());
 	ASSERT_TRUE (pending_exists ("0"));
 
-	node->ledger.pending_info (node->ledger.tx_begin_read (), nano::pending_key{ nano::dev::genesis_key.pub, block1->hash () });
+	node->ledger.any.pending_get (node->ledger.tx_begin_read (), nano::pending_key{ nano::dev::genesis_key.pub, block1->hash () });
 	request.put ("hash", block1->hash ().to_string ());
 	ASSERT_TRUE (pending_exists ("1"));
 
@@ -3333,7 +3335,7 @@ TEST (rpc, wallet_pending)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key1.prv);
 	auto block1 = system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 100);
-	ASSERT_TIMELY_EQ (5s, node->get_confirmation_height (node->store.tx_begin_read (), nano::dev::genesis_key.pub), 2);
+	ASSERT_TIMELY_EQ (5s, node->ledger.confirmed.account_height (node->ledger.tx_begin_read (), nano::dev::genesis_key.pub), 2);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_pending");
@@ -4143,7 +4145,7 @@ TEST (rpc, blocks_info_receive_hash)
 	};
 
 	ASSERT_TIMELY (5s, all_blocks_cemented ());
-	ASSERT_EQ (node->ledger.account_balance (node->ledger.tx_begin_read (), key1.pub, true), 10);
+	ASSERT_EQ (node->ledger.confirmed.account_balance (node->ledger.tx_begin_read (), key1.pub), 10);
 
 	// create the RPC request
 	boost::property_tree::ptree request;
@@ -4294,7 +4296,7 @@ TEST (rpc, block_info_pruning)
 	{
 		auto transaction = node1->ledger.tx_begin_write ();
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, send1->hash (), 1));
-		ASSERT_TRUE (node1->ledger.block_exists (transaction, receive1->hash ()));
+		ASSERT_TRUE (node1->ledger.any.block_exists (transaction, receive1->hash ()));
 	}
 	auto const rpc_ctx = add_rpc (system, node1);
 	// Pruned block
@@ -4360,7 +4362,7 @@ TEST (rpc, pruned_exists)
 	{
 		auto transaction = node1->ledger.tx_begin_write ();
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, send1->hash (), 1));
-		ASSERT_TRUE (node1->ledger.block_exists (transaction, receive1->hash ()));
+		ASSERT_TRUE (node1->ledger.any.block_exists (transaction, receive1->hash ()));
 	}
 	auto const rpc_ctx = add_rpc (system, node1);
 	// Pruned block
@@ -5313,7 +5315,7 @@ TEST (rpc, block_confirm_confirmed)
 	auto node = add_ipc_enabled_node (system, config);
 	{
 		auto transaction = node->ledger.tx_begin_read ();
-		ASSERT_TRUE (node->ledger.block_confirmed (transaction, nano::dev::genesis->hash ()));
+		ASSERT_TRUE (node->ledger.confirmed.block_exists_or_pruned (transaction, nano::dev::genesis->hash ()));
 	}
 	ASSERT_EQ (0, node->stats.count (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out));
 	auto const rpc_ctx = add_rpc (system, node);
@@ -5822,7 +5824,7 @@ TEST (rpc, block_confirmed)
 	// Open an account directly in the ledger
 	{
 		auto transaction = node->ledger.tx_begin_write ();
-		nano::block_hash latest (node->ledger.latest (transaction, nano::dev::genesis_key.pub));
+		nano::block_hash latest (node->ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
 		auto send1 = builder
 					 .send ()
 					 .previous (latest)
@@ -5863,7 +5865,7 @@ TEST (rpc, block_confirmed)
 	ASSERT_TRUE (nano::test::start_elections (system, *node, { send }, true));
 
 	// Wait until the confirmation height has been set
-	ASSERT_TIMELY (5s, node->ledger.block_confirmed (node->ledger.tx_begin_read (), send->hash ()) && !node->confirming_set.exists (send->hash ()));
+	ASSERT_TIMELY (5s, node->ledger.confirmed.block_exists_or_pruned (node->ledger.tx_begin_read (), send->hash ()) && !node->confirming_set.exists (send->hash ()));
 
 	// Requesting confirmation for this should now succeed
 	request.put ("hash", send->hash ().to_string ());
@@ -6170,9 +6172,9 @@ TEST (rpc, epoch_upgrade)
 	ASSERT_EQ (nano::block_status::progress, node->process (open));
 	// Check accounts epochs
 	{
-		auto transaction (node->store.tx_begin_read ());
+		auto transaction (node->ledger.tx_begin_read ());
 		ASSERT_EQ (2, node->store.account.count (transaction));
-		for (auto i (node->store.account.begin (transaction)); i != node->store.account.end (); ++i)
+		for (auto i (node->ledger.any.account_begin (transaction)); i != node->ledger.any.account_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_0);
@@ -6188,9 +6190,9 @@ TEST (rpc, epoch_upgrade)
 	ASSERT_TIMELY_EQ (10s, 4, node->store.account.count (node->store.tx_begin_read ()));
 	// Check upgrade
 	{
-		auto transaction (node->store.tx_begin_read ());
+		auto transaction (node->ledger.tx_begin_read ());
 		ASSERT_EQ (4, node->store.account.count (transaction));
-		for (auto i (node->store.account.begin (transaction)); i != node->store.account.end (); ++i)
+		for (auto i (node->ledger.any.account_begin (transaction)); i != node->ledger.any.account_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
@@ -6240,7 +6242,7 @@ TEST (rpc, epoch_upgrade)
 	{
 		// Check pending entry
 		auto transaction = node->ledger.tx_begin_read ();
-		auto info = node->ledger.pending_info (transaction, nano::pending_key (key3.pub, send7->hash ()));
+		auto info = node->ledger.any.pending_get (transaction, nano::pending_key (key3.pub, send7->hash ()));
 		ASSERT_TRUE (info);
 		ASSERT_EQ (nano::epoch::epoch_1, info->epoch);
 	}
@@ -6251,9 +6253,9 @@ TEST (rpc, epoch_upgrade)
 	ASSERT_TIMELY_EQ (10s, 5, node->store.account.count (node->store.tx_begin_read ()));
 	// Check upgrade
 	{
-		auto transaction (node->store.tx_begin_read ());
+		auto transaction (node->ledger.tx_begin_read ());
 		ASSERT_EQ (5, node->store.account.count (transaction));
-		for (auto i (node->store.account.begin (transaction)); i != node->store.account.end (); ++i)
+		for (auto i (node->ledger.any.account_begin (transaction)); i != node->ledger.any.account_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_2);
@@ -6333,9 +6335,9 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	ASSERT_EQ (nano::block_status::progress, node->process (open));
 	// Check accounts epochs
 	{
-		auto transaction (node->store.tx_begin_read ());
+		auto transaction (node->ledger.tx_begin_read ());
 		ASSERT_EQ (2, node->store.account.count (transaction));
-		for (auto i (node->store.account.begin (transaction)); i != node->store.account.end (); ++i)
+		for (auto i (node->ledger.any.account_begin (transaction)); i != node->ledger.any.account_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_0);
@@ -6352,9 +6354,9 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	ASSERT_TIMELY_EQ (5s, 4, node->store.account.count (node->store.tx_begin_read ()));
 	// Check upgrade
 	{
-		auto transaction (node->store.tx_begin_read ());
+		auto transaction (node->ledger.tx_begin_read ());
 		ASSERT_EQ (4, node->store.account.count (transaction));
-		for (auto i (node->store.account.begin (transaction)); i != node->store.account.end (); ++i)
+		for (auto i (node->ledger.any.account_begin (transaction)); i != node->ledger.any.account_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
@@ -6404,7 +6406,7 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	{
 		// Check pending entry
 		auto transaction = node->ledger.tx_begin_read ();
-		auto info = node->ledger.pending_info (transaction, nano::pending_key (key3.pub, send7->hash ()));
+		auto info = node->ledger.any.pending_get (transaction, nano::pending_key (key3.pub, send7->hash ()));
 		ASSERT_TRUE (info);
 		ASSERT_EQ (nano::epoch::epoch_1, info->epoch);
 	}
@@ -6415,9 +6417,9 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	ASSERT_TIMELY_EQ (5s, 5, node->store.account.count (node->store.tx_begin_read ()));
 	// Check upgrade
 	{
-		auto transaction (node->store.tx_begin_read ());
+		auto transaction (node->ledger.tx_begin_read ());
 		ASSERT_EQ (5, node->store.account.count (transaction));
-		for (auto i (node->store.account.begin (transaction)); i != node->store.account.end (); ++i)
+		for (auto i (node->ledger.any.account_begin (transaction)); i != node->ledger.any.account_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_2);
@@ -6506,7 +6508,7 @@ TEST (rpc, receive)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto receive_text (response.get<std::string> ("block"));
-		auto info = node->ledger.account_info (node->ledger.tx_begin_read (), key1.pub);
+		auto info = node->ledger.any.account_get (node->ledger.tx_begin_read (), key1.pub);
 		ASSERT_TRUE (info);
 		ASSERT_EQ (info->head, nano::block_hash{ receive_text });
 	}
@@ -6536,7 +6538,7 @@ TEST (rpc, receive_unopened)
 	auto send1 (wallet->send_action (nano::dev::genesis_key.pub, key1.pub, node->config.receive_minimum.number () - 1, *node->work_generate_blocking (nano::dev::genesis->hash ())));
 	ASSERT_TIMELY (5s, !node->balance (nano::dev::genesis_key.pub) != nano::dev::constants.genesis_amount);
 	ASSERT_FALSE (node->store.account.exists (node->ledger.tx_begin_read (), key1.pub));
-	ASSERT_TRUE (node->ledger.block_exists (node->ledger.tx_begin_read (), send1->hash ()));
+	ASSERT_TRUE (node->ledger.any.block_exists (node->ledger.tx_begin_read (), send1->hash ()));
 	wallet->insert_adhoc (key1.prv); // should not auto receive, amount sent was lower than minimum
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
@@ -6547,7 +6549,7 @@ TEST (rpc, receive_unopened)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto receive_text (response.get<std::string> ("block"));
-		auto info = node->ledger.account_info (node->ledger.tx_begin_read (), key1.pub);
+		auto info = node->ledger.any.account_get (node->ledger.tx_begin_read (), key1.pub);
 		ASSERT_TRUE (info);
 		ASSERT_EQ (info->head, info->open_block);
 		ASSERT_EQ (info->head.to_string (), receive_text);
@@ -6560,7 +6562,7 @@ TEST (rpc, receive_unopened)
 	auto send2 (wallet->send_action (nano::dev::genesis_key.pub, key2.pub, node->config.receive_minimum.number () - 1, *node->work_generate_blocking (send1->hash ())));
 	ASSERT_TIMELY (5s, !node->balance (nano::dev::genesis_key.pub) != prev_amount);
 	ASSERT_FALSE (node->store.account.exists (node->ledger.tx_begin_read (), key2.pub));
-	ASSERT_TRUE (node->ledger.block_exists (node->ledger.tx_begin_read (), send2->hash ()));
+	ASSERT_TRUE (node->ledger.any.block_exists (node->ledger.tx_begin_read (), send2->hash ()));
 	nano::public_key rep;
 	wallet->store.representative_set (node->wallets.tx_begin_write (), rep);
 	wallet->insert_adhoc (key2.prv); // should not auto receive, amount sent was lower than minimum
@@ -6569,7 +6571,7 @@ TEST (rpc, receive_unopened)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto receive_text (response.get<std::string> ("block"));
-		auto info = node->ledger.account_info (node->ledger.tx_begin_read (), key2.pub);
+		auto info = node->ledger.any.account_get (node->ledger.tx_begin_read (), key2.pub);
 		ASSERT_TRUE (info);
 		ASSERT_EQ (info->head, info->open_block);
 		ASSERT_EQ (info->head.to_string (), receive_text);
@@ -6595,7 +6597,7 @@ TEST (rpc, receive_work_disabled)
 	ASSERT_NE (send1, nullptr);
 	ASSERT_TIMELY (5s, node->balance (nano::dev::genesis_key.pub) != nano::dev::constants.genesis_amount);
 	ASSERT_FALSE (node->store.account.exists (node->ledger.tx_begin_read (), key1.pub));
-	ASSERT_TRUE (node->ledger.block_exists (node->ledger.tx_begin_read (), send1->hash ()));
+	ASSERT_TRUE (node->ledger.any.block_exists (node->ledger.tx_begin_read (), send1->hash ()));
 	wallet->insert_adhoc (key1.prv);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
@@ -6639,11 +6641,11 @@ TEST (rpc, receive_pruned)
 		ASSERT_EQ (2, node2->ledger.pruning_action (transaction, send2->hash (), 1));
 	}
 	ASSERT_EQ (2, node2->ledger.pruned_count ());
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_FALSE (node2->ledger.block_exists (node2->ledger.tx_begin_read (), send1->hash ()));
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send2->hash ()));
-	ASSERT_FALSE (node2->ledger.block_exists (node2->ledger.tx_begin_read (), send2->hash ()));
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send3->hash ()));
+	ASSERT_TRUE (node2->block_or_pruned_exists (send1->hash ()));
+	ASSERT_FALSE (node2->ledger.any.block_exists (node2->ledger.tx_begin_read (), send1->hash ()));
+	ASSERT_TRUE (node2->block_or_pruned_exists (send2->hash ()));
+	ASSERT_FALSE (node2->ledger.any.block_exists (node2->ledger.tx_begin_read (), send2->hash ()));
+	ASSERT_TRUE (node2->block_or_pruned_exists (send3->hash ()));
 
 	auto const rpc_ctx = add_rpc (system, node2);
 	boost::property_tree::ptree request;
@@ -6654,7 +6656,7 @@ TEST (rpc, receive_pruned)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto receive_text (response.get<std::string> ("block"));
-		auto info = node2->ledger.account_info (node2->ledger.tx_begin_read (), key1.pub);
+		auto info = node2->ledger.any.account_get (node2->ledger.tx_begin_read (), key1.pub);
 		ASSERT_TRUE (info);
 		ASSERT_EQ (info->head, nano::block_hash{ receive_text });
 	}

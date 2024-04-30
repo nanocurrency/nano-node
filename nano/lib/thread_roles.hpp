@@ -51,6 +51,7 @@ enum class name
 	signal_manager,
 	tcp_listener,
 	peer_history,
+	port_mapping,
 	stats,
 };
 

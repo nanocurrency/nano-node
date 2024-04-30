@@ -81,7 +81,7 @@ void nano::distributed_work::start ()
 		else
 		{
 			auto this_l (shared_from_this ());
-			node.network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (peer.first, std::to_string (peer.second)), [peer, this_l, &extra = resolved_extra] (boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a) {
+			node.network.resolver.async_resolve (boost::asio::ip::tcp::resolver::query (peer.first, std::to_string (peer.second)), [peer, this_l, &extra = resolved_extra] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
 				if (!ec)
 				{
 					this_l->do_request (nano::tcp_endpoint (i_a->endpoint ().address (), i_a->endpoint ().port ()));

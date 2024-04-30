@@ -22,6 +22,8 @@
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
+#include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
 
@@ -74,10 +76,10 @@ nano::outbound_bandwidth_limiter::config nano::outbound_bandwidth_limiter_config
 void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 {
 	auto node_l (shared_from_this ());
-	network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (address_a, std::to_string (port_a)), [node_l, address_a, port_a] (boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a) {
+	network.resolver.async_resolve (boost::asio::ip::tcp::resolver::query (address_a, std::to_string (port_a)), [node_l, address_a, port_a] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
 		if (!ec)
 		{
-			for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator{}); i != n; ++i)
+			for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator{}); i != n; ++i)
 			{
 				auto endpoint (nano::transport::map_endpoint_to_v6 (i->endpoint ()));
 				std::weak_ptr<nano::node> node_w (node_l);
@@ -161,7 +163,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	network (*this, config.peering_port.has_value () ? *config.peering_port : 0),
 	telemetry{ nano::telemetry::config{ config, flags }, *this, network, observers, network_params, stats },
 	bootstrap_initiator (*this),
-	bootstrap_server{ store, ledger, network_params.network, stats },
+	bootstrap_server{ config.bootstrap_server, store, ledger, network_params.network, stats },
 	// BEWARE: `bootstrap` takes `network.port` instead of `config.peering_port` because when the user doesn't specify
 	//         a peering port and wants the OS to pick one, the picking happens when `network` gets initialized
 	//         (if UDP is active, otherwise it happens when `bootstrap` gets initialized), so then for TCP traffic
@@ -219,9 +221,9 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 		return ledger.weight (rep);
 	};
 
-	backlog.activate_callback.add ([this] (secure::transaction const & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info) {
-		scheduler.priority.activate (account, transaction);
-		scheduler.optimistic.activate (account, account_info, conf_info);
+	backlog.activate_callback.add ([this] (secure::transaction const & transaction, nano::account const & account) {
+		scheduler.priority.activate (transaction, account);
+		scheduler.optimistic.activate (transaction, account);
 	});
 
 	active.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
@@ -400,7 +402,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			store.initialize (transaction, ledger.cache, ledger.constants);
 		}
 
-		if (!ledger.block_or_pruned_exists (config.network_params.ledger.genesis->hash ()))
+		if (!block_or_pruned_exists (config.network_params.ledger.genesis->hash ()))
 		{
 			logger.critical (nano::log::type::node, "Genesis block not found. This commonly indicates a configuration issue, check that the --network or --data_path command line arguments are correct, and also the ledger backend node config option. If using a read-only CLI command a ledger must already exist, start the node with --daemon first.");
 
@@ -770,24 +772,29 @@ void nano::node::keepalive_preconfigured ()
 
 nano::block_hash nano::node::latest (nano::account const & account_a)
 {
-	return ledger.latest (ledger.tx_begin_read (), account_a);
+	return ledger.any.account_head (ledger.tx_begin_read (), account_a);
 }
 
 nano::uint128_t nano::node::balance (nano::account const & account_a)
 {
-	return ledger.account_balance (ledger.tx_begin_read (), account_a);
+	return ledger.any.account_balance (ledger.tx_begin_read (), account_a).value_or (0).number ();
 }
 
 std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)
 {
-	return ledger.block (ledger.tx_begin_read (), hash_a);
+	return ledger.any.block_get (ledger.tx_begin_read (), hash_a);
+}
+
+bool nano::node::block_or_pruned_exists (nano::block_hash const & hash_a) const
+{
+	return ledger.any.block_exists_or_pruned (ledger.tx_begin_read (), hash_a);
 }
 
 std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::account const & account_a, bool only_confirmed_a)
 {
 	std::pair<nano::uint128_t, nano::uint128_t> result;
 	auto const transaction = ledger.tx_begin_read ();
-	result.first = ledger.account_balance (transaction, account_a, only_confirmed_a);
+	result.first = only_confirmed_a ? ledger.confirmed.account_balance (transaction, account_a).value_or (0).number () : ledger.any.account_balance (transaction, account_a).value_or (0).number ();
 	result.second = ledger.account_receivable (transaction, account_a, only_confirmed_a);
 	return result;
 }
@@ -949,7 +956,7 @@ bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & 
 		uint64_t depth (0);
 		while (!hash.is_zero () && depth < max_depth_a)
 		{
-			auto block = ledger.block (transaction, hash);
+			auto block = ledger.any.block_get (transaction, hash);
 			if (block != nullptr)
 			{
 				if (block->sideband ().timestamp > cutoff_time_a || depth == 0)
@@ -1178,12 +1185,12 @@ void nano::node::start_election (std::shared_ptr<nano::block> const & block)
 
 bool nano::node::block_confirmed (nano::block_hash const & hash_a)
 {
-	return ledger.block_confirmed (ledger.tx_begin_read (), hash_a);
+	return ledger.confirmed.block_exists_or_pruned (ledger.tx_begin_read (), hash_a);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::secure::transaction const & transaction, nano::block_hash const & hash_a)
 {
-	return confirming_set.exists (hash_a) || ledger.block_confirmed (transaction, hash_a);
+	return confirming_set.exists (hash_a) || ledger.confirmed.block_exists_or_pruned (transaction, hash_a);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & hash_a)
@@ -1217,7 +1224,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 {
 	auto hash (status_a.winner->hash ());
 	decltype (iteration_a) const num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
-	if (auto block_l = ledger.block (ledger.tx_begin_read (), hash))
+	if (auto block_l = ledger.any.block_get (ledger.tx_begin_read (), hash))
 	{
 		logger.trace (nano::log::type::node, nano::log::detail::process_confirmed, nano::log::arg{ "block", block_l });
 
@@ -1294,14 +1301,6 @@ void nano::node::bootstrap_block (const nano::block_hash & hash)
 		// We don't have the block, try to bootstrap it
 		// TODO: Use ascending bootstraper to bootstrap block hash
 	}
-}
-
-/** Convenience function to easily return the confirmation height of an account. */
-uint64_t nano::node::get_confirmation_height (store::transaction const & transaction_a, nano::account & account_a)
-{
-	nano::confirmation_height_info info;
-	store.confirmation_height.get (transaction_a, account_a, info);
-	return info.height;
 }
 
 nano::account nano::node::get_node_id () const

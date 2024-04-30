@@ -6,6 +6,7 @@
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
 #include <nano/store/component.hpp>
 
 #include <utility>
@@ -204,8 +205,8 @@ bool nano::block_processor::add_impl (context ctx, std::shared_ptr<nano::transpo
 void nano::block_processor::rollback_competitor (secure::write_transaction const & transaction, nano::block const & block)
 {
 	auto hash = block.hash ();
-	auto successor_hash = node.ledger.successor (transaction, block.qualified_root ());
-	auto successor = successor_hash ? node.ledger.block (transaction, successor_hash.value ()) : nullptr;
+	auto successor_hash = node.ledger.any.block_successor (transaction, block.qualified_root ());
+	auto successor = successor_hash ? node.ledger.any.block_get (transaction, successor_hash.value ()) : nullptr;
 	if (successor != nullptr && successor->hash () != hash)
 	{
 		// Replace our block with the winner and roll back any dependent blocks

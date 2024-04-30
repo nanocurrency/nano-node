@@ -7,6 +7,7 @@
 #include <nano/node/transport/socket.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -193,12 +194,12 @@ TEST (network, send_discarded_publish)
 	{
 		auto transaction = node1.ledger.tx_begin_read ();
 		node1.network.flood_block (block);
-		ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger.latest (transaction, nano::dev::genesis_key.pub));
+		ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
 		ASSERT_EQ (nano::dev::genesis->hash (), node2.latest (nano::dev::genesis_key.pub));
 	}
 	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) != 0);
 	auto transaction = node1.ledger.tx_begin_read ();
-	ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger.latest (transaction, nano::dev::genesis_key.pub));
+	ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::genesis->hash (), node2.latest (nano::dev::genesis_key.pub));
 }
 
@@ -219,12 +220,12 @@ TEST (network, send_invalid_publish)
 	{
 		auto transaction = node1.ledger.tx_begin_read ();
 		node1.network.flood_block (block);
-		ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger.latest (transaction, nano::dev::genesis_key.pub));
+		ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
 		ASSERT_EQ (nano::dev::genesis->hash (), node2.latest (nano::dev::genesis_key.pub));
 	}
 	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) != 0);
 	auto transaction = node1.ledger.tx_begin_read ();
-	ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger.latest (transaction, nano::dev::genesis_key.pub));
+	ASSERT_EQ (nano::dev::genesis->hash (), node1.ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
 	ASSERT_EQ (nano::dev::genesis->hash (), node2.latest (nano::dev::genesis_key.pub));
 }
 
@@ -369,7 +370,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
 				  .build ();
 	node1.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::block_status::progress, node1.process (block1));
-	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.ledger.tx_begin_read ());
+	node1.scheduler.priority.activate (node1.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 	nano::keypair key1;
 	auto vote = nano::test::make_vote (key1, { block1 }, 0, 0);
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
@@ -392,7 +393,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 				  .build ();
 	node1.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::block_status::progress, node1.process (block1));
-	node1.scheduler.priority.activate (nano::dev::genesis_key.pub, node1.ledger.tx_begin_read ());
+	node1.scheduler.priority.activate (node1.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, { block1 }, 0, 0);
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
 	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
@@ -538,20 +539,6 @@ TEST (network, endpoint_bad_fd)
 	ASSERT_TRUE (endpoint.address ().is_loopback ());
 	// The endpoint is invalidated asynchronously
 	ASSERT_TIMELY_EQ (10s, system.nodes[0]->network.endpoint ().port (), 0);
-}
-
-TEST (node, port_mapping)
-{
-	nano::test::system system (1);
-	auto node0 (system.nodes[0]);
-	node0->port_mapping.refresh_devices ();
-	node0->port_mapping.start ();
-	auto end (std::chrono::steady_clock::now () + std::chrono::seconds (500));
-	(void)end;
-	// while (std::chrono::steady_clock::now () < end)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
 }
 
 TEST (tcp_listener, tcp_node_id_handshake)

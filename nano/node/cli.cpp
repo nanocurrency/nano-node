@@ -62,6 +62,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("migrate_database_lmdb_to_rocksdb", "Migrates LMDB database to RocksDB")
 	("diagnostics", "Run internal diagnostics")
 	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node, rpc or log. See also use_defaults.")
+	("update_config", "Reads the current node configuration and updates it with missing keys and values and delete keys that are no longer used. Updated configuration is written to stdout.")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
 	("key_expand", "Derive public key and account number from <key>")
 	("wallet_add_adhoc", "Insert <key> in to <wallet>")
@@ -92,6 +93,7 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 	// clang-format off
 	description_a.add_options()
 		("disable_add_initial_peers", "Disable contacting the peer in the peers table at startup")
+		("disable_activate_successors", "Disables activate_successors in active_transactions")
 		("disable_backup", "Disable wallet automatic backups")
 		("disable_lazy_bootstrap", "Disables lazy bootstrap")
 		("disable_legacy_bootstrap", "Disables legacy bootstrap")
@@ -121,6 +123,7 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 {
 	std::error_code ec;
 	flags_a.disable_add_initial_peers = (vm.count ("disable_add_initial_peers") > 0);
+	flags_a.disable_activate_successors = (vm.count ("disable_activate_successors") > 0);
 	flags_a.disable_backup = (vm.count ("disable_backup") > 0);
 	flags_a.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
 	flags_a.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
@@ -709,6 +712,31 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			{
 				std::cout << toml.to_string (true) << std::endl;
 			}
+		}
+	}
+	else if (vm.count ("update_config"))
+	{
+		nano::network_params network_params{ nano::network_constants::active_network };
+		nano::tomlconfig default_toml;
+		nano::tomlconfig current_toml;
+		nano::daemon_config default_config{ data_path, network_params };
+		nano::daemon_config current_config{ data_path, network_params };
+
+		std::vector<std::string> config_overrides;
+		auto error = nano::read_node_config_toml (data_path, current_config, config_overrides);
+		if (error)
+		{
+			std::cerr << "Could not read existing config file\n";
+			ec = nano::error_cli::reading_config;
+		}
+		else
+		{
+			current_config.serialize_toml (current_toml);
+			default_config.serialize_toml (default_toml);
+
+			auto output = current_toml.merge_defaults (current_toml, default_toml);
+
+			std::cout << output;
 		}
 	}
 	else if (vm.count ("diagnostics"))

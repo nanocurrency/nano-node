@@ -10,6 +10,7 @@
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
 #include <nano/store/component.hpp>
 
 #include <ranges>
@@ -116,7 +117,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 	bool was_active = status.type == nano::election_status_type::active_confirmed_quorum || status.type == nano::election_status_type::active_confirmation_height;
 
 	// Next-block activations are only done for blocks with previously active elections
-	if (cemented_bootstrap_count_reached && was_active)
+	if (cemented_bootstrap_count_reached && was_active && !node.flags.disable_activate_successors)
 	{
 		activate_successors (transaction, block);
 	}
@@ -126,7 +127,7 @@ void nano::active_transactions::notify_observers (nano::secure::read_transaction
 {
 	auto block = status.winner;
 	auto account = block->account ();
-	auto amount = node.ledger.amount (transaction, block->hash ()).value_or (0);
+	auto amount = node.ledger.any.block_amount (transaction, block->hash ()).value_or (0).number ();
 	auto is_state_send = block->type () == block_type::state && block->is_send ();
 	auto is_state_epoch = block->type () == block_type::state && block->is_epoch ();
 	node.observers.blocks.notify (status, votes, account, amount, is_state_send, is_state_epoch);
@@ -143,12 +144,12 @@ void nano::active_transactions::notify_observers (nano::secure::read_transaction
 
 void nano::active_transactions::activate_successors (nano::secure::read_transaction const & transaction, std::shared_ptr<nano::block> const & block)
 {
-	node.scheduler.priority.activate (block->account (), transaction);
+	node.scheduler.priority.activate (transaction, block->account ());
 
 	// Start or vote for the next unconfirmed block in the destination account
 	if (block->is_send () && !block->destination ().is_zero () && block->destination () != block->account ())
 	{
-		node.scheduler.priority.activate (block->destination (), transaction);
+		node.scheduler.priority.activate (transaction, block->destination ());
 	}
 }
 
