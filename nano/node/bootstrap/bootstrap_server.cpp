@@ -5,6 +5,7 @@
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
 #include <nano/store/account.hpp>
 #include <nano/store/block.hpp>
 #include <nano/store/component.hpp>
@@ -258,7 +259,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & 
 	{
 		case asc_pull_req::hash_type::block:
 		{
-			if (ledger.block_exists (transaction, request.start.as_block_hash ()))
+			if (ledger.any.block_exists (transaction, request.start.as_block_hash ()))
 			{
 				return prepare_response (transaction, id, request.start.as_block_hash (), count);
 			}
@@ -266,7 +267,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & 
 		break;
 		case asc_pull_req::hash_type::account:
 		{
-			auto info = ledger.account_info (transaction, request.start.as_account ());
+			auto info = ledger.any.account_get (transaction, request.start.as_account ());
 			if (info)
 			{
 				// Start from open block if pulling by account
@@ -319,13 +320,13 @@ std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks
 	std::vector<std::shared_ptr<nano::block>> result;
 	if (!start_block.is_zero ())
 	{
-		std::shared_ptr<nano::block> current = ledger.block (transaction, start_block);
+		std::shared_ptr<nano::block> current = ledger.any.block_get (transaction, start_block);
 		while (current && result.size () < count)
 		{
 			result.push_back (current);
 
 			auto successor = current->sideband ().successor;
-			current = ledger.block (transaction, successor);
+			current = ledger.any.block_get (transaction, successor);
 		}
 	}
 	return result;
@@ -352,7 +353,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & 
 		case asc_pull_req::hash_type::block:
 		{
 			// Try to lookup account assuming target is block hash
-			target = ledger.account (transaction, request.target.as_block_hash ()).value_or (0);
+			target = ledger.any.block_account (transaction, request.target.as_block_hash ()).value_or (0);
 		}
 		break;
 	}
@@ -360,7 +361,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & 
 	nano::asc_pull_ack::account_info_payload response_payload{};
 	response_payload.account = target;
 
-	auto account_info = ledger.account_info (transaction, target);
+	auto account_info = ledger.any.account_get (transaction, target);
 	if (account_info)
 	{
 		response_payload.account_open = account_info->open_block;
@@ -395,7 +396,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & 
 
 	nano::asc_pull_ack::frontiers_payload response_payload{};
 
-	for (auto it = store.account.begin (transaction, request.start), end = store.account.end (); it != end && response_payload.frontiers.size () < request.count; ++it)
+	for (auto it = ledger.any.account_lower_bound (transaction, request.start), end = ledger.any.account_end (); it != end && response_payload.frontiers.size () < request.count; ++it)
 	{
 		response_payload.frontiers.emplace_back (it->first, it->second.head);
 	}

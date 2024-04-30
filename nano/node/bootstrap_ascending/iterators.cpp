@@ -2,6 +2,7 @@
 #include <nano/node/bootstrap_ascending/iterators.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
 #include <nano/store/account.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/pending.hpp>
@@ -27,9 +28,8 @@ void nano::bootstrap_ascending::database_iterator::next (secure::transaction & t
 	{
 		case table_type::account:
 		{
-			auto i = current.number () + 1;
-			auto item = ledger.store.account.begin (tx, i);
-			if (item != ledger.store.account.end ())
+			auto item = ledger.any.account_upper_bound (tx, current.number ());
+			if (item != ledger.any.account_end ())
 			{
 				current = item->first;
 			}
@@ -41,8 +41,8 @@ void nano::bootstrap_ascending::database_iterator::next (secure::transaction & t
 		}
 		case table_type::pending:
 		{
-			auto item = ledger.receivable_upper_bound (tx, current);
-			if (item != ledger.receivable_end ())
+			auto item = ledger.any.receivable_upper_bound (tx, current);
+			if (item != ledger.any.receivable_end ())
 			{
 				current = item->first.account;
 			}

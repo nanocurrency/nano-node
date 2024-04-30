@@ -12,6 +12,8 @@
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
+#include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -50,8 +52,8 @@ TEST (system, generate_mass_activity)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	uint32_t count (20);
 	system.generate_mass_activity (count, *system.nodes[0]);
-	auto transaction (system.nodes[0]->store.tx_begin_read ());
-	for (auto i (system.nodes[0]->store.account.begin (transaction)), n (system.nodes[0]->store.account.end ()); i != n; ++i)
+	auto transaction (system.nodes[0]->ledger.tx_begin_read ());
+	for (auto i (system.nodes[0]->ledger.any.account_begin (transaction)), n (system.nodes[0]->ledger.any.account_end ()); i != n; ++i)
 	{
 	}
 }
@@ -72,8 +74,8 @@ TEST (system, generate_mass_activity_long)
 		std::cout << "count override due to env variable set, count=" << count << std::endl;
 	}
 	system.generate_mass_activity (count, *system.nodes[0]);
-	auto transaction (system.nodes[0]->store.tx_begin_read ());
-	for (auto i (system.nodes[0]->store.account.begin (transaction)), n (system.nodes[0]->store.account.end ()); i != n; ++i)
+	auto transaction (system.nodes[0]->ledger.tx_begin_read ());
+	for (auto i (system.nodes[0]->ledger.any.account_begin (transaction)), n (system.nodes[0]->ledger.any.account_end ()); i != n; ++i)
 	{
 	}
 	system.stop ();
@@ -104,7 +106,7 @@ TEST (system, receive_while_synchronizing)
 		node1->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (200), ([&system, &key] () {
 			auto hash (system.wallet (0)->send_sync (nano::dev::genesis_key.pub, key.pub, system.nodes[0]->config.receive_minimum.number ()));
 			auto transaction = system.nodes[0]->ledger.tx_begin_read ();
-			auto block = system.nodes[0]->ledger.block (transaction, hash);
+			auto block = system.nodes[0]->ledger.any.block_get (transaction, hash);
 			std::string block_text;
 			block->serialize_json (block_text);
 		}));
@@ -178,8 +180,8 @@ TEST (ledger, deep_account_compute)
 		{
 			std::cerr << i << ' ';
 		}
-		ledger.account (transaction, sprevious);
-		ledger.balance (transaction, rprevious);
+		ledger.any.block_account (transaction, sprevious);
+		ledger.any.block_balance (transaction, rprevious);
 	}
 }
 
@@ -687,11 +689,11 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 		election->force_confirm ();
 	}
 
-	ASSERT_TIMELY (120s, node->ledger.block_confirmed (node->ledger.tx_begin_read (), last_open_hash));
+	ASSERT_TIMELY (120s, node->ledger.confirmed.block_exists_or_pruned (node->ledger.tx_begin_read (), last_open_hash));
 
 	// All frontiers (except last) should have 2 blocks and both should be confirmed
-	auto transaction = node->store.tx_begin_read ();
-	for (auto i (node->store.account.begin (transaction)), n (node->store.account.end ()); i != n; ++i)
+	auto transaction = node->ledger.tx_begin_read ();
+	for (auto i (node->ledger.any.account_begin (transaction)), n (node->ledger.any.account_end ()); i != n; ++i)
 	{
 		auto & account = i->first;
 		auto & account_info = i->second;
@@ -908,17 +910,17 @@ TEST (confirmation_height, long_chains)
 		election->force_confirm ();
 	}
 
-	ASSERT_TIMELY (30s, node->ledger.block_confirmed (node->ledger.tx_begin_read (), receive1->hash ()));
+	ASSERT_TIMELY (30s, node->ledger.confirmed.block_exists_or_pruned (node->ledger.tx_begin_read (), receive1->hash ()));
 
 	auto transaction = node->ledger.tx_begin_read ();
-	auto info = node->ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info = node->ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info);
 	nano::confirmation_height_info confirmation_height_info;
 	ASSERT_FALSE (node->store.confirmation_height.get (transaction, nano::dev::genesis_key.pub, confirmation_height_info));
 	ASSERT_EQ (num_blocks + 2, confirmation_height_info.height);
 	ASSERT_EQ (num_blocks + 3, info->block_count); // Includes the unpocketed send
 
-	info = node->ledger.account_info (transaction, key1.pub);
+	info = node->ledger.any.account_get (transaction, key1.pub);
 	ASSERT_TRUE (info);
 	ASSERT_FALSE (node->store.confirmation_height.get (transaction, key1.pub, confirmation_height_info));
 	ASSERT_EQ (num_blocks + 1, confirmation_height_info.height);
@@ -1750,9 +1752,9 @@ TEST (node, mass_epoch_upgrader)
 		ASSERT_EQ (expected_blocks, node.ledger.block_count ());
 		// Check upgrade
 		{
-			auto transaction (node.store.tx_begin_read ());
+			auto transaction (node.ledger.tx_begin_read ());
 			size_t block_count_sum = 0;
-			for (auto i (node.store.account.begin (transaction)); i != node.store.account.end (); ++i)
+			for (auto i (node.ledger.any.account_begin (transaction)); i != node.ledger.any.account_end (); ++i)
 			{
 				nano::account_info info (i->second);
 				ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
@@ -1964,7 +1966,7 @@ TEST (node, aggressive_flooding)
 	auto all_received = [&nodes_wallets] () {
 		return std::all_of (nodes_wallets.begin (), nodes_wallets.end (), [] (auto const & node_wallet) {
 			auto local_representative (node_wallet.second->store.representative (node_wallet.first->wallets.tx_begin_read ()));
-			return node_wallet.first->ledger.account_balance (node_wallet.first->ledger.tx_begin_read (), local_representative) > 0;
+			return node_wallet.first->ledger.any.account_balance (node_wallet.first->ledger.tx_begin_read (), local_representative) > 0;
 		});
 	};
 
@@ -1983,11 +1985,11 @@ TEST (node, aggressive_flooding)
 		block = builder.make_block ()
 				.account (nano::dev::genesis_key.pub)
 				.representative (nano::dev::genesis_key.pub)
-				.previous (node1.ledger.latest (transaction, nano::dev::genesis_key.pub))
-				.balance (node1.ledger.account_balance (transaction, nano::dev::genesis_key.pub) - 1)
+				.previous (node1.ledger.any.account_head (transaction, nano::dev::genesis_key.pub))
+				.balance (node1.ledger.any.account_balance (transaction, nano::dev::genesis_key.pub).value ().number () - 1)
 				.link (nano::dev::genesis_key.pub)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*node1.work_generate_blocking (node1.ledger.latest (transaction, nano::dev::genesis_key.pub)))
+				.work (*node1.work_generate_blocking (node1.ledger.any.account_head (transaction, nano::dev::genesis_key.pub)))
 				.build ();
 	}
 	// Processing locally goes through the aggressive block flooding path
@@ -2070,14 +2072,14 @@ TEST (node, wallet_create_block_confirm_conflicts)
 
 		// Call block confirm on the top level send block which will confirm everything underneath on both accounts.
 		{
-			auto block = node->ledger.block (node->ledger.tx_begin_read (), latest);
+			auto block = node->ledger.any.block_get (node->ledger.tx_begin_read (), latest);
 			node->scheduler.manual.push (block);
 			std::shared_ptr<nano::election> election;
 			ASSERT_TIMELY (10s, (election = node->active.election (block->qualified_root ())) != nullptr);
 			election->force_confirm ();
 		}
 
-		ASSERT_TIMELY (120s, node->ledger.block_confirmed (node->ledger.tx_begin_read (), latest) && node->confirming_set.size () == 0);
+		ASSERT_TIMELY (120s, node->ledger.confirmed.block_exists_or_pruned (node->ledger.tx_begin_read (), latest) && node->confirming_set.size () == 0);
 		done = true;
 		t.join ();
 	}

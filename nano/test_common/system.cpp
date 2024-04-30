@@ -5,6 +5,7 @@
 #include <nano/node/common.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -302,8 +303,8 @@ std::shared_ptr<nano::state_block> nano::test::upgrade_epoch (nano::work_pool & 
 	auto transaction = ledger_a.tx_begin_write ();
 	auto dev_genesis_key = nano::dev::genesis_key;
 	auto account = dev_genesis_key.pub;
-	auto latest = ledger_a.latest (transaction, account);
-	auto balance = ledger_a.account_balance (transaction, account);
+	auto latest = ledger_a.any.account_head (transaction, account);
+	auto balance = ledger_a.any.account_balance (transaction, account).value_or (0);
 
 	nano::state_block_builder builder;
 	std::error_code ec;
@@ -445,7 +446,7 @@ void nano::test::system::generate_rollback (nano::node & node_a, std::vector<nan
 	debug_assert (std::numeric_limits<CryptoPP::word32>::max () > accounts_a.size ());
 	auto index (random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (accounts_a.size () - 1)));
 	auto account (accounts_a[index]);
-	auto info = node_a.ledger.account_info (transaction, account);
+	auto info = node_a.ledger.any.account_get (transaction, account);
 	if (info)
 	{
 		auto hash (info->open_block);
@@ -472,10 +473,10 @@ void nano::test::system::generate_receive (nano::node & node_a)
 		auto transaction = node_a.ledger.tx_begin_read ();
 		nano::account random_account;
 		random_pool::generate_block (random_account.bytes.data (), sizeof (random_account.bytes));
-		auto item = node_a.ledger.receivable_upper_bound (transaction, random_account);
-		if (item != node_a.ledger.receivable_end ())
+		auto item = node_a.ledger.any.receivable_upper_bound (transaction, random_account);
+		if (item != node_a.ledger.any.receivable_end ())
 		{
-			send_block = node_a.ledger.block (transaction, item->first.hash);
+			send_block = node_a.ledger.any.block_get (transaction, item->first.hash);
 		}
 	}
 	if (send_block != nullptr)
@@ -524,7 +525,7 @@ nano::account nano::test::system::get_random_account (std::vector<nano::account>
 
 nano::uint128_t nano::test::system::get_random_amount (secure::transaction const & transaction_a, nano::node & node_a, nano::account const & account_a)
 {
-	nano::uint128_t balance (node_a.ledger.account_balance (transaction_a, account_a));
+	nano::uint128_t balance = node_a.ledger.any.account_balance (transaction_a, account_a).value_or (0).number ();
 	nano::uint128_union random_amount;
 	nano::random_pool::generate_block (random_amount.bytes.data (), sizeof (random_amount.bytes));
 	return (((nano::uint256_t{ random_amount.number () } * balance) / nano::uint256_t{ std::numeric_limits<nano::uint128_t>::max () }).convert_to<nano::uint128_t> ());
@@ -539,12 +540,12 @@ void nano::test::system::generate_send_existing (nano::node & node_a, std::vecto
 		nano::account account;
 		random_pool::generate_block (account.bytes.data (), sizeof (account.bytes));
 		auto transaction = node_a.ledger.tx_begin_read ();
-		store::iterator<nano::account, nano::account_info> entry (node_a.store.account.begin (transaction, account));
-		if (entry == node_a.store.account.end ())
+		auto entry = node_a.ledger.any.account_lower_bound (transaction, account);
+		if (entry == node_a.ledger.any.account_end ())
 		{
-			entry = node_a.store.account.begin (transaction);
+			entry = node_a.ledger.any.account_lower_bound (transaction, 0);
 		}
-		debug_assert (entry != node_a.store.account.end ());
+		debug_assert (entry != node_a.ledger.any.account_end ());
 		destination = nano::account (entry->first);
 		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);

@@ -15,6 +15,8 @@
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/vote_generator.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
+#include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -116,7 +118,7 @@ TEST (node, balance)
 	nano::test::system system (1);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto transaction = system.nodes[0]->ledger.tx_begin_write ();
-	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max (), system.nodes[0]->ledger.account_balance (transaction, nano::dev::genesis_key.pub));
+	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max (), system.nodes[0]->ledger.any.account_balance (transaction, nano::dev::genesis_key.pub));
 }
 
 TEST (node, send_unkeyed)
@@ -233,7 +235,7 @@ TEST (node, node_receive_quorum)
 				.work (*system.work.generate (previous))
 				.build ();
 	node1.process_active (send);
-	ASSERT_TIMELY (10s, node1.ledger.block_or_pruned_exists (send->hash ()));
+	ASSERT_TIMELY (10s, node1.block_or_pruned_exists (send->hash ()));
 	ASSERT_TIMELY (10s, node1.active.election (nano::qualified_root (previous, previous)) != nullptr);
 	auto election (node1.active.election (nano::qualified_root (previous, previous)));
 	ASSERT_NE (nullptr, election);
@@ -276,7 +278,7 @@ TEST (node, auto_bootstrap)
 	ASSERT_TIMELY (10s, node1->bootstrap_initiator.in_progress ());
 	ASSERT_TIMELY_EQ (10s, node1->balance (key2.pub), node0->config.receive_minimum.number ());
 	ASSERT_TIMELY (10s, !node1->bootstrap_initiator.in_progress ());
-	ASSERT_TRUE (node1->ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TRUE (node1->block_or_pruned_exists (send1->hash ()));
 	// Wait block receive
 	ASSERT_TIMELY_EQ (5s, node1->ledger.block_count (), 3);
 	// Confirmation for all blocks
@@ -427,7 +429,7 @@ TEST (node, search_receivable_pruned)
 
 	// Confirmation
 	ASSERT_TIMELY (10s, node1->active.empty () && node2->active.empty ());
-	ASSERT_TIMELY (5s, node1->ledger.block_confirmed (node1->ledger.tx_begin_read (), send2->hash ()));
+	ASSERT_TIMELY (5s, node1->ledger.confirmed.block_exists_or_pruned (node1->ledger.tx_begin_read (), send2->hash ()));
 	ASSERT_TIMELY_EQ (5s, node2->ledger.cemented_count (), 3);
 	system.wallet (0)->store.erase (node1->wallets.tx_begin_write (), nano::dev::genesis_key.pub);
 
@@ -437,7 +439,7 @@ TEST (node, search_receivable_pruned)
 		ASSERT_EQ (1, node2->ledger.pruning_action (transaction, send1->hash (), 1));
 	}
 	ASSERT_EQ (1, node2->ledger.pruned_count ());
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ())); // true for pruned
+	ASSERT_TRUE (node2->block_or_pruned_exists (send1->hash ())); // true for pruned
 
 	// Receive pruned block
 	system.wallet (1)->insert_adhoc (key2.prv);
@@ -659,8 +661,8 @@ TEST (node, fork_keep)
 	auto election1 (node2.active.election (nano::qualified_root (nano::dev::genesis->hash (), nano::dev::genesis->hash ())));
 	ASSERT_NE (nullptr, election1);
 	ASSERT_EQ (1, election1->votes ().size ());
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TRUE (node1.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TRUE (node2.block_or_pruned_exists (send1->hash ()));
 	// Wait until the genesis rep makes a vote
 	ASSERT_TIMELY (1.5min, election1->votes ().size () != 1);
 	auto transaction0 (node1.ledger.tx_begin_read ());
@@ -669,8 +671,8 @@ TEST (node, fork_keep)
 	auto winner (*election1->tally ().begin ());
 	ASSERT_EQ (*send1, *winner.second);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, winner.first);
-	ASSERT_TRUE (node1.ledger.block_exists (transaction0, send1->hash ()));
-	ASSERT_TRUE (node2.ledger.block_exists (transaction1, send1->hash ()));
+	ASSERT_TRUE (node1.ledger.any.block_exists (transaction0, send1->hash ()));
+	ASSERT_TRUE (node2.ledger.any.block_exists (transaction1, send1->hash ()));
 }
 
 // This test is racy, there is no guarantee that the election won't be confirmed until all forks are fully processed
@@ -715,13 +717,13 @@ TEST (node, fork_flip)
 	ASSERT_EQ (1, election1->votes ().size ());
 	ASSERT_NE (nullptr, node1.block (publish1.block->hash ()));
 	ASSERT_NE (nullptr, node2.block (publish2.block->hash ()));
-	ASSERT_TIMELY (10s, node2.ledger.block_or_pruned_exists (publish1.block->hash ()));
+	ASSERT_TIMELY (10s, node2.block_or_pruned_exists (publish1.block->hash ()));
 	auto winner (*election1->tally ().begin ());
 	ASSERT_EQ (*publish1.block, *winner.second);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, winner.first);
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (publish1.block->hash ()));
-	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (publish1.block->hash ()));
-	ASSERT_FALSE (node2.ledger.block_or_pruned_exists (publish2.block->hash ()));
+	ASSERT_TRUE (node1.block_or_pruned_exists (publish1.block->hash ()));
+	ASSERT_TRUE (node2.block_or_pruned_exists (publish1.block->hash ()));
+	ASSERT_FALSE (node2.block_or_pruned_exists (publish2.block->hash ()));
 }
 
 // Test that more than one block can be rolled back
@@ -768,7 +770,7 @@ TEST (node, fork_multi_flip)
 
 	auto election = nano::test::start_election (system, node2, send2->hash ());
 	ASSERT_NE (nullptr, election);
-	ASSERT_TIMELY (5s, node2.ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TIMELY (5s, node2.block_or_pruned_exists (send1->hash ()));
 	ASSERT_TRUE (nano::test::block_or_pruned_none_exists (node2, { send2, send3 }));
 	auto winner = *election->tally ().begin ();
 	ASSERT_EQ (*send1, *winner.second);
@@ -812,7 +814,7 @@ TEST (node, fork_bootstrap_flip)
 	// Insert but don't rebroadcast, simulating settled blocks
 	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (node1.ledger.tx_begin_write (), send1));
 	ASSERT_EQ (nano::block_status::progress, node2.ledger.process (node2.ledger.tx_begin_write (), send2));
-	ASSERT_TRUE (node2.ledger.block_exists (node2.ledger.tx_begin_read (), send2->hash ()));
+	ASSERT_TRUE (node2.ledger.any.block_exists (node2.ledger.tx_begin_read (), send2->hash ()));
 	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ()); // Additionally add new peer to confirm & replace bootstrap block
 	auto again (true);
 	system0.deadline_set (50s);
@@ -821,7 +823,7 @@ TEST (node, fork_bootstrap_flip)
 	{
 		ASSERT_NO_ERROR (system0.poll ());
 		ASSERT_NO_ERROR (system1.poll ());
-		again = !node2.ledger.block_exists (node2.ledger.tx_begin_read (), send1->hash ());
+		again = !node2.ledger.any.block_exists (node2.ledger.tx_begin_read (), send1->hash ());
 	}
 }
 
@@ -973,9 +975,9 @@ TEST (node, fork_open_flip)
 	// check the correct blocks are in the ledgers
 	auto transaction1 = node1.ledger.tx_begin_read ();
 	auto transaction2 = node2.ledger.tx_begin_read ();
-	ASSERT_TRUE (node1.ledger.block_exists (transaction1, open1->hash ()));
-	ASSERT_TRUE (node2.ledger.block_exists (transaction2, open1->hash ()));
-	ASSERT_FALSE (node2.ledger.block_exists (transaction2, open2->hash ()));
+	ASSERT_TRUE (node1.ledger.any.block_exists (transaction1, open1->hash ()));
+	ASSERT_TRUE (node2.ledger.any.block_exists (transaction2, open1->hash ()));
+	ASSERT_FALSE (node2.ledger.any.block_exists (transaction2, open2->hash ()));
 }
 
 TEST (node, coherent_observer)
@@ -983,8 +985,7 @@ TEST (node, coherent_observer)
 	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	node1.observers.blocks.add ([&node1] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const &, nano::account const &, nano::uint128_t const &, bool, bool) {
-		auto transaction = node1.ledger.tx_begin_read ();
-		ASSERT_TRUE (node1.ledger.block_exists (transaction, status_a.winner->hash ()));
+		ASSERT_TRUE (node1.ledger.any.block_exists (node1.ledger.tx_begin_read (), status_a.winner->hash ()));
 	});
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key;
@@ -1305,13 +1306,13 @@ TEST (node, DISABLED_broadcast_elected)
 				 .build ();
 	system.wallet (2)->insert_adhoc (rep_small.prv);
 	node2->process_active (fork1);
-	ASSERT_TIMELY (10s, node0->ledger.block_or_pruned_exists (fork0->hash ()) && node1->ledger.block_or_pruned_exists (fork0->hash ()));
+	ASSERT_TIMELY (10s, node0->block_or_pruned_exists (fork0->hash ()) && node1->block_or_pruned_exists (fork0->hash ()));
 	system.deadline_set (50s);
-	while (!node2->ledger.block_or_pruned_exists (fork0->hash ()))
+	while (!node2->block_or_pruned_exists (fork0->hash ()))
 	{
 		auto ec = system.poll ();
-		ASSERT_TRUE (node0->ledger.block_or_pruned_exists (fork0->hash ()));
-		ASSERT_TRUE (node1->ledger.block_or_pruned_exists (fork0->hash ()));
+		ASSERT_TRUE (node0->block_or_pruned_exists (fork0->hash ()));
+		ASSERT_TRUE (node1->block_or_pruned_exists (fork0->hash ()));
 		ASSERT_NO_ERROR (ec);
 	}
 	ASSERT_TIMELY (5s, node1->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out) != 0);
@@ -1503,11 +1504,11 @@ TEST (node, bootstrap_fork_open)
 	ASSERT_EQ (nano::block_status::progress, node0->process (open0));
 	ASSERT_EQ (nano::block_status::progress, node1->process (open1));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	ASSERT_FALSE (node1->ledger.block_or_pruned_exists (open0->hash ()));
+	ASSERT_FALSE (node1->block_or_pruned_exists (open0->hash ()));
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TIMELY (1s, node1->active.empty ());
-	ASSERT_TIMELY (10s, !node1->ledger.block_or_pruned_exists (open1->hash ()) && node1->ledger.block_or_pruned_exists (open0->hash ()));
+	ASSERT_TIMELY (10s, !node1->block_or_pruned_exists (open1->hash ()) && node1->block_or_pruned_exists (open0->hash ()));
 }
 
 // Unconfirmed blocks from bootstrap should be confirmed
@@ -1544,7 +1545,7 @@ TEST (node, bootstrap_confirm_frontiers)
 	// on 2 different systems at once and in sequence and there might be strange timing effects.
 	system0.deadline_set (10s);
 	system1.deadline_set (10s);
-	while (!node1->ledger.block_confirmed (node1->ledger.tx_begin_read (), send0->hash ()))
+	while (!node1->ledger.confirmed.block_exists_or_pruned (node1->ledger.tx_begin_read (), send0->hash ()))
 	{
 		ASSERT_NO_ERROR (system0.poll (std::chrono::milliseconds (1)));
 		ASSERT_NO_ERROR (system1.poll (std::chrono::milliseconds (1)));
@@ -1572,7 +1573,7 @@ TEST (node, unconfirmed_send)
 	ASSERT_TIMELY (5s, node2.block_confirmed (send1->hash ()));
 
 	// wait until receive1 (auto-receive created by wallet) is cemented
-	ASSERT_TIMELY_EQ (5s, node2.get_confirmation_height (node2.ledger.tx_begin_read (), key2.pub), 1);
+	ASSERT_TIMELY_EQ (5s, node2.ledger.confirmed.account_height (node2.ledger.tx_begin_read (), key2.pub), 1);
 	ASSERT_EQ (node2.balance (key2.pub), 2 * nano::Mxrb_ratio);
 	auto recv1 = node2.ledger.find_receive_block_by_send_hash (node2.ledger.tx_begin_read (), key2.pub, send1->hash ());
 
@@ -1835,9 +1836,9 @@ TEST (node, block_confirm)
 	auto hash2 = send1_copy->hash ();
 	node1.block_processor.add (send1);
 	node2.block_processor.add (send1_copy);
-	ASSERT_TIMELY (5s, node1.ledger.block_or_pruned_exists (send1->hash ()) && node2.ledger.block_or_pruned_exists (send1_copy->hash ()));
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1_copy->hash ()));
+	ASSERT_TIMELY (5s, node1.block_or_pruned_exists (send1->hash ()) && node2.block_or_pruned_exists (send1_copy->hash ()));
+	ASSERT_TRUE (node1.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TRUE (node2.block_or_pruned_exists (send1_copy->hash ()));
 	// Confirm send1 on node2 so it can vote for send2
 	node2.start_election (send1_copy);
 	std::shared_ptr<nano::election> election;
@@ -1979,7 +1980,7 @@ TEST (node, DISABLED_local_votes_cache_batch)
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send1));
 	node.confirming_set.add (send1->hash ());
-	ASSERT_TIMELY (5s, node.ledger.block_confirmed (node.ledger.tx_begin_read (), send1->hash ()));
+	ASSERT_TIMELY (5s, node.ledger.confirmed.block_exists_or_pruned (node.ledger.tx_begin_read (), send1->hash ()));
 	auto send2 = nano::state_block_builder ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (send1->hash ())
@@ -2122,7 +2123,7 @@ TEST (node, local_votes_cache_fork)
 	node_config.peering_port = system.get_available_port ();
 	auto & node2 (*system.add_node (node_config, node_flags));
 	node2.process_active (send1_fork);
-	ASSERT_TIMELY (5s, node2.ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TIMELY (5s, node2.block_or_pruned_exists (send1->hash ()));
 }
 
 TEST (node, vote_republish)
@@ -2643,10 +2644,10 @@ TEST (node, block_processor_reject_state)
 				 .work (*node.work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build ();
 	send1->signature.bytes[0] ^= 1;
-	ASSERT_FALSE (node.ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_FALSE (node.block_or_pruned_exists (send1->hash ()));
 	node.process_active (send1);
 	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::blockprocessor_result, nano::stat::detail::bad_signature));
-	ASSERT_FALSE (node.ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_FALSE (node.block_or_pruned_exists (send1->hash ()));
 	auto send2 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (nano::dev::genesis->hash ())
@@ -2657,7 +2658,7 @@ TEST (node, block_processor_reject_state)
 				 .work (*node.work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build ();
 	node.process_active (send2);
-	ASSERT_TIMELY (5s, node.ledger.block_or_pruned_exists (send2->hash ()));
+	ASSERT_TIMELY (5s, node.block_or_pruned_exists (send2->hash ()));
 }
 
 TEST (node, block_processor_full)
@@ -2969,7 +2970,7 @@ TEST (node, bidirectional_tcp)
 				 .work (*node1->work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build ();
 	node1->process_active (send1);
-	ASSERT_TIMELY (10s, node1->ledger.block_or_pruned_exists (send1->hash ()) && node2->ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TIMELY (10s, node1->block_or_pruned_exists (send1->hash ()) && node2->block_or_pruned_exists (send1->hash ()));
 	// Test block confirmation from node 1 (add representative to node 1)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	// Wait to find new reresentative
@@ -2982,7 +2983,7 @@ TEST (node, bidirectional_tcp)
 	while (!confirmed)
 	{
 		auto transaction2 = node2->ledger.tx_begin_read ();
-		confirmed = node2->ledger.block_confirmed (transaction2, send1->hash ());
+		confirmed = node2->ledger.confirmed.block_exists_or_pruned (transaction2, send1->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	// Test block propagation & confirmation from node 2 (remove representative from node 1)
@@ -3002,7 +3003,7 @@ TEST (node, bidirectional_tcp)
 				 .work (*node1->work_generate_blocking (send1->hash ()))
 				 .build ();
 	node2->process_active (send2);
-	ASSERT_TIMELY (10s, node1->ledger.block_or_pruned_exists (send2->hash ()) && node2->ledger.block_or_pruned_exists (send2->hash ()));
+	ASSERT_TIMELY (10s, node1->block_or_pruned_exists (send2->hash ()) && node2->block_or_pruned_exists (send2->hash ()));
 	// Test block confirmation from node 2 (add representative to node 2)
 	system.wallet (1)->insert_adhoc (nano::dev::genesis_key.prv);
 	// Wait to find changed reresentative
@@ -3015,7 +3016,7 @@ TEST (node, bidirectional_tcp)
 	while (!confirmed)
 	{
 		auto transaction1 = node1->ledger.tx_begin_read ();
-		confirmed = node1->ledger.block_confirmed (transaction1, send2->hash ());
+		confirmed = node1->ledger.confirmed.block_exists_or_pruned (transaction1, send2->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }

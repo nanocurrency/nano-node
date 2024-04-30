@@ -4,6 +4,7 @@
 #include <nano/lib/work.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/utility.hpp>
 #include <nano/store/component.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -20,7 +21,7 @@ TEST (processor_service, bad_send_signature)
 	auto transaction = ledger.tx_begin_write ();
 	store->initialize (transaction, ledger.cache, ledger.constants);
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
-	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info1 = ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::keypair key2;
 	nano::block_builder builder;
@@ -46,7 +47,7 @@ TEST (processor_service, bad_receive_signature)
 	auto transaction = ledger.tx_begin_write ();
 	store->initialize (transaction, ledger.cache, ledger.constants);
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
-	auto info1 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info1 = ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info1);
 	nano::block_builder builder;
 	auto send = builder
@@ -59,7 +60,7 @@ TEST (processor_service, bad_receive_signature)
 				.build ();
 	nano::block_hash hash1 (send->hash ());
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
-	auto info2 = ledger.account_info (transaction, nano::dev::genesis_key.pub);
+	auto info2 = ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
 	ASSERT_TRUE (info2);
 	auto receive = builder
 				   .receive ()

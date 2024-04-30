@@ -7,6 +7,7 @@
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -81,7 +82,7 @@ TEST (request_aggregator, one_update)
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send1));
 	node.confirming_set.add (send1->hash ());
-	ASSERT_TIMELY (5s, node.ledger.block_confirmed (node.ledger.tx_begin_read (), send1->hash ()));
+	ASSERT_TIMELY (5s, node.ledger.confirmed.block_exists_or_pruned (node.ledger.tx_begin_read (), send1->hash ()));
 	auto send2 = nano::state_block_builder ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (send1->hash ())
@@ -147,7 +148,7 @@ TEST (request_aggregator, two)
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send1));
 	node.confirming_set.add (send1->hash ());
-	ASSERT_TIMELY (5s, node.ledger.block_confirmed (node.ledger.tx_begin_read (), send1->hash ()));
+	ASSERT_TIMELY (5s, node.ledger.confirmed.block_exists_or_pruned (node.ledger.tx_begin_read (), send1->hash ()));
 	auto send2 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (send1->hash ())

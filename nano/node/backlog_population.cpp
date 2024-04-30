@@ -136,6 +136,6 @@ void nano::backlog_population::activate (secure::transaction const & transaction
 	{
 		stats.inc (nano::stat::type::backlog, nano::stat::detail::activated);
 
-		activate_callback.notify (transaction, account, account_info, conf_info);
+		activate_callback.notify (transaction, account);
 	}
 }

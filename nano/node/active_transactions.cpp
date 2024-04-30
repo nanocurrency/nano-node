@@ -10,6 +10,7 @@
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
 #include <nano/store/component.hpp>
 
 #include <ranges>
@@ -126,7 +127,7 @@ void nano::active_transactions::notify_observers (nano::secure::read_transaction
 {
 	auto block = status.winner;
 	auto account = block->account ();
-	auto amount = node.ledger.amount (transaction, block->hash ()).value_or (0);
+	auto amount = node.ledger.any.block_amount (transaction, block->hash ()).value_or (0).number ();
 	auto is_state_send = block->type () == block_type::state && block->is_send ();
 	auto is_state_epoch = block->type () == block_type::state && block->is_epoch ();
 	node.observers.blocks.notify (status, votes, account, amount, is_state_send, is_state_epoch);

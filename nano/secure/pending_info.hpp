@@ -60,27 +60,7 @@ public:
 		return os;
 	}
 };
-
-// This class iterates receivable enttries for an account
-class receivable_iterator
-{
-public:
-	receivable_iterator () = default;
-	receivable_iterator (nano::ledger const & ledger, nano::secure::transaction const & tx, std::optional<std::pair<nano::pending_key, nano::pending_info>> item);
-	bool operator== (receivable_iterator const & other) const;
-	bool operator!= (receivable_iterator const & other) const;
-	// Advances to the next receivable entry for the same account
-	receivable_iterator & operator++ ();
-	std::pair<nano::pending_key, nano::pending_info> const & operator* () const;
-	std::pair<nano::pending_key, nano::pending_info> const * operator->() const;
-
-private:
-	nano::ledger const * ledger{ nullptr };
-	nano::secure::transaction const * tx{ nullptr };
-	nano::account account{ 0 };
-	std::optional<std::pair<nano::pending_key, nano::pending_info>> item;
-};
-} // namespace nano
+}
 
 namespace std
 {

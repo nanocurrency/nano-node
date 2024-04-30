@@ -420,11 +420,6 @@ namespace test
 	nano::account_info account_info (nano::node const & node, nano::account const & acc);
 
 	/**
-	 * Return the account height, returns 0 on error
-	 */
-	uint64_t account_height (nano::node const & node, nano::account const & acc);
-
-	/**
 	 * \brief Debugging function to print all entries in the pending table. Intended to be used to debug unit tests.
 	 */
 	void print_all_receivable_entries (const nano::store::component & store);

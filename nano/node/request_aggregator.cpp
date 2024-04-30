@@ -9,6 +9,7 @@
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
 #include <nano/store/component.hpp>
 
 nano::request_aggregator::request_aggregator (nano::node_config const & config_a, nano::stats & stats_a, nano::vote_generator & generator_a, nano::vote_generator & final_generator_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
@@ -214,12 +215,12 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 			if (!final_vote_hashes.empty ())
 			{
 				generate_final_vote = true;
-				block = ledger.block (transaction, final_vote_hashes[0]);
+				block = ledger.any.block_get (transaction, final_vote_hashes[0]);
 				// Allow same root vote
 				if (block != nullptr && final_vote_hashes.size () > 1)
 				{
 					to_generate_final.push_back (block);
-					block = ledger.block (transaction, final_vote_hashes[1]);
+					block = ledger.any.block_get (transaction, final_vote_hashes[1]);
 					debug_assert (final_vote_hashes.size () == 2);
 				}
 			}
@@ -233,7 +234,7 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 			// 4. Ledger by hash
 			if (block == nullptr)
 			{
-				block = ledger.block (transaction, hash);
+				block = ledger.any.block_get (transaction, hash);
 				// Confirmation status. Generate final votes for confirmed
 				if (block != nullptr)
 				{
@@ -247,10 +248,10 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 			if (block == nullptr && !root.is_zero ())
 			{
 				// Search for block root
-				auto successor = ledger.successor (transaction, root.as_block_hash ());
+				auto successor = ledger.any.block_successor (transaction, root.as_block_hash ());
 				if (successor)
 				{
-					auto successor_block = ledger.block (transaction, successor.value ());
+					auto successor_block = ledger.any.block_get (transaction, successor.value ());
 					debug_assert (successor_block != nullptr);
 					block = std::move (successor_block);
 					// 5. Votes in cache for successor
