@@ -72,7 +72,7 @@ void nano::stats::clear ()
 	timestamp = std::chrono::steady_clock::now ();
 }
 
-void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, counter_value_t value)
+void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, counter_value_t value, bool aggregate_all)
 {
 	debug_assert (type != stat::type::_invalid);
 	debug_assert (detail != stat::detail::_invalid);
@@ -83,7 +83,9 @@ void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, coun
 	}
 
 	// Updates need to happen while holding the mutex
-	auto update_counter = [this] (nano::stats::counter_key key, auto && updater) {
+	auto update_counter = [this, aggregate_all] (nano::stats::counter_key key, auto && updater) {
+		counter_key all_key{ key.type, stat::detail::all, key.dir };
+
 		// This is a two-step process to avoid exclusively locking the mutex in the common case
 		{
 			std::shared_lock lock{ mutex };
@@ -91,6 +93,13 @@ void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, coun
 			if (auto it = counters.find (key); it != counters.end ())
 			{
 				updater (*it->second);
+
+				if (aggregate_all && key != all_key)
+				{
+					auto it_all = counters.find (all_key);
+					release_assert (it_all != counters.end ()); // The `all` counter should always be created together
+					updater (*it_all->second); // Also update the `all` counter
+				}
 
 				return;
 			}
@@ -102,6 +111,12 @@ void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, coun
 			// Insertions will be ignored if the key already exists
 			auto [it, inserted] = counters.emplace (key, std::make_unique<counter_entry> ());
 			updater (*it->second);
+
+			if (aggregate_all && key != all_key)
+			{
+				auto [it_all, inserted_all] = counters.emplace (all_key, std::make_unique<counter_entry> ());
+				updater (*it_all->second); // Also update the `all` counter
+			}
 		}
 	};
 
@@ -127,7 +142,7 @@ nano::stats::counter_value_t nano::stats::count (stat::type type, stat::dir dir)
 	auto it = counters.lower_bound (counter_key{ type, stat::detail::all, dir });
 	while (it != counters.end () && it->first.type == type)
 	{
-		if (it->first.dir == dir)
+		if (it->first.dir == dir && it->first.detail != stat::detail::all)
 		{
 			result += it->second->value;
 		}

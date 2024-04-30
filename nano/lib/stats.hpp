@@ -81,19 +81,23 @@ public:
 	void clear ();
 
 	/** Increments the given counter */
-	void inc (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
+	void inc (stat::type type, stat::detail detail, bool aggregate_all = false)
 	{
-		add (type, detail, dir, 1);
+		inc (type, detail, stat::dir::in, aggregate_all);
+	}
+
+	void inc (stat::type type, stat::detail detail, stat::dir dir, bool aggregate_all = false)
+	{
+		add (type, detail, dir, 1, aggregate_all);
 	}
 
 	/** Adds \p value to the given counter */
-	void add (stat::type type, stat::detail detail, counter_value_t value)
+	void add (stat::type type, stat::detail detail, counter_value_t value, bool aggregate_all = false)
 	{
-		add (type, detail, stat::dir::in, value);
+		add (type, detail, stat::dir::in, value, aggregate_all);
 	}
 
-	/** Adds \p value to the given counter */
-	void add (stat::type type, stat::detail detail, stat::dir dir, counter_value_t value);
+	void add (stat::type type, stat::detail detail, stat::dir dir, counter_value_t value, bool aggregate_all = false);
 
 	/** Returns current value for the given counter at the detail level */
 	counter_value_t count (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in) const;

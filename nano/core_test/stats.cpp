@@ -27,6 +27,24 @@ TEST (stats, counters)
 	ASSERT_EQ (10, node.stats.count (nano::stat::type::ledger, nano::stat::dir::in));
 }
 
+TEST (stats, counters_aggregate_all)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	node.stats.add (nano::stat::type::ledger, nano::stat::detail::test, nano::stat::dir::in, 1, true);
+
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::ledger, nano::stat::dir::in));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::ledger, nano::stat::detail::all, nano::stat::dir::in));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::ledger, nano::stat::detail::test, nano::stat::dir::in));
+
+	node.stats.add (nano::stat::type::ledger, nano::stat::detail::activate, nano::stat::dir::in, 5, true);
+
+	ASSERT_EQ (6, node.stats.count (nano::stat::type::ledger, nano::stat::dir::in));
+	ASSERT_EQ (6, node.stats.count (nano::stat::type::ledger, nano::stat::detail::all, nano::stat::dir::in));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::ledger, nano::stat::detail::test, nano::stat::dir::in));
+}
+
 TEST (stats, samples)
 {
 	nano::test::system system;

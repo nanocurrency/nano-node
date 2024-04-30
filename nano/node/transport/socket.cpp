@@ -214,7 +214,7 @@ void nano::transport::socket::write_queued_messages ()
 		}
 		else
 		{
-			node_l->stats.add (nano::stat::type::traffic_tcp, nano::stat::detail::all, nano::stat::dir::out, size);
+			node_l->stats.add (nano::stat::type::traffic_tcp, nano::stat::detail::all, nano::stat::dir::out, size, /* aggregate all */ true);
 			this_l->set_last_completion ();
 		}
 
