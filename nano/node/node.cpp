@@ -222,7 +222,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	};
 
 	backlog.activate_callback.add ([this] (secure::transaction const & transaction, nano::account const & account) {
-		scheduler.priority.activate (account, transaction);
+		scheduler.priority.activate (transaction, account);
 		scheduler.optimistic.activate (transaction, account);
 	});
 
