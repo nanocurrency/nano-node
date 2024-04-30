@@ -102,7 +102,6 @@ std::optional<nano::amount> nano::ledger_set_any::block_amount (secure::transact
 	return block_balance > previous_balance.value () ? block_balance.number () - previous_balance.value ().number () : previous_balance.value ().number () - block_balance.number ();
 }
 
-// Balance for account containing hash
 std::optional<nano::amount> nano::ledger_set_any::block_balance (secure::transaction const & transaction, nano::block_hash const & hash) const
 {
 	if (hash.is_zero ())
