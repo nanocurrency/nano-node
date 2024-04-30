@@ -560,6 +560,11 @@ std::shared_ptr<nano::block> nano::election::winner () const
 	return status.winner;
 }
 
+std::chrono::milliseconds nano::election::duration () const
+{
+	return std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
+}
+
 void nano::election::broadcast_vote_locked (nano::unique_lock<nano::mutex> & lock)
 {
 	debug_assert (lock.owns_lock ());

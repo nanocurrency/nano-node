@@ -87,6 +87,7 @@ void nano::test::system::stop ()
 		stop_node (*node);
 	}
 
+	stats.stop ();
 	io_guard.reset ();
 	work.stop ();
 }

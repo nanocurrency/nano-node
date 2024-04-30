@@ -706,6 +706,7 @@ void nano::node::start ()
 	}
 	websocket.start ();
 	telemetry.start ();
+	stats.start ();
 	local_block_broadcaster.start ();
 	peer_history.start ();
 

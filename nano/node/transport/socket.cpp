@@ -121,7 +121,7 @@ void nano::transport::socket::async_read (std::shared_ptr<std::vector<uint8_t>> 
 					}
 					else
 					{
-						node_l->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::in, size_a);
+						node_l->stats.add (nano::stat::type::traffic_tcp, nano::stat::detail::all, nano::stat::dir::in, size_a);
 						this_l->set_last_completion ();
 						this_l->set_last_receive_time ();
 					}
@@ -214,7 +214,7 @@ void nano::transport::socket::write_queued_messages ()
 		}
 		else
 		{
-			node_l->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size);
+			node_l->stats.add (nano::stat::type::traffic_tcp, nano::stat::detail::all, nano::stat::dir::out, size, /* aggregate all */ true);
 			this_l->set_last_completion ();
 		}
 

@@ -8,8 +8,11 @@
 namespace nano::stat
 {
 /** Primary statistics type */
-enum class type : uint8_t
+enum class type
 {
+	_invalid = 0, // Default value, should not be used
+
+	test,
 	traffic_tcp,
 	error,
 	message,
@@ -50,6 +53,7 @@ enum class type : uint8_t
 	bootstrap_server_overfill,
 	bootstrap_server_response,
 	active,
+	active_transactions,
 	active_started,
 	active_confirmed,
 	active_dropped,
@@ -73,15 +77,16 @@ enum class type : uint8_t
 };
 
 /** Optional detail type */
-enum class detail : uint8_t
+enum class detail
 {
-	all = 0,
+	_invalid = 0, // Default value, should not be used
 
-	// common
+	all,
 	ok,
+	test,
+	total,
 	loop,
 	loop_cleanup,
-	total,
 	process,
 	processed,
 	ignored,
@@ -404,10 +409,20 @@ enum class detail : uint8_t
 };
 
 /** Direction of the stat. If the direction is irrelevant, use in */
-enum class dir : uint8_t
+enum class dir
 {
 	in,
 	out,
+
+	_last // Must be the last enum
+};
+
+enum class sample
+{
+	_invalid = 0, // Default value, should not be used
+
+	active_election_duration,
+	bootstrap_tag_duration,
 
 	_last // Must be the last enum
 };
@@ -418,6 +433,7 @@ namespace nano
 std::string_view to_string (stat::type);
 std::string_view to_string (stat::detail);
 std::string_view to_string (stat::dir);
+std::string_view to_string (stat::sample);
 }
 
 // Ensure that the enum_range is large enough to hold all values (including future ones)

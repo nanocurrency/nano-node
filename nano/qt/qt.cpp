@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/stats_sinks.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/vote_with_weight_info.hpp>
 #include <nano/qt/qt.hpp>
@@ -857,13 +858,13 @@ void nano_qt::stats_viewer::refresh_stats ()
 {
 	model->removeRows (0, model->rowCount ());
 
-	auto sink = wallet.node.stats.log_sink_json ();
-	wallet.node.stats.log_counters (*sink);
-	auto json = static_cast<boost::property_tree::ptree *> (sink->to_object ());
-	if (json)
+	nano::stat_json_writer sink;
+	wallet.node.stats.log_counters (sink);
+	auto json = sink.to_ptree ();
+	if (!json.empty ())
 	{
 		// Format the stat data to make totals and values easier to read
-		for (boost::property_tree::ptree::value_type const & child : json->get_child ("entries"))
+		for (boost::property_tree::ptree::value_type const & child : json.get_child ("entries"))
 		{
 			auto time = child.second.get<std::string> ("time");
 			auto type = child.second.get<std::string> ("type");

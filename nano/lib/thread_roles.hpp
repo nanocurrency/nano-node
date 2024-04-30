@@ -52,6 +52,7 @@ enum class name
 	tcp_listener,
 	peer_history,
 	port_mapping,
+	stats,
 };
 
 std::string_view to_string (name);

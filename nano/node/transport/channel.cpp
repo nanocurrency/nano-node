@@ -22,7 +22,7 @@ void nano::transport::channel::send (nano::message & message_a, std::function<vo
 	bool should_pass = node.outbound_limiter.should_pass (buffer.size (), to_bandwidth_limit_type (traffic_type));
 	bool pass = !is_droppable_by_limiter || should_pass;
 
-	node.stats.inc (pass ? nano::stat::type::message : nano::stat::type::drop, to_stat_detail (message_a.type ()), nano::stat::dir::out);
+	node.stats.inc (pass ? nano::stat::type::message : nano::stat::type::drop, to_stat_detail (message_a.type ()), nano::stat::dir::out, /* aggregate all */ true);
 	node.logger.trace (nano::log::type::channel_sent, to_log_detail (message_a.type ()),
 	nano::log::arg{ "message", message_a },
 	nano::log::arg{ "channel", *this },
