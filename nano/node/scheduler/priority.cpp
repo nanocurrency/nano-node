@@ -41,7 +41,7 @@ void nano::scheduler::priority::stop ()
 	nano::join_or_pass (thread);
 }
 
-bool nano::scheduler::priority::activate (nano::account const & account, secure::transaction const & transaction)
+bool nano::scheduler::priority::activate (secure::transaction const & transaction, nano::account const & account)
 {
 	debug_assert (!account.is_zero ());
 	auto head = node.ledger.confirmed.account_head (transaction, account);
