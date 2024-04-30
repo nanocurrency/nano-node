@@ -12,7 +12,7 @@ nano::ledger_set_any::ledger_set_any (nano::ledger const & ledger) :
 
 std::optional<nano::amount> nano::ledger_set_any::account_balance (secure::transaction const & transaction, nano::account const & account_a) const
 {
-	auto block = block_get (transaction, ledger.any.account_head (transaction, account_a));
+	auto block = block_get (transaction, account_head (transaction, account_a));
 	if (!block)
 	{
 		return std::nullopt;
