@@ -43,7 +43,6 @@ uint64_t nano::ledger_set_confirmed::account_height (secure::transaction const &
 	return block->sideband ().height;
 }
 
-// Balance for account containing hash
 std::optional<nano::amount> nano::ledger_set_confirmed::block_balance (secure::transaction const & transaction, nano::block_hash const & hash) const
 {
 	if (hash.is_zero ())
