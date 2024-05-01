@@ -61,7 +61,8 @@ public:
 	void stop ();
 
 	/*
-	 * Notify about changes in AEC vacancy
+	 * Notify when AEC has become more empty
+	 * Notify when scheduler is stopped
 	 */
 	void notify ();
 

@@ -63,7 +63,8 @@ public:
 	bool activate (nano::secure::transaction const & transaction, nano::account const & account);
 
 	/**
-	 * Notify about changes in AEC vacancy
+	 * Notify when AEC has become more empty
+	 * Notify when scheduler is stopped
 	 */
 	void notify ();
 

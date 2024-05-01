@@ -132,7 +132,7 @@ public:
 	 * How many election slots are available for specified election type
 	 */
 	int64_t vacancy (nano::election_behavior behavior) const;
-	std::function<void ()> vacancy_update{ [] () {} };
+	nano::observer_set<std::shared_ptr<nano::election>> election_stopped;
 
 	std::size_t election_winner_details_size ();
 	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
