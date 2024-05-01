@@ -106,7 +106,6 @@ void nano::scheduler::priority::run ()
 		condition.wait (lock, [this] () {
 			return stopped || predicate ();
 		});
-		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
 		if (!stopped)
 		{
 			stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::loop);
