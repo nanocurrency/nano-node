@@ -253,7 +253,9 @@ void nano::transport::tcp_server::queue_realtime (std::unique_ptr<nano::message>
 	release_assert (channel != nullptr);
 
 	channel->set_last_packet_received (std::chrono::steady_clock::now ());
-	node->network.tcp_channels.queue_message (std::move (message), channel);
+
+	bool added = node->message_processor.put (std::move (message), channel);
+	// TODO: Throttle if not added
 }
 
 auto nano::transport::tcp_server::process_handshake (nano::node_id_handshake const & message) -> handshake_status

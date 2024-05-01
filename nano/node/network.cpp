@@ -23,9 +23,7 @@ nano::network::network (nano::node & node, uint16_t port) :
 	syn_cookies{ node.network_params.network.max_peers_per_ip, node.logger },
 	resolver{ node.io_ctx },
 	publish_filter{ 256 * 1024 },
-	tcp_channels{ node, [this] (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel) {
-					 inbound (message, channel);
-				 } },
+	tcp_channels{ node },
 	port{ port }
 {
 }
@@ -33,7 +31,6 @@ nano::network::network (nano::node & node, uint16_t port) :
 nano::network::~network ()
 {
 	// All threads must be stopped before this destructor
-	debug_assert (processing_threads.empty ());
 	debug_assert (!cleanup_thread.joinable ());
 	debug_assert (!keepalive_thread.joinable ());
 	debug_assert (!reachout_thread.joinable ());
@@ -78,12 +75,6 @@ void nano::network::stop ()
 
 	tcp_channels.stop ();
 	resolver.cancel ();
-
-	for (auto & thread : processing_threads)
-	{
-		thread.join ();
-	}
-	processing_threads.clear ();
 
 	join_or_pass (keepalive_thread);
 	join_or_pass (cleanup_thread);
@@ -570,57 +561,6 @@ nano::node_id_handshake::response_payload nano::network::prepare_handshake_respo
 	}
 	response.sign (query.cookie, node.node_id);
 	return response;
-}
-
-/*
- * tcp_message_manager
- */
-
-nano::transport::tcp_message_manager::tcp_message_manager (unsigned incoming_connections_max_a) :
-	max_entries (incoming_connections_max_a * max_entries_per_connection + 1)
-{
-	debug_assert (max_entries > 0);
-}
-
-void nano::transport::tcp_message_manager::put (std::unique_ptr<nano::message> message, std::shared_ptr<nano::transport::channel_tcp> channel)
-{
-	{
-		nano::unique_lock<nano::mutex> lock{ mutex };
-		while (entries.size () >= max_entries && !stopped)
-		{
-			producer_condition.wait (lock);
-		}
-		entries.emplace_back (std::move (message), channel);
-	}
-	consumer_condition.notify_one ();
-}
-
-auto nano::transport::tcp_message_manager::next () -> entry_t
-{
-	entry_t result{ nullptr, nullptr };
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (entries.empty () && !stopped)
-	{
-		consumer_condition.wait (lock);
-	}
-	if (!entries.empty ())
-	{
-		result = std::move (entries.front ());
-		entries.pop_front ();
-	}
-	lock.unlock ();
-	producer_condition.notify_one ();
-	return result;
-}
-
-void nano::transport::tcp_message_manager::stop ()
-{
-	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		stopped = true;
-	}
-	consumer_condition.notify_all ();
-	producer_condition.notify_all ();
 }
 
 /*

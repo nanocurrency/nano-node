@@ -107,10 +107,8 @@ void nano::transport::channel_tcp::operator() (nano::object_stream & obs) const
  * tcp_channels
  */
 
-nano::transport::tcp_channels::tcp_channels (nano::node & node, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink) :
-	node{ node },
-	message_manager{ node.config.tcp_incoming_connections_max },
-	sink{ std::move (sink) }
+nano::transport::tcp_channels::tcp_channels (nano::node & node) :
+	node{ node }
 {
 }
 
@@ -130,8 +128,6 @@ void nano::transport::tcp_channels::stop ()
 		stopped = true;
 	}
 	condition.notify_all ();
-
-	message_manager.stop ();
 
 	close ();
 }
@@ -340,27 +336,6 @@ nano::tcp_endpoint nano::transport::tcp_channels::bootstrap_peer ()
 		}
 	}
 	return result;
-}
-
-void nano::transport::tcp_channels::queue_message (std::unique_ptr<nano::message> message, std::shared_ptr<nano::transport::channel_tcp> channel)
-{
-	if (!stopped)
-	{
-		message_manager.put (std::move (message), std::move (channel));
-	}
-}
-
-void nano::transport::tcp_channels::process_messages ()
-{
-	while (!stopped)
-	{
-		auto [message, channel] = message_manager.next ();
-		if (message != nullptr)
-		{
-			release_assert (channel != nullptr);
-			sink (*message, channel);
-		}
-	}
 }
 
 bool nano::transport::tcp_channels::max_ip_connections (nano::tcp_endpoint const & endpoint_a)

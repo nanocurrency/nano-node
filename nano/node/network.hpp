@@ -6,8 +6,6 @@
 #include <nano/node/transport/tcp.hpp>
 #include <nano/secure/network_filter.hpp>
 
-#include <boost/thread/thread.hpp>
-
 #include <deque>
 #include <memory>
 #include <unordered_set>
@@ -134,7 +132,6 @@ private:
 	std::atomic<bool> stopped{ false };
 	mutable nano::mutex mutex;
 	nano::condition_variable condition;
-	std::vector<boost::thread> processing_threads; // Using boost::thread to enable increased stack size
 	std::thread cleanup_thread;
 	std::thread keepalive_thread;
 	std::thread reachout_thread;
