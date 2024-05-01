@@ -301,6 +301,7 @@ enum class detail
 	blocks_confirmed,
 	blocks_confirmed_unbounded,
 	blocks_confirmed_bounded,
+	block_late_removed,
 
 	// request aggregator
 	aggregator_accepted,
