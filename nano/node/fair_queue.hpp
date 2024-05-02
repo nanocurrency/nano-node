@@ -330,7 +330,7 @@ private:
 		iterator = queues.end ();
 
 		erase_if (queues, [] (auto const & entry) {
-			return !entry.first.alive ();
+			return entry.second.empty () && !entry.first.alive ();
 		});
 	}
 

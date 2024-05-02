@@ -260,17 +260,20 @@ TEST (fair_queue, cleanup)
 	ASSERT_EQ (queue.size ({ source_enum::live, channel2 }), 1);
 	ASSERT_EQ (queue.size ({ source_enum::live, channel3 }), 1);
 
-	// Either closing or resetting the channel should remove it from the queue
+	// Either closing or resetting the channel should make it eligible for cleanup
 	channel1->close ();
 	channel2.reset ();
 
-	ASSERT_TRUE (queue.periodic_update ());
+	ASSERT_TRUE (queue.periodic_update (0s));
 
-	// Only channel 3 should remain
-	ASSERT_EQ (queue.size (), 1);
+	// Until the queue is drained, the entries are still present
+	ASSERT_EQ (queue.size (), 3);
+	ASSERT_EQ (queue.queues_size (), 3);
+
+	queue.next_batch (999);
+
+	ASSERT_TRUE (queue.periodic_update (0s));
+
+	ASSERT_TRUE (queue.empty ());
 	ASSERT_EQ (queue.queues_size (), 1);
-
-	ASSERT_EQ (queue.size ({ source_enum::live, channel1 }), 0);
-	ASSERT_EQ (queue.size ({ source_enum::live, channel2 }), 0);
-	ASSERT_EQ (queue.size ({ source_enum::live, channel3 }), 1);
 }
