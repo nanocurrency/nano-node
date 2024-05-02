@@ -698,6 +698,7 @@ void nano::node::start ()
 	final_generator.start ();
 	confirming_set.start ();
 	scheduler.start ();
+	aggregator.start ();
 	backlog.start ();
 	bootstrap_server.start ();
 	if (!flags.disable_ascending_bootstrap)

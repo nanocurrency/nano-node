@@ -63,15 +63,18 @@ class request_aggregator final
 
 public:
 	request_aggregator (nano::node_config const & config, nano::stats & stats_a, nano::vote_generator &, nano::vote_generator &, nano::local_vote_history &, nano::ledger &, nano::wallets &, nano::active_transactions &);
+	~request_aggregator ();
+
+	void start ();
+	void stop ();
 
 	/** Add a new request by \p channel_a for hashes \p hashes_roots_a */
-	void add (std::shared_ptr<nano::transport::channel> const & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a);
-	void stop ();
+	void add (std::shared_ptr<nano::transport::channel> const &, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots);
+
 	/** Returns the number of currently queued request pools */
 	std::size_t size ();
 	bool empty ();
 
-	nano::node_config const & config;
 	std::chrono::milliseconds const max_delay;
 	std::chrono::milliseconds const small_delay;
 	std::size_t const max_channel_requests;
@@ -85,6 +88,8 @@ private:
 	std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr<nano::block>>> aggregate (std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
 	void reply_action (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) const;
 
+private: // Dependencies
+	nano::node_config const & config;
 	nano::stats & stats;
 	nano::local_vote_history & local_votes;
 	nano::ledger & ledger;
@@ -93,6 +98,7 @@ private:
 	nano::vote_generator & generator;
 	nano::vote_generator & final_generator;
 
+private:
 	// clang-format off
 	boost::multi_index_container<channel_pool,
 	mi::indexed_by<
@@ -104,7 +110,6 @@ private:
 	// clang-format on
 
 	bool stopped{ false };
-	bool started{ false };
 	nano::condition_variable condition;
 	nano::mutex mutex{ mutex_identifier (mutexes::request_aggregator) };
 	std::vector<std::thread> threads;

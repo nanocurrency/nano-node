@@ -13,11 +13,11 @@
 #include <nano/store/component.hpp>
 
 nano::request_aggregator::request_aggregator (nano::node_config const & config_a, nano::stats & stats_a, nano::vote_generator & generator_a, nano::vote_generator & final_generator_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
-	config{ config_a },
 	max_delay (config_a.network_params.network.is_dev_network () ? 50 : 300),
 	small_delay (config_a.network_params.network.is_dev_network () ? 10 : 50),
 	max_channel_requests (config_a.max_queued_requests),
 	request_aggregator_threads (config_a.request_aggregator_threads),
+	config{ config_a },
 	stats (stats_a),
 	local_votes (history_a),
 	ledger (ledger_a),
@@ -26,19 +26,47 @@ nano::request_aggregator::request_aggregator (nano::node_config const & config_a
 	generator (generator_a),
 	final_generator (final_generator_a)
 {
-	for (auto i = 0; i < request_aggregator_threads; ++i)
-	{
-		threads.emplace_back ([this] () { run (); });
-	}
-
 	generator.set_reply_action ([this] (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) {
 		this->reply_action (vote_a, channel_a);
 	});
 	final_generator.set_reply_action ([this] (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) {
 		this->reply_action (vote_a, channel_a);
 	});
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	condition.wait (lock, [&started = started] { return started; });
+}
+
+nano::request_aggregator::~request_aggregator ()
+{
+	debug_assert (threads.empty ());
+}
+
+void nano::request_aggregator::start ()
+{
+	debug_assert (threads.empty ());
+
+	for (auto i = 0; i < request_aggregator_threads; ++i)
+	{
+		threads.emplace_back ([this] () {
+			nano::thread_role::set (nano::thread_role::name::request_aggregator);
+			run ();
+		});
+	}
+}
+
+void nano::request_aggregator::stop ()
+{
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		stopped = true;
+	}
+	condition.notify_all ();
+	for (auto & thread : threads)
+	{
+		if (thread.joinable ())
+		{
+			thread.join ();
+		}
+	}
+	threads.clear ();
 }
 
 // TODO: This is badly implemented, will prematurely drop large vote requests
@@ -80,12 +108,7 @@ void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> co
 
 void nano::request_aggregator::run ()
 {
-	nano::thread_role::set (nano::thread_role::name::request_aggregator);
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	started = true;
-	lock.unlock ();
-	condition.notify_all ();
-	lock.lock ();
 	while (!stopped)
 	{
 		if (!requests.empty ())
@@ -128,22 +151,6 @@ void nano::request_aggregator::run ()
 		else
 		{
 			condition.wait_for (lock, small_delay, [this] () { return this->stopped || !this->requests.empty (); });
-		}
-	}
-}
-
-void nano::request_aggregator::stop ()
-{
-	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
-		stopped = true;
-	}
-	condition.notify_all ();
-	for (auto & thread : threads)
-	{
-		if (thread.joinable ())
-		{
-			thread.join ();
 		}
 	}
 }
