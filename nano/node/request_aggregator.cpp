@@ -69,6 +69,17 @@ void nano::request_aggregator::stop ()
 	threads.clear ();
 }
 
+std::size_t nano::request_aggregator::size () const
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	return requests.size ();
+}
+
+bool nano::request_aggregator::empty () const
+{
+	return size () == 0;
+}
+
 // TODO: This is badly implemented, will prematurely drop large vote requests
 void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> const & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a)
 {
@@ -153,17 +164,6 @@ void nano::request_aggregator::run ()
 			condition.wait_for (lock, small_delay, [this] () { return this->stopped || !this->requests.empty (); });
 		}
 	}
-}
-
-std::size_t nano::request_aggregator::size ()
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	return requests.size ();
-}
-
-bool nano::request_aggregator::empty ()
-{
-	return size () == 0;
 }
 
 void nano::request_aggregator::reply_action (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) const
