@@ -2,6 +2,7 @@
 
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/node/fwd.hpp>
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/transport.hpp>
 
@@ -19,14 +20,6 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
-class active_transactions;
-class ledger;
-class local_vote_history;
-class node_config;
-class stats;
-class vote_generator;
-class wallets;
-
 /**
  * Pools together confirmation requests, separately for each endpoint.
  * Requests are added from network messages, and aggregated to minimize bandwidth and vote generation. Example:
