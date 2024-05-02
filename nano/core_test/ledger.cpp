@@ -869,7 +869,7 @@ TEST (ledger, double_open)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::stats stats;
+	nano::stats stats{ logger };
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction = ledger.tx_begin_write ();
 	store->initialize (transaction, ledger.cache, ledger.constants);
@@ -4702,7 +4702,7 @@ TEST (ledger, dependents_confirmed_pruning)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
-	nano::stats stats;
+	nano::stats stats{ logger };
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	auto transaction = ledger.tx_begin_write ();
@@ -4875,7 +4875,7 @@ TEST (ledger, pruning_action)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::stats stats;
+	nano::stats stats{ logger };
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	auto transaction = ledger.tx_begin_write ();
@@ -4961,7 +4961,7 @@ TEST (ledger, pruning_large_chain)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::stats stats;
+	nano::stats stats{ logger };
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	auto transaction = ledger.tx_begin_write ();
@@ -5017,7 +5017,7 @@ TEST (ledger, pruning_source_rollback)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::stats stats;
+	nano::stats stats{ logger };
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	auto transaction = ledger.tx_begin_write ();
@@ -5106,7 +5106,7 @@ TEST (ledger, pruning_source_rollback_legacy)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::stats stats;
+	nano::stats stats{ logger };
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	auto transaction = ledger.tx_begin_write ();
@@ -5220,7 +5220,7 @@ TEST (ledger, pruning_legacy_blocks)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::stats stats;
+	nano::stats stats{ logger };
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	nano::keypair key1;
@@ -5307,7 +5307,7 @@ TEST (ledger, pruning_safe_functions)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::stats stats;
+	nano::stats stats{ logger };
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	auto transaction = ledger.tx_begin_write ();
@@ -5359,7 +5359,7 @@ TEST (ledger, hash_root_random)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::stats stats;
+	nano::stats stats{ logger };
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	auto transaction = ledger.tx_begin_write ();

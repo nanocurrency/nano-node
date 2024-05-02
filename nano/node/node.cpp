@@ -143,7 +143,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	config (config_a),
 	network_params{ config.network_params },
 	logger{ make_logger_identifier (node_id) },
-	stats (config.stats_config),
+	stats{ logger, config.stats_config },
 	workers{ config.background_threads, nano::thread_role::name::worker },
 	bootstrap_workers{ config.bootstrap_serving_threads, nano::thread_role::name::bootstrap_worker },
 	flags (flags_a),

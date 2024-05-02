@@ -1,5 +1,8 @@
+#include <nano/lib/config.hpp>
+#include <nano/lib/env.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/locks.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/stats_sinks.hpp>
 #include <nano/lib/thread_roles.hpp>
@@ -27,8 +30,10 @@ std::string nano::stat_log_sink::tm_to_string (tm & tm)
  * stats
  */
 
-nano::stats::stats (nano::stats_config config) :
-	config{ std::move (config) }
+nano::stats::stats (nano::logger & logger_a, nano::stats_config config_a) :
+	config{ std::move (config_a) },
+	logger{ logger_a },
+	enable_logging{ nano::get_env_bool ("NANO_LOG_STATS").value_or (false) }
 {
 }
 
@@ -80,6 +85,15 @@ void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, coun
 	if (value == 0)
 	{
 		return;
+	}
+
+	if (enable_logging)
+	{
+		logger.debug (nano::log::type::stats, "Stat: {}::{}::{} += {}",
+		to_string (type),
+		to_string (detail),
+		to_string (dir),
+		value);
 	}
 
 	// Updates need to happen while holding the mutex
@@ -154,6 +168,11 @@ nano::stats::counter_value_t nano::stats::count (stat::type type, stat::dir dir)
 void nano::stats::sample (stat::sample sample, std::pair<sampler_value_t, sampler_value_t> expected_min_max, nano::stats::sampler_value_t value)
 {
 	debug_assert (sample != stat::sample::_invalid);
+
+	if (enable_logging)
+	{
+		logger.debug (nano::log::type::stats, "Sample: {} -> {}", to_string (sample), value);
+	}
 
 	// Updates need to happen while holding the mutex
 	auto update_sampler = [this, expected_min_max] (nano::stats::sampler_key key, auto && updater) {

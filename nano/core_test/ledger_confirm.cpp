@@ -777,12 +777,12 @@ TEST (ledger_confirm, election_winner_details_clearing_node_process_confirmed)
 
 TEST (ledger_confirm, pruned_source)
 {
-	nano::logger logger;
+	nano::test::system system;
+
 	auto path (nano::unique_path ());
-	auto store = nano::make_store (logger, path, nano::dev::constants);
+	auto store = nano::make_store (system.logger, path, nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::stats stats;
-	nano::ledger ledger (*store, stats, nano::dev::constants);
+	nano::ledger ledger (*store, system.stats, nano::dev::constants);
 	ledger.pruning = true;
 	nano::store::write_queue write_queue (false);
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -862,12 +862,12 @@ TEST (ledger_confirmDeathTest, rollback_added_block)
 	// valgrind can be noisy with death tests
 	if (!nano::running_within_valgrind ())
 	{
-		nano::logger logger;
+		nano::test::system system;
+
 		auto path (nano::unique_path ());
-		auto store = nano::make_store (logger, path, nano::dev::constants);
+		auto store = nano::make_store (system.logger, path, nano::dev::constants);
 		ASSERT_TRUE (!store->init_error ());
-		nano::stats stats;
-		nano::ledger ledger (*store, stats, nano::dev::constants);
+		nano::ledger ledger (*store, system.stats, nano::dev::constants);
 		nano::store::write_queue write_queue (false);
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 		nano::keypair key1;
