@@ -1,6 +1,7 @@
 #include <nano/crypto/blake2/blake2.h>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/env.hpp>
 #include <nano/lib/logging.hpp>
 
 #include <boost/format.hpp>
@@ -316,16 +317,6 @@ std::string get_tls_toml_config_path (std::filesystem::path const & data_path)
 	return (data_path / "config-tls.toml").string ();
 }
 } // namespace nano
-
-std::optional<std::string> nano::get_env (const char * variable_name)
-{
-	auto value = std::getenv (variable_name);
-	if (value)
-	{
-		return value;
-	}
-	return {};
-}
 
 std::string nano::get_env_or_default (char const * variable_name, std::string default_value)
 {
