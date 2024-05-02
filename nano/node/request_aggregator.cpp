@@ -111,6 +111,10 @@ bool nano::request_aggregator::request (request_type const & request, std::share
 		stats.inc (nano::stat::type::request_aggregator, nano::stat::detail::overfill);
 		stats.add (nano::stat::type::request_aggregator, nano::stat::detail::overfill_hashes, request.size ());
 	}
+
+	// TODO: This stat is for compatibility with existing tests and is in principle unnecessary
+	stats.inc (nano::stat::type::aggregator, added ? nano::stat::detail::aggregator_accepted : nano::stat::detail::aggregator_dropped);
+
 	return added;
 }
 
