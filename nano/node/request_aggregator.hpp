@@ -77,8 +77,16 @@ private:
 	void run ();
 	/** Remove duplicate requests **/
 	void erase_duplicates (std::vector<std::pair<nano::block_hash, nano::root>> &) const;
+
+	struct aggregate_result
+	{
+		std::vector<std::shared_ptr<nano::block>> remaining_normal;
+		std::vector<std::shared_ptr<nano::block>> remaining_final;
+	};
+
 	/** Aggregate \p requests_a and send cached votes to \p channel_a . Return the remaining hashes that need vote generation for each block for regular & final vote generators **/
-	std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr<nano::block>>> aggregate (std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
+	aggregate_result aggregate (std::vector<std::pair<nano::block_hash, nano::root>> const & requests, std::shared_ptr<nano::transport::channel> const &) const;
+
 	void reply_action (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) const;
 
 private: // Dependencies

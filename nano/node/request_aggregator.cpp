@@ -139,17 +139,17 @@ void nano::request_aggregator::run ()
 				lock.unlock ();
 				erase_duplicates (hashes_roots);
 				auto const remaining = aggregate (hashes_roots, channel);
-				if (!remaining.first.empty ())
+				if (!remaining.remaining_normal.empty ())
 				{
 					// Generate votes for the remaining hashes
-					auto const generated = generator.generate (remaining.first, channel);
-					stats.add (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in, remaining.first.size () - generated);
+					auto const generated = generator.generate (remaining.remaining_normal, channel);
+					stats.add (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in, remaining.remaining_normal.size () - generated);
 				}
-				if (!remaining.second.empty ())
+				if (!remaining.remaining_final.empty ())
 				{
 					// Generate final votes for the remaining hashes
-					auto const generated = final_generator.generate (remaining.second, channel);
-					stats.add (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in, remaining.second.size () - generated);
+					auto const generated = final_generator.generate (remaining.remaining_final, channel);
+					stats.add (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in, remaining.remaining_final.size () - generated);
 				}
 				lock.lock ();
 			}
@@ -183,7 +183,7 @@ void nano::request_aggregator::erase_duplicates (std::vector<std::pair<nano::blo
 	requests_a.end ());
 }
 
-std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr<nano::block>>> nano::request_aggregator::aggregate (std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const
+auto nano::request_aggregator::aggregate (std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> const & channel_a) const -> aggregate_result
 {
 	auto transaction = ledger.tx_begin_read ();
 	std::vector<std::shared_ptr<nano::block>> to_generate;
@@ -306,6 +306,7 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 			}
 		}
 	}
+
 	// Unique votes
 	std::sort (cached_votes.begin (), cached_votes.end ());
 	cached_votes.erase (std::unique (cached_votes.begin (), cached_votes.end ()), cached_votes.end ());
@@ -313,9 +314,14 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 	{
 		reply_action (vote, channel_a);
 	}
+
 	stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached_hashes, stat::dir::in, cached_hashes.size ());
 	stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached_votes, stat::dir::in, cached_votes.size ());
-	return std::make_pair (to_generate, to_generate_final);
+
+	return {
+		.remaining_normal = to_generate,
+		.remaining_final = to_generate_final
+	};
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::request_aggregator & aggregator, std::string const & name)
