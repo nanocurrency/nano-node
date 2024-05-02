@@ -196,7 +196,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	final_generator{ *final_generator_impl },
 	scheduler_impl{ std::make_unique<nano::scheduler::component> (*this) },
 	scheduler{ *scheduler_impl },
-	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
+	aggregator (config.request_aggregator, *this, stats, generator, final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
 	backlog{ nano::backlog_population_config (config), ledger, stats },
 	ascendboot{ config, block_processor, ledger, network, stats },
@@ -585,7 +585,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (node.vote_uniquer.collect_container_info ("vote_uniquer"));
 	composite->add_component (node.confirming_set.collect_container_info ("confirming_set"));
 	composite->add_component (collect_container_info (node.distributed_work, "distributed_work"));
-	composite->add_component (collect_container_info (node.aggregator, "request_aggregator"));
+	composite->add_component (node.aggregator.collect_container_info ("request_aggregator"));
 	composite->add_component (node.scheduler.collect_container_info ("election_scheduler"));
 	composite->add_component (node.vote_cache.collect_container_info ("vote_cache"));
 	composite->add_component (node.generator.collect_container_info ("vote_generator"));
