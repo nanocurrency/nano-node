@@ -417,18 +417,6 @@ void nano::transport::tcp_channels::list (std::deque<std::shared_ptr<nano::trans
 	// clang-format on
 }
 
-void nano::transport::tcp_channels::modify (std::shared_ptr<nano::transport::tcp_channel> const & channel_a, std::function<void (std::shared_ptr<nano::transport::tcp_channel> const &)> modify_callback_a)
-{
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto existing (channels.get<endpoint_tag> ().find (channel_a->get_tcp_endpoint ()));
-	if (existing != channels.get<endpoint_tag> ().end ())
-	{
-		channels.get<endpoint_tag> ().modify (existing, [modify_callback = std::move (modify_callback_a)] (channel_entry & wrapper_a) {
-			modify_callback (wrapper_a.channel);
-		});
-	}
-}
-
 void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint)
 {
 	node.tcp_listener.connect (endpoint.address (), endpoint.port ());
