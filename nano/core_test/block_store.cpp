@@ -335,10 +335,10 @@ TEST (block_store, pending_iterator)
  */
 TEST (block_store, pending_iterator_comparison)
 {
-	nano::logger logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	nano::test::system system;
+
+	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::stats stats;
 	auto transaction (store->tx_begin_write ());
 	// Populate pending
 	store->pending.put (transaction, nano::pending_key (nano::account (3), nano::block_hash (1)), nano::pending_info (nano::account (10), nano::amount (1), nano::epoch::epoch_0));
@@ -624,12 +624,13 @@ TEST (mdb_block_store, supported_version_upgrades)
 		// Don't test this in rocksdb mode
 		GTEST_SKIP ();
 	}
+
 	// Check that upgrading from an unsupported version is not supported
 	auto path (nano::unique_path () / "data.ldb");
 	nano::logger logger;
 	{
 		nano::store::lmdb::component store (logger, path, nano::dev::constants);
-		nano::stats stats;
+		nano::stats stats{ logger };
 		nano::ledger ledger (store, stats, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, ledger.cache, nano::dev::constants);
@@ -647,7 +648,7 @@ TEST (mdb_block_store, supported_version_upgrades)
 	// Now try with the minimum version
 	{
 		nano::store::lmdb::component store (logger, path1, nano::dev::constants);
-		nano::stats stats;
+		nano::stats stats{ logger };
 		nano::ledger ledger (store, stats, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, ledger.cache, nano::dev::constants);
@@ -895,7 +896,7 @@ TEST (block_store, cemented_count_cache)
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	auto transaction (store->tx_begin_write ());
-	nano::stats stats;
+	nano::stats stats{ logger };
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	store->initialize (transaction, ledger.cache, nano::dev::constants);
 	ASSERT_EQ (1, ledger.cemented_count ());
@@ -998,7 +999,7 @@ TEST (mdb_block_store, sideband_height)
 	nano::keypair key3;
 	nano::store::lmdb::component store (logger, nano::unique_path () / "data.ldb", nano::dev::constants);
 	ASSERT_FALSE (store.init_error ());
-	nano::stats stats;
+	nano::stats stats{ logger };
 	nano::ledger ledger (store, stats, nano::dev::constants);
 	nano::block_builder builder;
 	auto transaction = ledger.tx_begin_write ();
@@ -1369,7 +1370,7 @@ TEST (mdb_block_store, upgrade_v21_v22)
 
 	auto path (nano::unique_path () / "data.ldb");
 	nano::logger logger;
-	nano::stats stats;
+	nano::stats stats{ logger };
 	auto const check_correct_state = [&] () {
 		nano::store::lmdb::component store (logger, path, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
@@ -1405,7 +1406,7 @@ TEST (mdb_block_store, upgrade_v23_v24)
 
 	auto path (nano::unique_path () / "data.ldb");
 	nano::logger logger;
-	nano::stats stats;
+	nano::stats stats{ logger };
 	auto const check_correct_state = [&] () {
 		nano::store::lmdb::component store (logger, path, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
@@ -1444,7 +1445,7 @@ TEST (rocksdb_block_store, upgrade_v21_v22)
 
 	auto const path = nano::unique_path () / "rocksdb";
 	nano::logger logger;
-	nano::stats stats;
+	nano::stats stats{ logger };
 	auto const check_correct_state = [&] () {
 		nano::store::rocksdb::component store (logger, path, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());

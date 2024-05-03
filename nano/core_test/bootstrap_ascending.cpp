@@ -27,44 +27,43 @@ nano::block_hash random_hash ()
 
 TEST (account_sets, construction)
 {
-	nano::stats stats;
-	nano::logger logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	nano::test::system system;
+	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
-	nano::bootstrap_ascending::account_sets sets{ stats };
+	nano::bootstrap_ascending::account_sets sets{ system.stats };
 }
 
 TEST (account_sets, empty_blocked)
 {
+	nano::test::system system;
+
 	nano::account account{ 1 };
-	nano::stats stats;
-	nano::logger logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
-	nano::bootstrap_ascending::account_sets sets{ stats };
+	nano::bootstrap_ascending::account_sets sets{ system.stats };
 	ASSERT_FALSE (sets.blocked (account));
 }
 
 TEST (account_sets, block)
 {
+	nano::test::system system;
+
 	nano::account account{ 1 };
-	nano::stats stats;
-	nano::logger logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
-	nano::bootstrap_ascending::account_sets sets{ stats };
+	nano::bootstrap_ascending::account_sets sets{ system.stats };
 	sets.block (account, random_hash ());
 	ASSERT_TRUE (sets.blocked (account));
 }
 
 TEST (account_sets, unblock)
 {
+	nano::test::system system;
+
 	nano::account account{ 1 };
-	nano::stats stats;
-	nano::logger logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
-	nano::bootstrap_ascending::account_sets sets{ stats };
+	nano::bootstrap_ascending::account_sets sets{ system.stats };
 	auto hash = random_hash ();
 	sets.block (account, hash);
 	sets.unblock (account, hash);
@@ -73,23 +72,23 @@ TEST (account_sets, unblock)
 
 TEST (account_sets, priority_base)
 {
+	nano::test::system system;
+
 	nano::account account{ 1 };
-	nano::stats stats;
-	nano::logger logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
-	nano::bootstrap_ascending::account_sets sets{ stats };
+	nano::bootstrap_ascending::account_sets sets{ system.stats };
 	ASSERT_EQ (1.0f, sets.priority (account));
 }
 
 TEST (account_sets, priority_blocked)
 {
+	nano::test::system system;
+
 	nano::account account{ 1 };
-	nano::stats stats;
-	nano::logger logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
-	nano::bootstrap_ascending::account_sets sets{ stats };
+	nano::bootstrap_ascending::account_sets sets{ system.stats };
 	sets.block (account, random_hash ());
 	ASSERT_EQ (0.0f, sets.priority (account));
 }
@@ -97,12 +96,12 @@ TEST (account_sets, priority_blocked)
 // When account is unblocked, check that it retains it former priority
 TEST (account_sets, priority_unblock_keep)
 {
+	nano::test::system system;
+
 	nano::account account{ 1 };
-	nano::stats stats;
-	nano::logger logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
-	nano::bootstrap_ascending::account_sets sets{ stats };
+	nano::bootstrap_ascending::account_sets sets{ system.stats };
 	sets.priority_up (account);
 	sets.priority_up (account);
 	ASSERT_EQ (sets.priority (account), nano::bootstrap_ascending::account_sets::priority_initial * nano::bootstrap_ascending::account_sets::priority_increase);
@@ -115,12 +114,12 @@ TEST (account_sets, priority_unblock_keep)
 
 TEST (account_sets, priority_up_down)
 {
+	nano::test::system system;
+
 	nano::account account{ 1 };
-	nano::stats stats;
-	nano::logger logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
-	nano::bootstrap_ascending::account_sets sets{ stats };
+	nano::bootstrap_ascending::account_sets sets{ system.stats };
 	sets.priority_up (account);
 	ASSERT_EQ (sets.priority (account), nano::bootstrap_ascending::account_sets::priority_initial);
 	sets.priority_down (account);
@@ -130,12 +129,12 @@ TEST (account_sets, priority_up_down)
 // Check that priority downward saturates to 1.0f
 TEST (account_sets, priority_down_sat)
 {
+	nano::test::system system;
+
 	nano::account account{ 1 };
-	nano::stats stats;
-	nano::logger logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
-	nano::bootstrap_ascending::account_sets sets{ stats };
+	nano::bootstrap_ascending::account_sets sets{ system.stats };
 	sets.priority_down (account);
 	ASSERT_EQ (1.0f, sets.priority (account));
 }
@@ -143,12 +142,12 @@ TEST (account_sets, priority_down_sat)
 // Ensure priority value is bounded
 TEST (account_sets, saturate_priority)
 {
+	nano::test::system system;
+
 	nano::account account{ 1 };
-	nano::stats stats;
-	nano::logger logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
-	nano::bootstrap_ascending::account_sets sets{ stats };
+	nano::bootstrap_ascending::account_sets sets{ system.stats };
 	for (int n = 0; n < 1000; ++n)
 	{
 		sets.priority_up (account);
