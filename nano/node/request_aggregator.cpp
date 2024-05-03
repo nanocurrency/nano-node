@@ -351,3 +351,25 @@ std::unique_ptr<nano::container_info_component> nano::request_aggregator::collec
 	composite->add_component (queue.collect_container_info ("queue"));
 	return composite;
 }
+
+/*
+ * request_aggregator_config
+ */
+
+nano::error nano::request_aggregator_config::serialize (nano::tomlconfig & toml) const
+{
+	toml.put ("max_queue", max_queue, "Maximum number of queued requests per peer. \ntype:uint64");
+	toml.put ("threads", threads, "Number of threads for request processing. \ntype:uint64");
+	toml.put ("batch_size", batch_size, "Number of requests to process in a single batch. \ntype:uint64");
+
+	return toml.get_error ();
+}
+
+nano::error nano::request_aggregator_config::deserialize (nano::tomlconfig & toml)
+{
+	toml.get ("max_queue", max_queue);
+	toml.get ("threads", threads);
+	toml.get ("batch_size", batch_size);
+
+	return toml.get_error ();
+}

@@ -25,6 +25,10 @@ namespace nano
 class request_aggregator_config final
 {
 public:
+	nano::error deserialize (nano::tomlconfig &);
+	nano::error serialize (nano::tomlconfig &) const;
+
+public:
 	size_t threads{ std::min (nano::hardware_concurrency (), 4u) };
 	size_t max_queue{ 128 };
 	size_t batch_size{ 16 };
