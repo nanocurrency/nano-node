@@ -158,17 +158,13 @@ std::optional<nano::block_status> nano::block_processor::add_blocking (std::shar
 
 	try
 	{
-		auto status = future.wait_for (node.config.block_process_timeout);
-		debug_assert (status != std::future_status::deferred);
-		if (status == std::future_status::ready)
-		{
-			return future.get ();
-		}
+		future.wait ();
+		return future.get ();
 	}
 	catch (std::future_error const &)
 	{
 		node.stats.inc (nano::stat::type::blockprocessor, nano::stat::detail::process_blocking_timeout);
-		node.logger.error (nano::log::type::blockprocessor, "Timeout processing block: {}", block->hash ().to_string ());
+		node.logger.error (nano::log::type::blockprocessor, "Block dropped when processing: {}", block->hash ().to_string ());
 	}
 
 	return std::nullopt;
