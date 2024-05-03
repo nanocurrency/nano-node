@@ -58,49 +58,49 @@ public:
 
 	std::chrono::steady_clock::time_point get_last_bootstrap_attempt () const
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		return last_bootstrap_attempt;
 	}
 
 	void set_last_bootstrap_attempt (std::chrono::steady_clock::time_point const time_a)
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		last_bootstrap_attempt = time_a;
 	}
 
 	std::chrono::steady_clock::time_point get_last_packet_received () const
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		return last_packet_received;
 	}
 
 	void set_last_packet_received (std::chrono::steady_clock::time_point const time_a)
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		last_packet_received = time_a;
 	}
 
 	std::chrono::steady_clock::time_point get_last_packet_sent () const
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		return last_packet_sent;
 	}
 
 	void set_last_packet_sent (std::chrono::steady_clock::time_point const time_a)
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		last_packet_sent = time_a;
 	}
 
 	boost::optional<nano::account> get_node_id_optional () const
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		return node_id;
 	}
 
 	nano::account get_node_id () const
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		if (node_id.is_initialized ())
 		{
 			return node_id.get ();
@@ -113,7 +113,7 @@ public:
 
 	void set_node_id (nano::account node_id_a)
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		node_id = node_id_a;
 	}
 
@@ -130,7 +130,9 @@ public:
 	nano::endpoint get_peering_endpoint () const;
 	void set_peering_endpoint (nano::endpoint endpoint);
 
-	mutable nano::mutex channel_mutex;
+protected:
+	nano::node & node;
+	mutable nano::mutex mutex;
 
 private:
 	std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
@@ -139,9 +141,6 @@ private:
 	boost::optional<nano::account> node_id{ boost::none };
 	std::atomic<uint8_t> network_version{ 0 };
 	std::optional<nano::endpoint> peering_endpoint{};
-
-protected:
-	nano::node & node;
 
 public: // Logging
 	virtual void operator() (nano::object_stream &) const;

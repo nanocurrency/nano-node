@@ -45,14 +45,14 @@ void nano::transport::channel::send (nano::message & message_a, std::function<vo
 
 void nano::transport::channel::set_peering_endpoint (nano::endpoint endpoint)
 {
-	nano::lock_guard<nano::mutex> lock{ channel_mutex };
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	peering_endpoint = endpoint;
 }
 
 nano::endpoint nano::transport::channel::get_peering_endpoint () const
 {
 	{
-		nano::lock_guard<nano::mutex> lock{ channel_mutex };
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		if (peering_endpoint)
 		{
 			return *peering_endpoint;

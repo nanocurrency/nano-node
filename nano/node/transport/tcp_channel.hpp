@@ -26,13 +26,13 @@ public:
 
 	nano::endpoint get_remote_endpoint () const override
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		return remote_endpoint;
 	}
 
 	nano::endpoint get_local_endpoint () const override
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		return local_endpoint;
 	}
 
