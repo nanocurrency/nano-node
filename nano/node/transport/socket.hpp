@@ -29,6 +29,34 @@ class node;
 
 namespace nano::transport
 {
+class socket_queue final
+{
+public:
+	using buffer_t = nano::shared_const_buffer;
+	using callback_t = std::function<void (boost::system::error_code const &, std::size_t)>;
+
+	struct entry
+	{
+		buffer_t buffer;
+		callback_t callback;
+	};
+
+public:
+	explicit socket_queue (std::size_t max_size);
+
+	bool insert (buffer_t const &, callback_t, nano::transport::traffic_type);
+	std::optional<entry> pop ();
+	void clear ();
+	std::size_t size (nano::transport::traffic_type) const;
+	bool empty () const;
+
+	std::size_t const max_size;
+
+private:
+	mutable nano::mutex mutex;
+	std::unordered_map<nano::transport::traffic_type, std::queue<entry>> queues;
+};
+
 /** Socket class for tcp clients and newly accepted connections */
 class socket final : public std::enable_shared_from_this<socket>
 {
@@ -113,35 +141,7 @@ public:
 	}
 
 private:
-	class write_queue
-	{
-	public:
-		using buffer_t = nano::shared_const_buffer;
-		using callback_t = std::function<void (boost::system::error_code const &, std::size_t)>;
-
-		struct entry
-		{
-			buffer_t buffer;
-			callback_t callback;
-		};
-
-	public:
-		explicit write_queue (std::size_t max_size);
-
-		bool insert (buffer_t const &, callback_t, nano::transport::traffic_type);
-		std::optional<entry> pop ();
-		void clear ();
-		std::size_t size (nano::transport::traffic_type) const;
-		bool empty () const;
-
-		std::size_t const max_size;
-
-	private:
-		mutable nano::mutex mutex;
-		std::unordered_map<nano::transport::traffic_type, std::queue<entry>> queues;
-	};
-
-	write_queue send_queue;
+	socket_queue send_queue;
 
 protected:
 	std::weak_ptr<nano::node> node_w;

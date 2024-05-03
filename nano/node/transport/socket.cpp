@@ -417,15 +417,15 @@ void nano::transport::socket::operator() (nano::object_stream & obs) const
 }
 
 /*
- * write_queue
+ * socket_queue
  */
 
-nano::transport::socket::write_queue::write_queue (std::size_t max_size_a) :
+nano::transport::socket_queue::socket_queue (std::size_t max_size_a) :
 	max_size{ max_size_a }
 {
 }
 
-bool nano::transport::socket::write_queue::insert (const buffer_t & buffer, callback_t callback, nano::transport::traffic_type traffic_type)
+bool nano::transport::socket_queue::insert (const buffer_t & buffer, callback_t callback, nano::transport::traffic_type traffic_type)
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	if (queues[traffic_type].size () < 2 * max_size)
@@ -436,7 +436,7 @@ bool nano::transport::socket::write_queue::insert (const buffer_t & buffer, call
 	return false; // Not queued
 }
 
-std::optional<nano::transport::socket::write_queue::entry> nano::transport::socket::write_queue::pop ()
+std::optional<nano::transport::socket_queue::entry> nano::transport::socket_queue::pop ()
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
@@ -464,13 +464,13 @@ std::optional<nano::transport::socket::write_queue::entry> nano::transport::sock
 	return std::nullopt;
 }
 
-void nano::transport::socket::write_queue::clear ()
+void nano::transport::socket_queue::clear ()
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	queues.clear ();
 }
 
-std::size_t nano::transport::socket::write_queue::size (nano::transport::traffic_type traffic_type) const
+std::size_t nano::transport::socket_queue::size (nano::transport::traffic_type traffic_type) const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	if (auto it = queues.find (traffic_type); it != queues.end ())
@@ -480,13 +480,17 @@ std::size_t nano::transport::socket::write_queue::size (nano::transport::traffic
 	return 0;
 }
 
-bool nano::transport::socket::write_queue::empty () const
+bool nano::transport::socket_queue::empty () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return std::all_of (queues.begin (), queues.end (), [] (auto const & que) {
 		return que.second.empty ();
 	});
 }
+
+/*
+ * socket_functions
+ */
 
 boost::asio::ip::network_v6 nano::transport::socket_functions::get_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, std::size_t network_prefix)
 {
