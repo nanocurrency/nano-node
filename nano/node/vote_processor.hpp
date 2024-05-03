@@ -50,6 +50,7 @@ public:
 	size_t max_non_pr_queue{ 32 };
 	size_t pr_priority{ 3 };
 	size_t threads{ std::min (4u, nano::hardware_concurrency () / 2) };
+	size_t batch_size{ 1024 };
 };
 
 class vote_processor final

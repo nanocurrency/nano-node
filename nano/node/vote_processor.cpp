@@ -146,8 +146,7 @@ void nano::vote_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
 	nano::timer<std::chrono::milliseconds> timer;
 	timer.start ();
 
-	size_t const max_batch_size = 1024 * 4;
-	auto batch = queue.next_batch (max_batch_size);
+	auto batch = queue.next_batch (config.batch_size);
 
 	lock.unlock ();
 
@@ -158,7 +157,7 @@ void nano::vote_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
 
 	total_processed += batch.size ();
 
-	if (batch.size () == max_batch_size && timer.stop () > 100ms)
+	if (batch.size () == config.batch_size && timer.stop () > 100ms)
 	{
 		logger.debug (nano::log::type::vote_processor, "Processed {} votes in {} milliseconds (rate of {} votes per second)",
 		batch.size (),
@@ -230,6 +229,7 @@ nano::error nano::vote_processor_config::serialize (nano::tomlconfig & toml) con
 	toml.put ("max_non_pr_queue", max_non_pr_queue, "Maximum number of votes to queue from non-principal representatives. \ntype:uint64");
 	toml.put ("pr_priority", pr_priority, "Priority for votes from principal representatives. Higher priority gets processed more frequently. Non-principal representatives have a baseline priority of 1. \ntype:uint64");
 	toml.put ("threads", threads, "Number of threads to use for processing votes. \ntype:uint64");
+	toml.put ("batch_size", batch_size, "Maximum number of votes to process in a single batch. \ntype:uint64");
 
 	return toml.get_error ();
 }
@@ -240,6 +240,7 @@ nano::error nano::vote_processor_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("max_non_pr_queue", max_non_pr_queue);
 	toml.get ("pr_priority", pr_priority);
 	toml.get ("threads", threads);
+	toml.get ("batch_size", batch_size);
 
 	return toml.get_error ();
 }
