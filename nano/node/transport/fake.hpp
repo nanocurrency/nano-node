@@ -30,14 +30,9 @@ namespace transport
 				endpoint = endpoint_a;
 			}
 
-			nano::endpoint get_endpoint () const override
+			nano::endpoint get_remote_endpoint () const override
 			{
 				return endpoint;
-			}
-
-			nano::tcp_endpoint get_tcp_endpoint () const override
-			{
-				return nano::transport::map_endpoint_to_tcp (endpoint);
 			}
 
 			nano::endpoint get_local_endpoint () const override

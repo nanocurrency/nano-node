@@ -230,7 +230,7 @@ TEST (request_aggregator, two_endpoints)
 
 	auto dummy_channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
 	auto dummy_channel2 = std::make_shared<nano::transport::inproc::channel> (node2, node2);
-	ASSERT_NE (nano::transport::map_endpoint_to_v6 (dummy_channel1->get_endpoint ()), nano::transport::map_endpoint_to_v6 (dummy_channel2->get_endpoint ()));
+	ASSERT_NE (nano::transport::map_endpoint_to_v6 (dummy_channel1->get_remote_endpoint ()), nano::transport::map_endpoint_to_v6 (dummy_channel2->get_remote_endpoint ()));
 
 	std::vector<std::pair<nano::block_hash, nano::root>> request{ { send1->hash (), send1->root () } };
 

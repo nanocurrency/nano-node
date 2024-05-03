@@ -24,15 +24,10 @@ public:
 
 	std::string to_string () const override;
 
-	nano::endpoint get_endpoint () const override
-	{
-		return nano::transport::map_tcp_to_endpoint (get_tcp_endpoint ());
-	}
-
-	nano::tcp_endpoint get_tcp_endpoint () const override
+	nano::endpoint get_remote_endpoint () const override
 	{
 		nano::lock_guard<nano::mutex> lk (channel_mutex);
-		return endpoint;
+		return remote_endpoint;
 	}
 
 	nano::endpoint get_local_endpoint () const override
@@ -77,7 +72,7 @@ public:
 	std::weak_ptr<nano::transport::tcp_socket> socket;
 
 private:
-	nano::endpoint endpoint;
+	nano::endpoint remote_endpoint;
 	nano::endpoint local_endpoint;
 
 public: // Logging

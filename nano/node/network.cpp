@@ -504,14 +504,14 @@ void nano::network::erase (nano::transport::channel const & channel_a)
 	auto const channel_type = channel_a.get_type ();
 	if (channel_type == nano::transport::transport_type::tcp)
 	{
-		tcp_channels.erase (channel_a.get_tcp_endpoint ());
+		tcp_channels.erase (channel_a.get_remote_endpoint ());
 	}
 }
 
 void nano::network::exclude (std::shared_ptr<nano::transport::channel> const & channel)
 {
 	// Add to peer exclusion list
-	excluded_peers.add (channel->get_tcp_endpoint ());
+	excluded_peers.add (channel->get_remote_endpoint ());
 
 	// Disconnect
 	erase (*channel);

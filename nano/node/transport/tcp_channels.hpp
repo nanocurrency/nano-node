@@ -80,7 +80,7 @@ private:
 		}
 		nano::tcp_endpoint endpoint () const
 		{
-			return channel->get_tcp_endpoint ();
+			return channel->get_remote_endpoint ();
 		}
 		std::chrono::steady_clock::time_point last_bootstrap_attempt () const
 		{

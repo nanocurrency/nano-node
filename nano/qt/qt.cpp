@@ -1944,7 +1944,7 @@ void nano_qt::advanced_actions::refresh_peers ()
 	peers_model->removeRows (0, peers_model->rowCount ());
 	auto list (wallet.node.network.list (std::numeric_limits<size_t>::max ()));
 	std::sort (list.begin (), list.end (), [] (auto const & lhs, auto const & rhs) {
-		return lhs->get_endpoint () < rhs->get_endpoint ();
+		return lhs->get_remote_endpoint () < rhs->get_remote_endpoint ();
 	});
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{

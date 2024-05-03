@@ -196,9 +196,9 @@ void nano::transport::tcp_channels::random_fill (std::array<nano::endpoint, 8> &
 	auto j (target_a.begin ());
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i, ++j)
 	{
-		debug_assert ((*i)->get_endpoint ().address ().is_v6 ());
+		debug_assert ((*i)->get_remote_endpoint ().address ().is_v6 ());
 		debug_assert (j < target_a.end ());
-		*j = (*i)->get_endpoint ();
+		*j = (*i)->get_remote_endpoint ();
 	}
 }
 

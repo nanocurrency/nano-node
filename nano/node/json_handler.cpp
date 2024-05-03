@@ -2991,7 +2991,7 @@ void nano::json_handler::peers ()
 	bool const peer_details = request.get<bool> ("peer_details", false);
 	auto peers_list (node.network.list (std::numeric_limits<std::size_t>::max ()));
 	std::sort (peers_list.begin (), peers_list.end (), [] (auto const & lhs, auto const & rhs) {
-		return lhs->get_endpoint () < rhs->get_endpoint ();
+		return lhs->get_remote_endpoint () < rhs->get_remote_endpoint ();
 	});
 	for (auto i (peers_list.begin ()), n (peers_list.end ()); i != n; ++i)
 	{

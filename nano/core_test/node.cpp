@@ -2704,7 +2704,7 @@ TEST (node, peer_history_restart)
 		ASSERT_TIMELY (10s, !node2->network.empty ());
 		// Confirm that the peers match with the endpoints we are expecting
 		auto list (node2->network.list (2));
-		ASSERT_EQ (node1->network.endpoint (), list[0]->get_endpoint ());
+		ASSERT_EQ (node1->network.endpoint (), list[0]->get_remote_endpoint ());
 		ASSERT_EQ (1, node2->network.size ());
 		system.stop_node (*node2);
 	}
@@ -2727,7 +2727,7 @@ TEST (node, peer_history_restart)
 		ASSERT_TIMELY (10s, !node3->network.empty ());
 		// Confirm that the peers match with the endpoints we are expecting
 		auto list (node3->network.list (2));
-		ASSERT_EQ (node1->network.endpoint (), list[0]->get_endpoint ());
+		ASSERT_EQ (node1->network.endpoint (), list[0]->get_remote_endpoint ());
 		ASSERT_EQ (1, node3->network.size ());
 		system.stop_node (*node3);
 	}
@@ -2789,11 +2789,11 @@ TEST (node, bidirectional_tcp)
 	ASSERT_EQ (1, node2->network.size ());
 	auto list1 (node1->network.list (1));
 	ASSERT_EQ (nano::transport::transport_type::tcp, list1[0]->get_type ());
-	ASSERT_NE (node2->network.endpoint (), list1[0]->get_endpoint ()); // Ephemeral port
+	ASSERT_NE (node2->network.endpoint (), list1[0]->get_remote_endpoint ()); // Ephemeral port
 	ASSERT_EQ (node2->node_id.pub, list1[0]->get_node_id ());
 	auto list2 (node2->network.list (1));
 	ASSERT_EQ (nano::transport::transport_type::tcp, list2[0]->get_type ());
-	ASSERT_EQ (node1->network.endpoint (), list2[0]->get_endpoint ());
+	ASSERT_EQ (node1->network.endpoint (), list2[0]->get_remote_endpoint ());
 	ASSERT_EQ (node1->node_id.pub, list2[0]->get_node_id ());
 	// Test block propagation from node 1
 	nano::keypair key;
