@@ -36,7 +36,10 @@ TEST (socket, max_connections)
 	std::mutex server_sockets_mutex;
 
 	// start a server socket that allows max 2 live connections
-	nano::transport::tcp_listener listener{ server_port, *node, 2 };
+	nano::transport::tcp_config tcp_config{ nano::dev::network_params.network };
+	tcp_config.max_inbound_connections = 2;
+
+	nano::transport::tcp_listener listener{ server_port, tcp_config, *node };
 	listener.connection_accepted.add ([&] (auto const & socket, auto const & server) {
 		std::lock_guard guard{ server_sockets_mutex };
 		server_sockets.push_back (socket);
@@ -63,12 +66,12 @@ TEST (socket, max_connections)
 	auto client3 = std::make_shared<nano::transport::socket> (*node);
 	client3->async_connect (dst_endpoint, connect_handler);
 
-	auto get_tcp_accept_failures = [&node] () {
-		return node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_failure, nano::stat::dir::in);
+	auto get_tcp_accept_failures = [] (auto & node) {
+		return node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_failure);
 	};
 
-	auto get_tcp_accept_successes = [&node] () {
-		return node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success, nano::stat::dir::in);
+	auto get_tcp_accept_successes = [] (auto & node) {
+		return node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success);
 	};
 
 	auto server_sockets_size = [&] () {
@@ -76,8 +79,8 @@ TEST (socket, max_connections)
 		return server_sockets.size ();
 	};
 
-	ASSERT_TIMELY_EQ (10s, get_tcp_accept_successes (), 2);
-	ASSERT_ALWAYS_EQ (1s, get_tcp_accept_successes (), 2);
+	ASSERT_TIMELY_EQ (10s, get_tcp_accept_successes (node), 2);
+	ASSERT_ALWAYS_EQ (1s, get_tcp_accept_successes (node), 2);
 	ASSERT_TIMELY_EQ (5s, connection_attempts, 3);
 	ASSERT_TIMELY_EQ (5s, server_sockets_size (), 2);
 
@@ -94,8 +97,8 @@ TEST (socket, max_connections)
 	auto client5 = std::make_shared<nano::transport::socket> (*node);
 	client5->async_connect (dst_endpoint, connect_handler);
 
-	ASSERT_TIMELY_EQ (10s, get_tcp_accept_successes (), 3);
-	ASSERT_ALWAYS_EQ (1s, get_tcp_accept_successes (), 3);
+	ASSERT_TIMELY_EQ (10s, get_tcp_accept_successes (node), 3);
+	ASSERT_ALWAYS_EQ (1s, get_tcp_accept_successes (node), 3);
 	ASSERT_TIMELY_EQ (5s, connection_attempts, 5);
 	ASSERT_TIMELY_EQ (5s, server_sockets.size (), 3);
 
@@ -116,8 +119,8 @@ TEST (socket, max_connections)
 	auto client8 = std::make_shared<nano::transport::socket> (*node);
 	client8->async_connect (dst_endpoint, connect_handler);
 
-	ASSERT_TIMELY_EQ (5s, get_tcp_accept_successes (), 5);
-	ASSERT_ALWAYS_EQ (1s, get_tcp_accept_successes (), 5);
+	ASSERT_TIMELY_EQ (5s, get_tcp_accept_successes (node), 5);
+	ASSERT_ALWAYS_EQ (1s, get_tcp_accept_successes (node), 5);
 	ASSERT_TIMELY_EQ (5s, connection_attempts, 8); // connections initiated by the client
 	ASSERT_TIMELY_EQ (5s, server_sockets_size (), 5); // connections accepted by the server
 }
@@ -144,7 +147,10 @@ TEST (socket, max_connections_per_ip)
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
 
-	nano::transport::tcp_listener listener{ server_port, *node, max_global_connections };
+	nano::transport::tcp_config tcp_config{ nano::dev::network_params.network };
+	tcp_config.max_inbound_connections = max_global_connections;
+
+	nano::transport::tcp_listener listener{ server_port, tcp_config, *node };
 	listener.connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
 		server_sockets.push_back (socket);
 	});
@@ -170,16 +176,8 @@ TEST (socket, max_connections_per_ip)
 		client_list.push_back (client);
 	}
 
-	auto get_tcp_max_per_ip = [&node] () {
-		return node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::max_per_ip, nano::stat::dir::in);
-	};
-
-	auto get_tcp_accept_successes = [&node] () {
-		return node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success, nano::stat::dir::in);
-	};
-
-	ASSERT_TIMELY_EQ (5s, get_tcp_accept_successes (), max_ip_connections);
-	ASSERT_TIMELY_EQ (5s, get_tcp_max_per_ip (), 1);
+	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success), max_ip_connections);
+	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_per_ip), 1);
 	ASSERT_TIMELY_EQ (5s, connection_attempts, max_ip_connections + 1);
 }
 
@@ -267,7 +265,10 @@ TEST (socket, max_connections_per_subnetwork)
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
 
-	nano::transport::tcp_listener listener{ server_port, *node, max_global_connections };
+	nano::transport::tcp_config tcp_config{ nano::dev::network_params.network };
+	tcp_config.max_inbound_connections = max_global_connections;
+
+	nano::transport::tcp_listener listener{ server_port, tcp_config, *node };
 	listener.connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
 		server_sockets.push_back (socket);
 	});
@@ -293,16 +294,8 @@ TEST (socket, max_connections_per_subnetwork)
 		client_list.push_back (client);
 	}
 
-	auto get_tcp_max_per_subnetwork = [&node] () {
-		return node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::max_per_subnetwork, nano::stat::dir::in);
-	};
-
-	auto get_tcp_accept_successes = [&node] () {
-		return node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success, nano::stat::dir::in);
-	};
-
-	ASSERT_TIMELY_EQ (5s, get_tcp_accept_successes (), max_subnetwork_connections);
-	ASSERT_TIMELY_EQ (5s, get_tcp_max_per_subnetwork (), 1);
+	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success), max_subnetwork_connections);
+	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_per_subnetwork), 1);
 	ASSERT_TIMELY_EQ (5s, connection_attempts, max_subnetwork_connections + 1);
 }
 
@@ -330,7 +323,10 @@ TEST (socket, disabled_max_peers_per_ip)
 	// successful incoming connections are stored in server_sockets to keep them alive (server side)
 	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
 
-	nano::transport::tcp_listener listener = { server_port, *node, max_global_connections };
+	nano::transport::tcp_config tcp_config{ nano::dev::network_params.network };
+	tcp_config.max_inbound_connections = max_global_connections;
+
+	nano::transport::tcp_listener listener = { server_port, tcp_config, *node };
 	listener.connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
 		server_sockets.push_back (socket);
 	});
@@ -356,16 +352,8 @@ TEST (socket, disabled_max_peers_per_ip)
 		client_list.push_back (client);
 	}
 
-	auto get_tcp_max_per_ip = [&node] () {
-		return node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::max_per_ip, nano::stat::dir::in);
-	};
-
-	auto get_tcp_accept_successes = [&node] () {
-		return node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success, nano::stat::dir::in);
-	};
-
-	ASSERT_TIMELY_EQ (5s, get_tcp_accept_successes (), max_ip_connections + 1);
-	ASSERT_TIMELY_EQ (5s, get_tcp_max_per_ip (), 0);
+	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success), max_ip_connections + 1);
+	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_per_ip), 0);
 	ASSERT_TIMELY_EQ (5s, connection_attempts, max_ip_connections + 1);
 }
 

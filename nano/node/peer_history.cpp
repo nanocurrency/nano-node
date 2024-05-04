@@ -86,7 +86,7 @@ void nano::peer_history::run_one ()
 	// Add or update live peers
 	for (auto const & peer : live_peers)
 	{
-		auto const endpoint = peer->get_endpoint ();
+		auto const endpoint = peer->get_peering_endpoint ();
 		bool const exists = store.peer.exists (transaction, endpoint);
 		store.peer.put (transaction, endpoint, nano::milliseconds_since_epoch ());
 		if (!exists)
@@ -141,7 +141,7 @@ nano::peer_history_config::peer_history_config (nano::network_constants const & 
 	if (network.is_dev_network ())
 	{
 		check_interval = 1s;
-		erase_cutoff = 3s;
+		erase_cutoff = 10s;
 	}
 }
 

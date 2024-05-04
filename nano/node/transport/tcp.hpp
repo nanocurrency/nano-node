@@ -20,40 +20,35 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
-class tcp_message_item final
-{
-public:
-	std::shared_ptr<nano::message> message;
-	nano::tcp_endpoint endpoint;
-	nano::account node_id;
-	std::shared_ptr<nano::transport::socket> socket;
-};
-
-class tcp_message_manager final
-{
-public:
-	tcp_message_manager (unsigned incoming_connections_max_a);
-	void put_message (nano::tcp_message_item const & item_a);
-	nano::tcp_message_item get_message ();
-	// Stop container and notify waiting threads
-	void stop ();
-
-private:
-	nano::mutex mutex;
-	nano::condition_variable producer_condition;
-	nano::condition_variable consumer_condition;
-	std::deque<nano::tcp_message_item> entries;
-	unsigned max_entries;
-	static unsigned const max_entries_per_connection = 16;
-	bool stopped{ false };
-
-	friend class network_tcp_message_manager_Test;
-};
-
 namespace transport
 {
 	class tcp_server;
 	class tcp_channels;
+	class channel_tcp;
+
+	// TODO: Replace with message_processor component with fair queueing
+	class tcp_message_manager final
+	{
+	public:
+		using entry_t = std::pair<std::unique_ptr<nano::message>, std::shared_ptr<nano::transport::channel_tcp>>;
+
+		explicit tcp_message_manager (unsigned incoming_connections_max);
+		void stop ();
+
+		void put (std::unique_ptr<nano::message>, std::shared_ptr<nano::transport::channel_tcp>);
+		entry_t next ();
+
+	private:
+		nano::mutex mutex;
+		nano::condition_variable producer_condition;
+		nano::condition_variable consumer_condition;
+		std::deque<entry_t> entries;
+		unsigned max_entries;
+		static unsigned const max_entries_per_connection = 16;
+		bool stopped{ false };
+
+		friend class network_tcp_message_manager_Test;
+	};
 
 	class channel_tcp : public nano::transport::channel, public std::enable_shared_from_this<channel_tcp>
 	{
@@ -63,20 +58,12 @@ namespace transport
 		channel_tcp (nano::node &, std::weak_ptr<nano::transport::socket>);
 		~channel_tcp () override;
 
+		void update_endpoints ();
+
 		// TODO: investigate clang-tidy warning about default parameters on virtual/override functions//
 		void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr, nano::transport::buffer_drop_policy = nano::transport::buffer_drop_policy::limiter, nano::transport::traffic_type = nano::transport::traffic_type::generic) override;
 
 		std::string to_string () const override;
-
-		void update_endpoint ()
-		{
-			nano::lock_guard<nano::mutex> lk (channel_mutex);
-			debug_assert (endpoint == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0)); // Not initialized endpoint value
-			if (auto socket_l = socket.lock ())
-			{
-				endpoint = socket_l->remote_endpoint ();
-			}
-		}
 
 		nano::endpoint get_endpoint () const override
 		{
@@ -87,6 +74,12 @@ namespace transport
 		{
 			nano::lock_guard<nano::mutex> lk (channel_mutex);
 			return endpoint;
+		}
+
+		nano::endpoint get_local_endpoint () const override
+		{
+			nano::lock_guard<nano::mutex> lk (channel_mutex);
+			return local_endpoint;
 		}
 
 		nano::transport::transport_type get_type () const override
@@ -124,12 +117,9 @@ namespace transport
 	public:
 		std::weak_ptr<nano::transport::socket> socket;
 
-		/* Mark for temporary channels. Usually remote ports of these channels are ephemeral and received from incoming connections to server.
-		If remote part has open listening port, temporary channel will be replaced with direct connection to listening port soon. But if other side is behing NAT or firewall this connection can be pemanent. */
-		std::atomic<bool> temporary{ false };
-
 	private:
-		nano::tcp_endpoint endpoint{ boost::asio::ip::address_v6::any (), 0 };
+		nano::endpoint endpoint;
+		nano::endpoint local_endpoint;
 
 	public: // Logging
 		void operator() (nano::object_stream &) const override;
@@ -137,7 +127,7 @@ namespace transport
 
 	class tcp_channels final
 	{
-		friend class nano::transport::channel_tcp;
+		friend class channel_tcp;
 		friend class telemetry_simultaneous_requests_Test;
 		friend class network_peer_max_tcp_attempts_subnetwork_Test;
 
@@ -148,7 +138,7 @@ namespace transport
 		void start ();
 		void stop ();
 
-		bool insert (std::shared_ptr<nano::transport::channel_tcp> const &, std::shared_ptr<nano::transport::socket> const &, std::shared_ptr<nano::transport::tcp_server> const &);
+		std::shared_ptr<nano::transport::channel_tcp> create (std::shared_ptr<nano::transport::socket> const &, std::shared_ptr<nano::transport::tcp_server> const &, nano::account const & node_id);
 		void erase (nano::tcp_endpoint const &);
 		std::size_t size () const;
 		std::shared_ptr<nano::transport::channel_tcp> find_channel (nano::tcp_endpoint const &) const;
@@ -157,8 +147,8 @@ namespace transport
 		std::shared_ptr<nano::transport::channel_tcp> find_node_id (nano::account const &);
 		// Get the next peer for attempting a tcp connection
 		nano::tcp_endpoint bootstrap_peer ();
+		void queue_message (std::unique_ptr<nano::message>, std::shared_ptr<nano::transport::channel_tcp>);
 		void process_messages ();
-		void process_message (nano::message const &, nano::tcp_endpoint const &, nano::account const &, std::shared_ptr<nano::transport::socket> const &);
 		bool max_ip_connections (nano::tcp_endpoint const & endpoint_a);
 		bool max_subnetwork_connections (nano::tcp_endpoint const & endpoint_a);
 		bool max_ip_or_subnetwork_connections (nano::tcp_endpoint const & endpoint_a);
@@ -173,16 +163,16 @@ namespace transport
 
 		// Connection start
 		void start_tcp (nano::endpoint const &);
-		void start_tcp_receive_node_id (std::shared_ptr<nano::transport::channel_tcp> const &, nano::endpoint const &, std::shared_ptr<std::vector<uint8_t>> const &);
 
 	private: // Dependencies
 		nano::node & node;
 
 	public:
-		nano::tcp_message_manager message_manager;
+		tcp_message_manager message_manager;
 
 	private:
 		void close ();
+		bool check (nano::tcp_endpoint const &, nano::account const & node_id) const;
 
 	private:
 		class channel_entry final
@@ -215,8 +205,7 @@ namespace transport
 			}
 			nano::account node_id () const
 			{
-				auto node_id (channel->get_node_id ());
-				return node_id;
+				return channel->get_node_id ();
 			}
 			uint8_t network_version () const
 			{

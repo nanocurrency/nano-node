@@ -3060,6 +3060,10 @@ void nano::json_handler::peers ()
 			}
 			debug_assert (channel->get_type () == nano::transport::transport_type::tcp);
 			pending_tree.put ("type", "tcp");
+
+			auto peering_endpoint = channel->get_peering_endpoint ();
+			pending_tree.put ("peering", boost::lexical_cast<std::string> (peering_endpoint));
+
 			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), pending_tree));
 		}
 		else

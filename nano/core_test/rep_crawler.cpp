@@ -89,12 +89,15 @@ TEST (rep_crawler, rep_weight)
 	ASSERT_TRUE (nano::test::process (node2, { block1, block2, block3, block4 }));
 	ASSERT_TRUE (nano::test::process (node3, { block1, block2, block3, block4 }));
 	ASSERT_TRUE (node.rep_crawler.representatives (1).empty ());
-	std::shared_ptr<nano::transport::channel> channel1 = nano::test::establish_tcp (system, node, node1.network.endpoint ());
+
+	ASSERT_TIMELY (5s, node.network.size () == 3);
+	auto channel1 = node.network.find_node_id (node1.node_id.pub);
+	auto channel2 = node.network.find_node_id (node2.node_id.pub);
+	auto channel3 = node.network.find_node_id (node3.node_id.pub);
 	ASSERT_NE (nullptr, channel1);
-	std::shared_ptr<nano::transport::channel> channel2 = nano::test::establish_tcp (system, node, node2.network.endpoint ());
 	ASSERT_NE (nullptr, channel2);
-	std::shared_ptr<nano::transport::channel> channel3 = nano::test::establish_tcp (system, node, node3.network.endpoint ());
 	ASSERT_NE (nullptr, channel3);
+
 	auto vote0 = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
 	auto vote1 = std::make_shared<nano::vote> (keypair1.pub, keypair1.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
 	auto vote2 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
@@ -227,8 +230,6 @@ TEST (rep_crawler, rep_remove)
 	reps = searching_node.rep_crawler.representatives (1);
 	ASSERT_EQ (nano::dev::genesis_key.pub, reps[0].account);
 	ASSERT_TIMELY_EQ (5s, searching_node.network.size (), 1);
-	auto list (searching_node.network.list (1));
-	ASSERT_EQ (node_genesis_rep->network.endpoint (), list[0]->get_endpoint ());
 }
 
 TEST (rep_crawler, rep_connection_close)

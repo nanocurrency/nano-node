@@ -38,17 +38,6 @@ nano::transport::tcp_server::~tcp_server ()
 
 	node->logger.debug (nano::log::type::tcp_server, "Exiting server: {}", fmt::streamed (remote_endpoint));
 
-	if (socket->type () == nano::transport::socket_type::realtime)
-	{
-		// Clear temporary channel
-		auto exisiting_response_channel (node->network.tcp_channels.find_channel (remote_endpoint));
-		if (exisiting_response_channel != nullptr)
-		{
-			exisiting_response_channel->temporary = false;
-			node->network.tcp_channels.erase (remote_endpoint);
-		}
-	}
-
 	stop ();
 }
 
@@ -260,7 +249,11 @@ void nano::transport::tcp_server::queue_realtime (std::unique_ptr<nano::message>
 	{
 		return;
 	}
-	node->network.tcp_channels.message_manager.put_message (nano::tcp_message_item{ std::move (message), remote_endpoint, remote_node_id, socket });
+
+	release_assert (channel != nullptr);
+
+	channel->set_last_packet_received (std::chrono::steady_clock::now ());
+	node->network.tcp_channels.queue_message (std::move (message), channel);
 }
 
 auto nano::transport::tcp_server::process_handshake (nano::node_id_handshake const & message) -> handshake_status
@@ -296,7 +289,9 @@ auto nano::transport::tcp_server::process_handshake (nano::node_id_handshake con
 	handshake_received = true;
 
 	node->stats.inc (nano::stat::type::tcp_server, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
-	node->logger.debug (nano::log::type::tcp_server, "Handshake message received ({})", fmt::streamed (remote_endpoint));
+	node->logger.debug (nano::log::type::tcp_server, "Handshake message received: {} ({})",
+	message.query ? (message.response ? "query + response" : "query") : (message.response ? "response" : "none"),
+	fmt::streamed (remote_endpoint));
 
 	if (message.query)
 	{
@@ -331,6 +326,42 @@ auto nano::transport::tcp_server::process_handshake (nano::node_id_handshake con
 	}
 
 	return handshake_status::handshake; // Handshake is in progress
+}
+
+void nano::transport::tcp_server::initiate_handshake ()
+{
+	auto node = this->node.lock ();
+	if (!node)
+	{
+		return;
+	}
+
+	auto query = node->network.prepare_handshake_query (nano::transport::map_tcp_to_endpoint (remote_endpoint));
+	nano::node_id_handshake message{ node->network_params.network, query };
+
+	node->logger.debug (nano::log::type::tcp_server, "Initiating handshake query ({})", fmt::streamed (remote_endpoint));
+
+	auto shared_const_buffer = message.to_shared_const_buffer ();
+	socket->async_write (shared_const_buffer, [this_l = shared_from_this ()] (boost::system::error_code const & ec, std::size_t size_a) {
+		auto node = this_l->node.lock ();
+		if (!node)
+		{
+			return;
+		}
+		if (ec)
+		{
+			node->stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake_network_error);
+			node->logger.debug (nano::log::type::tcp_server, "Error sending handshake query: {} ({})", ec.message (), fmt::streamed (this_l->remote_endpoint));
+
+			// Stop invalid handshake
+			this_l->stop ();
+		}
+		else
+		{
+			node->stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake, nano::stat::dir::out);
+			node->stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake_initiate, nano::stat::dir::out);
+		}
+	});
 }
 
 void nano::transport::tcp_server::send_handshake_response (nano::node_id_handshake::query_payload const & query, bool v2)
@@ -634,7 +665,13 @@ bool nano::transport::tcp_server::to_realtime_connection (nano::account const & 
 		return false;
 	}
 
-	remote_node_id = node_id;
+	auto channel_l = node->network.tcp_channels.create (socket, shared_from_this (), node_id);
+	if (!channel_l)
+	{
+		return false;
+	}
+	channel = channel_l;
+
 	socket->type_set (nano::transport::socket_type::realtime);
 
 	node->logger.debug (nano::log::type::tcp_server, "Switched to realtime mode ({})", fmt::streamed (remote_endpoint));

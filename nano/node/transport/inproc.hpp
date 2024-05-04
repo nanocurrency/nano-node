@@ -32,6 +32,11 @@ namespace transport
 				return nano::transport::map_endpoint_to_tcp (endpoint);
 			}
 
+			nano::endpoint get_local_endpoint () const override
+			{
+				return endpoint;
+			}
+
 			nano::transport::transport_type get_type () const override
 			{
 				return nano::transport::transport_type::loopback;

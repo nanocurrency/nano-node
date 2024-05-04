@@ -291,7 +291,7 @@ TEST (bootstrap_processor, process_none)
 	auto node1 = system.make_disconnected_node ();
 
 	bool done = false;
-	node0->observers.socket_accepted.add ([&] (nano::transport::socket & socket) {
+	node0->observers.socket_connected.add ([&] (nano::transport::socket & socket) {
 		done = true;
 	});
 

@@ -17,6 +17,8 @@ nano::confirmation_solicitor::confirmation_solicitor (nano::network & network_a,
 void nano::confirmation_solicitor::prepare (std::vector<nano::representative> const & representatives_a)
 {
 	debug_assert (!prepared);
+	debug_assert (std::none_of (representatives_a.begin (), representatives_a.end (), [] (auto const & rep) { return rep.channel == nullptr; }));
+
 	requests.clear ();
 	rebroadcasted = 0;
 	/** Two copies are required as representatives can be erased from \p representatives_requests */

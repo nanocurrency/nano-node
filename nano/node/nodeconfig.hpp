@@ -16,6 +16,7 @@
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
+#include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/websocketconfig.hpp>
@@ -143,6 +144,7 @@ public:
 	nano::block_processor_config block_processor;
 	nano::vote_processor_config vote_processor;
 	nano::peer_history_config peer_history;
+	nano::transport::tcp_config tcp;
 
 public:
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
