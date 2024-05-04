@@ -37,7 +37,7 @@ public:
 	// nano::error serialize (nano::tomlconfig & toml) const;
 
 public:
-	size_t depth{ 128 }; // 62 buckets of 128 items a piece = 7,936 possible elections / backlog
+	size_t depth{ 4096 };
 };
 class priority final
 {
