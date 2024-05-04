@@ -209,13 +209,11 @@ bool nano::vote_processor::empty () const
 
 std::unique_ptr<nano::container_info_component> nano::vote_processor::collect_container_info (std::string const & name) const
 {
-	std::size_t votes_count;
-	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
-		votes_count = queue.size ();
-	}
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "votes", votes_count, sizeof (decltype (queue)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "votes", queue.size (), sizeof (decltype (queue)::value_type) }));
+	composite->add_component (queue.collect_container_info ("queue"));
 	return composite;
 }
 
