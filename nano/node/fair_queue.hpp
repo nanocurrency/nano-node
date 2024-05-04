@@ -297,9 +297,10 @@ public:
 
 	std::deque<value_type> next_batch (size_t max_count)
 	{
-		// TODO: Naive implementation, could be optimized
+		auto count = std::min (size (), max_count);
+
 		std::deque<value_type> result;
-		while (!empty () && result.size () < max_count)
+		while (result.size () < count)
 		{
 			result.emplace_back (next ());
 		}
