@@ -456,7 +456,7 @@ TEST (socket, drop_policy)
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out));
 
 	node->stop ();
-	runner.stop_event_processing ();
+	runner.abort ();
 	runner.join ();
 }
 
@@ -568,7 +568,7 @@ TEST (socket, concurrent_writes)
 	ASSERT_TIMELY_EQ (10s, completed_reads, total_message_count);
 
 	node->stop ();
-	runner.stop_event_processing ();
+	runner.abort ();
 	runner.join ();
 
 	for (auto & t : client_threads)
