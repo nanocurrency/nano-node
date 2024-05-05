@@ -1,6 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
-#include <nano/lib/enum_utils.hpp>
+#include <nano/lib/enum_util.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/lib/stats_enums.hpp>
 #include <nano/lib/stream.hpp>

@@ -1,4 +1,4 @@
-#include <nano/lib/enum_utils.hpp>
+#include <nano/lib/enum_util.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/message_deserializer.hpp>
 

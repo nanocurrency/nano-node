@@ -1,4 +1,4 @@
-#include <nano/lib/enum_utils.hpp>
+#include <nano/lib/enum_util.hpp>
 #include <nano/lib/stats_enums.hpp>
 
 std::string_view nano::to_string (nano::stat::type type)

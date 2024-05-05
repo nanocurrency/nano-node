@@ -1,6 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
-#include <nano/lib/enum_utils.hpp>
+#include <nano/lib/enum_util.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>

@@ -1,4 +1,4 @@
-#include <nano/lib/enum_utils.hpp>
+#include <nano/lib/enum_util.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/node/online_reps.hpp>

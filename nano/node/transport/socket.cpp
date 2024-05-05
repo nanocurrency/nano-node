@@ -1,6 +1,6 @@
 #include <nano/boost/asio/bind_executor.hpp>
 #include <nano/boost/asio/read.hpp>
-#include <nano/lib/enum_utils.hpp>
+#include <nano/lib/enum_util.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/socket.hpp>
 #include <nano/node/transport/transport.hpp>

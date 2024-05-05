@@ -1,4 +1,4 @@
-#include <nano/lib/enum_utils.hpp>
+#include <nano/lib/enum_util.hpp>
 #include <nano/lib/interval.hpp>
 #include <nano/node/messages.hpp>
 #include <nano/node/node.hpp>

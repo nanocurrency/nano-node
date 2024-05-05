@@ -1,5 +1,5 @@
 #include <nano/lib/blocks.hpp>
-#include <nano/lib/enum_utils.hpp>
+#include <nano/lib/enum_util.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
