@@ -26,7 +26,7 @@ std::string_view name (auto value)
 }
 
 /**
- * Same as `magic_enum::enum_values (...)` but ignores reserved values (starting with underscore)
+ * Same as `magic_enum::enum_values (...)` but ignores reserved values (starting with underscore) by default.
  */
 template <class E>
 std::vector<E> const & values (bool ignore_reserved = true)
@@ -46,11 +46,11 @@ std::vector<E> const & values (bool ignore_reserved = true)
 }
 
 /**
- * Same as `magic_enum::enum_cast (...)` but ignores reserved values (starting with underscore).
+ * Same as `magic_enum::enum_cast (...)` but ignores reserved values (starting with underscore) by default.
  * Case insensitive.
  */
 template <class E>
-std::optional<E> parse (std::string_view name, bool ignore_reserved = true)
+std::optional<E> try_parse (std::string_view name, bool ignore_reserved = true)
 {
 	if (ignore_reserved && name.starts_with ('_'))
 	{
@@ -60,6 +60,22 @@ std::optional<E> parse (std::string_view name, bool ignore_reserved = true)
 	{
 		return magic_enum::enum_cast<E> (name, magic_enum::case_insensitive);
 	}
+}
+
+/**
+ * Same as `magic_enum::enum_cast (...)` but ignores reserved values (starting with underscore) by default.
+ * Case insensitive.
+ * @throws std::invalid_argument if the name is not found
+ */
+template <class E>
+E parse (std::string_view name, bool ignore_reserved = true)
+{
+	auto value = try_parse<E> (name, ignore_reserved);
+	if (value)
+	{
+		return *value;
+	}
+	throw std::invalid_argument ("Invalid value of " + magic_enum::enum_type_name<E> () + ": \"" + std::string (name) + "\"");
 }
 
 template <class T, class S>
