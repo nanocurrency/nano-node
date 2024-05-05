@@ -144,11 +144,11 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	config{ config_a },
 	io_ctx_shared{ std::make_shared<boost::asio::io_context> () },
 	io_ctx{ *io_ctx_shared },
-	runner_impl{ std::make_unique<nano::thread_runner> (io_ctx_shared) },
+	logger{ make_logger_identifier (node_id) },
+	runner_impl{ std::make_unique<nano::thread_runner> (io_ctx_shared, logger, config.io_threads) },
 	runner{ *runner_impl },
 	node_initialized_latch (1),
 	network_params{ config.network_params },
-	logger{ make_logger_identifier (node_id) },
 	stats{ logger, config.stats_config },
 	workers{ config.background_threads, nano::thread_role::name::worker },
 	bootstrap_workers{ config.bootstrap_serving_threads, nano::thread_role::name::bootstrap_worker },
@@ -640,9 +640,6 @@ void nano::node::process_local_async (std::shared_ptr<nano::block> const & block
 
 void nano::node::start ()
 {
-	// Start the IO runner first
-	runner.start ();
-
 	long_inactivity_cleanup ();
 
 	network.start ();

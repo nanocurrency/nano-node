@@ -124,7 +124,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, std::
 
 		std::shared_ptr<boost::asio::io_context> io_ctx = std::make_shared<boost::asio::io_context> ();
 
-		nano::thread_runner runner (io_ctx, config.node.io_threads);
+		nano::thread_runner runner (io_ctx, logger, config.node.io_threads);
 
 		std::shared_ptr<nano::node> node;
 		std::shared_ptr<nano_qt::wallet> gui;

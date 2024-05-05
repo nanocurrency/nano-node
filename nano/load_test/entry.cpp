@@ -719,7 +719,7 @@ int main (int argc, char * const * argv)
 		stop_rpc (ioc, primary_node_results);
 	});
 
-	nano::thread_runner runner (ioc_shared, simultaneous_process_calls);
+	nano::thread_runner runner (ioc_shared, nano::default_logger (), simultaneous_process_calls);
 	t.join ();
 	runner.join ();
 

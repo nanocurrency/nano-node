@@ -1,4 +1,5 @@
 #include <nano/lib/async.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -11,14 +12,24 @@
 
 using namespace std::chrono_literals;
 
+namespace
+{
+class test_context
+{
+public:
+	std::shared_ptr<asio::io_context> io_ctx{ std::make_shared<asio::io_context> () };
+	nano::logger logger;
+	nano::thread_runner runner{ io_ctx, logger, 1 };
+	nano::async::strand strand{ io_ctx->get_executor () };
+};
+}
+
 TEST (async, sleep)
 {
-	auto io_ctx = std::make_shared<asio::io_context> ();
-	nano::thread_runner runner{ io_ctx, 1 };
-	nano::async::strand strand{ io_ctx->get_executor () };
+	test_context ctx;
 
 	auto fut = asio::co_spawn (
-	strand,
+	ctx.strand,
 	[&] () -> asio::awaitable<void> {
 		co_await nano::async::sleep_for (500ms);
 	},
@@ -30,14 +41,12 @@ TEST (async, sleep)
 
 TEST (async, cancellation)
 {
-	auto io_ctx = std::make_shared<asio::io_context> ();
-	nano::thread_runner runner{ io_ctx, 1 };
-	nano::async::strand strand{ io_ctx->get_executor () };
+	test_context ctx;
 
-	nano::async::cancellation cancellation{ strand };
+	nano::async::cancellation cancellation{ ctx.strand };
 
 	auto fut = asio::co_spawn (
-	strand,
+	ctx.strand,
 	[&] () -> asio::awaitable<void> {
 		co_await nano::async::sleep_for (10s);
 	},
@@ -54,17 +63,14 @@ TEST (async, cancellation)
 TEST (async, task)
 {
 	nano::test::system system;
+	test_context ctx;
 
-	auto io_ctx = std::make_shared<asio::io_context> ();
-	nano::thread_runner runner{ io_ctx, 1 };
-	nano::async::strand strand{ io_ctx->get_executor () };
-
-	nano::async::task task{ strand };
+	nano::async::task task{ ctx.strand };
 
 	// Default state, empty task
 	ASSERT_FALSE (task.joinable ());
 
-	task = nano::async::task (strand, [&] () -> asio::awaitable<void> {
+	task = nano::async::task (ctx.strand, [&] () -> asio::awaitable<void> {
 		co_await nano::async::sleep_for (500ms);
 	});
 
@@ -90,12 +96,9 @@ TEST (async, task)
 TEST (async, task_cancel)
 {
 	nano::test::system system;
+	test_context ctx;
 
-	auto io_ctx = std::make_shared<asio::io_context> ();
-	nano::thread_runner runner{ io_ctx, 1 };
-	nano::async::strand strand{ io_ctx->get_executor () };
-
-	nano::async::task task = nano::async::task (strand, [&] () -> asio::awaitable<void> {
+	nano::async::task task = nano::async::task (ctx.strand, [&] () -> asio::awaitable<void> {
 		co_await nano::async::sleep_for (10s);
 	});
 

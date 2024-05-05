@@ -8,9 +8,10 @@
  * thread_runner
  */
 
-nano::thread_runner::thread_runner (std::shared_ptr<asio::io_context> io_ctx_a, unsigned num_threads_a, const nano::thread_role::name thread_role_a) :
+nano::thread_runner::thread_runner (std::shared_ptr<asio::io_context> io_ctx_a, nano::logger & logger_a, unsigned num_threads_a, const nano::thread_role::name thread_role_a) :
 	num_threads{ num_threads_a },
 	role{ thread_role_a },
+	logger{ logger_a },
 	io_ctx{ std::move (io_ctx_a) },
 	io_guard{ asio::make_work_guard (*io_ctx) }
 {

@@ -483,7 +483,7 @@ public:
 		// A separate io_context for domain sockets may facilitate better performance on some systems.
 		if (concurrency_a > 0)
 		{
-			runner = std::make_unique<nano::thread_runner> (io_ctx, static_cast<unsigned> (concurrency_a));
+			runner = std::make_unique<nano::thread_runner> (io_ctx, server.logger, static_cast<unsigned> (concurrency_a));
 		}
 	}
 

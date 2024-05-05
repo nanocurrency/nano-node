@@ -14,10 +14,8 @@ namespace asio = boost::asio;
 
 class thread_runner final
 {
-	nano::logger logger;
-
 public:
-	thread_runner (std::shared_ptr<asio::io_context>, unsigned num_threads = nano::hardware_concurrency (), nano::thread_role::name thread_role = nano::thread_role::name::io);
+	thread_runner (std::shared_ptr<asio::io_context>, nano::logger &, unsigned num_threads = nano::hardware_concurrency (), nano::thread_role::name thread_role = nano::thread_role::name::io);
 	~thread_runner ();
 
 	/** Wait for IO threads to complete */
@@ -32,6 +30,7 @@ private:
 
 	unsigned const num_threads;
 	nano::thread_role::name const role;
+	nano::logger & logger;
 	std::shared_ptr<asio::io_context> io_ctx;
 	asio::executor_work_guard<asio::io_context::executor_type> io_guard;
 	std::vector<boost::thread> threads;
