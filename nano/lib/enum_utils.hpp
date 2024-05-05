@@ -78,9 +78,24 @@ E parse (std::string_view name, bool ignore_reserved = true)
 	throw std::invalid_argument ("Invalid value of " + magic_enum::enum_type_name<E> () + ": \"" + std::string (name) + "\"");
 }
 
+template <typename T, typename S>
+consteval void ensure_all_castable ()
+{
+	for (auto value : magic_enum::enum_values<S> ())
+	{
+		if (!magic_enum::enum_cast<T> (magic_enum::enum_name (value)))
+		{
+			// If this fails, it means that the target enum is missing a value present in the source enum
+			throw std::logic_error ("Value of " + std::string{ magic_enum::enum_type_name<S> () } + " (" + std::string{ magic_enum::enum_name (value) } + ") cannot be cast to " + std::string{ magic_enum::enum_type_name<T> () });
+		}
+	}
+}
+
 template <class T, class S>
 T cast (S value)
 {
+	ensure_all_castable<T, S> ();
+
 	auto conv = magic_enum::enum_cast<T> (nano::enum_util::name (value));
 	debug_assert (conv);
 	return conv.value_or (T{});
