@@ -11,6 +11,7 @@
 
 #include <boost/asio/read.hpp>
 
+#include <future>
 #include <map>
 #include <memory>
 #include <utility>
@@ -26,8 +27,6 @@ TEST (socket, max_connections)
 	node_flags.read_only = false;
 	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
 	auto node = inactivenode.node;
-
-	nano::thread_runner runner{ node->io_ctx_shared, nano::default_logger (), 1 };
 
 	auto server_port = system.get_available_port ();
 
@@ -134,8 +133,6 @@ TEST (socket, max_connections_per_ip)
 	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
 	auto node = inactivenode.node;
 	ASSERT_FALSE (node->flags.disable_max_peers_per_ip);
-
-	nano::thread_runner runner{ node->io_ctx_shared, nano::default_logger (), 1 };
 
 	auto server_port = system.get_available_port ();
 
@@ -252,8 +249,6 @@ TEST (socket, max_connections_per_subnetwork)
 	ASSERT_TRUE (node->flags.disable_max_peers_per_ip);
 	ASSERT_FALSE (node->flags.disable_max_peers_per_subnetwork);
 
-	nano::thread_runner runner{ node->io_ctx_shared, nano::default_logger (), 1 };
-
 	auto server_port = system.get_available_port ();
 	boost::asio::ip::tcp::endpoint listen_endpoint{ boost::asio::ip::address_v6::any (), server_port };
 
@@ -310,8 +305,6 @@ TEST (socket, disabled_max_peers_per_ip)
 	auto node = inactivenode.node;
 
 	ASSERT_TRUE (node->flags.disable_max_peers_per_ip);
-
-	nano::thread_runner runner{ node->io_ctx_shared, nano::default_logger (), 1 };
 
 	auto server_port = system.get_available_port ();
 
@@ -370,9 +363,10 @@ TEST (socket, disconnection_of_silent_connections)
 	auto node = system.add_node (config);
 
 	// On a connection, a server data socket is created. The shared pointer guarantees the object's lifecycle until the end of this test.
-	std::shared_ptr<nano::transport::socket> server_data_socket;
-	node->tcp_listener.connection_accepted.add ([&server_data_socket] (auto const & socket, auto const & server) {
-		server_data_socket = socket;
+	std::promise<std::shared_ptr<nano::transport::socket>> server_data_socket_promise;
+	std::future<std::shared_ptr<nano::transport::socket>> server_data_socket_future = server_data_socket_promise.get_future ();
+	node->tcp_listener.connection_accepted.add ([&server_data_socket_promise] (auto const & socket, auto const & server) {
+		server_data_socket_promise.set_value (socket);
 	});
 
 	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), node->tcp_listener.endpoint ().port () };
@@ -386,8 +380,10 @@ TEST (socket, disconnection_of_silent_connections)
 		connected = true;
 	});
 	ASSERT_TIMELY (4s, connected);
+
 	// Checking the connection was closed.
-	ASSERT_TIMELY (10s, server_data_socket != nullptr);
+	ASSERT_TIMELY (10s, server_data_socket_future.wait_for (0s) == std::future_status::ready);
+	auto server_data_socket = server_data_socket_future.get ();
 	ASSERT_TIMELY (10s, server_data_socket->is_closed ());
 
 	// Just to ensure the disconnection wasn't due to the timer timeout.
@@ -404,8 +400,6 @@ TEST (socket, drop_policy)
 	node_flags.read_only = false;
 	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
 	auto node = inactivenode.node;
-
-	nano::thread_runner runner{ node->io_ctx_shared, nano::default_logger (), 1 };
 
 	std::vector<std::shared_ptr<nano::transport::socket>> connections;
 
@@ -454,12 +448,10 @@ TEST (socket, drop_policy)
 	// The stats are accumulated from before
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_no_socket_drop, nano::stat::dir::out));
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out));
-
-	node->stop ();
-	runner.abort ();
-	runner.join ();
 }
 
+// This is abusing the socket class, it's interfering with the normal node lifetimes and as a result deadlocks
+// TEST (socket, DISABLED_concurrent_writes)
 TEST (socket, concurrent_writes)
 {
 	nano::test::system system;
@@ -470,10 +462,6 @@ TEST (socket, concurrent_writes)
 	node_flags.disable_max_peers_per_subnetwork = true;
 	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
 	auto node = inactivenode.node;
-
-	// This gives more realistic execution than using system#poll, allowing writes to
-	// queue up and drain concurrently.
-	nano::thread_runner runner{ node->io_ctx_shared, nano::default_logger (), 1 };
 
 	constexpr size_t max_connections = 4;
 	constexpr size_t client_count = max_connections;
@@ -566,10 +554,6 @@ TEST (socket, concurrent_writes)
 	}
 
 	ASSERT_TIMELY_EQ (10s, completed_reads, total_message_count);
-
-	node->stop ();
-	runner.abort ();
-	runner.join ();
 
 	for (auto & t : client_threads)
 	{

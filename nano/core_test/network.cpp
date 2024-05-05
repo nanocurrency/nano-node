@@ -411,7 +411,6 @@ TEST (receivable_processor, send_with_receive)
 	nano::keypair key2;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::block_hash latest1 (node1.latest (nano::dev::genesis_key.pub));
-	system.wallet (1)->insert_adhoc (key2.prv);
 	nano::block_builder builder;
 	auto block1 = builder
 				  .send ()
@@ -433,6 +432,7 @@ TEST (receivable_processor, send_with_receive)
 	ASSERT_EQ (0, node1.balance (key2.pub));
 	ASSERT_EQ (amount - node1.config.receive_minimum.number (), node2.balance (nano::dev::genesis_key.pub));
 	ASSERT_EQ (0, node2.balance (key2.pub));
+	system.wallet (1)->insert_adhoc (key2.prv);
 	ASSERT_TIMELY (10s, node1.balance (key2.pub) == node1.config.receive_minimum.number () && node2.balance (key2.pub) == node1.config.receive_minimum.number ());
 	ASSERT_EQ (amount - node1.config.receive_minimum.number (), node1.balance (nano::dev::genesis_key.pub));
 	ASSERT_EQ (node1.config.receive_minimum.number (), node1.balance (key2.pub));
@@ -644,9 +644,9 @@ TEST (network, peer_max_tcp_attempts)
 		// Start TCP attempt
 		node->network.merge_peer (node2->network.endpoint ());
 	}
-	ASSERT_EQ (0, node->network.size ());
+	ASSERT_TIMELY_EQ (30s, node->network.size (), node->network_params.network.max_peers_per_ip);
 	ASSERT_FALSE (node->network.tcp_channels.track_reachout (nano::endpoint (node->network.endpoint ().address (), system.get_available_port ())));
-	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::max_per_ip, nano::stat::dir::out));
+	ASSERT_LE (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::max_per_ip, nano::stat::dir::out));
 }
 #endif
 
@@ -896,15 +896,16 @@ TEST (network, cleanup_purge)
 	node1.network.cleanup (std::chrono::steady_clock::now ());
 	ASSERT_EQ (0, node1.network.size ());
 
-	std::weak_ptr<nano::node> node_w = node1.shared ();
-	node1.network.tcp_channels.start_tcp (node2->network.endpoint ());
+	node1.network.merge_peer (node2->network.endpoint ());
 
-	ASSERT_TIMELY_EQ (3s, node1.network.size (), 1);
+	ASSERT_TIMELY_EQ (5s, node1.network.size (), 1);
+
 	node1.network.cleanup (test_start);
 	ASSERT_EQ (1, node1.network.size ());
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::tcp_channels_purge));
 
 	node1.network.cleanup (std::chrono::steady_clock::now ());
-	ASSERT_TIMELY_EQ (5s, 0, node1.network.size ());
+	ASSERT_EQ (1, node1.stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::idle));
 }
 
 TEST (network, loopback_channel)

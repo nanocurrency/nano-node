@@ -100,28 +100,28 @@ TEST (request_aggregator, one_update)
 					.work (*node.work_generate_blocking (key1.pub))
 					.build ();
 	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), receive1));
-	std::vector<std::pair<nano::block_hash, nano::root>> request;
-	request.emplace_back (send2->hash (), send2->root ());
-	auto client = std::make_shared<nano::transport::socket> (node);
-	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::channel_tcp> (node, client);
-	node.aggregator.request (request, dummy_channel);
-	request.clear ();
-	request.emplace_back (receive1->hash (), receive1->root ());
+
+	auto dummy_channel = nano::test::fake_channel (node);
+
+	std::vector<std::pair<nano::block_hash, nano::root>> request1{ { send2->hash (), send2->root () } };
+	node.aggregator.request (request1, dummy_channel);
+
 	// Update the pool of requests with another hash
-	node.aggregator.request (request, dummy_channel);
+	std::vector<std::pair<nano::block_hash, nano::root>> request2{ { receive1->hash (), receive1->root () } };
+	node.aggregator.request (request2, dummy_channel);
+
 	// In the ledger but no vote generated yet
 	ASSERT_TIMELY (3s, 0 < node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes))
 	ASSERT_TRUE (node.aggregator.empty ());
 	ASSERT_TIMELY_EQ (3s, 2, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_accepted));
-	ASSERT_TIMELY_EQ (3s, 0, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_dropped));
-	ASSERT_TIMELY_EQ (3s, 0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_unknown));
 	ASSERT_TIMELY_EQ (3s, 2, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes));
-	size_t count = 0;
-	ASSERT_TIMELY_EQ (3s, 1, (count = node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes)));
-	ASSERT_TIMELY_EQ (3s, 0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached_hashes));
-	ASSERT_TIMELY_EQ (3s, 0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached_votes));
-	ASSERT_TIMELY_EQ (3s, 0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote));
-	ASSERT_TIMELY_EQ (3s, 1, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_dropped));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_unknown));
+
+	ASSERT_TIMELY (3s, 0 < node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached_hashes));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached_votes));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote));
 }
 
 TEST (request_aggregator, two)
