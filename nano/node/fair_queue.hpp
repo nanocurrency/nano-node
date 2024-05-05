@@ -305,8 +305,8 @@ public:
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const
 	{
 		auto composite = std::make_unique<container_info_composite> (name);
-		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "queues", queues_size (), sizeof (typename decltype (queues)::value_type) }));
-		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "total_size", size (), sizeof (typename decltype (queues)::value_type) }));
+		composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "queues", queues_size (), sizeof (typename decltype (queues)::value_type) }));
+		composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "total_size", size (), sizeof (typename decltype (queues)::value_type) }));
 		return composite;
 	}
 };

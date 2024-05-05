@@ -277,7 +277,7 @@ std::unique_ptr<nano::container_info_component> nano::vote_cache::collect_contai
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cache", cache.size (), sizeof (ordered_cache::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "cache", cache.size (), sizeof (ordered_cache::value_type) }));
 	return composite;
 }
 

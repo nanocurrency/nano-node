@@ -236,7 +236,7 @@ std::unique_ptr<nano::container_info_component> nano::scheduler::priority::colle
 		for (auto i = 0; i < buckets.size (); ++i)
 		{
 			auto const & bucket = buckets[i];
-			composite->add_component (std::make_unique<container_info_leaf> (container_info{ std::to_string (i), bucket->size (), 0 }));
+			composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ std::to_string (i), bucket->size (), 0 }));
 		}
 		return composite;
 	};
@@ -246,7 +246,7 @@ std::unique_ptr<nano::container_info_component> nano::scheduler::priority::colle
 		for (auto i = 0; i < buckets.size (); ++i)
 		{
 			auto const & bucket = buckets[i];
-			composite->add_component (std::make_unique<container_info_leaf> (container_info{ std::to_string (i), bucket->election_count (), 0 }));
+			composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ std::to_string (i), bucket->election_count (), 0 }));
 		}
 		return composite;
 	};

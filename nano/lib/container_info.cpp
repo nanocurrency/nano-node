@@ -1,7 +1,7 @@
 #include <nano/lib/container_info.hpp>
 
-nano::container_info_composite::container_info_composite (std::string const & name) :
-	name (name)
+nano::container_info_composite::container_info_composite (std::string name) :
+	name (std::move (name))
 {
 }
 
@@ -25,8 +25,8 @@ std::string const & nano::container_info_composite::get_name () const
 	return name;
 }
 
-nano::container_info_leaf::container_info_leaf (const container_info & info) :
-	info (info)
+nano::container_info_leaf::container_info_leaf (container_info_entry info) :
+	info (std::move (info))
 {
 }
 
@@ -35,7 +35,7 @@ bool nano::container_info_leaf::is_composite () const
 	return false;
 }
 
-nano::container_info const & nano::container_info_leaf::get_info () const
+nano::container_info_entry const & nano::container_info_leaf::get_info () const
 {
 	return info;
 }

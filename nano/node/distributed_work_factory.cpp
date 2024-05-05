@@ -85,6 +85,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (di
 	auto item_count = distributed_work.size ();
 	auto sizeof_item_element = sizeof (decltype (nano::distributed_work_factory::items)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "items", item_count, sizeof_item_element }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "items", item_count, sizeof_item_element }));
 	return composite;
 }

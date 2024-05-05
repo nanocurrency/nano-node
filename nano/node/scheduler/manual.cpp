@@ -91,6 +91,6 @@ std::unique_ptr<nano::container_info_component> nano::scheduler::manual::collect
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "queue", queue.size (), sizeof (decltype (queue)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "queue", queue.size (), sizeof (decltype (queue)::value_type) }));
 	return composite;
 }

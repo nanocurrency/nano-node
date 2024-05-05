@@ -304,8 +304,8 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bo
 	auto sizeof_element = sizeof (decltype (bootstrap_initiator.observers)::value_type);
 	auto sizeof_cache_element = sizeof (decltype (bootstrap_initiator.cache.cache)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "observers", count, sizeof_element }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pulls_cache", cache_count, sizeof_cache_element }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "observers", count, sizeof_element }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "pulls_cache", cache_count, sizeof_cache_element }));
 	return composite;
 }
 

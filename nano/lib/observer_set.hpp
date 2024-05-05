@@ -43,7 +43,7 @@ public:
 		lock.unlock ();
 		auto sizeof_element = sizeof (typename decltype (observers)::value_type);
 		auto composite = std::make_unique<container_info_composite> (name);
-		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "observers", count, sizeof_element }));
+		composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "observers", count, sizeof_element }));
 		return composite;
 	}
 

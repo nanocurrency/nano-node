@@ -326,8 +326,8 @@ std::unique_ptr<nano::container_info_component> nano::vote_generator::collect_co
 	auto sizeof_candidate_element = sizeof (decltype (candidates)::value_type);
 	auto sizeof_request_element = sizeof (decltype (requests)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "candidates", candidates_count, sizeof_candidate_element }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "requests", requests_count, sizeof_request_element }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "candidates", candidates_count, sizeof_candidate_element }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "requests", requests_count, sizeof_request_element }));
 	composite->add_component (vote_generation_queue.collect_container_info ("vote_generation_queue"));
 	return composite;
 }

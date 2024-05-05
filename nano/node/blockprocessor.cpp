@@ -463,8 +463,8 @@ std::unique_ptr<nano::container_info_component> nano::block_processor::collect_c
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", queue.size (), 0 }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "forced", queue.size ({ nano::block_source::forced }), 0 }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "blocks", queue.size (), 0 }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "forced", queue.size ({ nano::block_source::forced }), 0 }));
 	composite->add_component (queue.collect_container_info ("queue"));
 	return composite;
 }

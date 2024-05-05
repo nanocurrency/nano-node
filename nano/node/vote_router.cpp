@@ -174,7 +174,7 @@ std::unique_ptr<nano::container_info_component> nano::vote_router::collect_conta
 	std::shared_lock lock{ mutex };
 
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "elections", elections.size (), sizeof (decltype (elections)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "elections", elections.size (), sizeof (decltype (elections)::value_type) }));
 	return composite;
 }
 

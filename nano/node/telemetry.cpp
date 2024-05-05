@@ -294,6 +294,6 @@ std::unique_ptr<nano::container_info_component> nano::telemetry::collect_contain
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "telemetries", telemetries.size (), sizeof (decltype (telemetries)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "telemetries", telemetries.size (), sizeof (decltype (telemetries)::value_type) }));
 	return composite;
 }

@@ -228,6 +228,6 @@ std::unique_ptr<nano::container_info_component> nano::local_block_broadcaster::c
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "local", local_blocks.size (), sizeof (decltype (local_blocks)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "local", local_blocks.size (), sizeof (decltype (local_blocks)::value_type) }));
 	return composite;
 }

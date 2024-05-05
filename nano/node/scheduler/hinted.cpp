@@ -241,7 +241,7 @@ std::unique_ptr<nano::container_info_component> nano::scheduler::hinted::collect
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cooldowns", cooldowns_m.size (), sizeof (decltype (cooldowns_m)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "cooldowns", cooldowns_m.size (), sizeof (decltype (cooldowns_m)::value_type) }));
 	return composite;
 }
 

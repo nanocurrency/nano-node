@@ -61,6 +61,6 @@ std::unique_ptr<nano::container_info_component> nano::recently_confirmed_cache::
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "confirmed", confirmed.size (), sizeof (decltype (confirmed)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "confirmed", confirmed.size (), sizeof (decltype (confirmed)::value_type) }));
 	return composite;
 }

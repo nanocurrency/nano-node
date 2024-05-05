@@ -703,7 +703,7 @@ std::unique_ptr<nano::container_info_component> nano::syn_cookies::collect_conta
 		syn_cookies_per_ip_count = cookies_per_ip.size ();
 	}
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "syn_cookies", syn_cookies_count, sizeof (decltype (cookies)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (cookies_per_ip)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "syn_cookies", syn_cookies_count, sizeof (decltype (cookies)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (cookies_per_ip)::value_type) }));
 	return composite;
 }

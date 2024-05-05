@@ -1814,7 +1814,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (wa
 	auto sizeof_item_element = sizeof (decltype (wallets.items)::value_type);
 	auto sizeof_actions_element = sizeof (decltype (wallets.actions)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "items", items_count, sizeof_item_element }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "actions", actions_count, sizeof_actions_element }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "items", items_count, sizeof_item_element }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "actions", actions_count, sizeof_actions_element }));
 	return composite;
 }

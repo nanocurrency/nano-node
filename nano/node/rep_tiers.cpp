@@ -138,9 +138,9 @@ std::unique_ptr<nano::container_info_component> nano::rep_tiers::collect_contain
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "representatives_1", representatives_1.size (), sizeof (decltype (representatives_1)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "representatives_2", representatives_2.size (), sizeof (decltype (representatives_2)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "representatives_3", representatives_3.size (), sizeof (decltype (representatives_3)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "representatives_1", representatives_1.size (), sizeof (decltype (representatives_1)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "representatives_2", representatives_2.size (), sizeof (decltype (representatives_2)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "representatives_3", representatives_3.size (), sizeof (decltype (representatives_3)::value_type) }));
 	return composite;
 }
 

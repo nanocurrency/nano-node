@@ -476,9 +476,9 @@ std::unique_ptr<nano::container_info_component> nano::rep_crawler::collect_conta
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "reps", reps.size (), sizeof (decltype (reps)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "queries", queries.size (), sizeof (decltype (queries)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "responses", responses.size (), sizeof (decltype (responses)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "reps", reps.size (), sizeof (decltype (reps)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "queries", queries.size (), sizeof (decltype (queries)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "responses", responses.size (), sizeof (decltype (responses)::value_type) }));
 	return composite;
 }
 

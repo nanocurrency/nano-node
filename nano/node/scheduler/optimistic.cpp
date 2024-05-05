@@ -173,7 +173,7 @@ std::unique_ptr<nano::container_info_component> nano::scheduler::optimistic::col
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "candidates", candidates.size (), sizeof (decltype (candidates)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "candidates", candidates.size (), sizeof (decltype (candidates)::value_type) }));
 	return composite;
 }
 

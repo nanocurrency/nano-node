@@ -218,7 +218,7 @@ std::unique_ptr<nano::container_info_component> nano::vote_processor::collect_co
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "votes", queue.size (), sizeof (decltype (queue)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "votes", queue.size (), sizeof (decltype (queue)::value_type) }));
 	composite->add_component (queue.collect_container_info ("queue"));
 	return composite;
 }
@@ -342,7 +342,7 @@ std::unique_ptr<nano::container_info_component> nano::vote_cache_processor::coll
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "triggered", triggered.size (), sizeof (decltype (triggered)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "triggered", triggered.size (), sizeof (decltype (triggered)::value_type) }));
 	return composite;
 }
 
