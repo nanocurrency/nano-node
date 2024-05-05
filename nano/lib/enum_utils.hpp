@@ -75,7 +75,7 @@ E parse (std::string_view name, bool ignore_reserved = true)
 	{
 		return *value;
 	}
-	throw std::invalid_argument ("Invalid value of " + magic_enum::enum_type_name<E> () + ": \"" + std::string (name) + "\"");
+	throw std::invalid_argument ("Invalid value of " + std::string{ magic_enum::enum_type_name<E> () } + ": \"" + std::string{ name } + "\"");
 }
 
 template <typename T, typename S>
