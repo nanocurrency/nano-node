@@ -99,7 +99,7 @@ TEST (enum_util, values)
 	ASSERT_EQ (values[1], test_enum::two);
 	ASSERT_EQ (values[2], test_enum::three);
 
-	auto all_values = nano::enum_util::values<test_enum> (/* don't ignore reserved */ false);
+	auto all_values = nano::enum_util::values<test_enum, /* don't ignore reserved */ false> ();
 	ASSERT_EQ (all_values.size (), 5);
 	ASSERT_EQ (all_values[0], test_enum::_invalid);
 	ASSERT_EQ (all_values[1], test_enum::one);

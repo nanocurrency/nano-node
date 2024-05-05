@@ -26,12 +26,12 @@ std::string_view name (auto value)
 }
 
 /**
- * Same as `magic_enum::enum_values (...)` but ignores reserved values (starting with underscore) by default.
+ * Same as `magic_enum::enum_values (...)` but ignores reserved values (starting with underscore).
  */
-template <class E>
-std::vector<E> const & values (bool ignore_reserved = true)
+template <class E, bool ignore_reserved = true>
+std::vector<E> const & values ()
 {
-	static std::vector<E> all = [ignore_reserved] () {
+	static std::vector<E> all = [] () {
 		std::vector<E> result;
 		for (auto const & [val, name] : magic_enum::enum_entries<E> ())
 		{
