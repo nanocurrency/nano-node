@@ -48,7 +48,6 @@ public:
 	bool max_ip_or_subnetwork_connections (nano::tcp_endpoint const & endpoint_a);
 	// Should we reach out to this endpoint with a keepalive message? If yes, register a new reachout attempt
 	bool track_reachout (nano::endpoint const &);
-	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 	void purge (std::chrono::steady_clock::time_point cutoff_deadline);
 	void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0, bool = true);
 	void modify (std::shared_ptr<nano::transport::tcp_channel> const &, std::function<void (std::shared_ptr<nano::transport::tcp_channel> const &)>);
@@ -57,6 +56,8 @@ public:
 
 	// Connection start
 	void start_tcp (nano::endpoint const &);
+
+	nano::container_info container_info () const;
 
 private: // Dependencies
 	nano::node & node;

@@ -1801,20 +1801,12 @@ bool nano::mdb_wallets_store::init_error () const
 	return error;
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (wallets & wallets, std::string const & name)
+nano::container_info nano::wallets::container_info () const
 {
-	std::size_t items_count;
-	std::size_t actions_count;
-	{
-		nano::lock_guard<nano::mutex> guard{ wallets.mutex };
-		items_count = wallets.items.size ();
-		actions_count = wallets.actions.size ();
-	}
+	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	auto sizeof_item_element = sizeof (decltype (wallets.items)::value_type);
-	auto sizeof_actions_element = sizeof (decltype (wallets.actions)::value_type);
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "items", items_count, sizeof_item_element }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "actions", actions_count, sizeof_actions_element }));
-	return composite;
+	nano::container_info info;
+	info.put ("items", items.size ());
+	info.put ("actions", actions.size ());
+	return info;
 }

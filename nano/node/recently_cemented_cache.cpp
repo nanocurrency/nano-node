@@ -32,11 +32,11 @@ std::size_t nano::recently_cemented_cache::size () const
 	return cemented.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::recently_cemented_cache::collect_container_info (const std::string & name)
+nano::container_info nano::recently_cemented_cache::container_info () const
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "cemented", cemented.size (), sizeof (decltype (cemented)::value_type) }));
-	return composite;
+	nano::container_info info;
+	info.put ("cemented", cemented);
+	return info;
 }

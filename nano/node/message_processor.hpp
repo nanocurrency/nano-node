@@ -36,7 +36,7 @@ public:
 	bool put (std::unique_ptr<nano::message>, std::shared_ptr<nano::transport::channel> const &);
 	void process (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
 
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
+	nano::container_info container_info () const;
 
 private:
 	void run ();
@@ -53,7 +53,7 @@ private:
 	nano::fair_queue<entry_t, nano::no_value> queue;
 
 	std::atomic<bool> stopped{ false };
-	nano::mutex mutex;
+	mutable nano::mutex mutex;
 	nano::condition_variable condition;
 	std::vector<std::thread> threads;
 };

@@ -2,6 +2,7 @@
 
 #include <nano/lib/logging.hpp>
 #include <nano/node/fair_queue.hpp>
+#include <nano/node/fwd.hpp>
 #include <nano/secure/common.hpp>
 
 #include <chrono>
@@ -9,17 +10,6 @@
 #include <memory>
 #include <optional>
 #include <thread>
-
-namespace nano
-{
-class block;
-class node;
-}
-
-namespace nano::secure
-{
-class write_transaction;
-}
 
 namespace nano
 {
@@ -101,7 +91,7 @@ public:
 	void force (std::shared_ptr<nano::block> const &);
 	bool should_log ();
 
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
+	nano::container_info container_info () const;
 
 	std::atomic<bool> flushing{ false };
 

@@ -50,7 +50,7 @@ public:
 	std::size_t size () const;
 	bool empty () const;
 
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
+	nano::container_info container_info () const;
 
 	std::atomic<uint64_t> total_processed{ 0 };
 
@@ -96,7 +96,7 @@ public:
 	std::size_t size () const;
 	bool empty () const;
 
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
+	nano::container_info container_info () const;
 
 private:
 	void run ();

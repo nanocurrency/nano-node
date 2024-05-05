@@ -45,7 +45,7 @@ public:
 	bool exists (nano::block_hash const & hash) const;
 	std::size_t size () const;
 
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
+	nano::container_info container_info () const;
 
 public: // Events
 	// Observers will be called once ledger has blocks marked as confirmed

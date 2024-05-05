@@ -344,14 +344,14 @@ auto nano::bootstrap_ascending::account_sets::info () const -> nano::bootstrap_a
 	return { blocking, priorities };
 }
 
-std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::account_sets::collect_container_info (const std::string & name)
+nano::container_info nano::bootstrap_ascending::account_sets::container_info () const
 {
 	// Count blocking entries with their dependency account unknown
 	auto blocking_unknown = blocking.get<tag_dependency_account> ().count (nano::account{ 0 });
 
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "priorities", priorities.size (), sizeof (decltype (priorities)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "blocking", blocking.size (), sizeof (decltype (blocking)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "blocking_unknown", blocking_unknown, 0 }));
-	return composite;
+	nano::container_info info;
+	info.put ("priorities", priorities);
+	info.put ("blocking", blocking);
+	info.put ("blocking_unknown", blocking_unknown);
+	return info;
 }

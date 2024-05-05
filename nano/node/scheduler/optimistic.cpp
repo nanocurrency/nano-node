@@ -168,13 +168,13 @@ void nano::scheduler::optimistic::run_one (secure::transaction const & transacti
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::scheduler::optimistic::collect_container_info (const std::string & name) const
+nano::container_info nano::scheduler::optimistic::container_info () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "candidates", candidates.size (), sizeof (decltype (candidates)::value_type) }));
-	return composite;
+	nano::container_info info;
+	info.put ("candidates", candidates);
+	return info;
 }
 
 /*

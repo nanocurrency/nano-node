@@ -589,21 +589,21 @@ void nano::active_elections::clear ()
 	vacancy_update ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (active_elections & active_elections, std::string const & name)
+nano::container_info nano::active_elections::container_info () const
 {
-	nano::lock_guard<nano::mutex> guard{ active_elections.mutex };
+	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "roots", active_elections.roots.size (), sizeof (decltype (active_elections.roots)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "election_winner_details", active_elections.election_winner_details_size (), sizeof (decltype (active_elections.election_winner_details)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "normal", static_cast<std::size_t> (active_elections.count_by_behavior[nano::election_behavior::priority]), 0 }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "hinted", static_cast<std::size_t> (active_elections.count_by_behavior[nano::election_behavior::hinted]), 0 }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "optimistic", static_cast<std::size_t> (active_elections.count_by_behavior[nano::election_behavior::optimistic]), 0 }));
+	nano::container_info info;
+	info.put ("roots", roots.size ());
+	info.put ("election_winner_details", election_winner_details_size ());
+	info.put ("normal", static_cast<std::size_t> (count_by_behavior[nano::election_behavior::priority]));
+	info.put ("hinted", static_cast<std::size_t> (count_by_behavior[nano::election_behavior::hinted]));
+	info.put ("optimistic", static_cast<std::size_t> (count_by_behavior[nano::election_behavior::optimistic]));
 
-	composite->add_component (active_elections.recently_confirmed.collect_container_info ("recently_confirmed"));
-	composite->add_component (active_elections.recently_cemented.collect_container_info ("recently_cemented"));
+	info.add ("recently_confirmed", recently_confirmed.container_info ());
+	info.add ("recently_cemented", recently_cemented.container_info ());
 
-	return composite;
+	return info;
 }
 
 /*

@@ -86,11 +86,11 @@ void nano::scheduler::manual::run ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::scheduler::manual::collect_container_info (std::string const & name) const
+nano::container_info nano::scheduler::manual::container_info () const
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	nano::lock_guard<nano::mutex> lock{ mutex };
 
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "queue", queue.size (), sizeof (decltype (queue)::value_type) }));
-	return composite;
+	nano::container_info info;
+	info.put ("queue", queue);
+	return info;
 }

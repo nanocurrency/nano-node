@@ -102,10 +102,21 @@ void nano::unchecked_map::clear ()
 	entries.clear ();
 }
 
-std::size_t nano::unchecked_map::count () const
+size_t nano::unchecked_map::entries_size () const
 {
 	nano::lock_guard<std::recursive_mutex> lock{ entries_mutex };
 	return entries.size ();
+}
+
+size_t nano::unchecked_map::queries_size () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return buffer.size ();
+}
+
+size_t nano::unchecked_map::count () const
+{
+	return entries_size ();
 }
 
 void nano::unchecked_map::trigger (nano::hash_or_account const & dependency)
@@ -166,16 +177,10 @@ void nano::unchecked_map::query_impl (nano::block_hash const & hash)
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::unchecked_map::collect_container_info (const std::string & name)
+nano::container_info nano::unchecked_map::container_info () const
 {
-	auto composite = std::make_unique<container_info_composite> (name);
-	{
-		std::lock_guard guard{ entries_mutex };
-		composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "entries", entries.size (), sizeof (decltype (entries)::value_type) }));
-	}
-	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "queries", buffer.size (), sizeof (decltype (buffer)::value_type) }));
-	}
-	return composite;
+	nano::container_info info;
+	info.put ("entries", entries_size ());
+	info.put ("queries", queries_size ());
+	return info;
 }

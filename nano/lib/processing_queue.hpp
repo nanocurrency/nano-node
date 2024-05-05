@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/container_info.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/stats.hpp>
@@ -107,14 +108,13 @@ public:
 		return queue.size ();
 	}
 
-public: // Container info
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const
+	nano::container_info container_info () const
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 
-		auto composite = std::make_unique<container_info_composite> (name);
-		composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "queue", queue.size (), sizeof (typename decltype (queue)::value_type) }));
-		return composite;
+		nano::container_info info;
+		info.put ("queue", queue);
+		return info;
 	}
 
 private:

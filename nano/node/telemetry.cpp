@@ -289,11 +289,11 @@ std::unordered_map<nano::endpoint, nano::telemetry_data> nano::telemetry::get_al
 	return result;
 }
 
-std::unique_ptr<nano::container_info_component> nano::telemetry::collect_container_info (const std::string & name)
+nano::container_info nano::telemetry::container_info () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "telemetries", telemetries.size (), sizeof (decltype (telemetries)::value_type) }));
-	return composite;
+	nano::container_info info;
+	info.put ("telemetries", telemetries.size ());
+	return info;
 }

@@ -229,30 +229,30 @@ auto nano::scheduler::priority::find_bucket (nano::uint128_t priority) -> bucket
 	return **it;
 }
 
-std::unique_ptr<nano::container_info_component> nano::scheduler::priority::collect_container_info (std::string const & name) const
+nano::container_info nano::scheduler::priority::container_info () const
 {
 	auto collect_blocks = [&] () {
-		auto composite = std::make_unique<container_info_composite> ("blocks");
+		nano::container_info info;
 		for (auto i = 0; i < buckets.size (); ++i)
 		{
 			auto const & bucket = buckets[i];
-			composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ std::to_string (i), bucket->size (), 0 }));
+			info.put (std::to_string (i), bucket->size ());
 		}
-		return composite;
+		return info;
 	};
 
 	auto collect_elections = [&] () {
-		auto composite = std::make_unique<container_info_composite> ("elections");
+		nano::container_info info;
 		for (auto i = 0; i < buckets.size (); ++i)
 		{
 			auto const & bucket = buckets[i];
-			composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ std::to_string (i), bucket->election_count (), 0 }));
+			info.put (std::to_string (i), bucket->election_count ());
 		}
-		return composite;
+		return info;
 	};
 
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (collect_blocks ());
-	composite->add_component (collect_elections ());
-	return composite;
+	nano::container_info info;
+	info.add ("blocks", collect_blocks ());
+	info.add ("elections", collect_elections ());
+	return info;
 }

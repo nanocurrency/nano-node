@@ -314,20 +314,11 @@ void nano::vote_generator::run ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::vote_generator::collect_container_info (std::string const & name) const
+nano::container_info nano::vote_generator::container_info () const
 {
-	std::size_t candidates_count = 0;
-	std::size_t requests_count = 0;
-	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
-		candidates_count = candidates.size ();
-		requests_count = requests.size ();
-	}
-	auto sizeof_candidate_element = sizeof (decltype (candidates)::value_type);
-	auto sizeof_request_element = sizeof (decltype (requests)::value_type);
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "candidates", candidates_count, sizeof_candidate_element }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info_entry{ "requests", requests_count, sizeof_request_element }));
-	composite->add_component (vote_generation_queue.collect_container_info ("vote_generation_queue"));
-	return composite;
+	nano::container_info info;
+	info.put ("candidates", candidates.size ());
+	info.put ("requests", requests.size ());
+	info.add ("queue", vote_generation_queue.container_info ());
+	return info;
 }

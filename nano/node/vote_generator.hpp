@@ -5,6 +5,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/processing_queue.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/node/fwd.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/common.hpp>
 
@@ -20,29 +21,6 @@
 #include <variant>
 
 namespace mi = boost::multi_index;
-
-namespace nano
-{
-class ledger;
-class local_vote_history;
-class network;
-class node;
-class node_config;
-class stats;
-class vote_processor;
-class vote_spacing;
-class wallets;
-}
-namespace nano::secure
-{
-class transaction;
-class write_transaction;
-class read_transaction;
-}
-namespace nano::transport
-{
-class channel;
-}
 
 namespace nano
 {
@@ -66,7 +44,7 @@ public:
 	void start ();
 	void stop ();
 
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
+	nano::container_info container_info () const;
 
 private:
 	using transaction_variant_t = std::variant<nano::secure::read_transaction, nano::secure::write_transaction>;
@@ -96,7 +74,7 @@ private: // Dependencies
 	nano::logger & logger;
 
 private:
-	processing_queue<queue_entry_t> vote_generation_queue;
+	nano::processing_queue<queue_entry_t> vote_generation_queue;
 
 private:
 	const bool is_final;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/node/fwd.hpp>
 #include <nano/node/scheduler/bucket.hpp>
 
 #include <condition_variable>
@@ -9,22 +10,10 @@
 #include <string>
 #include <thread>
 
-namespace nano
-{
-class account_info;
-class confirmation_height_info;
-class block;
-class container_info_component;
-class node;
-class stats;
-}
-namespace nano::secure
-{
-class transaction;
-}
-
 namespace nano::scheduler
 {
+class buckets;
+
 class priority_config
 {
 public:
@@ -34,7 +23,6 @@ public:
 	bool enabled{ true };
 };
 
-class buckets;
 class priority final
 {
 public:
@@ -55,7 +43,7 @@ public:
 	std::size_t size () const;
 	bool empty () const;
 
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
+	nano::container_info container_info () const;
 
 private: // Dependencies
 	priority_config const & config;
