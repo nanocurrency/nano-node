@@ -1,3 +1,4 @@
+#include <nano/lib/enum_utils.hpp>
 #include <nano/lib/interval.hpp>
 #include <nano/node/messages.hpp>
 #include <nano/node/node.hpp>
@@ -9,8 +10,6 @@
 
 #include <memory>
 #include <ranges>
-
-#include <magic_enum.hpp>
 
 using namespace std::chrono_literals;
 
@@ -595,6 +594,10 @@ std::unique_ptr<nano::container_info_component> nano::transport::tcp_listener::c
 	return composite;
 }
 
+/*
+ *
+ */
+
 nano::stat::dir nano::transport::tcp_listener::to_stat_dir (connection_type type)
 {
 	switch (type)
@@ -610,7 +613,7 @@ nano::stat::dir nano::transport::tcp_listener::to_stat_dir (connection_type type
 
 std::string_view nano::transport::tcp_listener::to_string (connection_type type)
 {
-	return magic_enum::enum_name (type);
+	return nano::enum_util::name (type);
 }
 
 nano::transport::socket_endpoint nano::transport::tcp_listener::to_socket_endpoint (connection_type type)
