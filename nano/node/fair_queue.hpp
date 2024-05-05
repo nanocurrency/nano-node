@@ -188,16 +188,13 @@ public:
 
 	size_t size () const
 	{
-		return std::accumulate (queues.begin (), queues.end (), 0, [] (size_t total, auto const & queue) {
-			return total + queue.second.size ();
-		});
+		debug_assert (total_size == calculate_total_size ());
+		return total_size;
 	};
 
 	bool empty () const
 	{
-		return std::all_of (queues.begin (), queues.end (), [] (auto const & queue) {
-			return queue.second.empty ();
-		});
+		return size () == 0;
 	}
 
 	size_t queues_size () const
@@ -248,7 +245,12 @@ public:
 		release_assert (it != queues.end ());
 
 		auto & queue = it->second;
-		return queue.push (std::move (request)); // True if added, false if dropped
+		bool added = queue.push (std::move (request)); // True if added, false if dropped
+		if (added)
+		{
+			++total_size;
+		}
+		return added;
 	}
 
 public:
@@ -292,12 +294,14 @@ public:
 		auto & queue = iterator->second;
 
 		++counter;
+		--total_size;
+
 		return { queue.pop (), source };
 	}
 
 	std::deque<value_type> next_batch (size_t max_count)
 	{
-		auto count = std::min (size (), max_count);
+		auto const count = std::min (size (), max_count);
 
 		std::deque<value_type> result;
 		while (result.size () < count)
@@ -330,6 +334,7 @@ private:
 		// Invalidate the current iterator
 		iterator = queues.end ();
 
+		// Only removing empty queues, no need to update the `total size` counter
 		erase_if (queues, [] (auto const & entry) {
 			return entry.second.empty () && !entry.first.alive ();
 		});
@@ -344,10 +349,19 @@ private:
 		}
 	}
 
+	size_t calculate_total_size () const
+	{
+		return std::accumulate (queues.begin (), queues.end (), size_t{ 0 }, [] (size_t total, auto const & queue) {
+			return total + queue.second.size ();
+		});
+	}
+
 private:
 	std::map<origin_entry, entry> queues;
 	typename std::map<origin_entry, entry>::iterator iterator{ queues.end () };
 	size_t counter{ 0 };
+
+	size_t total_size{ 0 };
 
 	std::chrono::steady_clock::time_point last_update{};
 
