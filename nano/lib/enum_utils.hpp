@@ -29,17 +29,20 @@ std::string_view name (auto value)
  * Same as `magic_enum::enum_values (...)` but ignores reserved values (starting with underscore)
  */
 template <class E>
-std::vector<E> values (bool ignore_reserved = true)
+std::vector<E> const & values (bool ignore_reserved = true)
 {
-	std::vector<E> result;
-	for (auto const & [val, name] : magic_enum::enum_entries<E> ())
-	{
-		if (!ignore_reserved || !name.starts_with ('_'))
+	static std::vector<E> all = [ignore_reserved] () {
+		std::vector<E> result;
+		for (auto const & [val, name] : magic_enum::enum_entries<E> ())
 		{
-			result.push_back (val);
+			if (!ignore_reserved || !name.starts_with ('_'))
+			{
+				result.push_back (val);
+			}
 		}
-	}
-	return result;
+		return result;
+	}();
+	return all;
 }
 
 /**

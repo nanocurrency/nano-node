@@ -19,18 +19,12 @@ std::string_view nano::log::to_string (nano::log::level level)
 
 const std::vector<nano::log::level> & nano::log::all_levels ()
 {
-	static std::vector<nano::log::level> all = [] () {
-		return nano::enum_util::values<nano::log::level> ();
-	}();
-	return all;
+	return nano::enum_util::values<nano::log::level> ();
 }
 
 const std::vector<nano::log::type> & nano::log::all_types ()
 {
-	static std::vector<nano::log::type> all = [] () {
-		return nano::enum_util::values<nano::log::type> ();
-	}();
-	return all;
+	return nano::enum_util::values<nano::log::type> ();
 }
 
 nano::log::level nano::log::parse_level (std::string_view name)
@@ -100,8 +94,5 @@ nano::log::tracing_format nano::log::parse_tracing_format (std::string_view name
 
 const std::vector<nano::log::tracing_format> & nano::log::all_tracing_formats ()
 {
-	static std::vector<nano::log::tracing_format> all = [] () {
-		return nano::enum_util::values<nano::log::tracing_format> ();
-	}();
-	return all;
+	return nano::enum_util::values<nano::log::tracing_format> ();
 }
