@@ -263,25 +263,7 @@ public:
 public:
 	value_type next ()
 	{
-		debug_assert (!empty ()); // Should be checked before calling next
-
-		auto should_seek = [&, this] () {
-			if (iterator == queues.end ())
-			{
-				return true;
-			}
-			auto & queue = iterator->second;
-			if (queue.empty ())
-			{
-				return true;
-			}
-			// Allow up to `queue.priority` requests to be processed before moving to the next queue
-			if (counter >= queue.priority)
-			{
-				return true;
-			}
-			return false;
-		};
+		release_assert (!empty ()); // Should be checked before calling next
 
 		if (should_seek ())
 		{
@@ -312,6 +294,25 @@ public:
 	}
 
 private:
+	bool should_seek () const
+	{
+		if (iterator == queues.end ())
+		{
+			return true;
+		}
+		auto & queue = iterator->second;
+		if (queue.empty ())
+		{
+			return true;
+		}
+		// Allow up to `queue.priority` requests to be processed before moving to the next queue
+		if (counter >= queue.priority)
+		{
+			return true;
+		}
+		return false;
+	}
+
 	void seek_next ()
 	{
 		counter = 0;
