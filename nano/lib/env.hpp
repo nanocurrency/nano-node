@@ -12,4 +12,10 @@ std::optional<std::string> get (std::string_view name);
 
 // @throws std::invalid_argument if the value is not a valid boolean
 std::optional<bool> get_bool (std::string_view name);
+
+// @throws std::invalid_argument if the value is not a valid integer
+std::optional<int> get_int (std::string_view name);
+
+// @throws std::invalid_argument if the value is not a valid integer
+std::optional<unsigned> get_uint (std::string_view name);
 }

@@ -35,3 +35,35 @@ std::optional<bool> nano::env::get_bool (std::string_view name)
 	}
 	return std::nullopt;
 }
+
+std::optional<int> nano::env::get_int (std::string_view name)
+{
+	if (auto value = get (name))
+	{
+		try
+		{
+			return std::stoi (*value);
+		}
+		catch (std::invalid_argument const &)
+		{
+			throw std::invalid_argument ("Invalid environment integer value: " + *value);
+		}
+	}
+	return std::nullopt;
+}
+
+std::optional<unsigned> nano::env::get_uint (std::string_view name)
+{
+	if (auto value = get (name))
+	{
+		try
+		{
+			return std::stoul (*value);
+		}
+		catch (std::invalid_argument const &)
+		{
+			throw std::invalid_argument ("Invalid environment unsigned integer value: " + *value);
+		}
+	}
+	return std::nullopt;
+}
