@@ -43,7 +43,7 @@
 
 namespace nano
 {
-class active_transactions;
+class active_elections;
 class confirming_set;
 class node;
 class vote_processor;
@@ -172,8 +172,8 @@ public:
 	nano::block_processor block_processor;
 	std::unique_ptr<nano::confirming_set> confirming_set_impl;
 	nano::confirming_set & confirming_set;
-	std::unique_ptr<nano::active_transactions> active_impl;
-	nano::active_transactions & active;
+	std::unique_ptr<nano::active_elections> active_impl;
+	nano::active_elections & active;
 	nano::online_reps online_reps;
 	nano::rep_crawler rep_crawler;
 	nano::rep_tiers rep_tiers;

@@ -45,7 +45,7 @@ enum class type
 	ipc_server,
 	websocket,
 	tls,
-	active_transactions,
+	active_elections,
 	election,
 	blockprocessor,
 	network,
@@ -104,7 +104,7 @@ enum class detail
 	// node
 	process_confirmed,
 
-	// active_transactions
+	// active_elections
 	active_started,
 	active_stopped,
 

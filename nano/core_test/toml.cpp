@@ -152,7 +152,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.rpc.child_process.enable, defaults.rpc.child_process.enable);
 	ASSERT_EQ (conf.rpc.child_process.rpc_path, defaults.rpc.child_process.rpc_path);
 
-	ASSERT_EQ (conf.node.active_transactions.size, defaults.node.active_transactions.size);
+	ASSERT_EQ (conf.node.active_elections.size, defaults.node.active_elections.size);
 	ASSERT_EQ (conf.node.allow_local_peers, defaults.node.allow_local_peers);
 	ASSERT_EQ (conf.node.backup_before_upgrade, defaults.node.backup_before_upgrade);
 	ASSERT_EQ (conf.node.bandwidth_limit, defaults.node.bandwidth_limit);
@@ -451,7 +451,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	priority_bootstrap = 999
 	priority_local = 999
 
-	[node.active_transactions]
+	[node.active_elections]
 	size = 999
 	hinted_limit_percentage = 90
 	optimistic_limit_percentage = 90
@@ -607,7 +607,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.rpc.child_process.enable, defaults.rpc.child_process.enable);
 	ASSERT_NE (conf.rpc.child_process.rpc_path, defaults.rpc.child_process.rpc_path);
 
-	ASSERT_NE (conf.node.active_transactions.size, defaults.node.active_transactions.size);
+	ASSERT_NE (conf.node.active_elections.size, defaults.node.active_elections.size);
 	ASSERT_NE (conf.node.allow_local_peers, defaults.node.allow_local_peers);
 	ASSERT_NE (conf.node.backup_before_upgrade, defaults.node.backup_before_upgrade);
 	ASSERT_NE (conf.node.bandwidth_limit, defaults.node.bandwidth_limit);
@@ -1024,7 +1024,7 @@ TEST (toml, log_config_no_defaults)
 	rotation_count = 999
 
 	[log.levels]
-	active_transactions = "trace"
+	active_elections = "trace"
 	blockprocessor = "trace"
 	)toml";
 
@@ -1081,7 +1081,7 @@ TEST (toml, merge_config_files)
 
 	ss << R"toml(
 	[node]
-	 active_transactions.size = 999
+	 active_elections.size = 999
 	 # backlog_scan_batch_size = 7777
 	[node.bootstrap_ascending]
 	 block_wait_count = 33333
@@ -1104,8 +1104,8 @@ TEST (toml, merge_config_files)
 	merged_toml.read (ss2);
 	merged_config.deserialize_toml (merged_toml);
 
-	ASSERT_NE (merged_config.node.active_transactions.size, default_config.node.active_transactions.size);
-	ASSERT_EQ (merged_config.node.active_transactions.size, 999);
+	ASSERT_NE (merged_config.node.active_elections.size, default_config.node.active_elections.size);
+	ASSERT_EQ (merged_config.node.active_elections.size, 999);
 	ASSERT_NE (merged_config.node.backlog_scan_batch_size, 7777);
 	ASSERT_EQ (merged_config.node.bootstrap_ascending.block_wait_count, 33333);
 	ASSERT_TRUE (merged_config_string.find ("old_entry") == std::string::npos);

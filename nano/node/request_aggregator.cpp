@@ -1,6 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/node/active_transactions.hpp>
+#include <nano/node/active_elections.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/network.hpp>
@@ -12,7 +12,7 @@
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/store/component.hpp>
 
-nano::request_aggregator::request_aggregator (nano::node_config const & config_a, nano::stats & stats_a, nano::vote_generator & generator_a, nano::vote_generator & final_generator_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
+nano::request_aggregator::request_aggregator (nano::node_config const & config_a, nano::stats & stats_a, nano::vote_generator & generator_a, nano::vote_generator & final_generator_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_elections & active_a) :
 	config{ config_a },
 	max_delay (config_a.network_params.network.is_dev_network () ? 50 : 300),
 	small_delay (config_a.network_params.network.is_dev_network () ? 10 : 50),

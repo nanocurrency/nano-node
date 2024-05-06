@@ -3,7 +3,7 @@
 #include <nano/lib/json_error_response.hpp>
 #include <nano/lib/stats_sinks.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/node/active_transactions.hpp>
+#include <nano/node/active_elections.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/common.hpp>
@@ -2039,7 +2039,7 @@ void nano::json_handler::election_statistics ()
 		}
 	}
 
-	auto utilization_percentage = (static_cast<double> (total_count * 100) / node.config.active_transactions.size);
+	auto utilization_percentage = (static_cast<double> (total_count * 100) / node.config.active_elections.size);
 	auto max_election_age = std::chrono::duration_cast<std::chrono::milliseconds> (now - oldest_election_start).count ();
 	auto average_election_age = total_count ? std::chrono::duration_cast<std::chrono::milliseconds> (total_age).count () / total_count : 0;
 

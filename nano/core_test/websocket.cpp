@@ -1,6 +1,6 @@
 #include <nano/core_test/fakes/websocket_client.hpp>
 #include <nano/lib/blocks.hpp>
-#include <nano/node/active_transactions.hpp>
+#include <nano/node/active_elections.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/test_common/network.hpp>

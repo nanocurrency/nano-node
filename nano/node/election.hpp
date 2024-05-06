@@ -181,7 +181,7 @@ public: // Logging
 private: // Constants
 	static std::size_t constexpr max_blocks{ 10 };
 
-	friend class active_transactions;
+	friend class active_elections;
 	friend class confirmation_solicitor;
 
 public: // Only used in tests

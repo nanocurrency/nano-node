@@ -1,6 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/jsonconfig.hpp>
-#include <nano/node/active_transactions.hpp>
+#include <nano/node/active_elections.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/scheduler/component.hpp>
@@ -29,7 +29,7 @@ using namespace std::chrono_literals;
  * - node2 with:
  * 		- disabled rep crawler -> this inhibits node2 from learning that node1 is a rep
  */
-TEST (active_transactions, confirm_election_by_request)
+TEST (active_elections, confirm_election_by_request)
 {
 	nano::test::system system{};
 	auto & node1 = *system.add_node ();
@@ -99,7 +99,7 @@ TEST (active_transactions, confirm_election_by_request)
 	ASSERT_TIMELY (5s, nano::test::confirmed (node2, { send1 }));
 }
 
-TEST (active_transactions, confirm_frontier)
+TEST (active_elections, confirm_frontier)
 {
 	nano::test::system system;
 
@@ -156,14 +156,14 @@ TEST (active_transactions, confirm_frontier)
 	ASSERT_GT (election2->confirmation_request_count, 0u);
 }
 
-TEST (active_transactions, keep_local)
+TEST (active_elections, keep_local)
 {
 	nano::test::system system{};
 
 	nano::node_config node_config = system.default_config ();
 	node_config.enable_voting = false;
 	// Bound to 2, won't drop wallet created transactions, but good to test dropping remote
-	node_config.active_transactions.size = 2;
+	node_config.active_elections.size = 2;
 	// Disable frontier confirmation to allow the test to finish before
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 
@@ -234,7 +234,7 @@ TEST (active_transactions, keep_local)
 	node.process_active (receive3);
 
 	/// bound elections, should drop after one loop
-	ASSERT_TIMELY_EQ (5s, node.active.size (), node_config.active_transactions.size);
+	ASSERT_TIMELY_EQ (5s, node.active.size (), node_config.active_elections.size);
 	// ASSERT_EQ (1, node.scheduler.size ());
 }
 
@@ -543,7 +543,7 @@ TEST (inactive_votes_cache, election_start)
 
 namespace nano
 {
-TEST (active_transactions, vote_replays)
+TEST (active_elections, vote_replays)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
@@ -643,7 +643,7 @@ TEST (active_transactions, vote_replays)
 }
 
 // Tests that blocks are correctly cleared from the duplicate filter for unconfirmed elections
-TEST (active_transactions, dropped_cleanup)
+TEST (active_elections, dropped_cleanup)
 {
 	nano::test::system system;
 	nano::node_flags flags;
@@ -700,7 +700,7 @@ TEST (active_transactions, dropped_cleanup)
 	ASSERT_FALSE (node.active.active (hash));
 }
 
-TEST (active_transactions, republish_winner)
+TEST (active_elections, republish_winner)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
@@ -765,7 +765,7 @@ TEST (active_transactions, republish_winner)
 	ASSERT_TIMELY (5s, node2.block_confirmed (fork->hash ()));
 }
 
-TEST (active_transactions, fork_filter_cleanup)
+TEST (active_elections, fork_filter_cleanup)
 {
 	nano::test::system system{};
 
@@ -847,7 +847,7 @@ TEST (active_transactions, fork_filter_cleanup)
  *     (9 votes from this batch should survive and replace existing blocks in the election, why not 10?)
  * Then send winning block and it should replace one of the existing blocks
  */
-TEST (active_transactions, fork_replacement_tally)
+TEST (active_elections, fork_replacement_tally)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
@@ -1004,7 +1004,7 @@ TEST (active_transactions, fork_replacement_tally)
 namespace nano
 {
 // Blocks that won an election must always be seen as confirming or cemented
-TEST (active_transactions, confirmation_consistency)
+TEST (active_elections, confirmation_consistency)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
@@ -1031,7 +1031,7 @@ TEST (active_transactions, confirmation_consistency)
 }
 }
 
-TEST (active_transactions, confirm_new)
+TEST (active_elections, confirm_new)
 {
 	nano::test::system system (1);
 	auto & node1 = *system.nodes[0];
@@ -1056,7 +1056,7 @@ TEST (active_transactions, confirm_new)
 }
 
 // Ensures votes are tallied on election::publish even if no vote is inserted through inactive_votes_cache
-TEST (active_transactions, conflicting_block_vote_existing_election)
+TEST (active_elections, conflicting_block_vote_existing_election)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
@@ -1099,7 +1099,7 @@ TEST (active_transactions, conflicting_block_vote_existing_election)
 	ASSERT_TIMELY (3s, election->confirmed ());
 }
 
-TEST (active_transactions, activate_account_chain)
+TEST (active_elections, activate_account_chain)
 {
 	nano::test::system system;
 	nano::node_flags flags;
@@ -1199,7 +1199,7 @@ TEST (active_transactions, activate_account_chain)
 	ASSERT_TIMELY (3s, node.active.active (receive->qualified_root ()));
 }
 
-TEST (active_transactions, activate_inactive)
+TEST (active_elections, activate_inactive)
 {
 	nano::test::system system;
 	nano::node_flags flags;
@@ -1257,7 +1257,7 @@ TEST (active_transactions, activate_inactive)
 	ASSERT_FALSE (node.active.active (open->qualified_root ()) || node.block_confirmed_or_being_confirmed (open->hash ()));
 }
 
-TEST (active_transactions, list_active)
+TEST (active_elections, list_active)
 {
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
@@ -1312,13 +1312,13 @@ TEST (active_transactions, list_active)
 	auto active = node.active.list_active ();
 }
 
-TEST (active_transactions, vacancy)
+TEST (active_elections, vacancy)
 {
 	std::atomic<bool> updated = false;
 	{
 		nano::test::system system;
 		nano::node_config config = system.default_config ();
-		config.active_transactions.size = 1;
+		config.active_elections.size = 1;
 		auto & node = *system.add_node (config);
 		nano::state_block_builder builder;
 		auto send = builder.make_block ()
@@ -1349,12 +1349,12 @@ TEST (active_transactions, vacancy)
 }
 
 // Ensure transactions in excess of capacity are removed in fifo order
-TEST (active_transactions, fifo)
+TEST (active_elections, fifo)
 {
 	nano::test::system system{};
 
 	nano::node_config config = system.default_config ();
-	config.active_transactions.size = 1;
+	config.active_elections.size = 1;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 
 	auto & node = *system.add_node (config);
@@ -1434,15 +1434,15 @@ TEST (active_transactions, fifo)
 /*
  * Ensures we limit the number of vote hinted elections in AEC
  */
-TEST (active_transactions, limit_vote_hinted_elections)
+TEST (active_elections, limit_vote_hinted_elections)
 {
 	nano::test::system system;
 	nano::node_config config = system.default_config ();
 	const int aec_limit = 10;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	config.optimistic_scheduler.enabled = false;
-	config.active_transactions.size = aec_limit;
-	config.active_transactions.hinted_limit_percentage = 10; // Should give us a limit of 1 hinted election
+	config.active_elections.size = aec_limit;
+	config.active_elections.hinted_limit_percentage = 10; // Should give us a limit of 1 hinted election
 	auto & node = *system.add_node (config);
 
 	// Setup representatives
@@ -1500,14 +1500,14 @@ TEST (active_transactions, limit_vote_hinted_elections)
 /*
  * Tests that when AEC is running at capacity from normal elections, it is still possible to schedule a limited number of hinted elections
  */
-TEST (active_transactions, allow_limited_overflow)
+TEST (active_elections, allow_limited_overflow)
 {
 	nano::test::system system;
 	nano::node_config config = system.default_config ();
 	const int aec_limit = 20;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	config.active_transactions.size = aec_limit;
-	config.active_transactions.hinted_limit_percentage = 20; // Should give us a limit of 4 hinted elections
+	config.active_elections.size = aec_limit;
+	config.active_elections.hinted_limit_percentage = 20; // Should give us a limit of 4 hinted elections
 	auto & node = *system.add_node (config);
 
 	auto blocks = nano::test::setup_independent_blocks (system, node, aec_limit * 4);
@@ -1549,14 +1549,14 @@ TEST (active_transactions, allow_limited_overflow)
 /*
  * Tests that when hinted elections are present in the AEC, normal scheduler adapts not to exceed the limit of all elections
  */
-TEST (active_transactions, allow_limited_overflow_adapt)
+TEST (active_elections, allow_limited_overflow_adapt)
 {
 	nano::test::system system;
 	nano::node_config config = system.default_config ();
 	const int aec_limit = 20;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	config.active_transactions.size = aec_limit;
-	config.active_transactions.hinted_limit_percentage = 20; // Should give us a limit of 4 hinted elections
+	config.active_elections.size = aec_limit;
+	config.active_elections.hinted_limit_percentage = 20; // Should give us a limit of 4 hinted elections
 	auto & node = *system.add_node (config);
 
 	auto blocks = nano::test::setup_independent_blocks (system, node, aec_limit * 4);

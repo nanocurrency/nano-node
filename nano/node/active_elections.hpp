@@ -25,7 +25,7 @@ namespace mi = boost::multi_index;
 namespace nano
 {
 class node;
-class active_transactions;
+class active_elections;
 class block;
 class block_sideband;
 class block_processor;
@@ -41,10 +41,10 @@ class read_transaction;
 
 namespace nano
 {
-class active_transactions_config final
+class active_elections_config final
 {
 public:
-	explicit active_transactions_config (nano::network_constants const &);
+	explicit active_elections_config (nano::network_constants const &);
 
 	nano::error deserialize (nano::tomlconfig & toml);
 	nano::error serialize (nano::tomlconfig & toml) const;
@@ -132,7 +132,7 @@ public: // Container info
  * Core class for determining consensus
  * Holds all active blocks i.e. recently added blocks that need confirmation
  */
-class active_transactions final
+class active_elections final
 {
 private: // Elections
 	class conflict_info final
@@ -163,8 +163,8 @@ private: // Elections
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 
 public:
-	active_transactions (nano::node &, nano::confirming_set &, nano::block_processor &);
-	~active_transactions ();
+	active_elections (nano::node &, nano::confirming_set &, nano::block_processor &);
+	~active_elections ();
 
 	void start ();
 	void stop ();
@@ -230,7 +230,7 @@ private:
 	bool trigger_vote_cache (nano::block_hash);
 
 private: // Dependencies
-	active_transactions_config const & config;
+	active_elections_config const & config;
 	nano::node & node;
 	nano::confirming_set & confirming_set;
 	nano::block_processor & block_processor;
@@ -258,7 +258,7 @@ private:
 	std::thread thread;
 
 	friend class election;
-	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, std::string const &);
+	friend std::unique_ptr<container_info_component> collect_container_info (active_elections &, std::string const &);
 
 public: // Tests
 	void clear ();
@@ -266,15 +266,15 @@ public: // Tests
 	friend class node_fork_storm_Test;
 	friend class system_block_sequence_Test;
 	friend class node_mass_block_new_Test;
-	friend class active_transactions_vote_replays_Test;
+	friend class active_elections_vote_replays_Test;
 	friend class frontiers_confirmation_prioritize_frontiers_Test;
 	friend class frontiers_confirmation_prioritize_frontiers_max_optimistic_elections_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
-	friend class active_transactions_confirmation_consistency_Test;
+	friend class active_elections_confirmation_consistency_Test;
 	friend class node_deferred_dependent_elections_Test;
-	friend class active_transactions_pessimistic_elections_Test;
+	friend class active_elections_pessimistic_elections_Test;
 	friend class frontiers_confirmation_expired_optimistic_elections_removal_Test;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, std::string const & name);
+std::unique_ptr<container_info_component> collect_container_info (active_elections & active_elections, std::string const & name);
 }

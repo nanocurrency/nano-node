@@ -1,6 +1,6 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/tomlconfig.hpp>
-#include <nano/node/active_transactions.hpp>
+#include <nano/node/active_elections.hpp>
 #include <nano/node/election_behavior.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/hinted.hpp>
@@ -11,7 +11,7 @@
  * hinted
  */
 
-nano::scheduler::hinted::hinted (hinted_config const & config_a, nano::node & node_a, nano::vote_cache & vote_cache_a, nano::active_transactions & active_a, nano::online_reps & online_reps_a, nano::stats & stats_a) :
+nano::scheduler::hinted::hinted (hinted_config const & config_a, nano::node & node_a, nano::vote_cache & vote_cache_a, nano::active_elections & active_a, nano::online_reps & online_reps_a, nano::stats & stats_a) :
 	config{ config_a },
 	node{ node_a },
 	vote_cache{ vote_cache_a },

@@ -34,7 +34,7 @@ nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, 
 	ipc_config{ network_params.network },
 	external_address{ boost::asio::ip::address_v6{}.to_string () },
 	rep_crawler{ network_params.network },
-	active_transactions{ network_params.network },
+	active_elections{ network_params.network },
 	block_processor{ network_params.network },
 	peer_history{ network_params.network },
 	tcp{ network_params.network }
@@ -217,9 +217,9 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	rep_crawler.serialize (rep_crawler_l);
 	toml.put_child ("rep_crawler", rep_crawler_l);
 
-	nano::tomlconfig active_transactions_l;
-	active_transactions.serialize (active_transactions_l);
-	toml.put_child ("active_transactions", active_transactions_l);
+	nano::tomlconfig active_elections_l;
+	active_elections.serialize (active_elections_l);
+	toml.put_child ("active_elections", active_elections_l);
 
 	nano::tomlconfig block_processor_l;
 	block_processor.serialize (block_processor_l);
@@ -314,10 +314,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			rep_crawler.deserialize (config_l);
 		}
 
-		if (toml.has_key ("active_transactions"))
+		if (toml.has_key ("active_elections"))
 		{
-			auto config_l = toml.get_required_child ("active_transactions");
-			active_transactions.deserialize (config_l);
+			auto config_l = toml.get_required_child ("active_elections");
+			active_elections.deserialize (config_l);
 		}
 
 		if (toml.has_key ("block_processor"))
@@ -531,9 +531,9 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			toml.get_error ().set ("io_threads must be non-zero");
 		}
-		if (active_transactions.size <= 250 && !network_params.network.is_dev_network ())
+		if (active_elections.size <= 250 && !network_params.network.is_dev_network ())
 		{
-			toml.get_error ().set ("active_transactions.size must be greater than 250");
+			toml.get_error ().set ("active_elections.size must be greater than 250");
 		}
 		if (bandwidth_limit > std::numeric_limits<std::size_t>::max ())
 		{

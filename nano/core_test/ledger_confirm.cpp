@@ -1,6 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/logging.hpp>
-#include <nano/node/active_transactions.hpp>
+#include <nano/node/active_elections.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/secure/ledger.hpp>

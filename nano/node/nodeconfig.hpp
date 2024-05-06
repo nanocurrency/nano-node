@@ -8,7 +8,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/node/active_transactions.hpp>
+#include <nano/node/active_elections.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
@@ -137,7 +137,7 @@ public:
 	nano::vote_cache_config vote_cache;
 	nano::rep_crawler_config rep_crawler;
 	nano::block_processor_config block_processor;
-	nano::active_transactions_config active_transactions;
+	nano::active_elections_config active_elections;
 	nano::vote_processor_config vote_processor;
 	nano::peer_history_config peer_history;
 	nano::transport::tcp_config tcp;

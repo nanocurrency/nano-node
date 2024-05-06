@@ -55,7 +55,7 @@ enum class type
 	bootstrap_server_overfill,
 	bootstrap_server_response,
 	active,
-	active_transactions,
+	active_elections,
 	active_started,
 	active_confirmed,
 	active_dropped,

@@ -2,7 +2,7 @@
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/node/active_transactions.hpp>
+#include <nano/node/active_elections.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/node.hpp>
