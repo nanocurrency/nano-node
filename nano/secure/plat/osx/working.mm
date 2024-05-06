@@ -4,7 +4,7 @@
 
 namespace nano
 {
-std::filesystem::path app_path ()
+std::filesystem::path app_path_impl ()
 {
 	NSString * dir_string = [NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) lastObject];
 	char const * dir_chars = [dir_string UTF8String];
