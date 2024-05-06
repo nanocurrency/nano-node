@@ -102,8 +102,5 @@ private:
 public:
 	ledger_set_any & any;
 	ledger_set_confirmed & confirmed;
-
-public: // Only used in tests
-	void force_confirm (secure::write_transaction const & transaction, nano::block const & block);
 };
 }
