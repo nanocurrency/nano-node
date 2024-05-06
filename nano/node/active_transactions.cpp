@@ -18,11 +18,12 @@
 using namespace std::chrono;
 
 nano::active_transactions::active_transactions (nano::node & node_a, nano::confirming_set & confirming_set, nano::block_processor & block_processor_a) :
+	config{ node_a.config.active_transactions },
 	node{ node_a },
 	confirming_set{ confirming_set },
 	block_processor{ block_processor_a },
-	recently_confirmed{ 65536 },
-	recently_cemented{ node.config.confirmation_history_size },
+	recently_confirmed{ config.confirmation_cache },
+	recently_cemented{ config.confirmation_history_size },
 	election_time_to_live{ node_a.network_params.network.is_dev_network () ? 0s : 2s }
 {
 	count_by_behavior.fill (0); // Zero initialize array
@@ -187,16 +188,16 @@ int64_t nano::active_transactions::limit (nano::election_behavior behavior) cons
 	{
 		case nano::election_behavior::normal:
 		{
-			return static_cast<int64_t> (node.config.active_elections_size);
+			return static_cast<int64_t> (config.size);
 		}
 		case nano::election_behavior::hinted:
 		{
-			const uint64_t limit = node.config.active_elections_hinted_limit_percentage * node.config.active_elections_size / 100;
+			const uint64_t limit = config.hinted_limit_percentage * config.size / 100;
 			return static_cast<int64_t> (limit);
 		}
 		case nano::election_behavior::optimistic:
 		{
-			const uint64_t limit = node.config.active_elections_optimistic_limit_percentage * node.config.active_elections_size / 100;
+			const uint64_t limit = config.optimistic_limit_percentage * config.size / 100;
 			return static_cast<int64_t> (limit);
 		}
 	}
@@ -239,7 +240,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 	 * Loop through active elections in descending order of proof-of-work difficulty, requesting confirmation
 	 *
 	 * Only up to a certain amount of elections are queued for confirmation request and block rebroadcasting. The remaining elections can still be confirmed if votes arrive
-	 * Elections extending the soft config.active_elections_size limit are flushed after a certain time-to-live cutoff
+	 * Elections extending the soft config.size limit are flushed after a certain time-to-live cutoff
 	 * Flushed elections are later re-activated via frontier confirmation
 	 */
 	for (auto const & election_l : elections_l)
@@ -763,4 +764,35 @@ std::unique_ptr<nano::container_info_component> nano::recently_cemented_cache::c
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cemented", cemented.size (), sizeof (decltype (cemented)::value_type) }));
 	return composite;
+}
+
+
+/*
+ * active_transactions_config
+ */
+
+nano::active_transactions_config::active_transactions_config (const nano::network_constants & network_constants)
+{
+}
+
+nano::error nano::active_transactions_config::serialize (nano::tomlconfig & toml) const
+{
+	toml.put ("size", size, "Number of active elections. Elections beyond this limit have limited survival time.\nWarning: modifying this value may result in a lower confirmation rate. \ntype:uint64,[250..]");
+	toml.put ("hinted_limit_percentage", hinted_limit_percentage, "Limit of hinted elections as percentage of `active_elections_size` \ntype:uint64");
+	toml.put ("optimistic_limit_percentage", optimistic_limit_percentage, "Limit of optimistic elections as percentage of `active_elections_size`. \ntype:uint64");
+	toml.put ("confirmation_history_size", confirmation_history_size, "Maximum confirmation history size. If tracking the rate of block confirmations, the websocket feature is recommended instead. \ntype:uint64");
+	toml.put ("confirmation_cache", confirmation_cache, "Maximum number of confirmed elections kept in cache to prevent restarting an election. \ntype:uint64");
+
+	return toml.get_error ();
+}
+
+nano::error nano::active_transactions_config::deserialize (nano::tomlconfig & toml)
+{
+	toml.get ("size", size);
+	toml.get ("hinted_limit_percentage", hinted_limit_percentage);
+	toml.get ("optimistic_limit_percentage", optimistic_limit_percentage);
+	toml.get ("confirmation_history_size", confirmation_history_size);
+	toml.get ("confirmation_cache", confirmation_cache);
+
+	return toml.get_error ();
 }
