@@ -163,7 +163,7 @@ TEST (active_transactions, keep_local)
 	nano::node_config node_config = system.default_config ();
 	node_config.enable_voting = false;
 	// Bound to 2, won't drop wallet created transactions, but good to test dropping remote
-	node_config.active_elections_size = 2;
+	node_config.active_transactions.size = 2;
 	// Disable frontier confirmation to allow the test to finish before
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 
@@ -234,7 +234,7 @@ TEST (active_transactions, keep_local)
 	node.process_active (receive3);
 
 	/// bound elections, should drop after one loop
-	ASSERT_TIMELY_EQ (5s, node.active.size (), node_config.active_elections_size);
+	ASSERT_TIMELY_EQ (5s, node.active.size (), node_config.active_transactions.size);
 	// ASSERT_EQ (1, node.scheduler.size ());
 }
 
@@ -1318,7 +1318,7 @@ TEST (active_transactions, vacancy)
 	{
 		nano::test::system system;
 		nano::node_config config = system.default_config ();
-		config.active_elections_size = 1;
+		config.active_transactions.size = 1;
 		auto & node = *system.add_node (config);
 		nano::state_block_builder builder;
 		auto send = builder.make_block ()
@@ -1354,7 +1354,7 @@ TEST (active_transactions, fifo)
 	nano::test::system system{};
 
 	nano::node_config config = system.default_config ();
-	config.active_elections_size = 1;
+	config.active_transactions.size = 1;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 
 	auto & node = *system.add_node (config);
@@ -1441,8 +1441,8 @@ TEST (active_transactions, limit_vote_hinted_elections)
 	const int aec_limit = 10;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	config.optimistic_scheduler.enabled = false;
-	config.active_elections_size = aec_limit;
-	config.active_elections_hinted_limit_percentage = 10; // Should give us a limit of 1 hinted election
+	config.active_transactions.size = aec_limit;
+	config.active_transactions.hinted_limit_percentage = 10; // Should give us a limit of 1 hinted election
 	auto & node = *system.add_node (config);
 
 	// Setup representatives
@@ -1506,8 +1506,8 @@ TEST (active_transactions, allow_limited_overflow)
 	nano::node_config config = system.default_config ();
 	const int aec_limit = 20;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	config.active_elections_size = aec_limit;
-	config.active_elections_hinted_limit_percentage = 20; // Should give us a limit of 4 hinted elections
+	config.active_transactions.size = aec_limit;
+	config.active_transactions.hinted_limit_percentage = 20; // Should give us a limit of 4 hinted elections
 	auto & node = *system.add_node (config);
 
 	auto blocks = nano::test::setup_independent_blocks (system, node, aec_limit * 4);
@@ -1555,8 +1555,8 @@ TEST (active_transactions, allow_limited_overflow_adapt)
 	nano::node_config config = system.default_config ();
 	const int aec_limit = 20;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	config.active_elections_size = aec_limit;
-	config.active_elections_hinted_limit_percentage = 20; // Should give us a limit of 4 hinted elections
+	config.active_transactions.size = aec_limit;
+	config.active_transactions.hinted_limit_percentage = 20; // Should give us a limit of 4 hinted elections
 	auto & node = *system.add_node (config);
 
 	auto blocks = nano::test::setup_independent_blocks (system, node, aec_limit * 4);

@@ -2039,7 +2039,7 @@ void nano::json_handler::election_statistics ()
 		}
 	}
 
-	auto utilization_percentage = (static_cast<double> (total_count * 100) / node.config.active_elections_size);
+	auto utilization_percentage = (static_cast<double> (total_count * 100) / node.config.active_transactions.size);
 	auto max_election_age = std::chrono::duration_cast<std::chrono::milliseconds> (now - oldest_election_start).count ();
 	auto average_election_age = total_count ? std::chrono::duration_cast<std::chrono::milliseconds> (total_age).count () / total_count : 0;
 

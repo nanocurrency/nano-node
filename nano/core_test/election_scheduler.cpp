@@ -56,7 +56,7 @@ TEST (election_scheduler, activate_one_flush)
 
 /**
  * Tests that the election scheduler and the active transactions container (AEC)
- * work in sync with regards to the node configuration value "active_elections_size".
+ * work in sync with regards to the node configuration value "active_transactions.size".
  *
  * The test sets up two forcefully cemented blocks -- a send on the genesis account and a receive on a second account.
  * It then creates two other blocks, each a successor to one of the previous two,
@@ -74,7 +74,7 @@ TEST (election_scheduler, no_vacancy)
 	nano::test::system system{};
 
 	nano::node_config config = system.default_config ();
-	config.active_elections_size = 1;
+	config.active_transactions.size = 1;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 
 	auto & node = *system.add_node (config);
