@@ -320,13 +320,13 @@ std::string get_tls_toml_config_path (std::filesystem::path const & data_path)
 
 std::string nano::get_env_or_default (char const * variable_name, std::string default_value)
 {
-	auto value = nano::get_env (variable_name);
-	return value ? *value : default_value;
+	auto value = nano::env::get (variable_name);
+	return value.value_or (default_value);
 }
 
 int nano::get_env_int_or_default (const char * variable_name, const int default_value)
 {
-	auto value = nano::get_env (variable_name);
+	auto value = nano::env::get (variable_name);
 	if (value)
 	{
 		try

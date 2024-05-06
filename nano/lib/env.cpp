@@ -4,7 +4,7 @@
 
 #include <string>
 
-std::optional<std::string> nano::get_env (std::string_view name)
+std::optional<std::string> nano::env::get (std::string_view name)
 {
 	std::string name_str{ name };
 	if (auto value = std::getenv (name_str.c_str ()))
@@ -14,12 +14,12 @@ std::optional<std::string> nano::get_env (std::string_view name)
 	return std::nullopt;
 }
 
-std::optional<bool> nano::get_env_bool (std::string_view name)
+std::optional<bool> nano::env::get_bool (std::string_view name)
 {
 	std::vector<std::string> const on_values{ "1", "true", "on" };
 	std::vector<std::string> const off_values{ "0", "false", "off" };
 
-	if (auto value = get_env (name))
+	if (auto value = get (name))
 	{
 		// Using case-insensitive comparison
 		if (std::any_of (on_values.begin (), on_values.end (), [&value] (auto const & on) { return boost::iequals (*value, on); }))
