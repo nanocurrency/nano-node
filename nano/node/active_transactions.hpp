@@ -44,26 +44,23 @@ namespace nano
 class active_transactions_config final
 {
 public:
-    explicit active_transactions_config (nano::network_constants const &);
+	explicit active_transactions_config (nano::network_constants const &);
 
-    nano::error deserialize (nano::tomlconfig & toml);
-    nano::error serialize (nano::tomlconfig & toml) const;
+	nano::error deserialize (nano::tomlconfig & toml);
+	nano::error serialize (nano::tomlconfig & toml) const;
 
 public:
-    // Maximum number of simultaneous active elections (AEC size)
-    std::size_t size{ 5000 };
-    // Limit of hinted elections as percentage of `active_elections_size` 
-    std::size_t hinted_limit_percentage{ 20 };
-    // Limit of optimistic elections as percentage of `active_elections_size`
-    std::size_t optimistic_limit_percentage{ 10 };
+	// Maximum number of simultaneous active elections (AEC size)
+	std::size_t size{ 5000 };
+	// Limit of hinted elections as percentage of `active_elections_size`
+	std::size_t hinted_limit_percentage{ 20 };
+	// Limit of optimistic elections as percentage of `active_elections_size`
+	std::size_t optimistic_limit_percentage{ 10 };
 	// Maximum confirmation history size
 	std::size_t confirmation_history_size{ 2048 };
 	// Maximum cache size for recently_confirmed
 	std::size_t confirmation_cache{ 65536 };
-
-	
-	
-};	
+};
 
 class recently_confirmed_cache final
 {
@@ -234,7 +231,7 @@ private:
 
 private: // Dependencies
 	active_transactions_config const & config;
-	nano::node & node;	
+	nano::node & node;
 	nano::confirming_set & confirming_set;
 	nano::block_processor & block_processor;
 

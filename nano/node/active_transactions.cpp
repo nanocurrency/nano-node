@@ -766,7 +766,6 @@ std::unique_ptr<nano::container_info_component> nano::recently_cemented_cache::c
 	return composite;
 }
 
-
 /*
  * active_transactions_config
  */
