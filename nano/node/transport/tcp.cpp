@@ -439,6 +439,7 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 		// Remove channels that haven't successfully sent a message within the cutoff time
 		if (auto last = channel->get_last_packet_sent (); last < cutoff_deadline)
 		{
+			node.stats.inc (nano::stat::type::tcp_channels_purge, nano::stat::detail::idle);
 			node.logger.debug (nano::log::type::tcp_channels, "Closing idle channel: {} (idle for {}s)",
 			channel->to_string (),
 			nano::log::seconds_delta (last));
@@ -448,6 +449,7 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 		// Check if any tcp channels belonging to old protocol versions which may still be alive due to async operations
 		if (channel->get_network_version () < node.network_params.network.protocol_version_min)
 		{
+			node.stats.inc (nano::stat::type::tcp_channels_purge, nano::stat::detail::outdated);
 			node.logger.debug (nano::log::type::tcp_channels, "Closing channel with old protocol version: {}", channel->to_string ());
 
 			return true; // Close

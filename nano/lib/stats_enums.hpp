@@ -32,6 +32,7 @@ enum class type
 	tcp,
 	tcp_channels,
 	tcp_channels_rejected,
+	tcp_channels_purge,
 	tcp_listener,
 	tcp_listener_rejected,
 	channel,
@@ -286,6 +287,8 @@ enum class detail
 	channel_accepted,
 	channel_rejected,
 	channel_duplicate,
+	idle,
+	outdated,
 
 	// tcp_server
 	handshake,
