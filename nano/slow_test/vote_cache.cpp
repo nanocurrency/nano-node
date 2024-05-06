@@ -41,8 +41,7 @@ nano::keypair setup_rep (nano::test::system & system, nano::node & node, nano::u
 				.build ();
 
 	EXPECT_TRUE (nano::test::process (node, { send, open }));
-	EXPECT_TRUE (nano::test::start_elections (system, node, { send, open }, true));
-	EXPECT_TIMELY (5s, nano::test::confirmed (node, { send, open }));
+	nano::test::confirm (node.ledger, open->hash ());
 
 	return key;
 }
@@ -107,8 +106,7 @@ std::vector<std::shared_ptr<nano::block>> setup_blocks (nano::test::system & sys
 	EXPECT_TRUE (nano::test::process (node, receives));
 
 	// Confirm whole genesis chain at once
-	EXPECT_TRUE (nano::test::start_elections (system, node, { sends.back () }, true));
-	EXPECT_TIMELY (5s, nano::test::confirmed (node, { sends }));
+	nano::test::confirm (node.ledger, sends.back ()->hash ());
 
 	std::cout << "setup_blocks done" << std::endl;
 
