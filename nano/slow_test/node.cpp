@@ -1957,9 +1957,9 @@ TEST (node, aggressive_flooding)
 		ASSERT_EQ (node1.latest (nano::dev::genesis_key.pub), node_wallet.first->latest (nano::dev::genesis_key.pub));
 		ASSERT_EQ (genesis_blocks.back ()->hash (), node_wallet.first->latest (nano::dev::genesis_key.pub));
 		// Confirm blocks for rep crawler & receiving
-		ASSERT_TRUE (nano::test::start_elections (system, *node_wallet.first, { genesis_blocks.back () }, true));
+		nano::test::confirm (node_wallet.first->ledger, genesis_blocks.back ());
 	}
-	ASSERT_TRUE (nano::test::start_elections (system, node1, { genesis_blocks.back () }, true));
+	nano::test::confirm (node1.ledger, genesis_blocks.back ());
 
 	// Wait until all genesis blocks are received
 	auto all_received = [&nodes_wallets] () {
