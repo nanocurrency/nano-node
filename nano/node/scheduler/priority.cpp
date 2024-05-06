@@ -96,6 +96,7 @@ std::shared_ptr<nano::block> nano::scheduler::priority::activate (secure::transa
 	{
 		node.logger.trace (nano::log::type::election_scheduler, nano::log::detail::block_overflow,
 		nano::log::arg{ "block", block->hash ().to_string () },
+		nano::log::arg{ "removed", removed->hash ().to_string () },
 		nano::log::arg{ "time", time_priority.time_since_epoch ().count () });
 		// Bucket was full and another block was lowest priority
 		auto inserted = tracking.emplace (block->hash (), &bucket);
@@ -108,6 +109,7 @@ std::shared_ptr<nano::block> nano::scheduler::priority::activate (secure::transa
 	{
 		node.logger.trace (nano::log::type::election_scheduler, nano::log::detail::block_reject,
 		nano::log::arg{ "block", block->hash ().to_string () },
+		nano::log::arg{ "removed", removed->hash ().to_string () },
 		nano::log::arg{ "time", time_priority.time_since_epoch ().count () });
 		lock.unlock ();
 		// Bucket was full and block inserted was lowest priority
