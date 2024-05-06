@@ -8,6 +8,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
@@ -90,7 +91,6 @@ public:
 	uint32_t bootstrap_frontier_request_count{ 1024 * 1024 };
 	nano::websocket::config websocket_config;
 	nano::diagnostics_config diagnostics_config;
-	std::size_t confirmation_history_size{ 2048 };
 	std::string callback_address;
 	uint16_t callback_port{ 0 };
 	std::string callback_target;
@@ -104,12 +104,7 @@ public:
 	/** Timeout for initiated async operations */
 	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_dev_network () && !is_sanitizer_build ()) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
-	// TODO: Move related settings to `active_transactions_config` class
-	std::size_t active_elections_size{ 5000 };
-	/** Limit of hinted elections as percentage of `active_elections_size` */
-	std::size_t active_elections_hinted_limit_percentage{ 20 };
-	/** Limit of optimistic elections as percentage of `active_elections_size` */
-	std::size_t active_elections_optimistic_limit_percentage{ 10 };
+
 	/** Default maximum incoming TCP connections, including realtime network & bootstrap */
 	unsigned tcp_incoming_connections_max{ 2048 };
 	bool use_memory_pools{ true };
@@ -142,6 +137,7 @@ public:
 	nano::vote_cache_config vote_cache;
 	nano::rep_crawler_config rep_crawler;
 	nano::block_processor_config block_processor;
+	nano::active_transactions_config active_transactions;
 	nano::vote_processor_config vote_processor;
 	nano::peer_history_config peer_history;
 	nano::transport::tcp_config tcp;
