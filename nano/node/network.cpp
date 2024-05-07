@@ -363,6 +363,7 @@ public:
 		auto peer0 (message_a.peers[0]);
 		if (peer0.address () == boost::asio::ip::address_v6{} && peer0.port () != 0)
 		{
+			// TODO: Remove this as we do not need to establish a second connection to the same peer
 			nano::endpoint new_endpoint (channel->get_tcp_endpoint ().address (), peer0.port ());
 			node.network.merge_peer (new_endpoint);
 
@@ -734,13 +735,13 @@ nano::node_id_handshake::response_payload nano::network::prepare_handshake_respo
  * tcp_message_manager
  */
 
-nano::tcp_message_manager::tcp_message_manager (unsigned incoming_connections_max_a) :
-	max_entries (incoming_connections_max_a * nano::tcp_message_manager::max_entries_per_connection + 1)
+nano::transport::tcp_message_manager::tcp_message_manager (unsigned incoming_connections_max_a) :
+	max_entries (incoming_connections_max_a * max_entries_per_connection + 1)
 {
 	debug_assert (max_entries > 0);
 }
 
-void nano::tcp_message_manager::put_message (nano::tcp_message_item const & item_a)
+void nano::transport::tcp_message_manager::put (std::unique_ptr<nano::message> message, std::shared_ptr<nano::transport::channel_tcp> channel)
 {
 	{
 		nano::unique_lock<nano::mutex> lock{ mutex };
@@ -748,14 +749,14 @@ void nano::tcp_message_manager::put_message (nano::tcp_message_item const & item
 		{
 			producer_condition.wait (lock);
 		}
-		entries.push_back (item_a);
+		entries.emplace_back (std::move (message), channel);
 	}
 	consumer_condition.notify_one ();
 }
 
-nano::tcp_message_item nano::tcp_message_manager::get_message ()
+auto nano::transport::tcp_message_manager::next () -> entry_t
 {
-	nano::tcp_message_item result;
+	entry_t result{ nullptr, nullptr };
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (entries.empty () && !stopped)
 	{
@@ -766,16 +767,12 @@ nano::tcp_message_item nano::tcp_message_manager::get_message ()
 		result = std::move (entries.front ());
 		entries.pop_front ();
 	}
-	else
-	{
-		result = nano::tcp_message_item{ nullptr, nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0), 0, nullptr };
-	}
 	lock.unlock ();
 	producer_condition.notify_one ();
 	return result;
 }
 
-void nano::tcp_message_manager::stop ()
+void nano::transport::tcp_message_manager::stop ()
 {
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };

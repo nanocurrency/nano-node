@@ -143,7 +143,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	config (config_a),
 	network_params{ config.network_params },
 	logger{ make_logger_identifier (node_id) },
-	stats (config.stats_config),
+	stats{ logger, config.stats_config },
 	workers{ config.background_threads, nano::thread_role::name::worker },
 	bootstrap_workers{ config.bootstrap_serving_threads, nano::thread_role::name::bootstrap_worker },
 	flags (flags_a),
@@ -171,7 +171,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	//         Thus, be very careful if you change the order: if `bootstrap` gets constructed before `network`,
 	//         the latter would inherit the port from the former (if TCP is active, otherwise `network` picks first)
 	//
-	tcp_listener_impl{ std::make_unique<nano::transport::tcp_listener> (network.port, *this, config.tcp_incoming_connections_max) },
+	tcp_listener_impl{ std::make_unique<nano::transport::tcp_listener> (network.port, config.tcp, *this) },
 	tcp_listener{ *tcp_listener_impl },
 	application_path (application_path_a),
 	port_mapping (*this),
@@ -660,11 +660,11 @@ void nano::node::start ()
 			network.port = tcp_listener.endpoint ().port ();
 		}
 
-		logger.info (nano::log::type::node, "Node peering port: {}", network.port.load ());
+		logger.info (nano::log::type::node, "Peering port: {}", network.port.load ());
 	}
 	else
 	{
-		logger.warn (nano::log::type::node, "Node peering is disabled");
+		logger.warn (nano::log::type::node, "Peering is disabled");
 	}
 
 	if (!flags.disable_backup)

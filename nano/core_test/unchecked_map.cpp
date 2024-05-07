@@ -21,12 +21,15 @@ class context
 {
 public:
 	context () :
+		stats{ logger },
 		unchecked{ max_unchecked_blocks, stats, false }
 	{
 	}
+	nano::logger logger;
 	nano::stats stats;
 	nano::unchecked_map unchecked;
 };
+
 std::shared_ptr<nano::block> block ()
 {
 	nano::block_builder builder;

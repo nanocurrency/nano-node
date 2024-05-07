@@ -7,17 +7,18 @@
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/utility.hpp>
 #include <nano/store/component.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
 TEST (processor_service, bad_send_signature)
 {
-	nano::logger logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	nano::test::system system;
+
+	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
-	nano::stats stats;
-	nano::ledger ledger (*store, stats, nano::dev::constants);
+	nano::ledger ledger (*store, system.stats, nano::dev::constants);
 	auto transaction = ledger.tx_begin_write ();
 	store->initialize (transaction, ledger.cache, ledger.constants);
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -39,11 +40,11 @@ TEST (processor_service, bad_send_signature)
 
 TEST (processor_service, bad_receive_signature)
 {
-	nano::logger logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	nano::test::system system;
+
+	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
-	nano::stats stats;
-	nano::ledger ledger (*store, stats, nano::dev::constants);
+	nano::ledger ledger (*store, system.stats, nano::dev::constants);
 	auto transaction = ledger.tx_begin_write ();
 	store->initialize (transaction, ledger.cache, ledger.constants);
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };

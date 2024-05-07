@@ -90,10 +90,6 @@ uint8_t get_pre_release_node_version ();
  */
 
 /*
- * Get environment variable as string or none if variable is not present
- */
-std::optional<std::string> get_env (char const * variable_name);
-/*
  * Get environment variable as string or `default_value` if variable is not present
  */
 std::string get_env_or_default (char const * variable_name, std::string const default_value);

@@ -17,6 +17,7 @@
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
+#include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/websocketconfig.hpp>
@@ -100,8 +101,6 @@ public:
 	std::string external_address;
 	uint16_t external_port{ 0 };
 	std::chrono::milliseconds block_processor_batch_max_time{ std::chrono::milliseconds (500) };
-	/** Time to wait for block processing result */
-	std::chrono::seconds block_process_timeout{ 300 };
 	std::chrono::seconds unchecked_cutoff_time{ std::chrono::seconds (4 * 60 * 60) }; // 4 hours
 	/** Timeout for initiated async operations */
 	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_dev_network () && !is_sanitizer_build ()) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
@@ -146,6 +145,7 @@ public:
 	nano::block_processor_config block_processor;
 	nano::vote_processor_config vote_processor;
 	nano::peer_history_config peer_history;
+	nano::transport::tcp_config tcp;
 	nano::request_aggregator_config request_aggregator;
 
 public:

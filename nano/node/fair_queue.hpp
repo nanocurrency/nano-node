@@ -188,16 +188,13 @@ public:
 
 	size_t size () const
 	{
-		return std::accumulate (queues.begin (), queues.end (), 0, [] (size_t total, auto const & queue) {
-			return total + queue.second.size ();
-		});
+		debug_assert (total_size == calculate_total_size ());
+		return total_size;
 	};
 
 	bool empty () const
 	{
-		return std::all_of (queues.begin (), queues.end (), [] (auto const & queue) {
-			return queue.second.empty ();
-		});
+		return size () == 0;
 	}
 
 	size_t queues_size () const
@@ -248,7 +245,12 @@ public:
 		release_assert (it != queues.end ());
 
 		auto & queue = it->second;
-		return queue.push (std::move (request)); // True if added, false if dropped
+		bool added = queue.push (std::move (request)); // True if added, false if dropped
+		if (added)
+		{
+			++total_size;
+		}
+		return added;
 	}
 
 public:
@@ -261,25 +263,7 @@ public:
 public:
 	value_type next ()
 	{
-		debug_assert (!empty ()); // Should be checked before calling next
-
-		auto should_seek = [&, this] () {
-			if (iterator == queues.end ())
-			{
-				return true;
-			}
-			auto & queue = iterator->second;
-			if (queue.empty ())
-			{
-				return true;
-			}
-			// Allow up to `queue.priority` requests to be processed before moving to the next queue
-			if (counter >= queue.priority)
-			{
-				return true;
-			}
-			return false;
-		};
+		release_assert (!empty ()); // Should be checked before calling next
 
 		if (should_seek ())
 		{
@@ -292,14 +276,17 @@ public:
 		auto & queue = iterator->second;
 
 		++counter;
+		--total_size;
+
 		return { queue.pop (), source };
 	}
 
 	std::deque<value_type> next_batch (size_t max_count)
 	{
-		// TODO: Naive implementation, could be optimized
+		auto const count = std::min (size (), max_count);
+
 		std::deque<value_type> result;
-		while (!empty () && result.size () < max_count)
+		while (result.size () < count)
 		{
 			result.emplace_back (next ());
 		}
@@ -307,6 +294,25 @@ public:
 	}
 
 private:
+	bool should_seek () const
+	{
+		if (iterator == queues.end ())
+		{
+			return true;
+		}
+		auto & queue = iterator->second;
+		if (queue.empty ())
+		{
+			return true;
+		}
+		// Allow up to `queue.priority` requests to be processed before moving to the next queue
+		if (counter >= queue.priority)
+		{
+			return true;
+		}
+		return false;
+	}
+
 	void seek_next ()
 	{
 		counter = 0;
@@ -329,8 +335,9 @@ private:
 		// Invalidate the current iterator
 		iterator = queues.end ();
 
+		// Only removing empty queues, no need to update the `total size` counter
 		erase_if (queues, [] (auto const & entry) {
-			return !entry.first.alive ();
+			return entry.second.empty () && !entry.first.alive ();
 		});
 	}
 
@@ -343,15 +350,24 @@ private:
 		}
 	}
 
+	size_t calculate_total_size () const
+	{
+		return std::accumulate (queues.begin (), queues.end (), size_t{ 0 }, [] (size_t total, auto const & queue) {
+			return total + queue.second.size ();
+		});
+	}
+
 private:
 	std::map<origin_entry, entry> queues;
 	typename std::map<origin_entry, entry>::iterator iterator{ queues.end () };
 	size_t counter{ 0 };
 
+	size_t total_size{ 0 };
+
 	std::chrono::steady_clock::time_point last_update{};
 
 public:
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name)
+	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const
 	{
 		auto composite = std::make_unique<container_info_composite> (name);
 		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "queues", queues_size (), sizeof (typename decltype (queues)::value_type) }));

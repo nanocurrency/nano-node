@@ -35,7 +35,8 @@ std::string nano::error_system_messages::message (int ev) const
 
 nano::test::system::system () :
 	io_ctx{ std::make_shared<boost::asio::io_context> () },
-	io_guard{ boost::asio::make_work_guard (*io_ctx) }
+	io_guard{ boost::asio::make_work_guard (*io_ctx) },
+	stats{ logger }
 {
 	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
 	if (scale_str)

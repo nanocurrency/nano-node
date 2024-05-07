@@ -3843,3 +3843,25 @@ TEST (node, port_mapping)
 	auto node = system.add_node ();
 	node->port_mapping.refresh_devices ();
 }
+
+TEST (node, process_local_overflow)
+{
+	nano::test::system system;
+	auto config = system.default_config ();
+	config.block_processor.max_system_queue = 0;
+	auto & node = *system.add_node (config);
+
+	nano::keypair key1;
+	nano::send_block_builder builder;
+	auto latest_hash = nano::dev::genesis->hash ();
+	auto send1 = builder.make_block ()
+				 .previous (latest_hash)
+				 .destination (key1.pub)
+				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (latest_hash))
+				 .build ();
+
+	auto result = node.process_local (send1);
+	ASSERT_FALSE (result);
+}

@@ -17,15 +17,15 @@ nano::thread_runner::thread_runner (std::shared_ptr<boost::asio::io_context> io_
 {
 	debug_assert (io_ctx != nullptr);
 
+	logger.debug (nano::log::type::thread_runner, "Starting threads: {} ({})", num_threads, to_string (role));
+
 	for (auto i (0u); i < num_threads; ++i)
 	{
 		threads.emplace_back (nano::thread_attributes::get_default (), [this, i] () {
 			nano::thread_role::set (role);
 			try
 			{
-				logger.debug (nano::log::type::thread_runner, "Started thread #{} ({})", i, to_string (role));
 				run ();
-				logger.debug (nano::log::type::thread_runner, "Stopped thread #{} ({})", i, to_string (role));
 			}
 			catch (std::exception const & ex)
 			{
@@ -88,6 +88,9 @@ void nano::thread_runner::join ()
 			i.join ();
 		}
 	}
+
+	logger.debug (nano::log::type::thread_runner, "Stopped threads ({})", to_string (role));
+
 	io_ctx.reset ();
 }
 

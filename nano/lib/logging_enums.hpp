@@ -28,6 +28,7 @@ enum class type
 	system,
 	init,
 	config,
+	stats,
 	logging,
 	node,
 	node_wrapper,

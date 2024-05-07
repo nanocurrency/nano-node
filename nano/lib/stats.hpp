@@ -21,6 +21,7 @@ namespace nano
 class node;
 class tomlconfig;
 class jsonconfig;
+class logger;
 
 /**
  * Serialize and deserialize the 'statistics' node from config.json
@@ -71,7 +72,7 @@ public:
 	using sampler_value_t = int64_t;
 
 public:
-	explicit stats (nano::stats_config = {});
+	explicit stats (nano::logger &, nano::stats_config = {});
 	~stats ();
 
 	void start ();
@@ -200,6 +201,9 @@ private:
 
 private:
 	nano::stats_config const config;
+	nano::logger & logger;
+
+	bool const enable_logging;
 
 	/** Time of last clear() call */
 	std::chrono::steady_clock::time_point timestamp{ std::chrono::steady_clock::now () };

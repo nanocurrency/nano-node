@@ -1710,21 +1710,49 @@ TEST (rpc, keepalive)
 TEST (rpc, peers)
 {
 	nano::test::system system;
-	auto node = add_ipc_enabled_node (system);
+	// Add node2 first to avoid peers with ephemeral ports
 	auto const node2 = system.add_node ();
+	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "peers");
 	auto response (wait_response (system, rpc_ctx, request));
 	auto & peers_node (response.get_child ("peers"));
 	ASSERT_EQ (1, peers_node.size ());
-	ASSERT_EQ (std::to_string (node->network_params.network.protocol_version), peers_node.get<std::string> ((boost::format ("[::1]:%1%") % node2->network.endpoint ().port ()).str ()));
+
+	auto peer = peers_node.begin ();
+	ASSERT_EQ (peer->first, boost::lexical_cast<std::string> (node2->network.endpoint ()));
+	ASSERT_EQ (std::to_string (node->network_params.network.protocol_version), peers_node.get<std::string> (peer->first));
 	// The previous version of this test had an UDP connection to an arbitrary IP address, so it could check for two peers. This doesn't work with TCP.
 }
 
 TEST (rpc, peers_node_id)
 {
 	nano::test::system system;
+	// Add node2 first to avoid peers with ephemeral ports
+	auto const node2 = system.add_node ();
+	auto node = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "peers");
+	request.put ("peer_details", true);
+	auto response (wait_response (system, rpc_ctx, request));
+	auto & peers_node (response.get_child ("peers"));
+	ASSERT_EQ (1, peers_node.size ());
+
+	auto peer = peers_node.begin ();
+	ASSERT_EQ (peer->first, boost::lexical_cast<std::string> (node2->network.endpoint ()));
+
+	auto tree1 = peer->second;
+	ASSERT_EQ (std::to_string (node->network_params.network.protocol_version), tree1.get<std::string> ("protocol_version"));
+	ASSERT_EQ (node2->node_id.pub.to_node_id (), tree1.get<std::string> ("node_id"));
+	// The previous version of this test had an UDP connection to an arbitrary IP address, so it could check for two peers. This doesn't work with TCP.
+}
+
+TEST (rpc, peers_peering_endpoint)
+{
+	nano::test::system system;
+	// Add node first, so that node2 will connect to node from ephemeral port
 	auto node = add_ipc_enabled_node (system);
 	auto const node2 = system.add_node ();
 	auto const rpc_ctx = add_rpc (system, node);
@@ -1734,10 +1762,10 @@ TEST (rpc, peers_node_id)
 	auto response (wait_response (system, rpc_ctx, request));
 	auto & peers_node (response.get_child ("peers"));
 	ASSERT_EQ (1, peers_node.size ());
-	auto tree1 (peers_node.get_child ((boost::format ("[::1]:%1%") % node2->network.endpoint ().port ()).str ()));
-	ASSERT_EQ (std::to_string (node->network_params.network.protocol_version), tree1.get<std::string> ("protocol_version"));
-	ASSERT_EQ (system.nodes[1]->node_id.pub.to_node_id (), tree1.get<std::string> ("node_id"));
-	// The previous version of this test had an UDP connection to an arbitrary IP address, so it could check for two peers. This doesn't work with TCP.
+
+	auto peer = peers_node.begin ();
+	ASSERT_NE (peer->first, boost::lexical_cast<std::string> (node2->network.endpoint ()));
+	ASSERT_EQ (peer->second.get<std::string> ("peering"), boost::lexical_cast<std::string> (node2->network.endpoint ()));
 }
 
 TEST (rpc, version)
