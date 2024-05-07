@@ -24,7 +24,7 @@ namespace mi = boost::multi_index;
 namespace nano
 {
 class node;
-class active_transactions;
+class active_elections;
 class election;
 class vote;
 }

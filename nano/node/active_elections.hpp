@@ -1,9 +1,12 @@
 #pragma once
 
+#include <nano/lib/enum_util.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/election_behavior.hpp>
 #include <nano/node/election_insertion_result.hpp>
 #include <nano/node/election_status.hpp>
+#include <nano/node/recently_cemented_cache.hpp>
+#include <nano/node/recently_confirmed_cache.hpp>
 #include <nano/node/vote_with_weight_info.hpp>
 #include <nano/secure/common.hpp>
 
@@ -24,7 +27,7 @@ namespace mi = boost::multi_index;
 namespace nano
 {
 class node;
-class active_transactions;
+class active_elections;
 class block;
 class block_sideband;
 class block_processor;
@@ -40,77 +43,32 @@ class read_transaction;
 
 namespace nano
 {
-class recently_confirmed_cache final
+class active_elections_config final
 {
 public:
-	using entry_t = std::pair<nano::qualified_root, nano::block_hash>;
+	explicit active_elections_config (nano::network_constants const &);
 
-	explicit recently_confirmed_cache (std::size_t max_size);
+	nano::error deserialize (nano::tomlconfig & toml);
+	nano::error serialize (nano::tomlconfig & toml) const;
 
-	void put (nano::qualified_root const &, nano::block_hash const &);
-	void erase (nano::block_hash const &);
-	void clear ();
-	std::size_t size () const;
-
-	bool exists (nano::qualified_root const &) const;
-	bool exists (nano::block_hash const &) const;
-
-public: // Tests
-	entry_t back () const;
-
-private:
-	// clang-format off
-	class tag_hash {};
-	class tag_root {};
-	class tag_sequence {};
-
-	using ordered_recent_confirmations = boost::multi_index_container<entry_t,
-	mi::indexed_by<
-		mi::sequenced<mi::tag<tag_sequence>>,
-		mi::hashed_unique<mi::tag<tag_root>,
-			mi::member<entry_t, nano::qualified_root, &entry_t::first>>,
-		mi::hashed_unique<mi::tag<tag_hash>,
-			mi::member<entry_t, nano::block_hash, &entry_t::second>>>>;
-	// clang-format on
-	ordered_recent_confirmations confirmed;
-
-	std::size_t const max_size;
-
-	mutable nano::mutex mutex;
-
-public: // Container info
-	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
-};
-
-/*
- * Helper container for storing recently cemented elections (a block from election might be confirmed but not yet cemented by confirmation height processor)
- */
-class recently_cemented_cache final
-{
 public:
-	using queue_t = std::deque<nano::election_status>;
-
-	explicit recently_cemented_cache (std::size_t max_size);
-
-	void put (nano::election_status const &);
-	queue_t list () const;
-	std::size_t size () const;
-
-private:
-	queue_t cemented;
-	std::size_t const max_size;
-
-	mutable nano::mutex mutex;
-
-public: // Container info
-	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
+	// Maximum number of simultaneous active elections (AEC size)
+	std::size_t size{ 5000 };
+	// Limit of hinted elections as percentage of `active_elections_size`
+	std::size_t hinted_limit_percentage{ 20 };
+	// Limit of optimistic elections as percentage of `active_elections_size`
+	std::size_t optimistic_limit_percentage{ 10 };
+	// Maximum confirmation history size
+	std::size_t confirmation_history_size{ 2048 };
+	// Maximum cache size for recently_confirmed
+	std::size_t confirmation_cache{ 65536 };
 };
 
 /**
  * Core class for determining consensus
  * Holds all active blocks i.e. recently added blocks that need confirmation
  */
-class active_transactions final
+class active_elections final
 {
 private: // Elections
 	class conflict_info final
@@ -141,8 +99,8 @@ private: // Elections
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 
 public:
-	active_transactions (nano::node &, nano::confirming_set &, nano::block_processor &);
-	~active_transactions ();
+	active_elections (nano::node &, nano::confirming_set &, nano::block_processor &);
+	~active_elections ();
 
 	void start ();
 	void stop ();
@@ -208,6 +166,7 @@ private:
 	bool trigger_vote_cache (nano::block_hash);
 
 private: // Dependencies
+	active_elections_config const & config;
 	nano::node & node;
 	nano::confirming_set & confirming_set;
 	nano::block_processor & block_processor;
@@ -235,7 +194,7 @@ private:
 	std::thread thread;
 
 	friend class election;
-	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, std::string const &);
+	friend std::unique_ptr<container_info_component> collect_container_info (active_elections &, std::string const &);
 
 public: // Tests
 	void clear ();
@@ -243,15 +202,15 @@ public: // Tests
 	friend class node_fork_storm_Test;
 	friend class system_block_sequence_Test;
 	friend class node_mass_block_new_Test;
-	friend class active_transactions_vote_replays_Test;
+	friend class active_elections_vote_replays_Test;
 	friend class frontiers_confirmation_prioritize_frontiers_Test;
 	friend class frontiers_confirmation_prioritize_frontiers_max_optimistic_elections_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
-	friend class active_transactions_confirmation_consistency_Test;
+	friend class active_elections_confirmation_consistency_Test;
 	friend class node_deferred_dependent_elections_Test;
-	friend class active_transactions_pessimistic_elections_Test;
+	friend class active_elections_pessimistic_elections_Test;
 	friend class frontiers_confirmation_expired_optimistic_elections_removal_Test;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, std::string const & name);
+std::unique_ptr<container_info_component> collect_container_info (active_elections & active_elections, std::string const & name);
 }

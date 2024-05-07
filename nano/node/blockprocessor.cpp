@@ -1,7 +1,8 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/enum_util.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/node/active_transactions.hpp>
+#include <nano/node/active_elections.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/node.hpp>
@@ -10,8 +11,6 @@
 #include <nano/store/component.hpp>
 
 #include <utility>
-
-#include <magic_enum.hpp>
 
 /*
  * block_processor::context
@@ -467,14 +466,12 @@ std::unique_ptr<nano::container_info_component> nano::block_processor::collect_c
 
 std::string_view nano::to_string (nano::block_source source)
 {
-	return magic_enum::enum_name (source);
+	return nano::enum_util::name (source);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::block_source type)
 {
-	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (type));
-	debug_assert (value);
-	return value.value_or (nano::stat::detail{});
+	return nano::enum_util::cast<nano::stat::detail> (type);
 }
 
 /*

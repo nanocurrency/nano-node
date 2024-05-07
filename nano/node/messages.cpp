@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/enum_util.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/lib/stats_enums.hpp>
 #include <nano/lib/stream.hpp>
@@ -1965,19 +1966,15 @@ void nano::asc_pull_ack::frontiers_payload::operator() (nano::object_stream & ob
 
 std::string_view nano::to_string (nano::message_type type)
 {
-	return magic_enum::enum_name (type);
+	return nano::enum_util::name (type);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::message_type type)
 {
-	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (type));
-	debug_assert (value);
-	return value.value_or (nano::stat::detail{});
+	return nano::enum_util::cast<nano::stat::detail> (type);
 }
 
 nano::log::detail nano::to_log_detail (nano::message_type type)
 {
-	auto value = magic_enum::enum_cast<nano::log::detail> (magic_enum::enum_name (type));
-	debug_assert (value);
-	return value.value_or (nano::log::detail{});
+	return nano::enum_util::cast<nano::log::detail> (type);
 }

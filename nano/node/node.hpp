@@ -43,7 +43,7 @@
 
 namespace nano
 {
-class active_transactions;
+class active_elections;
 class confirming_set;
 class node;
 class vote_processor;
@@ -119,8 +119,11 @@ public:
 	void add_initial_peers ();
 	void start_election (std::shared_ptr<nano::block> const & block);
 	bool block_confirmed (nano::block_hash const &);
+
+	// This function may spuriously return false after returning true until the database transaction is refreshed
 	bool block_confirmed_or_being_confirmed (nano::secure::transaction const &, nano::block_hash const &);
 	bool block_confirmed_or_being_confirmed (nano::block_hash const &);
+
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string> const &, std::shared_ptr<std::string> const &, std::shared_ptr<boost::asio::ip::tcp::resolver> const &);
 	void ongoing_online_weight_calculation ();
 	void ongoing_online_weight_calculation_queue ();
@@ -169,8 +172,8 @@ public:
 	nano::block_processor block_processor;
 	std::unique_ptr<nano::confirming_set> confirming_set_impl;
 	nano::confirming_set & confirming_set;
-	std::unique_ptr<nano::active_transactions> active_impl;
-	nano::active_transactions & active;
+	std::unique_ptr<nano::active_elections> active_impl;
+	nano::active_elections & active;
 	nano::online_reps online_reps;
 	nano::rep_crawler rep_crawler;
 	nano::rep_tiers rep_tiers;

@@ -14,8 +14,8 @@ endif()
 add_library(
   node
   ${platform_sources}
-  active_transactions.hpp
-  active_transactions.cpp
+  active_elections.hpp
+  active_elections.cpp
   backlog_population.hpp
   backlog_population.cpp
   bandwidth_limiter.hpp
@@ -127,6 +127,10 @@ add_library(
   portmapping.cpp
   process_live_dispatcher.cpp
   process_live_dispatcher.hpp
+  recently_cemented_cache.cpp
+  recently_cemented_cache.hpp
+  recently_confirmed_cache.cpp
+  recently_confirmed_cache.hpp
   repcrawler.hpp
   repcrawler.cpp
   rep_tiers.hpp

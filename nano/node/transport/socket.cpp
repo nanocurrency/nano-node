@@ -1,5 +1,6 @@
 #include <nano/boost/asio/bind_executor.hpp>
 #include <nano/boost/asio/read.hpp>
+#include <nano/lib/enum_util.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/socket.hpp>
 #include <nano/node/transport/transport.hpp>
@@ -12,8 +13,6 @@
 #include <limits>
 #include <memory>
 #include <utility>
-
-#include <magic_enum.hpp>
 
 /*
  * socket
@@ -530,10 +529,10 @@ std::size_t network_prefix)
 
 std::string_view nano::transport::to_string (socket_type type)
 {
-	return magic_enum::enum_name (type);
+	return nano::enum_util::name (type);
 }
 
 std::string_view nano::transport::to_string (socket_endpoint type)
 {
-	return magic_enum::enum_name (type);
+	return nano::enum_util::name (type);
 }

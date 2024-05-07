@@ -45,12 +45,13 @@ public:
 class request_aggregator final
 {
 public:
-	request_aggregator (request_aggregator_config const &, nano::node &, nano::stats &, nano::vote_generator &, nano::vote_generator &, nano::local_vote_history &, nano::ledger &, nano::wallets &, nano::active_transactions &);
+	request_aggregator (request_aggregator_config const &, nano::node &, nano::stats &, nano::vote_generator &, nano::vote_generator &, nano::local_vote_history &, nano::ledger &, nano::wallets &, nano::active_elections &);
 	~request_aggregator ();
 
 	void start ();
 	void stop ();
 
+public:
 	using request_type = std::vector<std::pair<nano::block_hash, nano::root>>;
 
 	/** Add a new request by \p channel_a for hashes \p hashes_roots_a */
@@ -88,7 +89,7 @@ private: // Dependencies
 	nano::local_vote_history & local_votes;
 	nano::ledger & ledger;
 	nano::wallets & wallets;
-	nano::active_transactions & active;
+	nano::active_elections & active;
 	nano::vote_generator & generator;
 	nano::vote_generator & final_generator;
 

@@ -2,7 +2,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/thread_runner.hpp>
-#include <nano/node/active_transactions.hpp>
+#include <nano/node/active_elections.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/make_store.hpp>
@@ -995,7 +995,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = 100;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	node_config.active_elections_size = 400000;
+	node_config.active_elections.size = 400000;
 	nano::node_flags node_flags;
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
