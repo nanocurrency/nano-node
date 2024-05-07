@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/fair_queue.hpp>
 #include <nano/node/rep_tiers.hpp>
@@ -48,6 +49,8 @@ public:
 	size_t max_pr_queue{ 256 };
 	size_t max_non_pr_queue{ 32 };
 	size_t pr_priority{ 3 };
+	size_t threads{ std::min (4u, nano::hardware_concurrency () / 2) };
+	size_t batch_size{ 1024 };
 };
 
 class vote_processor final
@@ -93,6 +96,6 @@ private:
 	bool stopped{ false };
 	nano::condition_variable condition;
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::vote_processor) };
-	std::thread thread;
+	std::vector<std::thread> threads;
 };
 }

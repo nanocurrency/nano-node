@@ -60,18 +60,20 @@ nano::vote_processor::vote_processor (vote_processor_config const & config_a, na
 
 nano::vote_processor::~vote_processor ()
 {
-	// Thread must be stopped before destruction
-	debug_assert (!thread.joinable ());
+	debug_assert (threads.empty ());
 }
 
 void nano::vote_processor::start ()
 {
-	debug_assert (!thread.joinable ());
+	debug_assert (threads.empty ());
 
-	thread = std::thread{ [this] () {
-		nano::thread_role::set (nano::thread_role::name::vote_processing);
-		run ();
-	} };
+	for (int n = 0; n < config.threads; ++n)
+	{
+		threads.emplace_back ([this] () {
+			nano::thread_role::set (nano::thread_role::name::vote_processing);
+			run ();
+		});
+	}
 }
 
 void nano::vote_processor::stop ()
@@ -81,10 +83,12 @@ void nano::vote_processor::stop ()
 		stopped = true;
 	}
 	condition.notify_all ();
-	if (thread.joinable ())
+
+	for (auto & thread : threads)
 	{
 		thread.join ();
 	}
+	threads.clear ();
 }
 
 bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel)
@@ -103,7 +107,7 @@ bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote, std::
 		stats.inc (nano::stat::type::vote_processor, nano::stat::detail::process);
 		stats.inc (nano::stat::type::vote_processor_tier, to_stat_detail (tier));
 
-		condition.notify_all ();
+		condition.notify_one ();
 	}
 	else
 	{
@@ -124,13 +128,12 @@ void nano::vote_processor::run ()
 		{
 			run_batch (lock);
 			debug_assert (!lock.owns_lock ());
-
 			lock.lock ();
 		}
-
-		condition.wait (lock, [&] {
-			return stopped || !queue.empty ();
-		});
+		else
+		{
+			condition.wait (lock, [&] { return stopped || !queue.empty (); });
+		}
 	}
 }
 
@@ -141,9 +144,9 @@ void nano::vote_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
 	debug_assert (!queue.empty ());
 
 	nano::timer<std::chrono::milliseconds> timer;
+	timer.start ();
 
-	size_t const max_batch_size = 1024 * 4;
-	auto batch = queue.next_batch (max_batch_size);
+	auto batch = queue.next_batch (config.batch_size);
 
 	lock.unlock ();
 
@@ -154,7 +157,7 @@ void nano::vote_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
 
 	total_processed += batch.size ();
 
-	if (batch.size () == max_batch_size && timer.stop () > 100ms)
+	if (batch.size () == config.batch_size && timer.stop () > 100ms)
 	{
 		logger.debug (nano::log::type::vote_processor, "Processed {} votes in {} milliseconds (rate of {} votes per second)",
 		batch.size (),
@@ -206,13 +209,11 @@ bool nano::vote_processor::empty () const
 
 std::unique_ptr<nano::container_info_component> nano::vote_processor::collect_container_info (std::string const & name) const
 {
-	std::size_t votes_count;
-	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
-		votes_count = queue.size ();
-	}
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "votes", votes_count, sizeof (decltype (queue)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "votes", queue.size (), sizeof (decltype (queue)::value_type) }));
+	composite->add_component (queue.collect_container_info ("queue"));
 	return composite;
 }
 
@@ -225,6 +226,8 @@ nano::error nano::vote_processor_config::serialize (nano::tomlconfig & toml) con
 	toml.put ("max_pr_queue", max_pr_queue, "Maximum number of votes to queue from principal representatives. \ntype:uint64");
 	toml.put ("max_non_pr_queue", max_non_pr_queue, "Maximum number of votes to queue from non-principal representatives. \ntype:uint64");
 	toml.put ("pr_priority", pr_priority, "Priority for votes from principal representatives. Higher priority gets processed more frequently. Non-principal representatives have a baseline priority of 1. \ntype:uint64");
+	toml.put ("threads", threads, "Number of threads to use for processing votes. \ntype:uint64");
+	toml.put ("batch_size", batch_size, "Maximum number of votes to process in a single batch. \ntype:uint64");
 
 	return toml.get_error ();
 }
@@ -234,6 +237,8 @@ nano::error nano::vote_processor_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("max_pr_queue", max_pr_queue);
 	toml.get ("max_non_pr_queue", max_non_pr_queue);
 	toml.get ("pr_priority", pr_priority);
+	toml.get ("threads", threads);
+	toml.get ("batch_size", batch_size);
 
 	return toml.get_error ();
 }

@@ -264,6 +264,8 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.vote_processor.max_pr_queue, defaults.node.vote_processor.max_pr_queue);
 	ASSERT_EQ (conf.node.vote_processor.max_non_pr_queue, defaults.node.vote_processor.max_non_pr_queue);
 	ASSERT_EQ (conf.node.vote_processor.pr_priority, defaults.node.vote_processor.pr_priority);
+	ASSERT_EQ (conf.node.vote_processor.threads, defaults.node.vote_processor.threads);
+	ASSERT_EQ (conf.node.vote_processor.batch_size, defaults.node.vote_processor.batch_size);
 
 	ASSERT_EQ (conf.node.bootstrap_server.max_queue, defaults.node.bootstrap_server.max_queue);
 	ASSERT_EQ (conf.node.bootstrap_server.threads, defaults.node.bootstrap_server.threads);
@@ -561,6 +563,8 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	max_pr_queue = 999
 	max_non_pr_queue = 999
 	pr_priority = 999
+	threads = 999
+	batch_size = 999
 
 	[node.bootstrap_server]
 	max_queue = 999
@@ -715,6 +719,8 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.vote_processor.max_pr_queue, defaults.node.vote_processor.max_pr_queue);
 	ASSERT_NE (conf.node.vote_processor.max_non_pr_queue, defaults.node.vote_processor.max_non_pr_queue);
 	ASSERT_NE (conf.node.vote_processor.pr_priority, defaults.node.vote_processor.pr_priority);
+	ASSERT_NE (conf.node.vote_processor.threads, defaults.node.vote_processor.threads);
+	ASSERT_NE (conf.node.vote_processor.batch_size, defaults.node.vote_processor.batch_size);
 
 	ASSERT_NE (conf.node.bootstrap_server.max_queue, defaults.node.bootstrap_server.max_queue);
 	ASSERT_NE (conf.node.bootstrap_server.threads, defaults.node.bootstrap_server.threads);
