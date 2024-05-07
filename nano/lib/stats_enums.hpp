@@ -300,7 +300,7 @@ enum class detail
 	blocks_confirmed_unbounded,
 	blocks_confirmed_bounded,
 
-	// [request] aggregator
+	// request aggregator
 	aggregator_accepted,
 	aggregator_dropped,
 

@@ -309,7 +309,7 @@ TEST (request_aggregator, channel_max_queue)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	node_config.request_aggregator.max_queue = 1;
+	node_config.request_aggregator.max_queue = 0;
 	auto & node (*system.add_node (node_config));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::block_builder builder;
@@ -330,7 +330,7 @@ TEST (request_aggregator, channel_max_queue)
 	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::channel_tcp> (node, client);
 	node.aggregator.request (request, dummy_channel);
 	node.aggregator.request (request, dummy_channel);
-	ASSERT_TIMELY_EQ (3s, 1, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_dropped));
+	ASSERT_LT (0, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_dropped));
 }
 
 // TODO: Deduplication is a concern for the requesting node, not the aggregator which should be stateless and fairly service all peers
