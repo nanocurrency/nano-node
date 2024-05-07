@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/enum_util.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/election_behavior.hpp>
 #include <nano/node/election_insertion_result.hpp>

@@ -1,7 +1,6 @@
+#include <nano/lib/enum_util.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/message_deserializer.hpp>
-
-#include <magic_enum.hpp>
 
 nano::transport::message_deserializer::message_deserializer (nano::network_constants const & network_constants_a, nano::network_filter & publish_filter_a, nano::block_uniquer & block_uniquer_a, nano::vote_uniquer & vote_uniquer_a,
 read_query read_op) :
@@ -382,14 +381,16 @@ std::unique_ptr<nano::asc_pull_ack> nano::transport::message_deserializer::deser
 	return {};
 }
 
+/*
+ *
+ */
+
 nano::stat::detail nano::transport::to_stat_detail (nano::transport::parse_status status)
 {
-	auto value = magic_enum::enum_cast<nano::stat::detail> (magic_enum::enum_name (status));
-	debug_assert (value);
-	return value.value_or (nano::stat::detail{});
+	return nano::enum_util::cast<nano::stat::detail> (status);
 }
 
 std::string_view nano::transport::to_string (nano::transport::parse_status status)
 {
-	return magic_enum::enum_name (status);
+	return nano::enum_util::name (status);
 }
