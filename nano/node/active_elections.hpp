@@ -97,7 +97,6 @@ private: // Elections
 	>>;
 	// clang-format on
 	ordered_roots roots;
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 
 public:
 	active_elections (nano::node &, nano::confirming_set &, nano::block_processor &);
@@ -110,22 +109,14 @@ public:
 	 * Starts new election with a specified behavior type
 	 */
 	nano::election_insertion_result insert (std::shared_ptr<nano::block> const &, nano::election_behavior = nano::election_behavior::normal);
-	// Distinguishes replay votes, cannot be determined if the block is not in any election
-	std::unordered_map<nano::block_hash, nano::vote_code> vote (std::shared_ptr<nano::vote> const &, nano::vote_source = nano::vote_source::live);
 	// Is the root of this block in the roots container
 	bool active (nano::block const &) const;
 	bool active (nano::qualified_root const &) const;
-	/**
-	 * Is the block hash present in any active election
-	 */
-	bool active (nano::block_hash const &) const;
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
-	std::shared_ptr<nano::block> winner (nano::block_hash const &) const;
 	// Returns a list of elections sorted by difficulty
 	std::vector<std::shared_ptr<nano::election>> list_active (std::size_t = std::numeric_limits<std::size_t>::max ());
 	bool erase (nano::block const &);
 	bool erase (nano::qualified_root const &);
-	bool erase_hash (nano::block_hash const &);
 	void erase_oldest ();
 	bool empty () const;
 	std::size_t size () const;
@@ -148,10 +139,6 @@ public:
 	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
 	std::shared_ptr<nano::election> remove_election_winner_details (nano::block_hash const &);
 
-public: // Events
-	using vote_processed_event_t = nano::observer_set<std::shared_ptr<nano::vote> const &, nano::vote_source, std::unordered_map<nano::block_hash, nano::vote_code> const &>;
-	vote_processed_event_t vote_processed;
-
 private:
 	// Erase elections if we're over capacity
 	void trim ();
@@ -164,7 +151,6 @@ private:
 	std::vector<std::shared_ptr<nano::election>> list_active_impl (std::size_t) const;
 	void activate_successors (nano::secure::read_transaction const & transaction, std::shared_ptr<nano::block> const & block);
 	void notify_observers (nano::secure::read_transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes);
-	bool trigger_vote_cache (nano::block_hash);
 
 private: // Dependencies
 	active_elections_config const & config;

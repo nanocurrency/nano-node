@@ -183,21 +183,23 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	active{ *active_impl },
 	rep_crawler (config.rep_crawler, *this),
 	rep_tiers{ ledger, network_params, online_reps, stats, logger },
-	vote_processor_impl{ std::make_unique<nano::vote_processor> (config.vote_processor, active, observers, stats, flags, logger, online_reps, rep_crawler, ledger, network_params, rep_tiers) },
-	vote_processor{ *vote_processor_impl },
 	warmed_up (0),
 	online_reps (ledger, config),
 	history_impl{ std::make_unique<nano::local_vote_history> (config.network_params.voting) },
 	history{ *history_impl },
 	vote_uniquer{},
 	vote_cache{ config.vote_cache, stats },
+	vote_router_impl{ std::make_unique<nano::vote_router> (vote_cache, active.recently_confirmed) },
+	vote_router{ *vote_router_impl },
+	vote_processor_impl{ std::make_unique<nano::vote_processor> (config.vote_processor, vote_router, observers, stats, flags, logger, online_reps, rep_crawler, ledger, network_params, rep_tiers) },
+	vote_processor{ *vote_processor_impl },
 	generator_impl{ std::make_unique<nano::vote_generator> (config, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* non-final */ false) },
 	generator{ *generator_impl },
 	final_generator_impl{ std::make_unique<nano::vote_generator> (config, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* final */ true) },
 	final_generator{ *final_generator_impl },
 	scheduler_impl{ std::make_unique<nano::scheduler::component> (*this) },
 	scheduler{ *scheduler_impl },
-	aggregator (config, stats, generator, final_generator, history, ledger, wallets, active),
+	aggregator{ config, stats, generator, final_generator, history, ledger, wallets, vote_router },
 	wallets (wallets_store.init_error (), *this),
 	backlog{ nano::backlog_population_config (config), ledger, stats },
 	ascendboot{ config, block_processor, ledger, network, stats },
@@ -227,12 +229,12 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 		scheduler.optimistic.activate (transaction, account);
 	});
 
-	active.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
+	vote_router.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
 		vote_cache.observe (vote, source, results);
 	});
 
 	// Republish vote if it is new and the node does not host a principal representative (or close to)
-	active.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
+	vote_router.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
 		bool processed = std::any_of (results.begin (), results.end (), [] (auto const & result) {
 			return result.second == nano::vote_code::vote;
 		});
@@ -589,6 +591,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.aggregator, "request_aggregator"));
 	composite->add_component (node.scheduler.collect_container_info ("election_scheduler"));
 	composite->add_component (node.vote_cache.collect_container_info ("vote_cache"));
+	composite->add_component (node.vote_router.collect_container_info ("vote_router"));
 	composite->add_component (node.generator.collect_container_info ("vote_generator"));
 	composite->add_component (node.final_generator.collect_container_info ("vote_generator_final"));
 	composite->add_component (node.ascendboot.collect_container_info ("bootstrap_ascending"));
@@ -710,6 +713,7 @@ void nano::node::start ()
 	stats.start ();
 	local_block_broadcaster.start ();
 	peer_history.start ();
+	vote_router.start ();
 
 	add_initial_peers ();
 }
@@ -724,6 +728,7 @@ void nano::node::stop ()
 
 	logger.info (nano::log::type::node, "Node stopping...");
 
+	vote_router.stop ();
 	peer_history.stop ();
 	// Cancels ongoing work generation tasks, which may be blocking other threads
 	// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()

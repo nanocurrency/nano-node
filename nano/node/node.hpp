@@ -47,6 +47,7 @@ class active_elections;
 class confirming_set;
 class node;
 class vote_processor;
+class vote_router;
 class work_pool;
 class peer_history;
 
@@ -177,14 +178,16 @@ public:
 	nano::online_reps online_reps;
 	nano::rep_crawler rep_crawler;
 	nano::rep_tiers rep_tiers;
-	std::unique_ptr<nano::vote_processor> vote_processor_impl;
-	nano::vote_processor & vote_processor;
 	unsigned warmed_up;
 	std::unique_ptr<nano::local_vote_history> history_impl;
 	nano::local_vote_history & history;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
 	nano::vote_cache vote_cache;
+	std::unique_ptr<nano::vote_router> vote_router_impl;
+	nano::vote_router & vote_router;
+	std::unique_ptr<nano::vote_processor> vote_processor_impl;
+	nano::vote_processor & vote_processor;
 	std::unique_ptr<nano::vote_generator> generator_impl;
 	nano::vote_generator & generator;
 	std::unique_ptr<nano::vote_generator> final_generator_impl;

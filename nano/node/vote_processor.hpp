@@ -14,7 +14,6 @@
 
 namespace nano
 {
-class active_elections;
 namespace store
 {
 	class component;
@@ -31,6 +30,7 @@ class node_flags;
 class stats;
 class rep_tiers;
 enum class vote_code;
+class vote_router;
 
 namespace transport
 {
@@ -57,7 +57,7 @@ public:
 class vote_processor final
 {
 public:
-	vote_processor (vote_processor_config const &, nano::active_elections &, nano::node_observers &, nano::stats &, nano::node_flags &, nano::logger &, nano::online_reps &, nano::rep_crawler &, nano::ledger &, nano::network_params &, nano::rep_tiers &);
+	vote_processor (vote_processor_config const &, nano::vote_router & vote_router, nano::node_observers &, nano::stats &, nano::node_flags &, nano::logger &, nano::online_reps &, nano::rep_crawler &, nano::ledger &, nano::network_params &, nano::rep_tiers &);
 	~vote_processor ();
 
 	void start ();
@@ -76,7 +76,7 @@ public:
 
 private: // Dependencies
 	vote_processor_config const & config;
-	nano::active_elections & active;
+	nano::vote_router & vote_router;
 	nano::node_observers & observers;
 	nano::stats & stats;
 	nano::logger & logger;

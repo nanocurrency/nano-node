@@ -1,7 +1,6 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/node/active_elections.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
@@ -16,9 +15,9 @@
 
 using namespace std::chrono_literals;
 
-nano::vote_processor::vote_processor (vote_processor_config const & config_a, nano::active_elections & active_a, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_flags & flags_a, nano::logger & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a, nano::rep_tiers & rep_tiers_a) :
+nano::vote_processor::vote_processor (vote_processor_config const & config_a, nano::vote_router & vote_router, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_flags & flags_a, nano::logger & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a, nano::rep_tiers & rep_tiers_a) :
 	config{ config_a },
-	active{ active_a },
+	vote_router{ vote_router },
 	observers{ observers_a },
 	stats{ stats_a },
 	logger{ logger_a },
@@ -172,7 +171,7 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 	auto result = nano::vote_code::invalid;
 	if (!vote->validate ()) // false => valid vote
 	{
-		auto vote_results = active.vote (vote);
+		auto vote_results = vote_router.vote (vote);
 
 		// Aggregate results for individual hashes
 		bool replay = false;

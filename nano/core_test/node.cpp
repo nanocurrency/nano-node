@@ -405,8 +405,8 @@ TEST (node, search_receivable_confirmed)
 
 	system.wallet (0)->insert_adhoc (key2.prv);
 	ASSERT_FALSE (system.wallet (0)->search_receivable (system.wallet (0)->wallets.tx_begin_read ()));
-	ASSERT_TIMELY (5s, !node->active.active (send1->hash ()));
-	ASSERT_TIMELY (5s, !node->active.active (send2->hash ()));
+	ASSERT_TIMELY (5s, !node->vote_router.active (send1->hash ()));
+	ASSERT_TIMELY (5s, !node->vote_router.active (send2->hash ()));
 	ASSERT_TIMELY_EQ (5s, node->balance (key2.pub), 2 * node->config.receive_minimum.number ());
 }
 
@@ -3329,7 +3329,7 @@ TEST (node, dependency_graph)
 
 		// Ensure that active blocks have their ancestors confirmed
 		auto error = std::any_of (dependency_graph.cbegin (), dependency_graph.cend (), [&] (auto entry) {
-			if (node.active.active (entry.first))
+			if (node.vote_router.active (entry.first))
 			{
 				for (auto ancestor : entry.second)
 				{
