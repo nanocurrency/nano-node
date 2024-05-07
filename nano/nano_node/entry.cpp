@@ -4,7 +4,7 @@
 #include <nano/lib/thread_runner.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
-#include <nano/node/active_transactions.hpp>
+#include <nano/node/active_elections.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/daemonconfig.hpp>
@@ -1238,7 +1238,7 @@ int main (int argc, char * const * argv)
 			else
 			{
 				config2.frontiers_confirmation = daemon_config.node.frontiers_confirmation;
-				config2.active_elections_size = daemon_config.node.active_elections_size;
+				config2.active_elections.size = daemon_config.node.active_elections.size;
 			}
 
 			auto node2 (std::make_shared<nano::node> (io_ctx2, path2, config2, work, flags, 1));

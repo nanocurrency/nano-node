@@ -14,8 +14,8 @@ endif()
 add_library(
   node
   ${platform_sources}
-  active_transactions.hpp
-  active_transactions.cpp
+  active_elections.hpp
+  active_elections.cpp
   backlog_population.hpp
   backlog_population.cpp
   bandwidth_limiter.hpp

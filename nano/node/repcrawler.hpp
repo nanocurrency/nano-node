@@ -23,7 +23,7 @@ namespace mi = boost::multi_index;
 namespace nano
 {
 class node;
-class active_transactions;
+class active_elections;
 
 struct representative
 {
@@ -93,7 +93,7 @@ private: // Dependencies
 	nano::stats & stats;
 	nano::logger & logger;
 	nano::network_constants & network_constants;
-	nano::active_transactions & active;
+	nano::active_elections & active;
 
 private:
 	void run ();

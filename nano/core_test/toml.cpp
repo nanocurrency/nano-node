@@ -152,7 +152,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.rpc.child_process.enable, defaults.rpc.child_process.enable);
 	ASSERT_EQ (conf.rpc.child_process.rpc_path, defaults.rpc.child_process.rpc_path);
 
-	ASSERT_EQ (conf.node.active_elections_size, defaults.node.active_elections_size);
+	ASSERT_EQ (conf.node.active_elections.size, defaults.node.active_elections.size);
 	ASSERT_EQ (conf.node.allow_local_peers, defaults.node.allow_local_peers);
 	ASSERT_EQ (conf.node.backup_before_upgrade, defaults.node.backup_before_upgrade);
 	ASSERT_EQ (conf.node.bandwidth_limit, defaults.node.bandwidth_limit);
@@ -167,7 +167,6 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_EQ (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
 	ASSERT_EQ (conf.node.confirming_set_batch_time, defaults.node.confirming_set_batch_time);
-	ASSERT_EQ (conf.node.confirmation_history_size, defaults.node.confirmation_history_size);
 	ASSERT_EQ (conf.node.enable_voting, defaults.node.enable_voting);
 	ASSERT_EQ (conf.node.external_address, defaults.node.external_address);
 	ASSERT_EQ (conf.node.external_port, defaults.node.external_port);
@@ -397,7 +396,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 
 	ss << R"toml(
 	[node]
-	active_elections_size = 999
 	allow_local_peers = false
 	backup_before_upgrade = true
 	bandwidth_limit = 999
@@ -412,7 +410,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	bootstrap_frontier_request_count = 9999
 	bootstrap_fraction_numerator = 999
 	confirming_set_batch_time = 999
-	confirmation_history_size = 999
 	enable_voting = false
 	external_address = "0:0:0:0:0:ffff:7f01:101"
 	external_port = 999
@@ -453,6 +450,13 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	priority_live = 999
 	priority_bootstrap = 999
 	priority_local = 999
+
+	[node.active_elections]
+	size = 999
+	hinted_limit_percentage = 90
+	optimistic_limit_percentage = 90
+	confirmation_history_size = 999
+	confirmation_cache = 999
 
 	[node.diagnostics.txn_tracking]
 	enable = true
@@ -603,7 +607,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.rpc.child_process.enable, defaults.rpc.child_process.enable);
 	ASSERT_NE (conf.rpc.child_process.rpc_path, defaults.rpc.child_process.rpc_path);
 
-	ASSERT_NE (conf.node.active_elections_size, defaults.node.active_elections_size);
+	ASSERT_NE (conf.node.active_elections.size, defaults.node.active_elections.size);
 	ASSERT_NE (conf.node.allow_local_peers, defaults.node.allow_local_peers);
 	ASSERT_NE (conf.node.backup_before_upgrade, defaults.node.backup_before_upgrade);
 	ASSERT_NE (conf.node.bandwidth_limit, defaults.node.bandwidth_limit);
@@ -618,7 +622,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_NE (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
 	ASSERT_NE (conf.node.confirming_set_batch_time, defaults.node.confirming_set_batch_time);
-	ASSERT_NE (conf.node.confirmation_history_size, defaults.node.confirmation_history_size);
 	ASSERT_NE (conf.node.enable_voting, defaults.node.enable_voting);
 	ASSERT_NE (conf.node.external_address, defaults.node.external_address);
 	ASSERT_NE (conf.node.external_port, defaults.node.external_port);
@@ -1021,7 +1024,7 @@ TEST (toml, log_config_no_defaults)
 	rotation_count = 999
 
 	[log.levels]
-	active_transactions = "trace"
+	active_elections = "trace"
 	blockprocessor = "trace"
 	)toml";
 
@@ -1078,7 +1081,7 @@ TEST (toml, merge_config_files)
 
 	ss << R"toml(
 	[node]
-	 active_elections_size = 999
+	 active_elections.size = 999
 	 # backlog_scan_batch_size = 7777
 	[node.bootstrap_ascending]
 	 block_wait_count = 33333
@@ -1101,8 +1104,8 @@ TEST (toml, merge_config_files)
 	merged_toml.read (ss2);
 	merged_config.deserialize_toml (merged_toml);
 
-	ASSERT_NE (merged_config.node.active_elections_size, default_config.node.active_elections_size);
-	ASSERT_EQ (merged_config.node.active_elections_size, 999);
+	ASSERT_NE (merged_config.node.active_elections.size, default_config.node.active_elections.size);
+	ASSERT_EQ (merged_config.node.active_elections.size, 999);
 	ASSERT_NE (merged_config.node.backlog_scan_batch_size, 7777);
 	ASSERT_EQ (merged_config.node.bootstrap_ascending.block_wait_count, 33333);
 	ASSERT_TRUE (merged_config_string.find ("old_entry") == std::string::npos);

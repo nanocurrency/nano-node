@@ -34,6 +34,7 @@ nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, 
 	ipc_config{ network_params.network },
 	external_address{ boost::asio::ip::address_v6{}.to_string () },
 	rep_crawler{ network_params.network },
+	active_elections{ network_params.network },
 	block_processor{ network_params.network },
 	peer_history{ network_params.network },
 	tcp{ network_params.network }
@@ -119,8 +120,6 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("external_port", external_port, "The external port number of this node (NAT). Only used if external_address is set.\ntype:uint16");
 	toml.put ("tcp_incoming_connections_max", tcp_incoming_connections_max, "Maximum number of incoming TCP connections.\ntype:uint64");
 	toml.put ("use_memory_pools", use_memory_pools, "If true, allocate memory from memory pools. Enabling this may improve performance. Memory is never released to the OS.\ntype:bool");
-	toml.put ("confirmation_history_size", confirmation_history_size, "Maximum confirmation history size. If tracking the rate of block confirmations, the websocket feature is recommended instead.\ntype:uint64");
-	toml.put ("active_elections_size", active_elections_size, "Number of active elections. Elections beyond this limit have limited survival time.\nWarning: modifying this value may result in a lower confirmation rate.\ntype:uint64,[250..]");
 
 	toml.put ("bandwidth_limit", bandwidth_limit, "Outbound traffic limit in bytes/sec after which messages will be dropped.\nNote: changing to unlimited bandwidth (0) is not recommended for limited connections.\ntype:uint64");
 	toml.put ("bandwidth_limit_burst_ratio", bandwidth_limit_burst_ratio, "Burst ratio for outbound traffic shaping.\ntype:double");
@@ -218,6 +217,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	rep_crawler.serialize (rep_crawler_l);
 	toml.put_child ("rep_crawler", rep_crawler_l);
 
+	nano::tomlconfig active_elections_l;
+	active_elections.serialize (active_elections_l);
+	toml.put_child ("active_elections", active_elections_l);
+
 	nano::tomlconfig block_processor_l;
 	block_processor.serialize (block_processor_l);
 	toml.put_child ("block_processor", block_processor_l);
@@ -309,6 +312,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto config_l = toml.get_required_child ("rep_crawler");
 			rep_crawler.deserialize (config_l);
+		}
+
+		if (toml.has_key ("active_elections"))
+		{
+			auto config_l = toml.get_required_child ("active_elections");
+			active_elections.deserialize (config_l);
 		}
 
 		if (toml.has_key ("block_processor"))
@@ -459,8 +468,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get (pow_sleep_interval_key, pow_sleep_interval_l);
 		pow_sleep_interval = std::chrono::nanoseconds (pow_sleep_interval_l);
 		toml.get<bool> ("use_memory_pools", use_memory_pools);
-		toml.get<std::size_t> ("confirmation_history_size", confirmation_history_size);
-		toml.get<std::size_t> ("active_elections_size", active_elections_size);
 
 		toml.get<std::size_t> ("bandwidth_limit", bandwidth_limit);
 		toml.get<double> ("bandwidth_limit_burst_ratio", bandwidth_limit_burst_ratio);
@@ -524,9 +531,9 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			toml.get_error ().set ("io_threads must be non-zero");
 		}
-		if (active_elections_size <= 250 && !network_params.network.is_dev_network ())
+		if (active_elections.size <= 250 && !network_params.network.is_dev_network ())
 		{
-			toml.get_error ().set ("active_elections_size must be greater than 250");
+			toml.get_error ().set ("active_elections.size must be greater than 250");
 		}
 		if (bandwidth_limit > std::numeric_limits<std::size_t>::max ())
 		{
