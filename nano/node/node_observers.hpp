@@ -9,6 +9,7 @@ namespace nano
 {
 class election_status;
 class telemetry;
+enum class vote_code;
 }
 namespace nano::transport
 {

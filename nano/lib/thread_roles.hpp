@@ -53,6 +53,7 @@ enum class name
 	peer_history,
 	port_mapping,
 	stats,
+	vote_router,
 };
 
 std::string_view to_string (name);

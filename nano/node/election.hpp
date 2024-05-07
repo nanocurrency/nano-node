@@ -19,6 +19,8 @@ class channel;
 class confirmation_solicitor;
 class inactive_cache_information;
 class node;
+enum class vote_code;
+enum class vote_source;
 
 class vote_info final
 {
@@ -105,7 +107,7 @@ public: // Interface
 	 * Process vote. Internally uses cooldown to throttle non-final votes
 	 * If the election reaches consensus, it will be confirmed
 	 */
-	nano::vote_code vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash, nano::vote_source = nano::vote_source::live);
+	nano::vote_code vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash, nano::vote_source);
 	bool publish (std::shared_ptr<nano::block> const & block_a);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (nano::unique_lock<nano::mutex> &);

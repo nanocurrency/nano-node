@@ -7,6 +7,7 @@
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/vote_generator.hpp>
+#include <nano/node/vote_router.hpp>
 #include <nano/secure/ledger.hpp>
 
 using namespace std::chrono;

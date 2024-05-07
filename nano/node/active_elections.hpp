@@ -7,6 +7,7 @@
 #include <nano/node/election_status.hpp>
 #include <nano/node/recently_cemented_cache.hpp>
 #include <nano/node/recently_confirmed_cache.hpp>
+#include <nano/node/vote_router.hpp>
 #include <nano/node/vote_with_weight_info.hpp>
 #include <nano/secure/common.hpp>
 

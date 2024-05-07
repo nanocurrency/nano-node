@@ -14,6 +14,7 @@
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/vote_generator.hpp>
+#include <nano/node/vote_router.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
@@ -3053,7 +3054,7 @@ TEST (node, rollback_vote_self)
 
 		ASSERT_EQ (0, election->votes_with_weight ().size ());
 		// Vote with key to switch the winner
-		election->vote (key.pub, 0, fork->hash ());
+		election->vote (key.pub, 0, fork->hash (), nano::vote_source::live);
 		ASSERT_EQ (1, election->votes_with_weight ().size ());
 		// The winner changed
 		ASSERT_EQ (election->winner ()->hash (), fork->hash ());

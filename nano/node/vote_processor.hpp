@@ -30,6 +30,7 @@ class network_params;
 class node_flags;
 class stats;
 class rep_tiers;
+enum class vote_code;
 
 namespace transport
 {

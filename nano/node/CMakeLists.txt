@@ -179,6 +179,8 @@ add_library(
   vote_generator.cpp
   vote_processor.hpp
   vote_processor.cpp
+  vote_router.hpp
+  vote_router.cpp
   vote_spacing.hpp
   vote_spacing.cpp
   vote_with_weight_info.hpp
