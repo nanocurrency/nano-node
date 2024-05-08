@@ -6,9 +6,15 @@
 
 namespace nano
 {
+class active_elections;
 class ledger;
+class local_vote_history;
 class logger;
-class node;
 class network;
+class node;
+class node_config;
 class stats;
+class vote_generator;
+class vote_router;
+class wallets;
 }

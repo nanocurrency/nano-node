@@ -382,14 +382,15 @@ public:
 		}
 	}
 
-	void confirm_req (nano::confirm_req const & message_a) override
+	void confirm_req (nano::confirm_req const & message) override
 	{
 		// Don't load nodes with disabled voting
+		// TODO: This check should be cached somewhere
 		if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 		{
-			if (!message_a.roots_hashes.empty ())
+			if (!message.roots_hashes.empty ())
 			{
-				node.aggregator.add (channel, message_a.roots_hashes);
+				node.aggregator.request (message.roots_hashes, channel);
 			}
 		}
 	}
