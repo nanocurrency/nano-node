@@ -369,7 +369,7 @@ nano::block_status nano::block_processor::process_one (secure::write_transaction
 	nano::log::arg{ "forced", forced_a },
 	nano::log::arg{ "block", block });
 
-	if (result == nano::block_status::progress)
+	if (result == nano::block_status::progress && context.source == nano::block_source::live)
 	{
 		std::shared_ptr<nano::block> removed;
 		if (node.ledger.dependents_confirmed (transaction_a, *block))
