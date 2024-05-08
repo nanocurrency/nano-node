@@ -191,25 +191,6 @@ namespace confirmation_height
 	uint64_t const unbounded_cutoff{ 16384 };
 }
 
-enum class vote_code
-{
-	invalid, // Vote is not signed correctly
-	replay, // Vote does not have the highest timestamp, it's a replay
-	vote, // Vote has the highest timestamp
-	indeterminate, // Unknown if replay or vote
-	ignored, // Vote is valid, but got ingored (e.g. due to cooldown)
-};
-
-nano::stat::detail to_stat_detail (vote_code);
-
-enum class vote_source
-{
-	live,
-	cache,
-};
-
-nano::stat::detail to_stat_detail (vote_source);
-
 enum class block_status
 {
 	progress, // Hasn't been seen before, signed correctly

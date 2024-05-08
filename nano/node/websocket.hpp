@@ -28,6 +28,7 @@ class node_observers;
 class telemetry_data;
 class tls_config;
 class vote;
+enum class vote_code;
 class wallets;
 }
 

@@ -139,6 +139,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::port_mapping:
 			thread_role_name_string = "Port mapping";
 			break;
+		case nano::thread_role::name::vote_router:
+			thread_role_name_string = "Vote router";
+			break;
 		default:
 			debug_assert (false && "nano::thread_role::get_string unhandled thread role");
 	}

@@ -8,6 +8,7 @@
 #include <nano/node/election_status.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/transport/channel.hpp>
+#include <nano/node/vote_router.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>

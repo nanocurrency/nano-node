@@ -360,20 +360,6 @@ nano::block_hash const & nano::unchecked_key::key () const
 	return previous;
 }
 
-/*
- *
- */
-
-nano::stat::detail nano::to_stat_detail (nano::vote_code code)
-{
-	return nano::enum_util::cast<nano::stat::detail> (code);
-}
-
-nano::stat::detail nano::to_stat_detail (nano::vote_source source)
-{
-	return nano::enum_util::cast<nano::stat::detail> (source);
-}
-
 std::string_view nano::to_string (nano::block_status code)
 {
 	return nano::enum_util::name (code);

@@ -7,6 +7,7 @@
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/vote_generator.hpp>
+#include <nano/node/vote_router.hpp>
 #include <nano/secure/ledger.hpp>
 
 using namespace std::chrono;
@@ -690,7 +691,7 @@ bool nano::election::replace_by_weight (nano::unique_lock<nano::mutex> & lock_a,
 	bool replaced (false);
 	if (!replaced_block.is_zero ())
 	{
-		node.active.erase_hash (replaced_block);
+		node.vote_router.disconnect (replaced_block);
 		lock_a.lock ();
 		remove_block (replaced_block);
 		replaced = true;
