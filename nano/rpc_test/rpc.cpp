@@ -5357,9 +5357,9 @@ TEST (rpc, block_confirm_confirmed)
 	ASSERT_EQ (1, confirmed.size ());
 	ASSERT_EQ (nano::dev::genesis->hash (), confirmed.begin ()->winner->hash ());
 	// Check callback
-	ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out) != 0);
 	// Callback result is error because callback target port isn't listening
-	ASSERT_EQ (1, node->stats.count (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out));
+	// Check for error count greater than zero as the address goes through DNS resolution and may make multiple attempts for multiple IPs per DNS
+	ASSERT_TIMELY (5s, node->stats.count (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out) != 0);
 }
 
 TEST (rpc, node_id)
