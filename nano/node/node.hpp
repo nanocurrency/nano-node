@@ -15,6 +15,7 @@
 #include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/epoch_upgrader.hpp>
+#include <nano/node/fwd.hpp>
 #include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
@@ -24,7 +25,6 @@
 #include <nano/node/process_live_dispatcher.hpp>
 #include <nano/node/rep_tiers.hpp>
 #include <nano/node/repcrawler.hpp>
-#include <nano/node/request_aggregator.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/tcp_server.hpp>
 #include <nano/node/unchecked_map.hpp>
@@ -194,7 +194,8 @@ public:
 	nano::vote_generator & final_generator;
 	std::unique_ptr<nano::scheduler::component> scheduler_impl;
 	nano::scheduler::component & scheduler;
-	nano::request_aggregator aggregator;
+	std::unique_ptr<nano::request_aggregator> aggregator_impl;
+	nano::request_aggregator & aggregator;
 	nano::wallets wallets;
 	nano::backlog_population backlog;
 	nano::bootstrap_ascending::service ascendboot;

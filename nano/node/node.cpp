@@ -11,6 +11,7 @@
 #include <nano/node/make_store.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/peer_history.hpp>
+#include <nano/node/request_aggregator.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/manual.hpp>
@@ -199,7 +200,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	final_generator{ *final_generator_impl },
 	scheduler_impl{ std::make_unique<nano::scheduler::component> (*this) },
 	scheduler{ *scheduler_impl },
-	aggregator (config.request_aggregator, *this, stats, generator, final_generator, history, ledger, wallets, vote_router),
+	aggregator_impl{ std::make_unique<nano::request_aggregator> (config.request_aggregator, *this, stats, generator, final_generator, history, ledger, wallets, vote_router) },
+	aggregator{ *aggregator_impl },
 	wallets (wallets_store.init_error (), *this),
 	backlog{ nano::backlog_population_config (config), ledger, stats },
 	ascendboot{ config, block_processor, ledger, network, stats },
