@@ -1,26 +1,27 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/node/active_elections.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/vote_generator.hpp>
+#include <nano/node/vote_router.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/store/component.hpp>
 
-nano::request_aggregator::request_aggregator (request_aggregator_config const & config_a, nano::node & node_a, nano::stats & stats_a, nano::vote_generator & generator_a, nano::vote_generator & final_generator_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_elections & active_a) :
+nano::request_aggregator::request_aggregator (request_aggregator_config const & config_a, nano::node & node_a, nano::stats & stats_a, nano::vote_generator & generator_a, nano::vote_generator & final_generator_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_router & vote_router_a) :
 	config{ config_a },
 	network_constants{ node_a.network_params.network },
 	stats (stats_a),
 	local_votes (history_a),
 	ledger (ledger_a),
 	wallets (wallets_a),
-	active (active_a),
+	vote_router{ vote_router_a },
 	generator (generator_a),
 	final_generator (final_generator_a)
 {
@@ -254,7 +255,11 @@ auto nano::request_aggregator::aggregate (nano::secure::transaction const & tran
 			// 3. Election winner by hash
 			if (block == nullptr)
 			{
-				block = active.winner (hash);
+				auto election = vote_router.election (hash);
+				if (election != nullptr)
+				{
+					block = election->winner ();
+				}
 			}
 
 			// 4. Ledger by hash

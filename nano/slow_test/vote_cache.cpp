@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/node/active_elections.hpp>
+#include <nano/node/vote_router.hpp>
 #include <nano/test_common/rate_observer.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -176,7 +177,7 @@ TEST (vote_cache, perf_singlethreaded)
 			auto vote = nano::test::make_vote (reps[rep_idx], hashes);
 
 			// Process the vote
-			node.active.vote (vote);
+			node.vote_router.vote (vote);
 		}
 	}
 
@@ -241,7 +242,7 @@ TEST (vote_cache, perf_multithreaded)
 				auto vote = nano::test::make_vote (reps[rep_idx], hashes);
 
 				// Process the vote
-				node.active.vote (vote);
+				node.vote_router.vote (vote);
 			}
 		}
 	});

@@ -2,6 +2,7 @@
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/vote_cache.hpp>
+#include <nano/node/vote_router.hpp>
 
 #include <ranges>
 

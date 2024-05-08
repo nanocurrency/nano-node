@@ -15,5 +15,6 @@ class node;
 class node_config;
 class stats;
 class vote_generator;
+class vote_router;
 class wallets;
 }

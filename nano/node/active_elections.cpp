@@ -9,6 +9,7 @@
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
+#include <nano/node/vote_router.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/store/component.hpp>
@@ -269,12 +270,7 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 	count_by_behavior[election->behavior ()]--;
 
 	auto blocks_l = election->blocks ();
-	for (auto const & [hash, block] : blocks_l)
-	{
-		auto erased (blocks.erase (hash));
-		(void)erased;
-		debug_assert (erased == 1);
-	}
+	node.vote_router.disconnect (*election);
 
 	roots.get<tag_root> ().erase (roots.get<tag_root> ().find (election->qualified_root));
 
@@ -405,7 +401,7 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 			};
 			result.election = nano::make_shared<nano::election> (node, block_a, nullptr, observe_rep_cb, election_behavior_a);
 			roots.get<tag_root> ().emplace (nano::active_elections::conflict_info{ root, result.election });
-			blocks.emplace (hash, result.election);
+			node.vote_router.connect (hash, result.election);
 
 			// Keep track of election count by election type
 			debug_assert (count_by_behavior[result.election->behavior ()] >= 0);
@@ -436,8 +432,7 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 	{
 		debug_assert (result.election);
 
-		trigger_vote_cache (hash);
-
+		node.vote_router.trigger_vote_cache (hash);
 		node.observers.active_started.notify (hash);
 		vacancy_update ();
 	}
@@ -453,66 +448,6 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 	return result;
 }
 
-bool nano::active_elections::trigger_vote_cache (nano::block_hash hash)
-{
-	auto cached = node.vote_cache.find (hash);
-	for (auto const & cached_vote : cached)
-	{
-		vote (cached_vote, nano::vote_source::cache);
-	}
-	return !cached.empty ();
-}
-
-// Validate a vote and apply it to the current election if one exists
-std::unordered_map<nano::block_hash, nano::vote_code> nano::active_elections::vote (std::shared_ptr<nano::vote> const & vote, nano::vote_source source)
-{
-	debug_assert (!vote->validate ()); // false => valid vote
-
-	std::unordered_map<nano::block_hash, nano::vote_code> results;
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> process;
-	std::vector<nano::block_hash> inactive; // Hashes that should be added to inactive vote cache
-	{
-		nano::unique_lock<nano::mutex> lock{ mutex };
-		for (auto const & hash : vote->hashes)
-		{
-			// Ignore duplicate hashes (should not happen with a well-behaved voting node)
-			if (results.find (hash) != results.end ())
-			{
-				continue;
-			}
-
-			if (auto existing = blocks.find (hash); existing != blocks.end ())
-			{
-				process[hash] = existing->second;
-			}
-			else if (!recently_confirmed.exists (hash))
-			{
-				inactive.emplace_back (hash);
-				results[hash] = nano::vote_code::indeterminate;
-			}
-			else
-			{
-				results[hash] = nano::vote_code::replay;
-			}
-		}
-	}
-
-	for (auto const & [block_hash, election] : process)
-	{
-		auto const vote_result = election->vote (vote->account, vote->timestamp (), block_hash, source);
-		results[block_hash] = vote_result;
-	}
-
-	// All hashes should have their result set
-	debug_assert (std::all_of (vote->hashes.begin (), vote->hashes.end (), [&results] (auto const & hash) {
-		return results.find (hash) != results.end ();
-	}));
-
-	vote_processed.notify (vote, source, results);
-
-	return results;
-}
-
 bool nano::active_elections::active (nano::qualified_root const & root_a) const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
@@ -522,13 +457,7 @@ bool nano::active_elections::active (nano::qualified_root const & root_a) const
 bool nano::active_elections::active (nano::block const & block_a) const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-	return roots.get<tag_root> ().find (block_a.qualified_root ()) != roots.get<tag_root> ().end () && blocks.find (block_a.hash ()) != blocks.end ();
-}
-
-bool nano::active_elections::active (const nano::block_hash & hash) const
-{
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	return blocks.find (hash) != blocks.end ();
+	return roots.get<tag_root> ().find (block_a.qualified_root ()) != roots.get<tag_root> ().end ();
 }
 
 std::shared_ptr<nano::election> nano::active_elections::election (nano::qualified_root const & root_a) const
@@ -539,20 +468,6 @@ std::shared_ptr<nano::election> nano::active_elections::election (nano::qualifie
 	if (existing != roots.get<tag_root> ().end ())
 	{
 		result = existing->election;
-	}
-	return result;
-}
-
-std::shared_ptr<nano::block> nano::active_elections::winner (nano::block_hash const & hash_a) const
-{
-	std::shared_ptr<nano::block> result;
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	auto existing = blocks.find (hash_a);
-	if (existing != blocks.end ())
-	{
-		auto election = existing->second;
-		lock.unlock ();
-		result = election->winner ();
 	}
 	return result;
 }
@@ -572,14 +487,6 @@ bool nano::active_elections::erase (nano::qualified_root const & root_a)
 		return true;
 	}
 	return false;
-}
-
-bool nano::active_elections::erase_hash (nano::block_hash const & hash_a)
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	[[maybe_unused]] auto erased (blocks.erase (hash_a));
-	debug_assert (erased == 1);
-	return erased == 1;
 }
 
 void nano::active_elections::erase_oldest ()
@@ -617,10 +524,10 @@ bool nano::active_elections::publish (std::shared_ptr<nano::block> const & block
 		if (!result)
 		{
 			lock.lock ();
-			blocks.emplace (block_a->hash (), election);
+			node.vote_router.connect (block_a->hash (), election);
 			lock.unlock ();
 
-			trigger_vote_cache (block_a->hash ());
+			node.vote_router.trigger_vote_cache (block_a->hash ());
 
 			node.stats.inc (nano::stat::type::active, nano::stat::detail::election_block_conflict);
 		}
@@ -638,7 +545,6 @@ void nano::active_elections::clear ()
 {
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
-		blocks.clear ();
 		roots.clear ();
 	}
 	vacancy_update ();
@@ -650,7 +556,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "roots", active_elections.roots.size (), sizeof (decltype (active_elections.roots)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", active_elections.blocks.size (), sizeof (decltype (active_elections.blocks)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "election_winner_details", active_elections.election_winner_details_size (), sizeof (decltype (active_elections.election_winner_details)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "normal", static_cast<std::size_t> (active_elections.count_by_behavior[nano::election_behavior::normal]), 0 }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "hinted", static_cast<std::size_t> (active_elections.count_by_behavior[nano::election_behavior::hinted]), 0 }));

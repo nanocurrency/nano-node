@@ -14,6 +14,7 @@
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/vote_generator.hpp>
+#include <nano/node/vote_router.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
@@ -404,8 +405,8 @@ TEST (node, search_receivable_confirmed)
 
 	system.wallet (0)->insert_adhoc (key2.prv);
 	ASSERT_FALSE (system.wallet (0)->search_receivable (system.wallet (0)->wallets.tx_begin_read ()));
-	ASSERT_TIMELY (5s, !node->active.active (send1->hash ()));
-	ASSERT_TIMELY (5s, !node->active.active (send2->hash ()));
+	ASSERT_TIMELY (5s, !node->vote_router.active (send1->hash ()));
+	ASSERT_TIMELY (5s, !node->vote_router.active (send2->hash ()));
 	ASSERT_TIMELY_EQ (5s, node->balance (key2.pub), 2 * node->config.receive_minimum.number ());
 }
 
@@ -3048,7 +3049,7 @@ TEST (node, rollback_vote_self)
 
 		ASSERT_EQ (0, election->votes_with_weight ().size ());
 		// Vote with key to switch the winner
-		election->vote (key.pub, 0, fork->hash ());
+		election->vote (key.pub, 0, fork->hash (), nano::vote_source::live);
 		ASSERT_EQ (1, election->votes_with_weight ().size ());
 		// The winner changed
 		ASSERT_EQ (election->winner ()->hash (), fork->hash ());
@@ -3323,7 +3324,7 @@ TEST (node, dependency_graph)
 
 		// Ensure that active blocks have their ancestors confirmed
 		auto error = std::any_of (dependency_graph.cbegin (), dependency_graph.cend (), [&] (auto entry) {
-			if (node.active.active (entry.first))
+			if (node.vote_router.active (entry.first))
 			{
 				for (auto ancestor : entry.second)
 				{

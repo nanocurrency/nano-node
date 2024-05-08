@@ -6,6 +6,7 @@
 #include <nano/node/scheduler/manual.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/fake.hpp>
+#include <nano/node/vote_router.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
@@ -182,7 +183,7 @@ bool nano::test::active (nano::node & node, std::vector<nano::block_hash> hashes
 {
 	for (auto & hash : hashes)
 	{
-		if (!node.active.active (hash))
+		if (!node.vote_router.active (hash))
 		{
 			return false;
 		}

@@ -1805,7 +1805,6 @@ TEST (node, mass_block_new)
 		{
 			nano::lock_guard<nano::mutex> guard{ node.active.mutex };
 			node.active.roots.clear ();
-			node.active.blocks.clear ();
 		}
 	};
 

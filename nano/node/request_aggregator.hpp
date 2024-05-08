@@ -45,7 +45,7 @@ public:
 class request_aggregator final
 {
 public:
-	request_aggregator (request_aggregator_config const &, nano::node &, nano::stats &, nano::vote_generator &, nano::vote_generator &, nano::local_vote_history &, nano::ledger &, nano::wallets &, nano::active_elections &);
+	request_aggregator (request_aggregator_config const &, nano::node &, nano::stats &, nano::vote_generator &, nano::vote_generator &, nano::local_vote_history &, nano::ledger &, nano::wallets &, nano::vote_router &);
 	~request_aggregator ();
 
 	void start ();
@@ -89,7 +89,7 @@ private: // Dependencies
 	nano::local_vote_history & local_votes;
 	nano::ledger & ledger;
 	nano::wallets & wallets;
-	nano::active_elections & active;
+	nano::vote_router & vote_router;
 	nano::vote_generator & generator;
 	nano::vote_generator & final_generator;
 
