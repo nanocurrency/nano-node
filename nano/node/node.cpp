@@ -553,7 +553,7 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 			}
 			else
 			{
-				node_l->logger.error (nano::log::type::rpc_callbacks, "Unable to connect to callback address: {}:{} ({})", address, port, ec.message ());
+				node_l->logger.error (nano::log::type::rpc_callbacks, "Unable to connect to callback address({}): {}:{} ({})", address, i_a->endpoint ().address ().to_string (), port, ec.message ());
 				node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
 				++i_a;
 
