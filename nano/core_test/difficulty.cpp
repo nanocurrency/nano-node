@@ -14,36 +14,36 @@ TEST (difficultyDeathTest, multipliers)
 	testing::FLAGS_gtest_death_test_style = "threadsafe";
 
 	{
-		uint64_t base = 0xff00000000000000;
-		uint64_t difficulty = 0xfff27e7a57c285cd;
-		double expected_multiplier = 18.95461493377003;
+		constexpr uint64_t base = 0xffffffffffffffff;
+		constexpr uint64_t difficulty = 0xffffffffffffff00;
+		constexpr double expected_multiplier = 0.00390625;
 
 		ASSERT_NEAR (expected_multiplier, nano::difficulty::to_multiplier (difficulty, base), 1e-10);
 		ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (expected_multiplier, base));
 	}
 
 	{
-		uint64_t base = 0xffffffc000000000;
-		uint64_t difficulty = 0xfffffe0000000000;
-		double expected_multiplier = 0.125;
+		constexpr uint64_t base = 0xff00000000000000;
+		constexpr uint64_t difficulty = 0xfff27e7a57c285cd;
+		constexpr double expected_multiplier = 18.95461493377003;
 
 		ASSERT_NEAR (expected_multiplier, nano::difficulty::to_multiplier (difficulty, base), 1e-10);
 		ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (expected_multiplier, base));
 	}
 
 	{
-		uint64_t base = std::numeric_limits<std::uint64_t>::max ();
-		uint64_t difficulty = 0xffffffffffffff00;
-		double expected_multiplier = 0.00390625;
+		constexpr uint64_t base = 0xffffffc000000000;
+		constexpr uint64_t difficulty = 0xfffffe0000000000;
+		constexpr double expected_multiplier = 0.125;
 
 		ASSERT_NEAR (expected_multiplier, nano::difficulty::to_multiplier (difficulty, base), 1e-10);
 		ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (expected_multiplier, base));
 	}
 
 	{
-		uint64_t base = 0x8000000000000000;
-		uint64_t difficulty = 0xf000000000000000;
-		double expected_multiplier = 8.0;
+		constexpr uint64_t base = 0x8000000000000000;
+		constexpr uint64_t difficulty = 0xf000000000000000;
+		constexpr double expected_multiplier = 8.0;
 
 		ASSERT_NEAR (expected_multiplier, nano::difficulty::to_multiplier (difficulty, base), 1e-10);
 		ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (expected_multiplier, base));
@@ -54,9 +54,9 @@ TEST (difficultyDeathTest, multipliers)
 	// Causes valgrind to be noisy
 	if (!nano::running_within_valgrind ())
 	{
-		uint64_t base = 0xffffffc000000000;
-		uint64_t difficulty_nil = 0;
-		double multiplier_nil = 0.;
+		constexpr uint64_t base = 0xffffffc000000000;
+		constexpr uint64_t difficulty_nil = 0;
+		constexpr double multiplier_nil = 0.0;
 
 		ASSERT_DEATH_IF_SUPPORTED (nano::difficulty::to_multiplier (difficulty_nil, base), "");
 		ASSERT_DEATH_IF_SUPPORTED (nano::difficulty::from_multiplier (multiplier_nil, base), "");
