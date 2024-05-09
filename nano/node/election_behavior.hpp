@@ -8,6 +8,7 @@ namespace nano
 {
 enum class election_behavior
 {
+	manual,
 	normal,
 	/**
 	 * Hinted elections:

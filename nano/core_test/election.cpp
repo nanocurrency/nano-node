@@ -27,7 +27,7 @@ TEST (election, behavior)
 	auto chain = nano::test::setup_chain (system, *system.nodes[0], 1, nano::dev::genesis_key, false);
 	auto election = nano::test::start_election (system, *system.nodes[0], chain[0]->hash ());
 	ASSERT_NE (nullptr, election);
-	ASSERT_EQ (nano::election_behavior::normal, election->behavior ());
+	ASSERT_EQ (nano::election_behavior::manual, election->behavior ());
 }
 
 TEST (election, quorum_minimum_flip_success)
