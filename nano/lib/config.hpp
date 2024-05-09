@@ -89,14 +89,6 @@ uint8_t get_pre_release_node_version ();
  * Environment variables
  */
 
-/*
- * Get environment variable as string or `default_value` if variable is not present
- */
-std::string get_env_or_default (char const * variable_name, std::string const default_value);
-/*
- * Get environment variable as int or `default_value` if variable is not present
- */
-int get_env_int_or_default (char const * variable_name, int const default_value);
 uint64_t get_env_threshold_or_default (char const * variable_name, uint64_t const default_value);
 
 uint16_t test_node_port ();

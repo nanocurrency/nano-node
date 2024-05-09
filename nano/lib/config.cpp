@@ -238,35 +238,6 @@ uint64_t get_env_threshold_or_default (char const * variable_name, uint64_t cons
 	return value ? boost::lexical_cast<HexTo<uint64_t>> (value) : default_value;
 }
 
-uint16_t test_node_port ()
-{
-	auto test_env = nano::get_env_or_default ("NANO_TEST_NODE_PORT", "17075");
-	return boost::lexical_cast<uint16_t> (test_env);
-}
-uint16_t test_rpc_port ()
-{
-	auto test_env = nano::get_env_or_default ("NANO_TEST_RPC_PORT", "17076");
-	return boost::lexical_cast<uint16_t> (test_env);
-}
-uint16_t test_ipc_port ()
-{
-	auto test_env = nano::get_env_or_default ("NANO_TEST_IPC_PORT", "17077");
-	return boost::lexical_cast<uint16_t> (test_env);
-}
-uint16_t test_websocket_port ()
-{
-	auto test_env = nano::get_env_or_default ("NANO_TEST_WEBSOCKET_PORT", "17078");
-	return boost::lexical_cast<uint16_t> (test_env);
-}
-
-std::array<uint8_t, 2> test_magic_number ()
-{
-	auto test_env = get_env_or_default ("NANO_TEST_MAGIC_NUMBER", "RX");
-	std::array<uint8_t, 2> ret;
-	std::copy (test_env.begin (), test_env.end (), ret.data ());
-	return ret;
-}
-
 void force_nano_dev_network ()
 {
 	nano::network_constants::set_active_network (nano::networks::nano_dev_network);
@@ -316,36 +287,44 @@ std::string get_tls_toml_config_path (std::filesystem::path const & data_path)
 {
 	return (data_path / "config-tls.toml").string ();
 }
-} // namespace nano
-
-std::string nano::get_env_or_default (char const * variable_name, std::string default_value)
-{
-	auto value = nano::env::get (variable_name);
-	return value.value_or (default_value);
 }
 
-int nano::get_env_int_or_default (const char * variable_name, const int default_value)
+uint16_t nano::test_node_port ()
 {
-	auto value = nano::env::get (variable_name);
-	if (value)
-	{
-		try
-		{
-			return boost::lexical_cast<int> (*value);
-		}
-		catch (...)
-		{
-			// It is unexpected that this exception will be caught, log to cerr the reason.
-			std::cerr << boost::str (boost::format ("Error parsing environment variable: %1% value: %2%") % variable_name % *value);
-			throw;
-		}
-	}
-	return default_value;
+	auto test_env = nano::env::get ("NANO_TEST_NODE_PORT").value_or ("17075");
+	return boost::lexical_cast<uint16_t> (test_env);
+}
+
+uint16_t nano::test_rpc_port ()
+{
+	auto test_env = nano::env::get ("NANO_TEST_RPC_PORT").value_or ("17076");
+	return boost::lexical_cast<uint16_t> (test_env);
+}
+
+uint16_t nano::test_ipc_port ()
+{
+	auto test_env = nano::env::get ("NANO_TEST_IPC_PORT").value_or ("17077");
+	return boost::lexical_cast<uint16_t> (test_env);
+}
+
+uint16_t nano::test_websocket_port ()
+{
+	auto test_env = nano::env::get ("NANO_TEST_WEBSOCKET_PORT").value_or ("17078");
+	return boost::lexical_cast<uint16_t> (test_env);
+}
+
+std::array<uint8_t, 2> nano::test_magic_number ()
+{
+	auto test_env = nano::env::get ("NANO_TEST_MAGIC_NUMBER").value_or ("RX");
+	release_assert (test_env.size () == 2);
+	std::array<uint8_t, 2> ret{};
+	std::copy (test_env.begin (), test_env.end (), ret.data ());
+	return ret;
 }
 
 uint32_t nano::test_scan_wallet_reps_delay ()
 {
-	auto test_env = nano::get_env_or_default ("NANO_TEST_WALLET_SCAN_REPS_DELAY", "900000"); // 15 minutes by default
+	auto test_env = nano::env::get ("NANO_TEST_WALLET_SCAN_REPS_DELAY").value_or ("900000"); // 15 minutes default
 	return boost::lexical_cast<uint32_t> (test_env);
 }
 
