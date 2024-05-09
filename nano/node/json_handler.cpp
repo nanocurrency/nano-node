@@ -2009,6 +2009,7 @@ void nano::json_handler::confirmation_active ()
 void nano::json_handler::election_statistics ()
 {
 	auto active_elections = node.active.list_active ();
+	unsigned manual_count = 0;
 	unsigned normal_count = 0;
 	unsigned hinted_count = 0;
 	unsigned optimistic_count = 0;
@@ -2027,6 +2028,9 @@ void nano::json_handler::election_statistics ()
 
 		switch (election->behavior ())
 		{
+			case election_behavior::manual:
+				manual_count++;
+				break;
 			case election_behavior::normal:
 				normal_count++;
 				break;

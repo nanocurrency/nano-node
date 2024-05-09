@@ -187,6 +187,10 @@ int64_t nano::active_elections::limit (nano::election_behavior behavior) const
 {
 	switch (behavior)
 	{
+		case nano::election_behavior::manual:
+		{
+			return std::numeric_limits<int64_t>::max ();
+		}
 		case nano::election_behavior::normal:
 		{
 			return static_cast<int64_t> (config.size);
@@ -212,6 +216,8 @@ int64_t nano::active_elections::vacancy (nano::election_behavior behavior) const
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	switch (behavior)
 	{
+		case nano::election_behavior::manual:
+			return std::numeric_limits<int64_t>::max ();
 		case nano::election_behavior::normal:
 			return limit () - static_cast<int64_t> (roots.size ());
 		case nano::election_behavior::hinted:

@@ -219,6 +219,7 @@ enum class detail
 	broadcast_block_repeat,
 
 	// election types
+	manual,
 	normal,
 	hinted,
 	optimistic,
