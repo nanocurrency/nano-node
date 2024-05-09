@@ -1401,9 +1401,3 @@ std::unique_ptr<nano::container_info_component> nano::ledger::collect_container_
 	composite->add_component (cache.rep_weights.collect_container_info ("rep_weights"));
 	return composite;
 }
-
-void nano::ledger::force_confirm (secure::write_transaction const & transaction, nano::block const & block)
-{
-	release_assert (*constants.genesis == *constants.nano_dev_genesis);
-	confirm (transaction, block);
-}

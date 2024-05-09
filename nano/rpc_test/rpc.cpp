@@ -1259,11 +1259,7 @@ TEST (rpc, history_pruning)
 	ASSERT_TIMELY (5s, nano::test::exists (*node0, blocks));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
-	ASSERT_TRUE (nano::test::start_elections (system, *node0, blocks, true));
-	ASSERT_TIMELY (5s, node0->block_confirmed (uchange->hash ()));
-	nano::confirmation_height_info confirmation_height_info;
-	node0->store.confirmation_height.get (node0->store.tx_begin_read (), nano::dev::genesis_key.pub, confirmation_height_info);
-	ASSERT_EQ (7, confirmation_height_info.height);
+	nano::test::confirm (node0->ledger, blocks);
 
 	// Prune block "change"
 	{
@@ -5889,11 +5885,8 @@ TEST (rpc, block_confirmed)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (latest))
 				.build ();
-	node->process_active (send);
-	ASSERT_TRUE (nano::test::start_elections (system, *node, { send }, true));
-
-	// Wait until the confirmation height has been set
-	ASSERT_TIMELY (5s, node->ledger.confirmed.block_exists_or_pruned (node->ledger.tx_begin_read (), send->hash ()) && !node->confirming_set.exists (send->hash ()));
+	ASSERT_EQ (nano::block_status::progress, node->ledger.process (node->ledger.tx_begin_write (), send));
+	nano::test::confirm (node->ledger, send);
 
 	// Requesting confirmation for this should now succeed
 	request.put ("hash", send->hash ().to_string ());

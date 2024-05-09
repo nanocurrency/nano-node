@@ -290,8 +290,7 @@ TEST (election, continuous_voting)
 				 .build ();
 
 	ASSERT_TRUE (nano::test::process (node1, { send1 }));
-	ASSERT_TRUE (nano::test::start_elections (system, node1, { send1 }, true));
-	ASSERT_TIMELY (5s, nano::test::confirmed (node1, { send1 }));
+	nano::test::confirm (node1.ledger, send1);
 
 	node1.stats.clear ();
 

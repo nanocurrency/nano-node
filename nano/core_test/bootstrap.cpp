@@ -5,6 +5,7 @@
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
+#include <nano/test_common/chains.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -955,8 +956,7 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 
 	std::vector<std::shared_ptr<nano::block>> blocks = { send1, receive1, change1, change2, send2, receive2, send3, receive3 };
 	ASSERT_TRUE (nano::test::process (*node0, blocks));
-	ASSERT_TRUE (nano::test::start_elections (system, *node0, blocks, true));
-	ASSERT_TIMELY (5s, nano::test::confirmed (*node0, blocks));
+	nano::test::confirm (node0->ledger, blocks);
 
 	config.peering_port = system.get_available_port ();
 	auto node1 = system.make_disconnected_node (config, node_flags);
@@ -969,12 +969,7 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	ASSERT_TIMELY (5s, nano::test::exists (*node1, { send1, receive1, change1, change2 }));
 
 	// Confirm last block to prune previous
-	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send1, receive1, change1, change2 }, true));
-	ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()));
-	ASSERT_TIMELY (5s, node1->block_confirmed (receive1->hash ()));
-	ASSERT_TIMELY (5s, node1->block_confirmed (change1->hash ()));
-	ASSERT_TIMELY (5s, node1->block_confirmed (change2->hash ()));
-	ASSERT_TIMELY (5s, node1->active.empty ());
+	nano::test::confirm (node1->ledger, { send1, receive1, change1, change2 });
 	ASSERT_EQ (5, node1->ledger.block_count ());
 	ASSERT_EQ (5, node1->ledger.cemented_count ());
 
@@ -1368,7 +1363,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	std::vector<std::shared_ptr<nano::block>> const blocks{ send1, send2, open, state_open };
 	ASSERT_TRUE (nano::test::process (*node1, blocks));
 	ASSERT_TIMELY (5s, nano::test::exists (*node1, blocks));
-	nano::test::force_confirm (node1->ledger, blocks);
+	nano::test::confirm (node1->ledger, blocks);
 	ASSERT_TIMELY (5s, nano::test::confirmed (*node1, blocks));
 	ASSERT_EQ (5, node1->ledger.block_count ());
 	ASSERT_EQ (5, node1->ledger.cemented_count ());
@@ -1922,8 +1917,7 @@ TEST (frontier_req, confirmed_frontier)
 	ASSERT_EQ (receive2->hash (), request5->frontier);
 
 	// Confirm account before genesis (confirmed only)
-	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send1, receive1 }, true));
-	ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (receive1->hash ()));
+	nano::test::confirm (node1->ledger, receive1);
 	auto connection6 (std::make_shared<nano::transport::tcp_server> (std::make_shared<nano::transport::socket> (*node1, nano::transport::socket_endpoint::server), node1));
 	auto req6 = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);
 	req6->start = key_before_genesis.pub;
@@ -1937,8 +1931,7 @@ TEST (frontier_req, confirmed_frontier)
 	ASSERT_EQ (receive1->hash (), request6->frontier);
 
 	// Confirm account after genesis (confirmed only)
-	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send2, receive2 }, true));
-	ASSERT_TIMELY (5s, node1->block_confirmed (send2->hash ()) && node1->block_confirmed (receive2->hash ()));
+	nano::test::confirm (node1->ledger, receive2);
 	auto connection7 (std::make_shared<nano::transport::tcp_server> (std::make_shared<nano::transport::socket> (*node1, nano::transport::socket_endpoint::server), node1));
 	auto req7 = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);
 	req7->start = key_after_genesis.pub;
@@ -2031,35 +2024,12 @@ TEST (bulk, genesis_pruning)
 	node_flags.enable_pruning = true;
 
 	auto node1 = system.add_node (config, node_flags);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	auto blocks = nano::test::setup_chain (system, *node1, 3);
+	auto send1 = blocks[0];
+	auto send2 = blocks[1];
+	auto send3 = blocks[2];
 
-	// do 3 sends from genesis to key2
-	nano::keypair key2;
-	auto send1 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, 100));
-	ASSERT_NE (nullptr, send1);
-	auto send2 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, 100));
-	ASSERT_NE (nullptr, send2);
-	auto send3 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, 100));
-	ASSERT_NE (nullptr, send3);
-
-	{
-		auto transaction (node1->wallets.tx_begin_write ());
-		system.wallet (0)->store.erase (transaction, nano::dev::genesis_key.pub);
-	}
-
-	ASSERT_TIMELY_EQ (5s, send3->hash (), node1->latest (nano::dev::genesis_key.pub));
-
-	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send1 }, true));
-	ASSERT_TIMELY (5s, node1->active.active (send2->qualified_root ()));
-	ASSERT_EQ (0, node1->ledger.pruned_count ());
-
-	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send2 }, true));
-	ASSERT_TIMELY (5s, node1->active.active (send3->qualified_root ()));
-	ASSERT_EQ (0, node1->ledger.pruned_count ());
-
-	ASSERT_TRUE (nano::test::start_elections (system, *node1, { send3 }, true));
-	ASSERT_TIMELY (5s, nano::test::confirmed (*node1, { send3 }));
-
+	ASSERT_EQ (4, node1->ledger.block_count ());
 	node1->ledger_pruning (2, false);
 	ASSERT_EQ (2, node1->ledger.pruned_count ());
 	ASSERT_EQ (4, node1->ledger.block_count ());
