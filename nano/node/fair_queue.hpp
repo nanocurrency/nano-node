@@ -161,6 +161,11 @@ private:
 		{
 			return requests.size ();
 		}
+
+		bool full () const
+		{
+			return requests.size () == max_size;
+		}
 	};
 
 public:
@@ -191,6 +196,12 @@ public:
 		debug_assert (total_size == calculate_total_size ());
 		return total_size;
 	};
+
+	bool full (origin_type source) const
+	{
+		auto it = queues.find (source);
+		return it == queues.end () ? false : it->second.full ();
+	}
 
 	bool empty () const
 	{

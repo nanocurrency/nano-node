@@ -11,9 +11,10 @@
  * channel_tcp
  */
 
-nano::transport::channel_tcp::channel_tcp (nano::node & node_a, std::weak_ptr<nano::transport::socket> socket_a) :
-	channel (node_a),
-	socket (std::move (socket_a))
+nano::transport::channel_tcp::channel_tcp (nano::node & node_a, std::weak_ptr<nano::transport::socket> socket_a, std::weak_ptr<nano::transport::tcp_server> server) :
+	channel{ node_a },
+	socket{ std::move (socket_a) },
+	server{ server }
 {
 }
 
@@ -101,6 +102,19 @@ void nano::transport::channel_tcp::operator() (nano::object_stream & obs) const
 	nano::transport::channel::operator() (obs); // Write common data
 
 	obs.write ("socket", socket);
+}
+
+bool nano::transport::channel_tcp::resume_maybe ()
+{
+	bool result;
+	if ((result = channel::resume_maybe ()))
+	{
+		if (auto server = this->server.lock ())
+		{
+			server->receive_message ();
+		}
+	}
+	return result;
 }
 
 /*
@@ -219,7 +233,7 @@ std::shared_ptr<nano::transport::channel_tcp> nano::transport::tcp_channels::cre
 	fmt::streamed (socket->remote_endpoint ()),
 	node_id.to_node_id ());
 
-	auto channel = std::make_shared<nano::transport::channel_tcp> (node, socket);
+	auto channel = std::make_shared<nano::transport::channel_tcp> (node, socket, server);
 	channel->update_endpoints ();
 	channel->set_node_id (node_id);
 

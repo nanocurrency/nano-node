@@ -76,7 +76,7 @@ void nano::message_processor::stop ()
 	threads.clear ();
 }
 
-bool nano::message_processor::put (std::unique_ptr<nano::message> message, std::shared_ptr<nano::transport::channel> const & channel)
+void nano::message_processor::put (std::unique_ptr<nano::message> message, std::shared_ptr<nano::transport::channel> const & channel)
 {
 	release_assert (message != nullptr);
 	release_assert (channel != nullptr);
@@ -87,6 +87,12 @@ bool nano::message_processor::put (std::unique_ptr<nano::message> message, std::
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		added = queue.push ({ std::move (message), channel }, { nano::no_value{}, channel });
+		if (queue.full ({ nano::no_value{}, channel }))
+		{
+			node.logger.trace (nano::log::type::message_processor, nano::log::detail::channel_pause,
+			nano::log::arg{ "channel", channel });
+			channel->pause ();
+		}
 	}
 	if (added)
 	{
@@ -100,7 +106,6 @@ bool nano::message_processor::put (std::unique_ptr<nano::message> message, std::
 		stats.inc (nano::stat::type::message_processor, nano::stat::detail::overfill);
 		stats.inc (nano::stat::type::message_processor_overfill, to_stat_detail (type));
 	}
-	return added;
 }
 
 void nano::message_processor::run ()
@@ -143,6 +148,12 @@ void nano::message_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
 	{
 		auto const & [message, channel] = entry;
 		release_assert (message != nullptr);
+		auto resumed = channel->resume_maybe ();
+		if (resumed)
+		{
+			node.logger.trace (nano::log::type::message_processor, nano::log::detail::channel_resume,
+			nano::log::arg{ "channel", channel });
+		}
 		process (*message, channel);
 	}
 
