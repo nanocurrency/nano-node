@@ -83,6 +83,7 @@ std::shared_ptr<nano::block> nano::scheduler::priority::activate (secure::transa
 	auto removed = bucket.insert (time_priority, block);
 	if (removed == nullptr)
 	{
+		node.stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::block_insert);
 		node.logger.trace (nano::log::type::election_scheduler, nano::log::detail::block_insert,
 		nano::log::arg{ "block", block->hash ().to_string () },
 		nano::log::arg{ "time", time_priority.time_since_epoch ().count () });
@@ -94,6 +95,7 @@ std::shared_ptr<nano::block> nano::scheduler::priority::activate (secure::transa
 	}
 	else if (removed != block)
 	{
+		node.stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::block_overflow);
 		node.logger.trace (nano::log::type::election_scheduler, nano::log::detail::block_overflow,
 		nano::log::arg{ "block", block->hash ().to_string () },
 		nano::log::arg{ "removed", removed->hash ().to_string () },
@@ -107,6 +109,7 @@ std::shared_ptr<nano::block> nano::scheduler::priority::activate (secure::transa
 	}
 	else
 	{
+		node.stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::block_reject);
 		node.logger.trace (nano::log::type::election_scheduler, nano::log::detail::block_reject,
 		nano::log::arg{ "block", block->hash ().to_string () },
 		nano::log::arg{ "removed", removed->hash ().to_string () },

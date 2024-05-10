@@ -372,6 +372,9 @@ enum class detail
 	insert_priority,
 	insert_priority_success,
 	erase_oldest,
+	block_insert,
+	block_overflow,
+	block_reject,
 
 	// handshake
 	invalid_node_id,
