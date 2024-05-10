@@ -33,7 +33,7 @@ std::string nano::stat_log_sink::tm_to_string (tm & tm)
 nano::stats::stats (nano::logger & logger_a, nano::stats_config config_a) :
 	config{ std::move (config_a) },
 	logger{ logger_a },
-	enable_logging{ nano::env::get<bool> ("NANO_LOG_STATS").value_or (false) }
+	enable_logging{ is_stat_logging_enabled () }
 {
 }
 
@@ -363,6 +363,19 @@ std::string nano::stats::dump (category category)
 			debug_assert (false, "missing stat_category case");
 	}
 	return sink.to_string ();
+}
+
+bool nano::stats::is_stat_logging_enabled ()
+{
+	static auto const enabled = [] () {
+		if (auto value = nano::env::get<bool> ("NANO_LOG_STATS"))
+		{
+			std::cerr << "Stats logging enabled by NANO_LOG_STATS environment variable" << std::endl;
+			return *value;
+		}
+		return false;
+	}();
+	return enabled;
 }
 
 /*
