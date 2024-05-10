@@ -378,7 +378,7 @@ nano::block_status nano::block_processor::process_one (secure::write_transaction
 		}
 		if (removed != nullptr && node.ledger.any.block_exists (transaction_a, removed->hash ()))
 		{
-			node.ledger.rollback (transaction_a, removed->hash ());
+			//node.ledger.rollback (transaction_a, removed->hash ());
 			if (removed->hash () == block->hash ())
 			{
 				return nano::block_status::overflow;
