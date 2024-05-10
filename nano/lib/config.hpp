@@ -28,55 +28,49 @@ char const * const NANO_PRE_RELEASE_VERSION_STRING = xstr (PRE_RELEASE_VERSION_S
 
 char const * const BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
 
+/*
+ * Sanitizer info
+ */
+namespace nano
+{
+consteval bool is_asan_build ()
+{
 #if defined(__has_feature)
 #if __has_feature(address_sanitizer)
-inline bool is_asan_build ()
-{
 	return true;
-}
 #else
-inline bool is_asan_build ()
-{
 	return false;
-}
 #endif
 // GCC builds
 #elif defined(__SANITIZE_ADDRESS__)
-inline bool is_asan_build ()
-{
 	return true;
-}
 #else
-inline bool is_asan_build ()
-{
 	return false;
-}
 #endif
+}
 
+consteval bool is_tsan_build ()
+{
 #if defined(__has_feature)
 #if __has_feature(thread_sanitizer)
-inline bool is_tsan_build ()
-{
 	return true;
-}
 #else
-inline bool is_tsan_build ()
-{
 	return false;
-}
 #endif
 // GCC builds
 #elif defined(__SANITIZE_THREAD__)
-inline bool is_tsan_build ()
-{
 	return true;
-}
 #else
-inline bool is_tsan_build ()
-{
 	return false;
-}
 #endif
+}
+
+/** Checks if we are running with either AddressSanitizer or ThreadSanitizer */
+consteval bool is_sanitizer_build ()
+{
+	return is_asan_build () || is_tsan_build ();
+}
+}
 
 namespace nano
 {
@@ -403,9 +397,6 @@ bool memory_intensive_instrumentation ();
 /** Check if we're running with instrumentation that can greatly affect performance
 	Returns true if running within Valgrind or with ThreadSanitizer tooling*/
 bool slow_instrumentation ();
-
-/** Checks if we are running with either AddressSanitizer or ThreadSanitizer*/
-bool is_sanitizer_build ();
 
 /** Set the active network to the dev network */
 void force_nano_dev_network ();

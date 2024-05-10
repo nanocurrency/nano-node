@@ -258,11 +258,6 @@ bool slow_instrumentation ()
 	return is_tsan_build () || nano::running_within_valgrind ();
 }
 
-bool is_sanitizer_build ()
-{
-	return is_asan_build () || is_tsan_build ();
-}
-
 std::string get_node_toml_config_path (std::filesystem::path const & data_path)
 {
 	return (data_path / "config-node.toml").string ();
