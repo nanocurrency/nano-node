@@ -187,7 +187,11 @@ int64_t nano::active_elections::limit (nano::election_behavior behavior) const
 {
 	switch (behavior)
 	{
-		case nano::election_behavior::normal:
+		case nano::election_behavior::manual:
+		{
+			return std::numeric_limits<int64_t>::max ();
+		}
+		case nano::election_behavior::priority:
 		{
 			return static_cast<int64_t> (config.size);
 		}
@@ -212,8 +216,10 @@ int64_t nano::active_elections::vacancy (nano::election_behavior behavior) const
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	switch (behavior)
 	{
-		case nano::election_behavior::normal:
-			return limit () - static_cast<int64_t> (roots.size ());
+		case nano::election_behavior::manual:
+			return std::numeric_limits<int64_t>::max ();
+		case nano::election_behavior::priority:
+			return limit (nano::election_behavior::priority) - static_cast<int64_t> (roots.size ());
 		case nano::election_behavior::hinted:
 		case nano::election_behavior::optimistic:
 			return limit (behavior) - count_by_behavior[behavior];
@@ -286,7 +292,7 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 
 	node.stats.sample (nano::stat::sample::active_election_duration, { 0, 1000 * 60 * 10 /* 0-10 minutes range */ }, election->duration ().count ());
 
-	vacancy_update ();
+	election_stopped.notify (election);
 
 	for (auto const & [hash, block] : blocks_l)
 	{
@@ -359,20 +365,6 @@ void nano::active_elections::request_loop ()
 	}
 }
 
-void nano::active_elections::trim ()
-{
-	/*
-	 * Both normal and hinted election schedulers are well-behaved, meaning they first check for AEC vacancy before inserting new elections.
-	 * However, it is possible that AEC will be temporarily overfilled in case it's running at full capacity and election hinting or manual queue kicks in.
-	 * That case will lead to unwanted churning of elections, so this allows for AEC to be overfilled to 125% until erasing of elections happens.
-	 */
-	while (vacancy () < -(limit () / 4))
-	{
-		node.stats.inc (nano::stat::type::active, nano::stat::detail::erase_oldest);
-		erase_oldest ();
-	}
-}
-
 nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<nano::block> const & block_a, nano::election_behavior election_behavior_a)
 {
 	debug_assert (block_a);
@@ -434,7 +426,6 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 
 		node.vote_router.trigger_vote_cache (hash);
 		node.observers.active_started.notify (hash);
-		vacancy_update ();
 	}
 
 	// Votes are generated for inserted or ongoing elections
@@ -442,8 +433,6 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 	{
 		result.election->broadcast_vote ();
 	}
-
-	trim ();
 
 	return result;
 }
@@ -487,16 +476,6 @@ bool nano::active_elections::erase (nano::qualified_root const & root_a)
 		return true;
 	}
 	return false;
-}
-
-void nano::active_elections::erase_oldest ()
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	if (!roots.empty ())
-	{
-		auto item = roots.get<tag_sequenced> ().front ();
-		cleanup_election (lock, item.election);
-	}
 }
 
 bool nano::active_elections::empty () const
@@ -547,7 +526,6 @@ void nano::active_elections::clear ()
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		roots.clear ();
 	}
-	vacancy_update ();
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (active_elections & active_elections, std::string const & name)
@@ -557,7 +535,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "roots", active_elections.roots.size (), sizeof (decltype (active_elections.roots)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "election_winner_details", active_elections.election_winner_details_size (), sizeof (decltype (active_elections.election_winner_details)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "normal", static_cast<std::size_t> (active_elections.count_by_behavior[nano::election_behavior::normal]), 0 }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "normal", static_cast<std::size_t> (active_elections.count_by_behavior[nano::election_behavior::priority]), 0 }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "hinted", static_cast<std::size_t> (active_elections.count_by_behavior[nano::election_behavior::hinted]), 0 }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "optimistic", static_cast<std::size_t> (active_elections.count_by_behavior[nano::election_behavior::optimistic]), 0 }));
 

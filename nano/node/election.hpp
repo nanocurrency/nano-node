@@ -3,7 +3,6 @@
 #include <nano/lib/id_dispenser.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats_enums.hpp>
-#include <nano/node/election_behavior.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/vote_with_weight_info.hpp>
 #include <nano/secure/common.hpp>
@@ -17,6 +16,7 @@ namespace nano
 class block;
 class channel;
 class confirmation_solicitor;
+enum class election_behavior;
 class inactive_cache_information;
 class node;
 enum class vote_code;
@@ -172,7 +172,7 @@ private:
 	mutable nano::uint128_t final_weight{ 0 };
 	mutable std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 
-	nano::election_behavior const behavior_m{ nano::election_behavior::normal };
+	nano::election_behavior const behavior_m;
 	std::chrono::steady_clock::time_point const election_start{ std::chrono::steady_clock::now () };
 
 	mutable nano::mutex mutex;

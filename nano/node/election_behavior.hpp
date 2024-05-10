@@ -8,7 +8,8 @@ namespace nano
 {
 enum class election_behavior
 {
-	normal,
+	manual,
+	priority,
 	/**
 	 * Hinted elections:
 	 * - shorter timespan

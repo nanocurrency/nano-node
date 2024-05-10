@@ -148,6 +148,7 @@ enum class detail
 	balance_mismatch,
 	representative_mismatch,
 	block_position,
+	overflow,
 
 	// blockprocessor
 	process_blocking,
@@ -222,7 +223,8 @@ enum class detail
 	broadcast_block_repeat,
 
 	// election types
-	normal,
+	manual,
+	priority,
 	hinted,
 	optimistic,
 
@@ -302,6 +304,7 @@ enum class detail
 	blocks_confirmed,
 	blocks_confirmed_unbounded,
 	blocks_confirmed_bounded,
+	block_late_removed,
 
 	// request aggregator
 	aggregator_accepted,
@@ -372,6 +375,9 @@ enum class detail
 	insert_priority,
 	insert_priority_success,
 	erase_oldest,
+	block_insert,
+	block_overflow,
+	block_reject,
 
 	// handshake
 	invalid_node_id,

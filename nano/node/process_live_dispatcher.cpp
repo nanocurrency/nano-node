@@ -44,10 +44,10 @@ void nano::process_live_dispatcher::inspect (nano::block_status const & result, 
 void nano::process_live_dispatcher::process_live (nano::block const & block, secure::transaction const & transaction)
 {
 	// Start collecting quorum on block
-	if (ledger.dependents_confirmed (transaction, block))
+	/*if (ledger.dependents_confirmed (transaction, block))
 	{
 		scheduler.activate (transaction, block.account ());
-	}
+	}*/
 
 	if (websocket.server && websocket.server->any_subscriber (nano::websocket::topic::new_unconfirmed_block))
 	{

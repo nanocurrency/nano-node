@@ -1,6 +1,7 @@
 #include <nano/lib/thread_roles.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/write_queue.hpp>
@@ -80,15 +81,22 @@ void nano::confirming_set::run ()
 				{
 					auto item = *i;
 					lock.unlock ();
-					auto added = ledger.confirm (tx, item);
-					if (!added.empty ())
+					if (ledger.any.block_exists (tx, item))
 					{
-						// Confirming this block may implicitly confirm more
-						cemented.insert (cemented.end (), added.begin (), added.end ());
+						auto added = ledger.confirm (tx, item);
+						if (!added.empty ())
+						{
+							// Confirming this block may implicitly confirm more
+							cemented.insert (cemented.end (), added.begin (), added.end ());
+						}
+						else
+						{
+							already.push_back (item);
+						}
 					}
 					else
 					{
-						already.push_back (item);
+						ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::block_late_removed);
 					}
 					lock.lock ();
 				}
