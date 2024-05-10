@@ -26,30 +26,6 @@ namespace transport
 	class tcp_channels;
 	class channel_tcp;
 
-	// TODO: Replace with message_processor component with fair queueing
-	class tcp_message_manager final
-	{
-	public:
-		using entry_t = std::pair<std::unique_ptr<nano::message>, std::shared_ptr<nano::transport::channel_tcp>>;
-
-		explicit tcp_message_manager (unsigned incoming_connections_max);
-		void stop ();
-
-		void put (std::unique_ptr<nano::message>, std::shared_ptr<nano::transport::channel_tcp>);
-		entry_t next ();
-
-	private:
-		nano::mutex mutex;
-		nano::condition_variable producer_condition;
-		nano::condition_variable consumer_condition;
-		std::deque<entry_t> entries;
-		unsigned max_entries;
-		static unsigned const max_entries_per_connection = 16;
-		bool stopped{ false };
-
-		friend class network_tcp_message_manager_Test;
-	};
-
 	class channel_tcp : public nano::transport::channel, public std::enable_shared_from_this<channel_tcp>
 	{
 		friend class nano::transport::tcp_channels;
@@ -132,7 +108,7 @@ namespace transport
 		friend class network_peer_max_tcp_attempts_subnetwork_Test;
 
 	public:
-		explicit tcp_channels (nano::node &, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink = nullptr);
+		explicit tcp_channels (nano::node &);
 		~tcp_channels ();
 
 		void start ();
@@ -147,8 +123,6 @@ namespace transport
 		std::shared_ptr<nano::transport::channel_tcp> find_node_id (nano::account const &);
 		// Get the next peer for attempting a tcp connection
 		nano::tcp_endpoint bootstrap_peer ();
-		void queue_message (std::unique_ptr<nano::message>, std::shared_ptr<nano::transport::channel_tcp>);
-		void process_messages ();
 		bool max_ip_connections (nano::tcp_endpoint const & endpoint_a);
 		bool max_subnetwork_connections (nano::tcp_endpoint const & endpoint_a);
 		bool max_ip_or_subnetwork_connections (nano::tcp_endpoint const & endpoint_a);
@@ -166,9 +140,6 @@ namespace transport
 
 	private: // Dependencies
 		nano::node & node;
-
-	public:
-		tcp_message_manager message_manager;
 
 	private:
 		void close ();
@@ -273,8 +244,6 @@ namespace transport
 		// clang-format on
 
 	private:
-		std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink;
-
 		std::atomic<bool> stopped{ false };
 		nano::condition_variable condition;
 		mutable nano::mutex mutex;

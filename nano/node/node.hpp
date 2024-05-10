@@ -45,6 +45,7 @@ namespace nano
 {
 class active_elections;
 class confirming_set;
+class message_processor;
 class node;
 class vote_processor;
 class vote_router;
@@ -161,6 +162,8 @@ public:
 	std::unique_ptr<nano::ledger> ledger_impl;
 	nano::ledger & ledger;
 	nano::outbound_bandwidth_limiter outbound_limiter;
+	std::unique_ptr<nano::message_processor> message_processor_impl;
+	nano::message_processor & message_processor;
 	nano::network network;
 	nano::telemetry telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;

@@ -273,6 +273,9 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.request_aggregator.max_queue, defaults.node.request_aggregator.max_queue);
 	ASSERT_EQ (conf.node.request_aggregator.threads, defaults.node.request_aggregator.threads);
 	ASSERT_EQ (conf.node.request_aggregator.batch_size, defaults.node.request_aggregator.batch_size);
+
+	ASSERT_EQ (conf.node.message_processor.threads, defaults.node.message_processor.threads);
+	ASSERT_EQ (conf.node.message_processor.max_queue, defaults.node.message_processor.max_queue);
 }
 
 TEST (toml, optional_child)
@@ -584,6 +587,10 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	threads = 999
 	batch_size = 999
 
+	[node.message_processor]
+	threads = 999
+	max_queue = 999
+
 	[opencl]
 	device = 999
 	enable = true
@@ -741,6 +748,9 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.request_aggregator.max_queue, defaults.node.request_aggregator.max_queue);
 	ASSERT_NE (conf.node.request_aggregator.threads, defaults.node.request_aggregator.threads);
 	ASSERT_NE (conf.node.request_aggregator.batch_size, defaults.node.request_aggregator.batch_size);
+
+	ASSERT_NE (conf.node.message_processor.threads, defaults.node.message_processor.threads);
+	ASSERT_NE (conf.node.message_processor.max_queue, defaults.node.message_processor.max_queue);
 }
 
 /** There should be no required values **/

@@ -9,6 +9,7 @@
 #include <nano/node/election_status.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/make_store.hpp>
+#include <nano/node/message_processor.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/request_aggregator.hpp>
@@ -159,6 +160,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	ledger_impl{ std::make_unique<nano::ledger> (store, stats, network_params.ledger, flags_a.generate_cache, config_a.representative_vote_weight_minimum.number ()) },
 	ledger{ *ledger_impl },
 	outbound_limiter{ outbound_bandwidth_limiter_config (config) },
+	message_processor_impl{ std::make_unique<nano::message_processor> (config.message_processor, *this) },
+	message_processor{ *message_processor_impl },
 	// empty `config.peering_port` means the user made no port choice at all;
 	// otherwise, any value is considered, with `0` having the special meaning of 'let the OS pick a port instead'
 	//
@@ -600,6 +603,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (node.unchecked.collect_container_info ("unchecked"));
 	composite->add_component (node.local_block_broadcaster.collect_container_info ("local_block_broadcaster"));
 	composite->add_component (node.rep_tiers.collect_container_info ("rep_tiers"));
+	composite->add_component (node.message_processor.collect_container_info ("message_processor"));
 	return composite;
 }
 
@@ -636,6 +640,7 @@ void nano::node::start ()
 	long_inactivity_cleanup ();
 
 	network.start ();
+	message_processor.start ();
 
 	if (!flags.disable_legacy_bootstrap && !flags.disable_ongoing_bootstrap)
 	{
@@ -763,6 +768,7 @@ void nano::node::stop ()
 	epoch_upgrader.stop ();
 	workers.stop ();
 	local_block_broadcaster.stop ();
+	message_processor.stop ();
 	network.stop (); // Stop network last to avoid killing in-use sockets
 
 	// work pool is not stopped on purpose due to testing setup

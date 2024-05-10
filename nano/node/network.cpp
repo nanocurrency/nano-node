@@ -1,3 +1,5 @@
+#include "message_processor.hpp"
+
 #include <nano/crypto_lib/random_pool_shuffle.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/threading.hpp>
@@ -21,9 +23,7 @@ nano::network::network (nano::node & node, uint16_t port) :
 	syn_cookies{ node.network_params.network.max_peers_per_ip, node.logger },
 	resolver{ node.io_ctx },
 	publish_filter{ 256 * 1024 },
-	tcp_channels{ node, [this] (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel) {
-					 inbound (message, channel);
-				 } },
+	tcp_channels{ node },
 	port{ port }
 {
 }
@@ -31,7 +31,6 @@ nano::network::network (nano::node & node, uint16_t port) :
 nano::network::~network ()
 {
 	// All threads must be stopped before this destructor
-	debug_assert (processing_threads.empty ());
 	debug_assert (!cleanup_thread.joinable ());
 	debug_assert (!keepalive_thread.joinable ());
 	debug_assert (!reachout_thread.joinable ());
@@ -63,14 +62,6 @@ void nano::network::start ()
 	if (!node.flags.disable_tcp_realtime)
 	{
 		tcp_channels.start ();
-
-		for (std::size_t i = 0; i < node.config.network_threads; ++i)
-		{
-			processing_threads.emplace_back (nano::thread_attributes::get_default (), [this] () {
-				nano::thread_role::set (nano::thread_role::name::packet_processing);
-				run_processing ();
-			});
-		}
 	}
 }
 
@@ -85,47 +76,12 @@ void nano::network::stop ()
 	tcp_channels.stop ();
 	resolver.cancel ();
 
-	for (auto & thread : processing_threads)
-	{
-		thread.join ();
-	}
-	processing_threads.clear ();
-
 	join_or_pass (keepalive_thread);
 	join_or_pass (cleanup_thread);
 	join_or_pass (reachout_thread);
 	join_or_pass (reachout_cached_thread);
 
 	port = 0;
-}
-
-void nano::network::run_processing ()
-{
-	try
-	{
-		// TODO: Move responsibility of packet queuing and processing to the message_processor class
-		tcp_channels.process_messages ();
-	}
-	catch (boost::system::error_code & ec)
-	{
-		node.logger.critical (nano::log::type::network, "Error: {}", ec.message ());
-		release_assert (false);
-	}
-	catch (std::error_code & ec)
-	{
-		node.logger.critical (nano::log::type::network, "Error: {}", ec.message ());
-		release_assert (false);
-	}
-	catch (std::runtime_error & err)
-	{
-		node.logger.critical (nano::log::type::network, "Error: {}", err.what ());
-		release_assert (false);
-	}
-	catch (...)
-	{
-		node.logger.critical (nano::log::type::network, "Unknown error");
-		release_assert (false);
-	}
 }
 
 void nano::network::run_cleanup ()
@@ -346,136 +302,12 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 	}
 }
 
-namespace
-{
-class network_message_visitor : public nano::message_visitor
-{
-public:
-	network_message_visitor (nano::node & node_a, std::shared_ptr<nano::transport::channel> const & channel_a) :
-		node{ node_a },
-		channel{ channel_a }
-	{
-	}
-
-	void keepalive (nano::keepalive const & message_a) override
-	{
-		// Check for special node port data
-		auto peer0 (message_a.peers[0]);
-		if (peer0.address () == boost::asio::ip::address_v6{} && peer0.port () != 0)
-		{
-			// TODO: Remove this as we do not need to establish a second connection to the same peer
-			nano::endpoint new_endpoint (channel->get_tcp_endpoint ().address (), peer0.port ());
-			node.network.merge_peer (new_endpoint);
-
-			// Remember this for future forwarding to other peers
-			channel->set_peering_endpoint (new_endpoint);
-		}
-	}
-
-	void publish (nano::publish const & message) override
-	{
-		bool added = node.block_processor.add (message.block, nano::block_source::live, channel);
-		if (!added)
-		{
-			node.network.publish_filter.clear (message.digest);
-			node.stats.inc (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::in);
-		}
-	}
-
-	void confirm_req (nano::confirm_req const & message) override
-	{
-		// Don't load nodes with disabled voting
-		// TODO: This check should be cached somewhere
-		if (node.config.enable_voting && node.wallets.reps ().voting > 0)
-		{
-			if (!message.roots_hashes.empty ())
-			{
-				node.aggregator.request (message.roots_hashes, channel);
-			}
-		}
-	}
-
-	void confirm_ack (nano::confirm_ack const & message_a) override
-	{
-		if (!message_a.vote->account.is_zero ())
-		{
-			node.vote_processor.vote (message_a.vote, channel);
-		}
-	}
-
-	void bulk_pull (nano::bulk_pull const &) override
-	{
-		debug_assert (false);
-	}
-
-	void bulk_pull_account (nano::bulk_pull_account const &) override
-	{
-		debug_assert (false);
-	}
-
-	void bulk_push (nano::bulk_push const &) override
-	{
-		debug_assert (false);
-	}
-
-	void frontier_req (nano::frontier_req const &) override
-	{
-		debug_assert (false);
-	}
-
-	void node_id_handshake (nano::node_id_handshake const & message_a) override
-	{
-		node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
-	}
-
-	void telemetry_req (nano::telemetry_req const & message_a) override
-	{
-		// Send an empty telemetry_ack if we do not want, just to acknowledge that we have received the message to
-		// remove any timeouts on the server side waiting for a message.
-		nano::telemetry_ack telemetry_ack{ node.network_params.network };
-		if (!node.flags.disable_providing_telemetry_metrics)
-		{
-			auto telemetry_data = node.local_telemetry ();
-			telemetry_ack = nano::telemetry_ack{ node.network_params.network, telemetry_data };
-		}
-		channel->send (telemetry_ack, nullptr, nano::transport::buffer_drop_policy::no_socket_drop);
-	}
-
-	void telemetry_ack (nano::telemetry_ack const & message_a) override
-	{
-		node.telemetry.process (message_a, channel);
-	}
-
-	void asc_pull_req (nano::asc_pull_req const & message) override
-	{
-		node.bootstrap_server.request (message, channel);
-	}
-
-	void asc_pull_ack (nano::asc_pull_ack const & message) override
-	{
-		node.ascendboot.process (message, channel);
-	}
-
-private:
-	nano::node & node;
-	std::shared_ptr<nano::transport::channel> channel;
-};
-}
-
-void nano::network::process_message (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel)
-{
-	node.stats.inc (nano::stat::type::message, to_stat_detail (message.type ()), nano::stat::dir::in);
-	node.logger.trace (nano::log::type::network_processed, to_log_detail (message.type ()), nano::log::arg{ "message", message });
-
-	network_message_visitor visitor{ node, channel };
-	message.visit (visitor);
-}
-
 void nano::network::inbound (const nano::message & message, const std::shared_ptr<nano::transport::channel> & channel)
 {
 	debug_assert (message.header.network == node.network_params.network.current_network);
 	debug_assert (message.header.version_using >= node.network_params.network.protocol_version_min);
-	process_message (message, channel);
+
+	node.message_processor.process (message, channel);
 }
 
 // Send keepalives to all the peers we've been notified of
@@ -729,57 +561,6 @@ nano::node_id_handshake::response_payload nano::network::prepare_handshake_respo
 	}
 	response.sign (query.cookie, node.node_id);
 	return response;
-}
-
-/*
- * tcp_message_manager
- */
-
-nano::transport::tcp_message_manager::tcp_message_manager (unsigned incoming_connections_max_a) :
-	max_entries (incoming_connections_max_a * max_entries_per_connection + 1)
-{
-	debug_assert (max_entries > 0);
-}
-
-void nano::transport::tcp_message_manager::put (std::unique_ptr<nano::message> message, std::shared_ptr<nano::transport::channel_tcp> channel)
-{
-	{
-		nano::unique_lock<nano::mutex> lock{ mutex };
-		while (entries.size () >= max_entries && !stopped)
-		{
-			producer_condition.wait (lock);
-		}
-		entries.emplace_back (std::move (message), channel);
-	}
-	consumer_condition.notify_one ();
-}
-
-auto nano::transport::tcp_message_manager::next () -> entry_t
-{
-	entry_t result{ nullptr, nullptr };
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (entries.empty () && !stopped)
-	{
-		consumer_condition.wait (lock);
-	}
-	if (!entries.empty ())
-	{
-		result = std::move (entries.front ());
-		entries.pop_front ();
-	}
-	lock.unlock ();
-	producer_condition.notify_one ();
-	return result;
-}
-
-void nano::transport::tcp_message_manager::stop ()
-{
-	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		stopped = true;
-	}
-	consumer_condition.notify_all ();
-	producer_condition.notify_all ();
 }
 
 /*

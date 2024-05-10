@@ -6,8 +6,6 @@
 #include <nano/node/transport/tcp.hpp>
 #include <nano/secure/network_filter.hpp>
 
-#include <boost/thread/thread.hpp>
-
 #include <deque>
 #include <memory>
 #include <unordered_set>
@@ -108,12 +106,10 @@ public: // Handshake
 	nano::node_id_handshake::response_payload prepare_handshake_response (nano::node_id_handshake::query_payload const & query, bool v2) const;
 
 private:
-	void run_processing ();
 	void run_cleanup ();
 	void run_keepalive ();
 	void run_reachout ();
 	void run_reachout_cached ();
-	void process_message (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
 
 private: // Dependencies
 	nano::node & node;
@@ -136,7 +132,6 @@ private:
 	std::atomic<bool> stopped{ false };
 	mutable nano::mutex mutex;
 	nano::condition_variable condition;
-	std::vector<boost::thread> processing_threads; // Using boost::thread to enable increased stack size
 	std::thread cleanup_thread;
 	std::thread keepalive_thread;
 	std::thread reachout_thread;

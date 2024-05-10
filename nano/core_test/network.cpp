@@ -878,68 +878,6 @@ TEST (network, tcp_no_accept_excluded_peers)
 	ASSERT_TIMELY_EQ (5s, node0->network.size (), 1);
 }
 
-/*
-namespace nano
-{
-TEST (network, tcp_message_manager)
-{
-	nano::transport::tcp_message_manager manager (1);
-	item.node_id = nano::account (100);
-	ASSERT_EQ (0, manager.entries.size ());
-	manager.put_message (item);
-	ASSERT_EQ (1, manager.entries.size ());
-	ASSERT_EQ (manager.get_message ().node_id, item.node_id);
-	ASSERT_EQ (0, manager.entries.size ());
-
-	// Fill the queue
-	manager.entries = decltype (manager.entries) (manager.max_entries, item);
-	ASSERT_EQ (manager.entries.size (), manager.max_entries);
-
-	// This task will wait until a message is consumed
-	auto future = std::async (std::launch::async, [&] {
-		manager.put_message (item);
-	});
-
-	// This should give sufficient time to execute put_message
-	// and prove that it waits on condition variable
-	std::this_thread::sleep_for (200ms);
-
-	ASSERT_EQ (manager.entries.size (), manager.max_entries);
-	ASSERT_EQ (manager.get_message ().node_id, item.node_id);
-	ASSERT_NE (std::future_status::timeout, future.wait_for (1s));
-	ASSERT_EQ (manager.entries.size (), manager.max_entries);
-
-	nano::tcp_message_manager manager2 (2);
-	size_t message_count = 10'000;
-	std::vector<std::thread> consumers;
-	for (auto i = 0; i < 4; ++i)
-	{
-		consumers.emplace_back ([&] {
-			for (auto i = 0; i < message_count; ++i)
-			{
-				ASSERT_EQ (manager.get_message ().node_id, item.node_id);
-			}
-		});
-	}
-	std::vector<std::thread> producers;
-	for (auto i = 0; i < 4; ++i)
-	{
-		producers.emplace_back ([&] {
-			for (auto i = 0; i < message_count; ++i)
-			{
-				manager.put_message (item);
-			}
-		});
-	}
-
-	for (auto & t : boost::range::join (producers, consumers))
-	{
-		t.join ();
-	}
-}
-}
-*/
-
 TEST (network, cleanup_purge)
 {
 	auto test_start = std::chrono::steady_clock::now ();
