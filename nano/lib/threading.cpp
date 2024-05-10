@@ -19,7 +19,7 @@ boost::thread::attributes nano::thread_attributes::get_default ()
 unsigned nano::hardware_concurrency ()
 {
 	static auto const concurrency = [] () {
-		if (auto value = nano::env::get_uint ("NANO_HARDWARE_CONCURRENCY"))
+		if (auto value = nano::env::get<unsigned> ("NANO_HARDWARE_CONCURRENCY"))
 		{
 			std::cerr << "Hardware concurrency overridden by NANO_HARDWARE_CONCURRENCY environment variable: " << *value << std::endl;
 			return *value;

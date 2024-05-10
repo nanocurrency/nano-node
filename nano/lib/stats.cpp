@@ -33,7 +33,7 @@ std::string nano::stat_log_sink::tm_to_string (tm & tm)
 nano::stats::stats (nano::logger & logger_a, nano::stats_config config_a) :
 	config{ std::move (config_a) },
 	logger{ logger_a },
-	enable_logging{ nano::env::get_bool ("NANO_LOG_STATS").value_or (false) }
+	enable_logging{ nano::env::get<bool> ("NANO_LOG_STATS").value_or (false) }
 {
 }
 
