@@ -117,7 +117,6 @@ public:
 	std::vector<std::shared_ptr<nano::election>> list_active (std::size_t = std::numeric_limits<std::size_t>::max ());
 	bool erase (nano::block const &);
 	bool erase (nano::qualified_root const &);
-	void erase_oldest ();
 	bool empty () const;
 	std::size_t size () const;
 	bool publish (std::shared_ptr<nano::block> const &);
@@ -140,8 +139,6 @@ public:
 	std::shared_ptr<nano::election> remove_election_winner_details (nano::block_hash const &);
 
 private:
-	// Erase elections if we're over capacity
-	void trim ();
 	void request_loop ();
 	void request_confirm (nano::unique_lock<nano::mutex> &);
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
