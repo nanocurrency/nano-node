@@ -16,10 +16,19 @@ template <typename ElemT>
 struct HexTo
 {
 	ElemT value;
+
+	HexTo () = default;
+
+	HexTo (ElemT val) :
+		value{ val }
+	{
+	}
+
 	operator ElemT () const
 	{
 		return value;
 	}
+
 	friend std::istream & operator>> (std::istream & in, HexTo & out)
 	{
 		in >> std::hex >> out.value;
@@ -47,9 +56,9 @@ nano::work_thresholds const nano::work_thresholds::publish_dev (
 );
 
 nano::work_thresholds const nano::work_thresholds::publish_test ( // defaults to live network levels
-get_env_threshold_or_default ("NANO_TEST_EPOCH_1", 0xffffffc000000000),
-get_env_threshold_or_default ("NANO_TEST_EPOCH_2", 0xfffffff800000000), // 8x higher than epoch_1
-get_env_threshold_or_default ("NANO_TEST_EPOCH_2_RECV", 0xfffffe0000000000) // 8x lower than epoch_1
+nano::env::get<HexTo<uint64_t>> ("NANO_TEST_EPOCH_1").value_or (0xffffffc000000000),
+nano::env::get<HexTo<uint64_t>> ("NANO_TEST_EPOCH_2").value_or (0xfffffff800000000), // 8x higher than epoch_1
+nano::env::get<HexTo<uint64_t>> ("NANO_TEST_EPOCH_2_RECV").value_or (0xfffffe0000000000) // 8x lower than epoch_1
 );
 
 uint64_t nano::work_thresholds::threshold_entry (nano::work_version const version_a, nano::block_type const type_a) const
@@ -230,12 +239,6 @@ uint8_t get_patch_node_version ()
 uint8_t get_pre_release_node_version ()
 {
 	return boost::numeric_cast<uint8_t> (boost::lexical_cast<int> (NANO_PRE_RELEASE_VERSION_STRING));
-}
-
-uint64_t get_env_threshold_or_default (char const * variable_name, uint64_t const default_value)
-{
-	auto * value = getenv (variable_name);
-	return value ? boost::lexical_cast<HexTo<uint64_t>> (value) : default_value;
 }
 
 void force_nano_dev_network ()

@@ -79,20 +79,12 @@ uint8_t get_minor_node_version ();
 uint8_t get_patch_node_version ();
 uint8_t get_pre_release_node_version ();
 
-/*
- * Environment variables
- */
-
-uint64_t get_env_threshold_or_default (char const * variable_name, uint64_t const default_value);
-
 uint16_t test_node_port ();
 uint16_t test_rpc_port ();
 uint16_t test_ipc_port ();
 uint16_t test_websocket_port ();
 std::array<uint8_t, 2> test_magic_number ();
-/*
- * How often to scan for representatives in local wallet, in milliseconds
- */
+/// How often to scan for representatives in local wallet, in milliseconds
 uint32_t test_scan_wallet_reps_delay ();
 
 /**
