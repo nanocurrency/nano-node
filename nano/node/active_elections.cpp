@@ -219,7 +219,7 @@ int64_t nano::active_elections::vacancy (nano::election_behavior behavior) const
 		case nano::election_behavior::manual:
 			return std::numeric_limits<int64_t>::max ();
 		case nano::election_behavior::priority:
-			return limit () - static_cast<int64_t> (roots.size ());
+			return limit (nano::election_behavior::priority) - static_cast<int64_t> (roots.size ());
 		case nano::election_behavior::hinted:
 		case nano::election_behavior::optimistic:
 			return limit (behavior) - count_by_behavior[behavior];
@@ -372,7 +372,7 @@ void nano::active_elections::trim ()
 	 * However, it is possible that AEC will be temporarily overfilled in case it's running at full capacity and election hinting or manual queue kicks in.
 	 * That case will lead to unwanted churning of elections, so this allows for AEC to be overfilled to 125% until erasing of elections happens.
 	 */
-	while (vacancy () < -(limit () / 4))
+	while (vacancy (nano::election_behavior::priority) < -(limit (nano::election_behavior::priority) / 4))
 	{
 		node.stats.inc (nano::stat::type::active, nano::stat::detail::erase_oldest);
 		erase_oldest ();
