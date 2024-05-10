@@ -220,7 +220,7 @@ enum class detail
 
 	// election types
 	manual,
-	normal,
+	priority,
 	hinted,
 	optimistic,
 
