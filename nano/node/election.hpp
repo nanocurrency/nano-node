@@ -172,7 +172,7 @@ private:
 	mutable nano::uint128_t final_weight{ 0 };
 	mutable std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 
-	nano::election_behavior const behavior_m{ nano::election_behavior::normal };
+	nano::election_behavior const behavior_m{ nano::election_behavior::priority };
 	std::chrono::steady_clock::time_point const election_start{ std::chrono::steady_clock::now () };
 
 	mutable nano::mutex mutex;

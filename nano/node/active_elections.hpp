@@ -108,7 +108,7 @@ public:
 	/**
 	 * Starts new election with a specified behavior type
 	 */
-	nano::election_insertion_result insert (std::shared_ptr<nano::block> const &, nano::election_behavior = nano::election_behavior::normal);
+	nano::election_insertion_result insert (std::shared_ptr<nano::block> const &, nano::election_behavior = nano::election_behavior::priority);
 	// Is the root of this block in the roots container
 	bool active (nano::block const &) const;
 	bool active (nano::qualified_root const &) const;
@@ -128,11 +128,11 @@ public:
 	 * Maximum number of elections that should be present in this container
 	 * NOTE: This is only a soft limit, it is possible for this container to exceed this count
 	 */
-	int64_t limit (nano::election_behavior behavior = nano::election_behavior::normal) const;
+	int64_t limit (nano::election_behavior behavior = nano::election_behavior::priority) const;
 	/**
 	 * How many election slots are available for specified election type
 	 */
-	int64_t vacancy (nano::election_behavior behavior = nano::election_behavior::normal) const;
+	int64_t vacancy (nano::election_behavior behavior = nano::election_behavior::priority) const;
 	std::function<void ()> vacancy_update{ [] () {} };
 
 	std::size_t election_winner_details_size ();

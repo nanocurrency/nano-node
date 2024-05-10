@@ -18,7 +18,7 @@ TEST (election, construction)
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
 	auto election = std::make_shared<nano::election> (
-	node, nano::dev::genesis, [] (auto const &) {}, [] (auto const &) {}, nano::election_behavior::normal);
+	node, nano::dev::genesis, [] (auto const &) {}, [] (auto const &) {}, nano::election_behavior::priority);
 }
 
 TEST (election, behavior)

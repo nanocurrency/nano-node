@@ -1487,7 +1487,7 @@ TEST (active_elections, limit_vote_hinted_elections)
 	ASSERT_TIMELY (5s, nano::test::active (node, { open1 }));
 
 	// Ensure there was no overflow of elections
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::active_dropped, nano::stat::detail::normal));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::active_dropped, nano::stat::detail::priority));
 }
 
 /*

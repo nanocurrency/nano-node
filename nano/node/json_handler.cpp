@@ -2010,7 +2010,7 @@ void nano::json_handler::election_statistics ()
 {
 	auto active_elections = node.active.list_active ();
 	unsigned manual_count = 0;
-	unsigned normal_count = 0;
+	unsigned priority_count = 0;
 	unsigned hinted_count = 0;
 	unsigned optimistic_count = 0;
 	unsigned total_count = 0;
@@ -2031,8 +2031,8 @@ void nano::json_handler::election_statistics ()
 			case election_behavior::manual:
 				manual_count++;
 				break;
-			case election_behavior::normal:
-				normal_count++;
+			case election_behavior::priority:
+				priority_count++;
 				break;
 			case election_behavior::hinted:
 				hinted_count++;
@@ -2051,7 +2051,7 @@ void nano::json_handler::election_statistics ()
 	stream_utilization << std::fixed << std::setprecision (2) << utilization_percentage;
 
 	response_l.put ("manual", manual_count);
-	response_l.put ("normal", normal_count);
+	response_l.put ("priority", priority_count);
 	response_l.put ("hinted", hinted_count);
 	response_l.put ("optimistic", optimistic_count);
 	response_l.put ("total", total_count);

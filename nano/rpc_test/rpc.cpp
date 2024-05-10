@@ -6962,7 +6962,7 @@ TEST (rpc, election_statistics)
 	request.put ("action", "election_statistics");
 
 	auto response = wait_response (system, rpc_ctx, request);
-	ASSERT_EQ ("1", response.get<std::string> ("normal"));
+	ASSERT_EQ ("1", response.get<std::string> ("priority"));
 	ASSERT_EQ ("0", response.get<std::string> ("hinted"));
 	ASSERT_EQ ("0", response.get<std::string> ("optimistic"));
 	ASSERT_EQ ("1", response.get<std::string> ("total"));

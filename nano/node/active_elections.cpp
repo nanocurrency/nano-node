@@ -191,7 +191,7 @@ int64_t nano::active_elections::limit (nano::election_behavior behavior) const
 		{
 			return std::numeric_limits<int64_t>::max ();
 		}
-		case nano::election_behavior::normal:
+		case nano::election_behavior::priority:
 		{
 			return static_cast<int64_t> (config.size);
 		}
@@ -218,7 +218,7 @@ int64_t nano::active_elections::vacancy (nano::election_behavior behavior) const
 	{
 		case nano::election_behavior::manual:
 			return std::numeric_limits<int64_t>::max ();
-		case nano::election_behavior::normal:
+		case nano::election_behavior::priority:
 			return limit () - static_cast<int64_t> (roots.size ());
 		case nano::election_behavior::hinted:
 		case nano::election_behavior::optimistic:
@@ -563,7 +563,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "roots", active_elections.roots.size (), sizeof (decltype (active_elections.roots)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "election_winner_details", active_elections.election_winner_details_size (), sizeof (decltype (active_elections.election_winner_details)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "normal", static_cast<std::size_t> (active_elections.count_by_behavior[nano::election_behavior::normal]), 0 }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "normal", static_cast<std::size_t> (active_elections.count_by_behavior[nano::election_behavior::priority]), 0 }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "hinted", static_cast<std::size_t> (active_elections.count_by_behavior[nano::election_behavior::hinted]), 0 }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "optimistic", static_cast<std::size_t> (active_elections.count_by_behavior[nano::election_behavior::optimistic]), 0 }));
 

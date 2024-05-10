@@ -46,11 +46,11 @@ TEST (confirmation_solicitor, batches)
 		nano::lock_guard<nano::mutex> guard (node2.active.mutex);
 		for (size_t i (0); i < nano::network::confirm_req_hashes_max; ++i)
 		{
-			auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::normal));
+			auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::priority));
 			ASSERT_FALSE (solicitor.add (*election));
 		}
 		// Reached the maximum amount of requests for the channel
-		auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::normal));
+		auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::priority));
 		// Broadcasting should be immediate
 		ASSERT_EQ (0, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
 		ASSERT_FALSE (solicitor.broadcast (*election));
@@ -92,7 +92,7 @@ TEST (confirmation_solicitor, different_hash)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build ();
 	send->sideband_set ({});
-	auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::normal));
+	auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::priority));
 	// Add a vote for something else, not the winner
 	election->last_votes[representative.account] = { std::chrono::steady_clock::now (), 1, 1 };
 	// Ensure the request and broadcast goes through
@@ -136,7 +136,7 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build ();
 	send->sideband_set ({});
-	auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::normal));
+	auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::priority));
 	// Add a vote for something else, not the winner
 	for (auto const & rep : representatives)
 	{
@@ -149,7 +149,7 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 	ASSERT_TIMELY_EQ (6s, max_representatives + 1, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out));
 
 	solicitor.prepare (representatives);
-	auto election2 (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::normal));
+	auto election2 (std::make_shared<nano::election> (node2, send, nullptr, nullptr, nano::election_behavior::priority));
 	ASSERT_FALSE (solicitor.add (*election2));
 	ASSERT_FALSE (solicitor.broadcast (*election2));
 
