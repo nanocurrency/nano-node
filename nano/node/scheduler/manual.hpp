@@ -1,7 +1,6 @@
 #pragma once
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/node/election_behavior.hpp>
 
 #include <boost/optional.hpp>
 
@@ -12,6 +11,7 @@
 namespace nano
 {
 class block;
+enum class election_behavior;
 class node;
 }
 

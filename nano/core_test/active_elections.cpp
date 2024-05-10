@@ -1325,18 +1325,18 @@ TEST (active_elections, vacancy)
 					.build ();
 		node.active.vacancy_update = [&updated] () { updated = true; };
 		ASSERT_EQ (nano::block_status::progress, node.process (send));
-		ASSERT_EQ (1, node.active.vacancy ());
+		ASSERT_EQ (1, node.active.vacancy (nano::election_behavior::priority));
 		ASSERT_EQ (0, node.active.size ());
 		node.scheduler.priority.activate (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 		ASSERT_TIMELY (1s, updated);
 		updated = false;
-		ASSERT_EQ (0, node.active.vacancy ());
+		ASSERT_EQ (0, node.active.vacancy (nano::election_behavior::priority));
 		ASSERT_EQ (1, node.active.size ());
 		auto election1 = node.active.election (send->qualified_root ());
 		ASSERT_NE (nullptr, election1);
 		election1->force_confirm ();
 		ASSERT_TIMELY (1s, updated);
-		ASSERT_EQ (1, node.active.vacancy ());
+		ASSERT_EQ (1, node.active.vacancy (nano::election_behavior::priority));
 		ASSERT_EQ (0, node.active.size ());
 	}
 }
@@ -1521,9 +1521,9 @@ TEST (active_elections, allow_limited_overflow)
 	}
 
 	// Ensure number of active elections reaches AEC limit and there is no overfill
-	ASSERT_TIMELY_EQ (5s, node.active.size (), node.active.limit ());
+	ASSERT_TIMELY_EQ (5s, node.active.size (), node.active.limit (nano::election_behavior::priority));
 	// And it stays that way without increasing
-	ASSERT_ALWAYS (1s, node.active.size () == node.active.limit ());
+	ASSERT_ALWAYS (1s, node.active.size () == node.active.limit (nano::election_behavior::priority));
 
 	// Insert votes for the second part of the blocks, so that those are scheduled as hinted elections
 	for (auto const & block : blocks2)
@@ -1534,9 +1534,9 @@ TEST (active_elections, allow_limited_overflow)
 	}
 
 	// Ensure active elections overfill AEC only up to normal + hinted limit
-	ASSERT_TIMELY_EQ (5s, node.active.size (), node.active.limit () + node.active.limit (nano::election_behavior::hinted));
+	ASSERT_TIMELY_EQ (5s, node.active.size (), node.active.limit (nano::election_behavior::priority) + node.active.limit (nano::election_behavior::hinted));
 	// And it stays that way without increasing
-	ASSERT_ALWAYS (1s, node.active.size () == node.active.limit () + node.active.limit (nano::election_behavior::hinted));
+	ASSERT_ALWAYS (1s, node.active.size () == node.active.limit (nano::election_behavior::priority) + node.active.limit (nano::election_behavior::hinted));
 }
 
 /*
@@ -1583,7 +1583,7 @@ TEST (active_elections, allow_limited_overflow_adapt)
 	}
 
 	// Ensure number of active elections reaches AEC limit and there is no overfill
-	ASSERT_TIMELY_EQ (5s, node.active.size (), node.active.limit ());
+	ASSERT_TIMELY_EQ (5s, node.active.size (), node.active.limit (nano::election_behavior::priority));
 	// And it stays that way without increasing
-	ASSERT_ALWAYS (1s, node.active.size () == node.active.limit ());
+	ASSERT_ALWAYS (1s, node.active.size () == node.active.limit (nano::election_behavior::priority));
 }
