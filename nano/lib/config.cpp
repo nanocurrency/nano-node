@@ -291,41 +291,85 @@ std::string get_tls_toml_config_path (std::filesystem::path const & data_path)
 
 uint16_t nano::test_node_port ()
 {
-	auto test_env = nano::env::get ("NANO_TEST_NODE_PORT").value_or ("17075");
-	return boost::lexical_cast<uint16_t> (test_env);
+	static auto const test_env = [] () -> std::optional<uint16_t> {
+		if (auto value = nano::env::get<uint16_t> ("NANO_TEST_NODE_PORT"))
+		{
+			std::cerr << "Node port overridden by NANO_TEST_NODE_PORT environment variable: " << *value << std::endl;
+			return *value;
+		}
+		return std::nullopt;
+	}();
+	return test_env.value_or (17075);
 }
 
 uint16_t nano::test_rpc_port ()
 {
-	auto test_env = nano::env::get ("NANO_TEST_RPC_PORT").value_or ("17076");
-	return boost::lexical_cast<uint16_t> (test_env);
+	static auto const test_env = [] () -> std::optional<uint16_t> {
+		if (auto value = nano::env::get<uint16_t> ("NANO_TEST_RPC_PORT"))
+		{
+			std::cerr << "RPC port overridden by NANO_TEST_RPC_PORT environment variable: " << *value << std::endl;
+			return *value;
+		}
+		return std::nullopt;
+	}();
+	return test_env.value_or (17076);
 }
 
 uint16_t nano::test_ipc_port ()
 {
-	auto test_env = nano::env::get ("NANO_TEST_IPC_PORT").value_or ("17077");
-	return boost::lexical_cast<uint16_t> (test_env);
+	static auto const test_env = [] () -> std::optional<uint16_t> {
+		if (auto value = nano::env::get<uint16_t> ("NANO_TEST_IPC_PORT"))
+		{
+			std::cerr << "IPC port overridden by NANO_TEST_IPC_PORT environment variable: " << *value << std::endl;
+			return *value;
+		}
+		return std::nullopt;
+	}();
+	return test_env.value_or (17077);
 }
 
 uint16_t nano::test_websocket_port ()
 {
-	auto test_env = nano::env::get ("NANO_TEST_WEBSOCKET_PORT").value_or ("17078");
-	return boost::lexical_cast<uint16_t> (test_env);
-}
-
-std::array<uint8_t, 2> nano::test_magic_number ()
-{
-	auto test_env = nano::env::get ("NANO_TEST_MAGIC_NUMBER").value_or ("RX");
-	release_assert (test_env.size () == 2);
-	std::array<uint8_t, 2> ret{};
-	std::copy (test_env.begin (), test_env.end (), ret.data ());
-	return ret;
+	static auto const test_env = [] () -> std::optional<uint16_t> {
+		if (auto value = nano::env::get<uint16_t> ("NANO_TEST_WEBSOCKET_PORT"))
+		{
+			std::cerr << "Websocket port overridden by NANO_TEST_WEBSOCKET_PORT environment variable: " << *value << std::endl;
+			return *value;
+		}
+		return std::nullopt;
+	}();
+	return test_env.value_or (17078);
 }
 
 uint32_t nano::test_scan_wallet_reps_delay ()
 {
-	auto test_env = nano::env::get ("NANO_TEST_WALLET_SCAN_REPS_DELAY").value_or ("900000"); // 15 minutes default
-	return boost::lexical_cast<uint32_t> (test_env);
+	static auto const test_env = [] () -> std::optional<uint32_t> {
+		if (auto value = nano::env::get<uint32_t> ("NANO_TEST_WALLET_SCAN_REPS_DELAY"))
+		{
+			std::cerr << "Wallet scan interval overridden by NANO_TEST_WALLET_SCAN_REPS_DELAY environment variable: " << *value << std::endl;
+			return *value;
+		}
+		return std::nullopt;
+	}();
+	return test_env.value_or (900000); // 15 minutes default
+}
+
+std::array<uint8_t, 2> nano::test_magic_number ()
+{
+	static auto const test_env = [] () -> std::optional<std::string> {
+		if (auto value = nano::env::get<std::string> ("NANO_TEST_MAGIC_NUMBER"))
+		{
+			std::cerr << "Magic number overridden by NANO_TEST_MAGIC_NUMBER environment variable: " << *value << std::endl;
+			return *value;
+		}
+		return std::nullopt;
+	}();
+
+	auto value = test_env.value_or ("RX");
+	release_assert (value.size () == 2);
+	std::array<uint8_t, 2> ret{};
+	std::copy (value.begin (), value.end (), ret.data ());
+	return ret;
 }
 
 std::string_view nano::to_string (nano::networks network)
