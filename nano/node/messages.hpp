@@ -212,6 +212,7 @@ public: // Logging
  *   - Not used anymore (V25.1+), but still present and set to `not_a_block = 0x1` for backwards compatibility
  * - [0xf000 (high), 0x00f0 (low)] Count V2 (for V2 protocol)
  * - [0x0001] Confirm V2 flag
+ * - [0x0002] Reserved for V3+ versioning
  */
 class confirm_req final : public message
 {
@@ -250,19 +251,23 @@ public: // Logging
  *   - Not used anymore (V25.1+), but still present and set to `not_a_block = 0x1` for backwards compatibility
  * - [0xf000 (high), 0x00f0 (low)] Count V2 masks (for V2 protocol)
  * - [0x0001] Confirm V2 flag
- * - [0x0002] Rebroadcasted flag
+ * - [0x0002] Reserved for V3+ versioning
+ * - [0x0004] Rebroadcasted flag
  */
 class confirm_ack final : public message
 {
 public:
 	confirm_ack (bool & error, nano::stream &, nano::message_header const &, nano::vote_uniquer * = nullptr);
-	confirm_ack (nano::network_constants const & constants, std::shared_ptr<nano::vote> const &);
+	confirm_ack (nano::network_constants const & constants, std::shared_ptr<nano::vote> const &, bool rebroadcasted = false);
 
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
 
 	static std::size_t size (nano::message_header const &);
+
+	static uint8_t constexpr rebroadcasted_flag = 2; // 0x0004
+	bool is_rebroadcasted () const;
 
 private:
 	static uint8_t hash_count (nano::message_header const &);
