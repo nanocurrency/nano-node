@@ -657,3 +657,16 @@ nano::account nano::node_config::random_representative () const
 	auto result (preconfigured_representatives[index]);
 	return result;
 }
+
+std::optional<unsigned> nano::node_config::env_io_threads ()
+{
+	static auto const value = [] () {
+		auto value = nano::env::get<unsigned> ("NANO_IO_THREADS");
+		if (value)
+		{
+			std::cerr << "IO threads overridden by NANO_IO_THREADS environment variable: " << *value << std::endl;
+		}
+		return value;
+	}();
+	return value;
+}
