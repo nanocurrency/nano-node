@@ -26,6 +26,7 @@ unsigned nano::hardware_concurrency ()
 		}
 		return std::thread::hardware_concurrency ();
 	}();
+	release_assert (concurrency > 0, "configured hardware concurrency must be non zero");
 	return concurrency;
 }
 
