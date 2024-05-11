@@ -1125,3 +1125,31 @@ TEST (network, purge_dead_channel_remote)
 	};
 	ASSERT_TIMELY (5s, !channel_exists (node2, channel));
 }
+
+TEST (network, tcp_server_throttle)
+{
+	nano::test::system system;
+
+	auto config = system.default_config ();
+	config.message_processor.threads = 0; // Disable message processing
+	auto & node1 = *system.add_node (config);
+	// We need a second node to hijack one of the channels
+	auto & node2 = *system.add_node (config);
+
+	auto channel = node2.network.find_node_id (node1.node_id.pub);
+
+	// Up to (queue size + 1) messages should be received and deserialized, with the last one causing the channel to be throttled
+	nano::keepalive msg{ nano::dev::network_params.network };
+	for (int n = 0; n < config.message_processor.max_queue + 1; ++n)
+	{
+		channel->send (msg);
+	}
+	ASSERT_TIMELY_EQ (5s, node1.stats.count (nano::stat::type::tcp_server_message, nano::stat::detail::keepalive), config.message_processor.max_queue + 1);
+
+	// No messages should be processed
+	ASSERT_ALWAYS_EQ (1s, node1.stats.count (nano::stat::type::message, nano::stat::detail::keepalive), 0);
+
+	// Any additional messages should not be eagerly deserialized from the socket
+	channel->send (msg);
+	ASSERT_ALWAYS_EQ (1s, node1.stats.count (nano::stat::type::tcp_server_message, nano::stat::detail::keepalive), config.message_processor.max_queue + 1);
+}
