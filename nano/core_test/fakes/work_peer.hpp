@@ -23,19 +23,19 @@ using tcp = boost::asio::ip::tcp;
 
 namespace
 {
-enum class work_peer_type
+enum class fake_work_peer_type
 {
 	good,
 	malicious,
 	slow
 };
 
-class work_peer_connection : public std::enable_shared_from_this<work_peer_connection>
+class fake_work_peer_connection : public std::enable_shared_from_this<fake_work_peer_connection>
 {
 	std::string const generic_error = "Unable to parse JSON";
 
 public:
-	work_peer_connection (asio::io_context & ioc_a, work_peer_type const type_a, nano::work_version const version_a, nano::work_pool & pool_a, std::function<void (bool const)> on_generation_a, std::function<void ()> on_cancel_a) :
+	fake_work_peer_connection (asio::io_context & ioc_a, fake_work_peer_type const type_a, nano::work_version const version_a, nano::work_pool & pool_a, std::function<void (bool const)> on_generation_a, std::function<void ()> on_cancel_a) :
 		socket (ioc_a),
 		type (type_a),
 		version (version_a),
@@ -52,7 +52,7 @@ public:
 	tcp::socket socket;
 
 private:
-	work_peer_type type;
+	fake_work_peer_type type;
 	nano::work_version version;
 	nano::work_pool & work_pool;
 	beast::flat_buffer buffer{ 8192 };
@@ -138,7 +138,7 @@ private:
 
 	void handle_generate (nano::block_hash const & hash_a)
 	{
-		if (type == work_peer_type::good)
+		if (type == fake_work_peer_type::good)
 		{
 			auto hash = hash_a;
 			auto request_difficulty = work_pool.network_constants.work.threshold_base (version);
@@ -154,7 +154,7 @@ private:
 				ptree::write_json (ostream, message_l);
 				beast::ostream (this_l->response.body ()) << ostream.str ();
 				// Delay response by 500ms as a slow peer, immediate async call for a good peer
-				this_l->timer.expires_from_now (boost::posix_time::milliseconds (this_l->type == work_peer_type::slow ? 500 : 0));
+				this_l->timer.expires_from_now (boost::posix_time::milliseconds (this_l->type == fake_work_peer_type::slow ? 500 : 0));
 				this_l->timer.async_wait ([this_l, result] (boost::system::error_code const & ec) {
 					if (this_l->on_generation)
 					{
@@ -164,7 +164,7 @@ private:
 				});
 			});
 		}
-		else if (type == work_peer_type::malicious)
+		else if (type == fake_work_peer_type::malicious)
 		{
 			// Respond immediately with no work
 			on_generation (false);
@@ -197,7 +197,7 @@ class fake_work_peer : public std::enable_shared_from_this<fake_work_peer>
 {
 public:
 	fake_work_peer () = delete;
-	fake_work_peer (nano::work_pool & pool_a, asio::io_context & ioc_a, unsigned short port_a, work_peer_type const type_a, nano::work_version const version_a = nano::work_version::work_1) :
+	fake_work_peer (nano::work_pool & pool_a, asio::io_context & ioc_a, unsigned short port_a, fake_work_peer_type const type_a, nano::work_version const version_a = nano::work_version::work_1) :
 		pool (pool_a),
 		ioc (ioc_a),
 		acceptor (ioc_a, tcp::endpoint{ tcp::v4 (), port_a }),
@@ -221,7 +221,7 @@ private:
 	void listen ()
 	{
 		std::weak_ptr<fake_work_peer> this_w (shared_from_this ());
-		auto connection (std::make_shared<work_peer_connection> (
+		auto connection (std::make_shared<fake_work_peer_connection> (
 		ioc, type, version, pool,
 		[this_w] (bool const good_generation) {
 			if (auto this_l = this_w.lock ())
@@ -257,7 +257,7 @@ private:
 	nano::work_pool & pool;
 	asio::io_context & ioc;
 	tcp::acceptor acceptor;
-	work_peer_type const type;
+	fake_work_peer_type const type;
 	nano::work_version version;
 };
 }
