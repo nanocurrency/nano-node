@@ -117,11 +117,11 @@ TEST (request_aggregator, one_update)
 	ASSERT_TIMELY_EQ (3s, 0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_unknown));
 	ASSERT_TIMELY_EQ (3s, 2, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes));
 	size_t count = 0;
-	ASSERT_TIMELY_EQ (3s, 1, (count = node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes)));
+	ASSERT_TIMELY_EQ (3s, 2, (count = node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes)));
 	ASSERT_TIMELY_EQ (3s, 0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached_hashes));
 	ASSERT_TIMELY_EQ (3s, 0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached_votes));
 	ASSERT_TIMELY_EQ (3s, 0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote));
-	ASSERT_TIMELY_EQ (3s, 1, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (3s, 2, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 }
 
 TEST (request_aggregator, two)
