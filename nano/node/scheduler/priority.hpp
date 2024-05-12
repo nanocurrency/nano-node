@@ -24,6 +24,15 @@ class transaction;
 
 namespace nano::scheduler
 {
+class priority_config
+{
+public:
+	// TODO: Serialization & deserialization
+
+public:
+	bool enabled{ true };
+};
+
 class buckets;
 class priority final
 {
@@ -46,6 +55,7 @@ public:
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
 
 private: // Dependencies
+	priority_config const & config;
 	nano::node & node;
 	nano::stats & stats;
 
