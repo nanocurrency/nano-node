@@ -21,7 +21,7 @@ nano::network::network (nano::node & node, uint16_t port) :
 	config{ node.config.network },
 	node{ node },
 	id{ nano::network_constants::active_network },
-	syn_cookies{ node.network_params.network.max_peers_per_ip, node.logger },
+	syn_cookies{ node.config.network.max_peers_per_ip, node.logger },
 	resolver{ node.io_ctx },
 	publish_filter{ 256 * 1024 },
 	tcp_channels{ node },

@@ -631,48 +631,52 @@ TEST (tcp_listener, tcp_listener_timeout_node_id_handshake)
 #ifndef _WIN32
 TEST (network, peer_max_tcp_attempts)
 {
+	nano::test::system system;
+
 	// Add nodes that can accept TCP connection, but not node ID handshake
 	nano::node_flags node_flags;
 	node_flags.disable_connection_cleanup = true;
-	nano::test::system system;
-	auto node = system.add_node (node_flags);
-	for (auto i (0); i < node->network_params.network.max_peers_per_ip; ++i)
+	nano::node_config node_config = system.default_config ();
+	node_config.network.max_peers_per_ip = 3;
+	auto node = system.add_node (node_config, node_flags);
+
+	for (auto i (0); i < node_config.network.max_peers_per_ip; ++i)
 	{
 		auto node2 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work, node_flags));
 		node2->start ();
 		system.nodes.push_back (node2);
+
 		// Start TCP attempt
 		node->network.merge_peer (node2->network.endpoint ());
 	}
-	ASSERT_TIMELY_EQ (30s, node->network.size (), node->network_params.network.max_peers_per_ip);
+
+	ASSERT_TIMELY_EQ (15s, node->network.size (), node_config.network.max_peers_per_ip);
 	ASSERT_FALSE (node->network.tcp_channels.track_reachout (nano::endpoint (node->network.endpoint ().address (), system.get_available_port ())));
 	ASSERT_LE (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::max_per_ip, nano::stat::dir::out));
 }
 #endif
 
-namespace nano
+TEST (network, peer_max_tcp_attempts_subnetwork)
 {
-namespace transport
-{
-	TEST (network, peer_max_tcp_attempts_subnetwork)
+	nano::test::system system;
+
+	nano::node_flags node_flags;
+	node_flags.disable_max_peers_per_ip = true;
+	nano::node_config node_config = system.default_config ();
+	node_config.network.max_peers_per_subnetwork = 3;
+	auto node = system.add_node (node_config, node_flags);
+
+	for (auto i (0); i < node->config.network.max_peers_per_subnetwork; ++i)
 	{
-		nano::node_flags node_flags;
-		node_flags.disable_max_peers_per_ip = true;
-		nano::test::system system;
-		system.add_node (node_flags);
-		auto node (system.nodes[0]);
-		for (auto i (0); i < node->network_params.network.max_peers_per_subnetwork; ++i)
-		{
-			auto address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x7f000001 + i))); // 127.0.0.1 hex
-			nano::endpoint endpoint (address, system.get_available_port ());
-			ASSERT_TRUE (node->network.tcp_channels.track_reachout (endpoint));
-		}
-		ASSERT_EQ (0, node->network.size ());
-		ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp, nano::stat::detail::max_per_subnetwork, nano::stat::dir::out));
-		ASSERT_FALSE (node->network.tcp_channels.track_reachout (nano::endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"), system.get_available_port ())));
-		ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::max_per_subnetwork, nano::stat::dir::out));
+		auto address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x7f000001 + i))); // 127.0.0.1 hex
+		nano::endpoint endpoint (address, system.get_available_port ());
+		ASSERT_TRUE (node->network.tcp_channels.track_reachout (endpoint));
 	}
-}
+
+	ASSERT_EQ (0, node->network.size ());
+	ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp, nano::stat::detail::max_per_subnetwork, nano::stat::dir::out));
+	ASSERT_FALSE (node->network.tcp_channels.track_reachout (nano::endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"), system.get_available_port ())));
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::max_per_subnetwork, nano::stat::dir::out));
 }
 
 // Send two publish messages and asserts that the duplication is detected.

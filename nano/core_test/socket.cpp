@@ -128,32 +128,16 @@ TEST (socket, max_connections_per_ip)
 {
 	nano::test::system system;
 
-	auto node_flags = nano::inactive_node_flag_defaults ();
-	node_flags.read_only = false;
-	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
-	auto node = inactivenode.node;
+	nano::node_flags node_flags;
+	nano::node_config node_config = system.default_config ();
+	node_config.network.max_peers_per_ip = 3;
+	auto node = system.add_node (node_config, node_flags);
 	ASSERT_FALSE (node->flags.disable_max_peers_per_ip);
 
 	auto server_port = system.get_available_port ();
 
-	const auto max_ip_connections = node->network_params.network.max_peers_per_ip;
+	const auto max_ip_connections = node->config.network.max_peers_per_ip;
 	ASSERT_GE (max_ip_connections, 1);
-
-	const auto max_global_connections = 1000;
-
-	// successful incoming connections are stored in server_sockets to keep them alive (server side)
-	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
-
-	nano::transport::tcp_config tcp_config{ nano::dev::network_params.network };
-	tcp_config.max_inbound_connections = max_global_connections;
-
-	nano::transport::tcp_listener listener{ server_port, tcp_config, *node };
-	listener.connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
-		server_sockets.push_back (socket);
-	});
-	nano::test::start_stop_guard stop_guard{ listener };
-
-	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), listener.endpoint ().port () };
 
 	// client side connection tracking
 	std::atomic<size_t> connection_attempts = 0;
@@ -169,7 +153,7 @@ TEST (socket, max_connections_per_ip)
 	for (auto idx = 0; idx < max_ip_connections + 1; ++idx)
 	{
 		auto client = std::make_shared<nano::transport::socket> (*node);
-		client->async_connect (dst_endpoint, connect_handler);
+		client->async_connect (node->network.endpoint (), connect_handler);
 		client_list.push_back (client);
 	}
 
@@ -238,38 +222,19 @@ TEST (socket, max_connections_per_subnetwork)
 {
 	nano::test::system system;
 
-	auto node_flags = nano::inactive_node_flag_defaults ();
-	node_flags.read_only = false;
+	nano::node_flags node_flags;
 	// disabling IP limit because it will be used the same IP address to check they come from the same subnetwork.
 	node_flags.disable_max_peers_per_ip = true;
 	node_flags.disable_max_peers_per_subnetwork = false;
-	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
-	auto node = inactivenode.node;
+	nano::node_config node_config = system.default_config ();
+	node_config.network.max_peers_per_subnetwork = 3;
+	auto node = system.add_node (node_config, node_flags);
 
 	ASSERT_TRUE (node->flags.disable_max_peers_per_ip);
 	ASSERT_FALSE (node->flags.disable_max_peers_per_subnetwork);
 
-	auto server_port = system.get_available_port ();
-	boost::asio::ip::tcp::endpoint listen_endpoint{ boost::asio::ip::address_v6::any (), server_port };
-
-	const auto max_subnetwork_connections = node->network_params.network.max_peers_per_subnetwork;
+	const auto max_subnetwork_connections = node->config.network.max_peers_per_subnetwork;
 	ASSERT_GE (max_subnetwork_connections, 1);
-
-	const auto max_global_connections = 1000;
-
-	// successful incoming connections are stored in server_sockets to keep them alive (server side)
-	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
-
-	nano::transport::tcp_config tcp_config{ nano::dev::network_params.network };
-	tcp_config.max_inbound_connections = max_global_connections;
-
-	nano::transport::tcp_listener listener{ server_port, tcp_config, *node };
-	listener.connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
-		server_sockets.push_back (socket);
-	});
-	nano::test::start_stop_guard stop_guard{ listener };
-
-	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), listener.endpoint ().port () };
 
 	// client side connection tracking
 	std::atomic<size_t> connection_attempts = 0;
@@ -285,7 +250,7 @@ TEST (socket, max_connections_per_subnetwork)
 	for (auto idx = 0; idx < max_subnetwork_connections + 1; ++idx)
 	{
 		auto client = std::make_shared<nano::transport::socket> (*node);
-		client->async_connect (dst_endpoint, connect_handler);
+		client->async_connect (node->network.endpoint (), connect_handler);
 		client_list.push_back (client);
 	}
 
@@ -298,34 +263,18 @@ TEST (socket, disabled_max_peers_per_ip)
 {
 	nano::test::system system;
 
-	auto node_flags = nano::inactive_node_flag_defaults ();
-	node_flags.read_only = false;
+	nano::node_flags node_flags;
 	node_flags.disable_max_peers_per_ip = true;
-	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
-	auto node = inactivenode.node;
+	nano::node_config node_config = system.default_config ();
+	node_config.network.max_peers_per_ip = 3;
+	auto node = system.add_node (node_config, node_flags);
 
 	ASSERT_TRUE (node->flags.disable_max_peers_per_ip);
 
 	auto server_port = system.get_available_port ();
 
-	const auto max_ip_connections = node->network_params.network.max_peers_per_ip;
+	const auto max_ip_connections = node->config.network.max_peers_per_ip;
 	ASSERT_GE (max_ip_connections, 1);
-
-	const auto max_global_connections = 1000;
-
-	// successful incoming connections are stored in server_sockets to keep them alive (server side)
-	std::vector<std::shared_ptr<nano::transport::socket>> server_sockets;
-
-	nano::transport::tcp_config tcp_config{ nano::dev::network_params.network };
-	tcp_config.max_inbound_connections = max_global_connections;
-
-	nano::transport::tcp_listener listener = { server_port, tcp_config, *node };
-	listener.connection_accepted.add ([&server_sockets] (auto const & socket, auto const & server) {
-		server_sockets.push_back (socket);
-	});
-	nano::test::start_stop_guard stop_guard{ listener };
-
-	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), listener.endpoint ().port () };
 
 	// client side connection tracking
 	std::atomic<size_t> connection_attempts = 0;
@@ -341,7 +290,7 @@ TEST (socket, disabled_max_peers_per_ip)
 	for (auto idx = 0; idx < max_ip_connections + 1; ++idx)
 	{
 		auto client = std::make_shared<nano::transport::socket> (*node);
-		client->async_connect (dst_endpoint, connect_handler);
+		client->async_connect (node->network.endpoint (), connect_handler);
 		client_list.push_back (client);
 	}
 

@@ -347,10 +347,10 @@ bool nano::transport::tcp_channels::max_ip_connections (nano::tcp_endpoint const
 	bool result{ false };
 	auto const address (nano::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ()));
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	result = channels.get<ip_address_tag> ().count (address) >= node.network_params.network.max_peers_per_ip;
+	result = channels.get<ip_address_tag> ().count (address) >= node.config.network.max_peers_per_ip;
 	if (!result)
 	{
-		result = attempts.get<ip_address_tag> ().count (address) >= node.network_params.network.max_peers_per_ip;
+		result = attempts.get<ip_address_tag> ().count (address) >= node.config.network.max_peers_per_ip;
 	}
 	if (result)
 	{
@@ -368,10 +368,10 @@ bool nano::transport::tcp_channels::max_subnetwork_connections (nano::tcp_endpoi
 	bool result{ false };
 	auto const subnet (nano::transport::map_address_to_subnetwork (endpoint_a.address ()));
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	result = channels.get<subnetwork_tag> ().count (subnet) >= node.network_params.network.max_peers_per_subnetwork;
+	result = channels.get<subnetwork_tag> ().count (subnet) >= node.config.network.max_peers_per_subnetwork;
 	if (!result)
 	{
-		result = attempts.get<subnetwork_tag> ().count (subnet) >= node.network_params.network.max_peers_per_subnetwork;
+		result = attempts.get<subnetwork_tag> ().count (subnet) >= node.config.network.max_peers_per_subnetwork;
 	}
 	if (result)
 	{
