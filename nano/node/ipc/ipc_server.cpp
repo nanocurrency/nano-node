@@ -277,9 +277,18 @@ public:
 		auto body (std::string (reinterpret_cast<char *> (buffer.data ()), buffer.size ()));
 
 		// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
-		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, [&server = server] () {
-			server.stop ();
+		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, [server_w = server.weak_from_this ()] () {
 			// TODO: Previously this was stopping node.io_ctx, which was wrong. Investigate what's going on here. Why isn't it using stop_callback passed externally?
+			// This is running on the IO thread, so attempting to directly stop the server will cause it to try joining itself.
+			// This RPC/IPC system is really badly designed...
+			std::thread ([server_w] () {
+				std::this_thread::sleep_for (std::chrono::seconds (1));
+				if (auto server = server_w.lock ())
+				{
+					server->stop ();
+				}
+			})
+			.detach ();
 		}));
 		// For unsafe actions to be allowed, the unsafe encoding must be used AND the transport config must allow it
 		handler->process_request (allow_unsafe && config_transport.allow_unsafe);
@@ -600,6 +609,8 @@ nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config co
 nano::ipc::ipc_server::~ipc_server ()
 {
 	node.logger.debug (nano::log::type::ipc_server, "Server stopped");
+
+	stop ();
 }
 
 void nano::ipc::ipc_server::stop ()

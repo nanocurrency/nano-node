@@ -20,7 +20,7 @@ namespace ipc
 {
 	class access;
 	/** The IPC server accepts connections on one or more configured transports */
-	class ipc_server final
+	class ipc_server final : public std::enable_shared_from_this<ipc_server>
 	{
 	public:
 		ipc_server (nano::node & node, nano::node_rpc_config const & node_rpc_config);
