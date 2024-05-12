@@ -51,6 +51,16 @@ private:
 	std::size_t max_cookies_per_ip;
 };
 
+class network_config final
+{
+public:
+	// TODO: Serialization & deserialization
+
+public:
+	std::chrono::milliseconds peer_reachout{ 250ms };
+	std::chrono::milliseconds cached_peer_reachout{ 1s };
+};
+
 class network final
 {
 public:
@@ -112,6 +122,7 @@ private:
 	void run_reachout_cached ();
 
 private: // Dependencies
+	network_config const & config;
 	nano::node & node;
 
 public:

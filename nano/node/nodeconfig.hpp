@@ -14,6 +14,7 @@
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
 #include <nano/node/message_processor.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/request_aggregator.hpp>
@@ -148,6 +149,7 @@ public:
 	nano::transport::tcp_config tcp;
 	nano::request_aggregator_config request_aggregator;
 	nano::message_processor_config message_processor;
+	nano::network_config network;
 
 public:
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
