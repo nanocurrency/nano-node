@@ -133,10 +133,7 @@ TEST (confirmation_callback, confirmed_history)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (latest))
 				.build ();
-	{
-		auto transaction = node->ledger.tx_begin_write ();
-		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send));
-	}
+	ASSERT_EQ (nano::block_status::progress, node->ledger.process (node->ledger.tx_begin_write (), send));
 
 	auto send1 = builder
 				 .send ()
@@ -146,8 +143,8 @@ TEST (confirmation_callback, confirmed_history)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send->hash ()))
 				 .build ();
+	ASSERT_EQ (nano::block_status::progress, node->ledger.process (node->ledger.tx_begin_write (), send1));
 
-	node->process_active (send1);
 	std::shared_ptr<nano::election> election;
 	ASSERT_TIMELY (5s, election = nano::test::start_election (system, *node, send1->hash ()));
 	{
