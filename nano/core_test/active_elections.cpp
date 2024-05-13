@@ -346,11 +346,9 @@ TEST (inactive_votes_cache, existing_vote)
 				.sign (key.prv, key.pub)
 				.work (*system.work.generate (key.pub))
 				.build ();
-	node.process_active (send);
-	node.block_processor.add (open);
-	ASSERT_TIMELY_EQ (5s, node.active.size (), 1);
-	auto election (node.active.election (send->qualified_root ()));
-	ASSERT_NE (nullptr, election);
+	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send));
+	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), open));
+	auto election = nano::test::start_election (system, node, send->hash ());
 	ASSERT_GT (node.weight (key.pub), node.minimum_principal_weight ());
 	// Insert vote
 	auto vote1 = nano::test::make_vote (key, { send }, nano::vote::timestamp_min * 1, 0);
