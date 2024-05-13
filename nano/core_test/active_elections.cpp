@@ -425,9 +425,7 @@ TEST (inactive_votes_cache, multiple_votes)
 
 	ASSERT_TIMELY_EQ (5s, node.vote_cache.find (send1->hash ()).size (), 2);
 	ASSERT_EQ (1, node.vote_cache.size ());
-	node.scheduler.priority.activate (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
-	std::shared_ptr<nano::election> election;
-	ASSERT_TIMELY (5s, election = node.active.election (send1->qualified_root ()));
+	auto election = nano::test::start_election (system, node, send1->hash ());
 	ASSERT_TIMELY_EQ (5s, 3, election->votes ().size ()); // 2 votes and 1 default not_an_acount
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
@@ -1320,13 +1318,11 @@ TEST (active_elections, vacancy)
 		ASSERT_EQ (nano::block_status::progress, node.process (send));
 		ASSERT_EQ (1, node.active.vacancy (nano::election_behavior::priority));
 		ASSERT_EQ (0, node.active.size ());
-		node.scheduler.priority.activate (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
+		auto election1 = nano::test::start_election (system, node, send->hash ());
 		ASSERT_TIMELY (1s, updated);
 		updated = false;
 		ASSERT_EQ (0, node.active.vacancy (nano::election_behavior::priority));
 		ASSERT_EQ (1, node.active.size ());
-		auto election1 = node.active.election (send->qualified_root ());
-		ASSERT_NE (nullptr, election1);
 		election1->force_confirm ();
 		ASSERT_TIMELY (1s, updated);
 		ASSERT_EQ (1, node.active.vacancy (nano::election_behavior::priority));
