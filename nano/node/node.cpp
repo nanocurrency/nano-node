@@ -251,7 +251,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			auto const reps = wallets.reps ();
 			if (!reps.have_half_rep () && !reps.exists (vote->account))
 			{
-				network.flood_vote (vote, 0.5f);
+				network.flood_vote (vote, 0.5f, /* rebroadcasted */ true);
 			}
 		}
 	});
