@@ -31,7 +31,7 @@ namespace transport
 		friend class nano::transport::tcp_channels;
 
 	public:
-		channel_tcp (nano::node &, std::weak_ptr<nano::transport::socket>);
+		channel_tcp (nano::node &, std::weak_ptr<nano::transport::socket>, std::weak_ptr<nano::transport::tcp_server> server);
 		~channel_tcp () override;
 
 		void update_endpoints ();
@@ -90,8 +90,11 @@ namespace transport
 			}
 		}
 
+		bool resume_maybe () override;
+
 	public:
 		std::weak_ptr<nano::transport::socket> socket;
+		std::weak_ptr<nano::transport::tcp_server> server;
 
 	private:
 		nano::endpoint endpoint;

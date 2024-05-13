@@ -127,6 +127,16 @@ public:
 		network_version = network_version_a;
 	}
 
+	void pause ()
+	{
+		paused = true;
+	}
+
+	virtual bool resume_maybe ()
+	{
+		return paused.exchange (false);
+	}
+
 	nano::endpoint get_peering_endpoint () const;
 	void set_peering_endpoint (nano::endpoint endpoint);
 
@@ -139,6 +149,7 @@ private:
 	boost::optional<nano::account> node_id{ boost::none };
 	std::atomic<uint8_t> network_version{ 0 };
 	std::optional<nano::endpoint> peering_endpoint{};
+	std::atomic<bool> paused{ false };
 
 protected:
 	nano::node & node;

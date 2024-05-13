@@ -161,7 +161,7 @@ auto nano::transport::tcp_server::process_message (std::unique_ptr<nano::message
 		return process_result::abort;
 	}
 
-	node->stats.inc (nano::stat::type::tcp_server, to_stat_detail (message->type ()), nano::stat::dir::in);
+	node->stats.inc (nano::stat::type::tcp_server_message, to_stat_detail (message->type ()), nano::stat::dir::in);
 
 	debug_assert (is_undefined_connection () || is_realtime_connection () || is_bootstrap_connection ());
 
@@ -254,8 +254,7 @@ void nano::transport::tcp_server::queue_realtime (std::unique_ptr<nano::message>
 
 	channel->set_last_packet_received (std::chrono::steady_clock::now ());
 
-	bool added = node->message_processor.put (std::move (message), channel);
-	// TODO: Throttle if not added
+	node->message_processor.put (std::move (message), channel);
 }
 
 auto nano::transport::tcp_server::process_handshake (nano::node_id_handshake const & message) -> handshake_status

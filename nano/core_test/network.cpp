@@ -607,7 +607,7 @@ TEST (tcp_listener, tcp_listener_timeout_node_id_handshake)
 	ASSERT_TRUE (cookie);
 	nano::node_id_handshake::query_payload query{ *cookie };
 	nano::node_id_handshake node_id_handshake{ nano::dev::network_params.network, query };
-	auto channel = std::make_shared<nano::transport::channel_tcp> (*node0, socket);
+	auto channel = std::make_shared<nano::transport::channel_tcp> (*node0, socket, std::weak_ptr<nano::transport::tcp_server>{});
 	socket->async_connect (node0->tcp_listener.endpoint (), [&node_id_handshake, channel] (boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
 		channel->send (node_id_handshake, [] (boost::system::error_code const & ec, size_t size_a) {
@@ -1124,4 +1124,32 @@ TEST (network, purge_dead_channel_remote)
 		return std::find (channels.begin (), channels.end (), channel) != channels.end ();
 	};
 	ASSERT_TIMELY (5s, !channel_exists (node2, channel));
+}
+
+TEST (network, tcp_server_throttle)
+{
+	nano::test::system system;
+
+	auto config = system.default_config ();
+	config.message_processor.threads = 0; // Disable message processing
+	auto & node1 = *system.add_node (config);
+	// We need a second node to hijack one of the channels
+	auto & node2 = *system.add_node (config);
+
+	auto channel = node2.network.find_node_id (node1.node_id.pub);
+
+	// Up to (queue size + 1) messages should be received and deserialized, with the last one causing the channel to be throttled
+	nano::keepalive msg{ nano::dev::network_params.network };
+	for (int n = 0; n < config.message_processor.max_queue + 1; ++n)
+	{
+		channel->send (msg);
+	}
+	ASSERT_TIMELY_EQ (5s, node1.stats.count (nano::stat::type::tcp_server_message, nano::stat::detail::keepalive), config.message_processor.max_queue + 1);
+
+	// No messages should be processed
+	ASSERT_ALWAYS_EQ (1s, node1.stats.count (nano::stat::type::message, nano::stat::detail::keepalive), 0);
+
+	// Any additional messages should not be eagerly deserialized from the socket
+	channel->send (msg);
+	ASSERT_ALWAYS_EQ (1s, node1.stats.count (nano::stat::type::tcp_server_message, nano::stat::detail::keepalive), config.message_processor.max_queue + 1);
 }

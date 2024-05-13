@@ -158,6 +158,10 @@ enum class detail
 	frontier_req,
 	bulk_pull_account,
 
+	// message_processor
+	channel_pause,
+	channel_resume,
+
 	_last // Must be the last enum
 };
 

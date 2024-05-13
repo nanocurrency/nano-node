@@ -134,6 +134,7 @@ private: // Visitors
 		std::shared_ptr<tcp_server> server;
 	};
 
+	friend class channel_tcp;
 	friend class handshake_message_visitor;
 };
 }

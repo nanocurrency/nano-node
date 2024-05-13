@@ -22,6 +22,7 @@ enum class type
 	bootstrap,
 	network,
 	tcp_server,
+	tcp_server_message,
 	vote,
 	vote_processor,
 	vote_processor_tier,
