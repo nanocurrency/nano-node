@@ -130,7 +130,7 @@ nano::vote_cache::vote_cache (vote_cache_config const & config_a, nano::stats & 
 
 void nano::vote_cache::observe (const std::shared_ptr<nano::vote> & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> results)
 {
-	if (source == nano::vote_source::live)
+	if (source != nano::vote_source::cache)
 	{
 		insert (vote, [&results] (nano::block_hash const & hash) {
 			// This filters which hashes should be included in the vote cache

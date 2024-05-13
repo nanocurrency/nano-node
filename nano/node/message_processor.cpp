@@ -209,7 +209,7 @@ public:
 	{
 		if (!message.vote->account.is_zero ())
 		{
-			node.vote_processor.vote (message.vote, channel);
+			node.vote_processor.vote (message.vote, channel, message.is_rebroadcasted () ? nano::vote_source::rebroadcast : nano::vote_source::live);
 		}
 	}
 
