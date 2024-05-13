@@ -1006,12 +1006,7 @@ TEST (active_elections, confirmation_consistency)
 	{
 		auto block (system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::public_key (), node.config.receive_minimum.number ()));
 		ASSERT_NE (nullptr, block);
-		system.deadline_set (5s);
-		while (!node.ledger.confirmed.block_exists_or_pruned (node.ledger.tx_begin_read (), block->hash ()))
-		{
-			node.scheduler.priority.activate (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
-			ASSERT_NO_ERROR (system.poll (5ms));
-		}
+		ASSERT_TIMELY (5s, node.block_confirmed (block->hash ()));
 		ASSERT_NO_ERROR (system.poll_until_true (1s, [&node, &block, i] {
 			nano::lock_guard<nano::mutex> guard (node.active.mutex);
 			EXPECT_EQ (i + 1, node.active.recently_confirmed.size ());
