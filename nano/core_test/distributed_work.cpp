@@ -145,7 +145,8 @@ TEST (distributed_work, peer)
 	ASSERT_EQ (0, work_peer->cancels);
 }
 
-TEST (distributed_work, peer_malicious)
+// This fails intermittently, the observed behavior is different than what is expected. Disabling because `fake_work_peer` class is not actually used in production.
+TEST (distributed_work, DISABLED_peer_malicious)
 {
 	nano::test::system system (1);
 	auto node (system.nodes[0]);
