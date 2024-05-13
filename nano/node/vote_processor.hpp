@@ -50,7 +50,7 @@ public:
 	size_t max_pr_queue{ 256 };
 	size_t max_non_pr_queue{ 32 };
 	size_t pr_priority{ 3 };
-	size_t threads{ min_max (1u, 4u, nano::hardware_concurrency () / 2) };
+	size_t threads{ std::clamp (nano::hardware_concurrency () / 2, 1u, 4u) };
 	size_t batch_size{ 1024 };
 };
 

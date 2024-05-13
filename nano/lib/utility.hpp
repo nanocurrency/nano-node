@@ -286,13 +286,3 @@ std::string to_str (T const & val)
 	return boost::lexical_cast<std::string> (val);
 }
 }
-
-namespace nano
-{
-template <typename T>
-T min_max (T min, T max, T value)
-{
-	debug_assert (min <= max);
-	return std::min (max, std::max (min, value));
-}
-}
