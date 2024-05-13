@@ -461,7 +461,7 @@ nano::log_config nano::load_log_config (nano::log_config fallback, const std::fi
 		auto config = nano::load_config_file<nano::log_config> (fallback, config_filename, data_path, config_overrides);
 
 		// Parse default log level from environment variable, e.g. "NANO_LOG=debug"
-		auto env_level = nano::get_env ("NANO_LOG");
+		auto env_level = nano::env::get ("NANO_LOG");
 		if (env_level)
 		{
 			try
@@ -478,8 +478,7 @@ nano::log_config nano::load_log_config (nano::log_config fallback, const std::fi
 		}
 
 		// Parse per logger levels from environment variable, e.g. "NANO_LOG_LEVELS=ledger=debug,node=trace"
-		auto env_levels = nano::get_env ("NANO_LOG_LEVELS");
-		if (env_levels)
+		if (auto env_levels = nano::env::get ("NANO_LOG_LEVELS"))
 		{
 			std::map<nano::log::logger_id, nano::log::level> levels;
 			for (auto const & env_level_str : nano::util::split (*env_levels, ","))
@@ -516,8 +515,7 @@ nano::log_config nano::load_log_config (nano::log_config fallback, const std::fi
 			}
 		}
 
-		auto env_tracing_format = nano::get_env ("NANO_TRACE_FORMAT");
-		if (env_tracing_format)
+		if (auto env_tracing_format = nano::env::get ("NANO_TRACE_FORMAT"))
 		{
 			try
 			{

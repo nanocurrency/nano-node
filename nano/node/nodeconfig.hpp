@@ -82,7 +82,7 @@ public:
 	 */
 	nano::amount representative_vote_weight_minimum{ 10 * nano::Mxrb_ratio };
 	unsigned password_fanout{ 1024 };
-	unsigned io_threads{ std::max (4u, nano::hardware_concurrency ()) };
+	unsigned io_threads{ env_io_threads ().value_or (std::max (4u, nano::hardware_concurrency ())) };
 	unsigned network_threads{ std::max (4u, nano::hardware_concurrency ()) };
 	unsigned work_threads{ std::max (4u, nano::hardware_concurrency ()) };
 	unsigned background_threads{ std::max (4u, nano::hardware_concurrency ()) };
@@ -154,6 +154,9 @@ public:
 	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);
 	/** Entry is ignored if it cannot be parsed as a valid address:port */
 	void deserialize_address (std::string const &, std::vector<std::pair<std::string, uint16_t>> &) const;
+
+private:
+	static std::optional<unsigned> env_io_threads ();
 };
 
 class node_flags final

@@ -6,6 +6,7 @@
 
 namespace nano
 {
+std::filesystem::path app_path ();
 // OS-specific way of finding a path to a home directory.
 std::filesystem::path working_path (nano::networks network = nano::network_constants::active_network);
 // Get a unique path within the home directory, used for testing.

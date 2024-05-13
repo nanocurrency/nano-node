@@ -9,15 +9,22 @@
 
 static std::vector<std::filesystem::path> all_unique_paths;
 
+std::filesystem::path nano::app_path ()
+{
+	static auto const path = [] () {
+		if (auto value = nano::env::get ("NANO_APP_PATH"))
+		{
+			std::cerr << "Application path overridden by NANO_APP_PATH environment variable: " << *value << std::endl;
+			return std::filesystem::path{ *value };
+		}
+		return nano::app_path_impl ();
+	}();
+	return path;
+}
+
 std::filesystem::path nano::working_path (nano::networks network)
 {
-	auto result (nano::app_path ());
-
-	if (auto path_override = nano::get_env ("NANO_APP_PATH"))
-	{
-		result = *path_override;
-		std::cerr << "Application path overridden by NANO_APP_PATH environment variable: " << result << std::endl;
-	}
+	auto result = nano::app_path ();
 
 	switch (network)
 	{

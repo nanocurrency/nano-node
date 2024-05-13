@@ -199,6 +199,8 @@ private:
 	/** Unlocked implementation of log_samples() to avoid using recursive locking */
 	void log_samples_impl (stat_log_sink & sink, tm & tm);
 
+	static bool is_stat_logging_enabled ();
+
 private:
 	nano::stats_config const config;
 	nano::logger & logger;

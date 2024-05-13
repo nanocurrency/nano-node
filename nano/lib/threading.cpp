@@ -1,4 +1,5 @@
 #include <nano/lib/config.hpp>
+#include <nano/lib/env.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/threading.hpp>
 
@@ -15,16 +16,18 @@ boost::thread::attributes nano::thread_attributes::get_default ()
 	return attrs;
 }
 
-unsigned int nano::hardware_concurrency ()
+unsigned nano::hardware_concurrency ()
 {
-	// Try to read overridden value from environment variable
-	static int value = nano::get_env_int_or_default ("NANO_HARDWARE_CONCURRENCY", 0);
-	if (value <= 0)
-	{
-		// Not present or invalid, use default
+	static auto const concurrency = [] () {
+		if (auto value = nano::env::get<unsigned> ("NANO_HARDWARE_CONCURRENCY"))
+		{
+			std::cerr << "Hardware concurrency overridden by NANO_HARDWARE_CONCURRENCY environment variable: " << *value << std::endl;
+			return *value;
+		}
 		return std::thread::hardware_concurrency ();
-	}
-	return value;
+	}();
+	release_assert (concurrency > 0, "configured hardware concurrency must be non zero");
+	return concurrency;
 }
 
 bool nano::join_or_pass (std::thread & thread)

@@ -29,7 +29,7 @@ public:
 	nano::error serialize (nano::tomlconfig &) const;
 
 public:
-	size_t threads{ std::min (nano::hardware_concurrency (), 4u) };
+	size_t threads{ std::clamp (nano::hardware_concurrency () / 2, 1u, 4u) };
 	size_t max_queue{ 128 };
 	size_t batch_size{ 16 };
 };

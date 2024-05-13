@@ -16,10 +16,19 @@ template <typename ElemT>
 struct HexTo
 {
 	ElemT value;
+
+	HexTo () = default;
+
+	HexTo (ElemT val) :
+		value{ val }
+	{
+	}
+
 	operator ElemT () const
 	{
 		return value;
 	}
+
 	friend std::istream & operator>> (std::istream & in, HexTo & out)
 	{
 		in >> std::hex >> out.value;
@@ -47,9 +56,9 @@ nano::work_thresholds const nano::work_thresholds::publish_dev (
 );
 
 nano::work_thresholds const nano::work_thresholds::publish_test ( // defaults to live network levels
-get_env_threshold_or_default ("NANO_TEST_EPOCH_1", 0xffffffc000000000),
-get_env_threshold_or_default ("NANO_TEST_EPOCH_2", 0xfffffff800000000), // 8x higher than epoch_1
-get_env_threshold_or_default ("NANO_TEST_EPOCH_2_RECV", 0xfffffe0000000000) // 8x lower than epoch_1
+nano::env::get<HexTo<uint64_t>> ("NANO_TEST_EPOCH_1").value_or (0xffffffc000000000),
+nano::env::get<HexTo<uint64_t>> ("NANO_TEST_EPOCH_2").value_or (0xfffffff800000000), // 8x higher than epoch_1
+nano::env::get<HexTo<uint64_t>> ("NANO_TEST_EPOCH_2_RECV").value_or (0xfffffe0000000000) // 8x lower than epoch_1
 );
 
 uint64_t nano::work_thresholds::threshold_entry (nano::work_version const version_a, nano::block_type const type_a) const
@@ -232,41 +241,6 @@ uint8_t get_pre_release_node_version ()
 	return boost::numeric_cast<uint8_t> (boost::lexical_cast<int> (NANO_PRE_RELEASE_VERSION_STRING));
 }
 
-uint64_t get_env_threshold_or_default (char const * variable_name, uint64_t const default_value)
-{
-	auto * value = getenv (variable_name);
-	return value ? boost::lexical_cast<HexTo<uint64_t>> (value) : default_value;
-}
-
-uint16_t test_node_port ()
-{
-	auto test_env = nano::get_env_or_default ("NANO_TEST_NODE_PORT", "17075");
-	return boost::lexical_cast<uint16_t> (test_env);
-}
-uint16_t test_rpc_port ()
-{
-	auto test_env = nano::get_env_or_default ("NANO_TEST_RPC_PORT", "17076");
-	return boost::lexical_cast<uint16_t> (test_env);
-}
-uint16_t test_ipc_port ()
-{
-	auto test_env = nano::get_env_or_default ("NANO_TEST_IPC_PORT", "17077");
-	return boost::lexical_cast<uint16_t> (test_env);
-}
-uint16_t test_websocket_port ()
-{
-	auto test_env = nano::get_env_or_default ("NANO_TEST_WEBSOCKET_PORT", "17078");
-	return boost::lexical_cast<uint16_t> (test_env);
-}
-
-std::array<uint8_t, 2> test_magic_number ()
-{
-	auto test_env = get_env_or_default ("NANO_TEST_MAGIC_NUMBER", "RX");
-	std::array<uint8_t, 2> ret;
-	std::copy (test_env.begin (), test_env.end (), ret.data ());
-	return ret;
-}
-
 void force_nano_dev_network ()
 {
 	nano::network_constants::set_active_network (nano::networks::nano_dev_network);
@@ -285,11 +259,6 @@ bool memory_intensive_instrumentation ()
 bool slow_instrumentation ()
 {
 	return is_tsan_build () || nano::running_within_valgrind ();
-}
-
-bool is_sanitizer_build ()
-{
-	return is_asan_build () || is_tsan_build ();
 }
 
 std::string get_node_toml_config_path (std::filesystem::path const & data_path)
@@ -316,37 +285,89 @@ std::string get_tls_toml_config_path (std::filesystem::path const & data_path)
 {
 	return (data_path / "config-tls.toml").string ();
 }
-} // namespace nano
-
-std::string nano::get_env_or_default (char const * variable_name, std::string default_value)
-{
-	auto value = nano::get_env (variable_name);
-	return value ? *value : default_value;
 }
 
-int nano::get_env_int_or_default (const char * variable_name, const int default_value)
+uint16_t nano::test_node_port ()
 {
-	auto value = nano::get_env (variable_name);
-	if (value)
-	{
-		try
+	static auto const test_env = [] () -> std::optional<uint16_t> {
+		if (auto value = nano::env::get<uint16_t> ("NANO_TEST_NODE_PORT"))
 		{
-			return boost::lexical_cast<int> (*value);
+			std::cerr << "Node port overridden by NANO_TEST_NODE_PORT environment variable: " << *value << std::endl;
+			return *value;
 		}
-		catch (...)
+		return std::nullopt;
+	}();
+	return test_env.value_or (17075);
+}
+
+uint16_t nano::test_rpc_port ()
+{
+	static auto const test_env = [] () -> std::optional<uint16_t> {
+		if (auto value = nano::env::get<uint16_t> ("NANO_TEST_RPC_PORT"))
 		{
-			// It is unexpected that this exception will be caught, log to cerr the reason.
-			std::cerr << boost::str (boost::format ("Error parsing environment variable: %1% value: %2%") % variable_name % *value);
-			throw;
+			std::cerr << "RPC port overridden by NANO_TEST_RPC_PORT environment variable: " << *value << std::endl;
+			return *value;
 		}
-	}
-	return default_value;
+		return std::nullopt;
+	}();
+	return test_env.value_or (17076);
+}
+
+uint16_t nano::test_ipc_port ()
+{
+	static auto const test_env = [] () -> std::optional<uint16_t> {
+		if (auto value = nano::env::get<uint16_t> ("NANO_TEST_IPC_PORT"))
+		{
+			std::cerr << "IPC port overridden by NANO_TEST_IPC_PORT environment variable: " << *value << std::endl;
+			return *value;
+		}
+		return std::nullopt;
+	}();
+	return test_env.value_or (17077);
+}
+
+uint16_t nano::test_websocket_port ()
+{
+	static auto const test_env = [] () -> std::optional<uint16_t> {
+		if (auto value = nano::env::get<uint16_t> ("NANO_TEST_WEBSOCKET_PORT"))
+		{
+			std::cerr << "Websocket port overridden by NANO_TEST_WEBSOCKET_PORT environment variable: " << *value << std::endl;
+			return *value;
+		}
+		return std::nullopt;
+	}();
+	return test_env.value_or (17078);
 }
 
 uint32_t nano::test_scan_wallet_reps_delay ()
 {
-	auto test_env = nano::get_env_or_default ("NANO_TEST_WALLET_SCAN_REPS_DELAY", "900000"); // 15 minutes by default
-	return boost::lexical_cast<uint32_t> (test_env);
+	static auto const test_env = [] () -> std::optional<uint32_t> {
+		if (auto value = nano::env::get<uint32_t> ("NANO_TEST_WALLET_SCAN_REPS_DELAY"))
+		{
+			std::cerr << "Wallet scan interval overridden by NANO_TEST_WALLET_SCAN_REPS_DELAY environment variable: " << *value << std::endl;
+			return *value;
+		}
+		return std::nullopt;
+	}();
+	return test_env.value_or (900000); // 15 minutes default
+}
+
+std::array<uint8_t, 2> nano::test_magic_number ()
+{
+	static auto const test_env = [] () -> std::optional<std::string> {
+		if (auto value = nano::env::get<std::string> ("NANO_TEST_MAGIC_NUMBER"))
+		{
+			std::cerr << "Magic number overridden by NANO_TEST_MAGIC_NUMBER environment variable: " << *value << std::endl;
+			return *value;
+		}
+		return std::nullopt;
+	}();
+
+	auto value = test_env.value_or ("RX");
+	release_assert (value.size () == 2);
+	std::array<uint8_t, 2> ret{};
+	std::copy (value.begin (), value.end (), ret.data ());
+	return ret;
 }
 
 std::string_view nano::to_string (nano::networks network)

@@ -6,7 +6,7 @@
 
 namespace nano
 {
-std::filesystem::path app_path ()
+std::filesystem::path app_path_impl ()
 {
 	auto entry (getpwuid (getuid ()));
 	debug_assert (entry != nullptr);
