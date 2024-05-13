@@ -1,7 +1,6 @@
 #pragma once
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/node/election_behavior.hpp>
 
 #include <boost/optional.hpp>
 
@@ -12,6 +11,7 @@
 namespace nano
 {
 class block;
+enum class election_behavior;
 class node;
 }
 
@@ -39,7 +39,7 @@ public:
 
 	// Manualy start an election for a block
 	// Call action with confirmed block, may be different than what we started with
-	void push (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, nano::election_behavior = nano::election_behavior::normal);
+	void push (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none);
 
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
 }; // class manual
