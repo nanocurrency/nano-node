@@ -12,9 +12,10 @@
 
 namespace nano
 {
+class active_elections;
 class block;
 class container_info_component;
-class node;
+class ledger;
 class stats;
 }
 namespace nano::secure
@@ -38,7 +39,7 @@ class buckets;
 class priority final
 {
 public:
-	priority (nano::node &, nano::stats &);
+	priority (priority_config const & config, nano::ledger & ledger, nano::active_elections & active, nano::stats & stats, nano::logger & logger);
 	~priority ();
 
 	void start ();
@@ -57,8 +58,10 @@ public:
 
 private: // Dependencies
 	priority_config const & config;
-	nano::node & node;
+	nano::ledger & ledger;
+	nano::active_elections & active;
 	nano::stats & stats;
+	nano::logger & logger;
 
 private:
 	void run ();
