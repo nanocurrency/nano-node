@@ -50,7 +50,7 @@ public:
 	void pop ();
 	std::size_t size () const;
 	std::size_t bucket_count () const;
-	std::size_t bucket_size (std::size_t index) const;
+	std::size_t bucket_size (nano::amount const & amount) const;
 	bool empty () const;
 	void dump () const;
 	std::size_t index (nano::uint128_t const & balance) const;

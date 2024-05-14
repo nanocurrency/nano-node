@@ -117,9 +117,9 @@ std::size_t nano::scheduler::buckets::bucket_count () const
 }
 
 /** Returns number of items in bucket with index 'index' */
-std::size_t nano::scheduler::buckets::bucket_size (std::size_t index) const
+std::size_t nano::scheduler::buckets::bucket_size (nano::amount const & amount) const
 {
-	return buckets_m[index]->size ();
+	return buckets_m[index (amount.number ())]->size ();
 }
 
 /** Returns true if all buckets are empty */
