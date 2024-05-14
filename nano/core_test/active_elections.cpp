@@ -437,6 +437,7 @@ TEST (inactive_votes_cache, election_start)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.priority_scheduler.enabled = false;
 	node_config.optimistic_scheduler.enabled = false;
 	auto & node = *system.add_node (node_config);
 	nano::block_hash latest (node.latest (nano::dev::genesis_key.pub));

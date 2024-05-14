@@ -9,6 +9,7 @@
 #include <nano/secure/ledger_set_confirmed.hpp>
 
 nano::scheduler::priority::priority (nano::node & node_a, nano::stats & stats_a) :
+	config{ node_a.config.priority_scheduler },
 	node{ node_a },
 	stats{ stats_a },
 	buckets{ std::make_unique<scheduler::buckets> () }
@@ -24,6 +25,11 @@ nano::scheduler::priority::~priority ()
 void nano::scheduler::priority::start ()
 {
 	debug_assert (!thread.joinable ());
+
+	if (!config.enabled)
+	{
+		return;
+	}
 
 	thread = std::thread{ [this] () {
 		nano::thread_role::set (nano::thread_role::name::scheduler_priority);

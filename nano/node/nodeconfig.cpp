@@ -38,7 +38,8 @@ nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, 
 	active_elections{ network_params.network },
 	block_processor{ network_params.network },
 	peer_history{ network_params.network },
-	tcp{ network_params.network }
+	tcp{ network_params.network },
+	network{ network_params.network }
 {
 	if (peering_port == 0)
 	{

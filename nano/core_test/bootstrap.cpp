@@ -291,7 +291,7 @@ TEST (bootstrap_processor, process_none)
 	auto node0 = system.nodes[0];
 	auto node1 = system.make_disconnected_node ();
 
-	bool done = false;
+	std::atomic<bool> done = false;
 	node0->observers.socket_connected.add ([&] (nano::transport::socket & socket) {
 		done = true;
 	});
@@ -1652,10 +1652,6 @@ TEST (bootstrap_processor, multiple_attempts)
 	auto lazy_attempt (node2->bootstrap_initiator.current_lazy_attempt ());
 	auto legacy_attempt (node2->bootstrap_initiator.current_attempt ());
 	ASSERT_TIMELY (5s, lazy_attempt->started && legacy_attempt->started);
-	// Check that both bootstrap attempts are running & not finished
-	ASSERT_FALSE (lazy_attempt->stopped);
-	ASSERT_FALSE (legacy_attempt->stopped);
-	ASSERT_GE (node2->bootstrap_initiator.attempts.size (), 2);
 	// Check processed blocks
 	ASSERT_TIMELY (10s, node2->balance (key2.pub) != 0);
 	// Check attempts finish

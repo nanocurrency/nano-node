@@ -12,7 +12,7 @@
 
 #include <boost/property_tree/json_parser.hpp>
 
-nano::test::rpc_context::rpc_context (std::shared_ptr<nano::rpc> & rpc_a, std::unique_ptr<nano::ipc::ipc_server> & ipc_server_a, std::unique_ptr<nano::ipc_rpc_processor> & ipc_rpc_processor_a, std::unique_ptr<nano::node_rpc_config> & node_rpc_config_a)
+nano::test::rpc_context::rpc_context (std::shared_ptr<nano::rpc> & rpc_a, std::shared_ptr<nano::ipc::ipc_server> & ipc_server_a, std::unique_ptr<nano::ipc_rpc_processor> & ipc_rpc_processor_a, std::unique_ptr<nano::node_rpc_config> & node_rpc_config_a)
 {
 	rpc = std::move (rpc_a);
 	ipc_server = std::move (ipc_server_a);
@@ -45,7 +45,7 @@ bool nano::test::check_block_response_count (nano::test::system & system, rpc_co
 nano::test::rpc_context nano::test::add_rpc (nano::test::system & system, std::shared_ptr<nano::node> const & node_a)
 {
 	auto node_rpc_config (std::make_unique<nano::node_rpc_config> ());
-	auto ipc_server (std::make_unique<nano::ipc::ipc_server> (*node_a, *node_rpc_config));
+	auto ipc_server (std::make_shared<nano::ipc::ipc_server> (*node_a, *node_rpc_config));
 	nano::rpc_config rpc_config (node_a->network_params.network, system.get_available_port (), true);
 	const auto ipc_tcp_port = ipc_server->listening_tcp_port ();
 	debug_assert (ipc_tcp_port.has_value ());

@@ -73,9 +73,10 @@ void nano::bootstrap_ascending::service::start ()
 
 void nano::bootstrap_ascending::service::stop ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	stopped = true;
-	lock.unlock ();
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		stopped = true;
+	}
 	condition.notify_all ();
 	nano::join_or_pass (thread);
 	nano::join_or_pass (timeout_thread);

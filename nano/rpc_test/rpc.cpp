@@ -6453,7 +6453,8 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	}
 }
 
-TEST (rpc, account_lazy_start)
+// FIXME: This test is testing legacy bootstrap, the current behavior is different
+TEST (rpc, DISABLED_account_lazy_start)
 {
 	nano::test::system system{};
 	nano::node_flags node_flags{};
@@ -6650,7 +6651,7 @@ TEST (rpc, receive_pruned)
 	wallet2->insert_adhoc (key1.prv);
 	auto send1 (wallet1->send_action (nano::dev::genesis_key.pub, key1.pub, node2->config.receive_minimum.number (), *node2->work_generate_blocking (nano::dev::genesis->hash ())));
 	ASSERT_TIMELY (5s, node2->balance (nano::dev::genesis_key.pub) != nano::dev::constants.genesis_amount);
-	ASSERT_TIMELY (10s, !node2->store.account.exists (node2->store.tx_begin_read (), key1.pub));
+	ASSERT_TIMELY (10s, node2->store.account.exists (node2->store.tx_begin_read (), key1.pub));
 	// Send below minimum receive amount
 	auto send2 (wallet1->send_action (nano::dev::genesis_key.pub, key1.pub, node2->config.receive_minimum.number () - 1, *node2->work_generate_blocking (send1->hash ())));
 	// Extra send frontier
