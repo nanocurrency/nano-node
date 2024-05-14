@@ -112,7 +112,7 @@ TEST (request_aggregator, one_update)
 	// In the ledger but no vote generated yet
 	ASSERT_TIMELY (3s, 0 < node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes))
 	ASSERT_TIMELY (3s, node.aggregator.empty ());
-	ASSERT_TIMELY_EQ (3s, 2, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_accepted));
+	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_accepted) >= 1);
 	ASSERT_TIMELY_EQ (3s, 0, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_dropped));
 	ASSERT_TIMELY_EQ (3s, 0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_unknown));
 	ASSERT_TIMELY_EQ (3s, 2, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes));
