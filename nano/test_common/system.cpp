@@ -125,7 +125,9 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 	// Connect with other nodes
 	if (nodes.size () > 1)
 	{
-		debug_assert (nodes.size () - 1 <= node->network_params.network.max_peers_per_ip || node->flags.disable_max_peers_per_ip); // Check that we don't start more nodes than limit for single IP address
+		// Check that we don't start more nodes than limit for single IP address
+		debug_assert (nodes.size () - 1 <= node->config.network.max_peers_per_ip || node->flags.disable_max_peers_per_ip);
+
 		auto begin = nodes.end () - 2;
 		for (auto i (begin), j (begin + 1), n (nodes.end ()); j != n; ++i, ++j)
 		{

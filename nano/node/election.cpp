@@ -142,7 +142,8 @@ std::chrono::milliseconds nano::election::confirm_req_time () const
 {
 	switch (behavior ())
 	{
-		case election_behavior::normal:
+		case election_behavior::manual:
+		case election_behavior::priority:
 		case election_behavior::hinted:
 			return base_latency () * 5;
 		case election_behavior::optimistic:
@@ -295,7 +296,8 @@ std::chrono::milliseconds nano::election::time_to_live () const
 {
 	switch (behavior ())
 	{
-		case election_behavior::normal:
+		case election_behavior::manual:
+		case election_behavior::priority:
 			return std::chrono::milliseconds (5 * 60 * 1000);
 		case election_behavior::hinted:
 		case election_behavior::optimistic:

@@ -18,7 +18,7 @@ TEST (election, construction)
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
 	auto election = std::make_shared<nano::election> (
-	node, nano::dev::genesis, [] (auto const &) {}, [] (auto const &) {}, nano::election_behavior::normal);
+	node, nano::dev::genesis, [] (auto const &) {}, [] (auto const &) {}, nano::election_behavior::priority);
 }
 
 TEST (election, behavior)
@@ -27,7 +27,7 @@ TEST (election, behavior)
 	auto chain = nano::test::setup_chain (system, *system.nodes[0], 1, nano::dev::genesis_key, false);
 	auto election = nano::test::start_election (system, *system.nodes[0], chain[0]->hash ());
 	ASSERT_NE (nullptr, election);
-	ASSERT_EQ (nano::election_behavior::normal, election->behavior ());
+	ASSERT_EQ (nano::election_behavior::manual, election->behavior ());
 }
 
 TEST (election, quorum_minimum_flip_success)
@@ -152,9 +152,7 @@ TEST (election, quorum_minimum_confirm_success)
 				 .build ();
 	node1.work_generate_blocking (*send1);
 	node1.process_active (send1);
-	node1.scheduler.priority.activate (node1.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
-	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
-	auto election = node1.active.election (send1->qualified_root ());
+	auto election = nano::test::start_election (system, node1, send1->hash ());
 	ASSERT_NE (nullptr, election);
 	ASSERT_EQ (1, election->blocks ().size ());
 	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { send1->hash () });

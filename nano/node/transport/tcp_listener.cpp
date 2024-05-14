@@ -433,7 +433,7 @@ auto nano::transport::tcp_listener::check_limits (asio::ip::address const & ip, 
 
 	if (!node.flags.disable_max_peers_per_ip)
 	{
-		if (auto count = count_per_ip (ip); count >= node.network_params.network.max_peers_per_ip)
+		if (auto count = count_per_ip (ip); count >= node.config.network.max_peers_per_ip)
 		{
 			stats.inc (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_per_ip, to_stat_dir (type));
 			logger.debug (nano::log::type::tcp_listener, "Max connections per IP reached ({}), unable to open new connection: {}",
@@ -446,7 +446,7 @@ auto nano::transport::tcp_listener::check_limits (asio::ip::address const & ip, 
 	// If the address is IPv4 we don't check for a network limit, since its address space isn't big as IPv6/64.
 	if (!node.flags.disable_max_peers_per_subnetwork && !nano::transport::is_ipv4_or_v4_mapped_address (ip))
 	{
-		if (auto count = count_per_subnetwork (ip); count >= node.network_params.network.max_peers_per_subnetwork)
+		if (auto count = count_per_subnetwork (ip); count >= node.config.network.max_peers_per_subnetwork)
 		{
 			stats.inc (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_per_subnetwork, to_stat_dir (type));
 			logger.debug (nano::log::type::tcp_listener, "Max connections per subnetwork reached ({}), unable to open new connection: {}",

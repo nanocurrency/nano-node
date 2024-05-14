@@ -28,55 +28,49 @@ char const * const NANO_PRE_RELEASE_VERSION_STRING = xstr (PRE_RELEASE_VERSION_S
 
 char const * const BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
 
+/*
+ * Sanitizer info
+ */
+namespace nano
+{
+consteval bool is_asan_build ()
+{
 #if defined(__has_feature)
 #if __has_feature(address_sanitizer)
-inline bool is_asan_build ()
-{
 	return true;
-}
 #else
-inline bool is_asan_build ()
-{
 	return false;
-}
 #endif
 // GCC builds
 #elif defined(__SANITIZE_ADDRESS__)
-inline bool is_asan_build ()
-{
 	return true;
-}
 #else
-inline bool is_asan_build ()
-{
 	return false;
-}
 #endif
+}
 
+consteval bool is_tsan_build ()
+{
 #if defined(__has_feature)
 #if __has_feature(thread_sanitizer)
-inline bool is_tsan_build ()
-{
 	return true;
-}
 #else
-inline bool is_tsan_build ()
-{
 	return false;
-}
 #endif
 // GCC builds
 #elif defined(__SANITIZE_THREAD__)
-inline bool is_tsan_build ()
-{
 	return true;
-}
 #else
-inline bool is_tsan_build ()
-{
 	return false;
-}
 #endif
+}
+
+/** Checks if we are running with either AddressSanitizer or ThreadSanitizer */
+consteval bool is_sanitizer_build ()
+{
+	return is_asan_build () || is_tsan_build ();
+}
+}
 
 namespace nano
 {
@@ -85,28 +79,12 @@ uint8_t get_minor_node_version ();
 uint8_t get_patch_node_version ();
 uint8_t get_pre_release_node_version ();
 
-/*
- * Environment variables
- */
-
-/*
- * Get environment variable as string or `default_value` if variable is not present
- */
-std::string get_env_or_default (char const * variable_name, std::string const default_value);
-/*
- * Get environment variable as int or `default_value` if variable is not present
- */
-int get_env_int_or_default (char const * variable_name, int const default_value);
-uint64_t get_env_threshold_or_default (char const * variable_name, uint64_t const default_value);
-
 uint16_t test_node_port ();
 uint16_t test_rpc_port ();
 uint16_t test_ipc_port ();
 uint16_t test_websocket_port ();
 std::array<uint8_t, 2> test_magic_number ();
-/*
- * How often to scan for representatives in local wallet, in milliseconds
- */
+/// How often to scan for representatives in local wallet, in milliseconds
 uint32_t test_scan_wallet_reps_delay ();
 
 /**
@@ -185,7 +163,6 @@ public:
 class network_constants
 {
 	static constexpr std::chrono::seconds default_cleanup_period = std::chrono::seconds (60);
-	static constexpr size_t default_max_peers_per_ip = 10;
 
 public:
 	network_constants (nano::work_thresholds & work_, nano::networks network_a) :
@@ -204,8 +181,6 @@ public:
 		silent_connection_tolerance_time (std::chrono::seconds (120)),
 		syn_cookie_cutoff (std::chrono::seconds (5)),
 		bootstrap_interval (std::chrono::seconds (15 * 60)),
-		max_peers_per_ip (default_max_peers_per_ip),
-		max_peers_per_subnetwork (default_max_peers_per_ip * 4),
 		ipv6_subnetwork_prefix_for_limiting (64), // Equivalent to network prefix /64.
 		peer_dump_interval (std::chrono::seconds (5 * 60)),
 		vote_broadcast_interval (15 * 1000),
@@ -239,8 +214,6 @@ public:
 			merge_period = std::chrono::milliseconds (10);
 			keepalive_period = std::chrono::seconds (1);
 			idle_timeout = cleanup_period * 15;
-			max_peers_per_ip = 20;
-			max_peers_per_subnetwork = max_peers_per_ip * 4;
 			peer_dump_interval = std::chrono::seconds (1);
 			vote_broadcast_interval = 500ms;
 			block_broadcast_interval = 500ms;
@@ -286,10 +259,6 @@ public:
 	std::chrono::seconds silent_connection_tolerance_time;
 	std::chrono::seconds syn_cookie_cutoff;
 	std::chrono::seconds bootstrap_interval;
-	/** Maximum number of peers per IP. It is also the max number of connections per IP */
-	size_t max_peers_per_ip;
-	/** Maximum number of peers per subnetwork */
-	size_t max_peers_per_subnetwork;
 	size_t ipv6_subnetwork_prefix_for_limiting;
 	std::chrono::seconds peer_dump_interval;
 
@@ -411,9 +380,6 @@ bool memory_intensive_instrumentation ();
 /** Check if we're running with instrumentation that can greatly affect performance
 	Returns true if running within Valgrind or with ThreadSanitizer tooling*/
 bool slow_instrumentation ();
-
-/** Checks if we are running with either AddressSanitizer or ThreadSanitizer*/
-bool is_sanitizer_build ();
 
 /** Set the active network to the dev network */
 void force_nano_dev_network ();

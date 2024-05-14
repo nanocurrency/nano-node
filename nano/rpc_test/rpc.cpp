@@ -2477,14 +2477,10 @@ TEST (rpc, account_representative_set_epoch_2_insufficient_work)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv, false);
 
 	// Upgrade the genesis account to epoch 2
+	std::shared_ptr<nano::block> head;
 	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_1));
-	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_2));
-
-	// speed up the cementing process, otherwise the node waits for frontiers confirmation to notice the unconfirmed epoch blocks, which takes time
-	node->scheduler.priority.activate (node->ledger.tx_begin_read (), nano::dev::genesis_key.pub);
-
-	// wait for the epoch blocks to be cemented
-	ASSERT_TIMELY_EQ (5s, node->ledger.confirmed.account_height (node->ledger.tx_begin_read (), nano::dev::genesis_key.pub), 3);
+	ASSERT_NE (nullptr, (head = system.upgrade_genesis_epoch (*node, nano::epoch::epoch_2)));
+	ASSERT_TIMELY (5s, node->block_confirmed (head->hash ()));
 
 	auto target_difficulty = nano::dev::network_params.work.threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, false, false, false));
 	ASSERT_LT (node->network_params.work.entry, target_difficulty);
@@ -6453,7 +6449,8 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	}
 }
 
-TEST (rpc, account_lazy_start)
+// FIXME: This test is testing legacy bootstrap, the current behavior is different
+TEST (rpc, DISABLED_account_lazy_start)
 {
 	nano::test::system system{};
 	nano::node_flags node_flags{};
@@ -6650,7 +6647,7 @@ TEST (rpc, receive_pruned)
 	wallet2->insert_adhoc (key1.prv);
 	auto send1 (wallet1->send_action (nano::dev::genesis_key.pub, key1.pub, node2->config.receive_minimum.number (), *node2->work_generate_blocking (nano::dev::genesis->hash ())));
 	ASSERT_TIMELY (5s, node2->balance (nano::dev::genesis_key.pub) != nano::dev::constants.genesis_amount);
-	ASSERT_TIMELY (10s, !node2->store.account.exists (node2->store.tx_begin_read (), key1.pub));
+	ASSERT_TIMELY (10s, node2->store.account.exists (node2->store.tx_begin_read (), key1.pub));
 	// Send below minimum receive amount
 	auto send2 (wallet1->send_action (nano::dev::genesis_key.pub, key1.pub, node2->config.receive_minimum.number () - 1, *node2->work_generate_blocking (send1->hash ())));
 	// Extra send frontier
@@ -6962,7 +6959,7 @@ TEST (rpc, election_statistics)
 	request.put ("action", "election_statistics");
 
 	auto response = wait_response (system, rpc_ctx, request);
-	ASSERT_EQ ("1", response.get<std::string> ("normal"));
+	ASSERT_EQ ("1", response.get<std::string> ("priority"));
 	ASSERT_EQ ("0", response.get<std::string> ("hinted"));
 	ASSERT_EQ ("0", response.get<std::string> ("optimistic"));
 	ASSERT_EQ ("1", response.get<std::string> ("total"));

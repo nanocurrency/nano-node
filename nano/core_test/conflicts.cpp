@@ -31,9 +31,7 @@ TEST (conflicts, start_stop)
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::block_status::progress, node1.process (send1));
 	ASSERT_EQ (0, node1.active.size ());
-	node1.scheduler.priority.activate (node1.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
-	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
-	auto election1 = node1.active.election (send1->qualified_root ());
+	auto election1 = nano::test::start_election (system, node1, send1->hash ());
 	ASSERT_EQ (1, node1.active.size ());
 	ASSERT_NE (nullptr, election1);
 	ASSERT_EQ (1, election1->votes ().size ());
@@ -64,7 +62,7 @@ TEST (conflicts, add_existing)
 	ASSERT_TIMELY (5s, node1.block (send1->hash ()));
 
 	// instruct the election scheduler to trigger an election for send1
-	node1.scheduler.priority.activate (node1.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
+	nano::test::start_election (system, node1, send1->hash ());
 
 	// wait for election to be started before processing send2
 	ASSERT_TIMELY (5s, node1.active.active (*send1));

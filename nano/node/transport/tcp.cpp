@@ -347,10 +347,10 @@ bool nano::transport::tcp_channels::max_ip_connections (nano::tcp_endpoint const
 	bool result{ false };
 	auto const address (nano::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ()));
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	result = channels.get<ip_address_tag> ().count (address) >= node.network_params.network.max_peers_per_ip;
+	result = channels.get<ip_address_tag> ().count (address) >= node.config.network.max_peers_per_ip;
 	if (!result)
 	{
-		result = attempts.get<ip_address_tag> ().count (address) >= node.network_params.network.max_peers_per_ip;
+		result = attempts.get<ip_address_tag> ().count (address) >= node.config.network.max_peers_per_ip;
 	}
 	if (result)
 	{
@@ -368,10 +368,10 @@ bool nano::transport::tcp_channels::max_subnetwork_connections (nano::tcp_endpoi
 	bool result{ false };
 	auto const subnet (nano::transport::map_address_to_subnetwork (endpoint_a.address ()));
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	result = channels.get<subnetwork_tag> ().count (subnet) >= node.network_params.network.max_peers_per_subnetwork;
+	result = channels.get<subnetwork_tag> ().count (subnet) >= node.config.network.max_peers_per_subnetwork;
 	if (!result)
 	{
-		result = attempts.get<subnetwork_tag> ().count (subnet) >= node.network_params.network.max_peers_per_subnetwork;
+		result = attempts.get<subnetwork_tag> ().count (subnet) >= node.config.network.max_peers_per_subnetwork;
 	}
 	if (result)
 	{
@@ -439,6 +439,7 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 		// Remove channels that haven't successfully sent a message within the cutoff time
 		if (auto last = channel->get_last_packet_sent (); last < cutoff_deadline)
 		{
+			node.stats.inc (nano::stat::type::tcp_channels_purge, nano::stat::detail::idle);
 			node.logger.debug (nano::log::type::tcp_channels, "Closing idle channel: {} (idle for {}s)",
 			channel->to_string (),
 			nano::log::seconds_delta (last));
@@ -448,6 +449,7 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 		// Check if any tcp channels belonging to old protocol versions which may still be alive due to async operations
 		if (channel->get_network_version () < node.network_params.network.protocol_version_min)
 		{
+			node.stats.inc (nano::stat::type::tcp_channels_purge, nano::stat::detail::outdated);
 			node.logger.debug (nano::log::type::tcp_channels, "Closing channel with old protocol version: {}", channel->to_string ());
 
 			return true; // Close

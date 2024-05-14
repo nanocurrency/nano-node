@@ -18,9 +18,10 @@ using namespace std::chrono_literals;
  */
 
 nano::network::network (nano::node & node, uint16_t port) :
+	config{ node.config.network },
 	node{ node },
 	id{ nano::network_constants::active_network },
-	syn_cookies{ node.network_params.network.max_peers_per_ip, node.logger },
+	syn_cookies{ node.config.network.max_peers_per_ip, node.logger },
 	resolver{ node.io_ctx },
 	publish_filter{ 256 * 1024 },
 	tcp_channels{ node },
@@ -49,15 +50,20 @@ void nano::network::start ()
 		run_keepalive ();
 	});
 
-	reachout_thread = std::thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::network_reachout);
-		run_reachout ();
-	});
-
-	reachout_cached_thread = std::thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::network_reachout);
-		run_reachout_cached ();
-	});
+	if (config.peer_reachout.count () > 0)
+	{
+		reachout_thread = std::thread ([this] () {
+			nano::thread_role::set (nano::thread_role::name::network_reachout);
+			run_reachout ();
+		});
+	}
+	if (config.cached_peer_reachout.count () > 0)
+	{
+		reachout_cached_thread = std::thread ([this] () {
+			nano::thread_role::set (nano::thread_role::name::network_reachout);
+			run_reachout_cached ();
+		});
+	}
 
 	if (!node.flags.disable_tcp_realtime)
 	{

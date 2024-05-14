@@ -51,6 +51,31 @@ private:
 	std::size_t max_cookies_per_ip;
 };
 
+class network_config final
+{
+public:
+	explicit network_config (nano::network_constants const & network)
+	{
+		if (network.is_dev_network ())
+		{
+			// During tests, all peers are on localhost
+			max_peers_per_ip = 256;
+			max_peers_per_subnetwork = 256;
+		}
+	}
+
+	// TODO: Serialization & deserialization
+
+public:
+	std::chrono::milliseconds peer_reachout{ 250ms };
+	std::chrono::milliseconds cached_peer_reachout{ 1s };
+
+	/** Maximum number of peers per IP. It is also the max number of connections per IP */
+	size_t max_peers_per_ip{ 4 };
+	/** Maximum number of peers per subnetwork */
+	size_t max_peers_per_subnetwork{ 16 };
+};
+
 class network final
 {
 public:
@@ -112,6 +137,7 @@ private:
 	void run_reachout_cached ();
 
 private: // Dependencies
+	network_config const & config;
 	nano::node & node;
 
 public:

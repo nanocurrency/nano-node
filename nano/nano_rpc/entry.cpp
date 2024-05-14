@@ -51,7 +51,7 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 
 		std::shared_ptr<boost::asio::io_context> io_ctx = std::make_shared<boost::asio::io_context> ();
 
-		runner = std::make_unique<nano::thread_runner> (io_ctx, rpc_config.rpc_process.io_threads);
+		runner = std::make_unique<nano::thread_runner> (io_ctx, logger, rpc_config.rpc_process.io_threads);
 
 		try
 		{

@@ -39,10 +39,10 @@ void nano::scheduler::manual::notify ()
 	condition.notify_all ();
 }
 
-void nano::scheduler::manual::push (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a)
+void nano::scheduler::manual::push (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	queue.push_back (std::make_tuple (block_a, previous_balance_a, election_behavior_a));
+	queue.push_back (std::make_tuple (block_a, previous_balance_a, nano::election_behavior::manual));
 	notify ();
 }
 

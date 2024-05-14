@@ -72,6 +72,7 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 	nano::set_secure_perm_directory (data_path, error_chmod);
 
 	std::unique_ptr<nano::thread_runner> runner;
+
 	nano::network_params network_params{ nano::network_constants::active_network };
 	nano::daemon_config config{ data_path, network_params };
 	auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
@@ -145,7 +146,7 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 				logger.info (nano::log::type::daemon, "Start time: {:%c} UTC", fmt::gmtime (dateTime));
 
 				// IO context runner should be started first and stopped last to allow asio handlers to execute during node start/stop
-				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
+				runner = std::make_unique<nano::thread_runner> (io_ctx, logger, node->config.io_threads);
 
 				node->start ();
 

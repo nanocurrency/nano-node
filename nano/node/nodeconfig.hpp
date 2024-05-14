@@ -14,11 +14,13 @@
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
 #include <nano/node/message_processor.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
+#include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_processor.hpp>
@@ -65,6 +67,7 @@ public:
 	std::optional<uint16_t> peering_port{};
 	nano::scheduler::optimistic_config optimistic_scheduler;
 	nano::scheduler::hinted_config hinted_scheduler;
+	nano::scheduler::priority_config priority_scheduler;
 	std::vector<std::pair<std::string, uint16_t>> work_peers;
 	std::vector<std::pair<std::string, uint16_t>> secondary_work_peers{ { "127.0.0.1", 8076 } }; /* Default of nano-pow-server */
 	std::vector<std::string> preconfigured_peers;
@@ -82,7 +85,7 @@ public:
 	 */
 	nano::amount representative_vote_weight_minimum{ 10 * nano::Mxrb_ratio };
 	unsigned password_fanout{ 1024 };
-	unsigned io_threads{ std::max (4u, nano::hardware_concurrency ()) };
+	unsigned io_threads{ env_io_threads ().value_or (std::max (4u, nano::hardware_concurrency ())) };
 	unsigned network_threads{ std::max (4u, nano::hardware_concurrency ()) };
 	unsigned work_threads{ std::max (4u, nano::hardware_concurrency ()) };
 	unsigned background_threads{ std::max (4u, nano::hardware_concurrency ()) };
@@ -148,12 +151,16 @@ public:
 	nano::transport::tcp_config tcp;
 	nano::request_aggregator_config request_aggregator;
 	nano::message_processor_config message_processor;
+	nano::network_config network;
 
 public:
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
 	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);
 	/** Entry is ignored if it cannot be parsed as a valid address:port */
 	void deserialize_address (std::string const &, std::vector<std::pair<std::string, uint16_t>> &) const;
+
+private:
+	static std::optional<unsigned> env_io_threads ();
 };
 
 class node_flags final

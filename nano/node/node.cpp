@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/stream.hpp>
+#include <nano/lib/thread_runner.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/active_elections.hpp>
@@ -139,13 +140,15 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, uint16_t pe
 }
 
 nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesystem::path const & application_path_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
-	io_ctx_shared{ io_ctx_a },
-	io_ctx{ *io_ctx_shared },
 	node_id{ load_or_create_node_id (application_path_a) },
-	node_initialized_latch (1),
-	config (config_a),
-	network_params{ config.network_params },
+	config{ config_a },
+	io_ctx_shared{ std::make_shared<boost::asio::io_context> () },
+	io_ctx{ *io_ctx_shared },
 	logger{ make_logger_identifier (node_id) },
+	runner_impl{ std::make_unique<nano::thread_runner> (io_ctx_shared, logger, config.io_threads) },
+	runner{ *runner_impl },
+	node_initialized_latch (1),
+	network_params{ config.network_params },
 	stats{ logger, config.stats_config },
 	workers{ config.background_threads, nano::thread_role::name::worker },
 	bootstrap_workers{ config.bootstrap_serving_threads, nano::thread_role::name::bootstrap_worker },
@@ -742,10 +745,7 @@ void nano::node::stop ()
 	// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
 	distributed_work.stop ();
 	backlog.stop ();
-	if (!flags.disable_ascending_bootstrap)
-	{
-		ascendboot.stop ();
-	}
+	ascendboot.stop ();
 	rep_crawler.stop ();
 	unchecked.stop ();
 	block_processor.stop ();
@@ -772,6 +772,10 @@ void nano::node::stop ()
 	network.stop (); // Stop network last to avoid killing in-use sockets
 
 	// work pool is not stopped on purpose due to testing setup
+
+	// Stop the IO runner last
+	runner.join ();
+	debug_assert (io_ctx_shared.use_count () == 1); // Node should be the last user of the io_context
 }
 
 void nano::node::keepalive_preconfigured ()

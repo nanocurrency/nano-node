@@ -277,11 +277,18 @@ public:
 		auto body (std::string (reinterpret_cast<char *> (buffer.data ()), buffer.size ()));
 
 		// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
-		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, [&server = server] () {
-			server.stop ();
-			server.node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (3), [&io_ctx = server.node.io_ctx] () {
-				io_ctx.stop ();
-			});
+		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, [server_w = server.weak_from_this ()] () {
+			// TODO: Previously this was stopping node.io_ctx, which was wrong. Investigate what's going on here. Why isn't it using stop_callback passed externally?
+			// This is running on the IO thread, so attempting to directly stop the server will cause it to try joining itself.
+			// This RPC/IPC system is really badly designed...
+			std::thread ([server_w] () {
+				std::this_thread::sleep_for (std::chrono::seconds (1));
+				if (auto server = server_w.lock ())
+				{
+					server->stop ();
+				}
+			})
+			.detach ();
 		}));
 		// For unsafe actions to be allowed, the unsafe encoding must be used AND the transport config must allow it
 		handler->process_request (allow_unsafe && config_transport.allow_unsafe);
@@ -466,11 +473,7 @@ public:
 		server (server_a),
 		config_transport (config_transport_a)
 	{
-		// Using a per-transport event dispatcher?
-		if (concurrency_a > 0)
-		{
-			io_ctx = std::make_shared<boost::asio::io_context> ();
-		}
+		io_ctx = std::make_shared<boost::asio::io_context> ();
 
 		boost::asio::socket_base::reuse_address option (true);
 		boost::asio::socket_base::keep_alive option_keepalive (true);
@@ -479,17 +482,13 @@ public:
 		acceptor->set_option (option_keepalive);
 		accept ();
 
-		// Start serving IO requests. If concurrency_a is < 1, the node's thread pool/io_context is used instead.
-		// A separate io_context for domain sockets may facilitate better performance on some systems.
-		if (concurrency_a > 0)
-		{
-			runner = std::make_unique<nano::thread_runner> (io_ctx, static_cast<unsigned> (concurrency_a));
-		}
+		runner = std::make_unique<nano::thread_runner> (io_ctx, server.logger, static_cast<unsigned> (std::max (1, concurrency_a)));
 	}
 
 	boost::asio::io_context & context () const
 	{
-		return io_ctx ? *io_ctx : server.node.io_ctx;
+		release_assert (io_ctx);
+		return *io_ctx;
 	}
 
 	void accept ()
@@ -527,16 +526,12 @@ public:
 
 	void stop ()
 	{
-		acceptor->close ();
-		if (io_ctx)
-		{
-			io_ctx->stop ();
-		}
+		release_assert (io_ctx);
+		release_assert (runner);
 
-		if (runner)
-		{
-			runner->join ();
-		}
+		acceptor->close ();
+		io_ctx->stop ();
+		runner->join ();
 	}
 
 	std::optional<std::uint16_t> listening_port () const;
@@ -568,26 +563,6 @@ std::optional<std::uint16_t> socket_transport<ACCEPTOR_TYPE, SOCKET_TYPE, ENDPOI
 
 }
 
-/**
- * Awaits SIGHUP via signal_set instead of std::signal, as this allows the handler to escape the
- * Posix signal handler restrictions
- */
-void await_hup_signal (std::shared_ptr<boost::asio::signal_set> const & signals, nano::ipc::ipc_server & server_a)
-{
-	signals->async_wait ([signals, &server_a] (boost::system::error_code const & ec, int signal_number) {
-		if (ec != boost::asio::error::operation_aborted)
-		{
-			std::cout << "Reloading access configuration..." << std::endl;
-			auto error (server_a.reload_access_config ());
-			if (!error)
-			{
-				std::cout << "Reloaded access configuration successfully" << std::endl;
-			}
-			await_hup_signal (signals, server_a);
-		}
-	});
-}
-
 nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a) :
 	node (node_a),
 	node_rpc_config (node_rpc_config_a),
@@ -600,11 +575,6 @@ nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config co
 		{
 			std::exit (1);
 		}
-#ifndef _WIN32
-		// Hook up config reloading through the HUP signal
-		signals = std::make_shared<boost::asio::signal_set> (node.io_ctx, SIGHUP);
-		await_hup_signal (signals, *this);
-#endif
 		if (node_a.config.ipc_config.transport_domain.enabled)
 		{
 #if defined(BOOST_ASIO_HAS_LOCAL_SOCKETS)
@@ -639,6 +609,8 @@ nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config co
 nano::ipc::ipc_server::~ipc_server ()
 {
 	node.logger.debug (nano::log::type::ipc_server, "Server stopped");
+
+	stop ();
 }
 
 void nano::ipc::ipc_server::stop ()

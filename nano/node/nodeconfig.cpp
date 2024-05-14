@@ -1,6 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/env.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
@@ -16,9 +17,9 @@ namespace
 char const * preconfigured_peers_key = "preconfigured_peers";
 char const * signature_checker_threads_key = "signature_checker_threads";
 char const * pow_sleep_interval_key = "pow_sleep_interval";
-std::string const default_live_peer_network = nano::get_env_or_default ("NANO_DEFAULT_PEER", "peering.nano.org");
-std::string const default_beta_peer_network = nano::get_env_or_default ("NANO_DEFAULT_PEER", "peering-beta.nano.org");
-std::string const default_test_peer_network = nano::get_env_or_default ("NANO_DEFAULT_PEER", "peering-test.nano.org");
+std::string const default_live_peer_network = nano::env::get ("NANO_DEFAULT_PEER").value_or ("peering.nano.org");
+std::string const default_beta_peer_network = nano::env::get ("NANO_DEFAULT_PEER").value_or ("peering-beta.nano.org");
+std::string const default_test_peer_network = nano::env::get ("NANO_DEFAULT_PEER").value_or ("peering-test.nano.org");
 }
 
 nano::node_config::node_config (nano::network_params & network_params) :
@@ -37,7 +38,8 @@ nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, 
 	active_elections{ network_params.network },
 	block_processor{ network_params.network },
 	peer_history{ network_params.network },
-	tcp{ network_params.network }
+	tcp{ network_params.network },
+	network{ network_params.network }
 {
 	if (peering_port == 0)
 	{
@@ -655,4 +657,17 @@ nano::account nano::node_config::random_representative () const
 	std::size_t index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
 	auto result (preconfigured_representatives[index]);
 	return result;
+}
+
+std::optional<unsigned> nano::node_config::env_io_threads ()
+{
+	static auto const value = [] () {
+		auto value = nano::env::get<unsigned> ("NANO_IO_THREADS");
+		if (value)
+		{
+			std::cerr << "IO threads overridden by NANO_IO_THREADS environment variable: " << *value << std::endl;
+		}
+		return value;
+	}();
+	return value;
 }

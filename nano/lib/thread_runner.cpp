@@ -1,8 +1,6 @@
 #include <nano/lib/thread_runner.hpp>
 #include <nano/lib/timer.hpp>
 
-#include <boost/format.hpp>
-
 #include <iostream>
 #include <thread>
 
@@ -10,18 +8,29 @@
  * thread_runner
  */
 
-nano::thread_runner::thread_runner (std::shared_ptr<boost::asio::io_context> io_ctx_a, unsigned num_threads, const nano::thread_role::name thread_role_a) :
-	io_ctx{ io_ctx_a },
-	io_guard{ boost::asio::make_work_guard (*io_ctx_a) },
-	role{ thread_role_a }
+nano::thread_runner::thread_runner (std::shared_ptr<asio::io_context> io_ctx_a, nano::logger & logger_a, unsigned num_threads_a, const nano::thread_role::name thread_role_a) :
+	num_threads{ num_threads_a },
+	role{ thread_role_a },
+	logger{ logger_a },
+	io_ctx{ std::move (io_ctx_a) },
+	io_guard{ asio::make_work_guard (*io_ctx) }
 {
 	debug_assert (io_ctx != nullptr);
+	start ();
+}
 
+nano::thread_runner::~thread_runner ()
+{
+	join ();
+}
+
+void nano::thread_runner::start ()
+{
 	logger.debug (nano::log::type::thread_runner, "Starting threads: {} ({})", num_threads, to_string (role));
 
-	for (auto i (0u); i < num_threads; ++i)
+	for (auto i = 0; i < num_threads; ++i)
 	{
-		threads.emplace_back (nano::thread_attributes::get_default (), [this, i] () {
+		threads.emplace_back (nano::thread_attributes::get_default (), [this] () {
 			nano::thread_role::set (role);
 			try
 			{
@@ -47,9 +56,28 @@ nano::thread_runner::thread_runner (std::shared_ptr<boost::asio::io_context> io_
 	}
 }
 
-nano::thread_runner::~thread_runner ()
+void nano::thread_runner::join ()
 {
-	join ();
+	io_guard.reset ();
+
+	for (auto & i : threads)
+	{
+		if (i.joinable ())
+		{
+			i.join ();
+		}
+	}
+	threads.clear ();
+
+	logger.debug (nano::log::type::thread_runner, "Stopped threads ({})", to_string (role));
+
+	io_ctx.reset (); // Release shared_ptr to io_context
+}
+
+void nano::thread_runner::abort ()
+{
+	release_assert (io_ctx != nullptr);
+	io_ctx->stop ();
 }
 
 void nano::thread_runner::run ()
@@ -76,25 +104,4 @@ void nano::thread_runner::run ()
 			std::this_thread::yield ();
 		}
 	}
-}
-
-void nano::thread_runner::join ()
-{
-	io_guard.reset ();
-	for (auto & i : threads)
-	{
-		if (i.joinable ())
-		{
-			i.join ();
-		}
-	}
-
-	logger.debug (nano::log::type::thread_runner, "Stopped threads ({})", to_string (role));
-
-	io_ctx.reset ();
-}
-
-void nano::thread_runner::stop_event_processing ()
-{
-	io_guard.get_executor ().context ().stop ();
 }

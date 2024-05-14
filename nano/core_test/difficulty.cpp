@@ -32,7 +32,7 @@ TEST (difficultyDeathTest, multipliers)
 	}
 
 	{
-		uint64_t base = std::numeric_limits<std::uint64_t>::max ();
+		constexpr uint64_t base = std::numeric_limits<std::uint64_t>::max ();
 		uint64_t difficulty = 0xffffffffffffff00;
 		double expected_multiplier = 0.00390625;
 
@@ -68,8 +68,8 @@ TEST (difficulty, overflow)
 {
 	// Overflow max (attempt to overflow & receive lower difficulty)
 	{
-		uint64_t base = std::numeric_limits<std::uint64_t>::max (); // Max possible difficulty
-		uint64_t difficulty = std::numeric_limits<std::uint64_t>::max ();
+		constexpr uint64_t base = std::numeric_limits<std::uint64_t>::max (); // Max possible difficulty
+		constexpr uint64_t difficulty = std::numeric_limits<std::uint64_t>::max ();
 		double multiplier = 1.001; // Try to increase difficulty above max
 
 		ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (multiplier, base));
