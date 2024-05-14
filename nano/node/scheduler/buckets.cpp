@@ -61,10 +61,10 @@ nano::scheduler::buckets::~buckets ()
 {
 }
 
-std::size_t nano::scheduler::buckets::index (nano::uint128_t const & balance) const
+auto nano::scheduler::buckets::bucket (nano::uint128_t const & balance) const -> scheduler::bucket &
 {
 	auto index = std::upper_bound (minimums.begin (), minimums.end (), balance) - minimums.begin () - 1;
-	return index;
+	return *buckets_m[index];
 }
 
 /**
@@ -74,8 +74,7 @@ std::size_t nano::scheduler::buckets::index (nano::uint128_t const & balance) co
 void nano::scheduler::buckets::push (uint64_t time, std::shared_ptr<nano::block> block, nano::amount const & priority)
 {
 	auto was_empty = empty ();
-	auto & bucket = buckets_m[index (priority.number ())];
-	bucket->push (time, block);
+	bucket (priority.number ()).push (time, block);
 	if (was_empty)
 	{
 		seek ();
@@ -119,7 +118,7 @@ std::size_t nano::scheduler::buckets::bucket_count () const
 /** Returns number of items in bucket with index 'index' */
 std::size_t nano::scheduler::buckets::bucket_size (nano::amount const & amount) const
 {
-	return buckets_m[index (amount.number ())]->size ();
+	return bucket (amount.number ()).size ();
 }
 
 /** Returns true if all buckets are empty */
