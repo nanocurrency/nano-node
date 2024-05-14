@@ -152,9 +152,7 @@ TEST (election, quorum_minimum_confirm_success)
 				 .build ();
 	node1.work_generate_blocking (*send1);
 	node1.process_active (send1);
-	node1.scheduler.priority.activate (node1.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
-	ASSERT_TIMELY (5s, node1.active.election (send1->qualified_root ()));
-	auto election = node1.active.election (send1->qualified_root ());
+	auto election = nano::test::start_election (system, node1, send1->hash ());
 	ASSERT_NE (nullptr, election);
 	ASSERT_EQ (1, election->blocks ().size ());
 	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { send1->hash () });
