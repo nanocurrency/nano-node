@@ -1,8 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
-
-#include <boost/optional.hpp>
+#include <nano/node/scheduler/bucket.hpp>
 
 #include <condition_variable>
 #include <deque>
@@ -61,14 +60,17 @@ private: // Dependencies
 
 private:
 	void run ();
-	bool empty_locked () const;
+	void run_cleanup ();
 	bool predicate () const;
+	bucket & find_bucket (nano::uint128_t priority);
 
-	std::unique_ptr<nano::scheduler::buckets> buckets;
+private:
+	std::vector<std::unique_ptr<bucket>> buckets;
 
 	bool stopped{ false };
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
 	std::thread thread;
+	std::thread cleanup_thread;
 };
 }

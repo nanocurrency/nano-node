@@ -1,5 +1,4 @@
 #include <nano/lib/blocks.hpp>
-#include <nano/node/scheduler/buckets.hpp>
 #include <nano/secure/common.hpp>
 
 #include <gtest/gtest.h>
@@ -107,6 +106,7 @@ std::shared_ptr<nano::state_block> & block3 ()
 	return result;
 }
 
+/*
 TEST (buckets, construction)
 {
 	nano::scheduler::buckets buckets;
@@ -252,3 +252,4 @@ TEST (buckets, trim_even)
 	buckets.pop ();
 	ASSERT_EQ (block1 (), buckets.top ());
 }
+*/

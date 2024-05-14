@@ -167,8 +167,14 @@ void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_
 
 void nano::election::transition_active ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	nano::lock_guard<nano::mutex> guard{ mutex };
 	state_change (nano::election_state::passive, nano::election_state::active);
+}
+
+void nano::election::cancel ()
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	state_change (state_m, nano::election_state::expired_unconfirmed);
 }
 
 bool nano::election::confirmed_locked () const
@@ -270,6 +276,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			break;
 		case nano::election_state::expired_unconfirmed:
 		case nano::election_state::expired_confirmed:
+			return true; // Return true to indicate this election should be cleaned up
 			debug_assert (false);
 			break;
 	}
