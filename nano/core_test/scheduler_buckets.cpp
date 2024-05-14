@@ -229,7 +229,7 @@ TEST (buckets, trim_reverse)
 
 TEST (buckets, trim_even)
 {
-	nano::scheduler::buckets buckets{ 2 };
+	nano::scheduler::buckets buckets{ 1 };
 	buckets.push (1000, block0 (), nano::Gxrb_ratio);
 	buckets.push (1100, block2 (), nano::Gxrb_ratio);
 	ASSERT_EQ (1, buckets.size ());

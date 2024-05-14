@@ -31,6 +31,7 @@ public:
 
 public:
 	bool enabled{ true };
+	size_t bucket_maximum{ 128 };
 };
 
 class buckets;

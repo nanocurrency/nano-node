@@ -36,14 +36,11 @@ class buckets final
 	/** index of bucket to read next */
 	decltype (buckets_m)::const_iterator current;
 
-	/** maximum number of blocks in whole container, each bucket's maximum is maximum / bucket_number */
-	uint64_t const maximum;
-
 	void next ();
 	void seek ();
 
 public:
-	buckets (uint64_t maximum = 250000u);
+	buckets (uint64_t maximum = 128);
 	~buckets ();
 	void push (uint64_t time, std::shared_ptr<nano::block> block, nano::amount const & priority);
 	std::shared_ptr<nano::block> top () const;

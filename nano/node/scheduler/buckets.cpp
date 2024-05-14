@@ -29,9 +29,9 @@ void nano::scheduler::buckets::seek ()
  * Prioritization constructor, construct a container containing approximately 'maximum' number of blocks.
  * @param maximum number of blocks that this container can hold, this is a soft and approximate limit.
  */
-nano::scheduler::buckets::buckets (uint64_t maximum) :
-	maximum{ maximum }
+nano::scheduler::buckets::buckets (uint64_t maximum)
 {
+	debug_assert (maximum > 0);
 	auto build_region = [this] (uint128_t const & begin, uint128_t const & end, size_t count) {
 		auto width = (end - begin) / count;
 		for (auto i = 0; i < count; ++i)
@@ -49,10 +49,9 @@ nano::scheduler::buckets::buckets (uint64_t maximum) :
 	build_region (uint128_t{ 1 } << 112, uint128_t{ 1 } << 116, 4);
 	build_region (uint128_t{ 1 } << 116, uint128_t{ 1 } << 120, 2);
 	minimums.push_back (uint128_t{ 1 } << 120);
-	auto bucket_max = std::max<size_t> (1u, maximum / minimums.size ());
 	for (size_t i = 0u, n = minimums.size (); i < n; ++i)
 	{
-		buckets_m.push_back (std::make_unique<scheduler::bucket> (bucket_max));
+		buckets_m.push_back (std::make_unique<scheduler::bucket> (maximum));
 	}
 	current = buckets_m.begin ();
 }

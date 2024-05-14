@@ -12,7 +12,7 @@ nano::scheduler::priority::priority (nano::node & node_a, nano::stats & stats_a)
 	config{ node_a.config.priority_scheduler },
 	node{ node_a },
 	stats{ stats_a },
-	buckets{ std::make_unique<scheduler::buckets> () }
+	buckets{ std::make_unique<scheduler::buckets> (config.bucket_maximum) }
 {
 }
 
