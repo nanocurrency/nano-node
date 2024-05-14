@@ -29,22 +29,17 @@ class buckets final
 	/** container for the buckets to be read in round robin fashion */
 	std::map<nano::amount, std::unique_ptr<nano::scheduler::bucket>> buckets_m;
 
-	/** index of bucket to read next */
-	decltype (buckets_m)::const_iterator current;
-
-	void next ();
-	void seek ();
 	void setup_buckets (uint64_t maximum);
 
 public:
 	buckets (uint64_t maximum = 128);
 	~buckets ();
-	void push (uint64_t time, std::shared_ptr<nano::block> block, nano::amount const & priority);
-	std::shared_ptr<nano::block> top () const;
-	void pop ();
+
 	std::size_t size () const;
 	std::size_t bucket_count () const;
 	std::size_t bucket_size (nano::amount const & amount) const;
+	std::size_t active () const;
+	scheduler::bucket * next ();
 	bool empty () const;
 	void dump () const;
 	scheduler::bucket & bucket (nano::uint128_t const & balance) const;

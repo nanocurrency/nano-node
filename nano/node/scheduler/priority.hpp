@@ -9,12 +9,14 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <unordered_map>
 
 namespace nano
 {
 class active_elections;
 class block;
 class container_info_component;
+class election;
 class ledger;
 class stats;
 }
@@ -25,6 +27,7 @@ class transaction;
 
 namespace nano::scheduler
 {
+class bucket;
 class priority_config
 {
 public:
@@ -53,6 +56,7 @@ public:
 	void notify ();
 	std::size_t size () const;
 	bool empty () const;
+	void election_stopped (std::shared_ptr<nano::election> election);
 
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
 
@@ -66,9 +70,10 @@ private: // Dependencies
 private:
 	void run ();
 	bool empty_locked () const;
-	bool predicate () const;
 
 	std::unique_ptr<nano::scheduler::buckets> buckets;
+	// Bucket associated with a particular election
+	std::unordered_map<nano::qualified_root, bucket *> tracking;
 
 	bool stopped{ false };
 	nano::condition_variable condition;

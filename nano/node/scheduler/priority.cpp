@@ -3,6 +3,7 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/scheduler/bucket.hpp>
 #include <nano/node/scheduler/buckets.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/secure/ledger.hpp>
@@ -23,6 +24,7 @@ nano::scheduler::priority::~priority ()
 {
 	// Thread must be stopped before destruction
 	debug_assert (!thread.joinable ());
+	debug_assert (tracking.size () == buckets->active ());
 }
 
 void nano::scheduler::priority::start ()
@@ -74,9 +76,12 @@ bool nano::scheduler::priority::activate (secure::transaction const & transactio
 	nano::log::arg{ "priority", balance_priority });
 
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	buckets->push (time_priority, block, balance_priority);
-	notify ();
-
+	auto & bucket = buckets->bucket (balance_priority);
+	bucket.push (time_priority, block);
+	if (bucket.active < bucket.maximum)
+	{
+		notify ();
+	}
 	return true; // Activated
 }
 
@@ -102,47 +107,73 @@ bool nano::scheduler::priority::empty () const
 	return empty_locked ();
 }
 
-bool nano::scheduler::priority::predicate () const
-{
-	return active.vacancy (nano::election_behavior::priority) > 0 && !buckets->empty ();
-}
-
 void nano::scheduler::priority::run ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		condition.wait (lock, [this] () {
-			return stopped || predicate ();
-		});
-		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
+		condition.wait (lock);
 		if (!stopped)
 		{
 			stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::loop);
 
-			if (predicate ())
+			while (auto bucket = buckets->next ())
 			{
-				auto block = buckets->top ();
-				buckets->pop ();
-				lock.unlock ();
-				stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_priority);
-				auto result = active.insert (block);
-				if (result.inserted)
+				debug_assert (!bucket->empty () && bucket->active < bucket->maximum);
+				auto block = bucket->top ();
+				debug_assert (block != nullptr);
+				bucket->pop ();
+				if (tracking.find (block->qualified_root ()) != tracking.end ())
 				{
-					stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_priority_success);
+					continue;
 				}
-				if (result.election != nullptr)
+				// Increment counter and start tracking for block's qualified root
+				// Start tracking before we actually attempt to start election since election cleanup happens asynchronously
+				++bucket->active;
+				[[maybe_unused]] auto inserted = tracking.emplace (block->qualified_root (), bucket);
+				debug_assert (inserted.second);
+				nano::election_insertion_result result;
 				{
-					result.election->transition_active ();
+					// Do slow operations outside lock
+
+					lock.unlock ();
+					stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_priority);
+					result = active.insert (block);
+					if (result.inserted)
+					{
+						stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::insert_priority_success);
+					}
+					if (result.election != nullptr)
+					{
+						result.election->transition_active ();
+					}
+					lock.lock ();
+				}
+				if (!result.election)
+				{
+					// No election exists or was created so clean up dangling tracking information
+					--bucket->active;
+					[[maybe_unused]] auto erased = tracking.erase (block->qualified_root ());
+					debug_assert (erased == 1);
 				}
 			}
-			else
-			{
-				lock.unlock ();
-			}
-			notify ();
-			lock.lock ();
 		}
+	}
+}
+
+void nano::scheduler::priority::election_stopped (std::shared_ptr<nano::election> election)
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	if (auto existing = tracking.find (election->qualified_root); existing != tracking.end ())
+	{
+		auto & bucket = *existing->second;
+		--bucket.active;
+		if (!bucket.empty ())
+		{
+			notify ();
+		}
+		// Clean up election stop event subscription
+		tracking.erase (existing);
 	}
 }
 

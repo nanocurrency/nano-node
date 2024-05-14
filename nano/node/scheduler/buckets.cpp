@@ -5,26 +5,6 @@
 
 #include <string>
 
-/** Moves the bucket pointer to the next bucket */
-void nano::scheduler::buckets::next ()
-{
-	++current;
-	if (current == buckets_m.end ())
-	{
-		current = buckets_m.begin ();
-	}
-}
-
-/** Seek to the next non-empty bucket, if one exists */
-void nano::scheduler::buckets::seek ()
-{
-	next ();
-	for (std::size_t i = 0, n = buckets_m.size (); current->second->empty () && i < n; ++i)
-	{
-		next ();
-	}
-}
-
 void nano::scheduler::buckets::setup_buckets (uint64_t maximum)
 {
 	auto build_region = [&] (uint128_t const & begin, uint128_t const & end, size_t count) {
@@ -53,7 +33,6 @@ void nano::scheduler::buckets::setup_buckets (uint64_t maximum)
 nano::scheduler::buckets::buckets (uint64_t maximum)
 {
 	setup_buckets (maximum);
-	current = buckets_m.begin ();
 }
 
 nano::scheduler::buckets::~buckets ()
@@ -62,40 +41,10 @@ nano::scheduler::buckets::~buckets ()
 
 auto nano::scheduler::buckets::bucket (nano::uint128_t const & balance) const -> scheduler::bucket &
 {
-	auto iter = buckets_m.upper_bound (balance);
-	--iter; // Iterator points to bucket after the target priority
+	auto iter = buckets_m.upper_bound (balance); // Iterator points to bucket after the target priority
+	--iter;
 	debug_assert (iter != buckets_m.end ());
 	return *iter->second;
-}
-
-/**
- * Push a block and its associated time into the prioritization container.
- * The time is given here because sideband might not exist in the case of state blocks.
- */
-void nano::scheduler::buckets::push (uint64_t time, std::shared_ptr<nano::block> block, nano::amount const & priority)
-{
-	auto was_empty = empty ();
-	bucket (priority.number ()).push (time, block);
-	if (was_empty)
-	{
-		seek ();
-	}
-}
-
-/** Return the highest priority block of the current bucket */
-std::shared_ptr<nano::block> nano::scheduler::buckets::top () const
-{
-	debug_assert (!empty ());
-	auto result = current->second->top ();
-	return result;
-}
-
-/** Pop the current block from the container and seek to the next block, if it exists */
-void nano::scheduler::buckets::pop ()
-{
-	debug_assert (!empty ());
-	current->second->pop ();
-	seek ();
 }
 
 /** Returns the total number of blocks in buckets */
@@ -119,6 +68,21 @@ std::size_t nano::scheduler::buckets::bucket_count () const
 std::size_t nano::scheduler::buckets::bucket_size (nano::amount const & amount) const
 {
 	return bucket (amount.number ()).size ();
+}
+
+std::size_t nano::scheduler::buckets::active () const
+{
+	return std::accumulate (buckets_m.begin (), buckets_m.end (), 0, [] (auto const & total, auto const & item) { return total + item.second->active; });
+}
+
+auto nano::scheduler::buckets::next () -> scheduler::bucket *
+{
+	auto next = std::find_if (buckets_m.begin (), buckets_m.end (), [] (auto const & item) { return item.second->active < item.second->maximum && !item.second->empty (); });
+	if (next == buckets_m.end ())
+	{
+		return nullptr;
+	}
+	return next->second.get ();
 }
 
 /** Returns true if all buckets are empty */
