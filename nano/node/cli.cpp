@@ -93,6 +93,8 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 	// clang-format off
 	description_a.add_options()
 		("disable_add_initial_peers", "Disable contacting the peer in the peers table at startup")
+		("disable_max_peers_per_ip", "Disables the limit on the number of peer connections allowed per IP address")
+		("disable_max_peers_per_subnetwork", "Disables the limit on the number of peer connections allowed per subnetwork")
 		("disable_activate_successors", "Disables activate_successors in active_elections")
 		("disable_backup", "Disable wallet automatic backups")
 		("disable_lazy_bootstrap", "Disables lazy bootstrap")
@@ -123,6 +125,8 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 {
 	std::error_code ec;
 	flags_a.disable_add_initial_peers = (vm.count ("disable_add_initial_peers") > 0);
+	flags_a.disable_max_peers_per_ip = (vm.count ("disable_max_peers_per_ip") > 0);
+	flags_a.disable_max_peers_per_subnetwork = (vm.count ("disable_max_peers_per_subnetwork") > 0);
 	flags_a.disable_activate_successors = (vm.count ("disable_activate_successors") > 0);
 	flags_a.disable_backup = (vm.count ("disable_backup") > 0);
 	flags_a.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
