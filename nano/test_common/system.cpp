@@ -134,51 +134,18 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 			auto node1 (*i);
 			auto node2 (*j);
 
-			auto starting_size_1 = node1->network.size ();
-			auto starting_size_2 = node2->network.size ();
-
-			auto starting_realtime_1 = node1->tcp_listener.realtime_count ();
-			auto starting_realtime_2 = node2->tcp_listener.realtime_count ();
-
-			auto starting_keepalives_1 = node1->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
-			auto starting_keepalives_2 = node2->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
-
 			logger.debug (nano::log::type::system, "Connecting nodes: {} and {}", node1->identifier (), node2->identifier ());
 
 			// TCP is the only transport layer available.
 			debug_assert (type_a == nano::transport::transport_type::tcp);
 			node2->network.merge_peer (node1->network.endpoint ());
 
-			{
-				auto ec = poll_until_true (5s, [&node1, &node2, starting_size_1, starting_size_2] () {
-					auto size_1 = node1->network.size ();
-					auto size_2 = node2->network.size ();
-					return size_1 > starting_size_1 && size_2 > starting_size_2;
-				});
-				debug_assert (!ec);
-			}
-
-			if (type_a == nano::transport::transport_type::tcp && node_config_a.tcp_incoming_connections_max != 0 && !node_flags_a.disable_tcp_realtime)
-			{
-				{
-					// Wait for initial connection finish
-					auto ec = poll_until_true (5s, [&node1, &node2, starting_realtime_1, starting_realtime_2] () {
-						auto realtime_1 = node1->tcp_listener.realtime_count ();
-						auto realtime_2 = node2->tcp_listener.realtime_count ();
-						return realtime_1 > starting_realtime_1 && realtime_2 > starting_realtime_2;
-					});
-					debug_assert (!ec);
-				}
-				{
-					// Wait for keepalive message exchange
-					auto ec = poll_until_true (5s, [&node1, &node2, starting_keepalives_1, starting_keepalives_2] () {
-						auto keepalives_1 = node1->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
-						auto keepalives_2 = node2->stats.count (stat::type::message, stat::detail::keepalive, stat::dir::in);
-						return keepalives_1 > starting_keepalives_1 && keepalives_2 > starting_keepalives_2;
-					});
-					debug_assert (!ec);
-				}
-			}
+			auto ec = poll_until_true (5s, [&node1, &node2] () {
+				bool result_1 = node1->network.find_node_id (node2->node_id.pub) != nullptr;
+				bool result_2 = node2->network.find_node_id (node1->node_id.pub) != nullptr;
+				return result_1 && result_2;
+			});
+			debug_assert (!ec);
 		}
 
 		{
