@@ -19,27 +19,22 @@ void nano::scheduler::buckets::next ()
 void nano::scheduler::buckets::seek ()
 {
 	next ();
-	for (std::size_t i = 0, n = buckets_m.size (); (*current)->empty () && i < n; ++i)
+	for (std::size_t i = 0, n = buckets_m.size (); current->second->empty () && i < n; ++i)
 	{
 		next ();
 	}
 }
 
-/**
- * Prioritization constructor, construct a container containing approximately 'maximum' number of blocks.
- * @param maximum number of blocks that this container can hold, this is a soft and approximate limit.
- */
-nano::scheduler::buckets::buckets (uint64_t maximum)
+void nano::scheduler::buckets::setup_buckets (uint64_t maximum)
 {
-	debug_assert (maximum > 0);
-	auto build_region = [this] (uint128_t const & begin, uint128_t const & end, size_t count) {
+	auto build_region = [&] (uint128_t const & begin, uint128_t const & end, size_t count) {
 		auto width = (end - begin) / count;
 		for (auto i = 0; i < count; ++i)
 		{
-			minimums.push_back (begin + i * width);
+			buckets_m.emplace (begin + i * width, std::make_unique<nano::scheduler::bucket> (maximum));
 		}
 	};
-	minimums.push_back (uint128_t{ 0 });
+	build_region (0, uint128_t{ 1 } << 88, 1);
 	build_region (uint128_t{ 1 } << 88, uint128_t{ 1 } << 92, 2);
 	build_region (uint128_t{ 1 } << 92, uint128_t{ 1 } << 96, 4);
 	build_region (uint128_t{ 1 } << 96, uint128_t{ 1 } << 100, 8);
@@ -48,11 +43,16 @@ nano::scheduler::buckets::buckets (uint64_t maximum)
 	build_region (uint128_t{ 1 } << 108, uint128_t{ 1 } << 112, 8);
 	build_region (uint128_t{ 1 } << 112, uint128_t{ 1 } << 116, 4);
 	build_region (uint128_t{ 1 } << 116, uint128_t{ 1 } << 120, 2);
-	minimums.push_back (uint128_t{ 1 } << 120);
-	for (size_t i = 0u, n = minimums.size (); i < n; ++i)
-	{
-		buckets_m.push_back (std::make_unique<scheduler::bucket> (maximum));
-	}
+	build_region (uint128_t{ 1 } << 120, uint128_t{ 1 } << 127, 1);
+}
+
+/**
+ * Prioritization constructor, construct a container containing approximately 'maximum' number of blocks.
+ * @param maximum number of blocks that this container can hold, this is a soft and approximate limit.
+ */
+nano::scheduler::buckets::buckets (uint64_t maximum)
+{
+	setup_buckets (maximum);
 	current = buckets_m.begin ();
 }
 
@@ -62,8 +62,10 @@ nano::scheduler::buckets::~buckets ()
 
 auto nano::scheduler::buckets::bucket (nano::uint128_t const & balance) const -> scheduler::bucket &
 {
-	auto index = std::upper_bound (minimums.begin (), minimums.end (), balance) - minimums.begin () - 1;
-	return *buckets_m[index];
+	auto iter = buckets_m.upper_bound (balance);
+	--iter; // Iterator points to bucket after the target priority
+	debug_assert (iter != buckets_m.end ());
+	return *iter->second;
 }
 
 /**
@@ -84,7 +86,7 @@ void nano::scheduler::buckets::push (uint64_t time, std::shared_ptr<nano::block>
 std::shared_ptr<nano::block> nano::scheduler::buckets::top () const
 {
 	debug_assert (!empty ());
-	auto result = (*current)->top ();
+	auto result = current->second->top ();
 	return result;
 }
 
@@ -92,8 +94,7 @@ std::shared_ptr<nano::block> nano::scheduler::buckets::top () const
 void nano::scheduler::buckets::pop ()
 {
 	debug_assert (!empty ());
-	auto & bucket = *current;
-	bucket->pop ();
+	current->second->pop ();
 	seek ();
 }
 
@@ -101,7 +102,7 @@ void nano::scheduler::buckets::pop ()
 std::size_t nano::scheduler::buckets::size () const
 {
 	std::size_t result{ 0 };
-	for (auto const & bucket : buckets_m)
+	for (auto const & [_, bucket] : buckets_m)
 	{
 		result += bucket->size ();
 	}
@@ -123,26 +124,25 @@ std::size_t nano::scheduler::buckets::bucket_size (nano::amount const & amount) 
 /** Returns true if all buckets are empty */
 bool nano::scheduler::buckets::empty () const
 {
-	return std::all_of (buckets_m.begin (), buckets_m.end (), [] (auto const & bucket) { return bucket->empty (); });
+	return std::all_of (buckets_m.begin (), buckets_m.end (), [] (auto const & item) { return item.second->empty (); });
 }
 
 /** Print the state of the class in stderr */
 void nano::scheduler::buckets::dump () const
 {
-	for (auto const & bucket : buckets_m)
+	for (auto const & [_, bucket] : buckets_m)
 	{
 		bucket->dump ();
 	}
-	std::cerr << "current: " << current - buckets_m.begin () << '\n';
 }
 
 std::unique_ptr<nano::container_info_component> nano::scheduler::buckets::collect_container_info (std::string const & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
-	for (auto i = 0; i < buckets_m.size (); ++i)
+	size_t count = 0;
+	for (auto const & [_, bucket] : buckets_m)
 	{
-		auto const & bucket = buckets_m[i];
-		composite->add_component (std::make_unique<container_info_leaf> (container_info{ std::to_string (i), bucket->size (), 0 }));
+		composite->add_component (std::make_unique<container_info_leaf> (container_info{ std::to_string (count++), bucket->size (), 0 }));
 	}
 	return composite;
 }
