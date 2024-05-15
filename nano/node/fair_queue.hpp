@@ -264,6 +264,7 @@ public:
 	value_type next ()
 	{
 		release_assert (!empty ()); // Should be checked before calling next
+		debug_assert ((std::chrono::steady_clock::now () - last_update) < 60s); // The queue should be cleaned up periodically
 
 		if (should_seek ())
 		{
@@ -283,6 +284,8 @@ public:
 
 	std::deque<value_type> next_batch (size_t max_count)
 	{
+		periodic_update ();
+
 		auto const count = std::min (size (), max_count);
 
 		std::deque<value_type> result;
@@ -361,10 +364,8 @@ private:
 	std::map<origin_entry, entry> queues;
 	typename std::map<origin_entry, entry>::iterator iterator{ queues.end () };
 	size_t counter{ 0 };
-
 	size_t total_size{ 0 };
-
-	std::chrono::steady_clock::time_point last_update{};
+	std::chrono::steady_clock::time_point last_update{ std::chrono::steady_clock::now () };
 
 public:
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const
