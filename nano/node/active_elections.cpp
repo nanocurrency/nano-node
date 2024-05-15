@@ -284,6 +284,8 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 	entry entry = *it;
 	roots.get<tag_root> ().erase (it);
 
+	node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::election_cleanup);
+	node.stats.inc (nano::stat::type::election_cleanup, to_stat_detail (election->state ()));
 	node.stats.inc (completion_type (*election), to_stat_detail (election->behavior ()));
 	node.logger.trace (nano::log::type::active_elections, nano::log::detail::active_stopped, nano::log::arg{ "election", election });
 
@@ -317,19 +319,6 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 			node.network.publish_filter.clear (block);
 		}
 	}
-}
-
-nano::stat::type nano::active_elections::completion_type (nano::election const & election) const
-{
-	if (election.confirmed ())
-	{
-		return nano::stat::type::active_confirmed;
-	}
-	if (election.failed ())
-	{
-		return nano::stat::type::active_timeout;
-	}
-	return nano::stat::type::active_dropped;
 }
 
 std::vector<std::shared_ptr<nano::election>> nano::active_elections::list_active (std::size_t max_a)
@@ -556,6 +545,27 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 	composite->add_component (active_elections.recently_cemented.collect_container_info ("recently_cemented"));
 
 	return composite;
+}
+
+nano::stat::type nano::active_elections::completion_type (nano::election const & election) const
+{
+	switch (election.state ())
+	{
+		case election_state::passive:
+		case election_state::active:
+			return nano::stat::type::active_dropped;
+			break;
+		case election_state::confirmed:
+		case election_state::expired_confirmed:
+			return nano::stat::type::active_confirmed;
+			break;
+		case election_state::expired_unconfirmed:
+			return nano::stat::type::active_timeout;
+			break;
+		case election_state::cancelled:
+			return nano::stat::type::active_cancelled;
+			break;
+	}
 }
 
 /*

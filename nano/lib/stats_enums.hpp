@@ -27,6 +27,7 @@ enum class type
 	vote_processor_tier,
 	vote_processor_overfill,
 	election,
+	election_cleanup,
 	election_vote,
 	http_callback,
 	ipc,
@@ -63,9 +64,11 @@ enum class type
 	active_confirmed,
 	active_dropped,
 	active_timeout,
+	active_cancelled,
 	backlog,
 	unchecked,
 	election_scheduler,
+	election_bucket,
 	optimistic_scheduler,
 	handshake,
 	rep_crawler,
@@ -367,6 +370,7 @@ enum class detail
 	// active
 	insert,
 	insert_failed,
+	election_cleanup,
 
 	// unchecked
 	put,
@@ -434,6 +438,19 @@ enum class detail
 	tier_1,
 	tier_2,
 	tier_3,
+
+	// election state
+	passive,
+	active,
+	confirmed,
+	expired_confirmed,
+	expired_unconfirmed,
+	cancelled,
+
+	// election bucket
+	activate_failed,
+	activate_success,
+	cancel_lowest,
 
 	_last // Must be the last enum
 };

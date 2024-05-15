@@ -1,5 +1,7 @@
 #pragma once
 
+#include <nano/node/fwd.hpp>
+
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
@@ -30,7 +32,7 @@ public:
 	using priority_t = uint64_t;
 
 public:
-	bucket (nano::uint128_t minimum_balance, nano::active_elections &);
+	bucket (nano::uint128_t minimum_balance, nano::node &);
 	~bucket ();
 
 	nano::uint128_t const minimum_balance;
@@ -42,6 +44,7 @@ public:
 	void push (uint64_t time, std::shared_ptr<nano::block> block);
 
 	size_t size () const;
+	size_t election_count () const;
 	bool empty () const;
 	void dump () const;
 
@@ -52,6 +55,7 @@ private:
 
 private: // Dependencies
 	nano::active_elections & active;
+	nano::stats & stats;
 
 private: // Blocks
 	struct block_entry
