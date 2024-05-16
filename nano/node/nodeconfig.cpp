@@ -209,6 +209,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	optimistic_scheduler.serialize (optimistic_l);
 	toml.put_child ("optimistic_scheduler", optimistic_l);
 
+	nano::tomlconfig priority_bucket_l;
+	priority_bucket.serialize (priority_bucket_l);
+	toml.put_child ("priority_bucket", priority_bucket_l);
+
 	nano::tomlconfig bootstrap_ascending_l;
 	bootstrap_ascending.serialize (bootstrap_ascending_l);
 	toml.put_child ("bootstrap_ascending", bootstrap_ascending_l);
@@ -304,6 +308,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto config_l = toml.get_required_child ("hinted_scheduler");
 			hinted_scheduler.deserialize (config_l);
+		}
+
+		if (toml.has_key ("priority_bucket"))
+		{
+			auto config_l = toml.get_required_child ("priority_bucket");
+			priority_bucket.deserialize (config_l);
 		}
 
 		if (toml.has_key ("bootstrap_ascending"))

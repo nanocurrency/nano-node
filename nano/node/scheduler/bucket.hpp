@@ -24,6 +24,23 @@ class block;
 
 namespace nano::scheduler
 {
+class priority_bucket_config final
+{
+public:
+	nano::error deserialize (nano::tomlconfig & toml);
+	nano::error serialize (nano::tomlconfig & toml) const;
+
+public:
+	// Maximum number of blocks to sort by priority per bucket.
+	std::size_t max_blocks{ 1024 * 8 };
+
+	// Number of guaranteed slots per bucket available for election activation.
+	std::size_t reserved_elections{ 100 };
+
+	// Maximum number of slots per bucket available for election activation if the active election count is below the configured limit. (node.active_elections.size)
+	std::size_t max_elections{ 150 };
+};
+
 /** A class which holds an ordered set of blocks to be scheduled, ordered by their block arrival time
  */
 class bucket final
@@ -54,6 +71,7 @@ private:
 	void cancel_lowest_election ();
 
 private: // Dependencies
+	priority_bucket_config const & config;
 	nano::active_elections & active;
 	nano::stats & stats;
 
@@ -96,10 +114,5 @@ private: // Elections
 
 private:
 	mutable nano::mutex mutex;
-
-private: // Config
-	static size_t constexpr max_blocks{ 1024 * 8 };
-	static size_t constexpr reserved_elections{ 100 };
-	static size_t constexpr max_elections{ 150 };
 };
 } // namespace nano::scheduler
