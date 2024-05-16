@@ -108,5 +108,6 @@ private:
 	std::deque<candidate_t> candidates;
 	std::atomic<bool> stopped{ false };
 	std::thread thread;
+	std::shared_ptr<nano::transport::channel> inproc_channel;
 };
 }

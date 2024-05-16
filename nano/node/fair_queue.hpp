@@ -18,56 +18,29 @@ template <typename Request, typename Source>
 class fair_queue final
 {
 public:
+	/**
+	 * Holds user supplied source type(s) and an optional channel. This is used to uniquely identify and categorize the source of a request.
+	 */
 	struct origin
 	{
 		Source source;
+
+		// This can be null for some sources (eg. local RPC) to indicate that the source is not associated with a channel.
 		std::shared_ptr<nano::transport::channel> channel;
 
 		origin (Source source, std::shared_ptr<nano::transport::channel> channel = nullptr) :
 			source{ source },
-			channel{ channel }
+			channel{ std::move (channel) }
 		{
 		}
-	};
 
-private:
-	/**
-	 * Holds user supplied source type(s) and an optional channel. This is used to uniquely identify and categorize the source of a request.
-	 */
-	struct origin_entry
-	{
-		Source source;
-
-		// Optional is needed to distinguish between a source with no associated channel and a source with an expired channel
-		// TODO: Store channel as shared_ptr after networking fixes are done
-		std::optional<std::weak_ptr<nano::transport::channel>> maybe_channel;
-
-		origin_entry (Source source, std::shared_ptr<nano::transport::channel> channel = nullptr) :
-			source{ source }
-		{
-			if (channel)
-			{
-				maybe_channel = std::weak_ptr{ channel };
-			}
-		}
-
-		origin_entry (origin const & origin) :
-			origin_entry (origin.source, origin.channel)
-		{
-		}
+		origin (origin const & origin) = default;
 
 		bool alive () const
 		{
-			if (maybe_channel)
+			if (channel)
 			{
-				if (auto channel_l = maybe_channel->lock ())
-				{
-					return channel_l->alive ();
-				}
-				else
-				{
-					return false;
-				}
+				return channel->alive ();
 			}
 			else
 			{
@@ -76,49 +49,10 @@ private:
 			}
 		}
 
-		// TODO: Store channel as shared_ptr to avoid this mess
-		auto operator<=> (origin_entry const & other) const
-		{
-			// First compare source
-			if (auto cmp = source <=> other.source; cmp != 0)
-			{
-				return cmp;
-			}
-
-			if (maybe_channel && other.maybe_channel)
-			{
-				// Then compare channels by ownership, not by the channel's value or state
-				std::owner_less<std::weak_ptr<nano::transport::channel>> less;
-				if (less (*maybe_channel, *other.maybe_channel))
-				{
-					return std::strong_ordering::less;
-				}
-				if (less (*other.maybe_channel, *maybe_channel))
-				{
-					return std::strong_ordering::greater;
-				}
-			}
-			else
-			{
-				if (maybe_channel && !other.maybe_channel)
-				{
-					return std::strong_ordering::greater;
-				}
-				if (!maybe_channel && other.maybe_channel)
-				{
-					return std::strong_ordering::less;
-				}
-			}
-
-			return std::strong_ordering::equivalent;
-		}
-
-		operator origin () const
-		{
-			return { source, maybe_channel ? maybe_channel->lock () : nullptr };
-		}
+		auto operator<=> (origin const & other) const = default;
 	};
 
+private:
 	struct entry
 	{
 		using queue_t = std::deque<Request>;
@@ -264,6 +198,7 @@ public:
 	value_type next ()
 	{
 		release_assert (!empty ()); // Should be checked before calling next
+		debug_assert ((std::chrono::steady_clock::now () - last_update) < 60s); // The queue should be cleaned up periodically
 
 		if (should_seek ())
 		{
@@ -283,6 +218,8 @@ public:
 
 	std::deque<value_type> next_batch (size_t max_count)
 	{
+		periodic_update ();
+
 		auto const count = std::min (size (), max_count);
 
 		std::deque<value_type> result;
@@ -358,13 +295,11 @@ private:
 	}
 
 private:
-	std::map<origin_entry, entry> queues;
-	typename std::map<origin_entry, entry>::iterator iterator{ queues.end () };
+	std::map<origin, entry> queues;
+	typename std::map<origin, entry>::iterator iterator{ queues.end () };
 	size_t counter{ 0 };
-
 	size_t total_size{ 0 };
-
-	std::chrono::steady_clock::time_point last_update{};
+	std::chrono::steady_clock::time_point last_update{ std::chrono::steady_clock::now () };
 
 public:
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const

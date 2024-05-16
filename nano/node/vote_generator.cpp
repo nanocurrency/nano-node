@@ -28,7 +28,8 @@ nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::
 	stats (stats_a),
 	logger (logger_a),
 	is_final (is_final_a),
-	vote_generation_queue{ stats, nano::stat::type::vote_generator, nano::thread_role::name::vote_generator_queue, /* single threaded */ 1, /* max queue size */ 1024 * 32, /* max batch size */ 1024 * 4 }
+	vote_generation_queue{ stats, nano::stat::type::vote_generator, nano::thread_role::name::vote_generator_queue, /* single threaded */ 1, /* max queue size */ 1024 * 32, /* max batch size */ 1024 * 4 },
+	inproc_channel{ std::make_shared<nano::transport::inproc::channel> (node, node) }
 {
 	vote_generation_queue.process_batch = [this] (auto & batch) {
 		process_batch (batch);
@@ -250,7 +251,7 @@ void nano::vote_generator::broadcast_action (std::shared_ptr<nano::vote> const &
 {
 	network.flood_vote_pr (vote_a);
 	network.flood_vote (vote_a, 2.0f);
-	vote_processor.vote (vote_a, std::make_shared<nano::transport::inproc::channel> (node, node)); // TODO: Avoid creating a temporary channel each time
+	vote_processor.vote (vote_a, inproc_channel);
 }
 
 void nano::vote_generator::run ()
