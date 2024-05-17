@@ -616,13 +616,14 @@ nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::m
 	}
 }
 
-nano::confirm_ack::confirm_ack (nano::network_constants const & constants, std::shared_ptr<nano::vote> const & vote_a) :
+nano::confirm_ack::confirm_ack (nano::network_constants const & constants, std::shared_ptr<nano::vote> const & vote_a, bool rebroadcasted_a) :
 	message (constants, nano::message_type::confirm_ack),
 	vote (vote_a)
 {
 	debug_assert (vote->hashes.size () < 256);
 
 	header.block_type_set (nano::block_type::not_a_block);
+	header.flag_set (rebroadcasted_flag, rebroadcasted_a);
 
 	if (vote->hashes.size () >= 16)
 	{
@@ -669,6 +670,11 @@ std::size_t nano::confirm_ack::size (const nano::message_header & header)
 {
 	auto const count = hash_count (header);
 	return nano::vote::size (count);
+}
+
+bool nano::confirm_ack::is_rebroadcasted () const
+{
+	return header.flag_test (rebroadcasted_flag);
 }
 
 void nano::confirm_ack::operator() (nano::object_stream & obs) const

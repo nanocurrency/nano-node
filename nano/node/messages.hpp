@@ -60,6 +60,18 @@ enum class bulk_pull_account_flags : uint8_t
 
 class message_visitor;
 
+/*
+ * Common Header Binary Format:
+ * [2 bytes] Network (big endian)
+ * [1 byte] Maximum protocol version
+ * [1 byte] Protocol version currently in use
+ * [1 byte] Minimum protocol version
+ * [1 byte] Message type
+ * [2 bytes] Extensions (message-specific flags and properties)
+ *
+ * Notes:
+ * - The structure and bit usage of the `extensions` field vary by message type.
+ */
 class message_header final
 {
 public:
@@ -140,6 +152,14 @@ public: // Logging
 	virtual void operator() (nano::object_stream &) const;
 };
 
+/*
+ * Binary Format:
+ * [message_header] Common message header
+ * [8x (16 bytes (IP) + 2 bytes (port)] Array of 8 peers
+ *
+ * Header extensions:
+ * - No specific bits from the `extensions` field are used for `keepalive`.
+ */
 class keepalive final : public message
 {
 public:
@@ -156,6 +176,14 @@ public: // Logging
 	void operator() (nano::object_stream &) const override;
 };
 
+/*
+ * Binary Format:
+ * [message_header] Common message header
+ * [variable] Block (serialized according to the block type specified in the header)
+ *
+ * Header extensions:
+ * - [0x0f00] Block type: Identifies the specific type of the block.
+ */
 class publish final : public message
 {
 public:
@@ -172,6 +200,20 @@ public: // Logging
 	void operator() (nano::object_stream &) const override;
 };
 
+/*
+ * Binary Format:
+ * [message_header] Common message header
+ * [N x (32 bytes (block hash) + 32 bytes (root))] Pairs of (block_hash, root)
+ * - The count is determined by the header's count bits.
+ *
+ * Header extensions:
+ * - [0xf000] Count (for V1 protocol)
+ * - [0x0f00] Block type
+ *   - Not used anymore (V25.1+), but still present and set to `not_a_block = 0x1` for backwards compatibility
+ * - [0xf000 (high), 0x00f0 (low)] Count V2 (for V2 protocol)
+ * - [0x0001] Confirm V2 flag
+ * - [0x0002] Reserved for V3+ versioning
+ */
 class confirm_req final : public message
 {
 public:
@@ -197,17 +239,35 @@ public: // Logging
 	void operator() (nano::object_stream &) const override;
 };
 
+/*
+ * Binary Format:
+ * [message_header] Common message header
+ * [variable] Vote
+ * - Serialized/deserialized by the `nano::vote` class.
+ *
+ * Header extensions:
+ * - [0xf000] Count (for V1 protocol)
+ * - [0x0f00] Block type
+ *   - Not used anymore (V25.1+), but still present and set to `not_a_block = 0x1` for backwards compatibility
+ * - [0xf000 (high), 0x00f0 (low)] Count V2 masks (for V2 protocol)
+ * - [0x0001] Confirm V2 flag
+ * - [0x0002] Reserved for V3+ versioning
+ * - [0x0004] Rebroadcasted flag
+ */
 class confirm_ack final : public message
 {
 public:
 	confirm_ack (bool & error, nano::stream &, nano::message_header const &, nano::vote_uniquer * = nullptr);
-	confirm_ack (nano::network_constants const & constants, std::shared_ptr<nano::vote> const &);
+	confirm_ack (nano::network_constants const & constants, std::shared_ptr<nano::vote> const &, bool rebroadcasted = false);
 
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
 
 	static std::size_t size (nano::message_header const &);
+
+	static uint8_t constexpr rebroadcasted_flag = 2; // 0x0004
+	bool is_rebroadcasted () const;
 
 private:
 	static uint8_t hash_count (nano::message_header const &);

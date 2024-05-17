@@ -249,7 +249,7 @@ TEST (inactive_votes_cache, basic)
 	ASSERT_TIMELY_EQ (5s, node.vote_cache.size (), 1);
 	node.process_active (send);
 	ASSERT_TIMELY (5s, node.ledger.confirmed.block_exists_or_pruned (node.ledger.tx_begin_read (), send->hash ()));
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election_vote, nano::stat::detail::cache));
 }
 
 /**
@@ -276,7 +276,7 @@ TEST (inactive_votes_cache, non_final)
 	node.process_active (send);
 	std::shared_ptr<nano::election> election;
 	ASSERT_TIMELY (5s, election = node.active.election (send->qualified_root ()));
-	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached), 1);
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::election_vote, nano::stat::detail::cache), 1);
 	ASSERT_TIMELY_EQ (5s, nano::dev::constants.genesis_amount - 100, election->tally ().begin ()->first);
 	ASSERT_FALSE (election->confirmed ());
 }
@@ -318,7 +318,7 @@ TEST (inactive_votes_cache, fork)
 	node.process_active (send1);
 	ASSERT_TIMELY_EQ (5s, election->blocks ().size (), 2);
 	ASSERT_TIMELY (5s, node.block_confirmed (send1->hash ()));
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election_vote, nano::stat::detail::cache));
 }
 
 TEST (inactive_votes_cache, existing_vote)
@@ -354,7 +354,7 @@ TEST (inactive_votes_cache, existing_vote)
 	auto vote1 = nano::test::make_vote (key, { send }, nano::vote::timestamp_min * 1, 0);
 	node.vote_processor.vote (vote1, std::make_shared<nano::transport::inproc::channel> (node, node));
 	ASSERT_TIMELY_EQ (5s, election->votes ().size (), 2);
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_new));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote));
 	auto last_vote1 (election->votes ()[key.pub]);
 	ASSERT_EQ (send->hash (), last_vote1.hash);
 	ASSERT_EQ (nano::vote::timestamp_min * 1, last_vote1.timestamp);
@@ -372,7 +372,7 @@ TEST (inactive_votes_cache, existing_vote)
 	ASSERT_EQ (last_vote1.hash, last_vote2.hash);
 	ASSERT_EQ (last_vote1.timestamp, last_vote2.timestamp);
 	ASSERT_EQ (last_vote1.time, last_vote2.time);
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::election_vote, nano::stat::detail::cache));
 }
 
 TEST (inactive_votes_cache, multiple_votes)
@@ -425,7 +425,7 @@ TEST (inactive_votes_cache, multiple_votes)
 	ASSERT_EQ (1, node.vote_cache.size ());
 	auto election = nano::test::start_election (system, node, send1->hash ());
 	ASSERT_TIMELY_EQ (5s, 3, election->votes ().size ()); // 2 votes and 1 default not_an_acount
-	ASSERT_EQ (2, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::election_vote, nano::stat::detail::cache));
 }
 
 TEST (inactive_votes_cache, election_start)

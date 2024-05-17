@@ -91,7 +91,7 @@ void nano::vote_processor::stop ()
 	threads.clear ();
 }
 
-bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel)
+bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_source source)
 {
 	debug_assert (channel != nullptr);
 
@@ -100,7 +100,7 @@ bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote, std::
 	bool added = false;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
-		added = queue.push (vote, { tier, channel });
+		added = queue.push ({ vote, source }, { tier, channel });
 	}
 	if (added)
 	{
@@ -150,9 +150,10 @@ void nano::vote_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
 
 	lock.unlock ();
 
-	for (auto const & [vote, origin] : batch)
+	for (auto const & [item, origin] : batch)
 	{
-		vote_blocking (vote, origin.channel);
+		auto const & [vote, source] = item;
+		vote_blocking (vote, origin.channel, source);
 	}
 
 	total_processed += batch.size ();
@@ -166,12 +167,12 @@ void nano::vote_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
 	}
 }
 
-nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel)
+nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_source source)
 {
 	auto result = nano::vote_code::invalid;
 	if (!vote->validate ()) // false => valid vote
 	{
-		auto vote_results = vote_router.vote (vote);
+		auto vote_results = vote_router.vote (vote, source);
 
 		// Aggregate results for individual hashes
 		bool replay = false;
@@ -183,7 +184,7 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 		}
 		result = replay ? nano::vote_code::replay : (processed ? nano::vote_code::vote : nano::vote_code::indeterminate);
 
-		observers.vote.notify (vote, channel, result);
+		observers.vote.notify (vote, channel, source, result);
 	}
 
 	stats.inc (nano::stat::type::vote, to_stat_detail (result));

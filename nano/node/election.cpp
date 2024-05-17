@@ -460,7 +460,7 @@ nano::vote_code nano::election::vote (nano::account const & rep, uint64_t timest
 		auto max_vote = timestamp_a == std::numeric_limits<uint64_t>::max () && last_vote_l.timestamp < timestamp_a;
 
 		bool past_cooldown = true;
-		if (vote_source_a == vote_source::live) // Only cooldown live votes
+		if (vote_source_a != vote_source::cache) // Only cooldown live votes
 		{
 			const auto cooldown = cooldown_time (weight);
 			past_cooldown = last_vote_l.time <= std::chrono::steady_clock::now () - cooldown;
@@ -473,12 +473,14 @@ nano::vote_code nano::election::vote (nano::account const & rep, uint64_t timest
 	}
 
 	last_votes[rep] = { std::chrono::steady_clock::now (), timestamp_a, block_hash_a };
-	if (vote_source_a == vote_source::live)
+	if (vote_source_a != vote_source::cache)
 	{
 		live_vote_action (rep);
 	}
 
-	node.stats.inc (nano::stat::type::election, vote_source_a == vote_source::live ? nano::stat::detail::vote_new : nano::stat::detail::vote_cached);
+	node.stats.inc (nano::stat::type::election, nano::stat::detail::vote);
+	node.stats.inc (nano::stat::type::election_vote, to_stat_detail (vote_source_a));
+
 	node.logger.trace (nano::log::type::election, nano::log::detail::vote_processed,
 	nano::log::arg{ "id", id },
 	nano::log::arg{ "qualified_root", qualified_root },

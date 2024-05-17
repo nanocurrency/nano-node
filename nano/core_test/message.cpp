@@ -182,6 +182,7 @@ TEST (message, confirm_ack_hash_serialization)
 	ASSERT_EQ (hashes, con2.vote->hashes);
 	ASSERT_FALSE (header.confirm_is_v2 ());
 	ASSERT_EQ (header.count_get (), hashes.size ());
+	ASSERT_FALSE (con2.is_rebroadcasted ());
 }
 
 TEST (message, confirm_ack_hash_serialization_v2)
@@ -223,6 +224,28 @@ TEST (message, confirm_ack_hash_serialization_v2)
 	ASSERT_EQ (hashes, con2.vote->hashes);
 	ASSERT_TRUE (header.confirm_is_v2 ());
 	ASSERT_EQ (header.count_v2_get (), hashes.size ());
+	ASSERT_FALSE (con2.is_rebroadcasted ());
+}
+
+TEST (message, confirm_ack_rebroadcasted_flag)
+{
+	nano::keypair representative1;
+	auto vote = nano::test::make_vote (representative1, std::vector<nano::block_hash> (), 0, 0);
+	nano::confirm_ack con1{ nano::dev::network_params.network, vote, /* rebroadcasted */ true };
+	ASSERT_TRUE (con1.is_rebroadcasted ());
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream1 (bytes);
+		con1.serialize (stream1);
+	}
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	bool error (false);
+	nano::message_header header (error, stream2);
+	nano::confirm_ack con2 (error, stream2, header);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (con1, con2);
+	ASSERT_TRUE (con2.vote->hashes.empty ());
+	ASSERT_TRUE (con2.is_rebroadcasted ());
 }
 
 TEST (message, confirm_req_hash_serialization)

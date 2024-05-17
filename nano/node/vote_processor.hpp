@@ -5,6 +5,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/fair_queue.hpp>
 #include <nano/node/rep_tiers.hpp>
+#include <nano/node/vote_router.hpp>
 #include <nano/secure/common.hpp>
 
 #include <deque>
@@ -64,8 +65,8 @@ public:
 	void stop ();
 
 	/** @returns true if the vote was queued for processing */
-	bool vote (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &);
-	nano::vote_code vote_blocking (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &);
+	bool vote (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &, nano::vote_source = nano::vote_source::live);
+	nano::vote_code vote_blocking (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &, nano::vote_source = nano::vote_source::live);
 
 	std::size_t size () const;
 	bool empty () const;
@@ -91,7 +92,8 @@ private:
 	void run_batch (nano::unique_lock<nano::mutex> &);
 
 private:
-	nano::fair_queue<std::shared_ptr<nano::vote>, nano::rep_tier> queue;
+	using entry_t = std::pair<std::shared_ptr<nano::vote>, nano::vote_source>;
+	nano::fair_queue<entry_t, nano::rep_tier> queue;
 
 private:
 	bool stopped{ false };

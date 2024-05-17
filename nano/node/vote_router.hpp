@@ -32,6 +32,7 @@ nano::stat::detail to_stat_detail (vote_code);
 enum class vote_source
 {
 	live,
+	rebroadcast,
 	cache,
 };
 
