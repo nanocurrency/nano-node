@@ -145,7 +145,7 @@ public:
 	 * The blocks are sorted in descending order by final tally, then by tally
 	 * @param min_tally minimum tally threshold, entries below with their voting weight below this will be ignored
 	 */
-	std::vector<top_entry> top (nano::uint128_t const & min_tally);
+	std::deque<top_entry> top (nano::uint128_t const & min_tally);
 
 public: // Container info
 	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name) const;

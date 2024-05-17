@@ -231,11 +231,11 @@ void nano::vote_cache::clear ()
 	cache.clear ();
 }
 
-std::vector<nano::vote_cache::top_entry> nano::vote_cache::top (const nano::uint128_t & min_tally)
+std::deque<nano::vote_cache::top_entry> nano::vote_cache::top (const nano::uint128_t & min_tally)
 {
 	stats.inc (nano::stat::type::vote_cache, nano::stat::detail::top);
 
-	std::vector<top_entry> results;
+	std::deque<top_entry> results;
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
 
