@@ -246,11 +246,12 @@ std::vector<nano::vote_cache::top_entry> nano::vote_cache::top (const nano::uint
 
 		for (auto & entry : cache.get<tag_tally> ())
 		{
-			if (entry.tally () < min_tally)
+			auto tally = entry.tally ();
+			if (tally < min_tally)
 			{
 				break;
 			}
-			results.push_back ({ entry.hash (), entry.tally (), entry.final_tally () });
+			results.push_back ({ entry.hash (), tally, entry.final_tally () });
 		}
 	}
 
