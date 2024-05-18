@@ -55,7 +55,7 @@ void nano::vote_router::disconnect (nano::block_hash const & hash)
 }
 
 // Validate a vote and apply it to the current election if one exists
-std::unordered_map<nano::block_hash, nano::vote_code> nano::vote_router::vote (std::shared_ptr<nano::vote> const & vote, nano::vote_source source)
+std::unordered_map<nano::block_hash, nano::vote_code> nano::vote_router::vote (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, nano::block_hash filter)
 {
 	debug_assert (!vote->validate ()); // false => valid vote
 
@@ -66,6 +66,12 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::vote_router::vote (s
 		std::shared_lock lock{ mutex };
 		for (auto const & hash : vote->hashes)
 		{
+			// Ignore votes for other hashes if a filter is set
+			if (!filter.is_zero () && hash != filter)
+			{
+				continue;
+			}
+
 			// Ignore duplicate hashes (should not happen with a well-behaved voting node)
 			if (results.find (hash) != results.end ())
 			{
@@ -102,7 +108,7 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::vote_router::vote (s
 	}
 
 	// All hashes should have their result set
-	debug_assert (std::all_of (vote->hashes.begin (), vote->hashes.end (), [&results] (auto const & hash) {
+	debug_assert (!filter.is_zero () || std::all_of (vote->hashes.begin (), vote->hashes.end (), [&results] (auto const & hash) {
 		return results.find (hash) != results.end ();
 	}));
 
@@ -116,7 +122,7 @@ bool nano::vote_router::trigger_vote_cache (nano::block_hash const & hash)
 	auto cached = cache.find (hash);
 	for (auto const & cached_vote : cached)
 	{
-		vote (cached_vote, nano::vote_source::cache);
+		vote (cached_vote, nano::vote_source::cache, hash);
 	}
 	return !cached.empty ();
 }

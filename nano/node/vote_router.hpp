@@ -55,7 +55,7 @@ public:
 	void disconnect (nano::block_hash const & hash);
 	// Route vote to associated elections
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
-	std::unordered_map<nano::block_hash, nano::vote_code> vote (std::shared_ptr<nano::vote> const &, nano::vote_source = nano::vote_source::live);
+	std::unordered_map<nano::block_hash, nano::vote_code> vote (std::shared_ptr<nano::vote> const &, nano::vote_source = nano::vote_source::live, nano::block_hash filter = { 0 });
 	bool trigger_vote_cache (nano::block_hash const & hash);
 	bool active (nano::block_hash const & hash) const;
 	std::shared_ptr<nano::election> election (nano::block_hash const & hash) const;
