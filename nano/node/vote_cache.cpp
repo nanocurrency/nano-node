@@ -128,61 +128,66 @@ nano::vote_cache::vote_cache (vote_cache_config const & config_a, nano::stats & 
 {
 }
 
-void nano::vote_cache::observe (const std::shared_ptr<nano::vote> & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> results)
+void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, std::unordered_map<nano::block_hash, nano::vote_code> const & results)
 {
-	if (source != nano::vote_source::cache)
-	{
-		insert (vote, [&results] (nano::block_hash const & hash) {
-			// This filters which hashes should be included in the vote cache
-			if (auto it = results.find (hash); it != results.end ())
-			{
-				auto result = it->second;
-				// Cache votes with a corresponding active election (indicated by `vote_code::vote`) in case that election gets dropped
-				return result == nano::vote_code::vote || result == nano::vote_code::indeterminate;
-			}
-			debug_assert (false);
-			return false;
-		});
-	}
-}
+	// Results map should be empty or have the same hashes as the vote
+	debug_assert (results.empty () || std::all_of (vote->hashes.begin (), vote->hashes.end (), [&results] (auto const & hash) { return results.find (hash) != results.end (); }));
 
-void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, std::function<bool (nano::block_hash const &)> filter)
-{
 	auto const representative = vote->account;
-	auto const timestamp = vote->timestamp ();
 	auto const rep_weight = rep_weight_query (representative);
 
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
-	for (auto const & hash : vote->hashes)
+	// Cache votes with a corresponding active election (indicated by `vote_code::vote`) in case that election gets dropped
+	auto filter = [] (auto code) {
+		return code == nano::vote_code::vote || code == nano::vote_code::indeterminate;
+	};
+
+	// If results map is empty, insert all hashes (meant for testing)
+	if (results.empty ())
 	{
-		// Using filter callback here to avoid unnecessary relocking when processing large votes
-		if (!filter (hash))
+		for (auto const & hash : vote->hashes)
 		{
-			continue;
+			insert_impl (vote, hash, rep_weight);
 		}
-
-		if (auto existing = cache.find (hash); existing != cache.end ())
+	}
+	else
+	{
+		for (auto const & [hash, code] : results)
 		{
-			stats.inc (nano::stat::type::vote_cache, nano::stat::detail::update);
-
-			cache.modify (existing, [this, &vote, &rep_weight] (entry & ent) {
-				ent.vote (vote, rep_weight, config.max_voters);
-			});
-		}
-		else
-		{
-			stats.inc (nano::stat::type::vote_cache, nano::stat::detail::insert);
-
-			entry cache_entry{ hash };
-			cache_entry.vote (vote, rep_weight, config.max_voters);
-			cache.insert (cache_entry);
-
-			// Remove the oldest entry if we have reached the capacity limit
-			if (cache.size () > config.max_size)
+			if (filter (code))
 			{
-				cache.get<tag_sequenced> ().pop_front ();
+				insert_impl (vote, hash, rep_weight);
 			}
+		}
+	}
+}
+
+void nano::vote_cache::insert_impl (std::shared_ptr<nano::vote> const & vote, nano::block_hash const & hash, nano::uint128_t const & rep_weight)
+{
+	debug_assert (!mutex.try_lock ());
+	debug_assert (std::any_of (vote->hashes.begin (), vote->hashes.end (), [&hash] (auto const & vote_hash) { return vote_hash == hash; }));
+
+	if (auto existing = cache.find (hash); existing != cache.end ())
+	{
+		stats.inc (nano::stat::type::vote_cache, nano::stat::detail::update);
+
+		cache.modify (existing, [this, &vote, &rep_weight] (entry & ent) {
+			ent.vote (vote, rep_weight, config.max_voters);
+		});
+	}
+	else
+	{
+		stats.inc (nano::stat::type::vote_cache, nano::stat::detail::insert);
+
+		entry cache_entry{ hash };
+		cache_entry.vote (vote, rep_weight, config.max_voters);
+		cache.insert (cache_entry);
+
+		// Remove the oldest entry if we have reached the capacity limit
+		if (cache.size () > config.max_size)
+		{
+			cache.get<tag_sequenced> ().pop_front ();
 		}
 	}
 }

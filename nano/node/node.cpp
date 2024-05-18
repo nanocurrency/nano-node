@@ -238,7 +238,10 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	});
 
 	vote_router.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
-		vote_cache.observe (vote, source, results);
+		if (source != nano::vote_source::cache)
+		{
+			vote_cache.insert (vote, results);
+		}
 	});
 
 	// Republish vote if it is new and the node does not host a principal representative (or close to)

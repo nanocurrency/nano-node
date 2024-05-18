@@ -110,12 +110,7 @@ public:
 	 */
 	void insert (
 	std::shared_ptr<nano::vote> const & vote,
-	std::function<bool (nano::block_hash const &)> filter = [] (nano::block_hash const &) { return true; });
-
-	/**
-	 * Should be called for every processed vote, filters which votes should be added to cache
-	 */
-	void observe (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code>);
+	std::unordered_map<nano::block_hash, nano::vote_code> const & results = {});
 
 	/**
 	 * Tries to find an entry associated with block hash
@@ -161,6 +156,7 @@ private: // Dependencies
 	nano::stats & stats;
 
 private:
+	void insert_impl (std::shared_ptr<nano::vote> const &, nano::block_hash const & hash, nano::uint128_t const & rep_weight);
 	void cleanup ();
 
 	// clang-format off
