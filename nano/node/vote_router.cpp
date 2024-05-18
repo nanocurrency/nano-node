@@ -58,10 +58,13 @@ void nano::vote_router::disconnect (nano::block_hash const & hash)
 std::unordered_map<nano::block_hash, nano::vote_code> nano::vote_router::vote (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, nano::block_hash filter)
 {
 	debug_assert (!vote->validate ()); // false => valid vote
+	// If present, filter should be set to one of the hashes in the vote
+	debug_assert (filter.is_zero () || std::any_of (vote->hashes.begin (), vote->hashes.end (), [&filter] (auto const & hash) {
+		return hash == filter;
+	}));
 
 	std::unordered_map<nano::block_hash, nano::vote_code> results;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> process;
-	std::vector<nano::block_hash> inactive; // Hashes that should be added to inactive vote cache
 	{
 		std::shared_lock lock{ mutex };
 		for (auto const & hash : vote->hashes)
@@ -78,25 +81,28 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::vote_router::vote (s
 				continue;
 			}
 
-			if (auto existing = elections.find (hash); existing != elections.end ())
-			{
-				if (auto election = existing->second.lock (); election != nullptr)
+			auto find_election = [this] (auto const & hash) {
+				if (auto existing = elections.find (hash); existing != elections.end ())
 				{
-					process[hash] = election;
+					return existing->second.lock ();
 				}
-			}
-			if (process.count (hash) != 0)
+				return std::shared_ptr<nano::election>{};
+			};
+
+			if (auto election = find_election (hash))
 			{
-				// There was an active election for hash
-			}
-			else if (!recently_confirmed.exists (hash))
-			{
-				inactive.emplace_back (hash);
-				results[hash] = nano::vote_code::indeterminate;
+				process[hash] = election;
 			}
 			else
 			{
-				results[hash] = nano::vote_code::replay;
+				if (!recently_confirmed.exists (hash))
+				{
+					results[hash] = nano::vote_code::indeterminate;
+				}
+				else
+				{
+					results[hash] = nano::vote_code::replay;
+				}
 			}
 		}
 	}
