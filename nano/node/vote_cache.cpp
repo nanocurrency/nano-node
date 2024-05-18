@@ -20,6 +20,9 @@ bool nano::vote_cache_entry::vote (std::shared_ptr<nano::vote> const & vote, con
 	bool updated = vote_impl (vote, rep_weight, max_voters);
 	if (updated)
 	{
+		auto [tally, final_tally] = calculate_tally ();
+		tally_m = tally;
+		final_tally_m = final_tally;
 		last_vote_m = std::chrono::steady_clock::now ();
 	}
 	return updated;
@@ -36,15 +39,12 @@ bool nano::vote_cache_entry::vote_impl (std::shared_ptr<nano::vote> const & vote
 		// It is not essential to keep tally up to date if rep voting weight changes, elections do tally calculations independently, so in the worst case scenario only our queue ordering will be a bit off
 		if (vote->timestamp () > existing->vote->timestamp ())
 		{
+			bool was_final = existing->vote->is_final ();
 			voters.modify (existing, [&vote, &rep_weight] (auto & existing) {
 				existing.vote = vote;
 				existing.weight = rep_weight;
 			});
-			return true;
-		}
-		else
-		{
-			return false;
+			return !was_final && vote->is_final (); // Tally changed only if the vote became final
 		}
 	}
 	else
@@ -76,11 +76,8 @@ bool nano::vote_cache_entry::vote_impl (std::shared_ptr<nano::vote> const & vote
 
 			return true;
 		}
-		else
-		{
-			return false;
-		}
 	}
+	return false; // Tally unchanged
 }
 
 std::size_t nano::vote_cache_entry::size () const
@@ -88,34 +85,21 @@ std::size_t nano::vote_cache_entry::size () const
 	return voters.size ();
 }
 
-nano::block_hash nano::vote_cache_entry::hash () const
+auto nano::vote_cache_entry::calculate_tally () const -> std::pair<nano::uint128_t, nano::uint128_t>
 {
-	return hash_m;
-}
-
-nano::uint128_t nano::vote_cache_entry::tally () const
-{
-	return std::accumulate (voters.begin (), voters.end (), nano::uint128_t{ 0 }, [] (auto sum, auto const & item) {
-		return sum + item.weight;
-	});
-}
-
-nano::uint128_t nano::vote_cache_entry::final_tally () const
-{
-	return std::accumulate (voters.begin (), voters.end (), nano::uint128_t{ 0 }, [] (auto sum, auto const & item) {
-		return sum + (item.vote->is_final () ? item.weight : 0);
-	});
+	nano::uint128_t tally{ 0 }, final_tally{ 0 };
+	for (auto const & voter : voters)
+	{
+		tally += voter.weight;
+		final_tally += voter.vote->is_final () ? voter.weight : 0;
+	}
+	return { tally, final_tally };
 }
 
 std::vector<std::shared_ptr<nano::vote>> nano::vote_cache_entry::votes () const
 {
 	auto r = voters | std::views::transform ([] (auto const & item) { return item.vote; });
 	return { r.begin (), r.end () };
-}
-
-std::chrono::steady_clock::time_point nano::vote_cache_entry::last_vote () const
-{
-	return last_vote_m;
 }
 
 /*

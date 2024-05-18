@@ -68,14 +68,29 @@ public:
 	bool vote (std::shared_ptr<nano::vote> const & vote, nano::uint128_t const & rep_weight, std::size_t max_voters);
 
 	std::size_t size () const;
-	nano::block_hash hash () const;
-	nano::uint128_t tally () const;
-	nano::uint128_t final_tally () const;
 	std::vector<std::shared_ptr<nano::vote>> votes () const;
-	std::chrono::steady_clock::time_point last_vote () const;
+
+public: // Keep accessors inlined
+	nano::block_hash hash () const
+	{
+		return hash_m;
+	}
+	std::chrono::steady_clock::time_point last_vote () const
+	{
+		return last_vote_m;
+	}
+	nano::uint128_t tally () const
+	{
+		return tally_m;
+	}
+	nano::uint128_t final_tally () const
+	{
+		return final_tally_m;
+	}
 
 private:
 	bool vote_impl (std::shared_ptr<nano::vote> const & vote, nano::uint128_t const & rep_weight, std::size_t max_voters);
+	std::pair<nano::uint128_t, nano::uint128_t> calculate_tally () const; // <tally, final_tally>
 
 	// clang-format off
 	class tag_representative {};
@@ -95,6 +110,8 @@ private:
 
 	nano::block_hash const hash_m;
 	std::chrono::steady_clock::time_point last_vote_m{};
+	nano::uint128_t tally_m{ 0 };
+	nano::uint128_t final_tally_m{ 0 };
 };
 
 class vote_cache final
