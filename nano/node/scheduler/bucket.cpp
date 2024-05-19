@@ -35,10 +35,13 @@ void nano::scheduler::bucket::pop ()
 
 void nano::scheduler::bucket::push (uint64_t time, std::shared_ptr<nano::block> block)
 {
+	// Place this item which can lie anywhere in the range ( queue.begin (), queue.end () ]
 	queue.insert ({ time, block });
 	if (queue.size () > maximum)
 	{
+		// Trim lowest priority transaction from block queue
 		debug_assert (!queue.empty ());
+		// Drop last item which is lowest priority
 		queue.erase (--queue.end ());
 	}
 }

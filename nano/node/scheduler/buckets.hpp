@@ -27,33 +27,22 @@ class bucket;
 class buckets final
 {
 	/** container for the buckets to be read in round robin fashion */
-	std::deque<std::unique_ptr<bucket>> buckets_m;
+	std::map<nano::amount, std::unique_ptr<nano::scheduler::bucket>> buckets_m;
 
-	/** thresholds that define the bands for each bucket, the minimum balance an account must have to enter a bucket,
-	 *  the container writes a block to the lowest indexed bucket that has balance larger than the bucket's minimum value */
-	std::deque<nano::uint128_t> minimums;
-
-	/** index of bucket to read next */
-	decltype (buckets_m)::const_iterator current;
-
-	/** maximum number of blocks in whole container, each bucket's maximum is maximum / bucket_number */
-	uint64_t const maximum;
-
-	void next ();
-	void seek ();
+	void setup_buckets (uint64_t maximum);
 
 public:
-	buckets (uint64_t maximum = 250000u);
+	buckets (uint64_t maximum = 128);
 	~buckets ();
-	void push (uint64_t time, std::shared_ptr<nano::block> block, nano::amount const & priority);
-	std::shared_ptr<nano::block> top () const;
-	void pop ();
+
 	std::size_t size () const;
 	std::size_t bucket_count () const;
-	std::size_t bucket_size (std::size_t index) const;
+	std::size_t bucket_size (nano::amount const & amount) const;
+	std::size_t active () const;
+	scheduler::bucket * next ();
 	bool empty () const;
 	void dump () const;
-	std::size_t index (nano::uint128_t const & balance) const;
+	scheduler::bucket & bucket (nano::uint128_t const & balance) const;
 
 	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const &);
 };

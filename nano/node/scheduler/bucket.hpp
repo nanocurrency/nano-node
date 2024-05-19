@@ -12,6 +12,9 @@ class block;
 namespace nano::scheduler
 {
 /** A class which holds an ordered set of blocks to be scheduled, ordered by their block arrival time
+ * Tracks two internal counters limited by 'maximum'
+ * 1) active - number of elections this bucket has been responsible for starting
+ * 2) queue - A std::set ordered from highest to lowest priority which drops the last, lowest priority item
  */
 class bucket final
 {
@@ -24,7 +27,6 @@ class bucket final
 		bool operator== (value_type const & other_a) const;
 	};
 	std::set<value_type> queue;
-	size_t const maximum;
 
 public:
 	bucket (size_t maximum);
@@ -35,5 +37,9 @@ public:
 	size_t size () const;
 	bool empty () const;
 	void dump () const;
+
+	// Tracks the number of active elections started by this bucket
+	size_t active{ 0 };
+	size_t const maximum;
 };
 } // namespace nano::scheduler
