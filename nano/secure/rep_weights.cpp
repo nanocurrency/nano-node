@@ -14,7 +14,7 @@ void nano::rep_weights::representation_add (store::write_transaction const & txn
 	auto previous_weight{ rep_weight_store.get (txn_a, rep_a) };
 	auto new_weight = previous_weight + amount_a;
 	put_store (txn_a, rep_a, previous_weight, new_weight);
-	nano::lock_guard<nano::mutex> guard (mutex);
+	std::unique_lock guard{ mutex };
 	put_cache (rep_a, new_weight);
 }
 
@@ -28,7 +28,7 @@ void nano::rep_weights::representation_add_dual (store::write_transaction const 
 		auto new_weight_2 = previous_weight_2 + amount_2;
 		put_store (txn_a, rep_1, previous_weight_1, new_weight_1);
 		put_store (txn_a, rep_2, previous_weight_2, new_weight_2);
-		nano::lock_guard<nano::mutex> guard (mutex);
+		std::unique_lock guard{ mutex };
 		put_cache (rep_1, new_weight_1);
 		put_cache (rep_2, new_weight_2);
 	}
@@ -40,27 +40,27 @@ void nano::rep_weights::representation_add_dual (store::write_transaction const 
 
 void nano::rep_weights::representation_put (nano::account const & account_a, nano::uint128_t const & representation_a)
 {
-	nano::lock_guard<nano::mutex> guard (mutex);
+	std::unique_lock guard{ mutex };
 	put_cache (account_a, representation_a);
 }
 
 nano::uint128_t nano::rep_weights::representation_get (nano::account const & account_a) const
 {
-	nano::lock_guard<nano::mutex> lk (mutex);
+	std::shared_lock lk{ mutex };
 	return get (account_a);
 }
 
 /** Makes a copy */
 std::unordered_map<nano::account, nano::uint128_t> nano::rep_weights::get_rep_amounts () const
 {
-	nano::lock_guard<nano::mutex> guard (mutex);
+	std::shared_lock guard{ mutex };
 	return rep_amounts;
 }
 
 void nano::rep_weights::copy_from (nano::rep_weights & other_a)
 {
-	nano::lock_guard<nano::mutex> guard_this (mutex);
-	nano::lock_guard<nano::mutex> guard_other (other_a.mutex);
+	std::unique_lock guard_this{ mutex };
+	std::shared_lock guard_other{ other_a.mutex };
 	for (auto const & entry : other_a.rep_amounts)
 	{
 		auto prev_amount (get (entry.first));
@@ -122,7 +122,7 @@ nano::uint128_t nano::rep_weights::get (nano::account const & account_a) const
 
 std::size_t nano::rep_weights::size () const
 {
-	nano::lock_guard<nano::mutex> guard (mutex);
+	std::shared_lock guard{ mutex };
 	return rep_amounts.size ();
 }
 
@@ -131,7 +131,7 @@ std::unique_ptr<nano::container_info_component> nano::rep_weights::collect_conta
 	size_t rep_amounts_count;
 
 	{
-		nano::lock_guard<nano::mutex> guard (mutex);
+		std::shared_lock guard{ mutex };
 		rep_amounts_count = rep_amounts.size ();
 	}
 	auto sizeof_element = sizeof (decltype (rep_amounts)::value_type);

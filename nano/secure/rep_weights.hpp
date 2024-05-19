@@ -4,7 +4,7 @@
 #include <nano/lib/utility.hpp>
 
 #include <memory>
-#include <mutex>
+#include <shared_mutex>
 #include <unordered_map>
 
 namespace nano
@@ -32,7 +32,7 @@ public:
 	std::unique_ptr<container_info_component> collect_container_info (std::string const &) const;
 
 private:
-	mutable nano::mutex mutex;
+	mutable std::shared_mutex mutex;
 	std::unordered_map<nano::account, nano::uint128_t> rep_amounts;
 	nano::store::rep_weight & rep_weight_store;
 	nano::uint128_t min_weight;
