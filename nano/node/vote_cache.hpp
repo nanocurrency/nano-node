@@ -68,14 +68,29 @@ public:
 	bool vote (std::shared_ptr<nano::vote> const & vote, nano::uint128_t const & rep_weight, std::size_t max_voters);
 
 	std::size_t size () const;
-	nano::block_hash hash () const;
-	nano::uint128_t tally () const;
-	nano::uint128_t final_tally () const;
 	std::vector<std::shared_ptr<nano::vote>> votes () const;
-	std::chrono::steady_clock::time_point last_vote () const;
+
+public: // Keep accessors inlined
+	nano::block_hash hash () const
+	{
+		return hash_m;
+	}
+	std::chrono::steady_clock::time_point last_vote () const
+	{
+		return last_vote_m;
+	}
+	nano::uint128_t tally () const
+	{
+		return tally_m;
+	}
+	nano::uint128_t final_tally () const
+	{
+		return final_tally_m;
+	}
 
 private:
 	bool vote_impl (std::shared_ptr<nano::vote> const & vote, nano::uint128_t const & rep_weight, std::size_t max_voters);
+	std::pair<nano::uint128_t, nano::uint128_t> calculate_tally () const; // <tally, final_tally>
 
 	// clang-format off
 	class tag_representative {};
@@ -95,6 +110,8 @@ private:
 
 	nano::block_hash const hash_m;
 	std::chrono::steady_clock::time_point last_vote_m{};
+	nano::uint128_t tally_m{ 0 };
+	nano::uint128_t final_tally_m{ 0 };
 };
 
 class vote_cache final
@@ -110,12 +127,7 @@ public:
 	 */
 	void insert (
 	std::shared_ptr<nano::vote> const & vote,
-	std::function<bool (nano::block_hash const &)> filter = [] (nano::block_hash const &) { return true; });
-
-	/**
-	 * Should be called for every processed vote, filters which votes should be added to cache
-	 */
-	void observe (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code>);
+	std::unordered_map<nano::block_hash, nano::vote_code> const & results = {});
 
 	/**
 	 * Tries to find an entry associated with block hash
@@ -145,7 +157,7 @@ public:
 	 * The blocks are sorted in descending order by final tally, then by tally
 	 * @param min_tally minimum tally threshold, entries below with their voting weight below this will be ignored
 	 */
-	std::vector<top_entry> top (nano::uint128_t const & min_tally);
+	std::deque<top_entry> top (nano::uint128_t const & min_tally);
 
 public: // Container info
 	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name) const;
@@ -161,11 +173,13 @@ private: // Dependencies
 	nano::stats & stats;
 
 private:
+	void insert_impl (std::shared_ptr<nano::vote> const &, nano::block_hash const & hash, nano::uint128_t const & rep_weight);
 	void cleanup ();
 
 	// clang-format off
 	class tag_sequenced {};
 	class tag_hash {};
+	class tag_tally {};
 	// clang-format on
 
 	// clang-format off
@@ -173,7 +187,9 @@ private:
 	mi::indexed_by<
 		mi::hashed_unique<mi::tag<tag_hash>,
 			mi::const_mem_fun<entry, nano::block_hash, &entry::hash>>,
-		mi::sequenced<mi::tag<tag_sequenced>>
+		mi::sequenced<mi::tag<tag_sequenced>>,
+		mi::ordered_non_unique<mi::tag<tag_tally>,
+			mi::const_mem_fun<entry, nano::uint128_t, &entry::tally>, std::greater<>> // DESC
 	>>;
 	// clang-format on
 	ordered_cache cache;
