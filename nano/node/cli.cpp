@@ -93,6 +93,8 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 	// clang-format off
 	description_a.add_options()
 		("disable_add_initial_peers", "Disable contacting the peer in the peers table at startup")
+		("disable_max_peers_per_ip", "Disables the limit on the number of peer connections allowed per IP address")
+		("disable_max_peers_per_subnetwork", "Disables the limit on the number of peer connections allowed per subnetwork")
 		("disable_activate_successors", "Disables activate_successors in active_elections")
 		("disable_backup", "Disable wallet automatic backups")
 		("disable_lazy_bootstrap", "Disables lazy bootstrap")
@@ -107,6 +109,12 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_unchecked_drop", "Disables drop of unchecked table at startup")
 		("disable_providing_telemetry_metrics", "Disable using any node information in the telemetry_ack messages.")
 		("disable_block_processor_unchecked_deletion", "Disable deletion of unchecked blocks after processing")
+		("disable_bootstrap_bulk_pull_server", "Disables the legacy bulk pull server for bootstrap operations")
+		("disable_bootstrap_bulk_push_client", "Disables the legacy bulk push client for bootstrap operations")
+		("disable_tcp_realtime", "Disables TCP realtime connections")
+		("disable_ongoing_telemetry_requests", "Disables ongoing telemetry requests to peers")
+		("disable_block_processor_republishing", "Disables block republishing by disabling the local_block_broadcaster component")
+		("disable_search_pending", "Disables the periodic search for pending transactions")
 		("enable_pruning", "Enable experimental ledger pruning")
 		("allow_bootstrap_peers_duplicates", "Allow multiple connections to same peer in bootstrap attempts")
 		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
@@ -123,6 +131,8 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 {
 	std::error_code ec;
 	flags_a.disable_add_initial_peers = (vm.count ("disable_add_initial_peers") > 0);
+	flags_a.disable_max_peers_per_ip = (vm.count ("disable_max_peers_per_ip") > 0);
+	flags_a.disable_max_peers_per_subnetwork = (vm.count ("disable_max_peers_per_subnetwork") > 0);
 	flags_a.disable_activate_successors = (vm.count ("disable_activate_successors") > 0);
 	flags_a.disable_backup = (vm.count ("disable_backup") > 0);
 	flags_a.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
@@ -132,6 +142,12 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	flags_a.disable_ascending_bootstrap = (vm.count ("disable_ascending_bootstrap") > 0);
 	flags_a.disable_rep_crawler = (vm.count ("disable_rep_crawler") > 0);
 	flags_a.disable_request_loop = (vm.count ("disable_request_loop") > 0);
+	flags_a.disable_bootstrap_bulk_pull_server = (vm.count ("disable_bootstrap_bulk_pull_server") > 0);
+	flags_a.disable_bootstrap_bulk_push_client = (vm.count ("disable_bootstrap_bulk_push_client") > 0);
+	flags_a.disable_tcp_realtime = (vm.count ("disable_tcp_realtime") > 0);
+	flags_a.disable_ongoing_telemetry_requests = (vm.count ("disable_ongoing_telemetry_requests") > 0);
+	flags_a.disable_block_processor_republishing = (vm.count ("disable_block_processor_republishing") > 0);
+	flags_a.disable_search_pending = (vm.count ("disable_search_pending") > 0);
 	if (!flags_a.inactive_node)
 	{
 		flags_a.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
