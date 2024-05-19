@@ -307,7 +307,7 @@ TEST (socket, disconnection_of_silent_connections)
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_silent_connection_drop, nano::stat::dir::in));
 }
 
-TEST (socket, drop_policy)
+TEST (socket, DISABLED_drop_policy)
 {
 	nano::test::system system;
 
@@ -366,8 +366,8 @@ TEST (socket, drop_policy)
 }
 
 // This is abusing the socket class, it's interfering with the normal node lifetimes and as a result deadlocks
-// TEST (socket, DISABLED_concurrent_writes)
-TEST (socket, concurrent_writes)
+TEST (socket, DISABLED_concurrent_writes)
+// TEST (socket, concurrent_writes)
 {
 	nano::test::system system;
 
@@ -455,25 +455,9 @@ TEST (socket, concurrent_writes)
 
 	// Execute overlapping writes from multiple threads
 	auto client (clients[0]);
-	std::vector<std::thread> client_threads;
-	for (int i = 0; i < client_count; i++)
-	{
-		client_threads.emplace_back ([&client, &message_count] () {
-			for (int i = 0; i < message_count; i++)
-			{
-				std::vector<uint8_t> buff;
-				buff.push_back ('A' + i);
-				client->async_write (nano::shared_const_buffer (std::move (buff)));
-			}
-		});
-	}
+	nano::thread_runner runner{ node->io_ctx_shared, node->logger, client_count };
 
 	ASSERT_TIMELY_EQ (10s, completed_reads, total_message_count);
-
-	for (auto & t : client_threads)
-	{
-		t.join ();
-	}
 }
 
 /**

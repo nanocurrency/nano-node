@@ -9,6 +9,10 @@
 #include <nano/node/transport/common.hpp>
 #include <nano/node/transport/traffic_type.hpp>
 
+#include <boost/asio/awaitable.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/circular_buffer.hpp>
+
 #include <chrono>
 #include <map>
 #include <memory>
@@ -194,9 +198,39 @@ protected:
 	void ongoing_checkup ();
 	void read_impl (std::shared_ptr<std::vector<uint8_t>> const & data_a, std::size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a);
 
+	// FIXME: The read loop is being launched separately.
+	// socket::start is called before the socket descriptor is set when in client mode
+	// This should happen internally somehow
+	void begin_read_loop ();
+
 private:
 	nano::transport::socket_type type_m{ socket_type::undefined };
 	nano::transport::socket_endpoint endpoint_type_m;
+
+	// Read buffering operations
+private:
+	using request_t = std::tuple<std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void (boost::system::error_code const & error, std::size_t bytes_transferred)>>;
+	boost::asio::awaitable<void> read_loop ();
+
+	// Service all waiting requests or until there is no more readable data
+	void service_requests_maybe ();
+	std::deque<request_t> requests;
+
+	// FIXME: These two buffers should be merged because it produces an extra data copy
+	// Need two regions
+	// - The region writable by the operasing system in service on an os async_read call
+	// - The region the region available for socket::async_read requests to obtain data
+	// Both may be full or empty independently
+	// Eliminating the copy requires both regions to overlap
+	boost::circular_buffer<uint8_t> read_buffer;
+	std::vector<uint8_t> os_buffer;
+
+	// FIXME: This is a hack of a condition_variable
+	// If the buffer is full, e.g. the writable region is empty so no data can be read
+	// Getting free space requires a call to socket::async_read
+	// We cannot block on a condition_variable::wait since this operation happens inside a coroutine
+	// Maybe wrap as a nano:: type
+	boost::asio::steady_timer buffer_condition;
 
 public:
 	std::size_t const max_queue_size;
