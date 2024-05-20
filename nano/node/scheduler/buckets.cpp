@@ -25,21 +25,16 @@ void nano::scheduler::buckets::seek ()
 	}
 }
 
-/**
- * Prioritization constructor, construct a container containing approximately 'maximum' number of blocks.
- * @param maximum number of blocks that this container can hold, this is a soft and approximate limit.
- */
-nano::scheduler::buckets::buckets (uint64_t maximum) :
-	maximum{ maximum }
+void nano::scheduler::buckets::setup_buckets (uint64_t maximum)
 {
-	auto build_region = [this] (uint128_t const & begin, uint128_t const & end, size_t count) {
+	auto build_region = [&] (uint128_t const & begin, uint128_t const & end, size_t count) {
 		auto width = (end - begin) / count;
 		for (auto i = 0; i < count; ++i)
 		{
 			minimums.push_back (begin + i * width);
 		}
 	};
-	minimums.push_back (uint128_t{ 0 });
+	build_region (0, uint128_t{ 1 } << 88, 1);
 	build_region (uint128_t{ 1 } << 88, uint128_t{ 1 } << 92, 2);
 	build_region (uint128_t{ 1 } << 92, uint128_t{ 1 } << 96, 4);
 	build_region (uint128_t{ 1 } << 96, uint128_t{ 1 } << 100, 8);
@@ -48,12 +43,23 @@ nano::scheduler::buckets::buckets (uint64_t maximum) :
 	build_region (uint128_t{ 1 } << 108, uint128_t{ 1 } << 112, 8);
 	build_region (uint128_t{ 1 } << 112, uint128_t{ 1 } << 116, 4);
 	build_region (uint128_t{ 1 } << 116, uint128_t{ 1 } << 120, 2);
-	minimums.push_back (uint128_t{ 1 } << 120);
+	build_region (uint128_t{ 1 } << 120, uint128_t{ 1 } << 127, 1);
+
 	auto bucket_max = std::max<size_t> (1u, maximum / minimums.size ());
 	for (size_t i = 0u, n = minimums.size (); i < n; ++i)
 	{
 		buckets_m.push_back (std::make_unique<scheduler::bucket> (bucket_max));
 	}
+}
+
+/**
+ * Prioritization constructor, construct a container containing approximately 'maximum' number of blocks.
+ * @param maximum number of blocks that this container can hold, this is a soft and approximate limit.
+ */
+nano::scheduler::buckets::buckets (uint64_t maximum) :
+	maximum{ maximum }
+{
+	setup_buckets (maximum);
 	current = buckets_m.begin ();
 }
 

@@ -41,6 +41,7 @@ class buckets final
 
 	void next ();
 	void seek ();
+	void setup_buckets (uint64_t maximum);
 
 public:
 	buckets (uint64_t maximum = 250000u);
