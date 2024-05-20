@@ -27,10 +27,10 @@ fi
 CMAKE_SANITIZER=""
 if [[ ${SANITIZER:-} ]]; then
     case "${SANITIZER}" in
-        ASAN)     
+        ASAN)
             CMAKE_SANITIZER="-DNANO_ASAN=ON"
             ;;
-        ASAN_INT)    
+        ASAN_INT)
             CMAKE_SANITIZER="-DNANO_ASAN_INT=ON"
             ;;
         TSAN)
@@ -56,6 +56,7 @@ pushd $BUILD_DIR
 
 cmake \
 -DCMAKE_BUILD_TYPE=${BUILD_TYPE:-"Debug"} \
+-DCMAKE_CXX_FLAGS="-g -Og" \
 -DPORTABLE=ON \
 -DACTIVE_NETWORK=nano_${NANO_NETWORK:-"live"}_network \
 -DNANO_TEST=${NANO_TEST:-OFF} \
@@ -71,10 +72,10 @@ ${SRC}
 
 number_of_processors() {
     case "$(uname -s)" in
-        Linux*)     
+        Linux*)
             nproc
             ;;
-        Darwin*)    
+        Darwin*)
             sysctl -n hw.ncpu
             ;;
         CYGWIN*|MINGW32*|MSYS*|MINGW*)
