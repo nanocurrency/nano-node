@@ -11,8 +11,9 @@ bool nano::scheduler::bucket::value_type::operator== (value_type const & other_a
 	return time == other_a.time && block->hash () == other_a.block->hash ();
 }
 
-nano::scheduler::bucket::bucket (size_t maximum) :
-	maximum{ maximum }
+nano::scheduler::bucket::bucket (nano::uint128_t minimum_balance, size_t maximum) :
+	maximum{ maximum },
+	minimum_balance{ minimum_balance }
 {
 	debug_assert (maximum > 0);
 }

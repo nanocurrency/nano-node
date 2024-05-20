@@ -27,11 +27,13 @@ void nano::scheduler::buckets::seek ()
 
 void nano::scheduler::buckets::setup_buckets (uint64_t maximum)
 {
+	auto const size_expected = 62;
+	auto bucket_max = std::max<size_t> (1u, maximum / size_expected);
 	auto build_region = [&] (uint128_t const & begin, uint128_t const & end, size_t count) {
 		auto width = (end - begin) / count;
 		for (auto i = 0; i < count; ++i)
 		{
-			minimums.push_back (begin + i * width);
+			buckets_m.push_back (std::make_unique<scheduler::bucket> (begin + i * width, bucket_max));
 		}
 	};
 	build_region (0, uint128_t{ 1 } << 88, 1);
@@ -45,11 +47,7 @@ void nano::scheduler::buckets::setup_buckets (uint64_t maximum)
 	build_region (uint128_t{ 1 } << 116, uint128_t{ 1 } << 120, 2);
 	build_region (uint128_t{ 1 } << 120, uint128_t{ 1 } << 127, 1);
 
-	auto bucket_max = std::max<size_t> (1u, maximum / minimums.size ());
-	for (size_t i = 0u, n = minimums.size (); i < n; ++i)
-	{
-		buckets_m.push_back (std::make_unique<scheduler::bucket> (bucket_max));
-	}
+	debug_assert (buckets_m.size () == size_expected);
 }
 
 /**
@@ -67,12 +65,6 @@ nano::scheduler::buckets::~buckets ()
 {
 }
 
-std::size_t nano::scheduler::buckets::index (nano::uint128_t const & balance) const
-{
-	auto index = std::upper_bound (minimums.begin (), minimums.end (), balance) - minimums.begin () - 1;
-	return index;
-}
-
 /**
  * Push a block and its associated time into the prioritization container.
  * The time is given here because sideband might not exist in the case of state blocks.
@@ -80,8 +72,8 @@ std::size_t nano::scheduler::buckets::index (nano::uint128_t const & balance) co
 void nano::scheduler::buckets::push (uint64_t time, std::shared_ptr<nano::block> block, nano::amount const & priority)
 {
 	auto was_empty = empty ();
-	auto & bucket = buckets_m[index (priority.number ())];
-	bucket->push (time, block);
+	auto & bucket = find_bucket (priority.number ());
+	bucket.push (time, block);
 	if (was_empty)
 	{
 		seek ();
@@ -142,6 +134,15 @@ void nano::scheduler::buckets::dump () const
 		bucket->dump ();
 	}
 	std::cerr << "current: " << current - buckets_m.begin () << '\n';
+}
+
+auto nano::scheduler::buckets::find_bucket (nano::uint128_t priority) -> bucket &
+{
+	auto it = std::upper_bound (buckets_m.begin (), buckets_m.end (), priority, [] (nano::uint128_t const & priority, std::unique_ptr<bucket> const & bucket) {
+		return priority < bucket->minimum_balance;
+	});
+	release_assert (it != buckets_m.begin ()); // There should always be a bucket with a minimum_balance of 0
+	return **std::prev (it);
 }
 
 std::unique_ptr<nano::container_info_component> nano::scheduler::buckets::collect_container_info (std::string const & name)

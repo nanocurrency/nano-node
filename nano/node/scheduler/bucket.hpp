@@ -27,8 +27,11 @@ class bucket final
 	size_t const maximum;
 
 public:
-	bucket (size_t maximum);
+	bucket (nano::uint128_t minimum_balance, size_t maximum);
 	~bucket ();
+
+	nano::uint128_t const minimum_balance;
+
 	std::shared_ptr<nano::block> top () const;
 	void pop ();
 	void push (uint64_t time, std::shared_ptr<nano::block> block);
