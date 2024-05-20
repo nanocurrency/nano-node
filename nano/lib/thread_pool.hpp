@@ -19,7 +19,7 @@ namespace nano
 class thread_pool final
 {
 public:
-	explicit thread_pool (unsigned, nano::thread_role::name);
+	explicit thread_pool (unsigned num_threads, nano::thread_role::name);
 	~thread_pool ();
 
 	/** This will run when there is an available thread for execution */

@@ -2,6 +2,7 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/observer_set.hpp>
+#include <nano/lib/thread_pool.hpp>
 
 #include <condition_variable>
 #include <deque>
@@ -11,8 +12,10 @@
 
 namespace nano
 {
+class node;
 class block;
 class ledger;
+class stats;
 }
 
 namespace nano
@@ -26,8 +29,9 @@ class confirming_set final
 	friend class confirmation_height_pruned_source_Test;
 
 public:
-	confirming_set (nano::ledger & ledger, std::chrono::milliseconds batch_time = std::chrono::milliseconds{ 500 });
+	confirming_set (nano::ledger &, nano::stats &, std::chrono::milliseconds batch_time = std::chrono::milliseconds{ 500 });
 	~confirming_set ();
+
 	// Adds a block to the set of blocks to be confirmed
 	void add (nano::block_hash const & hash);
 	void start ();
@@ -43,10 +47,17 @@ public:
 
 private:
 	void run ();
+	void run_batch (std::unique_lock<std::mutex> &);
+
 	nano::ledger & ledger;
-	std::chrono::milliseconds batch_time;
+	nano::stats & stats;
+
+	std::chrono::milliseconds const batch_time;
 	std::unordered_set<nano::block_hash> set;
 	std::unordered_set<nano::block_hash> processing;
+
+	nano::thread_pool workers;
+
 	bool stopped{ false };
 	mutable std::mutex mutex;
 	std::condition_variable condition;

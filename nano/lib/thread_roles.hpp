@@ -25,6 +25,7 @@ enum class name
 	rpc_request_processor,
 	rpc_process_container,
 	confirmation_height_processing,
+	confirmation_height_notifications,
 	worker,
 	bootstrap_worker,
 	request_aggregator,

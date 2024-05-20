@@ -40,6 +40,7 @@ enum class type
 	socket,
 	confirmation_height,
 	confirmation_observer,
+	confirming_set,
 	drop,
 	aggregator,
 	requests,
@@ -114,6 +115,8 @@ enum class detail
 	rebroadcast,
 	queue_overflow,
 	triggered,
+	notify,
+	duplicate,
 
 	// processing queue
 	queue,
@@ -439,6 +442,9 @@ enum class detail
 	tier_1,
 	tier_2,
 	tier_3,
+
+	// confirming_set
+	confirmed,
 
 	_last // Must be the last enum
 };
