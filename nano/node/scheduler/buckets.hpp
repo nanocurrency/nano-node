@@ -27,11 +27,7 @@ class bucket;
 class buckets final
 {
 	/** container for the buckets to be read in round robin fashion */
-	std::deque<std::unique_ptr<bucket>> buckets_m;
-
-	/** thresholds that define the bands for each bucket, the minimum balance an account must have to enter a bucket,
-	 *  the container writes a block to the lowest indexed bucket that has balance larger than the bucket's minimum value */
-	std::deque<nano::uint128_t> minimums;
+	std::vector<std::unique_ptr<bucket>> buckets_m;
 
 	/** index of bucket to read next */
 	decltype (buckets_m)::const_iterator current;
@@ -41,6 +37,7 @@ class buckets final
 
 	void next ();
 	void seek ();
+	void setup_buckets (uint64_t maximum);
 
 public:
 	buckets (uint64_t maximum = 250000u);
@@ -53,7 +50,7 @@ public:
 	std::size_t bucket_size (std::size_t index) const;
 	bool empty () const;
 	void dump () const;
-	std::size_t index (nano::uint128_t const & balance) const;
+	bucket & find_bucket (nano::uint128_t priority);
 
 	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const &);
 };
