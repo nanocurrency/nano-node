@@ -566,6 +566,8 @@ nano::stat::type nano::active_elections::completion_type (nano::election const &
 			return nano::stat::type::active_cancelled;
 			break;
 	}
+	debug_assert (false);
+	return {};
 }
 
 /*
