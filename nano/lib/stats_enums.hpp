@@ -363,6 +363,7 @@ enum class detail
 
 	// backlog
 	activated,
+	activate_failed,
 
 	// active
 	insert,
