@@ -60,7 +60,6 @@ bool nano::scheduler::priority::activate (secure::transaction const & transactio
 			return activate (transaction, account, *info, conf_info);
 		}
 	}
-
 	stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activate_skip);
 	return false; // Not activated
 }
@@ -79,18 +78,26 @@ bool nano::scheduler::priority::activate (secure::transaction const & transactio
 		auto const previous_balance = node.ledger.any.block_balance (transaction, conf_info.frontier).value_or (0);
 		auto const balance_priority = std::max (balance, previous_balance);
 
-		node.stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activated);
-		node.logger.trace (nano::log::type::election_scheduler, nano::log::detail::block_activated,
-		nano::log::arg{ "account", account.to_account () }, // TODO: Convert to lazy eval
-		nano::log::arg{ "block", block },
-		nano::log::arg{ "time", account_info.modified },
-		nano::log::arg{ "priority", balance_priority });
-
+		bool added = false;
 		{
 			nano::lock_guard<nano::mutex> lock{ mutex };
-			buckets->push (account_info.modified, block, balance_priority);
+			added = buckets->push (account_info.modified, block, balance_priority);
 		}
-		notify ();
+		if (added)
+		{
+			node.stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activated);
+			node.logger.trace (nano::log::type::election_scheduler, nano::log::detail::block_activated,
+			nano::log::arg{ "account", account.to_account () }, // TODO: Convert to lazy eval
+			nano::log::arg{ "block", block },
+			nano::log::arg{ "time", account_info.modified },
+			nano::log::arg{ "priority", balance_priority });
+
+			notify ();
+		}
+		else
+		{
+			node.stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activate_full);
+		}
 
 		return true; // Activated
 	}
