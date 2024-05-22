@@ -105,7 +105,9 @@ void nano::backlog_population::populate_backlog (nano::unique_lock<nano::mutex> 
 				stats.inc (nano::stat::type::backlog, nano::stat::detail::total);
 
 				auto const & account = i->first;
-				activate (transaction, account);
+				auto const & account_info = i->second;
+				activate (transaction, account, account_info);
+
 				next = account.number () + 1;
 			}
 			done = ledger.store.account.begin (transaction, next) == end;
@@ -118,15 +120,8 @@ void nano::backlog_population::populate_backlog (nano::unique_lock<nano::mutex> 
 	}
 }
 
-void nano::backlog_population::activate (secure::transaction const & transaction, nano::account const & account)
+void nano::backlog_population::activate (secure::transaction const & transaction, nano::account const & account, nano::account_info const & account_info)
 {
-	auto const maybe_account_info = ledger.store.account.get (transaction, account);
-	if (!maybe_account_info)
-	{
-		return;
-	}
-	auto const account_info = *maybe_account_info;
-
 	auto const maybe_conf_info = ledger.store.confirmation_height.get (transaction, account);
 	auto const conf_info = maybe_conf_info.value_or (nano::confirmation_height_info{});
 
