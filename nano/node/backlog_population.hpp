@@ -3,6 +3,7 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/observer_set.hpp>
+#include <nano/node/scheduler/component.hpp>
 #include <nano/secure/common.hpp>
 
 #include <condition_variable>
@@ -34,7 +35,7 @@ public:
 		unsigned frequency;
 	};
 
-	backlog_population (const config &, ledger &, nano::stats &);
+	backlog_population (const config &, nano::scheduler::component &, nano::ledger &, nano::stats &);
 	~backlog_population ();
 
 	void start ();
@@ -54,6 +55,7 @@ public:
 	callback_t activate_callback;
 
 private: // Dependencies
+	nano::scheduler::component & schedulers;
 	nano::ledger & ledger;
 	nano::stats & stats;
 

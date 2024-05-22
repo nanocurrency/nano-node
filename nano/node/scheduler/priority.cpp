@@ -57,33 +57,46 @@ bool nano::scheduler::priority::activate (secure::transaction const & transactio
 		node.store.confirmation_height.get (transaction, account, conf_info);
 		if (conf_info.height < info->block_count)
 		{
-			debug_assert (conf_info.frontier != info->head);
-			auto hash = conf_info.height == 0 ? info->open_block : node.ledger.any.block_successor (transaction, conf_info.frontier).value_or (0);
-			auto block = node.ledger.any.block_get (transaction, hash);
-			debug_assert (block != nullptr);
-			if (node.ledger.dependents_confirmed (transaction, *block))
-			{
-				auto const balance = node.ledger.any.block_balance (transaction, hash).value ();
-				auto const previous_balance = node.ledger.any.block_balance (transaction, conf_info.frontier).value_or (0);
-				auto const balance_priority = std::max (balance, previous_balance);
-
-				node.stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activated);
-				node.logger.trace (nano::log::type::election_scheduler, nano::log::detail::block_activated,
-				nano::log::arg{ "account", account.to_account () }, // TODO: Convert to lazy eval
-				nano::log::arg{ "block", block },
-				nano::log::arg{ "time", info->modified },
-				nano::log::arg{ "priority", balance_priority });
-
-				{
-					nano::lock_guard<nano::mutex> lock{ mutex };
-					buckets->push (info->modified, block, balance_priority);
-				}
-				notify ();
-			}
+			return activate (transaction, account, *info, conf_info);
 		}
 	}
 
-	return true; // Activated
+	stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activate_skip);
+	return false; // Not activated
+}
+
+bool nano::scheduler::priority::activate (secure::transaction const & transaction, nano::account const & account, nano::account_info const & info, nano::confirmation_height_info const & conf_info)
+{
+	debug_assert (conf_info.frontier != info.head);
+
+	auto hash = conf_info.height == 0 ? info.open_block : node.ledger.any.block_successor (transaction, conf_info.frontier).value_or (0);
+	auto block = node.ledger.any.block_get (transaction, hash);
+	release_assert (block != nullptr);
+
+	if (node.ledger.dependents_confirmed (transaction, *block))
+	{
+		auto const balance = node.ledger.any.block_balance (transaction, hash).value ();
+		auto const previous_balance = node.ledger.any.block_balance (transaction, conf_info.frontier).value_or (0);
+		auto const balance_priority = std::max (balance, previous_balance);
+
+		node.stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activated);
+		node.logger.trace (nano::log::type::election_scheduler, nano::log::detail::block_activated,
+		nano::log::arg{ "account", account.to_account () }, // TODO: Convert to lazy eval
+		nano::log::arg{ "block", block },
+		nano::log::arg{ "time", info.modified },
+		nano::log::arg{ "priority", balance_priority });
+
+		{
+			nano::lock_guard<nano::mutex> lock{ mutex };
+			buckets->push (info.modified, block, balance_priority);
+		}
+		notify ();
+
+		return true; // Activated
+	}
+
+	stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activate_failed);
+	return false; // Not activated
 }
 
 void nano::scheduler::priority::notify ()

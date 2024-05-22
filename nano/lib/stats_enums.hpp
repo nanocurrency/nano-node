@@ -364,6 +364,7 @@ enum class detail
 	// backlog
 	activated,
 	activate_failed,
+	activate_skip,
 
 	// active
 	insert,
