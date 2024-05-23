@@ -17,6 +17,7 @@
 #include <condition_variable>
 #include <deque>
 #include <thread>
+#include <variant>
 
 namespace mi = boost::multi_index;
 
@@ -36,6 +37,7 @@ namespace nano::secure
 {
 class transaction;
 class write_transaction;
+class read_transaction;
 }
 namespace nano::transport
 {
@@ -67,18 +69,15 @@ public:
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
 
 private:
+	using transaction_variant_t = std::variant<nano::secure::read_transaction, nano::secure::write_transaction>;
+
 	void run ();
 	void broadcast (nano::unique_lock<nano::mutex> &);
 	void reply (nano::unique_lock<nano::mutex> &, request_t &&);
 	void vote (std::vector<nano::block_hash> const &, std::vector<nano::root> const &, std::function<void (std::shared_ptr<nano::vote> const &)> const &);
 	void broadcast_action (std::shared_ptr<nano::vote> const &) const;
 	void process_batch (std::deque<queue_entry_t> & batch);
-	/**
-	 * Check if block is eligible for vote generation
-	 * @param transaction : needs `tables::final_votes` lock
-	 * @return: Should vote
-	 */
-	bool should_vote (secure::write_transaction const &, nano::root const &, nano::block_hash const &);
+	bool should_vote (transaction_variant_t const &, nano::root const &, nano::block_hash const &) const;
 
 private:
 	std::function<void (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> &)> reply_action; // must be set only during initialization by using set_reply_action

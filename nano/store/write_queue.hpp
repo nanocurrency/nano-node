@@ -14,7 +14,6 @@ enum class writer
 	confirmation_height,
 	process_batch,
 	pruning,
-	voting,
 	voting_final,
 	testing // Used in tests to emulate a write lock
 };
