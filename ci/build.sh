@@ -56,7 +56,6 @@ pushd $BUILD_DIR
 
 cmake \
 -DCMAKE_BUILD_TYPE=${BUILD_TYPE:-"Debug"} \
--DCMAKE_CXX_FLAGS="-g -Og" \
 -DPORTABLE=ON \
 -DACTIVE_NETWORK=nano_${NANO_NETWORK:-"live"}_network \
 -DNANO_TEST=${NANO_TEST:-OFF} \
