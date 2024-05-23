@@ -253,6 +253,11 @@ bool running_within_valgrind ()
 
 bool memory_intensive_instrumentation ()
 {
+	auto env = nano::env::get<bool> ("NANO_MEMORY_INTENSIVE");
+	if (env)
+	{
+		return env.value ();
+	}
 	return is_tsan_build () || nano::running_within_valgrind ();
 }
 
