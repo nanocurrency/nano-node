@@ -2096,7 +2096,7 @@ TEST (system, block_sequence)
 	size_t const pr_count = 4;
 	size_t const listeners_per_pr = 0;
 	nano::test::system system;
-	std::vector<nano::keypair> reps;
+	std::deque<nano::keypair> reps;
 	for (auto i = 0; i < pr_count; ++i)
 	{
 		reps.push_back (nano::keypair{});
