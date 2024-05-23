@@ -334,24 +334,6 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			});
 		}
 
-		// Add block confirmation type stats regardless of http-callback and websocket subscriptions
-		observers.blocks.add ([this] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
-			debug_assert (status_a.type != nano::election_status_type::ongoing);
-			switch (status_a.type)
-			{
-				case nano::election_status_type::active_confirmed_quorum:
-					this->stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out);
-					break;
-				case nano::election_status_type::active_confirmation_height:
-					this->stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::active_conf_height, nano::stat::dir::out);
-					break;
-				case nano::election_status_type::inactive_confirmation_height:
-					this->stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out);
-					break;
-				default:
-					break;
-			}
-		});
 		observers.endpoint.add ([this] (std::shared_ptr<nano::transport::channel> const & channel_a) {
 			this->network.send_keepalive_self (channel_a);
 		});

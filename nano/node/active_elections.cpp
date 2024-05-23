@@ -125,26 +125,42 @@ void nano::active_elections::block_cemented_callback (std::shared_ptr<nano::bloc
 	}
 }
 
-void nano::active_elections::notify_observers (nano::secure::read_transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes)
+void nano::active_elections::notify_observers (nano::secure::transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes) const
 {
 	auto block = status.winner;
 	auto account = block->account ();
-	auto amount = node.ledger.any.block_amount (transaction, block->hash ()).value_or (0).number ();
-	auto is_state_send = block->type () == block_type::state && block->is_send ();
-	auto is_state_epoch = block->type () == block_type::state && block->is_epoch ();
-	node.observers.blocks.notify (status, votes, account, amount, is_state_send, is_state_epoch);
 
-	if (amount > 0)
+	switch (status.type)
 	{
-		node.observers.account_balance.notify (account, false);
-		if (block->is_send ())
-		{
-			node.observers.account_balance.notify (block->destination (), true);
-		}
+		case nano::election_status_type::active_confirmed_quorum:
+			node.stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out);
+			break;
+		case nano::election_status_type::active_confirmation_height:
+			node.stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::active_conf_height, nano::stat::dir::out);
+			break;
+		case nano::election_status_type::inactive_confirmation_height:
+			node.stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out);
+			break;
+		default:
+			break;
+	}
+
+	if (!node.observers.blocks.empty ())
+	{
+		auto amount = node.ledger.any.block_amount (transaction, block).value_or (0).number ();
+		auto is_state_send = block->type () == block_type::state && block->is_send ();
+		auto is_state_epoch = block->type () == block_type::state && block->is_epoch ();
+		node.observers.blocks.notify (status, votes, account, amount, is_state_send, is_state_epoch);
+	}
+
+	node.observers.account_balance.notify (account, false);
+	if (block->is_send ())
+	{
+		node.observers.account_balance.notify (block->destination (), true);
 	}
 }
 
-void nano::active_elections::activate_successors (nano::secure::read_transaction const & transaction, std::shared_ptr<nano::block> const & block)
+void nano::active_elections::activate_successors (nano::secure::transaction const & transaction, std::shared_ptr<nano::block> const & block)
 {
 	node.scheduler.priority.activate (transaction, block->account ());
 
