@@ -1,0 +1,66 @@
+name: Code Flamegraphs
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  linux_flamegraphs:
+    name: Linux [${{ matrix.TEST_NAME }}]
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        TEST_NAME: [large_confirmation, large_direct_processing] # slow_test --gtest_filter=flamegraph.[name]
+    runs-on: ubuntu-22.04
+    env:
+      TEST_NAME: ${{ matrix.TEST_NAME }}
+      BACKEND: lmdb
+      COMPILER: gcc
+      TEST_USE_ROCKSDB: "0"
+      DEADLINE_SCALE_FACTOR: "1"
+      BUILD_TYPE: "RelWithDebInfo"
+      OUTPUT_FILE: ${{ matrix.TEST_NAME }}.${{ github.sha }}.svg
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: "recursive"
+
+      - name: Prepare
+        run: sudo -E ci/prepare/linux/prepare.sh
+
+      - name: Install perf and FlameGraph
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y linux-tools-common linux-tools-generic linux-tools-$(uname -r)
+          git clone https://github.com/brendangregg/FlameGraph.git
+          export PATH=$PATH:$(pwd)/FlameGraph
+
+      - name: Build Tests
+        id: build
+        run: ci/build-tests.sh
+
+      - name: Run Flamegraph Tests
+        if: steps.build.outcome == 'success'
+        run: sudo perf record -F 397 -g --call-graph dwarf -o perf.data -- ../ci/tests/run-flamegraph-tests.sh ${{ matrix.TEST_NAME }}
+        working-directory: build
+
+      - name: CHOWN perf.data
+        if: steps.build.outcome == 'success'
+        run: sudo chown $(whoami) perf.data
+        working-directory: build
+
+      - name: Generate Flamegraph
+        if: steps.build.outcome == 'success'
+        run: |
+          perf script -i perf.data > out.perf
+          ../FlameGraph/stackcollapse-perf.pl out.perf > out.folded
+          ../FlameGraph/flamegraph.pl out.folded > ${{ env.OUTPUT_FILE }}
+        working-directory: build
+
+      - name: Upload Flamegraph
+        if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v3
+        with:
+          name: flamegraph-${{ env.OUTPUT_FILE }}
+          path: build/${{ env.OUTPUT_FILE }}

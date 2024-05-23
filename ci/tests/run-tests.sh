@@ -47,8 +47,9 @@ case "$(uname -s)" in
 esac
 
 # Run the test
+shift
 executable=./${target}$(get_exec_extension)
-"${executable}"
+"${executable}" "$@"
 status=$?
 
 if [ $status -ne 0 ]; then
