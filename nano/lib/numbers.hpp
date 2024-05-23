@@ -62,6 +62,11 @@ class amount : public uint128_union
 {
 public:
 	using uint128_union::uint128_union;
+
+	operator nano::uint128_t () const
+	{
+		return number ();
+	}
 };
 class raw_key;
 

@@ -12,6 +12,8 @@
 
 namespace nano
 {
+class account_info;
+class confirmation_height_info;
 class block;
 class container_info_component;
 class node;
@@ -48,6 +50,8 @@ public:
 	 * @return true if account was activated
 	 */
 	bool activate (secure::transaction const &, nano::account const &);
+	bool activate (secure::transaction const &, nano::account const &, nano::account_info const &, nano::confirmation_height_info const &);
+
 	void notify ();
 	std::size_t size () const;
 	bool empty () const;

@@ -34,14 +34,18 @@ void nano::scheduler::bucket::pop ()
 	queue.erase (queue.begin ());
 }
 
-void nano::scheduler::bucket::push (uint64_t time, std::shared_ptr<nano::block> block)
+// Returns true if the block was inserted
+bool nano::scheduler::bucket::push (uint64_t time, std::shared_ptr<nano::block> block)
 {
-	queue.insert ({ time, block });
+	auto [it, inserted] = queue.insert ({ time, block });
+	release_assert (!queue.empty ());
+	bool was_last = (it == --queue.end ());
 	if (queue.size () > maximum)
 	{
-		debug_assert (!queue.empty ());
 		queue.erase (--queue.end ());
+		return inserted && !was_last;
 	}
+	return inserted;
 }
 
 size_t nano::scheduler::bucket::size () const

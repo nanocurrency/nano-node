@@ -209,7 +209,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	aggregator_impl{ std::make_unique<nano::request_aggregator> (config.request_aggregator, *this, stats, generator, final_generator, history, ledger, wallets, vote_router) },
 	aggregator{ *aggregator_impl },
 	wallets (wallets_store.init_error (), *this),
-	backlog{ nano::backlog_population_config (config), ledger, stats },
+	backlog{ nano::backlog_population_config (config), scheduler, ledger, stats },
 	ascendboot{ config, block_processor, ledger, network, stats },
 	websocket{ config.websocket_config, observers, wallets, ledger, io_ctx, logger },
 	epoch_upgrader{ *this, ledger, store, network_params, logger },
@@ -231,11 +231,6 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	vote_cache.rep_weight_query = [this] (nano::account const & rep) {
 		return ledger.weight (rep);
 	};
-
-	backlog.activate_callback.add ([this] (secure::transaction const & transaction, nano::account const & account) {
-		scheduler.priority.activate (transaction, account);
-		scheduler.optimistic.activate (transaction, account);
-	});
 
 	vote_router.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
 		if (source != nano::vote_source::cache)

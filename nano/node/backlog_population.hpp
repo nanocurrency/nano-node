@@ -3,6 +3,7 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/observer_set.hpp>
+#include <nano/node/scheduler/component.hpp>
 #include <nano/secure/common.hpp>
 
 #include <condition_variable>
@@ -34,7 +35,7 @@ public:
 		unsigned frequency;
 	};
 
-	backlog_population (const config &, ledger &, nano::stats &);
+	backlog_population (const config &, nano::scheduler::component &, nano::ledger &, nano::stats &);
 	~backlog_population ();
 
 	void start ();
@@ -54,6 +55,7 @@ public:
 	callback_t activate_callback;
 
 private: // Dependencies
+	nano::scheduler::component & schedulers;
 	nano::ledger & ledger;
 	nano::stats & stats;
 
@@ -64,7 +66,7 @@ private:
 	bool predicate () const;
 
 	void populate_backlog (nano::unique_lock<nano::mutex> & lock);
-	void activate (secure::transaction const &, nano::account const &);
+	void activate (secure::transaction const &, nano::account const &, nano::account_info const &);
 
 	/** This is a manual trigger, the ongoing backlog population does not use this.
 	 *  It can be triggered even when backlog population (frontiers confirmation) is disabled. */

@@ -69,15 +69,16 @@ nano::scheduler::buckets::~buckets ()
  * Push a block and its associated time into the prioritization container.
  * The time is given here because sideband might not exist in the case of state blocks.
  */
-void nano::scheduler::buckets::push (uint64_t time, std::shared_ptr<nano::block> block, nano::amount const & priority)
+bool nano::scheduler::buckets::push (uint64_t time, std::shared_ptr<nano::block> block, nano::amount const & priority)
 {
 	auto was_empty = empty ();
 	auto & bucket = find_bucket (priority.number ());
-	bucket.push (time, block);
+	bool added = bucket.push (time, block);
 	if (was_empty)
 	{
 		seek ();
 	}
+	return added;
 }
 
 /** Return the highest priority block of the current bucket */

@@ -60,7 +60,7 @@ public:
 	/**
 	 * Called from backlog population to process accounts with unconfirmed blocks
 	 */
-	bool activate (nano::secure::transaction const & transaction, nano::account const & account);
+	bool activate (nano::account const &, nano::account_info const &, nano::confirmation_height_info const &);
 
 	/**
 	 * Notify about changes in AEC vacancy
@@ -70,7 +70,7 @@ public:
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
 
 private:
-	bool activate_predicate (nano::secure::transaction const & transaction, nano::account const & account) const;
+	bool activate_predicate (nano::account_info const &, nano::confirmation_height_info const &) const;
 
 	bool predicate () const;
 	void run ();
