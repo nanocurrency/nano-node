@@ -153,6 +153,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	workers{ config.background_threads, nano::thread_role::name::worker },
 	bootstrap_workers{ config.bootstrap_serving_threads, nano::thread_role::name::bootstrap_worker },
 	wallet_workers{ 1, nano::thread_role::name::wallet_worker },
+	election_workers{ 1, nano::thread_role::name::election_worker },
 	flags (flags_a),
 	work (work_a),
 	distributed_work (*this),
@@ -575,6 +576,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.workers, "workers"));
 	composite->add_component (collect_container_info (node.bootstrap_workers, "bootstrap_workers"));
 	composite->add_component (collect_container_info (node.wallet_workers, "wallet_workers"));
+	composite->add_component (collect_container_info (node.election_workers, "election_workers"));
 	composite->add_component (collect_container_info (node.observers, "observers"));
 	composite->add_component (collect_container_info (node.wallets, "wallets"));
 	composite->add_component (node.vote_processor.collect_container_info ("vote_processor"));
@@ -733,6 +735,7 @@ void nano::node::stop ()
 
 	bootstrap_workers.stop ();
 	wallet_workers.stop ();
+	election_workers.stop ();
 	vote_router.stop ();
 	peer_history.stop ();
 	// Cancels ongoing work generation tasks, which may be blocking other threads
@@ -1248,7 +1251,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 	{
 		iteration_a++;
 		std::weak_ptr<nano::node> node_w (shared ());
-		workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a] () {
+		election_workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a] () {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->process_confirmed (status_a, iteration_a);

@@ -29,6 +29,7 @@ enum class name
 	worker,
 	bootstrap_worker,
 	wallet_worker,
+	election_worker,
 	request_aggregator,
 	state_block_signature_verification,
 	epoch_upgrader,

@@ -309,6 +309,7 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 	roots.get<tag_root> ().erase (roots.get<tag_root> ().find (election->qualified_root));
 
 	node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::stopped);
+	node.stats.inc (nano::stat::type::active_elections, election->confirmed () ? nano::stat::detail::confirmed : nano::stat::detail::unconfirmed);
 	node.stats.inc (nano::stat::type::active_stopped, to_stat_detail (election->state ()));
 	node.stats.inc (to_stat_type (election->state ()), to_stat_detail (election->behavior ()));
 

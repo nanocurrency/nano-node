@@ -120,6 +120,7 @@ enum class detail
 	notify,
 	duplicate,
 	confirmed,
+	unconfirmed,
 	cemented,
 
 	// processing queue
