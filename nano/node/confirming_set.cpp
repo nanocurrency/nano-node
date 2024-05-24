@@ -21,7 +21,7 @@ nano::confirming_set::confirming_set (nano::ledger & ledger_a, nano::stats & sta
 		}
 		for (auto const & i : notification.already_cemented)
 		{
-			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify_already_confirmed);
+			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify_already_cemented);
 			block_already_cemented_observers.notify (i);
 		}
 	});

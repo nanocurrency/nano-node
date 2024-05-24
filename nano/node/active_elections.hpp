@@ -36,6 +36,7 @@ class confirming_set;
 class election;
 class vote;
 class stats;
+enum class election_state;
 }
 namespace nano::secure
 {
@@ -197,4 +198,7 @@ public: // Tests
 };
 
 std::unique_ptr<container_info_component> collect_container_info (active_elections & active_elections, std::string const & name);
+
+nano::stat::type to_stat_type (nano::election_state);
+nano::stat::detail to_stat_detail (nano::election_state);
 }

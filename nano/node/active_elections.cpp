@@ -120,7 +120,13 @@ void nano::active_elections::block_cemented_callback (nano::secure::transaction 
 	}
 	recently_cemented.put (status);
 
+	node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::cemented);
+	node.stats.inc (nano::stat::type::active_cemented, to_stat_detail (status.type));
+
+	node.logger.trace (nano::log::type::active_elections, nano::log::detail::active_cemented, nano::log::arg{ "election", election });
+
 	notify_observers (transaction, status, votes);
+
 	bool cemented_bootstrap_count_reached = node.ledger.cemented_count () >= node.ledger.bootstrap_weight_max_blocks;
 	bool was_active = status.type == nano::election_status_type::active_confirmed_quorum || status.type == nano::election_status_type::active_confirmation_height;
 
@@ -302,7 +308,10 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 
 	roots.get<tag_root> ().erase (roots.get<tag_root> ().find (election->qualified_root));
 
-	node.stats.inc (completion_type (*election), to_stat_detail (election->behavior ()));
+	node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::stopped);
+	node.stats.inc (nano::stat::type::active_stopped, to_stat_detail (election->state ()));
+	node.stats.inc (to_stat_type (election->state ()), to_stat_detail (election->behavior ()));
+
 	node.logger.trace (nano::log::type::active_elections, nano::log::detail::active_stopped, nano::log::arg{ "election", election });
 
 	node.logger.debug (nano::log::type::active_elections, "Erased election for blocks: {} (behavior: {}, state: {})",
@@ -330,19 +339,6 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 			node.network.publish_filter.clear (block);
 		}
 	}
-}
-
-nano::stat::type nano::active_elections::completion_type (nano::election const & election) const
-{
-	if (election.confirmed ())
-	{
-		return nano::stat::type::active_confirmed;
-	}
-	if (election.failed ())
-	{
-		return nano::stat::type::active_timeout;
-	}
-	return nano::stat::type::active_dropped;
 }
 
 std::vector<std::shared_ptr<nano::election>> nano::active_elections::list_active (std::size_t max_a)
@@ -421,7 +417,9 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 			debug_assert (count_by_behavior[result.election->behavior ()] >= 0);
 			count_by_behavior[result.election->behavior ()]++;
 
+			node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::started);
 			node.stats.inc (nano::stat::type::active_started, to_stat_detail (election_behavior_a));
+
 			node.logger.trace (nano::log::type::active_elections, nano::log::detail::active_started,
 			nano::log::arg{ "behavior", election_behavior_a },
 			nano::log::arg{ "election", result.election });
@@ -597,4 +595,76 @@ nano::error nano::active_elections_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("confirmation_cache", confirmation_cache);
 
 	return toml.get_error ();
+}
+
+/*
+ *
+ */
+
+nano::stat::type nano::to_stat_type (nano::election_state state)
+{
+	switch (state)
+	{
+		case election_state::passive:
+		case election_state::active:
+			return nano::stat::type::active_dropped;
+			break;
+		case election_state::confirmed:
+		case election_state::expired_confirmed:
+			return nano::stat::type::active_confirmed;
+			break;
+		case election_state::expired_unconfirmed:
+			return nano::stat::type::active_timeout;
+			break;
+	}
+	debug_assert (false);
+	return {};
+}
+
+nano::stat::detail nano::to_stat_detail (nano::election_state state)
+{
+	switch (state)
+	{
+		case election_state::passive:
+			return nano::stat::detail::passive;
+			break;
+		case election_state::active:
+			return nano::stat::detail::active;
+			break;
+		case election_state::confirmed:
+			return nano::stat::detail::confirmed;
+			break;
+		case election_state::expired_confirmed:
+			return nano::stat::detail::expired_confirmed;
+			break;
+		case election_state::expired_unconfirmed:
+			return nano::stat::detail::expired_unconfirmed;
+			break;
+	}
+	debug_assert (false);
+	return {};
+}
+
+nano::stat::detail nano::to_stat_detail (nano::election_status_type type)
+{
+	switch (type)
+	{
+		case election_status_type::ongoing:
+			return nano::stat::detail::ongoing;
+			break;
+		case election_status_type::active_confirmed_quorum:
+			return nano::stat::detail::active_confirmed_quorum;
+			break;
+		case election_status_type::active_confirmation_height:
+			return nano::stat::detail::active_confirmation_height;
+			break;
+		case election_status_type::inactive_confirmation_height:
+			return nano::stat::detail::inactive_confirmation_height;
+			break;
+		case election_status_type::stopped:
+			return nano::stat::detail::stopped;
+			break;
+	}
+	debug_assert (false);
+	return {};
 }
