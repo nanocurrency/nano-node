@@ -476,6 +476,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			}
 		}
 		confirming_set.cemented_observers.add ([this] (auto const & block) {
+			// TODO: Is it neccessary to call this for all blocks?
 			if (block->is_send ())
 			{
 				workers.push_task ([this, hash = block->hash (), destination = block->destination ()] () {

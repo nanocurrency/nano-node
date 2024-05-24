@@ -18,10 +18,10 @@
 
 using namespace std::chrono;
 
-nano::active_elections::active_elections (nano::node & node_a, nano::confirming_set & confirming_set, nano::block_processor & block_processor_a) :
+nano::active_elections::active_elections (nano::node & node_a, nano::confirming_set & confirming_set_a, nano::block_processor & block_processor_a) :
 	config{ node_a.config.active_elections },
 	node{ node_a },
-	confirming_set{ confirming_set },
+	confirming_set{ confirming_set_a },
 	block_processor{ block_processor_a },
 	recently_confirmed{ config.confirmation_cache },
 	recently_cemented{ config.confirmation_history_size },
@@ -29,14 +29,20 @@ nano::active_elections::active_elections (nano::node & node_a, nano::confirming_
 {
 	count_by_behavior.fill (0); // Zero initialize array
 
-	// Register a callback which will get called after a block is cemented
-	confirming_set.cemented_observers.add ([this] (std::shared_ptr<nano::block> const & callback_block_a) {
-		this->block_cemented_callback (callback_block_a);
-	});
+	confirming_set.batch_cemented.add ([this] (nano::confirming_set::cemented_notification const & notification) {
+		{
+			auto transaction = node.ledger.tx_begin_read ();
+			for (auto const & block : notification.cemented)
+			{
+				transaction.refresh_if_needed ();
 
-	// Register a callback which will get called if a block is already cemented
-	confirming_set.block_already_cemented_observers.add ([this] (nano::block_hash const & hash_a) {
-		this->block_already_cemented_callback (hash_a);
+				block_cemented_callback (transaction, block);
+			}
+		}
+		for (auto const & hash : notification.already_cemented)
+		{
+			block_already_cemented_callback (hash);
+		}
 	});
 
 	// Notify elections about alternative (forked) blocks
@@ -84,7 +90,7 @@ void nano::active_elections::stop ()
 	clear ();
 }
 
-void nano::active_elections::block_cemented_callback (std::shared_ptr<nano::block> const & block)
+void nano::active_elections::block_cemented_callback (nano::secure::transaction const & transaction, std::shared_ptr<nano::block> const & block)
 {
 	debug_assert (node.block_confirmed (block->hash ()));
 	if (auto election_l = election (block->qualified_root ()))
@@ -100,7 +106,7 @@ void nano::active_elections::block_cemented_callback (std::shared_ptr<nano::bloc
 		status = election->get_status ();
 		votes = election->votes_with_weight ();
 	}
-	if (confirming_set.exists (block->hash ()))
+	if (confirming_set.exists (block->hash ())) // TODO: This can be passed from the confirming_set
 	{
 		status.type = nano::election_status_type::active_confirmed_quorum;
 	}
@@ -113,7 +119,7 @@ void nano::active_elections::block_cemented_callback (std::shared_ptr<nano::bloc
 		status.type = nano::election_status_type::inactive_confirmation_height;
 	}
 	recently_cemented.put (status);
-	auto transaction = node.ledger.tx_begin_read ();
+
 	notify_observers (transaction, status, votes);
 	bool cemented_bootstrap_count_reached = node.ledger.cemented_count () >= node.ledger.bootstrap_weight_max_blocks;
 	bool was_active = status.type == nano::election_status_type::active_confirmed_quorum || status.type == nano::election_status_type::active_confirmation_height;

@@ -7,12 +7,24 @@
 #include <nano/store/component.hpp>
 #include <nano/store/write_queue.hpp>
 
-nano::confirming_set::confirming_set (nano::ledger & ledger, nano::stats & stats, std::chrono::milliseconds batch_time) :
-	ledger{ ledger },
-	stats{ stats },
-	batch_time{ batch_time },
+nano::confirming_set::confirming_set (nano::ledger & ledger_a, nano::stats & stats_a, std::chrono::milliseconds batch_time_a) :
+	ledger{ ledger_a },
+	stats{ stats_a },
+	batch_time{ batch_time_a },
 	workers{ 1, nano::thread_role::name::confirmation_height_notifications }
 {
+	batch_cemented.add ([this] (auto const & notification) {
+		for (auto const & i : notification.cemented)
+		{
+			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify_cemented);
+			cemented_observers.notify (i);
+		}
+		for (auto const & i : notification.already_cemented)
+		{
+			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify_already_confirmed);
+			block_already_cemented_observers.notify (i);
+		}
+	});
 }
 
 nano::confirming_set::~confirming_set ()
@@ -125,7 +137,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 			{
 				// Confirming this block may implicitly confirm more
 				cemented.insert (cemented.end (), added.begin (), added.end ());
-				stats.add (nano::stat::type::confirming_set, nano::stat::detail::confirmed, added.size ());
+				stats.add (nano::stat::type::confirming_set, nano::stat::detail::cemented, added.size ());
 			}
 			else
 			{
@@ -139,17 +151,14 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 
 	lock.unlock ();
 
-	workers.push_task ([this, cemented = std::move (cemented), already = std::move (already)] () {
-		stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify);
+	cemented_notification notification{
+		.cemented = std::move (cemented),
+		.already_cemented = std::move (already)
+	};
 
-		for (auto const & i : cemented)
-		{
-			cemented_observers.notify (i);
-		}
-		for (auto const & i : already)
-		{
-			block_already_cemented_observers.notify (i);
-		}
+	workers.push_task ([this, notification = std::move (notification)] () {
+		stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify);
+		batch_cemented.notify (notification);
 	});
 
 	lock.lock ();

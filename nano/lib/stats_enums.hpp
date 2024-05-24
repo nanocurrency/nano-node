@@ -117,6 +117,8 @@ enum class detail
 	triggered,
 	notify,
 	duplicate,
+	confirmed,
+	cemented,
 
 	// processing queue
 	queue,
@@ -444,7 +446,8 @@ enum class detail
 	tier_3,
 
 	// confirming_set
-	confirmed,
+	notify_cemented,
+	notify_already_confirmed,
 
 	_last // Must be the last enum
 };

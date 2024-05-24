@@ -41,7 +41,15 @@ public:
 	std::size_t size () const;
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
 
+public: // Events
 	// Observers will be called once ledger has blocks marked as confirmed
+	struct cemented_notification
+	{
+		std::deque<std::shared_ptr<nano::block>> cemented;
+		std::deque<nano::block_hash> already_cemented;
+	};
+
+	nano::observer_set<cemented_notification const &> batch_cemented;
 	nano::observer_set<std::shared_ptr<nano::block>> cemented_observers;
 	nano::observer_set<nano::block_hash const &> block_already_cemented_observers;
 
