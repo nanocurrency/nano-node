@@ -455,6 +455,7 @@ enum class detail
 	// confirming_set
 	notify_cemented,
 	notify_already_cemented,
+	already_cemented,
 
 	// election_state
 	passive,

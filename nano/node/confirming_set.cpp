@@ -1,5 +1,3 @@
-#include "node.hpp"
-
 #include <nano/lib/thread_roles.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/secure/ledger.hpp>
@@ -53,6 +51,8 @@ void nano::confirming_set::add (nano::block_hash const & hash)
 
 void nano::confirming_set::start ()
 {
+	debug_assert (!thread.joinable ());
+
 	thread = std::thread{ [this] () {
 		nano::thread_role::set (nano::thread_role::name::confirmation_height_processing);
 		run ();
@@ -146,7 +146,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 			else
 			{
 				already.push_back (item);
-				stats.inc (nano::stat::type::confirming_set, nano::stat::detail::already_confirmed);
+				stats.inc (nano::stat::type::confirming_set, nano::stat::detail::already_cemented);
 			}
 
 			lock.lock ();
@@ -167,7 +167,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 
 	lock.lock ();
 
-	processing.clear ();
+	processing = {}; // Avoid permamently holding memory if the set was large
 }
 
 std::unique_ptr<nano::container_info_component> nano::confirming_set::collect_container_info (std::string const & name) const
