@@ -11,7 +11,7 @@ nano::confirming_set::confirming_set (nano::ledger & ledger_a, nano::stats & sta
 	ledger{ ledger_a },
 	stats{ stats_a },
 	batch_time{ batch_time_a },
-	workers{ 1, nano::thread_role::name::confirmation_height_notifications }
+	notification_workers{ 1, nano::thread_role::name::confirmation_height_notifications }
 {
 	batch_cemented.add ([this] (auto const & notification) {
 		for (auto const & [block, confirmation_root] : notification.cemented)
@@ -70,7 +70,7 @@ void nano::confirming_set::stop ()
 	{
 		thread.join ();
 	}
-	workers.stop ();
+	notification_workers.stop ();
 }
 
 bool nano::confirming_set::exists (nano::block_hash const & hash) const
@@ -160,7 +160,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 		.already_cemented = std::move (already)
 	};
 
-	workers.push_task ([this, notification = std::move (notification)] () {
+	notification_workers.push_task ([this, notification = std::move (notification)] () {
 		stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify);
 		batch_cemented.notify (notification);
 	});
@@ -177,6 +177,6 @@ std::unique_ptr<nano::container_info_component> nano::confirming_set::collect_co
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "set", set.size (), sizeof (typename decltype (set)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "processing", processing.size (), sizeof (typename decltype (processing)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "notifications", workers.num_queued_tasks (), sizeof (std::function<void ()>) }));
+	composite->add_component (notification_workers.collect_container_info ("notification_workers"));
 	return composite;
 }

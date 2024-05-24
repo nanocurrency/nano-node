@@ -573,10 +573,10 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (node.tcp_listener.collect_container_info ("tcp_listener"));
 	composite->add_component (collect_container_info (node.network, "network"));
 	composite->add_component (node.telemetry.collect_container_info ("telemetry"));
-	composite->add_component (collect_container_info (node.workers, "workers"));
-	composite->add_component (collect_container_info (node.bootstrap_workers, "bootstrap_workers"));
-	composite->add_component (collect_container_info (node.wallet_workers, "wallet_workers"));
-	composite->add_component (collect_container_info (node.election_workers, "election_workers"));
+	composite->add_component (node.workers.collect_container_info ("workers"));
+	composite->add_component (node.bootstrap_workers.collect_container_info ("bootstrap_workers"));
+	composite->add_component (node.wallet_workers.collect_container_info ("wallet_workers"));
+	composite->add_component (node.election_workers.collect_container_info ("election_workers"));
 	composite->add_component (collect_container_info (node.observers, "observers"));
 	composite->add_component (collect_container_info (node.wallets, "wallets"));
 	composite->add_component (node.vote_processor.collect_container_info ("vote_processor"));

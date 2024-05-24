@@ -39,6 +39,7 @@ public:
 	// Added blocks will remain in this set until after ledger has them marked as confirmed.
 	bool exists (nano::block_hash const & hash) const;
 	std::size_t size () const;
+
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
 
 public: // Events
@@ -66,7 +67,7 @@ private:
 	std::unordered_set<nano::block_hash> set;
 	std::unordered_set<nano::block_hash> processing;
 
-	nano::thread_pool workers;
+	nano::thread_pool notification_workers;
 
 	bool stopped{ false };
 	mutable std::mutex mutex;
