@@ -152,6 +152,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	stats{ logger, config.stats_config },
 	workers{ config.background_threads, nano::thread_role::name::worker },
 	bootstrap_workers{ config.bootstrap_serving_threads, nano::thread_role::name::bootstrap_worker },
+	wallet_workers{ 1, nano::thread_role::name::wallet_worker },
 	flags (flags_a),
 	work (work_a),
 	distributed_work (*this),
@@ -479,7 +480,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			// TODO: Is it neccessary to call this for all blocks?
 			if (block->is_send ())
 			{
-				workers.push_task ([this, hash = block->hash (), destination = block->destination ()] () {
+				wallet_workers.push_task ([this, hash = block->hash (), destination = block->destination ()] () {
 					wallets.receive_confirmed (hash, destination);
 				});
 			}
@@ -572,6 +573,8 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.network, "network"));
 	composite->add_component (node.telemetry.collect_container_info ("telemetry"));
 	composite->add_component (collect_container_info (node.workers, "workers"));
+	composite->add_component (collect_container_info (node.bootstrap_workers, "bootstrap_workers"));
+	composite->add_component (collect_container_info (node.wallet_workers, "wallet_workers"));
 	composite->add_component (collect_container_info (node.observers, "observers"));
 	composite->add_component (collect_container_info (node.wallets, "wallets"));
 	composite->add_component (node.vote_processor.collect_container_info ("vote_processor"));
@@ -728,6 +731,8 @@ void nano::node::stop ()
 
 	logger.info (nano::log::type::node, "Node stopping...");
 
+	bootstrap_workers.stop ();
+	wallet_workers.stop ();
 	vote_router.stop ();
 	peer_history.stop ();
 	// Cancels ongoing work generation tasks, which may be blocking other threads

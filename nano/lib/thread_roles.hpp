@@ -28,6 +28,7 @@ enum class name
 	confirmation_height_notifications,
 	worker,
 	bootstrap_worker,
+	wallet_worker,
 	request_aggregator,
 	state_block_signature_verification,
 	epoch_upgrader,
