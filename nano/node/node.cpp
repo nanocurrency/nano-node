@@ -200,6 +200,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	vote_router{ *vote_router_impl },
 	vote_processor_impl{ std::make_unique<nano::vote_processor> (config.vote_processor, vote_router, observers, stats, flags, logger, online_reps, rep_crawler, ledger, network_params, rep_tiers) },
 	vote_processor{ *vote_processor_impl },
+	vote_cache_processor_impl{ std::make_unique<nano::vote_cache_processor> (config.vote_processor, vote_router, vote_cache, stats, logger) },
+	vote_cache_processor{ *vote_cache_processor_impl },
 	generator_impl{ std::make_unique<nano::vote_generator> (config, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* non-final */ false) },
 	generator{ *generator_impl },
 	final_generator_impl{ std::make_unique<nano::vote_generator> (config, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* final */ true) },
@@ -572,6 +574,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.observers, "observers"));
 	composite->add_component (collect_container_info (node.wallets, "wallets"));
 	composite->add_component (node.vote_processor.collect_container_info ("vote_processor"));
+	composite->add_component (node.vote_cache_processor.collect_container_info ("vote_cache_processor"));
 	composite->add_component (node.rep_crawler.collect_container_info ("rep_crawler"));
 	composite->add_component (node.block_processor.collect_container_info ("block_processor"));
 	composite->add_component (collect_container_info (node.online_reps, "online_reps"));
@@ -690,6 +693,7 @@ void nano::node::start ()
 	wallets.start ();
 	rep_tiers.start ();
 	vote_processor.start ();
+	vote_cache_processor.start ();
 	block_processor.start ();
 	active.start ();
 	generator.start ();
@@ -734,6 +738,7 @@ void nano::node::stop ()
 	unchecked.stop ();
 	block_processor.stop ();
 	aggregator.stop ();
+	vote_cache_processor.stop ();
 	vote_processor.stop ();
 	rep_tiers.stop ();
 	scheduler.stop ();

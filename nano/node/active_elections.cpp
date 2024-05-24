@@ -440,7 +440,7 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 	{
 		debug_assert (result.election);
 
-		node.vote_router.trigger_vote_cache (hash);
+		node.vote_cache_processor.trigger (hash);
 		node.observers.active_started.notify (hash);
 		vacancy_update ();
 	}
@@ -523,7 +523,7 @@ bool nano::active_elections::publish (std::shared_ptr<nano::block> const & block
 			node.vote_router.connect (block_a->hash (), election);
 			lock.unlock ();
 
-			node.vote_router.trigger_vote_cache (block_a->hash ());
+			node.vote_cache_processor.trigger (block_a->hash ());
 
 			node.stats.inc (nano::stat::type::active, nano::stat::detail::election_block_conflict);
 		}

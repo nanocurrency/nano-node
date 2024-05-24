@@ -123,16 +123,6 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::vote_router::vote (s
 	return results;
 }
 
-bool nano::vote_router::trigger_vote_cache (nano::block_hash const & hash)
-{
-	auto cached = cache.find (hash);
-	for (auto const & cached_vote : cached)
-	{
-		vote (cached_vote, nano::vote_source::cache, hash);
-	}
-	return !cached.empty ();
-}
-
 bool nano::vote_router::active (nano::block_hash const & hash) const
 {
 	std::shared_lock lock{ mutex };

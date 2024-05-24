@@ -48,6 +48,7 @@ enum class type
 	telemetry,
 	vote_generator,
 	vote_cache,
+	vote_cache_processor,
 	hinting,
 	blockprocessor,
 	blockprocessor_source,
@@ -112,6 +113,7 @@ enum class detail
 	cache,
 	rebroadcast,
 	queue_overflow,
+	triggered,
 
 	// processing queue
 	queue,

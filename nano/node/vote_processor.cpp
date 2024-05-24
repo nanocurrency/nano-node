@@ -15,6 +15,10 @@
 
 using namespace std::chrono_literals;
 
+/*
+ * vote_processor
+ */
+
 nano::vote_processor::vote_processor (vote_processor_config const & config_a, nano::vote_router & vote_router, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_flags & flags_a, nano::logger & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a, nano::rep_tiers & rep_tiers_a) :
 	config{ config_a },
 	vote_router{ vote_router },
@@ -215,6 +219,129 @@ std::unique_ptr<nano::container_info_component> nano::vote_processor::collect_co
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "votes", queue.size (), sizeof (decltype (queue)::value_type) }));
 	composite->add_component (queue.collect_container_info ("queue"));
+	return composite;
+}
+
+/*
+ * vote_cache_processor
+ */
+
+nano::vote_cache_processor::vote_cache_processor (vote_processor_config const & config_a, nano::vote_router & vote_router_a, nano::vote_cache & vote_cache_a, nano::stats & stats_a, nano::logger & logger_a) :
+	config{ config_a },
+	vote_router{ vote_router_a },
+	vote_cache{ vote_cache_a },
+	stats{ stats_a },
+	logger{ logger_a }
+{
+}
+
+nano::vote_cache_processor::~vote_cache_processor ()
+{
+	debug_assert (!thread.joinable ());
+}
+
+void nano::vote_cache_processor::start ()
+{
+	debug_assert (!thread.joinable ());
+
+	thread = std::thread ([this] () {
+		nano::thread_role::set (nano::thread_role::name::vote_cache_processing);
+		run ();
+	});
+}
+
+void nano::vote_cache_processor::stop ()
+{
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		stopped = true;
+	}
+	condition.notify_all ();
+	if (thread.joinable ())
+	{
+		thread.join ();
+	}
+}
+
+void nano::vote_cache_processor::trigger (nano::block_hash const & hash)
+{
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		if (triggered.size () >= config.max_triggered)
+		{
+			triggered.pop_front ();
+			stats.inc (nano::stat::type::vote_cache_processor, nano::stat::detail::overfill);
+		}
+		triggered.push_back (hash);
+	}
+	condition.notify_all ();
+	stats.inc (nano::stat::type::vote_cache_processor, nano::stat::detail::triggered);
+}
+
+void nano::vote_cache_processor::run ()
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	while (!stopped)
+	{
+		stats.inc (nano::stat::type::vote_cache_processor, nano::stat::detail::loop);
+
+		if (!triggered.empty ())
+		{
+			run_batch (lock);
+			debug_assert (!lock.owns_lock ());
+			lock.lock ();
+		}
+		else
+		{
+			condition.wait (lock, [&] { return stopped || !triggered.empty (); });
+		}
+	}
+}
+
+void nano::vote_cache_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
+{
+	debug_assert (lock.owns_lock ());
+	debug_assert (!mutex.try_lock ());
+	debug_assert (!triggered.empty ());
+
+	// Swap and deduplicate
+	decltype (triggered) triggered_l;
+	swap (triggered_l, triggered);
+
+	lock.unlock ();
+
+	std::unordered_set<nano::block_hash> hashes;
+	hashes.reserve (triggered_l.size ());
+	hashes.insert (triggered_l.begin (), triggered_l.end ());
+
+	stats.add (nano::stat::type::vote_cache_processor, nano::stat::detail::processed, hashes.size ());
+
+	for (auto const & hash : hashes)
+	{
+		auto cached = vote_cache.find (hash);
+		for (auto const & cached_vote : cached)
+		{
+			vote_router.vote (cached_vote, nano::vote_source::cache, hash);
+		}
+	}
+}
+
+std::size_t nano::vote_cache_processor::size () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return triggered.size ();
+}
+
+bool nano::vote_cache_processor::empty () const
+{
+	return size () == 0;
+}
+
+std::unique_ptr<nano::container_info_component> nano::vote_cache_processor::collect_container_info (std::string const & name) const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "triggered", triggered.size (), sizeof (decltype (triggered)::value_type) }));
 	return composite;
 }
 
