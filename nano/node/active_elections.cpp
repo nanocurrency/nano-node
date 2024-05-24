@@ -32,11 +32,11 @@ nano::active_elections::active_elections (nano::node & node_a, nano::confirming_
 	confirming_set.batch_cemented.add ([this] (nano::confirming_set::cemented_notification const & notification) {
 		{
 			auto transaction = node.ledger.tx_begin_read ();
-			for (auto const & block : notification.cemented)
+			for (auto const & [block, confirmation_root] : notification.cemented)
 			{
 				transaction.refresh_if_needed ();
 
-				block_cemented_callback (transaction, block);
+				block_cemented_callback (transaction, block, confirmation_root);
 			}
 		}
 		for (auto const & hash : notification.already_cemented)
@@ -90,7 +90,7 @@ void nano::active_elections::stop ()
 	clear ();
 }
 
-void nano::active_elections::block_cemented_callback (nano::secure::transaction const & transaction, std::shared_ptr<nano::block> const & block)
+void nano::active_elections::block_cemented_callback (nano::secure::transaction const & transaction, std::shared_ptr<nano::block> const & block, nano::block_hash const & confirmation_root)
 {
 	debug_assert (node.block_confirmed (block->hash ()));
 	if (auto election_l = election (block->qualified_root ()))
@@ -106,7 +106,7 @@ void nano::active_elections::block_cemented_callback (nano::secure::transaction 
 		status = election->get_status ();
 		votes = election->votes_with_weight ();
 	}
-	if (confirming_set.exists (block->hash ())) // TODO: This can be passed from the confirming_set
+	if (block->hash () == confirmation_root)
 	{
 		status.type = nano::election_status_type::active_confirmed_quorum;
 	}

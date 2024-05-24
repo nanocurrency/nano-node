@@ -147,8 +147,8 @@ private:
 	std::vector<std::shared_ptr<nano::election>> list_active_impl (std::size_t) const;
 	void activate_successors (nano::secure::transaction const &, std::shared_ptr<nano::block> const & block);
 	void notify_observers (nano::secure::transaction const &, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes) const;
-	void block_cemented_callback (nano::secure::transaction const &, std::shared_ptr<nano::block> const &);
-	void block_already_cemented_callback (nano::block_hash const &);
+	void block_cemented_callback (nano::secure::transaction const &, std::shared_ptr<nano::block> const & block, nano::block_hash const & confirmation_root);
+	void block_already_cemented_callback (nano::block_hash const & hash);
 
 private: // Dependencies
 	active_elections_config const & config;

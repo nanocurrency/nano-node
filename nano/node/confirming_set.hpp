@@ -43,9 +43,11 @@ public:
 
 public: // Events
 	// Observers will be called once ledger has blocks marked as confirmed
+	using cemented_t = std::pair<std::shared_ptr<nano::block>, nano::block_hash>; // <block, confirmation root>
+
 	struct cemented_notification
 	{
-		std::deque<std::shared_ptr<nano::block>> cemented;
+		std::deque<cemented_t> cemented;
 		std::deque<nano::block_hash> already_cemented;
 	};
 

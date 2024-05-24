@@ -14,15 +14,15 @@ nano::confirming_set::confirming_set (nano::ledger & ledger_a, nano::stats & sta
 	workers{ 1, nano::thread_role::name::confirmation_height_notifications }
 {
 	batch_cemented.add ([this] (auto const & notification) {
-		for (auto const & i : notification.cemented)
+		for (auto const & [block, confirmation_root] : notification.cemented)
 		{
 			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify_cemented);
-			cemented_observers.notify (i);
+			cemented_observers.notify (block);
 		}
-		for (auto const & i : notification.already_cemented)
+		for (auto const & hash : notification.already_cemented)
 		{
 			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify_already_cemented);
-			block_already_cemented_observers.notify (i);
+			block_already_cemented_observers.notify (hash);
 		}
 	});
 }
@@ -110,7 +110,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 	debug_assert (!mutex.try_lock ());
 	debug_assert (!set.empty ());
 
-	std::deque<std::shared_ptr<nano::block>> cemented;
+	std::deque<cemented_t> cemented;
 	std::deque<nano::block_hash> already;
 
 	// Move items in to back buffer and release lock so more items can be added to the front buffer
@@ -136,7 +136,11 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 			if (!added.empty ())
 			{
 				// Confirming this block may implicitly confirm more
-				cemented.insert (cemented.end (), added.begin (), added.end ());
+				for (auto & block : added)
+				{
+					cemented.emplace_back (block, item);
+				}
+
 				stats.add (nano::stat::type::confirming_set, nano::stat::detail::cemented, added.size ());
 			}
 			else
