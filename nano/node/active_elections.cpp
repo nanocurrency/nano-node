@@ -1,4 +1,5 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/enum_util.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/active_elections.hpp>
@@ -121,7 +122,7 @@ void nano::active_elections::block_cemented_callback (nano::secure::transaction 
 	recently_cemented.put (status);
 
 	node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::cemented);
-	node.stats.inc (nano::stat::type::active_cemented, to_stat_detail (status.type));
+	node.stats.inc (nano::stat::type::active_elections_cemented, to_stat_detail (status.type));
 
 	node.logger.trace (nano::log::type::active_elections, nano::log::detail::active_cemented, nano::log::arg{ "election", election });
 
@@ -310,7 +311,7 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 
 	node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::stopped);
 	node.stats.inc (nano::stat::type::active_elections, election->confirmed () ? nano::stat::detail::confirmed : nano::stat::detail::unconfirmed);
-	node.stats.inc (nano::stat::type::active_stopped, to_stat_detail (election->state ()));
+	node.stats.inc (nano::stat::type::active_elections_stopped, to_stat_detail (election->state ()));
 	node.stats.inc (to_stat_type (election->state ()), to_stat_detail (election->behavior ()));
 
 	node.logger.trace (nano::log::type::active_elections, nano::log::detail::active_stopped, nano::log::arg{ "election", election });
@@ -419,7 +420,7 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 			count_by_behavior[result.election->behavior ()]++;
 
 			node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::started);
-			node.stats.inc (nano::stat::type::active_started, to_stat_detail (election_behavior_a));
+			node.stats.inc (nano::stat::type::active_elections_started, to_stat_detail (election_behavior_a));
 
 			node.logger.trace (nano::log::type::active_elections, nano::log::detail::active_started,
 			nano::log::arg{ "behavior", election_behavior_a },
@@ -608,14 +609,14 @@ nano::stat::type nano::to_stat_type (nano::election_state state)
 	{
 		case election_state::passive:
 		case election_state::active:
-			return nano::stat::type::active_dropped;
+			return nano::stat::type::active_elections_dropped;
 			break;
 		case election_state::confirmed:
 		case election_state::expired_confirmed:
-			return nano::stat::type::active_confirmed;
+			return nano::stat::type::active_elections_confirmed;
 			break;
 		case election_state::expired_unconfirmed:
-			return nano::stat::type::active_timeout;
+			return nano::stat::type::active_elections_timeout;
 			break;
 	}
 	debug_assert (false);
@@ -624,48 +625,10 @@ nano::stat::type nano::to_stat_type (nano::election_state state)
 
 nano::stat::detail nano::to_stat_detail (nano::election_state state)
 {
-	switch (state)
-	{
-		case election_state::passive:
-			return nano::stat::detail::passive;
-			break;
-		case election_state::active:
-			return nano::stat::detail::active;
-			break;
-		case election_state::confirmed:
-			return nano::stat::detail::confirmed;
-			break;
-		case election_state::expired_confirmed:
-			return nano::stat::detail::expired_confirmed;
-			break;
-		case election_state::expired_unconfirmed:
-			return nano::stat::detail::expired_unconfirmed;
-			break;
-	}
-	debug_assert (false);
-	return {};
+	return nano::enum_util::cast<nano::stat::detail> (state);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::election_status_type type)
 {
-	switch (type)
-	{
-		case election_status_type::ongoing:
-			return nano::stat::detail::ongoing;
-			break;
-		case election_status_type::active_confirmed_quorum:
-			return nano::stat::detail::active_confirmed_quorum;
-			break;
-		case election_status_type::active_confirmation_height:
-			return nano::stat::detail::active_confirmation_height;
-			break;
-		case election_status_type::inactive_confirmation_height:
-			return nano::stat::detail::inactive_confirmation_height;
-			break;
-		case election_status_type::stopped:
-			return nano::stat::detail::stopped;
-			break;
-	}
-	debug_assert (false);
-	return {};
+	return nano::enum_util::cast<nano::stat::detail> (type);
 }
