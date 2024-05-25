@@ -3,7 +3,6 @@
 #include <nano/boost/asio/strand.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/logging.hpp>
-#include <nano/lib/tlsconfig.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/node_observers.hpp>
@@ -578,8 +577,7 @@ void nano::websocket::listener::stop ()
 	sessions.clear ();
 }
 
-nano::websocket::listener::listener (std::shared_ptr<nano::tls_config> const & tls_config_a, nano::logger & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a) :
-	tls_config (tls_config_a),
+nano::websocket::listener::listener (nano::logger & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a) :
 	logger (logger_a),
 	wallets (wallets_a),
 	acceptor (io_ctx_a),
@@ -629,22 +627,15 @@ void nano::websocket::listener::on_accept (boost::system::error_code ec)
 	{
 		// Create the session and initiate websocket handshake
 		std::shared_ptr<nano::websocket::session> session;
-		if (tls_config && tls_config->enable_wss)
-		{
-#ifdef NANO_SECURE_RPC
-			session = std::make_shared<nano::websocket::session> (*this, std::move (socket), tls_config->ssl_context);
-#endif
-		}
-		else
-		{
-			session = std::make_shared<nano::websocket::session> (*this, std::move (socket), logger);
-		}
+		session = std::make_shared<nano::websocket::session> (*this, std::move (socket), logger);
 
+		// TODO: Why is this locking and unlocking mutex manually??
 		sessions_mutex.lock ();
 		sessions.push_back (session);
 		// Clean up expired sessions
 		sessions.erase (std::remove_if (sessions.begin (), sessions.end (), [] (auto & elem) { return elem.expired (); }), sessions.end ());
 		sessions_mutex.unlock ();
+
 		session->handshake ();
 	}
 
@@ -1003,7 +994,7 @@ nano::websocket_server::websocket_server (nano::websocket::config & config_a, na
 	}
 
 	auto endpoint = nano::tcp_endpoint{ boost::asio::ip::make_address_v6 (config.address), config.port };
-	server = std::make_shared<nano::websocket::listener> (config.tls_config, logger, wallets, io_ctx, endpoint);
+	server = std::make_shared<nano::websocket::listener> (logger, wallets, io_ctx, endpoint);
 
 	observers.blocks.add ([this] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
 		debug_assert (status_a.type != nano::election_status_type::ongoing);

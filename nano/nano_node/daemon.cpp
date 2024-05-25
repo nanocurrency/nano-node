@@ -3,7 +3,6 @@
 #include <nano/lib/stacktrace.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/lib/threading.hpp>
-#include <nano/lib/tlsconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/cli.hpp>
@@ -85,18 +84,6 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 	}
 	if (!error)
 	{
-		auto tls_config (std::make_shared<nano::tls_config> ());
-		error = nano::read_tls_config_toml (data_path, *tls_config, logger);
-		if (error)
-		{
-			std::cerr << error.get_message () << std::endl;
-			std::exit (1);
-		}
-		else
-		{
-			config.node.websocket_config.tls_config = tls_config;
-		}
-
 		std::shared_ptr<boost::asio::io_context> io_ctx = std::make_shared<boost::asio::io_context> ();
 
 		auto opencl = nano::opencl_work::create (config.opencl_enable, config.opencl, logger, config.node.network_params.work);
@@ -176,7 +163,6 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 							std::exit (1);
 						}
 
-						rpc_config.tls_config = tls_config;
 						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, *ipc_server, config.rpc, stop_callback);
 						rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
 						rpc->start ();
