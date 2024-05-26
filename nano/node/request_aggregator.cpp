@@ -268,15 +268,16 @@ auto nano::request_aggregator::aggregate (nano::secure::transaction const & tran
 			if (generate_final_vote)
 			{
 				to_generate_final.push_back (block);
+				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_final);
 			}
 			else
 			{
-				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_non_final, stat::dir::in);
+				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_non_final);
 			}
 		}
 		else
 		{
-			stats.inc (nano::stat::type::requests, nano::stat::detail::requests_unknown, stat::dir::in);
+			stats.inc (nano::stat::type::requests, nano::stat::detail::requests_unknown);
 		}
 	}
 
