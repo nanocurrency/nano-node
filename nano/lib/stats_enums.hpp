@@ -322,6 +322,7 @@ enum class detail
 	requests_generated_votes,
 	requests_cannot_vote,
 	requests_unknown,
+	requests_non_final,
 
 	// request_aggregator
 	request_hashes,

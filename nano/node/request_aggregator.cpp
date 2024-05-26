@@ -222,19 +222,10 @@ auto nano::request_aggregator::aggregate (nano::secure::transaction const & tran
 			// Allow same root vote
 			if (block != nullptr && final_vote_hashes.size () > 1)
 			{
+				// WTF? This shouldn't be done like this
 				to_generate_final.push_back (block);
 				block = ledger.any.block_get (transaction, final_vote_hashes[1]);
 				debug_assert (final_vote_hashes.size () == 2);
-			}
-		}
-
-		// 3. Election winner by hash
-		if (block == nullptr)
-		{
-			auto election = vote_router.election (hash);
-			if (election != nullptr)
-			{
-				block = election->winner ();
 			}
 		}
 
@@ -280,14 +271,7 @@ auto nano::request_aggregator::aggregate (nano::secure::transaction const & tran
 			}
 			else
 			{
-				to_generate.push_back (block);
-			}
-
-			// Let the node know about the alternative block
-			if (block->hash () != hash)
-			{
-				nano::publish publish (network_constants, block);
-				channel_a->send (publish);
+				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_non_final, stat::dir::in);
 			}
 		}
 		else
