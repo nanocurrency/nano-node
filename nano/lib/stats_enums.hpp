@@ -45,6 +45,7 @@ enum class type
 	requests,
 	request_aggregator,
 	request_aggregator_vote,
+	request_aggregator_replies,
 	filter,
 	telemetry,
 	vote_generator,
@@ -329,6 +330,8 @@ enum class detail
 	// request_aggregator
 	request_hashes,
 	overfill_hashes,
+	normal_vote,
+	final_vote,
 
 	// duplicate
 	duplicate_publish_message,

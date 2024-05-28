@@ -526,6 +526,7 @@ bool nano::active_elections::publish (std::shared_ptr<nano::block> const & block
 			node.vote_cache_processor.trigger (block_a->hash ());
 
 			node.stats.inc (nano::stat::type::active, nano::stat::detail::election_block_conflict);
+			node.logger.debug (nano::log::type::active_elections, "Block was added to an existing election: {}", block_a->hash ().to_string ());
 		}
 	}
 	return result;

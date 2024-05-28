@@ -756,6 +756,12 @@ nano::election_state nano::election::state () const
 	return state_m;
 }
 
+bool nano::election::contains (nano::block_hash const & hash) const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return last_blocks.contains (hash);
+}
+
 // TODO: Remove the need for .to_string () calls
 void nano::election::operator() (nano::object_stream & obs) const
 {

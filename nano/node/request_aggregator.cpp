@@ -175,12 +175,16 @@ void nano::request_aggregator::process (nano::secure::transaction const & transa
 
 	if (!remaining.remaining_normal.empty ())
 	{
+		stats.inc (nano::stat::type::request_aggregator_replies, nano::stat::detail::normal_vote);
+
 		// Generate votes for the remaining hashes
 		auto const generated = generator.generate (remaining.remaining_normal, channel);
 		stats.add (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in, remaining.remaining_normal.size () - generated);
 	}
 	if (!remaining.remaining_final.empty ())
 	{
+		stats.inc (nano::stat::type::request_aggregator_replies, nano::stat::detail::final_vote);
+
 		// Generate final votes for the remaining hashes
 		auto const generated = final_generator.generate (remaining.remaining_final, channel);
 		stats.add (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in, remaining.remaining_final.size () - generated);

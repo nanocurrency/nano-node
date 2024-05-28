@@ -138,6 +138,10 @@ public: // Information
 	nano::election_behavior behavior () const;
 	nano::election_state state () const;
 
+	std::unordered_map<nano::account, nano::vote_info> votes () const;
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
+	bool contains (nano::block_hash const &) const;
+
 private:
 	nano::tally_t tally_impl () const;
 	bool confirmed_locked () const;
@@ -188,8 +192,6 @@ private: // Constants
 
 public: // Only used in tests
 	void force_confirm ();
-	std::unordered_map<nano::account, nano::vote_info> votes () const;
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
 
 	friend class confirmation_solicitor_different_hash_Test;
 	friend class confirmation_solicitor_bypass_max_requests_cap_Test;

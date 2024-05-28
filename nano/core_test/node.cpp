@@ -769,6 +769,8 @@ TEST (node, fork_multi_flip)
 
 	auto election = nano::test::start_election (system, node2, send2->hash ());
 	ASSERT_NE (nullptr, election);
+	ASSERT_TIMELY (5s, election->contains (send1->hash ()));
+	nano::test::confirm (node1.ledger, send1);
 	ASSERT_TIMELY (5s, node2.block_or_pruned_exists (send1->hash ()));
 	ASSERT_TRUE (nano::test::block_or_pruned_none_exists (node2, { send2, send3 }));
 	auto winner = *election->tally ().begin ();
@@ -781,17 +783,15 @@ TEST (node, fork_multi_flip)
 TEST (node, fork_bootstrap_flip)
 {
 	nano::test::system system;
-	nano::test::system system0;
-	nano::test::system system1;
 	nano::node_config config0{ system.get_available_port () };
 	config0.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_lazy_bootstrap = true;
-	auto & node1 = *system0.add_node (config0, node_flags);
+	auto & node1 = *system.add_node (config0, node_flags);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::node_config config1 (system.get_available_port ());
-	auto & node2 = *system1.add_node (config1, node_flags);
-	system0.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	auto & node2 = *system.make_disconnected_node (config1, node_flags);
 	nano::block_hash latest = node1.latest (nano::dev::genesis_key.pub);
 	nano::keypair key1;
 	nano::send_block_builder builder;
@@ -800,7 +800,7 @@ TEST (node, fork_bootstrap_flip)
 				 .destination (key1.pub)
 				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system0.work.generate (latest))
+				 .work (*system.work.generate (latest))
 				 .build ();
 	nano::keypair key2;
 	auto send2 = builder.make_block ()
@@ -808,22 +808,19 @@ TEST (node, fork_bootstrap_flip)
 				 .destination (key2.pub)
 				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system0.work.generate (latest))
+				 .work (*system.work.generate (latest))
 				 .build ();
 	// Insert but don't rebroadcast, simulating settled blocks
 	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (node1.ledger.tx_begin_write (), send1));
 	ASSERT_EQ (nano::block_status::progress, node2.ledger.process (node2.ledger.tx_begin_write (), send2));
-	ASSERT_TRUE (node2.ledger.any.block_exists (node2.ledger.tx_begin_read (), send2->hash ()));
-	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ()); // Additionally add new peer to confirm & replace bootstrap block
-	auto again (true);
-	system0.deadline_set (50s);
-	system1.deadline_set (50s);
-	while (again)
-	{
-		ASSERT_NO_ERROR (system0.poll ());
-		ASSERT_NO_ERROR (system1.poll ());
-		again = !node2.ledger.any.block_exists (node2.ledger.tx_begin_read (), send1->hash ());
-	}
+	nano::test::confirm (node1.ledger, send1);
+	ASSERT_TIMELY (1s, node1.ledger.any.block_exists (node1.ledger.tx_begin_read (), send1->hash ()));
+	ASSERT_TIMELY (1s, node2.ledger.any.block_exists (node2.ledger.tx_begin_read (), send2->hash ()));
+
+	// Additionally add new peer to confirm & replace bootstrap block
+	node2.network.merge_peer (node1.network.endpoint ());
+
+	ASSERT_TIMELY (10s, node2.ledger.any.block_exists (node2.ledger.tx_begin_read (), send1->hash ()));
 }
 
 TEST (node, fork_open)
@@ -3050,13 +3047,10 @@ TEST (node, rollback_vote_self)
 		// Insert genesis key in the wallet
 		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
-		// Even without the rollback being finished, the aggregator must reply with a vote for the new winner, not the old one
-		ASSERT_TRUE (node.history.votes (send2->root (), send2->hash ()).empty ());
-		ASSERT_TRUE (node.history.votes (fork->root (), fork->hash ()).empty ());
+		// Without the rollback being finished, the aggregator should not reply with any vote
 		auto channel = std::make_shared<nano::transport::fake::channel> (node);
 		node.aggregator.request ({ { send2->hash (), send2->root () } }, channel);
-		ASSERT_TIMELY (5s, !node.history.votes (fork->root (), fork->hash ()).empty ());
-		ASSERT_TRUE (node.history.votes (send2->root (), send2->hash ()).empty ());
+		ASSERT_ALWAYS_EQ (1s, node.stats.count (nano::stat::type::request_aggregator_replies), 0);
 
 		// Going out of the scope allows the rollback to complete
 	}
