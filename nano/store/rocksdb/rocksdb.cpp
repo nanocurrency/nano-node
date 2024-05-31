@@ -318,10 +318,10 @@ void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transacti
 		processed_accounts++;
 		if (processed_accounts % 250000 == 0)
 		{
-			logger.info (nano::log::type::lmdb, "Processed {} accounts", processed_accounts);
+			logger.info (nano::log::type::rocksdb, "Processed {} accounts", processed_accounts);
 		}
 	}
-	logger.info (nano::log::type::lmdb, "Processed {} accounts", processed_accounts);
+	logger.info (nano::log::type::rocksdb, "Processed {} accounts", processed_accounts);
 	version.put (transaction_a, 23);
 	logger.info (nano::log::type::rocksdb, "Upgrading database from v22 to v23 completed");
 }
