@@ -29,7 +29,7 @@ class confirming_set final
 	friend class confirmation_height_pruned_source_Test;
 
 public:
-	confirming_set (nano::ledger &, nano::stats &, std::chrono::milliseconds batch_time = std::chrono::milliseconds{ 500 });
+	confirming_set (nano::ledger &, nano::stats &);
 	~confirming_set ();
 
 	// Adds a block to the set of blocks to be confirmed
@@ -59,13 +59,12 @@ public: // Events
 private:
 	void run ();
 	void run_batch (std::unique_lock<std::mutex> &);
+	std::deque<nano::block_hash> next_batch (size_t max_count);
 
 	nano::ledger & ledger;
 	nano::stats & stats;
 
-	std::chrono::milliseconds const batch_time;
 	std::unordered_set<nano::block_hash> set;
-	std::unordered_set<nano::block_hash> processing;
 
 	nano::thread_pool notification_workers;
 

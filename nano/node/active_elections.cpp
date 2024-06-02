@@ -94,6 +94,7 @@ void nano::active_elections::stop ()
 void nano::active_elections::block_cemented_callback (nano::secure::transaction const & transaction, std::shared_ptr<nano::block> const & block, nano::block_hash const & confirmation_root)
 {
 	debug_assert (node.block_confirmed (block->hash ()));
+
 	if (auto election_l = election (block->qualified_root ()))
 	{
 		election_l->try_confirm (block->hash ());
