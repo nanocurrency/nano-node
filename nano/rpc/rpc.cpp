@@ -1,16 +1,11 @@
 #include <nano/boost/asio/bind_executor.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
-#include <nano/lib/tlsconfig.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_connection.hpp>
 
 #include <boost/format.hpp>
 
 #include <iostream>
-
-#ifdef NANO_SECURE_RPC
-#include <nano/rpc/rpc_secure.hpp>
-#endif
 
 nano::rpc::rpc (std::shared_ptr<boost::asio::io_context> io_ctx_a, nano::rpc_config config_a, nano::rpc_handler_interface & rpc_handler_interface_a) :
 	config (std::move (config_a)),
@@ -88,15 +83,5 @@ void nano::rpc::stop ()
 
 std::shared_ptr<nano::rpc> nano::get_rpc (std::shared_ptr<boost::asio::io_context> io_ctx_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a)
 {
-	if (config_a.tls_config && config_a.tls_config->enable_https)
-	{
-#ifdef NANO_SECURE_RPC
-		return std::make_shared<nano::rpc_secure> (io_ctx_a, config_a, rpc_handler_interface_a);
-#endif
-	}
-	else
-	{
-		return std::make_shared<nano::rpc> (io_ctx_a, config_a, rpc_handler_interface_a);
-	}
-	return nullptr;
+	return std::make_shared<nano::rpc> (io_ctx_a, config_a, rpc_handler_interface_a);
 }
