@@ -1219,11 +1219,12 @@ uint64_t nano::ledger::pruning_action (secure::write_transaction & transaction_a
 bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_path_a) const
 {
 	std::filesystem::space_info si = std::filesystem::space (data_path_a);
+	auto file_size = std::filesystem::file_size (data_path_a / "data.ldb");
+	const auto estimated_required_space = file_size * 0.65; // RocksDb database size is approximately 65% of the lmdb size
 
-	const uintmax_t required_space = 75ull * 1024 * 1024 * 1024; // 75 GB
-	if (si.available < required_space)
+	if (si.available < estimated_required_space)
 	{
-		std::cout << "Warning. You may not have enough available disk space. An estimated 75 GB of free space is required" << std::endl;
+		std::cout << "Warning. You may not have enough available disk space. Estimated free space requirement is " << estimated_required_space / 1024 / 1024 / 1024 << " GB" << std::endl;
 	}
 
 	boost::system::error_code error_chmod;
