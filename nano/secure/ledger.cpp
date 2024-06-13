@@ -1218,6 +1218,14 @@ uint64_t nano::ledger::pruning_action (secure::write_transaction & transaction_a
 // A precondition is that the store is an LMDB store
 bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_path_a) const
 {
+	std::filesystem::space_info si = std::filesystem::space (data_path_a);
+
+	const uintmax_t required_space = 75ull * 1024 * 1024 * 1024; // 75 GB
+	if (si.available < required_space)
+	{
+		std::cout << "Warning. You may not have enough available disk space. An estimated 75 GB of free space is required" << std::endl;
+	}
+
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path_a, error_chmod);
 	auto rockdb_data_path = data_path_a / "rocksdb";
@@ -1233,6 +1241,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 
 	if (!rocksdb_store->init_error ())
 	{
+		std::cout << "Step 1 of 7: Converting blocks table..." << std::endl;
 		store.block.for_each_par (
 		[&rocksdb_store] (store::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
@@ -1249,6 +1258,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 			}
 		});
 
+		std::cout << "Step 2 of 7: Converting pending table..." << std::endl;
 		store.pending.for_each_par (
 		[&rocksdb_store] (store::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
@@ -1258,6 +1268,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 			}
 		});
 
+		std::cout << "Step 3 of 7: Converting confirmation_height table..." << std::endl;
 		store.confirmation_height.for_each_par (
 		[&rocksdb_store] (store::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
@@ -1267,6 +1278,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 			}
 		});
 
+		std::cout << "Step 4 of 7: Converting accounts height table..." << std::endl;
 		store.account.for_each_par (
 		[&rocksdb_store] (store::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
@@ -1276,6 +1288,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 			}
 		});
 
+		std::cout << "Step 5 of 7: Converting rep_weights table..." << std::endl;
 		store.rep_weight.for_each_par (
 		[&rocksdb_store] (store::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
@@ -1285,6 +1298,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 			}
 		});
 
+		std::cout << "Step 6 of 7: Converting pruned table..." << std::endl;
 		store.pruned.for_each_par (
 		[&rocksdb_store] (store::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
@@ -1294,6 +1308,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 			}
 		});
 
+		std::cout << "Step 7 of 7: Converting final_votes table..." << std::endl;
 		store.final_vote.for_each_par (
 		[&rocksdb_store] (store::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
