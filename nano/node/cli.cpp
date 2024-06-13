@@ -493,7 +493,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 
 		if (!error)
 		{
-			std::cout << "Migration completed, after confirming it is correct the data.ldb file can be deleted if no longer required" << std::endl;
+			std::cout << "Migration completed. Make sure to enable RocksDb in the config file under [node.rocksdb]" << std::endl;
+			std::cout << "After confirming correct node operation, the data.ldb file can be deleted if no longer required" << std::endl;
 		}
 		else
 		{
