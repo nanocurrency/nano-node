@@ -405,6 +405,7 @@ auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket
 
 	socket->set_timeout (node.network_params.network.idle_timeout);
 	socket->start ();
+	socket->begin_read_loop ();
 	server->start ();
 
 	connection_accepted.notify (socket, server);

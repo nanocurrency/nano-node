@@ -5,6 +5,8 @@
 #include <nano/node/transport/socket.hpp>
 #include <nano/node/transport/transport.hpp>
 
+#include <boost/asio/use_future.hpp>
+#include <boost/exception/detail/exception_ptr.hpp>
 #include <boost/format.hpp>
 
 #include <cstdint>
@@ -36,8 +38,11 @@ nano::transport::socket::socket (nano::node & node_a, boost::asio::ip::tcp::sock
 	last_receive_time_or_init{ nano::seconds_since_epoch () },
 	default_timeout{ node_a.config.tcp_io_timeout },
 	silent_connection_tolerance_time{ node_a.network_params.network.silent_connection_tolerance_time },
+	read_buffer{ 16384 },
+	buffer_condition{ strand },
 	max_queue_size{ max_queue_size_a }
 {
+	os_buffer.insert (os_buffer.begin (), 16384, 0);
 }
 
 nano::transport::socket::~socket ()
@@ -88,6 +93,7 @@ void nano::transport::socket::async_connect (nano::tcp_endpoint const & endpoint
 				node_l->observers.socket_connected.notify (*this_l);
 			}
 			callback (ec);
+			this_l->begin_read_loop ();
 		}));
 	});
 }
@@ -101,31 +107,9 @@ void nano::transport::socket::async_read (std::shared_ptr<std::vector<uint8_t>> 
 		if (!closed)
 		{
 			set_default_timeout ();
-			boost::asio::post (strand, [this_l = shared_from_this (), buffer_a, callback = std::move (callback_a), size_a] () mutable {
-				boost::asio::async_read (this_l->tcp_socket, boost::asio::buffer (buffer_a->data (), size_a),
-				boost::asio::bind_executor (this_l->strand,
-				[this_l, buffer_a, cbk = std::move (callback)] (boost::system::error_code const & ec, std::size_t size_a) {
-					debug_assert (this_l->strand.running_in_this_thread ());
-
-					auto node_l = this_l->node_w.lock ();
-					if (!node_l)
-					{
-						return;
-					}
-
-					if (ec)
-					{
-						node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_read_error, nano::stat::dir::in);
-						this_l->close ();
-					}
-					else
-					{
-						node_l->stats.add (nano::stat::type::traffic_tcp, nano::stat::detail::all, nano::stat::dir::in, size_a);
-						this_l->set_last_completion ();
-						this_l->set_last_receive_time ();
-					}
-					cbk (ec, size_a);
-				}));
+			boost::asio::post (strand, [this_l = shared_from_this (), buffer_a, callback = std::move (callback_a), size_a] () {
+				this_l->requests.emplace_back (buffer_a, size_a, callback);
+				this_l->service_requests_maybe ();
 			});
 		}
 	}
@@ -389,6 +373,15 @@ void nano::transport::socket::close_internal ()
 	tcp_socket.shutdown (boost::asio::ip::tcp::socket::shutdown_both, ec);
 	tcp_socket.close (ec);
 
+	// FIXME Encapsulate or simplify this
+	for (auto const & request : requests)
+	{
+		node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_read_error, nano::stat::dir::in);
+		auto const & [buffer, size, callback] = request;
+		callback (boost::asio::error::operation_aborted, 0);
+	}
+	requests.clear ();
+
 	if (ec)
 	{
 		node_l->stats.inc (nano::stat::type::socket, nano::stat::detail::error_socket_close);
@@ -406,6 +399,90 @@ nano::tcp_endpoint nano::transport::socket::local_endpoint () const
 {
 	// Using cached value to avoid calling tcp_socket.local_endpoint() which may be invalid (throw) after closing the socket
 	return local;
+}
+
+void nano::transport::socket::begin_read_loop ()
+{
+	boost::asio::co_spawn (
+	strand, [this_l = shared_from_this ()] () -> asio::awaitable<void> {
+		co_await this_l->read_loop ();
+	},
+	// FIXME This should probably clean up in a structured way by getting a future for this loop and wait for it similar to a thread::join()
+	asio::detached);
+}
+
+boost::asio::awaitable<void> nano::transport::socket::read_loop ()
+{
+	debug_assert (strand.running_in_this_thread ());
+
+	try
+	{
+		while (!closed)
+		{
+			// Wait until there is data available to read in the socket
+			co_await tcp_socket.async_wait (boost::asio::ip::tcp::socket::wait_read, boost::asio::use_awaitable);
+			if (read_buffer.capacity () == read_buffer.size ())
+			{
+				// Wait until there is writable space
+				co_await buffer_condition.async_wait (boost::asio::use_awaitable);
+			}
+
+			// Read up to as much data from the OS as we can hold in the write section
+			auto buffer = boost::asio::buffer (os_buffer.data (), read_buffer.capacity () - read_buffer.size ());
+			// Pick up multiple messages in a single syscall
+			size_t amount_read = co_await tcp_socket.async_read_some (buffer, boost::asio::use_awaitable);
+
+			// FIXME This is the undesired copy
+			std::transform (os_buffer.begin (), os_buffer.begin () + amount_read, std::back_inserter (read_buffer), [] (uint8_t val) { return val; });
+
+			service_requests_maybe ();
+		}
+	}
+	catch (boost::system::system_error const & e)
+	{
+		close ();
+	}
+}
+
+void nano::transport::socket::service_requests_maybe ()
+{
+	debug_assert (strand.running_in_this_thread ());
+
+	while (!requests.empty ())
+	{
+		auto front = requests.front ();
+		auto const & [buffer, size, callback] = front;
+		auto available = read_buffer.size ();
+		if (available < size)
+		{
+			// Once read requests can't be serviced with enough readable data, we're done
+			return;
+		}
+		std::copy (read_buffer.begin (), read_buffer.begin () + size, buffer->begin ());
+		if (read_buffer.capacity () == read_buffer.size ())
+		{
+			buffer_condition.cancel ();
+		}
+
+		// FIXME having valid iterators will be needed when merging read_buffer and buffer'
+		read_buffer.erase (read_buffer.begin (), read_buffer.begin () + size);
+
+		// FIXME Execute callback outside this socket's strand if possible
+		boost::asio::post (strand, [this_l = shared_from_this (), front] () {
+			auto const & [buffer, size, callback] = front;
+			auto node_l = this_l->node_w.lock ();
+			if (!node_l)
+			{
+				return;
+			}
+
+			node_l->stats.add (nano::stat::type::traffic_tcp, nano::stat::detail::all, nano::stat::dir::in, size);
+			this_l->set_last_completion ();
+			this_l->set_last_receive_time ();
+			callback (boost::system::error_code{}, size);
+		});
+		requests.pop_front ();
+	}
 }
 
 void nano::transport::socket::operator() (nano::object_stream & obs) const
