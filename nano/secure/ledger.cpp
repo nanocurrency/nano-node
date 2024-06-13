@@ -1243,9 +1243,10 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 	if (!rocksdb_store->init_error ())
 	{
 		std::cout << "Step 1 of 7: Converting blocks table..." << std::endl;
+		std::size_t count = 0;
 		store.block.for_each_par (
-		[&rocksdb_store] (store::read_transaction const & /*unused*/, auto i, auto n) {
-			for (; i != n; ++i)
+		[&rocksdb_store, &count] (store::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i, ++count)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::blocks }));
 
@@ -1256,69 +1257,105 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 					i->second.sideband.serialize (stream, i->second.block->type ());
 				}
 				rocksdb_store->block.raw_put (rocksdb_transaction, vector, i->first);
+
+				if (count % 250000 == 0 && count != 0)
+				{
+					std::cout << "." << std::flush;
+				}
 			}
 		});
 
 		std::cout << "Step 2 of 7: Converting pending table..." << std::endl;
+		count = 0;
 		store.pending.for_each_par (
-		[&rocksdb_store] (store::read_transaction const & /*unused*/, auto i, auto n) {
-			for (; i != n; ++i)
+		[&rocksdb_store, &count] (store::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i, ++count)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pending }));
 				rocksdb_store->pending.put (rocksdb_transaction, i->first, i->second);
+				if (count % 250000 == 0 && count != 0)
+				{
+					std::cout << "." << std::flush;
+				}
 			}
 		});
 
 		std::cout << "Step 3 of 7: Converting confirmation_height table..." << std::endl;
+		count = 0;
 		store.confirmation_height.for_each_par (
-		[&rocksdb_store] (store::read_transaction const & /*unused*/, auto i, auto n) {
-			for (; i != n; ++i)
+		[&rocksdb_store, &count] (store::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i, ++count)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::confirmation_height }));
 				rocksdb_store->confirmation_height.put (rocksdb_transaction, i->first, i->second);
+				if (count % 250000 == 0 && count != 0)
+				{
+					std::cout << "." << std::flush;
+				}
 			}
 		});
 
 		std::cout << "Step 4 of 7: Converting accounts height table..." << std::endl;
+		count = 0;
 		store.account.for_each_par (
-		[&rocksdb_store] (store::read_transaction const & /*unused*/, auto i, auto n) {
-			for (; i != n; ++i)
+		[&rocksdb_store, &count] (store::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i, ++count)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::accounts }));
 				rocksdb_store->account.put (rocksdb_transaction, i->first, i->second);
+				if (count % 250000 == 0 && count != 0)
+				{
+					std::cout << "." << std::flush;
+				}
 			}
 		});
 
 		std::cout << "Step 5 of 7: Converting rep_weights table..." << std::endl;
+		count = 0;
 		store.rep_weight.for_each_par (
-		[&rocksdb_store] (store::read_transaction const & /*unused*/, auto i, auto n) {
-			for (; i != n; ++i)
+		[&rocksdb_store, &count] (store::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i, ++count)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::rep_weights }));
 				rocksdb_store->rep_weight.put (rocksdb_transaction, i->first, i->second.number ());
+				if (count % 250000 == 0 && count != 0)
+				{
+					std::cout << "." << std::flush;
+				}
 			}
 		});
 
 		std::cout << "Step 6 of 7: Converting pruned table..." << std::endl;
+		count = 0;
 		store.pruned.for_each_par (
-		[&rocksdb_store] (store::read_transaction const & /*unused*/, auto i, auto n) {
-			for (; i != n; ++i)
+		[&rocksdb_store, &count] (store::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i, ++count)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pruned }));
 				rocksdb_store->pruned.put (rocksdb_transaction, i->first);
+				if (count % 250000 == 0 && count != 0)
+				{
+					std::cout << "." << std::flush;
+				}
 			}
 		});
 
 		std::cout << "Step 7 of 7: Converting final_votes table..." << std::endl;
+		count = 0;
 		store.final_vote.for_each_par (
-		[&rocksdb_store] (store::read_transaction const & /*unused*/, auto i, auto n) {
-			for (; i != n; ++i)
+		[&rocksdb_store, &count] (store::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i, ++count)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::final_votes }));
 				rocksdb_store->final_vote.put (rocksdb_transaction, i->first, i->second);
+				if (count % 250000 == 0 && count != 0)
+				{
+					std::cout << "." << std::flush;
+				}
 			}
 		});
 
+		std::cout << "Finalizing migration..." << std::endl;
 		auto lmdb_transaction (store.tx_begin_read ());
 		auto version = store.version.get (lmdb_transaction);
 		auto rocksdb_transaction (rocksdb_store->tx_begin_write ());
