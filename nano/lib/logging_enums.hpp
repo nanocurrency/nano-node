@@ -66,6 +66,7 @@ enum class type
 	opencl_work,
 	upnp,
 	rep_crawler,
+	ledger,
 	lmdb,
 	rocksdb,
 	txn_tracker,
