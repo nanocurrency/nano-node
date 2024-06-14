@@ -287,7 +287,7 @@ auto nano::request_aggregator::aggregate (nano::secure::transaction const & tran
 	};
 }
 
-std::unique_ptr<nano::container_info_component> nano::request_aggregator::collect_container_info (std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::request_aggregator::collect_container_info (std::string const & name) const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
