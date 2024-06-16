@@ -136,7 +136,7 @@ void nano::vote_generator::process_batch (std::deque<queue_entry_t> & batch)
 	{
 		nano::unique_lock<nano::mutex> lock{ mutex };
 		candidates.insert (candidates.end (), verified.begin (), verified.end ());
-		if (candidates.size () >= nano::network::confirm_ack_hashes_max)
+		if (candidates.size () >= config.confirm_ack_hashes_max)
 		{
 			lock.unlock ();
 			condition.notify_all ();
@@ -181,9 +181,10 @@ void nano::vote_generator::broadcast (nano::unique_lock<nano::mutex> & lock_a)
 
 	std::vector<nano::block_hash> hashes;
 	std::vector<nano::root> roots;
-	hashes.reserve (nano::network::confirm_ack_hashes_max);
-	roots.reserve (nano::network::confirm_ack_hashes_max);
-	while (!candidates.empty () && hashes.size () < nano::network::confirm_ack_hashes_max)
+	hashes.reserve (config.confirm_ack_hashes_max);
+	roots.reserve (config.confirm_ack_hashes_max);
+
+	while (!candidates.empty () && hashes.size () < config.confirm_ack_hashes_max)
 	{
 		auto const & [root, hash] = candidates.front ();
 		if (std::find (roots.begin (), roots.end (), root) == roots.end ())
@@ -220,9 +221,9 @@ void nano::vote_generator::reply (nano::unique_lock<nano::mutex> & lock_a, reque
 	{
 		std::vector<nano::block_hash> hashes;
 		std::vector<nano::root> roots;
-		hashes.reserve (nano::network::confirm_ack_hashes_max);
-		roots.reserve (nano::network::confirm_ack_hashes_max);
-		for (; i != n && hashes.size () < nano::network::confirm_ack_hashes_max; ++i)
+		hashes.reserve (config.confirm_ack_hashes_max);
+		roots.reserve (config.confirm_ack_hashes_max);
+		for (; i != n && hashes.size () < config.confirm_ack_hashes_max; ++i)
 		{
 			auto const & [root, hash] = *i;
 			if (std::find (roots.begin (), roots.end (), root) == roots.end ())
@@ -284,7 +285,7 @@ void nano::vote_generator::run ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		if (candidates.size () >= nano::network::confirm_ack_hashes_max)
+		if (candidates.size () >= config.confirm_ack_hashes_max)
 		{
 			broadcast (lock);
 		}
@@ -296,10 +297,10 @@ void nano::vote_generator::run ()
 		}
 		else
 		{
-			condition.wait_for (lock, config.vote_generator_delay, [this] () { return this->candidates.size () >= nano::network::confirm_ack_hashes_max; });
-			if (candidates.size () >= config.vote_generator_threshold && candidates.size () < nano::network::confirm_ack_hashes_max)
+			condition.wait_for (lock, config.vote_generator_delay, [this] () { return this->candidates.size () >= config.confirm_ack_hashes_max; });
+			if (candidates.size () >= config.vote_generator_threshold && candidates.size () < config.confirm_ack_hashes_max)
 			{
-				condition.wait_for (lock, config.vote_generator_delay, [this] () { return this->candidates.size () >= nano::network::confirm_ack_hashes_max; });
+				condition.wait_for (lock, config.vote_generator_delay, [this] () { return this->candidates.size () >= config.confirm_ack_hashes_max; });
 			}
 			if (!candidates.empty ())
 			{

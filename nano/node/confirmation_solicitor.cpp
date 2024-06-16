@@ -98,7 +98,7 @@ void nano::confirmation_solicitor::flush ()
 		for (auto const & root_hash : request_queue.second)
 		{
 			roots_hashes_l.push_back (root_hash);
-			if (roots_hashes_l.size () == nano::network::confirm_req_hashes_max)
+			if (roots_hashes_l.size () == config.confirm_req_hashes_max)
 			{
 				nano::confirm_req req{ config.network_params.network, roots_hashes_l };
 				channel->send (req);

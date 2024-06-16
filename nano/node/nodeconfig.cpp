@@ -120,6 +120,8 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("vote_minimum", vote_minimum.to_string_dec (), "Local representatives do not vote if the delegated weight is under this threshold. Saves on system resources.\ntype:string,amount,raw");
 	toml.put ("vote_generator_delay", vote_generator_delay.count (), "Delay before votes are sent to allow for efficient bundling of hashes in votes.\ntype:milliseconds");
 	toml.put ("vote_generator_threshold", vote_generator_threshold, "Number of bundled hashes required for an additional generator delay.\ntype:uint64,[1..11]");
+	toml.put ("confirm_req_hashes_max", confirm_req_hashes_max, "Maximum number of votes per message requested. Defaults to 7. Maximum is 255 \ntype:uint64,[1.255]");
+	toml.put ("confirm_ack_hashes_max", confirm_ack_hashes_max, "Maximum number of votes per message broadcasted. Defaults to 12. Maximum is 255 \ntype:uint64,[1.255]");
 	toml.put ("unchecked_cutoff_time", unchecked_cutoff_time.count (), "Number of seconds before deleting an unchecked entry.\nWarning: lower values (e.g., 3600 seconds, or 1 hour) may result in unsuccessful bootstraps, especially a bootstrap from scratch.\ntype:seconds");
 	toml.put ("tcp_io_timeout", tcp_io_timeout.count (), "Timeout for TCP connect-, read- and write operations.\nWarning: a low value (e.g., below 5 seconds) may result in TCP connections failing.\ntype:seconds");
 	toml.put ("pow_sleep_interval", pow_sleep_interval.count (), "Time to sleep between batch work generation attempts. Reduces max CPU usage at the expense of a longer generation time.\ntype:nanoseconds");
@@ -444,6 +446,18 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		vote_generator_delay = std::chrono::milliseconds (delay_l);
 
 		toml.get<unsigned> ("vote_generator_threshold", vote_generator_threshold);
+
+		toml.get<std::size_t> ("confirm_req_hashes_max", confirm_req_hashes_max);
+		if (confirm_req_hashes_max < 1 || confirm_req_hashes_max > 255)
+		{
+			toml.get_error ().set ("confirm_req_hashes_max must be a number between 1 and 255");
+		}
+
+		toml.get<std::size_t> ("confirm_ack_hashes_max", confirm_ack_hashes_max);
+		if (confirm_ack_hashes_max < 1 || confirm_ack_hashes_max > 255)
+		{
+			toml.get_error ().set ("confirm_ack_hashes_max must be a number between 1 and 255");
+		}
 
 		auto block_processor_batch_max_time_l = block_processor_batch_max_time.count ();
 		toml.get ("block_processor_batch_max_time", block_processor_batch_max_time_l);
