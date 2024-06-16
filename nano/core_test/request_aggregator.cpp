@@ -255,9 +255,9 @@ TEST (request_aggregator, two_endpoints)
 
 TEST (request_aggregator, split)
 {
-	constexpr size_t max_vbh = nano::network::confirm_ack_hashes_max;
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
+	size_t max_vbh = node_config.confirm_ack_hashes_max;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node (*system.add_node (node_config));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
