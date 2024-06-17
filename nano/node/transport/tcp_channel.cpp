@@ -1,20 +1,20 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/transport/channel_tcp.hpp>
 #include <nano/node/transport/message_deserializer.hpp>
+#include <nano/node/transport/tcp_channel.hpp>
 
 /*
- * channel_tcp
+ * tcp_channel
  */
 
-nano::transport::channel_tcp::channel_tcp (nano::node & node_a, std::weak_ptr<nano::transport::socket> socket_a) :
+nano::transport::tcp_channel::tcp_channel (nano::node & node_a, std::weak_ptr<nano::transport::socket> socket_a) :
 	channel (node_a),
 	socket (std::move (socket_a))
 {
 }
 
-nano::transport::channel_tcp::~channel_tcp ()
+nano::transport::tcp_channel::~tcp_channel ()
 {
 	nano::lock_guard<nano::mutex> lk{ channel_mutex };
 	// Close socket. Exception: socket is used by tcp_server
@@ -24,7 +24,7 @@ nano::transport::channel_tcp::~channel_tcp ()
 	}
 }
 
-void nano::transport::channel_tcp::update_endpoints ()
+void nano::transport::tcp_channel::update_endpoints ()
 {
 	nano::lock_guard<nano::mutex> lk (channel_mutex);
 
@@ -38,7 +38,7 @@ void nano::transport::channel_tcp::update_endpoints ()
 	}
 }
 
-void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a, nano::transport::buffer_drop_policy policy_a, nano::transport::traffic_type traffic_type)
+void nano::transport::tcp_channel::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a, nano::transport::buffer_drop_policy policy_a, nano::transport::traffic_type traffic_type)
 {
 	if (auto socket_l = socket.lock ())
 	{
@@ -88,12 +88,12 @@ void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const 
 	}
 }
 
-std::string nano::transport::channel_tcp::to_string () const
+std::string nano::transport::tcp_channel::to_string () const
 {
 	return nano::util::to_str (get_tcp_endpoint ());
 }
 
-void nano::transport::channel_tcp::operator() (nano::object_stream & obs) const
+void nano::transport::tcp_channel::operator() (nano::object_stream & obs) const
 {
 	nano::transport::channel::operator() (obs); // Write common data
 

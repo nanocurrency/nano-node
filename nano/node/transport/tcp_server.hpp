@@ -76,7 +76,7 @@ private:
 	std::optional<nano::keepalive> last_keepalive;
 
 	// Every realtime connection must have an associated channel
-	std::shared_ptr<nano::transport::channel_tcp> channel;
+	std::shared_ptr<nano::transport::tcp_channel> channel;
 
 private: // Visitors
 	class handshake_message_visitor : public nano::message_visitor

@@ -91,7 +91,7 @@ bool nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, 
 }
 
 // This should be the only place in node where channels are created
-std::shared_ptr<nano::transport::channel_tcp> nano::transport::tcp_channels::create (const std::shared_ptr<nano::transport::socket> & socket, const std::shared_ptr<nano::transport::tcp_server> & server, const nano::account & node_id)
+std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::create (const std::shared_ptr<nano::transport::socket> & socket, const std::shared_ptr<nano::transport::tcp_server> & server, const nano::account & node_id)
 {
 	auto const endpoint = socket->remote_endpoint ();
 	debug_assert (endpoint.address ().is_v6 ());
@@ -117,7 +117,7 @@ std::shared_ptr<nano::transport::channel_tcp> nano::transport::tcp_channels::cre
 	fmt::streamed (socket->remote_endpoint ()),
 	node_id.to_node_id ());
 
-	auto channel = std::make_shared<nano::transport::channel_tcp> (node, socket);
+	auto channel = std::make_shared<nano::transport::tcp_channel> (node, socket);
 	channel->update_endpoints ();
 	channel->set_node_id (node_id);
 
@@ -145,10 +145,10 @@ std::size_t nano::transport::tcp_channels::size () const
 	return channels.size ();
 }
 
-std::shared_ptr<nano::transport::channel_tcp> nano::transport::tcp_channels::find_channel (nano::tcp_endpoint const & endpoint_a) const
+std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::find_channel (nano::tcp_endpoint const & endpoint_a) const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	std::shared_ptr<nano::transport::channel_tcp> result;
+	std::shared_ptr<nano::transport::tcp_channel> result;
 	auto existing (channels.get<endpoint_tag> ().find (endpoint_a));
 	if (existing != channels.get<endpoint_tag> ().end ())
 	{
@@ -202,9 +202,9 @@ void nano::transport::tcp_channels::random_fill (std::array<nano::endpoint, 8> &
 	}
 }
 
-std::shared_ptr<nano::transport::channel_tcp> nano::transport::tcp_channels::find_node_id (nano::account const & node_id_a)
+std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::find_node_id (nano::account const & node_id_a)
 {
-	std::shared_ptr<nano::transport::channel_tcp> result;
+	std::shared_ptr<nano::transport::tcp_channel> result;
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto existing (channels.get<node_id_tag> ().find (node_id_a));
 	if (existing != channels.get<node_id_tag> ().end ())
@@ -387,7 +387,7 @@ void nano::transport::tcp_channels::keepalive ()
 	auto const cutoff_time = std::chrono::steady_clock::now () - node.network_params.network.keepalive_period;
 
 	// Wake up channels
-	std::vector<std::shared_ptr<nano::transport::channel_tcp>> to_wakeup;
+	std::vector<std::shared_ptr<nano::transport::tcp_channel>> to_wakeup;
 	for (auto const & entry : channels)
 	{
 		if (entry.channel->get_last_packet_sent () < cutoff_time)
@@ -434,7 +434,7 @@ void nano::transport::tcp_channels::list (std::deque<std::shared_ptr<nano::trans
 	// clang-format on
 }
 
-void nano::transport::tcp_channels::modify (std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::function<void (std::shared_ptr<nano::transport::channel_tcp> const &)> modify_callback_a)
+void nano::transport::tcp_channels::modify (std::shared_ptr<nano::transport::tcp_channel> const & channel_a, std::function<void (std::shared_ptr<nano::transport::tcp_channel> const &)> modify_callback_a)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto existing (channels.get<endpoint_tag> ().find (channel_a->get_tcp_endpoint ()));
