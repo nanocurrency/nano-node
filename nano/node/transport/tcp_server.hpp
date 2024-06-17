@@ -2,6 +2,7 @@
 
 #include <nano/node/common.hpp>
 #include <nano/node/messages.hpp>
+#include <nano/node/transport/fwd.hpp>
 #include <nano/node/transport/socket.hpp>
 
 #include <atomic>

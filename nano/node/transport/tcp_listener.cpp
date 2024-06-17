@@ -2,7 +2,6 @@
 #include <nano/lib/interval.hpp>
 #include <nano/node/messages.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/transport/tcp_server.hpp>
 

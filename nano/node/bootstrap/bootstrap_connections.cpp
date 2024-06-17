@@ -4,7 +4,6 @@
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/transport/tcp.hpp>
 
 #include <boost/format.hpp>
 

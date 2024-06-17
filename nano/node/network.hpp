@@ -2,8 +2,11 @@
 
 #include <nano/lib/logging.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/messages.hpp>
 #include <nano/node/peer_exclusion.hpp>
-#include <nano/node/transport/tcp.hpp>
+#include <nano/node/transport/common.hpp>
+#include <nano/node/transport/fwd.hpp>
+#include <nano/node/transport/tcp_channels.hpp>
 #include <nano/secure/network_filter.hpp>
 
 #include <deque>
