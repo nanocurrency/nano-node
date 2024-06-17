@@ -5,7 +5,7 @@
 #include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/messages.hpp>
-#include <nano/node/transport/socket.hpp>
+#include <nano/node/transport/tcp_socket.hpp>
 
 #include <boost/asio/ip/network_v6.hpp>
 

@@ -395,7 +395,7 @@ auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket
 	stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::accept_success, to_stat_dir (type));
 	logger.debug (nano::log::type::tcp_listener, "Accepted connection: {} ({})", fmt::streamed (remote_endpoint), to_string (type));
 
-	auto socket = std::make_shared<nano::transport::socket> (node, std::move (raw_socket), remote_endpoint, local_endpoint, to_socket_endpoint (type));
+	auto socket = std::make_shared<nano::transport::tcp_socket> (node, std::move (raw_socket), remote_endpoint, local_endpoint, to_socket_endpoint (type));
 	auto server = std::make_shared<nano::transport::tcp_server> (socket, node.shared (), true);
 
 	connections.emplace_back (connection{ remote_endpoint, socket, server });
@@ -567,7 +567,7 @@ asio::ip::tcp::endpoint nano::transport::tcp_listener::endpoint () const
 	return { asio::ip::address_v6::loopback (), local.port () };
 }
 
-auto nano::transport::tcp_listener::sockets () const -> std::vector<std::shared_ptr<socket>>
+auto nano::transport::tcp_listener::sockets () const -> std::vector<std::shared_ptr<tcp_socket>>
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto r = connections

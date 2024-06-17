@@ -8,7 +8,7 @@
  * tcp_channel
  */
 
-nano::transport::tcp_channel::tcp_channel (nano::node & node_a, std::weak_ptr<nano::transport::socket> socket_a) :
+nano::transport::tcp_channel::tcp_channel (nano::node & node_a, std::weak_ptr<nano::transport::tcp_socket> socket_a) :
 	channel (node_a),
 	socket (std::move (socket_a))
 {

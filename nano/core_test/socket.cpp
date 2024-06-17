@@ -2,8 +2,8 @@
 #include <nano/boost/asio/ip/network_v6.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/node/inactive_node.hpp>
-#include <nano/node/transport/socket.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
+#include <nano/node/transport/tcp_socket.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -36,13 +36,13 @@ TEST (socket, max_connections)
 	};
 
 	// start 3 clients, 2 will persist but 1 will be dropped
-	auto client1 = std::make_shared<nano::transport::socket> (*node);
+	auto client1 = std::make_shared<nano::transport::tcp_socket> (*node);
 	client1->async_connect (node->network.endpoint (), connect_handler);
 
-	auto client2 = std::make_shared<nano::transport::socket> (*node);
+	auto client2 = std::make_shared<nano::transport::tcp_socket> (*node);
 	client2->async_connect (node->network.endpoint (), connect_handler);
 
-	auto client3 = std::make_shared<nano::transport::socket> (*node);
+	auto client3 = std::make_shared<nano::transport::tcp_socket> (*node);
 	client3->async_connect (node->network.endpoint (), connect_handler);
 
 	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success), 2);
@@ -57,10 +57,10 @@ TEST (socket, max_connections)
 	}
 	ASSERT_TIMELY_EQ (10s, node->tcp_listener.sockets ().size (), 1);
 
-	auto client4 = std::make_shared<nano::transport::socket> (*node);
+	auto client4 = std::make_shared<nano::transport::tcp_socket> (*node);
 	client4->async_connect (node->network.endpoint (), connect_handler);
 
-	auto client5 = std::make_shared<nano::transport::socket> (*node);
+	auto client5 = std::make_shared<nano::transport::tcp_socket> (*node);
 	client5->async_connect (node->network.endpoint (), connect_handler);
 
 	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success), 3);
@@ -76,13 +76,13 @@ TEST (socket, max_connections)
 	}
 	ASSERT_TIMELY_EQ (10s, node->tcp_listener.sockets ().size (), 0);
 
-	auto client6 = std::make_shared<nano::transport::socket> (*node);
+	auto client6 = std::make_shared<nano::transport::tcp_socket> (*node);
 	client6->async_connect (node->network.endpoint (), connect_handler);
 
-	auto client7 = std::make_shared<nano::transport::socket> (*node);
+	auto client7 = std::make_shared<nano::transport::tcp_socket> (*node);
 	client7->async_connect (node->network.endpoint (), connect_handler);
 
-	auto client8 = std::make_shared<nano::transport::socket> (*node);
+	auto client8 = std::make_shared<nano::transport::tcp_socket> (*node);
 	client8->async_connect (node->network.endpoint (), connect_handler);
 
 	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_listener, nano::stat::detail::accept_success), 5);
@@ -113,12 +113,12 @@ TEST (socket, max_connections_per_ip)
 	};
 
 	// start n clients, n-1 will persist but 1 will be dropped, where n == max_ip_connections
-	std::vector<std::shared_ptr<nano::transport::socket>> client_list;
+	std::vector<std::shared_ptr<nano::transport::tcp_socket>> client_list;
 	client_list.reserve (max_ip_connections + 1);
 
 	for (auto idx = 0; idx < max_ip_connections + 1; ++idx)
 	{
-		auto client = std::make_shared<nano::transport::socket> (*node);
+		auto client = std::make_shared<nano::transport::tcp_socket> (*node);
 		client->async_connect (node->network.endpoint (), connect_handler);
 		client_list.push_back (client);
 	}
@@ -163,13 +163,13 @@ TEST (socket, count_subnetwork_connections)
 	auto address5 = boost::asio::ip::make_address ("a41d:b7b3::"); // out of the network prefix
 	auto address6 = boost::asio::ip::make_address ("a41d:b7b3::1"); // out of the network prefix
 
-	auto connection0 = std::make_shared<nano::transport::socket> (*node);
-	auto connection1 = std::make_shared<nano::transport::socket> (*node);
-	auto connection2 = std::make_shared<nano::transport::socket> (*node);
-	auto connection3 = std::make_shared<nano::transport::socket> (*node);
-	auto connection4 = std::make_shared<nano::transport::socket> (*node);
-	auto connection5 = std::make_shared<nano::transport::socket> (*node);
-	auto connection6 = std::make_shared<nano::transport::socket> (*node);
+	auto connection0 = std::make_shared<nano::transport::tcp_socket> (*node);
+	auto connection1 = std::make_shared<nano::transport::tcp_socket> (*node);
+	auto connection2 = std::make_shared<nano::transport::tcp_socket> (*node);
+	auto connection3 = std::make_shared<nano::transport::tcp_socket> (*node);
+	auto connection4 = std::make_shared<nano::transport::tcp_socket> (*node);
+	auto connection5 = std::make_shared<nano::transport::tcp_socket> (*node);
+	auto connection6 = std::make_shared<nano::transport::tcp_socket> (*node);
 
 	nano::transport::address_socket_mmap connections_per_address;
 	connections_per_address.emplace (address0, connection0);
@@ -210,12 +210,12 @@ TEST (socket, max_connections_per_subnetwork)
 	};
 
 	// start n clients, n-1 will persist but 1 will be dropped, where n == max_subnetwork_connections
-	std::vector<std::shared_ptr<nano::transport::socket>> client_list;
+	std::vector<std::shared_ptr<nano::transport::tcp_socket>> client_list;
 	client_list.reserve (max_subnetwork_connections + 1);
 
 	for (auto idx = 0; idx < max_subnetwork_connections + 1; ++idx)
 	{
-		auto client = std::make_shared<nano::transport::socket> (*node);
+		auto client = std::make_shared<nano::transport::tcp_socket> (*node);
 		client->async_connect (node->network.endpoint (), connect_handler);
 		client_list.push_back (client);
 	}
@@ -250,12 +250,12 @@ TEST (socket, disabled_max_peers_per_ip)
 	};
 
 	// start n clients, n-1 will persist but 1 will be dropped, where n == max_ip_connections
-	std::vector<std::shared_ptr<nano::transport::socket>> client_list;
+	std::vector<std::shared_ptr<nano::transport::tcp_socket>> client_list;
 	client_list.reserve (max_ip_connections + 1);
 
 	for (auto idx = 0; idx < max_ip_connections + 1; ++idx)
 	{
-		auto client = std::make_shared<nano::transport::socket> (*node);
+		auto client = std::make_shared<nano::transport::tcp_socket> (*node);
 		client->async_connect (node->network.endpoint (), connect_handler);
 		client_list.push_back (client);
 	}
@@ -278,8 +278,8 @@ TEST (socket, disconnection_of_silent_connections)
 	auto node = system.add_node (config);
 
 	// On a connection, a server data socket is created. The shared pointer guarantees the object's lifecycle until the end of this test.
-	std::promise<std::shared_ptr<nano::transport::socket>> server_data_socket_promise;
-	std::future<std::shared_ptr<nano::transport::socket>> server_data_socket_future = server_data_socket_promise.get_future ();
+	std::promise<std::shared_ptr<nano::transport::tcp_socket>> server_data_socket_promise;
+	std::future<std::shared_ptr<nano::transport::tcp_socket>> server_data_socket_future = server_data_socket_promise.get_future ();
 	node->tcp_listener.connection_accepted.add ([&server_data_socket_promise] (auto const & socket, auto const & server) {
 		server_data_socket_promise.set_value (socket);
 	});
@@ -287,7 +287,7 @@ TEST (socket, disconnection_of_silent_connections)
 	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), node->tcp_listener.endpoint ().port () };
 
 	// Instantiates a client to simulate an incoming connection.
-	auto client_socket = std::make_shared<nano::transport::socket> (*node);
+	auto client_socket = std::make_shared<nano::transport::tcp_socket> (*node);
 	std::atomic<bool> connected{ false };
 	// Opening a connection that will be closed because it remains silent during the tolerance time.
 	client_socket->async_connect (dst_endpoint, [client_socket, &connected] (boost::system::error_code const & ec_a) {
@@ -316,7 +316,7 @@ TEST (socket, drop_policy)
 	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
 	auto node = inactivenode.node;
 
-	std::vector<std::shared_ptr<nano::transport::socket>> connections;
+	std::vector<std::shared_ptr<nano::transport::tcp_socket>> connections;
 
 	auto func = [&] (size_t total_message_count, nano::transport::buffer_drop_policy drop_policy) {
 		boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::loopback (), system.get_available_port ());
@@ -330,7 +330,7 @@ TEST (socket, drop_policy)
 			EXPECT_FALSE (ec);
 		});
 
-		auto client = std::make_shared<nano::transport::socket> (*node);
+		auto client = std::make_shared<nano::transport::tcp_socket> (*node);
 		auto channel = std::make_shared<nano::transport::tcp_channel> (*node, client);
 
 		std::atomic completed_writes{ 0 };
@@ -355,11 +355,11 @@ TEST (socket, drop_policy)
 
 	// We're going to write twice the queue size + 1, and the server isn't reading
 	// The total number of drops should thus be 1 (the socket allows doubling the queue size for no_socket_drop)
-	func (nano::transport::socket::default_max_queue_size * 2 + 1, nano::transport::buffer_drop_policy::no_socket_drop);
+	func (nano::transport::tcp_socket::default_max_queue_size * 2 + 1, nano::transport::buffer_drop_policy::no_socket_drop);
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_no_socket_drop, nano::stat::dir::out));
 	ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out));
 
-	func (nano::transport::socket::default_max_queue_size + 1, nano::transport::buffer_drop_policy::limiter);
+	func (nano::transport::tcp_socket::default_max_queue_size + 1, nano::transport::buffer_drop_policy::limiter);
 	// The stats are accumulated from before
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_no_socket_drop, nano::stat::dir::out));
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out));
@@ -386,8 +386,8 @@ TEST (socket, concurrent_writes)
 	// We're expecting client_count*4 messages
 	std::atomic completed_reads{ 0 };
 
-	using reader_callback_t = std::function<void (std::shared_ptr<nano::transport::socket> const &)>;
-	reader_callback_t reader = [&completed_reads, &total_message_count, &reader] (std::shared_ptr<nano::transport::socket> const & socket_a) {
+	using reader_callback_t = std::function<void (std::shared_ptr<nano::transport::tcp_socket> const &)>;
+	reader_callback_t reader = [&completed_reads, &total_message_count, &reader] (std::shared_ptr<nano::transport::tcp_socket> const & socket_a) {
 		auto buff (std::make_shared<std::vector<uint8_t>> ());
 		buff->resize (1);
 		socket_a->async_read (buff, 1, [&completed_reads, &reader, &total_message_count, socket_a, buff] (boost::system::error_code const & ec, size_t size_a) {
@@ -405,7 +405,7 @@ TEST (socket, concurrent_writes)
 		});
 	};
 
-	std::vector<std::shared_ptr<nano::transport::socket>> connections;
+	std::vector<std::shared_ptr<nano::transport::tcp_socket>> connections;
 
 	auto server_port (system.get_available_port ());
 	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::any (), server_port);
@@ -418,7 +418,7 @@ TEST (socket, concurrent_writes)
 	accept_callback_t accept_callback = [&] (boost::system::error_code const & ec, boost::asio::ip::tcp::socket socket) {
 		if (!ec)
 		{
-			auto new_connection = std::make_shared<nano::transport::socket> (*node, std::move (socket), socket.remote_endpoint (), socket.local_endpoint ());
+			auto new_connection = std::make_shared<nano::transport::tcp_socket> (*node, std::move (socket), socket.remote_endpoint (), socket.local_endpoint ());
 			connections.push_back (new_connection);
 			reader (new_connection);
 
@@ -433,10 +433,10 @@ TEST (socket, concurrent_writes)
 
 	std::atomic completed_connections{ 0 };
 
-	std::vector<std::shared_ptr<nano::transport::socket>> clients;
+	std::vector<std::shared_ptr<nano::transport::tcp_socket>> clients;
 	for (unsigned i = 0; i < client_count; i++)
 	{
-		auto client = std::make_shared<nano::transport::socket> (*node);
+		auto client = std::make_shared<nano::transport::tcp_socket> (*node);
 		clients.push_back (client);
 		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), acceptor.local_endpoint ().port ()),
 		[&completed_connections] (boost::system::error_code const & ec_a) {
@@ -501,7 +501,7 @@ TEST (socket_timeout, connect)
 	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::make_address_v6 ("::ffff:10.255.254.253"), 1234);
 
 	// create a client socket and try to connect to the IP address that wil not respond
-	auto socket = std::make_shared<nano::transport::socket> (*node);
+	auto socket = std::make_shared<nano::transport::tcp_socket> (*node);
 	std::atomic<bool> done = false;
 	boost::system::error_code ec;
 	socket->async_connect (endpoint, [&ec, &done] (boost::system::error_code const & ec_a) {
@@ -544,7 +544,7 @@ TEST (socket_timeout, read)
 	});
 
 	// create a client socket to connect and call async_read, which should time out
-	auto socket = std::make_shared<nano::transport::socket> (*node);
+	auto socket = std::make_shared<nano::transport::tcp_socket> (*node);
 	std::atomic<bool> done = false;
 	boost::system::error_code ec;
 	socket->async_connect (acceptor.local_endpoint (), [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
@@ -592,7 +592,7 @@ TEST (socket_timeout, write)
 	// create a client socket and send lots of data to fill the socket queue on the local and remote side
 	// eventually, the all tcp queues should fill up and async_write will not be able to progress
 	// and the timeout should kick in and close the socket, which will cause the async_write to return an error
-	auto socket = std::make_shared<nano::transport::socket> (*node, nano::transport::socket_endpoint::client, 1024 * 64); // socket with a max queue size much larger than OS buffers
+	auto socket = std::make_shared<nano::transport::tcp_socket> (*node, nano::transport::socket_endpoint::client, 1024 * 64); // socket with a max queue size much larger than OS buffers
 	std::atomic<bool> done = false;
 	boost::system::error_code ec;
 	socket->async_connect (acceptor.local_endpoint (), [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
@@ -647,7 +647,7 @@ TEST (socket_timeout, read_overlapped)
 	});
 
 	// create a client socket to connect and call async_read twice, the second call should time out
-	auto socket = std::make_shared<nano::transport::socket> (*node);
+	auto socket = std::make_shared<nano::transport::tcp_socket> (*node);
 	std::atomic<bool> done = false;
 	boost::system::error_code ec;
 	socket->async_connect (acceptor.local_endpoint (), [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
@@ -706,7 +706,7 @@ TEST (socket_timeout, write_overlapped)
 	// create a client socket and send lots of data to fill the socket queue on the local and remote side
 	// eventually, the all tcp queues should fill up and async_write will not be able to progress
 	// and the timeout should kick in and close the socket, which will cause the async_write to return an error
-	auto socket = std::make_shared<nano::transport::socket> (*node, nano::transport::socket_endpoint::client, 1024 * 64); // socket with a max queue size much larger than OS buffers
+	auto socket = std::make_shared<nano::transport::tcp_socket> (*node, nano::transport::socket_endpoint::client, 1024 * 64); // socket with a max queue size much larger than OS buffers
 	std::atomic<bool> done = false;
 	boost::system::error_code ec;
 	socket->async_connect (acceptor.local_endpoint (), [&socket, &ec, &done] (boost::system::error_code const & ec_a) {

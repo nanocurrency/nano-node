@@ -73,13 +73,13 @@ public:
 	size_t realtime_count () const;
 	size_t bootstrap_count () const;
 
-	std::vector<std::shared_ptr<socket>> sockets () const;
-	std::vector<std::shared_ptr<tcp_server>> servers () const;
+	std::vector<std::shared_ptr<nano::transport::tcp_socket>> sockets () const;
+	std::vector<std::shared_ptr<nano::transport::tcp_server>> servers () const;
 
 	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name);
 
 public: // Events
-	using connection_accepted_event_t = nano::observer_set<std::shared_ptr<nano::transport::socket> const &, std::shared_ptr<nano::transport::tcp_server>>;
+	using connection_accepted_event_t = nano::observer_set<std::shared_ptr<nano::transport::tcp_socket> const &, std::shared_ptr<nano::transport::tcp_server>>;
 	connection_accepted_event_t connection_accepted;
 
 private: // Dependencies
@@ -116,7 +116,7 @@ private:
 	struct accept_return
 	{
 		accept_result result;
-		std::shared_ptr<nano::transport::socket> socket;
+		std::shared_ptr<nano::transport::tcp_socket> socket;
 		std::shared_ptr<nano::transport::tcp_server> server;
 	};
 
@@ -133,7 +133,7 @@ private:
 	struct connection
 	{
 		asio::ip::tcp::endpoint endpoint;
-		std::weak_ptr<nano::transport::socket> socket;
+		std::weak_ptr<nano::transport::tcp_socket> socket;
 		std::weak_ptr<nano::transport::tcp_server> server;
 
 		asio::ip::address address () const

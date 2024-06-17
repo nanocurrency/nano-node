@@ -2,7 +2,7 @@
 
 #include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/transport/socket.hpp>
+#include <nano/node/transport/tcp_socket.hpp>
 
 #include <atomic>
 
@@ -25,7 +25,7 @@ class pull_info;
 class bootstrap_client final : public std::enable_shared_from_this<bootstrap_client>
 {
 public:
-	bootstrap_client (std::shared_ptr<nano::node> const & node_a, std::shared_ptr<nano::transport::tcp_channel> const & channel_a, std::shared_ptr<nano::transport::socket> const & socket_a);
+	bootstrap_client (std::shared_ptr<nano::node> const & node_a, std::shared_ptr<nano::transport::tcp_channel> const & channel_a, std::shared_ptr<nano::transport::tcp_socket> const & socket_a);
 	~bootstrap_client ();
 	void stop (bool force);
 	double sample_block_rate ();
@@ -33,7 +33,7 @@ public:
 	void set_start_time (std::chrono::steady_clock::time_point start_time_a);
 	std::weak_ptr<nano::node> node;
 	std::shared_ptr<nano::transport::tcp_channel> channel;
-	std::shared_ptr<nano::transport::socket> socket;
+	std::shared_ptr<nano::transport::tcp_socket> socket;
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::atomic<uint64_t> block_count{ 0 };
 	std::atomic<double> block_rate{ 0 };

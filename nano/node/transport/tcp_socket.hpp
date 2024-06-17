@@ -58,7 +58,7 @@ private:
 };
 
 /** Socket class for tcp clients and newly accepted connections */
-class socket final : public std::enable_shared_from_this<socket>
+class tcp_socket final : public std::enable_shared_from_this<tcp_socket>
 {
 	friend class tcp_server;
 	friend class tcp_channels;
@@ -68,10 +68,10 @@ public:
 	static std::size_t constexpr default_max_queue_size = 128;
 
 public:
-	explicit socket (nano::node &, nano::transport::socket_endpoint = socket_endpoint::client, std::size_t max_queue_size = default_max_queue_size);
+	explicit tcp_socket (nano::node &, nano::transport::socket_endpoint = socket_endpoint::client, std::size_t max_queue_size = default_max_queue_size);
 
 	// TODO: Accepting remote/local endpoints as a parameter is unnecessary, but is needed for now to keep compatibility with the legacy code
-	socket (
+	tcp_socket (
 	nano::node &,
 	boost::asio::ip::tcp::socket,
 	boost::asio::ip::tcp::endpoint remote_endpoint,
@@ -79,7 +79,7 @@ public:
 	nano::transport::socket_endpoint = socket_endpoint::server,
 	std::size_t max_queue_size = default_max_queue_size);
 
-	~socket ();
+	~tcp_socket ();
 
 	void start ();
 	void close ();
@@ -147,7 +147,7 @@ protected:
 	std::weak_ptr<nano::node> node_w;
 
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
-	boost::asio::ip::tcp::socket tcp_socket;
+	boost::asio::ip::tcp::socket raw_socket;
 
 	/** The other end of the connection */
 	boost::asio::ip::tcp::endpoint remote;
@@ -205,7 +205,7 @@ public: // Logging
 	virtual void operator() (nano::object_stream &) const;
 };
 
-using address_socket_mmap = std::multimap<boost::asio::ip::address, std::weak_ptr<socket>>;
+using address_socket_mmap = std::multimap<boost::asio::ip::address, std::weak_ptr<tcp_socket>>;
 
 namespace socket_functions
 {
