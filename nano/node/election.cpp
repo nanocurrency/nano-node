@@ -63,7 +63,7 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a)
 
 		lock_a.unlock ();
 
-		node.workers.push_task ([node_l = node.shared (), status_l, confirmation_action_l = confirmation_action] () {
+		node.election_workers.push_task ([node_l = node.shared (), status_l, confirmation_action_l = confirmation_action] () {
 			node_l->process_confirmed (status_l);
 
 			if (confirmation_action_l)

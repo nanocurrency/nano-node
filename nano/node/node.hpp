@@ -155,6 +155,8 @@ public:
 	nano::stats stats;
 	nano::thread_pool workers;
 	nano::thread_pool bootstrap_workers;
+	nano::thread_pool wallet_workers;
+	nano::thread_pool election_workers;
 	nano::node_flags flags;
 	nano::work_pool & work;
 	nano::distributed_work_factory distributed_work;

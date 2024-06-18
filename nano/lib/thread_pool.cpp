@@ -89,9 +89,9 @@ void nano::thread_pool::set_thread_names (nano::thread_role::name thread_name)
 	thread_names_latch.wait ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (thread_pool & thread_pool, std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::thread_pool::collect_container_info (std::string const & name) const
 {
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "count", thread_pool.num_queued_tasks (), sizeof (std::function<void ()>) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "count", num_queued_tasks (), sizeof (std::function<void ()>) }));
 	return composite;
 }
