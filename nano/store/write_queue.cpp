@@ -4,34 +4,30 @@
 
 #include <algorithm>
 
-nano::store::write_guard::write_guard (std::function<void ()> guard_finish_callback_a) :
-	guard_finish_callback (guard_finish_callback_a)
+/*
+ * write_guard
+ */
+
+nano::store::write_guard::write_guard (write_queue & queue, writer type) :
+	queue{ queue },
+	type{ type }
 {
+	renew ();
 }
 
-nano::store::write_guard::write_guard (write_guard && write_guard_a) noexcept :
-	guard_finish_callback (std::move (write_guard_a.guard_finish_callback)),
-	owns (write_guard_a.owns)
+nano::store::write_guard::write_guard (write_guard && other) noexcept :
+	queue{ other.queue },
+	type{ other.type },
+	owns{ other.owns }
 {
-	write_guard_a.owns = false;
-	write_guard_a.guard_finish_callback = nullptr;
-}
-
-nano::store::write_guard & nano::store::write_guard::operator= (write_guard && write_guard_a) noexcept
-{
-	owns = write_guard_a.owns;
-	guard_finish_callback = std::move (write_guard_a.guard_finish_callback);
-
-	write_guard_a.owns = false;
-	write_guard_a.guard_finish_callback = nullptr;
-	return *this;
+	other.owns = false;
 }
 
 nano::store::write_guard::~write_guard ()
 {
 	if (owns)
 	{
-		guard_finish_callback ();
+		release ();
 	}
 }
 
@@ -42,84 +38,81 @@ bool nano::store::write_guard::is_owned () const
 
 void nano::store::write_guard::release ()
 {
-	debug_assert (owns);
-	if (owns)
-	{
-		guard_finish_callback ();
-	}
+	release_assert (owns);
+	queue.release (type);
 	owns = false;
 }
 
+void nano::store::write_guard::renew ()
+{
+	release_assert (!owns);
+	queue.acquire (type);
+	owns = true;
+}
+
+/*
+ * write_queue
+ */
+
 nano::store::write_queue::write_queue (bool use_noops_a) :
-	guard_finish_callback ([use_noops_a, &queue = queue, &mutex = mutex, &cv = cv] () {
-		if (!use_noops_a)
-		{
-			{
-				nano::lock_guard<nano::mutex> guard (mutex);
-				queue.pop_front ();
-			}
-			cv.notify_all ();
-		}
-	}),
-	use_noops (use_noops_a)
+	use_noops{ use_noops_a }
 {
 }
 
 nano::store::write_guard nano::store::write_queue::wait (writer writer)
 {
+	return write_guard{ *this, writer };
+}
+
+bool nano::store::write_queue::contains (writer writer) const
+{
+	debug_assert (!use_noops);
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return std::find (queue.cbegin (), queue.cend (), writer) != queue.cend ();
+}
+
+void nano::store::write_queue::pop ()
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	if (!queue.empty ())
+	{
+		queue.pop_front ();
+	}
+}
+
+void nano::store::write_queue::acquire (writer writer)
+{
 	if (use_noops)
 	{
-		return write_guard ([] {});
+		return; // Pass immediately
 	}
 
-	nano::unique_lock<nano::mutex> lk (mutex);
+	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	// There should be no duplicates in the queue
 	debug_assert (std::none_of (queue.cbegin (), queue.cend (), [writer] (auto const & item) { return item == writer; }));
+
 	// Add writer to the end of the queue if it's not already waiting
 	auto exists = std::find (queue.cbegin (), queue.cend (), writer) != queue.cend ();
 	if (!exists)
 	{
 		queue.push_back (writer);
 	}
-	cv.wait (lk, [&] () { return queue.front () == writer; });
-	return write_guard (guard_finish_callback);
+
+	condition.wait (lock, [&] () { return queue.front () == writer; });
 }
 
-bool nano::store::write_queue::contains (writer writer)
-{
-	debug_assert (!use_noops);
-	nano::lock_guard<nano::mutex> guard (mutex);
-	return std::find (queue.cbegin (), queue.cend (), writer) != queue.cend ();
-}
-
-bool nano::store::write_queue::process (writer writer)
+void nano::store::write_queue::release (writer writer)
 {
 	if (use_noops)
 	{
-		return true;
+		return; // Pass immediately
 	}
-
-	auto result = false;
 	{
-		nano::lock_guard<nano::mutex> guard (mutex);
-		// Add writer to the end of the queue if it's not already waiting
-		auto exists = std::find (queue.cbegin (), queue.cend (), writer) != queue.cend ();
-		if (!exists)
-		{
-			queue.push_back (writer);
-		}
-
-		result = (queue.front () == writer);
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		release_assert (!queue.empty ());
+		release_assert (queue.front () == writer);
+		queue.pop_front ();
 	}
-
-	if (!result)
-	{
-		cv.notify_all ();
-	}
-
-	return result;
-}
-
-nano::store::write_guard nano::store::write_queue::pop ()
-{
-	return write_guard (guard_finish_callback);
+	condition.notify_all ();
 }
