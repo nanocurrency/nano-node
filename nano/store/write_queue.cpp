@@ -78,6 +78,7 @@ void nano::store::write_queue::pop ()
 	{
 		queue.pop_front ();
 	}
+	condition.notify_all ();
 }
 
 void nano::store::write_queue::acquire (writer writer)
