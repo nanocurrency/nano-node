@@ -186,14 +186,13 @@ TEST (request_aggregator, two)
 	ASSERT_TIMELY (3s, 0 < node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes));
 	ASSERT_TRUE (node.aggregator.empty ());
 	// The same request should now send the cached vote
-	// TODO: This is outdated, aggregator should not be using cache
 	node.aggregator.request (request, dummy_channel);
 	ASSERT_TIMELY (3s, node.aggregator.empty ());
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_accepted));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_dropped));
 	ASSERT_TIMELY_EQ (3s, 0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_unknown));
-	ASSERT_TIMELY_EQ (3s, 2, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes));
-	ASSERT_TIMELY_EQ (3s, 1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes));
+	ASSERT_TIMELY_EQ (3s, 4, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes));
+	ASSERT_TIMELY_EQ (3s, 2, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes));
 	ASSERT_TIMELY_EQ (3s, 0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote));
 	ASSERT_TIMELY_EQ (3s, 2, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	// Make sure the cached vote is for both hashes
