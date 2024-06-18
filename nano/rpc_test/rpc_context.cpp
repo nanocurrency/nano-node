@@ -1,6 +1,5 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
-#include <nano/node/transport/tcp.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
 #include <nano/rpc_test/common.hpp>
 #include <nano/rpc_test/rpc_context.hpp>

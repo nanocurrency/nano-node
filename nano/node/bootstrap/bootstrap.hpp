@@ -25,7 +25,7 @@ class node;
 class bootstrap_connections;
 namespace transport
 {
-	class channel_tcp;
+	class tcp_channel;
 }
 enum class bootstrap_mode
 {
