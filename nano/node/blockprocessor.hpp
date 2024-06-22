@@ -47,7 +47,7 @@ public:
 
 public:
 	// Maximum number of blocks to queue from network peers
-	size_t max_peer_queue{ 128 };
+	size_t max_peer_queue{ 1024 * 4 };
 	// Maximum number of blocks to queue from system components (local RPC, bootstrap)
 	size_t max_system_queue{ 16 * 1024 };
 
