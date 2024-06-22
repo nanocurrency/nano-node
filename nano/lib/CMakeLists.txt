@@ -99,8 +99,6 @@ add_library(
   threading.cpp
   timer.hpp
   timer.cpp
-  tlsconfig.hpp
-  tlsconfig.cpp
   tomlconfig.hpp
   tomlconfig.cpp
   uniquer.hpp

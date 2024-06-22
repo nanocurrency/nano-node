@@ -19,7 +19,7 @@ namespace nano
 class thread_pool final
 {
 public:
-	explicit thread_pool (unsigned, nano::thread_role::name);
+	explicit thread_pool (unsigned num_threads, nano::thread_role::name);
 	~thread_pool ();
 
 	/** This will run when there is an available thread for execution */
@@ -37,6 +37,8 @@ public:
 	/** Returns the number of tasks which are awaiting execution by the thread pool **/
 	uint64_t num_queued_tasks () const;
 
+	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name) const;
+
 private:
 	nano::mutex mutex;
 	std::atomic<bool> stopped{ false };
@@ -48,6 +50,4 @@ private:
 	std::latch thread_names_latch;
 	void set_thread_names (nano::thread_role::name thread_name);
 };
-
-std::unique_ptr<nano::container_info_component> collect_container_info (thread_pool & thread_pool, std::string const & name);
 } // namespace nano

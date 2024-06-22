@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/stats_enums.hpp>
 
 #include <chrono>
 #include <memory>
@@ -21,6 +22,8 @@ enum class election_status_type : uint8_t
 	inactive_confirmation_height = 3,
 	stopped = 5
 };
+
+nano::stat::detail to_stat_detail (election_status_type);
 
 /* Holds a summary of an election */
 class election_status final

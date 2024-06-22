@@ -10,14 +10,14 @@ class node;
 namespace transport
 {
 	class channel;
-	class channel_tcp;
+	class tcp_channel;
 }
 
 namespace test
 {
 	class system;
 	/** Waits until a TCP connection is established and returns the TCP channel on success*/
-	std::shared_ptr<nano::transport::channel_tcp> establish_tcp (nano::test::system &, nano::node &, nano::endpoint const &);
+	std::shared_ptr<nano::transport::tcp_channel> establish_tcp (nano::test::system &, nano::node &, nano::endpoint const &);
 
 	/** Adds a node to the system without establishing connections */
 	std::shared_ptr<nano::node> add_outer_node (nano::test::system & system, nano::node_config const & config_a, nano::node_flags = nano::node_flags ());

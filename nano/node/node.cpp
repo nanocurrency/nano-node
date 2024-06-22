@@ -152,6 +152,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	stats{ logger, config.stats_config },
 	workers{ config.background_threads, nano::thread_role::name::worker },
 	bootstrap_workers{ config.bootstrap_serving_threads, nano::thread_role::name::bootstrap_worker },
+	wallet_workers{ 1, nano::thread_role::name::wallet_worker },
+	election_workers{ 1, nano::thread_role::name::election_worker },
 	flags (flags_a),
 	work (work_a),
 	distributed_work (*this),
@@ -184,7 +186,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	application_path (application_path_a),
 	port_mapping (*this),
 	block_processor (*this),
-	confirming_set_impl{ std::make_unique<nano::confirming_set> (ledger, config.confirming_set_batch_time) },
+	confirming_set_impl{ std::make_unique<nano::confirming_set> (ledger, stats) },
 	confirming_set{ *confirming_set_impl },
 	active_impl{ std::make_unique<nano::active_elections> (*this, confirming_set, block_processor) },
 	active{ *active_impl },
@@ -476,9 +478,10 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			}
 		}
 		confirming_set.cemented_observers.add ([this] (auto const & block) {
+			// TODO: Is it neccessary to call this for all blocks?
 			if (block->is_send ())
 			{
-				workers.push_task ([this, hash = block->hash (), destination = block->destination ()] () {
+				wallet_workers.push_task ([this, hash = block->hash (), destination = block->destination ()] () {
 					wallets.receive_confirmed (hash, destination);
 				});
 			}
@@ -570,7 +573,10 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (node.tcp_listener.collect_container_info ("tcp_listener"));
 	composite->add_component (collect_container_info (node.network, "network"));
 	composite->add_component (node.telemetry.collect_container_info ("telemetry"));
-	composite->add_component (collect_container_info (node.workers, "workers"));
+	composite->add_component (node.workers.collect_container_info ("workers"));
+	composite->add_component (node.bootstrap_workers.collect_container_info ("bootstrap_workers"));
+	composite->add_component (node.wallet_workers.collect_container_info ("wallet_workers"));
+	composite->add_component (node.election_workers.collect_container_info ("election_workers"));
 	composite->add_component (collect_container_info (node.observers, "observers"));
 	composite->add_component (collect_container_info (node.wallets, "wallets"));
 	composite->add_component (node.vote_processor.collect_container_info ("vote_processor"));
@@ -727,6 +733,9 @@ void nano::node::stop ()
 
 	logger.info (nano::log::type::node, "Node stopping...");
 
+	bootstrap_workers.stop ();
+	wallet_workers.stop ();
+	election_workers.stop ();
 	vote_router.stop ();
 	peer_history.stop ();
 	// Cancels ongoing work generation tasks, which may be blocking other threads
@@ -1242,7 +1251,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 	{
 		iteration_a++;
 		std::weak_ptr<nano::node> node_w (shared ());
-		workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a] () {
+		election_workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a] () {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->process_confirmed (status_a, iteration_a);

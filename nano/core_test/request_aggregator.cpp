@@ -37,8 +37,8 @@ TEST (request_aggregator, one)
 
 	std::vector<std::pair<nano::block_hash, nano::root>> request{ { send1->hash (), send1->root () } };
 
-	auto client = std::make_shared<nano::transport::socket> (node);
-	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::channel_tcp> (node, client);
+	auto client = std::make_shared<nano::transport::tcp_socket> (node);
+	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::tcp_channel> (node, client);
 
 	// Not yet in the ledger
 	node.aggregator.request (request, dummy_channel);
@@ -178,8 +178,8 @@ TEST (request_aggregator, two)
 	std::vector<std::pair<nano::block_hash, nano::root>> request;
 	request.emplace_back (send2->hash (), send2->root ());
 	request.emplace_back (receive1->hash (), receive1->root ());
-	auto client = std::make_shared<nano::transport::socket> (node);
-	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::channel_tcp> (node, client);
+	auto client = std::make_shared<nano::transport::tcp_socket> (node);
+	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::tcp_channel> (node, client);
 	// Process both blocks
 	node.aggregator.request (request, dummy_channel);
 	// One vote should be generated for both blocks
@@ -294,8 +294,8 @@ TEST (request_aggregator, split)
 	node.ledger.confirm (node.ledger.tx_begin_write (), blocks.back ()->hash ());
 	ASSERT_TIMELY_EQ (5s, max_vbh + 2, node.ledger.cemented_count ());
 	ASSERT_EQ (max_vbh + 1, request.size ());
-	auto client = std::make_shared<nano::transport::socket> (node);
-	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::channel_tcp> (node, client);
+	auto client = std::make_shared<nano::transport::tcp_socket> (node);
+	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::tcp_channel> (node, client);
 	node.aggregator.request (request, dummy_channel);
 	// In the ledger but no vote generated yet
 	ASSERT_TIMELY_EQ (3s, 2, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes));
@@ -333,8 +333,8 @@ TEST (request_aggregator, channel_max_queue)
 	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send1));
 	std::vector<std::pair<nano::block_hash, nano::root>> request;
 	request.emplace_back (send1->hash (), send1->root ());
-	auto client = std::make_shared<nano::transport::socket> (node);
-	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::channel_tcp> (node, client);
+	auto client = std::make_shared<nano::transport::tcp_socket> (node);
+	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::tcp_channel> (node, client);
 	node.aggregator.request (request, dummy_channel);
 	node.aggregator.request (request, dummy_channel);
 	ASSERT_LT (0, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_dropped));
@@ -362,8 +362,8 @@ TEST (request_aggregator, DISABLED_unique)
 	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send1));
 	std::vector<std::pair<nano::block_hash, nano::root>> request;
 	request.emplace_back (send1->hash (), send1->root ());
-	auto client = std::make_shared<nano::transport::socket> (node);
-	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::channel_tcp> (node, client);
+	auto client = std::make_shared<nano::transport::tcp_socket> (node);
+	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::tcp_channel> (node, client);
 	node.aggregator.request (request, dummy_channel);
 	node.aggregator.request (request, dummy_channel);
 	node.aggregator.request (request, dummy_channel);
@@ -406,8 +406,8 @@ TEST (request_aggregator, cannot_vote)
 	// Incorrect hash, correct root
 	request.emplace_back (1, send2->root ());
 
-	auto client = std::make_shared<nano::transport::socket> (node);
-	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::channel_tcp> (node, client);
+	auto client = std::make_shared<nano::transport::tcp_socket> (node);
+	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::tcp_channel> (node, client);
 	node.aggregator.request (request, dummy_channel);
 	ASSERT_TIMELY (3s, node.aggregator.empty ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_accepted));
