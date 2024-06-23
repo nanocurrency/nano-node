@@ -54,6 +54,7 @@ nano::block_processor::block_processor (nano::node & node_a) :
 		switch (origin.source)
 		{
 			case nano::block_source::live:
+			case nano::block_source::live_originator:
 				return config.max_peer_queue;
 			default:
 				return config.max_system_queue;
@@ -64,6 +65,7 @@ nano::block_processor::block_processor (nano::node & node_a) :
 		switch (origin.source)
 		{
 			case nano::block_source::live:
+			case nano::block_source::live_originator:
 				return config.priority_live;
 			case nano::block_source::bootstrap:
 			case nano::block_source::bootstrap_legacy:

@@ -27,6 +27,7 @@ enum class block_source
 {
 	unknown = 0,
 	live,
+	live_originator,
 	bootstrap,
 	bootstrap_legacy,
 	unchecked,

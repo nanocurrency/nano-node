@@ -247,22 +247,22 @@ void nano::network::flood_keepalive_self (float const scale_a)
 	flood_message (message, nano::transport::buffer_drop_policy::limiter, scale_a);
 }
 
-void nano::network::flood_block (std::shared_ptr<nano::block> const & block_a, nano::transport::buffer_drop_policy const drop_policy_a)
+void nano::network::flood_block (std::shared_ptr<nano::block> const & block, nano::transport::buffer_drop_policy const drop_policy)
 {
-	nano::publish message (node.network_params.network, block_a);
-	flood_message (message, drop_policy_a);
+	nano::publish message{ node.network_params.network, block };
+	flood_message (message, drop_policy);
 }
 
-void nano::network::flood_block_initial (std::shared_ptr<nano::block> const & block_a)
+void nano::network::flood_block_initial (std::shared_ptr<nano::block> const & block)
 {
-	nano::publish message (node.network_params.network, block_a);
-	for (auto const & i : node.rep_crawler.principal_representatives ())
+	nano::publish message{ node.network_params.network, block, /* is_originator */ true };
+	for (auto const & rep : node.rep_crawler.principal_representatives ())
 	{
-		i.channel->send (message, nullptr, nano::transport::buffer_drop_policy::no_limiter_drop);
+		rep.channel->send (message, nullptr, nano::transport::buffer_drop_policy::no_limiter_drop);
 	}
-	for (auto & i : list_non_pr (fanout (1.0)))
+	for (auto & peer : list_non_pr (fanout (1.0)))
 	{
-		i->send (message, nullptr, nano::transport::buffer_drop_policy::no_limiter_drop);
+		peer->send (message, nullptr, nano::transport::buffer_drop_policy::no_limiter_drop);
 	}
 }
 
