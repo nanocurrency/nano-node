@@ -1371,7 +1371,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				}
 			}
 		});
-		logger.info (nano::log::type::ledger, "Finished converting {} entries" , count);
+		logger.info (nano::log::type::ledger, "Finished converting {} entries", count);
 
 		logger.info (nano::log::type::ledger, "Finalizing migration...");
 		auto lmdb_transaction (store.tx_begin_read ());
