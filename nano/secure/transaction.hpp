@@ -1,8 +1,9 @@
 #pragma once
 
-#include <nano/store/transaction.hpp> // Correct include for nano::store transaction classes
+#include <nano/store/transaction.hpp>
+#include <nano/store/write_queue.hpp>
 
-#include <utility> // For std::move
+#include <utility>
 
 namespace nano::secure
 {
@@ -31,11 +32,15 @@ public:
 class write_transaction : public transaction
 {
 	nano::store::write_transaction txn;
+	nano::store::write_guard guard;
+	std::chrono::steady_clock::time_point start;
 
 public:
-	explicit write_transaction (nano::store::write_transaction && t) noexcept :
-		txn (std::move (t))
+	explicit write_transaction (nano::store::write_transaction && txn, nano::store::write_guard && guard) noexcept :
+		txn{ std::move (txn) },
+		guard{ std::move (guard) }
 	{
+		start = std::chrono::steady_clock::now ();
 	}
 
 	// Override to return a reference to the encapsulated write_transaction
@@ -47,16 +52,31 @@ public:
 	void commit ()
 	{
 		txn.commit ();
+		guard.release ();
 	}
 
 	void renew ()
 	{
+		guard.renew ();
 		txn.renew ();
+		start = std::chrono::steady_clock::now ();
 	}
 
 	void refresh ()
 	{
-		txn.refresh ();
+		commit ();
+		renew ();
+	}
+
+	bool refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 })
+	{
+		auto now = std::chrono::steady_clock::now ();
+		if (now - start > max_age)
+		{
+			refresh ();
+			return true;
+		}
+		return false;
 	}
 
 	// Conversion operator to const nano::store::transaction&
@@ -78,7 +98,7 @@ class read_transaction : public transaction
 
 public:
 	explicit read_transaction (nano::store::read_transaction && t) noexcept :
-		txn (std::move (t))
+		txn{ std::move (t) }
 	{
 	}
 

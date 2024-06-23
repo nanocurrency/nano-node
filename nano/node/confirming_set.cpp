@@ -133,13 +133,13 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 	lock.unlock ();
 
 	{
-		// TODO: Properly limiting batch times requires this <guard, transaction> combo to be wrapped in a single object that provides refresh functionality
-		auto guard = ledger.store.write_queue.wait (nano::store::writer::confirmation_height);
-		auto tx = ledger.tx_begin_write ({ nano::tables::confirmation_height });
+		auto transaction = ledger.tx_begin_write ({ nano::tables::confirmation_height }, nano::store::writer::confirmation_height);
 
 		for (auto const & hash : batch)
 		{
-			auto added = ledger.confirm (tx, hash);
+			transaction.refresh_if_needed ();
+
+			auto added = ledger.confirm (transaction, hash);
 			if (!added.empty ())
 			{
 				// Confirming this block may implicitly confirm more
