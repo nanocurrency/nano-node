@@ -804,38 +804,59 @@ nano::uint128_t nano::ledger::account_receivable (secure::transaction const & tr
 	return result;
 }
 
-std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_transaction const & transaction, nano::block_hash const & hash)
+// Both stack and result set are bounded to limit maximum memory usage
+// Callers must ensure that the target block was confirmed, and if not, call this function multiple times
+std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_transaction const & transaction, nano::block_hash const & hash, size_t max_blocks)
 {
 	std::deque<std::shared_ptr<nano::block>> result;
-	std::stack<nano::block_hash> stack;
-	stack.push (hash);
+
+	std::deque<nano::block_hash> stack;
+	stack.push_back (hash);
 	while (!stack.empty ())
 	{
-		auto hash = stack.top ();
+		auto hash = stack.back ();
 		auto block = any.block_get (transaction, hash);
 		release_assert (block);
+
 		auto dependents = dependent_blocks (transaction, *block);
 		for (auto const & dependent : dependents)
 		{
 			if (!dependent.is_zero () && !confirmed.block_exists_or_pruned (transaction, dependent))
 			{
-				stack.push (dependent);
+				stack.push_back (dependent);
+
+				// Limit the stack size to avoid excessive memory usage
+				// This will forget the bottom of the dependency tree
+				if (stack.size () > max_blocks)
+				{
+					stack.pop_front ();
+				}
 			}
 		}
-		if (stack.top () == hash)
+
+		if (stack.back () == hash)
 		{
-			stack.pop ();
+			stack.pop_back ();
 			if (!confirmed.block_exists_or_pruned (transaction, hash))
 			{
-				result.push_back (block);
+				// We must only confirm blocks that have their dependencies confirmed
+				debug_assert (dependents_confirmed (transaction, *block));
 				confirm (transaction, *block);
+				result.push_back (block);
 			}
 		}
 		else
 		{
-			// unconfirmed dependencies were added
+			// Unconfirmed dependencies were added
+		}
+
+		// Early return might leave parts of the dependency tree unconfirmed
+		if (result.size () >= max_blocks)
+		{
+			break;
 		}
 	}
+
 	return result;
 }
 

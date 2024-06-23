@@ -12,6 +12,7 @@
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <nano/node/confirming_set.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
 #include <nano/node/message_processor.hpp>
 #include <nano/node/network.hpp>
@@ -152,6 +153,7 @@ public:
 	nano::request_aggregator_config request_aggregator;
 	nano::message_processor_config message_processor;
 	nano::network_config network;
+	nano::confirming_set_config confirming_set;
 
 public:
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;

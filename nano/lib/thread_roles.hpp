@@ -25,7 +25,7 @@ enum class name
 	signature_checking,
 	rpc_request_processor,
 	rpc_process_container,
-	confirmation_height_processing,
+	confirmation_height,
 	confirmation_height_notifications,
 	worker,
 	bootstrap_worker,
