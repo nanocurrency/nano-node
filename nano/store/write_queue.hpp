@@ -11,28 +11,38 @@ namespace nano::store
 /** Distinct areas write locking is done, order is irrelevant */
 enum class writer
 {
+	generic,
+	node,
+	blockprocessor,
 	confirmation_height,
-	process_batch,
 	pruning,
 	voting_final,
 	testing // Used in tests to emulate a write lock
 };
 
+class write_queue;
+
 class write_guard final
 {
 public:
-	explicit write_guard (std::function<void ()> guard_finish_callback_a);
-	void release ();
+	explicit write_guard (write_queue & queue, writer type);
 	~write_guard ();
+
 	write_guard (write_guard const &) = delete;
 	write_guard & operator= (write_guard const &) = delete;
 	write_guard (write_guard &&) noexcept;
-	write_guard & operator= (write_guard &&) noexcept;
+	write_guard & operator= (write_guard &&) noexcept = delete;
+
+	void release ();
+	void renew ();
+
 	bool is_owned () const;
 
+	writer const type;
+
 private:
-	std::function<void ()> guard_finish_callback;
-	bool owns{ true };
+	write_queue & queue;
+	bool owns{ false };
 };
 
 /**
@@ -41,25 +51,31 @@ private:
  */
 class write_queue final
 {
+	friend class write_guard;
+
 public:
-	explicit write_queue (bool use_noops_a);
+	explicit write_queue (bool use_noops);
+
 	/** Blocks until we are at the head of the queue and blocks other waiters until write_guard goes out of scope */
 	[[nodiscard ("write_guard blocks other waiters")]] write_guard wait (writer writer);
 
-	/** Returns true if this writer is now at the front of the queue */
-	bool process (writer writer);
-
 	/** Returns true if this writer is anywhere in the queue. Currently only used in tests */
-	bool contains (writer writer);
+	bool contains (writer writer) const;
 
 	/** Doesn't actually pop anything until the returned write_guard is out of scope */
-	write_guard pop ();
+	void pop ();
 
 private:
+	void acquire (writer writer);
+	void release (writer writer);
+
+private:
+	bool const use_noops;
+
 	std::deque<writer> queue;
-	nano::mutex mutex;
-	nano::condition_variable cv;
+	mutable nano::mutex mutex;
+	nano::condition_variable condition;
+
 	std::function<void ()> guard_finish_callback;
-	bool use_noops;
 };
 } // namespace nano::store

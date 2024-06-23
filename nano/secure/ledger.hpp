@@ -39,7 +39,7 @@ public:
 	~ledger ();
 
 	/** Start read-write transaction */
-	secure::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_to_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) const;
+	secure::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_to_lock = {}, nano::store::writer guard_type = nano::store::writer::generic) const;
 	/** Start read-only transaction */
 	secure::read_transaction tx_begin_read () const;
 

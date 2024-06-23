@@ -105,9 +105,15 @@ void nano::vote_generator::process_batch (std::deque<queue_entry_t> & batch)
 {
 	std::deque<candidate_t> verified;
 
-	auto verify_batch = [this, &verified] (auto && transaction_variant, auto && batch) {
+	auto refresh_if_needed = [] (auto && transaction_variant) {
+		std::visit ([&] (auto && transaction) { transaction.refresh_if_needed (); }, transaction_variant);
+	};
+
+	auto verify_batch = [this, &verified, &refresh_if_needed] (auto && transaction_variant, auto && batch) {
 		for (auto & [root, hash] : batch)
 		{
+			refresh_if_needed (transaction_variant);
+
 			if (should_vote (transaction_variant, root, hash))
 			{
 				verified.emplace_back (root, hash);
@@ -117,8 +123,7 @@ void nano::vote_generator::process_batch (std::deque<queue_entry_t> & batch)
 
 	if (is_final)
 	{
-		auto guard = ledger.store.write_queue.wait (nano::store::writer::voting_final);
-		transaction_variant_t transaction_variant{ ledger.tx_begin_write ({ tables::final_votes }) };
+		transaction_variant_t transaction_variant{ ledger.tx_begin_write ({ tables::final_votes }, nano::store::writer::voting_final) };
 
 		verify_batch (transaction_variant, batch);
 

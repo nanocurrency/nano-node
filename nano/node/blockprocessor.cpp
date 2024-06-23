@@ -295,8 +295,7 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 {
 	processed_batch_t processed;
 
-	auto scoped_write_guard = node.store.write_queue.wait (nano::store::writer::process_batch);
-	auto transaction = node.ledger.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights });
+	auto transaction = node.ledger.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights }, nano::store::writer::blockprocessor);
 	nano::timer<std::chrono::milliseconds> timer_l;
 
 	lock_a.lock ();

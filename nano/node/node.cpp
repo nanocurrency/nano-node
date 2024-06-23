@@ -617,7 +617,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 
 nano::block_status nano::node::process (std::shared_ptr<nano::block> block)
 {
-	auto const transaction = ledger.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights });
+	auto const transaction = ledger.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights }, nano::store::writer::node);
 	return process (transaction, block);
 }
 
@@ -1033,8 +1033,7 @@ void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_wei
 		transaction_write_count = 0;
 		if (!pruning_targets.empty () && !stopped)
 		{
-			auto scoped_write_guard = store.write_queue.wait (nano::store::writer::pruning);
-			auto write_transaction = ledger.tx_begin_write ({ tables::blocks, tables::pruned });
+			auto write_transaction = ledger.tx_begin_write ({ tables::blocks, tables::pruned }, nano::store::writer::pruning);
 			while (!pruning_targets.empty () && transaction_write_count < batch_size_a && !stopped)
 			{
 				auto const & pruning_hash (pruning_targets.front ());
