@@ -93,12 +93,14 @@ public:
 
 	std::size_t size () const;
 	std::size_t size (block_source) const;
-	bool full () const;
-	bool half_full () const;
 	bool add (std::shared_ptr<nano::block> const &, block_source = block_source::live, std::shared_ptr<nano::transport::channel> const & channel = nullptr);
 	std::optional<nano::block_status> add_blocking (std::shared_ptr<nano::block> const & block, block_source);
 	void force (std::shared_ptr<nano::block> const &);
 	bool should_log ();
+
+	// TODO: Remove, used by legacy bootstrap
+	bool full () const;
+	bool half_full () const;
 
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
 
