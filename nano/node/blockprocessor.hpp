@@ -68,10 +68,10 @@ public: // Context
 	class context
 	{
 	public:
-		context (std::shared_ptr<nano::block> block, block_source source);
+		context (std::shared_ptr<nano::block> block, nano::block_source source);
 
 		std::shared_ptr<nano::block> const block;
-		block_source const source;
+		nano::block_source const source;
 		std::chrono::steady_clock::time_point const arrival{ std::chrono::steady_clock::now () };
 
 	public:
@@ -86,18 +86,18 @@ public: // Context
 	};
 
 public:
-	block_processor (nano::node &);
+	explicit block_processor (nano::node &);
 	~block_processor ();
 
 	void start ();
 	void stop ();
 
 	std::size_t size () const;
-	std::size_t size (block_source) const;
+	std::size_t size (nano::block_source) const;
 	bool full () const;
 	bool half_full () const;
-	bool add (std::shared_ptr<nano::block> const &, block_source = block_source::live, std::shared_ptr<nano::transport::channel> const & channel = nullptr);
-	std::optional<nano::block_status> add_blocking (std::shared_ptr<nano::block> const & block, block_source);
+	bool add (std::shared_ptr<nano::block> const &, nano::block_source = nano::block_source::live, std::shared_ptr<nano::transport::channel> const & channel = nullptr);
+	std::optional<nano::block_status> add_blocking (std::shared_ptr<nano::block> const & block, nano::block_source);
 	void force (std::shared_ptr<nano::block> const &);
 	bool should_log ();
 
@@ -129,7 +129,7 @@ private: // Dependencies
 	nano::node & node;
 
 private:
-	nano::fair_queue<context, block_source> queue;
+	nano::fair_queue<context, nano::block_source> queue;
 
 	std::chrono::steady_clock::time_point next_log;
 
