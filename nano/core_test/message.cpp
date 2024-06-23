@@ -26,6 +26,31 @@ std::shared_ptr<nano::block> random_block ()
 }
 }
 
+TEST (message, header_version)
+{
+	// Simplest message type
+	nano::keepalive original{ nano::dev::network_params.network };
+
+	// Serialize the original keepalive message
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		original.serialize (stream);
+	}
+
+	// Deserialize the byte stream back to a message header
+	nano::bufferstream stream (bytes.data (), bytes.size ());
+	bool error = false;
+	nano::message_header header (error, stream);
+	ASSERT_FALSE (error);
+
+	// Check header versions
+	ASSERT_EQ (nano::dev::network_params.network.protocol_version_min, header.version_min);
+	ASSERT_EQ (nano::dev::network_params.network.protocol_version, header.version_using);
+	ASSERT_EQ (nano::dev::network_params.network.protocol_version, header.version_max);
+	ASSERT_EQ (nano::message_type::keepalive, header.type);
+}
+
 TEST (message, keepalive_serialization)
 {
 	nano::keepalive request1{ nano::dev::network_params.network };
@@ -62,33 +87,60 @@ TEST (message, keepalive_deserialize)
 	ASSERT_EQ (message1.peers, message2.peers);
 }
 
-TEST (message, publish_serialization)
+TEST (message, publish)
 {
+	// Create a random block
 	auto block = random_block ();
-	nano::publish publish{ nano::dev::network_params.network, block };
-	ASSERT_EQ (nano::block_type::send, publish.header.block_type ());
+	nano::publish original{ nano::dev::network_params.network, block };
+	ASSERT_FALSE (original.is_originator ());
+
+	// Serialize the original publish message
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		publish.header.serialize (stream);
+		original.serialize (stream);
 	}
-	ASSERT_EQ (8, bytes.size ());
-	ASSERT_EQ (0x52, bytes[0]);
-	ASSERT_EQ (0x41, bytes[1]);
-	ASSERT_EQ (nano::dev::network_params.network.protocol_version, bytes[2]);
-	ASSERT_EQ (nano::dev::network_params.network.protocol_version, bytes[3]);
-	ASSERT_EQ (nano::dev::network_params.network.protocol_version_min, bytes[4]);
-	ASSERT_EQ (static_cast<uint8_t> (nano::message_type::publish), bytes[5]);
-	ASSERT_EQ (0x00, bytes[6]); // extensions
-	ASSERT_EQ (static_cast<uint8_t> (nano::block_type::send), bytes[7]);
+
+	// Deserialize the byte stream back to a publish message
 	nano::bufferstream stream (bytes.data (), bytes.size ());
-	auto error (false);
+	bool error = false;
 	nano::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (nano::dev::network_params.network.protocol_version_min, header.version_min);
-	ASSERT_EQ (nano::dev::network_params.network.protocol_version, header.version_using);
-	ASSERT_EQ (nano::dev::network_params.network.protocol_version, header.version_max);
-	ASSERT_EQ (nano::message_type::publish, header.type);
+	nano::publish deserialized (error, stream, header);
+	ASSERT_FALSE (error);
+
+	// Assert that the original and deserialized messages are equal
+	ASSERT_EQ (original, deserialized);
+	ASSERT_EQ (*original.block, *deserialized.block);
+	ASSERT_EQ (original.is_originator (), deserialized.is_originator ());
+}
+
+TEST (message, publish_originator_flag)
+{
+	// Create a random block
+	auto block = random_block ();
+	nano::publish original{ nano::dev::network_params.network, block, /* originator */ true };
+	ASSERT_TRUE (original.is_originator ());
+
+	// Serialize the original publish message
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		original.serialize (stream);
+	}
+
+	// Deserialize the byte stream back to a publish message
+	nano::bufferstream stream (bytes.data (), bytes.size ());
+	bool error = false;
+	nano::message_header header (error, stream);
+	ASSERT_FALSE (error);
+	nano::publish deserialized (error, stream, header);
+	ASSERT_FALSE (error);
+
+	// Assert that the originator flag is set correctly in both the original and deserialized messages
+	ASSERT_TRUE (deserialized.is_originator ());
+	ASSERT_EQ (original, deserialized);
+	ASSERT_EQ (*original.block, *deserialized.block);
 }
 
 TEST (message, confirm_header_flags)
