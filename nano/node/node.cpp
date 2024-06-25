@@ -12,6 +12,7 @@
 #include <nano/node/make_store.hpp>
 #include <nano/node/message_processor.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/online_reps.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/scheduler/component.hpp>
@@ -193,7 +194,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	rep_crawler (config.rep_crawler, *this),
 	rep_tiers{ ledger, network_params, online_reps, stats, logger },
 	warmed_up (0),
-	online_reps (ledger, config),
+	online_reps_impl{ std::make_unique<nano::online_reps> (config, ledger) },
+	online_reps{ *online_reps_impl },
 	history_impl{ std::make_unique<nano::local_vote_history> (config.network_params.voting) },
 	history{ *history_impl },
 	vote_uniquer{},
@@ -583,7 +585,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (node.vote_cache_processor.collect_container_info ("vote_cache_processor"));
 	composite->add_component (node.rep_crawler.collect_container_info ("rep_crawler"));
 	composite->add_component (node.block_processor.collect_container_info ("block_processor"));
-	composite->add_component (collect_container_info (node.online_reps, "online_reps"));
+	composite->add_component (node.online_reps.collect_container_info ("online_reps"));
 	composite->add_component (node.history.collect_container_info ("history"));
 	composite->add_component (node.block_uniquer.collect_container_info ("block_uniquer"));
 	composite->add_component (node.vote_uniquer.collect_container_info ("vote_uniquer"));

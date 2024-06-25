@@ -4,9 +4,9 @@
 #include <nano/store/component.hpp>
 #include <nano/store/online_weight.hpp>
 
-nano::online_reps::online_reps (nano::ledger & ledger_a, nano::node_config const & config_a) :
-	ledger{ ledger_a },
-	config{ config_a }
+nano::online_reps::online_reps (nano::node_config const & config_a, nano::ledger & ledger_a) :
+	config{ config_a },
+	ledger{ ledger_a }
 {
 	if (!ledger.store.init_error ())
 	{
@@ -117,16 +117,11 @@ void nano::online_reps::clear ()
 	online_m = 0;
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (online_reps & online_reps, std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::online_reps::collect_container_info (std::string const & name)
 {
-	std::size_t count;
-	{
-		nano::lock_guard<nano::mutex> guard{ online_reps.mutex };
-		count = online_reps.reps.size ();
-	}
+	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	auto sizeof_element = sizeof (decltype (online_reps.reps)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "reps", count, sizeof_element }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "reps", reps.size (), sizeof (decltype (reps)::value_type) }));
 	return composite;
 }

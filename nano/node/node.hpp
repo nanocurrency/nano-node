@@ -20,7 +20,6 @@
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
-#include <nano/node/online_reps.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/process_live_dispatcher.hpp>
 #include <nano/node/rep_tiers.hpp>
@@ -47,6 +46,7 @@ class active_elections;
 class confirming_set;
 class message_processor;
 class node;
+class online_reps;
 class vote_processor;
 class vote_cache_processor;
 class vote_router;
@@ -184,7 +184,8 @@ public:
 	nano::confirming_set & confirming_set;
 	std::unique_ptr<nano::active_elections> active_impl;
 	nano::active_elections & active;
-	nano::online_reps online_reps;
+	std::unique_ptr<nano::online_reps> online_reps_impl;
+	nano::online_reps & online_reps;
 	nano::rep_crawler rep_crawler;
 	nano::rep_tiers rep_tiers;
 	unsigned warmed_up;
