@@ -1,3 +1,4 @@
+#include <nano/lib/config.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
 #include <nano/secure/ledger.hpp>
@@ -115,6 +116,13 @@ void nano::online_reps::clear ()
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	reps.clear ();
 	online_m = 0;
+}
+
+void nano::online_reps::force_online_weight (nano::uint128_t const & online_weight)
+{
+	release_assert (nano::is_dev_run ());
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	online_m = online_weight;
 }
 
 std::unique_ptr<nano::container_info_component> nano::online_reps::collect_container_info (std::string const & name)

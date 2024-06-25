@@ -76,6 +76,7 @@ private:
 
 	mutable nano::mutex mutex;
 
-	friend class election_quorum_minimum_update_weight_before_quorum_checks_Test;
+public: // Only for tests
+	void force_online_weight (nano::uint128_t const & online_weight);
 };
 }

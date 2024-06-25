@@ -260,11 +260,9 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	node1.rep_crawler.force_process (vote2, channel);
 
 	ASSERT_FALSE (election->confirmed ());
-	{
-		nano::lock_guard<nano::mutex> guard (node1.online_reps.mutex);
-		// Modify online_m for online_reps to more than is available, this checks that voting below updates it to current online reps.
-		node1.online_reps.online_m = node_config.online_weight_minimum.number () + 20;
-	}
+
+	// Modify online_m for online_reps to more than is available, this checks that voting below updates it to current online reps.
+	node1.online_reps.force_online_weight (node_config.online_weight_minimum.number () + 20);
 	ASSERT_EQ (nano::vote_code::vote, node1.vote_router.vote (vote2).at (send1->hash ()));
 	ASSERT_TIMELY (5s, election->confirmed ());
 	ASSERT_NE (nullptr, node1.block (send1->hash ()));
