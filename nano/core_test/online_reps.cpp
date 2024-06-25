@@ -16,11 +16,11 @@ TEST (online_reps, basic)
 	ASSERT_EQ (nano::dev::constants.genesis_amount, node1.online_reps.online ());
 	// 1 minimum, 1 maximum
 	ASSERT_EQ (node1.config.online_weight_minimum, node1.online_reps.trended ());
-	node1.online_reps.sample ();
+	node1.online_reps.force_sample ();
 	ASSERT_EQ (nano::dev::constants.genesis_amount, node1.online_reps.trended ());
 	node1.online_reps.clear ();
 	// 2 minimum, 1 maximum
-	node1.online_reps.sample ();
+	node1.online_reps.force_sample ();
 	ASSERT_EQ (node1.config.online_weight_minimum, node1.online_reps.trended ());
 }
 

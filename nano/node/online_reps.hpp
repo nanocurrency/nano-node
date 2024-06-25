@@ -11,6 +11,7 @@
 #include <boost/multi_index_container.hpp>
 
 #include <memory>
+#include <thread>
 #include <vector>
 
 namespace mi = boost::multi_index;
@@ -21,12 +22,14 @@ namespace nano
 class online_reps final
 {
 public:
-	online_reps (nano::node_config const &, nano::ledger &);
+	online_reps (nano::node_config const &, nano::ledger &, nano::stats &, nano::logger &);
+	~online_reps ();
+
+	void start ();
+	void stop ();
 
 	/** Add voting account \p rep_account to the set of online representatives */
 	void observe (nano::account const & rep_account);
-	/** Called periodically to sample online weight */
-	void sample ();
 
 	/** Returns the trended online stake */
 	nano::uint128_t trended () const;
@@ -40,14 +43,25 @@ public:
 
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
 
+	// TODO: This should be in network constants
 	static unsigned constexpr online_weight_quorum = 67;
 
 private: // Dependencies
 	nano::node_config const & config;
 	nano::ledger & ledger;
+	nano::stats & stats;
+	nano::logger & logger;
 
 private:
-	nano::uint128_t calculate_trend (nano::store::transaction &) const;
+	void run ();
+	/** Called periodically to sample online weight */
+	void sample ();
+	bool trim ();
+	/** Remove old records from the database */
+	void trim_trend (nano::store::write_transaction const &);
+	/** Iterate over all database samples and remove invalid records. This is meant to clean potential leftovers from previous versions. */
+	void sanitize_trend (nano::store::write_transaction const &);
+	nano::uint128_t calculate_trend (nano::store::transaction const &) const;
 	nano::uint128_t calculate_online () const;
 
 private:
@@ -74,9 +88,13 @@ private:
 	nano::uint128_t trended_m;
 	nano::uint128_t online_m;
 
+	bool stopped{ false };
+	nano::condition_variable condition;
 	mutable nano::mutex mutex;
+	std::thread thread;
 
 public: // Only for tests
 	void force_online_weight (nano::uint128_t const & online_weight);
+	void force_sample ();
 };
 }
