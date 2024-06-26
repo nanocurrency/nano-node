@@ -18,14 +18,14 @@ using namespace std::chrono_literals;
 
 TEST (confirming_set, construction)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	nano::confirming_set_config config{};
 	nano::confirming_set confirming_set{ config, ctx.ledger (), ctx.stats () };
 }
 
 TEST (confirming_set, add_exists)
 {
-	auto ctx = nano::test::context::ledger_send_receive ();
+	auto ctx = nano::test::ledger_send_receive ();
 	nano::confirming_set_config config{};
 	nano::confirming_set confirming_set{ config, ctx.ledger (), ctx.stats () };
 	auto send = ctx.blocks ()[0];
@@ -35,7 +35,7 @@ TEST (confirming_set, add_exists)
 
 TEST (confirming_set, process_one)
 {
-	auto ctx = nano::test::context::ledger_send_receive ();
+	auto ctx = nano::test::ledger_send_receive ();
 	nano::confirming_set_config config{};
 	nano::confirming_set confirming_set{ config, ctx.ledger (), ctx.stats () };
 	std::atomic<int> count = 0;
@@ -52,7 +52,7 @@ TEST (confirming_set, process_one)
 
 TEST (confirming_set, process_multiple)
 {
-	auto ctx = nano::test::context::ledger_send_receive ();
+	auto ctx = nano::test::ledger_send_receive ();
 	nano::confirming_set_config config{};
 	nano::confirming_set confirming_set{ config, ctx.ledger (), ctx.stats () };
 	std::atomic<int> count = 0;

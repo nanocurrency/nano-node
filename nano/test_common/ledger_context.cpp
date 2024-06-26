@@ -3,7 +3,7 @@
 #include <nano/node/node.hpp>
 #include <nano/test_common/ledger_context.hpp>
 
-nano::test::context::ledger_context::ledger_context (std::deque<std::shared_ptr<nano::block>> && blocks) :
+nano::test::ledger_context::ledger_context (std::deque<std::shared_ptr<nano::block>> && blocks) :
 	store_m{ nano::make_store (logger, nano::unique_path (), nano::dev::constants) },
 	stats_m{ logger },
 	ledger_m{ *store_m, stats_m, nano::dev::constants },
@@ -20,37 +20,41 @@ nano::test::context::ledger_context::ledger_context (std::deque<std::shared_ptr<
 	}
 }
 
-nano::ledger & nano::test::context::ledger_context::ledger ()
+nano::ledger & nano::test::ledger_context::ledger ()
 {
 	return ledger_m;
 }
 
-nano::store::component & nano::test::context::ledger_context::store ()
+nano::store::component & nano::test::ledger_context::store ()
 {
 	return *store_m;
 }
 
-nano::stats & nano::test::context::ledger_context::stats ()
+nano::stats & nano::test::ledger_context::stats ()
 {
 	return stats_m;
 }
 
-std::deque<std::shared_ptr<nano::block>> const & nano::test::context::ledger_context::blocks () const
+std::deque<std::shared_ptr<nano::block>> const & nano::test::ledger_context::blocks () const
 {
 	return blocks_m;
 }
 
-nano::work_pool & nano::test::context::ledger_context::pool ()
+nano::work_pool & nano::test::ledger_context::pool ()
 {
 	return pool_m;
 }
 
-auto nano::test::context::ledger_empty () -> ledger_context
+/*
+ * Ledger facotries
+ */
+
+auto nano::test::ledger_empty () -> ledger_context
 {
 	return ledger_context{};
 }
 
-auto nano::test::context::ledger_send_receive () -> ledger_context
+auto nano::test::ledger_send_receive () -> ledger_context
 {
 	std::deque<std::shared_ptr<nano::block>> blocks;
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -80,7 +84,7 @@ auto nano::test::context::ledger_send_receive () -> ledger_context
 	return ledger_context{ std::move (blocks) };
 }
 
-auto nano::test::context::ledger_send_receive_legacy () -> ledger_context
+auto nano::test::ledger_send_receive_legacy () -> ledger_context
 {
 	std::deque<std::shared_ptr<nano::block>> blocks;
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
