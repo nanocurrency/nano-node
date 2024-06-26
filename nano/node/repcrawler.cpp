@@ -408,7 +408,7 @@ bool nano::rep_crawler::process (std::shared_ptr<nano::vote> const & vote, std::
 			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::response);
 
 			// Track response time
-			stats.sample (nano::stat::sample::rep_response_time, { 0, config.query_timeout.count () }, nano::log::milliseconds_delta (it->time));
+			stats.sample (nano::stat::sample::rep_response_time, nano::log::milliseconds_delta (it->time), { 0, config.query_timeout.count () });
 
 			responses.push_back ({ channel, vote });
 			queries.modify (it, [] (query_entry & e) {

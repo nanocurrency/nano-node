@@ -107,7 +107,7 @@ public:
 	counter_value_t count (stat::type type, stat::dir dir = stat::dir::in) const;
 
 	/** Adds a sample to the given sampler */
-	void sample (stat::sample sample, std::pair<sampler_value_t, sampler_value_t> expected_min_max, sampler_value_t value);
+	void sample (stat::sample sample, sampler_value_t value, std::pair<sampler_value_t, sampler_value_t> expected_min_max = {});
 
 	/** Returns a potentially empty list of the last N samples, where N is determined by the 'max_samples' configuration. Samples are reset after each lookup. */
 	std::vector<sampler_value_t> samples (stat::sample sample);
