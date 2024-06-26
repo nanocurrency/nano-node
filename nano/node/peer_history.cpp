@@ -110,6 +110,7 @@ void nano::peer_history::run_one ()
 		auto timestamp = nano::from_milliseconds_since_epoch (timestamp_millis);
 		if (timestamp > now || timestamp < cutoff)
 		{
+			// TODO: Ensure it's OK to delete entry with the same key as the current iterator
 			store.peer.del (transaction, endpoint);
 
 			stats.inc (nano::stat::type::peer_history, nano::stat::detail::erased);

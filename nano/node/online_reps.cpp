@@ -165,12 +165,14 @@ void nano::online_reps::sanitize_trend (nano::store::write_transaction const & t
 		if (tstamp < cutoff)
 		{
 			stats.inc (nano::stat::type::online_reps, nano::stat::detail::sanitize_old);
+			// TODO: Ensure it's OK to delete entry with the same key as the current iterator
 			ledger.store.online_weight.del (transaction, it->first);
 			++removed_old;
 		}
 		else if (tstamp > now)
 		{
 			stats.inc (nano::stat::type::online_reps, nano::stat::detail::sanitize_future);
+			// TODO: Ensure it's OK to delete entry with the same key as the current iterator
 			ledger.store.online_weight.del (transaction, it->first);
 			++removed_future;
 		}
