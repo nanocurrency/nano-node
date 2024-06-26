@@ -147,9 +147,7 @@ void nano::online_reps::trim_trend (nano::store::write_transaction const & trans
 	}
 
 	// Ensure that all remaining entries are within the expected range
-	debug_assert (std::none_of (ledger.store.online_weight.begin (transaction), ledger.store.online_weight.end (), [cutoff, now] (auto const & item) {
-		return nano::from_seconds_since_epoch (item.first) < cutoff || nano::from_seconds_since_epoch (item.first) > now;
-	}));
+	debug_assert (verify_consistency (transaction, now, cutoff));
 }
 
 void nano::online_reps::sanitize_trend (nano::store::write_transaction const & transaction)
@@ -185,22 +183,34 @@ void nano::online_reps::sanitize_trend (nano::store::write_transaction const & t
 	removed_future);
 
 	// Ensure that all remaining entries are within the expected range
-	debug_assert (std::none_of (ledger.store.online_weight.begin (transaction), ledger.store.online_weight.end (), [cutoff, now] (auto const & item) {
-		return nano::from_seconds_since_epoch (item.first) < cutoff || nano::from_seconds_since_epoch (item.first) > now;
-	}));
+	debug_assert (verify_consistency (transaction, now, cutoff));
+}
+
+bool nano::online_reps::verify_consistency (nano::store::write_transaction const & transaction, std::chrono::system_clock::time_point now, std::chrono::system_clock::time_point cutoff) const
+{
+	for (auto it = ledger.store.online_weight.begin (transaction); it != ledger.store.online_weight.end (); ++it)
+	{
+		auto tstamp = nano::from_seconds_since_epoch (it->first);
+		if (tstamp < cutoff || tstamp > now)
+		{
+			return false;
+		}
+	}
+	return true;
 }
 
 nano::uint128_t nano::online_reps::calculate_trend (store::transaction const & transaction) const
 {
 	std::vector<nano::uint128_t> items;
-	std::transform (ledger.store.online_weight.begin (transaction), ledger.store.online_weight.end (), std::back_inserter (items), [] (const auto & entry) {
-		return entry.second.number ();
-	});
+	for (auto it = ledger.store.online_weight.begin (transaction); it != ledger.store.online_weight.end (); ++it)
+	{
+		items.push_back (it->second.number ());
+	}
 	if (!items.empty ())
 	{
 		// Pick median value for our target vote weight
 		auto median_idx = items.size () / 2;
-		nth_element (items.begin (), items.begin () + median_idx, items.end ());
+		std::nth_element (items.begin (), items.begin () + median_idx, items.end ());
 		return items[median_idx];
 	}
 	return 0;
