@@ -157,7 +157,6 @@ void nano::message_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
 
 namespace
 {
-// TODO: This was moved, so compare with latest develop before merging to avoid merge bugs
 class process_visitor : public nano::message_visitor
 {
 public:
@@ -184,7 +183,9 @@ public:
 
 	void publish (nano::publish const & message) override
 	{
-		bool added = node.block_processor.add (message.block, nano::block_source::live, channel);
+		// Put blocks that are being initally broadcasted in a separate queue, so that they won't have to compete with rebroadcasted blocks
+		// Both queues have the same priority and size, so the potential for exploiting this is limited
+		bool added = node.block_processor.add (message.block, message.is_originator () ? nano::block_source::live_originator : nano::block_source::live, channel);
 		if (!added)
 		{
 			node.network.publish_filter.clear (message.digest);
