@@ -5780,13 +5780,13 @@ TEST (rpc, stats_samples)
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
 
-	node->stats.sample (nano::stat::sample::active_election_duration, { 0, 10 }, 1);
-	node->stats.sample (nano::stat::sample::active_election_duration, { 0, 10 }, 2);
-	node->stats.sample (nano::stat::sample::active_election_duration, { 0, 10 }, 3);
-	node->stats.sample (nano::stat::sample::active_election_duration, { 0, 10 }, 4);
+	node->stats.sample (nano::stat::sample::active_election_duration, 1, { 0, 10 });
+	node->stats.sample (nano::stat::sample::active_election_duration, 2, { 0, 10 });
+	node->stats.sample (nano::stat::sample::active_election_duration, 3, { 0, 10 });
+	node->stats.sample (nano::stat::sample::active_election_duration, 4, { 0, 10 });
 
-	node->stats.sample (nano::stat::sample::bootstrap_tag_duration, { 0, 999 }, 5);
-	node->stats.sample (nano::stat::sample::bootstrap_tag_duration, { 0, 999 }, 5);
+	node->stats.sample (nano::stat::sample::bootstrap_tag_duration, 5, { 0, 999 });
+	node->stats.sample (nano::stat::sample::bootstrap_tag_duration, 5, { 0, 999 });
 
 	boost::property_tree::ptree request;
 	request.put ("action", "stats");

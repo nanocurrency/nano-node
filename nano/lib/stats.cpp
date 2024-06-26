@@ -165,7 +165,7 @@ nano::stats::counter_value_t nano::stats::count (stat::type type, stat::dir dir)
 	return result;
 }
 
-void nano::stats::sample (stat::sample sample, std::pair<sampler_value_t, sampler_value_t> expected_min_max, nano::stats::sampler_value_t value)
+void nano::stats::sample (stat::sample sample, nano::stats::sampler_value_t value, std::pair<sampler_value_t, sampler_value_t> expected_min_max)
 {
 	debug_assert (sample != stat::sample::_invalid);
 
