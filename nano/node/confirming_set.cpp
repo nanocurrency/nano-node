@@ -158,7 +158,6 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 
 	{
 		auto transaction = ledger.tx_begin_write ({ nano::tables::confirmation_height }, nano::store::writer::confirmation_height);
-
 		for (auto const & hash : batch)
 		{
 			do
@@ -184,6 +183,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 				{
 					stats.inc (nano::stat::type::confirming_set, nano::stat::detail::already_cemented);
 					already.push_back (hash);
+					debug_assert (ledger.confirmed.block_exists (transaction, hash));
 				}
 			} while (!ledger.confirmed.block_exists (transaction, hash));
 		}
