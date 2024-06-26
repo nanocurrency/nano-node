@@ -35,4 +35,6 @@ ledger_context ledger_empty ();
 ledger_context ledger_send_receive ();
 /** Send/receive pair of legacy blocks on the genesis account*/
 ledger_context ledger_send_receive_legacy ();
+/** Full binary tree of state blocks */
+ledger_context ledger_binary_tree (unsigned height);
 }
