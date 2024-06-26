@@ -394,8 +394,7 @@ bool nano::rep_crawler::process (std::shared_ptr<nano::vote> const & vote, std::
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
-	auto & index = queries.get<tag_channel> ();
-	auto [begin, end] = index.equal_range (channel);
+	auto [begin, end] = queries.get<tag_channel> ().equal_range (channel);
 	for (auto it = begin; it != end; ++it)
 	{
 		// TODO: This linear search could be slow, especially with large votes.
@@ -403,12 +402,13 @@ bool nano::rep_crawler::process (std::shared_ptr<nano::vote> const & vote, std::
 		bool found = std::any_of (vote->hashes.begin (), vote->hashes.end (), [&target_hash] (nano::block_hash const & hash) {
 			return hash == target_hash;
 		});
-
 		if (found)
 		{
 			logger.debug (nano::log::type::rep_crawler, "Processing response for block {} from {}", target_hash.to_string (), channel->to_string ());
 			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::response);
-			// TODO: Track query response time
+
+			// Track response time
+			stats.sample (nano::stat::sample::rep_response_time, { 0, config.query_timeout.count () }, nano::log::milliseconds_delta (it->time));
 
 			responses.push_back ({ channel, vote });
 			queries.modify (it, [] (query_entry & e) {
