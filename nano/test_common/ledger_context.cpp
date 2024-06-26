@@ -1,7 +1,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/node.hpp>
-#include <nano/test_common/ledger.hpp>
+#include <nano/test_common/ledger_context.hpp>
 
 nano::test::context::ledger_context::ledger_context (std::deque<std::shared_ptr<nano::block>> && blocks) :
 	store_m{ nano::make_store (logger, nano::unique_path (), nano::dev::constants) },
