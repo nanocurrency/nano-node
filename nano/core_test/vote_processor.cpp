@@ -112,8 +112,7 @@ TEST (vote_processor, weights)
 	auto & node (*system.nodes[0]);
 
 	// Create representatives of different weight levels
-	// FIXME: Using `online_weight_minimum` because calculation of trended and online weight is broken when running tests
-	auto const stake = node.config.online_weight_minimum.number ();
+	auto const stake = node.balance (nano::dev::genesis_key.pub);
 	auto const level0 = stake / 5000; // 0.02%
 	auto const level1 = stake / 500; // 0.2%
 	auto const level2 = stake / 50; // 2%
@@ -140,10 +139,10 @@ TEST (vote_processor, weights)
 	node.stats.clear ();
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::rep_tiers, nano::stat::detail::updated) >= 2);
 
-	ASSERT_EQ (node.rep_tiers.tier (key0.pub), nano::rep_tier::none);
-	ASSERT_EQ (node.rep_tiers.tier (key1.pub), nano::rep_tier::tier_1);
-	ASSERT_EQ (node.rep_tiers.tier (key2.pub), nano::rep_tier::tier_2);
-	ASSERT_EQ (node.rep_tiers.tier (nano::dev::genesis_key.pub), nano::rep_tier::tier_3);
+	ASSERT_TIMELY_EQ (5s, node.rep_tiers.tier (key0.pub), nano::rep_tier::none);
+	ASSERT_TIMELY_EQ (5s, node.rep_tiers.tier (key1.pub), nano::rep_tier::tier_1);
+	ASSERT_TIMELY_EQ (5s, node.rep_tiers.tier (key2.pub), nano::rep_tier::tier_2);
+	ASSERT_TIMELY_EQ (5s, node.rep_tiers.tier (nano::dev::genesis_key.pub), nano::rep_tier::tier_3);
 }
 
 // Issue that tracks last changes on this test: https://github.com/nanocurrency/nano-node/issues/3485

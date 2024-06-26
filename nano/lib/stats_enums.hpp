@@ -83,6 +83,7 @@ enum class type
 	message_processor,
 	message_processor_overfill,
 	message_processor_type,
+	online_reps,
 
 	bootstrap_ascending,
 	bootstrap_ascending_accounts,
@@ -475,6 +476,15 @@ enum class detail
 	active_confirmed_quorum,
 	active_confirmation_height,
 	inactive_confirmation_height,
+
+	// online_reps
+	trim_trend,
+	sanitize_old,
+	sanitize_future,
+	sample,
+	rep_new,
+	rep_update,
+	update_online,
 
 	_last // Must be the last enum
 };

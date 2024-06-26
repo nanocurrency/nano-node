@@ -79,6 +79,7 @@ enum class type
 	signal_manager,
 	peer_history,
 	message_processor,
+	online_reps,
 
 	// bootstrap
 	bulk_pull_client,
