@@ -35,7 +35,7 @@ nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano:
 		bool should_notify = false;
 		{
 			nano::lock_guard<nano::mutex> lock{ mutex };
-			auto transaction = ledger.store.tx_begin_read ();
+			auto transaction = ledger.tx_begin_read ();
 			for (auto const & [result, context] : batch)
 			{
 				// Do not try to unnecessarily bootstrap live traffic chains
