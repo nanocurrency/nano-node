@@ -6,7 +6,7 @@ nano::error nano::rocksdb_config::serialize_toml (nano::tomlconfig & toml) const
 {
 	toml.put ("enable", enable, "Whether to use the RocksDB backend for the ledger database.\ntype:bool");
 	toml.put ("memory_multiplier", memory_multiplier, "This will modify how much memory is used represented by 1 (low), 2 (medium), 3 (high). Default is 2.\ntype:uint8");
-	toml.put ("io_threads", io_threads, "Number of threads to use with the background compaction and flushing. Number of hardware threads is recommended.\ntype:uint32");
+	toml.put ("io_threads", io_threads, "Number of threads to use with the background compaction and flushing.\ntype:uint32");
 	return toml.get_error ();
 }
 
