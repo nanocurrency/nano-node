@@ -17,14 +17,15 @@ public:
 		enable{ using_rocksdb_in_tests () }
 	{
 	}
-	nano::error serialize_toml (nano::tomlconfig & toml_a) const;
-	nano::error deserialize_toml (nano::tomlconfig & toml_a);
+
+	nano::error serialize_toml (nano::tomlconfig &) const;
+	nano::error deserialize_toml (nano::tomlconfig &);
 
 	/** To use RocksDB in tests make sure the environment variable TEST_USE_ROCKSDB=1 is set */
 	static bool using_rocksdb_in_tests ();
 
 	bool enable{ false };
 	uint8_t memory_multiplier{ 2 };
-	unsigned io_threads{ nano::hardware_concurrency () };
+	unsigned io_threads{ std::max (nano::hardware_concurrency () / 2, 1u) };
 };
 }
