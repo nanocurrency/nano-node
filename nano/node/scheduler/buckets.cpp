@@ -27,7 +27,7 @@ void nano::scheduler::buckets::seek ()
 
 void nano::scheduler::buckets::setup_buckets (uint64_t maximum)
 {
-	auto const size_expected = 62;
+	auto const size_expected = 63;
 	auto bucket_max = std::max<size_t> (1u, maximum / size_expected);
 	auto build_region = [&] (uint128_t const & begin, uint128_t const & end, size_t count) {
 		auto width = (end - begin) / count;
@@ -36,7 +36,8 @@ void nano::scheduler::buckets::setup_buckets (uint64_t maximum)
 			buckets_m.push_back (std::make_unique<scheduler::bucket> (begin + i * width, bucket_max));
 		}
 	};
-	build_region (0, uint128_t{ 1 } << 88, 1);
+	build_region (0, uint128_t{ 1 } << 79, 1);
+	build_region (uint128_t{ 1 } << 79, uint128_t{ 1 } << 88, 1);
 	build_region (uint128_t{ 1 } << 88, uint128_t{ 1 } << 92, 2);
 	build_region (uint128_t{ 1 } << 92, uint128_t{ 1 } << 96, 4);
 	build_region (uint128_t{ 1 } << 96, uint128_t{ 1 } << 100, 8);
