@@ -102,14 +102,19 @@ void nano::local_block_broadcaster::run ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::loop);
-
 		condition.wait_for (lock, 1s);
 		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
 
 		if (!stopped && !local_blocks.empty ())
 		{
-			cleanup ();
+			stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::loop);
+
+			if (cleanup_interval.elapsed (config.cleanup_interval))
+			{
+				cleanup (lock);
+				debug_assert (lock.owns_lock ());
+			}
+
 			run_broadcasts (lock);
 			debug_assert (!lock.owns_lock ());
 			lock.lock ();
@@ -161,31 +166,42 @@ void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mute
 		}
 
 		stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::broadcast, nano::stat::dir::out);
-
 		network.flood_block_initial (block);
 	}
 }
 
-void nano::local_block_broadcaster::cleanup ()
+void nano::local_block_broadcaster::cleanup (nano::unique_lock<nano::mutex> & lock)
 {
 	debug_assert (!mutex.try_lock ());
 
-	// TODO: Mutex is held during IO, but it should be fine since it's not performance critical
-	auto transaction = node.ledger.tx_begin_read ();
-	erase_if (local_blocks, [this, &transaction] (auto const & entry) {
-		transaction.refresh_if_needed ();
+	// Copy the local blocks to avoid holding the mutex during IO
+	auto local_blocks_copy = local_blocks;
 
-		if (entry.last_broadcast == std::chrono::steady_clock::time_point{})
+	lock.unlock ();
+
+	std::set<nano::block_hash> already_confirmed;
+	{
+		auto transaction = node.ledger.tx_begin_read ();
+		for (auto const & entry : local_blocks_copy)
 		{
 			// This block has never been broadcasted, keep it so it's broadcasted at least once
-			return false;
+			if (entry.last_broadcast == std::chrono::steady_clock::time_point{})
+			{
+				continue;
+			}
+			if (node.block_confirmed_or_being_confirmed (transaction, entry.block->hash ()))
+			{
+				stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::already_confirmed);
+				already_confirmed.insert (entry.block->hash ());
+			}
 		}
-		if (node.block_confirmed_or_being_confirmed (transaction, entry.block->hash ()))
-		{
-			stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::erase_confirmed);
-			return true;
-		}
-		return false;
+	}
+
+	lock.lock ();
+
+	// Erase blocks that have been confirmed
+	erase_if (local_blocks, [&already_confirmed] (auto const & entry) {
+		return already_confirmed.contains (entry.block->hash ());
 	});
 }
 

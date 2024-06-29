@@ -26,11 +26,12 @@ class local_block_broadcaster_config
 {
 public:
 	// TODO: Make these configurable
-	static std::size_t constexpr max_size{ 1024 * 8 };
-	static std::chrono::seconds constexpr rebroadcast_interval{ 3 };
-	static std::chrono::seconds constexpr max_rebroadcast_interval{ 60 };
-	static std::size_t constexpr broadcast_rate_limit{ 32 };
-	static double constexpr broadcast_rate_burst_ratio{ 3 };
+	std::size_t max_size{ 1024 * 8 };
+	std::chrono::seconds rebroadcast_interval{ 3 };
+	std::chrono::seconds max_rebroadcast_interval{ 60 };
+	std::size_t broadcast_rate_limit{ 32 };
+	double broadcast_rate_burst_ratio{ 3 };
+	std::chrono::seconds cleanup_interval{ 60 };
 };
 
 /**
@@ -51,7 +52,7 @@ public:
 private:
 	void run ();
 	void run_broadcasts (nano::unique_lock<nano::mutex> &);
-	void cleanup ();
+	void cleanup (nano::unique_lock<nano::mutex> &);
 	std::chrono::milliseconds rebroadcast_interval (unsigned rebroadcasts) const;
 
 private: // Dependencies
@@ -98,8 +99,8 @@ private:
 
 private:
 	bool enabled{ false };
-
 	nano::bandwidth_limiter limiter;
+	nano::interval cleanup_interval;
 
 	std::atomic<bool> stopped{ false };
 	nano::condition_variable condition;
