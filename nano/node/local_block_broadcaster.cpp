@@ -132,7 +132,7 @@ void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mute
 {
 	debug_assert (lock.owns_lock ());
 
-	std::deque<std::shared_ptr<nano::block>> to_broadcast;
+	std::deque<local_entry> to_broadcast;
 
 	auto const now = std::chrono::steady_clock::now ();
 
@@ -143,7 +143,7 @@ void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mute
 		debug_assert (it->next_broadcast <= now);
 
 		release_assert (it->block != nullptr);
-		to_broadcast.push_back (it->block);
+		to_broadcast.push_back (*it);
 
 		bool success = by_broadcast.modify (it++, [this, now] (auto & entry) {
 			entry.rebroadcasts += 1;
@@ -155,7 +155,7 @@ void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mute
 
 	lock.unlock ();
 
-	for (auto const & block : to_broadcast)
+	for (auto const & entry : to_broadcast)
 	{
 		while (!limiter.should_pass (1))
 		{
@@ -166,8 +166,12 @@ void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mute
 			}
 		}
 
+		logger.debug (nano::log::type::local_block_broadcaster, "Broadcasting block: {} (rebroadcasts so far: {})",
+		entry.block->hash ().to_string (),
+		entry.rebroadcasts);
+
 		stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::broadcast, nano::stat::dir::out);
-		network.flood_block_initial (block);
+		network.flood_block_initial (entry.block);
 	}
 }
 
