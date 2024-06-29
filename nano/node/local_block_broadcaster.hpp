@@ -22,10 +22,21 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
-class local_block_broadcaster_config
+class local_block_broadcaster_config final
 {
 public:
-	// TODO: Make these configurable
+	explicit local_block_broadcaster_config (nano::network_constants const & network)
+	{
+		if (network.is_dev_network ())
+		{
+			rebroadcast_interval = 1s;
+			cleanup_interval = 1s;
+		}
+	}
+
+	// TODO: Serialization & deserialization
+
+public:
 	std::size_t max_size{ 1024 * 8 };
 	std::chrono::seconds rebroadcast_interval{ 3 };
 	std::chrono::seconds max_rebroadcast_interval{ 60 };
@@ -38,10 +49,10 @@ public:
  * Broadcasts blocks to the network
  * Tracks local blocks for more aggressive propagation
  */
-class local_block_broadcaster
+class local_block_broadcaster final
 {
 public:
-	local_block_broadcaster (nano::node &, nano::block_processor &, nano::network &, nano::confirming_set &, nano::stats &, nano::logger &, bool enabled = false);
+	local_block_broadcaster (local_block_broadcaster_config const &, nano::node &, nano::block_processor &, nano::network &, nano::confirming_set &, nano::stats &, nano::logger &, bool enabled = false);
 	~local_block_broadcaster ();
 
 	void start ();
@@ -56,7 +67,7 @@ private:
 	std::chrono::milliseconds rebroadcast_interval (unsigned rebroadcasts) const;
 
 private: // Dependencies
-	local_block_broadcaster_config const config{}; // TODO: Pass in constructor
+	local_block_broadcaster_config const & config;
 	nano::node & node;
 	nano::block_processor & block_processor;
 	nano::network & network;
