@@ -9,6 +9,7 @@ namespace nano
 class active_elections;
 class confirming_set;
 class ledger;
+class local_block_broadcaster;
 class local_vote_history;
 class logger;
 class network;

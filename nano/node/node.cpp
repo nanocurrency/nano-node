@@ -8,6 +8,7 @@
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/election_status.hpp>
+#include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/message_processor.hpp>
@@ -217,7 +218,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	ascendboot{ config, block_processor, ledger, network, stats },
 	websocket{ config.websocket_config, observers, wallets, ledger, io_ctx, logger },
 	epoch_upgrader{ *this, ledger, store, network_params, logger },
-	local_block_broadcaster{ *this, block_processor, network, confirming_set, stats, logger, !flags.disable_block_processor_republishing },
+	local_block_broadcaster_impl{ std::make_unique<nano::local_block_broadcaster> (*this, block_processor, network, confirming_set, stats, logger, !flags.disable_block_processor_republishing) },
+	local_block_broadcaster{ *local_block_broadcaster_impl },
 	process_live_dispatcher{ ledger, scheduler.priority, vote_cache, websocket },
 	peer_history_impl{ std::make_unique<nano::peer_history> (config.peer_history, store, network, logger, stats) },
 	peer_history{ *peer_history_impl },
