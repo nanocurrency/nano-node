@@ -12,7 +12,8 @@ nano::local_block_broadcaster::local_block_broadcaster (nano::node & node_a, nan
 	block_processor{ block_processor_a },
 	network{ network_a },
 	stats{ stats_a },
-	enabled{ enabled_a }
+	enabled{ enabled_a },
+	limiter{ config.broadcast_rate_limit, config.broadcast_rate_burst_ratio }
 {
 	if (!enabled)
 	{
@@ -26,9 +27,20 @@ nano::local_block_broadcaster::local_block_broadcaster (nano::node & node_a, nan
 			// Only rebroadcast local blocks that were successfully processed (no forks or gaps)
 			if (result == nano::block_status::progress && context.source == nano::block_source::local)
 			{
+				release_assert (context.block != nullptr);
+
 				nano::lock_guard<nano::mutex> guard{ mutex };
+
 				local_blocks.emplace_back (local_entry{ context.block, std::chrono::steady_clock::now () });
 				stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::insert);
+
+				// Erase oldest blocks if the queue gets too big
+				while (local_blocks.size () > config.max_size)
+				{
+					stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::erase_oldest);
+					local_blocks.pop_front ();
+				}
+
 				should_notify = true;
 			}
 		}
@@ -43,6 +55,8 @@ nano::local_block_broadcaster::local_block_broadcaster (nano::node & node_a, nan
 		auto erased = local_blocks.get<tag_hash> ().erase (block->hash ());
 		stats.add (nano::stat::type::local_block_broadcaster, nano::stat::detail::rollback, nano::stat::dir::in, erased);
 	});
+
+	// TODO: Listen for cemented callback
 }
 
 nano::local_block_broadcaster::~local_block_broadcaster ()
@@ -83,32 +97,47 @@ void nano::local_block_broadcaster::run ()
 	{
 		stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::loop);
 
-		condition.wait_for (lock, check_interval);
+		condition.wait_for (lock, 1s);
 		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
 
-		if (!stopped)
+		if (!stopped && !local_blocks.empty ())
 		{
 			cleanup ();
 			run_broadcasts (lock);
-			debug_assert (lock.owns_lock ());
+			debug_assert (!lock.owns_lock ());
+			lock.lock ();
 		}
 	}
+}
+
+std::chrono::milliseconds nano::local_block_broadcaster::rebroadcast_interval (unsigned rebroadcasts) const
+{
+	return std::min (config.rebroadcast_interval * rebroadcasts, config.max_rebroadcast_interval);
 }
 
 void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mutex> & lock)
 {
 	debug_assert (lock.owns_lock ());
 
-	std::vector<std::shared_ptr<nano::block>> to_broadcast;
+	std::deque<std::shared_ptr<nano::block>> to_broadcast;
 
 	auto const now = std::chrono::steady_clock::now ();
-	for (auto & entry : local_blocks)
+
+	// Iterate blocks with next_broadcast <= now
+	auto & by_broadcast = local_blocks.get<tag_broadcast> ();
+	for (auto it = by_broadcast.begin (), end = by_broadcast.upper_bound (now); it != end;)
 	{
-		if (elapsed (entry.last_broadcast, broadcast_interval, now))
-		{
+		debug_assert (it->next_broadcast <= now);
+
+		release_assert (it->block != nullptr);
+		to_broadcast.push_back (it->block);
+
+		bool success = by_broadcast.modify (it++, [this, now] (auto & entry) {
+			entry.rebroadcasts += 1;
 			entry.last_broadcast = now;
-			to_broadcast.push_back (entry.block);
-		}
+			entry.next_broadcast = now + rebroadcast_interval (entry.rebroadcasts);
+		});
+		release_assert (success, "modify failed"); // Should never fail
 	}
 
 	lock.unlock ();
@@ -128,20 +157,11 @@ void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mute
 
 		network.flood_block_initial (block);
 	}
-
-	lock.lock ();
 }
 
 void nano::local_block_broadcaster::cleanup ()
 {
 	debug_assert (!mutex.try_lock ());
-
-	// Erase oldest blocks if the queue gets too big
-	while (local_blocks.size () > max_size)
-	{
-		stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::erase_oldest);
-		local_blocks.pop_front ();
-	}
 
 	// TODO: Mutex is held during IO, but it should be fine since it's not performance critical
 	auto transaction = node.ledger.tx_begin_read ();
@@ -169,9 +189,4 @@ std::unique_ptr<nano::container_info_component> nano::local_block_broadcaster::c
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "local", local_blocks.size (), sizeof (decltype (local_blocks)::value_type) }));
 	return composite;
-}
-
-nano::block_hash nano::local_block_broadcaster::local_entry::hash () const
-{
-	return block->hash ();
 }
