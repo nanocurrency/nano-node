@@ -98,6 +98,12 @@ void nano::local_block_broadcaster::stop ()
 	nano::join_or_pass (thread);
 }
 
+size_t nano::local_block_broadcaster::size () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return local_blocks.size ();
+}
+
 void nano::local_block_broadcaster::run ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };

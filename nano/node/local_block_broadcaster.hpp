@@ -58,6 +58,8 @@ public:
 	void start ();
 	void stop ();
 
+	size_t size () const;
+
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
 
 private:
