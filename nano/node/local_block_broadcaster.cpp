@@ -137,6 +137,7 @@ std::chrono::milliseconds nano::local_block_broadcaster::rebroadcast_interval (u
 void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mutex> & lock)
 {
 	debug_assert (lock.owns_lock ());
+	debug_assert (!mutex.try_lock ());
 
 	std::deque<local_entry> to_broadcast;
 
@@ -144,14 +145,20 @@ void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mute
 
 	// Iterate blocks with next_broadcast <= now
 	auto & by_broadcast = local_blocks.get<tag_broadcast> ();
-	for (auto it = by_broadcast.begin (), end = by_broadcast.upper_bound (now); it != end;)
+	for (auto const & entry : boost::make_iterator_range (by_broadcast.begin (), by_broadcast.upper_bound (now)))
 	{
-		debug_assert (it->next_broadcast <= now);
+		debug_assert (entry.next_broadcast <= now);
+		release_assert (entry.block != nullptr);
+		to_broadcast.push_back (entry);
+	}
 
-		release_assert (it->block != nullptr);
-		to_broadcast.push_back (*it);
-
-		bool success = by_broadcast.modify (it++, [this, now] (auto & entry) {
+	// Modify multi index container outside of the loop to avoid invalidating iterators
+	auto & by_hash = local_blocks.get<tag_hash> ();
+	for (auto const & entry : to_broadcast)
+	{
+		auto it = by_hash.find (entry.hash ());
+		release_assert (it != by_hash.end ());
+		bool success = by_hash.modify (it, [this, now] (auto & entry) {
 			entry.rebroadcasts += 1;
 			entry.last_broadcast = now;
 			entry.next_broadcast = now + rebroadcast_interval (entry.rebroadcasts);
