@@ -2,16 +2,19 @@
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/blockprocessor.hpp>
+#include <nano/node/confirming_set.hpp>
 #include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/ledger.hpp>
 
-nano::local_block_broadcaster::local_block_broadcaster (nano::node & node_a, nano::block_processor & block_processor_a, nano::network & network_a, nano::stats & stats_a, bool enabled_a) :
+nano::local_block_broadcaster::local_block_broadcaster (nano::node & node_a, nano::block_processor & block_processor_a, nano::network & network_a, nano::confirming_set & confirming_set_a, nano::stats & stats_a, nano::logger & logger_a, bool enabled_a) :
 	node{ node_a },
 	block_processor{ block_processor_a },
 	network{ network_a },
+	confirming_set{ confirming_set_a },
 	stats{ stats_a },
+	logger{ logger_a },
 	enabled{ enabled_a },
 	limiter{ config.broadcast_rate_limit, config.broadcast_rate_burst_ratio }
 {
@@ -53,10 +56,14 @@ nano::local_block_broadcaster::local_block_broadcaster (nano::node & node_a, nan
 	block_processor.rolled_back.add ([this] (auto const & block) {
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		auto erased = local_blocks.get<tag_hash> ().erase (block->hash ());
-		stats.add (nano::stat::type::local_block_broadcaster, nano::stat::detail::rollback, nano::stat::dir::in, erased);
+		stats.add (nano::stat::type::local_block_broadcaster, nano::stat::detail::rollback, erased);
 	});
 
-	// TODO: Listen for cemented callback
+	confirming_set.cemented_observers.add ([this] (auto const & block) {
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		auto erased = local_blocks.get<tag_hash> ().erase (block->hash ());
+		stats.add (nano::stat::type::local_block_broadcaster, nano::stat::detail::cemented, erased);
+	});
 }
 
 nano::local_block_broadcaster::~local_block_broadcaster ()

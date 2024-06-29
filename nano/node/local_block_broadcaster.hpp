@@ -40,7 +40,7 @@ public:
 class local_block_broadcaster
 {
 public:
-	local_block_broadcaster (nano::node &, nano::block_processor &, nano::network &, nano::stats &, bool enabled = false);
+	local_block_broadcaster (nano::node &, nano::block_processor &, nano::network &, nano::confirming_set &, nano::stats &, nano::logger &, bool enabled = false);
 	~local_block_broadcaster ();
 
 	void start ();
@@ -59,7 +59,9 @@ private: // Dependencies
 	nano::node & node;
 	nano::block_processor & block_processor;
 	nano::network & network;
+	nano::confirming_set & confirming_set;
 	nano::stats & stats;
+	nano::logger & logger;
 
 private:
 	struct local_entry
