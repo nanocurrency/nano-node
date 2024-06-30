@@ -78,7 +78,7 @@ TEST (account_sets, priority_base)
 	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::bootstrap_ascending::account_sets sets{ system.stats };
-	ASSERT_EQ (1.0f, sets.priority (account));
+	ASSERT_EQ (0.0f, sets.priority (account));
 }
 
 TEST (account_sets, priority_blocked)
@@ -126,7 +126,7 @@ TEST (account_sets, priority_up_down)
 	ASSERT_EQ (sets.priority (account), nano::bootstrap_ascending::account_sets::priority_initial - nano::bootstrap_ascending::account_sets::priority_decrease);
 }
 
-// Check that priority downward saturates to 1.0f
+// Check that priority downward saturates to 0.0f
 TEST (account_sets, priority_down_sat)
 {
 	nano::test::system system;
@@ -135,8 +135,13 @@ TEST (account_sets, priority_down_sat)
 	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::bootstrap_ascending::account_sets sets{ system.stats };
-	sets.priority_down (account);
-	ASSERT_EQ (1.0f, sets.priority (account));
+	sets.priority_up (account);
+	ASSERT_GT (sets.priority (account), 1.0f);
+	for (int n = 0; n < 1000; ++n)
+	{
+		sets.priority_down (account);
+	}
+	ASSERT_EQ (0.0f, sets.priority (account));
 }
 
 // Ensure priority value is bounded
@@ -256,4 +261,93 @@ TEST (bootstrap_ascending, trace_base)
 	//	std::cerr << "node0: " << node0.network.endpoint () << std::endl;
 	//	std::cerr << "node1: " << node1.network.endpoint () << std::endl;
 	ASSERT_TIMELY (10s, node1.block (receive1->hash ()) != nullptr);
+}
+
+/*
+ * Tests that bootstrap won't try to immediately bootstrap chains that have active live traffic
+ */
+TEST (bootstrap_ascending, ignore_live)
+{
+	nano::node_flags flags;
+	flags.disable_legacy_bootstrap = true;
+	nano::test::system system;
+	auto & node = *system.add_node (flags);
+	nano::keypair key;
+	nano::state_block_builder builder;
+	auto send1 = builder.make_block ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .link (key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto receive1 = builder.make_block ()
+					.account (key.pub)
+					.previous (0)
+					.representative (nano::dev::genesis_key.pub)
+					.link (send1->hash ())
+					.balance (1)
+					.sign (key.prv, key.pub)
+					.work (*system.work.generate (key.pub))
+					.build ();
+	auto send2 = builder.make_block ()
+				 .account (key.pub)
+				 .previous (receive1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .link (key.pub)
+				 .balance (0)
+				 .sign (key.prv, key.pub)
+				 .work (*system.work.generate (receive1->hash ()))
+				 .build ();
+
+	// Genesis is inserted into the priority set by default, test with another chain
+	ASSERT_EQ (nano::block_status::progress, node.block_processor.add_blocking (send1, nano::block_source::live));
+	ASSERT_EQ (node.ascendboot.priority (key.pub), 0.0f);
+
+	ASSERT_EQ (nano::block_status::progress, node.block_processor.add_blocking (receive1, nano::block_source::live));
+	ASSERT_EQ (node.ascendboot.priority (key.pub), 0.0f);
+
+	// This should trigger insertion of the account into the priority set
+	ASSERT_EQ (nano::block_status::progress, node.block_processor.add_blocking (send2, nano::block_source::bootstrap));
+	ASSERT_GE (node.ascendboot.priority (key.pub), 1.0f);
+}
+
+/*
+ * Tests that source blocked account can be unblocked by live traffic (or any other sources)
+ */
+TEST (bootstrap_ascending, unblock_live)
+{
+	nano::node_flags flags;
+	flags.disable_legacy_bootstrap = true;
+	nano::test::system system;
+	auto & node = *system.add_node (flags);
+	nano::keypair key;
+	nano::state_block_builder builder;
+	auto send1 = builder.make_block ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .link (key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto receive1 = builder.make_block ()
+					.account (key.pub)
+					.previous (0)
+					.representative (nano::dev::genesis_key.pub)
+					.link (send1->hash ())
+					.balance (1)
+					.sign (key.prv, key.pub)
+					.work (*system.work.generate (key.pub))
+					.build ();
+
+	ASSERT_EQ (nano::block_status::gap_source, node.block_processor.add_blocking (receive1, nano::block_source::bootstrap));
+	ASSERT_TRUE (node.ascendboot.blocked (key.pub));
+
+	ASSERT_EQ (nano::block_status::progress, node.block_processor.add_blocking (send1, nano::block_source::live));
+	ASSERT_FALSE (node.ascendboot.blocked (key.pub));
+	ASSERT_TRUE (node.ascendboot.priority (key.pub) > 0);
 }

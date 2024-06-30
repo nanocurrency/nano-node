@@ -246,13 +246,13 @@ void nano::block_processor::run ()
 			auto processed = process_batch (lock);
 			debug_assert (!lock.owns_lock ());
 
+			batch_processed.notify (processed);
+
 			// Set results for futures when not holding the lock
 			for (auto & [result, context] : processed)
 			{
 				context.set_result (result);
 			}
-
-			batch_processed.notify (processed);
 
 			lock.lock ();
 		}

@@ -127,6 +127,18 @@ std::size_t nano::bootstrap_ascending::service::score_size () const
 	return scoring.size ();
 }
 
+bool nano::bootstrap_ascending::service::blocked (nano::account const & account) const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return accounts.blocked (account);
+}
+
+float nano::bootstrap_ascending::service::priority (nano::account const & account) const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return accounts.priority (account);
+}
+
 /** Inspects a block that has been processed by the block processor
 - Marks an account as blocked if the result code is gap source as there is no reason request additional blocks for this account until the dependency is resolved
 - Marks an account as forwarded if it has been recently referenced by a block that has been inserted.
@@ -197,7 +209,7 @@ void nano::bootstrap_ascending::service::wait_blockprocessor ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped && block_processor.size (nano::block_source::bootstrap) > config.bootstrap_ascending.block_wait_count)
 	{
-		condition.wait_for (lock, std::chrono::milliseconds{ config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; }); // Blockprocessor is relatively slow, sleeping here instead of using conditions
+		condition.wait_for (lock, std::chrono::milliseconds{ config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; });
 	}
 }
 
