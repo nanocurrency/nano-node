@@ -11,6 +11,7 @@
 #include <nano/node/bootstrap_ascending/iterators.hpp>
 #include <nano/node/bootstrap_ascending/peer_scoring.hpp>
 #include <nano/node/bootstrap_ascending/throttle.hpp>
+#include <nano/node/fwd.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -21,23 +22,8 @@
 
 namespace mi = boost::multi_index;
 
-namespace nano::secure
-{
-class transaction;
-}
-
 namespace nano
 {
-class block_processor;
-class ledger;
-class network;
-class node_config;
-
-namespace transport
-{
-	class channel;
-}
-
 namespace bootstrap_ascending
 {
 	class service
@@ -93,7 +79,7 @@ namespace bootstrap_ascending
 
 	private:
 		/* Inspects a block that has been processed by the block processor */
-		void inspect (secure::transaction const &, nano::block_status const & result, nano::block const & block);
+		void inspect (nano::secure::transaction const &, nano::block_status const &, nano::block const &, nano::block_source const &);
 
 		void throttle_if_needed (nano::unique_lock<nano::mutex> & lock);
 		void run ();
