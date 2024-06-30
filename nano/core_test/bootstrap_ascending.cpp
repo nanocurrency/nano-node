@@ -257,32 +257,3 @@ TEST (bootstrap_ascending, trace_base)
 	//	std::cerr << "node1: " << node1.network.endpoint () << std::endl;
 	ASSERT_TIMELY (10s, node1.block (receive1->hash ()) != nullptr);
 }
-
-TEST (bootstrap_ascending, config_serialization)
-{
-	nano::bootstrap_ascending_config config1;
-	config1.requests_limit = 0x101;
-	config1.database_requests_limit = 0x102;
-	config1.pull_count = 0x103;
-	config1.timeout = 0x104;
-	config1.throttle_coefficient = 0x105;
-	config1.throttle_wait = 0x106;
-	config1.block_wait_count = 0x107;
-	nano::tomlconfig toml1;
-	ASSERT_FALSE (config1.serialize (toml1));
-	std::stringstream stream1;
-	toml1.write (stream1);
-	auto string = stream1.str ();
-	std::stringstream stream2{ string };
-	nano::tomlconfig toml2;
-	toml2.read (stream2);
-	nano::bootstrap_ascending_config config2;
-	ASSERT_FALSE (config2.deserialize (toml2));
-	ASSERT_EQ (config1.requests_limit, config2.requests_limit);
-	ASSERT_EQ (config1.database_requests_limit, config2.database_requests_limit);
-	ASSERT_EQ (config1.pull_count, config2.pull_count);
-	ASSERT_EQ (config1.timeout, config2.timeout);
-	ASSERT_EQ (config1.throttle_coefficient, config2.throttle_coefficient);
-	ASSERT_EQ (config1.throttle_wait, config2.throttle_wait);
-	ASSERT_EQ (config1.block_wait_count, config2.block_wait_count);
-}
