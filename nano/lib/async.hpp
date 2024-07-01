@@ -80,7 +80,7 @@ public:
 	// Only thread-like void tasks are supported for now
 	using value_type = void;
 
-	task (nano::async::strand & strand) :
+	explicit task (nano::async::strand & strand) :
 		strand{ strand },
 		cancellation{ strand }
 	{
