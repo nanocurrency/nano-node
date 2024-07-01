@@ -30,7 +30,7 @@ class cancellation
 public:
 	explicit cancellation (nano::async::strand & strand) :
 		strand{ strand },
-		signal{ std::make_unique<asio::cancellation_signal> () }
+		signal{ std::make_shared<asio::cancellation_signal> () }
 	{
 	}
 
@@ -49,12 +49,11 @@ public:
 	};
 
 public:
-	void emit (asio::cancellation_type type = asio::cancellation_type::all)
+	auto emit (asio::cancellation_type type = asio::cancellation_type::all)
 	{
-		asio::dispatch (strand, asio::use_future ([this, type] () {
-			signal->emit (type);
-		}))
-		.wait ();
+		return asio::dispatch (strand, asio::use_future ([signal_l = signal, type] () {
+			signal_l->emit (type);
+		}));
 	}
 
 	auto slot ()
@@ -67,9 +66,8 @@ public:
 	nano::async::strand & strand;
 
 private:
-	std::unique_ptr<asio::cancellation_signal> signal; // Wrap the signal in a unique_ptr to enable moving
-
-	bool slotted{ false };
+	std::shared_ptr<asio::cancellation_signal> signal;
+	bool slotted{ false }; // For debugging purposes
 };
 
 /**
