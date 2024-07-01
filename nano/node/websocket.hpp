@@ -26,7 +26,6 @@ class ledger;
 class logger;
 class node_observers;
 class telemetry_data;
-class tls_config;
 class vote;
 enum class vote_code;
 class wallets;
@@ -303,7 +302,7 @@ namespace websocket
 	class listener final : public std::enable_shared_from_this<listener>
 	{
 	public:
-		listener (std::shared_ptr<nano::tls_config> const & tls_config_a, nano::logger &, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a);
+		listener (nano::logger &, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a);
 
 		/** Start accepting connections */
 		void run ();
@@ -352,7 +351,6 @@ namespace websocket
 		/** Removes from subscription count of a specific topic*/
 		void decrease_subscriber_count (nano::websocket::topic const & topic_a);
 
-		std::shared_ptr<nano::tls_config> tls_config;
 		nano::logger & logger;
 		nano::wallets & wallets;
 		boost::asio::ip::tcp::acceptor acceptor;

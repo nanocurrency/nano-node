@@ -4,6 +4,7 @@
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/fair_queue.hpp>
+#include <nano/node/fwd.hpp>
 #include <nano/node/rep_tiers.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/secure/common.hpp>
@@ -12,32 +13,6 @@
 #include <memory>
 #include <thread>
 #include <unordered_set>
-
-namespace nano
-{
-namespace store
-{
-	class component;
-}
-class node_observers;
-class stats;
-class node_config;
-class logger;
-class online_reps;
-class rep_crawler;
-class ledger;
-class network_params;
-class node_flags;
-class stats;
-class rep_tiers;
-enum class vote_code;
-class vote_router;
-
-namespace transport
-{
-	class channel;
-}
-}
 
 namespace nano
 {
@@ -53,20 +28,24 @@ public:
 	size_t pr_priority{ 3 };
 	size_t threads{ std::clamp (nano::hardware_concurrency () / 2, 1u, 4u) };
 	size_t batch_size{ 1024 };
+	size_t max_triggered{ 16384 };
 };
 
 class vote_processor final
 {
 public:
-	vote_processor (vote_processor_config const &, nano::vote_router & vote_router, nano::node_observers &, nano::stats &, nano::node_flags &, nano::logger &, nano::online_reps &, nano::rep_crawler &, nano::ledger &, nano::network_params &, nano::rep_tiers &);
+	vote_processor (vote_processor_config const &, nano::vote_router &, nano::node_observers &, nano::stats &, nano::node_flags &, nano::logger &, nano::online_reps &, nano::rep_crawler &, nano::ledger &, nano::network_params &, nano::rep_tiers &);
 	~vote_processor ();
 
 	void start ();
 	void stop ();
 
-	/** @returns true if the vote was queued for processing */
+	/** Queue vote for processing. @returns true if the vote was queued */
 	bool vote (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &, nano::vote_source = nano::vote_source::live);
 	nano::vote_code vote_blocking (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &, nano::vote_source = nano::vote_source::live);
+
+	/** Queue hash for vote cache lookup and processing. */
+	void trigger (nano::block_hash const & hash);
 
 	std::size_t size () const;
 	bool empty () const;
@@ -100,5 +79,42 @@ private:
 	nano::condition_variable condition;
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::vote_processor) };
 	std::vector<std::thread> threads;
+};
+
+class vote_cache_processor final
+{
+public:
+	vote_cache_processor (vote_processor_config const &, nano::vote_router &, nano::vote_cache &, nano::stats &, nano::logger &);
+	~vote_cache_processor ();
+
+	void start ();
+	void stop ();
+
+	/** Queue hash for vote cache lookup and processing. */
+	void trigger (nano::block_hash const & hash);
+
+	std::size_t size () const;
+	bool empty () const;
+
+	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
+
+private:
+	void run ();
+	void run_batch (nano::unique_lock<nano::mutex> &);
+
+private: // Dependencies
+	vote_processor_config const & config;
+	nano::vote_router & vote_router;
+	nano::vote_cache & vote_cache;
+	nano::stats & stats;
+	nano::logger & logger;
+
+private:
+	std::deque<nano::block_hash> triggered;
+
+	bool stopped{ false };
+	nano::condition_variable condition;
+	mutable nano::mutex mutex;
+	std::thread thread;
 };
 }

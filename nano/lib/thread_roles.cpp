@@ -19,6 +19,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::io:
 			thread_role_name_string = "I/O";
 			break;
+		case nano::thread_role::name::io_daemon:
+			thread_role_name_string = "I/O (daemon)";
+			break;
 		case nano::thread_role::name::work:
 			thread_role_name_string = "Work pool";
 			break;
@@ -27,6 +30,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 			break;
 		case nano::thread_role::name::vote_processing:
 			thread_role_name_string = "Vote processing";
+			break;
+		case nano::thread_role::name::vote_cache_processing:
+			thread_role_name_string = "Vote cache proc";
 			break;
 		case nano::thread_role::name::block_processing:
 			thread_role_name_string = "Blck processing";
@@ -58,11 +64,20 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::confirmation_height_processing:
 			thread_role_name_string = "Conf height";
 			break;
+		case nano::thread_role::name::confirmation_height_notifications:
+			thread_role_name_string = "Conf notif";
+			break;
 		case nano::thread_role::name::worker:
 			thread_role_name_string = "Worker";
 			break;
 		case nano::thread_role::name::bootstrap_worker:
 			thread_role_name_string = "Bootstrap work";
+			break;
+		case nano::thread_role::name::wallet_worker:
+			thread_role_name_string = "Wallet work";
+			break;
+		case nano::thread_role::name::election_worker:
+			thread_role_name_string = "Election work";
 			break;
 		case nano::thread_role::name::request_aggregator:
 			thread_role_name_string = "Req aggregator";

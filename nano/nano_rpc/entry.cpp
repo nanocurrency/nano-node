@@ -4,7 +4,6 @@
 #include <nano/lib/signal_manager.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/lib/threading.hpp>
-#include <nano/lib/tlsconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
@@ -37,21 +36,9 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 	auto error = nano::read_rpc_config_toml (data_path, rpc_config, config_overrides);
 	if (!error)
 	{
-		auto tls_config (std::make_shared<nano::tls_config> ());
-		error = nano::read_tls_config_toml (data_path, *tls_config, logger);
-		if (error)
-		{
-			logger.critical (nano::log::type::daemon_rpc, "Error reading RPC TLS config: {}", error.get_message ());
-			std::exit (1);
-		}
-		else
-		{
-			rpc_config.tls_config = tls_config;
-		}
-
 		std::shared_ptr<boost::asio::io_context> io_ctx = std::make_shared<boost::asio::io_context> ();
 
-		runner = std::make_unique<nano::thread_runner> (io_ctx, logger, rpc_config.rpc_process.io_threads);
+		runner = std::make_unique<nano::thread_runner> (io_ctx, logger, rpc_config.rpc_process.io_threads, nano::thread_role::name::io_daemon);
 
 		try
 		{

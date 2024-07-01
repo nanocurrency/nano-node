@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/block_type.hpp>
+#include <nano/node/transport/fwd.hpp>
 
 #include <boost/system/error_code.hpp>
 
@@ -10,10 +11,6 @@
 namespace nano
 {
 class block;
-namespace transport
-{
-	class socket;
-}
 
 namespace bootstrap
 {
@@ -31,14 +28,14 @@ namespace bootstrap
 		 * Read a type-prefixed block from 'socket' and pass the result, or an error, to 'callback'
 		 * A normal end to series of blocks is a marked by return no error and a nullptr for block.
 		 */
-		void read (nano::transport::socket & socket, callback_type const && callback);
+		void read (nano::transport::tcp_socket & socket, callback_type const && callback);
 
 	private:
 		/**
 		 * Called by read method on receipt of a block type byte.
 		 * The type byte will be in the read_buffer.
 		 */
-		void received_type (nano::transport::socket & socket, callback_type const && callback);
+		void received_type (nano::transport::tcp_socket & socket, callback_type const && callback);
 
 		/**
 		 * Called by received_type when a block is received, it parses the block and calls the callback.

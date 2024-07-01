@@ -41,6 +41,7 @@ enum class type
 	socket,
 	confirmation_height,
 	confirmation_observer,
+	confirming_set,
 	drop,
 	aggregator,
 	requests,
@@ -49,6 +50,7 @@ enum class type
 	telemetry,
 	vote_generator,
 	vote_cache,
+	vote_cache_processor,
 	hinting,
 	blockprocessor,
 	blockprocessor_source,
@@ -60,11 +62,13 @@ enum class type
 	bootstrap_server_response,
 	active,
 	active_elections,
-	active_started,
-	active_confirmed,
-	active_dropped,
-	active_timeout,
-	active_cancelled,
+	active_elections_started,
+	active_elections_stopped,
+	active_elections_confirmed,
+	active_elections_dropped,
+	active_elections_timeout,
+	active_elections_cancelled,
+	active_elections_cemented,
 	backlog,
 	unchecked,
 	election_scheduler,
@@ -115,6 +119,12 @@ enum class detail
 	cache,
 	rebroadcast,
 	queue_overflow,
+	triggered,
+	notify,
+	duplicate,
+	confirmed,
+	unconfirmed,
+	cemented,
 
 	// processing queue
 	queue,
@@ -366,11 +376,18 @@ enum class detail
 
 	// backlog
 	activated,
+	activate_failed,
+	activate_skip,
+	activate_full,
 
 	// active
 	insert,
 	insert_failed,
 	election_cleanup,
+
+	// active_elections
+	started,
+	stopped,
 
 	// unchecked
 	put,
@@ -439,16 +456,25 @@ enum class detail
 	tier_2,
 	tier_3,
 
-	// election state
+	// confirming_set
+	notify_cemented,
+	notify_already_cemented,
+	already_cemented,
+
+	// election_state
 	passive,
 	active,
-	confirmed,
 	expired_confirmed,
 	expired_unconfirmed,
 	cancelled,
 
+	// election_status_type
+	ongoing,
+	active_confirmed_quorum,
+	active_confirmation_height,
+	inactive_confirmation_height,
+
 	// election bucket
-	activate_failed,
 	activate_success,
 	cancel_lowest,
 
@@ -470,6 +496,7 @@ enum class sample
 
 	active_election_duration,
 	bootstrap_tag_duration,
+	rep_response_time,
 
 	_last // Must be the last enum
 };

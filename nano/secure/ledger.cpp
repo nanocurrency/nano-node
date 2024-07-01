@@ -732,9 +732,11 @@ nano::ledger::~ledger ()
 {
 }
 
-auto nano::ledger::tx_begin_write (std::vector<nano::tables> const & tables_to_lock, std::vector<nano::tables> const & tables_no_lock) const -> secure::write_transaction
+auto nano::ledger::tx_begin_write (std::vector<nano::tables> const & tables_to_lock, nano::store::writer guard_type) const -> secure::write_transaction
 {
-	return secure::write_transaction{ store.tx_begin_write (tables_to_lock, tables_no_lock) };
+	auto guard = store.write_queue.wait (guard_type);
+	auto txn = store.tx_begin_write (tables_to_lock);
+	return secure::write_transaction{ std::move (txn), std::move (guard) };
 }
 
 auto nano::ledger::tx_begin_read () const -> secure::read_transaction

@@ -28,7 +28,7 @@ nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::
 	stats (stats_a),
 	logger (logger_a),
 	is_final (is_final_a),
-	vote_generation_queue{ stats, nano::stat::type::vote_generator, nano::thread_role::name::vote_generator_queue, /* single threaded */ 1, /* max queue size */ 1024 * 32, /* max batch size */ 1024 * 4 },
+	vote_generation_queue{ stats, nano::stat::type::vote_generator, nano::thread_role::name::vote_generator_queue, /* single threaded */ 1, /* max queue size */ 1024 * 32, /* max batch size */ 256 },
 	inproc_channel{ std::make_shared<nano::transport::inproc::channel> (node, node) }
 {
 	vote_generation_queue.process_batch = [this] (auto & batch) {
@@ -38,20 +38,29 @@ nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::
 
 nano::vote_generator::~vote_generator ()
 {
-	stop ();
+	debug_assert (stopped);
+	debug_assert (!thread.joinable ());
 }
 
-bool nano::vote_generator::should_vote (secure::write_transaction const & transaction, nano::root const & root_a, nano::block_hash const & hash_a)
+bool nano::vote_generator::should_vote (transaction_variant_t const & transaction_variant, nano::root const & root_a, nano::block_hash const & hash_a) const
 {
-	auto block = ledger.any.block_get (transaction, hash_a);
 	bool should_vote = false;
+	std::shared_ptr<nano::block> block;
 	if (is_final)
 	{
+		debug_assert (std::holds_alternative<nano::secure::write_transaction> (transaction_variant));
+		auto const & transaction = std::get<nano::secure::write_transaction> (transaction_variant);
+
+		block = ledger.any.block_get (transaction, hash_a);
 		should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block) && ledger.store.final_vote.put (transaction, block->qualified_root (), hash_a);
 		debug_assert (block == nullptr || root_a == block->root ());
 	}
 	else
 	{
+		debug_assert (std::holds_alternative<nano::secure::read_transaction> (transaction_variant));
+		auto const & transaction = std::get<nano::secure::read_transaction> (transaction_variant);
+
+		block = ledger.any.block_get (transaction, hash_a);
 		should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block);
 	}
 
@@ -94,24 +103,44 @@ void nano::vote_generator::add (const root & root, const block_hash & hash)
 
 void nano::vote_generator::process_batch (std::deque<queue_entry_t> & batch)
 {
-	std::deque<candidate_t> candidates_new;
-	{
-		auto guard = ledger.store.write_queue.wait (is_final ? nano::store::writer::voting_final : nano::store::writer::voting);
-		auto transaction = ledger.tx_begin_write ({ tables::final_votes });
+	std::deque<candidate_t> verified;
 
+	auto refresh_if_needed = [] (auto && transaction_variant) {
+		std::visit ([&] (auto && transaction) { transaction.refresh_if_needed (); }, transaction_variant);
+	};
+
+	auto verify_batch = [this, &verified, &refresh_if_needed] (auto && transaction_variant, auto && batch) {
 		for (auto & [root, hash] : batch)
 		{
-			if (should_vote (transaction, root, hash))
+			refresh_if_needed (transaction_variant);
+
+			if (should_vote (transaction_variant, root, hash))
 			{
-				candidates_new.emplace_back (root, hash);
+				verified.emplace_back (root, hash);
 			}
 		}
+	};
+
+	if (is_final)
+	{
+		transaction_variant_t transaction_variant{ ledger.tx_begin_write ({ tables::final_votes }, nano::store::writer::voting_final) };
+
+		verify_batch (transaction_variant, batch);
+
 		// Commit write transaction
 	}
-	if (!candidates_new.empty ())
+	else
+	{
+		transaction_variant_t transaction_variant{ ledger.tx_begin_read () };
+
+		verify_batch (transaction_variant, batch);
+	}
+
+	// Submit verified candidates to the main processing thread
+	if (!verified.empty ())
 	{
 		nano::unique_lock<nano::mutex> lock{ mutex };
-		candidates.insert (candidates.end (), candidates_new.begin (), candidates_new.end ());
+		candidates.insert (candidates.end (), verified.begin (), verified.end ());
 		if (candidates.size () >= nano::network::confirm_ack_hashes_max)
 		{
 			lock.unlock ();

@@ -115,18 +115,6 @@ TEST (buckets, construction)
 	ASSERT_EQ (62, buckets.bucket_count ());
 }
 
-TEST (buckets, index_min)
-{
-	nano::scheduler::buckets buckets;
-	ASSERT_EQ (0, buckets.index (std::numeric_limits<nano::uint128_t>::min ()));
-}
-
-TEST (buckets, index_max)
-{
-	nano::scheduler::buckets buckets;
-	ASSERT_EQ (buckets.bucket_count () - 1, buckets.index (std::numeric_limits<nano::uint128_t>::max ()));
-}
-
 TEST (buckets, insert_Gxrb)
 {
 	nano::scheduler::buckets buckets;

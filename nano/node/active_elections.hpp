@@ -36,10 +36,11 @@ class confirming_set;
 class election;
 class vote;
 class stats;
+enum class election_state;
 }
 namespace nano::secure
 {
-class read_transaction;
+class transaction;
 }
 
 namespace nano
@@ -124,8 +125,6 @@ public:
 	bool empty () const;
 	std::size_t size () const;
 	bool publish (std::shared_ptr<nano::block> const &);
-	void block_cemented_callback (std::shared_ptr<nano::block> const &);
-	void block_already_cemented_callback (nano::block_hash const &);
 
 	/**
 	 * Maximum number of elections that should be present in this container
@@ -150,8 +149,10 @@ private:
 	nano::stat::type completion_type (nano::election const & election) const;
 	// Returns a list of elections sorted by difficulty, mutex must be locked
 	std::vector<std::shared_ptr<nano::election>> list_active_impl (std::size_t) const;
-	void activate_successors (nano::secure::read_transaction const & transaction, std::shared_ptr<nano::block> const & block);
-	void notify_observers (nano::secure::read_transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes);
+	void activate_successors (nano::secure::transaction const &, std::shared_ptr<nano::block> const & block);
+	void notify_observers (nano::secure::transaction const &, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes) const;
+	void block_cemented_callback (nano::secure::transaction const &, std::shared_ptr<nano::block> const & block, nano::block_hash const & confirmation_root);
+	void block_already_cemented_callback (nano::block_hash const & hash);
 
 private: // Dependencies
 	active_elections_config const & config;
@@ -201,4 +202,7 @@ public: // Tests
 };
 
 std::unique_ptr<container_info_component> collect_container_info (active_elections & active_elections, std::string const & name);
+
+nano::stat::type to_stat_type (nano::election_state);
+nano::stat::detail to_stat_detail (nano::election_state);
 }

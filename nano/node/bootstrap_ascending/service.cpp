@@ -31,20 +31,27 @@ nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano:
 	scoring{ config.bootstrap_ascending, config.network_params.network },
 	database_limiter{ config.bootstrap_ascending.database_requests_limit, 1.0 }
 {
-	// TODO: This is called from a very congested blockprocessor thread. Offload this work to a dedicated processing thread
 	block_processor.batch_processed.add ([this] (auto const & batch) {
+		bool should_notify = false;
 		{
 			nano::lock_guard<nano::mutex> lock{ mutex };
 
 			auto transaction = ledger.tx_begin_read ();
 			for (auto const & [result, context] : batch)
 			{
-				debug_assert (context.block != nullptr);
-				inspect (transaction, result, *context.block);
+				// Do not try to unnecessarily bootstrap live traffic chains
+				if (context.source == nano::block_source::bootstrap)
+				{
+					release_assert (context.block != nullptr);
+					inspect (transaction, result, *context.block);
+					should_notify = true;
+				}
 			}
 		}
-
-		condition.notify_all ();
+		if (should_notify)
+		{
+			condition.notify_all ();
+		}
 	});
 }
 
@@ -343,12 +350,14 @@ void nano::bootstrap_ascending::service::process (nano::asc_pull_ack const & mes
 	auto & tags_by_id = tags.get<tag_id> ();
 	if (tags_by_id.count (message.id) > 0)
 	{
+		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::reply);
+
 		auto iterator = tags_by_id.find (message.id);
 		auto tag = *iterator;
 		tags_by_id.erase (iterator);
 
-		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::reply);
-		stats.sample (nano::stat::sample::bootstrap_tag_duration, { 0, config.bootstrap_ascending.timeout }, nano::milliseconds_since_epoch () - tag.time);
+		// Track bootstrap request response time
+		stats.sample (nano::stat::sample::bootstrap_tag_duration, nano::milliseconds_since_epoch () - tag.time, { 0, config.bootstrap_ascending.timeout });
 
 		scoring.received_message (channel);
 

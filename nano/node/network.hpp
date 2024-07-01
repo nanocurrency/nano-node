@@ -2,8 +2,11 @@
 
 #include <nano/lib/logging.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/messages.hpp>
 #include <nano/node/peer_exclusion.hpp>
-#include <nano/node/transport/tcp.hpp>
+#include <nano/node/transport/common.hpp>
+#include <nano/node/transport/fwd.hpp>
+#include <nano/node/transport/tcp_channels.hpp>
 #include <nano/secure/network_filter.hpp>
 
 #include <deque>
@@ -56,7 +59,7 @@ class network_config final
 public:
 	explicit network_config (nano::network_constants const & network)
 	{
-		if (network.is_dev_network ())
+		if (network.is_dev_network () || network.is_beta_network ())
 		{
 			// During tests, all peers are on localhost
 			max_peers_per_ip = 256;

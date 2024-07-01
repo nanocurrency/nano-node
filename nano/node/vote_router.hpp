@@ -59,7 +59,6 @@ public:
 	// If 'filter' parameter is non-zero, only elections for the specified hash are notified.
 	// This eliminates duplicate processing when triggering votes from the vote_cache as the result of a specific election being created.
 	std::unordered_map<nano::block_hash, nano::vote_code> vote (std::shared_ptr<nano::vote> const &, nano::vote_source = nano::vote_source::live, nano::block_hash filter = { 0 });
-	bool trigger_vote_cache (nano::block_hash const & hash);
 	bool active (nano::block_hash const & hash) const;
 	std::shared_ptr<nano::election> election (nano::block_hash const & hash) const;
 

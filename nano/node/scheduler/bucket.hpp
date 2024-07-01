@@ -41,7 +41,7 @@ public:
 	bool activate ();
 	void update ();
 
-	void push (uint64_t time, std::shared_ptr<nano::block> block);
+	bool push (uint64_t time, std::shared_ptr<nano::block> block);
 
 	size_t size () const;
 	size_t election_count () const;

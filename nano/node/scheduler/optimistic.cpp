@@ -55,31 +55,30 @@ void nano::scheduler::optimistic::notify ()
 	condition.notify_all ();
 }
 
-bool nano::scheduler::optimistic::activate_predicate (nano::secure::transaction const & transaction, nano::account const & account) const
+bool nano::scheduler::optimistic::activate_predicate (const nano::account_info & account_info, const nano::confirmation_height_info & conf_info) const
 {
-	auto unconfirmed_height = ledger.any.account_height (transaction, account);
-	auto confirmed_height = ledger.confirmed.account_height (transaction, account);
-	// Account with nothing confirmed yet
-	if (confirmed_height == 0)
+	// Chain with a big enough gap between account frontier and confirmation frontier
+	if (account_info.block_count - conf_info.height > config.gap_threshold)
 	{
 		return true;
 	}
-	// Chain with a big enough gap between account frontier and confirmation frontier
-	if (unconfirmed_height - confirmed_height > config.gap_threshold)
+	// Account with nothing confirmed yet
+	if (conf_info.height == 0)
 	{
 		return true;
 	}
 	return false;
 }
 
-bool nano::scheduler::optimistic::activate (nano::secure::transaction const & transaction, nano::account const & account)
+bool nano::scheduler::optimistic::activate (const nano::account & account, const nano::account_info & account_info, const nano::confirmation_height_info & conf_info)
 {
 	if (!config.enabled)
 	{
 		return false;
 	}
 
-	if (activate_predicate (transaction, account))
+	debug_assert (account_info.block_count >= conf_info.height);
+	if (activate_predicate (account_info, conf_info))
 	{
 		{
 			nano::lock_guard<nano::mutex> lock{ mutex };

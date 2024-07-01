@@ -1145,7 +1145,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 
 	nano::block_hash block_hash_being_processed{ 0 };
 	nano::store::write_queue write_queue{ false };
-	nano::confirming_set confirming_set{ ledger };
+	nano::confirming_set confirming_set{ ledger, stats };
 
 	auto const num_accounts = 100000;
 
@@ -2096,7 +2096,7 @@ TEST (system, block_sequence)
 	size_t const pr_count = 4;
 	size_t const listeners_per_pr = 0;
 	nano::test::system system;
-	std::vector<nano::keypair> reps;
+	std::deque<nano::keypair> reps;
 	for (auto i = 0; i < pr_count; ++i)
 	{
 		reps.push_back (nano::keypair{});

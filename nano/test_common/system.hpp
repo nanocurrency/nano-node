@@ -27,7 +27,7 @@ namespace test
 
 		void stop ();
 
-		void ledger_initialization_set (std::vector<nano::keypair> const & reps, nano::amount const & reserve = 0);
+		void ledger_initialization_set (std::deque<nano::keypair> const & reps, nano::amount const & reserve = 0);
 		void generate_activity (nano::node &, std::vector<nano::account> &);
 		void generate_mass_activity (uint32_t, nano::node &);
 		void generate_usage_traffic (uint32_t, uint32_t, size_t);
@@ -87,7 +87,7 @@ namespace test
 		std::chrono::time_point<std::chrono::steady_clock, std::chrono::duration<double>> deadline{ std::chrono::steady_clock::time_point::max () };
 		double deadline_scaling_factor{ 1.0 };
 		unsigned node_sequence{ 0 };
-		std::vector<std::shared_ptr<nano::block>> initialization_blocks;
+		std::deque<std::shared_ptr<nano::block>> initialization_blocks;
 	};
 
 	std::shared_ptr<nano::state_block> upgrade_epoch (nano::work_pool &, nano::ledger &, nano::epoch);

@@ -4,7 +4,6 @@
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/transport/tcp.hpp>
 
 #include <boost/format.hpp>
 
@@ -16,7 +15,7 @@ constexpr double nano::bootstrap_limits::bootstrap_minimum_termination_time_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_max_new_connections;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_processed_blocks_factor;
 
-nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> const & node_a, std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::transport::socket> const & socket_a) :
+nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> const & node_a, std::shared_ptr<nano::transport::tcp_channel> const & channel_a, std::shared_ptr<nano::transport::tcp_socket> const & socket_a) :
 	node (node_a),
 	channel (channel_a),
 	socket (socket_a),
@@ -152,7 +151,7 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::find_connec
 void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & endpoint_a, bool push_front)
 {
 	++connections_count;
-	auto socket (std::make_shared<nano::transport::socket> (node));
+	auto socket (std::make_shared<nano::transport::tcp_socket> (node));
 	auto this_l (shared_from_this ());
 	socket->async_connect (endpoint_a,
 	[this_l, socket, endpoint_a, push_front] (boost::system::error_code const & ec) {
@@ -160,7 +159,7 @@ void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & end
 		{
 			this_l->node.logger.debug (nano::log::type::bootstrap, "Connection established to: {}", nano::util::to_str (endpoint_a));
 
-			auto client (std::make_shared<nano::bootstrap_client> (this_l->node.shared (), std::make_shared<nano::transport::channel_tcp> (*this_l->node.shared (), socket), socket));
+			auto client (std::make_shared<nano::bootstrap_client> (this_l->node.shared (), std::make_shared<nano::transport::tcp_channel> (*this_l->node.shared (), socket), socket));
 			this_l->pool_connection (client, true, push_front);
 		}
 		else

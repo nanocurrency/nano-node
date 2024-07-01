@@ -10,6 +10,7 @@
 [![Tests](https://github.com/nanocurrency/nano-node/workflows/Tests/badge.svg)](https://github.com/nanocurrency/nano-node/actions?query=workflow%3ATests)
 [![RelWithDebug Tests](https://github.com/nanocurrency/nano-node/workflows/Release%20Tests/badge.svg)](https://github.com/nanocurrency/nano-node/actions?query=workflow%3A%22Release+Tests%22)
 [![Discord](https://img.shields.io/badge/discord-join%20chat-orange.svg)](https://chat.nano.org)
+[![Nano CT Status](https://raw.githubusercontent.com/gr0vity-dev/nano-node-builder/main/status_latest.svg)](https://ct.bnano.info)
 
 ---
 

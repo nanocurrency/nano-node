@@ -152,6 +152,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	stats{ logger, config.stats_config },
 	workers{ config.background_threads, nano::thread_role::name::worker },
 	bootstrap_workers{ config.bootstrap_serving_threads, nano::thread_role::name::bootstrap_worker },
+	wallet_workers{ 1, nano::thread_role::name::wallet_worker },
+	election_workers{ 1, nano::thread_role::name::election_worker },
 	flags (flags_a),
 	work (work_a),
 	distributed_work (*this),
@@ -184,7 +186,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	application_path (application_path_a),
 	port_mapping (*this),
 	block_processor (*this),
-	confirming_set_impl{ std::make_unique<nano::confirming_set> (ledger, config.confirming_set_batch_time) },
+	confirming_set_impl{ std::make_unique<nano::confirming_set> (ledger, stats) },
 	confirming_set{ *confirming_set_impl },
 	active_impl{ std::make_unique<nano::active_elections> (*this, confirming_set, block_processor) },
 	active{ *active_impl },
@@ -200,6 +202,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	vote_router{ *vote_router_impl },
 	vote_processor_impl{ std::make_unique<nano::vote_processor> (config.vote_processor, vote_router, observers, stats, flags, logger, online_reps, rep_crawler, ledger, network_params, rep_tiers) },
 	vote_processor{ *vote_processor_impl },
+	vote_cache_processor_impl{ std::make_unique<nano::vote_cache_processor> (config.vote_processor, vote_router, vote_cache, stats, logger) },
+	vote_cache_processor{ *vote_cache_processor_impl },
 	generator_impl{ std::make_unique<nano::vote_generator> (config, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* non-final */ false) },
 	generator{ *generator_impl },
 	final_generator_impl{ std::make_unique<nano::vote_generator> (config, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* final */ true) },
@@ -209,7 +213,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	aggregator_impl{ std::make_unique<nano::request_aggregator> (config.request_aggregator, *this, stats, generator, final_generator, history, ledger, wallets, vote_router) },
 	aggregator{ *aggregator_impl },
 	wallets (wallets_store.init_error (), *this),
-	backlog{ nano::backlog_population_config (config), ledger, stats },
+	backlog{ nano::backlog_population_config (config), scheduler, ledger, stats },
 	ascendboot{ config, block_processor, ledger, network, stats },
 	websocket{ config.websocket_config, observers, wallets, ledger, io_ctx, logger },
 	epoch_upgrader{ *this, ledger, store, network_params, logger },
@@ -231,11 +235,6 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	vote_cache.rep_weight_query = [this] (nano::account const & rep) {
 		return ledger.weight (rep);
 	};
-
-	backlog.activate_callback.add ([this] (secure::transaction const & transaction, nano::account const & account) {
-		scheduler.priority.activate (transaction, account);
-		scheduler.optimistic.activate (transaction, account);
-	});
 
 	vote_router.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
 		if (source != nano::vote_source::cache)
@@ -339,24 +338,6 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			});
 		}
 
-		// Add block confirmation type stats regardless of http-callback and websocket subscriptions
-		observers.blocks.add ([this] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
-			debug_assert (status_a.type != nano::election_status_type::ongoing);
-			switch (status_a.type)
-			{
-				case nano::election_status_type::active_confirmed_quorum:
-					this->stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out);
-					break;
-				case nano::election_status_type::active_confirmation_height:
-					this->stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::active_conf_height, nano::stat::dir::out);
-					break;
-				case nano::election_status_type::inactive_confirmation_height:
-					this->stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out);
-					break;
-				default:
-					break;
-			}
-		});
 		observers.endpoint.add ([this] (std::shared_ptr<nano::transport::channel> const & channel_a) {
 			this->network.send_keepalive_self (channel_a);
 		});
@@ -497,9 +478,10 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			}
 		}
 		confirming_set.cemented_observers.add ([this] (auto const & block) {
+			// TODO: Is it neccessary to call this for all blocks?
 			if (block->is_send ())
 			{
-				workers.push_task ([this, hash = block->hash (), destination = block->destination ()] () {
+				wallet_workers.push_task ([this, hash = block->hash (), destination = block->destination ()] () {
 					wallets.receive_confirmed (hash, destination);
 				});
 			}
@@ -591,10 +573,14 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (node.tcp_listener.collect_container_info ("tcp_listener"));
 	composite->add_component (collect_container_info (node.network, "network"));
 	composite->add_component (node.telemetry.collect_container_info ("telemetry"));
-	composite->add_component (collect_container_info (node.workers, "workers"));
+	composite->add_component (node.workers.collect_container_info ("workers"));
+	composite->add_component (node.bootstrap_workers.collect_container_info ("bootstrap_workers"));
+	composite->add_component (node.wallet_workers.collect_container_info ("wallet_workers"));
+	composite->add_component (node.election_workers.collect_container_info ("election_workers"));
 	composite->add_component (collect_container_info (node.observers, "observers"));
 	composite->add_component (collect_container_info (node.wallets, "wallets"));
 	composite->add_component (node.vote_processor.collect_container_info ("vote_processor"));
+	composite->add_component (node.vote_cache_processor.collect_container_info ("vote_cache_processor"));
 	composite->add_component (node.rep_crawler.collect_container_info ("rep_crawler"));
 	composite->add_component (node.block_processor.collect_container_info ("block_processor"));
 	composite->add_component (collect_container_info (node.online_reps, "online_reps"));
@@ -631,7 +617,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 
 nano::block_status nano::node::process (std::shared_ptr<nano::block> block)
 {
-	auto const transaction = ledger.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights });
+	auto const transaction = ledger.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights }, nano::store::writer::node);
 	return process (transaction, block);
 }
 
@@ -713,6 +699,7 @@ void nano::node::start ()
 	wallets.start ();
 	rep_tiers.start ();
 	vote_processor.start ();
+	vote_cache_processor.start ();
 	block_processor.start ();
 	active.start ();
 	generator.start ();
@@ -746,6 +733,9 @@ void nano::node::stop ()
 
 	logger.info (nano::log::type::node, "Node stopping...");
 
+	bootstrap_workers.stop ();
+	wallet_workers.stop ();
+	election_workers.stop ();
 	vote_router.stop ();
 	peer_history.stop ();
 	// Cancels ongoing work generation tasks, which may be blocking other threads
@@ -757,6 +747,7 @@ void nano::node::stop ()
 	unchecked.stop ();
 	block_processor.stop ();
 	aggregator.stop ();
+	vote_cache_processor.stop ();
 	vote_processor.stop ();
 	rep_tiers.stop ();
 	scheduler.stop ();
@@ -1042,8 +1033,7 @@ void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_wei
 		transaction_write_count = 0;
 		if (!pruning_targets.empty () && !stopped)
 		{
-			auto scoped_write_guard = store.write_queue.wait (nano::store::writer::pruning);
-			auto write_transaction = ledger.tx_begin_write ({ tables::blocks, tables::pruned });
+			auto write_transaction = ledger.tx_begin_write ({ tables::blocks, tables::pruned }, nano::store::writer::pruning);
 			while (!pruning_targets.empty () && transaction_write_count < batch_size_a && !stopped)
 			{
 				auto const & pruning_hash (pruning_targets.front ());
@@ -1260,7 +1250,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 	{
 		iteration_a++;
 		std::weak_ptr<nano::node> node_w (shared ());
-		workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a] () {
+		election_workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a] () {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->process_confirmed (status_a, iteration_a);

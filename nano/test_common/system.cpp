@@ -206,7 +206,7 @@ void nano::test::system::stop_node (nano::node & node)
 	debug_assert (!ec);
 }
 
-void nano::test::system::ledger_initialization_set (std::vector<nano::keypair> const & reps, nano::amount const & reserve)
+void nano::test::system::ledger_initialization_set (std::deque<nano::keypair> const & reps, nano::amount const & reserve)
 {
 	nano::block_hash previous = nano::dev::genesis->hash ();
 	auto amount = (nano::dev::constants.genesis_amount - reserve.number ()) / reps.size ();

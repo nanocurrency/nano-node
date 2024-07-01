@@ -108,6 +108,7 @@ enum class detail
 	// active_elections
 	active_started,
 	active_stopped,
+	active_cemented,
 
 	// election
 	election_confirmed,

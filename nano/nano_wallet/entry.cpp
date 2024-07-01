@@ -5,7 +5,6 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/thread_runner.hpp>
-#include <nano/lib/tlsconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/walletconfig.hpp>
@@ -109,22 +108,9 @@ int run_wallet (QApplication & application, int argc, char * const * argv, std::
 	{
 		nano::set_use_memory_pools (config.node.use_memory_pools);
 
-		auto tls_config (std::make_shared<nano::tls_config> ());
-		error = nano::read_tls_config_toml (data_path, *tls_config, logger);
-		if (error)
-		{
-			splash->hide ();
-			show_error (error.get_message ());
-			std::exit (1);
-		}
-		else
-		{
-			config.node.websocket_config.tls_config = tls_config;
-		}
-
 		std::shared_ptr<boost::asio::io_context> io_ctx = std::make_shared<boost::asio::io_context> ();
 
-		nano::thread_runner runner (io_ctx, logger, config.node.io_threads);
+		nano::thread_runner runner (io_ctx, logger, config.node.io_threads, nano::thread_role::name::io_daemon);
 
 		std::shared_ptr<nano::node> node;
 		std::shared_ptr<nano_qt::wallet> gui;
@@ -190,7 +176,6 @@ int run_wallet (QApplication & application, int argc, char * const * argv, std::
 						show_error (error.get_message ());
 						std::exit (1);
 					}
-					rpc_config.tls_config = tls_config;
 					rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc, config.rpc);
 					rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
 					rpc->start ();

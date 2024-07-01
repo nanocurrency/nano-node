@@ -155,20 +155,22 @@ add_library(
   telemetry.cpp
   transport/channel.hpp
   transport/channel.cpp
+  transport/tcp_channel.hpp
+  transport/tcp_channel.cpp
   transport/fake.hpp
   transport/fake.cpp
   transport/inproc.hpp
   transport/inproc.cpp
   transport/message_deserializer.hpp
   transport/message_deserializer.cpp
-  transport/socket.hpp
-  transport/socket.cpp
-  transport/tcp.hpp
-  transport/tcp.cpp
+  transport/tcp_channels.hpp
+  transport/tcp_channels.cpp
   transport/tcp_listener.hpp
   transport/tcp_listener.cpp
   transport/tcp_server.hpp
   transport/tcp_server.cpp
+  transport/tcp_socket.hpp
+  transport/tcp_socket.cpp
   transport/transport.hpp
   transport/transport.cpp
   unchecked_map.cpp

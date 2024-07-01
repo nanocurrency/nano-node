@@ -48,6 +48,7 @@ class confirming_set;
 class message_processor;
 class node;
 class vote_processor;
+class vote_cache_processor;
 class vote_router;
 class work_pool;
 class peer_history;
@@ -154,6 +155,8 @@ public:
 	nano::stats stats;
 	nano::thread_pool workers;
 	nano::thread_pool bootstrap_workers;
+	nano::thread_pool wallet_workers;
+	nano::thread_pool election_workers;
 	nano::node_flags flags;
 	nano::work_pool & work;
 	nano::distributed_work_factory distributed_work;
@@ -194,6 +197,8 @@ public:
 	nano::vote_router & vote_router;
 	std::unique_ptr<nano::vote_processor> vote_processor_impl;
 	nano::vote_processor & vote_processor;
+	std::unique_ptr<nano::vote_cache_processor> vote_cache_processor_impl;
+	nano::vote_cache_processor & vote_cache_processor;
 	std::unique_ptr<nano::vote_generator> generator_impl;
 	nano::vote_generator & generator;
 	std::unique_ptr<nano::vote_generator> final_generator_impl;
