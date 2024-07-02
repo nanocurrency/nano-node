@@ -1242,18 +1242,20 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 	// Open rocksdb database
 	nano::rocksdb_config rocksdb_config;
 	rocksdb_config.enable = true;
+	rocksdb_config.memory_multiplier = std::numeric_limits<uint8_t>::max ();
 	auto rocksdb_store = nano::make_store (logger, data_path_a, nano::dev::constants, false, true, rocksdb_config);
 
 	if (!rocksdb_store->init_error ())
 	{
 		logger.info (nano::log::type::ledger, "Step 1 of 7: Converting blocks table");
 		std::atomic<std::size_t> count = 0;
+		auto refresh_interval = 20ms;
 		store.block.for_each_par (
-		[&rocksdb_store, &count, &logger] (store::read_transaction const & /*unused*/, auto i, auto n) {
+		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
+			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::blocks }));
 			for (; i != n; ++i)
 			{
-				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::blocks }));
-
+				rocksdb_transaction.refresh_if_needed (refresh_interval);
 				std::vector<uint8_t> vector;
 				{
 					nano::vectorstream stream (vector);
@@ -1273,10 +1275,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		logger.info (nano::log::type::ledger, "Step 2 of 7: Converting pending table");
 		count = 0;
 		store.pending.for_each_par (
-		[&rocksdb_store, &count, &logger] (store::read_transaction const & /*unused*/, auto i, auto n) {
+		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
+			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pending }));
 			for (; i != n; ++i)
 			{
-				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pending }));
+				rocksdb_transaction.refresh_if_needed (refresh_interval);
 				rocksdb_store->pending.put (rocksdb_transaction, i->first, i->second);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
@@ -1289,10 +1292,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		logger.info (nano::log::type::ledger, "Step 3 of 7: Converting confirmation_height table");
 		count = 0;
 		store.confirmation_height.for_each_par (
-		[&rocksdb_store, &count, &logger] (store::read_transaction const & /*unused*/, auto i, auto n) {
+		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
+			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::confirmation_height }));
 			for (; i != n; ++i)
 			{
-				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::confirmation_height }));
+				rocksdb_transaction.refresh_if_needed (refresh_interval);
 				rocksdb_store->confirmation_height.put (rocksdb_transaction, i->first, i->second);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
@@ -1305,10 +1309,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		logger.info (nano::log::type::ledger, "Step 4 of 7: Converting accounts table");
 		count = 0;
 		store.account.for_each_par (
-		[&rocksdb_store, &count, &logger] (store::read_transaction const & /*unused*/, auto i, auto n) {
+		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
+			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::accounts }));
 			for (; i != n; ++i)
 			{
-				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::accounts }));
+				rocksdb_transaction.refresh_if_needed (refresh_interval);
 				rocksdb_store->account.put (rocksdb_transaction, i->first, i->second);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
@@ -1321,10 +1326,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		logger.info (nano::log::type::ledger, "Step 5 of 7: Converting rep_weights table");
 		count = 0;
 		store.rep_weight.for_each_par (
-		[&rocksdb_store, &count, &logger] (store::read_transaction const & /*unused*/, auto i, auto n) {
+		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
+			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::rep_weights }));
 			for (; i != n; ++i)
 			{
-				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::rep_weights }));
+				rocksdb_transaction.refresh_if_needed (refresh_interval);
 				rocksdb_store->rep_weight.put (rocksdb_transaction, i->first, i->second.number ());
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
@@ -1337,10 +1343,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		logger.info (nano::log::type::ledger, "Step 6 of 7: Converting pruned table");
 		count = 0;
 		store.pruned.for_each_par (
-		[&rocksdb_store, &count, &logger] (store::read_transaction const & /*unused*/, auto i, auto n) {
+		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
+			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pruned }));
 			for (; i != n; ++i)
 			{
-				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pruned }));
+				rocksdb_transaction.refresh_if_needed (refresh_interval);
 				rocksdb_store->pruned.put (rocksdb_transaction, i->first);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
@@ -1353,10 +1360,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		logger.info (nano::log::type::ledger, "Step 7 of 7: Converting final_votes table");
 		count = 0;
 		store.final_vote.for_each_par (
-		[&rocksdb_store, &count, &logger] (store::read_transaction const & /*unused*/, auto i, auto n) {
+		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
+			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::final_votes }));
 			for (; i != n; ++i)
 			{
-				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::final_votes }));
+				rocksdb_transaction.refresh_if_needed (refresh_interval);
 				rocksdb_store->final_vote.put (rocksdb_transaction, i->first, i->second);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
