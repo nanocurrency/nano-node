@@ -12,6 +12,7 @@
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/message_processor.hpp>
+#include <nano/node/monitor.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/request_aggregator.hpp>
@@ -223,6 +224,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	process_live_dispatcher{ ledger, scheduler.priority, vote_cache, websocket },
 	peer_history_impl{ std::make_unique<nano::peer_history> (config.peer_history, store, network, logger, stats) },
 	peer_history{ *peer_history_impl },
+	monitor_impl{ std::make_unique<nano::monitor> (config.monitor, *this) },
+	monitor{ *monitor_impl },
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq)
 {
@@ -721,6 +724,7 @@ void nano::node::start ()
 	local_block_broadcaster.start ();
 	peer_history.start ();
 	vote_router.start ();
+	monitor.start ();
 
 	add_initial_peers ();
 }
@@ -770,6 +774,7 @@ void nano::node::stop ()
 	local_block_broadcaster.stop ();
 	message_processor.stop ();
 	network.stop (); // Stop network last to avoid killing in-use sockets
+	monitor.stop ();
 
 	// work pool is not stopped on purpose due to testing setup
 

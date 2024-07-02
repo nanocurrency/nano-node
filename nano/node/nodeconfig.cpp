@@ -249,6 +249,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	message_processor.serialize (message_processor_l);
 	toml.put_child ("message_processor", message_processor_l);
 
+	nano::tomlconfig monitor_l;
+	monitor.serialize (monitor_l);
+	toml.put_child ("monitor", monitor_l);
+
 	return toml.get_error ();
 }
 
@@ -364,6 +368,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto config_l = toml.get_required_child ("message_processor");
 			message_processor.deserialize (config_l);
+		}
+
+		if (toml.has_key ("monitor"))
+		{
+			auto config_l = toml.get_required_child ("monitor");
+			monitor.deserialize (config_l);
 		}
 
 		if (toml.has_key ("work_peers"))
