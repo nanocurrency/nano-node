@@ -309,7 +309,11 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 	auto blocks_l = election->blocks ();
 	node.vote_router.disconnect (*election);
 
-	roots.get<tag_root> ().erase (roots.get<tag_root> ().find (election->qualified_root));
+	// Erase root info
+	auto it = roots.get<tag_root> ().find (election->qualified_root);
+	release_assert (it != roots.get<tag_root> ().end ());
+	entry entry = *it;
+	roots.get<tag_root> ().erase (it);
 
 	node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::stopped);
 	node.stats.inc (nano::stat::type::active_elections, election->confirmed () ? nano::stat::detail::confirmed : nano::stat::detail::unconfirmed);
@@ -328,6 +332,11 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 	// Track election duration
 	node.stats.sample (nano::stat::sample::active_election_duration, election->duration ().count (), { 0, 1000 * 60 * 10 /* 0-10 minutes range */ });
 
+	// Notify observers without holding the lock
+	if (entry.erased_callback)
+	{
+		entry.erased_callback (election);
+	}
 	vacancy_update ();
 
 	for (auto const & [hash, block] : blocks_l)
@@ -388,7 +397,7 @@ void nano::active_elections::request_loop ()
 	}
 }
 
-nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<nano::block> const & block_a, nano::election_behavior election_behavior_a)
+nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<nano::block> const & block_a, nano::election_behavior election_behavior_a, erased_callback_t erased_callback_a)
 {
 	debug_assert (block_a);
 	debug_assert (block_a->has_sideband ());
@@ -416,7 +425,7 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 				node.online_reps.observe (rep_a);
 			};
 			result.election = nano::make_shared<nano::election> (node, block_a, nullptr, observe_rep_cb, election_behavior_a);
-			roots.get<tag_root> ().emplace (nano::active_elections::conflict_info{ root, result.election });
+			roots.get<tag_root> ().emplace (entry{ root, result.election, std::move (erased_callback_a) });
 			node.vote_router.connect (hash, result.election);
 
 			// Keep track of election count by election type
@@ -550,10 +559,12 @@ std::size_t nano::active_elections::election_winner_details_size ()
 
 void nano::active_elections::clear ()
 {
+	// TODO: Call erased_callback for each election
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		roots.clear ();
 	}
+
 	vacancy_update ();
 }
 
@@ -623,14 +634,12 @@ nano::stat::type nano::to_stat_type (nano::election_state state)
 		case election_state::expired_unconfirmed:
 			return nano::stat::type::active_elections_timeout;
 			break;
+		case election_state::cancelled:
+			return nano::stat::type::active_elections_cancelled;
+			break;
 	}
 	debug_assert (false);
 	return {};
-}
-
-nano::stat::detail nano::to_stat_detail (nano::election_state state)
-{
-	return nano::enum_util::cast<nano::stat::detail> (state);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::election_status_type type)

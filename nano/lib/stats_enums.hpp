@@ -27,6 +27,7 @@ enum class type
 	vote_processor_tier,
 	vote_processor_overfill,
 	election,
+	election_cleanup,
 	election_vote,
 	http_callback,
 	ipc,
@@ -68,10 +69,12 @@ enum class type
 	active_elections_confirmed,
 	active_elections_dropped,
 	active_elections_timeout,
+	active_elections_cancelled,
 	active_elections_cemented,
 	backlog,
 	unchecked,
 	election_scheduler,
+	election_bucket,
 	optimistic_scheduler,
 	handshake,
 	rep_crawler,
@@ -388,6 +391,7 @@ enum class detail
 	// active
 	insert,
 	insert_failed,
+	election_cleanup,
 
 	// active_elections
 	started,
@@ -470,6 +474,7 @@ enum class detail
 	active,
 	expired_confirmed,
 	expired_unconfirmed,
+	cancelled,
 
 	// election_status_type
 	ongoing,
@@ -485,6 +490,10 @@ enum class detail
 	rep_new,
 	rep_update,
 	update_online,
+
+	// election bucket
+	activate_success,
+	cancel_lowest,
 
 	_last // Must be the last enum
 };
