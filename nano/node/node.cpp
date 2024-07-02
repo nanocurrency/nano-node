@@ -733,6 +733,7 @@ void nano::node::stop ()
 
 	logger.info (nano::log::type::node, "Node stopping...");
 
+	tcp_listener.stop ();
 	bootstrap_workers.stop ();
 	wallet_workers.stop ();
 	election_workers.stop ();
@@ -759,7 +760,6 @@ void nano::node::stop ()
 	websocket.stop ();
 	bootstrap_server.stop ();
 	bootstrap_initiator.stop ();
-	tcp_listener.stop ();
 	port_mapping.stop ();
 	wallets.stop ();
 	stats.stop ();

@@ -222,6 +222,11 @@ bool nano::transport::tcp_listener::connect (asio::ip::address ip, uint16_t port
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
+	if (stopped)
+	{
+		return false; // Rejected
+	}
+
 	if (port == 0)
 	{
 		port = node.network_params.network.default_node_port;
@@ -370,6 +375,11 @@ auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket
 	auto const local_endpoint = raw_socket.local_endpoint ();
 
 	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	if (stopped)
+	{
+		return { accept_result::rejected };
+	}
 
 	if (auto result = check_limits (remote_endpoint.address (), type); result != accept_result::accepted)
 	{
