@@ -38,13 +38,9 @@ nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano:
 			auto transaction = ledger.tx_begin_read ();
 			for (auto const & [result, context] : batch)
 			{
-				// Do not try to unnecessarily bootstrap live traffic chains
-				if (context.source == nano::block_source::bootstrap)
-				{
-					release_assert (context.block != nullptr);
-					inspect (transaction, result, *context.block, context.source);
-					should_notify = true;
-				}
+				release_assert (context.block != nullptr);
+				inspect (transaction, result, *context.block, context.source);
+				should_notify = true;
 			}
 		}
 		if (should_notify)
