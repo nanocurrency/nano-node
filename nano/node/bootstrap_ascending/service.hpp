@@ -11,6 +11,7 @@
 #include <nano/node/bootstrap_ascending/iterators.hpp>
 #include <nano/node/bootstrap_ascending/peer_scoring.hpp>
 #include <nano/node/bootstrap_ascending/throttle.hpp>
+#include <nano/node/fwd.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -21,23 +22,8 @@
 
 namespace mi = boost::multi_index;
 
-namespace nano::secure
-{
-class transaction;
-}
-
 namespace nano
 {
-class block_processor;
-class ledger;
-class network;
-class node_config;
-
-namespace transport
-{
-	class channel;
-}
-
 namespace bootstrap_ascending
 {
 	class service
@@ -52,13 +38,16 @@ namespace bootstrap_ascending
 		/**
 		 * Process `asc_pull_ack` message coming from network
 		 */
-		void process (nano::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> channel);
+		void process (nano::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel>);
 
-	public: // Container info
-		std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name);
 		std::size_t blocked_size () const;
 		std::size_t priority_size () const;
 		std::size_t score_size () const;
+
+		bool blocked (nano::account const &) const;
+		float priority (nano::account const &) const;
+
+		std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name);
 
 	private: // Dependencies
 		nano::node_config & config;
@@ -93,7 +82,7 @@ namespace bootstrap_ascending
 
 	private:
 		/* Inspects a block that has been processed by the block processor */
-		void inspect (secure::transaction const &, nano::block_status const & result, nano::block const & block);
+		void inspect (nano::secure::transaction const &, nano::block_status const &, nano::block const &, nano::block_source const &);
 
 		void throttle_if_needed (nano::unique_lock<nano::mutex> & lock);
 		void run ();

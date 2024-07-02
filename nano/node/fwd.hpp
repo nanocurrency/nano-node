@@ -8,6 +8,7 @@ namespace nano
 {
 class active_elections;
 class confirming_set;
+class block_processor;
 class ledger;
 class local_block_broadcaster;
 class local_vote_history;
@@ -28,5 +29,6 @@ class vote_processor;
 class vote_router;
 class wallets;
 
+enum class block_source;
 enum class vote_code;
 }

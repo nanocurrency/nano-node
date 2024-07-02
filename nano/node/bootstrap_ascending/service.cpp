@@ -42,7 +42,7 @@ nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano:
 				if (context.source == nano::block_source::bootstrap)
 				{
 					release_assert (context.block != nullptr);
-					inspect (transaction, result, *context.block);
+					inspect (transaction, result, *context.block, context.source);
 					should_notify = true;
 				}
 			}
@@ -130,11 +130,23 @@ std::size_t nano::bootstrap_ascending::service::score_size () const
 	return scoring.size ();
 }
 
+bool nano::bootstrap_ascending::service::blocked (nano::account const & account) const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return accounts.blocked (account);
+}
+
+float nano::bootstrap_ascending::service::priority (nano::account const & account) const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return accounts.priority (account);
+}
+
 /** Inspects a block that has been processed by the block processor
 - Marks an account as blocked if the result code is gap source as there is no reason request additional blocks for this account until the dependency is resolved
 - Marks an account as forwarded if it has been recently referenced by a block that has been inserted.
  */
-void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx, nano::block_status const & result, nano::block const & block)
+void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx, nano::block_status const & result, nano::block const & block, nano::block_source const & block_source)
 {
 	auto const hash = block.hash ();
 
@@ -146,14 +158,23 @@ void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx
 
 			// If we've inserted any block in to an account, unmark it as blocked
 			accounts.unblock (account);
-			accounts.priority_up (account);
-			accounts.timestamp (account, /* reset timestamp */ true);
+
+			// Do not try to unnecessarily bootstrap live traffic chains
+			if (block_source == nano::block_source::bootstrap)
+			{
+				accounts.priority_up (account);
+				accounts.timestamp (account, /* reset timestamp */ true);
+			}
 
 			if (block.is_send ())
 			{
 				auto destination = block.destination ();
 				accounts.unblock (destination, hash); // Unblocking automatically inserts account into priority set
-				accounts.priority_up (destination);
+
+				if (block_source == nano::block_source::bootstrap)
+				{
+					accounts.priority_up (destination);
+				}
 			}
 		}
 		break;
@@ -163,7 +184,10 @@ void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx
 			const auto source = block.source_field ().value_or (block.link_field ().value_or (0).as_block_hash ());
 
 			// Mark account as blocked because it is missing the source block
-			accounts.block (account, source);
+			if (block_source == nano::block_source::bootstrap)
+			{
+				accounts.block (account, source);
+			}
 
 			// TODO: Track stats
 		}
@@ -188,7 +212,7 @@ void nano::bootstrap_ascending::service::wait_blockprocessor ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped && block_processor.size (nano::block_source::bootstrap) > config.bootstrap_ascending.block_wait_count)
 	{
-		condition.wait_for (lock, std::chrono::milliseconds{ config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; }); // Blockprocessor is relatively slow, sleeping here instead of using conditions
+		condition.wait_for (lock, std::chrono::milliseconds{ config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; });
 	}
 }
 
