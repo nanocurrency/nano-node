@@ -55,12 +55,22 @@ public:
 	bool operator< (const address_library_pair & other) const;
 	bool operator== (const address_library_pair & other) const;
 };
+
+constexpr std::size_t OPEN_FILE_DESCRIPTORS_LIMIT = 16384;
 }
 
 int main (int argc, char * const * argv)
 {
 	nano::set_umask (); // Make sure the process umask is set before any files are created
 	nano::logger::initialize (nano::log_config::cli_default ());
+
+	nano::set_file_descriptor_limit (OPEN_FILE_DESCRIPTORS_LIMIT);
+	auto const file_descriptor_limit = nano::get_file_descriptor_limit ();
+	nano::default_logger ().info (nano::log::type::daemon, "File descriptors limit: {}", file_descriptor_limit);
+	if (file_descriptor_limit < OPEN_FILE_DESCRIPTORS_LIMIT)
+	{
+		nano::default_logger ().warn (nano::log::type::daemon, "File descriptors limit is lower than the {} recommended. Node was unable to change it.", OPEN_FILE_DESCRIPTORS_LIMIT);
+	}
 
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 
