@@ -1146,7 +1146,8 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 
 	nano::block_hash block_hash_being_processed{ 0 };
 	nano::store::write_queue write_queue{ false };
-	nano::confirming_set confirming_set{ ledger, stats };
+	nano::confirming_set_config confirming_set_config{};
+	nano::confirming_set confirming_set{ confirming_set_config, ledger, stats };
 
 	auto const num_accounts = 100000;
 

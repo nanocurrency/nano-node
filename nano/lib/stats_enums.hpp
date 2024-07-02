@@ -99,6 +99,7 @@ enum class detail
 {
 	_invalid = 0, // Default value, should not be used
 
+	// common
 	all,
 	ok,
 	test,
@@ -128,6 +129,7 @@ enum class detail
 	confirmed,
 	unconfirmed,
 	cemented,
+	cooldown,
 
 	// processing queue
 	queue,
@@ -467,7 +469,9 @@ enum class detail
 	// confirming_set
 	notify_cemented,
 	notify_already_cemented,
+	notify_intermediate,
 	already_cemented,
+	cementing_hash,
 
 	// election_state
 	passive,

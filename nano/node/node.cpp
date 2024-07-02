@@ -188,7 +188,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	application_path (application_path_a),
 	port_mapping (*this),
 	block_processor (*this),
-	confirming_set_impl{ std::make_unique<nano::confirming_set> (ledger, stats) },
+	confirming_set_impl{ std::make_unique<nano::confirming_set> (config.confirming_set, ledger, stats) },
 	confirming_set{ *confirming_set_impl },
 	active_impl{ std::make_unique<nano::active_elections> (*this, confirming_set, block_processor) },
 	active{ *active_impl },

@@ -6,7 +6,7 @@
 #include <nano/node/make_store.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
-#include <nano/test_common/ledger.hpp>
+#include <nano/test_common/ledger_context.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -18,14 +18,16 @@ using namespace std::chrono_literals;
 
 TEST (confirming_set, construction)
 {
-	auto ctx = nano::test::context::ledger_empty ();
-	nano::confirming_set confirming_set (ctx.ledger (), ctx.stats ());
+	auto ctx = nano::test::ledger_empty ();
+	nano::confirming_set_config config{};
+	nano::confirming_set confirming_set{ config, ctx.ledger (), ctx.stats () };
 }
 
 TEST (confirming_set, add_exists)
 {
-	auto ctx = nano::test::context::ledger_send_receive ();
-	nano::confirming_set confirming_set (ctx.ledger (), ctx.stats ());
+	auto ctx = nano::test::ledger_send_receive ();
+	nano::confirming_set_config config{};
+	nano::confirming_set confirming_set{ config, ctx.ledger (), ctx.stats () };
 	auto send = ctx.blocks ()[0];
 	confirming_set.add (send->hash ());
 	ASSERT_TRUE (confirming_set.exists (send->hash ()));
@@ -33,8 +35,9 @@ TEST (confirming_set, add_exists)
 
 TEST (confirming_set, process_one)
 {
-	auto ctx = nano::test::context::ledger_send_receive ();
-	nano::confirming_set confirming_set (ctx.ledger (), ctx.stats ());
+	auto ctx = nano::test::ledger_send_receive ();
+	nano::confirming_set_config config{};
+	nano::confirming_set confirming_set{ config, ctx.ledger (), ctx.stats () };
 	std::atomic<int> count = 0;
 	std::mutex mutex;
 	std::condition_variable condition;
@@ -49,8 +52,9 @@ TEST (confirming_set, process_one)
 
 TEST (confirming_set, process_multiple)
 {
-	auto ctx = nano::test::context::ledger_send_receive ();
-	nano::confirming_set confirming_set (ctx.ledger (), ctx.stats ());
+	auto ctx = nano::test::ledger_send_receive ();
+	nano::confirming_set_config config{};
+	nano::confirming_set confirming_set{ config, ctx.ledger (), ctx.stats () };
 	std::atomic<int> count = 0;
 	std::mutex mutex;
 	std::condition_variable condition;
