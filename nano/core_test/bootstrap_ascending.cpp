@@ -120,10 +120,10 @@ TEST (account_sets, priority_up_down)
 	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::bootstrap_ascending::account_sets sets{ system.stats };
-	sets.priority_up (account);
-	ASSERT_EQ (sets.priority (account), nano::bootstrap_ascending::account_sets::priority_initial);
-	sets.priority_down (account);
-	ASSERT_EQ (sets.priority (account), nano::bootstrap_ascending::account_sets::priority_initial - nano::bootstrap_ascending::account_sets::priority_decrease);
+	ASSERT_EQ (sets.priority_up (account), sets.priority_initial);
+	ASSERT_EQ (sets.priority (account), sets.priority_initial);
+	ASSERT_EQ (sets.priority_down (account), sets.priority_initial - sets.priority_decrease);
+	ASSERT_EQ (sets.priority (account), sets.priority_initial - sets.priority_decrease);
 }
 
 // Check that priority downward saturates to 0.0f
@@ -135,12 +135,13 @@ TEST (account_sets, priority_down_sat)
 	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::bootstrap_ascending::account_sets sets{ system.stats };
-	sets.priority_up (account);
+	ASSERT_EQ (sets.priority_up (account), sets.priority_initial);
 	ASSERT_GT (sets.priority (account), 1.0f);
 	for (int n = 0; n < 1000; ++n)
 	{
 		sets.priority_down (account);
 	}
+	ASSERT_EQ (sets.priority_down (account), 0.0f);
 	ASSERT_EQ (0.0f, sets.priority (account));
 }
 
@@ -157,7 +158,8 @@ TEST (account_sets, saturate_priority)
 	{
 		sets.priority_up (account);
 	}
-	ASSERT_EQ (sets.priority (account), nano::bootstrap_ascending::account_sets::priority_max);
+	ASSERT_EQ (sets.priority_up (account), sets.priority_max);
+	ASSERT_EQ (sets.priority (account), sets.priority_max);
 }
 
 /**
