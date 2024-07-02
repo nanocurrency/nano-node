@@ -32,7 +32,6 @@ nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano:
 	database_limiter{ config.bootstrap_ascending.database_requests_limit, 1.0 }
 {
 	block_processor.batch_processed.add ([this] (auto const & batch) {
-		bool should_notify = false;
 		{
 			nano::lock_guard<nano::mutex> lock{ mutex };
 
@@ -41,13 +40,9 @@ nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano:
 			{
 				release_assert (context.block != nullptr);
 				inspect (transaction, result, *context.block, context.source);
-				should_notify = true;
 			}
 		}
-		if (should_notify)
-		{
-			condition.notify_all ();
-		}
+		condition.notify_all ();
 	});
 }
 
