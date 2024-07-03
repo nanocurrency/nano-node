@@ -64,12 +64,12 @@ int main (int argc, char * const * argv)
 	nano::set_umask (); // Make sure the process umask is set before any files are created
 	nano::logger::initialize (nano::log_config::cli_default ());
 
+	// Increase file descriptor limit
 	nano::set_file_descriptor_limit (OPEN_FILE_DESCRIPTORS_LIMIT);
 	auto const file_descriptor_limit = nano::get_file_descriptor_limit ();
-	nano::default_logger ().info (nano::log::type::daemon, "File descriptors limit: {}", file_descriptor_limit);
 	if (file_descriptor_limit < OPEN_FILE_DESCRIPTORS_LIMIT)
 	{
-		nano::default_logger ().warn (nano::log::type::daemon, "File descriptors limit is lower than the {} recommended. Node was unable to change it.", OPEN_FILE_DESCRIPTORS_LIMIT);
+		std::cerr << "WARNING: Current file descriptor limit of " << file_descriptor_limit << " is lower than the " << OPEN_FILE_DESCRIPTORS_LIMIT << " recommended. Node was unable to change it." << std::endl;
 	}
 
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
