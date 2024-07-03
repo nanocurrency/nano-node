@@ -3860,3 +3860,42 @@ TEST (node, process_local_overflow)
 	auto result = node.process_local (send1);
 	ASSERT_FALSE (result);
 }
+
+TEST (node, local_block_broadcast)
+{
+	nano::test::system system;
+
+	// Disable active elections to prevent the block from being broadcasted by the election
+	auto node_config = system.default_config ();
+	node_config.active_elections.size = 0;
+	node_config.local_block_broadcaster.rebroadcast_interval = 1s;
+	auto & node1 = *system.add_node (node_config);
+	auto & node2 = *system.make_disconnected_node ();
+
+	nano::keypair key1;
+	nano::send_block_builder builder;
+	auto latest_hash = nano::dev::genesis->hash ();
+	auto send1 = builder.make_block ()
+				 .previous (latest_hash)
+				 .destination (key1.pub)
+				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (latest_hash))
+				 .build ();
+
+	auto result = node1.process_local (send1);
+	ASSERT_TRUE (result);
+	ASSERT_NEVER (500ms, node1.active.active (send1->qualified_root ()));
+
+	// Wait until a broadcast is attempted
+	ASSERT_TIMELY_EQ (5s, node1.local_block_broadcaster.size (), 1);
+	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::local_block_broadcaster, nano::stat::detail::broadcast, nano::stat::dir::out) >= 1);
+
+	// The other node should not have received the block
+	ASSERT_NEVER (500ms, node2.block (send1->hash ()));
+
+	// Connect the nodes and check that the block is propagated
+	node1.network.merge_peer (node2.network.endpoint ());
+	ASSERT_TIMELY (5s, node1.network.find_node_id (node2.get_node_id ()));
+	ASSERT_TIMELY (10s, node2.block (send1->hash ()));
+}
