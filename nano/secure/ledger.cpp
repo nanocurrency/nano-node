@@ -1247,7 +1247,8 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 
 	if (!rocksdb_store->init_error ())
 	{
-		logger.info (nano::log::type::ledger, "Step 1 of 7: Converting blocks table");
+		auto table_size = store.count (store.tx_begin_read (), tables::blocks);
+		logger.info (nano::log::type::ledger, "Step 1 of 7: Converting {} million entries from blocks table", table_size / 1000000);
 		std::atomic<std::size_t> count = 0;
 		auto refresh_interval = 20ms;
 		store.block.for_each_par (
@@ -1270,9 +1271,10 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				}
 			}
 		});
-
 		logger.info (nano::log::type::ledger, "Finished converting {} blocks", count.load ());
-		logger.info (nano::log::type::ledger, "Step 2 of 7: Converting pending table");
+
+		table_size = store.count (store.tx_begin_read (), tables::pending);
+		logger.info (nano::log::type::ledger, "Step 2 of 7: Converting {} entries from pending table", table_size);
 		count = 0;
 		store.pending.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
@@ -1287,9 +1289,10 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				}
 			}
 		});
-
 		logger.info (nano::log::type::ledger, "Finished converting {} entries", count.load ());
-		logger.info (nano::log::type::ledger, "Step 3 of 7: Converting confirmation_height table");
+
+		table_size = store.count (store.tx_begin_read (), tables::confirmation_height);
+		logger.info (nano::log::type::ledger, "Step 3 of 7: Converting {} entries from confirmation_height table", table_size);
 		count = 0;
 		store.confirmation_height.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
@@ -1304,9 +1307,10 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				}
 			}
 		});
-
 		logger.info (nano::log::type::ledger, "Finished converting {} entries", count.load ());
-		logger.info (nano::log::type::ledger, "Step 4 of 7: Converting accounts table");
+
+		table_size = store.count (store.tx_begin_read (), tables::confirmation_height);
+		logger.info (nano::log::type::ledger, "Step 4 of 7: Converting {} entries from confirmation_height table", table_size);
 		count = 0;
 		store.account.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
@@ -1321,9 +1325,10 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				}
 			}
 		});
-
 		logger.info (nano::log::type::ledger, "Finished converting {} entries", count.load ());
-		logger.info (nano::log::type::ledger, "Step 5 of 7: Converting rep_weights table");
+
+		table_size = store.count (store.tx_begin_read (), tables::rep_weights);
+		logger.info (nano::log::type::ledger, "Step 5 of 7: Converting {} entries from rep_weights table", table_size);
 		count = 0;
 		store.rep_weight.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
@@ -1338,9 +1343,10 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				}
 			}
 		});
-
 		logger.info (nano::log::type::ledger, "Finished converting {} entries", count.load ());
-		logger.info (nano::log::type::ledger, "Step 6 of 7: Converting pruned table");
+
+		table_size = store.count (store.tx_begin_read (), tables::pruned);
+		logger.info (nano::log::type::ledger, "Step 6 of 7: Converting {} entries from pruned table", table_size);
 		count = 0;
 		store.pruned.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
@@ -1355,9 +1361,10 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				}
 			}
 		});
-
 		logger.info (nano::log::type::ledger, "Finished converting {} entries", count.load ());
-		logger.info (nano::log::type::ledger, "Step 7 of 7: Converting final_votes table");
+
+		table_size = store.count (store.tx_begin_read (), tables::final_votes);
+		logger.info (nano::log::type::ledger, "Step 7 of 7: Converting {} entries from final_votes table", table_size);
 		count = 0;
 		store.final_vote.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
