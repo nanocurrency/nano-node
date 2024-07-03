@@ -84,6 +84,7 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 int main (int argc, char * const * argv)
 {
 	nano::set_umask (); // Make sure the process umask is set before any files are created
+	nano::initialize_file_descriptor_limit ();
 	nano::logger::initialize (nano::log_config::cli_default ());
 
 	boost::program_options::options_description description ("Command line options");
