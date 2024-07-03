@@ -53,6 +53,16 @@ void nano::set_file_descriptor_limit (std::size_t limit)
 #endif
 }
 
+void nano::initialize_file_descriptor_limit ()
+{
+	nano::set_file_descriptor_limit (DEFAULT_FILE_DESCRIPTOR_LIMIT);
+	auto limit = nano::get_file_descriptor_limit ();
+	if (limit < DEFAULT_FILE_DESCRIPTOR_LIMIT)
+	{
+		std::cerr << "WARNING: Current file descriptor limit of " << limit << " is lower than the " << DEFAULT_FILE_DESCRIPTOR_LIMIT << " recommended. Node was unable to change it." << std::endl;
+	}
+}
+
 nano::container_info_composite::container_info_composite (std::string const & name) :
 	name (name)
 {

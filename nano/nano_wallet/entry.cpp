@@ -237,6 +237,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, std::
 int main (int argc, char * const * argv)
 {
 	nano::set_umask (); // Make sure the process umask is set before any files are created
+	nano::initialize_file_descriptor_limit ();
 	nano::logger::initialize (nano::log_config::cli_default ());
 
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
