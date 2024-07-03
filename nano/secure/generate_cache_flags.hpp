@@ -14,5 +14,17 @@ public:
 	bool block_count = true;
 
 	void enable_all ();
+
+public:
+	static generate_cache_flags all_disabled ()
+	{
+		generate_cache_flags flags;
+		flags.reps = false;
+		flags.cemented_count = false;
+		flags.unchecked_count = false;
+		flags.account_count = false;
+		flags.block_count = false;
+		return flags;
+	}
 };
 }
