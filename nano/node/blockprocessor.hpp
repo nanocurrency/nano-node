@@ -98,10 +98,6 @@ public:
 	void force (std::shared_ptr<nano::block> const &);
 	bool should_log ();
 
-	// TODO: Remove, used by legacy bootstrap
-	bool full () const;
-	bool half_full () const;
-
 	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
 
 	std::atomic<bool> flushing{ false };
