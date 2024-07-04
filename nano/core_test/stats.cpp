@@ -50,12 +50,12 @@ TEST (stats, samples)
 	nano::test::system system;
 	auto & node = *system.add_node ();
 
-	node.stats.sample (nano::stat::sample::active_election_duration, { 1, 10 }, 5);
-	node.stats.sample (nano::stat::sample::active_election_duration, { 1, 10 }, 5);
-	node.stats.sample (nano::stat::sample::active_election_duration, { 1, 10 }, 11);
-	node.stats.sample (nano::stat::sample::active_election_duration, { 1, 10 }, 37);
+	node.stats.sample (nano::stat::sample::active_election_duration, 5, { 1, 10 });
+	node.stats.sample (nano::stat::sample::active_election_duration, 5, { 1, 10 });
+	node.stats.sample (nano::stat::sample::active_election_duration, 11, { 1, 10 });
+	node.stats.sample (nano::stat::sample::active_election_duration, 37, { 1, 10 });
 
-	node.stats.sample (nano::stat::sample::bootstrap_tag_duration, { 1, 10 }, 2137);
+	node.stats.sample (nano::stat::sample::bootstrap_tag_duration, 2137, { 1, 10 });
 
 	auto samples1 = node.stats.samples (nano::stat::sample::active_election_duration);
 	ASSERT_EQ (4, samples1.size ());
@@ -67,7 +67,7 @@ TEST (stats, samples)
 	auto samples2 = node.stats.samples (nano::stat::sample::active_election_duration);
 	ASSERT_EQ (0, samples2.size ());
 
-	node.stats.sample (nano::stat::sample::active_election_duration, { 1, 10 }, 3);
+	node.stats.sample (nano::stat::sample::active_election_duration, 3, { 1, 10 });
 
 	auto samples3 = node.stats.samples (nano::stat::sample::active_election_duration);
 	ASSERT_EQ (1, samples3.size ());

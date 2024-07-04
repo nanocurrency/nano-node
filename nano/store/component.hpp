@@ -81,8 +81,10 @@ namespace store
 		store::final_vote & final_vote;
 		store::version & version;
 
+	public: // TODO: Shouldn't be public
 		store::write_queue write_queue;
 
+	public:
 		virtual unsigned max_block_write_batch_num () const = 0;
 
 		virtual bool copy_db (std::filesystem::path const & destination) = 0;

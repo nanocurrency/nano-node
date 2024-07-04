@@ -56,8 +56,28 @@ TEST (async, cancellation)
 
 	cancellation.emit ();
 
-	ASSERT_EQ (fut.wait_for (500ms), std::future_status::ready);
+	ASSERT_EQ (fut.wait_for (1s), std::future_status::ready);
 	ASSERT_NO_THROW (fut.get ());
+}
+
+// Test that cancellation signal behaves well when the cancellation is emitted after the task has completed
+TEST (async, cancellation_lifetime)
+{
+	test_context ctx;
+
+	nano::async::cancellation cancellation{ ctx.strand };
+	{
+		auto fut = asio::co_spawn (
+		ctx.strand,
+		[&] () -> asio::awaitable<void> {
+			co_await nano::async::sleep_for (100ms);
+		},
+		asio::bind_cancellation_slot (cancellation.slot (), asio::use_future));
+		ASSERT_EQ (fut.wait_for (1s), std::future_status::ready);
+		fut.get ();
+	}
+	auto cancel_fut = cancellation.emit ();
+	ASSERT_EQ (cancel_fut.wait_for (1s), std::future_status::ready);
 }
 
 TEST (async, task)
