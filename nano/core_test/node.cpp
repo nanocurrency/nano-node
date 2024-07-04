@@ -1817,6 +1817,7 @@ TEST (node, confirm_quorum)
 	ASSERT_EQ (0, node1.balance (nano::dev::genesis_key.pub));
 }
 
+// TODO: Local vote cache is no longer used when generating votes
 TEST (node, DISABLED_local_votes_cache)
 {
 	nano::test::system system;
@@ -1900,6 +1901,7 @@ TEST (node, DISABLED_local_votes_cache)
 // Test disabled because it's failing intermittently.
 // PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3532
 // Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3481
+// TODO: Local vote cache is no longer used when generating votes
 TEST (node, DISABLED_local_votes_cache_batch)
 {
 	nano::test::system system;
@@ -1973,6 +1975,7 @@ TEST (node, DISABLED_local_votes_cache_batch)
  * There is a cache for locally generated votes. This test checks that the node
  * properly caches and uses those votes when replying to confirm_req requests.
  */
+// TODO: Local vote cache is no longer used when generating votes
 TEST (node, DISABLED_local_votes_cache_generate_new_vote)
 {
 	nano::test::system system;
@@ -2019,7 +2022,8 @@ TEST (node, DISABLED_local_votes_cache_generate_new_vote)
 	ASSERT_TIMELY_EQ (3s, 3, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 }
 
-TEST (node, local_votes_cache_fork)
+// TODO: Local vote cache is no longer used when generating votes
+TEST (node, DISABLED_local_votes_cache_fork)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
