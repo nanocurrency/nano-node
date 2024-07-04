@@ -120,7 +120,7 @@ void nano::bulk_pull_client::throttled_receive_block ()
 		return;
 	}
 	debug_assert (!network_error);
-	if (!node->block_processor.half_full () && !node->block_processor.flushing)
+	if (node->block_processor.size (nano::block_source::bootstrap_legacy) < 1024 && !node->block_processor.flushing)
 	{
 		receive_block ();
 	}
