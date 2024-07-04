@@ -2602,51 +2602,6 @@ TEST (node, block_processor_reject_state)
 	ASSERT_TIMELY (5s, node.block_or_pruned_exists (send2->hash ()));
 }
 
-TEST (node, block_processor_full)
-{
-	nano::test::system system;
-	nano::node_flags node_flags;
-	node_flags.force_use_write_queue = true;
-	node_flags.block_processor_full_size = 3;
-	auto & node = *system.add_node (nano::node_config (system.get_available_port ()), node_flags);
-	nano::state_block_builder builder;
-	auto send1 = builder.make_block ()
-				 .account (nano::dev::genesis_key.pub)
-				 .previous (nano::dev::genesis->hash ())
-				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
-				 .link (nano::dev::genesis_key.pub)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*node.work_generate_blocking (nano::dev::genesis->hash ()))
-				 .build ();
-	auto send2 = builder.make_block ()
-				 .account (nano::dev::genesis_key.pub)
-				 .previous (nano::dev::genesis->hash ())
-				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - 2 * nano::Gxrb_ratio)
-				 .link (nano::dev::genesis_key.pub)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*node.work_generate_blocking (nano::dev::genesis->hash ()))
-				 .build ();
-	auto send3 = builder.make_block ()
-				 .account (nano::dev::genesis_key.pub)
-				 .previous (nano::dev::genesis->hash ())
-				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - 3 * nano::Gxrb_ratio)
-				 .link (nano::dev::genesis_key.pub)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*node.work_generate_blocking (nano::dev::genesis->hash ()))
-				 .build ();
-	node.block_processor.stop (); // Stop processing the block queue
-	node.block_processor.add (send1);
-	ASSERT_FALSE (node.block_processor.full ());
-	node.block_processor.add (send2);
-	ASSERT_FALSE (node.block_processor.full ());
-	node.block_processor.add (send3);
-	// Block processor may be not full during state blocks signatures verification
-	ASSERT_TIMELY (5s, node.block_processor.full ());
-}
-
 TEST (node, confirm_back)
 {
 	nano::test::system system (1);

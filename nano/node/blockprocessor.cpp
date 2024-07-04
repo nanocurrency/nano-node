@@ -119,16 +119,6 @@ std::size_t nano::block_processor::size (nano::block_source source) const
 	return queue.size ({ source });
 }
 
-bool nano::block_processor::full () const
-{
-	return size () >= node.flags.block_processor_full_size;
-}
-
-bool nano::block_processor::half_full () const
-{
-	return size () >= node.flags.block_processor_full_size / 2;
-}
-
 bool nano::block_processor::add (std::shared_ptr<nano::block> const & block, block_source const source, std::shared_ptr<nano::transport::channel> const & channel)
 {
 	if (node.network_params.work.validate_entry (*block)) // true => error
