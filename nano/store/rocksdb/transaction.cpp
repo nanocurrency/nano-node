@@ -56,20 +56,7 @@ void nano::store::rocksdb::write_transaction_impl::commit ()
 	if (active)
 	{
 		auto status = txn->Commit ();
-
-		// If there are no available memtables try again a few more times
-		constexpr auto num_attempts = 10;
-		auto attempt_num = 0;
-		while (status.IsTryAgain () && attempt_num < num_attempts)
-		{
-			status = txn->Commit ();
-			++attempt_num;
-		}
-
-		if (!status.ok ())
-		{
-			release_assert (false && "Unable to write to the RocksDB database", status.ToString ());
-		}
+		release_assert (status.ok () && "Unable to write to the RocksDB database", status.ToString ());
 		active = false;
 	}
 }
