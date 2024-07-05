@@ -1263,7 +1263,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				}
 				rocksdb_store->block.raw_put (rocksdb_transaction, vector, i->first);
 
-				if (auto count_l = ++count; count_l % 5000000 == 0)
+				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
 					rocksdb_transaction.commit ();
 					rocksdb_transaction.renew ();
