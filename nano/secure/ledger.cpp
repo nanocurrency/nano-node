@@ -1243,20 +1243,18 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 	nano::rocksdb_config rocksdb_config;
 	rocksdb_config.enable = true;
 	rocksdb_config.memory_multiplier = std::numeric_limits<uint8_t>::max ();
-	auto rocksdb_store = nano::make_store (logger, data_path_a, nano::dev::constants, false, true, rocksdb_config);
+	auto rocksdb_store = nano::make_store (logger, data_path_a, nano::dev::constants, false, true, rocksdb_config, nano::txn_tracking_config{}, std::chrono::milliseconds (1000));
 
 	if (!rocksdb_store->init_error ())
 	{
 		auto table_size = store.count (store.tx_begin_read (), tables::blocks);
 		logger.info (nano::log::type::ledger, "Step 1 of 7: Converting {} million entries from blocks table", table_size / 1000000);
 		std::atomic<std::size_t> count = 0;
-		auto refresh_interval = 20ms;
 		store.block.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
 			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::blocks }));
 			for (; i != n; ++i)
 			{
-				rocksdb_transaction.refresh_if_needed (refresh_interval);
 				std::vector<uint8_t> vector;
 				{
 					nano::vectorstream stream (vector);
@@ -1267,6 +1265,8 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 
 				if (auto count_l = ++count; count_l % 5000000 == 0)
 				{
+					rocksdb_transaction.commit ();
+					rocksdb_transaction.renew ();
 					logger.info (nano::log::type::ledger, "{} million blocks converted", count_l / 1000000);
 				}
 			}
@@ -1281,10 +1281,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pending }));
 			for (; i != n; ++i)
 			{
-				rocksdb_transaction.refresh_if_needed (refresh_interval);
 				rocksdb_store->pending.put (rocksdb_transaction, i->first, i->second);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
+					rocksdb_transaction.commit ();
+					rocksdb_transaction.renew ();
 					logger.info (nano::log::type::ledger, "{} entries converted", count_l);
 				}
 			}
@@ -1299,10 +1300,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::confirmation_height }));
 			for (; i != n; ++i)
 			{
-				rocksdb_transaction.refresh_if_needed (refresh_interval);
 				rocksdb_store->confirmation_height.put (rocksdb_transaction, i->first, i->second);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
+					rocksdb_transaction.commit ();
+					rocksdb_transaction.renew ();
 					logger.info (nano::log::type::ledger, "{} entries converted", count_l);
 				}
 			}
@@ -1317,10 +1319,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::accounts }));
 			for (; i != n; ++i)
 			{
-				rocksdb_transaction.refresh_if_needed (refresh_interval);
 				rocksdb_store->account.put (rocksdb_transaction, i->first, i->second);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
+					rocksdb_transaction.commit ();
+					rocksdb_transaction.renew ();
 					logger.info (nano::log::type::ledger, "{} entries converted", count_l);
 				}
 			}
@@ -1335,10 +1338,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::rep_weights }));
 			for (; i != n; ++i)
 			{
-				rocksdb_transaction.refresh_if_needed (refresh_interval);
 				rocksdb_store->rep_weight.put (rocksdb_transaction, i->first, i->second.number ());
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
+					rocksdb_transaction.commit ();
+					rocksdb_transaction.renew ();
 					logger.info (nano::log::type::ledger, "{} entries converted", count_l);
 				}
 			}
@@ -1353,10 +1357,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pruned }));
 			for (; i != n; ++i)
 			{
-				rocksdb_transaction.refresh_if_needed (refresh_interval);
 				rocksdb_store->pruned.put (rocksdb_transaction, i->first);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
+					rocksdb_transaction.commit ();
+					rocksdb_transaction.renew ();
 					logger.info (nano::log::type::ledger, "{} entries converted", count_l);
 				}
 			}
@@ -1371,10 +1376,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::final_votes }));
 			for (; i != n; ++i)
 			{
-				rocksdb_transaction.refresh_if_needed (refresh_interval);
 				rocksdb_store->final_vote.put (rocksdb_transaction, i->first, i->second);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
+					rocksdb_transaction.commit ();
+					rocksdb_transaction.renew ();
 					logger.info (nano::log::type::ledger, "{} entries converted", count_l);
 				}
 			}
