@@ -32,14 +32,14 @@ void * nano::store::rocksdb::read_transaction_impl::get_handle () const
 	return (void *)&options;
 }
 
-nano::store::rocksdb::write_transaction_impl::write_transaction_impl (::rocksdb::OptimisticTransactionDB * db_a, std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a, std::unordered_map<nano::tables, nano::mutex> & mutexes_a) :
+nano::store::rocksdb::write_transaction_impl::write_transaction_impl (::rocksdb::TransactionDB * db_a, std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a, std::unordered_map<nano::tables, nano::mutex> & mutexes_a) :
 	db (db_a),
 	tables_requiring_locks (tables_requiring_locks_a),
 	tables_no_locks (tables_no_locks_a),
 	mutexes (mutexes_a)
 {
 	lock ();
-	::rocksdb::OptimisticTransactionOptions txn_options;
+	::rocksdb::TransactionOptions txn_options;
 	txn_options.set_snapshot = true;
 	txn = db->BeginTransaction (::rocksdb::WriteOptions (), txn_options);
 }
@@ -76,7 +76,7 @@ void nano::store::rocksdb::write_transaction_impl::commit ()
 
 void nano::store::rocksdb::write_transaction_impl::renew ()
 {
-	::rocksdb::OptimisticTransactionOptions txn_options;
+	::rocksdb::TransactionOptions txn_options;
 	txn_options.set_snapshot = true;
 	db->BeginTransaction (::rocksdb::WriteOptions (), txn_options, txn);
 	active = true;
