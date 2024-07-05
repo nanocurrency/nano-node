@@ -33,12 +33,12 @@ namespace bootstrap_ascending
 		 * If the account does not exist in priority set and is not blocked, inserts a new entry.
 		 * Current implementation increases priority by 1.0f each increment
 		 */
-		void priority_up (nano::account const & account);
+		float priority_up (nano::account const & account);
 		/**
 		 * Decreases account priority
 		 * Current implementation divides priority by 2.0f and saturates down to 1.0f.
 		 */
-		void priority_down (nano::account const & account);
+		float priority_down (nano::account const & account);
 		void block (nano::account const & account, nano::block_hash const & dependency);
 		void unblock (nano::account const & account, std::optional<nano::block_hash> const & hash = std::nullopt);
 		void timestamp (nano::account const & account, bool reset = false);
