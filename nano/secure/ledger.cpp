@@ -1265,7 +1265,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 	// Open rocksdb database
 	nano::rocksdb_config rocksdb_config;
 	rocksdb_config.enable = true;
-	rocksdb_config.memory_multiplier = std::numeric_limits<uint8_t>::max ();
+	//rocksdb_config.memory_multiplier = 4;
 	auto rocksdb_store = nano::make_store (logger, data_path_a, nano::dev::constants, false, true, rocksdb_config);
 
 	if (!rocksdb_store->init_error ())
@@ -1273,7 +1273,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		auto table_size = store.count (store.tx_begin_read (), tables::blocks);
 		logger.info (nano::log::type::ledger, "Step 1 of 7: Converting {} million entries from blocks table", table_size / 1000000);
 		std::atomic<std::size_t> count = 0;
-		auto refresh_interval = 20ms;
+		auto refresh_interval = 100ms;
 		store.block.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
 			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::blocks }));
