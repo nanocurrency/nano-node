@@ -17,7 +17,7 @@ nano::bootstrap_ascending::account_sets::account_sets (nano::stats & stats_a, na
 {
 }
 
-float nano::bootstrap_ascending::account_sets::priority_up (nano::account const & account)
+void nano::bootstrap_ascending::account_sets::priority_up (nano::account const & account)
 {
 	if (!blocked (account))
 	{
@@ -26,11 +26,9 @@ float nano::bootstrap_ascending::account_sets::priority_up (nano::account const 
 		auto iter = priorities.get<tag_account> ().find (account);
 		if (iter != priorities.get<tag_account> ().end ())
 		{
-			auto priority_new = std::min ((iter->priority * account_sets::priority_increase), account_sets::priority_max);
-			priorities.get<tag_account> ().modify (iter, [priority_new] (auto & val) {
-				val.priority = priority_new;
+			priorities.get<tag_account> ().modify (iter, [] (auto & val) {
+				val.priority = std::min ((val.priority * account_sets::priority_increase), account_sets::priority_max);
 			});
-			return priority_new;
 		}
 		else
 		{
@@ -38,18 +36,15 @@ float nano::bootstrap_ascending::account_sets::priority_up (nano::account const 
 			stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::priority_insert);
 
 			trim_overflow ();
-
-			return account_sets::priority_initial;
 		}
 	}
 	else
 	{
 		stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::prioritize_failed);
 	}
-	return 0.0f;
 }
 
-float nano::bootstrap_ascending::account_sets::priority_down (nano::account const & account)
+void nano::bootstrap_ascending::account_sets::priority_down (nano::account const & account)
 {
 	auto iter = priorities.get<tag_account> ().find (account);
 	if (iter != priorities.get<tag_account> ().end ())
@@ -68,13 +63,11 @@ float nano::bootstrap_ascending::account_sets::priority_down (nano::account cons
 				val.priority = priority_new;
 			});
 		}
-		return priority_new;
 	}
 	else
 	{
 		stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::deprioritize_failed);
 	}
-	return 0.0f;
 }
 
 void nano::bootstrap_ascending::account_sets::block (nano::account const & account, nano::block_hash const & dependency)
@@ -233,7 +226,7 @@ float nano::bootstrap_ascending::account_sets::priority (nano::account const & a
 	{
 		return existing->priority;
 	}
-	return 0.0f;
+	return account_sets::priority_cutoff;
 }
 
 auto nano::bootstrap_ascending::account_sets::info () const -> nano::bootstrap_ascending::account_sets::info_t
