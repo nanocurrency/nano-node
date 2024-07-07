@@ -96,7 +96,7 @@ public:
 	unsigned bootstrap_connections{ 4 };
 	unsigned bootstrap_connections_max{ 64 };
 	unsigned bootstrap_initiator_threads{ 1 };
-	unsigned bootstrap_serving_threads{ std::max (2u, nano::hardware_concurrency () / 2) };
+	unsigned bootstrap_serving_threads{ 1 };
 	uint32_t bootstrap_frontier_request_count{ 1024 * 1024 };
 	nano::websocket::config websocket_config;
 	nano::diagnostics_config diagnostics_config;
