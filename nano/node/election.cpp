@@ -80,7 +80,6 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a)
 
 bool nano::election::valid_change (nano::election_state expected_a, nano::election_state desired_a) const
 {
-	bool result = false;
 	switch (expected_a)
 	{
 		case nano::election_state::passive:
@@ -89,8 +88,8 @@ bool nano::election::valid_change (nano::election_state expected_a, nano::electi
 				case nano::election_state::active:
 				case nano::election_state::confirmed:
 				case nano::election_state::expired_unconfirmed:
-					result = true;
-					break;
+				case nano::election_state::cancelled:
+					return true; // Valid
 				default:
 					break;
 			}
@@ -100,8 +99,8 @@ bool nano::election::valid_change (nano::election_state expected_a, nano::electi
 			{
 				case nano::election_state::confirmed:
 				case nano::election_state::expired_unconfirmed:
-					result = true;
-					break;
+				case nano::election_state::cancelled:
+					return true; // Valid
 				default:
 					break;
 			}
@@ -110,17 +109,18 @@ bool nano::election::valid_change (nano::election_state expected_a, nano::electi
 			switch (desired_a)
 			{
 				case nano::election_state::expired_confirmed:
-					result = true;
-					break;
+					return true; // Valid
 				default:
 					break;
 			}
 			break;
 		case nano::election_state::expired_unconfirmed:
 		case nano::election_state::expired_confirmed:
+		case nano::election_state::cancelled:
+			// No transitions are valid from these states
 			break;
 	}
-	return result;
+	return false;
 }
 
 bool nano::election::state_change (nano::election_state expected_a, nano::election_state desired_a)
@@ -167,8 +167,14 @@ void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_
 
 void nano::election::transition_active ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	nano::lock_guard<nano::mutex> guard{ mutex };
 	state_change (nano::election_state::passive, nano::election_state::active);
+}
+
+void nano::election::cancel ()
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	state_change (state_m, nano::election_state::cancelled);
 }
 
 bool nano::election::confirmed_locked () const
@@ -272,6 +278,8 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 		case nano::election_state::expired_confirmed:
 			debug_assert (false);
 			break;
+		case nano::election_state::cancelled:
+			return true; // Clean up cancelled elections immediately
 	}
 
 	if (!confirmed_locked () && time_to_live () < std::chrono::steady_clock::now () - election_start)
@@ -820,4 +828,9 @@ nano::stat::detail nano::to_stat_detail (nano::election_behavior behavior)
 std::string_view nano::to_string (nano::election_state state)
 {
 	return nano::enum_util::name (state);
+}
+
+nano::stat::detail nano::to_stat_detail (nano::election_state state)
+{
+	return nano::enum_util::cast<nano::stat::detail> (state);
 }

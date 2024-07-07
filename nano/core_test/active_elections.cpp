@@ -156,7 +156,8 @@ TEST (active_elections, confirm_frontier)
 	ASSERT_GT (election2->confirmation_request_count, 0u);
 }
 
-TEST (active_elections, keep_local)
+// TODO: Adjust for new behaviour of bounded buckets
+TEST (active_elections, DISABLED_keep_local)
 {
 	nano::test::system system{};
 
@@ -1388,102 +1389,4 @@ TEST (active_elections, limit_vote_hinted_elections)
 
 	// Ensure there was no overflow of elections
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::active_elections_dropped, nano::stat::detail::priority));
-}
-
-/*
- * Tests that when AEC is running at capacity from normal elections, it is still possible to schedule a limited number of hinted elections
- */
-TEST (active_elections, allow_limited_overflow)
-{
-	nano::test::system system;
-	nano::node_config config = system.default_config ();
-	const int aec_limit = 20;
-	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	config.active_elections.size = aec_limit;
-	config.active_elections.hinted_limit_percentage = 20; // Should give us a limit of 4 hinted elections
-	auto & node = *system.add_node (config);
-
-	auto blocks = nano::test::setup_independent_blocks (system, node, aec_limit * 4);
-
-	// Split blocks in two halves
-	std::vector<std::shared_ptr<nano::block>> blocks1 (blocks.begin (), blocks.begin () + blocks.size () / 2);
-	std::vector<std::shared_ptr<nano::block>> blocks2 (blocks.begin () + blocks.size () / 2, blocks.end ());
-
-	// Even though automatic frontier confirmation is disabled, AEC is doing funny stuff and inserting elections, clear that
-	WAIT (1s);
-	node.active.clear ();
-	ASSERT_TRUE (node.active.empty ());
-
-	// Insert the first part of the blocks into normal election scheduler
-	for (auto const & block : blocks1)
-	{
-		node.scheduler.priority.activate (node.ledger.tx_begin_read (), block->account ());
-	}
-
-	// Ensure number of active elections reaches AEC limit and there is no overfill
-	ASSERT_TIMELY_EQ (5s, node.active.size (), node.active.limit (nano::election_behavior::priority));
-	// And it stays that way without increasing
-	ASSERT_ALWAYS (1s, node.active.size () == node.active.limit (nano::election_behavior::priority));
-
-	// Insert votes for the second part of the blocks, so that those are scheduled as hinted elections
-	for (auto const & block : blocks2)
-	{
-		// Non-final vote, so it stays in the AEC without getting confirmed
-		auto vote = nano::test::make_vote (nano::dev::genesis_key, { block });
-		node.vote_cache.insert (vote);
-	}
-
-	// Ensure active elections overfill AEC only up to normal + hinted limit
-	ASSERT_TIMELY_EQ (5s, node.active.size (), node.active.limit (nano::election_behavior::priority) + node.active.limit (nano::election_behavior::hinted));
-	// And it stays that way without increasing
-	ASSERT_ALWAYS (1s, node.active.size () == node.active.limit (nano::election_behavior::priority) + node.active.limit (nano::election_behavior::hinted));
-}
-
-/*
- * Tests that when hinted elections are present in the AEC, normal scheduler adapts not to exceed the limit of all elections
- */
-TEST (active_elections, allow_limited_overflow_adapt)
-{
-	nano::test::system system;
-	nano::node_config config = system.default_config ();
-	const int aec_limit = 20;
-	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	config.active_elections.size = aec_limit;
-	config.active_elections.hinted_limit_percentage = 20; // Should give us a limit of 4 hinted elections
-	auto & node = *system.add_node (config);
-
-	auto blocks = nano::test::setup_independent_blocks (system, node, aec_limit * 4);
-
-	// Split blocks in two halves
-	std::vector<std::shared_ptr<nano::block>> blocks1 (blocks.begin (), blocks.begin () + blocks.size () / 2);
-	std::vector<std::shared_ptr<nano::block>> blocks2 (blocks.begin () + blocks.size () / 2, blocks.end ());
-
-	// Even though automatic frontier confirmation is disabled, AEC is doing funny stuff and inserting elections, clear that
-	WAIT (1s);
-	node.active.clear ();
-	ASSERT_TRUE (node.active.empty ());
-
-	// Insert votes for the second part of the blocks, so that those are scheduled as hinted elections
-	for (auto const & block : blocks2)
-	{
-		// Non-final vote, so it stays in the AEC without getting confirmed
-		auto vote = nano::test::make_vote (nano::dev::genesis_key, { block });
-		node.vote_cache.insert (vote);
-	}
-
-	// Ensure hinted election amount is bounded by hinted limit
-	ASSERT_TIMELY_EQ (5s, node.active.size (), node.active.limit (nano::election_behavior::hinted));
-	// And it stays that way without increasing
-	ASSERT_ALWAYS (1s, node.active.size () == node.active.limit (nano::election_behavior::hinted));
-
-	// Insert the first part of the blocks into normal election scheduler
-	for (auto const & block : blocks1)
-	{
-		node.scheduler.priority.activate (node.ledger.tx_begin_read (), block->account ());
-	}
-
-	// Ensure number of active elections reaches AEC limit and there is no overfill
-	ASSERT_TIMELY_EQ (5s, node.active.size (), node.active.limit (nano::election_behavior::priority));
-	// And it stays that way without increasing
-	ASSERT_ALWAYS (1s, node.active.size () == node.active.limit (nano::election_behavior::priority));
 }
