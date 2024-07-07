@@ -246,6 +246,11 @@ void force_nano_dev_network ()
 	nano::network_constants::set_active_network (nano::networks::nano_dev_network);
 }
 
+bool is_dev_run ()
+{
+	return nano::network_constants::get_active_network () == nano::networks::nano_dev_network;
+}
+
 bool running_within_valgrind ()
 {
 	return (RUNNING_ON_VALGRIND > 0);

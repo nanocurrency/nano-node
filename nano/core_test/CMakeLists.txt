@@ -37,6 +37,7 @@ add_executable(
   network_functions.cpp
   node.cpp
   object_stream.cpp
+  online_reps.cpp
   optimistic_scheduler.cpp
   processing_queue.cpp
   processor_service.cpp

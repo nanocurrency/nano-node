@@ -1,5 +1,6 @@
 #include <nano/node/active_elections.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/online_reps.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/secure/ledger.hpp>
 

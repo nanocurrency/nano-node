@@ -7,6 +7,7 @@
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/online_reps.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
@@ -419,6 +420,7 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 		{
 			result.inserted = true;
 			auto observe_rep_cb = [&node = node] (auto const & rep_a) {
+				// TODO: Is this neccessary? Move this outside of the election class
 				// Representative is defined as online if replying to live votes or rep_crawler queries
 				node.online_reps.observe (rep_a);
 			};
