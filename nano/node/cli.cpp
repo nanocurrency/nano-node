@@ -483,7 +483,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		auto error (false);
 		if (!node.node->init_error ())
 		{
-			std::cout << "Migrating LMDB database to RocksDB, might take a while..." << std::endl;
 			error = node.node->ledger.migrate_lmdb_to_rocksdb (data_path);
 		}
 		else
@@ -491,11 +490,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			error = true;
 		}
 
-		if (!error)
-		{
-			std::cout << "Migration completed, after confirming it is correct the data.ldb file can be deleted if no longer required" << std::endl;
-		}
-		else
+		if (error)
 		{
 			std::cerr << "There was an error migrating" << std::endl;
 		}

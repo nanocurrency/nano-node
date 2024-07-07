@@ -35,7 +35,7 @@ void nano::set_file_descriptor_limit (std::size_t limit)
 	rlimit fd_limit{};
 	if (-1 == getrlimit (RLIMIT_NOFILE, &fd_limit))
 	{
-		std::cerr << "Unable to get current limits for the number of open file descriptors: " << std::strerror (errno);
+		std::cerr << "WARNING: Unable to get current limits for the number of open file descriptors: " << std::strerror (errno);
 		return;
 	}
 
@@ -47,10 +47,20 @@ void nano::set_file_descriptor_limit (std::size_t limit)
 	fd_limit.rlim_cur = std::min (static_cast<rlim_t> (limit), fd_limit.rlim_max);
 	if (-1 == setrlimit (RLIMIT_NOFILE, &fd_limit))
 	{
-		std::cerr << "Unable to set limits for the number of open file descriptors: " << std::strerror (errno);
+		std::cerr << "WARNING: Unable to set limits for the number of open file descriptors: " << std::strerror (errno);
 		return;
 	}
 #endif
+}
+
+void nano::initialize_file_descriptor_limit ()
+{
+	nano::set_file_descriptor_limit (DEFAULT_FILE_DESCRIPTOR_LIMIT);
+	auto limit = nano::get_file_descriptor_limit ();
+	if (limit < DEFAULT_FILE_DESCRIPTOR_LIMIT)
+	{
+		std::cerr << "WARNING: Current file descriptor limit of " << limit << " is lower than the " << DEFAULT_FILE_DESCRIPTOR_LIMIT << " recommended. Node was unable to change it." << std::endl;
+	}
 }
 
 nano::container_info_composite::container_info_composite (std::string const & name) :
