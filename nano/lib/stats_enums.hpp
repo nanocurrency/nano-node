@@ -171,6 +171,7 @@ enum class detail
 
 	// block source
 	live,
+	live_originator,
 	bootstrap,
 	bootstrap_legacy,
 	unchecked,
