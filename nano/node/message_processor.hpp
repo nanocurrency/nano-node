@@ -18,7 +18,7 @@ public:
 
 public:
 	size_t threads{ std::clamp (nano::hardware_concurrency () / 4, 1u, 2u) };
-	size_t max_queue{ 64 };
+	size_t max_queue{ 512 };
 };
 
 /*
