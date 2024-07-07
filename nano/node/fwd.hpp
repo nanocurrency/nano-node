@@ -7,6 +7,7 @@
 namespace nano
 {
 class active_elections;
+class block;
 class confirming_set;
 class ledger;
 class local_block_broadcaster;
