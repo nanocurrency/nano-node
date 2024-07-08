@@ -312,6 +312,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 
 	std::unordered_map<uint8_t, int> protocol_versions;
 	std::unordered_map<std::string, int> vendor_versions;
+	std::unordered_map<std::string, int> database_backends;
 	std::unordered_map<uint64_t, int> bandwidth_caps;
 	std::unordered_map<nano::block_hash, int> genesis_blocks;
 
@@ -349,6 +350,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 		++bandwidth_caps[telemetry_data.bandwidth_cap];
 		++genesis_blocks[telemetry_data.genesis_block];
 		active_difficulties.insert (telemetry_data.active_difficulty);
+		++database_backends[telemetry_data.database_backend];
 	}
 
 	// Remove 10% of the results from the lower and upper bounds to catch any outliers. Need at least 10 responses before any are removed.
@@ -424,6 +426,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	set_mode_or_average (bandwidth_caps, consolidated_data.bandwidth_cap, bandwidth_sum, size);
 	set_mode (protocol_versions, consolidated_data.protocol_version, size);
 	set_mode (genesis_blocks, consolidated_data.genesis_block, size);
+	set_mode (database_backends, consolidated_data.database_backend, size);
 
 	// Vendor version, needs to be parsed out of the string
 	std::string version;

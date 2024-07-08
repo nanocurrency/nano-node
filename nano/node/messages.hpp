@@ -324,6 +324,7 @@ public:
 	uint8_t maker{ static_cast<std::underlying_type_t<telemetry_maker>> (telemetry_maker::nf_node) }; // Where this telemetry information originated
 	std::chrono::system_clock::time_point timestamp;
 	uint64_t active_difficulty{ 0 };
+	std::string database_backend{ "Unknown" };
 	std::vector<uint8_t> unknown_data;
 
 	void serialize (nano::stream &) const;

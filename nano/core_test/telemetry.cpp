@@ -536,3 +536,97 @@ TEST (telemetry, DISABLED_mismatched_genesis)
 	// Ensure node with different genesis gets disconnected
 	ASSERT_TIMELY (5s, !node1.network.find_node_id (node2.get_node_id ()));
 }
+
+TEST (telemetry, majority_database_backend_information_missing)
+{
+	// Majority of nodes reporting no database info (Version 26.1 and earlier). One node reporting RocksDb backend
+	nano::telemetry_data data1;
+	data1.account_count = 2;
+	data1.block_count = 1;
+	data1.cemented_count = 1;
+	data1.protocol_version = 12;
+	data1.peer_count = 2;
+	data1.bandwidth_cap = 0;
+	data1.unchecked_count = 3;
+	data1.uptime = 6;
+	data1.genesis_block = nano::block_hash (3);
+	data1.major_version = 27;
+	data1.minor_version = 0;
+	data1.patch_version = 0;
+	data1.pre_release_version = 1;
+	data1.maker = 1;
+	data1.timestamp = std::chrono::system_clock::time_point (100ms);
+	data1.active_difficulty = 10;
+	std::vector<nano::telemetry_data> all_data (100, data1);
+
+	nano::telemetry_data data2;
+	data2.account_count = 2;
+	data2.block_count = 1;
+	data2.cemented_count = 1;
+	data2.protocol_version = 12;
+	data2.peer_count = 2;
+	data2.bandwidth_cap = 100;
+	data2.unchecked_count = 3;
+	data2.uptime = 6;
+	data2.genesis_block = nano::block_hash (3);
+	data2.major_version = 27;
+	data2.minor_version = 0;
+	data2.patch_version = 0;
+	data2.pre_release_version = 2;
+	data2.maker = 1;
+	data2.timestamp = std::chrono::system_clock::time_point (100ms);
+	data2.active_difficulty = 10;
+	data1.database_backend = "RocksDb";
+
+	all_data.push_back (data2);
+
+	auto consolidated_telemetry_data2 = nano::consolidate_telemetry_data (all_data);
+	ASSERT_EQ (consolidated_telemetry_data2.database_backend, "Unknown");
+}
+
+TEST (telemetry, majority_database_backend_information_included)
+{
+	// Majority of nodes with LMDB database. One node with no information
+	nano::telemetry_data data1;
+	data1.account_count = 2;
+	data1.block_count = 1;
+	data1.cemented_count = 1;
+	data1.protocol_version = 12;
+	data1.peer_count = 2;
+	data1.bandwidth_cap = 0;
+	data1.unchecked_count = 3;
+	data1.uptime = 6;
+	data1.genesis_block = nano::block_hash (3);
+	data1.major_version = 27;
+	data1.minor_version = 0;
+	data1.patch_version = 0;
+	data1.pre_release_version = 1;
+	data1.maker = 1;
+	data1.timestamp = std::chrono::system_clock::time_point (100ms);
+	data1.active_difficulty = 10;
+	data1.database_backend = "LMDB";
+	std::vector<nano::telemetry_data> all_data (100, data1);
+
+	nano::telemetry_data data2;
+	data2.account_count = 2;
+	data2.block_count = 1;
+	data2.cemented_count = 1;
+	data2.protocol_version = 12;
+	data2.peer_count = 2;
+	data2.bandwidth_cap = 100;
+	data2.unchecked_count = 3;
+	data2.uptime = 6;
+	data2.genesis_block = nano::block_hash (3);
+	data2.major_version = 27;
+	data2.minor_version = 0;
+	data2.patch_version = 0;
+	data2.pre_release_version = 2;
+	data2.maker = 1;
+	data2.timestamp = std::chrono::system_clock::time_point (100ms);
+	data2.active_difficulty = 10;
+
+	all_data.push_back (data2);
+
+	auto consolidated_telemetry_data2 = nano::consolidate_telemetry_data (all_data);
+	ASSERT_EQ (consolidated_telemetry_data2.database_backend, "LMDB");
+}

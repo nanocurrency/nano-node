@@ -1158,6 +1158,7 @@ nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json, bool 
 	json.put ("maker", maker);
 	json.put ("timestamp", std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ());
 	json.put ("active_difficulty", nano::to_string_hex (active_difficulty));
+	json.put ("database_backend", database_backend);
 	// Keep these last for UI purposes
 	if (!ignore_identification_metrics_a)
 	{

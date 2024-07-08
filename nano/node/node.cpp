@@ -1346,6 +1346,7 @@ nano::telemetry_data nano::node::local_telemetry () const
 	telemetry_data.maker = static_cast<std::underlying_type_t<telemetry_maker>> (ledger.pruning ? telemetry_maker::nf_pruned_node : telemetry_maker::nf_node);
 	telemetry_data.timestamp = std::chrono::system_clock::now ();
 	telemetry_data.active_difficulty = default_difficulty (nano::work_version::work_1);
+	telemetry_data.database_backend = config.rocksdb_config.enable ? "RocksDb" : "LMDB";
 	// Make sure this is the final operation!
 	telemetry_data.sign (node_id);
 	return telemetry_data;
