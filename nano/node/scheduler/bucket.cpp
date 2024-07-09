@@ -167,6 +167,18 @@ void nano::scheduler::bucket::cancel_lowest_election ()
 	}
 }
 
+std::deque<std::shared_ptr<nano::block>> nano::scheduler::bucket::blocks () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+
+	std::deque<std::shared_ptr<nano::block>> result;
+	for (auto const & item : queue)
+	{
+		result.push_back (item.block);
+	}
+	return result;
+}
+
 void nano::scheduler::bucket::dump () const
 {
 	for (auto const & item : queue)

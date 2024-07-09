@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/node/fwd.hpp>
+#include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -10,6 +11,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <set>
 
@@ -41,7 +43,9 @@ public:
 	std::size_t max_elections{ 150 };
 };
 
-/** A class which holds an ordered set of blocks to be scheduled, ordered by their block arrival time
+/**
+ * A class which holds an ordered set of blocks to be scheduled, ordered by their block arrival time
+ * TODO: This combines both block ordering and election management, which makes the class harder to test. The functionality should be split.
  */
 class bucket final
 {
@@ -63,6 +67,8 @@ public:
 	size_t size () const;
 	size_t election_count () const;
 	bool empty () const;
+	std::deque<std::shared_ptr<nano::block>> blocks () const;
+
 	void dump () const;
 
 private:

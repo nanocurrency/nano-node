@@ -1294,35 +1294,33 @@ TEST (active_elections, list_active)
 TEST (active_elections, vacancy)
 {
 	std::atomic<bool> updated = false;
-	{
-		nano::test::system system;
-		nano::node_config config = system.default_config ();
-		config.active_elections.size = 1;
-		auto & node = *system.add_node (config);
-		nano::state_block_builder builder;
-		auto send = builder.make_block ()
-					.account (nano::dev::genesis_key.pub)
-					.previous (nano::dev::genesis->hash ())
-					.representative (nano::dev::genesis_key.pub)
-					.link (nano::dev::genesis_key.pub)
-					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
-					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					.work (*system.work.generate (nano::dev::genesis->hash ()))
-					.build ();
-		node.active.vacancy_update = [&updated] () { updated = true; };
-		ASSERT_EQ (nano::block_status::progress, node.process (send));
-		ASSERT_EQ (1, node.active.vacancy (nano::election_behavior::priority));
-		ASSERT_EQ (0, node.active.size ());
-		auto election1 = nano::test::start_election (system, node, send->hash ());
-		ASSERT_TIMELY (1s, updated);
-		updated = false;
-		ASSERT_EQ (0, node.active.vacancy (nano::election_behavior::priority));
-		ASSERT_EQ (1, node.active.size ());
-		election1->force_confirm ();
-		ASSERT_TIMELY (1s, updated);
-		ASSERT_EQ (1, node.active.vacancy (nano::election_behavior::priority));
-		ASSERT_EQ (0, node.active.size ());
-	}
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.active_elections.size = 1;
+	auto & node = *system.add_node (config);
+	nano::state_block_builder builder;
+	auto send = builder.make_block ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.link (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	node.active.vacancy_update = [&updated] () { updated = true; };
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+	ASSERT_EQ (1, node.active.vacancy (nano::election_behavior::priority));
+	ASSERT_EQ (0, node.active.size ());
+	auto election1 = nano::test::start_election (system, node, send->hash ());
+	ASSERT_TIMELY (1s, updated);
+	updated = false;
+	ASSERT_EQ (0, node.active.vacancy (nano::election_behavior::priority));
+	ASSERT_EQ (1, node.active.size ());
+	election1->force_confirm ();
+	ASSERT_TIMELY (1s, updated);
+	ASSERT_EQ (1, node.active.vacancy (nano::election_behavior::priority));
+	ASSERT_EQ (0, node.active.size ());
 }
 
 /*
