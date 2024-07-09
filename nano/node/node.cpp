@@ -374,7 +374,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 
 		auto const network_label = network_params.network.get_current_network_as_string ();
 
-		logger.info (nano::log::type::node, "Node starting, version: {}", NANO_VERSION_STRING);
+		logger.info (nano::log::type::node, "Version: {}", NANO_VERSION_STRING);
 		logger.info (nano::log::type::node, "Build information: {}", BUILD_INFO);
 		logger.info (nano::log::type::node, "Active network: {}", network_label);
 		logger.info (nano::log::type::node, "Database backend: {}", store.vendor_get ());
