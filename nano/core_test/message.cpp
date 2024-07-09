@@ -441,7 +441,7 @@ TEST (message, confirm_req_hash_batch_serialization_v2)
 /**
  * Test that a confirm_ack can encode an empty hash set
  */
-TEST (confirm_ack, empty_vote_hashes)
+TEST (message, confirm_ack_empty_vote_hashes)
 {
 	nano::keypair key;
 	auto vote = std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, std::vector<nano::block_hash>{} /* empty */);
@@ -833,7 +833,7 @@ TEST (message, node_id_handshake_response_v2_serialization)
 	ASSERT_TRUE (nano::at_end (stream));
 }
 
-TEST (handshake, signature)
+TEST (message, handshake_signature)
 {
 	nano::keypair node_id{};
 	nano::keypair node_id_2{};
@@ -853,7 +853,7 @@ TEST (handshake, signature)
 	ASSERT_FALSE (response.validate (cookie));
 }
 
-TEST (handshake, signature_v2)
+TEST (message, handshake_signature_v2)
 {
 	nano::keypair node_id{};
 	nano::keypair node_id_2{};
@@ -894,4 +894,62 @@ TEST (handshake, signature_v2)
 		message.v2->salt = nano::random_pool::generate<nano::uint256_union> ();
 		ASSERT_FALSE (message.validate (cookie));
 	}
+}
+
+TEST (message, telemetry_data_serialization)
+{
+	nano::telemetry_data original;
+	original.node_id = nano::account{ 11111 };
+	original.account_count = 22222;
+	original.block_count = 33333;
+	original.cemented_count = 44444;
+	original.bandwidth_cap = 55555;
+	original.account_count = 66666;
+	original.bandwidth_cap = 77777;
+	original.uptime = 88888;
+	original.peer_count = 99999;
+	original.protocol_version = 1;
+	original.genesis_block = nano::block_hash{ 22222 };
+	original.major_version = 4;
+	original.minor_version = 3;
+	original.patch_version = 2;
+	original.pre_release_version = 1;
+	original.maker = 5;
+	original.timestamp = std::chrono::system_clock::time_point{ 123456789s };
+	original.active_difficulty = 42;
+
+	// Serialize
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream{ bytes };
+		original.serialize (stream);
+	}
+	nano::bufferstream stream{ bytes.data (), bytes.size () };
+
+	nano::telemetry_data telemetry;
+	ASSERT_NO_THROW (telemetry.deserialize (stream, bytes.size ()));
+
+	// Compare
+	ASSERT_EQ (original.node_id, telemetry.node_id);
+	ASSERT_EQ (original.account_count, telemetry.account_count);
+	ASSERT_EQ (original.block_count, telemetry.block_count);
+	ASSERT_EQ (original.cemented_count, telemetry.cemented_count);
+	ASSERT_EQ (original.bandwidth_cap, telemetry.bandwidth_cap);
+	ASSERT_EQ (original.account_count, telemetry.account_count);
+	ASSERT_EQ (original.bandwidth_cap, telemetry.bandwidth_cap);
+	ASSERT_EQ (original.uptime, telemetry.uptime);
+	ASSERT_EQ (original.peer_count, telemetry.peer_count);
+	ASSERT_EQ (original.protocol_version, telemetry.protocol_version);
+	ASSERT_EQ (original.genesis_block, telemetry.genesis_block);
+	ASSERT_EQ (original.major_version, telemetry.major_version);
+	ASSERT_EQ (original.minor_version, telemetry.minor_version);
+	ASSERT_EQ (original.patch_version, telemetry.patch_version);
+	ASSERT_EQ (original.pre_release_version, telemetry.pre_release_version);
+	ASSERT_EQ (original.maker, telemetry.maker);
+	ASSERT_EQ (original.timestamp, telemetry.timestamp);
+	ASSERT_EQ (original.active_difficulty, telemetry.active_difficulty);
+	ASSERT_EQ (original, telemetry);
+
+	ASSERT_EQ (nano::telemetry_data::size, bytes.size ());
+	ASSERT_TRUE (nano::at_end (stream));
 }

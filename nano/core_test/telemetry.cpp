@@ -209,7 +209,7 @@ TEST (telemetry, max_possible_size)
 	auto node_server = system.add_node (node_flags);
 
 	nano::telemetry_data data;
-	data.unknown_data.resize (nano::message_header::telemetry_size_mask.to_ulong () - nano::telemetry_data::latest_size);
+	data.unknown_data.resize (nano::message_header::telemetry_size_mask.to_ulong () - nano::telemetry_data::size);
 
 	nano::telemetry_ack message{ nano::dev::network_params.network, data };
 	nano::test::wait_peer_connections (system);
