@@ -4,8 +4,8 @@
 
 #include <rocksdb/db.h>
 #include <rocksdb/options.h>
-#include <rocksdb/utilities/optimistic_transaction_db.h>
 #include <rocksdb/utilities/transaction.h>
+#include <rocksdb/utilities/transaction_db.h>
 
 namespace nano::store::rocksdb
 {
@@ -26,7 +26,7 @@ private:
 class write_transaction_impl final : public store::write_transaction_impl
 {
 public:
-	write_transaction_impl (::rocksdb::OptimisticTransactionDB * db_a, std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a, std::unordered_map<nano::tables, nano::mutex> & mutexes_a);
+	write_transaction_impl (::rocksdb::TransactionDB * db_a, std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a, std::unordered_map<nano::tables, nano::mutex> & mutexes_a);
 	~write_transaction_impl ();
 	void commit () override;
 	void renew () override;
@@ -35,7 +35,7 @@ public:
 
 private:
 	::rocksdb::Transaction * txn;
-	::rocksdb::OptimisticTransactionDB * db;
+	::rocksdb::TransactionDB * db;
 	std::vector<nano::tables> tables_requiring_locks;
 	std::vector<nano::tables> tables_no_locks;
 	std::unordered_map<nano::tables, nano::mutex> & mutexes;

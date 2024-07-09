@@ -193,10 +193,10 @@ void nano::store::rocksdb::component::open (bool & error_a, std::filesystem::pat
 	}
 	else
 	{
-		s = ::rocksdb::OptimisticTransactionDB::Open (options_a, path_a.string (), column_families, &handles_l, &optimistic_db);
-		if (optimistic_db)
+		s = ::rocksdb::TransactionDB::Open (options_a, ::rocksdb::TransactionDBOptions{}, path_a.string (), column_families, &handles_l, &transaction_db);
+		if (transaction_db)
 		{
-			db.reset (optimistic_db);
+			db.reset (transaction_db);
 		}
 	}
 
@@ -489,15 +489,15 @@ std::vector<rocksdb::ColumnFamilyDescriptor> nano::store::rocksdb::component::cr
 nano::store::write_transaction nano::store::rocksdb::component::tx_begin_write (std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a)
 {
 	std::unique_ptr<nano::store::rocksdb::write_transaction_impl> txn;
-	release_assert (optimistic_db != nullptr);
+	release_assert (db != nullptr);
 	if (tables_requiring_locks_a.empty () && tables_no_locks_a.empty ())
 	{
 		// Use all tables if none are specified
-		txn = std::make_unique<nano::store::rocksdb::write_transaction_impl> (optimistic_db, all_tables (), tables_no_locks_a, write_lock_mutexes);
+		txn = std::make_unique<nano::store::rocksdb::write_transaction_impl> (transaction_db, all_tables (), tables_no_locks_a, write_lock_mutexes);
 	}
 	else
 	{
-		txn = std::make_unique<nano::store::rocksdb::write_transaction_impl> (optimistic_db, tables_requiring_locks_a, tables_no_locks_a, write_lock_mutexes);
+		txn = std::make_unique<nano::store::rocksdb::write_transaction_impl> (transaction_db, tables_requiring_locks_a, tables_no_locks_a, write_lock_mutexes);
 	}
 
 	// Tables must be kept in alphabetical order. These can be used for mutex locking, so order is important to prevent deadlocking

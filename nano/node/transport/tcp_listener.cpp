@@ -58,7 +58,7 @@ void nano::transport::tcp_listener::start ()
 			local = acceptor.local_endpoint ();
 		}
 
-		logger.info (nano::log::type::tcp_listener, "Listening for incoming connections on: {}", fmt::streamed (acceptor.local_endpoint ()));
+		logger.debug (nano::log::type::tcp_listener, "Listening for incoming connections on: {}", fmt::streamed (acceptor.local_endpoint ()));
 	}
 	catch (boost::system::system_error const & ex)
 	{
@@ -106,7 +106,7 @@ void nano::transport::tcp_listener::stop ()
 {
 	debug_assert (!stopped);
 
-	logger.info (nano::log::type::tcp_listener, "Stopping listening for incoming connections and closing all sockets...");
+	logger.debug (nano::log::type::tcp_listener, "Stopping listening for incoming connections and closing all sockets...");
 
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
@@ -221,6 +221,11 @@ void nano::transport::tcp_listener::timeout ()
 bool nano::transport::tcp_listener::connect (asio::ip::address ip, uint16_t port)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	if (stopped)
+	{
+		return false; // Rejected
+	}
 
 	if (port == 0)
 	{
@@ -370,6 +375,11 @@ auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket
 	auto const local_endpoint = raw_socket.local_endpoint ();
 
 	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	if (stopped)
+	{
+		return { accept_result::rejected };
+	}
 
 	if (auto result = check_limits (remote_endpoint.address (), type); result != accept_result::accepted)
 	{
