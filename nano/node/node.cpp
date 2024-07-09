@@ -445,7 +445,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 
 				ledger.bootstrap_weights = bootstrap_weights.second;
 
-				logger.info (nano::log::type::node, "************************************ Bootstrap weights ************************************");
+				logger.info (nano::log::type::node, "******************************************** Bootstrap weights ********************************************");
 
 				// Sort the weights
 				std::vector<std::pair<nano::account, nano::uint128_t>> sorted_weights (ledger.bootstrap_weights.begin (), ledger.bootstrap_weights.end ());
@@ -460,7 +460,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 					nano::uint128_union (rep.second).format_balance (Mxrb_ratio, 0, true));
 				}
 
-				logger.info (nano::log::type::node, "************************************ ================= ************************************");
+				logger.info (nano::log::type::node, "******************************************** ================= ********************************************");
 			}
 		}
 
