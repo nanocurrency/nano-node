@@ -305,7 +305,7 @@ enum class telemetry_maker : uint8_t
 
 class telemetry_data
 {
-public:
+public: // Payload
 	nano::signature signature{ 0 };
 	nano::account node_id{};
 	uint64_t block_count{ 0 };
@@ -327,18 +327,22 @@ public:
 	std::string database_backend{ "Unknown" };
 	std::vector<uint8_t> unknown_data;
 
+public:
 	void serialize (nano::stream &) const;
-	void deserialize (nano::stream &, uint16_t);
-	nano::error serialize_json (nano::jsonconfig &, bool) const;
-	nano::error deserialize_json (nano::jsonconfig &, bool);
+	void deserialize (nano::stream &, uint16_t payload_length);
+
+	nano::error serialize_json (nano::jsonconfig &, bool ignore_identification_metrics) const;
+	nano::error deserialize_json (nano::jsonconfig &, bool ignore_identification_metrics);
+
 	void sign (nano::keypair const &);
 	bool validate_signature () const;
-	bool operator== (nano::telemetry_data const &) const;
-	bool operator!= (nano::telemetry_data const &) const;
+
+	bool operator== (nano::telemetry_data const &) const = default;
+	bool operator!= (nano::telemetry_data const &) const = default;
 
 	// Size does not include unknown_data
-	static auto constexpr size = sizeof (signature) + sizeof (node_id) + sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version) + sizeof (minor_version) + sizeof (patch_version) + sizeof (pre_release_version) + sizeof (maker) + sizeof (uint64_t) + sizeof (active_difficulty);
-	static auto constexpr latest_size = size; // This needs to be updated for each new telemetry version
+	// This needs to be updated for each new telemetry version
+	static size_t constexpr size = sizeof (signature) + sizeof (node_id) + sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version) + sizeof (minor_version) + sizeof (patch_version) + sizeof (pre_release_version) + sizeof (maker) + sizeof (uint64_t) + sizeof (active_difficulty);
 
 private:
 	void serialize_without_signature (nano::stream &) const;
@@ -372,6 +376,8 @@ public:
 	uint16_t size () const;
 	bool is_empty_payload () const;
 	static uint16_t size (nano::message_header const &);
+
+public: // Payload
 	nano::telemetry_data data;
 
 public: // Logging

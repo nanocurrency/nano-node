@@ -1105,9 +1105,9 @@ void nano::telemetry_data::deserialize (nano::stream & stream_a, uint16_t payloa
 	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
 	read (stream_a, active_difficulty);
 	boost::endian::big_to_native_inplace (active_difficulty);
-	if (payload_length_a > latest_size)
+	if (payload_length_a > size)
 	{
-		read (stream_a, unknown_data, payload_length_a - latest_size);
+		read (stream_a, unknown_data, payload_length_a - size);
 	}
 }
 
@@ -1221,16 +1221,6 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, boo
 	auto ec = nano::from_string_hex (current_active_difficulty_text, active_difficulty);
 	debug_assert (!ec);
 	return json.get_error ();
-}
-
-bool nano::telemetry_data::operator== (nano::telemetry_data const & data_a) const
-{
-	return (signature == data_a.signature && node_id == data_a.node_id && block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version == data_a.protocol_version && genesis_block == data_a.genesis_block && major_version == data_a.major_version && minor_version == data_a.minor_version && patch_version == data_a.patch_version && pre_release_version == data_a.pre_release_version && maker == data_a.maker && timestamp == data_a.timestamp && active_difficulty == data_a.active_difficulty && unknown_data == data_a.unknown_data);
-}
-
-bool nano::telemetry_data::operator!= (nano::telemetry_data const & data_a) const
-{
-	return !(*this == data_a);
 }
 
 void nano::telemetry_data::sign (nano::keypair const & node_id_a)

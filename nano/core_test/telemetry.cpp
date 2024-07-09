@@ -108,10 +108,6 @@ TEST (telemetry, consolidate_data)
 	ASSERT_TRUE (consolidated_telemetry_data1.protocol_version == 11 || consolidated_telemetry_data1.protocol_version == 12 || consolidated_telemetry_data1.protocol_version == 13);
 	ASSERT_EQ (consolidated_telemetry_data1.bandwidth_cap, 51);
 	ASSERT_EQ (consolidated_telemetry_data1.genesis_block, nano::block_hash (3));
-
-	// Test equality operator
-	ASSERT_FALSE (consolidated_telemetry_data == consolidated_telemetry_data1);
-	ASSERT_EQ (consolidated_telemetry_data, consolidated_telemetry_data);
 }
 
 TEST (telemetry, consolidate_data_remove_outliers)
@@ -433,7 +429,7 @@ TEST (telemetry, max_possible_size)
 	auto node_server = system.add_node (node_flags);
 
 	nano::telemetry_data data;
-	data.unknown_data.resize (nano::message_header::telemetry_size_mask.to_ulong () - nano::telemetry_data::latest_size);
+	data.unknown_data.resize (nano::message_header::telemetry_size_mask.to_ulong () - nano::telemetry_data::size);
 
 	nano::telemetry_ack message{ nano::dev::network_params.network, data };
 	nano::test::wait_peer_connections (system);
