@@ -93,8 +93,6 @@ public:
 
 	std::size_t size () const;
 	std::size_t size (block_source) const;
-	bool full () const;
-	bool half_full () const;
 	bool add (std::shared_ptr<nano::block> const &, block_source = block_source::live, std::shared_ptr<nano::transport::channel> const & channel = nullptr);
 	std::optional<nano::block_status> add_blocking (std::shared_ptr<nano::block> const & block, block_source);
 	void force (std::shared_ptr<nano::block> const &);
@@ -120,6 +118,7 @@ private:
 	nano::block_status process_one (secure::write_transaction const &, context const &, bool forced = false);
 	void queue_unchecked (secure::write_transaction const &, nano::hash_or_account const &);
 	processed_batch_t process_batch (nano::unique_lock<nano::mutex> &);
+	std::deque<context> next_batch (size_t max_count);
 	context next ();
 	bool add_impl (context, std::shared_ptr<nano::transport::channel> const & channel = nullptr);
 

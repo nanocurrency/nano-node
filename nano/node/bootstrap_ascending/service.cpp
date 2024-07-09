@@ -31,27 +31,20 @@ nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano:
 	scoring{ config.bootstrap_ascending, config.network_params.network },
 	database_limiter{ config.bootstrap_ascending.database_requests_limit, 1.0 }
 {
+	// TODO: This is called from a very congested blockprocessor thread. Offload this work to a dedicated processing thread
 	block_processor.batch_processed.add ([this] (auto const & batch) {
-		bool should_notify = false;
 		{
 			nano::lock_guard<nano::mutex> lock{ mutex };
 
 			auto transaction = ledger.tx_begin_read ();
 			for (auto const & [result, context] : batch)
 			{
-				// Do not try to unnecessarily bootstrap live traffic chains
-				if (context.source == nano::block_source::bootstrap)
-				{
-					release_assert (context.block != nullptr);
-					inspect (transaction, result, *context.block);
-					should_notify = true;
-				}
+				debug_assert (context.block != nullptr);
+				inspect (transaction, result, *context.block);
 			}
 		}
-		if (should_notify)
-		{
-			condition.notify_all ();
-		}
+
+		condition.notify_all ();
 	});
 }
 
