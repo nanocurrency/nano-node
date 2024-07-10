@@ -49,7 +49,7 @@ public:
 	using priority_t = uint64_t;
 
 public:
-	bucket (nano::uint128_t minimum_balance, nano::node &);
+	bucket (nano::uint128_t minimum_balance, priority_bucket_config const &, nano::active_elections &, nano::stats &);
 	~bucket ();
 
 	nano::uint128_t const minimum_balance;
