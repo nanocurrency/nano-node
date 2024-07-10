@@ -499,6 +499,12 @@ size_t nano::transport::tcp_listener::connection_count () const
 	return connections.size ();
 }
 
+size_t nano::transport::tcp_listener::connection_count (connection_type type) const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return count_per_type (type);
+}
+
 size_t nano::transport::tcp_listener::attempt_count () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };

@@ -16,6 +16,7 @@
 #include <nano/node/ipc/ipc_config.hpp>
 #include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/message_processor.hpp>
+#include <nano/node/monitor.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/repcrawler.hpp>
@@ -156,6 +157,7 @@ public:
 	nano::network_config network;
 	nano::local_block_broadcaster_config local_block_broadcaster;
 	nano::confirming_set_config confirming_set;
+	nano::monitor_config monitor;
 
 public:
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
