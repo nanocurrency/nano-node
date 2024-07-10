@@ -1270,7 +1270,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 	if (!rocksdb_store->init_error ())
 	{
 		auto table_size = store.count (store.tx_begin_read (), tables::blocks);
-		logger.info (nano::log::type::ledger, "Step 1 of 7: Converting {} million entries from blocks table", table_size / 1000000);
+		logger.info (nano::log::type::ledger, "Step 1 of 7: Converting {} entries from blocks table", table_size);
 		std::atomic<std::size_t> count = 0;
 		store.block.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
@@ -1288,7 +1288,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 
 				if (auto count_l = ++count; count_l % 5000000 == 0)
 				{
-					logger.info (nano::log::type::ledger, "{} million blocks converted", count_l / 1000000);
+					logger.info (nano::log::type::ledger, "{} blocks converted", count_l);
 				}
 			}
 		});
@@ -1330,8 +1330,8 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		});
 		logger.info (nano::log::type::ledger, "Finished converting {} entries", count.load ());
 
-		table_size = store.count (store.tx_begin_read (), tables::confirmation_height);
-		logger.info (nano::log::type::ledger, "Step 4 of 7: Converting {} entries from confirmation_height table", table_size);
+		table_size = store.count (store.tx_begin_read (), tables::accounts);
+		logger.info (nano::log::type::ledger, "Step 4 of 7: Converting {} entries from accounts table", table_size);
 		count = 0;
 		store.account.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
@@ -1392,7 +1392,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::final_votes }));
 			for (; i != n; ++i)
 			{
-				rocksdb_transaction.refresh_if_needed (refresh_interval);
+				rocksdb_transaction.refresh_if_needed ();
 				rocksdb_store->final_vote.put (rocksdb_transaction, i->first, i->second);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
