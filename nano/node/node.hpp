@@ -45,6 +45,7 @@ namespace nano
 class active_elections;
 class confirming_set;
 class message_processor;
+class monitor;
 class node;
 class vote_processor;
 class vote_cache_processor;
@@ -216,7 +217,10 @@ public:
 	nano::process_live_dispatcher process_live_dispatcher;
 	std::unique_ptr<nano::peer_history> peer_history_impl;
 	nano::peer_history & peer_history;
+	std::unique_ptr<nano::monitor> monitor_impl;
+	nano::monitor & monitor;
 
+public:
 	std::chrono::steady_clock::time_point const startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	std::atomic<bool> unresponsive_work_peers{ false };

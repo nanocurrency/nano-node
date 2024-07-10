@@ -54,8 +54,6 @@ void install_abort_signal_handler ()
 	sigaction (SIGABRT, &sa, NULL);
 #endif
 }
-
-constexpr std::size_t OPEN_FILE_DESCRIPTORS_LIMIT = 16384;
 }
 
 void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flags const & flags)
@@ -105,14 +103,7 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 
 		// Print info about number of logical cores detected, those are used to decide how many IO, worker and signature checker threads to spawn
 		logger.info (nano::log::type::daemon, "Hardware concurrency: {} ( configured: {} )", std::thread::hardware_concurrency (), nano::hardware_concurrency ());
-
-		nano::set_file_descriptor_limit (OPEN_FILE_DESCRIPTORS_LIMIT);
-		auto const file_descriptor_limit = nano::get_file_descriptor_limit ();
-		logger.info (nano::log::type::daemon, "File descriptors limit: {}", file_descriptor_limit);
-		if (file_descriptor_limit < OPEN_FILE_DESCRIPTORS_LIMIT)
-		{
-			logger.warn (nano::log::type::daemon, "File descriptors limit is lower than the {} recommended. Node was unable to change it.", OPEN_FILE_DESCRIPTORS_LIMIT);
-		}
+		logger.info (nano::log::type::daemon, "File descriptors limit: {}", nano::get_file_descriptor_limit ());
 
 		// for the daemon start up, if the user hasn't specified a port in
 		// the config, we must use the default peering port for the network

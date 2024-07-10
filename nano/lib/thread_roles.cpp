@@ -61,7 +61,7 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::rpc_process_container:
 			thread_role_name_string = "RPC process";
 			break;
-		case nano::thread_role::name::confirmation_height_processing:
+		case nano::thread_role::name::confirmation_height:
 			thread_role_name_string = "Conf height";
 			break;
 		case nano::thread_role::name::confirmation_height_notifications:
@@ -156,6 +156,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 			break;
 		case nano::thread_role::name::vote_router:
 			thread_role_name_string = "Vote router";
+			break;
+		case nano::thread_role::name::monitor:
+			thread_role_name_string = "Monitor";
 			break;
 		default:
 			debug_assert (false && "nano::thread_role::get_string unhandled thread role");

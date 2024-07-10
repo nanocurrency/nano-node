@@ -524,6 +524,14 @@ std::size_t nano::active_elections::size () const
 	return roots.size ();
 }
 
+std::size_t nano::active_elections::size (nano::election_behavior behavior) const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	auto count = count_by_behavior[behavior];
+	debug_assert (count >= 0);
+	return static_cast<std::size_t> (count);
+}
+
 bool nano::active_elections::publish (std::shared_ptr<nano::block> const & block_a)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };

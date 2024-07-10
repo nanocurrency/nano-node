@@ -112,7 +112,7 @@ TEST (buckets, construction)
 	nano::scheduler::buckets buckets;
 	ASSERT_EQ (0, buckets.size ());
 	ASSERT_TRUE (buckets.empty ());
-	ASSERT_EQ (62, buckets.bucket_count ());
+	ASSERT_EQ (63, buckets.bucket_count ());
 }
 
 TEST (buckets, insert_Gxrb)
@@ -120,7 +120,7 @@ TEST (buckets, insert_Gxrb)
 	nano::scheduler::buckets buckets;
 	buckets.push (1000, block0 (), nano::Gxrb_ratio);
 	ASSERT_EQ (1, buckets.size ());
-	ASSERT_EQ (1, buckets.bucket_size (48));
+	ASSERT_EQ (1, buckets.bucket_size (49));
 }
 
 TEST (buckets, insert_Mxrb)
@@ -128,7 +128,7 @@ TEST (buckets, insert_Mxrb)
 	nano::scheduler::buckets buckets;
 	buckets.push (1000, block1 (), nano::Mxrb_ratio);
 	ASSERT_EQ (1, buckets.size ());
-	ASSERT_EQ (1, buckets.bucket_size (13));
+	ASSERT_EQ (1, buckets.bucket_size (14));
 }
 
 // Test two blocks with the same priority
@@ -138,7 +138,7 @@ TEST (buckets, insert_same_priority)
 	buckets.push (1000, block0 (), nano::Gxrb_ratio);
 	buckets.push (1000, block2 (), nano::Gxrb_ratio);
 	ASSERT_EQ (2, buckets.size ());
-	ASSERT_EQ (2, buckets.bucket_size (48));
+	ASSERT_EQ (2, buckets.bucket_size (49));
 }
 
 // Test the same block inserted multiple times
@@ -148,7 +148,7 @@ TEST (buckets, insert_duplicate)
 	buckets.push (1000, block0 (), nano::Gxrb_ratio);
 	buckets.push (1000, block0 (), nano::Gxrb_ratio);
 	ASSERT_EQ (1, buckets.size ());
-	ASSERT_EQ (1, buckets.bucket_size (48));
+	ASSERT_EQ (1, buckets.bucket_size (49));
 }
 
 TEST (buckets, insert_older)

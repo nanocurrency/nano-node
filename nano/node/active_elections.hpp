@@ -124,6 +124,7 @@ public:
 	bool erase (nano::qualified_root const &);
 	bool empty () const;
 	std::size_t size () const;
+	std::size_t size (nano::election_behavior) const;
 	bool publish (std::shared_ptr<nano::block> const &);
 
 	/**
@@ -176,7 +177,7 @@ private:
 	std::chrono::seconds const election_time_to_live;
 
 	/** Keeps track of number of elections by election behavior (normal, hinted, optimistic) */
-	nano::enum_array<nano::election_behavior, int64_t> count_by_behavior;
+	nano::enum_array<nano::election_behavior, int64_t> count_by_behavior{};
 
 	nano::condition_variable condition;
 	bool stopped{ false };

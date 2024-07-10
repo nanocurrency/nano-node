@@ -25,7 +25,7 @@ enum class name
 	signature_checking,
 	rpc_request_processor,
 	rpc_process_container,
-	confirmation_height_processing,
+	confirmation_height,
 	confirmation_height_notifications,
 	worker,
 	bootstrap_worker,
@@ -59,6 +59,7 @@ enum class name
 	port_mapping,
 	stats,
 	vote_router,
+	monitor,
 };
 
 std::string_view to_string (name);

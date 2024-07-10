@@ -80,6 +80,7 @@ enum class type
 	peer_history,
 	message_processor,
 	local_block_broadcaster,
+	monitor,
 
 	// bootstrap
 	bulk_pull_client,

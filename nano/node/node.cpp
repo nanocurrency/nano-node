@@ -12,6 +12,7 @@
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/message_processor.hpp>
+#include <nano/node/monitor.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/request_aggregator.hpp>
@@ -187,7 +188,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	application_path (application_path_a),
 	port_mapping (*this),
 	block_processor (*this),
-	confirming_set_impl{ std::make_unique<nano::confirming_set> (ledger, stats) },
+	confirming_set_impl{ std::make_unique<nano::confirming_set> (config.confirming_set, ledger, stats) },
 	confirming_set{ *confirming_set_impl },
 	active_impl{ std::make_unique<nano::active_elections> (*this, confirming_set, block_processor) },
 	active{ *active_impl },
@@ -223,6 +224,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	process_live_dispatcher{ ledger, scheduler.priority, vote_cache, websocket },
 	peer_history_impl{ std::make_unique<nano::peer_history> (config.peer_history, store, network, logger, stats) },
 	peer_history{ *peer_history_impl },
+	monitor_impl{ std::make_unique<nano::monitor> (config.monitor, *this) },
+	monitor{ *monitor_impl },
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq)
 {
@@ -371,7 +374,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 
 		auto const network_label = network_params.network.get_current_network_as_string ();
 
-		logger.info (nano::log::type::node, "Node starting, version: {}", NANO_VERSION_STRING);
+		logger.info (nano::log::type::node, "Version: {}", NANO_VERSION_STRING);
 		logger.info (nano::log::type::node, "Build information: {}", BUILD_INFO);
 		logger.info (nano::log::type::node, "Active network: {}", network_label);
 		logger.info (nano::log::type::node, "Database backend: {}", store.vendor_get ());
@@ -445,7 +448,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 
 				ledger.bootstrap_weights = bootstrap_weights.second;
 
-				logger.info (nano::log::type::node, "************************************ Bootstrap weights ************************************");
+				logger.info (nano::log::type::node, "******************************************** Bootstrap weights ********************************************");
 
 				// Sort the weights
 				std::vector<std::pair<nano::account, nano::uint128_t>> sorted_weights (ledger.bootstrap_weights.begin (), ledger.bootstrap_weights.end ());
@@ -460,7 +463,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 					nano::uint128_union (rep.second).format_balance (Mxrb_ratio, 0, true));
 				}
 
-				logger.info (nano::log::type::node, "************************************ ================= ************************************");
+				logger.info (nano::log::type::node, "******************************************** ================= ********************************************");
 			}
 		}
 
@@ -721,6 +724,7 @@ void nano::node::start ()
 	local_block_broadcaster.start ();
 	peer_history.start ();
 	vote_router.start ();
+	monitor.start ();
 
 	add_initial_peers ();
 }
@@ -770,6 +774,7 @@ void nano::node::stop ()
 	local_block_broadcaster.stop ();
 	message_processor.stop ();
 	network.stop (); // Stop network last to avoid killing in-use sockets
+	monitor.stop ();
 
 	// work pool is not stopped on purpose due to testing setup
 
