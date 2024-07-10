@@ -15,6 +15,7 @@ void force_nano_dev_network ();
 
 int main (int argc, char ** argv)
 {
+	nano::initialize_file_descriptor_limit ();
 	nano::logger::initialize_for_tests (nano::log_config::tests_default ());
 	nano::force_nano_dev_network ();
 	nano::set_use_memory_pools (false);
