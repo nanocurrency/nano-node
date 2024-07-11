@@ -49,10 +49,12 @@ enum class election_state
 	active, // actively request confirmations
 	confirmed, // confirmed but still listening for votes
 	expired_confirmed,
-	expired_unconfirmed
+	expired_unconfirmed,
+	cancelled,
 };
 
 std::string_view to_string (election_state);
+nano::stat::detail to_stat_detail (election_state);
 
 class election final : public std::enable_shared_from_this<election>
 {
@@ -84,6 +86,7 @@ private: // State management
 public: // State transitions
 	bool transition_time (nano::confirmation_solicitor &);
 	void transition_active ();
+	void cancel ();
 
 public: // Status
 	bool confirmed () const;

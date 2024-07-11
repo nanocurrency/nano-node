@@ -72,12 +72,16 @@ public:
  */
 class active_elections final
 {
+public:
+	using erased_callback_t = std::function<void (std::shared_ptr<nano::election>)>;
+
 private: // Elections
-	class conflict_info final
+	class entry final
 	{
 	public:
 		nano::qualified_root root;
 		std::shared_ptr<nano::election> election;
+		erased_callback_t erased_callback;
 	};
 
 	friend class nano::election;
@@ -90,11 +94,11 @@ private: // Elections
 	class tag_arrival {};
 	class tag_hash {};
 
-	using ordered_roots = boost::multi_index_container<conflict_info,
+	using ordered_roots = boost::multi_index_container<entry,
 	mi::indexed_by<
 		mi::sequenced<mi::tag<tag_sequenced>>,
 		mi::hashed_unique<mi::tag<tag_root>,
-			mi::member<conflict_info, nano::qualified_root, &conflict_info::root>>
+			mi::member<entry, nano::qualified_root, &entry::root>>
 	>>;
 	// clang-format on
 	ordered_roots roots;
@@ -109,7 +113,7 @@ public:
 	/**
 	 * Starts new election with a specified behavior type
 	 */
-	nano::election_insertion_result insert (std::shared_ptr<nano::block> const &, nano::election_behavior = nano::election_behavior::priority);
+	nano::election_insertion_result insert (std::shared_ptr<nano::block> const &, nano::election_behavior = nano::election_behavior::priority, erased_callback_t = nullptr);
 	// Is the root of this block in the roots container
 	bool active (nano::block const &) const;
 	bool active (nano::qualified_root const &) const;
