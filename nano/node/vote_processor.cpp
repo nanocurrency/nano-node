@@ -195,6 +195,7 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 
 	logger.trace (nano::log::type::vote_processor, nano::log::detail::vote_processed,
 	nano::log::arg{ "vote", vote },
+	nano::log::arg{ "vote_source", source },
 	nano::log::arg{ "result", result });
 
 	return result;
