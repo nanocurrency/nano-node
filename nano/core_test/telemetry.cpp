@@ -572,12 +572,12 @@ TEST (telemetry, majority_database_backend_information_missing)
 	data2.maker = 1;
 	data2.timestamp = std::chrono::system_clock::time_point (100ms);
 	data2.active_difficulty = 10;
-	data1.database_backend = "RocksDb";
+	data1.database_backend = 1;
 
 	all_data.push_back (data2);
 
 	auto consolidated_telemetry_data2 = nano::consolidate_telemetry_data (all_data);
-	ASSERT_EQ (consolidated_telemetry_data2.database_backend, "Unknown");
+	ASSERT_EQ (consolidated_telemetry_data2.database_backend, 0);
 }
 
 TEST (telemetry, majority_database_backend_information_included)
@@ -600,7 +600,7 @@ TEST (telemetry, majority_database_backend_information_included)
 	data1.maker = 1;
 	data1.timestamp = std::chrono::system_clock::time_point (100ms);
 	data1.active_difficulty = 10;
-	data1.database_backend = "LMDB";
+	data1.database_backend = 1;
 	std::vector<nano::telemetry_data> all_data (100, data1);
 
 	nano::telemetry_data data2;
@@ -624,5 +624,5 @@ TEST (telemetry, majority_database_backend_information_included)
 	all_data.push_back (data2);
 
 	auto consolidated_telemetry_data2 = nano::consolidate_telemetry_data (all_data);
-	ASSERT_EQ (consolidated_telemetry_data2.database_backend, "LMDB");
+	ASSERT_EQ (consolidated_telemetry_data2.database_backend, 1);
 }

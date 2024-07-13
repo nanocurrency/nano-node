@@ -1105,6 +1105,7 @@ void nano::telemetry_data::deserialize (nano::stream & stream_a, uint16_t payloa
 	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
 	read (stream_a, active_difficulty);
 	boost::endian::big_to_native_inplace (active_difficulty);
+	read (stream_a, database_backend);
 	if (payload_length_a > size)
 	{
 		read (stream_a, unknown_data, payload_length_a - size);
@@ -1131,6 +1132,7 @@ void nano::telemetry_data::serialize_without_signature (nano::stream & stream_a)
 	write (stream_a, maker);
 	write (stream_a, boost::endian::native_to_big (std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ()));
 	write (stream_a, boost::endian::native_to_big (active_difficulty));
+	write (stream_a, database_backend);
 	write (stream_a, unknown_data);
 }
 
@@ -1219,6 +1221,7 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, boo
 	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
 	auto current_active_difficulty_text = json.get<std::string> ("active_difficulty");
 	auto ec = nano::from_string_hex (current_active_difficulty_text, active_difficulty);
+	json.get ("database_backend", database_backend);
 	debug_assert (!ec);
 	return json.get_error ();
 }

@@ -312,7 +312,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 
 	std::unordered_map<uint8_t, int> protocol_versions;
 	std::unordered_map<std::string, int> vendor_versions;
-	std::unordered_map<std::string, int> database_backends;
+	std::unordered_map<uint8_t, int> database_backends;
 	std::unordered_map<uint64_t, int> bandwidth_caps;
 	std::unordered_map<nano::block_hash, int> genesis_blocks;
 

@@ -865,7 +865,7 @@ TEST (message, telemetry_data_serialization)
 	original.maker = 5;
 	original.timestamp = std::chrono::system_clock::time_point{ 123456789s };
 	original.active_difficulty = 42;
-	original.database_backend = "Test";
+	original.database_backend = 1;
 
 	// Serialize
 	std::vector<uint8_t> bytes;
