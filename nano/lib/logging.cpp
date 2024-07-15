@@ -12,6 +12,8 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/stdout_sinks.h>
 
+#include <iostream>
+
 nano::logger & nano::default_logger ()
 {
 	static nano::logger logger{ "default" };

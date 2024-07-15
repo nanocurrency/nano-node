@@ -4,6 +4,8 @@ nano::wallet_value::wallet_value (nano::store::db_val<MDB_val> const & val_a)
 {
 	debug_assert (val_a.size () == sizeof (*this));
 	std::copy (reinterpret_cast<uint8_t const *> (val_a.data ()), reinterpret_cast<uint8_t const *> (val_a.data ()) + sizeof (key), key.chars.begin ());
+	// NOTE gcc bug: warning: writing 1 byte into a region of size 0
+	// https://stackoverflow.com/questions/75184243
 	std::copy (reinterpret_cast<uint8_t const *> (val_a.data ()) + sizeof (key), reinterpret_cast<uint8_t const *> (val_a.data ()) + sizeof (key) + sizeof (work), reinterpret_cast<char *> (&work));
 }
 

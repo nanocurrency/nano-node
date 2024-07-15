@@ -190,7 +190,7 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 
 					// Convert response to JSON
 					auto json (std::make_shared<std::string> ());
-					if (!flatbuffers::GenerateText (*parser, fb->GetBufferPointer (), json.get ()))
+					if (!flatbuffers::GenText (*parser, fb->GetBufferPointer (), json.get ()))
 					{
 						throw nano::error ("Couldn't serialize response to JSON");
 					}

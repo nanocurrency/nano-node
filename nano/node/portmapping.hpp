@@ -2,7 +2,7 @@
 
 #include <nano/lib/locks.hpp>
 
-#include <miniupnp/miniupnpc/include/miniupnpc.h>
+#include <miniupnpc/miniupnpc.h>
 
 #include <thread>
 

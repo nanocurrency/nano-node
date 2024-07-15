@@ -2,7 +2,7 @@
 
 #include <nano/store/pending.hpp>
 
-#include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdb.h>
 
 namespace nano::store::lmdb
 {

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <flatbuffers/flatbuffer_builder.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -7,7 +9,6 @@
 
 namespace flatbuffers
 {
-class FlatBufferBuilder;
 class Parser;
 }
 namespace nano

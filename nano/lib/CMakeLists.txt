@@ -123,13 +123,14 @@ target_link_libraries(
   fmt::fmt
   spdlog::spdlog
   Boost::iostreams
-  Boost::asio
-  Boost::circular_buffer
-  Boost::dll
-  Boost::multiprecision
+  Boost::boost # asio
+  #Boost::boost # circular_buffer
+  #Boost::boost # dll
+  #Boost::boost # multiprecision
   Boost::program_options
-  Boost::property_tree
-  Boost::stacktrace)
+  #Boost::boost # property_tree
+  #Boost::boost # stacktrace
+)
 
 if(NANO_STACKTRACE_BACKTRACE)
   target_link_libraries(nano_lib backtrace)

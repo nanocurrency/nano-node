@@ -21,8 +21,12 @@ mark_as_advanced(
   FLATBUFFERS_PACKAGE_DEBIAN
   FLATBUFFERS_PACKAGE_REDHAT
   FLATBUFFERS_STATIC_FLATC)
-add_subdirectory(../../submodules/flatbuffers
-                 ${CMAKE_CURRENT_BINARY_DIR}/flatbuffers-build EXCLUDE_FROM_ALL)
+
+# add_subdirectory(../../submodules/flatbuffers
+#                  ${CMAKE_CURRENT_BINARY_DIR}/flatbuffers-build EXCLUDE_FROM_ALL)
+
+find_package(flatbuffers REQUIRED)
+include_directories(${FLATBUFFERS_LIBRARY_INCLUDES})
 
 # Generate Flatbuffers files into the ipc_flatbuffers_lib library, which will be
 # rebuilt whenever any of the fbs files change. Note that while this supports
@@ -59,7 +63,7 @@ foreach(file ${files})
     OUTPUT
       ${CMAKE_CURRENT_SOURCE_DIR}/generated/flatbuffers/${flatbuffers_filename}_generated.h
     COMMAND
-      "$<TARGET_FILE:flatc>" --force-empty-vectors --reflect-names --gen-mutable
+      flatc --force-empty-vectors --reflect-names --gen-mutable
       --gen-name-strings --gen-object-api --strict-json --cpp -o
       ${CMAKE_CURRENT_SOURCE_DIR}/generated/flatbuffers
       ${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/${flatbuffers_filename}.fbs
