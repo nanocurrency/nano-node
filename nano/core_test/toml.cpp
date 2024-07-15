@@ -544,12 +544,12 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	map_size = 999
 
 	[node.optimistic_scheduler]
-	enabled = false
+	enable = false
 	gap_threshold = 999
 	max_size = 999
 
 	[node.hinted_scheduler]
-	enabled = false
+	enable = false
 	hinting_threshold = 99
 	check_interval = 999
 	block_cooldown = 999

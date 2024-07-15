@@ -123,7 +123,7 @@ nano::error nano::monitor_config::serialize (nano::tomlconfig & toml) const
 
 nano::error nano::monitor_config::deserialize (nano::tomlconfig & toml)
 {
-	toml.get ("enabled", enabled);
+	toml.get ("enable", enabled);
 	auto interval_l = interval.count ();
 	toml.get ("interval", interval_l);
 	interval = std::chrono::seconds{ interval_l };

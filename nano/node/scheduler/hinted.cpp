@@ -271,7 +271,7 @@ nano::error nano::scheduler::hinted_config::serialize (nano::tomlconfig & toml) 
 
 nano::error nano::scheduler::hinted_config::deserialize (nano::tomlconfig & toml)
 {
-	toml.get ("enabled", enabled);
+	toml.get ("enable", enabled);
 	toml.get ("hinting_threshold", hinting_threshold_percent);
 
 	auto check_interval_l = check_interval.count ();
