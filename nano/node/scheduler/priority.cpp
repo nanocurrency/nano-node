@@ -33,7 +33,7 @@ nano::scheduler::priority::priority (nano::node & node_a, nano::stats & stats_a)
 	build_region (uint128_t{ 1 } << 116, uint128_t{ 1 } << 120, 2);
 	minimums.push_back (uint128_t{ 1 } << 120);
 
-	node.logger.info (nano::log::type::election_scheduler, "Number of buckets: {}", minimums.size ());
+	node.logger.debug (nano::log::type::election_scheduler, "Number of buckets: {}", minimums.size ());
 
 	for (size_t i = 0u, n = minimums.size (); i < n; ++i)
 	{
