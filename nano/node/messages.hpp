@@ -310,6 +310,13 @@ enum class telemetry_maker : uint8_t
 	nf_pruned_node = 1
 };
 
+enum class telemetry_backend : uint8_t
+{
+	unknown = 0,
+	lmdb = 1,
+	rocksdb = 2,
+};
+
 class telemetry_data
 {
 public: // Payload
@@ -331,6 +338,13 @@ public: // Payload
 	uint8_t maker{ static_cast<std::underlying_type_t<telemetry_maker>> (telemetry_maker::nf_node) }; // Where this telemetry information originated
 	std::chrono::system_clock::time_point timestamp;
 	uint64_t active_difficulty{ 0 };
+	uint8_t database_backend{ 0 };
+	uint8_t database_version_major{ 0 };
+	uint8_t database_version_minor{ 0 };
+	uint8_t database_version_patch{ 0 };
+
+	// Remaining data that might be present in future telemetry versions, kept here so we can re-serialize it
+	// TODO: Is supporting re-serialization necessary?
 	std::vector<uint8_t> unknown_data;
 
 public:
@@ -348,7 +362,7 @@ public:
 
 	// Size does not include unknown_data
 	// This needs to be updated for each new telemetry version
-	static size_t constexpr size = sizeof (signature) + sizeof (node_id) + sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version) + sizeof (minor_version) + sizeof (patch_version) + sizeof (pre_release_version) + sizeof (maker) + sizeof (uint64_t) + sizeof (active_difficulty);
+	static size_t constexpr size = sizeof (signature) + sizeof (node_id) + sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version) + sizeof (minor_version) + sizeof (patch_version) + sizeof (pre_release_version) + sizeof (maker) + sizeof (uint64_t) + sizeof (active_difficulty) + sizeof (database_backend) + sizeof (database_version_major) + sizeof (database_version_minor) + sizeof (database_version_patch);
 
 private:
 	void serialize_without_signature (nano::stream &) const;

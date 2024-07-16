@@ -1335,6 +1335,52 @@ nano::account nano::node::get_node_id () const
 
 nano::telemetry_data nano::node::local_telemetry () const
 {
+	struct database_details_t
+	{
+		nano::telemetry_backend backend{ telemetry_backend::unknown };
+		uint8_t version_major{ 0 };
+		uint8_t version_minor{ 0 };
+		uint8_t version_patch{ 0 };
+	};
+
+	auto parse_backend_type = [] (std::string backend) -> telemetry_backend {
+		// Compare with lowercase
+		std::transform (backend.begin (), backend.end (), backend.begin (), ::tolower);
+
+		if (backend == "lmdb")
+		{
+			return telemetry_backend::lmdb;
+		}
+		if (backend == "rocksdb")
+		{
+			return telemetry_backend::rocksdb;
+		}
+		debug_assert (false, "invalid database backend string");
+		return telemetry_backend::unknown;
+	};
+
+	auto parse_backend_vendor = [&] (std::string vendor) -> database_details_t {
+		// Expected format: "DB_TYPE X.Y.Z"
+		auto type_version_split = nano::util::split (vendor, " ");
+		if (type_version_split.size () == 2)
+		{
+			auto version_split = nano::util::split (type_version_split[1], ".");
+			if (version_split.size () == 3)
+			{
+				return {
+					.backend = parse_backend_type (type_version_split[0]),
+					.version_major = static_cast<uint8_t> (std::stoul (version_split[0])),
+					.version_minor = static_cast<uint8_t> (std::stoul (version_split[1])),
+					.version_patch = static_cast<uint8_t> (std::stoul (version_split[2])),
+				};
+			}
+		}
+		debug_assert (false, "invalid database vendor string");
+		return {};
+	};
+
+	auto backend_details = parse_backend_vendor (store.vendor_get ());
+
 	nano::telemetry_data telemetry_data;
 	telemetry_data.node_id = node_id.pub;
 	telemetry_data.block_count = ledger.block_count ();
@@ -1353,6 +1399,11 @@ nano::telemetry_data nano::node::local_telemetry () const
 	telemetry_data.maker = static_cast<std::underlying_type_t<telemetry_maker>> (ledger.pruning ? telemetry_maker::nf_pruned_node : telemetry_maker::nf_node);
 	telemetry_data.timestamp = std::chrono::system_clock::now ();
 	telemetry_data.active_difficulty = default_difficulty (nano::work_version::work_1);
+	telemetry_data.database_backend = static_cast<std::underlying_type_t<telemetry_backend>> (backend_details.backend);
+	telemetry_data.database_version_major = backend_details.version_major;
+	telemetry_data.database_version_minor = backend_details.version_minor;
+	telemetry_data.database_version_patch = backend_details.version_patch;
+
 	// Make sure this is the final operation!
 	telemetry_data.sign (node_id);
 	return telemetry_data;

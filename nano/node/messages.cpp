@@ -1081,74 +1081,83 @@ void nano::telemetry_ack::operator() (nano::object_stream & obs) const
  * telemetry_data
  */
 
-void nano::telemetry_data::deserialize (nano::stream & stream_a, uint16_t payload_length_a)
+void nano::telemetry_data::deserialize (nano::stream & stream, uint16_t payload_length)
 {
-	read (stream_a, signature);
-	read (stream_a, node_id);
-	read (stream_a, block_count);
+	read (stream, signature);
+	read (stream, node_id);
+	read (stream, block_count);
 	boost::endian::big_to_native_inplace (block_count);
-	read (stream_a, cemented_count);
+	read (stream, cemented_count);
 	boost::endian::big_to_native_inplace (cemented_count);
-	read (stream_a, unchecked_count);
+	read (stream, unchecked_count);
 	boost::endian::big_to_native_inplace (unchecked_count);
-	read (stream_a, account_count);
+	read (stream, account_count);
 	boost::endian::big_to_native_inplace (account_count);
-	read (stream_a, bandwidth_cap);
+	read (stream, bandwidth_cap);
 	boost::endian::big_to_native_inplace (bandwidth_cap);
-	read (stream_a, peer_count);
+	read (stream, peer_count);
 	boost::endian::big_to_native_inplace (peer_count);
-	read (stream_a, protocol_version);
-	read (stream_a, uptime);
+	read (stream, protocol_version);
+	read (stream, uptime);
 	boost::endian::big_to_native_inplace (uptime);
-	read (stream_a, genesis_block.bytes);
-	read (stream_a, major_version);
-	read (stream_a, minor_version);
-	read (stream_a, patch_version);
-	read (stream_a, pre_release_version);
-	read (stream_a, maker);
+	read (stream, genesis_block.bytes);
+	read (stream, major_version);
+	read (stream, minor_version);
+	read (stream, patch_version);
+	read (stream, pre_release_version);
+	read (stream, maker);
 
 	uint64_t timestamp_l;
-	read (stream_a, timestamp_l);
+	read (stream, timestamp_l);
 	boost::endian::big_to_native_inplace (timestamp_l);
 	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
-	read (stream_a, active_difficulty);
+	read (stream, active_difficulty);
 	boost::endian::big_to_native_inplace (active_difficulty);
-	if (payload_length_a > size)
+	read (stream, database_backend);
+	read (stream, database_version_major);
+	read (stream, database_version_minor);
+	read (stream, database_version_patch);
+
+	if (payload_length > size)
 	{
-		read (stream_a, unknown_data, payload_length_a - size);
+		read (stream, unknown_data, payload_length - size);
 	}
 }
 
-void nano::telemetry_data::serialize_without_signature (nano::stream & stream_a) const
+void nano::telemetry_data::serialize_without_signature (nano::stream & stream) const
 {
 	// All values should be serialized in big endian
-	write (stream_a, node_id);
-	write (stream_a, boost::endian::native_to_big (block_count));
-	write (stream_a, boost::endian::native_to_big (cemented_count));
-	write (stream_a, boost::endian::native_to_big (unchecked_count));
-	write (stream_a, boost::endian::native_to_big (account_count));
-	write (stream_a, boost::endian::native_to_big (bandwidth_cap));
-	write (stream_a, boost::endian::native_to_big (peer_count));
-	write (stream_a, protocol_version);
-	write (stream_a, boost::endian::native_to_big (uptime));
-	write (stream_a, genesis_block.bytes);
-	write (stream_a, major_version);
-	write (stream_a, minor_version);
-	write (stream_a, patch_version);
-	write (stream_a, pre_release_version);
-	write (stream_a, maker);
-	write (stream_a, boost::endian::native_to_big (std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ()));
-	write (stream_a, boost::endian::native_to_big (active_difficulty));
-	write (stream_a, unknown_data);
+	write (stream, node_id);
+	write (stream, boost::endian::native_to_big (block_count));
+	write (stream, boost::endian::native_to_big (cemented_count));
+	write (stream, boost::endian::native_to_big (unchecked_count));
+	write (stream, boost::endian::native_to_big (account_count));
+	write (stream, boost::endian::native_to_big (bandwidth_cap));
+	write (stream, boost::endian::native_to_big (peer_count));
+	write (stream, protocol_version);
+	write (stream, boost::endian::native_to_big (uptime));
+	write (stream, genesis_block.bytes);
+	write (stream, major_version);
+	write (stream, minor_version);
+	write (stream, patch_version);
+	write (stream, pre_release_version);
+	write (stream, maker);
+	write (stream, boost::endian::native_to_big (std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ()));
+	write (stream, boost::endian::native_to_big (active_difficulty));
+	write (stream, database_backend);
+	write (stream, database_version_major);
+	write (stream, database_version_minor);
+	write (stream, database_version_patch);
+	write (stream, unknown_data);
 }
 
-void nano::telemetry_data::serialize (nano::stream & stream_a) const
+void nano::telemetry_data::serialize (nano::stream & stream) const
 {
-	write (stream_a, signature);
-	serialize_without_signature (stream_a);
+	write (stream, signature);
+	serialize_without_signature (stream);
 }
 
-nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json, bool ignore_identification_metrics_a) const
+nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json, bool ignore_identification_metrics) const
 {
 	json.put ("block_count", block_count);
 	json.put ("cemented_count", cemented_count);
@@ -1163,11 +1172,15 @@ nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json, bool 
 	json.put ("minor_version", minor_version);
 	json.put ("patch_version", patch_version);
 	json.put ("pre_release_version", pre_release_version);
-	json.put ("maker", maker);
+	json.put ("maker", maker); // TODO: This should be using a string representation
 	json.put ("timestamp", std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ());
 	json.put ("active_difficulty", nano::to_string_hex (active_difficulty));
+	json.put ("database_backend", database_backend); // TODO: This should be using a string representation
+	json.put ("database_version_major", database_version_major);
+	json.put ("database_version_minor", database_version_minor);
+	json.put ("database_version_patch", database_version_patch);
 	// Keep these last for UI purposes
-	if (!ignore_identification_metrics_a)
+	if (!ignore_identification_metrics)
 	{
 		json.put ("node_id", node_id.to_node_id ());
 		json.put ("signature", signature.to_string ());
@@ -1175,9 +1188,9 @@ nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json, bool 
 	return json.get_error ();
 }
 
-nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, bool ignore_identification_metrics_a)
+nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, bool ignore_identification_metrics)
 {
-	if (!ignore_identification_metrics_a)
+	if (!ignore_identification_metrics)
 	{
 		std::string signature_l;
 		json.get ("signature", signature_l);
@@ -1221,12 +1234,16 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, boo
 	json.get ("minor_version", minor_version);
 	json.get ("patch_version", patch_version);
 	json.get ("pre_release_version", pre_release_version);
-	json.get ("maker", maker);
+	json.get ("maker", maker); // TODO: This should be using a string representation
 	auto timestamp_l = json.get<uint64_t> ("timestamp");
 	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
 	auto current_active_difficulty_text = json.get<std::string> ("active_difficulty");
 	auto ec = nano::from_string_hex (current_active_difficulty_text, active_difficulty);
 	debug_assert (!ec);
+	json.get ("database_backend", database_backend); // TODO: This should be using a string representation
+	json.get ("database_version_major", database_version_major);
+	json.get ("database_version_minor", database_version_minor);
+	json.get ("database_version_patch", database_version_patch);
 	return json.get_error ();
 }
 
@@ -1238,7 +1255,6 @@ void nano::telemetry_data::sign (nano::keypair const & node_id_a)
 		nano::vectorstream stream (bytes);
 		serialize_without_signature (stream);
 	}
-
 	signature = nano::sign_message (node_id_a.prv, node_id_a.pub, bytes.data (), bytes.size ());
 }
 
@@ -1249,7 +1265,6 @@ bool nano::telemetry_data::validate_signature () const
 		nano::vectorstream stream (bytes);
 		serialize_without_signature (stream);
 	}
-
 	return nano::validate_message (node_id, bytes.data (), bytes.size (), signature);
 }
 

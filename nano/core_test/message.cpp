@@ -917,6 +917,10 @@ TEST (message, telemetry_data_serialization)
 	original.maker = 5;
 	original.timestamp = std::chrono::system_clock::time_point{ 123456789s };
 	original.active_difficulty = 42;
+	original.database_backend = 2;
+	original.database_version_major = 3;
+	original.database_version_minor = 2;
+	original.database_version_patch = 1;
 
 	// Serialize
 	std::vector<uint8_t> bytes;
@@ -948,6 +952,10 @@ TEST (message, telemetry_data_serialization)
 	ASSERT_EQ (original.maker, telemetry.maker);
 	ASSERT_EQ (original.timestamp, telemetry.timestamp);
 	ASSERT_EQ (original.active_difficulty, telemetry.active_difficulty);
+	ASSERT_EQ (original.database_backend, telemetry.database_backend);
+	ASSERT_EQ (original.database_version_major, telemetry.database_version_major);
+	ASSERT_EQ (original.database_version_minor, telemetry.database_version_minor);
+	ASSERT_EQ (original.database_version_patch, telemetry.database_version_patch);
 	ASSERT_EQ (original, telemetry);
 
 	ASSERT_EQ (nano::telemetry_data::size, bytes.size ());
