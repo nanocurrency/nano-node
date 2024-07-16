@@ -1111,9 +1111,14 @@ void nano::telemetry_data::deserialize (nano::stream & stream, uint16_t payload_
 	read (stream, timestamp_l);
 	boost::endian::big_to_native_inplace (timestamp_l);
 	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
+
 	read (stream, active_difficulty);
 	boost::endian::big_to_native_inplace (active_difficulty);
-	read (stream, database_backend);
+
+	uint8_t database_backend_l;
+	read (stream, database_backend_l);
+	database_backend = static_cast<nano::telemetry_backend> (database_backend_l);
+
 	read (stream, database_version_major);
 	read (stream, database_version_minor);
 	read (stream, database_version_patch);
@@ -1144,7 +1149,7 @@ void nano::telemetry_data::serialize_without_signature (nano::stream & stream) c
 	write (stream, maker);
 	write (stream, boost::endian::native_to_big (std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ()));
 	write (stream, boost::endian::native_to_big (active_difficulty));
-	write (stream, database_backend);
+	write (stream, static_cast<std::underlying_type_t<nano::telemetry_backend>> (database_backend));
 	write (stream, database_version_major);
 	write (stream, database_version_minor);
 	write (stream, database_version_patch);
@@ -1175,7 +1180,7 @@ nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json, bool 
 	json.put ("maker", maker); // TODO: This should be using a string representation
 	json.put ("timestamp", std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ());
 	json.put ("active_difficulty", nano::to_string_hex (active_difficulty));
-	json.put ("database_backend", database_backend); // TODO: This should be using a string representation
+	json.put ("database_backend", to_string (database_backend));
 	json.put ("database_version_major", database_version_major);
 	json.put ("database_version_minor", database_version_minor);
 	json.put ("database_version_patch", database_version_patch);
@@ -1221,6 +1226,7 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, boo
 	json.get ("peer_count", peer_count);
 	json.get ("protocol_version", protocol_version);
 	json.get ("uptime", uptime);
+
 	std::string genesis_block_l;
 	json.get ("genesis_block", genesis_block_l);
 	if (!json.get_error ())
@@ -1230,17 +1236,24 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, boo
 			json.get_error ().set ("Could not deserialize genesis block");
 		}
 	}
+	
 	json.get ("major_version", major_version);
 	json.get ("minor_version", minor_version);
 	json.get ("patch_version", patch_version);
 	json.get ("pre_release_version", pre_release_version);
 	json.get ("maker", maker); // TODO: This should be using a string representation
+
 	auto timestamp_l = json.get<uint64_t> ("timestamp");
 	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
+
 	auto current_active_difficulty_text = json.get<std::string> ("active_difficulty");
 	auto ec = nano::from_string_hex (current_active_difficulty_text, active_difficulty);
 	debug_assert (!ec);
-	json.get ("database_backend", database_backend); // TODO: This should be using a string representation
+
+	std::string database_backend_text;
+	json.get ("database_backend", database_backend_text);
+	database_backend = nano::to_telemetry_backend (database_backend_text);
+
 	json.get ("database_version_major", database_version_major);
 	json.get ("database_version_minor", database_version_minor);
 	json.get ("database_version_patch", database_version_patch);
@@ -1271,6 +1284,64 @@ bool nano::telemetry_data::validate_signature () const
 void nano::telemetry_data::operator() (nano::object_stream & obs) const
 {
 	// TODO: Telemetry data
+}
+
+std::string nano::to_string (nano::telemetry_maker maker)
+{
+	switch (maker)
+	{
+		case nano::telemetry_maker::nf_node:
+			return "nf";
+		case nano::telemetry_maker::nf_pruned_node:
+			return "nf-pruned";
+	}
+	return "unknown (" + std::to_string (static_cast<std::underlying_type_t<nano::telemetry_maker>> (maker)) + ")";
+}
+
+nano::telemetry_maker nano::to_telemetry_maker (std::string str)
+{
+	// Convert to lowercase
+	std::transform (str.begin (), str.end (), str.begin (), ::tolower);
+
+	if (str == "nf")
+	{
+		return nano::telemetry_maker::nf_node;
+	}
+	if (str == "nf-pruned")
+	{
+		return nano::telemetry_maker::nf_pruned_node;
+	}
+	return {}; // TODO: Enumeration should have a default "unknown" value, at this point it's probably too late to add it
+}
+
+std::string nano::to_string (nano::telemetry_backend backend)
+{
+	switch (backend)
+	{
+		case nano::telemetry_backend::unknown:
+			return "Unknown";
+		case nano::telemetry_backend::lmdb:
+			return "LMDB";
+		case nano::telemetry_backend::rocksdb:
+			return "RocksDB";
+	}
+	return "Unknown (" + std::to_string (static_cast<std::underlying_type_t<nano::telemetry_backend>> (backend)) + ")";
+}
+
+nano::telemetry_backend nano::to_telemetry_backend (std::string str)
+{
+	// Convert to lowercase
+	std::transform (str.begin (), str.end (), str.begin (), ::tolower);
+
+	if (str == "lmdb")
+	{
+		return nano::telemetry_backend::lmdb;
+	}
+	if (str == "rocksdb")
+	{
+		return nano::telemetry_backend::rocksdb;
+	}
+	return nano::telemetry_backend::unknown;
 }
 
 /*

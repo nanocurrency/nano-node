@@ -1344,7 +1344,7 @@ nano::telemetry_data nano::node::local_telemetry () const
 	};
 
 	auto parse_backend_type = [] (std::string backend) -> telemetry_backend {
-		// Compare with lowercase
+		// Convert to lowercase
 		std::transform (backend.begin (), backend.end (), backend.begin (), ::tolower);
 
 		if (backend == "lmdb")
@@ -1399,7 +1399,7 @@ nano::telemetry_data nano::node::local_telemetry () const
 	telemetry_data.maker = static_cast<std::underlying_type_t<telemetry_maker>> (ledger.pruning ? telemetry_maker::nf_pruned_node : telemetry_maker::nf_node);
 	telemetry_data.timestamp = std::chrono::system_clock::now ();
 	telemetry_data.active_difficulty = default_difficulty (nano::work_version::work_1);
-	telemetry_data.database_backend = static_cast<std::underlying_type_t<telemetry_backend>> (backend_details.backend);
+	telemetry_data.database_backend = backend_details.backend;
 	telemetry_data.database_version_major = backend_details.version_major;
 	telemetry_data.database_version_minor = backend_details.version_minor;
 	telemetry_data.database_version_patch = backend_details.version_patch;

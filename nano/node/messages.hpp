@@ -317,6 +317,12 @@ enum class telemetry_backend : uint8_t
 	rocksdb = 2,
 };
 
+std::string to_string (telemetry_maker);
+telemetry_maker to_telemetry_maker (std::string);
+
+std::string to_string (telemetry_backend);
+telemetry_backend to_telemetry_backend (std::string);
+
 class telemetry_data
 {
 public: // Payload
@@ -338,7 +344,7 @@ public: // Payload
 	uint8_t maker{ static_cast<std::underlying_type_t<telemetry_maker>> (telemetry_maker::nf_node) }; // Where this telemetry information originated
 	std::chrono::system_clock::time_point timestamp;
 	uint64_t active_difficulty{ 0 };
-	uint8_t database_backend{ 0 };
+	telemetry_backend database_backend{ telemetry_backend::unknown };
 	uint8_t database_version_major{ 0 };
 	uint8_t database_version_minor{ 0 };
 	uint8_t database_version_patch{ 0 };

@@ -917,7 +917,7 @@ TEST (message, telemetry_data_serialization)
 	original.maker = 5;
 	original.timestamp = std::chrono::system_clock::time_point{ 123456789s };
 	original.active_difficulty = 42;
-	original.database_backend = 2;
+	original.database_backend = nano::telemetry_backend::rocksdb;
 	original.database_version_major = 3;
 	original.database_version_minor = 2;
 	original.database_version_patch = 1;
