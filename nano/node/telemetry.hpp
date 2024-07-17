@@ -148,6 +148,4 @@ private:
 private:
 	static std::size_t constexpr max_size = 1024;
 };
-
-nano::telemetry_data consolidate_telemetry_data (std::vector<telemetry_data> const & telemetry_data);
 }

@@ -4145,27 +4145,21 @@ void nano::json_handler::telemetry ()
 		}
 		else
 		{
-			nano::jsonconfig config_l;
-			std::vector<nano::telemetry_data> telemetry_datas;
-			telemetry_datas.reserve (telemetry_responses.size ());
-			std::transform (telemetry_responses.begin (), telemetry_responses.end (), std::back_inserter (telemetry_datas), [] (auto const & endpoint_telemetry_data) {
-				return endpoint_telemetry_data.second;
-			});
+			// Default case without any parameters, requesting telemetry metrics locally
+			auto telemetry_data = node.local_telemetry ();
 
-			auto average_telemetry_metrics = nano::consolidate_telemetry_data (telemetry_datas);
-			// Don't add node_id/signature in consolidated metrics
-			auto const should_ignore_identification_metrics = true;
-			auto err = average_telemetry_metrics.serialize_json (config_l, should_ignore_identification_metrics);
+			nano::jsonconfig config_l;
+			auto const should_ignore_identification_metrics = false;
+			auto err = telemetry_data.serialize_json (config_l, should_ignore_identification_metrics);
 			auto const & ptree = config_l.get_tree ();
 
 			if (!err)
 			{
 				response_l.insert (response_l.begin (), ptree.begin (), ptree.end ());
 			}
-			else
-			{
-				ec = nano::error_rpc::generic;
-			}
+
+			response_errors ();
+			return;
 		}
 
 		response_errors ();
