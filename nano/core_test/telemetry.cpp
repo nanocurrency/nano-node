@@ -19,13 +19,13 @@ TEST (telemetry, signatures)
 	data.minor_version = 1;
 	data.patch_version = 5;
 	data.pre_release_version = 2;
-	data.maker = 1;
+	data.maker = nano::telemetry_maker::nf_pruned_node;
 	data.timestamp = std::chrono::system_clock::time_point (100ms);
 	data.sign (node_id);
 	ASSERT_FALSE (data.validate_signature ());
 	auto signature = data.signature;
 	// Check that the signature is different if changing a piece of data
-	data.maker = 2;
+	data.maker = nano::telemetry_maker::nf_node;
 	data.sign (node_id);
 	ASSERT_NE (data.signature, signature);
 }
@@ -39,7 +39,6 @@ TEST (telemetry, unknown_data)
 	data.minor_version = 1;
 	data.patch_version = 5;
 	data.pre_release_version = 2;
-	data.maker = 1;
 	data.timestamp = std::chrono::system_clock::time_point (100ms);
 	data.unknown_data.push_back (1);
 	data.sign (node_id);

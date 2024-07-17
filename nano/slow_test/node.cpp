@@ -1632,7 +1632,7 @@ TEST (telemetry, many_nodes)
 		ASSERT_EQ (data.minor_version, nano::get_minor_node_version ());
 		ASSERT_EQ (data.patch_version, nano::get_patch_node_version ());
 		ASSERT_EQ (data.pre_release_version, nano::get_pre_release_node_version ());
-		ASSERT_EQ (data.maker, 0);
+		ASSERT_EQ (data.maker, nano::telemetry_maker::nf_node);
 		ASSERT_LT (data.uptime, 100);
 		ASSERT_EQ (data.genesis_block, nano::dev::genesis->hash ());
 		ASSERT_LE (data.timestamp, std::chrono::system_clock::now ());

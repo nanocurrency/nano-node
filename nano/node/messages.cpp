@@ -1105,7 +1105,10 @@ void nano::telemetry_data::deserialize (nano::stream & stream, uint16_t payload_
 	read (stream, minor_version);
 	read (stream, patch_version);
 	read (stream, pre_release_version);
-	read (stream, maker);
+
+	uint8_t maker_l;
+	read (stream, maker_l);
+	maker = static_cast<nano::telemetry_maker> (maker_l);
 
 	uint64_t timestamp_l;
 	read (stream, timestamp_l);
@@ -1146,7 +1149,7 @@ void nano::telemetry_data::serialize_without_signature (nano::stream & stream) c
 	write (stream, minor_version);
 	write (stream, patch_version);
 	write (stream, pre_release_version);
-	write (stream, maker);
+	write (stream, static_cast<std::underlying_type_t<nano::telemetry_maker>> (maker));
 	write (stream, boost::endian::native_to_big (std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ()));
 	write (stream, boost::endian::native_to_big (active_difficulty));
 	write (stream, static_cast<std::underlying_type_t<nano::telemetry_backend>> (database_backend));
@@ -1177,7 +1180,7 @@ nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json, bool 
 	json.put ("minor_version", minor_version);
 	json.put ("patch_version", patch_version);
 	json.put ("pre_release_version", pre_release_version);
-	json.put ("maker", maker); // TODO: This should be using a string representation
+	json.put ("maker", to_string (maker));
 	json.put ("timestamp", std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ());
 	json.put ("active_difficulty", nano::to_string_hex (active_difficulty));
 	json.put ("database_backend", to_string (database_backend));
@@ -1236,12 +1239,15 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, boo
 			json.get_error ().set ("Could not deserialize genesis block");
 		}
 	}
-	
+
 	json.get ("major_version", major_version);
 	json.get ("minor_version", minor_version);
 	json.get ("patch_version", patch_version);
 	json.get ("pre_release_version", pre_release_version);
-	json.get ("maker", maker); // TODO: This should be using a string representation
+
+	std::string maker_text;
+	json.get ("maker", maker_text);
+	maker = to_telemetry_maker (maker_text);
 
 	auto timestamp_l = json.get<uint64_t> ("timestamp");
 	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
@@ -1252,7 +1258,7 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, boo
 
 	std::string database_backend_text;
 	json.get ("database_backend", database_backend_text);
-	database_backend = nano::to_telemetry_backend (database_backend_text);
+	database_backend = to_telemetry_backend (database_backend_text);
 
 	json.get ("database_version_major", database_version_major);
 	json.get ("database_version_minor", database_version_minor);

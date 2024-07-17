@@ -914,7 +914,7 @@ TEST (message, telemetry_data_serialization)
 	original.minor_version = 3;
 	original.patch_version = 2;
 	original.pre_release_version = 1;
-	original.maker = 5;
+	original.maker = nano::telemetry_maker::nf_pruned_node;
 	original.timestamp = std::chrono::system_clock::time_point{ 123456789s };
 	original.active_difficulty = 42;
 	original.database_backend = nano::telemetry_backend::rocksdb;

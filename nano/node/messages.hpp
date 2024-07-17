@@ -304,12 +304,15 @@ public: // Logging
 	void operator() (nano::object_stream &) const override;
 };
 
+// Indicates type of node
 enum class telemetry_maker : uint8_t
 {
+	// TODO: Default 0 value should be "unknown"
 	nf_node = 0,
 	nf_pruned_node = 1
 };
 
+// Indicates type of database backend
 enum class telemetry_backend : uint8_t
 {
 	unknown = 0,
@@ -341,7 +344,7 @@ public: // Payload
 	uint8_t minor_version{ 0 };
 	uint8_t patch_version{ 0 };
 	uint8_t pre_release_version{ 0 };
-	uint8_t maker{ static_cast<std::underlying_type_t<telemetry_maker>> (telemetry_maker::nf_node) }; // Where this telemetry information originated
+	telemetry_maker maker{ telemetry_maker::nf_node };
 	std::chrono::system_clock::time_point timestamp;
 	uint64_t active_difficulty{ 0 };
 	telemetry_backend database_backend{ telemetry_backend::unknown };
