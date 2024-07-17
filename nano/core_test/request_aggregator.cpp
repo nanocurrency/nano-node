@@ -262,7 +262,7 @@ TEST (request_aggregator, two_endpoints)
 
 TEST (request_aggregator, split)
 {
-	constexpr size_t max_vbh = nano::network::confirm_ack_hashes_max;
+	size_t max_vbh = nano::network::confirm_ack_hashes_max;
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
@@ -303,7 +303,7 @@ TEST (request_aggregator, split)
 	// Two votes were sent, the first one for 12 hashes and the second one for 1 hash
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_accepted));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_dropped));
-	ASSERT_TIMELY_EQ (3s, 13, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes));
+	ASSERT_TIMELY_EQ (3s, nano::network::confirm_ack_hashes_max + 1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes));
 	ASSERT_TIMELY_EQ (3s, 2, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes));
 	ASSERT_TIMELY_EQ (3s, 0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_unknown));
 	ASSERT_TIMELY_EQ (3s, 0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached_hashes));

@@ -199,7 +199,7 @@ TEST (message, confirm_header_flags_max)
 TEST (message, confirm_ack_hash_serialization)
 {
 	std::vector<nano::block_hash> hashes;
-	for (auto i (hashes.size ()); i < nano::network::confirm_ack_hashes_max; i++)
+	for (auto i (hashes.size ()); i < 15; i++)
 	{
 		nano::keypair key1;
 		nano::block_hash previous;
