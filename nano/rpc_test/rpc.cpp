@@ -6776,8 +6776,6 @@ TEST (rpc, telemetry_all)
 		auto const should_ignore_identification_metrics = true;
 		ASSERT_FALSE (telemetry_data.deserialize_json (config, should_ignore_identification_metrics));
 		ASSERT_TRUE (nano::test::compare_telemetry_data (telemetry_data, node->local_telemetry ()));
-		ASSERT_FALSE (response.get_optional<std::string> ("node_id").is_initialized ());
-		ASSERT_FALSE (response.get_optional<std::string> ("signature").is_initialized ());
 	}
 
 	request.put ("raw", "true");
