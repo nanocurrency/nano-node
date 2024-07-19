@@ -20,6 +20,7 @@
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/process.hpp>
 #include <boost/program_options.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 #ifdef _WIN32
@@ -55,7 +56,38 @@ public:
 	bool operator< (const address_library_pair & other) const;
 	bool operator== (const address_library_pair & other) const;
 };
-
+std::filesystem::path pid_file;
+void remove_pid_file ()
+{
+	std::error_code ec;
+	std::filesystem::remove (pid_file, ec);
+	if (ec)
+	{
+		std::cerr << "Unable to remove pid file: " << ec.message ();
+	}
+}
+void register_pid_file ()
+{
+	std::error_code ec;
+	auto pid = boost::this_process::get_id ();
+	std::filesystem::create_directories (pid_file.parent_path (), ec);
+	if (ec)
+	{
+		std::cerr << "Unable to access PID file path" << std::endl;
+		return;
+	}
+	std::ofstream pid_file_stream (pid_file, std::ios::out | std::ios::trunc);
+	if (pid_file_stream.is_open ())
+	{
+		pid_file_stream << std::to_string (pid) << std::endl;
+		pid_file_stream.close ();
+		std::atexit (remove_pid_file);
+	}
+	else
+	{
+		std::cerr << "Unable to open PID file for writing." << std::endl;
+	}
+}
 }
 
 int main (int argc, char * const * argv)
@@ -113,7 +145,8 @@ int main (int argc, char * const * argv)
 		("count", boost::program_options::value<std::string> (), "Defines <count> for various commands")
 		("pow_sleep_interval", boost::program_options::value<std::string> (), "Defines the amount to sleep inbetween each pow calculation attempt")
 		("address_column", boost::program_options::value<std::string> (), "Defines which column the addresses are located, 0 indexed (check --debug_output_last_backtrace_dump output)")
-		("silent", "Silent command execution");
+		("silent", "Silent command execution")
+		("pid_file", boost::program_options::value<std::string> (), "If present, node will write its process id to the specified file and delete the file upon exit");
 	// clang-format on
 	nano::add_node_options (description);
 	nano::add_node_flag_options (description);
@@ -139,6 +172,12 @@ int main (int argc, char * const * argv)
 			std::cerr << nano::network_constants::active_network_err_msg << std::endl;
 			std::exit (1);
 		}
+	}
+
+	if (auto existing = vm.find ("pid_file"); existing != vm.end ())
+	{
+		pid_file = existing->second.as<std::string> ();
+		register_pid_file ();
 	}
 
 	nano::network_params network_params{ nano::network_constants::active_network };
