@@ -41,7 +41,8 @@ namespace bootstrap_ascending
 		void priority_down (nano::account const & account);
 		void block (nano::account const & account, nano::block_hash const & dependency);
 		void unblock (nano::account const & account, std::optional<nano::block_hash> const & hash = std::nullopt);
-		void timestamp (nano::account const & account, bool reset = false);
+		void timestamp_set (nano::account const & account);
+		void timestamp_reset (nano::account const & account);
 
 		nano::account next ();
 
@@ -68,12 +69,11 @@ namespace bootstrap_ascending
 	private:
 		struct priority_entry
 		{
-			nano::account account{ 0 };
-			float priority{ 0 };
-			nano::millis_t timestamp{ 0 };
-			nano::bootstrap_ascending::id_t id{ 0 }; // Uniformly distributed, used for random querying
+			nano::account account;
+			float priority;
 
-			priority_entry (nano::account account, float priority);
+			id_t id{ generate_id () }; // Uniformly distributed, used for random querying
+			std::chrono::steady_clock::time_point timestamp{};
 		};
 
 		struct blocking_entry
