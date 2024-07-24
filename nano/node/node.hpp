@@ -12,7 +12,6 @@
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
-#include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/epoch_upgrader.hpp>
 #include <nano/node/fwd.hpp>
@@ -61,6 +60,10 @@ namespace scheduler
 namespace transport
 {
 	class tcp_listener;
+}
+namespace bootstrap_ascending
+{
+	class service;
 }
 namespace rocksdb
 {
@@ -209,7 +212,8 @@ public:
 	nano::request_aggregator & aggregator;
 	nano::wallets wallets;
 	nano::backlog_population backlog;
-	nano::bootstrap_ascending::service ascendboot;
+	std::unique_ptr<nano::bootstrap_ascending::service> ascendboot_impl;
+	nano::bootstrap_ascending::service & ascendboot;
 	nano::websocket_server websocket;
 	nano::epoch_upgrader epoch_upgrader;
 	std::unique_ptr<nano::local_block_broadcaster> local_block_broadcaster_impl;
