@@ -98,21 +98,26 @@ namespace bootstrap_ascending
 		void inspect (secure::transaction const &, nano::block_status const & result, nano::block const & block);
 
 		void run_priorities ();
+		void run_one_priority ();
+		void run_database ();
+		void run_one_database (bool should_throttle);
 		void run_dependencies ();
+		void run_one_dependency ();
 		void run_timeouts ();
-		bool run_one_priority ();
-		bool run_one_dependency ();
-		void throttle_if_needed (nano::unique_lock<nano::mutex> &) const;
 
-		/* Throttles requesting new blocks, not to overwhelm blockprocessor */
+		/* Ensure there is enough space in blockprocessor for queuing new blocks */
 		void wait_blockprocessor ();
-		/* Waits for channel with free capacity for bootstrap messages */
-		std::shared_ptr<nano::transport::channel> wait_available_channel ();
+		/* Waits for a channel that is not full */
+		std::shared_ptr<nano::transport::channel> wait_channel ();
 		/* Waits until a suitable account outside of cool down period is available */
-		nano::account available_account ();
-		nano::account wait_available_account ();
-		nano::block_hash available_dependency ();
-		nano::block_hash wait_available_dependency ();
+		nano::account next_priority ();
+		nano::account wait_priority ();
+		/* Gets the next account from the database */
+		nano::account next_database (bool should_throttle);
+		nano::account wait_database (bool should_throttle);
+		/* Waits for next available dependency (blocking block) */
+		nano::block_hash next_dependency ();
+		nano::block_hash wait_dependency ();
 
 		bool request (nano::account, std::shared_ptr<nano::transport::channel> const &);
 		bool request_info (nano::block_hash, std::shared_ptr<nano::transport::channel> const &);
@@ -172,6 +177,7 @@ namespace bootstrap_ascending
 		mutable nano::mutex mutex;
 		mutable nano::condition_variable condition;
 		std::thread priorities_thread;
+		std::thread database_thread;
 		std::thread dependencies_thread;
 		std::thread timeout_thread;
 	};

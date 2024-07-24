@@ -422,6 +422,7 @@ enum class detail
 	timeout,
 	nothing_new,
 	account_info_empty,
+	loop_database,
 	loop_dependencies,
 
 	// bootstrap ascending accounts

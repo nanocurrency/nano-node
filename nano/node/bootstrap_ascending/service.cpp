@@ -52,6 +52,7 @@ nano::bootstrap_ascending::service::~service ()
 {
 	// All threads must be stopped before destruction
 	debug_assert (!priorities_thread.joinable ());
+	debug_assert (!database_thread.joinable ());
 	debug_assert (!dependencies_thread.joinable ());
 	debug_assert (!timeout_thread.joinable ());
 }
@@ -59,12 +60,18 @@ nano::bootstrap_ascending::service::~service ()
 void nano::bootstrap_ascending::service::start ()
 {
 	debug_assert (!priorities_thread.joinable ());
+	debug_assert (!database_thread.joinable ());
 	debug_assert (!dependencies_thread.joinable ());
 	debug_assert (!timeout_thread.joinable ());
 
 	priorities_thread = std::thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::ascending_bootstrap);
 		run_priorities ();
+	});
+
+	database_thread = std::thread ([this] () {
+		nano::thread_role::set (nano::thread_role::name::ascending_bootstrap);
+		run_database ();
 	});
 
 	dependencies_thread = std::thread ([this] () {
@@ -87,6 +94,7 @@ void nano::bootstrap_ascending::service::stop ()
 	condition.notify_all ();
 
 	nano::join_or_pass (priorities_thread);
+	nano::join_or_pass (database_thread);
 	nano::join_or_pass (dependencies_thread);
 	nano::join_or_pass (timeout_thread);
 }
@@ -220,7 +228,7 @@ void nano::bootstrap_ascending::service::wait_blockprocessor ()
 	}
 }
 
-std::shared_ptr<nano::transport::channel> nano::bootstrap_ascending::service::wait_available_channel ()
+std::shared_ptr<nano::transport::channel> nano::bootstrap_ascending::service::wait_channel ()
 {
 	std::shared_ptr<nano::transport::channel> channel;
 	nano::unique_lock<nano::mutex> lock{ mutex };
@@ -231,35 +239,25 @@ std::shared_ptr<nano::transport::channel> nano::bootstrap_ascending::service::wa
 	return channel;
 }
 
-nano::account nano::bootstrap_ascending::service::available_account ()
+nano::account nano::bootstrap_ascending::service::next_priority ()
 {
 	debug_assert (!mutex.try_lock ());
+
+	auto account = accounts.next_priority ();
+	if (!account.is_zero ())
 	{
-		auto account = accounts.next_priority ();
-		if (!account.is_zero ())
-		{
-			stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::next_priority);
-			return account;
-		}
-	}
-	if (database_limiter.should_pass (1))
-	{
-		auto account = iterator.next ();
-		if (!account.is_zero ())
-		{
-			stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::next_database);
-			return account;
-		}
+		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::next_priority);
+		return account;
 	}
 	return { 0 };
 }
 
-nano::account nano::bootstrap_ascending::service::wait_available_account ()
+nano::account nano::bootstrap_ascending::service::wait_priority ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		auto account = available_account ();
+		auto account = next_priority ();
 		if (!account.is_zero ())
 		{
 			accounts.timestamp_set (account);
@@ -273,7 +271,43 @@ nano::account nano::bootstrap_ascending::service::wait_available_account ()
 	return { 0 };
 }
 
-nano::block_hash nano::bootstrap_ascending::service::available_dependency ()
+nano::account nano::bootstrap_ascending::service::next_database (bool should_throttle)
+{
+	debug_assert (!mutex.try_lock ());
+
+	// Throttling increases the weight of database requests
+	// TODO: Make this ratio configurable
+	if (database_limiter.should_pass (should_throttle ? 22 : 1))
+	{
+		auto account = iterator.next ();
+		if (!account.is_zero ())
+		{
+			stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::next_database);
+			return account;
+		}
+	}
+	return { 0 };
+}
+
+nano::account nano::bootstrap_ascending::service::wait_database (bool should_throttle)
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	while (!stopped)
+	{
+		auto account = next_database (should_throttle);
+		if (!account.is_zero ())
+		{
+			return account;
+		}
+		else
+		{
+			condition.wait_for (lock, 100ms);
+		}
+	}
+	return { 0 };
+}
+
+nano::block_hash nano::bootstrap_ascending::service::next_dependency ()
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -286,12 +320,12 @@ nano::block_hash nano::bootstrap_ascending::service::available_dependency ()
 	return { 0 };
 }
 
-nano::block_hash nano::bootstrap_ascending::service::wait_available_dependency ()
+nano::block_hash nano::bootstrap_ascending::service::wait_dependency ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		auto dependency = available_dependency ();
+		auto dependency = next_dependency ();
 		if (!dependency.is_zero ())
 		{
 			return dependency;
@@ -344,37 +378,20 @@ bool nano::bootstrap_ascending::service::request_info (nano::block_hash hash, st
 	return true; // Request sent
 }
 
-void nano::bootstrap_ascending::service::throttle_if_needed (nano::unique_lock<nano::mutex> & lock) const
+void nano::bootstrap_ascending::service::run_one_priority ()
 {
-	debug_assert (lock.owns_lock ());
-	if (!iterator.warmup () && throttle.throttled ())
-	{
-		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::throttled);
-		condition.wait_for (lock, std::chrono::milliseconds{ config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; });
-	}
-}
-
-bool nano::bootstrap_ascending::service::run_one_priority ()
-{
-	// Ensure there is enough space in blockprocessor for queuing new blocks
 	wait_blockprocessor ();
-
-	// Waits for channel that is not full
-	auto channel = wait_available_channel ();
+	auto channel = wait_channel ();
 	if (!channel)
 	{
-		return false;
+		return;
 	}
-
-	// Waits for account either from priority queue or database
-	auto account = wait_available_account ();
+	auto account = wait_priority ();
 	if (account.is_zero ())
 	{
-		return false;
+		return;
 	}
-
-	bool success = request (account, channel);
-	return success;
+	request (account, channel);
 }
 
 void nano::bootstrap_ascending::service::run_priorities ()
@@ -386,29 +403,53 @@ void nano::bootstrap_ascending::service::run_priorities ()
 		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::loop);
 		run_one_priority ();
 		lock.lock ();
-		throttle_if_needed (lock);
 	}
 }
 
-bool nano::bootstrap_ascending::service::run_one_dependency ()
+void nano::bootstrap_ascending::service::run_one_database (bool should_throttle)
 {
-	// Ensure there is enough space in blockprocessor for queuing new blocks
 	wait_blockprocessor ();
-
-	auto channel = wait_available_channel ();
+	auto channel = wait_channel ();
 	if (!channel)
 	{
-		return false;
+		return;
 	}
+	auto account = wait_database (should_throttle);
+	if (account.is_zero ())
+	{
+		return;
+	}
+	request (account, channel);
+}
 
-	auto dependency = wait_available_dependency ();
+void nano::bootstrap_ascending::service::run_database ()
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	while (!stopped)
+	{
+		// Avoid high churn rate of database requests
+		bool should_throttle = !iterator.warmup () && throttle.throttled ();
+		lock.unlock ();
+		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::loop_database);
+		run_one_database (should_throttle);
+		lock.lock ();
+	}
+}
+
+void nano::bootstrap_ascending::service::run_one_dependency ()
+{
+	wait_blockprocessor ();
+	auto channel = wait_channel ();
+	if (!channel)
+	{
+		return;
+	}
+	auto dependency = wait_dependency ();
 	if (dependency.is_zero ())
 	{
-		return false;
+		return;
 	}
-
-	bool success = request_info (dependency, channel);
-	return success;
+	request_info (dependency, channel);
 }
 
 void nano::bootstrap_ascending::service::run_dependencies ()
@@ -445,6 +486,7 @@ void nano::bootstrap_ascending::service::run_timeouts ()
 			on_timeout.notify (tag);
 			stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::timeout);
 		}
+
 		condition.wait_for (lock, 1s, [this] () { return stopped; });
 	}
 }
