@@ -122,7 +122,6 @@ namespace bootstrap_ascending
 		bool request (nano::account, std::shared_ptr<nano::transport::channel> const &);
 		bool request_info (nano::block_hash, std::shared_ptr<nano::transport::channel> const &);
 		void send (std::shared_ptr<nano::transport::channel> const &, async_tag tag);
-		void track (async_tag const & tag);
 
 		void process (nano::asc_pull_ack::blocks_payload const & response, async_tag const & tag);
 		void process (nano::asc_pull_ack::account_info_payload const & response, async_tag const & tag);
@@ -181,5 +180,7 @@ namespace bootstrap_ascending
 		std::thread dependencies_thread;
 		std::thread timeout_thread;
 	};
+
+	nano::stat::detail to_stat_detail (service::query_type);
 }
 }
