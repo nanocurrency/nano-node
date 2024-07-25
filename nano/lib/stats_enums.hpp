@@ -429,6 +429,7 @@ enum class detail
 	account_info_empty,
 	loop_database,
 	loop_dependencies,
+	duplicate_request,
 
 	// bootstrap ascending accounts
 	prioritize,

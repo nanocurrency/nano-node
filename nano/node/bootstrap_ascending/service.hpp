@@ -83,6 +83,7 @@ namespace bootstrap_ascending
 			query_type type{ query_type::invalid };
 			nano::hash_or_account start{ 0 };
 			nano::account account{ 0 };
+			nano::block_hash hash{ 0 };
 
 			id_t id{ generate_id () };
 			std::chrono::steady_clock::time_point timestamp{ std::chrono::steady_clock::now () };
@@ -105,6 +106,10 @@ namespace bootstrap_ascending
 		void run_one_dependency ();
 		void run_timeouts ();
 
+		void wait_backoff (std::function<bool ()> const & predicate, std::vector<std::chrono::milliseconds> const & intervals);
+
+		/* Avoid too many in-flight requests */
+		void wait_tags ();
 		/* Ensure there is enough space in blockprocessor for queuing new blocks */
 		void wait_blockprocessor ();
 		/* Waits for a channel that is not full */
@@ -156,6 +161,7 @@ namespace bootstrap_ascending
 		class tag_sequenced {};
 		class tag_id {};
 		class tag_account {};
+		class tag_hash {};
 
 		using ordered_tags = boost::multi_index_container<async_tag,
 		mi::indexed_by<
@@ -163,7 +169,9 @@ namespace bootstrap_ascending
 			mi::hashed_unique<mi::tag<tag_id>,
 				mi::member<async_tag, nano::bootstrap_ascending::id_t, &async_tag::id>>,
 			mi::hashed_non_unique<mi::tag<tag_account>,
-				mi::member<async_tag, nano::account , &async_tag::account>>
+				mi::member<async_tag, nano::account , &async_tag::account>>,
+			mi::hashed_non_unique<mi::tag<tag_hash>,
+				mi::member<async_tag, nano::block_hash, &async_tag::hash>>
 		>>;
 		// clang-format on
 		ordered_tags tags;
@@ -179,6 +187,8 @@ namespace bootstrap_ascending
 		std::thread database_thread;
 		std::thread dependencies_thread;
 		std::thread timeout_thread;
+
+		static size_t constexpr max_tags{ 1024 };
 	};
 
 	nano::stat::detail to_stat_detail (service::query_type);
