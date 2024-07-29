@@ -39,33 +39,44 @@ namespace bootstrap_ascending
 		 * Current implementation divides priority by 2.0f and saturates down to 1.0f.
 		 */
 		void priority_down (nano::account const & account);
+		void priority_set (nano::account const & account);
+
 		void block (nano::account const & account, nano::block_hash const & dependency);
 		void unblock (nano::account const & account, std::optional<nano::block_hash> const & hash = std::nullopt);
+
 		void timestamp_set (nano::account const & account);
 		void timestamp_reset (nano::account const & account);
 
+		/**
+		 * Sets information about the account chain that contains the block hash
+		 */
+		void dependency_update (nano::block_hash const & hash, nano::account const & dependency_account);
+
+		/**
+		 * Sampling
+		 */
 		nano::account next_priority ();
 		nano::block_hash next_blocking ();
+		nano::account next_dependency ();
 
 	public:
 		bool blocked (nano::account const & account) const;
-		std::size_t priority_size () const;
-		std::size_t blocked_size () const;
-		/**
-		 * Accounts in the ledger but not in priority list are assumed priority 1.0f
-		 * Blocked accounts are assumed priority 0.0f
-		 */
+		bool prioritized (nano::account const & account) const;
+		// Accounts in the ledger but not in priority list are assumed priority 1.0f
+		// Blocked accounts are assumed priority 0.0f
 		float priority (nano::account const & account) const;
 
-	public: // Container info
+		std::size_t priority_size () const;
+		std::size_t blocked_size () const;
+
 		std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name);
+
+	private: // Dependencies
+		nano::stats & stats;
 
 	private:
 		void trim_overflow ();
 		bool check_timestamp (nano::account const & account) const;
-
-	private: // Dependencies
-		nano::stats & stats;
 
 	private:
 		struct priority_entry
@@ -79,12 +90,16 @@ namespace bootstrap_ascending
 
 		struct blocking_entry
 		{
-			nano::account account;
-			nano::block_hash dependency;
 			priority_entry original_entry;
+			nano::block_hash dependency;
+			nano::account dependency_account{ 0 };
 
 			id_t id{ generate_id () }; // Uniformly distributed, used for random querying
 
+			nano::account account () const
+			{
+				return original_entry.account;
+			}
 			float priority () const
 			{
 				return original_entry.priority;
@@ -92,10 +107,11 @@ namespace bootstrap_ascending
 		};
 
 		// clang-format off
-		class tag_account {};
-		class tag_priority {};
 		class tag_sequenced {};
+		class tag_account {};
 		class tag_id {};
+		class tag_dependency {};
+		class tag_dependency_account {};
 
 		// Tracks the ongoing account priorities
 		// This only stores account priorities > 1.0f.
@@ -104,10 +120,8 @@ namespace bootstrap_ascending
 			mi::sequenced<mi::tag<tag_sequenced>>,
 			mi::ordered_unique<mi::tag<tag_account>,
 				mi::member<priority_entry, nano::account, &priority_entry::account>>,
-			mi::ordered_non_unique<mi::tag<tag_priority>,
-				mi::member<priority_entry, float, &priority_entry::priority>>,
 			mi::ordered_unique<mi::tag<tag_id>,
-				mi::member<priority_entry, nano::bootstrap_ascending::id_t, &priority_entry::id>>
+				mi::member<priority_entry, id_t, &priority_entry::id>>
 		>>;
 
 		// A blocked account is an account that has failed to insert a new block because the source block is not currently present in the ledger
@@ -116,11 +130,13 @@ namespace bootstrap_ascending
 		mi::indexed_by<
 			mi::sequenced<mi::tag<tag_sequenced>>,
 			mi::ordered_unique<mi::tag<tag_account>,
-				mi::member<blocking_entry, nano::account, &blocking_entry::account>>,
-			mi::ordered_non_unique<mi::tag<tag_priority>,
-				mi::const_mem_fun<blocking_entry, float, &blocking_entry::priority>>,
+				mi::const_mem_fun<blocking_entry, nano::account, &blocking_entry::account>>,
+			mi::ordered_non_unique<mi::tag<tag_dependency>,
+				mi::member<blocking_entry, nano::block_hash, &blocking_entry::dependency>>,
+			mi::ordered_non_unique<mi::tag<tag_dependency_account>,
+				mi::member<blocking_entry, nano::account, &blocking_entry::dependency_account>>,
 			mi::ordered_unique<mi::tag<tag_id>,
-				mi::member<blocking_entry, nano::bootstrap_ascending::id_t, &blocking_entry::id>>
+				mi::member<blocking_entry, id_t, &blocking_entry::id>>
 		>>;
 		// clang-format on
 

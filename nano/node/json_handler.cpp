@@ -5279,7 +5279,7 @@ void nano::json_handler::debug_bootstrap_priority_info ()
 			boost::property_tree::ptree response_blocking;
 			for (auto const & entry : blocking)
 			{
-				const auto account = entry.account;
+				const auto account = entry.account ();
 				const auto dependency = entry.dependency;
 
 				response_blocking.put (account.to_account (), dependency.to_string ());

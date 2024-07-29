@@ -103,6 +103,7 @@ namespace bootstrap_ascending
 		void run_database ();
 		void run_one_database (bool should_throttle);
 		void run_dependencies ();
+		void run_one_blocking ();
 		void run_one_dependency ();
 		void run_timeouts ();
 
@@ -120,9 +121,10 @@ namespace bootstrap_ascending
 		/* Gets the next account from the database */
 		nano::account next_database (bool should_throttle);
 		nano::account wait_database (bool should_throttle);
-		/* Waits for next available dependency (blocking block) */
-		nano::block_hash next_dependency ();
-		nano::block_hash wait_dependency ();
+		/* Waits for next available blocking block */
+		nano::block_hash next_blocking ();
+		nano::block_hash wait_blocking ();
+		nano::account next_dependency ();
 
 		bool request (nano::account, std::shared_ptr<nano::transport::channel> const &);
 		bool request_info (nano::block_hash, std::shared_ptr<nano::transport::channel> const &);

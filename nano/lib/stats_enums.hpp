@@ -430,6 +430,7 @@ enum class detail
 	loop_database,
 	loop_dependencies,
 	duplicate_request,
+	invalid_response_type,
 
 	// bootstrap ascending accounts
 	prioritize,
@@ -437,17 +438,20 @@ enum class detail
 	block,
 	unblock,
 	unblock_failed,
+	dependency_update,
+	dependency_update_failed,
 
 	next_none,
 	next_priority,
 	next_database,
+	next_blocking,
 	next_dependency,
 
 	blocking_insert,
 	blocking_erase_overflow,
 	priority_insert,
-	priority_erase_threshold,
-	priority_erase_block,
+	priority_erase_by_threshold,
+	priority_erase_by_blocking,
 	priority_erase_overflow,
 	deprioritize,
 	deprioritize_failed,
