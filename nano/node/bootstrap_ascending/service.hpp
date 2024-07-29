@@ -82,8 +82,9 @@ namespace bootstrap_ascending
 			query_type type{ query_type::invalid };
 			nano::bootstrap_ascending::id_t id{ 0 };
 			nano::hash_or_account start{ 0 };
-			nano::millis_t time{ 0 };
 			nano::account account{ 0 };
+
+			std::chrono::steady_clock::time_point timestamp{ std::chrono::steady_clock::now () };
 		};
 
 	public: // Events

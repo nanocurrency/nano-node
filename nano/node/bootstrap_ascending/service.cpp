@@ -141,7 +141,7 @@ void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx
 			// If we've inserted any block in to an account, unmark it as blocked
 			accounts.unblock (account);
 			accounts.priority_up (account);
-			accounts.timestamp (account, /* reset timestamp */ true);
+			accounts.timestamp_reset (account);
 
 			if (block.is_send ())
 			{
@@ -230,7 +230,7 @@ nano::account nano::bootstrap_ascending::service::wait_available_account ()
 		auto account = available_account ();
 		if (!account.is_zero ())
 		{
-			accounts.timestamp (account);
+			accounts.timestamp_set (account);
 			return account;
 		}
 		else
@@ -246,7 +246,6 @@ bool nano::bootstrap_ascending::service::request (nano::account & account, std::
 	async_tag tag{};
 	tag.id = nano::bootstrap_ascending::generate_id ();
 	tag.account = account;
-	tag.time = nano::milliseconds_since_epoch ();
 
 	// Check if the account picked has blocks, if it does, start the pull from the highest block
 	auto info = ledger.store.account.get (ledger.store.tx_begin_read (), account);
@@ -323,8 +322,14 @@ void nano::bootstrap_ascending::service::run_timeouts ()
 		scoring.sync (network.list ());
 		scoring.timeout ();
 		throttle.resize (compute_throttle_size ());
+
+		auto const cutoff = std::chrono::steady_clock::now () - config.bootstrap_ascending.request_timeout;
+		auto should_timeout = [cutoff] (async_tag const & tag) {
+			return tag.timestamp < cutoff;
+		};
+
 		auto & tags_by_order = tags.get<tag_sequenced> ();
-		while (!tags_by_order.empty () && nano::time_difference (tags_by_order.front ().time, nano::milliseconds_since_epoch ()) > config.bootstrap_ascending.timeout)
+		while (!tags_by_order.empty () && should_timeout (tags_by_order.front ()))
 		{
 			auto tag = tags_by_order.front ();
 			tags_by_order.pop_front ();
@@ -350,7 +355,7 @@ void nano::bootstrap_ascending::service::process (nano::asc_pull_ack const & mes
 		tags_by_id.erase (iterator);
 
 		// Track bootstrap request response time
-		stats.sample (nano::stat::sample::bootstrap_tag_duration, nano::milliseconds_since_epoch () - tag.time, { 0, config.bootstrap_ascending.timeout });
+		stats.sample (nano::stat::sample::bootstrap_tag_duration, nano::log::milliseconds_delta (tag.timestamp), { 0, config.bootstrap_ascending.request_timeout.count () });
 
 		scoring.received_message (channel);
 

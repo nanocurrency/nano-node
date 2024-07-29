@@ -1,4 +1,5 @@
 #include <nano/lib/thread_roles.hpp>
+#include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/message_processor.hpp>
 #include <nano/node/node.hpp>
 
