@@ -279,6 +279,20 @@ std::shared_ptr<nano::transport::channel> nano::bootstrap_ascending::service::wa
 	return channel;
 }
 
+size_t nano::bootstrap_ascending::service::count_tags (nano::account const & account, query_source source) const
+{
+	debug_assert (!mutex.try_lock ());
+	auto [begin, end] = tags.get<tag_account> ().equal_range (account);
+	return std::count_if (begin, end, [source] (auto const & tag) { return tag.source == source; });
+}
+
+size_t nano::bootstrap_ascending::service::count_tags (nano::block_hash const & hash, query_source source) const
+{
+	debug_assert (!mutex.try_lock ());
+	auto [begin, end] = tags.get<tag_hash> ().equal_range (hash);
+	return std::count_if (begin, end, [source] (auto const & tag) { return tag.source == source; });
+}
+
 nano::account nano::bootstrap_ascending::service::next_priority ()
 {
 	debug_assert (!mutex.try_lock ());
@@ -290,7 +304,7 @@ nano::account nano::bootstrap_ascending::service::next_priority ()
 	}
 
 	// Check if request for this account is already in progress
-	if (tags.get<tag_account> ().contains (account))
+	if (count_tags (account, query_source::priority) >= 4)
 	{
 		return { 0 };
 	}
@@ -336,7 +350,7 @@ nano::account nano::bootstrap_ascending::service::next_database (bool should_thr
 	}
 
 	// Check if request for this account is already in progress
-	if (tags.get<tag_account> ().contains (account))
+	if (count_tags (account, query_source::database) >= 1)
 	{
 		return { 0 };
 	}
@@ -374,7 +388,7 @@ nano::block_hash nano::bootstrap_ascending::service::next_blocking ()
 	}
 
 	// Check if request for this hash is already in progress
-	if (tags.get<tag_hash> ().contains (blocking))
+	if (count_tags (blocking, query_source::blocking) >= 1)
 	{
 		return { 0 };
 	}

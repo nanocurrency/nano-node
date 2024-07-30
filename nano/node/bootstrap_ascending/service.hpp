@@ -159,6 +159,9 @@ namespace bootstrap_ascending
 		 */
 		verify_result verify (nano::asc_pull_ack::blocks_payload const & response, async_tag const & tag) const;
 
+		size_t count_tags (nano::account const & account, query_source source) const;
+		size_t count_tags (nano::block_hash const & hash, query_source source) const;
+
 		// Calculates a lookback size based on the size of the ledger where larger ledgers have a larger sample count
 		std::size_t compute_throttle_size () const;
 
