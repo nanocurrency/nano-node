@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/interval.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/observer_set.hpp>
@@ -104,8 +105,8 @@ namespace bootstrap_ascending
 		void run_one_database (bool should_throttle);
 		void run_dependencies ();
 		void run_one_blocking ();
-		void run_one_dependency ();
 		void run_timeouts ();
+		void cleanup_and_sync ();
 
 		void wait_backoff (std::function<bool ()> const & predicate, std::vector<std::chrono::milliseconds> const & intervals);
 
@@ -124,7 +125,6 @@ namespace bootstrap_ascending
 		/* Waits for next available blocking block */
 		nano::block_hash next_blocking ();
 		nano::block_hash wait_blocking ();
-		nano::account next_dependency ();
 
 		bool request (nano::account, std::shared_ptr<nano::transport::channel> const &);
 		bool request_info (nano::block_hash, std::shared_ptr<nano::transport::channel> const &);
@@ -181,6 +181,8 @@ namespace bootstrap_ascending
 		// Requests for accounts from database have much lower hitrate and could introduce strain on the network
 		// A separate (lower) limiter ensures that we always reserve resources for querying accounts from priority queue
 		nano::bandwidth_limiter database_limiter;
+
+		nano::interval sync_dependencies_interval;
 
 		bool stopped{ false };
 		mutable nano::mutex mutex;

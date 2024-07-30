@@ -400,26 +400,6 @@ nano::block_hash nano::bootstrap_ascending::service::wait_blocking ()
 	return result;
 }
 
-nano::account nano::bootstrap_ascending::service::next_dependency ()
-{
-	debug_assert (!mutex.try_lock ());
-
-	auto dependency = accounts.next_dependency ();
-	if (dependency.is_zero ())
-	{
-		return { 0 };
-	}
-
-	// Check if request for this hash is already in progress
-	if (tags.get<tag_account> ().contains (dependency))
-	{
-		return { 0 };
-	}
-
-	stats.inc (nano::stat::type::bootstrap_ascending_next, nano::stat::detail::next_dependency);
-	return dependency;
-}
-
 bool nano::bootstrap_ascending::service::request (nano::account account, std::shared_ptr<nano::transport::channel> const & channel)
 {
 	async_tag tag{};
@@ -537,16 +517,6 @@ void nano::bootstrap_ascending::service::run_one_blocking ()
 	request_info (blocking, channel);
 }
 
-void nano::bootstrap_ascending::service::run_one_dependency ()
-{
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto dependency = next_dependency ();
-	if (!dependency.is_zero ())
-	{
-		accounts.priority_set (dependency);
-	}
-}
-
 void nano::bootstrap_ascending::service::run_dependencies ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
@@ -555,8 +525,37 @@ void nano::bootstrap_ascending::service::run_dependencies ()
 		lock.unlock ();
 		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::loop_dependencies);
 		run_one_blocking ();
-		run_one_dependency ();
 		lock.lock ();
+	}
+}
+
+void nano::bootstrap_ascending::service::cleanup_and_sync ()
+{
+	debug_assert (!mutex.try_lock ());
+
+	scoring.sync (network.list ());
+	scoring.timeout ();
+
+	throttle.resize (compute_throttle_size ());
+
+	auto const cutoff = std::chrono::steady_clock::now () - config.bootstrap_ascending.request_timeout;
+	auto should_timeout = [cutoff] (async_tag const & tag) {
+		return tag.timestamp < cutoff;
+	};
+
+	auto & tags_by_order = tags.get<tag_sequenced> ();
+	while (!tags_by_order.empty () && should_timeout (tags_by_order.front ()))
+	{
+		auto tag = tags_by_order.front ();
+		tags_by_order.pop_front ();
+		on_timeout.notify (tag);
+		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::timeout);
+	}
+
+	if (sync_dependencies_interval.elapsed (60s))
+	{
+		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::sync_dependencies);
+		accounts.sync_dependencies ();
 	}
 }
 
@@ -565,25 +564,9 @@ void nano::bootstrap_ascending::service::run_timeouts ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		scoring.sync (network.list ());
-		scoring.timeout ();
-		throttle.resize (compute_throttle_size ());
-
-		auto const cutoff = std::chrono::steady_clock::now () - config.bootstrap_ascending.request_timeout;
-		auto should_timeout = [cutoff] (async_tag const & tag) {
-			return tag.timestamp < cutoff;
-		};
-
-		auto & tags_by_order = tags.get<tag_sequenced> ();
-		while (!tags_by_order.empty () && should_timeout (tags_by_order.front ()))
-		{
-			auto tag = tags_by_order.front ();
-			tags_by_order.pop_front ();
-			on_timeout.notify (tag);
-			stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::timeout);
-		}
-
-		condition.wait_for (lock, 1s, [this] () { return stopped; });
+		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::loop_cleanup);
+		cleanup_and_sync ();
+		condition.wait_for (lock, 5s, [this] () { return stopped; });
 	}
 }
 

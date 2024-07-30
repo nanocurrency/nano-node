@@ -455,6 +455,7 @@ enum class detail
 	priority_erase_overflow,
 	deprioritize,
 	deprioritize_failed,
+	sync_dependencies,
 
 	request_blocks,
 	request_account_info,

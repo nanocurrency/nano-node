@@ -281,30 +281,29 @@ nano::block_hash nano::bootstrap_ascending::account_sets::next_blocking ()
 	return { 0 }; // All sampled accounts have their dependency account known
 }
 
-nano::account nano::bootstrap_ascending::account_sets::next_dependency ()
+void nano::bootstrap_ascending::account_sets::sync_dependencies ()
 {
-	if (blocking.empty ())
-	{
-		return { 0 };
-	}
+	// Sample all accounts with a known dependency account (> account 0)
+	auto begin = blocking.get<tag_dependency_account> ().upper_bound (nano::account{ 0 });
+	auto end = blocking.get<tag_dependency_account> ().end ();
 
-	int iterations = 0;
-	while (iterations++ < config.consideration_count * 10)
+	for (auto const & entry : boost::make_iterator_range (begin, end))
 	{
-		auto search = nano::bootstrap_ascending::generate_id ();
-		auto it = blocking.get<tag_id> ().lower_bound (search);
-		if (it == blocking.get<tag_id> ().end ())
+		debug_assert (!entry.dependency_account.is_zero ());
+
+		if (priorities.size () >= config.priorities_max)
 		{
-			it = blocking.get<tag_id> ().begin ();
+			break;
 		}
 
-		if (!it->dependency_account.is_zero () && !blocked (it->dependency_account) && !prioritized (it->dependency_account))
+		if (!blocked (entry.dependency_account) && !prioritized (entry.dependency_account))
 		{
-			return it->dependency_account;
+			stats.inc (nano::stat::type::bootstrap_ascending_accounts, nano::stat::detail::sync_dependencies);
+			priority_set (entry.dependency_account);
 		}
 	}
 
-	return { 0 }; // All sampled accounts have their dependency account blocked or unknown
+	trim_overflow ();
 }
 
 bool nano::bootstrap_ascending::account_sets::blocked (nano::account const & account) const

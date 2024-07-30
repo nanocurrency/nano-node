@@ -51,13 +51,16 @@ namespace bootstrap_ascending
 		 * Sets information about the account chain that contains the block hash
 		 */
 		void dependency_update (nano::block_hash const & hash, nano::account const & dependency_account);
+		/**
+		 * Should be called periodically to reinsert missing dependencies into the priority set
+		 */
+		void sync_dependencies ();
 
 		/**
 		 * Sampling
 		 */
 		nano::account next_priority ();
 		nano::block_hash next_blocking ();
-		nano::account next_dependency ();
 
 	public:
 		bool blocked (nano::account const & account) const;
