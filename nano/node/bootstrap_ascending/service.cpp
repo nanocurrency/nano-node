@@ -30,7 +30,7 @@ nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano:
 	iterator{ ledger },
 	throttle{ compute_throttle_size () },
 	scoring{ config.bootstrap_ascending, config.network_params.network },
-	database_limiter{ config.bootstrap_ascending.database_requests_limit, 1.0 }
+	database_limiter{ config.bootstrap_ascending.database_rate_limit, 1.0 }
 {
 	// TODO: This is called from a very congested blockprocessor thread. Offload this work to a dedicated processing thread
 	block_processor.batch_processed.add ([this] (auto const & batch) {
@@ -253,7 +253,7 @@ void nano::bootstrap_ascending::service::wait_tags ()
 {
 	auto predicate = [this] () {
 		debug_assert (!mutex.try_lock ());
-		return tags.size () < max_tags;
+		return tags.size () < config.bootstrap_ascending.max_requests;
 	};
 	wait_backoff (predicate, { 1ms, 1ms, 1ms, 5ms, 10ms, 20ms, 40ms, 80ms, 160ms });
 }

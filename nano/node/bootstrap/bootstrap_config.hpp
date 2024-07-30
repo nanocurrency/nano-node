@@ -28,12 +28,13 @@ public:
 
 	// Maximum number of un-responded requests per channel
 	std::size_t requests_limit{ 64 };
-	std::size_t database_requests_limit{ 1024 };
+	std::size_t database_rate_limit{ 1024 };
 	std::size_t pull_count{ nano::bootstrap_server::max_blocks };
 	std::chrono::milliseconds request_timeout{ 1000 * 5 };
 	std::size_t throttle_coefficient{ 16 };
 	std::chrono::milliseconds throttle_wait{ 100 };
 	std::size_t block_wait_count{ 1000 };
+	std::size_t max_requests{ 1024 * 16 }; // TODO: Adjust for live network
 
 	nano::account_sets_config account_sets;
 };

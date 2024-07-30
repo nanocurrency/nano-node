@@ -262,7 +262,7 @@ TEST (bootstrap_ascending, config_serialization)
 {
 	nano::bootstrap_ascending_config config1;
 	config1.requests_limit = 0x101;
-	config1.database_requests_limit = 0x102;
+	config1.database_rate_limit = 0x102;
 	config1.pull_count = 0x103;
 	config1.request_timeout = 0x104ms;
 	config1.throttle_coefficient = 0x105;
@@ -279,7 +279,7 @@ TEST (bootstrap_ascending, config_serialization)
 	nano::bootstrap_ascending_config config2;
 	ASSERT_FALSE (config2.deserialize (toml2));
 	ASSERT_EQ (config1.requests_limit, config2.requests_limit);
-	ASSERT_EQ (config1.database_requests_limit, config2.database_requests_limit);
+	ASSERT_EQ (config1.database_rate_limit, config2.database_rate_limit);
 	ASSERT_EQ (config1.pull_count, config2.pull_count);
 	ASSERT_EQ (config1.request_timeout, config2.request_timeout);
 	ASSERT_EQ (config1.throttle_coefficient, config2.throttle_coefficient);

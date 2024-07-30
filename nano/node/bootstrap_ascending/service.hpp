@@ -204,8 +204,6 @@ namespace bootstrap_ascending
 		std::thread database_thread;
 		std::thread dependencies_thread;
 		std::thread timeout_thread;
-
-		static size_t constexpr max_tags{ 1024 };
 	};
 
 	nano::stat::detail to_stat_detail (service::query_type);
