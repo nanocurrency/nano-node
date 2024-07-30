@@ -102,6 +102,7 @@ void nano::bootstrap_ascending::service::stop ()
 void nano::bootstrap_ascending::service::send (std::shared_ptr<nano::transport::channel> const & channel, async_tag tag)
 {
 	debug_assert (tag.type != query_type::invalid);
+	debug_assert (tag.source != query_source::invalid);
 
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
@@ -400,9 +401,10 @@ nano::block_hash nano::bootstrap_ascending::service::wait_blocking ()
 	return result;
 }
 
-bool nano::bootstrap_ascending::service::request (nano::account account, std::shared_ptr<nano::transport::channel> const & channel)
+bool nano::bootstrap_ascending::service::request (nano::account account, std::shared_ptr<nano::transport::channel> const & channel, query_source source)
 {
 	async_tag tag{};
+	tag.source = source;
 	tag.account = account;
 
 	// Check if the account picked has blocks, if it does, start the pull from the highest block
@@ -426,10 +428,11 @@ bool nano::bootstrap_ascending::service::request (nano::account account, std::sh
 	return true; // Request sent
 }
 
-bool nano::bootstrap_ascending::service::request_info (nano::block_hash hash, std::shared_ptr<nano::transport::channel> const & channel)
+bool nano::bootstrap_ascending::service::request_info (nano::block_hash hash, std::shared_ptr<nano::transport::channel> const & channel, query_source source)
 {
 	async_tag tag{};
 	tag.type = query_type::account_info_by_hash;
+	tag.source = source;
 	tag.start = hash;
 	tag.hash = hash;
 
@@ -454,7 +457,7 @@ void nano::bootstrap_ascending::service::run_one_priority ()
 	{
 		return;
 	}
-	request (account, channel);
+	request (account, channel, query_source::priority);
 }
 
 void nano::bootstrap_ascending::service::run_priorities ()
@@ -483,7 +486,7 @@ void nano::bootstrap_ascending::service::run_one_database (bool should_throttle)
 	{
 		return;
 	}
-	request (account, channel);
+	request (account, channel, query_source::database);
 }
 
 void nano::bootstrap_ascending::service::run_database ()
@@ -514,7 +517,7 @@ void nano::bootstrap_ascending::service::run_one_blocking ()
 	{
 		return;
 	}
-	request_info (blocking, channel);
+	request_info (blocking, channel, query_source::blocking);
 }
 
 void nano::bootstrap_ascending::service::run_dependencies ()
@@ -653,8 +656,11 @@ void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::bloc
 				block_processor.add (block, nano::block_source::bootstrap);
 			}
 
-			nano::lock_guard<nano::mutex> lock{ mutex };
-			throttle.add (true);
+			if (tag.source == query_source::database)
+			{
+				nano::lock_guard<nano::mutex> lock{ mutex };
+				throttle.add (true);
+			}
 		}
 		break;
 		case verify_result::nothing_new:
@@ -663,7 +669,10 @@ void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::bloc
 
 			nano::lock_guard<nano::mutex> lock{ mutex };
 			accounts.priority_down (tag.account);
-			throttle.add (false);
+			if (tag.source == query_source::database)
+			{
+				throttle.add (false);
+			}
 		}
 		break;
 		case verify_result::invalid:

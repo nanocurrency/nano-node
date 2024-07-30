@@ -79,9 +79,18 @@ namespace bootstrap_ascending
 			account_info_by_hash,
 		};
 
+		enum class query_source
+		{
+			invalid,
+			priority,
+			database,
+			blocking,
+		};
+
 		struct async_tag
 		{
 			query_type type{ query_type::invalid };
+			query_source source{ query_source::invalid };
 			nano::hash_or_account start{ 0 };
 			nano::account account{ 0 };
 			nano::block_hash hash{ 0 };
@@ -126,8 +135,8 @@ namespace bootstrap_ascending
 		nano::block_hash next_blocking ();
 		nano::block_hash wait_blocking ();
 
-		bool request (nano::account, std::shared_ptr<nano::transport::channel> const &);
-		bool request_info (nano::block_hash, std::shared_ptr<nano::transport::channel> const &);
+		bool request (nano::account, std::shared_ptr<nano::transport::channel> const &, query_source);
+		bool request_info (nano::block_hash, std::shared_ptr<nano::transport::channel> const &, query_source);
 		void send (std::shared_ptr<nano::transport::channel> const &, async_tag tag);
 
 		void process (nano::asc_pull_ack::blocks_payload const & response, async_tag const & tag);
