@@ -671,9 +671,18 @@ void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::bloc
 			stats.inc (nano::stat::type::bootstrap_ascending_verify, nano::stat::detail::ok);
 			stats.add (nano::stat::type::bootstrap_ascending, nano::stat::detail::blocks, nano::stat::dir::in, response.blocks.size ());
 
-			for (auto const & block : response.blocks)
+			auto blocks = response.blocks;
+
+			// Avoid re-processing the block we already have
+			release_assert (blocks.size () >= 1);
+			if (blocks.front ()->hash () == tag.start.as_block_hash ())
 			{
-				if (block == response.blocks.back ())
+				blocks.pop_front ();
+			}
+
+			for (auto const & block : blocks)
+			{
+				if (block == blocks.back ())
 				{
 					// It's the last block submitted for this account chanin, reset timestamp to allow more requests
 					block_processor.add (block, nano::block_source::bootstrap, nullptr, [this, account = tag.account] (auto result) {
