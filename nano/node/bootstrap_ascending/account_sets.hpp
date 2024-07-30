@@ -79,7 +79,7 @@ namespace bootstrap_ascending
 
 	private:
 		void trim_overflow ();
-		bool check_timestamp (nano::account const & account) const;
+		bool check_timestamp (std::chrono::steady_clock::time_point timestamp) const;
 
 	private:
 		struct priority_entry

@@ -208,19 +208,11 @@ void nano::bootstrap_ascending::account_sets::dependency_update (nano::block_has
 	}
 }
 
-// Returns false if the account is busy
-bool nano::bootstrap_ascending::account_sets::check_timestamp (const nano::account & account) const
+// Returns false if the account is busy, true if the account is available for more requests
+bool nano::bootstrap_ascending::account_sets::check_timestamp (std::chrono::steady_clock::time_point timestamp) const
 {
-	auto iter = priorities.get<tag_account> ().find (account);
-	if (iter != priorities.get<tag_account> ().end ())
-	{
-		auto const cutoff = std::chrono::steady_clock::now () - config.cooldown;
-		if (iter->timestamp > cutoff)
-		{
-			return false;
-		}
-	}
-	return true;
+	auto const cutoff = std::chrono::steady_clock::now () - config.cooldown;
+	return timestamp < cutoff;
 }
 
 void nano::bootstrap_ascending::account_sets::trim_overflow ()
@@ -262,7 +254,7 @@ nano::account nano::bootstrap_ascending::account_sets::next_priority ()
 			it = priorities.get<tag_id> ().begin ();
 		}
 
-		if (check_timestamp (it->account))
+		if (check_timestamp (it->timestamp))
 		{
 			candidates.push_back (it->account);
 			weights.push_back (it->priority);
