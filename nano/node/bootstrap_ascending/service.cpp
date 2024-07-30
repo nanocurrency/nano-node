@@ -176,6 +176,8 @@ std::size_t nano::bootstrap_ascending::service::score_size () const
  */
 void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx, nano::block_status const & result, nano::block const & block)
 {
+	debug_assert (!mutex.try_lock ());
+
 	auto const hash = block.hash ();
 
 	switch (result)
@@ -203,18 +205,15 @@ void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx
 
 			// Mark account as blocked because it is missing the source block
 			accounts.block (account, source);
-
-			// TODO: Track stats
-		}
-		break;
-		case nano::block_status::old:
-		{
-			// TODO: Track stats
 		}
 		break;
 		case nano::block_status::gap_previous:
 		{
-			// TODO: Track stats
+			if (block.type () == block_type::state)
+			{
+				const auto account = block.account_field ().value ();
+				accounts.priority_set (account);
+			}
 		}
 		break;
 		default: // No need to handle other cases
