@@ -187,7 +187,6 @@ void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx
 			// If we've inserted any block in to an account, unmark it as blocked
 			accounts.unblock (account);
 			accounts.priority_up (account);
-			accounts.timestamp_reset (account);
 
 			if (block.is_send ())
 			{
@@ -672,9 +671,24 @@ void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::bloc
 			stats.inc (nano::stat::type::bootstrap_ascending_verify, nano::stat::detail::ok);
 			stats.add (nano::stat::type::bootstrap_ascending, nano::stat::detail::blocks, nano::stat::dir::in, response.blocks.size ());
 
-			for (auto & block : response.blocks)
+			for (auto const & block : response.blocks)
 			{
-				block_processor.add (block, nano::block_source::bootstrap);
+				if (block == response.blocks.back ())
+				{
+					// It's the last block submitted for this account chanin, reset timestamp to allow more requests
+					block_processor.add (block, nano::block_source::bootstrap, nullptr, [this, account = tag.account] (auto result) {
+						stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::timestamp_reset);
+						{
+							nano::lock_guard<nano::mutex> guard{ mutex };
+							accounts.timestamp_reset (account);
+						}
+						condition.notify_all ();
+					});
+				}
+				else
+				{
+					block_processor.add (block, nano::block_source::bootstrap);
+				}
 			}
 
 			if (tag.source == query_source::database)

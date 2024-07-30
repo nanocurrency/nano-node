@@ -68,14 +68,16 @@ public: // Context
 	class context
 	{
 	public:
-		context (std::shared_ptr<nano::block> block, nano::block_source source);
-
-		std::shared_ptr<nano::block> const block;
-		nano::block_source const source;
-		std::chrono::steady_clock::time_point const arrival{ std::chrono::steady_clock::now () };
-
-	public:
 		using result_t = nano::block_status;
+		using callback_t = std::function<void (result_t)>;
+
+		context (std::shared_ptr<nano::block> block, nano::block_source source, callback_t callback = nullptr);
+
+		std::shared_ptr<nano::block> block;
+		nano::block_source source;
+		callback_t callback;
+		std::chrono::steady_clock::time_point arrival{ std::chrono::steady_clock::now () };
+
 		std::future<result_t> get_future ();
 
 	private:
@@ -94,7 +96,7 @@ public:
 
 	std::size_t size () const;
 	std::size_t size (nano::block_source) const;
-	bool add (std::shared_ptr<nano::block> const &, nano::block_source = nano::block_source::live, std::shared_ptr<nano::transport::channel> const & channel = nullptr);
+	bool add (std::shared_ptr<nano::block> const &, nano::block_source = nano::block_source::live, std::shared_ptr<nano::transport::channel> const & channel = nullptr, std::function<void (nano::block_status)> callback = {});
 	std::optional<nano::block_status> add_blocking (std::shared_ptr<nano::block> const & block, nano::block_source);
 	void force (std::shared_ptr<nano::block> const &);
 	bool should_log ();

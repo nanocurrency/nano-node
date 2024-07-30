@@ -431,6 +431,7 @@ enum class detail
 	loop_dependencies,
 	duplicate_request,
 	invalid_response_type,
+	timestamp_reset,
 
 	// bootstrap ascending accounts
 	prioritize,
