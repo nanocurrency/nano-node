@@ -122,7 +122,7 @@ void nano::bootstrap_ascending::service::send (std::shared_ptr<nano::transport::
 
 			nano::asc_pull_req::blocks_payload pld;
 			pld.start = tag.start;
-			pld.count = config.bootstrap_ascending.pull_count;
+			pld.count = tag.count;
 			pld.start_type = tag.type == query_type::blocks_by_hash ? nano::asc_pull_req::hash_type::block : nano::asc_pull_req::hash_type::account;
 			request.payload = pld;
 		}
@@ -193,7 +193,7 @@ void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx
 			{
 				auto destination = block.destination ();
 				accounts.unblock (destination, hash); // Unblocking automatically inserts account into priority set
-				accounts.priority_up (destination);
+				accounts.priority_set (destination);
 			}
 		}
 		break;
@@ -293,35 +293,37 @@ size_t nano::bootstrap_ascending::service::count_tags (nano::block_hash const & 
 	return std::count_if (begin, end, [source] (auto const & tag) { return tag.source == source; });
 }
 
-nano::account nano::bootstrap_ascending::service::next_priority ()
+std::pair<nano::account, float> nano::bootstrap_ascending::service::next_priority ()
 {
 	debug_assert (!mutex.try_lock ());
 
 	auto account = accounts.next_priority ();
 	if (account.is_zero ())
 	{
-		return { 0 };
+		return {};
 	}
 
 	// Check if request for this account is already in progress
 	if (count_tags (account, query_source::priority) >= 4)
 	{
-		return { 0 };
+		return {};
 	}
 
 	stats.inc (nano::stat::type::bootstrap_ascending_next, nano::stat::detail::next_priority);
 	accounts.timestamp_set (account);
-	return account;
+
+	// TODO: Priority could be returned by the accounts.next_priority() call
+	return { account, accounts.priority (account) };
 }
 
-nano::account nano::bootstrap_ascending::service::wait_priority ()
+std::pair<nano::account, float> nano::bootstrap_ascending::service::wait_priority ()
 {
-	nano::account result{ 0 };
+	std::pair<nano::account, float> result{};
 
 	auto predicate = [this, &result] () {
 		debug_assert (!mutex.try_lock ());
 		result = next_priority ();
-		if (!result.is_zero ())
+		if (!result.first.is_zero ())
 		{
 			return true;
 		}
@@ -415,11 +417,15 @@ nano::block_hash nano::bootstrap_ascending::service::wait_blocking ()
 	return result;
 }
 
-bool nano::bootstrap_ascending::service::request (nano::account account, std::shared_ptr<nano::transport::channel> const & channel, query_source source)
+bool nano::bootstrap_ascending::service::request (nano::account account, size_t count, std::shared_ptr<nano::transport::channel> const & channel, query_source source)
 {
+	debug_assert (count > 0);
+	debug_assert (count <= nano::bootstrap_server::max_blocks);
+
 	async_tag tag{};
 	tag.source = source;
 	tag.account = account;
+	tag.count = count;
 
 	// Check if the account picked has blocks, if it does, start the pull from the highest block
 	auto info = ledger.store.account.get (ledger.store.tx_begin_read (), account);
@@ -466,12 +472,13 @@ void nano::bootstrap_ascending::service::run_one_priority ()
 	{
 		return;
 	}
-	auto account = wait_priority ();
+	auto [account, priority] = wait_priority ();
 	if (account.is_zero ())
 	{
 		return;
 	}
-	request (account, channel, query_source::priority);
+	auto count = std::clamp (static_cast<size_t> (priority), 2ul, nano::bootstrap_server::max_blocks);
+	request (account, count, channel, query_source::priority);
 }
 
 void nano::bootstrap_ascending::service::run_priorities ()
@@ -500,7 +507,7 @@ void nano::bootstrap_ascending::service::run_one_database (bool should_throttle)
 	{
 		return;
 	}
-	request (account, channel, query_source::database);
+	request (account, 2, channel, query_source::database);
 }
 
 void nano::bootstrap_ascending::service::run_database ()
@@ -742,6 +749,10 @@ nano::bootstrap_ascending::service::verify_result nano::bootstrap_ascending::ser
 	if (blocks.size () == 1 && blocks.front ()->hash () == tag.start.as_block_hash ())
 	{
 		return verify_result::nothing_new;
+	}
+	if (blocks.size () > tag.count)
+	{
+		return verify_result::invalid;
 	}
 
 	auto const & first = blocks.front ();

@@ -152,10 +152,10 @@ namespace bootstrap_ascending
 		nano::account_sets_config config;
 
 	public: // Consts
-		static float constexpr priority_initial = 8.0f;
-		static float constexpr priority_increase = 2.0f;
-		static float constexpr priority_decrease = 0.5f;
-		static float constexpr priority_max = 32.0f;
+		static float constexpr priority_initial = 10.0f;
+		static float constexpr priority_increase = 1.0f;
+		static float constexpr priority_divide = 2.0f;
+		static float constexpr priority_max = 128.0f;
 		static float constexpr priority_cutoff = 1.0f;
 
 	public:

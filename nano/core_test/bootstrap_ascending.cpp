@@ -104,12 +104,12 @@ TEST (account_sets, priority_unblock_keep)
 	nano::bootstrap_ascending::account_sets sets{ system.stats };
 	sets.priority_up (account);
 	sets.priority_up (account);
-	ASSERT_EQ (sets.priority (account), nano::bootstrap_ascending::account_sets::priority_initial * nano::bootstrap_ascending::account_sets::priority_increase);
+	ASSERT_EQ (sets.priority (account), nano::bootstrap_ascending::account_sets::priority_initial + nano::bootstrap_ascending::account_sets::priority_increase);
 	auto hash = random_hash ();
 	sets.block (account, hash);
 	ASSERT_EQ (0.0f, sets.priority (account));
 	sets.unblock (account, hash);
-	ASSERT_EQ (sets.priority (account), nano::bootstrap_ascending::account_sets::priority_initial * nano::bootstrap_ascending::account_sets::priority_increase);
+	ASSERT_EQ (sets.priority (account), nano::bootstrap_ascending::account_sets::priority_initial + nano::bootstrap_ascending::account_sets::priority_increase);
 }
 
 TEST (account_sets, priority_up_down)
@@ -123,7 +123,7 @@ TEST (account_sets, priority_up_down)
 	sets.priority_up (account);
 	ASSERT_EQ (sets.priority (account), nano::bootstrap_ascending::account_sets::priority_initial);
 	sets.priority_down (account);
-	ASSERT_EQ (sets.priority (account), nano::bootstrap_ascending::account_sets::priority_initial - nano::bootstrap_ascending::account_sets::priority_decrease);
+	ASSERT_EQ (sets.priority (account), nano::bootstrap_ascending::account_sets::priority_initial / nano::bootstrap_ascending::account_sets::priority_divide);
 }
 
 // Check that priority downward saturates to 1.0f

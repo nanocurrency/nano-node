@@ -94,6 +94,7 @@ namespace bootstrap_ascending
 			nano::hash_or_account start{ 0 };
 			nano::account account{ 0 };
 			nano::block_hash hash{ 0 };
+			size_t count{ 0 };
 
 			id_t id{ generate_id () };
 			std::chrono::steady_clock::time_point timestamp{ std::chrono::steady_clock::now () };
@@ -126,8 +127,8 @@ namespace bootstrap_ascending
 		/* Waits for a channel that is not full */
 		std::shared_ptr<nano::transport::channel> wait_channel ();
 		/* Waits until a suitable account outside of cool down period is available */
-		nano::account next_priority ();
-		nano::account wait_priority ();
+		std::pair<nano::account, float> next_priority ();
+		std::pair<nano::account, float> wait_priority ();
 		/* Gets the next account from the database */
 		nano::account next_database (bool should_throttle);
 		nano::account wait_database (bool should_throttle);
@@ -135,7 +136,7 @@ namespace bootstrap_ascending
 		nano::block_hash next_blocking ();
 		nano::block_hash wait_blocking ();
 
-		bool request (nano::account, std::shared_ptr<nano::transport::channel> const &, query_source);
+		bool request (nano::account, size_t count, std::shared_ptr<nano::transport::channel> const &, query_source);
 		bool request_info (nano::block_hash, std::shared_ptr<nano::transport::channel> const &, query_source);
 		void send (std::shared_ptr<nano::transport::channel> const &, async_tag tag);
 
