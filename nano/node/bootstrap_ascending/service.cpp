@@ -609,17 +609,6 @@ void nano::bootstrap_ascending::service::process (nano::asc_pull_ack const & mes
 	auto tag = *it;
 	tags.get<tag_id> ().erase (it); // Iterator is invalid after this point
 
-	stats.inc (nano::stat::type::bootstrap_ascending_reply, to_stat_detail (tag.type));
-
-	// Track bootstrap request response time
-	stats.sample (nano::stat::sample::bootstrap_tag_duration, nano::log::milliseconds_delta (tag.timestamp), { 0, config.bootstrap_ascending.request_timeout.count () });
-
-	scoring.received_message (channel);
-
-	lock.unlock ();
-
-	on_reply.notify (tag);
-
 	// Verifies that response type corresponds to our query
 	struct payload_verifier
 	{
@@ -644,14 +633,24 @@ void nano::bootstrap_ascending::service::process (nano::asc_pull_ack const & mes
 	};
 
 	bool valid = std::visit (payload_verifier{ tag.type }, message.payload);
-	if (valid)
-	{
-		std::visit ([this, &tag] (auto && request) { return process (request, tag); }, message.payload);
-	}
-	else
+	if (!valid)
 	{
 		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::invalid_response_type);
+		return;
 	}
+
+	// Track bootstrap request response time
+	stats.inc (nano::stat::type::bootstrap_ascending_reply, to_stat_detail (tag.type));
+	stats.sample (nano::stat::sample::bootstrap_tag_duration, nano::log::milliseconds_delta (tag.timestamp), { 0, config.bootstrap_ascending.request_timeout.count () });
+
+	scoring.received_message (channel);
+
+	lock.unlock ();
+
+	on_reply.notify (tag);
+
+	// Process the response payload
+	std::visit ([this, &tag] (auto && request) { return process (request, tag); }, message.payload);
 
 	condition.notify_all ();
 }
