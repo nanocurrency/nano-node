@@ -238,45 +238,20 @@ nano::account nano::bootstrap_ascending::account_sets::next_priority (std::funct
 		return { 0 };
 	}
 
-	std::vector<double> weights;
-	std::vector<nano::account> candidates;
-
-	int iterations = 0;
-	while (candidates.size () < config.consideration_count && iterations++ < config.consideration_count * 10)
+	for (auto const & entry : priorities.get<tag_priority> ())
 	{
-		debug_assert (candidates.size () == weights.size ());
-
-		// Use a dedicated, uniformly distributed field for sampling to avoid problematic corner case when accounts in the queue are very close together
-		auto search = nano::bootstrap_ascending::generate_id ();
-		auto it = priorities.get<tag_id> ().lower_bound (search);
-		if (it == priorities.get<tag_id> ().end ())
-		{
-			it = priorities.get<tag_id> ().begin ();
-		}
-
-		if (!check_timestamp (it->timestamp))
+		if (!check_timestamp (entry.timestamp))
 		{
 			continue;
 		}
-		if (!filter (it->account))
+		if (!filter (entry.account))
 		{
 			continue;
 		}
-
-		candidates.push_back (it->account);
-		weights.push_back (it->priority);
+		return entry.account;
 	}
 
-	if (candidates.empty ())
-	{
-		return { 0 }; // All sampled accounts are busy
-	}
-
-	std::discrete_distribution dist{ weights.begin (), weights.end () };
-	auto selection = dist (rng);
-	release_assert (!weights.empty () && selection < weights.size ());
-	auto result = candidates[selection];
-	return result;
+	return { 0 };
 }
 
 nano::block_hash nano::bootstrap_ascending::account_sets::next_blocking (std::function<bool (nano::block_hash const &)> const & filter)
@@ -286,29 +261,19 @@ nano::block_hash nano::bootstrap_ascending::account_sets::next_blocking (std::fu
 		return { 0 };
 	}
 
-	int iterations = 0;
-	while (iterations++ < config.consideration_count * 10)
+	// Scan all entries with unknown dependency account
+	auto [begin, end] = blocking.get<tag_dependency_account> ().equal_range (nano::account{ 0 });
+	for (auto const & entry : boost::make_iterator_range (begin, end))
 	{
-		auto search = nano::bootstrap_ascending::generate_id ();
-		auto it = blocking.get<tag_id> ().lower_bound (search);
-		if (it == blocking.get<tag_id> ().end ())
-		{
-			it = blocking.get<tag_id> ().begin ();
-		}
-
-		if (!it->dependency_account.is_zero ())
+		debug_assert (entry.dependency_account.is_zero ());
+		if (!filter (entry.dependency))
 		{
 			continue;
 		}
-		if (!filter (it->dependency))
-		{
-			continue;
-		}
-
-		return it->dependency;
+		return entry.dependency;
 	}
 
-	return { 0 }; // All sampled accounts have their dependency account known
+	return { 0 };
 }
 
 void nano::bootstrap_ascending::account_sets::sync_dependencies ()

@@ -116,14 +116,16 @@ namespace bootstrap_ascending
 		class tag_id {};
 		class tag_dependency {};
 		class tag_dependency_account {};
+		class tag_priority {};
 
 		// Tracks the ongoing account priorities
-		// This only stores account priorities > 1.0f.
 		using ordered_priorities = boost::multi_index_container<priority_entry,
 		mi::indexed_by<
 			mi::sequenced<mi::tag<tag_sequenced>>,
 			mi::ordered_unique<mi::tag<tag_account>,
 				mi::member<priority_entry, nano::account, &priority_entry::account>>,
+			mi::ordered_non_unique<mi::tag<tag_priority>,
+				mi::member<priority_entry, double, &priority_entry::priority>, std::greater<>>, // Descending
 			mi::ordered_unique<mi::tag<tag_id>,
 				mi::member<priority_entry, id_t, &priority_entry::id>>
 		>>;
@@ -146,8 +148,6 @@ namespace bootstrap_ascending
 
 		ordered_priorities priorities;
 		ordered_blocking blocking;
-
-		std::default_random_engine rng;
 
 	public: // Constants
 		static double constexpr priority_initial = 2.0;
