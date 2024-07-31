@@ -118,7 +118,8 @@ namespace bootstrap_ascending
 		void run_timeouts ();
 		void cleanup_and_sync ();
 
-		void wait_backoff (std::function<bool ()> const & predicate, std::vector<std::chrono::milliseconds> const & intervals);
+		/* Waits for a condition to be satisfied with incremental backoff */
+		void wait (std::function<bool ()> const & predicate) const;
 
 		/* Avoid too many in-flight requests */
 		void wait_tags ();
@@ -127,8 +128,8 @@ namespace bootstrap_ascending
 		/* Waits for a channel that is not full */
 		std::shared_ptr<nano::transport::channel> wait_channel ();
 		/* Waits until a suitable account outside of cool down period is available */
-		std::pair<nano::account, float> next_priority ();
-		std::pair<nano::account, float> wait_priority ();
+		std::pair<nano::account, double> next_priority ();
+		std::pair<nano::account, double> wait_priority ();
 		/* Gets the next account from the database */
 		nano::account next_database (bool should_throttle);
 		nano::account wait_database (bool should_throttle);

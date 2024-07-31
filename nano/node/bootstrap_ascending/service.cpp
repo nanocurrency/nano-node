@@ -221,59 +221,43 @@ void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx
 	}
 }
 
-void nano::bootstrap_ascending::service::wait_backoff (std::function<bool ()> const & predicate, std::vector<std::chrono::milliseconds> const & intervals)
+void nano::bootstrap_ascending::service::wait (std::function<bool ()> const & predicate) const
 {
-	debug_assert (intervals.size () > 0);
+	std::unique_lock<nano::mutex> lock{ mutex };
 
-	nano::unique_lock<nano::mutex> lock{ mutex };
-
-	// Each subsequent wait should use the next interval, ending with the last one
-	auto next_interval = [&intervals, it = intervals.begin ()] () mutable {
-		if (it == intervals.end ())
-		{
-			return intervals.back ();
-		}
-		else
-		{
-			return *it++;
-		}
-	};
-
+	std::chrono::milliseconds interval = 5ms;
 	while (!stopped && !predicate ())
 	{
-		if (auto interval = next_interval (); interval.count () > 0)
-		{
-			condition.wait_for (lock, interval);
-		}
+		condition.wait_for (lock, interval);
+		interval = std::min (interval * 2, config.bootstrap_ascending.throttle_wait);
 	}
 }
 
 void nano::bootstrap_ascending::service::wait_tags ()
 {
-	auto predicate = [this] () {
+	wait ([this] () {
 		debug_assert (!mutex.try_lock ());
 		return tags.size () < config.bootstrap_ascending.max_requests;
-	};
-	wait_backoff (predicate, { 1ms, 1ms, 1ms, 5ms, 10ms, 20ms, 40ms, 80ms, 160ms });
+	});
 }
 
 void nano::bootstrap_ascending::service::wait_blockprocessor ()
 {
-	auto predicate = [this] () {
+	wait ([this] () {
 		return block_processor.size (nano::block_source::bootstrap) < config.bootstrap_ascending.block_wait_count;
-	};
-	wait_backoff (predicate, { 1ms, 1ms, 1ms, 5ms, 10ms, 20ms, 40ms, 80ms, 160ms });
+	});
 }
 
 std::shared_ptr<nano::transport::channel> nano::bootstrap_ascending::service::wait_channel ()
 {
 	std::shared_ptr<nano::transport::channel> channel;
-	auto predicate = [this, &channel] () {
+
+	wait ([this, &channel] () {
 		debug_assert (!mutex.try_lock ());
 		channel = scoring.channel ();
 		return channel != nullptr; // Wait until a channel is available
-	};
-	wait_backoff (predicate, { 1ms, 1ms, 1ms, 5ms, 10ms, 20ms, 40ms, 80ms, 160ms });
+	});
+
 	return channel;
 }
 
@@ -291,7 +275,7 @@ size_t nano::bootstrap_ascending::service::count_tags (nano::block_hash const & 
 	return std::count_if (begin, end, [source] (auto const & tag) { return tag.source == source; });
 }
 
-std::pair<nano::account, float> nano::bootstrap_ascending::service::next_priority ()
+std::pair<nano::account, double> nano::bootstrap_ascending::service::next_priority ()
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -311,11 +295,11 @@ std::pair<nano::account, float> nano::bootstrap_ascending::service::next_priorit
 	return { account, accounts.priority (account) };
 }
 
-std::pair<nano::account, float> nano::bootstrap_ascending::service::wait_priority ()
+std::pair<nano::account, double> nano::bootstrap_ascending::service::wait_priority ()
 {
-	std::pair<nano::account, float> result{};
+	std::pair<nano::account, double> result{ 0, 0 };
 
-	auto predicate = [this, &result] () {
+	wait ([this, &result] () {
 		debug_assert (!mutex.try_lock ());
 		result = next_priority ();
 		if (!result.first.is_zero ())
@@ -323,8 +307,7 @@ std::pair<nano::account, float> nano::bootstrap_ascending::service::wait_priorit
 			return true;
 		}
 		return false;
-	};
-	wait_backoff (predicate, { 0ms, 0ms, 0ms, 0ms, 1ms, 2ms, 4ms, 8ms, 16ms, 32ms });
+	});
 
 	return result;
 }
@@ -357,7 +340,7 @@ nano::account nano::bootstrap_ascending::service::wait_database (bool should_thr
 {
 	nano::account result{ 0 };
 
-	auto predicate = [this, &result, should_throttle] () {
+	wait ([this, &result, should_throttle] () {
 		debug_assert (!mutex.try_lock ());
 		result = next_database (should_throttle);
 		if (!result.is_zero ())
@@ -365,8 +348,7 @@ nano::account nano::bootstrap_ascending::service::wait_database (bool should_thr
 			return true;
 		}
 		return false;
-	};
-	wait_backoff (predicate, { 0ms, 0ms, 0ms, 0ms, 1ms, 2ms, 4ms, 8ms, 16ms, 32ms });
+	});
 
 	return result;
 }
@@ -392,7 +374,7 @@ nano::block_hash nano::bootstrap_ascending::service::wait_blocking ()
 {
 	nano::block_hash result{ 0 };
 
-	auto predicate = [this, &result] () {
+	wait ([this, &result] () {
 		debug_assert (!mutex.try_lock ());
 		result = next_blocking ();
 		if (!result.is_zero ())
@@ -400,8 +382,7 @@ nano::block_hash nano::bootstrap_ascending::service::wait_blocking ()
 			return true;
 		}
 		return false;
-	};
-	wait_backoff (predicate, { 0ms, 0ms, 0ms, 0ms, 1ms, 2ms, 4ms, 8ms, 16ms, 32ms });
+	});
 
 	return result;
 }
