@@ -295,14 +295,11 @@ std::pair<nano::account, float> nano::bootstrap_ascending::service::next_priorit
 {
 	debug_assert (!mutex.try_lock ());
 
-	auto account = accounts.next_priority ();
-	if (account.is_zero ())
-	{
-		return {};
-	}
+	auto account = accounts.next_priority ([this] (nano::account const & account) {
+		return count_tags (account, query_source::priority) < 4;
+	});
 
-	// Check if request for this account is already in progress
-	if (count_tags (account, query_source::priority) >= 4)
+	if (account.is_zero ())
 	{
 		return {};
 	}
@@ -343,14 +340,11 @@ nano::account nano::bootstrap_ascending::service::next_database (bool should_thr
 		return { 0 };
 	}
 
-	auto account = iterator.next ();
-	if (account.is_zero ())
-	{
-		return { 0 };
-	}
+	auto account = iterator.next ([this] (nano::account const & account) {
+		return count_tags (account, query_source::database) == 0;
+	});
 
-	// Check if request for this account is already in progress
-	if (count_tags (account, query_source::database) >= 1)
+	if (account.is_zero ())
 	{
 		return { 0 };
 	}
@@ -381,14 +375,11 @@ nano::block_hash nano::bootstrap_ascending::service::next_blocking ()
 {
 	debug_assert (!mutex.try_lock ());
 
-	auto blocking = accounts.next_blocking ();
-	if (blocking.is_zero ())
-	{
-		return { 0 };
-	}
+	auto blocking = accounts.next_blocking ([this] (nano::block_hash const & hash) {
+		return count_tags (hash, query_source::blocking) == 0;
+	});
 
-	// Check if request for this hash is already in progress
-	if (count_tags (blocking, query_source::blocking) >= 1)
+	if (blocking.is_zero ())
 	{
 		return { 0 };
 	}

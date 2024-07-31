@@ -231,7 +231,7 @@ void nano::bootstrap_ascending::account_sets::trim_overflow ()
 	}
 }
 
-nano::account nano::bootstrap_ascending::account_sets::next_priority ()
+nano::account nano::bootstrap_ascending::account_sets::next_priority (std::function<bool (nano::account const &)> const & filter)
 {
 	if (priorities.empty ())
 	{
@@ -254,11 +254,17 @@ nano::account nano::bootstrap_ascending::account_sets::next_priority ()
 			it = priorities.get<tag_id> ().begin ();
 		}
 
-		if (check_timestamp (it->timestamp))
+		if (!check_timestamp (it->timestamp))
 		{
-			candidates.push_back (it->account);
-			weights.push_back (it->priority);
+			continue;
 		}
+		if (!filter (it->account))
+		{
+			continue;
+		}
+
+		candidates.push_back (it->account);
+		weights.push_back (it->priority);
 	}
 
 	if (candidates.empty ())
@@ -268,12 +274,12 @@ nano::account nano::bootstrap_ascending::account_sets::next_priority ()
 
 	std::discrete_distribution dist{ weights.begin (), weights.end () };
 	auto selection = dist (rng);
-	debug_assert (!weights.empty () && selection < weights.size ());
+	release_assert (!weights.empty () && selection < weights.size ());
 	auto result = candidates[selection];
 	return result;
 }
 
-nano::block_hash nano::bootstrap_ascending::account_sets::next_blocking ()
+nano::block_hash nano::bootstrap_ascending::account_sets::next_blocking (std::function<bool (nano::block_hash const &)> const & filter)
 {
 	if (blocking.empty ())
 	{
@@ -290,10 +296,16 @@ nano::block_hash nano::bootstrap_ascending::account_sets::next_blocking ()
 			it = blocking.get<tag_id> ().begin ();
 		}
 
-		if (it->dependency_account.is_zero ())
+		if (!it->dependency_account.is_zero ())
 		{
-			return it->dependency;
+			continue;
 		}
+		if (!filter (it->dependency))
+		{
+			continue;
+		}
+
+		return it->dependency;
 	}
 
 	return { 0 }; // All sampled accounts have their dependency account known
