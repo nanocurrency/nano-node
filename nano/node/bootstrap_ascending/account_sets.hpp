@@ -67,7 +67,7 @@ namespace bootstrap_ascending
 		bool prioritized (nano::account const & account) const;
 		// Accounts in the ledger but not in priority list are assumed priority 1.0f
 		// Blocked accounts are assumed priority 0.0f
-		float priority (nano::account const & account) const;
+		double priority (nano::account const & account) const;
 
 		std::size_t priority_size () const;
 		std::size_t blocked_size () const;
@@ -85,7 +85,7 @@ namespace bootstrap_ascending
 		struct priority_entry
 		{
 			nano::account account;
-			float priority;
+			double priority;
 
 			id_t id{ generate_id () }; // Uniformly distributed, used for random querying
 			std::chrono::steady_clock::time_point timestamp{};
@@ -103,7 +103,7 @@ namespace bootstrap_ascending
 			{
 				return original_entry.account;
 			}
-			float priority () const
+			double priority () const
 			{
 				return original_entry.priority;
 			}
@@ -151,16 +151,16 @@ namespace bootstrap_ascending
 	private:
 		nano::account_sets_config config;
 
-	public: // Consts
-		static float constexpr priority_initial = 10.0f;
-		static float constexpr priority_increase = 1.0f;
-		static float constexpr priority_divide = 2.0f;
-		static float constexpr priority_max = 128.0f;
-		static float constexpr priority_cutoff = 1.0f;
+	public: // Constants
+		static double constexpr priority_initial = 2.0;
+		static double constexpr priority_increase = 2.0;
+		static double constexpr priority_divide = 2.0;
+		static double constexpr priority_max = 128.0;
+		static double constexpr priority_cutoff = 0.15;
 
 	public:
 		using info_t = std::tuple<decltype (blocking), decltype (priorities)>; // <blocking, priorities>
 		info_t info () const;
 	};
-} // bootstrap_ascending
-} // nano
+}
+}

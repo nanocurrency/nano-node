@@ -238,7 +238,7 @@ nano::account nano::bootstrap_ascending::account_sets::next_priority ()
 		return { 0 };
 	}
 
-	std::vector<float> weights;
+	std::vector<double> weights;
 	std::vector<nano::account> candidates;
 
 	int iterations = 0;
@@ -344,18 +344,17 @@ std::size_t nano::bootstrap_ascending::account_sets::blocked_size () const
 	return blocking.size ();
 }
 
-float nano::bootstrap_ascending::account_sets::priority (nano::account const & account) const
+double nano::bootstrap_ascending::account_sets::priority (nano::account const & account) const
 {
-	if (blocked (account))
+	if (!blocked (account))
 	{
-		return 0.0f;
+		auto existing = priorities.get<tag_account> ().find (account);
+		if (existing != priorities.get<tag_account> ().end ())
+		{
+			return existing->priority;
+		}
 	}
-	auto existing = priorities.get<tag_account> ().find (account);
-	if (existing != priorities.get<tag_account> ().end ())
-	{
-		return existing->priority;
-	}
-	return account_sets::priority_cutoff;
+	return 0.0;
 }
 
 auto nano::bootstrap_ascending::account_sets::info () const -> nano::bootstrap_ascending::account_sets::info_t
