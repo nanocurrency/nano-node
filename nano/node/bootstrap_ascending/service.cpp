@@ -19,14 +19,14 @@ using namespace std::chrono_literals;
  * bootstrap_ascending
  */
 
-nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano::block_processor & block_processor_a, nano::ledger & ledger_a, nano::network & network_a, nano::stats & stat_a) :
+nano::bootstrap_ascending::service::service (nano::node_config const & config_a, nano::block_processor & block_processor_a, nano::ledger & ledger_a, nano::network & network_a, nano::stats & stat_a) :
 	config{ config_a },
 	network_consts{ config.network_params.network },
 	block_processor{ block_processor_a },
 	ledger{ ledger_a },
 	network{ network_a },
 	stats{ stat_a },
-	accounts{ stats },
+	accounts{ config.bootstrap_ascending.account_sets, stats },
 	iterator{ ledger },
 	throttle{ compute_throttle_size () },
 	scoring{ config.bootstrap_ascending, config.network_params.network },

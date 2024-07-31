@@ -11,9 +11,9 @@
  * account_sets
  */
 
-nano::bootstrap_ascending::account_sets::account_sets (nano::stats & stats_a, nano::account_sets_config config_a) :
-	stats{ stats_a },
-	config{ std::move (config_a) }
+nano::bootstrap_ascending::account_sets::account_sets (nano::account_sets_config const & config_a, nano::stats & stats_a) :
+	config{ config_a },
+	stats{ stats_a }
 {
 }
 

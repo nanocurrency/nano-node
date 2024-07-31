@@ -44,7 +44,7 @@ namespace bootstrap_ascending
 	class service
 	{
 	public:
-		service (nano::node_config &, nano::block_processor &, nano::ledger &, nano::network &, nano::stats &);
+		service (nano::node_config const &, nano::block_processor &, nano::ledger &, nano::network &, nano::stats &);
 		~service ();
 
 		void start ();
@@ -63,8 +63,8 @@ namespace bootstrap_ascending
 		nano::bootstrap_ascending::account_sets::info_t info () const;
 
 	private: // Dependencies
-		nano::node_config & config;
-		nano::network_constants & network_consts;
+		nano::node_config const & config;
+		nano::network_constants const & network_consts;
 		nano::block_processor & block_processor;
 		nano::ledger & ledger;
 		nano::network & network;

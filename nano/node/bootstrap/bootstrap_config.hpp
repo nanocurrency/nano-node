@@ -8,6 +8,7 @@ namespace nano
 {
 class tomlconfig;
 
+// TODO: This should be moved next to `account_sets` class
 class account_sets_config final
 {
 public:
@@ -20,6 +21,7 @@ public:
 	std::chrono::milliseconds cooldown{ 1000 * 3 };
 };
 
+// TODO: This should be moved next to `bootstrap_ascending` class
 class bootstrap_ascending_config final
 {
 public:

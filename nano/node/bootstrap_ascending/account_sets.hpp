@@ -26,7 +26,7 @@ namespace bootstrap_ascending
 	class account_sets
 	{
 	public:
-		explicit account_sets (nano::stats &, nano::account_sets_config config = {});
+		account_sets (account_sets_config const &, nano::stats &);
 
 		/**
 		 * If an account is not blocked, increase its priority.
@@ -75,6 +75,7 @@ namespace bootstrap_ascending
 		std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name);
 
 	private: // Dependencies
+		account_sets_config const & config;
 		nano::stats & stats;
 
 	private:
@@ -147,9 +148,6 @@ namespace bootstrap_ascending
 		ordered_blocking blocking;
 
 		std::default_random_engine rng;
-
-	private:
-		nano::account_sets_config config;
 
 	public: // Constants
 		static double constexpr priority_initial = 2.0;
