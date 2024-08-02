@@ -46,6 +46,8 @@ nano::bootstrap_ascending::service::service (nano::node_config const & config_a,
 		}
 		condition.notify_all ();
 	});
+
+	accounts.priority_set (config.network_params.ledger.genesis->account_field ().value ());
 }
 
 nano::bootstrap_ascending::service::~service ()
