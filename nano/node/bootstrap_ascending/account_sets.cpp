@@ -208,13 +208,6 @@ void nano::bootstrap_ascending::account_sets::dependency_update (nano::block_has
 	}
 }
 
-// Returns false if the account is busy, true if the account is available for more requests
-bool nano::bootstrap_ascending::account_sets::check_timestamp (std::chrono::steady_clock::time_point timestamp) const
-{
-	auto const cutoff = std::chrono::steady_clock::now () - config.cooldown;
-	return timestamp < cutoff;
-}
-
 void nano::bootstrap_ascending::account_sets::trim_overflow ()
 {
 	while (priorities.size () > config.priorities_max)
@@ -238,9 +231,11 @@ nano::account nano::bootstrap_ascending::account_sets::next_priority (std::funct
 		return { 0 };
 	}
 
+	auto const cutoff = std::chrono::steady_clock::now () - config.cooldown;
+
 	for (auto const & entry : priorities.get<tag_priority> ())
 	{
-		if (!check_timestamp (entry.timestamp))
+		if (entry.timestamp > cutoff)
 		{
 			continue;
 		}
