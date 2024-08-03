@@ -36,6 +36,11 @@ void nano::port_mapping::start ()
 {
 	debug_assert (!thread.joinable ());
 
+	if (!node.config.enable_upnp)
+	{
+		return;
+	}
+
 	// Long discovery time and fast setup/teardown make this impractical for testing
 	// TODO: Find a way to test this
 	if (node.network_params.network.is_dev_network ())
