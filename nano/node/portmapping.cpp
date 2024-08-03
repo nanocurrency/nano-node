@@ -120,7 +120,7 @@ void nano::port_mapping::refresh_devices ()
 
 	// Bump logging level periodically
 	node.logger.log ((check_count % 15 == 0) ? nano::log::level::info : nano::log::level::debug,
-	nano::log::type::upnp, "UPnP local address {}, discovery: {}, IGD search: {}",
+	nano::log::type::upnp, "UPnP local address: {}, discovery: {}, IGD search: {}",
 	local_address_l.data (),
 	discover_error_l,
 	igd_error_l);
@@ -277,14 +277,14 @@ void nano::port_mapping::check_mapping ()
 		}
 		else
 		{
-			node.logger.info (nano::log::type::upnp, "UPnP No need to refresh the mapping");
+			node.logger.info (nano::log::type::upnp, "UPnP no need to refresh the mapping");
 		}
 	}
 	else
 	{
 		// Bump logging level periodically
 		node.logger.log ((check_count % 15 == 0) ? nano::log::level::info : nano::log::level::debug,
-		nano::log::type::upnp, "UPnP No IGD devices found");
+		nano::log::type::upnp, "UPnP no IGD devices found");
 	}
 
 	++check_count;
