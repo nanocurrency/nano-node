@@ -66,6 +66,11 @@ void nano::port_mapping::stop ()
 	{
 		thread.join ();
 	}
+}
+
+void nano::port_mapping::shutdown ()
+{
+	node.logger.debug (nano::log::type::upnp, "UPnP shutdown...");
 
 	nano::lock_guard<nano::mutex> guard_l (mutex);
 	for (auto & protocol : protocols | boost::adaptors::filtered ([] (auto const & p) { return p.enabled; }))
@@ -308,6 +313,10 @@ void nano::port_mapping::run ()
 
 		condition.wait_for (lock, node.network_params.portmapping.health_check_period, [this] { return stopped.load (); });
 	}
+
+	lock.unlock ();
+
+	shutdown ();
 }
 
 /*
