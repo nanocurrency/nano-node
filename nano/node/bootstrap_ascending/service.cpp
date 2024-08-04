@@ -800,10 +800,8 @@ auto nano::bootstrap_ascending::service::info () const -> nano::bootstrap_ascend
 
 std::size_t nano::bootstrap_ascending::service::compute_throttle_size () const
 {
-	// Scales logarithmically with ledger block
-	// Returns: config.throttle_coefficient * sqrt(block_count)
-	std::size_t size_new = config.bootstrap_ascending.throttle_coefficient * std::sqrt (ledger.block_count ());
-	return size_new == 0 ? 16 : size_new;
+	std::size_t size_new = config.bootstrap_ascending.throttle_coefficient * static_cast<size_t> (std::log (ledger.account_count ()));
+	return std::max (size_new, 16ul);
 }
 
 std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::service::collect_container_info (std::string const & name)

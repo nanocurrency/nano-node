@@ -33,7 +33,7 @@ public:
 	std::size_t database_rate_limit{ 1024 };
 	std::size_t pull_count{ nano::bootstrap_server::max_blocks };
 	std::chrono::milliseconds request_timeout{ 1000 * 5 };
-	std::size_t throttle_coefficient{ 16 };
+	std::size_t throttle_coefficient{ 8 * 1024 };
 	std::chrono::milliseconds throttle_wait{ 100 };
 	std::size_t block_wait_count{ 1000 };
 	std::size_t max_requests{ 1024 * 16 }; // TODO: Adjust for live network
