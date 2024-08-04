@@ -6,7 +6,7 @@
 #include <nano/store/lmdb/lmdb_env.hpp>
 #include <nano/store/transaction.hpp>
 
-#include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdb.h>
 
 namespace nano::store::lmdb
 {

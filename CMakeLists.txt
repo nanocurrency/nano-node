@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.27)
 
 if(CMAKE_VERSION VERSION_GREATER 3.12 OR CMAKE_VERSION VERSION_EQUAL 3.12)
   # find_package uses <PACKAGENAME>_ROOT variables
@@ -223,6 +223,8 @@ endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+find_package(PkgConfig REQUIRED)
+
 find_package(Threads)
 
 # Sanitizers
@@ -399,107 +401,50 @@ endif()
 include_directories(${CMAKE_SOURCE_DIR})
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-set(Boost_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/submodules/boost/libs/config/include)
-set(BOOST_MODULE_LIBS
-    algorithm
-    align
-    any
-    array
-    asio
-    assert
-    atomic
-    beast
-    bind
-    chrono
-    circular_buffer
-    concept_check
-    config
-    container
-    container_hash
-    context
-    conversion
-    core
-    coroutine
-    date_time
-    describe
-    detail
-    dll
-    dynamic_bitset
-    endian
-    exception
+set(Boost_USE_STATIC_LIBS OFF)
+set(Boost_USE_STATIC_RUNTIME OFF)
+set(Boost_NO_BOOST_CMAKE ON)
+add_definitions(-DBOOST_ALL_DYN_LINK)
+set(Boost_USE_STATIC_LIBS OFF)
+set(Boost_USE_STATIC_RUNTIME OFF)
+set(Boost_NO_BOOST_CMAKE ON)
+add_definitions(-DBOOST_ALL_DYN_LINK)
+set(Boost_USE_MULTITHREADED ON)
+#   Could NOT find Boost (missing: beast circular_buffer process) (found
+set(Boost_NO_BOOST_CMAKE ON)
+find_package(Boost 1.70.0 REQUIRED
+  COMPONENTS
     filesystem
-    foreach
-    format
-    function
-    function_types
-    functional
-    fusion
-    integer
-    interprocess
-    intrusive
-    io
     iostreams
-    iterator
-    lexical_cast
-    property_tree
     log
-    logic
-    math
-    move
-    mp11
-    mpl
-    multi_index
-    multiprecision
-    numeric/conversion
-    optional
-    parameter
-    phoenix
-    pool
-    predef
-    preprocessor
-    process
-    program_options
-    proto
-    random
-    range
-    ratio
-    rational
-    regex
-    serialization
-    smart_ptr
-    spirit
-    stacktrace
-    static_assert
-    static_string
-    system
+    log_setup
     thread
-    throw_exception
-    tokenizer
-    tuple
-    type_index
-    type_traits
-    typeof
-    unordered
-    utility
-    variant
-    variant2
-    winapi)
+    program_options
+    system
+    # Boost::boost
+    #asio
+    #beast
+    #circular_buffer
+    #endian
+    #process
+    #stacktrace
+)
+#set(Boost_USE_MULTITHREADED ON)
 
-add_definitions(-DBOOST_ALL_NO_LIB) # Disable automatic boost linking
-foreach(lib IN LISTS BOOST_MODULE_LIBS)
-  add_subdirectory(submodules/boost/libs/${lib} EXCLUDE_FROM_ALL)
-endforeach()
+#add_library(boost_circular_buffer INTERFACE)
+#add_library(Boost::circular_buffer ALIAS boost_circular_buffer)
+
 include_directories(${BOOST_LIBRARY_INCLUDES})
-add_library(Boost::stacktrace ALIAS boost_stacktrace_basic)
+#add_library(Boost::stacktrace ALIAS boost_stacktrace_basic)
 add_definitions(-DBOOST_STACKTRACE_GNU_SOURCE_NOT_REQUIRED)
 
 # Workaround for missing reference errata in the boost property_tree module
-target_link_libraries(boost_property_tree INTERFACE Boost::any)
-target_link_libraries(boost_property_tree INTERFACE Boost::format)
-target_link_libraries(boost_property_tree INTERFACE Boost::multi_index)
+#target_link_libraries(boost_property_tree INTERFACE Boost::any)
+#target_link_libraries(boost_property_tree INTERFACE Boost::format)
+#target_link_libraries(boost_property_tree INTERFACE Boost::multi_index)
 
 # RocksDB
-include_directories(submodules/rocksdb/include)
+#include_directories(submodules/rocksdb/include)
 set(USE_RTTI
     ON
     CACHE BOOL "")
@@ -530,13 +475,19 @@ else()
       1
       CACHE BOOL "" FORCE)
 endif()
-add_subdirectory(submodules/rocksdb EXCLUDE_FROM_ALL)
+#add_subdirectory(submodules/rocksdb EXCLUDE_FROM_ALL)
+find_package(RocksDB REQUIRED)
+include_directories(${ROCKSDB_LIBRARY_INCLUDES})
 
 # cpptoml
-include_directories(submodules/cpptoml/include)
+#include_directories(submodules/cpptoml/include)
+find_package(cpptoml REQUIRED)
+include_directories(${CPPTOML_LIBRARY_INCLUDES})
 
 # magic_enum
-include_directories(submodules/magic_enum/include/magic_enum)
+#include_directories(submodules/magic_enum/include/magic_enum)
+find_package(magic_enum REQUIRED)
+include_directories(${MAGIC_ENUM_LIBRARY_INCLUDES})
 
 add_subdirectory(crypto/ed25519-donna)
 
@@ -544,19 +495,22 @@ add_subdirectory(nano/ipc_flatbuffers_lib)
 add_subdirectory(nano/ipc_flatbuffers_test)
 
 # fmt
-add_subdirectory(submodules/fmt EXCLUDE_FROM_ALL)
-include_directories(submodules/fmt/include)
+#add_subdirectory(submodules/fmt EXCLUDE_FROM_ALL)
+#include_directories(submodules/fmt/include)
+find_package(fmt REQUIRED)
+include_directories(${FMT_LIBRARY_INCLUDES})
 
 # spdlog
 add_definitions(-DSPDLOG_FMT_EXTERNAL)
-add_subdirectory(submodules/spdlog EXCLUDE_FROM_ALL)
-include_directories(submodules/spdlog/include)
+#add_subdirectory(submodules/spdlog EXCLUDE_FROM_ALL)
+#include_directories(submodules/spdlog/include)
+find_package(spdlog REQUIRED)
+include_directories(${SPDLOG_LIBRARY_INCLUDES})
 
 # miniupnp
-set(UPNPC_BUILD_SHARED
-    OFF
-    CACHE BOOL "")
-add_subdirectory(submodules/miniupnp/miniupnpc EXCLUDE_FROM_ALL)
+#add_subdirectory(submodules/miniupnp/miniupnpc EXCLUDE_FROM_ALL)
+find_package(miniupnpc REQUIRED)
+include_directories(${MINIUPNPC_LIBRARY_INCLUDES})
 
 set(BUILD_SHARED
     OFF
@@ -567,15 +521,11 @@ set(BUILD_TESTING
 set(USE_INTERMEDIATE_OBJECTS_TARGET
     OFF
     CACHE BOOL "")
-set(CRYPTOPP_EXTRA "")
 if(WIN32)
   add_definitions(-DCRYPTOPP_DISABLE_ASM -DCRYPTOPP_DISABLE_SSSE3
                   -DCRYPTOPP_DISABLE_AESNI)
 elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64"
        AND (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS))
-  set(CRYPTOPP_EXTRA
-      submodules/cryptopp/crc_simd.cpp submodules/cryptopp/gcm_simd.cpp
-      submodules/cryptopp/gf2n_simd.cpp submodules/cryptopp/neon_simd.cpp)
   add_definitions(-DCRYPTOPP_NO_CPU_FEATURE_PROBES)
 endif()
 # Some Clang cannot handle mixed asm with positional arguments, where the body
@@ -594,83 +544,20 @@ add_definitions(-DCRYPTOPP_DISABLE_SHANI)
 # https://github.com/weidai11/cryptopp/commit/df9fa62205f2d341e2b1b26595a3a1b6377c60c5
 add_definitions(-DCRYPTOPP_DISABLE_CLMUL)
 
-set(CRYPTOPP_LIBRARY cryptopp)
-add_library(
-  cryptopp
-  submodules/cryptopp/aes.h
-  submodules/cryptopp/algparam.cpp
-  submodules/cryptopp/allocate.cpp
-  submodules/cryptopp/asn.cpp
-  submodules/cryptopp/basecode.cpp
-  submodules/cryptopp/cpu.cpp
-  submodules/cryptopp/cryptlib.cpp
-  submodules/cryptopp/default.cpp
-  submodules/cryptopp/des.cpp
-  submodules/cryptopp/dessp.cpp
-  submodules/cryptopp/dll.cpp
-  submodules/cryptopp/ec2n.cpp
-  submodules/cryptopp/ecp.cpp
-  submodules/cryptopp/filters.cpp
-  submodules/cryptopp/fips140.cpp
-  submodules/cryptopp/gcm.cpp
-  submodules/cryptopp/gf2n.cpp
-  submodules/cryptopp/gfpcrypt.cpp
-  submodules/cryptopp/hex.cpp
-  submodules/cryptopp/hmac.cpp
-  submodules/cryptopp/hrtimer.cpp
-  submodules/cryptopp/integer.cpp
-  submodules/cryptopp/iterhash.cpp
-  submodules/cryptopp/misc.h
-  submodules/cryptopp/misc.cpp
-  submodules/cryptopp/modes.h
-  submodules/cryptopp/modes.cpp
-  submodules/cryptopp/mqueue.cpp
-  submodules/cryptopp/nbtheory.cpp
-  submodules/cryptopp/oaep.cpp
-  submodules/cryptopp/osrng.h
-  submodules/cryptopp/osrng.cpp
-  submodules/cryptopp/pubkey.cpp
-  submodules/cryptopp/queue.cpp
-  submodules/cryptopp/randpool.cpp
-  submodules/cryptopp/rdtables.cpp
-  submodules/cryptopp/rijndael.cpp
-  submodules/cryptopp/rijndael_simd.cpp
-  submodules/cryptopp/rng.cpp
-  submodules/cryptopp/sha.cpp
-  submodules/cryptopp/sha_simd.cpp
-  submodules/cryptopp/simple.cpp
-  submodules/cryptopp/sse_simd.cpp
-  submodules/cryptopp/seckey.h
-  submodules/cryptopp/siphash.h
-  submodules/cryptopp/words.h
-  ${CRYPTOPP_EXTRA})
+# cryptopp
+#find_package(libcryptopp REQUIRED)
+pkg_check_modules(LIBCRYPTOPP REQUIRED libcryptopp)
+include_directories(${LIBCRYPTOPP_LIBRARY_INCLUDES})
 
-target_include_directories(cryptopp PUBLIC submodules)
+# argon2
+#find_package(libargon2 REQUIRED)
+pkg_check_modules(LIBARGON2 REQUIRED libargon2)
+include_directories(${LIBARGON2_ENUM_LIBRARY_INCLUDES})
 
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
-  set(ARGON_CORE submodules/phc-winner-argon2/src/opt.c)
-else()
-  set(ARGON_CORE submodules/phc-winner-argon2/src/ref.c)
-endif()
-
-add_library(
-  argon2
-  submodules/phc-winner-argon2/src/argon2.c
-  submodules/phc-winner-argon2/include/argon2.h
-  submodules/phc-winner-argon2/src/core.c
-  submodules/phc-winner-argon2/src/thread.c
-  submodules/phc-winner-argon2/src/encoding.c
-  ${ARGON_CORE})
-
-target_include_directories(argon2 PUBLIC submodules/phc-winner-argon2/include)
-target_include_directories(argon2 PUBLIC submodules/phc-winner-argon2/src)
-target_include_directories(argon2 PUBLIC crypto/blake2)
-
-add_library(
-  lmdb
-  submodules/lmdb/libraries/liblmdb/lmdb.h
-  submodules/lmdb/libraries/liblmdb/mdb.c
-  submodules/lmdb/libraries/liblmdb/midl.c)
+# lmdb
+#find_package(lmdb REQUIRED)
+pkg_check_modules(LMDB REQUIRED lmdb)
+include_directories(${LMDB_ENUM_LIBRARY_INCLUDES})
 
 if(WIN32)
   target_link_libraries(lmdb ntdll)
@@ -729,13 +616,15 @@ if(NANO_TEST OR RAIBLOCKS_TEST)
 
   # FIXME: This fixes googletest GOOGLETEST_VERSION requirement
   set(GOOGLETEST_VERSION 1.11.0)
-  add_subdirectory(submodules/gtest/googletest)
+  #add_subdirectory(submodules/gtest/googletest)
   # FIXME: This fixes gtest include directories without modifying gtest's
   # CMakeLists.txt. Ideally we should use GTest::GTest and GTest::Main as
   # dependencies but it requires building gtest differently
-  set_target_properties(
-    gtest PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                     "${CMAKE_SOURCE_DIR}/submodules/gtest/googletest/include")
+  #set_target_properties(
+  #  gtest PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+  #                   "${CMAKE_SOURCE_DIR}/submodules/gtest/googletest/include")
+  find_package(GTest REQUIRED)
+  include_directories(${GTEST_LIBRARY_INCLUDES})
 
   add_subdirectory(nano/test_common)
   add_subdirectory(nano/core_test)
@@ -784,7 +673,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     node
     secure
     nano_lib
-    libminiupnpc-static
+    miniupnpc
     Qt5::Gui
     Qt5::Widgets)
 
@@ -816,7 +705,8 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     nano_wallet ${PLATFORM_GUI_TARGET_PROPERTIES} ${PLATFORM_WALLET_SOURCE}
                 nano/nano_wallet/entry.cpp nano/nano_wallet/icon.hpp ${RES})
 
-  target_link_libraries(nano_wallet Boost::process rpc node qt)
+  #target_link_libraries(nano_wallet Boost::process rpc node qt)
+  target_link_libraries(nano_wallet Boost::boost rpc node qt)
 
   if(WIN32)
     target_link_libraries(nano_wallet Qt5::WinExtras)

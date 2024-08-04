@@ -12,6 +12,7 @@
 #include <boost/property_tree/json_parser.hpp>
 
 #include <ctime>
+#include <iostream>
 #include <fstream>
 #include <sstream>
 

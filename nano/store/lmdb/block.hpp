@@ -3,7 +3,7 @@
 #include <nano/store/block.hpp>
 #include <nano/store/lmdb/db_val.hpp>
 
-#include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdb.h>
 
 namespace nano::store::lmdb
 {

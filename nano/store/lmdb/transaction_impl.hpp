@@ -10,7 +10,7 @@
 #include <boost/property_tree/ptree_fwd.hpp>
 #include <boost/stacktrace/stacktrace_fwd.hpp>
 
-#include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdb.h>
 
 namespace nano::store::lmdb
 {

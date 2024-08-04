@@ -24,7 +24,7 @@
 
 #include <boost/optional.hpp>
 
-#include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdb.h>
 
 namespace nano
 {

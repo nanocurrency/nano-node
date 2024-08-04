@@ -9,4 +9,5 @@ add_library(
   rpc_request_processor.hpp
   rpc_request_processor.cpp)
 
-target_link_libraries(rpc nano_lib Boost::beast)
+#target_link_libraries(rpc nano_lib Boost::beast)
+target_link_libraries(rpc nano_lib Boost::boost)

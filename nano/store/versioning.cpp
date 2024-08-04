@@ -2,4 +2,4 @@
 
 #include <boost/endian/conversion.hpp>
 
-#include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdb.h>

@@ -100,7 +100,7 @@ std::function<void (std::shared_ptr<std::string> const &)> const & response_hand
 			process (parser->builder_.GetBufferPointer (), parser->builder_.GetSize (), [parser = parser, response_handler] (std::shared_ptr<flatbuffers::FlatBufferBuilder> const & fbb) {
 				// Convert response to JSON
 				auto json (std::make_shared<std::string> ());
-				if (!flatbuffers::GenerateText (*parser, fbb->GetBufferPointer (), json.get ()))
+				if (!flatbuffers::GenText (*parser, fbb->GetBufferPointer (), json.get ()))
 				{
 					throw nano::error ("Couldn't serialize response to JSON");
 				}
