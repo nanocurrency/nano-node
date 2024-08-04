@@ -44,7 +44,7 @@ namespace bootstrap_ascending
 	class service
 	{
 	public:
-		service (nano::node_config const &, nano::block_processor &, nano::ledger &, nano::network &, nano::stats &);
+		service (nano::node_config const &, nano::block_processor &, nano::ledger &, nano::network &, nano::stats &, nano::logger &);
 		~service ();
 
 		void start ();
@@ -63,12 +63,13 @@ namespace bootstrap_ascending
 		nano::bootstrap_ascending::account_sets::info_t info () const;
 
 	private: // Dependencies
-		nano::node_config const & config;
-		nano::network_constants const & network_consts;
+		bootstrap_ascending_config const & config;
+		nano::network_constants const & network_constants;
 		nano::block_processor & block_processor;
 		nano::ledger & ledger;
 		nano::network & network;
 		nano::stats & stats;
+		nano::logger & logger;
 
 	public: // Tag
 		enum class query_type

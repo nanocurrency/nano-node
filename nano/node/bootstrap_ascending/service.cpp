@@ -19,18 +19,19 @@ using namespace std::chrono_literals;
  * bootstrap_ascending
  */
 
-nano::bootstrap_ascending::service::service (nano::node_config const & config_a, nano::block_processor & block_processor_a, nano::ledger & ledger_a, nano::network & network_a, nano::stats & stat_a) :
-	config{ config_a },
-	network_consts{ config.network_params.network },
+nano::bootstrap_ascending::service::service (nano::node_config const & node_config_a, nano::block_processor & block_processor_a, nano::ledger & ledger_a, nano::network & network_a, nano::stats & stat_a, nano::logger & logger_a) :
+	config{ node_config_a.bootstrap_ascending },
+	network_constants{ node_config_a.network_params.network },
 	block_processor{ block_processor_a },
 	ledger{ ledger_a },
 	network{ network_a },
 	stats{ stat_a },
-	accounts{ config.bootstrap_ascending.account_sets, stats },
+	logger{ logger_a },
+	accounts{ config.account_sets, stats },
 	iterator{ ledger },
 	throttle{ compute_throttle_size () },
-	scoring{ config.bootstrap_ascending, config.network_params.network },
-	database_limiter{ config.bootstrap_ascending.database_rate_limit, 1.0 }
+	scoring{ config, node_config_a.network_params.network },
+	database_limiter{ config.database_rate_limit, 1.0 }
 {
 	// TODO: This is called from a very congested blockprocessor thread. Offload this work to a dedicated processing thread
 	block_processor.batch_processed.add ([this] (auto const & batch) {
@@ -47,7 +48,7 @@ nano::bootstrap_ascending::service::service (nano::node_config const & config_a,
 		condition.notify_all ();
 	});
 
-	accounts.priority_set (config.network_params.ledger.genesis->account_field ().value ());
+	accounts.priority_set (node_config_a.network_params.ledger.genesis->account_field ().value ());
 }
 
 nano::bootstrap_ascending::service::~service ()
@@ -66,20 +67,32 @@ void nano::bootstrap_ascending::service::start ()
 	debug_assert (!dependencies_thread.joinable ());
 	debug_assert (!timeout_thread.joinable ());
 
+	if (!config.enable)
+	{
+		logger.warn (nano::log::type::bootstrap, "Ascending bootstrap is disabled");
+		return;
+	}
+
 	priorities_thread = std::thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::ascending_bootstrap);
 		run_priorities ();
 	});
 
-	database_thread = std::thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::ascending_bootstrap);
-		run_database ();
-	});
+	if (config.enable_database_scan)
+	{
+		database_thread = std::thread ([this] () {
+			nano::thread_role::set (nano::thread_role::name::ascending_bootstrap);
+			run_database ();
+		});
+	}
 
-	dependencies_thread = std::thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::ascending_bootstrap);
-		run_dependencies ();
-	});
+	if (config.enable_dependency_walker)
+	{
+		dependencies_thread = std::thread ([this] () {
+			nano::thread_role::set (nano::thread_role::name::ascending_bootstrap);
+			run_dependencies ();
+		});
+	}
 
 	timeout_thread = std::thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::ascending_bootstrap);
@@ -112,7 +125,7 @@ void nano::bootstrap_ascending::service::send (std::shared_ptr<nano::transport::
 		tags.get<tag_id> ().insert (tag);
 	}
 
-	nano::asc_pull_req request{ network_consts };
+	nano::asc_pull_req request{ network_constants };
 	request.id = tag.id;
 
 	switch (tag.type)
@@ -231,7 +244,7 @@ void nano::bootstrap_ascending::service::wait (std::function<bool ()> const & pr
 	while (!stopped && !predicate ())
 	{
 		condition.wait_for (lock, interval);
-		interval = std::min (interval * 2, config.bootstrap_ascending.throttle_wait);
+		interval = std::min (interval * 2, config.throttle_wait);
 	}
 }
 
@@ -239,14 +252,14 @@ void nano::bootstrap_ascending::service::wait_tags ()
 {
 	wait ([this] () {
 		debug_assert (!mutex.try_lock ());
-		return tags.size () < config.bootstrap_ascending.max_requests;
+		return tags.size () < config.max_requests;
 	});
 }
 
 void nano::bootstrap_ascending::service::wait_blockprocessor ()
 {
 	wait ([this] () {
-		return block_processor.size (nano::block_source::bootstrap) < config.bootstrap_ascending.block_wait_count;
+		return block_processor.size (nano::block_source::bootstrap) < config.block_wait_count;
 	});
 }
 
@@ -534,7 +547,7 @@ void nano::bootstrap_ascending::service::cleanup_and_sync ()
 
 	throttle.resize (compute_throttle_size ());
 
-	auto const cutoff = std::chrono::steady_clock::now () - config.bootstrap_ascending.request_timeout;
+	auto const cutoff = std::chrono::steady_clock::now () - config.request_timeout;
 	auto should_timeout = [cutoff] (async_tag const & tag) {
 		return tag.timestamp < cutoff;
 	};
@@ -615,7 +628,7 @@ void nano::bootstrap_ascending::service::process (nano::asc_pull_ack const & mes
 
 	// Track bootstrap request response time
 	stats.inc (nano::stat::type::bootstrap_ascending_reply, to_stat_detail (tag.type));
-	stats.sample (nano::stat::sample::bootstrap_tag_duration, nano::log::milliseconds_delta (tag.timestamp), { 0, config.bootstrap_ascending.request_timeout.count () });
+	stats.sample (nano::stat::sample::bootstrap_tag_duration, nano::log::milliseconds_delta (tag.timestamp), { 0, config.request_timeout.count () });
 
 	scoring.received_message (channel);
 
@@ -800,7 +813,7 @@ auto nano::bootstrap_ascending::service::info () const -> nano::bootstrap_ascend
 
 std::size_t nano::bootstrap_ascending::service::compute_throttle_size () const
 {
-	std::size_t size_new = config.bootstrap_ascending.throttle_coefficient * static_cast<size_t> (std::log (ledger.account_count ()));
+	std::size_t size_new = config.throttle_coefficient * static_cast<size_t> (std::log (ledger.account_count ()));
 	return std::max (size_new, 16ul);
 }
 

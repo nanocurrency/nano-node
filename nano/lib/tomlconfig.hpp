@@ -147,7 +147,7 @@ public:
 	template <typename Duration>
 	tomlconfig & get_duration (std::string const & key, Duration & target)
 	{
-		uint64_t value;
+		uint64_t value = target.count ();
 		get (key, value);
 		target = Duration{ value };
 		return *this;

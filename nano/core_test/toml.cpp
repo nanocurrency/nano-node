@@ -116,6 +116,8 @@ TEST (toml, daemon_config_deserialize_defaults)
 	std::stringstream ss;
 	ss << R"toml(
 	[node]
+	[node.bootstrap_ascending]
+	[node.bootstrap_server]
 	[node.block_processor]
 	[node.diagnostics.txn_tracking]
 	[node.httpcallback]
@@ -128,7 +130,6 @@ TEST (toml, daemon_config_deserialize_defaults)
 	[node.websocket]
 	[node.lmdb]
 	[node.rocksdb]
-	[node.bootstrap_server]
 	[opencl]
 	[rpc]
 	[rpc.child_process]
@@ -264,6 +265,18 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.vote_processor.pr_priority, defaults.node.vote_processor.pr_priority);
 	ASSERT_EQ (conf.node.vote_processor.threads, defaults.node.vote_processor.threads);
 	ASSERT_EQ (conf.node.vote_processor.batch_size, defaults.node.vote_processor.batch_size);
+
+	ASSERT_EQ (conf.node.bootstrap_ascending.enable, defaults.node.bootstrap_ascending.enable);
+	ASSERT_EQ (conf.node.bootstrap_ascending.enable_database_scan, defaults.node.bootstrap_ascending.enable_database_scan);
+	ASSERT_EQ (conf.node.bootstrap_ascending.enable_dependency_walker, defaults.node.bootstrap_ascending.enable_dependency_walker);
+	ASSERT_EQ (conf.node.bootstrap_ascending.requests_limit, defaults.node.bootstrap_ascending.requests_limit);
+	ASSERT_EQ (conf.node.bootstrap_ascending.database_rate_limit, defaults.node.bootstrap_ascending.database_rate_limit);
+	ASSERT_EQ (conf.node.bootstrap_ascending.pull_count, defaults.node.bootstrap_ascending.pull_count);
+	ASSERT_EQ (conf.node.bootstrap_ascending.request_timeout, defaults.node.bootstrap_ascending.request_timeout);
+	ASSERT_EQ (conf.node.bootstrap_ascending.throttle_coefficient, defaults.node.bootstrap_ascending.throttle_coefficient);
+	ASSERT_EQ (conf.node.bootstrap_ascending.throttle_wait, defaults.node.bootstrap_ascending.throttle_wait);
+	ASSERT_EQ (conf.node.bootstrap_ascending.block_wait_count, defaults.node.bootstrap_ascending.block_wait_count);
+	ASSERT_EQ (conf.node.bootstrap_ascending.max_requests, defaults.node.bootstrap_ascending.max_requests);
 
 	ASSERT_EQ (conf.node.bootstrap_server.max_queue, defaults.node.bootstrap_server.max_queue);
 	ASSERT_EQ (conf.node.bootstrap_server.threads, defaults.node.bootstrap_server.threads);
@@ -576,6 +589,19 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	threads = 999
 	batch_size = 999
 
+	[node.bootstrap_ascending]
+	enable = false
+	enable_database_scan = false
+	enable_dependency_walker = false
+	requests_limit = 999
+	database_rate_limit = 999
+	pull_count = 999
+	request_timeout = 999
+	throttle_coefficient = 999
+	throttle_wait = 999
+	block_wait_count = 999
+	max_requests = 999
+
 	[node.bootstrap_server]
 	max_queue = 999
 	threads = 999
@@ -739,6 +765,18 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.vote_processor.pr_priority, defaults.node.vote_processor.pr_priority);
 	ASSERT_NE (conf.node.vote_processor.threads, defaults.node.vote_processor.threads);
 	ASSERT_NE (conf.node.vote_processor.batch_size, defaults.node.vote_processor.batch_size);
+
+	ASSERT_NE (conf.node.bootstrap_ascending.enable, defaults.node.bootstrap_ascending.enable);
+	ASSERT_NE (conf.node.bootstrap_ascending.enable_database_scan, defaults.node.bootstrap_ascending.enable_database_scan);
+	ASSERT_NE (conf.node.bootstrap_ascending.enable_dependency_walker, defaults.node.bootstrap_ascending.enable_dependency_walker);
+	ASSERT_NE (conf.node.bootstrap_ascending.requests_limit, defaults.node.bootstrap_ascending.requests_limit);
+	ASSERT_NE (conf.node.bootstrap_ascending.database_rate_limit, defaults.node.bootstrap_ascending.database_rate_limit);
+	ASSERT_NE (conf.node.bootstrap_ascending.pull_count, defaults.node.bootstrap_ascending.pull_count);
+	ASSERT_NE (conf.node.bootstrap_ascending.request_timeout, defaults.node.bootstrap_ascending.request_timeout);
+	ASSERT_NE (conf.node.bootstrap_ascending.throttle_coefficient, defaults.node.bootstrap_ascending.throttle_coefficient);
+	ASSERT_NE (conf.node.bootstrap_ascending.throttle_wait, defaults.node.bootstrap_ascending.throttle_wait);
+	ASSERT_NE (conf.node.bootstrap_ascending.block_wait_count, defaults.node.bootstrap_ascending.block_wait_count);
+	ASSERT_NE (conf.node.bootstrap_ascending.max_requests, defaults.node.bootstrap_ascending.max_requests);
 
 	ASSERT_NE (conf.node.bootstrap_server.max_queue, defaults.node.bootstrap_server.max_queue);
 	ASSERT_NE (conf.node.bootstrap_server.threads, defaults.node.bootstrap_server.threads);
