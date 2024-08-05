@@ -482,6 +482,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("migrate_database_lmdb_to_rocksdb"))
 	{
+		nano::logger::initialize (nano::log_config::daemon_default (), data_path);
+
 		auto data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		auto node_flags = nano::inactive_node_flag_defaults ();
 		node_flags.config_overrides.push_back ("node.rocksdb.enable=false");
