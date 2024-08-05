@@ -1242,7 +1242,6 @@ uint64_t nano::ledger::pruning_action (secure::write_transaction & transaction_a
 bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_path_a) const
 {
 	nano::logger logger;
-	nano::logger::initialize (nano::log_config::daemon_default (), data_path_a);
 
 	logger.info (nano::log::type::ledger, "Migrating LMDB database to RocksDB. This will take a while...");
 
