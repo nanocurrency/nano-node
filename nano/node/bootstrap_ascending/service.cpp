@@ -462,7 +462,8 @@ void nano::bootstrap_ascending::service::run_one_priority ()
 	{
 		return;
 	}
-	auto count = std::clamp (static_cast<size_t> (priority), 2ul, nano::bootstrap_server::max_blocks);
+	size_t const min_pull_count = 2;
+	auto count = std::clamp (static_cast<size_t> (priority), min_pull_count, nano::bootstrap_server::max_blocks);
 	request (account, count, channel, query_source::priority);
 }
 
@@ -813,8 +814,10 @@ auto nano::bootstrap_ascending::service::info () const -> nano::bootstrap_ascend
 
 std::size_t nano::bootstrap_ascending::service::compute_throttle_size () const
 {
-	std::size_t size_new = config.throttle_coefficient * static_cast<size_t> (std::log (ledger.account_count ()));
-	return std::max (size_new, 16ul);
+	auto ledger_size = ledger.account_count ();
+	size_t target = ledger_size > 0 ? config.throttle_coefficient * static_cast<size_t> (std::log (ledger_size)) : 0;
+	size_t min_size = 16;
+	return std::max (target, min_size);
 }
 
 std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::service::collect_container_info (std::string const & name)
