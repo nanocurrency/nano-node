@@ -1501,7 +1501,6 @@ TEST (telemetry, cache_read_and_timeout)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
-	node_flags.disable_ongoing_telemetry_requests = true;
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 

@@ -37,7 +37,6 @@ namespace transport
  * Those intervals are configurable via `telemetry_request_interval` & `telemetry_broadcast_interval` network constants
  * Telemetry datas are only removed after becoming stale (configurable via `telemetry_cache_cutoff` network constant), so peer data will still be available for a short period after that peer is disconnected
  *
- * Requests can be disabled via `disable_ongoing_telemetry_requests` node flag
  * Broadcasts can be disabled via `disable_providing_telemetry_metrics` node flag
  *
  */
@@ -50,7 +49,6 @@ public:
 		bool enable_ongoing_broadcasts{ true };
 
 		config (nano::node_config const & config, nano::node_flags const & flags) :
-			enable_ongoing_requests{ !flags.disable_ongoing_telemetry_requests },
 			enable_ongoing_broadcasts{ !flags.disable_providing_telemetry_metrics }
 		{
 		}
