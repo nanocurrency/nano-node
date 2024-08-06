@@ -48,7 +48,7 @@ private:
 /**
  * Checks if both lists contain the same blocks, with `blocks_b` skipped by `skip` elements
  */
-bool compare_blocks (std::vector<std::shared_ptr<nano::block>> blocks_a, std::vector<std::shared_ptr<nano::block>> blocks_b, int skip = 0)
+bool compare_blocks (auto const & blocks_a, auto const & blocks_b, int skip = 0)
 {
 	debug_assert (blocks_b.size () >= blocks_a.size () + skip);
 

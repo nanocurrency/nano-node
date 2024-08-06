@@ -1,4 +1,5 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/enum_util.hpp>
 #include <nano/lib/stats_enums.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/node/blockprocessor.hpp>
@@ -18,18 +19,19 @@ using namespace std::chrono_literals;
  * bootstrap_ascending
  */
 
-nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano::block_processor & block_processor_a, nano::ledger & ledger_a, nano::network & network_a, nano::stats & stat_a) :
-	config{ config_a },
-	network_consts{ config.network_params.network },
+nano::bootstrap_ascending::service::service (nano::node_config const & node_config_a, nano::block_processor & block_processor_a, nano::ledger & ledger_a, nano::network & network_a, nano::stats & stat_a, nano::logger & logger_a) :
+	config{ node_config_a.bootstrap_ascending },
+	network_constants{ node_config_a.network_params.network },
 	block_processor{ block_processor_a },
 	ledger{ ledger_a },
 	network{ network_a },
 	stats{ stat_a },
-	accounts{ stats },
+	logger{ logger_a },
+	accounts{ config.account_sets, stats },
 	iterator{ ledger },
 	throttle{ compute_throttle_size () },
-	scoring{ config.bootstrap_ascending, config.network_params.network },
-	database_limiter{ config.bootstrap_ascending.database_requests_limit, 1.0 }
+	scoring{ config, node_config_a.network_params.network },
+	database_limiter{ config.database_rate_limit, 1.0 }
 {
 	// TODO: This is called from a very congested blockprocessor thread. Offload this work to a dedicated processing thread
 	block_processor.batch_processed.add ([this] (auto const & batch) {
@@ -43,27 +45,54 @@ nano::bootstrap_ascending::service::service (nano::node_config & config_a, nano:
 				inspect (transaction, result, *context.block);
 			}
 		}
-
 		condition.notify_all ();
 	});
+
+	accounts.priority_set (node_config_a.network_params.ledger.genesis->account_field ().value ());
 }
 
 nano::bootstrap_ascending::service::~service ()
 {
 	// All threads must be stopped before destruction
-	debug_assert (!thread.joinable ());
+	debug_assert (!priorities_thread.joinable ());
+	debug_assert (!database_thread.joinable ());
+	debug_assert (!dependencies_thread.joinable ());
 	debug_assert (!timeout_thread.joinable ());
 }
 
 void nano::bootstrap_ascending::service::start ()
 {
-	debug_assert (!thread.joinable ());
+	debug_assert (!priorities_thread.joinable ());
+	debug_assert (!database_thread.joinable ());
+	debug_assert (!dependencies_thread.joinable ());
 	debug_assert (!timeout_thread.joinable ());
 
-	thread = std::thread ([this] () {
+	if (!config.enable)
+	{
+		logger.warn (nano::log::type::bootstrap, "Ascending bootstrap is disabled");
+		return;
+	}
+
+	priorities_thread = std::thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::ascending_bootstrap);
-		run ();
+		run_priorities ();
 	});
+
+	if (config.enable_database_scan)
+	{
+		database_thread = std::thread ([this] () {
+			nano::thread_role::set (nano::thread_role::name::ascending_bootstrap);
+			run_database ();
+		});
+	}
+
+	if (config.enable_dependency_walker)
+	{
+		dependencies_thread = std::thread ([this] () {
+			nano::thread_role::set (nano::thread_role::name::ascending_bootstrap);
+			run_dependencies ();
+		});
+	}
 
 	timeout_thread = std::thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::ascending_bootstrap);
@@ -78,27 +107,59 @@ void nano::bootstrap_ascending::service::stop ()
 		stopped = true;
 	}
 	condition.notify_all ();
-	nano::join_or_pass (thread);
+
+	nano::join_or_pass (priorities_thread);
+	nano::join_or_pass (database_thread);
+	nano::join_or_pass (dependencies_thread);
 	nano::join_or_pass (timeout_thread);
 }
 
-void nano::bootstrap_ascending::service::send (std::shared_ptr<nano::transport::channel> channel, async_tag tag)
+void nano::bootstrap_ascending::service::send (std::shared_ptr<nano::transport::channel> const & channel, async_tag tag)
 {
-	debug_assert (tag.type == async_tag::query_type::blocks_by_hash || tag.type == async_tag::query_type::blocks_by_account);
+	debug_assert (tag.type != query_type::invalid);
+	debug_assert (tag.source != query_source::invalid);
 
-	nano::asc_pull_req request{ network_consts };
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		debug_assert (tags.get<tag_id> ().count (tag.id) == 0);
+		tags.get<tag_id> ().insert (tag);
+	}
+
+	nano::asc_pull_req request{ network_constants };
 	request.id = tag.id;
-	request.type = nano::asc_pull_type::blocks;
 
-	nano::asc_pull_req::blocks_payload request_payload;
-	request_payload.start = tag.start;
-	request_payload.count = config.bootstrap_ascending.pull_count;
-	request_payload.start_type = (tag.type == async_tag::query_type::blocks_by_hash) ? nano::asc_pull_req::hash_type::block : nano::asc_pull_req::hash_type::account;
+	switch (tag.type)
+	{
+		case query_type::blocks_by_hash:
+		case query_type::blocks_by_account:
+		{
+			request.type = nano::asc_pull_type::blocks;
 
-	request.payload = request_payload;
+			nano::asc_pull_req::blocks_payload pld;
+			pld.start = tag.start;
+			pld.count = tag.count;
+			pld.start_type = tag.type == query_type::blocks_by_hash ? nano::asc_pull_req::hash_type::block : nano::asc_pull_req::hash_type::account;
+			request.payload = pld;
+		}
+		break;
+		case query_type::account_info_by_hash:
+		{
+			request.type = nano::asc_pull_type::account_info;
+
+			nano::asc_pull_req::account_info_payload pld;
+			pld.target_type = nano::asc_pull_req::hash_type::block; // Query account info by block hash
+			pld.target = tag.start;
+			request.payload = pld;
+		}
+		break;
+		default:
+			debug_assert (false);
+	}
+
 	request.update_header ();
 
 	stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::request, nano::stat::dir::out);
+	stats.inc (nano::stat::type::bootstrap_ascending_request, to_stat_detail (tag.type));
 
 	// TODO: There is no feedback mechanism if bandwidth limiter starts dropping our requests
 	channel->send (
@@ -130,6 +191,8 @@ std::size_t nano::bootstrap_ascending::service::score_size () const
  */
 void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx, nano::block_status const & result, nano::block const & block)
 {
+	debug_assert (!mutex.try_lock ());
+
 	auto const hash = block.hash ();
 
 	switch (result)
@@ -141,13 +204,12 @@ void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx
 			// If we've inserted any block in to an account, unmark it as blocked
 			accounts.unblock (account);
 			accounts.priority_up (account);
-			accounts.timestamp_reset (account);
 
 			if (block.is_send ())
 			{
 				auto destination = block.destination ();
 				accounts.unblock (destination, hash); // Unblocking automatically inserts account into priority set
-				accounts.priority_up (destination);
+				accounts.priority_set (destination);
 			}
 		}
 		break;
@@ -158,18 +220,15 @@ void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx
 
 			// Mark account as blocked because it is missing the source block
 			accounts.block (account, source);
-
-			// TODO: Track stats
-		}
-		break;
-		case nano::block_status::old:
-		{
-			// TODO: Track stats
 		}
 		break;
 		case nano::block_status::gap_previous:
 		{
-			// TODO: Track stats
+			if (block.type () == block_type::state)
+			{
+				const auto account = block.account_field ().value ();
+				accounts.priority_set (account);
+			}
 		}
 		break;
 		default: // No need to handle other cases
@@ -177,140 +236,336 @@ void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx
 	}
 }
 
-void nano::bootstrap_ascending::service::wait_blockprocessor ()
+void nano::bootstrap_ascending::service::wait (std::function<bool ()> const & predicate) const
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped && block_processor.size (nano::block_source::bootstrap) > config.bootstrap_ascending.block_wait_count)
+	std::unique_lock<nano::mutex> lock{ mutex };
+
+	std::chrono::milliseconds interval = 5ms;
+	while (!stopped && !predicate ())
 	{
-		condition.wait_for (lock, std::chrono::milliseconds{ config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; }); // Blockprocessor is relatively slow, sleeping here instead of using conditions
+		condition.wait_for (lock, interval);
+		interval = std::min (interval * 2, config.throttle_wait);
 	}
 }
 
-std::shared_ptr<nano::transport::channel> nano::bootstrap_ascending::service::wait_available_channel ()
+void nano::bootstrap_ascending::service::wait_tags ()
+{
+	wait ([this] () {
+		debug_assert (!mutex.try_lock ());
+		return tags.size () < config.max_requests;
+	});
+}
+
+void nano::bootstrap_ascending::service::wait_blockprocessor ()
+{
+	wait ([this] () {
+		return block_processor.size (nano::block_source::bootstrap) < config.block_wait_count;
+	});
+}
+
+std::shared_ptr<nano::transport::channel> nano::bootstrap_ascending::service::wait_channel ()
 {
 	std::shared_ptr<nano::transport::channel> channel;
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped && !(channel = scoring.channel ()))
-	{
-		condition.wait_for (lock, std::chrono::milliseconds{ config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; });
-	}
+
+	wait ([this, &channel] () {
+		debug_assert (!mutex.try_lock ());
+		channel = scoring.channel ();
+		return channel != nullptr; // Wait until a channel is available
+	});
+
 	return channel;
 }
 
-nano::account nano::bootstrap_ascending::service::available_account ()
+size_t nano::bootstrap_ascending::service::count_tags (nano::account const & account, query_source source) const
 {
-	{
-		auto account = accounts.next ();
-		if (!account.is_zero ())
-		{
-			stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::next_priority);
-			return account;
-		}
-	}
-
-	if (database_limiter.should_pass (1))
-	{
-		auto account = iterator.next ();
-		if (!account.is_zero ())
-		{
-			stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::next_database);
-			return account;
-		}
-	}
-
-	stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::next_none);
-	return { 0 };
+	debug_assert (!mutex.try_lock ());
+	auto [begin, end] = tags.get<tag_account> ().equal_range (account);
+	return std::count_if (begin, end, [source] (auto const & tag) { return tag.source == source; });
 }
 
-nano::account nano::bootstrap_ascending::service::wait_available_account ()
+size_t nano::bootstrap_ascending::service::count_tags (nano::block_hash const & hash, query_source source) const
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped)
-	{
-		auto account = available_account ();
-		if (!account.is_zero ())
-		{
-			accounts.timestamp_set (account);
-			return account;
-		}
-		else
-		{
-			condition.wait_for (lock, 100ms);
-		}
-	}
-	return { 0 };
+	debug_assert (!mutex.try_lock ());
+	auto [begin, end] = tags.get<tag_hash> ().equal_range (hash);
+	return std::count_if (begin, end, [source] (auto const & tag) { return tag.source == source; });
 }
 
-bool nano::bootstrap_ascending::service::request (nano::account & account, std::shared_ptr<nano::transport::channel> & channel)
+std::pair<nano::account, double> nano::bootstrap_ascending::service::next_priority ()
 {
+	debug_assert (!mutex.try_lock ());
+
+	auto account = accounts.next_priority ([this] (nano::account const & account) {
+		return count_tags (account, query_source::priority) < 4;
+	});
+
+	if (account.is_zero ())
+	{
+		return {};
+	}
+
+	stats.inc (nano::stat::type::bootstrap_ascending_next, nano::stat::detail::next_priority);
+	accounts.timestamp_set (account);
+
+	// TODO: Priority could be returned by the accounts.next_priority() call
+	return { account, accounts.priority (account) };
+}
+
+std::pair<nano::account, double> nano::bootstrap_ascending::service::wait_priority ()
+{
+	std::pair<nano::account, double> result{ 0, 0 };
+
+	wait ([this, &result] () {
+		debug_assert (!mutex.try_lock ());
+		result = next_priority ();
+		if (!result.first.is_zero ())
+		{
+			return true;
+		}
+		return false;
+	});
+
+	return result;
+}
+
+nano::account nano::bootstrap_ascending::service::next_database (bool should_throttle)
+{
+	debug_assert (!mutex.try_lock ());
+
+	// Throttling increases the weight of database requests
+	// TODO: Make this ratio configurable
+	if (!database_limiter.should_pass (should_throttle ? 22 : 1))
+	{
+		return { 0 };
+	}
+
+	auto account = iterator.next ([this] (nano::account const & account) {
+		return count_tags (account, query_source::database) == 0;
+	});
+
+	if (account.is_zero ())
+	{
+		return { 0 };
+	}
+
+	stats.inc (nano::stat::type::bootstrap_ascending_next, nano::stat::detail::next_database);
+	return account;
+}
+
+nano::account nano::bootstrap_ascending::service::wait_database (bool should_throttle)
+{
+	nano::account result{ 0 };
+
+	wait ([this, &result, should_throttle] () {
+		debug_assert (!mutex.try_lock ());
+		result = next_database (should_throttle);
+		if (!result.is_zero ())
+		{
+			return true;
+		}
+		return false;
+	});
+
+	return result;
+}
+
+nano::block_hash nano::bootstrap_ascending::service::next_blocking ()
+{
+	debug_assert (!mutex.try_lock ());
+
+	auto blocking = accounts.next_blocking ([this] (nano::block_hash const & hash) {
+		return count_tags (hash, query_source::blocking) == 0;
+	});
+
+	if (blocking.is_zero ())
+	{
+		return { 0 };
+	}
+
+	stats.inc (nano::stat::type::bootstrap_ascending_next, nano::stat::detail::next_blocking);
+	return blocking;
+}
+
+nano::block_hash nano::bootstrap_ascending::service::wait_blocking ()
+{
+	nano::block_hash result{ 0 };
+
+	wait ([this, &result] () {
+		debug_assert (!mutex.try_lock ());
+		result = next_blocking ();
+		if (!result.is_zero ())
+		{
+			return true;
+		}
+		return false;
+	});
+
+	return result;
+}
+
+bool nano::bootstrap_ascending::service::request (nano::account account, size_t count, std::shared_ptr<nano::transport::channel> const & channel, query_source source)
+{
+	debug_assert (count > 0);
+	debug_assert (count <= nano::bootstrap_server::max_blocks);
+
 	async_tag tag{};
-	tag.id = nano::bootstrap_ascending::generate_id ();
+	tag.source = source;
 	tag.account = account;
+	tag.count = count;
 
 	// Check if the account picked has blocks, if it does, start the pull from the highest block
 	auto info = ledger.store.account.get (ledger.store.tx_begin_read (), account);
 	if (info)
 	{
-		tag.type = async_tag::query_type::blocks_by_hash;
+		tag.type = query_type::blocks_by_hash;
 		tag.start = info->head;
+		tag.hash = info->head;
 	}
 	else
 	{
-		tag.type = async_tag::query_type::blocks_by_account;
+		tag.type = query_type::blocks_by_account;
 		tag.start = account;
 	}
 
 	on_request.notify (tag, channel);
 
-	track (tag);
 	send (channel, tag);
 
 	return true; // Request sent
 }
 
-bool nano::bootstrap_ascending::service::run_one ()
+bool nano::bootstrap_ascending::service::request_info (nano::block_hash hash, std::shared_ptr<nano::transport::channel> const & channel, query_source source)
 {
-	// Ensure there is enough space in blockprocessor for queuing new blocks
+	async_tag tag{};
+	tag.type = query_type::account_info_by_hash;
+	tag.source = source;
+	tag.start = hash;
+	tag.hash = hash;
+
+	on_request.notify (tag, channel);
+
+	send (channel, tag);
+
+	return true; // Request sent
+}
+
+void nano::bootstrap_ascending::service::run_one_priority ()
+{
+	wait_tags ();
 	wait_blockprocessor ();
-
-	// Waits for account either from priority queue or database
-	auto account = wait_available_account ();
-	if (account.is_zero ())
-	{
-		return false;
-	}
-
-	// Waits for channel that is not full
-	auto channel = wait_available_channel ();
+	auto channel = wait_channel ();
 	if (!channel)
 	{
-		return false;
+		return;
 	}
-
-	bool success = request (account, channel);
-	return success;
-}
-
-void nano::bootstrap_ascending::service::throttle_if_needed (nano::unique_lock<nano::mutex> & lock)
-{
-	debug_assert (lock.owns_lock ());
-	if (!iterator.warmup () && throttle.throttled ())
+	auto [account, priority] = wait_priority ();
+	if (account.is_zero ())
 	{
-		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::throttled);
-		condition.wait_for (lock, std::chrono::milliseconds{ config.bootstrap_ascending.throttle_wait }, [this] () { return stopped; });
+		return;
 	}
+	size_t const min_pull_count = 2;
+	auto count = std::clamp (static_cast<size_t> (priority), min_pull_count, nano::bootstrap_server::max_blocks);
+	request (account, count, channel, query_source::priority);
 }
 
-void nano::bootstrap_ascending::service::run ()
+void nano::bootstrap_ascending::service::run_priorities ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		lock.unlock ();
 		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::loop);
-		run_one ();
+		run_one_priority ();
 		lock.lock ();
-		throttle_if_needed (lock);
+	}
+}
+
+void nano::bootstrap_ascending::service::run_one_database (bool should_throttle)
+{
+	wait_tags ();
+	wait_blockprocessor ();
+	auto channel = wait_channel ();
+	if (!channel)
+	{
+		return;
+	}
+	auto account = wait_database (should_throttle);
+	if (account.is_zero ())
+	{
+		return;
+	}
+	request (account, 2, channel, query_source::database);
+}
+
+void nano::bootstrap_ascending::service::run_database ()
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	while (!stopped)
+	{
+		// Avoid high churn rate of database requests
+		bool should_throttle = !iterator.warmup () && throttle.throttled ();
+		lock.unlock ();
+		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::loop_database);
+		run_one_database (should_throttle);
+		lock.lock ();
+	}
+}
+
+void nano::bootstrap_ascending::service::run_one_blocking ()
+{
+	wait_tags ();
+	wait_blockprocessor ();
+	auto channel = wait_channel ();
+	if (!channel)
+	{
+		return;
+	}
+	auto blocking = wait_blocking ();
+	if (blocking.is_zero ())
+	{
+		return;
+	}
+	request_info (blocking, channel, query_source::blocking);
+}
+
+void nano::bootstrap_ascending::service::run_dependencies ()
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	while (!stopped)
+	{
+		lock.unlock ();
+		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::loop_dependencies);
+		run_one_blocking ();
+		lock.lock ();
+	}
+}
+
+void nano::bootstrap_ascending::service::cleanup_and_sync ()
+{
+	debug_assert (!mutex.try_lock ());
+
+	scoring.sync (network.list ());
+	scoring.timeout ();
+
+	throttle.resize (compute_throttle_size ());
+
+	auto const cutoff = std::chrono::steady_clock::now () - config.request_timeout;
+	auto should_timeout = [cutoff] (async_tag const & tag) {
+		return tag.timestamp < cutoff;
+	};
+
+	auto & tags_by_order = tags.get<tag_sequenced> ();
+	while (!tags_by_order.empty () && should_timeout (tags_by_order.front ()))
+	{
+		auto tag = tags_by_order.front ();
+		tags_by_order.pop_front ();
+		on_timeout.notify (tag);
+		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::timeout);
+	}
+
+	if (sync_dependencies_interval.elapsed (60s))
+	{
+		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::sync_dependencies);
+		accounts.sync_dependencies ();
 	}
 }
 
@@ -319,110 +574,177 @@ void nano::bootstrap_ascending::service::run_timeouts ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		scoring.sync (network.list ());
-		scoring.timeout ();
-		throttle.resize (compute_throttle_size ());
-
-		auto const cutoff = std::chrono::steady_clock::now () - config.bootstrap_ascending.request_timeout;
-		auto should_timeout = [cutoff] (async_tag const & tag) {
-			return tag.timestamp < cutoff;
-		};
-
-		auto & tags_by_order = tags.get<tag_sequenced> ();
-		while (!tags_by_order.empty () && should_timeout (tags_by_order.front ()))
-		{
-			auto tag = tags_by_order.front ();
-			tags_by_order.pop_front ();
-			on_timeout.notify (tag);
-			stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::timeout);
-		}
-		condition.wait_for (lock, 1s, [this] () { return stopped; });
+		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::loop_cleanup);
+		cleanup_and_sync ();
+		condition.wait_for (lock, 5s, [this] () { return stopped; });
 	}
 }
 
-void nano::bootstrap_ascending::service::process (nano::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> channel)
+void nano::bootstrap_ascending::service::process (nano::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> const & channel)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	// Only process messages that have a known tag
-	auto & tags_by_id = tags.get<tag_id> ();
-	if (tags_by_id.count (message.id) > 0)
-	{
-		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::reply);
-
-		auto iterator = tags_by_id.find (message.id);
-		auto tag = *iterator;
-		tags_by_id.erase (iterator);
-
-		// Track bootstrap request response time
-		stats.sample (nano::stat::sample::bootstrap_tag_duration, nano::log::milliseconds_delta (tag.timestamp), { 0, config.bootstrap_ascending.request_timeout.count () });
-
-		scoring.received_message (channel);
-
-		lock.unlock ();
-
-		on_reply.notify (tag);
-		condition.notify_all ();
-
-		std::visit ([this, &tag] (auto && request) { return process (request, tag); }, message.payload);
-	}
-	else
+	auto it = tags.get<tag_id> ().find (message.id);
+	if (it == tags.get<tag_id> ().end ())
 	{
 		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::missing_tag);
+		return;
 	}
+
+	stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::reply);
+
+	auto tag = *it;
+	tags.get<tag_id> ().erase (it); // Iterator is invalid after this point
+
+	// Verifies that response type corresponds to our query
+	struct payload_verifier
+	{
+		query_type type;
+
+		bool operator() (const nano::asc_pull_ack::blocks_payload & response) const
+		{
+			return type == query_type::blocks_by_hash || type == query_type::blocks_by_account;
+		}
+		bool operator() (const nano::asc_pull_ack::account_info_payload & response) const
+		{
+			return type == query_type::account_info_by_hash;
+		}
+		bool operator() (const nano::asc_pull_ack::frontiers_payload & response) const
+		{
+			return false; // TODO: Handle frontiers
+		}
+		bool operator() (const nano::empty_payload & response) const
+		{
+			return false; // Should not happen
+		}
+	};
+
+	bool valid = std::visit (payload_verifier{ tag.type }, message.payload);
+	if (!valid)
+	{
+		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::invalid_response_type);
+		return;
+	}
+
+	// Track bootstrap request response time
+	stats.inc (nano::stat::type::bootstrap_ascending_reply, to_stat_detail (tag.type));
+	stats.sample (nano::stat::sample::bootstrap_tag_duration, nano::log::milliseconds_delta (tag.timestamp), { 0, config.request_timeout.count () });
+
+	scoring.received_message (channel);
+
+	lock.unlock ();
+
+	on_reply.notify (tag);
+
+	// Process the response payload
+	std::visit ([this, &tag] (auto && request) { return process (request, tag); }, message.payload);
+
+	condition.notify_all ();
 }
 
-void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::blocks_payload & response, const nano::bootstrap_ascending::service::async_tag & tag)
+void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::blocks_payload & response, const async_tag & tag)
 {
-	stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::process);
+	debug_assert (tag.type == query_type::blocks_by_hash || tag.type == query_type::blocks_by_account);
+
+	stats.inc (nano::stat::type::bootstrap_ascending_process, nano::stat::detail::blocks);
 
 	auto result = verify (response, tag);
 	switch (result)
 	{
 		case verify_result::ok:
 		{
+			stats.inc (nano::stat::type::bootstrap_ascending_verify, nano::stat::detail::ok);
 			stats.add (nano::stat::type::bootstrap_ascending, nano::stat::detail::blocks, nano::stat::dir::in, response.blocks.size ());
 
-			for (auto & block : response.blocks)
+			auto blocks = response.blocks;
+
+			// Avoid re-processing the block we already have
+			release_assert (blocks.size () >= 1);
+			if (blocks.front ()->hash () == tag.start.as_block_hash ())
 			{
-				block_processor.add (block, nano::block_source::bootstrap);
+				blocks.pop_front ();
 			}
-			nano::lock_guard<nano::mutex> lock{ mutex };
-			throttle.add (true);
+
+			for (auto const & block : blocks)
+			{
+				if (block == blocks.back ())
+				{
+					// It's the last block submitted for this account chanin, reset timestamp to allow more requests
+					block_processor.add (block, nano::block_source::bootstrap, nullptr, [this, account = tag.account] (auto result) {
+						stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::timestamp_reset);
+						{
+							nano::lock_guard<nano::mutex> guard{ mutex };
+							accounts.timestamp_reset (account);
+						}
+						condition.notify_all ();
+					});
+				}
+				else
+				{
+					block_processor.add (block, nano::block_source::bootstrap);
+				}
+			}
+
+			if (tag.source == query_source::database)
+			{
+				nano::lock_guard<nano::mutex> lock{ mutex };
+				throttle.add (true);
+			}
 		}
 		break;
 		case verify_result::nothing_new:
 		{
-			stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::nothing_new);
+			stats.inc (nano::stat::type::bootstrap_ascending_verify, nano::stat::detail::nothing_new);
 
 			nano::lock_guard<nano::mutex> lock{ mutex };
 			accounts.priority_down (tag.account);
-			throttle.add (false);
+			if (tag.source == query_source::database)
+			{
+				throttle.add (false);
+			}
 		}
 		break;
 		case verify_result::invalid:
 		{
-			stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::invalid);
-			// TODO: Log
+			stats.inc (nano::stat::type::bootstrap_ascending_verify, nano::stat::detail::invalid);
 		}
 		break;
 	}
 }
 
-void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::account_info_payload & response, const nano::bootstrap_ascending::service::async_tag & tag)
+void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::account_info_payload & response, const async_tag & tag)
 {
-	// TODO: Make use of account info
+	debug_assert (tag.type == query_type::account_info_by_hash);
+	debug_assert (!tag.hash.is_zero ());
+
+	if (response.account.is_zero ())
+	{
+		stats.inc (nano::stat::type::bootstrap_ascending_process, nano::stat::detail::account_info_empty);
+	}
+	else
+	{
+		stats.inc (nano::stat::type::bootstrap_ascending_process, nano::stat::detail::account_info);
+
+		// Prioritize account containing the dependency
+		{
+			nano::lock_guard<nano::mutex> lock{ mutex };
+			accounts.dependency_update (tag.hash, response.account);
+			accounts.priority_set (response.account);
+		}
+	}
 }
 
-void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::frontiers_payload & response, const nano::bootstrap_ascending::service::async_tag & tag)
+void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::frontiers_payload & response, const async_tag & tag)
 {
 	// TODO: Make use of frontiers info
+	stats.inc (nano::stat::type::bootstrap_ascending_process, nano::stat::detail::frontiers);
 }
 
-void nano::bootstrap_ascending::service::process (const nano::empty_payload & response, const nano::bootstrap_ascending::service::async_tag & tag)
+void nano::bootstrap_ascending::service::process (const nano::empty_payload & response, const async_tag & tag)
 {
-	// Should not happen
-	debug_assert (false, "empty payload");
+	stats.inc (nano::stat::type::bootstrap_ascending_process, nano::stat::detail::empty);
+	debug_assert (false, "empty payload"); // Should not happen
 }
 
 nano::bootstrap_ascending::service::verify_result nano::bootstrap_ascending::service::verify (const nano::asc_pull_ack::blocks_payload & response, const nano::bootstrap_ascending::service::async_tag & tag) const
@@ -437,11 +759,15 @@ nano::bootstrap_ascending::service::verify_result nano::bootstrap_ascending::ser
 	{
 		return verify_result::nothing_new;
 	}
+	if (blocks.size () > tag.count)
+	{
+		return verify_result::invalid;
+	}
 
 	auto const & first = blocks.front ();
 	switch (tag.type)
 	{
-		case async_tag::query_type::blocks_by_hash:
+		case query_type::blocks_by_hash:
 		{
 			if (first->hash () != tag.start.as_block_hash ())
 			{
@@ -450,7 +776,7 @@ nano::bootstrap_ascending::service::verify_result nano::bootstrap_ascending::ser
 			}
 		}
 		break;
-		case async_tag::query_type::blocks_by_account:
+		case query_type::blocks_by_account:
 		{
 			// Open & state blocks always contain account field
 			if (first->account_field () != tag.start.as_account ())
@@ -480,15 +806,6 @@ nano::bootstrap_ascending::service::verify_result nano::bootstrap_ascending::ser
 	return verify_result::ok;
 }
 
-void nano::bootstrap_ascending::service::track (async_tag const & tag)
-{
-	stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::track);
-
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	debug_assert (tags.get<tag_id> ().count (tag.id) == 0);
-	tags.get<tag_id> ().insert (tag);
-}
-
 auto nano::bootstrap_ascending::service::info () const -> nano::bootstrap_ascending::account_sets::info_t
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
@@ -497,10 +814,10 @@ auto nano::bootstrap_ascending::service::info () const -> nano::bootstrap_ascend
 
 std::size_t nano::bootstrap_ascending::service::compute_throttle_size () const
 {
-	// Scales logarithmically with ledger block
-	// Returns: config.throttle_coefficient * sqrt(block_count)
-	std::size_t size_new = config.bootstrap_ascending.throttle_coefficient * std::sqrt (ledger.block_count ());
-	return size_new == 0 ? 16 : size_new;
+	auto ledger_size = ledger.account_count ();
+	size_t target = ledger_size > 0 ? config.throttle_coefficient * static_cast<size_t> (std::log (ledger_size)) : 0;
+	size_t min_size = 16;
+	return std::max (target, min_size);
 }
 
 std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::service::collect_container_info (std::string const & name)
@@ -513,4 +830,13 @@ std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::servi
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "throttle_successes", throttle.successes (), 0 }));
 	composite->add_component (accounts.collect_container_info ("accounts"));
 	return composite;
+}
+
+/*
+ *
+ */
+
+nano::stat::detail nano::bootstrap_ascending::to_stat_detail (nano::bootstrap_ascending::service::query_type type)
+{
+	return nano::enum_util::cast<nano::stat::detail> (type);
 }

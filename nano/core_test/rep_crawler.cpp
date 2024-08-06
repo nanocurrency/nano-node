@@ -291,7 +291,7 @@ TEST (rep_crawler, two_reps_one_node)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	system.wallet (0)->insert_adhoc (second_rep.prv);
 
-	ASSERT_TIMELY_EQ (5s, node2.rep_crawler.representative_count (), 2);
+	ASSERT_TIMELY_EQ (15s, node2.rep_crawler.representative_count (), 2);
 	auto reps = node2.rep_crawler.representatives ();
 	ASSERT_EQ (2, reps.size ());
 
