@@ -1036,14 +1036,13 @@ bool nano::telemetry_ack::deserialize (nano::stream & stream_a)
 	{
 		if (!is_empty_payload ())
 		{
-			data.deserialize (stream_a, nano::narrow_cast<uint16_t> (header.extensions.to_ulong ()));
+			data.deserialize (stream_a, size ());
 		}
 	}
 	catch (std::runtime_error const &)
 	{
-		error = true;
+		// Ignore deserialization errors for backwards compatibility
 	}
-
 	return error;
 }
 
@@ -1083,7 +1082,10 @@ void nano::telemetry_ack::operator() (nano::object_stream & obs) const
 
 void nano::telemetry_data::deserialize (nano::stream & stream, uint16_t payload_length)
 {
+	version = version_t::unknown;
+
 	read (stream, signature);
+
 	read (stream, node_id);
 	read (stream, block_count);
 	boost::endian::big_to_native_inplace (block_count);
@@ -1118,6 +1120,9 @@ void nano::telemetry_data::deserialize (nano::stream & stream, uint16_t payload_
 	read (stream, active_difficulty);
 	boost::endian::big_to_native_inplace (active_difficulty);
 
+	version = version_t::v1;
+
+	// Added in V27, will throw if not present
 	uint8_t database_backend_l;
 	read (stream, database_backend_l);
 	database_backend = static_cast<nano::telemetry_backend> (database_backend_l);
@@ -1125,6 +1130,8 @@ void nano::telemetry_data::deserialize (nano::stream & stream, uint16_t payload_
 	read (stream, database_version_major);
 	read (stream, database_version_minor);
 	read (stream, database_version_patch);
+
+	version = version_t::v2;
 
 	if (payload_length > size)
 	{
@@ -1152,10 +1159,17 @@ void nano::telemetry_data::serialize_without_signature (nano::stream & stream) c
 	write (stream, static_cast<std::underlying_type_t<nano::telemetry_maker>> (maker));
 	write (stream, boost::endian::native_to_big (std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ()));
 	write (stream, boost::endian::native_to_big (active_difficulty));
+
+	if (version == version_t::v1)
+	{
+		return;
+	}
+
 	write (stream, static_cast<std::underlying_type_t<nano::telemetry_backend>> (database_backend));
 	write (stream, database_version_major);
 	write (stream, database_version_minor);
 	write (stream, database_version_patch);
+
 	write (stream, unknown_data);
 }
 

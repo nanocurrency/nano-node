@@ -328,6 +328,14 @@ telemetry_backend to_telemetry_backend (std::string);
 
 class telemetry_data
 {
+public:
+	enum class version_t
+	{
+		unknown = 0,
+		v1, // Pre V27
+		v2, // V27+
+	};
+
 public: // Payload
 	nano::signature signature{ 0 };
 	nano::account node_id{};
@@ -355,6 +363,9 @@ public: // Payload
 	// Remaining data that might be present in future telemetry versions, kept here so we can re-serialize it
 	// TODO: Is supporting re-serialization necessary?
 	std::vector<uint8_t> unknown_data;
+
+private:
+	version_t version{ version_t::v2 };
 
 public:
 	void serialize (nano::stream &) const;
