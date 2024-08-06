@@ -39,8 +39,10 @@ class buffered_iterator
 {
 public:
 	explicit buffered_iterator (nano::ledger & ledger);
+
 	nano::account operator* () const;
-	nano::account next ();
+	nano::account next (std::function<bool (nano::account const &)> const & filter);
+
 	// Indicates if a full ledger iteration has taken place e.g. warmed up
 	bool warmup () const;
 

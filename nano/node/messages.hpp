@@ -681,7 +681,7 @@ public: // Payload definitions
 		void deserialize (nano::stream &);
 
 	public: // Payload
-		std::vector<std::shared_ptr<nano::block>> blocks;
+		std::deque<std::shared_ptr<nano::block>> blocks;
 
 	public: // Logging
 		void operator() (nano::object_stream &) const;

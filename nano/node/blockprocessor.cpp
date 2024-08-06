@@ -16,9 +16,10 @@
  * block_processor::context
  */
 
-nano::block_processor::context::context (std::shared_ptr<nano::block> block, nano::block_source source_a) :
+nano::block_processor::context::context (std::shared_ptr<nano::block> block, nano::block_source source_a, callback_t callback_a) :
 	block{ std::move (block) },
-	source{ source_a }
+	source{ source_a },
+	callback{ std::move (callback_a) }
 {
 	debug_assert (source != nano::block_source::unknown);
 }
@@ -121,7 +122,7 @@ std::size_t nano::block_processor::size (nano::block_source source) const
 	return queue.size ({ source });
 }
 
-bool nano::block_processor::add (std::shared_ptr<nano::block> const & block, block_source const source, std::shared_ptr<nano::transport::channel> const & channel)
+bool nano::block_processor::add (std::shared_ptr<nano::block> const & block, block_source const source, std::shared_ptr<nano::transport::channel> const & channel, std::function<void (nano::block_status)> callback)
 {
 	if (node.network_params.work.validate_entry (*block)) // true => error
 	{
@@ -135,7 +136,7 @@ bool nano::block_processor::add (std::shared_ptr<nano::block> const & block, blo
 	to_string (source),
 	channel ? channel->to_string () : "<unknown>"); // TODO: Lazy eval
 
-	return add_impl (context{ block, source }, channel);
+	return add_impl (context{ block, source, std::move (callback) }, channel);
 }
 
 std::optional<nano::block_status> nano::block_processor::add_blocking (std::shared_ptr<nano::block> const & block, block_source const source)
@@ -247,6 +248,10 @@ void nano::block_processor::run ()
 			// Set results for futures when not holding the lock
 			for (auto & [result, context] : processed)
 			{
+				if (context.callback)
+				{
+					context.callback (result);
+				}
 				context.set_result (result);
 			}
 
