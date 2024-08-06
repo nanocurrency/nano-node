@@ -191,7 +191,7 @@ public:
 	bool disable_request_loop{ false }; // For testing only
 	bool disable_tcp_realtime{ false };
 	bool disable_providing_telemetry_metrics{ false };
-	bool disable_ongoing_telemetry_requests{ false };
+	bool disable_ongoing_telemetry_requests{ true };
 	bool disable_block_processor_unchecked_deletion{ false };
 	bool disable_block_processor_republishing{ false };
 	bool allow_bootstrap_peers_duplicates{ false };

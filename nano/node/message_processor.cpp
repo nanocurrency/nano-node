@@ -242,15 +242,7 @@ public:
 
 	void telemetry_req (nano::telemetry_req const & message) override
 	{
-		// Send an empty telemetry_ack if we do not want, just to acknowledge that we have received the message to
-		// remove any timeouts on the server side waiting for a message.
-		nano::telemetry_ack telemetry_ack{ node.network_params.network };
-		if (!node.flags.disable_providing_telemetry_metrics)
-		{
-			auto telemetry_data = node.local_telemetry ();
-			telemetry_ack = nano::telemetry_ack{ node.network_params.network, telemetry_data };
-		}
-		channel->send (telemetry_ack, nullptr, nano::transport::buffer_drop_policy::no_socket_drop);
+		// Ignore telemetry requests as telemetry is being periodically broadcasted since V25+
 	}
 
 	void telemetry_ack (nano::telemetry_ack const & message) override

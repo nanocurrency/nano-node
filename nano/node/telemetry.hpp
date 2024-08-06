@@ -46,7 +46,7 @@ class telemetry
 public:
 	struct config
 	{
-		bool enable_ongoing_requests{ true };
+		bool enable_ongoing_requests{ false };
 		bool enable_ongoing_broadcasts{ true };
 
 		config (nano::node_config const & config, nano::node_flags const & flags) :
