@@ -35,7 +35,7 @@ public:
 	bool enable_dependency_walker{ true };
 
 	// Maximum number of un-responded requests per channel
-	std::size_t requests_limit{ 64 }; // TODO: => channel_requests_limit
+	std::size_t channel_limit{ 64 };
 	std::size_t database_rate_limit{ 256 };
 	std::size_t database_warmup_ratio{ 10 };
 	std::size_t max_pull_count{ nano::bootstrap_server::max_blocks };

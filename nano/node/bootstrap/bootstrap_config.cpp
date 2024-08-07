@@ -4,6 +4,7 @@
 /*
  * account_sets_config
  */
+
 nano::error nano::account_sets_config::deserialize (nano::tomlconfig & toml)
 {
 	toml.get ("consideration_count", consideration_count);
@@ -27,13 +28,14 @@ nano::error nano::account_sets_config::serialize (nano::tomlconfig & toml) const
 /*
  * bootstrap_ascending_config
  */
+
 nano::error nano::bootstrap_ascending_config::deserialize (nano::tomlconfig & toml)
 {
 	toml.get ("enable", enable);
 	toml.get ("enable_database_scan", enable_database_scan);
 	toml.get ("enable_dependency_walker", enable_dependency_walker);
 
-	toml.get ("requests_limit", requests_limit);
+	toml.get ("channel_limit", channel_limit);
 	toml.get ("database_rate_limit", database_rate_limit);
 	toml.get ("max_pull_count", max_pull_count);
 	toml.get_duration ("request_timeout", request_timeout);
@@ -57,7 +59,7 @@ nano::error nano::bootstrap_ascending_config::serialize (nano::tomlconfig & toml
 	toml.put ("enable_database_scan", enable_database_scan, "Enable or disable the 'database scan` strategy for the ascending bootstrap.\ntype:bool");
 	toml.put ("enable_dependency_walker", enable_dependency_walker, "Enable or disable the 'dependency walker` strategy for the ascending bootstrap.\ntype:bool");
 
-	toml.put ("requests_limit", requests_limit, "Request limit to ascending bootstrap after which requests will be dropped.\nNote: changing to unlimited (0) is not recommended.\ntype:uint64");
+	toml.put ("channel_limit", channel_limit, "Maximum number of un-responded requests per channel.\nNote: changing to unlimited (0) is not recommended.\ntype:uint64");
 	toml.put ("database_rate_limit", database_rate_limit, "Rate limit on scanning accounts and pending entries from database.\nNote: changing to unlimited (0) is not recommended as this operation competes for resources on querying the database.\ntype:uint64");
 	toml.put ("max_pull_count", max_pull_count, "Maximum number of requested blocks for ascending bootstrap request.\ntype:uint64");
 	toml.put ("request_timeout", request_timeout.count (), "Timeout in milliseconds for incoming ascending bootstrap messages to be processed.\ntype:milliseconds");

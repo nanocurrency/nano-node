@@ -22,7 +22,7 @@ bool nano::bootstrap_ascending::peer_scoring::try_send_message (std::shared_ptr<
 	}
 	else
 	{
-		if (existing->outstanding < config.requests_limit)
+		if (existing->outstanding < config.channel_limit)
 		{
 			[[maybe_unused]] auto success = index.modify (existing, [] (auto & score) {
 				++score.outstanding;
