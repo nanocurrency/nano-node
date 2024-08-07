@@ -410,6 +410,9 @@ bool nano::bootstrap_ascending::service::request (nano::account account, size_t 
 	debug_assert (count > 0);
 	debug_assert (count <= nano::bootstrap_server::max_blocks);
 
+	// Limit the max number of blocks to pull
+	count = std::min (count, config.max_pull_count);
+
 	async_tag tag{};
 	tag.source = source;
 	tag.account = account;

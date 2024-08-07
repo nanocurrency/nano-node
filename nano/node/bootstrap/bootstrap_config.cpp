@@ -35,7 +35,7 @@ nano::error nano::bootstrap_ascending_config::deserialize (nano::tomlconfig & to
 
 	toml.get ("requests_limit", requests_limit);
 	toml.get ("database_rate_limit", database_rate_limit);
-	toml.get ("pull_count", pull_count);
+	toml.get ("max_pull_count", max_pull_count);
 	toml.get_duration ("request_timeout", request_timeout);
 	toml.get ("throttle_coefficient", throttle_coefficient);
 	toml.get_duration ("throttle_wait", throttle_wait);
@@ -59,7 +59,7 @@ nano::error nano::bootstrap_ascending_config::serialize (nano::tomlconfig & toml
 
 	toml.put ("requests_limit", requests_limit, "Request limit to ascending bootstrap after which requests will be dropped.\nNote: changing to unlimited (0) is not recommended.\ntype:uint64");
 	toml.put ("database_rate_limit", database_rate_limit, "Rate limit on scanning accounts and pending entries from database.\nNote: changing to unlimited (0) is not recommended as this operation competes for resources on querying the database.\ntype:uint64");
-	toml.put ("pull_count", pull_count, "Number of requested blocks for ascending bootstrap request.\ntype:uint64");
+	toml.put ("max_pull_count", max_pull_count, "Maximum number of requested blocks for ascending bootstrap request.\ntype:uint64");
 	toml.put ("request_timeout", request_timeout.count (), "Timeout in milliseconds for incoming ascending bootstrap messages to be processed.\ntype:milliseconds");
 	toml.put ("throttle_coefficient", throttle_coefficient, "Scales the number of samples to track for bootstrap throttling.\ntype:uint64");
 	toml.put ("throttle_wait", throttle_wait.count (), "Length of time to wait between requests when throttled.\ntype:milliseconds");
