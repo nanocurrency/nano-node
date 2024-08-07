@@ -251,7 +251,7 @@ void nano::bootstrap_ascending::service::wait (std::function<bool ()> const & pr
 	}
 }
 
-void nano::bootstrap_ascending::service::wait_tags ()
+void nano::bootstrap_ascending::service::wait_tags () const
 {
 	wait ([this] () {
 		debug_assert (!mutex.try_lock ());
@@ -259,10 +259,10 @@ void nano::bootstrap_ascending::service::wait_tags ()
 	});
 }
 
-void nano::bootstrap_ascending::service::wait_blockprocessor ()
+void nano::bootstrap_ascending::service::wait_blockprocessor () const
 {
 	wait ([this] () {
-		return block_processor.size (nano::block_source::bootstrap) < config.block_wait_count;
+		return block_processor.size (nano::block_source::bootstrap) < config.block_processor_threshold;
 	});
 }
 
