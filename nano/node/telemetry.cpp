@@ -244,10 +244,14 @@ void nano::telemetry::cleanup ()
 		// Remove if telemetry data is stale
 		if (!check_timeout (entry))
 		{
-			stats.inc (nano::stat::type::telemetry, nano::stat::detail::cleanup_outdated);
+			stats.inc (nano::stat::type::telemetry, nano::stat::detail::erase_stale);
 			return true; // Erase
 		}
-
+		if (!entry.channel->alive ())
+		{
+			stats.inc (nano::stat::type::telemetry, nano::stat::detail::erase_dead);
+			return true; // Erase
+		}
 		return false; // Do not erase
 	});
 }
