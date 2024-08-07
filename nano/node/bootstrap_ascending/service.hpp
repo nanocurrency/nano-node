@@ -108,7 +108,7 @@ namespace bootstrap_ascending
 
 	private:
 		/* Inspects a block that has been processed by the block processor */
-		void inspect (secure::transaction const &, nano::block_status const & result, nano::block const & block);
+		void inspect (secure::transaction const &, nano::block_status const & result, nano::block const & block, nano::block_source);
 
 		void run_priorities ();
 		void run_one_priority ();
