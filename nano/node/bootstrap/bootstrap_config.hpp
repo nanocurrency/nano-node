@@ -43,7 +43,7 @@ public:
 	std::size_t throttle_coefficient{ 8 * 1024 };
 	std::chrono::milliseconds throttle_wait{ 100 };
 	std::size_t block_wait_count{ 1000 }; // TODO: Block processor threshold
-	std::size_t max_requests{ 1024 * 16 }; // TODO: Adjust for live network
+	std::size_t max_requests{ 1024 };
 
 	nano::account_sets_config account_sets;
 };
