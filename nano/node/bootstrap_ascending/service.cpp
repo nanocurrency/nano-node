@@ -333,10 +333,10 @@ std::pair<nano::account, double> nano::bootstrap_ascending::service::wait_priori
 nano::account nano::bootstrap_ascending::service::next_database (bool should_throttle)
 {
 	debug_assert (!mutex.try_lock ());
+	debug_assert (config.database_warmup_ratio > 0);
 
 	// Throttling increases the weight of database requests
-	// TODO: Make this ratio configurable
-	if (!database_limiter.should_pass (should_throttle ? 22 : 1))
+	if (!database_limiter.should_pass (should_throttle ? config.database_warmup_ratio : 1))
 	{
 		return { 0 };
 	}
