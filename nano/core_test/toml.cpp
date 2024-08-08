@@ -271,6 +271,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.bootstrap_ascending.enable_dependency_walker, defaults.node.bootstrap_ascending.enable_dependency_walker);
 	ASSERT_EQ (conf.node.bootstrap_ascending.channel_limit, defaults.node.bootstrap_ascending.channel_limit);
 	ASSERT_EQ (conf.node.bootstrap_ascending.database_rate_limit, defaults.node.bootstrap_ascending.database_rate_limit);
+	ASSERT_EQ (conf.node.bootstrap_ascending.database_warmup_ratio, defaults.node.bootstrap_ascending.database_warmup_ratio);
 	ASSERT_EQ (conf.node.bootstrap_ascending.max_pull_count, defaults.node.bootstrap_ascending.max_pull_count);
 	ASSERT_EQ (conf.node.bootstrap_ascending.request_timeout, defaults.node.bootstrap_ascending.request_timeout);
 	ASSERT_EQ (conf.node.bootstrap_ascending.throttle_coefficient, defaults.node.bootstrap_ascending.throttle_coefficient);
@@ -595,6 +596,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	enable_dependency_walker = false
 	channel_limit = 999
 	database_rate_limit = 999
+	database_warmup_ratio = 999
 	max_pull_count = 999
 	request_timeout = 999
 	throttle_coefficient = 999
@@ -771,6 +773,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.bootstrap_ascending.enable_dependency_walker, defaults.node.bootstrap_ascending.enable_dependency_walker);
 	ASSERT_NE (conf.node.bootstrap_ascending.channel_limit, defaults.node.bootstrap_ascending.channel_limit);
 	ASSERT_NE (conf.node.bootstrap_ascending.database_rate_limit, defaults.node.bootstrap_ascending.database_rate_limit);
+	ASSERT_NE (conf.node.bootstrap_ascending.database_warmup_ratio, defaults.node.bootstrap_ascending.database_warmup_ratio);
 	ASSERT_NE (conf.node.bootstrap_ascending.max_pull_count, defaults.node.bootstrap_ascending.max_pull_count);
 	ASSERT_NE (conf.node.bootstrap_ascending.request_timeout, defaults.node.bootstrap_ascending.request_timeout);
 	ASSERT_NE (conf.node.bootstrap_ascending.throttle_coefficient, defaults.node.bootstrap_ascending.throttle_coefficient);
