@@ -16,6 +16,7 @@
 #include <nano/node/monitor.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/peer_history.hpp>
+#include <nano/node/portmapping.hpp>
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/hinted.hpp>
@@ -187,7 +188,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	tcp_listener_impl{ std::make_unique<nano::transport::tcp_listener> (network.port, config.tcp, *this) },
 	tcp_listener{ *tcp_listener_impl },
 	application_path (application_path_a),
-	port_mapping (*this),
+	port_mapping_impl{ std::make_unique<nano::port_mapping> (*this) },
+	port_mapping{ *port_mapping_impl },
 	block_processor (*this),
 	confirming_set_impl{ std::make_unique<nano::confirming_set> (config.confirming_set, ledger, stats) },
 	confirming_set{ *confirming_set_impl },

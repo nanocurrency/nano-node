@@ -147,6 +147,7 @@ public:
 	unsigned backlog_scan_batch_size{ 10 * 1000 };
 	/** Number of times per second to run backlog population batches. Number of accounts per single batch is `backlog_scan_batch_size / backlog_scan_frequency` */
 	unsigned backlog_scan_frequency{ 10 };
+	bool enable_upnp{ true };
 	nano::vote_cache_config vote_cache;
 	nano::rep_crawler_config rep_crawler;
 	nano::block_processor_config block_processor;

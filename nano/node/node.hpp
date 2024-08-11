@@ -19,7 +19,6 @@
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
-#include <nano/node/portmapping.hpp>
 #include <nano/node/process_live_dispatcher.hpp>
 #include <nano/node/rep_tiers.hpp>
 #include <nano/node/repcrawler.hpp>
@@ -51,6 +50,7 @@ class vote_cache_processor;
 class vote_router;
 class work_pool;
 class peer_history;
+class port_mapping;
 class thread_runner;
 
 namespace scheduler
@@ -181,7 +181,8 @@ public:
 	nano::transport::tcp_listener & tcp_listener;
 	std::filesystem::path application_path;
 	nano::node_observers observers;
-	nano::port_mapping port_mapping;
+	std::unique_ptr<nano::port_mapping> port_mapping_impl;
+	nano::port_mapping & port_mapping;
 	nano::block_processor block_processor;
 	std::unique_ptr<nano::confirming_set> confirming_set_impl;
 	nano::confirming_set & confirming_set;
