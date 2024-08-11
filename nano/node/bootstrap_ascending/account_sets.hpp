@@ -71,6 +71,8 @@ namespace bootstrap_ascending
 
 		std::size_t priority_size () const;
 		std::size_t blocked_size () const;
+		bool priority_half_full () const;
+		bool blocked_half_full () const;
 
 		std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name);
 
