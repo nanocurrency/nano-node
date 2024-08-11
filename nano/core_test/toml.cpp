@@ -199,6 +199,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.max_unchecked_blocks, defaults.node.max_unchecked_blocks);
 	ASSERT_EQ (conf.node.backlog_scan_batch_size, defaults.node.backlog_scan_batch_size);
 	ASSERT_EQ (conf.node.backlog_scan_frequency, defaults.node.backlog_scan_frequency);
+	ASSERT_EQ (conf.node.enable_upnp, defaults.node.enable_upnp);
 
 	ASSERT_EQ (conf.node.websocket_config.enabled, defaults.node.websocket_config.enabled);
 	ASSERT_EQ (conf.node.websocket_config.address, defaults.node.websocket_config.address);
@@ -463,6 +464,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	frontiers_confirmation = "always"
 	backlog_scan_batch_size = 999
 	backlog_scan_frequency = 999
+	enable_upnp = false
 
 	[node.block_processor]
 	max_peer_queue = 999
@@ -700,6 +702,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.request_aggregator_threads, defaults.node.request_aggregator_threads);
 	ASSERT_NE (conf.node.backlog_scan_batch_size, defaults.node.backlog_scan_batch_size);
 	ASSERT_NE (conf.node.backlog_scan_frequency, defaults.node.backlog_scan_frequency);
+	ASSERT_NE (conf.node.enable_upnp, defaults.node.enable_upnp);
 
 	ASSERT_NE (conf.node.websocket_config.enabled, defaults.node.websocket_config.enabled);
 	ASSERT_NE (conf.node.websocket_config.address, defaults.node.websocket_config.address);
