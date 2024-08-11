@@ -215,16 +215,20 @@ void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx
 		break;
 		case nano::block_status::gap_source:
 		{
-			const auto account = block.previous ().is_zero () ? block.account_field ().value () : ledger.any.block_account (tx, block.previous ()).value ();
-			const auto source = block.source_field ().value_or (block.link_field ().value_or (0).as_block_hash ());
+			if (source == nano::block_source::bootstrap)
+			{
+				const auto account = block.previous ().is_zero () ? block.account_field ().value () : ledger.any.block_account (tx, block.previous ()).value ();
+				const auto source_hash = block.source_field ().value_or (block.link_field ().value_or (0).as_block_hash ());
 
-			// Mark account as blocked because it is missing the source block
-			accounts.block (account, source);
+				// Mark account as blocked because it is missing the source block
+				accounts.block (account, source_hash);
+			}
 		}
 		break;
 		case nano::block_status::gap_previous:
 		{
-			if (source == nano::block_source::live)
+			// Prevent live traffic from evicting accounts from the priority list
+			if (source == nano::block_source::live && !accounts.priority_half_full () && !accounts.blocked_half_full ())
 			{
 				if (block.type () == block_type::state)
 				{

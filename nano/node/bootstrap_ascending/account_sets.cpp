@@ -316,6 +316,16 @@ std::size_t nano::bootstrap_ascending::account_sets::blocked_size () const
 	return blocking.size ();
 }
 
+bool nano::bootstrap_ascending::account_sets::priority_half_full () const
+{
+	return priorities.size () > config.priorities_max / 2;
+}
+
+bool nano::bootstrap_ascending::account_sets::blocked_half_full () const
+{
+	return blocking.size () > config.blocking_max / 2;
+}
+
 double nano::bootstrap_ascending::account_sets::priority (nano::account const & account) const
 {
 	if (!blocked (account))
