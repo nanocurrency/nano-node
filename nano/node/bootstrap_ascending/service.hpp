@@ -109,9 +109,9 @@ namespace bootstrap_ascending
 		void wait (std::function<bool ()> const & predicate) const;
 
 		/* Avoid too many in-flight requests */
-		void wait_tags ();
+		void wait_tags () const;
 		/* Ensure there is enough space in blockprocessor for queuing new blocks */
-		void wait_blockprocessor ();
+		void wait_blockprocessor () const;
 		/* Waits for a channel that is not full */
 		std::shared_ptr<nano::transport::channel> wait_channel ();
 		/* Waits until a suitable account outside of cool down period is available */

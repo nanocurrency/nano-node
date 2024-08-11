@@ -255,7 +255,7 @@ void nano::bootstrap_ascending::service::wait (std::function<bool ()> const & pr
 	}
 }
 
-void nano::bootstrap_ascending::service::wait_tags ()
+void nano::bootstrap_ascending::service::wait_tags () const
 {
 	wait ([this] () {
 		debug_assert (!mutex.try_lock ());
@@ -263,10 +263,10 @@ void nano::bootstrap_ascending::service::wait_tags ()
 	});
 }
 
-void nano::bootstrap_ascending::service::wait_blockprocessor ()
+void nano::bootstrap_ascending::service::wait_blockprocessor () const
 {
 	wait ([this] () {
-		return block_processor.size (nano::block_source::bootstrap) < config.block_wait_count;
+		return block_processor.size (nano::block_source::bootstrap) < config.block_processor_threshold;
 	});
 }
 
@@ -337,10 +337,10 @@ std::pair<nano::account, double> nano::bootstrap_ascending::service::wait_priori
 nano::account nano::bootstrap_ascending::service::next_database (bool should_throttle)
 {
 	debug_assert (!mutex.try_lock ());
+	debug_assert (config.database_warmup_ratio > 0);
 
 	// Throttling increases the weight of database requests
-	// TODO: Make this ratio configurable
-	if (!database_limiter.should_pass (should_throttle ? 22 : 1))
+	if (!database_limiter.should_pass (should_throttle ? config.database_warmup_ratio : 1))
 	{
 		return { 0 };
 	}
@@ -413,6 +413,9 @@ bool nano::bootstrap_ascending::service::request (nano::account account, size_t 
 {
 	debug_assert (count > 0);
 	debug_assert (count <= nano::bootstrap_server::max_blocks);
+
+	// Limit the max number of blocks to pull
+	count = std::min (count, config.max_pull_count);
 
 	async_tag tag{};
 	tag.source = source;
