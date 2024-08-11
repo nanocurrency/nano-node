@@ -34,15 +34,16 @@ public:
 	bool enable_database_scan{ true };
 	bool enable_dependency_walker{ true };
 
-	// Maximum number of un-responded requests per channel
-	std::size_t requests_limit{ 64 }; // TODO: => channel_requests_limit
-	std::size_t database_rate_limit{ 1024 }; // TODO: Adjust for live network (lower)
-	std::size_t pull_count{ nano::bootstrap_server::max_blocks }; // TODO: => max_pull_count & use in requests
+	// Maximum number of un-responded requests per channel, should be lower or equal to bootstrap server max queue size
+	std::size_t channel_limit{ 16 };
+	std::size_t database_rate_limit{ 256 };
+	std::size_t database_warmup_ratio{ 10 };
+	std::size_t max_pull_count{ nano::bootstrap_server::max_blocks };
 	std::chrono::milliseconds request_timeout{ 1000 * 5 };
 	std::size_t throttle_coefficient{ 8 * 1024 };
 	std::chrono::milliseconds throttle_wait{ 100 };
-	std::size_t block_wait_count{ 1000 }; // TODO: Block processor threshold
-	std::size_t max_requests{ 1024 * 16 }; // TODO: Adjust for live network
+	std::size_t block_processor_threshold{ 1000 };
+	std::size_t max_requests{ 1024 };
 
 	nano::account_sets_config account_sets;
 };
