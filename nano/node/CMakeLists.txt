@@ -22,6 +22,8 @@ add_library(
   bandwidth_limiter.cpp
   blockprocessor.hpp
   blockprocessor.cpp
+  bootstrap_weights_beta.hpp
+  bootstrap_weights_live.hpp
   bootstrap/block_deserializer.hpp
   bootstrap/block_deserializer.cpp
   bootstrap/bootstrap_attempt.hpp
