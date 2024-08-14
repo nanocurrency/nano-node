@@ -1304,7 +1304,6 @@ std::pair<uint64_t, std::unordered_map<nano::account, nano::uint128_t>> nano::no
 		nano::account account;
 		account.decode_account (entry.first);
 		weights[account] = nano::uint128_t (entry.second);
-		std::cout << account.to_account () << " " << nano::uint128_t (entry.second) << std::endl;
 	}
 
 	return { max_blocks, weights };
