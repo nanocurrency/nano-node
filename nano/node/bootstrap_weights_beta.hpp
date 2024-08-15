@@ -5,6 +5,7 @@
 
 namespace nano
 {
+// Bootstrap weights for beta generated 15-08-2024
 std::vector<std::pair<std::string, std::string>> preconfigured_weights_beta = {
 	{ "nano_3faucet4t1nnru6yra9iioia76jddur6zqg6d3fp7h1soyyd8qhgx6tizrsy", "37999200000000000000000000000000000000" },
 	{ "nano_1betazh7m3c9gwcsy7w3rzynbqr9gomjwn3cp59xqky48we46eaqptbdskh4", "36981063781291209870813128842298384384" },

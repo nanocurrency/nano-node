@@ -62,6 +62,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("diagnostics", "Run internal diagnostics")
 	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node, rpc or log. See also use_defaults.")
 	("update_config", "Reads the current node configuration and updates it with missing keys and values and delete keys that are no longer used. Updated configuration is written to stdout.")
+	("create_weights_file", "Generates data for bootstrap_weights_live.hpp or bootstrap_weights_beta.hpp file. Run on a fully bootstrapped ledger")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
 	("key_expand", "Derive public key and account number from <key>")
 	("wallet_add_adhoc", "Insert <key> in to <wallet>")
@@ -750,6 +751,54 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			auto output = current_toml.merge_defaults (current_toml, default_toml);
 
 			std::cout << output;
+		}
+	}
+	else if (vm.count ("create_weights_file"))
+	{
+		auto inactive_node = nano::default_inactive_node (data_path, vm);
+		auto is_live = inactive_node->node->network_params.network.is_live_network ();
+		auto is_beta = inactive_node->node->network_params.network.is_beta_network ();
+		auto block_count = inactive_node->node->ledger.block_count ();
+		auto rep_amounts = inactive_node->node->ledger.cache.rep_weights.get_rep_amounts ();
+		std::vector<std::pair<nano::uint128_t, std::string>> representation;
+
+		for (auto & rep_amount : rep_amounts)
+		{
+			auto const & account (rep_amount.first);
+			auto const & amount (rep_amount.second);
+			representation.emplace_back (amount, account.to_account ());
+		}
+		std::sort (representation.begin (), representation.end ());
+		std::reverse (representation.begin (), representation.end ());
+		auto now = std::chrono::system_clock::now ();
+		auto in_time_t = std::chrono::system_clock::to_time_t (now);
+
+		if (is_live)
+		{
+			std::cout << "// Bootstrap weights for live generated " << std::put_time (std::localtime (&in_time_t), "%d-%m-%Y") << std::endl;
+			std::cout << "std::vector<std::pair<std::string, std::string>> preconfigured_weights_live = {" << std::endl;
+		}
+		else if (is_beta)
+		{
+			std::cout << "// Bootstrap weights for beta generated " << std::put_time (std::localtime (&in_time_t), "%d-%m-%Y") << std::endl;
+			std::cout << "std::vector<std::pair<std::string, std::string>> preconfigured_weights_beta = {" << std::endl;
+		}
+		int count = 0;
+		for (const auto & [key, value] : representation)
+		{
+			if (count >= 200)
+				break;
+			std::cout << "\t{ \"" << value << "\", \"" << key << "\" }," << std::endl;
+			++count;
+		}
+		std::cout << "};" << std::endl;
+		if (is_live)
+		{
+			std::cout << "uint64_t max_blocks_live = " << block_count << ";" << std::endl;
+		}
+		else if (is_beta)
+		{
+			std::cout << "uint64_t max_blocks_beta = " << block_count << ";" << std::endl;
 		}
 	}
 	else if (vm.count ("diagnostics"))
