@@ -48,7 +48,7 @@
 double constexpr nano::node::price_max;
 double constexpr nano::node::free_cutoff;
 
-namespace nano
+namespace nano::weights
 {
 extern std::vector<std::pair<std::string, std::string>> preconfigured_weights_live;
 extern uint64_t max_blocks_live;
@@ -1295,8 +1295,8 @@ bool nano::node::init_error () const
 
 std::pair<uint64_t, std::unordered_map<nano::account, nano::uint128_t>> nano::node::get_bootstrap_weights () const
 {
-	std::vector<std::pair<std::string, std::string>> preconfigured_weights = network_params.network.is_live_network () ? preconfigured_weights_live : preconfigured_weights_beta;
-	uint64_t max_blocks = network_params.network.is_live_network () ? max_blocks_live : max_blocks_beta;
+	std::vector<std::pair<std::string, std::string>> preconfigured_weights = network_params.network.is_live_network () ? nano::weights::preconfigured_weights_live : nano::weights::preconfigured_weights_beta;
+	uint64_t max_blocks = network_params.network.is_live_network () ? nano::weights::max_blocks_live : nano::weights::max_blocks_beta;
 	std::unordered_map<nano::account, nano::uint128_t> weights;
 
 	for (const auto & entry : preconfigured_weights)

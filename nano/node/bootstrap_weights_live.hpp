@@ -2,7 +2,7 @@
 
 #include <string>
 #include <vector>
-namespace nano
+namespace nano::weights
 {
 // Bootstrap weights for live generated 15-08-2024
 std::vector<std::pair<std::string, std::string>> preconfigured_weights_live = {
