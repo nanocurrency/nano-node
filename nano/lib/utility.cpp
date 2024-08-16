@@ -149,7 +149,7 @@ void assert_internal (char const * check_expr, char const * func, char const * f
 	// As there is no async-signal-safe way to generate stacktraces on Windows it must be done before aborting
 #ifdef _WIN32
 	{
-		// Try construct the stacktrace dump in the same folder as the the running executable, otherwise use the current directory.
+		// Try construct the stacktrace dump in the same folder as the running executable, otherwise use the current directory.
 		boost::system::error_code err;
 		auto running_executable_filepath = boost::dll::program_location (err);
 		std::string filename = is_release_assert ? "nano_node_backtrace_release_assert.txt" : "nano_node_backtrace_assert.txt";
