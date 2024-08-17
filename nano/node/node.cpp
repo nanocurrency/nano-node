@@ -5,6 +5,8 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
+#include <nano/node/bootstrap_weights_beta.hpp>
+#include <nano/node/bootstrap_weights_live.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/daemonconfig.hpp>
@@ -46,12 +48,12 @@
 double constexpr nano::node::price_max;
 double constexpr nano::node::free_cutoff;
 
-namespace nano
+namespace nano::weights
 {
-extern unsigned char nano_bootstrap_weights_live[];
-extern std::size_t nano_bootstrap_weights_live_size;
-extern unsigned char nano_bootstrap_weights_beta[];
-extern std::size_t nano_bootstrap_weights_beta_size;
+extern std::vector<std::pair<std::string, std::string>> preconfigured_weights_live;
+extern uint64_t max_blocks_live;
+extern std::vector<std::pair<std::string, std::string>> preconfigured_weights_beta;
+extern uint64_t max_blocks_beta;
 }
 
 /*
@@ -1293,30 +1295,17 @@ bool nano::node::init_error () const
 
 std::pair<uint64_t, std::unordered_map<nano::account, nano::uint128_t>> nano::node::get_bootstrap_weights () const
 {
+	std::vector<std::pair<std::string, std::string>> preconfigured_weights = network_params.network.is_live_network () ? nano::weights::preconfigured_weights_live : nano::weights::preconfigured_weights_beta;
+	uint64_t max_blocks = network_params.network.is_live_network () ? nano::weights::max_blocks_live : nano::weights::max_blocks_beta;
 	std::unordered_map<nano::account, nano::uint128_t> weights;
-	uint8_t const * weight_buffer = network_params.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
-	std::size_t weight_size = network_params.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
-	nano::bufferstream weight_stream ((uint8_t const *)weight_buffer, weight_size);
-	nano::uint128_union block_height;
-	uint64_t max_blocks = 0;
-	if (!nano::try_read (weight_stream, block_height))
+
+	for (const auto & entry : preconfigured_weights)
 	{
-		max_blocks = nano::narrow_cast<uint64_t> (block_height.number ());
-		while (true)
-		{
-			nano::account account;
-			if (nano::try_read (weight_stream, account.bytes))
-			{
-				break;
-			}
-			nano::amount weight;
-			if (nano::try_read (weight_stream, weight.bytes))
-			{
-				break;
-			}
-			weights[account] = weight.number ();
-		}
+		nano::account account;
+		account.decode_account (entry.first);
+		weights[account] = nano::uint128_t (entry.second);
 	}
+
 	return { max_blocks, weights };
 }
 
