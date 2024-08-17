@@ -469,9 +469,9 @@ int main (int argc, char * const * argv)
 			std::cout << "Outputting any frontier hashes which have associated key hashes in the unchecked table (may take some time)...\n";
 
 			// Cache the account heads to make searching quicker against unchecked keys.
-			auto transaction (node->ledger.tx_begin_read ());
+			auto transaction (node->store.tx_begin_read ());
 			std::unordered_set<nano::block_hash> frontier_hashes;
-			for (auto i (node->ledger.any.account_begin (transaction)), n (node->ledger.any.account_end ()); i != n; ++i)
+			for (auto i (node->store.account.begin (transaction)), n (node->store.account.end ()); i != n; ++i)
 			{
 				frontier_hashes.insert (i->second.head);
 			}
@@ -1670,7 +1670,7 @@ int main (int argc, char * const * argv)
 			}
 			size_t const accounts_deque_overflow (32 * 1024);
 			auto transaction = node->ledger.tx_begin_read ();
-			for (auto i (node->ledger.any.account_begin (transaction)), n (node->ledger.any.account_end ()); i != n; ++i)
+			for (auto i (node->store.account.begin (transaction)), n (node->store.account.end ()); i != n; ++i)
 			{
 				{
 					nano::unique_lock<nano::mutex> lock{ mutex };
@@ -1838,7 +1838,7 @@ int main (int argc, char * const * argv)
 				auto transaction = source_node->ledger.tx_begin_read ();
 				block_count = source_node->ledger.block_count ();
 				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
-				for (auto i (source_node->ledger.any.account_begin (transaction)), n (source_node->ledger.any.account_end ()); i != n; ++i)
+				for (auto i (source_node->store.account.begin (transaction)), n (source_node->store.account.end ()); i != n; ++i)
 				{
 					nano::account const & account (i->first);
 					nano::account_info const & info (i->second);
