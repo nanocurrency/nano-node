@@ -5555,6 +5555,28 @@ TEST (rpc, unopened)
 		ASSERT_EQ ("1", accounts.get<std::string> (account1.to_account ()));
 	}
 	{
+		// using count=1 and a known unopened account1 number should get a single result
+		boost::property_tree::ptree request;
+		request.put ("action", "unopened");
+		request.put ("count", "1");
+		request.put ("account", account1.to_account());
+		auto response (wait_response (system, rpc_ctx, request));
+		auto & accounts (response.get_child ("accounts"));
+		ASSERT_EQ (1, accounts.size ());
+		ASSERT_EQ ("1", accounts.get<std::string> (account1.to_account ()));
+	}
+	{
+		// using count=1 and a known unopened account2 number should get a single result
+		boost::property_tree::ptree request;
+		request.put ("action", "unopened");
+		request.put ("count", "1");
+		request.put ("account", account2.to_account());
+		auto response (wait_response (system, rpc_ctx, request));
+		auto & accounts (response.get_child ("accounts"));
+		ASSERT_EQ (1, accounts.size ());
+		ASSERT_EQ ("10", accounts.get<std::string> (account2.to_account ()));
+	}
+	{
 		// using threshold at 5 should get a single result
 		boost::property_tree::ptree request;
 		request.put ("action", "unopened");
@@ -5563,6 +5585,31 @@ TEST (rpc, unopened)
 		auto & accounts (response.get_child ("accounts"));
 		ASSERT_EQ (1, accounts.size ());
 		ASSERT_EQ ("10", accounts.get<std::string> (account2.to_account ()));
+	}
+}
+
+// Check that the "unopened" RPC can seek
+// Request unopened for the genesis account while there in an unopened account with the max account number
+TEST (rpc, unopened_seek)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	nano::account last_account{ std::numeric_limits<nano::uint256_t>::max () };
+	auto genesis (node->latest (nano::dev::genesis_key.pub));
+	ASSERT_FALSE (genesis.is_zero ());
+	auto send (system.wallet (0)->send_action (nano::dev::genesis_key.pub, last_account, 1));
+	ASSERT_NE (nullptr, send);
+	auto const rpc_ctx = add_rpc (system, node);
+	{
+		boost::property_tree::ptree request;
+		request.put ("action", "unopened");
+		request.put ("count", "1");
+		request.put ("account", nano::dev::genesis_key.pub.to_account());
+		auto response (wait_response (system, rpc_ctx, request));
+		auto & accounts (response.get_child ("accounts"));
+		ASSERT_EQ (1, accounts.size ());
+		ASSERT_EQ ("1", accounts.get<std::string> (last_account.to_account ()));
 	}
 }
 
