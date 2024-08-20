@@ -2525,9 +2525,11 @@ public:
 			tree.put ("previous", block_a.hashables.previous.to_string ());
 		}
 		auto balance (block_a.hashables.balance.number ());
-		auto previous_balance = handler.node.ledger.any.block_balance (transaction, block_a.hashables.previous);
-		if (!previous_balance)
+		auto previous_balance_raw = handler.node.ledger.any.block_balance (transaction, block_a.hashables.previous);
+		auto previous_balance = previous_balance_raw.value_or (0);
+		if (!block_a.hashables.previous.is_zero () && !previous_balance_raw.has_value ())
 		{
+			// If previous hash is non-zero and we can't query the balance, e.g. it's pruned, we can't determine the block type
 			if (raw)
 			{
 				tree.put ("subtype", "unknown");
@@ -2537,7 +2539,7 @@ public:
 				tree.put ("type", "unknown");
 			}
 		}
-		else if (balance < previous_balance.value ().number ())
+		else if (balance < previous_balance.number ())
 		{
 			if (should_ignore_account (block_a.hashables.link.as_account ()))
 			{
@@ -2553,7 +2555,7 @@ public:
 				tree.put ("type", "send");
 			}
 			tree.put ("account", block_a.hashables.link.to_account ());
-			tree.put ("amount", (previous_balance.value ().number () - balance).convert_to<std::string> ());
+			tree.put ("amount", (previous_balance.number () - balance).convert_to<std::string> ());
 		}
 		else
 		{
@@ -2592,7 +2594,7 @@ public:
 				{
 					tree.put ("account", source_account.value ().to_account ());
 				}
-				tree.put ("amount", (balance - previous_balance.value ().number ()).convert_to<std::string> ());
+				tree.put ("amount", (balance - previous_balance.number ()).convert_to<std::string> ());
 			}
 		}
 	}
