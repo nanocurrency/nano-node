@@ -4279,8 +4279,8 @@ void nano::json_handler::unchecked_keys ()
 
 void nano::json_handler::unopened ()
 {
-	auto count (count_optional_impl ());
-	auto threshold (threshold_optional_impl ());
+	auto count{ count_optional_impl () };
+	auto threshold{ threshold_optional_impl () };
 	nano::account start{ 1 }; // exclude burn account by default
 	boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
 	if (account_text.is_initialized ())
@@ -4289,28 +4289,48 @@ void nano::json_handler::unopened ()
 	}
 	if (!ec)
 	{
-		auto transaction = node.ledger.tx_begin_read ();
-		auto & ledger = node.ledger;
+		auto transaction = node.store.tx_begin_read ();
+		auto iterator = node.store.pending.begin (transaction, nano::pending_key (start, 0));
+		auto end = node.store.pending.end ();
+		nano::account current_account = start;
+		nano::uint128_t current_account_sum{ 0 };
 		boost::property_tree::ptree accounts;
-		for (auto iterator = ledger.any.receivable_upper_bound (transaction, start, 0), end = ledger.any.receivable_end (); iterator != end && accounts.size () < count;)
+		while (iterator != end && accounts.size () < count)
 		{
-			auto const & [key, info] = *iterator;
-			nano::account account = key.account;
-			if (!node.store.account.exists (transaction, account))
+			nano::pending_key key{ iterator->first };
+			nano::account account{ key.account };
+			nano::pending_info info{ iterator->second };
+			if (node.store.account.exists (transaction, account))
 			{
-				nano::uint128_t current_account_sum{ 0 };
-				while (iterator != end)
+				if (account.number () == std::numeric_limits<nano::uint256_t>::max ())
 				{
-					auto const & [key, info] = *iterator;
-					current_account_sum += info.amount.number ();
-					++iterator;
+					break;
 				}
-				if (current_account_sum >= threshold.number ())
-				{
-					accounts.put (account.to_account (), current_account_sum.convert_to<std::string> ());
-				}
+				// Skip existing accounts
+				iterator = node.store.pending.begin (transaction, nano::pending_key (account.number () + 1, 0));
 			}
-			iterator = ledger.any.receivable_upper_bound (transaction, account);
+			else
+			{
+				if (account != current_account)
+				{
+					if (current_account_sum > 0)
+					{
+						if (current_account_sum >= threshold.number ())
+						{
+							accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
+						}
+						current_account_sum = 0;
+					}
+					current_account = account;
+				}
+				current_account_sum += info.amount.number ();
+				++iterator;
+			}
+		}
+		// last one after iterator reaches end
+		if (accounts.size () < count && current_account_sum > 0 && current_account_sum >= threshold.number ())
+		{
+			accounts.put (current_account.to_account (), current_account_sum.convert_to<std::string> ());
 		}
 		response_l.add_child ("accounts", accounts);
 	}
