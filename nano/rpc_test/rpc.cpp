@@ -21,6 +21,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
+#include <nano/test_common/chains.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/telemetry.hpp>
@@ -1327,6 +1328,26 @@ TEST (rpc, history_pruning)
 	ASSERT_EQ ("N/A", entry.get<std::string> ("account", "N/A"));
 	ASSERT_EQ ("N/A", entry.get<std::string> ("amount", "N/A"));
 	ASSERT_EQ (usend->hash ().to_string (), entry.get<std::string> ("hash"));
+}
+
+TEST (rpc, account_history_state_open)
+{
+	nano::test::system system;
+	nano::keypair key;
+	auto node0 = add_ipc_enabled_node (system);
+	auto blocks = nano::test::setup_new_account (system, *node0, 1, nano::dev::genesis_key, key, key.pub, true);
+	auto const rpc_ctx = add_rpc (system, node0);
+	boost::property_tree::ptree request;
+	request.put ("action", "account_history");
+	request.put ("account", key.pub.to_account ());
+	request.put ("count", 1);
+	auto response (wait_response (system, rpc_ctx, request, 10s));
+	auto & history_node (response.get_child ("history"));
+	ASSERT_EQ (1, history_node.size ());
+	auto history0 = *history_node.begin ();
+	ASSERT_EQ ("1", history0.second.get<std::string> ("height"));
+	ASSERT_EQ ("receive", history0.second.get<std::string> ("type"));
+	ASSERT_EQ (blocks.second->hash ().to_string (), history0.second.get<std::string> ("hash"));
 }
 
 TEST (rpc, process_block)
