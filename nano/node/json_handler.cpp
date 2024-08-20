@@ -2526,7 +2526,7 @@ public:
 		}
 		auto balance (block_a.hashables.balance.number ());
 		auto previous_balance = handler.node.ledger.any.block_balance (transaction, block_a.hashables.previous);
-		if (!previous_balance)
+		if (!previous_balance.has_value ())
 		{
 			if (raw)
 			{
