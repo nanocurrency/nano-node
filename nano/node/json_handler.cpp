@@ -4839,41 +4839,42 @@ void nano::json_handler::wallet_receivable ()
 		{
 			nano::account const & account (i->first);
 			boost::property_tree::ptree peers_l;
-			for (auto current = node.ledger.any.receivable_upper_bound (block_transaction, account, 0), end = node.ledger.any.receivable_end (); current != end && (peers_l.size () < count); ++current)
+			for (auto ii (node.store.pending.begin (block_transaction, nano::pending_key (account, 0))), nn (node.store.pending.end ()); ii != nn && nano::pending_key (ii->first).account == account && peers_l.size () < count; ++ii)
 			{
-				auto const & [key, info] = *current;
-				if (include_only_confirmed && !node.ledger.confirmed.block_exists_or_pruned (block_transaction, key.hash))
+				nano::pending_key key (ii->first);
+				if (block_confirmed (node, block_transaction, key.hash, include_active, include_only_confirmed))
 				{
-					continue;
-				}
-				if (threshold.is_zero () && !source)
-				{
-					boost::property_tree::ptree entry;
-					entry.put ("", key.hash.to_string ());
-					peers_l.push_back (std::make_pair ("", entry));
-					continue;
-				}
-				if (info.amount.number () < threshold.number ())
-				{
-					continue;
-				}
-				if (source || min_version)
-				{
-					boost::property_tree::ptree pending_tree;
-					pending_tree.put ("amount", info.amount.number ().template convert_to<std::string> ());
-					if (source)
+					if (threshold.is_zero () && !source)
 					{
-						pending_tree.put ("source", info.source.to_account ());
+						boost::property_tree::ptree entry;
+						entry.put ("", key.hash.to_string ());
+						peers_l.push_back (std::make_pair ("", entry));
 					}
-					if (min_version)
+					else
 					{
-						pending_tree.put ("min_version", epoch_as_string (info.epoch));
+						nano::pending_info info (ii->second);
+						if (info.amount.number () >= threshold.number ())
+						{
+							if (source || min_version)
+							{
+								boost::property_tree::ptree pending_tree;
+								pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
+								if (source)
+								{
+									pending_tree.put ("source", info.source.to_account ());
+								}
+								if (min_version)
+								{
+									pending_tree.put ("min_version", epoch_as_string (info.epoch));
+								}
+								peers_l.add_child (key.hash.to_string (), pending_tree);
+							}
+							else
+							{
+								peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
+							}
+						}
 					}
-					peers_l.add_child (key.hash.to_string (), pending_tree);
-				}
-				else
-				{
-					peers_l.put (key.hash.to_string (), info.amount.number ().template convert_to<std::string> ());
 				}
 			}
 			if (!peers_l.empty ())
