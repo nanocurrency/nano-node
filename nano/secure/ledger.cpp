@@ -792,11 +792,19 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 
 nano::uint128_t nano::ledger::account_receivable (secure::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
 {
-	nano::uint128_t result{ 0 };
-	for (auto i = any.receivable_upper_bound (transaction_a, account_a, 0), n = any.receivable_end (); i != n; ++i)
+	nano::uint128_t result (0);
+	nano::account end (account_a.number () + 1);
+	for (auto i (store.pending.begin (transaction_a, nano::pending_key (account_a, 0))), n (store.pending.begin (transaction_a, nano::pending_key (end, 0))); i != n; ++i)
 	{
-		auto const & [key, info] = *i;
-		if (!only_confirmed_a || confirmed.block_exists_or_pruned (transaction_a, key.hash))
+		nano::pending_info const & info (i->second);
+		if (only_confirmed_a)
+		{
+			if (confirmed.block_exists_or_pruned (transaction_a, i->first.hash))
+			{
+				result += info.amount.number ();
+			}
+		}
+		else
 		{
 			result += info.amount.number ();
 		}
