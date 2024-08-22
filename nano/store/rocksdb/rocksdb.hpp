@@ -170,7 +170,6 @@ private:
 
 	std::vector<::rocksdb::ColumnFamilyDescriptor> create_column_families ();
 	unsigned long long base_memtable_size_bytes () const;
-	unsigned long long blocks_memtable_size_bytes () const;
 
 	constexpr static int base_memtable_size = 16;
 
