@@ -209,10 +209,10 @@ void nano::store::lmdb::component::open_databases (bool & error_a, store::transa
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "rep_weights", flags, &rep_weight_store.rep_weights_handle) != 0;
 }
 
-bool nano::store::lmdb::component::do_upgrades (store::write_transaction & transaction_a, nano::ledger_constants & constants, bool & needs_vacuuming)
+bool nano::store::lmdb::component::do_upgrades (store::write_transaction & transaction, nano::ledger_constants & constants, bool & needs_vacuuming)
 {
 	auto error (false);
-	auto version_l = version.get (transaction_a);
+	auto version_l = version.get (transaction);
 	if (version_l < version_minimum)
 	{
 		logger.critical (nano::log::type::lmdb, "The version of the ledger ({}) is lower than the minimum ({}) which is supported for upgrades. Either upgrade a node first or delete the ledger.", version_l, version_minimum);
@@ -221,13 +221,13 @@ bool nano::store::lmdb::component::do_upgrades (store::write_transaction & trans
 	switch (version_l)
 	{
 		case 21:
-			upgrade_v21_to_v22 (transaction_a);
+			upgrade_v21_to_v22 (transaction);
 			[[fallthrough]];
 		case 22:
-			upgrade_v22_to_v23 (transaction_a);
+			upgrade_v22_to_v23 (transaction);
 			[[fallthrough]];
 		case 23:
-			upgrade_v23_to_v24 (transaction_a);
+			upgrade_v23_to_v24 (transaction);
 			[[fallthrough]];
 		case 24:
 			break;
@@ -239,24 +239,24 @@ bool nano::store::lmdb::component::do_upgrades (store::write_transaction & trans
 	return error;
 }
 
-void nano::store::lmdb::component::upgrade_v21_to_v22 (store::write_transaction const & transaction_a)
+void nano::store::lmdb::component::upgrade_v21_to_v22 (store::write_transaction & transaction)
 {
 	logger.info (nano::log::type::lmdb, "Upgrading database from v21 to v22...");
 
 	MDB_dbi unchecked_handle{ 0 };
-	release_assert (!mdb_dbi_open (env.tx (transaction_a), "unchecked", MDB_CREATE, &unchecked_handle));
-	release_assert (!mdb_drop (env.tx (transaction_a), unchecked_handle, 1)); // del = 1, to delete it from the environment and close the DB handle.
-	version.put (transaction_a, 22);
+	release_assert (!mdb_dbi_open (env.tx (transaction), "unchecked", MDB_CREATE, &unchecked_handle));
+	release_assert (!mdb_drop (env.tx (transaction), unchecked_handle, 1)); // del = 1, to delete it from the environment and close the DB handle.
+	version.put (transaction, 22);
 
 	logger.info (nano::log::type::lmdb, "Upgrading database from v21 to v22 completed");
 }
 
 // Fill rep_weights table with all existing representatives and their vote weight
-void nano::store::lmdb::component::upgrade_v22_to_v23 (store::write_transaction const & transaction_a)
+void nano::store::lmdb::component::upgrade_v22_to_v23 (store::write_transaction & transaction)
 {
 	logger.info (nano::log::type::lmdb, "Upgrading database from v22 to v23...");
-	drop (transaction_a, tables::rep_weights);
-	auto i{ make_iterator<nano::account, nano::account_info_v22> (transaction_a, tables::accounts) };
+	drop (transaction, tables::rep_weights);
+	auto i{ make_iterator<nano::account, nano::account_info_v22> (transaction, tables::accounts) };
 	auto end{ store::iterator<nano::account, nano::account_info_v22> (nullptr) };
 	uint64_t processed_accounts = 0;
 	for (; i != end; ++i)
@@ -265,13 +265,13 @@ void nano::store::lmdb::component::upgrade_v22_to_v23 (store::write_transaction 
 		{
 			nano::uint128_t total{ 0 };
 			nano::store::lmdb::db_val value;
-			auto status = get (transaction_a, tables::rep_weights, i->second.representative, value);
+			auto status = get (transaction, tables::rep_weights, i->second.representative, value);
 			if (success (status))
 			{
 				total = nano::amount{ value }.number ();
 			}
 			total += i->second.balance.number ();
-			status = put (transaction_a, tables::rep_weights, i->second.representative, nano::amount{ total });
+			status = put (transaction, tables::rep_weights, i->second.representative, nano::amount{ total });
 			release_assert_success (status);
 		}
 		processed_accounts++;
@@ -281,18 +281,18 @@ void nano::store::lmdb::component::upgrade_v22_to_v23 (store::write_transaction 
 		}
 	}
 	logger.info (nano::log::type::lmdb, "Processed {} accounts", processed_accounts);
-	version.put (transaction_a, 23);
+	version.put (transaction, 23);
 	logger.info (nano::log::type::lmdb, "Upgrading database from v22 to v23 completed");
 }
 
-void nano::store::lmdb::component::upgrade_v23_to_v24 (store::write_transaction const & transaction_a)
+void nano::store::lmdb::component::upgrade_v23_to_v24 (store::write_transaction & transaction)
 {
 	logger.info (nano::log::type::lmdb, "Upgrading database from v23 to v24...");
 
 	MDB_dbi frontiers_handle{ 0 };
-	release_assert (!mdb_dbi_open (env.tx (transaction_a), "frontiers", MDB_CREATE, &frontiers_handle));
-	release_assert (!mdb_drop (env.tx (transaction_a), frontiers_handle, 1)); // del = 1, to delete it from the environment and close the DB handle.
-	version.put (transaction_a, 24);
+	release_assert (!mdb_dbi_open (env.tx (transaction), "frontiers", MDB_CREATE, &frontiers_handle));
+	release_assert (!mdb_drop (env.tx (transaction), frontiers_handle, 1)); // del = 1, to delete it from the environment and close the DB handle.
+	version.put (transaction, 24);
 	logger.info (nano::log::type::lmdb, "Upgrading database from v23 to v24 completed");
 }
 
