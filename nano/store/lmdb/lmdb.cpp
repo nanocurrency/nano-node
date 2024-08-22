@@ -255,6 +255,7 @@ void nano::store::lmdb::component::upgrade_v21_to_v22 (store::write_transaction 
 void nano::store::lmdb::component::upgrade_v22_to_v23 (store::write_transaction const & transaction_a)
 {
 	logger.info (nano::log::type::lmdb, "Upgrading database from v22 to v23...");
+	drop (transaction_a, tables::rep_weights);
 	auto i{ make_iterator<nano::account, nano::account_info_v22> (transaction_a, tables::accounts) };
 	auto end{ store::iterator<nano::account, nano::account_info_v22> (nullptr) };
 	uint64_t processed_accounts = 0;
