@@ -30,6 +30,15 @@ nano::store::write_transaction_impl::write_transaction_impl (nano::id_dispenser:
 }
 
 /*
+ * transaction
+ */
+
+auto nano::store::transaction::epoch () const -> epoch_t
+{
+	return current_epoch;
+}
+
+/*
  * read_transaction
  */
 
@@ -51,11 +60,13 @@ nano::id_dispenser::id_t nano::store::read_transaction::store_id () const
 
 void nano::store::read_transaction::reset ()
 {
+	++current_epoch;
 	impl->reset ();
 }
 
 void nano::store::read_transaction::renew ()
 {
+	++current_epoch;
 	impl->renew ();
 	start = std::chrono::steady_clock::now ();
 }
@@ -102,11 +113,13 @@ nano::id_dispenser::id_t nano::store::write_transaction::store_id () const
 
 void nano::store::write_transaction::commit ()
 {
+	++current_epoch;
 	impl->commit ();
 }
 
 void nano::store::write_transaction::renew ()
 {
+	++current_epoch;
 	impl->renew ();
 	start = std::chrono::steady_clock::now ();
 }

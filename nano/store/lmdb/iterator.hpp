@@ -14,7 +14,8 @@ template <typename T, typename U>
 class iterator : public iterator_impl<T, U>
 {
 public:
-	iterator (store::transaction const & transaction_a, env const & env_a, MDB_dbi db_a, MDB_val const & val_a = MDB_val{}, bool const direction_asc = true)
+	iterator (store::transaction const & transaction_a, env const & env_a, MDB_dbi db_a, MDB_val const & val_a = MDB_val{}, bool const direction_asc = true) :
+		nano::store::iterator_impl<T, U> (transaction_a)
 	{
 		auto status (mdb_cursor_open (env_a.tx (transaction_a), db_a, &cursor));
 		release_assert (status == 0);

@@ -37,9 +37,16 @@ public:
 class transaction
 {
 public:
+	using epoch_t = size_t;
+
+public:
 	virtual ~transaction () = default;
 	virtual void * get_handle () const = 0;
 	virtual nano::id_dispenser::id_t store_id () const = 0;
+	epoch_t epoch () const;
+
+protected:
+	epoch_t current_epoch{ 0 };
 };
 
 /**
