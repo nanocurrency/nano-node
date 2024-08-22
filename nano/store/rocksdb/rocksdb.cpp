@@ -289,14 +289,18 @@ void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transacti
 {
 	logger.info (nano::log::type::rocksdb, "Upgrading database from v22 to v23...");
 
-	if (!column_family_exists ("rep_weights"))
+	if (column_family_exists ("rep_weights"))
 	{
-		logger.info (nano::log::type::rocksdb, "Creating table rep_weights");
-		::rocksdb::ColumnFamilyOptions new_cf_options;
-		::rocksdb::ColumnFamilyHandle * new_cf_handle;
-		::rocksdb::Status status = db->CreateColumnFamily (new_cf_options, "rep_weights", &new_cf_handle);
-		handles.emplace_back (new_cf_handle);
+		logger.info (nano::log::type::rocksdb, "Dropping existing rep_weights table");
+		drop (transaction_a, tables::rep_weights);
 	}
+
+	logger.info (nano::log::type::rocksdb, "Creating table rep_weights");
+	::rocksdb::ColumnFamilyOptions new_cf_options;
+	::rocksdb::ColumnFamilyHandle * new_cf_handle;
+	::rocksdb::Status status = db->CreateColumnFamily (new_cf_options, "rep_weights", &new_cf_handle);
+	handles.emplace_back (new_cf_handle);
+
 	auto i{ make_iterator<nano::account, nano::account_info_v22> (transaction_a, tables::accounts) };
 	auto end{ store::iterator<nano::account, nano::account_info_v22> (nullptr) };
 	uint64_t processed_accounts = 0;
