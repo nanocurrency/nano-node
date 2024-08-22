@@ -53,14 +53,14 @@ public:
 	void * get_handle () const override;
 	nano::id_dispenser::id_t store_id () const override;
 
-	void reset () const;
-	void renew () const;
-	void refresh () const;
-	void refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 }) const;
+	void reset ();
+	void renew ();
+	void refresh ();
+	void refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 });
 
 private:
 	std::unique_ptr<read_transaction_impl> impl;
-	mutable std::chrono::steady_clock::time_point start;
+	std::chrono::steady_clock::time_point start;
 };
 
 /**

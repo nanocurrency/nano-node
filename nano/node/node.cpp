@@ -975,7 +975,7 @@ bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & 
 {
 	uint64_t read_operations (0);
 	bool finish_transaction (false);
-	auto const transaction = ledger.tx_begin_read ();
+	auto transaction = ledger.tx_begin_read ();
 	for (auto i (store.confirmation_height.begin (transaction, last_account_a)), n (store.confirmation_height.end ()); i != n && !finish_transaction;)
 	{
 		++read_operations;
