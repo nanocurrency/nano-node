@@ -171,7 +171,7 @@ private:
 	std::vector<::rocksdb::ColumnFamilyDescriptor> create_column_families ();
 	unsigned long long base_memtable_size_bytes () const;
 
-	constexpr static int base_memtable_size = 16;
+	constexpr static int base_memtable_size = 32;
 
 	friend class nano::rocksdb_block_store_tombstone_count_Test;
 	friend class rocksdb_block_store_upgrade_v21_v22_Test;

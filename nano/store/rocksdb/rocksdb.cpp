@@ -436,18 +436,8 @@ rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_cf_options (st
 {
 	::rocksdb::ColumnFamilyOptions cf_options;
 	auto const memtable_size_bytes = base_memtable_size_bytes ();
-	if (cf_name_a == "blocks")
-	{
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
-		cf_options = get_active_cf_options (table_factory, base_memtable_size_bytes ());
-	}
-	else if (cf_name_a == "confirmation_height")
-	{
-		// Entries will not be deleted in the normal case, so can make memtables a lot bigger
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes * 2);
-	}
-	else if (cf_name_a == "meta" || cf_name_a == "online_weight" || cf_name_a == "peers")
+
+	if (cf_name_a == "meta" || cf_name_a == "online_weight" || cf_name_a == "peers")
 	{
 		// Meta - It contains just version key
 		// Online weight - Periodically deleted
@@ -471,36 +461,9 @@ rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_cf_options (st
 		// L1 size, compaction is triggered for L0 at this size (2 SST files in L1)
 		cf_options.max_bytes_for_level_base = memtable_size_bytes * 2;
 	}
-	else if (cf_name_a == "frontiers")
+	else if (cf_name_a == "blocks" || cf_name_a == "frontiers" || cf_name_a == "accounts" || cf_name_a == "vote" || cf_name_a == "pruned" || cf_name_a == "final_votes" || cf_name_a == "rep_weights" || cf_name_a == "confirmation_height")
 	{
 		// Frontiers is only needed during bootstrap for legacy blocks
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
-	}
-	else if (cf_name_a == "accounts")
-	{
-		// Can have deletions from rollbacks
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
-	}
-	else if (cf_name_a == "vote")
-	{
-		// No deletes it seems, only overwrites.
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
-	}
-	else if (cf_name_a == "pruned")
-	{
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
-	}
-	else if (cf_name_a == "final_votes")
-	{
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
-	}
-	else if (cf_name_a == "rep_weights")
-	{
 		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
 	}
