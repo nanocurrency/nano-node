@@ -5580,7 +5580,7 @@ TEST (rpc, unopened)
 		boost::property_tree::ptree request;
 		request.put ("action", "unopened");
 		request.put ("count", "1");
-		request.put ("account", account1.to_account());
+		request.put ("account", account1.to_account ());
 		auto response (wait_response (system, rpc_ctx, request));
 		auto & accounts (response.get_child ("accounts"));
 		ASSERT_EQ (1, accounts.size ());
@@ -5591,7 +5591,7 @@ TEST (rpc, unopened)
 		boost::property_tree::ptree request;
 		request.put ("action", "unopened");
 		request.put ("count", "1");
-		request.put ("account", account2.to_account());
+		request.put ("account", account2.to_account ());
 		auto response (wait_response (system, rpc_ctx, request));
 		auto & accounts (response.get_child ("accounts"));
 		ASSERT_EQ (1, accounts.size ());
@@ -5626,7 +5626,7 @@ TEST (rpc, unopened_seek)
 		boost::property_tree::ptree request;
 		request.put ("action", "unopened");
 		request.put ("count", "1");
-		request.put ("account", nano::dev::genesis_key.pub.to_account());
+		request.put ("account", nano::dev::genesis_key.pub.to_account ());
 		auto response (wait_response (system, rpc_ctx, request));
 		auto & accounts (response.get_child ("accounts"));
 		ASSERT_EQ (1, accounts.size ());
