@@ -100,8 +100,6 @@ void nano::backlog_population::populate_backlog (nano::unique_lock<nano::mutex> 
 			auto const end = ledger.store.account.end ();
 			for (; i != end && count < chunk_size; ++i, ++count, ++total)
 			{
-				transaction.refresh_if_needed ();
-
 				stats.inc (nano::stat::type::backlog, nano::stat::detail::total);
 
 				auto const & account = i->first;
