@@ -59,7 +59,6 @@ TEST (telemetry, basic)
 	nano::test::system system;
 	nano::node_flags node_flags;
 	auto node_client = system.add_node (node_flags);
-	node_flags.disable_ongoing_telemetry_requests = true;
 	auto node_server = system.add_node (node_flags);
 
 	nano::test::wait_peer_connections (system);
@@ -135,7 +134,6 @@ TEST (telemetry, dos_tcp)
 	// Confirm that telemetry_reqs are not processed
 	nano::test::system system;
 	nano::node_flags node_flags;
-	node_flags.disable_ongoing_telemetry_requests = true;
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
@@ -203,7 +201,6 @@ TEST (telemetry, max_possible_size)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
-	node_flags.disable_ongoing_telemetry_requests = true;
 	node_flags.disable_providing_telemetry_metrics = true;
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
@@ -231,7 +228,6 @@ TEST (telemetry, maker_pruning)
 	node_flags.enable_pruning = true;
 	nano::node_config config;
 	config.enable_voting = false;
-	node_flags.disable_ongoing_telemetry_requests = true;
 	auto node_server = system.add_node (config, node_flags);
 
 	nano::test::wait_peer_connections (system);
@@ -281,7 +277,6 @@ TEST (telemetry, ongoing_broadcasts)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
-	node_flags.disable_ongoing_telemetry_requests = true;
 	auto & node1 = *system.add_node (node_flags);
 	auto & node2 = *system.add_node (node_flags);
 
