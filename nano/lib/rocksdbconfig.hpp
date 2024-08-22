@@ -25,7 +25,7 @@ public:
 	static bool using_rocksdb_in_tests ();
 
 	bool enable{ false };
-	uint8_t memory_multiplier{ 2 };
+	uint16_t cache_size{ 64 };
 	unsigned io_threads{ std::max (nano::hardware_concurrency () / 2, 1u) };
 };
 }

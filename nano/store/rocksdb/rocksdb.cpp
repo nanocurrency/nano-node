@@ -436,16 +436,15 @@ rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_cf_options (st
 {
 	::rocksdb::ColumnFamilyOptions cf_options;
 	auto const memtable_size_bytes = base_memtable_size_bytes ();
-	auto const block_cache_size_bytes = 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_block_cache_size;
 	if (cf_name_a == "blocks")
 	{
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 4)));
+		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
 		cf_options = get_active_cf_options (table_factory, blocks_memtable_size_bytes ());
 	}
 	else if (cf_name_a == "confirmation_height")
 	{
 		// Entries will not be deleted in the normal case, so can make memtables a lot bigger
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes)));
+		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes * 2);
 	}
 	else if (cf_name_a == "meta" || cf_name_a == "online_weight" || cf_name_a == "peers")
@@ -463,7 +462,7 @@ rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_cf_options (st
 	else if (cf_name_a == "pending")
 	{
 		// Pending can have a lot of deletions too
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes)));
+		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
 
 		// Number of files in level 0 which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
@@ -475,34 +474,34 @@ rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_cf_options (st
 	else if (cf_name_a == "frontiers")
 	{
 		// Frontiers is only needed during bootstrap for legacy blocks
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes)));
+		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
 	}
 	else if (cf_name_a == "accounts")
 	{
 		// Can have deletions from rollbacks
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
+		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
 	}
 	else if (cf_name_a == "vote")
 	{
 		// No deletes it seems, only overwrites.
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
+		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
 	}
 	else if (cf_name_a == "pruned")
 	{
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
+		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
 	}
 	else if (cf_name_a == "final_votes")
 	{
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
+		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
 	}
 	else if (cf_name_a == "rep_weights")
 	{
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
+		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
 	}
 	else if (cf_name_a == ::rocksdb::kDefaultColumnFamilyName)
@@ -899,7 +898,7 @@ rocksdb::Options nano::store::rocksdb::component::get_db_options ()
 	return db_options;
 }
 
-rocksdb::BlockBasedTableOptions nano::store::rocksdb::component::get_active_table_options (std::size_t lru_size) const
+rocksdb::BlockBasedTableOptions nano::store::rocksdb::component::get_active_table_options () const
 {
 	::rocksdb::BlockBasedTableOptions table_options;
 
@@ -914,7 +913,7 @@ rocksdb::BlockBasedTableOptions nano::store::rocksdb::component::get_active_tabl
 	table_options.index_block_restart_interval = 16;
 
 	// Block cache for reads
-	table_options.block_cache = ::rocksdb::NewLRUCache (lru_size);
+	table_options.block_cache = ::rocksdb::NewLRUCache (1024ULL * 1024 * rocksdb_config.cache_size);
 
 	// Bloom filter to help with point reads. 10bits gives 1% false positive rate.
 	table_options.filter_policy.reset (::rocksdb::NewBloomFilterPolicy (10, false));
@@ -1116,7 +1115,7 @@ unsigned long long nano::store::rocksdb::component::blocks_memtable_size_bytes (
 
 unsigned long long nano::store::rocksdb::component::base_memtable_size_bytes () const
 {
-	return 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_memtable_size;
+	return 1024ULL * 1024 * base_memtable_size;
 }
 
 // This is a ratio of the blocks memtable size to keep total write transaction commit size down.

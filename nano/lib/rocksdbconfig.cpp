@@ -5,7 +5,7 @@
 nano::error nano::rocksdb_config::serialize_toml (nano::tomlconfig & toml) const
 {
 	toml.put ("enable", enable, "Whether to use the RocksDB backend for the ledger database.\ntype:bool");
-	toml.put ("memory_multiplier", memory_multiplier, "This will modify how much memory is used represented by 1 (low), 2 (medium), 3 (high). Default is 2.\ntype:uint8");
+	toml.put ("cache_size", cache_size, "Amount of memory in MB used for caching for each table. Valid values are from 1 to 1024. Default is 64.\ntype:uint8");
 	toml.put ("io_threads", io_threads, "Number of threads to use with the background compaction and flushing.\ntype:uint32");
 	return toml.get_error ();
 }
@@ -13,7 +13,7 @@ nano::error nano::rocksdb_config::serialize_toml (nano::tomlconfig & toml) const
 nano::error nano::rocksdb_config::deserialize_toml (nano::tomlconfig & toml)
 {
 	toml.get_optional<bool> ("enable", enable);
-	toml.get_optional<uint8_t> ("memory_multiplier", memory_multiplier);
+	toml.get_optional<uint16_t> ("cache_size", cache_size);
 	toml.get_optional<unsigned> ("io_threads", io_threads);
 
 	// Validate ranges
@@ -21,9 +21,9 @@ nano::error nano::rocksdb_config::deserialize_toml (nano::tomlconfig & toml)
 	{
 		toml.get_error ().set ("io_threads must be non-zero");
 	}
-	if (memory_multiplier < 1 || memory_multiplier > 3)
+	if (cache_size < 1 || cache_size > 1024)
 	{
-		toml.get_error ().set ("memory_multiplier must be either 1, 2 or 3");
+		toml.get_error ().set ("cache_size must be between 1 and 1024 MB");
 	}
 
 	return toml.get_error ();
