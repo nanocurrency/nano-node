@@ -405,30 +405,6 @@ rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_common_cf_opti
 	::rocksdb::ColumnFamilyOptions cf_options;
 	cf_options.table_factory = table_factory_a;
 
-	// (1 active, 1 inactive)
-	auto num_memtables = 2;
-
-	// Each level is a multiple of the above. If L1 is 512MB. L2 will be 512 * 8 = 2GB. L3 will be 2GB * 8 = 16GB, and so on...
-	cf_options.max_bytes_for_level_multiplier = 8;
-
-	// Although this should be the default provided by RocksDB, not setting this is causing sequence conflict checks if not using
-	cf_options.max_write_buffer_size_to_maintain = memtable_size_bytes_a * num_memtables;
-
-	// Files older than this (1 day) will be scheduled for compaction when there is no other background work. This can lead to more writes however.
-	cf_options.ttl = 1 * 24 * 60 * 60;
-
-	// Multiplier for each level
-	cf_options.target_file_size_multiplier = 10;
-
-	// Size of level 1 sst files
-	cf_options.target_file_size_base = memtable_size_bytes_a;
-
-	// Size of each memtable
-	cf_options.write_buffer_size = memtable_size_bytes_a;
-
-	// Number of memtables to keep in memory
-	cf_options.max_write_buffer_number = num_memtables;
-
 	return cf_options;
 }
 
@@ -825,30 +801,9 @@ rocksdb::Options nano::store::rocksdb::component::get_db_options ()
 	db_options.create_if_missing = true;
 	db_options.create_missing_column_families = true;
 
-	// TODO: review if this should be changed due to the unchecked table removal.
-	// Enable whole key bloom filter in memtables for ones with memtable_prefix_bloom_size_ratio set (unchecked table currently).
-	// It can potentially reduce CPU usage for point-look-ups.
-	db_options.memtable_whole_key_filtering = true;
-
-	// Sets the compaction priority
-	db_options.compaction_pri = ::rocksdb::CompactionPri::kMinOverlappingRatio;
-
-	// Start aggressively flushing WAL files when they reach over 1GB
-	db_options.max_total_wal_size = 1 * 1024 * 1024 * 1024LL;
-
 	// Optimize RocksDB. This is the easiest way to get RocksDB to perform well
 	db_options.IncreaseParallelism (rocksdb_config.io_threads);
 	db_options.OptimizeLevelStyleCompaction ();
-
-	// Adds a separate write queue for memtable/WAL
-	db_options.enable_pipelined_write = true;
-
-	// Default is 16, setting to -1 allows faster startup times for SSDs by allowings more files to be read in parallel.
-	db_options.max_file_opening_threads = -1;
-
-	// The MANIFEST file contains a history of all file operations since the last time the DB was opened and is replayed during DB open.
-	// Default is 1GB, lowering this to avoid replaying for too long (100MB)
-	db_options.max_manifest_file_size = 100 * 1024 * 1024ULL;
 
 	// Not compressing any SST files for compatibility reasons.
 	db_options.compression = ::rocksdb::kNoCompression;
@@ -867,25 +822,14 @@ rocksdb::BlockBasedTableOptions nano::store::rocksdb::component::get_active_tabl
 
 	// Improve point lookup performance be using the data block hash index (uses about 5% more space).
 	table_options.data_block_index_type = ::rocksdb::BlockBasedTableOptions::DataBlockIndexType::kDataBlockBinaryAndHash;
-	table_options.data_block_hash_table_util_ratio = 0.75;
 
 	// Using format_version=4 significantly reduces the index block size, in some cases around 4-5x.
 	// This frees more space in block cache, which would result in higher hit rate for data and filter blocks,
 	// or offer the same performance with a smaller block cache size.
 	table_options.format_version = 4;
-	table_options.index_block_restart_interval = 16;
 
 	// Block cache for reads
 	table_options.block_cache = ::rocksdb::NewLRUCache (1024ULL * 1024 * rocksdb_config.cache_size);
-
-	// Bloom filter to help with point reads. 10bits gives 1% false positive rate.
-	table_options.filter_policy.reset (::rocksdb::NewBloomFilterPolicy (10, false));
-
-	// Increasing block_size decreases memory usage and space amplification, but increases read amplification.
-	table_options.block_size = 16 * 1024ULL;
-
-	// Whether level 0 index and filter blocks are stored in block_cache
-	table_options.pin_l0_filter_and_index_blocks_in_cache = true;
 
 	return table_options;
 }
@@ -895,8 +839,6 @@ rocksdb::BlockBasedTableOptions nano::store::rocksdb::component::get_small_table
 	::rocksdb::BlockBasedTableOptions table_options;
 	// Improve point lookup performance be using the data block hash index (uses about 5% more space).
 	table_options.data_block_index_type = ::rocksdb::BlockBasedTableOptions::DataBlockIndexType::kDataBlockBinaryAndHash;
-	table_options.data_block_hash_table_util_ratio = 0.75;
-	table_options.block_size = 1024ULL;
 	return table_options;
 }
 
@@ -916,18 +858,7 @@ rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_small_cf_optio
 
 ::rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_active_cf_options (std::shared_ptr<::rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const
 {
-	auto cf_options = get_common_cf_options (table_factory_a, memtable_size_bytes_a);
-
-	// Number of files in level 0 which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
-	cf_options.level0_file_num_compaction_trigger = 4;
-
-	// L1 size, compaction is triggered for L0 at this size (4 SST files in L1)
-	cf_options.max_bytes_for_level_base = memtable_size_bytes_a * 4;
-
-	// Size target of levels are changed dynamically based on size of the last level
-	cf_options.level_compaction_dynamic_level_bytes = true;
-
-	return cf_options;
+	return get_common_cf_options (table_factory_a, memtable_size_bytes_a);
 }
 
 void nano::store::rocksdb::component::on_flush (::rocksdb::FlushJobInfo const & flush_job_info_a)
