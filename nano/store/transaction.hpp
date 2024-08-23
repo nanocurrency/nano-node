@@ -43,10 +43,13 @@ public:
 	virtual ~transaction () = default;
 	virtual void * get_handle () const = 0;
 	virtual nano::id_dispenser::id_t store_id () const = 0;
+
 	epoch_t epoch () const;
+	std::chrono::steady_clock::time_point timestamp () const;
 
 protected:
 	epoch_t current_epoch{ 0 };
+	std::chrono::steady_clock::time_point start{};
 };
 
 /**
@@ -67,7 +70,6 @@ public:
 
 private:
 	std::unique_ptr<read_transaction_impl> impl;
-	std::chrono::steady_clock::time_point start;
 };
 
 /**
@@ -89,6 +91,5 @@ public:
 
 private:
 	std::unique_ptr<write_transaction_impl> impl;
-	std::chrono::steady_clock::time_point start;
 };
 } // namespace nano::store

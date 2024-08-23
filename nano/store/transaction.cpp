@@ -38,6 +38,11 @@ auto nano::store::transaction::epoch () const -> epoch_t
 	return current_epoch;
 }
 
+std::chrono::steady_clock::time_point nano::store::transaction::timestamp () const
+{
+	return start;
+}
+
 /*
  * read_transaction
  */

@@ -79,6 +79,11 @@ public:
 		return false;
 	}
 
+	auto timestamp () const
+	{
+		return txn.timestamp ();
+	}
+
 	// Conversion operator to const nano::store::transaction&
 	operator const nano::store::transaction & () const override
 	{
@@ -116,6 +121,11 @@ public:
 	void refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 })
 	{
 		txn.refresh_if_needed (max_age);
+	}
+
+	auto timestamp () const
+	{
+		return txn.timestamp ();
 	}
 
 	// Conversion operator to const nano::store::transaction&
