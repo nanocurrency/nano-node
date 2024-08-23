@@ -891,10 +891,13 @@ void nano::node::ongoing_bootstrap ()
 		{
 			// Find last online weight sample (last active time for node)
 			uint64_t last_sample_time (0);
-			auto last_record = store.online_weight.rbegin (store.tx_begin_read ());
-			if (last_record != store.online_weight.end ())
 			{
-				last_sample_time = last_record->first;
+				auto transaction = store.tx_begin_read ();
+				auto last_record = store.online_weight.rbegin (transaction);
+				if (last_record != store.online_weight.end ())
+				{
+					last_sample_time = last_record->first;
+				}
 			}
 			uint64_t time_since_last_sample = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count () - static_cast<uint64_t> (last_sample_time / std::pow (10, 9)); // Nanoseconds to seconds
 			if (time_since_last_sample + 60 * 60 < std::numeric_limits<uint32_t>::max ())
