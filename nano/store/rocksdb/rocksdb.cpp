@@ -774,6 +774,8 @@ int nano::store::rocksdb::component::clear (::rocksdb::ColumnFamilyHandle * colu
 	::rocksdb::ReadOptions read_options;
 	::rocksdb::WriteOptions write_options;
 	::rocksdb::WriteBatch write_batch;
+	read_options.readahead_size = 0;
+
 	std::unique_ptr<::rocksdb::Iterator> it (db->NewIterator (read_options, column_family));
 
 	for (it->SeekToFirst (); it->Valid (); it->Next ())
@@ -800,11 +802,10 @@ rocksdb::Options nano::store::rocksdb::component::get_db_options ()
 	::rocksdb::Options db_options;
 	db_options.create_if_missing = true;
 	db_options.create_missing_column_families = true;
-
-	// Optimize RocksDB. This is the easiest way to get RocksDB to perform well
+	// Set number of threads to use
 	db_options.IncreaseParallelism (rocksdb_config.io_threads);
+	// Optimize RocksDB. This is the easiest way to get RocksDB to perform well
 	db_options.OptimizeLevelStyleCompaction ();
-
 	// Not compressing any SST files for compatibility reasons.
 	db_options.compression = ::rocksdb::kNoCompression;
 
