@@ -1003,6 +1003,7 @@ bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & 
 			}
 			if (++depth % batch_read_size_a == 0)
 			{
+				// FIXME: This is triggering an assertion where the iterator is still used after transaction is refreshed
 				transaction.refresh ();
 			}
 		}
