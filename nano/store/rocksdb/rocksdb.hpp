@@ -112,6 +112,7 @@ private:
 	std::unordered_map<nano::tables, nano::mutex> write_lock_mutexes;
 	nano::rocksdb_config rocksdb_config;
 	unsigned const max_block_write_batch_num_m;
+	unsigned calculate_max_block_write_batch_num () const;
 
 	class tombstone_info
 	{
@@ -163,12 +164,12 @@ private:
 	void flush_table (nano::tables table_a);
 	void flush_tombstones_check (nano::tables table_a);
 	void generate_tombstone_map ();
+
 	std::unordered_map<char const *, nano::tables> create_cf_name_table_map () const;
 
 	std::vector<::rocksdb::ColumnFamilyDescriptor> create_column_families ();
-	unsigned long long base_memtable_size_bytes () const;
 
-	constexpr static int base_memtable_size = 8;
+	constexpr static int memtable_size_bytes = 1024ULL * 1024 * 32; // 32 MB write buffer
 
 	friend class nano::rocksdb_block_store_tombstone_count_Test;
 	friend class rocksdb_block_store_upgrade_v21_v22_Test;

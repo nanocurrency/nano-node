@@ -64,7 +64,7 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 	logger{ logger_a },
 	constants{ constants },
 	rocksdb_config{ rocksdb_config_a },
-	max_block_write_batch_num_m{ nano::narrow_cast<unsigned> (base_memtable_size_bytes () / (2 * (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)))) },
+	max_block_write_batch_num_m{ calculate_max_block_write_batch_num () },
 	cf_name_table_map{ create_cf_name_table_map () }
 {
 	boost::system::error_code error_mkdir, error_chmod;
@@ -403,6 +403,7 @@ rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_common_cf_opti
 {
 	::rocksdb::ColumnFamilyOptions cf_options;
 	cf_options.table_factory = table_factory_a;
+	cf_options.write_buffer_size = memtable_size_bytes;
 
 	return cf_options;
 }
@@ -738,7 +739,7 @@ int nano::store::rocksdb::component::clear (::rocksdb::ColumnFamilyHandle * colu
 	::rocksdb::ReadOptions read_options;
 	::rocksdb::WriteOptions write_options;
 	::rocksdb::WriteBatch write_batch;
-	read_options.readahead_size = 0;
+	read_options.readahead_size = 0; // Readahead only adds overhead on SSD drives
 
 	std::unique_ptr<::rocksdb::Iterator> it (db->NewIterator (read_options, column_family));
 
@@ -940,15 +941,17 @@ void nano::store::rocksdb::component::serialize_memory_stats (boost::property_tr
 	json.put ("block-cache-usage", val);
 }
 
-unsigned long long nano::store::rocksdb::component::base_memtable_size_bytes () const
-{
-	return 1024ULL * 1024 * base_memtable_size;
-}
-
 // This is a ratio of the blocks memtable size to keep total write transaction commit size down.
 unsigned nano::store::rocksdb::component::max_block_write_batch_num () const
 {
 	return max_block_write_batch_num_m;
+}
+
+unsigned nano::store::rocksdb::component::calculate_max_block_write_batch_num () const
+{
+	// Calculates the max write batch size from the memtable_size (write buffer) and the size of a block.
+	// With a memtable_size of 32 MB we will get 125672 as max block write batch
+	return nano::narrow_cast<unsigned> (memtable_size_bytes / (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)));
 }
 
 std::string nano::store::rocksdb::component::error_string (int status) const
