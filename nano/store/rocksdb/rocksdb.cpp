@@ -80,7 +80,6 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 	debug_assert (path_a.filename () == "rocksdb");
 
 	generate_tombstone_map ();
-	small_table_factory.reset (::rocksdb::NewBlockBasedTableFactory (get_small_table_options ()));
 
 	// TODO: get_db_options () registers a listener for resetting tombstones, needs to check if it is a problem calling it more than once.
 	auto options = get_db_options ();
@@ -400,7 +399,7 @@ void nano::store::rocksdb::component::generate_tombstone_map ()
 	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::pending), std::forward_as_tuple (0, 25000));
 }
 
-rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_common_cf_options (std::shared_ptr<::rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const
+rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_common_cf_options (std::shared_ptr<::rocksdb::TableFactory> const & table_factory_a) const
 {
 	::rocksdb::ColumnFamilyOptions cf_options;
 	cf_options.table_factory = table_factory_a;
@@ -416,9 +415,8 @@ rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_cf_options (st
 		return cf_options;
 	}
 
-	auto const memtable_size_bytes = base_memtable_size_bytes ();
 	std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
-	return get_active_cf_options (table_factory, memtable_size_bytes);
+	return get_common_cf_options (table_factory);
 }
 
 std::vector<rocksdb::ColumnFamilyDescriptor> nano::store::rocksdb::component::create_column_families ()
@@ -799,33 +797,6 @@ rocksdb::BlockBasedTableOptions nano::store::rocksdb::component::get_active_tabl
 	table_options.block_cache = ::rocksdb::NewLRUCache (1024ULL * 1024 * rocksdb_config.cache_size);
 
 	return table_options;
-}
-
-rocksdb::BlockBasedTableOptions nano::store::rocksdb::component::get_small_table_options () const
-{
-	::rocksdb::BlockBasedTableOptions table_options;
-	// Improve point lookup performance be using the data block hash index (uses about 5% more space).
-	table_options.data_block_index_type = ::rocksdb::BlockBasedTableOptions::DataBlockIndexType::kDataBlockBinaryAndHash;
-	return table_options;
-}
-
-rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_small_cf_options (std::shared_ptr<::rocksdb::TableFactory> const & table_factory_a) const
-{
-	auto const memtable_size_bytes = 10000;
-	auto cf_options = get_common_cf_options (table_factory_a, memtable_size_bytes);
-
-	// Number of files in level 0 which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
-	cf_options.level0_file_num_compaction_trigger = 1;
-
-	// L1 size, compaction is triggered for L0 at this size (1 SST file in L1)
-	cf_options.max_bytes_for_level_base = memtable_size_bytes;
-
-	return cf_options;
-}
-
-::rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_active_cf_options (std::shared_ptr<::rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const
-{
-	return get_common_cf_options (table_factory_a, memtable_size_bytes_a);
 }
 
 void nano::store::rocksdb::component::on_flush (::rocksdb::FlushJobInfo const & flush_job_info_a)
