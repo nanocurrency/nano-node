@@ -411,48 +411,14 @@ rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_common_cf_opti
 rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_cf_options (std::string const & cf_name_a) const
 {
 	::rocksdb::ColumnFamilyOptions cf_options;
+	if (cf_name_a == ::rocksdb::kDefaultColumnFamilyName)
+	{
+		return cf_options;
+	}
+
 	auto const memtable_size_bytes = base_memtable_size_bytes ();
-
-	if (cf_name_a == "meta" || cf_name_a == "online_weight" || cf_name_a == "peers")
-	{
-		// Meta - It contains just version key
-		// Online weight - Periodically deleted
-		// Peers - Cleaned periodically, a lot of deletions. This is never read outside of initializing? Keep this small
-		cf_options = get_small_cf_options (small_table_factory);
-	}
-	else if (cf_name_a == "cached_counts")
-	{
-		// Really small (keys are blocks tables, value is uint64_t)
-		cf_options = get_small_cf_options (small_table_factory);
-	}
-	else if (cf_name_a == "pending")
-	{
-		// Pending can have a lot of deletions too
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
-
-		// Number of files in level 0 which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
-		cf_options.level0_file_num_compaction_trigger = 2;
-
-		// L1 size, compaction is triggered for L0 at this size (2 SST files in L1)
-		cf_options.max_bytes_for_level_base = memtable_size_bytes * 2;
-	}
-	else if (cf_name_a == "blocks" || cf_name_a == "frontiers" || cf_name_a == "accounts" || cf_name_a == "vote" || cf_name_a == "pruned" || cf_name_a == "final_votes" || cf_name_a == "rep_weights" || cf_name_a == "confirmation_height")
-	{
-		// Frontiers is only needed during bootstrap for legacy blocks
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
-	}
-	else if (cf_name_a == ::rocksdb::kDefaultColumnFamilyName)
-	{
-		// Do nothing.
-	}
-	else
-	{
-		debug_assert (false);
-	}
-
-	return cf_options;
+	std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
+	return get_active_cf_options (table_factory, memtable_size_bytes);
 }
 
 std::vector<rocksdb::ColumnFamilyDescriptor> nano::store::rocksdb::component::create_column_families ()
