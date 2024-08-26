@@ -255,33 +255,58 @@ void nano::store::lmdb::component::upgrade_v21_to_v22 (store::write_transaction 
 void nano::store::lmdb::component::upgrade_v22_to_v23 (store::write_transaction & transaction)
 {
 	logger.info (nano::log::type::lmdb, "Upgrading database from v22 to v23...");
+
 	drop (transaction, tables::rep_weights);
-	auto i{ make_iterator<nano::account, nano::account_info_v22> (transaction, tables::accounts) };
-	auto end{ store::iterator<nano::account, nano::account_info_v22> (nullptr) };
-	uint64_t processed_accounts = 0;
-	for (; i != end; ++i)
+
+	const size_t batch_size = 1000 * 10;
+
+	nano::account next = 0;
+	size_t processed_accounts = 0;
+	while (true)
 	{
-		if (!i->second.balance.is_zero ())
+		transaction.refresh ();
+
+		// Manually create v22 compatible iterator to read accounts
+		auto it = make_iterator<nano::account, nano::account_info_v22> (transaction, tables::accounts, next);
+		auto const end = store::iterator<nano::account, nano::account_info_v22> (nullptr);
+
+		if (it == end)
 		{
-			nano::uint128_t total{ 0 };
-			nano::store::lmdb::db_val value;
-			auto status = get (transaction, tables::rep_weights, i->second.representative, value);
-			if (success (status))
-			{
-				total = nano::amount{ value }.number ();
-			}
-			total += i->second.balance.number ();
-			status = put (transaction, tables::rep_weights, i->second.representative, nano::amount{ total });
-			release_assert_success (status);
+			break;
 		}
-		processed_accounts++;
-		if (processed_accounts % 250000 == 0)
+
+		for (size_t count = 0; it != end && count < batch_size; ++it, ++count)
 		{
-			logger.info (nano::log::type::lmdb, "Processed {} accounts", processed_accounts);
+			auto const & account = it->first;
+			auto const & account_info = it->second;
+
+			if (!account_info.balance.is_zero ())
+			{
+				nano::uint128_t total{ 0 };
+				nano::store::lmdb::db_val value;
+				auto status = get (transaction, tables::rep_weights, account_info.representative, value);
+				if (success (status))
+				{
+					total = nano::amount{ value }.number ();
+				}
+				total += account_info.balance.number ();
+				status = put (transaction, tables::rep_weights, account_info.representative, nano::amount{ total });
+				release_assert_success (status);
+			}
+
+			processed_accounts++;
+			if (processed_accounts % 250000 == 0)
+			{
+				logger.info (nano::log::type::lmdb, "Processed {} accounts", processed_accounts);
+			}
+
+			next = account.number () + 1;
 		}
 	}
+
 	logger.info (nano::log::type::lmdb, "Processed {} accounts", processed_accounts);
 	version.put (transaction, 23);
+
 	logger.info (nano::log::type::lmdb, "Upgrading database from v22 to v23 completed");
 }
 
