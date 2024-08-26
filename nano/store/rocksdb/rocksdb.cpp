@@ -293,6 +293,7 @@ void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transacti
 	{
 		logger.info (nano::log::type::rocksdb, "Dropping existing rep_weights table");
 		drop (transaction, tables::rep_weights);
+		transaction.refresh ();
 	}
 
 	{
@@ -301,7 +302,10 @@ void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transacti
 		::rocksdb::ColumnFamilyHandle * new_cf_handle;
 		::rocksdb::Status status = db->CreateColumnFamily (new_cf_options, "rep_weights", &new_cf_handle);
 		handles.emplace_back (new_cf_handle);
+		transaction.refresh ();
 	}
+
+	release_assert (rep_weight.begin (tx_begin_read ()) == rep_weight.end (), "rep weights table must be empty before upgrading to v23");
 
 	const size_t batch_size = 1000 * 10;
 
