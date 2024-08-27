@@ -23,6 +23,7 @@ nano::scheduler::priority::priority (nano::node & node_a, nano::stats & stats_a)
 	};
 
 	minimums.push_back (uint128_t{ 0 });
+	build_region (uint128_t{ 1 } << 79, uint128_t{ 1 } << 88, 1);
 	build_region (uint128_t{ 1 } << 88, uint128_t{ 1 } << 92, 2);
 	build_region (uint128_t{ 1 } << 92, uint128_t{ 1 } << 96, 4);
 	build_region (uint128_t{ 1 } << 96, uint128_t{ 1 } << 100, 8);
