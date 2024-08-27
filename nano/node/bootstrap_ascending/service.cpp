@@ -29,9 +29,12 @@ nano::bootstrap_ascending::service::service (nano::node_config const & node_conf
 	logger{ logger_a },
 	accounts{ config.account_sets, stats },
 	database_scan{ ledger },
+	frontiers{ config.frontier_scan, stats },
 	throttle{ compute_throttle_size () },
 	scoring{ config, node_config_a.network_params.network },
-	database_limiter{ config.database_rate_limit, 1.0 }
+	database_limiter{ config.database_rate_limit },
+	frontiers_limiter{ config.frontier_rate_limit },
+	workers{ 1, nano::thread_role::name::ascending_bootstrap_worker }
 {
 	// TODO: This is called from a very congested blockprocessor thread. Offload this work to a dedicated processing thread
 	block_processor.batch_processed.add ([this] (auto const & batch) {
@@ -57,6 +60,7 @@ nano::bootstrap_ascending::service::~service ()
 	debug_assert (!priorities_thread.joinable ());
 	debug_assert (!database_thread.joinable ());
 	debug_assert (!dependencies_thread.joinable ());
+	debug_assert (!frontiers_thread.joinable ());
 	debug_assert (!timeout_thread.joinable ());
 }
 
@@ -65,6 +69,7 @@ void nano::bootstrap_ascending::service::start ()
 	debug_assert (!priorities_thread.joinable ());
 	debug_assert (!database_thread.joinable ());
 	debug_assert (!dependencies_thread.joinable ());
+	debug_assert (!frontiers_thread.joinable ());
 	debug_assert (!timeout_thread.joinable ());
 
 	if (!config.enable)
@@ -94,6 +99,14 @@ void nano::bootstrap_ascending::service::start ()
 		});
 	}
 
+	if (config.enable_frontier_scan)
+	{
+		frontiers_thread = std::thread ([this] () {
+			nano::thread_role::set (nano::thread_role::name::ascending_bootstrap);
+			run_frontiers ();
+		});
+	}
+
 	timeout_thread = std::thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::ascending_bootstrap);
 		run_timeouts ();
@@ -111,10 +124,11 @@ void nano::bootstrap_ascending::service::stop ()
 	nano::join_or_pass (priorities_thread);
 	nano::join_or_pass (database_thread);
 	nano::join_or_pass (dependencies_thread);
+	nano::join_or_pass (frontiers_thread);
 	nano::join_or_pass (timeout_thread);
 }
 
-void nano::bootstrap_ascending::service::send (std::shared_ptr<nano::transport::channel> const & channel, async_tag tag)
+bool nano::bootstrap_ascending::service::send (std::shared_ptr<nano::transport::channel> const & channel, async_tag tag)
 {
 	debug_assert (tag.type != query_type::invalid);
 	debug_assert (tag.source != query_source::invalid);
@@ -124,6 +138,8 @@ void nano::bootstrap_ascending::service::send (std::shared_ptr<nano::transport::
 		debug_assert (tags.get<tag_id> ().count (tag.id) == 0);
 		tags.get<tag_id> ().insert (tag);
 	}
+
+	on_request.notify (tag, channel);
 
 	nano::asc_pull_req request{ network_constants };
 	request.id = tag.id;
@@ -152,6 +168,16 @@ void nano::bootstrap_ascending::service::send (std::shared_ptr<nano::transport::
 			request.payload = pld;
 		}
 		break;
+		case query_type::frontiers:
+		{
+			request.type = nano::asc_pull_type::frontiers;
+
+			nano::asc_pull_req::frontiers_payload pld;
+			pld.start = tag.start.as_account ();
+			pld.count = nano::asc_pull_ack::frontiers_payload::max_frontiers;
+			request.payload = pld;
+		}
+		break;
 		default:
 			debug_assert (false);
 	}
@@ -165,6 +191,8 @@ void nano::bootstrap_ascending::service::send (std::shared_ptr<nano::transport::
 	channel->send (
 	request, nullptr,
 	nano::transport::buffer_drop_policy::limiter, nano::transport::traffic_type::bootstrap);
+
+	return true; // TODO: Return channel send result
 }
 
 std::size_t nano::bootstrap_ascending::service::priority_size () const
@@ -409,6 +437,24 @@ nano::block_hash nano::bootstrap_ascending::service::wait_blocking ()
 	return result;
 }
 
+nano::account nano::bootstrap_ascending::service::wait_frontier ()
+{
+	nano::account result{ 0 };
+
+	wait ([this, &result] () {
+		debug_assert (!mutex.try_lock ());
+		result = frontiers.next ();
+		if (!result.is_zero ())
+		{
+			stats.inc (nano::stat::type::bootstrap_ascending_next, nano::stat::detail::next_frontier);
+			return true;
+		}
+		return false;
+	});
+
+	return result;
+}
+
 bool nano::bootstrap_ascending::service::request (nano::account account, size_t count, std::shared_ptr<nano::transport::channel> const & channel, query_source source)
 {
 	debug_assert (count > 0);
@@ -436,11 +482,7 @@ bool nano::bootstrap_ascending::service::request (nano::account account, size_t 
 		tag.start = account;
 	}
 
-	on_request.notify (tag, channel);
-
-	send (channel, tag);
-
-	return true; // Request sent
+	return send (channel, tag);
 }
 
 bool nano::bootstrap_ascending::service::request_info (nano::block_hash hash, std::shared_ptr<nano::transport::channel> const & channel, query_source source)
@@ -451,11 +493,17 @@ bool nano::bootstrap_ascending::service::request_info (nano::block_hash hash, st
 	tag.start = hash;
 	tag.hash = hash;
 
-	on_request.notify (tag, channel);
+	return send (channel, tag);
+}
 
-	send (channel, tag);
+bool nano::bootstrap_ascending::service::request_frontiers (nano::account start, std::shared_ptr<nano::transport::channel> const & channel, query_source source)
+{
+	async_tag tag{};
+	tag.type = query_type::frontiers;
+	tag.source = source;
+	tag.start = start;
 
-	return true; // Request sent
+	return send (channel, tag);
 }
 
 void nano::bootstrap_ascending::service::run_one_priority ()
@@ -549,6 +597,103 @@ void nano::bootstrap_ascending::service::run_dependencies ()
 	}
 }
 
+void nano::bootstrap_ascending::service::run_one_frontier ()
+{
+	wait ([this] () {
+		return !accounts.priority_half_full ();
+	});
+	wait ([this] () {
+		return frontiers_limiter.should_pass (1);
+	});
+	wait ([this] () {
+		return workers.num_queued_tasks () < config.frontier_scan.max_pending;
+	});
+	wait_tags ();
+	auto channel = wait_channel ();
+	if (!channel)
+	{
+		return;
+	}
+	auto frontier = wait_frontier ();
+	if (frontier.is_zero ())
+	{
+		return;
+	}
+	request_frontiers (frontier, channel, query_source::frontiers);
+}
+
+void nano::bootstrap_ascending::service::run_frontiers ()
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	while (!stopped)
+	{
+		lock.unlock ();
+		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::loop_frontiers);
+		run_one_frontier ();
+		lock.lock ();
+	}
+}
+
+void nano::bootstrap_ascending::service::process_frontiers (std::deque<std::pair<nano::account, nano::block_hash>> const & frontiers)
+{
+	stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::process_frontiers);
+
+	size_t outdated = 0;
+	size_t pending = 0;
+
+	// Accounts with outdated frontiers to sync
+	std::deque<nano::account> result;
+	{
+		auto transaction = ledger.tx_begin_read ();
+
+		auto should_prioritize = [&] (nano::account const & account, nano::block_hash const & frontier) {
+			if (ledger.any.block_exists_or_pruned (transaction, frontier))
+			{
+				return false;
+			}
+			if (auto info = ledger.any.account_get (transaction, account))
+			{
+				if (info->head != frontier)
+				{
+					outdated++;
+					return true; // Frontier is outdated
+				}
+				return false;
+			}
+			if (auto receivable = ledger.any.receivable_lower_bound (transaction, account, { 0 }))
+			{
+				if (receivable->first.account == account)
+				{
+					pending++;
+					return true; // Account doesn't exist but has pending blocks in the ledger
+				}
+				return false;
+			}
+			return false;
+		};
+
+		for (auto const & [account, frontier] : frontiers)
+		{
+			if (should_prioritize (account, frontier))
+			{
+				result.push_back (account);
+			}
+		}
+	}
+
+	stats.add (nano::stat::type::bootstrap_ascending, nano::stat::detail::frontiers_processed, frontiers.size ());
+	stats.add (nano::stat::type::bootstrap_ascending, nano::stat::detail::frontiers_prioritized, result.size ());
+	stats.add (nano::stat::type::bootstrap_ascending, nano::stat::detail::frontiers_outdated, outdated);
+	stats.add (nano::stat::type::bootstrap_ascending, nano::stat::detail::frontiers_pending, pending);
+
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
+	for (auto const & account : result)
+	{
+		accounts.priority_set (account);
+	}
+}
+
 void nano::bootstrap_ascending::service::cleanup_and_sync ()
 {
 	debug_assert (!mutex.try_lock ());
@@ -622,7 +767,7 @@ void nano::bootstrap_ascending::service::process (nano::asc_pull_ack const & mes
 		}
 		bool operator() (const nano::asc_pull_ack::frontiers_payload & response) const
 		{
-			return false; // TODO: Handle frontiers
+			return type == query_type::frontiers;
 		}
 		bool operator() (const nano::empty_payload & response) const
 		{
@@ -664,7 +809,7 @@ void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::bloc
 	{
 		case verify_result::ok:
 		{
-			stats.inc (nano::stat::type::bootstrap_ascending_verify, nano::stat::detail::ok);
+			stats.inc (nano::stat::type::bootstrap_ascending_verify_blocks, nano::stat::detail::ok);
 			stats.add (nano::stat::type::bootstrap_ascending, nano::stat::detail::blocks, nano::stat::dir::in, response.blocks.size ());
 
 			auto blocks = response.blocks;
@@ -705,7 +850,7 @@ void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::bloc
 		break;
 		case verify_result::nothing_new:
 		{
-			stats.inc (nano::stat::type::bootstrap_ascending_verify, nano::stat::detail::nothing_new);
+			stats.inc (nano::stat::type::bootstrap_ascending_verify_blocks, nano::stat::detail::nothing_new);
 
 			nano::lock_guard<nano::mutex> lock{ mutex };
 			accounts.priority_down (tag.account);
@@ -717,7 +862,7 @@ void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::bloc
 		break;
 		case verify_result::invalid:
 		{
-			stats.inc (nano::stat::type::bootstrap_ascending_verify, nano::stat::detail::invalid);
+			stats.inc (nano::stat::type::bootstrap_ascending_verify_blocks, nano::stat::detail::invalid);
 		}
 		break;
 	}
@@ -731,24 +876,69 @@ void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::acco
 	if (response.account.is_zero ())
 	{
 		stats.inc (nano::stat::type::bootstrap_ascending_process, nano::stat::detail::account_info_empty);
+		return;
 	}
-	else
-	{
-		stats.inc (nano::stat::type::bootstrap_ascending_process, nano::stat::detail::account_info);
 
-		// Prioritize account containing the dependency
-		{
-			nano::lock_guard<nano::mutex> lock{ mutex };
-			accounts.dependency_update (tag.hash, response.account);
-			accounts.priority_set (response.account);
-		}
+	stats.inc (nano::stat::type::bootstrap_ascending_process, nano::stat::detail::account_info);
+
+	// Prioritize account containing the dependency
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		accounts.dependency_update (tag.hash, response.account);
+		accounts.priority_set (response.account);
 	}
 }
 
 void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::frontiers_payload & response, const async_tag & tag)
 {
-	// TODO: Make use of frontiers info
+	debug_assert (tag.type == query_type::frontiers);
+	debug_assert (!tag.start.is_zero ());
+
+	if (response.frontiers.empty ())
+	{
+		stats.inc (nano::stat::type::bootstrap_ascending_process, nano::stat::detail::frontiers_empty);
+		return;
+	}
+
 	stats.inc (nano::stat::type::bootstrap_ascending_process, nano::stat::detail::frontiers);
+
+	auto result = verify (response, tag);
+	switch (result)
+	{
+		case verify_result::ok:
+		{
+			stats.inc (nano::stat::type::bootstrap_ascending_verify_frontiers, nano::stat::detail::ok);
+			stats.add (nano::stat::type::bootstrap_ascending, nano::stat::detail::frontiers, nano::stat::dir::in, response.frontiers.size ());
+
+			{
+				nano::lock_guard<nano::mutex> lock{ mutex };
+				frontiers.process (tag.start.as_account (), response.frontiers);
+			}
+
+			// Allow some overfill to avoid unnecessarily dropping responses
+			if (workers.num_queued_tasks () < config.frontier_scan.max_pending * 4)
+			{
+				workers.push_task ([this, frontiers = response.frontiers] {
+					process_frontiers (frontiers);
+				});
+			}
+			else
+			{
+				stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::dropped_frontiers);
+			}
+		}
+		break;
+		case verify_result::nothing_new:
+		{
+			stats.inc (nano::stat::type::bootstrap_ascending_verify_frontiers, nano::stat::detail::nothing_new);
+		}
+		break;
+		case verify_result::invalid:
+		{
+			stats.inc (nano::stat::type::bootstrap_ascending_verify_frontiers, nano::stat::detail::invalid);
+		}
+		break;
+	}
 }
 
 void nano::bootstrap_ascending::service::process (const nano::empty_payload & response, const async_tag & tag)
@@ -816,6 +1006,35 @@ nano::bootstrap_ascending::service::verify_result nano::bootstrap_ascending::ser
 	return verify_result::ok;
 }
 
+nano::bootstrap_ascending::service::verify_result nano::bootstrap_ascending::service::verify (nano::asc_pull_ack::frontiers_payload const & response, async_tag const & tag) const
+{
+	auto const & frontiers = response.frontiers;
+
+	if (frontiers.empty ())
+	{
+		return verify_result::nothing_new;
+	}
+
+	// Ensure frontiers accounts are in ascending order
+	nano::account previous{ 0 };
+	for (auto const & [account, _] : frontiers)
+	{
+		if (account.number () <= previous.number ())
+		{
+			return verify_result::invalid;
+		}
+		previous = account;
+	}
+
+	// Ensure the frontiers are larger or equal to the requested frontier
+	if (frontiers.front ().first.number () < tag.start.as_account ().number ())
+	{
+		return verify_result::invalid;
+	}
+
+	return verify_result::ok;
+}
+
 auto nano::bootstrap_ascending::service::info () const -> nano::bootstrap_ascending::account_sets::info_t
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
@@ -840,6 +1059,8 @@ std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::servi
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "throttle_successes", throttle.successes (), 0 }));
 	composite->add_component (accounts.collect_container_info ("accounts"));
 	composite->add_component (database_scan.collect_container_info ("database_scan"));
+	composite->add_component (frontiers.collect_container_info ("frontiers"));
+	composite->add_component (workers.collect_container_info ("workers"));
 	return composite;
 }
 

@@ -724,7 +724,7 @@ public: // Payload definitions
 		static frontier deserialize_frontier (nano::stream &);
 
 	public: // Payload
-		std::vector<frontier> frontiers;
+		std::deque<frontier> frontiers;
 
 	public: // Logging
 		void operator() (nano::object_stream &) const;
