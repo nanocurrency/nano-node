@@ -37,9 +37,19 @@ public:
 class transaction
 {
 public:
+	using epoch_t = size_t;
+
+public:
 	virtual ~transaction () = default;
 	virtual void * get_handle () const = 0;
 	virtual nano::id_dispenser::id_t store_id () const = 0;
+
+	epoch_t epoch () const;
+	std::chrono::steady_clock::time_point timestamp () const;
+
+protected:
+	epoch_t current_epoch{ 0 };
+	std::chrono::steady_clock::time_point start{};
 };
 
 /**
@@ -53,14 +63,13 @@ public:
 	void * get_handle () const override;
 	nano::id_dispenser::id_t store_id () const override;
 
-	void reset () const;
-	void renew () const;
-	void refresh () const;
-	void refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 }) const;
+	void reset ();
+	void renew ();
+	void refresh ();
+	void refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 });
 
 private:
 	std::unique_ptr<read_transaction_impl> impl;
-	mutable std::chrono::steady_clock::time_point start;
 };
 
 /**
@@ -82,6 +91,5 @@ public:
 
 private:
 	std::unique_ptr<write_transaction_impl> impl;
-	std::chrono::steady_clock::time_point start;
 };
 } // namespace nano::store

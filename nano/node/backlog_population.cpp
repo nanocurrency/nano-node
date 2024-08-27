@@ -95,21 +95,26 @@ void nano::backlog_population::populate_backlog (nano::unique_lock<nano::mutex> 
 		{
 			auto transaction = ledger.tx_begin_read ();
 
-			auto count = 0u;
-			auto i = ledger.store.account.begin (transaction, next);
+			auto it = ledger.store.account.begin (transaction, next);
 			auto const end = ledger.store.account.end ();
-			for (; i != end && count < chunk_size; ++i, ++count, ++total)
-			{
-				transaction.refresh_if_needed ();
 
+			auto should_refresh = [&transaction] () {
+				auto cutoff = std::chrono::steady_clock::now () - 100ms; // TODO: Make this configurable
+				return transaction.timestamp () < cutoff;
+			};
+
+			for (size_t count = 0; it != end && count < chunk_size && !should_refresh (); ++it, ++count, ++total)
+			{
 				stats.inc (nano::stat::type::backlog, nano::stat::detail::total);
 
-				auto const & account = i->first;
-				auto const & account_info = i->second;
+				auto const & account = it->first;
+				auto const & account_info = it->second;
+
 				activate (transaction, account, account_info);
 
 				next = account.number () + 1;
 			}
+
 			done = ledger.store.account.begin (transaction, next) == end;
 		}
 

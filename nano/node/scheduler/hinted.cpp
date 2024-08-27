@@ -68,7 +68,7 @@ bool nano::scheduler::hinted::predicate () const
 	return active.vacancy (nano::election_behavior::hinted) > 0;
 }
 
-void nano::scheduler::hinted::activate (secure::read_transaction const & transaction, nano::block_hash const & hash, bool check_dependents)
+void nano::scheduler::hinted::activate (secure::read_transaction & transaction, nano::block_hash const & hash, bool check_dependents)
 {
 	const int max_iterations = 64;
 
