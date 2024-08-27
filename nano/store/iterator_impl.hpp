@@ -1,5 +1,8 @@
 #pragma once
 
+#include <nano/lib/utility.hpp>
+#include <nano/store/transaction.hpp>
+
 #include <utility>
 
 namespace nano::store
@@ -8,7 +11,16 @@ template <typename T, typename U>
 class iterator_impl
 {
 public:
-	virtual ~iterator_impl () = default;
+	explicit iterator_impl (nano::store::transaction const & transaction_a) :
+		transaction{ transaction_a },
+		transaction_epoch{ transaction_a.epoch () }
+	{
+	}
+	virtual ~iterator_impl ()
+	{
+		debug_assert (transaction_epoch == transaction.epoch (), "invalid iterator-transaction lifetime detected");
+	}
+
 	virtual iterator_impl<T, U> & operator++ () = 0;
 	virtual iterator_impl<T, U> & operator-- () = 0;
 	virtual bool operator== (iterator_impl<T, U> const & other_a) const = 0;
@@ -23,5 +35,9 @@ public:
 	{
 		return !(*this == other_a);
 	}
+
+protected:
+	nano::store::transaction const & transaction;
+	nano::store::transaction::epoch_t const transaction_epoch;
 };
-} // namespace nano::store
+}

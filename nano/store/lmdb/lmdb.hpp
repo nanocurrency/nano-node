@@ -112,9 +112,9 @@ public:
 
 private:
 	bool do_upgrades (store::write_transaction &, nano::ledger_constants & constants, bool &);
-	void upgrade_v21_to_v22 (store::write_transaction const &);
-	void upgrade_v22_to_v23 (store::write_transaction const &);
-	void upgrade_v23_to_v24 (store::write_transaction const &);
+	void upgrade_v21_to_v22 (store::write_transaction &);
+	void upgrade_v22_to_v23 (store::write_transaction &);
+	void upgrade_v23_to_v24 (store::write_transaction &);
 
 	void open_databases (bool &, store::transaction const &, unsigned);
 

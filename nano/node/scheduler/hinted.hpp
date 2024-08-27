@@ -71,7 +71,7 @@ private:
 	bool predicate () const;
 	void run ();
 	void run_iterative ();
-	void activate (secure::read_transaction const &, nano::block_hash const & hash, bool check_dependents);
+	void activate (secure::read_transaction &, nano::block_hash const & hash, bool check_dependents);
 
 	nano::uint128_t tally_threshold () const;
 	nano::uint128_t final_tally_threshold () const;
