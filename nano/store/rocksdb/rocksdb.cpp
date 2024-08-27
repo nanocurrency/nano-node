@@ -307,53 +307,50 @@ void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transacti
 
 	release_assert (rep_weight.begin (tx_begin_read ()) == rep_weight.end (), "rep weights table must be empty before upgrading to v23");
 
-	const size_t batch_size = 1000 * 10;
-
-	nano::account next = 0;
-	size_t processed_accounts = 0;
-	while (true)
-	{
-		transaction.refresh ();
+	auto iterate_accounts = [this] (auto && func) {
+		auto transaction = tx_begin_read ();
 
 		// Manually create v22 compatible iterator to read accounts
-		auto it = make_iterator<nano::account, nano::account_info_v22> (transaction, tables::accounts, next);
+		auto it = make_iterator<nano::account, nano::account_info_v22> (transaction, tables::accounts);
 		auto const end = store::iterator<nano::account, nano::account_info_v22> (nullptr);
 
-		if (it == end)
-		{
-			break;
-		}
-
-		for (size_t count = 0; it != end && count < batch_size; ++it, ++count)
+		for (; it != end; ++it)
 		{
 			auto const & account = it->first;
 			auto const & account_info = it->second;
 
-			if (!account_info.balance.is_zero ())
-			{
-				nano::uint128_t total{ 0 };
-				nano::store::rocksdb::db_val value;
-				auto status = get (transaction, tables::rep_weights, account_info.representative, value);
-				if (success (status))
-				{
-					total = nano::amount{ value }.number ();
-				}
-				total += account_info.balance.number ();
-				status = put (transaction, tables::rep_weights, account_info.representative, nano::amount{ total });
-				release_assert_success (status);
-			}
-
-			processed_accounts++;
-			if (processed_accounts % 250000 == 0)
-			{
-				logger.info (nano::log::type::rocksdb, "Processed {} accounts", processed_accounts);
-			}
-
-			next = account.number () + 1;
+			func (account, account_info);
 		}
-	}
+	};
 
-	logger.info (nano::log::type::rocksdb, "Processed {} accounts", processed_accounts);
+	// TODO: Make this smaller in dev builds
+	const size_t batch_size = 250000;
+
+	size_t processed = 0;
+	iterate_accounts ([this, &transaction, &processed] (nano::account const & account, nano::account_info_v22 const & account_info) {
+		if (!account_info.balance.is_zero ())
+		{
+			nano::uint128_t total{ 0 };
+			nano::store::rocksdb::db_val value;
+			auto status = get (transaction, tables::rep_weights, account_info.representative, value);
+			if (success (status))
+			{
+				total = nano::amount{ value }.number ();
+			}
+			total += account_info.balance.number ();
+			status = put (transaction, tables::rep_weights, account_info.representative, nano::amount{ total });
+			release_assert_success (status);
+		}
+
+		processed++;
+		if (processed % batch_size == 0)
+		{
+			logger.info (nano::log::type::rocksdb, "Processed {} accounts", processed);
+			transaction.refresh (); // Refresh to prevent excessive memory usage
+		}
+	});
+
+	logger.info (nano::log::type::rocksdb, "Done processing {} accounts", processed);
 	version.put (transaction, 23);
 
 	logger.info (nano::log::type::rocksdb, "Upgrading database from v22 to v23 completed");
