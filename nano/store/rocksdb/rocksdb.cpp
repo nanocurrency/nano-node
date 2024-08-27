@@ -292,7 +292,18 @@ void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transacti
 	if (column_family_exists ("rep_weights"))
 	{
 		logger.info (nano::log::type::rocksdb, "Dropping existing rep_weights table");
-		drop (transaction, tables::rep_weights);
+		auto const rep_weights_handle = get_column_family ("rep_weights");
+		db->DropColumnFamily (rep_weights_handle);
+		db->DestroyColumnFamilyHandle (rep_weights_handle);
+		std::erase_if (handles, [rep_weights_handle] (auto & handle) {
+			if (handle.get () == rep_weights_handle)
+			{
+				// The handle resource is deleted by RocksDB.
+				[[maybe_unused]] auto ptr = handle.release ();
+				return true;
+			}
+			return false;
+		});
 		transaction.refresh ();
 	}
 
@@ -301,6 +312,7 @@ void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transacti
 		::rocksdb::ColumnFamilyOptions new_cf_options;
 		::rocksdb::ColumnFamilyHandle * new_cf_handle;
 		::rocksdb::Status status = db->CreateColumnFamily (new_cf_options, "rep_weights", &new_cf_handle);
+		release_assert (success (status.code ()));
 		handles.emplace_back (new_cf_handle);
 		transaction.refresh ();
 	}
@@ -362,11 +374,11 @@ void nano::store::rocksdb::component::upgrade_v23_to_v24 (store::write_transacti
 
 	if (column_family_exists ("frontiers"))
 	{
-		auto const unchecked_handle = get_column_family ("frontiers");
-		db->DropColumnFamily (unchecked_handle);
-		db->DestroyColumnFamilyHandle (unchecked_handle);
-		std::erase_if (handles, [unchecked_handle] (auto & handle) {
-			if (handle.get () == unchecked_handle)
+		auto const frontiers_handle = get_column_family ("frontiers");
+		db->DropColumnFamily (frontiers_handle);
+		db->DestroyColumnFamilyHandle (frontiers_handle);
+		std::erase_if (handles, [frontiers_handle] (auto & handle) {
+			if (handle.get () == frontiers_handle)
 			{
 				// The handle resource is deleted by RocksDB.
 				[[maybe_unused]] auto ptr = handle.release ();
