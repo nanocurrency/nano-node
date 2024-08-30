@@ -436,7 +436,7 @@ rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_cf_options (st
 {
 	::rocksdb::ColumnFamilyOptions cf_options;
 	auto const memtable_size_bytes = base_memtable_size_bytes ();
-	auto const block_cache_size_bytes = 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_block_cache_size;
+	auto const block_cache_size_bytes = 1024ULL * 1024 * base_block_cache_size;
 	if (cf_name_a == "blocks")
 	{
 		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 4)));
@@ -1116,7 +1116,7 @@ unsigned long long nano::store::rocksdb::component::blocks_memtable_size_bytes (
 
 unsigned long long nano::store::rocksdb::component::base_memtable_size_bytes () const
 {
-	return 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_memtable_size;
+	return 1024ULL * 1024 * base_memtable_size;
 }
 
 // This is a ratio of the blocks memtable size to keep total write transaction commit size down.

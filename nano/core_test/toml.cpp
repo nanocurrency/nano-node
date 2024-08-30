@@ -239,7 +239,6 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.lmdb_config.map_size, defaults.node.lmdb_config.map_size);
 
 	ASSERT_EQ (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
-	ASSERT_EQ (conf.node.rocksdb_config.memory_multiplier, defaults.node.rocksdb_config.memory_multiplier);
 	ASSERT_EQ (conf.node.rocksdb_config.io_threads, defaults.node.rocksdb_config.io_threads);
 
 	ASSERT_EQ (conf.node.optimistic_scheduler.enabled, defaults.node.optimistic_scheduler.enabled);
@@ -573,7 +572,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 
 	[node.rocksdb]
 	enable = true
-	memory_multiplier = 3
 	io_threads = 99
 
 	[node.experimental]
@@ -743,7 +741,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 
 	ASSERT_TRUE (conf.node.rocksdb_config.enable);
 	ASSERT_EQ (nano::rocksdb_config::using_rocksdb_in_tests (), defaults.node.rocksdb_config.enable);
-	ASSERT_NE (conf.node.rocksdb_config.memory_multiplier, defaults.node.rocksdb_config.memory_multiplier);
 	ASSERT_NE (conf.node.rocksdb_config.io_threads, defaults.node.rocksdb_config.io_threads);
 
 	ASSERT_NE (conf.node.optimistic_scheduler.enabled, defaults.node.optimistic_scheduler.enabled);
