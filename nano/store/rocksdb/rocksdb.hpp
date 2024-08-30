@@ -165,9 +165,6 @@ private:
 
 	std::vector<::rocksdb::ColumnFamilyDescriptor> create_column_families ();
 
-	constexpr static long memtable_size_bytes = 16 * 1024 * 1024;
-	constexpr static long read_cache_size_bytes = 8 * 1024 * 1024;
-
 	friend class nano::rocksdb_block_store_tombstone_count_Test;
 	friend class rocksdb_block_store_upgrade_v21_v22_Test;
 };

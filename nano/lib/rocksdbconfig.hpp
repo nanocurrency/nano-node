@@ -26,5 +26,7 @@ public:
 
 	bool enable{ false };
 	unsigned io_threads{ std::max (nano::hardware_concurrency () / 2, 1u) };
+	long read_cache{ 32 };
+	long write_cache{ 64 };
 };
 }
