@@ -168,7 +168,7 @@ private:
 
 	std::vector<::rocksdb::ColumnFamilyDescriptor> create_column_families ();
 
-	constexpr static int memtable_size_bytes = 1024ULL * 1024 * 32; // 32 MB write buffer
+	constexpr static int memtable_size_bytes = 1024ULL * 1024 * 64; // 64 MB write buffer
 
 	friend class nano::rocksdb_block_store_tombstone_count_Test;
 	friend class rocksdb_block_store_upgrade_v21_v22_Test;
