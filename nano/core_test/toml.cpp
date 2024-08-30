@@ -240,6 +240,8 @@ TEST (toml, daemon_config_deserialize_defaults)
 
 	ASSERT_EQ (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
 	ASSERT_EQ (conf.node.rocksdb_config.io_threads, defaults.node.rocksdb_config.io_threads);
+	ASSERT_EQ (conf.node.rocksdb_config.read_cache, defaults.node.rocksdb_config.read_cache);
+	ASSERT_EQ (conf.node.rocksdb_config.write_cache, defaults.node.rocksdb_config.write_cache);
 
 	ASSERT_EQ (conf.node.optimistic_scheduler.enabled, defaults.node.optimistic_scheduler.enabled);
 	ASSERT_EQ (conf.node.optimistic_scheduler.gap_threshold, defaults.node.optimistic_scheduler.gap_threshold);
@@ -573,6 +575,8 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	[node.rocksdb]
 	enable = true
 	io_threads = 99
+	read_cache = 99
+	write_cache = 99
 
 	[node.experimental]
 	secondary_work_peers = ["dev.org:998"]
@@ -742,6 +746,8 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_TRUE (conf.node.rocksdb_config.enable);
 	ASSERT_EQ (nano::rocksdb_config::using_rocksdb_in_tests (), defaults.node.rocksdb_config.enable);
 	ASSERT_NE (conf.node.rocksdb_config.io_threads, defaults.node.rocksdb_config.io_threads);
+	ASSERT_NE (conf.node.rocksdb_config.read_cache, defaults.node.rocksdb_config.read_cache);
+	ASSERT_NE (conf.node.rocksdb_config.write_cache, defaults.node.rocksdb_config.write_cache);
 
 	ASSERT_NE (conf.node.optimistic_scheduler.enabled, defaults.node.optimistic_scheduler.enabled);
 	ASSERT_NE (conf.node.optimistic_scheduler.gap_threshold, defaults.node.optimistic_scheduler.gap_threshold);
