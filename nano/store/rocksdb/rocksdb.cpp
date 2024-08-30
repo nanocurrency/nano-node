@@ -399,25 +399,16 @@ void nano::store::rocksdb::component::generate_tombstone_map ()
 	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::pending), std::forward_as_tuple (0, 25000));
 }
 
-rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_common_cf_options (std::shared_ptr<::rocksdb::TableFactory> const & table_factory_a) const
-{
-	::rocksdb::ColumnFamilyOptions cf_options;
-	cf_options.table_factory = table_factory_a;
-	cf_options.write_buffer_size = memtable_size_bytes;
-
-	return cf_options;
-}
-
 rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_cf_options (std::string const & cf_name_a) const
 {
 	::rocksdb::ColumnFamilyOptions cf_options;
-	if (cf_name_a == ::rocksdb::kDefaultColumnFamilyName)
+	if (cf_name_a != ::rocksdb::kDefaultColumnFamilyName)
 	{
-		return cf_options;
+		cf_options.table_factory = std::shared_ptr<::rocksdb::TableFactory> (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
+		cf_options.write_buffer_size = memtable_size_bytes;
 	}
 
-	std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options ()));
-	return get_common_cf_options (table_factory);
+	return cf_options;
 }
 
 std::vector<rocksdb::ColumnFamilyDescriptor> nano::store::rocksdb::component::create_column_families ()
