@@ -435,84 +435,11 @@ rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_common_cf_opti
 rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_cf_options (std::string const & cf_name_a) const
 {
 	::rocksdb::ColumnFamilyOptions cf_options;
-	auto const block_cache_size_bytes = 1024ULL * 1024 * base_block_cache_size;
-	if (cf_name_a == "blocks")
+	if (cf_name_a != ::rocksdb::kDefaultColumnFamilyName)
 	{
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 4)));
+		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (read_cache_size_bytes)));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
 	}
-	else if (cf_name_a == "confirmation_height")
-	{
-		// Entries will not be deleted in the normal case, so can make memtables a lot bigger
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes)));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes * 2);
-	}
-	else if (cf_name_a == "meta" || cf_name_a == "online_weight" || cf_name_a == "peers")
-	{
-		// Meta - It contains just version key
-		// Online weight - Periodically deleted
-		// Peers - Cleaned periodically, a lot of deletions. This is never read outside of initializing? Keep this small
-		cf_options = get_small_cf_options (small_table_factory);
-	}
-	else if (cf_name_a == "cached_counts")
-	{
-		// Really small (keys are blocks tables, value is uint64_t)
-		cf_options = get_small_cf_options (small_table_factory);
-	}
-	else if (cf_name_a == "pending")
-	{
-		// Pending can have a lot of deletions too
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes)));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
-
-		// Number of files in level 0 which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
-		cf_options.level0_file_num_compaction_trigger = 2;
-
-		// L1 size, compaction is triggered for L0 at this size (2 SST files in L1)
-		cf_options.max_bytes_for_level_base = memtable_size_bytes * 2;
-	}
-	else if (cf_name_a == "frontiers")
-	{
-		// Frontiers is only needed during bootstrap for legacy blocks
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes)));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
-	}
-	else if (cf_name_a == "accounts")
-	{
-		// Can have deletions from rollbacks
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
-	}
-	else if (cf_name_a == "vote")
-	{
-		// No deletes it seems, only overwrites.
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
-	}
-	else if (cf_name_a == "pruned")
-	{
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
-	}
-	else if (cf_name_a == "final_votes")
-	{
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
-	}
-	else if (cf_name_a == "rep_weights")
-	{
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
-	}
-	else if (cf_name_a == ::rocksdb::kDefaultColumnFamilyName)
-	{
-		// Do nothing.
-	}
-	else
-	{
-		debug_assert (false);
-	}
-
 	return cf_options;
 }
 
@@ -935,20 +862,6 @@ rocksdb::BlockBasedTableOptions nano::store::rocksdb::component::get_small_table
 	table_options.data_block_hash_table_util_ratio = 0.75;
 	table_options.block_size = 1024ULL;
 	return table_options;
-}
-
-rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_small_cf_options (std::shared_ptr<::rocksdb::TableFactory> const & table_factory_a) const
-{
-	auto const memtable_size_bytes = 10000;
-	auto cf_options = get_common_cf_options (table_factory_a, memtable_size_bytes);
-
-	// Number of files in level 0 which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
-	cf_options.level0_file_num_compaction_trigger = 1;
-
-	// L1 size, compaction is triggered for L0 at this size (1 SST file in L1)
-	cf_options.max_bytes_for_level_base = memtable_size_bytes;
-
-	return cf_options;
 }
 
 ::rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_active_cf_options (std::shared_ptr<::rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const

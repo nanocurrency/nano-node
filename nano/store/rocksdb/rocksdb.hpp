@@ -157,7 +157,6 @@ private:
 	::rocksdb::Options get_db_options ();
 	::rocksdb::ColumnFamilyOptions get_common_cf_options (std::shared_ptr<::rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const;
 	::rocksdb::ColumnFamilyOptions get_active_cf_options (std::shared_ptr<::rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const;
-	::rocksdb::ColumnFamilyOptions get_small_cf_options (std::shared_ptr<::rocksdb::TableFactory> const & table_factory_a) const;
 	::rocksdb::BlockBasedTableOptions get_active_table_options (std::size_t lru_size) const;
 	::rocksdb::BlockBasedTableOptions get_small_table_options () const;
 	::rocksdb::ColumnFamilyOptions get_cf_options (std::string const & cf_name_a) const;
@@ -171,7 +170,7 @@ private:
 	std::vector<::rocksdb::ColumnFamilyDescriptor> create_column_families ();
 
 	constexpr static long memtable_size_bytes = 16 * 1024 * 1024;
-	constexpr static int base_block_cache_size = 8;
+	constexpr static long read_cache_size_bytes = 8 * 1024 * 1024;
 
 	friend class nano::rocksdb_block_store_tombstone_count_Test;
 	friend class rocksdb_block_store_upgrade_v21_v22_Test;
