@@ -80,7 +80,6 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 	debug_assert (path_a.filename () == "rocksdb");
 
 	generate_tombstone_map ();
-	small_table_factory.reset (::rocksdb::NewBlockBasedTableFactory (get_small_table_options ()));
 
 	// TODO: get_db_options () registers a listener for resetting tombstones, needs to check if it is a problem calling it more than once.
 	auto options = get_db_options ();
@@ -405,7 +404,7 @@ rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_cf_options (st
 	::rocksdb::ColumnFamilyOptions cf_options;
 	if (cf_name_a != ::rocksdb::kDefaultColumnFamilyName)
 	{
-		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (read_cache_size_bytes)));
+		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_table_options ()));
 		cf_options.table_factory = table_factory;
 	}
 	return cf_options;
@@ -774,7 +773,7 @@ rocksdb::Options nano::store::rocksdb::component::get_db_options ()
 	return db_options;
 }
 
-rocksdb::BlockBasedTableOptions nano::store::rocksdb::component::get_active_table_options (std::size_t lru_size) const
+rocksdb::BlockBasedTableOptions nano::store::rocksdb::component::get_table_options () const
 {
 	::rocksdb::BlockBasedTableOptions table_options;
 
@@ -787,21 +786,11 @@ rocksdb::BlockBasedTableOptions nano::store::rocksdb::component::get_active_tabl
 	table_options.format_version = 4;
 
 	// Block cache for reads
-	table_options.block_cache = ::rocksdb::NewLRUCache (lru_size);
+	table_options.block_cache = ::rocksdb::NewLRUCache (read_cache_size_bytes);
 
 	// Bloom filter to help with point reads. 10bits gives 1% false positive rate.
 	table_options.filter_policy.reset (::rocksdb::NewBloomFilterPolicy (10, false));
 
-	return table_options;
-}
-
-rocksdb::BlockBasedTableOptions nano::store::rocksdb::component::get_small_table_options () const
-{
-	::rocksdb::BlockBasedTableOptions table_options;
-	// Improve point lookup performance be using the data block hash index (uses about 5% more space).
-	table_options.data_block_index_type = ::rocksdb::BlockBasedTableOptions::DataBlockIndexType::kDataBlockBinaryAndHash;
-	table_options.data_block_hash_table_util_ratio = 0.75;
-	table_options.block_size = 1024ULL;
 	return table_options;
 }
 
