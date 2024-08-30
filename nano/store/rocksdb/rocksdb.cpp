@@ -782,10 +782,10 @@ rocksdb::BlockBasedTableOptions nano::store::rocksdb::component::get_table_optio
 	// Improve point lookup performance be using the data block hash index (uses about 5% more space).
 	table_options.data_block_index_type = ::rocksdb::BlockBasedTableOptions::DataBlockIndexType::kDataBlockBinaryAndHash;
 
-	// Using format_version=4 significantly reduces the index block size, in some cases around 4-5x.
-	// This frees more space in block cache, which would result in higher hit rate for data and filter blocks,
-	// or offer the same performance with a smaller block cache size.
-	table_options.format_version = 4;
+	// Using storage format_version 5.
+	// Version 5 offers improved read spead, caching and better compression (if enabled)
+	// Any existing ledger data in version 4 will not be migrated. New data will be written in version 5.
+	table_options.format_version = 5;
 
 	// Block cache for reads
 	table_options.block_cache = ::rocksdb::NewLRUCache (rocksdb_config.read_cache * 1024 * 1024);
