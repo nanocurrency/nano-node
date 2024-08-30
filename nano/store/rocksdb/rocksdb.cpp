@@ -64,7 +64,7 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 	logger{ logger_a },
 	constants{ constants },
 	rocksdb_config{ rocksdb_config_a },
-	max_block_write_batch_num_m{ nano::narrow_cast<unsigned> (blocks_memtable_size_bytes () / (2 * (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)))) },
+	max_block_write_batch_num_m{ nano::narrow_cast<unsigned> (memtable_size_bytes / (2 * (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)))) },
 	cf_name_table_map{ create_cf_name_table_map () }
 {
 	boost::system::error_code error_mkdir, error_chmod;
@@ -435,12 +435,11 @@ rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_common_cf_opti
 rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_cf_options (std::string const & cf_name_a) const
 {
 	::rocksdb::ColumnFamilyOptions cf_options;
-	auto const memtable_size_bytes = base_memtable_size_bytes ();
 	auto const block_cache_size_bytes = 1024ULL * 1024 * base_block_cache_size;
 	if (cf_name_a == "blocks")
 	{
 		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 4)));
-		cf_options = get_active_cf_options (table_factory, blocks_memtable_size_bytes ());
+		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
 	}
 	else if (cf_name_a == "confirmation_height")
 	{
@@ -1107,16 +1106,6 @@ void nano::store::rocksdb::component::serialize_memory_stats (boost::property_tr
 	// Memory size for the entries residing in block cache.
 	db->GetAggregatedIntProperty (::rocksdb::DB::Properties::kBlockCacheUsage, &val);
 	json.put ("block-cache-usage", val);
-}
-
-unsigned long long nano::store::rocksdb::component::blocks_memtable_size_bytes () const
-{
-	return base_memtable_size_bytes ();
-}
-
-unsigned long long nano::store::rocksdb::component::base_memtable_size_bytes () const
-{
-	return 1024ULL * 1024 * base_memtable_size;
 }
 
 // This is a ratio of the blocks memtable size to keep total write transaction commit size down.

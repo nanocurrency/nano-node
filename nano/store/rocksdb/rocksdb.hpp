@@ -169,10 +169,8 @@ private:
 	std::unordered_map<char const *, nano::tables> create_cf_name_table_map () const;
 
 	std::vector<::rocksdb::ColumnFamilyDescriptor> create_column_families ();
-	unsigned long long base_memtable_size_bytes () const;
-	unsigned long long blocks_memtable_size_bytes () const;
 
-	constexpr static int base_memtable_size = 16;
+	constexpr static long memtable_size_bytes = 16 * 1024 * 1024;
 	constexpr static int base_block_cache_size = 8;
 
 	friend class nano::rocksdb_block_store_tombstone_count_Test;
