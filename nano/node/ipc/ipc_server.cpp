@@ -156,7 +156,7 @@ public:
 	/**
 	 * Write to underlying socket. Writes goes through a queue protected by the strand. Thus, this function
 	 * can be called concurrently with other writes.
-	 * @note This function explicitely doesn't use nano::shared_const_buffer, as buffers usually originate from Flatbuffers
+	 * @note This function explicitly doesn't use nano::shared_const_buffer, as buffers usually originate from Flatbuffers
 	 * and copying into the shared_const_buffer vector would impose a significant overhead for large requests and responses.
 	 */
 	void queued_write (boost::asio::const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)

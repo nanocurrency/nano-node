@@ -23,7 +23,7 @@ std::string nano::error_cli_messages::message (int ev) const
 		case nano::error_cli::generic:
 			return "Unknown error";
 		case nano::error_cli::parse_error:
-			return "Coud not parse command line";
+			return "Could not parse command line";
 		case nano::error_cli::invalid_arguments:
 			return "Invalid arguments";
 		case nano::error_cli::unknown_command:
@@ -342,7 +342,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		}
 		else
 		{
-			std::cerr << "account comand requires one <key> option\n";
+			std::cerr << "account command requires one <key> option\n";
 			ec = nano::error_cli::invalid_arguments;
 		}
 	}

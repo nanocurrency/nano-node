@@ -263,7 +263,7 @@ void nano::distributed_work::success (std::string const & body_a, nano::tcp_endp
 			}
 			else
 			{
-				node.logger.error (nano::log::type::distributed_work, "Incorrect work response from {}:{} for root {} with diffuculty {}: {}",
+				node.logger.error (nano::log::type::distributed_work, "Incorrect work response from {}:{} for root {} with difficulty {}: {}",
 				nano::util::to_str (endpoint_a.address ()),
 				endpoint_a.port (),
 				request.root.to_string (),

@@ -67,7 +67,7 @@ nano::error nano::bootstrap_ascending_config::serialize (nano::tomlconfig & toml
 	toml.put ("request_timeout", request_timeout.count (), "Timeout in milliseconds for incoming ascending bootstrap messages to be processed.\ntype:milliseconds");
 	toml.put ("throttle_coefficient", throttle_coefficient, "Scales the number of samples to track for bootstrap throttling.\ntype:uint64");
 	toml.put ("throttle_wait", throttle_wait.count (), "Length of time to wait between requests when throttled.\ntype:milliseconds");
-	toml.put ("block_processor_threshold", block_processor_threshold, "Asending bootstrap will wait while block processor has more than this many blocks queued.\ntype:uint64");
+	toml.put ("block_processor_threshold", block_processor_threshold, "Ascending bootstrap will wait while block processor has more than this many blocks queued.\ntype:uint64");
 	toml.put ("max_requests", max_requests, "Maximum total number of in flight requests.\ntype:uint64");
 
 	nano::tomlconfig account_sets_l;

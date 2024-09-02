@@ -680,7 +680,7 @@ void nano::bootstrap_ascending::service::process (const nano::asc_pull_ack::bloc
 			{
 				if (block == blocks.back ())
 				{
-					// It's the last block submitted for this account chanin, reset timestamp to allow more requests
+					// It's the last block submitted for this account chain, reset timestamp to allow more requests
 					block_processor.add (block, nano::block_source::bootstrap, nullptr, [this, account = tag.account] (auto result) {
 						stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::timestamp_reset);
 						{

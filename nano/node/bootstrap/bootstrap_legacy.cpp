@@ -120,7 +120,7 @@ bool nano::bootstrap_attempt_legacy::request_bulk_push_target (std::pair<nano::b
 
 void nano::bootstrap_attempt_legacy::set_start_account (nano::account const & start_account_a)
 {
-	// Add last account fron frontier request
+	// Add last account from frontier request
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	start_account = start_account_a;
 }

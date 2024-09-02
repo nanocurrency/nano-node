@@ -184,7 +184,7 @@ public:
 
 	void publish (nano::publish const & message) override
 	{
-		// Put blocks that are being initally broadcasted in a separate queue, so that they won't have to compete with rebroadcasted blocks
+		// Put blocks that are being initially broadcasted in a separate queue, so that they won't have to compete with rebroadcasted blocks
 		// Both queues have the same priority and size, so the potential for exploiting this is limited
 		bool added = node.block_processor.add (message.block, message.is_originator () ? nano::block_source::live_originator : nano::block_source::live, channel);
 		if (!added)

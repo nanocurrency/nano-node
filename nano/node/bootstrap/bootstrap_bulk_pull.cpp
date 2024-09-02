@@ -345,9 +345,9 @@ void nano::bulk_pull_account_client::receive_pending ()
  * The account is supplied as the "start" member, and the final block to
  * send is the "end" member.  The "start" member may also be a block
  * hash, in which case the that hash is used as the start of a chain
- * to send.  To determine if "start" is interpretted as an account or
+ * to send.  To determine if "start" is interpreted as an account or
  * hash, the ledger is checked to see if the block specified exists,
- * if not then it is interpretted as an account.
+ * if not then it is interpreted as an account.
  *
  * Additionally, if "start" is specified as a block hash the range
  * is inclusive of that block hash, that is the range will be:
@@ -776,7 +776,7 @@ std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info
 		/*
 		 * If the pending_address_only flag is set, de-duplicate the
 		 * responses.  The responses are the address of the sender,
-		 * so they are are part of the pending table's information
+		 * so they are part of the pending table's information
 		 * and not key, so we have to de-duplicate them manually.
 		 */
 		if (pending_address_only)

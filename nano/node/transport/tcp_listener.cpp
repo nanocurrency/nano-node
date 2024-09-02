@@ -389,7 +389,7 @@ auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket
 
 		try
 		{
-			// Best effor attempt to gracefully close the socket, shutdown before closing to avoid zombie sockets
+			// Best effort attempt to gracefully close the socket, shutdown before closing to avoid zombie sockets
 			raw_socket.shutdown (asio::ip::tcp::socket::shutdown_both);
 			raw_socket.close ();
 		}
