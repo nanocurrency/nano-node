@@ -73,7 +73,6 @@ namespace rocksdb
 namespace nano
 {
 // Configs
-backlog_population::config backlog_population_config (node_config const &);
 outbound_bandwidth_limiter::config outbound_bandwidth_limiter_config (node_config const &);
 
 class node final : public std::enable_shared_from_this<node>

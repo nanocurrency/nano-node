@@ -9,6 +9,7 @@
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/active_elections.hpp>
+#include <nano/node/backlog_population.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
@@ -143,10 +144,6 @@ public:
 	nano::rocksdb_config rocksdb_config;
 	nano::lmdb_config lmdb_config;
 	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
-	/** Number of accounts per second to process when doing backlog population scan */
-	unsigned backlog_scan_batch_size{ 10 * 1000 };
-	/** Number of times per second to run backlog population batches. Number of accounts per single batch is `backlog_scan_batch_size / backlog_scan_frequency` */
-	unsigned backlog_scan_frequency{ 10 };
 	bool enable_upnp{ true };
 	nano::vote_cache_config vote_cache;
 	nano::rep_crawler_config rep_crawler;
@@ -161,6 +158,7 @@ public:
 	nano::local_block_broadcaster_config local_block_broadcaster;
 	nano::confirming_set_config confirming_set;
 	nano::monitor_config monitor;
+	nano::backlog_population_config backlog_population;
 
 public:
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;

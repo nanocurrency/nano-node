@@ -116,6 +116,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	std::stringstream ss;
 	ss << R"toml(
 	[node]
+	[node.backlog_population]
 	[node.bootstrap_ascending]
 	[node.bootstrap_server]
 	[node.block_processor]
@@ -197,8 +198,9 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.max_queued_requests, defaults.node.max_queued_requests);
 	ASSERT_EQ (conf.node.request_aggregator_threads, defaults.node.request_aggregator_threads);
 	ASSERT_EQ (conf.node.max_unchecked_blocks, defaults.node.max_unchecked_blocks);
-	ASSERT_EQ (conf.node.backlog_scan_batch_size, defaults.node.backlog_scan_batch_size);
-	ASSERT_EQ (conf.node.backlog_scan_frequency, defaults.node.backlog_scan_frequency);
+	ASSERT_EQ (conf.node.backlog_population.enable, defaults.node.backlog_population.enable);
+	ASSERT_EQ (conf.node.backlog_population.batch_size, defaults.node.backlog_population.batch_size);
+	ASSERT_EQ (conf.node.backlog_population.frequency, defaults.node.backlog_population.frequency);
 	ASSERT_EQ (conf.node.enable_upnp, defaults.node.enable_upnp);
 
 	ASSERT_EQ (conf.node.websocket_config.enabled, defaults.node.websocket_config.enabled);
@@ -462,9 +464,12 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	request_aggregator_threads = 999
 	max_unchecked_blocks = 999
 	frontiers_confirmation = "always"
-	backlog_scan_batch_size = 999
-	backlog_scan_frequency = 999
 	enable_upnp = false
+
+	[node.backlog_population]
+	enable = false
+	batch_size = 999
+	frequency = 999
 
 	[node.block_processor]
 	max_peer_queue = 999
@@ -700,8 +705,9 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.work_threads, defaults.node.work_threads);
 	ASSERT_NE (conf.node.max_queued_requests, defaults.node.max_queued_requests);
 	ASSERT_NE (conf.node.request_aggregator_threads, defaults.node.request_aggregator_threads);
-	ASSERT_NE (conf.node.backlog_scan_batch_size, defaults.node.backlog_scan_batch_size);
-	ASSERT_NE (conf.node.backlog_scan_frequency, defaults.node.backlog_scan_frequency);
+	ASSERT_NE (conf.node.backlog_population.enable, defaults.node.backlog_population.enable);
+	ASSERT_NE (conf.node.backlog_population.batch_size, defaults.node.backlog_population.batch_size);
+	ASSERT_NE (conf.node.backlog_population.frequency, defaults.node.backlog_population.frequency);
 	ASSERT_NE (conf.node.enable_upnp, defaults.node.enable_upnp);
 
 	ASSERT_NE (conf.node.websocket_config.enabled, defaults.node.websocket_config.enabled);
@@ -1090,7 +1096,7 @@ TEST (toml, merge_config_files)
 	ss << R"toml(
 	[node]
 	 active_elections.size = 999
-	 # backlog_scan_batch_size = 7777
+	 # background_threads = 7777
 	[node.bootstrap_ascending]
 	 block_processor_threshold = 33333
 	 old_entry = 34
@@ -1114,7 +1120,7 @@ TEST (toml, merge_config_files)
 
 	ASSERT_NE (merged_config.node.active_elections.size, default_config.node.active_elections.size);
 	ASSERT_EQ (merged_config.node.active_elections.size, 999);
-	ASSERT_NE (merged_config.node.backlog_scan_batch_size, 7777);
+	ASSERT_NE (merged_config.node.background_threads, 7777);
 	ASSERT_EQ (merged_config.node.bootstrap_ascending.block_processor_threshold, 33333);
 	ASSERT_TRUE (merged_config_string.find ("old_entry") == std::string::npos);
 }

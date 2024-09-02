@@ -20,22 +20,25 @@ class election_scheduler;
 class ledger;
 class stats;
 
+class backlog_population_config final
+{
+public:
+	nano::error deserialize (nano::tomlconfig &);
+	nano::error serialize (nano::tomlconfig &) const;
+
+public:
+	/** Control if ongoing backlog population is enabled. If not, backlog population can still be triggered by RPC */
+	bool enable{ true };
+	/** Number of accounts per second to process. Number of accounts per single batch is this value divided by `frequency` */
+	unsigned batch_size{ 10 * 1000 };
+	/** Number of batches to run per second. Batches run in 1 second / `frequency` intervals */
+	unsigned frequency{ 10 };
+};
+
 class backlog_population final
 {
 public:
-	struct config
-	{
-		/** Control if ongoing backlog population is enabled. If not, backlog population can still be triggered by RPC */
-		bool enabled;
-
-		/** Number of accounts per second to process. Number of accounts per single batch is this value divided by `frequency` */
-		unsigned batch_size;
-
-		/** Number of batches to run per second. Batches run in 1 second / `frequency` intervals */
-		unsigned frequency;
-	};
-
-	backlog_population (const config &, nano::scheduler::component &, nano::ledger &, nano::stats &);
+	backlog_population (backlog_population_config const &, nano::scheduler::component &, nano::ledger &, nano::stats &);
 	~backlog_population ();
 
 	void start ();
@@ -55,19 +58,18 @@ public:
 	callback_t activate_callback;
 
 private: // Dependencies
+	backlog_population_config const & config;
 	nano::scheduler::component & schedulers;
 	nano::ledger & ledger;
 	nano::stats & stats;
 
-	config config_m;
-
 private:
 	void run ();
 	bool predicate () const;
-
 	void populate_backlog (nano::unique_lock<nano::mutex> & lock);
 	void activate (secure::transaction const &, nano::account const &, nano::account_info const &);
 
+private:
 	/** This is a manual trigger, the ongoing backlog population does not use this.
 	 *  It can be triggered even when backlog population (frontiers confirmation) is disabled. */
 	bool triggered{ false };

@@ -58,15 +58,6 @@ extern std::size_t nano_bootstrap_weights_beta_size;
  * configs
  */
 
-nano::backlog_population::config nano::backlog_population_config (const nano::node_config & config)
-{
-	nano::backlog_population::config cfg{};
-	cfg.enabled = config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled;
-	cfg.frequency = config.backlog_scan_frequency;
-	cfg.batch_size = config.backlog_scan_batch_size;
-	return cfg;
-}
-
 nano::outbound_bandwidth_limiter::config nano::outbound_bandwidth_limiter_config (const nano::node_config & config)
 {
 	outbound_bandwidth_limiter::config cfg{};
@@ -218,7 +209,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	aggregator_impl{ std::make_unique<nano::request_aggregator> (config.request_aggregator, *this, stats, generator, final_generator, history, ledger, wallets, vote_router) },
 	aggregator{ *aggregator_impl },
 	wallets (wallets_store.init_error (), *this),
-	backlog{ nano::backlog_population_config (config), scheduler, ledger, stats },
+	backlog{ config.backlog_population, scheduler, ledger, stats },
 	ascendboot_impl{ std::make_unique<nano::bootstrap_ascending::service> (config, block_processor, ledger, network, stats, logger) },
 	ascendboot{ *ascendboot_impl },
 	websocket{ config.websocket_config, observers, wallets, ledger, io_ctx, logger },

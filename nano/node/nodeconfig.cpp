@@ -143,8 +143,6 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("request_aggregator_threads", request_aggregator_threads, "Number of threads to dedicate to request aggregator. Defaults to using all cpu threads, up to a maximum of 4");
 	toml.put ("max_unchecked_blocks", max_unchecked_blocks, "Maximum number of unchecked blocks to store in memory. Defaults to 65536. \ntype:uint64,[0..]");
 	toml.put ("rep_crawler_weight_minimum", rep_crawler_weight_minimum.to_string_dec (), "Rep crawler minimum weight, if this is less than minimum principal weight then this is taken as the minimum weight a rep must have to be tracked. If you want to track all reps set this to 0. If you do not want this to influence anything then set it to max value. This is only useful for debugging or for people who really know what they are doing.\ntype:string,amount,raw");
-	toml.put ("backlog_scan_batch_size", backlog_scan_batch_size, "Number of accounts per second to process when doing backlog population scan. Increasing this value will help unconfirmed frontiers get into election prioritization queue faster, however it will also increase resource usage. \ntype:uint");
-	toml.put ("backlog_scan_frequency", backlog_scan_frequency, "Backlog scan divides the scan into smaller batches, number of which is controlled by this value. Higher frequency helps to utilize resources more uniformly, however it also introduces more overhead. The resulting number of accounts per single batch is `backlog_scan_batch_size / backlog_scan_frequency` \ntype:uint");
 	toml.put ("enable_upnp", enable_upnp, "Enable or disable automatic UPnP port forwarding. This feature only works if the node is directly connected to a router (not inside a docker container, etc.).\ntype:bool");
 
 	auto work_peers_l (toml.create_array ("work_peers", "A list of \"address:port\" entries to identify work peers."));
@@ -181,6 +179,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	callback_l.put ("port", callback_port, "Callback port number.\ntype:uint16");
 	callback_l.put ("target", callback_target, "Callback target path.\ntype:string,uri");
 	toml.put_child ("httpcallback", callback_l);
+
+	/*
+	 * Subconfigs
+	 */
 
 	nano::tomlconfig websocket_l;
 	websocket_config.serialize_toml (websocket_l);
@@ -258,6 +260,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	monitor.serialize (monitor_l);
 	toml.put_child ("monitor", monitor_l);
 
+	nano::tomlconfig backlog_population_l;
+	backlog_population.serialize (backlog_population_l);
+	toml.put_child ("backlog_population", backlog_population_l);
+
 	return toml.get_error ();
 }
 
@@ -272,6 +278,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			callback_l.get<uint16_t> ("port", callback_port);
 			callback_l.get<std::string> ("target", callback_target);
 		}
+
+		/*
+		 * Subconfigs
+		 */
 
 		if (toml.has_key ("websocket"))
 		{
@@ -386,6 +396,16 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			auto config_l = toml.get_required_child ("monitor");
 			monitor.deserialize (config_l);
 		}
+
+		if (toml.has_key ("backlog_population"))
+		{
+			auto config_l = toml.get_required_child ("backlog_population");
+			backlog_population.deserialize (config_l);
+		}
+
+		/*
+		 * Values
+		 */
 
 		if (toml.has_key ("work_peers"))
 		{
@@ -552,9 +572,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			auto frontiers_confirmation_l (toml.get<std::string> ("frontiers_confirmation"));
 			frontiers_confirmation = deserialize_frontiers_confirmation (frontiers_confirmation_l);
 		}
-
-		toml.get<unsigned> ("backlog_scan_batch_size", backlog_scan_batch_size);
-		toml.get<unsigned> ("backlog_scan_frequency", backlog_scan_frequency);
 
 		toml.get<bool> ("enable_upnp", enable_upnp);
 
