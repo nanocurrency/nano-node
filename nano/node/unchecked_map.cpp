@@ -168,10 +168,14 @@ void nano::unchecked_map::query_impl (nano::block_hash const & hash)
 
 std::unique_ptr<nano::container_info_component> nano::unchecked_map::collect_container_info (const std::string & name)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
-
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "entries", entries.size (), sizeof (decltype (entries)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "queries", buffer.size (), sizeof (decltype (buffer)::value_type) }));
+	{
+		std::lock_guard guard{ entries_mutex };
+		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "entries", entries.size (), sizeof (decltype (entries)::value_type) }));
+	}
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "queries", buffer.size (), sizeof (decltype (buffer)::value_type) }));
+	}
 	return composite;
 }
