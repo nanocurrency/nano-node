@@ -20,7 +20,7 @@ public:
 
 public:
 	/** Maximum number of dependent blocks to be stored in memory during processing */
-	size_t max_blocks{ 64 * 128 };
+	size_t max_blocks{ 128 * 1024 };
 	size_t max_queued_notifications{ 8 };
 };
 
