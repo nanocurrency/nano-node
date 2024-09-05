@@ -168,7 +168,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 			{
 				transaction.refresh_if_needed ();
 
-				stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cementing_hash);
+				stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cementing);
 
 				// Issue notifications here, so that `cemented` set is not too large before we add more blocks
 				notify_maybe (transaction);
@@ -190,6 +190,8 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 					debug_assert (ledger.confirmed.block_exists (transaction, hash));
 				}
 			} while (!ledger.confirmed.block_exists (transaction, hash));
+
+			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cemented_hash);
 		}
 	}
 

@@ -831,6 +831,8 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_tr
 		{
 			if (!dependent.is_zero () && !confirmed.block_exists_or_pruned (transaction, dependent))
 			{
+				stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::dependent_unconfirmed);
+
 				stack.push_back (dependent);
 
 				// Limit the stack size to avoid excessive memory usage
@@ -874,6 +876,7 @@ void nano::ledger::confirm (secure::write_transaction const & transaction, nano:
 	confirmation_height_info info{ block.sideband ().height, block.hash () };
 	store.confirmation_height.put (transaction, block.account (), info);
 	++cache.cemented_count;
+	
 	stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed);
 }
 
