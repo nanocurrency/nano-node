@@ -452,8 +452,9 @@ std::vector<nano::representative> nano::rep_crawler::representatives (std::size_
 	}
 
 	std::vector<nano::representative> result;
-	for (auto const & [weight, rep] : ordered | std::views::take (count))
+	for (auto i = ordered.begin (), n = ordered.end (); i != n && result.size () < count; ++i)
 	{
+		auto const & [weight, rep] = *i;
 		result.push_back ({ rep.account, rep.channel });
 	}
 	return result;

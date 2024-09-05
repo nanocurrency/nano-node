@@ -132,11 +132,15 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 		notification.cemented.swap (cemented);
 		notification.already_cemented.swap (already);
 
-		// Wait for the worker thread if too many notifications are queued
+		std::unique_lock lock{ mutex };
 		while (notification_workers.num_queued_tasks () >= config.max_queued_notifications)
 		{
 			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cooldown);
-			std::this_thread::sleep_for (100ms);
+			condition.wait_for (lock, 100ms, [this] { return stopped; });
+			if (stopped)
+			{
+				return;
+			}
 		}
 
 		notification_workers.push_task ([this, notification = std::move (notification)] () {
