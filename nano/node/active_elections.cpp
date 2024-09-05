@@ -193,14 +193,19 @@ void nano::active_elections::add_election_winner_details (nano::block_hash const
 
 std::shared_ptr<nano::election> nano::active_elections::remove_election_winner_details (nano::block_hash const & hash_a)
 {
-	nano::lock_guard<nano::mutex> guard{ election_winner_details_mutex };
 	std::shared_ptr<nano::election> result;
-	auto existing = election_winner_details.find (hash_a);
-	if (existing != election_winner_details.end ())
 	{
-		result = existing->second;
-		election_winner_details.erase (existing);
+		nano::lock_guard<nano::mutex> guard{ election_winner_details_mutex };
+		auto existing = election_winner_details.find (hash_a);
+		if (existing != election_winner_details.end ())
+		{
+			result = existing->second;
+			election_winner_details.erase (existing);
+		}
 	}
+
+	vacancy_update ();
+
 	return result;
 }
 
@@ -344,6 +349,7 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 	{
 		entry.erased_callback (election);
 	}
+
 	vacancy_update ();
 
 	for (auto const & [hash, block] : blocks_l)
