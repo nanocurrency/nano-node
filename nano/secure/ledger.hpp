@@ -100,7 +100,7 @@ public:
 
 private:
 	void initialize (nano::generate_cache_flags const &);
-	void confirm (secure::write_transaction const & transaction, nano::block const & block);
+	void confirm_one (secure::write_transaction &, nano::block const & block);
 
 	std::unique_ptr<ledger_set_any> any_impl;
 	std::unique_ptr<ledger_set_confirmed> confirmed_impl;

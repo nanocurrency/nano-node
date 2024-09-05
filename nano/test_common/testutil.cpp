@@ -138,7 +138,8 @@ void nano::test::confirm (nano::ledger & ledger, std::shared_ptr<nano::block> co
 
 void nano::test::confirm (nano::ledger & ledger, nano::block_hash const & hash)
 {
-	ledger.confirm (ledger.tx_begin_write (), hash);
+	auto transaction = ledger.tx_begin_write ();
+	ledger.confirm (transaction, hash);
 }
 
 bool nano::test::block_or_pruned_all_exists (nano::node & node, std::vector<nano::block_hash> hashes)

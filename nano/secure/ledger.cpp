@@ -851,7 +851,7 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_tr
 			{
 				// We must only confirm blocks that have their dependencies confirmed
 				debug_assert (dependents_confirmed (transaction, *block));
-				confirm (transaction, *block);
+				confirm_one (transaction, *block);
 				result.push_back (block);
 			}
 		}
@@ -878,7 +878,7 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_tr
 	return result;
 }
 
-void nano::ledger::confirm (secure::write_transaction const & transaction, nano::block const & block)
+void nano::ledger::confirm_one (secure::write_transaction & transaction, nano::block const & block)
 {
 	debug_assert ((!store.confirmation_height.get (transaction, block.account ()) && block.sideband ().height == 1) || store.confirmation_height.get (transaction, block.account ()).value ().height + 1 == block.sideband ().height);
 	confirmation_height_info info{ block.sideband ().height, block.hash () };
