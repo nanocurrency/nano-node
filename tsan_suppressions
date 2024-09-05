@@ -2,3 +2,5 @@ race:mdb.c
 race:rocksdb
 race:Rijndael::Base::FillEncTable
 race:Rijndael::Base::FillDecTable
+race:CryptoPP::Rijndael
+race:boost::asio::detail::conditionally_enabled_mutex::scoped_lock::scoped_lock

@@ -506,6 +506,7 @@ bool nano::active_elections::erase (nano::qualified_root const & root_a)
 	auto root_it (roots.get<tag_root> ().find (root_a));
 	if (root_it != roots.get<tag_root> ().end ())
 	{
+		release_assert (root_it->election->qualified_root == root_a);
 		cleanup_election (lock, root_it->election);
 		return true;
 	}
