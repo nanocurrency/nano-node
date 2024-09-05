@@ -75,7 +75,7 @@ private:
 
 	nano::thread_pool notification_workers;
 
-	bool stopped{ false };
+	std::atomic<bool> stopped{ false };
 	mutable std::mutex mutex;
 	std::condition_variable condition;
 	std::thread thread;
