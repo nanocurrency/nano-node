@@ -11,10 +11,10 @@ SRC=${SRC:-${PWD}}
 OS=$(uname)
 
 CMAKE_BACKTRACE=""
-if [[ "$OS" == 'Linux' ]]; then
+if [[ ${OS} == 'Linux' ]]; then
     CMAKE_BACKTRACE="-DNANO_STACKTRACE_BACKTRACE=ON"
 
-    if [[ "$COMPILER" == 'clang' ]]; then
+    if [[ ${COMPILER:-} == 'clang' ]]; then
         CMAKE_BACKTRACE="${CMAKE_BACKTRACE} -DNANO_BACKTRACE_INCLUDE=</tmp/backtrace.h>"
     fi
 fi

@@ -38,11 +38,7 @@ bool nano::scheduler::bucket::election_vacancy (priority_t candidate) const
 {
 	debug_assert (!mutex.try_lock ());
 
-	if (elections.size () < config.reserved_elections)
-	{
-		return true;
-	}
-	if (elections.size () < config.max_elections)
+	if (elections.size () < config.reserved_elections || elections.size () < config.max_elections)
 	{
 		return active.vacancy (nano::election_behavior::priority) > 0;
 	}
