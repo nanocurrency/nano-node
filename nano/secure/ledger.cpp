@@ -814,7 +814,7 @@ nano::uint128_t nano::ledger::account_receivable (secure::transaction const & tr
 
 // Both stack and result set are bounded to limit maximum memory usage
 // Callers must ensure that the target block was confirmed, and if not, call this function multiple times
-std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_transaction const & transaction, nano::block_hash const & hash, size_t max_blocks)
+std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_transaction & transaction, nano::block_hash const & hash, size_t max_blocks)
 {
 	std::deque<std::shared_ptr<nano::block>> result;
 
@@ -860,6 +860,14 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_tr
 			// Unconfirmed dependencies were added
 		}
 
+		// Refresh the transaction to avoid long-running transactions
+		// Ensure that the block wasn't rolled back during the refresh
+		bool refreshed = transaction.refresh_if_needed ();
+		if (refreshed)
+		{
+			release_assert (any.block_exists (transaction, hash), "block was rolled back during cementing");
+		}
+
 		// Early return might leave parts of the dependency tree unconfirmed
 		if (result.size () >= max_blocks)
 		{
@@ -876,7 +884,7 @@ void nano::ledger::confirm (secure::write_transaction const & transaction, nano:
 	confirmation_height_info info{ block.sideband ().height, block.hash () };
 	store.confirmation_height.put (transaction, block.account (), info);
 	++cache.cemented_count;
-	
+
 	stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed);
 }
 
