@@ -64,6 +64,8 @@ public:
 	std::size_t confirmation_history_size{ 2048 };
 	// Maximum cache size for recently_confirmed
 	std::size_t confirmation_cache{ 65536 };
+	// Maximum size of election winner details set
+	std::size_t max_election_winners{ 1024 * 16 };
 };
 
 /**
@@ -138,7 +140,7 @@ public:
 	int64_t vacancy (nano::election_behavior behavior) const;
 	std::function<void ()> vacancy_update{ [] () {} };
 
-	std::size_t election_winner_details_size ();
+	std::size_t election_winner_details_size () const;
 	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
 	std::shared_ptr<nano::election> remove_election_winner_details (nano::block_hash const &);
 
@@ -170,7 +172,7 @@ public:
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::active) };
 
 private:
-	nano::mutex election_winner_details_mutex{ mutex_identifier (mutexes::election_winner_details) };
+	mutable nano::mutex election_winner_details_mutex{ mutex_identifier (mutexes::election_winner_details) };
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> election_winner_details;
 
 	// Maximum time an election can be kept active if it is extending the container
