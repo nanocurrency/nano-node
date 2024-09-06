@@ -60,7 +60,7 @@ public:
 	std::string block_text (nano::block_hash const &);
 	std::pair<nano::block_hash, nano::block_hash> hash_root_random (secure::transaction const &) const;
 	std::optional<nano::pending_info> pending_info (secure::transaction const &, nano::pending_key const & key) const;
-	std::deque<std::shared_ptr<nano::block>> confirm (secure::write_transaction const &, nano::block_hash const & hash, size_t max_blocks = 1024 * 128);
+	std::deque<std::shared_ptr<nano::block>> confirm (secure::write_transaction &, nano::block_hash const & hash, size_t max_blocks = 1024 * 128);
 	nano::block_status process (secure::write_transaction const &, std::shared_ptr<nano::block> block);
 	bool rollback (secure::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
 	bool rollback (secure::write_transaction const &, nano::block_hash const &);
@@ -100,7 +100,7 @@ public:
 
 private:
 	void initialize (nano::generate_cache_flags const &);
-	void confirm (secure::write_transaction const & transaction, nano::block const & block);
+	void confirm_one (secure::write_transaction &, nano::block const & block);
 
 	std::unique_ptr<ledger_set_any> any_impl;
 	std::unique_ptr<ledger_set_confirmed> confirmed_impl;
