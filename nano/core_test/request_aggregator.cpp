@@ -290,8 +290,11 @@ TEST (request_aggregator, split)
 		ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), block));
 		request.emplace_back (block->hash (), block->root ());
 	}
-	// Confirm all blocks
-	node.ledger.confirm (node.ledger.tx_begin_write (), blocks.back ()->hash ());
+	{
+		// Confirm all blocks
+		auto tx = node.ledger.tx_begin_write ();
+		node.ledger.confirm (tx, blocks.back ()->hash ());
+	}
 	ASSERT_TIMELY_EQ (5s, max_vbh + 2, node.ledger.cemented_count ());
 	ASSERT_EQ (max_vbh + 1, request.size ());
 	auto client = std::make_shared<nano::transport::tcp_socket> (node);

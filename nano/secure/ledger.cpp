@@ -814,12 +814,12 @@ nano::uint128_t nano::ledger::account_receivable (secure::transaction const & tr
 
 // Both stack and result set are bounded to limit maximum memory usage
 // Callers must ensure that the target block was confirmed, and if not, call this function multiple times
-std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_transaction const & transaction, nano::block_hash const & hash, size_t max_blocks)
+std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_transaction & transaction, nano::block_hash const & target_hash, size_t max_blocks)
 {
 	std::deque<std::shared_ptr<nano::block>> result;
 
 	std::deque<nano::block_hash> stack;
-	stack.push_back (hash);
+	stack.push_back (target_hash);
 	while (!stack.empty ())
 	{
 		auto hash = stack.back ();
@@ -831,6 +831,8 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_tr
 		{
 			if (!dependent.is_zero () && !confirmed.block_exists_or_pruned (transaction, dependent))
 			{
+				stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::dependent_unconfirmed);
+
 				stack.push_back (dependent);
 
 				// Limit the stack size to avoid excessive memory usage
@@ -849,13 +851,21 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_tr
 			{
 				// We must only confirm blocks that have their dependencies confirmed
 				debug_assert (dependents_confirmed (transaction, *block));
-				confirm (transaction, *block);
+				confirm_one (transaction, *block);
 				result.push_back (block);
 			}
 		}
 		else
 		{
 			// Unconfirmed dependencies were added
+		}
+
+		// Refresh the transaction to avoid long-running transactions
+		// Ensure that the block wasn't rolled back during the refresh
+		bool refreshed = transaction.refresh_if_needed ();
+		if (refreshed)
+		{
+			release_assert (any.block_exists (transaction, target_hash), "block was rolled back during cementing");
 		}
 
 		// Early return might leave parts of the dependency tree unconfirmed
@@ -868,12 +878,13 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_tr
 	return result;
 }
 
-void nano::ledger::confirm (secure::write_transaction const & transaction, nano::block const & block)
+void nano::ledger::confirm_one (secure::write_transaction & transaction, nano::block const & block)
 {
 	debug_assert ((!store.confirmation_height.get (transaction, block.account ()) && block.sideband ().height == 1) || store.confirmation_height.get (transaction, block.account ()).value ().height + 1 == block.sideband ().height);
 	confirmation_height_info info{ block.sideband ().height, block.hash () };
 	store.confirmation_height.put (transaction, block.account (), info);
 	++cache.cemented_count;
+
 	stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed);
 }
 

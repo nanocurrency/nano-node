@@ -133,10 +133,11 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 		notification.already_cemented.swap (already);
 
 		std::unique_lock lock{ mutex };
+
 		while (notification_workers.num_queued_tasks () >= config.max_queued_notifications)
 		{
 			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cooldown);
-			condition.wait_for (lock, 100ms, [this] { return stopped; });
+			condition.wait_for (lock, 100ms, [this] { return stopped.load (); });
 			if (stopped)
 			{
 				return;
@@ -168,10 +169,16 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 			{
 				transaction.refresh_if_needed ();
 
-				stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cementing_hash);
+				// Cementing deep dependency chains might take a long time, allow for graceful shutdown, ignore notifications
+				if (stopped)
+				{
+					return;
+				}
 
 				// Issue notifications here, so that `cemented` set is not too large before we add more blocks
 				notify_maybe (transaction);
+
+				stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cementing);
 
 				auto added = ledger.confirm (transaction, hash, config.max_blocks);
 				if (!added.empty ())
@@ -190,6 +197,8 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 					debug_assert (ledger.confirmed.block_exists (transaction, hash));
 				}
 			} while (!ledger.confirmed.block_exists (transaction, hash));
+
+			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cemented_hash);
 		}
 	}
 
