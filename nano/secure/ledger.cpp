@@ -814,12 +814,12 @@ nano::uint128_t nano::ledger::account_receivable (secure::transaction const & tr
 
 // Both stack and result set are bounded to limit maximum memory usage
 // Callers must ensure that the target block was confirmed, and if not, call this function multiple times
-std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_transaction & transaction, nano::block_hash const & hash, size_t max_blocks)
+std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_transaction & transaction, nano::block_hash const & target_hash, size_t max_blocks)
 {
 	std::deque<std::shared_ptr<nano::block>> result;
 
 	std::deque<nano::block_hash> stack;
-	stack.push_back (hash);
+	stack.push_back (target_hash);
 	while (!stack.empty ())
 	{
 		auto hash = stack.back ();
@@ -865,7 +865,7 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_tr
 		bool refreshed = transaction.refresh_if_needed ();
 		if (refreshed)
 		{
-			release_assert (any.block_exists (transaction, hash), "block was rolled back during cementing");
+			release_assert (any.block_exists (transaction, target_hash), "block was rolled back during cementing");
 		}
 
 		// Early return might leave parts of the dependency tree unconfirmed
