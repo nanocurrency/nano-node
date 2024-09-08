@@ -37,3 +37,6 @@
 [submodule "submodules/fmt"]
 	path = submodules/fmt
 	url = https://github.com/fmtlib/fmt.git
+[submodule "submodules/lmdbxx"]
+	path = submodules/lmdbxx
+	url = https://github.com/hoytech/lmdbxx.git
