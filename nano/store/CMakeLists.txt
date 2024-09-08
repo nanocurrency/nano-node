@@ -20,6 +20,7 @@ add_library(
   lmdb/iterator.hpp
   lmdb/transaction_impl.hpp
   lmdb/online_weight.hpp
+  lmdb/options.hpp
   lmdb/peer.hpp
   lmdb/pending.hpp
   lmdb/pruned.hpp
@@ -68,6 +69,7 @@ add_library(
   lmdb/lmdb_env.cpp
   lmdb/transaction.cpp
   lmdb/online_weight.cpp
+  lmdb/options.cpp
   lmdb/peer.cpp
   lmdb/pending.cpp
   lmdb/pruned.cpp

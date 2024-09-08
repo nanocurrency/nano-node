@@ -3,12 +3,12 @@
 
 #include <boost/system/error_code.hpp>
 
-nano::store::lmdb::env::env (bool & error_a, std::filesystem::path const & path_a, nano::store::lmdb::env::options options_a)
+nano::store::lmdb::env::env (bool & error_a, std::filesystem::path const & path_a, nano::store::lmdb::options options_a)
 {
 	init (error_a, path_a, options_a);
 }
 
-void nano::store::lmdb::env::init (bool & error_a, std::filesystem::path const & path_a, nano::store::lmdb::env::options options_a)
+void nano::store::lmdb::env::init (bool & error_a, std::filesystem::path const & path_a, nano::store::lmdb::options options_a)
 {
 	debug_assert (path_a.extension () == ".ldb", "invalid filename extension for lmdb database file");
 
