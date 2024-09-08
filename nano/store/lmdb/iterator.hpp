@@ -4,6 +4,7 @@
 #include <nano/store/db_val.hpp>
 #include <nano/store/iterator.hpp>
 #include <nano/store/lmdb/lmdb_env.hpp>
+#include <nano/store/lmdb/utility.hpp>
 #include <nano/store/transaction.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
@@ -17,7 +18,7 @@ public:
 	iterator (store::transaction const & transaction_a, env const & env_a, MDB_dbi db_a, MDB_val const & val_a = MDB_val{}, bool const direction_asc = true) :
 		nano::store::iterator_impl<T, U> (transaction_a)
 	{
-		auto status (mdb_cursor_open (env_a.tx (transaction_a), db_a, &cursor));
+		auto status (mdb_cursor_open (tx (transaction_a), db_a, &cursor));
 		release_assert (status == 0);
 		auto operation (MDB_SET_RANGE);
 		if (val_a.mv_size != 0)

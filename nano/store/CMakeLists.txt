@@ -25,6 +25,7 @@ add_library(
   lmdb/pruned.hpp
   lmdb/rep_weight.hpp
   lmdb/transaction_impl.hpp
+  lmdb/utility.hpp
   lmdb/version.hpp
   lmdb/wallet_value.hpp
   online_weight.hpp
@@ -71,6 +72,7 @@ add_library(
   lmdb/pending.cpp
   lmdb/pruned.cpp
   lmdb/rep_weight.cpp
+  lmdb/utility.cpp
   lmdb/version.cpp
   lmdb/wallet_value.cpp
   online_weight.cpp

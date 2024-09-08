@@ -100,9 +100,3 @@ nano::store::write_transaction nano::store::lmdb::env::tx_begin_write (store::lm
 {
 	return store::write_transaction{ std::make_unique<nano::store::lmdb::write_transaction_impl> (*this, mdb_txn_callbacks) };
 }
-
-MDB_txn * nano::store::lmdb::env::tx (store::transaction const & transaction_a) const
-{
-	debug_assert (transaction_a.store_id () == store_id);
-	return static_cast<MDB_txn *> (transaction_a.get_handle ());
-}
