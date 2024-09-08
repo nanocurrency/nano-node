@@ -1306,11 +1306,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 
 				if (auto count_l = ++count; count_l % 5000000 == 0)
 				{
-					logger.info (nano::log::type::ledger, "{} blocks converted", count_l);
+					logger.info (nano::log::type::ledger, "{} blocks converted ({}%)", count_l, count_l * 100 / table_size);
 				}
 			}
 		});
-		logger.info (nano::log::type::ledger, "Finished converting {} blocks", count.load ());
+		logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
 
 		table_size = store.count (store.tx_begin_read (), tables::pending);
 		logger.info (nano::log::type::ledger, "Step 2 of 7: Converting {} entries from pending table", table_size);
@@ -1324,11 +1324,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				rocksdb_store->pending.put (rocksdb_transaction, i->first, i->second);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
-					logger.info (nano::log::type::ledger, "{} entries converted", count_l);
+					logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
 				}
 			}
 		});
-		logger.info (nano::log::type::ledger, "Finished converting {} entries", count.load ());
+		logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
 
 		table_size = store.count (store.tx_begin_read (), tables::confirmation_height);
 		logger.info (nano::log::type::ledger, "Step 3 of 7: Converting {} entries from confirmation_height table", table_size);
@@ -1342,11 +1342,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				rocksdb_store->confirmation_height.put (rocksdb_transaction, i->first, i->second);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
-					logger.info (nano::log::type::ledger, "{} entries converted", count_l);
+					logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
 				}
 			}
 		});
-		logger.info (nano::log::type::ledger, "Finished converting {} entries", count.load ());
+		logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
 
 		table_size = store.count (store.tx_begin_read (), tables::accounts);
 		logger.info (nano::log::type::ledger, "Step 4 of 7: Converting {} entries from accounts table", table_size);
@@ -1360,11 +1360,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				rocksdb_store->account.put (rocksdb_transaction, i->first, i->second);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
-					logger.info (nano::log::type::ledger, "{} entries converted", count_l);
+					logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
 				}
 			}
 		});
-		logger.info (nano::log::type::ledger, "Finished converting {} entries", count.load ());
+		logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
 
 		table_size = store.count (store.tx_begin_read (), tables::rep_weights);
 		logger.info (nano::log::type::ledger, "Step 5 of 7: Converting {} entries from rep_weights table", table_size);
@@ -1378,11 +1378,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				rocksdb_store->rep_weight.put (rocksdb_transaction, i->first, i->second.number ());
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
-					logger.info (nano::log::type::ledger, "{} entries converted", count_l);
+					logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
 				}
 			}
 		});
-		logger.info (nano::log::type::ledger, "Finished converting {} entries", count.load ());
+		logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
 
 		table_size = store.count (store.tx_begin_read (), tables::pruned);
 		logger.info (nano::log::type::ledger, "Step 6 of 7: Converting {} entries from pruned table", table_size);
@@ -1396,11 +1396,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				rocksdb_store->pruned.put (rocksdb_transaction, i->first);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
-					logger.info (nano::log::type::ledger, "{} entries converted", count_l);
+					logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
 				}
 			}
 		});
-		logger.info (nano::log::type::ledger, "Finished converting {} entries", count.load ());
+		logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
 
 		table_size = store.count (store.tx_begin_read (), tables::final_votes);
 		logger.info (nano::log::type::ledger, "Step 7 of 7: Converting {} entries from final_votes table", table_size);
@@ -1414,11 +1414,11 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				rocksdb_store->final_vote.put (rocksdb_transaction, i->first, i->second);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
-					logger.info (nano::log::type::ledger, "{} entries converted", count_l);
+					logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
 				}
 			}
 		});
-		logger.info (nano::log::type::ledger, "Finished converting {} entries", count.load ());
+		logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
 
 		logger.info (nano::log::type::ledger, "Finalizing migration...");
 		auto lmdb_transaction (store.tx_begin_read ());
