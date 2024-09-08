@@ -1624,12 +1624,12 @@ void nano::wallets::start ()
 
 nano::store::write_transaction nano::wallets::tx_begin_write ()
 {
-	return env.tx_begin_write ();
+	return store::write_transaction{ std::make_unique<nano::store::lmdb::write_transaction_impl> (env), store_id };
 }
 
 nano::store::read_transaction nano::wallets::tx_begin_read ()
 {
-	return env.tx_begin_read ();
+	return store::read_transaction{ std::make_unique<nano::store::lmdb::read_transaction_impl> (env), store_id };
 }
 
 void nano::wallets::clear_send_ids (store::transaction const & transaction_a)

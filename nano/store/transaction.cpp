@@ -6,8 +6,7 @@
  * transaction_impl
  */
 
-nano::store::transaction_impl::transaction_impl (nano::id_dispenser::id_t const store_id_a) :
-	store_id{ store_id_a }
+nano::store::transaction_impl::transaction_impl ()
 {
 }
 
@@ -15,8 +14,7 @@ nano::store::transaction_impl::transaction_impl (nano::id_dispenser::id_t const 
  * read_transaction_impl
  */
 
-nano::store::read_transaction_impl::read_transaction_impl (nano::id_dispenser::id_t const store_id_a) :
-	transaction_impl (store_id_a)
+nano::store::read_transaction_impl::read_transaction_impl ()
 {
 }
 
@@ -24,14 +22,23 @@ nano::store::read_transaction_impl::read_transaction_impl (nano::id_dispenser::i
  * write_transaction_impl
  */
 
-nano::store::write_transaction_impl::write_transaction_impl (nano::id_dispenser::id_t const store_id_a) :
-	transaction_impl (store_id_a)
+nano::store::write_transaction_impl::write_transaction_impl ()
 {
 }
 
 /*
  * transaction
  */
+
+nano::store::transaction::transaction (nano::id_dispenser::id_t store_id) :
+	store_id_m{ store_id }
+{
+}
+
+nano::id_dispenser::id_t nano::store::transaction::store_id () const
+{
+	return store_id_m;
+}
 
 auto nano::store::transaction::epoch () const -> epoch_t
 {
@@ -47,7 +54,8 @@ std::chrono::steady_clock::time_point nano::store::transaction::timestamp () con
  * read_transaction
  */
 
-nano::store::read_transaction::read_transaction (std::unique_ptr<store::read_transaction_impl> read_transaction_impl) :
+nano::store::read_transaction::read_transaction (std::unique_ptr<store::read_transaction_impl> read_transaction_impl, nano::id_dispenser::id_t store_id) :
+	transaction{ store_id },
 	impl (std::move (read_transaction_impl))
 {
 	start = std::chrono::steady_clock::now ();
@@ -56,11 +64,6 @@ nano::store::read_transaction::read_transaction (std::unique_ptr<store::read_tra
 void * nano::store::read_transaction::get_handle () const
 {
 	return impl->get_handle ();
-}
-
-nano::id_dispenser::id_t nano::store::read_transaction::store_id () const
-{
-	return impl->store_id;
 }
 
 void nano::store::read_transaction::reset ()
@@ -95,7 +98,8 @@ void nano::store::read_transaction::refresh_if_needed (std::chrono::milliseconds
  * write_transaction
  */
 
-nano::store::write_transaction::write_transaction (std::unique_ptr<store::write_transaction_impl> write_transaction_impl) :
+nano::store::write_transaction::write_transaction (std::unique_ptr<store::write_transaction_impl> write_transaction_impl, nano::id_dispenser::id_t store_id) :
+	transaction{ store_id },
 	impl (std::move (write_transaction_impl))
 {
 	/*
@@ -109,11 +113,6 @@ nano::store::write_transaction::write_transaction (std::unique_ptr<store::write_
 void * nano::store::write_transaction::get_handle () const
 {
 	return impl->get_handle ();
-}
-
-nano::id_dispenser::id_t nano::store::write_transaction::store_id () const
-{
-	return impl->store_id;
 }
 
 void nano::store::write_transaction::commit ()

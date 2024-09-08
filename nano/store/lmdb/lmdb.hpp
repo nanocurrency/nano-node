@@ -157,5 +157,7 @@ private:
 	friend class mdb_block_store_supported_version_upgrades_Test;
 	friend class mdb_block_store_upgrade_v21_v22_Test;
 	friend class block_store_DISABLED_change_dupsort_Test;
+
+	nano::id_t const store_id{ nano::next_id () };
 };
 } // namespace nano::store::lmdb

@@ -165,12 +165,12 @@ void nano::store::lmdb::component::serialize_memory_stats (boost::property_tree:
 
 nano::store::write_transaction nano::store::lmdb::component::tx_begin_write (std::vector<nano::tables> const &, std::vector<nano::tables> const &)
 {
-	return env.tx_begin_write (create_txn_callbacks ());
+	return store::write_transaction{ std::make_unique<nano::store::lmdb::write_transaction_impl> (env, create_txn_callbacks ()), store_id };
 }
 
 nano::store::read_transaction nano::store::lmdb::component::tx_begin_read () const
 {
-	return env.tx_begin_read (create_txn_callbacks ());
+	return store::read_transaction{ std::make_unique<nano::store::lmdb::read_transaction_impl> (env, create_txn_callbacks ()), store_id };
 }
 
 std::string nano::store::lmdb::component::vendor_get () const

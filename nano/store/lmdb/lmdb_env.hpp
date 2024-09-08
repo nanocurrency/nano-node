@@ -59,9 +59,6 @@ public:
 	void init (bool &, std::filesystem::path const &, env::options options_a = env::options::make ());
 	~env ();
 	operator MDB_env * () const;
-	store::read_transaction tx_begin_read (txn_callbacks callbacks = txn_callbacks{}) const;
-	store::write_transaction tx_begin_write (txn_callbacks callbacks = txn_callbacks{}) const;
 	MDB_env * environment;
-	nano::id_t const store_id{ nano::next_id () };
 };
 } // namespace nano::store::lmdb

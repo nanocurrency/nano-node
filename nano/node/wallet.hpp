@@ -248,6 +248,8 @@ public:
 private:
 	mutable nano::mutex reps_cache_mutex;
 	nano::wallet_representatives representatives;
+
+	nano::id_t const store_id{ nano::next_id () };
 };
 
 std::unique_ptr<container_info_component> collect_container_info (wallets & wallets, std::string const & name);

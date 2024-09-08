@@ -36,7 +36,6 @@ private:
 }
 
 nano::store::lmdb::read_transaction_impl::read_transaction_impl (nano::store::lmdb::env const & environment_a, nano::store::lmdb::txn_callbacks txn_callbacks_a) :
-	store::read_transaction_impl (environment_a.store_id),
 	txn_callbacks (txn_callbacks_a)
 {
 	auto status (mdb_txn_begin (environment_a, nullptr, MDB_RDONLY, &handle));
@@ -71,7 +70,6 @@ void * nano::store::lmdb::read_transaction_impl::get_handle () const
 }
 
 nano::store::lmdb::write_transaction_impl::write_transaction_impl (nano::store::lmdb::env const & environment_a, nano::store::lmdb::txn_callbacks txn_callbacks_a) :
-	store::write_transaction_impl (environment_a.store_id),
 	env (environment_a),
 	txn_callbacks (txn_callbacks_a)
 {

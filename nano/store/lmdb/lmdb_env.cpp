@@ -90,13 +90,3 @@ nano::store::lmdb::env::operator MDB_env * () const
 {
 	return environment;
 }
-
-nano::store::read_transaction nano::store::lmdb::env::tx_begin_read (store::lmdb::txn_callbacks mdb_txn_callbacks) const
-{
-	return store::read_transaction{ std::make_unique<nano::store::lmdb::read_transaction_impl> (*this, mdb_txn_callbacks) };
-}
-
-nano::store::write_transaction nano::store::lmdb::env::tx_begin_write (store::lmdb::txn_callbacks mdb_txn_callbacks) const
-{
-	return store::write_transaction{ std::make_unique<nano::store::lmdb::write_transaction_impl> (*this, mdb_txn_callbacks) };
-}
