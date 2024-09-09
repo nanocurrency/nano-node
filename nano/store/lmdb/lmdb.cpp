@@ -254,7 +254,7 @@ void nano::store::lmdb::component::upgrade_v22_to_v23 (store::write_transaction 
 {
 	logger.info (nano::log::type::lmdb, "Upgrading database from v22 to v23...");
 
-	drop (transaction, tables::rep_weights);
+	clear (transaction, table_to_dbi (tables::rep_weights));
 	transaction.refresh ();
 
 	release_assert (rep_weight.begin (tx_begin_read ()) == rep_weight.end (), "rep weights table must be empty before upgrading to v23");
@@ -371,7 +371,7 @@ int nano::store::lmdb::component::del (store::write_transaction const & transact
 
 int nano::store::lmdb::component::drop (store::write_transaction const & transaction_a, tables table_a)
 {
-	return clear (transaction_a, table_to_dbi (table_a));
+	return mdb_drop (env.tx (transaction_a), table_to_dbi (table_a), 1);
 }
 
 int nano::store::lmdb::component::clear (store::write_transaction const & transaction_a, MDB_dbi handle_a)
