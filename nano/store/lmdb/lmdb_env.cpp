@@ -21,40 +21,8 @@ void nano::store::lmdb::env::init (bool & error_a, std::filesystem::path const &
 		{
 			auto status1 (mdb_env_create (&environment));
 			release_assert (status1 == 0);
-			auto status2 (mdb_env_set_maxdbs (environment, options_a.config.max_databases));
-			release_assert (status2 == 0);
-			auto map_size = options_a.config.map_size;
-			auto max_instrumented_map_size = 16 * 1024 * 1024;
-			if (memory_intensive_instrumentation () && map_size > max_instrumented_map_size)
-			{
-				// In order to run LMDB with some types of memory instrumentation, the maximum map size must be smaller than what is normally used when non-instrumented
-				map_size = max_instrumented_map_size;
-			}
-			auto status3 (mdb_env_set_mapsize (environment, map_size));
-			release_assert (status3 == 0);
-			// It seems if there's ever more threads than mdb_env_set_maxreaders has read slots available, we get failures on transaction creation unless MDB_NOTLS is specified
-			// This can happen if something like 256 io_threads are specified in the node config
-			// MDB_NORDAHEAD will allow platforms that support it to load the DB in memory as needed.
-			// MDB_NOMEMINIT prevents zeroing malloc'ed pages. Can provide improvement for non-sensitive data but may make memory checkers noisy (e.g valgrind).
-			auto environment_flags = MDB_NOSUBDIR | MDB_NOTLS | MDB_NORDAHEAD;
-			if (options_a.config.sync == nano::lmdb_config::sync_strategy::nosync_safe)
-			{
-				environment_flags |= MDB_NOMETASYNC;
-			}
-			else if (options_a.config.sync == nano::lmdb_config::sync_strategy::nosync_unsafe)
-			{
-				environment_flags |= MDB_NOSYNC;
-			}
-			else if (options_a.config.sync == nano::lmdb_config::sync_strategy::nosync_unsafe_large_memory)
-			{
-				environment_flags |= MDB_NOSYNC | MDB_WRITEMAP | MDB_MAPASYNC;
-			}
-
-			if (!memory_intensive_instrumentation () && options_a.use_no_mem_init)
-			{
-				environment_flags |= MDB_NOMEMINIT;
-			}
-			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), environment_flags, 00600));
+			options_a.apply (*this);
+			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), options_a.flags (), 00600));
 			if (status4 != 0)
 			{
 				std::string message = "Could not open lmdb environment(" + std::to_string (status4) + "): " + mdb_strerror (status4);
