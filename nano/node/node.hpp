@@ -73,7 +73,7 @@ namespace rocksdb
 namespace nano
 {
 // Configs
-outbound_bandwidth_limiter::config outbound_bandwidth_limiter_config (node_config const &);
+bandwidth_limiter::config bandwidth_limiter_config (node_config const &);
 
 class node final : public std::enable_shared_from_this<node>
 {
@@ -169,7 +169,7 @@ public:
 	nano::wallets_store & wallets_store;
 	std::unique_ptr<nano::ledger> ledger_impl;
 	nano::ledger & ledger;
-	nano::outbound_bandwidth_limiter outbound_limiter;
+	nano::bandwidth_limiter outbound_limiter;
 	std::unique_ptr<nano::message_processor> message_processor_impl;
 	nano::message_processor & message_processor;
 	nano::network network;

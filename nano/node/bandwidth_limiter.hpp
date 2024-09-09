@@ -21,7 +21,7 @@ nano::bandwidth_limit_type to_bandwidth_limit_type (nano::transport::traffic_typ
 /**
  * Class that tracks and manages bandwidth limits for IO operations
  */
-class outbound_bandwidth_limiter final
+class bandwidth_limiter final
 {
 public: // Config
 	struct config
@@ -35,7 +35,7 @@ public: // Config
 	};
 
 public:
-	explicit outbound_bandwidth_limiter (config);
+	explicit bandwidth_limiter (config);
 
 	/**
 	 * Check whether packet falls withing bandwidth limits and should be allowed
