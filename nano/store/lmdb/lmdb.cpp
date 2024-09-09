@@ -154,8 +154,7 @@ void nano::store::lmdb::component::serialize_mdb_tracker (boost::property_tree::
 void nano::store::lmdb::component::serialize_memory_stats (boost::property_tree::ptree & json)
 {
 	MDB_stat stats;
-	auto status = mdb_env_stat (env.handle (), &stats);
-	release_assert (status == 0);
+	::lmdb::env_stat (env.handle (), &stats);
 	json.put ("branch_pages", stats.ms_branch_pages);
 	json.put ("depth", stats.ms_depth);
 	json.put ("entries", stats.ms_entries);
@@ -396,8 +395,7 @@ uint64_t nano::store::lmdb::component::count (store::transaction const & transac
 uint64_t nano::store::lmdb::component::count (store::transaction const & transaction_a, MDB_dbi db_a) const
 {
 	MDB_stat stats;
-	auto status (mdb_stat (tx (transaction_a), db_a, &stats));
-	release_assert_success (status);
+	::lmdb::dbi_stat (tx (transaction_a), db_a, &stats);
 	return (stats.ms_entries);
 }
 
