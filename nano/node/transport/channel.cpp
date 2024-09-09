@@ -19,7 +19,7 @@ void nano::transport::channel::send (nano::message & message_a, std::function<vo
 	auto buffer = message_a.to_shared_const_buffer ();
 
 	bool is_droppable_by_limiter = (drop_policy_a == nano::transport::buffer_drop_policy::limiter);
-	bool should_pass = node.outbound_limiter.should_pass (buffer.size (), to_bandwidth_limit_type (traffic_type));
+	bool should_pass = node.outbound_limiter.should_pass (buffer.size (), traffic_type);
 	bool pass = !is_droppable_by_limiter || should_pass;
 
 	node.stats.inc (pass ? nano::stat::type::message : nano::stat::type::drop, to_stat_detail (message_a.type ()), nano::stat::dir::out, /* aggregate all */ true);
