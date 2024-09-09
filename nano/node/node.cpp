@@ -4,6 +4,7 @@
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/active_elections.hpp>
+#include <nano/node/backlog_population.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/confirming_set.hpp>
@@ -195,7 +196,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	aggregator_impl{ std::make_unique<nano::request_aggregator> (config.request_aggregator, *this, stats, generator, final_generator, history, ledger, wallets, vote_router) },
 	aggregator{ *aggregator_impl },
 	wallets (wallets_store.init_error (), *this),
-	backlog{ config.backlog_population, scheduler, ledger, stats },
+	backlog_impl{ std::make_unique<nano::backlog_population> (config.backlog_population, scheduler, ledger, stats) },
+	backlog{ *backlog_impl },
 	ascendboot_impl{ std::make_unique<nano::bootstrap_ascending::service> (config, block_processor, ledger, network, stats, logger) },
 	ascendboot{ *ascendboot_impl },
 	websocket{ config.websocket_config, observers, wallets, ledger, io_ctx, logger },

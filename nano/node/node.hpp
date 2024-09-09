@@ -6,7 +6,6 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_pool.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/node/backlog_population.hpp>
 #include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
@@ -41,6 +40,7 @@
 namespace nano
 {
 class active_elections;
+class backlog_population;
 class confirming_set;
 class message_processor;
 class monitor;
@@ -208,7 +208,8 @@ public:
 	std::unique_ptr<nano::request_aggregator> aggregator_impl;
 	nano::request_aggregator & aggregator;
 	nano::wallets wallets;
-	nano::backlog_population backlog;
+	std::unique_ptr<nano::backlog_population> backlog_impl;
+	nano::backlog_population & backlog;
 	std::unique_ptr<nano::bootstrap_ascending::service> ascendboot_impl;
 	nano::bootstrap_ascending::service & ascendboot;
 	nano::websocket_server websocket;
