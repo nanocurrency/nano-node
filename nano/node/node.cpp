@@ -55,20 +55,6 @@ extern std::size_t nano_bootstrap_weights_beta_size;
 }
 
 /*
- * configs
- */
-
-nano::bandwidth_limiter::config nano::bandwidth_limiter_config (const nano::node_config & config)
-{
-	bandwidth_limiter::config cfg{};
-	cfg.standard_limit = config.bandwidth_limit;
-	cfg.standard_burst_ratio = config.bandwidth_limit_burst_ratio;
-	cfg.bootstrap_limit = config.bootstrap_bandwidth_limit;
-	cfg.bootstrap_burst_ratio = config.bootstrap_bandwidth_burst_ratio;
-	return cfg;
-}
-
-/*
  * node
  */
 
@@ -159,7 +145,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	wallets_store (*wallets_store_impl),
 	ledger_impl{ std::make_unique<nano::ledger> (store, stats, network_params.ledger, flags_a.generate_cache, config_a.representative_vote_weight_minimum.number ()) },
 	ledger{ *ledger_impl },
-	outbound_limiter{ bandwidth_limiter_config (config) },
+	outbound_limiter{ config },
 	message_processor_impl{ std::make_unique<nano::message_processor> (config.message_processor, *this) },
 	message_processor{ *message_processor_impl },
 	// empty `config.peering_port` means the user made no port choice at all;

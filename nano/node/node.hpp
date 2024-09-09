@@ -72,9 +72,6 @@ namespace rocksdb
 
 namespace nano
 {
-// Configs
-bandwidth_limiter::config bandwidth_limiter_config (node_config const &);
-
 class node final : public std::enable_shared_from_this<node>
 {
 public:

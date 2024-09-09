@@ -1,28 +1,31 @@
 #pragma once
 
 #include <nano/lib/rate_limiting.hpp>
+#include <nano/node/fwd.hpp>
 #include <nano/node/transport/traffic_type.hpp>
 
 namespace nano
 {
+class bandwidth_limiter_config final
+{
+public:
+	explicit bandwidth_limiter_config (nano::node_config const &);
+
+public:
+	std::size_t generic_limit;
+	double generic_burst_ratio;
+
+	std::size_t bootstrap_limit;
+	double bootstrap_burst_ratio;
+};
+
 /**
  * Class that tracks and manages bandwidth limits for IO operations
  */
 class bandwidth_limiter final
 {
-public: // Config
-	struct config
-	{
-		// standard
-		std::size_t standard_limit;
-		double standard_burst_ratio;
-		// bootstrap
-		std::size_t bootstrap_limit;
-		double bootstrap_burst_ratio;
-	};
-
 public:
-	explicit bandwidth_limiter (config);
+	explicit bandwidth_limiter (nano::node_config const &);
 
 	/**
 	 * Check whether packet falls withing bandwidth limits and should be allowed
@@ -41,7 +44,7 @@ private:
 	nano::rate_limiter & select_limiter (nano::transport::traffic_type type);
 
 private:
-	const config config_m;
+	bandwidth_limiter_config const config;
 
 private:
 	nano::rate_limiter limiter_generic;
