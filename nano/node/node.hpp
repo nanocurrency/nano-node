@@ -20,7 +20,6 @@
 #include <nano/node/process_live_dispatcher.hpp>
 #include <nano/node/rep_tiers.hpp>
 #include <nano/node/repcrawler.hpp>
-#include <nano/node/telemetry.hpp>
 #include <nano/node/transport/tcp_server.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/vote_cache.hpp>
@@ -45,6 +44,7 @@ class confirming_set;
 class message_processor;
 class monitor;
 class node;
+class telemetry;
 class vote_processor;
 class vote_cache_processor;
 class vote_router;
@@ -171,7 +171,8 @@ public:
 	std::unique_ptr<nano::message_processor> message_processor_impl;
 	nano::message_processor & message_processor;
 	nano::network network;
-	nano::telemetry telemetry;
+	std::unique_ptr<nano::telemetry> telemetry_impl;
+	nano::telemetry & telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;
 	nano::bootstrap_server bootstrap_server;
 	std::unique_ptr<nano::transport::tcp_listener> tcp_listener_impl;
