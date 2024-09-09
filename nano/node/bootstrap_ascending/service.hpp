@@ -4,8 +4,7 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/observer_set.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/node/bandwidth_limiter.hpp>
+#include <nano/lib/rate_limiting.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap_ascending/account_sets.hpp>
 #include <nano/node/bootstrap_ascending/common.hpp>

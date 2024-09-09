@@ -59,3 +59,19 @@ private:
 	static std::size_t constexpr unlimited_rate_sentinel{ static_cast<std::size_t> (1e9) };
 };
 }
+
+namespace nano
+{
+class rate_limiter final
+{
+public:
+	// initialize with limit 0 = unbounded
+	rate_limiter (std::size_t limit, double burst_ratio);
+
+	bool should_pass (std::size_t buffer_size);
+	void reset (std::size_t limit, double burst_ratio);
+
+private:
+	nano::rate::token_bucket bucket;
+};
+}

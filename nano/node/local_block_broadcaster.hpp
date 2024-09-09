@@ -3,7 +3,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/processing_queue.hpp>
-#include <nano/node/bandwidth_limiter.hpp>
+#include <nano/lib/rate_limiting.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/secure/common.hpp>

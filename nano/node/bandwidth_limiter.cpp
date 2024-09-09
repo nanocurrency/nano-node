@@ -2,25 +2,6 @@
 #include <nano/node/bandwidth_limiter.hpp>
 
 /*
- * rate_limiter
- */
-
-nano::rate_limiter::rate_limiter (std::size_t limit_a, double burst_ratio_a) :
-	bucket (static_cast<std::size_t> (limit_a * burst_ratio_a), limit_a)
-{
-}
-
-bool nano::rate_limiter::should_pass (std::size_t message_size_a)
-{
-	return bucket.try_consume (nano::narrow_cast<unsigned int> (message_size_a));
-}
-
-void nano::rate_limiter::reset (std::size_t limit_a, double burst_ratio_a)
-{
-	bucket.reset (static_cast<std::size_t> (limit_a * burst_ratio_a), limit_a);
-}
-
-/*
  * outbound_bandwidth_limiter
  */
 

@@ -4,6 +4,10 @@
 
 #include <limits>
 
+/*
+ * token_bucket
+ */
+
 nano::rate::token_bucket::token_bucket (std::size_t max_token_count_a, std::size_t refill_rate_a)
 {
 	reset (max_token_count_a, refill_rate_a);
@@ -61,4 +65,23 @@ void nano::rate::token_bucket::reset (std::size_t max_token_count_a, std::size_t
 	max_token_count = smallest_size = current_size = max_token_count_a;
 	refill_rate = refill_rate_a;
 	last_refill = std::chrono::steady_clock::now ();
+}
+
+/*
+ * rate_limiter
+ */
+
+nano::rate_limiter::rate_limiter (std::size_t limit_a, double burst_ratio_a) :
+	bucket (static_cast<std::size_t> (limit_a * burst_ratio_a), limit_a)
+{
+}
+
+bool nano::rate_limiter::should_pass (std::size_t message_size_a)
+{
+	return bucket.try_consume (nano::narrow_cast<unsigned int> (message_size_a));
+}
+
+void nano::rate_limiter::reset (std::size_t limit_a, double burst_ratio_a)
+{
+	bucket.reset (static_cast<std::size_t> (limit_a * burst_ratio_a), limit_a);
 }
