@@ -18,8 +18,8 @@
 
 using namespace std::chrono_literals;
 
-nano::telemetry::telemetry (const config & config_a, nano::node & node_a, nano::network & network_a, nano::node_observers & observers_a, nano::network_params & network_params_a, nano::stats & stats_a) :
-	config_m{ config_a },
+nano::telemetry::telemetry (nano::node_flags const & flags_a, nano::node & node_a, nano::network & network_a, nano::node_observers & observers_a, nano::network_params & network_params_a, nano::stats & stats_a) :
+	config{ flags_a },
 	node{ node_a },
 	network{ network_a },
 	observers{ observers_a },
@@ -150,7 +150,7 @@ bool nano::telemetry::request_predicate () const
 	{
 		return true;
 	}
-	if (config_m.enable_ongoing_requests)
+	if (config.enable_ongoing_requests)
 	{
 		return last_request + network_params.network.telemetry_request_interval < std::chrono::steady_clock::now ();
 	}
@@ -161,7 +161,7 @@ bool nano::telemetry::broadcast_predicate () const
 {
 	debug_assert (!mutex.try_lock ());
 
-	if (config_m.enable_ongoing_broadcasts)
+	if (config.enable_ongoing_broadcasts)
 	{
 		return last_broadcast + network_params.network.telemetry_broadcast_interval < std::chrono::steady_clock::now ();
 	}

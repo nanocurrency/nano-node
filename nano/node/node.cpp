@@ -155,7 +155,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	// otherwise, any value is considered, with `0` having the special meaning of 'let the OS pick a port instead'
 	//
 	network (*this, config.peering_port.has_value () ? *config.peering_port : 0),
-	telemetry{ nano::telemetry::config{ config, flags }, *this, network, observers, network_params, stats },
+	telemetry{ flags, *this, network, observers, network_params, stats },
 	bootstrap_initiator (*this),
 	bootstrap_server{ config.bootstrap_server, store, ledger, network_params.network, stats },
 	// BEWARE: `bootstrap` takes `network.port` instead of `config.peering_port` because when the user doesn't specify
