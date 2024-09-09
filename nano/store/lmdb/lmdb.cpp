@@ -60,7 +60,7 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 			{
 				::lmdb::dbi_open (tx (transaction), "meta", 0, &version_store.meta_handle);
 				is_fully_upgraded = (version.get (transaction) == version_current);
-				mdb_dbi_close (env, version_store.meta_handle);
+				::lmdb::dbi_close (env, version_store.meta_handle);
 			}
 			catch (::lmdb::not_found_error const &)
 			{
