@@ -52,16 +52,19 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 	env.open (path_a.string ().c_str (), options.flags ());
 	if (!error)
 	{
-		auto is_fully_upgraded (false);
-		auto is_fresh_db (false);
+		auto is_fully_upgraded = false;
+		auto is_fresh_db = false;
 		{
-			auto transaction (tx_begin_read ());
-			auto err = mdb_dbi_open (tx (transaction), "meta", 0, &version_store.meta_handle);
-			is_fresh_db = err != MDB_SUCCESS;
-			if (err == MDB_SUCCESS)
+			auto transaction = tx_begin_read ();
+			try
 			{
+				::lmdb::dbi_open (tx (transaction), "meta", 0, &version_store.meta_handle);
 				is_fully_upgraded = (version.get (transaction) == version_current);
 				mdb_dbi_close (env, version_store.meta_handle);
+			}
+			catch (::lmdb::not_found_error const &)
+			{
+				is_fresh_db = true;
 			}
 		}
 
@@ -81,12 +84,9 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 			}
 			auto needs_vacuuming = false;
 			{
-				auto transaction (tx_begin_write ());
-				open_databases (error, transaction, MDB_CREATE);
-				if (!error)
-				{
-					error |= do_upgrades (transaction, constants, needs_vacuuming);
-				}
+				auto transaction = tx_begin_write ();
+				open_databases (transaction, MDB_CREATE);
+				error |= do_upgrades (transaction, constants, needs_vacuuming);
 			}
 
 			if (needs_vacuuming)
@@ -107,8 +107,8 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 		}
 		else
 		{
-			auto transaction (tx_begin_read ());
-			open_databases (error, transaction, 0);
+			auto transaction = tx_begin_read ();
+			open_databases (transaction, 0);
 		}
 	}
 }
@@ -136,7 +136,7 @@ bool nano::store::lmdb::component::vacuum_after_upgrade (std::filesystem::path c
 		options.apply (env);
 		env.open (path_a.string ().c_str (), options.flags ());
 		auto transaction = tx_begin_read ();
-		open_databases (error, transaction, 0);
+		open_databases (transaction, 0);
 	}
 	else
 	{
@@ -194,18 +194,18 @@ nano::store::lmdb::txn_callbacks nano::store::lmdb::component::create_txn_callba
 	return mdb_txn_callbacks;
 }
 
-void nano::store::lmdb::component::open_databases (bool & error_a, store::transaction const & transaction_a, unsigned flags)
+void nano::store::lmdb::component::open_databases (store::transaction const & transaction_a, unsigned flags)
 {
-	error_a |= mdb_dbi_open (tx (transaction_a), "online_weight", flags, &online_weight_store.online_weight_handle) != 0;
-	error_a |= mdb_dbi_open (tx (transaction_a), "meta", flags, &version_store.meta_handle) != 0;
-	error_a |= mdb_dbi_open (tx (transaction_a), "peers", flags, &peer_store.peers_handle) != 0;
-	error_a |= mdb_dbi_open (tx (transaction_a), "pruned", flags, &pruned_store.pruned_handle) != 0;
-	error_a |= mdb_dbi_open (tx (transaction_a), "confirmation_height", flags, &confirmation_height_store.confirmation_height_handle) != 0;
-	error_a |= mdb_dbi_open (tx (transaction_a), "accounts", flags, &account_store.accounts_handle) != 0;
-	error_a |= mdb_dbi_open (tx (transaction_a), "pending", flags, &pending_store.pending_handle) != 0;
-	error_a |= mdb_dbi_open (tx (transaction_a), "final_votes", flags, &final_vote_store.final_votes_handle) != 0;
-	error_a |= mdb_dbi_open (tx (transaction_a), "blocks", MDB_CREATE, &block_store.blocks_handle) != 0;
-	error_a |= mdb_dbi_open (tx (transaction_a), "rep_weights", flags, &rep_weight_store.rep_weights_handle) != 0;
+	::lmdb::dbi_open (tx (transaction_a), "online_weight", flags, &online_weight_store.online_weight_handle);
+	::lmdb::dbi_open (tx (transaction_a), "meta", flags, &version_store.meta_handle);
+	::lmdb::dbi_open (tx (transaction_a), "peers", flags, &peer_store.peers_handle);
+	::lmdb::dbi_open (tx (transaction_a), "pruned", flags, &pruned_store.pruned_handle);
+	::lmdb::dbi_open (tx (transaction_a), "confirmation_height", flags, &confirmation_height_store.confirmation_height_handle);
+	::lmdb::dbi_open (tx (transaction_a), "accounts", flags, &account_store.accounts_handle);
+	::lmdb::dbi_open (tx (transaction_a), "pending", flags, &pending_store.pending_handle);
+	::lmdb::dbi_open (tx (transaction_a), "final_votes", flags, &final_vote_store.final_votes_handle);
+	::lmdb::dbi_open (tx (transaction_a), "blocks", MDB_CREATE, &block_store.blocks_handle);
+	::lmdb::dbi_open (tx (transaction_a), "rep_weights", flags, &rep_weight_store.rep_weights_handle);
 }
 
 bool nano::store::lmdb::component::do_upgrades (store::write_transaction & transaction, nano::ledger_constants & constants, bool & needs_vacuuming)
@@ -243,7 +243,7 @@ void nano::store::lmdb::component::upgrade_v21_to_v22 (store::write_transaction 
 	logger.info (nano::log::type::lmdb, "Upgrading database from v21 to v22...");
 
 	MDB_dbi unchecked_handle{ 0 };
-	release_assert (!mdb_dbi_open (tx (transaction), "unchecked", MDB_CREATE, &unchecked_handle));
+	::lmdb::dbi_open (tx (transaction), "unchecked", MDB_CREATE, &unchecked_handle);
 	release_assert (!mdb_drop (tx (transaction), unchecked_handle, 1)); // del = 1, to delete it from the environment and close the DB handle.
 	version.put (transaction, 22);
 
@@ -314,7 +314,7 @@ void nano::store::lmdb::component::upgrade_v23_to_v24 (store::write_transaction 
 	logger.info (nano::log::type::lmdb, "Upgrading database from v23 to v24...");
 
 	MDB_dbi frontiers_handle{ 0 };
-	release_assert (!mdb_dbi_open (tx (transaction), "frontiers", MDB_CREATE, &frontiers_handle));
+	::lmdb::dbi_open (tx (transaction), "frontiers", MDB_CREATE, &frontiers_handle);
 	release_assert (!mdb_drop (tx (transaction), frontiers_handle, 1)); // del = 1, to delete it from the environment and close the DB handle.
 	version.put (transaction, 24);
 	logger.info (nano::log::type::lmdb, "Upgrading database from v23 to v24 completed");
@@ -455,7 +455,7 @@ void nano::store::lmdb::component::rebuild_db (store::write_transaction const & 
 	for (auto const & table : tables)
 	{
 		MDB_dbi temp;
-		mdb_dbi_open (tx (transaction_a), "temp_table", MDB_CREATE, &temp);
+		::lmdb::dbi_open (tx (transaction_a), "temp_table", MDB_CREATE, &temp);
 		// Copy all values to temporary table
 		for (auto i (store::iterator<nano::uint256_union, nano::store::lmdb::db_val> (std::make_unique<nano::store::lmdb::iterator<nano::uint256_union, nano::store::lmdb::db_val>> (transaction_a, env, table))), n (store::iterator<nano::uint256_union, nano::store::lmdb::db_val> (nullptr)); i != n; ++i)
 		{
@@ -478,7 +478,7 @@ void nano::store::lmdb::component::rebuild_db (store::write_transaction const & 
 	// Pending table
 	{
 		MDB_dbi temp;
-		mdb_dbi_open (tx (transaction_a), "temp_table", MDB_CREATE, &temp);
+		::lmdb::dbi_open (tx (transaction_a), "temp_table", MDB_CREATE, &temp);
 		// Copy all values to temporary table
 		for (auto i (store::iterator<nano::pending_key, nano::pending_info> (std::make_unique<nano::store::lmdb::iterator<nano::pending_key, nano::pending_info>> (transaction_a, env, pending_store.pending_handle))), n (store::iterator<nano::pending_key, nano::pending_info> (nullptr)); i != n; ++i)
 		{

@@ -115,7 +115,7 @@ private:
 	void upgrade_v22_to_v23 (store::write_transaction &);
 	void upgrade_v23_to_v24 (store::write_transaction &);
 
-	void open_databases (bool &, store::transaction const &, unsigned);
+	void open_databases (store::transaction const &, unsigned);
 
 	int drop (store::write_transaction const & transaction_a, tables table_a) override;
 	int clear (store::write_transaction const & transaction_a, MDB_dbi handle_a);

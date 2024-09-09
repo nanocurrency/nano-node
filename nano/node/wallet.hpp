@@ -61,7 +61,7 @@ public:
 	wallet_store (bool &, nano::kdf &, store::transaction &, ::lmdb::env &, nano::account, unsigned, std::string const &);
 	wallet_store (bool &, nano::kdf &, store::transaction &, ::lmdb::env &, nano::account, unsigned, std::string const &, std::string const &);
 	std::vector<nano::account> accounts (store::transaction const &);
-	void initialize (store::transaction const &, bool &, std::string const &);
+	void initialize (store::transaction const &, std::string const &);
 	nano::uint256_union check (store::transaction const &);
 	bool rekey (store::transaction const &, std::string const &);
 	bool valid_password (store::transaction const &);
