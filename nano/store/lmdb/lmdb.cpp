@@ -371,7 +371,7 @@ int nano::store::lmdb::component::drop (store::write_transaction const & transac
 {
 	try
 	{
-		::lmdb::dbi_drop (tx (transaction_a), table_to_dbi (table_a), true);
+		table_to_dbi (table_a).drop (tx (transaction_a), true);
 		return 0;
 	}
 	catch (::lmdb::runtime_error const &)
@@ -380,9 +380,9 @@ int nano::store::lmdb::component::drop (store::write_transaction const & transac
 	}
 }
 
-void nano::store::lmdb::component::clear (store::write_transaction const & transaction_a, MDB_dbi handle_a)
+void nano::store::lmdb::component::clear (store::write_transaction const & transaction_a, ::lmdb::dbi & handle_a)
 {
-	::lmdb::dbi_drop (tx (transaction_a), handle_a, false);
+	handle_a.drop (tx (transaction_a), false);
 }
 
 uint64_t nano::store::lmdb::component::count (store::transaction const & transaction_a, tables table_a) const
@@ -390,14 +390,14 @@ uint64_t nano::store::lmdb::component::count (store::transaction const & transac
 	return count (transaction_a, table_to_dbi (table_a));
 }
 
-uint64_t nano::store::lmdb::component::count (store::transaction const & transaction_a, MDB_dbi db_a) const
+uint64_t nano::store::lmdb::component::count (store::transaction const & transaction_a, ::lmdb::dbi const & db_a) const
 {
 	MDB_stat stats;
 	::lmdb::dbi_stat (tx (transaction_a), db_a, &stats);
 	return (stats.ms_entries);
 }
 
-MDB_dbi nano::store::lmdb::component::table_to_dbi (tables table_a) const
+auto nano::store::lmdb::component::table_to_dbi (tables table_a) -> ::lmdb::dbi &
 {
 	switch (table_a)
 	{
@@ -425,6 +425,11 @@ MDB_dbi nano::store::lmdb::component::table_to_dbi (tables table_a) const
 			release_assert (false);
 			return peer_store.peers_handle;
 	}
+}
+
+auto nano::store::lmdb::component::table_to_dbi (tables table_a) const -> ::lmdb::dbi const &
+{
+	return const_cast<component *> (this)->table_to_dbi (table_a);
 }
 
 bool nano::store::lmdb::component::not_found (int status) const
@@ -455,9 +460,10 @@ bool nano::store::lmdb::component::copy_db (std::filesystem::path const & destin
 void nano::store::lmdb::component::rebuild_db (store::write_transaction const & transaction_a)
 {
 	// Tables with uint256_union key
-	std::vector<MDB_dbi> tables = { account_store.accounts_handle, block_store.blocks_handle, pruned_store.pruned_handle, confirmation_height_store.confirmation_height_handle };
-	for (auto const & table : tables)
+	std::vector<::lmdb::dbi *> tables = { &account_store.accounts_handle, &block_store.blocks_handle, &pruned_store.pruned_handle, &confirmation_height_store.confirmation_height_handle };
+	for (auto & table_p : tables)
 	{
+		auto & table = *table_p;
 		auto temp = ::lmdb::dbi::open (tx (transaction_a), "temp_table", MDB_CREATE);
 		// Copy all values to temporary table
 		for (auto i (store::iterator<nano::uint256_union, nano::store::lmdb::db_val> (std::make_unique<nano::store::lmdb::iterator<nano::uint256_union, nano::store::lmdb::db_val>> (transaction_a, env, table))), n (store::iterator<nano::uint256_union, nano::store::lmdb::db_val> (nullptr)); i != n; ++i)
@@ -467,7 +473,7 @@ void nano::store::lmdb::component::rebuild_db (store::write_transaction const & 
 		}
 		release_assert (count (transaction_a, table) == count (transaction_a, temp));
 		// Clear existing table
-		::lmdb::dbi_drop (tx (transaction_a), table, false);
+		table.drop (tx (transaction_a), false);
 		// Put values from copy
 		for (auto i (store::iterator<nano::uint256_union, nano::store::lmdb::db_val> (std::make_unique<nano::store::lmdb::iterator<nano::uint256_union, nano::store::lmdb::db_val>> (transaction_a, env, temp))), n (store::iterator<nano::uint256_union, nano::store::lmdb::db_val> (nullptr)); i != n; ++i)
 		{
@@ -488,7 +494,7 @@ void nano::store::lmdb::component::rebuild_db (store::write_transaction const & 
 			release_assert_success (s);
 		}
 		release_assert (count (transaction_a, pending_store.pending_handle) == count (transaction_a, temp));
-		::lmdb::dbi_drop (tx (transaction_a), pending_store.pending_handle, false);
+		pending_store.pending_handle.drop (tx (transaction_a), false);
 		// Put values from copy
 		for (auto i (store::iterator<nano::pending_key, nano::pending_info> (std::make_unique<nano::store::lmdb::iterator<nano::pending_key, nano::pending_info>> (transaction_a, env, temp))), n (store::iterator<nano::pending_key, nano::pending_info> (nullptr)); i != n; ++i)
 		{

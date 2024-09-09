@@ -14,7 +14,7 @@ template <typename T, typename U>
 class iterator : public iterator_impl<T, U>
 {
 public:
-	iterator (store::transaction const & transaction_a, ::lmdb::env const & env_a, MDB_dbi db_a, MDB_val const & val_a = MDB_val{}, bool const direction_asc = true) :
+	iterator (store::transaction const & transaction_a, ::lmdb::env const & env_a, ::lmdb::dbi const & db_a, MDB_val const & val_a = MDB_val{}, bool const direction_asc = true) :
 		nano::store::iterator_impl<T, U> (transaction_a)
 	{
 		auto status (mdb_cursor_open (tx (transaction_a), db_a, &cursor));
@@ -176,7 +176,7 @@ template <typename T, typename U>
 class merge_iterator : public iterator_impl<T, U>
 {
 public:
-	merge_iterator (store::transaction const & transaction_a, MDB_dbi db1_a, MDB_dbi db2_a) :
+	merge_iterator (store::transaction const & transaction_a, ::lmdb::dbi const & db1_a, ::lmdb::dbi const & db2_a) :
 		impl1 (std::make_unique<nano::store::lmdb::iterator<T, U>> (transaction_a, db1_a)),
 		impl2 (std::make_unique<nano::store::lmdb::iterator<T, U>> (transaction_a, db2_a))
 	{
@@ -188,7 +188,7 @@ public:
 	{
 	}
 
-	merge_iterator (store::transaction const & transaction_a, MDB_dbi db1_a, MDB_dbi db2_a, MDB_val const & val_a) :
+	merge_iterator (store::transaction const & transaction_a, ::lmdb::dbi const & db1_a, ::lmdb::dbi const & db2_a, MDB_val const & val_a) :
 		impl1 (std::make_unique<nano::store::lmdb::iterator<T, U>> (transaction_a, db1_a, val_a)),
 		impl2 (std::make_unique<nano::store::lmdb::iterator<T, U>> (transaction_a, db2_a, val_a))
 	{

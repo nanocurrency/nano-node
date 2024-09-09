@@ -106,7 +106,7 @@ public:
 
 	bool init_error () const override;
 
-	uint64_t count (store::transaction const &, MDB_dbi) const;
+	uint64_t count (store::transaction const &, ::lmdb::dbi const &) const;
 	std::string error_string (int status) const override;
 
 private:
@@ -118,7 +118,7 @@ private:
 	void open_databases (store::transaction const &, unsigned);
 
 	int drop (store::write_transaction const & transaction_a, tables table_a) override;
-	void clear (store::write_transaction const & transaction_a, MDB_dbi handle_a);
+	void clear (store::write_transaction const & transaction_a, ::lmdb::dbi & handle_a);
 
 	bool not_found (int status) const override;
 	bool success (int status) const override;
@@ -131,7 +131,8 @@ private:
 	}
 	int status_code_not_found () const override;
 
-	MDB_dbi table_to_dbi (tables table_a) const;
+	auto table_to_dbi (tables table_a) -> ::lmdb::dbi &;
+	auto table_to_dbi (tables table_a) const -> ::lmdb::dbi const &;
 
 	mutable nano::mdb_txn_tracker mdb_txn_tracker;
 	nano::store::lmdb::txn_callbacks create_txn_callbacks () const;
