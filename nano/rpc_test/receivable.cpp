@@ -133,7 +133,7 @@ TEST (rpc, receivable_unconfirmed)
 {
 	nano::test::system system;
 	nano::node_config config;
-	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config.backlog_population.enable = false;
 	auto node = add_ipc_enabled_node (system, config);
 	auto chain = nano::test::setup_chain (system, *node, 1, nano::dev::genesis_key, false);
 	auto block1 = chain[0];
@@ -530,7 +530,7 @@ TEST (rpc, accounts_receivable_confirmed)
 {
 	nano::test::system system;
 	nano::node_config config;
-	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config.backlog_population.enable = false;
 	auto node = add_ipc_enabled_node (system, config);
 	auto chain = nano::test::setup_chain (system, *node, 1, nano::dev::genesis_key, false);
 	auto block1 = chain[0];

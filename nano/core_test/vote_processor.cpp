@@ -19,7 +19,7 @@ TEST (vote_processor, codes)
 	nano::test::system system;
 	auto node_config = system.default_config ();
 	// Disable all election schedulers
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	node_config.hinted_scheduler.enabled = false;
 	node_config.optimistic_scheduler.enabled = false;
 	auto & node = *system.add_node (node_config);
@@ -157,10 +157,10 @@ TEST (vote_processor, no_broadcast_local)
 	flags.disable_request_loop = true;
 	nano::node_config config1, config2;
 	config1.representative_vote_weight_minimum = 0;
-	config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config1.backlog_population.enable = false;
 	auto & node (*system.add_node (config1, flags));
 	config2.representative_vote_weight_minimum = 0;
-	config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config2.backlog_population.enable = false;
 	config2.peering_port = system.get_available_port ();
 	system.add_node (config2, flags);
 	nano::block_builder builder;
@@ -212,10 +212,10 @@ TEST (vote_processor, local_broadcast_without_a_representative)
 	flags.disable_request_loop = true;
 	nano::node_config config1, config2;
 	config1.representative_vote_weight_minimum = 0;
-	config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config1.backlog_population.enable = false;
 	auto & node (*system.add_node (config1, flags));
 	config2.representative_vote_weight_minimum = 0;
-	config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config2.backlog_population.enable = false;
 	config2.peering_port = system.get_available_port ();
 	system.add_node (config2, flags);
 	nano::block_builder builder;
@@ -261,9 +261,9 @@ TEST (vote_processor, no_broadcast_local_with_a_principal_representative)
 	nano::node_flags flags;
 	flags.disable_request_loop = true;
 	nano::node_config config1, config2;
-	config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config1.backlog_population.enable = false;
 	auto & node (*system.add_node (config1, flags));
-	config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config2.backlog_population.enable = false;
 	config2.peering_port = system.get_available_port ();
 	system.add_node (config2, flags);
 	nano::block_builder builder;

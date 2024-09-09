@@ -36,7 +36,7 @@ TEST (election, quorum_minimum_flip_success)
 
 	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 
 	auto & node1 = *system.add_node (node_config);
 	auto const latest_hash = nano::dev::genesis->hash ();
@@ -86,7 +86,7 @@ TEST (election, quorum_minimum_flip_fail)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	auto & node = *system.add_node (node_config);
 	nano::state_block_builder builder;
 
@@ -137,7 +137,7 @@ TEST (election, quorum_minimum_confirm_success)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key1;
 	nano::block_builder builder;
@@ -167,7 +167,7 @@ TEST (election, quorum_minimum_confirm_fail)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	auto & node1 = *system.add_node (node_config);
 
 	nano::block_builder builder;
@@ -205,7 +205,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	nano::test::system system;
 
 	nano::node_config node_config = system.default_config ();
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 
 	auto & node1 = *system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);

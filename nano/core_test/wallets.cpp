@@ -195,7 +195,7 @@ TEST (wallets, search_receivable)
 		nano::test::system system;
 		nano::node_config config = system.default_config ();
 		config.enable_voting = false;
-		config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+		config.backlog_population.enable = false;
 		nano::node_flags flags;
 		flags.disable_search_pending = true;
 		auto & node (*system.add_node (config, flags));

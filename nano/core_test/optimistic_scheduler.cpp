@@ -85,7 +85,7 @@ TEST (optimistic_scheduler, under_gap_threshold)
 {
 	nano::test::system system{};
 	nano::node_config config = system.default_config ();
-	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config.backlog_population.enable = false;
 	auto & node = *system.add_node (config);
 
 	// Must be smaller than optimistic scheduler `gap_threshold`

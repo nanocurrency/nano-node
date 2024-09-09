@@ -678,7 +678,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.io_threads, defaults.node.io_threads);
 	ASSERT_NE (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
 	ASSERT_NE (conf.node.max_unchecked_blocks, defaults.node.max_unchecked_blocks);
-	ASSERT_NE (conf.node.frontiers_confirmation, defaults.node.frontiers_confirmation);
 	ASSERT_NE (conf.node.network_threads, defaults.node.network_threads);
 	ASSERT_NE (conf.node.background_threads, defaults.node.background_threads);
 	ASSERT_NE (conf.node.secondary_work_peers, defaults.node.secondary_work_peers);
@@ -915,23 +914,6 @@ TEST (toml, daemon_config_deserialize_errors)
 
 		ASSERT_EQ (toml.get_error ().get_message (), "max_work_generate_multiplier must be greater than or equal to 1");
 	}
-
-	{
-		std::stringstream ss;
-		ss << R"toml(
-		[node]
-		frontiers_confirmation = "randomstring"
-		)toml";
-
-		nano::tomlconfig toml;
-		toml.read (ss);
-		nano::daemon_config conf;
-		conf.deserialize_toml (toml);
-
-		ASSERT_EQ (toml.get_error ().get_message (), "frontiers_confirmation value is invalid (available: always, auto, disabled)");
-		ASSERT_EQ (conf.node.frontiers_confirmation, nano::frontiers_confirmation_mode::invalid);
-	}
-
 	{
 		std::stringstream ss;
 		ss << R"toml(

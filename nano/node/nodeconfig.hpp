@@ -41,16 +41,6 @@ namespace nano
 {
 class tomlconfig;
 
-enum class frontiers_confirmation_mode : uint8_t
-{
-	always, // Always confirm frontiers
-	automatic, // Always mode if node contains representative with at least 50% of principal weight, less frequest requests if not
-	disabled, // Do not confirm frontiers
-	invalid
-};
-
-class message_processor_config;
-
 /**
  * Node configuration
  */
@@ -143,7 +133,6 @@ public:
 	uint64_t max_pruning_depth{ 0 };
 	nano::rocksdb_config rocksdb_config;
 	nano::lmdb_config lmdb_config;
-	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
 	bool enable_upnp{ true };
 	nano::vote_cache_config vote_cache;
 	nano::rep_crawler_config rep_crawler;
@@ -161,8 +150,6 @@ public:
 	nano::backlog_population_config backlog_population;
 
 public:
-	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
-	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);
 	/** Entry is ignored if it cannot be parsed as a valid address:port */
 	void deserialize_address (std::string const &, std::vector<std::pair<std::string, uint16_t>> &) const;
 

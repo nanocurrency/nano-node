@@ -3031,7 +3031,7 @@ TEST (rpc, accounts_balances_unopened_account_with_receivables)
 {
 	nano::test::system system;
 	nano::node_config config;
-	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config.backlog_population.enable = false;
 	auto node = add_ipc_enabled_node (system, config);
 
 	// send a 1 raw to the unopened account which will have receivables
@@ -3335,7 +3335,7 @@ TEST (rpc, pending_exists)
 {
 	nano::test::system system;
 	nano::node_config config;
-	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config.backlog_population.enable = false;
 	auto node = add_ipc_enabled_node (system, config);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -3394,7 +3394,7 @@ TEST (rpc, wallet_receivable)
 {
 	nano::test::system system;
 	nano::node_config config;
-	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config.backlog_population.enable = false;
 	auto node = add_ipc_enabled_node (system, config);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -4458,7 +4458,7 @@ TEST (rpc, populate_backlog)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	// Disable automatic backlog population
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	auto node = add_ipc_enabled_node (system, node_config);
 
 	// Create and process a block that won't get automatically scheduled for confirmation
