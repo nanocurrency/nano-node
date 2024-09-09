@@ -112,7 +112,7 @@ private:
 
 private:
 	bool enabled{ false };
-	nano::bandwidth_limiter limiter;
+	nano::rate_limiter limiter;
 	nano::interval cleanup_interval;
 
 	std::atomic<bool> stopped{ false };

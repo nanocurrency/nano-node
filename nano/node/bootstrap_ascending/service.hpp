@@ -181,7 +181,7 @@ namespace bootstrap_ascending
 
 		// Requests for accounts from database have much lower hitrate and could introduce strain on the network
 		// A separate (lower) limiter ensures that we always reserve resources for querying accounts from priority queue
-		nano::bandwidth_limiter database_limiter;
+		nano::rate_limiter database_limiter;
 
 		nano::interval sync_dependencies_interval;
 
