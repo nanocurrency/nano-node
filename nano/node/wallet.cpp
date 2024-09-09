@@ -10,6 +10,7 @@
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/store/lmdb/iterator.hpp>
+#include <nano/store/lmdb/options.hpp>
 
 #include <boost/format.hpp>
 #include <boost/polymorphic_cast.hpp>
@@ -259,7 +260,7 @@ int const nano::wallet_store::special_count (7);
 std::size_t const nano::wallet_store::check_iv_index (0);
 std::size_t const nano::wallet_store::seed_iv_index (1);
 
-nano::wallet_store::wallet_store (bool & init_a, nano::kdf & kdf_a, store::transaction & transaction_a, store::lmdb::env & env_a, nano::account representative_a, unsigned fanout_a, std::string const & wallet_a, std::string const & json_a) :
+nano::wallet_store::wallet_store (bool & init_a, nano::kdf & kdf_a, store::transaction & transaction_a, ::lmdb::env & env_a, nano::account representative_a, unsigned fanout_a, std::string const & wallet_a, std::string const & json_a) :
 	password (0, fanout_a),
 	wallet_key_mem (0, fanout_a),
 	kdf (kdf_a),
@@ -316,7 +317,7 @@ nano::wallet_store::wallet_store (bool & init_a, nano::kdf & kdf_a, store::trans
 	}
 }
 
-nano::wallet_store::wallet_store (bool & init_a, nano::kdf & kdf_a, store::transaction & transaction_a, store::lmdb::env & env_a, nano::account representative_a, unsigned fanout_a, std::string const & wallet_a) :
+nano::wallet_store::wallet_store (bool & init_a, nano::kdf & kdf_a, store::transaction & transaction_a, ::lmdb::env & env_a, nano::account representative_a, unsigned fanout_a, std::string const & wallet_a) :
 	password (0, fanout_a),
 	wallet_key_mem (0, fanout_a),
 	kdf (kdf_a),
@@ -1791,9 +1792,13 @@ nano::store::iterator<nano::account, nano::wallet_value> nano::wallet_store::end
 {
 	return store::iterator<nano::account, nano::wallet_value> (nullptr);
 }
+
 nano::mdb_wallets_store::mdb_wallets_store (std::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a) :
-	environment (error, path_a, nano::store::lmdb::options::make ().set_config (lmdb_config_a).override_config_sync (nano::lmdb_config::sync_strategy::always).override_config_map_size (1ULL * 1024 * 1024 * 1024))
+	environment (::lmdb::env::create ())
 {
+	auto options = nano::store::lmdb::options::make ().set_config (lmdb_config_a).override_config_sync (nano::lmdb_config::sync_strategy::always).override_config_map_size (1ULL * 1024 * 1024 * 1024);
+	options.apply (environment);
+	environment.open (path_a.string ().c_str (), options.flags ());
 }
 
 bool nano::mdb_wallets_store::init_error () const

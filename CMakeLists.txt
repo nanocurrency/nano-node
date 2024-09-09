@@ -676,6 +676,9 @@ add_library(
   submodules/lmdb/libraries/liblmdb/mdb.c
   submodules/lmdb/libraries/liblmdb/midl.c)
 
+include_directories(submodules/lmdb/libraries/liblmdb)
+include_directories(submodules/lmdbxx/include)
+
 if(WIN32)
   target_link_libraries(lmdb ntdll)
 endif()

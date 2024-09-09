@@ -5,6 +5,7 @@
 #include <nano/secure/parallel_traversal.hpp>
 #include <nano/store/lmdb/iterator.hpp>
 #include <nano/store/lmdb/lmdb.hpp>
+#include <nano/store/lmdb/options.hpp>
 #include <nano/store/lmdb/wallet_value.hpp>
 #include <nano/store/version.hpp>
 #include <nano/store/versioning.hpp>
@@ -41,14 +42,16 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 	version_store{ *this },
 	rep_weight_store{ *this },
 	logger{ logger_a },
-	env (error, path_a, nano::store::lmdb::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
+	env (::lmdb::env::create ()),
 	mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
 	txn_tracking_enabled (txn_tracking_config_a.enable)
 {
+	auto options = nano::store::lmdb::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true);
+	options.apply (env);
+	debug_assert (path_a.filename () == "data.ldb");
+	env.open (path_a.string ().c_str (), options.flags ());
 	if (!error)
 	{
-		debug_assert (path_a.filename () == "data.ldb");
-
 		auto is_fully_upgraded (false);
 		auto is_fresh_db (false);
 		{
@@ -119,9 +122,8 @@ bool nano::store::lmdb::component::vacuum_after_upgrade (std::filesystem::path c
 	if (vacuum_success)
 	{
 		// Need to close the database to release the file handle
-		mdb_env_sync (env.environment, true);
-		mdb_env_close (env.environment);
-		env.environment = nullptr;
+		env.sync (true);
+		env.close ();
 
 		// Replace the ledger file with the vacuumed one
 		std::filesystem::rename (vacuum_path, path_a);
@@ -130,12 +132,11 @@ bool nano::store::lmdb::component::vacuum_after_upgrade (std::filesystem::path c
 		auto options = nano::store::lmdb::options::make ()
 					   .set_config (lmdb_config_a)
 					   .set_use_no_mem_init (true);
-		env.init (error, path_a, options);
-		if (!error)
-		{
-			auto transaction (tx_begin_read ());
-			open_databases (error, transaction, 0);
-		}
+		env = ::lmdb::env::create ();
+		options.apply (env);
+		env.open (path_a.string ().c_str (), options.flags ());
+		auto transaction = tx_begin_read ();
+		open_databases (error, transaction, 0);
 	}
 	else
 	{
@@ -153,7 +154,7 @@ void nano::store::lmdb::component::serialize_mdb_tracker (boost::property_tree::
 void nano::store::lmdb::component::serialize_memory_stats (boost::property_tree::ptree & json)
 {
 	MDB_stat stats;
-	auto status (mdb_env_stat (env.environment, &stats));
+	auto status = mdb_env_stat (env.handle (), &stats);
 	release_assert (status == 0);
 	json.put ("branch_pages", stats.ms_branch_pages);
 	json.put ("depth", stats.ms_depth);
@@ -320,7 +321,7 @@ void nano::store::lmdb::component::upgrade_v23_to_v24 (store::write_transaction 
 }
 
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
-void nano::store::lmdb::component::create_backup_file (nano::store::lmdb::env & env_a, std::filesystem::path const & filepath_a, nano::logger & logger)
+void nano::store::lmdb::component::create_backup_file (::lmdb::env & env_a, std::filesystem::path const & filepath_a, nano::logger & logger)
 {
 	auto extension = filepath_a.extension ();
 	auto filename_without_extension = filepath_a.filename ().replace_extension ("");
@@ -444,7 +445,7 @@ std::string nano::store::lmdb::component::error_string (int status) const
 
 bool nano::store::lmdb::component::copy_db (std::filesystem::path const & destination_file)
 {
-	return !mdb_env_copy2 (env.environment, destination_file.string ().c_str (), MDB_CP_COMPACT);
+	return !mdb_env_copy2 (env.handle (), destination_file.string ().c_str (), MDB_CP_COMPACT);
 }
 
 void nano::store::lmdb::component::rebuild_db (store::write_transaction const & transaction_a)

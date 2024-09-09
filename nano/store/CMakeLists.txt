@@ -16,7 +16,6 @@ add_library(
   lmdb/final_vote.hpp
   lmdb/iterator.hpp
   lmdb/lmdb.hpp
-  lmdb/lmdb_env.hpp
   lmdb/iterator.hpp
   lmdb/transaction_impl.hpp
   lmdb/online_weight.hpp
@@ -66,7 +65,6 @@ add_library(
   lmdb/db_val.cpp
   lmdb/final_vote.cpp
   lmdb/lmdb.cpp
-  lmdb/lmdb_env.cpp
   lmdb/transaction.cpp
   lmdb/online_weight.cpp
   lmdb/options.cpp

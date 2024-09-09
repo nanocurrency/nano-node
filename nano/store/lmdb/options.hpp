@@ -2,10 +2,7 @@
 
 #include <nano/lib/lmdbconfig.hpp>
 
-namespace nano::store::lmdb
-{
-class env;
-}
+#include <lmdbxx/lmdb++.h>
 
 namespace nano::store::lmdb
 {
@@ -29,7 +26,7 @@ public:
 	/** Used by the wallet to override the sync strategy */
 	options & override_config_sync (nano::lmdb_config::sync_strategy sync_a);
 
-	options & apply (nano::store::lmdb::env & env);
+	options & apply (::lmdb::env & env);
 	unsigned int flags () const;
 
 private:

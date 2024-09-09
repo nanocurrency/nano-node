@@ -1,4 +1,4 @@
-#include <nano/store/lmdb/lmdb_env.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/store/lmdb/options.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
@@ -27,10 +27,9 @@ auto nano::store::lmdb::options::override_config_sync (nano::lmdb_config::sync_s
 	return *this;
 }
 
-auto nano::store::lmdb::options::apply (nano::store::lmdb::env & env) -> options &
+auto nano::store::lmdb::options::apply (::lmdb::env & env) -> options &
 {
-	auto status = mdb_env_set_maxdbs (env.environment, config.max_databases);
-	release_assert (status == MDB_SUCCESS);
+	env.set_max_dbs (config.max_databases);
 	auto map_size = config.map_size;
 	auto max_instrumented_map_size = 16 * 1024 * 1024;
 	if (memory_intensive_instrumentation () && map_size > max_instrumented_map_size)
@@ -38,8 +37,7 @@ auto nano::store::lmdb::options::apply (nano::store::lmdb::env & env) -> options
 		// In order to run LMDB with some types of memory instrumentation, the maximum map size must be smaller than what is normally used when non-instrumented
 		map_size = max_instrumented_map_size;
 	}
-	status = mdb_env_set_mapsize (env.environment, map_size);
-	release_assert (status == MDB_SUCCESS);
+	env.set_mapsize (map_size);
 	return *this;
 }
 

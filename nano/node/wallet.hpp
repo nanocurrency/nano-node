@@ -58,8 +58,8 @@ enum class key_type
 class wallet_store final
 {
 public:
-	wallet_store (bool &, nano::kdf &, store::transaction &, store::lmdb::env &, nano::account, unsigned, std::string const &);
-	wallet_store (bool &, nano::kdf &, store::transaction &, store::lmdb::env &, nano::account, unsigned, std::string const &, std::string const &);
+	wallet_store (bool &, nano::kdf &, store::transaction &, ::lmdb::env &, nano::account, unsigned, std::string const &);
+	wallet_store (bool &, nano::kdf &, store::transaction &, ::lmdb::env &, nano::account, unsigned, std::string const &, std::string const &);
 	std::vector<nano::account> accounts (store::transaction const &);
 	void initialize (store::transaction const &, bool &, std::string const &);
 	nano::uint256_union check (store::transaction const &);
@@ -124,7 +124,7 @@ public:
 	std::recursive_mutex mutex;
 
 private:
-	nano::store::lmdb::env & env;
+	::lmdb::env & env;
 };
 
 // A wallet is a set of account keys encrypted by a common encryption key
@@ -234,7 +234,7 @@ public:
 	MDB_dbi handle;
 	MDB_dbi send_action_ids;
 	nano::node & node;
-	nano::store::lmdb::env & env;
+	::lmdb::env & env;
 	std::atomic<bool> stopped;
 	std::thread thread;
 	static nano::uint128_t const generate_priority;
@@ -265,7 +265,7 @@ class mdb_wallets_store final : public wallets_store
 {
 public:
 	mdb_wallets_store (std::filesystem::path const &, nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{});
-	nano::store::lmdb::env environment;
+	::lmdb::env environment;
 	bool init_error () const override;
 	bool error{ false };
 };

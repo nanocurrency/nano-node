@@ -12,7 +12,6 @@
 #include <nano/store/lmdb/db_val.hpp>
 #include <nano/store/lmdb/final_vote.hpp>
 #include <nano/store/lmdb/iterator.hpp>
-#include <nano/store/lmdb/lmdb_env.hpp>
 #include <nano/store/lmdb/online_weight.hpp>
 #include <nano/store/lmdb/peer.hpp>
 #include <nano/store/lmdb/pending.hpp>
@@ -24,7 +23,7 @@
 
 #include <boost/optional.hpp>
 
-#include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdbxx/lmdb++.h>
 
 namespace nano
 {
@@ -71,7 +70,7 @@ public:
 
 	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) override;
 
-	static void create_backup_file (nano::store::lmdb::env &, std::filesystem::path const &, nano::logger &);
+	static void create_backup_file (::lmdb::env &, std::filesystem::path const &, nano::logger &);
 
 	void serialize_memory_stats (boost::property_tree::ptree &) override;
 
@@ -82,7 +81,7 @@ private:
 	bool error{ false };
 
 public:
-	nano::store::lmdb::env env;
+	::lmdb::env env;
 
 	bool exists (store::transaction const & transaction_a, tables table_a, nano::store::lmdb::db_val const & key_a) const;
 

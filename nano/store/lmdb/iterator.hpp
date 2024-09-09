@@ -3,11 +3,10 @@
 #include <nano/store/component.hpp>
 #include <nano/store/db_val.hpp>
 #include <nano/store/iterator.hpp>
-#include <nano/store/lmdb/lmdb_env.hpp>
 #include <nano/store/lmdb/utility.hpp>
 #include <nano/store/transaction.hpp>
 
-#include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdbxx/lmdb++.h>
 
 namespace nano::store::lmdb
 {
@@ -15,7 +14,7 @@ template <typename T, typename U>
 class iterator : public iterator_impl<T, U>
 {
 public:
-	iterator (store::transaction const & transaction_a, env const & env_a, MDB_dbi db_a, MDB_val const & val_a = MDB_val{}, bool const direction_asc = true) :
+	iterator (store::transaction const & transaction_a, ::lmdb::env const & env_a, MDB_dbi db_a, MDB_val const & val_a = MDB_val{}, bool const direction_asc = true) :
 		nano::store::iterator_impl<T, U> (transaction_a)
 	{
 		auto status (mdb_cursor_open (tx (transaction_a), db_a, &cursor));
