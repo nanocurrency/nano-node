@@ -200,10 +200,8 @@ void nano::store::lmdb::component::open_databases (bool & error_a, store::transa
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peer_store.peers_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "pruned", flags, &pruned_store.pruned_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "confirmation_height", flags, &confirmation_height_store.confirmation_height_handle) != 0;
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "accounts", flags, &account_store.accounts_v0_handle) != 0;
-	account_store.accounts_handle = account_store.accounts_v0_handle;
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "pending", flags, &pending_store.pending_v0_handle) != 0;
-	pending_store.pending_handle = pending_store.pending_v0_handle;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "accounts", flags, &account_store.accounts_handle) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "pending", flags, &pending_store.pending_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "final_votes", flags, &final_vote_store.final_votes_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "blocks", MDB_CREATE, &block_store.blocks_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "rep_weights", flags, &rep_weight_store.rep_weights_handle) != 0;

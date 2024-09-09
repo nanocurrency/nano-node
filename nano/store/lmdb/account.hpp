@@ -29,18 +29,6 @@ public:
 	void for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::account, nano::account_info>, store::iterator<nano::account, nano::account_info>)> const & action_a) const override;
 
 	/**
-	 * Maps account v1 to account information, head, rep, open, balance, timestamp and block count. (Removed)
-	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
-	 */
-	MDB_dbi accounts_v0_handle{ 0 };
-
-	/**
-	 * Maps account v0 to account information, head, rep, open, balance, timestamp and block count. (Removed)
-	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
-	 */
-	MDB_dbi accounts_v1_handle{ 0 };
-
-	/**
 	 * Maps account v0 to account information, head, rep, open, balance, timestamp, block count and epoch
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t, nano::epoch
 	 */
