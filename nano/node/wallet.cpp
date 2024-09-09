@@ -836,9 +836,7 @@ void nano::wallet::serialize (std::string & json_a)
 
 void nano::wallet_store::destroy (store::transaction const & transaction_a)
 {
-	auto status (mdb_drop (store::lmdb::tx (transaction_a), handle, 1));
-	(void)status;
-	debug_assert (status == 0);
+	::lmdb::dbi_drop (store::lmdb::tx (transaction_a), handle, true);
 	handle = 0;
 }
 
@@ -1639,9 +1637,7 @@ nano::store::read_transaction nano::wallets::tx_begin_read ()
 
 void nano::wallets::clear_send_ids (store::transaction const & transaction_a)
 {
-	auto status (mdb_drop (store::lmdb::tx (transaction_a), send_action_ids, 0));
-	(void)status;
-	debug_assert (status == 0);
+	::lmdb::dbi_drop (store::lmdb::tx (transaction_a), send_action_ids, false);
 }
 
 nano::wallet_representatives nano::wallets::reps () const

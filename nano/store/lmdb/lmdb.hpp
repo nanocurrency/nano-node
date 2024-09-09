@@ -118,7 +118,7 @@ private:
 	void open_databases (store::transaction const &, unsigned);
 
 	int drop (store::write_transaction const & transaction_a, tables table_a) override;
-	int clear (store::write_transaction const & transaction_a, MDB_dbi handle_a);
+	void clear (store::write_transaction const & transaction_a, MDB_dbi handle_a);
 
 	bool not_found (int status) const override;
 	bool success (int status) const override;

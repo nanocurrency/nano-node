@@ -244,7 +244,7 @@ void nano::store::lmdb::component::upgrade_v21_to_v22 (store::write_transaction 
 
 	MDB_dbi unchecked_handle{ 0 };
 	::lmdb::dbi_open (tx (transaction), "unchecked", MDB_CREATE, &unchecked_handle);
-	release_assert (!mdb_drop (tx (transaction), unchecked_handle, 1)); // del = 1, to delete it from the environment and close the DB handle.
+	::lmdb::dbi_drop (tx (transaction), unchecked_handle, true);
 	version.put (transaction, 22);
 
 	logger.info (nano::log::type::lmdb, "Upgrading database from v21 to v22 completed");
@@ -315,7 +315,7 @@ void nano::store::lmdb::component::upgrade_v23_to_v24 (store::write_transaction 
 
 	MDB_dbi frontiers_handle{ 0 };
 	::lmdb::dbi_open (tx (transaction), "frontiers", MDB_CREATE, &frontiers_handle);
-	release_assert (!mdb_drop (tx (transaction), frontiers_handle, 1)); // del = 1, to delete it from the environment and close the DB handle.
+	::lmdb::dbi_drop (tx (transaction), frontiers_handle, true);
 	version.put (transaction, 24);
 	logger.info (nano::log::type::lmdb, "Upgrading database from v23 to v24 completed");
 }
@@ -372,12 +372,20 @@ int nano::store::lmdb::component::del (store::write_transaction const & transact
 
 int nano::store::lmdb::component::drop (store::write_transaction const & transaction_a, tables table_a)
 {
-	return mdb_drop (tx (transaction_a), table_to_dbi (table_a), 1);
+	try
+	{
+		::lmdb::dbi_drop (tx (transaction_a), table_to_dbi (table_a), true);
+		return 0;
+	}
+	catch (::lmdb::runtime_error const &)
+	{
+		return -1;
+	}
 }
 
-int nano::store::lmdb::component::clear (store::write_transaction const & transaction_a, MDB_dbi handle_a)
+void nano::store::lmdb::component::clear (store::write_transaction const & transaction_a, MDB_dbi handle_a)
 {
-	return mdb_drop (tx (transaction_a), handle_a, 0);
+	::lmdb::dbi_drop (tx (transaction_a), handle_a, false);
 }
 
 uint64_t nano::store::lmdb::component::count (store::transaction const & transaction_a, tables table_a) const
@@ -464,7 +472,7 @@ void nano::store::lmdb::component::rebuild_db (store::write_transaction const & 
 		}
 		release_assert (count (transaction_a, table) == count (transaction_a, temp));
 		// Clear existing table
-		mdb_drop (tx (transaction_a), table, 0);
+		::lmdb::dbi_drop (tx (transaction_a), table, false);
 		// Put values from copy
 		for (auto i (store::iterator<nano::uint256_union, nano::store::lmdb::db_val> (std::make_unique<nano::store::lmdb::iterator<nano::uint256_union, nano::store::lmdb::db_val>> (transaction_a, env, temp))), n (store::iterator<nano::uint256_union, nano::store::lmdb::db_val> (nullptr)); i != n; ++i)
 		{
@@ -473,7 +481,7 @@ void nano::store::lmdb::component::rebuild_db (store::write_transaction const & 
 		}
 		release_assert (count (transaction_a, table) == count (transaction_a, temp));
 		// Remove temporary table
-		mdb_drop (tx (transaction_a), temp, 1);
+		::lmdb::dbi_drop (tx (transaction_a), temp, true);
 	}
 	// Pending table
 	{
@@ -486,7 +494,7 @@ void nano::store::lmdb::component::rebuild_db (store::write_transaction const & 
 			release_assert_success (s);
 		}
 		release_assert (count (transaction_a, pending_store.pending_handle) == count (transaction_a, temp));
-		mdb_drop (tx (transaction_a), pending_store.pending_handle, 0);
+		::lmdb::dbi_drop (tx (transaction_a), pending_store.pending_handle, false);
 		// Put values from copy
 		for (auto i (store::iterator<nano::pending_key, nano::pending_info> (std::make_unique<nano::store::lmdb::iterator<nano::pending_key, nano::pending_info>> (transaction_a, env, temp))), n (store::iterator<nano::pending_key, nano::pending_info> (nullptr)); i != n; ++i)
 		{
@@ -494,7 +502,7 @@ void nano::store::lmdb::component::rebuild_db (store::write_transaction const & 
 			release_assert_success (s);
 		}
 		release_assert (count (transaction_a, pending_store.pending_handle) == count (transaction_a, temp));
-		mdb_drop (tx (transaction_a), temp, 1);
+		::lmdb::dbi_drop (tx (transaction_a), temp, true);
 	}
 }
 
