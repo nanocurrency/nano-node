@@ -4,6 +4,7 @@
 #include <nano/store/lmdb/db_val.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdbxx/lmdb++.h>
 
 namespace nano::store::lmdb
 {
@@ -40,7 +41,7 @@ public:
 	 * Contains block_sideband and block for all block types (legacy send/change/open/receive & state blocks)
 	 * nano::block_hash -> nano::block_sideband, nano::block
 	 */
-	MDB_dbi blocks_handle{ 0 };
+	::lmdb::dbi blocks_handle;
 
 protected:
 	void block_raw_get (store::transaction const & transaction_a, nano::block_hash const & hash_a, db_val & value) const;

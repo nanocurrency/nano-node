@@ -389,9 +389,7 @@ std::vector<nano::account> nano::wallet_store::accounts (store::transaction cons
 void nano::wallet_store::initialize (store::transaction const & transaction_a, std::string const & path_a)
 {
 	debug_assert (strlen (path_a.c_str ()) == path_a.size ());
-	MDB_dbi handle_l;
-	::lmdb::dbi_open (store::lmdb::tx (transaction_a), path_a.c_str (), MDB_CREATE, &handle_l);
-	handle = handle_l;
+	handle = ::lmdb::dbi::open (store::lmdb::tx (transaction_a), path_a.c_str (), MDB_CREATE);
 }
 
 bool nano::wallet_store::is_representative (store::transaction const & transaction_a)
@@ -1359,8 +1357,8 @@ nano::wallets::wallets (bool error_a, nano::node & node_a) :
 	if (!error_a)
 	{
 		auto transaction (tx_begin_write ());
-		::lmdb::dbi_open (store::lmdb::tx (transaction), nullptr, MDB_CREATE, &handle);
-		::lmdb::dbi_open (store::lmdb::tx (transaction), "send_action_ids", MDB_CREATE, &send_action_ids);
+		handle = ::lmdb::dbi::open (store::lmdb::tx (transaction), nullptr, MDB_CREATE);
+		send_action_ids = ::lmdb::dbi::open (store::lmdb::tx (transaction), "send_action_ids", MDB_CREATE);
 		std::string beginning (nano::uint256_union (0).to_string ());
 		std::string end ((nano::uint256_union (nano::uint256_t (0) - nano::uint256_t (1))).to_string ());
 		store::iterator<std::array<char, 64>, nano::no_value> i (std::make_unique<nano::store::lmdb::iterator<std::array<char, 64>, nano::no_value>> (transaction, env, handle, nano::store::lmdb::db_val (beginning.size (), const_cast<char *> (beginning.c_str ()))));

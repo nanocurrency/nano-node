@@ -1375,8 +1375,7 @@ TEST (mdb_block_store, upgrade_v21_v22)
 		nano::store::lmdb::component store (logger, path, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
 		ASSERT_EQ (store.version.get (transaction), store.version_current);
-		MDB_dbi unchecked_handle{ 0 };
-		ASSERT_THROW (::lmdb::dbi_open (store::lmdb::tx (transaction), "unchecked", 0, &unchecked_handle), ::lmdb::not_found_error);
+		ASSERT_THROW (::lmdb::dbi::open (store::lmdb::tx (transaction), "unchecked", 0), ::lmdb::not_found_error);
 	};
 
 	// Testing current version doesn't contain the unchecked table
@@ -1387,8 +1386,7 @@ TEST (mdb_block_store, upgrade_v21_v22)
 		nano::store::lmdb::component store (logger, path, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
 		store.version.put (transaction, 21);
-		MDB_dbi unchecked_handle{ 0 };
-		::lmdb::dbi_open (store::lmdb::tx (transaction), "unchecked", MDB_CREATE, &unchecked_handle);
+		auto unchecked_handle = ::lmdb::dbi::open (store::lmdb::tx (transaction), "unchecked", MDB_CREATE);
 		ASSERT_EQ (store.version.get (transaction), 21);
 	}
 
@@ -1411,8 +1409,7 @@ TEST (mdb_block_store, upgrade_v23_v24)
 		nano::store::lmdb::component store (logger, path, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
 		ASSERT_EQ (store.version.get (transaction), store.version_current);
-		MDB_dbi frontiers_handle{ 0 };
-		ASSERT_THROW (::lmdb::dbi_open (store::lmdb::tx (transaction), "frontiers", 0, &frontiers_handle), ::lmdb::not_found_error);
+		ASSERT_THROW (::lmdb::dbi::open (store::lmdb::tx (transaction), "frontiers", 0), ::lmdb::not_found_error);
 	};
 
 	// Testing current version doesn't contain the frontiers table
@@ -1423,8 +1420,7 @@ TEST (mdb_block_store, upgrade_v23_v24)
 		nano::store::lmdb::component store (logger, path, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
 		store.version.put (transaction, 23);
-		MDB_dbi frontiers_handle{ 0 };
-		::lmdb::dbi_open (store::lmdb::tx (transaction), "frontiers", MDB_CREATE, &frontiers_handle);
+		auto frontiers_handle = ::lmdb::dbi::open (store::lmdb::tx (transaction), "frontiers", MDB_CREATE);
 		ASSERT_EQ (store.version.get (transaction), 23);
 	}
 

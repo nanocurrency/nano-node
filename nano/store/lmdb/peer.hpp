@@ -26,6 +26,6 @@ public:
 	 * Endpoints for peers
 	 * nano::endpoint_key -> no_value
 	 */
-	MDB_dbi peers_handle{ 0 };
+	::lmdb::dbi peers_handle;
 };
 } // namespace nano::store::lmdb

@@ -120,7 +120,7 @@ public:
 	static std::size_t const seed_iv_index;
 	static int const special_count;
 	nano::kdf & kdf;
-	std::atomic<MDB_dbi> handle{ 0 };
+	::lmdb::dbi handle;
 	std::recursive_mutex mutex;
 
 private:
@@ -231,8 +231,8 @@ public:
 	nano::mutex action_mutex;
 	nano::condition_variable condition;
 	nano::kdf kdf;
-	MDB_dbi handle;
-	MDB_dbi send_action_ids;
+	::lmdb::dbi handle;
+	::lmdb::dbi send_action_ids;
 	nano::node & node;
 	::lmdb::env & env;
 	std::atomic<bool> stopped;

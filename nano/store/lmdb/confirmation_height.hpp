@@ -3,6 +3,7 @@
 #include <nano/store/confirmation_height.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdbxx/lmdb++.h>
 
 namespace nano::store::lmdb
 {
@@ -32,6 +33,6 @@ public:
 	 * Confirmation height of an account, and the hash for the block at that height
 	 * nano::account -> uint64_t, nano::block_hash
 	 */
-	MDB_dbi confirmation_height_handle{ 0 };
+	::lmdb::dbi confirmation_height_handle;
 };
 } // namespace nano::store::lmdb

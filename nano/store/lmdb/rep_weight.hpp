@@ -3,6 +3,7 @@
 #include <nano/store/rep_weight.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdbxx/lmdb++.h>
 
 namespace nano::store::lmdb
 {
@@ -29,6 +30,6 @@ public:
 	 * Representative weights
 	 * nano::account -> uint128_t
 	 */
-	MDB_dbi rep_weights_handle{ 0 };
+	::lmdb::dbi rep_weights_handle;
 };
 }

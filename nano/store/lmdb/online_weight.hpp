@@ -25,6 +25,6 @@ public:
 	 * Samples of online vote weight
 	 * uint64_t -> nano::amount
 	 */
-	MDB_dbi online_weight_handle{ 0 };
+	::lmdb::dbi online_weight_handle;
 };
 } // namespace nano::store::lmdb

@@ -3,6 +3,7 @@
 #include <nano/store/account.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdbxx/lmdb++.h>
 
 namespace nano::store::lmdb
 {
@@ -32,12 +33,12 @@ public:
 	 * Maps account v0 to account information, head, rep, open, balance, timestamp, block count and epoch
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t, nano::epoch
 	 */
-	MDB_dbi accounts_handle{ 0 };
+	::lmdb::dbi accounts_handle;
 
 	/**
 	 * Representative weights. (Removed)
 	 * nano::account -> nano::uint128_t
 	 */
-	MDB_dbi representation_handle{ 0 };
+	::lmdb::dbi representation_handle;
 };
 } // amespace nano::store::lmdb

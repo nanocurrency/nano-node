@@ -3,6 +3,7 @@
 #include <nano/store/pruned.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdbxx/lmdb++.h>
 
 namespace nano::store::lmdb
 {
@@ -28,6 +29,6 @@ public:
 	 * Pruned blocks hashes
 	 * nano::block_hash -> none
 	 */
-	MDB_dbi pruned_handle{ 0 };
+	::lmdb::dbi pruned_handle;
 };
 } // namespace nano::store::lmdb

@@ -31,7 +31,7 @@ auto nano::store::lmdb::options::apply (::lmdb::env & env) -> options &
 {
 	env.set_max_dbs (config.max_databases);
 	auto map_size = config.map_size;
-	auto max_instrumented_map_size = 16 * 1024 * 1024;
+	auto max_instrumented_map_size = 16ull * 1024 * 1024 * 1024;
 	if (memory_intensive_instrumentation () && map_size > max_instrumented_map_size)
 	{
 		// In order to run LMDB with some types of memory instrumentation, the maximum map size must be smaller than what is normally used when non-instrumented

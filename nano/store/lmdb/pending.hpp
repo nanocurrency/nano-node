@@ -3,6 +3,7 @@
 #include <nano/store/pending.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdbxx/lmdb++.h>
 
 namespace nano::store::lmdb
 {
@@ -31,6 +32,6 @@ public:
 	 * Maps (destination account, pending block) to (source account, amount, version). (Removed)
 	 * nano::account, nano::block_hash -> nano::account, nano::amount, nano::epoch
 	 */
-	MDB_dbi pending_handle{ 0 };
+	::lmdb::dbi pending_handle;
 };
 } // namespace nano::store::lmdb
