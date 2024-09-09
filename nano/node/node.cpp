@@ -5,6 +5,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/backlog_population.hpp>
+#include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/confirming_set.hpp>
@@ -146,7 +147,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	wallets_store (*wallets_store_impl),
 	ledger_impl{ std::make_unique<nano::ledger> (store, stats, network_params.ledger, flags_a.generate_cache, config_a.representative_vote_weight_minimum.number ()) },
 	ledger{ *ledger_impl },
-	outbound_limiter{ config },
+	outbound_limiter_impl{ std::make_unique<nano::bandwidth_limiter> (config) },
+	outbound_limiter{ *outbound_limiter_impl },
 	message_processor_impl{ std::make_unique<nano::message_processor> (config.message_processor, *this) },
 	message_processor{ *message_processor_impl },
 	// empty `config.peering_port` means the user made no port choice at all;

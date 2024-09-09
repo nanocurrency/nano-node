@@ -6,7 +6,6 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_pool.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
@@ -41,6 +40,7 @@ namespace nano
 {
 class active_elections;
 class backlog_population;
+class bandwidth_limiter;
 class confirming_set;
 class message_processor;
 class monitor;
@@ -166,7 +166,8 @@ public:
 	nano::wallets_store & wallets_store;
 	std::unique_ptr<nano::ledger> ledger_impl;
 	nano::ledger & ledger;
-	nano::bandwidth_limiter outbound_limiter;
+	std::unique_ptr<nano::bandwidth_limiter> outbound_limiter_impl;
+	nano::bandwidth_limiter & outbound_limiter;
 	std::unique_ptr<nano::message_processor> message_processor_impl;
 	nano::message_processor & message_processor;
 	nano::network network;
