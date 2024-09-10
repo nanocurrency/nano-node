@@ -34,7 +34,9 @@ if(COVERAGE)
 endif()
 
 if(MSVC)
-  add_definitions(/MP)
+  add_compile_options(/MP)
+  add_compile_options(/Zc:__cplusplus) # Tell MSVC to emit correct version
+                                       # number in the __cplusplus macro
 endif()
 
 set(CPACK_PACKAGE_VENDOR "Nano Currency")
