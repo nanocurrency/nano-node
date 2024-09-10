@@ -218,7 +218,7 @@ int main (int argc, char * const * argv)
 					return std::accumulate (reps.begin (), reps.end (), nano::uint128_t{ 0 }, [] (auto sum, auto const & rep) { return sum + rep.second; });
 				};
 
-				// Hardcoded weights are filtered to a cummulative weight of 99%, need to do the same for ledger weights
+				// Hardcoded weights are filtered to a cumulative weight of 99%, need to do the same for ledger weights
 				std::remove_const_t<decltype (ledger_unfiltered)> ledger;
 				{
 					std::vector<std::pair<nano::account, nano::uint128_t>> sorted;
@@ -1721,7 +1721,7 @@ int main (int argc, char * const * argv)
 				{
 					std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
 				}
-				// Check block existance
+				// Check block existence
 				auto block = node->ledger.any.block_get (transaction, key.hash);
 				bool pruned (false);
 				if (block == nullptr)

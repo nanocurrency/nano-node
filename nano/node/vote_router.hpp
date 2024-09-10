@@ -40,7 +40,7 @@ nano::stat::detail to_stat_detail (vote_source);
 
 // This class routes votes to their associated election
 // This class holds a weak_ptr as this container does not own the elections
-// Routing entries are removed perodically if the weak_ptr has expired
+// Routing entries are removed periodically if the weak_ptr has expired
 class vote_router final
 {
 public:

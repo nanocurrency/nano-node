@@ -36,7 +36,7 @@ public:
 	nano::mutex mutex;
 	std::atomic<bool> stopped{ false };
 	std::atomic<bool> handshake_received{ false };
-	// Remote enpoint used to remove response channel even after socket closing
+	// Remote endpoint used to remove response channel even after socket closing
 	nano::tcp_endpoint remote_endpoint{ boost::asio::ip::address_v6::any (), 0 };
 	std::chrono::steady_clock::time_point last_telemetry_req{};
 
