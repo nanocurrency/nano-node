@@ -27,6 +27,7 @@ enum class block_source
 {
 	unknown = 0,
 	live,
+	live_originator,
 	bootstrap,
 	bootstrap_legacy,
 	unchecked,
@@ -67,14 +68,16 @@ public: // Context
 	class context
 	{
 	public:
-		context (std::shared_ptr<nano::block> block, block_source source);
-
-		std::shared_ptr<nano::block> const block;
-		block_source const source;
-		std::chrono::steady_clock::time_point const arrival{ std::chrono::steady_clock::now () };
-
-	public:
 		using result_t = nano::block_status;
+		using callback_t = std::function<void (result_t)>;
+
+		context (std::shared_ptr<nano::block> block, nano::block_source source, callback_t callback = nullptr);
+
+		std::shared_ptr<nano::block> block;
+		nano::block_source source;
+		callback_t callback;
+		std::chrono::steady_clock::time_point arrival{ std::chrono::steady_clock::now () };
+
 		std::future<result_t> get_future ();
 
 	private:
@@ -85,18 +88,16 @@ public: // Context
 	};
 
 public:
-	block_processor (nano::node &);
+	explicit block_processor (nano::node &);
 	~block_processor ();
 
 	void start ();
 	void stop ();
 
 	std::size_t size () const;
-	std::size_t size (block_source) const;
-	bool full () const;
-	bool half_full () const;
-	bool add (std::shared_ptr<nano::block> const &, block_source = block_source::live, std::shared_ptr<nano::transport::channel> const & channel = nullptr);
-	std::optional<nano::block_status> add_blocking (std::shared_ptr<nano::block> const & block, block_source);
+	std::size_t size (nano::block_source) const;
+	bool add (std::shared_ptr<nano::block> const &, nano::block_source = nano::block_source::live, std::shared_ptr<nano::transport::channel> const & channel = nullptr, std::function<void (nano::block_status)> callback = {});
+	std::optional<nano::block_status> add_blocking (std::shared_ptr<nano::block> const & block, nano::block_source);
 	void force (std::shared_ptr<nano::block> const &);
 	bool should_log ();
 
@@ -120,6 +121,7 @@ private:
 	nano::block_status process_one (secure::write_transaction const &, context const &, bool forced = false);
 	void queue_unchecked (secure::write_transaction const &, nano::hash_or_account const &);
 	processed_batch_t process_batch (nano::unique_lock<nano::mutex> &);
+	std::deque<context> next_batch (size_t max_count);
 	context next ();
 	bool add_impl (context, std::shared_ptr<nano::transport::channel> const & channel = nullptr);
 
@@ -128,7 +130,7 @@ private: // Dependencies
 	nano::node & node;
 
 private:
-	nano::fair_queue<context, block_source> queue;
+	nano::fair_queue<context, nano::block_source> queue;
 
 	std::chrono::steady_clock::time_point next_log;
 

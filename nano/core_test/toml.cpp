@@ -116,6 +116,8 @@ TEST (toml, daemon_config_deserialize_defaults)
 	std::stringstream ss;
 	ss << R"toml(
 	[node]
+	[node.bootstrap_ascending]
+	[node.bootstrap_server]
 	[node.block_processor]
 	[node.diagnostics.txn_tracking]
 	[node.httpcallback]
@@ -128,7 +130,6 @@ TEST (toml, daemon_config_deserialize_defaults)
 	[node.websocket]
 	[node.lmdb]
 	[node.rocksdb]
-	[node.bootstrap_server]
 	[opencl]
 	[rpc]
 	[rpc.child_process]
@@ -198,6 +199,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.max_unchecked_blocks, defaults.node.max_unchecked_blocks);
 	ASSERT_EQ (conf.node.backlog_scan_batch_size, defaults.node.backlog_scan_batch_size);
 	ASSERT_EQ (conf.node.backlog_scan_frequency, defaults.node.backlog_scan_frequency);
+	ASSERT_EQ (conf.node.enable_upnp, defaults.node.enable_upnp);
 
 	ASSERT_EQ (conf.node.websocket_config.enabled, defaults.node.websocket_config.enabled);
 	ASSERT_EQ (conf.node.websocket_config.address, defaults.node.websocket_config.address);
@@ -264,6 +266,19 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.vote_processor.pr_priority, defaults.node.vote_processor.pr_priority);
 	ASSERT_EQ (conf.node.vote_processor.threads, defaults.node.vote_processor.threads);
 	ASSERT_EQ (conf.node.vote_processor.batch_size, defaults.node.vote_processor.batch_size);
+
+	ASSERT_EQ (conf.node.bootstrap_ascending.enable, defaults.node.bootstrap_ascending.enable);
+	ASSERT_EQ (conf.node.bootstrap_ascending.enable_database_scan, defaults.node.bootstrap_ascending.enable_database_scan);
+	ASSERT_EQ (conf.node.bootstrap_ascending.enable_dependency_walker, defaults.node.bootstrap_ascending.enable_dependency_walker);
+	ASSERT_EQ (conf.node.bootstrap_ascending.channel_limit, defaults.node.bootstrap_ascending.channel_limit);
+	ASSERT_EQ (conf.node.bootstrap_ascending.database_rate_limit, defaults.node.bootstrap_ascending.database_rate_limit);
+	ASSERT_EQ (conf.node.bootstrap_ascending.database_warmup_ratio, defaults.node.bootstrap_ascending.database_warmup_ratio);
+	ASSERT_EQ (conf.node.bootstrap_ascending.max_pull_count, defaults.node.bootstrap_ascending.max_pull_count);
+	ASSERT_EQ (conf.node.bootstrap_ascending.request_timeout, defaults.node.bootstrap_ascending.request_timeout);
+	ASSERT_EQ (conf.node.bootstrap_ascending.throttle_coefficient, defaults.node.bootstrap_ascending.throttle_coefficient);
+	ASSERT_EQ (conf.node.bootstrap_ascending.throttle_wait, defaults.node.bootstrap_ascending.throttle_wait);
+	ASSERT_EQ (conf.node.bootstrap_ascending.block_processor_threshold, defaults.node.bootstrap_ascending.block_processor_threshold);
+	ASSERT_EQ (conf.node.bootstrap_ascending.max_requests, defaults.node.bootstrap_ascending.max_requests);
 
 	ASSERT_EQ (conf.node.bootstrap_server.max_queue, defaults.node.bootstrap_server.max_queue);
 	ASSERT_EQ (conf.node.bootstrap_server.threads, defaults.node.bootstrap_server.threads);
@@ -449,6 +464,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	frontiers_confirmation = "always"
 	backlog_scan_batch_size = 999
 	backlog_scan_frequency = 999
+	enable_upnp = false
 
 	[node.block_processor]
 	max_peer_queue = 999
@@ -544,12 +560,12 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	map_size = 999
 
 	[node.optimistic_scheduler]
-	enabled = false
+	enable = false
 	gap_threshold = 999
 	max_size = 999
 
 	[node.hinted_scheduler]
-	enabled = false
+	enable = false
 	hinting_threshold = 99
 	check_interval = 999
 	block_cooldown = 999
@@ -575,6 +591,20 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	pr_priority = 999
 	threads = 999
 	batch_size = 999
+
+	[node.bootstrap_ascending]
+	enable = false
+	enable_database_scan = false
+	enable_dependency_walker = false
+	channel_limit = 999
+	database_rate_limit = 999
+	database_warmup_ratio = 999
+	max_pull_count = 999
+	request_timeout = 999
+	throttle_coefficient = 999
+	throttle_wait = 999
+	block_processor_threshold = 999
+	max_requests = 999
 
 	[node.bootstrap_server]
 	max_queue = 999
@@ -672,6 +702,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.request_aggregator_threads, defaults.node.request_aggregator_threads);
 	ASSERT_NE (conf.node.backlog_scan_batch_size, defaults.node.backlog_scan_batch_size);
 	ASSERT_NE (conf.node.backlog_scan_frequency, defaults.node.backlog_scan_frequency);
+	ASSERT_NE (conf.node.enable_upnp, defaults.node.enable_upnp);
 
 	ASSERT_NE (conf.node.websocket_config.enabled, defaults.node.websocket_config.enabled);
 	ASSERT_NE (conf.node.websocket_config.address, defaults.node.websocket_config.address);
@@ -739,6 +770,19 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.vote_processor.pr_priority, defaults.node.vote_processor.pr_priority);
 	ASSERT_NE (conf.node.vote_processor.threads, defaults.node.vote_processor.threads);
 	ASSERT_NE (conf.node.vote_processor.batch_size, defaults.node.vote_processor.batch_size);
+
+	ASSERT_NE (conf.node.bootstrap_ascending.enable, defaults.node.bootstrap_ascending.enable);
+	ASSERT_NE (conf.node.bootstrap_ascending.enable_database_scan, defaults.node.bootstrap_ascending.enable_database_scan);
+	ASSERT_NE (conf.node.bootstrap_ascending.enable_dependency_walker, defaults.node.bootstrap_ascending.enable_dependency_walker);
+	ASSERT_NE (conf.node.bootstrap_ascending.channel_limit, defaults.node.bootstrap_ascending.channel_limit);
+	ASSERT_NE (conf.node.bootstrap_ascending.database_rate_limit, defaults.node.bootstrap_ascending.database_rate_limit);
+	ASSERT_NE (conf.node.bootstrap_ascending.database_warmup_ratio, defaults.node.bootstrap_ascending.database_warmup_ratio);
+	ASSERT_NE (conf.node.bootstrap_ascending.max_pull_count, defaults.node.bootstrap_ascending.max_pull_count);
+	ASSERT_NE (conf.node.bootstrap_ascending.request_timeout, defaults.node.bootstrap_ascending.request_timeout);
+	ASSERT_NE (conf.node.bootstrap_ascending.throttle_coefficient, defaults.node.bootstrap_ascending.throttle_coefficient);
+	ASSERT_NE (conf.node.bootstrap_ascending.throttle_wait, defaults.node.bootstrap_ascending.throttle_wait);
+	ASSERT_NE (conf.node.bootstrap_ascending.block_processor_threshold, defaults.node.bootstrap_ascending.block_processor_threshold);
+	ASSERT_NE (conf.node.bootstrap_ascending.max_requests, defaults.node.bootstrap_ascending.max_requests);
 
 	ASSERT_NE (conf.node.bootstrap_server.max_queue, defaults.node.bootstrap_server.max_queue);
 	ASSERT_NE (conf.node.bootstrap_server.threads, defaults.node.bootstrap_server.threads);
@@ -1048,7 +1092,7 @@ TEST (toml, merge_config_files)
 	 active_elections.size = 999
 	 # backlog_scan_batch_size = 7777
 	[node.bootstrap_ascending]
-	 block_wait_count = 33333
+	 block_processor_threshold = 33333
 	 old_entry = 34
 	)toml";
 
@@ -1071,6 +1115,6 @@ TEST (toml, merge_config_files)
 	ASSERT_NE (merged_config.node.active_elections.size, default_config.node.active_elections.size);
 	ASSERT_EQ (merged_config.node.active_elections.size, 999);
 	ASSERT_NE (merged_config.node.backlog_scan_batch_size, 7777);
-	ASSERT_EQ (merged_config.node.bootstrap_ascending.block_wait_count, 33333);
+	ASSERT_EQ (merged_config.node.bootstrap_ascending.block_processor_threshold, 33333);
 	ASSERT_TRUE (merged_config_string.find ("old_entry") == std::string::npos);
 }

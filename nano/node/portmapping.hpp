@@ -56,12 +56,14 @@ public:
 private:
 	void run ();
 
+	void shutdown ();
 	/** Add port mappings for the node port (not RPC). Refresh when the lease ends. */
 	void refresh_mapping ();
 	/** Check occasionally to refresh in case router loses mapping */
 	void check_mapping ();
 	/** Returns false if mapping still exists */
 	bool check_lost_or_old_mapping ();
+
 	std::string get_config_port (std::string const &);
 
 private: // Dependencies

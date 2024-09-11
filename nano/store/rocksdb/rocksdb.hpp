@@ -22,7 +22,7 @@
 #include <rocksdb/options.h>
 #include <rocksdb/slice.h>
 #include <rocksdb/table.h>
-#include <rocksdb/utilities/optimistic_transaction_db.h>
+#include <rocksdb/utilities/transaction_db.h>
 
 namespace nano
 {
@@ -105,8 +105,7 @@ private:
 	bool error{ false };
 	nano::logger & logger;
 	nano::ledger_constants & constants;
-	// Optimistic transactions are used in write mode
-	::rocksdb::OptimisticTransactionDB * optimistic_db = nullptr;
+	::rocksdb::TransactionDB * transaction_db = nullptr;
 	std::unique_ptr<::rocksdb::DB> db;
 	std::vector<std::unique_ptr<::rocksdb::ColumnFamilyHandle>> handles;
 	std::shared_ptr<::rocksdb::TableFactory> small_table_factory;
@@ -149,10 +148,10 @@ private:
 
 	void open (bool & error_a, std::filesystem::path const & path_a, bool open_read_only_a, ::rocksdb::Options const & options_a, std::vector<::rocksdb::ColumnFamilyDescriptor> column_families);
 
-	bool do_upgrades (store::write_transaction const &);
-	void upgrade_v21_to_v22 (store::write_transaction const &);
-	void upgrade_v22_to_v23 (store::write_transaction const &);
-	void upgrade_v23_to_v24 (store::write_transaction const &);
+	bool do_upgrades (store::write_transaction &);
+	void upgrade_v21_to_v22 (store::write_transaction &);
+	void upgrade_v22_to_v23 (store::write_transaction &);
+	void upgrade_v23_to_v24 (store::write_transaction &);
 
 	void construct_column_family_mutexes ();
 	::rocksdb::Options get_db_options ();

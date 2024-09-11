@@ -21,6 +21,7 @@
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/process.hpp>
 #include <boost/program_options.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 #ifdef _WIN32
@@ -56,11 +57,44 @@ public:
 	bool operator< (const address_library_pair & other) const;
 	bool operator== (const address_library_pair & other) const;
 };
+std::filesystem::path pid_file;
+void remove_pid_file ()
+{
+	std::error_code ec;
+	std::filesystem::remove (pid_file, ec);
+	if (ec)
+	{
+		std::cerr << "Unable to remove pid file: " << ec.message ();
+	}
+}
+void register_pid_file ()
+{
+	std::error_code ec;
+	auto pid = boost::this_process::get_id ();
+	std::filesystem::create_directories (pid_file.parent_path (), ec);
+	if (ec)
+	{
+		std::cerr << "Unable to access PID file path" << std::endl;
+		return;
+	}
+	std::ofstream pid_file_stream (pid_file, std::ios::out | std::ios::trunc);
+	if (pid_file_stream.is_open ())
+	{
+		pid_file_stream << std::to_string (pid) << std::endl;
+		pid_file_stream.close ();
+		std::atexit (remove_pid_file);
+	}
+	else
+	{
+		std::cerr << "Unable to open PID file for writing." << std::endl;
+	}
+}
 }
 
 int main (int argc, char * const * argv)
 {
 	nano::set_umask (); // Make sure the process umask is set before any files are created
+	nano::initialize_file_descriptor_limit ();
 	nano::logger::initialize (nano::log_config::cli_default ());
 
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
@@ -112,7 +146,8 @@ int main (int argc, char * const * argv)
 		("count", boost::program_options::value<std::string> (), "Defines <count> for various commands")
 		("pow_sleep_interval", boost::program_options::value<std::string> (), "Defines the amount to sleep inbetween each pow calculation attempt")
 		("address_column", boost::program_options::value<std::string> (), "Defines which column the addresses are located, 0 indexed (check --debug_output_last_backtrace_dump output)")
-		("silent", "Silent command execution");
+		("silent", "Silent command execution")
+		("pid_file", boost::program_options::value<std::string> (), "If present, node will write its process id to the specified file and delete the file upon exit");
 	// clang-format on
 	nano::add_node_options (description);
 	nano::add_node_flag_options (description);
@@ -138,6 +173,12 @@ int main (int argc, char * const * argv)
 			std::cerr << nano::network_constants::active_network_err_msg << std::endl;
 			std::exit (1);
 		}
+	}
+
+	if (auto existing = vm.find ("pid_file"); existing != vm.end ())
+	{
+		pid_file = existing->second.as<std::string> ();
+		register_pid_file ();
 	}
 
 	nano::network_params network_params{ nano::network_constants::active_network };
@@ -178,7 +219,7 @@ int main (int argc, char * const * argv)
 					return std::accumulate (reps.begin (), reps.end (), nano::uint128_t{ 0 }, [] (auto sum, auto const & rep) { return sum + rep.second; });
 				};
 
-				// Hardcoded weights are filtered to a cummulative weight of 99%, need to do the same for ledger weights
+				// Hardcoded weights are filtered to a cumulative weight of 99%, need to do the same for ledger weights
 				std::remove_const_t<decltype (ledger_unfiltered)> ledger;
 				{
 					std::vector<std::pair<nano::account, nano::uint128_t>> sorted;
@@ -429,9 +470,9 @@ int main (int argc, char * const * argv)
 			std::cout << "Outputting any frontier hashes which have associated key hashes in the unchecked table (may take some time)...\n";
 
 			// Cache the account heads to make searching quicker against unchecked keys.
-			auto transaction (node->ledger.tx_begin_read ());
+			auto transaction (node->store.tx_begin_read ());
 			std::unordered_set<nano::block_hash> frontier_hashes;
-			for (auto i (node->ledger.any.account_begin (transaction)), n (node->ledger.any.account_end ()); i != n; ++i)
+			for (auto i (node->store.account.begin (transaction)), n (node->store.account.end ()); i != n; ++i)
 			{
 				frontier_hashes.insert (i->second.head);
 			}
@@ -1630,7 +1671,7 @@ int main (int argc, char * const * argv)
 			}
 			size_t const accounts_deque_overflow (32 * 1024);
 			auto transaction = node->ledger.tx_begin_read ();
-			for (auto i (node->ledger.any.account_begin (transaction)), n (node->ledger.any.account_end ()); i != n; ++i)
+			for (auto i (node->store.account.begin (transaction)), n (node->store.account.end ()); i != n; ++i)
 			{
 				{
 					nano::unique_lock<nano::mutex> lock{ mutex };
@@ -1681,7 +1722,7 @@ int main (int argc, char * const * argv)
 				{
 					std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
 				}
-				// Check block existance
+				// Check block existence
 				auto block = node->ledger.any.block_get (transaction, key.hash);
 				bool pruned (false);
 				if (block == nullptr)
@@ -1798,7 +1839,7 @@ int main (int argc, char * const * argv)
 				auto transaction = source_node->ledger.tx_begin_read ();
 				block_count = source_node->ledger.block_count ();
 				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
-				for (auto i (source_node->ledger.any.account_begin (transaction)), n (source_node->ledger.any.account_end ()); i != n; ++i)
+				for (auto i (source_node->store.account.begin (transaction)), n (source_node->store.account.end ()); i != n; ++i)
 				{
 					nano::account const & account (i->first);
 					nano::account_info const & info (i->second);

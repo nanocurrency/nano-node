@@ -23,7 +23,7 @@ std::string nano::error_cli_messages::message (int ev) const
 		case nano::error_cli::generic:
 			return "Unknown error";
 		case nano::error_cli::parse_error:
-			return "Coud not parse command line";
+			return "Could not parse command line";
 		case nano::error_cli::invalid_arguments:
 			return "Invalid arguments";
 		case nano::error_cli::unknown_command:
@@ -111,7 +111,6 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_bootstrap_bulk_pull_server", "Disables the legacy bulk pull server for bootstrap operations")
 		("disable_bootstrap_bulk_push_client", "Disables the legacy bulk push client for bootstrap operations")
 		("disable_tcp_realtime", "Disables TCP realtime connections")
-		("disable_ongoing_telemetry_requests", "Disables ongoing telemetry requests to peers")
 		("disable_block_processor_republishing", "Disables block republishing by disabling the local_block_broadcaster component")
 		("disable_search_pending", "Disables the periodic search for pending transactions")
 		("enable_pruning", "Enable experimental ledger pruning")
@@ -122,6 +121,7 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("block_processor_verification_size", boost::program_options::value<std::size_t>(), "Increase batch signature verification size in block processor, default 0 (limited by config signature_checker_threads), unlimited for fast_bootstrap")
 		("inactive_votes_cache_size", boost::program_options::value<std::size_t>(), "Increase cached votes without active elections size, default 16384")
 		("vote_processor_capacity", boost::program_options::value<std::size_t>(), "Vote processor queue size before dropping votes, default 144k")
+		("disable_large_votes", boost::program_options::value<bool>(), "Disable large votes")
 		;
 	// clang-format on
 }
@@ -144,7 +144,6 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	flags_a.disable_bootstrap_bulk_pull_server = (vm.count ("disable_bootstrap_bulk_pull_server") > 0);
 	flags_a.disable_bootstrap_bulk_push_client = (vm.count ("disable_bootstrap_bulk_push_client") > 0);
 	flags_a.disable_tcp_realtime = (vm.count ("disable_tcp_realtime") > 0);
-	flags_a.disable_ongoing_telemetry_requests = (vm.count ("disable_ongoing_telemetry_requests") > 0);
 	flags_a.disable_block_processor_republishing = (vm.count ("disable_block_processor_republishing") > 0);
 	flags_a.disable_search_pending = (vm.count ("disable_search_pending") > 0);
 	if (!flags_a.inactive_node)
@@ -182,6 +181,12 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	if (vote_processor_capacity_it != vm.end ())
 	{
 		flags_a.vote_processor_capacity = vote_processor_capacity_it->second.as<std::size_t> ();
+	}
+	auto disable_large_votes_it = vm.find ("disable_large_votes");
+	if (disable_large_votes_it != vm.end ())
+	{
+		nano::network::confirm_req_hashes_max = 7;
+		nano::network::confirm_ack_hashes_max = 12;
 	}
 	// Config overriding
 	auto config (vm.find ("config"));
@@ -337,7 +342,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		}
 		else
 		{
-			std::cerr << "account comand requires one <key> option\n";
+			std::cerr << "account command requires one <key> option\n";
 			ec = nano::error_cli::invalid_arguments;
 		}
 	}
@@ -475,6 +480,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("migrate_database_lmdb_to_rocksdb"))
 	{
+		nano::logger::initialize (nano::log_config::daemon_default (), data_path);
+
 		auto data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		auto node_flags = nano::inactive_node_flag_defaults ();
 		node_flags.config_overrides.push_back ("node.rocksdb.enable=false");
@@ -483,7 +490,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		auto error (false);
 		if (!node.node->init_error ())
 		{
-			std::cout << "Migrating LMDB database to RocksDB, might take a while..." << std::endl;
 			error = node.node->ledger.migrate_lmdb_to_rocksdb (data_path);
 		}
 		else
@@ -491,11 +497,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			error = true;
 		}
 
-		if (!error)
-		{
-			std::cout << "Migration completed, after confirming it is correct the data.ldb file can be deleted if no longer required" << std::endl;
-		}
-		else
+		if (error)
 		{
 			std::cerr << "There was an error migrating" << std::endl;
 		}

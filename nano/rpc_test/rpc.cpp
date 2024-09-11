@@ -22,6 +22,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
+#include <nano/test_common/chains.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/telemetry.hpp>
@@ -1328,6 +1329,26 @@ TEST (rpc, history_pruning)
 	ASSERT_EQ ("N/A", entry.get<std::string> ("account", "N/A"));
 	ASSERT_EQ ("N/A", entry.get<std::string> ("amount", "N/A"));
 	ASSERT_EQ (usend->hash ().to_string (), entry.get<std::string> ("hash"));
+}
+
+TEST (rpc, account_history_state_open)
+{
+	nano::test::system system;
+	nano::keypair key;
+	auto node0 = add_ipc_enabled_node (system);
+	auto blocks = nano::test::setup_new_account (system, *node0, 1, nano::dev::genesis_key, key, key.pub, true);
+	auto const rpc_ctx = add_rpc (system, node0);
+	boost::property_tree::ptree request;
+	request.put ("action", "account_history");
+	request.put ("account", key.pub.to_account ());
+	request.put ("count", 1);
+	auto response (wait_response (system, rpc_ctx, request, 10s));
+	auto & history_node (response.get_child ("history"));
+	ASSERT_EQ (1, history_node.size ());
+	auto history0 = *history_node.begin ();
+	ASSERT_EQ ("1", history0.second.get<std::string> ("height"));
+	ASSERT_EQ ("receive", history0.second.get<std::string> ("type"));
+	ASSERT_EQ (blocks.second->hash ().to_string (), history0.second.get<std::string> ("hash"));
 }
 
 TEST (rpc, process_block)
@@ -5556,6 +5577,28 @@ TEST (rpc, unopened)
 		ASSERT_EQ ("1", accounts.get<std::string> (account1.to_account ()));
 	}
 	{
+		// using count=1 and a known unopened account1 number should get a single result
+		boost::property_tree::ptree request;
+		request.put ("action", "unopened");
+		request.put ("count", "1");
+		request.put ("account", account1.to_account ());
+		auto response (wait_response (system, rpc_ctx, request));
+		auto & accounts (response.get_child ("accounts"));
+		ASSERT_EQ (1, accounts.size ());
+		ASSERT_EQ ("1", accounts.get<std::string> (account1.to_account ()));
+	}
+	{
+		// using count=1 and a known unopened account2 number should get a single result
+		boost::property_tree::ptree request;
+		request.put ("action", "unopened");
+		request.put ("count", "1");
+		request.put ("account", account2.to_account ());
+		auto response (wait_response (system, rpc_ctx, request));
+		auto & accounts (response.get_child ("accounts"));
+		ASSERT_EQ (1, accounts.size ());
+		ASSERT_EQ ("10", accounts.get<std::string> (account2.to_account ()));
+	}
+	{
 		// using threshold at 5 should get a single result
 		boost::property_tree::ptree request;
 		request.put ("action", "unopened");
@@ -5564,6 +5607,31 @@ TEST (rpc, unopened)
 		auto & accounts (response.get_child ("accounts"));
 		ASSERT_EQ (1, accounts.size ());
 		ASSERT_EQ ("10", accounts.get<std::string> (account2.to_account ()));
+	}
+}
+
+// Check that the "unopened" RPC can seek
+// Request unopened for the genesis account while there in an unopened account with the max account number
+TEST (rpc, unopened_seek)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	nano::account last_account{ std::numeric_limits<nano::uint256_t>::max () };
+	auto genesis (node->latest (nano::dev::genesis_key.pub));
+	ASSERT_FALSE (genesis.is_zero ());
+	auto send (system.wallet (0)->send_action (nano::dev::genesis_key.pub, last_account, 1));
+	ASSERT_NE (nullptr, send);
+	auto const rpc_ctx = add_rpc (system, node);
+	{
+		boost::property_tree::ptree request;
+		request.put ("action", "unopened");
+		request.put ("count", "1");
+		request.put ("account", nano::dev::genesis_key.pub.to_account ());
+		auto response (wait_response (system, rpc_ctx, request));
+		auto & accounts (response.get_child ("accounts"));
+		ASSERT_EQ (1, accounts.size ());
+		ASSERT_EQ ("1", accounts.get<std::string> (last_account.to_account ()));
 	}
 }
 
@@ -5780,13 +5848,13 @@ TEST (rpc, stats_samples)
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
 
-	node->stats.sample (nano::stat::sample::active_election_duration, { 0, 10 }, 1);
-	node->stats.sample (nano::stat::sample::active_election_duration, { 0, 10 }, 2);
-	node->stats.sample (nano::stat::sample::active_election_duration, { 0, 10 }, 3);
-	node->stats.sample (nano::stat::sample::active_election_duration, { 0, 10 }, 4);
+	node->stats.sample (nano::stat::sample::active_election_duration, 1, { 0, 10 });
+	node->stats.sample (nano::stat::sample::active_election_duration, 2, { 0, 10 });
+	node->stats.sample (nano::stat::sample::active_election_duration, 3, { 0, 10 });
+	node->stats.sample (nano::stat::sample::active_election_duration, 4, { 0, 10 });
 
-	node->stats.sample (nano::stat::sample::bootstrap_tag_duration, { 0, 999 }, 5);
-	node->stats.sample (nano::stat::sample::bootstrap_tag_duration, { 0, 999 }, 5);
+	node->stats.sample (nano::stat::sample::bootstrap_tag_duration, 5, { 0, 999 });
+	node->stats.sample (nano::stat::sample::bootstrap_tag_duration, 5, { 0, 999 });
 
 	boost::property_tree::ptree request;
 	request.put ("action", "stats");
@@ -6192,7 +6260,7 @@ TEST (rpc, epoch_upgrade)
 	{
 		auto transaction (node->ledger.tx_begin_read ());
 		ASSERT_EQ (2, node->store.account.count (transaction));
-		for (auto i (node->ledger.any.account_begin (transaction)); i != node->ledger.any.account_end (); ++i)
+		for (auto i (node->store.account.begin (transaction)); i != node->store.account.end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_0);
@@ -6210,7 +6278,7 @@ TEST (rpc, epoch_upgrade)
 	{
 		auto transaction (node->ledger.tx_begin_read ());
 		ASSERT_EQ (4, node->store.account.count (transaction));
-		for (auto i (node->ledger.any.account_begin (transaction)); i != node->ledger.any.account_end (); ++i)
+		for (auto i (node->store.account.begin (transaction)); i != node->store.account.end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
@@ -6273,7 +6341,7 @@ TEST (rpc, epoch_upgrade)
 	{
 		auto transaction (node->ledger.tx_begin_read ());
 		ASSERT_EQ (5, node->store.account.count (transaction));
-		for (auto i (node->ledger.any.account_begin (transaction)); i != node->ledger.any.account_end (); ++i)
+		for (auto i (node->store.account.begin (transaction)); i != node->store.account.end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_2);
@@ -6355,7 +6423,7 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	{
 		auto transaction (node->ledger.tx_begin_read ());
 		ASSERT_EQ (2, node->store.account.count (transaction));
-		for (auto i (node->ledger.any.account_begin (transaction)); i != node->ledger.any.account_end (); ++i)
+		for (auto i (node->store.account.begin (transaction)); i != node->store.account.end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_0);
@@ -6374,7 +6442,7 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	{
 		auto transaction (node->ledger.tx_begin_read ());
 		ASSERT_EQ (4, node->store.account.count (transaction));
-		for (auto i (node->ledger.any.account_begin (transaction)); i != node->ledger.any.account_end (); ++i)
+		for (auto i (node->store.account.begin (transaction)); i != node->store.account.end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
@@ -6437,7 +6505,7 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	{
 		auto transaction (node->ledger.tx_begin_read ());
 		ASSERT_EQ (5, node->store.account.count (transaction));
-		for (auto i (node->ledger.any.account_begin (transaction)); i != node->ledger.any.account_end (); ++i)
+		for (auto i (node->store.account.begin (transaction)); i != node->store.account.end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_2);
@@ -6777,8 +6845,6 @@ TEST (rpc, telemetry_all)
 		auto const should_ignore_identification_metrics = true;
 		ASSERT_FALSE (telemetry_data.deserialize_json (config, should_ignore_identification_metrics));
 		ASSERT_TRUE (nano::test::compare_telemetry_data (telemetry_data, node->local_telemetry ()));
-		ASSERT_FALSE (response.get_optional<std::string> ("node_id").is_initialized ());
-		ASSERT_FALSE (response.get_optional<std::string> ("signature").is_initialized ());
 	}
 
 	request.put ("raw", "true");

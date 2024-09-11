@@ -53,8 +53,8 @@ TEST (system, generate_mass_activity)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	uint32_t count (20);
 	system.generate_mass_activity (count, *system.nodes[0]);
-	auto transaction (system.nodes[0]->ledger.tx_begin_read ());
-	for (auto i (system.nodes[0]->ledger.any.account_begin (transaction)), n (system.nodes[0]->ledger.any.account_end ()); i != n; ++i)
+	auto transaction (system.nodes[0]->store.tx_begin_read ());
+	for (auto i (system.nodes[0]->store.account.begin (transaction)), n (system.nodes[0]->store.account.end ()); i != n; ++i)
 	{
 	}
 }
@@ -75,8 +75,8 @@ TEST (system, generate_mass_activity_long)
 		std::cout << "count override due to env variable set, count=" << count << std::endl;
 	}
 	system.generate_mass_activity (count, *system.nodes[0]);
-	auto transaction (system.nodes[0]->ledger.tx_begin_read ());
-	for (auto i (system.nodes[0]->ledger.any.account_begin (transaction)), n (system.nodes[0]->ledger.any.account_end ()); i != n; ++i)
+	auto transaction (system.nodes[0]->store.tx_begin_read ());
+	for (auto i (system.nodes[0]->store.account.begin (transaction)), n (system.nodes[0]->store.account.end ()); i != n; ++i)
 	{
 	}
 	system.stop ();
@@ -693,8 +693,8 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	ASSERT_TIMELY (120s, node->ledger.confirmed.block_exists_or_pruned (node->ledger.tx_begin_read (), last_open_hash));
 
 	// All frontiers (except last) should have 2 blocks and both should be confirmed
-	auto transaction = node->ledger.tx_begin_read ();
-	for (auto i (node->ledger.any.account_begin (transaction)), n (node->ledger.any.account_end ()); i != n; ++i)
+	auto transaction = node->store.tx_begin_read ();
+	for (auto i (node->store.account.begin (transaction)), n (node->store.account.end ()); i != n; ++i)
 	{
 		auto & account = i->first;
 		auto & account_info = i->second;
@@ -1146,7 +1146,8 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 
 	nano::block_hash block_hash_being_processed{ 0 };
 	nano::store::write_queue write_queue{ false };
-	nano::confirming_set confirming_set{ ledger, stats };
+	nano::confirming_set_config confirming_set_config{};
+	nano::confirming_set confirming_set{ confirming_set_config, ledger, stats };
 
 	auto const num_accounts = 100000;
 
@@ -1501,7 +1502,6 @@ TEST (telemetry, cache_read_and_timeout)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
-	node_flags.disable_ongoing_telemetry_requests = true;
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
@@ -1753,9 +1753,9 @@ TEST (node, mass_epoch_upgrader)
 		ASSERT_EQ (expected_blocks, node.ledger.block_count ());
 		// Check upgrade
 		{
-			auto transaction (node.ledger.tx_begin_read ());
+			auto transaction (node.store.tx_begin_read ());
 			size_t block_count_sum = 0;
-			for (auto i (node.ledger.any.account_begin (transaction)); i != node.ledger.any.account_end (); ++i)
+			for (auto i (node.store.account.begin (transaction)); i != node.store.account.end (); ++i)
 			{
 				nano::account_info info (i->second);
 				ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);

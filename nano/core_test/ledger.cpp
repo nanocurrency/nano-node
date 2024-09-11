@@ -13,7 +13,7 @@
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
-#include <nano/test_common/ledger.hpp>
+#include <nano/test_common/ledger_context.hpp>
 #include <nano/test_common/make_store.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -32,13 +32,13 @@ TEST (ledger, store_error)
 		// Don't test this in rocksdb mode
 		GTEST_SKIP ();
 	}
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 }
 
 // Ledger can be initialized and returns a basic query for an empty account
 TEST (ledger, empty)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_read ();
@@ -50,7 +50,7 @@ TEST (ledger, empty)
 // Ledger can be initialized and returns a basic query for an empty account
 TEST (ledger, confirmed_unconfirmed_view)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & unconfirmed = ledger;
 	auto & confirmed = ledger.confirmed;
@@ -59,7 +59,7 @@ TEST (ledger, confirmed_unconfirmed_view)
 // Genesis account should have the max balance on empty initialization
 TEST (ledger, genesis_balance)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -80,7 +80,7 @@ TEST (ledger, genesis_balance)
 
 TEST (ledger, process_modifies_sideband)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto & pool = ctx.pool ();
@@ -102,7 +102,7 @@ TEST (ledger, process_modifies_sideband)
 // Create a send block and publish it.
 TEST (ledger, process_send)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -205,7 +205,7 @@ TEST (ledger, process_send)
 
 TEST (ledger, process_receive)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -288,7 +288,7 @@ TEST (ledger, process_receive)
 
 TEST (ledger, rollback_receiver)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -337,7 +337,7 @@ TEST (ledger, rollback_receiver)
 
 TEST (ledger, rollback_representation)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -427,7 +427,7 @@ TEST (ledger, rollback_representation)
 
 TEST (ledger, receive_rollback)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -455,7 +455,7 @@ TEST (ledger, receive_rollback)
 
 TEST (ledger, process_duplicate)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -489,7 +489,7 @@ TEST (ledger, process_duplicate)
 
 TEST (ledger, representative_genesis)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -500,14 +500,14 @@ TEST (ledger, representative_genesis)
 
 TEST (ledger, weight)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (nano::dev::genesis_key.pub));
 }
 
 TEST (ledger, representative_change)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -544,7 +544,7 @@ TEST (ledger, representative_change)
 
 TEST (ledger, send_fork)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	nano::keypair key2;
@@ -576,7 +576,7 @@ TEST (ledger, send_fork)
 
 TEST (ledger, receive_fork)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	nano::keypair key2;
@@ -633,7 +633,7 @@ TEST (ledger, receive_fork)
 
 TEST (ledger, open_fork)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	nano::keypair key2;
@@ -734,7 +734,7 @@ TEST (ledger, rep_cache_min_weight)
 
 TEST (ledger, representation)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto & rep_weights = ledger.cache.rep_weights;
@@ -907,7 +907,7 @@ TEST (ledger, double_open)
 
 TEST (ledger, double_receive)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1244,7 +1244,7 @@ TEST (ledger, successor)
 
 TEST (ledger, fail_change_old)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1266,7 +1266,7 @@ TEST (ledger, fail_change_old)
 
 TEST (ledger, fail_change_gap_previous)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1286,7 +1286,7 @@ TEST (ledger, fail_change_gap_previous)
 
 TEST (ledger, fail_state_bad_signature)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1308,7 +1308,7 @@ TEST (ledger, fail_state_bad_signature)
 
 TEST (ledger, fail_epoch_bad_signature)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1334,7 +1334,7 @@ TEST (ledger, fail_epoch_bad_signature)
 
 TEST (ledger, fail_change_bad_signature)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1354,7 +1354,7 @@ TEST (ledger, fail_change_bad_signature)
 
 TEST (ledger, fail_change_fork)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1384,7 +1384,7 @@ TEST (ledger, fail_change_fork)
 
 TEST (ledger, fail_send_old)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1407,7 +1407,7 @@ TEST (ledger, fail_send_old)
 
 TEST (ledger, fail_send_gap_previous)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1428,7 +1428,7 @@ TEST (ledger, fail_send_gap_previous)
 
 TEST (ledger, fail_send_bad_signature)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1449,7 +1449,7 @@ TEST (ledger, fail_send_bad_signature)
 
 TEST (ledger, fail_send_negative_spend)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1479,7 +1479,7 @@ TEST (ledger, fail_send_negative_spend)
 
 TEST (ledger, fail_send_fork)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1509,7 +1509,7 @@ TEST (ledger, fail_send_fork)
 
 TEST (ledger, fail_open_old)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1539,7 +1539,7 @@ TEST (ledger, fail_open_old)
 
 TEST (ledger, fail_open_gap_source)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1560,7 +1560,7 @@ TEST (ledger, fail_open_gap_source)
 
 TEST (ledger, fail_open_bad_signature)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1590,7 +1590,7 @@ TEST (ledger, fail_open_bad_signature)
 
 TEST (ledger, fail_open_fork_previous)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1638,7 +1638,7 @@ TEST (ledger, fail_open_fork_previous)
 
 TEST (ledger, fail_open_account_mismatch)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1669,7 +1669,7 @@ TEST (ledger, fail_open_account_mismatch)
 
 TEST (ledger, fail_receive_old)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1716,7 +1716,7 @@ TEST (ledger, fail_receive_old)
 
 TEST (ledger, fail_receive_gap_source)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1766,7 +1766,7 @@ TEST (ledger, fail_receive_gap_source)
 
 TEST (ledger, fail_receive_overreceive)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1806,7 +1806,7 @@ TEST (ledger, fail_receive_overreceive)
 
 TEST (ledger, fail_receive_bad_signature)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1856,7 +1856,7 @@ TEST (ledger, fail_receive_bad_signature)
 
 TEST (ledger, fail_receive_gap_previous_opened)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1906,7 +1906,7 @@ TEST (ledger, fail_receive_gap_previous_opened)
 
 TEST (ledger, fail_receive_gap_previous_unopened)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -1946,7 +1946,7 @@ TEST (ledger, fail_receive_gap_previous_unopened)
 
 TEST (ledger, fail_receive_fork_previous)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2007,7 +2007,7 @@ TEST (ledger, fail_receive_fork_previous)
 
 TEST (ledger, fail_receive_received_source)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2087,7 +2087,7 @@ TEST (ledger, fail_receive_received_source)
 
 TEST (ledger, latest_empty)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	nano::keypair key;
@@ -2098,7 +2098,7 @@ TEST (ledger, latest_empty)
 
 TEST (ledger, latest_root)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2121,7 +2121,7 @@ TEST (ledger, latest_root)
 
 TEST (ledger, change_representative_move_representation)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	nano::keypair key1;
@@ -2163,7 +2163,7 @@ TEST (ledger, change_representative_move_representation)
 
 TEST (ledger, send_open_receive_rollback)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2252,7 +2252,7 @@ TEST (ledger, send_open_receive_rollback)
 
 TEST (ledger, bootstrap_rep_weight)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	nano::keypair key2;
@@ -2299,7 +2299,7 @@ TEST (ledger, bootstrap_rep_weight)
 
 TEST (ledger, block_destination_source)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2389,7 +2389,7 @@ TEST (ledger, block_destination_source)
 
 TEST (ledger, state_account)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2411,7 +2411,7 @@ TEST (ledger, state_account)
 
 TEST (ledger, state_send_receive)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2468,7 +2468,7 @@ TEST (ledger, state_send_receive)
 
 TEST (ledger, state_receive)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2516,7 +2516,7 @@ TEST (ledger, state_receive)
 
 TEST (ledger, state_rep_change)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2550,7 +2550,7 @@ TEST (ledger, state_rep_change)
 
 TEST (ledger, state_open)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2605,7 +2605,7 @@ TEST (ledger, state_open)
 // Make sure old block types can't be inserted after a state block.
 TEST (ledger, send_after_state_fail)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2636,7 +2636,7 @@ TEST (ledger, send_after_state_fail)
 // Make sure old block types can't be inserted after a state block.
 TEST (ledger, receive_after_state_fail)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2666,7 +2666,7 @@ TEST (ledger, receive_after_state_fail)
 // Make sure old block types can't be inserted after a state block.
 TEST (ledger, change_after_state_fail)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2696,7 +2696,7 @@ TEST (ledger, change_after_state_fail)
 
 TEST (ledger, state_unreceivable_fail)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2733,7 +2733,7 @@ TEST (ledger, state_unreceivable_fail)
 
 TEST (ledger, state_receive_bad_amount_fail)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2770,7 +2770,7 @@ TEST (ledger, state_receive_bad_amount_fail)
 
 TEST (ledger, state_no_link_amount_fail)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2803,7 +2803,7 @@ TEST (ledger, state_no_link_amount_fail)
 
 TEST (ledger, state_receive_wrong_account_fail)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2843,7 +2843,7 @@ TEST (ledger, state_receive_wrong_account_fail)
 
 TEST (ledger, state_open_state_fork)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2886,7 +2886,7 @@ TEST (ledger, state_open_state_fork)
 
 TEST (ledger, state_state_open_fork)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2930,7 +2930,7 @@ TEST (ledger, state_state_open_fork)
 
 TEST (ledger, state_open_previous_fail)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2963,7 +2963,7 @@ TEST (ledger, state_open_previous_fail)
 
 TEST (ledger, state_open_source_fail)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -2996,7 +2996,7 @@ TEST (ledger, state_open_source_fail)
 
 TEST (ledger, state_send_change)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -3030,7 +3030,7 @@ TEST (ledger, state_send_change)
 
 TEST (ledger, state_receive_change)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -3082,7 +3082,7 @@ TEST (ledger, state_receive_change)
 
 TEST (ledger, state_open_old)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -3116,7 +3116,7 @@ TEST (ledger, state_open_old)
 
 TEST (ledger, state_receive_old)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -3169,7 +3169,7 @@ TEST (ledger, state_receive_old)
 
 TEST (ledger, state_rollback_send)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -3207,7 +3207,7 @@ TEST (ledger, state_rollback_send)
 
 TEST (ledger, state_rollback_receive)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -3249,7 +3249,7 @@ TEST (ledger, state_rollback_receive)
 
 TEST (ledger, state_rollback_received_send)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -3292,7 +3292,7 @@ TEST (ledger, state_rollback_received_send)
 
 TEST (ledger, state_rep_change_rollback)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -3319,7 +3319,7 @@ TEST (ledger, state_rep_change_rollback)
 
 TEST (ledger, state_open_rollback)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -3361,7 +3361,7 @@ TEST (ledger, state_open_rollback)
 
 TEST (ledger, state_send_change_rollback)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -3389,7 +3389,7 @@ TEST (ledger, state_send_change_rollback)
 
 TEST (ledger, state_receive_change_rollback)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -3428,7 +3428,7 @@ TEST (ledger, state_receive_change_rollback)
 
 TEST (ledger, epoch_blocks_v1_general)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -3571,7 +3571,7 @@ TEST (ledger, epoch_blocks_v1_general)
 
 TEST (ledger, epoch_blocks_v2_general)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -3736,7 +3736,7 @@ TEST (ledger, epoch_blocks_v2_general)
 
 TEST (ledger, epoch_blocks_receive_upgrade)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -3944,7 +3944,7 @@ TEST (ledger, epoch_blocks_receive_upgrade)
 
 TEST (ledger, epoch_blocks_fork)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -4471,7 +4471,7 @@ TEST (ledger, unchecked_receive)
 
 TEST (ledger, confirmation_height_not_updated)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -4544,7 +4544,7 @@ TEST (ledger, zero_rep)
 
 TEST (ledger, work_validation)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto & pool = ctx.pool ();
@@ -4633,7 +4633,7 @@ TEST (ledger, work_validation)
 
 TEST (ledger, dependents_confirmed)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -4743,7 +4743,7 @@ TEST (ledger, dependents_confirmed_pruning)
 
 TEST (ledger, block_confirmed)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
@@ -4770,7 +4770,7 @@ TEST (ledger, block_confirmed)
 
 TEST (ledger, cache)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto & stats = ctx.stats ();
@@ -5487,7 +5487,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 
 TEST (ledger, is_send_genesis)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto tx = store.tx_begin_read ();
@@ -5496,7 +5496,7 @@ TEST (ledger, is_send_genesis)
 
 TEST (ledger, is_send_state)
 {
-	auto ctx = nano::test::context::ledger_send_receive ();
+	auto ctx = nano::test::ledger_send_receive ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto tx = store.tx_begin_read ();
@@ -5506,7 +5506,7 @@ TEST (ledger, is_send_state)
 
 TEST (ledger, is_send_legacy)
 {
-	auto ctx = nano::test::context::ledger_send_receive_legacy ();
+	auto ctx = nano::test::ledger_send_receive_legacy ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto tx = store.tx_begin_read ();
@@ -5516,24 +5516,149 @@ TEST (ledger, is_send_legacy)
 
 TEST (ledger, head_block)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto tx = ledger.tx_begin_read ();
 	ASSERT_EQ (*nano::dev::genesis, *ledger.any.block_get (tx, ledger.any.account_head (tx, nano::dev::genesis_key.pub)));
 }
 
+// Tests that a fairly complex ledger topology can be cemented in a single batch
+TEST (ledger, cement_unbounded)
+{
+	auto ctx = nano::test::ledger_diamond (5);
+	auto & ledger = ctx.ledger ();
+	auto bottom = ctx.blocks ().back ();
+
+	std::deque<std::shared_ptr<nano::block>> confirmed;
+	{
+		auto tx = ledger.tx_begin_write ();
+		confirmed = ledger.confirm (tx, bottom->hash ());
+	}
+	ASSERT_TRUE (ledger.confirmed.block_exists (ledger.tx_begin_read (), bottom->hash ()));
+	// Check that all blocks got confirmed in a single call
+	ASSERT_TRUE (std::all_of (ctx.blocks ().begin (), ctx.blocks ().end (), [&] (auto const & block) {
+		return std::find_if (confirmed.begin (), confirmed.end (), [&] (auto const & block2) {
+			return block2->hash () == block->hash ();
+		})
+		!= confirmed.end ();
+	}));
+}
+
+// Tests that bounded cementing works when recursion stack is large
+TEST (ledger, cement_bounded)
+{
+	auto ctx = nano::test::ledger_single_chain (64);
+	auto & ledger = ctx.ledger ();
+	auto bottom = ctx.blocks ().back ();
+
+	std::deque<std::shared_ptr<nano::block>> confirmed1, confirmed2, confirmed3;
+
+	{
+		// This should only cement some of the dependencies
+		auto tx = ledger.tx_begin_write ();
+		confirmed1 = ledger.confirm (tx, bottom->hash (), /* max cementing batch size */ 3);
+	}
+	ASSERT_FALSE (ledger.confirmed.block_exists (ledger.tx_begin_read (), bottom->hash ()));
+	ASSERT_EQ (confirmed1.size (), 3);
+	// Only topmost dependencies should get cemented during this call
+	ASSERT_TRUE (std::all_of (confirmed1.begin (), confirmed1.end (), [&] (auto const & block) {
+		return ledger.dependents_confirmed (ledger.tx_begin_read (), *block);
+	}));
+
+	{
+		// This should cement a few more dependencies
+		auto tx = ledger.tx_begin_write ();
+		confirmed2 = ledger.confirm (tx, bottom->hash (), /* max cementing batch size */ 16);
+	}
+	ASSERT_FALSE (ledger.confirmed.block_exists (ledger.tx_begin_read (), bottom->hash ()));
+	ASSERT_EQ (confirmed2.size (), 16);
+	// Only topmost dependencies should get cemented during this call
+	ASSERT_TRUE (std::all_of (confirmed2.begin (), confirmed2.end (), [&] (auto const & block) {
+		return ledger.dependents_confirmed (ledger.tx_begin_read (), *block);
+	}));
+
+	{
+		// This should cement the remaining dependencies
+		auto tx = ledger.tx_begin_write ();
+		confirmed3 = ledger.confirm (tx, bottom->hash (), /* max cementing batch size */ 64);
+	}
+	ASSERT_TRUE (ledger.confirmed.block_exists (ledger.tx_begin_read (), bottom->hash ()));
+	ASSERT_LE (confirmed3.size (), 64);
+	// Every block in the ledger should be cemented
+	ASSERT_TRUE (std::all_of (ctx.blocks ().begin (), ctx.blocks ().end (), [&] (auto const & block) {
+		return ledger.confirmed.block_exists (ledger.tx_begin_read (), block->hash ());
+	}));
+}
+
+// Tests that bounded cementing works when number of blocks is large but tree height is small (recursion stack is small)
+TEST (ledger, cement_bounded_diamond)
+{
+	auto ctx = nano::test::ledger_diamond (4);
+	auto & ledger = ctx.ledger ();
+	auto bottom = ctx.blocks ().back ();
+
+	std::deque<std::shared_ptr<nano::block>> confirmed1, confirmed2, confirmed3, confirmed4;
+
+	{
+		// This should only cement some of the dependencies
+		auto tx = ledger.tx_begin_write ();
+		confirmed1 = ledger.confirm (tx, bottom->hash (), /* max cementing batch size */ 3);
+	}
+	ASSERT_FALSE (ledger.confirmed.block_exists (ledger.tx_begin_read (), bottom->hash ()));
+	ASSERT_EQ (confirmed1.size (), 3);
+	// Only topmost dependencies should get cemented during this call
+	ASSERT_TRUE (std::all_of (confirmed1.begin (), confirmed1.end (), [&] (auto const & block) {
+		return ledger.dependents_confirmed (ledger.tx_begin_read (), *block);
+	}));
+
+	{
+		// This should cement a few more dependencies
+		auto tx = ledger.tx_begin_write ();
+		confirmed2 = ledger.confirm (tx, bottom->hash (), /* max cementing batch size */ 16);
+	}
+	ASSERT_FALSE (ledger.confirmed.block_exists (ledger.tx_begin_read (), bottom->hash ()));
+	ASSERT_EQ (confirmed2.size (), 16);
+	// Only topmost dependencies should get cemented during this call
+	ASSERT_TRUE (std::all_of (confirmed2.begin (), confirmed2.end (), [&] (auto const & block) {
+		return ledger.dependents_confirmed (ledger.tx_begin_read (), *block);
+	}));
+
+	{
+		// A few more bounded calls should confirm the whole tree
+		auto tx = ledger.tx_begin_write ();
+		confirmed3 = ledger.confirm (tx, bottom->hash (), /* max cementing batch size */ 64);
+	}
+	ASSERT_FALSE (ledger.confirmed.block_exists (ledger.tx_begin_read (), bottom->hash ()));
+	ASSERT_EQ (confirmed3.size (), 64);
+	// Only topmost dependencies should get cemented during this call
+	ASSERT_TRUE (std::all_of (confirmed2.begin (), confirmed2.end (), [&] (auto const & block) {
+		return ledger.dependents_confirmed (ledger.tx_begin_read (), *block);
+	}));
+
+	{
+		auto tx = ledger.tx_begin_write ();
+		confirmed4 = ledger.confirm (tx, bottom->hash (), /* max cementing batch size */ 64);
+	}
+	ASSERT_TRUE (ledger.confirmed.block_exists (ledger.tx_begin_read (), bottom->hash ()));
+	ASSERT_LT (confirmed4.size (), 64);
+	// Every block in the ledger should be cemented
+	ASSERT_TRUE (std::all_of (ctx.blocks ().begin (), ctx.blocks ().end (), [&] (auto const & block) {
+		return ledger.confirmed.block_exists (ledger.tx_begin_read (), block->hash ());
+	}));
+}
+
 // Test that nullopt can be returned when there are no receivable entries
 TEST (ledger_receivable, upper_bound_account_none)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	ASSERT_EQ (ctx.ledger ().any.receivable_end (), ctx.ledger ().any.receivable_upper_bound (ctx.ledger ().tx_begin_read (), 0));
 }
 
 // Test behavior of ledger::receivable_upper_bound when there are receivable entries for multiple accounts
 TEST (ledger_receivable, upper_bound_account_key)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	nano::block_builder builder;
 	nano::keypair key;
 	auto send1 = builder
@@ -5581,7 +5706,7 @@ TEST (ledger_receivable, upper_bound_account_key)
 // Test that multiple receivable entries for the same account
 TEST (ledger_receivable, key_two)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	nano::block_builder builder;
 	nano::keypair key;
 	auto send1 = builder
@@ -5620,13 +5745,13 @@ TEST (ledger_receivable, key_two)
 
 TEST (ledger_receivable, any_none)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	ASSERT_FALSE (ctx.ledger ().any.receivable_exists (ctx.ledger ().tx_begin_read (), nano::dev::genesis_key.pub));
 }
 
 TEST (ledger_receivable, any_one)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	nano::block_builder builder;
 	nano::keypair key;
 	auto send1 = builder
@@ -5646,7 +5771,7 @@ TEST (ledger_receivable, any_one)
 
 TEST (ledger_transaction, write_refresh)
 {
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 	nano::block_builder builder;
 	nano::keypair key;
 	auto send1 = builder
@@ -5683,7 +5808,7 @@ TEST (ledger_transaction, write_wait_order)
 {
 	nano::test::system system;
 
-	auto ctx = nano::test::context::ledger_empty ();
+	auto ctx = nano::test::ledger_empty ();
 
 	std::atomic<bool> acquired1{ false };
 	std::atomic<bool> acquired2{ false };

@@ -183,16 +183,23 @@ public: // Logging
  *
  * Header extensions:
  * - [0x0f00] Block type: Identifies the specific type of the block.
+ * - [0x0004] Originator flag
  */
 class publish final : public message
 {
 public:
 	publish (bool &, nano::stream &, nano::message_header const &, nano::uint128_t const & = 0, nano::block_uniquer * = nullptr);
-	publish (nano::network_constants const & constants, std::shared_ptr<nano::block> const &);
-	void visit (nano::message_visitor &) const override;
+	publish (nano::network_constants const & constants, std::shared_ptr<nano::block> const &, bool is_originator = false);
+
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
+	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::publish const &) const;
+
+	static uint8_t constexpr originator_flag = 2; // 0x0004
+	bool is_originator () const;
+
+public: // Payload
 	std::shared_ptr<nano::block> block;
 	nano::uint128_t digest{ 0 };
 
@@ -674,7 +681,7 @@ public: // Payload definitions
 		void deserialize (nano::stream &);
 
 	public: // Payload
-		std::vector<std::shared_ptr<nano::block>> blocks;
+		std::deque<std::shared_ptr<nano::block>> blocks;
 
 	public: // Logging
 		void operator() (nano::object_stream &) const;

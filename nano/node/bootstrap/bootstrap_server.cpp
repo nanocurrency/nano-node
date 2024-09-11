@@ -313,11 +313,11 @@ nano::asc_pull_ack nano::bootstrap_server::prepare_empty_blocks_response (nano::
 	return response;
 }
 
-std::vector<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks (secure::transaction const & transaction, nano::block_hash start_block, std::size_t count) const
+std::deque<std::shared_ptr<nano::block>> nano::bootstrap_server::prepare_blocks (secure::transaction const & transaction, nano::block_hash start_block, std::size_t count) const
 {
 	debug_assert (count <= max_blocks); // Should be filtered out earlier
 
-	std::vector<std::shared_ptr<nano::block>> result;
+	std::deque<std::shared_ptr<nano::block>> result;
 	if (!start_block.is_zero ())
 	{
 		std::shared_ptr<nano::block> current = ledger.any.block_get (transaction, start_block);
@@ -395,8 +395,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & 
 	response.type = nano::asc_pull_type::frontiers;
 
 	nano::asc_pull_ack::frontiers_payload response_payload{};
-
-	for (auto it = ledger.any.account_lower_bound (transaction, request.start), end = ledger.any.account_end (); it != end && response_payload.frontiers.size () < request.count; ++it)
+	for (auto it = store.account.begin (transaction, request.start), end = store.account.end (); it != end && response_payload.frontiers.size () < request.count; ++it)
 	{
 		response_payload.frontiers.emplace_back (it->first, it->second.head);
 	}

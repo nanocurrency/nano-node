@@ -1,4 +1,5 @@
 #include <nano/lib/thread_roles.hpp>
+#include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/message_processor.hpp>
 #include <nano/node/node.hpp>
 
@@ -157,7 +158,6 @@ void nano::message_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
 
 namespace
 {
-// TODO: This was moved, so compare with latest develop before merging to avoid merge bugs
 class process_visitor : public nano::message_visitor
 {
 public:
@@ -184,7 +184,9 @@ public:
 
 	void publish (nano::publish const & message) override
 	{
-		bool added = node.block_processor.add (message.block, nano::block_source::live, channel);
+		// Put blocks that are being initially broadcasted in a separate queue, so that they won't have to compete with rebroadcasted blocks
+		// Both queues have the same priority and size, so the potential for exploiting this is limited
+		bool added = node.block_processor.add (message.block, message.is_originator () ? nano::block_source::live_originator : nano::block_source::live, channel);
 		if (!added)
 		{
 			node.network.publish_filter.clear (message.digest);
@@ -240,15 +242,7 @@ public:
 
 	void telemetry_req (nano::telemetry_req const & message) override
 	{
-		// Send an empty telemetry_ack if we do not want, just to acknowledge that we have received the message to
-		// remove any timeouts on the server side waiting for a message.
-		nano::telemetry_ack telemetry_ack{ node.network_params.network };
-		if (!node.flags.disable_providing_telemetry_metrics)
-		{
-			auto telemetry_data = node.local_telemetry ();
-			telemetry_ack = nano::telemetry_ack{ node.network_params.network, telemetry_data };
-		}
-		channel->send (telemetry_ack, nullptr, nano::transport::buffer_drop_policy::no_socket_drop);
+		// Ignore telemetry requests as telemetry is being periodically broadcasted since V25+
 	}
 
 	void telemetry_ack (nano::telemetry_ack const & message) override

@@ -12,14 +12,13 @@
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
-#include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/epoch_upgrader.hpp>
 #include <nano/node/fwd.hpp>
-#include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/online_reps.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/process_live_dispatcher.hpp>
 #include <nano/node/rep_tiers.hpp>
@@ -45,6 +44,7 @@ namespace nano
 class active_elections;
 class confirming_set;
 class message_processor;
+class monitor;
 class node;
 class online_reps;
 class vote_processor;
@@ -52,6 +52,7 @@ class vote_cache_processor;
 class vote_router;
 class work_pool;
 class peer_history;
+class port_mapping;
 class thread_runner;
 
 namespace scheduler
@@ -61,6 +62,10 @@ namespace scheduler
 namespace transport
 {
 	class tcp_listener;
+}
+namespace bootstrap_ascending
+{
+	class service;
 }
 namespace rocksdb
 {
@@ -176,7 +181,8 @@ public:
 	nano::transport::tcp_listener & tcp_listener;
 	std::filesystem::path application_path;
 	nano::node_observers observers;
-	nano::port_mapping port_mapping;
+	std::unique_ptr<nano::port_mapping> port_mapping_impl;
+	nano::port_mapping & port_mapping;
 	nano::block_processor block_processor;
 	std::unique_ptr<nano::confirming_set> confirming_set_impl;
 	nano::confirming_set & confirming_set;
@@ -208,14 +214,19 @@ public:
 	nano::request_aggregator & aggregator;
 	nano::wallets wallets;
 	nano::backlog_population backlog;
-	nano::bootstrap_ascending::service ascendboot;
+	std::unique_ptr<nano::bootstrap_ascending::service> ascendboot_impl;
+	nano::bootstrap_ascending::service & ascendboot;
 	nano::websocket_server websocket;
 	nano::epoch_upgrader epoch_upgrader;
-	nano::local_block_broadcaster local_block_broadcaster;
+	std::unique_ptr<nano::local_block_broadcaster> local_block_broadcaster_impl;
+	nano::local_block_broadcaster & local_block_broadcaster;
 	nano::process_live_dispatcher process_live_dispatcher;
 	std::unique_ptr<nano::peer_history> peer_history_impl;
 	nano::peer_history & peer_history;
+	std::unique_ptr<nano::monitor> monitor_impl;
+	nano::monitor & monitor;
 
+public:
 	std::chrono::steady_clock::time_point const startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	std::atomic<bool> unresponsive_work_peers{ false };

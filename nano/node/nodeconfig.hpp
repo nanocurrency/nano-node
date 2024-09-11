@@ -12,12 +12,16 @@
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <nano/node/confirming_set.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
+#include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/message_processor.hpp>
+#include <nano/node/monitor.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/request_aggregator.hpp>
+#include <nano/node/scheduler/bucket.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
 #include <nano/node/scheduler/priority.hpp>
@@ -68,6 +72,7 @@ public:
 	nano::scheduler::optimistic_config optimistic_scheduler;
 	nano::scheduler::hinted_config hinted_scheduler;
 	nano::scheduler::priority_config priority_scheduler;
+	nano::scheduler::priority_bucket_config priority_bucket;
 	std::vector<std::pair<std::string, uint16_t>> work_peers;
 	std::vector<std::pair<std::string, uint16_t>> secondary_work_peers{ { "127.0.0.1", 8076 } }; /* Default of nano-pow-server */
 	std::vector<std::string> preconfigured_peers;
@@ -95,7 +100,7 @@ public:
 	unsigned bootstrap_connections{ 4 };
 	unsigned bootstrap_connections_max{ 64 };
 	unsigned bootstrap_initiator_threads{ 1 };
-	unsigned bootstrap_serving_threads{ std::max (2u, nano::hardware_concurrency () / 2) };
+	unsigned bootstrap_serving_threads{ 1 };
 	uint32_t bootstrap_frontier_request_count{ 1024 * 1024 };
 	nano::websocket::config websocket_config;
 	nano::diagnostics_config diagnostics_config;
@@ -142,6 +147,7 @@ public:
 	unsigned backlog_scan_batch_size{ 10 * 1000 };
 	/** Number of times per second to run backlog population batches. Number of accounts per single batch is `backlog_scan_batch_size / backlog_scan_frequency` */
 	unsigned backlog_scan_frequency{ 10 };
+	bool enable_upnp{ true };
 	nano::vote_cache_config vote_cache;
 	nano::rep_crawler_config rep_crawler;
 	nano::block_processor_config block_processor;
@@ -152,6 +158,9 @@ public:
 	nano::request_aggregator_config request_aggregator;
 	nano::message_processor_config message_processor;
 	nano::network_config network;
+	nano::local_block_broadcaster_config local_block_broadcaster;
+	nano::confirming_set_config confirming_set;
+	nano::monitor_config monitor;
 
 public:
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
@@ -183,7 +192,6 @@ public:
 	bool disable_request_loop{ false }; // For testing only
 	bool disable_tcp_realtime{ false };
 	bool disable_providing_telemetry_metrics{ false };
-	bool disable_ongoing_telemetry_requests{ false };
 	bool disable_block_processor_unchecked_deletion{ false };
 	bool disable_block_processor_republishing{ false };
 	bool allow_bootstrap_peers_duplicates{ false };

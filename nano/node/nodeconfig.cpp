@@ -39,7 +39,8 @@ nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, 
 	block_processor{ network_params.network },
 	peer_history{ network_params.network },
 	tcp{ network_params.network },
-	network{ network_params.network }
+	network{ network_params.network },
+	local_block_broadcaster{ network_params.network }
 {
 	if (peering_port == 0)
 	{
@@ -144,6 +145,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("rep_crawler_weight_minimum", rep_crawler_weight_minimum.to_string_dec (), "Rep crawler minimum weight, if this is less than minimum principal weight then this is taken as the minimum weight a rep must have to be tracked. If you want to track all reps set this to 0. If you do not want this to influence anything then set it to max value. This is only useful for debugging or for people who really know what they are doing.\ntype:string,amount,raw");
 	toml.put ("backlog_scan_batch_size", backlog_scan_batch_size, "Number of accounts per second to process when doing backlog population scan. Increasing this value will help unconfirmed frontiers get into election prioritization queue faster, however it will also increase resource usage. \ntype:uint");
 	toml.put ("backlog_scan_frequency", backlog_scan_frequency, "Backlog scan divides the scan into smaller batches, number of which is controlled by this value. Higher frequency helps to utilize resources more uniformly, however it also introduces more overhead. The resulting number of accounts per single batch is `backlog_scan_batch_size / backlog_scan_frequency` \ntype:uint");
+	toml.put ("enable_upnp", enable_upnp, "Enable or disable automatic UPnP port forwarding. This feature only works if the node is directly connected to a router (not inside a docker container, etc.).\ntype:bool");
 
 	auto work_peers_l (toml.create_array ("work_peers", "A list of \"address:port\" entries to identify work peers."));
 	for (auto i (work_peers.begin ()), n (work_peers.end ()); i != n; ++i)
@@ -208,6 +210,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	optimistic_scheduler.serialize (optimistic_l);
 	toml.put_child ("optimistic_scheduler", optimistic_l);
 
+	nano::tomlconfig priority_bucket_l;
+	priority_bucket.serialize (priority_bucket_l);
+	toml.put_child ("priority_bucket", priority_bucket_l);
+
 	nano::tomlconfig bootstrap_ascending_l;
 	bootstrap_ascending.serialize (bootstrap_ascending_l);
 	toml.put_child ("bootstrap_ascending", bootstrap_ascending_l);
@@ -247,6 +253,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	nano::tomlconfig message_processor_l;
 	message_processor.serialize (message_processor_l);
 	toml.put_child ("message_processor", message_processor_l);
+
+	nano::tomlconfig monitor_l;
+	monitor.serialize (monitor_l);
+	toml.put_child ("monitor", monitor_l);
 
 	return toml.get_error ();
 }
@@ -303,6 +313,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto config_l = toml.get_required_child ("hinted_scheduler");
 			hinted_scheduler.deserialize (config_l);
+		}
+
+		if (toml.has_key ("priority_bucket"))
+		{
+			auto config_l = toml.get_required_child ("priority_bucket");
+			priority_bucket.deserialize (config_l);
 		}
 
 		if (toml.has_key ("bootstrap_ascending"))
@@ -363,6 +379,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto config_l = toml.get_required_child ("message_processor");
 			message_processor.deserialize (config_l);
+		}
+
+		if (toml.has_key ("monitor"))
+		{
+			auto config_l = toml.get_required_child ("monitor");
+			monitor.deserialize (config_l);
 		}
 
 		if (toml.has_key ("work_peers"))
@@ -533,6 +555,8 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 
 		toml.get<unsigned> ("backlog_scan_batch_size", backlog_scan_batch_size);
 		toml.get<unsigned> ("backlog_scan_frequency", backlog_scan_frequency);
+
+		toml.get<bool> ("enable_upnp", enable_upnp);
 
 		if (toml.has_key ("experimental"))
 		{

@@ -54,6 +54,13 @@ public:
 class tcp_listener final
 {
 public:
+	enum class connection_type
+	{
+		inbound,
+		outbound,
+	};
+
+public:
 	tcp_listener (uint16_t port, tcp_config const &, nano::node &);
 	~tcp_listener ();
 
@@ -69,6 +76,7 @@ public:
 	nano::tcp_endpoint endpoint () const;
 
 	size_t connection_count () const;
+	size_t connection_count (connection_type) const;
 	size_t attempt_count () const;
 	size_t realtime_count () const;
 	size_t bootstrap_count () const;
@@ -102,12 +110,6 @@ private:
 		accepted,
 		rejected,
 		error,
-	};
-
-	enum class connection_type
-	{
-		inbound,
-		outbound,
 	};
 
 	asio::awaitable<void> connect_impl (asio::ip::tcp::endpoint);

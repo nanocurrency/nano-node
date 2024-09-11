@@ -36,6 +36,11 @@ void nano::port_mapping::start ()
 {
 	debug_assert (!thread.joinable ());
 
+	if (!node.config.enable_upnp)
+	{
+		return;
+	}
+
 	// Long discovery time and fast setup/teardown make this impractical for testing
 	// TODO: Find a way to test this
 	if (node.network_params.network.is_dev_network ())
@@ -61,14 +66,22 @@ void nano::port_mapping::stop ()
 	{
 		thread.join ();
 	}
+}
+
+void nano::port_mapping::shutdown ()
+{
+	node.logger.debug (nano::log::type::upnp, "UPnP shutdown...");
 
 	nano::lock_guard<nano::mutex> guard_l (mutex);
 	for (auto & protocol : protocols | boost::adaptors::filtered ([] (auto const & p) { return p.enabled; }))
 	{
 		if (protocol.external_port != 0)
 		{
+			std::string external_port_str = std::to_string (protocol.external_port);
+			std::string address_str = address.to_string ();
+
 			// Be a good citizen for the router and shut down our mapping
-			auto delete_error_l (UPNP_DeletePortMapping (upnp.urls.controlURL, upnp.data.first.servicetype, std::to_string (protocol.external_port).c_str (), protocol.name, address.to_string ().c_str ()));
+			auto delete_error_l = UPNP_DeletePortMapping (upnp.urls.controlURL, upnp.data.first.servicetype, external_port_str.c_str (), protocol.name, address_str.c_str ());
 			if (delete_error_l)
 			{
 				node.logger.warn (nano::log::type::upnp, "UPnP shutdown {} port mapping failed: {} ({})",
@@ -117,7 +130,7 @@ void nano::port_mapping::refresh_devices ()
 
 	// Bump logging level periodically
 	node.logger.log ((check_count % 15 == 0) ? nano::log::level::info : nano::log::level::debug,
-	nano::log::type::upnp, "UPnP local address {}, discovery: {}, IGD search: {}",
+	nano::log::type::upnp, "UPnP local address: {}, discovery: {}, IGD search: {}",
 	local_address_l.data (),
 	discover_error_l,
 	igd_error_l);
@@ -167,8 +180,10 @@ void nano::port_mapping::refresh_mapping ()
 	for (auto & protocol : protocols | boost::adaptors::filtered ([] (auto const & p) { return p.enabled; }))
 	{
 		auto upnp_description = std::string ("Nano Node (") + node.network_params.network.get_current_network_as_string () + ")";
-		auto add_port_mapping_error_l (UPNP_AddPortMapping (upnp.urls.controlURL, upnp.data.first.servicetype, config_port_l.c_str (), node_port_l.c_str (), address.to_string ().c_str (), upnp_description.c_str (), protocol.name, nullptr, std::to_string (node.network_params.portmapping.lease_duration.count ()).c_str ()));
+		std::string address_str = address.to_string ();
+		std::string lease_duration_str = std::to_string (node.network_params.portmapping.lease_duration.count ());
 
+		auto add_port_mapping_error_l = UPNP_AddPortMapping (upnp.urls.controlURL, upnp.data.first.servicetype, config_port_l.c_str (), node_port_l.c_str (), address_str.c_str (), upnp_description.c_str (), protocol.name, nullptr, lease_duration_str.c_str ());
 		if (add_port_mapping_error_l == UPNPCOMMAND_SUCCESS)
 		{
 			protocol.external_port = static_cast<uint16_t> (std::atoi (config_port_l.data ()));
@@ -272,14 +287,14 @@ void nano::port_mapping::check_mapping ()
 		}
 		else
 		{
-			node.logger.info (nano::log::type::upnp, "UPnP No need to refresh the mapping");
+			node.logger.info (nano::log::type::upnp, "UPnP no need to refresh the mapping");
 		}
 	}
 	else
 	{
 		// Bump logging level periodically
 		node.logger.log ((check_count % 15 == 0) ? nano::log::level::info : nano::log::level::debug,
-		nano::log::type::upnp, "UPnP No IGD devices found");
+		nano::log::type::upnp, "UPnP no IGD devices found");
 	}
 
 	++check_count;
@@ -298,6 +313,10 @@ void nano::port_mapping::run ()
 
 		condition.wait_for (lock, node.network_params.portmapping.health_check_period, [this] { return stopped.load (); });
 	}
+
+	lock.unlock ();
+
+	shutdown ();
 }
 
 /*

@@ -5,7 +5,8 @@
 #include <nano/store/component.hpp>
 #include <nano/store/write_queue.hpp>
 
-nano::confirming_set::confirming_set (nano::ledger & ledger_a, nano::stats & stats_a) :
+nano::confirming_set::confirming_set (confirming_set_config const & config_a, nano::ledger & ledger_a, nano::stats & stats_a) :
+	config{ config_a },
 	ledger{ ledger_a },
 	stats{ stats_a },
 	notification_workers{ 1, nano::thread_role::name::confirmation_height_notifications }
@@ -13,13 +14,7 @@ nano::confirming_set::confirming_set (nano::ledger & ledger_a, nano::stats & sta
 	batch_cemented.add ([this] (auto const & notification) {
 		for (auto const & [block, confirmation_root] : notification.cemented)
 		{
-			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify_cemented);
 			cemented_observers.notify (block);
-		}
-		for (auto const & hash : notification.already_cemented)
-		{
-			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify_already_cemented);
-			block_already_cemented_observers.notify (hash);
 		}
 	});
 }
@@ -53,7 +48,7 @@ void nano::confirming_set::start ()
 	debug_assert (!thread.joinable ());
 
 	thread = std::thread{ [this] () {
-		nano::thread_role::set (nano::thread_role::name::confirmation_height_processing);
+		nano::thread_role::set (nano::thread_role::name::confirmation_height);
 		run ();
 	} };
 }
@@ -132,41 +127,85 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 
 	lock.unlock ();
 
+	auto notify = [this, &cemented, &already] () {
+		cemented_notification notification{};
+		notification.cemented.swap (cemented);
+		notification.already_cemented.swap (already);
+
+		std::unique_lock lock{ mutex };
+
+		while (notification_workers.num_queued_tasks () >= config.max_queued_notifications)
+		{
+			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cooldown);
+			condition.wait_for (lock, 100ms, [this] { return stopped.load (); });
+			if (stopped)
+			{
+				return;
+			}
+		}
+
+		notification_workers.push_task ([this, notification = std::move (notification)] () {
+			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify);
+			batch_cemented.notify (notification);
+		});
+	};
+
+	// We might need to issue multiple notifications if the block we're confirming implicitly confirms more
+	auto notify_maybe = [this, &cemented, &already, &notify] (auto & transaction) {
+		if (cemented.size () >= config.max_blocks)
+		{
+			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify_intermediate);
+			transaction.commit ();
+			notify ();
+			transaction.renew ();
+		}
+	};
+
 	{
 		auto transaction = ledger.tx_begin_write ({ nano::tables::confirmation_height }, nano::store::writer::confirmation_height);
-
 		for (auto const & hash : batch)
 		{
-			transaction.refresh_if_needed ();
-
-			auto added = ledger.confirm (transaction, hash);
-			if (!added.empty ())
+			do
 			{
-				// Confirming this block may implicitly confirm more
-				for (auto & block : added)
+				transaction.refresh_if_needed ();
+
+				// Cementing deep dependency chains might take a long time, allow for graceful shutdown, ignore notifications
+				if (stopped)
 				{
-					cemented.emplace_back (block, hash);
+					return;
 				}
 
-				stats.add (nano::stat::type::confirming_set, nano::stat::detail::cemented, added.size ());
-			}
-			else
-			{
-				already.push_back (hash);
-				stats.inc (nano::stat::type::confirming_set, nano::stat::detail::already_cemented);
-			}
+				// Issue notifications here, so that `cemented` set is not too large before we add more blocks
+				notify_maybe (transaction);
+
+				stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cementing);
+
+				auto added = ledger.confirm (transaction, hash, config.max_blocks);
+				if (!added.empty ())
+				{
+					// Confirming this block may implicitly confirm more
+					stats.add (nano::stat::type::confirming_set, nano::stat::detail::cemented, added.size ());
+					for (auto & block : added)
+					{
+						cemented.emplace_back (block, hash);
+					}
+				}
+				else
+				{
+					stats.inc (nano::stat::type::confirming_set, nano::stat::detail::already_cemented);
+					already.push_back (hash);
+					debug_assert (ledger.confirmed.block_exists (transaction, hash));
+				}
+			} while (!ledger.confirmed.block_exists (transaction, hash));
+
+			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cemented_hash);
 		}
 	}
 
-	cemented_notification notification{
-		.cemented = std::move (cemented),
-		.already_cemented = std::move (already)
-	};
+	notify ();
 
-	notification_workers.push_task ([this, notification = std::move (notification)] () {
-		stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify);
-		batch_cemented.notify (notification);
-	});
+	release_assert (cemented.empty ());
+	release_assert (already.empty ());
 }
 
 std::unique_ptr<nano::container_info_component> nano::confirming_set::collect_container_info (std::string const & name) const

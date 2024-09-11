@@ -84,7 +84,7 @@ void nano::rep_crawler::validate_and_process (nano::unique_lock<nano::mutex> & l
 		nano::uint128_t const rep_weight = node.ledger.weight (vote->account);
 		if (rep_weight < minimum)
 		{
-			logger.debug (nano::log::type::rep_crawler, "Ignoring vote from account {} with too little voting weight: {}",
+			logger.debug (nano::log::type::rep_crawler, "Ignoring vote from account: {} with too little voting weight: {}",
 			vote->account.to_account (),
 			nano::util::to_str (rep_weight));
 			continue;
@@ -122,11 +122,11 @@ void nano::rep_crawler::validate_and_process (nano::unique_lock<nano::mutex> & l
 
 		if (inserted)
 		{
-			logger.info (nano::log::type::rep_crawler, "Found representative {} at {}", vote->account.to_account (), channel->to_string ());
+			logger.info (nano::log::type::rep_crawler, "Found representative: {} at: {}", vote->account.to_account (), channel->to_string ());
 		}
 		if (updated)
 		{
-			logger.warn (nano::log::type::rep_crawler, "Updated representative {} at {} (was at: {})", vote->account.to_account (), channel->to_string (), prev_channel->to_string ());
+			logger.warn (nano::log::type::rep_crawler, "Updated representative: {} at: {} (was at: {})", vote->account.to_account (), channel->to_string (), prev_channel->to_string ());
 		}
 	}
 }
@@ -203,7 +203,7 @@ void nano::rep_crawler::cleanup ()
 	erase_if (reps, [this] (rep_entry const & rep) {
 		if (!rep.channel->alive ())
 		{
-			logger.info (nano::log::type::rep_crawler, "Evicting representative {} with dead channel at {}", rep.account.to_account (), rep.channel->to_string ());
+			logger.info (nano::log::type::rep_crawler, "Evicting representative: {} with dead channel at: {}", rep.account.to_account (), rep.channel->to_string ());
 			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::channel_dead);
 			return true; // Erase
 		}
@@ -216,12 +216,12 @@ void nano::rep_crawler::cleanup ()
 		{
 			if (query.replies == 0)
 			{
-				logger.debug (nano::log::type::rep_crawler, "Aborting unresponsive query for block {} from {}", query.hash.to_string (), query.channel->to_string ());
+				logger.debug (nano::log::type::rep_crawler, "Aborting unresponsive query for block: {} from: {}", query.hash.to_string (), query.channel->to_string ());
 				stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_timeout);
 			}
 			else
 			{
-				logger.debug (nano::log::type::rep_crawler, "Completion of query with {} replies for block {} from {}", query.replies, query.hash.to_string (), query.channel->to_string ());
+				logger.debug (nano::log::type::rep_crawler, "Completion of query with: {} replies for block: {} from: {}", query.replies, query.hash.to_string (), query.channel->to_string ());
 				stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_completion);
 			}
 			return true; // Erase
@@ -351,7 +351,7 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 		bool tracked = track_rep_request (hash_root, channel);
 		if (tracked)
 		{
-			logger.debug (nano::log::type::rep_crawler, "Sending query for block {} to {}", hash_root.first.to_string (), channel->to_string ());
+			logger.debug (nano::log::type::rep_crawler, "Sending query for block: {} to: {}", hash_root.first.to_string (), channel->to_string ());
 			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_sent);
 
 			auto const & [hash, root] = hash_root;
@@ -369,7 +369,7 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 		}
 		else
 		{
-			logger.debug (nano::log::type::rep_crawler, "Ignoring duplicate query for block {} to {}", hash_root.first.to_string (), channel->to_string ());
+			logger.debug (nano::log::type::rep_crawler, "Ignoring duplicate query for block: {} to: {}", hash_root.first.to_string (), channel->to_string ());
 			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_duplicate);
 		}
 	}
@@ -395,8 +395,7 @@ bool nano::rep_crawler::process (std::shared_ptr<nano::vote> const & vote, std::
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
-	auto & index = queries.get<tag_channel> ();
-	auto [begin, end] = index.equal_range (channel);
+	auto [begin, end] = queries.get<tag_channel> ().equal_range (channel);
 	for (auto it = begin; it != end; ++it)
 	{
 		// TODO: This linear search could be slow, especially with large votes.
@@ -404,12 +403,13 @@ bool nano::rep_crawler::process (std::shared_ptr<nano::vote> const & vote, std::
 		bool found = std::any_of (vote->hashes.begin (), vote->hashes.end (), [&target_hash] (nano::block_hash const & hash) {
 			return hash == target_hash;
 		});
-
 		if (found)
 		{
-			logger.debug (nano::log::type::rep_crawler, "Processing response for block {} from {}", target_hash.to_string (), channel->to_string ());
+			logger.debug (nano::log::type::rep_crawler, "Processing response for block: {} from: {}", target_hash.to_string (), channel->to_string ());
 			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::response);
-			// TODO: Track query response time
+
+			// Track response time
+			stats.sample (nano::stat::sample::rep_response_time, nano::log::milliseconds_delta (it->time), { 0, config.query_timeout.count () });
 
 			responses.push_back ({ channel, vote });
 			queries.modify (it, [] (query_entry & e) {
@@ -453,8 +453,9 @@ std::vector<nano::representative> nano::rep_crawler::representatives (std::size_
 	}
 
 	std::vector<nano::representative> result;
-	for (auto const & [weight, rep] : ordered | std::views::take (count))
+	for (auto i = ordered.begin (), n = ordered.end (); i != n && result.size () < count; ++i)
 	{
+		auto const & [weight, rep] = *i;
 		result.push_back ({ rep.account, rep.channel });
 	}
 	return result;

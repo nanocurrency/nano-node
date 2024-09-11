@@ -59,9 +59,9 @@ public:
 	std::string block_text (char const *);
 	std::string block_text (nano::block_hash const &);
 	std::pair<nano::block_hash, nano::block_hash> hash_root_random (secure::transaction const &) const;
-	std::optional<nano::pending_info> pending_info (secure::transaction const & transaction, nano::pending_key const & key) const;
-	std::deque<std::shared_ptr<nano::block>> confirm (secure::write_transaction const & transaction, nano::block_hash const & hash);
-	nano::block_status process (secure::write_transaction const & transaction, std::shared_ptr<nano::block> block);
+	std::optional<nano::pending_info> pending_info (secure::transaction const &, nano::pending_key const & key) const;
+	std::deque<std::shared_ptr<nano::block>> confirm (secure::write_transaction &, nano::block_hash const & hash, size_t max_blocks = 1024 * 128);
+	nano::block_status process (secure::write_transaction const &, std::shared_ptr<nano::block> block);
 	bool rollback (secure::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
 	bool rollback (secure::write_transaction const &, nano::block_hash const &);
 	void update_account (secure::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
@@ -70,31 +70,37 @@ public:
 	bool dependents_confirmed (secure::transaction const &, nano::block const &) const;
 	bool is_epoch_link (nano::link const &) const;
 	std::array<nano::block_hash, 2> dependent_blocks (secure::transaction const &, nano::block const &) const;
-	std::shared_ptr<nano::block> find_receive_block_by_send_hash (secure::transaction const & transaction, nano::account const & destination, nano::block_hash const & send_block_hash);
+	std::shared_ptr<nano::block> find_receive_block_by_send_hash (secure::transaction const &, nano::account const & destination, nano::block_hash const & send_block_hash);
 	nano::account const & epoch_signer (nano::link const &) const;
 	nano::link const & epoch_link (nano::epoch) const;
 	bool migrate_lmdb_to_rocksdb (std::filesystem::path const &) const;
 	bool bootstrap_weight_reached () const;
 	static nano::epoch version (nano::block const & block);
-	nano::epoch version (secure::transaction const & transaction, nano::block_hash const & hash) const;
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
+	nano::epoch version (secure::transaction const &, nano::block_hash const & hash) const;
 	uint64_t cemented_count () const;
 	uint64_t block_count () const;
 	uint64_t account_count () const;
 	uint64_t pruned_count () const;
+
+	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
+
+public:
 	static nano::uint128_t const unit;
+
 	nano::ledger_constants & constants;
 	nano::store::component & store;
 	nano::ledger_cache cache;
 	nano::stats & stats;
+
 	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;
 	uint64_t bootstrap_weight_max_blocks{ 1 };
 	mutable std::atomic<bool> check_bootstrap_weights;
+
 	bool pruning{ false };
 
 private:
 	void initialize (nano::generate_cache_flags const &);
-	void confirm (secure::write_transaction const & transaction, nano::block const & block);
+	void confirm_one (secure::write_transaction &, nano::block const & block);
 
 	std::unique_ptr<ledger_set_any> any_impl;
 	std::unique_ptr<ledger_set_confirmed> confirmed_impl;

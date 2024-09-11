@@ -16,7 +16,7 @@ namespace bootstrap
 {
 	/**
 	 * Class to read a block-type byte followed by a serialised block from a stream.
-	 * It is typically used to used to read a series of block-types and blocks terminated by a not-a-block type.
+	 * It is typically used to read a series of block-types and blocks terminated by a not-a-block type.
 	 */
 	class block_deserializer : public std::enable_shared_from_this<nano::bootstrap::block_deserializer>
 	{

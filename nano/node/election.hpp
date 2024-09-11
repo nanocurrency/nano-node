@@ -49,10 +49,12 @@ enum class election_state
 	active, // actively request confirmations
 	confirmed, // confirmed but still listening for votes
 	expired_confirmed,
-	expired_unconfirmed
+	expired_unconfirmed,
+	cancelled,
 };
 
 std::string_view to_string (election_state);
+nano::stat::detail to_stat_detail (election_state);
 
 class election final : public std::enable_shared_from_this<election>
 {
@@ -84,6 +86,7 @@ private: // State management
 public: // State transitions
 	bool transition_time (nano::confirmation_solicitor &);
 	void transition_active ();
+	void cancel ();
 
 public: // Status
 	bool confirmed () const;
@@ -138,6 +141,10 @@ public: // Information
 	nano::election_behavior behavior () const;
 	nano::election_state state () const;
 
+	std::unordered_map<nano::account, nano::vote_info> votes () const;
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
+	bool contains (nano::block_hash const &) const;
+
 private:
 	nano::tally_t tally_impl () const;
 	bool confirmed_locked () const;
@@ -188,8 +195,6 @@ private: // Constants
 
 public: // Only used in tests
 	void force_confirm ();
-	std::unordered_map<nano::account, nano::vote_info> votes () const;
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
 
 	friend class confirmation_solicitor_different_hash_Test;
 	friend class confirmation_solicitor_bypass_max_requests_cap_Test;

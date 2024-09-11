@@ -59,7 +59,7 @@ class network_config final
 public:
 	explicit network_config (nano::network_constants const & network)
 	{
-		if (network.is_dev_network ())
+		if (network.is_dev_network () || network.is_beta_network ())
 		{
 			// During tests, all peers are on localhost
 			max_peers_per_ip = 256;
@@ -170,8 +170,8 @@ public:
 	static unsigned const broadcast_interval_ms = 10;
 	static std::size_t const buffer_size = 512;
 
-	static std::size_t const confirm_req_hashes_max = 7;
-	static std::size_t const confirm_ack_hashes_max = 12;
+	static std::size_t confirm_req_hashes_max;
+	static std::size_t confirm_ack_hashes_max;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (network & network, std::string const & name);

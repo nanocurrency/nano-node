@@ -16,9 +16,10 @@
  * block_processor::context
  */
 
-nano::block_processor::context::context (std::shared_ptr<nano::block> block, nano::block_source source_a) :
+nano::block_processor::context::context (std::shared_ptr<nano::block> block, nano::block_source source_a, callback_t callback_a) :
 	block{ std::move (block) },
-	source{ source_a }
+	source{ source_a },
+	callback{ std::move (callback_a) }
 {
 	debug_assert (source != nano::block_source::unknown);
 }
@@ -54,6 +55,7 @@ nano::block_processor::block_processor (nano::node & node_a) :
 		switch (origin.source)
 		{
 			case nano::block_source::live:
+			case nano::block_source::live_originator:
 				return config.max_peer_queue;
 			default:
 				return config.max_system_queue;
@@ -64,6 +66,7 @@ nano::block_processor::block_processor (nano::node & node_a) :
 		switch (origin.source)
 		{
 			case nano::block_source::live:
+			case nano::block_source::live_originator:
 				return config.priority_live;
 			case nano::block_source::bootstrap:
 			case nano::block_source::bootstrap_legacy:
@@ -119,17 +122,7 @@ std::size_t nano::block_processor::size (nano::block_source source) const
 	return queue.size ({ source });
 }
 
-bool nano::block_processor::full () const
-{
-	return size () >= node.flags.block_processor_full_size;
-}
-
-bool nano::block_processor::half_full () const
-{
-	return size () >= node.flags.block_processor_full_size / 2;
-}
-
-bool nano::block_processor::add (std::shared_ptr<nano::block> const & block, block_source const source, std::shared_ptr<nano::transport::channel> const & channel)
+bool nano::block_processor::add (std::shared_ptr<nano::block> const & block, block_source const source, std::shared_ptr<nano::transport::channel> const & channel, std::function<void (nano::block_status)> callback)
 {
 	if (node.network_params.work.validate_entry (*block)) // true => error
 	{
@@ -143,7 +136,7 @@ bool nano::block_processor::add (std::shared_ptr<nano::block> const & block, blo
 	to_string (source),
 	channel ? channel->to_string () : "<unknown>"); // TODO: Lazy eval
 
-	return add_impl (context{ block, source }, channel);
+	return add_impl (context{ block, source, std::move (callback) }, channel);
 }
 
 std::optional<nano::block_status> nano::block_processor::add_blocking (std::shared_ptr<nano::block> const & block, block_source const source)
@@ -241,7 +234,13 @@ void nano::block_processor::run ()
 	{
 		if (!queue.empty ())
 		{
-			lock.unlock ();
+			// TODO: Cleaner periodical logging
+			if (should_log ())
+			{
+				node.logger.info (nano::log::type::blockprocessor, "{} blocks (+ {} forced) in processing queue",
+				queue.size (),
+				queue.size ({ nano::block_source::forced }));
+			}
 
 			auto processed = process_batch (lock);
 			debug_assert (!lock.owns_lock ());
@@ -249,6 +248,10 @@ void nano::block_processor::run ()
 			// Set results for futures when not holding the lock
 			for (auto & [result, context] : processed)
 			{
+				if (context.callback)
+				{
+					context.callback (result);
+				}
 				context.set_result (result);
 			}
 
@@ -291,40 +294,47 @@ auto nano::block_processor::next () -> context
 	release_assert (false, "next() called when no blocks are ready");
 }
 
-auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock_a) -> processed_batch_t
+auto nano::block_processor::next_batch (size_t max_count) -> std::deque<context>
 {
-	processed_batch_t processed;
-
-	auto transaction = node.ledger.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights }, nano::store::writer::blockprocessor);
-	nano::timer<std::chrono::milliseconds> timer_l;
-
-	lock_a.lock ();
+	debug_assert (!mutex.try_lock ());
+	debug_assert (!queue.empty ());
 
 	queue.periodic_update ();
 
-	timer_l.start ();
+	std::deque<context> results;
+	while (!queue.empty () && results.size () < max_count)
+	{
+		results.push_back (next ());
+	}
+	return results;
+}
+
+auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock) -> processed_batch_t
+{
+	debug_assert (lock.owns_lock ());
+	debug_assert (!mutex.try_lock ());
+	debug_assert (!queue.empty ());
+
+	auto batch = next_batch (256);
+
+	lock.unlock ();
+
+	auto transaction = node.ledger.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights }, nano::store::writer::blockprocessor);
+
+	nano::timer<std::chrono::milliseconds> timer;
+	timer.start ();
 
 	// Processing blocks
-	unsigned number_of_blocks_processed (0), number_of_forced_processed (0);
-	auto deadline_reached = [&timer_l, deadline = node.config.block_processor_batch_max_time] { return timer_l.after_deadline (deadline); };
-	auto processor_batch_reached = [&number_of_blocks_processed, max = node.flags.block_processor_batch_size] { return number_of_blocks_processed >= max; };
-	auto store_batch_reached = [&number_of_blocks_processed, max = node.store.max_block_write_batch_num ()] { return number_of_blocks_processed >= max; };
+	size_t number_of_blocks_processed = 0;
+	size_t number_of_forced_processed = 0;
 
-	while (!queue.empty () && (!deadline_reached () || !processor_batch_reached ()) && !store_batch_reached ())
+	processed_batch_t processed;
+	for (auto & ctx : batch)
 	{
-		// TODO: Cleaner periodical logging
-		if (should_log ())
-		{
-			node.logger.info (nano::log::type::blockprocessor, "{} blocks (+ {} forced) in processing queue",
-			queue.size (),
-			queue.size ({ nano::block_source::forced }));
-		}
-
-		auto ctx = next ();
 		auto const hash = ctx.block->hash ();
 		bool const force = ctx.source == nano::block_source::forced;
 
-		lock_a.unlock ();
+		transaction.refresh_if_needed ();
 
 		if (force)
 		{
@@ -336,15 +346,11 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 
 		auto result = process_one (transaction, ctx, force);
 		processed.emplace_back (result, std::move (ctx));
-
-		lock_a.lock ();
 	}
 
-	lock_a.unlock ();
-
-	if (number_of_blocks_processed != 0 && timer_l.stop () > std::chrono::milliseconds (100))
+	if (number_of_blocks_processed != 0 && timer.stop () > std::chrono::milliseconds (100))
 	{
-		node.logger.debug (nano::log::type::blockprocessor, "Processed {} blocks ({} forced) in {} {}", number_of_blocks_processed, number_of_forced_processed, timer_l.value ().count (), timer_l.unit ());
+		node.logger.debug (nano::log::type::blockprocessor, "Processed {} blocks ({} forced) in {} {}", number_of_blocks_processed, number_of_forced_processed, timer.value ().count (), timer.unit ());
 	}
 
 	return processed;

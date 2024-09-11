@@ -143,6 +143,16 @@ public:
 		return *this;
 	}
 
+	/** Get chrono duration */
+	template <typename Duration>
+	tomlconfig & get_duration (std::string const & key, Duration & target)
+	{
+		uint64_t value = target.count ();
+		get (key, value);
+		target = Duration{ value };
+		return *this;
+	}
+
 	/**
 	 * Get value of optional key. Use default value of data type if missing.
 	 */

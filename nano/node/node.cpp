@@ -4,16 +4,20 @@
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/active_elections.hpp>
+#include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/election_status.hpp>
+#include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/message_processor.hpp>
+#include <nano/node/monitor.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/online_reps.hpp>
 #include <nano/node/peer_history.hpp>
+#include <nano/node/portmapping.hpp>
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/hinted.hpp>
@@ -185,9 +189,10 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	tcp_listener_impl{ std::make_unique<nano::transport::tcp_listener> (network.port, config.tcp, *this) },
 	tcp_listener{ *tcp_listener_impl },
 	application_path (application_path_a),
-	port_mapping (*this),
+	port_mapping_impl{ std::make_unique<nano::port_mapping> (*this) },
+	port_mapping{ *port_mapping_impl },
 	block_processor (*this),
-	confirming_set_impl{ std::make_unique<nano::confirming_set> (ledger, stats) },
+	confirming_set_impl{ std::make_unique<nano::confirming_set> (config.confirming_set, ledger, stats) },
 	confirming_set{ *confirming_set_impl },
 	active_impl{ std::make_unique<nano::active_elections> (*this, confirming_set, block_processor) },
 	active{ *active_impl },
@@ -216,13 +221,17 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	aggregator{ *aggregator_impl },
 	wallets (wallets_store.init_error (), *this),
 	backlog{ nano::backlog_population_config (config), scheduler, ledger, stats },
-	ascendboot{ config, block_processor, ledger, network, stats },
+	ascendboot_impl{ std::make_unique<nano::bootstrap_ascending::service> (config, block_processor, ledger, network, stats, logger) },
+	ascendboot{ *ascendboot_impl },
 	websocket{ config.websocket_config, observers, wallets, ledger, io_ctx, logger },
 	epoch_upgrader{ *this, ledger, store, network_params, logger },
-	local_block_broadcaster{ *this, block_processor, network, stats, !flags.disable_block_processor_republishing },
+	local_block_broadcaster_impl{ std::make_unique<nano::local_block_broadcaster> (config.local_block_broadcaster, *this, block_processor, network, confirming_set, stats, logger, !flags.disable_block_processor_republishing) },
+	local_block_broadcaster{ *local_block_broadcaster_impl },
 	process_live_dispatcher{ ledger, scheduler.priority, vote_cache, websocket },
 	peer_history_impl{ std::make_unique<nano::peer_history> (config.peer_history, store, network, logger, stats) },
 	peer_history{ *peer_history_impl },
+	monitor_impl{ std::make_unique<nano::monitor> (config.monitor, *this) },
+	monitor{ *monitor_impl },
 	startup_time (std::chrono::steady_clock::now ()),
 	node_seq (seq)
 {
@@ -371,7 +380,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 
 		auto const network_label = network_params.network.get_current_network_as_string ();
 
-		logger.info (nano::log::type::node, "Node starting, version: {}", NANO_VERSION_STRING);
+		logger.info (nano::log::type::node, "Version: {}", NANO_VERSION_STRING);
 		logger.info (nano::log::type::node, "Build information: {}", BUILD_INFO);
 		logger.info (nano::log::type::node, "Active network: {}", network_label);
 		logger.info (nano::log::type::node, "Database backend: {}", store.vendor_get ());
@@ -445,7 +454,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 
 				ledger.bootstrap_weights = bootstrap_weights.second;
 
-				logger.info (nano::log::type::node, "************************************ Bootstrap weights ************************************");
+				logger.info (nano::log::type::node, "******************************************** Bootstrap weights ********************************************");
 
 				// Sort the weights
 				std::vector<std::pair<nano::account, nano::uint128_t>> sorted_weights (ledger.bootstrap_weights.begin (), ledger.bootstrap_weights.end ());
@@ -460,7 +469,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 					nano::uint128_union (rep.second).format_balance (Mxrb_ratio, 0, true));
 				}
 
-				logger.info (nano::log::type::node, "************************************ ================= ************************************");
+				logger.info (nano::log::type::node, "******************************************** ================= ********************************************");
 			}
 		}
 
@@ -720,6 +729,7 @@ void nano::node::start ()
 	peer_history.start ();
 	vote_router.start ();
 	online_reps.start ();
+	monitor.start ();
 
 	add_initial_peers ();
 }
@@ -734,6 +744,7 @@ void nano::node::stop ()
 
 	logger.info (nano::log::type::node, "Node stopping...");
 
+	tcp_listener.stop ();
 	bootstrap_workers.stop ();
 	wallet_workers.stop ();
 	election_workers.stop ();
@@ -762,7 +773,6 @@ void nano::node::stop ()
 	websocket.stop ();
 	bootstrap_server.stop ();
 	bootstrap_initiator.stop ();
-	tcp_listener.stop ();
 	port_mapping.stop ();
 	wallets.stop ();
 	stats.stop ();
@@ -771,6 +781,7 @@ void nano::node::stop ()
 	local_block_broadcaster.stop ();
 	message_processor.stop ();
 	network.stop (); // Stop network last to avoid killing in-use sockets
+	monitor.stop ();
 
 	// work pool is not stopped on purpose due to testing setup
 
@@ -883,10 +894,13 @@ void nano::node::ongoing_bootstrap ()
 		{
 			// Find last online weight sample (last active time for node)
 			uint64_t last_sample_time (0);
-			auto last_record = store.online_weight.rbegin (store.tx_begin_read ());
-			if (last_record != store.online_weight.end ())
 			{
-				last_sample_time = last_record->first;
+				auto transaction = store.tx_begin_read ();
+				auto last_record = store.online_weight.rbegin (transaction);
+				if (last_record != store.online_weight.end ())
+				{
+					last_sample_time = last_record->first;
+				}
 			}
 			uint64_t time_since_last_sample = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count () - static_cast<uint64_t> (last_sample_time / std::pow (10, 9)); // Nanoseconds to seconds
 			if (time_since_last_sample + 60 * 60 < std::numeric_limits<uint32_t>::max ())
@@ -967,7 +981,7 @@ bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & 
 {
 	uint64_t read_operations (0);
 	bool finish_transaction (false);
-	auto const transaction = ledger.tx_begin_read ();
+	auto transaction = ledger.tx_begin_read ();
 	for (auto i (store.confirmation_height.begin (transaction, last_account_a)), n (store.confirmation_height.end ()); i != n && !finish_transaction;)
 	{
 		++read_operations;
@@ -995,6 +1009,7 @@ bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & 
 			}
 			if (++depth % batch_read_size_a == 0)
 			{
+				// FIXME: This is triggering an assertion where the iterator is still used after transaction is refreshed
 				transaction.refresh ();
 			}
 		}

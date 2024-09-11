@@ -101,6 +101,10 @@ add_library(
   make_store.cpp
   message_processor.hpp
   message_processor.cpp
+  messages.hpp
+  messages.cpp
+  monitor.hpp
+  monitor.cpp
   network.hpp
   network.cpp
   nodeconfig.hpp
@@ -141,8 +145,6 @@ add_library(
   request_aggregator.cpp
   scheduler/bucket.cpp
   scheduler/bucket.hpp
-  scheduler/buckets.cpp
-  scheduler/buckets.hpp
   scheduler/component.hpp
   scheduler/component.cpp
   scheduler/hinted.hpp
@@ -196,8 +198,6 @@ add_library(
   websocketconfig.cpp
   websocket_stream.hpp
   websocket_stream.cpp
-  messages.hpp
-  messages.cpp
   xorshift.hpp)
 
 target_link_libraries(

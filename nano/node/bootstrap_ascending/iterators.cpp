@@ -28,8 +28,8 @@ void nano::bootstrap_ascending::database_iterator::next (secure::transaction & t
 	{
 		case table_type::account:
 		{
-			auto item = ledger.any.account_upper_bound (tx, current.number ());
-			if (item != ledger.any.account_end ())
+			auto item = ledger.store.account.begin (tx, current.number () + 1);
+			if (item != ledger.store.account.end ())
 			{
 				current = item->first;
 			}
@@ -71,18 +71,25 @@ nano::account nano::bootstrap_ascending::buffered_iterator::operator* () const
 	return !buffer.empty () ? buffer.front () : nano::account{ 0 };
 }
 
-nano::account nano::bootstrap_ascending::buffered_iterator::next ()
+nano::account nano::bootstrap_ascending::buffered_iterator::next (std::function<bool (nano::account const &)> const & filter)
 {
-	if (!buffer.empty ())
-	{
-		buffer.pop_front ();
-	}
-	else
+	if (buffer.empty ())
 	{
 		fill ();
 	}
 
-	return *(*this);
+	while (!buffer.empty ())
+	{
+		auto result = buffer.front ();
+		buffer.pop_front ();
+
+		if (filter (result))
+		{
+			return result;
+		}
+	}
+
+	return { 0 };
 }
 
 bool nano::bootstrap_ascending::buffered_iterator::warmup () const

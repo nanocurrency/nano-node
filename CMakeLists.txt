@@ -38,7 +38,7 @@ if(MSVC)
 endif()
 
 set(CPACK_PACKAGE_VENDOR "Nano Currency")
-set(CPACK_PACKAGE_VERSION_MAJOR "27")
+set(CPACK_PACKAGE_VERSION_MAJOR "28")
 set(CPACK_PACKAGE_VERSION_MINOR "0")
 set(CPACK_PACKAGE_VERSION_PATCH "0")
 
@@ -442,6 +442,7 @@ set(BOOST_MODULE_LIBS
     iterator
     lexical_cast
     property_tree
+    lambda
     log
     logic
     math
@@ -472,6 +473,7 @@ set(BOOST_MODULE_LIBS
     static_assert
     static_string
     system
+    test
     thread
     throw_exception
     tokenizer

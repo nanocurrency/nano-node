@@ -37,7 +37,7 @@ public:
 	void start ();
 	void stop ();
 
-	// Manualy start an election for a block
+	// Manually start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	void push (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none);
 

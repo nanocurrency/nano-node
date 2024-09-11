@@ -58,7 +58,7 @@ void nano::transport::tcp_listener::start ()
 			local = acceptor.local_endpoint ();
 		}
 
-		logger.info (nano::log::type::tcp_listener, "Listening for incoming connections on: {}", fmt::streamed (acceptor.local_endpoint ()));
+		logger.debug (nano::log::type::tcp_listener, "Listening for incoming connections on: {}", fmt::streamed (acceptor.local_endpoint ()));
 	}
 	catch (boost::system::system_error const & ex)
 	{
@@ -106,7 +106,7 @@ void nano::transport::tcp_listener::stop ()
 {
 	debug_assert (!stopped);
 
-	logger.info (nano::log::type::tcp_listener, "Stopping listening for incoming connections and closing all sockets...");
+	logger.debug (nano::log::type::tcp_listener, "Stopping listening for incoming connections and closing all sockets...");
 
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
@@ -221,6 +221,11 @@ void nano::transport::tcp_listener::timeout ()
 bool nano::transport::tcp_listener::connect (asio::ip::address ip, uint16_t port)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	if (stopped)
+	{
+		return false; // Rejected
+	}
 
 	if (port == 0)
 	{
@@ -371,6 +376,11 @@ auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket
 
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
+	if (stopped)
+	{
+		return { accept_result::rejected };
+	}
+
 	if (auto result = check_limits (remote_endpoint.address (), type); result != accept_result::accepted)
 	{
 		stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::accept_rejected, to_stat_dir (type));
@@ -379,7 +389,7 @@ auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket
 
 		try
 		{
-			// Best effor attempt to gracefully close the socket, shutdown before closing to avoid zombie sockets
+			// Best effort attempt to gracefully close the socket, shutdown before closing to avoid zombie sockets
 			raw_socket.shutdown (asio::ip::tcp::socket::shutdown_both);
 			raw_socket.close ();
 		}
@@ -487,6 +497,12 @@ size_t nano::transport::tcp_listener::connection_count () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	return connections.size ();
+}
+
+size_t nano::transport::tcp_listener::connection_count (connection_type type) const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return count_per_type (type);
 }
 
 size_t nano::transport::tcp_listener::attempt_count () const

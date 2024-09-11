@@ -433,11 +433,12 @@ nano::publish::publish (bool & error_a, nano::stream & stream_a, nano::message_h
 	}
 }
 
-nano::publish::publish (nano::network_constants const & constants, std::shared_ptr<nano::block> const & block_a) :
+nano::publish::publish (nano::network_constants const & constants, std::shared_ptr<nano::block> const & block_a, bool is_originator_a) :
 	message (constants, nano::message_type::publish),
 	block (block_a)
 {
 	header.block_type_set (block->type ());
+	header.flag_set (originator_flag, is_originator_a);
 }
 
 void nano::publish::serialize (nano::stream & stream_a) const
@@ -465,11 +466,17 @@ bool nano::publish::operator== (nano::publish const & other_a) const
 	return *block == *other_a.block;
 }
 
+bool nano::publish::is_originator () const
+{
+	return header.flag_test (originator_flag);
+}
+
 void nano::publish::operator() (nano::object_stream & obs) const
 {
 	nano::message::operator() (obs); // Write common data
 
 	obs.write ("block", block);
+	obs.write ("originator", is_originator ());
 }
 
 /*
@@ -682,6 +689,7 @@ void nano::confirm_ack::operator() (nano::object_stream & obs) const
 	nano::message::operator() (obs); // Write common data
 
 	obs.write ("vote", vote);
+	obs.write ("rebroadcasted", is_rebroadcasted ());
 }
 
 /*

@@ -194,14 +194,19 @@ void nano::active_elections::add_election_winner_details (nano::block_hash const
 
 std::shared_ptr<nano::election> nano::active_elections::remove_election_winner_details (nano::block_hash const & hash_a)
 {
-	nano::lock_guard<nano::mutex> guard{ election_winner_details_mutex };
 	std::shared_ptr<nano::election> result;
-	auto existing = election_winner_details.find (hash_a);
-	if (existing != election_winner_details.end ())
 	{
-		result = existing->second;
-		election_winner_details.erase (existing);
+		nano::lock_guard<nano::mutex> guard{ election_winner_details_mutex };
+		auto existing = election_winner_details.find (hash_a);
+		if (existing != election_winner_details.end ())
+		{
+			result = existing->second;
+			election_winner_details.erase (existing);
+		}
 	}
+
+	vacancy_update ();
+
 	return result;
 }
 
@@ -244,19 +249,27 @@ int64_t nano::active_elections::limit (nano::election_behavior behavior) const
 
 int64_t nano::active_elections::vacancy (nano::election_behavior behavior) const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	switch (behavior)
-	{
-		case nano::election_behavior::manual:
-			return std::numeric_limits<int64_t>::max ();
-		case nano::election_behavior::priority:
-			return limit (nano::election_behavior::priority) - static_cast<int64_t> (roots.size ());
-		case nano::election_behavior::hinted:
-		case nano::election_behavior::optimistic:
-			return limit (behavior) - count_by_behavior[behavior];
-	}
-	debug_assert (false); // Unknown enum
-	return 0;
+	auto election_vacancy = [this] (nano::election_behavior behavior) -> int64_t {
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		switch (behavior)
+		{
+			case nano::election_behavior::manual:
+				return std::numeric_limits<int64_t>::max ();
+			case nano::election_behavior::priority:
+				return limit (nano::election_behavior::priority) - static_cast<int64_t> (roots.size ());
+			case nano::election_behavior::hinted:
+			case nano::election_behavior::optimistic:
+				return limit (behavior) - count_by_behavior[behavior];
+		}
+		debug_assert (false); // Unknown enum
+		return 0;
+	};
+
+	auto election_winners_vacancy = [this] () -> int64_t {
+		return static_cast<int64_t> (config.max_election_winners) - static_cast<int64_t> (election_winner_details_size ());
+	};
+
+	return std::min (election_vacancy (behavior), election_winners_vacancy ());
 }
 
 void nano::active_elections::request_confirm (nano::unique_lock<nano::mutex> & lock_a)
@@ -309,7 +322,11 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 	auto blocks_l = election->blocks ();
 	node.vote_router.disconnect (*election);
 
-	roots.get<tag_root> ().erase (roots.get<tag_root> ().find (election->qualified_root));
+	// Erase root info
+	auto it = roots.get<tag_root> ().find (election->qualified_root);
+	release_assert (it != roots.get<tag_root> ().end ());
+	entry entry = *it;
+	roots.get<tag_root> ().erase (it);
 
 	node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::stopped);
 	node.stats.inc (nano::stat::type::active_elections, election->confirmed () ? nano::stat::detail::confirmed : nano::stat::detail::unconfirmed);
@@ -325,7 +342,14 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 
 	lock_a.unlock ();
 
-	node.stats.sample (nano::stat::sample::active_election_duration, { 0, 1000 * 60 * 10 /* 0-10 minutes range */ }, election->duration ().count ());
+	// Track election duration
+	node.stats.sample (nano::stat::sample::active_election_duration, election->duration ().count (), { 0, 1000 * 60 * 10 /* 0-10 minutes range */ });
+
+	// Notify observers without holding the lock
+	if (entry.erased_callback)
+	{
+		entry.erased_callback (election);
+	}
 
 	vacancy_update ();
 
@@ -387,7 +411,7 @@ void nano::active_elections::request_loop ()
 	}
 }
 
-nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<nano::block> const & block_a, nano::election_behavior election_behavior_a)
+nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<nano::block> const & block_a, nano::election_behavior election_behavior_a, erased_callback_t erased_callback_a)
 {
 	debug_assert (block_a);
 	debug_assert (block_a->has_sideband ());
@@ -415,7 +439,7 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 				node.online_reps.observe (rep_a);
 			};
 			result.election = nano::make_shared<nano::election> (node, block_a, nullptr, observe_rep_cb, election_behavior_a);
-			roots.get<tag_root> ().emplace (nano::active_elections::conflict_info{ root, result.election });
+			roots.get<tag_root> ().emplace (entry{ root, result.election, std::move (erased_callback_a) });
 			node.vote_router.connect (hash, result.election);
 
 			// Keep track of election count by election type
@@ -498,6 +522,7 @@ bool nano::active_elections::erase (nano::qualified_root const & root_a)
 	auto root_it (roots.get<tag_root> ().find (root_a));
 	if (root_it != roots.get<tag_root> ().end ())
 	{
+		release_assert (root_it->election->qualified_root == root_a);
 		cleanup_election (lock, root_it->election);
 		return true;
 	}
@@ -514,6 +539,14 @@ std::size_t nano::active_elections::size () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	return roots.size ();
+}
+
+std::size_t nano::active_elections::size (nano::election_behavior behavior) const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	auto count = count_by_behavior[behavior];
+	debug_assert (count >= 0);
+	return static_cast<std::size_t> (count);
 }
 
 bool nano::active_elections::publish (std::shared_ptr<nano::block> const & block_a)
@@ -535,12 +568,13 @@ bool nano::active_elections::publish (std::shared_ptr<nano::block> const & block
 			node.vote_cache_processor.trigger (block_a->hash ());
 
 			node.stats.inc (nano::stat::type::active, nano::stat::detail::election_block_conflict);
+			node.logger.debug (nano::log::type::active_elections, "Block was added to an existing election: {}", block_a->hash ().to_string ());
 		}
 	}
 	return result;
 }
 
-std::size_t nano::active_elections::election_winner_details_size ()
+std::size_t nano::active_elections::election_winner_details_size () const
 {
 	nano::lock_guard<nano::mutex> guard{ election_winner_details_mutex };
 	return election_winner_details.size ();
@@ -548,10 +582,12 @@ std::size_t nano::active_elections::election_winner_details_size ()
 
 void nano::active_elections::clear ()
 {
+	// TODO: Call erased_callback for each election
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		roots.clear ();
 	}
+
 	vacancy_update ();
 }
 
@@ -621,14 +657,12 @@ nano::stat::type nano::to_stat_type (nano::election_state state)
 		case election_state::expired_unconfirmed:
 			return nano::stat::type::active_elections_timeout;
 			break;
+		case election_state::cancelled:
+			return nano::stat::type::active_elections_cancelled;
+			break;
 	}
 	debug_assert (false);
 	return {};
-}
-
-nano::stat::detail nano::to_stat_detail (nano::election_state state)
-{
-	return nano::enum_util::cast<nano::stat::detail> (state);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::election_status_type type)

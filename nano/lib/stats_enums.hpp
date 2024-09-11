@@ -27,6 +27,7 @@ enum class type
 	vote_processor_tier,
 	vote_processor_overfill,
 	election,
+	election_cleanup,
 	election_vote,
 	http_callback,
 	ipc,
@@ -45,6 +46,8 @@ enum class type
 	aggregator,
 	requests,
 	request_aggregator,
+	request_aggregator_vote,
+	request_aggregator_replies,
 	filter,
 	telemetry,
 	vote_generator,
@@ -55,6 +58,13 @@ enum class type
 	blockprocessor_source,
 	blockprocessor_result,
 	blockprocessor_overfill,
+	bootstrap_ascending,
+	bootstrap_ascending_accounts,
+	bootstrap_ascending_verify,
+	bootstrap_ascending_process,
+	bootstrap_ascending_request,
+	bootstrap_ascending_reply,
+	bootstrap_ascending_next,
 	bootstrap_server,
 	bootstrap_server_request,
 	bootstrap_server_overfill,
@@ -66,10 +76,12 @@ enum class type
 	active_elections_confirmed,
 	active_elections_dropped,
 	active_elections_timeout,
+	active_elections_cancelled,
 	active_elections_cemented,
 	backlog,
 	unchecked,
 	election_scheduler,
+	election_bucket,
 	optimistic_scheduler,
 	handshake,
 	rep_crawler,
@@ -83,9 +95,6 @@ enum class type
 	message_processor_type,
 	online_reps,
 
-	bootstrap_ascending,
-	bootstrap_ascending_accounts,
-
 	_last // Must be the last enum
 };
 
@@ -94,6 +103,7 @@ enum class detail
 {
 	_invalid = 0, // Default value, should not be used
 
+	// common
 	all,
 	ok,
 	test,
@@ -123,6 +133,8 @@ enum class detail
 	confirmed,
 	unconfirmed,
 	cemented,
+	cooldown,
+	empty,
 
 	// processing queue
 	queue,
@@ -170,6 +182,7 @@ enum class detail
 
 	// block source
 	live,
+	live_originator,
 	bootstrap,
 	bootstrap_legacy,
 	unchecked,
@@ -331,10 +344,14 @@ enum class detail
 	requests_generated_votes,
 	requests_cannot_vote,
 	requests_unknown,
+	requests_non_final,
+	requests_final,
 
 	// request_aggregator
 	request_hashes,
 	overfill_hashes,
+	normal_vote,
+	final_vote,
 
 	// duplicate
 	duplicate_publish_message,
@@ -381,6 +398,7 @@ enum class detail
 	// active
 	insert,
 	insert_failed,
+	election_cleanup,
 
 	// active_elections
 	started,
@@ -409,6 +427,12 @@ enum class detail
 	track,
 	timeout,
 	nothing_new,
+	account_info_empty,
+	loop_database,
+	loop_dependencies,
+	duplicate_request,
+	invalid_response_type,
+	timestamp_reset,
 
 	// bootstrap ascending accounts
 	prioritize,
@@ -416,20 +440,31 @@ enum class detail
 	block,
 	unblock,
 	unblock_failed,
+	dependency_update,
+	dependency_update_failed,
 
+	next_none,
 	next_priority,
 	next_database,
-	next_none,
+	next_blocking,
+	next_dependency,
 
 	blocking_insert,
 	blocking_erase_overflow,
 	priority_insert,
-	priority_erase_threshold,
-	priority_erase_block,
+	priority_erase_by_threshold,
+	priority_erase_by_blocking,
 	priority_erase_overflow,
 	deprioritize,
 	deprioritize_failed,
+	sync_dependencies,
 
+	request_blocks,
+	request_account_info,
+
+	// active
+	started_hinted,
+	started_optimistic,
 	// rep_crawler
 	channel_dead,
 	query_target_failed,
@@ -456,19 +491,32 @@ enum class detail
 	// confirming_set
 	notify_cemented,
 	notify_already_cemented,
+	notify_intermediate,
 	already_cemented,
+	cementing,
+	cemented_hash,
 
 	// election_state
 	passive,
 	active,
 	expired_confirmed,
 	expired_unconfirmed,
+	cancelled,
 
 	// election_status_type
 	ongoing,
 	active_confirmed_quorum,
 	active_confirmation_height,
 	inactive_confirmation_height,
+
+	// election bucket
+	activate_success,
+	cancel_lowest,
+
+	// query_type
+	blocks_by_hash,
+	blocks_by_account,
+	account_info_by_hash,
 
 	// online_reps
 	trim_trend,
@@ -497,6 +545,7 @@ enum class sample
 
 	active_election_duration,
 	bootstrap_tag_duration,
+	rep_response_time,
 
 	_last // Must be the last enum
 };

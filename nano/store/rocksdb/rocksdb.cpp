@@ -193,10 +193,10 @@ void nano::store::rocksdb::component::open (bool & error_a, std::filesystem::pat
 	}
 	else
 	{
-		s = ::rocksdb::OptimisticTransactionDB::Open (options_a, path_a.string (), column_families, &handles_l, &optimistic_db);
-		if (optimistic_db)
+		s = ::rocksdb::TransactionDB::Open (options_a, ::rocksdb::TransactionDBOptions{}, path_a.string (), column_families, &handles_l, &transaction_db);
+		if (transaction_db)
 		{
-			db.reset (optimistic_db);
+			db.reset (transaction_db);
 		}
 	}
 
@@ -210,10 +210,10 @@ void nano::store::rocksdb::component::open (bool & error_a, std::filesystem::pat
 	error_a |= !s.ok ();
 }
 
-bool nano::store::rocksdb::component::do_upgrades (store::write_transaction const & transaction_a)
+bool nano::store::rocksdb::component::do_upgrades (store::write_transaction & transaction)
 {
 	bool error_l{ false };
-	auto version_l = version.get (transaction_a);
+	auto version_l = version.get (transaction);
 	switch (version_l)
 	{
 		case 1:
@@ -240,13 +240,13 @@ bool nano::store::rocksdb::component::do_upgrades (store::write_transaction cons
 		case 19:
 		case 20:
 		case 21:
-			upgrade_v21_to_v22 (transaction_a);
+			upgrade_v21_to_v22 (transaction);
 			[[fallthrough]];
 		case 22:
-			upgrade_v22_to_v23 (transaction_a);
+			upgrade_v22_to_v23 (transaction);
 			[[fallthrough]];
 		case 23:
-			upgrade_v23_to_v24 (transaction_a);
+			upgrade_v23_to_v24 (transaction);
 			[[fallthrough]];
 		case 24:
 			break;
@@ -258,7 +258,7 @@ bool nano::store::rocksdb::component::do_upgrades (store::write_transaction cons
 	return error_l;
 }
 
-void nano::store::rocksdb::component::upgrade_v21_to_v22 (store::write_transaction const & transaction_a)
+void nano::store::rocksdb::component::upgrade_v21_to_v22 (store::write_transaction & transaction)
 {
 	logger.info (nano::log::type::rocksdb, "Upgrading database from v21 to v22...");
 
@@ -279,64 +279,106 @@ void nano::store::rocksdb::component::upgrade_v21_to_v22 (store::write_transacti
 		logger.debug (nano::log::type::rocksdb, "Finished removing unchecked table");
 	}
 
-	version.put (transaction_a, 22);
+	version.put (transaction, 22);
 
 	logger.info (nano::log::type::rocksdb, "Upgrading database from v21 to v22 completed");
 }
 
 // Fill rep_weights table with all existing representatives and their vote weight
-void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transaction const & transaction_a)
+void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transaction & transaction)
 {
 	logger.info (nano::log::type::rocksdb, "Upgrading database from v22 to v23...");
 
-	if (!column_family_exists ("rep_weights"))
+	if (column_family_exists ("rep_weights"))
+	{
+		logger.info (nano::log::type::rocksdb, "Dropping existing rep_weights table");
+		auto const rep_weights_handle = get_column_family ("rep_weights");
+		db->DropColumnFamily (rep_weights_handle);
+		db->DestroyColumnFamilyHandle (rep_weights_handle);
+		std::erase_if (handles, [rep_weights_handle] (auto & handle) {
+			if (handle.get () == rep_weights_handle)
+			{
+				// The handle resource is deleted by RocksDB.
+				[[maybe_unused]] auto ptr = handle.release ();
+				return true;
+			}
+			return false;
+		});
+		transaction.refresh ();
+	}
+
 	{
 		logger.info (nano::log::type::rocksdb, "Creating table rep_weights");
 		::rocksdb::ColumnFamilyOptions new_cf_options;
 		::rocksdb::ColumnFamilyHandle * new_cf_handle;
 		::rocksdb::Status status = db->CreateColumnFamily (new_cf_options, "rep_weights", &new_cf_handle);
+		release_assert (success (status.code ()));
 		handles.emplace_back (new_cf_handle);
+		transaction.refresh ();
 	}
-	auto i{ make_iterator<nano::account, nano::account_info_v22> (transaction_a, tables::accounts) };
-	auto end{ store::iterator<nano::account, nano::account_info_v22> (nullptr) };
-	uint64_t processed_accounts = 0;
-	for (; i != end; ++i)
-	{
-		if (!i->second.balance.is_zero ())
+
+	release_assert (rep_weight.begin (tx_begin_read ()) == rep_weight.end (), "rep weights table must be empty before upgrading to v23");
+
+	auto iterate_accounts = [this] (auto && func) {
+		auto transaction = tx_begin_read ();
+
+		// Manually create v22 compatible iterator to read accounts
+		auto it = make_iterator<nano::account, nano::account_info_v22> (transaction, tables::accounts);
+		auto const end = store::iterator<nano::account, nano::account_info_v22> (nullptr);
+
+		for (; it != end; ++it)
+		{
+			auto const & account = it->first;
+			auto const & account_info = it->second;
+
+			func (account, account_info);
+		}
+	};
+
+	// TODO: Make this smaller in dev builds
+	const size_t batch_size = 250000;
+
+	size_t processed = 0;
+	iterate_accounts ([this, &transaction, &processed] (nano::account const & account, nano::account_info_v22 const & account_info) {
+		if (!account_info.balance.is_zero ())
 		{
 			nano::uint128_t total{ 0 };
 			nano::store::rocksdb::db_val value;
-			auto status = get (transaction_a, tables::rep_weights, i->second.representative, value);
+			auto status = get (transaction, tables::rep_weights, account_info.representative, value);
 			if (success (status))
 			{
 				total = nano::amount{ value }.number ();
 			}
-			total += i->second.balance.number ();
-			status = put (transaction_a, tables::rep_weights, i->second.representative, nano::amount{ total });
+			total += account_info.balance.number ();
+			status = put (transaction, tables::rep_weights, account_info.representative, nano::amount{ total });
 			release_assert_success (status);
 		}
-		processed_accounts++;
-		if (processed_accounts % 250000 == 0)
+
+		processed++;
+		if (processed % batch_size == 0)
 		{
-			logger.info (nano::log::type::rocksdb, "Processed {} accounts", processed_accounts);
+			logger.info (nano::log::type::rocksdb, "Processed {} accounts", processed);
+			transaction.refresh (); // Refresh to prevent excessive memory usage
 		}
-	}
-	logger.info (nano::log::type::rocksdb, "Processed {} accounts", processed_accounts);
-	version.put (transaction_a, 23);
+	});
+
+	logger.info (nano::log::type::rocksdb, "Done processing {} accounts", processed);
+	version.put (transaction, 23);
+
 	logger.info (nano::log::type::rocksdb, "Upgrading database from v22 to v23 completed");
 }
 
-void nano::store::rocksdb::component::upgrade_v23_to_v24 (store::write_transaction const & transaction_a)
+void nano::store::rocksdb::component::upgrade_v23_to_v24 (store::write_transaction & transaction)
 {
 	logger.info (nano::log::type::rocksdb, "Upgrading database from v23 to v24...");
 
 	if (column_family_exists ("frontiers"))
 	{
-		auto const unchecked_handle = get_column_family ("frontiers");
-		db->DropColumnFamily (unchecked_handle);
-		db->DestroyColumnFamilyHandle (unchecked_handle);
-		std::erase_if (handles, [unchecked_handle] (auto & handle) {
-			if (handle.get () == unchecked_handle)
+		auto const frontiers_handle = get_column_family ("frontiers");
+		db->DropColumnFamily (frontiers_handle);
+		db->DestroyColumnFamilyHandle (frontiers_handle);
+		std::erase_if (handles, [frontiers_handle] (auto & handle) {
+			if (handle.get () == frontiers_handle)
 			{
 				// The handle resource is deleted by RocksDB.
 				[[maybe_unused]] auto ptr = handle.release ();
@@ -347,7 +389,7 @@ void nano::store::rocksdb::component::upgrade_v23_to_v24 (store::write_transacti
 		logger.debug (nano::log::type::rocksdb, "Finished removing frontiers table");
 	}
 
-	version.put (transaction_a, 24);
+	version.put (transaction, 24);
 	logger.info (nano::log::type::rocksdb, "Upgrading database from v23 to v24 completed");
 }
 
@@ -489,15 +531,15 @@ std::vector<rocksdb::ColumnFamilyDescriptor> nano::store::rocksdb::component::cr
 nano::store::write_transaction nano::store::rocksdb::component::tx_begin_write (std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a)
 {
 	std::unique_ptr<nano::store::rocksdb::write_transaction_impl> txn;
-	release_assert (optimistic_db != nullptr);
+	release_assert (db != nullptr);
 	if (tables_requiring_locks_a.empty () && tables_no_locks_a.empty ())
 	{
 		// Use all tables if none are specified
-		txn = std::make_unique<nano::store::rocksdb::write_transaction_impl> (optimistic_db, all_tables (), tables_no_locks_a, write_lock_mutexes);
+		txn = std::make_unique<nano::store::rocksdb::write_transaction_impl> (transaction_db, all_tables (), tables_no_locks_a, write_lock_mutexes);
 	}
 	else
 	{
-		txn = std::make_unique<nano::store::rocksdb::write_transaction_impl> (optimistic_db, tables_requiring_locks_a, tables_no_locks_a, write_lock_mutexes);
+		txn = std::make_unique<nano::store::rocksdb::write_transaction_impl> (transaction_db, tables_requiring_locks_a, tables_no_locks_a, write_lock_mutexes);
 	}
 
 	// Tables must be kept in alphabetical order. These can be used for mutex locking, so order is important to prevent deadlocking

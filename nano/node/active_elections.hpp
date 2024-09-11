@@ -64,6 +64,8 @@ public:
 	std::size_t confirmation_history_size{ 2048 };
 	// Maximum cache size for recently_confirmed
 	std::size_t confirmation_cache{ 65536 };
+	// Maximum size of election winner details set
+	std::size_t max_election_winners{ 1024 * 16 };
 };
 
 /**
@@ -72,12 +74,16 @@ public:
  */
 class active_elections final
 {
+public:
+	using erased_callback_t = std::function<void (std::shared_ptr<nano::election>)>;
+
 private: // Elections
-	class conflict_info final
+	class entry final
 	{
 	public:
 		nano::qualified_root root;
 		std::shared_ptr<nano::election> election;
+		erased_callback_t erased_callback;
 	};
 
 	friend class nano::election;
@@ -90,11 +96,11 @@ private: // Elections
 	class tag_arrival {};
 	class tag_hash {};
 
-	using ordered_roots = boost::multi_index_container<conflict_info,
+	using ordered_roots = boost::multi_index_container<entry,
 	mi::indexed_by<
 		mi::sequenced<mi::tag<tag_sequenced>>,
 		mi::hashed_unique<mi::tag<tag_root>,
-			mi::member<conflict_info, nano::qualified_root, &conflict_info::root>>
+			mi::member<entry, nano::qualified_root, &entry::root>>
 	>>;
 	// clang-format on
 	ordered_roots roots;
@@ -109,7 +115,7 @@ public:
 	/**
 	 * Starts new election with a specified behavior type
 	 */
-	nano::election_insertion_result insert (std::shared_ptr<nano::block> const &, nano::election_behavior = nano::election_behavior::priority);
+	nano::election_insertion_result insert (std::shared_ptr<nano::block> const &, nano::election_behavior = nano::election_behavior::priority, erased_callback_t = nullptr);
 	// Is the root of this block in the roots container
 	bool active (nano::block const &) const;
 	bool active (nano::qualified_root const &) const;
@@ -120,6 +126,7 @@ public:
 	bool erase (nano::qualified_root const &);
 	bool empty () const;
 	std::size_t size () const;
+	std::size_t size (nano::election_behavior) const;
 	bool publish (std::shared_ptr<nano::block> const &);
 
 	/**
@@ -133,7 +140,7 @@ public:
 	int64_t vacancy (nano::election_behavior behavior) const;
 	std::function<void ()> vacancy_update{ [] () {} };
 
-	std::size_t election_winner_details_size ();
+	std::size_t election_winner_details_size () const;
 	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
 	std::shared_ptr<nano::election> remove_election_winner_details (nano::block_hash const &);
 
@@ -165,14 +172,14 @@ public:
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::active) };
 
 private:
-	nano::mutex election_winner_details_mutex{ mutex_identifier (mutexes::election_winner_details) };
+	mutable nano::mutex election_winner_details_mutex{ mutex_identifier (mutexes::election_winner_details) };
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> election_winner_details;
 
 	// Maximum time an election can be kept active if it is extending the container
 	std::chrono::seconds const election_time_to_live;
 
 	/** Keeps track of number of elections by election behavior (normal, hinted, optimistic) */
-	nano::enum_array<nano::election_behavior, int64_t> count_by_behavior;
+	nano::enum_array<nano::election_behavior, int64_t> count_by_behavior{};
 
 	nano::condition_variable condition;
 	bool stopped{ false };

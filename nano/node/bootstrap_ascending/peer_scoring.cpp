@@ -6,9 +6,9 @@
  * peer_scoring
  */
 
-nano::bootstrap_ascending::peer_scoring::peer_scoring (nano::bootstrap_ascending_config & config, nano::network_constants const & network_constants) :
-	network_constants{ network_constants },
-	config{ config }
+nano::bootstrap_ascending::peer_scoring::peer_scoring (bootstrap_ascending_config const & config_a, nano::network_constants const & network_constants_a) :
+	config{ config_a },
+	network_constants{ network_constants_a }
 {
 }
 
@@ -22,7 +22,7 @@ bool nano::bootstrap_ascending::peer_scoring::try_send_message (std::shared_ptr<
 	}
 	else
 	{
-		if (existing->outstanding < config.requests_limit)
+		if (existing->outstanding < config.channel_limit)
 		{
 			[[maybe_unused]] auto success = index.modify (existing, [] (auto & score) {
 				++score.outstanding;

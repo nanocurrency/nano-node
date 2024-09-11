@@ -255,7 +255,7 @@ namespace websocket
 		/** Close the websocket and end the session */
 		void close ();
 
-		/** Read the next message. This implicitely handles incoming websocket pings. */
+		/** Read the next message. This implicitly handles incoming websocket pings. */
 		void read ();
 
 		/** Enqueue \p message_a for writing to the websockets */

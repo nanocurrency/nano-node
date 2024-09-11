@@ -30,6 +30,20 @@ nano::store::write_transaction_impl::write_transaction_impl (nano::id_dispenser:
 }
 
 /*
+ * transaction
+ */
+
+auto nano::store::transaction::epoch () const -> epoch_t
+{
+	return current_epoch;
+}
+
+std::chrono::steady_clock::time_point nano::store::transaction::timestamp () const
+{
+	return start;
+}
+
+/*
  * read_transaction
  */
 
@@ -49,24 +63,26 @@ nano::id_dispenser::id_t nano::store::read_transaction::store_id () const
 	return impl->store_id;
 }
 
-void nano::store::read_transaction::reset () const
+void nano::store::read_transaction::reset ()
 {
+	++current_epoch;
 	impl->reset ();
 }
 
-void nano::store::read_transaction::renew () const
+void nano::store::read_transaction::renew ()
 {
+	++current_epoch;
 	impl->renew ();
 	start = std::chrono::steady_clock::now ();
 }
 
-void nano::store::read_transaction::refresh () const
+void nano::store::read_transaction::refresh ()
 {
 	reset ();
 	renew ();
 }
 
-void nano::store::read_transaction::refresh_if_needed (std::chrono::milliseconds max_age) const
+void nano::store::read_transaction::refresh_if_needed (std::chrono::milliseconds max_age)
 {
 	auto now = std::chrono::steady_clock::now ();
 	if (now - start > max_age)
@@ -102,11 +118,13 @@ nano::id_dispenser::id_t nano::store::write_transaction::store_id () const
 
 void nano::store::write_transaction::commit ()
 {
+	++current_epoch;
 	impl->commit ();
 }
 
 void nano::store::write_transaction::renew ()
 {
+	++current_epoch;
 	impl->renew ();
 	start = std::chrono::steady_clock::now ();
 }

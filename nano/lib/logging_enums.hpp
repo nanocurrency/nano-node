@@ -66,6 +66,7 @@ enum class type
 	opencl_work,
 	upnp,
 	rep_crawler,
+	ledger,
 	lmdb,
 	rocksdb,
 	txn_tracker,
@@ -80,6 +81,8 @@ enum class type
 	peer_history,
 	message_processor,
 	online_reps,
+	local_block_broadcaster,
+	monitor,
 
 	// bootstrap
 	bulk_pull_client,

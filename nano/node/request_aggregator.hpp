@@ -61,7 +61,7 @@ public:
 	std::size_t size () const;
 	bool empty () const;
 
-	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
+	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
 
 private:
 	void run ();

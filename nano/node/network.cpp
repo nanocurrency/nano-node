@@ -1,17 +1,19 @@
-#include "message_processor.hpp"
-
 #include <nano/crypto_lib/random_pool_shuffle.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
+#include <nano/node/message_processor.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/portmapping.hpp>
 #include <nano/node/telemetry.hpp>
 
-#include <boost/format.hpp>
-
 using namespace std::chrono_literals;
+
+// TODO: Return to static const and remove "disable_large_votes" when rolled out
+std::size_t nano::network::confirm_req_hashes_max{ 255 };
+std::size_t nano::network::confirm_ack_hashes_max{ 255 };
 
 /*
  * network
@@ -247,22 +249,22 @@ void nano::network::flood_keepalive_self (float const scale_a)
 	flood_message (message, nano::transport::buffer_drop_policy::limiter, scale_a);
 }
 
-void nano::network::flood_block (std::shared_ptr<nano::block> const & block_a, nano::transport::buffer_drop_policy const drop_policy_a)
+void nano::network::flood_block (std::shared_ptr<nano::block> const & block, nano::transport::buffer_drop_policy const drop_policy)
 {
-	nano::publish message (node.network_params.network, block_a);
-	flood_message (message, drop_policy_a);
+	nano::publish message{ node.network_params.network, block };
+	flood_message (message, drop_policy);
 }
 
-void nano::network::flood_block_initial (std::shared_ptr<nano::block> const & block_a)
+void nano::network::flood_block_initial (std::shared_ptr<nano::block> const & block)
 {
-	nano::publish message (node.network_params.network, block_a);
-	for (auto const & i : node.rep_crawler.principal_representatives ())
+	nano::publish message{ node.network_params.network, block, /* is_originator */ true };
+	for (auto const & rep : node.rep_crawler.principal_representatives ())
 	{
-		i.channel->send (message, nullptr, nano::transport::buffer_drop_policy::no_limiter_drop);
+		rep.channel->send (message, nullptr, nano::transport::buffer_drop_policy::no_limiter_drop);
 	}
-	for (auto & i : list_non_pr (fanout (1.0)))
+	for (auto & peer : list_non_pr (fanout (1.0)))
 	{
-		i->send (message, nullptr, nano::transport::buffer_drop_policy::no_limiter_drop);
+		peer->send (message, nullptr, nano::transport::buffer_drop_policy::no_limiter_drop);
 	}
 }
 

@@ -137,7 +137,7 @@ void nano::bulk_push_server::throttled_receive ()
 	{
 		return;
 	}
-	if (!node->block_processor.half_full ())
+	if (node->block_processor.size (nano::block_source::bootstrap_legacy) < 1024)
 	{
 		receive ();
 	}
