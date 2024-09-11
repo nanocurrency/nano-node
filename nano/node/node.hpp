@@ -80,16 +80,19 @@ public:
 	~node ();
 
 public:
+	void start ();
+	void stop ();
+
+	std::shared_ptr<nano::node> shared ();
+
 	template <typename T>
 	void background (T action_a)
 	{
 		io_ctx.post (action_a);
 	}
+
 	bool copy_with_compaction (std::filesystem::path const &);
 	void keepalive (std::string const &, uint16_t);
-	void start ();
-	void stop ();
-	std::shared_ptr<nano::node> shared ();
 	int store_version ();
 	void process_confirmed (nano::election_status const &, uint64_t = 0);
 	void process_active (std::shared_ptr<nano::block> const &);

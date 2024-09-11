@@ -60,63 +60,6 @@ extern std::size_t nano_bootstrap_weights_beta_size;
  * node
  */
 
-void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
-{
-	auto node_l (shared_from_this ());
-	network.resolver.async_resolve (boost::asio::ip::tcp::resolver::query (address_a, std::to_string (port_a)), [node_l, address_a, port_a] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
-		if (!ec)
-		{
-			for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator{}); i != n; ++i)
-			{
-				auto endpoint (nano::transport::map_endpoint_to_v6 (i->endpoint ()));
-				std::weak_ptr<nano::node> node_w (node_l);
-				auto channel (node_l->network.find_channel (endpoint));
-				if (!channel)
-				{
-					node_l->network.tcp_channels.start_tcp (endpoint);
-				}
-				else
-				{
-					node_l->network.send_keepalive (channel);
-				}
-			}
-		}
-		else
-		{
-			node_l->logger.error (nano::log::type::node, "Error resolving address for keepalive: {}:{} ({})", address_a, port_a, ec.message ());
-		}
-	});
-}
-
-nano::keypair nano::load_or_create_node_id (std::filesystem::path const & application_path)
-{
-	auto node_private_key_path = application_path / "node_id_private.key";
-	std::ifstream ifs (node_private_key_path.c_str ());
-	if (ifs.good ())
-	{
-		nano::default_logger ().info (nano::log::type::init, "Reading node id from: '{}'", node_private_key_path.string ());
-
-		std::string node_private_key;
-		ifs >> node_private_key;
-		release_assert (node_private_key.size () == 64);
-		nano::keypair kp = nano::keypair (node_private_key);
-		return kp;
-	}
-	else
-	{
-		// no node_id found, generate new one
-		nano::default_logger ().info (nano::log::type::init, "Generating a new node id, saving to: '{}'", node_private_key_path.string ());
-
-		nano::keypair kp;
-		std::ofstream ofs (node_private_key_path.c_str (), std::ofstream::out | std::ofstream::trunc);
-		ofs << kp.prv.to_string () << std::endl
-			<< std::flush;
-		ofs.close ();
-		release_assert (!ofs.fail ());
-		return kp;
-	}
-}
-
 nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, uint16_t peering_port_a, std::filesystem::path const & application_path_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
 	node (io_ctx_a, application_path_a, nano::node_config (peering_port_a), work_a, flags_a, seq)
 {
@@ -552,6 +495,34 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 bool nano::node::copy_with_compaction (std::filesystem::path const & destination)
 {
 	return store.copy_db (destination);
+}
+
+void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
+{
+	auto node_l (shared_from_this ());
+	network.resolver.async_resolve (boost::asio::ip::tcp::resolver::query (address_a, std::to_string (port_a)), [node_l, address_a, port_a] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
+		if (!ec)
+		{
+			for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator{}); i != n; ++i)
+			{
+				auto endpoint (nano::transport::map_endpoint_to_v6 (i->endpoint ()));
+				std::weak_ptr<nano::node> node_w (node_l);
+				auto channel (node_l->network.find_channel (endpoint));
+				if (!channel)
+				{
+					node_l->network.tcp_channels.start_tcp (endpoint);
+				}
+				else
+				{
+					node_l->network.send_keepalive (channel);
+				}
+			}
+		}
+		else
+		{
+			node_l->logger.error (nano::log::type::node, "Error resolving address for keepalive: {}:{} ({})", address_a, port_a, ec.message ());
+		}
+	});
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (node & node, std::string const & name)
@@ -1355,4 +1326,33 @@ std::string nano::node::make_logger_identifier (const nano::keypair & node_id)
 {
 	// Node identifier consists of first 10 characters of node id
 	return node_id.pub.to_node_id ().substr (0, 10);
+}
+
+nano::keypair nano::load_or_create_node_id (std::filesystem::path const & application_path)
+{
+	auto node_private_key_path = application_path / "node_id_private.key";
+	std::ifstream ifs (node_private_key_path.c_str ());
+	if (ifs.good ())
+	{
+		nano::default_logger ().info (nano::log::type::init, "Reading node id from: '{}'", node_private_key_path.string ());
+
+		std::string node_private_key;
+		ifs >> node_private_key;
+		release_assert (node_private_key.size () == 64);
+		nano::keypair kp = nano::keypair (node_private_key);
+		return kp;
+	}
+	else
+	{
+		// no node_id found, generate new one
+		nano::default_logger ().info (nano::log::type::init, "Generating a new node id, saving to: '{}'", node_private_key_path.string ());
+
+		nano::keypair kp;
+		std::ofstream ofs (node_private_key_path.c_str (), std::ofstream::out | std::ofstream::trunc);
+		ofs << kp.prv.to_string () << std::endl
+			<< std::flush;
+		ofs.close ();
+		release_assert (!ofs.fail ());
+		return kp;
+	}
 }
