@@ -54,8 +54,6 @@ private:
 	std::size_t smallest_size{ 0 };
 	std::chrono::steady_clock::time_point last_refill;
 
-	mutable nano::mutex mutex;
-
 	static std::size_t constexpr unlimited_rate_sentinel{ static_cast<std::size_t> (1e9) };
 };
 }
@@ -73,5 +71,6 @@ public:
 
 private:
 	nano::rate::token_bucket bucket;
+	mutable nano::mutex mutex;
 };
 }
