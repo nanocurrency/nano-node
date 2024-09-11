@@ -957,7 +957,9 @@ nano::websocket::message nano::websocket::message_builder::new_block_arrived (na
 	auto subtype (nano::state_subtype (block_a.sideband ().details));
 	block_l.put ("subtype", subtype);
 
+	message_l.contents.put ("hash", block_a.hash ().to_string ());
 	message_l.contents.add_child ("message", block_l);
+
 	return message_l;
 }
 

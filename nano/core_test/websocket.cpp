@@ -1079,6 +1079,7 @@ TEST (websocket, new_unconfirmed_block)
 	boost::property_tree::ptree event;
 	boost::property_tree::read_json (stream, event);
 	ASSERT_EQ (event.get<std::string> ("topic"), "new_unconfirmed_block");
+	ASSERT_EQ (event.get<std::string> ("hash"), send1->hash ().to_string ());
 
 	auto message_contents = event.get_child ("message");
 	ASSERT_EQ ("state", message_contents.get<std::string> ("type"));
