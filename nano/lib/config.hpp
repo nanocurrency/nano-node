@@ -41,7 +41,7 @@ consteval bool is_asan_build ()
 #else
 	return false;
 #endif
-// GCC builds
+	// GCC builds
 #elif defined(__SANITIZE_ADDRESS__)
 	return true;
 #else
@@ -57,7 +57,7 @@ consteval bool is_tsan_build ()
 #else
 	return false;
 #endif
-// GCC builds
+	// GCC builds
 #elif defined(__SANITIZE_THREAD__)
 	return true;
 #else
@@ -297,6 +297,11 @@ public:
 		active_network = network_a;
 	}
 
+	static nano::networks get_active_network ()
+	{
+		return active_network;
+	}
+
 	/**
 	 * Optionally called on startup to override the global active network.
 	 * If not called, the compile-time option will be used.
@@ -383,6 +388,9 @@ bool slow_instrumentation ();
 
 /** Set the active network to the dev network */
 void force_nano_dev_network ();
+
+/** Checks that we are running in test mode */
+bool is_dev_run ();
 
 /**
  * Attempt to read a configuration file from specified directory. Returns empty tomlconfig if nothing is found.

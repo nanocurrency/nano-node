@@ -157,6 +157,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::vote_router:
 			thread_role_name_string = "Vote router";
 			break;
+		case nano::thread_role::name::online_reps:
+			thread_role_name_string = "Online reps";
+			break;
 		case nano::thread_role::name::monitor:
 			thread_role_name_string = "Monitor";
 			break;

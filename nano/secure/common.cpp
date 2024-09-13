@@ -153,8 +153,8 @@ nano::node_constants::node_constants (nano::network_constants & network_constant
 	search_pending_interval = network_constants.is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
 	unchecked_cleaning_interval = std::chrono::minutes (30);
 	process_confirmed_interval = network_constants.is_dev_network () ? std::chrono::milliseconds (50) : std::chrono::milliseconds (500);
-	max_weight_samples = (network_constants.is_live_network () || network_constants.is_test_network ()) ? 4032 : 288;
-	weight_period = 5 * 60; // 5 minutes
+	weight_interval = network_constants.is_dev_network () ? std::chrono::seconds (1) : std::chrono::minutes (5);
+	weight_cutoff = (network_constants.is_live_network () || network_constants.is_test_network ()) ? std::chrono::weeks (2) : std::chrono::days (1);
 }
 
 nano::voting_constants::voting_constants (nano::network_constants & network_constants) :

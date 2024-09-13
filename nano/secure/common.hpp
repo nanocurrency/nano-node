@@ -272,9 +272,10 @@ public:
 	std::chrono::minutes unchecked_cleaning_interval;
 	std::chrono::milliseconds process_confirmed_interval;
 
-	/** The maximum amount of samples for a 2 week period on live or 1 day on beta */
-	uint64_t max_weight_samples;
-	uint64_t weight_period;
+	/** Time between collecting online representative samples */
+	std::chrono::seconds weight_interval;
+	/** The maximum time to keep online weight samples: 2 weeks on live or 1 day on beta */
+	std::chrono::seconds weight_cutoff;
 };
 
 /** Voting related constants whose value depends on the active network */

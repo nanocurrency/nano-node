@@ -12,6 +12,7 @@
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_rpc_config.hpp>
+#include <nano/node/online_reps.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
