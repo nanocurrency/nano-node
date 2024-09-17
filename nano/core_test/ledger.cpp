@@ -1017,7 +1017,7 @@ TEST (votes, add_existing)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key1;
 	nano::block_builder builder;
@@ -4266,7 +4266,7 @@ TEST (ledger, unchecked_epoch_invalid)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	auto & node1 (*system.add_node (node_config));
 	nano::keypair destination;
 	nano::block_builder builder;

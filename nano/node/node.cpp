@@ -4,6 +4,8 @@
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/active_elections.hpp>
+#include <nano/node/backlog_population.hpp>
+#include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/confirming_set.hpp>
@@ -55,88 +57,8 @@ extern std::size_t nano_bootstrap_weights_beta_size;
 }
 
 /*
- * configs
- */
-
-nano::backlog_population::config nano::backlog_population_config (const nano::node_config & config)
-{
-	nano::backlog_population::config cfg{};
-	cfg.enabled = config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled;
-	cfg.frequency = config.backlog_scan_frequency;
-	cfg.batch_size = config.backlog_scan_batch_size;
-	return cfg;
-}
-
-nano::outbound_bandwidth_limiter::config nano::outbound_bandwidth_limiter_config (const nano::node_config & config)
-{
-	outbound_bandwidth_limiter::config cfg{};
-	cfg.standard_limit = config.bandwidth_limit;
-	cfg.standard_burst_ratio = config.bandwidth_limit_burst_ratio;
-	cfg.bootstrap_limit = config.bootstrap_bandwidth_limit;
-	cfg.bootstrap_burst_ratio = config.bootstrap_bandwidth_burst_ratio;
-	return cfg;
-}
-
-/*
  * node
  */
-
-void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
-{
-	auto node_l (shared_from_this ());
-	network.resolver.async_resolve (boost::asio::ip::tcp::resolver::query (address_a, std::to_string (port_a)), [node_l, address_a, port_a] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
-		if (!ec)
-		{
-			for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator{}); i != n; ++i)
-			{
-				auto endpoint (nano::transport::map_endpoint_to_v6 (i->endpoint ()));
-				std::weak_ptr<nano::node> node_w (node_l);
-				auto channel (node_l->network.find_channel (endpoint));
-				if (!channel)
-				{
-					node_l->network.tcp_channels.start_tcp (endpoint);
-				}
-				else
-				{
-					node_l->network.send_keepalive (channel);
-				}
-			}
-		}
-		else
-		{
-			node_l->logger.error (nano::log::type::node, "Error resolving address for keepalive: {}:{} ({})", address_a, port_a, ec.message ());
-		}
-	});
-}
-
-nano::keypair nano::load_or_create_node_id (std::filesystem::path const & application_path)
-{
-	auto node_private_key_path = application_path / "node_id_private.key";
-	std::ifstream ifs (node_private_key_path.c_str ());
-	if (ifs.good ())
-	{
-		nano::default_logger ().info (nano::log::type::init, "Reading node id from: '{}'", node_private_key_path.string ());
-
-		std::string node_private_key;
-		ifs >> node_private_key;
-		release_assert (node_private_key.size () == 64);
-		nano::keypair kp = nano::keypair (node_private_key);
-		return kp;
-	}
-	else
-	{
-		// no node_id found, generate new one
-		nano::default_logger ().info (nano::log::type::init, "Generating a new node id, saving to: '{}'", node_private_key_path.string ());
-
-		nano::keypair kp;
-		std::ofstream ofs (node_private_key_path.c_str (), std::ofstream::out | std::ofstream::trunc);
-		ofs << kp.prv.to_string () << std::endl
-			<< std::flush;
-		ofs.close ();
-		release_assert (!ofs.fail ());
-		return kp;
-	}
-}
 
 nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, uint16_t peering_port_a, std::filesystem::path const & application_path_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
 	node (io_ctx_a, application_path_a, nano::node_config (peering_port_a), work_a, flags_a, seq)
@@ -168,14 +90,16 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	wallets_store (*wallets_store_impl),
 	ledger_impl{ std::make_unique<nano::ledger> (store, stats, network_params.ledger, flags_a.generate_cache, config_a.representative_vote_weight_minimum.number ()) },
 	ledger{ *ledger_impl },
-	outbound_limiter{ outbound_bandwidth_limiter_config (config) },
+	outbound_limiter_impl{ std::make_unique<nano::bandwidth_limiter> (config) },
+	outbound_limiter{ *outbound_limiter_impl },
 	message_processor_impl{ std::make_unique<nano::message_processor> (config.message_processor, *this) },
 	message_processor{ *message_processor_impl },
 	// empty `config.peering_port` means the user made no port choice at all;
 	// otherwise, any value is considered, with `0` having the special meaning of 'let the OS pick a port instead'
 	//
 	network (*this, config.peering_port.has_value () ? *config.peering_port : 0),
-	telemetry{ nano::telemetry::config{ config, flags }, *this, network, observers, network_params, stats },
+	telemetry_impl{ std::make_unique<nano::telemetry> (flags, *this, network, observers, network_params, stats) },
+	telemetry{ *telemetry_impl },
 	bootstrap_initiator (*this),
 	bootstrap_server{ config.bootstrap_server, store, ledger, network_params.network, stats },
 	// BEWARE: `bootstrap` takes `network.port` instead of `config.peering_port` because when the user doesn't specify
@@ -218,7 +142,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	aggregator_impl{ std::make_unique<nano::request_aggregator> (config.request_aggregator, *this, stats, generator, final_generator, history, ledger, wallets, vote_router) },
 	aggregator{ *aggregator_impl },
 	wallets (wallets_store.init_error (), *this),
-	backlog{ nano::backlog_population_config (config), scheduler, ledger, stats },
+	backlog_impl{ std::make_unique<nano::backlog_population> (config.backlog_population, scheduler, ledger, stats) },
+	backlog{ *backlog_impl },
 	ascendboot_impl{ std::make_unique<nano::bootstrap_ascending::service> (config, block_processor, ledger, network, stats, logger) },
 	ascendboot{ *ascendboot_impl },
 	websocket{ config.websocket_config, observers, wallets, ledger, io_ctx, logger },
@@ -570,6 +495,34 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 bool nano::node::copy_with_compaction (std::filesystem::path const & destination)
 {
 	return store.copy_db (destination);
+}
+
+void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
+{
+	auto node_l (shared_from_this ());
+	network.resolver.async_resolve (boost::asio::ip::tcp::resolver::query (address_a, std::to_string (port_a)), [node_l, address_a, port_a] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
+		if (!ec)
+		{
+			for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator{}); i != n; ++i)
+			{
+				auto endpoint (nano::transport::map_endpoint_to_v6 (i->endpoint ()));
+				std::weak_ptr<nano::node> node_w (node_l);
+				auto channel (node_l->network.find_channel (endpoint));
+				if (!channel)
+				{
+					node_l->network.tcp_channels.start_tcp (endpoint);
+				}
+				else
+				{
+					node_l->network.send_keepalive (channel);
+				}
+			}
+		}
+		else
+		{
+			node_l->logger.error (nano::log::type::node, "Error resolving address for keepalive: {}:{} ({})", address_a, port_a, ec.message ());
+		}
+	});
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (node & node, std::string const & name)
@@ -1373,4 +1326,33 @@ std::string nano::node::make_logger_identifier (const nano::keypair & node_id)
 {
 	// Node identifier consists of first 10 characters of node id
 	return node_id.pub.to_node_id ().substr (0, 10);
+}
+
+nano::keypair nano::load_or_create_node_id (std::filesystem::path const & application_path)
+{
+	auto node_private_key_path = application_path / "node_id_private.key";
+	std::ifstream ifs (node_private_key_path.c_str ());
+	if (ifs.good ())
+	{
+		nano::default_logger ().info (nano::log::type::init, "Reading node id from: '{}'", node_private_key_path.string ());
+
+		std::string node_private_key;
+		ifs >> node_private_key;
+		release_assert (node_private_key.size () == 64);
+		nano::keypair kp = nano::keypair (node_private_key);
+		return kp;
+	}
+	else
+	{
+		// no node_id found, generate new one
+		nano::default_logger ().info (nano::log::type::init, "Generating a new node id, saving to: '{}'", node_private_key_path.string ());
+
+		nano::keypair kp;
+		std::ofstream ofs (node_private_key_path.c_str (), std::ofstream::out | std::ofstream::trunc);
+		ofs << kp.prv.to_string () << std::endl
+			<< std::flush;
+		ofs.close ();
+		release_assert (!ofs.fail ());
+		return kp;
+	}
 }

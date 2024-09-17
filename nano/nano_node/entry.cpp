@@ -1278,7 +1278,6 @@ int main (int argc, char * const * argv)
 			}
 			else
 			{
-				config2.frontiers_confirmation = daemon_config.node.frontiers_confirmation;
 				config2.active_elections.size = daemon_config.node.active_elections.size;
 			}
 

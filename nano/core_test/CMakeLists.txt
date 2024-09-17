@@ -23,7 +23,6 @@ add_executable(
   enums.cpp
   epochs.cpp
   fair_queue.cpp
-  frontiers_confirmation.cpp
   ipc.cpp
   ledger.cpp
   ledger_confirm.cpp

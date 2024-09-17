@@ -58,7 +58,7 @@ TEST (ledger_confirm, multiple_accounts)
 	nano::test::system system;
 	nano::node_flags node_flags;
 	nano::node_config node_config = system.default_config ();
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	auto node = system.add_node (node_config, node_flags);
 	nano::keypair key1;
 	nano::keypair key2;
@@ -232,7 +232,7 @@ TEST (ledger_confirm, send_receive_between_2_accounts)
 	nano::test::system system;
 	nano::node_flags node_flags;
 	nano::node_config node_config = system.default_config ();
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	auto node = system.add_node (node_config, node_flags);
 	nano::keypair key1;
 	nano::block_hash latest (node->latest (nano::dev::genesis_key.pub));
@@ -361,7 +361,7 @@ TEST (ledger_confirm, send_receive_self)
 	nano::test::system system;
 	nano::node_flags node_flags;
 	nano::node_config node_config = system.default_config ();
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	auto node = system.add_node (node_config, node_flags);
 	nano::block_hash latest (node->latest (nano::dev::genesis_key.pub));
 
@@ -449,7 +449,7 @@ TEST (ledger_confirm, all_block_types)
 	nano::test::system system;
 	nano::node_flags node_flags;
 	nano::node_config node_config = system.default_config ();
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	auto node = system.add_node (node_config, node_flags);
 	nano::block_hash latest (node->latest (nano::dev::genesis_key.pub));
 	nano::keypair key1;

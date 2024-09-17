@@ -32,6 +32,19 @@ namespace transport
 	class channel;
 }
 
+class telemetry_config final
+{
+public:
+	bool enable_ongoing_requests{ false }; // TODO: No longer used, remove
+	bool enable_ongoing_broadcasts{ true };
+
+public:
+	explicit telemetry_config (nano::node_flags const & flags) :
+		enable_ongoing_broadcasts{ !flags.disable_providing_telemetry_metrics }
+	{
+	}
+};
+
 /**
  * This class periodically broadcasts and requests telemetry from peers.
  * Those intervals are configurable via `telemetry_request_interval` & `telemetry_broadcast_interval` network constants
@@ -43,19 +56,7 @@ namespace transport
 class telemetry
 {
 public:
-	struct config
-	{
-		bool enable_ongoing_requests{ false };
-		bool enable_ongoing_broadcasts{ true };
-
-		config (nano::node_config const & config, nano::node_flags const & flags) :
-			enable_ongoing_broadcasts{ !flags.disable_providing_telemetry_metrics }
-		{
-		}
-	};
-
-public:
-	telemetry (config const &, nano::node &, nano::network &, nano::node_observers &, nano::network_params &, nano::stats &);
+	telemetry (nano::node_flags const &, nano::node &, nano::network &, nano::node_observers &, nano::network_params &, nano::stats &);
 	~telemetry ();
 
 	void start ();
@@ -87,13 +88,12 @@ public: // Container info
 	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name);
 
 private: // Dependencies
+	telemetry_config const config;
 	nano::node & node;
 	nano::network & network;
 	nano::node_observers & observers;
 	nano::network_params & network_params;
 	nano::stats & stats;
-
-	const config config_m;
 
 private:
 	struct entry

@@ -4,8 +4,7 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/observer_set.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/node/bandwidth_limiter.hpp>
+#include <nano/lib/rate_limiting.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap_ascending/account_sets.hpp>
 #include <nano/node/bootstrap_ascending/common.hpp>
@@ -181,7 +180,7 @@ namespace bootstrap_ascending
 
 		// Requests for accounts from database have much lower hitrate and could introduce strain on the network
 		// A separate (lower) limiter ensures that we always reserve resources for querying accounts from priority queue
-		nano::bandwidth_limiter database_limiter;
+		nano::rate_limiter database_limiter;
 
 		nano::interval sync_dependencies_interval;
 

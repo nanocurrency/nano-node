@@ -6,8 +6,6 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_pool.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/node/backlog_population.hpp>
-#include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
@@ -22,7 +20,6 @@
 #include <nano/node/process_live_dispatcher.hpp>
 #include <nano/node/rep_tiers.hpp>
 #include <nano/node/repcrawler.hpp>
-#include <nano/node/telemetry.hpp>
 #include <nano/node/transport/tcp_server.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/vote_cache.hpp>
@@ -41,10 +38,13 @@
 namespace nano
 {
 class active_elections;
+class backlog_population;
+class bandwidth_limiter;
 class confirming_set;
 class message_processor;
 class monitor;
 class node;
+class telemetry;
 class vote_processor;
 class vote_cache_processor;
 class vote_router;
@@ -72,10 +72,6 @@ namespace rocksdb
 
 namespace nano
 {
-// Configs
-backlog_population::config backlog_population_config (node_config const &);
-outbound_bandwidth_limiter::config outbound_bandwidth_limiter_config (node_config const &);
-
 class node final : public std::enable_shared_from_this<node>
 {
 public:
@@ -84,16 +80,19 @@ public:
 	~node ();
 
 public:
+	void start ();
+	void stop ();
+
+	std::shared_ptr<nano::node> shared ();
+
 	template <typename T>
 	void background (T action_a)
 	{
 		io_ctx.post (action_a);
 	}
+
 	bool copy_with_compaction (std::filesystem::path const &);
 	void keepalive (std::string const &, uint16_t);
-	void start ();
-	void stop ();
-	std::shared_ptr<nano::node> shared ();
 	int store_version ();
 	void process_confirmed (nano::election_status const &, uint64_t = 0);
 	void process_active (std::shared_ptr<nano::block> const &);
@@ -170,11 +169,13 @@ public:
 	nano::wallets_store & wallets_store;
 	std::unique_ptr<nano::ledger> ledger_impl;
 	nano::ledger & ledger;
-	nano::outbound_bandwidth_limiter outbound_limiter;
+	std::unique_ptr<nano::bandwidth_limiter> outbound_limiter_impl;
+	nano::bandwidth_limiter & outbound_limiter;
 	std::unique_ptr<nano::message_processor> message_processor_impl;
 	nano::message_processor & message_processor;
 	nano::network network;
-	nano::telemetry telemetry;
+	std::unique_ptr<nano::telemetry> telemetry_impl;
+	nano::telemetry & telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;
 	nano::bootstrap_server bootstrap_server;
 	std::unique_ptr<nano::transport::tcp_listener> tcp_listener_impl;
@@ -212,7 +213,8 @@ public:
 	std::unique_ptr<nano::request_aggregator> aggregator_impl;
 	nano::request_aggregator & aggregator;
 	nano::wallets wallets;
-	nano::backlog_population backlog;
+	std::unique_ptr<nano::backlog_population> backlog_impl;
+	nano::backlog_population & backlog;
 	std::unique_ptr<nano::bootstrap_ascending::service> ascendboot_impl;
 	nano::bootstrap_ascending::service & ascendboot;
 	nano::websocket_server websocket;

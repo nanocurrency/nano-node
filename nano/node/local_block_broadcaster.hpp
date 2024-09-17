@@ -3,7 +3,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/processing_queue.hpp>
-#include <nano/node/bandwidth_limiter.hpp>
+#include <nano/lib/rate_limiting.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/secure/common.hpp>
@@ -112,7 +112,7 @@ private:
 
 private:
 	bool enabled{ false };
-	nano::bandwidth_limiter limiter;
+	nano::rate_limiter limiter;
 	nano::interval cleanup_interval;
 
 	std::atomic<bool> stopped{ false };

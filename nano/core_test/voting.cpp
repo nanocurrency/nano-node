@@ -145,7 +145,7 @@ TEST (vote_spacing, prune)
 TEST (vote_spacing, vote_generator)
 {
 	nano::node_config config;
-	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config.backlog_population.enable = false;
 	config.active_elections.hinted_limit_percentage = 0; // Disable election hinting
 	nano::test::system system;
 	nano::node_flags node_flags;
@@ -189,7 +189,7 @@ TEST (vote_spacing, vote_generator)
 TEST (vote_spacing, rapid)
 {
 	nano::node_config config;
-	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config.backlog_population.enable = false;
 	config.active_elections.hinted_limit_percentage = 0; // Disable election hinting
 	nano::test::system system;
 	nano::node_flags node_flags;

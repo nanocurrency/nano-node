@@ -134,7 +134,7 @@ TEST (vote_cache, perf_singlethreaded)
 	nano::test::system system;
 	nano::node_flags flags;
 	nano::node_config config = system.default_config ();
-	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config.backlog_population.enable = false;
 	auto & node = *system.add_node (config, flags);
 
 	const int rep_count = 50;
@@ -193,7 +193,7 @@ TEST (vote_cache, perf_multithreaded)
 	nano::test::system system;
 	nano::node_flags flags;
 	nano::node_config config = system.default_config ();
-	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config.backlog_population.enable = false;
 	auto & node = *system.add_node (config, flags);
 
 	const int thread_count = 12;

@@ -9,6 +9,7 @@
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/manual.hpp>
 #include <nano/node/scheduler/priority.hpp>
+#include <nano/node/telemetry.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/secure/ledger.hpp>
@@ -640,7 +641,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = 100;
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
@@ -724,7 +725,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = 100;
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
@@ -799,7 +800,7 @@ TEST (confirmation_height, long_chains)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	auto node = system.add_node (node_config);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -945,7 +946,7 @@ TEST (confirmation_height, dynamic_algorithm)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	auto node = system.add_node (node_config);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -994,7 +995,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = 100;
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	node_config.active_elections.size = 400000;
 	nano::node_flags node_flags;
 	auto node = system.add_node (node_config);
@@ -1413,7 +1414,7 @@ TEST (telemetry, under_load)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	nano::node_flags node_flags;
 	auto node = system.add_node (node_config, node_flags);
 	node_config.peering_port = system.get_available_port ();
@@ -1774,7 +1775,7 @@ TEST (node, mass_block_new)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.backlog_population.enable = false;
 	auto & node = *system.add_node (node_config);
 	node.network_params.network.aec_loop_interval_ms = 500;
 
@@ -2036,7 +2037,7 @@ TEST (node, wallet_create_block_confirm_conflicts)
 		nano::test::system system;
 		nano::block_builder builder;
 		nano::node_config node_config (system.get_available_port ());
-		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+		node_config.backlog_population.enable = false;
 		auto node = system.add_node (node_config);
 		auto const num_blocks = 10000;
 
@@ -2107,7 +2108,7 @@ TEST (system, block_sequence)
 	config.peering_port = system.get_available_port ();
 	// config.bandwidth_limit = 16 * 1024;
 	config.enable_voting = true;
-	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config.backlog_population.enable = false;
 	nano::node_flags flags;
 	flags.disable_max_peers_per_ip = true;
 	flags.disable_ongoing_bootstrap = true;

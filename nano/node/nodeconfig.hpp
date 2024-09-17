@@ -9,6 +9,7 @@
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/active_elections.hpp>
+#include <nano/node/backlog_population.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
@@ -39,16 +40,6 @@
 namespace nano
 {
 class tomlconfig;
-
-enum class frontiers_confirmation_mode : uint8_t
-{
-	always, // Always confirm frontiers
-	automatic, // Always mode if node contains representative with at least 50% of principal weight, less frequest requests if not
-	disabled, // Do not confirm frontiers
-	invalid
-};
-
-class message_processor_config;
 
 /**
  * Node configuration
@@ -142,11 +133,6 @@ public:
 	uint64_t max_pruning_depth{ 0 };
 	nano::rocksdb_config rocksdb_config;
 	nano::lmdb_config lmdb_config;
-	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
-	/** Number of accounts per second to process when doing backlog population scan */
-	unsigned backlog_scan_batch_size{ 10 * 1000 };
-	/** Number of times per second to run backlog population batches. Number of accounts per single batch is `backlog_scan_batch_size / backlog_scan_frequency` */
-	unsigned backlog_scan_frequency{ 10 };
 	bool enable_upnp{ true };
 	nano::vote_cache_config vote_cache;
 	nano::rep_crawler_config rep_crawler;
@@ -161,10 +147,9 @@ public:
 	nano::local_block_broadcaster_config local_block_broadcaster;
 	nano::confirming_set_config confirming_set;
 	nano::monitor_config monitor;
+	nano::backlog_population_config backlog_population;
 
 public:
-	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
-	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);
 	/** Entry is ignored if it cannot be parsed as a valid address:port */
 	void deserialize_address (std::string const &, std::vector<std::pair<std::string, uint16_t>> &) const;
 

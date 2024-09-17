@@ -178,7 +178,7 @@ TEST (election_scheduler, no_vacancy)
 
 	nano::node_config config = system.default_config ();
 	config.active_elections.size = 1;
-	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config.backlog_population.enable = false;
 	auto & node = *system.add_node (config);
 
 	nano::state_block_builder builder{};

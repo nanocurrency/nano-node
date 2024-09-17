@@ -8,8 +8,8 @@
 #include <nano/store/component.hpp>
 #include <nano/store/confirmation_height.hpp>
 
-nano::backlog_population::backlog_population (const config & config_a, nano::scheduler::component & schedulers, nano::ledger & ledger, nano::stats & stats_a) :
-	config_m{ config_a },
+nano::backlog_population::backlog_population (backlog_population_config const & config_a, nano::scheduler::component & schedulers, nano::ledger & ledger, nano::stats & stats_a) :
+	config{ config_a },
 	schedulers{ schedulers },
 	ledger{ ledger },
 	stats{ stats_a }
@@ -58,7 +58,7 @@ void nano::backlog_population::notify ()
 
 bool nano::backlog_population::predicate () const
 {
-	return triggered || config_m.enabled;
+	return triggered || config.enable;
 }
 
 void nano::backlog_population::run ()
@@ -82,9 +82,9 @@ void nano::backlog_population::run ()
 
 void nano::backlog_population::populate_backlog (nano::unique_lock<nano::mutex> & lock)
 {
-	debug_assert (config_m.frequency > 0);
+	debug_assert (config.frequency > 0);
 
-	const auto chunk_size = config_m.batch_size / config_m.frequency;
+	const auto chunk_size = config.batch_size / config.frequency;
 	auto done = false;
 	nano::account next = 0;
 	uint64_t total = 0;
@@ -121,7 +121,7 @@ void nano::backlog_population::populate_backlog (nano::unique_lock<nano::mutex> 
 		lock.lock ();
 
 		// Give the rest of the node time to progress without holding database lock
-		condition.wait_for (lock, std::chrono::milliseconds{ 1000 / config_m.frequency });
+		condition.wait_for (lock, std::chrono::milliseconds{ 1000 / config.frequency });
 	}
 }
 
@@ -140,4 +140,26 @@ void nano::backlog_population::activate (secure::transaction const & transaction
 		schedulers.optimistic.activate (account, account_info, conf_info);
 		schedulers.priority.activate (transaction, account, account_info, conf_info);
 	}
+}
+
+/*
+ * backlog_population_config
+ */
+
+nano::error nano::backlog_population_config::serialize (nano::tomlconfig & toml) const
+{
+	toml.put ("enable", enable, "Control if ongoing backlog population is enabled. If not, backlog population can still be triggered by RPC \ntype:bool");
+	toml.put ("batch_size", batch_size, "Number of accounts per second to process when doing backlog population scan. Increasing this value will help unconfirmed frontiers get into election prioritization queue faster, however it will also increase resource usage. \ntype:uint");
+	toml.put ("frequency", frequency, "Backlog scan divides the scan into smaller batches, number of which is controlled by this value. Higher frequency helps to utilize resources more uniformly, however it also introduces more overhead. The resulting number of accounts per single batch is `backlog_scan_batch_size / backlog_scan_frequency` \ntype:uint");
+
+	return toml.get_error ();
+}
+
+nano::error nano::backlog_population_config::deserialize (nano::tomlconfig & toml)
+{
+	toml.get ("enable", enable);
+	toml.get ("batch_size", batch_size);
+	toml.get ("frequency", frequency);
+
+	return toml.get_error ();
 }

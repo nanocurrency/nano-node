@@ -2,6 +2,7 @@
 #include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/message_processor.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/telemetry.hpp>
 
 nano::message_processor::message_processor (message_processor_config const & config_a, nano::node & node_a) :
 	config{ config_a },
