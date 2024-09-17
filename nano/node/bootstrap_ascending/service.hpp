@@ -155,7 +155,7 @@ namespace bootstrap_ascending
 
 	private:
 		nano::bootstrap_ascending::account_sets accounts;
-		nano::bootstrap_ascending::buffered_iterator iterator;
+		nano::bootstrap_ascending::database_scan database_scan;
 		nano::bootstrap_ascending::throttle throttle;
 		nano::bootstrap_ascending::peer_scoring scoring;
 

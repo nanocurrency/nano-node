@@ -8,80 +8,27 @@
 #include <nano/store/pending.hpp>
 
 /*
- * database_iterator
+ * database_scan
  */
 
-nano::bootstrap_ascending::database_iterator::database_iterator (nano::ledger & ledger, table_type table_a) :
-	ledger{ ledger },
-	table{ table_a }
+nano::bootstrap_ascending::database_scan::database_scan (nano::ledger & ledger_a) :
+	ledger{ ledger_a },
+	accounts_iterator{ ledger },
+	pending_iterator{ ledger }
 {
 }
 
-nano::account nano::bootstrap_ascending::database_iterator::operator* () const
+nano::account nano::bootstrap_ascending::database_scan::next (std::function<bool (nano::account const &)> const & filter)
 {
-	return current;
-}
-
-void nano::bootstrap_ascending::database_iterator::next (secure::transaction & tx)
-{
-	switch (table)
-	{
-		case table_type::account:
-		{
-			auto item = ledger.store.account.begin (tx, current.number () + 1);
-			if (item != ledger.store.account.end ())
-			{
-				current = item->first;
-			}
-			else
-			{
-				current = { 0 };
-			}
-			break;
-		}
-		case table_type::pending:
-		{
-			auto item = ledger.any.receivable_upper_bound (tx, current);
-			if (item != ledger.any.receivable_end ())
-			{
-				current = item->first.account;
-			}
-			else
-			{
-				current = { 0 };
-			}
-			break;
-		}
-	}
-}
-
-/*
- * buffered_iterator
- */
-
-nano::bootstrap_ascending::buffered_iterator::buffered_iterator (nano::ledger & ledger) :
-	ledger{ ledger },
-	accounts_iterator{ ledger, database_iterator::table_type::account },
-	pending_iterator{ ledger, database_iterator::table_type::pending }
-{
-}
-
-nano::account nano::bootstrap_ascending::buffered_iterator::operator* () const
-{
-	return !buffer.empty () ? buffer.front () : nano::account{ 0 };
-}
-
-nano::account nano::bootstrap_ascending::buffered_iterator::next (std::function<bool (nano::account const &)> const & filter)
-{
-	if (buffer.empty ())
+	if (queue.empty ())
 	{
 		fill ();
 	}
 
-	while (!buffer.empty ())
+	while (!queue.empty ())
 	{
-		auto result = buffer.front ();
-		buffer.pop_front ();
+		auto result = queue.front ();
+		queue.pop_front ();
 
 		if (filter (result))
 		{
@@ -92,37 +39,127 @@ nano::account nano::bootstrap_ascending::buffered_iterator::next (std::function<
 	return { 0 };
 }
 
-bool nano::bootstrap_ascending::buffered_iterator::warmup () const
+void nano::bootstrap_ascending::database_scan::fill ()
 {
-	return warmup_m;
+	auto transaction = ledger.store.tx_begin_read ();
+
+	auto set1 = accounts_iterator.next_batch (transaction, batch_size);
+	auto set2 = pending_iterator.next_batch (transaction, batch_size);
+
+	queue.insert (queue.end (), set1.begin (), set1.end ());
+	queue.insert (queue.end (), set2.begin (), set2.end ());
 }
 
-void nano::bootstrap_ascending::buffered_iterator::fill ()
+bool nano::bootstrap_ascending::database_scan::warmed_up () const
 {
-	debug_assert (buffer.empty ());
+	return accounts_iterator.warmed_up () && pending_iterator.warmed_up ();
+}
 
-	// Fill half from accounts table and half from pending table
-	auto transaction = ledger.tx_begin_read ();
+std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::database_scan::collect_container_info (std::string const & name) const
+{
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "accounts_iterator", accounts_iterator.completed, 0 }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending_iterator", pending_iterator.completed, 0 }));
+	return composite;
+}
 
-	for (int n = 0; n < size / 2; ++n)
+/*
+ * account_database_iterator
+ */
+
+nano::bootstrap_ascending::account_database_iterator::account_database_iterator (nano::ledger & ledger_a) :
+	ledger{ ledger_a }
+{
+}
+
+std::deque<nano::account> nano::bootstrap_ascending::account_database_iterator::next_batch (nano::store::transaction & transaction, size_t batch_size)
+{
+	std::deque<nano::account> result;
+
+	auto it = ledger.store.account.begin (transaction, next);
+	auto const end = ledger.store.account.end ();
+
+	for (size_t count = 0; it != end && count < batch_size; ++it, ++count)
 	{
-		accounts_iterator.next (transaction);
-		if (!(*accounts_iterator).is_zero ())
-		{
-			buffer.push_back (*accounts_iterator);
-		}
+		auto const & account = it->first;
+		result.push_back (account);
+		next = account.number () + 1;
 	}
 
-	for (int n = 0; n < size / 2; ++n)
+	if (it == end)
 	{
-		pending_iterator.next (transaction);
-		if (!(*pending_iterator).is_zero ())
-		{
-			buffer.push_back (*pending_iterator);
-		}
-		else
-		{
-			warmup_m = false;
-		}
+		// Reset for the next ledger iteration
+		next = { 0 };
+		++completed;
 	}
+
+	return result;
+}
+
+bool nano::bootstrap_ascending::account_database_iterator::warmed_up () const
+{
+	return completed > 0;
+}
+
+/*
+ * pending_database_iterator
+ */
+
+nano::bootstrap_ascending::pending_database_iterator::pending_database_iterator (nano::ledger & ledger_a) :
+	ledger{ ledger_a }
+{
+}
+
+std::deque<nano::account> nano::bootstrap_ascending::pending_database_iterator::next_batch (nano::store::transaction & transaction, size_t batch_size)
+{
+	std::deque<nano::account> result;
+
+	auto it = ledger.store.pending.begin (transaction, next);
+	auto const end = ledger.store.pending.end ();
+
+	// TODO: This pending iteration heuristic should be encapsulated in a pending_iterator class and reused across other components
+	auto advance_iterator = [&] () {
+		auto const starting_account = it->first.account;
+
+		// For RocksDB, sequential access is ~10x faster than performing a fresh lookup (tested on my machine)
+		const size_t sequential_attempts = 10;
+
+		// First try advancing sequentially
+		for (size_t count = 0; count < sequential_attempts && it != end; ++count, ++it)
+		{
+			if (it->first.account != starting_account)
+			{
+				break;
+			}
+		}
+
+		// If we didn't advance to the next account, perform a fresh lookup
+		if (it != end && it->first.account != starting_account)
+		{
+			it = ledger.store.pending.begin (transaction, { starting_account.number () + 1, 0 });
+		}
+
+		debug_assert (it == end || it->first.account != starting_account);
+	};
+
+	for (size_t count = 0; it != end && count < batch_size; advance_iterator (), ++count)
+	{
+		auto const & account = it->first.account;
+		result.push_back (account);
+		next = { account.number () + 1, 0 };
+	}
+
+	if (it == end)
+	{
+		// Reset for the next ledger iteration
+		next = { 0, 0 };
+		++completed;
+	}
+
+	return result;
+}
+
+bool nano::bootstrap_ascending::pending_database_iterator::warmed_up () const
+{
+	return completed > 0;
 }

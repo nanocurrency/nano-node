@@ -1,62 +1,61 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/node/fwd.hpp>
+#include <nano/secure/pending_info.hpp>
 
 #include <deque>
 
-namespace nano
-{
-class ledger;
-}
-
-namespace nano::secure
-{
-class transaction;
-}
-
 namespace nano::bootstrap_ascending
 {
-class database_iterator
+struct account_database_iterator
 {
-public:
-	enum class table_type
-	{
-		account,
-		pending
-	};
+	explicit account_database_iterator (nano::ledger &);
 
-	explicit database_iterator (nano::ledger & ledger, table_type);
-	nano::account operator* () const;
-	void next (secure::transaction & tx);
+	std::deque<nano::account> next_batch (nano::store::transaction &, size_t batch_size);
+	bool warmed_up () const;
 
-private:
 	nano::ledger & ledger;
-	nano::account current{ 0 };
-	const table_type table;
+	nano::account next{ 0 };
+	size_t completed{ 0 };
 };
 
-class buffered_iterator
+struct pending_database_iterator
+{
+	explicit pending_database_iterator (nano::ledger &);
+
+	std::deque<nano::account> next_batch (nano::store::transaction &, size_t batch_size);
+	bool warmed_up () const;
+
+	nano::ledger & ledger;
+	nano::pending_key next{ 0, 0 };
+	size_t completed{ 0 };
+};
+
+class database_scan
 {
 public:
-	explicit buffered_iterator (nano::ledger & ledger);
+	explicit database_scan (nano::ledger &);
 
-	nano::account operator* () const;
 	nano::account next (std::function<bool (nano::account const &)> const & filter);
 
 	// Indicates if a full ledger iteration has taken place e.g. warmed up
-	bool warmup () const;
+	bool warmed_up () const;
+
+	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name) const;
+
+private: // Dependencies
+	nano::ledger & ledger;
 
 private:
 	void fill ();
 
 private:
-	nano::ledger & ledger;
-	std::deque<nano::account> buffer;
-	bool warmup_m{ true };
+	account_database_iterator accounts_iterator;
+	pending_database_iterator pending_iterator;
 
-	database_iterator accounts_iterator;
-	database_iterator pending_iterator;
+	std::deque<nano::account> queue;
 
-	static std::size_t constexpr size = 1024;
+	static size_t constexpr batch_size = 128;
 };
-} // nano::bootstrap_ascending
+}

@@ -28,7 +28,7 @@ nano::bootstrap_ascending::service::service (nano::node_config const & node_conf
 	stats{ stat_a },
 	logger{ logger_a },
 	accounts{ config.account_sets, stats },
-	iterator{ ledger },
+	database_scan{ ledger },
 	throttle{ compute_throttle_size () },
 	scoring{ config, node_config_a.network_params.network },
 	database_limiter{ config.database_rate_limit, 1.0 }
@@ -345,7 +345,7 @@ nano::account nano::bootstrap_ascending::service::next_database (bool should_thr
 		return { 0 };
 	}
 
-	auto account = iterator.next ([this] (nano::account const & account) {
+	auto account = database_scan.next ([this] (nano::account const & account) {
 		return count_tags (account, query_source::database) == 0;
 	});
 
@@ -512,7 +512,7 @@ void nano::bootstrap_ascending::service::run_database ()
 	while (!stopped)
 	{
 		// Avoid high churn rate of database requests
-		bool should_throttle = !iterator.warmup () && throttle.throttled ();
+		bool should_throttle = !database_scan.warmed_up () && throttle.throttled ();
 		lock.unlock ();
 		stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::loop_database);
 		run_one_database (should_throttle);
@@ -839,6 +839,7 @@ std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::servi
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "throttle", throttle.size (), 0 }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "throttle_successes", throttle.successes (), 0 }));
 	composite->add_component (accounts.collect_container_info ("accounts"));
+	composite->add_component (database_scan.collect_container_info ("database_scan"));
 	return composite;
 }
 
