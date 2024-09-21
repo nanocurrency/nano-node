@@ -93,6 +93,16 @@ void nano::test::system::stop ()
 	work.stop ();
 }
 
+void nano::test::system::set_initialization_blocks (std::deque<std::shared_ptr<nano::block>> blocks)
+{
+	this->initialization_blocks = std::move (blocks);
+}
+
+void nano::test::system::set_cemented_initialization_blocks (std::deque<std::shared_ptr<nano::block>> blocks)
+{
+	this->initialization_blocks_cemented = std::move (blocks);
+}
+
 nano::node & nano::test::system::node (std::size_t index) const
 {
 	debug_assert (index < nodes.size ());
@@ -108,64 +118,43 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_flags node_
 std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config const & node_config_a, nano::node_flags node_flags_a, nano::transport::transport_type type_a, std::optional<nano::keypair> const & rep)
 {
 	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config_a, work, node_flags_a, node_sequence++));
-	for (auto i : initialization_blocks)
-	{
-		auto result = node->ledger.process (node->ledger.tx_begin_write (), i);
-		debug_assert (result == nano::block_status::progress);
-	}
 	debug_assert (!node->init_error ());
+	setup_node (*node);
 	auto wallet = node->wallets.create (nano::random_wallet_id ());
 	if (rep)
 	{
 		wallet->insert_adhoc (rep->prv);
 	}
 	node->start ();
-	nodes.push_back (node);
+
+	// Check that we don't start more nodes than limit for single IP address
+	debug_assert (nodes.size () < node->config.network.max_peers_per_ip || node->flags.disable_max_peers_per_ip);
 
 	// Connect with other nodes
-	if (nodes.size () > 1)
+	for (auto const & other_node : nodes)
 	{
-		// Check that we don't start more nodes than limit for single IP address
-		debug_assert (nodes.size () - 1 <= node->config.network.max_peers_per_ip || node->flags.disable_max_peers_per_ip);
-
-		auto begin = nodes.end () - 2;
-		for (auto i (begin), j (begin + 1), n (nodes.end ()); j != n; ++i, ++j)
+		if (other_node->stopped)
 		{
-			auto node1 (*i);
-			auto node2 (*j);
-
-			logger.debug (nano::log::type::system, "Connecting nodes: {} and {}", node1->identifier (), node2->identifier ());
-
-			// TCP is the only transport layer available.
-			debug_assert (type_a == nano::transport::transport_type::tcp);
-			node2->network.merge_peer (node1->network.endpoint ());
-
-			auto ec = poll_until_true (5s, [&node1, &node2] () {
-				bool result_1 = node1->network.find_node_id (node2->node_id.pub) != nullptr;
-				bool result_2 = node2->network.find_node_id (node1->node_id.pub) != nullptr;
-				return result_1 && result_2;
-			});
-			debug_assert (!ec);
+			continue;
 		}
 
-		{
-			// Ensure no bootstrap initiators are in progress
-			auto ec = poll_until_true (5s, [this, &begin] () {
-				return std::all_of (begin, nodes.end (), [] (std::shared_ptr<nano::node> const & node_a) { return !node_a->bootstrap_initiator.in_progress (); });
-			});
-			debug_assert (!ec);
-		}
-	}
-	else
-	{
-		auto ec = poll_until_true (5s, [&node] () {
-			return !node->bootstrap_initiator.in_progress ();
+		logger.debug (nano::log::type::system, "Connecting nodes: {} and {}", node->identifier (), other_node->identifier ());
+
+		// TCP is the only transport layer available.
+		debug_assert (type_a == nano::transport::transport_type::tcp);
+		node->network.merge_peer (other_node->network.endpoint ());
+
+		auto ec = poll_until_true (5s, [&] () {
+			bool result_1 = node->network.find_node_id (other_node->node_id.pub) != nullptr;
+			bool result_2 = other_node->network.find_node_id (node->node_id.pub) != nullptr;
+			return result_1 && result_2;
 		});
 		debug_assert (!ec);
 	}
 
 	logger.debug (nano::log::type::system, "Node started: {}", node->get_node_id ().to_node_id ());
 
+	nodes.push_back (node);
 	return node;
 }
 
@@ -174,18 +163,37 @@ std::shared_ptr<nano::node> nano::test::system::make_disconnected_node (std::opt
 {
 	nano::node_config node_config = opt_node_config.has_value () ? *opt_node_config : default_config ();
 	auto node = std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config, work, flags);
-	for (auto i : initialization_blocks)
-	{
-		auto result = node->ledger.process (node->ledger.tx_begin_write (), i);
-		debug_assert (result == nano::block_status::progress);
-	}
 	debug_assert (!node->init_error ());
+	setup_node (*node);
 	node->start ();
-	disconnected_nodes.push_back (node);
 
 	logger.debug (nano::log::type::system, "Node started (disconnected): {}", node->get_node_id ().to_node_id ());
 
+	disconnected_nodes.push_back (node);
 	return node;
+}
+
+void nano::test::system::setup_node (nano::node & node)
+{
+	auto transaction = node.ledger.tx_begin_write ();
+
+	for (auto block : initialization_blocks)
+	{
+		auto result = node.ledger.process (transaction, block);
+		debug_assert (result == nano::block_status::progress);
+	}
+
+	for (auto block : initialization_blocks_cemented)
+	{
+		auto result = node.ledger.process (transaction, block);
+		debug_assert (result == nano::block_status::progress);
+
+		auto cemented = node.ledger.confirm (transaction, block->hash ());
+		debug_assert (std::find_if (cemented.begin (), cemented.end (), [&block] (auto const & cemented_block) {
+			return cemented_block->hash () == block->hash ();
+		})
+		!= cemented.end ());
+	}
 }
 
 void nano::test::system::register_node (std::shared_ptr<nano::node> const & node)

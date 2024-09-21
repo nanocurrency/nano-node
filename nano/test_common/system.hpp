@@ -27,6 +27,9 @@ namespace test
 
 		void stop ();
 
+		void set_initialization_blocks (std::deque<std::shared_ptr<nano::block>> blocks);
+		void set_cemented_initialization_blocks (std::deque<std::shared_ptr<nano::block>> blocks);
+
 		void ledger_initialization_set (std::deque<nano::keypair> const & reps, nano::amount const & reserve = 0);
 		void generate_activity (nano::node &, std::vector<nano::account> &);
 		void generate_mass_activity (uint32_t, nano::node &);
@@ -76,18 +79,22 @@ namespace test
 		 */
 		uint16_t get_available_port ();
 
+	private:
+		void setup_node (nano::node &);
+
 	public:
 		std::shared_ptr<boost::asio::io_context> io_ctx;
 		boost::asio::executor_work_guard<boost::asio::io_context::executor_type> io_guard;
 		std::vector<std::shared_ptr<nano::node>> nodes;
 		std::vector<std::shared_ptr<nano::node>> disconnected_nodes;
-		nano::logger logger{ "tests" };
+		nano::logger logger;
 		nano::stats stats;
 		nano::work_pool work{ nano::dev::network_params.network, std::max (nano::hardware_concurrency (), 1u) };
 		std::chrono::time_point<std::chrono::steady_clock, std::chrono::duration<double>> deadline{ std::chrono::steady_clock::time_point::max () };
 		double deadline_scaling_factor{ 1.0 };
 		unsigned node_sequence{ 0 };
 		std::deque<std::shared_ptr<nano::block>> initialization_blocks;
+		std::deque<std::shared_ptr<nano::block>> initialization_blocks_cemented;
 	};
 
 	std::shared_ptr<nano::state_block> upgrade_epoch (nano::work_pool &, nano::ledger &, nano::epoch);
