@@ -108,30 +108,6 @@ void nano::json_handler::process_request (bool unsafe_a)
 				request.put ("head", request.get<std::string> ("hash"));
 				account_history ();
 			}
-			else if (action == "knano_from_raw" || action == "krai_from_raw")
-			{
-				mnano_from_raw (nano::kxrb_ratio);
-			}
-			else if (action == "knano_to_raw" || action == "krai_to_raw")
-			{
-				mnano_to_raw (nano::kxrb_ratio);
-			}
-			else if (action == "rai_from_raw")
-			{
-				mnano_from_raw (nano::xrb_ratio);
-			}
-			else if (action == "rai_to_raw")
-			{
-				mnano_to_raw (nano::xrb_ratio);
-			}
-			else if (action == "mnano_from_raw" || action == "mrai_from_raw")
-			{
-				mnano_from_raw ();
-			}
-			else if (action == "mnano_to_raw" || action == "mrai_to_raw")
-			{
-				mnano_to_raw ();
-			}
 			else if (action == "nano_to_raw")
 			{
 				nano_to_raw ();
@@ -2896,37 +2872,6 @@ void nano::json_handler::ledger ()
 			}
 		}
 		response_l.add_child ("accounts", accounts);
-	}
-	response_errors ();
-}
-
-void nano::json_handler::mnano_from_raw (nano::uint128_t ratio)
-{
-	auto amount (amount_impl ());
-	response_l.put ("deprecated", "1");
-	if (!ec)
-	{
-		auto result (amount.number () / ratio);
-		response_l.put ("amount", result.convert_to<std::string> ());
-	}
-	response_errors ();
-}
-
-void nano::json_handler::mnano_to_raw (nano::uint128_t ratio)
-{
-	auto amount (amount_impl ());
-	response_l.put ("deprecated", "1");
-	if (!ec)
-	{
-		auto result (amount.number () * ratio);
-		if (result > amount.number ())
-		{
-			response_l.put ("amount", result.convert_to<std::string> ());
-		}
-		else
-		{
-			ec = nano::error_common::invalid_amount_big;
-		}
 	}
 	response_errors ();
 }
