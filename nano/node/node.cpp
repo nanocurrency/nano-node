@@ -1031,22 +1031,6 @@ void nano::node::ongoing_ledger_pruning ()
 	});
 }
 
-int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
-{
-	debug_assert (balance_a >= amount_a * nano::Gxrb_ratio);
-	auto balance_l (balance_a);
-	double result (0.0);
-	for (auto i (0); i < amount_a; ++i)
-	{
-		balance_l -= nano::Gxrb_ratio;
-		auto balance_scaled ((balance_l / nano::nano_ratio).convert_to<double> ());
-		auto units (balance_scaled / 1000.0);
-		auto unit_price (((free_cutoff - units) / free_cutoff) * price_max);
-		result += std::min (std::max (0.0, unit_price), price_max);
-	}
-	return static_cast<int> (result * 100.0);
-}
-
 uint64_t nano::node::default_difficulty (nano::work_version const version_a) const
 {
 	uint64_t result{ std::numeric_limits<uint64_t>::max () };
