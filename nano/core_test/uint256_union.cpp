@@ -143,6 +143,7 @@ TEST (uint128_union, decode_decimal)
 	ASSERT_TRUE (amount.decode_dec ("0.", nano::nano_ratio));
 	ASSERT_FALSE (amount.decode_dec ("9.999999999999999999999999999999", nano::nano_ratio));
 	ASSERT_EQ (nano::uint128_t ("9999999999999999999999999999999"), amount.number ());
+	ASSERT_FALSE (amount.decode_dec ("170141183.460469231731687303715884105727", nano::nano_ratio));
 	ASSERT_EQ (nano::uint128_t ("170141183460469231731687303715884105727"), amount.number ());
 	ASSERT_FALSE (amount.decode_dec ("1230", nano::Knano_ratio));
 	ASSERT_EQ (1230 * nano::Knano_ratio, amount.number ());
