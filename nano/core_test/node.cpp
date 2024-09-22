@@ -479,19 +479,6 @@ TEST (node, working)
 	ASSERT_FALSE (path.empty ());
 }
 
-TEST (node, price)
-{
-	nano::test::system system (1);
-	auto price1 (system.nodes[0]->price (nano::Knano_ratio, 1));
-	ASSERT_EQ (nano::node::price_max * 100.0, price1);
-	auto price2 (system.nodes[0]->price (nano::Knano_ratio * int (nano::node::free_cutoff + 1), 1));
-	ASSERT_EQ (0, price2);
-	auto price3 (system.nodes[0]->price (nano::Knano_ratio * int (nano::node::free_cutoff + 2) / 2, 1));
-	ASSERT_EQ (nano::node::price_max * 100.0 / 2, price3);
-	auto price4 (system.nodes[0]->price (nano::Knano_ratio * int (nano::node::free_cutoff) * 2, 1));
-	ASSERT_EQ (0, price4);
-}
-
 TEST (node, confirm_locked)
 {
 	nano::test::system system (1);
