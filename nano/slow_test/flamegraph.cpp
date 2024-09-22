@@ -25,7 +25,7 @@ std::deque<nano::keypair> rep_set (size_t count)
 TEST (flamegraph, large_direct_processing)
 {
 	auto reps = rep_set (4);
-	auto circulating = 10 * nano::Gxrb_ratio;
+	auto circulating = 10 * nano::Knano_ratio;
 	nano::test::system system;
 	system.ledger_initialization_set (reps, circulating);
 	auto & node = *system.add_node ();
@@ -43,7 +43,7 @@ TEST (flamegraph, large_direct_processing)
 						 .representative (nano::dev::genesis_key.pub)
 						 .previous (previous->hash ())
 						 .link (key.pub)
-						 .balance (previous->balance_field ().value ().number () - nano::xrb_ratio)
+						 .balance (previous->balance_field ().value ().number () - 1000 * nano::raw_ratio)
 						 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 						 .work (*system.work.generate (previous->hash ()))
 						 .build ();
@@ -66,7 +66,7 @@ TEST (flamegraph, large_direct_processing)
 TEST (flamegraph, large_confirmation)
 {
 	auto reps = rep_set (4);
-	auto circulating = 10 * nano::Gxrb_ratio;
+	auto circulating = 10 * nano::Knano_ratio;
 	nano::test::system system;
 	system.ledger_initialization_set (reps, circulating);
 	auto prepare = [&] () {
@@ -83,7 +83,7 @@ TEST (flamegraph, large_confirmation)
 						 .representative (nano::dev::genesis_key.pub)
 						 .previous (previous->hash ())
 						 .link (key.pub)
-						 .balance (previous->balance_field ().value ().number () - nano::xrb_ratio)
+						 .balance (previous->balance_field ().value ().number () - 1000 * nano::raw_ratio)
 						 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 						 .work (*system.work.generate (previous->hash ()))
 						 .build ();
