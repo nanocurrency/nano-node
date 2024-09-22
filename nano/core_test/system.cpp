@@ -168,10 +168,10 @@ TEST (system, rep_initialize_one_reserve)
 {
 	nano::test::system system;
 	nano::keypair key;
-	system.ledger_initialization_set ({ key }, nano::Gxrb_ratio);
+	system.ledger_initialization_set ({ key }, nano::Knano_ratio);
 	auto node = system.add_node ();
-	ASSERT_EQ (nano::dev::constants.genesis_amount - nano::Gxrb_ratio, node->balance (key.pub));
-	ASSERT_EQ (nano::Gxrb_ratio, node->balance (nano::dev::genesis_key.pub));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - nano::Knano_ratio, node->balance (key.pub));
+	ASSERT_EQ (nano::Knano_ratio, node->balance (nano::dev::genesis_key.pub));
 }
 
 TEST (system, rep_initialize_two_reserve)
@@ -179,10 +179,10 @@ TEST (system, rep_initialize_two_reserve)
 	nano::test::system system;
 	nano::keypair key0;
 	nano::keypair key1;
-	system.ledger_initialization_set ({ key0, key1 }, nano::Gxrb_ratio);
+	system.ledger_initialization_set ({ key0, key1 }, nano::Knano_ratio);
 	auto node = system.add_node ();
-	ASSERT_EQ ((nano::dev::constants.genesis_amount - nano::Gxrb_ratio) / 2, node->balance (key0.pub));
-	ASSERT_EQ ((nano::dev::constants.genesis_amount - nano::Gxrb_ratio) / 2, node->balance (key1.pub));
+	ASSERT_EQ ((nano::dev::constants.genesis_amount - nano::Knano_ratio) / 2, node->balance (key0.pub));
+	ASSERT_EQ ((nano::dev::constants.genesis_amount - nano::Knano_ratio) / 2, node->balance (key1.pub));
 }
 
 TEST (system, rep_initialize_many)
@@ -190,13 +190,13 @@ TEST (system, rep_initialize_many)
 	nano::test::system system;
 	nano::keypair key0;
 	nano::keypair key1;
-	system.ledger_initialization_set ({ key0, key1 }, nano::Gxrb_ratio);
+	system.ledger_initialization_set ({ key0, key1 }, nano::Knano_ratio);
 	auto node0 = system.add_node ();
-	ASSERT_EQ ((nano::dev::constants.genesis_amount - nano::Gxrb_ratio) / 2, node0->balance (key0.pub));
-	ASSERT_EQ ((nano::dev::constants.genesis_amount - nano::Gxrb_ratio) / 2, node0->balance (key1.pub));
+	ASSERT_EQ ((nano::dev::constants.genesis_amount - nano::Knano_ratio) / 2, node0->balance (key0.pub));
+	ASSERT_EQ ((nano::dev::constants.genesis_amount - nano::Knano_ratio) / 2, node0->balance (key1.pub));
 	auto node1 = system.add_node ();
-	ASSERT_EQ ((nano::dev::constants.genesis_amount - nano::Gxrb_ratio) / 2, node1->balance (key0.pub));
-	ASSERT_EQ ((nano::dev::constants.genesis_amount - nano::Gxrb_ratio) / 2, node1->balance (key1.pub));
+	ASSERT_EQ ((nano::dev::constants.genesis_amount - nano::Knano_ratio) / 2, node1->balance (key0.pub));
+	ASSERT_EQ ((nano::dev::constants.genesis_amount - nano::Knano_ratio) / 2, node1->balance (key1.pub));
 }
 
 TEST (system, transport_basic)
