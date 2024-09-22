@@ -69,17 +69,17 @@ public:
 	std::vector<std::string> preconfigured_peers;
 	std::vector<nano::account> preconfigured_representatives;
 	unsigned bootstrap_fraction_numerator{ 1 };
-	nano::amount receive_minimum{ nano::xrb_ratio };
-	nano::amount vote_minimum{ nano::Gxrb_ratio };
+	nano::amount receive_minimum{ nano::nano_ratio / 1000 / 1000 }; // 0.000001 nano
+	nano::amount vote_minimum{ nano::nano_ratio * 1000 };
 	nano::amount rep_crawler_weight_minimum{ "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF" };
 	std::chrono::milliseconds vote_generator_delay{ std::chrono::milliseconds (100) };
 	unsigned vote_generator_threshold{ 3 };
-	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
+	nano::amount online_weight_minimum{ 60000 * nano::Knano_ratio }; // 60 million nano
 	/*
 	 * The minimum vote weight that a representative must have for its vote to be counted.
 	 * All representatives above this weight will be kept in memory!
 	 */
-	nano::amount representative_vote_weight_minimum{ 10 * nano::Mxrb_ratio };
+	nano::amount representative_vote_weight_minimum{ 10 * nano::nano_ratio };
 	unsigned password_fanout{ 1024 };
 	unsigned io_threads{ env_io_threads ().value_or (std::max (4u, nano::hardware_concurrency ())) };
 	unsigned network_threads{ std::max (4u, nano::hardware_concurrency ()) };

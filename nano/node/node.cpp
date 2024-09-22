@@ -389,7 +389,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 				{
 					logger.info (nano::log::type::node, "Using bootstrap rep weight: {} -> {}",
 					rep.first.to_account (),
-					nano::uint128_union (rep.second).format_balance (Mxrb_ratio, 0, true));
+					nano::uint128_union (rep.second).format_balance (nano_ratio, 0, true));
 				}
 
 				logger.info (nano::log::type::node, "******************************************** ================= ********************************************");
@@ -1039,7 +1039,7 @@ int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
 	for (auto i (0); i < amount_a; ++i)
 	{
 		balance_l -= nano::Gxrb_ratio;
-		auto balance_scaled ((balance_l / nano::Mxrb_ratio).convert_to<double> ());
+		auto balance_scaled ((balance_l / nano::nano_ratio).convert_to<double> ());
 		auto units (balance_scaled / 1000.0);
 		auto unit_price (((free_cutoff - units) / free_cutoff) * price_max);
 		result += std::min (std::max (0.0, unit_price), price_max);

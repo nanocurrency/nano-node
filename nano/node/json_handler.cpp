@@ -2936,7 +2936,7 @@ void nano::json_handler::nano_to_raw ()
 	auto amount (amount_impl ());
 	if (!ec)
 	{
-		auto result (amount.number () * nano::Mxrb_ratio);
+		auto result (amount.number () * nano::nano_ratio);
 		if (result > amount.number ())
 		{
 			response_l.put ("amount", result.convert_to<std::string> ());
@@ -2954,7 +2954,7 @@ void nano::json_handler::raw_to_nano ()
 	auto amount (amount_impl ());
 	if (!ec)
 	{
-		auto result (amount.number () / nano::Mxrb_ratio);
+		auto result (amount.number () / nano::nano_ratio);
 		response_l.put ("amount", result.convert_to<std::string> ());
 	}
 	response_errors ();
