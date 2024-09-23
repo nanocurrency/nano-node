@@ -11,24 +11,41 @@ nano::network_filter::network_filter (size_t size_a) :
 	nano::random_pool::generate_block (key, key.size ());
 }
 
-bool nano::network_filter::apply (uint8_t const * bytes_a, size_t count_a, nano::uint128_t * digest_a)
+bool nano::network_filter::apply (uint8_t const * bytes_a, size_t count_a, nano::uint128_t * digest_out)
 {
 	// Get hash before locking
-	auto digest (hash (bytes_a, count_a));
+	auto digest = hash (bytes_a, count_a);
+	if (digest_out)
+	{
+		*digest_out = digest;
+	}
+	return apply (digest);
+}
 
+bool nano::network_filter::apply (digest_t const & digest)
+{
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto & element (get_element (digest));
-	bool existed (element == digest);
+
+	auto & element = get_element (digest);
+	bool existed = (element == digest);
 	if (!existed)
 	{
 		// Replace likely old element with a new one
 		element = digest;
 	}
-	if (digest_a)
-	{
-		*digest_a = digest;
-	}
 	return existed;
+}
+
+bool nano::network_filter::check (uint8_t const * bytes, size_t count) const
+{
+	return check (hash (bytes, count));
+}
+
+bool nano::network_filter::check (digest_t const & digest) const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	auto & element = get_element (digest);
+	return element == digest;
 }
 
 void nano::network_filter::clear (nano::uint128_t const & digest_a)
@@ -83,6 +100,14 @@ nano::uint128_t nano::network_filter::hash (OBJECT const & object_a) const
 }
 
 nano::uint128_t & nano::network_filter::get_element (nano::uint128_t const & hash_a)
+{
+	debug_assert (!mutex.try_lock ());
+	debug_assert (items.size () > 0);
+	size_t index (hash_a % items.size ());
+	return items[index];
+}
+
+nano::uint128_t const & nano::network_filter::get_element (nano::uint128_t const & hash_a) const
 {
 	debug_assert (!mutex.try_lock ());
 	debug_assert (items.size () > 0);

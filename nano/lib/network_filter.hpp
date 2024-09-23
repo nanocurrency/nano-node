@@ -28,31 +28,38 @@ public:
 	 * @warning will read out of bounds if [ \p bytes_a, \p bytes_a + \p count_a ] is not a valid range
 	 * @return a boolean representing the previous existence of the hash in the filter.
 	 **/
-	bool apply (uint8_t const * bytes_a, size_t count_a, nano::uint128_t * digest_a = nullptr);
+	bool apply (uint8_t const * bytes, size_t count, digest_t * digest_out = nullptr);
+	bool apply (digest_t const & digest);
+
+	/**
+	 * Checks if the digest is in the filter.
+	 * @return a boolean representing the existence of the hash in the filter.
+	 */
+	bool check (uint8_t const * bytes, size_t count) const;
+	bool check (digest_t const & digest) const;
 
 	/**
 	 * Sets the corresponding element in the filter to zero, if it matches \p digest_a exactly.
 	 **/
-	void clear (nano::uint128_t const & digest_a);
+	void clear (digest_t const & digest);
 
 	/**
 	 * Clear many digests from the filter
 	 **/
-	void clear (std::vector<nano::uint128_t> const &);
+	void clear (std::vector<digest_t> const &);
 
 	/**
 	 * Reads \p count_a bytes starting from \p bytes_a and digests the contents.
 	 * Then, sets the corresponding element in the filter to zero, if it matches the digest exactly.
 	 * @warning will read out of bounds if [ \p bytes_a, \p bytes_a + \p count_a ] is not a valid range
 	 **/
-	void clear (uint8_t const * bytes_a, size_t count_a);
+	void clear (uint8_t const * bytes, size_t count);
 
 	/**
 	 * Serializes \p object_a and clears the resulting siphash digest from the filter.
-	 * @return a boolean representing the previous existence of the hash in the filter.
 	 **/
 	template <typename OBJECT>
-	void clear (OBJECT const & object_a);
+	void clear (OBJECT const & object);
 
 	/** Sets every element of the filter to zero, keeping its size and capacity. */
 	void clear ();
@@ -61,7 +68,7 @@ public:
 	 * Serializes \p object_a and returns the resulting siphash digest
 	 */
 	template <typename OBJECT>
-	nano::uint128_t hash (OBJECT const & object_a) const;
+	nano::uint128_t hash (OBJECT const & object) const;
 
 private:
 	using siphash_t = CryptoPP::SipHash<2, 4, true>;
@@ -71,16 +78,19 @@ private:
 	 * @note must have a lock on mutex
 	 * @return a reference to the element with key \p hash_a
 	 **/
-	nano::uint128_t & get_element (nano::uint128_t const & hash_a);
+	nano::uint128_t & get_element (digest_t const & hash);
+	nano::uint128_t const & get_element (digest_t const & hash) const;
 
 	/**
 	 * Hashes \p count_a bytes starting from \p bytes_a .
 	 * @return the siphash digest of the contents in \p bytes_a .
 	 **/
-	nano::uint128_t hash (uint8_t const * bytes_a, size_t count_a) const;
+	nano::uint128_t hash (uint8_t const * bytes, size_t count) const;
 
-	std::vector<nano::uint128_t> items;
+private:
+	std::vector<digest_t> items;
 	CryptoPP::SecByteBlock key{ siphash_t::KEYLENGTH };
-	nano::mutex mutex{ mutex_identifier (mutexes::network_filter) };
+
+	mutable nano::mutex mutex{ mutex_identifier (mutexes::network_filter) };
 };
 }

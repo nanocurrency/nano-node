@@ -7,6 +7,18 @@
 
 #include <gtest/gtest.h>
 
+TEST (network_filter, apply)
+{
+	nano::network_filter filter (4);
+	ASSERT_FALSE (filter.check (34));
+	ASSERT_FALSE (filter.apply (34));
+	ASSERT_TRUE (filter.check (34));
+	ASSERT_TRUE (filter.apply (34));
+	filter.clear (nano::network_filter::digest_t{ 34 });
+	ASSERT_FALSE (filter.check (34));
+	ASSERT_FALSE (filter.apply (34));
+}
+
 TEST (network_filter, unit)
 {
 	nano::network_filter filter (1);
@@ -92,6 +104,7 @@ TEST (network_filter, many)
 		// Now filter the rest of the stream
 		// All blocks should pass through
 		ASSERT_FALSE (filter.apply (bytes->data (), block->size));
+		ASSERT_TRUE (filter.check (bytes->data (), block->size));
 		ASSERT_FALSE (error);
 
 		// Make sure the stream was rewinded correctly
