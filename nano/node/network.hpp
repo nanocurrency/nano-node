@@ -77,6 +77,8 @@ public:
 	size_t max_peers_per_ip{ 4 };
 	/** Maximum number of peers per subnetwork */
 	size_t max_peers_per_subnetwork{ 16 };
+
+	size_t duplicate_filter_size{ 256 * 1024 };
 };
 
 class network final
