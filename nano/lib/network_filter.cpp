@@ -1,9 +1,9 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/locks.hpp>
+#include <nano/lib/network_filter.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/network_filter.hpp>
 
 nano::network_filter::network_filter (size_t size_a) :
 	items (size_a, nano::uint128_t{ 0 })

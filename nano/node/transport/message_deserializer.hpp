@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/network_filter.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/messages.hpp>
 
@@ -43,7 +44,8 @@ namespace transport
 		parse_status status;
 
 		using read_query = std::function<void (std::shared_ptr<std::vector<uint8_t>> const &, size_t, std::function<void (boost::system::error_code const &, std::size_t)>)>;
-		message_deserializer (network_constants const &, network_filter &, block_uniquer &, vote_uniquer &, read_query read_op);
+
+		message_deserializer (nano::network_constants const &, nano::network_filter &, nano::block_uniquer &, nano::vote_uniquer &, read_query read_op);
 
 		/*
 		 * Asynchronously read next message from the channel_read_fn.

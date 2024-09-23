@@ -1,8 +1,8 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/network_filter.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/node/common.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/network_filter.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
