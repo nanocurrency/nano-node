@@ -17,6 +17,9 @@ namespace nano
 class network_filter final
 {
 public:
+	using digest_t = nano::uint128_t;
+
+public:
 	network_filter () = delete;
 	network_filter (size_t size_a);
 	/**

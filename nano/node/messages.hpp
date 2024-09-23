@@ -7,6 +7,7 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/memory.hpp>
+#include <nano/lib/network_filter.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/object_stream.hpp>
 #include <nano/lib/stats_enums.hpp>
@@ -188,7 +189,7 @@ public: // Logging
 class publish final : public message
 {
 public:
-	publish (bool &, nano::stream &, nano::message_header const &, nano::uint128_t const & digest = 0, nano::block_uniquer * = nullptr);
+	publish (bool &, nano::stream &, nano::message_header const &, nano::network_filter::digest_t const & digest = 0, nano::block_uniquer * = nullptr);
 	publish (nano::network_constants const & constants, std::shared_ptr<nano::block> const &, bool is_originator = false);
 
 	void serialize (nano::stream &) const override;
@@ -203,7 +204,7 @@ public: // Payload
 	std::shared_ptr<nano::block> block;
 
 	// Messages deserialized from network should have their digest set
-	nano::uint128_t digest{ 0 };
+	nano::network_filter::digest_t digest;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
