@@ -188,7 +188,7 @@ public: // Logging
 class publish final : public message
 {
 public:
-	publish (bool &, nano::stream &, nano::message_header const &, nano::uint128_t const & = 0, nano::block_uniquer * = nullptr);
+	publish (bool &, nano::stream &, nano::message_header const &, nano::uint128_t const & digest = 0, nano::block_uniquer * = nullptr);
 	publish (nano::network_constants const & constants, std::shared_ptr<nano::block> const &, bool is_originator = false);
 
 	void serialize (nano::stream &) const override;
@@ -201,6 +201,8 @@ public:
 
 public: // Payload
 	std::shared_ptr<nano::block> block;
+
+	// Messages deserialized from network should have their digest set
 	nano::uint128_t digest{ 0 };
 
 public: // Logging
