@@ -700,9 +700,10 @@ TEST (network, duplicate_detection)
 	// Publish duplicate detection through TCP
 	auto tcp_channel = node0.network.tcp_channels.find_node_id (node1.get_node_id ());
 	ASSERT_NE (nullptr, tcp_channel);
+
 	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message));
 	tcp_channel->send (publish);
-	ASSERT_TIMELY_EQ (2s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message), 0);
+	ASSERT_ALWAYS_EQ (100ms, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message), 0);
 	tcp_channel->send (publish);
 	ASSERT_TIMELY_EQ (2s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message), 1);
 }
@@ -736,6 +737,44 @@ TEST (network, duplicate_revert_publish)
 	publish.digest = digest;
 	node.network.inbound (publish, channel);
 	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
+}
+
+TEST (network, duplicate_vote_detection)
+{
+	nano::test::system system;
+	nano::node_flags node_flags;
+	auto & node0 = *system.add_node (node_flags);
+	auto & node1 = *system.add_node (node_flags);
+
+	auto vote = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () });
+	nano::confirm_ack message{ nano::dev::network_params.network, vote };
+
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message));
+
+	// Publish duplicate detection through TCP
+	auto tcp_channel = node0.network.tcp_channels.find_node_id (node1.get_node_id ());
+	ASSERT_NE (nullptr, tcp_channel);
+
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message));
+	tcp_channel->send (message);
+	ASSERT_ALWAYS_EQ (100ms, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message), 0);
+	tcp_channel->send (message);
+	ASSERT_TIMELY_EQ (2s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message), 1);
+}
+
+// Ensures that the filter doesn't filter out votes that could not be queued for processing
+TEST (network, duplicate_revert_vote)
+{
+	nano::test::system system;
+	nano::node_config node_config = system.default_config ();
+	node_config.vote_processor.max_non_pr_queue = 0;
+	auto & node0 = *system.add_node (node_config);
+	auto & node1 = *system.add_node (node_config);
+
+	auto vote = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () });
+	nano::confirm_ack message{ nano::dev::network_params.network, vote };
+
+
 }
 
 // The test must be completed in less than 1 second

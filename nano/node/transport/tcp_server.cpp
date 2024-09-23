@@ -119,16 +119,26 @@ void nano::transport::tcp_server::received_message (std::unique_ptr<nano::messag
 
 		node->stats.inc (nano::stat::type::error, to_stat_detail (message_deserializer->status));
 
-		// Avoid too much noise about `duplicate_publish_message` errors
-		if (message_deserializer->status == transport::parse_status::duplicate_publish_message)
+		switch (message_deserializer->status)
 		{
-			node->stats.inc (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message);
-		}
-		else
-		{
-			node->logger.debug (nano::log::type::tcp_server, "Error deserializing message: {} ({})",
-			to_string (message_deserializer->status),
-			fmt::streamed (remote_endpoint));
+			// Avoid too much noise about `duplicate_publish_message` errors
+			case nano::transport::parse_status::duplicate_publish_message:
+			{
+				node->stats.inc (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message);
+			}
+			break;
+			case nano::transport::parse_status::duplicate_confirm_ack_message:
+			{
+				node->stats.inc (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message);
+			}
+			break;
+			default:
+			{
+				node->logger.debug (nano::log::type::tcp_server, "Error deserializing message: {} ({})",
+				to_string (message_deserializer->status),
+				fmt::streamed (remote_endpoint));
+			}
+			break;
 		}
 	}
 
