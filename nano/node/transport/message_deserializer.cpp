@@ -2,11 +2,11 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/message_deserializer.hpp>
 
-nano::transport::message_deserializer::message_deserializer (nano::network_constants const & network_constants_a, nano::network_filter & publish_filter_a, nano::block_uniquer & block_uniquer_a, nano::vote_uniquer & vote_uniquer_a,
+nano::transport::message_deserializer::message_deserializer (nano::network_constants const & network_constants_a, nano::network_filter & network_filter_a, nano::block_uniquer & block_uniquer_a, nano::vote_uniquer & vote_uniquer_a,
 read_query read_op) :
 	read_buffer{ std::make_shared<std::vector<uint8_t>> () },
 	network_constants_m{ network_constants_a },
-	publish_filter_m{ publish_filter_a },
+	network_filter_m{ network_filter_a },
 	block_uniquer_m{ block_uniquer_a },
 	vote_uniquer_m{ vote_uniquer_a },
 	read_op{ std::move (read_op) }
@@ -128,9 +128,9 @@ std::unique_ptr<nano::message> nano::transport::message_deserializer::deserializ
 		}
 		case nano::message_type::publish:
 		{
-			// Early filtering to not waste time deserializing duplicate blocks
+			// Early filtering to not waste time deserializing duplicates
 			nano::uint128_t digest;
-			if (!publish_filter_m.apply (read_buffer->data (), payload_size, &digest))
+			if (!network_filter_m.apply (read_buffer->data (), payload_size, &digest))
 			{
 				return deserialize_publish (stream, header, digest);
 			}
@@ -146,7 +146,17 @@ std::unique_ptr<nano::message> nano::transport::message_deserializer::deserializ
 		}
 		case nano::message_type::confirm_ack:
 		{
-			return deserialize_confirm_ack (stream, header);
+			// Early filtering to not waste time deserializing duplicates
+			nano::uint128_t digest;
+			if (!network_filter_m.apply (read_buffer->data (), payload_size, &digest))
+			{
+				return deserialize_confirm_ack (stream, header, digest);
+			}
+			else
+			{
+				status = parse_status::duplicate_confirm_ack_message;
+			}
+			break;
 		}
 		case nano::message_type::node_id_handshake:
 		{
@@ -208,7 +218,7 @@ std::unique_ptr<nano::keepalive> nano::transport::message_deserializer::deserial
 	return {};
 }
 
-std::unique_ptr<nano::publish> nano::transport::message_deserializer::deserialize_publish (nano::stream & stream, nano::message_header const & header, nano::uint128_t const & digest_a)
+std::unique_ptr<nano::publish> nano::transport::message_deserializer::deserialize_publish (nano::stream & stream, nano::message_header const & header, nano::network_filter::digest_t const & digest_a)
 {
 	auto error = false;
 	auto incoming = std::make_unique<nano::publish> (error, stream, header, digest_a, &block_uniquer_m);
@@ -246,10 +256,10 @@ std::unique_ptr<nano::confirm_req> nano::transport::message_deserializer::deseri
 	return {};
 }
 
-std::unique_ptr<nano::confirm_ack> nano::transport::message_deserializer::deserialize_confirm_ack (nano::stream & stream, nano::message_header const & header)
+std::unique_ptr<nano::confirm_ack> nano::transport::message_deserializer::deserialize_confirm_ack (nano::stream & stream, nano::message_header const & header, nano::network_filter::digest_t const & digest_a)
 {
 	auto error = false;
-	auto incoming = std::make_unique<nano::confirm_ack> (error, stream, header, &vote_uniquer_m);
+	auto incoming = std::make_unique<nano::confirm_ack> (error, stream, header, digest_a, &vote_uniquer_m);
 	if (!error && nano::at_end (stream))
 	{
 		return incoming;

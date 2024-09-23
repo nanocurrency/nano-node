@@ -33,6 +33,7 @@ namespace transport
 		invalid_network,
 		outdated_version,
 		duplicate_publish_message,
+		duplicate_confirm_ack_message,
 		message_size_too_big,
 	};
 
@@ -41,7 +42,7 @@ namespace transport
 	public:
 		using callback_type = std::function<void (boost::system::error_code, std::unique_ptr<nano::message>)>;
 
-		parse_status status;
+		parse_status status{ parse_status::none };
 
 		using read_query = std::function<void (std::shared_ptr<std::vector<uint8_t>> const &, size_t, std::function<void (boost::system::error_code const &, std::size_t)>)>;
 
@@ -66,9 +67,9 @@ namespace transport
 		 */
 		std::unique_ptr<nano::message> deserialize (nano::message_header header, std::size_t payload_size);
 		std::unique_ptr<nano::keepalive> deserialize_keepalive (nano::stream &, nano::message_header const &);
-		std::unique_ptr<nano::publish> deserialize_publish (nano::stream &, nano::message_header const &, nano::uint128_t const & = 0);
+		std::unique_ptr<nano::publish> deserialize_publish (nano::stream &, nano::message_header const &, nano::network_filter::digest_t const & digest);
 		std::unique_ptr<nano::confirm_req> deserialize_confirm_req (nano::stream &, nano::message_header const &);
-		std::unique_ptr<nano::confirm_ack> deserialize_confirm_ack (nano::stream &, nano::message_header const &);
+		std::unique_ptr<nano::confirm_ack> deserialize_confirm_ack (nano::stream &, nano::message_header const &, nano::network_filter::digest_t const & digest);
 		std::unique_ptr<nano::node_id_handshake> deserialize_node_id_handshake (nano::stream &, nano::message_header const &);
 		std::unique_ptr<nano::telemetry_req> deserialize_telemetry_req (nano::stream &, nano::message_header const &);
 		std::unique_ptr<nano::telemetry_ack> deserialize_telemetry_ack (nano::stream &, nano::message_header const &);
@@ -79,6 +80,7 @@ namespace transport
 		std::unique_ptr<nano::asc_pull_req> deserialize_asc_pull_req (nano::stream &, nano::message_header const &);
 		std::unique_ptr<nano::asc_pull_ack> deserialize_asc_pull_ack (nano::stream &, nano::message_header const &);
 
+	private:
 		std::shared_ptr<std::vector<uint8_t>> read_buffer;
 
 	private: // Constants
@@ -87,7 +89,7 @@ namespace transport
 
 	private: // Dependencies
 		nano::network_constants const & network_constants_m;
-		nano::network_filter & publish_filter_m;
+		nano::network_filter & network_filter_m;
 		nano::block_uniquer & block_uniquer_m;
 		nano::vote_uniquer & vote_uniquer_m;
 		read_query read_op;
