@@ -18,9 +18,16 @@ class network_filter final
 {
 public:
 	using digest_t = nano::uint128_t;
+	using epoch_t = uint64_t;
 
 public:
-	explicit network_filter (size_t size);
+	explicit network_filter (size_t size, epoch_t age_cutoff = 0);
+
+	/**
+	 * Updates the filter to the next epoch.
+	 * Should be called periodically to time out old entries.
+	 */
+	void update (epoch_t epoch_inc = 1);
 
 	/**
 	 * Reads \p count_a bytes starting from \p bytes_a and inserts the siphash digest in the filter.
@@ -68,29 +75,40 @@ public:
 	 * Serializes \p object_a and returns the resulting siphash digest
 	 */
 	template <typename OBJECT>
-	nano::uint128_t hash (OBJECT const & object) const;
+	digest_t hash (OBJECT const & object) const;
+
+	/**
+	 * Hashes \p count_a bytes starting from \p bytes_a .
+	 * @return the siphash digest of the contents in \p bytes_a .
+	 **/
+	digest_t hash (uint8_t const * bytes, size_t count) const;
 
 private:
+	epoch_t const age_cutoff;
+	epoch_t current_epoch{ 0 };
+
 	using siphash_t = CryptoPP::SipHash<2, 4, true>;
+	CryptoPP::SecByteBlock key{ siphash_t::KEYLENGTH };
+
+	mutable nano::mutex mutex{ mutex_identifier (mutexes::network_filter) };
+
+private:
+	struct entry
+	{
+		digest_t digest;
+		epoch_t epoch;
+	};
+
+	std::vector<entry> items;
 
 	/**
 	 * Get element from digest.
 	 * @note must have a lock on mutex
 	 * @return a reference to the element with key \p hash_a
 	 **/
-	nano::uint128_t & get_element (digest_t const & hash);
-	nano::uint128_t const & get_element (digest_t const & hash) const;
+	entry & get_element (digest_t const & hash);
+	entry const & get_element (digest_t const & hash) const;
 
-	/**
-	 * Hashes \p count_a bytes starting from \p bytes_a .
-	 * @return the siphash digest of the contents in \p bytes_a .
-	 **/
-	nano::uint128_t hash (uint8_t const * bytes, size_t count) const;
-
-private:
-	std::vector<digest_t> items;
-	CryptoPP::SecByteBlock key{ siphash_t::KEYLENGTH };
-
-	mutable nano::mutex mutex{ mutex_identifier (mutexes::network_filter) };
+	bool compare (entry const & existing, digest_t const & digest) const;
 };
 }

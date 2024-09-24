@@ -140,3 +140,27 @@ TEST (network_filter, optional_digest)
 	filter.clear (digest);
 	ASSERT_FALSE (filter.apply (bytes1.data (), bytes1.size ()));
 }
+
+TEST (network_filter, expire)
+{
+	// Expire entries older than 2 epochs
+	nano::network_filter filter{ 4, 2 };
+
+	ASSERT_FALSE (filter.apply (1)); // Entry with epoch 0
+	filter.update (); // Bump epoch to 1
+	ASSERT_FALSE (filter.apply (2)); // Entry with epoch 1
+
+	// Both values should be detected as present
+	ASSERT_TRUE (filter.check (1));
+	ASSERT_TRUE (filter.check (2));
+
+	filter.update (2); // Bump epoch to 3
+
+	ASSERT_FALSE (filter.check (1)); // Entry with epoch 0 should be expired
+	ASSERT_TRUE (filter.check (2)); // Entry with epoch 1 should still be present
+
+	filter.update (); // Bump epoch to 4
+
+	ASSERT_FALSE (filter.check (2)); // Entry with epoch 1 should be expired
+	ASSERT_FALSE (filter.apply (2)); // Entry with epoch 1 should be replaced
+}
