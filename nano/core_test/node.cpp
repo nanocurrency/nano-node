@@ -3808,3 +3808,24 @@ TEST (node, local_block_broadcast)
 	ASSERT_TIMELY (5s, node1.network.find_node_id (node2.get_node_id ()));
 	ASSERT_TIMELY (10s, node2.block (send1->hash ()));
 }
+
+TEST (node, container_info)
+{
+	nano::test::system system;
+	auto & node1 = *system.add_node ();
+	auto & node2 = *system.add_node ();
+
+	// Generate some random activity
+	std::vector<nano::account> accounts;
+	auto dev_genesis_key = nano::dev::genesis_key;
+	system.wallet (0)->insert_adhoc (dev_genesis_key.prv);
+	accounts.push_back (dev_genesis_key.pub);
+	for (int n = 0; n < 10; ++n)
+	{
+		system.generate_activity (node1, accounts);
+	}
+
+	// This should just execute, sanitizers will catch any problems
+	ASSERT_NO_THROW (node1.container_info ());
+	ASSERT_NO_THROW (node2.container_info ());
+}
