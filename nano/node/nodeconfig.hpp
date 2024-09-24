@@ -70,7 +70,7 @@ public:
 	std::vector<nano::account> preconfigured_representatives;
 	unsigned bootstrap_fraction_numerator{ 1 };
 	nano::amount receive_minimum{ nano::nano_ratio / 1000 / 1000 }; // 0.000001 nano
-	nano::amount vote_minimum{ nano::nano_ratio * 1000 };
+	nano::amount vote_minimum{ nano::Knano_ratio }; // 1000 nano
 	nano::amount rep_crawler_weight_minimum{ "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF" };
 	std::chrono::milliseconds vote_generator_delay{ std::chrono::milliseconds (100) };
 	unsigned vote_generator_threshold{ 3 };
