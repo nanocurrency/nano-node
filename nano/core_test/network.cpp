@@ -686,6 +686,21 @@ TEST (network, peer_max_tcp_attempts_subnetwork)
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::max_per_subnetwork, nano::stat::dir::out));
 }
 
+namespace
+{
+// Skip the first 8 bytes of the message header, which is the common header for all messages
+std::vector<uint8_t> message_payload_to_bytes (nano::message const & message)
+{
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		message.serialize (stream);
+	}
+	debug_assert (bytes.size () > nano::message_header::size);
+	return std::vector<uint8_t> (bytes.begin () + nano::message_header::size, bytes.end ());
+}
+}
+
 // Send two publish messages and asserts that the duplication is detected.
 TEST (network, duplicate_detection)
 {
@@ -715,11 +730,7 @@ TEST (network, duplicate_revert_publish)
 	node_config.block_processor.max_peer_queue = 0;
 	auto & node (*system.add_node (node_config));
 	nano::publish publish{ nano::dev::network_params.network, nano::dev::genesis };
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream (bytes);
-		publish.block->serialize (stream);
-	}
+	std::vector<uint8_t> bytes = message_payload_to_bytes (publish);
 	// Add to the blocks filter
 	// Should be cleared when dropping due to a full block processor, as long as the message has the optional digest attached
 	// Test network.duplicate_detection ensures that the digest is attached when deserializing messages
@@ -767,14 +778,35 @@ TEST (network, duplicate_revert_vote)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.vote_processor.max_non_pr_queue = 0;
+	node_config.vote_processor.enable = false; // Do not drain queued votes
+	node_config.vote_processor.max_non_pr_queue = 1;
+	node_config.vote_processor.max_pr_queue = 1;
 	auto & node0 = *system.add_node (node_config);
 	auto & node1 = *system.add_node (node_config);
 
-	auto vote = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () });
-	nano::confirm_ack message{ nano::dev::network_params.network, vote };
+	auto vote1 = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () }, 1);
+	nano::confirm_ack message1{ nano::dev::network_params.network, vote1 };
+	auto bytes1 = message_payload_to_bytes (message1);
 
+	auto vote2 = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () }, 2);
+	nano::confirm_ack message2{ nano::dev::network_params.network, vote2 };
+	auto bytes2 = message_payload_to_bytes (message2);
 
+	// Publish duplicate detection through TCP
+	auto tcp_channel = node0.network.tcp_channels.find_node_id (node1.get_node_id ());
+	ASSERT_NE (nullptr, tcp_channel);
+
+	// First vote should be processed
+	tcp_channel->send (message1);
+	ASSERT_ALWAYS_EQ (100ms, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message), 0);
+	ASSERT_TIMELY (5s, node1.network.publish_filter.check (bytes1.data (), bytes1.size ()));
+
+	// Second vote should get dropped from processor queue
+	tcp_channel->send (message2);
+	ASSERT_ALWAYS_EQ (100ms, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message), 0);
+	// And the filter should not have it
+	WAIT (500ms); // Give the node time to process the vote
+	ASSERT_TIMELY (5s, !node1.network.publish_filter.check (bytes2.data (), bytes2.size ()));
 }
 
 // The test must be completed in less than 1 second
