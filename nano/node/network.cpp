@@ -25,7 +25,7 @@ nano::network::network (nano::node & node, uint16_t port) :
 	id{ nano::network_constants::active_network },
 	syn_cookies{ node.config.network.max_peers_per_ip, node.logger },
 	resolver{ node.io_ctx },
-	publish_filter{ node.config.network.duplicate_filter_size },
+	publish_filter{ node.config.network.duplicate_filter_size, node.config.network.duplicate_filter_cutoff },
 	tcp_channels{ node },
 	port{ port }
 {
@@ -97,7 +97,9 @@ void nano::network::run_cleanup ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		condition.wait_for (lock, node.network_params.network.is_dev_network () ? 1s : 5s);
+		std::chrono::seconds const interval = node.network_params.network.is_dev_network () ? 1s : 5s;
+
+		condition.wait_for (lock, interval);
 		if (stopped)
 		{
 			return;
@@ -114,6 +116,8 @@ void nano::network::run_cleanup ()
 
 		auto const syn_cookie_cutoff = std::chrono::steady_clock::now () - node.network_params.network.syn_cookie_cutoff;
 		syn_cookies.purge (syn_cookie_cutoff);
+
+		publish_filter.update (interval.count ());
 
 		lock.lock ();
 	}

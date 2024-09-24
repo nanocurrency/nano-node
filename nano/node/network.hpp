@@ -79,6 +79,7 @@ public:
 	size_t max_peers_per_subnetwork{ 16 };
 
 	size_t duplicate_filter_size{ 1024 * 1024 };
+	uint64_t duplicate_filter_cutoff{ 60 };
 };
 
 class network final
