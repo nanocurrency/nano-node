@@ -190,7 +190,7 @@ public:
 		bool added = node.block_processor.add (message.block, message.is_originator () ? nano::block_source::live_originator : nano::block_source::live, channel);
 		if (!added)
 		{
-			node.network.publish_filter.clear (message.digest);
+			node.network.filter.clear (message.digest);
 			node.stats.inc (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::in);
 		}
 	}
@@ -220,7 +220,7 @@ public:
 		bool added = node.vote_processor.vote (message.vote, channel, message.is_rebroadcasted () ? nano::vote_source::rebroadcast : nano::vote_source::live);
 		if (!added)
 		{
-			node.network.publish_filter.clear (message.digest);
+			node.network.filter.clear (message.digest);
 			node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
 		}
 	}

@@ -17,7 +17,7 @@ nano::transport::tcp_server::tcp_server (std::shared_ptr<nano::transport::tcp_so
 	node{ node_a },
 	allow_bootstrap{ allow_bootstrap_a },
 	message_deserializer{
-		std::make_shared<nano::transport::message_deserializer> (node_a->network_params.network, node_a->network.publish_filter, node_a->block_uniquer, node_a->vote_uniquer,
+		std::make_shared<nano::transport::message_deserializer> (node_a->network_params.network, node_a->network.filter, node_a->block_uniquer, node_a->vote_uniquer,
 		[socket_l = socket] (std::shared_ptr<std::vector<uint8_t>> const & data_a, size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a) {
 			debug_assert (socket_l != nullptr);
 			socket_l->read_impl (data_a, size_a, callback_a);
