@@ -753,9 +753,8 @@ TEST (network, duplicate_revert_publish)
 TEST (network, duplicate_vote_detection)
 {
 	nano::test::system system;
-	nano::node_flags node_flags;
-	auto & node0 = *system.add_node (node_flags);
-	auto & node1 = *system.add_node (node_flags);
+	auto & node0 = *system.add_node ();
+	auto & node1 = *system.add_node ();
 
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () });
 	nano::confirm_ack message{ nano::dev::network_params.network, vote };
@@ -807,6 +806,34 @@ TEST (network, duplicate_revert_vote)
 	// And the filter should not have it
 	WAIT (500ms); // Give the node time to process the vote
 	ASSERT_TIMELY (5s, !node1.network.publish_filter.check (bytes2.data (), bytes2.size ()));
+}
+
+TEST (network, expire_duplicate_filter)
+{
+	nano::test::system system;
+	nano::node_config node_config = system.default_config ();
+	node_config.network.duplicate_filter_cutoff = 3; // Expire after 3 seconds
+	auto & node0 = *system.add_node (node_config);
+	auto & node1 = *system.add_node (node_config);
+
+	auto vote = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () });
+	nano::confirm_ack message{ nano::dev::network_params.network, vote };
+	auto bytes = message_payload_to_bytes (message);
+
+	// Publish duplicate detection through TCP
+	auto tcp_channel = node0.network.tcp_channels.find_node_id (node1.get_node_id ());
+	ASSERT_NE (nullptr, tcp_channel);
+
+	// Send a vote
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message));
+	tcp_channel->send (message);
+	ASSERT_ALWAYS_EQ (100ms, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message), 0);
+	tcp_channel->send (message);
+	ASSERT_TIMELY_EQ (2s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message), 1);
+
+	// The filter should expire the vote after some time
+	ASSERT_TRUE (node1.network.publish_filter.check (bytes.data (), bytes.size ()));
+	ASSERT_TIMELY (10s, !node1.network.publish_filter.check (bytes.data (), bytes.size ()));
 }
 
 // The test must be completed in less than 1 second
