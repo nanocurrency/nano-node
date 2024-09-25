@@ -316,6 +316,8 @@ void nano::vote_generator::run ()
 
 nano::container_info nano::vote_generator::container_info () const
 {
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
 	nano::container_info info;
 	info.put ("candidates", candidates.size ());
 	info.put ("requests", requests.size ());
