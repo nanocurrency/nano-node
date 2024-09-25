@@ -3,6 +3,7 @@
 #include <nano/lib/stats_enums.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/node/blockprocessor.hpp>
+#include <nano/node/bootstrap_ascending/iterators.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -636,6 +637,14 @@ void nano::bootstrap_ascending::service::run_frontiers ()
 
 void nano::bootstrap_ascending::service::process_frontiers (std::deque<std::pair<nano::account, nano::block_hash>> const & frontiers)
 {
+	release_assert (!frontiers.empty ());
+
+	// Accounts must be passed in ascending order
+	debug_assert (std::adjacent_find (frontiers.begin (), frontiers.end (), [] (auto const & lhs, auto const & rhs) {
+		return lhs.first.number () >= rhs.first.number ();
+	})
+	== frontiers.end ());
+
 	stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::process_frontiers);
 
 	size_t outdated = 0;
@@ -646,30 +655,42 @@ void nano::bootstrap_ascending::service::process_frontiers (std::deque<std::pair
 	{
 		auto transaction = ledger.tx_begin_read ();
 
+		auto const start = frontiers.front ().first;
+		account_database_crawler account_crawler{ ledger.store, transaction, start };
+		pending_database_crawler pending_crawler{ ledger.store, transaction, start };
+
+		auto block_exists = [&] (nano::block_hash const & hash) {
+			return ledger.any.block_exists_or_pruned (transaction, hash);
+		};
+
 		auto should_prioritize = [&] (nano::account const & account, nano::block_hash const & frontier) {
-			if (ledger.any.block_exists_or_pruned (transaction, frontier))
+			account_crawler.advance_to (account);
+			pending_crawler.advance_to (account);
+
+			// Check if account exists in our ledger
+			if (account_crawler.current && account_crawler.current->first == account)
 			{
-				return false;
-			}
-			if (auto info = ledger.any.account_get (transaction, account))
-			{
-				if (info->head != frontier)
+				// Check for frontier mismatch
+				if (account_crawler.current->second.head != frontier)
 				{
-					outdated++;
-					return true; // Frontier is outdated
+					// Check if frontier block exists in our ledger
+					if (!block_exists (frontier))
+					{
+						outdated++;
+						return true; // Frontier is outdated
+					}
 				}
-				return false;
+				return false; // Account exists and frontier is up-to-date
 			}
-			if (auto receivable = ledger.any.receivable_lower_bound (transaction, account, { 0 }))
+
+			// Check if account has pending blocks in our ledger
+			if (pending_crawler.current && pending_crawler.current->first.account == account)
 			{
-				if (receivable->first.account == account)
-				{
-					pending++;
-					return true; // Account doesn't exist but has pending blocks in the ledger
-				}
-				return false;
+				pending++;
+				return true; // Account doesn't exist but has pending blocks in the ledger
 			}
-			return false;
+
+			return false; // Account doesn't exist in the ledger and has no pending blocks, can't be prioritized right now
 		};
 
 		for (auto const & [account, frontier] : frontiers)

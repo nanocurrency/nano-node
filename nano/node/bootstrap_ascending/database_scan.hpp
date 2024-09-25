@@ -8,6 +8,7 @@
 
 namespace nano::bootstrap_ascending
 {
+// TODO: Rename to *_scanner
 struct account_database_iterator
 {
 	explicit account_database_iterator (nano::ledger &);
@@ -20,6 +21,7 @@ struct account_database_iterator
 	size_t completed{ 0 };
 };
 
+// TODO: Rename to *_scanner
 struct pending_database_iterator
 {
 	explicit pending_database_iterator (nano::ledger &);
