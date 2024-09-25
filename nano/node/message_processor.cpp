@@ -190,7 +190,7 @@ public:
 		bool added = node.block_processor.add (message.block, message.is_originator () ? nano::block_source::live_originator : nano::block_source::live, channel);
 		if (!added)
 		{
-			node.network.publish_filter.clear (message.digest);
+			node.network.filter.clear (message.digest);
 			node.stats.inc (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::in);
 		}
 	}
@@ -210,9 +210,18 @@ public:
 
 	void confirm_ack (nano::confirm_ack const & message) override
 	{
-		if (!message.vote->account.is_zero ())
+		// Ignore zero account votes
+		if (message.vote->account.is_zero ())
 		{
-			node.vote_processor.vote (message.vote, channel, message.is_rebroadcasted () ? nano::vote_source::rebroadcast : nano::vote_source::live);
+			node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack_zero_account, nano::stat::dir::in);
+			return;
+		}
+
+		bool added = node.vote_processor.vote (message.vote, channel, message.is_rebroadcasted () ? nano::vote_source::rebroadcast : nano::vote_source::live);
+		if (!added)
+		{
+			node.network.filter.clear (message.digest);
+			node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
 		}
 	}
 

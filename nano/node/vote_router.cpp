@@ -20,9 +20,9 @@ nano::stat::detail nano::to_stat_detail (nano::vote_source source)
 	return nano::enum_util::cast<nano::stat::detail> (source);
 }
 
-nano::vote_router::vote_router (nano::vote_cache & cache, nano::recently_confirmed_cache & recently_confirmed) :
-	cache{ cache },
-	recently_confirmed{ recently_confirmed }
+nano::vote_router::vote_router (nano::vote_cache & vote_cache_a, nano::recently_confirmed_cache & recently_confirmed_a) :
+	vote_cache{ vote_cache_a },
+	recently_confirmed{ recently_confirmed_a }
 {
 }
 
@@ -81,12 +81,12 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::vote_router::vote (s
 				continue;
 			}
 
-			auto find_election = [this] (auto const & hash) {
+			auto find_election = [this] (auto const & hash) -> std::shared_ptr<nano::election> {
 				if (auto existing = elections.find (hash); existing != elections.end ())
 				{
 					return existing->second.lock ();
 				}
-				return std::shared_ptr<nano::election>{};
+				return {};
 			};
 
 			if (auto election = find_election (hash))
@@ -117,6 +117,12 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::vote_router::vote (s
 	debug_assert (!filter.is_zero () || std::all_of (vote->hashes.begin (), vote->hashes.end (), [&results] (auto const & hash) {
 		return results.find (hash) != results.end ();
 	}));
+
+	// Cache the votes that didn't match any election
+	if (source != nano::vote_source::cache)
+	{
+		vote_cache.insert (vote, results);
+	}
 
 	vote_processed.notify (vote, source, results);
 

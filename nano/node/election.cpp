@@ -518,7 +518,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 		if (!replace_by_weight (lock, block_a->hash ()))
 		{
 			result = true;
-			node.network.publish_filter.clear (block_a);
+			node.network.filter.clear (block_a);
 		}
 		debug_assert (lock.owns_lock ());
 	}
@@ -643,7 +643,7 @@ void nano::election::remove_block (nano::block_hash const & hash_a)
 				return entry.second.hash == hash_a;
 			});
 
-			node.network.publish_filter.clear (existing->second);
+			node.network.filter.clear (existing->second);
 			last_blocks.erase (hash_a);
 		}
 	}

@@ -201,6 +201,9 @@ enum class detail
 	asc_pull_req,
 	asc_pull_ack,
 
+	// dropped messages
+	confirm_ack_zero_account,
+
 	// bootstrap, callback
 	initiate,
 	initiate_legacy_age,
@@ -354,6 +357,7 @@ enum class detail
 
 	// duplicate
 	duplicate_publish_message,
+	duplicate_confirm_ack_message,
 
 	// telemetry
 	invalid_signature,

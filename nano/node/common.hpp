@@ -3,8 +3,8 @@
 #include <nano/boost/asio/ip/tcp.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/memory.hpp>
+#include <nano/lib/network_filter.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/network_filter.hpp>
 
 #include <bitset>
 #include <optional>

@@ -1,13 +1,13 @@
 #pragma once
 
 #include <nano/lib/logging.hpp>
+#include <nano/lib/network_filter.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/messages.hpp>
 #include <nano/node/peer_exclusion.hpp>
 #include <nano/node/transport/common.hpp>
 #include <nano/node/transport/fwd.hpp>
 #include <nano/node/transport/tcp_channels.hpp>
-#include <nano/secure/network_filter.hpp>
 
 #include <deque>
 #include <memory>
@@ -77,6 +77,9 @@ public:
 	size_t max_peers_per_ip{ 4 };
 	/** Maximum number of peers per subnetwork */
 	size_t max_peers_per_subnetwork{ 16 };
+
+	size_t duplicate_filter_size{ 1024 * 1024 };
+	uint64_t duplicate_filter_cutoff{ 60 };
 };
 
 class network final
@@ -148,7 +151,7 @@ public:
 	nano::syn_cookies syn_cookies;
 	boost::asio::ip::tcp::resolver resolver;
 	nano::peer_exclusion excluded_peers;
-	nano::network_filter publish_filter;
+	nano::network_filter filter;
 	nano::transport::tcp_channels tcp_channels;
 	std::atomic<uint16_t> port{ 0 };
 
