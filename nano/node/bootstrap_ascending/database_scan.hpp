@@ -56,6 +56,6 @@ private:
 
 	std::deque<nano::account> queue;
 
-	static size_t constexpr batch_size = 128;
+	static size_t constexpr batch_size = 512;
 };
 }
