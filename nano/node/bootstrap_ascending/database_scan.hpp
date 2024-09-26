@@ -24,7 +24,7 @@ struct pending_database_scanner
 
 	std::deque<nano::account> next_batch (nano::store::transaction &, size_t batch_size);
 
-	nano::pending_key next{ 0, 0 };
+	nano::account next{ 0 };
 	size_t completed{ 0 };
 };
 
