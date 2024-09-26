@@ -44,6 +44,7 @@ public:
 
 public:
 	bool enable{ true };
+	bool enable_scan{ true };
 	bool enable_database_scan{ false };
 	bool enable_dependency_walker{ true };
 	bool enable_frontier_scan{ true };

@@ -79,10 +79,13 @@ void nano::bootstrap_ascending::service::start ()
 		return;
 	}
 
-	priorities_thread = std::thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::ascending_bootstrap);
-		run_priorities ();
-	});
+	if (config.enable_scan)
+	{
+		priorities_thread = std::thread ([this] () {
+			nano::thread_role::set (nano::thread_role::name::ascending_bootstrap);
+			run_priorities ();
+		});
+	}
 
 	if (config.enable_database_scan)
 	{
