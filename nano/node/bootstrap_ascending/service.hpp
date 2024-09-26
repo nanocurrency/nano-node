@@ -109,7 +109,6 @@ namespace bootstrap_ascending
 		void run_frontiers ();
 		void run_timeouts ();
 		void cleanup_and_sync ();
-		void process_frontiers (std::deque<std::pair<nano::account, nano::block_hash>> const & frontiers);
 
 		/* Waits for a condition to be satisfied with incremental backoff */
 		void wait (std::function<bool ()> const & predicate) const;
@@ -141,6 +140,8 @@ namespace bootstrap_ascending
 		void process (nano::asc_pull_ack::account_info_payload const & response, async_tag const & tag);
 		void process (nano::asc_pull_ack::frontiers_payload const & response, async_tag const & tag);
 		void process (nano::empty_payload const & response, async_tag const & tag);
+
+		void process_frontiers (std::deque<std::pair<nano::account, nano::block_hash>> const & frontiers);
 
 		enum class verify_result
 		{

@@ -635,86 +635,6 @@ void nano::bootstrap_ascending::service::run_frontiers ()
 	}
 }
 
-void nano::bootstrap_ascending::service::process_frontiers (std::deque<std::pair<nano::account, nano::block_hash>> const & frontiers)
-{
-	release_assert (!frontiers.empty ());
-
-	// Accounts must be passed in ascending order
-	debug_assert (std::adjacent_find (frontiers.begin (), frontiers.end (), [] (auto const & lhs, auto const & rhs) {
-		return lhs.first.number () >= rhs.first.number ();
-	})
-	== frontiers.end ());
-
-	stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::process_frontiers);
-
-	size_t outdated = 0;
-	size_t pending = 0;
-
-	// Accounts with outdated frontiers to sync
-	std::deque<nano::account> result;
-	{
-		auto transaction = ledger.tx_begin_read ();
-
-		auto const start = frontiers.front ().first;
-		account_database_crawler account_crawler{ ledger.store, transaction, start };
-		pending_database_crawler pending_crawler{ ledger.store, transaction, start };
-
-		auto block_exists = [&] (nano::block_hash const & hash) {
-			return ledger.any.block_exists_or_pruned (transaction, hash);
-		};
-
-		auto should_prioritize = [&] (nano::account const & account, nano::block_hash const & frontier) {
-			account_crawler.advance_to (account);
-			pending_crawler.advance_to (account);
-
-			// Check if account exists in our ledger
-			if (account_crawler.current && account_crawler.current->first == account)
-			{
-				// Check for frontier mismatch
-				if (account_crawler.current->second.head != frontier)
-				{
-					// Check if frontier block exists in our ledger
-					if (!block_exists (frontier))
-					{
-						outdated++;
-						return true; // Frontier is outdated
-					}
-				}
-				return false; // Account exists and frontier is up-to-date
-			}
-
-			// Check if account has pending blocks in our ledger
-			if (pending_crawler.current && pending_crawler.current->first.account == account)
-			{
-				pending++;
-				return true; // Account doesn't exist but has pending blocks in the ledger
-			}
-
-			return false; // Account doesn't exist in the ledger and has no pending blocks, can't be prioritized right now
-		};
-
-		for (auto const & [account, frontier] : frontiers)
-		{
-			if (should_prioritize (account, frontier))
-			{
-				result.push_back (account);
-			}
-		}
-	}
-
-	stats.add (nano::stat::type::bootstrap_ascending, nano::stat::detail::frontiers_processed, frontiers.size ());
-	stats.add (nano::stat::type::bootstrap_ascending, nano::stat::detail::frontiers_prioritized, result.size ());
-	stats.add (nano::stat::type::bootstrap_ascending, nano::stat::detail::frontiers_outdated, outdated);
-	stats.add (nano::stat::type::bootstrap_ascending, nano::stat::detail::frontiers_pending, pending);
-
-	nano::lock_guard<nano::mutex> guard{ mutex };
-
-	for (auto const & account : result)
-	{
-		accounts.priority_set (account);
-	}
-}
-
 void nano::bootstrap_ascending::service::cleanup_and_sync ()
 {
 	debug_assert (!mutex.try_lock ());
@@ -966,6 +886,86 @@ void nano::bootstrap_ascending::service::process (const nano::empty_payload & re
 {
 	stats.inc (nano::stat::type::bootstrap_ascending_process, nano::stat::detail::empty);
 	debug_assert (false, "empty payload"); // Should not happen
+}
+
+void nano::bootstrap_ascending::service::process_frontiers (std::deque<std::pair<nano::account, nano::block_hash>> const & frontiers)
+{
+	release_assert (!frontiers.empty ());
+
+	// Accounts must be passed in ascending order
+	debug_assert (std::adjacent_find (frontiers.begin (), frontiers.end (), [] (auto const & lhs, auto const & rhs) {
+		return lhs.first.number () >= rhs.first.number ();
+	})
+	== frontiers.end ());
+
+	stats.inc (nano::stat::type::bootstrap_ascending, nano::stat::detail::process_frontiers);
+
+	size_t outdated = 0;
+	size_t pending = 0;
+
+	// Accounts with outdated frontiers to sync
+	std::deque<nano::account> result;
+	{
+		auto transaction = ledger.tx_begin_read ();
+
+		auto const start = frontiers.front ().first;
+		account_database_crawler account_crawler{ ledger.store, transaction, start };
+		pending_database_crawler pending_crawler{ ledger.store, transaction, start };
+
+		auto block_exists = [&] (nano::block_hash const & hash) {
+			return ledger.any.block_exists_or_pruned (transaction, hash);
+		};
+
+		auto should_prioritize = [&] (nano::account const & account, nano::block_hash const & frontier) {
+			account_crawler.advance_to (account);
+			pending_crawler.advance_to (account);
+
+			// Check if account exists in our ledger
+			if (account_crawler.current && account_crawler.current->first == account)
+			{
+				// Check for frontier mismatch
+				if (account_crawler.current->second.head != frontier)
+				{
+					// Check if frontier block exists in our ledger
+					if (!block_exists (frontier))
+					{
+						outdated++;
+						return true; // Frontier is outdated
+					}
+				}
+				return false; // Account exists and frontier is up-to-date
+			}
+
+			// Check if account has pending blocks in our ledger
+			if (pending_crawler.current && pending_crawler.current->first.account == account)
+			{
+				pending++;
+				return true; // Account doesn't exist but has pending blocks in the ledger
+			}
+
+			return false; // Account doesn't exist in the ledger and has no pending blocks, can't be prioritized right now
+		};
+
+		for (auto const & [account, frontier] : frontiers)
+		{
+			if (should_prioritize (account, frontier))
+			{
+				result.push_back (account);
+			}
+		}
+	}
+
+	stats.add (nano::stat::type::bootstrap_ascending, nano::stat::detail::frontiers_processed, frontiers.size ());
+	stats.add (nano::stat::type::bootstrap_ascending, nano::stat::detail::frontiers_prioritized, result.size ());
+	stats.add (nano::stat::type::bootstrap_ascending, nano::stat::detail::frontiers_outdated, outdated);
+	stats.add (nano::stat::type::bootstrap_ascending, nano::stat::detail::frontiers_pending, pending);
+
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
+	for (auto const & account : result)
+	{
+		accounts.priority_set (account);
+	}
 }
 
 nano::bootstrap_ascending::service::verify_result nano::bootstrap_ascending::service::verify (const nano::asc_pull_ack::blocks_payload & response, const nano::bootstrap_ascending::service::async_tag & tag) const

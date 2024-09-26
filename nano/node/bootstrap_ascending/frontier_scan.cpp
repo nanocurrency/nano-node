@@ -136,6 +136,7 @@ std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::front
 			boost::multiprecision::cpp_dec_float_50 next{ head.next.number ().str () };
 			boost::multiprecision::cpp_dec_float_50 end{ head.end.number ().str () };
 
+			// Progress in the range [0, 1000000] since we can only represent `size_t` integers in the container_info data
 			boost::multiprecision::cpp_dec_float_50 progress = (next - start) * boost::multiprecision::cpp_dec_float_50 (1000000) / (end - start);
 
 			composite->add_component (std::make_unique<container_info_leaf> (container_info{ std::to_string (n), progress.convert_to<std::uint64_t> (), 6 }));

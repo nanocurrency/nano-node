@@ -19,6 +19,10 @@ namespace mi = boost::multi_index;
 
 namespace nano::bootstrap_ascending
 {
+/*
+ * Frontier scan divides the account space into ranges and scans each range for outdated frontiers in parallel.
+ * This class is used to track the progress of each range.
+ */
 class frontier_scan
 {
 public:
@@ -34,6 +38,7 @@ private: // Dependencies
 	nano::stats & stats;
 
 private:
+	// Represents a range of accounts to scan, once the full range is scanned (goes past `end`) the head wraps around (to the `start`)
 	struct frontier_head
 	{
 		frontier_head (nano::account start_a, nano::account end_a) :
@@ -44,9 +49,10 @@ private:
 		}
 
 		// The range of accounts to scan is [start, end)
-		nano::account start;
-		nano::account end;
+		nano::account const start;
+		nano::account const end;
 
+		// We scan the range by querying frontiers starting at 'next' and gathering candidates
 		nano::account next;
 		std::set<nano::account> candidates;
 
@@ -54,6 +60,11 @@ private:
 		unsigned completed{ 0 };
 		std::chrono::steady_clock::time_point timestamp{};
 		size_t processed{ 0 }; // Total number of accounts processed
+
+		nano::account index () const
+		{
+			return start;
+		}
 	};
 
 	// clang-format off
@@ -65,7 +76,7 @@ private:
 	mi::indexed_by<
 		mi::random_access<mi::tag<tag_sequenced>>,
 		mi::ordered_unique<mi::tag<tag_start>,
-			mi::member<frontier_head, nano::account, &frontier_head::start>>,
+			mi::const_mem_fun<frontier_head, nano::account, &frontier_head::index>>,
 		mi::ordered_non_unique<mi::tag<tag_timestamp>,
 			mi::member<frontier_head, std::chrono::steady_clock::time_point, &frontier_head::timestamp>>
 	>>;
