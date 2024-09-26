@@ -69,6 +69,8 @@ std::string nano::error_common_messages::message (int ev) const
 			return "Insufficient balance";
 		case nano::error_common::invalid_amount:
 			return "Invalid amount number";
+		case nano::error_common::invalid_amount_loss_of_precision:
+			return "More than 30 decimals. Loss of precision";
 		case nano::error_common::invalid_amount_big:
 			return "Amount too big";
 		case nano::error_common::invalid_count:

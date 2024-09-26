@@ -298,6 +298,109 @@ nano::amount nano::json_handler::amount_impl ()
 	return result;
 }
 
+/// <summary>
+/// Converts a Nano value with a maximum of 30 decimals into the corresponding raw value.
+/// Input validation rules:
+/// 9 characters [0-9] allowed
+/// Optionally followed by up to one '.' character and then 30 characters [0-9]
+/// Max value is 340 million
+/// </summary>
+/// <returns>raw value</returns>
+nano::amount nano::json_handler::decimal_amount_impl ()
+{
+	nano::amount wholeNumber (0);
+	nano::amount decimalNumber (0);
+	nano::amount result (0);
+	if (ec)
+	{
+		return result;
+	}
+
+	std::string amount_text (request.get<std::string> ("amount"));
+
+	if (amount_text.length () == 0)
+	{
+		ec = nano::error_common::invalid_amount;
+		return result;
+	}
+
+	if (amount_text.at (0) == '.')
+	{
+		ec = nano::error_common::invalid_amount;
+		return result;
+	}
+
+	int dotPosition = -1;
+
+	for (int i = 0; i < amount_text.length (); i++)
+	{
+		char c = amount_text.at (i);
+
+		if (c == '.')
+		{
+			// Throw an error if a dot was already seen (only 1 dot accepted)
+			if (dotPosition != -1)
+			{
+				ec = nano::error_common::invalid_amount;
+				return result;
+			}
+
+			dotPosition = i;
+		}
+		else if (c < '0' || c > '9')
+		{
+			ec = nano::error_common::invalid_amount;
+			return result;
+		}
+	}
+
+	auto WholeNumberFractionString = amount_text.substr (0, dotPosition);
+
+	WholeNumberFractionString.erase (0, WholeNumberFractionString.find_first_not_of ('0')); // remove leading zeros
+
+	if (WholeNumberFractionString.length () > 9)
+	{
+		ec = nano::error_common::invalid_amount_big;
+		return result;
+	}
+
+	if (wholeNumber.decode_dec (WholeNumberFractionString))
+	{
+		ec = nano::error_common::invalid_amount;
+		return result;
+	}
+
+	if (wholeNumber.number () > 340000000)
+	{
+		ec = nano::error_common::invalid_amount_big;
+		return result;
+	}
+
+	if (dotPosition == -1) // no decimal part
+	{
+		result = (wholeNumber.number () * nano::Mxrb_ratio);
+		return result;
+	}
+
+	auto decimalFractionString = amount_text.substr (dotPosition + 1);
+	if (decimalFractionString.length () > 30)
+	{
+		ec = nano::error_common::invalid_amount_loss_of_precision;
+		return result;
+	}
+	auto missingZeros = 30 - decimalFractionString.size ();
+	decimalFractionString.insert (decimalFractionString.size (), missingZeros, '0');
+
+	decimalFractionString.erase (0, decimalFractionString.find_first_not_of ('0'));
+
+	if (decimalNumber.decode_dec (decimalFractionString))
+	{
+		ec = nano::error_common::invalid_amount;
+	}
+	result = (wholeNumber.number () * nano::Mxrb_ratio) + decimalNumber.number ();
+	return result;
+}
+
 std::shared_ptr<nano::block> nano::json_handler::block_impl (bool signature_work_required)
 {
 	bool const json_block_l = request.get<bool> ("json_block", false);
@@ -2933,18 +3036,10 @@ void nano::json_handler::mnano_to_raw (nano::uint128_t ratio)
 
 void nano::json_handler::nano_to_raw ()
 {
-	auto amount (amount_impl ());
+	auto amount (decimal_amount_impl ());
 	if (!ec)
 	{
-		auto result (amount.number () * nano::Mxrb_ratio);
-		if (result > amount.number ())
-		{
-			response_l.put ("amount", result.convert_to<std::string> ());
-		}
-		else
-		{
-			ec = nano::error_common::invalid_amount_big;
-		}
+		response_l.put ("amount", amount.number ().convert_to<std::string> ());
 	}
 	response_errors ();
 }

@@ -42,6 +42,7 @@ enum class error_common
 	missing_signature,
 	missing_work,
 	invalid_amount,
+	invalid_amount_loss_of_precision,
 	invalid_amount_big,
 	invalid_count,
 	invalid_index,
