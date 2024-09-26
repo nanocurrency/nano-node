@@ -13,8 +13,8 @@
 
 nano::bootstrap_ascending::database_scan::database_scan (nano::ledger & ledger_a) :
 	ledger{ ledger_a },
-	accounts_iterator{ ledger },
-	pending_iterator{ ledger }
+	account_scanner{ ledger },
+	pending_scanner{ ledger }
 {
 }
 
@@ -43,8 +43,8 @@ void nano::bootstrap_ascending::database_scan::fill ()
 {
 	auto transaction = ledger.store.tx_begin_read ();
 
-	auto set1 = accounts_iterator.next_batch (transaction, batch_size);
-	auto set2 = pending_iterator.next_batch (transaction, batch_size);
+	auto set1 = account_scanner.next_batch (transaction, batch_size);
+	auto set2 = pending_scanner.next_batch (transaction, batch_size);
 
 	queue.insert (queue.end (), set1.begin (), set1.end ());
 	queue.insert (queue.end (), set2.begin (), set2.end ());
@@ -52,14 +52,14 @@ void nano::bootstrap_ascending::database_scan::fill ()
 
 bool nano::bootstrap_ascending::database_scan::warmed_up () const
 {
-	return accounts_iterator.warmed_up () && pending_iterator.warmed_up ();
+	return account_scanner.completed > 0 && pending_scanner.completed > 0;
 }
 
 std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::database_scan::collect_container_info (std::string const & name) const
 {
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "accounts_iterator", accounts_iterator.completed, 0 }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending_iterator", pending_iterator.completed, 0 }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "account_scan", account_scanner.completed, 0 }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending_scan", pending_scanner.completed, 0 }));
 	return composite;
 }
 
@@ -67,12 +67,7 @@ std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::datab
  * account_database_iterator
  */
 
-nano::bootstrap_ascending::account_database_iterator::account_database_iterator (nano::ledger & ledger_a) :
-	ledger{ ledger_a }
-{
-}
-
-std::deque<nano::account> nano::bootstrap_ascending::account_database_iterator::next_batch (nano::store::transaction & transaction, size_t batch_size)
+std::deque<nano::account> nano::bootstrap_ascending::account_database_scanner::next_batch (nano::store::transaction & transaction, size_t batch_size)
 {
 	std::deque<nano::account> result;
 
@@ -96,21 +91,11 @@ std::deque<nano::account> nano::bootstrap_ascending::account_database_iterator::
 	return result;
 }
 
-bool nano::bootstrap_ascending::account_database_iterator::warmed_up () const
-{
-	return completed > 0;
-}
-
 /*
  * pending_database_iterator
  */
 
-nano::bootstrap_ascending::pending_database_iterator::pending_database_iterator (nano::ledger & ledger_a) :
-	ledger{ ledger_a }
-{
-}
-
-std::deque<nano::account> nano::bootstrap_ascending::pending_database_iterator::next_batch (nano::store::transaction & transaction, size_t batch_size)
+std::deque<nano::account> nano::bootstrap_ascending::pending_database_scanner::next_batch (nano::store::transaction & transaction, size_t batch_size)
 {
 	std::deque<nano::account> result;
 
@@ -159,9 +144,4 @@ std::deque<nano::account> nano::bootstrap_ascending::pending_database_iterator::
 	}
 
 	return result;
-}
-
-bool nano::bootstrap_ascending::pending_database_iterator::warmed_up () const
-{
-	return completed > 0;
 }

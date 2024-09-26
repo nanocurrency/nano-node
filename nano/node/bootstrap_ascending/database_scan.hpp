@@ -8,28 +8,22 @@
 
 namespace nano::bootstrap_ascending
 {
-// TODO: Rename to *_scanner
-struct account_database_iterator
+struct account_database_scanner
 {
-	explicit account_database_iterator (nano::ledger &);
+	nano::ledger & ledger;
 
 	std::deque<nano::account> next_batch (nano::store::transaction &, size_t batch_size);
-	bool warmed_up () const;
 
-	nano::ledger & ledger;
 	nano::account next{ 0 };
 	size_t completed{ 0 };
 };
 
-// TODO: Rename to *_scanner
-struct pending_database_iterator
+struct pending_database_scanner
 {
-	explicit pending_database_iterator (nano::ledger &);
+	nano::ledger & ledger;
 
 	std::deque<nano::account> next_batch (nano::store::transaction &, size_t batch_size);
-	bool warmed_up () const;
 
-	nano::ledger & ledger;
 	nano::pending_key next{ 0, 0 };
 	size_t completed{ 0 };
 };
@@ -53,8 +47,8 @@ private:
 	void fill ();
 
 private:
-	account_database_iterator accounts_iterator;
-	pending_database_iterator pending_iterator;
+	account_database_scanner account_scanner;
+	pending_database_scanner pending_scanner;
 
 	std::deque<nano::account> queue;
 
