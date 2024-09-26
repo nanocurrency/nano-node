@@ -2,6 +2,7 @@ add_library(
   nano_store
   account.hpp
   block.hpp
+  block_w_sideband.hpp
   component.hpp
   confirmation_height.hpp
   db_val.hpp
