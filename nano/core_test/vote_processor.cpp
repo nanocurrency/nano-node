@@ -20,8 +20,8 @@ TEST (vote_processor, codes)
 	auto node_config = system.default_config ();
 	// Disable all election schedulers
 	node_config.backlog_population.enable = false;
-	node_config.hinted_scheduler.enabled = false;
-	node_config.optimistic_scheduler.enabled = false;
+	node_config.hinted_scheduler.enable = false;
+	node_config.optimistic_scheduler.enable = false;
 	auto & node = *system.add_node (node_config);
 
 	auto blocks = nano::test::setup_chain (system, node, 1, nano::dev::genesis_key, false);

@@ -31,7 +31,7 @@ public:
 	// TODO: Serialization & deserialization
 
 public:
-	bool enabled{ true };
+	bool enable{ true };
 };
 
 class buckets;

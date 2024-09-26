@@ -29,7 +29,7 @@ void nano::scheduler::optimistic::start ()
 {
 	debug_assert (!thread.joinable ());
 
-	if (!config.enabled)
+	if (!config.enable)
 	{
 		return;
 	}
@@ -72,7 +72,7 @@ bool nano::scheduler::optimistic::activate_predicate (const nano::account_info &
 
 bool nano::scheduler::optimistic::activate (const nano::account & account, const nano::account_info & account_info, const nano::confirmation_height_info & conf_info)
 {
-	if (!config.enabled)
+	if (!config.enable)
 	{
 		return false;
 	}
@@ -183,7 +183,7 @@ std::unique_ptr<nano::container_info_component> nano::scheduler::optimistic::col
 
 nano::error nano::scheduler::optimistic_config::deserialize (nano::tomlconfig & toml)
 {
-	toml.get ("enable", enabled);
+	toml.get ("enable", enable);
 	toml.get ("gap_threshold", gap_threshold);
 	toml.get ("max_size", max_size);
 
@@ -192,7 +192,7 @@ nano::error nano::scheduler::optimistic_config::deserialize (nano::tomlconfig & 
 
 nano::error nano::scheduler::optimistic_config::serialize (nano::tomlconfig & toml) const
 {
-	toml.put ("enable", enabled, "Enable or disable optimistic elections\ntype:bool");
+	toml.put ("enable", enable, "Enable or disable optimistic elections\ntype:bool");
 	toml.put ("gap_threshold", gap_threshold, "Minimum difference between confirmation frontier and account frontier to become a candidate for optimistic confirmation\ntype:uint64");
 	toml.put ("max_size", max_size, "Maximum number of candidates stored in memory\ntype:uint64");
 

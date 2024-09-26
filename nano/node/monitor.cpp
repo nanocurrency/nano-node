@@ -19,7 +19,7 @@ nano::monitor::~monitor ()
 
 void nano::monitor::start ()
 {
-	if (!config.enabled)
+	if (!config.enable)
 	{
 		return;
 	}
@@ -115,7 +115,7 @@ void nano::monitor::run_one ()
 
 nano::error nano::monitor_config::serialize (nano::tomlconfig & toml) const
 {
-	toml.put ("enable", enabled, "Enable or disable periodic node status logging\ntype:bool");
+	toml.put ("enable", enable, "Enable or disable periodic node status logging\ntype:bool");
 	toml.put ("interval", interval.count (), "Interval between status logs\ntype:seconds");
 
 	return toml.get_error ();
@@ -123,7 +123,7 @@ nano::error nano::monitor_config::serialize (nano::tomlconfig & toml) const
 
 nano::error nano::monitor_config::deserialize (nano::tomlconfig & toml)
 {
-	toml.get ("enable", enabled);
+	toml.get ("enable", enable);
 	auto interval_l = interval.count ();
 	toml.get ("interval", interval_l);
 	interval = std::chrono::seconds{ interval_l };
