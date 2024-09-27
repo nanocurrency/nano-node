@@ -1,0 +1,17 @@
+[package]
+name = "rsnano_core"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1"
+ed25519-dalek = { git = "https://github.com/Fiono11/ed25519-dalek.git", rev = "e967e3792ed5aa4d67b89e98c2be1d719ef57aab", features = ["legacy_compatibility", "rand_core"] }
+hex = "0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0.64"
+rand = { version = "0" }
+ctr = "0"
+primitive-types = "0"
+aes = "0"
