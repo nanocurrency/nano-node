@@ -47,6 +47,8 @@ namespace bootstrap_ascending
 		std::size_t blocked_size () const;
 		std::size_t priority_size () const;
 		std::size_t score_size () const;
+		bool prioritized (nano::account const &) const;
+		bool blocked (nano::account const &) const;
 		nano::bootstrap_ascending::account_sets::info_t info () const;
 
 	private: // Dependencies

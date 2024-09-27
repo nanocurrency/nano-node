@@ -217,6 +217,18 @@ std::size_t nano::bootstrap_ascending::service::score_size () const
 	return scoring.size ();
 }
 
+bool nano::bootstrap_ascending::service::prioritized (nano::account const & account) const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return accounts.prioritized (account);
+}
+
+bool nano::bootstrap_ascending::service::blocked (nano::account const & account) const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return accounts.blocked (account);
+}
+
 /** Inspects a block that has been processed by the block processor
 - Marks an account as blocked if the result code is gap source as there is no reason request additional blocks for this account until the dependency is resolved
 - Marks an account as forwarded if it has been recently referenced by a block that has been inserted.
