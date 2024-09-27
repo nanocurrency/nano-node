@@ -319,7 +319,7 @@ auto nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 
 	lock.unlock ();
 
-	auto transaction = node.ledger.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights }, nano::store::writer::blockprocessor);
+	auto transaction = node.ledger.tx_begin_write (nano::store::writer::blockprocessor);
 
 	nano::timer<std::chrono::milliseconds> timer;
 	timer.start ();

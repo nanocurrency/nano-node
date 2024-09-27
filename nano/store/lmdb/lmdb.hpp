@@ -64,7 +64,7 @@ private:
 
 public:
 	component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
-	store::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
+	store::write_transaction tx_begin_write () override;
 	store::read_transaction tx_begin_read () const override;
 
 	std::string vendor_get () const override;

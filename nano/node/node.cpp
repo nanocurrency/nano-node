@@ -323,7 +323,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 
 		if (!is_initialized && !flags.read_only)
 		{
-			auto const transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::confirmation_height, tables::rep_weights }));
+			auto const transaction = store.tx_begin_write ();
 			// Store was empty meaning we just created it, add the genesis block
 			store.initialize (transaction, ledger.cache, ledger.constants);
 		}
@@ -572,7 +572,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 
 nano::block_status nano::node::process (std::shared_ptr<nano::block> block)
 {
-	auto const transaction = ledger.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights }, nano::store::writer::node);
+	auto const transaction = ledger.tx_begin_write (nano::store::writer::node);
 	return process (transaction, block);
 }
 
@@ -787,7 +787,7 @@ nano::uint128_t nano::node::minimum_principal_weight ()
 void nano::node::long_inactivity_cleanup ()
 {
 	bool perform_cleanup = false;
-	auto const transaction (store.tx_begin_write ({ tables::online_weight, tables::peers }));
+	auto const transaction = store.tx_begin_write ();
 	if (store.online_weight.count (transaction) > 0)
 	{
 		auto sample (store.online_weight.rbegin (transaction));
@@ -994,7 +994,7 @@ void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_wei
 		transaction_write_count = 0;
 		if (!pruning_targets.empty () && !stopped)
 		{
-			auto write_transaction = ledger.tx_begin_write ({ tables::blocks, tables::pruned }, nano::store::writer::pruning);
+			auto write_transaction = ledger.tx_begin_write (nano::store::writer::pruning);
 			while (!pruning_targets.empty () && transaction_write_count < batch_size_a && !stopped)
 			{
 				auto const & pruning_hash (pruning_targets.front ());

@@ -1408,7 +1408,7 @@ TEST (active_elections, bound_election_winners)
 
 	{
 		// Prevent cementing of confirmed blocks
-		auto guard = node.ledger.tx_begin_write ({}, nano::store::writer::testing);
+		auto guard = node.ledger.tx_begin_write (nano::store::writer::testing);
 
 		// Ensure that when the number of election winners reaches the limit, AEC vacancy reflects that
 		ASSERT_TRUE (node.active.vacancy (nano::election_behavior::priority) > 0);

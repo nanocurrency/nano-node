@@ -81,7 +81,7 @@ void nano::peer_history::run ()
 void nano::peer_history::run_one ()
 {
 	auto live_peers = network.list ();
-	auto transaction = store.tx_begin_write ({ tables::peers });
+	auto transaction = store.tx_begin_write ();
 
 	// Add or update live peers
 	for (auto const & peer : live_peers)

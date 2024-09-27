@@ -66,7 +66,7 @@ public:
 
 	explicit component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
 
-	store::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
+	store::write_transaction tx_begin_write () override;
 	store::read_transaction tx_begin_read () const override;
 
 	std::string vendor_get () const override;

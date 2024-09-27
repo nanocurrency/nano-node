@@ -40,7 +40,7 @@ void nano::online_reps::sample ()
 	lock.unlock ();
 	nano::uint128_t trend_l;
 	{
-		auto transaction (ledger.store.tx_begin_write ({ tables::online_weight }));
+		auto transaction = ledger.store.tx_begin_write ();
 		// Discard oldest entries
 		while (ledger.store.online_weight.count (transaction) >= config.network_params.node.max_weight_samples)
 		{

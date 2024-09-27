@@ -162,7 +162,7 @@ void nano::store::lmdb::component::serialize_memory_stats (boost::property_tree:
 	json.put ("page_size", stats.ms_psize);
 }
 
-nano::store::write_transaction nano::store::lmdb::component::tx_begin_write (std::vector<nano::tables> const &, std::vector<nano::tables> const &)
+nano::store::write_transaction nano::store::lmdb::component::tx_begin_write ()
 {
 	return env.tx_begin_write (create_txn_callbacks ());
 }

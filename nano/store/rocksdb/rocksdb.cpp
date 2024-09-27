@@ -417,9 +417,9 @@ std::vector<rocksdb::ColumnFamilyDescriptor> nano::store::rocksdb::component::cr
 	return column_families;
 }
 
-nano::store::write_transaction nano::store::rocksdb::component::tx_begin_write (std::vector<nano::tables> const &, std::vector<nano::tables> const &)
+nano::store::write_transaction nano::store::rocksdb::component::tx_begin_write ()
 {
-	release_assert (db != nullptr);
+	release_assert (transaction_db != nullptr);
 	return store::write_transaction{ std::make_unique<nano::store::rocksdb::write_transaction_impl> (transaction_db) };
 }
 
