@@ -53,8 +53,7 @@ namespace store
 		nano::store::confirmation_height &,
 		nano::store::final_vote &,
 		nano::store::version &,
-		nano::store::rep_weight &,
-		bool use_noops_a
+		nano::store::rep_weight &
 	);
 		// clang-format on
 		virtual ~component () = default;

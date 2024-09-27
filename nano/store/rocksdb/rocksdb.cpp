@@ -35,7 +35,7 @@ private:
 };
 }
 
-nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a, bool force_use_write_queue) :
+nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
 	// clang-format off
 	nano::store::component{
 		block_store,
@@ -47,8 +47,7 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 		confirmation_height_store,
 		final_vote_store,
 		version_store,
-		rep_weight_store,
-		!force_use_write_queue // write_queue use_noops
+		rep_weight_store
 	},
 	// clang-format on
 	block_store{ *this },
