@@ -108,7 +108,6 @@ private:
 	::rocksdb::TransactionDB * transaction_db = nullptr;
 	std::unique_ptr<::rocksdb::DB> db;
 	std::vector<std::unique_ptr<::rocksdb::ColumnFamilyHandle>> handles;
-	std::unordered_map<nano::tables, nano::mutex> write_lock_mutexes;
 	nano::rocksdb_config rocksdb_config;
 	unsigned const max_block_write_batch_num_m;
 
@@ -152,7 +151,6 @@ private:
 	void upgrade_v22_to_v23 (store::write_transaction &);
 	void upgrade_v23_to_v24 (store::write_transaction &);
 
-	void construct_column_family_mutexes ();
 	::rocksdb::Options get_db_options ();
 	::rocksdb::BlockBasedTableOptions get_table_options () const;
 	::rocksdb::ColumnFamilyOptions get_cf_options (std::string const & cf_name_a) const;

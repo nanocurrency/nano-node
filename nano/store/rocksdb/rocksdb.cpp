@@ -117,11 +117,6 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 		db.reset (nullptr);
 	}
 
-	if (!open_read_only_a)
-	{
-		construct_column_family_mutexes ();
-	}
-
 	if (is_fully_upgraded)
 	{
 		open (error, path_a, open_read_only_a, options, create_column_families ());
@@ -422,24 +417,10 @@ std::vector<rocksdb::ColumnFamilyDescriptor> nano::store::rocksdb::component::cr
 	return column_families;
 }
 
-nano::store::write_transaction nano::store::rocksdb::component::tx_begin_write (std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a)
+nano::store::write_transaction nano::store::rocksdb::component::tx_begin_write (std::vector<nano::tables> const &, std::vector<nano::tables> const &)
 {
-	std::unique_ptr<nano::store::rocksdb::write_transaction_impl> txn;
 	release_assert (db != nullptr);
-	if (tables_requiring_locks_a.empty () && tables_no_locks_a.empty ())
-	{
-		// Use all tables if none are specified
-		txn = std::make_unique<nano::store::rocksdb::write_transaction_impl> (transaction_db, all_tables (), tables_no_locks_a, write_lock_mutexes);
-	}
-	else
-	{
-		txn = std::make_unique<nano::store::rocksdb::write_transaction_impl> (transaction_db, tables_requiring_locks_a, tables_no_locks_a, write_lock_mutexes);
-	}
-
-	// Tables must be kept in alphabetical order. These can be used for mutex locking, so order is important to prevent deadlocking
-	debug_assert (std::is_sorted (tables_requiring_locks_a.begin (), tables_requiring_locks_a.end ()));
-
-	return store::write_transaction{ std::move (txn) };
+	return store::write_transaction{ std::make_unique<nano::store::rocksdb::write_transaction_impl> (transaction_db) };
 }
 
 nano::store::read_transaction nano::store::rocksdb::component::tx_begin_read () const
@@ -741,14 +722,6 @@ int nano::store::rocksdb::component::clear (::rocksdb::ColumnFamilyHandle * colu
 	release_assert (status.ok ());
 
 	return status.code ();
-}
-
-void nano::store::rocksdb::component::construct_column_family_mutexes ()
-{
-	for (auto table : all_tables ())
-	{
-		write_lock_mutexes.emplace (std::piecewise_construct, std::forward_as_tuple (table), std::forward_as_tuple ());
-	}
 }
 
 rocksdb::Options nano::store::rocksdb::component::get_db_options ()
