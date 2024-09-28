@@ -544,7 +544,7 @@ TEST (active_elections, vote_replays)
 	nano::keypair key;
 	nano::state_block_builder builder;
 
-	// send Gxrb_ratio raw from genesis to key
+	// send Knano_ratio raw from genesis to key
 	auto send1 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (nano::dev::genesis->hash ())
@@ -556,7 +556,7 @@ TEST (active_elections, vote_replays)
 				 .build ();
 	ASSERT_NE (nullptr, send1);
 
-	// create open block for key receing Gxrb_ratio raw
+	// create open block for key receing Knano_ratio raw
 	auto open1 = builder.make_block ()
 				 .account (key.pub)
 				 .previous (0)
