@@ -3,6 +3,7 @@
 #include <nano/store/final.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdbxx/lmdb++.h>
 
 namespace nano::store::lmdb
 {
@@ -32,6 +33,6 @@ public:
 	 * Maps root to block hash for generated final votes.
 	 * nano::qualified_root -> nano::block_hash
 	 */
-	MDB_dbi final_votes_handle{ 0 };
+	::lmdb::dbi final_votes_handle;
 };
 } // namespace nano::store::lmdb

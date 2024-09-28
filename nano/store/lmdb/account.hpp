@@ -3,6 +3,7 @@
 #include <nano/store/account.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdbxx/lmdb++.h>
 
 namespace nano::store::lmdb
 {
@@ -29,27 +30,15 @@ public:
 	void for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::account, nano::account_info>, store::iterator<nano::account, nano::account_info>)> const & action_a) const override;
 
 	/**
-	 * Maps account v1 to account information, head, rep, open, balance, timestamp and block count. (Removed)
-	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
-	 */
-	MDB_dbi accounts_v0_handle{ 0 };
-
-	/**
-	 * Maps account v0 to account information, head, rep, open, balance, timestamp and block count. (Removed)
-	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
-	 */
-	MDB_dbi accounts_v1_handle{ 0 };
-
-	/**
 	 * Maps account v0 to account information, head, rep, open, balance, timestamp, block count and epoch
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t, nano::epoch
 	 */
-	MDB_dbi accounts_handle{ 0 };
+	::lmdb::dbi accounts_handle;
 
 	/**
 	 * Representative weights. (Removed)
 	 * nano::account -> nano::uint128_t
 	 */
-	MDB_dbi representation_handle{ 0 };
+	::lmdb::dbi representation_handle;
 };
 } // amespace nano::store::lmdb

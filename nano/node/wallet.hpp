@@ -58,10 +58,10 @@ enum class key_type
 class wallet_store final
 {
 public:
-	wallet_store (bool &, nano::kdf &, store::transaction &, store::lmdb::env &, nano::account, unsigned, std::string const &);
-	wallet_store (bool &, nano::kdf &, store::transaction &, store::lmdb::env &, nano::account, unsigned, std::string const &, std::string const &);
+	wallet_store (bool &, nano::kdf &, store::transaction &, ::lmdb::env &, nano::account, unsigned, std::string const &);
+	wallet_store (bool &, nano::kdf &, store::transaction &, ::lmdb::env &, nano::account, unsigned, std::string const &, std::string const &);
 	std::vector<nano::account> accounts (store::transaction const &);
-	void initialize (store::transaction const &, bool &, std::string const &);
+	void initialize (store::transaction const &, std::string const &);
 	nano::uint256_union check (store::transaction const &);
 	bool rekey (store::transaction const &, std::string const &);
 	bool valid_password (store::transaction const &);
@@ -120,11 +120,11 @@ public:
 	static std::size_t const seed_iv_index;
 	static int const special_count;
 	nano::kdf & kdf;
-	std::atomic<MDB_dbi> handle{ 0 };
+	::lmdb::dbi handle;
 	std::recursive_mutex mutex;
 
 private:
-	nano::store::lmdb::env & env;
+	::lmdb::env & env;
 };
 
 // A wallet is a set of account keys encrypted by a common encryption key
@@ -231,10 +231,10 @@ public:
 	nano::mutex action_mutex;
 	nano::condition_variable condition;
 	nano::kdf kdf;
-	MDB_dbi handle;
-	MDB_dbi send_action_ids;
+	::lmdb::dbi handle;
+	::lmdb::dbi send_action_ids;
 	nano::node & node;
-	nano::store::lmdb::env & env;
+	::lmdb::env & env;
 	std::atomic<bool> stopped;
 	std::thread thread;
 	static nano::uint128_t const generate_priority;
@@ -248,6 +248,8 @@ public:
 private:
 	mutable nano::mutex reps_cache_mutex;
 	nano::wallet_representatives representatives;
+
+	nano::id_t const store_id{ nano::next_id () };
 };
 
 std::unique_ptr<container_info_component> collect_container_info (wallets & wallets, std::string const & name);
@@ -263,7 +265,7 @@ class mdb_wallets_store final : public wallets_store
 {
 public:
 	mdb_wallets_store (std::filesystem::path const &, nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{});
-	nano::store::lmdb::env environment;
+	::lmdb::env environment;
 	bool init_error () const override;
 	bool error{ false };
 };

@@ -3,10 +3,10 @@
 #include <nano/store/component.hpp>
 #include <nano/store/db_val.hpp>
 #include <nano/store/iterator.hpp>
-#include <nano/store/lmdb/lmdb_env.hpp>
+#include <nano/store/lmdb/utility.hpp>
 #include <nano/store/transaction.hpp>
 
-#include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdbxx/lmdb++.h>
 
 namespace nano::store::lmdb
 {
@@ -14,12 +14,11 @@ template <typename T, typename U>
 class iterator : public iterator_impl<T, U>
 {
 public:
-	iterator (store::transaction const & transaction_a, env const & env_a, MDB_dbi db_a, MDB_val const & val_a = MDB_val{}, bool const direction_asc = true) :
-		nano::store::iterator_impl<T, U> (transaction_a)
+	iterator (store::transaction const & transaction_a, ::lmdb::env const & env_a, ::lmdb::dbi const & db_a, MDB_val const & val_a = MDB_val{}, bool const direction_asc = true) :
+		nano::store::iterator_impl<T, U> (transaction_a),
+		cursor{ ::lmdb::cursor::open (tx (transaction_a), db_a) }
 	{
-		auto status (mdb_cursor_open (env_a.tx (transaction_a), db_a, &cursor));
-		release_assert (status == 0);
-		auto operation (MDB_SET_RANGE);
+		auto operation = MDB_SET_RANGE;
 		if (val_a.mv_size != 0)
 		{
 			current.first = val_a;
@@ -28,12 +27,9 @@ public:
 		{
 			operation = direction_asc ? MDB_FIRST : MDB_LAST;
 		}
-		auto status2 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, operation));
-		release_assert (status2 == 0 || status2 == MDB_NOTFOUND);
-		if (status2 != MDB_NOTFOUND)
+		if (::lmdb::cursor_get (cursor, &current.first.value, &current.second.value, operation))
 		{
-			auto status3 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_GET_CURRENT));
-			release_assert (status3 == 0 || status3 == MDB_NOTFOUND);
+			::lmdb::cursor_get (cursor, &current.first.value, &current.second.value, MDB_GET_CURRENT);
 			if (current.first.size () != sizeof (T))
 			{
 				clear ();
@@ -60,16 +56,14 @@ public:
 	{
 		if (cursor != nullptr)
 		{
-			mdb_cursor_close (cursor);
+			cursor.close ();
 		}
 	}
 
 	store::iterator_impl<T, U> & operator++ () override
 	{
 		debug_assert (cursor != nullptr);
-		auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT));
-		release_assert (status == 0 || status == MDB_NOTFOUND);
-		if (status == MDB_NOTFOUND)
+		if (!::lmdb::cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT))
 		{
 			clear ();
 		}
@@ -83,9 +77,7 @@ public:
 	store::iterator_impl<T, U> & operator-- () override
 	{
 		debug_assert (cursor != nullptr);
-		auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_PREV));
-		release_assert (status == 0 || status == MDB_NOTFOUND);
-		if (status == MDB_NOTFOUND)
+		if (!::lmdb::cursor_get (cursor, &current.first.value, &current.second.value, MDB_PREV))
 		{
 			clear ();
 		}
@@ -155,7 +147,7 @@ public:
 	{
 		if (cursor != nullptr)
 		{
-			mdb_cursor_close (cursor);
+			cursor.close ();
 		}
 		cursor = other_a.cursor;
 		other_a.cursor = nullptr;
@@ -165,7 +157,7 @@ public:
 	}
 
 	store::iterator_impl<T, U> & operator= (store::iterator_impl<T, U> const &) = delete;
-	MDB_cursor * cursor{ nullptr };
+	::lmdb::cursor cursor;
 	std::pair<store::db_val<MDB_val>, store::db_val<MDB_val>> current;
 };
 
@@ -176,7 +168,7 @@ template <typename T, typename U>
 class merge_iterator : public iterator_impl<T, U>
 {
 public:
-	merge_iterator (store::transaction const & transaction_a, MDB_dbi db1_a, MDB_dbi db2_a) :
+	merge_iterator (store::transaction const & transaction_a, ::lmdb::dbi const & db1_a, ::lmdb::dbi const & db2_a) :
 		impl1 (std::make_unique<nano::store::lmdb::iterator<T, U>> (transaction_a, db1_a)),
 		impl2 (std::make_unique<nano::store::lmdb::iterator<T, U>> (transaction_a, db2_a))
 	{
@@ -188,7 +180,7 @@ public:
 	{
 	}
 
-	merge_iterator (store::transaction const & transaction_a, MDB_dbi db1_a, MDB_dbi db2_a, MDB_val const & val_a) :
+	merge_iterator (store::transaction const & transaction_a, ::lmdb::dbi const & db1_a, ::lmdb::dbi const & db2_a, MDB_val const & val_a) :
 		impl1 (std::make_unique<nano::store::lmdb::iterator<T, U>> (transaction_a, db1_a, val_a)),
 		impl2 (std::make_unique<nano::store::lmdb::iterator<T, U>> (transaction_a, db2_a, val_a))
 	{
@@ -282,7 +274,7 @@ private:
 		}
 		else
 		{
-			auto key_cmp (mdb_cmp (mdb_cursor_txn (impl1->cursor), mdb_cursor_dbi (impl1->cursor), impl1->current.first, impl2->current.first));
+			auto key_cmp (mdb_cmp (impl1->cursor.txn (), impl1->cursor.dbi (), impl1->current.first, impl2->current.first));
 
 			if (key_cmp < 0)
 			{
@@ -296,7 +288,7 @@ private:
 			}
 			else
 			{
-				auto val_cmp (mdb_cmp (mdb_cursor_txn (impl1->cursor), mdb_cursor_dbi (impl1->cursor), impl1->current.second, impl2->current.second));
+				auto val_cmp (mdb_cmp (impl1->cursor.txn (), impl1->cursor.dbi (), impl1->current.second, impl2->current.second));
 				result = val_cmp < 0 ? impl1.get () : impl2.get ();
 				from_first_database = (result == impl1.get ());
 			}

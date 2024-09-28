@@ -3,7 +3,6 @@
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/store/component.hpp>
-#include <nano/store/lmdb/lmdb_env.hpp>
 #include <nano/store/lmdb/transaction_impl.hpp>
 
 #include <boost/format.hpp>
@@ -35,8 +34,7 @@ private:
 };
 }
 
-nano::store::lmdb::read_transaction_impl::read_transaction_impl (nano::store::lmdb::env const & environment_a, nano::store::lmdb::txn_callbacks txn_callbacks_a) :
-	store::read_transaction_impl (environment_a.store_id),
+nano::store::lmdb::read_transaction_impl::read_transaction_impl (::lmdb::env const & environment_a, nano::store::lmdb::txn_callbacks txn_callbacks_a) :
 	txn_callbacks (txn_callbacks_a)
 {
 	auto status (mdb_txn_begin (environment_a, nullptr, MDB_RDONLY, &handle));
@@ -70,8 +68,7 @@ void * nano::store::lmdb::read_transaction_impl::get_handle () const
 	return handle;
 }
 
-nano::store::lmdb::write_transaction_impl::write_transaction_impl (nano::store::lmdb::env const & environment_a, nano::store::lmdb::txn_callbacks txn_callbacks_a) :
-	store::write_transaction_impl (environment_a.store_id),
+nano::store::lmdb::write_transaction_impl::write_transaction_impl (::lmdb::env const & environment_a, nano::store::lmdb::txn_callbacks txn_callbacks_a) :
 	env (environment_a),
 	txn_callbacks (txn_callbacks_a)
 {

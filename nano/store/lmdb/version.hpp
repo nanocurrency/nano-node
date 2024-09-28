@@ -3,6 +3,7 @@
 #include <nano/store/version.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdbxx/lmdb++.h>
 
 namespace nano::store::lmdb
 {
@@ -20,6 +21,6 @@ public:
 	 * Meta information about block store, such as versions.
 	 * nano::uint256_union (arbitrary key) -> blob
 	 */
-	MDB_dbi meta_handle{ 0 };
+	::lmdb::dbi meta_handle;
 };
 } // namespace nano::store::lmdb

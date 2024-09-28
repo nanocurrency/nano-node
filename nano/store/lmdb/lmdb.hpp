@@ -12,7 +12,6 @@
 #include <nano/store/lmdb/db_val.hpp>
 #include <nano/store/lmdb/final_vote.hpp>
 #include <nano/store/lmdb/iterator.hpp>
-#include <nano/store/lmdb/lmdb_env.hpp>
 #include <nano/store/lmdb/online_weight.hpp>
 #include <nano/store/lmdb/peer.hpp>
 #include <nano/store/lmdb/pending.hpp>
@@ -24,7 +23,7 @@
 
 #include <boost/optional.hpp>
 
-#include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdbxx/lmdb++.h>
 
 namespace nano
 {
@@ -71,7 +70,7 @@ public:
 
 	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) override;
 
-	static void create_backup_file (nano::store::lmdb::env &, std::filesystem::path const &, nano::logger &);
+	static void create_backup_file (::lmdb::env &, std::filesystem::path const &, nano::logger &);
 
 	void serialize_memory_stats (boost::property_tree::ptree &) override;
 
@@ -82,7 +81,7 @@ private:
 	bool error{ false };
 
 public:
-	nano::store::lmdb::env env;
+	::lmdb::env env;
 
 	bool exists (store::transaction const & transaction_a, tables table_a, nano::store::lmdb::db_val const & key_a) const;
 
@@ -107,7 +106,7 @@ public:
 
 	bool init_error () const override;
 
-	uint64_t count (store::transaction const &, MDB_dbi) const;
+	uint64_t count (store::transaction const &, ::lmdb::dbi const &) const;
 	std::string error_string (int status) const override;
 
 private:
@@ -116,10 +115,10 @@ private:
 	void upgrade_v22_to_v23 (store::write_transaction &);
 	void upgrade_v23_to_v24 (store::write_transaction &);
 
-	void open_databases (bool &, store::transaction const &, unsigned);
+	void open_databases (store::transaction const &, unsigned);
 
 	int drop (store::write_transaction const & transaction_a, tables table_a) override;
-	int clear (store::write_transaction const & transaction_a, MDB_dbi handle_a);
+	void clear (store::write_transaction const & transaction_a, ::lmdb::dbi & handle_a);
 
 	bool not_found (int status) const override;
 	bool success (int status) const override;
@@ -132,7 +131,8 @@ private:
 	}
 	int status_code_not_found () const override;
 
-	MDB_dbi table_to_dbi (tables table_a) const;
+	auto table_to_dbi (tables table_a) -> ::lmdb::dbi &;
+	auto table_to_dbi (tables table_a) const -> ::lmdb::dbi const &;
 
 	mutable nano::mdb_txn_tracker mdb_txn_tracker;
 	nano::store::lmdb::txn_callbacks create_txn_callbacks () const;
@@ -157,5 +157,7 @@ private:
 	friend class mdb_block_store_supported_version_upgrades_Test;
 	friend class mdb_block_store_upgrade_v21_v22_Test;
 	friend class block_store_DISABLED_change_dupsort_Test;
+
+	nano::id_t const store_id{ nano::next_id () };
 };
 } // namespace nano::store::lmdb

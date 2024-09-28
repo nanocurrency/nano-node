@@ -3,6 +3,7 @@
 #include <nano/store/pending.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
+#include <lmdbxx/lmdb++.h>
 
 namespace nano::store::lmdb
 {
@@ -28,21 +29,9 @@ public:
 	void for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::pending_key, nano::pending_info>, store::iterator<nano::pending_key, nano::pending_info>)> const & action_a) const override;
 
 	/**
-	 * Maps min_version 0 (destination account, pending block) to (source account, amount). (Removed)
-	 * nano::account, nano::block_hash -> nano::account, nano::amount
-	 */
-	MDB_dbi pending_v0_handle{ 0 };
-
-	/**
-	 * Maps min_version 1 (destination account, pending block) to (source account, amount). (Removed)
-	 * nano::account, nano::block_hash -> nano::account, nano::amount
-	 */
-	MDB_dbi pending_v1_handle{ 0 };
-
-	/**
 	 * Maps (destination account, pending block) to (source account, amount, version). (Removed)
 	 * nano::account, nano::block_hash -> nano::account, nano::amount, nano::epoch
 	 */
-	MDB_dbi pending_handle{ 0 };
+	::lmdb::dbi pending_handle;
 };
 } // namespace nano::store::lmdb

@@ -61,7 +61,7 @@ void nano::store::lmdb::final_vote::clear (store::write_transaction const & tran
 
 void nano::store::lmdb::final_vote::clear (store::write_transaction const & transaction_a)
 {
-	store.drop (transaction_a, nano::tables::final_votes);
+	store.clear (transaction_a, store.table_to_dbi (nano::tables::final_votes));
 }
 
 nano::store::iterator<nano::qualified_root, nano::block_hash> nano::store::lmdb::final_vote::begin (store::transaction const & transaction, nano::qualified_root const & root) const

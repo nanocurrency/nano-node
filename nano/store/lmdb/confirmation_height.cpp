@@ -56,7 +56,7 @@ void nano::store::lmdb::confirmation_height::clear (store::write_transaction con
 
 void nano::store::lmdb::confirmation_height::clear (store::write_transaction const & transaction_a)
 {
-	store.drop (transaction_a, nano::tables::confirmation_height);
+	store.clear (transaction_a, store.table_to_dbi (nano::tables::confirmation_height));
 }
 
 nano::store::iterator<nano::account, nano::confirmation_height_info> nano::store::lmdb::confirmation_height::begin (store::transaction const & transaction, nano::account const & account) const

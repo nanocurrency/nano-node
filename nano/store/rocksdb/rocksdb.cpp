@@ -440,12 +440,12 @@ nano::store::write_transaction nano::store::rocksdb::component::tx_begin_write (
 	// Tables must be kept in alphabetical order. These can be used for mutex locking, so order is important to prevent deadlocking
 	debug_assert (std::is_sorted (tables_requiring_locks_a.begin (), tables_requiring_locks_a.end ()));
 
-	return store::write_transaction{ std::move (txn) };
+	return store::write_transaction{ std::move (txn), store_id };
 }
 
 nano::store::read_transaction nano::store::rocksdb::component::tx_begin_read () const
 {
-	return store::read_transaction{ std::make_unique<nano::store::rocksdb::read_transaction_impl> (db.get ()) };
+	return store::read_transaction{ std::make_unique<nano::store::rocksdb::read_transaction_impl> (db.get ()), store_id };
 }
 
 std::string nano::store::rocksdb::component::vendor_get () const

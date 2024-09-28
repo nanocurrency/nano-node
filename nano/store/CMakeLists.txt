@@ -16,15 +16,16 @@ add_library(
   lmdb/final_vote.hpp
   lmdb/iterator.hpp
   lmdb/lmdb.hpp
-  lmdb/lmdb_env.hpp
   lmdb/iterator.hpp
   lmdb/transaction_impl.hpp
   lmdb/online_weight.hpp
+  lmdb/options.hpp
   lmdb/peer.hpp
   lmdb/pending.hpp
   lmdb/pruned.hpp
   lmdb/rep_weight.hpp
   lmdb/transaction_impl.hpp
+  lmdb/utility.hpp
   lmdb/version.hpp
   lmdb/wallet_value.hpp
   online_weight.hpp
@@ -64,13 +65,14 @@ add_library(
   lmdb/db_val.cpp
   lmdb/final_vote.cpp
   lmdb/lmdb.cpp
-  lmdb/lmdb_env.cpp
   lmdb/transaction.cpp
   lmdb/online_weight.cpp
+  lmdb/options.cpp
   lmdb/peer.cpp
   lmdb/pending.cpp
   lmdb/pruned.cpp
   lmdb/rep_weight.cpp
+  lmdb/utility.cpp
   lmdb/version.cpp
   lmdb/wallet_value.cpp
   online_weight.cpp

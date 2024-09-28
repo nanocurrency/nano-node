@@ -34,7 +34,9 @@ if(COVERAGE)
 endif()
 
 if(MSVC)
-  add_definitions(/MP)
+  add_compile_options(/MP)
+  add_compile_options(/Zc:__cplusplus) # Tell MSVC to emit correct version
+                                       # number in the __cplusplus macro
 endif()
 
 set(CPACK_PACKAGE_VENDOR "Nano Currency")
@@ -673,6 +675,9 @@ add_library(
   submodules/lmdb/libraries/liblmdb/lmdb.h
   submodules/lmdb/libraries/liblmdb/mdb.c
   submodules/lmdb/libraries/liblmdb/midl.c)
+
+include_directories(submodules/lmdb/libraries/liblmdb)
+include_directories(submodules/lmdbxx/include)
 
 if(WIN32)
   target_link_libraries(lmdb ntdll)
