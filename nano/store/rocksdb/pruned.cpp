@@ -1,25 +1,26 @@
 #include <nano/secure/parallel_traversal.hpp>
 #include <nano/store/rocksdb/pruned.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/utility.hpp>
 
 nano::store::rocksdb::pruned::pruned (nano::store::rocksdb::component & store_a) :
 	store{ store_a } {};
 
 void nano::store::rocksdb::pruned::put (store::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	auto status = store.put (transaction_a, store.table_to_column_family (tables::pruned), hash_a, nullptr);
+	auto status = rocksdb::put (transaction_a, store.table_to_column_family (tables::pruned), hash_a, nullptr);
 	store.release_assert_success (status);
 }
 
 void nano::store::rocksdb::pruned::del (store::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	auto status = store.del (transaction_a, store.table_to_column_family (tables::pruned), hash_a);
+	auto status = rocksdb::del (transaction_a, store.table_to_column_family (tables::pruned), hash_a);
 	store.release_assert_success (status);
 }
 
 bool nano::store::rocksdb::pruned::exists (store::transaction const & transaction, nano::block_hash const & hash_a) const
 {
-	return store.exists (transaction, store.table_to_column_family (tables::pruned), hash_a);
+	return rocksdb::exists (transaction, store.table_to_column_family (tables::pruned), hash_a);
 }
 
 nano::block_hash nano::store::rocksdb::pruned::random (store::transaction const & transaction)
