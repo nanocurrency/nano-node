@@ -78,8 +78,6 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 
 	debug_assert (path_a.filename () == "rocksdb");
 
-	generate_tombstone_map ();
-
 	// TODO: get_db_options () registers a listener for resetting tombstones, needs to check if it is a problem calling it more than once.
 	auto options = get_db_options ();
 
@@ -386,13 +384,6 @@ void nano::store::rocksdb::component::upgrade_v23_to_v24 (store::write_transacti
 	logger.info (nano::log::type::rocksdb, "Upgrading database from v23 to v24 completed");
 }
 
-void nano::store::rocksdb::component::generate_tombstone_map ()
-{
-	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::blocks), std::forward_as_tuple (0, 25000));
-	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::accounts), std::forward_as_tuple (0, 25000));
-	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::pending), std::forward_as_tuple (0, 25000));
-}
-
 rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_cf_options (std::string const & cf_name_a) const
 {
 	::rocksdb::ColumnFamilyOptions cf_options;
@@ -534,28 +525,7 @@ int nano::store::rocksdb::component::del (store::write_transaction const & trans
 	debug_assert (transaction_a.contains (table_a));
 	// RocksDB does not report not_found status, it is a pre-condition that the key exists
 	debug_assert (exists (transaction_a, table_a, key_a));
-	flush_tombstones_check (table_a);
 	return tx (transaction_a)->Delete (table_to_column_family (table_a), key_a).code ();
-}
-
-void nano::store::rocksdb::component::flush_tombstones_check (tables table_a)
-{
-	// Update the number of deletes for some tables, and force a flush if there are too many tombstones
-	// as it can affect read performance.
-	if (auto it = tombstone_map.find (table_a); it != tombstone_map.end ())
-	{
-		auto & tombstone_info = it->second;
-		if (++tombstone_info.num_since_last_flush > tombstone_info.max)
-		{
-			tombstone_info.num_since_last_flush = 0;
-			flush_table (table_a);
-		}
-	}
-}
-
-void nano::store::rocksdb::component::flush_table (nano::tables table_a)
-{
-	db->Flush (::rocksdb::FlushOptions{}, table_to_column_family (table_a));
 }
 
 rocksdb::Transaction * nano::store::rocksdb::component::tx (store::transaction const & transaction_a) const
@@ -739,11 +709,6 @@ rocksdb::Options nano::store::rocksdb::component::get_db_options ()
 	// Not compressing any SST files for compatibility reasons.
 	db_options.compression = ::rocksdb::kNoCompression;
 
-	auto event_listener_l = new event_listener ([this] (::rocksdb::FlushJobInfo const & flush_job_info_a) {
-		this->on_flush (flush_job_info_a);
-	});
-	db_options.listeners.emplace_back (event_listener_l);
-
 	return db_options;
 }
 
@@ -766,15 +731,6 @@ rocksdb::BlockBasedTableOptions nano::store::rocksdb::component::get_table_optio
 	table_options.filter_policy.reset (::rocksdb::NewBloomFilterPolicy (10, false));
 
 	return table_options;
-}
-
-void nano::store::rocksdb::component::on_flush (::rocksdb::FlushJobInfo const & flush_job_info_a)
-{
-	// Reset appropriate tombstone counters
-	if (auto it = tombstone_map.find (cf_name_table_map[flush_job_info_a.cf_name.c_str ()]); it != tombstone_map.end ())
-	{
-		it->second.num_since_last_flush = 0;
-	}
 }
 
 std::vector<nano::tables> nano::store::rocksdb::component::all_tables () const
@@ -918,10 +874,4 @@ unsigned nano::store::rocksdb::component::max_block_write_batch_num () const
 std::string nano::store::rocksdb::component::error_string (int status) const
 {
 	return std::to_string (status);
-}
-
-nano::store::rocksdb::component::tombstone_info::tombstone_info (uint64_t num_since_last_flush_a, uint64_t const max_a) :
-	num_since_last_flush (num_since_last_flush_a),
-	max (max_a)
-{
 }
