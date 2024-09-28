@@ -115,7 +115,7 @@ TEST (buckets, construction)
 	ASSERT_EQ (63, buckets.bucket_count ());
 }
 
-TEST (buckets, insert_Gxrb)
+TEST (buckets, insert_Knano)
 {
 	nano::scheduler::buckets buckets;
 	buckets.push (1000, block0 (), nano::Knano_ratio);

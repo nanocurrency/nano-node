@@ -857,7 +857,7 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 
 	nano::state_block_builder builder;
 
-	// send Gxrb_ratio raw from genesis to genesis
+	// send Knano_ratio raw from genesis to genesis
 	auto send1 = builder
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (nano::dev::genesis->hash ())
@@ -906,7 +906,7 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 				   .work (*node0->work_generate_blocking (change1->hash ()))
 				   .build ();
 
-	// send Gxrb_ratio from genesis to key1 and genesis rep back to genesis account
+	// send Knano_ratio from genesis to key1 and genesis rep back to genesis account
 	auto send2 = builder
 				 .make_block ()
 				 .account (nano::dev::genesis_key.pub)
@@ -930,7 +930,7 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 					.work (*node0->work_generate_blocking (key1.pub))
 					.build ();
 
-	// send Gxrb_ratio raw, all available balance, from key1 to key2
+	// send all available balance from key1 to key2
 	auto send3 = builder
 				 .make_block ()
 				 .account (key1.pub)
@@ -1232,7 +1232,7 @@ TEST (bootstrap_processor, lazy_destinations)
 
 	nano::block_builder builder;
 
-	// send Gxrb_ratio raw from genesis to key1
+	// send Knano_ratio raw from genesis to key1
 	auto send1 = builder
 				 .state ()
 				 .account (nano::dev::genesis_key.pub)
@@ -1245,7 +1245,7 @@ TEST (bootstrap_processor, lazy_destinations)
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node1->process (send1));
 
-	// send Gxrb_ratio raw from genesis to key2
+	// send Knano_ratio raw from genesis to key2
 	auto send2 = builder
 				 .state ()
 				 .account (nano::dev::genesis_key.pub)
