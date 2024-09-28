@@ -1,5 +1,6 @@
 #include <nano/store/rocksdb/online_weight.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/utility.hpp>
 
 nano::store::rocksdb::online_weight::online_weight (nano::store::rocksdb::component & store_a) :
 	store{ store_a }
@@ -8,13 +9,13 @@ nano::store::rocksdb::online_weight::online_weight (nano::store::rocksdb::compon
 
 void nano::store::rocksdb::online_weight::put (store::write_transaction const & transaction, uint64_t time, nano::amount const & amount)
 {
-	auto status = store.put (transaction, store.table_to_column_family (tables::online_weight), time, amount);
+	auto status = rocksdb::put (transaction, store.table_to_column_family (tables::online_weight), time, amount);
 	store.release_assert_success (status);
 }
 
 void nano::store::rocksdb::online_weight::del (store::write_transaction const & transaction, uint64_t time)
 {
-	auto status = store.del (transaction, store.table_to_column_family (tables::online_weight), time);
+	auto status = rocksdb::del (transaction, store.table_to_column_family (tables::online_weight), time);
 	store.release_assert_success (status);
 }
 

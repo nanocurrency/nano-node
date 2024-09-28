@@ -1,12 +1,13 @@
 #include <nano/store/rocksdb/peer.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/utility.hpp>
 
 nano::store::rocksdb::peer::peer (nano::store::rocksdb::component & store) :
 	store{ store } {};
 
 void nano::store::rocksdb::peer::put (store::write_transaction const & transaction, nano::endpoint_key const & endpoint, nano::millis_t timestamp)
 {
-	auto status = store.put (transaction, store.table_to_column_family (tables::peers), endpoint, timestamp);
+	auto status = rocksdb::put (transaction, store.table_to_column_family (tables::peers), endpoint, timestamp);
 	store.release_assert_success (status);
 }
 
@@ -14,7 +15,7 @@ nano::millis_t nano::store::rocksdb::peer::get (store::transaction const & trans
 {
 	nano::millis_t result{ 0 };
 	db_val value;
-	auto status = store.get (transaction, store.table_to_column_family (tables::peers), endpoint, value);
+	auto status = rocksdb::get (transaction, store.table_to_column_family (tables::peers), endpoint, value);
 	release_assert (store.success (status) || store.not_found (status));
 	if (store.success (status) && value.size () > 0)
 	{
@@ -25,13 +26,13 @@ nano::millis_t nano::store::rocksdb::peer::get (store::transaction const & trans
 
 void nano::store::rocksdb::peer::del (store::write_transaction const & transaction, nano::endpoint_key const & endpoint)
 {
-	auto status = store.del (transaction, store.table_to_column_family (tables::peers), endpoint);
+	auto status = rocksdb::del (transaction, store.table_to_column_family (tables::peers), endpoint);
 	store.release_assert_success (status);
 }
 
 bool nano::store::rocksdb::peer::exists (store::transaction const & transaction, nano::endpoint_key const & endpoint) const
 {
-	return store.exists (transaction, store.table_to_column_family (tables::peers), endpoint);
+	return rocksdb::exists (transaction, store.table_to_column_family (tables::peers), endpoint);
 }
 
 size_t nano::store::rocksdb::peer::count (store::transaction const & transaction) const

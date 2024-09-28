@@ -12,20 +12,6 @@
 #include <rocksdb/slice.h>
 #include <rocksdb/utilities/transaction.h>
 
-namespace
-{
-inline bool is_read (nano::store::transaction const & transaction_a)
-{
-	return (dynamic_cast<nano::store::read_transaction const *> (&transaction_a) != nullptr);
-}
-
-inline rocksdb::ReadOptions & snapshot_options (nano::store::transaction const & transaction_a)
-{
-	debug_assert (is_read (transaction_a));
-	return *static_cast<rocksdb::ReadOptions *> (transaction_a.get_handle ());
-}
-}
-
 namespace nano::store::rocksdb
 {
 template <typename T, typename U>
@@ -37,19 +23,7 @@ public:
 	iterator (::rocksdb::DB * db, store::transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * handle_a, db_val const * val_a, bool const direction_asc) :
 		nano::store::iterator_impl<T, U> (transaction_a)
 	{
-		// Don't fill the block cache for any blocks read as a result of an iterator
-		if (is_read (transaction_a))
-		{
-			auto read_options = snapshot_options (transaction_a);
-			read_options.fill_cache = false;
-			cursor.reset (db->NewIterator (read_options, handle_a));
-		}
-		else
-		{
-			::rocksdb::ReadOptions ropts;
-			ropts.fill_cache = false;
-			cursor.reset (rocksdb::tx (transaction_a)->GetIterator (ropts, handle_a));
-		}
+		cursor.reset (rocksdb::iter (transaction_a, handle_a));
 
 		if (val_a)
 		{

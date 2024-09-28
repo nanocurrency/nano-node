@@ -19,8 +19,7 @@ public:
 	void * get_handle () const override;
 
 private:
-	::rocksdb::DB * db;
-	::rocksdb::ReadOptions options;
+	std::pair<::rocksdb::DB *, ::rocksdb::ReadOptions> internals;
 };
 
 class write_transaction_impl final : public store::write_transaction_impl
@@ -36,8 +35,7 @@ public:
 private:
 	bool check_no_write_tx () const;
 
-	::rocksdb::Transaction * txn;
-	::rocksdb::TransactionDB * db;
+	std::pair<::rocksdb::TransactionDB *, ::rocksdb::Transaction *> internals;
 	bool active{ true };
 };
 }

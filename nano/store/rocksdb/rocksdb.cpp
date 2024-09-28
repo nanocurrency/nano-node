@@ -336,13 +336,13 @@ void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transacti
 		{
 			nano::uint128_t total{ 0 };
 			nano::store::rocksdb::db_val value;
-			auto status = get (transaction, table_to_column_family (tables::rep_weights), account_info.representative, value);
+			auto status = rocksdb::get (transaction, table_to_column_family (tables::rep_weights), account_info.representative, value);
 			if (success (status))
 			{
 				total = nano::amount{ value }.number ();
 			}
 			total += account_info.balance.number ();
-			status = put (transaction, table_to_column_family (tables::rep_weights), account_info.representative, nano::amount{ total });
+			status = rocksdb::put (transaction, table_to_column_family (tables::rep_weights), account_info.representative, nano::amount{ total });
 			release_assert_success (status);
 		}
 
@@ -503,60 +503,6 @@ rocksdb::ColumnFamilyHandle * nano::store::rocksdb::component::table_to_column_f
 	}
 }
 
-bool nano::store::rocksdb::component::exists (store::transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * table_a, nano::store::rocksdb::db_val const & key_a) const
-{
-	::rocksdb::PinnableSlice slice;
-	::rocksdb::Status status;
-	if (is_read (transaction_a))
-	{
-		status = db->Get (snapshot_options (transaction_a), table_a, key_a, &slice);
-	}
-	else
-	{
-		::rocksdb::ReadOptions options;
-		options.fill_cache = false;
-		status = rocksdb::tx (transaction_a)->Get (options, table_a, key_a, &slice);
-	}
-
-	return (status.ok ());
-}
-
-int nano::store::rocksdb::component::del (store::write_transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * table_a, nano::store::rocksdb::db_val const & key_a)
-{
-	// RocksDB does not report not_found status, it is a pre-condition that the key exists
-	debug_assert (exists (transaction_a, table_a, key_a));
-	return tx (transaction_a)->Delete (table_a, key_a).code ();
-}
-
-int nano::store::rocksdb::component::get (store::transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val & value_a) const
-{
-	::rocksdb::ReadOptions options;
-	::rocksdb::PinnableSlice slice;
-	::rocksdb::Status status;
-	if (is_read (transaction_a))
-	{
-		status = db->Get (snapshot_options (transaction_a), table_a, key_a, &slice);
-	}
-	else
-	{
-		status = tx (transaction_a)->Get (options, table_a, key_a, &slice);
-	}
-
-	if (status.ok ())
-	{
-		value_a.buffer = std::make_shared<std::vector<uint8_t>> (slice.size ());
-		std::memcpy (value_a.buffer->data (), slice.data (), slice.size ());
-		value_a.convert_buffer_to_value ();
-	}
-	return status.code ();
-}
-
-int nano::store::rocksdb::component::put (store::write_transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val const & value_a)
-{
-	auto txn = tx (transaction_a);
-	return txn->Put (table_a, key_a, value_a).code ();
-}
-
 bool nano::store::rocksdb::component::not_found (int status) const
 {
 	return (status_code_not_found () == status);
@@ -575,69 +521,30 @@ int nano::store::rocksdb::component::status_code_not_found () const
 uint64_t nano::store::rocksdb::component::count (store::transaction const & transaction_a, tables table_a) const
 {
 	uint64_t sum = 0;
-	// Peers/online weight are small enough that they can just be iterated to get accurate counts.
-	if (table_a == tables::peers)
+	switch (table_a)
 	{
-		for (auto i (peer.begin (transaction_a)), n (peer.end ()); i != n; ++i)
-		{
-			++sum;
-		}
-	}
-	else if (table_a == tables::online_weight)
-	{
-		for (auto i (online_weight.begin (transaction_a)), n (online_weight.end ()); i != n; ++i)
-		{
-			++sum;
-		}
-	}
-	// This should be correct at node start, later only cache should be used
-	else if (table_a == tables::pruned)
-	{
-		db->GetIntProperty (table_to_column_family (table_a), "rocksdb.estimate-num-keys", &sum);
-	}
-	// This should be accurate as long as there continues to be no deletes or duplicate entries.
-	else if (table_a == tables::final_votes)
-	{
-		db->GetIntProperty (table_to_column_family (table_a), "rocksdb.estimate-num-keys", &sum);
-	}
-	// Accounts and blocks should only be used in tests and CLI commands to check database consistency
-	// otherwise there can be performance issues.
-	else if (table_a == tables::accounts)
-	{
-		for (auto i (account.begin (transaction_a)), n (account.end ()); i != n; ++i)
-		{
-			++sum;
-		}
-	}
-	else if (table_a == tables::blocks)
-	{
+		// Peers/online weight are small enough that they can just be iterated to get accurate counts.
+		case tables::peers:
+		case tables::online_weight:
+		// Accounts and blocks should only be used in tests and CLI commands to check database consistency
+		// otherwise there can be performance issues.
+		case tables::accounts:
 		// This is also used in some CLI commands
-		for (auto i (block.begin (transaction_a)), n (block.end ()); i != n; ++i)
-		{
-			++sum;
-		}
+		case tables::blocks:
+		case tables::confirmation_height:
+		// rep_weights should only be used in tests otherwise there can be performance issues.
+		case tables::rep_weights:
+			sum = rocksdb::count (transaction_a, table_to_column_family (table_a));
+			break;
+		// This should be correct at node start, later only cache should be used
+		case tables::pruned:
+		// This should be accurate as long as there continues to be no deletes or duplicate entries.
+		case tables::final_votes:
+		default:
+			auto success = db->GetIntProperty (table_to_column_family (table_a), "rocksdb.estimate-num-keys", &sum);
+			release_assert (success);
+			break;
 	}
-	else if (table_a == tables::confirmation_height)
-	{
-		for (auto i (confirmation_height.begin (transaction_a)), n (confirmation_height.end ()); i != n; ++i)
-		{
-			++sum;
-		}
-	}
-	// rep_weights should only be used in tests otherwise there can be performance issues.
-	else if (table_a == tables::rep_weights)
-	{
-		for (auto i (rep_weight.begin (transaction_a)), n (rep_weight.end ()); i != n; ++i)
-		{
-			++sum;
-		}
-	}
-	else
-	{
-		debug_assert (false);
-		db->GetIntProperty (table_to_column_family (table_a), "rocksdb.estimate-num-keys", &sum);
-	}
-
 	return sum;
 }
 
@@ -655,7 +562,7 @@ int nano::store::rocksdb::component::drop (store::write_transaction const & tran
 			int status = 0;
 			for (auto i = peer.begin (transaction_a), n = peer.end (); i != n; ++i)
 			{
-				status = del (transaction_a, table_to_column_family (tables::peers), nano::store::rocksdb::db_val (i->first));
+				status = rocksdb::del (transaction_a, table_to_column_family (tables::peers), nano::store::rocksdb::db_val (i->first));
 				release_assert (success (status));
 			}
 			return status;

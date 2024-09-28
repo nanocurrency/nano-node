@@ -1,11 +1,11 @@
 #include <nano/store/rocksdb/transaction_impl.hpp>
 
-nano::store::rocksdb::read_transaction_impl::read_transaction_impl (::rocksdb::DB * db_a) :
-	db (db_a)
+nano::store::rocksdb::read_transaction_impl::read_transaction_impl (::rocksdb::DB * db_a)
 {
+	internals.first = db_a;
 	if (db_a)
 	{
-		options.snapshot = db_a->GetSnapshot ();
+		internals.second.snapshot = db_a->GetSnapshot ();
 	}
 }
 
@@ -16,42 +16,42 @@ nano::store::rocksdb::read_transaction_impl::~read_transaction_impl ()
 
 void nano::store::rocksdb::read_transaction_impl::reset ()
 {
-	if (db)
+	if (internals.first)
 	{
-		db->ReleaseSnapshot (options.snapshot);
+		internals.first->ReleaseSnapshot (internals.second.snapshot);
 	}
 }
 
 void nano::store::rocksdb::read_transaction_impl::renew ()
 {
-	options.snapshot = db->GetSnapshot ();
+	internals.second.snapshot = internals.first->GetSnapshot ();
 }
 
 void * nano::store::rocksdb::read_transaction_impl::get_handle () const
 {
-	return (void *)&options;
+	return (void *)&internals;
 }
 
-nano::store::rocksdb::write_transaction_impl::write_transaction_impl (::rocksdb::TransactionDB * db_a) :
-	db (db_a)
+nano::store::rocksdb::write_transaction_impl::write_transaction_impl (::rocksdb::TransactionDB * db_a)
 {
+	internals.first = db_a;
 	debug_assert (check_no_write_tx ());
 	::rocksdb::TransactionOptions txn_options;
 	txn_options.set_snapshot = true;
-	txn = db->BeginTransaction (::rocksdb::WriteOptions (), txn_options);
+	internals.second = db_a->BeginTransaction (::rocksdb::WriteOptions (), txn_options);
 }
 
 nano::store::rocksdb::write_transaction_impl::~write_transaction_impl ()
 {
 	commit ();
-	delete txn;
+	delete internals.second;
 }
 
 void nano::store::rocksdb::write_transaction_impl::commit ()
 {
 	if (active)
 	{
-		auto status = txn->Commit ();
+		auto status = internals.second->Commit ();
 		release_assert (status.ok () && "Unable to write to the RocksDB database", status.ToString ());
 		active = false;
 	}
@@ -61,13 +61,13 @@ void nano::store::rocksdb::write_transaction_impl::renew ()
 {
 	::rocksdb::TransactionOptions txn_options;
 	txn_options.set_snapshot = true;
-	db->BeginTransaction (::rocksdb::WriteOptions (), txn_options, txn);
+	internals.first->BeginTransaction (::rocksdb::WriteOptions (), txn_options, internals.second);
 	active = true;
 }
 
 void * nano::store::rocksdb::write_transaction_impl::get_handle () const
 {
-	return txn;
+	return (void *)&internals;
 }
 
 bool nano::store::rocksdb::write_transaction_impl::contains (nano::tables table_a) const
@@ -78,6 +78,6 @@ bool nano::store::rocksdb::write_transaction_impl::contains (nano::tables table_
 bool nano::store::rocksdb::write_transaction_impl::check_no_write_tx () const
 {
 	std::vector<::rocksdb::Transaction *> transactions;
-	db->GetAllPreparedTransactions (&transactions);
+	internals.first->GetAllPreparedTransactions (&transactions);
 	return transactions.empty ();
 }
