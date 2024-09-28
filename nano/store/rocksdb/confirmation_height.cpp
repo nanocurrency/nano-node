@@ -9,14 +9,14 @@ nano::store::rocksdb::confirmation_height::confirmation_height (nano::store::roc
 
 void nano::store::rocksdb::confirmation_height::put (store::write_transaction const & transaction, nano::account const & account, nano::confirmation_height_info const & confirmation_height_info)
 {
-	auto status = store.put (transaction, tables::confirmation_height, account, confirmation_height_info);
+	auto status = store.put (transaction, store.table_to_column_family (tables::confirmation_height), account, confirmation_height_info);
 	store.release_assert_success (status);
 }
 
 bool nano::store::rocksdb::confirmation_height::get (store::transaction const & transaction, nano::account const & account, nano::confirmation_height_info & confirmation_height_info)
 {
 	nano::store::rocksdb::db_val value;
-	auto status = store.get (transaction, tables::confirmation_height, account, value);
+	auto status = store.get (transaction, store.table_to_column_family (tables::confirmation_height), account, value);
 	release_assert (store.success (status) || store.not_found (status));
 	bool result (true);
 	if (store.success (status))
@@ -35,12 +35,12 @@ bool nano::store::rocksdb::confirmation_height::get (store::transaction const & 
 
 bool nano::store::rocksdb::confirmation_height::exists (store::transaction const & transaction, nano::account const & account) const
 {
-	return store.exists (transaction, tables::confirmation_height, account);
+	return store.exists (transaction, store.table_to_column_family (tables::confirmation_height), account);
 }
 
 void nano::store::rocksdb::confirmation_height::del (store::write_transaction const & transaction, nano::account const & account)
 {
-	auto status = store.del (transaction, tables::confirmation_height, account);
+	auto status = store.del (transaction, store.table_to_column_family (tables::confirmation_height), account);
 	store.release_assert_success (status);
 }
 

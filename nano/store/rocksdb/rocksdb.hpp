@@ -73,10 +73,10 @@ public:
 
 	uint64_t count (store::transaction const & transaction_a, tables table_a) const override;
 
-	bool exists (store::transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a) const;
-	int get (store::transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val & value_a) const;
-	int put (store::write_transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val const & value_a);
-	int del (store::write_transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a);
+	bool exists (store::transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * table_a, nano::store::rocksdb::db_val const & key_a) const;
+	int get (store::transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val & value_a) const;
+	int put (store::write_transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val const & value_a);
+	int del (store::write_transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * table_a, nano::store::rocksdb::db_val const & key_a);
 
 	void serialize_memory_stats (boost::property_tree::ptree &) override;
 

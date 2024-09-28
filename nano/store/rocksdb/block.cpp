@@ -45,7 +45,7 @@ void nano::store::rocksdb::block::put (store::write_transaction const & transact
 void nano::store::rocksdb::block::raw_put (store::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_hash const & hash_a)
 {
 	nano::store::rocksdb::db_val value{ data.size (), (void *)data.data () };
-	auto status = store.put (transaction_a, tables::blocks, hash_a, value);
+	auto status = store.put (transaction_a, store.table_to_column_family (tables::blocks), hash_a, value);
 	store.release_assert_success (status);
 }
 
@@ -120,13 +120,13 @@ std::shared_ptr<nano::block> nano::store::rocksdb::block::random (store::transac
 
 void nano::store::rocksdb::block::del (store::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	auto status = store.del (transaction_a, tables::blocks, hash_a);
+	auto status = store.del (transaction_a, store.table_to_column_family (tables::blocks), hash_a);
 	store.release_assert_success (status);
 }
 
 bool nano::store::rocksdb::block::exists (store::transaction const & transaction, nano::block_hash const & hash)
 {
-	return store.exists (transaction, tables::blocks, hash);
+	return store.exists (transaction, store.table_to_column_family (tables::blocks), hash);
 }
 
 uint64_t nano::store::rocksdb::block::count (store::transaction const & transaction_a)
@@ -159,7 +159,7 @@ void nano::store::rocksdb::block::for_each_par (std::function<void (store::read_
 
 void nano::store::rocksdb::block::block_raw_get (store::transaction const & transaction, nano::block_hash const & hash, nano::store::rocksdb::db_val & value) const
 {
-	auto status = store.get (transaction, tables::blocks, hash, value);
+	auto status = store.get (transaction, store.table_to_column_family (tables::blocks), hash, value);
 	release_assert (store.success (status) || store.not_found (status));
 }
 
