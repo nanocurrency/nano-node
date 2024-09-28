@@ -93,9 +93,9 @@ void nano::monitor::run_one ()
 		node.tcp_listener.connection_count (nano::transport::tcp_listener::connection_type::outbound));
 
 		logger.info (nano::log::type::monitor, "Quorum: {} (stake peered: {} | stake online: {})",
-		nano::uint128_union{ node.online_reps.delta () }.format_balance (Mxrb_ratio, 1, true),
-		nano::uint128_union{ node.rep_crawler.total_weight () }.format_balance (Mxrb_ratio, 1, true),
-		nano::uint128_union{ node.online_reps.online () }.format_balance (Mxrb_ratio, 1, true));
+		nano::uint128_union{ node.online_reps.delta () }.format_balance (nano_ratio, 1, true),
+		nano::uint128_union{ node.rep_crawler.total_weight () }.format_balance (nano_ratio, 1, true),
+		nano::uint128_union{ node.online_reps.online () }.format_balance (nano_ratio, 1, true));
 
 		logger.info (nano::log::type::monitor, "Elections active: {} (priority: {} | hinted: {} | optimistic: {})",
 		node.active.size (),
