@@ -35,6 +35,7 @@ void * nano::store::rocksdb::read_transaction_impl::get_handle () const
 nano::store::rocksdb::write_transaction_impl::write_transaction_impl (::rocksdb::TransactionDB * db_a) :
 	db (db_a)
 {
+	debug_assert (check_no_write_tx ());
 	::rocksdb::TransactionOptions txn_options;
 	txn_options.set_snapshot = true;
 	txn = db->BeginTransaction (::rocksdb::WriteOptions (), txn_options);
@@ -72,4 +73,11 @@ void * nano::store::rocksdb::write_transaction_impl::get_handle () const
 bool nano::store::rocksdb::write_transaction_impl::contains (nano::tables table_a) const
 {
 	return true;
+}
+
+bool nano::store::rocksdb::write_transaction_impl::check_no_write_tx () const
+{
+	std::vector<::rocksdb::Transaction *> transactions;
+	db->GetAllPreparedTransactions (&transactions);
+	return transactions.empty ();
 }

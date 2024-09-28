@@ -34,6 +34,8 @@ public:
 	bool contains (nano::tables table_a) const override;
 
 private:
+	bool check_no_write_tx () const;
+
 	::rocksdb::Transaction * txn;
 	::rocksdb::TransactionDB * db;
 	bool active{ true };
