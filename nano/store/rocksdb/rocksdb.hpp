@@ -111,15 +111,6 @@ private:
 	nano::rocksdb_config rocksdb_config;
 	unsigned const max_block_write_batch_num_m;
 
-	class tombstone_info
-	{
-	public:
-		tombstone_info (uint64_t, uint64_t const);
-		std::atomic<uint64_t> num_since_last_flush;
-		uint64_t const max;
-	};
-
-	std::unordered_map<nano::tables, tombstone_info> tombstone_map;
 	std::unordered_map<char const *, nano::tables> cf_name_table_map;
 
 	::rocksdb::Transaction * tx (store::transaction const & transaction_a) const;
@@ -155,10 +146,6 @@ private:
 	::rocksdb::BlockBasedTableOptions get_table_options () const;
 	::rocksdb::ColumnFamilyOptions get_cf_options (std::string const & cf_name_a) const;
 
-	void on_flush (::rocksdb::FlushJobInfo const &);
-	void flush_table (nano::tables table_a);
-	void flush_tombstones_check (nano::tables table_a);
-	void generate_tombstone_map ();
 	std::unordered_map<char const *, nano::tables> create_cf_name_table_map () const;
 
 	std::vector<::rocksdb::ColumnFamilyDescriptor> create_column_families ();
