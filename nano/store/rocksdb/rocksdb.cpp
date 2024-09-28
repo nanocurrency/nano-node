@@ -335,13 +335,13 @@ void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transacti
 		{
 			nano::uint128_t total{ 0 };
 			nano::store::rocksdb::db_val value;
-			auto status = get (transaction, tables::rep_weights, account_info.representative, value);
+			auto status = get (transaction, table_to_column_family (tables::rep_weights), account_info.representative, value);
 			if (success (status))
 			{
 				total = nano::amount{ value }.number ();
 			}
 			total += account_info.balance.number ();
-			status = put (transaction, tables::rep_weights, account_info.representative, nano::amount{ total });
+			status = put (transaction, table_to_column_family (tables::rep_weights), account_info.representative, nano::amount{ total });
 			release_assert_success (status);
 		}
 
@@ -502,30 +502,29 @@ rocksdb::ColumnFamilyHandle * nano::store::rocksdb::component::table_to_column_f
 	}
 }
 
-bool nano::store::rocksdb::component::exists (store::transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a) const
+bool nano::store::rocksdb::component::exists (store::transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * table_a, nano::store::rocksdb::db_val const & key_a) const
 {
 	::rocksdb::PinnableSlice slice;
 	::rocksdb::Status status;
 	if (is_read (transaction_a))
 	{
-		status = db->Get (snapshot_options (transaction_a), table_to_column_family (table_a), key_a, &slice);
+		status = db->Get (snapshot_options (transaction_a), table_a, key_a, &slice);
 	}
 	else
 	{
 		::rocksdb::ReadOptions options;
 		options.fill_cache = false;
-		status = tx (transaction_a)->Get (options, table_to_column_family (table_a), key_a, &slice);
+		status = tx (transaction_a)->Get (options, table_a, key_a, &slice);
 	}
 
 	return (status.ok ());
 }
 
-int nano::store::rocksdb::component::del (store::write_transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a)
+int nano::store::rocksdb::component::del (store::write_transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * table_a, nano::store::rocksdb::db_val const & key_a)
 {
-	debug_assert (transaction_a.contains (table_a));
 	// RocksDB does not report not_found status, it is a pre-condition that the key exists
 	debug_assert (exists (transaction_a, table_a, key_a));
-	return tx (transaction_a)->Delete (table_to_column_family (table_a), key_a).code ();
+	return tx (transaction_a)->Delete (table_a, key_a).code ();
 }
 
 rocksdb::Transaction * nano::store::rocksdb::component::tx (store::transaction const & transaction_a) const
@@ -534,19 +533,18 @@ rocksdb::Transaction * nano::store::rocksdb::component::tx (store::transaction c
 	return static_cast<::rocksdb::Transaction *> (transaction_a.get_handle ());
 }
 
-int nano::store::rocksdb::component::get (store::transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val & value_a) const
+int nano::store::rocksdb::component::get (store::transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val & value_a) const
 {
 	::rocksdb::ReadOptions options;
 	::rocksdb::PinnableSlice slice;
-	auto handle = table_to_column_family (table_a);
 	::rocksdb::Status status;
 	if (is_read (transaction_a))
 	{
-		status = db->Get (snapshot_options (transaction_a), handle, key_a, &slice);
+		status = db->Get (snapshot_options (transaction_a), table_a, key_a, &slice);
 	}
 	else
 	{
-		status = tx (transaction_a)->Get (options, handle, key_a, &slice);
+		status = tx (transaction_a)->Get (options, table_a, key_a, &slice);
 	}
 
 	if (status.ok ())
@@ -558,11 +556,10 @@ int nano::store::rocksdb::component::get (store::transaction const & transaction
 	return status.code ();
 }
 
-int nano::store::rocksdb::component::put (store::write_transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val const & value_a)
+int nano::store::rocksdb::component::put (store::write_transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val const & value_a)
 {
-	debug_assert (transaction_a.contains (table_a));
 	auto txn = tx (transaction_a);
-	return txn->Put (table_to_column_family (table_a), key_a, value_a).code ();
+	return txn->Put (table_a, key_a, value_a).code ();
 }
 
 bool nano::store::rocksdb::component::not_found (int status) const
@@ -663,7 +660,7 @@ int nano::store::rocksdb::component::drop (store::write_transaction const & tran
 			int status = 0;
 			for (auto i = peer.begin (transaction_a), n = peer.end (); i != n; ++i)
 			{
-				status = del (transaction_a, tables::peers, nano::store::rocksdb::db_val (i->first));
+				status = del (transaction_a, table_to_column_family (tables::peers), nano::store::rocksdb::db_val (i->first));
 				release_assert (success (status));
 			}
 			return status;

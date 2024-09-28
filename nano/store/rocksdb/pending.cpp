@@ -7,20 +7,20 @@ nano::store::rocksdb::pending::pending (nano::store::rocksdb::component & store)
 
 void nano::store::rocksdb::pending::put (store::write_transaction const & transaction, nano::pending_key const & key, nano::pending_info const & pending)
 {
-	auto status = store.put (transaction, tables::pending, key, pending);
+	auto status = store.put (transaction, store.table_to_column_family (tables::pending), key, pending);
 	store.release_assert_success (status);
 }
 
 void nano::store::rocksdb::pending::del (store::write_transaction const & transaction, nano::pending_key const & key)
 {
-	auto status = store.del (transaction, tables::pending, key);
+	auto status = store.del (transaction, store.table_to_column_family (tables::pending), key);
 	store.release_assert_success (status);
 }
 
 std::optional<nano::pending_info> nano::store::rocksdb::pending::get (store::transaction const & transaction, nano::pending_key const & key)
 {
 	nano::store::rocksdb::db_val value;
-	auto status1 = store.get (transaction, tables::pending, key, value);
+	auto status1 = store.get (transaction, store.table_to_column_family (tables::pending), key, value);
 	release_assert (store.success (status1) || store.not_found (status1));
 	std::optional<nano::pending_info> result;
 	if (store.success (status1))

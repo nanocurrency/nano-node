@@ -18,7 +18,7 @@ uint64_t nano::store::rocksdb::rep_weight::count (store::transaction const & txn
 nano::uint128_t nano::store::rocksdb::rep_weight::get (store::transaction const & txn_a, nano::account const & representative_a)
 {
 	db_val value;
-	auto status = store.get (txn_a, tables::rep_weights, representative_a, value);
+	auto status = store.get (txn_a, store.table_to_column_family (tables::rep_weights), representative_a, value);
 	release_assert (store.success (status) || store.not_found (status));
 	nano::uint128_t weight{ 0 };
 	if (store.success (status))
@@ -32,13 +32,13 @@ nano::uint128_t nano::store::rocksdb::rep_weight::get (store::transaction const 
 void nano::store::rocksdb::rep_weight::put (store::write_transaction const & txn_a, nano::account const & representative_a, nano::uint128_t const & weight_a)
 {
 	nano::uint128_union weight{ weight_a };
-	auto status = store.put (txn_a, tables::rep_weights, representative_a, weight);
+	auto status = store.put (txn_a, store.table_to_column_family (tables::rep_weights), representative_a, weight);
 	store.release_assert_success (status);
 }
 
 void nano::store::rocksdb::rep_weight::del (store::write_transaction const & txn_a, nano::account const & representative_a)
 {
-	auto status = store.del (txn_a, tables::rep_weights, representative_a);
+	auto status = store.del (txn_a, store.table_to_column_family (tables::rep_weights), representative_a);
 	store.release_assert_success (status);
 }
 
