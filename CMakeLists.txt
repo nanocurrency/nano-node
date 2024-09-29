@@ -739,10 +739,15 @@ if(NANO_TEST OR RAIBLOCKS_TEST)
     gtest PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
                      "${CMAKE_SOURCE_DIR}/submodules/gtest/googletest/include")
 
+  set(BENCHMARK_ENABLE_TESTING OFF)
+  add_subdirectory(submodules/benchmark)
+
   add_subdirectory(nano/test_common)
   add_subdirectory(nano/core_test)
   add_subdirectory(nano/rpc_test)
   add_subdirectory(nano/slow_test)
+  add_subdirectory(nano/benchmarks)
+
   add_custom_target(
     all_tests
     COMMAND echo "BATCH BUILDING TESTS"

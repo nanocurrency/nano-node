@@ -157,6 +157,7 @@ public:
 public:
 	static void initialize (nano::log_config fallback, std::optional<std::filesystem::path> data_path = std::nullopt, std::vector<std::string> const & config_overrides = {});
 	static void initialize_for_tests (nano::log_config fallback);
+	static void initialize_dummy (); // TODO: This is less than ideal, provide `nano::dummy_logger ()` instead
 	static void flush ();
 
 private:
