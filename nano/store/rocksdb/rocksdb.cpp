@@ -3,6 +3,7 @@
 #include <nano/store/rocksdb/iterator.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
 #include <nano/store/rocksdb/transaction_impl.hpp>
+#include <nano/store/rocksdb/utility.hpp>
 #include <nano/store/version.hpp>
 
 #include <boost/format.hpp>
@@ -514,7 +515,7 @@ bool nano::store::rocksdb::component::exists (store::transaction const & transac
 	{
 		::rocksdb::ReadOptions options;
 		options.fill_cache = false;
-		status = tx (transaction_a)->Get (options, table_a, key_a, &slice);
+		status = rocksdb::tx (transaction_a)->Get (options, table_a, key_a, &slice);
 	}
 
 	return (status.ok ());
@@ -525,12 +526,6 @@ int nano::store::rocksdb::component::del (store::write_transaction const & trans
 	// RocksDB does not report not_found status, it is a pre-condition that the key exists
 	debug_assert (exists (transaction_a, table_a, key_a));
 	return tx (transaction_a)->Delete (table_a, key_a).code ();
-}
-
-rocksdb::Transaction * nano::store::rocksdb::component::tx (store::transaction const & transaction_a) const
-{
-	debug_assert (!is_read (transaction_a));
-	return static_cast<::rocksdb::Transaction *> (transaction_a.get_handle ());
 }
 
 int nano::store::rocksdb::component::get (store::transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val & value_a) const
