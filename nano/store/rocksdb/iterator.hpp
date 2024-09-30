@@ -3,6 +3,7 @@
 #include <nano/store/component.hpp>
 #include <nano/store/iterator.hpp>
 #include <nano/store/rocksdb/db_val.hpp>
+#include <nano/store/rocksdb/utility.hpp>
 #include <nano/store/transaction.hpp>
 
 #include <rocksdb/db.h>
@@ -10,20 +11,6 @@
 #include <rocksdb/options.h>
 #include <rocksdb/slice.h>
 #include <rocksdb/utilities/transaction.h>
-
-namespace
-{
-inline bool is_read (nano::store::transaction const & transaction_a)
-{
-	return (dynamic_cast<nano::store::read_transaction const *> (&transaction_a) != nullptr);
-}
-
-inline rocksdb::ReadOptions & snapshot_options (nano::store::transaction const & transaction_a)
-{
-	debug_assert (is_read (transaction_a));
-	return *static_cast<rocksdb::ReadOptions *> (transaction_a.get_handle ());
-}
-}
 
 namespace nano::store::rocksdb
 {
@@ -36,19 +23,26 @@ public:
 	iterator (::rocksdb::DB * db, transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * handle_a, db_val const * val_a, bool const direction_asc) :
 		iterator_impl<T, U> (transaction_a)
 	{
-		// Don't fill the block cache for any blocks read as a result of an iterator
-		if (is_read (transaction_a))
-		{
-			auto read_options = snapshot_options (transaction_a);
-			read_options.fill_cache = false;
-			cursor.reset (db->NewIterator (read_options, handle_a));
-		}
-		else
-		{
-			::rocksdb::ReadOptions ropts;
-			ropts.fill_cache = false;
-			cursor.reset (tx (transaction_a)->GetIterator (ropts, handle_a));
-		}
+		auto internals = rocksdb::tx (transaction_a);
+		auto iterator = std::visit ([&] (auto && ptr) {
+			using V = std::decay_t<decltype(ptr)>;
+			if constexpr (std::is_same_v<V, ::rocksdb::Transaction *>)
+			{
+				::rocksdb::ReadOptions ropts;
+				ropts.fill_cache = false;
+				return ptr->GetIterator (ropts, handle_a);
+			}
+			else if constexpr (std::is_same_v<V, ::rocksdb::ReadOptions *>)
+			{
+				ptr->fill_cache = false;
+				return db->NewIterator (*ptr, handle_a);
+			}
+			else
+			{
+				static_assert (false, "Unsupported variant");
+			}
+		}, internals);
+		cursor.reset (iterator);
 
 		if (val_a)
 		{
@@ -197,11 +191,5 @@ public:
 
 	std::unique_ptr<::rocksdb::Iterator> cursor;
 	std::pair<nano::store::rocksdb::db_val, nano::store::rocksdb::db_val> current;
-
-private:
-	::rocksdb::Transaction * tx (store::transaction const & transaction_a) const
-	{
-		return static_cast<::rocksdb::Transaction *> (transaction_a.get_handle ());
-	}
 };
 }

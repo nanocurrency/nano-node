@@ -47,6 +47,7 @@ add_library(
   rocksdb/rocksdb.hpp
   rocksdb/iterator.hpp
   rocksdb/transaction_impl.hpp
+  rocksdb/utility.hpp
   rocksdb/version.hpp
   tables.hpp
   transaction.hpp
@@ -91,6 +92,7 @@ add_library(
   rocksdb/rep_weight.cpp
   rocksdb/rocksdb.cpp
   rocksdb/transaction.cpp
+  rocksdb/utility.cpp
   rocksdb/version.cpp
   transaction.cpp
   version.cpp
