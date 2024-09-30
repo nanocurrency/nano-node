@@ -3,6 +3,7 @@
 #include <nano/store/component.hpp>
 #include <nano/store/iterator.hpp>
 #include <nano/store/rocksdb/db_val.hpp>
+#include <nano/store/rocksdb/utility.hpp>
 #include <nano/store/transaction.hpp>
 
 #include <rocksdb/db.h>
@@ -47,7 +48,7 @@ public:
 		{
 			::rocksdb::ReadOptions ropts;
 			ropts.fill_cache = false;
-			cursor.reset (tx (transaction_a)->GetIterator (ropts, handle_a));
+			cursor.reset (rocksdb::tx (transaction_a)->GetIterator (ropts, handle_a));
 		}
 
 		if (val_a)
@@ -197,11 +198,5 @@ public:
 
 	std::unique_ptr<::rocksdb::Iterator> cursor;
 	std::pair<nano::store::rocksdb::db_val, nano::store::rocksdb::db_val> current;
-
-private:
-	::rocksdb::Transaction * tx (store::transaction const & transaction_a) const
-	{
-		return static_cast<::rocksdb::Transaction *> (transaction_a.get_handle ());
-	}
 };
 }

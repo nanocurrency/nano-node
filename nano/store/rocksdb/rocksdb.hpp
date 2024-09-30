@@ -113,7 +113,6 @@ private:
 
 	std::unordered_map<char const *, nano::tables> cf_name_table_map;
 
-	::rocksdb::Transaction * tx (store::transaction const & transaction_a) const;
 	std::vector<nano::tables> all_tables () const;
 
 	bool not_found (int status) const override;
