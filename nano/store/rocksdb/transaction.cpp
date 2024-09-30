@@ -32,13 +32,10 @@ void * nano::store::rocksdb::read_transaction_impl::get_handle () const
 	return (void *)&options;
 }
 
-nano::store::rocksdb::write_transaction_impl::write_transaction_impl (::rocksdb::TransactionDB * db_a, std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a, std::unordered_map<nano::tables, nano::mutex> & mutexes_a) :
-	db (db_a),
-	tables_requiring_locks (tables_requiring_locks_a),
-	tables_no_locks (tables_no_locks_a),
-	mutexes (mutexes_a)
+nano::store::rocksdb::write_transaction_impl::write_transaction_impl (::rocksdb::TransactionDB * db_a) :
+	db (db_a)
 {
-	lock ();
+	debug_assert (check_no_write_tx ());
 	::rocksdb::TransactionOptions txn_options;
 	txn_options.set_snapshot = true;
 	txn = db->BeginTransaction (::rocksdb::WriteOptions (), txn_options);
@@ -48,7 +45,6 @@ nano::store::rocksdb::write_transaction_impl::~write_transaction_impl ()
 {
 	commit ();
 	delete txn;
-	unlock ();
 }
 
 void nano::store::rocksdb::write_transaction_impl::commit ()
@@ -74,23 +70,14 @@ void * nano::store::rocksdb::write_transaction_impl::get_handle () const
 	return txn;
 }
 
-void nano::store::rocksdb::write_transaction_impl::lock ()
-{
-	for (auto table : tables_requiring_locks)
-	{
-		mutexes.at (table).lock ();
-	}
-}
-
-void nano::store::rocksdb::write_transaction_impl::unlock ()
-{
-	for (auto table : tables_requiring_locks)
-	{
-		mutexes.at (table).unlock ();
-	}
-}
-
 bool nano::store::rocksdb::write_transaction_impl::contains (nano::tables table_a) const
 {
-	return (std::find (tables_requiring_locks.begin (), tables_requiring_locks.end (), table_a) != tables_requiring_locks.end ()) || (std::find (tables_no_locks.begin (), tables_no_locks.end (), table_a) != tables_no_locks.end ());
+	return true;
+}
+
+bool nano::store::rocksdb::write_transaction_impl::check_no_write_tx () const
+{
+	std::vector<::rocksdb::Transaction *> transactions;
+	db->GetAllPreparedTransactions (&transactions);
+	return transactions.empty ();
 }

@@ -35,7 +35,7 @@ private:
 };
 }
 
-nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a, bool force_use_write_queue) :
+nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
 	// clang-format off
 	nano::store::component{
 		block_store,
@@ -47,8 +47,7 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 		confirmation_height_store,
 		final_vote_store,
 		version_store,
-		rep_weight_store,
-		!force_use_write_queue // write_queue use_noops
+		rep_weight_store
 	},
 	// clang-format on
 	block_store{ *this },
@@ -116,11 +115,6 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 		// Needs to clear the store references before reopening the DB.
 		handles.clear ();
 		db.reset (nullptr);
-	}
-
-	if (!open_read_only_a)
-	{
-		construct_column_family_mutexes ();
 	}
 
 	if (is_fully_upgraded)
@@ -423,24 +417,10 @@ std::vector<rocksdb::ColumnFamilyDescriptor> nano::store::rocksdb::component::cr
 	return column_families;
 }
 
-nano::store::write_transaction nano::store::rocksdb::component::tx_begin_write (std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a)
+nano::store::write_transaction nano::store::rocksdb::component::tx_begin_write ()
 {
-	std::unique_ptr<nano::store::rocksdb::write_transaction_impl> txn;
-	release_assert (db != nullptr);
-	if (tables_requiring_locks_a.empty () && tables_no_locks_a.empty ())
-	{
-		// Use all tables if none are specified
-		txn = std::make_unique<nano::store::rocksdb::write_transaction_impl> (transaction_db, all_tables (), tables_no_locks_a, write_lock_mutexes);
-	}
-	else
-	{
-		txn = std::make_unique<nano::store::rocksdb::write_transaction_impl> (transaction_db, tables_requiring_locks_a, tables_no_locks_a, write_lock_mutexes);
-	}
-
-	// Tables must be kept in alphabetical order. These can be used for mutex locking, so order is important to prevent deadlocking
-	debug_assert (std::is_sorted (tables_requiring_locks_a.begin (), tables_requiring_locks_a.end ()));
-
-	return store::write_transaction{ std::move (txn) };
+	release_assert (transaction_db != nullptr);
+	return store::write_transaction{ std::make_unique<nano::store::rocksdb::write_transaction_impl> (transaction_db) };
 }
 
 nano::store::read_transaction nano::store::rocksdb::component::tx_begin_read () const
@@ -742,14 +722,6 @@ int nano::store::rocksdb::component::clear (::rocksdb::ColumnFamilyHandle * colu
 	release_assert (status.ok ());
 
 	return status.code ();
-}
-
-void nano::store::rocksdb::component::construct_column_family_mutexes ()
-{
-	for (auto table : all_tables ())
-	{
-		write_lock_mutexes.emplace (std::piecewise_construct, std::forward_as_tuple (table), std::forward_as_tuple ());
-	}
 }
 
 rocksdb::Options nano::store::rocksdb::component::get_db_options ()

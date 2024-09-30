@@ -64,9 +64,9 @@ public:
 	friend class nano::store::rocksdb::version;
 	friend class nano::store::rocksdb::rep_weight;
 
-	explicit component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false, bool force_use_write_queue = false);
+	explicit component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
 
-	store::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
+	store::write_transaction tx_begin_write () override;
 	store::read_transaction tx_begin_read () const override;
 
 	std::string vendor_get () const override;
@@ -108,7 +108,6 @@ private:
 	::rocksdb::TransactionDB * transaction_db = nullptr;
 	std::unique_ptr<::rocksdb::DB> db;
 	std::vector<std::unique_ptr<::rocksdb::ColumnFamilyHandle>> handles;
-	std::unordered_map<nano::tables, nano::mutex> write_lock_mutexes;
 	nano::rocksdb_config rocksdb_config;
 	unsigned const max_block_write_batch_num_m;
 
@@ -152,7 +151,6 @@ private:
 	void upgrade_v22_to_v23 (store::write_transaction &);
 	void upgrade_v23_to_v24 (store::write_transaction &);
 
-	void construct_column_family_mutexes ();
 	::rocksdb::Options get_db_options ();
 	::rocksdb::BlockBasedTableOptions get_table_options () const;
 	::rocksdb::ColumnFamilyOptions get_cf_options (std::string const & cf_name_a) const;

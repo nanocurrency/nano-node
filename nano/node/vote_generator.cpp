@@ -123,7 +123,7 @@ void nano::vote_generator::process_batch (std::deque<queue_entry_t> & batch)
 
 	if (is_final)
 	{
-		transaction_variant_t transaction_variant{ ledger.tx_begin_write ({ tables::final_votes }, nano::store::writer::voting_final) };
+		transaction_variant_t transaction_variant{ ledger.tx_begin_write (nano::store::writer::voting_final) };
 
 		verify_batch (transaction_variant, batch);
 

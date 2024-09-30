@@ -54,7 +54,7 @@ class write_queue final
 	friend class write_guard;
 
 public:
-	explicit write_queue (bool use_noops);
+	explicit write_queue ();
 
 	/** Blocks until we are at the head of the queue and blocks other waiters until write_guard goes out of scope */
 	[[nodiscard ("write_guard blocks other waiters")]] write_guard wait (writer writer);
@@ -70,8 +70,6 @@ private:
 	void release (writer writer);
 
 private:
-	bool const use_noops;
-
 	std::deque<writer> queue;
 	mutable nano::mutex mutex;
 	nano::condition_variable condition;

@@ -5819,21 +5819,21 @@ TEST (ledger_transaction, write_wait_order)
 	std::latch latch3{ 1 };
 
 	auto fut1 = std::async (std::launch::async, [&] {
-		auto tx = ctx.ledger ().tx_begin_write ({}, nano::store::writer::generic);
+		auto tx = ctx.ledger ().tx_begin_write (nano::store::writer::generic);
 		acquired1 = true;
 		latch1.wait (); // Wait for the signal to drop tx
 	});
 	WAIT (250ms); // Allow thread to start
 
 	auto fut2 = std::async (std::launch::async, [&ctx, &acquired2, &latch2] {
-		auto tx = ctx.ledger ().tx_begin_write ({}, nano::store::writer::blockprocessor);
+		auto tx = ctx.ledger ().tx_begin_write (nano::store::writer::blockprocessor);
 		acquired2 = true;
 		latch2.wait (); // Wait for the signal to drop tx
 	});
 	WAIT (250ms); // Allow thread to start
 
 	auto fut3 = std::async (std::launch::async, [&ctx, &acquired3, &latch3] {
-		auto tx = ctx.ledger ().tx_begin_write ({}, nano::store::writer::confirmation_height);
+		auto tx = ctx.ledger ().tx_begin_write (nano::store::writer::confirmation_height);
 		acquired3 = true;
 		latch3.wait (); // Wait for the signal to drop tx
 	});

@@ -732,10 +732,10 @@ nano::ledger::~ledger ()
 {
 }
 
-auto nano::ledger::tx_begin_write (std::vector<nano::tables> const & tables_to_lock, nano::store::writer guard_type) const -> secure::write_transaction
+auto nano::ledger::tx_begin_write (nano::store::writer guard_type) const -> secure::write_transaction
 {
 	auto guard = store.write_queue.wait (guard_type);
-	auto txn = store.tx_begin_write (tables_to_lock);
+	auto txn = store.tx_begin_write ();
 	return secure::write_transaction{ std::move (txn), std::move (guard) };
 }
 
@@ -1292,7 +1292,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		std::atomic<std::size_t> count = 0;
 		store.block.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
-			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::blocks }));
+			auto rocksdb_transaction = rocksdb_store->tx_begin_write ();
 			for (; i != n; ++i)
 			{
 				rocksdb_transaction.refresh_if_needed ();
@@ -1317,7 +1317,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		count = 0;
 		store.pending.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
-			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pending }));
+			auto rocksdb_transaction = rocksdb_store->tx_begin_write ();
 			for (; i != n; ++i)
 			{
 				rocksdb_transaction.refresh_if_needed ();
@@ -1335,7 +1335,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		count = 0;
 		store.confirmation_height.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
-			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::confirmation_height }));
+			auto rocksdb_transaction = rocksdb_store->tx_begin_write ();
 			for (; i != n; ++i)
 			{
 				rocksdb_transaction.refresh_if_needed ();
@@ -1353,7 +1353,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		count = 0;
 		store.account.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
-			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::accounts }));
+			auto rocksdb_transaction = rocksdb_store->tx_begin_write ();
 			for (; i != n; ++i)
 			{
 				rocksdb_transaction.refresh_if_needed ();
@@ -1371,7 +1371,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		count = 0;
 		store.rep_weight.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
-			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::rep_weights }));
+			auto rocksdb_transaction = rocksdb_store->tx_begin_write ();
 			for (; i != n; ++i)
 			{
 				rocksdb_transaction.refresh_if_needed ();
@@ -1389,7 +1389,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		count = 0;
 		store.pruned.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
-			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pruned }));
+			auto rocksdb_transaction = rocksdb_store->tx_begin_write ();
 			for (; i != n; ++i)
 			{
 				rocksdb_transaction.refresh_if_needed ();
@@ -1407,7 +1407,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		count = 0;
 		store.final_vote.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
-			auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::final_votes }));
+			auto rocksdb_transaction = rocksdb_store->tx_begin_write ();
 			for (; i != n; ++i)
 			{
 				rocksdb_transaction.refresh_if_needed ();

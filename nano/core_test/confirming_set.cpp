@@ -119,7 +119,6 @@ TEST (confirmation_callback, confirmed_history)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
-	node_flags.force_use_write_queue = true;
 	node_flags.disable_ascending_bootstrap = true;
 	nano::node_config node_config = system.default_config ();
 	node_config.backlog_population.enable = false;
@@ -194,7 +193,6 @@ TEST (confirmation_callback, dependent_election)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
-	node_flags.force_use_write_queue = true;
 	nano::node_config node_config = system.default_config ();
 	node_config.backlog_population.enable = false;
 	auto node = system.add_node (node_config, node_flags);

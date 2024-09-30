@@ -1139,13 +1139,13 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	ASSERT_TRUE (!store->init_error ());
 	nano::stats stats{ logger };
 	nano::ledger ledger (*store, stats, nano::dev::constants);
-	nano::store::write_queue write_database_queue (false);
+	nano::store::write_queue write_database_queue;
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	std::atomic<bool> stopped{ false };
 	boost::latch initialized_latch{ 0 };
 
 	nano::block_hash block_hash_being_processed{ 0 };
-	nano::store::write_queue write_queue{ false };
+	nano::store::write_queue write_queue;
 	nano::confirming_set_config confirming_set_config{};
 	nano::confirming_set confirming_set{ confirming_set_config, ledger, stats };
 

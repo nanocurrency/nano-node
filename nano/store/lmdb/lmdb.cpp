@@ -26,8 +26,7 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 		confirmation_height_store,
 		final_vote_store,
 		version_store,
-		rep_weight_store,
-		false // write_queue use_noops
+		rep_weight_store
 	},
 	// clang-format on
 	block_store{ *this },
@@ -163,7 +162,7 @@ void nano::store::lmdb::component::serialize_memory_stats (boost::property_tree:
 	json.put ("page_size", stats.ms_psize);
 }
 
-nano::store::write_transaction nano::store::lmdb::component::tx_begin_write (std::vector<nano::tables> const &, std::vector<nano::tables> const &)
+nano::store::write_transaction nano::store::lmdb::component::tx_begin_write ()
 {
 	return env.tx_begin_write (create_txn_callbacks ());
 }
