@@ -310,15 +310,39 @@ public: // Logging
 	void operator() (nano::object_stream &) const override;
 };
 
+// Indicates type of node
 enum class telemetry_maker : uint8_t
 {
+	// TODO: Default 0 value should be "unknown"
 	nf_node = 0,
 	nf_pruned_node = 1
 };
 
+// Indicates type of database backend
+enum class telemetry_backend : uint8_t
+{
+	unknown = 0,
+	lmdb = 1,
+	rocksdb = 2,
+};
+
+std::string to_string (telemetry_maker);
+telemetry_maker to_telemetry_maker (std::string);
+
+std::string to_string (telemetry_backend);
+telemetry_backend to_telemetry_backend (std::string);
+
 class telemetry_data
 {
 public:
+	enum class version_t
+	{
+		unknown = 0,
+		v1, // Pre V27
+		v2, // V27+
+	};
+
+public: // Payload
 	nano::signature signature{ 0 };
 	nano::account node_id{};
 	uint64_t block_count{ 0 };
@@ -334,23 +358,37 @@ public:
 	uint8_t minor_version{ 0 };
 	uint8_t patch_version{ 0 };
 	uint8_t pre_release_version{ 0 };
-	uint8_t maker{ static_cast<std::underlying_type_t<telemetry_maker>> (telemetry_maker::nf_node) }; // Where this telemetry information originated
+	telemetry_maker maker{ telemetry_maker::nf_node };
 	std::chrono::system_clock::time_point timestamp;
 	uint64_t active_difficulty{ 0 };
+	telemetry_backend database_backend{ telemetry_backend::unknown };
+	uint8_t database_version_major{ 0 };
+	uint8_t database_version_minor{ 0 };
+	uint8_t database_version_patch{ 0 };
+
+	// Remaining data that might be present in future telemetry versions, kept here so we can re-serialize it
+	// TODO: Is supporting re-serialization necessary?
 	std::vector<uint8_t> unknown_data;
 
+private:
+	version_t version{ version_t::v2 };
+
+public:
 	void serialize (nano::stream &) const;
-	void deserialize (nano::stream &, uint16_t);
-	nano::error serialize_json (nano::jsonconfig &, bool) const;
-	nano::error deserialize_json (nano::jsonconfig &, bool);
+	void deserialize (nano::stream &, uint16_t payload_length);
+
+	nano::error serialize_json (nano::jsonconfig &, bool ignore_identification_metrics) const;
+	nano::error deserialize_json (nano::jsonconfig &, bool ignore_identification_metrics);
+
 	void sign (nano::keypair const &);
 	bool validate_signature () const;
-	bool operator== (nano::telemetry_data const &) const;
-	bool operator!= (nano::telemetry_data const &) const;
+
+	bool operator== (nano::telemetry_data const &) const = default;
+	bool operator!= (nano::telemetry_data const &) const = default;
 
 	// Size does not include unknown_data
-	static auto constexpr size = sizeof (signature) + sizeof (node_id) + sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version) + sizeof (minor_version) + sizeof (patch_version) + sizeof (pre_release_version) + sizeof (maker) + sizeof (uint64_t) + sizeof (active_difficulty);
-	static auto constexpr latest_size = size; // This needs to be updated for each new telemetry version
+	// This needs to be updated for each new telemetry version
+	static size_t constexpr size = sizeof (signature) + sizeof (node_id) + sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version) + sizeof (minor_version) + sizeof (patch_version) + sizeof (pre_release_version) + sizeof (maker) + sizeof (uint64_t) + sizeof (active_difficulty) + sizeof (database_backend) + sizeof (database_version_major) + sizeof (database_version_minor) + sizeof (database_version_patch);
 
 private:
 	void serialize_without_signature (nano::stream &) const;
@@ -384,6 +422,8 @@ public:
 	uint16_t size () const;
 	bool is_empty_payload () const;
 	static uint16_t size (nano::message_header const &);
+
+public: // Payload
 	nano::telemetry_data data;
 
 public: // Logging

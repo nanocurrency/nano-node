@@ -16,6 +16,8 @@
 #include <numeric>
 #include <set>
 
+#include <fmt/core.h>
+
 using namespace std::chrono_literals;
 
 nano::telemetry::telemetry (nano::node_flags const & flags_a, nano::node & node_a, nano::network & network_a, nano::node_observers & observers_a, nano::network_params & network_params_a, nano::stats & stats_a) :

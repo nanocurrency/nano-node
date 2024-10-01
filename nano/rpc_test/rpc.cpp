@@ -6796,7 +6796,12 @@ TEST (rpc, telemetry_all)
 		nano::telemetry_data telemetry_data;
 		auto const should_ignore_identification_metrics = true;
 		ASSERT_FALSE (telemetry_data.deserialize_json (config, should_ignore_identification_metrics));
-		ASSERT_TRUE (nano::test::compare_telemetry_data (telemetry_data, node->local_telemetry ()));
+		auto local_telemetry = node->local_telemetry ();
+		// Ignore the identification metrics
+		local_telemetry.signature.clear ();
+		local_telemetry.node_id.clear ();
+		local_telemetry.timestamp = telemetry_data.timestamp = {};
+		ASSERT_EQ (telemetry_data, local_telemetry);
 	}
 
 	request.put ("raw", "true");
