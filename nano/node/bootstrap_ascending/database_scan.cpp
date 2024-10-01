@@ -136,7 +136,7 @@ std::deque<nano::account> nano::bootstrap_ascending::pending_database_iterator::
 		}
 
 		// If we didn't advance to the next account, perform a fresh lookup
-		if (it != end && it->first.account != starting_account)
+		if (it != end && it->first.account == starting_account)
 		{
 			it = ledger.store.pending.begin (transaction, { starting_account.number () + 1, 0 });
 		}
