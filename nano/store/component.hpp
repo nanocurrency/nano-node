@@ -53,8 +53,7 @@ namespace store
 		nano::store::confirmation_height &,
 		nano::store::final_vote &,
 		nano::store::version &,
-		nano::store::rep_weight &,
-		bool use_noops_a
+		nano::store::rep_weight &
 	);
 		// clang-format on
 		virtual ~component () = default;
@@ -97,7 +96,7 @@ namespace store
 		virtual bool init_error () const = 0;
 
 		/** Start read-write transaction */
-		virtual write_transaction tx_begin_write (std::vector<nano::tables> const & tables_to_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) = 0;
+		virtual write_transaction tx_begin_write () = 0;
 
 		/** Start read-only transaction */
 		virtual read_transaction tx_begin_read () const = 0;

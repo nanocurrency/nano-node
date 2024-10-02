@@ -21,6 +21,9 @@ namespace nano::store
 class pending
 {
 public:
+	using iterator = store::iterator<nano::pending_key, nano::pending_info>;
+
+public:
 	virtual void put (store::write_transaction const &, nano::pending_key const &, nano::pending_info const &) = 0;
 	virtual void del (store::write_transaction const &, nano::pending_key const &) = 0;
 	virtual std::optional<nano::pending_info> get (store::transaction const &, nano::pending_key const &) = 0;

@@ -64,9 +64,9 @@ public:
 	friend class nano::store::rocksdb::version;
 	friend class nano::store::rocksdb::rep_weight;
 
-	explicit component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false, bool force_use_write_queue = false);
+	explicit component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
 
-	store::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
+	store::write_transaction tx_begin_write () override;
 	store::read_transaction tx_begin_read () const override;
 
 	std::string vendor_get () const override;
@@ -108,8 +108,6 @@ private:
 	::rocksdb::TransactionDB * transaction_db = nullptr;
 	std::unique_ptr<::rocksdb::DB> db;
 	std::vector<std::unique_ptr<::rocksdb::ColumnFamilyHandle>> handles;
-	std::shared_ptr<::rocksdb::TableFactory> small_table_factory;
-	std::unordered_map<nano::tables, nano::mutex> write_lock_mutexes;
 	nano::rocksdb_config rocksdb_config;
 	unsigned const max_block_write_batch_num_m;
 
@@ -153,13 +151,8 @@ private:
 	void upgrade_v22_to_v23 (store::write_transaction &);
 	void upgrade_v23_to_v24 (store::write_transaction &);
 
-	void construct_column_family_mutexes ();
 	::rocksdb::Options get_db_options ();
-	::rocksdb::ColumnFamilyOptions get_common_cf_options (std::shared_ptr<::rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const;
-	::rocksdb::ColumnFamilyOptions get_active_cf_options (std::shared_ptr<::rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const;
-	::rocksdb::ColumnFamilyOptions get_small_cf_options (std::shared_ptr<::rocksdb::TableFactory> const & table_factory_a) const;
-	::rocksdb::BlockBasedTableOptions get_active_table_options (std::size_t lru_size) const;
-	::rocksdb::BlockBasedTableOptions get_small_table_options () const;
+	::rocksdb::BlockBasedTableOptions get_table_options () const;
 	::rocksdb::ColumnFamilyOptions get_cf_options (std::string const & cf_name_a) const;
 
 	void on_flush (::rocksdb::FlushJobInfo const &);
@@ -169,11 +162,6 @@ private:
 	std::unordered_map<char const *, nano::tables> create_cf_name_table_map () const;
 
 	std::vector<::rocksdb::ColumnFamilyDescriptor> create_column_families ();
-	unsigned long long base_memtable_size_bytes () const;
-	unsigned long long blocks_memtable_size_bytes () const;
-
-	constexpr static int base_memtable_size = 16;
-	constexpr static int base_block_cache_size = 8;
 
 	friend class nano::rocksdb_block_store_tombstone_count_Test;
 	friend class rocksdb_block_store_upgrade_v21_v22_Test;

@@ -56,8 +56,6 @@ add_library(
   ledger_set_any.cpp
   ledger_set_confirmed.hpp
   ledger_set_confirmed.cpp
-  network_filter.hpp
-  network_filter.cpp
   pending_info.hpp
   pending_info.cpp
   receivable_iterator.cpp

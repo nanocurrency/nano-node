@@ -83,7 +83,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	flags (flags_a),
 	work (work_a),
 	distributed_work (*this),
-	store_impl (nano::make_store (logger, application_path_a, network_params.ledger, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade, flags.force_use_write_queue)),
+	store_impl (nano::make_store (logger, application_path_a, network_params.ledger, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade)),
 	store (*store_impl),
 	unchecked{ config.max_unchecked_blocks, stats, flags.disable_block_processor_unchecked_deletion },
 	wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
@@ -169,13 +169,6 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	vote_cache.rep_weight_query = [this] (nano::account const & rep) {
 		return ledger.weight (rep);
 	};
-
-	vote_router.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
-		if (source != nano::vote_source::cache)
-		{
-			vote_cache.insert (vote, results);
-		}
-	});
 
 	// Republish vote if it is new and the node does not host a principal representative (or close to)
 	vote_router.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
@@ -330,7 +323,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 
 		if (!is_initialized && !flags.read_only)
 		{
-			auto const transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::confirmation_height, tables::rep_weights }));
+			auto const transaction = store.tx_begin_write ();
 			// Store was empty meaning we just created it, add the genesis block
 			store.initialize (transaction, ledger.cache, ledger.constants);
 		}
@@ -389,7 +382,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 				{
 					logger.info (nano::log::type::node, "Using bootstrap rep weight: {} -> {}",
 					rep.first.to_account (),
-					nano::uint128_union (rep.second).format_balance (Mxrb_ratio, 0, true));
+					nano::uint128_union (rep.second).format_balance (nano_ratio, 0, true));
 				}
 
 				logger.info (nano::log::type::node, "******************************************** ================= ********************************************");
@@ -539,7 +532,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 
 nano::block_status nano::node::process (std::shared_ptr<nano::block> block)
 {
-	auto const transaction = ledger.tx_begin_write ({ tables::accounts, tables::blocks, tables::pending, tables::rep_weights }, nano::store::writer::node);
+	auto const transaction = ledger.tx_begin_write (nano::store::writer::node);
 	return process (transaction, block);
 }
 
@@ -754,7 +747,7 @@ nano::uint128_t nano::node::minimum_principal_weight ()
 void nano::node::long_inactivity_cleanup ()
 {
 	bool perform_cleanup = false;
-	auto const transaction (store.tx_begin_write ({ tables::online_weight, tables::peers }));
+	auto const transaction = store.tx_begin_write ();
 	if (store.online_weight.count (transaction) > 0)
 	{
 		auto sample (store.online_weight.rbegin (transaction));
@@ -961,7 +954,7 @@ void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_wei
 		transaction_write_count = 0;
 		if (!pruning_targets.empty () && !stopped)
 		{
-			auto write_transaction = ledger.tx_begin_write ({ tables::blocks, tables::pruned }, nano::store::writer::pruning);
+			auto write_transaction = ledger.tx_begin_write (nano::store::writer::pruning);
 			while (!pruning_targets.empty () && transaction_write_count < batch_size_a && !stopped)
 			{
 				auto const & pruning_hash (pruning_targets.front ());
@@ -989,22 +982,6 @@ void nano::node::ongoing_ledger_pruning ()
 			this_l->ongoing_ledger_pruning ();
 		});
 	});
-}
-
-int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
-{
-	debug_assert (balance_a >= amount_a * nano::Gxrb_ratio);
-	auto balance_l (balance_a);
-	double result (0.0);
-	for (auto i (0); i < amount_a; ++i)
-	{
-		balance_l -= nano::Gxrb_ratio;
-		auto balance_scaled ((balance_l / nano::Mxrb_ratio).convert_to<double> ());
-		auto units (balance_scaled / 1000.0);
-		auto unit_price (((free_cutoff - units) / free_cutoff) * price_max);
-		result += std::min (std::max (0.0, unit_price), price_max);
-	}
-	return static_cast<int> (result * 100.0);
 }
 
 uint64_t nano::node::default_difficulty (nano::work_version const version_a) const

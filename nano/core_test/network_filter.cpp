@@ -1,11 +1,23 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/network_filter.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/node/common.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/network_filter.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
+
+TEST (network_filter, apply)
+{
+	nano::network_filter filter (4);
+	ASSERT_FALSE (filter.check (34));
+	ASSERT_FALSE (filter.apply (34));
+	ASSERT_TRUE (filter.check (34));
+	ASSERT_TRUE (filter.apply (34));
+	filter.clear (nano::network_filter::digest_t{ 34 });
+	ASSERT_FALSE (filter.check (34));
+	ASSERT_FALSE (filter.apply (34));
+}
 
 TEST (network_filter, unit)
 {
@@ -42,7 +54,7 @@ TEST (network_filter, unit)
 					 .account (nano::dev::genesis_key.pub)
 					 .previous (nano::dev::genesis->hash ())
 					 .representative (nano::dev::genesis_key.pub)
-					 .balance (nano::dev::constants.genesis_amount - 10 * nano::xrb_ratio)
+					 .balance (nano::dev::constants.genesis_amount - 1000 * nano::raw_ratio)
 					 .link (nano::public_key ())
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (0)
@@ -71,7 +83,7 @@ TEST (network_filter, many)
 					 .account (nano::dev::genesis_key.pub)
 					 .previous (nano::dev::genesis->hash ())
 					 .representative (nano::dev::genesis_key.pub)
-					 .balance (nano::dev::constants.genesis_amount - i * 10 * nano::xrb_ratio)
+					 .balance (nano::dev::constants.genesis_amount - i * 1000 * nano::raw_ratio)
 					 .link (key1.pub)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (0)
@@ -92,6 +104,7 @@ TEST (network_filter, many)
 		// Now filter the rest of the stream
 		// All blocks should pass through
 		ASSERT_FALSE (filter.apply (bytes->data (), block->size));
+		ASSERT_TRUE (filter.check (bytes->data (), block->size));
 		ASSERT_FALSE (error);
 
 		// Make sure the stream was rewinded correctly
@@ -126,4 +139,28 @@ TEST (network_filter, optional_digest)
 	ASSERT_TRUE (filter.apply (bytes1.data (), bytes1.size ()));
 	filter.clear (digest);
 	ASSERT_FALSE (filter.apply (bytes1.data (), bytes1.size ()));
+}
+
+TEST (network_filter, expire)
+{
+	// Expire entries older than 2 epochs
+	nano::network_filter filter{ 4, 2 };
+
+	ASSERT_FALSE (filter.apply (1)); // Entry with epoch 0
+	filter.update (); // Bump epoch to 1
+	ASSERT_FALSE (filter.apply (2)); // Entry with epoch 1
+
+	// Both values should be detected as present
+	ASSERT_TRUE (filter.check (1));
+	ASSERT_TRUE (filter.check (2));
+
+	filter.update (2); // Bump epoch to 3
+
+	ASSERT_FALSE (filter.check (1)); // Entry with epoch 0 should be expired
+	ASSERT_TRUE (filter.check (2)); // Entry with epoch 1 should still be present
+
+	filter.update (); // Bump epoch to 4
+
+	ASSERT_FALSE (filter.check (2)); // Entry with epoch 1 should be expired
+	ASSERT_FALSE (filter.apply (2)); // Entry with epoch 1 should be replaced
 }

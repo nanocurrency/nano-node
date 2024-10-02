@@ -30,7 +30,7 @@ void nano::transport::inproc::channel::send_buffer (nano::shared_const_buffer co
 		callback_a (boost::system::errc::make_error_code (boost::system::errc::success), size_a);
 	};
 
-	auto const message_deserializer = std::make_shared<nano::transport::message_deserializer> (node.network_params.network, node.network.publish_filter, node.block_uniquer, node.vote_uniquer, buffer_read_fn);
+	auto const message_deserializer = std::make_shared<nano::transport::message_deserializer> (node.network_params.network, node.network.filter, node.block_uniquer, node.vote_uniquer, buffer_read_fn);
 	message_deserializer->read (
 	[this] (boost::system::error_code ec_a, std::unique_ptr<nano::message> message_a) {
 		if (ec_a || !message_a)

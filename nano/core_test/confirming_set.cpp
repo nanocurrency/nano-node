@@ -85,7 +85,7 @@ TEST (confirmation_callback, observer_callbacks)
 				.send ()
 				.previous (latest)
 				.destination (key1.pub)
-				.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (latest))
 				.build ();
@@ -93,7 +93,7 @@ TEST (confirmation_callback, observer_callbacks)
 				 .send ()
 				 .previous (send->hash ())
 				 .destination (key1.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2)
+				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio * 2)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send->hash ()))
 				 .build ();
@@ -119,7 +119,6 @@ TEST (confirmation_callback, confirmed_history)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
-	node_flags.force_use_write_queue = true;
 	node_flags.disable_ascending_bootstrap = true;
 	nano::node_config node_config = system.default_config ();
 	node_config.backlog_population.enable = false;
@@ -133,7 +132,7 @@ TEST (confirmation_callback, confirmed_history)
 				.send ()
 				.previous (latest)
 				.destination (key1.pub)
-				.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (latest))
 				.build ();
@@ -143,7 +142,7 @@ TEST (confirmation_callback, confirmed_history)
 				 .send ()
 				 .previous (send->hash ())
 				 .destination (key1.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2)
+				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio * 2)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send->hash ()))
 				 .build ();
@@ -194,7 +193,6 @@ TEST (confirmation_callback, dependent_election)
 {
 	nano::test::system system;
 	nano::node_flags node_flags;
-	node_flags.force_use_write_queue = true;
 	nano::node_config node_config = system.default_config ();
 	node_config.backlog_population.enable = false;
 	auto node = system.add_node (node_config, node_flags);
@@ -207,7 +205,7 @@ TEST (confirmation_callback, dependent_election)
 				.send ()
 				.previous (latest)
 				.destination (key1.pub)
-				.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (latest))
 				.build ();
@@ -215,7 +213,7 @@ TEST (confirmation_callback, dependent_election)
 				 .send ()
 				 .previous (send->hash ())
 				 .destination (key1.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2)
+				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio * 2)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send->hash ()))
 				 .build ();
@@ -223,7 +221,7 @@ TEST (confirmation_callback, dependent_election)
 				 .send ()
 				 .previous (send1->hash ())
 				 .destination (key1.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 3)
+				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio * 3)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send1->hash ()))
 				 .build ();
@@ -265,7 +263,7 @@ TEST (confirmation_callback, election_winner_details_clearing_node_process_confi
 				.send ()
 				.previous (nano::dev::genesis->hash ())
 				.destination (nano::dev::genesis_key.pub)
-				.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build ();

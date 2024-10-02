@@ -65,6 +65,8 @@ add_library(
   logging_enums.cpp
   memory.hpp
   memory.cpp
+  network_filter.hpp
+  network_filter.cpp
   numbers.hpp
   numbers.cpp
   object_stream.hpp

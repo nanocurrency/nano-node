@@ -7,6 +7,7 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/memory.hpp>
+#include <nano/lib/network_filter.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/object_stream.hpp>
 #include <nano/lib/stats_enums.hpp>
@@ -188,7 +189,7 @@ public: // Logging
 class publish final : public message
 {
 public:
-	publish (bool &, nano::stream &, nano::message_header const &, nano::uint128_t const & = 0, nano::block_uniquer * = nullptr);
+	publish (bool &, nano::stream &, nano::message_header const &, nano::network_filter::digest_t const & digest = 0, nano::block_uniquer * = nullptr);
 	publish (nano::network_constants const & constants, std::shared_ptr<nano::block> const &, bool is_originator = false);
 
 	void serialize (nano::stream &) const override;
@@ -201,7 +202,9 @@ public:
 
 public: // Payload
 	std::shared_ptr<nano::block> block;
-	nano::uint128_t digest{ 0 };
+
+	// Messages deserialized from network should have their digest set
+	nano::network_filter::digest_t digest{ 0 };
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
@@ -264,7 +267,7 @@ public: // Logging
 class confirm_ack final : public message
 {
 public:
-	confirm_ack (bool & error, nano::stream &, nano::message_header const &, nano::vote_uniquer * = nullptr);
+	confirm_ack (bool & error, nano::stream &, nano::message_header const &, nano::network_filter::digest_t const & digest = 0, nano::vote_uniquer * = nullptr);
 	confirm_ack (nano::network_constants const & constants, std::shared_ptr<nano::vote> const &, bool rebroadcasted = false);
 
 	void serialize (nano::stream &) const override;
@@ -281,6 +284,9 @@ private:
 
 public: // Payload
 	std::shared_ptr<nano::vote> vote;
+
+	// Messages deserialized from network should have their digest set
+	nano::network_filter::digest_t digest{ 0 };
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;

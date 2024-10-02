@@ -820,8 +820,8 @@ TEST (wallet, send_race)
 	nano::keypair key2;
 	for (auto i (1); i < 60; ++i)
 	{
-		ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, nano::Gxrb_ratio));
-		ASSERT_EQ (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * i, system.nodes[0]->balance (nano::dev::genesis_key.pub));
+		ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, nano::Knano_ratio));
+		ASSERT_EQ (nano::dev::constants.genesis_amount - nano::Knano_ratio * i, system.nodes[0]->balance (nano::dev::genesis_key.pub));
 	}
 }
 

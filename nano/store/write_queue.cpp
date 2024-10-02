@@ -54,8 +54,7 @@ void nano::store::write_guard::renew ()
  * write_queue
  */
 
-nano::store::write_queue::write_queue (bool use_noops_a) :
-	use_noops{ use_noops_a }
+nano::store::write_queue::write_queue ()
 {
 }
 
@@ -66,7 +65,6 @@ nano::store::write_guard nano::store::write_queue::wait (writer writer)
 
 bool nano::store::write_queue::contains (writer writer) const
 {
-	debug_assert (!use_noops);
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return std::find (queue.cbegin (), queue.cend (), writer) != queue.cend ();
 }
@@ -83,11 +81,6 @@ void nano::store::write_queue::pop ()
 
 void nano::store::write_queue::acquire (writer writer)
 {
-	if (use_noops)
-	{
-		return; // Pass immediately
-	}
-
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	// There should be no duplicates in the queue
@@ -105,10 +98,6 @@ void nano::store::write_queue::acquire (writer writer)
 
 void nano::store::write_queue::release (writer writer)
 {
-	if (use_noops)
-	{
-		return; // Pass immediately
-	}
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		release_assert (!queue.empty ());

@@ -334,7 +334,7 @@ TEST (inactive_votes_cache, existing_vote)
 	auto send = builder.send ()
 				.previous (latest)
 				.destination (key.pub)
-				.balance (nano::dev::constants.genesis_amount - 100 * nano::Gxrb_ratio)
+				.balance (nano::dev::constants.genesis_amount - 100 * nano::Knano_ratio)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (latest))
 				.build ();
@@ -342,7 +342,7 @@ TEST (inactive_votes_cache, existing_vote)
 				.account (key.pub)
 				.previous (0)
 				.representative (key.pub)
-				.balance (100 * nano::Gxrb_ratio)
+				.balance (100 * nano::Knano_ratio)
 				.link (send->hash ())
 				.sign (key.prv, key.pub)
 				.work (*system.work.generate (key.pub))
@@ -388,7 +388,7 @@ TEST (inactive_votes_cache, multiple_votes)
 	auto send1 = builder.send ()
 				 .previous (nano::dev::genesis->hash ())
 				 .destination (key1.pub)
-				 .balance (nano::dev::constants.genesis_amount - 100 * nano::Gxrb_ratio)
+				 .balance (nano::dev::constants.genesis_amount - 100 * nano::Knano_ratio)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
@@ -396,7 +396,7 @@ TEST (inactive_votes_cache, multiple_votes)
 	auto send2 = builder.send ()
 				 .previous (send1->hash ())
 				 .destination (key1.pub)
-				 .balance (100 * nano::Gxrb_ratio)
+				 .balance (100 * nano::Knano_ratio)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send1->hash ()))
 				 .build ();
@@ -405,7 +405,7 @@ TEST (inactive_votes_cache, multiple_votes)
 				.account (key1.pub)
 				.previous (0)
 				.representative (key1.pub)
-				.balance (100 * nano::Gxrb_ratio)
+				.balance (100 * nano::Knano_ratio)
 				.link (send1->hash ())
 				.sign (key1.prv, key1.pub)
 				.work (*system.work.generate (key1.pub))
@@ -442,7 +442,7 @@ TEST (inactive_votes_cache, election_start)
 	nano::send_block_builder send_block_builder;
 	nano::state_block_builder state_block_builder;
 	// Enough weight to trigger election hinting but not enough to confirm block on its own
-	auto amount = ((node.online_reps.trended () / 100) * node.config.hinted_scheduler.hinting_threshold_percent) / 2 + 1000 * nano::Gxrb_ratio;
+	auto amount = ((node.online_reps.trended () / 100) * node.config.hinted_scheduler.hinting_threshold_percent) / 2 + 1000 * nano::Knano_ratio;
 	auto send1 = send_block_builder.make_block ()
 				 .previous (latest)
 				 .destination (key1.pub)
@@ -544,24 +544,24 @@ TEST (active_elections, vote_replays)
 	nano::keypair key;
 	nano::state_block_builder builder;
 
-	// send Gxrb_ratio raw from genesis to key
+	// send Knano_ratio raw from genesis to key
 	auto send1 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (nano::dev::genesis->hash ())
 				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
 				 .link (key.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
 	ASSERT_NE (nullptr, send1);
 
-	// create open block for key receing Gxrb_ratio raw
+	// create open block for key receing Knano_ratio raw
 	auto open1 = builder.make_block ()
 				 .account (key.pub)
 				 .previous (0)
 				 .representative (key.pub)
-				 .balance (nano::Gxrb_ratio)
+				 .balance (nano::Knano_ratio)
 				 .link (send1->hash ())
 				 .sign (key.prv, key.pub)
 				 .work (*system.work.generate (key.pub))
@@ -589,14 +589,14 @@ TEST (active_elections, vote_replays)
 	ASSERT_EQ (nano::vote_code::replay, node.vote_router.vote (vote_open1).at (open1->hash ()));
 	ASSERT_TIMELY (5s, node.active.empty ());
 	ASSERT_EQ (nano::vote_code::replay, node.vote_router.vote (vote_open1).at (open1->hash ()));
-	ASSERT_EQ (nano::Gxrb_ratio, node.ledger.weight (key.pub));
+	ASSERT_EQ (nano::Knano_ratio, node.ledger.weight (key.pub));
 
 	// send 1 raw to key to key
 	auto send2 = builder.make_block ()
 				 .account (key.pub)
 				 .previous (open1->hash ())
 				 .representative (key.pub)
-				 .balance (nano::Gxrb_ratio - 1)
+				 .balance (nano::Knano_ratio - 1)
 				 .link (key.pub)
 				 .sign (key.prv, key.pub)
 				 .work (*system.work.generate (open1->hash ()))
@@ -649,14 +649,14 @@ TEST (active_elections, dropped_cleanup)
 		nano::vectorstream stream (block_bytes);
 		chain[0]->serialize (stream);
 	}
-	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
-	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+	ASSERT_FALSE (node.network.filter.apply (block_bytes.data (), block_bytes.size ()));
+	ASSERT_TRUE (node.network.filter.apply (block_bytes.data (), block_bytes.size ()));
 
 	auto election = nano::test::start_election (system, node, hash);
 	ASSERT_NE (nullptr, election);
 
 	// Not yet removed
-	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+	ASSERT_TRUE (node.network.filter.apply (block_bytes.data (), block_bytes.size ()));
 	ASSERT_TRUE (node.vote_router.active (hash));
 
 	// Now simulate dropping the election
@@ -664,7 +664,7 @@ TEST (active_elections, dropped_cleanup)
 	node.active.erase (*chain[0]);
 
 	// The filter must have been cleared
-	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+	ASSERT_FALSE (node.network.filter.apply (block_bytes.data (), block_bytes.size ()));
 
 	// An election was recently dropped
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections_dropped, nano::stat::detail::manual));
@@ -673,7 +673,7 @@ TEST (active_elections, dropped_cleanup)
 	ASSERT_FALSE (node.vote_router.active (hash));
 
 	// Repeat test for a confirmed election
-	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+	ASSERT_TRUE (node.network.filter.apply (block_bytes.data (), block_bytes.size ()));
 
 	election = nano::test::start_election (system, node, hash);
 	ASSERT_NE (nullptr, election);
@@ -682,7 +682,7 @@ TEST (active_elections, dropped_cleanup)
 	node.active.erase (*chain[0]);
 
 	// The filter should not have been cleared
-	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+	ASSERT_TRUE (node.network.filter.apply (block_bytes.data (), block_bytes.size ()));
 
 	// Not dropped
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections_dropped, nano::stat::detail::manual));
@@ -706,7 +706,7 @@ TEST (active_elections, republish_winner)
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (nano::dev::genesis->hash ())
 				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
 				 .link (key.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
@@ -739,7 +739,7 @@ TEST (active_elections, republish_winner)
 				.account (nano::dev::genesis_key.pub)
 				.previous (nano::dev::genesis->hash ())
 				.representative (nano::dev::genesis_key.pub)
-				.balance (nano::dev::constants.genesis_amount - 2 * nano::Gxrb_ratio)
+				.balance (nano::dev::constants.genesis_amount - 2 * nano::Knano_ratio)
 				.link (key.pub)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
@@ -772,7 +772,7 @@ TEST (active_elections, fork_filter_cleanup)
 				 .previous (latest_hash)
 				 .account (nano::dev::genesis_key.pub)
 				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
 				 .link (key.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (latest_hash))
@@ -825,7 +825,7 @@ TEST (active_elections, fork_filter_cleanup)
 	ASSERT_TIMELY_EQ (5s, node1.ledger.block_count (), 2);
 
 	// Block is erased from the duplicate filter
-	ASSERT_TIMELY (5s, node1.network.publish_filter.apply (send_block_bytes.data (), send_block_bytes.size ()));
+	ASSERT_TIMELY (5s, node1.network.filter.apply (send_block_bytes.data (), send_block_bytes.size ()));
 }
 
 /*
@@ -889,7 +889,7 @@ TEST (active_elections, fork_replacement_tally)
 					 .account (nano::dev::genesis_key.pub)
 					 .previous (latest)
 					 .representative (nano::dev::genesis_key.pub)
-					 .balance (balance - 2 * nano::Gxrb_ratio)
+					 .balance (balance - 2 * nano::Knano_ratio)
 					 .link (key.pub)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (*system.work.generate (latest))
@@ -902,7 +902,7 @@ TEST (active_elections, fork_replacement_tally)
 					.account (nano::dev::genesis_key.pub)
 					.previous (latest)
 					.representative (nano::dev::genesis_key.pub)
-					.balance (balance - nano::Gxrb_ratio - i)
+					.balance (balance - nano::Knano_ratio - i)
 					.link (key.pub)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*system.work.generate (latest))
@@ -960,7 +960,7 @@ TEST (active_elections, fork_replacement_tally)
 	// Process correct block
 	node_config.peering_port = system.get_available_port ();
 	auto & node2 (*system.add_node (node_config));
-	node1.network.publish_filter.clear ();
+	node1.network.filter.clear ();
 	node2.network.flood_block (send_last);
 	ASSERT_TIMELY (3s, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) > 0);
 
@@ -974,7 +974,7 @@ TEST (active_elections, fork_replacement_tally)
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
 	// ensure vote arrives before the block
 	ASSERT_TIMELY_EQ (5s, 1, node1.vote_cache.find (send_last->hash ()).size ());
-	node1.network.publish_filter.clear ();
+	node1.network.filter.clear ();
 	node2.network.flood_block (send_last);
 	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) > 1);
 
@@ -1304,7 +1304,7 @@ TEST (active_elections, vacancy)
 				.previous (nano::dev::genesis->hash ())
 				.representative (nano::dev::genesis_key.pub)
 				.link (nano::dev::genesis_key.pub)
-				.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build ();
@@ -1339,7 +1339,7 @@ TEST (active_elections, limit_vote_hinted_elections)
 
 	// Setup representatives
 	// Enough weight to trigger election hinting but not enough to confirm block on its own
-	const auto amount = ((node.online_reps.trended () / 100) * node.config.hinted_scheduler.hinting_threshold_percent) + 1000 * nano::Gxrb_ratio;
+	const auto amount = ((node.online_reps.trended () / 100) * node.config.hinted_scheduler.hinting_threshold_percent) + 1000 * nano::Knano_ratio;
 	nano::keypair rep1 = nano::test::setup_rep (system, node, amount / 2);
 	nano::keypair rep2 = nano::test::setup_rep (system, node, amount / 2);
 
@@ -1408,7 +1408,7 @@ TEST (active_elections, bound_election_winners)
 
 	{
 		// Prevent cementing of confirmed blocks
-		auto guard = node.ledger.tx_begin_write ({}, nano::store::writer::testing);
+		auto guard = node.ledger.tx_begin_write (nano::store::writer::testing);
 
 		// Ensure that when the number of election winners reaches the limit, AEC vacancy reflects that
 		ASSERT_TRUE (node.active.vacancy (nano::election_behavior::priority) > 0);
@@ -1464,7 +1464,7 @@ TEST (active_elections, broadcast_block_on_activation)
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (nano::dev::genesis->hash ())
 				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
 				 .link (nano::dev::genesis_key.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))

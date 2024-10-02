@@ -48,7 +48,7 @@ nano::keypair setup_rep (nano::test::system & system, nano::node & node, nano::u
 
 std::vector<nano::keypair> setup_reps (nano::test::system & system, nano::node & node, int count)
 {
-	const nano::uint128_t weight = nano::Gxrb_ratio * 1000;
+	const nano::uint128_t weight = nano::Knano_ratio * 1000;
 	std::vector<nano::keypair> reps;
 	for (int n = 0; n < count; ++n)
 	{

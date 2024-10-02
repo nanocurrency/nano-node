@@ -423,9 +423,9 @@ void nano::keepalive::operator() (nano::object_stream & obs) const
  * publish
  */
 
-nano::publish::publish (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::uint128_t const & digest_a, nano::block_uniquer * uniquer_a) :
+nano::publish::publish (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::network_filter::digest_t const & digest_a, nano::block_uniquer * uniquer_a) :
 	message (header_a),
-	digest (digest_a)
+	digest{ digest_a }
 {
 	if (!error_a)
 	{
@@ -435,7 +435,7 @@ nano::publish::publish (bool & error_a, nano::stream & stream_a, nano::message_h
 
 nano::publish::publish (nano::network_constants const & constants, std::shared_ptr<nano::block> const & block_a, bool is_originator_a) :
 	message (constants, nano::message_type::publish),
-	block (block_a)
+	block{ block_a }
 {
 	header.block_type_set (block->type ());
 	header.flag_set (originator_flag, is_originator_a);
@@ -613,9 +613,10 @@ void nano::confirm_req::operator() (nano::object_stream & obs) const
  * confirm_ack
  */
 
-nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::vote_uniquer * uniquer_a) :
+nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::network_filter::digest_t const & digest_a, nano::vote_uniquer * uniquer_a) :
 	message (header_a),
-	vote (nano::make_shared<nano::vote> (error_a, stream_a))
+	vote{ nano::make_shared<nano::vote> (error_a, stream_a) },
+	digest{ digest_a }
 {
 	if (!error_a && uniquer_a)
 	{
@@ -625,7 +626,7 @@ nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::m
 
 nano::confirm_ack::confirm_ack (nano::network_constants const & constants, std::shared_ptr<nano::vote> const & vote_a, bool rebroadcasted_a) :
 	message (constants, nano::message_type::confirm_ack),
-	vote (vote_a)
+	vote{ vote_a }
 {
 	debug_assert (vote->hashes.size () < 256);
 

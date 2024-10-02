@@ -162,7 +162,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 	};
 
 	{
-		auto transaction = ledger.tx_begin_write ({ nano::tables::confirmation_height }, nano::store::writer::confirmation_height);
+		auto transaction = ledger.tx_begin_write (nano::store::writer::confirmation_height);
 		for (auto const & hash : batch)
 		{
 			do

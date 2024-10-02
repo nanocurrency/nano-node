@@ -620,7 +620,7 @@ TEST (node, mass_vote_by_hash)
 					 .account (nano::dev::genesis_key.pub)
 					 .previous (previous)
 					 .representative (nano::dev::genesis_key.pub)
-					 .balance (nano::dev::constants.genesis_amount - (i + 1) * nano::Gxrb_ratio)
+					 .balance (nano::dev::constants.genesis_amount - (i + 1) * nano::Knano_ratio)
 					 .link (key.pub)
 					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (*system.work.generate (previous))
@@ -815,7 +815,7 @@ TEST (confirmation_height, long_chains)
 				.send ()
 				.previous (latest)
 				.destination (key1.pub)
-				.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio + num_blocks + 1)
+				.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio + num_blocks + 1)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (latest))
 				.build ();
@@ -844,7 +844,7 @@ TEST (confirmation_height, long_chains)
 						.send ()
 						.previous (previous_genesis_chain_hash)
 						.destination (key1.pub)
-						.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio + i + 1)
+						.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio + i + 1)
 						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 						.work (*system.work.generate (previous_genesis_chain_hash))
 						.build ();
@@ -868,7 +868,7 @@ TEST (confirmation_height, long_chains)
 				 .send ()
 				 .previous (previous_destination_chain_hash)
 				 .destination (nano::dev::genesis_key.pub)
-				 .balance (nano::Gxrb_ratio - 2)
+				 .balance (nano::Knano_ratio - 2)
 				 .sign (key1.prv, key1.pub)
 				 .work (*system.work.generate (previous_destination_chain_hash))
 				 .build ();
@@ -877,7 +877,7 @@ TEST (confirmation_height, long_chains)
 					.account (nano::dev::genesis_key.pub)
 					.previous (previous_genesis_chain_hash)
 					.representative (nano::dev::genesis_key.pub)
-					.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio + 1)
+					.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio + 1)
 					.link (send1->hash ())
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*system.work.generate (previous_genesis_chain_hash))
@@ -890,7 +890,7 @@ TEST (confirmation_height, long_chains)
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (receive1->hash ())
 				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
 				 .link (key2.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (receive1->hash ()))
@@ -1139,13 +1139,13 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	ASSERT_TRUE (!store->init_error ());
 	nano::stats stats{ logger };
 	nano::ledger ledger (*store, stats, nano::dev::constants);
-	nano::store::write_queue write_database_queue (false);
+	nano::store::write_queue write_database_queue;
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	std::atomic<bool> stopped{ false };
 	boost::latch initialized_latch{ 0 };
 
 	nano::block_hash block_hash_being_processed{ 0 };
-	nano::store::write_queue write_queue{ false };
+	nano::store::write_queue write_queue;
 	nano::confirming_set_config confirming_set_config{};
 	nano::confirming_set confirming_set{ confirming_set_config, ledger, stats };
 
@@ -1591,7 +1591,7 @@ TEST (telemetry, many_nodes)
 				.account (nano::dev::genesis_key.pub)
 				.previous (nano::dev::genesis->hash ())
 				.representative (nano::dev::genesis_key.pub)
-				.balance (nano::dev::constants.genesis_amount - nano::Mxrb_ratio)
+				.balance (nano::dev::constants.genesis_amount - nano::nano_ratio)
 				.link (key.pub)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
@@ -2052,7 +2052,7 @@ TEST (node, wallet_create_block_confirm_conflicts)
 							.send ()
 							.previous (latest)
 							.destination (key1.pub)
-							.balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio + i + 1)
+							.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio + i + 1)
 							.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 							.work (*system.work.generate (latest))
 							.build ();
@@ -2102,7 +2102,7 @@ TEST (system, block_sequence)
 	{
 		reps.push_back (nano::keypair{});
 	}
-	system.ledger_initialization_set (reps, nano::Gxrb_ratio);
+	system.ledger_initialization_set (reps, nano::Knano_ratio);
 	system.deadline_set (3600s);
 	nano::node_config config;
 	config.peering_port = system.get_available_port ();

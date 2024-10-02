@@ -63,14 +63,18 @@ public:
 
 	nano::container_info container_info () const;
 
+private: // Dependencies
+	nano::vote_cache & vote_cache;
+	nano::recently_confirmed_cache & recently_confirmed;
+
 private:
 	void run ();
 
-	nano::vote_cache & cache;
-	nano::recently_confirmed_cache & recently_confirmed;
+private:
 	// Mapping of block hashes to elections.
 	// Election already contains the associated block
 	std::unordered_map<nano::block_hash, std::weak_ptr<nano::election>> elections;
+
 	bool stopped{ false };
 	std::condition_variable_any condition;
 	mutable std::shared_mutex mutex;

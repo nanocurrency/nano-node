@@ -23,6 +23,8 @@ public:
 	nano::error deserialize (nano::tomlconfig & toml);
 
 public:
+	bool enable{ true };
+
 	size_t max_pr_queue{ 256 };
 	size_t max_non_pr_queue{ 32 };
 	size_t pr_priority{ 3 };

@@ -71,6 +71,11 @@ void nano::vote_processor::start ()
 {
 	debug_assert (threads.empty ());
 
+	if (!config.enable)
+	{
+		return;
+	}
+
 	for (int n = 0; n < config.threads; ++n)
 	{
 		threads.emplace_back ([this] () {
