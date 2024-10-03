@@ -19,6 +19,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
+#include <nano/store/rocksdb/unconfirmed_set.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -150,7 +151,7 @@ TEST (node, send_single)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	system.wallet (1)->insert_adhoc (key2.prv);
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
-	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), system.nodes[0]->balance (nano::dev::genesis_key.pub));
+	ASSERT_TIMELY_EQ (5s, std::numeric_limits<nano::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), system.nodes[0]->balance (nano::dev::genesis_key.pub));
 	ASSERT_TRUE (system.nodes[0]->balance (key2.pub).is_zero ());
 	ASSERT_TIMELY (10s, !system.nodes[0]->balance (key2.pub).is_zero ());
 }
@@ -162,7 +163,7 @@ TEST (node, send_single_observing_peer)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	system.wallet (1)->insert_adhoc (key2.prv);
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
-	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), system.nodes[0]->balance (nano::dev::genesis_key.pub));
+	ASSERT_TIMELY_EQ (5s, std::numeric_limits<nano::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), system.nodes[0]->balance (nano::dev::genesis_key.pub));
 	ASSERT_TRUE (system.nodes[0]->balance (key2.pub).is_zero ());
 	ASSERT_TIMELY (10s, std::all_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr<nano::node> const & node_a) { return !node_a->balance (key2.pub).is_zero (); }));
 }
@@ -197,6 +198,22 @@ TEST (node, send_out_of_order)
 	node1.process_active (send3);
 	node1.process_active (send2);
 	node1.process_active (send1);
+	ASSERT_TIMELY (5s, std::all_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr<nano::node> const & node_a) {
+		auto blocks = { send1, send2, send3 };
+		return std::all_of (blocks.begin (), blocks.end (), [&] (std::shared_ptr<nano::block> block) {
+			// return node_a->ledger.unconfirmed (block->hash ());
+			return false;
+		});
+	}));
+	{
+		auto transaction = node1.ledger.tx_begin_write ();
+		node1.ledger.confirm (transaction, send3->hash ());
+	}
+	auto & node2 = *system.nodes[1];
+	{
+		auto transaction = node2.ledger.tx_begin_write ();
+		node2.ledger.confirm (transaction, send3->hash ());
+	}
 	ASSERT_TIMELY (10s, std::all_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr<nano::node> const & node_a) { return node_a->balance (nano::dev::genesis_key.pub) == nano::dev::constants.genesis_amount - node1.config.receive_minimum.number () * 3; }));
 }
 
@@ -2743,8 +2760,9 @@ TEST (node, dont_write_lock_node)
 	std::thread ([&path, &write_lock_held_promise, &finished_promise] () {
 		nano::logger logger;
 		auto store = nano::make_store (logger, path, nano::dev::constants, false, true);
+		nano::store::unconfirmed_set unconfirmed;
 		{
-			nano::ledger_cache ledger_cache{ store->rep_weight };
+			nano::ledger_cache ledger_cache{ store->rep_weight, unconfirmed.rep_weight };
 			auto transaction (store->tx_begin_write ());
 			store->initialize (transaction, ledger_cache, nano::dev::constants);
 		}

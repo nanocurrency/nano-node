@@ -14,6 +14,10 @@ namespace nano::store
 {
 class component;
 }
+namespace nano::store::rocksdb
+{
+class unconfirmed_rep_weight;
+}
 
 namespace nano
 {
@@ -24,7 +28,7 @@ class ledger_cache
 	friend class ledger;
 
 public:
-	explicit ledger_cache (nano::store::rep_weight & rep_weight_store_a, nano::uint128_t min_rep_weight_a = 0);
+	explicit ledger_cache (nano::store::rep_weight & confirmed, nano::store::rocksdb::unconfirmed_rep_weight & unconfirmed, nano::uint128_t min_rep_weight_a = 0);
 	nano::rep_weights rep_weights;
 
 private:

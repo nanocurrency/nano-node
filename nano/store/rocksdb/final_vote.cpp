@@ -1,6 +1,7 @@
 #include <nano/secure/parallel_traversal.hpp>
 #include <nano/store/rocksdb/final_vote.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/utility.hpp>
 
 nano::store::rocksdb::final_vote::final_vote (nano::store::rocksdb::component & store) :
 	store{ store } {};
@@ -8,7 +9,7 @@ nano::store::rocksdb::final_vote::final_vote (nano::store::rocksdb::component & 
 bool nano::store::rocksdb::final_vote::put (store::write_transaction const & transaction, nano::qualified_root const & root, nano::block_hash const & hash)
 {
 	nano::store::rocksdb::db_val value;
-	auto status = store.get (transaction, tables::final_votes, root, value);
+	auto status = rocksdb::get (transaction, store.table_to_column_family (tables::final_votes), root, value);
 	release_assert (store.success (status) || store.not_found (status));
 	bool result (true);
 	if (store.success (status))
@@ -17,7 +18,7 @@ bool nano::store::rocksdb::final_vote::put (store::write_transaction const & tra
 	}
 	else
 	{
-		status = store.put (transaction, tables::final_votes, root, hash);
+		status = rocksdb::put (transaction, store.table_to_column_family (tables::final_votes), root, hash);
 		store.release_assert_success (status);
 	}
 	return result;
@@ -44,7 +45,7 @@ void nano::store::rocksdb::final_vote::del (store::write_transaction const & tra
 
 	for (auto & final_vote_qualified_root : final_vote_qualified_roots)
 	{
-		auto status = store.del (transaction, tables::final_votes, final_vote_qualified_root);
+		auto status = rocksdb::del (transaction, store.table_to_column_family (tables::final_votes), final_vote_qualified_root);
 		store.release_assert_success (status);
 	}
 }

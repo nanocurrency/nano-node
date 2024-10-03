@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/store/transaction.hpp>
+#include <nano/store/rocksdb/unconfirmed_transaction.hpp>
 #include <nano/store/write_queue.hpp>
 
 #include <utility>
@@ -27,17 +28,22 @@ public:
 
 	// Conversion operator to const nano::store::transaction&
 	virtual operator const nano::store::transaction & () const = 0;
+
+	// Conversion operator to const nano::store::unconfirmed_transaction&
+	virtual operator const nano::store::unconfirmed_transaction & () const = 0;
 };
 
 class write_transaction : public transaction
 {
 	nano::store::write_transaction txn;
+	nano::store::unconfirmed_write_transaction unconfirmed_txn;
 	nano::store::write_guard guard;
 	std::chrono::steady_clock::time_point start;
 
 public:
-	explicit write_transaction (nano::store::write_transaction && txn, nano::store::write_guard && guard) noexcept :
+	explicit write_transaction (nano::store::write_transaction && txn, nano::store::unconfirmed_write_transaction && unconfirmed_txn, nano::store::write_guard && guard) noexcept :
 		txn{ std::move (txn) },
+		unconfirmed_txn{ std::move (unconfirmed_txn) },
 		guard{ std::move (guard) }
 	{
 		start = std::chrono::steady_clock::now ();
@@ -95,15 +101,27 @@ public:
 	{
 		return txn;
 	}
+	
+	operator const nano::store::unconfirmed_transaction & () const override
+	{
+		return unconfirmed_txn;
+	}
+	
+	operator const nano::store::unconfirmed_write_transaction & () const
+	{
+		return unconfirmed_txn;
+	}
 };
 
 class read_transaction : public transaction
 {
 	nano::store::read_transaction txn;
+	nano::store::unconfirmed_read_transaction unconfirmed_txn;
 
 public:
-	explicit read_transaction (nano::store::read_transaction && t) noexcept :
-		txn{ std::move (t) }
+	explicit read_transaction (nano::store::read_transaction && t, nano::store::unconfirmed_read_transaction && u_t) noexcept :
+		txn{ std::move (t) },
+		unconfirmed_txn{ std::move (u_t) }
 	{
 	}
 
@@ -138,6 +156,12 @@ public:
 	operator const nano::store::read_transaction & () const
 	{
 		return txn;
+	}
+
+	// Conversion operator to const nano::store::transaction&
+	operator const nano::store::unconfirmed_transaction & () const override
+	{
+		return unconfirmed_txn;
 	}
 };
 } // namespace nano::secure

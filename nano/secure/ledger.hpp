@@ -3,6 +3,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/secure/account_info.hpp>
+#include <nano/secure/block_check_context.hpp>
 #include <nano/secure/generate_cache_flags.hpp>
 #include <nano/secure/ledger_cache.hpp>
 #include <nano/secure/pending_info.hpp>
@@ -12,14 +13,23 @@
 #include <map>
 #include <memory>
 
+namespace nano
+{
+class block_check_context;
+class confirmed_set;
+class stats;
+}
+
 namespace nano::store
 {
 class component;
+class unconfirmed_set;
 }
 
 namespace nano
 {
 class block;
+class block_delta;
 enum class block_status;
 enum class epoch : uint8_t;
 class ledger_constants;
@@ -33,6 +43,9 @@ class ledger final
 {
 	template <typename T>
 	friend class receivable_iterator;
+	friend class confirmed_set;
+	friend class block_check_context;
+	friend class ledger_set_any;
 
 public:
 	ledger (nano::store::component &, nano::stats &, nano::ledger_constants & constants, nano::generate_cache_flags const & = nano::generate_cache_flags{}, nano::uint128_t min_rep_weight_a = 0);
@@ -64,7 +77,6 @@ public:
 	nano::block_status process (secure::write_transaction const &, std::shared_ptr<nano::block> block);
 	bool rollback (secure::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
 	bool rollback (secure::write_transaction const &, nano::block_hash const &);
-	void update_account (secure::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
 	uint64_t pruning_action (secure::write_transaction &, nano::block_hash const &, uint64_t const);
 	void dump_account_chain (nano::account const &, std::ostream & = std::cout);
 	bool dependents_confirmed (secure::transaction const &, nano::block const &) const;
@@ -89,7 +101,6 @@ public:
 
 	nano::ledger_constants & constants;
 	nano::store::component & store;
-	nano::ledger_cache cache;
 	nano::stats & stats;
 
 	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;
@@ -100,13 +111,18 @@ public:
 
 private:
 	void initialize (nano::generate_cache_flags const &);
+	nano::account_info account_info (secure::transaction const & transaction, nano::block const & block, nano::account const & representative);
+	void track (secure::write_transaction const & transaction, nano::block_delta const & delta);
 	void confirm_one (secure::write_transaction &, nano::block const & block);
 
 	std::unique_ptr<ledger_set_any> any_impl;
 	std::unique_ptr<ledger_set_confirmed> confirmed_impl;
+	std::unique_ptr<nano::store::unconfirmed_set> unconfirmed_impl;
 
 public:
 	ledger_set_any & any;
 	ledger_set_confirmed & confirmed;
+	store::unconfirmed_set & unconfirmed;
+	nano::ledger_cache cache;
 };
 }

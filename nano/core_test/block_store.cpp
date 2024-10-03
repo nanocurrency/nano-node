@@ -15,6 +15,7 @@
 #include <nano/store/block.hpp>
 #include <nano/store/lmdb/lmdb.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/unconfirmed_set.hpp>
 #include <nano/store/versioning.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -381,7 +382,8 @@ TEST (block_store, genesis)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::ledger_cache ledger_cache{ store->rep_weight };
+	nano::store::unconfirmed_set unconfirmed;
+	nano::ledger_cache ledger_cache{ store->rep_weight, unconfirmed.rep_weight };
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger_cache, nano::dev::constants);
 	nano::account_info info;
@@ -906,8 +908,9 @@ TEST (block_store, block_random)
 {
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	nano::store::unconfirmed_set unconfirmed;
 	{
-		nano::ledger_cache ledger_cache{ store->rep_weight };
+		nano::ledger_cache ledger_cache{ store->rep_weight, unconfirmed.rep_weight };
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger_cache, nano::dev::constants);
 	}
@@ -922,6 +925,7 @@ TEST (block_store, pruned_random)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
+	nano::store::unconfirmed_set unconfirmed;
 	nano::block_builder builder;
 	auto block = builder
 				 .open ()
@@ -934,7 +938,7 @@ TEST (block_store, pruned_random)
 	block->sideband_set ({});
 	auto hash1 (block->hash ());
 	{
-		nano::ledger_cache ledger_cache{ store->rep_weight };
+		nano::ledger_cache ledger_cache{ store->rep_weight, unconfirmed.rep_weight };
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger_cache, nano::dev::constants);
 		store->pruned.put (transaction, hash1);
@@ -949,6 +953,7 @@ TEST (block_store, state_block)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
+	nano::store::unconfirmed_set unconfirmed;
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto block1 = builder
@@ -964,7 +969,7 @@ TEST (block_store, state_block)
 
 	block1->sideband_set ({});
 	{
-		nano::ledger_cache ledger_cache{ store->rep_weight };
+		nano::ledger_cache ledger_cache{ store->rep_weight, unconfirmed.rep_weight };
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger_cache, nano::dev::constants);
 		ASSERT_EQ (nano::block_type::state, block1->type ());
@@ -1722,42 +1727,4 @@ TEST (block_store, rocksdb_force_test_env_variable)
 	{
 		ASSERT_NE (mdb_cast, nullptr);
 	}
-}
-
-namespace nano
-{
-// This thest ensures the tombstone_count is increased when there is a delete. The tombstone_count is part of a flush
-// logic bound to the way RocksDB is used by the node.
-TEST (rocksdb_block_store, tombstone_count)
-{
-	if (!nano::rocksdb_config::using_rocksdb_in_tests ())
-	{
-		GTEST_SKIP ();
-	}
-	nano::test::system system;
-	nano::logger logger;
-	auto store = std::make_unique<nano::store::rocksdb::component> (logger, nano::unique_path () / "rocksdb", nano::dev::constants);
-	ASSERT_TRUE (!store->init_error ());
-	nano::block_builder builder;
-	auto block = builder
-				 .send ()
-				 .previous (0)
-				 .destination (1)
-				 .balance (2)
-				 .sign (nano::keypair ().prv, 4)
-				 .work (5)
-				 .build ();
-	// Enqueues a block to be saved in the database
-	nano::account account{ 1 };
-	store->account.put (store->tx_begin_write (), account, nano::account_info{});
-	auto check_block_is_listed = [&] (store::transaction const & transaction_a) {
-		return store->account.exists (transaction_a, account);
-	};
-	// Waits for the block to get saved
-	ASSERT_TIMELY (5s, check_block_is_listed (store->tx_begin_read ()));
-	ASSERT_EQ (store->tombstone_map.at (nano::tables::accounts).num_since_last_flush.load (), 0);
-	// Performs a delete operation and checks for the tombstone counter
-	store->account.del (store->tx_begin_write (), account);
-	ASSERT_TIMELY_EQ (5s, store->tombstone_map.at (nano::tables::accounts).num_since_last_flush.load (), 1);
-}
 }

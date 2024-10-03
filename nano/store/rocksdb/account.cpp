@@ -1,20 +1,21 @@
 #include <nano/secure/parallel_traversal.hpp>
 #include <nano/store/rocksdb/account.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/utility.hpp>
 
 nano::store::rocksdb::account::account (nano::store::rocksdb::component & store_a) :
 	store (store_a){};
 
 void nano::store::rocksdb::account::put (store::write_transaction const & transaction, nano::account const & account, nano::account_info const & info)
 {
-	auto status = store.put (transaction, tables::accounts, account, info);
+	auto status = rocksdb::put (transaction, store.table_to_column_family (tables::accounts), account, info);
 	store.release_assert_success (status);
 }
 
 bool nano::store::rocksdb::account::get (store::transaction const & transaction, nano::account const & account, nano::account_info & info)
 {
 	nano::store::rocksdb::db_val value;
-	auto status1 (store.get (transaction, tables::accounts, account, value));
+	auto status1 (rocksdb::get (transaction, store.table_to_column_family (tables::accounts), account, value));
 	release_assert (store.success (status1) || store.not_found (status1));
 	bool result (true);
 	if (store.success (status1))
@@ -27,7 +28,7 @@ bool nano::store::rocksdb::account::get (store::transaction const & transaction,
 
 void nano::store::rocksdb::account::del (store::write_transaction const & transaction_a, nano::account const & account_a)
 {
-	auto status = store.del (transaction_a, tables::accounts, account_a);
+	auto status = rocksdb::del (transaction_a, store.table_to_column_family (tables::accounts), account_a);
 	store.release_assert_success (status);
 }
 

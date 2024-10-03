@@ -2,6 +2,7 @@ add_library(
   nano_store
   account.hpp
   block.hpp
+  block_w_sideband.hpp
   component.hpp
   confirmation_height.hpp
   db_val.hpp
@@ -45,6 +46,15 @@ add_library(
   rocksdb/rocksdb.hpp
   rocksdb/iterator.hpp
   rocksdb/transaction_impl.hpp
+  rocksdb/unconfirmed_account.hpp
+  rocksdb/unconfirmed_block.hpp
+  rocksdb/unconfirmed_pending.hpp
+  rocksdb/unconfirmed_received.hpp
+  rocksdb/unconfirmed_rep_weight.hpp
+  rocksdb/unconfirmed_successor.hpp
+  rocksdb/unconfirmed_set.hpp
+  rocksdb/unconfirmed_transaction.hpp
+  rocksdb/utility.hpp
   rocksdb/version.hpp
   tables.hpp
   transaction.hpp
@@ -89,6 +99,15 @@ add_library(
   rocksdb/rep_weight.cpp
   rocksdb/rocksdb.cpp
   rocksdb/transaction.cpp
+  rocksdb/unconfirmed_account.cpp
+  rocksdb/unconfirmed_block.cpp
+  rocksdb/unconfirmed_pending.cpp
+  rocksdb/unconfirmed_received.cpp
+  rocksdb/unconfirmed_rep_weight.cpp
+  rocksdb/unconfirmed_set.cpp
+  rocksdb/unconfirmed_successor.cpp
+  rocksdb/unconfirmed_transaction.cpp
+  rocksdb/utility.cpp
   rocksdb/version.cpp
   transaction.cpp
   version.cpp

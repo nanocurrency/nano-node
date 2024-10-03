@@ -15,6 +15,9 @@
 #include <nano/store/rocksdb/pending.hpp>
 #include <nano/store/rocksdb/pruned.hpp>
 #include <nano/store/rocksdb/rep_weight.hpp>
+#include <nano/store/rocksdb/unconfirmed_account.hpp>
+#include <nano/store/rocksdb/unconfirmed_block.hpp>
+#include <nano/store/rocksdb/unconfirmed_pending.hpp>
 #include <nano/store/rocksdb/version.hpp>
 
 #include <rocksdb/db.h>
@@ -61,6 +64,9 @@ public:
 	friend class nano::store::rocksdb::peer;
 	friend class nano::store::rocksdb::pending;
 	friend class nano::store::rocksdb::pruned;
+	friend class nano::store::rocksdb::unconfirmed_account;
+	friend class nano::store::rocksdb::unconfirmed_block;
+	friend class nano::store::rocksdb::unconfirmed_pending;
 	friend class nano::store::rocksdb::version;
 	friend class nano::store::rocksdb::rep_weight;
 
@@ -72,11 +78,6 @@ public:
 	std::string vendor_get () const override;
 
 	uint64_t count (store::transaction const & transaction_a, tables table_a) const override;
-
-	bool exists (store::transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a) const;
-	int get (store::transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val & value_a) const;
-	int put (store::write_transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val const & value_a);
-	int del (store::write_transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a);
 
 	void serialize_memory_stats (boost::property_tree::ptree &) override;
 
@@ -111,18 +112,8 @@ private:
 	nano::rocksdb_config rocksdb_config;
 	unsigned const max_block_write_batch_num_m;
 
-	class tombstone_info
-	{
-	public:
-		tombstone_info (uint64_t, uint64_t const);
-		std::atomic<uint64_t> num_since_last_flush;
-		uint64_t const max;
-	};
-
-	std::unordered_map<nano::tables, tombstone_info> tombstone_map;
 	std::unordered_map<char const *, nano::tables> cf_name_table_map;
 
-	::rocksdb::Transaction * tx (store::transaction const & transaction_a) const;
 	std::vector<nano::tables> all_tables () const;
 
 	bool not_found (int status) const override;
@@ -155,10 +146,6 @@ private:
 	::rocksdb::BlockBasedTableOptions get_table_options () const;
 	::rocksdb::ColumnFamilyOptions get_cf_options (std::string const & cf_name_a) const;
 
-	void on_flush (::rocksdb::FlushJobInfo const &);
-	void flush_table (nano::tables table_a);
-	void flush_tombstones_check (nano::tables table_a);
-	void generate_tombstone_map ();
 	std::unordered_map<char const *, nano::tables> create_cf_name_table_map () const;
 
 	std::vector<::rocksdb::ColumnFamilyDescriptor> create_column_families ();
