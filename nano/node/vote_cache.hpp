@@ -144,7 +144,6 @@ public:
 	std::size_t size () const;
 	bool empty () const;
 
-public:
 	struct top_entry
 	{
 		nano::block_hash hash;
@@ -159,8 +158,7 @@ public:
 	 */
 	std::deque<top_entry> top (nano::uint128_t const & min_tally);
 
-public: // Container info
-	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name) const;
+	nano::container_info container_info () const;
 
 public:
 	/**

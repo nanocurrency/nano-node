@@ -142,6 +142,7 @@ public:
 	nano::account get_node_id () const;
 	nano::telemetry_data local_telemetry () const;
 	std::string identifier () const;
+	nano::container_info container_info () const;
 
 public:
 	const nano::keypair node_id;
@@ -259,8 +260,6 @@ private:
 };
 
 nano::keypair load_or_create_node_id (std::filesystem::path const & application_path);
-
-std::unique_ptr<container_info_component> collect_container_info (node & node, std::string const & name);
 
 nano::node_flags const & inactive_node_flag_defaults ();
 

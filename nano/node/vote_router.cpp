@@ -175,15 +175,6 @@ void nano::vote_router::stop ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::vote_router::collect_container_info (std::string const & name) const
-{
-	std::shared_lock lock{ mutex };
-
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "elections", elections.size (), sizeof (decltype (elections)::value_type) }));
-	return composite;
-}
-
 void nano::vote_router::run ()
 {
 	std::unique_lock lock{ mutex };
@@ -192,4 +183,13 @@ void nano::vote_router::run ()
 		std::erase_if (elections, [] (auto const & pair) { return pair.second.lock () == nullptr; });
 		condition.wait_for (lock, 15s, [&] () { return stopped; });
 	}
+}
+
+nano::container_info nano::vote_router::container_info () const
+{
+	std::shared_lock lock{ mutex };
+
+	nano::container_info info;
+	info.put ("elections", elections);
+	return info;
 }

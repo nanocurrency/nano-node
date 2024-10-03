@@ -56,11 +56,11 @@ nano::recently_confirmed_cache::entry_t nano::recently_confirmed_cache::back () 
 	return confirmed.back ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::recently_confirmed_cache::collect_container_info (const std::string & name)
+nano::container_info nano::recently_confirmed_cache::container_info () const
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "confirmed", confirmed.size (), sizeof (decltype (confirmed)::value_type) }));
-	return composite;
+	nano::container_info info;
+	info.put ("confirmed", confirmed);
+	return info;
 }

@@ -830,17 +830,17 @@ std::size_t nano::bootstrap_ascending::service::compute_throttle_size () const
 	return std::max (target, min_size);
 }
 
-std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::service::collect_container_info (std::string const & name)
+nano::container_info nano::bootstrap_ascending::service::container_info () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "tags", tags.size (), sizeof (decltype (tags)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "throttle", throttle.size (), 0 }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "throttle_successes", throttle.successes (), 0 }));
-	composite->add_component (accounts.collect_container_info ("accounts"));
-	composite->add_component (database_scan.collect_container_info ("database_scan"));
-	return composite;
+	nano::container_info info;
+	info.put ("tags", tags);
+	info.put ("throttle", throttle.size ());
+	info.put ("throttle_successes", throttle.successes ());
+	info.add ("accounts", accounts.container_info ());
+	info.add ("database_scan", database_scan.container_info ());
+	return info;
 }
 
 /*

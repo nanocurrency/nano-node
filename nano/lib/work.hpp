@@ -56,12 +56,12 @@ public:
 	bool done;
 	std::vector<boost::thread> threads;
 	std::list<nano::work_item> pending;
-	nano::mutex mutex{ mutex_identifier (mutexes::work_pool) };
+	mutable nano::mutex mutex{ mutex_identifier (mutexes::work_pool) };
 	nano::condition_variable producer_condition;
 	std::chrono::nanoseconds pow_rate_limiter;
 	nano::opencl_work_func_t opencl;
 	nano::observer_set<bool> work_observers;
-};
 
-std::unique_ptr<container_info_component> collect_container_info (work_pool & work_pool, std::string const & name);
+	nano::container_info container_info () const;
+};
 }

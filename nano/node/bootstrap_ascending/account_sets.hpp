@@ -62,7 +62,6 @@ namespace bootstrap_ascending
 		nano::account next_priority (std::function<bool (nano::account const &)> const & filter);
 		nano::block_hash next_blocking (std::function<bool (nano::block_hash const &)> const & filter);
 
-	public:
 		bool blocked (nano::account const & account) const;
 		bool prioritized (nano::account const & account) const;
 		// Accounts in the ledger but not in priority list are assumed priority 1.0f
@@ -74,7 +73,7 @@ namespace bootstrap_ascending
 		bool priority_half_full () const;
 		bool blocked_half_full () const;
 
-		std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name);
+		nano::container_info container_info () const;
 
 	private: // Dependencies
 		account_sets_config const & config;

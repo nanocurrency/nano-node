@@ -458,25 +458,15 @@ void nano::block_processor::queue_unchecked (secure::write_transaction const & t
 	node.unchecked.trigger (hash_or_account_a);
 }
 
-std::unique_ptr<nano::container_info_component> nano::block_processor::collect_container_info (std::string const & name)
+nano::container_info nano::block_processor::container_info () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", queue.size (), 0 }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "forced", queue.size ({ nano::block_source::forced }), 0 }));
-	composite->add_component (queue.collect_container_info ("queue"));
-	return composite;
-}
-
-std::string_view nano::to_string (nano::block_source source)
-{
-	return nano::enum_util::name (source);
-}
-
-nano::stat::detail nano::to_stat_detail (nano::block_source type)
-{
-	return nano::enum_util::cast<nano::stat::detail> (type);
+	nano::container_info info;
+	info.put ("blocks", queue.size ());
+	info.put ("forced", queue.size ({ nano::block_source::forced }));
+	info.add ("queue", queue.container_info ());
+	return info;
 }
 
 /*
@@ -507,4 +497,18 @@ nano::error nano::block_processor_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("priority_local", priority_local);
 
 	return toml.get_error ();
+}
+
+/*
+ *
+ */
+
+std::string_view nano::to_string (nano::block_source source)
+{
+	return nano::enum_util::name (source);
+}
+
+nano::stat::detail nano::to_stat_detail (nano::block_source type)
+{
+	return nano::enum_util::cast<nano::stat::detail> (type);
 }

@@ -5,6 +5,7 @@
 #include <nano/node/election_behavior.hpp>
 #include <nano/node/election_insertion_result.hpp>
 #include <nano/node/election_status.hpp>
+#include <nano/node/fwd.hpp>
 #include <nano/node/recently_cemented_cache.hpp>
 #include <nano/node/recently_confirmed_cache.hpp>
 #include <nano/node/vote_router.hpp>
@@ -24,24 +25,6 @@
 #include <unordered_map>
 
 namespace mi = boost::multi_index;
-
-namespace nano
-{
-class node;
-class active_elections;
-class block;
-class block_sideband;
-class block_processor;
-class confirming_set;
-class election;
-class vote;
-class stats;
-enum class election_state;
-}
-namespace nano::secure
-{
-class transaction;
-}
 
 namespace nano
 {
@@ -144,6 +127,8 @@ public:
 	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
 	std::shared_ptr<nano::election> remove_election_winner_details (nano::block_hash const &);
 
+	nano::container_info container_info () const;
+
 private:
 	void request_loop ();
 	void request_confirm (nano::unique_lock<nano::mutex> &);
@@ -164,8 +149,8 @@ private: // Dependencies
 	nano::block_processor & block_processor;
 
 public:
-	recently_confirmed_cache recently_confirmed;
-	recently_cemented_cache recently_cemented;
+	nano::recently_confirmed_cache recently_confirmed;
+	nano::recently_cemented_cache recently_cemented;
 
 	// TODO: This mutex is currently public because many tests access it
 	// TODO: This is bad. Remove the need to explicitly lock this from any code outside of this class
@@ -186,7 +171,6 @@ private:
 	std::thread thread;
 
 	friend class election;
-	friend std::unique_ptr<container_info_component> collect_container_info (active_elections &, std::string const &);
 
 public: // Tests
 	void clear ();
@@ -203,8 +187,6 @@ public: // Tests
 	friend class active_elections_pessimistic_elections_Test;
 	friend class frontiers_confirmation_expired_optimistic_elections_removal_Test;
 };
-
-std::unique_ptr<container_info_component> collect_container_info (active_elections & active_elections, std::string const & name);
 
 nano::stat::type to_stat_type (nano::election_state);
 nano::stat::detail to_stat_detail (nano::election_state);

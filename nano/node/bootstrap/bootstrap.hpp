@@ -53,7 +53,7 @@ public:
 	void add (nano::pull_info const &);
 	void update_pull (nano::pull_info &);
 	void remove (nano::pull_info const &);
-	nano::mutex pulls_cache_mutex;
+	mutable nano::mutex pulls_cache_mutex;
 	class account_head_tag
 	{
 	};
@@ -116,6 +116,7 @@ public:
 	nano::pulls_cache cache;
 	nano::bootstrap_attempts attempts;
 	void stop ();
+	nano::container_info container_info () const;
 
 private:
 	nano::node & node;
@@ -123,16 +124,12 @@ private:
 	void stop_attempts ();
 	std::vector<std::shared_ptr<nano::bootstrap_attempt>> attempts_list;
 	std::atomic<bool> stopped{ false };
-	nano::mutex mutex;
+	mutable nano::mutex mutex;
 	nano::condition_variable condition;
-	nano::mutex observers_mutex;
+	mutable nano::mutex observers_mutex;
 	std::vector<std::function<void (bool)>> observers;
 	std::vector<boost::thread> bootstrap_initiator_threads;
-
-	friend std::unique_ptr<container_info_component> collect_container_info (bootstrap_initiator & bootstrap_initiator, std::string const & name);
 };
-
-std::unique_ptr<container_info_component> collect_container_info (bootstrap_initiator & bootstrap_initiator, std::string const & name);
 
 /**
  * Defines the numeric values for the bootstrap feature.

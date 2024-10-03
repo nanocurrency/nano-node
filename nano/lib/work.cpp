@@ -232,16 +232,12 @@ size_t nano::work_pool::size ()
 	return pending.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (work_pool & work_pool, std::string const & name)
+nano::container_info nano::work_pool::container_info () const
 {
-	size_t count;
-	{
-		nano::lock_guard<nano::mutex> guard{ work_pool.mutex };
-		count = work_pool.pending.size ();
-	}
-	auto sizeof_element = sizeof (decltype (work_pool.pending)::value_type);
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending", count, sizeof_element }));
-	composite->add_component (work_pool.work_observers.collect_container_info ("work_observers"));
-	return composite;
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
+	nano::container_info info;
+	info.put ("pending", pending);
+	info.add ("work_observers", work_observers.container_info ());
+	return info;
 }

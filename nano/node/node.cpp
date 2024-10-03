@@ -518,46 +518,6 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 	});
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (node & node, std::string const & name)
-{
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (collect_container_info (node.work, "work"));
-	composite->add_component (node.ledger.collect_container_info ("ledger"));
-	composite->add_component (collect_container_info (node.active, "active"));
-	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
-	composite->add_component (node.tcp_listener.collect_container_info ("tcp_listener"));
-	composite->add_component (collect_container_info (node.network, "network"));
-	composite->add_component (node.telemetry.collect_container_info ("telemetry"));
-	composite->add_component (node.workers.collect_container_info ("workers"));
-	composite->add_component (node.bootstrap_workers.collect_container_info ("bootstrap_workers"));
-	composite->add_component (node.wallet_workers.collect_container_info ("wallet_workers"));
-	composite->add_component (node.election_workers.collect_container_info ("election_workers"));
-	composite->add_component (collect_container_info (node.observers, "observers"));
-	composite->add_component (collect_container_info (node.wallets, "wallets"));
-	composite->add_component (node.vote_processor.collect_container_info ("vote_processor"));
-	composite->add_component (node.vote_cache_processor.collect_container_info ("vote_cache_processor"));
-	composite->add_component (node.rep_crawler.collect_container_info ("rep_crawler"));
-	composite->add_component (node.block_processor.collect_container_info ("block_processor"));
-	composite->add_component (collect_container_info (node.online_reps, "online_reps"));
-	composite->add_component (node.history.collect_container_info ("history"));
-	composite->add_component (node.block_uniquer.collect_container_info ("block_uniquer"));
-	composite->add_component (node.vote_uniquer.collect_container_info ("vote_uniquer"));
-	composite->add_component (node.confirming_set.collect_container_info ("confirming_set"));
-	composite->add_component (collect_container_info (node.distributed_work, "distributed_work"));
-	composite->add_component (node.aggregator.collect_container_info ("request_aggregator"));
-	composite->add_component (node.scheduler.collect_container_info ("election_scheduler"));
-	composite->add_component (node.vote_cache.collect_container_info ("vote_cache"));
-	composite->add_component (node.vote_router.collect_container_info ("vote_router"));
-	composite->add_component (node.generator.collect_container_info ("vote_generator"));
-	composite->add_component (node.final_generator.collect_container_info ("vote_generator_final"));
-	composite->add_component (node.ascendboot.collect_container_info ("bootstrap_ascending"));
-	composite->add_component (node.unchecked.collect_container_info ("unchecked"));
-	composite->add_component (node.local_block_broadcaster.collect_container_info ("local_block_broadcaster"));
-	composite->add_component (node.rep_tiers.collect_container_info ("rep_tiers"));
-	composite->add_component (node.message_processor.collect_container_info ("message_processor"));
-	return composite;
-}
-
 void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 {
 	block_processor.add (incoming);
@@ -1304,6 +1264,59 @@ std::string nano::node::make_logger_identifier (const nano::keypair & node_id)
 	// Node identifier consists of first 10 characters of node id
 	return node_id.pub.to_node_id ().substr (0, 10);
 }
+
+nano::container_info nano::node::container_info () const
+{
+	/*
+	 * TODO: Add container infos for:
+	 * - bootstrap_server
+	 * - peer_history
+	 * - port_mapping
+	 * - epoch_upgrader
+	 * - websocket
+	 */
+
+	nano::container_info info;
+	info.add ("work", work.container_info ());
+	info.add ("ledger", ledger.container_info ());
+	info.add ("active", active.container_info ());
+	info.add ("bootstrap_initiator", bootstrap_initiator.container_info ());
+	info.add ("tcp_listener", tcp_listener.container_info ());
+	info.add ("network", network.container_info ());
+	info.add ("telemetry", telemetry.container_info ());
+	info.add ("workers", workers.container_info ());
+	info.add ("bootstrap_workers", bootstrap_workers.container_info ());
+	info.add ("wallet_workers", wallet_workers.container_info ());
+	info.add ("election_workers", election_workers.container_info ());
+	info.add ("observers", observers.container_info ());
+	info.add ("wallets", wallets.container_info ());
+	info.add ("vote_processor", vote_processor.container_info ());
+	info.add ("vote_cache_processor", vote_cache_processor.container_info ());
+	info.add ("rep_crawler", rep_crawler.container_info ());
+	info.add ("block_processor", block_processor.container_info ());
+	info.add ("online_reps", online_reps.container_info ());
+	info.add ("history", history.container_info ());
+	info.add ("block_uniquer", block_uniquer.container_info ());
+	info.add ("vote_uniquer", vote_uniquer.container_info ());
+	info.add ("confirming_set", confirming_set.container_info ());
+	info.add ("distributed_work", distributed_work.container_info ());
+	info.add ("aggregator", aggregator.container_info ());
+	info.add ("scheduler", scheduler.container_info ());
+	info.add ("vote_cache", vote_cache.container_info ());
+	info.add ("vote_router", vote_router.container_info ());
+	info.add ("generator", generator.container_info ());
+	info.add ("final_generator", final_generator.container_info ());
+	info.add ("bootstrap_ascending", ascendboot.container_info ());
+	info.add ("unchecked", unchecked.container_info ());
+	info.add ("local_block_broadcaster", local_block_broadcaster.container_info ());
+	info.add ("rep_tiers", rep_tiers.container_info ());
+	info.add ("message_processor", message_processor.container_info ());
+	return info;
+}
+
+/*
+ *
+ */
 
 nano::keypair nano::load_or_create_node_id (std::filesystem::path const & application_path)
 {

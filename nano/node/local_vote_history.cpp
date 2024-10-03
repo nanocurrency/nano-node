@@ -104,12 +104,11 @@ std::size_t nano::local_vote_history::size () const
 	return history.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::local_vote_history::collect_container_info (std::string const & name) const
+nano::container_info nano::local_vote_history::container_info () const
 {
-	std::size_t history_count = size ();
-	auto sizeof_element = sizeof (decltype (history)::value_type);
-	auto composite = std::make_unique<container_info_composite> (name);
-	/* This does not currently loop over each element inside the cache to get the sizes of the votes inside history*/
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "history", history_count, sizeof_element }));
-	return composite;
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
+	nano::container_info info;
+	info.put ("history", history);
+	return info;
 }

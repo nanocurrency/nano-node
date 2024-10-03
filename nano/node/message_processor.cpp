@@ -290,13 +290,13 @@ void nano::message_processor::process (nano::message const & message, std::share
 	message.visit (visitor);
 }
 
-std::unique_ptr<nano::container_info_component> nano::message_processor::collect_container_info (std::string const & name)
+nano::container_info nano::message_processor::container_info () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (queue.collect_container_info ("queue"));
-	return composite;
+	nano::container_info info;
+	info.add ("queue", queue.container_info ());
+	return info;
 }
 
 /*

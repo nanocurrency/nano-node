@@ -34,9 +34,8 @@ public:
 	bool validate (nano::endpoint const &, nano::account const &, nano::signature const &);
 	/** Get cookie associated with endpoint and erases that cookie from this container */
 	std::optional<nano::uint256_union> cookie (nano::endpoint const &);
-
-	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
-	std::size_t cookies_size ();
+	std::size_t cookies_size () const;
+	nano::container_info container_info () const;
 
 private: // Dependencies
 	nano::logger & logger;
@@ -130,6 +129,8 @@ public:
 	void exclude (std::shared_ptr<nano::transport::channel> const & channel);
 	void inbound (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
 
+	nano::container_info container_info () const;
+
 public: // Handshake
 	/** Verifies that handshake response matches our query. @returns true if OK */
 	bool verify_handshake_response (nano::node_id_handshake::response_payload const & response, nano::endpoint const & remote_endpoint);
@@ -176,6 +177,4 @@ public:
 	static std::size_t confirm_req_hashes_max;
 	static std::size_t confirm_ack_hashes_max;
 };
-
-std::unique_ptr<container_info_component> collect_container_info (network & network, std::string const & name);
 }

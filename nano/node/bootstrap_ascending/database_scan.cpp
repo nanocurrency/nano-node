@@ -55,12 +55,12 @@ bool nano::bootstrap_ascending::database_scan::warmed_up () const
 	return accounts_iterator.warmed_up () && pending_iterator.warmed_up ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::database_scan::collect_container_info (std::string const & name) const
+nano::container_info nano::bootstrap_ascending::database_scan::container_info () const
 {
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "accounts_iterator", accounts_iterator.completed, 0 }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending_iterator", pending_iterator.completed, 0 }));
-	return composite;
+	nano::container_info info;
+	info.put ("accounts_iterator", accounts_iterator.completed);
+	info.put ("pending_iterator", pending_iterator.completed);
+	return info;
 }
 
 /*

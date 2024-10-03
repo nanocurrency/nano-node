@@ -2,6 +2,7 @@
 
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/node/fwd.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/store/transaction.hpp>
 
@@ -15,20 +16,6 @@
 #include <thread>
 
 namespace mi = boost::multi_index;
-
-namespace nano
-{
-class node;
-class node_config;
-class active_elections;
-class vote_cache;
-class online_reps;
-}
-namespace nano::secure
-{
-class transaction;
-class read_transaction;
-}
 
 namespace nano::scheduler
 {
@@ -65,7 +52,7 @@ public:
 	 */
 	void notify ();
 
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
+	nano::container_info container_info () const;
 
 private:
 	bool predicate () const;

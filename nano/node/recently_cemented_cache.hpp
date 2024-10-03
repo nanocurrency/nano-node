@@ -26,13 +26,12 @@ public:
 	queue_t list () const;
 	std::size_t size () const;
 
+	nano::container_info container_info () const;
+
 private:
 	queue_t cemented;
 	std::size_t const max_size;
 
 	mutable nano::mutex mutex;
-
-public: // Container info
-	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 };
 }
