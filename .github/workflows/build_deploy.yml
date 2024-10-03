@@ -1,7 +1,7 @@
 name: Build & Deploy
 on:
   schedule:
-    - cron: "0 0 * * 3,6"
+    - cron: "0 0 * * 3,6" # Every Wednesday and Saturday at 00:00
   workflow_dispatch:
     inputs:
         is_release_build:
@@ -14,12 +14,15 @@ env:
 
 jobs:
   prepare_build:
+    name: Prepare Build
     runs-on: ubuntu-22.04
     outputs:
       ci_tag: ${{ steps.set_vars.outputs.ci_tag }}
       tag_created: ${{ steps.set_vars.outputs.tag_created }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Set the tag and version
         id: tag_set
         run: |
@@ -27,14 +30,15 @@ jobs:
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           IS_RELEASE_BUILD: ${{ github.event.inputs.is_release_build || 'false' }}
+
       - name: Set output
         id: set_vars
         run: |
           echo "ci_tag=$CI_TAG" >> $GITHUB_OUTPUT
           echo "tag_created=$TAG_CREATED" >> $GITHUB_OUTPUT
 
-
   osx_job:
+    name: macOS [${{ matrix.network }}]
     needs: prepare_build
     if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
     runs-on: macOS-14
@@ -43,19 +47,22 @@ jobs:
       matrix:
         network: ["TEST", "BETA", "LIVE"]
     steps:
-
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.ci_tag }}
           repository: ${{ github.repository }}
+
       - name: Prepare
         run: ci/prepare/macos/prepare.sh
+        
       - name: Build Artifact
         run: ci/build-deploy.sh "/tmp/qt/lib/cmake/Qt5";
         env:
           NETWORK: ${{ matrix.network }}
           CI_TAG: ${{ needs.prepare_build.outputs.ci_tag }}
+
       - name: Deploy Artifact
         run: ci/actions/deploy.sh
         env:
@@ -66,9 +73,9 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2
-  
 
   linux_job:
+    name: Linux [${{ matrix.network }}]
     needs: prepare_build
     if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
     runs-on: ubuntu-22.04
@@ -77,13 +84,16 @@ jobs:
       matrix:
         network: ["TEST", "BETA", "LIVE"]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.ci_tag }}
           repository: ${{ github.repository }}
+
       - name: Prepare
         run: sudo -E ci/prepare/linux/prepare.sh
+
       - name: Build Artifact
         run: ci/build-deploy.sh "/usr/lib/x86_64-linux-gnu/cmake/Qt5"
         env:
@@ -101,8 +111,8 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2
 
-
   linux_docker_job:
+    name: Docker [${{ matrix.network }}]
     needs: prepare_build
     if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
     runs-on: ubuntu-22.04
@@ -117,21 +127,25 @@ jobs:
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       IS_RELEASE_BUILD: ${{ github.event.inputs.is_release_build || 'false' }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.ci_tag }}
           repository: ${{ github.repository }}
+
       - name: Build Docker
         run: ci/actions/linux/docker-build.sh
         env:
           NETWORK: ${{ matrix.network }}
-      - name: Deploy Docker Hub
+
+      - name: Deploy Docker (Docker Hub)
         if: env.DOCKER_PASSWORD != ''
         run: ci/actions/linux/docker-deploy.sh
         env:
           NETWORK: ${{ matrix.network }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
       - name: Deploy Docker (ghcr.io)
         run: ci/actions/linux/ghcr-deploy.sh
         env:
@@ -140,8 +154,8 @@ jobs:
           DOCKER_USER: ${{ github.repository_owner }}
           DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
 
-
   windows_job:
+    name: Windows [${{ matrix.network }}]
     needs: prepare_build
     if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
     runs-on: windows-latest
@@ -150,18 +164,22 @@ jobs:
       matrix:
         network: ["TEST", "BETA", "LIVE"]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.ci_tag }}
           repository: ${{ github.repository }}
+
       - name: Prepare
         run: ci/prepare/windows/prepare.ps1
+
       - name: Build Artifact
         run: ci/actions/windows/build.ps1
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
       - name: Deploy Artifact
         run: ci/actions/windows/deploy.ps1
         env:
