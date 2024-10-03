@@ -19,7 +19,7 @@ jobs:
       ci_tag: ${{ steps.set_vars.outputs.ci_tag }}
       tag_created: ${{ steps.set_vars.outputs.tag_created }}
     steps:
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+      - uses: actions/checkout@v4
       - name: Set the tag and version
         id: tag_set
         run: |
@@ -44,7 +44,7 @@ jobs:
         network: ["TEST", "BETA", "LIVE"]
     steps:
 
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+      - uses: actions/checkout@v4
         with:
           submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.ci_tag }}
@@ -77,7 +77,7 @@ jobs:
       matrix:
         network: ["TEST", "BETA", "LIVE"]
     steps:
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+      - uses: actions/checkout@v4
         with:
           submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.ci_tag }}
@@ -117,7 +117,7 @@ jobs:
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       IS_RELEASE_BUILD: ${{ github.event.inputs.is_release_build || 'false' }}
     steps:
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+      - uses: actions/checkout@v4
         with:
           submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.ci_tag }}
@@ -150,7 +150,7 @@ jobs:
       matrix:
         network: ["TEST", "BETA", "LIVE"]
     steps:
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+      - uses: actions/checkout@v4
         with:
           submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.ci_tag }}
