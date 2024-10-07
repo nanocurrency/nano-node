@@ -92,7 +92,7 @@ public:
 		last_packet_sent = time_a;
 	}
 
-	boost::optional<nano::account> get_node_id_optional () const
+	std::optional<nano::account> get_node_id_optional () const
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
 		return node_id;
@@ -101,14 +101,7 @@ public:
 	nano::account get_node_id () const
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
-		if (node_id.is_initialized ())
-		{
-			return node_id.get ();
-		}
-		else
-		{
-			return 0;
-		}
+		return node_id.value_or (0);
 	}
 
 	void set_node_id (nano::account node_id_a)
@@ -138,7 +131,7 @@ private:
 	std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
 	std::chrono::steady_clock::time_point last_packet_received{ std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point last_packet_sent{ std::chrono::steady_clock::now () };
-	boost::optional<nano::account> node_id{ boost::none };
+	std::optional<nano::account> node_id{};
 	std::atomic<uint8_t> network_version{ 0 };
 	std::optional<nano::endpoint> peering_endpoint{};
 

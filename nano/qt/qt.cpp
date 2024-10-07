@@ -1959,9 +1959,9 @@ void nano_qt::advanced_actions::refresh_peers ()
 		items.push_back (version);
 		QString node_id ("");
 		auto node_id_l (channel->get_node_id_optional ());
-		if (node_id_l.is_initialized ())
+		if (node_id_l.has_value ())
 		{
-			node_id = node_id_l.get ().to_account ().c_str ();
+			node_id = node_id_l.value ().to_account ().c_str ();
 		}
 		items.push_back (new QStandardItem (node_id));
 		peers_model->appendRow (items);
