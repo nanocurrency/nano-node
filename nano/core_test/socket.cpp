@@ -331,7 +331,7 @@ TEST (socket, drop_policy)
 		});
 
 		auto client = std::make_shared<nano::transport::tcp_socket> (*node);
-		auto channel = std::make_shared<nano::transport::tcp_channel> (*node, client);
+		auto channel = std::make_shared<nano::transport::tcp_channel> (node, client);
 
 		std::atomic completed_writes{ 0 };
 

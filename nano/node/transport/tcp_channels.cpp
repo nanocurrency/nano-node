@@ -117,7 +117,7 @@ std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::cre
 	fmt::streamed (socket->remote_endpoint ()),
 	node_id.to_node_id ());
 
-	auto channel = std::make_shared<nano::transport::tcp_channel> (node, socket);
+	auto channel = std::make_shared<nano::transport::tcp_channel> (node.shared (), socket);
 	channel->update_endpoints ();
 	channel->set_node_id (node_id);
 

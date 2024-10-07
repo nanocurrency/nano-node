@@ -23,8 +23,8 @@ enum class transport_type : uint8_t
 class channel
 {
 public:
-	explicit channel (nano::node &);
-	virtual ~channel () = default;
+	explicit channel (std::shared_ptr<nano::node>);
+	virtual ~channel ();
 
 	void send (nano::message & message_a,
 	std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a = nullptr,
@@ -124,7 +124,9 @@ public:
 	void set_peering_endpoint (nano::endpoint endpoint);
 
 protected:
+	std::weak_ptr<nano::node> node_w;
 	nano::node & node;
+
 	mutable nano::mutex mutex;
 
 private:

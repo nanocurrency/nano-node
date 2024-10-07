@@ -8,10 +8,16 @@
 #include <boost/asio/ip/address_v6.hpp>
 #include <boost/format.hpp>
 
-nano::transport::channel::channel (nano::node & node_a) :
-	node{ node_a }
+nano::transport::channel::channel (std::shared_ptr<nano::node> node_a) :
+	node_w{ node_a },
+	node{ *node_a }
 {
-	set_network_version (node_a.network_params.network.protocol_version);
+	set_network_version (node.network_params.network.protocol_version);
+}
+
+nano::transport::channel::~channel ()
+{
+	release_assert (node_w.lock (), "channel lifetime problem detected"); // Channel must not outlive the node
 }
 
 void nano::transport::channel::send (nano::message & message_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a, nano::transport::buffer_drop_policy drop_policy_a, nano::transport::traffic_type traffic_type)

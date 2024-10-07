@@ -28,8 +28,7 @@ nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::
 	stats (stats_a),
 	logger (logger_a),
 	is_final (is_final_a),
-	vote_generation_queue{ stats, nano::stat::type::vote_generator, nano::thread_role::name::vote_generator_queue, /* single threaded */ 1, /* max queue size */ 1024 * 32, /* max batch size */ 256 },
-	inproc_channel{ std::make_shared<nano::transport::inproc::channel> (node, node) }
+	vote_generation_queue{ stats, nano::stat::type::vote_generator, nano::thread_role::name::vote_generator_queue, /* single threaded */ 1, /* max queue size */ 1024 * 32, /* max batch size */ 256 }
 {
 	vote_generation_queue.process_batch = [this] (auto & batch) {
 		process_batch (batch);
@@ -74,6 +73,9 @@ bool nano::vote_generator::should_vote (transaction_variant_t const & transactio
 
 void nano::vote_generator::start ()
 {
+	debug_assert (!inproc_channel);
+	inproc_channel = std::make_shared<nano::transport::inproc::channel> (node, node);
+
 	debug_assert (!thread.joinable ());
 	thread = std::thread ([this] () { run (); });
 
@@ -94,6 +96,8 @@ void nano::vote_generator::stop ()
 	{
 		thread.join ();
 	}
+
+	inproc_channel = nullptr;
 }
 
 void nano::vote_generator::add (const root & root, const block_hash & hash)
