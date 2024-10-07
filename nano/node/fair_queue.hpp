@@ -139,6 +139,7 @@ public:
 	void clear ()
 	{
 		queues.clear ();
+		total_size = 0;
 	}
 
 	/**

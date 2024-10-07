@@ -84,6 +84,7 @@ nano::block_processor::~block_processor ()
 {
 	// Thread must be stopped before destruction
 	debug_assert (!thread.joinable ());
+	debug_assert (queue.empty ());
 }
 
 void nano::block_processor::start ()
@@ -107,6 +108,7 @@ void nano::block_processor::stop ()
 	{
 		thread.join ();
 	}
+	queue.clear ();
 }
 
 // TODO: Remove and replace all checks with calls to size (block_source)

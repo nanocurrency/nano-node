@@ -32,6 +32,7 @@ nano::telemetry::~telemetry ()
 {
 	// Thread must be stopped before destruction
 	debug_assert (!thread.joinable ());
+	debug_assert (telemetries.empty ());
 }
 
 void nano::telemetry::start ()
@@ -51,7 +52,8 @@ void nano::telemetry::stop ()
 		stopped = true;
 	}
 	condition.notify_all ();
-	nano::join_or_pass (thread);
+	join_or_pass (thread);
+	telemetries.clear ();
 }
 
 bool nano::telemetry::verify (const nano::telemetry_ack & telemetry, const std::shared_ptr<nano::transport::channel> & channel) const

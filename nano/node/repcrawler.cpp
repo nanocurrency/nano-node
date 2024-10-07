@@ -25,6 +25,9 @@ nano::rep_crawler::~rep_crawler ()
 {
 	// Thread must be stopped before destruction
 	debug_assert (!thread.joinable ());
+	debug_assert (responses.empty ());
+	debug_assert (reps.empty ());
+	debug_assert (queries.empty ());
 }
 
 void nano::rep_crawler::start ()
@@ -48,6 +51,9 @@ void nano::rep_crawler::stop ()
 	{
 		thread.join ();
 	}
+	responses.clear ();
+	reps.clear ();
+	queries.clear ();
 }
 
 // Exits with the lock unlocked

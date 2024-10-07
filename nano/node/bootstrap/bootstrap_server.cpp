@@ -58,6 +58,7 @@ void nano::bootstrap_server::stop ()
 		thread.join ();
 	}
 	threads.clear ();
+	queue.clear ();
 }
 
 bool nano::bootstrap_server::verify_request_type (nano::asc_pull_type type) const

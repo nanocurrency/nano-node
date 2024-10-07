@@ -39,6 +39,8 @@ nano::vote_generator::~vote_generator ()
 {
 	debug_assert (stopped);
 	debug_assert (!thread.joinable ());
+	debug_assert (requests.empty ());
+	debug_assert (candidates.empty ());
 }
 
 bool nano::vote_generator::should_vote (transaction_variant_t const & transaction_variant, nano::root const & root_a, nano::block_hash const & hash_a) const
@@ -96,8 +98,9 @@ void nano::vote_generator::stop ()
 	{
 		thread.join ();
 	}
-
 	inproc_channel = nullptr;
+	requests.clear ();
+	candidates.clear ();
 }
 
 void nano::vote_generator::add (const root & root, const block_hash & hash)

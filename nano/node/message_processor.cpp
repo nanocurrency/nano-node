@@ -22,6 +22,7 @@ nano::message_processor::message_processor (message_processor_config const & con
 nano::message_processor::~message_processor ()
 {
 	debug_assert (threads.empty ());
+	debug_assert (queue.empty ());
 }
 
 void nano::message_processor::start ()
@@ -76,6 +77,7 @@ void nano::message_processor::stop ()
 		}
 	}
 	threads.clear ();
+	queue.clear ();
 }
 
 bool nano::message_processor::put (std::unique_ptr<nano::message> message, std::shared_ptr<nano::transport::channel> const & channel)

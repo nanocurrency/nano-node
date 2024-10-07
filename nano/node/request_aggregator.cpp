@@ -43,6 +43,7 @@ nano::request_aggregator::request_aggregator (request_aggregator_config const & 
 nano::request_aggregator::~request_aggregator ()
 {
 	debug_assert (threads.empty ());
+	debug_assert (queue.empty ());
 }
 
 void nano::request_aggregator::start ()
@@ -73,6 +74,7 @@ void nano::request_aggregator::stop ()
 		}
 	}
 	threads.clear ();
+	queue.clear ();
 }
 
 std::size_t nano::request_aggregator::size () const

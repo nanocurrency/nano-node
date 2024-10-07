@@ -650,6 +650,9 @@ void nano::node::stop ()
 	logger.info (nano::log::type::node, "Node stopping...");
 
 	tcp_listener.stop ();
+	network.stop ();
+	message_processor.stop ();
+	workers.stop ();
 	bootstrap_workers.stop ();
 	wallet_workers.stop ();
 	election_workers.stop ();
@@ -664,13 +667,13 @@ void nano::node::stop ()
 	unchecked.stop ();
 	block_processor.stop ();
 	aggregator.stop ();
-	vote_cache_processor.stop ();
-	vote_processor.stop ();
 	rep_tiers.stop ();
 	scheduler.stop ();
 	active.stop ();
 	generator.stop ();
 	final_generator.stop ();
+	vote_processor.stop ();
+	vote_cache_processor.stop ();
 	confirming_set.stop ();
 	telemetry.stop ();
 	websocket.stop ();
@@ -680,10 +683,7 @@ void nano::node::stop ()
 	wallets.stop ();
 	stats.stop ();
 	epoch_upgrader.stop ();
-	workers.stop ();
 	local_block_broadcaster.stop ();
-	message_processor.stop ();
-	network.stop (); // Stop network last to avoid killing in-use sockets
 	monitor.stop ();
 
 	// work pool is not stopped on purpose due to testing setup

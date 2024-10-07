@@ -65,6 +65,7 @@ nano::vote_processor::vote_processor (vote_processor_config const & config_a, na
 nano::vote_processor::~vote_processor ()
 {
 	debug_assert (threads.empty ());
+	debug_assert (queue.empty ());
 }
 
 void nano::vote_processor::start ()
@@ -98,6 +99,7 @@ void nano::vote_processor::stop ()
 		thread.join ();
 	}
 	threads.clear ();
+	queue.clear ();
 }
 
 bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_source source)
