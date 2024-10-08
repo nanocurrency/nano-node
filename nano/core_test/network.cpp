@@ -377,7 +377,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
 	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
 	ASSERT_EQ (1, election->votes ().size ());
-	node1.network.inbound (con1, channel1);
+	node1.inbound (con1, channel1);
 	ASSERT_TIMELY_EQ (5s, 2, election->votes ().size ())
 	ASSERT_FALSE (election->confirmed ());
 }
@@ -402,7 +402,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
 	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
 	ASSERT_EQ (1, election->votes ().size ());
-	node1.network.inbound (con1, channel1);
+	node1.inbound (con1, channel1);
 	ASSERT_TIMELY_EQ (5s, 2, election->votes ().size ())
 	ASSERT_TRUE (election->confirmed ());
 }
@@ -743,10 +743,10 @@ TEST (network, duplicate_revert_publish)
 	auto channel = nano::test::establish_tcp (system, *other_node, node.network.endpoint ());
 	ASSERT_NE (nullptr, channel);
 	ASSERT_EQ (0, publish.digest);
-	node.network.inbound (publish, channel);
+	node.inbound (publish, channel);
 	ASSERT_TRUE (node.network.filter.apply (bytes.data (), bytes.size ()));
 	publish.digest = digest;
-	node.network.inbound (publish, channel);
+	node.inbound (publish, channel);
 	ASSERT_FALSE (node.network.filter.apply (bytes.data (), bytes.size ()));
 }
 

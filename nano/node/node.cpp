@@ -518,6 +518,14 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 	});
 }
 
+void nano::node::inbound (const nano::message & message, const std::shared_ptr<nano::transport::channel> & channel)
+{
+	debug_assert (message.header.network == network_params.network.current_network);
+	debug_assert (message.header.version_using >= network_params.network.protocol_version_min);
+
+	message_processor.process (message, channel);
+}
+
 void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 {
 	block_processor.add (incoming);
