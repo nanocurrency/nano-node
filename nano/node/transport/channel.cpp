@@ -63,6 +63,11 @@ nano::endpoint nano::transport::channel::get_peering_endpoint () const
 	}
 }
 
+std::shared_ptr<nano::node> nano::transport::channel::owner () const
+{
+	return node.shared ();
+}
+
 void nano::transport::channel::operator() (nano::object_stream & obs) const
 {
 	obs.write ("endpoint", get_endpoint ());
