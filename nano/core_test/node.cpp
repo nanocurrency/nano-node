@@ -688,16 +688,15 @@ TEST (node, fork_flip)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
 	nano::publish publish2{ nano::dev::network_params.network, send2 };
-	auto ignored_channel = nano::test::fake_channel (node1);
-	node1.inbound (publish1, ignored_channel);
-	node2.inbound (publish2, ignored_channel);
+	node1.inbound (publish1, nano::test::fake_channel (node1));
+	node2.inbound (publish2, nano::test::fake_channel (node2));
 	ASSERT_TIMELY_EQ (5s, 1, node1.active.size ());
 	ASSERT_TIMELY_EQ (5s, 1, node2.active.size ());
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	// Fill nodes with forked blocks
-	node1.inbound (publish2, ignored_channel);
+	node1.inbound (publish2, nano::test::fake_channel (node1));
 	ASSERT_TIMELY (5s, node1.active.active (*send2));
-	node2.inbound (publish1, ignored_channel);
+	node2.inbound (publish1, nano::test::fake_channel (node2));
 	ASSERT_TIMELY (5s, node2.active.active (*send1));
 	auto election1 (node2.active.election (nano::qualified_root (nano::dev::genesis->hash (), nano::dev::genesis->hash ())));
 	ASSERT_NE (nullptr, election1);

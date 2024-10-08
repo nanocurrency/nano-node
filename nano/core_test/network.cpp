@@ -743,10 +743,10 @@ TEST (network, duplicate_revert_publish)
 	auto channel = nano::test::establish_tcp (system, *other_node, node.network.endpoint ());
 	ASSERT_NE (nullptr, channel);
 	ASSERT_EQ (0, publish.digest);
-	node.inbound (publish, channel);
+	node.inbound (publish, nano::test::fake_channel (node));
 	ASSERT_TRUE (node.network.filter.apply (bytes.data (), bytes.size ()));
 	publish.digest = digest;
-	node.inbound (publish, channel);
+	node.inbound (publish, nano::test::fake_channel (node));
 	ASSERT_FALSE (node.network.filter.apply (bytes.data (), bytes.size ()));
 }
 
