@@ -124,15 +124,12 @@ void nano::vote_generator::process_batch (std::deque<queue_entry_t> & batch)
 	if (is_final)
 	{
 		transaction_variant_t transaction_variant{ ledger.tx_begin_write (nano::store::writer::voting_final) };
-
 		verify_batch (transaction_variant, batch);
-
 		// Commit write transaction
 	}
 	else
 	{
 		transaction_variant_t transaction_variant{ ledger.tx_begin_read () };
-
 		verify_batch (transaction_variant, batch);
 	}
 
@@ -208,9 +205,10 @@ void nano::vote_generator::broadcast (nano::unique_lock<nano::mutex> & lock_a)
 	if (!hashes.empty ())
 	{
 		lock_a.unlock ();
-		vote (hashes, roots, [this] (auto const & vote_a) {
-			this->broadcast_action (vote_a);
-			this->stats.inc (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts);
+		vote (hashes, roots, [this] (auto const & generated_vote) {
+			stats.inc (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts);
+			stats.sample (is_final ? nano::stat::sample::vote_generator_final_hashes : nano::stat::sample::vote_generator_hashes, generated_vote->hashes.size (), { 0, nano::network::confirm_ack_hashes_max });
+			broadcast_action (generated_vote);
 		});
 		lock_a.lock ();
 	}
