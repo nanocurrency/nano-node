@@ -96,7 +96,7 @@ void nano::telemetry::process (const nano::telemetry_ack & telemetry, const std:
 
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
-	const auto endpoint = channel->get_endpoint ();
+	const auto endpoint = channel->get_remote_endpoint ();
 
 	if (auto it = telemetries.get<tag_endpoint> ().find (endpoint); it != telemetries.get<tag_endpoint> ().end ())
 	{

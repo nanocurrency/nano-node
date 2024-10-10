@@ -6786,7 +6786,7 @@ TEST (rpc, telemetry_all)
 
 	auto channel = node1->network.find_node_id (node->get_node_id ());
 	ASSERT_TRUE (channel);
-	ASSERT_TIMELY (10s, node1->telemetry.get_telemetry (channel->get_endpoint ()));
+	ASSERT_TIMELY (10s, node1->telemetry.get_telemetry (channel->get_remote_endpoint ()));
 
 	boost::property_tree::ptree request;
 	request.put ("action", "telemetry");
