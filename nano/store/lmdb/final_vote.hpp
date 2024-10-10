@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/store/final.hpp>
+#include <nano/store/final_vote.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 

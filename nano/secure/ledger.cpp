@@ -14,7 +14,7 @@
 #include <nano/store/block.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/confirmation_height.hpp>
-#include <nano/store/final.hpp>
+#include <nano/store/final_vote.hpp>
 #include <nano/store/online_weight.hpp>
 #include <nano/store/peer.hpp>
 #include <nano/store/pending.hpp>
