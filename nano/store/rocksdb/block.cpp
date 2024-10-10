@@ -133,22 +133,23 @@ uint64_t nano::store::rocksdb::block::count (store::transaction const & transact
 {
 	return store.count (transaction_a, tables::blocks);
 }
-nano::store::iterator<nano::block_hash, nano::store::block_w_sideband> nano::store::rocksdb::block::begin (store::transaction const & transaction) const
+
+auto nano::store::rocksdb::block::begin (store::transaction const & transaction) const -> iterator
 {
 	return store.make_iterator<nano::block_hash, nano::store::block_w_sideband> (transaction, tables::blocks);
 }
 
-nano::store::iterator<nano::block_hash, nano::store::block_w_sideband> nano::store::rocksdb::block::begin (store::transaction const & transaction, nano::block_hash const & hash) const
+auto nano::store::rocksdb::block::begin (store::transaction const & transaction, nano::block_hash const & hash) const -> iterator
 {
 	return store.make_iterator<nano::block_hash, nano::store::block_w_sideband> (transaction, tables::blocks, hash);
 }
 
-nano::store::iterator<nano::block_hash, nano::store::block_w_sideband> nano::store::rocksdb::block::end () const
+auto nano::store::rocksdb::block::end () const -> iterator
 {
-	return store::iterator<nano::block_hash, nano::store::block_w_sideband> (nullptr);
+	return iterator{ nullptr };
 }
 
-void nano::store::rocksdb::block::for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::block_hash, block_w_sideband>, store::iterator<nano::block_hash, block_w_sideband>)> const & action_a) const
+void nano::store::rocksdb::block::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const
 {
 	parallel_traversal<nano::uint256_t> (
 	[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
@@ -179,6 +180,7 @@ nano::block_predecessor_rocksdb_set::block_predecessor_rocksdb_set (store::write
 	block_store{ block_store_a }
 {
 }
+
 void nano::block_predecessor_rocksdb_set::fill_value (nano::block const & block_a)
 {
 	auto hash = block_a.hash ();
@@ -190,22 +192,27 @@ void nano::block_predecessor_rocksdb_set::fill_value (nano::block const & block_
 	std::copy (hash.bytes.begin (), hash.bytes.end (), data.begin () + block_store.block_successor_offset (transaction, value.size (), type));
 	block_store.raw_put (transaction, data, block_a.previous ());
 }
+
 void nano::block_predecessor_rocksdb_set::send_block (nano::send_block const & block_a)
 {
 	fill_value (block_a);
 }
+
 void nano::block_predecessor_rocksdb_set::receive_block (nano::receive_block const & block_a)
 {
 	fill_value (block_a);
 }
+
 void nano::block_predecessor_rocksdb_set::open_block (nano::open_block const & block_a)
 {
 	// Open blocks don't have a predecessor
 }
+
 void nano::block_predecessor_rocksdb_set::change_block (nano::change_block const & block_a)
 {
 	fill_value (block_a);
 }
+
 void nano::block_predecessor_rocksdb_set::state_block (nano::state_block const & block_a)
 {
 	if (!block_a.previous ().is_zero ())

@@ -45,22 +45,22 @@ bool nano::store::rocksdb::pending::any (store::transaction const & transaction_
 	return iterator != end () && nano::pending_key (iterator->first).account == account_a;
 }
 
-nano::store::iterator<nano::pending_key, nano::pending_info> nano::store::rocksdb::pending::begin (store::transaction const & transaction_a, nano::pending_key const & key_a) const
+auto nano::store::rocksdb::pending::begin (store::transaction const & transaction_a, nano::pending_key const & key_a) const -> iterator
 {
 	return store.template make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending, key_a);
 }
 
-nano::store::iterator<nano::pending_key, nano::pending_info> nano::store::rocksdb::pending::begin (store::transaction const & transaction_a) const
+auto nano::store::rocksdb::pending::begin (store::transaction const & transaction_a) const -> iterator
 {
 	return store.template make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending);
 }
 
-nano::store::iterator<nano::pending_key, nano::pending_info> nano::store::rocksdb::pending::end () const
+auto nano::store::rocksdb::pending::end () const -> iterator
 {
-	return store::iterator<nano::pending_key, nano::pending_info> (nullptr);
+	return iterator{ nullptr };
 }
 
-void nano::store::rocksdb::pending::for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::pending_key, nano::pending_info>, store::iterator<nano::pending_key, nano::pending_info>)> const & action_a) const
+void nano::store::rocksdb::pending::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const
 {
 	parallel_traversal<nano::uint512_t> (
 	[&action_a, this] (nano::uint512_t const & start, nano::uint512_t const & end, bool const is_last) {

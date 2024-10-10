@@ -23,10 +23,10 @@ public:
 	uint64_t count (store::transaction const & transaction_a) override;
 	void clear (store::write_transaction const & transaction_a, nano::account const & account_a) override;
 	void clear (store::write_transaction const & transaction_a) override;
-	store::iterator<nano::account, nano::confirmation_height_info> begin (store::transaction const & transaction_a, nano::account const & account_a) const override;
-	store::iterator<nano::account, nano::confirmation_height_info> begin (store::transaction const & transaction_a) const override;
-	store::iterator<nano::account, nano::confirmation_height_info> end () const override;
-	void for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::account, nano::confirmation_height_info>, store::iterator<nano::account, nano::confirmation_height_info>)> const & action_a) const override;
+	iterator begin (store::transaction const & transaction_a, nano::account const & account_a) const override;
+	iterator begin (store::transaction const & transaction_a) const override;
+	iterator end () const override;
+	void for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const override;
 
 	/*
 	 * Confirmation height of an account, and the hash for the block at that height

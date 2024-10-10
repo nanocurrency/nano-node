@@ -58,6 +58,9 @@ enum class key_type
 class wallet_store final
 {
 public:
+	using iterator = store::iterator<nano::account, nano::wallet_value>;
+
+public:
 	wallet_store (bool &, nano::kdf &, store::transaction &, store::lmdb::env &, nano::account, unsigned, std::string const &);
 	wallet_store (bool &, nano::kdf &, store::transaction &, store::lmdb::env &, nano::account, unsigned, std::string const &, std::string const &);
 	std::vector<nano::account> accounts (store::transaction const &);
@@ -89,10 +92,10 @@ public:
 	bool fetch (store::transaction const &, nano::account const &, nano::raw_key &);
 	bool exists (store::transaction const &, nano::account const &);
 	void destroy (store::transaction const &);
-	store::iterator<nano::account, nano::wallet_value> find (store::transaction const &, nano::account const &);
-	store::iterator<nano::account, nano::wallet_value> begin (store::transaction const &, nano::account const &);
-	store::iterator<nano::account, nano::wallet_value> begin (store::transaction const &);
-	store::iterator<nano::account, nano::wallet_value> end ();
+	iterator find (store::transaction const &, nano::account const &);
+	iterator begin (store::transaction const &, nano::account const &);
+	iterator begin (store::transaction const &);
+	iterator end ();
 	void derive_key (nano::raw_key &, store::transaction const &, std::string const &);
 	void serialize_json (store::transaction const &, std::string &);
 	void write_backup (store::transaction const &, std::filesystem::path const &);

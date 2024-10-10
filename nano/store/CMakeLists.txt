@@ -32,6 +32,7 @@ add_library(
   peer.hpp
   pending.hpp
   pruned.hpp
+  rep_weight.hpp
   rocksdb/account.hpp
   rocksdb/block.hpp
   rocksdb/confirmation_height.hpp

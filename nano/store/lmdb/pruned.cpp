@@ -45,22 +45,22 @@ void nano::store::lmdb::pruned::clear (store::write_transaction const & transact
 	store.release_assert_success (status);
 }
 
-nano::store::iterator<nano::block_hash, std::nullptr_t> nano::store::lmdb::pruned::begin (store::transaction const & transaction, nano::block_hash const & hash) const
+auto nano::store::lmdb::pruned::begin (store::transaction const & transaction, nano::block_hash const & hash) const -> iterator
 {
 	return store.make_iterator<nano::block_hash, std::nullptr_t> (transaction, tables::pruned, hash);
 }
 
-nano::store::iterator<nano::block_hash, std::nullptr_t> nano::store::lmdb::pruned::begin (store::transaction const & transaction) const
+auto nano::store::lmdb::pruned::begin (store::transaction const & transaction) const -> iterator
 {
 	return store.make_iterator<nano::block_hash, std::nullptr_t> (transaction, tables::pruned);
 }
 
-nano::store::iterator<nano::block_hash, std::nullptr_t> nano::store::lmdb::pruned::end () const
+auto nano::store::lmdb::pruned::end () const -> iterator
 {
-	return store::iterator<nano::block_hash, std::nullptr_t> (nullptr);
+	return iterator{ nullptr };
 }
 
-void nano::store::lmdb::pruned::for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::block_hash, std::nullptr_t>, store::iterator<nano::block_hash, std::nullptr_t>)> const & action_a) const
+void nano::store::lmdb::pruned::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const
 {
 	parallel_traversal<nano::uint256_t> (
 	[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {

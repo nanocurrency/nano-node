@@ -64,22 +64,22 @@ void nano::store::lmdb::final_vote::clear (store::write_transaction const & tran
 	store.drop (transaction_a, nano::tables::final_votes);
 }
 
-nano::store::iterator<nano::qualified_root, nano::block_hash> nano::store::lmdb::final_vote::begin (store::transaction const & transaction, nano::qualified_root const & root) const
+auto nano::store::lmdb::final_vote::begin (store::transaction const & transaction, nano::qualified_root const & root) const -> iterator
 {
 	return store.make_iterator<nano::qualified_root, nano::block_hash> (transaction, tables::final_votes, root);
 }
 
-nano::store::iterator<nano::qualified_root, nano::block_hash> nano::store::lmdb::final_vote::begin (store::transaction const & transaction) const
+auto nano::store::lmdb::final_vote::begin (store::transaction const & transaction) const -> iterator
 {
 	return store.make_iterator<nano::qualified_root, nano::block_hash> (transaction, tables::final_votes);
 }
 
-nano::store::iterator<nano::qualified_root, nano::block_hash> nano::store::lmdb::final_vote::end () const
+auto nano::store::lmdb::final_vote::end () const -> iterator
 {
-	return store::iterator<nano::qualified_root, nano::block_hash> (nullptr);
+	return iterator{ nullptr };
 }
 
-void nano::store::lmdb::final_vote::for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::qualified_root, nano::block_hash>, store::iterator<nano::qualified_root, nano::block_hash>)> const & action_a) const
+void nano::store::lmdb::final_vote::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const
 {
 	parallel_traversal<nano::uint512_t> (
 	[&action_a, this] (nano::uint512_t const & start, nano::uint512_t const & end, bool const is_last) {

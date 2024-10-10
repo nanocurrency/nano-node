@@ -23,10 +23,10 @@ public:
 	size_t count (store::transaction const & transaction_a) const override;
 	void clear (store::write_transaction const & transaction_a, nano::root const & root_a) override;
 	void clear (store::write_transaction const & transaction_a) override;
-	store::iterator<nano::qualified_root, nano::block_hash> begin (store::transaction const & transaction_a, nano::qualified_root const & root_a) const override;
-	store::iterator<nano::qualified_root, nano::block_hash> begin (store::transaction const & transaction_a) const override;
-	store::iterator<nano::qualified_root, nano::block_hash> end () const override;
-	void for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::qualified_root, nano::block_hash>, store::iterator<nano::qualified_root, nano::block_hash>)> const & action_a) const override;
+	iterator begin (store::transaction const & transaction_a, nano::qualified_root const & root_a) const override;
+	iterator begin (store::transaction const & transaction_a) const override;
+	iterator end () const override;
+	void for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const override;
 
 	/**
 	 * Maps root to block hash for generated final votes.

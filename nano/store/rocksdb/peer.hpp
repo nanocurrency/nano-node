@@ -21,7 +21,7 @@ public:
 	bool exists (store::transaction const &, nano::endpoint_key const & endpoint) const override;
 	size_t count (store::transaction const &) const override;
 	void clear (store::write_transaction const &) override;
-	store::iterator<nano::endpoint_key, nano::millis_t> begin (store::transaction const &) const override;
-	store::iterator<nano::endpoint_key, nano::millis_t> end () const override;
+	iterator begin (store::transaction const &) const override;
+	iterator end () const override;
 };
 } // namespace nano::store::rocksdb
