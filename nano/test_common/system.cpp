@@ -532,7 +532,7 @@ void nano::test::system::generate_send_existing (nano::node & node_a, std::vecto
 		nano::account account;
 		random_pool::generate_block (account.bytes.data (), sizeof (account.bytes));
 		auto transaction = node_a.ledger.tx_begin_read ();
-		store::iterator<nano::account, nano::account_info> entry (node_a.store.account.begin (transaction, account));
+		auto entry = node_a.store.account.begin (transaction, account);
 		if (entry == node_a.store.account.end ())
 		{
 			entry = node_a.store.account.begin (transaction);
