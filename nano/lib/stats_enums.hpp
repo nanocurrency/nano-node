@@ -93,6 +93,7 @@ enum class type
 	message_processor,
 	message_processor_overfill,
 	message_processor_type,
+	process_confirmed,
 
 	_last // Must be the last enum
 };
@@ -134,6 +135,8 @@ enum class detail
 	cemented,
 	cooldown,
 	empty,
+	done,
+	retry,
 
 	// processing queue
 	queue,
