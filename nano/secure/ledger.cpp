@@ -865,7 +865,10 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_tr
 		bool refreshed = transaction.refresh_if_needed ();
 		if (refreshed)
 		{
-			release_assert (any.block_exists (transaction, target_hash), "block was rolled back during cementing");
+			if (!any.block_exists (transaction, target_hash))
+			{
+				break; // Block was rolled back during cementing
+			}
 		}
 
 		// Early return might leave parts of the dependency tree unconfirmed

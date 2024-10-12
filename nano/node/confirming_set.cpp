@@ -1,6 +1,7 @@
 #include <nano/lib/thread_roles.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/write_queue.hpp>
@@ -179,6 +180,13 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 				notify_maybe (transaction);
 
 				stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cementing);
+
+				// The block might be rolled back before it's fully cemented
+				if (!ledger.any.block_exists (transaction, hash))
+				{
+					stats.inc (nano::stat::type::confirming_set, nano::stat::detail::missing_block);
+					break;
+				}
 
 				auto added = ledger.confirm (transaction, hash, config.max_blocks);
 				if (!added.empty ())
