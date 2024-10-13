@@ -13,11 +13,6 @@ class tomlconfig;
 class rocksdb_config final
 {
 public:
-	rocksdb_config () :
-		enable{ using_rocksdb_in_tests () }
-	{
-	}
-
 	nano::error serialize_toml (nano::tomlconfig &) const;
 	nano::error deserialize_toml (nano::tomlconfig &);
 
