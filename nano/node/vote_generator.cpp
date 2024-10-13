@@ -124,15 +124,12 @@ void nano::vote_generator::process_batch (std::deque<queue_entry_t> & batch)
 	if (is_final)
 	{
 		transaction_variant_t transaction_variant{ ledger.tx_begin_write (nano::store::writer::voting_final) };
-
 		verify_batch (transaction_variant, batch);
-
 		// Commit write transaction
 	}
 	else
 	{
 		transaction_variant_t transaction_variant{ ledger.tx_begin_read () };
-
 		verify_batch (transaction_variant, batch);
 	}
 
@@ -208,9 +205,10 @@ void nano::vote_generator::broadcast (nano::unique_lock<nano::mutex> & lock_a)
 	if (!hashes.empty ())
 	{
 		lock_a.unlock ();
-		vote (hashes, roots, [this] (auto const & vote_a) {
-			this->broadcast_action (vote_a);
-			this->stats.inc (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts);
+		vote (hashes, roots, [this] (auto const & generated_vote) {
+			stats.inc (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts);
+			stats.sample (is_final ? nano::stat::sample::vote_generator_final_hashes : nano::stat::sample::vote_generator_hashes, generated_vote->hashes.size (), { 0, nano::network::confirm_ack_hashes_max });
+			broadcast_action (generated_vote);
 		});
 		lock_a.lock ();
 	}
@@ -314,20 +312,13 @@ void nano::vote_generator::run ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::vote_generator::collect_container_info (std::string const & name) const
+nano::container_info nano::vote_generator::container_info () const
 {
-	std::size_t candidates_count = 0;
-	std::size_t requests_count = 0;
-	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
-		candidates_count = candidates.size ();
-		requests_count = requests.size ();
-	}
-	auto sizeof_candidate_element = sizeof (decltype (candidates)::value_type);
-	auto sizeof_request_element = sizeof (decltype (requests)::value_type);
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "candidates", candidates_count, sizeof_candidate_element }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "requests", requests_count, sizeof_request_element }));
-	composite->add_component (vote_generation_queue.collect_container_info ("vote_generation_queue"));
-	return composite;
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
+	nano::container_info info;
+	info.put ("candidates", candidates.size ());
+	info.put ("requests", requests.size ());
+	info.add ("queue", vote_generation_queue.container_info ());
+	return info;
 }

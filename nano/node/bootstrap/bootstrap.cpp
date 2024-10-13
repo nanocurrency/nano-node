@@ -288,25 +288,18 @@ void nano::bootstrap_initiator::notify_listeners (bool in_progress_a)
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (bootstrap_initiator & bootstrap_initiator, std::string const & name)
+nano::container_info nano::bootstrap_initiator::container_info () const
 {
-	std::size_t count;
-	std::size_t cache_count;
+	nano::container_info info;
 	{
-		nano::lock_guard<nano::mutex> guard{ bootstrap_initiator.observers_mutex };
-		count = bootstrap_initiator.observers.size ();
+		nano::lock_guard<nano::mutex> guard{ observers_mutex };
+		info.put ("observers", observers.size ());
 	}
 	{
-		nano::lock_guard<nano::mutex> guard{ bootstrap_initiator.cache.pulls_cache_mutex };
-		cache_count = bootstrap_initiator.cache.cache.size ();
+		nano::lock_guard<nano::mutex> guard{ cache.pulls_cache_mutex };
+		info.put ("pulls_cache", cache.cache.size ());
 	}
-
-	auto sizeof_element = sizeof (decltype (bootstrap_initiator.observers)::value_type);
-	auto sizeof_cache_element = sizeof (decltype (bootstrap_initiator.cache.cache)::value_type);
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "observers", count, sizeof_element }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pulls_cache", cache_count, sizeof_cache_element }));
-	return composite;
+	return info;
 }
 
 void nano::pulls_cache::add (nano::pull_info const & pull_a)

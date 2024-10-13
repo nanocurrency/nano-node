@@ -37,12 +37,12 @@ void nano::scheduler::component::stop ()
 	priority.stop ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::scheduler::component::collect_container_info (std::string const & name)
+nano::container_info nano::scheduler::component::container_info () const
 {
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (hinted.collect_container_info ("hinted"));
-	composite->add_component (manual.collect_container_info ("manual"));
-	composite->add_component (optimistic.collect_container_info ("optimistic"));
-	composite->add_component (priority.collect_container_info ("priority"));
-	return composite;
+	nano::container_info info;
+	info.add ("hinted", hinted.container_info ());
+	info.add ("manual", manual.container_info ());
+	info.add ("optimistic", optimistic.container_info ());
+	info.add ("priority", priority.container_info ());
+	return info;
 }

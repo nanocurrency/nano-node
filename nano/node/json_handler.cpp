@@ -3944,7 +3944,7 @@ void nano::json_handler::stats ()
 	}
 	else if (type == "objects")
 	{
-		construct_json (collect_container_info (node, "node").get (), response_l);
+		construct_json (node.container_info ().to_legacy ("node").get (), response_l);
 	}
 	else if (type == "database")
 	{

@@ -563,6 +563,8 @@ enum class sample
 	active_election_duration,
 	bootstrap_tag_duration,
 	rep_response_time,
+	vote_generator_final_hashes,
+	vote_generator_hashes,
 
 	_last // Must be the last enum
 };

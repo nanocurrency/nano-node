@@ -36,7 +36,7 @@ public:
 	/** Returns the number of tasks which are awaiting execution by the thread pool **/
 	uint64_t num_queued_tasks () const;
 
-	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name) const;
+	nano::container_info container_info () const;
 
 private:
 	nano::mutex mutex;

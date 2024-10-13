@@ -124,10 +124,10 @@ bool nano::bootstrap_ascending::frontier_scan::process (nano::account start, std
 	return done;
 }
 
-std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::frontier_scan::collect_container_info (std::string const & name)
+nano::container_info nano::bootstrap_ascending::frontier_scan::container_info () const
 {
 	auto collect_progress = [&] () {
-		auto composite = std::make_unique<container_info_composite> ("progress");
+		nano::container_info info;
 		for (int n = 0; n < heads.size (); ++n)
 		{
 			auto const & head = heads[n];
@@ -139,50 +139,50 @@ std::unique_ptr<nano::container_info_component> nano::bootstrap_ascending::front
 			// Progress in the range [0, 1000000] since we can only represent `size_t` integers in the container_info data
 			boost::multiprecision::cpp_dec_float_50 progress = (next - start) * boost::multiprecision::cpp_dec_float_50 (1000000) / (end - start);
 
-			composite->add_component (std::make_unique<container_info_leaf> (container_info{ std::to_string (n), progress.convert_to<std::uint64_t> (), 6 }));
+			info.put (std::to_string (n), progress.convert_to<std::uint64_t> ());
 		}
-		return composite;
+		return info;
 	};
 
 	auto collect_candidates = [&] () {
-		auto composite = std::make_unique<container_info_composite> ("candidates");
+		nano::container_info info;
 		for (int n = 0; n < heads.size (); ++n)
 		{
 			auto const & head = heads[n];
-			composite->add_component (std::make_unique<container_info_leaf> (container_info{ std::to_string (n), head.candidates.size (), 0 }));
+			info.put (std::to_string (n), head.candidates.size ());
 		}
-		return composite;
+		return info;
 	};
 
 	auto collect_responses = [&] () {
-		auto composite = std::make_unique<container_info_composite> ("responses");
+		nano::container_info info;
 		for (int n = 0; n < heads.size (); ++n)
 		{
 			auto const & head = heads[n];
-			composite->add_component (std::make_unique<container_info_leaf> (container_info{ std::to_string (n), head.completed, 0 }));
+			info.put (std::to_string (n), head.completed);
 		}
-		return composite;
+		return info;
 	};
 
 	auto collect_processed = [&] () {
-		auto composite = std::make_unique<container_info_composite> ("processed");
+		nano::container_info info;
 		for (int n = 0; n < heads.size (); ++n)
 		{
 			auto const & head = heads[n];
-			composite->add_component (std::make_unique<container_info_leaf> (container_info{ std::to_string (n), head.processed, 0 }));
+			info.put (std::to_string (n), head.processed);
 		}
-		return composite;
+		return info;
 	};
 
 	auto total_processed = std::accumulate (heads.begin (), heads.end (), std::size_t{ 0 }, [] (auto total, auto const & head) {
 		return total + head.processed;
 	});
 
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "total_processed", total_processed, 0 }));
-	composite->add_component (collect_progress ());
-	composite->add_component (collect_candidates ());
-	composite->add_component (collect_responses ());
-	composite->add_component (collect_processed ());
-	return composite;
+	nano::container_info info;
+	info.put ("total_processed", total_processed);
+	info.add ("progress", collect_progress ());
+	info.add ("candidates", collect_candidates ());
+	info.add ("responses", collect_responses ());
+	info.add ("processed", collect_processed ());
+	return info;
 }

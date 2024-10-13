@@ -223,11 +223,11 @@ void nano::local_block_broadcaster::cleanup (nano::unique_lock<nano::mutex> & lo
 	});
 }
 
-std::unique_ptr<nano::container_info_component> nano::local_block_broadcaster::collect_container_info (const std::string & name) const
+nano::container_info nano::local_block_broadcaster::container_info () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "local", local_blocks.size (), sizeof (decltype (local_blocks)::value_type) }));
-	return composite;
+	nano::container_info info;
+	info.put ("local", local_blocks);
+	return info;
 }

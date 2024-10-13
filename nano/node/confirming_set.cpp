@@ -208,12 +208,12 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 	release_assert (already.empty ());
 }
 
-std::unique_ptr<nano::container_info_component> nano::confirming_set::collect_container_info (std::string const & name) const
+nano::container_info nano::confirming_set::container_info () const
 {
 	std::lock_guard guard{ mutex };
 
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "set", set.size (), sizeof (typename decltype (set)::value_type) }));
-	composite->add_component (notification_workers.collect_container_info ("notification_workers"));
-	return composite;
+	nano::container_info info;
+	info.put ("set", set);
+	info.add ("notification_workers", notification_workers.container_info ());
+	return info;
 }

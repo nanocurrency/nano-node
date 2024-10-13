@@ -236,13 +236,13 @@ bool nano::scheduler::hinted::cooldown (const nano::block_hash & hash)
 	return false; // No need to cooldown
 }
 
-std::unique_ptr<nano::container_info_component> nano::scheduler::hinted::collect_container_info (const std::string & name) const
+nano::container_info nano::scheduler::hinted::container_info () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cooldowns", cooldowns_m.size (), sizeof (decltype (cooldowns_m)::value_type) }));
-	return composite;
+	nano::container_info info;
+	info.put ("cooldowns", cooldowns_m);
+	return info;
 }
 
 /*

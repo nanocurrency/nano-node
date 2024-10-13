@@ -27,6 +27,7 @@ public:
 	void cleanup_finished ();
 	void stop ();
 	std::size_t size () const;
+	nano::container_info container_info () const;
 
 private:
 	std::unordered_multimap<nano::root, std::weak_ptr<nano::distributed_work>> items;
@@ -34,9 +35,5 @@ private:
 	nano::node & node;
 	mutable nano::mutex mutex;
 	std::atomic<bool> stopped{ false };
-
-	friend std::unique_ptr<container_info_component> collect_container_info (distributed_work_factory &, std::string const &);
 };
-
-std::unique_ptr<container_info_component> collect_container_info (distributed_work_factory & distributed_work, std::string const & name);
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/container_info.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/secure/pending_info.hpp>
@@ -38,7 +39,7 @@ public:
 	// Indicates if a full ledger iteration has taken place e.g. warmed up
 	bool warmed_up () const;
 
-	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name) const;
+	nano::container_info container_info () const;
 
 private: // Dependencies
 	nano::ledger & ledger;

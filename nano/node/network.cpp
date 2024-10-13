@@ -575,6 +575,15 @@ nano::node_id_handshake::response_payload nano::network::prepare_handshake_respo
 	return response;
 }
 
+nano::container_info nano::network::container_info () const
+{
+	nano::container_info info;
+	info.add ("tcp_channels", tcp_channels.container_info ());
+	info.add ("syn_cookies", syn_cookies.container_info ());
+	info.add ("excluded_peers", excluded_peers.container_info ());
+	return info;
+}
+
 /*
  * syn_cookies
  */
@@ -682,32 +691,18 @@ std::optional<nano::uint256_union> nano::syn_cookies::cookie (const nano::endpoi
 	return std::nullopt;
 }
 
-std::size_t nano::syn_cookies::cookies_size ()
+std::size_t nano::syn_cookies::cookies_size () const
 {
 	nano::lock_guard<nano::mutex> lock{ syn_cookie_mutex };
 	return cookies.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (network & network, std::string const & name)
+nano::container_info nano::syn_cookies::container_info () const
 {
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (network.tcp_channels.collect_container_info ("tcp_channels"));
-	composite->add_component (network.syn_cookies.collect_container_info ("syn_cookies"));
-	composite->add_component (network.excluded_peers.collect_container_info ("excluded_peers"));
-	return composite;
-}
+	nano::lock_guard<nano::mutex> syn_cookie_guard{ syn_cookie_mutex };
 
-std::unique_ptr<nano::container_info_component> nano::syn_cookies::collect_container_info (std::string const & name)
-{
-	std::size_t syn_cookies_count;
-	std::size_t syn_cookies_per_ip_count;
-	{
-		nano::lock_guard<nano::mutex> syn_cookie_guard{ syn_cookie_mutex };
-		syn_cookies_count = cookies.size ();
-		syn_cookies_per_ip_count = cookies_per_ip.size ();
-	}
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "syn_cookies", syn_cookies_count, sizeof (decltype (cookies)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (cookies_per_ip)::value_type) }));
-	return composite;
+	nano::container_info info;
+	info.put ("syn_cookies", cookies.size ());
+	info.put ("syn_cookies_per_ip", cookies_per_ip.size ());
+	return info;
 }

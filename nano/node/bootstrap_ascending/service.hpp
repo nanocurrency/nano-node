@@ -42,13 +42,14 @@ namespace bootstrap_ascending
 		 */
 		void process (nano::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> const &);
 
-	public: // Container info
-		std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name);
 		std::size_t blocked_size () const;
 		std::size_t priority_size () const;
 		std::size_t score_size () const;
 		bool prioritized (nano::account const &) const;
 		bool blocked (nano::account const &) const;
+
+		nano::container_info container_info () const;
+
 		nano::bootstrap_ascending::account_sets::info_t info () const;
 
 	private: // Dependencies

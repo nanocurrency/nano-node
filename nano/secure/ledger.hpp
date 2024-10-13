@@ -82,7 +82,7 @@ public:
 	uint64_t account_count () const;
 	uint64_t pruned_count () const;
 
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
+	nano::container_info container_info () const;
 
 public:
 	static nano::uint128_t const unit;

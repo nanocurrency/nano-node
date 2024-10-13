@@ -118,6 +118,7 @@ void nano::rep_tiers::calculate_tiers ()
 
 	stats.add (nano::stat::type::rep_tiers, nano::stat::detail::processed, nano::stat::dir::in, rep_amounts.size ());
 	stats.add (nano::stat::type::rep_tiers, nano::stat::detail::ignored, nano::stat::dir::in, ignored);
+
 	logger.debug (nano::log::type::rep_tiers, "Representative tiers updated, tier 1: {}, tier 2: {}, tier 3: {} ({} ignored)",
 	representatives_1_l.size (),
 	representatives_2_l.size (),
@@ -134,14 +135,15 @@ void nano::rep_tiers::calculate_tiers ()
 	stats.inc (nano::stat::type::rep_tiers, nano::stat::detail::updated);
 }
 
-std::unique_ptr<nano::container_info_component> nano::rep_tiers::collect_container_info (const std::string & name)
+nano::container_info nano::rep_tiers::container_info () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "representatives_1", representatives_1.size (), sizeof (decltype (representatives_1)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "representatives_2", representatives_2.size (), sizeof (decltype (representatives_2)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "representatives_3", representatives_3.size (), sizeof (decltype (representatives_3)::value_type) }));
-	return composite;
+
+	nano::container_info info;
+	info.put ("tier_1", representatives_1);
+	info.put ("tier_2", representatives_2);
+	info.put ("tier_3", representatives_3);
+	return info;
 }
 
 nano::stat::detail nano::to_stat_detail (nano::rep_tier tier)

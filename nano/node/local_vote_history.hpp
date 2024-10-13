@@ -2,6 +2,7 @@
 
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/node/fwd.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -15,8 +16,6 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
-class container_info_component;
-class vote;
 class voting_constants;
 }
 
@@ -50,7 +49,7 @@ public:
 	bool exists (nano::root const &) const;
 	std::size_t size () const;
 
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const;
+	nano::container_info container_info () const;
 
 private:
 	// clang-format off

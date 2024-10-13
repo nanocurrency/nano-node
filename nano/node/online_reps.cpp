@@ -117,16 +117,11 @@ void nano::online_reps::clear ()
 	online_m = 0;
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (online_reps & online_reps, std::string const & name)
+nano::container_info nano::online_reps::container_info () const
 {
-	std::size_t count;
-	{
-		nano::lock_guard<nano::mutex> guard{ online_reps.mutex };
-		count = online_reps.reps.size ();
-	}
+	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	auto sizeof_element = sizeof (decltype (online_reps.reps)::value_type);
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "reps", count, sizeof_element }));
-	return composite;
+	nano::container_info info;
+	info.put ("reps", reps);
+	return info;
 }

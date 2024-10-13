@@ -36,15 +36,19 @@ public:
 		return observers.empty ();
 	}
 
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const
+	size_t size () const
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		return observers.size ();
+	}
+
+	nano::container_info container_info () const
 	{
 		nano::unique_lock<nano::mutex> lock{ mutex };
-		auto count = observers.size ();
-		lock.unlock ();
-		auto sizeof_element = sizeof (typename decltype (observers)::value_type);
-		auto composite = std::make_unique<container_info_composite> (name);
-		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "observers", count, sizeof_element }));
-		return composite;
+
+		nano::container_info info;
+		info.put ("observers", observers);
+		return info;
 	}
 
 private:

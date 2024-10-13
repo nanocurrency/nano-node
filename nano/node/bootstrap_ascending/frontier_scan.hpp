@@ -31,7 +31,7 @@ public:
 	nano::account next ();
 	bool process (nano::account start, std::deque<std::pair<nano::account, nano::block_hash>> const & response);
 
-	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name);
+	nano::container_info container_info () const;
 
 private: // Dependencies
 	frontier_scan_config const & config;

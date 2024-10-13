@@ -22,9 +22,6 @@ namespace asio = boost::asio;
 
 namespace nano::transport
 {
-class socket;
-class tcp_server;
-
 class tcp_config
 {
 public:
@@ -84,7 +81,7 @@ public:
 	std::vector<std::shared_ptr<nano::transport::tcp_socket>> sockets () const;
 	std::vector<std::shared_ptr<nano::transport::tcp_server>> servers () const;
 
-	std::unique_ptr<nano::container_info_component> collect_container_info (std::string const & name);
+	nano::container_info container_info () const;
 
 public: // Events
 	using connection_accepted_event_t = nano::observer_set<std::shared_ptr<nano::transport::tcp_socket> const &, std::shared_ptr<nano::transport::tcp_server>>;

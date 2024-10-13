@@ -302,12 +302,12 @@ private:
 	std::chrono::steady_clock::time_point last_update{ std::chrono::steady_clock::now () };
 
 public:
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const
+	nano::container_info container_info () const
 	{
-		auto composite = std::make_unique<container_info_composite> (name);
-		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "queues", queues_size (), sizeof (typename decltype (queues)::value_type) }));
-		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "total_size", size (), sizeof (typename decltype (queues)::value_type) }));
-		return composite;
+		nano::container_info info;
+		info.put ("queues", queues);
+		info.put ("total_size", size ());
+		return info;
 	}
 };
 }

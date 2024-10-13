@@ -1,3 +1,5 @@
+#pragma once
+
 #include <nano/node/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
@@ -54,6 +56,6 @@ public:
 	void remove (nano::tcp_endpoint const &);
 	std::size_t size () const;
 
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name);
+	nano::container_info container_info () const;
 };
 }

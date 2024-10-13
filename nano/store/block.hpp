@@ -2,6 +2,7 @@
 
 #include <nano/lib/block_sideband.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/store/block_w_sideband.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/iterator.hpp>
 
@@ -15,12 +16,6 @@ class block_hash;
 }
 namespace nano::store
 {
-class block_w_sideband
-{
-public:
-	std::shared_ptr<nano::block> block;
-	nano::block_sideband sideband;
-};
 /**
  * Manages block storage and iteration
  */

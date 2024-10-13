@@ -312,23 +312,6 @@ bool nano::transport::tcp_channels::track_reachout (nano::endpoint const & endpo
 	return inserted;
 }
 
-std::unique_ptr<nano::container_info_component> nano::transport::tcp_channels::collect_container_info (std::string const & name)
-{
-	std::size_t channels_count;
-	std::size_t attemps_count;
-	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
-		channels_count = channels.size ();
-		attemps_count = attempts.size ();
-	}
-
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "channels", channels_count, sizeof (decltype (channels)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "attempts", attemps_count, sizeof (decltype (attempts)::value_type) }));
-
-	return composite;
-}
-
 void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point cutoff_deadline)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
@@ -449,4 +432,14 @@ void nano::transport::tcp_channels::modify (std::shared_ptr<nano::transport::tcp
 void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint)
 {
 	node.tcp_listener.connect (endpoint.address (), endpoint.port ());
+}
+
+nano::container_info nano::transport::tcp_channels::container_info () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
+	nano::container_info info;
+	info.put ("channels", channels.size ());
+	info.put ("attempts", attempts.size ());
+	return info;
 }

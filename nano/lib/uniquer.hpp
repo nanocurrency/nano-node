@@ -51,13 +51,13 @@ public:
 		return values.size ();
 	}
 
-	std::unique_ptr<container_info_component> collect_container_info (std::string const & name) const
+	nano::container_info container_info () const
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 
-		auto composite = std::make_unique<container_info_composite> (name);
-		composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cache", values.size (), sizeof (Value) }));
-		return composite;
+		nano::container_info info;
+		info.put ("cache", values);
+		return info;
 	}
 
 	static std::chrono::milliseconds constexpr cleanup_cutoff{ 500 };

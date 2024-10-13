@@ -205,33 +205,15 @@ void nano::store::rocksdb::component::open (bool & error_a, std::filesystem::pat
 
 bool nano::store::rocksdb::component::do_upgrades (store::write_transaction & transaction)
 {
-	bool error_l{ false };
+	auto error (false);
 	auto version_l = version.get (transaction);
+	if (version_l < version_minimum)
+	{
+		logger.critical (nano::log::type::rocksdb, "The version of the ledger ({}) is lower than the minimum ({}) which is supported for upgrades. Either upgrade a node first or delete the ledger.", version_l, version_minimum);
+		return true;
+	}
 	switch (version_l)
 	{
-		case 1:
-		case 2:
-		case 3:
-		case 4:
-		case 5:
-		case 6:
-		case 7:
-		case 8:
-		case 9:
-		case 10:
-		case 11:
-		case 12:
-		case 13:
-			release_assert (false && "do_upgrades () for RocksDB requires the version_minimum already checked.");
-			error_l = true;
-			break;
-		case 14:
-		case 15:
-		case 16:
-		case 17:
-		case 18:
-		case 19:
-		case 20:
 		case 21:
 			upgrade_v21_to_v22 (transaction);
 			[[fallthrough]];
@@ -245,10 +227,10 @@ bool nano::store::rocksdb::component::do_upgrades (store::write_transaction & tr
 			break;
 		default:
 			logger.critical (nano::log::type::rocksdb, "The version of the ledger ({}) is too high for this node", version_l);
-			error_l = true;
+			error = true;
 			break;
 	}
-	return error_l;
+	return error;
 }
 
 void nano::store::rocksdb::component::upgrade_v21_to_v22 (store::write_transaction & transaction)

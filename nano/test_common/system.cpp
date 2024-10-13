@@ -351,7 +351,20 @@ std::error_code nano::test::system::poll_until_true (std::chrono::nanoseconds de
 	deadline_set (deadline_a);
 	while (!ec && !predicate_a ())
 	{
-		ec = poll ();
+		try
+		{
+			ec = poll ();
+		}
+		catch (std::exception const & ex)
+		{
+			std::cerr << "Error running IO: " << ex.what () << std::endl;
+			ec = nano::error_system::generic;
+		}
+		catch (...)
+		{
+			std::cerr << "Unknown error running IO" << std::endl;
+			ec = nano::error_system::generic;
+		}
 	}
 	return ec;
 }
