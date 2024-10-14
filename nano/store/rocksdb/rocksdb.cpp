@@ -302,8 +302,8 @@ void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transacti
 		auto transaction = tx_begin_read ();
 
 		// Manually create v22 compatible iterator to read accounts
-		auto it = make_iterator<nano::account, nano::account_info_v22> (transaction, tables::accounts);
-		auto const end = store::iterator<nano::account, nano::account_info_v22> (nullptr);
+		auto it = typed_iterator<nano::account, nano::account_info_v22> (store::iterator{ rocksdb::iterator::begin (db.get (), rocksdb::tx (transaction), table_to_column_family (tables::accounts)) });
+		auto const end = typed_iterator<nano::account, nano::account_info_v22>{ store::iterator{ rocksdb::iterator::end (db.get (), rocksdb::tx (transaction), table_to_column_family (tables::accounts)) } };
 
 		for (; it != end; ++it)
 		{
@@ -502,7 +502,7 @@ bool nano::store::rocksdb::component::exists (store::transaction const & transac
 	::rocksdb::PinnableSlice slice;
 	auto internals = rocksdb::tx (transaction_a);
 	auto status = std::visit ([&] (auto && ptr) {
-		using V = std::decay_t<decltype(ptr)>;
+		using V = std::remove_cvref_t<decltype (ptr)>;
 		if constexpr (std::is_same_v<V, ::rocksdb::Transaction *>)
 		{
 			::rocksdb::ReadOptions options;
@@ -515,9 +515,10 @@ bool nano::store::rocksdb::component::exists (store::transaction const & transac
 		}
 		else
 		{
-			static_assert (false, "Unsupported variant");
+			static_assert (sizeof (V) == 0, "Missing variant handler for type V");
 		}
-	}, internals);
+	},
+	internals);
 
 	return status.ok ();
 }
@@ -558,7 +559,7 @@ int nano::store::rocksdb::component::get (store::transaction const & transaction
 	auto handle = table_to_column_family (table_a);
 	auto internals = rocksdb::tx (transaction_a);
 	auto status = std::visit ([&] (auto && ptr) {
-		using V = std::decay_t<decltype(ptr)>;
+		using V = std::remove_cvref_t<decltype (ptr)>;
 		if constexpr (std::is_same_v<V, ::rocksdb::Transaction *>)
 		{
 			return ptr->Get (options, handle, key_a, &slice);
@@ -569,9 +570,10 @@ int nano::store::rocksdb::component::get (store::transaction const & transaction
 		}
 		else
 		{
-			static_assert (false, "Unsupported variant");
+			static_assert (sizeof (V) == 0, "Missing variant handler for type V");
 		}
-	}, internals);
+	},
+	internals);
 
 	if (status.ok ())
 	{

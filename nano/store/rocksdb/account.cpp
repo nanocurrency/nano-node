@@ -1,6 +1,7 @@
 #include <nano/secure/parallel_traversal.hpp>
 #include <nano/store/rocksdb/account.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/utility.hpp>
 
 nano::store::rocksdb::account::account (nano::store::rocksdb::component & store_a) :
 	store (store_a){};
@@ -44,22 +45,18 @@ size_t nano::store::rocksdb::account::count (store::transaction const & transact
 
 auto nano::store::rocksdb::account::begin (store::transaction const & transaction, nano::account const & account) const -> iterator
 {
-	return store.make_iterator<nano::account, nano::account_info> (transaction, tables::accounts, account);
+	rocksdb::db_val val{ account };
+	return iterator{ store::iterator{ rocksdb::iterator::lower_bound (store.db.get (), rocksdb::tx (transaction), store.table_to_column_family (tables::accounts), val) } };
 }
 
 auto nano::store::rocksdb::account::begin (store::transaction const & transaction) const -> iterator
 {
-	return store.make_iterator<nano::account, nano::account_info> (transaction, tables::accounts);
+	return iterator{ store::iterator{ rocksdb::iterator::begin (store.db.get (), rocksdb::tx (transaction), store.table_to_column_family (tables::accounts)) } };
 }
 
-auto nano::store::rocksdb::account::rbegin (store::transaction const & transaction_a) const -> iterator
+auto nano::store::rocksdb::account::end (store::transaction const & transaction) const -> iterator
 {
-	return store.make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, false);
-}
-
-auto nano::store::rocksdb::account::end (store::transaction const & transaction_a) const -> iterator
-{
-	return iterator{ nullptr };
+	return iterator{ store::iterator{ rocksdb::iterator::end (store.db.get (), rocksdb::tx (transaction), store.table_to_column_family (tables::accounts)) } };
 }
 
 void nano::store::rocksdb::account::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const

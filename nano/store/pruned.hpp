@@ -2,7 +2,7 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/store/component.hpp>
-#include <nano/store/iterator.hpp>
+#include <nano/store/typed_iterator.hpp>
 
 #include <functional>
 
@@ -18,7 +18,7 @@ namespace nano::store
 class pruned
 {
 public:
-	using iterator = store::iterator<nano::block_hash, std::nullptr_t>;
+	using iterator = typed_iterator<nano::block_hash, std::nullptr_t>;
 
 public:
 	virtual void put (store::write_transaction const & transaction_a, nano::block_hash const & hash_a) = 0;

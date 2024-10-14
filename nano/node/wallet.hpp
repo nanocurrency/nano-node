@@ -9,6 +9,7 @@
 #include <nano/store/component.hpp>
 #include <nano/store/lmdb/lmdb.hpp>
 #include <nano/store/lmdb/wallet_value.hpp>
+#include <nano/store/typed_iterator.hpp>
 
 #include <atomic>
 #include <mutex>
@@ -58,7 +59,7 @@ enum class key_type
 class wallet_store final
 {
 public:
-	using iterator = store::iterator<nano::account, nano::wallet_value>;
+	using iterator = store::typed_iterator<nano::account, nano::wallet_value>;
 
 public:
 	wallet_store (bool &, nano::kdf &, store::transaction &, store::lmdb::env &, nano::account, unsigned, std::string const &);

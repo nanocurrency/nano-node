@@ -1,8 +1,8 @@
 #pragma once
 
-#include <rocksdb/utilities/transaction_db.h>
-
 #include <variant>
+
+#include <rocksdb/utilities/transaction_db.h>
 
 namespace nano::store
 {

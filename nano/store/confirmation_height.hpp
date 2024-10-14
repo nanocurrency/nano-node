@@ -2,7 +2,7 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/store/component.hpp>
-#include <nano/store/iterator.hpp>
+#include <nano/store/typed_iterator.hpp>
 
 #include <functional>
 
@@ -18,7 +18,7 @@ namespace nano::store
 class confirmation_height
 {
 public:
-	using iterator = store::iterator<nano::account, nano::confirmation_height_info>;
+	using iterator = typed_iterator<nano::account, nano::confirmation_height_info>;
 
 public:
 	virtual void put (store::write_transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info const & confirmation_height_info_a) = 0;

@@ -10,6 +10,7 @@
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/store/lmdb/iterator.hpp>
+#include <nano/store/typed_iterator_templ.hpp>
 
 #include <boost/format.hpp>
 #include <boost/polymorphic_cast.hpp>
@@ -18,6 +19,8 @@
 #include <future>
 
 #include <argon2.h>
+
+template class nano::store::typed_iterator<nano::account, nano::wallet_value>;
 
 nano::uint256_union nano::wallet_store::check (store::transaction const & transaction_a)
 {
@@ -548,7 +551,8 @@ bool nano::wallet_store::exists (store::transaction const & transaction_a, nano:
 void nano::wallet_store::serialize_json (store::transaction const & transaction_a, std::string & string_a)
 {
 	boost::property_tree::ptree tree;
-	for (store::iterator<nano::uint256_union, nano::wallet_value> i (std::make_unique<nano::store::lmdb::iterator<nano::uint256_union, nano::wallet_value>> (transaction_a, env, handle)), n (nullptr); i != n; ++i)
+	using iterator = store::typed_iterator<nano::uint256_union, nano::wallet_value>;
+	for (iterator i{ store::iterator{ store::lmdb::iterator::begin (env.tx (transaction_a), handle) } }, n{ store::iterator{ store::lmdb::iterator::end (env.tx (transaction_a), handle) } }; i != n; ++i)
 	{
 		tree.put (i->first.to_string (), i->second.key.to_string ());
 	}
@@ -1359,13 +1363,15 @@ nano::wallets::wallets (bool error_a, nano::node & node_a) :
 		status |= mdb_dbi_open (env.tx (transaction), "send_action_ids", MDB_CREATE, &send_action_ids);
 		release_assert (status == 0);
 		std::string beginning (nano::uint256_union (0).to_string ());
+		nano::store::lmdb::db_val beginning_val{ beginning.size (), const_cast<char *> (beginning.c_str ()) };
 		std::string end ((nano::uint256_union (nano::uint256_t (0) - nano::uint256_t (1))).to_string ());
-		store::iterator<std::array<char, 64>, nano::no_value> i (std::make_unique<nano::store::lmdb::iterator<std::array<char, 64>, nano::no_value>> (transaction, env, handle, nano::store::lmdb::db_val (beginning.size (), const_cast<char *> (beginning.c_str ()))));
-		store::iterator<std::array<char, 64>, nano::no_value> n (std::make_unique<nano::store::lmdb::iterator<std::array<char, 64>, nano::no_value>> (transaction, env, handle, nano::store::lmdb::db_val (end.size (), const_cast<char *> (end.c_str ()))));
+		nano::store::lmdb::db_val end_val{ end.size (), const_cast<char *> (end.c_str ()) };
+		store::iterator i{ store::lmdb::iterator::lower_bound (env.tx (transaction), handle, beginning_val) };
+		store::iterator n{ store::lmdb::iterator::lower_bound (env.tx (transaction), handle, end_val) };
 		for (; i != n; ++i)
 		{
 			nano::wallet_id id;
-			std::string text (i->first.data (), i->first.size ());
+			std::string text (reinterpret_cast<char const *> (i->first.data ()), i->first.size ());
 			auto error (id.decode_hex (text));
 			release_assert (!error);
 			release_assert (items.find (id) == items.end ());
@@ -1488,13 +1494,15 @@ void nano::wallets::reload ()
 	auto transaction (tx_begin_write ());
 	std::unordered_set<nano::uint256_union> stored_items;
 	std::string beginning (nano::uint256_union (0).to_string ());
+	nano::store::lmdb::db_val beginning_val{ beginning.size (), const_cast<char *> (beginning.c_str ()) };
 	std::string end ((nano::uint256_union (nano::uint256_t (0) - nano::uint256_t (1))).to_string ());
-	store::iterator<std::array<char, 64>, nano::no_value> i (std::make_unique<nano::store::lmdb::iterator<std::array<char, 64>, nano::no_value>> (transaction, env, handle, nano::store::lmdb::db_val (beginning.size (), const_cast<char *> (beginning.c_str ()))));
-	store::iterator<std::array<char, 64>, nano::no_value> n (std::make_unique<nano::store::lmdb::iterator<std::array<char, 64>, nano::no_value>> (transaction, env, handle, nano::store::lmdb::db_val (end.size (), const_cast<char *> (end.c_str ()))));
+	nano::store::lmdb::db_val end_val{ end.size (), const_cast<char *> (end.c_str ()) };
+	store::iterator i{ store::lmdb::iterator::lower_bound (env.tx (transaction), handle, beginning_val) };
+	store::iterator n{ store::lmdb::iterator::lower_bound (env.tx (transaction), handle, end_val) };
 	for (; i != n; ++i)
 	{
 		nano::wallet_id id;
-		std::string text (i->first.data (), i->first.size ());
+		std::string text (reinterpret_cast<char const *> (i->first.data ()), i->first.size ());
 		auto error (id.decode_hex (text));
 		debug_assert (!error);
 		// New wallet
@@ -1755,20 +1763,22 @@ nano::uint128_t const nano::wallets::high_priority = std::numeric_limits<nano::u
 
 auto nano::wallet_store::begin (store::transaction const & transaction_a) -> iterator
 {
-	iterator result (std::make_unique<nano::store::lmdb::iterator<nano::account, nano::wallet_value>> (transaction_a, env, handle, nano::store::lmdb::db_val (nano::account (special_count))));
-	return result;
+	nano::account account{ special_count };
+	nano::store::lmdb::db_val val{ account };
+	return iterator{ store::iterator{ store::lmdb::iterator::lower_bound (env.tx (transaction_a), handle, val) } };
 }
 
 auto nano::wallet_store::begin (store::transaction const & transaction_a, nano::account const & key) -> iterator
 {
-	iterator result (std::make_unique<nano::store::lmdb::iterator<nano::account, nano::wallet_value>> (transaction_a, env, handle, nano::store::lmdb::db_val (key)));
-	return result;
+	nano::account account (key);
+	nano::store::lmdb::db_val val{ account };
+	return iterator{ store::iterator{ store::lmdb::iterator::lower_bound (env.tx (transaction_a), handle, val) } };
 }
 
 auto nano::wallet_store::find (store::transaction const & transaction_a, nano::account const & key) -> iterator
 {
-	auto result (begin (transaction_a, key));
-	iterator end{ nullptr };
+	auto result = begin (transaction_a, key);
+	auto end = this->end (transaction_a);
 	if (result != end)
 	{
 		if (result->first == key)
@@ -1789,7 +1799,7 @@ auto nano::wallet_store::find (store::transaction const & transaction_a, nano::a
 
 auto nano::wallet_store::end (store::transaction const & transaction_a) -> iterator
 {
-	return iterator{ nullptr };
+	return iterator{ store::iterator{ store::lmdb::iterator::end (env.tx (transaction_a), handle) } };
 }
 
 nano::mdb_wallets_store::mdb_wallets_store (std::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a) :
