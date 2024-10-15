@@ -32,7 +32,7 @@ nano::active_elections::active_elections (nano::node & node_a, nano::confirming_
 
 	confirming_set.batch_cemented.add ([this] (auto const & cemented) {
 		auto transaction = node.ledger.tx_begin_read ();
-		for (auto const & [block, confirmation_root] : cemented)
+		for (auto const & [block, confirmation_root, election] : cemented)
 		{
 			transaction.refresh_if_needed ();
 			block_cemented_callback (transaction, block, confirmation_root);

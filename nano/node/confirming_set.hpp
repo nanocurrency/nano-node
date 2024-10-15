@@ -4,12 +4,21 @@
 #include <nano/lib/observer_set.hpp>
 #include <nano/lib/thread_pool.hpp>
 #include <nano/node/fwd.hpp>
+#include <nano/secure/common.hpp>
+
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/sequenced_index.hpp>
+#include <boost/multi_index_container.hpp>
 
 #include <condition_variable>
 #include <deque>
 #include <mutex>
 #include <thread>
 #include <unordered_set>
+
+namespace mi = boost::multi_index;
 
 namespace nano
 {
@@ -40,7 +49,7 @@ public:
 	void stop ();
 
 	// Adds a block to the set of blocks to be confirmed
-	void add (nano::block_hash const & hash);
+	void add (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election = nullptr);
 	// Added blocks will remain in this set until after ledger has them marked as confirmed.
 	bool exists (nano::block_hash const & hash) const;
 	std::size_t size () const;
@@ -48,8 +57,14 @@ public:
 	nano::container_info container_info () const;
 
 public: // Events
-	using cemented_t = std::pair<std::shared_ptr<nano::block>, nano::block_hash>; // <block, confirmation root>
-	nano::observer_set<std::deque<cemented_t> const &> batch_cemented;
+	struct context
+	{
+		std::shared_ptr<nano::block> block;
+		nano::block_hash confirmation_root;
+		std::shared_ptr<nano::election> election;
+	};
+
+	nano::observer_set<std::deque<context> const &> batch_cemented;
 	nano::observer_set<std::deque<nano::block_hash> const &> already_cemented;
 
 	nano::observer_set<std::shared_ptr<nano::block>> cemented_observers;
@@ -60,12 +75,30 @@ private: // Dependencies
 	nano::stats & stats;
 
 private:
+	struct entry
+	{
+		nano::block_hash hash;
+		std::shared_ptr<nano::election> election;
+	};
+
 	void run ();
 	void run_batch (std::unique_lock<std::mutex> &);
-	std::deque<nano::block_hash> next_batch (size_t max_count);
+	std::deque<entry> next_batch (size_t max_count);
 
 private:
-	std::unordered_set<nano::block_hash> set;
+	// clang-format off
+	class tag_hash {};
+	class tag_sequenced {};
+
+	using ordered_entries = boost::multi_index_container<entry,
+	mi::indexed_by<
+		mi::sequenced<mi::tag<tag_sequenced>>,
+		mi::hashed_unique<mi::tag<tag_hash>,
+			mi::member<entry, nano::block_hash, &entry::hash>>
+	>>;
+	// clang-format on
+
+	ordered_entries set;
 
 	nano::thread_pool notification_workers;
 

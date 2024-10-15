@@ -13,9 +13,9 @@ nano::confirming_set::confirming_set (confirming_set_config const & config_a, na
 	notification_workers{ 1, nano::thread_role::name::confirmation_height_notifications }
 {
 	batch_cemented.add ([this] (auto const & cemented) {
-		for (auto const & [block, confirmation_root] : cemented)
+		for (auto const & context : cemented)
 		{
-			cemented_observers.notify (block);
+			cemented_observers.notify (context.block);
 		}
 	});
 }
@@ -25,12 +25,12 @@ nano::confirming_set::~confirming_set ()
 	debug_assert (!thread.joinable ());
 }
 
-void nano::confirming_set::add (nano::block_hash const & hash)
+void nano::confirming_set::add (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election)
 {
 	bool added = false;
 	{
 		std::lock_guard lock{ mutex };
-		auto [it, inserted] = set.insert (hash);
+		auto [it, inserted] = set.push_back ({ hash, election });
 		added = inserted;
 	}
 	if (added)
@@ -71,7 +71,7 @@ void nano::confirming_set::stop ()
 bool nano::confirming_set::exists (nano::block_hash const & hash) const
 {
 	std::lock_guard lock{ mutex };
-	return set.count (hash) != 0;
+	return set.get<tag_hash> ().contains (hash);
 }
 
 std::size_t nano::confirming_set::size () const
@@ -100,17 +100,16 @@ void nano::confirming_set::run ()
 	}
 }
 
-std::deque<nano::block_hash> nano::confirming_set::next_batch (size_t max_count)
+auto nano::confirming_set::next_batch (size_t max_count) -> std::deque<entry>
 {
 	debug_assert (!mutex.try_lock ());
 	debug_assert (!set.empty ());
 
-	std::deque<nano::block_hash> results;
+	std::deque<entry> results;
 	while (!set.empty () && results.size () < max_count)
 	{
-		auto it = set.begin ();
-		results.push_back (*it);
-		set.erase (it);
+		results.push_back (set.front ());
+		set.pop_front ();
 	}
 	return results;
 }
@@ -121,7 +120,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 	debug_assert (!mutex.try_lock ());
 	debug_assert (!set.empty ());
 
-	std::deque<cemented_t> cemented;
+	std::deque<context> cemented;
 	std::deque<nano::block_hash> already;
 
 	auto batch = next_batch (batch_size);
@@ -129,7 +128,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 	lock.unlock ();
 
 	auto notify = [this, &cemented] () {
-		std::deque<cemented_t> batch;
+		std::deque<context> batch;
 		batch.swap (cemented);
 
 		std::unique_lock lock{ mutex };
@@ -164,7 +163,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 
 	{
 		auto transaction = ledger.tx_begin_write (nano::store::writer::confirmation_height);
-		for (auto const & hash : batch)
+		for (auto const & [hash, election] : batch)
 		{
 			do
 			{
@@ -195,7 +194,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 					stats.add (nano::stat::type::confirming_set, nano::stat::detail::cemented, added.size ());
 					for (auto & block : added)
 					{
-						cemented.emplace_back (block, hash);
+						cemented.push_back ({ block, hash, election });
 					}
 				}
 				else
