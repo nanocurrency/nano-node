@@ -51,7 +51,7 @@ public:
 	// Adds a block to the set of blocks to be confirmed
 	void add (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election = nullptr);
 	// Added blocks will remain in this set until after ledger has them marked as confirmed.
-	bool exists (nano::block_hash const & hash) const;
+	bool contains (nano::block_hash const & hash) const;
 	std::size_t size () const;
 
 	nano::container_info container_info () const;

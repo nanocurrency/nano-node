@@ -68,7 +68,7 @@ void nano::confirming_set::stop ()
 	notification_workers.stop ();
 }
 
-bool nano::confirming_set::exists (nano::block_hash const & hash) const
+bool nano::confirming_set::contains (nano::block_hash const & hash) const
 {
 	std::lock_guard lock{ mutex };
 	return set.get<tag_hash> ().contains (hash);

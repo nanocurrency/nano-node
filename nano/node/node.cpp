@@ -1104,14 +1104,14 @@ void nano::node::start_election (std::shared_ptr<nano::block> const & block)
 	scheduler.manual.push (block);
 }
 
-bool nano::node::block_confirmed (nano::block_hash const & hash_a)
+bool nano::node::block_confirmed (nano::block_hash const & hash)
 {
-	return ledger.confirmed.block_exists_or_pruned (ledger.tx_begin_read (), hash_a);
+	return ledger.confirmed.block_exists_or_pruned (ledger.tx_begin_read (), hash);
 }
 
-bool nano::node::block_confirmed_or_being_confirmed (nano::secure::transaction const & transaction, nano::block_hash const & hash_a)
+bool nano::node::block_confirmed_or_being_confirmed (nano::secure::transaction const & transaction, nano::block_hash const & hash)
 {
-	return confirming_set.exists (hash_a) || ledger.confirmed.block_exists_or_pruned (transaction, hash_a);
+	return confirming_set.contains (hash) || ledger.confirmed.block_exists_or_pruned (transaction, hash);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & hash_a)
