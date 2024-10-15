@@ -56,6 +56,7 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a)
 
 		node.active.recently_confirmed.put (qualified_root, status_l.winner->hash ());
 
+		node.stats.inc (nano::stat::type::election, nano::stat::detail::confirm_once);
 		node.logger.trace (nano::log::type::election, nano::log::detail::election_confirmed,
 		nano::log::arg{ "id", id },
 		nano::log::arg{ "qualified_root", qualified_root },
@@ -74,6 +75,7 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a)
 	}
 	else
 	{
+		node.stats.inc (nano::stat::type::election, nano::stat::detail::confirm_once_failed);
 		lock_a.unlock ();
 	}
 }

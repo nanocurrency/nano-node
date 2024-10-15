@@ -1143,6 +1143,8 @@ void nano::node::ongoing_online_weight_calculation ()
 
 void nano::node::process_confirmed (nano::election_status const & status_a, uint64_t iteration_a)
 {
+	stats.inc (nano::stat::type::process_confirmed, nano::stat::detail::initiate);
+
 	auto hash (status_a.winner->hash ());
 	decltype (iteration_a) const num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
 	if (auto block_l = ledger.any.block_get (ledger.tx_begin_read (), hash))

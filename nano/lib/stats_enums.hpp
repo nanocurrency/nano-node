@@ -249,6 +249,8 @@ enum class detail
 	generate_vote_final,
 	broadcast_block_initial,
 	broadcast_block_repeat,
+	confirm_once,
+	confirm_once_failed,
 
 	// election types
 	manual,
