@@ -86,10 +86,14 @@ private: // Dependencies
 private:
 	struct entry
 	{
-		nano::endpoint endpoint;
+		std::shared_ptr<nano::transport::channel> channel;
 		nano::telemetry_data data;
 		std::chrono::steady_clock::time_point last_updated;
-		std::shared_ptr<nano::transport::channel> channel;
+
+		nano::endpoint endpoint () const
+		{
+			return channel->get_endpoint ();
+		}
 	};
 
 private:
@@ -110,13 +114,16 @@ private:
 private:
 	// clang-format off
 	class tag_sequenced {};
+	class tag_channel {};
 	class tag_endpoint {};
 
 	using ordered_telemetries = boost::multi_index_container<entry,
 	mi::indexed_by<
 		mi::sequenced<mi::tag<tag_sequenced>>,
-		mi::hashed_unique<mi::tag<tag_endpoint>,
-			mi::member<entry, nano::endpoint, &entry::endpoint>>
+		mi::ordered_unique<mi::tag<tag_channel>,
+			mi::member<entry,  std::shared_ptr<nano::transport::channel>, &entry::channel>>,
+		mi::hashed_non_unique<mi::tag<tag_endpoint>,
+			mi::const_mem_fun<entry, nano::endpoint, &entry::endpoint>>
 	>>;
 	// clang-format on
 

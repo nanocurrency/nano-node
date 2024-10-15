@@ -369,6 +369,7 @@ enum class detail
 	failed_send_telemetry_req,
 	empty_payload,
 	cleanup_outdated,
+	erase_stale,
 
 	// vote generator
 	generator_broadcasts,
