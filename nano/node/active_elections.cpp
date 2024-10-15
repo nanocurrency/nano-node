@@ -30,17 +30,17 @@ nano::active_elections::active_elections (nano::node & node_a, nano::confirming_
 {
 	count_by_behavior.fill (0); // Zero initialize array
 
-	confirming_set.batch_cemented.add ([this] (nano::confirming_set::cemented_notification const & notification) {
+	confirming_set.batch_cemented.add ([this] (auto const & cemented) {
+		auto transaction = node.ledger.tx_begin_read ();
+		for (auto const & [block, confirmation_root] : cemented)
 		{
-			auto transaction = node.ledger.tx_begin_read ();
-			for (auto const & [block, confirmation_root] : notification.cemented)
-			{
-				transaction.refresh_if_needed ();
-
-				block_cemented_callback (transaction, block, confirmation_root);
-			}
+			transaction.refresh_if_needed ();
+			block_cemented_callback (transaction, block, confirmation_root);
 		}
-		for (auto const & hash : notification.already_cemented)
+	});
+
+	confirming_set.already_cemented.add ([this] (auto const & already_cemented) {
+		for (auto const & hash : already_cemented)
 		{
 			block_already_cemented_callback (hash);
 		}

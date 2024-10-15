@@ -12,8 +12,8 @@ nano::confirming_set::confirming_set (confirming_set_config const & config_a, na
 	stats{ stats_a },
 	notification_workers{ 1, nano::thread_role::name::confirmation_height_notifications }
 {
-	batch_cemented.add ([this] (auto const & notification) {
-		for (auto const & [block, confirmation_root] : notification.cemented)
+	batch_cemented.add ([this] (auto const & cemented) {
+		for (auto const & [block, confirmation_root] : cemented)
 		{
 			cemented_observers.notify (block);
 		}
@@ -124,17 +124,17 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 	std::deque<cemented_t> cemented;
 	std::deque<nano::block_hash> already;
 
-	auto batch = next_batch (256);
+	auto batch = next_batch (batch_size);
 
 	lock.unlock ();
 
-	auto notify = [this, &cemented, &already] () {
-		cemented_notification notification{};
-		notification.cemented.swap (cemented);
-		notification.already_cemented.swap (already);
+	auto notify = [this, &cemented] () {
+		std::deque<cemented_t> batch;
+		batch.swap (cemented);
 
 		std::unique_lock lock{ mutex };
 
+		// It's possible that ledger cementing happens faster than the notifications can be processed by other components, cooldown here
 		while (notification_workers.num_queued_tasks () >= config.max_queued_notifications)
 		{
 			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cooldown);
@@ -145,9 +145,9 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 			}
 		}
 
-		notification_workers.push_task ([this, notification = std::move (notification)] () {
+		notification_workers.push_task ([this, batch = std::move (batch)] () {
 			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify);
-			batch_cemented.notify (notification);
+			batch_cemented.notify (batch);
 		});
 	};
 
@@ -211,9 +211,9 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 	}
 
 	notify ();
-
 	release_assert (cemented.empty ());
-	release_assert (already.empty ());
+
+	already_cemented.notify (already);
 }
 
 nano::container_info nano::confirming_set::container_info () const

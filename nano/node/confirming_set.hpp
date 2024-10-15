@@ -48,16 +48,10 @@ public:
 	nano::container_info container_info () const;
 
 public: // Events
-	// Observers will be called once ledger has blocks marked as confirmed
 	using cemented_t = std::pair<std::shared_ptr<nano::block>, nano::block_hash>; // <block, confirmation root>
+	nano::observer_set<std::deque<cemented_t> const &> batch_cemented;
+	nano::observer_set<std::deque<nano::block_hash> const &> already_cemented;
 
-	struct cemented_notification
-	{
-		std::deque<cemented_t> cemented;
-		std::deque<nano::block_hash> already_cemented;
-	};
-
-	nano::observer_set<cemented_notification const &> batch_cemented;
 	nano::observer_set<std::shared_ptr<nano::block>> cemented_observers;
 
 private: // Dependencies
@@ -79,5 +73,7 @@ private:
 	mutable std::mutex mutex;
 	std::condition_variable condition;
 	std::thread thread;
+
+	static size_t constexpr batch_size = 256;
 };
 }
