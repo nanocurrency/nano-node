@@ -412,6 +412,7 @@ enum class detail
 	// active_elections
 	started,
 	stopped,
+	confirm_dependent,
 
 	// unchecked
 	put,

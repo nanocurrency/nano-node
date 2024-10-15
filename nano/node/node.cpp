@@ -1172,7 +1172,6 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 		stats.inc (nano::stat::type::process_confirmed, nano::stat::detail::timeout);
 
 		// Do some cleanup due to this block never being processed by confirmation height processor
-		active.remove_election_winner_details (hash);
 	}
 }
 

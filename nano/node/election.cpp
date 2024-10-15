@@ -35,18 +35,16 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 	last_blocks.emplace (block_a->hash (), block_a);
 }
 
-void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a)
+void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock)
 {
-	debug_assert (lock_a.owns_lock ());
+	debug_assert (lock.owns_lock ());
+	debug_assert (!mutex.try_lock ());
 
-	// This must be kept above the setting of election state, as dependent confirmed elections require up to date changes to election_winner_details
-	nano::unique_lock<nano::mutex> election_winners_lk{ node.active.election_winner_details_mutex };
-	auto just_confirmed = state_m != nano::election_state::confirmed;
+	bool just_confirmed = state_m != nano::election_state::confirmed;
 	state_m = nano::election_state::confirmed;
-	if (just_confirmed && (node.active.election_winner_details.count (status.winner->hash ()) == 0))
+
+	if (just_confirmed)
 	{
-		node.active.election_winner_details.emplace (status.winner->hash (), shared_from_this ());
-		election_winners_lk.unlock ();
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
 		status.confirmation_request_count = confirmation_request_count;
@@ -62,11 +60,11 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a)
 		nano::log::arg{ "qualified_root", qualified_root },
 		nano::log::arg{ "status", current_status_locked () });
 
-		lock_a.unlock ();
+		node.confirming_set.add (status_l.winner->hash (), shared_from_this ());
 
-		node.election_workers.push_task ([node_l = node.shared (), status_l, confirmation_action_l = confirmation_action] () {
-			node_l->process_confirmed (status_l);
+		lock.unlock ();
 
+		node.election_workers.push_task ([status_l, confirmation_action_l = confirmation_action] () {
 			if (confirmation_action_l)
 			{
 				confirmation_action_l (status_l.winner);
@@ -76,7 +74,7 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a)
 	else
 	{
 		node.stats.inc (nano::stat::type::election, nano::stat::detail::confirm_once_failed);
-		lock_a.unlock ();
+		lock.unlock ();
 	}
 }
 
@@ -416,6 +414,7 @@ void nano::election::confirm_if_quorum (nano::unique_lock<nano::mutex> & lock_a)
 		if (final_weight >= node.online_reps.delta ())
 		{
 			confirm_once (lock_a);
+			debug_assert (!lock_a.owns_lock ());
 		}
 	}
 }
@@ -429,6 +428,7 @@ void nano::election::try_confirm (nano::block_hash const & hash)
 		if (!confirmed_locked ())
 		{
 			confirm_once (election_lock);
+			debug_assert (!election_lock.owns_lock ());
 		}
 	}
 }

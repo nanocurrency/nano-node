@@ -717,7 +717,6 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), 0);
 
 	ASSERT_TIMELY_EQ (40s, (node->ledger.cemented_count () - 1), node->stats.count (nano::stat::type::confirmation_observer, nano::stat::dir::out));
-	ASSERT_TIMELY_EQ (10s, node->active.election_winner_details_size (), 0);
 }
 
 TEST (confirmation_height, many_accounts_many_confirmations)
@@ -792,8 +791,6 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	ASSERT_EQ (cemented_count, node->ledger.cemented_count ());
 
 	ASSERT_TIMELY_EQ (20s, (node->ledger.cemented_count () - 1), node->stats.count (nano::stat::type::confirmation_observer, nano::stat::dir::out));
-
-	ASSERT_TIMELY_EQ (10s, node->active.election_winner_details_size (), 0);
 }
 
 TEST (confirmation_height, long_chains)
@@ -939,7 +936,6 @@ TEST (confirmation_height, long_chains)
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), 0);
 
 	ASSERT_TIMELY_EQ (40s, (node->ledger.cemented_count () - 1), node->stats.count (nano::stat::type::confirmation_observer, nano::stat::dir::out));
-	ASSERT_TIMELY_EQ (10s, node->active.election_winner_details_size (), 0);
 }
 
 TEST (confirmation_height, dynamic_algorithm)
@@ -987,7 +983,6 @@ TEST (confirmation_height, dynamic_algorithm)
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_blocks);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), 1);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), num_blocks - 1);
-	ASSERT_TIMELY_EQ (10s, node->active.election_winner_details_size (), 0);
 }
 
 TEST (confirmation_height, many_accounts_send_receive_self)
@@ -1118,10 +1113,6 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 	}
 
 	system.deadline_set (60s);
-	while (node->active.election_winner_details_size () > 0)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
 }
 
 // Same as the many_accounts_send_receive_self test, except works on the confirmation height processor directly
