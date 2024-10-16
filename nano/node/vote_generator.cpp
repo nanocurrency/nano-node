@@ -287,27 +287,18 @@ void nano::vote_generator::run ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		if (candidates.size () >= nano::network::confirm_ack_hashes_max)
+		condition.wait_for (lock, config.vote_generator_delay, [this] () { return this->candidates.size () >= nano::network::confirm_ack_hashes_max || !requests.empty (); });
+
+		if (!candidates.empty ())
 		{
 			broadcast (lock);
 		}
-		else if (!requests.empty ())
+
+		if (!requests.empty ())
 		{
 			auto request (requests.front ());
 			requests.pop_front ();
 			reply (lock, std::move (request));
-		}
-		else
-		{
-			condition.wait_for (lock, config.vote_generator_delay, [this] () { return this->candidates.size () >= nano::network::confirm_ack_hashes_max; });
-			if (candidates.size () >= config.vote_generator_threshold && candidates.size () < nano::network::confirm_ack_hashes_max)
-			{
-				condition.wait_for (lock, config.vote_generator_delay, [this] () { return this->candidates.size () >= nano::network::confirm_ack_hashes_max; });
-			}
-			if (!candidates.empty ())
-			{
-				broadcast (lock);
-			}
 		}
 	}
 }
