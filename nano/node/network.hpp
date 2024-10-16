@@ -127,7 +127,6 @@ public:
 	void erase (nano::transport::channel const &);
 	/** Disconnects and adds peer to exclusion list */
 	void exclude (std::shared_ptr<nano::transport::channel> const & channel);
-	void inbound (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
 
 	nano::container_info container_info () const;
 
