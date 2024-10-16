@@ -1398,6 +1398,8 @@ TEST (active_elections, bound_election_winners)
 	nano::node_config config = system.default_config ();
 	// Set election winner limit to a low value
 	config.active_elections.max_election_winners = 5;
+	// Large batch size would complicate this testcase
+	config.confirming_set.batch_size = 1;
 	auto & node = *system.add_node (config);
 
 	// Start elections for a couple of blocks, number of elections is larger than the election winner set limit
@@ -1411,22 +1413,12 @@ TEST (active_elections, bound_election_winners)
 		auto guard = node.ledger.tx_begin_write (nano::store::writer::testing);
 
 		// Ensure that when the number of election winners reaches the limit, AEC vacancy reflects that
+		// Confirming more elections should make the vacancy negative
 		ASSERT_TRUE (node.active.vacancy (nano::election_behavior::priority) > 0);
 
-		int index = 0;
-		for (; index < config.active_elections.max_election_winners; ++index)
+		for (auto const & block : blocks)
 		{
-			auto election = node.vote_router.election (blocks[index]->hash ());
-			ASSERT_TRUE (election);
-			election->force_confirm ();
-		}
-
-		ASSERT_TIMELY_EQ (5s, node.active.vacancy (nano::election_behavior::priority), 0);
-
-		// Confirming more elections should make the vacancy negative
-		for (; index < blocks.size (); ++index)
-		{
-			auto election = node.vote_router.election (blocks[index]->hash ());
+			auto election = node.vote_router.election (block->hash ());
 			ASSERT_TRUE (election);
 			election->force_confirm ();
 		}

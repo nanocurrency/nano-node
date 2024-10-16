@@ -40,13 +40,9 @@ nano::active_elections::active_elections (nano::node & node_a, nano::confirming_
 
 	// Notify elections about alternative (forked) blocks
 	block_processor.block_processed.add ([this] (auto const & result, auto const & context) {
-		switch (result)
+		if (result == nano::block_status::fork)
 		{
-			case nano::block_status::fork:
-				publish (context.block);
-				break;
-			default:
-				break;
+			publish (context.block);
 		}
 	});
 }

@@ -48,6 +48,11 @@ void nano::confirming_set::start ()
 {
 	debug_assert (!thread.joinable ());
 
+	if (!config.enable)
+	{
+		return;
+	}
+
 	thread = std::thread{ [this] () {
 		nano::thread_role::set (nano::thread_role::name::confirmation_height);
 		run ();
@@ -123,7 +128,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 	std::deque<context> cemented;
 	std::deque<nano::block_hash> already;
 
-	auto batch = next_batch (batch_size);
+	auto batch = next_batch (config.batch_size);
 
 	lock.unlock ();
 

@@ -28,6 +28,9 @@ public:
 	// TODO: Serialization & deserialization
 
 public:
+	bool enable{ true };
+	size_t batch_size{ 256 };
+
 	/** Maximum number of dependent blocks to be stored in memory during processing */
 	size_t max_blocks{ 128 * 1024 };
 	size_t max_queued_notifications{ 8 };
@@ -106,7 +109,5 @@ private:
 	mutable std::mutex mutex;
 	std::condition_variable condition;
 	std::thread thread;
-
-	static size_t constexpr batch_size = 256;
 };
 }
