@@ -6,6 +6,7 @@
 
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/numeric/conversion/cast.hpp>
 
 #include <valgrind/valgrind.h>
 

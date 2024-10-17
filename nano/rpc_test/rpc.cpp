@@ -30,6 +30,7 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <algorithm>
