@@ -2,6 +2,7 @@
 
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/observer_set.hpp>
 #include <nano/node/election_behavior.hpp>
 #include <nano/node/election_insertion_result.hpp>
 #include <nano/node/election_status.hpp>
@@ -121,9 +122,11 @@ public:
 	 * How many election slots are available for specified election type
 	 */
 	int64_t vacancy (nano::election_behavior behavior) const;
-	std::function<void ()> vacancy_update{ [] () {} };
 
 	nano::container_info container_info () const;
+
+public: // Events
+	nano::observer_set<> vacancy_updated;
 
 private:
 	void request_loop ();

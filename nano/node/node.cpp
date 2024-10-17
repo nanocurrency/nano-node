@@ -187,13 +187,6 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 
 	if (!init_error ())
 	{
-		// Notify election schedulers when AEC frees election slot
-		active.vacancy_update = [this] () {
-			scheduler.priority.notify ();
-			scheduler.hinted.notify ();
-			scheduler.optimistic.notify ();
-		};
-
 		wallets.observer = [this] (bool active) {
 			observers.wallet.notify (active);
 		};

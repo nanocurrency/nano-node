@@ -1308,7 +1308,9 @@ TEST (active_elections, vacancy)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build ();
-	node.active.vacancy_update = [&updated] () { updated = true; };
+	node.active.vacancy_updated.add ([&updated] () {
+		updated = true;
+	});
 	ASSERT_EQ (nano::block_status::progress, node.process (send));
 	ASSERT_EQ (1, node.active.vacancy (nano::election_behavior::priority));
 	ASSERT_EQ (0, node.active.size ());

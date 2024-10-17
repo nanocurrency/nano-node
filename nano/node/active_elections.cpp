@@ -312,7 +312,7 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 		entry.erased_callback (election);
 	}
 
-	vacancy_update ();
+	vacancy_updated.notify ();
 
 	for (auto const & [hash, block] : blocks_l)
 	{
@@ -435,7 +435,7 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 
 		node.vote_cache_processor.trigger (hash);
 		node.observers.active_started.notify (hash);
-		vacancy_update ();
+		vacancy_updated.notify ();
 	}
 
 	// Votes are generated for inserted or ongoing elections
@@ -541,8 +541,7 @@ void nano::active_elections::clear ()
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		roots.clear ();
 	}
-
-	vacancy_update ();
+	vacancy_updated.notify ();
 }
 
 nano::container_info nano::active_elections::container_info () const
