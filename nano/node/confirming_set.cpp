@@ -1,3 +1,4 @@
+#include <nano/lib/logging.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/secure/ledger.hpp>
@@ -6,10 +7,11 @@
 #include <nano/store/component.hpp>
 #include <nano/store/write_queue.hpp>
 
-nano::confirming_set::confirming_set (confirming_set_config const & config_a, nano::ledger & ledger_a, nano::stats & stats_a) :
+nano::confirming_set::confirming_set (confirming_set_config const & config_a, nano::ledger & ledger_a, nano::stats & stats_a, nano::logger & logger_a) :
 	config{ config_a },
 	ledger{ ledger_a },
 	stats{ stats_a },
+	logger{ logger_a },
 	notification_workers{ 1, nano::thread_role::name::confirmation_height_notifications }
 {
 	batch_cemented.add ([this] (auto const & cemented) {
@@ -177,6 +179,8 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 		auto transaction = ledger.tx_begin_write (nano::store::writer::confirmation_height);
 		for (auto const & [hash, election] : batch)
 		{
+			size_t cemented_count = 0;
+			bool success = false;
 			do
 			{
 				transaction.refresh_if_needed ();
@@ -208,6 +212,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 					{
 						cemented.push_back ({ block, hash, election });
 					}
+					cemented_count += added.size ();
 				}
 				else
 				{
@@ -215,9 +220,20 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 					already.push_back (hash);
 					debug_assert (ledger.confirmed.block_exists (transaction, hash));
 				}
-			} while (!ledger.confirmed.block_exists (transaction, hash));
 
-			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cemented_hash);
+				success = ledger.confirmed.block_exists (transaction, hash);
+			} while (!success);
+
+			if (success)
+			{
+				stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cemented_hash);
+				logger.debug (nano::log::type::confirming_set, "Cemented block: {} (total cemented: {})", hash.to_string (), cemented_count);
+			}
+			else
+			{
+				stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cementing_failed);
+				logger.debug (nano::log::type::confirming_set, "Failed to cement block: {}", hash.to_string ());
+			}
 		}
 	}
 

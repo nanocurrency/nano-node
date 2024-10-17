@@ -505,6 +505,7 @@ enum class detail
 	already_cemented,
 	cementing,
 	cemented_hash,
+	cementing_failed,
 
 	// election_state
 	passive,
