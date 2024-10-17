@@ -26,7 +26,7 @@ public:
 class priority final
 {
 public:
-	priority (nano::node_config &, nano::node &, nano::ledger &, nano::block_processor &, nano::active_elections &, nano::stats &, nano::logger &);
+	priority (nano::node_config &, nano::node &, nano::ledger &, nano::block_processor &, nano::active_elections &, nano::confirming_set &, nano::stats &, nano::logger &);
 	~priority ();
 
 	void start ();
@@ -36,8 +36,9 @@ public:
 	 * Activates the first unconfirmed block of \p account_a
 	 * @return true if account was activated
 	 */
-	bool activate (secure::transaction const &, nano::account const &);
-	bool activate (secure::transaction const &, nano::account const &, nano::account_info const &, nano::confirmation_height_info const &);
+	bool activate (nano::secure::transaction const &, nano::account const &);
+	bool activate (nano::secure::transaction const &, nano::account const &, nano::account_info const &, nano::confirmation_height_info const &);
+	bool activate_successors (nano::secure::transaction const &, nano::block const &);
 
 	void notify ();
 	std::size_t size () const;
@@ -51,6 +52,7 @@ private: // Dependencies
 	nano::ledger & ledger;
 	nano::block_processor & block_processor;
 	nano::active_elections & active;
+	nano::confirming_set & confirming_set;
 	nano::stats & stats;
 	nano::logger & logger;
 

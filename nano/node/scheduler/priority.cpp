@@ -7,12 +7,13 @@
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
 
-nano::scheduler::priority::priority (nano::node_config & node_config, nano::node & node_a, nano::ledger & ledger_a, nano::block_processor & block_processor_a, nano::active_elections & active_a, nano::stats & stats_a, nano::logger & logger_a) :
+nano::scheduler::priority::priority (nano::node_config & node_config, nano::node & node_a, nano::ledger & ledger_a, nano::block_processor & block_processor_a, nano::active_elections & active_a, nano::confirming_set & confirming_set_a, nano::stats & stats_a, nano::logger & logger_a) :
 	config{ node_config.priority_scheduler },
 	node{ node_a },
 	ledger{ ledger_a },
 	block_processor{ block_processor_a },
 	active{ active_a },
+	confirming_set{ confirming_set_a },
 	stats{ stats_a },
 	logger{ logger_a }
 {
@@ -56,6 +57,21 @@ nano::scheduler::priority::priority (nano::node_config & node_config, nano::node
 				release_assert (context.block != nullptr);
 				activate (transaction, context.block->account ());
 			}
+		}
+	});
+
+	// Activate successors of cemented blocks
+	confirming_set.batch_cemented.add ([this] (auto const & batch) {
+		if (node.flags.disable_activate_successors)
+		{
+			return;
+		}
+
+		auto transaction = ledger.tx_begin_read ();
+		for (auto const & context : batch)
+		{
+			release_assert (context.block != nullptr);
+			activate_successors (transaction, *context.block);
 		}
 	});
 }
@@ -155,6 +171,17 @@ bool nano::scheduler::priority::activate (secure::transaction const & transactio
 
 	stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activate_failed);
 	return false; // Not activated
+}
+
+bool nano::scheduler::priority::activate_successors (secure::transaction const & transaction, nano::block const & block)
+{
+	bool result = activate (transaction, block.account ());
+	// Start or vote for the next unconfirmed block in the destination account
+	if (block.is_send () && !block.destination ().is_zero () && block.destination () != block.account ())
+	{
+		result |= activate (transaction, block.destination ());
+	}
+	return result;
 }
 
 void nano::scheduler::priority::notify ()

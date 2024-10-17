@@ -1232,8 +1232,8 @@ TEST (active_elections, activate_inactive)
 	ASSERT_TIMELY_EQ (5s, 1, node.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out));
 	ASSERT_ALWAYS_EQ (50ms, 0, node.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_conf_height, nano::stat::dir::out));
 
-	// The first block was not active so no activation takes place
-	ASSERT_FALSE (node.active.active (open->qualified_root ()) || node.block_confirmed_or_being_confirmed (open->hash ()));
+	// Cementing of send should activate open
+	ASSERT_TIMELY (5s, node.active.active (open->qualified_root ()));
 }
 
 TEST (active_elections, list_active)

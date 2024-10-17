@@ -123,15 +123,6 @@ void nano::active_elections::block_cemented (nano::secure::transaction const & t
 	nano::log::arg{ "source_election", source_election });
 
 	notify_observers (transaction, status, votes);
-
-	bool cemented_bootstrap_count_reached = node.ledger.cemented_count () >= node.ledger.bootstrap_weight_max_blocks;
-	bool was_active = status.type == nano::election_status_type::active_confirmed_quorum || status.type == nano::election_status_type::active_confirmation_height;
-
-	// Next-block activations are only done for blocks with previously active elections
-	if (cemented_bootstrap_count_reached && was_active && !node.flags.disable_activate_successors)
-	{
-		activate_successors (transaction, block);
-	}
 }
 
 void nano::active_elections::notify_observers (nano::secure::transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes) const
@@ -166,17 +157,6 @@ void nano::active_elections::notify_observers (nano::secure::transaction const &
 	if (block->is_send ())
 	{
 		node.observers.account_balance.notify (block->destination (), true);
-	}
-}
-
-void nano::active_elections::activate_successors (nano::secure::transaction const & transaction, std::shared_ptr<nano::block> const & block)
-{
-	node.scheduler.priority.activate (transaction, block->account ());
-
-	// Start or vote for the next unconfirmed block in the destination account
-	if (block->is_send () && !block->destination ().is_zero () && block->destination () != block->account ())
-	{
-		node.scheduler.priority.activate (transaction, block->destination ());
 	}
 }
 
