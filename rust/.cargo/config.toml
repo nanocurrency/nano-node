@@ -1,0 +1,6 @@
+[alias]
+xtask = "run --package xtask --"
+
+[build]
+target-dir = "../build/cargo"
+#jobs = 4
