@@ -253,7 +253,7 @@ TEST (telemetry, invalid_signature)
 	telemetry.block_count = 9999; // Change data so signature is no longer valid
 
 	auto message = nano::telemetry_ack{ nano::dev::network_params.network, telemetry };
-	node.network.inbound (message, nano::test::fake_channel (node));
+	node.inbound (message, nano::test::fake_channel (node));
 
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::invalid_signature) > 0);
 	ASSERT_ALWAYS (1s, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::process) == 0)
@@ -267,7 +267,7 @@ TEST (telemetry, mismatched_node_id)
 	auto telemetry = node.local_telemetry ();
 
 	auto message = nano::telemetry_ack{ nano::dev::network_params.network, telemetry };
-	node.network.inbound (message, nano::test::fake_channel (node, /* node id */ { 123 }));
+	node.inbound (message, nano::test::fake_channel (node, /* node id */ { 123 }));
 
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::node_id_mismatch) > 0);
 	ASSERT_ALWAYS (1s, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::process) == 0)

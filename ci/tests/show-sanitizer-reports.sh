@@ -19,7 +19,7 @@ if [[ ${#reports[@]} -gt 0 ]]; then
         issue_reported=true
     done
 else
-    echo "::notice::No report has been generated."
+    echo "No report has been generated."
 fi
 
 echo "issue_reported=${issue_reported}" >> $GITHUB_OUTPUT
@@ -28,6 +28,6 @@ if $issue_reported; then
     echo "::error::Issues were reported in the sanitizer report."
     exit 1
 else
-    echo "::notice::No issues found in the sanitizer reports."
+    echo "No issues found in the sanitizer reports."
     exit 0
 fi

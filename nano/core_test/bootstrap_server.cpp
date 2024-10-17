@@ -92,7 +92,7 @@ TEST (bootstrap_server, serve_account_blocks)
 	request.payload = request_payload;
 	request.update_header ();
 
-	node.network.inbound (request, nano::test::fake_channel (node));
+	node.inbound (request, nano::test::fake_channel (node));
 
 	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
 
@@ -137,7 +137,7 @@ TEST (bootstrap_server, serve_hash)
 	request.payload = request_payload;
 	request.update_header ();
 
-	node.network.inbound (request, nano::test::fake_channel (node));
+	node.inbound (request, nano::test::fake_channel (node));
 
 	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
 
@@ -182,7 +182,7 @@ TEST (bootstrap_server, serve_hash_one)
 	request.payload = request_payload;
 	request.update_header ();
 
-	node.network.inbound (request, nano::test::fake_channel (node));
+	node.inbound (request, nano::test::fake_channel (node));
 
 	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
 
@@ -221,7 +221,7 @@ TEST (bootstrap_server, serve_end_of_chain)
 	request.payload = request_payload;
 	request.update_header ();
 
-	node.network.inbound (request, nano::test::fake_channel (node));
+	node.inbound (request, nano::test::fake_channel (node));
 
 	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
 
@@ -260,7 +260,7 @@ TEST (bootstrap_server, serve_missing)
 	request.payload = request_payload;
 	request.update_header ();
 
-	node.network.inbound (request, nano::test::fake_channel (node));
+	node.inbound (request, nano::test::fake_channel (node));
 
 	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
 
@@ -303,7 +303,7 @@ TEST (bootstrap_server, serve_multiple)
 			request.payload = request_payload;
 			request.update_header ();
 
-			node.network.inbound (request, nano::test::fake_channel (node));
+			node.inbound (request, nano::test::fake_channel (node));
 		}
 	}
 
@@ -359,7 +359,7 @@ TEST (bootstrap_server, serve_account_info)
 	request.payload = request_payload;
 	request.update_header ();
 
-	node.network.inbound (request, nano::test::fake_channel (node));
+	node.inbound (request, nano::test::fake_channel (node));
 
 	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
 
@@ -405,7 +405,7 @@ TEST (bootstrap_server, serve_account_info_missing)
 	request.payload = request_payload;
 	request.update_header ();
 
-	node.network.inbound (request, nano::test::fake_channel (node));
+	node.inbound (request, nano::test::fake_channel (node));
 
 	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
 
@@ -450,7 +450,7 @@ TEST (bootstrap_server, serve_frontiers)
 	request.payload = request_payload;
 	request.update_header ();
 
-	node.network.inbound (request, nano::test::fake_channel (node));
+	node.inbound (request, nano::test::fake_channel (node));
 
 	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
 
@@ -503,7 +503,7 @@ TEST (bootstrap_server, serve_frontiers_invalid_count)
 		request.payload = request_payload;
 		request.update_header ();
 
-		node.network.inbound (request, nano::test::fake_channel (node));
+		node.inbound (request, nano::test::fake_channel (node));
 	}
 
 	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 1);
@@ -521,7 +521,7 @@ TEST (bootstrap_server, serve_frontiers_invalid_count)
 		request.payload = request_payload;
 		request.update_header ();
 
-		node.network.inbound (request, nano::test::fake_channel (node));
+		node.inbound (request, nano::test::fake_channel (node));
 	}
 
 	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 2);
@@ -539,7 +539,7 @@ TEST (bootstrap_server, serve_frontiers_invalid_count)
 		request.payload = request_payload;
 		request.update_header ();
 
-		node.network.inbound (request, nano::test::fake_channel (node));
+		node.inbound (request, nano::test::fake_channel (node));
 	}
 
 	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 3);
