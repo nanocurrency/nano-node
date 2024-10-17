@@ -13,6 +13,9 @@ template <typename T, typename U>
 class iterator final
 {
 public:
+	using value_type = std::pair<T, U>;
+
+public:
 	iterator (std::nullptr_t)
 	{
 	}
@@ -63,7 +66,7 @@ public:
 	}
 
 private:
-	std::pair<T, U> current;
+	value_type current;
 	std::unique_ptr<iterator_impl<T, U>> impl;
 };
 } // namespace nano::store

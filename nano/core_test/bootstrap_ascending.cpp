@@ -2,12 +2,11 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/tomlconfig.hpp>
-#include <nano/node/bootstrap_ascending/database_scan.hpp>
 #include <nano/node/bootstrap_ascending/service.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
-#include <nano/test_common/ledger_context.hpp>
+#include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -269,218 +268,290 @@ TEST (bootstrap_ascending, trace_base)
 	ASSERT_TIMELY (10s, node1.block (receive1->hash ()) != nullptr);
 }
 
-TEST (bootstrap_ascending, pending_database_scanner)
+/*
+ * Tests that bootstrap will prioritize existing accounts with outdated frontiers
+ */
+TEST (bootstrap_ascending, frontier_scan)
 {
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::test::system system;
 
-	// Prepare pending sends from genesis
-	// 1 account with 1 pending
-	// 1 account with 21 pendings
-	// 2 accounts with 1 pending each
-	std::deque<std::shared_ptr<nano::block>> blocks;
-	nano::keypair key1, key2, key3, key4;
+	nano::node_flags flags;
+	flags.disable_legacy_bootstrap = true;
+	nano::node_config config;
+	// Disable other bootstrap strategies
+	config.bootstrap_ascending.enable_scan = false;
+	config.bootstrap_ascending.enable_dependency_walker = false;
+	// Disable election activation
+	config.backlog_population.enable = false;
+	config.priority_scheduler.enable = false;
+	config.optimistic_scheduler.enable = false;
+	config.hinted_scheduler.enable = false;
+
+	// Prepare blocks for frontier scan (genesis 10 sends -> 10 opens -> 10 updates)
+	std::vector<std::shared_ptr<nano::block>> sends;
+	std::vector<std::shared_ptr<nano::block>> opens;
+	std::vector<std::shared_ptr<nano::block>> updates;
 	{
-		nano::state_block_builder builder;
-
 		auto source = nano::dev::genesis_key;
 		auto latest = nano::dev::genesis->hash ();
 		auto balance = nano::dev::genesis->balance ().number ();
 
-		// 1 account with 1 pending
-		{
-			auto send = builder.make_block ()
-						.account (source.pub)
-						.previous (latest)
-						.representative (source.pub)
-						.link (key1.pub)
-						.balance (balance - 1)
-						.sign (source.prv, source.pub)
-						.work (*pool.generate (latest))
-						.build ();
-			latest = send->hash ();
-			balance = send->balance_field ().value ().number ();
-			blocks.push_back (send);
-		}
-		// 1 account with 21 pendings
-		for (int i = 0; i < 21; ++i)
-		{
-			auto send = builder.make_block ()
-						.account (source.pub)
-						.previous (latest)
-						.representative (source.pub)
-						.link (key2.pub)
-						.balance (balance - 1)
-						.sign (source.prv, source.pub)
-						.work (*pool.generate (latest))
-						.build ();
-			latest = send->hash ();
-			balance = send->balance_field ().value ().number ();
-			blocks.push_back (send);
-		}
-		// 2 accounts with 1 pending each
-		{
-			auto send = builder.make_block ()
-						.account (source.pub)
-						.previous (latest)
-						.representative (source.pub)
-						.link (key3.pub)
-						.balance (balance - 1)
-						.sign (source.prv, source.pub)
-						.work (*pool.generate (latest))
-						.build ();
-			latest = send->hash ();
-			balance = send->balance_field ().value ().number ();
-			blocks.push_back (send);
-		}
-		{
-			auto send = builder.make_block ()
-						.account (source.pub)
-						.previous (latest)
-						.representative (source.pub)
-						.link (key4.pub)
-						.balance (balance - 1)
-						.sign (source.prv, source.pub)
-						.work (*pool.generate (latest))
-						.build ();
-			latest = send->hash ();
-			balance = send->balance_field ().value ().number ();
-			blocks.push_back (send);
-		}
-	}
+		size_t const count = 10;
 
-	nano::test::ledger_context ctx{ std::move (blocks) };
-
-	// Single batch
-	{
-		nano::bootstrap_ascending::pending_database_iterator scanner{ ctx.ledger () };
-		auto transaction = ctx.store ().tx_begin_read ();
-		auto accounts = scanner.next_batch (transaction, 256);
-
-		// Check that account set contains all keys
-		ASSERT_EQ (accounts.size (), 4);
-		ASSERT_TRUE (std::find (accounts.begin (), accounts.end (), key1.pub) != accounts.end ());
-		ASSERT_TRUE (std::find (accounts.begin (), accounts.end (), key2.pub) != accounts.end ());
-		ASSERT_TRUE (std::find (accounts.begin (), accounts.end (), key3.pub) != accounts.end ());
-		ASSERT_TRUE (std::find (accounts.begin (), accounts.end (), key4.pub) != accounts.end ());
-
-		ASSERT_EQ (scanner.completed, 1);
-	}
-	// Multi batch
-	{
-		nano::bootstrap_ascending::pending_database_iterator scanner{ ctx.ledger () };
-		auto transaction = ctx.store ().tx_begin_read ();
-
-		// Request accounts in multiple batches
-		auto accounts1 = scanner.next_batch (transaction, 2);
-		auto accounts2 = scanner.next_batch (transaction, 1);
-		auto accounts3 = scanner.next_batch (transaction, 1);
-
-		ASSERT_EQ (accounts1.size (), 2);
-		ASSERT_EQ (accounts2.size (), 1);
-		ASSERT_EQ (accounts3.size (), 1);
-
-		std::deque<nano::account> accounts;
-		accounts.insert (accounts.end (), accounts1.begin (), accounts1.end ());
-		accounts.insert (accounts.end (), accounts2.begin (), accounts2.end ());
-		accounts.insert (accounts.end (), accounts3.begin (), accounts3.end ());
-
-		// Check that account set contains all keys
-		ASSERT_EQ (accounts.size (), 4);
-		ASSERT_TRUE (std::find (accounts.begin (), accounts.end (), key1.pub) != accounts.end ());
-		ASSERT_TRUE (std::find (accounts.begin (), accounts.end (), key2.pub) != accounts.end ());
-		ASSERT_TRUE (std::find (accounts.begin (), accounts.end (), key3.pub) != accounts.end ());
-		ASSERT_TRUE (std::find (accounts.begin (), accounts.end (), key4.pub) != accounts.end ());
-
-		ASSERT_EQ (scanner.completed, 1);
-	}
-}
-
-TEST (bootstrap_ascending, account_database_scanner)
-{
-	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
-
-	size_t const count = 4;
-
-	// Prepare some accounts
-	std::deque<std::shared_ptr<nano::block>> blocks;
-	std::deque<nano::keypair> keys;
-	{
-		nano::state_block_builder builder;
-
-		auto source = nano::dev::genesis_key;
-		auto latest = nano::dev::genesis->hash ();
-		auto balance = nano::dev::genesis->balance ().number ();
-
-		for (int i = 0; i < count; ++i)
+		for (int n = 0; n < count; ++n)
 		{
 			nano::keypair key;
-			auto send = builder.make_block ()
+			nano::block_builder builder;
+
+			balance -= 1;
+			auto send = builder
+						.state ()
 						.account (source.pub)
 						.previous (latest)
 						.representative (source.pub)
+						.balance (balance)
 						.link (key.pub)
-						.balance (balance - 1)
 						.sign (source.prv, source.pub)
-						.work (*pool.generate (latest))
+						.work (*system.work.generate (latest))
 						.build ();
-			auto open = builder.make_block ()
+
+			latest = send->hash ();
+
+			auto open = builder
+						.state ()
 						.account (key.pub)
 						.previous (0)
 						.representative (key.pub)
-						.link (send->hash ())
 						.balance (1)
+						.link (send->hash ())
 						.sign (key.prv, key.pub)
-						.work (*pool.generate (key.pub))
+						.work (*system.work.generate (key.pub))
 						.build ();
+
+			auto update = builder
+						  .state ()
+						  .account (key.pub)
+						  .previous (open->hash ())
+						  .representative (0)
+						  .balance (1)
+						  .link (0)
+						  .sign (key.prv, key.pub)
+						  .work (*system.work.generate (open->hash ()))
+						  .build ();
+
+			sends.push_back (send);
+			opens.push_back (open);
+			updates.push_back (update);
+		}
+	}
+
+	// Initialize nodes with blocks without the `updates` frontiers
+	std::vector<std::shared_ptr<nano::block>> blocks;
+	blocks.insert (blocks.end (), sends.begin (), sends.end ());
+	blocks.insert (blocks.end (), opens.begin (), opens.end ());
+	system.set_initialization_blocks ({ blocks.begin (), blocks.end () });
+
+	auto & node0 = *system.add_node (config, flags);
+	ASSERT_TRUE (nano::test::process (node0, updates));
+
+	// No blocks should be broadcast to the other node
+	auto & node1 = *system.add_node (config, flags);
+	ASSERT_ALWAYS_EQ (100ms, node1.ledger.block_count (), blocks.size () + 1);
+
+	// Frontier scan should detect all the accounts with missing blocks
+	ASSERT_TIMELY (10s, std::all_of (updates.begin (), updates.end (), [&node1] (auto const & block) {
+		return node1.ascendboot.prioritized (block->account ());
+	}));
+}
+
+/*
+ * Tests that bootstrap will prioritize not yet existing accounts with pending blocks
+ */
+TEST (bootstrap_ascending, frontier_scan_pending)
+{
+	nano::test::system system;
+
+	nano::node_flags flags;
+	flags.disable_legacy_bootstrap = true;
+	nano::node_config config;
+	// Disable other bootstrap strategies
+	config.bootstrap_ascending.enable_scan = false;
+	config.bootstrap_ascending.enable_dependency_walker = false;
+	// Disable election activation
+	config.backlog_population.enable = false;
+	config.priority_scheduler.enable = false;
+	config.optimistic_scheduler.enable = false;
+	config.hinted_scheduler.enable = false;
+
+	// Prepare blocks for frontier scan (genesis 10 sends -> 10 opens)
+	std::vector<std::shared_ptr<nano::block>> sends;
+	std::vector<std::shared_ptr<nano::block>> opens;
+	{
+		auto source = nano::dev::genesis_key;
+		auto latest = nano::dev::genesis->hash ();
+		auto balance = nano::dev::genesis->balance ().number ();
+
+		size_t const count = 10;
+
+		for (int n = 0; n < count; ++n)
+		{
+			nano::keypair key;
+			nano::block_builder builder;
+
+			balance -= 1;
+			auto send = builder
+						.state ()
+						.account (source.pub)
+						.previous (latest)
+						.representative (source.pub)
+						.balance (balance)
+						.link (key.pub)
+						.sign (source.prv, source.pub)
+						.work (*system.work.generate (latest))
+						.build ();
+
 			latest = send->hash ();
-			balance = send->balance_field ().value ().number ();
-			blocks.push_back (send);
-			blocks.push_back (open);
-			keys.push_back (key);
+
+			auto open = builder
+						.state ()
+						.account (key.pub)
+						.previous (0)
+						.representative (key.pub)
+						.balance (1)
+						.link (send->hash ())
+						.sign (key.prv, key.pub)
+						.work (*system.work.generate (key.pub))
+						.build ();
+
+			sends.push_back (send);
+			opens.push_back (open);
 		}
 	}
 
-	nano::test::ledger_context ctx{ std::move (blocks) };
+	// Initialize nodes with blocks without the `updates` frontiers
+	std::vector<std::shared_ptr<nano::block>> blocks;
+	blocks.insert (blocks.end (), sends.begin (), sends.end ());
+	system.set_initialization_blocks ({ blocks.begin (), blocks.end () });
 
-	// Single batch
+	auto & node0 = *system.add_node (config, flags);
+	ASSERT_TRUE (nano::test::process (node0, opens));
+
+	// No blocks should be broadcast to the other node
+	auto & node1 = *system.add_node (config, flags);
+	ASSERT_ALWAYS_EQ (100ms, node1.ledger.block_count (), blocks.size () + 1);
+
+	// Frontier scan should detect all the accounts with missing blocks
+	ASSERT_TIMELY (10s, std::all_of (opens.begin (), opens.end (), [&node1] (auto const & block) {
+		return node1.ascendboot.prioritized (block->account ());
+	}));
+}
+
+/*
+ * Bootstrap should not attempt to prioritize accounts that can't be immediately connected to the ledger (no pending blocks, no existing frontier)
+ */
+TEST (bootstrap_ascending, frontier_scan_cannot_prioritize)
+{
+	nano::test::system system;
+
+	nano::node_flags flags;
+	flags.disable_legacy_bootstrap = true;
+	nano::node_config config;
+	// Disable other bootstrap strategies
+	config.bootstrap_ascending.enable_scan = false;
+	config.bootstrap_ascending.enable_dependency_walker = false;
+	// Disable election activation
+	config.backlog_population.enable = false;
+	config.priority_scheduler.enable = false;
+	config.optimistic_scheduler.enable = false;
+	config.hinted_scheduler.enable = false;
+
+	// Prepare blocks for frontier scan (genesis 10 sends -> 10 opens -> 10 sends -> 10 opens)
+	std::vector<std::shared_ptr<nano::block>> sends;
+	std::vector<std::shared_ptr<nano::block>> opens;
+	std::vector<std::shared_ptr<nano::block>> sends2;
+	std::vector<std::shared_ptr<nano::block>> opens2;
 	{
-		nano::bootstrap_ascending::account_database_iterator scanner{ ctx.ledger () };
-		auto transaction = ctx.store ().tx_begin_read ();
-		auto accounts = scanner.next_batch (transaction, 256);
+		auto source = nano::dev::genesis_key;
+		auto latest = nano::dev::genesis->hash ();
+		auto balance = nano::dev::genesis->balance ().number ();
 
-		// Check that account set contains all keys
-		ASSERT_EQ (accounts.size (), keys.size () + 1); // +1 for genesis
-		for (auto const & key : keys)
+		size_t const count = 10;
+
+		for (int n = 0; n < count; ++n)
 		{
-			ASSERT_TRUE (std::find (accounts.begin (), accounts.end (), key.pub) != accounts.end ());
+			nano::keypair key, key2;
+			nano::block_builder builder;
+
+			balance -= 1;
+			auto send = builder
+						.state ()
+						.account (source.pub)
+						.previous (latest)
+						.representative (source.pub)
+						.balance (balance)
+						.link (key.pub)
+						.sign (source.prv, source.pub)
+						.work (*system.work.generate (latest))
+						.build ();
+
+			latest = send->hash ();
+
+			auto open = builder
+						.state ()
+						.account (key.pub)
+						.previous (0)
+						.representative (key.pub)
+						.balance (1)
+						.link (send->hash ())
+						.sign (key.prv, key.pub)
+						.work (*system.work.generate (key.pub))
+						.build ();
+
+			auto send2 = builder
+						 .state ()
+						 .account (key.pub)
+						 .previous (open->hash ())
+						 .representative (key.pub)
+						 .balance (0)
+						 .link (key2.pub)
+						 .sign (key.prv, key.pub)
+						 .work (*system.work.generate (open->hash ()))
+						 .build ();
+
+			auto open2 = builder
+						 .state ()
+						 .account (key2.pub)
+						 .previous (0)
+						 .representative (key2.pub)
+						 .balance (1)
+						 .link (send2->hash ())
+						 .sign (key2.prv, key2.pub)
+						 .work (*system.work.generate (key2.pub))
+						 .build ();
+
+			sends.push_back (send);
+			opens.push_back (open);
+			sends2.push_back (send2);
+			opens2.push_back (open2);
 		}
-		ASSERT_EQ (scanner.completed, 1);
 	}
-	// Multi batch
-	{
-		nano::bootstrap_ascending::account_database_iterator scanner{ ctx.ledger () };
-		auto transaction = ctx.store ().tx_begin_read ();
 
-		// Request accounts in multiple batches
-		auto accounts1 = scanner.next_batch (transaction, 2);
-		auto accounts2 = scanner.next_batch (transaction, 2);
-		auto accounts3 = scanner.next_batch (transaction, 1);
+	// Initialize nodes with blocks without the `updates` frontiers
+	std::vector<std::shared_ptr<nano::block>> blocks;
+	blocks.insert (blocks.end (), sends.begin (), sends.end ());
+	blocks.insert (blocks.end (), opens.begin (), opens.end ());
+	system.set_initialization_blocks ({ blocks.begin (), blocks.end () });
 
-		ASSERT_EQ (accounts1.size (), 2);
-		ASSERT_EQ (accounts2.size (), 2);
-		ASSERT_EQ (accounts3.size (), 1);
+	auto & node0 = *system.add_node (config, flags);
+	ASSERT_TRUE (nano::test::process (node0, sends2));
+	ASSERT_TRUE (nano::test::process (node0, opens2));
 
-		std::deque<nano::account> accounts;
-		accounts.insert (accounts.end (), accounts1.begin (), accounts1.end ());
-		accounts.insert (accounts.end (), accounts2.begin (), accounts2.end ());
-		accounts.insert (accounts.end (), accounts3.begin (), accounts3.end ());
+	// No blocks should be broadcast to the other node
+	auto & node1 = *system.add_node (config, flags);
+	ASSERT_ALWAYS_EQ (100ms, node1.ledger.block_count (), blocks.size () + 1);
 
-		// Check that account set contains all keys
-		ASSERT_EQ (accounts.size (), keys.size () + 1); // +1 for genesis
-		for (auto const & key : keys)
-		{
-			ASSERT_TRUE (std::find (accounts.begin (), accounts.end (), key.pub) != accounts.end ());
-		}
-		ASSERT_EQ (scanner.completed, 1);
-	}
+	// Frontier scan should not detect the accounts
+	ASSERT_ALWAYS (1s, std::none_of (opens2.begin (), opens2.end (), [&node1] (auto const & block) {
+		return node1.ascendboot.prioritized (block->account ());
+	}));
 }

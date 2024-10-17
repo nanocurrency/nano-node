@@ -22,6 +22,19 @@ public:
 	std::chrono::milliseconds cooldown{ 1000 * 3 };
 };
 
+// TODO: This should be moved next to `frontier_scan` class
+class frontier_scan_config final
+{
+public:
+	// TODO: Serialize & deserialize
+
+	unsigned head_parallelistm{ 128 };
+	unsigned consideration_count{ 4 };
+	std::size_t candidates{ 1000 };
+	std::chrono::milliseconds cooldown{ 1000 * 5 };
+	std::size_t max_pending{ 16 };
+};
+
 // TODO: This should be moved next to `bootstrap_ascending` class
 class bootstrap_ascending_config final
 {
@@ -31,12 +44,15 @@ public:
 
 public:
 	bool enable{ true };
-	bool enable_database_scan{ true };
+	bool enable_scan{ true };
+	bool enable_database_scan{ false };
 	bool enable_dependency_walker{ true };
+	bool enable_frontier_scan{ true };
 
 	// Maximum number of un-responded requests per channel, should be lower or equal to bootstrap server max queue size
 	std::size_t channel_limit{ 16 };
 	std::size_t database_rate_limit{ 256 };
+	std::size_t frontier_rate_limit{ 8 };
 	std::size_t database_warmup_ratio{ 10 };
 	std::size_t max_pull_count{ nano::bootstrap_server::max_blocks };
 	std::chrono::milliseconds request_timeout{ 1000 * 5 };
@@ -45,6 +61,7 @@ public:
 	std::size_t block_processor_threshold{ 1000 };
 	std::size_t max_requests{ 1024 };
 
-	nano::account_sets_config account_sets;
+	account_sets_config account_sets;
+	frontier_scan_config frontier_scan;
 };
 }

@@ -17,7 +17,7 @@ public:
 	nano::error serialize (nano::tomlconfig &) const;
 
 public:
-	bool enabled{ true };
+	bool enable{ true };
 	std::chrono::seconds interval{ 60s };
 };
 
