@@ -76,7 +76,7 @@ void nano::confirming_set::stop ()
 bool nano::confirming_set::contains (nano::block_hash const & hash) const
 {
 	std::lock_guard lock{ mutex };
-	return set.get<tag_hash> ().contains (hash);
+	return set.get<tag_hash> ().contains (hash) || current.contains (hash);
 }
 
 std::size_t nano::confirming_set::size () const
@@ -129,6 +129,13 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 	std::deque<nano::block_hash> already;
 
 	auto batch = next_batch (config.batch_size);
+
+	// Keep track of the blocks we're currently cementing, so that the .contains (...) check is accurate
+	debug_assert (current.empty ());
+	for (auto const & [hash, election] : batch)
+	{
+		current.insert (hash);
+	}
 
 	lock.unlock ();
 
@@ -218,6 +225,10 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 	release_assert (cemented.empty ());
 
 	already_cemented.notify (already);
+
+	lock.lock ();
+	current.clear ();
+	lock.unlock ();
 }
 
 nano::container_info nano::confirming_set::container_info () const

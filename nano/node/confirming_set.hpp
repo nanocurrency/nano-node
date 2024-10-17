@@ -102,6 +102,7 @@ private:
 	// clang-format on
 
 	ordered_entries set;
+	std::unordered_set<nano::block_hash> current;
 
 	nano::thread_pool notification_workers;
 
