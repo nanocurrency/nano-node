@@ -7,10 +7,11 @@
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
 
-nano::scheduler::priority::priority (nano::node_config & node_config, nano::node & node_a, nano::ledger & ledger_a, nano::active_elections & active_a, nano::stats & stats_a, nano::logger & logger_a) :
+nano::scheduler::priority::priority (nano::node_config & node_config, nano::node & node_a, nano::ledger & ledger_a, nano::block_processor & block_processor_a, nano::active_elections & active_a, nano::stats & stats_a, nano::logger & logger_a) :
 	config{ node_config.priority_scheduler },
 	node{ node_a },
 	ledger{ ledger_a },
+	block_processor{ block_processor_a },
 	active{ active_a },
 	stats{ stats_a },
 	logger{ logger_a }
@@ -44,6 +45,19 @@ nano::scheduler::priority::priority (nano::node_config & node_config, nano::node
 		auto bucket = std::make_unique<scheduler::bucket> (minimums[i], node_config.priority_bucket, active, stats);
 		buckets.emplace_back (std::move (bucket));
 	}
+
+	// Activate accounts with fresh blocks
+	block_processor.batch_processed.add ([this] (auto const & batch) {
+		auto transaction = ledger.tx_begin_read ();
+		for (auto const & [result, context] : batch)
+		{
+			if (result == nano::block_status::progress)
+			{
+				release_assert (context.block != nullptr);
+				activate (transaction, context.block->account ());
+			}
+		}
+	});
 }
 
 nano::scheduler::priority::~priority ()
@@ -88,8 +102,7 @@ void nano::scheduler::priority::stop ()
 bool nano::scheduler::priority::activate (secure::transaction const & transaction, nano::account const & account)
 {
 	debug_assert (!account.is_zero ());
-	auto info = ledger.any.account_get (transaction, account);
-	if (info)
+	if (auto info = ledger.any.account_get (transaction, account))
 	{
 		nano::confirmation_height_info conf_info;
 		ledger.store.confirmation_height.get (transaction, account, conf_info);

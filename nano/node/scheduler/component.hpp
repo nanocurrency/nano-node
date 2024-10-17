@@ -10,7 +10,7 @@ namespace nano::scheduler
 class component final
 {
 public:
-	component (nano::node_config &, nano::node &, nano::ledger &, nano::active_elections &, nano::online_reps &, nano::vote_cache &, nano::stats &, nano::logger &);
+	component (nano::node_config &, nano::node &, nano::ledger &, nano::block_processor &, nano::active_elections &, nano::online_reps &, nano::vote_cache &, nano::stats &, nano::logger &);
 	~component ();
 
 	void start ();

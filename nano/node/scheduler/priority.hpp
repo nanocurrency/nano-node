@@ -26,7 +26,7 @@ public:
 class priority final
 {
 public:
-	priority (nano::node_config &, nano::node &, nano::ledger &, nano::active_elections &, nano::stats &, nano::logger &);
+	priority (nano::node_config &, nano::node &, nano::ledger &, nano::block_processor &, nano::active_elections &, nano::stats &, nano::logger &);
 	~priority ();
 
 	void start ();
@@ -49,6 +49,7 @@ private: // Dependencies
 	priority_config const & config;
 	nano::node & node;
 	nano::ledger & ledger;
+	nano::block_processor & block_processor;
 	nano::active_elections & active;
 	nano::stats & stats;
 	nano::logger & logger;
