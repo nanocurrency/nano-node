@@ -34,8 +34,8 @@ std::unique_ptr<nano::store::component> nano::make_store (nano::logger & logger,
 		}
 		else if (!lmdb_ledger_found && !rocks_ledger_found)
 		{
-			logger.info (nano::log::type::ledger, "No ledger found. Creating new RocksDb ledger");
-			return std::make_unique<nano::store::rocksdb::component> (logger, add_db_postfix ? path / "rocksdb" : path, constants, node_config.rocksdb_config, read_only);
+			logger.info (nano::log::type::ledger, "No ledger found. Creating new LMDB ledger");
+			return std::make_unique<nano::store::lmdb::component> (logger, add_db_postfix ? path / "data.ldb" : path, constants, node_config.diagnostics_config.txn_tracking, node_config.block_processor_batch_max_time, node_config.lmdb_config, node_config.backup_before_upgrade);
 		}
 	}
 	debug_assert (false);
