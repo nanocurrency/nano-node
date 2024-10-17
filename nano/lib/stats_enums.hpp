@@ -93,6 +93,7 @@ enum class type
 	message_processor,
 	message_processor_overfill,
 	message_processor_type,
+	process_confirmed,
 
 	_last // Must be the last enum
 };
@@ -134,6 +135,8 @@ enum class detail
 	cemented,
 	cooldown,
 	empty,
+	done,
+	retry,
 
 	// processing queue
 	queue,
@@ -249,6 +252,8 @@ enum class detail
 	generate_vote_final,
 	broadcast_block_initial,
 	broadcast_block_repeat,
+	confirm_once,
+	confirm_once_failed,
 
 	// election types
 	manual,
@@ -407,6 +412,7 @@ enum class detail
 	// active_elections
 	started,
 	stopped,
+	confirm_dependent,
 
 	// unchecked
 	put,
@@ -499,6 +505,7 @@ enum class detail
 	already_cemented,
 	cementing,
 	cemented_hash,
+	cementing_failed,
 
 	// election_state
 	passive,
