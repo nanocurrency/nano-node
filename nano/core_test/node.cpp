@@ -3564,9 +3564,9 @@ TEST (node, pruning_automatic)
 	ASSERT_TIMELY (5s, node1.block (send2->hash ()) != nullptr);
 
 	// Force-confirm both blocks
-	node1.process_confirmed (nano::election_status{ send1 });
+	node1.process_confirmed (send1->hash ());
 	ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
-	node1.process_confirmed (nano::election_status{ send2 });
+	node1.process_confirmed (send2->hash ());
 	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
 
 	// Check pruning result
@@ -3615,9 +3615,9 @@ TEST (node, DISABLED_pruning_age)
 	node1.process_active (send2);
 
 	// Force-confirm both blocks
-	node1.process_confirmed (nano::election_status{ send1 });
+	node1.process_confirmed (send1->hash ());
 	ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
-	node1.process_confirmed (nano::election_status{ send2 });
+	node1.process_confirmed (send2->hash ());
 	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
 
 	// Three blocks in total, nothing pruned yet
@@ -3676,9 +3676,9 @@ TEST (node, DISABLED_pruning_depth)
 	node1.process_active (send2);
 
 	// Force-confirm both blocks
-	node1.process_confirmed (nano::election_status{ send1 });
+	node1.process_confirmed (send1->hash ());
 	ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
-	node1.process_confirmed (nano::election_status{ send2 });
+	node1.process_confirmed (send2->hash ());
 	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
 
 	// Three blocks in total, nothing pruned yet

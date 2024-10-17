@@ -170,8 +170,7 @@ TEST (confirmation_callback, confirmed_history)
 
 	ASSERT_TIMELY (10s, !node->store.write_queue.contains (nano::store::writer::confirmation_height));
 
-	auto transaction = node->ledger.tx_begin_read ();
-	ASSERT_TRUE (node->ledger.confirmed.block_exists (transaction, send->hash ()));
+	ASSERT_TIMELY (5s, node->ledger.confirmed.block_exists (node->ledger.tx_begin_read (), send->hash ()));
 
 	ASSERT_TIMELY_EQ (10s, node->active.size (), 0);
 	ASSERT_TIMELY_EQ (10s, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out), 1);

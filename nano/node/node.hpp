@@ -94,7 +94,7 @@ public:
 	bool copy_with_compaction (std::filesystem::path const &);
 	void keepalive (std::string const &, uint16_t);
 	int store_version ();
-	void process_confirmed (nano::election_status const &, uint64_t = 0);
+	void process_confirmed (nano::block_hash, std::shared_ptr<nano::election> = nullptr, uint64_t iteration = 0);
 	void process_active (std::shared_ptr<nano::block> const &);
 	std::optional<nano::block_status> process_local (std::shared_ptr<nano::block> const &);
 	void process_local_async (std::shared_ptr<nano::block> const &);

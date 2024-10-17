@@ -1141,30 +1141,28 @@ void nano::node::ongoing_online_weight_calculation ()
 	ongoing_online_weight_calculation_queue ();
 }
 
-void nano::node::process_confirmed (nano::election_status const & status_a, uint64_t iteration_a)
+// TODO: Replace this with a queue of some sort. Blocks submitted here could be in a limbo for a while: neither part of an active election nor cemented
+void nano::node::process_confirmed (nano::block_hash hash, std::shared_ptr<nano::election> election, uint64_t iteration)
 {
 	stats.inc (nano::stat::type::process_confirmed, nano::stat::detail::initiate);
 
-	auto hash (status_a.winner->hash ());
-	decltype (iteration_a) const num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
-	if (auto block_l = ledger.any.block_get (ledger.tx_begin_read (), hash))
+	// Limit the maximum number of iterations to avoid getting stuck
+	uint64_t const max_iterations = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
+
+	if (auto block = ledger.any.block_get (ledger.tx_begin_read (), hash))
 	{
 		stats.inc (nano::stat::type::process_confirmed, nano::stat::detail::done);
-		logger.trace (nano::log::type::node, nano::log::detail::process_confirmed, nano::log::arg{ "block", block_l });
+		logger.trace (nano::log::type::node, nano::log::detail::process_confirmed, nano::log::arg{ "block", block });
 
-		confirming_set.add (block_l->hash ());
+		confirming_set.add (block->hash (), election);
 	}
-	else if (iteration_a < num_iters)
+	else if (iteration < max_iterations)
 	{
 		stats.inc (nano::stat::type::process_confirmed, nano::stat::detail::retry);
 
-		iteration_a++;
-		std::weak_ptr<nano::node> node_w (shared ());
-		election_workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a] () {
-			if (auto node_l = node_w.lock ())
-			{
-				node_l->process_confirmed (status_a, iteration_a);
-			}
+		// Try again later
+		election_workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [this, hash, election, iteration] () {
+			process_confirmed (hash, election, iteration + 1);
 		});
 	}
 	else
@@ -1172,6 +1170,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 		stats.inc (nano::stat::type::process_confirmed, nano::stat::detail::timeout);
 
 		// Do some cleanup due to this block never being processed by confirmation height processor
+		active.recently_confirmed.erase (hash);
 	}
 }
 
