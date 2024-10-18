@@ -79,16 +79,12 @@ TEST (peer_container, tcp_channel_cleanup_works)
 	ASSERT_NE (nullptr, channel1);
 	// set the last packet sent for channel1 only to guarantee it contains a value.
 	// it won't be necessarily the same use by the cleanup cutoff time
-	node1.network.tcp_channels.modify (channel1, [&now] (auto channel) {
-		channel->set_last_packet_sent (now - std::chrono::seconds (5));
-	});
+	channel1->set_last_packet_sent (now - std::chrono::seconds (5));
 	auto channel2 = nano::test::establish_tcp (system, node1, outer_node2->network.endpoint ());
 	ASSERT_NE (nullptr, channel2);
 	// set the last packet sent for channel2 only to guarantee it contains a value.
 	// it won't be necessarily the same use by the cleanup cutoff time
-	node1.network.tcp_channels.modify (channel2, [&now] (auto channel) {
-		channel->set_last_packet_sent (now + std::chrono::seconds (1));
-	});
+	channel2->set_last_packet_sent (now + std::chrono::seconds (1));
 	ASSERT_EQ (2, node1.network.size ());
 	ASSERT_EQ (2, node1.network.tcp_channels.size ());
 

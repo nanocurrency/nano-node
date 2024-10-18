@@ -138,7 +138,7 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<nano::m
 	lock_a.lock ();
 	if (connection_l && !stopped)
 	{
-		endpoint_frontier_request = connection_l->channel->get_tcp_endpoint ();
+		endpoint_frontier_request = connection_l->channel->get_remote_endpoint ();
 		std::future<bool> future;
 		{
 			auto this_l = std::dynamic_pointer_cast<nano::bootstrap_attempt_legacy> (shared_from_this ());

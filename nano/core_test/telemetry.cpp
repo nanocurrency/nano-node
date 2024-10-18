@@ -68,18 +68,18 @@ TEST (telemetry, basic)
 	ASSERT_NE (nullptr, channel);
 
 	std::optional<nano::telemetry_data> telemetry_data;
-	ASSERT_TIMELY (5s, telemetry_data = node_client->telemetry.get_telemetry (channel->get_endpoint ()));
+	ASSERT_TIMELY (5s, telemetry_data = node_client->telemetry.get_telemetry (channel->get_remote_endpoint ()));
 	ASSERT_EQ (node_server->get_node_id (), telemetry_data->node_id);
 
 	// Check the metrics are correct
 	ASSERT_TRUE (nano::test::compare_telemetry (*telemetry_data, *node_server));
 
 	// Call again straight away
-	auto telemetry_data_2 = node_client->telemetry.get_telemetry (channel->get_endpoint ());
+	auto telemetry_data_2 = node_client->telemetry.get_telemetry (channel->get_remote_endpoint ());
 	ASSERT_TRUE (telemetry_data_2);
 
 	// Call again straight away
-	auto telemetry_data_3 = node_client->telemetry.get_telemetry (channel->get_endpoint ());
+	auto telemetry_data_3 = node_client->telemetry.get_telemetry (channel->get_remote_endpoint ());
 	ASSERT_TRUE (telemetry_data_3);
 
 	// we expect at least one consecutive repeat of telemetry
@@ -89,7 +89,7 @@ TEST (telemetry, basic)
 	WAIT (3s);
 
 	std::optional<nano::telemetry_data> telemetry_data_4;
-	ASSERT_TIMELY (5s, telemetry_data_4 = node_client->telemetry.get_telemetry (channel->get_endpoint ()));
+	ASSERT_TIMELY (5s, telemetry_data_4 = node_client->telemetry.get_telemetry (channel->get_remote_endpoint ()));
 	ASSERT_NE (*telemetry_data, *telemetry_data_4);
 }
 
@@ -120,13 +120,13 @@ TEST (telemetry, disconnected)
 	ASSERT_NE (nullptr, channel);
 
 	// Ensure telemetry is available before disconnecting
-	ASSERT_TIMELY (5s, node_client->telemetry.get_telemetry (channel->get_endpoint ()));
+	ASSERT_TIMELY (5s, node_client->telemetry.get_telemetry (channel->get_remote_endpoint ()));
 
 	system.stop_node (*node_server);
 	ASSERT_TRUE (channel);
 
 	// Ensure telemetry from disconnected peer is removed
-	ASSERT_TIMELY (5s, !node_client->telemetry.get_telemetry (channel->get_endpoint ()));
+	ASSERT_TIMELY (5s, !node_client->telemetry.get_telemetry (channel->get_remote_endpoint ()));
 }
 
 TEST (telemetry, dos_tcp)
@@ -185,14 +185,14 @@ TEST (telemetry, disable_metrics)
 
 	node_client->telemetry.trigger ();
 
-	ASSERT_NEVER (1s, node_client->telemetry.get_telemetry (channel->get_endpoint ()));
+	ASSERT_NEVER (1s, node_client->telemetry.get_telemetry (channel->get_remote_endpoint ()));
 
 	// It should still be able to receive metrics though
 	auto channel1 = node_server->network.find_node_id (node_client->get_node_id ());
 	ASSERT_NE (nullptr, channel1);
 
 	std::optional<nano::telemetry_data> telemetry_data;
-	ASSERT_TIMELY (5s, telemetry_data = node_server->telemetry.get_telemetry (channel1->get_endpoint ()));
+	ASSERT_TIMELY (5s, telemetry_data = node_server->telemetry.get_telemetry (channel1->get_remote_endpoint ()));
 
 	ASSERT_TRUE (nano::test::compare_telemetry (*telemetry_data, *node_client));
 }
@@ -237,7 +237,7 @@ TEST (telemetry, maker_pruning)
 	ASSERT_NE (nullptr, channel);
 
 	std::optional<nano::telemetry_data> telemetry_data;
-	ASSERT_TIMELY (5s, telemetry_data = node_client->telemetry.get_telemetry (channel->get_endpoint ()));
+	ASSERT_TIMELY (5s, telemetry_data = node_client->telemetry.get_telemetry (channel->get_remote_endpoint ()));
 	ASSERT_EQ (node_server->get_node_id (), telemetry_data->node_id);
 
 	// Ensure telemetry response indicates pruned node

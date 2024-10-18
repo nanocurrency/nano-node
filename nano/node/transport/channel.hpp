@@ -40,10 +40,10 @@ public:
 
 	virtual void close () = 0;
 
-	virtual std::string to_string () const = 0;
-	virtual nano::endpoint get_endpoint () const = 0;
-	virtual nano::tcp_endpoint get_tcp_endpoint () const = 0;
+	virtual nano::endpoint get_remote_endpoint () const = 0;
 	virtual nano::endpoint get_local_endpoint () const = 0;
+
+	virtual std::string to_string () const = 0;
 	virtual nano::transport::transport_type get_type () const = 0;
 
 	virtual bool max (nano::transport::traffic_type = nano::transport::traffic_type::generic)
@@ -58,62 +58,55 @@ public:
 
 	std::chrono::steady_clock::time_point get_last_bootstrap_attempt () const
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		return last_bootstrap_attempt;
 	}
 
 	void set_last_bootstrap_attempt (std::chrono::steady_clock::time_point const time_a)
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		last_bootstrap_attempt = time_a;
 	}
 
 	std::chrono::steady_clock::time_point get_last_packet_received () const
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		return last_packet_received;
 	}
 
 	void set_last_packet_received (std::chrono::steady_clock::time_point const time_a)
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		last_packet_received = time_a;
 	}
 
 	std::chrono::steady_clock::time_point get_last_packet_sent () const
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		return last_packet_sent;
 	}
 
 	void set_last_packet_sent (std::chrono::steady_clock::time_point const time_a)
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		last_packet_sent = time_a;
 	}
 
-	boost::optional<nano::account> get_node_id_optional () const
+	std::optional<nano::account> get_node_id_optional () const
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		return node_id;
 	}
 
 	nano::account get_node_id () const
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
-		if (node_id.is_initialized ())
-		{
-			return node_id.get ();
-		}
-		else
-		{
-			return 0;
-		}
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		return node_id.value_or (0);
 	}
 
 	void set_node_id (nano::account node_id_a)
 	{
-		nano::lock_guard<nano::mutex> lk (channel_mutex);
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		node_id = node_id_a;
 	}
 
@@ -132,18 +125,17 @@ public:
 
 	std::shared_ptr<nano::node> owner () const;
 
-	mutable nano::mutex channel_mutex;
+protected:
+	nano::node & node;
+	mutable nano::mutex mutex;
 
 private:
 	std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
 	std::chrono::steady_clock::time_point last_packet_received{ std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point last_packet_sent{ std::chrono::steady_clock::now () };
-	boost::optional<nano::account> node_id{ boost::none };
+	std::optional<nano::account> node_id{};
 	std::atomic<uint8_t> network_version{ 0 };
 	std::optional<nano::endpoint> peering_endpoint{};
-
-protected:
-	nano::node & node;
 
 public: // Logging
 	virtual void operator() (nano::object_stream &) const;
