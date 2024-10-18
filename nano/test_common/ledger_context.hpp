@@ -16,12 +16,13 @@ public:
 	ledger_context (std::deque<std::shared_ptr<nano::block>> && blocks = std::deque<std::shared_ptr<nano::block>>{});
 	nano::ledger & ledger ();
 	nano::store::component & store ();
-	nano::stats & stats ();
 	std::deque<std::shared_ptr<nano::block>> const & blocks () const;
 	nano::work_pool & pool ();
+	nano::stats & stats ();
+	nano::logger & logger ();
 
 private:
-	nano::logger logger;
+	nano::logger logger_m;
 	std::unique_ptr<nano::store::component> store_m;
 	nano::stats stats_m;
 	nano::ledger ledger_m;

@@ -96,14 +96,11 @@ void nano::telemetry::process (const nano::telemetry_ack & telemetry, const std:
 
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
-	const auto endpoint = channel->get_remote_endpoint ();
-
-	if (auto it = telemetries.get<tag_endpoint> ().find (endpoint); it != telemetries.get<tag_endpoint> ().end ())
+	if (auto it = telemetries.get<tag_channel> ().find (channel); it != telemetries.get<tag_channel> ().end ())
 	{
 		stats.inc (nano::stat::type::telemetry, nano::stat::detail::update);
 
-		telemetries.get<tag_endpoint> ().modify (it, [&telemetry, &endpoint] (auto & entry) {
-			debug_assert (entry.endpoint == endpoint);
+		telemetries.get<tag_channel> ().modify (it, [&telemetry, &channel] (auto & entry) {
 			entry.data = telemetry.data;
 			entry.last_updated = std::chrono::steady_clock::now ();
 		});
@@ -111,7 +108,7 @@ void nano::telemetry::process (const nano::telemetry_ack & telemetry, const std:
 	else
 	{
 		stats.inc (nano::stat::type::telemetry, nano::stat::detail::insert);
-		telemetries.get<tag_endpoint> ().insert ({ endpoint, telemetry.data, std::chrono::steady_clock::now (), channel });
+		telemetries.get<tag_channel> ().insert ({ channel, telemetry.data, std::chrono::steady_clock::now () });
 
 		if (telemetries.size () > max_size)
 		{
@@ -212,7 +209,7 @@ void nano::telemetry::run_requests ()
 	}
 }
 
-void nano::telemetry::request (std::shared_ptr<nano::transport::channel> & channel)
+void nano::telemetry::request (std::shared_ptr<nano::transport::channel> const & channel)
 {
 	stats.inc (nano::stat::type::telemetry, nano::stat::detail::request);
 
@@ -231,7 +228,7 @@ void nano::telemetry::run_broadcasts ()
 	}
 }
 
-void nano::telemetry::broadcast (std::shared_ptr<nano::transport::channel> & channel, const nano::telemetry_data & telemetry)
+void nano::telemetry::broadcast (std::shared_ptr<nano::transport::channel> const & channel, const nano::telemetry_data & telemetry)
 {
 	stats.inc (nano::stat::type::telemetry, nano::stat::detail::broadcast);
 
@@ -247,10 +244,14 @@ void nano::telemetry::cleanup ()
 		// Remove if telemetry data is stale
 		if (!check_timeout (entry))
 		{
-			stats.inc (nano::stat::type::telemetry, nano::stat::detail::cleanup_outdated);
+			stats.inc (nano::stat::type::telemetry, nano::stat::detail::erase_stale);
 			return true; // Erase
 		}
-
+		if (!entry.channel->alive ())
+		{
+			stats.inc (nano::stat::type::telemetry, nano::stat::detail::erase_dead);
+			return true; // Erase
+		}
 		return false; // Do not erase
 	});
 }
@@ -283,7 +284,7 @@ std::unordered_map<nano::endpoint, nano::telemetry_data> nano::telemetry::get_al
 	{
 		if (check_timeout (entry))
 		{
-			result[entry.endpoint] = entry.data;
+			result[entry.endpoint ()] = entry.data;
 		}
 	}
 	return result;

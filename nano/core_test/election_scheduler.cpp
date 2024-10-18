@@ -195,7 +195,7 @@ TEST (election_scheduler, no_vacancy)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build ();
 	ASSERT_EQ (nano::block_status::progress, node.process (send));
-	node.process_confirmed (nano::election_status{ send });
+	node.process_confirmed (send->hash ());
 
 	auto receive = builder.make_block ()
 				   .account (key.pub)
@@ -207,7 +207,7 @@ TEST (election_scheduler, no_vacancy)
 				   .work (*system.work.generate (key.pub))
 				   .build ();
 	ASSERT_EQ (nano::block_status::progress, node.process (receive));
-	node.process_confirmed (nano::election_status{ receive });
+	node.process_confirmed (receive->hash ());
 
 	ASSERT_TIMELY (5s, nano::test::confirmed (node, { send, receive }));
 

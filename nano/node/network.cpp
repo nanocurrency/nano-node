@@ -314,14 +314,6 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 	}
 }
 
-void nano::network::inbound (const nano::message & message, const std::shared_ptr<nano::transport::channel> & channel)
-{
-	debug_assert (message.header.network == node.network_params.network.current_network);
-	debug_assert (message.header.version_using >= node.network_params.network.protocol_version_min);
-
-	node.message_processor.process (message, channel);
-}
-
 // Send keepalives to all the peers we've been notified of
 void nano::network::merge_peers (std::array<nano::endpoint, 8> const & peers_a)
 {
