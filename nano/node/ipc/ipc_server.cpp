@@ -14,6 +14,7 @@
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
 
+#include <boost/array.hpp>
 #include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
