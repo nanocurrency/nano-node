@@ -29,6 +29,7 @@ nano::active_elections::active_elections (nano::node & node_a, nano::confirming_
 {
 	count_by_behavior.fill (0); // Zero initialize array
 
+	// Cementing blocks might implicitly confirm dependent elections
 	confirming_set.batch_cemented.add ([this] (auto const & cemented) {
 		auto transaction = node.ledger.tx_begin_read ();
 		for (auto const & [block, confirmation_root, source_election] : cemented)
@@ -39,10 +40,13 @@ nano::active_elections::active_elections (nano::node & node_a, nano::confirming_
 	});
 
 	// Notify elections about alternative (forked) blocks
-	block_processor.block_processed.add ([this] (auto const & result, auto const & context) {
-		if (result == nano::block_status::fork)
+	block_processor.batch_processed.add ([this] (auto const & batch) {
+		for (auto const & [result, context] : batch)
 		{
-			publish (context.block);
+			if (result == nano::block_status::fork)
+			{
+				publish (context.block);
+			}
 		}
 	});
 }
