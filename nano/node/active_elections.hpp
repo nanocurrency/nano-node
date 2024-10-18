@@ -123,10 +123,6 @@ public:
 	int64_t vacancy (nano::election_behavior behavior) const;
 	std::function<void ()> vacancy_update{ [] () {} };
 
-	std::size_t election_winner_details_size () const;
-	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
-	std::shared_ptr<nano::election> remove_election_winner_details (nano::block_hash const &);
-
 	nano::container_info container_info () const;
 
 private:
@@ -139,8 +135,7 @@ private:
 	std::vector<std::shared_ptr<nano::election>> list_active_impl (std::size_t) const;
 	void activate_successors (nano::secure::transaction const &, std::shared_ptr<nano::block> const & block);
 	void notify_observers (nano::secure::transaction const &, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes) const;
-	void block_cemented_callback (nano::secure::transaction const &, std::shared_ptr<nano::block> const & block, nano::block_hash const & confirmation_root);
-	void block_already_cemented_callback (nano::block_hash const & hash);
+	void block_cemented (nano::secure::transaction const &, std::shared_ptr<nano::block> const & block, nano::block_hash const & confirmation_root, std::shared_ptr<nano::election> const & source_election);
 
 private: // Dependencies
 	active_elections_config const & config;
@@ -157,12 +152,6 @@ public:
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::active) };
 
 private:
-	mutable nano::mutex election_winner_details_mutex{ mutex_identifier (mutexes::election_winner_details) };
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> election_winner_details;
-
-	// Maximum time an election can be kept active if it is extending the container
-	std::chrono::seconds const election_time_to_live;
-
 	/** Keeps track of number of elections by election behavior (normal, hinted, optimistic) */
 	nano::enum_array<nano::election_behavior, int64_t> count_by_behavior{};
 
