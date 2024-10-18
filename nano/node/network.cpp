@@ -11,10 +11,6 @@
 
 using namespace std::chrono_literals;
 
-// TODO: Return to static const and remove "disable_large_votes" when rolled out
-std::size_t nano::network::confirm_req_hashes_max{ 255 };
-std::size_t nano::network::confirm_ack_hashes_max{ 255 };
-
 /*
  * network
  */
