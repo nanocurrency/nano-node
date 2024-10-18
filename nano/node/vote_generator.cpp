@@ -289,11 +289,12 @@ void nano::vote_generator::run ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		condition.wait_for (lock, config.vote_generator_delay, [this] () { return this->candidates.size () >= nano::network::confirm_ack_hashes_max || !requests.empty (); });
+		condition.wait_for (lock, config.vote_generator_delay, [this] () { return broadcast_predicate () || !requests.empty (); });
 
-		if (!candidates.empty ())
+		if (broadcast_predicate ())
 		{
 			broadcast (lock);
+			next_broadcast = std::chrono::steady_clock::now () + std::chrono::milliseconds (config.vote_generator_delay);
 		}
 
 		if (!requests.empty ())
@@ -303,6 +304,19 @@ void nano::vote_generator::run ()
 			reply (lock, std::move (request));
 		}
 	}
+}
+
+bool nano::vote_generator::broadcast_predicate () const
+{
+	if (candidates.size () >= nano::network::confirm_ack_hashes_max)
+	{
+		return true;
+	}
+	if (candidates.size () > 0 && std::chrono::steady_clock::now () > next_broadcast)
+	{
+		return true;
+	}
+	return false;
 }
 
 nano::container_info nano::vote_generator::container_info () const
