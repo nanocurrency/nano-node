@@ -34,6 +34,7 @@ nano::error nano::bootstrap_ascending_config::deserialize (nano::tomlconfig & to
 	toml.get ("enable", enable);
 	toml.get ("enable_database_scan", enable_database_scan);
 	toml.get ("enable_dependency_walker", enable_dependency_walker);
+	toml.get ("enable_frontier_scan", enable_frontier_scan);
 
 	toml.get ("channel_limit", channel_limit);
 	toml.get ("database_rate_limit", database_rate_limit);
@@ -59,6 +60,7 @@ nano::error nano::bootstrap_ascending_config::serialize (nano::tomlconfig & toml
 	toml.put ("enable", enable, "Enable or disable the ascending bootstrap. Disabling it is not recommended and will prevent the node from syncing.\ntype:bool");
 	toml.put ("enable_database_scan", enable_database_scan, "Enable or disable the 'database scan` strategy for the ascending bootstrap.\ntype:bool");
 	toml.put ("enable_dependency_walker", enable_dependency_walker, "Enable or disable the 'dependency walker` strategy for the ascending bootstrap.\ntype:bool");
+	toml.put ("enable_frontier_scan", enable_frontier_scan, "Enable or disable the 'frontier scan` strategy for the ascending bootstrap.\ntype:bool");
 
 	toml.put ("channel_limit", channel_limit, "Maximum number of un-responded requests per channel.\nNote: changing to unlimited (0) is not recommended.\ntype:uint64");
 	toml.put ("database_rate_limit", database_rate_limit, "Rate limit on scanning accounts and pending entries from database.\nNote: changing to unlimited (0) is not recommended as this operation competes for resources on querying the database.\ntype:uint64");

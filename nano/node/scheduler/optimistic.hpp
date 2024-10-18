@@ -30,7 +30,7 @@ public:
 	nano::error serialize (nano::tomlconfig & toml) const;
 
 public:
-	bool enabled{ true };
+	bool enable{ true };
 
 	/** Minimum difference between confirmation frontier and account frontier to become a candidate for optimistic confirmation */
 	std::size_t gap_threshold{ 32 };

@@ -41,6 +41,7 @@ enum class name
 	bootstrap_server,
 	telemetry,
 	ascending_bootstrap,
+	ascending_bootstrap_worker,
 	bootstrap_server_requests,
 	bootstrap_server_responses,
 	scheduler_hinted,
