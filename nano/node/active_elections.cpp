@@ -29,20 +29,37 @@ nano::active_elections::active_elections (nano::node & node_a, nano::confirming_
 {
 	count_by_behavior.fill (0); // Zero initialize array
 
+	// Cementing blocks might implicitly confirm dependent elections
 	confirming_set.batch_cemented.add ([this] (auto const & cemented) {
-		auto transaction = node.ledger.tx_begin_read ();
-		for (auto const & [block, confirmation_root, source_election] : cemented)
+		std::deque<block_cemented_result> results;
 		{
-			transaction.refresh_if_needed ();
-			block_cemented (transaction, block, confirmation_root, source_election);
+			// Process all cemented blocks while holding the lock to avoid races where an election for a block that is already cemented is inserted
+			nano::lock_guard<nano::mutex> guard{ mutex };
+			for (auto const & [block, confirmation_root, source_election] : cemented)
+			{
+				auto result = block_cemented (block, confirmation_root, source_election);
+				results.push_back (result);
+			}
+		}
+		{
+			// TODO: This could be offloaded to a separate notification worker, profiling is needed
+			auto transaction = node.ledger.tx_begin_read ();
+			for (auto const & [status, votes] : results)
+			{
+				transaction.refresh_if_needed ();
+				notify_observers (transaction, status, votes);
+			}
 		}
 	});
 
 	// Notify elections about alternative (forked) blocks
-	block_processor.block_processed.add ([this] (auto const & result, auto const & context) {
-		if (result == nano::block_status::fork)
+	block_processor.batch_processed.add ([this] (auto const & batch) {
+		for (auto const & [result, context] : batch)
 		{
-			publish (context.block);
+			if (result == nano::block_status::fork)
+			{
+				publish (context.block);
+			}
 		}
 	});
 }
@@ -79,16 +96,17 @@ void nano::active_elections::stop ()
 	clear ();
 }
 
-void nano::active_elections::block_cemented (nano::secure::transaction const & transaction, std::shared_ptr<nano::block> const & block, nano::block_hash const & confirmation_root, std::shared_ptr<nano::election> const & source_election)
+auto nano::active_elections::block_cemented (std::shared_ptr<nano::block> const & block, nano::block_hash const & confirmation_root, std::shared_ptr<nano::election> const & source_election) -> block_cemented_result
 {
+	debug_assert (!mutex.try_lock ());
 	debug_assert (node.block_confirmed (block->hash ()));
 
 	// Dependent elections are implicitly confirmed when their block is cemented
-	auto dependend_election = election (block->qualified_root ());
+	auto dependend_election = election_impl (block->qualified_root ());
 	if (dependend_election)
 	{
 		node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::confirm_dependent);
-		dependend_election->try_confirm (block->hash ());
+		dependend_election->try_confirm (block->hash ()); // TODO: This should either confirm or cancel the election
 	}
 
 	nano::election_status status;
@@ -122,16 +140,7 @@ void nano::active_elections::block_cemented (nano::secure::transaction const & t
 	nano::log::arg{ "confirmation_root", confirmation_root },
 	nano::log::arg{ "source_election", source_election });
 
-	notify_observers (transaction, status, votes);
-
-	bool cemented_bootstrap_count_reached = node.ledger.cemented_count () >= node.ledger.bootstrap_weight_max_blocks;
-	bool was_active = status.type == nano::election_status_type::active_confirmed_quorum || status.type == nano::election_status_type::active_confirmation_height;
-
-	// Next-block activations are only done for blocks with previously active elections
-	if (cemented_bootstrap_count_reached && was_active && !node.flags.disable_activate_successors)
-	{
-		activate_successors (transaction, block);
-	}
+	return { status, votes };
 }
 
 void nano::active_elections::notify_observers (nano::secure::transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes) const
@@ -166,17 +175,6 @@ void nano::active_elections::notify_observers (nano::secure::transaction const &
 	if (block->is_send ())
 	{
 		node.observers.account_balance.notify (block->destination (), true);
-	}
-}
-
-void nano::active_elections::activate_successors (nano::secure::transaction const & transaction, std::shared_ptr<nano::block> const & block)
-{
-	node.scheduler.priority.activate (transaction, block->account ());
-
-	// Start or vote for the next unconfirmed block in the destination account
-	if (block->is_send () && !block->destination ().is_zero () && block->destination () != block->account ())
-	{
-		node.scheduler.priority.activate (transaction, block->destination ());
 	}
 }
 
@@ -312,7 +310,7 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 		entry.erased_callback (election);
 	}
 
-	vacancy_update ();
+	vacancy_updated.notify ();
 
 	for (auto const & [hash, block] : blocks_l)
 	{
@@ -435,7 +433,7 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 
 		node.vote_cache_processor.trigger (hash);
 		node.observers.active_started.notify (hash);
-		vacancy_update ();
+		vacancy_updated.notify ();
 	}
 
 	// Votes are generated for inserted or ongoing elections
@@ -459,11 +457,17 @@ bool nano::active_elections::active (nano::block const & block_a) const
 	return roots.get<tag_root> ().find (block_a.qualified_root ()) != roots.get<tag_root> ().end ();
 }
 
-std::shared_ptr<nano::election> nano::active_elections::election (nano::qualified_root const & root_a) const
+std::shared_ptr<nano::election> nano::active_elections::election (nano::qualified_root const & root) const
 {
-	std::shared_ptr<nano::election> result;
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto existing = roots.get<tag_root> ().find (root_a);
+	return election_impl (root);
+}
+
+std::shared_ptr<nano::election> nano::active_elections::election_impl (nano::qualified_root const & root) const
+{
+	debug_assert (!mutex.try_lock ());
+	std::shared_ptr<nano::election> result;
+	auto existing = roots.get<tag_root> ().find (root);
 	if (existing != roots.get<tag_root> ().end ())
 	{
 		result = existing->election;
@@ -541,8 +545,7 @@ void nano::active_elections::clear ()
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		roots.clear ();
 	}
-
-	vacancy_update ();
+	vacancy_updated.notify ();
 }
 
 nano::container_info nano::active_elections::container_info () const

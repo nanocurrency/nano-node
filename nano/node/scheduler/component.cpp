@@ -5,16 +5,22 @@
 #include <nano/node/scheduler/optimistic.hpp>
 #include <nano/node/scheduler/priority.hpp>
 
-nano::scheduler::component::component (nano::node & node) :
-	hinted_impl{ std::make_unique<nano::scheduler::hinted> (node.config.hinted_scheduler, node, node.vote_cache, node.active, node.online_reps, node.stats) },
+nano::scheduler::component::component (nano::node_config & node_config, nano::node & node, nano::ledger & ledger, nano::block_processor & block_processor, nano::active_elections & active, nano::online_reps & online_reps, nano::vote_cache & vote_cache, nano::confirming_set & confirming_set, nano::stats & stats, nano::logger & logger) :
+	hinted_impl{ std::make_unique<nano::scheduler::hinted> (node_config.hinted_scheduler, node, vote_cache, active, online_reps, stats) },
 	manual_impl{ std::make_unique<nano::scheduler::manual> (node) },
-	optimistic_impl{ std::make_unique<nano::scheduler::optimistic> (node.config.optimistic_scheduler, node, node.ledger, node.active, node.network_params.network, node.stats) },
-	priority_impl{ std::make_unique<nano::scheduler::priority> (node, node.stats) },
+	optimistic_impl{ std::make_unique<nano::scheduler::optimistic> (node_config.optimistic_scheduler, node, ledger, active, node_config.network_params.network, stats) },
+	priority_impl{ std::make_unique<nano::scheduler::priority> (node_config, node, ledger, block_processor, active, confirming_set, stats, logger) },
 	hinted{ *hinted_impl },
 	manual{ *manual_impl },
 	optimistic{ *optimistic_impl },
 	priority{ *priority_impl }
 {
+	// Notify election schedulers when AEC frees election slot
+	active.vacancy_updated.add ([this] () {
+		priority.notify ();
+		hinted.notify ();
+		optimistic.notify ();
+	});
 }
 
 nano::scheduler::component::~component ()

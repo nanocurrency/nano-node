@@ -2,6 +2,7 @@
 
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/observer_set.hpp>
 #include <nano/node/election_behavior.hpp>
 #include <nano/node/election_insertion_result.hpp>
 #include <nano/node/election_status.hpp>
@@ -104,7 +105,7 @@ public:
 	bool active (nano::qualified_root const &) const;
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
 	// Returns a list of elections sorted by difficulty
-	std::vector<std::shared_ptr<nano::election>> list_active (std::size_t = std::numeric_limits<std::size_t>::max ());
+	std::vector<std::shared_ptr<nano::election>> list_active (std::size_t max_count = std::numeric_limits<std::size_t>::max ());
 	bool erase (nano::block const &);
 	bool erase (nano::qualified_root const &);
 	bool empty () const;
@@ -121,21 +122,24 @@ public:
 	 * How many election slots are available for specified election type
 	 */
 	int64_t vacancy (nano::election_behavior behavior) const;
-	std::function<void ()> vacancy_update{ [] () {} };
 
 	nano::container_info container_info () const;
+
+public: // Events
+	nano::observer_set<> vacancy_updated;
 
 private:
 	void request_loop ();
 	void request_confirm (nano::unique_lock<nano::mutex> &);
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void cleanup_election (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::election>);
-	nano::stat::type completion_type (nano::election const & election) const;
-	// Returns a list of elections sorted by difficulty, mutex must be locked
-	std::vector<std::shared_ptr<nano::election>> list_active_impl (std::size_t) const;
-	void activate_successors (nano::secure::transaction const &, std::shared_ptr<nano::block> const & block);
+
+	using block_cemented_result = std::pair<nano::election_status, std::vector<nano::vote_with_weight_info>>;
+	block_cemented_result block_cemented (std::shared_ptr<nano::block> const & block, nano::block_hash const & confirmation_root, std::shared_ptr<nano::election> const & source_election);
 	void notify_observers (nano::secure::transaction const &, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes) const;
-	void block_cemented (nano::secure::transaction const &, std::shared_ptr<nano::block> const & block, nano::block_hash const & confirmation_root, std::shared_ptr<nano::election> const & source_election);
+
+	std::shared_ptr<nano::election> election_impl (nano::qualified_root const &) const;
+	std::vector<std::shared_ptr<nano::election>> list_active_impl (std::size_t max_count) const;
 
 private: // Dependencies
 	active_elections_config const & config;
