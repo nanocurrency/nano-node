@@ -353,7 +353,7 @@ int main (int argc, char * const * argv)
 			auto inactive_node = nano::default_inactive_node (data_path, vm);
 			auto transaction = inactive_node->node->store.tx_begin_read ();
 			auto i = inactive_node->node->store.block.begin (transaction);
-			auto end = inactive_node->node->store.block.end ();
+			auto end = inactive_node->node->store.block.end (transaction);
 			for (; i != end; ++i)
 			{
 				nano::block_hash hash = i->first;
@@ -435,7 +435,7 @@ int main (int argc, char * const * argv)
 			auto current (node->online_reps.trended ());
 			std::cout << boost::str (boost::format ("Trended Weight %1%\n") % current);
 			auto transaction (node->store.tx_begin_read ());
-			for (auto i (node->store.online_weight.begin (transaction)), n (node->store.online_weight.end ()); i != n; ++i)
+			for (auto i (node->store.online_weight.begin (transaction)), n (node->store.online_weight.end (transaction)); i != n; ++i)
 			{
 				using time_point = std::chrono::system_clock::time_point;
 				time_point ts (std::chrono::duration_cast<time_point::duration> (std::chrono::nanoseconds (i->first)));
@@ -471,7 +471,7 @@ int main (int argc, char * const * argv)
 			// Cache the account heads to make searching quicker against unchecked keys.
 			auto transaction (node->store.tx_begin_read ());
 			std::unordered_set<nano::block_hash> frontier_hashes;
-			for (auto i (node->store.account.begin (transaction)), n (node->store.account.end ()); i != n; ++i)
+			for (auto i (node->store.account.begin (transaction)), n (node->store.account.end (transaction)); i != n; ++i)
 			{
 				frontier_hashes.insert (i->second.head);
 			}
@@ -1669,7 +1669,7 @@ int main (int argc, char * const * argv)
 			}
 			size_t const accounts_deque_overflow (32 * 1024);
 			auto transaction = node->ledger.tx_begin_read ();
-			for (auto i (node->store.account.begin (transaction)), n (node->store.account.end ()); i != n; ++i)
+			for (auto i (node->store.account.begin (transaction)), n (node->store.account.end (transaction)); i != n; ++i)
 			{
 				{
 					nano::unique_lock<nano::mutex> lock{ mutex };
@@ -1780,7 +1780,7 @@ int main (int argc, char * const * argv)
 			start_threads (check_pending, pending);
 
 			size_t const pending_deque_overflow (64 * 1024);
-			for (auto i (node->store.pending.begin (transaction)), n (node->store.pending.end ()); i != n; ++i)
+			for (auto i (node->store.pending.begin (transaction)), n (node->store.pending.end (transaction)); i != n; ++i)
 			{
 				{
 					nano::unique_lock<nano::mutex> lock{ mutex };
@@ -1837,7 +1837,7 @@ int main (int argc, char * const * argv)
 				auto transaction = source_node->ledger.tx_begin_read ();
 				block_count = source_node->ledger.block_count ();
 				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
-				for (auto i (source_node->store.account.begin (transaction)), n (source_node->store.account.end ()); i != n; ++i)
+				for (auto i (source_node->store.account.begin (transaction)), n (source_node->store.account.end (transaction)); i != n; ++i)
 				{
 					nano::account const & account (i->first);
 					nano::account_info const & info (i->second);

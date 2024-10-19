@@ -27,11 +27,11 @@ nano::block_hash nano::store::lmdb::pruned::random (store::transaction const & t
 	nano::block_hash random_hash;
 	nano::random_pool::generate_block (random_hash.bytes.data (), random_hash.bytes.size ());
 	auto existing = begin (transaction, random_hash);
-	if (existing == end ())
+	if (existing == end (transaction))
 	{
 		existing = begin (transaction);
 	}
-	return existing != end () ? existing->first : 0;
+	return existing != end (transaction) ? existing->first : 0;
 }
 
 size_t nano::store::lmdb::pruned::count (store::transaction const & transaction_a) const
@@ -55,7 +55,7 @@ auto nano::store::lmdb::pruned::begin (store::transaction const & transaction) c
 	return store.make_iterator<nano::block_hash, std::nullptr_t> (transaction, tables::pruned);
 }
 
-auto nano::store::lmdb::pruned::end () const -> iterator
+auto nano::store::lmdb::pruned::end (store::transaction const & transaction_a) const -> iterator
 {
 	return iterator{ nullptr };
 }
@@ -65,6 +65,6 @@ void nano::store::lmdb::pruned::for_each_par (std::function<void (store::read_tr
 	parallel_traversal<nano::uint256_t> (
 	[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
 		auto transaction (this->store.tx_begin_read ());
-		action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end ());
+		action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end (transaction));
 	});
 }

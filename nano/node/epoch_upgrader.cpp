@@ -116,7 +116,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 			{
 				auto transaction (store.tx_begin_read ());
 				// Collect accounts to upgrade
-				for (auto i (store.account.begin (transaction)), n (store.account.end ()); i != n && accounts_list.size () < count_limit; ++i)
+				for (auto i (store.account.begin (transaction)), n (store.account.end (transaction)); i != n && accounts_list.size () < count_limit; ++i)
 				{
 					nano::account const & account (i->first);
 					nano::account_info const & info (i->second);

@@ -258,7 +258,7 @@ void nano::store::lmdb::component::upgrade_v22_to_v23 (store::write_transaction 
 	drop (transaction, tables::rep_weights);
 	transaction.refresh ();
 
-	release_assert (rep_weight.begin (tx_begin_read ()) == rep_weight.end (), "rep weights table must be empty before upgrading to v23");
+	release_assert (rep_weight.begin (tx_begin_read ()) == rep_weight.end (transaction), "rep weights table must be empty before upgrading to v23");
 
 	auto iterate_accounts = [this] (auto && func) {
 		auto transaction = tx_begin_read ();

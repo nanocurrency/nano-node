@@ -257,9 +257,9 @@ nano::account nano::test::system::account (store::transaction const & transactio
 {
 	auto wallet_l (wallet (index_a));
 	auto keys (wallet_l->store.begin (transaction_a));
-	debug_assert (keys != wallet_l->store.end ());
+	debug_assert (keys != wallet_l->store.end (transaction_a));
 	auto result (keys->first);
-	debug_assert (++keys == wallet_l->store.end ());
+	debug_assert (++keys == wallet_l->store.end (transaction_a));
 	return nano::account (result);
 }
 
@@ -533,11 +533,11 @@ void nano::test::system::generate_send_existing (nano::node & node_a, std::vecto
 		random_pool::generate_block (account.bytes.data (), sizeof (account.bytes));
 		auto transaction = node_a.ledger.tx_begin_read ();
 		auto entry = node_a.store.account.begin (transaction, account);
-		if (entry == node_a.store.account.end ())
+		if (entry == node_a.store.account.end (transaction))
 		{
 			entry = node_a.store.account.begin (transaction);
 		}
-		debug_assert (entry != node_a.store.account.end ());
+		debug_assert (entry != node_a.store.account.end (transaction));
 		destination = nano::account (entry->first);
 		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);

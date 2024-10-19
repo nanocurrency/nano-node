@@ -147,7 +147,7 @@ public:
 				{
 					auto transaction (wallet->wallets.tx_begin_write ());
 					auto existing (wallet->store.begin (transaction));
-					if (existing != wallet->store.end ())
+					if (existing != wallet->store.end (transaction))
 					{
 						wallet_config.account = existing->first;
 					}

@@ -28,7 +28,7 @@ auto nano::store::lmdb::online_weight::rbegin (store::transaction const & transa
 	return store.make_iterator<uint64_t, nano::amount> (transaction, tables::online_weight, false);
 }
 
-auto nano::store::lmdb::online_weight::end () const -> iterator
+auto nano::store::lmdb::online_weight::end (store::transaction const & transaction_a) const -> iterator
 {
 	return iterator{ nullptr };
 }

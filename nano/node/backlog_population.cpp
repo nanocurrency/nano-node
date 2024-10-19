@@ -96,7 +96,7 @@ void nano::backlog_population::populate_backlog (nano::unique_lock<nano::mutex> 
 			auto transaction = ledger.tx_begin_read ();
 
 			auto it = ledger.store.account.begin (transaction, next);
-			auto const end = ledger.store.account.end ();
+			auto const end = ledger.store.account.end (transaction);
 
 			auto should_refresh = [&transaction] () {
 				auto cutoff = std::chrono::steady_clock::now () - 100ms; // TODO: Make this configurable

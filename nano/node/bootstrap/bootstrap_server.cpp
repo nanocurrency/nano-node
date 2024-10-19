@@ -395,7 +395,7 @@ nano::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & 
 	response.type = nano::asc_pull_type::frontiers;
 
 	nano::asc_pull_ack::frontiers_payload response_payload{};
-	for (auto it = store.account.begin (transaction, request.start), end = store.account.end (); it != end && response_payload.frontiers.size () < request.count; ++it)
+	for (auto it = store.account.begin (transaction, request.start), end = store.account.end (transaction); it != end && response_payload.frontiers.size () < request.count; ++it)
 	{
 		response_payload.frontiers.emplace_back (it->first, it->second.head);
 	}

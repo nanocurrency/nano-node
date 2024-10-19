@@ -314,10 +314,10 @@ TEST (block_store, pending_iterator)
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	auto transaction (store->tx_begin_write ());
-	ASSERT_EQ (store->pending.end (), store->pending.begin (transaction));
+	ASSERT_EQ (store->pending.end (transaction), store->pending.begin (transaction));
 	store->pending.put (transaction, nano::pending_key (1, 2), { 2, 3, nano::epoch::epoch_1 });
 	auto current (store->pending.begin (transaction));
-	ASSERT_NE (store->pending.end (), current);
+	ASSERT_NE (store->pending.end (transaction), current);
 	nano::pending_key key1 (current->first);
 	ASSERT_EQ (nano::account (1), key1.account);
 	ASSERT_EQ (nano::block_hash (2), key1.hash);
@@ -411,7 +411,7 @@ TEST (block_store, empty_accounts)
 	ASSERT_TRUE (!store->init_error ());
 	auto transaction (store->tx_begin_read ());
 	auto begin (store->account.begin (transaction));
-	auto end (store->account.end ());
+	auto end (store->account.end (transaction));
 	ASSERT_EQ (end, begin);
 }
 
@@ -498,7 +498,7 @@ TEST (block_store, one_account)
 	store->confirmation_height.put (transaction, account, { 20, nano::block_hash (15) });
 	store->account.put (transaction, account, { hash, account, hash, 42, 100, 200, nano::epoch::epoch_0 });
 	auto begin (store->account.begin (transaction));
-	auto end (store->account.end ());
+	auto end (store->account.end (transaction));
 	ASSERT_NE (end, begin);
 	ASSERT_EQ (account, nano::account (begin->first));
 	nano::account_info info (begin->second);
@@ -567,7 +567,7 @@ TEST (block_store, two_account)
 	store->confirmation_height.put (transaction, account2, { 30, nano::block_hash (20) });
 	store->account.put (transaction, account2, { hash2, account2, hash2, 84, 200, 400, nano::epoch::epoch_0 });
 	auto begin (store->account.begin (transaction));
-	auto end (store->account.end ());
+	auto end (store->account.end (transaction));
 	ASSERT_NE (end, begin);
 	ASSERT_EQ (account1, nano::account (begin->first));
 	nano::account_info info1 (begin->second);
@@ -787,7 +787,7 @@ TEST (block_store, large_iteration)
 	std::unordered_set<nano::account> accounts2;
 	nano::account previous{};
 	auto transaction (store->tx_begin_read ());
-	for (auto i (store->account.begin (transaction, 0)), n (store->account.end ()); i != n; ++i)
+	for (auto i (store->account.begin (transaction, 0)), n (store->account.end (transaction)); i != n; ++i)
 	{
 		nano::account current (i->first);
 		ASSERT_GT (current.number (), previous.number ());
@@ -798,7 +798,7 @@ TEST (block_store, large_iteration)
 	// Reverse iteration
 	std::unordered_set<nano::account> accounts3;
 	previous = std::numeric_limits<nano::uint256_t>::max ();
-	for (auto i (store->account.rbegin (transaction)), n (store->account.end ()); i != n; --i)
+	for (auto i (store->account.rbegin (transaction)), n (store->account.end (transaction)); i != n; --i)
 	{
 		nano::account current (i->first);
 		ASSERT_LT (current.number (), previous.number ());
@@ -1253,8 +1253,8 @@ TEST (block_store, online_weight)
 	{
 		auto transaction (store->tx_begin_write ());
 		ASSERT_EQ (0, store->online_weight.count (transaction));
-		ASSERT_EQ (store->online_weight.end (), store->online_weight.begin (transaction));
-		ASSERT_EQ (store->online_weight.end (), store->online_weight.rbegin (transaction));
+		ASSERT_EQ (store->online_weight.end (transaction), store->online_weight.begin (transaction));
+		ASSERT_EQ (store->online_weight.end (transaction), store->online_weight.rbegin (transaction));
 		store->online_weight.put (transaction, 1, 2);
 		store->online_weight.put (transaction, 3, 4);
 	}
@@ -1262,11 +1262,11 @@ TEST (block_store, online_weight)
 		auto transaction (store->tx_begin_write ());
 		ASSERT_EQ (2, store->online_weight.count (transaction));
 		auto item (store->online_weight.begin (transaction));
-		ASSERT_NE (store->online_weight.end (), item);
+		ASSERT_NE (store->online_weight.end (transaction), item);
 		ASSERT_EQ (1, item->first);
 		ASSERT_EQ (2, item->second.number ());
 		auto item_last (store->online_weight.rbegin (transaction));
-		ASSERT_NE (store->online_weight.end (), item_last);
+		ASSERT_NE (store->online_weight.end (transaction), item_last);
 		ASSERT_EQ (3, item_last->first);
 		ASSERT_EQ (4, item_last->second.number ());
 		store->online_weight.del (transaction, 1);
@@ -1276,8 +1276,8 @@ TEST (block_store, online_weight)
 	}
 	auto transaction (store->tx_begin_read ());
 	ASSERT_EQ (0, store->online_weight.count (transaction));
-	ASSERT_EQ (store->online_weight.end (), store->online_weight.begin (transaction));
-	ASSERT_EQ (store->online_weight.end (), store->online_weight.rbegin (transaction));
+	ASSERT_EQ (store->online_weight.end (transaction), store->online_weight.begin (transaction));
+	ASSERT_EQ (store->online_weight.end (transaction), store->online_weight.rbegin (transaction));
 }
 
 TEST (block_store, pruned_blocks)

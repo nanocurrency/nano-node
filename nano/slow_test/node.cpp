@@ -37,7 +37,7 @@ size_t manually_count_pruned_blocks (nano::store::component & store)
 	size_t count = 0;
 	auto transaction = store.tx_begin_read ();
 	auto i = store.pruned.begin (transaction);
-	for (; i != store.pruned.end (); ++i)
+	for (; i != store.pruned.end (transaction); ++i)
 	{
 		++count;
 	}
@@ -54,7 +54,7 @@ TEST (system, generate_mass_activity)
 	uint32_t count (20);
 	system.generate_mass_activity (count, *system.nodes[0]);
 	auto transaction (system.nodes[0]->store.tx_begin_read ());
-	for (auto i (system.nodes[0]->store.account.begin (transaction)), n (system.nodes[0]->store.account.end ()); i != n; ++i)
+	for (auto i (system.nodes[0]->store.account.begin (transaction)), n (system.nodes[0]->store.account.end (transaction)); i != n; ++i)
 	{
 	}
 }
@@ -76,7 +76,7 @@ TEST (system, generate_mass_activity_long)
 	}
 	system.generate_mass_activity (count, *system.nodes[0]);
 	auto transaction (system.nodes[0]->store.tx_begin_read ());
-	for (auto i (system.nodes[0]->store.account.begin (transaction)), n (system.nodes[0]->store.account.end ()); i != n; ++i)
+	for (auto i (system.nodes[0]->store.account.begin (transaction)), n (system.nodes[0]->store.account.end (transaction)); i != n; ++i)
 	{
 	}
 	system.stop ();
@@ -694,7 +694,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 
 	// All frontiers (except last) should have 2 blocks and both should be confirmed
 	auto transaction = node->store.tx_begin_read ();
-	for (auto i (node->store.account.begin (transaction)), n (node->store.account.end ()); i != n; ++i)
+	for (auto i (node->store.account.begin (transaction)), n (node->store.account.end (transaction)); i != n; ++i)
 	{
 		auto & account = i->first;
 		auto & account_info = i->second;
@@ -706,7 +706,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	}
 
 	size_t cemented_count = 0;
-	for (auto i (node->ledger.store.confirmation_height.begin (transaction)), n (node->ledger.store.confirmation_height.end ()); i != n; ++i)
+	for (auto i (node->ledger.store.confirmation_height.begin (transaction)), n (node->ledger.store.confirmation_height.end (transaction)); i != n; ++i)
 	{
 		cemented_count += i->second.height;
 	}
@@ -782,7 +782,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 
 	auto transaction = node->store.tx_begin_read ();
 	size_t cemented_count = 0;
-	for (auto i (node->ledger.store.confirmation_height.begin (transaction)), n (node->ledger.store.confirmation_height.end ()); i != n; ++i)
+	for (auto i (node->ledger.store.confirmation_height.begin (transaction)), n (node->ledger.store.confirmation_height.end (transaction)); i != n; ++i)
 	{
 		cemented_count += i->second.height;
 	}
@@ -925,7 +925,7 @@ TEST (confirmation_height, long_chains)
 	ASSERT_EQ (num_blocks + 1, info->block_count);
 
 	size_t cemented_count = 0;
-	for (auto i (node->ledger.store.confirmation_height.begin (transaction)), n (node->ledger.store.confirmation_height.end ()); i != n; ++i)
+	for (auto i (node->ledger.store.confirmation_height.begin (transaction)), n (node->ledger.store.confirmation_height.end (transaction)); i != n; ++i)
 	{
 		cemented_count += i->second.height;
 	}
@@ -1098,7 +1098,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 
 	auto transaction = node->store.tx_begin_read ();
 	size_t cemented_count = 0;
-	for (auto i (node->ledger.store.confirmation_height.begin (transaction)), n (node->ledger.store.confirmation_height.end ()); i != n; ++i)
+	for (auto i (node->ledger.store.confirmation_height.begin (transaction)), n (node->ledger.store.confirmation_height.end (transaction)); i != n; ++i)
 	{
 		cemented_count += i->second.height;
 	}
@@ -1252,7 +1252,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 
 	auto transaction = store->tx_begin_read ();
 	size_t cemented_count = 0;
-	for (auto i (store->confirmation_height.begin (transaction)), n (store->confirmation_height.end ()); i != n; ++i)
+	for (auto i (store->confirmation_height.begin (transaction)), n (store->confirmation_height.end (transaction)); i != n; ++i)
 	{
 		cemented_count += i->second.height;
 	}
@@ -1746,7 +1746,7 @@ TEST (node, mass_epoch_upgrader)
 		{
 			auto transaction (node.store.tx_begin_read ());
 			size_t block_count_sum = 0;
-			for (auto i (node.store.account.begin (transaction)); i != node.store.account.end (); ++i)
+			for (auto i (node.store.account.begin (transaction)); i != node.store.account.end (transaction); ++i)
 			{
 				nano::account_info info (i->second);
 				ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);

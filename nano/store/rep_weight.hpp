@@ -29,7 +29,7 @@ public:
 	virtual void del (store::write_transaction const &, nano::account const & representative_a) = 0;
 	virtual iterator begin (store::transaction const & transaction_a, nano::account const & representative_a) const = 0;
 	virtual iterator begin (store::transaction const & transaction_a) const = 0;
-	virtual iterator end () const = 0;
+	virtual iterator end (store::transaction const & transaction_a) const = 0;
 	virtual void for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const = 0;
 };
 }

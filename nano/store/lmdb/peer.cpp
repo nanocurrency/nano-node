@@ -50,7 +50,7 @@ auto nano::store::lmdb::peer::begin (store::transaction const & transaction) con
 	return store.make_iterator<nano::endpoint_key, nano::millis_t> (transaction, tables::peers);
 }
 
-auto nano::store::lmdb::peer::end () const -> iterator
+auto nano::store::lmdb::peer::end (store::transaction const & transaction_a) const -> iterator
 {
 	return iterator{ nullptr };
 }

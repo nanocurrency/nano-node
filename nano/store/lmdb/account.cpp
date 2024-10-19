@@ -35,7 +35,7 @@ void nano::store::lmdb::account::del (store::write_transaction const & transacti
 bool nano::store::lmdb::account::exists (store::transaction const & transaction_a, nano::account const & account_a)
 {
 	auto iterator (begin (transaction_a, account_a));
-	return iterator != end () && nano::account (iterator->first) == account_a;
+	return iterator != end (transaction_a) && nano::account (iterator->first) == account_a;
 }
 
 size_t nano::store::lmdb::account::count (store::transaction const & transaction_a)
@@ -58,7 +58,7 @@ auto nano::store::lmdb::account::rbegin (store::transaction const & transaction_
 	return store.make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, false);
 }
 
-auto nano::store::lmdb::account::end () const -> iterator
+auto nano::store::lmdb::account::end (store::transaction const & transaction_a) const -> iterator
 {
 	return iterator{ nullptr };
 }
@@ -68,6 +68,6 @@ void nano::store::lmdb::account::for_each_par (std::function<void (store::read_t
 	parallel_traversal<nano::uint256_t> (
 	[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
 		auto transaction (this->store.tx_begin_read ());
-		action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end ());
+		action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end (transaction));
 	});
 }

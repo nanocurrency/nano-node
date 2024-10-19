@@ -32,7 +32,7 @@ public:
 	virtual iterator begin (store::transaction const &, nano::account const &) const = 0;
 	virtual iterator begin (store::transaction const &) const = 0;
 	virtual iterator rbegin (store::transaction const &) const = 0;
-	virtual iterator end () const = 0;
+	virtual iterator end (store::transaction const & transaction_a) const = 0;
 	virtual void for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const &) const = 0;
 };
 } // namespace nano::store

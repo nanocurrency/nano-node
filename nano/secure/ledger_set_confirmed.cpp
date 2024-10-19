@@ -108,11 +108,11 @@ auto nano::ledger_set_confirmed::receivable_upper_bound (secure::transaction con
 std::optional<std::pair<nano::pending_key, nano::pending_info>> nano::ledger_set_confirmed::receivable_lower_bound (secure::transaction const & transaction, nano::account const & account, nano::block_hash const & hash) const
 {
 	auto result = ledger.store.pending.begin (transaction, { account, hash });
-	while (result != ledger.store.pending.end () && !block_exists (transaction, result->first.hash))
+	while (result != ledger.store.pending.end (transaction) && !block_exists (transaction, result->first.hash))
 	{
 		++result;
 	}
-	if (result == ledger.store.pending.end ())
+	if (result == ledger.store.pending.end (transaction))
 	{
 		return std::nullopt;
 	}
