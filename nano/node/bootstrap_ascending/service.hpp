@@ -5,13 +5,15 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/observer_set.hpp>
 #include <nano/lib/rate_limiting.hpp>
+#include <nano/lib/thread_pool.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap_ascending/account_sets.hpp>
 #include <nano/node/bootstrap_ascending/common.hpp>
 #include <nano/node/bootstrap_ascending/database_scan.hpp>
+#include <nano/node/bootstrap_ascending/frontier_scan.hpp>
 #include <nano/node/bootstrap_ascending/peer_scoring.hpp>
 #include <nano/node/bootstrap_ascending/throttle.hpp>
-#include <nano/node/fwd.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -43,6 +45,8 @@ namespace bootstrap_ascending
 		std::size_t blocked_size () const;
 		std::size_t priority_size () const;
 		std::size_t score_size () const;
+		bool prioritized (nano::account const &) const;
+		bool blocked (nano::account const &) const;
 
 		nano::container_info container_info () const;
 
@@ -64,6 +68,7 @@ namespace bootstrap_ascending
 			blocks_by_hash,
 			blocks_by_account,
 			account_info_by_hash,
+			frontiers,
 		};
 
 		enum class query_source
@@ -72,6 +77,7 @@ namespace bootstrap_ascending
 			priority,
 			database,
 			blocking,
+			frontiers,
 		};
 
 		struct async_tag
@@ -102,6 +108,8 @@ namespace bootstrap_ascending
 		void run_one_database (bool should_throttle);
 		void run_dependencies ();
 		void run_one_blocking ();
+		void run_one_frontier ();
+		void run_frontiers ();
 		void run_timeouts ();
 		void cleanup_and_sync ();
 
@@ -123,15 +131,20 @@ namespace bootstrap_ascending
 		/* Waits for next available blocking block */
 		nano::block_hash next_blocking ();
 		nano::block_hash wait_blocking ();
+		/* Waits for next available frontier scan range */
+		nano::account wait_frontier ();
 
 		bool request (nano::account, size_t count, std::shared_ptr<nano::transport::channel> const &, query_source);
 		bool request_info (nano::block_hash, std::shared_ptr<nano::transport::channel> const &, query_source);
-		void send (std::shared_ptr<nano::transport::channel> const &, async_tag tag);
+		bool request_frontiers (nano::account, std::shared_ptr<nano::transport::channel> const &, query_source);
+		bool send (std::shared_ptr<nano::transport::channel> const &, async_tag tag);
 
 		void process (nano::asc_pull_ack::blocks_payload const & response, async_tag const & tag);
 		void process (nano::asc_pull_ack::account_info_payload const & response, async_tag const & tag);
 		void process (nano::asc_pull_ack::frontiers_payload const & response, async_tag const & tag);
 		void process (nano::empty_payload const & response, async_tag const & tag);
+
+		void process_frontiers (std::deque<std::pair<nano::account, nano::block_hash>> const & frontiers);
 
 		enum class verify_result
 		{
@@ -147,6 +160,7 @@ namespace bootstrap_ascending
 		 * - ok: otherwise, if all checks pass
 		 */
 		verify_result verify (nano::asc_pull_ack::blocks_payload const & response, async_tag const & tag) const;
+		verify_result verify (nano::asc_pull_ack::frontiers_payload const & response, async_tag const & tag) const;
 
 		size_t count_tags (nano::account const & account, query_source source) const;
 		size_t count_tags (nano::block_hash const & hash, query_source source) const;
@@ -159,6 +173,7 @@ namespace bootstrap_ascending
 		nano::bootstrap_ascending::database_scan database_scan;
 		nano::bootstrap_ascending::throttle throttle;
 		nano::bootstrap_ascending::peer_scoring scoring;
+		nano::bootstrap_ascending::frontier_scan frontiers;
 
 		// clang-format off
 		class tag_sequenced {};
@@ -182,6 +197,7 @@ namespace bootstrap_ascending
 		// Requests for accounts from database have much lower hitrate and could introduce strain on the network
 		// A separate (lower) limiter ensures that we always reserve resources for querying accounts from priority queue
 		nano::rate_limiter database_limiter;
+		nano::rate_limiter frontiers_limiter;
 
 		nano::interval sync_dependencies_interval;
 
@@ -191,7 +207,10 @@ namespace bootstrap_ascending
 		std::thread priorities_thread;
 		std::thread database_thread;
 		std::thread dependencies_thread;
+		std::thread frontiers_thread;
 		std::thread timeout_thread;
+
+		nano::thread_pool workers;
 	};
 
 	nano::stat::detail to_stat_detail (service::query_type);

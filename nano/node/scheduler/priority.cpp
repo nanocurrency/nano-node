@@ -88,7 +88,7 @@ void nano::scheduler::priority::start ()
 	debug_assert (!thread.joinable ());
 	debug_assert (!cleanup_thread.joinable ());
 
-	if (!config.enabled)
+	if (!config.enable)
 	{
 		return;
 	}

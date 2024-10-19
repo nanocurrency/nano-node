@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/lib/relaxed_atomic.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/threading.hpp>
 
@@ -44,7 +43,7 @@ private:
 	std::atomic<bool> stopped{ false };
 	unsigned num_threads;
 	std::unique_ptr<boost::asio::thread_pool> thread_pool_m;
-	nano::relaxed_atomic_integral<uint64_t> num_tasks{ 0 };
+	std::atomic<uint64_t> num_tasks{ 0 };
 
 	/** Set the names of all the threads in the thread pool for easier identification */
 	std::latch thread_names_latch;
