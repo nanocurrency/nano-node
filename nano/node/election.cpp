@@ -54,11 +54,22 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock)
 
 		node.active.recently_confirmed.put (qualified_root, status_l.winner->hash ());
 
+		auto const extended_status = current_status_locked ();
+
 		node.stats.inc (nano::stat::type::election, nano::stat::detail::confirm_once);
 		node.logger.trace (nano::log::type::election, nano::log::detail::election_confirmed,
 		nano::log::arg{ "id", id },
 		nano::log::arg{ "qualified_root", qualified_root },
-		nano::log::arg{ "status", current_status_locked () });
+		nano::log::arg{ "status", extended_status });
+
+		node.logger.debug (nano::log::type::election, "Election confirmed with winner: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms, confirmation requests: {})",
+		status_l.winner->hash ().to_string (),
+		to_string (behavior_m),
+		to_string (state_m),
+		extended_status.status.voter_count,
+		extended_status.status.block_count,
+		extended_status.status.election_duration.count (),
+		extended_status.status.confirmation_request_count);
 
 		node.confirming_set.add (status_l.winner->hash (), shared_from_this ());
 
