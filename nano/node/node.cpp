@@ -114,7 +114,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	application_path (application_path_a),
 	port_mapping_impl{ std::make_unique<nano::port_mapping> (*this) },
 	port_mapping{ *port_mapping_impl },
-	block_processor (*this),
+	block_processor_impl{ std::make_unique<nano::block_processor> (config, ledger, unchecked, stats, logger) },
+	block_processor{ *block_processor_impl },
 	confirming_set_impl{ std::make_unique<nano::confirming_set> (config.confirming_set, ledger, block_processor, stats, logger) },
 	confirming_set{ *confirming_set_impl },
 	active_impl{ std::make_unique<nano::active_elections> (*this, confirming_set, block_processor) },
@@ -162,10 +163,6 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 
 	process_live_dispatcher.connect (block_processor);
 
-	unchecked.satisfied.add ([this] (nano::unchecked_info const & info) {
-		block_processor.add (info.block, nano::block_source::unchecked);
-	});
-
 	vote_cache.rep_weight_query = [this] (nano::account const & rep) {
 		return ledger.weight (rep);
 	};
@@ -188,6 +185,11 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	// Do some cleanup due to this block never being processed by confirmation height processor
 	confirming_set.cementing_failed.add ([this] (auto const & hash) {
 		active.recently_confirmed.erase (hash);
+	});
+
+	// Do some cleanup of rolled back blocks
+	block_processor.rolled_back.add ([this] (auto const & block, auto const & rollback_root) {
+		history.erase (block->root ());
 	});
 
 	if (!init_error ())

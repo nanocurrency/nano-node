@@ -6,7 +6,6 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_pool.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
@@ -184,7 +183,8 @@ public:
 	nano::node_observers observers;
 	std::unique_ptr<nano::port_mapping> port_mapping_impl;
 	nano::port_mapping & port_mapping;
-	nano::block_processor block_processor;
+	std::unique_ptr<nano::block_processor> block_processor_impl;
+	nano::block_processor & block_processor;
 	std::unique_ptr<nano::confirming_set> confirming_set_impl;
 	nano::confirming_set & confirming_set;
 	std::unique_ptr<nano::active_elections> active_impl;

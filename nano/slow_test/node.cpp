@@ -1120,8 +1120,6 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 {
 	nano::test::system system;
-	auto & node = *system.nodes[0];
-
 	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
@@ -1140,8 +1138,12 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 
 	nano::block_hash block_hash_being_processed{ 0 };
 	nano::store::write_queue write_queue;
+
+	nano::node_config node_config;
+	nano::unchecked_map unchecked{ 0, stats, false };
+	nano::block_processor block_processor{ node_config, ledger, unchecked, stats, logger };
 	nano::confirming_set_config confirming_set_config{};
-	nano::confirming_set confirming_set{ confirming_set_config, ledger, node.block_processor, stats, logger };
+	nano::confirming_set confirming_set{ confirming_set_config, ledger, block_processor, stats, logger };
 
 	auto const num_accounts = 100000;
 
