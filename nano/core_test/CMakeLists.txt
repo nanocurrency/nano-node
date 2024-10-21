@@ -51,6 +51,7 @@ add_executable(
   socket.cpp
   system.cpp
   telemetry.cpp
+  thread_pool.cpp
   throttle.cpp
   toml.cpp
   timer.cpp
