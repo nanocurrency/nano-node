@@ -55,6 +55,8 @@ void nano::confirming_set::start ()
 		return;
 	}
 
+	notification_workers.start ();
+
 	thread = std::thread{ [this] () {
 		nano::thread_role::set (nano::thread_role::name::confirmation_height);
 		run ();

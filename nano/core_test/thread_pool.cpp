@@ -1,5 +1,6 @@
 #include <nano/lib/thread_pool.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -15,6 +16,7 @@ TEST (thread_pool, thread_pool)
 	};
 
 	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
+	nano::test::start_stop_guard stop_guard{ workers };
 	workers.push_task (func);
 	ASSERT_FALSE (passed_sleep);
 
@@ -36,6 +38,7 @@ TEST (thread_pool, one)
 	nano::mutex mutex;
 	nano::condition_variable condition;
 	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
+	nano::test::start_stop_guard stop_guard{ workers };
 	workers.add_timed_task (std::chrono::steady_clock::now (), [&] () {
 		{
 			nano::lock_guard<nano::mutex> lock{ mutex };
@@ -53,6 +56,7 @@ TEST (thread_pool, many)
 	nano::mutex mutex;
 	nano::condition_variable condition;
 	nano::thread_pool workers (50u, nano::thread_role::name::unknown);
+	nano::test::start_stop_guard stop_guard{ workers };
 	for (auto i (0); i < 50; ++i)
 	{
 		workers.add_timed_task (std::chrono::steady_clock::now (), [&] () {
@@ -74,6 +78,7 @@ TEST (thread_pool, top_execution)
 	nano::mutex mutex;
 	std::promise<bool> promise;
 	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
+	nano::test::start_stop_guard stop_guard{ workers };
 	workers.add_timed_task (std::chrono::steady_clock::now (), [&] () {
 		nano::lock_guard<nano::mutex> lock{ mutex };
 		value1 = 1;

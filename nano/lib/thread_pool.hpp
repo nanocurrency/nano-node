@@ -19,19 +19,52 @@ namespace nano
 class thread_pool final
 {
 public:
-	explicit thread_pool (unsigned num_threads, nano::thread_role::name thread_name) :
+	// TODO: Auto start should be removed once the node is refactored to start the thread pool explicitly
+	thread_pool (unsigned num_threads, nano::thread_role::name thread_name, bool auto_start = false) :
 		num_threads{ num_threads },
-		thread_pool_impl{ std::make_unique<boost::asio::thread_pool> (num_threads) },
+		thread_name{ thread_name },
 		thread_names_latch{ num_threads }
 	{
-		set_thread_names (thread_name);
+		if (auto_start)
+		{
+			start ();
+		}
 	}
 
 	~thread_pool ()
 	{
-		if (alive ())
+		// Must be stopped before destruction to avoid running takss when node components are being destroyed
+		debug_assert (!thread_pool_impl);
+	}
+
+	void start ()
+	{
+		debug_assert (!stopped);
+		debug_assert (!thread_pool_impl);
+		thread_pool_impl = std::make_unique<boost::asio::thread_pool> (num_threads);
+		set_thread_names ();
+	}
+
+	void stop ()
+	{
+		nano::unique_lock<nano::mutex> lock{ mutex };
+		if (!stopped && thread_pool_impl)
 		{
-			stop ();
+			stopped = true;
+
+			// TODO: Is this still needed?
+#if defined(BOOST_ASIO_HAS_IOCP)
+			// A hack needed for Windows to prevent deadlock during destruction, described here: https://github.com/chriskohlhoff/asio/issues/431
+			boost::asio::use_service<boost::asio::detail::win_iocp_io_context> (*thread_pool_m).stop ();
+#endif
+
+			lock.unlock ();
+
+			thread_pool_impl->stop ();
+			thread_pool_impl->join ();
+
+			lock.lock ();
+			thread_pool_impl = nullptr;
 		}
 	}
 
@@ -68,24 +101,6 @@ public:
 		}
 	}
 
-	void stop ()
-	{
-		nano::unique_lock<nano::mutex> lock{ mutex };
-		if (!stopped)
-		{
-			stopped = true;
-#if defined(BOOST_ASIO_HAS_IOCP)
-			// A hack needed for Windows to prevent deadlock during destruction, described here: https://github.com/chriskohlhoff/asio/issues/431
-			boost::asio::use_service<boost::asio::detail::win_iocp_io_context> (*thread_pool_m).stop ();
-#endif
-			lock.unlock ();
-			thread_pool_impl->stop ();
-			thread_pool_impl->join ();
-			lock.lock ();
-			thread_pool_impl = nullptr;
-		}
-	}
-
 	bool alive () const
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
@@ -110,11 +125,11 @@ public:
 	}
 
 private:
-	void set_thread_names (nano::thread_role::name thread_name)
+	void set_thread_names ()
 	{
 		for (auto i = 0u; i < num_threads; ++i)
 		{
-			boost::asio::post (*thread_pool_impl, [this, thread_name] () {
+			boost::asio::post (*thread_pool_impl, [this] () {
 				nano::thread_role::set (thread_name);
 				thread_names_latch.arrive_and_wait ();
 			});
@@ -124,10 +139,12 @@ private:
 
 private:
 	unsigned const num_threads;
+	nano::thread_role::name const thread_name;
+
+	std::latch thread_names_latch;
 	mutable nano::mutex mutex;
 	std::atomic<bool> stopped{ false };
 	std::unique_ptr<boost::asio::thread_pool> thread_pool_impl;
 	std::atomic<uint64_t> num_tasks{ 0 };
-	std::latch thread_names_latch;
 };
 }
