@@ -19,9 +19,9 @@ public:
 	nano::uint128_t get (store::transaction const & txn_a, nano::account const & representative_a) override;
 	void put (store::write_transaction const & txn_a, nano::account const & representative_a, nano::uint128_t const & weight_a) override;
 	void del (store::write_transaction const &, nano::account const & representative_a) override;
-	store::iterator<nano::account, nano::uint128_union> begin (store::transaction const & txn_a, nano::account const & representative_a) const override;
-	store::iterator<nano::account, nano::uint128_union> begin (store::transaction const & txn_a) const override;
-	store::iterator<nano::account, nano::uint128_union> end () const override;
-	void for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::account, nano::uint128_union>, store::iterator<nano::account, nano::uint128_union>)> const & action_a) const override;
+	iterator begin (store::transaction const & txn_a, nano::account const & representative_a) const override;
+	iterator begin (store::transaction const & txn_a) const override;
+	iterator end () const override;
+	void for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const override;
 };
 }

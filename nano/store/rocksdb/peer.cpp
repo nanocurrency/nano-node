@@ -45,12 +45,12 @@ void nano::store::rocksdb::peer::clear (store::write_transaction const & transac
 	store.release_assert_success (status);
 }
 
-nano::store::iterator<nano::endpoint_key, nano::millis_t> nano::store::rocksdb::peer::begin (store::transaction const & transaction) const
+auto nano::store::rocksdb::peer::begin (store::transaction const & transaction) const -> iterator
 {
 	return store.make_iterator<nano::endpoint_key, nano::millis_t> (transaction, tables::peers);
 }
 
-nano::store::iterator<nano::endpoint_key, nano::millis_t> nano::store::rocksdb::peer::end () const
+auto nano::store::rocksdb::peer::end () const -> iterator
 {
-	return store::iterator<nano::endpoint_key, nano::millis_t> (nullptr);
+	return iterator{ nullptr };
 }

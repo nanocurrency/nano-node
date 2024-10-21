@@ -29,10 +29,10 @@ public:
 	void del (store::write_transaction const & transaction_a, nano::block_hash const & hash_a) override;
 	bool exists (store::transaction const & transaction_a, nano::block_hash const & hash_a) override;
 	uint64_t count (store::transaction const & transaction_a) override;
-	store::iterator<nano::block_hash, nano::store::block_w_sideband> begin (store::transaction const & transaction_a) const override;
-	store::iterator<nano::block_hash, nano::store::block_w_sideband> begin (store::transaction const & transaction_a, nano::block_hash const & hash_a) const override;
-	store::iterator<nano::block_hash, nano::store::block_w_sideband> end () const override;
-	void for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::block_hash, block_w_sideband>, store::iterator<nano::block_hash, block_w_sideband>)> const & action_a) const override;
+	iterator begin (store::transaction const & transaction_a) const override;
+	iterator begin (store::transaction const & transaction_a, nano::block_hash const & hash_a) const override;
+	iterator end () const override;
+	void for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const override;
 
 protected:
 	void block_raw_get (store::transaction const & transaction_a, nano::block_hash const & hash_a, nano::store::rocksdb::db_val & value) const;

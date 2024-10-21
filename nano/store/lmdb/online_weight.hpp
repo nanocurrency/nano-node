@@ -15,9 +15,9 @@ public:
 	explicit online_weight (nano::store::lmdb::component & store_a);
 	void put (store::write_transaction const & transaction_a, uint64_t time_a, nano::amount const & amount_a) override;
 	void del (store::write_transaction const & transaction_a, uint64_t time_a) override;
-	store::iterator<uint64_t, nano::amount> begin (store::transaction const & transaction_a) const override;
-	store::iterator<uint64_t, nano::amount> rbegin (store::transaction const & transaction_a) const override;
-	store::iterator<uint64_t, nano::amount> end () const override;
+	iterator begin (store::transaction const & transaction_a) const override;
+	iterator rbegin (store::transaction const & transaction_a) const override;
+	iterator end () const override;
 	size_t count (store::transaction const & transaction_a) const override;
 	void clear (store::write_transaction const & transaction_a) override;
 

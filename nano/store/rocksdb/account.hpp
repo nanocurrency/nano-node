@@ -20,10 +20,10 @@ public:
 	void del (store::write_transaction const & transaction_a, nano::account const & account_a) override;
 	bool exists (store::transaction const & transaction_a, nano::account const & account_a) override;
 	size_t count (store::transaction const & transaction_a) override;
-	store::iterator<nano::account, nano::account_info> begin (store::transaction const & transaction_a, nano::account const & account_a) const override;
-	store::iterator<nano::account, nano::account_info> begin (store::transaction const & transaction_a) const override;
-	store::iterator<nano::account, nano::account_info> rbegin (store::transaction const & transaction_a) const override;
-	store::iterator<nano::account, nano::account_info> end () const override;
-	void for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::account, nano::account_info>, store::iterator<nano::account, nano::account_info>)> const & action_a) const override;
+	iterator begin (store::transaction const & transaction_a, nano::account const & account_a) const override;
+	iterator begin (store::transaction const & transaction_a) const override;
+	iterator rbegin (store::transaction const & transaction_a) const override;
+	iterator end () const override;
+	void for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const override;
 };
 } // namespace nano::store::rocksdb

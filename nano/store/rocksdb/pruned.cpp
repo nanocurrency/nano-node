@@ -45,22 +45,22 @@ void nano::store::rocksdb::pruned::clear (store::write_transaction const & trans
 	store.release_assert_success (status);
 }
 
-nano::store::iterator<nano::block_hash, std::nullptr_t> nano::store::rocksdb::pruned::begin (store::transaction const & transaction_a, nano::block_hash const & hash_a) const
+auto nano::store::rocksdb::pruned::begin (store::transaction const & transaction_a, nano::block_hash const & hash_a) const -> iterator
 {
 	return store.make_iterator<nano::block_hash, std::nullptr_t> (transaction_a, tables::pruned, hash_a);
 }
 
-nano::store::iterator<nano::block_hash, std::nullptr_t> nano::store::rocksdb::pruned::begin (store::transaction const & transaction_a) const
+auto nano::store::rocksdb::pruned::begin (store::transaction const & transaction_a) const -> iterator
 {
 	return store.make_iterator<nano::block_hash, std::nullptr_t> (transaction_a, tables::pruned);
 }
 
-nano::store::iterator<nano::block_hash, std::nullptr_t> nano::store::rocksdb::pruned::end () const
+auto nano::store::rocksdb::pruned::end () const -> iterator
 {
-	return store::iterator<nano::block_hash, std::nullptr_t> (nullptr);
+	return iterator{ nullptr };
 }
 
-void nano::store::rocksdb::pruned::for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::block_hash, std::nullptr_t>, store::iterator<nano::block_hash, std::nullptr_t>)> const & action_a) const
+void nano::store::rocksdb::pruned::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const
 {
 	parallel_traversal<nano::uint256_t> (
 	[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {

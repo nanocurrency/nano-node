@@ -1753,22 +1753,22 @@ std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> nano::wallets
 nano::uint128_t const nano::wallets::generate_priority = std::numeric_limits<nano::uint128_t>::max ();
 nano::uint128_t const nano::wallets::high_priority = std::numeric_limits<nano::uint128_t>::max () - 1;
 
-nano::store::iterator<nano::account, nano::wallet_value> nano::wallet_store::begin (store::transaction const & transaction_a)
+auto nano::wallet_store::begin (store::transaction const & transaction_a) -> iterator
 {
-	store::iterator<nano::account, nano::wallet_value> result (std::make_unique<nano::store::lmdb::iterator<nano::account, nano::wallet_value>> (transaction_a, env, handle, nano::store::lmdb::db_val (nano::account (special_count))));
+	iterator result (std::make_unique<nano::store::lmdb::iterator<nano::account, nano::wallet_value>> (transaction_a, env, handle, nano::store::lmdb::db_val (nano::account (special_count))));
 	return result;
 }
 
-nano::store::iterator<nano::account, nano::wallet_value> nano::wallet_store::begin (store::transaction const & transaction_a, nano::account const & key)
+auto nano::wallet_store::begin (store::transaction const & transaction_a, nano::account const & key) -> iterator
 {
-	store::iterator<nano::account, nano::wallet_value> result (std::make_unique<nano::store::lmdb::iterator<nano::account, nano::wallet_value>> (transaction_a, env, handle, nano::store::lmdb::db_val (key)));
+	iterator result (std::make_unique<nano::store::lmdb::iterator<nano::account, nano::wallet_value>> (transaction_a, env, handle, nano::store::lmdb::db_val (key)));
 	return result;
 }
 
-nano::store::iterator<nano::account, nano::wallet_value> nano::wallet_store::find (store::transaction const & transaction_a, nano::account const & key)
+auto nano::wallet_store::find (store::transaction const & transaction_a, nano::account const & key) -> iterator
 {
 	auto result (begin (transaction_a, key));
-	store::iterator<nano::account, nano::wallet_value> end (nullptr);
+	iterator end{ nullptr };
 	if (result != end)
 	{
 		if (result->first == key)
@@ -1787,10 +1787,11 @@ nano::store::iterator<nano::account, nano::wallet_value> nano::wallet_store::fin
 	return result;
 }
 
-nano::store::iterator<nano::account, nano::wallet_value> nano::wallet_store::end ()
+auto nano::wallet_store::end () -> iterator
 {
-	return store::iterator<nano::account, nano::wallet_value> (nullptr);
+	return iterator{ nullptr };
 }
+
 nano::mdb_wallets_store::mdb_wallets_store (std::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a) :
 	environment (error, path_a, nano::store::lmdb::env::options::make ().set_config (lmdb_config_a).override_config_sync (nano::lmdb_config::sync_strategy::always).override_config_map_size (1ULL * 1024 * 1024 * 1024))
 {

@@ -9,7 +9,7 @@ add_library(
   db_val_impl.hpp
   iterator.hpp
   iterator_impl.hpp
-  final.hpp
+  final_vote.hpp
   lmdb/account.hpp
   lmdb/block.hpp
   lmdb/confirmation_height.hpp
@@ -32,6 +32,7 @@ add_library(
   peer.hpp
   pending.hpp
   pruned.hpp
+  rep_weight.hpp
   rocksdb/account.hpp
   rocksdb/block.hpp
   rocksdb/confirmation_height.hpp
@@ -58,7 +59,7 @@ add_library(
   db_val.cpp
   iterator.cpp
   iterator_impl.cpp
-  final.cpp
+  final_vote.cpp
   lmdb/account.cpp
   lmdb/block.cpp
   lmdb/confirmation_height.cpp

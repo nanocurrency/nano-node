@@ -42,22 +42,22 @@ void nano::store::rocksdb::rep_weight::del (store::write_transaction const & txn
 	store.release_assert_success (status);
 }
 
-nano::store::iterator<nano::account, nano::uint128_union> nano::store::rocksdb::rep_weight::begin (store::transaction const & txn_a, nano::account const & representative_a) const
+auto nano::store::rocksdb::rep_weight::begin (store::transaction const & txn_a, nano::account const & representative_a) const -> iterator
 {
 	return store.make_iterator<nano::account, nano::uint128_union> (txn_a, tables::rep_weights, representative_a);
 }
 
-nano::store::iterator<nano::account, nano::uint128_union> nano::store::rocksdb::rep_weight::begin (store::transaction const & txn_a) const
+auto nano::store::rocksdb::rep_weight::begin (store::transaction const & txn_a) const -> iterator
 {
 	return store.make_iterator<nano::account, nano::uint128_union> (txn_a, tables::rep_weights);
 }
 
-nano::store::iterator<nano::account, nano::uint128_union> nano::store::rocksdb::rep_weight::end () const
+auto nano::store::rocksdb::rep_weight::end () const -> iterator
 {
-	return store::iterator<nano::account, nano::uint128_union> (nullptr);
+	return iterator{ nullptr };
 }
 
-void nano::store::rocksdb::rep_weight::for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::account, nano::uint128_union>, store::iterator<nano::account, nano::uint128_union>)> const & action_a) const
+void nano::store::rocksdb::rep_weight::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const
 {
 	parallel_traversal<nano::uint256_t> (
 	[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {

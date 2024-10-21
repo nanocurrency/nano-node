@@ -42,27 +42,27 @@ size_t nano::store::rocksdb::account::count (store::transaction const & transact
 	return store.count (transaction_a, tables::accounts);
 }
 
-nano::store::iterator<nano::account, nano::account_info> nano::store::rocksdb::account::begin (store::transaction const & transaction, nano::account const & account) const
+auto nano::store::rocksdb::account::begin (store::transaction const & transaction, nano::account const & account) const -> iterator
 {
 	return store.make_iterator<nano::account, nano::account_info> (transaction, tables::accounts, account);
 }
 
-nano::store::iterator<nano::account, nano::account_info> nano::store::rocksdb::account::begin (store::transaction const & transaction) const
+auto nano::store::rocksdb::account::begin (store::transaction const & transaction) const -> iterator
 {
 	return store.make_iterator<nano::account, nano::account_info> (transaction, tables::accounts);
 }
 
-nano::store::iterator<nano::account, nano::account_info> nano::store::rocksdb::account::rbegin (store::transaction const & transaction_a) const
+auto nano::store::rocksdb::account::rbegin (store::transaction const & transaction_a) const -> iterator
 {
 	return store.make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, false);
 }
 
-nano::store::iterator<nano::account, nano::account_info> nano::store::rocksdb::account::end () const
+auto nano::store::rocksdb::account::end () const -> iterator
 {
-	return store::iterator<nano::account, nano::account_info> (nullptr);
+	return iterator{ nullptr };
 }
 
-void nano::store::rocksdb::account::for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::account, nano::account_info>, store::iterator<nano::account, nano::account_info>)> const & action_a) const
+void nano::store::rocksdb::account::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const
 {
 	parallel_traversal<nano::uint256_t> (
 	[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {

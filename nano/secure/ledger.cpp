@@ -14,7 +14,7 @@
 #include <nano/store/block.hpp>
 #include <nano/store/component.hpp>
 #include <nano/store/confirmation_height.hpp>
-#include <nano/store/final.hpp>
+#include <nano/store/final_vote.hpp>
 #include <nano/store/online_weight.hpp>
 #include <nano/store/peer.hpp>
 #include <nano/store/pending.hpp>
@@ -749,7 +749,7 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 	if (generate_cache_flags_a.reps || generate_cache_flags_a.account_count || generate_cache_flags_a.block_count)
 	{
 		store.account.for_each_par (
-		[this] (store::read_transaction const & /*unused*/, store::iterator<nano::account, nano::account_info> i, store::iterator<nano::account, nano::account_info> n) {
+		[this] (store::read_transaction const & /*unused*/, auto i, auto n) {
 			uint64_t block_count_l{ 0 };
 			uint64_t account_count_l{ 0 };
 			for (; i != n; ++i)
@@ -763,7 +763,7 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 		});
 
 		store.rep_weight.for_each_par (
-		[this] (store::read_transaction const & /*unused*/, store::iterator<nano::account, nano::uint128_union> i, store::iterator<nano::account, nano::uint128_union> n) {
+		[this] (store::read_transaction const & /*unused*/, auto i, auto n) {
 			nano::rep_weights rep_weights_l{ this->store.rep_weight };
 			for (; i != n; ++i)
 			{
@@ -776,7 +776,7 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 	if (generate_cache_flags_a.cemented_count)
 	{
 		store.confirmation_height.for_each_par (
-		[this] (store::read_transaction const & /*unused*/, store::iterator<nano::account, nano::confirmation_height_info> i, store::iterator<nano::account, nano::confirmation_height_info> n) {
+		[this] (store::read_transaction const & /*unused*/, auto i, auto n) {
 			uint64_t cemented_count_l (0);
 			for (; i != n; ++i)
 			{

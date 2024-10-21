@@ -1942,7 +1942,7 @@ int main (int argc, char * const * argv)
 			nano::locked<std::vector<boost::unordered_set<nano::account>>> opened_account_versions_shared (epoch_count);
 			using opened_account_versions_t = decltype (opened_account_versions_shared)::value_type;
 			node->store.account.for_each_par (
-			[&opened_account_versions_shared, epoch_count] (nano::store::read_transaction const & /*unused*/, nano::store::iterator<nano::account, nano::account_info> i, nano::store::iterator<nano::account, nano::account_info> n) {
+			[&opened_account_versions_shared, epoch_count] (nano::store::read_transaction const & /*unused*/, auto i, auto n) {
 				// First cache locally
 				opened_account_versions_t opened_account_versions_l (epoch_count);
 				for (; i != n; ++i)
@@ -1979,7 +1979,7 @@ int main (int argc, char * const * argv)
 			nano::locked<boost::unordered_map<nano::account, std::underlying_type_t<nano::epoch>>> unopened_highest_pending_shared;
 			using unopened_highest_pending_t = decltype (unopened_highest_pending_shared)::value_type;
 			node->store.pending.for_each_par (
-			[&unopened_highest_pending_shared, &opened_accounts] (nano::store::read_transaction const & /*unused*/, nano::store::iterator<nano::pending_key, nano::pending_info> i, nano::store::iterator<nano::pending_key, nano::pending_info> n) {
+			[&unopened_highest_pending_shared, &opened_accounts] (nano::store::read_transaction const & /*unused*/, auto i, auto n) {
 				// First cache locally
 				unopened_highest_pending_t unopened_highest_pending_l;
 				for (; i != n; ++i)

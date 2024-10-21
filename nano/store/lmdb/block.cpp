@@ -134,22 +134,23 @@ uint64_t nano::store::lmdb::block::count (store::transaction const & transaction
 {
 	return store.count (transaction_a, tables::blocks);
 }
-nano::store::iterator<nano::block_hash, nano::store::block_w_sideband> nano::store::lmdb::block::begin (store::transaction const & transaction) const
+
+auto nano::store::lmdb::block::begin (store::transaction const & transaction) const -> iterator
 {
 	return store.make_iterator<nano::block_hash, nano::store::block_w_sideband> (transaction, tables::blocks);
 }
 
-nano::store::iterator<nano::block_hash, nano::store::block_w_sideband> nano::store::lmdb::block::begin (store::transaction const & transaction, nano::block_hash const & hash) const
+auto nano::store::lmdb::block::begin (store::transaction const & transaction, nano::block_hash const & hash) const -> iterator
 {
 	return store.make_iterator<nano::block_hash, nano::store::block_w_sideband> (transaction, tables::blocks, hash);
 }
 
-nano::store::iterator<nano::block_hash, nano::store::block_w_sideband> nano::store::lmdb::block::end () const
+auto nano::store::lmdb::block::end () const -> iterator
 {
-	return store::iterator<nano::block_hash, nano::store::block_w_sideband> (nullptr);
+	return iterator{ nullptr };
 }
 
-void nano::store::lmdb::block::for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::block_hash, block_w_sideband>, store::iterator<nano::block_hash, block_w_sideband>)> const & action_a) const
+void nano::store::lmdb::block::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const
 {
 	parallel_traversal<nano::uint256_t> (
 	[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
