@@ -4,50 +4,130 @@
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/threading.hpp>
 
+#include <boost/asio/post.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/asio/thread_pool.hpp>
+
 #include <atomic>
 #include <chrono>
-#include <functional>
 #include <latch>
-
-namespace boost::asio
-{
-class thread_pool;
-}
+#include <memory>
+#include <type_traits>
 
 namespace nano
 {
 class thread_pool final
 {
 public:
-	explicit thread_pool (unsigned num_threads, nano::thread_role::name);
-	~thread_pool ();
+	explicit thread_pool (unsigned num_threads, nano::thread_role::name thread_name) :
+		num_threads{ num_threads },
+		thread_pool_impl{ std::make_unique<boost::asio::thread_pool> (num_threads) },
+		thread_names_latch{ num_threads }
+	{
+		set_thread_names (thread_name);
+	}
 
-	/** This will run when there is an available thread for execution */
-	void push_task (std::function<void ()>);
+	~thread_pool ()
+	{
+		if (alive ())
+		{
+			stop ();
+		}
+	}
 
-	/** Run a task at a certain point in time */
-	void add_timed_task (std::chrono::steady_clock::time_point const & expiry_time, std::function<void ()> task);
+	template <typename F>
+	void push_task (F && task)
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		if (!stopped)
+		{
+			++num_tasks;
+			release_assert (thread_pool_impl);
+			boost::asio::post (*thread_pool_impl, [this, t = std::forward<F> (task)] () mutable {
+				t ();
+				--num_tasks;
+			});
+		}
+	}
 
-	/** Stops any further pushed tasks from executing */
-	void stop ();
+	template <typename F>
+	void add_timed_task (std::chrono::steady_clock::time_point const & expiry_time, F && task)
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		if (!stopped)
+		{
+			release_assert (thread_pool_impl);
+			auto timer = std::make_shared<boost::asio::steady_timer> (thread_pool_impl->get_executor ());
+			timer->expires_at (expiry_time);
+			timer->async_wait ([this, t = std::forward<F> (task), /* preserve lifetime */ timer] (boost::system::error_code const & ec) mutable {
+				if (!ec)
+				{
+					push_task (std::move (t));
+				}
+			});
+		}
+	}
 
-	/** Number of threads in the thread pool */
-	unsigned get_num_threads () const;
+	void stop ()
+	{
+		nano::unique_lock<nano::mutex> lock{ mutex };
+		if (!stopped)
+		{
+			stopped = true;
+#if defined(BOOST_ASIO_HAS_IOCP)
+			// A hack needed for Windows to prevent deadlock during destruction, described here: https://github.com/chriskohlhoff/asio/issues/431
+			boost::asio::use_service<boost::asio::detail::win_iocp_io_context> (*thread_pool_m).stop ();
+#endif
+			lock.unlock ();
+			thread_pool_impl->stop ();
+			thread_pool_impl->join ();
+			lock.lock ();
+			thread_pool_impl = nullptr;
+		}
+	}
 
-	/** Returns the number of tasks which are awaiting execution by the thread pool **/
-	uint64_t num_queued_tasks () const;
+	bool alive () const
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		return thread_pool_impl != nullptr;
+	}
 
-	nano::container_info container_info () const;
+	unsigned get_num_threads () const
+	{
+		return num_threads;
+	}
+
+	uint64_t num_queued_tasks () const
+	{
+		return num_tasks;
+	}
+
+	nano::container_info container_info () const
+	{
+		nano::container_info info;
+		info.put ("tasks", num_queued_tasks ());
+		return info;
+	}
 
 private:
-	nano::mutex mutex;
-	std::atomic<bool> stopped{ false };
-	unsigned num_threads;
-	std::unique_ptr<boost::asio::thread_pool> thread_pool_m;
-	nano::relaxed_atomic_integral<uint64_t> num_tasks{ 0 };
+	void set_thread_names (nano::thread_role::name thread_name)
+	{
+		for (auto i = 0u; i < num_threads; ++i)
+		{
+			boost::asio::post (*thread_pool_impl, [this, thread_name] () {
+				nano::thread_role::set (thread_name);
+				thread_names_latch.arrive_and_wait ();
+			});
+		}
+		thread_names_latch.wait ();
+	}
 
-	/** Set the names of all the threads in the thread pool for easier identification */
+private:
+	unsigned const num_threads;
+	mutable nano::mutex mutex;
+	std::atomic<bool> stopped{ false };
+	std::unique_ptr<boost::asio::thread_pool> thread_pool_impl;
+	std::atomic<uint64_t> num_tasks{ 0 };
 	std::latch thread_names_latch;
-	void set_thread_names (nano::thread_role::name thread_name);
 };
-} // namespace nano
+}
