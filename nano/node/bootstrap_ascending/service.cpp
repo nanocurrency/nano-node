@@ -33,7 +33,6 @@ nano::bootstrap_ascending::service::service (nano::node_config const & node_conf
 	scoring{ config, node_config_a.network_params.network },
 	database_limiter{ config.database_rate_limit, 1.0 }
 {
-	// TODO: This is called from a very congested blockprocessor thread. Offload this work to a dedicated processing thread
 	block_processor.batch_processed.add ([this] (auto const & batch) {
 		{
 			nano::lock_guard<nano::mutex> lock{ mutex };
@@ -217,11 +216,14 @@ void nano::bootstrap_ascending::service::inspect (secure::transaction const & tx
 		{
 			if (source == nano::block_source::bootstrap)
 			{
-				const auto account = block.previous ().is_zero () ? block.account_field ().value () : ledger.any.block_account (tx, block.previous ()).value ();
+				const auto account = block.previous ().is_zero () ? block.account_field ().value () : ledger.any.block_account (tx, block.previous ()).value_or (0);
 				const auto source_hash = block.source_field ().value_or (block.link_field ().value_or (0).as_block_hash ());
 
-				// Mark account as blocked because it is missing the source block
-				accounts.block (account, source_hash);
+				if (!account.is_zero () && !source_hash.is_zero ())
+				{
+					// Mark account as blocked because it is missing the source block
+					accounts.block (account, source_hash);
+				}
 			}
 		}
 		break;
