@@ -92,7 +92,7 @@ private:
 
 		nano::endpoint endpoint () const
 		{
-			return channel->get_endpoint ();
+			return channel->get_remote_endpoint ();
 		}
 	};
 
@@ -105,8 +105,8 @@ private:
 	void run_broadcasts ();
 	void cleanup ();
 
-	void request (std::shared_ptr<nano::transport::channel> &);
-	void broadcast (std::shared_ptr<nano::transport::channel> &, nano::telemetry_data const &);
+	void request (std::shared_ptr<nano::transport::channel> const &);
+	void broadcast (std::shared_ptr<nano::transport::channel> const &, nano::telemetry_data const &);
 
 	bool verify (nano::telemetry_ack const &, std::shared_ptr<nano::transport::channel> const &) const;
 	bool check_timeout (entry const &) const;

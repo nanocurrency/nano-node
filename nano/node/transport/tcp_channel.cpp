@@ -16,8 +16,6 @@ nano::transport::tcp_channel::tcp_channel (nano::node & node_a, std::weak_ptr<na
 
 nano::transport::tcp_channel::~tcp_channel ()
 {
-	nano::lock_guard<nano::mutex> lk{ channel_mutex };
-	// Close socket. Exception: socket is used by tcp_server
 	if (auto socket_l = socket.lock ())
 	{
 		socket_l->close ();
@@ -26,14 +24,14 @@ nano::transport::tcp_channel::~tcp_channel ()
 
 void nano::transport::tcp_channel::update_endpoints ()
 {
-	nano::lock_guard<nano::mutex> lk (channel_mutex);
+	nano::lock_guard<nano::mutex> lock{ mutex };
 
-	debug_assert (endpoint == nano::endpoint{}); // Not initialized endpoint value
+	debug_assert (remote_endpoint == nano::endpoint{}); // Not initialized endpoint value
 	debug_assert (local_endpoint == nano::endpoint{}); // Not initialized endpoint value
 
 	if (auto socket_l = socket.lock ())
 	{
-		endpoint = socket_l->remote_endpoint ();
+		remote_endpoint = socket_l->remote_endpoint ();
 		local_endpoint = socket_l->local_endpoint ();
 	}
 }
@@ -90,7 +88,7 @@ void nano::transport::tcp_channel::send_buffer (nano::shared_const_buffer const 
 
 std::string nano::transport::tcp_channel::to_string () const
 {
-	return nano::util::to_str (get_tcp_endpoint ());
+	return nano::util::to_str (get_remote_endpoint ());
 }
 
 void nano::transport::tcp_channel::operator() (nano::object_stream & obs) const

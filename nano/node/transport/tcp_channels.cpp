@@ -196,9 +196,9 @@ void nano::transport::tcp_channels::random_fill (std::array<nano::endpoint, 8> &
 	auto j (target_a.begin ());
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i, ++j)
 	{
-		debug_assert ((*i)->get_endpoint ().address ().is_v6 ());
+		debug_assert ((*i)->get_remote_endpoint ().address ().is_v6 ());
 		debug_assert (j < target_a.end ());
-		*j = (*i)->get_endpoint ();
+		*j = (*i)->get_remote_endpoint ();
 	}
 }
 
@@ -415,18 +415,6 @@ void nano::transport::tcp_channels::list (std::deque<std::shared_ptr<nano::trans
 		[include_temporary_channels_a, minimum_version_a](auto & channel_a) { return channel_a.channel->get_network_version () >= minimum_version_a; },
 		[](auto const & channel) { return channel.channel; });
 	// clang-format on
-}
-
-void nano::transport::tcp_channels::modify (std::shared_ptr<nano::transport::tcp_channel> const & channel_a, std::function<void (std::shared_ptr<nano::transport::tcp_channel> const &)> modify_callback_a)
-{
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto existing (channels.get<endpoint_tag> ().find (channel_a->get_tcp_endpoint ()));
-	if (existing != channels.get<endpoint_tag> ().end ())
-	{
-		channels.get<endpoint_tag> ().modify (existing, [modify_callback = std::move (modify_callback_a)] (channel_entry & wrapper_a) {
-			modify_callback (wrapper_a.channel);
-		});
-	}
 }
 
 void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint)

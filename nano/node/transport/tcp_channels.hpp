@@ -50,7 +50,6 @@ public:
 	bool track_reachout (nano::endpoint const &);
 	void purge (std::chrono::steady_clock::time_point cutoff_deadline);
 	void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0, bool = true);
-	void modify (std::shared_ptr<nano::transport::tcp_channel> const &, std::function<void (std::shared_ptr<nano::transport::tcp_channel> const &)>);
 	void keepalive ();
 	std::optional<nano::keepalive> sample_keepalive ();
 
@@ -81,7 +80,7 @@ private:
 		}
 		nano::tcp_endpoint endpoint () const
 		{
-			return channel->get_tcp_endpoint ();
+			return channel->get_remote_endpoint ();
 		}
 		std::chrono::steady_clock::time_point last_bootstrap_attempt () const
 		{

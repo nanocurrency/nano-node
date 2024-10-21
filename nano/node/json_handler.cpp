@@ -2991,7 +2991,7 @@ void nano::json_handler::peers ()
 	bool const peer_details = request.get<bool> ("peer_details", false);
 	auto peers_list (node.network.list (std::numeric_limits<std::size_t>::max ()));
 	std::sort (peers_list.begin (), peers_list.end (), [] (auto const & lhs, auto const & rhs) {
-		return lhs->get_endpoint () < rhs->get_endpoint ();
+		return lhs->get_remote_endpoint () < rhs->get_remote_endpoint ();
 	});
 	for (auto i (peers_list.begin ()), n (peers_list.end ()); i != n; ++i)
 	{
@@ -3003,9 +3003,9 @@ void nano::json_handler::peers ()
 			boost::property_tree::ptree pending_tree;
 			pending_tree.put ("protocol_version", std::to_string (channel->get_network_version ()));
 			auto node_id_l (channel->get_node_id_optional ());
-			if (node_id_l.is_initialized ())
+			if (node_id_l.has_value ())
 			{
-				pending_tree.put ("node_id", node_id_l.get ().to_node_id ());
+				pending_tree.put ("node_id", node_id_l.value ().to_node_id ());
 			}
 			else
 			{

@@ -209,7 +209,7 @@ void nano::telemetry::run_requests ()
 	}
 }
 
-void nano::telemetry::request (std::shared_ptr<nano::transport::channel> & channel)
+void nano::telemetry::request (std::shared_ptr<nano::transport::channel> const & channel)
 {
 	stats.inc (nano::stat::type::telemetry, nano::stat::detail::request);
 
@@ -228,7 +228,7 @@ void nano::telemetry::run_broadcasts ()
 	}
 }
 
-void nano::telemetry::broadcast (std::shared_ptr<nano::transport::channel> & channel, const nano::telemetry_data & telemetry)
+void nano::telemetry::broadcast (std::shared_ptr<nano::transport::channel> const & channel, const nano::telemetry_data & telemetry)
 {
 	stats.inc (nano::stat::type::telemetry, nano::stat::detail::broadcast);
 

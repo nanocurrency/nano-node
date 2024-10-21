@@ -45,22 +45,20 @@ void nano::transport::channel::send (nano::message & message_a, std::function<vo
 
 void nano::transport::channel::set_peering_endpoint (nano::endpoint endpoint)
 {
-	nano::lock_guard<nano::mutex> lock{ channel_mutex };
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	peering_endpoint = endpoint;
 }
 
 nano::endpoint nano::transport::channel::get_peering_endpoint () const
 {
-	nano::unique_lock<nano::mutex> lock{ channel_mutex };
-	if (peering_endpoint)
 	{
-		return *peering_endpoint;
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		if (peering_endpoint)
+		{
+			return *peering_endpoint;
+		}
 	}
-	else
-	{
-		lock.unlock ();
-		return get_endpoint ();
-	}
+	return get_remote_endpoint ();
 }
 
 std::shared_ptr<nano::node> nano::transport::channel::owner () const
@@ -70,7 +68,8 @@ std::shared_ptr<nano::node> nano::transport::channel::owner () const
 
 void nano::transport::channel::operator() (nano::object_stream & obs) const
 {
-	obs.write ("endpoint", get_endpoint ());
+	obs.write ("remote_endpoint", get_remote_endpoint ());
+	obs.write ("local_endpoint", get_local_endpoint ());
 	obs.write ("peering_endpoint", get_peering_endpoint ());
 	obs.write ("node_id", get_node_id ().to_node_id ());
 }

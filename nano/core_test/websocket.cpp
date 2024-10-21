@@ -1005,7 +1005,7 @@ TEST (websocket, telemetry)
 
 	auto channel = node1->network.find_node_id (node2->get_node_id ());
 	ASSERT_NE (channel, nullptr);
-	ASSERT_TIMELY (5s, node1->telemetry.get_telemetry (channel->get_endpoint ()));
+	ASSERT_TIMELY (5s, node1->telemetry.get_telemetry (channel->get_remote_endpoint ()));
 
 	ASSERT_TIMELY_EQ (10s, future.wait_for (0s), std::future_status::ready);
 
