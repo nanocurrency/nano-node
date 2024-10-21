@@ -27,7 +27,7 @@ std::vector<nano::block_hash> nano::store::lmdb::final_vote::get (store::transac
 {
 	std::vector<nano::block_hash> result;
 	nano::qualified_root key_start{ root_a.raw, 0 };
-	for (auto i = begin (transaction, key_start), n = end (); i != n && nano::qualified_root{ i->first }.root () == root_a; ++i)
+	for (auto i = begin (transaction, key_start), n = end (transaction); i != n && nano::qualified_root{ i->first }.root () == root_a; ++i)
 	{
 		result.push_back (i->second);
 	}
@@ -37,7 +37,7 @@ std::vector<nano::block_hash> nano::store::lmdb::final_vote::get (store::transac
 void nano::store::lmdb::final_vote::del (store::write_transaction const & transaction, nano::root const & root)
 {
 	std::vector<nano::qualified_root> final_vote_qualified_roots;
-	for (auto i = begin (transaction, nano::qualified_root{ root.raw, 0 }), n = end (); i != n && nano::qualified_root{ i->first }.root () == root; ++i)
+	for (auto i = begin (transaction, nano::qualified_root{ root.raw, 0 }), n = end (transaction); i != n && nano::qualified_root{ i->first }.root () == root; ++i)
 	{
 		final_vote_qualified_roots.push_back (i->first);
 	}
@@ -74,7 +74,7 @@ auto nano::store::lmdb::final_vote::begin (store::transaction const & transactio
 	return store.make_iterator<nano::qualified_root, nano::block_hash> (transaction, tables::final_votes);
 }
 
-auto nano::store::lmdb::final_vote::end () const -> iterator
+auto nano::store::lmdb::final_vote::end (store::transaction const & transaction_a) const -> iterator
 {
 	return iterator{ nullptr };
 }
@@ -84,6 +84,6 @@ void nano::store::lmdb::final_vote::for_each_par (std::function<void (store::rea
 	parallel_traversal<nano::uint512_t> (
 	[&action_a, this] (nano::uint512_t const & start, nano::uint512_t const & end, bool const is_last) {
 		auto transaction (this->store.tx_begin_read ());
-		action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end ());
+		action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end (transaction));
 	});
 }

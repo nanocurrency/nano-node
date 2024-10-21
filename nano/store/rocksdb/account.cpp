@@ -34,7 +34,7 @@ void nano::store::rocksdb::account::del (store::write_transaction const & transa
 bool nano::store::rocksdb::account::exists (store::transaction const & transaction_a, nano::account const & account_a)
 {
 	auto iterator (begin (transaction_a, account_a));
-	return iterator != end () && nano::account (iterator->first) == account_a;
+	return iterator != end (transaction_a) && nano::account (iterator->first) == account_a;
 }
 
 size_t nano::store::rocksdb::account::count (store::transaction const & transaction_a)
@@ -57,7 +57,7 @@ auto nano::store::rocksdb::account::rbegin (store::transaction const & transacti
 	return store.make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, false);
 }
 
-auto nano::store::rocksdb::account::end () const -> iterator
+auto nano::store::rocksdb::account::end (store::transaction const & transaction_a) const -> iterator
 {
 	return iterator{ nullptr };
 }
@@ -67,6 +67,6 @@ void nano::store::rocksdb::account::for_each_par (std::function<void (store::rea
 	parallel_traversal<nano::uint256_t> (
 	[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
 		auto transaction (this->store.tx_begin_read ());
-		action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end ());
+		action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end (transaction));
 	});
 }

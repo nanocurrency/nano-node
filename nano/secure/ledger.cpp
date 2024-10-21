@@ -1429,12 +1429,12 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		auto rocksdb_transaction (rocksdb_store->tx_begin_write ());
 		rocksdb_store->version.put (rocksdb_transaction, version);
 
-		for (auto i (store.online_weight.begin (lmdb_transaction)), n (store.online_weight.end ()); i != n; ++i)
+		for (auto i (store.online_weight.begin (lmdb_transaction)), n (store.online_weight.end (lmdb_transaction)); i != n; ++i)
 		{
 			rocksdb_store->online_weight.put (rocksdb_transaction, i->first, i->second);
 		}
 
-		for (auto i (store.peer.begin (lmdb_transaction)), n (store.peer.end ()); i != n; ++i)
+		for (auto i (store.peer.begin (lmdb_transaction)), n (store.peer.end (lmdb_transaction)); i != n; ++i)
 		{
 			rocksdb_store->peer.put (rocksdb_transaction, i->first, i->second);
 		}

@@ -110,11 +110,11 @@ std::shared_ptr<nano::block> nano::store::rocksdb::block::random (store::transac
 	nano::block_hash hash;
 	nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 	auto existing = begin (transaction, hash);
-	if (existing == end ())
+	if (existing == end (transaction))
 	{
 		existing = begin (transaction);
 	}
-	debug_assert (existing != end ());
+	debug_assert (existing != end (transaction));
 	return existing->second.block;
 }
 
@@ -144,7 +144,7 @@ auto nano::store::rocksdb::block::begin (store::transaction const & transaction,
 	return store.make_iterator<nano::block_hash, nano::store::block_w_sideband> (transaction, tables::blocks, hash);
 }
 
-auto nano::store::rocksdb::block::end () const -> iterator
+auto nano::store::rocksdb::block::end (store::transaction const & transaction_a) const -> iterator
 {
 	return iterator{ nullptr };
 }
@@ -154,7 +154,7 @@ void nano::store::rocksdb::block::for_each_par (std::function<void (store::read_
 	parallel_traversal<nano::uint256_t> (
 	[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
 		auto transaction (this->store.tx_begin_read ());
-		action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end ());
+		action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end (transaction));
 	});
 }
 

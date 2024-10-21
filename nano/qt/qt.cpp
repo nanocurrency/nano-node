@@ -268,7 +268,7 @@ void nano_qt::accounts::refresh_wallet_balance ()
 	auto block_transaction = this->wallet.node.ledger.tx_begin_read ();
 	nano::uint128_t balance (0);
 	nano::uint128_t pending (0);
-	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
+	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end (transaction)); i != j; ++i)
 	{
 		nano::public_key const & key (i->first);
 		balance = balance + this->wallet.node.ledger.any.account_balance (block_transaction, key).value_or (0).number ();
@@ -293,7 +293,7 @@ void nano_qt::accounts::refresh ()
 	auto transaction (wallet.wallet_m->wallets.tx_begin_read ());
 	auto block_transaction = this->wallet.node.ledger.tx_begin_read ();
 	QBrush brush;
-	for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end ()); i != j; ++i)
+	for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end (transaction)); i != j; ++i)
 	{
 		nano::public_key key (i->first);
 		auto balance_amount = wallet.node.ledger.any.account_balance (block_transaction, key).value_or (0).number ();
@@ -1973,7 +1973,7 @@ void nano_qt::advanced_actions::refresh_ledger ()
 {
 	ledger_model->removeRows (0, ledger_model->rowCount ());
 	auto transaction (wallet.node.ledger.tx_begin_read ());
-	for (auto i (wallet.node.ledger.store.account.begin (transaction)), j (wallet.node.ledger.store.account.end ()); i != j; ++i)
+	for (auto i (wallet.node.ledger.store.account.begin (transaction)), j (wallet.node.ledger.store.account.end (transaction)); i != j; ++i)
 	{
 		QList<QStandardItem *> items;
 		items.push_back (new QStandardItem (QString (i->first.to_account ().c_str ())));

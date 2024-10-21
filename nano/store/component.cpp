@@ -28,7 +28,7 @@ nano::store::component::component (nano::store::block & block_store_a, nano::sto
 void nano::store::component::initialize (store::write_transaction const & transaction_a, nano::ledger_cache & ledger_cache_a, nano::ledger_constants & constants)
 {
 	debug_assert (constants.genesis->has_sideband ());
-	debug_assert (account.begin (transaction_a) == account.end ());
+	debug_assert (account.begin (transaction_a) == account.end (transaction_a));
 	auto hash_l (constants.genesis->hash ());
 	block.put (transaction_a, hash_l, *constants.genesis);
 	++ledger_cache_a.block_count;

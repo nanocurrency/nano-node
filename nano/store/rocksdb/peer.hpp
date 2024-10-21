@@ -22,6 +22,6 @@ public:
 	size_t count (store::transaction const &) const override;
 	void clear (store::write_transaction const &) override;
 	iterator begin (store::transaction const &) const override;
-	iterator end () const override;
+	iterator end (store::transaction const & transaction_a) const override;
 };
 } // namespace nano::store::rocksdb

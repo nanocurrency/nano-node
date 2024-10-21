@@ -95,9 +95,9 @@ TEST (system, DISABLED_generate_send_new)
 	{
 		auto transaction (node1.store.tx_begin_read ());
 		auto iterator1 (node1.store.account.begin (transaction));
-		ASSERT_NE (node1.store.account.end (), iterator1);
+		ASSERT_NE (node1.store.account.end (transaction), iterator1);
 		++iterator1;
-		ASSERT_EQ (node1.store.account.end (), iterator1);
+		ASSERT_EQ (node1.store.account.end (transaction), iterator1);
 	}
 	nano::keypair stake_preserver;
 	auto send_block (system.wallet (0)->send_action (nano::dev::genesis_key.pub, stake_preserver.pub, nano::dev::constants.genesis_amount / 3 * 2, true));
@@ -130,13 +130,13 @@ TEST (system, DISABLED_generate_send_new)
 			new_account = iterator2->first;
 		}
 		++iterator2;
-		ASSERT_NE (system.wallet (0)->store.end (), iterator2);
+		ASSERT_NE (system.wallet (0)->store.end (transaction), iterator2);
 		if (iterator2->first != nano::dev::genesis_key.pub)
 		{
 			new_account = iterator2->first;
 		}
 		++iterator2;
-		ASSERT_EQ (system.wallet (0)->store.end (), iterator2);
+		ASSERT_EQ (system.wallet (0)->store.end (transaction), iterator2);
 		ASSERT_FALSE (new_account.is_zero ());
 	}
 	ASSERT_TIMELY (10s, node1.balance (new_account) != 0);

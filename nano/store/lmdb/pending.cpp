@@ -36,13 +36,13 @@ std::optional<nano::pending_info> nano::store::lmdb::pending::get (store::transa
 bool nano::store::lmdb::pending::exists (store::transaction const & transaction_a, nano::pending_key const & key_a)
 {
 	auto iterator (begin (transaction_a, key_a));
-	return iterator != end () && nano::pending_key (iterator->first) == key_a;
+	return iterator != end (transaction_a) && nano::pending_key (iterator->first) == key_a;
 }
 
 bool nano::store::lmdb::pending::any (store::transaction const & transaction_a, nano::account const & account_a)
 {
 	auto iterator (begin (transaction_a, nano::pending_key (account_a, 0)));
-	return iterator != end () && nano::pending_key (iterator->first).account == account_a;
+	return iterator != end (transaction_a) && nano::pending_key (iterator->first).account == account_a;
 }
 
 auto nano::store::lmdb::pending::begin (store::transaction const & transaction_a, nano::pending_key const & key_a) const -> iterator
@@ -55,7 +55,7 @@ auto nano::store::lmdb::pending::begin (store::transaction const & transaction_a
 	return store.make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending);
 }
 
-auto nano::store::lmdb::pending::end () const -> iterator
+auto nano::store::lmdb::pending::end (store::transaction const & transaction_a) const -> iterator
 {
 	return iterator{ nullptr };
 }
@@ -69,6 +69,6 @@ void nano::store::lmdb::pending::for_each_par (std::function<void (store::read_t
 		nano::pending_key key_start (union_start.uint256s[0].number (), union_start.uint256s[1].number ());
 		nano::pending_key key_end (union_end.uint256s[0].number (), union_end.uint256s[1].number ());
 		auto transaction (this->store.tx_begin_read ());
-		action_a (transaction, this->begin (transaction, key_start), !is_last ? this->begin (transaction, key_end) : this->end ());
+		action_a (transaction, this->begin (transaction, key_start), !is_last ? this->begin (transaction, key_end) : this->end (transaction));
 	});
 }

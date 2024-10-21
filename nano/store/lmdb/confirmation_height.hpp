@@ -25,7 +25,7 @@ public:
 	void clear (store::write_transaction const & transaction_a) override;
 	iterator begin (store::transaction const & transaction_a, nano::account const & account_a) const override;
 	iterator begin (store::transaction const & transaction_a) const override;
-	iterator end () const override;
+	iterator end (store::transaction const & transaction_a) const override;
 	void for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const override;
 
 	/*

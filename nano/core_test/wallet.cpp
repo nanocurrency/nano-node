@@ -104,7 +104,7 @@ TEST (wallet, empty_iteration)
 	nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
 	ASSERT_FALSE (init);
 	auto i (wallet.begin (transaction));
-	auto j (wallet.end ());
+	auto j (wallet.end (transaction));
 	ASSERT_EQ (i, j);
 }
 
@@ -119,7 +119,7 @@ TEST (wallet, one_item_iteration)
 	ASSERT_FALSE (init);
 	nano::keypair key1;
 	wallet.insert_adhoc (transaction, key1.prv);
-	for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
+	for (auto i (wallet.begin (transaction)), j (wallet.end (transaction)); i != j; ++i)
 	{
 		ASSERT_EQ (key1.pub, nano::uint256_union (i->first));
 		nano::raw_key password;
@@ -147,7 +147,7 @@ TEST (wallet, two_item_iteration)
 		ASSERT_FALSE (init);
 		wallet.insert_adhoc (transaction, key1.prv);
 		wallet.insert_adhoc (transaction, key2.prv);
-		for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
+		for (auto i (wallet.begin (transaction)), j (wallet.end (transaction)); i != j; ++i)
 		{
 			pubs.insert (i->first);
 			nano::raw_key password;
@@ -266,7 +266,7 @@ TEST (wallet, find_none)
 	nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
 	ASSERT_FALSE (init);
 	nano::account account (1000);
-	ASSERT_EQ (wallet.end (), wallet.find (transaction, account));
+	ASSERT_EQ (wallet.end (transaction), wallet.find (transaction, account));
 }
 
 TEST (wallet, find_existing)
@@ -283,9 +283,9 @@ TEST (wallet, find_existing)
 	wallet.insert_adhoc (transaction, key1.prv);
 	ASSERT_TRUE (wallet.exists (transaction, key1.pub));
 	auto existing (wallet.find (transaction, key1.pub));
-	ASSERT_NE (wallet.end (), existing);
+	ASSERT_NE (wallet.end (transaction), existing);
 	++existing;
-	ASSERT_EQ (wallet.end (), existing);
+	ASSERT_EQ (wallet.end (transaction), existing);
 }
 
 TEST (wallet, rekey)
@@ -487,8 +487,8 @@ TEST (wallet, serialize_json_empty)
 	ASSERT_EQ (wallet1.salt (transaction), wallet2.salt (transaction));
 	ASSERT_EQ (wallet1.check (transaction), wallet2.check (transaction));
 	ASSERT_EQ (wallet1.representative (transaction), wallet2.representative (transaction));
-	ASSERT_EQ (wallet1.end (), wallet1.begin (transaction));
-	ASSERT_EQ (wallet2.end (), wallet2.begin (transaction));
+	ASSERT_EQ (wallet1.end (transaction), wallet1.begin (transaction));
+	ASSERT_EQ (wallet2.end (transaction), wallet2.begin (transaction));
 }
 
 TEST (wallet, serialize_json_one)

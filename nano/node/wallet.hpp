@@ -95,7 +95,7 @@ public:
 	iterator find (store::transaction const &, nano::account const &);
 	iterator begin (store::transaction const &, nano::account const &);
 	iterator begin (store::transaction const &);
-	iterator end ();
+	iterator end (store::transaction const &);
 	void derive_key (nano::raw_key &, store::transaction const &, std::string const &);
 	void serialize_json (store::transaction const &, std::string &);
 	void write_backup (store::transaction const &, std::filesystem::path const &);

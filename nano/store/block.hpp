@@ -36,7 +36,7 @@ public:
 	virtual uint64_t count (store::transaction const &) = 0;
 	virtual iterator begin (store::transaction const &, nano::block_hash const &) const = 0;
 	virtual iterator begin (store::transaction const &) const = 0;
-	virtual iterator end () const = 0;
+	virtual iterator end (store::transaction const &) const = 0;
 	virtual void for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const = 0;
 };
 } // namespace nano::store

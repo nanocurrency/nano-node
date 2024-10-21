@@ -69,7 +69,7 @@ auto nano::store::lmdb::confirmation_height::begin (store::transaction const & t
 	return store.make_iterator<nano::account, nano::confirmation_height_info> (transaction, tables::confirmation_height);
 }
 
-auto nano::store::lmdb::confirmation_height::end () const -> iterator
+auto nano::store::lmdb::confirmation_height::end (store::transaction const & transaction_a) const -> iterator
 {
 	return iterator{ nullptr };
 }
@@ -79,6 +79,6 @@ void nano::store::lmdb::confirmation_height::for_each_par (std::function<void (s
 	parallel_traversal<nano::uint256_t> (
 	[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
 		auto transaction (this->store.tx_begin_read ());
-		action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end ());
+		action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end (transaction));
 	});
 }

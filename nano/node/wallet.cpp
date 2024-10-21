@@ -114,7 +114,7 @@ void nano::wallet_store::deterministic_index_set (store::transaction const & tra
 void nano::wallet_store::deterministic_clear (store::transaction const & transaction_a)
 {
 	nano::uint256_union key (0);
-	for (auto i (begin (transaction_a)), n (end ()); i != n;)
+	for (auto i (begin (transaction_a)), n (end (transaction_a)); i != n;)
 	{
 		switch (key_type (nano::wallet_value (i->second)))
 		{
@@ -370,7 +370,7 @@ nano::wallet_store::wallet_store (bool & init_a, nano::kdf & kdf_a, store::trans
 std::vector<nano::account> nano::wallet_store::accounts (store::transaction const & transaction_a)
 {
 	std::vector<nano::account> result;
-	for (auto i (begin (transaction_a)), n (end ()); i != n; ++i)
+	for (auto i (begin (transaction_a)), n (end (transaction_a)); i != n; ++i)
 	{
 		nano::account const & account (i->first);
 		result.push_back (account);
@@ -542,7 +542,7 @@ bool nano::wallet_store::valid_public_key (nano::public_key const & pub)
 
 bool nano::wallet_store::exists (store::transaction const & transaction_a, nano::public_key const & pub)
 {
-	return valid_public_key (pub) && find (transaction_a, pub) != end ();
+	return valid_public_key (pub) && find (transaction_a, pub) != end (transaction_a);
 }
 
 void nano::wallet_store::serialize_json (store::transaction const & transaction_a, std::string & string_a)
@@ -597,7 +597,7 @@ bool nano::wallet_store::import (store::transaction const & transaction_a, nano:
 	debug_assert (valid_password (transaction_a));
 	debug_assert (other_a.valid_password (transaction_a));
 	auto result (false);
-	for (auto i (other_a.begin (transaction_a)), n (end ()); i != n; ++i)
+	for (auto i (other_a.begin (transaction_a)), n (end (transaction_a)); i != n; ++i)
 	{
 		nano::raw_key prv;
 		auto error (other_a.fetch (transaction_a, i->first, prv));
@@ -910,7 +910,7 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 		if (store.valid_password (transaction))
 		{
 			auto existing (store.find (transaction, source_a));
-			if (existing != store.end () && !wallets.node.ledger.any.account_head (block_transaction, source_a).is_zero ())
+			if (existing != store.end (transaction) && !wallets.node.ledger.any.account_head (block_transaction, source_a).is_zero ())
 			{
 				auto info = wallets.node.ledger.any.account_get (block_transaction, source_a);
 				debug_assert (info);
@@ -977,7 +977,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 			if (store.valid_password (transaction))
 			{
 				auto existing (store.find (transaction, source_a));
-				if (existing != store.end ())
+				if (existing != store.end (transaction))
 				{
 					auto balance (wallets.node.ledger.any.account_balance (block_transaction, source_a));
 					if (balance && balance.value ().number () >= amount_a)
@@ -1178,14 +1178,14 @@ bool nano::wallet::search_receivable (store::transaction const & wallet_transact
 	{
 		wallets.node.logger.info (nano::log::type::wallet, "Beginning receivable block search");
 
-		for (auto i (store.begin (wallet_transaction_a)), n (store.end ()); i != n; ++i)
+		for (auto i (store.begin (wallet_transaction_a)), n (store.end (wallet_transaction_a)); i != n; ++i)
 		{
 			auto block_transaction = wallets.node.ledger.tx_begin_read ();
 			nano::account const & account (i->first);
 			// Don't search pending for watch-only accounts
 			if (!nano::wallet_value (i->second).key.is_zero ())
 			{
-				for (auto j (wallets.node.store.pending.begin (block_transaction, nano::pending_key (account, 0))), k (wallets.node.store.pending.end ()); j != k && nano::pending_key (j->first).account == account; ++j)
+				for (auto j (wallets.node.store.pending.begin (block_transaction, nano::pending_key (account, 0))), k (wallets.node.store.pending.end (block_transaction)); j != k && nano::pending_key (j->first).account == account; ++j)
 				{
 					nano::pending_key key (j->first);
 					auto hash (key.hash);
@@ -1227,7 +1227,7 @@ bool nano::wallet::search_receivable (store::transaction const & wallet_transact
 void nano::wallet::init_free_accounts (store::transaction const & transaction_a)
 {
 	free_accounts.clear ();
-	for (auto i (store.begin (transaction_a)), n (store.end ()); i != n; ++i)
+	for (auto i (store.begin (transaction_a)), n (store.end (transaction_a)); i != n; ++i)
 	{
 		free_accounts.insert (i->first);
 	}
@@ -1686,7 +1686,7 @@ void nano::wallets::compute_reps ()
 	{
 		auto & wallet (*i->second);
 		decltype (wallet.representatives) representatives_l;
-		for (auto ii (wallet.store.begin (transaction)), nn (wallet.store.end ()); ii != nn; ++ii)
+		for (auto ii (wallet.store.begin (transaction)), nn (wallet.store.end (transaction)); ii != nn; ++ii)
 		{
 			auto account (ii->first);
 			if (check_rep (account, half_principal_weight, false))
@@ -1787,7 +1787,7 @@ auto nano::wallet_store::find (store::transaction const & transaction_a, nano::a
 	return result;
 }
 
-auto nano::wallet_store::end () -> iterator
+auto nano::wallet_store::end (store::transaction const & transaction_a) -> iterator
 {
 	return iterator{ nullptr };
 }

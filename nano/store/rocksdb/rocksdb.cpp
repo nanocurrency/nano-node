@@ -292,7 +292,10 @@ void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transacti
 		transaction.refresh ();
 	}
 
-	release_assert (rep_weight.begin (tx_begin_read ()) == rep_weight.end (), "rep weights table must be empty before upgrading to v23");
+	{
+		auto tx = tx_begin_read ();
+		release_assert (rep_weight.begin (tx) == rep_weight.end (tx), "rep weights table must be empty before upgrading to v23");
+	}
 
 	auto iterate_accounts = [this] (auto && func) {
 		auto transaction = tx_begin_read ();
@@ -598,14 +601,14 @@ uint64_t nano::store::rocksdb::component::count (store::transaction const & tran
 	// Peers/online weight are small enough that they can just be iterated to get accurate counts.
 	if (table_a == tables::peers)
 	{
-		for (auto i (peer.begin (transaction_a)), n (peer.end ()); i != n; ++i)
+		for (auto i (peer.begin (transaction_a)), n (peer.end (transaction_a)); i != n; ++i)
 		{
 			++sum;
 		}
 	}
 	else if (table_a == tables::online_weight)
 	{
-		for (auto i (online_weight.begin (transaction_a)), n (online_weight.end ()); i != n; ++i)
+		for (auto i (online_weight.begin (transaction_a)), n (online_weight.end (transaction_a)); i != n; ++i)
 		{
 			++sum;
 		}
@@ -624,7 +627,7 @@ uint64_t nano::store::rocksdb::component::count (store::transaction const & tran
 	// otherwise there can be performance issues.
 	else if (table_a == tables::accounts)
 	{
-		for (auto i (account.begin (transaction_a)), n (account.end ()); i != n; ++i)
+		for (auto i (account.begin (transaction_a)), n (account.end (transaction_a)); i != n; ++i)
 		{
 			++sum;
 		}
@@ -632,14 +635,14 @@ uint64_t nano::store::rocksdb::component::count (store::transaction const & tran
 	else if (table_a == tables::blocks)
 	{
 		// This is also used in some CLI commands
-		for (auto i (block.begin (transaction_a)), n (block.end ()); i != n; ++i)
+		for (auto i (block.begin (transaction_a)), n (block.end (transaction_a)); i != n; ++i)
 		{
 			++sum;
 		}
 	}
 	else if (table_a == tables::confirmation_height)
 	{
-		for (auto i (confirmation_height.begin (transaction_a)), n (confirmation_height.end ()); i != n; ++i)
+		for (auto i (confirmation_height.begin (transaction_a)), n (confirmation_height.end (transaction_a)); i != n; ++i)
 		{
 			++sum;
 		}
@@ -647,7 +650,7 @@ uint64_t nano::store::rocksdb::component::count (store::transaction const & tran
 	// rep_weights should only be used in tests otherwise there can be performance issues.
 	else if (table_a == tables::rep_weights)
 	{
-		for (auto i (rep_weight.begin (transaction_a)), n (rep_weight.end ()); i != n; ++i)
+		for (auto i (rep_weight.begin (transaction_a)), n (rep_weight.end (transaction_a)); i != n; ++i)
 		{
 			++sum;
 		}
@@ -673,7 +676,7 @@ int nano::store::rocksdb::component::drop (store::write_transaction const & tran
 		if (table_a == tables::peers)
 		{
 			int status = 0;
-			for (auto i = peer.begin (transaction_a), n = peer.end (); i != n; ++i)
+			for (auto i = peer.begin (transaction_a), n = peer.end (transaction_a); i != n; ++i)
 			{
 				status = del (transaction_a, tables::peers, nano::store::rocksdb::db_val (i->first));
 				release_assert (success (status));

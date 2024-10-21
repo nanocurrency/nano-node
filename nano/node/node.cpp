@@ -311,7 +311,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 		auto is_initialized (false);
 		{
 			auto const transaction (store.tx_begin_read ());
-			is_initialized = (store.account.begin (transaction) != store.account.end ());
+			is_initialized = (store.account.begin (transaction) != store.account.end (transaction));
 		}
 
 		if (!is_initialized && !flags.read_only)
@@ -754,7 +754,7 @@ void nano::node::long_inactivity_cleanup ()
 	if (store.online_weight.count (transaction) > 0)
 	{
 		auto sample (store.online_weight.rbegin (transaction));
-		auto n (store.online_weight.end ());
+		auto n (store.online_weight.end (transaction));
 		debug_assert (sample != n);
 		auto const one_week_ago = static_cast<std::size_t> ((std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ());
 		perform_cleanup = sample->first < one_week_ago;
@@ -803,7 +803,7 @@ void nano::node::ongoing_bootstrap ()
 			{
 				auto transaction = store.tx_begin_read ();
 				auto last_record = store.online_weight.rbegin (transaction);
-				if (last_record != store.online_weight.end ())
+				if (last_record != store.online_weight.end (transaction))
 				{
 					last_sample_time = last_record->first;
 				}
@@ -870,7 +870,7 @@ void nano::node::bootstrap_wallet ()
 		{
 			auto & wallet (*i->second);
 			nano::lock_guard<std::recursive_mutex> wallet_lock{ wallet.store.mutex };
-			for (auto j (wallet.store.begin (transaction)), m (wallet.store.end ()); j != m && accounts.size () < 128; ++j)
+			for (auto j (wallet.store.begin (transaction)), m (wallet.store.end (transaction)); j != m && accounts.size () < 128; ++j)
 			{
 				nano::account account (j->first);
 				accounts.push_back (account);
@@ -888,7 +888,7 @@ bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & 
 	uint64_t read_operations (0);
 	bool finish_transaction (false);
 	auto transaction = ledger.tx_begin_read ();
-	for (auto i (store.confirmation_height.begin (transaction, last_account_a)), n (store.confirmation_height.end ()); i != n && !finish_transaction;)
+	for (auto i (store.confirmation_height.begin (transaction, last_account_a)), n (store.confirmation_height.end (transaction)); i != n && !finish_transaction;)
 	{
 		++read_operations;
 		auto const & account (i->first);
