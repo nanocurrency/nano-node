@@ -144,7 +144,7 @@ void nano::bulk_push_server::throttled_receive ()
 	else
 	{
 		auto this_l (shared_from_this ());
-		node->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_l] () {
+		node->workers.post_timed (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_l] () {
 			if (!this_l->connection->stopped)
 			{
 				this_l->throttled_receive ();

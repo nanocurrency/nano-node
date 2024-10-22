@@ -609,7 +609,7 @@ void nano::node::start ()
 	{
 		// Delay to start wallet lazy bootstrap
 		auto this_l (shared ());
-		workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::minutes (1), [this_l] () {
+		workers.post_timed (std::chrono::steady_clock::now () + std::chrono::minutes (1), [this_l] () {
 			this_l->bootstrap_wallet ();
 		});
 	}
@@ -829,7 +829,7 @@ void nano::node::ongoing_bootstrap ()
 	// Bootstrap and schedule for next attempt
 	bootstrap_initiator.bootstrap (false, boost::str (boost::format ("auto_bootstrap_%1%") % previous_bootstrap_count), frontiers_age);
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	workers.add_timed_task (std::chrono::steady_clock::now () + next_wakeup, [node_w] () {
+	workers.post_timed (std::chrono::steady_clock::now () + next_wakeup, [node_w] () {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_bootstrap ();
@@ -850,7 +850,7 @@ void nano::node::backup_wallet ()
 		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
 	}
 	auto this_l (shared ());
-	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.backup_interval, [this_l] () {
+	workers.post_timed (std::chrono::steady_clock::now () + network_params.node.backup_interval, [this_l] () {
 		this_l->backup_wallet ();
 	});
 }
@@ -862,7 +862,7 @@ void nano::node::search_receivable_all ()
 	// Search pending
 	wallets.search_receivable_all ();
 	auto this_l (shared ());
-	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.search_pending_interval, [this_l] () {
+	workers.post_timed (std::chrono::steady_clock::now () + network_params.node.search_pending_interval, [this_l] () {
 		this_l->search_receivable_all ();
 	});
 }
@@ -987,7 +987,7 @@ void nano::node::ongoing_ledger_pruning ()
 	ledger_pruning (flags.block_processor_batch_size != 0 ? flags.block_processor_batch_size : 2 * 1024, bootstrap_weight_reached);
 	auto const ledger_pruning_interval (bootstrap_weight_reached ? config.max_pruning_age : std::min (config.max_pruning_age, std::chrono::seconds (15 * 60)));
 	auto this_l (shared ());
-	workers.add_timed_task (std::chrono::steady_clock::now () + ledger_pruning_interval, [this_l] () {
+	workers.post_timed (std::chrono::steady_clock::now () + ledger_pruning_interval, [this_l] () {
 		this_l->workers.post ([this_l] () {
 			this_l->ongoing_ledger_pruning ();
 		});
@@ -1132,7 +1132,7 @@ bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & ha
 void nano::node::ongoing_online_weight_calculation_queue ()
 {
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	workers.add_timed_task (std::chrono::steady_clock::now () + (std::chrono::seconds (network_params.node.weight_period)), [node_w] () {
+	workers.post_timed (std::chrono::steady_clock::now () + (std::chrono::seconds (network_params.node.weight_period)), [node_w] () {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_online_weight_calculation ();
@@ -1171,7 +1171,7 @@ void nano::node::process_confirmed (nano::block_hash hash, std::shared_ptr<nano:
 		stats.inc (nano::stat::type::process_confirmed, nano::stat::detail::retry);
 
 		// Try again later
-		election_workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [this, hash, election, iteration] () {
+		election_workers.post_timed (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [this, hash, election, iteration] () {
 			process_confirmed (hash, election, iteration + 1);
 		});
 	}

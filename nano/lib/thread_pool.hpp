@@ -84,7 +84,7 @@ public:
 	}
 
 	template <typename F>
-	void add_timed_task (std::chrono::steady_clock::time_point const & expiry_time, F && task)
+	void post_timed (std::chrono::steady_clock::time_point const & expiry_time, F && task)
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		if (!stopped)

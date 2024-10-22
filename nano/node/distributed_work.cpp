@@ -403,7 +403,7 @@ void nano::distributed_work::handle_failure ()
 			auto now (std::chrono::steady_clock::now ());
 			std::weak_ptr<nano::node> node_weak (node.shared ());
 			auto next_backoff (std::min (backoff * 2, std::chrono::seconds (5 * 60)));
-			node.workers.add_timed_task (now + std::chrono::seconds (backoff), [node_weak, request_l = request, next_backoff] {
+			node.workers.post_timed (now + std::chrono::seconds (backoff), [node_weak, request_l = request, next_backoff] {
 				bool error_l{ true };
 				if (auto node_l = node_weak.lock ())
 				{
