@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/stream.hpp>
+#include <nano/lib/thread_pool.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
@@ -68,6 +69,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, uint16_t pe
 nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesystem::path const & application_path_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
 	node_id{ load_or_create_node_id (application_path_a) },
 	config{ config_a },
+	flags{ flags_a },
 	io_ctx_shared{ std::make_shared<boost::asio::io_context> () },
 	io_ctx{ *io_ctx_shared },
 	logger{ make_logger_identifier (node_id) },
@@ -76,11 +78,14 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	node_initialized_latch (1),
 	network_params{ config.network_params },
 	stats{ logger, config.stats_config },
-	workers{ config.background_threads, nano::thread_role::name::worker },
-	bootstrap_workers{ config.bootstrap_serving_threads, nano::thread_role::name::bootstrap_worker },
-	wallet_workers{ 1, nano::thread_role::name::wallet_worker },
-	election_workers{ 1, nano::thread_role::name::election_worker },
-	flags (flags_a),
+	workers_impl{ std::make_unique<nano::thread_pool> (config.background_threads, nano::thread_role::name::worker) },
+	workers{ *workers_impl },
+	bootstrap_workers_impl{ std::make_unique<nano::thread_pool> (config.bootstrap_serving_threads, nano::thread_role::name::bootstrap_worker) },
+	bootstrap_workers{ *bootstrap_workers_impl },
+	wallet_workers_impl{ std::make_unique<nano::thread_pool> (1, nano::thread_role::name::wallet_worker) },
+	wallet_workers{ *wallet_workers_impl },
+	election_workers_impl{ std::make_unique<nano::thread_pool> (1, nano::thread_role::name::election_worker) },
+	election_workers{ *election_workers_impl },
 	work (work_a),
 	distributed_work (*this),
 	store_impl (nano::make_store (logger, application_path_a, network_params.ledger, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade)),
