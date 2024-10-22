@@ -37,6 +37,7 @@
 #include <nano/store/component.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
 
+#include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <algorithm>

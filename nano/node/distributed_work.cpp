@@ -4,6 +4,7 @@
 #include <nano/node/websocket.hpp>
 
 #include <boost/algorithm/string/erase.hpp>
+#include <boost/format.hpp>
 
 std::shared_ptr<request_type> nano::distributed_work::peer_request::get_prepared_json_request (std::string const & request_string_a) const
 {

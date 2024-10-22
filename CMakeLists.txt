@@ -466,6 +466,8 @@ set(BOOST_MODULE_LIBS
     ratio
     rational
     regex
+    scope
+    scope_exit
     serialization
     smart_ptr
     spirit
