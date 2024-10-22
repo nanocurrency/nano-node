@@ -107,12 +107,7 @@ public:
 		return thread_pool_impl != nullptr;
 	}
 
-	unsigned get_num_threads () const
-	{
-		return num_threads;
-	}
-
-	uint64_t num_queued_tasks () const
+	uint64_t queued_tasks () const
 	{
 		return num_tasks;
 	}
@@ -120,7 +115,7 @@ public:
 	nano::container_info container_info () const
 	{
 		nano::container_info info;
-		info.put ("tasks", num_queued_tasks ());
+		info.put ("tasks", queued_tasks ());
 		return info;
 	}
 
