@@ -84,17 +84,19 @@ public:
 	}
 
 	template <typename F>
-	void post_timed (std::chrono::steady_clock::time_point const & expiry_time, F && task)
+	void post_delayed (std::chrono::steady_clock::duration const & delay, F && task)
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		if (!stopped)
 		{
+			++num_delayed;
 			release_assert (thread_pool_impl);
 			auto timer = std::make_shared<boost::asio::steady_timer> (thread_pool_impl->get_executor ());
-			timer->expires_at (expiry_time);
+			timer->expires_after (delay);
 			timer->async_wait ([this, t = std::forward<F> (task), /* preserve lifetime */ timer] (boost::system::error_code const & ec) mutable {
 				if (!ec)
 				{
+					--num_delayed;
 					post (std::move (t));
 				}
 			});
@@ -112,10 +114,16 @@ public:
 		return num_tasks;
 	}
 
+	uint64_t delayed_tasks () const
+	{
+		return num_delayed;
+	}
+
 	nano::container_info container_info () const
 	{
 		nano::container_info info;
-		info.put ("tasks", queued_tasks ());
+		info.put ("tasks", num_tasks);
+		info.put ("delayed", num_delayed);
 		return info;
 	}
 
@@ -141,5 +149,6 @@ private:
 	std::atomic<bool> stopped{ false };
 	std::unique_ptr<boost::asio::thread_pool> thread_pool_impl;
 	std::atomic<uint64_t> num_tasks{ 0 };
+	std::atomic<uint64_t> num_delayed{ 0 };
 };
 }

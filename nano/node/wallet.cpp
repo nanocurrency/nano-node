@@ -1158,7 +1158,7 @@ void nano::wallet::work_ensure (nano::account const & account_a, nano::root cons
 
 	wallets.delayed_work->operator[] (account_a) = root_a;
 
-	wallets.node.workers.post_timed (std::chrono::steady_clock::now () + precache_delay, [this_l = shared_from_this (), account_a, root_a] {
+	wallets.node.workers.post_delayed (precache_delay, [this_l = shared_from_this (), account_a, root_a] {
 		auto delayed_work = this_l->wallets.delayed_work.lock ();
 		auto existing (delayed_work->find (account_a));
 		if (existing != delayed_work->end () && existing->second == root_a)
@@ -1705,7 +1705,7 @@ void nano::wallets::ongoing_compute_reps ()
 	auto & node_l (node);
 	// Representation drifts quickly on the test network but very slowly on the live network
 	auto compute_delay = network_params.network.is_dev_network () ? std::chrono::milliseconds (10) : (network_params.network.is_test_network () ? std::chrono::milliseconds (nano::test_scan_wallet_reps_delay ()) : std::chrono::minutes (15));
-	node.workers.post_timed (std::chrono::steady_clock::now () + compute_delay, [&node_l] () {
+	node.workers.post_delayed (compute_delay, [&node_l] () {
 		node_l.wallets.ongoing_compute_reps ();
 	});
 }

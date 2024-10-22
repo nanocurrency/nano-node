@@ -39,7 +39,7 @@ TEST (thread_pool, one)
 	nano::condition_variable condition;
 	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
 	nano::test::start_stop_guard stop_guard{ workers };
-	workers.post_timed (std::chrono::steady_clock::now (), [&] () {
+	workers.post ([&] () {
 		{
 			nano::lock_guard<nano::mutex> lock{ mutex };
 			done = true;
@@ -59,7 +59,7 @@ TEST (thread_pool, many)
 	nano::test::start_stop_guard stop_guard{ workers };
 	for (auto i (0); i < 50; ++i)
 	{
-		workers.post_timed (std::chrono::steady_clock::now (), [&] () {
+		workers.post ([&] () {
 			{
 				nano::lock_guard<nano::mutex> lock{ mutex };
 				count += 1;
@@ -79,12 +79,12 @@ TEST (thread_pool, top_execution)
 	std::promise<bool> promise;
 	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
 	nano::test::start_stop_guard stop_guard{ workers };
-	workers.post_timed (std::chrono::steady_clock::now (), [&] () {
+	workers.post ([&] () {
 		nano::lock_guard<nano::mutex> lock{ mutex };
 		value1 = 1;
 		value2 = 1;
 	});
-	workers.post_timed (std::chrono::steady_clock::now () + std::chrono::milliseconds (1), [&] () {
+	workers.post_delayed (std::chrono::milliseconds (1), [&] () {
 		nano::lock_guard<nano::mutex> lock{ mutex };
 		value2 = 2;
 		promise.set_value (false);

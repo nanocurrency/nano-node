@@ -300,7 +300,7 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 		if (!blocks_a.empty ())
 		{
 			std::weak_ptr<nano::node> node_w (node.shared ());
-			node.workers.post_timed (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks (std::move (blocks_a)), callback_a, delay_a] () {
+			node.workers.post_delayed (std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks (std::move (blocks_a)), callback_a, delay_a] () {
 				if (auto node_l = node_w.lock ())
 				{
 					node_l->network.flood_block_many (std::move (blocks), callback_a, delay_a);
