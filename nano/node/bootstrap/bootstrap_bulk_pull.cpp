@@ -530,7 +530,7 @@ void nano::bulk_pull_server::sent_action (boost::system::error_code const & ec, 
 	}
 	if (!ec)
 	{
-		node->bootstrap_workers.push_task ([this_l = shared_from_this ()] () {
+		node->bootstrap_workers.post ([this_l = shared_from_this ()] () {
 			this_l->send_next ();
 		});
 	}
@@ -816,7 +816,7 @@ void nano::bulk_pull_account_server::sent_action (boost::system::error_code cons
 	}
 	if (!ec)
 	{
-		node->bootstrap_workers.push_task ([this_l = shared_from_this ()] () {
+		node->bootstrap_workers.post ([this_l = shared_from_this ()] () {
 			this_l->send_next_block ();
 		});
 	}

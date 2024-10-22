@@ -69,7 +69,7 @@ public:
 	}
 
 	template <typename F>
-	void push_task (F && task)
+	void post (F && task)
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		if (!stopped)
@@ -95,7 +95,7 @@ public:
 			timer->async_wait ([this, t = std::forward<F> (task), /* preserve lifetime */ timer] (boost::system::error_code const & ec) mutable {
 				if (!ec)
 				{
-					push_task (std::move (t));
+					post (std::move (t));
 				}
 			});
 		}

@@ -17,7 +17,7 @@ TEST (thread_pool, thread_pool)
 
 	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
 	nano::test::start_stop_guard stop_guard{ workers };
-	workers.push_task (func);
+	workers.post (func);
 	ASSERT_FALSE (passed_sleep);
 
 	nano::timer<std::chrono::milliseconds> timer_l;

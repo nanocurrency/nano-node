@@ -67,7 +67,7 @@ TEST (rpc, wrapped_task)
 		// Exception should get caught
 		throw std::runtime_error ("");
 	}));
-	system.nodes[0]->workers.push_task (task);
+	system.nodes[0]->workers.post (task);
 	ASSERT_TIMELY_EQ (5s, response, true);
 }
 

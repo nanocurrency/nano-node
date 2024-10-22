@@ -160,7 +160,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 			}
 		}
 
-		notification_workers.push_task ([this, batch = std::move (batch)] () {
+		notification_workers.post ([this, batch = std::move (batch)] () {
 			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify);
 			batch_cemented.notify (batch);
 		});

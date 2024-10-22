@@ -406,7 +406,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			// TODO: Is it neccessary to call this for all blocks?
 			if (block->is_send ())
 			{
-				wallet_workers.push_task ([this, hash = block->hash (), destination = block->destination ()] () {
+				wallet_workers.post ([this, hash = block->hash (), destination = block->destination ()] () {
 					wallets.receive_confirmed (hash, destination);
 				});
 			}
@@ -568,7 +568,7 @@ void nano::node::start ()
 	if (flags.enable_pruning)
 	{
 		auto this_l (shared ());
-		workers.push_task ([this_l] () {
+		workers.post ([this_l] () {
 			this_l->ongoing_ledger_pruning ();
 		});
 	}
@@ -988,7 +988,7 @@ void nano::node::ongoing_ledger_pruning ()
 	auto const ledger_pruning_interval (bootstrap_weight_reached ? config.max_pruning_age : std::min (config.max_pruning_age, std::chrono::seconds (15 * 60)));
 	auto this_l (shared ());
 	workers.add_timed_task (std::chrono::steady_clock::now () + ledger_pruning_interval, [this_l] () {
-		this_l->workers.push_task ([this_l] () {
+		this_l->workers.post ([this_l] () {
 			this_l->ongoing_ledger_pruning ();
 		});
 	});
