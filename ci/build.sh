@@ -66,7 +66,6 @@ cmake \
 -DCI_VERSION_PRE_RELEASE=${CI_VERSION_PRE_RELEASE:-OFF} \
 ${CMAKE_SANITIZER:-} \
 ${CMAKE_QT_DIR:-} \
-#${CMAKE_BACKTRACE:-} \
 ${SRC}
 
 number_of_processors() {
