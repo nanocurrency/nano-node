@@ -585,7 +585,7 @@ public:
 	{
 		auto balance (block_a.hashables.balance.number ());
 		auto previous_balance = ledger.any.block_balance (transaction, block_a.hashables.previous);
-		if (!previous_balance)
+		if (!block_a.hashables.previous.is_zero () && !previous_balance)
 		{
 			type = "Unknown (pruned)";
 			amount = 0;
