@@ -105,11 +105,11 @@ private:
 	ordered_entries set;
 	std::unordered_set<nano::block_hash> current;
 
-	nano::thread_pool notification_workers;
-
 	std::atomic<bool> stopped{ false };
 	mutable std::mutex mutex;
 	std::condition_variable condition;
 	std::thread thread;
+
+	nano::thread_pool workers;
 };
 }

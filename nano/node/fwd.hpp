@@ -9,6 +9,7 @@ namespace nano
 {
 class block;
 class container_info;
+class thread_pool;
 }
 
 namespace nano

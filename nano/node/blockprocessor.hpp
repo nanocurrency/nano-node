@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/logging.hpp>
+#include <nano/lib/thread_pool.hpp>
 #include <nano/node/fair_queue.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/secure/common.hpp>
@@ -46,6 +47,9 @@ public:
 	size_t priority_live{ 1 };
 	size_t priority_bootstrap{ 8 };
 	size_t priority_local{ 16 };
+
+	size_t batch_size{ 256 };
+	size_t max_queued_notifications{ 8 };
 };
 
 /**
@@ -128,5 +132,7 @@ private:
 	nano::condition_variable condition;
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::block_processor) };
 	std::thread thread;
+
+	nano::thread_pool workers;
 };
 }

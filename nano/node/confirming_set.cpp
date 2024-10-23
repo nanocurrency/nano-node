@@ -12,7 +12,7 @@ nano::confirming_set::confirming_set (confirming_set_config const & config_a, na
 	ledger{ ledger_a },
 	stats{ stats_a },
 	logger{ logger_a },
-	notification_workers{ 1, nano::thread_role::name::confirmation_height_notifications }
+	workers{ 1, nano::thread_role::name::confirmation_height_notifications }
 {
 	batch_cemented.add ([this] (auto const & cemented) {
 		for (auto const & context : cemented)
@@ -55,6 +55,8 @@ void nano::confirming_set::start ()
 		return;
 	}
 
+	workers.start ();
+
 	thread = std::thread{ [this] () {
 		nano::thread_role::set (nano::thread_role::name::confirmation_height);
 		run ();
@@ -72,7 +74,7 @@ void nano::confirming_set::stop ()
 	{
 		thread.join ();
 	}
-	notification_workers.stop ();
+	workers.stop ();
 }
 
 bool nano::confirming_set::contains (nano::block_hash const & hash) const
@@ -148,7 +150,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 		std::unique_lock lock{ mutex };
 
 		// It's possible that ledger cementing happens faster than the notifications can be processed by other components, cooldown here
-		while (notification_workers.num_queued_tasks () >= config.max_queued_notifications)
+		while (workers.queued_tasks () >= config.max_queued_notifications)
 		{
 			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cooldown);
 			condition.wait_for (lock, 100ms, [this] { return stopped.load (); });
@@ -158,7 +160,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 			}
 		}
 
-		notification_workers.push_task ([this, batch = std::move (batch)] () {
+		workers.post ([this, batch = std::move (batch)] () {
 			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify);
 			batch_cemented.notify (batch);
 		});
@@ -253,6 +255,7 @@ nano::container_info nano::confirming_set::container_info () const
 
 	nano::container_info info;
 	info.put ("set", set);
-	info.add ("notification_workers", notification_workers.container_info ());
+	info.put ("notifications", workers.queued_tasks ());
+	info.add ("workers", workers.container_info ());
 	return info;
 }
