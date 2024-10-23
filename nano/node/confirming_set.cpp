@@ -55,6 +55,8 @@ void nano::confirming_set::start ()
 		return;
 	}
 
+	notification_workers.start ();
+
 	thread = std::thread{ [this] () {
 		nano::thread_role::set (nano::thread_role::name::confirmation_height);
 		run ();
@@ -148,7 +150,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 		std::unique_lock lock{ mutex };
 
 		// It's possible that ledger cementing happens faster than the notifications can be processed by other components, cooldown here
-		while (notification_workers.num_queued_tasks () >= config.max_queued_notifications)
+		while (notification_workers.queued_tasks () >= config.max_queued_notifications)
 		{
 			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cooldown);
 			condition.wait_for (lock, 100ms, [this] { return stopped.load (); });
@@ -158,7 +160,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 			}
 		}
 
-		notification_workers.push_task ([this, batch = std::move (batch)] () {
+		notification_workers.post ([this, batch = std::move (batch)] () {
 			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify);
 			batch_cemented.notify (batch);
 		});

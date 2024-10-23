@@ -62,7 +62,7 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock)
 
 		lock.unlock ();
 
-		node.election_workers.push_task ([this_l = shared_from_this (), status_l, confirmation_action_l = confirmation_action] () {
+		node.election_workers.post ([this_l = shared_from_this (), status_l, confirmation_action_l = confirmation_action] () {
 			// This is necessary if the winner of the election is one of the forks.
 			// In that case the winning block is not yet in the ledger and cementing needs to wait for rollbacks to complete.
 			this_l->node.process_confirmed (status_l.winner->hash (), this_l);

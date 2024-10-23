@@ -127,7 +127,7 @@ void nano::bulk_pull_client::throttled_receive_block ()
 	else
 	{
 		auto this_l (shared_from_this ());
-		node->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_l] () {
+		node->workers.post_delayed (std::chrono::seconds (1), [this_l] () {
 			if (!this_l->connection->pending_stop && !this_l->attempt->stopped)
 			{
 				this_l->throttled_receive_block ();
@@ -530,7 +530,7 @@ void nano::bulk_pull_server::sent_action (boost::system::error_code const & ec, 
 	}
 	if (!ec)
 	{
-		node->bootstrap_workers.push_task ([this_l = shared_from_this ()] () {
+		node->bootstrap_workers.post ([this_l = shared_from_this ()] () {
 			this_l->send_next ();
 		});
 	}
@@ -816,7 +816,7 @@ void nano::bulk_pull_account_server::sent_action (boost::system::error_code cons
 	}
 	if (!ec)
 	{
-		node->bootstrap_workers.push_task ([this_l = shared_from_this ()] () {
+		node->bootstrap_workers.post ([this_l = shared_from_this ()] () {
 			this_l->send_next_block ();
 		});
 	}
