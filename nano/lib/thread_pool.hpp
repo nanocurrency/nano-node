@@ -55,7 +55,7 @@ public:
 			// TODO: Is this still needed?
 #if defined(BOOST_ASIO_HAS_IOCP)
 			// A hack needed for Windows to prevent deadlock during destruction, described here: https://github.com/chriskohlhoff/asio/issues/431
-			boost::asio::use_service<boost::asio::detail::win_iocp_io_context> (*thread_pool_m).stop ();
+			boost::asio::use_service<boost::asio::detail::win_iocp_io_context> (*thread_pool_impl).stop ();
 #endif
 
 			lock.unlock ();
