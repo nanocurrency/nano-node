@@ -1,69 +1,61 @@
 #pragma once
 
-#include <nano/store/iterator_impl.hpp>
+#include <nano/store/lmdb/iterator.hpp>
+#include <nano/store/rocksdb/iterator.hpp>
 
+#include <cstddef>
+#include <iterator>
 #include <memory>
+#include <span>
+#include <utility>
 
 namespace nano::store
 {
 /**
- * Iterates the key/value pairs of a transaction
+ * @class iterator
+ * @brief A generic database iterator for LMDB or RocksDB.
+ *
+ * This class represents an iterator for either LMDB or RocksDB (Persistent Key-Value Store) databases.
+ * It is a circular iterator, meaning that the end() sentinel value is always in the iteration cycle.
+ *
+ * Key characteristics:
+ * - Decrementing the end iterator points to the last key in the database.
+ * - Incrementing the end iterator points to the first key in the database.
+ * - Internally uses either an LMDB or RocksDB iterator, abstracted through a std::variant.
  */
-template <typename T, typename U>
 class iterator final
 {
 public:
-	iterator (std::nullptr_t)
-	{
-	}
-	iterator (std::unique_ptr<iterator_impl<T, U>> impl_a) :
-		impl (std::move (impl_a))
-	{
-		impl->fill (current);
-	}
-	iterator (iterator<T, U> && other_a) :
-		current (std::move (other_a.current)),
-		impl (std::move (other_a.impl))
-	{
-	}
-	iterator<T, U> & operator++ ()
-	{
-		++*impl;
-		impl->fill (current);
-		return *this;
-	}
-	iterator<T, U> & operator-- ()
-	{
-		--*impl;
-		impl->fill (current);
-		return *this;
-	}
-	iterator<T, U> & operator= (iterator<T, U> && other_a) noexcept
-	{
-		impl = std::move (other_a.impl);
-		current = std::move (other_a.current);
-		return *this;
-	}
-	iterator<T, U> & operator= (iterator<T, U> const &) = delete;
-	std::pair<T, U> * operator->()
-	{
-		return &current;
-	}
-	std::pair<T, U> const & operator* () const
-	{
-		return current;
-	}
-	bool operator== (iterator<T, U> const & other_a) const
-	{
-		return (impl == nullptr && other_a.impl == nullptr) || (impl != nullptr && *impl == other_a.impl.get ()) || (other_a.impl != nullptr && *other_a.impl == impl.get ());
-	}
-	bool operator!= (iterator<T, U> const & other_a) const
-	{
-		return !(*this == other_a);
-	}
+	using iterator_category = std::bidirectional_iterator_tag;
+	using value_type = std::pair<std::span<uint8_t const>, std::span<uint8_t const>>;
+	using pointer = value_type *;
+	using const_pointer = value_type const *;
+	using reference = value_type &;
+	using const_reference = value_type const &;
 
 private:
-	std::pair<T, U> current;
-	std::unique_ptr<iterator_impl<T, U>> impl;
+	std::variant<lmdb::iterator, rocksdb::iterator> internals;
+	std::variant<std::monostate, value_type> current;
+	void update ();
+
+public:
+	iterator (std::variant<lmdb::iterator, rocksdb::iterator> && internals) noexcept;
+
+	iterator (iterator const &) = delete;
+	auto operator= (iterator const &) -> iterator & = delete;
+
+	iterator (iterator && other) noexcept;
+	auto operator= (iterator && other) noexcept -> iterator &;
+
+	auto operator++ () -> iterator &;
+	auto operator-- () -> iterator &;
+	auto operator->() const -> const_pointer;
+	auto operator* () const -> const_reference;
+	auto operator== (iterator const & other) const -> bool;
+	auto operator!= (iterator const & other) const -> bool
+	{
+		return !(*this == other);
+	}
+	bool is_end () const;
 };
 } // namespace nano::store

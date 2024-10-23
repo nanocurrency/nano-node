@@ -2,7 +2,7 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/store/component.hpp>
-#include <nano/store/iterator.hpp>
+#include <nano/store/typed_iterator.hpp>
 
 #include <functional>
 
@@ -18,7 +18,7 @@ namespace nano::store
 class final_vote
 {
 public:
-	using iterator = store::iterator<nano::qualified_root, nano::block_hash>;
+	using iterator = typed_iterator<nano::qualified_root, nano::block_hash>;
 
 public:
 	virtual bool put (store::write_transaction const & transaction_a, nano::qualified_root const & root_a, nano::block_hash const & hash_a) = 0;

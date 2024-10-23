@@ -755,7 +755,7 @@ void nano::node::long_inactivity_cleanup ()
 	if (store.online_weight.count (transaction) > 0)
 	{
 		auto sample (store.online_weight.rbegin (transaction));
-		auto n (store.online_weight.end (transaction));
+		auto n (store.online_weight.rend (transaction));
 		debug_assert (sample != n);
 		auto const one_week_ago = static_cast<std::size_t> ((std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ());
 		perform_cleanup = sample->first < one_week_ago;

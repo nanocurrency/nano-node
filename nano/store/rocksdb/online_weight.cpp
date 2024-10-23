@@ -1,5 +1,6 @@
 #include <nano/store/rocksdb/online_weight.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/utility.hpp>
 
 nano::store::rocksdb::online_weight::online_weight (nano::store::rocksdb::component & store_a) :
 	store{ store_a }
@@ -20,17 +21,12 @@ void nano::store::rocksdb::online_weight::del (store::write_transaction const & 
 
 auto nano::store::rocksdb::online_weight::begin (store::transaction const & transaction) const -> iterator
 {
-	return store.make_iterator<uint64_t, nano::amount> (transaction, tables::online_weight);
-}
-
-auto nano::store::rocksdb::online_weight::rbegin (store::transaction const & transaction) const -> iterator
-{
-	return store.make_iterator<uint64_t, nano::amount> (transaction, tables::online_weight, false);
+	return iterator{ store::iterator{ rocksdb::iterator::begin (store.db.get (), rocksdb::tx (transaction), store.table_to_column_family (tables::online_weight)) } };
 }
 
 auto nano::store::rocksdb::online_weight::end (store::transaction const & transaction_a) const -> iterator
 {
-	return iterator{ nullptr };
+	return iterator{ store::iterator{ rocksdb::iterator::end (store.db.get (), rocksdb::tx (transaction_a), store.table_to_column_family (tables::online_weight)) } };
 }
 
 size_t nano::store::rocksdb::online_weight::count (store::transaction const & transaction) const

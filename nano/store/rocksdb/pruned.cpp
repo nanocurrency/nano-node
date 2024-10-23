@@ -1,6 +1,7 @@
 #include <nano/secure/parallel_traversal.hpp>
 #include <nano/store/rocksdb/pruned.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/utility.hpp>
 
 nano::store::rocksdb::pruned::pruned (nano::store::rocksdb::component & store_a) :
 	store{ store_a } {};
@@ -47,17 +48,18 @@ void nano::store::rocksdb::pruned::clear (store::write_transaction const & trans
 
 auto nano::store::rocksdb::pruned::begin (store::transaction const & transaction_a, nano::block_hash const & hash_a) const -> iterator
 {
-	return store.make_iterator<nano::block_hash, std::nullptr_t> (transaction_a, tables::pruned, hash_a);
+	rocksdb::db_val val{ hash_a };
+	return iterator{ store::iterator{ rocksdb::iterator::lower_bound (store.db.get (), rocksdb::tx (transaction_a), store.table_to_column_family (tables::pruned), val) } };
 }
 
 auto nano::store::rocksdb::pruned::begin (store::transaction const & transaction_a) const -> iterator
 {
-	return store.make_iterator<nano::block_hash, std::nullptr_t> (transaction_a, tables::pruned);
+	return iterator{ store::iterator{ rocksdb::iterator::begin (store.db.get (), rocksdb::tx (transaction_a), store.table_to_column_family (tables::pruned)) } };
 }
 
 auto nano::store::rocksdb::pruned::end (store::transaction const & transaction_a) const -> iterator
 {
-	return iterator{ nullptr };
+	return iterator{ store::iterator{ rocksdb::iterator::end (store.db.get (), rocksdb::tx (transaction_a), store.table_to_column_family (tables::pruned)) } };
 }
 
 void nano::store::rocksdb::pruned::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const

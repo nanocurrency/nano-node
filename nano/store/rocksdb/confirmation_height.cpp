@@ -1,6 +1,7 @@
 #include <nano/secure/parallel_traversal.hpp>
 #include <nano/store/rocksdb/confirmation_height.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/utility.hpp>
 
 nano::store::rocksdb::confirmation_height::confirmation_height (nano::store::rocksdb::component & store) :
 	store{ store }
@@ -61,17 +62,18 @@ void nano::store::rocksdb::confirmation_height::clear (store::write_transaction 
 
 auto nano::store::rocksdb::confirmation_height::begin (store::transaction const & transaction, nano::account const & account) const -> iterator
 {
-	return store.make_iterator<nano::account, nano::confirmation_height_info> (transaction, tables::confirmation_height, account);
+	rocksdb::db_val val{ account };
+	return iterator{ store::iterator{ rocksdb::iterator::lower_bound (store.db.get (), rocksdb::tx (transaction), store.table_to_column_family (tables::confirmation_height), val) } };
 }
 
 auto nano::store::rocksdb::confirmation_height::begin (store::transaction const & transaction) const -> iterator
 {
-	return store.make_iterator<nano::account, nano::confirmation_height_info> (transaction, tables::confirmation_height);
+	return iterator{ store::iterator{ rocksdb::iterator::begin (store.db.get (), rocksdb::tx (transaction), store.table_to_column_family (tables::confirmation_height)) } };
 }
 
 auto nano::store::rocksdb::confirmation_height::end (store::transaction const & transaction_a) const -> iterator
 {
-	return iterator{ nullptr };
+	return iterator{ store::iterator{ rocksdb::iterator::end (store.db.get (), rocksdb::tx (transaction_a), store.table_to_column_family (tables::confirmation_height)) } };
 }
 
 void nano::store::rocksdb::confirmation_height::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const

@@ -1,6 +1,7 @@
 #include <nano/secure/parallel_traversal.hpp>
 #include <nano/store/rocksdb/final_vote.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/utility.hpp>
 
 nano::store::rocksdb::final_vote::final_vote (nano::store::rocksdb::component & store) :
 	store{ store } {};
@@ -66,17 +67,18 @@ void nano::store::rocksdb::final_vote::clear (store::write_transaction const & t
 
 auto nano::store::rocksdb::final_vote::begin (store::transaction const & transaction, nano::qualified_root const & root) const -> iterator
 {
-	return store.make_iterator<nano::qualified_root, nano::block_hash> (transaction, tables::final_votes, root);
+	rocksdb::db_val val{ root };
+	return iterator{ store::iterator{ rocksdb::iterator::lower_bound (store.db.get (), rocksdb::tx (transaction), store.table_to_column_family (tables::final_votes), val) } };
 }
 
 auto nano::store::rocksdb::final_vote::begin (store::transaction const & transaction) const -> iterator
 {
-	return store.make_iterator<nano::qualified_root, nano::block_hash> (transaction, tables::final_votes);
+	return iterator{ store::iterator{ rocksdb::iterator::begin (store.db.get (), rocksdb::tx (transaction), store.table_to_column_family (tables::final_votes)) } };
 }
 
 auto nano::store::rocksdb::final_vote::end (store::transaction const & transaction_a) const -> iterator
 {
-	return iterator{ nullptr };
+	return iterator{ store::iterator{ rocksdb::iterator::end (store.db.get (), rocksdb::tx (transaction_a), store.table_to_column_family (tables::final_votes)) } };
 }
 
 void nano::store::rocksdb::final_vote::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const

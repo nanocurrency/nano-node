@@ -2,7 +2,7 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/store/component.hpp>
-#include <nano/store/iterator.hpp>
+#include <nano/store/typed_iterator.hpp>
 
 #include <functional>
 
@@ -18,7 +18,7 @@ namespace nano::store
 class peer
 {
 public:
-	using iterator = store::iterator<nano::endpoint_key, nano::millis_t>;
+	using iterator = typed_iterator<nano::endpoint_key, nano::millis_t>;
 
 public:
 	/// Returns true if the peer was inserted, false if it was already in the container

@@ -3,6 +3,7 @@
 #include <nano/store/rocksdb/iterator.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
 #include <nano/store/rocksdb/transaction_impl.hpp>
+#include <nano/store/rocksdb/utility.hpp>
 #include <nano/store/version.hpp>
 
 #include <boost/format.hpp>
@@ -301,8 +302,8 @@ void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transacti
 		auto transaction = tx_begin_read ();
 
 		// Manually create v22 compatible iterator to read accounts
-		auto it = make_iterator<nano::account, nano::account_info_v22> (transaction, tables::accounts);
-		auto const end = store::iterator<nano::account, nano::account_info_v22> (nullptr);
+		auto it = typed_iterator<nano::account, nano::account_info_v22> (store::iterator{ rocksdb::iterator::begin (db.get (), rocksdb::tx (transaction), table_to_column_family (tables::accounts)) });
+		auto const end = typed_iterator<nano::account, nano::account_info_v22>{ store::iterator{ rocksdb::iterator::end (db.get (), rocksdb::tx (transaction), table_to_column_family (tables::accounts)) } };
 
 		for (; it != end; ++it)
 		{
@@ -499,19 +500,27 @@ rocksdb::ColumnFamilyHandle * nano::store::rocksdb::component::table_to_column_f
 bool nano::store::rocksdb::component::exists (store::transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a) const
 {
 	::rocksdb::PinnableSlice slice;
-	::rocksdb::Status status;
-	if (is_read (transaction_a))
-	{
-		status = db->Get (snapshot_options (transaction_a), table_to_column_family (table_a), key_a, &slice);
-	}
-	else
-	{
-		::rocksdb::ReadOptions options;
-		options.fill_cache = false;
-		status = tx (transaction_a)->Get (options, table_to_column_family (table_a), key_a, &slice);
-	}
+	auto internals = rocksdb::tx (transaction_a);
+	auto status = std::visit ([&] (auto && ptr) {
+		using V = std::remove_cvref_t<decltype (ptr)>;
+		if constexpr (std::is_same_v<V, ::rocksdb::Transaction *>)
+		{
+			::rocksdb::ReadOptions options;
+			options.fill_cache = false;
+			return ptr->Get (options, table_to_column_family (table_a), key_a, &slice);
+		}
+		else if constexpr (std::is_same_v<V, ::rocksdb::ReadOptions *>)
+		{
+			return db->Get (*ptr, table_to_column_family (table_a), key_a, &slice);
+		}
+		else
+		{
+			static_assert (sizeof (V) == 0, "Missing variant handler for type V");
+		}
+	},
+	internals);
 
-	return (status.ok ());
+	return status.ok ();
 }
 
 int nano::store::rocksdb::component::del (store::write_transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a)
@@ -520,7 +529,7 @@ int nano::store::rocksdb::component::del (store::write_transaction const & trans
 	// RocksDB does not report not_found status, it is a pre-condition that the key exists
 	debug_assert (exists (transaction_a, table_a, key_a));
 	flush_tombstones_check (table_a);
-	return tx (transaction_a)->Delete (table_to_column_family (table_a), key_a).code ();
+	return std::get<::rocksdb::Transaction *> (rocksdb::tx (transaction_a))->Delete (table_to_column_family (table_a), key_a).code ();
 }
 
 void nano::store::rocksdb::component::flush_tombstones_check (tables table_a)
@@ -543,26 +552,28 @@ void nano::store::rocksdb::component::flush_table (nano::tables table_a)
 	db->Flush (::rocksdb::FlushOptions{}, table_to_column_family (table_a));
 }
 
-rocksdb::Transaction * nano::store::rocksdb::component::tx (store::transaction const & transaction_a) const
-{
-	debug_assert (!is_read (transaction_a));
-	return static_cast<::rocksdb::Transaction *> (transaction_a.get_handle ());
-}
-
 int nano::store::rocksdb::component::get (store::transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val & value_a) const
 {
 	::rocksdb::ReadOptions options;
 	::rocksdb::PinnableSlice slice;
 	auto handle = table_to_column_family (table_a);
-	::rocksdb::Status status;
-	if (is_read (transaction_a))
-	{
-		status = db->Get (snapshot_options (transaction_a), handle, key_a, &slice);
-	}
-	else
-	{
-		status = tx (transaction_a)->Get (options, handle, key_a, &slice);
-	}
+	auto internals = rocksdb::tx (transaction_a);
+	auto status = std::visit ([&] (auto && ptr) {
+		using V = std::remove_cvref_t<decltype (ptr)>;
+		if constexpr (std::is_same_v<V, ::rocksdb::Transaction *>)
+		{
+			return ptr->Get (options, handle, key_a, &slice);
+		}
+		else if constexpr (std::is_same_v<V, ::rocksdb::ReadOptions *>)
+		{
+			return db->Get (*ptr, handle, key_a, &slice);
+		}
+		else
+		{
+			static_assert (sizeof (V) == 0, "Missing variant handler for type V");
+		}
+	},
+	internals);
 
 	if (status.ok ())
 	{
@@ -576,8 +587,7 @@ int nano::store::rocksdb::component::get (store::transaction const & transaction
 int nano::store::rocksdb::component::put (store::write_transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val const & value_a)
 {
 	debug_assert (transaction_a.contains (table_a));
-	auto txn = tx (transaction_a);
-	return txn->Put (table_to_column_family (table_a), key_a, value_a).code ();
+	return std::get<::rocksdb::Transaction *> (rocksdb::tx (transaction_a))->Put (table_to_column_family (table_a), key_a, value_a).code ();
 }
 
 bool nano::store::rocksdb::component::not_found (int status) const

@@ -1,6 +1,7 @@
 #include <nano/secure/parallel_traversal.hpp>
 #include <nano/store/lmdb/pending.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/utility.hpp>
 
 nano::store::rocksdb::pending::pending (nano::store::rocksdb::component & store) :
 	store{ store } {};
@@ -47,17 +48,18 @@ bool nano::store::rocksdb::pending::any (store::transaction const & transaction_
 
 auto nano::store::rocksdb::pending::begin (store::transaction const & transaction_a, nano::pending_key const & key_a) const -> iterator
 {
-	return store.template make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending, key_a);
+	rocksdb::db_val val{ key_a };
+	return iterator{ store::iterator{ rocksdb::iterator::lower_bound (store.db.get (), rocksdb::tx (transaction_a), store.table_to_column_family (tables::pending), val) } };
 }
 
 auto nano::store::rocksdb::pending::begin (store::transaction const & transaction_a) const -> iterator
 {
-	return store.template make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending);
+	return iterator{ store::iterator{ rocksdb::iterator::begin (store.db.get (), rocksdb::tx (transaction_a), store.table_to_column_family (tables::pending)) } };
 }
 
 auto nano::store::rocksdb::pending::end (store::transaction const & transaction_a) const -> iterator
 {
-	return iterator{ nullptr };
+	return iterator{ store::iterator{ rocksdb::iterator::end (store.db.get (), rocksdb::tx (transaction_a), store.table_to_column_family (tables::pending)) } };
 }
 
 void nano::store::rocksdb::pending::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const
