@@ -32,6 +32,8 @@ class recently_cemented_cache;
 class recently_confirmed_cache;
 class rep_crawler;
 class rep_tiers;
+class telemetry;
+class unchecked_map;
 class stats;
 class vote_cache;
 class vote_generator;

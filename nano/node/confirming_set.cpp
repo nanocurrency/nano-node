@@ -1,5 +1,7 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/thread_roles.hpp>
+#include <nano/node/blockprocessor.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
@@ -7,9 +9,10 @@
 #include <nano/store/component.hpp>
 #include <nano/store/write_queue.hpp>
 
-nano::confirming_set::confirming_set (confirming_set_config const & config_a, nano::ledger & ledger_a, nano::stats & stats_a, nano::logger & logger_a) :
+nano::confirming_set::confirming_set (confirming_set_config const & config_a, nano::ledger & ledger_a, nano::block_processor & block_processor_a, nano::stats & stats_a, nano::logger & logger_a) :
 	config{ config_a },
 	ledger{ ledger_a },
+	block_processor{ block_processor_a },
 	stats{ stats_a },
 	logger{ logger_a },
 	notification_workers{ 1, nano::thread_role::name::confirmation_height_notifications }
@@ -18,6 +21,28 @@ nano::confirming_set::confirming_set (confirming_set_config const & config_a, na
 		for (auto const & context : cemented)
 		{
 			cemented_observers.notify (context.block);
+		}
+	});
+
+	// Requeue blocks that failed to cement immediately due to missing ledger blocks
+	block_processor.batch_processed.add ([this] (auto const & batch) {
+		bool should_notify = false;
+		{
+			std::lock_guard lock{ mutex };
+			for (auto const & [result, context] : batch)
+			{
+				if (auto it = deferred.get<tag_hash> ().find (context.block->hash ()); it != deferred.get<tag_hash> ().end ())
+				{
+					stats.inc (nano::stat::type::confirming_set, nano::stat::detail::requeued);
+					set.push_back (*it);
+					deferred.get<tag_hash> ().erase (it);
+					should_notify = true;
+				}
+			}
+		}
+		if (should_notify)
+		{
+			condition.notify_all ();
 		}
 	});
 }
@@ -78,13 +103,14 @@ void nano::confirming_set::stop ()
 bool nano::confirming_set::contains (nano::block_hash const & hash) const
 {
 	std::lock_guard lock{ mutex };
-	return set.get<tag_hash> ().contains (hash) || current.contains (hash);
+	return set.get<tag_hash> ().contains (hash) || deferred.get<tag_hash> ().contains (hash) || current.contains (hash);
 }
 
 std::size_t nano::confirming_set::size () const
 {
+	// Do not report deferred blocks, as they are not currently being processed (and might never be requeued)
 	std::lock_guard lock{ mutex };
-	return set.size ();
+	return set.size () + current.size ();
 }
 
 void nano::confirming_set::run ()
@@ -93,6 +119,9 @@ void nano::confirming_set::run ()
 	while (!stopped)
 	{
 		stats.inc (nano::stat::type::confirming_set, nano::stat::detail::loop);
+
+		cleanup (lock);
+		debug_assert (lock.owns_lock ());
 
 		if (!set.empty ())
 		{
@@ -134,9 +163,9 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 
 	// Keep track of the blocks we're currently cementing, so that the .contains (...) check is accurate
 	debug_assert (current.empty ());
-	for (auto const & [hash, election] : batch)
+	for (auto const & entry : batch)
 	{
-		current.insert (hash);
+		current.insert (entry.hash);
 	}
 
 	lock.unlock ();
@@ -177,8 +206,11 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 
 	{
 		auto transaction = ledger.tx_begin_write (nano::store::writer::confirmation_height);
-		for (auto const & [hash, election] : batch)
+		for (auto const & entry : batch)
 		{
+			auto const & hash = entry.hash;
+			auto const & election = entry.election;
+
 			size_t cemented_count = 0;
 			bool success = false;
 			do
@@ -233,6 +265,12 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 			{
 				stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cementing_failed);
 				logger.debug (nano::log::type::confirming_set, "Failed to cement block: {}", hash.to_string ());
+
+				// Requeue failed blocks for processing later
+				// Add them to the deferred set while still holding the exclusive database write transaction to avoid block processor races
+				lock.lock ();
+				deferred.push_back (entry);
+				lock.unlock ();
 			}
 		}
 	}
@@ -242,9 +280,50 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 
 	already_cemented.notify (already);
 
+	// Clear current set only after the transaction is committed
 	lock.lock ();
 	current.clear ();
 	lock.unlock ();
+}
+
+void nano::confirming_set::cleanup (std::unique_lock<std::mutex> & lock)
+{
+	debug_assert (lock.owns_lock ());
+	debug_assert (!mutex.try_lock ());
+
+	auto const cutoff = std::chrono::steady_clock::now () - config.deferred_age_cutoff;
+	std::deque<entry> evicted;
+
+	auto should_evict = [&] (entry const & entry) {
+		return entry.timestamp < cutoff;
+	};
+
+	// Iterate in sequenced (insertion) order
+	for (auto it = deferred.begin (), end = deferred.end (); it != end;)
+	{
+		if (should_evict (*it) || deferred.size () > config.max_deferred)
+		{
+			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::evicted);
+			debug_assert (ledger.any.block_exists (ledger.tx_begin_read (), it->hash));
+			evicted.push_back (*it);
+			it = deferred.erase (it);
+		}
+		else
+		{
+			break; // Entries are sequenced, so we can stop here and avoid unnecessary iteration
+		}
+	}
+
+	// Notify about evicted blocks so that other components can perform necessary cleanup
+	if (!evicted.empty ())
+	{
+		lock.unlock ();
+		for (auto const & entry : evicted)
+		{
+			cementing_failed.notify (entry.hash);
+		}
+		lock.lock ();
+	}
 }
 
 nano::container_info nano::confirming_set::container_info () const
@@ -253,6 +332,7 @@ nano::container_info nano::confirming_set::container_info () const
 
 	nano::container_info info;
 	info.put ("set", set);
+	info.put ("deferred", deferred);
 	info.add ("notification_workers", notification_workers.container_info ());
 	return info;
 }

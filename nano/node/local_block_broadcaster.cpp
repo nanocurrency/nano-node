@@ -54,7 +54,7 @@ nano::local_block_broadcaster::local_block_broadcaster (local_block_broadcaster_
 		}
 	});
 
-	block_processor.rolled_back.add ([this] (auto const & block) {
+	block_processor.rolled_back.add ([this] (auto const & block, auto const & rollback_root) {
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		auto erased = local_blocks.get<tag_hash> ().erase (block->hash ());
 		stats.add (nano::stat::type::local_block_broadcaster, nano::stat::detail::rollback, erased);

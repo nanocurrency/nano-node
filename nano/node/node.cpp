@@ -115,8 +115,9 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	application_path (application_path_a),
 	port_mapping_impl{ std::make_unique<nano::port_mapping> (*this) },
 	port_mapping{ *port_mapping_impl },
-	block_processor (*this),
-	confirming_set_impl{ std::make_unique<nano::confirming_set> (config.confirming_set, ledger, stats, logger) },
+	block_processor_impl{ std::make_unique<nano::block_processor> (config, ledger, unchecked, stats, logger) },
+	block_processor{ *block_processor_impl },
+	confirming_set_impl{ std::make_unique<nano::confirming_set> (config.confirming_set, ledger, block_processor, stats, logger) },
 	confirming_set{ *confirming_set_impl },
 	active_impl{ std::make_unique<nano::active_elections> (*this, confirming_set, block_processor) },
 	active{ *active_impl },
@@ -163,10 +164,6 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 
 	process_live_dispatcher.connect (block_processor);
 
-	unchecked.satisfied.add ([this] (nano::unchecked_info const & info) {
-		block_processor.add (info.block, nano::block_source::unchecked);
-	});
-
 	vote_cache.rep_weight_query = [this] (nano::account const & rep) {
 		return ledger.weight (rep);
 	};
@@ -184,6 +181,16 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 				network.flood_vote (vote, 0.5f, /* rebroadcasted */ true);
 			}
 		}
+	});
+
+	// Do some cleanup due to this block never being processed by confirmation height processor
+	confirming_set.cementing_failed.add ([this] (auto const & hash) {
+		active.recently_confirmed.erase (hash);
+	});
+
+	// Do some cleanup of rolled back blocks
+	block_processor.rolled_back.add ([this] (auto const & block, auto const & rollback_root) {
+		history.erase (block->root ());
 	});
 
 	if (!init_error ())
@@ -1143,39 +1150,6 @@ void nano::node::ongoing_online_weight_calculation ()
 {
 	online_reps.sample ();
 	ongoing_online_weight_calculation_queue ();
-}
-
-// TODO: Replace this with a queue of some sort. Blocks submitted here could be in a limbo for a while: neither part of an active election nor cemented
-void nano::node::process_confirmed (nano::block_hash hash, std::shared_ptr<nano::election> election, uint64_t iteration)
-{
-	stats.inc (nano::stat::type::process_confirmed, nano::stat::detail::initiate);
-
-	// Limit the maximum number of iterations to avoid getting stuck
-	uint64_t const max_iterations = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
-
-	if (auto block = ledger.any.block_get (ledger.tx_begin_read (), hash))
-	{
-		stats.inc (nano::stat::type::process_confirmed, nano::stat::detail::done);
-		logger.trace (nano::log::type::node, nano::log::detail::process_confirmed, nano::log::arg{ "block", block });
-
-		confirming_set.add (block->hash (), election);
-	}
-	else if (iteration < max_iterations)
-	{
-		stats.inc (nano::stat::type::process_confirmed, nano::stat::detail::retry);
-
-		// Try again later
-		election_workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [this, hash, election, iteration] () {
-			process_confirmed (hash, election, iteration + 1);
-		});
-	}
-	else
-	{
-		stats.inc (nano::stat::type::process_confirmed, nano::stat::detail::timeout);
-
-		// Do some cleanup due to this block never being processed by confirmation height processor
-		active.recently_confirmed.erase (hash);
-	}
 }
 
 std::shared_ptr<nano::node> nano::node::shared ()

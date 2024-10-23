@@ -6,7 +6,6 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_pool.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
@@ -95,7 +94,6 @@ public:
 	void keepalive (std::string const &, uint16_t);
 	int store_version ();
 	void inbound (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
-	void process_confirmed (nano::block_hash, std::shared_ptr<nano::election> = nullptr, uint64_t iteration = 0);
 	void process_active (std::shared_ptr<nano::block> const &);
 	std::optional<nano::block_status> process_local (std::shared_ptr<nano::block> const &);
 	void process_local_async (std::shared_ptr<nano::block> const &);
@@ -185,7 +183,8 @@ public:
 	nano::node_observers observers;
 	std::unique_ptr<nano::port_mapping> port_mapping_impl;
 	nano::port_mapping & port_mapping;
-	nano::block_processor block_processor;
+	std::unique_ptr<nano::block_processor> block_processor_impl;
+	nano::block_processor & block_processor;
 	std::unique_ptr<nano::confirming_set> confirming_set_impl;
 	nano::confirming_set & confirming_set;
 	std::unique_ptr<nano::active_elections> active_impl;
@@ -235,20 +234,14 @@ public:
 	std::atomic<bool> stopped{ false };
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
-	// For tests only
+
+public: // For tests only
 	unsigned node_seq;
-	// For tests only
 	std::optional<uint64_t> work_generate_blocking (nano::block &);
-	// For tests only
 	std::optional<uint64_t> work_generate_blocking (nano::root const &, uint64_t);
-	// For tests only
 	std::optional<uint64_t> work_generate_blocking (nano::root const &);
 
 public: // Testing convenience functions
-	/**
-		Creates a new write transaction and inserts `block' and returns result
-		Transaction is comitted before function return
-	 */
 	[[nodiscard]] nano::block_status process (std::shared_ptr<nano::block> block);
 	[[nodiscard]] nano::block_status process (secure::write_transaction const &, std::shared_ptr<nano::block> block);
 	nano::block_hash latest (nano::account const &);

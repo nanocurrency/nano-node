@@ -137,6 +137,8 @@ enum class detail
 	empty,
 	done,
 	retry,
+	requeued,
+	evicted,
 
 	// processing queue
 	queue,
@@ -506,6 +508,7 @@ enum class detail
 	cementing,
 	cemented_hash,
 	cementing_failed,
+	deferred_failed,
 
 	// election_state
 	passive,
