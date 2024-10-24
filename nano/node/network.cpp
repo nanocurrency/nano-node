@@ -281,6 +281,15 @@ void nano::network::flood_vote (std::shared_ptr<nano::vote> const & vote, float 
 	}
 }
 
+void nano::network::flood_vote_non_pr (std::shared_ptr<nano::vote> const & vote, float scale, bool rebroadcasted)
+{
+	nano::confirm_ack message{ node.network_params.network, vote, rebroadcasted };
+	for (auto & i : list_non_pr (fanout (scale)))
+	{
+		i->send (message, nullptr);
+	}
+}
+
 void nano::network::flood_vote_pr (std::shared_ptr<nano::vote> const & vote, bool rebroadcasted)
 {
 	nano::confirm_ack message{ node.network_params.network, vote, rebroadcasted };

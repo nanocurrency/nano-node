@@ -277,7 +277,7 @@ void nano::vote_generator::vote (std::vector<nano::block_hash> const & hashes_a,
 void nano::vote_generator::broadcast_action (std::shared_ptr<nano::vote> const & vote_a) const
 {
 	network.flood_vote_pr (vote_a);
-	network.flood_vote (vote_a, 2.0f);
+	network.flood_vote_non_pr (vote_a, 2.0f);
 	vote_processor.vote (vote_a, inproc_channel);
 }
 
