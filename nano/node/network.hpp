@@ -95,6 +95,7 @@ public:
 	void flood_keepalive_self (float const scale_a = 0.5f);
 	void flood_vote (std::shared_ptr<nano::vote> const &, float scale, bool rebroadcasted = false);
 	void flood_vote_pr (std::shared_ptr<nano::vote> const &, bool rebroadcasted = false);
+	void flood_vote_non_pr (std::shared_ptr<nano::vote> const &, float scale, bool rebroadcasted = false);
 	// Flood block to all PRs and a random selection of non-PRs
 	void flood_block_initial (std::shared_ptr<nano::block> const &);
 	// Flood block to a random selection of peers

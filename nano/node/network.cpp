@@ -281,6 +281,15 @@ void nano::network::flood_vote (std::shared_ptr<nano::vote> const & vote, float 
 	}
 }
 
+void nano::network::flood_vote_non_pr (std::shared_ptr<nano::vote> const & vote, float scale, bool rebroadcasted)
+{
+	nano::confirm_ack message{ node.network_params.network, vote, rebroadcasted };
+	for (auto & i : list_non_pr (fanout (scale)))
+	{
+		i->send (message, nullptr);
+	}
+}
+
 void nano::network::flood_vote_pr (std::shared_ptr<nano::vote> const & vote, bool rebroadcasted)
 {
 	nano::confirm_ack message{ node.network_params.network, vote, rebroadcasted };
@@ -377,11 +386,13 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list_non_pr
 {
 	std::deque<std::shared_ptr<nano::transport::channel>> result;
 	tcp_channels.list (result);
+
+	auto partition_point = std::partition (result.begin (), result.end (),
+	[this] (std::shared_ptr<nano::transport::channel> const & channel) {
+		return !node.rep_crawler.is_pr (channel);
+	});
+	result.resize (std::distance (result.begin (), partition_point));
 	nano::random_pool_shuffle (result.begin (), result.end ());
-	result.erase (std::remove_if (result.begin (), result.end (), [this] (std::shared_ptr<nano::transport::channel> const & channel) {
-		return node.rep_crawler.is_pr (channel);
-	}),
-	result.end ());
 	if (result.size () > count_a)
 	{
 		result.resize (count_a, nullptr);
