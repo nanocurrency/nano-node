@@ -409,7 +409,8 @@ nano::public_key nano::pub_key (nano::raw_key const & raw_key_a)
 nano::signature nano::sign_message (nano::raw_key const & private_key, nano::public_key const & public_key, uint8_t const * data, size_t size)
 {
 	nano::signature result;
-	ed25519_sign (data, size, private_key.bytes.data (), public_key.bytes.data (), result.bytes.data ());
+	if (rsnano::rsn_sign_message (private_key.bytes.data (), public_key.bytes.data (), data, size, result.bytes.data ()) != 0)
+		throw std::runtime_error ("could not sign message");
 	return result;
 }
 
@@ -420,7 +421,7 @@ nano::signature nano::sign_message (nano::raw_key const & private_key, nano::pub
 
 bool nano::validate_message (nano::public_key const & public_key, uint8_t const * data, size_t size, nano::signature const & signature)
 {
-	return 0 != ed25519_sign_open (data, size, public_key.bytes.data (), signature.bytes.data ());
+	return rsnano::rsn_validate_message ((uint8_t (*)[32])public_key.bytes.data (), data, size, (uint8_t (*)[64])signature.bytes.data ());
 }
 
 bool nano::validate_message (nano::public_key const & public_key, nano::uint256_union const & message, nano::signature const & signature)
