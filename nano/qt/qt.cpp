@@ -585,44 +585,69 @@ public:
 	{
 		auto balance (block_a.hashables.balance.number ());
 		auto previous_balance = ledger.any.block_balance (transaction, block_a.hashables.previous);
-		if (!block_a.hashables.previous.is_zero () && !previous_balance)
-		{
-			type = "Unknown (pruned)";
-			amount = 0;
-			account = block_a.hashables.account;
-		}
-		else if (balance < previous_balance.value ().number ())
+		// Error to receive previous block balance means that previous block was pruned from the ledger
+		if ((!previous_balance && block_a.sideband ().details.is_send) || balance < previous_balance.value ().number ())
 		{
 			type = "Send";
-			amount = previous_balance.value ().number () - balance;
 			account = block_a.hashables.link.as_account ();
-		}
-		else
-		{
-			if (block_a.hashables.link.is_zero ())
+			if (!previous_balance)
 			{
-				type = "Change";
-				account = block_a.hashables.representative;
-			}
-			else if (balance == previous_balance && ledger.is_epoch_link (block_a.hashables.link))
-			{
-				type = "Epoch";
-				account = ledger.epoch_signer (block_a.hashables.link);
+				type = "Send (pruned)";
+				amount = 0;
 			}
 			else
 			{
-				type = "Receive";
-				auto account_l = ledger.any.block_account (transaction, block_a.hashables.link.as_block_hash ());
-				if (!account_l)
-				{
-					type = "Receive (pruned)";
-				}
-				else
-				{
-					account = account_l.value ();
-				}
+				amount = previous_balance.value ().number () - balance;
 			}
-			amount = balance - previous_balance.value ().number ();
+		}
+		else if (block_a.hashables.link.is_zero ())
+		{
+			debug_assert (!block_a.sideband ().details.is_send && !block_a.sideband ().details.is_receive && !block_a.sideband ().details.is_epoch);
+			type = "Change";
+			account = block_a.hashables.representative;
+			amount = 0;
+			if (!previous_balance)
+			{
+				type = "Change (pruned)";
+			}
+			else
+			{
+				debug_assert (balance == previous_balance);
+			}
+		}
+		else if (ledger.is_epoch_link (block_a.hashables.link) && block_a.sideband ().details.is_epoch)
+		{
+			debug_assert (!previous_balance || balance == previous_balance);
+			type = "Epoch";
+			amount = 0;
+			if (!previous_balance)
+			{
+				type = "Epoch (pruned)";
+			}
+			account = ledger.epoch_signer (block_a.hashables.link);
+		}
+		else
+		{
+			debug_assert (block_a.sideband ().details.is_receive);
+			type = "Receive";
+			auto account_l = ledger.any.block_account (transaction, block_a.hashables.link.as_block_hash ());
+			if (!account_l)
+			{
+				type = "Receive (pruned sender)";
+			}
+			else
+			{
+				account = account_l.value ();
+			}
+			if (!previous_balance)
+			{
+				type = "Receive (pruned)";
+				amount = 0;
+			}
+			else
+			{
+				amount = balance - previous_balance.value ().number ();
+			}
 		}
 	}
 	nano::secure::transaction const & transaction;
