@@ -580,12 +580,32 @@ TEST (history, pruned_source)
 		ASSERT_EQ (1, ledger.pruning_action (transaction, send1->hash (), 2));
 		next_pruning = send2->hash ();
 	}
+	// Genesis account pruned values
 	nano_qt::history history1 (ledger, nano::dev::genesis_key.pub, *wallet);
 	history1.refresh ();
 	ASSERT_EQ (2, history1.model->rowCount ());
+	auto type1 (history1.model->item (0, 0));
+	ASSERT_EQ ("Receive", type1->text ().toStdString ());
+	auto account1 (history1.model->item (0, 1));
+	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), account1->text ().toStdString ());
+	auto amount1 (history1.model->item (0, 2));
+	ASSERT_EQ ("100", amount1->text ().toStdString ());
+	auto type2 (history1.model->item (1, 0));
+	ASSERT_EQ ("Send (pruned)", type2->text ().toStdString ());
+	auto account2 (history1.model->item (1, 1));
+	ASSERT_EQ (key.pub.to_account (), account2->text ().toStdString ());
+	auto amount2 (history1.model->item (1, 2));
+	ASSERT_EQ ("0", amount2->text ().toStdString ());
+	// New account pruned values
 	nano_qt::history history2 (ledger, key.pub, *wallet);
 	history2.refresh ();
 	ASSERT_EQ (1, history2.model->rowCount ());
+	auto type3 (history2.model->item (0, 0));
+	ASSERT_EQ ("Receive (pruned sender)", type3->text ().toStdString ());
+	auto account3 (history2.model->item (0, 1));
+	ASSERT_EQ (key.pub.to_account (), account3->text ().toStdString ());
+	auto amount3 (history2.model->item (0, 2));
+	ASSERT_EQ ("100", amount3->text ().toStdString ());
 	// Additional legacy test
 	{
 		auto transaction = ledger.tx_begin_write ();
