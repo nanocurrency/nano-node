@@ -60,7 +60,7 @@ uint64_t nano::ledger_set_any::account_height (secure::transaction const & trans
 auto nano::ledger_set_any::account_lower_bound (secure::transaction const & transaction, nano::account const & account) const -> account_iterator
 {
 	auto disk = ledger.store.account.begin (transaction, account);
-	if (disk == ledger.store.account.end ())
+	if (disk == ledger.store.account.end (transaction))
 	{
 		return account_iterator{};
 	}
@@ -153,7 +153,7 @@ uint64_t nano::ledger_set_any::block_height (secure::transaction const & transac
 std::optional<std::pair<nano::pending_key, nano::pending_info>> nano::ledger_set_any::receivable_lower_bound (secure::transaction const & transaction, nano::account const & account, nano::block_hash const & hash) const
 {
 	auto result = ledger.store.pending.begin (transaction, { account, hash });
-	if (result == ledger.store.pending.end ())
+	if (result == ledger.store.pending.end (transaction))
 	{
 		return std::nullopt;
 	}

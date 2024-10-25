@@ -120,7 +120,6 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("allow_local_peers", allow_local_peers, "Enable or disable local host peering.\ntype:bool");
 	toml.put ("vote_minimum", vote_minimum.to_string_dec (), "Local representatives do not vote if the delegated weight is under this threshold. Saves on system resources.\ntype:string,amount,raw");
 	toml.put ("vote_generator_delay", vote_generator_delay.count (), "Delay before votes are sent to allow for efficient bundling of hashes in votes.\ntype:milliseconds");
-	toml.put ("vote_generator_threshold", vote_generator_threshold, "Number of bundled hashes required for an additional generator delay.\ntype:uint64,[1..11]");
 	toml.put ("unchecked_cutoff_time", unchecked_cutoff_time.count (), "Number of seconds before deleting an unchecked entry.\nWarning: lower values (e.g., 3600 seconds, or 1 hour) may result in unsuccessful bootstraps, especially a bootstrap from scratch.\ntype:seconds");
 	toml.put ("tcp_io_timeout", tcp_io_timeout.count (), "Timeout for TCP connect-, read- and write operations.\nWarning: a low value (e.g., below 5 seconds) may result in TCP connections failing.\ntype:seconds");
 	toml.put ("pow_sleep_interval", pow_sleep_interval.count (), "Time to sleep between batch work generation attempts. Reduces max CPU usage at the expense of a longer generation time.\ntype:nanoseconds");
@@ -484,8 +483,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get ("vote_generator_delay", delay_l);
 		vote_generator_delay = std::chrono::milliseconds (delay_l);
 
-		toml.get<unsigned> ("vote_generator_threshold", vote_generator_threshold);
-
 		auto block_processor_batch_max_time_l = block_processor_batch_max_time.count ();
 		toml.get ("block_processor_batch_max_time", block_processor_batch_max_time_l);
 		block_processor_batch_max_time = std::chrono::milliseconds (block_processor_batch_max_time_l);
@@ -599,10 +596,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (bandwidth_limit > std::numeric_limits<std::size_t>::max ())
 		{
 			toml.get_error ().set ("bandwidth_limit unbounded = 0, default = 10485760, max = 18446744073709551615");
-		}
-		if (vote_generator_threshold < 1 || vote_generator_threshold > 11)
-		{
-			toml.get_error ().set ("vote_generator_threshold must be a number between 1 and 11");
 		}
 		if (max_work_generate_multiplier < 1)
 		{

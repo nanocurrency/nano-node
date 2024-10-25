@@ -27,8 +27,8 @@ $zip_hash = ((Get-FileHash $zip).hash)+" "+(split-path -Path $zip -Resolve -leaf
 $exe_hash | Out-file -FilePath "$exe.sha256"
 $zip_hash | Out-file -FilePath "$zip.sha256"
 
-Write-Output "Hash: $exe_hash"
-Write-Output "Hash: $zip_hash"
+Write-Output "::notice::Hash: $exe_hash"
+Write-Output "::notice::Hash: $zip_hash"
 
 aws s3 cp "$exe" s3://$env:S3_BUCKET_NAME/$directory/binaries/nano-node-$env:TAG-win64.exe --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
 aws s3 cp "$exe.sha256" s3://$env:S3_BUCKET_NAME/$directory/binaries/nano-node-$env:TAG-win64.exe.sha256 --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers

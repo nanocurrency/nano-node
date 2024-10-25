@@ -77,7 +77,7 @@ std::deque<nano::account> nano::bootstrap_ascending::account_database_iterator::
 	std::deque<nano::account> result;
 
 	auto it = ledger.store.account.begin (transaction, next);
-	auto const end = ledger.store.account.end ();
+	auto const end = ledger.store.account.end (transaction);
 
 	for (size_t count = 0; it != end && count < batch_size; ++it, ++count)
 	{
@@ -115,7 +115,7 @@ std::deque<nano::account> nano::bootstrap_ascending::pending_database_iterator::
 	std::deque<nano::account> result;
 
 	auto it = ledger.store.pending.begin (transaction, next);
-	auto const end = ledger.store.pending.end ();
+	auto const end = ledger.store.pending.end (transaction);
 
 	// TODO: This pending iteration heuristic should be encapsulated in a pending_iterator class and reused across other components
 	// The heuristic is to advance the iterator sequentially until we reach a new account or perform a fresh lookup if the account has too many pending blocks

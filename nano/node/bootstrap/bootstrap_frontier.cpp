@@ -239,7 +239,7 @@ void nano::frontier_req_client::next ()
 	{
 		std::size_t max_size (128);
 		auto transaction (node->store.tx_begin_read ());
-		for (auto i (node->store.account.begin (transaction, current.number () + 1)), n (node->store.account.end ()); i != n && accounts.size () != max_size; ++i)
+		for (auto i (node->store.account.begin (transaction, current.number () + 1)), n (node->store.account.end (transaction)); i != n && accounts.size () != max_size; ++i)
 		{
 			nano::account_info const & info (i->second);
 			nano::account const & account (i->first);
@@ -381,7 +381,7 @@ void nano::frontier_req_server::next ()
 		auto transaction (node->store.tx_begin_read ());
 		if (!send_confirmed ())
 		{
-			for (auto i (node->store.account.begin (transaction, current.number () + 1)), n (node->store.account.end ()); i != n && accounts.size () != max_size; ++i)
+			for (auto i (node->store.account.begin (transaction, current.number () + 1)), n (node->store.account.end (transaction)); i != n && accounts.size () != max_size; ++i)
 			{
 				nano::account_info const & info (i->second);
 				if (disable_age_filter || (now - info.modified) <= request->age)
@@ -393,7 +393,7 @@ void nano::frontier_req_server::next ()
 		}
 		else
 		{
-			for (auto i (node->store.confirmation_height.begin (transaction, current.number () + 1)), n (node->store.confirmation_height.end ()); i != n && accounts.size () != max_size; ++i)
+			for (auto i (node->store.confirmation_height.begin (transaction, current.number () + 1)), n (node->store.confirmation_height.end (transaction)); i != n && accounts.size () != max_size; ++i)
 			{
 				nano::confirmation_height_info const & info (i->second);
 				nano::block_hash const & confirmed_frontier (info.frontier);

@@ -5464,7 +5464,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 
 	ASSERT_TRUE (rocksdb_store.pending.get (rocksdb_transaction, nano::pending_key (nano::dev::genesis_key.pub, send->hash ())));
 
-	for (auto i = rocksdb_store.online_weight.begin (rocksdb_transaction); i != rocksdb_store.online_weight.end (); ++i)
+	for (auto i = rocksdb_store.online_weight.begin (rocksdb_transaction); i != rocksdb_store.online_weight.end (rocksdb_transaction); ++i)
 	{
 		ASSERT_EQ (i->first, 100);
 		ASSERT_EQ (i->second, 2);

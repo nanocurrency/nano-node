@@ -44,7 +44,7 @@ for script in ${NANO_SYSTEST_DIR}/*.sh; do
 done
 
 if [ $overall_status -eq 0 ]; then
-    echo "::notice::All systests passed"
+    echo "All systests passed"
 else
     echo "::error::Some systests failed"
     exit 1

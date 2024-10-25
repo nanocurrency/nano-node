@@ -102,7 +102,7 @@ void nano::rep_crawler::validate_and_process (nano::unique_lock<nano::mutex> & l
 				rep.last_response = std::chrono::steady_clock::now ();
 
 				// Update if representative channel was changed
-				if (rep.channel->get_endpoint () != channel->get_endpoint ())
+				if (rep.channel->get_remote_endpoint () != channel->get_remote_endpoint ())
 				{
 					debug_assert (rep.account == vote->account);
 					updated = true;

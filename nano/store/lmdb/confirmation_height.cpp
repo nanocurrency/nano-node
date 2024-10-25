@@ -59,26 +59,26 @@ void nano::store::lmdb::confirmation_height::clear (store::write_transaction con
 	store.drop (transaction_a, nano::tables::confirmation_height);
 }
 
-nano::store::iterator<nano::account, nano::confirmation_height_info> nano::store::lmdb::confirmation_height::begin (store::transaction const & transaction, nano::account const & account) const
+auto nano::store::lmdb::confirmation_height::begin (store::transaction const & transaction, nano::account const & account) const -> iterator
 {
 	return store.make_iterator<nano::account, nano::confirmation_height_info> (transaction, tables::confirmation_height, account);
 }
 
-nano::store::iterator<nano::account, nano::confirmation_height_info> nano::store::lmdb::confirmation_height::begin (store::transaction const & transaction) const
+auto nano::store::lmdb::confirmation_height::begin (store::transaction const & transaction) const -> iterator
 {
 	return store.make_iterator<nano::account, nano::confirmation_height_info> (transaction, tables::confirmation_height);
 }
 
-nano::store::iterator<nano::account, nano::confirmation_height_info> nano::store::lmdb::confirmation_height::end () const
+auto nano::store::lmdb::confirmation_height::end (store::transaction const & transaction_a) const -> iterator
 {
-	return store::iterator<nano::account, nano::confirmation_height_info> (nullptr);
+	return iterator{ nullptr };
 }
 
-void nano::store::lmdb::confirmation_height::for_each_par (std::function<void (store::read_transaction const &, store::iterator<nano::account, nano::confirmation_height_info>, store::iterator<nano::account, nano::confirmation_height_info>)> const & action_a) const
+void nano::store::lmdb::confirmation_height::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const
 {
 	parallel_traversal<nano::uint256_t> (
 	[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
 		auto transaction (this->store.tx_begin_read ());
-		action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end ());
+		action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end (transaction));
 	});
 }

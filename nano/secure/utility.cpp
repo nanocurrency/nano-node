@@ -47,7 +47,7 @@ std::filesystem::path nano::working_path (nano::networks network)
 	return result;
 }
 
-std::filesystem::path nano::unique_path (nano::networks network)
+std::filesystem::path nano::random_filename ()
 {
 	std::random_device rd;
 	std::mt19937 gen (rd ());
@@ -61,8 +61,12 @@ std::filesystem::path nano::unique_path (nano::networks network)
 	{
 		random_string += hex_chars[dis (gen)];
 	}
+	return std::filesystem::path{ random_string };
+}
 
-	auto result = working_path (network) / random_string;
+std::filesystem::path nano::unique_path (nano::networks network)
+{
+	auto result = working_path (network) / random_filename ();
 
 	std::filesystem::create_directories (result);
 

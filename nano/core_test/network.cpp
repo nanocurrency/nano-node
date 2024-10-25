@@ -377,7 +377,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
 	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
 	ASSERT_EQ (1, election->votes ().size ());
-	node1.network.inbound (con1, channel1);
+	node1.inbound (con1, channel1);
 	ASSERT_TIMELY_EQ (5s, 2, election->votes ().size ())
 	ASSERT_FALSE (election->confirmed ());
 }
@@ -402,7 +402,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
 	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
 	ASSERT_EQ (1, election->votes ().size ());
-	node1.network.inbound (con1, channel1);
+	node1.inbound (con1, channel1);
 	ASSERT_TIMELY_EQ (5s, 2, election->votes ().size ())
 	ASSERT_TRUE (election->confirmed ());
 }
@@ -743,10 +743,10 @@ TEST (network, duplicate_revert_publish)
 	auto channel = nano::test::establish_tcp (system, *other_node, node.network.endpoint ());
 	ASSERT_NE (nullptr, channel);
 	ASSERT_EQ (0, publish.digest);
-	node.network.inbound (publish, channel);
+	node.inbound (publish, nano::test::fake_channel (node));
 	ASSERT_TRUE (node.network.filter.apply (bytes.data (), bytes.size ()));
 	publish.digest = digest;
-	node.network.inbound (publish, channel);
+	node.inbound (publish, nano::test::fake_channel (node));
 	ASSERT_FALSE (node.network.filter.apply (bytes.data (), bytes.size ()));
 }
 
@@ -1024,14 +1024,13 @@ TEST (network, loopback_channel)
 	auto & node2 = *system.nodes[1];
 	nano::transport::inproc::channel channel1 (node1, node1);
 	ASSERT_EQ (channel1.get_type (), nano::transport::transport_type::loopback);
-	ASSERT_EQ (channel1.get_endpoint (), node1.network.endpoint ());
-	ASSERT_EQ (channel1.get_tcp_endpoint (), nano::transport::map_endpoint_to_tcp (node1.network.endpoint ()));
+	ASSERT_EQ (channel1.get_remote_endpoint (), node1.network.endpoint ());
 	ASSERT_EQ (channel1.get_network_version (), node1.network_params.network.protocol_version);
 	ASSERT_EQ (channel1.get_node_id (), node1.node_id.pub);
 	ASSERT_EQ (channel1.get_node_id_optional ().value_or (0), node1.node_id.pub);
 	nano::transport::inproc::channel channel2 (node2, node2);
 	++node1.network.port;
-	ASSERT_NE (channel1.get_endpoint (), node1.network.endpoint ());
+	ASSERT_NE (channel1.get_remote_endpoint (), node1.network.endpoint ());
 }
 
 // Ensure the network filters messages with the incorrect magic number

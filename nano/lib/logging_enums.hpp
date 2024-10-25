@@ -82,6 +82,7 @@ enum class type
 	message_processor,
 	local_block_broadcaster,
 	monitor,
+	confirming_set,
 
 	// bootstrap
 	bulk_pull_client,

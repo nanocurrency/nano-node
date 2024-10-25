@@ -45,7 +45,7 @@ void nano::online_reps::sample ()
 		while (ledger.store.online_weight.count (transaction) >= config.network_params.node.max_weight_samples)
 		{
 			auto oldest (ledger.store.online_weight.begin (transaction));
-			debug_assert (oldest != ledger.store.online_weight.end ());
+			debug_assert (oldest != ledger.store.online_weight.end (transaction));
 			ledger.store.online_weight.del (transaction, oldest->first);
 		}
 		ledger.store.online_weight.put (transaction, std::chrono::system_clock::now ().time_since_epoch ().count (), online_l);
@@ -70,7 +70,7 @@ nano::uint128_t nano::online_reps::calculate_trend (store::transaction & transac
 	std::vector<nano::uint128_t> items;
 	items.reserve (config.network_params.node.max_weight_samples + 1);
 	items.push_back (config.online_weight_minimum.number ());
-	for (auto i (ledger.store.online_weight.begin (transaction_a)), n (ledger.store.online_weight.end ()); i != n; ++i)
+	for (auto i (ledger.store.online_weight.begin (transaction_a)), n (ledger.store.online_weight.end (transaction_a)); i != n; ++i)
 	{
 		items.push_back (i->second.number ());
 	}

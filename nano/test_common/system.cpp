@@ -10,6 +10,7 @@
 #include <nano/test_common/testutil.hpp>
 
 #include <boost/asio.hpp>
+#include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <cstdlib>
@@ -257,9 +258,9 @@ nano::account nano::test::system::account (store::transaction const & transactio
 {
 	auto wallet_l (wallet (index_a));
 	auto keys (wallet_l->store.begin (transaction_a));
-	debug_assert (keys != wallet_l->store.end ());
+	debug_assert (keys != wallet_l->store.end (transaction_a));
 	auto result (keys->first);
-	debug_assert (++keys == wallet_l->store.end ());
+	debug_assert (++keys == wallet_l->store.end (transaction_a));
 	return nano::account (result);
 }
 
@@ -351,7 +352,20 @@ std::error_code nano::test::system::poll_until_true (std::chrono::nanoseconds de
 	deadline_set (deadline_a);
 	while (!ec && !predicate_a ())
 	{
-		ec = poll ();
+		try
+		{
+			ec = poll ();
+		}
+		catch (std::exception const & ex)
+		{
+			std::cerr << "Error running IO: " << ex.what () << std::endl;
+			ec = nano::error_system::generic;
+		}
+		catch (...)
+		{
+			std::cerr << "Unknown error running IO" << std::endl;
+			ec = nano::error_system::generic;
+		}
 	}
 	return ec;
 }
@@ -519,12 +533,12 @@ void nano::test::system::generate_send_existing (nano::node & node_a, std::vecto
 		nano::account account;
 		random_pool::generate_block (account.bytes.data (), sizeof (account.bytes));
 		auto transaction = node_a.ledger.tx_begin_read ();
-		store::iterator<nano::account, nano::account_info> entry (node_a.store.account.begin (transaction, account));
-		if (entry == node_a.store.account.end ())
+		auto entry = node_a.store.account.begin (transaction, account);
+		if (entry == node_a.store.account.end (transaction))
 		{
 			entry = node_a.store.account.begin (transaction);
 		}
-		debug_assert (entry != node_a.store.account.end ());
+		debug_assert (entry != node_a.store.account.end (transaction));
 		destination = nano::account (entry->first);
 		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);

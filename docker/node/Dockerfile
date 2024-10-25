@@ -1,4 +1,4 @@
-FROM ubuntu:22.04 as builder
+FROM ubuntu:22.04 AS builder
 
 ARG COMPILER=gcc
 ARG NANO_NETWORK=live
@@ -10,7 +10,7 @@ RUN /tmp/prepare/prepare.sh
 COPY ./ /tmp/src
 WORKDIR /tmp/src
 
-#Define ARGs for ci/build-node.sh
+# Define ARGs for ci/build-node.sh
 ARG BUILD_TYPE=RelWithDebInfo
 ARG NANO_TEST=OFF
 ARG NANO_TRACING=OFF

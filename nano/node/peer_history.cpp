@@ -104,7 +104,7 @@ void nano::peer_history::run_one ()
 	auto const now = std::chrono::system_clock::now ();
 	auto const cutoff = now - config.erase_cutoff;
 
-	for (auto it = store.peer.begin (transaction); it != store.peer.end (); ++it)
+	for (auto it = store.peer.begin (transaction); it != store.peer.end (transaction); ++it)
 	{
 		auto const [endpoint, timestamp_millis] = *it;
 		auto timestamp = nano::from_milliseconds_since_epoch (timestamp_millis);
@@ -124,7 +124,7 @@ std::vector<nano::endpoint> nano::peer_history::peers () const
 {
 	auto transaction = store.tx_begin_read ();
 	std::vector<nano::endpoint> peers;
-	for (auto it = store.peer.begin (transaction); it != store.peer.end (); ++it)
+	for (auto it = store.peer.begin (transaction); it != store.peer.end (transaction); ++it)
 	{
 		auto const [endpoint, timestamp_millis] = *it;
 		peers.push_back (endpoint.endpoint ());

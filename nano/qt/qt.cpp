@@ -268,7 +268,7 @@ void nano_qt::accounts::refresh_wallet_balance ()
 	auto block_transaction = this->wallet.node.ledger.tx_begin_read ();
 	nano::uint128_t balance (0);
 	nano::uint128_t pending (0);
-	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
+	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end (transaction)); i != j; ++i)
 	{
 		nano::public_key const & key (i->first);
 		balance = balance + this->wallet.node.ledger.any.account_balance (block_transaction, key).value_or (0).number ();
@@ -293,7 +293,7 @@ void nano_qt::accounts::refresh ()
 	auto transaction (wallet.wallet_m->wallets.tx_begin_read ());
 	auto block_transaction = this->wallet.node.ledger.tx_begin_read ();
 	QBrush brush;
-	for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end ()); i != j; ++i)
+	for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end (transaction)); i != j; ++i)
 	{
 		nano::public_key key (i->first);
 		auto balance_amount = wallet.node.ledger.any.account_balance (block_transaction, key).value_or (0).number ();
@@ -1944,7 +1944,7 @@ void nano_qt::advanced_actions::refresh_peers ()
 	peers_model->removeRows (0, peers_model->rowCount ());
 	auto list (wallet.node.network.list (std::numeric_limits<size_t>::max ()));
 	std::sort (list.begin (), list.end (), [] (auto const & lhs, auto const & rhs) {
-		return lhs->get_endpoint () < rhs->get_endpoint ();
+		return lhs->get_remote_endpoint () < rhs->get_remote_endpoint ();
 	});
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
@@ -1959,9 +1959,9 @@ void nano_qt::advanced_actions::refresh_peers ()
 		items.push_back (version);
 		QString node_id ("");
 		auto node_id_l (channel->get_node_id_optional ());
-		if (node_id_l.is_initialized ())
+		if (node_id_l.has_value ())
 		{
-			node_id = node_id_l.get ().to_account ().c_str ();
+			node_id = node_id_l.value ().to_account ().c_str ();
 		}
 		items.push_back (new QStandardItem (node_id));
 		peers_model->appendRow (items);
@@ -1973,7 +1973,7 @@ void nano_qt::advanced_actions::refresh_ledger ()
 {
 	ledger_model->removeRows (0, ledger_model->rowCount ());
 	auto transaction (wallet.node.ledger.tx_begin_read ());
-	for (auto i (wallet.node.ledger.store.account.begin (transaction)), j (wallet.node.ledger.store.account.end ()); i != j; ++i)
+	for (auto i (wallet.node.ledger.store.account.begin (transaction)), j (wallet.node.ledger.store.account.end (transaction)); i != j; ++i)
 	{
 		QList<QStandardItem *> items;
 		items.push_back (new QStandardItem (QString (i->first.to_account ().c_str ())));

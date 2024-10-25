@@ -1050,7 +1050,7 @@ nano::websocket_server::websocket_server (nano::websocket::config & config_a, na
 		if (server->any_subscriber (nano::websocket::topic::telemetry))
 		{
 			nano::websocket::message_builder builder;
-			server->broadcast (builder.telemetry_received (telemetry_data, channel->get_endpoint ()));
+			server->broadcast (builder.telemetry_received (telemetry_data, channel->get_remote_endpoint ()));
 		}
 	});
 

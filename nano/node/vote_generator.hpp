@@ -30,6 +30,7 @@ private:
 	using candidate_t = std::pair<nano::root, nano::block_hash>;
 	using request_t = std::pair<std::vector<candidate_t>, std::shared_ptr<nano::transport::channel>>;
 	using queue_entry_t = std::pair<nano::root, nano::block_hash>;
+	std::chrono::steady_clock::time_point next_broadcast = { std::chrono::steady_clock::now () };
 
 public:
 	vote_generator (nano::node_config const &, nano::node &, nano::ledger &, nano::wallets &, nano::vote_processor &, nano::local_vote_history &, nano::network &, nano::stats &, nano::logger &, bool is_final);
@@ -56,6 +57,7 @@ private:
 	void broadcast_action (std::shared_ptr<nano::vote> const &) const;
 	void process_batch (std::deque<queue_entry_t> & batch);
 	bool should_vote (transaction_variant_t const &, nano::root const &, nano::block_hash const &) const;
+	bool broadcast_predicate () const;
 
 private:
 	std::function<void (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> &)> reply_action; // must be set only during initialization by using set_reply_action

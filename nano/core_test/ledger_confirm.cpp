@@ -752,29 +752,6 @@ TEST (ledger_confirm, observers)
 	ASSERT_EQ (2, node1->ledger.cemented_count ());
 }
 
-TEST (ledger_confirm, election_winner_details_clearing_node_process_confirmed)
-{
-	// Make sure election_winner_details is also cleared if the block never enters the confirmation height processor from node::process_confirmed
-	nano::test::system system (1);
-	auto node = system.nodes.front ();
-
-	nano::block_builder builder;
-	auto send = builder
-				.send ()
-				.previous (nano::dev::genesis->hash ())
-				.destination (nano::dev::genesis_key.pub)
-				.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*system.work.generate (nano::dev::genesis->hash ()))
-				.build ();
-	// Add to election_winner_details. Use an unrealistic iteration so that it should fall into the else case and do a cleanup
-	node->active.add_election_winner_details (send->hash (), nullptr);
-	nano::election_status election;
-	election.winner = send;
-	node->process_confirmed (election, 1000000);
-	ASSERT_EQ (0, node->active.election_winner_details_size ());
-}
-
 TEST (ledger_confirm, pruned_source)
 {
 	nano::test::system system;

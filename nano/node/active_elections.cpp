@@ -25,36 +25,41 @@ nano::active_elections::active_elections (nano::node & node_a, nano::confirming_
 	confirming_set{ confirming_set_a },
 	block_processor{ block_processor_a },
 	recently_confirmed{ config.confirmation_cache },
-	recently_cemented{ config.confirmation_history_size },
-	election_time_to_live{ node_a.network_params.network.is_dev_network () ? 0s : 2s }
+	recently_cemented{ config.confirmation_history_size }
 {
 	count_by_behavior.fill (0); // Zero initialize array
 
-	confirming_set.batch_cemented.add ([this] (nano::confirming_set::cemented_notification const & notification) {
+	// Cementing blocks might implicitly confirm dependent elections
+	confirming_set.batch_cemented.add ([this] (auto const & cemented) {
+		std::deque<block_cemented_result> results;
 		{
-			auto transaction = node.ledger.tx_begin_read ();
-			for (auto const & [block, confirmation_root] : notification.cemented)
+			// Process all cemented blocks while holding the lock to avoid races where an election for a block that is already cemented is inserted
+			nano::lock_guard<nano::mutex> guard{ mutex };
+			for (auto const & [block, confirmation_root, source_election] : cemented)
 			{
-				transaction.refresh_if_needed ();
-
-				block_cemented_callback (transaction, block, confirmation_root);
+				auto result = block_cemented (block, confirmation_root, source_election);
+				results.push_back (result);
 			}
 		}
-		for (auto const & hash : notification.already_cemented)
 		{
-			block_already_cemented_callback (hash);
+			// TODO: This could be offloaded to a separate notification worker, profiling is needed
+			auto transaction = node.ledger.tx_begin_read ();
+			for (auto const & [status, votes] : results)
+			{
+				transaction.refresh_if_needed ();
+				notify_observers (transaction, status, votes);
+			}
 		}
 	});
 
 	// Notify elections about alternative (forked) blocks
-	block_processor.block_processed.add ([this] (auto const & result, auto const & context) {
-		switch (result)
+	block_processor.batch_processed.add ([this] (auto const & batch) {
+		for (auto const & [result, context] : batch)
 		{
-			case nano::block_status::fork:
+			if (result == nano::block_status::fork)
+			{
 				publish (context.block);
-				break;
-			default:
-				break;
+			}
 		}
 	});
 }
@@ -91,28 +96,32 @@ void nano::active_elections::stop ()
 	clear ();
 }
 
-void nano::active_elections::block_cemented_callback (nano::secure::transaction const & transaction, std::shared_ptr<nano::block> const & block, nano::block_hash const & confirmation_root)
+auto nano::active_elections::block_cemented (std::shared_ptr<nano::block> const & block, nano::block_hash const & confirmation_root, std::shared_ptr<nano::election> const & source_election) -> block_cemented_result
 {
+	debug_assert (!mutex.try_lock ());
 	debug_assert (node.block_confirmed (block->hash ()));
 
-	if (auto election_l = election (block->qualified_root ()))
+	// Dependent elections are implicitly confirmed when their block is cemented
+	auto dependend_election = election_impl (block->qualified_root ());
+	if (dependend_election)
 	{
-		election_l->try_confirm (block->hash ());
+		node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::confirm_dependent);
+		dependend_election->try_confirm (block->hash ()); // TODO: This should either confirm or cancel the election
 	}
-	auto election = remove_election_winner_details (block->hash ());
+
 	nano::election_status status;
 	std::vector<nano::vote_with_weight_info> votes;
 	status.winner = block;
-	if (election)
+
+	// Check if the currently cemented block was part of an election that triggered the confirmation
+	if (source_election && source_election->qualified_root == block->qualified_root ())
 	{
-		status = election->get_status ();
-		votes = election->votes_with_weight ();
-	}
-	if (block->hash () == confirmation_root)
-	{
+		status = source_election->get_status ();
+		debug_assert (status.winner->hash () == block->hash ());
+		votes = source_election->votes_with_weight ();
 		status.type = nano::election_status_type::active_confirmed_quorum;
 	}
-	else if (election)
+	else if (dependend_election)
 	{
 		status.type = nano::election_status_type::active_confirmation_height;
 	}
@@ -120,23 +129,18 @@ void nano::active_elections::block_cemented_callback (nano::secure::transaction 
 	{
 		status.type = nano::election_status_type::inactive_confirmation_height;
 	}
+
 	recently_cemented.put (status);
 
 	node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::cemented);
 	node.stats.inc (nano::stat::type::active_elections_cemented, to_stat_detail (status.type));
 
-	node.logger.trace (nano::log::type::active_elections, nano::log::detail::active_cemented, nano::log::arg{ "election", election });
+	node.logger.trace (nano::log::type::active_elections, nano::log::detail::active_cemented,
+	nano::log::arg{ "block", block },
+	nano::log::arg{ "confirmation_root", confirmation_root },
+	nano::log::arg{ "source_election", source_election });
 
-	notify_observers (transaction, status, votes);
-
-	bool cemented_bootstrap_count_reached = node.ledger.cemented_count () >= node.ledger.bootstrap_weight_max_blocks;
-	bool was_active = status.type == nano::election_status_type::active_confirmed_quorum || status.type == nano::election_status_type::active_confirmation_height;
-
-	// Next-block activations are only done for blocks with previously active elections
-	if (cemented_bootstrap_count_reached && was_active && !node.flags.disable_activate_successors)
-	{
-		activate_successors (transaction, block);
-	}
+	return { status, votes };
 }
 
 void nano::active_elections::notify_observers (nano::secure::transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes) const
@@ -172,50 +176,6 @@ void nano::active_elections::notify_observers (nano::secure::transaction const &
 	{
 		node.observers.account_balance.notify (block->destination (), true);
 	}
-}
-
-void nano::active_elections::activate_successors (nano::secure::transaction const & transaction, std::shared_ptr<nano::block> const & block)
-{
-	node.scheduler.priority.activate (transaction, block->account ());
-
-	// Start or vote for the next unconfirmed block in the destination account
-	if (block->is_send () && !block->destination ().is_zero () && block->destination () != block->account ())
-	{
-		node.scheduler.priority.activate (transaction, block->destination ());
-	}
-}
-
-void nano::active_elections::add_election_winner_details (nano::block_hash const & hash_a, std::shared_ptr<nano::election> const & election_a)
-{
-	nano::lock_guard<nano::mutex> guard{ election_winner_details_mutex };
-	election_winner_details.emplace (hash_a, election_a);
-}
-
-std::shared_ptr<nano::election> nano::active_elections::remove_election_winner_details (nano::block_hash const & hash_a)
-{
-	std::shared_ptr<nano::election> result;
-	{
-		nano::lock_guard<nano::mutex> guard{ election_winner_details_mutex };
-		auto existing = election_winner_details.find (hash_a);
-		if (existing != election_winner_details.end ())
-		{
-			result = existing->second;
-			election_winner_details.erase (existing);
-		}
-	}
-
-	vacancy_update ();
-
-	return result;
-}
-
-void nano::active_elections::block_already_cemented_callback (nano::block_hash const & hash_a)
-{
-	// Depending on timing there is a situation where the election_winner_details is not reset.
-	// This can happen when a block wins an election, and the block is confirmed + observer
-	// called before the block hash gets added to election_winner_details. If the block is confirmed
-	// callbacks have already been done, so we can safely just remove it.
-	remove_election_winner_details (hash_a);
 }
 
 int64_t nano::active_elections::limit (nano::election_behavior behavior) const
@@ -265,7 +225,7 @@ int64_t nano::active_elections::vacancy (nano::election_behavior behavior) const
 	};
 
 	auto election_winners_vacancy = [this] () -> int64_t {
-		return static_cast<int64_t> (config.max_election_winners) - static_cast<int64_t> (election_winner_details_size ());
+		return static_cast<int64_t> (config.max_election_winners) - static_cast<int64_t> (confirming_set.size ());
 	};
 
 	return std::min (election_vacancy (behavior), election_winners_vacancy ());
@@ -350,7 +310,7 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 		entry.erased_callback (election);
 	}
 
-	vacancy_update ();
+	vacancy_updated.notify ();
 
 	for (auto const & [hash, block] : blocks_l)
 	{
@@ -473,7 +433,7 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 
 		node.vote_cache_processor.trigger (hash);
 		node.observers.active_started.notify (hash);
-		vacancy_update ();
+		vacancy_updated.notify ();
 	}
 
 	// Votes are generated for inserted or ongoing elections
@@ -497,11 +457,17 @@ bool nano::active_elections::active (nano::block const & block_a) const
 	return roots.get<tag_root> ().find (block_a.qualified_root ()) != roots.get<tag_root> ().end ();
 }
 
-std::shared_ptr<nano::election> nano::active_elections::election (nano::qualified_root const & root_a) const
+std::shared_ptr<nano::election> nano::active_elections::election (nano::qualified_root const & root) const
 {
-	std::shared_ptr<nano::election> result;
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	auto existing = roots.get<tag_root> ().find (root_a);
+	return election_impl (root);
+}
+
+std::shared_ptr<nano::election> nano::active_elections::election_impl (nano::qualified_root const & root) const
+{
+	debug_assert (!mutex.try_lock ());
+	std::shared_ptr<nano::election> result;
+	auto existing = roots.get<tag_root> ().find (root);
 	if (existing != roots.get<tag_root> ().end ())
 	{
 		result = existing->election;
@@ -572,12 +538,6 @@ bool nano::active_elections::publish (std::shared_ptr<nano::block> const & block
 	return result;
 }
 
-std::size_t nano::active_elections::election_winner_details_size () const
-{
-	nano::lock_guard<nano::mutex> guard{ election_winner_details_mutex };
-	return election_winner_details.size ();
-}
-
 void nano::active_elections::clear ()
 {
 	// TODO: Call erased_callback for each election
@@ -585,8 +545,7 @@ void nano::active_elections::clear ()
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		roots.clear ();
 	}
-
-	vacancy_update ();
+	vacancy_updated.notify ();
 }
 
 nano::container_info nano::active_elections::container_info () const
@@ -595,7 +554,6 @@ nano::container_info nano::active_elections::container_info () const
 
 	nano::container_info info;
 	info.put ("roots", roots.size ());
-	info.put ("election_winner_details", election_winner_details_size ());
 	info.put ("normal", static_cast<std::size_t> (count_by_behavior[nano::election_behavior::priority]));
 	info.put ("hinted", static_cast<std::size_t> (count_by_behavior[nano::election_behavior::hinted]));
 	info.put ("optimistic", static_cast<std::size_t> (count_by_behavior[nano::election_behavior::optimistic]));

@@ -18,6 +18,7 @@
 #include <nano/rpc/rpc.hpp>
 #include <nano/secure/working.hpp>
 
+#include <boost/format.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/program_options.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -147,7 +148,7 @@ public:
 				{
 					auto transaction (wallet->wallets.tx_begin_write ());
 					auto existing (wallet->store.begin (transaction));
-					if (existing != wallet->store.end ())
+					if (existing != wallet->store.end (transaction))
 					{
 						wallet_config.account = existing->first;
 					}

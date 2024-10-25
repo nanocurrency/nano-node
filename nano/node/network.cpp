@@ -281,6 +281,15 @@ void nano::network::flood_vote (std::shared_ptr<nano::vote> const & vote, float 
 	}
 }
 
+void nano::network::flood_vote_non_pr (std::shared_ptr<nano::vote> const & vote, float scale, bool rebroadcasted)
+{
+	nano::confirm_ack message{ node.network_params.network, vote, rebroadcasted };
+	for (auto & i : list_non_pr (fanout (scale)))
+	{
+		i->send (message, nullptr);
+	}
+}
+
 void nano::network::flood_vote_pr (std::shared_ptr<nano::vote> const & vote, bool rebroadcasted)
 {
 	nano::confirm_ack message{ node.network_params.network, vote, rebroadcasted };
@@ -312,14 +321,6 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 			callback_a ();
 		}
 	}
-}
-
-void nano::network::inbound (const nano::message & message, const std::shared_ptr<nano::transport::channel> & channel)
-{
-	debug_assert (message.header.network == node.network_params.network.current_network);
-	debug_assert (message.header.version_using >= node.network_params.network.protocol_version_min);
-
-	node.message_processor.process (message, channel);
 }
 
 // Send keepalives to all the peers we've been notified of
@@ -385,11 +386,13 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list_non_pr
 {
 	std::deque<std::shared_ptr<nano::transport::channel>> result;
 	tcp_channels.list (result);
+
+	auto partition_point = std::partition (result.begin (), result.end (),
+	[this] (std::shared_ptr<nano::transport::channel> const & channel) {
+		return !node.rep_crawler.is_pr (channel);
+	});
+	result.resize (std::distance (result.begin (), partition_point));
 	nano::random_pool_shuffle (result.begin (), result.end ());
-	result.erase (std::remove_if (result.begin (), result.end (), [this] (std::shared_ptr<nano::transport::channel> const & channel) {
-		return node.rep_crawler.is_pr (channel);
-	}),
-	result.end ());
 	if (result.size () > count_a)
 	{
 		result.resize (count_a, nullptr);
@@ -504,14 +507,14 @@ void nano::network::erase (nano::transport::channel const & channel_a)
 	auto const channel_type = channel_a.get_type ();
 	if (channel_type == nano::transport::transport_type::tcp)
 	{
-		tcp_channels.erase (channel_a.get_tcp_endpoint ());
+		tcp_channels.erase (channel_a.get_remote_endpoint ());
 	}
 }
 
 void nano::network::exclude (std::shared_ptr<nano::transport::channel> const & channel)
 {
 	// Add to peer exclusion list
-	excluded_peers.add (channel->get_tcp_endpoint ());
+	excluded_peers.add (channel->get_remote_endpoint ());
 
 	// Disconnect
 	erase (*channel);

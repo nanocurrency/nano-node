@@ -134,7 +134,22 @@ docker_login()
 push_docker_image()
 {
     local image_name=$1
+
+    # Log the image name before pushing
+    echo "Pushing image: $image_name"
+
+    # Push the image
     "$scripts"/custom-timeout.sh 30 docker push "$image_name"
+
+    # After pushing, get the digest from the local image manifest
+    local digest
+    digest=$(docker image inspect --format='{{index .RepoDigests 0}}' "$image_name")
+
+    if [ -n "$digest" ]; then
+        echo "::notice::Hash: $digest $image_name"
+    else
+        echo "::error::Could not retrieve digest for image $image_name"
+    fi
 }
 
 deploy_env_images()
@@ -154,7 +169,7 @@ deploy_tags()
     local exclude_pattern=$2
     local tags=$(docker images --format '{{.Repository}}:{{.Tag }}' | grep "$repo" | grep -vE "$exclude_pattern")
 
-    #Debug list all tags
+    # Debug list all tags
     docker images --format '{{.Repository}}:{{.Tag }}'
 
     for tag in $tags; do

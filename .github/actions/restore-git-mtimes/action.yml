@@ -3,7 +3,7 @@ description: "Restore file modification timestamps from git commit timestamps"
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         repository: "MestreLion/git-tools"
         ref: a42a069bc755f0fa81316965335cb33dbf22a968 # pin latest commit

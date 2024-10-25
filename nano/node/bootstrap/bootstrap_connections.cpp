@@ -102,7 +102,7 @@ void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstr
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	auto const & socket_l = client_a->socket;
-	if (!stopped && !client_a->pending_stop && !node.network.excluded_peers.check (client_a->channel->get_tcp_endpoint ()))
+	if (!stopped && !client_a->pending_stop && !node.network.excluded_peers.check (client_a->channel->get_remote_endpoint ()))
 	{
 		socket_l->set_timeout (node.network_params.network.idle_timeout);
 		// Push into idle deque
@@ -138,7 +138,7 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::find_connec
 	std::shared_ptr<nano::bootstrap_client> result;
 	for (auto i (idle.begin ()), end (idle.end ()); i != end && !stopped; ++i)
 	{
-		if ((*i)->channel->get_tcp_endpoint () == endpoint_a)
+		if ((*i)->channel->get_remote_endpoint () == endpoint_a)
 		{
 			result = *i;
 			idle.erase (i);

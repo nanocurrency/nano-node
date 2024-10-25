@@ -191,7 +191,6 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.unchecked_cutoff_time, defaults.node.unchecked_cutoff_time);
 	ASSERT_EQ (conf.node.use_memory_pools, defaults.node.use_memory_pools);
 	ASSERT_EQ (conf.node.vote_generator_delay, defaults.node.vote_generator_delay);
-	ASSERT_EQ (conf.node.vote_generator_threshold, defaults.node.vote_generator_threshold);
 	ASSERT_EQ (conf.node.vote_minimum, defaults.node.vote_minimum);
 	ASSERT_EQ (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_EQ (conf.node.work_threads, defaults.node.work_threads);
@@ -456,7 +455,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	unchecked_cutoff_time = 999
 	use_memory_pools = false
 	vote_generator_delay = 999
-	vote_generator_threshold = 9
 	vote_minimum = "999"
 	work_peers = ["dev.org:999"]
 	work_threads = 999
@@ -700,7 +698,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.unchecked_cutoff_time, defaults.node.unchecked_cutoff_time);
 	ASSERT_NE (conf.node.use_memory_pools, defaults.node.use_memory_pools);
 	ASSERT_NE (conf.node.vote_generator_delay, defaults.node.vote_generator_delay);
-	ASSERT_NE (conf.node.vote_generator_threshold, defaults.node.vote_generator_threshold);
 	ASSERT_NE (conf.node.vote_minimum, defaults.node.vote_minimum);
 	ASSERT_NE (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_NE (conf.node.work_threads, defaults.node.work_threads);

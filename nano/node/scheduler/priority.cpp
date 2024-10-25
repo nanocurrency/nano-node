@@ -7,10 +7,15 @@
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
 
-nano::scheduler::priority::priority (nano::node & node_a, nano::stats & stats_a) :
-	config{ node_a.config.priority_scheduler },
+nano::scheduler::priority::priority (nano::node_config & node_config, nano::node & node_a, nano::ledger & ledger_a, nano::block_processor & block_processor_a, nano::active_elections & active_a, nano::confirming_set & confirming_set_a, nano::stats & stats_a, nano::logger & logger_a) :
+	config{ node_config.priority_scheduler },
 	node{ node_a },
-	stats{ stats_a }
+	ledger{ ledger_a },
+	block_processor{ block_processor_a },
+	active{ active_a },
+	confirming_set{ confirming_set_a },
+	stats{ stats_a },
+	logger{ logger_a }
 {
 	std::vector<nano::uint128_t> minimums;
 
@@ -34,13 +39,41 @@ nano::scheduler::priority::priority (nano::node & node_a, nano::stats & stats_a)
 	build_region (uint128_t{ 1 } << 116, uint128_t{ 1 } << 120, 2);
 	minimums.push_back (uint128_t{ 1 } << 120);
 
-	node.logger.debug (nano::log::type::election_scheduler, "Number of buckets: {}", minimums.size ());
+	logger.debug (nano::log::type::election_scheduler, "Number of buckets: {}", minimums.size ());
 
 	for (size_t i = 0u, n = minimums.size (); i < n; ++i)
 	{
-		auto bucket = std::make_unique<scheduler::bucket> (minimums[i], node.config.priority_bucket, node.active, stats);
+		auto bucket = std::make_unique<scheduler::bucket> (minimums[i], node_config.priority_bucket, active, stats);
 		buckets.emplace_back (std::move (bucket));
 	}
+
+	// Activate accounts with fresh blocks
+	block_processor.batch_processed.add ([this] (auto const & batch) {
+		auto transaction = ledger.tx_begin_read ();
+		for (auto const & [result, context] : batch)
+		{
+			if (result == nano::block_status::progress)
+			{
+				release_assert (context.block != nullptr);
+				activate (transaction, context.block->account ());
+			}
+		}
+	});
+
+	// Activate successors of cemented blocks
+	confirming_set.batch_cemented.add ([this] (auto const & batch) {
+		if (node.flags.disable_activate_successors)
+		{
+			return;
+		}
+
+		auto transaction = ledger.tx_begin_read ();
+		for (auto const & context : batch)
+		{
+			release_assert (context.block != nullptr);
+			activate_successors (transaction, *context.block);
+		}
+	});
 }
 
 nano::scheduler::priority::~priority ()
@@ -85,11 +118,10 @@ void nano::scheduler::priority::stop ()
 bool nano::scheduler::priority::activate (secure::transaction const & transaction, nano::account const & account)
 {
 	debug_assert (!account.is_zero ());
-	auto info = node.ledger.any.account_get (transaction, account);
-	if (info)
+	if (auto info = ledger.any.account_get (transaction, account))
 	{
 		nano::confirmation_height_info conf_info;
-		node.store.confirmation_height.get (transaction, account, conf_info);
+		ledger.store.confirmation_height.get (transaction, account, conf_info);
 		if (conf_info.height < info->block_count)
 		{
 			return activate (transaction, account, *info, conf_info);
@@ -103,14 +135,14 @@ bool nano::scheduler::priority::activate (secure::transaction const & transactio
 {
 	debug_assert (conf_info.frontier != account_info.head);
 
-	auto hash = conf_info.height == 0 ? account_info.open_block : node.ledger.any.block_successor (transaction, conf_info.frontier).value ();
-	auto block = node.ledger.any.block_get (transaction, hash);
+	auto hash = conf_info.height == 0 ? account_info.open_block : ledger.any.block_successor (transaction, conf_info.frontier).value ();
+	auto block = ledger.any.block_get (transaction, hash);
 	release_assert (block != nullptr);
 
-	if (node.ledger.dependents_confirmed (transaction, *block))
+	if (ledger.dependents_confirmed (transaction, *block))
 	{
 		auto const balance = block->balance ();
-		auto const previous_balance = node.ledger.any.block_balance (transaction, conf_info.frontier).value_or (0);
+		auto const previous_balance = ledger.any.block_balance (transaction, conf_info.frontier).value_or (0);
 		auto const balance_priority = std::max (balance, previous_balance);
 
 		bool added = false;
@@ -120,8 +152,8 @@ bool nano::scheduler::priority::activate (secure::transaction const & transactio
 		}
 		if (added)
 		{
-			node.stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activated);
-			node.logger.trace (nano::log::type::election_scheduler, nano::log::detail::block_activated,
+			stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activated);
+			logger.trace (nano::log::type::election_scheduler, nano::log::detail::block_activated,
 			nano::log::arg{ "account", account.to_account () }, // TODO: Convert to lazy eval
 			nano::log::arg{ "block", block },
 			nano::log::arg{ "time", account_info.modified },
@@ -131,7 +163,7 @@ bool nano::scheduler::priority::activate (secure::transaction const & transactio
 		}
 		else
 		{
-			node.stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activate_full);
+			stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activate_full);
 		}
 
 		return true; // Activated
@@ -139,6 +171,17 @@ bool nano::scheduler::priority::activate (secure::transaction const & transactio
 
 	stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activate_failed);
 	return false; // Not activated
+}
+
+bool nano::scheduler::priority::activate_successors (secure::transaction const & transaction, nano::block const & block)
+{
+	bool result = activate (transaction, block.account ());
+	// Start or vote for the next unconfirmed block in the destination account
+	if (block.is_send () && !block.destination ().is_zero () && block.destination () != block.account ())
+	{
+		result |= activate (transaction, block.destination ());
+	}
+	return result;
 }
 
 void nano::scheduler::priority::notify ()

@@ -12,6 +12,7 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <chrono>
@@ -165,7 +166,7 @@ TEST (websocket, started_election)
 				 .build ();
 	nano::publish publish1{ nano::dev::network_params.network, send1 };
 	auto channel1 = std::make_shared<nano::transport::fake::channel> (*node1);
-	node1->network.inbound (publish1, channel1);
+	node1->inbound (publish1, channel1);
 	ASSERT_TIMELY (1s, node1->active.election (send1->qualified_root ()));
 	ASSERT_TIMELY_EQ (5s, future.wait_for (0s), std::future_status::ready);
 
@@ -213,7 +214,7 @@ TEST (websocket, stopped_election)
 				 .build ();
 	nano::publish publish1{ nano::dev::network_params.network, send1 };
 	auto channel1 = std::make_shared<nano::transport::fake::channel> (*node1);
-	node1->network.inbound (publish1, channel1);
+	node1->inbound (publish1, channel1);
 	ASSERT_TIMELY (5s, node1->active.election (send1->qualified_root ()));
 	node1->active.erase (*send1);
 
@@ -1005,7 +1006,7 @@ TEST (websocket, telemetry)
 
 	auto channel = node1->network.find_node_id (node2->get_node_id ());
 	ASSERT_NE (channel, nullptr);
-	ASSERT_TIMELY (5s, node1->telemetry.get_telemetry (channel->get_endpoint ()));
+	ASSERT_TIMELY (5s, node1->telemetry.get_telemetry (channel->get_remote_endpoint ()));
 
 	ASSERT_TIMELY_EQ (10s, future.wait_for (0s), std::future_status::ready);
 

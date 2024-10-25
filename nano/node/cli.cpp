@@ -1012,7 +1012,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						nano::raw_key seed;
 						existing->second->store.seed (seed, transaction);
 						std::cout << boost::str (boost::format ("Seed: %1%\n") % seed.to_string ());
-						for (auto i (existing->second->store.begin (transaction)), m (existing->second->store.end ()); i != m; ++i)
+						for (auto i (existing->second->store.begin (transaction)), m (existing->second->store.end (transaction)); i != m; ++i)
 						{
 							nano::account const & account (i->first);
 							nano::raw_key key;
@@ -1201,7 +1201,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		{
 			std::cout << boost::str (boost::format ("Wallet ID: %1%\n") % i->first.to_string ());
 			auto transaction (i->second->wallets.tx_begin_read ());
-			for (auto j (i->second->store.begin (transaction)), m (i->second->store.end ()); j != m; ++j)
+			for (auto j (i->second->store.begin (transaction)), m (i->second->store.end (transaction)); j != m; ++j)
 			{
 				std::cout << nano::account (j->first).to_account () << '\n';
 			}
@@ -1224,7 +1224,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					{
 						auto transaction (wallet->second->wallets.tx_begin_write ());
 						auto account (wallet->second->store.find (transaction, account_id));
-						if (account != wallet->second->store.end ())
+						if (account != wallet->second->store.end (transaction))
 						{
 							wallet->second->store.erase (transaction, account_id);
 						}

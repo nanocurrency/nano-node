@@ -11,14 +11,14 @@ template <typename T, typename U>
 class iterator_impl
 {
 public:
-	explicit iterator_impl (nano::store::transaction const & transaction_a) :
-		transaction{ transaction_a },
+	explicit iterator_impl (transaction const & transaction_a) :
+		txn{ transaction_a },
 		transaction_epoch{ transaction_a.epoch () }
 	{
 	}
 	virtual ~iterator_impl ()
 	{
-		debug_assert (transaction_epoch == transaction.epoch (), "invalid iterator-transaction lifetime detected");
+		debug_assert (transaction_epoch == txn.epoch (), "invalid iterator-transaction lifetime detected");
 	}
 
 	virtual iterator_impl<T, U> & operator++ () = 0;
@@ -37,7 +37,7 @@ public:
 	}
 
 protected:
-	nano::store::transaction const & transaction;
-	nano::store::transaction::epoch_t const transaction_epoch;
+	transaction const & txn;
+	transaction::epoch_t const transaction_epoch;
 };
 }

@@ -10,12 +10,10 @@ namespace nano::scheduler
 class component final
 {
 public:
-	explicit component (nano::node & node);
+	component (nano::node_config &, nano::node &, nano::ledger &, nano::block_processor &, nano::active_elections &, nano::online_reps &, nano::vote_cache &, nano::confirming_set &, nano::stats &, nano::logger &);
 	~component ();
 
-	// Starts all schedulers
 	void start ();
-	// Stops all schedulers
 	void stop ();
 
 	nano::container_info container_info () const;

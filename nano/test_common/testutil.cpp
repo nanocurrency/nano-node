@@ -315,7 +315,7 @@ void nano::test::print_all_receivable_entries (const nano::store::component & st
 {
 	std::cout << "Printing all receivable entries:\n";
 	auto const tx = store.tx_begin_read ();
-	auto const end = store.pending.end ();
+	auto const end = store.pending.end (tx);
 	for (auto i = store.pending.begin (tx); i != end; ++i)
 	{
 		std::cout << "Key:  " << i->first << std::endl;
@@ -327,7 +327,7 @@ void nano::test::print_all_account_info (const nano::ledger & ledger)
 {
 	std::cout << "Printing all account info:\n";
 	auto const tx = ledger.tx_begin_read ();
-	auto const end = ledger.store.account.end ();
+	auto const end = ledger.store.account.end (tx);
 	for (auto i = ledger.store.account.begin (tx); i != end; ++i)
 	{
 		nano::account acc = i->first;
@@ -349,7 +349,7 @@ void nano::test::print_all_blocks (const nano::store::component & store)
 {
 	auto tx = store.tx_begin_read ();
 	auto i = store.block.begin (tx);
-	auto end = store.block.end ();
+	auto end = store.block.end (tx);
 	std::cout << "Listing all blocks" << std::endl;
 	for (; i != end; ++i)
 	{
@@ -368,7 +368,7 @@ std::vector<std::shared_ptr<nano::block>> nano::test::all_blocks (nano::node & n
 {
 	auto transaction = node.store.tx_begin_read ();
 	std::vector<std::shared_ptr<nano::block>> result;
-	for (auto it = node.store.block.begin (transaction), end = node.store.block.end (); it != end; ++it)
+	for (auto it = node.store.block.begin (transaction), end = node.store.block.end (transaction); it != end; ++it)
 	{
 		result.push_back (it->second.block);
 	}

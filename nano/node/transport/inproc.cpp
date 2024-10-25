@@ -44,7 +44,7 @@ void nano::transport::inproc::channel::send_buffer (nano::shared_const_buffer co
 		// process message
 		{
 			node.stats.inc (nano::stat::type::message, to_stat_detail (message_a->type ()), nano::stat::dir::in);
-			destination.network.inbound (*message_a, remote_channel);
+			destination.inbound (*message_a, remote_channel);
 		}
 	});
 

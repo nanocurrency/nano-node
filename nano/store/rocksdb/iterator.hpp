@@ -33,8 +33,8 @@ class iterator : public iterator_impl<T, U>
 public:
 	iterator () = default;
 
-	iterator (::rocksdb::DB * db, store::transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * handle_a, db_val const * val_a, bool const direction_asc) :
-		nano::store::iterator_impl<T, U> (transaction_a)
+	iterator (::rocksdb::DB * db, transaction const & transaction_a, ::rocksdb::ColumnFamilyHandle * handle_a, db_val const * val_a, bool const direction_asc) :
+		iterator_impl<T, U> (transaction_a)
 	{
 		// Don't fill the block cache for any blocks read as a result of an iterator
 		if (is_read (transaction_a))
@@ -79,16 +79,16 @@ public:
 	{
 	}
 
-	iterator (nano::store::rocksdb::iterator<T, U> && other_a)
+	iterator (iterator<T, U> && other_a)
 	{
 		cursor = other_a.cursor;
 		other_a.cursor = nullptr;
 		current = other_a.current;
 	}
 
-	iterator (nano::store::rocksdb::iterator<T, U> const &) = delete;
+	iterator (iterator<T, U> const &) = delete;
 
-	store::iterator_impl<T, U> & operator++ () override
+	iterator_impl<T, U> & operator++ () override
 	{
 		cursor->Next ();
 		if (cursor->Valid ())
@@ -109,7 +109,7 @@ public:
 		return *this;
 	}
 
-	store::iterator_impl<T, U> & operator-- () override
+	iterator_impl<T, U> & operator-- () override
 	{
 		cursor->Prev ();
 		if (cursor->Valid ())
@@ -135,9 +135,9 @@ public:
 		return &current;
 	}
 
-	bool operator== (store::iterator_impl<T, U> const & base_a) const override
+	bool operator== (iterator_impl<T, U> const & base_a) const override
 	{
-		auto const other_a (boost::polymorphic_downcast<nano::store::rocksdb::iterator<T, U> const *> (&base_a));
+		auto const other_a (boost::polymorphic_downcast<iterator<T, U> const *> (&base_a));
 
 		if (!current.first.data () && !other_a->current.first.data ())
 		{
@@ -187,13 +187,13 @@ public:
 		current.second = nano::store::rocksdb::db_val{};
 		debug_assert (is_end_sentinal ());
 	}
-	nano::store::rocksdb::iterator<T, U> & operator= (nano::store::rocksdb::iterator<T, U> && other_a)
+	iterator<T, U> & operator= (iterator<T, U> && other_a)
 	{
 		cursor = std::move (other_a.cursor);
 		current = other_a.current;
 		return *this;
 	}
-	store::iterator_impl<T, U> & operator= (store::iterator_impl<T, U> const &) = delete;
+	iterator_impl<T, U> & operator= (iterator_impl<T, U> const &) = delete;
 
 	std::unique_ptr<::rocksdb::Iterator> cursor;
 	std::pair<nano::store::rocksdb::db_val, nano::store::rocksdb::db_val> current;
