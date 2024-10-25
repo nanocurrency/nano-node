@@ -620,8 +620,9 @@ public:
 			debug_assert (!previous_balance || balance == previous_balance);
 			type = "Epoch";
 			amount = 0;
-			if (!previous_balance)
+			if (!previous_balance && !block_a.hashables.previous.is_zero ())
 			{
+				// Epoch block with previous balance error is pruned only if it isn't open block for an account
 				type = "Epoch (pruned)";
 			}
 			account = ledger.epoch_signer (block_a.hashables.link);
@@ -641,7 +642,11 @@ public:
 			}
 			if (!previous_balance)
 			{
-				type = "Receive (pruned)";
+				if (!block_a.hashables.previous.is_zero ())
+				{
+					// Receive block with previous balance error is pruned only if it isn't open block for an account
+					type = "Receive (pruned)";
+				}
 				amount = 0;
 			}
 			else
