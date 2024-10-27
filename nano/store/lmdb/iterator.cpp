@@ -21,7 +21,7 @@ void iterator::update (int status)
 	if (status == MDB_SUCCESS)
 	{
 		value_type init;
-		auto status = mdb_cursor_get (cursor, &init.first, &init.second, MDB_GET_CURRENT);
+		auto status = mdb_cursor_get (cursor.get (), &init.first, &init.second, MDB_GET_CURRENT);
 		release_assert (status == MDB_SUCCESS);
 		current = init;
 	}
@@ -33,8 +33,10 @@ void iterator::update (int status)
 
 iterator::iterator (MDB_txn * tx, MDB_dbi dbi) noexcept
 {
+	MDB_cursor * cursor;
 	auto open_status = mdb_cursor_open (tx, dbi, &cursor);
 	release_assert (open_status == MDB_SUCCESS);
+	this->cursor.reset (cursor);
 	this->current = std::monostate{};
 }
 
@@ -53,7 +55,7 @@ auto iterator::end (MDB_txn * tx, MDB_dbi dbi) -> iterator
 auto iterator::lower_bound (MDB_txn * tx, MDB_dbi dbi, MDB_val const & lower_bound) -> iterator
 {
 	iterator result{ tx, dbi };
-	auto status = mdb_cursor_get (result.cursor, const_cast<MDB_val *> (&lower_bound), nullptr, MDB_SET_RANGE);
+	auto status = mdb_cursor_get (result.cursor.get (), const_cast<MDB_val *> (&lower_bound), nullptr, MDB_SET_RANGE);
 	result.update (status);
 	return std::move (result);
 }
@@ -63,18 +65,9 @@ iterator::iterator (iterator && other) noexcept
 	*this = std::move (other);
 }
 
-iterator::~iterator ()
-{
-	if (cursor)
-	{
-		mdb_cursor_close (cursor);
-	}
-}
-
 auto iterator::operator= (iterator && other) noexcept -> iterator &
 {
-	cursor = other.cursor;
-	other.cursor = nullptr;
+	cursor = std::move (other.cursor);
 	current = other.current;
 	other.current = std::monostate{};
 	return *this;
@@ -83,7 +76,7 @@ auto iterator::operator= (iterator && other) noexcept -> iterator &
 auto iterator::operator++ () -> iterator &
 {
 	auto operation = is_end () ? MDB_FIRST : MDB_NEXT;
-	auto status = mdb_cursor_get (cursor, nullptr, nullptr, operation);
+	auto status = mdb_cursor_get (cursor.get (), nullptr, nullptr, operation);
 	release_assert (status == MDB_SUCCESS || status == MDB_NOTFOUND);
 	update (status);
 	return *this;
@@ -92,7 +85,7 @@ auto iterator::operator++ () -> iterator &
 auto iterator::operator-- () -> iterator &
 {
 	auto operation = is_end () ? MDB_LAST : MDB_PREV;
-	auto status = mdb_cursor_get (cursor, nullptr, nullptr, operation);
+	auto status = mdb_cursor_get (cursor.get (), nullptr, nullptr, operation);
 	release_assert (status == MDB_SUCCESS || status == MDB_NOTFOUND);
 	update (status);
 	return *this;

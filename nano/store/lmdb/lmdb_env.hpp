@@ -62,7 +62,7 @@ public:
 	store::read_transaction tx_begin_read (txn_callbacks callbacks = txn_callbacks{}) const;
 	store::write_transaction tx_begin_write (txn_callbacks callbacks = txn_callbacks{}) const;
 	MDB_txn * tx (store::transaction const & transaction_a) const;
-	MDB_env * environment;
+	std::unique_ptr<MDB_env, decltype (&mdb_env_close)> environment{ nullptr, mdb_env_close };
 	nano::id_t const store_id{ nano::next_id () };
 };
 } // namespace nano::store::lmdb

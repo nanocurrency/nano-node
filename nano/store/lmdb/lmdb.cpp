@@ -121,9 +121,7 @@ bool nano::store::lmdb::component::vacuum_after_upgrade (std::filesystem::path c
 	if (vacuum_success)
 	{
 		// Need to close the database to release the file handle
-		mdb_env_sync (env.environment, true);
-		mdb_env_close (env.environment);
-		env.environment = nullptr;
+		mdb_env_sync (env, true);
 
 		// Replace the ledger file with the vacuumed one
 		std::filesystem::rename (vacuum_path, path_a);
@@ -155,7 +153,7 @@ void nano::store::lmdb::component::serialize_mdb_tracker (boost::property_tree::
 void nano::store::lmdb::component::serialize_memory_stats (boost::property_tree::ptree & json)
 {
 	MDB_stat stats;
-	auto status (mdb_env_stat (env.environment, &stats));
+	auto status (mdb_env_stat (env, &stats));
 	release_assert (status == 0);
 	json.put ("branch_pages", stats.ms_branch_pages);
 	json.put ("depth", stats.ms_depth);
@@ -448,7 +446,7 @@ std::string nano::store::lmdb::component::error_string (int status) const
 
 bool nano::store::lmdb::component::copy_db (std::filesystem::path const & destination_file)
 {
-	return !mdb_env_copy2 (env.environment, destination_file.string ().c_str (), MDB_CP_COMPACT);
+	return !mdb_env_copy2 (env, destination_file.string ().c_str (), MDB_CP_COMPACT);
 }
 
 void nano::store::lmdb::component::rebuild_db (store::write_transaction const & transaction_a)

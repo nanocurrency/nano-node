@@ -19,8 +19,10 @@ void nano::store::lmdb::env::init (bool & error_a, std::filesystem::path const &
 		nano::set_secure_perm_directory (path_a.parent_path (), error_chmod);
 		if (!error_mkdir)
 		{
+			MDB_env * environment;
 			auto status1 (mdb_env_create (&environment));
 			release_assert (status1 == 0);
+			this->environment.reset (environment);
 			auto status2 (mdb_env_set_maxdbs (environment, options_a.config.max_databases));
 			release_assert (status2 == 0);
 			auto map_size = options_a.config.map_size;
@@ -66,13 +68,11 @@ void nano::store::lmdb::env::init (bool & error_a, std::filesystem::path const &
 		else
 		{
 			error_a = true;
-			environment = nullptr;
 		}
 	}
 	else
 	{
 		error_a = true;
-		environment = nullptr;
 	}
 }
 
@@ -81,14 +81,13 @@ nano::store::lmdb::env::~env ()
 	if (environment != nullptr)
 	{
 		// Make sure the commits are flushed. This is a no-op unless MDB_NOSYNC is used.
-		mdb_env_sync (environment, true);
-		mdb_env_close (environment);
+		mdb_env_sync (environment.get (), true);
 	}
 }
 
 nano::store::lmdb::env::operator MDB_env * () const
 {
-	return environment;
+	return environment.get ();
 }
 
 nano::store::read_transaction nano::store::lmdb::env::tx_begin_read (store::lmdb::txn_callbacks mdb_txn_callbacks) const

@@ -22,7 +22,7 @@ namespace nano::store::lmdb
  */
 class iterator
 {
-	MDB_cursor * cursor{ nullptr };
+	std::unique_ptr<MDB_cursor, decltype (&mdb_cursor_close)> cursor{ nullptr, mdb_cursor_close };
 	std::variant<std::monostate, std::pair<MDB_val, MDB_val>> current;
 	void update (int status);
 	iterator (MDB_txn * tx, MDB_dbi dbi) noexcept;
@@ -38,8 +38,6 @@ public:
 	static auto begin (MDB_txn * tx, MDB_dbi dbi) -> iterator;
 	static auto end (MDB_txn * tx, MDB_dbi dbi) -> iterator;
 	static auto lower_bound (MDB_txn * tx, MDB_dbi dbi, MDB_val const & lower_bound) -> iterator;
-
-	~iterator ();
 
 	iterator (iterator const &) = delete;
 	auto operator= (iterator const &) -> iterator & = delete;
