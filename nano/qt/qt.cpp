@@ -531,6 +531,7 @@ public:
 		if (!amount_l)
 		{
 			type = "Send (pruned)";
+			amount = 0;
 		}
 		else
 		{
@@ -542,32 +543,41 @@ public:
 		type = "Receive";
 		auto account_l = ledger.any.block_account (transaction, block_a.hashables.source);
 		auto amount_l = ledger.any.block_amount (transaction, block_a.hash ());
-		if (!account_l || !amount_l)
+		if (!account_l)
 		{
-			type = "Receive (pruned)";
+			type = "Receive (pruned source)";
 		}
 		else
 		{
 			account = account_l.value ();
+		}
+		if (!amount_l)
+		{
+			type = "Receive (pruned)";
+			amount = 0;
+		}
+		else
+		{
 			amount = amount_l.value ().number ();
 		}
 	}
 	void open_block (nano::open_block const & block_a)
 	{
 		type = "Receive";
-		if (block_a.hashables.source != ledger.constants.genesis->account ().as_union ())
+		if (block_a.hashables.source != ledger.constants.genesis->account ())
 		{
 			auto account_l = ledger.any.block_account (transaction, block_a.hashables.source);
 			auto amount_l = ledger.any.block_amount (transaction, block_a.hash ());
-			if (!account_l || !amount_l)
+			if (!account_l)
 			{
-				type = "Receive (pruned)";
+				type = "Receive (pruned source)";
 			}
 			else
 			{
 				account = account_l.value ();
-				amount = amount_l.value ().number ();
 			}
+			debug_assert (amount_l);
+			amount = amount_l.value ().number ();
 		}
 		else
 		{
@@ -586,7 +596,7 @@ public:
 		auto balance (block_a.hashables.balance.number ());
 		auto previous_balance = ledger.any.block_balance (transaction, block_a.hashables.previous);
 		// Error to receive previous block balance means that previous block was pruned from the ledger
-		if ((!previous_balance && block_a.sideband ().details.is_send) || balance < previous_balance.value ().number ())
+		if ((!previous_balance || balance < previous_balance.value ().number ()) && block_a.sideband ().details.is_send)
 		{
 			type = "Send";
 			account = block_a.hashables.link.as_account ();
@@ -600,9 +610,9 @@ public:
 				amount = previous_balance.value ().number () - balance;
 			}
 		}
-		else if (block_a.hashables.link.is_zero ())
+		else if (block_a.hashables.link.is_zero () && !block_a.sideband ().details.is_send)
 		{
-			debug_assert (!block_a.sideband ().details.is_send && !block_a.sideband ().details.is_receive && !block_a.sideband ().details.is_epoch);
+			debug_assert (!block_a.sideband ().details.is_receive && !block_a.sideband ().details.is_epoch);
 			type = "Change";
 			account = block_a.hashables.representative;
 			amount = 0;
@@ -634,7 +644,7 @@ public:
 			auto account_l = ledger.any.block_account (transaction, block_a.hashables.link.as_block_hash ());
 			if (!account_l)
 			{
-				type = "Receive (pruned sender)";
+				type = "Receive (pruned source)";
 			}
 			else
 			{
@@ -646,8 +656,12 @@ public:
 				{
 					// Receive block with previous balance error is pruned only if it isn't open block for an account
 					type = "Receive (pruned)";
+					amount = 0;
 				}
-				amount = 0;
+				else
+				{
+					amount = balance;
+				}
 			}
 			else
 			{
