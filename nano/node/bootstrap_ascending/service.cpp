@@ -789,7 +789,7 @@ nano::bootstrap_ascending::service::verify_result nano::bootstrap_ascending::ser
 		case query_type::blocks_by_account:
 		{
 			// Open & state blocks always contain account field
-			if (first->account_field () != tag.start.as_account ())
+			if (first->account_field ().value_or (0) != tag.start.as_account ())
 			{
 				// TODO: Stat & log
 				return verify_result::invalid;

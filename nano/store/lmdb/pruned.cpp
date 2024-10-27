@@ -47,17 +47,18 @@ void nano::store::lmdb::pruned::clear (store::write_transaction const & transact
 
 auto nano::store::lmdb::pruned::begin (store::transaction const & transaction, nano::block_hash const & hash) const -> iterator
 {
-	return store.make_iterator<nano::block_hash, std::nullptr_t> (transaction, tables::pruned, hash);
+	lmdb::db_val val{ hash };
+	return iterator{ store::iterator{ lmdb::iterator::lower_bound (store.env.tx (transaction), pruned_handle, val) } };
 }
 
 auto nano::store::lmdb::pruned::begin (store::transaction const & transaction) const -> iterator
 {
-	return store.make_iterator<nano::block_hash, std::nullptr_t> (transaction, tables::pruned);
+	return iterator{ store::iterator{ lmdb::iterator::begin (store.env.tx (transaction), pruned_handle) } };
 }
 
 auto nano::store::lmdb::pruned::end (store::transaction const & transaction_a) const -> iterator
 {
-	return iterator{ nullptr };
+	return iterator{ store::iterator{ lmdb::iterator::end (store.env.tx (transaction_a), pruned_handle) } };
 }
 
 void nano::store::lmdb::pruned::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const

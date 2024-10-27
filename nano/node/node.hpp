@@ -4,7 +4,6 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/lib/thread_pool.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
@@ -148,6 +147,7 @@ public:
 public:
 	const nano::keypair node_id;
 	nano::node_config config;
+	nano::node_flags flags;
 	std::shared_ptr<boost::asio::io_context> io_ctx_shared;
 	boost::asio::io_context & io_ctx;
 	nano::logger logger;
@@ -156,11 +156,14 @@ public:
 	boost::latch node_initialized_latch;
 	nano::network_params & network_params;
 	nano::stats stats;
-	nano::thread_pool workers;
-	nano::thread_pool bootstrap_workers;
-	nano::thread_pool wallet_workers;
-	nano::thread_pool election_workers;
-	nano::node_flags flags;
+	std::unique_ptr<nano::thread_pool> workers_impl;
+	nano::thread_pool & workers;
+	std::unique_ptr<nano::thread_pool> bootstrap_workers_impl;
+	nano::thread_pool & bootstrap_workers;
+	std::unique_ptr<nano::thread_pool> wallet_workers_impl;
+	nano::thread_pool & wallet_workers;
+	std::unique_ptr<nano::thread_pool> election_workers_impl;
+	nano::thread_pool & election_workers;
 	nano::work_pool & work;
 	nano::distributed_work_factory distributed_work;
 	std::unique_ptr<nano::store::component> store_impl;

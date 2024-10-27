@@ -2,6 +2,7 @@
 #include <nano/store/db_val_impl.hpp>
 #include <nano/store/rocksdb/block.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/utility.hpp>
 
 namespace nano
 {
@@ -136,17 +137,18 @@ uint64_t nano::store::rocksdb::block::count (store::transaction const & transact
 
 auto nano::store::rocksdb::block::begin (store::transaction const & transaction) const -> iterator
 {
-	return store.make_iterator<nano::block_hash, nano::store::block_w_sideband> (transaction, tables::blocks);
+	return iterator{ store::iterator{ rocksdb::iterator::begin (store.db.get (), rocksdb::tx (transaction), store.table_to_column_family (tables::blocks)) } };
 }
 
 auto nano::store::rocksdb::block::begin (store::transaction const & transaction, nano::block_hash const & hash) const -> iterator
 {
-	return store.make_iterator<nano::block_hash, nano::store::block_w_sideband> (transaction, tables::blocks, hash);
+	rocksdb::db_val val{ hash };
+	return iterator{ store::iterator{ rocksdb::iterator::lower_bound (store.db.get (), rocksdb::tx (transaction), store.table_to_column_family (tables::blocks), val) } };
 }
 
 auto nano::store::rocksdb::block::end (store::transaction const & transaction_a) const -> iterator
 {
-	return iterator{ nullptr };
+	return iterator{ store::iterator{ rocksdb::iterator::end (store.db.get (), rocksdb::tx (transaction_a), store.table_to_column_family (tables::blocks)) } };
 }
 
 void nano::store::rocksdb::block::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const

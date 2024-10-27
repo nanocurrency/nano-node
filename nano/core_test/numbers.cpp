@@ -1,27 +1,192 @@
-#include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
+#include <boost/container_hash/hash.hpp>
+
 #include <thread>
+#include <unordered_set>
+
+TEST (numbers, identity)
+{
+	ASSERT_EQ (1, nano::uint128_union (1).number ().convert_to<uint8_t> ());
+	ASSERT_EQ (1, nano::uint256_union (1).number ().convert_to<uint8_t> ());
+	ASSERT_EQ (1, nano::uint512_union (1).number ().convert_to<uint8_t> ());
+}
 
 namespace
 {
-template <typename Union, typename Bound>
-void assert_union_types ();
+template <typename Type>
+void check_operator_less_than (Type lhs, Type rhs)
+{
+	ASSERT_TRUE (lhs < rhs);
+	ASSERT_FALSE (rhs < lhs);
+	ASSERT_FALSE (lhs < lhs);
+	ASSERT_FALSE (rhs < rhs);
+}
 
-template <typename Union, typename Bound>
-void test_union_operator_less_than ();
+template <typename Type>
+void test_operator_less_than ()
+{
+	using underlying_t = typename Type::underlying_type;
 
-template <typename Num>
-void check_operator_less_than (Num lhs, Num rhs);
+	// Small
+	check_operator_less_than (Type{ 123 }, Type{ 124 });
+	check_operator_less_than (Type{ 124 }, Type{ 125 });
 
-template <typename Union, typename Bound>
-void test_union_operator_greater_than ();
+	// Medium
+	check_operator_less_than (Type{ std::numeric_limits<uint16_t>::max () - 1 }, Type{ std::numeric_limits<uint16_t>::max () + 1 });
+	check_operator_less_than (Type{ std::numeric_limits<uint32_t>::max () - 12345678 }, Type{ std::numeric_limits<uint32_t>::max () - 123456 });
 
-template <typename Num>
-void check_operator_greater_than (Num lhs, Num rhs);
+	// Large
+	check_operator_less_than (Type{ std::numeric_limits<uint64_t>::max () - 555555555555 }, Type{ std::numeric_limits<uint64_t>::max () - 1 });
+
+	// Boundary values
+	check_operator_less_than (Type{ std::numeric_limits<underlying_t>::min () }, Type{ std::numeric_limits<underlying_t>::max () });
+}
+
+template <typename Type>
+void check_operator_greater_than (Type lhs, Type rhs)
+{
+	ASSERT_TRUE (lhs > rhs);
+	ASSERT_FALSE (rhs > lhs);
+	ASSERT_FALSE (lhs > lhs);
+	ASSERT_FALSE (rhs > rhs);
+}
+
+template <typename Type>
+void test_operator_greater_than ()
+{
+	using underlying_t = typename Type::underlying_type;
+
+	// Small
+	check_operator_greater_than (Type{ 124 }, Type{ 123 });
+	check_operator_greater_than (Type{ 125 }, Type{ 124 });
+
+	// Medium
+	check_operator_greater_than (Type{ std::numeric_limits<uint16_t>::max () + 1 }, Type{ std::numeric_limits<uint16_t>::max () - 1 });
+	check_operator_greater_than (Type{ std::numeric_limits<uint32_t>::max () - 123456 }, Type{ std::numeric_limits<uint32_t>::max () - 12345678 });
+
+	// Large
+	check_operator_greater_than (Type{ std::numeric_limits<uint64_t>::max () - 1 }, Type{ std::numeric_limits<uint64_t>::max () - 555555555555 });
+
+	// Boundary values
+	check_operator_greater_than (Type{ std::numeric_limits<underlying_t>::max () }, Type{ std::numeric_limits<underlying_t>::min () });
+}
+
+template <typename Type>
+void test_comparison ()
+{
+	test_operator_less_than<Type> ();
+	test_operator_greater_than<Type> ();
+}
+}
+
+TEST (numbers, comparison)
+{
+	test_comparison<nano::uint128_union> ();
+	test_comparison<nano::uint256_union> ();
+	test_comparison<nano::uint512_union> ();
+	test_comparison<nano::block_hash> ();
+	test_comparison<nano::public_key> ();
+	test_comparison<nano::hash_or_account> ();
+	test_comparison<nano::link> ();
+	test_comparison<nano::root> ();
+	test_comparison<nano::raw_key> ();
+	test_comparison<nano::wallet_id> ();
+	test_comparison<nano::qualified_root> ();
+}
+
+namespace
+{
+template <typename Type, template <typename> class Hash>
+void test_hashing ()
+{
+	Hash<Type> hash;
+	using underlying_t = typename Type::underlying_type;
+
+	// Basic equality tests
+	ASSERT_EQ (hash (Type{}), hash (Type{}));
+	ASSERT_EQ (hash (Type{ 123 }), hash (Type{ 123 }));
+
+	// Basic inequality tests
+	ASSERT_NE (hash (Type{ 123 }), hash (Type{ 124 }));
+	ASSERT_NE (hash (Type{ 0 }), hash (Type{ 1 }));
+
+	// Boundary value tests
+	constexpr auto min_val = std::numeric_limits<underlying_t>::min ();
+	constexpr auto max_val = std::numeric_limits<underlying_t>::max ();
+
+	// Min/Max tests
+	ASSERT_EQ (hash (Type{ min_val }), hash (Type{ min_val }));
+	ASSERT_EQ (hash (Type{ max_val }), hash (Type{ max_val }));
+	ASSERT_NE (hash (Type{ min_val }), hash (Type{ max_val }));
+
+	// Near boundary tests
+	ASSERT_NE (hash (Type{ min_val }), hash (Type{ min_val + 1 }));
+	ASSERT_NE (hash (Type{ max_val }), hash (Type{ max_val - 1 }));
+	ASSERT_NE (hash (Type{ min_val + 1 }), hash (Type{ max_val }));
+	ASSERT_NE (hash (Type{ max_val - 1 }), hash (Type{ min_val }));
+
+	// Common value tests
+	std::vector<underlying_t> common_values = {
+		0, // Zero
+		1, // One
+		42, // Common test value
+		0xFF, // Byte boundary
+		0xFFFF, // Word boundary
+		min_val, // Minimum
+		max_val, // Maximum
+		max_val / 2, // Middle value
+		min_val + (max_val / 2) // Offset middle
+	};
+
+	// Test all common values against each other
+	for (size_t i = 0; i < common_values.size (); ++i)
+	{
+		for (size_t j = i + 1; j < common_values.size (); ++j)
+		{
+			if (common_values[i] != common_values[j])
+			{
+				ASSERT_NE (hash (Type{ common_values[i] }), hash (Type{ common_values[j] }));
+			}
+			else
+			{
+				ASSERT_EQ (hash (Type{ common_values[i] }), hash (Type{ common_values[j] }));
+			}
+		}
+	}
+}
+}
+
+TEST (numbers, hashing)
+{
+	// Using std::hash
+	test_hashing<nano::uint128_union, std::hash> ();
+	test_hashing<nano::uint256_union, std::hash> ();
+	test_hashing<nano::uint512_union, std::hash> ();
+	test_hashing<nano::block_hash, std::hash> ();
+	test_hashing<nano::public_key, std::hash> ();
+	test_hashing<nano::hash_or_account, std::hash> ();
+	test_hashing<nano::link, std::hash> ();
+	test_hashing<nano::root, std::hash> ();
+	test_hashing<nano::raw_key, std::hash> ();
+	test_hashing<nano::wallet_id, std::hash> ();
+	test_hashing<nano::qualified_root, std::hash> ();
+
+	// Using boost::hash
+	test_hashing<nano::uint128_union, boost::hash> ();
+	test_hashing<nano::uint256_union, boost::hash> ();
+	test_hashing<nano::uint512_union, boost::hash> ();
+	test_hashing<nano::block_hash, boost::hash> ();
+	test_hashing<nano::public_key, boost::hash> ();
+	test_hashing<nano::hash_or_account, boost::hash> ();
+	test_hashing<nano::link, boost::hash> ();
+	test_hashing<nano::root, boost::hash> ();
+	test_hashing<nano::raw_key, boost::hash> ();
+	test_hashing<nano::wallet_id, boost::hash> ();
+	test_hashing<nano::qualified_root, boost::hash> ();
 }
 
 TEST (uint128_union, decode_dec)
@@ -62,16 +227,6 @@ TEST (uint128_union, decode_dec_overflow)
 	std::string text ("340282366920938463463374607431768211456");
 	auto error (value.decode_dec (text));
 	ASSERT_TRUE (error);
-}
-
-TEST (uint128_union, operator_less_than)
-{
-	test_union_operator_less_than<nano::uint128_union, nano::uint128_t> ();
-}
-
-TEST (uint128_union, operator_greater_than)
-{
-	test_union_operator_greater_than<nano::uint128_union, nano::uint128_t> ();
 }
 
 struct test_punct : std::moneypunct<char>
@@ -147,13 +302,6 @@ TEST (uint128_union, decode_decimal)
 	ASSERT_EQ (nano::uint128_t ("170141183460469231731687303715884105727"), amount.number ());
 	ASSERT_FALSE (amount.decode_dec ("1230", nano::Knano_ratio));
 	ASSERT_EQ (1230 * nano::Knano_ratio, amount.number ());
-}
-
-TEST (unions, identity)
-{
-	ASSERT_EQ (1, nano::uint128_union (1).number ().convert_to<uint8_t> ());
-	ASSERT_EQ (1, nano::uint256_union (1).number ().convert_to<uint8_t> ());
-	ASSERT_EQ (1, nano::uint512_union (1).number ().convert_to<uint8_t> ());
 }
 
 TEST (uint256_union, key_encryption)
@@ -449,11 +597,6 @@ TEST (uint256_union, bounds)
 	ASSERT_TRUE (key.decode_account (bad2));
 }
 
-TEST (uint256_union, operator_less_than)
-{
-	test_union_operator_less_than<nano::uint256_union, nano::uint256_t> ();
-}
-
 TEST (uint64_t, parse)
 {
 	uint64_t value0 (1);
@@ -504,114 +647,4 @@ TEST (uint512_union, hash)
 			ASSERT_NE (h (x1), h (x2));
 		}
 	}
-}
-
-namespace
-{
-template <typename Union, typename Bound>
-void assert_union_types ()
-{
-	static_assert ((std::is_same<Union, nano::uint128_union>::value && std::is_same<Bound, nano::uint128_t>::value) || (std::is_same<Union, nano::uint256_union>::value && std::is_same<Bound, nano::uint256_t>::value) || (std::is_same<Union, nano::uint512_union>::value && std::is_same<Bound, nano::uint512_t>::value),
-	"Union type needs to be consistent with the lower/upper Bound type");
-}
-
-template <typename Union, typename Bound>
-void test_union_operator_less_than ()
-{
-	assert_union_types<Union, Bound> ();
-
-	// Small
-	check_operator_less_than (Union (123), Union (124));
-	check_operator_less_than (Union (124), Union (125));
-
-	// Medium
-	check_operator_less_than (Union (std::numeric_limits<uint16_t>::max () - 1), Union (std::numeric_limits<uint16_t>::max () + 1));
-	check_operator_less_than (Union (std::numeric_limits<uint32_t>::max () - 12345678), Union (std::numeric_limits<uint32_t>::max () - 123456));
-
-	// Large
-	check_operator_less_than (Union (std::numeric_limits<uint64_t>::max () - 555555555555), Union (std::numeric_limits<uint64_t>::max () - 1));
-
-	// Boundary values
-	check_operator_less_than (Union (std::numeric_limits<Bound>::min ()), Union (std::numeric_limits<Bound>::max ()));
-}
-
-template <typename Num>
-void check_operator_less_than (Num lhs, Num rhs)
-{
-	ASSERT_TRUE (lhs < rhs);
-	ASSERT_FALSE (rhs < lhs);
-	ASSERT_FALSE (lhs < lhs);
-	ASSERT_FALSE (rhs < rhs);
-}
-
-template <typename Union, typename Bound>
-void test_union_operator_greater_than ()
-{
-	assert_union_types<Union, Bound> ();
-
-	// Small
-	check_operator_greater_than (Union (124), Union (123));
-	check_operator_greater_than (Union (125), Union (124));
-
-	// Medium
-	check_operator_greater_than (Union (std::numeric_limits<uint16_t>::max () + 1), Union (std::numeric_limits<uint16_t>::max () - 1));
-	check_operator_greater_than (Union (std::numeric_limits<uint32_t>::max () - 123456), Union (std::numeric_limits<uint32_t>::max () - 12345678));
-
-	// Large
-	check_operator_greater_than (Union (std::numeric_limits<uint64_t>::max () - 1), Union (std::numeric_limits<uint64_t>::max () - 555555555555));
-
-	// Boundary values
-	check_operator_greater_than (Union (std::numeric_limits<Bound>::max ()), Union (std::numeric_limits<Bound>::min ()));
-}
-
-template <typename Num>
-void check_operator_greater_than (Num lhs, Num rhs)
-{
-	ASSERT_TRUE (lhs > rhs);
-	ASSERT_FALSE (rhs > lhs);
-	ASSERT_FALSE (lhs > lhs);
-	ASSERT_FALSE (rhs > rhs);
-}
-}
-
-TEST (random_pool, multithreading)
-{
-	std::vector<std::thread> threads;
-	for (auto i = 0; i < 100; ++i)
-	{
-		threads.emplace_back ([] () {
-			nano::uint256_union number;
-			nano::random_pool::generate_block (number.bytes.data (), number.bytes.size ());
-		});
-	}
-	for (auto & i : threads)
-	{
-		i.join ();
-	}
-}
-
-// Test that random 64bit numbers are within the given range
-TEST (random_pool, generate_word64)
-{
-	int occurrences[10] = { 0 };
-	for (auto i = 0; i < 1000; ++i)
-	{
-		auto random = nano::random_pool::generate_word64 (1, 9);
-		ASSERT_TRUE (random >= 1 && random <= 9);
-		occurrences[random] += 1;
-	}
-
-	for (auto i = 1; i < 10; ++i)
-	{
-		ASSERT_GT (occurrences[i], 0);
-	}
-}
-
-// Test random numbers > uint32 max
-TEST (random_pool, generate_word64_big_number)
-{
-	uint64_t min = static_cast<uint64_t> (std::numeric_limits<uint32_t>::max ()) + 1;
-	uint64_t max = std::numeric_limits<uint64_t>::max ();
-	auto big_random = nano::random_pool::generate_word64 (min, max);
-	ASSERT_GE (big_random, min);
 }

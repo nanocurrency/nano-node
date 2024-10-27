@@ -22,7 +22,7 @@ void nano::frontier_req_client::run (nano::account const & start_account_a, uint
 		return;
 	}
 	nano::frontier_req request{ node->network_params.network };
-	request.start = (start_account_a.is_zero () || start_account_a.number () == std::numeric_limits<nano::uint256_t>::max ()) ? start_account_a : start_account_a.number () + 1;
+	request.start = (start_account_a.is_zero () || start_account_a.number () == std::numeric_limits<nano::uint256_t>::max ()) ? start_account_a.number () : start_account_a.number () + 1;
 	request.age = frontiers_age_a;
 	request.count = count_a;
 	current = start_account_a;
@@ -70,7 +70,7 @@ void nano::frontier_req_client::receive_frontier ()
 		// we simply get a size of 0.
 		if (size_a == nano::frontier_req_client::size_frontier)
 		{
-			node->bootstrap_workers.push_task ([this_l, ec, size_a] () {
+			node->bootstrap_workers.post ([this_l, ec, size_a] () {
 				this_l->received_frontier (ec, size_a);
 			});
 		}
@@ -355,7 +355,7 @@ void nano::frontier_req_server::sent_action (boost::system::error_code const & e
 	{
 		count++;
 
-		node->bootstrap_workers.push_task ([this_l = shared_from_this ()] () {
+		node->bootstrap_workers.post ([this_l = shared_from_this ()] () {
 			this_l->send_next ();
 		});
 	}

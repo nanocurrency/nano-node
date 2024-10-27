@@ -609,7 +609,7 @@ std::optional<nano::account> nano::send_block::destination_field () const
 	return hashables.destination;
 }
 
-nano::root const & nano::send_block::root () const
+nano::root nano::send_block::root () const
 {
 	return hashables.previous;
 }
@@ -899,7 +899,7 @@ std::optional<nano::block_hash> nano::open_block::source_field () const
 	return hashables.source;
 }
 
-nano::root const & nano::open_block::root () const
+nano::root nano::open_block::root () const
 {
 	return hashables.account;
 }
@@ -1165,7 +1165,7 @@ bool nano::change_block::valid_predecessor (nano::block const & block_a) const
 	return result;
 }
 
-nano::root const & nano::change_block::root () const
+nano::root nano::change_block::root () const
 {
 	return hashables.previous;
 }
@@ -1482,7 +1482,7 @@ bool nano::state_block::valid_predecessor (nano::block const & block_a) const
 	return true;
 }
 
-nano::root const & nano::state_block::root () const
+nano::root nano::state_block::root () const
 {
 	if (!hashables.previous.is_zero ())
 	{
@@ -1836,7 +1836,7 @@ std::optional<nano::block_hash> nano::receive_block::source_field () const
 	return hashables.source;
 }
 
-nano::root const & nano::receive_block::root () const
+nano::root nano::receive_block::root () const
 {
 	return hashables.previous;
 }

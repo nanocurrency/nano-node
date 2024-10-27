@@ -798,7 +798,7 @@ TEST (block_store, large_iteration)
 	// Reverse iteration
 	std::unordered_set<nano::account> accounts3;
 	previous = std::numeric_limits<nano::uint256_t>::max ();
-	for (auto i (store->account.rbegin (transaction)), n (store->account.end (transaction)); i != n; --i)
+	for (auto i (store->account.rbegin (transaction)), n (store->account.rend (transaction)); i != n; ++i)
 	{
 		nano::account current (i->first);
 		ASSERT_LT (current.number (), previous.number ());
@@ -1254,7 +1254,7 @@ TEST (block_store, online_weight)
 		auto transaction (store->tx_begin_write ());
 		ASSERT_EQ (0, store->online_weight.count (transaction));
 		ASSERT_EQ (store->online_weight.end (transaction), store->online_weight.begin (transaction));
-		ASSERT_EQ (store->online_weight.end (transaction), store->online_weight.rbegin (transaction));
+		ASSERT_EQ (store->online_weight.rend (transaction), store->online_weight.rbegin (transaction));
 		store->online_weight.put (transaction, 1, 2);
 		store->online_weight.put (transaction, 3, 4);
 	}
@@ -1266,18 +1266,18 @@ TEST (block_store, online_weight)
 		ASSERT_EQ (1, item->first);
 		ASSERT_EQ (2, item->second.number ());
 		auto item_last (store->online_weight.rbegin (transaction));
-		ASSERT_NE (store->online_weight.end (transaction), item_last);
+		ASSERT_NE (store->online_weight.rend (transaction), item_last);
 		ASSERT_EQ (3, item_last->first);
 		ASSERT_EQ (4, item_last->second.number ());
 		store->online_weight.del (transaction, 1);
 		ASSERT_EQ (1, store->online_weight.count (transaction));
-		ASSERT_EQ (store->online_weight.begin (transaction), store->online_weight.rbegin (transaction));
+		ASSERT_EQ (*store->online_weight.begin (transaction), *store->online_weight.rbegin (transaction));
 		store->online_weight.del (transaction, 3);
 	}
 	auto transaction (store->tx_begin_read ());
 	ASSERT_EQ (0, store->online_weight.count (transaction));
 	ASSERT_EQ (store->online_weight.end (transaction), store->online_weight.begin (transaction));
-	ASSERT_EQ (store->online_weight.end (transaction), store->online_weight.rbegin (transaction));
+	ASSERT_EQ (store->online_weight.rend (transaction), store->online_weight.rbegin (transaction));
 }
 
 TEST (block_store, pruned_blocks)

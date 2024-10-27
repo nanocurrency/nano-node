@@ -93,18 +93,6 @@ public:
 	bool copy_db (std::filesystem::path const & destination_file) override;
 	void rebuild_db (store::write_transaction const & transaction_a) override;
 
-	template <typename Key, typename Value>
-	store::iterator<Key, Value> make_iterator (store::transaction const & transaction_a, tables table_a, bool const direction_asc = true) const
-	{
-		return store::iterator<Key, Value> (std::make_unique<nano::store::lmdb::iterator<Key, Value>> (transaction_a, env, table_to_dbi (table_a), nano::store::lmdb::db_val{}, direction_asc));
-	}
-
-	template <typename Key, typename Value>
-	store::iterator<Key, Value> make_iterator (store::transaction const & transaction_a, tables table_a, nano::store::lmdb::db_val const & key) const
-	{
-		return store::iterator<Key, Value> (std::make_unique<nano::store::lmdb::iterator<Key, Value>> (transaction_a, env, table_to_dbi (table_a), key));
-	}
-
 	bool init_error () const override;
 
 	uint64_t count (store::transaction const &, MDB_dbi) const;

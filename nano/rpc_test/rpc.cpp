@@ -68,7 +68,7 @@ TEST (rpc, wrapped_task)
 		// Exception should get caught
 		throw std::runtime_error ("");
 	}));
-	system.nodes[0]->workers.push_task (task);
+	system.nodes[0]->workers.post (task);
 	ASSERT_TIMELY_EQ (5s, response, true);
 }
 
@@ -2628,7 +2628,7 @@ TEST (rpc, wallet_frontiers)
 		frontiers.push_back (nano::account (i->second.get<std::string> ("")));
 	}
 	ASSERT_EQ (1, frontiers.size ());
-	ASSERT_EQ (node->latest (nano::dev::genesis_key.pub), frontiers[0]);
+	ASSERT_EQ (node->latest (nano::dev::genesis_key.pub), frontiers[0].as_union ());
 }
 
 TEST (rpc, work_validate)

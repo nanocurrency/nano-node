@@ -33,7 +33,7 @@ public:
 	virtual uint64_t block_work () const = 0;
 	virtual void block_work_set (uint64_t) = 0;
 	// Previous block or account number for open blocks
-	virtual nano::root const & root () const = 0;
+	virtual nano::root root () const = 0;
 	// Qualified root value based on previous() and root()
 	virtual nano::qualified_root qualified_root () const;
 	virtual void serialize (nano::stream &) const = 0;
@@ -123,7 +123,7 @@ public:
 	virtual ~send_block () = default;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
-	nano::root const & root () const override;
+	nano::root root () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void serialize_json (std::string &, bool = false) const override;
@@ -177,7 +177,7 @@ public:
 	virtual ~receive_block () = default;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
-	nano::root const & root () const override;
+	nano::root root () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void serialize_json (std::string &, bool = false) const override;
@@ -232,7 +232,7 @@ public:
 	virtual ~open_block () = default;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
-	nano::root const & root () const override;
+	nano::root root () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void serialize_json (std::string &, bool = false) const override;
@@ -287,7 +287,7 @@ public:
 	virtual ~change_block () = default;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
-	nano::root const & root () const override;
+	nano::root root () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void serialize_json (std::string &, bool = false) const override;
@@ -353,7 +353,7 @@ public:
 	virtual ~state_block () = default;
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
-	nano::root const & root () const override;
+	nano::root root () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void serialize_json (std::string &, bool = false) const override;

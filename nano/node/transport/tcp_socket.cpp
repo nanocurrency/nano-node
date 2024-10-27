@@ -274,7 +274,7 @@ void nano::transport::tcp_socket::ongoing_checkup ()
 		return;
 	}
 
-	node_l->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (node_l->network_params.network.is_dev_network () ? 1 : 5), [this_w = weak_from_this ()] () {
+	node_l->workers.post_delayed (std::chrono::seconds (node_l->network_params.network.is_dev_network () ? 1 : 5), [this_w = weak_from_this ()] () {
 		auto this_l = this_w.lock ();
 		if (!this_l)
 		{

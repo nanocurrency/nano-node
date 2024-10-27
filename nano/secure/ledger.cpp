@@ -1093,7 +1093,7 @@ public:
 	}
 	void open_block (nano::open_block const & block_a) override
 	{
-		if (block_a.source_field ().value () != ledger.constants.genesis->account ())
+		if (block_a.source_field ().value () != ledger.constants.genesis->account ().as_union ())
 		{
 			result[0] = block_a.source_field ().value ();
 		}

@@ -47,17 +47,18 @@ bool nano::store::lmdb::pending::any (store::transaction const & transaction_a, 
 
 auto nano::store::lmdb::pending::begin (store::transaction const & transaction_a, nano::pending_key const & key_a) const -> iterator
 {
-	return store.make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending, key_a);
+	lmdb::db_val val{ key_a };
+	return iterator{ store::iterator{ lmdb::iterator::lower_bound (store.env.tx (transaction_a), pending_handle, val) } };
 }
 
 auto nano::store::lmdb::pending::begin (store::transaction const & transaction_a) const -> iterator
 {
-	return store.make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending);
+	return iterator{ store::iterator{ lmdb::iterator::begin (store.env.tx (transaction_a), pending_handle) } };
 }
 
 auto nano::store::lmdb::pending::end (store::transaction const & transaction_a) const -> iterator
 {
-	return iterator{ nullptr };
+	return iterator{ store::iterator{ lmdb::iterator::end (store.env.tx (transaction_a), pending_handle) } };
 }
 
 void nano::store::lmdb::pending::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const

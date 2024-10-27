@@ -313,7 +313,7 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 			cache.erase (cache.begin ());
 		}
 		debug_assert (cache.size () <= cache_size_max);
-		nano::uint512_union head_512 (pull_a.account_or_head, pull_a.head_original);
+		nano::uint512_union head_512 (pull_a.account_or_head.as_union (), pull_a.head_original);
 		auto existing (cache.get<account_head_tag> ().find (head_512));
 		if (existing == cache.get<account_head_tag> ().end ())
 		{
@@ -336,7 +336,7 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 void nano::pulls_cache::update_pull (nano::pull_info & pull_a)
 {
 	nano::lock_guard<nano::mutex> guard{ pulls_cache_mutex };
-	nano::uint512_union head_512 (pull_a.account_or_head, pull_a.head_original);
+	nano::uint512_union head_512 (pull_a.account_or_head.as_union (), pull_a.head_original);
 	auto existing (cache.get<account_head_tag> ().find (head_512));
 	if (existing != cache.get<account_head_tag> ().end ())
 	{
@@ -347,7 +347,7 @@ void nano::pulls_cache::update_pull (nano::pull_info & pull_a)
 void nano::pulls_cache::remove (nano::pull_info const & pull_a)
 {
 	nano::lock_guard<nano::mutex> guard{ pulls_cache_mutex };
-	nano::uint512_union head_512 (pull_a.account_or_head, pull_a.head_original);
+	nano::uint512_union head_512 (pull_a.account_or_head.as_union (), pull_a.head_original);
 	cache.get<account_head_tag> ().erase (head_512);
 }
 

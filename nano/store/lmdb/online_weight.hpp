@@ -16,7 +16,6 @@ public:
 	void put (store::write_transaction const & transaction_a, uint64_t time_a, nano::amount const & amount_a) override;
 	void del (store::write_transaction const & transaction_a, uint64_t time_a) override;
 	iterator begin (store::transaction const & transaction_a) const override;
-	iterator rbegin (store::transaction const & transaction_a) const override;
 	iterator end (store::transaction const & transaction_a) const override;
 	size_t count (store::transaction const & transaction_a) const override;
 	void clear (store::write_transaction const & transaction_a) override;

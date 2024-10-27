@@ -85,18 +85,6 @@ public:
 
 	unsigned max_block_write_batch_num () const override;
 
-	template <typename Key, typename Value>
-	store::iterator<Key, Value> make_iterator (store::transaction const & transaction_a, tables table_a, bool const direction_asc = true) const
-	{
-		return store::iterator<Key, Value> (std::make_unique<nano::store::rocksdb::iterator<Key, Value>> (db.get (), transaction_a, table_to_column_family (table_a), nullptr, direction_asc));
-	}
-
-	template <typename Key, typename Value>
-	store::iterator<Key, Value> make_iterator (store::transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key) const
-	{
-		return store::iterator<Key, Value> (std::make_unique<nano::store::rocksdb::iterator<Key, Value>> (db.get (), transaction_a, table_to_column_family (table_a), &key, true));
-	}
-
 	bool init_error () const override;
 
 	std::string error_string (int status) const override;
@@ -122,7 +110,6 @@ private:
 	std::unordered_map<nano::tables, tombstone_info> tombstone_map;
 	std::unordered_map<char const *, nano::tables> cf_name_table_map;
 
-	::rocksdb::Transaction * tx (store::transaction const & transaction_a) const;
 	std::vector<nano::tables> all_tables () const;
 
 	bool not_found (int status) const override;

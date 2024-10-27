@@ -2,7 +2,7 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/store/component.hpp>
-#include <nano/store/iterator.hpp>
+#include <nano/store/typed_iterator.hpp>
 
 #include <cstdint>
 #include <functional>
@@ -19,7 +19,7 @@ namespace nano::store
 class rep_weight
 {
 public:
-	using iterator = store::iterator<nano::account, nano::uint128_union>;
+	using iterator = typed_iterator<nano::account, nano::uint128_union>;
 
 public:
 	virtual ~rep_weight (){};

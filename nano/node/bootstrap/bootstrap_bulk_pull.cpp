@@ -127,7 +127,7 @@ void nano::bulk_pull_client::throttled_receive_block ()
 	else
 	{
 		auto this_l (shared_from_this ());
-		node->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_l] () {
+		node->workers.post_delayed (std::chrono::seconds (1), [this_l] () {
 			if (!this_l->connection->pending_stop && !this_l->attempt->stopped)
 			{
 				this_l->throttled_receive_block ();
@@ -177,7 +177,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code ec, std::
 	// Is block expected?
 	bool block_expected (false);
 	// Unconfirmed head is used only for lazy destinations if legacy bootstrap is not available, see nano::bootstrap_attempt::lazy_destinations_increment (...)
-	bool unconfirmed_account_head = node->flags.disable_legacy_bootstrap && pull_blocks == 0 && pull.retry_limit <= node->network_params.bootstrap.lazy_retry_limit && (expected == pull.account_or_head.as_block_hash ()) && (block->account_field () == pull.account_or_head.as_account ());
+	bool unconfirmed_account_head = node->flags.disable_legacy_bootstrap && pull_blocks == 0 && pull.retry_limit <= node->network_params.bootstrap.lazy_retry_limit && (expected == pull.account_or_head.as_block_hash ()) && (block->account_field ().value_or (0) == pull.account_or_head.as_account ());
 	if (hash == expected || unconfirmed_account_head)
 	{
 		expected = block->previous ();
@@ -394,7 +394,7 @@ void nano::bulk_pull_server::set_current_end ()
 			if (!request->end.is_zero ())
 			{
 				auto account (node->ledger.any.block_account (transaction, request->end));
-				if (account != request->start.as_account ())
+				if (account.value_or (0) != request->start.as_account ())
 				{
 					node->logger.debug (nano::log::type::bulk_pull_server, "Request for block that is not on account chain: {} not on {}", request->end.to_string (), request->start.to_account ());
 
@@ -530,7 +530,7 @@ void nano::bulk_pull_server::sent_action (boost::system::error_code const & ec, 
 	}
 	if (!ec)
 	{
-		node->bootstrap_workers.push_task ([this_l = shared_from_this ()] () {
+		node->bootstrap_workers.post ([this_l = shared_from_this ()] () {
 			this_l->send_next ();
 		});
 	}
@@ -816,7 +816,7 @@ void nano::bulk_pull_account_server::sent_action (boost::system::error_code cons
 	}
 	if (!ec)
 	{
-		node->bootstrap_workers.push_task ([this_l = shared_from_this ()] () {
+		node->bootstrap_workers.post ([this_l = shared_from_this ()] () {
 			this_l->send_next_block ();
 		});
 	}

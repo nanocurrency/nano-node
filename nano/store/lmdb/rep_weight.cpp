@@ -45,17 +45,18 @@ void nano::store::lmdb::rep_weight::del (store::write_transaction const & txn_a,
 
 auto nano::store::lmdb::rep_weight::begin (store::transaction const & transaction_a, nano::account const & representative_a) const -> iterator
 {
-	return store.make_iterator<nano::account, nano::uint128_union> (transaction_a, tables::rep_weights, representative_a);
+	lmdb::db_val val{ representative_a };
+	return iterator{ store::iterator{ lmdb::iterator::lower_bound (store.env.tx (transaction_a), rep_weights_handle, val) } };
 }
 
 auto nano::store::lmdb::rep_weight::begin (store::transaction const & transaction_a) const -> iterator
 {
-	return store.make_iterator<nano::account, nano::uint128_union> (transaction_a, tables::rep_weights);
+	return iterator{ store::iterator{ lmdb::iterator::begin (store.env.tx (transaction_a), rep_weights_handle) } };
 }
 
 auto nano::store::lmdb::rep_weight::end (store::transaction const & transaction_a) const -> iterator
 {
-	return iterator{ nullptr };
+	return iterator{ store::iterator{ lmdb::iterator::end (store.env.tx (transaction_a), rep_weights_handle) } };
 }
 
 void nano::store::lmdb::rep_weight::for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const

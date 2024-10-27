@@ -67,9 +67,9 @@ namespace std
 template <>
 struct hash<::nano::pending_key>
 {
-	size_t operator() (::nano::pending_key const & data_a) const
+	size_t operator() (::nano::pending_key const & value) const
 	{
-		return hash<::nano::uint512_union>{}({ ::nano::uint256_union{ data_a.account.number () }, data_a.hash });
+		return hash<::nano::uint512_union>{}({ ::nano::uint256_union{ value.account.number () }, value.hash });
 	}
 };
 }

@@ -1,5 +1,6 @@
 #include <nano/store/rocksdb/peer.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
+#include <nano/store/rocksdb/utility.hpp>
 
 nano::store::rocksdb::peer::peer (nano::store::rocksdb::component & store) :
 	store{ store } {};
@@ -47,10 +48,10 @@ void nano::store::rocksdb::peer::clear (store::write_transaction const & transac
 
 auto nano::store::rocksdb::peer::begin (store::transaction const & transaction) const -> iterator
 {
-	return store.make_iterator<nano::endpoint_key, nano::millis_t> (transaction, tables::peers);
+	return iterator{ store::iterator{ rocksdb::iterator::begin (store.db.get (), rocksdb::tx (transaction), store.table_to_column_family (tables::peers)) } };
 }
 
 auto nano::store::rocksdb::peer::end (store::transaction const & transaction_a) const -> iterator
 {
-	return iterator{ nullptr };
+	return iterator{ store::iterator{ rocksdb::iterator::end (store.db.get (), rocksdb::tx (transaction_a), store.table_to_column_family (tables::peers)) } };
 }
