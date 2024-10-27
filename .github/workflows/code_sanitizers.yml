@@ -16,7 +16,7 @@ jobs:
           - { name: ASAN, ignore_errors: false, leak_check: false }
           - { name: ASAN_INT, ignore_errors: true, leak_check: false }
           - { name: TSAN, ignore_errors: false }
-          - { name: LEAK, ignore_errors: true, leak_check: true }
+          - { name: LEAK, ignore_errors: false, leak_check: true }
         exclude:
           # Bug when running with TSAN: "ThreadSanitizer: CHECK failed: sanitizer_deadlock_detector"
           - BACKEND: rocksdb
