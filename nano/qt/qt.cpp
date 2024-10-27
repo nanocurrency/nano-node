@@ -564,7 +564,7 @@ public:
 	void open_block (nano::open_block const & block_a)
 	{
 		type = "Receive";
-		if (block_a.hashables.source != ledger.constants.genesis->account ())
+		if (block_a.hashables.source != ledger.constants.genesis->account ().as_union ())
 		{
 			auto account_l = ledger.any.block_account (transaction, block_a.hashables.source);
 			auto amount_l = ledger.any.block_amount (transaction, block_a.hash ());
