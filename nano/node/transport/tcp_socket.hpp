@@ -115,9 +115,9 @@ public:
 	{
 		return type_m;
 	};
-	void type_set (nano::transport::socket_type type_a)
+	void type_set (nano::transport::socket_type type)
 	{
-		type_m = type_a;
+		type_m = type;
 	}
 	nano::transport::socket_endpoint endpoint_type () const
 	{
@@ -195,8 +195,8 @@ protected:
 	void read_impl (std::shared_ptr<std::vector<uint8_t>> const & data_a, std::size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a);
 
 private:
-	nano::transport::socket_type type_m{ socket_type::undefined };
-	nano::transport::socket_endpoint endpoint_type_m;
+	socket_endpoint const endpoint_type_m;
+	std::atomic<socket_type> type_m{ socket_type::undefined };
 
 public:
 	std::size_t const max_queue_size;

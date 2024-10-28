@@ -412,7 +412,7 @@ void nano::transport::tcp_socket::operator() (nano::object_stream & obs) const
 {
 	obs.write ("remote_endpoint", remote_endpoint ());
 	obs.write ("local_endpoint", local_endpoint ());
-	obs.write ("type", type_m);
+	obs.write ("type", type_m.load ());
 	obs.write ("endpoint_type", endpoint_type_m);
 }
 
