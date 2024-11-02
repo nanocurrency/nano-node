@@ -1280,7 +1280,12 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path_a, error_chmod);
 	auto rockdb_data_path = data_path_a / "rocksdb";
-	std::filesystem::remove_all (rockdb_data_path);
+
+	if (std::filesystem::exists (rockdb_data_path))
+	{
+		logger.error (nano::log::type::ledger, "Existing RocksDb folder found in '{}'. Please remove it and try again.", rockdb_data_path.string ());
+		return true;
+	}
 
 	auto error (false);
 
