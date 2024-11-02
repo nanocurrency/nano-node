@@ -5484,6 +5484,10 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	ASSERT_EQ (confirmation_height_info.frontier, send->hash ());
 	ASSERT_EQ (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ())).size (), 1);
 	ASSERT_EQ (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ()))[0], nano::block_hash (2));
+
+	// Retry migration while rocksdb folder is still present
+	auto error_on_retry = ledger.migrate_lmdb_to_rocksdb (path);
+	ASSERT_EQ (error_on_retry, true);
 }
 
 TEST (ledger, is_send_genesis)
