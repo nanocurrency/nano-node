@@ -76,19 +76,20 @@ bool nano::vote_generator::should_vote (transaction_variant_t const & transactio
 void nano::vote_generator::start ()
 {
 	debug_assert (!thread.joinable ());
-	thread = std::thread ([this] () { run (); });
-
+	thread = std::thread ([this] () {
+		nano::thread_role::set (nano::thread_role::name::voting);
+		run ();
+	});
 	vote_generation_queue.start ();
 }
 
 void nano::vote_generator::stop ()
 {
 	vote_generation_queue.stop ();
-
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	stopped = true;
-
-	lock.unlock ();
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		stopped = true;
+	}
 	condition.notify_all ();
 
 	if (thread.joinable ())
@@ -284,16 +285,22 @@ void nano::vote_generator::broadcast_action (std::shared_ptr<nano::vote> const &
 
 void nano::vote_generator::run ()
 {
-	nano::thread_role::set (nano::thread_role::name::voting);
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		condition.wait_for (lock, config.vote_generator_delay, [this] () { return broadcast_predicate () || !requests.empty (); });
+		condition.wait_for (lock, config.vote_generator_delay, [this] () {
+			return stopped || broadcast_predicate () || !requests.empty ();
+		});
+
+		if (stopped)
+		{
+			return;
+		}
 
 		if (broadcast_predicate ())
 		{
 			broadcast (lock);
-			next_broadcast = std::chrono::steady_clock::now () + std::chrono::milliseconds (config.vote_generator_delay);
+			next_broadcast = std::chrono::steady_clock::now () + config.vote_generator_delay;
 		}
 
 		if (!requests.empty ())
@@ -307,11 +314,13 @@ void nano::vote_generator::run ()
 
 bool nano::vote_generator::broadcast_predicate () const
 {
+	debug_assert (!mutex.try_lock ());
+
 	if (candidates.size () >= nano::network::confirm_ack_hashes_max)
 	{
 		return true;
 	}
-	if (candidates.size () > 0 && std::chrono::steady_clock::now () > next_broadcast)
+	if (!candidates.empty () && std::chrono::steady_clock::now () > next_broadcast)
 	{
 		return true;
 	}
