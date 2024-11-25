@@ -32,6 +32,26 @@ uint8_t account_decode (char value)
 }
 }
 
+/*
+ * public_key
+ */
+
+nano::public_key nano::public_key::from_account (std::string const & text)
+{
+	nano::public_key result;
+	bool error = result.decode_account (text);
+	release_assert (!error);
+	return result;
+}
+
+nano::public_key nano::public_key::from_node_id (std::string const & text)
+{
+	nano::public_key result;
+	bool error = result.decode_node_id (text);
+	release_assert (!error);
+	return result;
+}
+
 void nano::public_key::encode_account (std::string & destination_a) const
 {
 	debug_assert (destination_a.empty ());
@@ -137,6 +157,10 @@ bool nano::public_key::decode_account (std::string const & source_a)
 	}
 	return error;
 }
+
+/*
+ * uint256_union
+ */
 
 // Construct a uint256_union = AES_ENC_CTR (cleartext, key, iv)
 void nano::uint256_union::encrypt (nano::raw_key const & cleartext, nano::raw_key const & key, uint128_union const & iv)

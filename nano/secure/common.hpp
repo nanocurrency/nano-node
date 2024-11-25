@@ -163,7 +163,7 @@ class network_params;
 class ledger_constants
 {
 public:
-	ledger_constants (nano::work_thresholds & work, nano::networks network_a);
+	ledger_constants (nano::work_thresholds &, nano::networks);
 	nano::work_thresholds & work;
 	nano::keypair zero_key;
 	nano::account nano_beta_account;
@@ -248,12 +248,13 @@ public:
 	uint32_t default_frontiers_age_seconds;
 };
 
+nano::work_thresholds const & work_thresholds_for_network (nano::networks);
+
 /** Constants whose value depends on the active network */
 class network_params
 {
 public:
-	/** Populate values based on \p network_a */
-	network_params (nano::networks network_a);
+	explicit network_params (nano::networks);
 
 	unsigned kdf_work;
 	nano::work_thresholds work;

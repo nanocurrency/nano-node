@@ -1,5 +1,7 @@
 #pragma once
 
+#include <nano/lib/assert.hpp>
+
 #include <boost/functional/hash_fwd.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
@@ -7,6 +9,7 @@
 #include <compare>
 #include <limits>
 #include <ostream>
+#include <string_view>
 
 #include <fmt/ostream.h>
 
@@ -236,6 +239,18 @@ public:
 	std::string to_node_id () const;
 	std::string to_account () const;
 
+	/**
+	 * Decode from account string
+	 * @warning Aborts at runtime if the input is invalid
+	 */
+	static public_key from_account (std::string const &);
+
+	/**
+	 * Decode from node id string
+	 * @warning Aborts at runtime if the input is invalid
+	 */
+	static public_key from_node_id (std::string const &);
+
 public: // Keep operators inlined
 	auto operator<=> (nano::public_key const & other) const
 	{
@@ -337,6 +352,12 @@ class link final : public hash_or_account
 {
 public:
 	using hash_or_account::hash_or_account;
+
+	explicit link (std::string_view str)
+	{
+		release_assert (str.size () <= bytes.size ());
+		std::copy_n (str.data (), str.size (), bytes.begin ());
+	}
 
 public: // Keep operators inlined
 	auto operator<=> (nano::link const & other) const
