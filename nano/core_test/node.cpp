@@ -1285,10 +1285,18 @@ TEST (node, DISABLED_broadcast_elected)
 TEST (node, rep_self_vote)
 {
 	nano::test::system system;
-	nano::node_config node_config (system.get_available_port ());
+
+	nano::node_flags node_flags;
+	node_flags.disable_request_loop = true; // Prevent automatic election cleanup
+	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = std::numeric_limits<nano::uint128_t>::max ();
+	// Disable automatic election activation
 	node_config.backlog_scan.enable = false;
-	auto node0 = system.add_node (node_config);
+	node_config.priority_scheduler.enable = false;
+	node_config.hinted_scheduler.enable = false;
+	node_config.optimistic_scheduler.enable = false;
+	auto node0 = system.add_node (node_config, node_flags);
+
 	nano::keypair rep_big;
 	nano::block_builder builder;
 	auto fund_big = builder.send ()
@@ -1307,15 +1315,19 @@ TEST (node, rep_self_vote)
 					.build ();
 	ASSERT_EQ (nano::block_status::progress, node0->process (fund_big));
 	ASSERT_EQ (nano::block_status::progress, node0->process (open_big));
+
 	// Confirm both blocks, allowing voting on the upcoming block
 	node0->start_election (node0->block (open_big->hash ()));
+
 	std::shared_ptr<nano::election> election;
 	ASSERT_TIMELY (5s, election = node0->active.election (open_big->qualified_root ()));
 	election->force_confirm ();
 
+	// Insert representatives into the node to allow voting
 	system.wallet (0)->insert_adhoc (rep_big.prv);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	ASSERT_EQ (system.wallet (0)->wallets.reps ().voting, 2);
+
 	auto block0 = builder.send ()
 				  .previous (fund_big->hash ())
 				  .destination (rep_big.pub)
@@ -1324,12 +1336,14 @@ TEST (node, rep_self_vote)
 				  .work (*system.work.generate (fund_big->hash ()))
 				  .build ();
 	ASSERT_EQ (nano::block_status::progress, node0->process (block0));
-	auto & active = node0->active;
-	auto & scheduler = node0->scheduler;
+
 	auto election1 = nano::test::start_election (system, *node0, block0->hash ());
 	ASSERT_NE (nullptr, election1);
+
 	// Wait until representatives are activated & make vote
 	ASSERT_TIMELY_EQ (1s, election1->votes ().size (), 3);
+
+	// Election should receive votes from representatives hosted on the same node
 	auto rep_votes (election1->votes ());
 	ASSERT_NE (rep_votes.end (), rep_votes.find (nano::dev::genesis_key.pub));
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rep_big.pub));
