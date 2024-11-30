@@ -416,6 +416,14 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 			debug_assert (count_by_behavior[result.election->behavior ()] >= 0);
 			count_by_behavior[result.election->behavior ()]++;
 
+			// Skip passive phase for blocks without cached votes to avoid bootstrap delays
+			bool active_immediately = false;
+			if (node.vote_cache.contains (hash))
+			{
+				result.election->transition_active ();
+				active_immediately = true;
+			}
+
 			node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::started);
 			node.stats.inc (nano::stat::type::active_elections_started, to_stat_detail (election_behavior_a));
 
@@ -423,9 +431,10 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 			nano::log::arg{ "behavior", election_behavior_a },
 			nano::log::arg{ "election", result.election });
 
-			node.logger.debug (nano::log::type::active_elections, "Started new election for block: {} (behavior: {})",
+			node.logger.debug (nano::log::type::active_elections, "Started new election for block: {} (behavior: {}, active immediately: {})",
 			hash.to_string (),
-			to_string (election_behavior_a));
+			to_string (election_behavior_a),
+			active_immediately);
 		}
 		else
 		{
