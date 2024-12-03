@@ -254,17 +254,21 @@ void nano::bootstrap_service::inspect (secure::transaction const & tx, nano::blo
 	{
 		case nano::block_status::progress:
 		{
-			const auto account = block.account ();
-
-			// If we've inserted any block in to an account, unmark it as blocked
-			accounts.unblock (account);
-			accounts.priority_up (account);
-
-			if (block.is_send ())
+			// Progress blocks from live traffic don't need further bootstrapping
+			if (source != nano::block_source::live)
 			{
-				auto destination = block.destination ();
-				accounts.unblock (destination, hash); // Unblocking automatically inserts account into priority set
-				accounts.priority_set (destination);
+				const auto account = block.account ();
+
+				// If we've inserted any block in to an account, unmark it as blocked
+				accounts.unblock (account);
+				accounts.priority_up (account);
+
+				if (block.is_send ())
+				{
+					auto destination = block.destination ();
+					accounts.unblock (destination, hash); // Unblocking automatically inserts account into priority set
+					accounts.priority_set (destination);
+				}
 			}
 		}
 		break;
