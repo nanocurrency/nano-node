@@ -901,6 +901,7 @@ TEST (active_elections, fork_replacement_tally)
 					 .build ();
 
 	// Forks without votes
+	std::shared_ptr<nano::election> election;
 	for (auto i (0); i < reps_count; i++)
 	{
 		auto fork = builder.make_block ()
@@ -913,10 +914,15 @@ TEST (active_elections, fork_replacement_tally)
 					.work (*system.work.generate (latest))
 					.build ();
 		node1.process_active (fork);
+
+		// Assert election exists on first iteration
+		if (i == 0)
+		{
+			ASSERT_TIMELY (5s, election = node1.active.election (fork->qualified_root ()));
+		}
 	}
 
 	// Check overflow of blocks
-	std::shared_ptr<nano::election> election;
 	ASSERT_TIMELY (5s, election = node1.active.election (send_last->qualified_root ()));
 	ASSERT_TIMELY_EQ (5s, max_blocks, election->blocks ().size ());
 
