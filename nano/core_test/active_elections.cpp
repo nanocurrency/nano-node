@@ -915,11 +915,8 @@ TEST (active_elections, fork_replacement_tally)
 					.build ();
 		node1.process_active (fork);
 
-		// Assert election exists on first iteration
-		if (i == 0)
-		{
-			ASSERT_TIMELY (5s, election = node1.active.election (fork->qualified_root ()));
-		}
+		// Assert election exists and is the same for each fork
+		ASSERT_TIMELY (1s, election = node1.active.election (fork->qualified_root ()));
 	}
 
 	// Check overflow of blocks
