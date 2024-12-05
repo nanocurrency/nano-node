@@ -522,7 +522,8 @@ TEST (inactive_votes_cache, election_start)
 	node.vote_processor.vote (vote0, std::make_shared<nano::transport::inproc::channel> (node, node));
 	ASSERT_TIMELY_EQ (5s, 0, node.active.size ());
 	ASSERT_TIMELY_EQ (5s, 5, node.ledger.cemented_count ());
-	ASSERT_TRUE (nano::test::confirmed (node, { send1, send2, open1, open2 }));
+	// Confirmation on disk may lag behind cemented_count cache
+	ASSERT_TIMELY (5s, nano::test::confirmed (node, { send1, send2, open1, open2 }));
 
 	// A late block arrival also checks the inactive votes cache
 	ASSERT_TRUE (node.active.empty ());
