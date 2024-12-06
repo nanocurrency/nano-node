@@ -191,9 +191,10 @@ TEST (ledger_priority, sequential_blocks)
 	ASSERT_EQ (100, priority_balance2);
 	ASSERT_EQ (100, priority_balance3); // Max of current (50) and previous (100)
 
-	ASSERT_EQ (nano::dev::genesis->sideband ().timestamp, timestamp1);
-	ASSERT_EQ (send1->sideband ().timestamp, timestamp2);
-	ASSERT_EQ (open->sideband ().timestamp, timestamp3);
+	ASSERT_EQ (nano::dev::genesis->sideband ().timestamp, timestamp1); // genesis account
+	// Opening account must have equal or greater timestamp than sending counterpart.
+	ASSERT_GE (timestamp2, send1->sideband ().timestamp); // key1 account
+	ASSERT_EQ (open->sideband ().timestamp, timestamp3); // key1 account
 }
 
 // Test priority after rolling back state blocks
