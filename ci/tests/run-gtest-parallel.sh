@@ -9,6 +9,7 @@ if [ -z "${target-}" ]; then
     exit 1
 fi
 
+shift
 executable=./${target}$(get_exec_extension)
 
 # Get the project root directory (2 levels up from ci/tests)
@@ -17,8 +18,8 @@ GTEST_PARALLEL="${PROJECT_ROOT}/submodules/gtest-parallel/gtest-parallel"
 
 if [ -f "${GTEST_PARALLEL}" ]; then
     echo "Running tests with gtest-parallel for target: ${target}"
-    "${GTEST_PARALLEL}" "${executable}" --worker=1
+    "${GTEST_PARALLEL}" "${executable}" --worker=1 "$@"
 else
     echo "gtest-parallel not found at ${GTEST_PARALLEL}, running tests directly for target: ${target}"
-    "${executable}"
+    "${executable}" "$@"
 fi 
