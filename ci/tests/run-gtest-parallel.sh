@@ -11,11 +11,14 @@ fi
 
 executable=./${target}$(get_exec_extension)
 
-# Check if gtest-parallel is available
-if command -v gtest-parallel >/dev/null 2>&1; then
+# Get the project root directory (2 levels up from ci/tests)
+PROJECT_ROOT="$(cd "$(dirname "$BASH_SOURCE")/../.." && pwd)"
+GTEST_PARALLEL="${PROJECT_ROOT}/submodules/gtest-parallel/gtest-parallel"
+
+if [ -f "${GTEST_PARALLEL}" ]; then
     echo "Running tests with gtest-parallel for target: ${target}"
-    gtest-parallel "${executable}" --worker=1
+    "${GTEST_PARALLEL}" "${executable}" --worker=1
 else
-    echo "gtest-parallel not found, running tests directly for target: ${target}"
+    echo "gtest-parallel not found at ${GTEST_PARALLEL}, running tests directly for target: ${target}"
     "${executable}"
 fi 
