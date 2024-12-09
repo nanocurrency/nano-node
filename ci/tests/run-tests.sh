@@ -46,10 +46,11 @@ case "$(uname -s)" in
         ;;
 esac
 
-# Run the test using gtest-parallel helper
 shift
 executable=./${target}$(get_exec_extension)
-"$(dirname "$BASH_SOURCE")/run-gtest-parallel.sh" "${target}" "$@"
+
+# Run the test using gtest-parallel helper
+"$(dirname "$BASH_SOURCE")/run-gtest-parallel.sh" "${executable}" "$@"
 status=$?
 
 if [ $status -ne 0 ]; then
