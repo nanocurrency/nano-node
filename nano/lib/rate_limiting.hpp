@@ -25,8 +25,8 @@ class token_bucket
 public:
 	/**
 	 * Set up a token bucket.
-	 * @param max_token_count Maximum number of tokens in this bucket, which limits bursts.
-	 * @param refill_rate Token refill rate, which limits the long term rate (tokens per seconds)
+	 * @param max_token_count Maximum number of tokens in this bucket, which limits bursts. 0 is unlimited.
+	 * @param refill_rate Token refill rate, which limits the long term rate (tokens per seconds). 0 is unlimited (everything passes).
 	 */
 	token_bucket (std::size_t max_token_count, std::size_t refill_rate);
 
@@ -36,25 +36,20 @@ public:
 	 * The default cost is 1 token, but resource intensive operations may request
 	 * more tokens to be available.
 	 */
-	bool try_consume (unsigned tokens_required = 1);
+	bool try_consume (std::size_t tokens_required = 1);
 
 	/** Update the max_token_count and/or refill_rate_a parameters */
 	void reset (std::size_t max_token_count, std::size_t refill_rate);
 
-	/** Returns the largest burst observed */
-	std::size_t largest_burst () const;
+	/** Returns the current number of tokens in the bucket */
 	std::size_t size () const;
 
-private:
 	void refill ();
 
 private:
-	std::size_t max_token_count;
-	std::size_t refill_rate;
-
+	std::size_t max_token_count{ 0 };
+	std::size_t refill_rate{ 0 };
 	std::size_t current_size{ 0 };
-	/** The minimum observed bucket size, from which the largest burst can be derived */
-	std::size_t smallest_size{ 0 };
 	std::chrono::steady_clock::time_point last_refill;
 
 	static std::size_t constexpr unlimited_rate_sentinel{ static_cast<std::size_t> (1e9) };
@@ -70,8 +65,7 @@ public:
 	rate_limiter (std::size_t limit, double burst_ratio = 1.0);
 
 	bool should_pass (std::size_t buffer_size);
-	void reset (std::size_t limit, double burst_ratio = 1.0);
-
+	void reset (std::size_t limit, double burst_ratio);
 	std::size_t size () const;
 
 private:

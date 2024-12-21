@@ -13,54 +13,51 @@ nano::rate::token_bucket::token_bucket (std::size_t max_token_count_a, std::size
 	reset (max_token_count_a, refill_rate_a);
 }
 
-bool nano::rate::token_bucket::try_consume (unsigned tokens_required_a)
+bool nano::rate::token_bucket::try_consume (std::size_t tokens_required)
 {
-	debug_assert (tokens_required_a <= 1e9);
+	debug_assert (tokens_required <= unlimited_rate_sentinel);
+
 	refill ();
-	bool possible = current_size >= tokens_required_a;
+
+	bool possible = current_size >= tokens_required;
 	if (possible)
 	{
-		current_size -= tokens_required_a;
+		current_size -= tokens_required;
 	}
-	else if (tokens_required_a == 1e9)
-	{
-		current_size = 0;
-	}
-
-	// Keep track of smallest observed bucket size so burst size can be computed (for tests and stats)
-	smallest_size = std::min (smallest_size, current_size);
 
 	return possible || refill_rate == unlimited_rate_sentinel;
 }
 
 void nano::rate::token_bucket::refill ()
 {
-	auto now (std::chrono::steady_clock::now ());
+	auto now = std::chrono::steady_clock::now ();
 	std::size_t tokens_to_add = static_cast<std::size_t> (std::chrono::duration_cast<std::chrono::nanoseconds> (now - last_refill).count () / 1e9 * refill_rate);
-	// Only update if there are any tokens to add
+	// Only update if there are tokens to add
 	if (tokens_to_add > 0)
 	{
 		current_size = std::min (current_size + tokens_to_add, max_token_count);
-		last_refill = std::chrono::steady_clock::now ();
+		last_refill = now;
 	}
 }
 
 void nano::rate::token_bucket::reset (std::size_t max_token_count_a, std::size_t refill_rate_a)
 {
-	// A token count of 0 indicates unlimited capacity. We use 1e9 as
-	// a sentinel, allowing largest burst to still be computed.
-	if (max_token_count_a == 0 || refill_rate_a == 0)
+	// A token count of 0 indicates unlimited capacity. We use 1e9 as a sentinel, allowing largest burst to still be computed.
+	if (max_token_count_a == 0)
 	{
-		refill_rate_a = max_token_count_a = unlimited_rate_sentinel;
+		// Unlimited capacity
+		max_token_count_a = unlimited_rate_sentinel;
 	}
-	max_token_count = smallest_size = current_size = max_token_count_a;
-	refill_rate = refill_rate_a;
-	last_refill = std::chrono::steady_clock::now ();
-}
+	if (refill_rate_a == 0)
+	{
+		// Unlimited rate
+		refill_rate_a = unlimited_rate_sentinel;
+	}
 
-std::size_t nano::rate::token_bucket::largest_burst () const
-{
-	return max_token_count - smallest_size;
+	max_token_count = max_token_count_a;
+	refill_rate = refill_rate_a;
+	current_size = max_token_count < unlimited_rate_sentinel ? max_token_count : 0;
+	last_refill = std::chrono::steady_clock::now ();
 }
 
 std::size_t nano::rate::token_bucket::size () const

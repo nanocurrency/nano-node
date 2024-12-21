@@ -152,6 +152,7 @@ enum class detail
 	sync,
 	requeued,
 	evicted,
+	rate_limited,
 
 	// processing queue
 	queue,
