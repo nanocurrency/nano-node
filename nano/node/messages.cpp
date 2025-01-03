@@ -1,15 +1,18 @@
+#include <nano/lib/block_type.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/enum_util.hpp>
+#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/lib/stats_enums.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/messages.hpp>
 #include <nano/node/network.hpp>
+#include <nano/secure/vote.hpp>
 
 #include <boost/asio/ip/address_v6.hpp>
 #include <boost/endian/conversion.hpp>
@@ -1873,7 +1876,7 @@ void nano::asc_pull_ack::blocks_payload::serialize (nano::stream & stream) const
 		nano::serialize_block (stream, *block);
 	}
 	// For convenience, end with null block terminator
-	nano::serialize_block_type (stream, nano::block_type::not_a_block);
+	nano::write (stream, nano::block_type::not_a_block);
 }
 
 void nano::asc_pull_ack::blocks_payload::deserialize (nano::stream & stream)

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <nano/lib/stream.hpp>
-
 #include <cstdint>
 #include <string>
 
@@ -19,8 +17,4 @@ enum class block_type : uint8_t
 };
 
 std::string_view to_string (block_type);
-/**
- * Serialize block type as an 8-bit value
- */
-void serialize_block_type (nano::stream &, nano::block_type const &);
 } // namespace nano

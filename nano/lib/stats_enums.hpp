@@ -13,15 +13,12 @@ enum class type
 	_invalid = 0, // Default value, should not be used
 
 	test,
-	traffic_tcp,
 	error,
 	message,
 	block,
 	ledger,
 	rollback,
-	bootstrap,
 	network,
-	tcp_server,
 	vote,
 	vote_processor,
 	vote_processor_tier,
@@ -32,17 +29,26 @@ enum class type
 	http_callback,
 	ipc,
 	tcp,
+	tcp_server,
+	tcp_channel,
+	tcp_channel_queued,
+	tcp_channel_send,
+	tcp_channel_drop,
+	tcp_channel_ec,
+	tcp_channel_wait,
 	tcp_channels,
 	tcp_channels_rejected,
 	tcp_channels_purge,
 	tcp_listener,
 	tcp_listener_rejected,
+	traffic_tcp,
+	traffic_tcp_type,
 	channel,
 	socket,
 	confirmation_height,
 	confirmation_observer,
 	confirming_set,
-	drop,
+	drop, // TODO: Rename to message_drop
 	aggregator,
 	requests,
 	request_aggregator,
@@ -54,21 +60,30 @@ enum class type
 	vote_cache,
 	vote_cache_processor,
 	hinting,
-	blockprocessor,
-	blockprocessor_source,
-	blockprocessor_result,
-	blockprocessor_overfill,
-	bootstrap_ascending,
-	bootstrap_ascending_accounts,
-	bootstrap_ascending_verify,
-	bootstrap_ascending_process,
-	bootstrap_ascending_request,
-	bootstrap_ascending_reply,
-	bootstrap_ascending_next,
+	block_processor,
+	block_processor_source,
+	block_processor_result,
+	block_processor_overfill,
+	bootstrap,
+	bootstrap_verify,
+	bootstrap_verify_blocks,
+	bootstrap_verify_frontiers,
+	bootstrap_process,
+	bootstrap_request,
+	bootstrap_request_ec,
+	bootstrap_request_blocks,
+	bootstrap_reply,
+	bootstrap_next,
+	bootstrap_frontiers,
+	bootstrap_account_sets,
+	bootstrap_frontier_scan,
+	bootstrap_timeout,
 	bootstrap_server,
 	bootstrap_server_request,
 	bootstrap_server_overfill,
 	bootstrap_server_response,
+	bootstrap_server_send,
+	bootstrap_server_ec,
 	active,
 	active_elections,
 	active_elections_started,
@@ -78,6 +93,8 @@ enum class type
 	active_elections_timeout,
 	active_elections_cancelled,
 	active_elections_cemented,
+	backlog_scan,
+	bounded_backlog,
 	backlog,
 	unchecked,
 	election_scheduler,
@@ -85,6 +102,7 @@ enum class type
 	optimistic_scheduler,
 	handshake,
 	rep_crawler,
+	rep_crawler_ec,
 	local_block_broadcaster,
 	rep_tiers,
 	syn_cookies,
@@ -94,6 +112,7 @@ enum class type
 	message_processor_overfill,
 	message_processor_type,
 	process_confirmed,
+	online_reps,
 
 	_last // Must be the last enum
 };
@@ -118,6 +137,8 @@ enum class detail
 	inserted,
 	erased,
 	request,
+	request_failed,
+	request_success,
 	broadcast,
 	cleanup,
 	top,
@@ -137,6 +158,14 @@ enum class detail
 	empty,
 	done,
 	retry,
+	prioritized,
+	pending,
+	sync,
+	requeued,
+	evicted,
+	other,
+	drop,
+	queued,
 
 	// processing queue
 	queue,
@@ -177,7 +206,7 @@ enum class detail
 	representative_mismatch,
 	block_position,
 
-	// blockprocessor
+	// block_processor
 	process_blocking,
 	process_blocking_timeout,
 	force,
@@ -190,6 +219,7 @@ enum class detail
 	unchecked,
 	local,
 	forced,
+	election,
 
 	// message specific
 	not_a_type,
@@ -284,12 +314,25 @@ enum class detail
 	loop_reachout,
 	loop_reachout_cached,
 	merge_peer,
+	merge_peer_failed,
 	reachout_live,
 	reachout_cached,
+	connected,
+
+	// traffic type
+	generic,
+	bootstrap_server,
+	bootstrap_requests,
+	block_broadcast,
+	block_broadcast_initial,
+	block_broadcast_rpc,
+	confirmation_requests,
+	vote_rebroadcast,
+	vote_reply,
+	rep_crawler,
+	telemetry,
 
 	// tcp
-	tcp_write_drop,
-	tcp_write_no_socket_drop,
 	tcp_silent_connection_drop,
 	tcp_io_timeout_drop,
 	tcp_connect_error,
@@ -315,6 +358,10 @@ enum class detail
 	connect_success,
 	attempt_timeout,
 	not_a_peer,
+
+	// tcp_channel
+	wait_socket,
+	wait_bandwidth,
 
 	// tcp_channels
 	channel_accepted,
@@ -403,10 +450,13 @@ enum class detail
 	activate_failed,
 	activate_skip,
 	activate_full,
+	scanned,
 
 	// active
 	insert,
 	insert_failed,
+	transition_priority,
+	transition_priority_failed,
 	election_cleanup,
 
 	// active_elections
@@ -430,7 +480,7 @@ enum class detail
 	missing_cookie,
 	invalid_genesis,
 
-	// bootstrap ascending
+	// bootstrap
 	missing_tag,
 	reply,
 	throttled,
@@ -438,43 +488,65 @@ enum class detail
 	timeout,
 	nothing_new,
 	account_info_empty,
+	frontiers_empty,
 	loop_database,
 	loop_dependencies,
+	loop_frontiers,
+	loop_frontiers_processing,
 	duplicate_request,
 	invalid_response_type,
+	invalid_response,
 	timestamp_reset,
+	processing_frontiers,
+	frontiers_dropped,
+	sync_accounts,
 
-	// bootstrap ascending accounts
 	prioritize,
 	prioritize_failed,
 	block,
+	block_failed,
 	unblock,
 	unblock_failed,
 	dependency_update,
 	dependency_update_failed,
+
+	done_range,
+	done_empty,
+	next_by_requests,
+	next_by_timestamp,
+	advance,
+	advance_failed,
 
 	next_none,
 	next_priority,
 	next_database,
 	next_blocking,
 	next_dependency,
+	next_frontier,
 
 	blocking_insert,
-	blocking_erase_overflow,
+	blocking_overflow,
 	priority_insert,
-	priority_erase_by_threshold,
-	priority_erase_by_blocking,
-	priority_erase_overflow,
+	priority_set,
+	priority_unblocked,
+	erase_by_threshold,
+	erase_by_blocking,
+	priority_overflow,
 	deprioritize,
 	deprioritize_failed,
 	sync_dependencies,
+	dependency_synced,
 
 	request_blocks,
 	request_account_info,
 
+	safe,
+	base,
+
 	// active
 	started_hinted,
 	started_optimistic,
+
 	// rep_crawler
 	channel_dead,
 	query_target_failed,
@@ -506,6 +578,7 @@ enum class detail
 	cementing,
 	cemented_hash,
 	cementing_failed,
+	deferred_failed,
 
 	// election_state
 	passive,
@@ -528,6 +601,29 @@ enum class detail
 	blocks_by_hash,
 	blocks_by_account,
 	account_info_by_hash,
+
+	// bounded backlog,
+	gathered_targets,
+	performing_rollbacks,
+	no_targets,
+	rollback_missing_block,
+	rollback_skipped,
+	loop_scan,
+
+	// online_reps
+	trim_trend,
+	sanitize_old,
+	sanitize_future,
+	sample,
+	rep_new,
+	rep_update,
+	update_online,
+
+	// error codes
+	no_buffer_space,
+	timed_out,
+	host_unreachable,
+	not_supported,
 
 	_last // Must be the last enum
 };

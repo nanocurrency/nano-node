@@ -1,3 +1,4 @@
+#include <nano/lib/stream.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/vote.hpp>

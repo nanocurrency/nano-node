@@ -2,8 +2,9 @@
 
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/memory.hpp>
-#include <nano/lib/stream.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/fwd.hpp>
+#include <nano/store/fwd.hpp>
 #include <nano/store/tables.hpp>
 #include <nano/store/transaction.hpp>
 #include <nano/store/versioning.hpp>
@@ -11,26 +12,12 @@
 
 #include <boost/endian/conversion.hpp>
 #include <boost/polymorphic_cast.hpp>
+#include <boost/property_tree/ptree.hpp>
 
 #include <stack>
 
 namespace nano
 {
-namespace store
-{
-	class account;
-	class block;
-	class confirmation_height;
-	class final_vote;
-	class online_weight;
-	class peer;
-	class pending;
-	class pruned;
-	class version;
-	class rep_weight;
-}
-class ledger_cache;
-
 namespace store
 {
 	/**
@@ -90,8 +77,8 @@ namespace store
 		virtual void rebuild_db (write_transaction const & transaction_a) = 0;
 
 		/** Not applicable to all sub-classes */
-		virtual void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds){};
-		virtual void serialize_memory_stats (boost::property_tree::ptree &) = 0;
+		virtual void serialize_mdb_tracker (::boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds){};
+		virtual void serialize_memory_stats (::boost::property_tree::ptree &) = 0;
 
 		virtual bool init_error () const = 0;
 

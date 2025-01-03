@@ -1,9 +1,13 @@
 #pragma once
 
+#include <nano/lib/errors.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/numbers_templ.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
@@ -16,13 +20,6 @@
 #include <set>
 
 namespace mi = boost::multi_index;
-
-namespace nano
-{
-class election;
-class active_elections;
-class block;
-}
 
 namespace nano::scheduler
 {
@@ -50,13 +47,11 @@ public:
 class bucket final
 {
 public:
-	using priority_t = uint64_t;
+	nano::bucket_index const index;
 
 public:
-	bucket (nano::uint128_t minimum_balance, priority_bucket_config const &, nano::active_elections &, nano::stats &);
+	bucket (nano::bucket_index, priority_bucket_config const &, nano::active_elections &, nano::stats &);
 	~bucket ();
-
-	nano::uint128_t const minimum_balance;
 
 	bool available () const;
 	bool activate ();
@@ -64,6 +59,7 @@ public:
 
 	bool push (uint64_t time, std::shared_ptr<nano::block> block);
 
+	bool contains (nano::block_hash const &) const;
 	size_t size () const;
 	size_t election_count () const;
 	bool empty () const;
@@ -72,7 +68,7 @@ public:
 	void dump () const;
 
 private:
-	bool election_vacancy (priority_t candidate) const;
+	bool election_vacancy (nano::priority_timestamp candidate) const;
 	bool election_overfill () const;
 	void cancel_lowest_election ();
 
@@ -87,32 +83,57 @@ private: // Blocks
 		uint64_t time;
 		std::shared_ptr<nano::block> block;
 
-		bool operator< (block_entry const & other_a) const;
-		bool operator== (block_entry const & other_a) const;
-	};
+		nano::block_hash hash () const
+		{
+			return block->hash ();
+		}
 
-	std::set<block_entry> queue;
-
-private: // Elections
-	struct election_entry
-	{
-		std::shared_ptr<nano::election> election;
-		nano::qualified_root root;
-		priority_t priority;
+		// Keep operators inlined
+		bool operator< (block_entry const & other) const
+		{
+			return time < other.time || (time == other.time && hash () < other.hash ());
+		}
+		bool operator== (block_entry const & other) const
+		{
+			return time == other.time && hash () == other.hash ();
+		}
 	};
 
 	// clang-format off
 	class tag_sequenced {};
 	class tag_root {};
 	class tag_priority {};
+	class tag_hash {};
+	// clang-format on
 
+	// clang-format off
+	using ordered_blocks = boost::multi_index_container<block_entry,
+	mi::indexed_by<
+		mi::ordered_non_unique<mi::tag<tag_priority>,
+			mi::identity<block_entry>>,
+		mi::hashed_unique<mi::tag<tag_hash>,
+			mi::const_mem_fun<block_entry, nano::block_hash, &block_entry::hash>>
+	>>;
+	// clang-format on
+
+	ordered_blocks queue;
+
+private: // Elections
+	struct election_entry
+	{
+		std::shared_ptr<nano::election> election;
+		nano::qualified_root root;
+		nano::priority_timestamp priority;
+	};
+
+	// clang-format off
 	using ordered_elections = boost::multi_index_container<election_entry,
 	mi::indexed_by<
 		mi::sequenced<mi::tag<tag_sequenced>>,
 		mi::hashed_unique<mi::tag<tag_root>,
 			mi::member<election_entry, nano::qualified_root, &election_entry::root>>,
 		mi::ordered_non_unique<mi::tag<tag_priority>,
-			mi::member<election_entry, priority_t, &election_entry::priority>>
+			mi::member<election_entry, nano::priority_timestamp, &election_entry::priority>>
 	>>;
 	// clang-format on
 
@@ -121,4 +142,4 @@ private: // Elections
 private:
 	mutable nano::mutex mutex;
 };
-} // namespace nano::scheduler
+}

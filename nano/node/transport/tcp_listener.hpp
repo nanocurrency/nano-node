@@ -1,9 +1,12 @@
 #pragma once
 
 #include <nano/lib/async.hpp>
-#include <nano/node/common.hpp>
+#include <nano/lib/fwd.hpp>
+#include <nano/lib/observer_set.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/node/transport/common.hpp>
+#include <nano/node/transport/tcp_config.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -22,29 +25,6 @@ namespace asio = boost::asio;
 
 namespace nano::transport
 {
-class tcp_config
-{
-public:
-	explicit tcp_config (nano::network_constants const & network)
-	{
-		if (network.is_dev_network ())
-		{
-			max_inbound_connections = 128;
-			max_outbound_connections = 128;
-			max_attempts = 128;
-			max_attempts_per_ip = 128;
-			connect_timeout = std::chrono::seconds{ 5 };
-		}
-	}
-
-public:
-	size_t max_inbound_connections{ 2048 };
-	size_t max_outbound_connections{ 2048 };
-	size_t max_attempts{ 60 };
-	size_t max_attempts_per_ip{ 1 };
-	std::chrono::seconds connect_timeout{ 60 };
-};
-
 /**
  * Server side portion of tcp sessions. Listens for new socket connections and spawns tcp_server objects when connected.
  */
@@ -78,13 +58,13 @@ public:
 	size_t realtime_count () const;
 	size_t bootstrap_count () const;
 
-	std::vector<std::shared_ptr<nano::transport::tcp_socket>> sockets () const;
-	std::vector<std::shared_ptr<nano::transport::tcp_server>> servers () const;
+	std::vector<std::shared_ptr<tcp_socket>> sockets () const;
+	std::vector<std::shared_ptr<tcp_server>> servers () const;
 
 	nano::container_info container_info () const;
 
 public: // Events
-	using connection_accepted_event_t = nano::observer_set<std::shared_ptr<nano::transport::tcp_socket> const &, std::shared_ptr<nano::transport::tcp_server>>;
+	using connection_accepted_event_t = nano::observer_set<std::shared_ptr<tcp_socket>, std::shared_ptr<tcp_server>>;
 	connection_accepted_event_t connection_accepted;
 
 private: // Dependencies
@@ -94,6 +74,7 @@ private: // Dependencies
 	nano::logger & logger;
 
 private:
+	asio::awaitable<void> start_impl ();
 	asio::awaitable<void> run ();
 	asio::awaitable<void> wait_available_slots () const;
 
@@ -131,9 +112,10 @@ private:
 private:
 	struct connection
 	{
+		connection_type type;
 		asio::ip::tcp::endpoint endpoint;
-		std::weak_ptr<nano::transport::tcp_socket> socket;
-		std::weak_ptr<nano::transport::tcp_server> server;
+		std::weak_ptr<tcp_socket> socket;
+		std::weak_ptr<tcp_server> server;
 
 		asio::ip::address address () const
 		{

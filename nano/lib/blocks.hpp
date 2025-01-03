@@ -1,27 +1,29 @@
 #pragma once
 
 #include <nano/lib/block_sideband.hpp>
-#include <nano/lib/block_uniquer.hpp>
-#include <nano/lib/config.hpp>
 #include <nano/lib/epoch.hpp>
 #include <nano/lib/errors.hpp>
+#include <nano/lib/fwd.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/optional_ptr.hpp>
-#include <nano/lib/stream.hpp>
 
 #include <boost/property_tree/ptree_fwd.hpp>
+
+#include <optional>
 
 typedef struct blake2b_state__ blake2b_state;
 
 namespace nano
 {
-class block_visitor;
-class mutable_block_visitor;
-class object_stream;
+using block_uniquer = uniquer<nano::uint256_union, nano::block>;
+}
 
+namespace nano
+{
 class block
 {
 public:
+	virtual ~block () = default;
 	// Return a digest of the hashables in this block.
 	nano::block_hash const & hash () const;
 	// Return a digest of hashables and non-hashables in this block.
@@ -45,10 +47,10 @@ public:
 	virtual nano::block_type type () const = 0;
 	virtual nano::signature const & block_signature () const = 0;
 	virtual void signature_set (nano::signature const &) = 0;
-	virtual ~block () = default;
 	virtual bool valid_predecessor (nano::block const &) const = 0;
 	static size_t size (nano::block_type);
 	virtual nano::work_version work_version () const;
+	virtual std::shared_ptr<nano::block> clone () const = 0;
 	// If there are any changes to the hashables, call this to update the cached hash
 	void refresh ();
 	bool is_send () const noexcept;
@@ -137,6 +139,7 @@ public:
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::send_block const &) const;
 	bool valid_predecessor (nano::block const &) const override;
+	std::shared_ptr<nano::block> clone () const override;
 	send_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
@@ -191,6 +194,7 @@ public:
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::receive_block const &) const;
 	bool valid_predecessor (nano::block const &) const override;
+	std::shared_ptr<nano::block> clone () const override;
 	receive_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
@@ -246,6 +250,7 @@ public:
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::open_block const &) const;
 	bool valid_predecessor (nano::block const &) const override;
+	std::shared_ptr<nano::block> clone () const override;
 	nano::open_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
@@ -301,6 +306,7 @@ public:
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::change_block const &) const;
 	bool valid_predecessor (nano::block const &) const override;
+	std::shared_ptr<nano::block> clone () const override;
 	nano::change_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
@@ -367,6 +373,7 @@ public:
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::state_block const &) const;
 	bool valid_predecessor (nano::block const &) const override;
+	std::shared_ptr<nano::block> clone () const override;
 	nano::state_hashables hashables;
 	nano::signature signature;
 	uint64_t work;

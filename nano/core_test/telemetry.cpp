@@ -1,4 +1,5 @@
 #include <nano/node/telemetry.hpp>
+#include <nano/node/transport/fake.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/telemetry.hpp>
@@ -142,7 +143,7 @@ TEST (telemetry, dos_tcp)
 	nano::telemetry_req message{ nano::dev::network_params.network };
 	auto channel = node_client->network.tcp_channels.find_node_id (node_server->get_node_id ());
 	ASSERT_NE (nullptr, channel);
-	channel->send (message, [] (boost::system::error_code const & ec, size_t size_a) {
+	channel->send (message, nano::transport::traffic_type::test, [] (boost::system::error_code const & ec, size_t size_a) {
 		ASSERT_FALSE (ec);
 	});
 
@@ -151,7 +152,7 @@ TEST (telemetry, dos_tcp)
 	auto orig = std::chrono::steady_clock::now ();
 	for (int i = 0; i < 10; ++i)
 	{
-		channel->send (message, [] (boost::system::error_code const & ec, size_t size_a) {
+		channel->send (message, nano::transport::traffic_type::test, [] (boost::system::error_code const & ec, size_t size_a) {
 			ASSERT_FALSE (ec);
 		});
 	}
@@ -164,7 +165,7 @@ TEST (telemetry, dos_tcp)
 	// Now spam messages waiting for it to be processed
 	while (node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in) == 1)
 	{
-		channel->send (message);
+		channel->send (message, nano::transport::traffic_type::test);
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
@@ -213,7 +214,7 @@ TEST (telemetry, max_possible_size)
 
 	auto channel = node_client->network.tcp_channels.find_node_id (node_server->get_node_id ());
 	ASSERT_NE (nullptr, channel);
-	channel->send (message, [] (boost::system::error_code const & ec, size_t size_a) {
+	channel->send (message, nano::transport::traffic_type::test, [] (boost::system::error_code const & ec, size_t size_a) {
 		ASSERT_FALSE (ec);
 	});
 

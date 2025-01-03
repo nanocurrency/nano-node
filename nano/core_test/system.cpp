@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/thread_runner.hpp>
+#include <nano/lib/work_version.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
@@ -210,7 +211,7 @@ TEST (system, transport_basic)
 	nano::transport::inproc::channel channel{ node0, node1 };
 	// Send a keepalive message since they are easy to construct
 	nano::keepalive junk{ nano::dev::network_params.network };
-	channel.send (junk);
+	channel.send (junk, nano::transport::traffic_type::test);
 	// Ensure the keepalive has been reecived on the target.
 	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) > 0);
 }

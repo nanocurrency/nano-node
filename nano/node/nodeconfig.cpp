@@ -125,7 +125,6 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("pow_sleep_interval", pow_sleep_interval.count (), "Time to sleep between batch work generation attempts. Reduces max CPU usage at the expense of a longer generation time.\ntype:nanoseconds");
 	toml.put ("external_address", external_address, "The external address of this node (NAT). If not set, the node will request this information via UPnP.\ntype:string,ip");
 	toml.put ("external_port", external_port, "The external port number of this node (NAT). Only used if external_address is set.\ntype:uint16");
-	toml.put ("tcp_incoming_connections_max", tcp_incoming_connections_max, "Maximum number of incoming TCP connections.\ntype:uint64");
 	toml.put ("use_memory_pools", use_memory_pools, "If true, allocate memory from memory pools. Enabling this may improve performance. Memory is never released to the OS.\ntype:bool");
 
 	toml.put ("bandwidth_limit", bandwidth_limit, "Outbound traffic limit in bytes/sec after which messages will be dropped.\nNote: changing to unlimited bandwidth (0) is not recommended for limited connections.\ntype:uint64");
@@ -140,6 +139,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("max_queued_requests", max_queued_requests, "Limit for number of queued confirmation requests for one channel, after which new requests are dropped until the queue drops below this value.\ntype:uint32");
 	toml.put ("request_aggregator_threads", request_aggregator_threads, "Number of threads to dedicate to request aggregator. Defaults to using all cpu threads, up to a maximum of 4");
 	toml.put ("max_unchecked_blocks", max_unchecked_blocks, "Maximum number of unchecked blocks to store in memory. Defaults to 65536. \ntype:uint64,[0..]");
+	toml.put ("max_backlog", max_backlog, "Maximum number of unconfirmed blocks to keep in the ledger. If this limit is exceeded, the node will start dropping low-priority unconfirmed blocks.\ntype:uint64");
 	toml.put ("rep_crawler_weight_minimum", rep_crawler_weight_minimum.to_string_dec (), "Rep crawler minimum weight, if this is less than minimum principal weight then this is taken as the minimum weight a rep must have to be tracked. If you want to track all reps set this to 0. If you do not want this to influence anything then set it to max value. This is only useful for debugging or for people who really know what they are doing.\ntype:string,amount,raw");
 	toml.put ("enable_upnp", enable_upnp, "Enable or disable automatic UPnP port forwarding. This feature only works if the node is directly connected to a router (not inside a docker container, etc.).\ntype:bool");
 
@@ -214,9 +214,9 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	priority_bucket.serialize (priority_bucket_l);
 	toml.put_child ("priority_bucket", priority_bucket_l);
 
-	nano::tomlconfig bootstrap_ascending_l;
-	bootstrap_ascending.serialize (bootstrap_ascending_l);
-	toml.put_child ("bootstrap_ascending", bootstrap_ascending_l);
+	nano::tomlconfig bootstrap_l;
+	bootstrap.serialize (bootstrap_l);
+	toml.put_child ("bootstrap", bootstrap_l);
 
 	nano::tomlconfig bootstrap_server_l;
 	bootstrap_server.serialize (bootstrap_server_l);
@@ -246,6 +246,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	peer_history.serialize (peer_history_l);
 	toml.put_child ("peer_history", peer_history_l);
 
+	nano::tomlconfig tcp_l;
+	tcp.serialize (tcp_l);
+	toml.put_child ("tcp", tcp_l);
+
 	nano::tomlconfig request_aggregator_l;
 	request_aggregator.serialize (request_aggregator_l);
 	toml.put_child ("request_aggregator", request_aggregator_l);
@@ -258,9 +262,13 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	monitor.serialize (monitor_l);
 	toml.put_child ("monitor", monitor_l);
 
-	nano::tomlconfig backlog_population_l;
-	backlog_population.serialize (backlog_population_l);
-	toml.put_child ("backlog_population", backlog_population_l);
+	nano::tomlconfig backlog_scan_l;
+	backlog_scan.serialize (backlog_scan_l);
+	toml.put_child ("backlog_scan", backlog_scan_l);
+
+	nano::tomlconfig bounded_backlog_l;
+	bounded_backlog.serialize (bounded_backlog_l);
+	toml.put_child ("bounded_backlog", bounded_backlog_l);
 
 	return toml.get_error ();
 }
@@ -329,10 +337,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			priority_bucket.deserialize (config_l);
 		}
 
-		if (toml.has_key ("bootstrap_ascending"))
+		if (toml.has_key ("bootstrap"))
 		{
-			auto config_l = toml.get_required_child ("bootstrap_ascending");
-			bootstrap_ascending.deserialize (config_l);
+			auto config_l = toml.get_required_child ("bootstrap");
+			bootstrap.deserialize (config_l);
 		}
 
 		if (toml.has_key ("bootstrap_server"))
@@ -377,6 +385,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			peer_history.deserialize (config_l);
 		}
 
+		if (toml.has_key ("tcp"))
+		{
+			auto config_l = toml.get_required_child ("tcp");
+			tcp.deserialize (config_l);
+		}
+
 		if (toml.has_key ("request_aggregator"))
 		{
 			auto config_l = toml.get_required_child ("request_aggregator");
@@ -395,10 +409,16 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			monitor.deserialize (config_l);
 		}
 
-		if (toml.has_key ("backlog_population"))
+		if (toml.has_key ("backlog_scan"))
 		{
-			auto config_l = toml.get_required_child ("backlog_population");
-			backlog_population.deserialize (config_l);
+			auto config_l = toml.get_required_child ("backlog_scan");
+			backlog_scan.deserialize (config_l);
+		}
+
+		if (toml.has_key ("bounded_backlog"))
+		{
+			auto config_l = toml.get_required_child ("bounded_backlog");
+			bounded_backlog.deserialize (config_l);
 		}
 
 		/*
@@ -527,7 +547,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<boost::asio::ip::address_v6> ("external_address", external_address_l);
 		external_address = external_address_l.to_string ();
 		toml.get<uint16_t> ("external_port", external_port);
-		toml.get<unsigned> ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 
 		auto pow_sleep_interval_l (pow_sleep_interval.count ());
 		toml.get (pow_sleep_interval_key, pow_sleep_interval_l);
@@ -552,6 +571,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<uint32_t> ("request_aggregator_threads", request_aggregator_threads);
 
 		toml.get<unsigned> ("max_unchecked_blocks", max_unchecked_blocks);
+		toml.get<std::size_t> ("max_backlog", max_backlog);
 
 		auto rep_crawler_weight_minimum_l (rep_crawler_weight_minimum.to_string_dec ());
 		if (toml.has_key ("rep_crawler_weight_minimum"))

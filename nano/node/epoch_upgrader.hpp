@@ -1,22 +1,18 @@
 #pragma once
 
-#include <nano/lib/epoch.hpp>
+#include <nano/lib/fwd.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/node/fwd.hpp>
+#include <nano/secure/fwd.hpp>
+#include <nano/store/fwd.hpp>
 
+#include <cstdint>
 #include <future>
 
 namespace nano
 {
-class node;
-class ledger;
-namespace store
-{
-	class component;
-}
-class network_params;
-
 class epoch_upgrader final
 {
 public:

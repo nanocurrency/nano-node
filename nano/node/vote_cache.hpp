@@ -4,7 +4,9 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/node/fwd.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/fwd.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
@@ -13,6 +15,7 @@
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
 
+#include <deque>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -20,16 +23,6 @@
 #include <vector>
 
 namespace mi = boost::multi_index;
-
-namespace nano
-{
-class node;
-class active_elections;
-class election;
-class vote;
-enum class vote_code;
-enum class vote_source;
-}
 
 namespace nano
 {
@@ -133,6 +126,7 @@ public:
 	 * Tries to find an entry associated with block hash
 	 */
 	std::vector<std::shared_ptr<nano::vote>> find (nano::block_hash const & hash) const;
+	bool contains (nano::block_hash const & hash) const;
 
 	/**
 	 * Removes an entry associated with block hash, does nothing if entry does not exist

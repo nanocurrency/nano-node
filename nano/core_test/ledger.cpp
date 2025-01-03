@@ -12,6 +12,7 @@
 #include <nano/node/vote_router.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/store/rocksdb/rocksdb.hpp>
 #include <nano/test_common/ledger_context.hpp>
 #include <nano/test_common/make_store.hpp>
@@ -1017,7 +1018,7 @@ TEST (votes, add_existing)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key1;
 	nano::block_builder builder;
@@ -4266,7 +4267,7 @@ TEST (ledger, unchecked_epoch_invalid)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	auto & node1 (*system.add_node (node_config));
 	nano::keypair destination;
 	nano::block_builder builder;
@@ -5350,7 +5351,7 @@ TEST (ledger, pruning_safe_functions)
 	ASSERT_EQ (nano::dev::genesis_key.pub, ledger.any.block_account (transaction, send2->hash ()).value ());
 }
 
-TEST (ledger, hash_root_random)
+TEST (ledger, random_blocks)
 {
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
@@ -5393,23 +5394,46 @@ TEST (ledger, hash_root_random)
 	ASSERT_TRUE (store->pruned.exists (transaction, send1->hash ()));
 	ASSERT_TRUE (ledger.any.block_exists (transaction, nano::dev::genesis->hash ()));
 	ASSERT_TRUE (ledger.any.block_exists (transaction, send2->hash ()));
-	// Test random block including pruned
-	bool done (false);
-	auto iteration (0);
-	while (!done)
+	// Prunned block will not be included in the random selection because it's not in the blocks set
 	{
-		++iteration;
-		auto root_hash (ledger.hash_root_random (transaction));
-		done = (root_hash.first == send1->hash ()) && (root_hash.second.is_zero ());
-		ASSERT_LE (iteration, 1000);
+		bool done = false;
+		size_t iteration = 0;
+		while (!done && iteration < 42)
+		{
+			++iteration;
+			auto blocks = ledger.random_blocks (transaction, 10);
+			ASSERT_EQ (blocks.size (), 10); // Random blocks should repeat if the ledger is smaller than the requested count
+			auto first = blocks.front ();
+			done = (first->hash () == send1->hash ());
+		}
+		ASSERT_FALSE (done);
 	}
-	done = false;
-	while (!done)
+	// Genesis and send2 should be included in the random selection
 	{
-		++iteration;
-		auto root_hash (ledger.hash_root_random (transaction));
-		done = (root_hash.first == send2->hash ()) && (root_hash.second == send2->root ().as_block_hash ());
-		ASSERT_LE (iteration, 1000);
+		bool done = false;
+		size_t iteration = 0;
+		while (!done)
+		{
+			++iteration;
+			auto blocks = ledger.random_blocks (transaction, 1);
+			ASSERT_EQ (blocks.size (), 1);
+			auto first = blocks.front ();
+			done = (first->hash () == send2->hash ());
+			ASSERT_LE (iteration, 1000);
+		}
+	}
+	{
+		bool done = false;
+		size_t iteration = 0;
+		while (!done)
+		{
+			++iteration;
+			auto blocks = ledger.random_blocks (transaction, 1);
+			ASSERT_EQ (blocks.size (), 1);
+			auto first = blocks.front ();
+			done = (first->hash () == nano::dev::genesis->hash ());
+			ASSERT_LE (iteration, 1000);
+		}
 	}
 }
 
@@ -5481,8 +5505,12 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	ASSERT_FALSE (rocksdb_store.confirmation_height.get (rocksdb_transaction, nano::dev::genesis_key.pub, confirmation_height_info));
 	ASSERT_EQ (confirmation_height_info.height, 2);
 	ASSERT_EQ (confirmation_height_info.frontier, send->hash ());
-	ASSERT_EQ (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ())).size (), 1);
-	ASSERT_EQ (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ()))[0], nano::block_hash (2));
+	ASSERT_TRUE (rocksdb_store.final_vote.get (rocksdb_transaction, send->qualified_root ()).has_value ());
+	ASSERT_EQ (rocksdb_store.final_vote.get (rocksdb_transaction, send->qualified_root ()).value (), nano::block_hash (2));
+
+	// Retry migration while rocksdb folder is still present
+	auto error_on_retry = ledger.migrate_lmdb_to_rocksdb (path);
+	ASSERT_EQ (error_on_retry, true);
 }
 
 TEST (ledger, is_send_genesis)
@@ -5826,7 +5854,7 @@ TEST (ledger_transaction, write_wait_order)
 	WAIT (250ms); // Allow thread to start
 
 	auto fut2 = std::async (std::launch::async, [&ctx, &acquired2, &latch2] {
-		auto tx = ctx.ledger ().tx_begin_write (nano::store::writer::blockprocessor);
+		auto tx = ctx.ledger ().tx_begin_write (nano::store::writer::block_processor);
 		acquired2 = true;
 		latch2.wait (); // Wait for the signal to drop tx
 	});
@@ -5855,4 +5883,39 @@ TEST (ledger_transaction, write_wait_order)
 
 	// Signal to continue and drop the third transaction
 	latch3.count_down ();
+}
+
+TEST (ledger_transaction, multithreaded_interleaving)
+{
+	nano::test::system system;
+
+	auto ctx = nano::test::ledger_empty ();
+
+	int constexpr num_threads = 2;
+	int constexpr num_iterations = 10;
+	int constexpr num_blocks = 10;
+
+	std::deque<std::thread> threads;
+	for (int i = 0; i < num_threads; ++i)
+	{
+		threads.emplace_back ([&] {
+			for (int n = 0; n < num_iterations; ++n)
+			{
+				auto tx = ctx.ledger ().tx_begin_write (nano::store::writer::testing);
+				for (unsigned k = 0; k < num_blocks; ++k)
+				{
+					ctx.store ().account.put (tx, nano::account{ k }, nano::account_info{});
+				}
+				for (unsigned k = 0; k < num_blocks; ++k)
+				{
+					ctx.store ().account.del (tx, nano::account{ k });
+				}
+			}
+		});
+	}
+
+	for (auto & thread : threads)
+	{
+		thread.join ();
+	}
 }

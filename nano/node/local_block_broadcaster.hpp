@@ -1,10 +1,11 @@
 #pragma once
 
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/interval.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/processing_queue.hpp>
 #include <nano/lib/rate_limiting.hpp>
-#include <nano/node/blockprocessor.hpp>
+#include <nano/node/block_processor.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/secure/common.hpp>
 
@@ -58,6 +59,7 @@ public:
 	void start ();
 	void stop ();
 
+	bool contains (nano::block_hash const &) const;
 	size_t size () const;
 
 	nano::container_info container_info () const;

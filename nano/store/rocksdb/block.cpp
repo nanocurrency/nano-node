@@ -106,18 +106,6 @@ std::shared_ptr<nano::block> nano::store::rocksdb::block::get (store::transactio
 	}
 	return result;
 }
-std::shared_ptr<nano::block> nano::store::rocksdb::block::random (store::transaction const & transaction)
-{
-	nano::block_hash hash;
-	nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
-	auto existing = begin (transaction, hash);
-	if (existing == end (transaction))
-	{
-		existing = begin (transaction);
-	}
-	debug_assert (existing != end (transaction));
-	return existing->second.block;
-}
 
 void nano::store::rocksdb::block::del (store::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {

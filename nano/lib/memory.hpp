@@ -48,6 +48,16 @@ private:
 	std::vector<std::function<void ()>> cleanup_funcs;
 };
 
+/** Helper guard which contains all the necessary purge (remove all memory even if used) functions */
+class node_singleton_memory_pool_purge_guard
+{
+public:
+	node_singleton_memory_pool_purge_guard ();
+
+private:
+	nano::cleanup_guard cleanup_guard;
+};
+
 template <typename T, typename... Args>
 std::shared_ptr<T> make_shared (Args &&... args)
 {

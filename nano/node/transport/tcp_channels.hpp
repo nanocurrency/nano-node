@@ -1,8 +1,10 @@
 #pragma once
 
+#include <nano/lib/numbers_templ.hpp>
 #include <nano/lib/random.hpp>
-#include <nano/node/common.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/transport/channel.hpp>
+#include <nano/node/transport/fwd.hpp>
 #include <nano/node/transport/tcp_channel.hpp>
 #include <nano/node/transport/transport.hpp>
 
@@ -39,22 +41,22 @@ public:
 	std::size_t size () const;
 	std::shared_ptr<nano::transport::tcp_channel> find_channel (nano::tcp_endpoint const &) const;
 	void random_fill (std::array<nano::endpoint, 8> &) const;
-	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t, uint8_t = 0, bool = false) const;
 	std::shared_ptr<nano::transport::tcp_channel> find_node_id (nano::account const &);
 	// Get the next peer for attempting a tcp connection
 	nano::tcp_endpoint bootstrap_peer ();
-	bool max_ip_connections (nano::tcp_endpoint const & endpoint_a);
-	bool max_subnetwork_connections (nano::tcp_endpoint const & endpoint_a);
-	bool max_ip_or_subnetwork_connections (nano::tcp_endpoint const & endpoint_a);
+	bool max_ip_connections (nano::tcp_endpoint const & endpoint);
+	bool max_subnetwork_connections (nano::tcp_endpoint const & endpoint);
+	bool max_ip_or_subnetwork_connections (nano::tcp_endpoint const & endpoint);
 	// Should we reach out to this endpoint with a keepalive message? If yes, register a new reachout attempt
 	bool track_reachout (nano::endpoint const &);
 	void purge (std::chrono::steady_clock::time_point cutoff_deadline);
-	void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0, bool = true);
+	std::deque<std::shared_ptr<nano::transport::channel>> list (uint8_t minimum_version = 0) const;
+	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t max_count, uint8_t minimum_version = 0) const;
 	void keepalive ();
 	std::optional<nano::keepalive> sample_keepalive ();
 
 	// Connection start
-	void start_tcp (nano::endpoint const &);
+	bool start_tcp (nano::endpoint const &);
 
 	nano::container_info container_info () const;
 
@@ -69,14 +71,19 @@ private:
 	class channel_entry final
 	{
 	public:
-		std::shared_ptr<nano::transport::tcp_channel> channel;
-		std::shared_ptr<nano::transport::tcp_socket> socket;
-		std::shared_ptr<nano::transport::tcp_server> response_server;
+		std::shared_ptr<tcp_channel> channel;
+		std::shared_ptr<tcp_socket> socket;
+		std::shared_ptr<tcp_server> server;
 
 	public:
-		channel_entry (std::shared_ptr<nano::transport::tcp_channel> channel_a, std::shared_ptr<nano::transport::tcp_socket> socket_a, std::shared_ptr<nano::transport::tcp_server> server_a) :
-			channel (std::move (channel_a)), socket (std::move (socket_a)), response_server (std::move (server_a))
+		channel_entry (std::shared_ptr<tcp_channel> channel_a, std::shared_ptr<tcp_socket> socket_a, std::shared_ptr<tcp_server> server_a) :
+			channel (std::move (channel_a)),
+			socket (std::move (socket_a)),
+			server (std::move (server_a))
 		{
+			release_assert (socket);
+			release_assert (server);
+			release_assert (channel);
 		}
 		nano::tcp_endpoint endpoint () const
 		{

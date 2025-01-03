@@ -1,6 +1,9 @@
 #include <nano/core_test/fakes/websocket_client.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/work_version.hpp>
 #include <nano/node/active_elections.hpp>
+#include <nano/node/online_reps.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/node/vote_router.hpp>
@@ -838,121 +841,6 @@ TEST (websocket, work)
 	ASSERT_TRUE (bad_peers.empty ());
 
 	ASSERT_EQ (contents.get<std::string> ("reason"), "");
-}
-
-// Test client subscribing to notifications for bootstrap
-TEST (websocket, bootstrap)
-{
-	nano::test::system system;
-	nano::node_config config = system.default_config ();
-	config.websocket_config.enabled = true;
-	config.websocket_config.port = system.get_available_port ();
-	auto node1 (system.add_node (config));
-
-	ASSERT_EQ (0, node1->websocket.server->subscriber_count (nano::websocket::topic::bootstrap));
-
-	// Subscribe to bootstrap and wait for response asynchronously
-	std::atomic<bool> ack_ready{ false };
-	auto task = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (node1->websocket.server->listening_port ());
-		client.send_message (R"json({"action": "subscribe", "topic": "bootstrap", "ack": true})json");
-		client.await_ack ();
-		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::bootstrap));
-		return client.get_response ();
-	});
-	auto future = std::async (std::launch::async, task);
-
-	// Wait for acknowledge
-	ASSERT_TIMELY (5s, ack_ready);
-
-	// Start bootstrap attempt
-	node1->bootstrap_initiator.bootstrap (true, "123abc");
-	ASSERT_TIMELY_EQ (5s, nullptr, node1->bootstrap_initiator.current_attempt ());
-
-	// Wait for the bootstrap notification
-	ASSERT_TIMELY_EQ (5s, future.wait_for (0s), std::future_status::ready);
-
-	// Check the bootstrap notification message
-	auto response = future.get ();
-	ASSERT_TRUE (response);
-	std::stringstream stream;
-	stream << response;
-	boost::property_tree::ptree event;
-	boost::property_tree::read_json (stream, event);
-	ASSERT_EQ (event.get<std::string> ("topic"), "bootstrap");
-
-	auto & contents = event.get_child ("message");
-	ASSERT_EQ (contents.get<std::string> ("reason"), "started");
-	ASSERT_EQ (contents.get<std::string> ("id"), "123abc");
-	ASSERT_EQ (contents.get<std::string> ("mode"), "legacy");
-
-	// Wait for bootstrap finish
-	ASSERT_TIMELY (5s, !node1->bootstrap_initiator.in_progress ());
-}
-
-TEST (websocket, bootstrap_exited)
-{
-	nano::test::system system;
-	nano::node_config config = system.default_config ();
-	config.websocket_config.enabled = true;
-	config.websocket_config.port = system.get_available_port ();
-	auto node1 (system.add_node (config));
-
-	// Start bootstrap, exit after subscription
-	std::atomic<bool> bootstrap_started{ false };
-	nano::test::counted_completion subscribed_completion (1);
-	std::thread bootstrap_thread ([node1, &system, &bootstrap_started, &subscribed_completion] () {
-		std::shared_ptr<nano::bootstrap_attempt> attempt;
-		while (attempt == nullptr)
-		{
-			std::this_thread::sleep_for (50ms);
-			node1->bootstrap_initiator.bootstrap (true, "123abc");
-			attempt = node1->bootstrap_initiator.current_attempt ();
-		}
-		ASSERT_NE (nullptr, attempt);
-		bootstrap_started = true;
-		EXPECT_FALSE (subscribed_completion.await_count_for (5s));
-	});
-
-	// Wait for bootstrap start
-	ASSERT_TIMELY (5s, bootstrap_started);
-
-	// Subscribe to bootstrap and wait for response asynchronously
-	std::atomic<bool> ack_ready{ false };
-	auto task = ([&ack_ready, config, &node1] () {
-		fake_websocket_client client (node1->websocket.server->listening_port ());
-		client.send_message (R"json({"action": "subscribe", "topic": "bootstrap", "ack": true})json");
-		client.await_ack ();
-		ack_ready = true;
-		EXPECT_EQ (1, node1->websocket.server->subscriber_count (nano::websocket::topic::bootstrap));
-		return client.get_response ();
-	});
-	auto future = std::async (std::launch::async, task);
-
-	// Wait for acknowledge
-	ASSERT_TIMELY (5s, ack_ready);
-
-	// Wait for the bootstrap notification
-	subscribed_completion.increment ();
-	bootstrap_thread.join ();
-	ASSERT_TIMELY_EQ (5s, future.wait_for (0s), std::future_status::ready);
-
-	// Check the bootstrap notification message
-	auto response = future.get ();
-	ASSERT_TRUE (response);
-	std::stringstream stream;
-	stream << response;
-	boost::property_tree::ptree event;
-	boost::property_tree::read_json (stream, event);
-	ASSERT_EQ (event.get<std::string> ("topic"), "bootstrap");
-
-	auto & contents = event.get_child ("message");
-	ASSERT_EQ (contents.get<std::string> ("reason"), "exited");
-	ASSERT_EQ (contents.get<std::string> ("id"), "123abc");
-	ASSERT_EQ (contents.get<std::string> ("mode"), "legacy");
-	ASSERT_EQ (contents.get<unsigned> ("total_blocks"), 0U);
-	ASSERT_LT (contents.get<unsigned> ("duration"), 15000U);
 }
 
 // Tests sending keepalive

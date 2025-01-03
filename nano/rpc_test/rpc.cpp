@@ -1,15 +1,19 @@
 #include <nano/boost/beast/core/flat_buffer.hpp>
 #include <nano/boost/beast/http.hpp>
+#include <nano/lib/block_type.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/work_version.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node_rpc_config.hpp>
+#include <nano/node/online_reps.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/manual.hpp>
 #include <nano/node/scheduler/priority.hpp>
@@ -22,6 +26,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
@@ -2482,44 +2487,6 @@ TEST (rpc, account_representative_set_epoch_2_insufficient_work)
 	}
 }
 
-TEST (rpc, bootstrap)
-{
-	nano::test::system system0;
-	auto node = add_ipc_enabled_node (system0);
-	nano::test::system system1 (1);
-	auto node1 = system1.nodes[0];
-	auto latest (node1->latest (nano::dev::genesis_key.pub));
-	nano::block_builder builder;
-	auto send = builder
-				.send ()
-				.previous (latest)
-				.destination (nano::dev::genesis_key.pub)
-				.balance (100)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*node1->work_generate_blocking (latest))
-				.build ();
-	{
-		auto transaction = node1->ledger.tx_begin_write ();
-		ASSERT_EQ (nano::block_status::progress, node1->ledger.process (transaction, send));
-	}
-	auto const rpc_ctx = add_rpc (system0, node);
-	boost::property_tree::ptree request;
-	request.put ("action", "bootstrap");
-	request.put ("address", "::ffff:127.0.0.1");
-	request.put ("port", node1->network.endpoint ().port ());
-	test_response response (request, rpc_ctx.rpc->listening_port (), *system0.io_ctx);
-	while (response.status == 0)
-	{
-		system0.poll ();
-	}
-	system1.deadline_set (10s);
-	while (node->latest (nano::dev::genesis_key.pub) != node1->latest (nano::dev::genesis_key.pub))
-	{
-		ASSERT_NO_ERROR (system0.poll ());
-		ASSERT_NO_ERROR (system1.poll ());
-	}
-}
-
 TEST (rpc, account_remove)
 {
 	nano::test::system system0;
@@ -2768,33 +2735,6 @@ TEST (rpc, successors)
 	ASSERT_EQ (response, response2);
 }
 
-TEST (rpc, bootstrap_any)
-{
-	nano::test::system system0;
-	auto node = add_ipc_enabled_node (system0);
-	nano::test::system system1 (1);
-	auto latest (system1.nodes[0]->latest (nano::dev::genesis_key.pub));
-	nano::block_builder builder;
-	auto send = builder
-				.send ()
-				.previous (latest)
-				.destination (nano::dev::genesis_key.pub)
-				.balance (100)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*system1.nodes[0]->work_generate_blocking (latest))
-				.build ();
-	{
-		auto transaction = system1.nodes[0]->ledger.tx_begin_write ();
-		ASSERT_EQ (nano::block_status::progress, system1.nodes[0]->ledger.process (transaction, send));
-	}
-	auto const rpc_ctx = add_rpc (system0, node);
-	boost::property_tree::ptree request;
-	request.put ("action", "bootstrap_any");
-	auto response (wait_response (system0, rpc_ctx, request));
-	std::string success (response.get<std::string> ("success"));
-	ASSERT_TRUE (success.empty ());
-}
-
 TEST (rpc, republish)
 {
 	nano::test::system system;
@@ -2985,7 +2925,7 @@ TEST (rpc, accounts_balances_unopened_account_with_receivables)
 {
 	nano::test::system system;
 	nano::node_config config;
-	config.backlog_population.enable = false;
+	config.backlog_scan.enable = false;
 	auto node = add_ipc_enabled_node (system, config);
 
 	// send a 1 raw to the unopened account which will have receivables
@@ -3289,7 +3229,7 @@ TEST (rpc, pending_exists)
 {
 	nano::test::system system;
 	nano::node_config config;
-	config.backlog_population.enable = false;
+	config.backlog_scan.enable = false;
 	auto node = add_ipc_enabled_node (system, config);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -3348,7 +3288,7 @@ TEST (rpc, wallet_receivable)
 {
 	nano::test::system system;
 	nano::node_config config;
-	config.backlog_population.enable = false;
+	config.backlog_scan.enable = false;
 	auto node = add_ipc_enabled_node (system, config);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -4412,7 +4352,7 @@ TEST (rpc, populate_backlog)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	// Disable automatic backlog population
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	auto node = add_ipc_enabled_node (system, node_config);
 
 	// Create and process a block that won't get automatically scheduled for confirmation
@@ -6469,59 +6409,6 @@ TEST (rpc, epoch_upgrade_multithreaded)
 		ASSERT_TRUE (node->store.account.exists (transaction, std::numeric_limits<nano::uint256_t>::max ()));
 		ASSERT_FALSE (node->store.account.exists (transaction, 0));
 	}
-}
-
-// FIXME: This test is testing legacy bootstrap, the current behavior is different
-TEST (rpc, DISABLED_account_lazy_start)
-{
-	nano::test::system system{};
-	nano::node_flags node_flags{};
-	node_flags.disable_legacy_bootstrap = true;
-	auto node1 = system.add_node (node_flags);
-	nano::keypair key{};
-	nano::block_builder builder;
-	// Generating test chain
-	auto send1 = builder
-				 .state ()
-				 .account (nano::dev::genesis_key.pub)
-				 .previous (nano::dev::genesis->hash ())
-				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
-				 .link (key.pub)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
-				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (send1));
-	auto open = builder
-				.open ()
-				.source (send1->hash ())
-				.representative (key.pub)
-				.account (key.pub)
-				.sign (key.prv, key.pub)
-				.work (*system.work.generate (key.pub))
-				.build ();
-	ASSERT_EQ (nano::block_status::progress, node1->process (open));
-
-	// Start lazy bootstrap with account
-	nano::node_config node_config = system.default_config ();
-	node_config.ipc_config.transport_tcp.enabled = true;
-	node_config.ipc_config.transport_tcp.port = system.get_available_port ();
-	auto node2 = system.add_node (node_config, node_flags);
-	nano::test::establish_tcp (system, *node2, node1->network.endpoint ());
-	auto const rpc_ctx = add_rpc (system, node2);
-	boost::property_tree::ptree request;
-	request.put ("action", "account_info");
-	request.put ("account", key.pub.to_account ());
-	auto response = wait_response (system, rpc_ctx, request);
-	boost::optional<std::string> account_error{ response.get_optional<std::string> ("error") };
-	ASSERT_TRUE (account_error.is_initialized ());
-
-	// Check processed blocks
-	ASSERT_TIMELY (10s, !node2->bootstrap_initiator.in_progress ());
-
-	// needs timed assert because the writing (put) operation is done by a different
-	// thread, it might not get done before DB get operation.
-	ASSERT_TIMELY (15s, nano::test::block_or_pruned_all_exists (*node2, { send1, open }));
 }
 
 TEST (rpc, receive)

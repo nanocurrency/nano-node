@@ -4,19 +4,13 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/common.hpp>
 #include <nano/lib/config.hpp>
-#include <nano/lib/epoch.hpp>
+#include <nano/lib/constants.hpp>
+#include <nano/lib/epochs.hpp>
+#include <nano/lib/fwd.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/object_stream.hpp>
-#include <nano/lib/stats.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/secure/rep_weights.hpp>
-#include <nano/secure/vote.hpp>
-
-#include <boost/iterator/transform_iterator.hpp>
-#include <boost/optional/optional.hpp>
-#include <boost/property_tree/ptree_fwd.hpp>
-#include <boost/variant/variant.hpp>
 
 #include <array>
 #include <unordered_map>
@@ -170,7 +164,7 @@ class network_params;
 class ledger_constants
 {
 public:
-	ledger_constants (nano::work_thresholds & work, nano::networks network_a);
+	ledger_constants (nano::work_thresholds &, nano::networks);
 	nano::work_thresholds & work;
 	nano::keypair zero_key;
 	nano::account nano_beta_account;
@@ -217,9 +211,10 @@ public:
 	std::chrono::minutes unchecked_cleaning_interval;
 	std::chrono::milliseconds process_confirmed_interval;
 
-	/** The maximum amount of samples for a 2 week period on live or 1 day on beta */
-	uint64_t max_weight_samples;
-	uint64_t weight_period;
+	/** Time between collecting online representative samples */
+	std::chrono::seconds weight_interval;
+	/** The maximum time to keep online weight samples: 2 weeks on live or 1 day on beta */
+	std::chrono::seconds weight_cutoff;
 };
 
 /** Voting related constants whose value depends on the active network */
@@ -255,12 +250,13 @@ public:
 	uint32_t default_frontiers_age_seconds;
 };
 
+nano::work_thresholds const & work_thresholds_for_network (nano::networks);
+
 /** Constants whose value depends on the active network */
 class network_params
 {
 public:
-	/** Populate values based on \p network_a */
-	network_params (nano::networks network_a);
+	explicit network_params (nano::networks);
 
 	unsigned kdf_work;
 	nano::work_thresholds work;

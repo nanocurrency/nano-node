@@ -1,4 +1,5 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/work_version.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/qt/qt.hpp>
 #include <nano/secure/ledger.hpp>
@@ -1031,38 +1032,6 @@ TEST (wallet, import_locked)
 	auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 	system.wallet (0)->store.seed (seed3, transaction);
 	ASSERT_EQ (seed1, seed3);
-}
-// DISABLED: this always fails
-TEST (wallet, DISABLED_synchronizing)
-{
-	nano_qt::eventloop_processor processor;
-	nano::test::system system0 (1);
-	nano::test::system system1 (1);
-	auto key1 (system0.wallet (0)->deterministic_insert ());
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system0.nodes[0], system0.wallet (0), key1));
-	wallet->start ();
-	{
-		auto transaction = system1.nodes[0]->ledger.tx_begin_write ();
-		auto latest (system1.nodes[0]->ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
-		auto send = std::make_shared<nano::send_block> (latest, key1, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system1.work.generate (latest));
-		system1.nodes[0]->ledger.process (transaction, send);
-	}
-	ASSERT_EQ (0, wallet->active_status.active.count (nano_qt::status_types::synchronizing));
-	system0.nodes[0]->bootstrap_initiator.bootstrap (system1.nodes[0]->network.endpoint ());
-	system1.deadline_set (10s);
-	while (wallet->active_status.active.count (nano_qt::status_types::synchronizing) == 0)
-	{
-		ASSERT_NO_ERROR (system0.poll ());
-		ASSERT_NO_ERROR (system1.poll ());
-		test_application->processEvents ();
-	}
-	system1.deadline_set (25s);
-	while (wallet->active_status.active.count (nano_qt::status_types::synchronizing) == 1)
-	{
-		ASSERT_NO_ERROR (system0.poll ());
-		ASSERT_NO_ERROR (system1.poll ());
-		test_application->processEvents ();
-	}
 }
 
 TEST (wallet, epoch_2_validation)

@@ -10,11 +10,14 @@ namespace nano::scheduler
 class component final
 {
 public:
-	component (nano::node_config &, nano::node &, nano::ledger &, nano::block_processor &, nano::active_elections &, nano::online_reps &, nano::vote_cache &, nano::confirming_set &, nano::stats &, nano::logger &);
+	component (nano::node_config &, nano::node &, nano::ledger &, nano::bucketing &, nano::block_processor &, nano::active_elections &, nano::online_reps &, nano::vote_cache &, nano::confirming_set &, nano::stats &, nano::logger &);
 	~component ();
 
 	void start ();
 	void stop ();
+
+	/// Does the block exist in any of the schedulers
+	bool contains (nano::block_hash const & hash) const;
 
 	nano::container_info container_info () const;
 

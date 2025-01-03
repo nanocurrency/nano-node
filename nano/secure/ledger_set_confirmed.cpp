@@ -45,10 +45,6 @@ uint64_t nano::ledger_set_confirmed::account_height (secure::transaction const &
 
 std::optional<nano::amount> nano::ledger_set_confirmed::block_balance (secure::transaction const & transaction, nano::block_hash const & hash) const
 {
-	if (hash.is_zero ())
-	{
-		return std::nullopt;
-	}
 	auto block = block_get (transaction, hash);
 	if (!block)
 	{
@@ -64,6 +60,10 @@ bool nano::ledger_set_confirmed::block_exists (secure::transaction const & trans
 
 bool nano::ledger_set_confirmed::block_exists_or_pruned (secure::transaction const & transaction, nano::block_hash const & hash) const
 {
+	if (hash.is_zero ())
+	{
+		return false;
+	}
 	if (ledger.store.pruned.exists (transaction, hash))
 	{
 		return true;
@@ -73,6 +73,10 @@ bool nano::ledger_set_confirmed::block_exists_or_pruned (secure::transaction con
 
 std::shared_ptr<nano::block> nano::ledger_set_confirmed::block_get (secure::transaction const & transaction, nano::block_hash const & hash) const
 {
+	if (hash.is_zero ())
+	{
+		return nullptr;
+	}
 	auto block = ledger.store.block.get (transaction, hash);
 	if (!block)
 	{

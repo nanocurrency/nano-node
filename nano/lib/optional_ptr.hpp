@@ -1,7 +1,5 @@
 #pragma once
 
-#include <nano/lib/utility.hpp>
-
 #include <cstddef>
 #include <memory>
 

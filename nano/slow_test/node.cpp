@@ -2,10 +2,12 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/thread_runner.hpp>
+#include <nano/lib/work_version.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/make_store.hpp>
+#include <nano/node/online_reps.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/manual.hpp>
 #include <nano/node/scheduler/priority.hpp>
@@ -15,6 +17,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -298,7 +301,7 @@ TEST (node, fork_storm)
 			auto open_result (node_i->process (open));
 			ASSERT_EQ (nano::block_status::progress, open_result);
 			auto transaction (node_i->store.tx_begin_read ());
-			node_i->network.flood_block (open);
+			node_i->network.flood_block (open, nano::transport::traffic_type::test);
 		}
 	}
 	auto again (true);
@@ -641,7 +644,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = 100;
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
@@ -724,7 +727,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = 100;
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
@@ -797,7 +800,7 @@ TEST (confirmation_height, long_chains)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	auto node = system.add_node (node_config);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -942,7 +945,7 @@ TEST (confirmation_height, dynamic_algorithm)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	auto node = system.add_node (node_config);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -990,7 +993,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = 100;
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	node_config.active_elections.size = 400000;
 	nano::node_flags node_flags;
 	auto node = system.add_node (node_config);
@@ -1119,6 +1122,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 // as opposed to active transactions which implicitly calls confirmation height processor.
 TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 {
+	nano::test::system system;
 	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
@@ -1137,8 +1141,12 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 
 	nano::block_hash block_hash_being_processed{ 0 };
 	nano::store::write_queue write_queue;
+
+	nano::node_config node_config;
+	nano::unchecked_map unchecked{ 0, stats, false };
+	nano::block_processor block_processor{ node_config, ledger, unchecked, stats, logger };
 	nano::confirming_set_config confirming_set_config{};
-	nano::confirming_set confirming_set{ confirming_set_config, ledger, stats, logger };
+	nano::confirming_set confirming_set{ confirming_set_config, ledger, block_processor, stats, logger };
 
 	auto const num_accounts = 100000;
 
@@ -1147,7 +1155,6 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	std::vector<std::shared_ptr<nano::open_block>> open_blocks;
 
 	nano::block_builder builder;
-	nano::test::system system;
 
 	{
 		auto transaction = ledger.tx_begin_write ();
@@ -1405,7 +1412,7 @@ TEST (telemetry, under_load)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	nano::node_flags node_flags;
 	auto node = system.add_node (node_config, node_flags);
 	node_config.peering_port = system.get_available_port ();
@@ -1766,7 +1773,7 @@ TEST (node, mass_block_new)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	auto & node = *system.add_node (node_config);
 	node.network_params.network.aec_loop_interval_ms = 500;
 
@@ -1905,8 +1912,9 @@ TEST (node, aggressive_flooding)
 	node_flags.disable_lazy_bootstrap = true;
 	node_flags.disable_legacy_bootstrap = true;
 	node_flags.disable_wallet_bootstrap = true;
-	node_flags.disable_ascending_bootstrap = true;
-	auto & node1 (*system.add_node (node_flags));
+	nano::node_config node_config;
+	node_config.bootstrap.enable = false;
+	auto & node1 (*system.add_node (node_config, node_flags));
 	auto & wallet1 (*system.wallet (0));
 	wallet1.insert_adhoc (nano::dev::genesis_key.prv);
 	std::vector<std::pair<std::shared_ptr<nano::node>, std::shared_ptr<nano::wallet>>> nodes_wallets;
@@ -2028,7 +2036,7 @@ TEST (node, wallet_create_block_confirm_conflicts)
 		nano::test::system system;
 		nano::block_builder builder;
 		nano::node_config node_config (system.get_available_port ());
-		node_config.backlog_population.enable = false;
+		node_config.backlog_scan.enable = false;
 		auto node = system.add_node (node_config);
 		auto const num_blocks = 10000;
 
@@ -2099,7 +2107,7 @@ TEST (system, block_sequence)
 	config.peering_port = system.get_available_port ();
 	// config.bandwidth_limit = 16 * 1024;
 	config.enable_voting = true;
-	config.backlog_population.enable = false;
+	config.backlog_scan.enable = false;
 	nano::node_flags flags;
 	flags.disable_max_peers_per_ip = true;
 	flags.disable_ongoing_bootstrap = true;

@@ -2,7 +2,7 @@
 
 #include <nano/lib/logging.hpp>
 #include <nano/lib/network_filter.hpp>
-#include <nano/node/common.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/messages.hpp>
 #include <nano/node/peer_exclusion.hpp>
 #include <nano/node/transport/common.hpp>
@@ -90,37 +90,48 @@ public:
 	void start ();
 	void stop ();
 
-	void flood_message (nano::message &, nano::transport::buffer_drop_policy const = nano::transport::buffer_drop_policy::limiter, float const = 1.0f);
-	void flood_keepalive (float const scale_a = 1.0f);
-	void flood_keepalive_self (float const scale_a = 0.5f);
-	void flood_vote (std::shared_ptr<nano::vote> const &, float scale, bool rebroadcasted = false);
-	void flood_vote_pr (std::shared_ptr<nano::vote> const &, bool rebroadcasted = false);
-	void flood_vote_non_pr (std::shared_ptr<nano::vote> const &, float scale, bool rebroadcasted = false);
+	nano::endpoint endpoint () const;
+
+	void flood_message (nano::message const &, nano::transport::traffic_type, float scale = 1.0f) const;
+	void flood_keepalive (float scale = 1.0f) const;
+	void flood_keepalive_self (float scale = 0.5f) const;
+	void flood_vote (std::shared_ptr<nano::vote> const &, float scale, bool rebroadcasted = false) const;
+	void flood_vote_pr (std::shared_ptr<nano::vote> const &, bool rebroadcasted = false) const;
+	void flood_vote_non_pr (std::shared_ptr<nano::vote> const &, float scale, bool rebroadcasted = false) const;
 	// Flood block to all PRs and a random selection of non-PRs
-	void flood_block_initial (std::shared_ptr<nano::block> const &);
+	void flood_block_initial (std::shared_ptr<nano::block> const &) const;
 	// Flood block to a random selection of peers
-	void flood_block (std::shared_ptr<nano::block> const &, nano::transport::buffer_drop_policy const = nano::transport::buffer_drop_policy::limiter);
-	void flood_block_many (std::deque<std::shared_ptr<nano::block>>, std::function<void ()> = nullptr, unsigned = broadcast_interval_ms);
-	void merge_peers (std::array<nano::endpoint, 8> const &);
-	void merge_peer (nano::endpoint const &);
-	void send_keepalive (std::shared_ptr<nano::transport::channel> const &);
-	void send_keepalive_self (std::shared_ptr<nano::transport::channel> const &);
+	void flood_block (std::shared_ptr<nano::block> const &, nano::transport::traffic_type) const;
+	void flood_block_many (std::deque<std::shared_ptr<nano::block>>, nano::transport::traffic_type, std::chrono::milliseconds delay = 10ms, std::function<void ()> callback = nullptr) const;
+
+	void send_keepalive (std::shared_ptr<nano::transport::channel> const &) const;
+	void send_keepalive_self (std::shared_ptr<nano::transport::channel> const &) const;
+
+	void merge_peers (std::array<nano::endpoint, 8> const & ips);
+	bool merge_peer (nano::endpoint const & ip);
+
 	std::shared_ptr<nano::transport::channel> find_node_id (nano::account const &);
 	std::shared_ptr<nano::transport::channel> find_channel (nano::endpoint const &);
-	bool not_a_peer (nano::endpoint const &, bool allow_local_peers);
+
+	// Check if the endpoint address looks OK
+	bool not_a_peer (nano::endpoint const &, bool allow_local_peers) const;
 	// Should we reach out to this endpoint with a keepalive message? If yes, register a new reachout attempt
 	bool track_reachout (nano::endpoint const &);
-	std::deque<std::shared_ptr<nano::transport::channel>> list (std::size_t max_count = 0, uint8_t = 0, bool = true);
-	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (std::size_t);
+
+	std::deque<std::shared_ptr<nano::transport::channel>> list (std::size_t max_count = 0, uint8_t minimum_version = 0) const;
+	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (std::size_t max_count, uint8_t minimum_version = 0) const;
+
 	// Desired fanout for a given scale
 	std::size_t fanout (float scale = 1.0f) const;
+
 	void random_fill (std::array<nano::endpoint, 8> &) const;
 	void fill_keepalive_self (std::array<nano::endpoint, 8> &) const;
+
 	// Note: The minimum protocol version is used after the random selection, so number of peers can be less than expected.
-	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t count, uint8_t min_version = 0, bool include_temporary_channels = false) const;
+	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t max_count, uint8_t minimum_version = 0) const;
+
 	// Get the next peer for attempting a tcp bootstrap connection
 	nano::tcp_endpoint bootstrap_peer ();
-	nano::endpoint endpoint () const;
 	void cleanup (std::chrono::steady_clock::time_point const & cutoff);
 	std::size_t size () const;
 	float size_sqrt () const;
@@ -158,8 +169,6 @@ public:
 
 public: // Callbacks
 	std::function<void ()> disconnect_observer{ [] () {} };
-	// Called when a new channel is observed
-	std::function<void (std::shared_ptr<nano::transport::channel>)> channel_observer{ [] (auto) {} };
 
 private:
 	std::atomic<bool> stopped{ false };
@@ -171,7 +180,6 @@ private:
 	std::thread reachout_cached_thread;
 
 public:
-	static unsigned const broadcast_interval_ms = 10;
 	static std::size_t const buffer_size = 512;
 
 	static std::size_t confirm_req_hashes_max;

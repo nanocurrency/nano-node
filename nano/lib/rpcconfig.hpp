@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
+#include <nano/lib/constants.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/threading.hpp>
 

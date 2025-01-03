@@ -66,7 +66,7 @@ public:
 	void reset ();
 	void renew ();
 	void refresh ();
-	void refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 });
+	bool refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 });
 
 private:
 	std::unique_ptr<read_transaction_impl> impl;

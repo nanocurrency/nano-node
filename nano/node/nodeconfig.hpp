@@ -9,10 +9,11 @@
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/active_elections.hpp>
-#include <nano/node/backlog_population.hpp>
-#include <nano/node/blockprocessor.hpp>
+#include <nano/node/backlog_scan.hpp>
+#include <nano/node/block_processor.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <nano/node/bounded_backlog.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
 #include <nano/node/local_block_broadcaster.hpp>
@@ -26,6 +27,7 @@
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
 #include <nano/node/scheduler/priority.hpp>
+#include <nano/node/transport/tcp_config.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_processor.hpp>
@@ -108,19 +110,17 @@ public:
 	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_dev_network () && !is_sanitizer_build ()) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
 
-	/** Default maximum incoming TCP connections, including realtime network & bootstrap */
-	unsigned tcp_incoming_connections_max{ 2048 };
 	bool use_memory_pools{ true };
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
 	/** Default outbound traffic shaping is 10MB/s */
 	std::size_t bandwidth_limit{ 10 * 1024 * 1024 };
 	/** By default, allow bursts of 15MB/s (not sustainable) */
 	double bandwidth_limit_burst_ratio{ 3. };
-	/** Default boostrap outbound traffic limit is 5MB/s */
+	/** Default bootstrap outbound traffic limit is 5MB/s */
 	std::size_t bootstrap_bandwidth_limit{ 5 * 1024 * 1024 };
 	/** Bootstrap traffic does not need bursts */
 	double bootstrap_bandwidth_burst_ratio{ 1. };
-	nano::bootstrap_ascending_config bootstrap_ascending;
+	nano::bootstrap_config bootstrap;
 	nano::bootstrap_server_config bootstrap_server;
 	std::chrono::milliseconds confirming_set_batch_time{ 250 };
 	bool backup_before_upgrade{ false };
@@ -128,11 +128,14 @@ public:
 	uint32_t max_queued_requests{ 512 };
 	unsigned request_aggregator_threads{ std::min (nano::hardware_concurrency (), 4u) }; // Max 4 threads if available
 	unsigned max_unchecked_blocks{ 65536 };
+	std::size_t max_backlog{ 100000 };
 	std::chrono::seconds max_pruning_age{ !network_params.network.is_beta_network () ? std::chrono::seconds (24 * 60 * 60) : std::chrono::seconds (5 * 60) }; // 1 day; 5 minutes for beta network
 	uint64_t max_pruning_depth{ 0 };
 	nano::rocksdb_config rocksdb_config;
 	nano::lmdb_config lmdb_config;
 	bool enable_upnp{ true };
+
+public:
 	nano::vote_cache_config vote_cache;
 	nano::rep_crawler_config rep_crawler;
 	nano::block_processor_config block_processor;
@@ -146,7 +149,8 @@ public:
 	nano::local_block_broadcaster_config local_block_broadcaster;
 	nano::confirming_set_config confirming_set;
 	nano::monitor_config monitor;
-	nano::backlog_population_config backlog_population;
+	nano::backlog_scan_config backlog_scan;
+	nano::bounded_backlog_config bounded_backlog;
 
 public:
 	/** Entry is ignored if it cannot be parsed as a valid address:port */
@@ -171,7 +175,6 @@ public:
 	bool disable_bootstrap_bulk_pull_server{ false };
 	bool disable_bootstrap_bulk_push_client{ false };
 	bool disable_ongoing_bootstrap{ false }; // For testing only
-	bool disable_ascending_bootstrap{ false };
 	bool disable_rep_crawler{ false };
 	bool disable_request_loop{ false }; // For testing only
 	bool disable_tcp_realtime{ false };

@@ -8,3 +8,7 @@ class tcp_channels;
 class tcp_server;
 class tcp_socket;
 }
+namespace nano::transport::fake
+{
+class channel;
+}

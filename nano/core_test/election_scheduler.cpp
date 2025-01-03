@@ -4,6 +4,7 @@
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -157,6 +158,57 @@ TEST (election_scheduler, activate_one_flush)
 	ASSERT_TIMELY (5s, node.active.election (send1->qualified_root ()));
 }
 
+/*
+ * Tests that an optimistic election can be transitioned to a priority election.
+ *
+ * The test:
+ * 1. Creates a chain of 2 blocks with an optimistic election for the second block
+ * 2. Confirms the first block in the chain
+ * 3. Attempts to start a priority election for the second block
+ * 4. Verifies that the existing optimistic election is transitioned to priority
+ * 5. Verifies a new vote is broadcast after the transition
+ */
+TEST (election_scheduler, transition_optimistic_to_priority)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.optimistic_scheduler.gap_threshold = 1;
+	config.enable_voting = true;
+	config.hinted_scheduler.enable = false;
+	config.network_params.network.vote_broadcast_interval = 15000ms;
+	auto & node = *system.add_node (config);
+
+	// Add representative
+	const nano::uint128_t rep_weight = nano::Knano_ratio * 100;
+	nano::keypair rep = nano::test::setup_rep (system, node, rep_weight);
+	system.wallet (0)->insert_adhoc (rep.prv);
+
+	// Create a chain of blocks - and trigger an optimistic election for the last block
+	const int howmany_blocks = 2;
+	auto chains = nano::test::setup_chains (system, node, /* single chain */ 1, howmany_blocks, nano::dev::genesis_key, /* do not confirm */ false);
+	auto & [account, blocks] = chains.front ();
+
+	// Wait for optimistic election to start for last block
+	auto const & block = blocks.back ();
+	ASSERT_TIMELY (5s, node.vote_router.active (block->hash ()));
+	auto election = node.active.election (block->qualified_root ());
+	ASSERT_EQ (election->behavior (), nano::election_behavior::optimistic);
+	ASSERT_TIMELY_EQ (1s, 1, election->current_status ().status.vote_broadcast_count);
+
+	// Confirm first block to allow upgrading second block's election
+	nano::test::confirm (node.ledger, blocks.at (howmany_blocks - 1));
+
+	// Attempt to start priority election for second block
+	node.active.insert (block, nano::election_behavior::priority);
+
+	// Verify priority transition
+	ASSERT_EQ (election->behavior (), nano::election_behavior::priority);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::transition_priority));
+	// Verify vote broadcast after transitioning
+	ASSERT_TIMELY_EQ (1s, 2, election->current_status ().status.vote_broadcast_count);
+	ASSERT_TRUE (node.active.active (*block));
+}
+
 /**
  * Tests that the election scheduler and the active transactions container (AEC)
  * work in sync with regards to the node configuration value "active_elections.size".
@@ -178,7 +230,7 @@ TEST (election_scheduler, no_vacancy)
 
 	nano::node_config config = system.default_config ();
 	config.active_elections.size = 1;
-	config.backlog_population.enable = false;
+	config.backlog_scan.enable = false;
 	auto & node = *system.add_node (config);
 
 	nano::state_block_builder builder{};
@@ -195,7 +247,7 @@ TEST (election_scheduler, no_vacancy)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build ();
 	ASSERT_EQ (nano::block_status::progress, node.process (send));
-	node.process_confirmed (send->hash ());
+	node.confirming_set.add (send->hash ());
 
 	auto receive = builder.make_block ()
 				   .account (key.pub)
@@ -207,7 +259,7 @@ TEST (election_scheduler, no_vacancy)
 				   .work (*system.work.generate (key.pub))
 				   .build ();
 	ASSERT_EQ (nano::block_status::progress, node.process (receive));
-	node.process_confirmed (receive->hash ());
+	node.confirming_set.add (receive->hash ());
 
 	ASSERT_TIMELY (5s, nano::test::confirmed (node, { send, receive }));
 
@@ -256,8 +308,7 @@ TEST (election_scheduler_bucket, construction)
 	auto & node = *system.add_node ();
 
 	nano::scheduler::priority_bucket_config bucket_config;
-	nano::scheduler::bucket bucket{ nano::Knano_ratio, bucket_config, node.active, node.stats };
-	ASSERT_EQ (nano::Knano_ratio, bucket.minimum_balance);
+	nano::scheduler::bucket bucket{ 0, bucket_config, node.active, node.stats };
 	ASSERT_TRUE (bucket.empty ());
 	ASSERT_EQ (0, bucket.size ());
 }
@@ -269,7 +320,9 @@ TEST (election_scheduler_bucket, insert_one)
 
 	nano::scheduler::priority_bucket_config bucket_config;
 	nano::scheduler::bucket bucket{ 0, bucket_config, node.active, node.stats };
+	ASSERT_FALSE (bucket.contains (block0 ()->hash ()));
 	ASSERT_TRUE (bucket.push (1000, block0 ()));
+	ASSERT_TRUE (bucket.contains (block0 ()->hash ()));
 	ASSERT_FALSE (bucket.empty ());
 	ASSERT_EQ (1, bucket.size ());
 	auto blocks = bucket.blocks ();
@@ -320,10 +373,15 @@ TEST (election_scheduler_bucket, max_blocks)
 	};
 	nano::scheduler::bucket bucket{ 0, bucket_config, node.active, node.stats };
 	ASSERT_TRUE (bucket.push (2000, block0 ()));
+	ASSERT_TRUE (bucket.contains (block0 ()->hash ()));
 	ASSERT_TRUE (bucket.push (900, block1 ()));
+	ASSERT_TRUE (bucket.contains (block1 ()->hash ()));
 	ASSERT_FALSE (bucket.push (3000, block2 ()));
+	ASSERT_FALSE (bucket.contains (block2 ()->hash ()));
 	ASSERT_TRUE (bucket.push (1001, block3 ())); // Evicts 2000
+	ASSERT_FALSE (bucket.contains (block0 ()->hash ()));
 	ASSERT_TRUE (bucket.push (1000, block0 ())); // Evicts 1001
+	ASSERT_FALSE (bucket.contains (block3 ()->hash ()));
 	ASSERT_EQ (2, bucket.size ());
 	auto blocks = bucket.blocks ();
 	ASSERT_EQ (2, blocks.size ());

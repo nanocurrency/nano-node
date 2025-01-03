@@ -1,3 +1,4 @@
+#include <nano/lib/utility.hpp>
 #include <nano/secure/account_info.hpp>
 #include <nano/secure/account_iterator.hpp>
 

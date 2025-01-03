@@ -9,6 +9,7 @@
 nano::store::transaction_impl::transaction_impl (nano::id_dispenser::id_t const store_id_a) :
 	store_id{ store_id_a }
 {
+	debug_assert (!nano::thread_role::is_network_io (), "database operations are not allowed to run on network IO threads");
 }
 
 /*
@@ -82,13 +83,15 @@ void nano::store::read_transaction::refresh ()
 	renew ();
 }
 
-void nano::store::read_transaction::refresh_if_needed (std::chrono::milliseconds max_age)
+bool nano::store::read_transaction::refresh_if_needed (std::chrono::milliseconds max_age)
 {
 	auto now = std::chrono::steady_clock::now ();
 	if (now - start > max_age)
 	{
 		refresh ();
+		return true;
 	}
+	return false;
 }
 
 /*

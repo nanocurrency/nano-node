@@ -214,7 +214,7 @@ void nano::telemetry::request (std::shared_ptr<nano::transport::channel> const &
 	stats.inc (nano::stat::type::telemetry, nano::stat::detail::request);
 
 	nano::telemetry_req message{ network_params.network };
-	channel->send (message);
+	channel->send (message, nano::transport::traffic_type::telemetry);
 }
 
 void nano::telemetry::run_broadcasts ()
@@ -233,7 +233,7 @@ void nano::telemetry::broadcast (std::shared_ptr<nano::transport::channel> const
 	stats.inc (nano::stat::type::telemetry, nano::stat::detail::broadcast);
 
 	nano::telemetry_ack message{ network_params.network, telemetry };
-	channel->send (message);
+	channel->send (message, nano::transport::traffic_type::telemetry);
 }
 
 void nano::telemetry::cleanup ()

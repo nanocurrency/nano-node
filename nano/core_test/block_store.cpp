@@ -1,11 +1,13 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/block_type.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/files.hpp>
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/node/common.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
@@ -902,21 +904,6 @@ TEST (block_store, cemented_count_cache)
 	ASSERT_EQ (1, ledger.cemented_count ());
 }
 
-TEST (block_store, block_random)
-{
-	nano::logger logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	{
-		nano::ledger_cache ledger_cache{ store->rep_weight };
-		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, ledger_cache, nano::dev::constants);
-	}
-	auto transaction (store->tx_begin_read ());
-	auto block (store->block.random (transaction));
-	ASSERT_NE (nullptr, block);
-	ASSERT_EQ (*block, *nano::dev::genesis);
-}
-
 TEST (block_store, pruned_random)
 {
 	nano::logger logger;
@@ -1629,11 +1616,8 @@ TEST (block_store, final_vote)
 		ASSERT_EQ (store->final_vote.count (transaction), 0);
 		store->final_vote.put (transaction, qualified_root, nano::block_hash (2));
 		ASSERT_EQ (store->final_vote.count (transaction), 1);
-		// Clearing with incorrect root shouldn't remove
-		store->final_vote.clear (transaction, qualified_root.previous ());
-		ASSERT_EQ (store->final_vote.count (transaction), 1);
 		// Clearing with correct root should remove
-		store->final_vote.clear (transaction, qualified_root.root ());
+		store->final_vote.del (transaction, qualified_root);
 		ASSERT_EQ (store->final_vote.count (transaction), 0);
 	}
 }

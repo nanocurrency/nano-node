@@ -1,4 +1,5 @@
 #include <nano/core_test/fakes/work_peer.hpp>
+#include <nano/lib/work_version.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 

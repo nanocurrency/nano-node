@@ -1,5 +1,5 @@
 #include <nano/lib/blocks.hpp>
-#include <nano/node/blockprocessor.hpp>
+#include <nano/node/block_processor.hpp>
 #include <nano/node/process_live_dispatcher.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/vote_cache.hpp>

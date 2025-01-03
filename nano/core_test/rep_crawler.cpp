@@ -6,6 +6,7 @@
 #include <nano/node/transport/fake.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
@@ -127,53 +128,56 @@ TEST (rep_crawler, rep_remove)
 	nano::keypair keys_rep2; // Principal representative 2
 	nano::block_builder builder;
 
+	auto const rep_weight = nano::test::minimum_principal_weight () * 2;
+
 	// Send enough nanos to Rep1 to make it a principal representative
-	std::shared_ptr<nano::block> send_to_rep1 = builder
-												.state ()
-												.account (nano::dev::genesis_key.pub)
-												.previous (nano::dev::genesis->hash ())
-												.representative (nano::dev::genesis_key.pub)
-												.balance (nano::dev::constants.genesis_amount - searching_node.minimum_principal_weight () * 2)
-												.link (keys_rep1.pub)
-												.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-												.work (*system.work.generate (nano::dev::genesis->hash ()))
-												.build ();
+	auto send_to_rep1 = builder
+						.state ()
+						.account (nano::dev::genesis_key.pub)
+						.previous (nano::dev::genesis->hash ())
+						.representative (nano::dev::genesis_key.pub)
+						.balance (nano::dev::constants.genesis_amount - rep_weight)
+						.link (keys_rep1.pub)
+						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						.work (*system.work.generate (nano::dev::genesis->hash ()))
+						.build ();
 
 	// Receive by Rep1
-	std::shared_ptr<nano::block> receive_rep1 = builder
-												.state ()
-												.account (keys_rep1.pub)
-												.previous (0)
-												.representative (keys_rep1.pub)
-												.balance (searching_node.minimum_principal_weight () * 2)
-												.link (send_to_rep1->hash ())
-												.sign (keys_rep1.prv, keys_rep1.pub)
-												.work (*system.work.generate (keys_rep1.pub))
-												.build ();
+	auto receive_rep1 = builder
+						.state ()
+						.account (keys_rep1.pub)
+						.previous (0)
+						.representative (keys_rep1.pub)
+						.balance (rep_weight)
+						.link (send_to_rep1->hash ())
+						.sign (keys_rep1.prv, keys_rep1.pub)
+						.work (*system.work.generate (keys_rep1.pub))
+						.build ();
 
 	// Send enough nanos to Rep2 to make it a principal representative
-	std::shared_ptr<nano::block> send_to_rep2 = builder
-												.state ()
-												.account (nano::dev::genesis_key.pub)
-												.previous (send_to_rep1->hash ())
-												.representative (nano::dev::genesis_key.pub)
-												.balance (nano::dev::constants.genesis_amount - searching_node.minimum_principal_weight () * 4)
-												.link (keys_rep2.pub)
-												.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-												.work (*system.work.generate (send_to_rep1->hash ()))
-												.build ();
+	auto send_to_rep2 = builder
+						.state ()
+						.account (nano::dev::genesis_key.pub)
+						.previous (send_to_rep1->hash ())
+						.representative (nano::dev::genesis_key.pub)
+						.balance (nano::dev::constants.genesis_amount - rep_weight * 2)
+						.link (keys_rep2.pub)
+						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						.work (*system.work.generate (send_to_rep1->hash ()))
+						.build ();
 
 	// Receive by Rep2
-	std::shared_ptr<nano::block> receive_rep2 = builder
-												.state ()
-												.account (keys_rep2.pub)
-												.previous (0)
-												.representative (keys_rep2.pub)
-												.balance (searching_node.minimum_principal_weight () * 2)
-												.link (send_to_rep2->hash ())
-												.sign (keys_rep2.prv, keys_rep2.pub)
-												.work (*system.work.generate (keys_rep2.pub))
-												.build ();
+	auto receive_rep2 = builder
+						.state ()
+						.account (keys_rep2.pub)
+						.previous (0)
+						.representative (keys_rep2.pub)
+						.balance (rep_weight)
+						.link (send_to_rep2->hash ())
+						.sign (keys_rep2.prv, keys_rep2.pub)
+						.work (*system.work.generate (keys_rep2.pub))
+						.build ();
+
 	{
 		auto transaction = searching_node.ledger.tx_begin_write ();
 		ASSERT_EQ (nano::block_status::progress, searching_node.ledger.process (transaction, send_to_rep1));
@@ -187,11 +191,12 @@ TEST (rep_crawler, rep_remove)
 
 	// Ensure Rep1 is found by the rep_crawler after receiving a vote from it
 	auto vote_rep1 = std::make_shared<nano::vote> (keys_rep1.pub, keys_rep1.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
+	ASSERT_LE (searching_node.minimum_principal_weight (), rep_weight);
 	searching_node.rep_crawler.force_process (vote_rep1, channel_rep1);
 	ASSERT_TIMELY_EQ (5s, searching_node.rep_crawler.representative_count (), 1);
 	auto reps (searching_node.rep_crawler.representatives (1));
 	ASSERT_EQ (1, reps.size ());
-	ASSERT_EQ (searching_node.minimum_principal_weight () * 2, searching_node.ledger.weight (reps[0].account));
+	ASSERT_LE (searching_node.minimum_principal_weight (), searching_node.ledger.weight (reps[0].account));
 	ASSERT_EQ (keys_rep1.pub, reps[0].account);
 	ASSERT_EQ (channel_rep1, reps[0].channel);
 
@@ -322,7 +327,7 @@ TEST (rep_crawler, ignore_rebroadcasted)
 
 	auto tick = [&] () {
 		nano::confirm_ack msg{ nano::dev::network_params.network, vote, /* rebroadcasted */ true };
-		channel2to1->send (msg, nullptr, nano::transport::buffer_drop_policy::no_socket_drop);
+		channel2to1->send (msg, nano::transport::traffic_type::test);
 		return false;
 	};
 

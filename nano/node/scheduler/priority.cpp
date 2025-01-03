@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/node/active_elections.hpp>
+#include <nano/node/bucketing.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/priority.hpp>
@@ -7,44 +8,20 @@
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
 
-nano::scheduler::priority::priority (nano::node_config & node_config, nano::node & node_a, nano::ledger & ledger_a, nano::block_processor & block_processor_a, nano::active_elections & active_a, nano::confirming_set & confirming_set_a, nano::stats & stats_a, nano::logger & logger_a) :
+nano::scheduler::priority::priority (nano::node_config & node_config, nano::node & node_a, nano::ledger & ledger_a, nano::bucketing & bucketing_a, nano::block_processor & block_processor_a, nano::active_elections & active_a, nano::confirming_set & confirming_set_a, nano::stats & stats_a, nano::logger & logger_a) :
 	config{ node_config.priority_scheduler },
 	node{ node_a },
 	ledger{ ledger_a },
+	bucketing{ bucketing_a },
 	block_processor{ block_processor_a },
 	active{ active_a },
 	confirming_set{ confirming_set_a },
 	stats{ stats_a },
 	logger{ logger_a }
 {
-	std::vector<nano::uint128_t> minimums;
-
-	auto build_region = [&minimums] (uint128_t const & begin, uint128_t const & end, size_t count) {
-		auto width = (end - begin) / count;
-		for (auto i = 0; i < count; ++i)
-		{
-			minimums.push_back (begin + i * width);
-		}
-	};
-
-	minimums.push_back (uint128_t{ 0 });
-	build_region (uint128_t{ 1 } << 79, uint128_t{ 1 } << 88, 1);
-	build_region (uint128_t{ 1 } << 88, uint128_t{ 1 } << 92, 2);
-	build_region (uint128_t{ 1 } << 92, uint128_t{ 1 } << 96, 4);
-	build_region (uint128_t{ 1 } << 96, uint128_t{ 1 } << 100, 8);
-	build_region (uint128_t{ 1 } << 100, uint128_t{ 1 } << 104, 16);
-	build_region (uint128_t{ 1 } << 104, uint128_t{ 1 } << 108, 16);
-	build_region (uint128_t{ 1 } << 108, uint128_t{ 1 } << 112, 8);
-	build_region (uint128_t{ 1 } << 112, uint128_t{ 1 } << 116, 4);
-	build_region (uint128_t{ 1 } << 116, uint128_t{ 1 } << 120, 2);
-	minimums.push_back (uint128_t{ 1 } << 120);
-
-	logger.debug (nano::log::type::election_scheduler, "Number of buckets: {}", minimums.size ());
-
-	for (size_t i = 0u, n = minimums.size (); i < n; ++i)
+	for (auto const & index : bucketing.bucket_indices ())
 	{
-		auto bucket = std::make_unique<scheduler::bucket> (minimums[i], node_config.priority_bucket, active, stats);
-		buckets.emplace_back (std::move (bucket));
+		buckets[index] = std::make_unique<scheduler::bucket> (index, node_config.priority_bucket, active, stats);
 	}
 
 	// Activate accounts with fresh blocks
@@ -88,7 +65,7 @@ void nano::scheduler::priority::start ()
 	debug_assert (!thread.joinable ());
 	debug_assert (!cleanup_thread.joinable ());
 
-	if (!config.enabled)
+	if (!config.enable)
 	{
 		return;
 	}
@@ -135,20 +112,23 @@ bool nano::scheduler::priority::activate (secure::transaction const & transactio
 {
 	debug_assert (conf_info.frontier != account_info.head);
 
-	auto hash = conf_info.height == 0 ? account_info.open_block : ledger.any.block_successor (transaction, conf_info.frontier).value ();
-	auto block = ledger.any.block_get (transaction, hash);
-	release_assert (block != nullptr);
+	auto const hash = conf_info.height == 0 ? account_info.open_block : ledger.any.block_successor (transaction, conf_info.frontier).value_or (0);
+	auto const block = ledger.any.block_get (transaction, hash);
+	if (!block)
+	{
+		return false; // Not activated
+	}
 
 	if (ledger.dependents_confirmed (transaction, *block))
 	{
-		auto const balance = block->balance ();
-		auto const previous_balance = ledger.any.block_balance (transaction, conf_info.frontier).value_or (0);
-		auto const balance_priority = std::max (balance, previous_balance);
+		auto const [priority_balance, priority_timestamp] = ledger.block_priority (transaction, *block);
+		auto const bucket_index = bucketing.bucket_index (priority_balance);
 
 		bool added = false;
 		{
-			auto & bucket = find_bucket (balance_priority);
-			added = bucket.push (account_info.modified, block);
+			auto const & bucket = buckets.at (bucket_index);
+			release_assert (bucket);
+			added = bucket->push (priority_timestamp, block);
 		}
 		if (added)
 		{
@@ -157,7 +137,8 @@ bool nano::scheduler::priority::activate (secure::transaction const & transactio
 			nano::log::arg{ "account", account.to_account () }, // TODO: Convert to lazy eval
 			nano::log::arg{ "block", block },
 			nano::log::arg{ "time", account_info.modified },
-			nano::log::arg{ "priority", balance_priority });
+			nano::log::arg{ "priority_balance", priority_balance },
+			nano::log::arg{ "priority_timestamp", priority_timestamp });
 
 			notify ();
 		}
@@ -184,6 +165,13 @@ bool nano::scheduler::priority::activate_successors (secure::transaction const &
 	return result;
 }
 
+bool nano::scheduler::priority::contains (nano::block_hash const & hash) const
+{
+	return std::any_of (buckets.begin (), buckets.end (), [&hash] (auto const & bucket) {
+		return bucket.second->contains (hash);
+	});
+}
+
 void nano::scheduler::priority::notify ()
 {
 	condition.notify_all ();
@@ -192,21 +180,21 @@ void nano::scheduler::priority::notify ()
 std::size_t nano::scheduler::priority::size () const
 {
 	return std::accumulate (buckets.begin (), buckets.end (), std::size_t{ 0 }, [] (auto const & sum, auto const & bucket) {
-		return sum + bucket->size ();
+		return sum + bucket.second->size ();
 	});
 }
 
 bool nano::scheduler::priority::empty () const
 {
 	return std::all_of (buckets.begin (), buckets.end (), [] (auto const & bucket) {
-		return bucket->empty ();
+		return bucket.second->empty ();
 	});
 }
 
 bool nano::scheduler::priority::predicate () const
 {
 	return std::any_of (buckets.begin (), buckets.end (), [] (auto const & bucket) {
-		return bucket->available ();
+		return bucket.second->available ();
 	});
 }
 
@@ -225,7 +213,7 @@ void nano::scheduler::priority::run ()
 
 			lock.unlock ();
 
-			for (auto & bucket : buckets)
+			for (auto const & [index, bucket] : buckets)
 			{
 				if (bucket->available ())
 				{
@@ -252,7 +240,7 @@ void nano::scheduler::priority::run_cleanup ()
 
 			lock.unlock ();
 
-			for (auto & bucket : buckets)
+			for (auto const & [index, bucket] : buckets)
 			{
 				bucket->update ();
 			}
@@ -262,34 +250,22 @@ void nano::scheduler::priority::run_cleanup ()
 	}
 }
 
-auto nano::scheduler::priority::find_bucket (nano::uint128_t priority) -> bucket &
-{
-	auto it = std::upper_bound (buckets.begin (), buckets.end (), priority, [] (nano::uint128_t const & priority, std::unique_ptr<bucket> const & bucket) {
-		return priority < bucket->minimum_balance;
-	});
-	release_assert (it != buckets.begin ()); // There should always be a bucket with a minimum_balance of 0
-	it = std::prev (it);
-	return **it;
-}
-
 nano::container_info nano::scheduler::priority::container_info () const
 {
 	auto collect_blocks = [&] () {
 		nano::container_info info;
-		for (auto i = 0; i < buckets.size (); ++i)
+		for (auto const & [index, bucket] : buckets)
 		{
-			auto const & bucket = buckets[i];
-			info.put (std::to_string (i), bucket->size ());
+			info.put (std::to_string (index), bucket->size ());
 		}
 		return info;
 	};
 
 	auto collect_elections = [&] () {
 		nano::container_info info;
-		for (auto i = 0; i < buckets.size (); ++i)
+		for (auto const & [index, bucket] : buckets)
 		{
-			auto const & bucket = buckets[i];
-			info.put (std::to_string (i), bucket->election_count ());
+			info.put (std::to_string (index), bucket->election_count ());
 		}
 		return info;
 	};

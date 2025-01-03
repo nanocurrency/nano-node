@@ -1,3 +1,4 @@
+#include <nano/lib/stream.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/pending_info.hpp>
 

@@ -1,4 +1,5 @@
 #include <nano/node/fair_queue.hpp>
+#include <nano/node/transport/fake.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 

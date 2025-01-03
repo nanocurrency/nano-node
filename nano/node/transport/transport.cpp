@@ -1,4 +1,4 @@
-#include <nano/node/common.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/transport.hpp>
 
@@ -164,4 +164,62 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 		}
 	}
 	return result;
+}
+
+nano::stat::detail nano::to_stat_detail (boost::system::error_code const & ec)
+{
+	switch (ec.value ())
+	{
+		case boost::system::errc::success:
+			return nano::stat::detail::success;
+		case boost::system::errc::no_buffer_space:
+			return nano::stat::detail::no_buffer_space;
+		case boost::system::errc::timed_out:
+			return nano::stat::detail::timed_out;
+		case boost::system::errc::host_unreachable:
+			return nano::stat::detail::host_unreachable;
+		case boost::system::errc::not_supported:
+			return nano::stat::detail::not_supported;
+		default:
+			return nano::stat::detail::other;
+	}
+}
+
+/*
+ * socket_functions
+ */
+
+boost::asio::ip::network_v6 nano::transport::socket_functions::get_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, std::size_t network_prefix)
+{
+	return boost::asio::ip::make_network_v6 (ip_address, static_cast<unsigned short> (network_prefix));
+}
+
+boost::asio::ip::address nano::transport::socket_functions::first_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, std::size_t network_prefix)
+{
+	auto range = get_ipv6_subnet_address (ip_address, network_prefix).hosts ();
+	debug_assert (!range.empty ());
+	return *(range.begin ());
+}
+
+boost::asio::ip::address nano::transport::socket_functions::last_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, std::size_t network_prefix)
+{
+	auto range = get_ipv6_subnet_address (ip_address, network_prefix).hosts ();
+	debug_assert (!range.empty ());
+	return *(--range.end ());
+}
+
+std::size_t nano::transport::socket_functions::count_subnetwork_connections (
+nano::transport::address_socket_mmap const & per_address_connections,
+boost::asio::ip::address_v6 const & remote_address,
+std::size_t network_prefix)
+{
+	auto range = get_ipv6_subnet_address (remote_address, network_prefix).hosts ();
+	if (range.empty ())
+	{
+		return 0;
+	}
+	auto const first_ip = first_ipv6_subnet_address (remote_address, network_prefix);
+	auto const last_ip = last_ipv6_subnet_address (remote_address, network_prefix);
+	auto const counted_connections = std::distance (per_address_connections.lower_bound (first_ip), per_address_connections.upper_bound (last_ip));
+	return counted_connections;
 }

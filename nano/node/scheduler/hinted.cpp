@@ -3,6 +3,7 @@
 #include <nano/node/active_elections.hpp>
 #include <nano/node/election_behavior.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/online_reps.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
@@ -31,7 +32,7 @@ void nano::scheduler::hinted::start ()
 {
 	debug_assert (!thread.joinable ());
 
-	if (!config.enabled)
+	if (!config.enable)
 	{
 		return;
 	}
@@ -260,7 +261,7 @@ nano::scheduler::hinted_config::hinted_config (nano::network_constants const & n
 
 nano::error nano::scheduler::hinted_config::serialize (nano::tomlconfig & toml) const
 {
-	toml.put ("enable", enabled, "Enable or disable hinted elections\ntype:bool");
+	toml.put ("enable", enable, "Enable or disable hinted elections\ntype:bool");
 	toml.put ("hinting_threshold", hinting_threshold_percent, "Percentage of online weight needed to start a hinted election. \ntype:uint32,[0,100]");
 	toml.put ("check_interval", check_interval.count (), "Interval between scans of the vote cache for possible hinted elections. \ntype:milliseconds");
 	toml.put ("block_cooldown", block_cooldown.count (), "Cooldown period for blocks that failed to start an election. \ntype:milliseconds");
@@ -271,7 +272,7 @@ nano::error nano::scheduler::hinted_config::serialize (nano::tomlconfig & toml) 
 
 nano::error nano::scheduler::hinted_config::deserialize (nano::tomlconfig & toml)
 {
-	toml.get ("enable", enabled);
+	toml.get ("enable", enable);
 	toml.get ("hinting_threshold", hinting_threshold_percent);
 
 	auto check_interval_l = check_interval.count ();

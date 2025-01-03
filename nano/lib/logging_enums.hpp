@@ -47,7 +47,7 @@ enum class type
 	tls,
 	active_elections,
 	election,
-	blockprocessor,
+	block_processor,
 	network,
 	message,
 	channel,
@@ -55,6 +55,7 @@ enum class type
 	socket,
 	socket_server,
 	tcp,
+	tcp_socket,
 	tcp_server,
 	tcp_listener,
 	tcp_channels,
@@ -80,9 +81,11 @@ enum class type
 	signal_manager,
 	peer_history,
 	message_processor,
+	online_reps,
 	local_block_broadcaster,
 	monitor,
 	confirming_set,
+	bounded_backlog,
 
 	// bootstrap
 	bulk_pull_client,
@@ -119,7 +122,7 @@ enum class detail
 	election_expired,
 	broadcast_vote,
 
-	// blockprocessor
+	// block_processor
 	block_processed,
 
 	// vote_processor

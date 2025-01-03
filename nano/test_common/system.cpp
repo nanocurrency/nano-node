@@ -1,8 +1,9 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/thread_runner.hpp>
+#include <nano/lib/work_version.hpp>
 #include <nano/node/active_elections.hpp>
-#include <nano/node/common.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
@@ -447,7 +448,7 @@ void nano::test::system::generate_rollback (nano::node & node_a, std::vector<nan
 		{
 			accounts_a[index] = accounts_a[accounts_a.size () - 1];
 			accounts_a.pop_back ();
-			std::vector<std::shared_ptr<nano::block>> rollback_list;
+			std::deque<std::shared_ptr<nano::block>> rollback_list;
 			auto error = node_a.ledger.rollback (transaction, hash, rollback_list);
 			(void)error;
 			debug_assert (!error);

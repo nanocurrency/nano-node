@@ -27,19 +27,23 @@ public:
 
 	// Conversion operator to const nano::store::transaction&
 	virtual operator const nano::store::transaction & () const = 0;
+
+	// Certain transactions may need to be refreshed if they are held for a long time
+	virtual bool refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 }) = 0;
 };
 
-class write_transaction : public transaction
+class write_transaction final : public transaction
 {
+	nano::store::write_guard guard; // Guard should be released after the transaction
 	nano::store::write_transaction txn;
-	nano::store::write_guard guard;
 	std::chrono::steady_clock::time_point start;
 
 public:
-	explicit write_transaction (nano::store::write_transaction && txn, nano::store::write_guard && guard) noexcept :
-		txn{ std::move (txn) },
-		guard{ std::move (guard) }
+	explicit write_transaction (nano::store::write_transaction && txn_a, nano::store::write_guard && guard_a) noexcept :
+		guard{ std::move (guard_a) },
+		txn{ std::move (txn_a) }
 	{
+		debug_assert (guard.is_owned ());
 		start = std::chrono::steady_clock::now ();
 	}
 
@@ -68,7 +72,7 @@ public:
 		renew ();
 	}
 
-	bool refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 })
+	bool refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 }) override
 	{
 		auto now = std::chrono::steady_clock::now ();
 		if (now - start > max_age)
@@ -97,7 +101,7 @@ public:
 	}
 };
 
-class read_transaction : public transaction
+class read_transaction final : public transaction
 {
 	nano::store::read_transaction txn;
 
@@ -118,9 +122,9 @@ public:
 		txn.refresh ();
 	}
 
-	void refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 })
+	bool refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 }) override
 	{
-		txn.refresh_if_needed (max_age);
+		return txn.refresh_if_needed (max_age);
 	}
 
 	auto timestamp () const
@@ -140,4 +144,4 @@ public:
 		return txn;
 	}
 };
-} // namespace nano::secure
+}

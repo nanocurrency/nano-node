@@ -5,6 +5,7 @@
 
 #include <boost/algorithm/string/erase.hpp>
 #include <boost/format.hpp>
+#include <boost/range/iterator_range.hpp>
 
 std::shared_ptr<request_type> nano::distributed_work::peer_request::get_prepared_json_request (std::string const & request_string_a) const
 {

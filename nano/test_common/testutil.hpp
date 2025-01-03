@@ -2,9 +2,10 @@
 
 #include <nano/lib/locks.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/node/transport/channel.hpp>
-#include <nano/node/transport/fake.hpp>
+#include <nano/node/fwd.hpp>
+#include <nano/node/transport/fwd.hpp>
 #include <nano/secure/account_info.hpp>
+#include <nano/store/fwd.hpp>
 
 #include <gtest/gtest.h>
 
@@ -159,20 +160,6 @@ private:
 /* Convenience globals for gtest projects */
 namespace nano
 {
-class node;
-using uint128_t = boost::multiprecision::uint128_t;
-class keypair;
-class public_key;
-class block_hash;
-class telemetry_data;
-class network_params;
-class vote;
-class block;
-class election;
-class ledger;
-
-extern nano::uint128_t const & genesis_amount;
-
 namespace test
 {
 	class system;
@@ -329,6 +316,7 @@ namespace test
 	void confirm (nano::ledger & ledger, std::vector<std::shared_ptr<nano::block>> const blocks);
 	void confirm (nano::ledger & ledger, std::shared_ptr<nano::block> const block);
 	void confirm (nano::ledger & ledger, nano::block_hash const & hash);
+	void confirm (nano::node & node, std::vector<std::shared_ptr<nano::block>> const blocks);
 	/*
 	 * Convenience function to check whether *all* of the hashes exists in node ledger or in the pruned table.
 	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
@@ -390,6 +378,10 @@ namespace test
 	 */
 	std::vector<nano::block_hash> blocks_to_hashes (std::vector<std::shared_ptr<nano::block>> blocks);
 	/*
+	 * Clones list of blocks
+	 */
+	std::vector<std::shared_ptr<nano::block>> clone (std::vector<std::shared_ptr<nano::block>> blocks);
+	/*
 	 * Creates a new fake channel associated with `node`
 	 */
 	std::shared_ptr<nano::transport::fake::channel> fake_channel (nano::node & node, nano::account node_id = { 0 });
@@ -440,5 +432,7 @@ namespace test
 	 * Returns all blocks in the ledger
 	 */
 	std::vector<std::shared_ptr<nano::block>> all_blocks (nano::node &);
+
+	nano::uint128_t minimum_principal_weight ();
 }
 }

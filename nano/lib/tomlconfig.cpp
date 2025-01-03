@@ -1,4 +1,5 @@
 #include <nano/boost/asio/ip/address_v6.hpp>
+#include <nano/lib/files.hpp>
 #include <nano/lib/tomlconfig.hpp>
 
 nano::tomlconfig::tomlconfig () :

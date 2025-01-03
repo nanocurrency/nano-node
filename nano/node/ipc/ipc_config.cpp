@@ -1,6 +1,13 @@
+#include <nano/lib/constants.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
+
+nano::ipc::ipc_config_tcp_socket::ipc_config_tcp_socket (nano::network_constants & network_constants) :
+	network_constants{ network_constants },
+	port{ network_constants.default_ipc_port }
+{
+}
 
 nano::error nano::ipc::ipc_config::serialize_toml (nano::tomlconfig & toml) const
 {

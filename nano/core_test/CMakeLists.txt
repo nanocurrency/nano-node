@@ -4,14 +4,15 @@ add_executable(
   fakes/websocket_client.hpp
   fakes/work_peer.hpp
   active_elections.cpp
+  assert.cpp
   async.cpp
   backlog.cpp
   block.cpp
   block_store.cpp
-  blockprocessor.cpp
+  block_processor.cpp
   bootstrap.cpp
-  bootstrap_ascending.cpp
   bootstrap_server.cpp
+  bucketing.cpp
   cli.cpp
   confirmation_solicitor.cpp
   confirming_set.cpp
@@ -26,6 +27,7 @@ add_executable(
   ipc.cpp
   ledger.cpp
   ledger_confirm.cpp
+  ledger_priority.cpp
   locks.cpp
   logging.cpp
   message.cpp
@@ -37,10 +39,14 @@ add_executable(
   node.cpp
   numbers.cpp
   object_stream.cpp
+  observer_set.cpp
+  online_reps.cpp
   optimistic_scheduler.cpp
   processing_queue.cpp
   processor_service.cpp
+  random.cpp
   random_pool.cpp
+  rate_limiting.cpp
   rep_crawler.cpp
   receivable.cpp
   peer_history.cpp
@@ -52,6 +58,7 @@ add_executable(
   signal_manager.cpp
   socket.cpp
   system.cpp
+  tcp_listener.cpp
   telemetry.cpp
   thread_pool.cpp
   throttle.cpp

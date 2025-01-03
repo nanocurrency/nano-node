@@ -43,6 +43,7 @@ public:
 	/** Start read-only transaction */
 	secure::read_transaction tx_begin_read () const;
 
+	bool unconfirmed_exists (secure::transaction const &, nano::block_hash const &);
 	nano::uint128_t account_receivable (secure::transaction const &, nano::account const &, bool = false);
 	/**
 	 * Returns the cached vote weight for the given representative.
@@ -58,11 +59,11 @@ public:
 	nano::block_hash representative_calculated (secure::transaction const &, nano::block_hash const &);
 	std::string block_text (char const *);
 	std::string block_text (nano::block_hash const &);
-	std::pair<nano::block_hash, nano::block_hash> hash_root_random (secure::transaction const &) const;
+	std::deque<std::shared_ptr<nano::block>> random_blocks (secure::transaction const &, size_t count) const;
 	std::optional<nano::pending_info> pending_info (secure::transaction const &, nano::pending_key const & key) const;
 	std::deque<std::shared_ptr<nano::block>> confirm (secure::write_transaction &, nano::block_hash const & hash, size_t max_blocks = 1024 * 128);
 	nano::block_status process (secure::write_transaction const &, std::shared_ptr<nano::block> block);
-	bool rollback (secure::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
+	bool rollback (secure::write_transaction const &, nano::block_hash const &, std::deque<std::shared_ptr<nano::block>> & rollback_list);
 	bool rollback (secure::write_transaction const &, nano::block_hash const &);
 	void update_account (secure::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
 	uint64_t pruning_action (secure::write_transaction &, nano::block_hash const &, uint64_t const);
@@ -75,12 +76,20 @@ public:
 	nano::link const & epoch_link (nano::epoch) const;
 	bool migrate_lmdb_to_rocksdb (std::filesystem::path const &) const;
 	bool bootstrap_weight_reached () const;
+
 	static nano::epoch version (nano::block const & block);
 	nano::epoch version (secure::transaction const &, nano::block_hash const & hash) const;
+
 	uint64_t cemented_count () const;
 	uint64_t block_count () const;
 	uint64_t account_count () const;
 	uint64_t pruned_count () const;
+	uint64_t backlog_count () const;
+
+	// Returned priority balance is maximum of block balance and previous block balance to handle full account balance send cases
+	// Returned timestamp is the previous block timestamp or the current timestamp if there's no previous block
+	using block_priority_result = std::pair<nano::amount, nano::priority_timestamp>;
+	block_priority_result block_priority (secure::transaction const &, nano::block const &) const;
 
 	nano::container_info container_info () const;
 

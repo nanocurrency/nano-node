@@ -45,11 +45,6 @@ void nano::rate::token_bucket::refill ()
 	}
 }
 
-std::size_t nano::rate::token_bucket::largest_burst () const
-{
-	return max_token_count - smallest_size;
-}
-
 void nano::rate::token_bucket::reset (std::size_t max_token_count_a, std::size_t refill_rate_a)
 {
 	// A token count of 0 indicates unlimited capacity. We use 1e9 as
@@ -61,6 +56,16 @@ void nano::rate::token_bucket::reset (std::size_t max_token_count_a, std::size_t
 	max_token_count = smallest_size = current_size = max_token_count_a;
 	refill_rate = refill_rate_a;
 	last_refill = std::chrono::steady_clock::now ();
+}
+
+std::size_t nano::rate::token_bucket::largest_burst () const
+{
+	return max_token_count - smallest_size;
+}
+
+std::size_t nano::rate::token_bucket::size () const
+{
+	return current_size;
 }
 
 /*
@@ -82,4 +87,10 @@ void nano::rate_limiter::reset (std::size_t limit_a, double burst_ratio_a)
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	bucket.reset (static_cast<std::size_t> (limit_a * burst_ratio_a), limit_a);
+}
+
+std::size_t nano::rate_limiter::size () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return bucket.size ();
 }

@@ -1,3 +1,4 @@
+#include <nano/lib/block_type.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/numbers.hpp>
@@ -7,6 +8,7 @@
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/online_reps.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
@@ -59,6 +61,17 @@ nano::active_elections::active_elections (nano::node & node_a, nano::confirming_
 			if (result == nano::block_status::fork)
 			{
 				publish (context.block);
+			}
+		}
+	});
+
+	// Stop all rolled back active transactions except initial
+	block_processor.rolled_back.add ([this] (auto const & blocks, auto const & rollback_root) {
+		for (auto const & block : blocks)
+		{
+			if (block->qualified_root () != rollback_root)
+			{
+				erase (block->qualified_root ());
 			}
 		}
 	});
@@ -393,6 +406,7 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 		{
 			result.inserted = true;
 			auto observe_rep_cb = [&node = node] (auto const & rep_a) {
+				// TODO: Is this neccessary? Move this outside of the election class
 				// Representative is defined as online if replying to live votes or rep_crawler queries
 				node.online_reps.observe (rep_a);
 			};
@@ -404,6 +418,14 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 			debug_assert (count_by_behavior[result.election->behavior ()] >= 0);
 			count_by_behavior[result.election->behavior ()]++;
 
+			// Skip passive phase for blocks without cached votes to avoid bootstrap delays
+			bool active_immediately = false;
+			if (node.vote_cache.contains (hash))
+			{
+				result.election->transition_active ();
+				active_immediately = true;
+			}
+
 			node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::started);
 			node.stats.inc (nano::stat::type::active_elections_started, to_stat_detail (election_behavior_a));
 
@@ -411,9 +433,10 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 			nano::log::arg{ "behavior", election_behavior_a },
 			nano::log::arg{ "election", result.election });
 
-			node.logger.debug (nano::log::type::active_elections, "Started new election for block: {} (behavior: {})",
+			node.logger.debug (nano::log::type::active_elections, "Started new election for block: {} (behavior: {}, active immediately: {})",
 			hash.to_string (),
-			to_string (election_behavior_a));
+			to_string (election_behavior_a),
+			active_immediately);
 		}
 		else
 		{
@@ -423,6 +446,23 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 	else
 	{
 		result.election = existing->election;
+
+		// Upgrade to priority election to enable immediate vote broadcasting.
+		auto previous_behavior = result.election->behavior ();
+		if (election_behavior_a == nano::election_behavior::priority && previous_behavior != nano::election_behavior::priority)
+		{
+			bool transitioned = result.election->transition_priority ();
+			if (transitioned)
+			{
+				count_by_behavior[previous_behavior]--;
+				count_by_behavior[election_behavior_a]++;
+				node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::transition_priority);
+			}
+			else
+			{
+				node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::transition_priority_failed);
+			}
+		}
 	}
 
 	lock.unlock ();

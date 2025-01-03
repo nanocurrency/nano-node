@@ -106,19 +106,6 @@ std::shared_ptr<nano::block> nano::store::lmdb::block::get (store::transaction c
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::store::lmdb::block::random (store::transaction const & transaction)
-{
-	nano::block_hash hash;
-	nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
-	auto existing = begin (transaction, hash);
-	if (existing == end (transaction))
-	{
-		existing = begin (transaction);
-	}
-	debug_assert (existing != end (transaction));
-	return existing->second.block;
-}
-
 void nano::store::lmdb::block::del (store::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto status = store.del (transaction_a, tables::blocks, hash_a);

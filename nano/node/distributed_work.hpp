@@ -7,7 +7,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/node/common.hpp>
+#include <nano/node/endpoint.hpp>
 
 #include <optional>
 

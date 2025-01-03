@@ -10,6 +10,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/store/block.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -123,6 +124,11 @@ bool nano::test::exists (nano::node & node, std::vector<std::shared_ptr<nano::bl
 	return exists (node, blocks_to_hashes (blocks));
 }
 
+void nano::test::confirm (nano::node & node, std::vector<std::shared_ptr<nano::block>> const blocks)
+{
+	confirm (node.ledger, blocks);
+}
+
 void nano::test::confirm (nano::ledger & ledger, std::vector<std::shared_ptr<nano::block>> const blocks)
 {
 	for (auto const block : blocks)
@@ -234,6 +240,13 @@ std::vector<nano::block_hash> nano::test::blocks_to_hashes (std::vector<std::sha
 	std::vector<nano::block_hash> hashes;
 	std::transform (blocks.begin (), blocks.end (), std::back_inserter (hashes), [] (auto & block) { return block->hash (); });
 	return hashes;
+}
+
+std::vector<std::shared_ptr<nano::block>> nano::test::clone (std::vector<std::shared_ptr<nano::block>> blocks)
+{
+	std::vector<std::shared_ptr<nano::block>> clones;
+	std::transform (blocks.begin (), blocks.end (), std::back_inserter (clones), [] (auto & block) { return block->clone (); });
+	return clones;
 }
 
 std::shared_ptr<nano::transport::fake::channel> nano::test::fake_channel (nano::node & node, nano::account node_id)
@@ -373,4 +386,9 @@ std::vector<std::shared_ptr<nano::block>> nano::test::all_blocks (nano::node & n
 		result.push_back (it->second.block);
 	}
 	return result;
+}
+
+nano::uint128_t nano::test::minimum_principal_weight ()
+{
+	return nano::dev::genesis->balance ().number () / nano::dev::network_params.network.principal_weight_factor;
 }

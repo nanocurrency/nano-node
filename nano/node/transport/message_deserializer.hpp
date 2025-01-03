@@ -1,7 +1,7 @@
 #pragma once
 
 #include <nano/lib/network_filter.hpp>
-#include <nano/node/common.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/messages.hpp>
 
 #include <memory>

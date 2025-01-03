@@ -18,10 +18,9 @@ private:
 public:
 	explicit final_vote (nano::store::lmdb::component & store);
 	bool put (store::write_transaction const & transaction_a, nano::qualified_root const & root_a, nano::block_hash const & hash_a) override;
-	std::vector<nano::block_hash> get (store::transaction const & transaction_a, nano::root const & root_a) override;
-	void del (store::write_transaction const & transaction_a, nano::root const & root_a) override;
+	std::optional<nano::block_hash> get (store::transaction const & transaction_a, nano::qualified_root const & qualified_root_a) override;
+	void del (store::write_transaction const & transaction_a, nano::qualified_root const & root_a) override;
 	size_t count (store::transaction const & transaction_a) const override;
-	void clear (store::write_transaction const & transaction_a, nano::root const & root_a) override;
 	void clear (store::write_transaction const & transaction_a) override;
 	iterator begin (store::transaction const & transaction_a, nano::qualified_root const & root_a) const override;
 	iterator begin (store::transaction const & transaction_a) const override;

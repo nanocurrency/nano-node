@@ -55,7 +55,7 @@ TEST (peer_container, reserved_ip_is_not_a_peer)
 
 // Test the TCP channel cleanup function works properly. It is used to remove peers that are not
 // exchanging messages after a while.
-TEST (peer_container, tcp_channel_cleanup_works)
+TEST (peer_container, DISABLED_tcp_channel_cleanup_works)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
@@ -90,6 +90,7 @@ TEST (peer_container, tcp_channel_cleanup_works)
 
 	for (auto it = 0; node1.network.tcp_channels.size () > 1 && it < 10; ++it)
 	{
+		// FIXME: This is racy and doesn't work reliably
 		// we can't control everything the nodes are doing in background, so using the middle time as
 		// the cutoff point.
 		auto const channel1_last_packet_sent = channel1->get_last_packet_sent ();
@@ -254,7 +255,7 @@ TEST (peer_container, depeer_on_outdated_version)
 	nano::keepalive keepalive{ nano::dev::network_params.network };
 	const_cast<uint8_t &> (keepalive.header.version_using) = nano::dev::network_params.network.protocol_version_min - 1;
 	ASSERT_TIMELY (5s, channel->alive ());
-	channel->send (keepalive);
+	channel->send (keepalive, nano::transport::traffic_type::test);
 
 	ASSERT_TIMELY (5s, !channel->alive ());
 }

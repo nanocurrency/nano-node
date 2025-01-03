@@ -3,6 +3,7 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/work.hpp>
+#include <nano/lib/work_version.hpp>
 #include <nano/node/openclconfig.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/secure/common.hpp>

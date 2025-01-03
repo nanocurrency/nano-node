@@ -1,4 +1,6 @@
+#include <nano/lib/block_type.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/stats.hpp>
@@ -34,7 +36,7 @@ namespace
 class rollback_visitor : public nano::block_visitor
 {
 public:
-	rollback_visitor (nano::secure::write_transaction const & transaction_a, nano::ledger & ledger_a, std::vector<std::shared_ptr<nano::block>> & list_a) :
+	rollback_visitor (nano::secure::write_transaction const & transaction_a, nano::ledger & ledger_a, std::deque<std::shared_ptr<nano::block>> & list_a) :
 		transaction (transaction_a),
 		ledger (ledger_a),
 		list (list_a)
@@ -177,7 +179,7 @@ public:
 	}
 	nano::secure::write_transaction const & transaction;
 	nano::ledger & ledger;
-	std::vector<std::shared_ptr<nano::block>> & list;
+	std::deque<std::shared_ptr<nano::block>> & list;
 	bool error{ false };
 };
 
@@ -790,6 +792,11 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 	cache.pruned_count = store.pruned.count (transaction);
 }
 
+bool nano::ledger::unconfirmed_exists (secure::transaction const & transaction, nano::block_hash const & hash)
+{
+	return any.block_exists (transaction, hash) && !confirmed.block_exists (transaction, hash);
+}
+
 nano::uint128_t nano::ledger::account_receivable (secure::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
 {
 	nano::uint128_t result (0);
@@ -934,33 +941,25 @@ std::string nano::ledger::block_text (nano::block_hash const & hash_a)
 	return result;
 }
 
-std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (secure::transaction const & transaction_a) const
+std::deque<std::shared_ptr<nano::block>> nano::ledger::random_blocks (secure::transaction const & transaction, size_t count) const
 {
-	nano::block_hash hash (0);
-	nano::root root (0);
-	if (!pruning)
+	std::deque<std::shared_ptr<nano::block>> result;
+
+	auto const starting_hash = nano::random_pool::generate<nano::block_hash> ();
+
+	// It is more efficient to choose a random starting point and pick a few sequential blocks from there
+	auto it = store.block.begin (transaction, starting_hash);
+	auto const end = store.block.end (transaction);
+	while (result.size () < count)
 	{
-		auto block (store.block.random (transaction_a));
-		hash = block->hash ();
-		root = block->root ();
-	}
-	else
-	{
-		uint64_t count (cache.block_count);
-		auto region = nano::random_pool::generate_word64 (0, count - 1);
-		// Pruned cache cannot guarantee that pruned blocks are already commited
-		if (region < cache.pruned_count)
+		if (it != end)
 		{
-			hash = store.pruned.random (transaction_a);
+			result.push_back (it->second.block);
 		}
-		if (hash.is_zero ())
-		{
-			auto block (store.block.random (transaction_a));
-			hash = block->hash ();
-			root = block->root ();
-		}
+		++it; // Store iterators wrap around when reaching the end
 	}
-	return std::make_pair (hash, root.as_block_hash ());
+
+	return result;
 }
 
 // Vote weight of an account
@@ -990,7 +989,7 @@ nano::uint128_t nano::ledger::weight_exact (secure::transaction const & txn_a, n
 }
 
 // Rollback blocks until `block_a' doesn't exist or it tries to penetrate the confirmation height
-bool nano::ledger::rollback (secure::write_transaction const & transaction_a, nano::block_hash const & block_a, std::vector<std::shared_ptr<nano::block>> & list_a)
+bool nano::ledger::rollback (secure::write_transaction const & transaction_a, nano::block_hash const & block_a, std::deque<std::shared_ptr<nano::block>> & list_a)
 {
 	debug_assert (any.block_exists (transaction_a, block_a));
 	auto account_l = any.block_account (transaction_a, block_a).value ();
@@ -1024,7 +1023,7 @@ bool nano::ledger::rollback (secure::write_transaction const & transaction_a, na
 
 bool nano::ledger::rollback (secure::write_transaction const & transaction_a, nano::block_hash const & block_a)
 {
-	std::vector<std::shared_ptr<nano::block>> rollback_list;
+	std::deque<std::shared_ptr<nano::block>> rollback_list;
 	return rollback (transaction_a, block_a, rollback_list);
 }
 
@@ -1260,6 +1259,21 @@ uint64_t nano::ledger::pruning_action (secure::write_transaction & transaction_a
 	return pruned_count;
 }
 
+auto nano::ledger::block_priority (nano::secure::transaction const & transaction, nano::block const & block) const -> block_priority_result
+{
+	auto const balance = block.balance ();
+	auto const previous_block = !block.previous ().is_zero () ? any.block_get (transaction, block.previous ()) : nullptr;
+	auto const previous_balance = previous_block ? previous_block->balance () : 0;
+
+	// Handle full send case nicely where the balance would otherwise be 0
+	auto const priority_balance = std::max (balance, block.is_send () ? previous_balance : 0);
+
+	// Use previous block timestamp as priority timestamp for least recently used prioritization within the same bucket
+	// Account info timestamp is not used here because it will get out of sync when rollbacks happen
+	auto const priority_timestamp = previous_block ? previous_block->sideband ().timestamp : block.sideband ().timestamp;
+	return { priority_balance, priority_timestamp };
+}
+
 // A precondition is that the store is an LMDB store
 bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_path_a) const
 {
@@ -1279,7 +1293,12 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path_a, error_chmod);
 	auto rockdb_data_path = data_path_a / "rocksdb";
-	std::filesystem::remove_all (rockdb_data_path);
+
+	if (std::filesystem::exists (rockdb_data_path))
+	{
+		logger.error (nano::log::type::ledger, "Existing RocksDB folder found in '{}'. Please remove it and try again.", rockdb_data_path.string ());
+		return true;
+	}
 
 	auto error (false);
 
@@ -1424,7 +1443,8 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
 
 		logger.info (nano::log::type::ledger, "Finalizing migration...");
-		auto lmdb_transaction (store.tx_begin_read ());
+
+		auto lmdb_transaction (tx_begin_read ());
 		auto version = store.version.get (lmdb_transaction);
 		auto rocksdb_transaction (rocksdb_store->tx_begin_write ());
 		rocksdb_store->version.put (rocksdb_transaction, version);
@@ -1448,21 +1468,26 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 		error |= store.version.get (lmdb_transaction) != rocksdb_store->version.get (rocksdb_transaction);
 
 		// For large tables a random key is used instead and makes sure it exists
-		auto random_block (store.block.random (lmdb_transaction));
-		error |= rocksdb_store->block.get (rocksdb_transaction, random_block->hash ()) == nullptr;
-
-		auto account = random_block->account ();
-		nano::account_info account_info;
-		error |= rocksdb_store->account.get (rocksdb_transaction, account, account_info);
-
-		// If confirmation height exists in the lmdb ledger for this account it should exist in the rocksdb ledger
-		nano::confirmation_height_info confirmation_height_info{};
-		if (!store.confirmation_height.get (lmdb_transaction, account, confirmation_height_info))
+		auto blocks = random_blocks (lmdb_transaction, 42);
+		release_assert (!blocks.empty ());
+		for (auto const & block : blocks)
 		{
-			error |= rocksdb_store->confirmation_height.get (rocksdb_transaction, account, confirmation_height_info);
+			auto const account = block->account ();
+
+			error |= rocksdb_store->block.get (rocksdb_transaction, block->hash ()) == nullptr;
+
+			nano::account_info account_info;
+			error |= rocksdb_store->account.get (rocksdb_transaction, account, account_info);
+
+			// If confirmation height exists in the lmdb ledger for this account it should exist in the rocksdb ledger
+			nano::confirmation_height_info confirmation_height_info{};
+			if (!store.confirmation_height.get (lmdb_transaction, account, confirmation_height_info))
+			{
+				error |= rocksdb_store->confirmation_height.get (rocksdb_transaction, account, confirmation_height_info);
+			}
 		}
 
-		logger.info (nano::log::type::ledger, "Migration completed. Make sure to enable RocksDb in the config file under [node.rocksdb]");
+		logger.info (nano::log::type::ledger, "Migration completed. Make sure to enable RocksDB in the config file under [node.rocksdb]");
 		logger.info (nano::log::type::ledger, "After confirming correct node operation, the data.ldb file can be deleted if no longer required");
 	}
 	else
@@ -1515,6 +1540,13 @@ uint64_t nano::ledger::account_count () const
 uint64_t nano::ledger::pruned_count () const
 {
 	return cache.pruned_count;
+}
+
+uint64_t nano::ledger::backlog_count () const
+{
+	auto blocks = cache.block_count.load ();
+	auto cemented = cache.cemented_count.load ();
+	return (blocks > cemented) ? blocks - cemented : 0;
 }
 
 nano::container_info nano::ledger::container_info () const

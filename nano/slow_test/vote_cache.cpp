@@ -134,7 +134,7 @@ TEST (vote_cache, perf_singlethreaded)
 	nano::test::system system;
 	nano::node_flags flags;
 	nano::node_config config = system.default_config ();
-	config.backlog_population.enable = false;
+	config.backlog_scan.enable = false;
 	auto & node = *system.add_node (config, flags);
 
 	const int rep_count = 50;
@@ -193,7 +193,7 @@ TEST (vote_cache, perf_multithreaded)
 	nano::test::system system;
 	nano::node_flags flags;
 	nano::node_config config = system.default_config ();
-	config.backlog_population.enable = false;
+	config.backlog_scan.enable = false;
 	auto & node = *system.add_node (config, flags);
 
 	const int thread_count = 12;

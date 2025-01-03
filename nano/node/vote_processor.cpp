@@ -10,6 +10,7 @@
 #include <nano/node/vote_router.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/vote.hpp>
 
 #include <chrono>
 

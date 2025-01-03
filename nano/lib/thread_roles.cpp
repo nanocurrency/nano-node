@@ -22,6 +22,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::io_daemon:
 			thread_role_name_string = "I/O (daemon)";
 			break;
+		case nano::thread_role::name::io_ipc:
+			thread_role_name_string = "I/O (IPC)";
+			break;
 		case nano::thread_role::name::work:
 			thread_role_name_string = "Work pool";
 			break;
@@ -36,6 +39,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 			break;
 		case nano::thread_role::name::block_processing:
 			thread_role_name_string = "Blck processing";
+			break;
+		case nano::thread_role::name::block_processing_notifications:
+			thread_role_name_string = "Blck proc notif";
 			break;
 		case nano::thread_role::name::request_loop:
 			thread_role_name_string = "Request loop";
@@ -70,9 +76,6 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::worker:
 			thread_role_name_string = "Worker";
 			break;
-		case nano::thread_role::name::bootstrap_worker:
-			thread_role_name_string = "Bootstrap work";
-			break;
 		case nano::thread_role::name::wallet_worker:
 			thread_role_name_string = "Wallet work";
 			break;
@@ -94,14 +97,38 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::unchecked:
 			thread_role_name_string = "Unchecked";
 			break;
-		case nano::thread_role::name::backlog_population:
-			thread_role_name_string = "Backlog";
+		case nano::thread_role::name::backlog_scan:
+			thread_role_name_string = "Backlog scan";
+			break;
+		case nano::thread_role::name::bounded_backlog:
+			thread_role_name_string = "Bounded backlog";
+			break;
+		case nano::thread_role::name::bounded_backlog_scan:
+			thread_role_name_string = "Bounded b scan";
+			break;
+		case nano::thread_role::name::bounded_backlog_notifications:
+			thread_role_name_string = "Bounded b notif";
 			break;
 		case nano::thread_role::name::vote_generator_queue:
 			thread_role_name_string = "Voting que";
 			break;
-		case nano::thread_role::name::ascending_bootstrap:
-			thread_role_name_string = "Bootstrap asc";
+		case nano::thread_role::name::bootstrap:
+			thread_role_name_string = "Bootstrap";
+			break;
+		case nano::thread_role::name::bootstrap_database_scan:
+			thread_role_name_string = "Bootstrap db";
+			break;
+		case nano::thread_role::name::bootstrap_dependency_walker:
+			thread_role_name_string = "Bootstrap walkr";
+			break;
+		case nano::thread_role::name::bootstrap_frontier_scan:
+			thread_role_name_string = "Bootstrap front";
+			break;
+		case nano::thread_role::name::bootstrap_cleanup:
+			thread_role_name_string = "Bootstrap clean";
+			break;
+		case nano::thread_role::name::bootstrap_worker:
+			thread_role_name_string = "Bootstrap work";
 			break;
 		case nano::thread_role::name::bootstrap_server:
 			thread_role_name_string = "Bootstrap serv";
@@ -157,6 +184,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::vote_router:
 			thread_role_name_string = "Vote router";
 			break;
+		case nano::thread_role::name::online_reps:
+			thread_role_name_string = "Online reps";
+			break;
 		case nano::thread_role::name::monitor:
 			thread_role_name_string = "Monitor";
 			break;
@@ -191,9 +221,12 @@ std::string nano::thread_role::get_string ()
 
 void nano::thread_role::set (nano::thread_role::name role)
 {
-	auto thread_role_name_string (get_string (role));
-
-	nano::thread_role::set_os_name (thread_role_name_string);
-
+	auto thread_role_name_string = get_string (role);
+	nano::thread_role::set_os_name (thread_role_name_string); // Implementation is platform specific
 	current_thread_role = role;
+}
+
+bool nano::thread_role::is_network_io ()
+{
+	return nano::thread_role::get () == nano::thread_role::name::io;
 }

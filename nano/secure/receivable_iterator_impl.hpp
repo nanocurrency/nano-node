@@ -1,3 +1,4 @@
+#include <nano/lib/utility.hpp>
 #include <nano/secure/pending_info.hpp>
 #include <nano/secure/receivable_iterator.hpp>
 

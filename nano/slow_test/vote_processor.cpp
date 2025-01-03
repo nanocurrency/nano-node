@@ -1,6 +1,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/vote_processor.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 

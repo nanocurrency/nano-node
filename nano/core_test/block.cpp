@@ -1,6 +1,9 @@
+#include <nano/lib/block_uniquer.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/stream.hpp>
-#include <nano/node/common.hpp>
+#include <nano/lib/work_version.hpp>
+#include <nano/node/endpoint.hpp>
+#include <nano/node/messages.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>

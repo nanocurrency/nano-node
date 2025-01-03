@@ -8,9 +8,9 @@
  * bucket
  */
 
-nano::scheduler::bucket::bucket (nano::uint128_t minimum_balance_a, priority_bucket_config const & config_a, nano::active_elections & active_a, nano::stats & stats_a) :
+nano::scheduler::bucket::bucket (nano::bucket_index index_a, priority_bucket_config const & config_a, nano::active_elections & active_a, nano::stats & stats_a) :
+	index{ index_a },
 	config{ config_a },
-	minimum_balance{ minimum_balance_a },
 	active{ active_a },
 	stats{ stats_a }
 {
@@ -34,7 +34,7 @@ bool nano::scheduler::bucket::available () const
 	}
 }
 
-bool nano::scheduler::bucket::election_vacancy (priority_t candidate) const
+bool nano::scheduler::bucket::election_vacancy (nano::priority_timestamp candidate) const
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -133,6 +133,12 @@ bool nano::scheduler::bucket::push (uint64_t time, std::shared_ptr<nano::block> 
 	return inserted;
 }
 
+bool nano::scheduler::bucket::contains (nano::block_hash const & hash) const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return queue.get<tag_hash> ().contains (hash);
+}
+
 size_t nano::scheduler::bucket::size () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
@@ -181,20 +187,6 @@ void nano::scheduler::bucket::dump () const
 	{
 		std::cerr << item.time << ' ' << item.block->hash ().to_string () << '\n';
 	}
-}
-
-/*
- * block_entry
- */
-
-bool nano::scheduler::bucket::block_entry::operator< (block_entry const & other_a) const
-{
-	return time < other_a.time || (time == other_a.time && block->hash () < other_a.block->hash ());
-}
-
-bool nano::scheduler::bucket::block_entry::operator== (block_entry const & other_a) const
-{
-	return time == other_a.time && block->hash () == other_a.block->hash ();
 }
 
 /*

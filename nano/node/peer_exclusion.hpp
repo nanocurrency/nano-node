@@ -1,6 +1,7 @@
 #pragma once
 
-#include <nano/node/common.hpp>
+#include <nano/node/endpoint.hpp>
+#include <nano/node/endpoint_templ.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>

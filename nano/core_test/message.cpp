@@ -1,8 +1,9 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/stream.hpp>
-#include <nano/node/common.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/network.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>

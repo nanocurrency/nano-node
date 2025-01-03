@@ -1,17 +1,20 @@
+#include <nano/lib/block_type.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/json_error_response.hpp>
+#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/stats_sinks.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/lib/work_version.hpp>
 #include <nano/node/active_elections.hpp>
-#include <nano/node/bootstrap/bootstrap_lazy.hpp>
-#include <nano/node/bootstrap_ascending/service.hpp>
-#include <nano/node/common.hpp>
+#include <nano/node/bootstrap/bootstrap_service.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_rpc_config.hpp>
+#include <nano/node/online_reps.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
@@ -250,7 +253,6 @@ nano::account_info nano::json_handler::account_info_impl (secure::transaction co
 		if (!info)
 		{
 			ec = nano::error_common::account_not_found;
-			node.bootstrap_initiator.bootstrap_lazy (account_a, false, account_a.to_account ());
 		}
 		else
 		{
@@ -1195,7 +1197,7 @@ void nano::json_handler::block_confirm ()
 			else
 			{
 				// Add record in confirmation history for confirmed block
-				nano::election_status status{ block_l, 0, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::active_confirmation_height };
+				nano::election_status status{ block_l, nano::election_status_type::active_confirmation_height };
 				node.active.recently_cemented.put (status);
 				// Trigger callback for confirmed block
 				auto account = block_l->account ();
@@ -1804,16 +1806,7 @@ void nano::json_handler::bootstrap ()
 		uint16_t port;
 		if (!nano::parse_port (port_text, port))
 		{
-			if (!node.flags.disable_legacy_bootstrap)
-			{
-				std::string bootstrap_id (request.get<std::string> ("id", ""));
-				node.bootstrap_initiator.bootstrap (nano::endpoint (address, port), true, bootstrap_id);
-				response_l.put ("success", "");
-			}
-			else
-			{
-				ec = nano::error_rpc::disabled_bootstrap_legacy;
-			}
+			ec = nano::error_rpc::disabled_bootstrap_legacy;
 		}
 		else
 		{
@@ -1830,22 +1823,7 @@ void nano::json_handler::bootstrap ()
 void nano::json_handler::bootstrap_any ()
 {
 	bool const force = request.get<bool> ("force", false);
-	if (!node.flags.disable_legacy_bootstrap)
-	{
-		nano::account start_account{};
-		boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
-		if (account_text.is_initialized ())
-		{
-			start_account = account_impl (account_text.get ());
-		}
-		std::string bootstrap_id (request.get<std::string> ("id", ""));
-		node.bootstrap_initiator.bootstrap (force, bootstrap_id, std::numeric_limits<uint32_t>::max (), start_account);
-		response_l.put ("success", "");
-	}
-	else
-	{
-		ec = nano::error_rpc::disabled_bootstrap_legacy;
-	}
+	ec = nano::error_rpc::disabled_bootstrap_legacy;
 	response_errors ();
 }
 
@@ -1855,19 +1833,7 @@ void nano::json_handler::bootstrap_lazy ()
 	bool const force = request.get<bool> ("force", false);
 	if (!ec)
 	{
-		if (!node.flags.disable_lazy_bootstrap)
-		{
-			auto existed (node.bootstrap_initiator.current_lazy_attempt () != nullptr);
-			std::string bootstrap_id (request.get<std::string> ("id", ""));
-			auto key_inserted (node.bootstrap_initiator.bootstrap_lazy (hash, force, bootstrap_id));
-			bool started = !existed && key_inserted;
-			response_l.put ("started", started ? "1" : "0");
-			response_l.put ("key_inserted", key_inserted ? "1" : "0");
-		}
-		else
-		{
-			ec = nano::error_rpc::disabled_bootstrap_lazy;
-		}
+		ec = nano::error_rpc::disabled_bootstrap_lazy;
 	}
 	response_errors ();
 }
@@ -1877,39 +1843,7 @@ void nano::json_handler::bootstrap_lazy ()
  */
 void nano::json_handler::bootstrap_status ()
 {
-	auto attempts_count (node.bootstrap_initiator.attempts.size ());
-	response_l.put ("bootstrap_threads", std::to_string (node.config.bootstrap_initiator_threads));
-	response_l.put ("running_attempts_count", std::to_string (attempts_count));
-	response_l.put ("total_attempts_count", std::to_string (node.bootstrap_initiator.attempts.incremental));
-	boost::property_tree::ptree connections;
-	{
-		nano::lock_guard<nano::mutex> connections_lock (node.bootstrap_initiator.connections->mutex);
-		connections.put ("clients", std::to_string (node.bootstrap_initiator.connections->clients.size ()));
-		connections.put ("connections", std::to_string (node.bootstrap_initiator.connections->connections_count));
-		connections.put ("idle", std::to_string (node.bootstrap_initiator.connections->idle.size ()));
-		connections.put ("target_connections", std::to_string (node.bootstrap_initiator.connections->target_connections (node.bootstrap_initiator.connections->pulls.size (), attempts_count)));
-		connections.put ("pulls", std::to_string (node.bootstrap_initiator.connections->pulls.size ()));
-	}
-	response_l.add_child ("connections", connections);
-	boost::property_tree::ptree attempts;
-	{
-		nano::lock_guard<nano::mutex> attempts_lock (node.bootstrap_initiator.attempts.bootstrap_attempts_mutex);
-		for (auto i : node.bootstrap_initiator.attempts.attempts)
-		{
-			boost::property_tree::ptree entry;
-			auto & attempt (i.second);
-			entry.put ("id", attempt->id);
-			entry.put ("mode", attempt->mode_text ());
-			entry.put ("started", static_cast<bool> (attempt->started));
-			entry.put ("pulling", std::to_string (attempt->pulling));
-			entry.put ("total_blocks", std::to_string (attempt->total_blocks));
-			entry.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
-			attempt->get_information (entry);
-			entry.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count ());
-			attempts.push_back (std::make_pair ("", entry));
-		}
-	}
-	response_l.add_child ("attempts", attempts);
+	// TODO: Bootstrap status for ascending bootstrap
 	response_errors ();
 }
 
@@ -2240,7 +2174,7 @@ void nano::json_handler::delegators ()
 	{
 		auto transaction (node.ledger.tx_begin_read ());
 		boost::property_tree::ptree delegators;
-		for (auto i (node.store.account.begin (transaction, start_account.number () + 1)), n (node.store.account.end (transaction)); i != n && delegators.size () < count; ++i)
+		for (auto i (node.store.account.begin (transaction, inc_sat (start_account.number ()))), n (node.store.account.end (transaction)); i != n && delegators.size () < count; ++i)
 		{
 			nano::account_info const & info (i->second);
 			if (info.representative == representative)
@@ -3699,7 +3633,7 @@ void nano::json_handler::republish ()
 				}
 				hash = node.ledger.any.block_successor (transaction, hash).value_or (0);
 			}
-			node.network.flood_block_many (std::move (republish_bundle), nullptr, 25);
+			node.network.flood_block_many (std::move (republish_bundle), nano::transport::traffic_type::block_broadcast_rpc, 25ms);
 			response_l.put ("success", ""); // obsolete
 			response_l.add_child ("blocks", blocks);
 		}
@@ -4256,7 +4190,7 @@ void nano::json_handler::unopened ()
 					break;
 				}
 				// Skip existing accounts
-				iterator = node.store.pending.begin (transaction, nano::pending_key (account.number () + 1, 0));
+				iterator = node.store.pending.begin (transaction, nano::pending_key (inc_sat (account.number ()), 0));
 			}
 			else
 			{
@@ -4615,7 +4549,7 @@ void nano::json_handler::wallet_frontiers ()
 
 void nano::json_handler::wallet_history ()
 {
-	uint64_t modified_since (1);
+	uint64_t modified_since (0);
 	boost::optional<std::string> modified_since_text (request.get_optional<std::string> ("modified_since"));
 	if (modified_since_text.is_initialized ())
 	{
@@ -4934,7 +4868,7 @@ void nano::json_handler::wallet_republish ()
 				blocks.push_back (std::make_pair ("", entry));
 			}
 		}
-		node.network.flood_block_many (std::move (republish_bundle), nullptr, 25);
+		node.network.flood_block_many (std::move (republish_bundle), nano::transport::traffic_type::keepalive, 25ms);
 		response_l.add_child ("blocks", blocks);
 	}
 	response_errors ();
@@ -5221,7 +5155,7 @@ void nano::json_handler::work_peers_clear ()
 
 void nano::json_handler::populate_backlog ()
 {
-	node.backlog.trigger ();
+	node.backlog_scan.trigger ();
 	response_l.put ("success", "");
 	response_errors ();
 }
@@ -5230,7 +5164,7 @@ void nano::json_handler::debug_bootstrap_priority_info ()
 {
 	if (!ec)
 	{
-		auto [blocking, priorities] = node.ascendboot.info ();
+		auto [blocking, priorities] = node.bootstrap.info ();
 
 		// priorities
 		{
@@ -5249,7 +5183,7 @@ void nano::json_handler::debug_bootstrap_priority_info ()
 			boost::property_tree::ptree response_blocking;
 			for (auto const & entry : blocking)
 			{
-				const auto account = entry.account ();
+				const auto account = entry.account;
 				const auto dependency = entry.dependency;
 
 				response_blocking.put (account.to_account (), dependency.to_string ());

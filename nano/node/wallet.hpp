@@ -172,6 +172,7 @@ public:
 	std::function<void (bool, bool)> lock_observer;
 	nano::wallet_store store;
 	nano::wallets & wallets;
+	nano::logger & logger;
 	nano::mutex representatives_mutex;
 	std::unordered_set<nano::account> representatives;
 };
@@ -205,8 +206,12 @@ public:
 class wallets final
 {
 public:
-	wallets (bool, nano::node &);
+	wallets (bool error, nano::node &);
 	~wallets ();
+
+	void start ();
+	void stop ();
+
 	std::shared_ptr<nano::wallet> open (nano::wallet_id const &);
 	std::shared_ptr<nano::wallet> create (nano::wallet_id const &);
 	bool search_receivable (nano::wallet_id const &);
@@ -217,8 +222,6 @@ public:
 	void queue_wallet_action (nano::uint128_t const &, std::shared_ptr<nano::wallet> const &, std::function<void (nano::wallet &)>);
 	void foreach_representative (std::function<void (nano::public_key const &, nano::raw_key const &)> const &);
 	bool exists (store::transaction const &, nano::account const &);
-	void start ();
-	void stop ();
 	void clear_send_ids (store::transaction const &);
 	nano::wallet_representatives reps () const;
 	bool check_rep (nano::account const &, nano::uint128_t const &, bool const = true);
@@ -240,6 +243,7 @@ public:
 	MDB_dbi handle;
 	MDB_dbi send_action_ids;
 	nano::node & node;
+	nano::logger & logger;
 	nano::store::lmdb::env & env;
 	std::atomic<bool> stopped;
 	std::thread thread;

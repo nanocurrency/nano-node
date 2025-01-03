@@ -1,5 +1,6 @@
 #include <nano/lib/cli.hpp>
 #include <nano/lib/errors.hpp>
+#include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/signal_manager.hpp>
 #include <nano/lib/thread_runner.hpp>
@@ -117,7 +118,7 @@ int main (int argc, char * const * argv)
 		auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
 		if (err)
 		{
-			std::cerr << nano::network_constants::active_network_err_msg << std::endl;
+			std::cerr << "Invalid network. Valid values are live, test, beta and dev." << std::endl;
 			std::exit (1);
 		}
 	}

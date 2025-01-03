@@ -104,7 +104,7 @@ bool nano::bootstrap_server::verify (const nano::asc_pull_req & message) const
 	return std::visit (verify_visitor{}, message.payload);
 }
 
-bool nano::bootstrap_server::request (nano::asc_pull_req const & message, std::shared_ptr<nano::transport::channel> channel)
+bool nano::bootstrap_server::request (nano::asc_pull_req const & message, std::shared_ptr<nano::transport::channel> const & channel)
 {
 	if (!verify (message))
 	{
@@ -113,8 +113,7 @@ bool nano::bootstrap_server::request (nano::asc_pull_req const & message, std::s
 	}
 
 	// If channel is full our response will be dropped anyway, so filter that early
-	// TODO: Add per channel limits (this ideally should be done on the channel message processing side)
-	if (channel->max (nano::transport::traffic_type::bootstrap))
+	if (channel->max (nano::transport::traffic_type::bootstrap_server))
 	{
 		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::channel_full, nano::stat::dir::in);
 		return false;
@@ -160,6 +159,7 @@ void nano::bootstrap_server::respond (nano::asc_pull_ack & response, std::shared
 		}
 		void operator() (nano::asc_pull_ack::account_info_payload const & pld)
 		{
+			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::account_info, nano::stat::dir::out);
 		}
 		void operator() (nano::asc_pull_ack::frontiers_payload const & pld)
 		{
@@ -171,13 +171,9 @@ void nano::bootstrap_server::respond (nano::asc_pull_ack & response, std::shared
 	on_response.notify (response, channel);
 
 	channel->send (
-	response, [this] (auto & ec, auto size) {
-		if (ec)
-		{
-			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::write_error, nano::stat::dir::out);
-		}
-	},
-	nano::transport::buffer_drop_policy::limiter, nano::transport::traffic_type::bootstrap);
+	response, nano::transport::traffic_type::bootstrap_server, [this] (auto & ec, auto size) {
+		stats.inc (nano::stat::type::bootstrap_server_ec, to_stat_detail (ec), nano::stat::dir::out);
+	});
 }
 
 void nano::bootstrap_server::run ()
@@ -220,7 +216,7 @@ void nano::bootstrap_server::run_batch (nano::unique_lock<nano::mutex> & lock)
 
 		transaction.refresh_if_needed ();
 
-		if (!channel->max (nano::transport::traffic_type::bootstrap))
+		if (!channel->max (nano::transport::traffic_type::bootstrap_server))
 		{
 			auto response = process (transaction, request);
 			respond (response, channel);

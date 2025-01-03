@@ -1,4 +1,5 @@
 #include <windows.h>
+
 namespace nano
 {
 void work_thread_reprioritize ()

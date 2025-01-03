@@ -1,7 +1,7 @@
 #pragma once
 
 #include <nano/lib/utility.hpp>
-#include <nano/node/common.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/node/messages.hpp>
 #include <nano/node/nodeconfig.hpp>

@@ -1,9 +1,10 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/cli.hpp>
+#include <nano/lib/files.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/cli.hpp>
-#include <nano/node/common.hpp>
 #include <nano/node/daemonconfig.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/inactive_node.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/ledger.hpp>
@@ -100,7 +101,6 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_legacy_bootstrap", "Disables legacy bootstrap")
 		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
 		("disable_ongoing_bootstrap", "Disable ongoing bootstrap")
-		("disable_ascending_bootstrap", "Disable ascending bootstrap")
 		("disable_rep_crawler", "Disable rep crawler")
 		("disable_request_loop", "Disable request loop")
 		("disable_bootstrap_listener", "Disables bootstrap processing for TCP listener (not including realtime network TCP connections)")
@@ -138,7 +138,6 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	flags_a.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
 	flags_a.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 	flags_a.disable_ongoing_bootstrap = (vm.count ("disable_ongoing_bootstrap") > 0);
-	flags_a.disable_ascending_bootstrap = (vm.count ("disable_ascending_bootstrap") > 0);
 	flags_a.disable_rep_crawler = (vm.count ("disable_rep_crawler") > 0);
 	flags_a.disable_request_loop = (vm.count ("disable_request_loop") > 0);
 	flags_a.disable_bootstrap_bulk_pull_server = (vm.count ("disable_bootstrap_bulk_pull_server") > 0);
@@ -648,10 +647,10 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			{
 				auto root_str = root_it->second.as<std::string> ();
 				auto transaction (node.node->store.tx_begin_write ());
-				nano::root root;
+				nano::qualified_root root;
 				if (!root.decode_hex (root_str))
 				{
-					node.node->store.final_vote.clear (transaction, root);
+					node.node->store.final_vote.del (transaction, root);
 					std::cout << "Successfully cleared final votes" << std::endl;
 				}
 				else

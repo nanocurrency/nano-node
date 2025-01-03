@@ -1,7 +1,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
@@ -12,6 +12,7 @@
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
+#include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/store/component.hpp>
 
 nano::request_aggregator::request_aggregator (request_aggregator_config const & config_a, nano::node & node_a, nano::stats & stats_a, nano::vote_generator & generator_a, nano::vote_generator & final_generator_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_router & vote_router_a) :
@@ -25,13 +26,6 @@ nano::request_aggregator::request_aggregator (request_aggregator_config const & 
 	generator (generator_a),
 	final_generator (final_generator_a)
 {
-	generator.set_reply_action ([this] (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) {
-		this->reply_action (vote_a, channel_a);
-	});
-	final_generator.set_reply_action ([this] (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) {
-		this->reply_action (vote_a, channel_a);
-	});
-
 	queue.max_size_query = [this] (auto const & origin) {
 		return config.max_queue;
 	};
@@ -158,7 +152,7 @@ void nano::request_aggregator::run_batch (nano::unique_lock<nano::mutex> & lock)
 
 		transaction.refresh_if_needed ();
 
-		if (!channel->max ())
+		if (!channel->max (nano::transport::traffic_type::vote_reply))
 		{
 			process (transaction, request, channel);
 		}
@@ -191,12 +185,6 @@ void nano::request_aggregator::process (nano::secure::transaction const & transa
 	}
 }
 
-void nano::request_aggregator::reply_action (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) const
-{
-	nano::confirm_ack confirm{ network_constants, vote_a };
-	channel_a->send (confirm);
-}
-
 void nano::request_aggregator::erase_duplicates (std::vector<std::pair<nano::block_hash, nano::root>> & requests_a) const
 {
 	std::sort (requests_a.begin (), requests_a.end (), [] (auto const & pair1, auto const & pair2) {
@@ -208,68 +196,45 @@ void nano::request_aggregator::erase_duplicates (std::vector<std::pair<nano::blo
 	requests_a.end ());
 }
 
+// This filters candidates for vote generation, the final decision and necessary checks are also performed by the vote generator
 auto nano::request_aggregator::aggregate (nano::secure::transaction const & transaction, request_type const & requests_a, std::shared_ptr<nano::transport::channel> const & channel_a) const -> aggregate_result
 {
 	std::vector<std::shared_ptr<nano::block>> to_generate;
 	std::vector<std::shared_ptr<nano::block>> to_generate_final;
 	for (auto const & [hash, root] : requests_a)
 	{
-		bool generate_final_vote (false);
-		std::shared_ptr<nano::block> block;
+		// Ledger by hash
+		std::shared_ptr<nano::block> block = ledger.any.block_get (transaction, hash);
 
-		// 2. Final votes
-		auto final_vote_hashes (ledger.store.final_vote.get (transaction, root));
-		if (!final_vote_hashes.empty ())
-		{
-			generate_final_vote = true;
-			block = ledger.any.block_get (transaction, final_vote_hashes[0]);
-			// Allow same root vote
-			if (block != nullptr && final_vote_hashes.size () > 1)
-			{
-				// WTF? This shouldn't be done like this
-				to_generate_final.push_back (block);
-				block = ledger.any.block_get (transaction, final_vote_hashes[1]);
-				debug_assert (final_vote_hashes.size () == 2);
-			}
-		}
-
-		// 4. Ledger by hash
-		if (block == nullptr)
-		{
-			block = ledger.any.block_get (transaction, hash);
-			// Confirmation status. Generate final votes for confirmed
-			if (block != nullptr)
-			{
-				nano::confirmation_height_info confirmation_height_info;
-				ledger.store.confirmation_height.get (transaction, block->account (), confirmation_height_info);
-				generate_final_vote = (confirmation_height_info.height >= block->sideband ().height);
-			}
-		}
-
-		// 5. Ledger by root
-		if (block == nullptr && !root.is_zero ())
+		// Ledger by root
+		if (!block && !root.is_zero ())
 		{
 			// Search for block root
-			auto successor = ledger.any.block_successor (transaction, root.as_block_hash ());
-			if (successor)
+			if (auto successor = ledger.any.block_successor (transaction, root.as_block_hash ()))
 			{
-				auto successor_block = ledger.any.block_get (transaction, successor.value ());
-				release_assert (successor_block != nullptr);
-				block = std::move (successor_block);
-
-				// Confirmation status. Generate final votes for confirmed successor
-				if (block != nullptr)
-				{
-					nano::confirmation_height_info confirmation_height_info;
-					ledger.store.confirmation_height.get (transaction, block->account (), confirmation_height_info);
-					generate_final_vote = (confirmation_height_info.height >= block->sideband ().height);
-				}
+				block = ledger.any.block_get (transaction, successor.value ());
+				release_assert (block);
 			}
 		}
+
+		auto should_generate_final_vote = [&] (auto const & block) {
+			release_assert (block);
+
+			// Check if final vote is set for this block
+			if (auto final_hash = ledger.store.final_vote.get (transaction, block->qualified_root ()))
+			{
+				return final_hash == block->hash ();
+			}
+			// If the final vote is not set, generate vote if the block is confirmed
+			else
+			{
+				return ledger.confirmed.block_exists (transaction, block->hash ());
+			}
+		};
 
 		if (block)
 		{
-			if (generate_final_vote)
+			if (should_generate_final_vote (block))
 			{
 				to_generate_final.push_back (block);
 				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_final);

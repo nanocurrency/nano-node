@@ -6,6 +6,8 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/optional.hpp>
 
+#include <filesystem>
+
 #include <cpptoml.h>
 
 namespace boost

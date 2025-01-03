@@ -1,6 +1,7 @@
 
 #pragma once
 
+#include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 
 #include <cryptopp/seckey.h>

@@ -60,16 +60,18 @@ void nano::thread_runner::join ()
 {
 	io_guard.reset ();
 
-	for (auto & i : threads)
+	for (auto & thread : threads)
 	{
-		if (i.joinable ())
+		if (thread.joinable ())
 		{
-			i.join ();
+			logger.debug (nano::log::type::thread_runner, "Joining thread: {}", fmt::streamed (thread.get_id ()));
+			thread.join ();
 		}
 	}
+
 	threads.clear ();
 
-	logger.debug (nano::log::type::thread_runner, "Stopped threads ({})", to_string (role));
+	logger.debug (nano::log::type::thread_runner, "Stopped all threads ({})", to_string (role));
 
 	io_ctx.reset (); // Release shared_ptr to io_context
 }

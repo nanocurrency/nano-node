@@ -16,6 +16,7 @@ class account_info_v22;
 class block;
 class pending_info;
 class pending_key;
+class vote;
 }
 
 namespace nano::store

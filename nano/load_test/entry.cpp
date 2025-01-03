@@ -580,7 +580,7 @@ int main (int argc, char * const * argv)
 		data_paths.push_back (std::move (data_path));
 	}
 
-	auto current_network = nano::dev::network_params.network.get_current_network_as_string ();
+	std::string current_network{ nano::dev::network_params.network.get_current_network_as_string () };
 	std::vector<std::unique_ptr<boost::process::child>> nodes;
 	std::vector<std::unique_ptr<boost::process::child>> rpc_servers;
 	for (auto const & data_path : data_paths)

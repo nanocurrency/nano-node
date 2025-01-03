@@ -1,3 +1,4 @@
+#include <nano/lib/files.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <cstring>

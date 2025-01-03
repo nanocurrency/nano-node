@@ -2,10 +2,12 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/transport/fake.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -19,9 +21,9 @@ TEST (vote_processor, codes)
 	nano::test::system system;
 	auto node_config = system.default_config ();
 	// Disable all election schedulers
-	node_config.backlog_population.enable = false;
-	node_config.hinted_scheduler.enabled = false;
-	node_config.optimistic_scheduler.enabled = false;
+	node_config.backlog_scan.enable = false;
+	node_config.hinted_scheduler.enable = false;
+	node_config.optimistic_scheduler.enable = false;
 	auto & node = *system.add_node (node_config);
 
 	auto blocks = nano::test::setup_chain (system, node, 1, nano::dev::genesis_key, false);
@@ -112,7 +114,6 @@ TEST (vote_processor, weights)
 	auto & node (*system.nodes[0]);
 
 	// Create representatives of different weight levels
-	// FIXME: Using `online_weight_minimum` because calculation of trended and online weight is broken when running tests
 	auto const stake = node.config.online_weight_minimum.number ();
 	auto const level0 = stake / 5000; // 0.02%
 	auto const level1 = stake / 500; // 0.2%
@@ -140,10 +141,10 @@ TEST (vote_processor, weights)
 	node.stats.clear ();
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::rep_tiers, nano::stat::detail::updated) >= 2);
 
-	ASSERT_EQ (node.rep_tiers.tier (key0.pub), nano::rep_tier::none);
-	ASSERT_EQ (node.rep_tiers.tier (key1.pub), nano::rep_tier::tier_1);
-	ASSERT_EQ (node.rep_tiers.tier (key2.pub), nano::rep_tier::tier_2);
-	ASSERT_EQ (node.rep_tiers.tier (nano::dev::genesis_key.pub), nano::rep_tier::tier_3);
+	ASSERT_TIMELY_EQ (5s, node.rep_tiers.tier (key0.pub), nano::rep_tier::none);
+	ASSERT_TIMELY_EQ (5s, node.rep_tiers.tier (key1.pub), nano::rep_tier::tier_1);
+	ASSERT_TIMELY_EQ (5s, node.rep_tiers.tier (key2.pub), nano::rep_tier::tier_2);
+	ASSERT_TIMELY_EQ (5s, node.rep_tiers.tier (nano::dev::genesis_key.pub), nano::rep_tier::tier_3);
 }
 
 // Issue that tracks last changes on this test: https://github.com/nanocurrency/nano-node/issues/3485
@@ -157,10 +158,10 @@ TEST (vote_processor, no_broadcast_local)
 	flags.disable_request_loop = true;
 	nano::node_config config1, config2;
 	config1.representative_vote_weight_minimum = 0;
-	config1.backlog_population.enable = false;
+	config1.backlog_scan.enable = false;
 	auto & node (*system.add_node (config1, flags));
 	config2.representative_vote_weight_minimum = 0;
-	config2.backlog_population.enable = false;
+	config2.backlog_scan.enable = false;
 	config2.peering_port = system.get_available_port ();
 	system.add_node (config2, flags);
 	nano::block_builder builder;
@@ -212,10 +213,10 @@ TEST (vote_processor, local_broadcast_without_a_representative)
 	flags.disable_request_loop = true;
 	nano::node_config config1, config2;
 	config1.representative_vote_weight_minimum = 0;
-	config1.backlog_population.enable = false;
+	config1.backlog_scan.enable = false;
 	auto & node (*system.add_node (config1, flags));
 	config2.representative_vote_weight_minimum = 0;
-	config2.backlog_population.enable = false;
+	config2.backlog_scan.enable = false;
 	config2.peering_port = system.get_available_port ();
 	system.add_node (config2, flags);
 	nano::block_builder builder;
@@ -261,9 +262,9 @@ TEST (vote_processor, no_broadcast_local_with_a_principal_representative)
 	nano::node_flags flags;
 	flags.disable_request_loop = true;
 	nano::node_config config1, config2;
-	config1.backlog_population.enable = false;
+	config1.backlog_scan.enable = false;
 	auto & node (*system.add_node (config1, flags));
-	config2.backlog_population.enable = false;
+	config2.backlog_scan.enable = false;
 	config2.peering_port = system.get_available_port ();
 	system.add_node (config2, flags);
 	nano::block_builder builder;

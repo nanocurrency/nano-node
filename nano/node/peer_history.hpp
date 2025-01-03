@@ -1,7 +1,7 @@
 #pragma once
 
 #include <nano/lib/locks.hpp>
-#include <nano/node/common.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/fwd.hpp>
 
 #include <atomic>

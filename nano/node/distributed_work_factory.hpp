@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/numbers_templ.hpp>
 
 #include <atomic>
 #include <functional>

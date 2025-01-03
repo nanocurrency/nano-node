@@ -35,6 +35,8 @@ endif()
 
 if(MSVC)
   add_definitions(/MP)
+  add_definitions(
+    -D_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING) # Suppress iterator warning
 endif()
 
 set(CPACK_PACKAGE_VENDOR "Nano Currency")
@@ -114,8 +116,8 @@ set(NANO_FUZZER_TEST
     OFF
     CACHE BOOL "")
 set(NANO_ASIO_HANDLER_TRACKING
-    0
-    CACHE STRING "")
+    OFF
+    CACHE BOOL "")
 set(NANO_ROCKSDB_TOOLS
     OFF
     CACHE BOOL "")
@@ -151,9 +153,8 @@ if(${NANO_TIMED_LOCKS} GREATER 0)
   endif()
 endif()
 
-if(${NANO_ASIO_HANDLER_TRACKING} GREATER 0)
-  add_definitions(-DNANO_ASIO_HANDLER_TRACKING=${NANO_ASIO_HANDLER_TRACKING}
-                  -DBOOST_ASIO_ENABLE_HANDLER_TRACKING)
+if(NANO_ASIO_HANDLER_TRACKING)
+  add_definitions(-DBOOST_ASIO_ENABLE_HANDLER_TRACKING)
 endif()
 
 option(NANO_SIMD_OPTIMIZATIONS

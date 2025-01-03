@@ -5,8 +5,6 @@
 #include <nano/node/transport/tcp_socket.hpp>
 #include <nano/node/transport/transport.hpp>
 
-#include <boost/format.hpp>
-
 #include <cstdint>
 #include <cstdlib>
 #include <iterator>
@@ -18,13 +16,14 @@
  * socket
  */
 
-nano::transport::tcp_socket::tcp_socket (nano::node & node_a, nano::transport::socket_endpoint endpoint_type_a, std::size_t max_queue_size_a) :
-	tcp_socket{ node_a, boost::asio::ip::tcp::socket{ node_a.io_ctx }, {}, {}, endpoint_type_a, max_queue_size_a }
+nano::transport::tcp_socket::tcp_socket (nano::node & node_a, nano::transport::socket_endpoint endpoint_type_a, size_t queue_size_a) :
+	tcp_socket{ node_a, boost::asio::ip::tcp::socket{ node_a.io_ctx }, {}, {}, endpoint_type_a, queue_size_a }
 {
 }
 
-nano::transport::tcp_socket::tcp_socket (nano::node & node_a, boost::asio::ip::tcp::socket raw_socket_a, boost::asio::ip::tcp::endpoint remote_endpoint_a, boost::asio::ip::tcp::endpoint local_endpoint_a, nano::transport::socket_endpoint endpoint_type_a, std::size_t max_queue_size_a) :
-	send_queue{ max_queue_size_a },
+nano::transport::tcp_socket::tcp_socket (nano::node & node_a, boost::asio::ip::tcp::socket raw_socket_a, boost::asio::ip::tcp::endpoint remote_endpoint_a, boost::asio::ip::tcp::endpoint local_endpoint_a, nano::transport::socket_endpoint endpoint_type_a, size_t queue_size_a) :
+	queue_size{ queue_size_a },
+	send_queue{ queue_size },
 	node_w{ node_a.shared () },
 	strand{ node_a.io_ctx.get_executor () },
 	raw_socket{ std::move (raw_socket_a) },
@@ -35,8 +34,7 @@ nano::transport::tcp_socket::tcp_socket (nano::node & node_a, boost::asio::ip::t
 	last_completion_time_or_init{ nano::seconds_since_epoch () },
 	last_receive_time_or_init{ nano::seconds_since_epoch () },
 	default_timeout{ node_a.config.tcp_io_timeout },
-	silent_connection_tolerance_time{ node_a.network_params.network.silent_connection_tolerance_time },
-	max_queue_size{ max_queue_size_a }
+	silent_connection_tolerance_time{ node_a.network_params.network.silent_connection_tolerance_time }
 {
 }
 
@@ -61,8 +59,7 @@ void nano::transport::tcp_socket::async_connect (nano::tcp_endpoint const & endp
 
 	boost::asio::post (strand, [this_l = shared_from_this (), endpoint_a, callback = std::move (callback_a)] () {
 		this_l->raw_socket.async_connect (endpoint_a,
-		boost::asio::bind_executor (this_l->strand,
-		[this_l, callback = std::move (callback), endpoint_a] (boost::system::error_code const & ec) {
+		boost::asio::bind_executor (this_l->strand, [this_l, callback = std::move (callback), endpoint_a] (boost::system::error_code const & ec) {
 			debug_assert (this_l->strand.running_in_this_thread ());
 
 			auto node_l = this_l->node_w.lock ();
@@ -72,6 +69,7 @@ void nano::transport::tcp_socket::async_connect (nano::tcp_endpoint const & endp
 			}
 
 			this_l->remote = endpoint_a;
+
 			if (ec)
 			{
 				node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_connect_error, nano::stat::dir::in);
@@ -85,7 +83,10 @@ void nano::transport::tcp_socket::async_connect (nano::tcp_endpoint const & endp
 					boost::system::error_code ec;
 					this_l->local = this_l->raw_socket.local_endpoint (ec);
 				}
-				node_l->observers.socket_connected.notify (*this_l);
+
+				node_l->logger.debug (nano::log::type::tcp_socket, "Successfully connected to: {}, local: {}",
+				fmt::streamed (this_l->remote),
+				fmt::streamed (this_l->local));
 			}
 			callback (ec);
 		}));
@@ -137,7 +138,7 @@ void nano::transport::tcp_socket::async_read (std::shared_ptr<std::vector<uint8_
 	}
 }
 
-void nano::transport::tcp_socket::async_write (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a, nano::transport::traffic_type traffic_type)
+void nano::transport::tcp_socket::async_write (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
 {
 	auto node_l = node_w.lock ();
 	if (!node_l)
@@ -149,19 +150,19 @@ void nano::transport::tcp_socket::async_write (nano::shared_const_buffer const &
 	{
 		if (callback_a)
 		{
-			node_l->background ([callback = std::move (callback_a)] () {
+			node_l->io_ctx.post ([callback = std::move (callback_a)] () {
 				callback (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
 			});
 		}
 		return;
 	}
 
-	bool queued = send_queue.insert (buffer_a, callback_a, traffic_type);
+	bool queued = send_queue.insert (buffer_a, callback_a, traffic_type::generic);
 	if (!queued)
 	{
 		if (callback_a)
 		{
-			node_l->background ([callback = std::move (callback_a)] () {
+			node_l->io_ctx.post ([callback = std::move (callback_a)] () {
 				callback (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
 			});
 		}
@@ -186,17 +187,18 @@ void nano::transport::tcp_socket::write_queued_messages ()
 		return;
 	}
 
-	auto next = send_queue.pop ();
-	if (!next)
+	auto maybe_next = send_queue.pop ();
+	if (!maybe_next)
 	{
 		return;
 	}
+	auto const & [next, type] = *maybe_next;
 
 	set_default_timeout ();
 
 	write_in_progress = true;
-	nano::async_write (raw_socket, next->buffer,
-	boost::asio::bind_executor (strand, [this_l = shared_from_this (), next /* `next` object keeps buffer in scope */] (boost::system::error_code ec, std::size_t size) {
+	nano::async_write (raw_socket, next.buffer,
+	boost::asio::bind_executor (strand, [this_l = shared_from_this (), next /* `next` object keeps buffer in scope */, type] (boost::system::error_code ec, std::size_t size) {
 		debug_assert (this_l->strand.running_in_this_thread ());
 
 		auto node_l = this_l->node_w.lock ();
@@ -217,9 +219,9 @@ void nano::transport::tcp_socket::write_queued_messages ()
 			this_l->set_last_completion ();
 		}
 
-		if (next->callback)
+		if (next.callback)
 		{
-			next->callback (ec, size);
+			next.callback (ec, size);
 		}
 
 		if (!ec)
@@ -229,14 +231,14 @@ void nano::transport::tcp_socket::write_queued_messages ()
 	}));
 }
 
-bool nano::transport::tcp_socket::max (nano::transport::traffic_type traffic_type) const
+bool nano::transport::tcp_socket::max () const
 {
-	return send_queue.size (traffic_type) >= max_queue_size;
+	return send_queue.size (traffic_type::generic) >= queue_size;
 }
 
-bool nano::transport::tcp_socket::full (nano::transport::traffic_type traffic_type) const
+bool nano::transport::tcp_socket::full () const
 {
-	return send_queue.size (traffic_type) >= 2 * max_queue_size;
+	return send_queue.size (traffic_type::generic) >= 2 * queue_size;
 }
 
 /** Call set_timeout with default_timeout as parameter */
@@ -315,8 +317,8 @@ void nano::transport::tcp_socket::ongoing_checkup ()
 
 		if (condition_to_disconnect)
 		{
-			node_l->logger.debug (nano::log::type::tcp_server, "Closing socket due to timeout ({})", nano::util::to_str (this_l->remote));
-
+			// TODO: Stats
+			node_l->logger.debug (nano::log::type::tcp_socket, "Socket timeout, closing: {}", fmt::streamed (this_l->remote));
 			this_l->timed_out = true;
 			this_l->close ();
 		}
@@ -392,7 +394,14 @@ void nano::transport::tcp_socket::close_internal ()
 	if (ec)
 	{
 		node_l->stats.inc (nano::stat::type::socket, nano::stat::detail::error_socket_close);
-		node_l->logger.error (nano::log::type::socket, "Failed to close socket gracefully: {} ({})", ec.message (), nano::util::to_str (remote));
+		node_l->logger.error (nano::log::type::tcp_socket, "Failed to close socket gracefully: {} ({})",
+		fmt::streamed (remote),
+		ec.message ());
+	}
+	else
+	{
+		// TODO: Stats
+		node_l->logger.debug (nano::log::type::tcp_socket, "Closed socket: {}", fmt::streamed (remote));
 	}
 }
 
@@ -412,7 +421,7 @@ void nano::transport::tcp_socket::operator() (nano::object_stream & obs) const
 {
 	obs.write ("remote_endpoint", remote_endpoint ());
 	obs.write ("local_endpoint", local_endpoint ());
-	obs.write ("type", type_m);
+	obs.write ("type", type_m.load ());
 	obs.write ("endpoint_type", endpoint_type_m);
 }
 
@@ -436,27 +445,23 @@ bool nano::transport::socket_queue::insert (const buffer_t & buffer, callback_t 
 	return false; // Not queued
 }
 
-std::optional<nano::transport::socket_queue::entry> nano::transport::socket_queue::pop ()
+auto nano::transport::socket_queue::pop () -> std::optional<result_t>
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	auto try_pop = [this] (nano::transport::traffic_type type) -> std::optional<entry> {
+	auto try_pop = [this] (nano::transport::traffic_type type) -> std::optional<result_t> {
 		auto & que = queues[type];
 		if (!que.empty ())
 		{
 			auto item = que.front ();
 			que.pop ();
-			return item;
+			return std::make_pair (item, type);
 		}
 		return std::nullopt;
 	};
 
 	// TODO: This is a very basic prioritization, implement something more advanced and configurable
 	if (auto item = try_pop (nano::transport::traffic_type::generic))
-	{
-		return item;
-	}
-	if (auto item = try_pop (nano::transport::traffic_type::bootstrap))
 	{
 		return item;
 	}
@@ -486,45 +491,6 @@ bool nano::transport::socket_queue::empty () const
 	return std::all_of (queues.begin (), queues.end (), [] (auto const & que) {
 		return que.second.empty ();
 	});
-}
-
-/*
- * socket_functions
- */
-
-boost::asio::ip::network_v6 nano::transport::socket_functions::get_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, std::size_t network_prefix)
-{
-	return boost::asio::ip::make_network_v6 (ip_address, static_cast<unsigned short> (network_prefix));
-}
-
-boost::asio::ip::address nano::transport::socket_functions::first_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, std::size_t network_prefix)
-{
-	auto range = get_ipv6_subnet_address (ip_address, network_prefix).hosts ();
-	debug_assert (!range.empty ());
-	return *(range.begin ());
-}
-
-boost::asio::ip::address nano::transport::socket_functions::last_ipv6_subnet_address (boost::asio::ip::address_v6 const & ip_address, std::size_t network_prefix)
-{
-	auto range = get_ipv6_subnet_address (ip_address, network_prefix).hosts ();
-	debug_assert (!range.empty ());
-	return *(--range.end ());
-}
-
-std::size_t nano::transport::socket_functions::count_subnetwork_connections (
-nano::transport::address_socket_mmap const & per_address_connections,
-boost::asio::ip::address_v6 const & remote_address,
-std::size_t network_prefix)
-{
-	auto range = get_ipv6_subnet_address (remote_address, network_prefix).hosts ();
-	if (range.empty ())
-	{
-		return 0;
-	}
-	auto const first_ip = first_ipv6_subnet_address (remote_address, network_prefix);
-	auto const last_ip = last_ipv6_subnet_address (remote_address, network_prefix);
-	auto const counted_connections = std::distance (per_address_connections.lower_bound (first_ip), per_address_connections.upper_bound (last_ip));
-	return counted_connections;
 }
 
 /*

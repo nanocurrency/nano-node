@@ -46,6 +46,14 @@ void nano::scheduler::manual::push (std::shared_ptr<nano::block> const & block_a
 	notify ();
 }
 
+bool nano::scheduler::manual::contains (nano::block_hash const & hash) const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return std::any_of (queue.cbegin (), queue.cend (), [&hash] (auto const & item) {
+		return std::get<0> (item)->hash () == hash;
+	});
+}
+
 bool nano::scheduler::manual::predicate () const
 {
 	return !queue.empty ();

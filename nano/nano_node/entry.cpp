@@ -1,8 +1,11 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/block_type.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/cli.hpp>
+#include <nano/lib/files.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/lib/work_version.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/cli.hpp>
@@ -12,9 +15,11 @@
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/online_reps.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/store/pending.hpp>
 
 #include <boost/dll/runtime_symbol_info.hpp>
@@ -169,7 +174,7 @@ int main (int argc, char * const * argv)
 		auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
 		if (err)
 		{
-			std::cerr << nano::network_constants::active_network_err_msg << std::endl;
+			std::cerr << "Invalid network. Valid values are live, test, beta and dev." << std::endl;
 			std::exit (1);
 		}
 	}

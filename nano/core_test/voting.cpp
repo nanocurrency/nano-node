@@ -1,9 +1,10 @@
 #include <nano/lib/blocks.hpp>
-#include <nano/node/common.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/vote_spacing.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -145,7 +146,7 @@ TEST (vote_spacing, prune)
 TEST (vote_spacing, vote_generator)
 {
 	nano::node_config config;
-	config.backlog_population.enable = false;
+	config.backlog_scan.enable = false;
 	config.active_elections.hinted_limit_percentage = 0; // Disable election hinting
 	nano::test::system system;
 	nano::node_flags node_flags;
@@ -189,7 +190,7 @@ TEST (vote_spacing, vote_generator)
 TEST (vote_spacing, rapid)
 {
 	nano::node_config config;
-	config.backlog_population.enable = false;
+	config.backlog_scan.enable = false;
 	config.active_elections.hinted_limit_percentage = 0; // Disable election hinting
 	nano::test::system system;
 	nano::node_flags node_flags;

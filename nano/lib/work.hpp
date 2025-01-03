@@ -8,10 +8,10 @@
 #include <nano/node/openclwork.hpp>
 
 #include <boost/optional.hpp>
-#include <boost/thread/thread.hpp>
 
 #include <atomic>
 #include <memory>
+#include <thread>
 
 namespace nano
 {
@@ -54,7 +54,7 @@ public:
 	nano::network_constants & network_constants;
 	std::atomic<int> ticket;
 	bool done;
-	std::vector<boost::thread> threads;
+	std::vector<std::thread> threads;
 	std::list<nano::work_item> pending;
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::work_pool) };
 	nano::condition_variable producer_condition;

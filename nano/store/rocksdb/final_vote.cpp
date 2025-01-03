@@ -24,40 +24,27 @@ bool nano::store::rocksdb::final_vote::put (store::write_transaction const & tra
 	return result;
 }
 
-std::vector<nano::block_hash> nano::store::rocksdb::final_vote::get (store::transaction const & transaction, nano::root const & root_a)
+std::optional<nano::block_hash> nano::store::rocksdb::final_vote::get (store::transaction const & transaction, nano::qualified_root const & qualified_root_a)
 {
-	std::vector<nano::block_hash> result;
-	nano::qualified_root key_start{ root_a.raw, 0 };
-	for (auto i = begin (transaction, key_start), n = end (transaction); i != n && nano::qualified_root{ i->first }.root () == root_a; ++i)
+	nano::store::rocksdb::db_val result;
+	auto status = store.get (transaction, tables::final_votes, qualified_root_a, result);
+	std::optional<nano::block_hash> final_vote_hash;
+	if (store.success (status))
 	{
-		result.push_back (i->second);
+		final_vote_hash = static_cast<nano::block_hash> (result);
 	}
-	return result;
+	return final_vote_hash;
 }
 
-void nano::store::rocksdb::final_vote::del (store::write_transaction const & transaction, nano::root const & root)
+void nano::store::rocksdb::final_vote::del (store::write_transaction const & transaction, nano::qualified_root const & root)
 {
-	std::vector<nano::qualified_root> final_vote_qualified_roots;
-	for (auto i = begin (transaction, nano::qualified_root{ root.raw, 0 }), n = end (transaction); i != n && nano::qualified_root{ i->first }.root () == root; ++i)
-	{
-		final_vote_qualified_roots.push_back (i->first);
-	}
-
-	for (auto & final_vote_qualified_root : final_vote_qualified_roots)
-	{
-		auto status = store.del (transaction, tables::final_votes, final_vote_qualified_root);
-		store.release_assert_success (status);
-	}
+	auto status = store.del (transaction, tables::final_votes, root);
+	store.release_assert_success (status);
 }
 
 size_t nano::store::rocksdb::final_vote::count (store::transaction const & transaction_a) const
 {
 	return store.count (transaction_a, tables::final_votes);
-}
-
-void nano::store::rocksdb::final_vote::clear (store::write_transaction const & transaction_a, nano::root const & root_a)
-{
-	del (transaction_a, root_a);
 }
 
 void nano::store::rocksdb::final_vote::clear (store::write_transaction const & transaction_a)

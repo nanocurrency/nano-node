@@ -1,12 +1,14 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/node/blockprocessor.hpp>
+#include <nano/node/block_processor.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/ledger.hpp>
+
+#include <boost/range/iterator_range.hpp>
 
 nano::local_block_broadcaster::local_block_broadcaster (local_block_broadcaster_config const & config_a, nano::node & node_a, nano::block_processor & block_processor_a, nano::network & network_a, nano::confirming_set & confirming_set_a, nano::stats & stats_a, nano::logger & logger_a, bool enabled_a) :
 	config{ config_a },
@@ -54,10 +56,13 @@ nano::local_block_broadcaster::local_block_broadcaster (local_block_broadcaster_
 		}
 	});
 
-	block_processor.rolled_back.add ([this] (auto const & block) {
+	block_processor.rolled_back.add ([this] (auto const & blocks, auto const & rollback_root) {
 		nano::lock_guard<nano::mutex> guard{ mutex };
-		auto erased = local_blocks.get<tag_hash> ().erase (block->hash ());
-		stats.add (nano::stat::type::local_block_broadcaster, nano::stat::detail::rollback, erased);
+		for (auto const & block : blocks)
+		{
+			auto erased = local_blocks.get<tag_hash> ().erase (block->hash ());
+			stats.add (nano::stat::type::local_block_broadcaster, nano::stat::detail::rollback, erased);
+		}
 	});
 
 	confirming_set.cemented_observers.add ([this] (auto const & block) {
@@ -96,6 +101,12 @@ void nano::local_block_broadcaster::stop ()
 	}
 	condition.notify_all ();
 	nano::join_or_pass (thread);
+}
+
+bool nano::local_block_broadcaster::contains (nano::block_hash const & hash) const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return local_blocks.get<tag_hash> ().contains (hash);
 }
 
 size_t nano::local_block_broadcaster::size () const

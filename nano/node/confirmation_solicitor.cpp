@@ -44,12 +44,13 @@ bool nano::confirmation_solicitor::broadcast (nano::election const & election_a)
 			bool const different (exists && existing->second.hash != hash);
 			if (!exists || different)
 			{
-				i->channel->send (winner);
+				i->channel->send (winner, nano::transport::traffic_type::block_broadcast);
 				count += different ? 0 : 1;
 			}
 		}
 		// Random flood for block propagation
-		network.flood_message (winner, nano::transport::buffer_drop_policy::limiter, 0.5f);
+		// TODO: Avoid broadcasting to the same peers that were already broadcasted to
+		network.flood_message (winner, nano::transport::traffic_type::block_broadcast, 0.5f);
 		error = false;
 	}
 	return error;
@@ -71,9 +72,9 @@ bool nano::confirmation_solicitor::add (nano::election const & election_a)
 		bool const different (exists && existing->second.hash != hash);
 		if (!exists || !is_final || different)
 		{
-			auto & request_queue (requests[rep.channel]);
-			if (!rep.channel->max ())
+			if (!rep.channel->max (nano::transport::traffic_type::confirmation_requests))
 			{
+				auto & request_queue (requests[rep.channel]);
 				request_queue.emplace_back (election_a.status.winner->hash (), election_a.status.winner->root ());
 				count += different ? 0 : 1;
 				error = false;
@@ -101,14 +102,14 @@ void nano::confirmation_solicitor::flush ()
 			if (roots_hashes_l.size () == nano::network::confirm_req_hashes_max)
 			{
 				nano::confirm_req req{ config.network_params.network, roots_hashes_l };
-				channel->send (req);
+				channel->send (req, nano::transport::traffic_type::confirmation_requests);
 				roots_hashes_l.clear ();
 			}
 		}
 		if (!roots_hashes_l.empty ())
 		{
 			nano::confirm_req req{ config.network_params.network, roots_hashes_l };
-			channel->send (req);
+			channel->send (req, nano::transport::traffic_type::confirmation_requests);
 		}
 	}
 	prepared = false;

@@ -7,6 +7,8 @@
 
 #include <boost/range/adaptor/filtered.hpp>
 
+#include <fmt/format.h>
+
 std::string nano::mapping_protocol::to_string ()
 {
 	std::stringstream ss;
@@ -179,7 +181,7 @@ void nano::port_mapping::refresh_mapping ()
 	// We don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
 	for (auto & protocol : protocols | boost::adaptors::filtered ([] (auto const & p) { return p.enabled; }))
 	{
-		auto upnp_description = std::string ("Nano Node (") + node.network_params.network.get_current_network_as_string () + ")";
+		auto upnp_description = fmt::format ("Nano Node ({})", node.network_params.network.get_current_network_as_string ());
 		std::string address_str = address.to_string ();
 		std::string lease_duration_str = std::to_string (node.network_params.portmapping.lease_duration.count ());
 

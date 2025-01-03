@@ -66,7 +66,9 @@ nano::store::write_guard nano::store::write_queue::wait (writer writer)
 bool nano::store::write_queue::contains (writer writer) const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-	return std::find (queue.cbegin (), queue.cend (), writer) != queue.cend ();
+	return std::any_of (queue.cbegin (), queue.cend (), [writer] (auto const & item) {
+		return item.first == writer;
+	});
 }
 
 void nano::store::write_queue::pop ()
@@ -83,17 +85,19 @@ void nano::store::write_queue::acquire (writer writer)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
-	// There should be no duplicates in the queue
-	debug_assert (std::none_of (queue.cbegin (), queue.cend (), [writer] (auto const & item) { return item == writer; }));
+	// There should be no duplicates in the queue (exception is testing)
+	debug_assert (std::none_of (queue.cbegin (), queue.cend (), [writer] (auto const & item) {
+		return item.first == writer;
+	})
+	|| writer == writer::testing);
+
+	auto const id = next++;
 
 	// Add writer to the end of the queue if it's not already waiting
-	auto exists = std::find (queue.cbegin (), queue.cend (), writer) != queue.cend ();
-	if (!exists)
-	{
-		queue.push_back (writer);
-	}
+	queue.push_back ({ writer, id });
 
-	condition.wait (lock, [&] () { return queue.front () == writer; });
+	// Wait until we are at the front of the queue
+	condition.wait (lock, [&] () { return queue.front ().second == id; });
 }
 
 void nano::store::write_queue::release (writer writer)
@@ -101,7 +105,7 @@ void nano::store::write_queue::release (writer writer)
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		release_assert (!queue.empty ());
-		release_assert (queue.front () == writer);
+		release_assert (queue.front ().first == writer);
 		queue.pop_front ();
 	}
 	condition.notify_all ();

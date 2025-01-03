@@ -2,12 +2,12 @@
 
 #include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
+#include <nano/lib/fwd.hpp>
 
 #include <string>
 
 namespace nano
 {
-class tomlconfig;
 namespace ipc
 {
 	/** Base class for transport configurations */
@@ -46,11 +46,7 @@ namespace ipc
 	class ipc_config_tcp_socket : public ipc_config_transport
 	{
 	public:
-		ipc_config_tcp_socket (nano::network_constants & network_constants) :
-			network_constants{ network_constants },
-			port{ network_constants.default_ipc_port }
-		{
-		}
+		ipc_config_tcp_socket (nano::network_constants & network_constants);
 		nano::network_constants & network_constants;
 		/** Listening port */
 		uint16_t port;

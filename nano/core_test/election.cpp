@@ -1,6 +1,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/online_reps.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/vote_router.hpp>
@@ -36,7 +37,7 @@ TEST (election, quorum_minimum_flip_success)
 
 	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 
 	auto & node1 = *system.add_node (node_config);
 	auto const latest_hash = nano::dev::genesis->hash ();
@@ -86,7 +87,7 @@ TEST (election, quorum_minimum_flip_fail)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	auto & node = *system.add_node (node_config);
 	nano::state_block_builder builder;
 
@@ -137,7 +138,7 @@ TEST (election, quorum_minimum_confirm_success)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key1;
 	nano::block_builder builder;
@@ -167,7 +168,7 @@ TEST (election, quorum_minimum_confirm_fail)
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
 	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	auto & node1 = *system.add_node (node_config);
 
 	nano::block_builder builder;
@@ -205,7 +206,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	nano::test::system system;
 
 	nano::node_config node_config = system.default_config ();
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 
 	auto & node1 = *system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -259,11 +260,9 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	node1.rep_crawler.force_process (vote2, channel);
 
 	ASSERT_FALSE (election->confirmed ());
-	{
-		nano::lock_guard<nano::mutex> guard (node1.online_reps.mutex);
-		// Modify online_m for online_reps to more than is available, this checks that voting below updates it to current online reps.
-		node1.online_reps.online_m = node_config.online_weight_minimum.number () + 20;
-	}
+
+	// Modify online_m for online_reps to more than is available, this checks that voting below updates it to current online reps.
+	node1.online_reps.force_online_weight (node_config.online_weight_minimum.number () + 20);
 	ASSERT_EQ (nano::vote_code::vote, node1.vote_router.vote (vote2).at (send1->hash ()));
 	ASSERT_TIMELY (5s, election->confirmed ());
 	ASSERT_NE (nullptr, node1.block (send1->hash ()));

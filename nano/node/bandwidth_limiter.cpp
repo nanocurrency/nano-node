@@ -17,16 +17,11 @@ nano::rate_limiter & nano::bandwidth_limiter::select_limiter (nano::transport::t
 {
 	switch (type)
 	{
-		case nano::transport::traffic_type::bootstrap:
+		case nano::transport::traffic_type::bootstrap_server:
 			return limiter_bootstrap;
-		case nano::transport::traffic_type::generic:
-			return limiter_generic;
-			break;
 		default:
-			debug_assert (false, "missing traffic type");
-			break;
+			return limiter_generic;
 	}
-	return limiter_generic;
 }
 
 bool nano::bandwidth_limiter::should_pass (std::size_t buffer_size, nano::transport::traffic_type type)
@@ -39,6 +34,14 @@ void nano::bandwidth_limiter::reset (std::size_t limit, double burst_ratio, nano
 {
 	auto & limiter = select_limiter (type);
 	limiter.reset (limit, burst_ratio);
+}
+
+nano::container_info nano::bandwidth_limiter::container_info () const
+{
+	nano::container_info info;
+	info.put ("generic", limiter_generic.size ());
+	info.put ("bootstrap", limiter_bootstrap.size ());
+	return info;
 }
 
 /*

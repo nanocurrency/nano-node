@@ -1,5 +1,7 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
+
 #include <algorithm>
 #include <chrono>
 #include <mutex>
@@ -36,11 +38,12 @@ public:
 	 */
 	bool try_consume (unsigned tokens_required = 1);
 
-	/** Returns the largest burst observed */
-	std::size_t largest_burst () const;
-
 	/** Update the max_token_count and/or refill_rate_a parameters */
 	void reset (std::size_t max_token_count, std::size_t refill_rate);
+
+	/** Returns the largest burst observed */
+	std::size_t largest_burst () const;
+	std::size_t size () const;
 
 private:
 	void refill ();
@@ -64,10 +67,12 @@ class rate_limiter final
 {
 public:
 	// initialize with limit 0 = unbounded
-	rate_limiter (std::size_t limit, double burst_ratio);
+	rate_limiter (std::size_t limit, double burst_ratio = 1.0);
 
 	bool should_pass (std::size_t buffer_size);
-	void reset (std::size_t limit, double burst_ratio);
+	void reset (std::size_t limit, double burst_ratio = 1.0);
+
+	std::size_t size () const;
 
 private:
 	nano::rate::token_bucket bucket;

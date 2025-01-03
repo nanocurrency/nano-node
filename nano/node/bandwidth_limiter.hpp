@@ -37,6 +37,8 @@ public:
 	 */
 	void reset (std::size_t limit, double burst_ratio, nano::transport::traffic_type type = nano::transport::traffic_type::generic);
 
+	nano::container_info container_info () const;
+
 private:
 	/**
 	 * Returns reference to limiter corresponding to the limit type

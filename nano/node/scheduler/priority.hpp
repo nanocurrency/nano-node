@@ -6,6 +6,7 @@
 
 #include <condition_variable>
 #include <deque>
+#include <map>
 #include <memory>
 #include <string>
 #include <thread>
@@ -20,13 +21,13 @@ public:
 	// TODO: Serialization & deserialization
 
 public:
-	bool enabled{ true };
+	bool enable{ true };
 };
 
 class priority final
 {
 public:
-	priority (nano::node_config &, nano::node &, nano::ledger &, nano::block_processor &, nano::active_elections &, nano::confirming_set &, nano::stats &, nano::logger &);
+	priority (nano::node_config &, nano::node &, nano::ledger &, nano::bucketing &, nano::block_processor &, nano::active_elections &, nano::confirming_set &, nano::stats &, nano::logger &);
 	~priority ();
 
 	void start ();
@@ -40,6 +41,7 @@ public:
 	bool activate (nano::secure::transaction const &, nano::account const &, nano::account_info const &, nano::confirmation_height_info const &);
 	bool activate_successors (nano::secure::transaction const &, nano::block const &);
 
+	bool contains (nano::block_hash const &) const;
 	void notify ();
 	std::size_t size () const;
 	bool empty () const;
@@ -50,6 +52,7 @@ private: // Dependencies
 	priority_config const & config;
 	nano::node & node;
 	nano::ledger & ledger;
+	nano::bucketing & bucketing;
 	nano::block_processor & block_processor;
 	nano::active_elections & active;
 	nano::confirming_set & confirming_set;
@@ -60,10 +63,9 @@ private:
 	void run ();
 	void run_cleanup ();
 	bool predicate () const;
-	bucket & find_bucket (nano::uint128_t priority);
 
 private:
-	std::vector<std::unique_ptr<bucket>> buckets;
+	std::map<nano::bucket_index, std::unique_ptr<scheduler::bucket>> buckets;
 
 	bool stopped{ false };
 	nano::condition_variable condition;

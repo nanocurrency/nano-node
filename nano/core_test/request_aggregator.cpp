@@ -5,6 +5,7 @@
 #include <nano/node/election.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/request_aggregator.hpp>
+#include <nano/node/transport/fake.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_confirmed.hpp>
@@ -20,7 +21,7 @@ TEST (request_aggregator, one)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	auto & node (*system.add_node (node_config));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::block_builder builder;
@@ -37,8 +38,7 @@ TEST (request_aggregator, one)
 
 	std::vector<std::pair<nano::block_hash, nano::root>> request{ { send1->hash (), send1->root () } };
 
-	auto client = std::make_shared<nano::transport::tcp_socket> (node);
-	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::tcp_channel> (node, client);
+	auto dummy_channel = nano::test::fake_channel (node);
 
 	// Not yet in the ledger
 	node.aggregator.request (request, dummy_channel);
@@ -70,7 +70,7 @@ TEST (request_aggregator, one_update)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	auto & node (*system.add_node (node_config));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key1;
@@ -136,7 +136,7 @@ TEST (request_aggregator, two)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	auto & node (*system.add_node (node_config));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key1;
@@ -178,8 +178,9 @@ TEST (request_aggregator, two)
 	std::vector<std::pair<nano::block_hash, nano::root>> request;
 	request.emplace_back (send2->hash (), send2->root ());
 	request.emplace_back (receive1->hash (), receive1->root ());
-	auto client = std::make_shared<nano::transport::tcp_socket> (node);
-	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::tcp_channel> (node, client);
+
+	auto dummy_channel = nano::test::fake_channel (node);
+
 	// Process both blocks
 	node.aggregator.request (request, dummy_channel);
 	// One vote should be generated for both blocks
@@ -207,7 +208,7 @@ TEST (request_aggregator, two_endpoints)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	nano::node_flags node_flags;
 	node_flags.disable_rep_crawler = true;
 	auto & node1 (*system.add_node (node_config, node_flags));
@@ -265,7 +266,7 @@ TEST (request_aggregator, split)
 	size_t max_vbh = nano::network::confirm_ack_hashes_max;
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	auto & node (*system.add_node (node_config));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	std::vector<std::pair<nano::block_hash, nano::root>> request;
@@ -297,8 +298,9 @@ TEST (request_aggregator, split)
 	}
 	ASSERT_TIMELY_EQ (5s, max_vbh + 2, node.ledger.cemented_count ());
 	ASSERT_EQ (max_vbh + 1, request.size ());
-	auto client = std::make_shared<nano::transport::tcp_socket> (node);
-	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::tcp_channel> (node, client);
+
+	auto dummy_channel = nano::test::fake_channel (node);
+
 	node.aggregator.request (request, dummy_channel);
 	// In the ledger but no vote generated yet
 	ASSERT_TIMELY_EQ (3s, 2, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes));
@@ -318,7 +320,7 @@ TEST (request_aggregator, channel_max_queue)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	node_config.request_aggregator.max_queue = 0;
 	auto & node (*system.add_node (node_config));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
@@ -336,8 +338,9 @@ TEST (request_aggregator, channel_max_queue)
 	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send1));
 	std::vector<std::pair<nano::block_hash, nano::root>> request;
 	request.emplace_back (send1->hash (), send1->root ());
-	auto client = std::make_shared<nano::transport::tcp_socket> (node);
-	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::tcp_channel> (node, client);
+
+	auto dummy_channel = nano::test::fake_channel (node);
+
 	node.aggregator.request (request, dummy_channel);
 	node.aggregator.request (request, dummy_channel);
 	ASSERT_LT (0, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_dropped));
@@ -348,7 +351,7 @@ TEST (request_aggregator, DISABLED_unique)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.backlog_population.enable = false;
+	node_config.backlog_scan.enable = false;
 	auto & node (*system.add_node (node_config));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::block_builder builder;
@@ -365,8 +368,9 @@ TEST (request_aggregator, DISABLED_unique)
 	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send1));
 	std::vector<std::pair<nano::block_hash, nano::root>> request;
 	request.emplace_back (send1->hash (), send1->root ());
-	auto client = std::make_shared<nano::transport::tcp_socket> (node);
-	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::tcp_channel> (node, client);
+
+	auto dummy_channel = nano::test::fake_channel (node);
+
 	node.aggregator.request (request, dummy_channel);
 	node.aggregator.request (request, dummy_channel);
 	node.aggregator.request (request, dummy_channel);
@@ -409,8 +413,8 @@ TEST (request_aggregator, cannot_vote)
 	// Incorrect hash, correct root
 	request.emplace_back (1, send2->root ());
 
-	auto client = std::make_shared<nano::transport::tcp_socket> (node);
-	std::shared_ptr<nano::transport::channel> dummy_channel = std::make_shared<nano::transport::tcp_channel> (node, client);
+	auto dummy_channel = nano::test::fake_channel (node);
+
 	node.aggregator.request (request, dummy_channel);
 	ASSERT_TIMELY (3s, node.aggregator.empty ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_accepted));

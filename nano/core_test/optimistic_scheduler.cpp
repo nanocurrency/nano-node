@@ -85,7 +85,7 @@ TEST (optimistic_scheduler, under_gap_threshold)
 {
 	nano::test::system system{};
 	nano::node_config config = system.default_config ();
-	config.backlog_population.enable = false;
+	config.backlog_scan.enable = false;
 	auto & node = *system.add_node (config);
 
 	// Must be smaller than optimistic scheduler `gap_threshold`
@@ -98,7 +98,7 @@ TEST (optimistic_scheduler, under_gap_threshold)
 	nano::test::confirm (node.ledger, blocks.at (55));
 
 	// Manually trigger backlog scan
-	node.backlog.trigger ();
+	node.backlog_scan.trigger ();
 
 	// Ensure unconfirmed account head block gets activated
 	auto const & block = blocks.back ();

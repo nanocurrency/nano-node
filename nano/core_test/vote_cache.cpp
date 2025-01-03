@@ -57,7 +57,9 @@ TEST (vote_cache, insert_one_hash)
 	auto rep1 = create_rep (7);
 	auto hash1 = nano::test::random_hash ();
 	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 1024 * 1024);
+	ASSERT_FALSE (vote_cache.contains (hash1));
 	vote_cache.insert (vote1);
+	ASSERT_TRUE (vote_cache.contains (hash1));
 	ASSERT_EQ (1, vote_cache.size ());
 
 	auto peek1 = vote_cache.find (hash1);
@@ -265,9 +267,14 @@ TEST (vote_cache, erase)
 	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 1024 * 1024);
 	auto vote2 = nano::test::make_vote (rep2, { hash2 }, 1024 * 1024);
 	auto vote3 = nano::test::make_vote (rep3, { hash3 }, 1024 * 1024);
+	ASSERT_TRUE (vote_cache.empty ());
+	ASSERT_FALSE (vote_cache.contains (hash1));
 	vote_cache.insert (vote1);
 	vote_cache.insert (vote2);
 	vote_cache.insert (vote3);
+	ASSERT_TRUE (vote_cache.contains (hash1));
+	ASSERT_TRUE (vote_cache.contains (hash2));
+	ASSERT_TRUE (vote_cache.contains (hash3));
 	ASSERT_EQ (3, vote_cache.size ());
 	ASSERT_FALSE (vote_cache.empty ());
 	ASSERT_FALSE (vote_cache.find (hash1).empty ());
@@ -275,11 +282,16 @@ TEST (vote_cache, erase)
 	ASSERT_FALSE (vote_cache.find (hash3).empty ());
 	vote_cache.erase (hash2);
 	ASSERT_EQ (2, vote_cache.size ());
+	ASSERT_FALSE (vote_cache.contains (hash2));
 	ASSERT_FALSE (vote_cache.find (hash1).empty ());
 	ASSERT_TRUE (vote_cache.find (hash2).empty ());
 	ASSERT_FALSE (vote_cache.find (hash3).empty ());
 	vote_cache.erase (hash1);
 	vote_cache.erase (hash3);
+	ASSERT_EQ (0, vote_cache.size ());
+	ASSERT_FALSE (vote_cache.contains (hash1));
+	ASSERT_FALSE (vote_cache.contains (hash2));
+	ASSERT_FALSE (vote_cache.contains (hash3));
 	ASSERT_TRUE (vote_cache.find (hash1).empty ());
 	ASSERT_TRUE (vote_cache.find (hash2).empty ());
 	ASSERT_TRUE (vote_cache.find (hash3).empty ());

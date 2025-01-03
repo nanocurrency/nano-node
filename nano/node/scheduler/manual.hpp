@@ -37,6 +37,8 @@ public:
 	// Call action with confirmed block, may be different than what we started with
 	void push (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none);
 
+	bool contains (nano::block_hash const &) const;
+
 	nano::container_info container_info () const;
 };
 }

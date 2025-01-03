@@ -1,4 +1,4 @@
-#include <nano/node/common.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/transport.hpp>
@@ -14,33 +14,12 @@ nano::transport::channel::channel (nano::node & node_a) :
 	set_network_version (node_a.network_params.network.protocol_version);
 }
 
-void nano::transport::channel::send (nano::message & message_a, std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a, nano::transport::buffer_drop_policy drop_policy_a, nano::transport::traffic_type traffic_type)
+bool nano::transport::channel::send (nano::message const & message, nano::transport::traffic_type traffic_type, callback_t callback)
 {
-	auto buffer = message_a.to_shared_const_buffer ();
-
-	bool is_droppable_by_limiter = (drop_policy_a == nano::transport::buffer_drop_policy::limiter);
-	bool should_pass = node.outbound_limiter.should_pass (buffer.size (), traffic_type);
-	bool pass = !is_droppable_by_limiter || should_pass;
-
-	node.stats.inc (pass ? nano::stat::type::message : nano::stat::type::drop, to_stat_detail (message_a.type ()), nano::stat::dir::out, /* aggregate all */ true);
-	node.logger.trace (nano::log::type::channel_sent, to_log_detail (message_a.type ()),
-	nano::log::arg{ "message", message_a },
-	nano::log::arg{ "channel", *this },
-	nano::log::arg{ "dropped", !pass });
-
-	if (pass)
-	{
-		send_buffer (buffer, callback_a, drop_policy_a, traffic_type);
-	}
-	else
-	{
-		if (callback_a)
-		{
-			node.background ([callback_a] () {
-				callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
-			});
-		}
-	}
+	auto buffer = message.to_shared_const_buffer ();
+	bool sent = send_buffer (buffer, traffic_type, std::move (callback));
+	node.stats.inc (sent ? nano::stat::type::message : nano::stat::type::drop, to_stat_detail (message.type ()), nano::stat::dir::out, /* aggregate all */ true);
+	return sent;
 }
 
 void nano::transport::channel::set_peering_endpoint (nano::endpoint endpoint)

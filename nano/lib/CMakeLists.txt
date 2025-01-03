@@ -21,6 +21,8 @@ add_library(
   ${platform_sources}
   asio.hpp
   asio.cpp
+  assert.hpp
+  assert.cpp
   block_sideband.hpp
   block_sideband.cpp
   block_type.hpp
@@ -33,9 +35,12 @@ add_library(
   char_traits.hpp
   cli.hpp
   cli.cpp
+  common.hpp
   config.hpp
   config.cpp
   configbase.hpp
+  constants.hpp
+  constants.cpp
   container_info.hpp
   container_info.cpp
   diagnosticsconfig.hpp
@@ -44,8 +49,13 @@ add_library(
   env.cpp
   epoch.hpp
   epoch.cpp
+  epochs.cpp
+  epochs.hpp
   errors.hpp
   errors.cpp
+  files.hpp
+  files.cpp
+  fwd.hpp
   id_dispenser.hpp
   interval.hpp
   ipc.hpp
@@ -69,6 +79,7 @@ add_library(
   network_filter.cpp
   numbers.hpp
   numbers.cpp
+  numbers_templ.hpp
   object_stream.hpp
   object_stream.cpp
   object_stream_adapters.hpp
@@ -110,7 +121,8 @@ add_library(
   walletconfig.hpp
   walletconfig.cpp
   work.hpp
-  work.cpp)
+  work.cpp
+  work_version.hpp)
 
 include_directories(${CMAKE_SOURCE_DIR}/submodules)
 include_directories(

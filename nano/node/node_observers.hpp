@@ -2,20 +2,9 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/node/fwd.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/node/vote_with_weight_info.hpp>
-
-namespace nano
-{
-enum class vote_source;
-class election_status;
-class telemetry;
-enum class vote_code;
-}
-namespace nano::transport
-{
-class channel;
-}
 
 namespace nano
 {
@@ -29,11 +18,11 @@ public:
 	nano::observer_set<nano::block_hash const &> active_started;
 	nano::observer_set<nano::block_hash const &> active_stopped;
 	nano::observer_set<nano::account const &, bool> account_balance;
-	nano::observer_set<std::shared_ptr<nano::transport::channel>> endpoint;
 	nano::observer_set<> disconnect;
 	nano::observer_set<nano::root const &> work_cancel;
 	nano::observer_set<nano::telemetry_data const &, std::shared_ptr<nano::transport::channel> const &> telemetry;
-	nano::observer_set<nano::transport::tcp_socket &> socket_connected;
+	nano::observer_set<std::shared_ptr<nano::transport::tcp_socket>> socket_connected;
+	nano::observer_set<std::shared_ptr<nano::transport::channel>> channel_connected;
 
 	nano::container_info container_info () const;
 };

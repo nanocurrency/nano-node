@@ -12,11 +12,13 @@ enum class name
 	unknown,
 	io,
 	io_daemon,
+	io_ipc,
 	work,
 	message_processing,
 	vote_processing,
 	vote_cache_processing,
 	block_processing,
+	block_processing_notifications,
 	request_loop,
 	wallet_actions,
 	bootstrap_initiator,
@@ -28,7 +30,6 @@ enum class name
 	confirmation_height,
 	confirmation_height_notifications,
 	worker,
-	bootstrap_worker,
 	wallet_worker,
 	election_worker,
 	request_aggregator,
@@ -36,13 +37,19 @@ enum class name
 	epoch_upgrader,
 	db_parallel_traversal,
 	unchecked,
-	backlog_population,
+	backlog_scan,
+	bounded_backlog,
+	bounded_backlog_scan,
+	bounded_backlog_notifications,
 	vote_generator_queue,
-	bootstrap_server,
 	telemetry,
-	ascending_bootstrap,
-	bootstrap_server_requests,
-	bootstrap_server_responses,
+	bootstrap,
+	bootstrap_database_scan,
+	bootstrap_dependency_walker,
+	bootstrap_frontier_scan,
+	bootstrap_cleanup,
+	bootstrap_worker,
+	bootstrap_server,
 	scheduler_hinted,
 	scheduler_manual,
 	scheduler_optimistic,
@@ -59,6 +66,7 @@ enum class name
 	port_mapping,
 	stats,
 	vote_router,
+	online_reps,
 	monitor,
 };
 
@@ -84,4 +92,9 @@ std::string get_string ();
  * Internal only, should not be called directly
  */
 void set_os_name (std::string const &);
+
+/*
+ * Check if the current thread is a network IO thread
+ */
+bool is_network_io ();
 }

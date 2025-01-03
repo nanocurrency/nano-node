@@ -30,7 +30,6 @@ public:
 	virtual std::optional<nano::block_hash> successor (transaction const & tx, nano::block_hash const &) const = 0;
 	virtual void successor_clear (write_transaction const & tx, nano::block_hash const &) = 0;
 	virtual std::shared_ptr<nano::block> get (transaction const & tx, nano::block_hash const &) const = 0;
-	virtual std::shared_ptr<nano::block> random (transaction const & tx) = 0;
 	virtual void del (write_transaction const & tx, nano::block_hash const &) = 0;
 	virtual bool exists (transaction const & tx, nano::block_hash const &) = 0;
 	virtual uint64_t count (transaction const & tx) = 0;

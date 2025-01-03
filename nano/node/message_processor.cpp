@@ -1,8 +1,9 @@
 #include <nano/lib/thread_roles.hpp>
-#include <nano/node/bootstrap_ascending/service.hpp>
+#include <nano/node/bootstrap/bootstrap_service.hpp>
 #include <nano/node/message_processor.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/telemetry.hpp>
+#include <nano/secure/vote.hpp>
 
 nano::message_processor::message_processor (message_processor_config const & config_a, nano::node & node_a) :
 	config{ config_a },
@@ -170,16 +171,13 @@ public:
 
 	void keepalive (nano::keepalive const & message) override
 	{
-		// Check for special node port data
-		auto peer0 (message.peers[0]);
-		if (peer0.address () == boost::asio::ip::address_v6{} && peer0.port () != 0)
+		// Check for self reported peering port
+		auto self_report = message.peers[0];
+		if (self_report.address () == boost::asio::ip::address_v6{} && self_report.port () != 0)
 		{
-			// TODO: Remove this as we do not need to establish a second connection to the same peer
-			nano::endpoint new_endpoint (channel->get_remote_endpoint ().address (), peer0.port ());
-			node.network.merge_peer (new_endpoint);
-
 			// Remember this for future forwarding to other peers
-			channel->set_peering_endpoint (new_endpoint);
+			nano::endpoint peering_endpoint{ channel->get_remote_endpoint ().address (), self_report.port () };
+			channel->set_peering_endpoint (peering_endpoint);
 		}
 	}
 
@@ -267,7 +265,7 @@ public:
 
 	void asc_pull_ack (nano::asc_pull_ack const & message) override
 	{
-		node.ascendboot.process (message, channel);
+		node.bootstrap.process (message, channel);
 	}
 
 private:

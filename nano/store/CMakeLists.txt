@@ -9,6 +9,7 @@ add_library(
   db_val_impl.hpp
   iterator.hpp
   final_vote.hpp
+  fwd.hpp
   lmdb/account.hpp
   lmdb/block.hpp
   lmdb/confirmation_height.hpp

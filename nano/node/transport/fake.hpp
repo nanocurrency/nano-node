@@ -19,12 +19,6 @@ namespace transport
 
 			std::string to_string () const override;
 
-			void send_buffer (
-			nano::shared_const_buffer const &,
-			std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr,
-			nano::transport::buffer_drop_policy = nano::transport::buffer_drop_policy::limiter,
-			nano::transport::traffic_type = nano::transport::traffic_type::generic) override;
-
 			void set_endpoint (nano::endpoint const & endpoint_a)
 			{
 				endpoint = endpoint_a;
@@ -54,6 +48,9 @@ namespace transport
 			{
 				return !closed;
 			}
+
+		protected:
+			bool send_buffer (nano::shared_const_buffer const &, nano::transport::traffic_type, nano::transport::channel::callback_t) override;
 
 		private:
 			nano::endpoint endpoint;

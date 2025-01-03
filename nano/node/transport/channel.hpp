@@ -4,7 +4,7 @@
 #include <nano/lib/object_stream.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/bandwidth_limiter.hpp>
-#include <nano/node/common.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/messages.hpp>
 #include <nano/node/transport/tcp_socket.hpp>
 
@@ -23,20 +23,14 @@ enum class transport_type : uint8_t
 class channel
 {
 public:
+	using callback_t = std::function<void (boost::system::error_code const &, std::size_t)>;
+
+public:
 	explicit channel (nano::node &);
 	virtual ~channel () = default;
 
-	void send (nano::message & message_a,
-	std::function<void (boost::system::error_code const &, std::size_t)> const & callback_a = nullptr,
-	nano::transport::buffer_drop_policy policy_a = nano::transport::buffer_drop_policy::limiter,
-	nano::transport::traffic_type = nano::transport::traffic_type::generic);
-
-	// TODO: investigate clang-tidy warning about default parameters on virtual/override functions
-	virtual void send_buffer (nano::shared_const_buffer const &,
-	std::function<void (boost::system::error_code const &, std::size_t)> const & = nullptr,
-	nano::transport::buffer_drop_policy = nano::transport::buffer_drop_policy::limiter,
-	nano::transport::traffic_type = nano::transport::traffic_type::generic)
-	= 0;
+	/// @returns true if the message was sent (or queued to be sent), false if it was immediately dropped
+	bool send (nano::message const &, nano::transport::traffic_type, callback_t = nullptr);
 
 	virtual void close () = 0;
 
@@ -46,7 +40,7 @@ public:
 	virtual std::string to_string () const = 0;
 	virtual nano::transport::transport_type get_type () const = 0;
 
-	virtual bool max (nano::transport::traffic_type = nano::transport::traffic_type::generic)
+	virtual bool max (nano::transport::traffic_type)
 	{
 		return false;
 	}
@@ -124,6 +118,9 @@ public:
 	void set_peering_endpoint (nano::endpoint endpoint);
 
 	std::shared_ptr<nano::node> owner () const;
+
+protected:
+	virtual bool send_buffer (nano::shared_const_buffer const &, nano::transport::traffic_type, callback_t) = 0;
 
 protected:
 	nano::node & node;

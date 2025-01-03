@@ -1,3 +1,4 @@
+#include <nano/lib/files.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_wrapper.hpp>

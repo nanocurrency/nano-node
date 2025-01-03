@@ -1,5 +1,3 @@
-#include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
-#include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/messages.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/message_deserializer.hpp>
@@ -516,79 +514,26 @@ nano::transport::tcp_server::bootstrap_message_visitor::bootstrap_message_visito
 
 void nano::transport::tcp_server::bootstrap_message_visitor::bulk_pull (const nano::bulk_pull & message)
 {
-	auto node = server->node.lock ();
-	if (!node)
-	{
-		return;
-	}
-	if (node->flags.disable_bootstrap_bulk_pull_server)
-	{
-		return;
-	}
-
-	node->bootstrap_workers.post ([server = server, message = message] () {
-		// TODO: Add completion callback to bulk pull server
-		// TODO: There should be no need to re-copy message as unique pointer, refactor those bulk/frontier pull/push servers
-		auto bulk_pull_server = std::make_shared<nano::bulk_pull_server> (server, std::make_unique<nano::bulk_pull> (message));
-		bulk_pull_server->send_next ();
-	});
-
-	processed = true;
+	// Ignored since V28
+	// TODO: Abort connection?
 }
 
 void nano::transport::tcp_server::bootstrap_message_visitor::bulk_pull_account (const nano::bulk_pull_account & message)
 {
-	auto node = server->node.lock ();
-	if (!node)
-	{
-		return;
-	}
-	if (node->flags.disable_bootstrap_bulk_pull_server)
-	{
-		return;
-	}
-
-	node->bootstrap_workers.post ([server = server, message = message] () {
-		// TODO: Add completion callback to bulk pull server
-		// TODO: There should be no need to re-copy message as unique pointer, refactor those bulk/frontier pull/push servers
-		auto bulk_pull_account_server = std::make_shared<nano::bulk_pull_account_server> (server, std::make_unique<nano::bulk_pull_account> (message));
-		bulk_pull_account_server->send_frontier ();
-	});
-
-	processed = true;
+	// Ignored since V28
+	// TODO: Abort connection?
 }
 
 void nano::transport::tcp_server::bootstrap_message_visitor::bulk_push (const nano::bulk_push &)
 {
-	auto node = server->node.lock ();
-	if (!node)
-	{
-		return;
-	}
-	node->bootstrap_workers.post ([server = server] () {
-		// TODO: Add completion callback to bulk pull server
-		auto bulk_push_server = std::make_shared<nano::bulk_push_server> (server);
-		bulk_push_server->throttled_receive ();
-	});
-
-	processed = true;
+	// Ignored since V28
+	// TODO: Abort connection?
 }
 
 void nano::transport::tcp_server::bootstrap_message_visitor::frontier_req (const nano::frontier_req & message)
 {
-	auto node = server->node.lock ();
-	if (!node)
-	{
-		return;
-	}
-
-	node->bootstrap_workers.post ([server = server, message = message] () {
-		// TODO: There should be no need to re-copy message as unique pointer, refactor those bulk/frontier pull/push servers
-		auto response = std::make_shared<nano::frontier_req_server> (server, std::make_unique<nano::frontier_req> (message));
-		response->send_next ();
-	});
-
-	processed = true;
+	// Ignored since V28
+	// TODO: Abort connection?
 }
 
 /*

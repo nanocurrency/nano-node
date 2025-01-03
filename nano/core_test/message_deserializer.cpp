@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/node/transport/message_deserializer.hpp>
+#include <nano/secure/vote.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 

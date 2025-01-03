@@ -10,6 +10,7 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
+#include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/optional.hpp>
 
@@ -63,7 +64,7 @@ public:
 	bool process (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &);
 
 	/** Attempt to determine if the peer manages one or more representative accounts */
-	void query (std::vector<std::shared_ptr<nano::transport::channel>> const & target_channels);
+	void query (std::deque<std::shared_ptr<nano::transport::channel>> const & target_channels);
 
 	/** Attempt to determine if the peer manages one or more representative accounts */
 	void query (std::shared_ptr<nano::transport::channel> const & target_channel);
@@ -74,12 +75,10 @@ public:
 	/** Get total available weight from representatives */
 	nano::uint128_t total_weight () const;
 
-	/** Request a list of the top \p count known representatives in descending order of weight, with at least \p weight_a voting weight, and optionally with a minimum version \p minimum_protocol_version
-	 */
+	/** Request a list of the top \p count known representatives in descending order of weight, with at least \p weight_a voting weight, and optionally with a minimum version \p minimum_protocol_version */
 	std::vector<representative> representatives (std::size_t count = std::numeric_limits<std::size_t>::max (), nano::uint128_t minimum_weight = 0, std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version = {}) const;
 
-	/** Request a list of the top \p count known principal representatives in descending order of weight, optionally with a minimum version \p minimum_protocol_version
-	 */
+	/** Request a list of the top \p count known principal representatives in descending order of weight, optionally with a minimum version \p minimum_protocol_version */
 	std::vector<representative> principal_representatives (std::size_t count = std::numeric_limits<std::size_t>::max (), std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version = {}) const;
 
 	/** Total number of representatives */
@@ -105,8 +104,9 @@ private:
 	using hash_root_t = std::pair<nano::block_hash, nano::root>;
 
 	/** Returns a list of endpoints to crawl. The total weight is passed in to avoid computing it twice. */
-	std::vector<std::shared_ptr<nano::transport::channel>> prepare_crawl_targets (bool sufficient_weight) const;
-	std::optional<hash_root_t> prepare_query_target ();
+
+	std::deque<std::shared_ptr<nano::transport::channel>> prepare_crawl_targets (bool sufficient_weight) const;
+	std::optional<hash_root_t> prepare_query_target () const;
 	bool track_rep_request (hash_root_t hash_root, std::shared_ptr<nano::transport::channel> const & channel);
 
 private:
@@ -172,8 +172,12 @@ private:
 
 private:
 	static size_t constexpr max_responses{ 1024 * 4 };
+
 	using response_t = std::pair<std::shared_ptr<nano::transport::channel>, std::shared_ptr<nano::vote>>;
 	boost::circular_buffer<response_t> responses{ max_responses };
+
+	// Freshly established connections that should be queried asap
+	std::deque<std::shared_ptr<nano::transport::channel>> prioritized;
 
 	std::chrono::steady_clock::time_point last_query{};
 

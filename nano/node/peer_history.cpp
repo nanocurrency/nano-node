@@ -104,19 +104,27 @@ void nano::peer_history::run_one ()
 	auto const now = std::chrono::system_clock::now ();
 	auto const cutoff = now - config.erase_cutoff;
 
+	std::deque<nano::store::peer::iterator::value_type> to_remove;
+
 	for (auto it = store.peer.begin (transaction); it != store.peer.end (transaction); ++it)
 	{
 		auto const [endpoint, timestamp_millis] = *it;
 		auto timestamp = nano::from_milliseconds_since_epoch (timestamp_millis);
 		if (timestamp > now || timestamp < cutoff)
 		{
-			store.peer.del (transaction, endpoint);
+			to_remove.push_back (*it);
 
 			stats.inc (nano::stat::type::peer_history, nano::stat::detail::erased);
 			logger.debug (nano::log::type::peer_history, "Erased peer: {} (not seen for {}s)",
 			fmt::streamed (endpoint.endpoint ()),
 			nano::log::seconds_delta (timestamp));
 		}
+	}
+
+	// Remove entries after iterating to avoid iterator invalidation
+	for (auto const & entry : to_remove)
+	{
+		store.peer.del (transaction, entry.first);
 	}
 }
 

@@ -483,7 +483,7 @@ public:
 		acceptor->set_option (option_keepalive);
 		accept ();
 
-		runner = std::make_unique<nano::thread_runner> (io_ctx, server.logger, static_cast<unsigned> (std::max (1, concurrency_a)));
+		runner = std::make_unique<nano::thread_runner> (io_ctx, server.logger, static_cast<unsigned> (std::max (1, concurrency_a)), nano::thread_role::name::io_ipc);
 	}
 
 	boost::asio::io_context & context () const

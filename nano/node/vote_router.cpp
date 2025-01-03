@@ -5,6 +5,7 @@
 #include <nano/node/election.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_router.hpp>
+#include <nano/secure/vote.hpp>
 
 #include <chrono>
 
@@ -153,6 +154,13 @@ std::shared_ptr<nano::election> nano::vote_router::election (nano::block_hash co
 		}
 	}
 	return nullptr;
+}
+
+// This is meant to be a fast check and may return false positives if weak pointers have expired, but we don't care about that here
+bool nano::vote_router::contains (nano::block_hash const & hash) const
+{
+	std::shared_lock lock{ mutex };
+	return elections.contains (hash);
 }
 
 void nano::vote_router::start ()

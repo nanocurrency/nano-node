@@ -1,8 +1,10 @@
+#include <nano/lib/numbers_templ.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_router.hpp>
+#include <nano/secure/vote.hpp>
 
 #include <ranges>
 
@@ -198,6 +200,14 @@ std::vector<std::shared_ptr<nano::vote>> nano::vote_cache::find (const nano::blo
 		return existing->votes ();
 	}
 	return {};
+}
+
+bool nano::vote_cache::contains (const nano::block_hash & hash) const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+
+	auto & cache_by_hash = cache.get<tag_hash> ();
+	return cache_by_hash.find (hash) != cache_by_hash.end ();
 }
 
 bool nano::vote_cache::erase (const nano::block_hash & hash)

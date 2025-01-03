@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/node/common.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/messages.hpp>
 #include <nano/node/transport/fwd.hpp>
 #include <nano/node/transport/tcp_socket.hpp>

@@ -85,7 +85,6 @@ public:
 	QLabel * bootstrap_label;
 	QLabel * peer_count_label;
 	QLineEdit * bootstrap_line;
-	QPushButton * peers_bootstrap;
 	QPushButton * peers_refresh;
 	QPushButton * peers_back;
 

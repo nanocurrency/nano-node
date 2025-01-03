@@ -1,9 +1,14 @@
 #pragma once
 
-#include <nano/boost/asio/ip/tcp.hpp>
+namespace boost::asio::ip
+{
+class tcp;
+template <typename InternetProtocol>
+class basic_endpoint;
+}
 
 namespace nano
 {
-using endpoint = boost::asio::ip::tcp::endpoint;
+using endpoint = boost::asio::ip::basic_endpoint<boost::asio::ip::tcp>;
 using tcp_endpoint = endpoint;
 }

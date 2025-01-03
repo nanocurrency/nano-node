@@ -1,4 +1,5 @@
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/numbers_templ.hpp>
 #include <nano/secure/common.hpp>
 
 #include <gtest/gtest.h>
@@ -646,5 +647,100 @@ TEST (uint512_union, hash)
 			x2.uint256s[part].bytes[i] = 1;
 			ASSERT_NE (h (x1), h (x2));
 		}
+	}
+}
+
+TEST (sat_math, add_sat)
+{
+	// Test uint128_t
+	{
+		nano::uint128_t max = std::numeric_limits<nano::uint128_t>::max ();
+		nano::uint128_t one = 1;
+		nano::uint128_t large_val = max - 100;
+
+		// Normal addition
+		ASSERT_EQ (nano::add_sat (one, one), nano::uint128_t (2));
+
+		// Saturation at max
+		ASSERT_EQ (nano::add_sat (max, one), max);
+		ASSERT_EQ (nano::add_sat (large_val, nano::uint128_t (200)), max);
+		ASSERT_EQ (nano::add_sat (max, max), max);
+	}
+	// Test uint256_t
+	{
+		nano::uint256_t max = std::numeric_limits<nano::uint256_t>::max ();
+		nano::uint256_t one = 1;
+		nano::uint256_t large_val = max - 100;
+
+		// Normal addition
+		ASSERT_EQ (nano::add_sat (one, one), nano::uint256_t (2));
+
+		// Saturation at max
+		ASSERT_EQ (nano::add_sat (max, one), max);
+		ASSERT_EQ (nano::add_sat (large_val, nano::uint256_t (200)), max);
+		ASSERT_EQ (nano::add_sat (max, max), max);
+	}
+	// Test uint512_t
+	{
+		nano::uint512_t max = std::numeric_limits<nano::uint512_t>::max ();
+		nano::uint512_t one = 1;
+		nano::uint512_t large_val = max - 100;
+
+		// Normal addition
+		ASSERT_EQ (nano::add_sat (one, one), nano::uint512_t (2));
+
+		// Saturation at max
+		ASSERT_EQ (nano::add_sat (max, one), max);
+		ASSERT_EQ (nano::add_sat (large_val, nano::uint512_t (200)), max);
+		ASSERT_EQ (nano::add_sat (max, max), max);
+	}
+}
+
+TEST (sat_math, sub_sat)
+{
+	// Test uint128_t
+	{
+		nano::uint128_t max = std::numeric_limits<nano::uint128_t>::max ();
+		nano::uint128_t min = std::numeric_limits<nano::uint128_t>::min ();
+		nano::uint128_t one = 1;
+		nano::uint128_t hundred (100);
+
+		// Normal subtraction
+		ASSERT_EQ (nano::sub_sat (hundred, one), nano::uint128_t (99));
+
+		// Saturation at min
+		ASSERT_EQ (nano::sub_sat (min, one), min);
+		ASSERT_EQ (nano::sub_sat (hundred, nano::uint128_t (200)), min);
+		ASSERT_EQ (nano::sub_sat (min, max), min);
+	}
+	// Test uint256_t
+	{
+		nano::uint256_t max = std::numeric_limits<nano::uint256_t>::max ();
+		nano::uint256_t min = std::numeric_limits<nano::uint256_t>::min ();
+		nano::uint256_t one = 1;
+		nano::uint256_t hundred (100);
+
+		// Normal subtraction
+		ASSERT_EQ (nano::sub_sat (hundred, one), nano::uint256_t (99));
+
+		// Saturation at min
+		ASSERT_EQ (nano::sub_sat (min, one), min);
+		ASSERT_EQ (nano::sub_sat (hundred, nano::uint256_t (200)), min);
+		ASSERT_EQ (nano::sub_sat (min, max), min);
+	}
+	// Test uint512_t
+	{
+		nano::uint512_t max = std::numeric_limits<nano::uint512_t>::max ();
+		nano::uint512_t min = std::numeric_limits<nano::uint512_t>::min ();
+		nano::uint512_t one = 1;
+		nano::uint512_t hundred (100);
+
+		// Normal subtraction
+		ASSERT_EQ (nano::sub_sat (hundred, one), nano::uint512_t (99));
+
+		// Saturation at min
+		ASSERT_EQ (nano::sub_sat (min, one), min);
+		ASSERT_EQ (nano::sub_sat (hundred, nano::uint512_t (200)), min);
+		ASSERT_EQ (nano::sub_sat (min, max), min);
 	}
 }
