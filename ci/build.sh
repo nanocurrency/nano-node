@@ -12,10 +12,10 @@ OS=$(uname)
 
 CMAKE_BACKTRACE=""
 if [[ ${OS} == 'Linux' ]]; then
-    CMAKE_BACKTRACE="-DNANO_STACKTRACE_BACKTRACE=ON"
+    CMAKE_BACKTRACE="-DCELERIX_STACKTRACE_BACKTRACE=ON"
 
     if [[ ${COMPILER:-} == 'clang' ]]; then
-        CMAKE_BACKTRACE="${CMAKE_BACKTRACE} -DNANO_BACKTRACE_INCLUDE=</tmp/backtrace.h>"
+        CMAKE_BACKTRACE="${CMAKE_BACKTRACE} -DCELERIX_BACKTRACE_INCLUDE=</tmp/backtrace.h>"
     fi
 fi
 
@@ -28,19 +28,19 @@ CMAKE_SANITIZER=""
 if [[ ${SANITIZER:-} ]]; then
     case "${SANITIZER}" in
         ASAN)
-            CMAKE_SANITIZER="-DNANO_ASAN=ON"
+            CMAKE_SANITIZER="-DCELERIX_ASAN=ON"
             ;;
         ASAN_INT)
-            CMAKE_SANITIZER="-DNANO_ASAN_INT=ON"
+            CMAKE_SANITIZER="-DCELERIX_ASAN_INT=ON"
             ;;
         TSAN)
-            CMAKE_SANITIZER="-DNANO_TSAN=ON"
+            CMAKE_SANITIZER="-DCELERIX_TSAN=ON"
             ;;
         UBSAN)
-            CMAKE_SANITIZER="-DNANO_UBSAN=ON"
+            CMAKE_SANITIZER="-DCELERIX_UBSAN=ON"
             ;;
         LEAK)
-            CMAKE_SANITIZER="-DNANO_ASAN=ON"
+            CMAKE_SANITIZER="-DCELERIX_ASAN=ON"
             ;;
         *)
             echo "Unknown sanitizer: '${SANITIZER}'"
@@ -57,10 +57,10 @@ pushd $BUILD_DIR
 cmake \
 -DCMAKE_BUILD_TYPE=${BUILD_TYPE:-"Debug"} \
 -DPORTABLE=ON \
--DACTIVE_NETWORK=nano_${NANO_NETWORK:-"live"}_network \
--DNANO_TEST=${NANO_TEST:-OFF} \
--DNANO_GUI=${NANO_GUI:-OFF} \
--DNANO_TRACING=${NANO_TRACING:-OFF} \
+-DACTIVE_NETWORK=celerix_${CELERIX_NETWORK:-"live"}_network \
+-DCELERIX_TEST=${CELERIX_TEST:-OFF} \
+-DCELERIX_GUI=${CELERIX_GUI:-OFF} \
+-DCELERIX_TRACING=${CELERIX_TRACING:-OFF} \
 -DCOVERAGE=${COVERAGE:-OFF} \
 -DCI_TAG=${CI_TAG:-OFF} \
 -DCI_VERSION_PRE_RELEASE=${CI_VERSION_PRE_RELEASE:-OFF} \

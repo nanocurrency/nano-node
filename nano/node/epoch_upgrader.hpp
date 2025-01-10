@@ -1,37 +1,37 @@
 #pragma once
 
-#include <nano/lib/fwd.hpp>
-#include <nano/lib/locks.hpp>
-#include <nano/lib/logging.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/node/fwd.hpp>
-#include <nano/secure/fwd.hpp>
-#include <nano/store/fwd.hpp>
+#include <celerix/lib/fwd.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/node/fwd.hpp>
+#include <celerix/secure/fwd.hpp>
+#include <celerix/store/fwd.hpp>
 
 #include <cstdint>
 #include <future>
 
-namespace nano
+namespace celerix
 {
 class epoch_upgrader final
 {
 public:
-	epoch_upgrader (nano::node &, nano::ledger &, nano::store::component &, nano::network_params &, nano::logger &);
+	epoch_upgrader (celerix::node &, celerix::ledger &, celerix::store::component &, celerix::network_params &, celerix::logger &);
 
-	bool start (nano::raw_key const & prv, nano::epoch epoch, uint64_t count_limit, uint64_t threads);
+	bool start (celerix::raw_key const & prv, celerix::epoch epoch, uint64_t count_limit, uint64_t threads);
 	void stop ();
 
 private: // Dependencies
-	nano::node & node;
-	nano::ledger & ledger;
-	nano::store::component & store;
-	nano::network_params & network_params;
-	nano::logger & logger;
+	celerix::node & node;
+	celerix::ledger & ledger;
+	celerix::store::component & store;
+	celerix::network_params & network_params;
+	celerix::logger & logger;
 
 private:
-	void upgrade_impl (nano::raw_key const & prv, nano::epoch epoch, uint64_t count_limit, uint64_t threads);
+	void upgrade_impl (celerix::raw_key const & prv, celerix::epoch epoch, uint64_t count_limit, uint64_t threads);
 
 	std::atomic<bool> stopped{ false };
-	nano::locked<std::future<void>> epoch_upgrading;
+	celerix::locked<std::future<void>> epoch_upgrading;
 };
 }

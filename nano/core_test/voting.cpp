@@ -1,27 +1,27 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/node/endpoint.hpp>
-#include <nano/node/local_vote_history.hpp>
-#include <nano/node/vote_generator.hpp>
-#include <nano/node/vote_spacing.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/vote.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/node/endpoint.hpp>
+#include <celerix/node/local_vote_history.hpp>
+#include <celerix/node/vote_generator.hpp>
+#include <celerix/node/vote_spacing.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/vote.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
 using namespace std::chrono_literals;
 
-namespace nano
+namespace celerix
 {
 TEST (local_vote_history, basic)
 {
-	nano::local_vote_history history{ nano::dev::network_params.voting };
+	celerix::local_vote_history history{ celerix::dev::network_params.voting };
 	ASSERT_FALSE (history.exists (1));
 	ASSERT_FALSE (history.exists (2));
 	ASSERT_TRUE (history.votes (1).empty ());
 	ASSERT_TRUE (history.votes (2).empty ());
-	auto vote1a (std::make_shared<nano::vote> ());
+	auto vote1a (std::make_shared<celerix::vote> ());
 	ASSERT_EQ (0, history.size ());
 	history.add (1, 2, vote1a);
 	ASSERT_EQ (1, history.size ());
@@ -35,13 +35,13 @@ TEST (local_vote_history, basic)
 	ASSERT_TRUE (history.votes (2).empty ());
 	ASSERT_EQ (1, votes1a.size ());
 	ASSERT_EQ (vote1a, votes1a[0]);
-	auto vote1b (std::make_shared<nano::vote> ());
+	auto vote1b (std::make_shared<celerix::vote> ());
 	history.add (1, 2, vote1b);
 	auto votes1b (history.votes (1));
 	ASSERT_EQ (1, votes1b.size ());
 	ASSERT_EQ (vote1b, votes1b[0]);
 	ASSERT_NE (vote1a, votes1b[0]);
-	auto vote2 (std::make_shared<nano::vote> ());
+	auto vote2 (std::make_shared<celerix::vote> ());
 	vote2->account.dwords[0]++;
 	ASSERT_EQ (1, history.size ());
 	history.add (1, 2, vote2);
@@ -50,7 +50,7 @@ TEST (local_vote_history, basic)
 	ASSERT_EQ (2, votes2.size ());
 	ASSERT_TRUE (vote1b == votes2[0] || vote1b == votes2[1]);
 	ASSERT_TRUE (vote2 == votes2[0] || vote2 == votes2[1]);
-	auto vote3 (std::make_shared<nano::vote> ());
+	auto vote3 (std::make_shared<celerix::vote> ());
 	vote3->account.dwords[1]++;
 	history.add (1, 3, vote3);
 	ASSERT_EQ (1, history.size ());
@@ -62,31 +62,31 @@ TEST (local_vote_history, basic)
 
 TEST (vote_generator, cache)
 {
-	nano::test::system system (1);
+	celerix::test::system system (1);
 	auto & node (*system.nodes[0]);
-	auto epoch1 = system.upgrade_genesis_epoch (node, nano::epoch::epoch_1);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	auto epoch1 = system.upgrade_genesis_epoch (node, celerix::epoch::epoch_1);
+	system.wallet (0)->insert_adhoc (celerix::dev::genesis_key.prv);
 	node.generator.add (epoch1->root (), epoch1->hash ());
 	ASSERT_TIMELY (1s, !node.history.votes (epoch1->root (), epoch1->hash ()).empty ());
 	auto votes (node.history.votes (epoch1->root (), epoch1->hash ()));
 	ASSERT_FALSE (votes.empty ());
-	ASSERT_TRUE (std::any_of (votes[0]->hashes.begin (), votes[0]->hashes.end (), [hash = epoch1->hash ()] (nano::block_hash const & hash_a) { return hash_a == hash; }));
+	ASSERT_TRUE (std::any_of (votes[0]->hashes.begin (), votes[0]->hashes.end (), [hash = epoch1->hash ()] (celerix::block_hash const & hash_a) { return hash_a == hash; }));
 }
 
 TEST (vote_generator, multiple_representatives)
 {
-	nano::test::system system (1);
+	celerix::test::system system (1);
 	auto & node (*system.nodes[0]);
-	nano::keypair key1, key2, key3;
+	celerix::keypair key1, key2, key3;
 	auto & wallet (*system.wallet (0));
-	wallet.insert_adhoc (nano::dev::genesis_key.prv);
+	wallet.insert_adhoc (celerix::dev::genesis_key.prv);
 	wallet.insert_adhoc (key1.prv);
 	wallet.insert_adhoc (key2.prv);
 	wallet.insert_adhoc (key3.prv);
-	auto const amount = 100 * nano::Knano_ratio;
-	wallet.send_sync (nano::dev::genesis_key.pub, key1.pub, amount);
-	wallet.send_sync (nano::dev::genesis_key.pub, key2.pub, amount);
-	wallet.send_sync (nano::dev::genesis_key.pub, key3.pub, amount);
+	auto const amount = 100 * celerix::Kcelerix_ratio;
+	wallet.send_sync (celerix::dev::genesis_key.pub, key1.pub, amount);
+	wallet.send_sync (celerix::dev::genesis_key.pub, key2.pub, amount);
+	wallet.send_sync (celerix::dev::genesis_key.pub, key3.pub, amount);
 	ASSERT_TIMELY (3s, node.balance (key1.pub) == amount && node.balance (key2.pub) == amount && node.balance (key3.pub) == amount);
 	wallet.change_sync (key1.pub, key1.pub);
 	wallet.change_sync (key2.pub, key2.pub);
@@ -96,14 +96,14 @@ TEST (vote_generator, multiple_representatives)
 	ASSERT_EQ (node.weight (key3.pub), amount);
 	node.wallets.compute_reps ();
 	ASSERT_EQ (4, node.wallets.reps ().voting);
-	auto hash = wallet.send_sync (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, 1);
+	auto hash = wallet.send_sync (celerix::dev::genesis_key.pub, celerix::dev::genesis_key.pub, 1);
 	auto send = node.block (hash);
 	ASSERT_NE (nullptr, send);
 	ASSERT_TIMELY_EQ (5s, node.history.votes (send->root (), send->hash ()).size (), 4);
 	auto votes (node.history.votes (send->root (), send->hash ()));
-	for (auto const & account : { key1.pub, key2.pub, key3.pub, nano::dev::genesis_key.pub })
+	for (auto const & account : { key1.pub, key2.pub, key3.pub, celerix::dev::genesis_key.pub })
 	{
-		auto existing (std::find_if (votes.begin (), votes.end (), [&account] (std::shared_ptr<nano::vote> const & vote_a) -> bool {
+		auto existing (std::find_if (votes.begin (), votes.end (), [&account] (std::shared_ptr<celerix::vote> const & vote_a) -> bool {
 			return vote_a->account == account;
 		}));
 		ASSERT_NE (votes.end (), existing);
@@ -112,12 +112,12 @@ TEST (vote_generator, multiple_representatives)
 
 TEST (vote_spacing, basic)
 {
-	nano::vote_spacing spacing{ std::chrono::milliseconds{ 100 } };
-	nano::root root1{ 1 };
-	nano::root root2{ 2 };
-	nano::block_hash hash3{ 3 };
-	nano::block_hash hash4{ 4 };
-	nano::block_hash hash5{ 5 };
+	celerix::vote_spacing spacing{ std::chrono::milliseconds{ 100 } };
+	celerix::root root1{ 1 };
+	celerix::root root2{ 2 };
+	celerix::block_hash hash3{ 3 };
+	celerix::block_hash hash4{ 4 };
+	celerix::block_hash hash5{ 5 };
 	ASSERT_EQ (0, spacing.size ());
 	ASSERT_TRUE (spacing.votable (root1, hash3));
 	spacing.flag (root1, hash3);
@@ -131,11 +131,11 @@ TEST (vote_spacing, basic)
 TEST (vote_spacing, prune)
 {
 	auto length = std::chrono::milliseconds{ 100 };
-	nano::vote_spacing spacing{ length };
-	nano::root root1{ 1 };
-	nano::root root2{ 2 };
-	nano::block_hash hash3{ 3 };
-	nano::block_hash hash4{ 4 };
+	celerix::vote_spacing spacing{ length };
+	celerix::root root1{ 1 };
+	celerix::root root2{ 2 };
+	celerix::block_hash hash3{ 3 };
+	celerix::block_hash hash4{ 4 };
 	spacing.flag (root1, hash3);
 	ASSERT_EQ (1, spacing.size ());
 	std::this_thread::sleep_for (length);
@@ -145,87 +145,87 @@ TEST (vote_spacing, prune)
 
 TEST (vote_spacing, vote_generator)
 {
-	nano::node_config config;
+	celerix::node_config config;
 	config.backlog_scan.enable = false;
 	config.active_elections.hinted_limit_percentage = 0; // Disable election hinting
-	nano::test::system system;
-	nano::node_flags node_flags;
+	celerix::test::system system;
+	celerix::node_flags node_flags;
 	node_flags.disable_search_pending = true;
 	auto & node = *system.add_node (config, node_flags);
 	auto & wallet = *system.wallet (0);
-	wallet.insert_adhoc (nano::dev::genesis_key.prv);
-	nano::state_block_builder builder;
+	wallet.insert_adhoc (celerix::dev::genesis_key.prv);
+	celerix::state_block_builder builder;
 	auto send1 = builder.make_block ()
-				 .account (nano::dev::genesis_key.pub)
-				 .previous (nano::dev::genesis->hash ())
-				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
-				 .link (nano::dev::genesis_key.pub)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .account (celerix::dev::genesis_key.pub)
+				 .previous (celerix::dev::genesis->hash ())
+				 .representative (celerix::dev::genesis_key.pub)
+				 .balance (celerix::dev::constants.genesis_amount - celerix::Kcelerix_ratio)
+				 .link (celerix::dev::genesis_key.pub)
+				 .sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
+				 .work (*system.work.generate (celerix::dev::genesis->hash ()))
 				 .build ();
 	auto send2 = builder.make_block ()
-				 .account (nano::dev::genesis_key.pub)
-				 .previous (nano::dev::genesis->hash ())
-				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio - 1)
-				 .link (nano::dev::genesis_key.pub)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .account (celerix::dev::genesis_key.pub)
+				 .previous (celerix::dev::genesis->hash ())
+				 .representative (celerix::dev::genesis_key.pub)
+				 .balance (celerix::dev::constants.genesis_amount - celerix::Kcelerix_ratio - 1)
+				 .link (celerix::dev::genesis_key.pub)
+				 .sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
+				 .work (*system.work.generate (celerix::dev::genesis->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send1));
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts));
-	node.generator.add (nano::dev::genesis->hash (), send1->hash ());
-	ASSERT_TIMELY_EQ (3s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts), 1);
+	ASSERT_EQ (celerix::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send1));
+	ASSERT_EQ (0, node.stats.count (celerix::stat::type::vote_generator, celerix::stat::detail::generator_broadcasts));
+	node.generator.add (celerix::dev::genesis->hash (), send1->hash ());
+	ASSERT_TIMELY_EQ (3s, node.stats.count (celerix::stat::type::vote_generator, celerix::stat::detail::generator_broadcasts), 1);
 	ASSERT_FALSE (node.ledger.rollback (node.ledger.tx_begin_write (), send1->hash ()));
-	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send2));
-	node.generator.add (nano::dev::genesis->hash (), send2->hash ());
-	ASSERT_TIMELY_EQ (3s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_spacing), 1);
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts));
+	ASSERT_EQ (celerix::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send2));
+	node.generator.add (celerix::dev::genesis->hash (), send2->hash ());
+	ASSERT_TIMELY_EQ (3s, node.stats.count (celerix::stat::type::vote_generator, celerix::stat::detail::generator_spacing), 1);
+	ASSERT_EQ (1, node.stats.count (celerix::stat::type::vote_generator, celerix::stat::detail::generator_broadcasts));
 	std::this_thread::sleep_for (config.network_params.voting.delay);
-	node.generator.add (nano::dev::genesis->hash (), send2->hash ());
-	ASSERT_TIMELY_EQ (3s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts), 2);
+	node.generator.add (celerix::dev::genesis->hash (), send2->hash ());
+	ASSERT_TIMELY_EQ (3s, node.stats.count (celerix::stat::type::vote_generator, celerix::stat::detail::generator_broadcasts), 2);
 }
 
 TEST (vote_spacing, rapid)
 {
-	nano::node_config config;
+	celerix::node_config config;
 	config.backlog_scan.enable = false;
 	config.active_elections.hinted_limit_percentage = 0; // Disable election hinting
-	nano::test::system system;
-	nano::node_flags node_flags;
+	celerix::test::system system;
+	celerix::node_flags node_flags;
 	node_flags.disable_search_pending = true;
 	auto & node = *system.add_node (config, node_flags);
 	auto & wallet = *system.wallet (0);
-	wallet.insert_adhoc (nano::dev::genesis_key.prv);
-	nano::state_block_builder builder;
+	wallet.insert_adhoc (celerix::dev::genesis_key.prv);
+	celerix::state_block_builder builder;
 	auto send1 = builder.make_block ()
-				 .account (nano::dev::genesis_key.pub)
-				 .previous (nano::dev::genesis->hash ())
-				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
-				 .link (nano::dev::genesis_key.pub)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .account (celerix::dev::genesis_key.pub)
+				 .previous (celerix::dev::genesis->hash ())
+				 .representative (celerix::dev::genesis_key.pub)
+				 .balance (celerix::dev::constants.genesis_amount - celerix::Kcelerix_ratio)
+				 .link (celerix::dev::genesis_key.pub)
+				 .sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
+				 .work (*system.work.generate (celerix::dev::genesis->hash ()))
 				 .build ();
 	auto send2 = builder.make_block ()
-				 .account (nano::dev::genesis_key.pub)
-				 .previous (nano::dev::genesis->hash ())
-				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio - 1)
-				 .link (nano::dev::genesis_key.pub)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .account (celerix::dev::genesis_key.pub)
+				 .previous (celerix::dev::genesis->hash ())
+				 .representative (celerix::dev::genesis_key.pub)
+				 .balance (celerix::dev::constants.genesis_amount - celerix::Kcelerix_ratio - 1)
+				 .link (celerix::dev::genesis_key.pub)
+				 .sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
+				 .work (*system.work.generate (celerix::dev::genesis->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send1));
-	node.generator.add (nano::dev::genesis->hash (), send1->hash ());
-	ASSERT_TIMELY_EQ (3s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts), 1);
+	ASSERT_EQ (celerix::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send1));
+	node.generator.add (celerix::dev::genesis->hash (), send1->hash ());
+	ASSERT_TIMELY_EQ (3s, node.stats.count (celerix::stat::type::vote_generator, celerix::stat::detail::generator_broadcasts), 1);
 	ASSERT_FALSE (node.ledger.rollback (node.ledger.tx_begin_write (), send1->hash ()));
-	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send2));
-	node.generator.add (nano::dev::genesis->hash (), send2->hash ());
-	ASSERT_TIMELY_EQ (3s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_spacing), 1);
-	ASSERT_TIMELY_EQ (3s, 1, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts));
+	ASSERT_EQ (celerix::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send2));
+	node.generator.add (celerix::dev::genesis->hash (), send2->hash ());
+	ASSERT_TIMELY_EQ (3s, node.stats.count (celerix::stat::type::vote_generator, celerix::stat::detail::generator_spacing), 1);
+	ASSERT_TIMELY_EQ (3s, 1, node.stats.count (celerix::stat::type::vote_generator, celerix::stat::detail::generator_broadcasts));
 	std::this_thread::sleep_for (config.network_params.voting.delay);
-	node.generator.add (nano::dev::genesis->hash (), send2->hash ());
-	ASSERT_TIMELY_EQ (3s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts), 2);
+	node.generator.add (celerix::dev::genesis->hash (), send2->hash ());
+	ASSERT_TIMELY_EQ (3s, node.stats.count (celerix::stat::type::vote_generator, celerix::stat::detail::generator_broadcasts), 2);
 }

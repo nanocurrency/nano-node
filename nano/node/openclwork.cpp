@@ -1,9 +1,9 @@
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/logging.hpp>
-#include <nano/lib/work.hpp>
-#include <nano/node/openclconfig.hpp>
-#include <nano/node/openclwork.hpp>
-#include <nano/node/wallet.hpp>
+#include <celerix/crypto_lib/random_pool.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/lib/work.hpp>
+#include <celerix/node/openclconfig.hpp>
+#include <celerix/node/openclwork.hpp>
+#include <celerix/node/wallet.hpp>
 
 #include <boost/format.hpp>
 
@@ -12,9 +12,9 @@
 #include <vector>
 
 #if defined(__APPLE__)
-bool nano::opencl_loaded{ true };
+bool celerix::opencl_loaded{ true };
 #else
-bool nano::opencl_loaded{ false };
+bool celerix::opencl_loaded{ false };
 #endif
 
 namespace
@@ -32,9 +32,9 @@ enum Blake2b_IV {
 };
 
 enum IV_Derived {
-    nano_xor_iv0 = 0x6a09e667f2bdc900UL,  // iv1 ^ 0x1010000 ^ outlen
-    nano_xor_iv4 = 0x510e527fade682f9UL,  // iv4 ^ inbytes
-    nano_xor_iv6 = 0xe07c265404be4294UL,  // iv6 ^ ~0
+    celerix_xor_iv0 = 0x6a09e667f2bdc900UL,  // iv1 ^ 0x1010000 ^ outlen
+    celerix_xor_iv4 = 0x510e527fade682f9UL,  // iv4 ^ inbytes
+    celerix_xor_iv6 = 0xe07c265404be4294UL,  // iv6 ^ ~0
 };
 
 #ifdef cl_amd_media_ops
@@ -90,9 +90,9 @@ static inline ulong rotr64(ulong x, int shift)
 static inline ulong blake2b(ulong const nonce, __constant ulong *h)
 {
     ulong2 vv[8] = {
-        {nano_xor_iv0, iv1}, {iv2, iv3},          {iv4, iv5},
+        {celerix_xor_iv0, iv1}, {iv2, iv3},          {iv4, iv5},
         {iv6, iv7},          {iv0, iv1},          {iv2, iv3},
-        {nano_xor_iv4, iv5}, {nano_xor_iv6, iv7},
+        {celerix_xor_iv4, iv5}, {celerix_xor_iv6, iv7},
     };
 
     ROUND(nonce, h[0], h[1], h[2], h[3], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -108,14 +108,14 @@ static inline ulong blake2b(ulong const nonce, __constant ulong *h)
     ROUND(nonce, h[0], h[1], h[2], h[3], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     ROUND(0, 0, h[3], 0, 0, 0, 0, 0, h[0], 0, nonce, h[1], 0, 0, 0, h[2]);
 
-    return nano_xor_iv0 ^ vv[0].s0 ^ vv[4].s0;
+    return celerix_xor_iv0 ^ vv[0].s0 ^ vv[4].s0;
 }
 #undef G32
 #undef G2v
 #undef G2v_split
 #undef ROUND
 
-__kernel void nano_work(__constant ulong *attempt,
+__kernel void celerix_work(__constant ulong *attempt,
                         __global ulong *result_a,
                         __constant uchar *item_a,
                         __constant ulong *difficulty)
@@ -127,9 +127,9 @@ __kernel void nano_work(__constant ulong *attempt,
 )%%%";
 }
 
-nano::opencl_environment::opencl_environment (bool & error_a)
+celerix::opencl_environment::opencl_environment (bool & error_a)
 {
-	if (nano::opencl_loaded)
+	if (celerix::opencl_loaded)
 	{
 		cl_uint platformIdCount = 0;
 		clGetPlatformIDs (0, nullptr, &platformIdCount);
@@ -137,7 +137,7 @@ nano::opencl_environment::opencl_environment (bool & error_a)
 		clGetPlatformIDs (platformIdCount, platformIds.data (), nullptr);
 		for (auto i (platformIds.begin ()), n (platformIds.end ()); i != n; ++i)
 		{
-			nano::opencl_platform platform;
+			celerix::opencl_platform platform;
 			platform.platform = *i;
 			cl_uint deviceIdCount = 0;
 			clGetDeviceIDs (*i, CL_DEVICE_TYPE_ALL, 0, nullptr, &deviceIdCount);
@@ -156,9 +156,9 @@ nano::opencl_environment::opencl_environment (bool & error_a)
 	}
 }
 
-void nano::opencl_environment::dump (std::ostream & stream)
+void celerix::opencl_environment::dump (std::ostream & stream)
 {
-	if (nano::opencl_loaded)
+	if (celerix::opencl_loaded)
 	{
 		auto index (0);
 		std::size_t device_count (0);
@@ -250,7 +250,7 @@ void nano::opencl_environment::dump (std::ostream & stream)
 	}
 }
 
-nano::opencl_work::opencl_work (bool & error_a, nano::opencl_config const & config_a, nano::opencl_environment & environment_a, nano::logger & logger_a, nano::work_thresholds & work) :
+celerix::opencl_work::opencl_work (bool & error_a, celerix::opencl_config const & config_a, celerix::opencl_environment & environment_a, celerix::logger & logger_a, celerix::work_thresholds & work) :
 	config (config_a),
 	context (0),
 	attempt_buffer (0),
@@ -270,7 +270,7 @@ nano::opencl_work::opencl_work (bool & error_a, nano::opencl_config const & conf
 		error_a |= config.device >= platform.devices.size ();
 		if (!error_a)
 		{
-			nano::random_pool::generate_block (reinterpret_cast<uint8_t *> (rand.s.data ()), rand.s.size () * sizeof (decltype (rand.s)::value_type));
+			celerix::random_pool::generate_block (reinterpret_cast<uint8_t *> (rand.s.data ()), rand.s.size () * sizeof (decltype (rand.s)::value_type));
 			std::array<cl_device_id, 1> selected_devices;
 			selected_devices[0] = platform.devices[config.device];
 			cl_context_properties contextProperties[] = {
@@ -299,7 +299,7 @@ nano::opencl_work::opencl_work (bool & error_a, nano::opencl_config const & conf
 						if (!error_a)
 						{
 							cl_int item_error (0);
-							std::size_t item_size (sizeof (nano::uint256_union));
+							std::size_t item_size (sizeof (celerix::uint256_union));
 							item_buffer = clCreateBuffer (context, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, item_size, nullptr, &item_error);
 							error_a |= item_error != CL_SUCCESS;
 							if (!error_a)
@@ -321,7 +321,7 @@ nano::opencl_work::opencl_work (bool & error_a, nano::opencl_config const & conf
 										if (!error_a)
 										{
 											cl_int kernel_error (0);
-											kernel = clCreateKernel (program, "nano_work", &kernel_error);
+											kernel = clCreateKernel (program, "celerix_work", &kernel_error);
 											error_a |= kernel_error != CL_SUCCESS;
 											if (!error_a)
 											{
@@ -344,89 +344,89 @@ nano::opencl_work::opencl_work (bool & error_a, nano::opencl_config const & conf
 															}
 															else
 															{
-																logger.error (nano::log::type::opencl_work, "Bind argument 3 error: {}", arg3_error);
+																logger.error (celerix::log::type::opencl_work, "Bind argument 3 error: {}", arg3_error);
 															}
 														}
 														else
 														{
-															logger.error (nano::log::type::opencl_work, "Bind argument 2 error: {}", arg2_error);
+															logger.error (celerix::log::type::opencl_work, "Bind argument 2 error: {}", arg2_error);
 														}
 													}
 													else
 													{
-														logger.error (nano::log::type::opencl_work, "Bind argument 1 error: {}", arg1_error);
+														logger.error (celerix::log::type::opencl_work, "Bind argument 1 error: {}", arg1_error);
 													}
 												}
 												else
 												{
-													logger.error (nano::log::type::opencl_work, "Bind argument 0 error: {}", arg0_error);
+													logger.error (celerix::log::type::opencl_work, "Bind argument 0 error: {}", arg0_error);
 												}
 											}
 											else
 											{
-												logger.error (nano::log::type::opencl_work, "Create kernel error: {}", kernel_error);
+												logger.error (celerix::log::type::opencl_work, "Create kernel error: {}", kernel_error);
 											}
 										}
 										else
 										{
-											logger.error (nano::log::type::opencl_work, "Build program error: {}", clBuildProgramError);
+											logger.error (celerix::log::type::opencl_work, "Build program error: {}", clBuildProgramError);
 											for (auto i (selected_devices.begin ()), n (selected_devices.end ()); i != n; ++i)
 											{
 												std::size_t log_size (0);
 												clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size);
 												std::vector<char> log (log_size);
 												clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, log.size (), log.data (), nullptr);
-												logger.info (nano::log::type::opencl_work, "Device log: {}", log.data ());
+												logger.info (celerix::log::type::opencl_work, "Device log: {}", log.data ());
 											}
 										}
 									}
 									else
 									{
-										logger.error (nano::log::type::opencl_work, "Create program error: {}", program_error);
+										logger.error (celerix::log::type::opencl_work, "Create program error: {}", program_error);
 									}
 								}
 								else
 								{
-									logger.error (nano::log::type::opencl_work, "Difficulty buffer error: {}", difficulty_error);
+									logger.error (celerix::log::type::opencl_work, "Difficulty buffer error: {}", difficulty_error);
 								}
 							}
 							else
 							{
-								logger.error (nano::log::type::opencl_work, "Item buffer error: {}", item_error);
+								logger.error (celerix::log::type::opencl_work, "Item buffer error: {}", item_error);
 							}
 						}
 						else
 						{
-							logger.error (nano::log::type::opencl_work, "Result buffer error: {}", result_error);
+							logger.error (celerix::log::type::opencl_work, "Result buffer error: {}", result_error);
 						}
 					}
 					else
 					{
-						logger.error (nano::log::type::opencl_work, "Attempt buffer error: {}", attempt_error);
+						logger.error (celerix::log::type::opencl_work, "Attempt buffer error: {}", attempt_error);
 					}
 				}
 				else
 				{
-					logger.error (nano::log::type::opencl_work, "Unable to create command queue: {}", queue_error);
+					logger.error (celerix::log::type::opencl_work, "Unable to create command queue: {}", queue_error);
 				}
 			}
 			else
 			{
-				logger.error (nano::log::type::opencl_work, "Unable to create context: {}", createContextError);
+				logger.error (celerix::log::type::opencl_work, "Unable to create context: {}", createContextError);
 			}
 		}
 		else
 		{
-			logger.error (nano::log::type::opencl_work, "Requested device {} and only have {}", config.device, platform.devices.size ());
+			logger.error (celerix::log::type::opencl_work, "Requested device {} and only have {}", config.device, platform.devices.size ());
 		}
 	}
 	else
 	{
-		logger.error (nano::log::type::opencl_work, "Requested platform {} and only have {}", config.platform, environment_a.platforms.size ());
+		logger.error (celerix::log::type::opencl_work, "Requested platform {} and only have {}", config.platform, environment_a.platforms.size ());
 	}
 }
 
-nano::opencl_work::~opencl_work ()
+celerix::opencl_work::~opencl_work ()
 {
 	if (kernel != 0)
 	{
@@ -442,15 +442,15 @@ nano::opencl_work::~opencl_work ()
 	}
 }
 
-boost::optional<uint64_t> nano::opencl_work::generate_work (nano::work_version const version_a, nano::root const & root_a, uint64_t const difficulty_a)
+boost::optional<uint64_t> celerix::opencl_work::generate_work (celerix::work_version const version_a, celerix::root const & root_a, uint64_t const difficulty_a)
 {
 	std::atomic<int> ticket_l{ 0 };
 	return generate_work (version_a, root_a, difficulty_a, ticket_l);
 }
 
-boost::optional<uint64_t> nano::opencl_work::generate_work (nano::work_version const version_a, nano::root const & root_a, uint64_t const difficulty_a, std::atomic<int> & ticket_a)
+boost::optional<uint64_t> celerix::opencl_work::generate_work (celerix::work_version const version_a, celerix::root const & root_a, uint64_t const difficulty_a, std::atomic<int> & ticket_a)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	bool error (false);
 	int ticket_l (ticket_a);
 	uint64_t result (0);
@@ -462,7 +462,7 @@ boost::optional<uint64_t> nano::opencl_work::generate_work (nano::work_version c
 		cl_int write_error1 = clEnqueueWriteBuffer (queue, attempt_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);
 		if (write_error1 == CL_SUCCESS)
 		{
-			cl_int write_error2 = clEnqueueWriteBuffer (queue, item_buffer, false, 0, sizeof (nano::root), root_a.bytes.data (), 0, nullptr, nullptr);
+			cl_int write_error2 = clEnqueueWriteBuffer (queue, item_buffer, false, 0, sizeof (celerix::root), root_a.bytes.data (), 0, nullptr, nullptr);
 			if (write_error2 == CL_SUCCESS)
 			{
 				cl_int write_error3 = clEnqueueWriteBuffer (queue, difficulty_buffer, false, 0, sizeof (uint64_t), &difficulty_a, 0, nullptr, nullptr);
@@ -481,37 +481,37 @@ boost::optional<uint64_t> nano::opencl_work::generate_work (nano::work_version c
 							else
 							{
 								error = true;
-								logger.error (nano::log::type::opencl_work, "Error finishing queue: {}", finishError);
+								logger.error (celerix::log::type::opencl_work, "Error finishing queue: {}", finishError);
 							}
 						}
 						else
 						{
 							error = true;
-							logger.error (nano::log::type::opencl_work, "Error reading result: {}", read_error1);
+							logger.error (celerix::log::type::opencl_work, "Error reading result: {}", read_error1);
 						}
 					}
 					else
 					{
 						error = true;
-						logger.error (nano::log::type::opencl_work, "Error enqueueing kernel: {}", enqueue_error);
+						logger.error (celerix::log::type::opencl_work, "Error enqueueing kernel: {}", enqueue_error);
 					}
 				}
 				else
 				{
 					error = true;
-					logger.error (nano::log::type::opencl_work, "Error writing difficulty: {}", write_error3);
+					logger.error (celerix::log::type::opencl_work, "Error writing difficulty: {}", write_error3);
 				}
 			}
 			else
 			{
 				error = true;
-				logger.error (nano::log::type::opencl_work, "Error writing item: {}", write_error2);
+				logger.error (celerix::log::type::opencl_work, "Error writing item: {}", write_error2);
 			}
 		}
 		else
 		{
 			error = true;
-			logger.error (nano::log::type::opencl_work, "Error writing attempt: {}", write_error1);
+			logger.error (celerix::log::type::opencl_work, "Error writing attempt: {}", write_error1);
 		}
 	}
 	boost::optional<uint64_t> value;
@@ -522,21 +522,21 @@ boost::optional<uint64_t> nano::opencl_work::generate_work (nano::work_version c
 	return value;
 }
 
-std::unique_ptr<nano::opencl_work> nano::opencl_work::create (bool create_a, nano::opencl_config const & config_a, nano::logger & logger_a, nano::work_thresholds & work)
+std::unique_ptr<celerix::opencl_work> celerix::opencl_work::create (bool create_a, celerix::opencl_config const & config_a, celerix::logger & logger_a, celerix::work_thresholds & work)
 {
-	std::unique_ptr<nano::opencl_work> result;
+	std::unique_ptr<celerix::opencl_work> result;
 	if (create_a)
 	{
 		auto error (false);
 
-		nano::opencl_environment environment (error);
+		celerix::opencl_environment environment (error);
 		std::stringstream stream;
 		environment.dump (stream);
-		logger_a.info (nano::log::type::opencl_work, "OpenCL environment: {}", stream.str ());
+		logger_a.info (celerix::log::type::opencl_work, "OpenCL environment: {}", stream.str ());
 
 		if (!error)
 		{
-			result.reset (new nano::opencl_work (error, config_a, environment, logger_a, work));
+			result.reset (new celerix::opencl_work (error, config_a, environment, logger_a, work));
 			if (error)
 			{
 				result.reset ();

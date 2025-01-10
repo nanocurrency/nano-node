@@ -1,11 +1,11 @@
 #pragma once
 
-#include <nano/store/transaction.hpp>
-#include <nano/store/write_queue.hpp>
+#include <celerix/store/transaction.hpp>
+#include <celerix/store/write_queue.hpp>
 
 #include <utility>
 
-namespace nano::secure
+namespace celerix::secure
 {
 
 class transaction
@@ -23,10 +23,10 @@ public:
 	transaction & operator= (transaction &&) noexcept = default;
 
 	// Pure virtual function to get a const reference to the base store transaction
-	virtual const nano::store::transaction & base_txn () const = 0;
+	virtual const celerix::store::transaction & base_txn () const = 0;
 
-	// Conversion operator to const nano::store::transaction&
-	virtual operator const nano::store::transaction & () const = 0;
+	// Conversion operator to const celerix::store::transaction&
+	virtual operator const celerix::store::transaction & () const = 0;
 
 	// Certain transactions may need to be refreshed if they are held for a long time
 	virtual bool refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 }) = 0;
@@ -34,12 +34,12 @@ public:
 
 class write_transaction final : public transaction
 {
-	nano::store::write_guard guard; // Guard should be released after the transaction
-	nano::store::write_transaction txn;
+	celerix::store::write_guard guard; // Guard should be released after the transaction
+	celerix::store::write_transaction txn;
 	std::chrono::steady_clock::time_point start;
 
 public:
-	explicit write_transaction (nano::store::write_transaction && txn_a, nano::store::write_guard && guard_a) noexcept :
+	explicit write_transaction (celerix::store::write_transaction && txn_a, celerix::store::write_guard && guard_a) noexcept :
 		guard{ std::move (guard_a) },
 		txn{ std::move (txn_a) }
 	{
@@ -48,7 +48,7 @@ public:
 	}
 
 	// Override to return a reference to the encapsulated write_transaction
-	const nano::store::transaction & base_txn () const override
+	const celerix::store::transaction & base_txn () const override
 	{
 		return txn;
 	}
@@ -88,14 +88,14 @@ public:
 		return txn.timestamp ();
 	}
 
-	// Conversion operator to const nano::store::transaction&
-	operator const nano::store::transaction & () const override
+	// Conversion operator to const celerix::store::transaction&
+	operator const celerix::store::transaction & () const override
 	{
 		return txn;
 	}
 
-	// Additional conversion operator specific to nano::store::write_transaction
-	operator const nano::store::write_transaction & () const
+	// Additional conversion operator specific to celerix::store::write_transaction
+	operator const celerix::store::write_transaction & () const
 	{
 		return txn;
 	}
@@ -103,16 +103,16 @@ public:
 
 class read_transaction final : public transaction
 {
-	nano::store::read_transaction txn;
+	celerix::store::read_transaction txn;
 
 public:
-	explicit read_transaction (nano::store::read_transaction && t) noexcept :
+	explicit read_transaction (celerix::store::read_transaction && t) noexcept :
 		txn{ std::move (t) }
 	{
 	}
 
 	// Override to return a reference to the encapsulated read_transaction
-	const nano::store::transaction & base_txn () const override
+	const celerix::store::transaction & base_txn () const override
 	{
 		return txn;
 	}
@@ -132,14 +132,14 @@ public:
 		return txn.timestamp ();
 	}
 
-	// Conversion operator to const nano::store::transaction&
-	operator const nano::store::transaction & () const override
+	// Conversion operator to const celerix::store::transaction&
+	operator const celerix::store::transaction & () const override
 	{
 		return txn;
 	}
 
-	// Additional conversion operator specific to nano::store::read_transaction
-	operator const nano::store::read_transaction & () const
+	// Additional conversion operator specific to celerix::store::read_transaction
+	operator const celerix::store::read_transaction & () const
 	{
 		return txn;
 	}

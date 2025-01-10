@@ -1,9 +1,9 @@
-#include <nano/node/node.hpp>
-#include <nano/node/transport/fake.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/transport/fake.hpp>
 
 #include <boost/format.hpp>
 
-nano::transport::fake::channel::channel (nano::node & node) :
+celerix::transport::fake::channel::channel (celerix::node & node) :
 	transport::channel{ node },
 	endpoint{ node.network.endpoint () }
 {
@@ -14,7 +14,7 @@ nano::transport::fake::channel::channel (nano::node & node) :
 /**
  * The send function behaves like a null device, it throws the data away and returns success.
  */
-bool nano::transport::fake::channel::send_buffer (nano::shared_const_buffer const & buffer, nano::transport::traffic_type traffic_type, nano::transport::channel::callback_t callback)
+bool celerix::transport::fake::channel::send_buffer (celerix::shared_const_buffer const & buffer, celerix::transport::traffic_type traffic_type, celerix::transport::channel::callback_t callback)
 {
 	auto size = buffer.size ();
 	if (callback)
@@ -26,7 +26,7 @@ bool nano::transport::fake::channel::send_buffer (nano::shared_const_buffer cons
 	return true;
 }
 
-std::string nano::transport::fake::channel::to_string () const
+std::string celerix::transport::fake::channel::to_string () const
 {
 	return boost::str (boost::format ("%1%") % endpoint);
 }

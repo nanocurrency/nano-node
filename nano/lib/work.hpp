@@ -1,11 +1,11 @@
 #pragma once
 
-#include <nano/lib/config.hpp>
-#include <nano/lib/locks.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/observer_set.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/node/openclwork.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/observer_set.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/node/openclwork.hpp>
 
 #include <boost/optional.hpp>
 
@@ -13,12 +13,12 @@
 #include <memory>
 #include <thread>
 
-namespace nano
+namespace celerix
 {
-std::string to_string (nano::work_version const version_a);
+std::string to_string (celerix::work_version const version_a);
 
 // type of function that does the work generation with an optional return value
-using opencl_work_func_t = std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)>;
+using opencl_work_func_t = std::function<boost::optional<uint64_t> (celerix::work_version const, celerix::root const &, uint64_t, std::atomic<int> &)>;
 
 class block;
 class block_details;
@@ -28,40 +28,40 @@ class opencl_work;
 class work_item final
 {
 public:
-	work_item (nano::work_version const version_a, nano::root const & item_a, uint64_t difficulty_a, std::function<void (boost::optional<uint64_t> const &)> const & callback_a) :
+	work_item (celerix::work_version const version_a, celerix::root const & item_a, uint64_t difficulty_a, std::function<void (boost::optional<uint64_t> const &)> const & callback_a) :
 		version (version_a), item (item_a), difficulty (difficulty_a), callback (callback_a)
 	{
 	}
-	nano::work_version const version;
-	nano::root const item;
+	celerix::work_version const version;
+	celerix::root const item;
 	uint64_t const difficulty;
 	std::function<void (boost::optional<uint64_t> const &)> const callback;
 };
 class work_pool final
 {
 public:
-	work_pool (nano::network_constants & network_constants, unsigned, std::chrono::nanoseconds = std::chrono::nanoseconds (0), nano::opencl_work_func_t = nullptr);
+	work_pool (celerix::network_constants & network_constants, unsigned, std::chrono::celerixseconds = std::chrono::celerixseconds (0), celerix::opencl_work_func_t = nullptr);
 	~work_pool ();
 	void loop (uint64_t);
 	void stop ();
-	void cancel (nano::root const &);
-	void generate (nano::work_version const, nano::root const &, uint64_t, std::function<void (boost::optional<uint64_t> const &)>);
-	boost::optional<uint64_t> generate (nano::work_version const, nano::root const &, uint64_t);
+	void cancel (celerix::root const &);
+	void generate (celerix::work_version const, celerix::root const &, uint64_t, std::function<void (boost::optional<uint64_t> const &)>);
+	boost::optional<uint64_t> generate (celerix::work_version const, celerix::root const &, uint64_t);
 	// For tests only
-	boost::optional<uint64_t> generate (nano::root const &);
-	boost::optional<uint64_t> generate (nano::root const &, uint64_t);
+	boost::optional<uint64_t> generate (celerix::root const &);
+	boost::optional<uint64_t> generate (celerix::root const &, uint64_t);
 	size_t size ();
-	nano::network_constants & network_constants;
+	celerix::network_constants & network_constants;
 	std::atomic<int> ticket;
 	bool done;
 	std::vector<std::thread> threads;
-	std::list<nano::work_item> pending;
-	mutable nano::mutex mutex{ mutex_identifier (mutexes::work_pool) };
-	nano::condition_variable producer_condition;
-	std::chrono::nanoseconds pow_rate_limiter;
-	nano::opencl_work_func_t opencl;
-	nano::observer_set<bool> work_observers;
+	std::list<celerix::work_item> pending;
+	mutable celerix::mutex mutex{ mutex_identifier (mutexes::work_pool) };
+	celerix::condition_variable producer_condition;
+	std::chrono::celerixseconds pow_rate_limiter;
+	celerix::opencl_work_func_t opencl;
+	celerix::observer_set<bool> work_observers;
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 };
 }

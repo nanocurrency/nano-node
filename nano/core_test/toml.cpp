@@ -1,9 +1,9 @@
-#include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/rpcconfig.hpp>
-#include <nano/lib/tomlconfig.hpp>
-#include <nano/node/daemonconfig.hpp>
-#include <nano/secure/utility.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/lib/jsonconfig.hpp>
+#include <celerix/lib/rpcconfig.hpp>
+#include <celerix/lib/tomlconfig.hpp>
+#include <celerix/node/daemonconfig.hpp>
+#include <celerix/secure/utility.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -18,7 +18,7 @@ using namespace std::chrono_literals;
 /** Ensure only different values survive a toml diff */
 TEST (toml, diff)
 {
-	nano::tomlconfig defaults, other;
+	celerix::tomlconfig defaults, other;
 
 	// Defaults
 	std::stringstream ss;
@@ -46,7 +46,7 @@ TEST (toml, diff)
 /** Diff on equal toml files leads to an empty result */
 TEST (toml, diff_equal)
 {
-	nano::tomlconfig defaults, other;
+	celerix::tomlconfig defaults, other;
 
 	std::stringstream ss;
 	ss << R"toml(
@@ -75,7 +75,7 @@ TEST (toml, optional_child)
 		val=1
 	)toml";
 
-	nano::tomlconfig t;
+	celerix::tomlconfig t;
 	t.read (ss);
 	auto c1 = t.get_required_child ("child");
 	int val = 0;
@@ -102,7 +102,7 @@ TEST (toml, dot_child_syntax)
 		c=3
 	)toml";
 
-	nano::tomlconfig t;
+	celerix::tomlconfig t;
 	t.read (ss_override, ss);
 
 	auto node = t.get_required_child ("node");
@@ -128,7 +128,7 @@ TEST (toml, base_override)
 			node.too_big=70000
 	)toml";
 
-	nano::tomlconfig t;
+	celerix::tomlconfig t;
 	t.read (ss_override, ss_base);
 
 	// Query optional existent value
@@ -148,19 +148,19 @@ TEST (toml, base_override)
 	t.get_required<uint16_t> ("node.peering_port_not_existent", port);
 	ASSERT_EQ (port, 65535);
 	ASSERT_TRUE (t.get_error ());
-	ASSERT_EQ (t.get_error (), nano::error_config::missing_value);
+	ASSERT_EQ (t.get_error (), celerix::error_config::missing_value);
 	t.get_error ().clear ();
 
 	// Query uint16 that's too big, make sure we have an error
 	t.get_required<uint16_t> ("node.too_big", port);
 	ASSERT_TRUE (t.get_error ());
-	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
+	ASSERT_EQ (t.get_error (), celerix::error_config::invalid_value);
 }
 
 TEST (toml, put)
 {
-	nano::tomlconfig config;
-	nano::tomlconfig config_node;
+	celerix::tomlconfig config;
+	celerix::tomlconfig config_node;
 	// Overwrite value and add to child node
 	config_node.put ("port", "7074");
 	config_node.put ("port", "7075");
@@ -173,8 +173,8 @@ TEST (toml, put)
 
 TEST (toml, array)
 {
-	nano::tomlconfig config;
-	nano::tomlconfig config_node;
+	celerix::tomlconfig config;
+	celerix::tomlconfig config_node;
 	config.put_child ("node", config_node);
 	config_node.push<std::string> ("items", "item 1");
 	config_node.push<std::string> ("items", "item 2");
@@ -187,9 +187,9 @@ TEST (toml, array)
 
 TEST (toml_config, daemon_config_update_array)
 {
-	nano::tomlconfig t;
+	celerix::tomlconfig t;
 	std::filesystem::path data_path (".");
-	nano::daemon_config c{ data_path, nano::dev::network_params };
+	celerix::daemon_config c{ data_path, celerix::dev::network_params };
 	c.node.preconfigured_peers.push_back ("dev-peer.org");
 	c.serialize_toml (t);
 	c.deserialize_toml (t);
@@ -206,10 +206,10 @@ TEST (toml_config, rpc_config_deserialize_defaults)
 	[process]
 	)toml";
 
-	nano::tomlconfig t;
+	celerix::tomlconfig t;
 	t.read (ss);
-	nano::rpc_config conf{ nano::dev::network_params.network };
-	nano::rpc_config defaults{ nano::dev::network_params.network };
+	celerix::rpc_config conf{ celerix::dev::network_params.network };
+	celerix::rpc_config defaults{ celerix::dev::network_params.network };
 	conf.deserialize_toml (t);
 
 	ASSERT_FALSE (t.get_error ()) << t.get_error ().get_message ();
@@ -256,10 +256,10 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	[rpc.child_process]
 	)toml";
 
-	nano::tomlconfig t;
+	celerix::tomlconfig t;
 	t.read (ss);
-	nano::daemon_config conf;
-	nano::daemon_config defaults;
+	celerix::daemon_config conf;
+	celerix::daemon_config defaults;
 	conf.deserialize_toml (t);
 
 	ASSERT_FALSE (t.get_error ()) << t.get_error ().get_message ();
@@ -463,7 +463,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	peering_port = 999
 	pow_sleep_interval= 999
 	preconfigured_peers = ["dev.org"]
-	preconfigured_representatives = ["nano_3arg3asgtigae3xckabaaewkx3bzsh7nwz7jkmjos79ihyaxwphhm6qgjps4"]
+	preconfigured_representatives = ["celerix_3arg3asgtigae3xckabaaewkx3bzsh7nwz7jkmjos79ihyaxwphhm6qgjps4"]
 	receive_minimum = "999"
 	signature_checker_threads = 999
 	tcp_io_timeout = 999
@@ -669,13 +669,13 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 
 	[rpc.child_process]
 	enable = true
-	rpc_path = "/dev/nano_rpc"
+	rpc_path = "/dev/celerix_rpc"
 	)toml";
 
-	nano::tomlconfig toml;
+	celerix::tomlconfig toml;
 	toml.read (ss);
-	nano::daemon_config conf;
-	nano::daemon_config defaults;
+	celerix::daemon_config conf;
+	celerix::daemon_config defaults;
 	conf.deserialize_toml (toml);
 
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
@@ -784,7 +784,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.lmdb_config.map_size, defaults.node.lmdb_config.map_size);
 
 	ASSERT_TRUE (conf.node.rocksdb_config.enable);
-	ASSERT_EQ (nano::rocksdb_config::using_rocksdb_in_tests (), defaults.node.rocksdb_config.enable);
+	ASSERT_EQ (celerix::rocksdb_config::using_rocksdb_in_tests (), defaults.node.rocksdb_config.enable);
 	ASSERT_NE (conf.node.rocksdb_config.io_threads, defaults.node.rocksdb_config.io_threads);
 	ASSERT_NE (conf.node.rocksdb_config.read_cache, defaults.node.rocksdb_config.read_cache);
 	ASSERT_NE (conf.node.rocksdb_config.write_cache, defaults.node.rocksdb_config.write_cache);
@@ -870,10 +870,10 @@ TEST (toml_config, daemon_config_no_required)
 	[rpc.child_process]
 	)toml";
 
-	nano::tomlconfig toml;
+	celerix::tomlconfig toml;
 	toml.read (ss);
-	nano::daemon_config conf;
-	nano::daemon_config defaults;
+	celerix::daemon_config conf;
+	celerix::daemon_config defaults;
 	conf.deserialize_toml (toml);
 
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
@@ -900,10 +900,10 @@ TEST (toml_config, rpc_config_deserialize_no_defaults)
 	log_rpc = false
 	)toml";
 
-	nano::tomlconfig toml;
+	celerix::tomlconfig toml;
 	toml.read (ss);
-	nano::rpc_config conf{ nano::dev::network_params.network };
-	nano::rpc_config defaults{ nano::dev::network_params.network };
+	celerix::rpc_config conf{ celerix::dev::network_params.network };
+	celerix::rpc_config defaults{ celerix::dev::network_params.network };
 	conf.deserialize_toml (toml);
 
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
@@ -935,10 +935,10 @@ TEST (toml_config, rpc_config_no_required)
 	[secure]
 	)toml";
 
-	nano::tomlconfig toml;
+	celerix::tomlconfig toml;
 	toml.read (ss);
-	nano::rpc_config conf{ nano::dev::network_params.network };
-	nano::rpc_config defaults{ nano::dev::network_params.network };
+	celerix::rpc_config conf{ celerix::dev::network_params.network };
+	celerix::rpc_config defaults{ celerix::dev::network_params.network };
 	conf.deserialize_toml (toml);
 
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
@@ -954,9 +954,9 @@ TEST (toml_config, daemon_config_deserialize_errors)
 		max_work_generate_multiplier = 0.9
 		)toml";
 
-		nano::tomlconfig toml;
+		celerix::tomlconfig toml;
 		toml.read (ss);
-		nano::daemon_config conf;
+		celerix::daemon_config conf;
 		conf.deserialize_toml (toml);
 
 		ASSERT_EQ (toml.get_error ().get_message (), "max_work_generate_multiplier must be greater than or equal to 1");
@@ -968,9 +968,9 @@ TEST (toml_config, daemon_config_deserialize_errors)
 		bootstrap_frontier_request_count = 1000
 		)toml";
 
-		nano::tomlconfig toml;
+		celerix::tomlconfig toml;
 		toml.read (ss);
-		nano::daemon_config conf;
+		celerix::daemon_config conf;
 		conf.deserialize_toml (toml);
 
 		ASSERT_EQ (toml.get_error ().get_message (), "bootstrap_frontier_request_count must be greater than or equal to 1024");
@@ -979,9 +979,9 @@ TEST (toml_config, daemon_config_deserialize_errors)
 
 TEST (toml_config, daemon_read_config)
 {
-	auto path (nano::unique_path ());
+	auto path (celerix::unique_path ());
 	std::filesystem::create_directories (path);
-	nano::daemon_config config;
+	celerix::daemon_config config;
 	std::vector<std::string> invalid_overrides1{ "node.max_work_generate_multiplier=0" };
 	std::string expected_message1{ "max_work_generate_multiplier must be greater than or equal to 1" };
 
@@ -989,33 +989,33 @@ TEST (toml_config, daemon_read_config)
 	std::string expected_message2{ "Value must follow after a '=' at line 2" };
 
 	// Reading when there is no config file
-	ASSERT_FALSE (std::filesystem::exists (nano::get_node_toml_config_path (path)));
-	ASSERT_FALSE (nano::read_node_config_toml (path, config));
+	ASSERT_FALSE (std::filesystem::exists (celerix::get_node_toml_config_path (path)));
+	ASSERT_FALSE (celerix::read_node_config_toml (path, config));
 	{
-		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);
+		auto error = celerix::read_node_config_toml (path, config, invalid_overrides1);
 		ASSERT_TRUE (error);
 		ASSERT_EQ (error.get_message (), expected_message1);
 	}
 	{
-		auto error = nano::read_node_config_toml (path, config, invalid_overrides2);
+		auto error = celerix::read_node_config_toml (path, config, invalid_overrides2);
 		ASSERT_TRUE (error);
 		ASSERT_EQ (error.get_message (), expected_message2);
 	}
 
 	// Create an empty config
-	nano::tomlconfig toml;
-	toml.write (nano::get_node_toml_config_path (path));
+	celerix::tomlconfig toml;
+	toml.write (celerix::get_node_toml_config_path (path));
 
 	// Reading when there is a config file
-	ASSERT_TRUE (std::filesystem::exists (nano::get_node_toml_config_path (path)));
-	ASSERT_FALSE (nano::read_node_config_toml (path, config));
+	ASSERT_TRUE (std::filesystem::exists (celerix::get_node_toml_config_path (path)));
+	ASSERT_FALSE (celerix::read_node_config_toml (path, config));
 	{
-		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);
+		auto error = celerix::read_node_config_toml (path, config, invalid_overrides1);
 		ASSERT_TRUE (error);
 		ASSERT_EQ (error.get_message (), expected_message1);
 	}
 	{
-		auto error = nano::read_node_config_toml (path, config, invalid_overrides2);
+		auto error = celerix::read_node_config_toml (path, config, invalid_overrides2);
 		ASSERT_TRUE (error);
 		ASSERT_EQ (error.get_message (), expected_message2);
 	}
@@ -1028,10 +1028,10 @@ TEST (toml_config, log_config_defaults)
 	// A config with no values
 	ss << R"toml()toml";
 
-	nano::tomlconfig toml;
+	celerix::tomlconfig toml;
 	toml.read (ss);
-	nano::log_config confg{};
-	nano::log_config defaults{};
+	celerix::log_config confg{};
+	celerix::log_config defaults{};
 	confg.deserialize_toml (toml);
 
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
@@ -1071,10 +1071,10 @@ TEST (toml_config, log_config_no_defaults)
 	block_processor = "trace"
 	)toml";
 
-	nano::tomlconfig toml;
+	celerix::tomlconfig toml;
 	toml.read (ss);
-	nano::log_config confg{};
-	nano::log_config defaults{};
+	celerix::log_config confg{};
+	celerix::log_config defaults{};
 	confg.deserialize_toml (toml);
 
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
@@ -1101,10 +1101,10 @@ TEST (toml_config, log_config_no_required)
 	[log.levels]
 	)toml";
 
-	nano::tomlconfig toml;
+	celerix::tomlconfig toml;
 	toml.read (ss);
-	nano::log_config confg{};
-	nano::log_config defaults{};
+	celerix::log_config confg{};
+	celerix::log_config defaults{};
 	confg.deserialize_toml (toml);
 
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
@@ -1112,13 +1112,13 @@ TEST (toml_config, log_config_no_required)
 
 TEST (toml_config, merge_config_files)
 {
-	nano::network_params network_params{ nano::network_constants::active_network };
-	nano::tomlconfig default_toml;
-	nano::tomlconfig current_toml;
-	nano::tomlconfig merged_toml;
-	nano::daemon_config default_config{ ".", network_params };
-	nano::daemon_config current_config{ ".", network_params };
-	nano::daemon_config merged_config{ ".", network_params };
+	celerix::network_params network_params{ celerix::network_constants::active_network };
+	celerix::tomlconfig default_toml;
+	celerix::tomlconfig current_toml;
+	celerix::tomlconfig merged_toml;
+	celerix::daemon_config default_config{ ".", network_params };
+	celerix::daemon_config current_config{ ".", network_params };
+	celerix::daemon_config merged_config{ ".", network_params };
 
 	std::stringstream ss;
 

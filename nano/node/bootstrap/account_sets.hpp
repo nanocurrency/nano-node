@@ -1,9 +1,9 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
-#include <nano/node/bootstrap/bootstrap_config.hpp>
-#include <nano/node/bootstrap/common.hpp>
-#include <nano/node/fwd.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/node/bootstrap/bootstrap_config.hpp>
+#include <celerix/node/bootstrap/common.hpp>
+#include <celerix/node/fwd.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
@@ -17,7 +17,7 @@
 
 namespace mi = boost::multi_index;
 
-namespace nano
+namespace celerix
 {
 namespace bootstrap
 {
@@ -33,31 +33,31 @@ namespace bootstrap
 		static unsigned constexpr max_fails = 3;
 
 	public:
-		account_sets (account_sets_config const &, nano::stats &);
+		account_sets (account_sets_config const &, celerix::stats &);
 
 		/**
 		 * If an account is not blocked, increase its priority.
 		 * If the account does not exist in priority set and is not blocked, inserts a new entry.
 		 * Current implementation increases priority by 1.0f each increment
 		 */
-		void priority_up (nano::account const & account);
+		void priority_up (celerix::account const & account);
 		/**
 		 * Decreases account priority
 		 * Current implementation divides priority by 2.0f and saturates down to 1.0f.
 		 */
-		void priority_down (nano::account const & account);
-		void priority_set (nano::account const & account, double priority = priority_initial);
+		void priority_down (celerix::account const & account);
+		void priority_set (celerix::account const & account, double priority = priority_initial);
 
-		void block (nano::account const & account, nano::block_hash const & dependency);
-		void unblock (nano::account const & account, std::optional<nano::block_hash> const & hash = std::nullopt);
+		void block (celerix::account const & account, celerix::block_hash const & dependency);
+		void unblock (celerix::account const & account, std::optional<celerix::block_hash> const & hash = std::nullopt);
 
-		void timestamp_set (nano::account const & account);
-		void timestamp_reset (nano::account const & account);
+		void timestamp_set (celerix::account const & account);
+		void timestamp_reset (celerix::account const & account);
 
 		/**
 		 * Sets information about the account chain that contains the block hash
 		 */
-		void dependency_update (nano::block_hash const & hash, nano::account const & dependency_account);
+		void dependency_update (celerix::block_hash const & hash, celerix::account const & dependency_account);
 		/**
 		 * Should be called periodically to reinsert missing dependencies into the priority set
 		 */
@@ -65,7 +65,7 @@ namespace bootstrap
 
 		struct priority_result
 		{
-			nano::account account;
+			celerix::account account;
 			double priority;
 			unsigned fails;
 		};
@@ -73,25 +73,25 @@ namespace bootstrap
 		/**
 		 * Sampling
 		 */
-		priority_result next_priority (std::function<bool (nano::account const &)> const & filter);
-		nano::block_hash next_blocking (std::function<bool (nano::block_hash const &)> const & filter);
+		priority_result next_priority (std::function<bool (celerix::account const &)> const & filter);
+		celerix::block_hash next_blocking (std::function<bool (celerix::block_hash const &)> const & filter);
 
-		bool blocked (nano::account const & account) const;
-		bool prioritized (nano::account const & account) const;
+		bool blocked (celerix::account const & account) const;
+		bool prioritized (celerix::account const & account) const;
 		// Accounts in the ledger but not in priority list are assumed priority 1.0f
 		// Blocked accounts are assumed priority 0.0f
-		double priority (nano::account const & account) const;
+		double priority (celerix::account const & account) const;
 
 		std::size_t priority_size () const;
 		std::size_t blocked_size () const;
 		bool priority_half_full () const;
 		bool blocked_half_full () const;
 
-		nano::container_info container_info () const;
+		celerix::container_info container_info () const;
 
 	private: // Dependencies
 		account_sets_config const & config;
-		nano::stats & stats;
+		celerix::stats & stats;
 
 	private:
 		void trim_overflow ();
@@ -99,7 +99,7 @@ namespace bootstrap
 	private:
 		struct priority_entry
 		{
-			nano::account account;
+			celerix::account account;
 			double priority;
 			unsigned fails{ 0 };
 			std::chrono::steady_clock::time_point timestamp{};
@@ -108,9 +108,9 @@ namespace bootstrap
 
 		struct blocking_entry
 		{
-			nano::account account;
-			nano::block_hash dependency;
-			nano::account dependency_account{ 0 };
+			celerix::account account;
+			celerix::block_hash dependency;
+			celerix::account dependency_account{ 0 };
 			id_t id{ generate_id () }; // Uniformly distributed, used for random querying
 		};
 
@@ -127,7 +127,7 @@ namespace bootstrap
 		mi::indexed_by<
 			mi::sequenced<mi::tag<tag_sequenced>>,
 			mi::ordered_unique<mi::tag<tag_account>,
-				mi::member<priority_entry, nano::account, &priority_entry::account>>,
+				mi::member<priority_entry, celerix::account, &priority_entry::account>>,
 			mi::ordered_non_unique<mi::tag<tag_priority>,
 				mi::member<priority_entry, double, &priority_entry::priority>, std::greater<>>, // Descending
 			mi::ordered_unique<mi::tag<tag_id>,
@@ -140,11 +140,11 @@ namespace bootstrap
 		mi::indexed_by<
 			mi::sequenced<mi::tag<tag_sequenced>>,
 			mi::ordered_unique<mi::tag<tag_account>,
-				mi::member<blocking_entry, nano::account, &blocking_entry::account>>,
+				mi::member<blocking_entry, celerix::account, &blocking_entry::account>>,
 			mi::ordered_non_unique<mi::tag<tag_dependency>,
-				mi::member<blocking_entry, nano::block_hash, &blocking_entry::dependency>>,
+				mi::member<blocking_entry, celerix::block_hash, &blocking_entry::dependency>>,
 			mi::ordered_non_unique<mi::tag<tag_dependency_account>,
-				mi::member<blocking_entry, nano::account, &blocking_entry::dependency_account>>,
+				mi::member<blocking_entry, celerix::account, &blocking_entry::dependency_account>>,
 			mi::ordered_unique<mi::tag<tag_id>,
 				mi::member<blocking_entry, id_t, &blocking_entry::id>>
 		>>;

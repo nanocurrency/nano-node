@@ -1,8 +1,8 @@
-#include <nano/node/node_observers.hpp>
+#include <celerix/node/node_observers.hpp>
 
-nano::container_info nano::node_observers::container_info () const
+celerix::container_info celerix::node_observers::container_info () const
 {
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("blocks", blocks.size ());
 	info.put ("wallet", wallet.size ());
 	info.put ("vote", vote.size ());

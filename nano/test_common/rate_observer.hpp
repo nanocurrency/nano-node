@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/lib/stats.hpp>
+#include <celerix/lib/stats.hpp>
 
 #include <atomic>
 #include <chrono>
@@ -8,7 +8,7 @@
 #include <thread>
 #include <vector>
 
-namespace nano::test
+namespace celerix::test
 {
 class rate_observer
 {
@@ -57,7 +57,7 @@ public:
 	/*
 	 * Starts observing a particular node stat from stat container
 	 */
-	void observe (nano::node &, nano::stat::type type, nano::stat::detail detail, nano::stat::dir dir = nano::stat::dir::in);
+	void observe (celerix::node &, celerix::stat::type type, celerix::stat::detail detail, celerix::stat::dir dir = celerix::stat::dir::in);
 
 private:
 	void background_print_impl (std::chrono::seconds interval);

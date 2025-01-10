@@ -1,19 +1,19 @@
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/node/active_elections.hpp>
-#include <nano/node/election.hpp>
-#include <nano/node/scheduler/component.hpp>
-#include <nano/node/scheduler/manual.hpp>
-#include <nano/node/scheduler/priority.hpp>
-#include <nano/node/transport/fake.hpp>
-#include <nano/node/vote_router.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/ledger_set_any.hpp>
-#include <nano/secure/ledger_set_confirmed.hpp>
-#include <nano/secure/vote.hpp>
-#include <nano/store/block.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/crypto_lib/random_pool.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/node/active_elections.hpp>
+#include <celerix/node/election.hpp>
+#include <celerix/node/scheduler/component.hpp>
+#include <celerix/node/scheduler/manual.hpp>
+#include <celerix/node/scheduler/priority.hpp>
+#include <celerix/node/transport/fake.hpp>
+#include <celerix/node/vote_router.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/ledger_set_any.hpp>
+#include <celerix/secure/ledger_set_confirmed.hpp>
+#include <celerix/secure/vote.hpp>
+#include <celerix/store/block.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -22,7 +22,7 @@
 
 using namespace std::chrono_literals;
 
-void nano::test::wait_peer_connections (nano::test::system & system_a)
+void celerix::test::wait_peer_connections (celerix::test::system & system_a)
 {
 	auto wait_peer_count = [&system_a] (bool in_memory) {
 		auto num_nodes = system_a.nodes.size ();
@@ -50,30 +50,30 @@ void nano::test::wait_peer_connections (nano::test::system & system_a)
 	wait_peer_count (false);
 }
 
-nano::hash_or_account nano::test::random_hash_or_account ()
+celerix::hash_or_account celerix::test::random_hash_or_account ()
 {
-	nano::hash_or_account random_hash;
-	nano::random_pool::generate_block (random_hash.bytes.data (), random_hash.bytes.size ());
+	celerix::hash_or_account random_hash;
+	celerix::random_pool::generate_block (random_hash.bytes.data (), random_hash.bytes.size ());
 	return random_hash;
 }
 
-nano::block_hash nano::test::random_hash ()
+celerix::block_hash celerix::test::random_hash ()
 {
-	return nano::test::random_hash_or_account ().as_block_hash ();
+	return celerix::test::random_hash_or_account ().as_block_hash ();
 }
 
-nano::account nano::test::random_account ()
+celerix::account celerix::test::random_account ()
 {
-	return nano::test::random_hash_or_account ().as_account ();
+	return celerix::test::random_hash_or_account ().as_account ();
 }
 
-bool nano::test::process (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
+bool celerix::test::process (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks)
 {
 	auto const transaction = node.ledger.tx_begin_write ();
 	for (auto & block : blocks)
 	{
 		auto result = node.process (transaction, block);
-		if (result != nano::block_status::progress && result != nano::block_status::old)
+		if (result != celerix::block_status::progress && result != celerix::block_status::old)
 		{
 			return false;
 		}
@@ -81,7 +81,7 @@ bool nano::test::process (nano::node & node, std::vector<std::shared_ptr<nano::b
 	return true;
 }
 
-bool nano::test::process_live (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
+bool celerix::test::process_live (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks)
 {
 	for (auto & block : blocks)
 	{
@@ -90,7 +90,7 @@ bool nano::test::process_live (nano::node & node, std::vector<std::shared_ptr<na
 	return true;
 }
 
-bool nano::test::confirmed (nano::node & node, std::vector<nano::block_hash> hashes)
+bool celerix::test::confirmed (celerix::node & node, std::vector<celerix::block_hash> hashes)
 {
 	for (auto & hash : hashes)
 	{
@@ -102,12 +102,12 @@ bool nano::test::confirmed (nano::node & node, std::vector<nano::block_hash> has
 	return true;
 }
 
-bool nano::test::confirmed (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
+bool celerix::test::confirmed (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks)
 {
 	return confirmed (node, blocks_to_hashes (blocks));
 }
 
-bool nano::test::exists (nano::node & node, std::vector<nano::block_hash> hashes)
+bool celerix::test::exists (celerix::node & node, std::vector<celerix::block_hash> hashes)
 {
 	for (auto & hash : hashes)
 	{
@@ -119,17 +119,17 @@ bool nano::test::exists (nano::node & node, std::vector<nano::block_hash> hashes
 	return true;
 }
 
-bool nano::test::exists (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
+bool celerix::test::exists (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks)
 {
 	return exists (node, blocks_to_hashes (blocks));
 }
 
-void nano::test::confirm (nano::node & node, std::vector<std::shared_ptr<nano::block>> const blocks)
+void celerix::test::confirm (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> const blocks)
 {
 	confirm (node.ledger, blocks);
 }
 
-void nano::test::confirm (nano::ledger & ledger, std::vector<std::shared_ptr<nano::block>> const blocks)
+void celerix::test::confirm (celerix::ledger & ledger, std::vector<std::shared_ptr<celerix::block>> const blocks)
 {
 	for (auto const block : blocks)
 	{
@@ -137,18 +137,18 @@ void nano::test::confirm (nano::ledger & ledger, std::vector<std::shared_ptr<nan
 	}
 }
 
-void nano::test::confirm (nano::ledger & ledger, std::shared_ptr<nano::block> const block)
+void celerix::test::confirm (celerix::ledger & ledger, std::shared_ptr<celerix::block> const block)
 {
 	confirm (ledger, block->hash ());
 }
 
-void nano::test::confirm (nano::ledger & ledger, nano::block_hash const & hash)
+void celerix::test::confirm (celerix::ledger & ledger, celerix::block_hash const & hash)
 {
 	auto transaction = ledger.tx_begin_write ();
 	ledger.confirm (transaction, hash);
 }
 
-bool nano::test::block_or_pruned_all_exists (nano::node & node, std::vector<nano::block_hash> hashes)
+bool celerix::test::block_or_pruned_all_exists (celerix::node & node, std::vector<celerix::block_hash> hashes)
 {
 	auto transaction = node.ledger.tx_begin_read ();
 	return std::all_of (hashes.begin (), hashes.end (),
@@ -157,12 +157,12 @@ bool nano::test::block_or_pruned_all_exists (nano::node & node, std::vector<nano
 	});
 }
 
-bool nano::test::block_or_pruned_all_exists (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
+bool celerix::test::block_or_pruned_all_exists (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks)
 {
 	return block_or_pruned_all_exists (node, blocks_to_hashes (blocks));
 }
 
-bool nano::test::block_or_pruned_none_exists (nano::node & node, std::vector<nano::block_hash> hashes)
+bool celerix::test::block_or_pruned_none_exists (celerix::node & node, std::vector<celerix::block_hash> hashes)
 {
 	auto transaction = node.ledger.tx_begin_read ();
 	return std::none_of (hashes.begin (), hashes.end (),
@@ -171,12 +171,12 @@ bool nano::test::block_or_pruned_none_exists (nano::node & node, std::vector<nan
 	});
 }
 
-bool nano::test::block_or_pruned_none_exists (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
+bool celerix::test::block_or_pruned_none_exists (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks)
 {
 	return block_or_pruned_none_exists (node, blocks_to_hashes (blocks));
 }
 
-bool nano::test::activate (nano::node & node, std::vector<nano::block_hash> hashes)
+bool celerix::test::activate (celerix::node & node, std::vector<celerix::block_hash> hashes)
 {
 	for (auto & hash : hashes)
 	{
@@ -191,12 +191,12 @@ bool nano::test::activate (nano::node & node, std::vector<nano::block_hash> hash
 	return true;
 }
 
-bool nano::test::activate (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
+bool celerix::test::activate (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks)
 {
 	return activate (node, blocks_to_hashes (blocks));
 }
 
-bool nano::test::active (nano::node & node, std::vector<nano::block_hash> hashes)
+bool celerix::test::active (celerix::node & node, std::vector<celerix::block_hash> hashes)
 {
 	for (auto & hash : hashes)
 	{
@@ -208,50 +208,50 @@ bool nano::test::active (nano::node & node, std::vector<nano::block_hash> hashes
 	return true;
 }
 
-bool nano::test::active (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks)
+bool celerix::test::active (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks)
 {
 	return active (node, blocks_to_hashes (blocks));
 }
 
-std::shared_ptr<nano::vote> nano::test::make_vote (nano::keypair key, std::vector<nano::block_hash> hashes, uint64_t timestamp, uint8_t duration)
+std::shared_ptr<celerix::vote> celerix::test::make_vote (celerix::keypair key, std::vector<celerix::block_hash> hashes, uint64_t timestamp, uint8_t duration)
 {
-	return std::make_shared<nano::vote> (key.pub, key.prv, timestamp, duration, hashes);
+	return std::make_shared<celerix::vote> (key.pub, key.prv, timestamp, duration, hashes);
 }
 
-std::shared_ptr<nano::vote> nano::test::make_vote (nano::keypair key, std::vector<std::shared_ptr<nano::block>> blocks, uint64_t timestamp, uint8_t duration)
+std::shared_ptr<celerix::vote> celerix::test::make_vote (celerix::keypair key, std::vector<std::shared_ptr<celerix::block>> blocks, uint64_t timestamp, uint8_t duration)
 {
-	std::vector<nano::block_hash> hashes;
+	std::vector<celerix::block_hash> hashes;
 	std::transform (blocks.begin (), blocks.end (), std::back_inserter (hashes), [] (auto & block) { return block->hash (); });
 	return make_vote (key, hashes, timestamp, duration);
 }
 
-std::shared_ptr<nano::vote> nano::test::make_final_vote (nano::keypair key, std::vector<nano::block_hash> hashes)
+std::shared_ptr<celerix::vote> celerix::test::make_final_vote (celerix::keypair key, std::vector<celerix::block_hash> hashes)
 {
-	return make_vote (key, hashes, nano::vote::timestamp_max, nano::vote::duration_max);
+	return make_vote (key, hashes, celerix::vote::timestamp_max, celerix::vote::duration_max);
 }
 
-std::shared_ptr<nano::vote> nano::test::make_final_vote (nano::keypair key, std::vector<std::shared_ptr<nano::block>> blocks)
+std::shared_ptr<celerix::vote> celerix::test::make_final_vote (celerix::keypair key, std::vector<std::shared_ptr<celerix::block>> blocks)
 {
-	return make_vote (key, blocks, nano::vote::timestamp_max, nano::vote::duration_max);
+	return make_vote (key, blocks, celerix::vote::timestamp_max, celerix::vote::duration_max);
 }
 
-std::vector<nano::block_hash> nano::test::blocks_to_hashes (std::vector<std::shared_ptr<nano::block>> blocks)
+std::vector<celerix::block_hash> celerix::test::blocks_to_hashes (std::vector<std::shared_ptr<celerix::block>> blocks)
 {
-	std::vector<nano::block_hash> hashes;
+	std::vector<celerix::block_hash> hashes;
 	std::transform (blocks.begin (), blocks.end (), std::back_inserter (hashes), [] (auto & block) { return block->hash (); });
 	return hashes;
 }
 
-std::vector<std::shared_ptr<nano::block>> nano::test::clone (std::vector<std::shared_ptr<nano::block>> blocks)
+std::vector<std::shared_ptr<celerix::block>> celerix::test::clone (std::vector<std::shared_ptr<celerix::block>> blocks)
 {
-	std::vector<std::shared_ptr<nano::block>> clones;
+	std::vector<std::shared_ptr<celerix::block>> clones;
 	std::transform (blocks.begin (), blocks.end (), std::back_inserter (clones), [] (auto & block) { return block->clone (); });
 	return clones;
 }
 
-std::shared_ptr<nano::transport::fake::channel> nano::test::fake_channel (nano::node & node, nano::account node_id)
+std::shared_ptr<celerix::transport::fake::channel> celerix::test::fake_channel (celerix::node & node, celerix::account node_id)
 {
-	auto channel = std::make_shared<nano::transport::fake::channel> (node);
+	auto channel = std::make_shared<celerix::transport::fake::channel> (node);
 	if (!node_id.is_zero ())
 	{
 		channel->set_node_id (node_id);
@@ -259,7 +259,7 @@ std::shared_ptr<nano::transport::fake::channel> nano::test::fake_channel (nano::
 	return channel;
 }
 
-std::shared_ptr<nano::election> nano::test::start_election (nano::test::system & system_a, nano::node & node_a, const nano::block_hash & hash_a)
+std::shared_ptr<celerix::election> celerix::test::start_election (celerix::test::system & system_a, celerix::node & node_a, const celerix::block_hash & hash_a)
 {
 	system_a.deadline_set (5s);
 
@@ -277,7 +277,7 @@ std::shared_ptr<nano::election> nano::test::start_election (nano::test::system &
 	node_a.scheduler.manual.push (block_l);
 
 	// wait for the election to appear
-	std::shared_ptr<nano::election> election = node_a.active.election (block_l->qualified_root ());
+	std::shared_ptr<celerix::election> election = node_a.active.election (block_l->qualified_root ());
 	while (!election)
 	{
 		if (system_a.poll ())
@@ -291,11 +291,11 @@ std::shared_ptr<nano::election> nano::test::start_election (nano::test::system &
 	return election;
 }
 
-bool nano::test::start_elections (nano::test::system & system_a, nano::node & node_a, std::vector<nano::block_hash> const & hashes_a, bool const forced_a)
+bool celerix::test::start_elections (celerix::test::system & system_a, celerix::node & node_a, std::vector<celerix::block_hash> const & hashes_a, bool const forced_a)
 {
 	for (auto const & hash_l : hashes_a)
 	{
-		auto election = nano::test::start_election (system_a, node_a, hash_l);
+		auto election = celerix::test::start_election (system_a, node_a, hash_l);
 		if (!election)
 		{
 			return false;
@@ -308,12 +308,12 @@ bool nano::test::start_elections (nano::test::system & system_a, nano::node & no
 	return true;
 }
 
-bool nano::test::start_elections (nano::test::system & system_a, nano::node & node_a, std::vector<std::shared_ptr<nano::block>> const & blocks_a, bool const forced_a)
+bool celerix::test::start_elections (celerix::test::system & system_a, celerix::node & node_a, std::vector<std::shared_ptr<celerix::block>> const & blocks_a, bool const forced_a)
 {
-	return nano::test::start_elections (system_a, node_a, blocks_to_hashes (blocks_a), forced_a);
+	return celerix::test::start_elections (system_a, node_a, blocks_to_hashes (blocks_a), forced_a);
 }
 
-nano::account_info nano::test::account_info (nano::node const & node, nano::account const & acc)
+celerix::account_info celerix::test::account_info (celerix::node const & node, celerix::account const & acc)
 {
 	auto const tx = node.ledger.tx_begin_read ();
 	auto opt = node.ledger.any.account_get (tx, acc);
@@ -324,7 +324,7 @@ nano::account_info nano::test::account_info (nano::node const & node, nano::acco
 	return {};
 }
 
-void nano::test::print_all_receivable_entries (const nano::store::component & store)
+void celerix::test::print_all_receivable_entries (const celerix::store::component & store)
 {
 	std::cout << "Printing all receivable entries:\n";
 	auto const tx = store.tx_begin_read ();
@@ -336,16 +336,16 @@ void nano::test::print_all_receivable_entries (const nano::store::component & st
 	}
 }
 
-void nano::test::print_all_account_info (const nano::ledger & ledger)
+void celerix::test::print_all_account_info (const celerix::ledger & ledger)
 {
 	std::cout << "Printing all account info:\n";
 	auto const tx = ledger.tx_begin_read ();
 	auto const end = ledger.store.account.end (tx);
 	for (auto i = ledger.store.account.begin (tx); i != end; ++i)
 	{
-		nano::account acc = i->first;
-		nano::account_info acc_info = i->second;
-		nano::confirmation_height_info height_info;
+		celerix::account acc = i->first;
+		celerix::account_info acc_info = i->second;
+		celerix::confirmation_height_info height_info;
 		std::cout << "Account: " << acc.to_account () << std::endl;
 		std::cout << "  Unconfirmed Balance: " << acc_info.balance.to_string_dec () << std::endl;
 		std::cout << "  Confirmed Balance:   " << ledger.confirmed.account_balance (tx, acc).value_or (0) << std::endl;
@@ -358,7 +358,7 @@ void nano::test::print_all_account_info (const nano::ledger & ledger)
 	}
 }
 
-void nano::test::print_all_blocks (const nano::store::component & store)
+void celerix::test::print_all_blocks (const celerix::store::component & store)
 {
 	auto tx = store.tx_begin_read ();
 	auto i = store.block.begin (tx);
@@ -366,9 +366,9 @@ void nano::test::print_all_blocks (const nano::store::component & store)
 	std::cout << "Listing all blocks" << std::endl;
 	for (; i != end; ++i)
 	{
-		nano::block_hash hash = i->first;
-		nano::store::block_w_sideband sideband = i->second;
-		std::shared_ptr<nano::block> b = sideband.block;
+		celerix::block_hash hash = i->first;
+		celerix::store::block_w_sideband sideband = i->second;
+		std::shared_ptr<celerix::block> b = sideband.block;
 		std::cout << "Hash: " << hash.to_string () << std::endl;
 		const auto acc = sideband.sideband.account;
 		std::cout << "Acc: " << acc.to_string () << "(" << acc.to_account () << ")" << std::endl;
@@ -377,10 +377,10 @@ void nano::test::print_all_blocks (const nano::store::component & store)
 	}
 }
 
-std::vector<std::shared_ptr<nano::block>> nano::test::all_blocks (nano::node & node)
+std::vector<std::shared_ptr<celerix::block>> celerix::test::all_blocks (celerix::node & node)
 {
 	auto transaction = node.store.tx_begin_read ();
-	std::vector<std::shared_ptr<nano::block>> result;
+	std::vector<std::shared_ptr<celerix::block>> result;
 	for (auto it = node.store.block.begin (transaction), end = node.store.block.end (transaction); it != end; ++it)
 	{
 		result.push_back (it->second.block);
@@ -388,7 +388,7 @@ std::vector<std::shared_ptr<nano::block>> nano::test::all_blocks (nano::node & n
 	return result;
 }
 
-nano::uint128_t nano::test::minimum_principal_weight ()
+celerix::uint128_t celerix::test::minimum_principal_weight ()
 {
-	return nano::dev::genesis->balance ().number () / nano::dev::network_params.network.principal_weight_factor;
+	return celerix::dev::genesis->balance ().number () / celerix::dev::network_params.network.principal_weight_factor;
 }

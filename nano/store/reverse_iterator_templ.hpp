@@ -1,6 +1,6 @@
-#include <nano/store/reverse_iterator.hpp>
+#include <celerix/store/reverse_iterator.hpp>
 
-namespace nano::store
+namespace celerix::store
 {
 template <typename Iter>
 reverse_iterator<Iter>::reverse_iterator (Iter && other) noexcept :

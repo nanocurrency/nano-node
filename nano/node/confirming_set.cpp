@@ -1,22 +1,22 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/logging.hpp>
-#include <nano/lib/stats.hpp>
-#include <nano/lib/thread_roles.hpp>
-#include <nano/node/block_processor.hpp>
-#include <nano/node/confirming_set.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/ledger_set_any.hpp>
-#include <nano/secure/ledger_set_confirmed.hpp>
-#include <nano/store/component.hpp>
-#include <nano/store/write_queue.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/lib/stats.hpp>
+#include <celerix/lib/thread_roles.hpp>
+#include <celerix/node/block_processor.hpp>
+#include <celerix/node/confirming_set.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/ledger_set_any.hpp>
+#include <celerix/secure/ledger_set_confirmed.hpp>
+#include <celerix/store/component.hpp>
+#include <celerix/store/write_queue.hpp>
 
-nano::confirming_set::confirming_set (confirming_set_config const & config_a, nano::ledger & ledger_a, nano::block_processor & block_processor_a, nano::stats & stats_a, nano::logger & logger_a) :
+celerix::confirming_set::confirming_set (confirming_set_config const & config_a, celerix::ledger & ledger_a, celerix::block_processor & block_processor_a, celerix::stats & stats_a, celerix::logger & logger_a) :
 	config{ config_a },
 	ledger{ ledger_a },
 	block_processor{ block_processor_a },
 	stats{ stats_a },
 	logger{ logger_a },
-	workers{ 1, nano::thread_role::name::confirmation_height_notifications }
+	workers{ 1, celerix::thread_role::name::confirmation_height_notifications }
 {
 	batch_cemented.add ([this] (auto const & cemented) {
 		for (auto const & context : cemented)
@@ -34,7 +34,7 @@ nano::confirming_set::confirming_set (confirming_set_config const & config_a, na
 			{
 				if (auto it = deferred.get<tag_hash> ().find (context.block->hash ()); it != deferred.get<tag_hash> ().end ())
 				{
-					stats.inc (nano::stat::type::confirming_set, nano::stat::detail::requeued);
+					stats.inc (celerix::stat::type::confirming_set, celerix::stat::detail::requeued);
 					set.push_back (*it);
 					deferred.get<tag_hash> ().erase (it);
 					should_notify = true;
@@ -48,12 +48,12 @@ nano::confirming_set::confirming_set (confirming_set_config const & config_a, na
 	});
 }
 
-nano::confirming_set::~confirming_set ()
+celerix::confirming_set::~confirming_set ()
 {
 	debug_assert (!thread.joinable ());
 }
 
-void nano::confirming_set::add (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election)
+void celerix::confirming_set::add (celerix::block_hash const & hash, std::shared_ptr<celerix::election> const & election)
 {
 	bool added = false;
 	{
@@ -64,15 +64,15 @@ void nano::confirming_set::add (nano::block_hash const & hash, std::shared_ptr<n
 	if (added)
 	{
 		condition.notify_all ();
-		stats.inc (nano::stat::type::confirming_set, nano::stat::detail::insert);
+		stats.inc (celerix::stat::type::confirming_set, celerix::stat::detail::insert);
 	}
 	else
 	{
-		stats.inc (nano::stat::type::confirming_set, nano::stat::detail::duplicate);
+		stats.inc (celerix::stat::type::confirming_set, celerix::stat::detail::duplicate);
 	}
 }
 
-void nano::confirming_set::start ()
+void celerix::confirming_set::start ()
 {
 	debug_assert (!thread.joinable ());
 
@@ -84,12 +84,12 @@ void nano::confirming_set::start ()
 	workers.start ();
 
 	thread = std::thread{ [this] () {
-		nano::thread_role::set (nano::thread_role::name::confirmation_height);
+		celerix::thread_role::set (celerix::thread_role::name::confirmation_height);
 		run ();
 	} };
 }
 
-void nano::confirming_set::stop ()
+void celerix::confirming_set::stop ()
 {
 	{
 		std::lock_guard lock{ mutex };
@@ -103,25 +103,25 @@ void nano::confirming_set::stop ()
 	workers.stop ();
 }
 
-bool nano::confirming_set::contains (nano::block_hash const & hash) const
+bool celerix::confirming_set::contains (celerix::block_hash const & hash) const
 {
 	std::lock_guard lock{ mutex };
 	return set.get<tag_hash> ().contains (hash) || deferred.get<tag_hash> ().contains (hash) || current.contains (hash);
 }
 
-std::size_t nano::confirming_set::size () const
+std::size_t celerix::confirming_set::size () const
 {
 	// Do not report deferred blocks, as they are not currently being processed (and might never be requeued)
 	std::lock_guard lock{ mutex };
 	return set.size () + current.size ();
 }
 
-void nano::confirming_set::run ()
+void celerix::confirming_set::run ()
 {
 	std::unique_lock lock{ mutex };
 	while (!stopped)
 	{
-		stats.inc (nano::stat::type::confirming_set, nano::stat::detail::loop);
+		stats.inc (celerix::stat::type::confirming_set, celerix::stat::detail::loop);
 
 		cleanup (lock);
 		debug_assert (lock.owns_lock ());
@@ -139,7 +139,7 @@ void nano::confirming_set::run ()
 	}
 }
 
-auto nano::confirming_set::next_batch (size_t max_count) -> std::deque<entry>
+auto celerix::confirming_set::next_batch (size_t max_count) -> std::deque<entry>
 {
 	debug_assert (!mutex.try_lock ());
 	debug_assert (!set.empty ());
@@ -153,14 +153,14 @@ auto nano::confirming_set::next_batch (size_t max_count) -> std::deque<entry>
 	return results;
 }
 
-void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
+void celerix::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 {
 	debug_assert (lock.owns_lock ());
 	debug_assert (!mutex.try_lock ());
 	debug_assert (!set.empty ());
 
 	std::deque<context> cemented;
-	std::deque<nano::block_hash> already;
+	std::deque<celerix::block_hash> already;
 
 	auto batch = next_batch (config.batch_size);
 
@@ -182,7 +182,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 		// It's possible that ledger cementing happens faster than the notifications can be processed by other components, cooldown here
 		while (workers.queued_tasks () >= config.max_queued_notifications)
 		{
-			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cooldown);
+			stats.inc (celerix::stat::type::confirming_set, celerix::stat::detail::cooldown);
 			condition.wait_for (lock, 100ms, [this] { return stopped.load (); });
 			if (stopped)
 			{
@@ -191,7 +191,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 		}
 
 		workers.post ([this, batch = std::move (batch)] () {
-			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify);
+			stats.inc (celerix::stat::type::confirming_set, celerix::stat::detail::notify);
 			batch_cemented.notify (batch);
 		});
 	};
@@ -200,7 +200,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 	auto notify_maybe = [this, &cemented, &already, &notify] (auto & transaction) {
 		if (cemented.size () >= config.max_blocks)
 		{
-			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::notify_intermediate);
+			stats.inc (celerix::stat::type::confirming_set, celerix::stat::detail::notify_intermediate);
 			transaction.commit ();
 			notify ();
 			transaction.renew ();
@@ -208,7 +208,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 	};
 
 	{
-		auto transaction = ledger.tx_begin_write (nano::store::writer::confirmation_height);
+		auto transaction = ledger.tx_begin_write (celerix::store::writer::confirmation_height);
 		for (auto const & entry : batch)
 		{
 			auto const & hash = entry.hash;
@@ -229,12 +229,12 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 				// Issue notifications here, so that `cemented` set is not too large before we add more blocks
 				notify_maybe (transaction);
 
-				stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cementing);
+				stats.inc (celerix::stat::type::confirming_set, celerix::stat::detail::cementing);
 
 				// The block might be rolled back before it's fully cemented
 				if (!ledger.any.block_exists (transaction, hash))
 				{
-					stats.inc (nano::stat::type::confirming_set, nano::stat::detail::missing_block);
+					stats.inc (celerix::stat::type::confirming_set, celerix::stat::detail::missing_block);
 					break;
 				}
 
@@ -242,7 +242,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 				if (!added.empty ())
 				{
 					// Confirming this block may implicitly confirm more
-					stats.add (nano::stat::type::confirming_set, nano::stat::detail::cemented, added.size ());
+					stats.add (celerix::stat::type::confirming_set, celerix::stat::detail::cemented, added.size ());
 					for (auto & block : added)
 					{
 						cemented.push_back ({ block, hash, election });
@@ -251,7 +251,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 				}
 				else
 				{
-					stats.inc (nano::stat::type::confirming_set, nano::stat::detail::already_cemented);
+					stats.inc (celerix::stat::type::confirming_set, celerix::stat::detail::already_cemented);
 					already.push_back (hash);
 					debug_assert (ledger.confirmed.block_exists (transaction, hash));
 				}
@@ -261,13 +261,13 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 
 			if (success)
 			{
-				stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cemented_hash);
-				logger.debug (nano::log::type::confirming_set, "Cemented block: {} (total cemented: {})", hash.to_string (), cemented_count);
+				stats.inc (celerix::stat::type::confirming_set, celerix::stat::detail::cemented_hash);
+				logger.debug (celerix::log::type::confirming_set, "Cemented block: {} (total cemented: {})", hash.to_string (), cemented_count);
 			}
 			else
 			{
-				stats.inc (nano::stat::type::confirming_set, nano::stat::detail::cementing_failed);
-				logger.debug (nano::log::type::confirming_set, "Failed to cement block: {}", hash.to_string ());
+				stats.inc (celerix::stat::type::confirming_set, celerix::stat::detail::cementing_failed);
+				logger.debug (celerix::log::type::confirming_set, "Failed to cement block: {}", hash.to_string ());
 
 				// Requeue failed blocks for processing later
 				// Add them to the deferred set while still holding the exclusive database write transaction to avoid block processor races
@@ -289,7 +289,7 @@ void nano::confirming_set::run_batch (std::unique_lock<std::mutex> & lock)
 	lock.unlock ();
 }
 
-void nano::confirming_set::cleanup (std::unique_lock<std::mutex> & lock)
+void celerix::confirming_set::cleanup (std::unique_lock<std::mutex> & lock)
 {
 	debug_assert (lock.owns_lock ());
 	debug_assert (!mutex.try_lock ());
@@ -306,7 +306,7 @@ void nano::confirming_set::cleanup (std::unique_lock<std::mutex> & lock)
 	{
 		if (should_evict (*it) || deferred.size () > config.max_deferred)
 		{
-			stats.inc (nano::stat::type::confirming_set, nano::stat::detail::evicted);
+			stats.inc (celerix::stat::type::confirming_set, celerix::stat::detail::evicted);
 			debug_assert (ledger.any.block_exists (ledger.tx_begin_read (), it->hash));
 			evicted.push_back (*it);
 			it = deferred.erase (it);
@@ -329,11 +329,11 @@ void nano::confirming_set::cleanup (std::unique_lock<std::mutex> & lock)
 	}
 }
 
-nano::container_info nano::confirming_set::container_info () const
+celerix::container_info celerix::confirming_set::container_info () const
 {
 	std::lock_guard guard{ mutex };
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("set", set);
 	info.put ("deferred", deferred);
 	info.add ("workers", workers.container_info ());

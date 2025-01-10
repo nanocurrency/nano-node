@@ -1,6 +1,6 @@
 #pragma once
 
-namespace nano
+namespace celerix
 {
 enum class work_version
 {

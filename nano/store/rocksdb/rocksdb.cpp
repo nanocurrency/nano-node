@@ -1,12 +1,12 @@
-#include <nano/lib/block_type.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/files.hpp>
-#include <nano/lib/rocksdbconfig.hpp>
-#include <nano/store/rocksdb/iterator.hpp>
-#include <nano/store/rocksdb/rocksdb.hpp>
-#include <nano/store/rocksdb/transaction_impl.hpp>
-#include <nano/store/rocksdb/utility.hpp>
-#include <nano/store/version.hpp>
+#include <celerix/lib/block_type.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/files.hpp>
+#include <celerix/lib/rocksdbconfig.hpp>
+#include <celerix/store/rocksdb/iterator.hpp>
+#include <celerix/store/rocksdb/rocksdb.hpp>
+#include <celerix/store/rocksdb/transaction_impl.hpp>
+#include <celerix/store/rocksdb/utility.hpp>
+#include <celerix/store/version.hpp>
 
 #include <boost/format.hpp>
 #include <boost/polymorphic_cast.hpp>
@@ -38,9 +38,9 @@ private:
 };
 }
 
-nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
+celerix::store::rocksdb::component::component (celerix::logger & logger_a, std::filesystem::path const & path_a, celerix::ledger_constants & constants, celerix::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
 	// clang-format off
-	nano::store::component{
+	celerix::store::component{
 		block_store,
 		account_store,
 		pending_store,
@@ -66,12 +66,12 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 	logger{ logger_a },
 	constants{ constants },
 	rocksdb_config{ rocksdb_config_a },
-	max_block_write_batch_num_m{ nano::narrow_cast<unsigned> ((rocksdb_config_a.write_cache * 1024 * 1024) / (2 * (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)))) },
+	max_block_write_batch_num_m{ celerix::narrow_cast<unsigned> ((rocksdb_config_a.write_cache * 1024 * 1024) / (2 * (sizeof (celerix::block_type) + celerix::state_block::size + celerix::block_sideband::size (celerix::block_type::state)))) },
 	cf_name_table_map{ create_cf_name_table_map () }
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	std::filesystem::create_directories (path_a, error_mkdir);
-	nano::set_secure_perm_directory (path_a, error_chmod);
+	celerix::set_secure_perm_directory (path_a, error_chmod);
 	error = static_cast<bool> (error_mkdir);
 
 	if (error)
@@ -98,14 +98,14 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 		auto version_l = version.get (transaction);
 		if (version_l > version_current)
 		{
-			logger.critical (nano::log::type::rocksdb, "The version of the ledger ({}) is too high for this node", version_l);
+			logger.critical (celerix::log::type::rocksdb, "The version of the ledger ({}) is too high for this node", version_l);
 
 			error = true;
 			return;
 		}
 		else if (version_l < version_minimum)
 		{
-			logger.critical (nano::log::type::rocksdb, "The version of the ledger ({}) is lower than the minimum ({}) which is supported for upgrades. Either upgrade a node first or delete the ledger.", version_l, version_minimum);
+			logger.critical (celerix::log::type::rocksdb, "The version of the ledger ({}) is lower than the minimum ({}) which is supported for upgrades. Either upgrade a node first or delete the ledger.", version_l, version_minimum);
 
 			error = true;
 			return;
@@ -149,16 +149,16 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 	open (error, path_a, open_read_only_a, options, get_current_column_families (path_a.string (), options));
 	if (!error)
 	{
-		logger.info (nano::log::type::rocksdb, "Upgrade in progress...");
+		logger.info (celerix::log::type::rocksdb, "Upgrade in progress...");
 
 		auto transaction = tx_begin_write ();
 		error |= do_upgrades (transaction);
 	}
 }
 
-std::unordered_map<char const *, nano::tables> nano::store::rocksdb::component::create_cf_name_table_map () const
+std::unordered_map<char const *, celerix::tables> celerix::store::rocksdb::component::create_cf_name_table_map () const
 {
-	std::unordered_map<char const *, nano::tables> map{ { ::rocksdb::kDefaultColumnFamilyName.c_str (), tables::default_unused },
+	std::unordered_map<char const *, celerix::tables> map{ { ::rocksdb::kDefaultColumnFamilyName.c_str (), tables::default_unused },
 		{ "accounts", tables::accounts },
 		{ "blocks", tables::blocks },
 		{ "pending", tables::pending },
@@ -175,7 +175,7 @@ std::unordered_map<char const *, nano::tables> nano::store::rocksdb::component::
 	return map;
 }
 
-void nano::store::rocksdb::component::open (bool & error_a, std::filesystem::path const & path_a, bool open_read_only_a, ::rocksdb::Options const & options_a, std::vector<::rocksdb::ColumnFamilyDescriptor> column_families)
+void celerix::store::rocksdb::component::open (bool & error_a, std::filesystem::path const & path_a, bool open_read_only_a, ::rocksdb::Options const & options_a, std::vector<::rocksdb::ColumnFamilyDescriptor> column_families)
 {
 	//	auto options = get_db_options ();
 	::rocksdb::Status s;
@@ -206,13 +206,13 @@ void nano::store::rocksdb::component::open (bool & error_a, std::filesystem::pat
 	error_a |= !s.ok ();
 }
 
-bool nano::store::rocksdb::component::do_upgrades (store::write_transaction & transaction)
+bool celerix::store::rocksdb::component::do_upgrades (store::write_transaction & transaction)
 {
 	auto error (false);
 	auto version_l = version.get (transaction);
 	if (version_l < version_minimum)
 	{
-		logger.critical (nano::log::type::rocksdb, "The version of the ledger ({}) is lower than the minimum ({}) which is supported for upgrades. Either upgrade a node first or delete the ledger.", version_l, version_minimum);
+		logger.critical (celerix::log::type::rocksdb, "The version of the ledger ({}) is lower than the minimum ({}) which is supported for upgrades. Either upgrade a node first or delete the ledger.", version_l, version_minimum);
 		return true;
 	}
 	switch (version_l)
@@ -229,16 +229,16 @@ bool nano::store::rocksdb::component::do_upgrades (store::write_transaction & tr
 		case 24:
 			break;
 		default:
-			logger.critical (nano::log::type::rocksdb, "The version of the ledger ({}) is too high for this node", version_l);
+			logger.critical (celerix::log::type::rocksdb, "The version of the ledger ({}) is too high for this node", version_l);
 			error = true;
 			break;
 	}
 	return error;
 }
 
-void nano::store::rocksdb::component::upgrade_v21_to_v22 (store::write_transaction & transaction)
+void celerix::store::rocksdb::component::upgrade_v21_to_v22 (store::write_transaction & transaction)
 {
-	logger.info (nano::log::type::rocksdb, "Upgrading database from v21 to v22...");
+	logger.info (celerix::log::type::rocksdb, "Upgrading database from v21 to v22...");
 
 	if (column_family_exists ("unchecked"))
 	{
@@ -254,22 +254,22 @@ void nano::store::rocksdb::component::upgrade_v21_to_v22 (store::write_transacti
 			}
 			return false;
 		});
-		logger.debug (nano::log::type::rocksdb, "Finished removing unchecked table");
+		logger.debug (celerix::log::type::rocksdb, "Finished removing unchecked table");
 	}
 
 	version.put (transaction, 22);
 
-	logger.info (nano::log::type::rocksdb, "Upgrading database from v21 to v22 completed");
+	logger.info (celerix::log::type::rocksdb, "Upgrading database from v21 to v22 completed");
 }
 
 // Fill rep_weights table with all existing representatives and their vote weight
-void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transaction & transaction)
+void celerix::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transaction & transaction)
 {
-	logger.info (nano::log::type::rocksdb, "Upgrading database from v22 to v23...");
+	logger.info (celerix::log::type::rocksdb, "Upgrading database from v22 to v23...");
 
 	if (column_family_exists ("rep_weights"))
 	{
-		logger.info (nano::log::type::rocksdb, "Dropping existing rep_weights table");
+		logger.info (celerix::log::type::rocksdb, "Dropping existing rep_weights table");
 		auto const rep_weights_handle = get_column_family ("rep_weights");
 		db->DropColumnFamily (rep_weights_handle);
 		db->DestroyColumnFamilyHandle (rep_weights_handle);
@@ -286,7 +286,7 @@ void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transacti
 	}
 
 	{
-		logger.info (nano::log::type::rocksdb, "Creating table rep_weights");
+		logger.info (celerix::log::type::rocksdb, "Creating table rep_weights");
 		::rocksdb::ColumnFamilyOptions new_cf_options;
 		::rocksdb::ColumnFamilyHandle * new_cf_handle;
 		::rocksdb::Status status = db->CreateColumnFamily (new_cf_options, "rep_weights", &new_cf_handle);
@@ -304,8 +304,8 @@ void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transacti
 		auto transaction = tx_begin_read ();
 
 		// Manually create v22 compatible iterator to read accounts
-		auto it = typed_iterator<nano::account, nano::account_info_v22> (store::iterator{ rocksdb::iterator::begin (db.get (), rocksdb::tx (transaction), table_to_column_family (tables::accounts)) });
-		auto const end = typed_iterator<nano::account, nano::account_info_v22>{ store::iterator{ rocksdb::iterator::end (db.get (), rocksdb::tx (transaction), table_to_column_family (tables::accounts)) } };
+		auto it = typed_iterator<celerix::account, celerix::account_info_v22> (store::iterator{ rocksdb::iterator::begin (db.get (), rocksdb::tx (transaction), table_to_column_family (tables::accounts)) });
+		auto const end = typed_iterator<celerix::account, celerix::account_info_v22>{ store::iterator{ rocksdb::iterator::end (db.get (), rocksdb::tx (transaction), table_to_column_family (tables::accounts)) } };
 
 		for (; it != end; ++it)
 		{
@@ -320,38 +320,38 @@ void nano::store::rocksdb::component::upgrade_v22_to_v23 (store::write_transacti
 	const size_t batch_size = 250000;
 
 	size_t processed = 0;
-	iterate_accounts ([this, &transaction, &processed] (nano::account const & account, nano::account_info_v22 const & account_info) {
+	iterate_accounts ([this, &transaction, &processed] (celerix::account const & account, celerix::account_info_v22 const & account_info) {
 		if (!account_info.balance.is_zero ())
 		{
-			nano::uint128_t total{ 0 };
-			nano::store::rocksdb::db_val value;
+			celerix::uint128_t total{ 0 };
+			celerix::store::rocksdb::db_val value;
 			auto status = get (transaction, tables::rep_weights, account_info.representative, value);
 			if (success (status))
 			{
-				total = nano::amount{ value }.number ();
+				total = celerix::amount{ value }.number ();
 			}
 			total += account_info.balance.number ();
-			status = put (transaction, tables::rep_weights, account_info.representative, nano::amount{ total });
+			status = put (transaction, tables::rep_weights, account_info.representative, celerix::amount{ total });
 			release_assert_success (status);
 		}
 
 		processed++;
 		if (processed % batch_size == 0)
 		{
-			logger.info (nano::log::type::rocksdb, "Processed {} accounts", processed);
+			logger.info (celerix::log::type::rocksdb, "Processed {} accounts", processed);
 			transaction.refresh (); // Refresh to prevent excessive memory usage
 		}
 	});
 
-	logger.info (nano::log::type::rocksdb, "Done processing {} accounts", processed);
+	logger.info (celerix::log::type::rocksdb, "Done processing {} accounts", processed);
 	version.put (transaction, 23);
 
-	logger.info (nano::log::type::rocksdb, "Upgrading database from v22 to v23 completed");
+	logger.info (celerix::log::type::rocksdb, "Upgrading database from v22 to v23 completed");
 }
 
-void nano::store::rocksdb::component::upgrade_v23_to_v24 (store::write_transaction & transaction)
+void celerix::store::rocksdb::component::upgrade_v23_to_v24 (store::write_transaction & transaction)
 {
-	logger.info (nano::log::type::rocksdb, "Upgrading database from v23 to v24...");
+	logger.info (celerix::log::type::rocksdb, "Upgrading database from v23 to v24...");
 
 	if (column_family_exists ("frontiers"))
 	{
@@ -367,21 +367,21 @@ void nano::store::rocksdb::component::upgrade_v23_to_v24 (store::write_transacti
 			}
 			return false;
 		});
-		logger.debug (nano::log::type::rocksdb, "Finished removing frontiers table");
+		logger.debug (celerix::log::type::rocksdb, "Finished removing frontiers table");
 	}
 
 	version.put (transaction, 24);
-	logger.info (nano::log::type::rocksdb, "Upgrading database from v23 to v24 completed");
+	logger.info (celerix::log::type::rocksdb, "Upgrading database from v23 to v24 completed");
 }
 
-void nano::store::rocksdb::component::generate_tombstone_map ()
+void celerix::store::rocksdb::component::generate_tombstone_map ()
 {
-	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::blocks), std::forward_as_tuple (0, 25000));
-	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::accounts), std::forward_as_tuple (0, 25000));
-	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::pending), std::forward_as_tuple (0, 25000));
+	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (celerix::tables::blocks), std::forward_as_tuple (0, 25000));
+	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (celerix::tables::accounts), std::forward_as_tuple (0, 25000));
+	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (celerix::tables::pending), std::forward_as_tuple (0, 25000));
 }
 
-rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_cf_options (std::string const & cf_name_a) const
+rocksdb::ColumnFamilyOptions celerix::store::rocksdb::component::get_cf_options (std::string const & cf_name_a) const
 {
 	::rocksdb::ColumnFamilyOptions cf_options;
 	if (cf_name_a != ::rocksdb::kDefaultColumnFamilyName)
@@ -394,7 +394,7 @@ rocksdb::ColumnFamilyOptions nano::store::rocksdb::component::get_cf_options (st
 	return cf_options;
 }
 
-std::vector<rocksdb::ColumnFamilyDescriptor> nano::store::rocksdb::component::create_column_families ()
+std::vector<rocksdb::ColumnFamilyDescriptor> celerix::store::rocksdb::component::create_column_families ()
 {
 	std::vector<::rocksdb::ColumnFamilyDescriptor> column_families;
 	for (auto & [cf_name, table] : cf_name_table_map)
@@ -405,23 +405,23 @@ std::vector<rocksdb::ColumnFamilyDescriptor> nano::store::rocksdb::component::cr
 	return column_families;
 }
 
-nano::store::write_transaction nano::store::rocksdb::component::tx_begin_write ()
+celerix::store::write_transaction celerix::store::rocksdb::component::tx_begin_write ()
 {
 	release_assert (transaction_db != nullptr);
-	return store::write_transaction{ std::make_unique<nano::store::rocksdb::write_transaction_impl> (transaction_db) };
+	return store::write_transaction{ std::make_unique<celerix::store::rocksdb::write_transaction_impl> (transaction_db) };
 }
 
-nano::store::read_transaction nano::store::rocksdb::component::tx_begin_read () const
+celerix::store::read_transaction celerix::store::rocksdb::component::tx_begin_read () const
 {
-	return store::read_transaction{ std::make_unique<nano::store::rocksdb::read_transaction_impl> (db.get ()) };
+	return store::read_transaction{ std::make_unique<celerix::store::rocksdb::read_transaction_impl> (db.get ()) };
 }
 
-std::string nano::store::rocksdb::component::vendor_get () const
+std::string celerix::store::rocksdb::component::vendor_get () const
 {
 	return boost::str (boost::format ("RocksDB %1%.%2%.%3%") % ROCKSDB_MAJOR % ROCKSDB_MINOR % ROCKSDB_PATCH);
 }
 
-std::vector<::rocksdb::ColumnFamilyDescriptor> nano::store::rocksdb::component::get_single_column_family (std::string cf_name) const
+std::vector<::rocksdb::ColumnFamilyDescriptor> celerix::store::rocksdb::component::get_single_column_family (std::string cf_name) const
 {
 	std::vector<::rocksdb::ColumnFamilyDescriptor> minimum_cf_set{
 		{ ::rocksdb::kDefaultColumnFamilyName, ::rocksdb::ColumnFamilyOptions{} },
@@ -430,7 +430,7 @@ std::vector<::rocksdb::ColumnFamilyDescriptor> nano::store::rocksdb::component::
 	return minimum_cf_set;
 }
 
-std::vector<::rocksdb::ColumnFamilyDescriptor> nano::store::rocksdb::component::get_current_column_families (std::string const & path_a, ::rocksdb::Options const & options_a) const
+std::vector<::rocksdb::ColumnFamilyDescriptor> celerix::store::rocksdb::component::get_current_column_families (std::string const & path_a, ::rocksdb::Options const & options_a) const
 {
 	std::vector<::rocksdb::ColumnFamilyDescriptor> column_families;
 
@@ -448,7 +448,7 @@ std::vector<::rocksdb::ColumnFamilyDescriptor> nano::store::rocksdb::component::
 	return column_families;
 }
 
-rocksdb::ColumnFamilyHandle * nano::store::rocksdb::component::get_column_family (char const * name) const
+rocksdb::ColumnFamilyHandle * celerix::store::rocksdb::component::get_column_family (char const * name) const
 {
 	auto & handles_l = handles;
 	auto iter = std::find_if (handles_l.begin (), handles_l.end (), [name] (auto & handle) {
@@ -458,7 +458,7 @@ rocksdb::ColumnFamilyHandle * nano::store::rocksdb::component::get_column_family
 	return (*iter).get ();
 }
 
-bool nano::store::rocksdb::component::column_family_exists (char const * name) const
+bool celerix::store::rocksdb::component::column_family_exists (char const * name) const
 {
 	auto & handles_l = handles;
 	auto iter = std::find_if (handles_l.begin (), handles_l.end (), [name] (auto & handle) {
@@ -467,7 +467,7 @@ bool nano::store::rocksdb::component::column_family_exists (char const * name) c
 	return (iter != handles_l.end ());
 }
 
-rocksdb::ColumnFamilyHandle * nano::store::rocksdb::component::table_to_column_family (tables table_a) const
+rocksdb::ColumnFamilyHandle * celerix::store::rocksdb::component::table_to_column_family (tables table_a) const
 {
 	switch (table_a)
 	{
@@ -499,7 +499,7 @@ rocksdb::ColumnFamilyHandle * nano::store::rocksdb::component::table_to_column_f
 	}
 }
 
-bool nano::store::rocksdb::component::exists (store::transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a) const
+bool celerix::store::rocksdb::component::exists (store::transaction const & transaction_a, tables table_a, celerix::store::rocksdb::db_val const & key_a) const
 {
 	::rocksdb::PinnableSlice slice;
 	auto internals = rocksdb::tx (transaction_a);
@@ -525,7 +525,7 @@ bool nano::store::rocksdb::component::exists (store::transaction const & transac
 	return status.ok ();
 }
 
-int nano::store::rocksdb::component::del (store::write_transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a)
+int celerix::store::rocksdb::component::del (store::write_transaction const & transaction_a, tables table_a, celerix::store::rocksdb::db_val const & key_a)
 {
 	debug_assert (transaction_a.contains (table_a));
 	// RocksDB does not report not_found status, it is a pre-condition that the key exists
@@ -534,7 +534,7 @@ int nano::store::rocksdb::component::del (store::write_transaction const & trans
 	return std::get<::rocksdb::Transaction *> (rocksdb::tx (transaction_a))->Delete (table_to_column_family (table_a), key_a).code ();
 }
 
-void nano::store::rocksdb::component::flush_tombstones_check (tables table_a)
+void celerix::store::rocksdb::component::flush_tombstones_check (tables table_a)
 {
 	// Update the number of deletes for some tables, and force a flush if there are too many tombstones
 	// as it can affect read performance.
@@ -549,12 +549,12 @@ void nano::store::rocksdb::component::flush_tombstones_check (tables table_a)
 	}
 }
 
-void nano::store::rocksdb::component::flush_table (nano::tables table_a)
+void celerix::store::rocksdb::component::flush_table (celerix::tables table_a)
 {
 	db->Flush (::rocksdb::FlushOptions{}, table_to_column_family (table_a));
 }
 
-int nano::store::rocksdb::component::get (store::transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val & value_a) const
+int celerix::store::rocksdb::component::get (store::transaction const & transaction_a, tables table_a, celerix::store::rocksdb::db_val const & key_a, celerix::store::rocksdb::db_val & value_a) const
 {
 	::rocksdb::ReadOptions options;
 	::rocksdb::PinnableSlice slice;
@@ -586,28 +586,28 @@ int nano::store::rocksdb::component::get (store::transaction const & transaction
 	return status.code ();
 }
 
-int nano::store::rocksdb::component::put (store::write_transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val const & value_a)
+int celerix::store::rocksdb::component::put (store::write_transaction const & transaction_a, tables table_a, celerix::store::rocksdb::db_val const & key_a, celerix::store::rocksdb::db_val const & value_a)
 {
 	debug_assert (transaction_a.contains (table_a));
 	return std::get<::rocksdb::Transaction *> (rocksdb::tx (transaction_a))->Put (table_to_column_family (table_a), key_a, value_a).code ();
 }
 
-bool nano::store::rocksdb::component::not_found (int status) const
+bool celerix::store::rocksdb::component::not_found (int status) const
 {
 	return (status_code_not_found () == status);
 }
 
-bool nano::store::rocksdb::component::success (int status) const
+bool celerix::store::rocksdb::component::success (int status) const
 {
 	return (static_cast<int> (::rocksdb::Status::Code::kOk) == status);
 }
 
-int nano::store::rocksdb::component::status_code_not_found () const
+int celerix::store::rocksdb::component::status_code_not_found () const
 {
 	return static_cast<int> (::rocksdb::Status::Code::kNotFound);
 }
 
-uint64_t nano::store::rocksdb::component::count (store::transaction const & transaction_a, tables table_a) const
+uint64_t celerix::store::rocksdb::component::count (store::transaction const & transaction_a, tables table_a) const
 {
 	uint64_t sum = 0;
 	// Peers/online weight are small enough that they can just be iterated to get accurate counts.
@@ -676,7 +676,7 @@ uint64_t nano::store::rocksdb::component::count (store::transaction const & tran
 	return sum;
 }
 
-int nano::store::rocksdb::component::drop (store::write_transaction const & transaction_a, tables table_a)
+int celerix::store::rocksdb::component::drop (store::write_transaction const & transaction_a, tables table_a)
 {
 	debug_assert (transaction_a.contains (table_a));
 	auto col = table_to_column_family (table_a);
@@ -690,7 +690,7 @@ int nano::store::rocksdb::component::drop (store::write_transaction const & tran
 			int status = 0;
 			for (auto i = peer.begin (transaction_a), n = peer.end (transaction_a); i != n; ++i)
 			{
-				status = del (transaction_a, tables::peers, nano::store::rocksdb::db_val (i->first));
+				status = del (transaction_a, tables::peers, celerix::store::rocksdb::db_val (i->first));
 				release_assert (success (status));
 			}
 			return status;
@@ -703,7 +703,7 @@ int nano::store::rocksdb::component::drop (store::write_transaction const & tran
 	return status;
 }
 
-int nano::store::rocksdb::component::clear (::rocksdb::ColumnFamilyHandle * column_family)
+int celerix::store::rocksdb::component::clear (::rocksdb::ColumnFamilyHandle * column_family)
 {
 	::rocksdb::ReadOptions read_options;
 	::rocksdb::WriteOptions write_options;
@@ -721,7 +721,7 @@ int nano::store::rocksdb::component::clear (::rocksdb::ColumnFamilyHandle * colu
 	return status.code ();
 }
 
-rocksdb::Options nano::store::rocksdb::component::get_db_options ()
+rocksdb::Options celerix::store::rocksdb::component::get_db_options ()
 {
 	::rocksdb::Options db_options;
 	db_options.create_if_missing = true;
@@ -744,7 +744,7 @@ rocksdb::Options nano::store::rocksdb::component::get_db_options ()
 	return db_options;
 }
 
-rocksdb::BlockBasedTableOptions nano::store::rocksdb::component::get_table_options () const
+rocksdb::BlockBasedTableOptions celerix::store::rocksdb::component::get_table_options () const
 {
 	::rocksdb::BlockBasedTableOptions table_options;
 
@@ -765,7 +765,7 @@ rocksdb::BlockBasedTableOptions nano::store::rocksdb::component::get_table_optio
 	return table_options;
 }
 
-void nano::store::rocksdb::component::on_flush (::rocksdb::FlushJobInfo const & flush_job_info_a)
+void celerix::store::rocksdb::component::on_flush (::rocksdb::FlushJobInfo const & flush_job_info_a)
 {
 	// Reset appropriate tombstone counters
 	if (auto it = tombstone_map.find (cf_name_table_map[flush_job_info_a.cf_name.c_str ()]); it != tombstone_map.end ())
@@ -774,12 +774,12 @@ void nano::store::rocksdb::component::on_flush (::rocksdb::FlushJobInfo const & 
 	}
 }
 
-std::vector<nano::tables> nano::store::rocksdb::component::all_tables () const
+std::vector<celerix::tables> celerix::store::rocksdb::component::all_tables () const
 {
-	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::final_votes, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::vote, tables::rep_weights };
+	return std::vector<celerix::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::final_votes, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::vote, tables::rep_weights };
 }
 
-bool nano::store::rocksdb::component::copy_db (std::filesystem::path const & destination_path)
+bool celerix::store::rocksdb::component::copy_db (std::filesystem::path const & destination_path)
 {
 	std::unique_ptr<::rocksdb::BackupEngine> backup_engine;
 	{
@@ -789,7 +789,7 @@ bool nano::store::rocksdb::component::copy_db (std::filesystem::path const & des
 		backup_options.share_table_files = true;
 
 		// Increase number of threads used for copying
-		backup_options.max_background_operations = nano::hardware_concurrency ();
+		backup_options.max_background_operations = celerix::hardware_concurrency ();
 		auto status = ::rocksdb::BackupEngine::Open (::rocksdb::Env::Default (), backup_options, &backup_engine_raw);
 		backup_engine.reset (backup_engine_raw);
 		if (!status.ok ())
@@ -843,23 +843,23 @@ bool nano::store::rocksdb::component::copy_db (std::filesystem::path const & des
 	// Open it so that it flushes all WAL files
 	if (status.ok ())
 	{
-		nano::store::rocksdb::component rocksdb_store{ logger, destination_path.string (), constants, rocksdb_config, false };
+		celerix::store::rocksdb::component rocksdb_store{ logger, destination_path.string (), constants, rocksdb_config, false };
 		return !rocksdb_store.init_error ();
 	}
 	return false;
 }
 
-void nano::store::rocksdb::component::rebuild_db (store::write_transaction const & transaction_a)
+void celerix::store::rocksdb::component::rebuild_db (store::write_transaction const & transaction_a)
 {
 	// Not available for RocksDB
 }
 
-bool nano::store::rocksdb::component::init_error () const
+bool celerix::store::rocksdb::component::init_error () const
 {
 	return error;
 }
 
-void nano::store::rocksdb::component::serialize_memory_stats (boost::property_tree::ptree & json)
+void celerix::store::rocksdb::component::serialize_memory_stats (boost::property_tree::ptree & json)
 {
 	uint64_t val;
 
@@ -907,17 +907,17 @@ void nano::store::rocksdb::component::serialize_memory_stats (boost::property_tr
 }
 
 // This is a ratio of the blocks memtable size to keep total write transaction commit size down.
-unsigned nano::store::rocksdb::component::max_block_write_batch_num () const
+unsigned celerix::store::rocksdb::component::max_block_write_batch_num () const
 {
 	return max_block_write_batch_num_m;
 }
 
-std::string nano::store::rocksdb::component::error_string (int status) const
+std::string celerix::store::rocksdb::component::error_string (int status) const
 {
 	return std::to_string (status);
 }
 
-nano::store::rocksdb::component::tombstone_info::tombstone_info (uint64_t num_since_last_flush_a, uint64_t const max_a) :
+celerix::store::rocksdb::component::tombstone_info::tombstone_info (uint64_t num_since_last_flush_a, uint64_t const max_a) :
 	num_since_last_flush (num_since_last_flush_a),
 	max (max_a)
 {

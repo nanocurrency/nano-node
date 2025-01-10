@@ -1,17 +1,17 @@
-#include <nano/lib/constants.hpp>
-#include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/tomlconfig.hpp>
-#include <nano/node/ipc/ipc_config.hpp>
+#include <celerix/lib/constants.hpp>
+#include <celerix/lib/jsonconfig.hpp>
+#include <celerix/lib/tomlconfig.hpp>
+#include <celerix/node/ipc/ipc_config.hpp>
 
-nano::ipc::ipc_config_tcp_socket::ipc_config_tcp_socket (nano::network_constants & network_constants) :
+celerix::ipc::ipc_config_tcp_socket::ipc_config_tcp_socket (celerix::network_constants & network_constants) :
 	network_constants{ network_constants },
 	port{ network_constants.default_ipc_port }
 {
 }
 
-nano::error nano::ipc::ipc_config::serialize_toml (nano::tomlconfig & toml) const
+celerix::error celerix::ipc::ipc_config::serialize_toml (celerix::tomlconfig & toml) const
 {
-	nano::tomlconfig tcp_l;
+	celerix::tomlconfig tcp_l;
 	tcp_l.put ("enable", transport_tcp.enabled, "Enable or disable IPC via TCP server.\ntype:bool");
 	tcp_l.put ("port", transport_tcp.port, "Server listening port.\ntype:uint16");
 	tcp_l.put ("io_timeout", transport_tcp.io_timeout, "Timeout for requests.\ntype:seconds");
@@ -22,7 +22,7 @@ nano::error nano::ipc::ipc_config::serialize_toml (nano::tomlconfig & toml) cons
 	}
 	toml.put_child ("tcp", tcp_l);
 
-	nano::tomlconfig domain_l;
+	celerix::tomlconfig domain_l;
 	if (transport_domain.io_threads >= 0)
 	{
 		domain_l.put ("io_threads", transport_domain.io_threads);
@@ -33,7 +33,7 @@ nano::error nano::ipc::ipc_config::serialize_toml (nano::tomlconfig & toml) cons
 	domain_l.put ("io_timeout", transport_domain.io_timeout, "Timeout for requests.\ntype:seconds");
 	toml.put_child ("local", domain_l);
 
-	nano::tomlconfig flatbuffers_l;
+	celerix::tomlconfig flatbuffers_l;
 	flatbuffers_l.put ("skip_unexpected_fields_in_json", flatbuffers.skip_unexpected_fields_in_json, "Allow client to send unknown fields in json messages. These will be ignored.\ntype:bool");
 	flatbuffers_l.put ("verify_buffers", flatbuffers.verify_buffers, "Verify that the buffer is valid before parsing. This is recommended when receiving data from untrusted sources.\ntype:bool");
 	toml.put_child ("flatbuffers", flatbuffers_l);
@@ -41,7 +41,7 @@ nano::error nano::ipc::ipc_config::serialize_toml (nano::tomlconfig & toml) cons
 	return toml.get_error ();
 }
 
-nano::error nano::ipc::ipc_config::deserialize_toml (nano::tomlconfig & toml)
+celerix::error celerix::ipc::ipc_config::deserialize_toml (celerix::tomlconfig & toml)
 {
 	auto tcp_l (toml.get_optional_child ("tcp"));
 	if (tcp_l)

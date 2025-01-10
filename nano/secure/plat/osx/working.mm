@@ -1,8 +1,8 @@
-#include <nano/secure/working.hpp>
+#include <celerix/secure/working.hpp>
 
 #include <Foundation/Foundation.h>
 
-namespace nano
+namespace celerix
 {
 std::filesystem::path app_path_impl ()
 {

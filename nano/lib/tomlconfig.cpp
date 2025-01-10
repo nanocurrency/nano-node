@@ -1,35 +1,35 @@
-#include <nano/boost/asio/ip/address_v6.hpp>
-#include <nano/lib/files.hpp>
-#include <nano/lib/tomlconfig.hpp>
+#include <celerix/boost/asio/ip/address_v6.hpp>
+#include <celerix/lib/files.hpp>
+#include <celerix/lib/tomlconfig.hpp>
 
-nano::tomlconfig::tomlconfig () :
+celerix::tomlconfig::tomlconfig () :
 	tree (cpptoml::make_table ())
 {
-	error = std::make_shared<nano::error> ();
+	error = std::make_shared<celerix::error> ();
 }
 
-nano::tomlconfig::tomlconfig (std::shared_ptr<cpptoml::table> const & tree_a, std::shared_ptr<nano::error> const & error_a) :
-	nano::configbase (error_a), tree (tree_a)
+celerix::tomlconfig::tomlconfig (std::shared_ptr<cpptoml::table> const & tree_a, std::shared_ptr<celerix::error> const & error_a) :
+	celerix::configbase (error_a), tree (tree_a)
 {
 	if (!error)
 	{
-		error = std::make_shared<nano::error> ();
+		error = std::make_shared<celerix::error> ();
 	}
 }
 
-void nano::tomlconfig::doc (std::string const & key, std::string const & doc)
+void celerix::tomlconfig::doc (std::string const & key, std::string const & doc)
 {
 	tree->document (key, doc);
 }
 
-nano::error & nano::tomlconfig::read (std::filesystem::path const & path_a)
+celerix::error & celerix::tomlconfig::read (std::filesystem::path const & path_a)
 {
 	std::stringstream stream_override_empty;
 	stream_override_empty << std::endl;
 	return read (stream_override_empty, path_a);
 }
 
-nano::error & nano::tomlconfig::read (std::istream & stream_overrides, std::filesystem::path const & path_a)
+celerix::error & celerix::tomlconfig::read (std::istream & stream_overrides, std::filesystem::path const & path_a)
 {
 	std::fstream stream;
 	open_or_create (stream, path_a.string ());
@@ -40,7 +40,7 @@ nano::error & nano::tomlconfig::read (std::istream & stream_overrides, std::file
 	return *error;
 }
 
-nano::error & nano::tomlconfig::read (std::istream & stream_a)
+celerix::error & celerix::tomlconfig::read (std::istream & stream_a)
 {
 	std::stringstream stream_override_empty;
 	stream_override_empty << std::endl;
@@ -48,7 +48,7 @@ nano::error & nano::tomlconfig::read (std::istream & stream_a)
 }
 
 /** Read from two streams where keys in the first will take precedence over those in the second stream. */
-nano::error & nano::tomlconfig::read (std::istream & stream_first_a, std::istream & stream_second_a)
+celerix::error & celerix::tomlconfig::read (std::istream & stream_first_a, std::istream & stream_second_a)
 {
 	try
 	{
@@ -61,21 +61,21 @@ nano::error & nano::tomlconfig::read (std::istream & stream_first_a, std::istrea
 	return *error;
 }
 
-void nano::tomlconfig::write (std::filesystem::path const & path_a)
+void celerix::tomlconfig::write (std::filesystem::path const & path_a)
 {
 	std::fstream stream;
 	open_or_create (stream, path_a.string ());
 	write (stream);
 }
 
-void nano::tomlconfig::write (std::ostream & stream_a) const
+void celerix::tomlconfig::write (std::ostream & stream_a) const
 {
 	cpptoml::toml_writer writer{ stream_a, "" };
 	tree->accept (writer);
 }
 
 /** Open configuration file, create if necessary */
-void nano::tomlconfig::open_or_create (std::fstream & stream_a, std::string const & path_a)
+void celerix::tomlconfig::open_or_create (std::fstream & stream_a, std::string const & path_a)
 {
 	if (!std::filesystem::exists (path_a))
 	{
@@ -83,25 +83,25 @@ void nano::tomlconfig::open_or_create (std::fstream & stream_a, std::string cons
 		std::ofstream stream (path_a);
 
 		// Set permissions before opening otherwise Windows only has read permissions
-		nano::set_secure_perm_file (path_a);
+		celerix::set_secure_perm_file (path_a);
 	}
 
 	stream_a.open (path_a);
 }
 
 /** Returns the table managed by this instance */
-std::shared_ptr<cpptoml::table> nano::tomlconfig::get_tree ()
+std::shared_ptr<cpptoml::table> celerix::tomlconfig::get_tree ()
 {
 	return tree;
 }
 
 /** Returns true if the toml table is empty */
-bool nano::tomlconfig::empty () const
+bool celerix::tomlconfig::empty () const
 {
 	return tree->empty ();
 }
 
-boost::optional<nano::tomlconfig> nano::tomlconfig::get_optional_child (std::string const & key_a)
+boost::optional<celerix::tomlconfig> celerix::tomlconfig::get_optional_child (std::string const & key_a)
 {
 	boost::optional<tomlconfig> child_config;
 	if (tree->contains (key_a))
@@ -111,11 +111,11 @@ boost::optional<nano::tomlconfig> nano::tomlconfig::get_optional_child (std::str
 	return child_config;
 }
 
-nano::tomlconfig nano::tomlconfig::get_required_child (std::string const & key_a)
+celerix::tomlconfig celerix::tomlconfig::get_required_child (std::string const & key_a)
 {
 	if (!tree->contains (key_a))
 	{
-		*error = nano::error_config::missing_value;
+		*error = celerix::error_config::missing_value;
 		error->set_message ("Missing configuration node: " + key_a);
 		return *this;
 	}
@@ -125,13 +125,13 @@ nano::tomlconfig nano::tomlconfig::get_required_child (std::string const & key_a
 	}
 }
 
-nano::tomlconfig & nano::tomlconfig::put_child (std::string const & key_a, nano::tomlconfig & conf_a)
+celerix::tomlconfig & celerix::tomlconfig::put_child (std::string const & key_a, celerix::tomlconfig & conf_a)
 {
 	tree->insert (key_a, conf_a.get_tree ());
 	return *this;
 }
 
-nano::tomlconfig & nano::tomlconfig::replace_child (std::string const & key_a, nano::tomlconfig & conf_a)
+celerix::tomlconfig & celerix::tomlconfig::replace_child (std::string const & key_a, celerix::tomlconfig & conf_a)
 {
 	tree->erase (key_a);
 	put_child (key_a, conf_a);
@@ -139,19 +139,19 @@ nano::tomlconfig & nano::tomlconfig::replace_child (std::string const & key_a, n
 }
 
 /** Returns true if \p key_a is present */
-bool nano::tomlconfig::has_key (std::string const & key_a)
+bool celerix::tomlconfig::has_key (std::string const & key_a)
 {
 	return tree->contains (key_a);
 }
 
 /** Erase the property of given key */
-nano::tomlconfig & nano::tomlconfig::erase (std::string const & key_a)
+celerix::tomlconfig & celerix::tomlconfig::erase (std::string const & key_a)
 {
 	tree->erase (key_a);
 	return *this;
 }
 
-std::shared_ptr<cpptoml::array> nano::tomlconfig::create_array (std::string const & key, boost::optional<char const *> documentation_a)
+std::shared_ptr<cpptoml::array> celerix::tomlconfig::create_array (std::string const & key, boost::optional<char const *> documentation_a)
 {
 	if (!has_key (key))
 	{
@@ -169,7 +169,7 @@ std::shared_ptr<cpptoml::array> nano::tomlconfig::create_array (std::string cons
 /**
  * Erase keys whose values are equal to the one in \p defaults
  */
-void nano::tomlconfig::erase_default_values (tomlconfig & defaults_a)
+void celerix::tomlconfig::erase_default_values (tomlconfig & defaults_a)
 {
 	std::shared_ptr<cpptoml::table> clone = std::dynamic_pointer_cast<cpptoml::table> (tree->clone ());
 	tomlconfig self (clone);
@@ -188,7 +188,7 @@ void nano::tomlconfig::erase_default_values (tomlconfig & defaults_a)
 }
 
 // Merges two TOML configurations and commenting values that are identical
-std::string nano::tomlconfig::merge_defaults (nano::tomlconfig & current_config, nano::tomlconfig & default_config)
+std::string celerix::tomlconfig::merge_defaults (celerix::tomlconfig & current_config, celerix::tomlconfig & default_config)
 {
 	// Serialize both configs to commented strings
 	std::string defaults_str = default_config.to_string (true);
@@ -219,7 +219,7 @@ std::string nano::tomlconfig::merge_defaults (nano::tomlconfig & current_config,
 	return result;
 }
 
-std::string nano::tomlconfig::to_string (bool comment_values)
+std::string celerix::tomlconfig::to_string (bool comment_values)
 {
 	std::stringstream ss, ss_processed;
 	cpptoml::toml_writer writer{ ss, "" };
@@ -244,7 +244,7 @@ std::string nano::tomlconfig::to_string (bool comment_values)
 }
 
 // boost's lexical cast doesn't handle (u)int8_t
-nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string const & key, uint8_t & target, uint8_t default_value)
+celerix::tomlconfig & celerix::tomlconfig::get_config (bool optional, std::string const & key, uint8_t & target, uint8_t default_value)
 {
 	try
 	{
@@ -254,7 +254,7 @@ nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string cons
 			auto val (tree->get_qualified_as<std::string> (key));
 			if (!boost::conversion::try_lexical_convert<int64_t> (*val, tmp) || tmp < 0 || tmp > 255)
 			{
-				conditionally_set_error<uint8_t> (nano::error_config::invalid_value, optional, key);
+				conditionally_set_error<uint8_t> (celerix::error_config::invalid_value, optional, key);
 			}
 			else
 			{
@@ -263,7 +263,7 @@ nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string cons
 		}
 		else if (!optional)
 		{
-			conditionally_set_error<uint8_t> (nano::error_config::missing_value, optional, key);
+			conditionally_set_error<uint8_t> (celerix::error_config::missing_value, optional, key);
 		}
 		else
 		{
@@ -278,7 +278,7 @@ nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string cons
 	return *this;
 }
 
-nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string const & key, bool & target, bool default_value)
+celerix::tomlconfig & celerix::tomlconfig::get_config (bool optional, std::string const & key, bool & target, bool default_value)
 {
 	auto bool_conv = [this, &target, &key, optional] (std::string val) {
 		if (val == "true")
@@ -291,7 +291,7 @@ nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string cons
 		}
 		else if (!*error)
 		{
-			conditionally_set_error<bool> (nano::error_config::invalid_value, optional, key);
+			conditionally_set_error<bool> (celerix::error_config::invalid_value, optional, key);
 		}
 	};
 	try
@@ -303,7 +303,7 @@ nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string cons
 		}
 		else if (!optional)
 		{
-			conditionally_set_error<bool> (nano::error_config::missing_value, optional, key);
+			conditionally_set_error<bool> (celerix::error_config::missing_value, optional, key);
 		}
 		else
 		{
@@ -318,7 +318,7 @@ nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string cons
 }
 
 /** Compare two stringified configs, remove keys where values are equal */
-void nano::tomlconfig::erase_defaults (std::shared_ptr<cpptoml::table> const & base, std::shared_ptr<cpptoml::table> const & other, std::shared_ptr<cpptoml::table> const & update_target)
+void celerix::tomlconfig::erase_defaults (std::shared_ptr<cpptoml::table> const & base, std::shared_ptr<cpptoml::table> const & other, std::shared_ptr<cpptoml::table> const & update_target)
 {
 	std::vector<std::string> erased;
 	debug_assert (other != nullptr);
@@ -375,7 +375,7 @@ void nano::tomlconfig::erase_defaults (std::shared_ptr<cpptoml::table> const & b
 	}
 }
 
-nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string key, boost::asio::ip::address_v6 & target, boost::asio::ip::address_v6 const & default_value)
+celerix::tomlconfig & celerix::tomlconfig::get_config (bool optional, std::string key, boost::asio::ip::address_v6 & target, boost::asio::ip::address_v6 const & default_value)
 {
 	try
 	{
@@ -386,12 +386,12 @@ nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string key,
 			target = boost::asio::ip::make_address_v6 (address_l.value_or (""), bec);
 			if (bec)
 			{
-				conditionally_set_error<boost::asio::ip::address_v6> (nano::error_config::invalid_value, optional, key);
+				conditionally_set_error<boost::asio::ip::address_v6> (celerix::error_config::invalid_value, optional, key);
 			}
 		}
 		else if (!optional)
 		{
-			conditionally_set_error<boost::asio::ip::address_v6> (nano::error_config::missing_value, optional, key);
+			conditionally_set_error<boost::asio::ip::address_v6> (celerix::error_config::missing_value, optional, key);
 		}
 		else
 		{

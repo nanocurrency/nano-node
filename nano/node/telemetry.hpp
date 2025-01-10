@@ -1,11 +1,11 @@
 #pragma once
 
-#include <nano/lib/utility.hpp>
-#include <nano/node/endpoint.hpp>
-#include <nano/node/fwd.hpp>
-#include <nano/node/messages.hpp>
-#include <nano/node/nodeconfig.hpp>
-#include <nano/secure/common.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/node/endpoint.hpp>
+#include <celerix/node/fwd.hpp>
+#include <celerix/node/messages.hpp>
+#include <celerix/node/nodeconfig.hpp>
+#include <celerix/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -19,7 +19,7 @@
 
 namespace mi = boost::multi_index;
 
-namespace nano
+namespace celerix
 {
 class telemetry_config final
 {
@@ -28,7 +28,7 @@ public:
 	bool enable_ongoing_broadcasts{ true };
 
 public:
-	explicit telemetry_config (nano::node_flags const & flags) :
+	explicit telemetry_config (celerix::node_flags const & flags) :
 		enable_ongoing_broadcasts{ !flags.disable_providing_telemetry_metrics }
 	{
 	}
@@ -45,7 +45,7 @@ public:
 class telemetry
 {
 public:
-	telemetry (nano::node_flags const &, nano::node &, nano::network &, nano::node_observers &, nano::network_params &, nano::stats &);
+	telemetry (celerix::node_flags const &, celerix::node &, celerix::network &, celerix::node_observers &, celerix::network_params &, celerix::stats &);
 	~telemetry ();
 
 	void start ();
@@ -54,7 +54,7 @@ public:
 	/**
 	 * Process telemetry message from network
 	 */
-	void process (nano::telemetry_ack const &, std::shared_ptr<nano::transport::channel> const &);
+	void process (celerix::telemetry_ack const &, std::shared_ptr<celerix::transport::channel> const &);
 
 	/**
 	 * Trigger manual telemetry request to all peers
@@ -66,31 +66,31 @@ public:
 	/**
 	 * Returns telemetry for selected endpoint
 	 */
-	std::optional<nano::telemetry_data> get_telemetry (nano::endpoint const &) const;
+	std::optional<celerix::telemetry_data> get_telemetry (celerix::endpoint const &) const;
 
 	/**
 	 * Returns all available telemetry
 	 */
-	std::unordered_map<nano::endpoint, nano::telemetry_data> get_all_telemetries () const;
+	std::unordered_map<celerix::endpoint, celerix::telemetry_data> get_all_telemetries () const;
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 
 private: // Dependencies
 	telemetry_config const config;
-	nano::node & node;
-	nano::network & network;
-	nano::node_observers & observers;
-	nano::network_params & network_params;
-	nano::stats & stats;
+	celerix::node & node;
+	celerix::network & network;
+	celerix::node_observers & observers;
+	celerix::network_params & network_params;
+	celerix::stats & stats;
 
 private:
 	struct entry
 	{
-		std::shared_ptr<nano::transport::channel> channel;
-		nano::telemetry_data data;
+		std::shared_ptr<celerix::transport::channel> channel;
+		celerix::telemetry_data data;
 		std::chrono::steady_clock::time_point last_updated;
 
-		nano::endpoint endpoint () const
+		celerix::endpoint endpoint () const
 		{
 			return channel->get_remote_endpoint ();
 		}
@@ -105,10 +105,10 @@ private:
 	void run_broadcasts ();
 	void cleanup ();
 
-	void request (std::shared_ptr<nano::transport::channel> const &);
-	void broadcast (std::shared_ptr<nano::transport::channel> const &, nano::telemetry_data const &);
+	void request (std::shared_ptr<celerix::transport::channel> const &);
+	void broadcast (std::shared_ptr<celerix::transport::channel> const &, celerix::telemetry_data const &);
 
-	bool verify (nano::telemetry_ack const &, std::shared_ptr<nano::transport::channel> const &) const;
+	bool verify (celerix::telemetry_ack const &, std::shared_ptr<celerix::transport::channel> const &) const;
 	bool check_timeout (entry const &) const;
 
 private:
@@ -121,9 +121,9 @@ private:
 	mi::indexed_by<
 		mi::sequenced<mi::tag<tag_sequenced>>,
 		mi::ordered_unique<mi::tag<tag_channel>,
-			mi::member<entry,  std::shared_ptr<nano::transport::channel>, &entry::channel>>,
+			mi::member<entry,  std::shared_ptr<celerix::transport::channel>, &entry::channel>>,
 		mi::hashed_non_unique<mi::tag<tag_endpoint>,
-			mi::const_mem_fun<entry, nano::endpoint, &entry::endpoint>>
+			mi::const_mem_fun<entry, celerix::endpoint, &entry::endpoint>>
 	>>;
 	// clang-format on
 
@@ -134,8 +134,8 @@ private:
 	std::chrono::steady_clock::time_point last_broadcast{};
 
 	bool stopped{ false };
-	mutable nano::mutex mutex{ mutex_identifier (mutexes::telemetry) };
-	nano::condition_variable condition;
+	mutable celerix::mutex mutex{ mutex_identifier (mutexes::telemetry) };
+	celerix::condition_variable condition;
 	std::thread thread;
 
 private:

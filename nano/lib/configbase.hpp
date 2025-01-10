@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/lib/errors.hpp>
+#include <celerix/lib/errors.hpp>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/type_traits.hpp>
@@ -9,7 +9,7 @@
 #include <string>
 #include <type_traits>
 
-namespace nano
+namespace celerix
 {
 /** Type trait to determine if T is compatible with boost's lexical_cast */
 template <class T>
@@ -37,17 +37,17 @@ template <> inline std::string type_desc<bool> (void) { return "a boolean"; }
 // clang-format on
 
 /** Base type for configuration wrappers */
-class configbase : public nano::error_aware<>
+class configbase : public celerix::error_aware<>
 {
 public:
 	configbase () = default;
-	configbase (std::shared_ptr<nano::error> const & error_a) :
+	configbase (std::shared_ptr<celerix::error> const & error_a) :
 		error (error_a)
 	{
 	}
 
 	/** Returns the current error */
-	nano::error & get_error () override
+	celerix::error & get_error () override
 	{
 		return *error;
 	}
@@ -86,8 +86,8 @@ protected:
 		}
 	}
 
-	/** We're a nano::error_aware type. Child nodes share the error state. */
-	std::shared_ptr<nano::error> error;
+	/** We're a celerix::error_aware type. Child nodes share the error state. */
+	std::shared_ptr<celerix::error> error;
 
 	/** If set, automatically construct error messages based on parameters and type information. */
 	bool auto_error_message{ true };

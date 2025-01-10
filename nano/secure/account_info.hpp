@@ -1,11 +1,11 @@
 #pragma once
 
-#include <nano/lib/epoch.hpp>
-#include <nano/lib/fwd.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/timer.hpp>
+#include <celerix/lib/epoch.hpp>
+#include <celerix/lib/fwd.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/timer.hpp>
 
-namespace nano
+namespace celerix
 {
 /**
  * Latest information about an account
@@ -14,20 +14,20 @@ class account_info final
 {
 public:
 	account_info () = default;
-	account_info (nano::block_hash const &, nano::account const &, nano::block_hash const &, nano::amount const &, nano::seconds_t modified, uint64_t, epoch);
-	bool deserialize (nano::stream &);
-	bool operator== (nano::account_info const &) const;
-	bool operator!= (nano::account_info const &) const;
+	account_info (celerix::block_hash const &, celerix::account const &, celerix::block_hash const &, celerix::amount const &, celerix::seconds_t modified, uint64_t, epoch);
+	bool deserialize (celerix::stream &);
+	bool operator== (celerix::account_info const &) const;
+	bool operator!= (celerix::account_info const &) const;
 	size_t db_size () const;
-	nano::epoch epoch () const;
-	nano::block_hash head{ 0 };
-	nano::account representative{};
-	nano::block_hash open_block{ 0 };
-	nano::amount balance{ 0 };
+	celerix::epoch epoch () const;
+	celerix::block_hash head{ 0 };
+	celerix::account representative{};
+	celerix::block_hash open_block{ 0 };
+	celerix::amount balance{ 0 };
 	/** Seconds since posix epoch */
-	nano::seconds_t modified{ 0 };
+	celerix::seconds_t modified{ 0 };
 	uint64_t block_count{ 0 };
-	nano::epoch epoch_m{ nano::epoch::epoch_0 };
+	celerix::epoch epoch_m{ celerix::epoch::epoch_0 };
 };
 
 /**
@@ -38,14 +38,14 @@ class account_info_v22 final
 public:
 	account_info_v22 () = default;
 	size_t db_size () const;
-	bool deserialize (nano::stream &);
-	nano::block_hash head{ 0 };
-	nano::account representative{};
-	nano::block_hash open_block{ 0 };
-	nano::amount balance{ 0 };
+	bool deserialize (celerix::stream &);
+	celerix::block_hash head{ 0 };
+	celerix::account representative{};
+	celerix::block_hash open_block{ 0 };
+	celerix::amount balance{ 0 };
 	/** Seconds since posix epoch */
-	nano::seconds_t modified{ 0 };
+	celerix::seconds_t modified{ 0 };
 	uint64_t block_count{ 0 };
-	nano::epoch epoch_m{ nano::epoch::epoch_0 };
+	celerix::epoch epoch_m{ celerix::epoch::epoch_0 };
 };
-} // namespace nano
+} // namespace celerix

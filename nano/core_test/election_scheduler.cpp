@@ -1,12 +1,12 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/node/active_elections.hpp>
-#include <nano/node/election.hpp>
-#include <nano/node/scheduler/component.hpp>
-#include <nano/node/scheduler/priority.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/test_common/chains.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/node/active_elections.hpp>
+#include <celerix/node/election.hpp>
+#include <celerix/node/scheduler/component.hpp>
+#include <celerix/node/scheduler/priority.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/test_common/chains.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -16,34 +16,34 @@ using namespace std::chrono_literals;
 
 namespace
 {
-nano::keypair & keyzero ()
+celerix::keypair & keyzero ()
 {
-	static nano::keypair result;
+	static celerix::keypair result;
 	return result;
 }
-nano::keypair & key0 ()
+celerix::keypair & key0 ()
 {
-	static nano::keypair result;
+	static celerix::keypair result;
 	return result;
 }
-nano::keypair & key1 ()
+celerix::keypair & key1 ()
 {
-	static nano::keypair result;
+	static celerix::keypair result;
 	return result;
 }
-nano::keypair & key2 ()
+celerix::keypair & key2 ()
 {
-	static nano::keypair result;
+	static celerix::keypair result;
 	return result;
 }
-nano::keypair & key3 ()
+celerix::keypair & key3 ()
 {
-	static nano::keypair result;
+	static celerix::keypair result;
 	return result;
 }
-std::shared_ptr<nano::state_block> & blockzero ()
+std::shared_ptr<celerix::state_block> & blockzero ()
 {
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	static auto result = builder
 						 .state ()
 						 .account (keyzero ().pub)
@@ -56,60 +56,60 @@ std::shared_ptr<nano::state_block> & blockzero ()
 						 .build ();
 	return result;
 }
-std::shared_ptr<nano::state_block> & block0 ()
+std::shared_ptr<celerix::state_block> & block0 ()
 {
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	static auto result = builder
 						 .state ()
 						 .account (key0 ().pub)
 						 .previous (0)
 						 .representative (key0 ().pub)
-						 .balance (nano::Knano_ratio)
+						 .balance (celerix::Kcelerix_ratio)
 						 .link (0)
 						 .sign (key0 ().prv, key0 ().pub)
 						 .work (0)
 						 .build ();
 	return result;
 }
-std::shared_ptr<nano::state_block> & block1 ()
+std::shared_ptr<celerix::state_block> & block1 ()
 {
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	static auto result = builder
 						 .state ()
 						 .account (key1 ().pub)
 						 .previous (0)
 						 .representative (key1 ().pub)
-						 .balance (nano::nano_ratio)
+						 .balance (celerix::celerix_ratio)
 						 .link (0)
 						 .sign (key1 ().prv, key1 ().pub)
 						 .work (0)
 						 .build ();
 	return result;
 }
-std::shared_ptr<nano::state_block> & block2 ()
+std::shared_ptr<celerix::state_block> & block2 ()
 {
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	static auto result = builder
 						 .state ()
 						 .account (key2 ().pub)
 						 .previous (0)
 						 .representative (key2 ().pub)
-						 .balance (nano::Knano_ratio)
+						 .balance (celerix::Kcelerix_ratio)
 						 .link (0)
 						 .sign (key2 ().prv, key2 ().pub)
 						 .work (0)
 						 .build ();
 	return result;
 }
-std::shared_ptr<nano::state_block> & block3 ()
+std::shared_ptr<celerix::state_block> & block3 ()
 {
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	static auto result = builder
 						 .state ()
 						 .account (key3 ().pub)
 						 .previous (0)
 						 .representative (key3 ().pub)
-						 .balance (nano::nano_ratio)
+						 .balance (celerix::celerix_ratio)
 						 .link (0)
 						 .sign (key3 ().prv, key3 ().pub)
 						 .work (0)
@@ -120,41 +120,41 @@ std::shared_ptr<nano::state_block> & block3 ()
 
 TEST (election_scheduler, activate_one_timely)
 {
-	nano::test::system system;
+	celerix::test::system system;
 	auto & node = *system.add_node ();
 
-	nano::state_block_builder builder;
+	celerix::state_block_builder builder;
 	auto send1 = builder.make_block ()
-				 .account (nano::dev::genesis_key.pub)
-				 .previous (nano::dev::genesis->hash ())
-				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
-				 .link (nano::dev::genesis_key.pub)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .account (celerix::dev::genesis_key.pub)
+				 .previous (celerix::dev::genesis->hash ())
+				 .representative (celerix::dev::genesis_key.pub)
+				 .balance (celerix::dev::constants.genesis_amount - celerix::Kcelerix_ratio)
+				 .link (celerix::dev::genesis_key.pub)
+				 .sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
+				 .work (*system.work.generate (celerix::dev::genesis->hash ()))
 				 .build ();
 	node.ledger.process (node.ledger.tx_begin_write (), send1);
-	node.scheduler.priority.activate (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
+	node.scheduler.priority.activate (node.ledger.tx_begin_read (), celerix::dev::genesis_key.pub);
 	ASSERT_TIMELY (5s, node.active.election (send1->qualified_root ()));
 }
 
 TEST (election_scheduler, activate_one_flush)
 {
-	nano::test::system system;
+	celerix::test::system system;
 	auto & node = *system.add_node ();
 
-	nano::state_block_builder builder;
+	celerix::state_block_builder builder;
 	auto send1 = builder.make_block ()
-				 .account (nano::dev::genesis_key.pub)
-				 .previous (nano::dev::genesis->hash ())
-				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
-				 .link (nano::dev::genesis_key.pub)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .account (celerix::dev::genesis_key.pub)
+				 .previous (celerix::dev::genesis->hash ())
+				 .representative (celerix::dev::genesis_key.pub)
+				 .balance (celerix::dev::constants.genesis_amount - celerix::Kcelerix_ratio)
+				 .link (celerix::dev::genesis_key.pub)
+				 .sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
+				 .work (*system.work.generate (celerix::dev::genesis->hash ()))
 				 .build ();
 	node.ledger.process (node.ledger.tx_begin_write (), send1);
-	node.scheduler.priority.activate (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
+	node.scheduler.priority.activate (node.ledger.tx_begin_read (), celerix::dev::genesis_key.pub);
 	ASSERT_TIMELY (5s, node.active.election (send1->qualified_root ()));
 }
 
@@ -170,8 +170,8 @@ TEST (election_scheduler, activate_one_flush)
  */
 TEST (election_scheduler, transition_optimistic_to_priority)
 {
-	nano::test::system system;
-	nano::node_config config = system.default_config ();
+	celerix::test::system system;
+	celerix::node_config config = system.default_config ();
 	config.optimistic_scheduler.gap_threshold = 1;
 	config.enable_voting = true;
 	config.hinted_scheduler.enable = false;
@@ -179,31 +179,31 @@ TEST (election_scheduler, transition_optimistic_to_priority)
 	auto & node = *system.add_node (config);
 
 	// Add representative
-	const nano::uint128_t rep_weight = nano::Knano_ratio * 100;
-	nano::keypair rep = nano::test::setup_rep (system, node, rep_weight);
+	const celerix::uint128_t rep_weight = celerix::Kcelerix_ratio * 100;
+	celerix::keypair rep = celerix::test::setup_rep (system, node, rep_weight);
 	system.wallet (0)->insert_adhoc (rep.prv);
 
 	// Create a chain of blocks - and trigger an optimistic election for the last block
 	const int howmany_blocks = 2;
-	auto chains = nano::test::setup_chains (system, node, /* single chain */ 1, howmany_blocks, nano::dev::genesis_key, /* do not confirm */ false);
+	auto chains = celerix::test::setup_chains (system, node, /* single chain */ 1, howmany_blocks, celerix::dev::genesis_key, /* do not confirm */ false);
 	auto & [account, blocks] = chains.front ();
 
 	// Wait for optimistic election to start for last block
 	auto const & block = blocks.back ();
 	ASSERT_TIMELY (5s, node.vote_router.active (block->hash ()));
 	auto election = node.active.election (block->qualified_root ());
-	ASSERT_EQ (election->behavior (), nano::election_behavior::optimistic);
+	ASSERT_EQ (election->behavior (), celerix::election_behavior::optimistic);
 	ASSERT_TIMELY_EQ (1s, 1, election->current_status ().status.vote_broadcast_count);
 
 	// Confirm first block to allow upgrading second block's election
-	nano::test::confirm (node.ledger, blocks.at (howmany_blocks - 1));
+	celerix::test::confirm (node.ledger, blocks.at (howmany_blocks - 1));
 
 	// Attempt to start priority election for second block
-	node.active.insert (block, nano::election_behavior::priority);
+	node.active.insert (block, celerix::election_behavior::priority);
 
 	// Verify priority transition
-	ASSERT_EQ (election->behavior (), nano::election_behavior::priority);
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::transition_priority));
+	ASSERT_EQ (election->behavior (), celerix::election_behavior::priority);
+	ASSERT_EQ (1, node.stats.count (celerix::stat::type::active_elections, celerix::stat::detail::transition_priority));
 	// Verify vote broadcast after transitioning
 	ASSERT_TIMELY_EQ (1s, 2, election->current_status ().status.vote_broadcast_count);
 	ASSERT_TRUE (node.active.active (*block));
@@ -226,27 +226,27 @@ TEST (election_scheduler, transition_optimistic_to_priority)
  */
 TEST (election_scheduler, no_vacancy)
 {
-	nano::test::system system;
+	celerix::test::system system;
 
-	nano::node_config config = system.default_config ();
+	celerix::node_config config = system.default_config ();
 	config.active_elections.size = 1;
 	config.backlog_scan.enable = false;
 	auto & node = *system.add_node (config);
 
-	nano::state_block_builder builder{};
-	nano::keypair key{};
+	celerix::state_block_builder builder{};
+	celerix::keypair key{};
 
 	// Activating accounts depends on confirmed dependencies. First, prepare 2 accounts
 	auto send = builder.make_block ()
-				.account (nano::dev::genesis_key.pub)
-				.previous (nano::dev::genesis->hash ())
-				.representative (nano::dev::genesis_key.pub)
+				.account (celerix::dev::genesis_key.pub)
+				.previous (celerix::dev::genesis->hash ())
+				.representative (celerix::dev::genesis_key.pub)
 				.link (key.pub)
-				.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.balance (celerix::dev::constants.genesis_amount - celerix::Kcelerix_ratio)
+				.sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
+				.work (*system.work.generate (celerix::dev::genesis->hash ()))
 				.build ();
-	ASSERT_EQ (nano::block_status::progress, node.process (send));
+	ASSERT_EQ (celerix::block_status::progress, node.process (send));
 	node.confirming_set.add (send->hash ());
 
 	auto receive = builder.make_block ()
@@ -254,30 +254,30 @@ TEST (election_scheduler, no_vacancy)
 				   .previous (0)
 				   .representative (key.pub)
 				   .link (send->hash ())
-				   .balance (nano::Knano_ratio)
+				   .balance (celerix::Kcelerix_ratio)
 				   .sign (key.prv, key.pub)
 				   .work (*system.work.generate (key.pub))
 				   .build ();
-	ASSERT_EQ (nano::block_status::progress, node.process (receive));
+	ASSERT_EQ (celerix::block_status::progress, node.process (receive));
 	node.confirming_set.add (receive->hash ());
 
-	ASSERT_TIMELY (5s, nano::test::confirmed (node, { send, receive }));
+	ASSERT_TIMELY (5s, celerix::test::confirmed (node, { send, receive }));
 
 	// Second, process two eligible transactions
 	auto block1 = builder.make_block ()
-				  .account (nano::dev::genesis_key.pub)
+				  .account (celerix::dev::genesis_key.pub)
 				  .previous (send->hash ())
-				  .representative (nano::dev::genesis_key.pub)
-				  .link (nano::dev::genesis_key.pub)
-				  .balance (nano::dev::constants.genesis_amount - 2 * nano::Knano_ratio)
-				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .representative (celerix::dev::genesis_key.pub)
+				  .link (celerix::dev::genesis_key.pub)
+				  .balance (celerix::dev::constants.genesis_amount - 2 * celerix::Kcelerix_ratio)
+				  .sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
 				  .work (*system.work.generate (send->hash ()))
 				  .build ();
-	ASSERT_EQ (nano::block_status::progress, node.process (block1));
+	ASSERT_EQ (celerix::block_status::progress, node.process (block1));
 
 	// There is vacancy so it should be inserted
-	node.scheduler.priority.activate (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
-	std::shared_ptr<nano::election> election{};
+	node.scheduler.priority.activate (node.ledger.tx_begin_read (), celerix::dev::genesis_key.pub);
+	std::shared_ptr<celerix::election> election{};
 	ASSERT_TIMELY (5s, (election = node.active.election (block1->qualified_root ())) != nullptr);
 
 	auto block2 = builder.make_block ()
@@ -289,7 +289,7 @@ TEST (election_scheduler, no_vacancy)
 				  .sign (key.prv, key.pub)
 				  .work (*system.work.generate (receive->hash ()))
 				  .build ();
-	ASSERT_EQ (nano::block_status::progress, node.process (block2));
+	ASSERT_EQ (celerix::block_status::progress, node.process (block2));
 
 	// There is no vacancy so it should stay queued
 	node.scheduler.priority.activate (node.ledger.tx_begin_read (), key.pub);
@@ -304,22 +304,22 @@ TEST (election_scheduler, no_vacancy)
 
 TEST (election_scheduler_bucket, construction)
 {
-	nano::test::system system;
+	celerix::test::system system;
 	auto & node = *system.add_node ();
 
-	nano::scheduler::priority_bucket_config bucket_config;
-	nano::scheduler::bucket bucket{ 0, bucket_config, node.active, node.stats };
+	celerix::scheduler::priority_bucket_config bucket_config;
+	celerix::scheduler::bucket bucket{ 0, bucket_config, node.active, node.stats };
 	ASSERT_TRUE (bucket.empty ());
 	ASSERT_EQ (0, bucket.size ());
 }
 
 TEST (election_scheduler_bucket, insert_one)
 {
-	nano::test::system system;
+	celerix::test::system system;
 	auto & node = *system.add_node ();
 
-	nano::scheduler::priority_bucket_config bucket_config;
-	nano::scheduler::bucket bucket{ 0, bucket_config, node.active, node.stats };
+	celerix::scheduler::priority_bucket_config bucket_config;
+	celerix::scheduler::bucket bucket{ 0, bucket_config, node.active, node.stats };
 	ASSERT_FALSE (bucket.contains (block0 ()->hash ()));
 	ASSERT_TRUE (bucket.push (1000, block0 ()));
 	ASSERT_TRUE (bucket.contains (block0 ()->hash ()));
@@ -332,22 +332,22 @@ TEST (election_scheduler_bucket, insert_one)
 
 TEST (election_scheduler_bucket, insert_duplicate)
 {
-	nano::test::system system;
+	celerix::test::system system;
 	auto & node = *system.add_node ();
 
-	nano::scheduler::priority_bucket_config bucket_config;
-	nano::scheduler::bucket bucket{ 0, bucket_config, node.active, node.stats };
+	celerix::scheduler::priority_bucket_config bucket_config;
+	celerix::scheduler::bucket bucket{ 0, bucket_config, node.active, node.stats };
 	ASSERT_TRUE (bucket.push (1000, block0 ()));
 	ASSERT_FALSE (bucket.push (1000, block0 ()));
 }
 
 TEST (election_scheduler_bucket, insert_many)
 {
-	nano::test::system system;
+	celerix::test::system system;
 	auto & node = *system.add_node ();
 
-	nano::scheduler::priority_bucket_config bucket_config;
-	nano::scheduler::bucket bucket{ 0, bucket_config, node.active, node.stats };
+	celerix::scheduler::priority_bucket_config bucket_config;
+	celerix::scheduler::bucket bucket{ 0, bucket_config, node.active, node.stats };
 	ASSERT_TRUE (bucket.push (2000, block0 ()));
 	ASSERT_TRUE (bucket.push (1001, block1 ()));
 	ASSERT_TRUE (bucket.push (1000, block2 ()));
@@ -365,13 +365,13 @@ TEST (election_scheduler_bucket, insert_many)
 
 TEST (election_scheduler_bucket, max_blocks)
 {
-	nano::test::system system;
+	celerix::test::system system;
 	auto & node = *system.add_node ();
 
-	nano::scheduler::priority_bucket_config bucket_config{
+	celerix::scheduler::priority_bucket_config bucket_config{
 		.max_blocks = 2
 	};
-	nano::scheduler::bucket bucket{ 0, bucket_config, node.active, node.stats };
+	celerix::scheduler::bucket bucket{ 0, bucket_config, node.active, node.stats };
 	ASSERT_TRUE (bucket.push (2000, block0 ()));
 	ASSERT_TRUE (bucket.contains (block0 ()->hash ()));
 	ASSERT_TRUE (bucket.push (900, block1 ()));

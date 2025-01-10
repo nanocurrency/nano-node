@@ -7,7 +7,7 @@
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
-namespace nano::store::lmdb
+namespace celerix::store::lmdb
 {
 /**
  * @class iterator

@@ -1,21 +1,21 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/stats.hpp>
-#include <nano/node/election.hpp>
-#include <nano/node/endpoint.hpp>
-#include <nano/node/local_vote_history.hpp>
-#include <nano/node/network.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/nodeconfig.hpp>
-#include <nano/node/request_aggregator.hpp>
-#include <nano/node/vote_generator.hpp>
-#include <nano/node/vote_router.hpp>
-#include <nano/node/wallet.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/ledger_set_any.hpp>
-#include <nano/secure/ledger_set_confirmed.hpp>
-#include <nano/store/component.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/stats.hpp>
+#include <celerix/node/election.hpp>
+#include <celerix/node/endpoint.hpp>
+#include <celerix/node/local_vote_history.hpp>
+#include <celerix/node/network.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/nodeconfig.hpp>
+#include <celerix/node/request_aggregator.hpp>
+#include <celerix/node/vote_generator.hpp>
+#include <celerix/node/vote_router.hpp>
+#include <celerix/node/wallet.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/ledger_set_any.hpp>
+#include <celerix/secure/ledger_set_confirmed.hpp>
+#include <celerix/store/component.hpp>
 
-nano::request_aggregator::request_aggregator (request_aggregator_config const & config_a, nano::node & node_a, nano::stats & stats_a, nano::vote_generator & generator_a, nano::vote_generator & final_generator_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_router & vote_router_a) :
+celerix::request_aggregator::request_aggregator (request_aggregator_config const & config_a, celerix::node & node_a, celerix::stats & stats_a, celerix::vote_generator & generator_a, celerix::vote_generator & final_generator_a, celerix::local_vote_history & history_a, celerix::ledger & ledger_a, celerix::wallets & wallets_a, celerix::vote_router & vote_router_a) :
 	config{ config_a },
 	network_constants{ node_a.network_params.network },
 	stats (stats_a),
@@ -34,28 +34,28 @@ nano::request_aggregator::request_aggregator (request_aggregator_config const & 
 	};
 }
 
-nano::request_aggregator::~request_aggregator ()
+celerix::request_aggregator::~request_aggregator ()
 {
 	debug_assert (threads.empty ());
 }
 
-void nano::request_aggregator::start ()
+void celerix::request_aggregator::start ()
 {
 	debug_assert (threads.empty ());
 
 	for (auto i = 0; i < config.threads; ++i)
 	{
 		threads.emplace_back ([this] () {
-			nano::thread_role::set (nano::thread_role::name::request_aggregator);
+			celerix::thread_role::set (celerix::thread_role::name::request_aggregator);
 			run ();
 		});
 	}
 }
 
-void nano::request_aggregator::stop ()
+void celerix::request_aggregator::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
 		stopped = true;
 	}
 	condition.notify_all ();
@@ -69,19 +69,19 @@ void nano::request_aggregator::stop ()
 	threads.clear ();
 }
 
-std::size_t nano::request_aggregator::size () const
+std::size_t celerix::request_aggregator::size () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return queue.size ();
 }
 
-bool nano::request_aggregator::empty () const
+bool celerix::request_aggregator::empty () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return queue.empty ();
 }
 
-bool nano::request_aggregator::request (request_type const & request, std::shared_ptr<nano::transport::channel> const & channel)
+bool celerix::request_aggregator::request (request_type const & request, std::shared_ptr<celerix::transport::channel> const & channel)
 {
 	release_assert (channel != nullptr);
 
@@ -91,34 +91,34 @@ bool nano::request_aggregator::request (request_type const & request, std::share
 
 	bool added = false;
 	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
-		added = queue.push ({ request, channel }, { nano::no_value{}, channel });
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
+		added = queue.push ({ request, channel }, { celerix::no_value{}, channel });
 	}
 	if (added)
 	{
-		stats.inc (nano::stat::type::request_aggregator, nano::stat::detail::request);
-		stats.add (nano::stat::type::request_aggregator, nano::stat::detail::request_hashes, request.size ());
+		stats.inc (celerix::stat::type::request_aggregator, celerix::stat::detail::request);
+		stats.add (celerix::stat::type::request_aggregator, celerix::stat::detail::request_hashes, request.size ());
 
 		condition.notify_one ();
 	}
 	else
 	{
-		stats.inc (nano::stat::type::request_aggregator, nano::stat::detail::overfill);
-		stats.add (nano::stat::type::request_aggregator, nano::stat::detail::overfill_hashes, request.size ());
+		stats.inc (celerix::stat::type::request_aggregator, celerix::stat::detail::overfill);
+		stats.add (celerix::stat::type::request_aggregator, celerix::stat::detail::overfill_hashes, request.size ());
 	}
 
 	// TODO: This stat is for compatibility with existing tests and is in principle unnecessary
-	stats.inc (nano::stat::type::aggregator, added ? nano::stat::detail::aggregator_accepted : nano::stat::detail::aggregator_dropped);
+	stats.inc (celerix::stat::type::aggregator, added ? celerix::stat::detail::aggregator_accepted : celerix::stat::detail::aggregator_dropped);
 
 	return added;
 }
 
-void nano::request_aggregator::run ()
+void celerix::request_aggregator::run ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		stats.inc (nano::stat::type::request_aggregator, nano::stat::detail::loop);
+		stats.inc (celerix::stat::type::request_aggregator, celerix::stat::detail::loop);
 
 		if (!queue.empty ())
 		{
@@ -133,7 +133,7 @@ void nano::request_aggregator::run ()
 	}
 }
 
-void nano::request_aggregator::run_batch (nano::unique_lock<nano::mutex> & lock)
+void celerix::request_aggregator::run_batch (celerix::unique_lock<celerix::mutex> & lock)
 {
 	debug_assert (lock.owns_lock ());
 	debug_assert (!mutex.try_lock ());
@@ -152,40 +152,40 @@ void nano::request_aggregator::run_batch (nano::unique_lock<nano::mutex> & lock)
 
 		transaction.refresh_if_needed ();
 
-		if (!channel->max (nano::transport::traffic_type::vote_reply))
+		if (!channel->max (celerix::transport::traffic_type::vote_reply))
 		{
 			process (transaction, request, channel);
 		}
 		else
 		{
-			stats.inc (nano::stat::type::request_aggregator, nano::stat::detail::channel_full, stat::dir::out);
+			stats.inc (celerix::stat::type::request_aggregator, celerix::stat::detail::channel_full, stat::dir::out);
 		}
 	}
 }
 
-void nano::request_aggregator::process (nano::secure::transaction const & transaction, request_type const & request, std::shared_ptr<nano::transport::channel> const & channel)
+void celerix::request_aggregator::process (celerix::secure::transaction const & transaction, request_type const & request, std::shared_ptr<celerix::transport::channel> const & channel)
 {
 	auto const remaining = aggregate (transaction, request, channel);
 
 	if (!remaining.remaining_normal.empty ())
 	{
-		stats.inc (nano::stat::type::request_aggregator_replies, nano::stat::detail::normal_vote);
+		stats.inc (celerix::stat::type::request_aggregator_replies, celerix::stat::detail::normal_vote);
 
 		// Generate votes for the remaining hashes
 		auto const generated = generator.generate (remaining.remaining_normal, channel);
-		stats.add (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in, remaining.remaining_normal.size () - generated);
+		stats.add (celerix::stat::type::requests, celerix::stat::detail::requests_cannot_vote, stat::dir::in, remaining.remaining_normal.size () - generated);
 	}
 	if (!remaining.remaining_final.empty ())
 	{
-		stats.inc (nano::stat::type::request_aggregator_replies, nano::stat::detail::final_vote);
+		stats.inc (celerix::stat::type::request_aggregator_replies, celerix::stat::detail::final_vote);
 
 		// Generate final votes for the remaining hashes
 		auto const generated = final_generator.generate (remaining.remaining_final, channel);
-		stats.add (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in, remaining.remaining_final.size () - generated);
+		stats.add (celerix::stat::type::requests, celerix::stat::detail::requests_cannot_vote, stat::dir::in, remaining.remaining_final.size () - generated);
 	}
 }
 
-void nano::request_aggregator::erase_duplicates (std::vector<std::pair<nano::block_hash, nano::root>> & requests_a) const
+void celerix::request_aggregator::erase_duplicates (std::vector<std::pair<celerix::block_hash, celerix::root>> & requests_a) const
 {
 	std::sort (requests_a.begin (), requests_a.end (), [] (auto const & pair1, auto const & pair2) {
 		return pair1.first < pair2.first;
@@ -197,14 +197,14 @@ void nano::request_aggregator::erase_duplicates (std::vector<std::pair<nano::blo
 }
 
 // This filters candidates for vote generation, the final decision and necessary checks are also performed by the vote generator
-auto nano::request_aggregator::aggregate (nano::secure::transaction const & transaction, request_type const & requests_a, std::shared_ptr<nano::transport::channel> const & channel_a) const -> aggregate_result
+auto celerix::request_aggregator::aggregate (celerix::secure::transaction const & transaction, request_type const & requests_a, std::shared_ptr<celerix::transport::channel> const & channel_a) const -> aggregate_result
 {
-	std::vector<std::shared_ptr<nano::block>> to_generate;
-	std::vector<std::shared_ptr<nano::block>> to_generate_final;
+	std::vector<std::shared_ptr<celerix::block>> to_generate;
+	std::vector<std::shared_ptr<celerix::block>> to_generate_final;
 	for (auto const & [hash, root] : requests_a)
 	{
 		// Ledger by hash
-		std::shared_ptr<nano::block> block = ledger.any.block_get (transaction, hash);
+		std::shared_ptr<celerix::block> block = ledger.any.block_get (transaction, hash);
 
 		// Ledger by root
 		if (!block && !root.is_zero ())
@@ -237,16 +237,16 @@ auto nano::request_aggregator::aggregate (nano::secure::transaction const & tran
 			if (should_generate_final_vote (block))
 			{
 				to_generate_final.push_back (block);
-				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_final);
+				stats.inc (celerix::stat::type::requests, celerix::stat::detail::requests_final);
 			}
 			else
 			{
-				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_non_final);
+				stats.inc (celerix::stat::type::requests, celerix::stat::detail::requests_non_final);
 			}
 		}
 		else
 		{
-			stats.inc (nano::stat::type::requests, nano::stat::detail::requests_unknown);
+			stats.inc (celerix::stat::type::requests, celerix::stat::detail::requests_unknown);
 		}
 	}
 
@@ -256,11 +256,11 @@ auto nano::request_aggregator::aggregate (nano::secure::transaction const & tran
 	};
 }
 
-nano::container_info nano::request_aggregator::container_info () const
+celerix::container_info celerix::request_aggregator::container_info () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.add ("queue", queue.container_info ());
 	return info;
 }
@@ -269,7 +269,7 @@ nano::container_info nano::request_aggregator::container_info () const
  * request_aggregator_config
  */
 
-nano::error nano::request_aggregator_config::serialize (nano::tomlconfig & toml) const
+celerix::error celerix::request_aggregator_config::serialize (celerix::tomlconfig & toml) const
 {
 	toml.put ("max_queue", max_queue, "Maximum number of queued requests per peer. \ntype:uint64");
 	toml.put ("threads", threads, "Number of threads for request processing. \ntype:uint64");
@@ -278,7 +278,7 @@ nano::error nano::request_aggregator_config::serialize (nano::tomlconfig & toml)
 	return toml.get_error ();
 }
 
-nano::error nano::request_aggregator_config::deserialize (nano::tomlconfig & toml)
+celerix::error celerix::request_aggregator_config::deserialize (celerix::tomlconfig & toml)
 {
 	toml.get ("max_queue", max_queue);
 	toml.get ("threads", threads);

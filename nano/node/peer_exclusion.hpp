@@ -1,7 +1,7 @@
 #pragma once
 
-#include <nano/node/endpoint.hpp>
-#include <nano/node/endpoint_templ.hpp>
+#include <celerix/node/endpoint.hpp>
+#include <celerix/node/endpoint_templ.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -10,7 +10,7 @@
 
 namespace mi = boost::multi_index;
 
-namespace nano
+namespace celerix
 {
 class peer_exclusion final
 {
@@ -18,7 +18,7 @@ class peer_exclusion final
 	{
 	public:
 		std::chrono::steady_clock::time_point exclude_until;
-		decltype (std::declval<nano::tcp_endpoint> ().address ()) address;
+		decltype (std::declval<celerix::tcp_endpoint> ().address ()) address;
 		uint64_t score;
 	};
 
@@ -42,21 +42,21 @@ private:
 
 	ordered_endpoints peers;
 
-	mutable nano::mutex mutex;
+	mutable celerix::mutex mutex;
 
 public:
 	constexpr static uint64_t score_limit = 2;
 	constexpr static std::chrono::hours exclude_time_hours = std::chrono::hours (1);
 	constexpr static std::chrono::hours exclude_remove_hours = std::chrono::hours (24);
 
-	uint64_t add (nano::tcp_endpoint const &);
-	uint64_t score (nano::tcp_endpoint const &) const;
-	std::chrono::steady_clock::time_point until (nano::tcp_endpoint const &) const;
-	bool check (nano::tcp_endpoint const &) const;
+	uint64_t add (celerix::tcp_endpoint const &);
+	uint64_t score (celerix::tcp_endpoint const &) const;
+	std::chrono::steady_clock::time_point until (celerix::tcp_endpoint const &) const;
+	bool check (celerix::tcp_endpoint const &) const;
 	bool check (boost::asio::ip::address const &) const;
-	void remove (nano::tcp_endpoint const &);
+	void remove (celerix::tcp_endpoint const &);
 	std::size_t size () const;
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 };
 }

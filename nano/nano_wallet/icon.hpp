@@ -1,7 +1,7 @@
 #pragma once
 
 class QApplication;
-namespace nano
+namespace celerix
 {
 void set_application_icon (QApplication &);
 }

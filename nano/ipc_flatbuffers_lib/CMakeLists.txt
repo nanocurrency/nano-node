@@ -32,7 +32,7 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/generated/flatbuffers)
 if(APPLE)
   install(
     DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/
-    DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS/api/flatbuffers)
+    DESTINATION ${CELERIX_OSX_PACKAGE_NAME}.app/Contents/MacOS/api/flatbuffers)
 elseif(LINUX)
   install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/
           DESTINATION ./bin/api/flatbuffers)
@@ -42,7 +42,7 @@ else()
 endif()
 
 file(GLOB files
-     "${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/nanoapi*.fbs")
+     "${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/celerixapi*.fbs")
 foreach(file ${files})
   get_filename_component(flatbuffers_filename ${file} NAME_WE)
   message(
@@ -68,7 +68,7 @@ foreach(file ${files})
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endforeach()
 
-add_library(ipc_flatbuffers_lib generated/flatbuffers/nanoapi_generated.h
+add_library(ipc_flatbuffers_lib generated/flatbuffers/celerixapi_generated.h
                                 flatbuffer_producer.hpp flatbuffer_producer.cpp)
 
 target_link_libraries(ipc_flatbuffers_lib flatbuffers)

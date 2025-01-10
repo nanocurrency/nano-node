@@ -2,9 +2,9 @@
 
 set +e
 
-systemctl stop ${NANO_SERVICE} 2>/dev/null
-systemctl disable ${NANO_SERVICE} 2>/dev/null
-rm -rf /etc/systemd/system/${NANO_SERVICE}
+systemctl stop ${CELERIX_SERVICE} 2>/dev/null
+systemctl disable ${CELERIX_SERVICE} 2>/dev/null
+rm -rf /etc/systemd/system/${CELERIX_SERVICE}
 systemctl daemon-reload
 
 set -e

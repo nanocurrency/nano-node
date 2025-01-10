@@ -1,18 +1,18 @@
 #pragma once
 
-#include <nano/lib/errors.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <celerix/lib/errors.hpp>
+#include <celerix/lib/timer.hpp>
+#include <celerix/node/bootstrap/bootstrap_server.hpp>
 
-namespace nano
+namespace celerix
 {
 class tomlconfig;
 
 class account_sets_config final
 {
 public:
-	nano::error deserialize (nano::tomlconfig & toml);
-	nano::error serialize (nano::tomlconfig & toml) const;
+	celerix::error deserialize (celerix::tomlconfig & toml);
+	celerix::error serialize (celerix::tomlconfig & toml) const;
 
 public:
 	std::size_t consideration_count{ 4 };
@@ -36,8 +36,8 @@ public:
 class bootstrap_config final
 {
 public:
-	nano::error deserialize (nano::tomlconfig & toml);
-	nano::error serialize (nano::tomlconfig & toml) const;
+	celerix::error deserialize (celerix::tomlconfig & toml);
+	celerix::error serialize (celerix::tomlconfig & toml) const;
 
 public:
 	bool enable{ true };
@@ -52,7 +52,7 @@ public:
 	std::size_t database_rate_limit{ 250 };
 	std::size_t frontier_rate_limit{ 8 };
 	std::size_t database_warmup_ratio{ 10 };
-	std::size_t max_pull_count{ nano::bootstrap_server::max_blocks };
+	std::size_t max_pull_count{ celerix::bootstrap_server::max_blocks };
 	std::chrono::milliseconds request_timeout{ 1000 * 15 };
 	std::size_t throttle_coefficient{ 8 * 1024 };
 	std::chrono::milliseconds throttle_wait{ 100 };

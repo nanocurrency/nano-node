@@ -1,4 +1,4 @@
-ARG ENV_REPOSITORY=nanocurrency/nano-env
+ARG ENV_REPOSITORY=celerixcurrency/celerix-env
 FROM ${ENV_REPOSITORY}:base
 
 RUN apt-get update -qq && apt-get install -yqq \
@@ -16,5 +16,5 @@ RUN update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 100
 
 RUN backtrace_file=$(find /usr/lib/gcc/ -name 'backtrace.h' | head -n 1) && test -f $backtrace_file && ln -s $backtrace_file /tmp/backtrace.h
 
-ARG REPOSITORY=nanocurrency/nano-node
+ARG REPOSITORY=celerixcurrency/celerix-node
 LABEL org.opencontainers.image.source https://github.com/$REPOSITORY

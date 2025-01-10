@@ -1,16 +1,16 @@
 #pragma once
 
-#include <nano/lib/locks.hpp>
-#include <nano/lib/object_stream.hpp>
-#include <nano/lib/stats.hpp>
-#include <nano/node/bandwidth_limiter.hpp>
-#include <nano/node/endpoint.hpp>
-#include <nano/node/messages.hpp>
-#include <nano/node/transport/tcp_socket.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/object_stream.hpp>
+#include <celerix/lib/stats.hpp>
+#include <celerix/node/bandwidth_limiter.hpp>
+#include <celerix/node/endpoint.hpp>
+#include <celerix/node/messages.hpp>
+#include <celerix/node/transport/tcp_socket.hpp>
 
 #include <boost/asio/ip/network_v6.hpp>
 
-namespace nano::transport
+namespace celerix::transport
 {
 enum class transport_type : uint8_t
 {
@@ -26,21 +26,21 @@ public:
 	using callback_t = std::function<void (boost::system::error_code const &, std::size_t)>;
 
 public:
-	explicit channel (nano::node &);
+	explicit channel (celerix::node &);
 	virtual ~channel () = default;
 
 	/// @returns true if the message was sent (or queued to be sent), false if it was immediately dropped
-	bool send (nano::message const &, nano::transport::traffic_type, callback_t = nullptr);
+	bool send (celerix::message const &, celerix::transport::traffic_type, callback_t = nullptr);
 
 	virtual void close () = 0;
 
-	virtual nano::endpoint get_remote_endpoint () const = 0;
-	virtual nano::endpoint get_local_endpoint () const = 0;
+	virtual celerix::endpoint get_remote_endpoint () const = 0;
+	virtual celerix::endpoint get_local_endpoint () const = 0;
 
 	virtual std::string to_string () const = 0;
-	virtual nano::transport::transport_type get_type () const = 0;
+	virtual celerix::transport::transport_type get_type () const = 0;
 
-	virtual bool max (nano::transport::traffic_type)
+	virtual bool max (celerix::transport::traffic_type)
 	{
 		return false;
 	}
@@ -52,55 +52,55 @@ public:
 
 	std::chrono::steady_clock::time_point get_last_bootstrap_attempt () const
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		return last_bootstrap_attempt;
 	}
 
 	void set_last_bootstrap_attempt (std::chrono::steady_clock::time_point const time_a)
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		last_bootstrap_attempt = time_a;
 	}
 
 	std::chrono::steady_clock::time_point get_last_packet_received () const
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		return last_packet_received;
 	}
 
 	void set_last_packet_received (std::chrono::steady_clock::time_point const time_a)
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		last_packet_received = time_a;
 	}
 
 	std::chrono::steady_clock::time_point get_last_packet_sent () const
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		return last_packet_sent;
 	}
 
 	void set_last_packet_sent (std::chrono::steady_clock::time_point const time_a)
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		last_packet_sent = time_a;
 	}
 
-	std::optional<nano::account> get_node_id_optional () const
+	std::optional<celerix::account> get_node_id_optional () const
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		return node_id;
 	}
 
-	nano::account get_node_id () const
+	celerix::account get_node_id () const
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		return node_id.value_or (0);
 	}
 
-	void set_node_id (nano::account node_id_a)
+	void set_node_id (celerix::account node_id_a)
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		node_id = node_id_a;
 	}
 
@@ -114,27 +114,27 @@ public:
 		network_version = network_version_a;
 	}
 
-	nano::endpoint get_peering_endpoint () const;
-	void set_peering_endpoint (nano::endpoint endpoint);
+	celerix::endpoint get_peering_endpoint () const;
+	void set_peering_endpoint (celerix::endpoint endpoint);
 
-	std::shared_ptr<nano::node> owner () const;
-
-protected:
-	virtual bool send_buffer (nano::shared_const_buffer const &, nano::transport::traffic_type, callback_t) = 0;
+	std::shared_ptr<celerix::node> owner () const;
 
 protected:
-	nano::node & node;
-	mutable nano::mutex mutex;
+	virtual bool send_buffer (celerix::shared_const_buffer const &, celerix::transport::traffic_type, callback_t) = 0;
+
+protected:
+	celerix::node & node;
+	mutable celerix::mutex mutex;
 
 private:
 	std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
 	std::chrono::steady_clock::time_point last_packet_received{ std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point last_packet_sent{ std::chrono::steady_clock::now () };
-	std::optional<nano::account> node_id{};
+	std::optional<celerix::account> node_id{};
 	std::atomic<uint8_t> network_version{ 0 };
-	std::optional<nano::endpoint> peering_endpoint{};
+	std::optional<celerix::endpoint> peering_endpoint{};
 
 public: // Logging
-	virtual void operator() (nano::object_stream &) const;
+	virtual void operator() (celerix::object_stream &) const;
 };
 }

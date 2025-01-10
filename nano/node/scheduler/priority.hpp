@@ -1,8 +1,8 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
-#include <nano/node/fwd.hpp>
-#include <nano/node/scheduler/bucket.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/node/fwd.hpp>
+#include <celerix/node/scheduler/bucket.hpp>
 
 #include <condition_variable>
 #include <deque>
@@ -11,7 +11,7 @@
 #include <string>
 #include <thread>
 
-namespace nano::scheduler
+namespace celerix::scheduler
 {
 class buckets;
 
@@ -27,7 +27,7 @@ public:
 class priority final
 {
 public:
-	priority (nano::node_config &, nano::node &, nano::ledger &, nano::bucketing &, nano::block_processor &, nano::active_elections &, nano::confirming_set &, nano::stats &, nano::logger &);
+	priority (celerix::node_config &, celerix::node &, celerix::ledger &, celerix::bucketing &, celerix::block_processor &, celerix::active_elections &, celerix::confirming_set &, celerix::stats &, celerix::logger &);
 	~priority ();
 
 	void start ();
@@ -37,27 +37,27 @@ public:
 	 * Activates the first unconfirmed block of \p account_a
 	 * @return true if account was activated
 	 */
-	bool activate (nano::secure::transaction const &, nano::account const &);
-	bool activate (nano::secure::transaction const &, nano::account const &, nano::account_info const &, nano::confirmation_height_info const &);
-	bool activate_successors (nano::secure::transaction const &, nano::block const &);
+	bool activate (celerix::secure::transaction const &, celerix::account const &);
+	bool activate (celerix::secure::transaction const &, celerix::account const &, celerix::account_info const &, celerix::confirmation_height_info const &);
+	bool activate_successors (celerix::secure::transaction const &, celerix::block const &);
 
-	bool contains (nano::block_hash const &) const;
+	bool contains (celerix::block_hash const &) const;
 	void notify ();
 	std::size_t size () const;
 	bool empty () const;
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 
 private: // Dependencies
 	priority_config const & config;
-	nano::node & node;
-	nano::ledger & ledger;
-	nano::bucketing & bucketing;
-	nano::block_processor & block_processor;
-	nano::active_elections & active;
-	nano::confirming_set & confirming_set;
-	nano::stats & stats;
-	nano::logger & logger;
+	celerix::node & node;
+	celerix::ledger & ledger;
+	celerix::bucketing & bucketing;
+	celerix::block_processor & block_processor;
+	celerix::active_elections & active;
+	celerix::confirming_set & confirming_set;
+	celerix::stats & stats;
+	celerix::logger & logger;
 
 private:
 	void run ();
@@ -65,11 +65,11 @@ private:
 	bool predicate () const;
 
 private:
-	std::map<nano::bucket_index, std::unique_ptr<scheduler::bucket>> buckets;
+	std::map<celerix::bucket_index, std::unique_ptr<scheduler::bucket>> buckets;
 
 	bool stopped{ false };
-	nano::condition_variable condition;
-	mutable nano::mutex mutex;
+	celerix::condition_variable condition;
+	mutable celerix::mutex mutex;
 	std::thread thread;
 	std::thread cleanup_thread;
 };

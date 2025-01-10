@@ -1,8 +1,8 @@
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <pthread.h>
 
-void nano::work_thread_reprioritize ()
+void celerix::work_thread_reprioritize ()
 {
 	auto handle (pthread_self ());
 	int policy;

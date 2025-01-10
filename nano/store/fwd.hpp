@@ -1,10 +1,10 @@
 #pragma once
 
-namespace nano
+namespace celerix
 {
 enum class tables;
 }
-namespace nano::store
+namespace celerix::store
 {
 class account;
 class block;

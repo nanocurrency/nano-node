@@ -2,7 +2,7 @@
 
 #include <boost/property_tree/ptree.hpp>
 
-namespace nano
+namespace celerix
 {
 class ipc_rpc_processor;
 class node;
@@ -22,19 +22,19 @@ namespace test
 	class rpc_context
 	{
 	public:
-		rpc_context (std::shared_ptr<nano::rpc> & rpc_a, std::shared_ptr<nano::ipc::ipc_server> & ipc_server_a, std::unique_ptr<nano::ipc_rpc_processor> & ipc_rpc_processor_a, std::unique_ptr<nano::node_rpc_config> & node_rpc_config_a);
+		rpc_context (std::shared_ptr<celerix::rpc> & rpc_a, std::shared_ptr<celerix::ipc::ipc_server> & ipc_server_a, std::unique_ptr<celerix::ipc_rpc_processor> & ipc_rpc_processor_a, std::unique_ptr<celerix::node_rpc_config> & node_rpc_config_a);
 
-		std::shared_ptr<nano::rpc> rpc;
-		std::shared_ptr<nano::ipc::ipc_server> ipc_server;
-		std::unique_ptr<nano::ipc_rpc_processor> ipc_rpc_processor;
-		std::unique_ptr<nano::node_rpc_config> node_rpc_config;
+		std::shared_ptr<celerix::rpc> rpc;
+		std::shared_ptr<celerix::ipc::ipc_server> ipc_server;
+		std::unique_ptr<celerix::ipc_rpc_processor> ipc_rpc_processor;
+		std::unique_ptr<celerix::node_rpc_config> node_rpc_config;
 	};
 
-	void wait_response_impl (nano::test::system & system, rpc_context const & rpc_ctx, boost::property_tree::ptree & request, std::chrono::duration<double, std::nano> const & time, boost::property_tree::ptree & response_json);
+	void wait_response_impl (celerix::test::system & system, rpc_context const & rpc_ctx, boost::property_tree::ptree & request, std::chrono::duration<double, std::celerix> const & time, boost::property_tree::ptree & response_json);
 
-	boost::property_tree::ptree wait_response (nano::test::system & system, rpc_context const & rpc_ctx, boost::property_tree::ptree & request, std::chrono::duration<double, std::nano> const & time = 5s);
+	boost::property_tree::ptree wait_response (celerix::test::system & system, rpc_context const & rpc_ctx, boost::property_tree::ptree & request, std::chrono::duration<double, std::celerix> const & time = 5s);
 
-	bool check_block_response_count (nano::test::system & system, rpc_context const & rpc_ctx, boost::property_tree::ptree & request, uint64_t size_count);
-	rpc_context add_rpc (nano::test::system & system, std::shared_ptr<nano::node> const & node_a);
+	bool check_block_response_count (celerix::test::system & system, rpc_context const & rpc_ctx, boost::property_tree::ptree & request, uint64_t size_count);
+	rpc_context add_rpc (celerix::test::system & system, std::shared_ptr<celerix::node> const & node_a);
 }
 }

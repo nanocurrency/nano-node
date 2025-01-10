@@ -1,11 +1,11 @@
 #pragma once
 
-#include <nano/lib/fwd.hpp>
-#include <nano/node/transport/fwd.hpp>
-#include <nano/secure/fwd.hpp>
-#include <nano/store/fwd.hpp>
+#include <celerix/lib/fwd.hpp>
+#include <celerix/node/transport/fwd.hpp>
+#include <celerix/secure/fwd.hpp>
+#include <celerix/store/fwd.hpp>
 
-namespace nano
+namespace celerix
 {
 class account_sets_config;
 class active_elections;
@@ -51,7 +51,7 @@ enum class election_state;
 enum class vote_code;
 }
 
-namespace nano::scheduler
+namespace celerix::scheduler
 {
 class component;
 class hinted;

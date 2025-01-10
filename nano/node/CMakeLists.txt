@@ -201,8 +201,8 @@ add_library(
 
 target_link_libraries(
   node
-  nano_lib
-  nano_store
+  celerix_lib
+  celerix_store
   secure
   rpc
   libminiupnpc-static
@@ -227,4 +227,4 @@ add_dependencies(node ipc_flatbuffers_lib)
 
 include_directories(${CMAKE_SOURCE_DIR}/submodules)
 include_directories(
-  ${CMAKE_SOURCE_DIR}/submodules/nano-pow-server/deps/cpptoml/include)
+  ${CMAKE_SOURCE_DIR}/submodules/celerix-pow-server/deps/cpptoml/include)

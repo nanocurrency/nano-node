@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <memory>
 
-namespace nano
+namespace celerix
 {
 /**
  * A space efficient optional which does heap allocation when needed.

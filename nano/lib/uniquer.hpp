@@ -1,12 +1,12 @@
 #pragma once
 
-#include <nano/lib/interval.hpp>
-#include <nano/lib/locks.hpp>
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/interval.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <memory>
 
-namespace nano
+namespace celerix
 {
 template <typename Key, typename Value>
 class uniquer final
@@ -25,7 +25,7 @@ public:
 		// Types used as value need to provide full_hash()
 		Key hash = value->full_hash ();
 
-		nano::lock_guard<nano::mutex> guard{ mutex };
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
 
 		if (cleanup_interval.elapsed (cleanup_cutoff))
 		{
@@ -47,15 +47,15 @@ public:
 
 	std::size_t size () const
 	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
 		return values.size ();
 	}
 
-	nano::container_info container_info () const
+	celerix::container_info container_info () const
 	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
 
-		nano::container_info info;
+		celerix::container_info info;
 		info.put ("cache", values);
 		return info;
 	}
@@ -73,8 +73,8 @@ private:
 	}
 
 private:
-	mutable nano::mutex mutex;
+	mutable celerix::mutex mutex;
 	std::unordered_map<Key, std::weak_ptr<Value>> values;
-	nano::interval cleanup_interval;
+	celerix::interval cleanup_interval;
 };
 }

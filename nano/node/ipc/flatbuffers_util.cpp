@@ -1,12 +1,12 @@
-#include <nano/lib/block_type.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/node/ipc/flatbuffers_util.hpp>
-#include <nano/secure/common.hpp>
+#include <celerix/lib/block_type.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/node/ipc/flatbuffers_util.hpp>
+#include <celerix/secure/common.hpp>
 
-std::unique_ptr<nanoapi::BlockStateT> nano::ipc::flatbuffers_builder::from (nano::state_block const & block_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a)
+std::unique_ptr<celerixapi::BlockStateT> celerix::ipc::flatbuffers_builder::from (celerix::state_block const & block_a, celerix::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a)
 {
-	auto block (std::make_unique<nanoapi::BlockStateT> ());
+	auto block (std::make_unique<celerixapi::BlockStateT> ());
 	block->account = block_a.account ().to_account ();
 	block->hash = block_a.hash ().to_string ();
 	block->previous = block_a.previous ().to_string ();
@@ -15,101 +15,101 @@ std::unique_ptr<nanoapi::BlockStateT> nano::ipc::flatbuffers_builder::from (nano
 	block->link = block_a.link_field ().value ().to_string ();
 	block->link_as_account = block_a.link_field ().value ().to_account ();
 	block_a.signature.encode_hex (block->signature);
-	block->work = nano::to_string_hex (block_a.work);
+	block->work = celerix::to_string_hex (block_a.work);
 
 	if (is_state_send_a)
 	{
-		block->subtype = nanoapi::BlockSubType::BlockSubType_send;
+		block->subtype = celerixapi::BlockSubType::BlockSubType_send;
 	}
 	else if (block_a.is_change ())
 	{
-		block->subtype = nanoapi::BlockSubType::BlockSubType_change;
+		block->subtype = celerixapi::BlockSubType::BlockSubType_change;
 	}
 	else if (amount_a == 0 && is_state_epoch_a)
 	{
-		block->subtype = nanoapi::BlockSubType::BlockSubType_epoch;
+		block->subtype = celerixapi::BlockSubType::BlockSubType_epoch;
 	}
 	else
 	{
-		block->subtype = nanoapi::BlockSubType::BlockSubType_receive;
+		block->subtype = celerixapi::BlockSubType::BlockSubType_receive;
 	}
 	return block;
 }
 
-std::unique_ptr<nanoapi::BlockSendT> nano::ipc::flatbuffers_builder::from (nano::send_block const & block_a)
+std::unique_ptr<celerixapi::BlockSendT> celerix::ipc::flatbuffers_builder::from (celerix::send_block const & block_a)
 {
-	auto block (std::make_unique<nanoapi::BlockSendT> ());
+	auto block (std::make_unique<celerixapi::BlockSendT> ());
 	block->hash = block_a.hash ().to_string ();
 	block->balance = block_a.balance ().to_string_dec ();
 	block->destination = block_a.hashables.destination.to_account ();
 	block->previous = block_a.previous ().to_string ();
 	block_a.signature.encode_hex (block->signature);
-	block->work = nano::to_string_hex (block_a.work);
+	block->work = celerix::to_string_hex (block_a.work);
 	return block;
 }
 
-std::unique_ptr<nanoapi::BlockReceiveT> nano::ipc::flatbuffers_builder::from (nano::receive_block const & block_a)
+std::unique_ptr<celerixapi::BlockReceiveT> celerix::ipc::flatbuffers_builder::from (celerix::receive_block const & block_a)
 {
-	auto block (std::make_unique<nanoapi::BlockReceiveT> ());
+	auto block (std::make_unique<celerixapi::BlockReceiveT> ());
 	block->hash = block_a.hash ().to_string ();
 	block->source = block_a.source_field ().value ().to_string ();
 	block->previous = block_a.previous ().to_string ();
 	block_a.signature.encode_hex (block->signature);
-	block->work = nano::to_string_hex (block_a.work);
+	block->work = celerix::to_string_hex (block_a.work);
 	return block;
 }
 
-std::unique_ptr<nanoapi::BlockOpenT> nano::ipc::flatbuffers_builder::from (nano::open_block const & block_a)
+std::unique_ptr<celerixapi::BlockOpenT> celerix::ipc::flatbuffers_builder::from (celerix::open_block const & block_a)
 {
-	auto block (std::make_unique<nanoapi::BlockOpenT> ());
+	auto block (std::make_unique<celerixapi::BlockOpenT> ());
 	block->hash = block_a.hash ().to_string ();
 	block->source = block_a.source_field ().value ().to_string ();
 	block->account = block_a.account ().to_account ();
 	block->representative = block_a.representative_field ().value ().to_account ();
 	block_a.signature.encode_hex (block->signature);
-	block->work = nano::to_string_hex (block_a.work);
+	block->work = celerix::to_string_hex (block_a.work);
 	return block;
 }
 
-std::unique_ptr<nanoapi::BlockChangeT> nano::ipc::flatbuffers_builder::from (nano::change_block const & block_a)
+std::unique_ptr<celerixapi::BlockChangeT> celerix::ipc::flatbuffers_builder::from (celerix::change_block const & block_a)
 {
-	auto block (std::make_unique<nanoapi::BlockChangeT> ());
+	auto block (std::make_unique<celerixapi::BlockChangeT> ());
 	block->hash = block_a.hash ().to_string ();
 	block->previous = block_a.previous ().to_string ();
 	block->representative = block_a.representative_field ().value ().to_account ();
 	block_a.signature.encode_hex (block->signature);
-	block->work = nano::to_string_hex (block_a.work);
+	block->work = celerix::to_string_hex (block_a.work);
 	return block;
 }
 
-nanoapi::BlockUnion nano::ipc::flatbuffers_builder::block_to_union (nano::block const & block_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a)
+celerixapi::BlockUnion celerix::ipc::flatbuffers_builder::block_to_union (celerix::block const & block_a, celerix::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a)
 {
-	nanoapi::BlockUnion u;
+	celerixapi::BlockUnion u;
 	switch (block_a.type ())
 	{
-		case nano::block_type::state:
+		case celerix::block_type::state:
 		{
-			u.Set (*from (dynamic_cast<nano::state_block const &> (block_a), amount_a, is_state_send_a, is_state_epoch_a));
+			u.Set (*from (dynamic_cast<celerix::state_block const &> (block_a), amount_a, is_state_send_a, is_state_epoch_a));
 			break;
 		}
-		case nano::block_type::send:
+		case celerix::block_type::send:
 		{
-			u.Set (*from (dynamic_cast<nano::send_block const &> (block_a)));
+			u.Set (*from (dynamic_cast<celerix::send_block const &> (block_a)));
 			break;
 		}
-		case nano::block_type::receive:
+		case celerix::block_type::receive:
 		{
-			u.Set (*from (dynamic_cast<nano::receive_block const &> (block_a)));
+			u.Set (*from (dynamic_cast<celerix::receive_block const &> (block_a)));
 			break;
 		}
-		case nano::block_type::open:
+		case celerix::block_type::open:
 		{
-			u.Set (*from (dynamic_cast<nano::open_block const &> (block_a)));
+			u.Set (*from (dynamic_cast<celerix::open_block const &> (block_a)));
 			break;
 		}
-		case nano::block_type::change:
+		case celerix::block_type::change:
 		{
-			u.Set (*from (dynamic_cast<nano::change_block const &> (block_a)));
+			u.Set (*from (dynamic_cast<celerix::change_block const &> (block_a)));
 			break;
 		}
 

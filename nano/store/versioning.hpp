@@ -1,10 +1,10 @@
 #pragma once
 
-#include <nano/secure/common.hpp>
+#include <celerix/secure/common.hpp>
 
 struct MDB_val;
 
-namespace nano::store
+namespace celerix::store
 {
 // Holds historical verisons of classes used when upgrading database stores.
-} // namespace nano::store
+} // namespace celerix::store

@@ -1,5 +1,5 @@
-#include <nano/lib/observer_set.hpp>
-#include <nano/lib/timer.hpp>
+#include <celerix/lib/observer_set.hpp>
+#include <celerix/lib/timer.hpp>
 
 #include <gtest/gtest.h>
 
@@ -10,7 +10,7 @@ using namespace std::chrono_literals;
 
 TEST (observer_set, notify_one)
 {
-	nano::observer_set<int> set;
+	celerix::observer_set<int> set;
 	int value{ 0 };
 	set.add ([&value] (int v) {
 		value = v;
@@ -21,7 +21,7 @@ TEST (observer_set, notify_one)
 
 TEST (observer_set, notify_multiple)
 {
-	nano::observer_set<int> set;
+	celerix::observer_set<int> set;
 	int value{ 0 };
 	set.add ([&value] (int v) {
 		value = v;
@@ -35,13 +35,13 @@ TEST (observer_set, notify_multiple)
 
 TEST (observer_set, notify_empty)
 {
-	nano::observer_set<int> set;
+	celerix::observer_set<int> set;
 	set.notify (1);
 }
 
 TEST (observer_set, notify_multiple_types)
 {
-	nano::observer_set<int, std::string> set;
+	celerix::observer_set<int, std::string> set;
 	int value{ 0 };
 	std::string str;
 	set.add ([&value, &str] (int v, std::string s) {
@@ -55,20 +55,20 @@ TEST (observer_set, notify_multiple_types)
 
 TEST (observer_set, empty_params)
 {
-	nano::observer_set<> set;
+	celerix::observer_set<> set;
 	set.notify ();
 }
 
 // Make sure there are no TSAN warnings
 TEST (observer_set, parallel_notify)
 {
-	nano::observer_set<int> set;
+	celerix::observer_set<int> set;
 	std::atomic<int> value{ 0 };
 	set.add ([&value] (int v) {
 		std::this_thread::sleep_for (100ms);
 		value = v;
 	});
-	nano::timer timer{ nano::timer_state::started };
+	celerix::timer timer{ celerix::timer_state::started };
 	std::vector<std::thread> threads;
 	for (int i = 0; i < 10; ++i)
 	{
@@ -112,7 +112,7 @@ struct copy_throw
 // Ensure that parameters are not unnecessarily copied, this should compile
 TEST (observer_set, move_only)
 {
-	nano::observer_set<move_only> set;
+	celerix::observer_set<move_only> set;
 	set.add ([] (move_only const &) {
 	});
 	move_only value;
@@ -121,7 +121,7 @@ TEST (observer_set, move_only)
 
 TEST (observer_set, copy_throw)
 {
-	nano::observer_set<copy_throw> set;
+	celerix::observer_set<copy_throw> set;
 	set.add ([] (copy_throw const &) {
 	});
 	copy_throw value;

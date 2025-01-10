@@ -7,7 +7,7 @@
 #include <system_error>
 #include <type_traits>
 
-namespace nano
+namespace celerix
 {
 /** Common error codes */
 enum class error_common
@@ -150,7 +150,7 @@ enum class error_config
 	invalid_value,
 	missing_value
 };
-} // nano namespace
+} // celerix namespace
 
 // Convenience macro to implement the standard boilerplate for using std::error_code with enums
 // Use this at the end of any header defining one or more error code enums.
@@ -188,32 +188,32 @@ enum class error_config
 		};                                                                                                     \
 	}
 
-REGISTER_ERROR_CODES (nano, error_common);
-REGISTER_ERROR_CODES (nano, error_blocks);
-REGISTER_ERROR_CODES (nano, error_rpc);
-REGISTER_ERROR_CODES (nano, error_process);
-REGISTER_ERROR_CODES (nano, error_config);
+REGISTER_ERROR_CODES (celerix, error_common);
+REGISTER_ERROR_CODES (celerix, error_blocks);
+REGISTER_ERROR_CODES (celerix, error_rpc);
+REGISTER_ERROR_CODES (celerix, error_process);
+REGISTER_ERROR_CODES (celerix, error_config);
 
-namespace nano
+namespace celerix
 {
 /** Adapter for std/boost::error_code, std::exception and bool flags to facilitate unified error handling */
 class error
 {
 public:
 	error () = default;
-	error (nano::error const & error_a) = default;
-	error (nano::error && error_a) = default;
+	error (celerix::error const & error_a) = default;
+	error (celerix::error && error_a) = default;
 
 	error (std::error_code code_a);
 	error (std::string message_a);
 	error (std::exception const & exception_a);
-	error & operator= (nano::error const & err_a);
-	error & operator= (nano::error && err_a);
+	error & operator= (celerix::error const & err_a);
+	error & operator= (celerix::error && err_a);
 	error & operator= (std::error_code code_a);
 	error & operator= (std::string message_a);
 	error & operator= (std::exception const & exception_a);
 	bool operator== (std::error_code code_a) const;
-	error & then (std::function<nano::error &()> next);
+	error & then (std::function<celerix::error &()> next);
 	template <typename... ErrorCode>
 	error & accept (ErrorCode... err)
 	{
@@ -238,7 +238,7 @@ public:
 	int error_code_as_int () const;
 	error & on_error (std::string message_a);
 	error & on_error (std::error_code code_a, std::string message_a);
-	error & set (std::string message_a, std::error_code code_a = nano::error_common::generic);
+	error & set (std::string message_a, std::error_code code_a = celerix::error_common::generic);
 	error & set_message (std::string message_a);
 	error & clear ();
 
@@ -248,14 +248,14 @@ private:
 };
 
 /**
- * A type that manages a nano::error.
- * The default return type is nano::error&, though shared_ptr<nano::error> is a good option in cases
+ * A type that manages a celerix::error.
+ * The default return type is celerix::error&, though shared_ptr<celerix::error> is a good option in cases
  * where shared error state is desirable.
  */
-template <typename RET_TYPE = nano::error &>
+template <typename RET_TYPE = celerix::error &>
 class error_aware
 {
-	static_assert (std::is_same<RET_TYPE, nano::error &>::value || std::is_same<RET_TYPE, std::shared_ptr<nano::error>>::value, "Must be nano::error& or shared_ptr<nano::error>");
+	static_assert (std::is_same<RET_TYPE, celerix::error &>::value || std::is_same<RET_TYPE, std::shared_ptr<celerix::error>>::value, "Must be celerix::error& or shared_ptr<celerix::error>");
 
 public:
 	/** Returns the error object managed by this object */

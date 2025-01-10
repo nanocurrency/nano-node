@@ -1,21 +1,21 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
-#include <nano/node/fwd.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/node/fwd.hpp>
 
-namespace nano
+namespace celerix
 {
 class bucketing
 {
 public:
 	bucketing ();
 
-	nano::bucket_index bucket_index (nano::amount balance) const;
-	std::vector<nano::bucket_index> const & bucket_indices () const;
+	celerix::bucket_index bucket_index (celerix::amount balance) const;
+	std::vector<celerix::bucket_index> const & bucket_indices () const;
 	size_t size () const;
 
 private:
-	std::vector<nano::uint128_t> minimums;
-	std::vector<nano::bucket_index> indices;
+	std::vector<celerix::uint128_t> minimums;
+	std::vector<celerix::bucket_index> indices;
 };
 }

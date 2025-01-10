@@ -1,12 +1,12 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/threading.hpp>
-#include <nano/lib/work_version.hpp>
-#include <nano/node/epoch_upgrader.hpp>
-#include <nano/node/node.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/ledger_set_any.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/threading.hpp>
+#include <celerix/lib/work_version.hpp>
+#include <celerix/node/epoch_upgrader.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/ledger_set_any.hpp>
 
-nano::epoch_upgrader::epoch_upgrader (nano::node & node_a, nano::ledger & ledger_a, nano::store::component & store_a, nano::network_params & network_params_a, nano::logger & logger_a) :
+celerix::epoch_upgrader::epoch_upgrader (celerix::node & node_a, celerix::ledger & ledger_a, celerix::store::component & store_a, celerix::network_params & network_params_a, celerix::logger & logger_a) :
 	node{ node_a },
 	ledger{ ledger_a },
 	store{ store_a },
@@ -15,7 +15,7 @@ nano::epoch_upgrader::epoch_upgrader (nano::node & node_a, nano::ledger & ledger
 {
 }
 
-void nano::epoch_upgrader::stop ()
+void celerix::epoch_upgrader::stop ()
 {
 	stopped = true;
 
@@ -26,7 +26,7 @@ void nano::epoch_upgrader::stop ()
 	}
 }
 
-bool nano::epoch_upgrader::start (nano::raw_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)
+bool celerix::epoch_upgrader::start (celerix::raw_key const & prv_a, celerix::epoch epoch_a, uint64_t count_limit, uint64_t threads)
 {
 	bool error = stopped.load ();
 	if (!error)
@@ -44,27 +44,27 @@ bool nano::epoch_upgrader::start (nano::raw_key const & prv_a, nano::epoch epoch
 }
 
 // TODO: This method should be a class
-void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)
+void celerix::epoch_upgrader::upgrade_impl (celerix::raw_key const & prv_a, celerix::epoch epoch_a, uint64_t count_limit, uint64_t threads)
 {
-	nano::thread_role::set (nano::thread_role::name::epoch_upgrader);
-	auto upgrader_process = [this] (std::atomic<uint64_t> & counter, std::shared_ptr<nano::block> const & epoch, uint64_t difficulty, nano::public_key const & signer_a, nano::root const & root_a, nano::account const & account_a) {
-		epoch->block_work_set (node.work_generate_blocking (nano::work_version::work_1, root_a, difficulty).value_or (0));
-		bool valid_signature (!nano::validate_message (signer_a, epoch->hash (), epoch->block_signature ()));
+	celerix::thread_role::set (celerix::thread_role::name::epoch_upgrader);
+	auto upgrader_process = [this] (std::atomic<uint64_t> & counter, std::shared_ptr<celerix::block> const & epoch, uint64_t difficulty, celerix::public_key const & signer_a, celerix::root const & root_a, celerix::account const & account_a) {
+		epoch->block_work_set (node.work_generate_blocking (celerix::work_version::work_1, root_a, difficulty).value_or (0));
+		bool valid_signature (!celerix::validate_message (signer_a, epoch->hash (), epoch->block_signature ()));
 		bool valid_work (node.network_params.work.difficulty (*epoch) >= difficulty);
-		nano::block_status result (nano::block_status::old);
+		celerix::block_status result (celerix::block_status::old);
 		if (valid_signature && valid_work)
 		{
 			result = node.process_local (epoch).value ();
 		}
-		if (result == nano::block_status::progress)
+		if (result == celerix::block_status::progress)
 		{
 			++counter;
 		}
 		else
 		{
-			bool fork (result == nano::block_status::fork);
+			bool fork (result == celerix::block_status::fork);
 
-			logger.error (nano::log::type::epoch_upgrader, "Failed to upgrade account {} (valid signature: {}, valid work: {}, fork: {})",
+			logger.error (celerix::log::type::epoch_upgrader, "Failed to upgrade account {} (valid signature: {}, valid work: {}, fork: {})",
 			account_a.to_account (),
 			valid_signature,
 			valid_work,
@@ -73,20 +73,20 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 	};
 
 	uint64_t const upgrade_batch_size = 1000;
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto link (ledger.epoch_link (epoch_a));
-	nano::raw_key raw_key;
+	celerix::raw_key raw_key;
 	raw_key = prv_a;
-	auto signer (nano::pub_key (prv_a));
+	auto signer (celerix::pub_key (prv_a));
 	debug_assert (signer == ledger.epoch_signer (link));
 
-	nano::mutex upgrader_mutex;
-	nano::condition_variable upgrader_condition;
+	celerix::mutex upgrader_mutex;
+	celerix::condition_variable upgrader_condition;
 
 	class account_upgrade_item final
 	{
 	public:
-		nano::account account{};
+		celerix::account account{};
 		uint64_t modified{ 0 };
 	};
 	class account_tag
@@ -102,7 +102,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 			boost::multi_index::member<account_upgrade_item, uint64_t, &account_upgrade_item::modified>,
 			std::greater<uint64_t>>,
 		boost::multi_index::hashed_unique<boost::multi_index::tag<account_tag>,
-			boost::multi_index::member<account_upgrade_item, nano::account, &account_upgrade_item::account>>>>
+			boost::multi_index::member<account_upgrade_item, celerix::account, &account_upgrade_item::account>>>>
 	accounts_list;
 	// clang-format on
 
@@ -119,11 +119,11 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 				// Collect accounts to upgrade
 				for (auto i (store.account.begin (transaction)), n (store.account.end (transaction)); i != n && accounts_list.size () < count_limit; ++i)
 				{
-					nano::account const & account (i->first);
-					nano::account_info const & info (i->second);
+					celerix::account const & account (i->first);
+					celerix::account_info const & info (i->second);
 					if (info.epoch () < epoch_a)
 					{
-						release_assert (nano::epochs::is_sequential (info.epoch (), epoch_a));
+						release_assert (celerix::epochs::is_sequential (info.epoch (), epoch_a));
 						accounts_list.emplace (account_upgrade_item{ account, info.modified });
 					}
 				}
@@ -136,14 +136,14 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 			uint64_t attempts (0);
 			for (auto i (accounts_list.get<modified_tag> ().begin ()), n (accounts_list.get<modified_tag> ().end ()); i != n && attempts < upgrade_batch_size && attempts < count_limit && !stopped; ++i)
 			{
-				nano::account const & account (i->account);
+				celerix::account const & account (i->account);
 				auto info = ledger.any.account_get (ledger.tx_begin_read (), account);
 				if (info && info->epoch () < epoch_a)
 				{
 					++attempts;
-					auto difficulty (node.network_params.work.threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
-					nano::root const & root (info->head);
-					std::shared_ptr<nano::block> epoch = builder.state ()
+					auto difficulty (node.network_params.work.threshold (celerix::work_version::work_1, celerix::block_details (epoch_a, false, false, true)));
+					celerix::root const & root (info->head);
+					std::shared_ptr<celerix::block> epoch = builder.state ()
 														 .account (account)
 														 .previous (info->head)
 														 .representative (info->representative)
@@ -155,7 +155,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 					if (threads != 0)
 					{
 						{
-							nano::unique_lock<nano::mutex> lock{ upgrader_mutex };
+							celerix::unique_lock<celerix::mutex> lock{ upgrader_mutex };
 							++workers;
 							while (workers > threads)
 							{
@@ -165,7 +165,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 						node.workers.post ([&upgrader_process, &upgrader_mutex, &upgrader_condition, &upgraded_accounts, &workers, epoch, difficulty, signer, root, account] () {
 							upgrader_process (upgraded_accounts, epoch, difficulty, signer, root, account);
 							{
-								nano::lock_guard<nano::mutex> lock{ upgrader_mutex };
+								celerix::lock_guard<celerix::mutex> lock{ upgrader_mutex };
 								--workers;
 							}
 							upgrader_condition.notify_all ();
@@ -178,7 +178,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 				}
 			}
 			{
-				nano::unique_lock<nano::mutex> lock{ upgrader_mutex };
+				celerix::unique_lock<celerix::mutex> lock{ upgrader_mutex };
 				while (workers > 0)
 				{
 					upgrader_condition.wait (lock);
@@ -189,7 +189,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 
 			if (!accounts_list.empty ())
 			{
-				logger.info (nano::log::type::epoch_upgrader, "{} accounts were upgraded to new epoch, {} remain...",
+				logger.info (celerix::log::type::epoch_upgrader, "{} accounts were upgraded to new epoch, {} remain...",
 				total_upgraded_accounts,
 				accounts_list.size () - upgraded_accounts);
 
@@ -197,7 +197,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 			}
 			else
 			{
-				logger.info (nano::log::type::epoch_upgrader, "{} total accounts were upgraded to new epoch", total_upgraded_accounts);
+				logger.info (celerix::log::type::epoch_upgrader, "{} total accounts were upgraded to new epoch", total_upgraded_accounts);
 
 				finished_accounts = true;
 			}
@@ -219,11 +219,11 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 					if (info.epoch < epoch_a)
 					{
 						++attempts;
-						release_assert (nano::epochs::is_sequential (info.epoch, epoch_a));
-						auto difficulty (network_params.work.threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
-						nano::root const & root (key.account);
-						nano::account const & account (key.account);
-						std::shared_ptr<nano::block> epoch = builder.state ()
+						release_assert (celerix::epochs::is_sequential (info.epoch, epoch_a));
+						auto difficulty (network_params.work.threshold (celerix::work_version::work_1, celerix::block_details (epoch_a, false, false, true)));
+						celerix::root const & root (key.account);
+						celerix::account const & account (key.account);
+						std::shared_ptr<celerix::block> epoch = builder.state ()
 															 .account (key.account)
 															 .previous (0)
 															 .representative (0)
@@ -235,7 +235,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 						if (threads != 0)
 						{
 							{
-								nano::unique_lock<nano::mutex> lock{ upgrader_mutex };
+								celerix::unique_lock<celerix::mutex> lock{ upgrader_mutex };
 								++workers;
 								while (workers > threads)
 								{
@@ -245,7 +245,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 							node.workers.post ([&upgrader_process, &upgrader_mutex, &upgrader_condition, &upgraded_pending, &workers, epoch, difficulty, signer, root, account] () {
 								upgrader_process (upgraded_pending, epoch, difficulty, signer, root, account);
 								{
-									nano::lock_guard<nano::mutex> lock{ upgrader_mutex };
+									celerix::lock_guard<celerix::mutex> lock{ upgrader_mutex };
 									--workers;
 								}
 								upgrader_condition.notify_all ();
@@ -262,7 +262,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 				else
 				{
 					// Move to next account if pending account exists or was upgraded
-					if (key.account.number () == std::numeric_limits<nano::uint256_t>::max ())
+					if (key.account.number () == std::numeric_limits<celerix::uint256_t>::max ())
 					{
 						break;
 					}
@@ -273,7 +273,7 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 				}
 			}
 			{
-				nano::unique_lock<nano::mutex> lock{ upgrader_mutex };
+				celerix::unique_lock<celerix::mutex> lock{ upgrader_mutex };
 				while (workers > 0)
 				{
 					upgrader_condition.wait (lock);
@@ -286,11 +286,11 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 			// Repeat if some pending accounts were upgraded
 			if (upgraded_pending != 0)
 			{
-				logger.info (nano::log::type::epoch_upgrader, "{} unopened accounts with pending blocks were upgraded to new epoch...", total_upgraded_pending);
+				logger.info (celerix::log::type::epoch_upgrader, "{} unopened accounts with pending blocks were upgraded to new epoch...", total_upgraded_pending);
 			}
 			else
 			{
-				logger.info (nano::log::type::epoch_upgrader, "{} total unopened accounts with pending blocks were upgraded to new epoch", total_upgraded_pending);
+				logger.info (celerix::log::type::epoch_upgrader, "{} total unopened accounts with pending blocks were upgraded to new epoch", total_upgraded_pending);
 
 				finished_pending = true;
 			}
@@ -299,5 +299,5 @@ void nano::epoch_upgrader::upgrade_impl (nano::raw_key const & prv_a, nano::epoc
 		finished_upgrade = (total_upgraded_accounts == 0) && (total_upgraded_pending == 0);
 	}
 
-	logger.info (nano::log::type::epoch_upgrader, "Epoch upgrade is completed");
+	logger.info (celerix::log::type::epoch_upgrader, "Epoch upgrade is completed");
 }

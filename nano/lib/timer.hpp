@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace nano
+namespace celerix
 {
 enum class timer_state
 {
@@ -19,7 +19,7 @@ class timer
 {
 public:
 	timer () = default;
-	timer (nano::timer_state state_a, std::string const & description_a = "timer");
+	timer (celerix::timer_state state_a, std::string const & description_a = "timer");
 	timer (std::string const & description_a);
 	timer (std::string const & description_a, timer * parent_a);
 
@@ -84,12 +84,12 @@ public:
 
 	/** Returns the SI unit string */
 	std::string unit () const;
-	nano::timer_state current_state () const;
+	celerix::timer_state current_state () const;
 
 private:
 	timer * parent{ nullptr };
 	std::vector<timer> children;
-	nano::timer_state state{ nano::timer_state::stopped };
+	celerix::timer_state state{ celerix::timer_state::stopped };
 	std::string desc;
 	std::chrono::time_point<CLOCK> begin;
 	UNIT ticks{ 0 };
@@ -105,7 +105,7 @@ inline millis_t milliseconds_since_epoch ()
 	return std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
 }
 
-inline std::chrono::time_point<std::chrono::system_clock> from_milliseconds_since_epoch (nano::millis_t millis)
+inline std::chrono::time_point<std::chrono::system_clock> from_milliseconds_since_epoch (celerix::millis_t millis)
 {
 	return std::chrono::time_point<std::chrono::system_clock> (std::chrono::milliseconds{ millis });
 }
@@ -117,12 +117,12 @@ inline seconds_t seconds_since_epoch ()
 	return std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
 }
 
-inline std::chrono::time_point<std::chrono::system_clock> from_seconds_since_epoch (nano::seconds_t seconds)
+inline std::chrono::time_point<std::chrono::system_clock> from_seconds_since_epoch (celerix::seconds_t seconds)
 {
 	return std::chrono::time_point<std::chrono::system_clock> (std::chrono::seconds{ seconds });
 }
 
-inline nano::millis_t time_difference (nano::millis_t start, nano::millis_t end)
+inline celerix::millis_t time_difference (celerix::millis_t start, celerix::millis_t end)
 {
 	return end > start ? (end - start) : 0;
 }

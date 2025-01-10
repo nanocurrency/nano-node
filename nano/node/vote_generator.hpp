@@ -1,13 +1,13 @@
 #pragma once
 
-#include <nano/lib/locks.hpp>
-#include <nano/lib/logging.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/processing_queue.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/node/fwd.hpp>
-#include <nano/node/wallet.hpp>
-#include <nano/secure/common.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/processing_queue.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/node/fwd.hpp>
+#include <celerix/node/wallet.hpp>
+#include <celerix/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -22,67 +22,67 @@
 
 namespace mi = boost::multi_index;
 
-namespace nano
+namespace celerix
 {
 class vote_generator final
 {
 private:
-	using candidate_t = std::pair<nano::root, nano::block_hash>;
-	using request_t = std::pair<std::vector<candidate_t>, std::shared_ptr<nano::transport::channel>>;
-	using queue_entry_t = std::pair<nano::root, nano::block_hash>;
+	using candidate_t = std::pair<celerix::root, celerix::block_hash>;
+	using request_t = std::pair<std::vector<candidate_t>, std::shared_ptr<celerix::transport::channel>>;
+	using queue_entry_t = std::pair<celerix::root, celerix::block_hash>;
 	std::chrono::steady_clock::time_point next_broadcast = { std::chrono::steady_clock::now () };
 
 public:
-	vote_generator (nano::node_config const &, nano::node &, nano::ledger &, nano::wallets &, nano::vote_processor &, nano::local_vote_history &, nano::network &, nano::stats &, nano::logger &, bool is_final);
+	vote_generator (celerix::node_config const &, celerix::node &, celerix::ledger &, celerix::wallets &, celerix::vote_processor &, celerix::local_vote_history &, celerix::network &, celerix::stats &, celerix::logger &, bool is_final);
 	~vote_generator ();
 
 	/** Queue items for vote generation, or broadcast votes already in cache */
-	void add (nano::root const &, nano::block_hash const &);
+	void add (celerix::root const &, celerix::block_hash const &);
 	/** Queue blocks for vote generation, returning the number of successful candidates.*/
-	std::size_t generate (std::vector<std::shared_ptr<nano::block>> const & blocks_a, std::shared_ptr<nano::transport::channel> const & channel_a);
+	std::size_t generate (std::vector<std::shared_ptr<celerix::block>> const & blocks_a, std::shared_ptr<celerix::transport::channel> const & channel_a);
 
 	void start ();
 	void stop ();
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 
 private:
-	using transaction_variant_t = std::variant<nano::secure::read_transaction, nano::secure::write_transaction>;
+	using transaction_variant_t = std::variant<celerix::secure::read_transaction, celerix::secure::write_transaction>;
 
 	void run ();
-	void broadcast (nano::unique_lock<nano::mutex> &);
-	void reply (nano::unique_lock<nano::mutex> &, request_t &&);
-	void vote (std::vector<nano::block_hash> const &, std::vector<nano::root> const &, std::function<void (std::shared_ptr<nano::vote> const &)> const &);
-	void broadcast_action (std::shared_ptr<nano::vote> const &) const;
+	void broadcast (celerix::unique_lock<celerix::mutex> &);
+	void reply (celerix::unique_lock<celerix::mutex> &, request_t &&);
+	void vote (std::vector<celerix::block_hash> const &, std::vector<celerix::root> const &, std::function<void (std::shared_ptr<celerix::vote> const &)> const &);
+	void broadcast_action (std::shared_ptr<celerix::vote> const &) const;
 	void process_batch (std::deque<queue_entry_t> & batch);
-	bool should_vote (transaction_variant_t const &, nano::root const &, nano::block_hash const &) const;
+	bool should_vote (transaction_variant_t const &, celerix::root const &, celerix::block_hash const &) const;
 	bool broadcast_predicate () const;
 
 private: // Dependencies
-	nano::node_config const & config;
-	nano::node & node;
-	nano::ledger & ledger;
-	nano::wallets & wallets;
-	nano::vote_processor & vote_processor;
-	nano::local_vote_history & history;
-	std::unique_ptr<nano::vote_spacing> spacing_impl;
-	nano::vote_spacing & spacing;
-	nano::network & network;
-	nano::stats & stats;
-	nano::logger & logger;
+	celerix::node_config const & config;
+	celerix::node & node;
+	celerix::ledger & ledger;
+	celerix::wallets & wallets;
+	celerix::vote_processor & vote_processor;
+	celerix::local_vote_history & history;
+	std::unique_ptr<celerix::vote_spacing> spacing_impl;
+	celerix::vote_spacing & spacing;
+	celerix::network & network;
+	celerix::stats & stats;
+	celerix::logger & logger;
 
 private:
-	nano::processing_queue<queue_entry_t> vote_generation_queue;
+	celerix::processing_queue<queue_entry_t> vote_generation_queue;
 
 private:
 	const bool is_final;
-	mutable nano::mutex mutex;
-	nano::condition_variable condition;
+	mutable celerix::mutex mutex;
+	celerix::condition_variable condition;
 	static std::size_t constexpr max_requests{ 2048 };
 	std::deque<request_t> requests;
 	std::deque<candidate_t> candidates;
 	std::atomic<bool> stopped{ false };
 	std::thread thread;
-	std::shared_ptr<nano::transport::channel> inproc_channel;
+	std::shared_ptr<celerix::transport::channel> inproc_channel;
 };
 }

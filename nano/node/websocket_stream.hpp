@@ -1,9 +1,9 @@
 #pragma once
 
-#include <nano/boost/asio/strand.hpp>
-#include <nano/boost/beast/core.hpp>
-#include <nano/boost/beast/websocket.hpp>
-#include <nano/lib/asio.hpp>
+#include <celerix/boost/asio/strand.hpp>
+#include <celerix/boost/beast/core.hpp>
+#include <celerix/boost/beast/websocket.hpp>
+#include <celerix/lib/asio.hpp>
 
 #include <memory>
 
@@ -17,16 +17,16 @@ using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost
 #endif
 using ws_type = boost::beast::websocket::stream<socket_type>;
 
-#ifdef NANO_SECURE_RPC
+#ifdef CELERIX_SECURE_RPC
 #include <boost/asio/ssl/context.hpp>
 #include <boost/beast/ssl.hpp>
 #include <boost/beast/websocket/ssl.hpp>
 using wss_type = boost::beast::websocket::stream<boost::beast::ssl_stream<socket_type>>;
 #endif
 
-namespace nano::websocket
+namespace celerix::websocket
 {
-/** The minimal stream interface needed by the Nano websocket implementation */
+/** The minimal stream interface needed by the Celerix websocket implementation */
 class websocket_stream_concept
 {
 public:
@@ -35,7 +35,7 @@ public:
 	virtual socket_type & get_socket () = 0;
 	virtual void handshake (std::function<void (boost::system::error_code const & ec)> callback_a) = 0;
 	virtual void close (boost::beast::websocket::close_reason const & reason_a, boost::system::error_code & ec_a) = 0;
-	virtual void async_write (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code, std::size_t)> callback_a) = 0;
+	virtual void async_write (celerix::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code, std::size_t)> callback_a) = 0;
 	virtual void async_read (boost::beast::multi_buffer & buffer_a, std::function<void (boost::system::error_code, std::size_t)> callback_a) = 0;
 };
 
@@ -46,7 +46,7 @@ public:
 class stream final : public websocket_stream_concept
 {
 public:
-#ifdef NANO_SECURE_RPC
+#ifdef CELERIX_SECURE_RPC
 	stream (socket_type socket_a, boost::asio::ssl::context & ctx_a);
 #endif
 	stream (socket_type socket_a);
@@ -55,7 +55,7 @@ public:
 	[[nodiscard]] socket_type & get_socket () override;
 	void handshake (std::function<void (boost::system::error_code const & ec)> callback_a) override;
 	void close (boost::beast::websocket::close_reason const & reason_a, boost::system::error_code & ec_a) override;
-	void async_write (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code, std::size_t)> callback_a) override;
+	void async_write (celerix::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code, std::size_t)> callback_a) override;
 	void async_read (boost::beast::multi_buffer & buffer_a, std::function<void (boost::system::error_code, std::size_t)> callback_a) override;
 
 private:

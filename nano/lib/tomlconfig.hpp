@@ -1,7 +1,7 @@
 #pragma once
 
-#include <nano/lib/configbase.hpp>
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/configbase.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/optional.hpp>
@@ -21,22 +21,22 @@ namespace asio
 }
 }
 
-namespace nano
+namespace celerix
 {
 class error;
 
 /** Manages a table in a toml configuration table hierarchy */
-class tomlconfig : public nano::configbase
+class tomlconfig : public celerix::configbase
 {
 public:
 	tomlconfig ();
-	tomlconfig (std::shared_ptr<cpptoml::table> const & tree_a, std::shared_ptr<nano::error> const & error_a = nullptr);
+	tomlconfig (std::shared_ptr<cpptoml::table> const & tree_a, std::shared_ptr<celerix::error> const & error_a = nullptr);
 
 	void doc (std::string const & key, std::string const & doc);
-	nano::error & read (std::filesystem::path const & path_a);
-	nano::error & read (std::istream & stream_overrides, std::filesystem::path const & path_a);
-	nano::error & read (std::istream & stream_a);
-	nano::error & read (std::istream & stream_first_a, std::istream & stream_second_a);
+	celerix::error & read (std::filesystem::path const & path_a);
+	celerix::error & read (std::istream & stream_overrides, std::filesystem::path const & path_a);
+	celerix::error & read (std::istream & stream_a);
+	celerix::error & read (std::istream & stream_first_a, std::istream & stream_second_a);
 	void write (std::filesystem::path const & path_a);
 	void write (std::ostream & stream_a) const;
 	void open_or_create (std::fstream & stream_a, std::string const & path_a);
@@ -44,14 +44,14 @@ public:
 	bool empty () const;
 	boost::optional<tomlconfig> get_optional_child (std::string const & key_a);
 	tomlconfig get_required_child (std::string const & key_a);
-	tomlconfig & put_child (std::string const & key_a, nano::tomlconfig & conf_a);
-	tomlconfig & replace_child (std::string const & key_a, nano::tomlconfig & conf_a);
+	tomlconfig & put_child (std::string const & key_a, celerix::tomlconfig & conf_a);
+	tomlconfig & replace_child (std::string const & key_a, celerix::tomlconfig & conf_a);
 	bool has_key (std::string const & key_a);
 	tomlconfig & erase (std::string const & key_a);
 	std::shared_ptr<cpptoml::array> create_array (std::string const & key, boost::optional<char const *> documentation_a);
 	void erase_default_values (tomlconfig & defaults_a);
 	std::string to_string (bool comment_values);
-	std::string merge_defaults (nano::tomlconfig & current_config, nano::tomlconfig & default_config);
+	std::string merge_defaults (celerix::tomlconfig & current_config, celerix::tomlconfig & default_config);
 
 	/** Set value for the given key. Any existing value will be overwritten. */
 	template <typename T>
@@ -99,7 +99,7 @@ public:
 		}
 		else
 		{
-			conditionally_set_error<T> (nano::error_config::missing_value, false, key);
+			conditionally_set_error<T> (celerix::error_config::missing_value, false, key);
 		}
 		return *this;
 	}
@@ -114,7 +114,7 @@ public:
 
 	/**
 	 * Get optional value, using the current value of \p target as the default if \p key is missing.
-	 * @return May return nano::error_config::invalid_value
+	 * @return May return celerix::error_config::invalid_value
 	 */
 	template <typename T>
 	tomlconfig & get_optional (std::string const & key, T & target)
@@ -168,7 +168,7 @@ public:
 
 	/**
 	 * Get required value.
-	 * @note May set nano::error_config::missing_value if \p key is missing, nano::error_config::invalid_value if value is invalid.
+	 * @note May set celerix::error_config::missing_value if \p key is missing, celerix::error_config::invalid_value if value is invalid.
 	 */
 	template <typename T>
 	tomlconfig & get_required (std::string const & key, T & target)
@@ -198,7 +198,7 @@ public:
 	}
 
 protected:
-	template <typename T, typename = std::enable_if_t<nano::is_lexical_castable<T>::value>>
+	template <typename T, typename = std::enable_if_t<celerix::is_lexical_castable<T>::value>>
 	tomlconfig & get_config (bool optional, std::string const & key, T & target, T default_value = T ())
 	{
 		try
@@ -208,12 +208,12 @@ protected:
 				auto val (tree->get_qualified_as<std::string> (key));
 				if (!boost::conversion::try_lexical_convert<T> (*val, target))
 				{
-					conditionally_set_error<T> (nano::error_config::invalid_value, optional, key);
+					conditionally_set_error<T> (celerix::error_config::invalid_value, optional, key);
 				}
 			}
 			else if (!optional)
 			{
-				conditionally_set_error<T> (nano::error_config::missing_value, optional, key);
+				conditionally_set_error<T> (celerix::error_config::missing_value, optional, key);
 			}
 			else
 			{

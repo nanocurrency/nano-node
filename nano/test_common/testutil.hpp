@@ -1,11 +1,11 @@
 #pragma once
 
-#include <nano/lib/locks.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/node/fwd.hpp>
-#include <nano/node/transport/fwd.hpp>
-#include <nano/secure/account_info.hpp>
-#include <nano/store/fwd.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/timer.hpp>
+#include <celerix/node/fwd.hpp>
+#include <celerix/node/transport/fwd.hpp>
+#include <celerix/secure/account_info.hpp>
+#include <celerix/store/fwd.hpp>
 
 #include <gtest/gtest.h>
 
@@ -117,7 +117,7 @@
 		ASSERT_FALSE (condition);     \
 	}
 
-namespace nano::test
+namespace celerix::test
 {
 template <class... Ts>
 class start_stop_guard
@@ -158,7 +158,7 @@ private:
 }
 
 /* Convenience globals for gtest projects */
-namespace nano
+namespace celerix
 {
 namespace test
 {
@@ -200,8 +200,8 @@ namespace test
 		}
 
 	protected:
-		nano::condition_variable cv;
-		nano::mutex mutex;
+		celerix::condition_variable cv;
+		celerix::mutex mutex;
 	};
 
 	/**
@@ -227,14 +227,14 @@ namespace test
 		template <typename UNIT>
 		bool await_count_for (UNIT deadline_duration_a)
 		{
-			nano::timer<UNIT> timer (nano::timer_state::started);
+			celerix::timer<UNIT> timer (celerix::timer_state::started);
 			bool error = true;
 			while (error && timer.before_deadline (deadline_duration_a))
 			{
 				error = count < required_count;
 				if (error)
 				{
-					nano::unique_lock<nano::mutex> lock{ mutex };
+					celerix::unique_lock<celerix::mutex> lock{ mutex };
 					cv.wait_for (lock, std::chrono::milliseconds (1));
 				}
 			}
@@ -262,129 +262,129 @@ namespace test
 		std::atomic<unsigned> required_count;
 	};
 
-	void wait_peer_connections (nano::test::system &);
+	void wait_peer_connections (celerix::test::system &);
 
 	/**
 	 * Generate a random block hash
 	 */
-	nano::hash_or_account random_hash_or_account ();
+	celerix::hash_or_account random_hash_or_account ();
 	/**
 	 * Generate a random block hash
 	 */
-	nano::block_hash random_hash ();
+	celerix::block_hash random_hash ();
 	/**
 	 * Generate a random block hash
 	 */
-	nano::account random_account ();
+	celerix::account random_account ();
 
 	/**
 		Convenience function to call `node::process` function for multiple blocks at once.
 		@return true if all blocks were successfully processed and inserted into ledger
 	 */
-	bool process (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	bool process (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks);
 	/*
 	 * Convenience function to process multiple blocks as if they were live blocks arriving from the network
 	 * It is not guaranted that those blocks will be inserted into ledger (there might be forks, missing links etc)
 	 * @return true if all blocks were successfully processed
 	 */
-	bool process_live (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	bool process_live (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks);
 	/*
 	 * Convenience function to check whether a list of blocks is confirmed.
 	 * @return true if all blocks are confirmed, false otherwise
 	 */
-	bool confirmed (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	bool confirmed (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks);
 	/*
 	 * Convenience function to check whether a list of hashes is confirmed.
 	 * @return true if all blocks are confirmed, false otherwise
 	 */
-	bool confirmed (nano::node & node, std::vector<nano::block_hash> hashes);
+	bool confirmed (celerix::node & node, std::vector<celerix::block_hash> hashes);
 	/*
 	 * Convenience function to check whether a list of hashes exists in node ledger.
 	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
 	 */
-	bool exists (nano::node & node, std::vector<nano::block_hash> hashes);
+	bool exists (celerix::node & node, std::vector<celerix::block_hash> hashes);
 	/*
 	 * Convenience function to check whether a list of blocks exists in node ledger.
 	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
 	 */
-	bool exists (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	bool exists (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks);
 	/*
 	 * Convenience function to confirm/cement a block in the ledger by setting the confirmation
 	 * height of the account to be the height of the block.
 	 * The blocks are confirmed in the order that they are given.
 	 */
-	void confirm (nano::ledger & ledger, std::vector<std::shared_ptr<nano::block>> const blocks);
-	void confirm (nano::ledger & ledger, std::shared_ptr<nano::block> const block);
-	void confirm (nano::ledger & ledger, nano::block_hash const & hash);
-	void confirm (nano::node & node, std::vector<std::shared_ptr<nano::block>> const blocks);
+	void confirm (celerix::ledger & ledger, std::vector<std::shared_ptr<celerix::block>> const blocks);
+	void confirm (celerix::ledger & ledger, std::shared_ptr<celerix::block> const block);
+	void confirm (celerix::ledger & ledger, celerix::block_hash const & hash);
+	void confirm (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> const blocks);
 	/*
 	 * Convenience function to check whether *all* of the hashes exists in node ledger or in the pruned table.
 	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
 	 */
-	bool block_or_pruned_all_exists (nano::node & node, std::vector<nano::block_hash> hashes);
+	bool block_or_pruned_all_exists (celerix::node & node, std::vector<celerix::block_hash> hashes);
 	/*
 	 * Convenience function to check whether *all* of the blocks exists in node ledger or their hash exists in the pruned table.
 	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
 	 */
-	bool block_or_pruned_all_exists (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	bool block_or_pruned_all_exists (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks);
 	/*
 	 * Convenience function to check whether *none* of the hashes exists in node ledger or in the pruned table.
 	 * @return true if none of the blocks are processed and inserted in the ledger, false otherwise
 	 */
-	bool block_or_pruned_none_exists (nano::node & node, std::vector<nano::block_hash> hashes);
+	bool block_or_pruned_none_exists (celerix::node & node, std::vector<celerix::block_hash> hashes);
 	/*
 	 * Convenience function to check whether *none* of the blocks exists in node ledger or their hash exists in the pruned table.
 	 * @return true if none of the blocks are processed and inserted in the ledger, false otherwise
 	 */
-	bool block_or_pruned_none_exists (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	bool block_or_pruned_none_exists (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks);
 	/*
 	 * Convenience function to start elections for a list of hashes. Blocks are loaded from ledger.
 	 * @return true if all blocks exist and were queued to election scheduler
 	 */
-	bool activate (nano::node & node, std::vector<nano::block_hash> hashes);
+	bool activate (celerix::node & node, std::vector<celerix::block_hash> hashes);
 	/*
 	 * Convenience function to start elections for a list of hashes. Blocks are loaded from ledger.
 	 * @return true if all blocks exist and were queued to election scheduler
 	 */
-	bool activate (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	bool activate (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks);
 	/*
 	 * Convenience function that checks whether all hashes from list have currently active elections
 	 * @return true if all blocks have currently active elections, false othersie
 	 */
-	bool active (nano::node & node, std::vector<nano::block_hash> hashes);
+	bool active (celerix::node & node, std::vector<celerix::block_hash> hashes);
 	/*
 	 * Convenience function that checks whether all hashes from list have currently active elections
 	 * @return true if all blocks have currently active elections, false othersie
 	 */
-	bool active (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
+	bool active (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks);
 	/*
 	 * Convenience function to create a new vote from list of blocks
 	 */
-	std::shared_ptr<nano::vote> make_vote (nano::keypair key, std::vector<std::shared_ptr<nano::block>> blocks, uint64_t timestamp = 0, uint8_t duration = 0);
+	std::shared_ptr<celerix::vote> make_vote (celerix::keypair key, std::vector<std::shared_ptr<celerix::block>> blocks, uint64_t timestamp = 0, uint8_t duration = 0);
 	/*
 	 * Convenience function to create a new vote from list of block hashes
 	 */
-	std::shared_ptr<nano::vote> make_vote (nano::keypair key, std::vector<nano::block_hash> hashes, uint64_t timestamp = 0, uint8_t duration = 0);
+	std::shared_ptr<celerix::vote> make_vote (celerix::keypair key, std::vector<celerix::block_hash> hashes, uint64_t timestamp = 0, uint8_t duration = 0);
 	/*
 	 * Convenience function to create a new final vote from list of blocks
 	 */
-	std::shared_ptr<nano::vote> make_final_vote (nano::keypair key, std::vector<std::shared_ptr<nano::block>> blocks);
+	std::shared_ptr<celerix::vote> make_final_vote (celerix::keypair key, std::vector<std::shared_ptr<celerix::block>> blocks);
 	/*
 	 * Convenience function to create a new final vote from list of block hashes
 	 */
-	std::shared_ptr<nano::vote> make_final_vote (nano::keypair key, std::vector<nano::block_hash> hashes);
+	std::shared_ptr<celerix::vote> make_final_vote (celerix::keypair key, std::vector<celerix::block_hash> hashes);
 	/*
 	 * Converts list of blocks to list of hashes
 	 */
-	std::vector<nano::block_hash> blocks_to_hashes (std::vector<std::shared_ptr<nano::block>> blocks);
+	std::vector<celerix::block_hash> blocks_to_hashes (std::vector<std::shared_ptr<celerix::block>> blocks);
 	/*
 	 * Clones list of blocks
 	 */
-	std::vector<std::shared_ptr<nano::block>> clone (std::vector<std::shared_ptr<nano::block>> blocks);
+	std::vector<std::shared_ptr<celerix::block>> clone (std::vector<std::shared_ptr<celerix::block>> blocks);
 	/*
 	 * Creates a new fake channel associated with `node`
 	 */
-	std::shared_ptr<nano::transport::fake::channel> fake_channel (nano::node & node, nano::account node_id = { 0 });
+	std::shared_ptr<celerix::transport::fake::channel> fake_channel (celerix::node & node, celerix::account node_id = { 0 });
 	/*
 	 * Start an election on system system_a, node node_a and hash hash_a by reading the block
 	 * out of the ledger and adding it to the manual election scheduler queue.
@@ -392,47 +392,47 @@ namespace test
 	 * and calls the system poll function while waiting.
 	 * Returns nullptr if the election did not start within the timeframe.
 	 */
-	std::shared_ptr<nano::election> start_election (nano::test::system & system_a, nano::node & node_a, const nano::block_hash & hash_a);
+	std::shared_ptr<celerix::election> start_election (celerix::test::system & system_a, celerix::node & node_a, const celerix::block_hash & hash_a);
 	/*
 	 * Call start_election for every block identified in the hash vector.
 	 * Optionally, force confirm the election if forced_a is set.
 	 * @return true if all elections were successfully started
 	 * NOTE: Each election is given 5 seconds to complete, if it does not complete in 5 seconds, it will return an error
 	 */
-	[[nodiscard]] bool start_elections (nano::test::system &, nano::node &, std::vector<nano::block_hash> const &, bool const forced_a = false);
+	[[nodiscard]] bool start_elections (celerix::test::system &, celerix::node &, std::vector<celerix::block_hash> const &, bool const forced_a = false);
 	/*
 	 * Call start_election for every block in the vector.
 	 * Optionally, force confirm the election if forced_a is set.
 	 * @return true if all elections were successfully started
 	 * NOTE: Each election is given 5 seconds to complete, if it does not complete in 5 seconds, it will return an error.
 	 */
-	[[nodiscard]] bool start_elections (nano::test::system &, nano::node &, std::vector<std::shared_ptr<nano::block>> const &, bool const forced_a = false);
+	[[nodiscard]] bool start_elections (celerix::test::system &, celerix::node &, std::vector<std::shared_ptr<celerix::block>> const &, bool const forced_a = false);
 
 	/**
 	 *  Return account_info for account "acc", if account is not found, a default initialised object is returned
 	 */
-	nano::account_info account_info (nano::node const & node, nano::account const & acc);
+	celerix::account_info account_info (celerix::node const & node, celerix::account const & acc);
 
 	/**
 	 * \brief Debugging function to print all entries in the pending table. Intended to be used to debug unit tests.
 	 */
-	void print_all_receivable_entries (const nano::store::component & store);
+	void print_all_receivable_entries (const celerix::store::component & store);
 
 	/**
 	 * \brief Debugging function to print all accounts in a ledger. Intended to be used to debug unit tests.
 	 */
-	void print_all_account_info (const nano::ledger & ledger);
+	void print_all_account_info (const celerix::ledger & ledger);
 
 	/**
 	 * \brief Debugging function to print all blocks in a node. Intended to be used to debug unit tests.
 	 */
-	void print_all_blocks (const nano::store::component & store);
+	void print_all_blocks (const celerix::store::component & store);
 
 	/**
 	 * Returns all blocks in the ledger
 	 */
-	std::vector<std::shared_ptr<nano::block>> all_blocks (nano::node &);
+	std::vector<std::shared_ptr<celerix::block>> all_blocks (celerix::node &);
 
-	nano::uint128_t minimum_principal_weight ();
+	celerix::uint128_t minimum_principal_weight ();
 }
 }

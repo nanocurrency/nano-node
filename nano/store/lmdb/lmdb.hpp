@@ -1,69 +1,69 @@
 #pragma once
 
-#include <nano/lib/diagnosticsconfig.hpp>
-#include <nano/lib/lmdbconfig.hpp>
-#include <nano/lib/logging.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/secure/common.hpp>
-#include <nano/store/db_val.hpp>
-#include <nano/store/lmdb/account.hpp>
-#include <nano/store/lmdb/block.hpp>
-#include <nano/store/lmdb/confirmation_height.hpp>
-#include <nano/store/lmdb/db_val.hpp>
-#include <nano/store/lmdb/final_vote.hpp>
-#include <nano/store/lmdb/iterator.hpp>
-#include <nano/store/lmdb/lmdb_env.hpp>
-#include <nano/store/lmdb/online_weight.hpp>
-#include <nano/store/lmdb/peer.hpp>
-#include <nano/store/lmdb/pending.hpp>
-#include <nano/store/lmdb/pruned.hpp>
-#include <nano/store/lmdb/rep_weight.hpp>
-#include <nano/store/lmdb/transaction_impl.hpp>
-#include <nano/store/lmdb/version.hpp>
-#include <nano/store/versioning.hpp>
+#include <celerix/lib/diagnosticsconfig.hpp>
+#include <celerix/lib/lmdbconfig.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/secure/common.hpp>
+#include <celerix/store/db_val.hpp>
+#include <celerix/store/lmdb/account.hpp>
+#include <celerix/store/lmdb/block.hpp>
+#include <celerix/store/lmdb/confirmation_height.hpp>
+#include <celerix/store/lmdb/db_val.hpp>
+#include <celerix/store/lmdb/final_vote.hpp>
+#include <celerix/store/lmdb/iterator.hpp>
+#include <celerix/store/lmdb/lmdb_env.hpp>
+#include <celerix/store/lmdb/online_weight.hpp>
+#include <celerix/store/lmdb/peer.hpp>
+#include <celerix/store/lmdb/pending.hpp>
+#include <celerix/store/lmdb/pruned.hpp>
+#include <celerix/store/lmdb/rep_weight.hpp>
+#include <celerix/store/lmdb/transaction_impl.hpp>
+#include <celerix/store/lmdb/version.hpp>
+#include <celerix/store/versioning.hpp>
 
 #include <boost/optional.hpp>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
-namespace nano
+namespace celerix
 {
 class logging_mt;
 
 }
 
-namespace nano::store::lmdb
+namespace celerix::store::lmdb
 {
 /**
  * mdb implementation of the block store
  */
-class component : public nano::store::component
+class component : public celerix::store::component
 {
 private:
-	nano::store::lmdb::account account_store;
-	nano::store::lmdb::block block_store;
-	nano::store::lmdb::confirmation_height confirmation_height_store;
-	nano::store::lmdb::final_vote final_vote_store;
-	nano::store::lmdb::online_weight online_weight_store;
-	nano::store::lmdb::peer peer_store;
-	nano::store::lmdb::pending pending_store;
-	nano::store::lmdb::pruned pruned_store;
-	nano::store::lmdb::version version_store;
-	nano::store::lmdb::rep_weight rep_weight_store;
+	celerix::store::lmdb::account account_store;
+	celerix::store::lmdb::block block_store;
+	celerix::store::lmdb::confirmation_height confirmation_height_store;
+	celerix::store::lmdb::final_vote final_vote_store;
+	celerix::store::lmdb::online_weight online_weight_store;
+	celerix::store::lmdb::peer peer_store;
+	celerix::store::lmdb::pending pending_store;
+	celerix::store::lmdb::pruned pruned_store;
+	celerix::store::lmdb::version version_store;
+	celerix::store::lmdb::rep_weight rep_weight_store;
 
-	friend class nano::store::lmdb::account;
-	friend class nano::store::lmdb::block;
-	friend class nano::store::lmdb::confirmation_height;
-	friend class nano::store::lmdb::final_vote;
-	friend class nano::store::lmdb::online_weight;
-	friend class nano::store::lmdb::peer;
-	friend class nano::store::lmdb::pending;
-	friend class nano::store::lmdb::pruned;
-	friend class nano::store::lmdb::version;
-	friend class nano::store::lmdb::rep_weight;
+	friend class celerix::store::lmdb::account;
+	friend class celerix::store::lmdb::block;
+	friend class celerix::store::lmdb::confirmation_height;
+	friend class celerix::store::lmdb::final_vote;
+	friend class celerix::store::lmdb::online_weight;
+	friend class celerix::store::lmdb::peer;
+	friend class celerix::store::lmdb::pending;
+	friend class celerix::store::lmdb::pruned;
+	friend class celerix::store::lmdb::version;
+	friend class celerix::store::lmdb::rep_weight;
 
 public:
-	component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
+	component (celerix::logger &, std::filesystem::path const &, celerix::ledger_constants & constants, celerix::txn_tracking_config const & txn_tracking_config_a = celerix::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), celerix::lmdb_config const & lmdb_config_a = celerix::lmdb_config{}, bool backup_before_upgrade = false);
 	store::write_transaction tx_begin_write () override;
 	store::read_transaction tx_begin_read () const override;
 
@@ -71,24 +71,24 @@ public:
 
 	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) override;
 
-	static void create_backup_file (nano::store::lmdb::env &, std::filesystem::path const &, nano::logger &);
+	static void create_backup_file (celerix::store::lmdb::env &, std::filesystem::path const &, celerix::logger &);
 
 	void serialize_memory_stats (boost::property_tree::ptree &) override;
 
 	unsigned max_block_write_batch_num () const override;
 
 private:
-	nano::logger & logger;
+	celerix::logger & logger;
 	bool error{ false };
 
 public:
-	nano::store::lmdb::env env;
+	celerix::store::lmdb::env env;
 
-	bool exists (store::transaction const & transaction_a, tables table_a, nano::store::lmdb::db_val const & key_a) const;
+	bool exists (store::transaction const & transaction_a, tables table_a, celerix::store::lmdb::db_val const & key_a) const;
 
-	int get (store::transaction const & transaction_a, tables table_a, nano::store::lmdb::db_val const & key_a, nano::store::lmdb::db_val & value_a) const;
-	int put (store::write_transaction const & transaction_a, tables table_a, nano::store::lmdb::db_val const & key_a, nano::store::lmdb::db_val const & value_a) const;
-	int del (store::write_transaction const & transaction_a, tables table_a, nano::store::lmdb::db_val const & key_a) const;
+	int get (store::transaction const & transaction_a, tables table_a, celerix::store::lmdb::db_val const & key_a, celerix::store::lmdb::db_val & value_a) const;
+	int put (store::write_transaction const & transaction_a, tables table_a, celerix::store::lmdb::db_val const & key_a, celerix::store::lmdb::db_val const & value_a) const;
+	int del (store::write_transaction const & transaction_a, tables table_a, celerix::store::lmdb::db_val const & key_a) const;
 
 	bool copy_db (std::filesystem::path const & destination_file) override;
 	void rebuild_db (store::write_transaction const & transaction_a) override;
@@ -99,7 +99,7 @@ public:
 	std::string error_string (int status) const override;
 
 private:
-	bool do_upgrades (store::write_transaction &, nano::ledger_constants & constants, bool &);
+	bool do_upgrades (store::write_transaction &, celerix::ledger_constants & constants, bool &);
 	void upgrade_v21_to_v22 (store::write_transaction &);
 	void upgrade_v22_to_v23 (store::write_transaction &);
 	void upgrade_v23_to_v24 (store::write_transaction &);
@@ -122,13 +122,13 @@ private:
 
 	MDB_dbi table_to_dbi (tables table_a) const;
 
-	mutable nano::mdb_txn_tracker mdb_txn_tracker;
-	nano::store::lmdb::txn_callbacks create_txn_callbacks () const;
+	mutable celerix::mdb_txn_tracker mdb_txn_tracker;
+	celerix::store::lmdb::txn_callbacks create_txn_callbacks () const;
 	bool txn_tracking_enabled;
 
 	uint64_t count (store::transaction const & transaction_a, tables table_a) const override;
 
-	bool vacuum_after_upgrade (std::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a);
+	bool vacuum_after_upgrade (std::filesystem::path const & path_a, celerix::lmdb_config const & lmdb_config_a);
 
 	class upgrade_counters
 	{
@@ -146,4 +146,4 @@ private:
 	friend class mdb_block_store_upgrade_v21_v22_Test;
 	friend class block_store_DISABLED_change_dupsort_Test;
 };
-} // namespace nano::store::lmdb
+} // namespace celerix::store::lmdb

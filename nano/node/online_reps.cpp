@@ -1,13 +1,13 @@
-#include <nano/lib/config.hpp>
-#include <nano/lib/thread_roles.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/node/nodeconfig.hpp>
-#include <nano/node/online_reps.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/store/component.hpp>
-#include <nano/store/online_weight.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/thread_roles.hpp>
+#include <celerix/lib/timer.hpp>
+#include <celerix/node/nodeconfig.hpp>
+#include <celerix/node/online_reps.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/store/component.hpp>
+#include <celerix/store/online_weight.hpp>
 
-nano::online_reps::online_reps (nano::node_config const & config_a, nano::ledger & ledger_a, nano::stats & stats_a, nano::logger & logger_a) :
+celerix::online_reps::online_reps (celerix::node_config const & config_a, celerix::ledger & ledger_a, celerix::stats & stats_a, celerix::logger & logger_a) :
 	config{ config_a },
 	ledger{ ledger_a },
 	stats{ stats_a },
@@ -15,36 +15,36 @@ nano::online_reps::online_reps (nano::node_config const & config_a, nano::ledger
 {
 }
 
-nano::online_reps::~online_reps ()
+celerix::online_reps::~online_reps ()
 {
 	debug_assert (!thread.joinable ());
 }
 
-void nano::online_reps::start ()
+void celerix::online_reps::start ()
 {
 	debug_assert (!thread.joinable ());
 
 	{
-		auto transaction = ledger.tx_begin_write (nano::store::writer::online_weight);
+		auto transaction = ledger.tx_begin_write (celerix::store::writer::online_weight);
 		sanitize_trended (transaction);
 
 		auto trended_l = calculate_trended (transaction);
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		cached_trended = trended_l;
 
-		logger.info (nano::log::type::online_reps, "Initial trended weight: {}", fmt::streamed (cached_trended));
+		logger.info (celerix::log::type::online_reps, "Initial trended weight: {}", fmt::streamed (cached_trended));
 	}
 
 	thread = std::thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::online_reps);
+		celerix::thread_role::set (celerix::thread_role::name::online_reps);
 		run ();
 	});
 }
 
-void nano::online_reps::stop ()
+void celerix::online_reps::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		stopped = true;
 	}
 	condition.notify_all ();
@@ -54,30 +54,30 @@ void nano::online_reps::stop ()
 	}
 }
 
-void nano::online_reps::observe (nano::account const & rep)
+void celerix::online_reps::observe (celerix::account const & rep)
 {
 	if (ledger.weight (rep) > config.representative_vote_weight_minimum)
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 		auto now = std::chrono::steady_clock::now ();
 		auto new_insert = reps.get<tag_account> ().erase (rep) == 0;
 		reps.insert ({ now, rep });
 
-		stats.inc (nano::stat::type::online_reps, new_insert ? nano::stat::detail::rep_new : nano::stat::detail::rep_update);
+		stats.inc (celerix::stat::type::online_reps, new_insert ? celerix::stat::detail::rep_new : celerix::stat::detail::rep_update);
 
 		bool trimmed = trim ();
 
 		// Update current online weight if anything changed
 		if (new_insert || trimmed)
 		{
-			stats.inc (nano::stat::type::online_reps, nano::stat::detail::update_online);
+			stats.inc (celerix::stat::type::online_reps, celerix::stat::detail::update_online);
 			cached_online = calculate_online ();
 		}
 	}
 }
 
-bool nano::online_reps::trim ()
+bool celerix::online_reps::trim ()
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -88,9 +88,9 @@ bool nano::online_reps::trim ()
 	return trimmed;
 }
 
-void nano::online_reps::run ()
+void celerix::online_reps::run ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		// Set next time point explicitly to ensure that we don't sample too early
@@ -107,48 +107,48 @@ void nano::online_reps::run ()
 	}
 }
 
-void nano::online_reps::sample ()
+void celerix::online_reps::sample ()
 {
-	stats.inc (nano::stat::type::online_reps, nano::stat::detail::sample);
+	stats.inc (celerix::stat::type::online_reps, celerix::stat::detail::sample);
 
-	auto transaction = ledger.tx_begin_write (nano::store::writer::online_weight);
+	auto transaction = ledger.tx_begin_write (celerix::store::writer::online_weight);
 
 	// Remove old records from the database
 	trim_trended (transaction);
 
 	// Put current online weight sample into the database
-	ledger.store.online_weight.put (transaction, nano::seconds_since_epoch (), online ());
+	ledger.store.online_weight.put (transaction, celerix::seconds_since_epoch (), online ());
 
 	// Update current trended weight
 	auto trended_l = calculate_trended (transaction);
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		cached_trended = trended_l;
 	}
-	logger.info (nano::log::type::online_reps, "Updated trended weight: {}", fmt::streamed (trended_l));
+	logger.info (celerix::log::type::online_reps, "Updated trended weight: {}", fmt::streamed (trended_l));
 }
 
-nano::uint128_t nano::online_reps::calculate_online () const
+celerix::uint128_t celerix::online_reps::calculate_online () const
 {
 	debug_assert (!mutex.try_lock ());
-	return std::accumulate (reps.begin (), reps.end (), nano::uint128_t{ 0 }, [this] (nano::uint128_t current, rep_info const & info) {
+	return std::accumulate (reps.begin (), reps.end (), celerix::uint128_t{ 0 }, [this] (celerix::uint128_t current, rep_info const & info) {
 		return current + ledger.weight (info.account);
 	});
 }
 
-void nano::online_reps::trim_trended (nano::store::write_transaction const & transaction)
+void celerix::online_reps::trim_trended (celerix::store::write_transaction const & transaction)
 {
 	auto const now = std::chrono::system_clock::now ();
 	auto const cutoff = now - config.network_params.node.weight_cutoff;
 
-	std::deque<nano::store::online_weight::iterator::value_type> to_remove;
+	std::deque<celerix::store::online_weight::iterator::value_type> to_remove;
 
 	for (auto it = ledger.store.online_weight.begin (transaction); it != ledger.store.online_weight.end (transaction); ++it)
 	{
-		auto tstamp = nano::from_seconds_since_epoch (it->first);
+		auto tstamp = celerix::from_seconds_since_epoch (it->first);
 		if (tstamp < cutoff)
 		{
-			stats.inc (nano::stat::type::online_reps, nano::stat::detail::trim_trend);
+			stats.inc (celerix::stat::type::online_reps, celerix::stat::detail::trim_trend);
 			to_remove.push_back (*it);
 		}
 		else
@@ -167,26 +167,26 @@ void nano::online_reps::trim_trended (nano::store::write_transaction const & tra
 	debug_assert (verify_consistency (transaction, now, cutoff));
 }
 
-void nano::online_reps::sanitize_trended (nano::store::write_transaction const & transaction)
+void celerix::online_reps::sanitize_trended (celerix::store::write_transaction const & transaction)
 {
 	auto const now = std::chrono::system_clock::now ();
 	auto const cutoff = now - config.network_params.node.weight_cutoff;
 
 	size_t removed_old = 0, removed_future = 0;
-	std::deque<nano::store::online_weight::iterator::value_type> to_remove;
+	std::deque<celerix::store::online_weight::iterator::value_type> to_remove;
 
 	for (auto it = ledger.store.online_weight.begin (transaction); it != ledger.store.online_weight.end (transaction); ++it)
 	{
-		auto tstamp = nano::from_seconds_since_epoch (it->first);
+		auto tstamp = celerix::from_seconds_since_epoch (it->first);
 		if (tstamp < cutoff)
 		{
-			stats.inc (nano::stat::type::online_reps, nano::stat::detail::sanitize_old);
+			stats.inc (celerix::stat::type::online_reps, celerix::stat::detail::sanitize_old);
 			to_remove.push_back (*it);
 			++removed_old;
 		}
 		else if (tstamp > now)
 		{
-			stats.inc (nano::stat::type::online_reps, nano::stat::detail::sanitize_future);
+			stats.inc (celerix::stat::type::online_reps, celerix::stat::detail::sanitize_future);
 			to_remove.push_back (*it);
 			++removed_future;
 		}
@@ -198,7 +198,7 @@ void nano::online_reps::sanitize_trended (nano::store::write_transaction const &
 		ledger.store.online_weight.del (transaction, entry.first);
 	}
 
-	logger.debug (nano::log::type::online_reps, "Sanitized online weight trend, remaining entries: {}, removed: {} (old: {}, future: {})",
+	logger.debug (celerix::log::type::online_reps, "Sanitized online weight trend, remaining entries: {}, removed: {} (old: {}, future: {})",
 	ledger.store.online_weight.count (transaction),
 	removed_old + removed_future,
 	removed_old,
@@ -208,11 +208,11 @@ void nano::online_reps::sanitize_trended (nano::store::write_transaction const &
 	debug_assert (verify_consistency (transaction, now, cutoff));
 }
 
-bool nano::online_reps::verify_consistency (nano::store::write_transaction const & transaction, std::chrono::system_clock::time_point now, std::chrono::system_clock::time_point cutoff) const
+bool celerix::online_reps::verify_consistency (celerix::store::write_transaction const & transaction, std::chrono::system_clock::time_point now, std::chrono::system_clock::time_point cutoff) const
 {
 	for (auto it = ledger.store.online_weight.begin (transaction); it != ledger.store.online_weight.end (transaction); ++it)
 	{
-		auto tstamp = nano::from_seconds_since_epoch (it->first);
+		auto tstamp = celerix::from_seconds_since_epoch (it->first);
 		if (tstamp < cutoff || tstamp > now)
 		{
 			return false;
@@ -221,9 +221,9 @@ bool nano::online_reps::verify_consistency (nano::store::write_transaction const
 	return true;
 }
 
-nano::uint128_t nano::online_reps::calculate_trended (nano::store::transaction const & transaction) const
+celerix::uint128_t celerix::online_reps::calculate_trended (celerix::store::transaction const & transaction) const
 {
-	std::vector<nano::uint128_t> items;
+	std::vector<celerix::uint128_t> items;
 	for (auto it = ledger.store.online_weight.begin (transaction); it != ledger.store.online_weight.end (transaction); ++it)
 	{
 		items.push_back (it->second.number ());
@@ -238,62 +238,62 @@ nano::uint128_t nano::online_reps::calculate_trended (nano::store::transaction c
 	return 0;
 }
 
-nano::uint128_t nano::online_reps::trended () const
+celerix::uint128_t celerix::online_reps::trended () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return std::max (cached_trended, config.online_weight_minimum.number ());
 }
 
-nano::uint128_t nano::online_reps::online () const
+celerix::uint128_t celerix::online_reps::online () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return cached_online;
 }
 
-nano::uint128_t nano::online_reps::delta () const
+celerix::uint128_t celerix::online_reps::delta () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 	// Using a larger container to ensure maximum precision
-	auto weight = static_cast<nano::uint256_t> (std::max ({ cached_online, cached_trended, config.online_weight_minimum.number () }));
-	auto delta = ((weight * online_weight_quorum) / 100).convert_to<nano::uint128_t> ();
+	auto weight = static_cast<celerix::uint256_t> (std::max ({ cached_online, cached_trended, config.online_weight_minimum.number () }));
+	auto delta = ((weight * online_weight_quorum) / 100).convert_to<celerix::uint128_t> ();
 	release_assert (delta >= config.online_weight_minimum.number () / 100 * online_weight_quorum);
 	return delta;
 }
 
-std::vector<nano::account> nano::online_reps::list ()
+std::vector<celerix::account> celerix::online_reps::list ()
 {
-	std::vector<nano::account> result;
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	std::vector<celerix::account> result;
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	std::for_each (reps.begin (), reps.end (), [&result] (rep_info const & info_a) { result.push_back (info_a.account); });
 	return result;
 }
 
-void nano::online_reps::clear ()
+void celerix::online_reps::clear ()
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	reps.clear ();
 	cached_online = 0;
 }
 
-void nano::online_reps::force_online_weight (nano::uint128_t const & online_weight)
+void celerix::online_reps::force_online_weight (celerix::uint128_t const & online_weight)
 {
-	release_assert (nano::is_dev_run ());
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	release_assert (celerix::is_dev_run ());
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	cached_online = online_weight;
 }
 
-void nano::online_reps::force_sample ()
+void celerix::online_reps::force_sample ()
 {
-	release_assert (nano::is_dev_run ());
+	release_assert (celerix::is_dev_run ());
 	sample ();
 }
 
-nano::container_info nano::online_reps::container_info () const
+celerix::container_info celerix::online_reps::container_info () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("reps", reps);
 	return info;
 }

@@ -1,14 +1,14 @@
 #pragma once
 
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/memory.hpp>
-#include <nano/secure/common.hpp>
-#include <nano/secure/fwd.hpp>
-#include <nano/store/fwd.hpp>
-#include <nano/store/tables.hpp>
-#include <nano/store/transaction.hpp>
-#include <nano/store/versioning.hpp>
-#include <nano/store/write_queue.hpp>
+#include <celerix/crypto_lib/random_pool.hpp>
+#include <celerix/lib/memory.hpp>
+#include <celerix/secure/common.hpp>
+#include <celerix/secure/fwd.hpp>
+#include <celerix/store/fwd.hpp>
+#include <celerix/store/tables.hpp>
+#include <celerix/store/transaction.hpp>
+#include <celerix/store/versioning.hpp>
+#include <celerix/store/write_queue.hpp>
 
 #include <boost/endian/conversion.hpp>
 #include <boost/polymorphic_cast.hpp>
@@ -16,7 +16,7 @@
 
 #include <stack>
 
-namespace nano
+namespace celerix
 {
 namespace store
 {
@@ -31,20 +31,20 @@ namespace store
 	public:
 		// clang-format off
 	explicit component (
-		nano::store::block &,
-		nano::store::account &,
-		nano::store::pending &,
-		nano::store::online_weight&,
-		nano::store::pruned &,
-		nano::store::peer &,
-		nano::store::confirmation_height &,
-		nano::store::final_vote &,
-		nano::store::version &,
-		nano::store::rep_weight &
+		celerix::store::block &,
+		celerix::store::account &,
+		celerix::store::pending &,
+		celerix::store::online_weight&,
+		celerix::store::pruned &,
+		celerix::store::peer &,
+		celerix::store::confirmation_height &,
+		celerix::store::final_vote &,
+		celerix::store::version &,
+		celerix::store::rep_weight &
 	);
 		// clang-format on
 		virtual ~component () = default;
-		void initialize (write_transaction const & transaction_a, nano::ledger_cache & ledger_cache_a, nano::ledger_constants & constants);
+		void initialize (write_transaction const & transaction_a, celerix::ledger_cache & ledger_cache_a, celerix::ledger_constants & constants);
 		virtual uint64_t count (store::transaction const & transaction_a, tables table_a) const = 0;
 		virtual int drop (write_transaction const & transaction_a, tables table_a) = 0;
 		virtual bool not_found (int status) const = 0;
@@ -91,4 +91,4 @@ namespace store
 		virtual std::string vendor_get () const = 0;
 	};
 } // namespace store
-} // namespace nano
+} // namespace celerix

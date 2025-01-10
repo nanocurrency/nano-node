@@ -1,4 +1,4 @@
-#include <nano/node/openclwork.hpp>
+#include <celerix/node/openclwork.hpp>
 
 #include <dlfcn.h>
 
@@ -31,14 +31,14 @@ public:
 			clEnqueueNDRangeKernel = reinterpret_cast<decltype (clEnqueueNDRangeKernel)> (dlsym (opencl_library, "clEnqueueNDRangeKernel"));
 			clEnqueueReadBuffer = reinterpret_cast<decltype (clEnqueueReadBuffer)> (dlsym (opencl_library, "clEnqueueReadBuffer"));
 			clFinish = reinterpret_cast<decltype (clFinish)> (dlsym (opencl_library, "clFinish"));
-			nano::opencl_loaded = true;
+			celerix::opencl_loaded = true;
 		}
 	}
 	~opencl_initializer ()
 	{
 		if (opencl_library != nullptr)
 		{
-			nano::opencl_loaded = false;
+			celerix::opencl_loaded = false;
 			dlclose (opencl_library);
 		}
 	}

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/numbers_templ.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/numbers_templ.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -12,22 +12,22 @@
 
 namespace mi = boost::multi_index;
 
-namespace nano
+namespace celerix
 {
 class vote_spacing final
 {
 	class entry
 	{
 	public:
-		nano::root root;
+		celerix::root root;
 		std::chrono::steady_clock::time_point time;
-		nano::block_hash hash;
+		celerix::block_hash hash;
 	};
 
 	boost::multi_index_container<entry,
 	mi::indexed_by<
 	mi::hashed_non_unique<mi::tag<class tag_root>,
-	mi::member<entry, nano::root, &entry::root>>,
+	mi::member<entry, celerix::root, &entry::root>>,
 	mi::ordered_non_unique<mi::tag<class tag_time>,
 	mi::member<entry, std::chrono::steady_clock::time_point, &entry::time>>>>
 	recent;
@@ -39,8 +39,8 @@ public:
 		delay{ delay }
 	{
 	}
-	bool votable (nano::root const & root_a, nano::block_hash const & hash_a) const;
-	void flag (nano::root const & root_a, nano::block_hash const & hash_a);
+	bool votable (celerix::root const & root_a, celerix::block_hash const & hash_a) const;
+	void flag (celerix::root const & root_a, celerix::block_hash const & hash_a);
 	std::size_t size () const;
 };
 }

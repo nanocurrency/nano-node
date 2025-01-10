@@ -1,4 +1,4 @@
-#include <nano/crypto_lib/secure_memory.hpp>
+#include <celerix/crypto_lib/secure_memory.hpp>
 
 #ifdef _MSC_VER
 #include <windows.h>
@@ -33,7 +33,7 @@
 #endif
 #endif
 
-void NOT_OPTIMIZED nano::secure_wipe_memory (void * v, size_t n)
+void NOT_OPTIMIZED celerix::secure_wipe_memory (void * v, size_t n)
 {
 #if defined(_MSC_VER)
 	SecureZeroMemory (v, n);

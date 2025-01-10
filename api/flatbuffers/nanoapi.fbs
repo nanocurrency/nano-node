@@ -1,6 +1,6 @@
 /*
 
-  Flatbuffers schema for the Nano IPC API.
+  Flatbuffers schema for the Celerix IPC API.
 
   This file contains IPC message definitions from which code and other artifacts are
   generated.
@@ -64,11 +64,11 @@
 
 */
 
-namespace nanoapi;
+namespace celerixapi;
 
 /** Returns the voting weight for the given account */
 table AccountWeight {
-	/** A nano_ address */
+	/** A celerix_ address */
 	account: string (required);
 }
 
@@ -158,17 +158,17 @@ table BlockChange {
 table BlockState {
 	/** Hash of this block */
 	hash: string;
-	/** Account as nano_ string */
+	/** Account as celerix_ string */
 	account: string;
 	/** Hash of previous block */
 	previous: string;
-	/** Representative as nano_ string */
+	/** Representative as celerix_ string */
 	representative: string;
 	/** Balance in raw */
 	balance: string;
 	/** Link as a hex string */
 	link: string;
-	/** Link interpreted as a nano_ address */
+	/** Link interpreted as a celerix_ address */
 	link_as_account: string;
 	/** Signature as a hex string */
 	signature: string;
@@ -306,9 +306,9 @@ union Message {
 table Envelope {
 	/** Milliseconds since epoch when the message was sent. */
 	time: uint64;
-	/** An optional and arbitrary string used for authentication. The corresponding http header for api keys is "nano-api-key" */
+	/** An optional and arbitrary string used for authentication. The corresponding http header for api keys is "celerix-api-key" */
 	credentials: string;
-	/** Correlation id is an optional and arbitrary string. The corresponding http header is "nano-correlation-id" */
+	/** Correlation id is an optional and arbitrary string. The corresponding http header is "celerix-correlation-id" */
 	correlation_id: string;
 	/** The contained message. A 'message_type' property will be automatically added to JSON messages. */
 	message: Message;

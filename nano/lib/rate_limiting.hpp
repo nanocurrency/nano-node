@@ -1,13 +1,13 @@
 #pragma once
 
-#include <nano/lib/locks.hpp>
+#include <celerix/lib/locks.hpp>
 
 #include <algorithm>
 #include <chrono>
 #include <mutex>
 
 /* Namespace for shaping (egress) and policing (ingress) rate limiting algorithms */
-namespace nano::rate
+namespace celerix::rate
 {
 /**
  * Token bucket based rate limiting. This is suitable for rate limiting ipc/api calls
@@ -61,7 +61,7 @@ private:
 };
 }
 
-namespace nano
+namespace celerix
 {
 class rate_limiter final
 {
@@ -75,7 +75,7 @@ public:
 	std::size_t size () const;
 
 private:
-	nano::rate::token_bucket bucket;
-	mutable nano::mutex mutex;
+	celerix::rate::token_bucket bucket;
+	mutable celerix::mutex mutex;
 };
 }

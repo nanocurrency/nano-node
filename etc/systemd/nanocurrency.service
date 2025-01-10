@@ -1,12 +1,12 @@
 [Unit]
-Description=Nano Live Network Daemon
+Description=Celerix Live Network Daemon
 After=network.target
 
 [Service]
 Type=simple
-User=nanocurrency
-WorkingDirectory=/var/nanocurrency/Nano
-ExecStart=/usr/bin/nano_node --daemon --data_path=/var/nanocurrency/Nano
+User=celerixcurrency
+WorkingDirectory=/var/celerixcurrency/Celerix
+ExecStart=/usr/bin/celerix_node --daemon --data_path=/var/celerixcurrency/Celerix
 Restart=on-failure
 
 [Install]

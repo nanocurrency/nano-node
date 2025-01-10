@@ -1,19 +1,19 @@
-#include <nano/boost/asio/bind_executor.hpp>
-#include <nano/boost/asio/dispatch.hpp>
-#include <nano/boost/asio/strand.hpp>
-#include <nano/lib/block_type.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/logging.hpp>
-#include <nano/lib/work.hpp>
-#include <nano/node/election_status.hpp>
-#include <nano/node/node_observers.hpp>
-#include <nano/node/transport/channel.hpp>
-#include <nano/node/vote_router.hpp>
-#include <nano/node/wallet.hpp>
-#include <nano/node/websocket.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/vote.hpp>
+#include <celerix/boost/asio/bind_executor.hpp>
+#include <celerix/boost/asio/dispatch.hpp>
+#include <celerix/boost/asio/strand.hpp>
+#include <celerix/lib/block_type.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/jsonconfig.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/lib/work.hpp>
+#include <celerix/node/election_status.hpp>
+#include <celerix/node/node_observers.hpp>
+#include <celerix/node/transport/channel.hpp>
+#include <celerix/node/vote_router.hpp>
+#include <celerix/node/wallet.hpp>
+#include <celerix/node/websocket.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/vote.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -21,13 +21,13 @@
 #include <algorithm>
 #include <chrono>
 
-nano::websocket::confirmation_options::confirmation_options (nano::wallets & wallets_a, nano::logger & logger_a) :
+celerix::websocket::confirmation_options::confirmation_options (celerix::wallets & wallets_a, celerix::logger & logger_a) :
 	wallets (wallets_a),
 	logger (logger_a)
 {
 }
 
-nano::websocket::confirmation_options::confirmation_options (boost::property_tree::ptree const & options_a, nano::wallets & wallets_a, nano::logger & logger_a) :
+celerix::websocket::confirmation_options::confirmation_options (boost::property_tree::ptree const & options_a, celerix::wallets & wallets_a, celerix::logger & logger_a) :
 	wallets (wallets_a),
 	logger (logger_a)
 {
@@ -70,7 +70,7 @@ nano::websocket::confirmation_options::confirmation_options (boost::property_tre
 
 		if (!include_block)
 		{
-			logger.warn (nano::log::type::websocket, "Filtering option \"all_local_accounts\" requires that \"include_block\" is set to true to be effective");
+			logger.warn (celerix::log::type::websocket, "Filtering option \"all_local_accounts\" requires that \"include_block\" is set to true to be effective");
 		}
 	}
 	auto accounts_l (options_a.get_child_optional ("accounts"));
@@ -79,7 +79,7 @@ nano::websocket::confirmation_options::confirmation_options (boost::property_tre
 		has_account_filtering_options = true;
 		for (auto account_l : *accounts_l)
 		{
-			nano::account result_l{};
+			celerix::account result_l{};
 			if (!result_l.decode_account (account_l.second.data ()))
 			{
 				// Do not insert the given raw data to keep old prefix support
@@ -87,19 +87,19 @@ nano::websocket::confirmation_options::confirmation_options (boost::property_tre
 			}
 			else
 			{
-				logger.warn (nano::log::type::websocket, "Invalid account provided for filtering blocks: ", account_l.second.data ());
+				logger.warn (celerix::log::type::websocket, "Invalid account provided for filtering blocks: ", account_l.second.data ());
 			}
 		}
 
 		if (!include_block)
 		{
-			logger.warn (nano::log::type::websocket, "Filtering option \"accounts\" requires that \"include_block\" is set to true to be effective");
+			logger.warn (celerix::log::type::websocket, "Filtering option \"accounts\" requires that \"include_block\" is set to true to be effective");
 		}
 	}
 	check_filter_empty ();
 }
 
-bool nano::websocket::confirmation_options::should_filter (nano::websocket::message const & message_a) const
+bool celerix::websocket::confirmation_options::should_filter (celerix::websocket::message const & message_a) const
 {
 	bool should_filter_conf_type_l (true);
 
@@ -125,8 +125,8 @@ bool nano::websocket::confirmation_options::should_filter (nano::websocket::mess
 		if (all_local_accounts)
 		{
 			auto transaction_l (wallets.tx_begin_read ());
-			nano::account source_l{};
-			nano::account destination_l{};
+			celerix::account source_l{};
+			celerix::account destination_l{};
 			auto decode_source_ok_l (!source_l.decode_account (source_text_l));
 			auto decode_destination_ok_l (!destination_l.decode_account (destination_opt_l.get ()));
 			(void)decode_source_ok_l;
@@ -146,13 +146,13 @@ bool nano::websocket::confirmation_options::should_filter (nano::websocket::mess
 	return should_filter_conf_type_l || should_filter_account;
 }
 
-bool nano::websocket::confirmation_options::update (boost::property_tree::ptree const & options_a)
+bool celerix::websocket::confirmation_options::update (boost::property_tree::ptree const & options_a)
 {
 	auto update_accounts = [this] (boost::property_tree::ptree const & accounts_text_a, bool insert_a) {
 		this->has_account_filtering_options = true;
 		for (auto const & account_l : accounts_text_a)
 		{
-			nano::account result_l{};
+			celerix::account result_l{};
 			if (!result_l.decode_account (account_l.second.data ()))
 			{
 				// Re-encode to keep old prefix support
@@ -168,7 +168,7 @@ bool nano::websocket::confirmation_options::update (boost::property_tree::ptree 
 			}
 			else
 			{
-				logger.warn (nano::log::type::websocket, "Invalid account provided for filtering blocks: ", account_l.second.data ());
+				logger.warn (celerix::log::type::websocket, "Invalid account provided for filtering blocks: ", account_l.second.data ());
 			}
 		}
 	};
@@ -191,16 +191,16 @@ bool nano::websocket::confirmation_options::update (boost::property_tree::ptree 
 	return false;
 }
 
-void nano::websocket::confirmation_options::check_filter_empty () const
+void celerix::websocket::confirmation_options::check_filter_empty () const
 {
 	// Warn the user if the options resulted in an empty filter
 	if (has_account_filtering_options && !all_local_accounts && accounts.empty ())
 	{
-		logger.warn (nano::log::type::websocket, "Provided options resulted in an empty account confirmation filter");
+		logger.warn (celerix::log::type::websocket, "Provided options resulted in an empty account confirmation filter");
 	}
 }
 
-nano::websocket::vote_options::vote_options (boost::property_tree::ptree const & options_a, nano::logger & logger)
+celerix::websocket::vote_options::vote_options (boost::property_tree::ptree const & options_a, celerix::logger & logger)
 {
 	include_replays = options_a.get<bool> ("include_replays", false);
 	include_indeterminate = options_a.get<bool> ("include_indeterminate", false);
@@ -209,7 +209,7 @@ nano::websocket::vote_options::vote_options (boost::property_tree::ptree const &
 	{
 		for (auto representative_l : *representatives_l)
 		{
-			nano::account result_l{};
+			celerix::account result_l{};
 			if (!result_l.decode_account (representative_l.second.data ()))
 			{
 				// Do not insert the given raw data to keep old prefix support
@@ -217,18 +217,18 @@ nano::websocket::vote_options::vote_options (boost::property_tree::ptree const &
 			}
 			else
 			{
-				logger.warn (nano::log::type::websocket, "Invalid account provided for filtering votes: ", representative_l.second.data ());
+				logger.warn (celerix::log::type::websocket, "Invalid account provided for filtering votes: ", representative_l.second.data ());
 			}
 		}
 		// Warn the user if the option will be ignored
 		if (representatives.empty ())
 		{
-			logger.warn (nano::log::type::websocket, "Account filter for votes is empty, no messages will be filtered");
+			logger.warn (celerix::log::type::websocket, "Account filter for votes is empty, no messages will be filtered");
 		}
 	}
 }
 
-bool nano::websocket::vote_options::should_filter (nano::websocket::message const & message_a) const
+bool celerix::websocket::vote_options::should_filter (celerix::websocket::message const & message_a) const
 {
 	auto type (message_a.contents.get<std::string> ("message.type"));
 	bool should_filter_l = (!include_replays && type == "replay") || (!include_indeterminate && type == "indeterminate");
@@ -243,16 +243,16 @@ bool nano::websocket::vote_options::should_filter (nano::websocket::message cons
 	return should_filter_l;
 }
 
-#ifdef NANO_SECURE_RPC
+#ifdef CELERIX_SECURE_RPC
 
-nano::websocket::session::session (nano::websocket::listener & listener_a, socket_type socket_a, boost::asio::ssl::context & ctx_a) :
+celerix::websocket::session::session (celerix::websocket::listener & listener_a, socket_type socket_a, boost::asio::ssl::context & ctx_a) :
 	ws_listener (listener_a), ws (std::move (socket_a), ctx_a)
 {
 }
 
 #endif
 
-nano::websocket::session::session (nano::websocket::listener & listener_a, socket_type socket_a, nano::logger & logger_a) :
+celerix::websocket::session::session (celerix::websocket::listener & listener_a, socket_type socket_a, celerix::logger & logger_a) :
 	ws_listener (listener_a),
 	ws (std::move (socket_a)),
 	logger (logger_a)
@@ -266,13 +266,13 @@ nano::websocket::session::session (nano::websocket::listener & listener_a, socke
 		debug_assert (!ec);
 	}
 
-	logger.info (nano::log::type::websocket, "Session started ({})", nano::util::to_str (remote));
+	logger.info (celerix::log::type::websocket, "Session started ({})", celerix::util::to_str (remote));
 }
 
-nano::websocket::session::~session ()
+celerix::websocket::session::~session ()
 {
 	{
-		nano::unique_lock<nano::mutex> lk (subscriptions_mutex);
+		celerix::unique_lock<celerix::mutex> lk (subscriptions_mutex);
 		for (auto & subscription : subscriptions)
 		{
 			ws_listener.decrease_subscriber_count (subscription.first);
@@ -280,7 +280,7 @@ nano::websocket::session::~session ()
 	}
 }
 
-void nano::websocket::session::handshake ()
+void celerix::websocket::session::handshake ()
 {
 	auto this_l (shared_from_this ());
 	ws.handshake ([this_l] (boost::system::error_code const & ec) {
@@ -291,14 +291,14 @@ void nano::websocket::session::handshake ()
 		}
 		else
 		{
-			this_l->logger.error (nano::log::type::websocket, "Handshake failed: {} ({})", ec.message (), nano::util::to_str (this_l->remote));
+			this_l->logger.error (celerix::log::type::websocket, "Handshake failed: {} ({})", ec.message (), celerix::util::to_str (this_l->remote));
 		}
 	});
 }
 
-void nano::websocket::session::close ()
+void celerix::websocket::session::close ()
 {
-	logger.info (nano::log::type::websocket, "Session closing ({})", nano::util::to_str (remote));
+	logger.info (celerix::log::type::websocket, "Session closing ({})", celerix::util::to_str (remote));
 
 	auto this_l (shared_from_this ());
 	boost::asio::dispatch (ws.get_strand (),
@@ -311,11 +311,11 @@ void nano::websocket::session::close ()
 	});
 }
 
-void nano::websocket::session::write (nano::websocket::message message_a)
+void celerix::websocket::session::write (celerix::websocket::message message_a)
 {
-	nano::unique_lock<nano::mutex> lk (subscriptions_mutex);
+	celerix::unique_lock<celerix::mutex> lk (subscriptions_mutex);
 	auto subscription (subscriptions.find (message_a.topic));
-	if (message_a.topic == nano::websocket::topic::ack || (subscription != subscriptions.end () && !subscription->second->should_filter (message_a)))
+	if (message_a.topic == celerix::websocket::topic::ack || (subscription != subscriptions.end () && !subscription->second->should_filter (message_a)))
 	{
 		lk.unlock ();
 		auto this_l (shared_from_this ());
@@ -331,12 +331,12 @@ void nano::websocket::session::write (nano::websocket::message message_a)
 	}
 }
 
-void nano::websocket::session::write_queued_messages ()
+void celerix::websocket::session::write_queued_messages ()
 {
 	auto msg (send_queue.front ().to_string ());
 	auto this_l (shared_from_this ());
 
-	ws.async_write (nano::shared_const_buffer (msg),
+	ws.async_write (celerix::shared_const_buffer (msg),
 	[this_l] (boost::system::error_code ec, std::size_t bytes_transferred) {
 		this_l->send_queue.pop_front ();
 		if (!ec)
@@ -349,7 +349,7 @@ void nano::websocket::session::write_queued_messages ()
 	});
 }
 
-void nano::websocket::session::read ()
+void celerix::websocket::session::read ()
 {
 	auto this_l (shared_from_this ());
 
@@ -374,12 +374,12 @@ void nano::websocket::session::read ()
 				}
 				catch (boost::property_tree::json_parser::json_parser_error const & ex)
 				{
-					this_l->logger.error (nano::log::type::websocket, "JSON parsing failed: {} ({})", ex.what (), nano::util::to_str (this_l->remote));
+					this_l->logger.error (celerix::log::type::websocket, "JSON parsing failed: {} ({})", ex.what (), celerix::util::to_str (this_l->remote));
 				}
 			}
 			else if (ec != boost::asio::error::eof)
 			{
-				this_l->logger.error (nano::log::type::websocket, "Read failed: {} ({})", ec.message (), nano::util::to_str (this_l->remote));
+				this_l->logger.error (celerix::log::type::websocket, "Read failed: {} ({})", ec.message (), celerix::util::to_str (this_l->remote));
 			}
 		});
 	});
@@ -387,85 +387,85 @@ void nano::websocket::session::read ()
 
 namespace
 {
-nano::websocket::topic to_topic (std::string const & topic_a)
+celerix::websocket::topic to_topic (std::string const & topic_a)
 {
-	nano::websocket::topic topic = nano::websocket::topic::invalid;
+	celerix::websocket::topic topic = celerix::websocket::topic::invalid;
 	if (topic_a == "confirmation")
 	{
-		topic = nano::websocket::topic::confirmation;
+		topic = celerix::websocket::topic::confirmation;
 	}
 	else if (topic_a == "started_election")
 	{
-		topic = nano::websocket::topic::started_election;
+		topic = celerix::websocket::topic::started_election;
 	}
 	else if (topic_a == "stopped_election")
 	{
-		topic = nano::websocket::topic::stopped_election;
+		topic = celerix::websocket::topic::stopped_election;
 	}
 	else if (topic_a == "vote")
 	{
-		topic = nano::websocket::topic::vote;
+		topic = celerix::websocket::topic::vote;
 	}
 	else if (topic_a == "ack")
 	{
-		topic = nano::websocket::topic::ack;
+		topic = celerix::websocket::topic::ack;
 	}
 	else if (topic_a == "work")
 	{
-		topic = nano::websocket::topic::work;
+		topic = celerix::websocket::topic::work;
 	}
 	else if (topic_a == "bootstrap")
 	{
-		topic = nano::websocket::topic::bootstrap;
+		topic = celerix::websocket::topic::bootstrap;
 	}
 	else if (topic_a == "telemetry")
 	{
-		topic = nano::websocket::topic::telemetry;
+		topic = celerix::websocket::topic::telemetry;
 	}
 	else if (topic_a == "new_unconfirmed_block")
 	{
-		topic = nano::websocket::topic::new_unconfirmed_block;
+		topic = celerix::websocket::topic::new_unconfirmed_block;
 	}
 
 	return topic;
 }
 
-std::string from_topic (nano::websocket::topic topic_a)
+std::string from_topic (celerix::websocket::topic topic_a)
 {
 	std::string topic = "invalid";
-	if (topic_a == nano::websocket::topic::confirmation)
+	if (topic_a == celerix::websocket::topic::confirmation)
 	{
 		topic = "confirmation";
 	}
-	else if (topic_a == nano::websocket::topic::started_election)
+	else if (topic_a == celerix::websocket::topic::started_election)
 	{
 		topic = "started_election";
 	}
-	else if (topic_a == nano::websocket::topic::stopped_election)
+	else if (topic_a == celerix::websocket::topic::stopped_election)
 	{
 		topic = "stopped_election";
 	}
-	else if (topic_a == nano::websocket::topic::vote)
+	else if (topic_a == celerix::websocket::topic::vote)
 	{
 		topic = "vote";
 	}
-	else if (topic_a == nano::websocket::topic::ack)
+	else if (topic_a == celerix::websocket::topic::ack)
 	{
 		topic = "ack";
 	}
-	else if (topic_a == nano::websocket::topic::work)
+	else if (topic_a == celerix::websocket::topic::work)
 	{
 		topic = "work";
 	}
-	else if (topic_a == nano::websocket::topic::bootstrap)
+	else if (topic_a == celerix::websocket::topic::bootstrap)
 	{
 		topic = "bootstrap";
 	}
-	else if (topic_a == nano::websocket::topic::telemetry)
+	else if (topic_a == celerix::websocket::topic::telemetry)
 	{
 		topic = "telemetry";
 	}
-	else if (topic_a == nano::websocket::topic::new_unconfirmed_block)
+	else if (topic_a == celerix::websocket::topic::new_unconfirmed_block)
 	{
 		topic = "new_unconfirmed_block";
 	}
@@ -474,12 +474,12 @@ std::string from_topic (nano::websocket::topic topic_a)
 }
 }
 
-void nano::websocket::session::send_ack (std::string action_a, std::string id_a)
+void celerix::websocket::session::send_ack (std::string action_a, std::string id_a)
 {
-	nano::websocket::message msg (nano::websocket::topic::ack);
+	celerix::websocket::message msg (celerix::websocket::topic::ack);
 	boost::property_tree::ptree & message_l = msg.contents;
 	message_l.add ("ack", action_a);
-	message_l.add ("time", std::to_string (nano::milliseconds_since_epoch ()));
+	message_l.add ("time", std::to_string (celerix::milliseconds_since_epoch ()));
 	if (!id_a.empty ())
 	{
 		message_l.add ("id", id_a);
@@ -487,40 +487,40 @@ void nano::websocket::session::send_ack (std::string action_a, std::string id_a)
 	write (msg);
 }
 
-void nano::websocket::session::handle_message (boost::property_tree::ptree const & message_a)
+void celerix::websocket::session::handle_message (boost::property_tree::ptree const & message_a)
 {
 	std::string action (message_a.get<std::string> ("action", ""));
 	auto topic_l (to_topic (message_a.get<std::string> ("topic", "")));
 	auto ack_l (message_a.get<bool> ("ack", false));
 	auto id_l (message_a.get<std::string> ("id", ""));
 	auto action_succeeded (false);
-	if (action == "subscribe" && topic_l != nano::websocket::topic::invalid)
+	if (action == "subscribe" && topic_l != celerix::websocket::topic::invalid)
 	{
 		auto options_text_l (message_a.get_child_optional ("options"));
-		nano::lock_guard<nano::mutex> lk (subscriptions_mutex);
-		std::unique_ptr<nano::websocket::options> options_l{ nullptr };
-		if (options_text_l && topic_l == nano::websocket::topic::confirmation)
+		celerix::lock_guard<celerix::mutex> lk (subscriptions_mutex);
+		std::unique_ptr<celerix::websocket::options> options_l{ nullptr };
+		if (options_text_l && topic_l == celerix::websocket::topic::confirmation)
 		{
-			options_l = std::make_unique<nano::websocket::confirmation_options> (options_text_l.get (), ws_listener.get_wallets (), logger);
+			options_l = std::make_unique<celerix::websocket::confirmation_options> (options_text_l.get (), ws_listener.get_wallets (), logger);
 		}
-		else if (options_text_l && topic_l == nano::websocket::topic::vote)
+		else if (options_text_l && topic_l == celerix::websocket::topic::vote)
 		{
-			options_l = std::make_unique<nano::websocket::vote_options> (options_text_l.get (), logger);
+			options_l = std::make_unique<celerix::websocket::vote_options> (options_text_l.get (), logger);
 		}
 		else
 		{
-			options_l = std::make_unique<nano::websocket::options> ();
+			options_l = std::make_unique<celerix::websocket::options> ();
 		}
 		auto existing (subscriptions.find (topic_l));
 		if (existing != subscriptions.end ())
 		{
-			logger.info (nano::log::type::websocket, "Updated subscription to topic: {} ({})", from_topic (topic_l), nano::util::to_str (remote));
+			logger.info (celerix::log::type::websocket, "Updated subscription to topic: {} ({})", from_topic (topic_l), celerix::util::to_str (remote));
 
 			existing->second = std::move (options_l);
 		}
 		else
 		{
-			logger.info (nano::log::type::websocket, "New subscription to topic: {} ({})", from_topic (topic_l), nano::util::to_str (remote));
+			logger.info (celerix::log::type::websocket, "New subscription to topic: {} ({})", from_topic (topic_l), celerix::util::to_str (remote));
 
 			subscriptions.emplace (topic_l, std::move (options_l));
 			ws_listener.increase_subscriber_count (topic_l);
@@ -529,7 +529,7 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 	}
 	else if (action == "update")
 	{
-		nano::lock_guard<nano::mutex> lk (subscriptions_mutex);
+		celerix::lock_guard<celerix::mutex> lk (subscriptions_mutex);
 		auto existing (subscriptions.find (topic_l));
 		if (existing != subscriptions.end ())
 		{
@@ -540,12 +540,12 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 			}
 		}
 	}
-	else if (action == "unsubscribe" && topic_l != nano::websocket::topic::invalid)
+	else if (action == "unsubscribe" && topic_l != celerix::websocket::topic::invalid)
 	{
-		nano::lock_guard<nano::mutex> lk (subscriptions_mutex);
+		celerix::lock_guard<celerix::mutex> lk (subscriptions_mutex);
 		if (subscriptions.erase (topic_l))
 		{
-			logger.info (nano::log::type::websocket, "Removed subscription to topic: {} ({})", from_topic (topic_l), nano::util::to_str (remote));
+			logger.info (celerix::log::type::websocket, "Removed subscription to topic: {} ({})", from_topic (topic_l), celerix::util::to_str (remote));
 
 			ws_listener.decrease_subscriber_count (topic_l);
 		}
@@ -563,12 +563,12 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 	}
 }
 
-void nano::websocket::listener::stop ()
+void celerix::websocket::listener::stop ()
 {
 	stopped = true;
 	acceptor.close ();
 
-	nano::lock_guard<nano::mutex> lk (sessions_mutex);
+	celerix::lock_guard<celerix::mutex> lk (sessions_mutex);
 	for (auto & weak_session : sessions)
 	{
 		auto session_ptr (weak_session.lock ());
@@ -580,7 +580,7 @@ void nano::websocket::listener::stop ()
 	sessions.clear ();
 }
 
-nano::websocket::listener::listener (nano::logger & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a) :
+celerix::websocket::listener::listener (celerix::logger & logger_a, celerix::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a) :
 	logger (logger_a),
 	wallets (wallets_a),
 	acceptor (io_ctx_a),
@@ -599,11 +599,11 @@ nano::websocket::listener::listener (nano::logger & logger_a, nano::wallets & wa
 	}
 	catch (std::exception const & ex)
 	{
-		logger.error (nano::log::type::websocket, "Listen failed: {}", ex.what ());
+		logger.error (celerix::log::type::websocket, "Listen failed: {}", ex.what ());
 	}
 }
 
-void nano::websocket::listener::run ()
+void celerix::websocket::listener::run ()
 {
 	if (acceptor.is_open ())
 	{
@@ -611,7 +611,7 @@ void nano::websocket::listener::run ()
 	}
 }
 
-void nano::websocket::listener::accept ()
+void celerix::websocket::listener::accept ()
 {
 	auto this_l (shared_from_this ());
 	acceptor.async_accept (socket,
@@ -620,17 +620,17 @@ void nano::websocket::listener::accept ()
 	});
 }
 
-void nano::websocket::listener::on_accept (boost::system::error_code ec)
+void celerix::websocket::listener::on_accept (boost::system::error_code ec)
 {
 	if (ec)
 	{
-		logger.error (nano::log::type::websocket, "Accept failed: {}", ec.message ());
+		logger.error (celerix::log::type::websocket, "Accept failed: {}", ec.message ());
 	}
 	else
 	{
 		// Create the session and initiate websocket handshake
-		std::shared_ptr<nano::websocket::session> session;
-		session = std::make_shared<nano::websocket::session> (*this, std::move (socket), logger);
+		std::shared_ptr<celerix::websocket::session> session;
+		session = std::make_shared<celerix::websocket::session> (*this, std::move (socket), logger);
 
 		// TODO: Why is this locking and unlocking mutex manually??
 		sessions_mutex.lock ();
@@ -648,23 +648,23 @@ void nano::websocket::listener::on_accept (boost::system::error_code ec)
 	}
 }
 
-void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string const & subtype, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a)
+void celerix::websocket::listener::broadcast_confirmation (std::shared_ptr<celerix::block> const & block_a, celerix::account const & account_a, celerix::amount const & amount_a, std::string const & subtype, celerix::election_status const & election_status_a, std::vector<celerix::vote_with_weight_info> const & election_votes_a)
 {
-	nano::websocket::message_builder builder;
+	celerix::websocket::message_builder builder;
 
-	nano::lock_guard<nano::mutex> lk (sessions_mutex);
-	boost::optional<nano::websocket::message> msg_with_block;
-	boost::optional<nano::websocket::message> msg_without_block;
+	celerix::lock_guard<celerix::mutex> lk (sessions_mutex);
+	boost::optional<celerix::websocket::message> msg_with_block;
+	boost::optional<celerix::websocket::message> msg_without_block;
 	for (auto & weak_session : sessions)
 	{
 		auto session_ptr (weak_session.lock ());
 		if (session_ptr)
 		{
-			auto subscription (session_ptr->subscriptions.find (nano::websocket::topic::confirmation));
+			auto subscription (session_ptr->subscriptions.find (celerix::websocket::topic::confirmation));
 			if (subscription != session_ptr->subscriptions.end ())
 			{
-				nano::websocket::confirmation_options default_options (wallets, logger);
-				auto conf_options (dynamic_cast<nano::websocket::confirmation_options *> (subscription->second.get ()));
+				celerix::websocket::confirmation_options default_options (wallets, logger);
+				auto conf_options (dynamic_cast<celerix::websocket::confirmation_options *> (subscription->second.get ()));
 				if (conf_options == nullptr)
 				{
 					conf_options = &default_options;
@@ -686,9 +686,9 @@ void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::bl
 	}
 }
 
-void nano::websocket::listener::broadcast (nano::websocket::message message_a)
+void celerix::websocket::listener::broadcast (celerix::websocket::message message_a)
 {
-	nano::lock_guard<nano::mutex> lk (sessions_mutex);
+	celerix::lock_guard<celerix::mutex> lk (sessions_mutex);
 	for (auto & weak_session : sessions)
 	{
 		auto session_ptr (weak_session.lock ());
@@ -699,21 +699,21 @@ void nano::websocket::listener::broadcast (nano::websocket::message message_a)
 	}
 }
 
-void nano::websocket::listener::increase_subscriber_count (nano::websocket::topic const & topic_a)
+void celerix::websocket::listener::increase_subscriber_count (celerix::websocket::topic const & topic_a)
 {
 	topic_subscriber_count[static_cast<std::size_t> (topic_a)] += 1;
 }
 
-void nano::websocket::listener::decrease_subscriber_count (nano::websocket::topic const & topic_a)
+void celerix::websocket::listener::decrease_subscriber_count (celerix::websocket::topic const & topic_a)
 {
 	auto & count (topic_subscriber_count[static_cast<std::size_t> (topic_a)]);
 	release_assert (count > 0);
 	count -= 1;
 }
 
-nano::websocket::message nano::websocket::message_builder::started_election (nano::block_hash const & hash_a)
+celerix::websocket::message celerix::websocket::message_builder::started_election (celerix::block_hash const & hash_a)
 {
-	nano::websocket::message message_l (nano::websocket::topic::started_election);
+	celerix::websocket::message message_l (celerix::websocket::topic::started_election);
 	set_common_fields (message_l);
 
 	boost::property_tree::ptree message_node_l;
@@ -723,9 +723,9 @@ nano::websocket::message nano::websocket::message_builder::started_election (nan
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::stopped_election (nano::block_hash const & hash_a)
+celerix::websocket::message celerix::websocket::message_builder::stopped_election (celerix::block_hash const & hash_a)
 {
-	nano::websocket::message message_l (nano::websocket::topic::stopped_election);
+	celerix::websocket::message message_l (celerix::websocket::topic::stopped_election);
 	set_common_fields (message_l);
 
 	boost::property_tree::ptree message_node_l;
@@ -735,9 +735,9 @@ nano::websocket::message nano::websocket::message_builder::stopped_election (nan
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block_a, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a, nano::websocket::confirmation_options const & options_a)
+celerix::websocket::message celerix::websocket::message_builder::block_confirmed (std::shared_ptr<celerix::block> const & block_a, celerix::account const & account_a, celerix::amount const & amount_a, std::string subtype, bool include_block_a, celerix::election_status const & election_status_a, std::vector<celerix::vote_with_weight_info> const & election_votes_a, celerix::websocket::confirmation_options const & options_a)
 {
-	nano::websocket::message message_l (nano::websocket::topic::confirmation);
+	celerix::websocket::message message_l (celerix::websocket::topic::confirmation);
 	set_common_fields (message_l);
 
 	// Block confirmation properties
@@ -749,13 +749,13 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 	std::string confirmation_type = "unknown";
 	switch (election_status_a.type)
 	{
-		case nano::election_status_type::active_confirmed_quorum:
+		case celerix::election_status_type::active_confirmed_quorum:
 			confirmation_type = "active_quorum";
 			break;
-		case nano::election_status_type::active_confirmation_height:
+		case celerix::election_status_type::active_confirmation_height:
 			confirmation_type = "active_confirmation_height";
 			break;
-		case nano::election_status_type::inactive_confirmation_height:
+		case celerix::election_status_type::inactive_confirmation_height:
 			confirmation_type = "inactive";
 			break;
 		default:
@@ -814,9 +814,9 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::vote_received (std::shared_ptr<nano::vote> const & vote_a, nano::vote_code code_a)
+celerix::websocket::message celerix::websocket::message_builder::vote_received (std::shared_ptr<celerix::vote> const & vote_a, celerix::vote_code code_a)
 {
-	nano::websocket::message message_l (nano::websocket::topic::vote);
+	celerix::websocket::message message_l (celerix::websocket::topic::vote);
 	set_common_fields (message_l);
 
 	// Vote information
@@ -827,19 +827,19 @@ nano::websocket::message nano::websocket::message_builder::vote_received (std::s
 	std::string vote_type = "invalid";
 	switch (code_a)
 	{
-		case nano::vote_code::vote:
+		case celerix::vote_code::vote:
 			vote_type = "vote";
 			break;
-		case nano::vote_code::replay:
+		case celerix::vote_code::replay:
 			vote_type = "replay";
 			break;
-		case nano::vote_code::indeterminate:
+		case celerix::vote_code::indeterminate:
 			vote_type = "indeterminate";
 			break;
-		case nano::vote_code::ignored:
+		case celerix::vote_code::ignored:
 			vote_type = "ignored";
 			break;
-		case nano::vote_code::invalid:
+		case celerix::vote_code::invalid:
 			debug_assert (false);
 			break;
 	}
@@ -848,9 +848,9 @@ nano::websocket::message nano::websocket::message_builder::vote_received (std::s
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::work_generation (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t work_a, uint64_t difficulty_a, uint64_t publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool completed_a, bool cancelled_a)
+celerix::websocket::message celerix::websocket::message_builder::work_generation (celerix::work_version const version_a, celerix::block_hash const & root_a, uint64_t work_a, uint64_t difficulty_a, uint64_t publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool completed_a, bool cancelled_a)
 {
-	nano::websocket::message message_l (nano::websocket::topic::work);
+	celerix::websocket::message message_l (celerix::websocket::topic::work);
 	set_common_fields (message_l);
 
 	// Active difficulty information
@@ -861,22 +861,22 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 	work_l.put ("duration", duration_a.count ());
 
 	boost::property_tree::ptree request_l;
-	request_l.put ("version", nano::to_string (version_a));
+	request_l.put ("version", celerix::to_string (version_a));
 	request_l.put ("hash", root_a.to_string ());
-	request_l.put ("difficulty", nano::to_string_hex (difficulty_a));
-	auto request_multiplier_l (nano::difficulty::to_multiplier (difficulty_a, publish_threshold_a));
-	request_l.put ("multiplier", nano::to_string (request_multiplier_l));
+	request_l.put ("difficulty", celerix::to_string_hex (difficulty_a));
+	auto request_multiplier_l (celerix::difficulty::to_multiplier (difficulty_a, publish_threshold_a));
+	request_l.put ("multiplier", celerix::to_string (request_multiplier_l));
 	work_l.add_child ("request", request_l);
 
 	if (completed_a)
 	{
 		boost::property_tree::ptree result_l;
 		result_l.put ("source", peer_a);
-		result_l.put ("work", nano::to_string_hex (work_a));
-		auto result_difficulty_l (nano::dev::network_params.work.difficulty (version_a, root_a, work_a));
-		result_l.put ("difficulty", nano::to_string_hex (result_difficulty_l));
-		auto result_multiplier_l (nano::difficulty::to_multiplier (result_difficulty_l, publish_threshold_a));
-		result_l.put ("multiplier", nano::to_string (result_multiplier_l));
+		result_l.put ("work", celerix::to_string_hex (work_a));
+		auto result_difficulty_l (celerix::dev::network_params.work.difficulty (version_a, root_a, work_a));
+		result_l.put ("difficulty", celerix::to_string_hex (result_difficulty_l));
+		auto result_multiplier_l (celerix::difficulty::to_multiplier (result_difficulty_l, publish_threshold_a));
+		result_l.put ("multiplier", celerix::to_string (result_multiplier_l));
 		work_l.add_child ("result", result_l);
 	}
 
@@ -893,19 +893,19 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::work_cancelled (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a)
+celerix::websocket::message celerix::websocket::message_builder::work_cancelled (celerix::work_version const version_a, celerix::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a)
 {
 	return work_generation (version_a, root_a, 0, difficulty_a, publish_threshold_a, duration_a, "", bad_peers_a, false, true);
 }
 
-nano::websocket::message nano::websocket::message_builder::work_failed (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a)
+celerix::websocket::message celerix::websocket::message_builder::work_failed (celerix::work_version const version_a, celerix::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a)
 {
 	return work_generation (version_a, root_a, 0, difficulty_a, publish_threshold_a, duration_a, "", bad_peers_a, false, false);
 }
 
-nano::websocket::message nano::websocket::message_builder::bootstrap_started (std::string const & id_a, std::string const & mode_a)
+celerix::websocket::message celerix::websocket::message_builder::bootstrap_started (std::string const & id_a, std::string const & mode_a)
 {
-	nano::websocket::message message_l (nano::websocket::topic::bootstrap);
+	celerix::websocket::message message_l (celerix::websocket::topic::bootstrap);
 	set_common_fields (message_l);
 
 	// Bootstrap information
@@ -918,9 +918,9 @@ nano::websocket::message nano::websocket::message_builder::bootstrap_started (st
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::bootstrap_exited (std::string const & id_a, std::string const & mode_a, std::chrono::steady_clock::time_point const start_time_a, uint64_t const total_blocks_a)
+celerix::websocket::message celerix::websocket::message_builder::bootstrap_exited (std::string const & id_a, std::string const & mode_a, std::chrono::steady_clock::time_point const start_time_a, uint64_t const total_blocks_a)
 {
-	nano::websocket::message message_l (nano::websocket::topic::bootstrap);
+	celerix::websocket::message message_l (celerix::websocket::topic::bootstrap);
 	set_common_fields (message_l);
 
 	// Bootstrap information
@@ -935,13 +935,13 @@ nano::websocket::message nano::websocket::message_builder::bootstrap_exited (std
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::telemetry_received (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a)
+celerix::websocket::message celerix::websocket::message_builder::telemetry_received (celerix::telemetry_data const & telemetry_data_a, celerix::endpoint const & endpoint_a)
 {
-	nano::websocket::message message_l (nano::websocket::topic::telemetry);
+	celerix::websocket::message message_l (celerix::websocket::topic::telemetry);
 	set_common_fields (message_l);
 
 	// Telemetry information
-	nano::jsonconfig telemetry_l;
+	celerix::jsonconfig telemetry_l;
 	telemetry_data_a.serialize_json (telemetry_l, false);
 	telemetry_l.put ("address", endpoint_a.address ());
 	telemetry_l.put ("port", endpoint_a.port ());
@@ -950,14 +950,14 @@ nano::websocket::message nano::websocket::message_builder::telemetry_received (n
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::new_block_arrived (nano::block const & block_a)
+celerix::websocket::message celerix::websocket::message_builder::new_block_arrived (celerix::block const & block_a)
 {
-	nano::websocket::message message_l (nano::websocket::topic::new_unconfirmed_block);
+	celerix::websocket::message message_l (celerix::websocket::topic::new_unconfirmed_block);
 	set_common_fields (message_l);
 
 	boost::property_tree::ptree block_l;
 	block_a.serialize_json (block_l);
-	auto subtype (nano::state_subtype (block_a.sideband ().details));
+	auto subtype (celerix::state_subtype (block_a.sideband ().details));
 	block_l.put ("subtype", subtype);
 
 	message_l.contents.put ("hash", block_a.hash ().to_string ());
@@ -966,14 +966,14 @@ nano::websocket::message nano::websocket::message_builder::new_block_arrived (na
 	return message_l;
 }
 
-void nano::websocket::message_builder::set_common_fields (nano::websocket::message & message_a)
+void celerix::websocket::message_builder::set_common_fields (celerix::websocket::message & message_a)
 {
 	// Common message information
 	message_a.contents.add ("topic", from_topic (message_a.topic));
-	message_a.contents.add ("time", std::to_string (nano::milliseconds_since_epoch ()));
+	message_a.contents.add ("time", std::to_string (celerix::milliseconds_since_epoch ()));
 }
 
-std::string nano::websocket::message::to_string () const
+std::string celerix::websocket::message::to_string () const
 {
 	std::ostringstream ostream;
 	boost::property_tree::write_json (ostream, contents);
@@ -985,7 +985,7 @@ std::string nano::websocket::message::to_string () const
  * websocket_server
  */
 
-nano::websocket_server::websocket_server (nano::websocket::config & config_a, nano::node_observers & observers_a, nano::wallets & wallets_a, nano::ledger & ledger_a, boost::asio::io_context & io_ctx_a, nano::logger & logger_a) :
+celerix::websocket_server::websocket_server (celerix::websocket::config & config_a, celerix::node_observers & observers_a, celerix::wallets & wallets_a, celerix::ledger & ledger_a, boost::asio::io_context & io_ctx_a, celerix::logger & logger_a) :
 	config{ config_a },
 	observers{ observers_a },
 	wallets{ wallets_a },
@@ -998,13 +998,13 @@ nano::websocket_server::websocket_server (nano::websocket::config & config_a, na
 		return;
 	}
 
-	auto endpoint = nano::tcp_endpoint{ boost::asio::ip::make_address_v6 (config.address), config.port };
-	server = std::make_shared<nano::websocket::listener> (logger, wallets, io_ctx, endpoint);
+	auto endpoint = celerix::tcp_endpoint{ boost::asio::ip::make_address_v6 (config.address), config.port };
+	server = std::make_shared<celerix::websocket::listener> (logger, wallets, io_ctx, endpoint);
 
-	observers.blocks.add ([this] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
-		debug_assert (status_a.type != nano::election_status_type::ongoing);
+	observers.blocks.add ([this] (celerix::election_status const & status_a, std::vector<celerix::vote_with_weight_info> const & votes_a, celerix::account const & account_a, celerix::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
+		debug_assert (status_a.type != celerix::election_status_type::ongoing);
 
-		if (server->any_subscriber (nano::websocket::topic::confirmation))
+		if (server->any_subscriber (celerix::websocket::topic::confirmation))
 		{
 			auto block_a = status_a.winner;
 			std::string subtype;
@@ -1012,7 +1012,7 @@ nano::websocket_server::websocket_server (nano::websocket::config & config_a, na
 			{
 				subtype = "send";
 			}
-			else if (block_a->type () == nano::block_type::state)
+			else if (block_a->type () == celerix::block_type::state)
 			{
 				if (block_a->is_change ())
 				{
@@ -1033,42 +1033,42 @@ nano::websocket_server::websocket_server (nano::websocket::config & config_a, na
 		}
 	});
 
-	observers.active_started.add ([this] (nano::block_hash const & hash_a) {
-		if (server->any_subscriber (nano::websocket::topic::started_election))
+	observers.active_started.add ([this] (celerix::block_hash const & hash_a) {
+		if (server->any_subscriber (celerix::websocket::topic::started_election))
 		{
-			nano::websocket::message_builder builder;
+			celerix::websocket::message_builder builder;
 			server->broadcast (builder.started_election (hash_a));
 		}
 	});
 
-	observers.active_stopped.add ([this] (nano::block_hash const & hash_a) {
-		if (server->any_subscriber (nano::websocket::topic::stopped_election))
+	observers.active_stopped.add ([this] (celerix::block_hash const & hash_a) {
+		if (server->any_subscriber (celerix::websocket::topic::stopped_election))
 		{
-			nano::websocket::message_builder builder;
+			celerix::websocket::message_builder builder;
 			server->broadcast (builder.stopped_election (hash_a));
 		}
 	});
 
-	observers.telemetry.add ([this] (nano::telemetry_data const & telemetry_data, std::shared_ptr<nano::transport::channel> const & channel) {
-		if (server->any_subscriber (nano::websocket::topic::telemetry))
+	observers.telemetry.add ([this] (celerix::telemetry_data const & telemetry_data, std::shared_ptr<celerix::transport::channel> const & channel) {
+		if (server->any_subscriber (celerix::websocket::topic::telemetry))
 		{
-			nano::websocket::message_builder builder;
+			celerix::websocket::message_builder builder;
 			server->broadcast (builder.telemetry_received (telemetry_data, channel->get_remote_endpoint ()));
 		}
 	});
 
-	observers.vote.add ([this] (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, nano::vote_source source_a, nano::vote_code code_a) {
+	observers.vote.add ([this] (std::shared_ptr<celerix::vote> vote_a, std::shared_ptr<celerix::transport::channel> const & channel_a, celerix::vote_source source_a, celerix::vote_code code_a) {
 		debug_assert (vote_a != nullptr);
-		if (server->any_subscriber (nano::websocket::topic::vote))
+		if (server->any_subscriber (celerix::websocket::topic::vote))
 		{
-			nano::websocket::message_builder builder;
+			celerix::websocket::message_builder builder;
 			auto msg{ builder.vote_received (vote_a, code_a) };
 			server->broadcast (msg);
 		}
 	});
 }
 
-void nano::websocket_server::start ()
+void celerix::websocket_server::start ()
 {
 	if (server)
 	{
@@ -1076,7 +1076,7 @@ void nano::websocket_server::start ()
 	}
 }
 
-void nano::websocket_server::stop ()
+void celerix::websocket_server::stop ()
 {
 	if (server)
 	{

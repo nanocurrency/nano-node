@@ -1,5 +1,5 @@
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/utility.hpp>
 
-void nano::work_thread_reprioritize ()
+void celerix::work_thread_reprioritize ()
 {
 }

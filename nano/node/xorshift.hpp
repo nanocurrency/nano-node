@@ -1,7 +1,7 @@
 #pragma once
 #include <array>
 
-namespace nano
+namespace celerix
 {
 class xorshift1024star final
 {

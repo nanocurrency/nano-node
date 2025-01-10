@@ -1,8 +1,8 @@
 #pragma once
 
-#include <nano/lib/relaxed_atomic.hpp>
-#include <nano/lib/thread_roles.hpp>
-#include <nano/lib/threading.hpp>
+#include <celerix/lib/relaxed_atomic.hpp>
+#include <celerix/lib/thread_roles.hpp>
+#include <celerix/lib/threading.hpp>
 
 #include <boost/asio/post.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -14,13 +14,13 @@
 #include <memory>
 #include <type_traits>
 
-namespace nano
+namespace celerix
 {
 class thread_pool final
 {
 public:
 	// TODO: Auto start should be removed once the node is refactored to start the thread pool explicitly
-	thread_pool (unsigned num_threads, nano::thread_role::name thread_name, bool auto_start = false) :
+	thread_pool (unsigned num_threads, celerix::thread_role::name thread_name, bool auto_start = false) :
 		num_threads{ num_threads },
 		thread_name{ thread_name },
 		thread_names_latch{ num_threads }
@@ -47,7 +47,7 @@ public:
 
 	void stop ()
 	{
-		nano::unique_lock<nano::mutex> lock{ mutex };
+		celerix::unique_lock<celerix::mutex> lock{ mutex };
 		if (!stopped && thread_pool_impl)
 		{
 			stopped = true;
@@ -71,7 +71,7 @@ public:
 	template <typename F>
 	void post (F && task)
 	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
 		if (!stopped)
 		{
 			++num_tasks;
@@ -86,7 +86,7 @@ public:
 	template <typename F>
 	void post_delayed (std::chrono::steady_clock::duration const & delay, F && task)
 	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
 		if (!stopped)
 		{
 			++num_delayed;
@@ -105,7 +105,7 @@ public:
 
 	bool alive () const
 	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
 		return thread_pool_impl != nullptr;
 	}
 
@@ -119,9 +119,9 @@ public:
 		return num_delayed;
 	}
 
-	nano::container_info container_info () const
+	celerix::container_info container_info () const
 	{
-		nano::container_info info;
+		celerix::container_info info;
 		info.put ("tasks", num_tasks);
 		info.put ("delayed", num_delayed);
 		return info;
@@ -133,7 +133,7 @@ private:
 		for (auto i = 0u; i < num_threads; ++i)
 		{
 			boost::asio::post (*thread_pool_impl, [this] () {
-				nano::thread_role::set (thread_name);
+				celerix::thread_role::set (thread_name);
 				thread_names_latch.arrive_and_wait ();
 			});
 		}
@@ -142,10 +142,10 @@ private:
 
 private:
 	unsigned const num_threads;
-	nano::thread_role::name const thread_name;
+	celerix::thread_role::name const thread_name;
 
 	std::latch thread_names_latch;
-	mutable nano::mutex mutex;
+	mutable celerix::mutex mutex;
 	std::atomic<bool> stopped{ false };
 	std::unique_ptr<boost::asio::thread_pool> thread_pool_impl;
 	std::atomic<uint64_t> num_tasks{ 0 };

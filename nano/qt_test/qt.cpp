@@ -1,19 +1,19 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/work_version.hpp>
-#include <nano/node/make_store.hpp>
-#include <nano/qt/qt.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/ledger_set_any.hpp>
-#include <nano/test_common/network.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/work_version.hpp>
+#include <celerix/node/make_store.hpp>
+#include <celerix/qt/qt.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/ledger_set_any.hpp>
+#include <celerix/test_common/network.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
 #include <boost/property_tree/json_parser.hpp>
 
 #include <algorithm>
-#include <nano/qt_test/QTest>
+#include <celerix/qt_test/QTest>
 #include <thread>
 
 using namespace std::chrono_literals;
@@ -22,11 +22,11 @@ extern QApplication * test_application;
 
 TEST (wallet, construction)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (1);
-	auto wallet_l (system.nodes[0]->wallets.create (nano::random_wallet_id ()));
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (1);
+	auto wallet_l (system.nodes[0]->wallets.create (celerix::random_wallet_id ()));
 	auto key (wallet_l->deterministic_insert ());
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key));
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key));
 	wallet->start ();
 	std::string account (key.to_account ());
 	ASSERT_EQ (account, wallet->self.account_text->text ().toStdString ());
@@ -36,86 +36,86 @@ TEST (wallet, construction)
 }
 
 // Disabled because it does not work and it is not clearly defined what its behaviour should be:
-// https://github.com/nanocurrency/nano-node/issues/3235
+// https://github.com/celerixcurrency/celerix-node/issues/3235
 TEST (wallet, DISABLED_status)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (1);
-	auto wallet_l (system.nodes[0]->wallets.create (nano::random_wallet_id ()));
-	nano::keypair key;
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (1);
+	auto wallet_l (system.nodes[0]->wallets.create (celerix::random_wallet_id ()));
+	celerix::keypair key;
 	wallet_l->insert_adhoc (key.prv);
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
 	wallet->start ();
-	auto wallet_has = [wallet] (nano_qt::status_types status_ty) {
+	auto wallet_has = [wallet] (celerix_qt::status_types status_ty) {
 		return wallet->active_status.active.find (status_ty) != wallet->active_status.active.end ();
 	};
 	ASSERT_EQ ("Status: Disconnected, Blocks: 1", wallet->status->text ().toStdString ());
-	auto outer_node = nano::test::add_outer_node (system);
-	nano::test::establish_tcp (system, *system.nodes[0], outer_node->network.endpoint ());
+	auto outer_node = celerix::test::add_outer_node (system);
+	celerix::test::establish_tcp (system, *system.nodes[0], outer_node->network.endpoint ());
 	// Because of the wallet "vulnerable" message, this won't be the message displayed.
 	// However, it will still be part of the status set.
-	ASSERT_FALSE (wallet_has (nano_qt::status_types::synchronizing));
+	ASSERT_FALSE (wallet_has (celerix_qt::status_types::synchronizing));
 	system.deadline_set (25s);
-	while (!wallet_has (nano_qt::status_types::synchronizing))
+	while (!wallet_has (celerix_qt::status_types::synchronizing))
 	{
 		test_application->processEvents ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (5));
-	while (wallet_has (nano_qt::status_types::synchronizing))
+	while (wallet_has (celerix_qt::status_types::synchronizing))
 	{
 		test_application->processEvents ();
 	}
-	ASSERT_TRUE (wallet_has (nano_qt::status_types::disconnected));
+	ASSERT_TRUE (wallet_has (celerix_qt::status_types::disconnected));
 }
 
 // this test is modelled on wallet.status but it introduces another node on the network
 TEST (wallet, status_with_peer)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (2);
-	auto wallet_l = system.nodes[0]->wallets.create (nano::random_wallet_id ());
-	nano::keypair key;
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (2);
+	auto wallet_l = system.nodes[0]->wallets.create (celerix::random_wallet_id ());
+	celerix::keypair key;
 	wallet_l->insert_adhoc (key.prv);
-	auto wallet = std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub);
+	auto wallet = std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub);
 	wallet->start ();
-	auto wallet_has = [wallet] (nano_qt::status_types status_ty) {
+	auto wallet_has = [wallet] (celerix_qt::status_types status_ty) {
 		return wallet->active_status.active.find (status_ty) != wallet->active_status.active.end ();
 	};
 	// Because of the wallet "vulnerable" message, this won't be the message displayed.
 	// However, it will still be part of the status set.
 	system.deadline_set (25s);
 	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (5));
-	while (wallet_has (nano_qt::status_types::synchronizing))
+	while (wallet_has (celerix_qt::status_types::synchronizing))
 	{
 		test_application->processEvents ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_TRUE (wallet_has (nano_qt::status_types::nominal));
+	ASSERT_TRUE (wallet_has (celerix_qt::status_types::nominal));
 }
 
 TEST (wallet, startup_balance)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (1);
-	auto wallet_l (system.nodes[0]->wallets.create (nano::random_wallet_id ()));
-	nano::keypair key;
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (1);
+	auto wallet_l (system.nodes[0]->wallets.create (celerix::random_wallet_id ()));
+	celerix::keypair key;
 	wallet_l->insert_adhoc (key.prv);
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
 	wallet->needs_balance_refresh = true;
 	wallet->start ();
 	wallet->application.processEvents (QEventLoop::AllEvents);
-	ASSERT_EQ ("Balance: 0 nano", wallet->self.balance_label->text ().toStdString ());
+	ASSERT_EQ ("Balance: 0 celerix", wallet->self.balance_label->text ().toStdString ());
 }
 
 TEST (wallet, select_account)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (1);
-	auto wallet_l (system.nodes[0]->wallets.create (nano::random_wallet_id ()));
-	nano::public_key key1 (wallet_l->deterministic_insert ());
-	nano::public_key key2 (wallet_l->deterministic_insert ());
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key1));
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (1);
+	auto wallet_l (system.nodes[0]->wallets.create (celerix::random_wallet_id ()));
+	celerix::public_key key1 (wallet_l->deterministic_insert ());
+	celerix::public_key key2 (wallet_l->deterministic_insert ());
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key1));
 	wallet->start ();
 	ASSERT_EQ (key1, wallet->account);
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
@@ -142,12 +142,12 @@ TEST (wallet, select_account)
 
 TEST (wallet, main)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (1);
-	auto wallet_l (system.nodes[0]->wallets.create (nano::random_wallet_id ()));
-	nano::keypair key;
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (1);
+	auto wallet_l (system.nodes[0]->wallets.create (celerix::random_wallet_id ()));
+	celerix::keypair key;
 	wallet_l->insert_adhoc (key.prv);
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
 	wallet->start ();
 	ASSERT_EQ (wallet->entry_window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->send_blocks, Qt::LeftButton);
@@ -173,21 +173,21 @@ TEST (wallet, main)
 
 TEST (wallet, password_change)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (1);
-	nano::account account;
-	system.wallet (0)->insert_adhoc (nano::keypair ().prv);
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (1);
+	celerix::account account;
+	system.wallet (0)->insert_adhoc (celerix::keypair ().prv);
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
 		account = system.account (transaction, 0);
 	}
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	QTest::mouseClick (wallet->settings_button, Qt::LeftButton);
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
-		nano::raw_key password1;
-		nano::raw_key password2;
+		celerix::raw_key password1;
+		celerix::raw_key password2;
 		system.wallet (0)->store.derive_key (password1, transaction, "1");
 		system.wallet (0)->store.password.value (password2);
 		ASSERT_NE (password1, password2);
@@ -197,8 +197,8 @@ TEST (wallet, password_change)
 	QTest::mouseClick (wallet->settings.change, Qt::LeftButton);
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
-		nano::raw_key password1;
-		nano::raw_key password2;
+		celerix::raw_key password1;
+		celerix::raw_key password2;
 		system.wallet (0)->store.derive_key (password1, transaction, "1");
 		system.wallet (0)->store.password.value (password2);
 		ASSERT_EQ (password1, password2);
@@ -209,18 +209,18 @@ TEST (wallet, password_change)
 
 TEST (client, password_nochange)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (1);
-	nano::account account;
-	system.wallet (0)->insert_adhoc (nano::keypair ().prv);
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (1);
+	celerix::account account;
+	system.wallet (0)->insert_adhoc (celerix::keypair ().prv);
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
 		account = system.account (transaction, 0);
 	}
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	QTest::mouseClick (wallet->settings_button, Qt::LeftButton);
-	nano::raw_key password;
+	celerix::raw_key password;
 	password.clear ();
 	system.deadline_set (10s);
 	while (password == 0)
@@ -230,9 +230,9 @@ TEST (client, password_nochange)
 	}
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
-		nano::raw_key password1;
+		celerix::raw_key password1;
 		system.wallet (0)->store.derive_key (password1, transaction, "");
-		nano::raw_key password2;
+		celerix::raw_key password2;
 		system.wallet (0)->store.password.value (password2);
 		ASSERT_EQ (password1, password2);
 	}
@@ -241,9 +241,9 @@ TEST (client, password_nochange)
 	QTest::mouseClick (wallet->settings.change, Qt::LeftButton);
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
-		nano::raw_key password1;
+		celerix::raw_key password1;
 		system.wallet (0)->store.derive_key (password1, transaction, "");
-		nano::raw_key password2;
+		celerix::raw_key password2;
 		system.wallet (0)->store.password.value (password2);
 		ASSERT_EQ (password1, password2);
 	}
@@ -253,15 +253,15 @@ TEST (client, password_nochange)
 
 TEST (wallet, enter_password)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (2);
-	nano::account account;
-	system.wallet (0)->insert_adhoc (nano::keypair ().prv);
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (2);
+	celerix::account account;
+	system.wallet (0)->insert_adhoc (celerix::keypair ().prv);
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
 		account = system.account (transaction, 0);
 	}
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	ASSERT_NE (-1, wallet->settings.layout->indexOf (wallet->settings.password));
 	ASSERT_NE (-1, wallet->settings.layout->indexOf (wallet->settings.lock_toggle));
@@ -293,14 +293,14 @@ TEST (wallet, enter_password)
 
 TEST (wallet, send)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (2);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::public_key key1 (system.wallet (1)->insert_adhoc (nano::keypair ().prv));
-	auto account (nano::dev::genesis_key.pub);
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (2);
+	system.wallet (0)->insert_adhoc (celerix::dev::genesis_key.prv);
+	celerix::public_key key1 (system.wallet (1)->insert_adhoc (celerix::keypair ().prv));
+	auto account (celerix::dev::genesis_key.pub);
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
-	ASSERT_NE (wallet->rendering_ratio, nano::raw_ratio);
+	ASSERT_NE (wallet->rendering_ratio, celerix::raw_ratio);
 	QTest::mouseClick (wallet->send_blocks, Qt::LeftButton);
 	QTest::keyClicks (wallet->send_account, key1.to_account ().c_str ());
 	QTest::keyClicks (wallet->send_count, "2.03");
@@ -310,7 +310,7 @@ TEST (wallet, send)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	nano::uint128_t amount (wallet->node.balance (key1));
+	celerix::uint128_t amount (wallet->node.balance (key1));
 	ASSERT_EQ (2 * wallet->rendering_ratio + (3 * wallet->rendering_ratio / 100), amount);
 	QTest::mouseClick (wallet->send_blocks_back, Qt::LeftButton);
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
@@ -326,16 +326,16 @@ TEST (wallet, send)
 
 TEST (wallet, send_locked)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (1);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::keypair key1;
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (1);
+	system.wallet (0)->insert_adhoc (celerix::dev::genesis_key.prv);
+	celerix::keypair key1;
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin_write ());
 		system.wallet (0)->enter_password (transaction, "0");
 	}
-	auto account (nano::dev::genesis_key.pub);
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto account (celerix::dev::genesis_key.pub);
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	QTest::mouseClick (wallet->send_blocks, Qt::LeftButton);
 	QTest::keyClicks (wallet->send_account, key1.pub.to_account ().c_str ());
@@ -350,29 +350,29 @@ TEST (wallet, send_locked)
 }
 
 // Test disabled because it's failing intermittently.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3642
+// PR in which it got disabled: https://github.com/celerixcurrency/celerix-node/pull/3629
+// Issue for investigating it: https://github.com/celerixcurrency/celerix-node/issues/3642
 TEST (wallet, DISABLED_process_block)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (1);
-	nano::account account;
-	nano::block_hash latest (system.nodes[0]->latest (nano::dev::genesis_key.pub));
-	system.wallet (0)->insert_adhoc (nano::keypair ().prv);
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (1);
+	celerix::account account;
+	celerix::block_hash latest (system.nodes[0]->latest (celerix::dev::genesis_key.pub));
+	system.wallet (0)->insert_adhoc (celerix::keypair ().prv);
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
 		account = system.account (transaction, 0);
 	}
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	ASSERT_EQ ("Process", wallet->block_entry.process->text ());
 	ASSERT_EQ ("Back", wallet->block_entry.back->text ());
-	nano::keypair key1;
+	celerix::keypair key1;
 	ASSERT_EQ (wallet->entry_window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet->advanced.enter_block, Qt::LeftButton);
 	ASSERT_EQ (wallet->block_entry.window, wallet->main_stack->currentWidget ());
-	nano::send_block send (latest, key1.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
+	celerix::send_block send (latest, key1.pub, 0, celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub, *system.work.generate (latest));
 	std::string previous;
 	send.hashables.previous.encode_hex (previous);
 	std::string balance;
@@ -398,19 +398,19 @@ TEST (wallet, DISABLED_process_block)
 
 TEST (wallet, create_send)
 {
-	nano_qt::eventloop_processor processor;
-	nano::keypair key;
-	nano::test::system system (1);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	celerix_qt::eventloop_processor processor;
+	celerix::keypair key;
+	celerix::test::system system (1);
+	system.wallet (0)->insert_adhoc (celerix::dev::genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
-	auto account (nano::dev::genesis_key.pub);
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto account (celerix::dev::genesis_key.pub);
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	wallet->client_window->show ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet->advanced.create_block, Qt::LeftButton);
 	QTest::mouseClick (wallet->block_creation.send, Qt::LeftButton);
-	QTest::keyClicks (wallet->block_creation.account, nano::dev::genesis_key.pub.to_account ().c_str ());
+	QTest::keyClicks (wallet->block_creation.account, celerix::dev::genesis_key.pub.to_account ().c_str ());
 	QTest::keyClicks (wallet->block_creation.amount, "100000000000000000000");
 	QTest::keyClicks (wallet->block_creation.destination, key.pub.to_account ().c_str ());
 	QTest::mouseClick (wallet->block_creation.create, Qt::LeftButton);
@@ -420,33 +420,33 @@ TEST (wallet, create_send)
 	std::stringstream istream (json);
 	boost::property_tree::read_json (istream, tree1);
 	bool error (false);
-	auto send = std::make_shared<nano::state_block> (error, tree1);
+	auto send = std::make_shared<celerix::state_block> (error, tree1);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (nano::block_status::progress, system.nodes[0]->process (send));
-	ASSERT_EQ (nano::block_status::old, system.nodes[0]->process (send));
+	ASSERT_EQ (celerix::block_status::progress, system.nodes[0]->process (send));
+	ASSERT_EQ (celerix::block_status::old, system.nodes[0]->process (send));
 }
 
 TEST (wallet, create_open_receive)
 {
-	nano_qt::eventloop_processor processor;
-	nano::keypair key;
-	nano::test::system system (1);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, 100);
-	nano::block_hash latest1 (system.nodes[0]->latest (nano::dev::genesis_key.pub));
-	system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, 100);
-	nano::block_hash latest2 (system.nodes[0]->latest (nano::dev::genesis_key.pub));
+	celerix_qt::eventloop_processor processor;
+	celerix::keypair key;
+	celerix::test::system system (1);
+	system.wallet (0)->insert_adhoc (celerix::dev::genesis_key.prv);
+	system.wallet (0)->send_action (celerix::dev::genesis_key.pub, key.pub, 100);
+	celerix::block_hash latest1 (system.nodes[0]->latest (celerix::dev::genesis_key.pub));
+	system.wallet (0)->send_action (celerix::dev::genesis_key.pub, key.pub, 100);
+	celerix::block_hash latest2 (system.nodes[0]->latest (celerix::dev::genesis_key.pub));
 	ASSERT_NE (latest1, latest2);
 	system.wallet (0)->insert_adhoc (key.prv);
-	auto account (nano::dev::genesis_key.pub);
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto account (celerix::dev::genesis_key.pub);
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	wallet->client_window->show ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet->advanced.create_block, Qt::LeftButton);
 	wallet->block_creation.open->click ();
 	QTest::keyClicks (wallet->block_creation.source, latest1.to_string ().c_str ());
-	QTest::keyClicks (wallet->block_creation.representative, nano::dev::genesis_key.pub.to_account ().c_str ());
+	QTest::keyClicks (wallet->block_creation.representative, celerix::dev::genesis_key.pub.to_account ().c_str ());
 	QTest::mouseClick (wallet->block_creation.create, Qt::LeftButton);
 	std::string json1 (wallet->block_creation.block->toPlainText ().toStdString ());
 	ASSERT_FALSE (json1.empty ());
@@ -454,10 +454,10 @@ TEST (wallet, create_open_receive)
 	std::stringstream istream1 (json1);
 	boost::property_tree::read_json (istream1, tree1);
 	bool error (false);
-	auto open = std::make_shared<nano::state_block> (error, tree1);
+	auto open = std::make_shared<celerix::state_block> (error, tree1);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (nano::block_status::progress, system.nodes[0]->process (open));
-	ASSERT_EQ (nano::block_status::old, system.nodes[0]->process (open));
+	ASSERT_EQ (celerix::block_status::progress, system.nodes[0]->process (open));
+	ASSERT_EQ (celerix::block_status::old, system.nodes[0]->process (open));
 	wallet->block_creation.block->clear ();
 	wallet->block_creation.source->clear ();
 	wallet->block_creation.receive->click ();
@@ -469,26 +469,26 @@ TEST (wallet, create_open_receive)
 	std::stringstream istream2 (json2);
 	boost::property_tree::read_json (istream2, tree2);
 	bool error2 (false);
-	auto receive = std::make_shared<nano::state_block> (error2, tree2);
+	auto receive = std::make_shared<celerix::state_block> (error2, tree2);
 	ASSERT_FALSE (error2);
-	ASSERT_EQ (nano::block_status::progress, system.nodes[0]->process (receive));
-	ASSERT_EQ (nano::block_status::old, system.nodes[0]->process (receive));
+	ASSERT_EQ (celerix::block_status::progress, system.nodes[0]->process (receive));
+	ASSERT_EQ (celerix::block_status::old, system.nodes[0]->process (receive));
 }
 
 TEST (wallet, create_change)
 {
-	nano_qt::eventloop_processor processor;
-	nano::keypair key;
-	nano::test::system system (1);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto account (nano::dev::genesis_key.pub);
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	celerix_qt::eventloop_processor processor;
+	celerix::keypair key;
+	celerix::test::system system (1);
+	system.wallet (0)->insert_adhoc (celerix::dev::genesis_key.prv);
+	auto account (celerix::dev::genesis_key.pub);
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	wallet->client_window->show ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet->advanced.create_block, Qt::LeftButton);
 	wallet->block_creation.change->click ();
-	QTest::keyClicks (wallet->block_creation.account, nano::dev::genesis_key.pub.to_account ().c_str ());
+	QTest::keyClicks (wallet->block_creation.account, celerix::dev::genesis_key.pub.to_account ().c_str ());
 	QTest::keyClicks (wallet->block_creation.representative, key.pub.to_account ().c_str ());
 	wallet->block_creation.create->click ();
 	std::string json (wallet->block_creation.block->toPlainText ().toStdString ());
@@ -497,94 +497,94 @@ TEST (wallet, create_change)
 	std::stringstream istream (json);
 	boost::property_tree::read_json (istream, tree1);
 	bool error (false);
-	auto change = std::make_shared<nano::state_block> (error, tree1);
+	auto change = std::make_shared<celerix::state_block> (error, tree1);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (nano::block_status::progress, system.nodes[0]->process (change));
-	ASSERT_EQ (nano::block_status::old, system.nodes[0]->process (change));
+	ASSERT_EQ (celerix::block_status::progress, system.nodes[0]->process (change));
+	ASSERT_EQ (celerix::block_status::old, system.nodes[0]->process (change));
 }
 
 TEST (history, short_text)
 {
-	if (nano::rocksdb_config::using_rocksdb_in_tests ())
+	if (celerix::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
 	}
-	nano_qt::eventloop_processor processor;
-	nano::keypair key;
-	nano::test::system system (1);
+	celerix_qt::eventloop_processor processor;
+	celerix::keypair key;
+	celerix::test::system system (1);
 	system.wallet (0)->insert_adhoc (key.prv);
-	nano::account account;
+	celerix::account account;
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
 		account = system.account (transaction, 0);
 	}
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
-	nano::logger logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	celerix::logger logger;
+	auto store = celerix::make_store (logger, celerix::unique_path (), celerix::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::ledger ledger (*store, system.nodes[0]->stats, nano::dev::constants);
+	celerix::ledger ledger (*store, system.nodes[0]->stats, celerix::dev::constants);
 	{
 		auto transaction (ledger.tx_begin_write ());
 		store->initialize (transaction, ledger.cache, ledger.constants);
-		nano::keypair key;
-		auto latest (ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
-		auto send = std::make_shared<nano::send_block> (latest, nano::dev::genesis_key.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
-		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
-		auto receive = std::make_shared<nano::receive_block> (send->hash (), send->hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send->hash ()));
-		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive));
-		auto change = std::make_shared<nano::change_block> (receive->hash (), key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (receive->hash ()));
-		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, change));
+		celerix::keypair key;
+		auto latest (ledger.any.account_head (transaction, celerix::dev::genesis_key.pub));
+		auto send = std::make_shared<celerix::send_block> (latest, celerix::dev::genesis_key.pub, 0, celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub, *system.work.generate (latest));
+		ASSERT_EQ (celerix::block_status::progress, ledger.process (transaction, send));
+		auto receive = std::make_shared<celerix::receive_block> (send->hash (), send->hash (), celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub, *system.work.generate (send->hash ()));
+		ASSERT_EQ (celerix::block_status::progress, ledger.process (transaction, receive));
+		auto change = std::make_shared<celerix::change_block> (receive->hash (), key.pub, celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub, *system.work.generate (receive->hash ()));
+		ASSERT_EQ (celerix::block_status::progress, ledger.process (transaction, change));
 	}
-	nano_qt::history history (ledger, nano::dev::genesis_key.pub, *wallet);
+	celerix_qt::history history (ledger, celerix::dev::genesis_key.pub, *wallet);
 	history.refresh ();
 	ASSERT_EQ (4, history.model->rowCount ());
 }
 
 TEST (history, pruned_source)
 {
-	if (nano::rocksdb_config::using_rocksdb_in_tests ())
+	if (celerix::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
 	}
-	nano_qt::eventloop_processor processor;
-	nano::keypair key;
-	nano::test::system system (1);
+	celerix_qt::eventloop_processor processor;
+	celerix::keypair key;
+	celerix::test::system system (1);
 	system.wallet (0)->insert_adhoc (key.prv);
-	nano::account account;
+	celerix::account account;
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
 		account = system.account (transaction, 0);
 	}
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
-	nano::logger logger;
-	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	celerix::logger logger;
+	auto store = celerix::make_store (logger, celerix::unique_path (), celerix::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::ledger ledger (*store, system.nodes[0]->stats, nano::dev::constants);
+	celerix::ledger ledger (*store, system.nodes[0]->stats, celerix::dev::constants);
 	ledger.pruning = true;
-	nano::block_hash next_pruning;
+	celerix::block_hash next_pruning;
 	// Basic pruning for legacy blocks. Previous block is pruned, source is pruned
 	{
 		auto transaction = ledger.tx_begin_write ();
-		store->initialize (transaction, ledger.cache, nano::dev::constants);
-		auto latest (ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
-		auto send1 = std::make_shared<nano::send_block> (latest, nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
-		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
-		auto send2 = std::make_shared<nano::send_block> (send1->hash (), key.pub, nano::dev::constants.genesis_amount - 200, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send1->hash ()));
-		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
-		auto receive = std::make_shared<nano::receive_block> (send2->hash (), send1->hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send2->hash ()));
-		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive));
-		auto open = std::make_shared<nano::open_block> (send2->hash (), key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
-		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
+		store->initialize (transaction, ledger.cache, celerix::dev::constants);
+		auto latest (ledger.any.account_head (transaction, celerix::dev::genesis_key.pub));
+		auto send1 = std::make_shared<celerix::send_block> (latest, celerix::dev::genesis_key.pub, celerix::dev::constants.genesis_amount - 100, celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub, *system.work.generate (latest));
+		ASSERT_EQ (celerix::block_status::progress, ledger.process (transaction, send1));
+		auto send2 = std::make_shared<celerix::send_block> (send1->hash (), key.pub, celerix::dev::constants.genesis_amount - 200, celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub, *system.work.generate (send1->hash ()));
+		ASSERT_EQ (celerix::block_status::progress, ledger.process (transaction, send2));
+		auto receive = std::make_shared<celerix::receive_block> (send2->hash (), send1->hash (), celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub, *system.work.generate (send2->hash ()));
+		ASSERT_EQ (celerix::block_status::progress, ledger.process (transaction, receive));
+		auto open = std::make_shared<celerix::open_block> (send2->hash (), key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
+		ASSERT_EQ (celerix::block_status::progress, ledger.process (transaction, open));
 		ledger.confirm (transaction, send1->hash ());
 		ASSERT_EQ (1, ledger.pruning_action (transaction, send1->hash (), 2));
 		next_pruning = send2->hash ();
 	}
-	nano_qt::history history1 (ledger, nano::dev::genesis_key.pub, *wallet);
+	celerix_qt::history history1 (ledger, celerix::dev::genesis_key.pub, *wallet);
 	history1.refresh ();
 	ASSERT_EQ (2, history1.model->rowCount ());
-	nano_qt::history history2 (ledger, key.pub, *wallet);
+	celerix_qt::history history2 (ledger, key.pub, *wallet);
 	history2.refresh ();
 	ASSERT_EQ (1, history2.model->rowCount ());
 	// Additional legacy test
@@ -600,12 +600,12 @@ TEST (history, pruned_source)
 	// Pruning for state blocks. Previous block is pruned, source is pruned
 	{
 		auto transaction = ledger.tx_begin_write ();
-		auto latest (ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
-		auto send = std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, latest, nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 200, key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
-		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+		auto latest (ledger.any.account_head (transaction, celerix::dev::genesis_key.pub));
+		auto send = std::make_shared<celerix::state_block> (celerix::dev::genesis_key.pub, latest, celerix::dev::genesis_key.pub, celerix::dev::constants.genesis_amount - 200, key.pub, celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub, *system.work.generate (latest));
+		ASSERT_EQ (celerix::block_status::progress, ledger.process (transaction, send));
 		auto latest_key (ledger.any.account_head (transaction, key.pub));
-		auto receive = std::make_shared<nano::state_block> (key.pub, latest_key, key.pub, 200, send->hash (), key.prv, key.pub, *system.work.generate (latest_key));
-		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive));
+		auto receive = std::make_shared<celerix::state_block> (key.pub, latest_key, key.pub, 200, send->hash (), key.prv, key.pub, *system.work.generate (latest_key));
+		ASSERT_EQ (celerix::block_status::progress, ledger.process (transaction, receive));
 		ledger.confirm (transaction, latest);
 		ASSERT_EQ (1, ledger.pruning_action (transaction, latest, 2));
 		ledger.confirm (transaction, latest_key);
@@ -619,22 +619,22 @@ TEST (history, pruned_source)
 
 TEST (wallet, startup_work)
 {
-	nano_qt::eventloop_processor processor;
-	nano::keypair key;
-	nano::test::system system (1);
+	celerix_qt::eventloop_processor processor;
+	celerix::keypair key;
+	celerix::test::system system (1);
 	system.wallet (0)->insert_adhoc (key.prv);
-	nano::account account;
+	celerix::account account;
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
 		account = system.account (transaction, 0);
 	}
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	uint64_t work1;
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
-		ASSERT_TRUE (wallet->wallet_m->store.work_get (transaction, nano::dev::genesis_key.pub, work1));
+		ASSERT_TRUE (wallet->wallet_m->store.work_get (transaction, celerix::dev::genesis_key.pub, work1));
 	}
 	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
 	QTest::keyClicks (wallet->accounts.account_key_line, "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4");
@@ -645,28 +645,28 @@ TEST (wallet, startup_work)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
-		again = wallet->wallet_m->store.work_get (transaction, nano::dev::genesis_key.pub, work1);
+		again = wallet->wallet_m->store.work_get (transaction, celerix::dev::genesis_key.pub, work1);
 	}
 }
 
 TEST (wallet, block_viewer)
 {
-	nano_qt::eventloop_processor processor;
-	nano::keypair key;
-	nano::test::system system (1);
+	celerix_qt::eventloop_processor processor;
+	celerix::keypair key;
+	celerix::test::system system (1);
 	system.wallet (0)->insert_adhoc (key.prv);
-	nano::account account;
+	celerix::account account;
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
 		account = system.account (transaction, 0);
 	}
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_NE (-1, wallet->advanced.layout->indexOf (wallet->advanced.block_viewer));
 	QTest::mouseClick (wallet->advanced.block_viewer, Qt::LeftButton);
 	ASSERT_EQ (wallet->block_viewer.window, wallet->main_stack->currentWidget ());
-	nano::block_hash latest (system.nodes[0]->latest (nano::dev::genesis_key.pub));
+	celerix::block_hash latest (system.nodes[0]->latest (celerix::dev::genesis_key.pub));
 	QTest::keyClicks (wallet->block_viewer.hash, latest.to_string ().c_str ());
 	QTest::mouseClick (wallet->block_viewer.retrieve, Qt::LeftButton);
 	ASSERT_FALSE (wallet->block_viewer.block->toPlainText ().toStdString ().empty ());
@@ -676,24 +676,24 @@ TEST (wallet, block_viewer)
 
 TEST (wallet, import)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (2);
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (2);
 	std::string json;
-	nano::keypair key1;
-	nano::keypair key2;
+	celerix::keypair key1;
+	celerix::keypair key2;
 	system.wallet (0)->insert_adhoc (key1.prv);
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
 		system.wallet (0)->store.serialize_json (transaction, json);
 	}
 	system.wallet (1)->insert_adhoc (key2.prv);
-	auto path{ nano::unique_path () / "wallet.json" };
+	auto path{ celerix::unique_path () / "wallet.json" };
 	{
 		std::ofstream stream;
 		stream.open (path.string ().c_str ());
 		stream << json;
 	}
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[1], system.wallet (1), key2.pub));
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[1], system.wallet (1), key2.pub));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
@@ -710,20 +710,20 @@ TEST (wallet, import)
 
 TEST (wallet, republish)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (2);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::keypair key;
-	nano::block_hash hash;
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (2);
+	system.wallet (0)->insert_adhoc (celerix::dev::genesis_key.prv);
+	celerix::keypair key;
+	celerix::block_hash hash;
 	{
 		auto transaction = system.nodes[0]->ledger.tx_begin_write ();
-		auto latest (system.nodes[0]->ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
-		auto block = std::make_shared<nano::send_block> (latest, key.pub, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
+		auto latest (system.nodes[0]->ledger.any.account_head (transaction, celerix::dev::genesis_key.pub));
+		auto block = std::make_shared<celerix::send_block> (latest, key.pub, 0, celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub, *system.work.generate (latest));
 		hash = block->hash ();
-		ASSERT_EQ (nano::block_status::progress, system.nodes[0]->ledger.process (transaction, block));
+		ASSERT_EQ (celerix::block_status::progress, system.nodes[0]->ledger.process (transaction, block));
 	}
-	auto account (nano::dev::genesis_key.pub);
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto account (celerix::dev::genesis_key.pub);
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
@@ -731,9 +731,9 @@ TEST (wallet, republish)
 	ASSERT_EQ (wallet->block_viewer.window, wallet->main_stack->currentWidget ());
 	QTest::keyClicks (wallet->block_viewer.hash, hash.to_string ().c_str ());
 	QTest::mouseClick (wallet->block_viewer.rebroadcast, Qt::LeftButton);
-	ASSERT_FALSE (system.nodes[1]->balance (nano::dev::genesis_key.pub).is_zero ());
+	ASSERT_FALSE (system.nodes[1]->balance (celerix::dev::genesis_key.pub).is_zero ());
 	system.deadline_set (10s);
-	while (system.nodes[1]->balance (nano::dev::genesis_key.pub).is_zero ())
+	while (system.nodes[1]->balance (celerix::dev::genesis_key.pub).is_zero ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -741,21 +741,21 @@ TEST (wallet, republish)
 
 TEST (wallet, ignore_empty_adhoc)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (1);
-	nano::keypair key1;
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (1);
+	celerix::keypair key1;
 	system.wallet (0)->insert_adhoc (key1.prv);
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1.pub));
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1.pub));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
 	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
-	QTest::keyClicks (wallet->accounts.account_key_line, nano::dev::genesis_key.prv.to_string ().c_str ());
+	QTest::keyClicks (wallet->accounts.account_key_line, celerix::dev::genesis_key.prv.to_string ().c_str ());
 	QTest::mouseClick (wallet->accounts.account_key_button, Qt::LeftButton);
 	ASSERT_EQ (1, wallet->accounts.model->rowCount ());
 	ASSERT_EQ (0, wallet->accounts.account_key_line->text ().length ());
-	nano::keypair key;
+	celerix::keypair key;
 	QTest::keyClicks (wallet->accounts.account_key_line, key.prv.to_string ().c_str ());
 	QTest::mouseClick (wallet->accounts.account_key_button, Qt::LeftButton);
 	ASSERT_EQ (1, wallet->accounts.model->rowCount ());
@@ -768,17 +768,17 @@ TEST (wallet, ignore_empty_adhoc)
 
 TEST (wallet, change_seed)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (1);
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
 	system.wallet (0)->deterministic_insert ();
-	nano::raw_key seed3;
+	celerix::raw_key seed3;
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 		system.wallet (0)->store.seed (seed3, transaction);
 	}
 	auto wallet_key (key1);
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), wallet_key));
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), wallet_key));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
@@ -786,10 +786,10 @@ TEST (wallet, change_seed)
 	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->accounts.import_wallet, Qt::LeftButton);
 	ASSERT_EQ (wallet->import.window, wallet->main_stack->currentWidget ());
-	nano::raw_key seed;
+	celerix::raw_key seed;
 	seed.clear ();
 	QTest::keyClicks (wallet->import.seed, seed.to_string ().c_str ());
-	nano::raw_key seed1;
+	celerix::raw_key seed1;
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 		system.wallet (0)->store.seed (seed1, transaction);
@@ -803,7 +803,7 @@ TEST (wallet, change_seed)
 	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
 	ASSERT_EQ (1, wallet->accounts.model->rowCount ());
 	ASSERT_TRUE (wallet->import.clear_line->text ().toStdString ().empty ());
-	nano::raw_key seed2;
+	celerix::raw_key seed2;
 	auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 	system.wallet (0)->store.seed (seed2, transaction);
 	ASSERT_EQ (seed, seed2);
@@ -821,10 +821,10 @@ TEST (wallet, change_seed)
 
 TEST (wallet, seed_work_generation)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (1);
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1));
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
@@ -832,9 +832,9 @@ TEST (wallet, seed_work_generation)
 	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->accounts.import_wallet, Qt::LeftButton);
 	ASSERT_EQ (wallet->import.window, wallet->main_stack->currentWidget ());
-	nano::raw_key seed;
-	auto prv = nano::deterministic_key (seed, 0);
-	auto pub (nano::pub_key (prv));
+	celerix::raw_key seed;
+	auto prv = celerix::deterministic_key (seed, 0);
+	auto pub (celerix::pub_key (prv));
 	QTest::keyClicks (wallet->import.seed, seed.to_string ().c_str ());
 	QTest::keyClicks (wallet->import.clear_line, "clear keys");
 	uint64_t work (0);
@@ -848,22 +848,22 @@ TEST (wallet, seed_work_generation)
 		ASSERT_NO_ERROR (ec);
 	}
 	auto transaction = system.nodes[0]->ledger.tx_begin_read ();
-	ASSERT_GE (nano::dev::network_params.work.difficulty (nano::work_version::work_1, system.nodes[0]->ledger.latest_root (transaction, pub), work), system.nodes[0]->default_difficulty (nano::work_version::work_1));
+	ASSERT_GE (celerix::dev::network_params.work.difficulty (celerix::work_version::work_1, system.nodes[0]->ledger.latest_root (transaction, pub), work), system.nodes[0]->default_difficulty (celerix::work_version::work_1));
 }
 
 TEST (wallet, backup_seed)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (1);
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1));
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
 	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->accounts.backup_seed, Qt::LeftButton);
-	nano::raw_key seed;
+	celerix::raw_key seed;
 	auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 	system.wallet (0)->store.seed (seed, transaction);
 	ASSERT_EQ (seed.to_string (), test_application->clipboard ()->text ().toStdString ());
@@ -871,20 +871,20 @@ TEST (wallet, backup_seed)
 
 TEST (wallet, import_locked)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (1);
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (1);
 	auto key1 (system.wallet (0)->deterministic_insert ());
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin_write ());
 		system.wallet (0)->store.rekey (transaction, "1");
 	}
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1));
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
 	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
-	nano::raw_key seed1;
+	celerix::raw_key seed1;
 	seed1.clear ();
 	QTest::keyClicks (wallet->import.seed, seed1.to_string ().c_str ());
 	QTest::keyClicks (wallet->import.clear_line, "clear keys");
@@ -893,7 +893,7 @@ TEST (wallet, import_locked)
 		system.wallet (0)->enter_password (transaction, "");
 	}
 	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
-	nano::raw_key seed2;
+	celerix::raw_key seed2;
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin_write ());
 		system.wallet (0)->store.seed (seed2, transaction);
@@ -901,7 +901,7 @@ TEST (wallet, import_locked)
 		system.wallet (0)->enter_password (transaction, "1");
 	}
 	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
-	nano::raw_key seed3;
+	celerix::raw_key seed3;
 	auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 	system.wallet (0)->store.seed (seed3, transaction);
 	ASSERT_EQ (seed1, seed3);
@@ -909,25 +909,25 @@ TEST (wallet, import_locked)
 
 TEST (wallet, epoch_2_validation)
 {
-	nano_qt::eventloop_processor processor;
-	nano::test::system system (1);
+	celerix_qt::eventloop_processor processor;
+	celerix::test::system system (1);
 	auto & node = system.nodes[0];
 
 	// Upgrade the genesis account to epoch 2
-	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_1));
-	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_2));
+	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, celerix::epoch::epoch_1));
+	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, celerix::epoch::epoch_2));
 
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	system.wallet (0)->insert_adhoc (celerix::dev::genesis_key.prv);
 
-	auto account (nano::dev::genesis_key.pub);
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *node, system.wallet (0), account));
+	auto account (celerix::dev::genesis_key.pub);
+	auto wallet (std::make_shared<celerix_qt::wallet> (*test_application, processor, *node, system.wallet (0), account));
 	wallet->start ();
 	wallet->client_window->show ();
 
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet->advanced.create_block, Qt::LeftButton);
 
-	auto create_and_process = [&] () -> nano::block_hash {
+	auto create_and_process = [&] () -> celerix::block_hash {
 		wallet->block_creation.create->click ();
 		std::string json (wallet->block_creation.block->toPlainText ().toStdString ());
 		EXPECT_FALSE (json.empty ());
@@ -935,34 +935,34 @@ TEST (wallet, epoch_2_validation)
 		std::stringstream istream (json);
 		boost::property_tree::read_json (istream, tree1);
 		bool error (false);
-		auto block = std::make_shared<nano::state_block> (error, tree1);
+		auto block = std::make_shared<celerix::state_block> (error, tree1);
 		EXPECT_FALSE (error);
-		EXPECT_EQ (nano::block_status::progress, node->process (block));
+		EXPECT_EQ (celerix::block_status::progress, node->process (block));
 		return block->hash ();
 	};
 
-	auto do_send = [&] (nano::public_key const & destination) -> nano::block_hash {
+	auto do_send = [&] (celerix::public_key const & destination) -> celerix::block_hash {
 		wallet->block_creation.send->click ();
-		wallet->block_creation.account->setText (nano::dev::genesis_key.pub.to_account ().c_str ());
+		wallet->block_creation.account->setText (celerix::dev::genesis_key.pub.to_account ().c_str ());
 		wallet->block_creation.amount->setText ("1");
 		wallet->block_creation.destination->setText (destination.to_account ().c_str ());
 		return create_and_process ();
 	};
 
-	auto do_open = [&] (nano::block_hash const & source, nano::public_key const & account) -> nano::block_hash {
+	auto do_open = [&] (celerix::block_hash const & source, celerix::public_key const & account) -> celerix::block_hash {
 		wallet->block_creation.open->click ();
 		wallet->block_creation.source->setText (source.to_string ().c_str ());
 		wallet->block_creation.representative->setText (account.to_account ().c_str ());
 		return create_and_process ();
 	};
 
-	auto do_receive = [&] (nano::block_hash const & source) -> nano::block_hash {
+	auto do_receive = [&] (celerix::block_hash const & source) -> celerix::block_hash {
 		wallet->block_creation.receive->click ();
 		wallet->block_creation.source->setText (source.to_string ().c_str ());
 		return create_and_process ();
 	};
 
-	auto do_change = [&] (nano::public_key const & account, nano::public_key const & representative) -> nano::block_hash {
+	auto do_change = [&] (celerix::public_key const & account, celerix::public_key const & representative) -> celerix::block_hash {
 		wallet->block_creation.change->click ();
 		wallet->block_creation.account->setText (account.to_account ().c_str ());
 		wallet->block_creation.representative->setText (representative.to_account ().c_str ());
@@ -975,12 +975,12 @@ TEST (wallet, epoch_2_validation)
 
 	while (++tries < max_tries)
 	{
-		nano::keypair key;
+		celerix::keypair key;
 		system.wallet (0)->insert_adhoc (key.prv);
 		auto send1 = do_send (key.pub);
 		do_open (send1, key.pub);
 		auto send2 = do_send (key.pub);
 		do_receive (send2);
-		do_change (key.pub, nano::dev::genesis_key.pub);
+		do_change (key.pub, celerix::dev::genesis_key.pub);
 	}
 }

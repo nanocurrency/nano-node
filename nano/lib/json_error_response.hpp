@@ -3,7 +3,7 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-namespace nano
+namespace celerix
 {
 inline void json_error_response (std::function<void (std::string const &)> response_a, std::string const & message_a)
 {

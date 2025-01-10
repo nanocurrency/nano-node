@@ -1,10 +1,10 @@
 #pragma once
 
-#include <nano/lib/locks.hpp>
-#include <nano/lib/observer_set.hpp>
-#include <nano/node/fair_queue.hpp>
-#include <nano/node/fwd.hpp>
-#include <nano/node/messages.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/observer_set.hpp>
+#include <celerix/node/fair_queue.hpp>
+#include <celerix/node/fwd.hpp>
+#include <celerix/node/messages.hpp>
 
 #include <atomic>
 #include <memory>
@@ -12,13 +12,13 @@
 #include <utility>
 #include <vector>
 
-namespace nano
+namespace celerix
 {
 class bootstrap_server_config final
 {
 public:
-	nano::error deserialize (nano::tomlconfig &);
-	nano::error serialize (nano::tomlconfig &) const;
+	celerix::error deserialize (celerix::tomlconfig &);
+	celerix::error serialize (celerix::tomlconfig &) const;
 
 public:
 	size_t max_queue{ 16 };
@@ -32,7 +32,7 @@ public:
 class bootstrap_server final
 {
 public:
-	bootstrap_server (bootstrap_server_config const &, nano::store::component &, nano::ledger &, nano::network_constants const &, nano::stats &);
+	bootstrap_server (bootstrap_server_config const &, celerix::store::component &, celerix::ledger &, celerix::network_constants const &, celerix::stats &);
 	~bootstrap_server ();
 
 	void start ();
@@ -42,66 +42,66 @@ public:
 	 * Process `asc_pull_req` message coming from network.
 	 * Reply will be sent back over passed in `channel`
 	 */
-	bool request (nano::asc_pull_req const & message, std::shared_ptr<nano::transport::channel> const & channel);
+	bool request (celerix::asc_pull_req const & message, std::shared_ptr<celerix::transport::channel> const & channel);
 
 public: // Events
-	nano::observer_set<nano::asc_pull_ack const &, std::shared_ptr<nano::transport::channel> const &> on_response;
+	celerix::observer_set<celerix::asc_pull_ack const &, std::shared_ptr<celerix::transport::channel> const &> on_response;
 
 private:
 	// `asc_pull_req` message is small, store by value
-	using request_t = std::pair<nano::asc_pull_req, std::shared_ptr<nano::transport::channel>>; // <request, response channel>
+	using request_t = std::pair<celerix::asc_pull_req, std::shared_ptr<celerix::transport::channel>>; // <request, response channel>
 
 	void run ();
-	void run_batch (nano::unique_lock<nano::mutex> & lock);
-	nano::asc_pull_ack process (secure::transaction const &, nano::asc_pull_req const & message);
-	void respond (nano::asc_pull_ack &, std::shared_ptr<nano::transport::channel> const &);
+	void run_batch (celerix::unique_lock<celerix::mutex> & lock);
+	celerix::asc_pull_ack process (secure::transaction const &, celerix::asc_pull_req const & message);
+	void respond (celerix::asc_pull_ack &, std::shared_ptr<celerix::transport::channel> const &);
 
-	nano::asc_pull_ack process (secure::transaction const &, nano::asc_pull_req::id_t id, nano::empty_payload const & request);
+	celerix::asc_pull_ack process (secure::transaction const &, celerix::asc_pull_req::id_t id, celerix::empty_payload const & request);
 
 	/*
 	 * Blocks request
 	 */
-	nano::asc_pull_ack process (secure::transaction const &, nano::asc_pull_req::id_t id, nano::asc_pull_req::blocks_payload const & request) const;
-	nano::asc_pull_ack prepare_response (secure::transaction const &, nano::asc_pull_req::id_t id, nano::block_hash start_block, std::size_t count) const;
-	nano::asc_pull_ack prepare_empty_blocks_response (nano::asc_pull_req::id_t id) const;
-	std::deque<std::shared_ptr<nano::block>> prepare_blocks (secure::transaction const &, nano::block_hash start_block, std::size_t count) const;
+	celerix::asc_pull_ack process (secure::transaction const &, celerix::asc_pull_req::id_t id, celerix::asc_pull_req::blocks_payload const & request) const;
+	celerix::asc_pull_ack prepare_response (secure::transaction const &, celerix::asc_pull_req::id_t id, celerix::block_hash start_block, std::size_t count) const;
+	celerix::asc_pull_ack prepare_empty_blocks_response (celerix::asc_pull_req::id_t id) const;
+	std::deque<std::shared_ptr<celerix::block>> prepare_blocks (secure::transaction const &, celerix::block_hash start_block, std::size_t count) const;
 
 	/*
 	 * Account info request
 	 */
-	nano::asc_pull_ack process (secure::transaction const &, nano::asc_pull_req::id_t id, nano::asc_pull_req::account_info_payload const & request) const;
+	celerix::asc_pull_ack process (secure::transaction const &, celerix::asc_pull_req::id_t id, celerix::asc_pull_req::account_info_payload const & request) const;
 
 	/*
 	 * Frontiers request
 	 */
-	nano::asc_pull_ack process (secure::transaction const &, nano::asc_pull_req::id_t id, nano::asc_pull_req::frontiers_payload const & request) const;
+	celerix::asc_pull_ack process (secure::transaction const &, celerix::asc_pull_req::id_t id, celerix::asc_pull_req::frontiers_payload const & request) const;
 
 	/*
 	 * Checks if the request should be dropped early on
 	 */
-	bool verify (nano::asc_pull_req const & message) const;
-	bool verify_request_type (nano::asc_pull_type) const;
+	bool verify (celerix::asc_pull_req const & message) const;
+	bool verify_request_type (celerix::asc_pull_type) const;
 
 private: // Dependencies
 	bootstrap_server_config const & config;
-	nano::store::component & store;
-	nano::ledger & ledger;
-	nano::network_constants const & network_constants;
-	nano::stats & stats;
+	celerix::store::component & store;
+	celerix::ledger & ledger;
+	celerix::network_constants const & network_constants;
+	celerix::stats & stats;
 
 private:
-	nano::fair_queue<request_t, nano::no_value> queue;
+	celerix::fair_queue<request_t, celerix::no_value> queue;
 
 	std::atomic<bool> stopped{ false };
-	nano::condition_variable condition;
-	mutable nano::mutex mutex;
+	celerix::condition_variable condition;
+	mutable celerix::mutex mutex;
 	std::vector<std::thread> threads;
 
 public: // Config
 	/** Maximum number of blocks to send in a single response, cannot be higher than capacity of a single `asc_pull_ack` message */
-	constexpr static std::size_t max_blocks = nano::asc_pull_ack::blocks_payload::max_blocks;
-	constexpr static std::size_t max_frontiers = nano::asc_pull_ack::frontiers_payload::max_frontiers;
+	constexpr static std::size_t max_blocks = celerix::asc_pull_ack::blocks_payload::max_blocks;
+	constexpr static std::size_t max_frontiers = celerix::asc_pull_ack::frontiers_payload::max_frontiers;
 };
 
-nano::stat::detail to_stat_detail (nano::asc_pull_type);
+celerix::stat::detail to_stat_detail (celerix::asc_pull_type);
 }

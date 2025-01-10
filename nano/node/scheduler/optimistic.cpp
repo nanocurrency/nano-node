@@ -1,15 +1,15 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/stats.hpp>
-#include <nano/lib/tomlconfig.hpp>
-#include <nano/node/active_elections.hpp>
-#include <nano/node/election_behavior.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/scheduler/optimistic.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/ledger_set_any.hpp>
-#include <nano/secure/ledger_set_confirmed.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/stats.hpp>
+#include <celerix/lib/tomlconfig.hpp>
+#include <celerix/node/active_elections.hpp>
+#include <celerix/node/election_behavior.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/scheduler/optimistic.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/ledger_set_any.hpp>
+#include <celerix/secure/ledger_set_confirmed.hpp>
 
-nano::scheduler::optimistic::optimistic (optimistic_config const & config_a, nano::node & node_a, nano::ledger & ledger_a, nano::active_elections & active_a, nano::network_constants const & network_constants_a, nano::stats & stats_a) :
+celerix::scheduler::optimistic::optimistic (optimistic_config const & config_a, celerix::node & node_a, celerix::ledger & ledger_a, celerix::active_elections & active_a, celerix::network_constants const & network_constants_a, celerix::stats & stats_a) :
 	config{ config_a },
 	node{ node_a },
 	ledger{ ledger_a },
@@ -19,13 +19,13 @@ nano::scheduler::optimistic::optimistic (optimistic_config const & config_a, nan
 {
 }
 
-nano::scheduler::optimistic::~optimistic ()
+celerix::scheduler::optimistic::~optimistic ()
 {
 	// Thread must be stopped before destruction
 	debug_assert (!thread.joinable ());
 }
 
-void nano::scheduler::optimistic::start ()
+void celerix::scheduler::optimistic::start ()
 {
 	debug_assert (!thread.joinable ());
 
@@ -35,27 +35,27 @@ void nano::scheduler::optimistic::start ()
 	}
 
 	thread = std::thread{ [this] () {
-		nano::thread_role::set (nano::thread_role::name::scheduler_optimistic);
+		celerix::thread_role::set (celerix::thread_role::name::scheduler_optimistic);
 		run ();
 	} };
 }
 
-void nano::scheduler::optimistic::stop ()
+void celerix::scheduler::optimistic::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
 		stopped = true;
 	}
 	notify ();
-	nano::join_or_pass (thread);
+	celerix::join_or_pass (thread);
 }
 
-void nano::scheduler::optimistic::notify ()
+void celerix::scheduler::optimistic::notify ()
 {
 	condition.notify_all ();
 }
 
-bool nano::scheduler::optimistic::activate_predicate (const nano::account_info & account_info, const nano::confirmation_height_info & conf_info) const
+bool celerix::scheduler::optimistic::activate_predicate (const celerix::account_info & account_info, const celerix::confirmation_height_info & conf_info) const
 {
 	// Chain with a big enough gap between account frontier and confirmation frontier
 	if (account_info.block_count - conf_info.height > config.gap_threshold)
@@ -70,7 +70,7 @@ bool nano::scheduler::optimistic::activate_predicate (const nano::account_info &
 	return false;
 }
 
-bool nano::scheduler::optimistic::activate (const nano::account & account, const nano::account_info & account_info, const nano::confirmation_height_info & conf_info)
+bool celerix::scheduler::optimistic::activate (const celerix::account & account, const celerix::account_info & account_info, const celerix::confirmation_height_info & conf_info)
 {
 	if (!config.enable)
 	{
@@ -81,7 +81,7 @@ bool nano::scheduler::optimistic::activate (const nano::account & account, const
 	if (activate_predicate (account_info, conf_info))
 	{
 		{
-			nano::lock_guard<nano::mutex> lock{ mutex };
+			celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 			// Prevent duplicate candidate accounts
 			if (candidates.get<tag_account> ().contains (account))
@@ -94,19 +94,19 @@ bool nano::scheduler::optimistic::activate (const nano::account & account, const
 				return false; // Not activated
 			}
 
-			stats.inc (nano::stat::type::optimistic_scheduler, nano::stat::detail::activated);
-			candidates.push_back ({ account, nano::clock::now () });
+			stats.inc (celerix::stat::type::optimistic_scheduler, celerix::stat::detail::activated);
+			candidates.push_back ({ account, celerix::clock::now () });
 		}
 		return true; // Activated
 	}
 	return false; // Not activated
 }
 
-bool nano::scheduler::optimistic::predicate () const
+bool celerix::scheduler::optimistic::predicate () const
 {
 	debug_assert (!mutex.try_lock ());
 
-	if (active.vacancy (nano::election_behavior::optimistic) <= 0)
+	if (active.vacancy (celerix::election_behavior::optimistic) <= 0)
 	{
 		return false;
 	}
@@ -116,16 +116,16 @@ bool nano::scheduler::optimistic::predicate () const
 	}
 
 	auto candidate = candidates.front ();
-	bool result = nano::elapsed (candidate.timestamp, network_constants.optimistic_activation_delay);
+	bool result = celerix::elapsed (candidate.timestamp, network_constants.optimistic_activation_delay);
 	return result;
 }
 
-void nano::scheduler::optimistic::run ()
+void celerix::scheduler::optimistic::run ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		stats.inc (nano::stat::type::optimistic_scheduler, nano::stat::detail::loop);
+		stats.inc (celerix::stat::type::optimistic_scheduler, celerix::stat::detail::loop);
 
 		if (predicate ())
 		{
@@ -151,7 +151,7 @@ void nano::scheduler::optimistic::run ()
 	}
 }
 
-void nano::scheduler::optimistic::run_one (secure::transaction const & transaction, entry const & candidate)
+void celerix::scheduler::optimistic::run_one (secure::transaction const & transaction, entry const & candidate)
 {
 	auto block = ledger.any.block_get (transaction, ledger.any.account_head (transaction, candidate.account));
 	if (block)
@@ -161,18 +161,18 @@ void nano::scheduler::optimistic::run_one (secure::transaction const & transacti
 		{
 			// Try to insert it into AEC
 			// We check for AEC vacancy inside our predicate
-			auto result = node.active.insert (block, nano::election_behavior::optimistic);
+			auto result = node.active.insert (block, celerix::election_behavior::optimistic);
 
-			stats.inc (nano::stat::type::optimistic_scheduler, result.inserted ? nano::stat::detail::insert : nano::stat::detail::insert_failed);
+			stats.inc (celerix::stat::type::optimistic_scheduler, result.inserted ? celerix::stat::detail::insert : celerix::stat::detail::insert_failed);
 		}
 	}
 }
 
-nano::container_info nano::scheduler::optimistic::container_info () const
+celerix::container_info celerix::scheduler::optimistic::container_info () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("candidates", candidates);
 	return info;
 }
@@ -181,7 +181,7 @@ nano::container_info nano::scheduler::optimistic::container_info () const
  * optimistic_scheduler_config
  */
 
-nano::error nano::scheduler::optimistic_config::deserialize (nano::tomlconfig & toml)
+celerix::error celerix::scheduler::optimistic_config::deserialize (celerix::tomlconfig & toml)
 {
 	toml.get ("enable", enable);
 	toml.get ("gap_threshold", gap_threshold);
@@ -190,7 +190,7 @@ nano::error nano::scheduler::optimistic_config::deserialize (nano::tomlconfig & 
 	return toml.get_error ();
 }
 
-nano::error nano::scheduler::optimistic_config::serialize (nano::tomlconfig & toml) const
+celerix::error celerix::scheduler::optimistic_config::serialize (celerix::tomlconfig & toml) const
 {
 	toml.put ("enable", enable, "Enable or disable optimistic elections\ntype:bool");
 	toml.put ("gap_threshold", gap_threshold, "Minimum difference between confirmation frontier and account frontier to become a candidate for optimistic confirmation\ntype:uint64");

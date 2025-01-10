@@ -2,13 +2,13 @@
 
 #include <memory>
 
-namespace nano
+namespace celerix
 {
 class election;
 class election_insertion_result final
 {
 public:
-	std::shared_ptr<nano::election> election;
+	std::shared_ptr<celerix::election> election;
 	bool inserted{ false };
 };
 }

@@ -1,4 +1,4 @@
-#include <nano/store/final_vote.hpp>
-#include <nano/store/typed_iterator_templ.hpp>
+#include <celerix/store/final_vote.hpp>
+#include <celerix/store/typed_iterator_templ.hpp>
 
-template class nano::store::typed_iterator<nano::qualified_root, nano::block_hash>;
+template class celerix::store::typed_iterator<celerix::qualified_root, celerix::block_hash>;

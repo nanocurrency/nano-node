@@ -1,15 +1,15 @@
-#include <nano/lib/timer.hpp>
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/timer.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <iomanip>
 #include <sstream>
 
 namespace
 {
-template <typename U, std::enable_if_t<std::is_same<U, std::chrono::nanoseconds>::value> * = nullptr>
+template <typename U, std::enable_if_t<std::is_same<U, std::chrono::celerixseconds>::value> * = nullptr>
 std::string typed_unit ()
 {
-	return "nanoseconds";
+	return "celerixseconds";
 }
 
 template <typename U, std::enable_if_t<std::is_same<U, std::chrono::microseconds>::value> * = nullptr>
@@ -44,44 +44,44 @@ std::string typed_unit ()
 }
 
 template <typename UNIT, typename CLOCK>
-nano::timer<UNIT, CLOCK>::timer (nano::timer_state state_a, std::string const & description_a) :
+celerix::timer<UNIT, CLOCK>::timer (celerix::timer_state state_a, std::string const & description_a) :
 	desc (description_a)
 {
-	if (state_a == nano::timer_state::started)
+	if (state_a == celerix::timer_state::started)
 	{
 		start ();
 	}
 }
 
 template <typename UNIT, typename CLOCK>
-nano::timer<UNIT, CLOCK>::timer (std::string const & description_a) :
+celerix::timer<UNIT, CLOCK>::timer (std::string const & description_a) :
 	desc (description_a)
 {
 }
 
 template <typename UNIT, typename CLOCK>
-nano::timer<UNIT, CLOCK>::timer (std::string const & description_a, nano::timer<UNIT, CLOCK> * parent_a) :
+celerix::timer<UNIT, CLOCK>::timer (std::string const & description_a, celerix::timer<UNIT, CLOCK> * parent_a) :
 	parent (parent_a),
 	desc (description_a)
 {
 }
 
 template <typename UNIT, typename CLOCK>
-nano::timer<UNIT, CLOCK> & nano::timer<UNIT, CLOCK>::set_minimum (UNIT minimum_a)
+celerix::timer<UNIT, CLOCK> & celerix::timer<UNIT, CLOCK>::set_minimum (UNIT minimum_a)
 {
 	minimum = minimum_a;
 	return *this;
 }
 
 template <typename UNIT, typename CLOCK>
-nano::timer<UNIT, CLOCK> & nano::timer<UNIT, CLOCK>::child (std::string const & description_a)
+celerix::timer<UNIT, CLOCK> & celerix::timer<UNIT, CLOCK>::child (std::string const & description_a)
 {
 	children.emplace_back (description_a, this);
 	return children.back ();
 }
 
 template <typename UNIT, typename CLOCK>
-nano::timer<UNIT, CLOCK> & nano::timer<UNIT, CLOCK>::start_child (std::string const & description_a)
+celerix::timer<UNIT, CLOCK> & celerix::timer<UNIT, CLOCK>::start_child (std::string const & description_a)
 {
 	auto & child_timer = child (description_a);
 	child_timer.start ();
@@ -89,18 +89,18 @@ nano::timer<UNIT, CLOCK> & nano::timer<UNIT, CLOCK>::start_child (std::string co
 }
 
 template <typename UNIT, typename CLOCK>
-void nano::timer<UNIT, CLOCK>::start ()
+void celerix::timer<UNIT, CLOCK>::start ()
 {
-	debug_assert (state == nano::timer_state::stopped);
-	state = nano::timer_state::started;
+	debug_assert (state == celerix::timer_state::stopped);
+	state = celerix::timer_state::started;
 	begin = CLOCK::now ();
 }
 
 template <typename UNIT, typename CLOCK>
-UNIT nano::timer<UNIT, CLOCK>::restart ()
+UNIT celerix::timer<UNIT, CLOCK>::restart ()
 {
 	auto current = ticks;
-	state = nano::timer_state::started;
+	state = celerix::timer_state::started;
 	begin = CLOCK::now ();
 	ticks = UNIT::zero ();
 	measurements = 0;
@@ -108,33 +108,33 @@ UNIT nano::timer<UNIT, CLOCK>::restart ()
 }
 
 template <typename UNIT, typename CLOCK>
-UNIT nano::timer<UNIT, CLOCK>::pause ()
+UNIT celerix::timer<UNIT, CLOCK>::pause ()
 {
 	++measurements;
 	return stop ();
 }
 
 template <typename UNIT, typename CLOCK>
-void nano::timer<UNIT, CLOCK>::update_ticks ()
+void celerix::timer<UNIT, CLOCK>::update_ticks ()
 {
 	auto end = CLOCK::now ();
 	ticks += std::chrono::duration_cast<UNIT> (end - begin);
 }
 
 template <typename UNIT, typename CLOCK>
-UNIT nano::timer<UNIT, CLOCK>::stop ()
+UNIT celerix::timer<UNIT, CLOCK>::stop ()
 {
-	debug_assert (state == nano::timer_state::started);
-	state = nano::timer_state::stopped;
+	debug_assert (state == celerix::timer_state::started);
+	state = celerix::timer_state::stopped;
 
 	update_ticks ();
 	return ticks;
 }
 
 template <typename UNIT, typename CLOCK>
-UNIT nano::timer<UNIT, CLOCK>::value ()
+UNIT celerix::timer<UNIT, CLOCK>::value ()
 {
-	if (state != nano::timer_state::stopped)
+	if (state != celerix::timer_state::stopped)
 	{
 		update_ticks ();
 	}
@@ -142,35 +142,35 @@ UNIT nano::timer<UNIT, CLOCK>::value ()
 }
 
 template <typename UNIT, typename CLOCK>
-UNIT nano::timer<UNIT, CLOCK>::since_start () const
+UNIT celerix::timer<UNIT, CLOCK>::since_start () const
 {
 	auto end = CLOCK::now ();
 	return std::chrono::duration_cast<UNIT> (end - begin);
 }
 
 template <typename UNIT, typename CLOCK>
-bool nano::timer<UNIT, CLOCK>::after_deadline (UNIT duration_a)
+bool celerix::timer<UNIT, CLOCK>::after_deadline (UNIT duration_a)
 {
 	auto end = CLOCK::now ();
 	return std::chrono::duration_cast<UNIT> (end - begin) > duration_a;
 }
 
 template <typename UNIT, typename CLOCK>
-bool nano::timer<UNIT, CLOCK>::before_deadline (UNIT duration_a)
+bool celerix::timer<UNIT, CLOCK>::before_deadline (UNIT duration_a)
 {
 	auto end = CLOCK::now ();
 	return std::chrono::duration_cast<UNIT> (end - begin) < duration_a;
 }
 
 template <typename UNIT, typename CLOCK>
-void nano::timer<UNIT, CLOCK>::stop (std::ostream & stream_a)
+void celerix::timer<UNIT, CLOCK>::stop (std::ostream & stream_a)
 {
 	stop ();
 	print (stream_a);
 }
 
 template <typename UNIT, typename CLOCK>
-void nano::timer<UNIT, CLOCK>::stop (std::string & output_a)
+void celerix::timer<UNIT, CLOCK>::stop (std::string & output_a)
 {
 	std::ostringstream stream;
 	stop (stream);
@@ -178,7 +178,7 @@ void nano::timer<UNIT, CLOCK>::stop (std::string & output_a)
 }
 
 template <typename UNIT, typename CLOCK>
-void nano::timer<UNIT, CLOCK>::print (std::ostream & stream_a)
+void celerix::timer<UNIT, CLOCK>::print (std::ostream & stream_a)
 {
 	if (ticks >= minimum)
 	{
@@ -208,23 +208,23 @@ void nano::timer<UNIT, CLOCK>::print (std::ostream & stream_a)
 }
 
 template <typename UNIT, typename CLOCK>
-std::string nano::timer<UNIT, CLOCK>::unit () const
+std::string celerix::timer<UNIT, CLOCK>::unit () const
 {
 	return typed_unit<UNIT> ();
 }
 
 template <typename UNIT, typename CLOCK>
-nano::timer_state nano::timer<UNIT, CLOCK>::current_state () const
+celerix::timer_state celerix::timer<UNIT, CLOCK>::current_state () const
 {
 	return state;
 }
 
 // Explicitly instantiate all realistically used timers
-template class nano::timer<std::chrono::milliseconds, std::chrono::steady_clock>;
-template class nano::timer<std::chrono::microseconds, std::chrono::steady_clock>;
-template class nano::timer<std::chrono::nanoseconds, std::chrono::steady_clock>;
-template class nano::timer<std::chrono::seconds, std::chrono::steady_clock>;
-template class nano::timer<std::chrono::milliseconds, std::chrono::system_clock>;
-template class nano::timer<std::chrono::microseconds, std::chrono::system_clock>;
-template class nano::timer<std::chrono::nanoseconds, std::chrono::system_clock>;
-template class nano::timer<std::chrono::seconds, std::chrono::system_clock>;
+template class celerix::timer<std::chrono::milliseconds, std::chrono::steady_clock>;
+template class celerix::timer<std::chrono::microseconds, std::chrono::steady_clock>;
+template class celerix::timer<std::chrono::celerixseconds, std::chrono::steady_clock>;
+template class celerix::timer<std::chrono::seconds, std::chrono::steady_clock>;
+template class celerix::timer<std::chrono::milliseconds, std::chrono::system_clock>;
+template class celerix::timer<std::chrono::microseconds, std::chrono::system_clock>;
+template class celerix::timer<std::chrono::celerixseconds, std::chrono::system_clock>;
+template class celerix::timer<std::chrono::seconds, std::chrono::system_clock>;

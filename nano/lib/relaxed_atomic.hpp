@@ -3,7 +3,7 @@
 #include <atomic>
 #include <type_traits>
 
-namespace nano
+namespace celerix
 {
 /* Default memory order of normal std::atomic operations is std::memory_order_seq_cst which provides
    a total global ordering of atomic operations as well as synchronization between threads. Weaker memory

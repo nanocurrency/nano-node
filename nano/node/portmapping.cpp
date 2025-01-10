@@ -1,6 +1,6 @@
-#include <nano/lib/thread_roles.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/portmapping.hpp>
+#include <celerix/lib/thread_roles.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/portmapping.hpp>
 
 #include <miniupnp/miniupnpc/include/upnpcommands.h>
 #include <miniupnp/miniupnpc/include/upnperrors.h>
@@ -9,7 +9,7 @@
 
 #include <fmt/format.h>
 
-std::string nano::mapping_protocol::to_string ()
+std::string celerix::mapping_protocol::to_string ()
 {
 	std::stringstream ss;
 	ss << name << " " << external_address << ":" << external_port;
@@ -21,7 +21,7 @@ std::string nano::mapping_protocol::to_string ()
  * port_mapping
  */
 
-nano::port_mapping::port_mapping (nano::node & node_a) :
+celerix::port_mapping::port_mapping (celerix::node & node_a) :
 	node (node_a),
 	// Kept UDP in the array (set disabled) so the port mapping is still
 	// implemented in case other transport protocols that rely on it is added.
@@ -29,12 +29,12 @@ nano::port_mapping::port_mapping (nano::node & node_a) :
 {
 }
 
-nano::port_mapping::~port_mapping ()
+celerix::port_mapping::~port_mapping ()
 {
 	debug_assert (!thread.joinable ());
 }
 
-void nano::port_mapping::start ()
+void celerix::port_mapping::start ()
 {
 	debug_assert (!thread.joinable ());
 
@@ -51,15 +51,15 @@ void nano::port_mapping::start ()
 	}
 
 	thread = std::thread ([this] {
-		nano::thread_role::set (nano::thread_role::name::port_mapping);
+		celerix::thread_role::set (celerix::thread_role::name::port_mapping);
 		run ();
 	});
 }
 
-void nano::port_mapping::stop ()
+void celerix::port_mapping::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> guard (mutex);
+		celerix::lock_guard<celerix::mutex> guard (mutex);
 		stopped = true;
 	}
 	condition.notify_all ();
@@ -70,11 +70,11 @@ void nano::port_mapping::stop ()
 	}
 }
 
-void nano::port_mapping::shutdown ()
+void celerix::port_mapping::shutdown ()
 {
-	node.logger.debug (nano::log::type::upnp, "UPnP shutdown...");
+	node.logger.debug (celerix::log::type::upnp, "UPnP shutdown...");
 
-	nano::lock_guard<nano::mutex> guard_l (mutex);
+	celerix::lock_guard<celerix::mutex> guard_l (mutex);
 	for (auto & protocol : protocols | boost::adaptors::filtered ([] (auto const & p) { return p.enabled; }))
 	{
 		if (protocol.external_port != 0)
@@ -86,14 +86,14 @@ void nano::port_mapping::shutdown ()
 			auto delete_error_l = UPNP_DeletePortMapping (upnp.urls.controlURL, upnp.data.first.servicetype, external_port_str.c_str (), protocol.name, address_str.c_str ());
 			if (delete_error_l)
 			{
-				node.logger.warn (nano::log::type::upnp, "UPnP shutdown {} port mapping failed: {} ({})",
+				node.logger.warn (celerix::log::type::upnp, "UPnP shutdown {} port mapping failed: {} ({})",
 				protocol.name,
 				delete_error_l,
 				strupnperror (delete_error_l));
 			}
 			else
 			{
-				node.logger.info (nano::log::type::upnp, "UPnP shutdown {} port mapping successful: {}:{}",
+				node.logger.info (celerix::log::type::upnp, "UPnP shutdown {} port mapping successful: {}:{}",
 				protocol.name,
 				protocol.external_address.to_string (),
 				protocol.external_port);
@@ -102,12 +102,12 @@ void nano::port_mapping::shutdown ()
 	}
 }
 
-std::string nano::port_mapping::get_config_port (std::string const & node_port_a)
+std::string celerix::port_mapping::get_config_port (std::string const & node_port_a)
 {
 	return node.config.external_port != 0 ? std::to_string (node.config.external_port) : node_port_a;
 }
 
-std::string nano::port_mapping::to_string ()
+std::string celerix::port_mapping::to_string ()
 {
 	std::stringstream ss;
 
@@ -121,7 +121,7 @@ std::string nano::port_mapping::to_string ()
 	return ss.str ();
 };
 
-void nano::port_mapping::refresh_devices ()
+void celerix::port_mapping::refresh_devices ()
 {
 	upnp_state upnp_l;
 	int discover_error_l = 0;
@@ -131,19 +131,19 @@ void nano::port_mapping::refresh_devices ()
 	auto igd_error_l (UPNP_GetValidIGD (upnp_l.devices, &upnp_l.urls, &upnp_l.data, local_address_l.data (), sizeof (local_address_l)));
 
 	// Bump logging level periodically
-	node.logger.log ((check_count % 15 == 0) ? nano::log::level::info : nano::log::level::debug,
-	nano::log::type::upnp, "UPnP local address: {}, discovery: {}, IGD search: {}",
+	node.logger.log ((check_count % 15 == 0) ? celerix::log::level::info : celerix::log::level::debug,
+	celerix::log::type::upnp, "UPnP local address: {}, discovery: {}, IGD search: {}",
 	local_address_l.data (),
 	discover_error_l,
 	igd_error_l);
 
 	for (auto i (upnp_l.devices); i != nullptr; i = i->pNext)
 	{
-		node.logger.debug (nano::log::type::upnp, "UPnP device url: {}, st: {}, usn: {}", i->descURL, i->st, i->usn);
+		node.logger.debug (celerix::log::type::upnp, "UPnP device url: {}, st: {}, usn: {}", i->descURL, i->st, i->usn);
 	}
 
 	// Update port mapping
-	nano::lock_guard<nano::mutex> guard_l (mutex);
+	celerix::lock_guard<celerix::mutex> guard_l (mutex);
 	upnp = std::move (upnp_l);
 	if (igd_error_l == 1 || igd_error_l == 2)
 	{
@@ -152,23 +152,23 @@ void nano::port_mapping::refresh_devices ()
 	}
 }
 
-nano::endpoint nano::port_mapping::external_address ()
+celerix::endpoint celerix::port_mapping::external_address ()
 {
-	nano::endpoint result_l (boost::asio::ip::address_v6{}, 0);
-	nano::lock_guard<nano::mutex> guard_l (mutex);
+	celerix::endpoint result_l (boost::asio::ip::address_v6{}, 0);
+	celerix::lock_guard<celerix::mutex> guard_l (mutex);
 	for (auto & protocol : protocols | boost::adaptors::filtered ([] (auto const & p) { return p.enabled; }))
 	{
 		if (protocol.external_port != 0)
 		{
-			result_l = nano::endpoint (protocol.external_address, protocol.external_port);
+			result_l = celerix::endpoint (protocol.external_address, protocol.external_port);
 		}
 	}
 	return result_l;
 }
 
-void nano::port_mapping::refresh_mapping ()
+void celerix::port_mapping::refresh_mapping ()
 {
-	nano::lock_guard<nano::mutex> guard_l (mutex);
+	celerix::lock_guard<celerix::mutex> guard_l (mutex);
 
 	if (stopped)
 	{
@@ -181,7 +181,7 @@ void nano::port_mapping::refresh_mapping ()
 	// We don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
 	for (auto & protocol : protocols | boost::adaptors::filtered ([] (auto const & p) { return p.enabled; }))
 	{
-		auto upnp_description = fmt::format ("Nano Node ({})", node.network_params.network.get_current_network_as_string ());
+		auto upnp_description = fmt::format ("Celerix Node ({})", node.network_params.network.get_current_network_as_string ());
 		std::string address_str = address.to_string ();
 		std::string lease_duration_str = std::to_string (node.network_params.portmapping.lease_duration.count ());
 
@@ -190,7 +190,7 @@ void nano::port_mapping::refresh_mapping ()
 		{
 			protocol.external_port = static_cast<uint16_t> (std::atoi (config_port_l.data ()));
 
-			node.logger.info (nano::log::type::upnp, "UPnP {} {}:{} mapped to: {}",
+			node.logger.info (celerix::log::type::upnp, "UPnP {} {}:{} mapped to: {}",
 			protocol.name,
 			protocol.external_address.to_string (),
 			config_port_l,
@@ -200,7 +200,7 @@ void nano::port_mapping::refresh_mapping ()
 		{
 			protocol.external_port = 0;
 
-			node.logger.warn (nano::log::type::upnp, "UPnP {} {}:{} failed: {} ({})",
+			node.logger.warn (celerix::log::type::upnp, "UPnP {} {}:{} failed: {} ({})",
 			protocol.name,
 			protocol.external_address.to_string (),
 			config_port_l,
@@ -210,10 +210,10 @@ void nano::port_mapping::refresh_mapping ()
 	}
 }
 
-bool nano::port_mapping::check_lost_or_old_mapping ()
+bool celerix::port_mapping::check_lost_or_old_mapping ()
 {
 	bool result_l (false);
-	nano::lock_guard<nano::mutex> guard_l (mutex);
+	celerix::lock_guard<celerix::mutex> guard_l (mutex);
 	auto node_port_l (std::to_string (node.network.endpoint ().port ()));
 	auto config_port_l (get_config_port (node_port_l));
 	for (auto & protocol : protocols | boost::adaptors::filtered ([] (auto const & p) { return p.enabled; }))
@@ -231,7 +231,7 @@ bool nano::port_mapping::check_lost_or_old_mapping ()
 		{
 			result_l = true;
 
-			node.logger.warn (nano::log::type::upnp, "UPnP get specific port mapping failed: {} ({})",
+			node.logger.warn (celerix::log::type::upnp, "UPnP get specific port mapping failed: {} ({})",
 			verify_port_mapping_error_l,
 			strupnperror (verify_port_mapping_error_l));
 		}
@@ -239,7 +239,7 @@ bool nano::port_mapping::check_lost_or_old_mapping ()
 		{
 			result_l = true;
 
-			node.logger.info (nano::log::type::upnp, "UPnP lease time getting old, remaining time: {}, lease time: {}, below the threshold: {}",
+			node.logger.info (celerix::log::type::upnp, "UPnP lease time getting old, remaining time: {}, lease time: {}, below the threshold: {}",
 			remaining_from_port_mapping,
 			lease_duration,
 			lease_duration_divided_by_two);
@@ -257,12 +257,12 @@ bool nano::port_mapping::check_lost_or_old_mapping ()
 		{
 			protocol.external_address = boost::asio::ip::address_v4::any ();
 
-			node.logger.warn (nano::log::type::upnp, "UPnP get external ip address failed: {} ({})",
+			node.logger.warn (celerix::log::type::upnp, "UPnP get external ip address failed: {} ({})",
 			external_ip_error_l,
 			strupnperror (external_ip_error_l));
 		}
 
-		node.logger.debug (nano::log::type::upnp, "UPnP {} mapping verification response: {}, external ip response: {}, external ip: {}, internal ip: {}, remaining lease: {}",
+		node.logger.debug (celerix::log::type::upnp, "UPnP {} mapping verification response: {}, external ip response: {}, external ip: {}, internal ip: {}, remaining lease: {}",
 		protocol.name,
 		verify_port_mapping_error_l,
 		external_ip_error_l,
@@ -273,7 +273,7 @@ bool nano::port_mapping::check_lost_or_old_mapping ()
 	return result_l;
 }
 
-void nano::port_mapping::check_mapping ()
+void celerix::port_mapping::check_mapping ()
 {
 	debug_assert (!node.network_params.network.is_dev_network ());
 
@@ -289,25 +289,25 @@ void nano::port_mapping::check_mapping ()
 		}
 		else
 		{
-			node.logger.info (nano::log::type::upnp, "UPnP no need to refresh the mapping");
+			node.logger.info (celerix::log::type::upnp, "UPnP no need to refresh the mapping");
 		}
 	}
 	else
 	{
 		// Bump logging level periodically
-		node.logger.log ((check_count % 15 == 0) ? nano::log::level::info : nano::log::level::debug,
-		nano::log::type::upnp, "UPnP no IGD devices found");
+		node.logger.log ((check_count % 15 == 0) ? celerix::log::level::info : celerix::log::level::debug,
+		celerix::log::type::upnp, "UPnP no IGD devices found");
 	}
 
 	++check_count;
 }
 
-void nano::port_mapping::run ()
+void celerix::port_mapping::run ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		node.stats.inc (nano::stat::type::port_mapping, nano::stat::detail::loop);
+		node.stats.inc (celerix::stat::type::port_mapping, celerix::stat::detail::loop);
 
 		lock.unlock ();
 		check_mapping ();
@@ -325,7 +325,7 @@ void nano::port_mapping::run ()
  * upnp_state
  */
 
-std::string nano::upnp_state::to_string ()
+std::string celerix::upnp_state::to_string ()
 {
 	std::stringstream ss;
 	ss << "Discovered UPnP devices:" << std::endl;
@@ -342,7 +342,7 @@ std::string nano::upnp_state::to_string ()
 	return ss.str ();
 }
 
-nano::upnp_state::~upnp_state ()
+celerix::upnp_state::~upnp_state ()
 {
 	if (devices)
 	{
@@ -351,7 +351,7 @@ nano::upnp_state::~upnp_state ()
 	FreeUPNPUrls (&urls);
 }
 
-nano::upnp_state & nano::upnp_state::operator= (nano::upnp_state && other_a)
+celerix::upnp_state & celerix::upnp_state::operator= (celerix::upnp_state && other_a)
 {
 	if (this == &other_a)
 	{

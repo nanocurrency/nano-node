@@ -1,12 +1,12 @@
 #pragma once
 
-#include <nano/lib/config.hpp>
-#include <nano/lib/fwd.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/fwd.hpp>
 
 #include <chrono>
 #include <string_view>
 
-namespace nano
+namespace celerix
 {
 /**
  * Network variants with different genesis blocks and network parameters
@@ -15,16 +15,16 @@ enum class networks : uint16_t
 {
 	invalid = 0x0,
 	// Low work parameters, publicly known genesis key, dev IP ports
-	nano_dev_network = 0x5241, // 'R', 'A'
+	celerix_dev_network = 0x5241, // 'R', 'A'
 	// Normal work parameters, secret beta genesis key, beta IP ports
-	nano_beta_network = 0x5242, // 'R', 'B'
+	celerix_beta_network = 0x5242, // 'R', 'B'
 	// Normal work parameters, secret live key, live IP ports
-	nano_live_network = 0x5243, // 'R', 'C'
+	celerix_live_network = 0x5243, // 'R', 'C'
 	// Normal work parameters, secret test genesis key, test IP ports
-	nano_test_network = 0x5258, // 'R', 'X'
+	celerix_test_network = 0x5258, // 'R', 'X'
 };
 
-std::string_view to_string (nano::networks);
+std::string_view to_string (celerix::networks);
 
 class work_thresholds
 {
@@ -46,29 +46,29 @@ public:
 	{
 	}
 	work_thresholds () = delete;
-	work_thresholds operator= (nano::work_thresholds const & other_a)
+	work_thresholds operator= (celerix::work_thresholds const & other_a)
 	{
 		return other_a;
 	}
 
-	uint64_t threshold_entry (nano::work_version const, nano::block_type const) const;
-	uint64_t threshold (nano::block_details const &) const;
+	uint64_t threshold_entry (celerix::work_version const, celerix::block_type const) const;
+	uint64_t threshold (celerix::block_details const &) const;
 	// Ledger threshold
-	uint64_t threshold (nano::work_version const, nano::block_details const) const;
-	uint64_t threshold_base (nano::work_version const) const;
-	uint64_t value (nano::root const & root_a, uint64_t work_a) const;
+	uint64_t threshold (celerix::work_version const, celerix::block_details const) const;
+	uint64_t threshold_base (celerix::work_version const) const;
+	uint64_t value (celerix::root const & root_a, uint64_t work_a) const;
 	double normalized_multiplier (double const, uint64_t const) const;
 	double denormalized_multiplier (double const, uint64_t const) const;
-	uint64_t difficulty (nano::work_version const, nano::root const &, uint64_t const) const;
-	uint64_t difficulty (nano::block const & block_a) const;
-	bool validate_entry (nano::work_version const, nano::root const &, uint64_t const) const;
-	bool validate_entry (nano::block const &) const;
+	uint64_t difficulty (celerix::work_version const, celerix::root const &, uint64_t const) const;
+	uint64_t difficulty (celerix::block const & block_a) const;
+	bool validate_entry (celerix::work_version const, celerix::root const &, uint64_t const) const;
+	bool validate_entry (celerix::block const &) const;
 
 	/** Network work thresholds. Define these inline as constexpr when moving to cpp17. */
-	static nano::work_thresholds const publish_full;
-	static nano::work_thresholds const publish_beta;
-	static nano::work_thresholds const publish_dev;
-	static nano::work_thresholds const publish_test;
+	static celerix::work_thresholds const publish_full;
+	static celerix::work_thresholds const publish_beta;
+	static celerix::work_thresholds const publish_dev;
+	static celerix::work_thresholds const publish_test;
 };
 
 class network_constants
@@ -76,7 +76,7 @@ class network_constants
 	static constexpr std::chrono::seconds default_cleanup_period = std::chrono::seconds (60);
 
 public:
-	network_constants (nano::work_thresholds & work_, nano::networks network_a) :
+	network_constants (celerix::work_thresholds & work_, celerix::networks network_a) :
 		current_network (network_a),
 		work (work_),
 		principal_weight_factor (1000), // 0.1% A representative is classified as principal based on its weight and this factor
@@ -139,8 +139,8 @@ public:
 	}
 
 	/** The network this param object represents. This may differ from the global active network; this is needed for certain --debug... commands */
-	nano::networks current_network{ nano::network_constants::active_network };
-	nano::work_thresholds & work;
+	celerix::networks current_network{ celerix::network_constants::active_network };
+	celerix::work_thresholds & work;
 
 	unsigned principal_weight_factor;
 	uint16_t default_node_port;
@@ -190,7 +190,7 @@ public:
 	std::chrono::milliseconds rep_crawler_warmup_interval{ 1000 * 3 };
 
 	/** Returns the network this object contains values for */
-	nano::networks network () const
+	celerix::networks network () const
 	{
 		return current_network;
 	}
@@ -200,12 +200,12 @@ public:
 	 * If not called, the compile-time option will be used.
 	 * @param network_a The new active network
 	 */
-	static void set_active_network (nano::networks network_a)
+	static void set_active_network (celerix::networks network_a)
 	{
 		active_network = network_a;
 	}
 
-	static nano::networks get_active_network ()
+	static celerix::networks get_active_network ()
 	{
 		return active_network;
 	}
@@ -220,19 +220,19 @@ public:
 		auto error{ false };
 		if (network_a == "live")
 		{
-			active_network = nano::networks::nano_live_network;
+			active_network = celerix::networks::celerix_live_network;
 		}
 		else if (network_a == "beta")
 		{
-			active_network = nano::networks::nano_beta_network;
+			active_network = celerix::networks::celerix_beta_network;
 		}
 		else if (network_a == "dev")
 		{
-			active_network = nano::networks::nano_dev_network;
+			active_network = celerix::networks::celerix_dev_network;
 		}
 		else if (network_a == "test")
 		{
-			active_network = nano::networks::nano_test_network;
+			active_network = celerix::networks::celerix_test_network;
 		}
 		else
 		{
@@ -245,13 +245,13 @@ public:
 	{
 		switch (current_network)
 		{
-			case nano::networks::nano_live_network:
+			case celerix::networks::celerix_live_network:
 				return "live";
-			case nano::networks::nano_beta_network:
+			case celerix::networks::celerix_beta_network:
 				return "beta";
-			case nano::networks::nano_dev_network:
+			case celerix::networks::celerix_dev_network:
 				return "dev";
-			case nano::networks::nano_test_network:
+			case celerix::networks::celerix_test_network:
 				return "test";
 			case networks::invalid:
 				break;
@@ -261,23 +261,23 @@ public:
 
 	bool is_live_network () const
 	{
-		return current_network == nano::networks::nano_live_network;
+		return current_network == celerix::networks::celerix_live_network;
 	}
 	bool is_beta_network () const
 	{
-		return current_network == nano::networks::nano_beta_network;
+		return current_network == celerix::networks::celerix_beta_network;
 	}
 	bool is_dev_network () const
 	{
-		return current_network == nano::networks::nano_dev_network;
+		return current_network == celerix::networks::celerix_dev_network;
 	}
 	bool is_test_network () const
 	{
-		return current_network == nano::networks::nano_test_network;
+		return current_network == celerix::networks::celerix_test_network;
 	}
 
 	/** Initial value is ACTIVE_NETWORK compile flag, but can be overridden by a CLI flag */
-	static nano::networks active_network;
+	static celerix::networks active_network;
 
 	/** Current protocol version */
 	uint8_t const protocol_version = 0x15;

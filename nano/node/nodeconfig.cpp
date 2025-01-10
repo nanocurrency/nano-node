@@ -1,12 +1,12 @@
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/config.hpp>
-#include <nano/lib/env.hpp>
-#include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/rpcconfig.hpp>
-#include <nano/lib/tomlconfig.hpp>
-#include <nano/node/nodeconfig.hpp>
-#include <nano/node/transport/transport.hpp>
+#include <celerix/crypto_lib/random_pool.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/env.hpp>
+#include <celerix/lib/jsonconfig.hpp>
+#include <celerix/lib/rpcconfig.hpp>
+#include <celerix/lib/tomlconfig.hpp>
+#include <celerix/node/nodeconfig.hpp>
+#include <celerix/node/transport/transport.hpp>
 
 #include <boost/format.hpp>
 
@@ -17,17 +17,17 @@ namespace
 char const * preconfigured_peers_key = "preconfigured_peers";
 char const * signature_checker_threads_key = "signature_checker_threads";
 char const * pow_sleep_interval_key = "pow_sleep_interval";
-std::string const default_live_peer_network = nano::env::get ("NANO_DEFAULT_PEER").value_or ("peering.nano.org");
-std::string const default_beta_peer_network = nano::env::get ("NANO_DEFAULT_PEER").value_or ("peering-beta.nano.org");
-std::string const default_test_peer_network = nano::env::get ("NANO_DEFAULT_PEER").value_or ("peering-test.nano.org");
+std::string const default_live_peer_network = celerix::env::get ("CELERIX_DEFAULT_PEER").value_or ("peering.celerix.org");
+std::string const default_beta_peer_network = celerix::env::get ("CELERIX_DEFAULT_PEER").value_or ("peering-beta.celerix.org");
+std::string const default_test_peer_network = celerix::env::get ("CELERIX_DEFAULT_PEER").value_or ("peering-test.celerix.org");
 }
 
-nano::node_config::node_config (nano::network_params & network_params) :
+celerix::node_config::node_config (celerix::network_params & network_params) :
 	node_config (std::nullopt, network_params)
 {
 }
 
-nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, nano::network_params & network_params) :
+celerix::node_config::node_config (const std::optional<uint16_t> & peering_port_a, celerix::network_params & network_params) :
 	network_params{ network_params },
 	peering_port{ peering_port_a },
 	hinted_scheduler{ network_params.network },
@@ -55,19 +55,19 @@ nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, 
 
 	switch (network_params.network.network ())
 	{
-		case nano::networks::nano_dev_network:
+		case celerix::networks::celerix_dev_network:
 			enable_voting = true;
 			preconfigured_representatives.push_back (network_params.ledger.genesis->account ());
 			break;
-		case nano::networks::nano_beta_network:
+		case celerix::networks::celerix_beta_network:
 		{
 			preconfigured_peers.emplace_back (default_beta_peer_network);
-			nano::account offline_representative;
-			release_assert (!offline_representative.decode_account ("nano_1defau1t9off1ine9rep99999999999999999999999999999999wgmuzxxy"));
+			celerix::account offline_representative;
+			release_assert (!offline_representative.decode_account ("celerix_1defau1t9off1ine9rep99999999999999999999999999999999wgmuzxxy"));
 			preconfigured_representatives.emplace_back (offline_representative);
 			break;
 		}
-		case nano::networks::nano_live_network:
+		case celerix::networks::celerix_live_network:
 			preconfigured_peers.emplace_back (default_live_peer_network);
 			preconfigured_representatives.emplace_back ("A30E0A32ED41C8607AA9212843392E853FCBCB4E7CB194E35C94F07F91DE59EF");
 			preconfigured_representatives.emplace_back ("67556D31DDFC2A440BF6147501449B4CB9572278D034EE686A6BEE29851681DF");
@@ -78,7 +78,7 @@ nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, 
 			preconfigured_representatives.emplace_back ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A");
 			preconfigured_representatives.emplace_back ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56");
 			break;
-		case nano::networks::nano_test_network:
+		case celerix::networks::celerix_test_network:
 			preconfigured_peers.push_back (default_test_peer_network);
 			preconfigured_representatives.push_back (network_params.ledger.genesis->account ());
 			break;
@@ -88,12 +88,12 @@ nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, 
 	}
 }
 
-nano::node_config::~node_config ()
+celerix::node_config::~node_config ()
 {
 	// Keep the node_config destructor definition here to avoid incomplete type issues
 }
 
-nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
+celerix::error celerix::node_config::serialize_toml (celerix::tomlconfig & toml) const
 {
 	if (peering_port.has_value ())
 	{
@@ -122,7 +122,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("vote_generator_delay", vote_generator_delay.count (), "Delay before votes are sent to allow for efficient bundling of hashes in votes.\ntype:milliseconds");
 	toml.put ("unchecked_cutoff_time", unchecked_cutoff_time.count (), "Number of seconds before deleting an unchecked entry.\nWarning: lower values (e.g., 3600 seconds, or 1 hour) may result in unsuccessful bootstraps, especially a bootstrap from scratch.\ntype:seconds");
 	toml.put ("tcp_io_timeout", tcp_io_timeout.count (), "Timeout for TCP connect-, read- and write operations.\nWarning: a low value (e.g., below 5 seconds) may result in TCP connections failing.\ntype:seconds");
-	toml.put ("pow_sleep_interval", pow_sleep_interval.count (), "Time to sleep between batch work generation attempts. Reduces max CPU usage at the expense of a longer generation time.\ntype:nanoseconds");
+	toml.put ("pow_sleep_interval", pow_sleep_interval.count (), "Time to sleep between batch work generation attempts. Reduces max CPU usage at the expense of a longer generation time.\ntype:celerixseconds");
 	toml.put ("external_address", external_address, "The external address of this node (NAT). If not set, the node will request this information via UPnP.\ntype:string,ip");
 	toml.put ("external_port", external_port, "The external port number of this node (NAT). Only used if external_address is set.\ntype:uint16");
 	toml.put ("use_memory_pools", use_memory_pools, "If true, allocate memory from memory pools. Enabling this may improve performance. Memory is never released to the OS.\ntype:bool");
@@ -149,7 +149,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 		work_peers_l->push_back (boost::str (boost::format ("%1%:%2%") % i->first % i->second));
 	}
 
-	auto preconfigured_peers_l (toml.create_array ("preconfigured_peers", "A list of \"address\" (hostname or ipv6 notation ip address) entries to identify preconfigured peers.\nThe contents of the NANO_DEFAULT_PEER environment variable are added to preconfigured_peers."));
+	auto preconfigured_peers_l (toml.create_array ("preconfigured_peers", "A list of \"address\" (hostname or ipv6 notation ip address) entries to identify preconfigured peers.\nThe contents of the CELERIX_DEFAULT_PEER environment variable are added to preconfigured_peers."));
 	for (auto i (preconfigured_peers.begin ()), n (preconfigured_peers.end ()); i != n; ++i)
 	{
 		preconfigured_peers_l->push_back (*i);
@@ -162,7 +162,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	}
 
 	/** Experimental node entries */
-	nano::tomlconfig experimental_l;
+	celerix::tomlconfig experimental_l;
 	auto secondary_work_peers_l (experimental_l.create_array ("secondary_work_peers", "A list of \"address:port\" entries to identify work peers for secondary work generation."));
 	for (auto i (secondary_work_peers.begin ()), n (secondary_work_peers.end ()); i != n; ++i)
 	{
@@ -172,7 +172,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	experimental_l.put ("max_pruning_depth", max_pruning_depth, "Limit for full blocks in chain after pruning.\ntype:uint64");
 	toml.put_child ("experimental", experimental_l);
 
-	nano::tomlconfig callback_l;
+	celerix::tomlconfig callback_l;
 	callback_l.put ("address", callback_address, "Callback address.\ntype:string,ip");
 	callback_l.put ("port", callback_port, "Callback port number.\ntype:uint16");
 	callback_l.put ("target", callback_target, "Callback target path.\ntype:string,uri");
@@ -182,98 +182,98 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	 * Subconfigs
 	 */
 
-	nano::tomlconfig websocket_l;
+	celerix::tomlconfig websocket_l;
 	websocket_config.serialize_toml (websocket_l);
 	toml.put_child ("websocket", websocket_l);
 
-	nano::tomlconfig ipc_l;
+	celerix::tomlconfig ipc_l;
 	ipc_config.serialize_toml (ipc_l);
 	toml.put_child ("ipc", ipc_l);
 
-	nano::tomlconfig diagnostics_l;
+	celerix::tomlconfig diagnostics_l;
 	diagnostics_config.serialize_toml (diagnostics_l);
 	toml.put_child ("diagnostics", diagnostics_l);
 
-	nano::tomlconfig stat_l;
+	celerix::tomlconfig stat_l;
 	stats_config.serialize_toml (stat_l);
 	toml.put_child ("statistics", stat_l);
 
-	nano::tomlconfig rocksdb_l;
+	celerix::tomlconfig rocksdb_l;
 	rocksdb_config.serialize_toml (rocksdb_l);
 	toml.put_child ("rocksdb", rocksdb_l);
 
-	nano::tomlconfig lmdb_l;
+	celerix::tomlconfig lmdb_l;
 	lmdb_config.serialize_toml (lmdb_l);
 	toml.put_child ("lmdb", lmdb_l);
 
-	nano::tomlconfig optimistic_l;
+	celerix::tomlconfig optimistic_l;
 	optimistic_scheduler.serialize (optimistic_l);
 	toml.put_child ("optimistic_scheduler", optimistic_l);
 
-	nano::tomlconfig priority_bucket_l;
+	celerix::tomlconfig priority_bucket_l;
 	priority_bucket.serialize (priority_bucket_l);
 	toml.put_child ("priority_bucket", priority_bucket_l);
 
-	nano::tomlconfig bootstrap_l;
+	celerix::tomlconfig bootstrap_l;
 	bootstrap.serialize (bootstrap_l);
 	toml.put_child ("bootstrap", bootstrap_l);
 
-	nano::tomlconfig bootstrap_server_l;
+	celerix::tomlconfig bootstrap_server_l;
 	bootstrap_server.serialize (bootstrap_server_l);
 	toml.put_child ("bootstrap_server", bootstrap_server_l);
 
-	nano::tomlconfig vote_cache_l;
+	celerix::tomlconfig vote_cache_l;
 	vote_cache.serialize (vote_cache_l);
 	toml.put_child ("vote_cache", vote_cache_l);
 
-	nano::tomlconfig rep_crawler_l;
+	celerix::tomlconfig rep_crawler_l;
 	rep_crawler.serialize (rep_crawler_l);
 	toml.put_child ("rep_crawler", rep_crawler_l);
 
-	nano::tomlconfig active_elections_l;
+	celerix::tomlconfig active_elections_l;
 	active_elections.serialize (active_elections_l);
 	toml.put_child ("active_elections", active_elections_l);
 
-	nano::tomlconfig block_processor_l;
+	celerix::tomlconfig block_processor_l;
 	block_processor.serialize (block_processor_l);
 	toml.put_child ("block_processor", block_processor_l);
 
-	nano::tomlconfig vote_processor_l;
+	celerix::tomlconfig vote_processor_l;
 	vote_processor.serialize (vote_processor_l);
 	toml.put_child ("vote_processor", vote_processor_l);
 
-	nano::tomlconfig peer_history_l;
+	celerix::tomlconfig peer_history_l;
 	peer_history.serialize (peer_history_l);
 	toml.put_child ("peer_history", peer_history_l);
 
-	nano::tomlconfig tcp_l;
+	celerix::tomlconfig tcp_l;
 	tcp.serialize (tcp_l);
 	toml.put_child ("tcp", tcp_l);
 
-	nano::tomlconfig request_aggregator_l;
+	celerix::tomlconfig request_aggregator_l;
 	request_aggregator.serialize (request_aggregator_l);
 	toml.put_child ("request_aggregator", request_aggregator_l);
 
-	nano::tomlconfig message_processor_l;
+	celerix::tomlconfig message_processor_l;
 	message_processor.serialize (message_processor_l);
 	toml.put_child ("message_processor", message_processor_l);
 
-	nano::tomlconfig monitor_l;
+	celerix::tomlconfig monitor_l;
 	monitor.serialize (monitor_l);
 	toml.put_child ("monitor", monitor_l);
 
-	nano::tomlconfig backlog_scan_l;
+	celerix::tomlconfig backlog_scan_l;
 	backlog_scan.serialize (backlog_scan_l);
 	toml.put_child ("backlog_scan", backlog_scan_l);
 
-	nano::tomlconfig bounded_backlog_l;
+	celerix::tomlconfig bounded_backlog_l;
 	bounded_backlog.serialize (bounded_backlog_l);
 	toml.put_child ("bounded_backlog", bounded_backlog_l);
 
 	return toml.get_error ();
 }
 
-nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
+celerix::error celerix::node_config::deserialize_toml (celerix::tomlconfig & toml)
 {
 	try
 	{
@@ -445,7 +445,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			preconfigured_representatives.clear ();
 			toml.array_entries_required<std::string> ("preconfigured_representatives", [this, &toml] (std::string entry) {
-				nano::account representative{};
+				celerix::account representative{};
 				if (representative.decode_account (entry))
 				{
 					toml.get_error ().set ("Invalid representative account: " + entry);
@@ -550,7 +550,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 
 		auto pow_sleep_interval_l (pow_sleep_interval.count ());
 		toml.get (pow_sleep_interval_key, pow_sleep_interval_l);
-		pow_sleep_interval = std::chrono::nanoseconds (pow_sleep_interval_l);
+		pow_sleep_interval = std::chrono::celerixseconds (pow_sleep_interval_l);
 		toml.get<bool> ("use_memory_pools", use_memory_pools);
 
 		toml.get<std::size_t> ("bandwidth_limit", bandwidth_limit);
@@ -642,7 +642,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 	return toml.get_error ();
 }
 
-void nano::node_config::deserialize_address (std::string const & entry_a, std::vector<std::pair<std::string, uint16_t>> & container_a) const
+void celerix::node_config::deserialize_address (std::string const & entry_a, std::vector<std::pair<std::string, uint16_t>> & container_a) const
 {
 	auto port_position (entry_a.rfind (':'));
 	bool result = (port_position == -1);
@@ -659,21 +659,21 @@ void nano::node_config::deserialize_address (std::string const & entry_a, std::v
 	}
 }
 
-nano::account nano::node_config::random_representative () const
+celerix::account celerix::node_config::random_representative () const
 {
 	debug_assert (!preconfigured_representatives.empty ());
-	std::size_t index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
+	std::size_t index (celerix::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
 	auto result (preconfigured_representatives[index]);
 	return result;
 }
 
-std::optional<unsigned> nano::node_config::env_io_threads ()
+std::optional<unsigned> celerix::node_config::env_io_threads ()
 {
 	static auto const value = [] () {
-		auto value = nano::env::get<unsigned> ("NANO_IO_THREADS");
+		auto value = celerix::env::get<unsigned> ("CELERIX_IO_THREADS");
 		if (value)
 		{
-			std::cerr << "IO threads overridden by NANO_IO_THREADS environment variable: " << *value << std::endl;
+			std::cerr << "IO threads overridden by CELERIX_IO_THREADS environment variable: " << *value << std::endl;
 		}
 		return value;
 	}();

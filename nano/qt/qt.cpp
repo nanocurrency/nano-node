@@ -1,11 +1,11 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/config.hpp>
-#include <nano/lib/stats_sinks.hpp>
-#include <nano/node/election_status.hpp>
-#include <nano/node/vote_with_weight_info.hpp>
-#include <nano/qt/qt.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/ledger_set_any.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/stats_sinks.hpp>
+#include <celerix/node/election_status.hpp>
+#include <celerix/node/vote_with_weight_info.hpp>
+#include <celerix/qt/qt.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/ledger_set_any.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -48,25 +48,25 @@ void show_button_success (QPushButton & button)
 }
 }
 
-bool nano_qt::eventloop_processor::event (QEvent * event_a)
+bool celerix_qt::eventloop_processor::event (QEvent * event_a)
 {
-	debug_assert (dynamic_cast<nano_qt::eventloop_event *> (event_a) != nullptr);
-	static_cast<nano_qt::eventloop_event *> (event_a)->action ();
+	debug_assert (dynamic_cast<celerix_qt::eventloop_event *> (event_a) != nullptr);
+	static_cast<celerix_qt::eventloop_event *> (event_a)->action ();
 	return true;
 }
 
-nano_qt::eventloop_event::eventloop_event (std::function<void ()> const & action_a) :
+celerix_qt::eventloop_event::eventloop_event (std::function<void ()> const & action_a) :
 	QEvent (QEvent::Type::User),
 	action (action_a)
 {
 }
 
-nano_qt::self_pane::self_pane (nano_qt::wallet & wallet_a, nano::account const & account_a) :
+celerix_qt::self_pane::self_pane (celerix_qt::wallet & wallet_a, celerix::account const & account_a) :
 	window (new QWidget),
 	layout (new QVBoxLayout),
 	self_layout (new QHBoxLayout),
 	self_window (new QWidget),
-	your_account_label (new QLabel ("Your Nano account:")),
+	your_account_label (new QLabel ("Your Celerix account:")),
 	account_window (new QWidget),
 	account_layout (new QHBoxLayout),
 	account_text (new QLineEdit),
@@ -84,7 +84,7 @@ nano_qt::self_pane::self_pane (nano_qt::wallet & wallet_a, nano::account const &
 	{
 		network[0] = std::toupper (network[0]);
 	}
-	version = new QLabel (fmt::format ("{} {} network", NANO_VERSION_STRING, network).c_str ());
+	version = new QLabel (fmt::format ("{} {} network", CELERIX_VERSION_STRING, network).c_str ());
 
 	self_layout->addWidget (your_account_label);
 	self_layout->addStretch ();
@@ -119,7 +119,7 @@ nano_qt::self_pane::self_pane (nano_qt::wallet & wallet_a, nano::account const &
 	});
 }
 
-void nano_qt::self_pane::set_balance_text (std::pair<nano::uint128_t, nano::uint128_t> balance_a)
+void celerix_qt::self_pane::set_balance_text (std::pair<celerix::uint128_t, celerix::uint128_t> balance_a)
 {
 	auto final_text (std::string ("Balance: ") + wallet.format_balance (balance_a.first));
 	if (!balance_a.second.is_zero ())
@@ -129,7 +129,7 @@ void nano_qt::self_pane::set_balance_text (std::pair<nano::uint128_t, nano::uint
 	wallet.self.balance_label->setText (QString (final_text.c_str ()));
 }
 
-nano_qt::accounts::accounts (nano_qt::wallet & wallet_a) :
+celerix_qt::accounts::accounts (celerix_qt::wallet & wallet_a) :
 	wallet_balance_label (new QLabel),
 	window (new QWidget),
 	layout (new QVBoxLayout),
@@ -179,7 +179,7 @@ nano_qt::accounts::accounts (nano_qt::wallet & wallet_a) :
 	QObject::connect (account_key_button, &QPushButton::released, [this] () {
 		QString key_text_wide (account_key_line->text ());
 		std::string key_text (key_text_wide.toLocal8Bit ());
-		nano::raw_key key;
+		celerix::raw_key key;
 		if (!key.decode_hex (key_text))
 		{
 			show_line_ok (*account_key_line);
@@ -230,7 +230,7 @@ nano_qt::accounts::accounts (nano_qt::wallet & wallet_a) :
 		this->wallet.push_main_stack (this->wallet.import.window);
 	});
 	QObject::connect (backup_seed, &QPushButton::released, [this] () {
-		nano::raw_key seed;
+		celerix::raw_key seed;
 		auto transaction (this->wallet.wallet_m->wallets.tx_begin_read ());
 		if (this->wallet.wallet_m->store.valid_password (transaction))
 		{
@@ -266,15 +266,15 @@ nano_qt::accounts::accounts (nano_qt::wallet & wallet_a) :
 	refresh_wallet_balance ();
 }
 
-void nano_qt::accounts::refresh_wallet_balance ()
+void celerix_qt::accounts::refresh_wallet_balance ()
 {
 	auto transaction (this->wallet.wallet_m->wallets.tx_begin_read ());
 	auto block_transaction = this->wallet.node.ledger.tx_begin_read ();
-	nano::uint128_t balance (0);
-	nano::uint128_t pending (0);
+	celerix::uint128_t balance (0);
+	celerix::uint128_t pending (0);
 	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end (transaction)); i != j; ++i)
 	{
-		nano::public_key const & key (i->first);
+		celerix::public_key const & key (i->first);
 		balance = balance + this->wallet.node.ledger.any.account_balance (block_transaction, key).value_or (0).number ();
 		pending = pending + (this->wallet.node.ledger.account_receivable (block_transaction, key));
 	}
@@ -291,7 +291,7 @@ void nano_qt::accounts::refresh_wallet_balance ()
 	});
 }
 
-void nano_qt::accounts::refresh ()
+void celerix_qt::accounts::refresh ()
 {
 	model->removeRows (0, model->rowCount ());
 	auto transaction (wallet.wallet_m->wallets.tx_begin_read ());
@@ -299,12 +299,12 @@ void nano_qt::accounts::refresh ()
 	QBrush brush;
 	for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end (transaction)); i != j; ++i)
 	{
-		nano::public_key key (i->first);
+		celerix::public_key key (i->first);
 		auto balance_amount = wallet.node.ledger.any.account_balance (block_transaction, key).value_or (0).number ();
 		bool display (true);
 		switch (wallet.wallet_m->store.key_type (i->second))
 		{
-			case nano::key_type::adhoc:
+			case celerix::key_type::adhoc:
 			{
 				brush.setColor ("red");
 				display = !balance_amount.is_zero ();
@@ -329,7 +329,7 @@ void nano_qt::accounts::refresh ()
 	}
 }
 
-nano_qt::import::import (nano_qt::wallet & wallet_a) :
+celerix_qt::import::import (celerix_qt::wallet & wallet_a) :
 	window (new QWidget),
 	layout (new QVBoxLayout),
 	seed_label (new QLabel ("Seed:")),
@@ -393,7 +393,7 @@ nano_qt::import::import (nano_qt::wallet & wallet_a) :
 		if (clear_line->text ().toStdString () == "clear keys")
 		{
 			show_line_ok (*clear_line);
-			nano::raw_key seed_l;
+			celerix::raw_key seed_l;
 			if (!seed_l.decode_hex (seed->text ().toStdString ()))
 			{
 				bool successful (false);
@@ -479,7 +479,7 @@ nano_qt::import::import (nano_qt::wallet & wallet_a) :
 	});
 }
 
-nano_qt::history::history (nano::ledger & ledger_a, nano::account const & account_a, nano_qt::wallet & wallet_a) :
+celerix_qt::history::history (celerix::ledger & ledger_a, celerix::account const & account_a, celerix_qt::wallet & wallet_a) :
 	window (new QWidget),
 	layout (new QVBoxLayout),
 	model (new QStandardItemModel),
@@ -514,15 +514,15 @@ nano_qt::history::history (nano::ledger & ledger_a, nano::account const & accoun
 
 namespace
 {
-class short_text_visitor : public nano::block_visitor
+class short_text_visitor : public celerix::block_visitor
 {
 public:
-	short_text_visitor (nano::secure::transaction const & transaction_a, nano::ledger & ledger_a) :
+	short_text_visitor (celerix::secure::transaction const & transaction_a, celerix::ledger & ledger_a) :
 		transaction (transaction_a),
 		ledger (ledger_a)
 	{
 	}
-	void send_block (nano::send_block const & block_a)
+	void send_block (celerix::send_block const & block_a)
 	{
 		type = "Send";
 		account = block_a.hashables.destination;
@@ -536,7 +536,7 @@ public:
 			amount = amount_l.value ().number ();
 		}
 	}
-	void receive_block (nano::receive_block const & block_a)
+	void receive_block (celerix::receive_block const & block_a)
 	{
 		type = "Receive";
 		auto account_l = ledger.any.block_account (transaction, block_a.hashables.source);
@@ -551,7 +551,7 @@ public:
 			amount = amount_l.value ().number ();
 		}
 	}
-	void open_block (nano::open_block const & block_a)
+	void open_block (celerix::open_block const & block_a)
 	{
 		type = "Receive";
 		if (block_a.hashables.source != ledger.constants.genesis->account ().as_union ())
@@ -571,16 +571,16 @@ public:
 		else
 		{
 			account = ledger.constants.genesis->account ();
-			amount = nano::dev::constants.genesis_amount;
+			amount = celerix::dev::constants.genesis_amount;
 		}
 	}
-	void change_block (nano::change_block const & block_a)
+	void change_block (celerix::change_block const & block_a)
 	{
 		type = "Change";
 		amount = 0;
 		account = block_a.hashables.representative;
 	}
-	void state_block (nano::state_block const & block_a)
+	void state_block (celerix::state_block const & block_a)
 	{
 		auto balance (block_a.hashables.balance.number ());
 		auto previous_balance = ledger.any.block_balance (transaction, block_a.hashables.previous);
@@ -624,15 +624,15 @@ public:
 			amount = balance - previous_balance.value ().number ();
 		}
 	}
-	nano::secure::transaction const & transaction;
-	nano::ledger & ledger;
+	celerix::secure::transaction const & transaction;
+	celerix::ledger & ledger;
 	std::string type;
-	nano::uint128_t amount;
-	nano::account account{ 0 };
+	celerix::uint128_t amount;
+	celerix::account account{ 0 };
 };
 }
 
-void nano_qt::history::refresh ()
+void celerix_qt::history::refresh ()
 {
 	auto transaction = ledger.tx_begin_read ();
 	model->removeRows (0, model->rowCount ());
@@ -657,7 +657,7 @@ void nano_qt::history::refresh ()
 	}
 }
 
-nano_qt::block_viewer::block_viewer (nano_qt::wallet & wallet_a) :
+celerix_qt::block_viewer::block_viewer (celerix_qt::wallet & wallet_a) :
 	window (new QWidget),
 	layout (new QVBoxLayout),
 	hash_label (new QLabel ("Hash:")),
@@ -686,7 +686,7 @@ nano_qt::block_viewer::block_viewer (nano_qt::wallet & wallet_a) :
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (retrieve, &QPushButton::released, [this] () {
-		nano::block_hash hash_l;
+		celerix::block_hash hash_l;
 		if (!hash_l.decode_hex (hash->text ().toStdString ()))
 		{
 			auto transaction = this->wallet.node.ledger.tx_begin_read ();
@@ -710,7 +710,7 @@ nano_qt::block_viewer::block_viewer (nano_qt::wallet & wallet_a) :
 		}
 	});
 	QObject::connect (rebroadcast, &QPushButton::released, [this] () {
-		nano::block_hash block;
+		celerix::block_hash block;
 		auto error (block.decode_hex (hash->text ().toStdString ()));
 		if (!error)
 		{
@@ -732,14 +732,14 @@ nano_qt::block_viewer::block_viewer (nano_qt::wallet & wallet_a) :
 	rebroadcast->setToolTip ("Rebroadcast block into the network");
 }
 
-void nano_qt::block_viewer::rebroadcast_action (nano::block_hash const & hash_a)
+void celerix_qt::block_viewer::rebroadcast_action (celerix::block_hash const & hash_a)
 {
 	auto done (true);
 	auto transaction = wallet.node.ledger.tx_begin_read ();
 	auto block (wallet.node.ledger.any.block_get (transaction, hash_a));
 	if (block != nullptr)
 	{
-		wallet.node.network.flood_block (block, nano::transport::traffic_type::block_broadcast_initial);
+		wallet.node.network.flood_block (block, celerix::transport::traffic_type::block_broadcast_initial);
 		auto successor = wallet.node.ledger.any.block_successor (transaction, hash_a);
 		if (successor)
 		{
@@ -757,7 +757,7 @@ void nano_qt::block_viewer::rebroadcast_action (nano::block_hash const & hash_a)
 	}
 }
 
-nano_qt::account_viewer::account_viewer (nano_qt::wallet & wallet_a) :
+celerix_qt::account_viewer::account_viewer (celerix_qt::wallet & wallet_a) :
 	window (new QWidget),
 	layout (new QVBoxLayout),
 	account_label (new QLabel ("Account:")),
@@ -792,7 +792,7 @@ nano_qt::account_viewer::account_viewer (nano_qt::wallet & wallet_a) :
 			show_line_ok (*account_line);
 			this->history.refresh ();
 			auto balance (this->wallet.node.balance_pending (account, false));
-			auto final_text (std::string ("Balance (NANO): ") + wallet.format_balance (balance.first));
+			auto final_text (std::string ("Balance (CELERIX): ") + wallet.format_balance (balance.first));
 			if (!balance.second.is_zero ())
 			{
 				final_text += "\nReady to receive: " + wallet.format_balance (balance.second);
@@ -812,7 +812,7 @@ nano_qt::account_viewer::account_viewer (nano_qt::wallet & wallet_a) :
 	});
 }
 
-nano_qt::stats_viewer::stats_viewer (nano_qt::wallet & wallet_a) :
+celerix_qt::stats_viewer::stats_viewer (celerix_qt::wallet & wallet_a) :
 	window (new QWidget),
 	layout (new QVBoxLayout),
 	refresh (new QPushButton ("Refresh")),
@@ -853,11 +853,11 @@ nano_qt::stats_viewer::stats_viewer (nano_qt::wallet & wallet_a) :
 	refresh_stats ();
 }
 
-void nano_qt::stats_viewer::refresh_stats ()
+void celerix_qt::stats_viewer::refresh_stats ()
 {
 	model->removeRows (0, model->rowCount ());
 
-	nano::stat_json_writer sink;
+	celerix::stat_json_writer sink;
 	wallet.node.stats.log_counters (sink);
 	auto json = sink.to_ptree ();
 	if (!json.empty ())
@@ -903,36 +903,36 @@ void nano_qt::stats_viewer::refresh_stats ()
 	}
 }
 
-nano_qt::status::status (nano_qt::wallet & wallet_a) :
+celerix_qt::status::status (celerix_qt::wallet & wallet_a) :
 	wallet (wallet_a)
 {
 	wallet.status->setToolTip ("Wallet status, block count (blocks downloaded)");
-	active.insert (nano_qt::status_types::nominal);
+	active.insert (celerix_qt::status_types::nominal);
 	set_text ();
 }
 
-void nano_qt::status::erase (nano_qt::status_types status_a)
+void celerix_qt::status::erase (celerix_qt::status_types status_a)
 {
-	debug_assert (status_a != nano_qt::status_types::nominal);
+	debug_assert (status_a != celerix_qt::status_types::nominal);
 	auto erased (active.erase (status_a));
 	(void)erased;
 	set_text ();
 }
 
-void nano_qt::status::insert (nano_qt::status_types status_a)
+void celerix_qt::status::insert (celerix_qt::status_types status_a)
 {
-	debug_assert (status_a != nano_qt::status_types::nominal);
+	debug_assert (status_a != celerix_qt::status_types::nominal);
 	active.insert (status_a);
 	set_text ();
 }
 
-void nano_qt::status::set_text ()
+void celerix_qt::status::set_text ()
 {
 	wallet.status->setText (text ().c_str ());
 	wallet.status->setStyleSheet ((std::string ("QLabel {") + color () + "}").c_str ());
 }
 
-std::string nano_qt::status::text ()
+std::string celerix_qt::status::text ()
 {
 	debug_assert (!active.empty ());
 	std::string result;
@@ -948,25 +948,25 @@ std::string nano_qt::status::text ()
 
 	switch (*active.begin ())
 	{
-		case nano_qt::status_types::disconnected:
+		case celerix_qt::status_types::disconnected:
 			result = "Status: Disconnected";
 			break;
-		case nano_qt::status_types::working:
+		case celerix_qt::status_types::working:
 			result = "Status: Generating proof of work";
 			break;
-		case nano_qt::status_types::synchronizing:
+		case celerix_qt::status_types::synchronizing:
 			result = "Status: Synchronizing";
 			break;
-		case nano_qt::status_types::locked:
+		case celerix_qt::status_types::locked:
 			result = "Status: Wallet locked";
 			break;
-		case nano_qt::status_types::vulnerable:
+		case celerix_qt::status_types::vulnerable:
 			result = "Status: Wallet password empty";
 			break;
-		case nano_qt::status_types::active:
+		case celerix_qt::status_types::active:
 			result = "Status: Wallet active";
 			break;
-		case nano_qt::status_types::nominal:
+		case celerix_qt::status_types::nominal:
 			result = "Status: Running";
 			break;
 		default:
@@ -989,31 +989,31 @@ std::string nano_qt::status::text ()
 	return result;
 }
 
-std::string nano_qt::status::color ()
+std::string celerix_qt::status::color ()
 {
 	debug_assert (!active.empty ());
 	std::string result;
 	switch (*active.begin ())
 	{
-		case nano_qt::status_types::disconnected:
+		case celerix_qt::status_types::disconnected:
 			result = "color: red";
 			break;
-		case nano_qt::status_types::working:
+		case celerix_qt::status_types::working:
 			result = "color: blue";
 			break;
-		case nano_qt::status_types::synchronizing:
+		case celerix_qt::status_types::synchronizing:
 			result = "color: blue";
 			break;
-		case nano_qt::status_types::locked:
+		case celerix_qt::status_types::locked:
 			result = "color: orange";
 			break;
-		case nano_qt::status_types::vulnerable:
+		case celerix_qt::status_types::vulnerable:
 			result = "color: blue";
 			break;
-		case nano_qt::status_types::active:
+		case celerix_qt::status_types::active:
 			result = "color: black";
 			break;
-		case nano_qt::status_types::nominal:
+		case celerix_qt::status_types::nominal:
 			result = "color: black";
 			break;
 		default:
@@ -1023,8 +1023,8 @@ std::string nano_qt::status::color ()
 	return result;
 }
 
-nano_qt::wallet::wallet (QApplication & application_a, nano_qt::eventloop_processor & processor_a, nano::node & node_a, std::shared_ptr<nano::wallet> const & wallet_a, nano::account & account_a) :
-	rendering_ratio (nano::nano_ratio),
+celerix_qt::wallet::wallet (QApplication & application_a, celerix_qt::eventloop_processor & processor_a, celerix::node & node_a, std::shared_ptr<celerix::wallet> const & wallet_a, celerix::account & account_a) :
+	rendering_ratio (celerix::celerix_ratio),
 	node (node_a),
 	wallet_m (wallet_a),
 	account (account_a),
@@ -1119,9 +1119,9 @@ nano_qt::wallet::wallet (QApplication & application_a, nano_qt::eventloop_proces
 	refresh ();
 }
 
-void nano_qt::wallet::ongoing_refresh ()
+void celerix_qt::wallet::ongoing_refresh ()
 {
-	std::weak_ptr<nano_qt::wallet> wallet_w (shared_from_this ());
+	std::weak_ptr<celerix_qt::wallet> wallet_w (shared_from_this ());
 
 	// Update balance if needed. This happens on an alarm thread, which posts back to the UI
 	// to do the actual rendering. This avoid UI lockups as balance_pending may take several
@@ -1154,10 +1154,10 @@ void nano_qt::wallet::ongoing_refresh ()
 	});
 }
 
-void nano_qt::wallet::start ()
+void celerix_qt::wallet::start ()
 {
 	ongoing_refresh ();
-	std::weak_ptr<nano_qt::wallet> this_w (shared_from_this ());
+	std::weak_ptr<celerix_qt::wallet> this_w (shared_from_this ());
 	QObject::connect (settings_button, &QPushButton::released, [this_w] () {
 		if (auto this_l = this_w.lock ())
 		{
@@ -1181,13 +1181,13 @@ void nano_qt::wallet::start ()
 		{
 			show_line_ok (*this_l->send_count);
 			show_line_ok (*this_l->send_account);
-			nano::amount amount;
+			celerix::amount amount;
 			if (!amount.decode_dec (this_l->send_count->text ().toStdString (), this_l->rendering_ratio))
 			{
-				nano::uint128_t actual (amount.number ());
+				celerix::uint128_t actual (amount.number ());
 				QString account_text (this_l->send_account->text ());
 				std::string account_text_narrow (account_text.toLocal8Bit ());
-				nano::account account_l;
+				celerix::account account_l;
 				auto parse_error (account_l.decode_account (account_text_narrow));
 				if (!parse_error)
 				{
@@ -1201,7 +1201,7 @@ void nano_qt::wallet::start ()
 							this_l->node.workers.post ([this_w, account_l, actual] () {
 								if (auto this_l = this_w.lock ())
 								{
-									this_l->wallet_m->send_async (this_l->account, account_l, actual, [this_w] (std::shared_ptr<nano::block> const & block_a) {
+									this_l->wallet_m->send_async (this_l->account, account_l, actual, [this_w] (std::shared_ptr<celerix::block> const & block_a) {
 										if (auto this_l = this_w.lock ())
 										{
 											auto succeeded (block_a != nullptr);
@@ -1314,7 +1314,7 @@ void nano_qt::wallet::start ()
 			this_l->push_main_stack (this_l->send_blocks_window);
 		}
 	});
-	node.observers.blocks.add ([this_w] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::uint128_t const & amount_a, bool, bool) {
+	node.observers.blocks.add ([this_w] (celerix::election_status const & status_a, std::vector<celerix::vote_with_weight_info> const & votes_a, celerix::account const & account_a, celerix::uint128_t const & amount_a, bool, bool) {
 		if (auto this_l = this_w.lock ())
 		{
 			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, status_a, account_a] () {
@@ -1332,7 +1332,7 @@ void nano_qt::wallet::start ()
 			}));
 		}
 	});
-	node.observers.account_balance.add ([this_w] (nano::account const & account_a, bool is_pending) {
+	node.observers.account_balance.add ([this_w] (celerix::account const & account_a, bool is_pending) {
 		if (auto this_l = this_w.lock ())
 		{
 			this_l->needs_balance_refresh = this_l->needs_balance_refresh || account_a == this_l->account;
@@ -1346,17 +1346,17 @@ void nano_qt::wallet::start ()
 				{
 					if (active_a)
 					{
-						this_l->active_status.insert (nano_qt::status_types::active);
+						this_l->active_status.insert (celerix_qt::status_types::active);
 					}
 					else
 					{
-						this_l->active_status.erase (nano_qt::status_types::active);
+						this_l->active_status.erase (celerix_qt::status_types::active);
 					}
 				}
 			}));
 		}
 	});
-	node.observers.channel_connected.add ([this_w] (std::shared_ptr<nano::transport::channel> const &) {
+	node.observers.channel_connected.add ([this_w] (std::shared_ptr<celerix::transport::channel> const &) {
 		if (auto this_l = this_w.lock ())
 		{
 			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w] () {
@@ -1386,11 +1386,11 @@ void nano_qt::wallet::start ()
 				{
 					if (working)
 					{
-						this_l->active_status.insert (nano_qt::status_types::working);
+						this_l->active_status.insert (celerix_qt::status_types::working);
 					}
 					else
 					{
-						this_l->active_status.erase (nano_qt::status_types::working);
+						this_l->active_status.erase (celerix_qt::status_types::working);
 					}
 				}
 			}));
@@ -1410,7 +1410,7 @@ void nano_qt::wallet::start ()
 	settings_button->setToolTip ("Unlock wallet, set password, change representative");
 }
 
-void nano_qt::wallet::refresh ()
+void celerix_qt::wallet::refresh ()
 {
 	{
 		auto transaction (wallet_m->wallets.tx_begin_read ());
@@ -1424,19 +1424,19 @@ void nano_qt::wallet::refresh ()
 	settings.refresh_representative ();
 }
 
-void nano_qt::wallet::update_connected ()
+void celerix_qt::wallet::update_connected ()
 {
 	if (node.network.empty ())
 	{
-		active_status.insert (nano_qt::status_types::disconnected);
+		active_status.insert (celerix_qt::status_types::disconnected);
 	}
 	else
 	{
-		active_status.erase (nano_qt::status_types::disconnected);
+		active_status.erase (celerix_qt::status_types::disconnected);
 	}
 }
 
-void nano_qt::wallet::empty_password ()
+void celerix_qt::wallet::empty_password ()
 {
 	this->node.workers.post_delayed (std::chrono::seconds (3), [this] () {
 		auto transaction (wallet_m->wallets.tx_begin_write ());
@@ -1444,7 +1444,7 @@ void nano_qt::wallet::empty_password ()
 	});
 }
 
-void nano_qt::wallet::change_rendering_ratio (nano::uint128_t const & rendering_ratio_a)
+void celerix_qt::wallet::change_rendering_ratio (celerix::uint128_t const & rendering_ratio_a)
 {
 	application.postEvent (&processor, new eventloop_event ([this, rendering_ratio_a] () {
 		this->rendering_ratio = rendering_ratio_a;
@@ -1454,29 +1454,29 @@ void nano_qt::wallet::change_rendering_ratio (nano::uint128_t const & rendering_
 	}));
 }
 
-std::string nano_qt::wallet::format_balance (nano::uint128_t const & balance) const
+std::string celerix_qt::wallet::format_balance (celerix::uint128_t const & balance) const
 {
-	auto balance_str = nano::amount (balance).format_balance (rendering_ratio, 3, false);
-	auto unit = std::string ("nano");
-	if (rendering_ratio == nano::raw_ratio)
+	auto balance_str = celerix::amount (balance).format_balance (rendering_ratio, 3, false);
+	auto unit = std::string ("celerix");
+	if (rendering_ratio == celerix::raw_ratio)
 	{
 		unit = std::string ("raw");
 	}
 	return balance_str + " " + unit;
 }
 
-void nano_qt::wallet::push_main_stack (QWidget * widget_a)
+void celerix_qt::wallet::push_main_stack (QWidget * widget_a)
 {
 	main_stack->addWidget (widget_a);
 	main_stack->setCurrentIndex (main_stack->count () - 1);
 }
 
-void nano_qt::wallet::pop_main_stack ()
+void celerix_qt::wallet::pop_main_stack ()
 {
 	main_stack->removeWidget (main_stack->currentWidget ());
 }
 
-nano_qt::settings::settings (nano_qt::wallet & wallet_a) :
+celerix_qt::settings::settings (celerix_qt::wallet & wallet_a) :
 	window (new QWidget),
 	layout (new QVBoxLayout),
 	password (new QLineEdit),
@@ -1540,7 +1540,7 @@ nano_qt::settings::settings (nano_qt::wallet & wallet_a) :
 					retype_password->setPlaceholderText ("Retype password");
 					show_button_success (*change);
 					change->setText ("Password was changed");
-					this->wallet.node.logger.warn (nano::log::type::qt, "Wallet password changed");
+					this->wallet.node.logger.warn (celerix::log::type::qt, "Wallet password changed");
 					update_locked (false, false);
 					this->wallet.node.workers.post_delayed (std::chrono::seconds (5), [this] () {
 						this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this] () {
@@ -1569,7 +1569,7 @@ nano_qt::settings::settings (nano_qt::wallet & wallet_a) :
 		}
 	});
 	QObject::connect (change_rep, &QPushButton::released, [this] () {
-		nano::account representative_l;
+		celerix::account representative_l;
 		if (!representative_l.decode_account (new_representative->text ().toStdString ()))
 		{
 			auto transaction (this->wallet.wallet_m->wallets.tx_begin_read ());
@@ -1628,12 +1628,12 @@ nano_qt::settings::settings (nano_qt::wallet & wallet_a) :
 		if (this->wallet.wallet_m->store.valid_password (transaction))
 		{
 			// lock wallet
-			nano::raw_key empty;
+			celerix::raw_key empty;
 			empty.clear ();
 			this->wallet.wallet_m->store.password.value_set (empty);
 			update_locked (true, true);
 			lock_toggle->setText ("Unlock");
-			this->wallet.node.logger.warn (nano::log::type::qt, "Wallet locked");
+			this->wallet.node.logger.warn (celerix::log::type::qt, "Wallet locked");
 			password->setEnabled (1);
 		}
 		else
@@ -1684,10 +1684,10 @@ nano_qt::settings::settings (nano_qt::wallet & wallet_a) :
 	refresh_representative ();
 }
 
-void nano_qt::settings::refresh_representative ()
+void celerix_qt::settings::refresh_representative ()
 {
 	auto transaction (this->wallet.wallet_m->wallets.node.store.tx_begin_read ());
-	nano::account_info info;
+	celerix::account_info info;
 	auto error (wallet.node.store.account.get (transaction, this->wallet.account, info));
 	if (!error)
 	{
@@ -1700,32 +1700,32 @@ void nano_qt::settings::refresh_representative ()
 	}
 }
 
-void nano_qt::settings::activate ()
+void celerix_qt::settings::activate ()
 {
 	this->wallet.push_main_stack (window);
 }
 
-void nano_qt::settings::update_locked (bool invalid, bool vulnerable)
+void celerix_qt::settings::update_locked (bool invalid, bool vulnerable)
 {
 	if (invalid)
 	{
-		this->wallet.active_status.insert (nano_qt::status_types::locked);
+		this->wallet.active_status.insert (celerix_qt::status_types::locked);
 	}
 	else
 	{
-		this->wallet.active_status.erase (nano_qt::status_types::locked);
+		this->wallet.active_status.erase (celerix_qt::status_types::locked);
 	}
 	if (vulnerable)
 	{
-		this->wallet.active_status.insert (nano_qt::status_types::vulnerable);
+		this->wallet.active_status.insert (celerix_qt::status_types::vulnerable);
 	}
 	else
 	{
-		this->wallet.active_status.erase (nano_qt::status_types::vulnerable);
+		this->wallet.active_status.erase (celerix_qt::status_types::vulnerable);
 	}
 }
 
-nano_qt::advanced_actions::advanced_actions (nano_qt::wallet & wallet_a) :
+celerix_qt::advanced_actions::advanced_actions (celerix_qt::wallet & wallet_a) :
 	window (new QWidget),
 	layout (new QVBoxLayout),
 	show_ledger (new QPushButton ("Ledger")),
@@ -1742,7 +1742,7 @@ nano_qt::advanced_actions::advanced_actions (nano_qt::wallet & wallet_a) :
 	scale_layout (new QHBoxLayout),
 	scale_label (new QLabel ("Scale:")),
 	ratio_group (new QButtonGroup),
-	nano_unit (new QRadioButton ("nano")),
+	celerix_unit (new QRadioButton ("celerix")),
 	raw_unit (new QRadioButton ("raw")),
 	back (new QPushButton ("Back")),
 	ledger_window (new QWidget),
@@ -1763,12 +1763,12 @@ nano_qt::advanced_actions::advanced_actions (nano_qt::wallet & wallet_a) :
 	peers_back (new QPushButton ("Back")),
 	wallet (wallet_a)
 {
-	ratio_group->addButton (nano_unit);
-	ratio_group->setId (nano_unit, ratio_group->buttons ().size () - 1);
+	ratio_group->addButton (celerix_unit);
+	ratio_group->setId (celerix_unit, ratio_group->buttons ().size () - 1);
 	ratio_group->addButton (raw_unit);
 	ratio_group->setId (raw_unit, ratio_group->buttons ().size () - 1);
 	scale_layout->addWidget (scale_label);
-	scale_layout->addWidget (nano_unit);
+	scale_layout->addWidget (celerix_unit);
 	scale_layout->addWidget (raw_unit);
 	scale_window->setLayout (scale_layout);
 
@@ -1820,24 +1820,24 @@ nano_qt::advanced_actions::advanced_actions (nano_qt::wallet & wallet_a) :
 	layout->addWidget (back);
 	window->setLayout (layout);
 
-	QObject::connect (nano_unit, &QRadioButton::toggled, [this] () {
-		if (nano_unit->isChecked ())
+	QObject::connect (celerix_unit, &QRadioButton::toggled, [this] () {
+		if (celerix_unit->isChecked ())
 		{
-			this->wallet.change_rendering_ratio (nano::nano_ratio);
-			QSettings ().setValue (saved_ratio_key, ratio_group->id (nano_unit));
+			this->wallet.change_rendering_ratio (celerix::celerix_ratio);
+			QSettings ().setValue (saved_ratio_key, ratio_group->id (celerix_unit));
 		}
 	});
 	QObject::connect (raw_unit, &QRadioButton::toggled, [this] () {
 		if (raw_unit->isChecked ())
 		{
-			this->wallet.change_rendering_ratio (nano::raw_ratio);
+			this->wallet.change_rendering_ratio (celerix::raw_ratio);
 			QSettings ().setValue (saved_ratio_key, ratio_group->id (raw_unit));
 		}
 	});
 	auto selected_ratio_button = ratio_group->button (QSettings ().value (saved_ratio_key).toInt ());
 	if (selected_ratio_button == nullptr)
 	{
-		selected_ratio_button = nano_unit;
+		selected_ratio_button = celerix_unit;
 	}
 	debug_assert (selected_ratio_button != nullptr);
 	selected_ratio_button->click ();
@@ -1896,7 +1896,7 @@ nano_qt::advanced_actions::advanced_actions (nano_qt::wallet & wallet_a) :
 	enter_block->setToolTip ("Enter block in JSON format");
 }
 
-void nano_qt::advanced_actions::refresh_peers ()
+void celerix_qt::advanced_actions::refresh_peers ()
 {
 	peers_model->removeRows (0, peers_model->rowCount ());
 	auto list (wallet.node.network.list (std::numeric_limits<size_t>::max ()));
@@ -1926,7 +1926,7 @@ void nano_qt::advanced_actions::refresh_peers ()
 	peer_count_label->setText (QString ("%1 peers").arg (peers_model->rowCount ()));
 }
 
-void nano_qt::advanced_actions::refresh_ledger ()
+void celerix_qt::advanced_actions::refresh_ledger ()
 {
 	ledger_model->removeRows (0, ledger_model->rowCount ());
 	auto transaction (wallet.node.ledger.tx_begin_read ());
@@ -1934,9 +1934,9 @@ void nano_qt::advanced_actions::refresh_ledger ()
 	{
 		QList<QStandardItem *> items;
 		items.push_back (new QStandardItem (QString (i->first.to_account ().c_str ())));
-		nano::account_info const & info (i->second);
+		celerix::account_info const & info (i->second);
 		std::string balance;
-		nano::amount (info.balance.number () / wallet.rendering_ratio).encode_dec (balance);
+		celerix::amount (info.balance.number () / wallet.rendering_ratio).encode_dec (balance);
 		items.push_back (new QStandardItem (QString (balance.c_str ())));
 		std::string block_hash;
 		info.head.encode_hex (block_hash);
@@ -1945,12 +1945,12 @@ void nano_qt::advanced_actions::refresh_ledger ()
 	}
 }
 
-void nano_qt::advanced_actions::refresh_stats ()
+void celerix_qt::advanced_actions::refresh_stats ()
 {
 	wallet.stats_viewer.refresh_stats ();
 }
 
-nano_qt::block_entry::block_entry (nano_qt::wallet & wallet_a) :
+celerix_qt::block_entry::block_entry (celerix_qt::wallet & wallet_a) :
 	window (new QWidget),
 	layout (new QVBoxLayout),
 	block (new QPlainTextEdit),
@@ -1971,7 +1971,7 @@ nano_qt::block_entry::block_entry (nano_qt::wallet & wallet_a) :
 			boost::property_tree::ptree tree;
 			std::stringstream istream (string);
 			boost::property_tree::read_json (istream, tree);
-			auto block_l (nano::deserialize_block_json (tree));
+			auto block_l (celerix::deserialize_block_json (tree));
 			if (block_l != nullptr)
 			{
 				show_label_ok (*status);
@@ -2003,7 +2003,7 @@ nano_qt::block_entry::block_entry (nano_qt::wallet & wallet_a) :
 	});
 }
 
-nano_qt::block_creation::block_creation (nano_qt::wallet & wallet_a) :
+celerix_qt::block_creation::block_creation (celerix_qt::wallet & wallet_a) :
 	window (new QWidget),
 	layout (new QVBoxLayout),
 	group (new QButtonGroup),
@@ -2138,7 +2138,7 @@ nano_qt::block_creation::block_creation (nano_qt::wallet & wallet_a) :
 	send->click ();
 }
 
-void nano_qt::block_creation::deactivate_all ()
+void celerix_qt::block_creation::deactivate_all ()
 {
 	account_label->hide ();
 	account->hide ();
@@ -2152,7 +2152,7 @@ void nano_qt::block_creation::deactivate_all ()
 	representative->hide ();
 }
 
-void nano_qt::block_creation::activate_send ()
+void celerix_qt::block_creation::activate_send ()
 {
 	account_label->show ();
 	account->show ();
@@ -2162,13 +2162,13 @@ void nano_qt::block_creation::activate_send ()
 	destination->show ();
 }
 
-void nano_qt::block_creation::activate_receive ()
+void celerix_qt::block_creation::activate_receive ()
 {
 	source_label->show ();
 	source->show ();
 }
 
-void nano_qt::block_creation::activate_open ()
+void celerix_qt::block_creation::activate_open ()
 {
 	source_label->show ();
 	source->show ();
@@ -2176,7 +2176,7 @@ void nano_qt::block_creation::activate_open ()
 	representative->show ();
 }
 
-void nano_qt::block_creation::activate_change ()
+void celerix_qt::block_creation::activate_change ()
 {
 	account_label->show ();
 	account->show ();
@@ -2184,34 +2184,34 @@ void nano_qt::block_creation::activate_change ()
 	representative->show ();
 }
 
-void nano_qt::block_creation::create_send ()
+void celerix_qt::block_creation::create_send ()
 {
-	nano::account account_l;
+	celerix::account account_l;
 	auto error (account_l.decode_account (account->text ().toStdString ()));
 	if (!error)
 	{
-		nano::amount amount_l;
+		celerix::amount amount_l;
 		error = amount_l.decode_dec (amount->text ().toStdString ());
 		if (!error)
 		{
-			nano::account destination_l;
+			celerix::account destination_l;
 			error = destination_l.decode_account (destination->text ().toStdString ());
 			if (!error)
 			{
 				auto transaction (wallet.node.wallets.tx_begin_read ());
 				auto block_transaction = wallet.node.ledger.tx_begin_read ();
-				nano::raw_key key;
+				celerix::raw_key key;
 				if (!wallet.wallet_m->store.fetch (transaction, account_l, key))
 				{
 					auto balance = wallet.node.ledger.any.account_balance (block_transaction, account_l).value_or (0).number ();
 					if (amount_l.number () <= balance)
 					{
-						nano::account_info info;
+						celerix::account_info info;
 						auto error (wallet.node.store.account.get (block_transaction, account_l, info));
 						(void)error;
 						debug_assert (!error);
-						nano::state_block send (account_l, info.head, info.representative, balance - amount_l.number (), destination_l, key, account_l, 0);
-						nano::block_details details;
+						celerix::state_block send (account_l, info.head, info.representative, balance - amount_l.number (), destination_l, key, account_l, 0);
+						celerix::block_details details;
 						details.is_send = true;
 						details.epoch = info.epoch ();
 						auto const required_difficulty{ wallet.node.network_params.work.threshold (send.work_version (), details) };
@@ -2268,9 +2268,9 @@ void nano_qt::block_creation::create_send ()
 	}
 }
 
-void nano_qt::block_creation::create_receive ()
+void celerix_qt::block_creation::create_receive ()
 {
-	nano::block_hash source_l;
+	celerix::block_hash source_l;
 	auto error (source_l.decode_hex (source->text ().toStdString ()));
 	if (!error)
 	{
@@ -2282,19 +2282,19 @@ void nano_qt::block_creation::create_receive ()
 			auto destination = block_l->destination ();
 			if (!destination.is_zero ())
 			{
-				nano::pending_key pending_key (destination, source_l);
+				celerix::pending_key pending_key (destination, source_l);
 				if (auto pending = wallet.node.ledger.any.pending_get (block_transaction, pending_key))
 				{
-					nano::account_info info;
+					celerix::account_info info;
 					auto error (wallet.node.store.account.get (block_transaction, pending_key.account, info));
 					if (!error)
 					{
-						nano::raw_key key;
+						celerix::raw_key key;
 						auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
 						if (!error)
 						{
-							nano::state_block receive (pending_key.account, info.head, info.representative, info.balance.number () + pending.value ().amount.number (), source_l, key, pending_key.account, 0);
-							nano::block_details details;
+							celerix::state_block receive (pending_key.account, info.head, info.representative, info.balance.number () + pending.value ().amount.number (), source_l, key, pending_key.account, 0);
+							celerix::block_details details;
 							details.is_receive = true;
 							details.epoch = std::max (info.epoch (), pending.value ().epoch);
 							auto required_difficulty{ wallet.node.network_params.work.threshold (receive.work_version (), details) };
@@ -2357,28 +2357,28 @@ void nano_qt::block_creation::create_receive ()
 	}
 }
 
-void nano_qt::block_creation::create_change ()
+void celerix_qt::block_creation::create_change ()
 {
-	nano::account account_l;
+	celerix::account account_l;
 	auto error (account_l.decode_account (account->text ().toStdString ()));
 	if (!error)
 	{
-		nano::account representative_l;
+		celerix::account representative_l;
 		error = representative_l.decode_account (representative->text ().toStdString ());
 		if (!error)
 		{
 			auto transaction (wallet.node.wallets.tx_begin_read ());
 			auto block_transaction (wallet.node.store.tx_begin_read ());
-			nano::account_info info;
+			celerix::account_info info;
 			auto error (wallet.node.store.account.get (block_transaction, account_l, info));
 			if (!error)
 			{
-				nano::raw_key key;
+				celerix::raw_key key;
 				auto error (wallet.wallet_m->store.fetch (transaction, account_l, key));
 				if (!error)
 				{
-					nano::state_block change (account_l, info.head, representative_l, info.balance, 0, key, account_l, 0);
-					nano::block_details details;
+					celerix::state_block change (account_l, info.head, representative_l, info.balance, 0, key, account_l, 0);
+					celerix::block_details details;
 					details.epoch = info.epoch ();
 					auto const required_difficulty{ wallet.node.network_params.work.threshold (change.work_version (), details) };
 					if (wallet.node.work_generate_blocking (change, required_difficulty).has_value ())
@@ -2428,13 +2428,13 @@ void nano_qt::block_creation::create_change ()
 	}
 }
 
-void nano_qt::block_creation::create_open ()
+void celerix_qt::block_creation::create_open ()
 {
-	nano::block_hash source_l;
+	celerix::block_hash source_l;
 	auto error (source_l.decode_hex (source->text ().toStdString ()));
 	if (!error)
 	{
-		nano::account representative_l;
+		celerix::account representative_l;
 		error = representative_l.decode_account (representative->text ().toStdString ());
 		if (!error)
 		{
@@ -2446,19 +2446,19 @@ void nano_qt::block_creation::create_open ()
 				auto destination = block_l->destination ();
 				if (!destination.is_zero ())
 				{
-					nano::pending_key pending_key (destination, source_l);
+					celerix::pending_key pending_key (destination, source_l);
 					if (auto pending = wallet.node.ledger.any.pending_get (block_transaction, pending_key))
 					{
-						nano::account_info info;
+						celerix::account_info info;
 						auto error (wallet.node.store.account.get (block_transaction, pending_key.account, info));
 						if (error)
 						{
-							nano::raw_key key;
+							celerix::raw_key key;
 							auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
 							if (!error)
 							{
-								nano::state_block open (pending_key.account, 0, representative_l, pending.value ().amount, source_l, key, pending_key.account, 0);
-								nano::block_details details;
+								celerix::state_block open (pending_key.account, 0, representative_l, pending.value ().amount, source_l, key, pending_key.account, 0);
+								celerix::block_details details;
 								details.is_receive = true;
 								details.epoch = pending.value ().epoch;
 								auto const required_difficulty{ wallet.node.network_params.work.threshold (open.work_version (), details) };

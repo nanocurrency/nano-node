@@ -1,37 +1,37 @@
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/thread_runner.hpp>
-#include <nano/lib/work_version.hpp>
-#include <nano/node/active_elections.hpp>
-#include <nano/node/election.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/ledger_set_any.hpp>
-#include <nano/store/lmdb/wallet_value.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/crypto_lib/random_pool.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/thread_runner.hpp>
+#include <celerix/lib/work_version.hpp>
+#include <celerix/node/active_elections.hpp>
+#include <celerix/node/election.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/ledger_set_any.hpp>
+#include <celerix/store/lmdb/wallet_value.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
 using namespace std::chrono_literals;
-unsigned constexpr nano::wallet_store::version_current;
+unsigned constexpr celerix::wallet_store::version_current;
 
 TEST (wallet, no_special_keys_accounts)
 {
 	bool init;
-	nano::store::lmdb::env env (init, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (init, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
+	celerix::wallet_store wallet (init, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 	ASSERT_FALSE (init);
-	nano::keypair key1;
+	celerix::keypair key1;
 	ASSERT_FALSE (wallet.exists (transaction, key1.pub));
 	wallet.insert_adhoc (transaction, key1.prv);
 	ASSERT_TRUE (wallet.exists (transaction, key1.pub));
 
-	for (uint64_t account = 0; account < nano::wallet_store::special_count; account++)
+	for (uint64_t account = 0; account < celerix::wallet_store::special_count; account++)
 	{
-		nano::account account_l (account);
+		celerix::account account_l (account);
 		ASSERT_FALSE (wallet.exists (transaction, account_l));
 	}
 }
@@ -39,14 +39,14 @@ TEST (wallet, no_special_keys_accounts)
 TEST (wallet, no_key)
 {
 	bool init;
-	nano::store::lmdb::env env (init, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (init, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
+	celerix::wallet_store wallet (init, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 	ASSERT_FALSE (init);
-	nano::keypair key1;
-	nano::raw_key prv1;
+	celerix::keypair key1;
+	celerix::raw_key prv1;
 	ASSERT_TRUE (wallet.fetch (transaction, key1.pub, prv1));
 	ASSERT_TRUE (wallet.valid_password (transaction));
 }
@@ -54,21 +54,21 @@ TEST (wallet, no_key)
 TEST (wallet, fetch_locked)
 {
 	bool init;
-	nano::store::lmdb::env env (init, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (init, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
+	celerix::wallet_store wallet (init, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 	ASSERT_TRUE (wallet.valid_password (transaction));
-	nano::keypair key1;
+	celerix::keypair key1;
 	ASSERT_EQ (key1.pub, wallet.insert_adhoc (transaction, key1.prv));
 	auto key2 (wallet.deterministic_insert (transaction));
 	ASSERT_FALSE (key2.is_zero ());
-	nano::raw_key key3;
+	celerix::raw_key key3;
 	key3 = 1;
 	wallet.password.value_set (key3);
 	ASSERT_FALSE (wallet.valid_password (transaction));
-	nano::raw_key key4;
+	celerix::raw_key key4;
 	ASSERT_TRUE (wallet.fetch (transaction, key1.pub, key4));
 	ASSERT_TRUE (wallet.fetch (transaction, key2, key4));
 }
@@ -76,21 +76,21 @@ TEST (wallet, fetch_locked)
 TEST (wallet, retrieval)
 {
 	bool init;
-	nano::store::lmdb::env env (init, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (init, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
+	celerix::wallet_store wallet (init, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 	ASSERT_FALSE (init);
-	nano::keypair key1;
+	celerix::keypair key1;
 	ASSERT_TRUE (wallet.valid_password (transaction));
 	wallet.insert_adhoc (transaction, key1.prv);
-	nano::raw_key prv1;
+	celerix::raw_key prv1;
 	ASSERT_FALSE (wallet.fetch (transaction, key1.pub, prv1));
 	ASSERT_TRUE (wallet.valid_password (transaction));
 	ASSERT_EQ (key1.prv, prv1);
 	wallet.password.values[0]->bytes[16] ^= 1;
-	nano::raw_key prv2;
+	celerix::raw_key prv2;
 	ASSERT_TRUE (wallet.fetch (transaction, key1.pub, prv2));
 	ASSERT_FALSE (wallet.valid_password (transaction));
 }
@@ -98,11 +98,11 @@ TEST (wallet, retrieval)
 TEST (wallet, empty_iteration)
 {
 	bool init;
-	nano::store::lmdb::env env (init, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (init, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
+	celerix::wallet_store wallet (init, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 	ASSERT_FALSE (init);
 	auto i (wallet.begin (transaction));
 	auto j (wallet.end (transaction));
@@ -112,21 +112,21 @@ TEST (wallet, empty_iteration)
 TEST (wallet, one_item_iteration)
 {
 	bool init;
-	nano::store::lmdb::env env (init, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (init, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
+	celerix::wallet_store wallet (init, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 	ASSERT_FALSE (init);
-	nano::keypair key1;
+	celerix::keypair key1;
 	wallet.insert_adhoc (transaction, key1.prv);
 	for (auto i (wallet.begin (transaction)), j (wallet.end (transaction)); i != j; ++i)
 	{
-		ASSERT_EQ (key1.pub, nano::uint256_union (i->first));
-		nano::raw_key password;
+		ASSERT_EQ (key1.pub, celerix::uint256_union (i->first));
+		celerix::raw_key password;
 		wallet.wallet_key (password, transaction);
-		nano::raw_key key;
-		key.decrypt (nano::wallet_value (i->second).key, password, (nano::uint256_union (i->first)).owords[0].number ());
+		celerix::raw_key key;
+		key.decrypt (celerix::wallet_value (i->second).key, password, (celerix::uint256_union (i->first)).owords[0].number ());
 		ASSERT_EQ (key1.prv, key);
 	}
 }
@@ -134,27 +134,27 @@ TEST (wallet, one_item_iteration)
 TEST (wallet, two_item_iteration)
 {
 	bool init;
-	nano::store::lmdb::env env (init, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (init, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (init);
-	nano::keypair key1;
-	nano::keypair key2;
+	celerix::keypair key1;
+	celerix::keypair key2;
 	ASSERT_NE (key1.pub, key2.pub);
-	std::unordered_set<nano::public_key> pubs;
-	std::unordered_set<nano::raw_key> prvs;
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
+	std::unordered_set<celerix::public_key> pubs;
+	std::unordered_set<celerix::raw_key> prvs;
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
 	{
 		auto transaction (env.tx_begin_write ());
-		nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+		celerix::wallet_store wallet (init, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 		ASSERT_FALSE (init);
 		wallet.insert_adhoc (transaction, key1.prv);
 		wallet.insert_adhoc (transaction, key2.prv);
 		for (auto i (wallet.begin (transaction)), j (wallet.end (transaction)); i != j; ++i)
 		{
 			pubs.insert (i->first);
-			nano::raw_key password;
+			celerix::raw_key password;
 			wallet.wallet_key (password, transaction);
-			nano::raw_key key;
-			key.decrypt (nano::wallet_value (i->second).key, password, (i->first).owords[0].number ());
+			celerix::raw_key key;
+			key.decrypt (celerix::wallet_value (i->second).key, password, (i->first).owords[0].number ());
 			prvs.insert (key);
 		}
 	}
@@ -168,118 +168,118 @@ TEST (wallet, two_item_iteration)
 
 TEST (wallet, insufficient_spend_one)
 {
-	nano::test::system system (1);
-	nano::keypair key1;
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto block (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 500));
+	celerix::test::system system (1);
+	celerix::keypair key1;
+	system.wallet (0)->insert_adhoc (celerix::dev::genesis_key.prv);
+	auto block (system.wallet (0)->send_action (celerix::dev::genesis_key.pub, key1.pub, 500));
 	ASSERT_NE (nullptr, block);
-	ASSERT_EQ (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, nano::dev::constants.genesis_amount));
+	ASSERT_EQ (nullptr, system.wallet (0)->send_action (celerix::dev::genesis_key.pub, key1.pub, celerix::dev::constants.genesis_amount));
 }
 
 TEST (wallet, spend_all_one)
 {
-	nano::test::system system (1);
+	celerix::test::system system (1);
 	auto & node1 (*system.nodes[0]);
-	nano::block_hash latest1 (node1.latest (nano::dev::genesis_key.pub));
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::keypair key2;
-	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max ()));
+	celerix::block_hash latest1 (node1.latest (celerix::dev::genesis_key.pub));
+	system.wallet (0)->insert_adhoc (celerix::dev::genesis_key.prv);
+	celerix::keypair key2;
+	ASSERT_NE (nullptr, system.wallet (0)->send_action (celerix::dev::genesis_key.pub, key2.pub, std::numeric_limits<celerix::uint128_t>::max ()));
 	auto transaction = node1.ledger.tx_begin_read ();
-	auto info2 = node1.ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
+	auto info2 = node1.ledger.any.account_get (transaction, celerix::dev::genesis_key.pub);
 	ASSERT_NE (latest1, info2->head);
 	auto block = node1.ledger.any.block_get (transaction, info2->head);
 	ASSERT_NE (nullptr, block);
 	ASSERT_EQ (latest1, block->previous ());
 	ASSERT_TRUE (info2->balance.is_zero ());
-	ASSERT_EQ (0, node1.balance (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, node1.balance (celerix::dev::genesis_key.pub));
 }
 
 TEST (wallet, send_async)
 {
-	nano::test::system system (1);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::keypair key2;
+	celerix::test::system system (1);
+	system.wallet (0)->insert_adhoc (celerix::dev::genesis_key.prv);
+	celerix::keypair key2;
 	std::thread thread ([&system] () {
-		ASSERT_TIMELY (10s, system.nodes[0]->balance (nano::dev::genesis_key.pub).is_zero ());
+		ASSERT_TIMELY (10s, system.nodes[0]->balance (celerix::dev::genesis_key.pub).is_zero ());
 	});
 	std::atomic<bool> success (false);
-	system.wallet (0)->send_async (nano::dev::genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max (), [&success] (std::shared_ptr<nano::block> const & block_a) { ASSERT_NE (nullptr, block_a); success = true; });
+	system.wallet (0)->send_async (celerix::dev::genesis_key.pub, key2.pub, std::numeric_limits<celerix::uint128_t>::max (), [&success] (std::shared_ptr<celerix::block> const & block_a) { ASSERT_NE (nullptr, block_a); success = true; });
 	thread.join ();
 	ASSERT_TIMELY (2s, success);
 }
 
 TEST (wallet, spend)
 {
-	nano::test::system system (1);
+	celerix::test::system system (1);
 	auto & node1 (*system.nodes[0]);
-	nano::block_hash latest1 (node1.latest (nano::dev::genesis_key.pub));
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::keypair key2;
+	celerix::block_hash latest1 (node1.latest (celerix::dev::genesis_key.pub));
+	system.wallet (0)->insert_adhoc (celerix::dev::genesis_key.prv);
+	celerix::keypair key2;
 	// Sending from empty accounts should always be an error.  Accounts need to be opened with an open block, not a send block.
 	ASSERT_EQ (nullptr, system.wallet (0)->send_action (0, key2.pub, 0));
-	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max ()));
+	ASSERT_NE (nullptr, system.wallet (0)->send_action (celerix::dev::genesis_key.pub, key2.pub, std::numeric_limits<celerix::uint128_t>::max ()));
 	auto transaction = node1.ledger.tx_begin_read ();
-	auto info2 = node1.ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
+	auto info2 = node1.ledger.any.account_get (transaction, celerix::dev::genesis_key.pub);
 	ASSERT_TRUE (info2);
 	ASSERT_NE (latest1, info2->head);
 	auto block = node1.ledger.any.block_get (transaction, info2->head);
 	ASSERT_NE (nullptr, block);
 	ASSERT_EQ (latest1, block->previous ());
 	ASSERT_TRUE (info2->balance.is_zero ());
-	ASSERT_EQ (0, node1.balance (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, node1.balance (celerix::dev::genesis_key.pub));
 }
 
 TEST (wallet, partial_spend)
 {
-	nano::test::system system (1);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::keypair key2;
-	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, 500));
-	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max () - 500, system.nodes[0]->balance (nano::dev::genesis_key.pub));
+	celerix::test::system system (1);
+	system.wallet (0)->insert_adhoc (celerix::dev::genesis_key.prv);
+	celerix::keypair key2;
+	ASSERT_NE (nullptr, system.wallet (0)->send_action (celerix::dev::genesis_key.pub, key2.pub, 500));
+	ASSERT_EQ (std::numeric_limits<celerix::uint128_t>::max () - 500, system.nodes[0]->balance (celerix::dev::genesis_key.pub));
 }
 
 TEST (wallet, spend_no_previous)
 {
-	nano::test::system system (1);
+	celerix::test::system system (1);
 	{
-		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+		system.wallet (0)->insert_adhoc (celerix::dev::genesis_key.prv);
 		auto transaction = system.nodes[0]->ledger.tx_begin_read ();
-		auto info1 = system.nodes[0]->ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
+		auto info1 = system.nodes[0]->ledger.any.account_get (transaction, celerix::dev::genesis_key.pub);
 		ASSERT_TRUE (info1);
 		for (auto i (0); i < 50; ++i)
 		{
-			nano::keypair key;
+			celerix::keypair key;
 			system.wallet (0)->insert_adhoc (key.prv);
 		}
 	}
-	nano::keypair key2;
-	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, 500));
-	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max () - 500, system.nodes[0]->balance (nano::dev::genesis_key.pub));
+	celerix::keypair key2;
+	ASSERT_NE (nullptr, system.wallet (0)->send_action (celerix::dev::genesis_key.pub, key2.pub, 500));
+	ASSERT_EQ (std::numeric_limits<celerix::uint128_t>::max () - 500, system.nodes[0]->balance (celerix::dev::genesis_key.pub));
 }
 
 TEST (wallet, find_none)
 {
 	bool init;
-	nano::store::lmdb::env env (init, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (init, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
+	celerix::wallet_store wallet (init, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 	ASSERT_FALSE (init);
-	nano::account account (1000);
+	celerix::account account (1000);
 	ASSERT_EQ (wallet.end (transaction), wallet.find (transaction, account));
 }
 
 TEST (wallet, find_existing)
 {
 	bool init;
-	nano::store::lmdb::env env (init, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (init, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
+	celerix::wallet_store wallet (init, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 	ASSERT_FALSE (init);
-	nano::keypair key1;
+	celerix::keypair key1;
 	ASSERT_FALSE (wallet.exists (transaction, key1.pub));
 	wallet.insert_adhoc (transaction, key1.prv);
 	ASSERT_TRUE (wallet.exists (transaction, key1.pub));
@@ -292,27 +292,27 @@ TEST (wallet, find_existing)
 TEST (wallet, rekey)
 {
 	bool init;
-	nano::store::lmdb::env env (init, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (init, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
+	celerix::wallet_store wallet (init, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 	ASSERT_FALSE (init);
-	nano::raw_key password;
+	celerix::raw_key password;
 	wallet.password.value (password);
 	ASSERT_TRUE (password.is_zero ());
 	ASSERT_FALSE (init);
-	nano::keypair key1;
+	celerix::keypair key1;
 	wallet.insert_adhoc (transaction, key1.prv);
-	nano::raw_key prv1;
+	celerix::raw_key prv1;
 	wallet.fetch (transaction, key1.pub, prv1);
 	ASSERT_EQ (key1.prv, prv1);
 	ASSERT_FALSE (wallet.rekey (transaction, "1"));
 	wallet.password.value (password);
-	nano::raw_key password1;
+	celerix::raw_key password1;
 	wallet.derive_key (password1, transaction, "1");
 	ASSERT_EQ (password1, password);
-	nano::raw_key prv2;
+	celerix::raw_key prv2;
 	wallet.fetch (transaction, key1.pub, prv2);
 	ASSERT_EQ (key1.prv, prv2);
 	*wallet.password.values[0] = 2;
@@ -321,88 +321,88 @@ TEST (wallet, rekey)
 
 TEST (account, encode_zero)
 {
-	nano::account number0{};
+	celerix::account number0{};
 	std::string str0;
 	number0.encode_account (str0);
 
 	/*
-	 * Handle different lengths for "xrb_" prefixed and "nano_" prefixed accounts
+	 * Handle different lengths for "xrb_" prefixed and "celerix_" prefixed accounts
 	 */
 	ASSERT_EQ ((str0.front () == 'x') ? 64 : 65, str0.size ());
 	ASSERT_EQ (65, str0.size ());
-	nano::account number1;
+	celerix::account number1;
 	ASSERT_FALSE (number1.decode_account (str0));
 	ASSERT_EQ (number0, number1);
 }
 
 TEST (account, encode_all)
 {
-	nano::account number0;
+	celerix::account number0;
 	number0.decode_hex ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 	std::string str0;
 	number0.encode_account (str0);
 
 	/*
-	 * Handle different lengths for "xrb_" prefixed and "nano_" prefixed accounts
+	 * Handle different lengths for "xrb_" prefixed and "celerix_" prefixed accounts
 	 */
 	ASSERT_EQ ((str0.front () == 'x') ? 64 : 65, str0.size ());
-	nano::account number1;
+	celerix::account number1;
 	ASSERT_FALSE (number1.decode_account (str0));
 	ASSERT_EQ (number0, number1);
 }
 
 TEST (account, encode_fail)
 {
-	nano::account number0{};
+	celerix::account number0{};
 	std::string str0;
 	number0.encode_account (str0);
 	str0[16] ^= 1;
-	nano::account number1;
+	celerix::account number1;
 	ASSERT_TRUE (number1.decode_account (str0));
 }
 
 TEST (wallet, hash_password)
 {
 	bool init;
-	nano::store::lmdb::env env (init, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (init, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
+	celerix::wallet_store wallet (init, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 	ASSERT_FALSE (init);
-	nano::raw_key hash1;
+	celerix::raw_key hash1;
 	wallet.derive_key (hash1, transaction, "");
-	nano::raw_key hash2;
+	celerix::raw_key hash2;
 	wallet.derive_key (hash2, transaction, "");
 	ASSERT_EQ (hash1, hash2);
-	nano::raw_key hash3;
+	celerix::raw_key hash3;
 	wallet.derive_key (hash3, transaction, "a");
 	ASSERT_NE (hash1, hash3);
 }
 
 TEST (fan, reconstitute)
 {
-	nano::raw_key value0 (0);
-	nano::fan fan (value0, 1024);
+	celerix::raw_key value0 (0);
+	celerix::fan fan (value0, 1024);
 	for (auto & i : fan.values)
 	{
 		ASSERT_NE (value0, *i);
 	}
-	nano::raw_key value1;
+	celerix::raw_key value1;
 	fan.value (value1);
 	ASSERT_EQ (value0, value1);
 }
 
 TEST (fan, change)
 {
-	nano::raw_key value0;
+	celerix::raw_key value0;
 	value0 = 0;
-	nano::raw_key value1;
+	celerix::raw_key value1;
 	value1 = 1;
 	ASSERT_NE (value0, value1);
-	nano::fan fan (value0, 1024);
+	celerix::fan fan (value0, 1024);
 	ASSERT_EQ (1024, fan.values.size ());
-	nano::raw_key value2;
+	celerix::raw_key value2;
 	fan.value (value2);
 	ASSERT_EQ (value0, value2);
 	fan.value_set (value1);
@@ -413,30 +413,30 @@ TEST (fan, change)
 TEST (wallet, reopen_default_password)
 {
 	bool init;
-	nano::store::lmdb::env env (init, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (init, celerix::unique_path () / "wallet.ldb");
 	auto transaction (env.tx_begin_write ());
 	ASSERT_FALSE (init);
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
 	{
-		nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+		celerix::wallet_store wallet (init, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 		ASSERT_FALSE (init);
 		ASSERT_TRUE (wallet.valid_password (transaction));
 	}
 	{
 		bool init;
-		nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+		celerix::wallet_store wallet (init, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 		ASSERT_FALSE (init);
 		ASSERT_TRUE (wallet.valid_password (transaction));
 	}
 	{
-		nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+		celerix::wallet_store wallet (init, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 		ASSERT_FALSE (init);
 		wallet.rekey (transaction, "");
 		ASSERT_TRUE (wallet.valid_password (transaction));
 	}
 	{
 		bool init;
-		nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+		celerix::wallet_store wallet (init, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 		ASSERT_FALSE (init);
 		ASSERT_FALSE (wallet.valid_password (transaction));
 		wallet.attempt_password (transaction, " ");
@@ -449,16 +449,16 @@ TEST (wallet, reopen_default_password)
 TEST (wallet, representative)
 {
 	auto error (false);
-	nano::store::lmdb::env env (error, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (error, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (error);
 	auto transaction (env.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store wallet (error, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
+	celerix::wallet_store wallet (error, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 	ASSERT_FALSE (error);
 	ASSERT_FALSE (wallet.is_representative (transaction));
-	ASSERT_EQ (nano::dev::genesis_key.pub, wallet.representative (transaction));
+	ASSERT_EQ (celerix::dev::genesis_key.pub, wallet.representative (transaction));
 	ASSERT_FALSE (wallet.is_representative (transaction));
-	nano::keypair key;
+	celerix::keypair key;
 	wallet.representative_set (transaction, key.pub);
 	ASSERT_FALSE (wallet.is_representative (transaction));
 	ASSERT_EQ (key.pub, wallet.representative (transaction));
@@ -470,18 +470,18 @@ TEST (wallet, representative)
 TEST (wallet, serialize_json_empty)
 {
 	auto error (false);
-	nano::store::lmdb::env env (error, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (error, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (error);
 	auto transaction (env.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store wallet1 (error, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
+	celerix::wallet_store wallet1 (error, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 	ASSERT_FALSE (error);
 	std::string serialized;
 	wallet1.serialize_json (transaction, serialized);
-	nano::wallet_store wallet2 (error, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "1", serialized);
+	celerix::wallet_store wallet2 (error, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "1", serialized);
 	ASSERT_FALSE (error);
-	nano::raw_key password1;
-	nano::raw_key password2;
+	celerix::raw_key password1;
+	celerix::raw_key password2;
 	wallet1.wallet_key (password1, transaction);
 	wallet2.wallet_key (password2, transaction);
 	ASSERT_EQ (password1, password2);
@@ -495,20 +495,20 @@ TEST (wallet, serialize_json_empty)
 TEST (wallet, serialize_json_one)
 {
 	auto error (false);
-	nano::store::lmdb::env env (error, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (error, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (error);
 	auto transaction (env.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store wallet1 (error, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
+	celerix::wallet_store wallet1 (error, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 	ASSERT_FALSE (error);
-	nano::keypair key;
+	celerix::keypair key;
 	wallet1.insert_adhoc (transaction, key.prv);
 	std::string serialized;
 	wallet1.serialize_json (transaction, serialized);
-	nano::wallet_store wallet2 (error, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "1", serialized);
+	celerix::wallet_store wallet2 (error, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "1", serialized);
 	ASSERT_FALSE (error);
-	nano::raw_key password1;
-	nano::raw_key password2;
+	celerix::raw_key password1;
+	celerix::raw_key password2;
 	wallet1.wallet_key (password1, transaction);
 	wallet2.wallet_key (password2, transaction);
 	ASSERT_EQ (password1, password2);
@@ -516,7 +516,7 @@ TEST (wallet, serialize_json_one)
 	ASSERT_EQ (wallet1.check (transaction), wallet2.check (transaction));
 	ASSERT_EQ (wallet1.representative (transaction), wallet2.representative (transaction));
 	ASSERT_TRUE (wallet2.exists (transaction, key.pub));
-	nano::raw_key prv;
+	celerix::raw_key prv;
 	wallet2.fetch (transaction, key.pub, prv);
 	ASSERT_EQ (key.prv, prv);
 }
@@ -524,24 +524,24 @@ TEST (wallet, serialize_json_one)
 TEST (wallet, serialize_json_password)
 {
 	auto error (false);
-	nano::store::lmdb::env env (error, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (error, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (error);
 	auto transaction (env.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store wallet1 (error, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
+	celerix::wallet_store wallet1 (error, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 	ASSERT_FALSE (error);
-	nano::keypair key;
+	celerix::keypair key;
 	wallet1.rekey (transaction, "password");
 	wallet1.insert_adhoc (transaction, key.prv);
 	std::string serialized;
 	wallet1.serialize_json (transaction, serialized);
-	nano::wallet_store wallet2 (error, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "1", serialized);
+	celerix::wallet_store wallet2 (error, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "1", serialized);
 	ASSERT_FALSE (error);
 	ASSERT_FALSE (wallet2.valid_password (transaction));
 	ASSERT_FALSE (wallet2.attempt_password (transaction, "password"));
 	ASSERT_TRUE (wallet2.valid_password (transaction));
-	nano::raw_key password1;
-	nano::raw_key password2;
+	celerix::raw_key password1;
+	celerix::raw_key password2;
 	wallet1.wallet_key (password1, transaction);
 	wallet2.wallet_key (password2, transaction);
 	ASSERT_EQ (password1, password2);
@@ -549,7 +549,7 @@ TEST (wallet, serialize_json_password)
 	ASSERT_EQ (wallet1.check (transaction), wallet2.check (transaction));
 	ASSERT_EQ (wallet1.representative (transaction), wallet2.representative (transaction));
 	ASSERT_TRUE (wallet2.exists (transaction, key.pub));
-	nano::raw_key prv;
+	celerix::raw_key prv;
 	wallet2.fetch (transaction, key.pub, prv);
 	ASSERT_EQ (key.prv, prv);
 }
@@ -557,21 +557,21 @@ TEST (wallet, serialize_json_password)
 TEST (wallet_store, move)
 {
 	auto error (false);
-	nano::store::lmdb::env env (error, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (error, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (error);
 	auto transaction (env.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store wallet1 (error, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
+	celerix::wallet_store wallet1 (error, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 	ASSERT_FALSE (error);
-	nano::keypair key1;
+	celerix::keypair key1;
 	wallet1.insert_adhoc (transaction, key1.prv);
-	nano::wallet_store wallet2 (error, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "1");
+	celerix::wallet_store wallet2 (error, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "1");
 	ASSERT_FALSE (error);
-	nano::keypair key2;
+	celerix::keypair key2;
 	wallet2.insert_adhoc (transaction, key2.prv);
 	ASSERT_FALSE (wallet1.exists (transaction, key2.pub));
 	ASSERT_TRUE (wallet2.exists (transaction, key2.pub));
-	std::vector<nano::public_key> keys;
+	std::vector<celerix::public_key> keys;
 	keys.push_back (key2.pub);
 	ASSERT_FALSE (wallet1.move (transaction, wallet2, keys));
 	ASSERT_TRUE (wallet1.exists (transaction, key2.pub));
@@ -580,10 +580,10 @@ TEST (wallet_store, move)
 
 TEST (wallet_store, import)
 {
-	nano::test::system system (2);
+	celerix::test::system system (2);
 	auto wallet1 (system.wallet (0));
 	auto wallet2 (system.wallet (1));
-	nano::keypair key1;
+	celerix::keypair key1;
 	wallet1->insert_adhoc (key1.prv);
 	std::string json;
 	wallet1->serialize (json);
@@ -595,10 +595,10 @@ TEST (wallet_store, import)
 
 TEST (wallet_store, fail_import_bad_password)
 {
-	nano::test::system system (2);
+	celerix::test::system system (2);
 	auto wallet1 (system.wallet (0));
 	auto wallet2 (system.wallet (1));
-	nano::keypair key1;
+	celerix::keypair key1;
 	wallet1->insert_adhoc (key1.prv);
 	std::string json;
 	wallet1->serialize (json);
@@ -609,7 +609,7 @@ TEST (wallet_store, fail_import_bad_password)
 
 TEST (wallet_store, fail_import_corrupt)
 {
-	nano::test::system system (2);
+	celerix::test::system system (2);
 	auto wallet1 (system.wallet (1));
 	std::string json;
 	auto error (wallet1->import (json, "1"));
@@ -619,19 +619,19 @@ TEST (wallet_store, fail_import_corrupt)
 // Test work is precached when a key is inserted
 TEST (wallet, work)
 {
-	nano::test::system system (1);
+	celerix::test::system system (1);
 	auto wallet (system.wallet (0));
-	wallet->insert_adhoc (nano::dev::genesis_key.prv);
-	wallet->insert_adhoc (nano::dev::genesis_key.prv);
+	wallet->insert_adhoc (celerix::dev::genesis_key.prv);
+	wallet->insert_adhoc (celerix::dev::genesis_key.prv);
 	auto done (false);
 	system.deadline_set (20s);
 	while (!done)
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 		uint64_t work (0);
-		if (!wallet->store.work_get (transaction, nano::dev::genesis_key.pub, work))
+		if (!wallet->store.work_get (transaction, celerix::dev::genesis_key.pub, work))
 		{
-			done = nano::dev::network_params.work.difficulty (nano::dev::genesis->work_version (), nano::dev::genesis->hash (), work) >= system.nodes[0]->default_difficulty (nano::dev::genesis->work_version ());
+			done = celerix::dev::network_params.work.difficulty (celerix::dev::genesis->work_version (), celerix::dev::genesis->hash (), work) >= system.nodes[0]->default_difficulty (celerix::dev::genesis->work_version ());
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -639,20 +639,20 @@ TEST (wallet, work)
 
 TEST (wallet, work_generate)
 {
-	nano::test::system system (1);
+	celerix::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	auto wallet (system.wallet (0));
-	nano::uint128_t amount1 (node1.balance (nano::dev::genesis_key.pub));
+	celerix::uint128_t amount1 (node1.balance (celerix::dev::genesis_key.pub));
 	uint64_t work1;
-	wallet->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::account account1;
+	wallet->insert_adhoc (celerix::dev::genesis_key.prv);
+	celerix::account account1;
 	{
 		auto transaction = node1.wallets.tx_begin_read ();
 		account1 = system.account (transaction, 0);
 	}
-	nano::keypair key;
-	auto block (wallet->send_action (nano::dev::genesis_key.pub, key.pub, 100));
-	ASSERT_TIMELY (10s, node1.ledger.any.account_balance (node1.ledger.tx_begin_read (), nano::dev::genesis_key.pub) != amount1);
+	celerix::keypair key;
+	auto block (wallet->send_action (celerix::dev::genesis_key.pub, key.pub, 100));
+	ASSERT_TIMELY (10s, node1.ledger.any.account_balance (node1.ledger.tx_begin_read (), celerix::dev::genesis_key.pub) != amount1);
 	system.deadline_set (10s);
 	auto again (true);
 	while (again)
@@ -660,29 +660,29 @@ TEST (wallet, work_generate)
 		ASSERT_NO_ERROR (system.poll ());
 		auto block_transaction = node1.ledger.tx_begin_read ();
 		auto transaction (system.wallet (0)->wallets.tx_begin_read ());
-		again = wallet->store.work_get (transaction, account1, work1) || nano::dev::network_params.work.difficulty (block->work_version (), node1.ledger.latest_root (block_transaction, account1), work1) < node1.default_difficulty (block->work_version ());
+		again = wallet->store.work_get (transaction, account1, work1) || celerix::dev::network_params.work.difficulty (block->work_version (), node1.ledger.latest_root (block_transaction, account1), work1) < node1.default_difficulty (block->work_version ());
 	}
 }
 
 TEST (wallet, work_cache_delayed)
 {
-	nano::test::system system (1);
+	celerix::test::system system (1);
 	auto & node1 (*system.nodes[0]);
 	auto wallet (system.wallet (0));
 	uint64_t work1;
-	wallet->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::account account1;
+	wallet->insert_adhoc (celerix::dev::genesis_key.prv);
+	celerix::account account1;
 	{
 		auto transaction = node1.wallets.tx_begin_read ();
 		account1 = system.account (transaction, 0);
 	}
-	nano::keypair key;
-	auto block1 (wallet->send_action (nano::dev::genesis_key.pub, key.pub, 100));
-	ASSERT_EQ (block1->hash (), node1.latest (nano::dev::genesis_key.pub));
-	auto block2 (wallet->send_action (nano::dev::genesis_key.pub, key.pub, 100));
-	ASSERT_EQ (block2->hash (), node1.latest (nano::dev::genesis_key.pub));
-	ASSERT_EQ (block2->hash (), node1.wallets.delayed_work->operator[] (nano::dev::genesis_key.pub).as_block_hash ());
-	auto threshold (node1.default_difficulty (nano::work_version::work_1));
+	celerix::keypair key;
+	auto block1 (wallet->send_action (celerix::dev::genesis_key.pub, key.pub, 100));
+	ASSERT_EQ (block1->hash (), node1.latest (celerix::dev::genesis_key.pub));
+	auto block2 (wallet->send_action (celerix::dev::genesis_key.pub, key.pub, 100));
+	ASSERT_EQ (block2->hash (), node1.latest (celerix::dev::genesis_key.pub));
+	ASSERT_EQ (block2->hash (), node1.wallets.delayed_work->operator[] (celerix::dev::genesis_key.pub).as_block_hash ());
+	auto threshold (node1.default_difficulty (celerix::work_version::work_1));
 	auto again (true);
 	system.deadline_set (10s);
 	while (again)
@@ -690,15 +690,15 @@ TEST (wallet, work_cache_delayed)
 		ASSERT_NO_ERROR (system.poll ());
 		if (!wallet->store.work_get (node1.wallets.tx_begin_read (), account1, work1))
 		{
-			again = nano::dev::network_params.work.difficulty (nano::work_version::work_1, block2->hash (), work1) < threshold;
+			again = celerix::dev::network_params.work.difficulty (celerix::work_version::work_1, block2->hash (), work1) < threshold;
 		}
 	}
-	ASSERT_GE (nano::dev::network_params.work.difficulty (nano::work_version::work_1, block2->hash (), work1), threshold);
+	ASSERT_GE (celerix::dev::network_params.work.difficulty (celerix::work_version::work_1, block2->hash (), work1), threshold);
 }
 
 TEST (wallet, insert_locked)
 {
-	nano::test::system system (1);
+	celerix::test::system system (1);
 	auto wallet (system.wallet (0));
 	{
 		auto transaction (wallet->wallets.tx_begin_write ());
@@ -708,17 +708,17 @@ TEST (wallet, insert_locked)
 	}
 	auto transaction (wallet->wallets.tx_begin_read ());
 	ASSERT_FALSE (wallet->store.valid_password (transaction));
-	ASSERT_TRUE (wallet->insert_adhoc (nano::keypair ().prv).is_zero ());
+	ASSERT_TRUE (wallet->insert_adhoc (celerix::keypair ().prv).is_zero ());
 }
 
 TEST (wallet, deterministic_keys)
 {
 	bool init;
-	nano::store::lmdb::env env (init, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (init, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
+	celerix::wallet_store wallet (init, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
 	auto key1 = wallet.deterministic_key (transaction, 0);
 	auto key2 = wallet.deterministic_key (transaction, 0);
 	ASSERT_EQ (key1, key2);
@@ -728,7 +728,7 @@ TEST (wallet, deterministic_keys)
 	wallet.deterministic_index_set (transaction, 1);
 	ASSERT_EQ (1, wallet.deterministic_index_get (transaction));
 	auto key4 (wallet.deterministic_insert (transaction));
-	nano::raw_key key5;
+	celerix::raw_key key5;
 	ASSERT_FALSE (wallet.fetch (transaction, key4, key5));
 	ASSERT_EQ (key3, key5);
 	ASSERT_EQ (2, wallet.deterministic_index_get (transaction));
@@ -739,11 +739,11 @@ TEST (wallet, deterministic_keys)
 	auto key8 (wallet.deterministic_insert (transaction));
 	ASSERT_EQ (key4, key8);
 	auto key6 (wallet.deterministic_insert (transaction));
-	nano::raw_key key7;
+	celerix::raw_key key7;
 	ASSERT_FALSE (wallet.fetch (transaction, key6, key7));
 	ASSERT_NE (key5, key7);
 	ASSERT_EQ (3, wallet.deterministic_index_get (transaction));
-	nano::keypair key9;
+	celerix::keypair key9;
 	ASSERT_EQ (key9.pub, wallet.insert_adhoc (transaction, key9.prv));
 	ASSERT_TRUE (wallet.exists (transaction, key9.pub));
 	wallet.deterministic_clear (transaction);
@@ -757,30 +757,30 @@ TEST (wallet, deterministic_keys)
 TEST (wallet, reseed)
 {
 	bool init;
-	nano::store::lmdb::env env (init, nano::unique_path () / "wallet.ldb");
+	celerix::store::lmdb::env env (init, celerix::unique_path () / "wallet.ldb");
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store wallet (init, kdf, transaction, env, nano::dev::genesis_key.pub, 1, "0");
-	nano::raw_key seed1;
+	celerix::kdf kdf{ celerix::dev::network_params.kdf_work };
+	celerix::wallet_store wallet (init, kdf, transaction, env, celerix::dev::genesis_key.pub, 1, "0");
+	celerix::raw_key seed1;
 	seed1 = 1;
-	nano::raw_key seed2;
+	celerix::raw_key seed2;
 	seed2 = 2;
 	wallet.seed_set (transaction, seed1);
-	nano::raw_key seed3;
+	celerix::raw_key seed3;
 	wallet.seed (seed3, transaction);
 	ASSERT_EQ (seed1, seed3);
 	auto key1 (wallet.deterministic_insert (transaction));
 	ASSERT_EQ (1, wallet.deterministic_index_get (transaction));
 	wallet.seed_set (transaction, seed2);
 	ASSERT_EQ (0, wallet.deterministic_index_get (transaction));
-	nano::raw_key seed4;
+	celerix::raw_key seed4;
 	wallet.seed (seed4, transaction);
 	ASSERT_EQ (seed2, seed4);
 	auto key2 (wallet.deterministic_insert (transaction));
 	ASSERT_NE (key1, key2);
 	wallet.seed_set (transaction, seed1);
-	nano::raw_key seed5;
+	celerix::raw_key seed5;
 	wallet.seed (seed5, transaction);
 	ASSERT_EQ (seed1, seed5);
 	auto key3 (wallet.deterministic_insert (transaction));
@@ -789,7 +789,7 @@ TEST (wallet, reseed)
 
 TEST (wallet, insert_deterministic_locked)
 {
-	nano::test::system system (1);
+	celerix::test::system system (1);
 	auto wallet (system.wallet (0));
 	auto transaction (wallet->wallets.tx_begin_write ());
 	wallet->store.rekey (transaction, "1");
@@ -801,35 +801,35 @@ TEST (wallet, insert_deterministic_locked)
 
 TEST (wallet, no_work)
 {
-	nano::test::system system (1);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv, false);
-	nano::keypair key2;
-	auto block (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max (), false));
+	celerix::test::system system (1);
+	system.wallet (0)->insert_adhoc (celerix::dev::genesis_key.prv, false);
+	celerix::keypair key2;
+	auto block (system.wallet (0)->send_action (celerix::dev::genesis_key.pub, key2.pub, std::numeric_limits<celerix::uint128_t>::max (), false));
 	ASSERT_NE (nullptr, block);
 	ASSERT_NE (0, block->block_work ());
-	ASSERT_GE (nano::dev::network_params.work.difficulty (*block), nano::dev::network_params.work.threshold (block->work_version (), block->sideband ().details));
+	ASSERT_GE (celerix::dev::network_params.work.difficulty (*block), celerix::dev::network_params.work.threshold (block->work_version (), block->sideband ().details));
 	auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 	uint64_t cached_work (0);
-	system.wallet (0)->store.work_get (transaction, nano::dev::genesis_key.pub, cached_work);
+	system.wallet (0)->store.work_get (transaction, celerix::dev::genesis_key.pub, cached_work);
 	ASSERT_EQ (0, cached_work);
 }
 
 TEST (wallet, send_race)
 {
-	nano::test::system system (1);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::keypair key2;
+	celerix::test::system system (1);
+	system.wallet (0)->insert_adhoc (celerix::dev::genesis_key.prv);
+	celerix::keypair key2;
 	for (auto i (1); i < 60; ++i)
 	{
-		ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, nano::Knano_ratio));
-		ASSERT_EQ (nano::dev::constants.genesis_amount - nano::Knano_ratio * i, system.nodes[0]->balance (nano::dev::genesis_key.pub));
+		ASSERT_NE (nullptr, system.wallet (0)->send_action (celerix::dev::genesis_key.pub, key2.pub, celerix::Kcelerix_ratio));
+		ASSERT_EQ (celerix::dev::constants.genesis_amount - celerix::Kcelerix_ratio * i, system.nodes[0]->balance (celerix::dev::genesis_key.pub));
 	}
 }
 
 TEST (wallet, password_race)
 {
-	nano::test::system system (1);
-	nano::thread_runner runner (system.io_ctx, system.logger, system.nodes[0]->config.io_threads);
+	celerix::test::system system (1);
+	celerix::thread_runner runner (system.io_ctx, system.logger, system.nodes[0]->config.io_threads);
 	auto wallet = system.wallet (0);
 	std::thread thread ([&wallet] () {
 		for (int i = 0; i < 100; i++)
@@ -856,10 +856,10 @@ TEST (wallet, password_race)
 
 TEST (wallet, password_race_corrupt_seed)
 {
-	nano::test::system system (1);
-	nano::thread_runner runner (system.io_ctx, system.logger, system.nodes[0]->config.io_threads);
+	celerix::test::system system (1);
+	celerix::thread_runner runner (system.io_ctx, system.logger, system.nodes[0]->config.io_threads);
 	auto wallet = system.wallet (0);
-	nano::raw_key seed;
+	celerix::raw_key seed;
 	{
 		auto transaction (wallet->wallets.tx_begin_write ());
 		ASSERT_FALSE (wallet->store.rekey (transaction, "4567"));
@@ -901,19 +901,19 @@ TEST (wallet, password_race_corrupt_seed)
 		auto transaction (wallet->wallets.tx_begin_write ());
 		if (!wallet->store.attempt_password (transaction, "1234"))
 		{
-			nano::raw_key seed_now;
+			celerix::raw_key seed_now;
 			wallet->store.seed (seed_now, transaction);
 			ASSERT_EQ (seed_now, seed);
 		}
 		else if (!wallet->store.attempt_password (transaction, "0000"))
 		{
-			nano::raw_key seed_now;
+			celerix::raw_key seed_now;
 			wallet->store.seed (seed_now, transaction);
 			ASSERT_EQ (seed_now, seed);
 		}
 		else if (!wallet->store.attempt_password (transaction, "4567"))
 		{
-			nano::raw_key seed_now;
+			celerix::raw_key seed_now;
 			wallet->store.seed (seed_now, transaction);
 			ASSERT_EQ (seed_now, seed);
 		}
@@ -926,23 +926,23 @@ TEST (wallet, password_race_corrupt_seed)
 
 TEST (wallet, change_seed)
 {
-	nano::test::system system (1);
+	celerix::test::system system (1);
 	auto wallet (system.wallet (0));
 	wallet->enter_initial_password ();
-	nano::raw_key seed1;
+	celerix::raw_key seed1;
 	seed1 = 1;
-	nano::public_key pub;
+	celerix::public_key pub;
 	uint32_t index (4);
-	auto prv = nano::deterministic_key (seed1, index);
-	pub = nano::pub_key (prv);
-	wallet->insert_adhoc (nano::dev::genesis_key.prv, false);
-	auto block (wallet->send_action (nano::dev::genesis_key.pub, pub, 100));
+	auto prv = celerix::deterministic_key (seed1, index);
+	pub = celerix::pub_key (prv);
+	wallet->insert_adhoc (celerix::dev::genesis_key.prv, false);
+	auto block (wallet->send_action (celerix::dev::genesis_key.pub, pub, 100));
 	ASSERT_NE (nullptr, block);
-	ASSERT_TIMELY (5s, nano::test::exists (*system.nodes[0], { block }));
+	ASSERT_TIMELY (5s, celerix::test::exists (*system.nodes[0], { block }));
 	{
 		auto transaction (wallet->wallets.tx_begin_write ());
 		wallet->change_seed (transaction, seed1);
-		nano::raw_key seed2;
+		celerix::raw_key seed2;
 		wallet->store.seed (seed2, transaction);
 		ASSERT_EQ (seed1, seed2);
 		ASSERT_EQ (index + 1, wallet->store.deterministic_index_get (transaction));
@@ -952,27 +952,27 @@ TEST (wallet, change_seed)
 
 TEST (wallet, deterministic_restore)
 {
-	nano::test::system system (1);
+	celerix::test::system system (1);
 	auto wallet (system.wallet (0));
 	wallet->enter_initial_password ();
-	nano::raw_key seed1;
+	celerix::raw_key seed1;
 	seed1 = 1;
-	nano::public_key pub;
+	celerix::public_key pub;
 	uint32_t index (4);
 	{
 		auto transaction (wallet->wallets.tx_begin_write ());
 		wallet->change_seed (transaction, seed1);
-		nano::raw_key seed2;
+		celerix::raw_key seed2;
 		wallet->store.seed (seed2, transaction);
 		ASSERT_EQ (seed1, seed2);
 		ASSERT_EQ (1, wallet->store.deterministic_index_get (transaction));
-		auto prv = nano::deterministic_key (seed1, index);
-		pub = nano::pub_key (prv);
+		auto prv = celerix::deterministic_key (seed1, index);
+		pub = celerix::pub_key (prv);
 	}
-	wallet->insert_adhoc (nano::dev::genesis_key.prv, false);
-	auto block (wallet->send_action (nano::dev::genesis_key.pub, pub, 100));
+	wallet->insert_adhoc (celerix::dev::genesis_key.prv, false);
+	auto block (wallet->send_action (celerix::dev::genesis_key.pub, pub, 100));
 	ASSERT_NE (nullptr, block);
-	ASSERT_TIMELY (5s, nano::test::exists (*system.nodes[0], { block }));
+	ASSERT_TIMELY (5s, celerix::test::exists (*system.nodes[0], { block }));
 	{
 		auto transaction (wallet->wallets.tx_begin_write ());
 		wallet->deterministic_restore (transaction);
@@ -983,15 +983,15 @@ TEST (wallet, deterministic_restore)
 
 TEST (wallet, epoch_2_validation)
 {
-	nano::test::system system (1);
+	celerix::test::system system (1);
 	auto & node (*system.nodes[0]);
 	auto & wallet (*system.wallet (0));
 
 	// Upgrade the genesis account to epoch 2
-	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node, nano::epoch::epoch_1));
-	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node, nano::epoch::epoch_2));
+	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node, celerix::epoch::epoch_1));
+	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node, celerix::epoch::epoch_2));
 
-	wallet.insert_adhoc (nano::dev::genesis_key.prv, false);
+	wallet.insert_adhoc (celerix::dev::genesis_key.prv, false);
 
 	// Test send and receive blocks
 	// An epoch 2 receive block should be generated with lower difficulty with high probability
@@ -1000,25 +1000,25 @@ TEST (wallet, epoch_2_validation)
 	auto amount = node.config.receive_minimum.number ();
 	while (++tries < max_tries)
 	{
-		auto send = wallet.send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, amount, 1);
+		auto send = wallet.send_action (celerix::dev::genesis_key.pub, celerix::dev::genesis_key.pub, amount, 1);
 		ASSERT_NE (nullptr, send);
-		ASSERT_EQ (nano::epoch::epoch_2, send->sideband ().details.epoch);
-		ASSERT_EQ (nano::epoch::epoch_0, send->sideband ().source_epoch); // Not used for send state blocks
+		ASSERT_EQ (celerix::epoch::epoch_2, send->sideband ().details.epoch);
+		ASSERT_EQ (celerix::epoch::epoch_0, send->sideband ().source_epoch); // Not used for send state blocks
 
-		auto receive = wallet.receive_action (send->hash (), nano::dev::genesis_key.pub, amount, send->destination (), 1);
+		auto receive = wallet.receive_action (send->hash (), celerix::dev::genesis_key.pub, amount, send->destination (), 1);
 		ASSERT_NE (nullptr, receive);
-		if (nano::dev::network_params.work.difficulty (*receive) < node.network_params.work.base)
+		if (celerix::dev::network_params.work.difficulty (*receive) < node.network_params.work.base)
 		{
-			ASSERT_GE (nano::dev::network_params.work.difficulty (*receive), node.network_params.work.epoch_2_receive);
-			ASSERT_EQ (nano::epoch::epoch_2, receive->sideband ().details.epoch);
-			ASSERT_EQ (nano::epoch::epoch_2, receive->sideband ().source_epoch);
+			ASSERT_GE (celerix::dev::network_params.work.difficulty (*receive), node.network_params.work.epoch_2_receive);
+			ASSERT_EQ (celerix::epoch::epoch_2, receive->sideband ().details.epoch);
+			ASSERT_EQ (celerix::epoch::epoch_2, receive->sideband ().source_epoch);
 			break;
 		}
 	}
 	ASSERT_LT (tries, max_tries);
 
 	// Test a change block
-	ASSERT_NE (nullptr, wallet.change_action (nano::dev::genesis_key.pub, nano::keypair ().pub, 1));
+	ASSERT_NE (nullptr, wallet.change_action (celerix::dev::genesis_key.pub, celerix::keypair ().pub, 1));
 }
 
 // Receiving from an upgraded account uses the lower threshold and upgrades the receiving account
@@ -1028,42 +1028,42 @@ TEST (wallet, epoch_2_receive_propagation)
 	auto const max_tries = 20;
 	while (++tries < max_tries)
 	{
-		nano::test::system system;
-		nano::node_flags node_flags;
+		celerix::test::system system;
+		celerix::node_flags node_flags;
 		node_flags.disable_request_loop = true;
 		auto & node (*system.add_node (node_flags));
 		auto & wallet (*system.wallet (0));
 
 		// Upgrade the genesis account to epoch 1
-		auto epoch1 = system.upgrade_genesis_epoch (node, nano::epoch::epoch_1);
+		auto epoch1 = system.upgrade_genesis_epoch (node, celerix::epoch::epoch_1);
 		ASSERT_NE (nullptr, epoch1);
 
-		nano::keypair key;
-		nano::state_block_builder builder;
+		celerix::keypair key;
+		celerix::state_block_builder builder;
 
 		// Send and open the account
-		wallet.insert_adhoc (nano::dev::genesis_key.prv, false);
+		wallet.insert_adhoc (celerix::dev::genesis_key.prv, false);
 		wallet.insert_adhoc (key.prv, false);
 		auto amount = node.config.receive_minimum.number ();
-		auto send1 = wallet.send_action (nano::dev::genesis_key.pub, key.pub, amount, 1);
+		auto send1 = wallet.send_action (celerix::dev::genesis_key.pub, key.pub, amount, 1);
 		ASSERT_NE (nullptr, send1);
-		ASSERT_NE (nullptr, wallet.receive_action (send1->hash (), nano::dev::genesis_key.pub, amount, send1->destination (), 1));
+		ASSERT_NE (nullptr, wallet.receive_action (send1->hash (), celerix::dev::genesis_key.pub, amount, send1->destination (), 1));
 
 		// Upgrade the genesis account to epoch 2
-		auto epoch2 = system.upgrade_genesis_epoch (node, nano::epoch::epoch_2);
+		auto epoch2 = system.upgrade_genesis_epoch (node, celerix::epoch::epoch_2);
 		ASSERT_NE (nullptr, epoch2);
 
 		// Send a block
-		auto send2 = wallet.send_action (nano::dev::genesis_key.pub, key.pub, amount, 1);
+		auto send2 = wallet.send_action (celerix::dev::genesis_key.pub, key.pub, amount, 1);
 		ASSERT_NE (nullptr, send2);
 
 		auto receive2 = wallet.receive_action (send2->hash (), key.pub, amount, send2->destination (), 1);
 		ASSERT_NE (nullptr, receive2);
-		if (nano::dev::network_params.work.difficulty (*receive2) < node.network_params.work.base)
+		if (celerix::dev::network_params.work.difficulty (*receive2) < node.network_params.work.base)
 		{
-			ASSERT_GE (nano::dev::network_params.work.difficulty (*receive2), node.network_params.work.epoch_2_receive);
-			ASSERT_EQ (nano::epoch::epoch_2, node.ledger.version (*receive2));
-			ASSERT_EQ (nano::epoch::epoch_2, receive2->sideband ().source_epoch);
+			ASSERT_GE (celerix::dev::network_params.work.difficulty (*receive2), node.network_params.work.epoch_2_receive);
+			ASSERT_EQ (celerix::epoch::epoch_2, node.ledger.version (*receive2));
+			ASSERT_EQ (celerix::epoch::epoch_2, receive2->sideband ().source_epoch);
 			break;
 		}
 	}
@@ -1078,23 +1078,23 @@ TEST (wallet, epoch_2_receive_unopened)
 	auto const max_tries = 20;
 	while (++tries < max_tries)
 	{
-		nano::test::system system;
-		nano::node_flags node_flags;
+		celerix::test::system system;
+		celerix::node_flags node_flags;
 		node_flags.disable_request_loop = true;
 		auto & node (*system.add_node (node_flags));
 		auto & wallet (*system.wallet (0));
 
 		// Upgrade the genesis account to epoch 1
-		auto epoch1 = system.upgrade_genesis_epoch (node, nano::epoch::epoch_1);
+		auto epoch1 = system.upgrade_genesis_epoch (node, celerix::epoch::epoch_1);
 		ASSERT_NE (nullptr, epoch1);
 
-		nano::keypair key;
-		nano::state_block_builder builder;
+		celerix::keypair key;
+		celerix::state_block_builder builder;
 
 		// Send
-		wallet.insert_adhoc (nano::dev::genesis_key.prv, false);
+		wallet.insert_adhoc (celerix::dev::genesis_key.prv, false);
 		auto amount = node.config.receive_minimum.number ();
-		auto send1 = wallet.send_action (nano::dev::genesis_key.pub, key.pub, amount, 1);
+		auto send1 = wallet.send_action (celerix::dev::genesis_key.pub, key.pub, amount, 1);
 
 		// Upgrade unopened account to epoch_2
 		auto epoch2_unopened = builder
@@ -1102,21 +1102,21 @@ TEST (wallet, epoch_2_receive_unopened)
 							   .previous (0)
 							   .representative (0)
 							   .balance (0)
-							   .link (node.network_params.ledger.epochs.link (nano::epoch::epoch_2))
-							   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+							   .link (node.network_params.ledger.epochs.link (celerix::epoch::epoch_2))
+							   .sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
 							   .work (*system.work.generate (key.pub, node.network_params.work.epoch_2))
 							   .build ();
-		ASSERT_EQ (nano::block_status::progress, node.process (epoch2_unopened));
+		ASSERT_EQ (celerix::block_status::progress, node.process (epoch2_unopened));
 
 		wallet.insert_adhoc (key.prv, false);
 
 		auto receive1 = wallet.receive_action (send1->hash (), key.pub, amount, send1->destination (), 1);
 		ASSERT_NE (nullptr, receive1);
-		if (nano::dev::network_params.work.difficulty (*receive1) < node.network_params.work.base)
+		if (celerix::dev::network_params.work.difficulty (*receive1) < node.network_params.work.base)
 		{
-			ASSERT_GE (nano::dev::network_params.work.difficulty (*receive1), node.network_params.work.epoch_2_receive);
-			ASSERT_EQ (nano::epoch::epoch_2, node.ledger.version (*receive1));
-			ASSERT_EQ (nano::epoch::epoch_1, receive1->sideband ().source_epoch);
+			ASSERT_GE (celerix::dev::network_params.work.difficulty (*receive1), node.network_params.work.epoch_2_receive);
+			ASSERT_EQ (celerix::epoch::epoch_2, node.ledger.version (*receive1));
+			ASSERT_EQ (celerix::epoch::epoch_1, receive1->sideband ().source_epoch);
 			break;
 		}
 	}
@@ -1128,15 +1128,15 @@ TEST (wallet, epoch_2_receive_unopened)
  */
 TEST (wallet, foreach_representative_deadlock)
 {
-	nano::test::system system (1);
+	celerix::test::system system (1);
 	auto & node (*system.nodes[0]);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	system.wallet (0)->insert_adhoc (celerix::dev::genesis_key.prv);
 	node.wallets.compute_reps ();
 	ASSERT_EQ (1, node.wallets.reps ().voting);
 
 	bool set = false;
-	node.wallets.foreach_representative ([&node, &set, &system] (nano::public_key const & pub, nano::raw_key const & prv) {
-		node.wallets.foreach_representative ([&node, &set, &system] (nano::public_key const & pub, nano::raw_key const & prv) {
+	node.wallets.foreach_representative ([&node, &set, &system] (celerix::public_key const & pub, celerix::raw_key const & prv) {
+		node.wallets.foreach_representative ([&node, &set, &system] (celerix::public_key const & pub, celerix::raw_key const & prv) {
 			ASSERT_TIMELY (5s, node.wallets.mutex.try_lock () == 1);
 			node.wallets.mutex.unlock ();
 			set = true;
@@ -1147,36 +1147,36 @@ TEST (wallet, foreach_representative_deadlock)
 
 TEST (wallet, search_receivable)
 {
-	nano::test::system system;
-	nano::node_config config = system.default_config ();
+	celerix::test::system system;
+	celerix::node_config config = system.default_config ();
 	config.enable_voting = false;
 	config.backlog_scan.enable = false;
-	nano::node_flags flags;
+	celerix::node_flags flags;
 	flags.disable_search_pending = true;
 	auto & node (*system.add_node (config, flags));
 	auto & wallet (*system.wallet (0));
 
-	wallet.insert_adhoc (nano::dev::genesis_key.prv);
-	nano::block_builder builder;
+	wallet.insert_adhoc (celerix::dev::genesis_key.prv);
+	celerix::block_builder builder;
 	auto send = builder.state ()
-				.account (nano::dev::genesis_key.pub)
-				.previous (nano::dev::genesis->hash ())
-				.representative (nano::dev::genesis_key.pub)
-				.balance (nano::dev::constants.genesis_amount - node.config.receive_minimum.number ())
-				.link (nano::dev::genesis_key.pub)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.account (celerix::dev::genesis_key.pub)
+				.previous (celerix::dev::genesis->hash ())
+				.representative (celerix::dev::genesis_key.pub)
+				.balance (celerix::dev::constants.genesis_amount - node.config.receive_minimum.number ())
+				.link (celerix::dev::genesis_key.pub)
+				.sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
+				.work (*system.work.generate (celerix::dev::genesis->hash ()))
 				.build ();
-	ASSERT_EQ (nano::block_status::progress, node.process (send));
+	ASSERT_EQ (celerix::block_status::progress, node.process (send));
 
 	// Pending search should start an election
 	ASSERT_TRUE (node.active.empty ());
 	ASSERT_FALSE (wallet.search_receivable (wallet.wallets.tx_begin_read ()));
-	std::shared_ptr<nano::election> election;
+	std::shared_ptr<celerix::election> election;
 	ASSERT_TIMELY (5s, election = node.active.election (send->qualified_root ()));
 
 	// Erase the key so the confirmation does not trigger an automatic receive
-	wallet.store.erase (node.wallets.tx_begin_write (), nano::dev::genesis_key.pub);
+	wallet.store.erase (node.wallets.tx_begin_write (), celerix::dev::genesis_key.pub);
 
 	// Now confirm the election
 	election->force_confirm ();
@@ -1184,13 +1184,13 @@ TEST (wallet, search_receivable)
 	ASSERT_TIMELY (5s, node.block_confirmed (send->hash ()) && node.active.empty ());
 
 	// Re-insert the key
-	wallet.insert_adhoc (nano::dev::genesis_key.prv);
+	wallet.insert_adhoc (celerix::dev::genesis_key.prv);
 
 	// Pending search should create the receive block
 	ASSERT_EQ (2, node.ledger.block_count ());
 	ASSERT_FALSE (wallet.search_receivable (wallet.wallets.tx_begin_read ()));
-	ASSERT_TIMELY_EQ (3s, node.balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount);
-	auto receive_hash = node.ledger.any.account_head (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
+	ASSERT_TIMELY_EQ (3s, node.balance (celerix::dev::genesis_key.pub), celerix::dev::constants.genesis_amount);
+	auto receive_hash = node.ledger.any.account_head (node.ledger.tx_begin_read (), celerix::dev::genesis_key.pub);
 	auto receive = node.block (receive_hash);
 	ASSERT_NE (nullptr, receive);
 	ASSERT_EQ (receive->sideband ().height, 3);
@@ -1199,26 +1199,26 @@ TEST (wallet, search_receivable)
 
 TEST (wallet, receive_pruned)
 {
-	nano::test::system system;
-	nano::node_flags node_flags;
+	celerix::test::system system;
+	celerix::node_flags node_flags;
 	node_flags.disable_request_loop = true;
 	auto & node1 = *system.add_node (node_flags);
 	node_flags.enable_pruning = true;
-	nano::node_config config = system.default_config ();
+	celerix::node_config config = system.default_config ();
 	config.enable_voting = false; // Remove after allowing pruned voting
 	auto & node2 = *system.add_node (config, node_flags);
 
 	auto & wallet1 = *system.wallet (0);
 	auto & wallet2 = *system.wallet (1);
 
-	nano::keypair key;
-	nano::state_block_builder builder;
+	celerix::keypair key;
+	celerix::state_block_builder builder;
 
 	// Send
-	wallet1.insert_adhoc (nano::dev::genesis_key.prv, false);
+	wallet1.insert_adhoc (celerix::dev::genesis_key.prv, false);
 	auto amount = node2.config.receive_minimum.number ();
-	auto send1 = wallet1.send_action (nano::dev::genesis_key.pub, key.pub, amount, 1);
-	auto send2 = wallet1.send_action (nano::dev::genesis_key.pub, key.pub, 1, 1);
+	auto send1 = wallet1.send_action (celerix::dev::genesis_key.pub, key.pub, amount, 1);
+	auto send2 = wallet1.send_action (celerix::dev::genesis_key.pub, key.pub, 1, 1);
 
 	// Pruning
 	ASSERT_TIMELY_EQ (5s, node2.ledger.cemented_count (), 3);

@@ -1,9 +1,9 @@
-#include <nano/node/telemetry.hpp>
-#include <nano/node/transport/fake.hpp>
-#include <nano/test_common/network.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/telemetry.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/node/telemetry.hpp>
+#include <celerix/node/transport/fake.hpp>
+#include <celerix/test_common/network.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/telemetry.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -13,8 +13,8 @@ using namespace std::chrono_literals;
 
 TEST (telemetry, signatures)
 {
-	nano::keypair node_id;
-	nano::telemetry_data data;
+	celerix::keypair node_id;
+	celerix::telemetry_data data;
 	data.node_id = node_id.pub;
 	data.major_version = 20;
 	data.minor_version = 1;
@@ -33,8 +33,8 @@ TEST (telemetry, signatures)
 
 TEST (telemetry, unknown_data)
 {
-	nano::keypair node_id;
-	nano::telemetry_data data;
+	celerix::keypair node_id;
+	celerix::telemetry_data data;
 	data.node_id = node_id.pub;
 	data.major_version = 20;
 	data.minor_version = 1;
@@ -49,7 +49,7 @@ TEST (telemetry, unknown_data)
 
 TEST (telemetry, no_peers)
 {
-	nano::test::system system (1);
+	celerix::test::system system (1);
 
 	auto responses = system.nodes[0]->telemetry.get_all_telemetries ();
 	ASSERT_TRUE (responses.empty ());
@@ -57,23 +57,23 @@ TEST (telemetry, no_peers)
 
 TEST (telemetry, basic)
 {
-	nano::test::system system;
-	nano::node_flags node_flags;
+	celerix::test::system system;
+	celerix::node_flags node_flags;
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
-	nano::test::wait_peer_connections (system);
+	celerix::test::wait_peer_connections (system);
 
 	// Request telemetry metrics
 	auto channel = node_client->network.find_node_id (node_server->get_node_id ());
 	ASSERT_NE (nullptr, channel);
 
-	std::optional<nano::telemetry_data> telemetry_data;
+	std::optional<celerix::telemetry_data> telemetry_data;
 	ASSERT_TIMELY (5s, telemetry_data = node_client->telemetry.get_telemetry (channel->get_remote_endpoint ()));
 	ASSERT_EQ (node_server->get_node_id (), telemetry_data->node_id);
 
 	// Check the metrics are correct
-	ASSERT_TRUE (nano::test::compare_telemetry (*telemetry_data, *node_server));
+	ASSERT_TRUE (celerix::test::compare_telemetry (*telemetry_data, *node_server));
 
 	// Call again straight away
 	auto telemetry_data_2 = node_client->telemetry.get_telemetry (channel->get_remote_endpoint ());
@@ -89,14 +89,14 @@ TEST (telemetry, basic)
 	// Wait the cache period and check cache is not used
 	WAIT (3s);
 
-	std::optional<nano::telemetry_data> telemetry_data_4;
+	std::optional<celerix::telemetry_data> telemetry_data_4;
 	ASSERT_TIMELY (5s, telemetry_data_4 = node_client->telemetry.get_telemetry (channel->get_remote_endpoint ()));
 	ASSERT_NE (*telemetry_data, *telemetry_data_4);
 }
 
 TEST (telemetry, invalid_endpoint)
 {
-	nano::test::system system (2);
+	celerix::test::system system (2);
 
 	auto node_client = system.nodes.front ();
 	auto node_server = system.nodes.back ();
@@ -106,17 +106,17 @@ TEST (telemetry, invalid_endpoint)
 	// Give some time for nodes to exchange telemetry
 	WAIT (1s);
 
-	nano::endpoint endpoint = *nano::parse_endpoint ("::ffff:240.0.0.0:12345");
+	celerix::endpoint endpoint = *celerix::parse_endpoint ("::ffff:240.0.0.0:12345");
 	ASSERT_FALSE (node_client->telemetry.get_telemetry (endpoint));
 }
 
 TEST (telemetry, disconnected)
 {
-	nano::test::system system;
-	nano::node_flags node_flags;
+	celerix::test::system system;
+	celerix::node_flags node_flags;
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
-	nano::test::wait_peer_connections (system);
+	celerix::test::wait_peer_connections (system);
 	auto channel = node_client->network.find_node_id (node_server->get_node_id ());
 	ASSERT_NE (nullptr, channel);
 
@@ -133,52 +133,52 @@ TEST (telemetry, disconnected)
 TEST (telemetry, dos_tcp)
 {
 	// Confirm that telemetry_reqs are not processed
-	nano::test::system system;
-	nano::node_flags node_flags;
+	celerix::test::system system;
+	celerix::node_flags node_flags;
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
-	nano::test::wait_peer_connections (system);
+	celerix::test::wait_peer_connections (system);
 
-	nano::telemetry_req message{ nano::dev::network_params.network };
+	celerix::telemetry_req message{ celerix::dev::network_params.network };
 	auto channel = node_client->network.tcp_channels.find_node_id (node_server->get_node_id ());
 	ASSERT_NE (nullptr, channel);
-	channel->send (message, nano::transport::traffic_type::test, [] (boost::system::error_code const & ec, size_t size_a) {
+	channel->send (message, celerix::transport::traffic_type::test, [] (boost::system::error_code const & ec, size_t size_a) {
 		ASSERT_FALSE (ec);
 	});
 
-	ASSERT_TIMELY_EQ (5s, 1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
+	ASSERT_TIMELY_EQ (5s, 1, node_server->stats.count (celerix::stat::type::message, celerix::stat::detail::telemetry_req, celerix::stat::dir::in));
 
 	auto orig = std::chrono::steady_clock::now ();
 	for (int i = 0; i < 10; ++i)
 	{
-		channel->send (message, nano::transport::traffic_type::test, [] (boost::system::error_code const & ec, size_t size_a) {
+		channel->send (message, celerix::transport::traffic_type::test, [] (boost::system::error_code const & ec, size_t size_a) {
 			ASSERT_FALSE (ec);
 		});
 	}
 
-	ASSERT_TIMELY (5s, (nano::dev::network_params.network.telemetry_request_cooldown + orig) <= std::chrono::steady_clock::now ());
+	ASSERT_TIMELY (5s, (celerix::dev::network_params.network.telemetry_request_cooldown + orig) <= std::chrono::steady_clock::now ());
 
 	// Should process no more telemetry_req messages
-	ASSERT_EQ (1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
+	ASSERT_EQ (1, node_server->stats.count (celerix::stat::type::message, celerix::stat::detail::telemetry_req, celerix::stat::dir::in));
 
 	// Now spam messages waiting for it to be processed
-	while (node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in) == 1)
+	while (node_server->stats.count (celerix::stat::type::message, celerix::stat::detail::telemetry_req, celerix::stat::dir::in) == 1)
 	{
-		channel->send (message, nano::transport::traffic_type::test);
+		channel->send (message, celerix::transport::traffic_type::test);
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
 
 TEST (telemetry, disable_metrics)
 {
-	nano::test::system system;
-	nano::node_flags node_flags;
+	celerix::test::system system;
+	celerix::node_flags node_flags;
 	auto node_client = system.add_node (node_flags);
 	node_flags.disable_providing_telemetry_metrics = true;
 	auto node_server = system.add_node (node_flags);
 
-	nano::test::wait_peer_connections (system);
+	celerix::test::wait_peer_connections (system);
 
 	// Try and request metrics from a node which is turned off but a channel is not closed yet
 	auto channel = node_client->network.find_node_id (node_server->get_node_id ());
@@ -192,95 +192,95 @@ TEST (telemetry, disable_metrics)
 	auto channel1 = node_server->network.find_node_id (node_client->get_node_id ());
 	ASSERT_NE (nullptr, channel1);
 
-	std::optional<nano::telemetry_data> telemetry_data;
+	std::optional<celerix::telemetry_data> telemetry_data;
 	ASSERT_TIMELY (5s, telemetry_data = node_server->telemetry.get_telemetry (channel1->get_remote_endpoint ()));
 
-	ASSERT_TRUE (nano::test::compare_telemetry (*telemetry_data, *node_client));
+	ASSERT_TRUE (celerix::test::compare_telemetry (*telemetry_data, *node_client));
 }
 
 TEST (telemetry, max_possible_size)
 {
-	nano::test::system system;
-	nano::node_flags node_flags;
+	celerix::test::system system;
+	celerix::node_flags node_flags;
 	node_flags.disable_providing_telemetry_metrics = true;
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
-	nano::telemetry_data data;
-	data.unknown_data.resize (nano::message_header::telemetry_size_mask.to_ulong () - nano::telemetry_data::latest_size);
+	celerix::telemetry_data data;
+	data.unknown_data.resize (celerix::message_header::telemetry_size_mask.to_ulong () - celerix::telemetry_data::latest_size);
 
-	nano::telemetry_ack message{ nano::dev::network_params.network, data };
-	nano::test::wait_peer_connections (system);
+	celerix::telemetry_ack message{ celerix::dev::network_params.network, data };
+	celerix::test::wait_peer_connections (system);
 
 	auto channel = node_client->network.tcp_channels.find_node_id (node_server->get_node_id ());
 	ASSERT_NE (nullptr, channel);
-	channel->send (message, nano::transport::traffic_type::test, [] (boost::system::error_code const & ec, size_t size_a) {
+	channel->send (message, celerix::transport::traffic_type::test, [] (boost::system::error_code const & ec, size_t size_a) {
 		ASSERT_FALSE (ec);
 	});
 
-	ASSERT_TIMELY_EQ (5s, 1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in));
+	ASSERT_TIMELY_EQ (5s, 1, node_server->stats.count (celerix::stat::type::message, celerix::stat::detail::telemetry_ack, celerix::stat::dir::in));
 }
 
 TEST (telemetry, maker_pruning)
 {
-	nano::test::system system;
-	nano::node_flags node_flags;
+	celerix::test::system system;
+	celerix::node_flags node_flags;
 	auto node_client = system.add_node (node_flags);
 	node_flags.enable_pruning = true;
-	nano::node_config config;
+	celerix::node_config config;
 	config.enable_voting = false;
 	auto node_server = system.add_node (config, node_flags);
 
-	nano::test::wait_peer_connections (system);
+	celerix::test::wait_peer_connections (system);
 
 	// Request telemetry metrics
 	auto channel = node_client->network.find_node_id (node_server->get_node_id ());
 	ASSERT_NE (nullptr, channel);
 
-	std::optional<nano::telemetry_data> telemetry_data;
+	std::optional<celerix::telemetry_data> telemetry_data;
 	ASSERT_TIMELY (5s, telemetry_data = node_client->telemetry.get_telemetry (channel->get_remote_endpoint ()));
 	ASSERT_EQ (node_server->get_node_id (), telemetry_data->node_id);
 
 	// Ensure telemetry response indicates pruned node
-	ASSERT_EQ (nano::telemetry_maker::nf_pruned_node, static_cast<nano::telemetry_maker> (telemetry_data->maker));
+	ASSERT_EQ (celerix::telemetry_maker::nf_pruned_node, static_cast<celerix::telemetry_maker> (telemetry_data->maker));
 }
 
 TEST (telemetry, invalid_signature)
 {
-	nano::test::system system;
+	celerix::test::system system;
 	auto & node = *system.add_node ();
 
 	auto telemetry = node.local_telemetry ();
 	telemetry.block_count = 9999; // Change data so signature is no longer valid
 
-	auto message = nano::telemetry_ack{ nano::dev::network_params.network, telemetry };
-	node.inbound (message, nano::test::fake_channel (node));
+	auto message = celerix::telemetry_ack{ celerix::dev::network_params.network, telemetry };
+	node.inbound (message, celerix::test::fake_channel (node));
 
-	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::invalid_signature) > 0);
-	ASSERT_ALWAYS (1s, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::process) == 0)
+	ASSERT_TIMELY (5s, node.stats.count (celerix::stat::type::telemetry, celerix::stat::detail::invalid_signature) > 0);
+	ASSERT_ALWAYS (1s, node.stats.count (celerix::stat::type::telemetry, celerix::stat::detail::process) == 0)
 }
 
 TEST (telemetry, mismatched_node_id)
 {
-	nano::test::system system;
+	celerix::test::system system;
 	auto & node = *system.add_node ();
 
 	auto telemetry = node.local_telemetry ();
 
-	auto message = nano::telemetry_ack{ nano::dev::network_params.network, telemetry };
-	node.inbound (message, nano::test::fake_channel (node, /* node id */ { 123 }));
+	auto message = celerix::telemetry_ack{ celerix::dev::network_params.network, telemetry };
+	node.inbound (message, celerix::test::fake_channel (node, /* node id */ { 123 }));
 
-	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::node_id_mismatch) > 0);
-	ASSERT_ALWAYS (1s, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::process) == 0)
+	ASSERT_TIMELY (5s, node.stats.count (celerix::stat::type::telemetry, celerix::stat::detail::node_id_mismatch) > 0);
+	ASSERT_ALWAYS (1s, node.stats.count (celerix::stat::type::telemetry, celerix::stat::detail::process) == 0)
 }
 
 TEST (telemetry, ongoing_broadcasts)
 {
-	nano::test::system system;
-	nano::node_flags node_flags;
+	celerix::test::system system;
+	celerix::node_flags node_flags;
 	auto & node1 = *system.add_node (node_flags);
 	auto & node2 = *system.add_node (node_flags);
 
-	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::telemetry, nano::stat::detail::process) >= 3);
-	ASSERT_TIMELY (5s, node2.stats.count (nano::stat::type::telemetry, nano::stat::detail::process) >= 3)
+	ASSERT_TIMELY (5s, node1.stats.count (celerix::stat::type::telemetry, celerix::stat::detail::process) >= 3);
+	ASSERT_TIMELY (5s, node2.stats.count (celerix::stat::type::telemetry, celerix::stat::detail::process) >= 3)
 }

@@ -1,32 +1,32 @@
-#include <nano/crypto/blake2/blake2.h>
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/constants.hpp>
-#include <nano/lib/epoch.hpp>
-#include <nano/lib/thread_roles.hpp>
-#include <nano/lib/threading.hpp>
-#include <nano/lib/work.hpp>
-#include <nano/lib/work_version.hpp>
-#include <nano/node/xorshift.hpp>
+#include <celerix/crypto/blake2/blake2.h>
+#include <celerix/crypto_lib/random_pool.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/constants.hpp>
+#include <celerix/lib/epoch.hpp>
+#include <celerix/lib/thread_roles.hpp>
+#include <celerix/lib/threading.hpp>
+#include <celerix/lib/work.hpp>
+#include <celerix/lib/work_version.hpp>
+#include <celerix/node/xorshift.hpp>
 
 #include <future>
 
-std::string nano::to_string (nano::work_version const version_a)
+std::string celerix::to_string (celerix::work_version const version_a)
 {
 	std::string result ("invalid");
 	switch (version_a)
 	{
-		case nano::work_version::work_1:
+		case celerix::work_version::work_1:
 			result = "work_1";
 			break;
-		case nano::work_version::unspecified:
+		case celerix::work_version::unspecified:
 			result = "unspecified";
 			break;
 	}
 	return result;
 }
 
-nano::work_pool::work_pool (nano::network_constants & network_constants, unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, nano::opencl_work_func_t opencl_a) :
+celerix::work_pool::work_pool (celerix::network_constants & network_constants, unsigned max_threads_a, std::chrono::celerixseconds pow_rate_limiter_a, celerix::opencl_work_func_t opencl_a) :
 	network_constants{ network_constants },
 	ticket (0),
 	done (false),
@@ -35,7 +35,7 @@ nano::work_pool::work_pool (nano::network_constants & network_constants, unsigne
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
 
-	auto count (network_constants.is_dev_network () ? std::min (max_threads_a, 1u) : std::min (max_threads_a, std::max (1u, nano::hardware_concurrency ())));
+	auto count (network_constants.is_dev_network () ? std::min (max_threads_a, 1u) : std::min (max_threads_a, std::max (1u, celerix::hardware_concurrency ())));
 	if (opencl)
 	{
 		// One thread to handle OpenCL
@@ -44,14 +44,14 @@ nano::work_pool::work_pool (nano::network_constants & network_constants, unsigne
 	for (auto i (0u); i < count; ++i)
 	{
 		threads.emplace_back ([this, i] () {
-			nano::thread_role::set (nano::thread_role::name::work);
-			nano::work_thread_reprioritize ();
+			celerix::thread_role::set (celerix::thread_role::name::work);
+			celerix::work_thread_reprioritize ();
 			loop (i);
 		});
 	}
 }
 
-nano::work_pool::~work_pool ()
+celerix::work_pool::~work_pool ()
 {
 	stop ();
 	for (auto & i : threads)
@@ -60,16 +60,16 @@ nano::work_pool::~work_pool ()
 	}
 }
 
-void nano::work_pool::loop (uint64_t thread)
+void celerix::work_pool::loop (uint64_t thread)
 {
 	// Quick RNG for work attempts.
 	xorshift1024star rng;
-	nano::random_pool::generate_block (reinterpret_cast<uint8_t *> (rng.s.data ()), rng.s.size () * sizeof (decltype (rng.s)::value_type));
+	celerix::random_pool::generate_block (reinterpret_cast<uint8_t *> (rng.s.data ()), rng.s.size () * sizeof (decltype (rng.s)::value_type));
 	uint64_t work;
 	uint64_t output;
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (output));
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	auto pow_sleep = pow_rate_limiter;
 	while (!done)
 	{
@@ -115,7 +115,7 @@ void nano::work_pool::loop (uint64_t thread)
 					}
 
 					// Add a rate limiter (if specified) to the pow calculation to save some CPUs which don't want to operate at full throttle
-					if (pow_sleep != std::chrono::nanoseconds (0))
+					if (pow_sleep != std::chrono::celerixseconds (0))
 					{
 						std::this_thread::sleep_for (pow_sleep);
 					}
@@ -147,9 +147,9 @@ void nano::work_pool::loop (uint64_t thread)
 	}
 }
 
-void nano::work_pool::cancel (nano::root const & root_a)
+void celerix::work_pool::cancel (celerix::root const & root_a)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	if (!done)
 	{
 		if (!pending.empty ())
@@ -174,23 +174,23 @@ void nano::work_pool::cancel (nano::root const & root_a)
 	}
 }
 
-void nano::work_pool::stop ()
+void celerix::work_pool::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		done = true;
 		++ticket;
 	}
 	producer_condition.notify_all ();
 }
 
-void nano::work_pool::generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::function<void (boost::optional<uint64_t> const &)> callback_a)
+void celerix::work_pool::generate (celerix::work_version const version_a, celerix::root const & root_a, uint64_t difficulty_a, std::function<void (boost::optional<uint64_t> const &)> callback_a)
 {
 	debug_assert (!root_a.is_zero ());
 	if (!threads.empty ())
 	{
 		{
-			nano::lock_guard<nano::mutex> lock{ mutex };
+			celerix::lock_guard<celerix::mutex> lock{ mutex };
 			pending.emplace_back (version_a, root_a, difficulty_a, callback_a);
 		}
 		producer_condition.notify_all ();
@@ -201,19 +201,19 @@ void nano::work_pool::generate (nano::work_version const version_a, nano::root c
 	}
 }
 
-boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a)
+boost::optional<uint64_t> celerix::work_pool::generate (celerix::root const & root_a)
 {
 	debug_assert (network_constants.is_dev_network ());
-	return generate (nano::work_version::work_1, root_a, network_constants.work.base);
+	return generate (celerix::work_version::work_1, root_a, network_constants.work.base);
 }
 
-boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a, uint64_t difficulty_a)
+boost::optional<uint64_t> celerix::work_pool::generate (celerix::root const & root_a, uint64_t difficulty_a)
 {
 	debug_assert (network_constants.is_dev_network ());
-	return generate (nano::work_version::work_1, root_a, difficulty_a);
+	return generate (celerix::work_version::work_1, root_a, difficulty_a);
 }
 
-boost::optional<uint64_t> nano::work_pool::generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a)
+boost::optional<uint64_t> celerix::work_pool::generate (celerix::work_version const version_a, celerix::root const & root_a, uint64_t difficulty_a)
 {
 	boost::optional<uint64_t> result;
 	if (!threads.empty ())
@@ -228,17 +228,17 @@ boost::optional<uint64_t> nano::work_pool::generate (nano::work_version const ve
 	return result;
 }
 
-size_t nano::work_pool::size ()
+size_t celerix::work_pool::size ()
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return pending.size ();
 }
 
-nano::container_info nano::work_pool::container_info () const
+celerix::container_info celerix::work_pool::container_info () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("pending", pending);
 	info.add ("work_observers", work_observers.container_info ());
 	return info;

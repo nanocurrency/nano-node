@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Continue"
 
-$env:S3_BUCKET_NAME = $env:S3_BUCKET_NAME ?? "repo.nano.org"
+$env:S3_BUCKET_NAME = $env:S3_BUCKET_NAME ?? "repo.celerix.org"
 if ( "${env:NETWORK}" -eq "BETA" ) {
     $network_cfg = "beta"
 }
@@ -18,8 +18,8 @@ else {
     $directory = $network_cfg
 }
 
-$exe = Resolve-Path -Path $env:GITHUB_WORKSPACE\build\nano-node-*-win64.exe
-$zip = Resolve-Path -Path $env:GITHUB_WORKSPACE\build\nano-node-*-win64.zip
+$exe = Resolve-Path -Path $env:GITHUB_WORKSPACE\build\celerix-node-*-win64.exe
+$zip = Resolve-Path -Path $env:GITHUB_WORKSPACE\build\celerix-node-*-win64.zip
 
 $exe_hash = ((Get-FileHash $exe).hash)+" "+(split-path -Path $exe -Resolve -leaf)
 $zip_hash = ((Get-FileHash $zip).hash)+" "+(split-path -Path $zip -Resolve -leaf)
@@ -30,7 +30,7 @@ $zip_hash | Out-file -FilePath "$zip.sha256"
 Write-Output "::notice::Hash: $exe_hash"
 Write-Output "::notice::Hash: $zip_hash"
 
-aws s3 cp "$exe" s3://$env:S3_BUCKET_NAME/$directory/binaries/nano-node-$env:TAG-win64.exe --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
-aws s3 cp "$exe.sha256" s3://$env:S3_BUCKET_NAME/$directory/binaries/nano-node-$env:TAG-win64.exe.sha256 --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
-aws s3 cp "$zip" s3://$env:S3_BUCKET_NAME/$directory/binaries/nano-node-$env:TAG-win64.zip --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
-aws s3 cp "$zip.sha256" s3://$env:S3_BUCKET_NAME/$directory/binaries/nano-node-$env:TAG-win64.zip.sha256 --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
+aws s3 cp "$exe" s3://$env:S3_BUCKET_NAME/$directory/binaries/celerix-node-$env:TAG-win64.exe --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
+aws s3 cp "$exe.sha256" s3://$env:S3_BUCKET_NAME/$directory/binaries/celerix-node-$env:TAG-win64.exe.sha256 --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
+aws s3 cp "$zip" s3://$env:S3_BUCKET_NAME/$directory/binaries/celerix-node-$env:TAG-win64.zip --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
+aws s3 cp "$zip.sha256" s3://$env:S3_BUCKET_NAME/$directory/binaries/celerix-node-$env:TAG-win64.zip.sha256 --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers

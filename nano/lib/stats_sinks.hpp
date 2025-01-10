@@ -1,15 +1,15 @@
 #pragma once
 
-#include <nano/lib/stats.hpp>
+#include <celerix/lib/stats.hpp>
 
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-namespace nano
+namespace celerix
 {
 /** JSON sink. The resulting JSON object is provided as both a property_tree::ptree (to_object) and a string (to_string) */
-class stat_json_writer : public nano::stat_log_sink
+class stat_json_writer : public celerix::stat_log_sink
 {
 	boost::property_tree::ptree tree;
 	boost::property_tree::ptree entries;
@@ -84,7 +84,7 @@ private:
 };
 
 /** File sink with rotation support. This writes one counter per line and does not include histogram values. */
-class stat_file_writer : public nano::stat_log_sink
+class stat_file_writer : public celerix::stat_log_sink
 {
 public:
 	std::ofstream log;

@@ -1,11 +1,11 @@
-#include <nano/lib/cli.hpp>
+#include <celerix/lib/cli.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
 
 #include <sstream>
 
-std::vector<std::string> nano::config_overrides (std::vector<config_key_value_pair> const & key_value_pairs_a)
+std::vector<std::string> celerix::config_overrides (std::vector<config_key_value_pair> const & key_value_pairs_a)
 {
 	std::vector<std::string> overrides;
 	auto format (boost::format ("%1%=%2%"));
@@ -55,7 +55,7 @@ std::vector<std::string> nano::config_overrides (std::vector<config_key_value_pa
 	return overrides;
 }
 
-std::istream & nano::operator>> (std::istream & is, nano::config_key_value_pair & into)
+std::istream & celerix::operator>> (std::istream & is, celerix::config_key_value_pair & into)
 {
 	char ch;
 	while (is >> ch && ch != '=')

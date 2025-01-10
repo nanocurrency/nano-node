@@ -1,33 +1,33 @@
 #pragma once
 
-#include <nano/lib/logging.hpp>
-#include <nano/lib/stats.hpp>
-#include <nano/lib/work.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/store/fwd.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/lib/stats.hpp>
+#include <celerix/lib/work.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/store/fwd.hpp>
 
-namespace nano::test
+namespace celerix::test
 {
 class ledger_context
 {
 public:
 	/** 'blocks' initialises the ledger with each block in-order
 		Blocks must all return process_result::progress when processed */
-	ledger_context (std::deque<std::shared_ptr<nano::block>> && blocks = std::deque<std::shared_ptr<nano::block>>{});
-	nano::ledger & ledger ();
-	nano::store::component & store ();
-	std::deque<std::shared_ptr<nano::block>> const & blocks () const;
-	nano::work_pool & pool ();
-	nano::stats & stats ();
-	nano::logger & logger ();
+	ledger_context (std::deque<std::shared_ptr<celerix::block>> && blocks = std::deque<std::shared_ptr<celerix::block>>{});
+	celerix::ledger & ledger ();
+	celerix::store::component & store ();
+	std::deque<std::shared_ptr<celerix::block>> const & blocks () const;
+	celerix::work_pool & pool ();
+	celerix::stats & stats ();
+	celerix::logger & logger ();
 
 private:
-	nano::logger logger_m;
-	std::unique_ptr<nano::store::component> store_m;
-	nano::stats stats_m;
-	nano::ledger ledger_m;
-	std::deque<std::shared_ptr<nano::block>> blocks_m;
-	nano::work_pool pool_m;
+	celerix::logger logger_m;
+	std::unique_ptr<celerix::store::component> store_m;
+	celerix::stats stats_m;
+	celerix::ledger ledger_m;
+	std::deque<std::shared_ptr<celerix::block>> blocks_m;
+	celerix::work_pool pool_m;
 };
 
 /** Only a genesis block */

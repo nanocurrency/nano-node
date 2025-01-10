@@ -1,7 +1,7 @@
-#include <nano/lib/utility.hpp>
-#include <nano/store/iterator.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/store/iterator.hpp>
 
-namespace nano::store
+namespace celerix::store
 {
 void iterator::update ()
 {

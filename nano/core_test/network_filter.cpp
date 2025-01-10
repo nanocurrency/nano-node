@@ -1,39 +1,39 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/network_filter.hpp>
-#include <nano/lib/stream.hpp>
-#include <nano/node/endpoint.hpp>
-#include <nano/node/messages.hpp>
-#include <nano/secure/common.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/network_filter.hpp>
+#include <celerix/lib/stream.hpp>
+#include <celerix/node/endpoint.hpp>
+#include <celerix/node/messages.hpp>
+#include <celerix/secure/common.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
 TEST (network_filter, apply)
 {
-	nano::network_filter filter (4);
+	celerix::network_filter filter (4);
 	ASSERT_FALSE (filter.check (34));
 	ASSERT_FALSE (filter.apply (34));
 	ASSERT_TRUE (filter.check (34));
 	ASSERT_TRUE (filter.apply (34));
-	filter.clear (nano::network_filter::digest_t{ 34 });
+	filter.clear (celerix::network_filter::digest_t{ 34 });
 	ASSERT_FALSE (filter.check (34));
 	ASSERT_FALSE (filter.apply (34));
 }
 
 TEST (network_filter, unit)
 {
-	nano::network_filter filter (1);
-	auto one_block = [&filter] (std::shared_ptr<nano::block> const & block_a, bool expect_duplicate_a) {
-		nano::publish message{ nano::dev::network_params.network, block_a };
+	celerix::network_filter filter (1);
+	auto one_block = [&filter] (std::shared_ptr<celerix::block> const & block_a, bool expect_duplicate_a) {
+		celerix::publish message{ celerix::dev::network_params.network, block_a };
 		auto bytes (message.to_bytes ());
-		nano::bufferstream stream (bytes->data (), bytes->size ());
+		celerix::bufferstream stream (bytes->data (), bytes->size ());
 
 		// First read the header
 		bool error{ false };
-		nano::message_header header (error, stream);
+		celerix::message_header header (error, stream);
 		ASSERT_FALSE (error);
 
-		// This validates nano::message_header::size
+		// This validates celerix::message_header::size
 		ASSERT_EQ (bytes->size (), block_a->size (block_a->type ()) + header.size);
 
 		// Now filter the rest of the stream
@@ -41,23 +41,23 @@ TEST (network_filter, unit)
 		ASSERT_EQ (expect_duplicate_a, duplicate);
 
 		// Make sure the stream was rewinded correctly
-		auto block (nano::deserialize_block (stream, header.block_type ()));
+		auto block (celerix::deserialize_block (stream, header.block_type ()));
 		ASSERT_NE (nullptr, block);
 		ASSERT_EQ (*block, *block_a);
 	};
-	one_block (nano::dev::genesis, false);
+	one_block (celerix::dev::genesis, false);
 	for (int i = 0; i < 10; ++i)
 	{
-		one_block (nano::dev::genesis, true);
+		one_block (celerix::dev::genesis, true);
 	}
-	nano::state_block_builder builder;
+	celerix::state_block_builder builder;
 	auto new_block = builder
-					 .account (nano::dev::genesis_key.pub)
-					 .previous (nano::dev::genesis->hash ())
-					 .representative (nano::dev::genesis_key.pub)
-					 .balance (nano::dev::constants.genesis_amount - 1000 * nano::raw_ratio)
-					 .link (nano::public_key ())
-					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .account (celerix::dev::genesis_key.pub)
+					 .previous (celerix::dev::genesis->hash ())
+					 .representative (celerix::dev::genesis_key.pub)
+					 .balance (celerix::dev::constants.genesis_amount - 1000 * celerix::raw_ratio)
+					 .link (celerix::public_key ())
+					 .sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
 					 .work (0)
 					 .build ();
 
@@ -68,38 +68,38 @@ TEST (network_filter, unit)
 	}
 	for (int i = 0; i < 100; ++i)
 	{
-		one_block (nano::dev::genesis, false);
+		one_block (celerix::dev::genesis, false);
 		one_block (new_block, false);
 	}
 }
 
 TEST (network_filter, many)
 {
-	nano::network_filter filter (4);
-	nano::keypair key1;
+	celerix::network_filter filter (4);
+	celerix::keypair key1;
 	for (int i = 0; i < 100; ++i)
 	{
-		nano::state_block_builder builder;
+		celerix::state_block_builder builder;
 		auto block = builder
-					 .account (nano::dev::genesis_key.pub)
-					 .previous (nano::dev::genesis->hash ())
-					 .representative (nano::dev::genesis_key.pub)
-					 .balance (nano::dev::constants.genesis_amount - i * 1000 * nano::raw_ratio)
+					 .account (celerix::dev::genesis_key.pub)
+					 .previous (celerix::dev::genesis->hash ())
+					 .representative (celerix::dev::genesis_key.pub)
+					 .balance (celerix::dev::constants.genesis_amount - i * 1000 * celerix::raw_ratio)
 					 .link (key1.pub)
-					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
 					 .work (0)
 					 .build ();
 
-		nano::publish message{ nano::dev::network_params.network, block };
+		celerix::publish message{ celerix::dev::network_params.network, block };
 		auto bytes (message.to_bytes ());
-		nano::bufferstream stream (bytes->data (), bytes->size ());
+		celerix::bufferstream stream (bytes->data (), bytes->size ());
 
 		// First read the header
 		bool error{ false };
-		nano::message_header header (error, stream);
+		celerix::message_header header (error, stream);
 		ASSERT_FALSE (error);
 
-		// This validates nano::message_header::size
+		// This validates celerix::message_header::size
 		ASSERT_EQ (bytes->size (), block->size + header.size);
 
 		// Now filter the rest of the stream
@@ -109,7 +109,7 @@ TEST (network_filter, many)
 		ASSERT_FALSE (error);
 
 		// Make sure the stream was rewinded correctly
-		auto deserialized_block (nano::deserialize_block (stream, header.block_type ()));
+		auto deserialized_block (celerix::deserialize_block (stream, header.block_type ()));
 		ASSERT_NE (nullptr, deserialized_block);
 		ASSERT_EQ (*block, *deserialized_block);
 	}
@@ -117,7 +117,7 @@ TEST (network_filter, many)
 
 TEST (network_filter, clear)
 {
-	nano::network_filter filter (1);
+	celerix::network_filter filter (1);
 	std::vector<uint8_t> bytes1{ 1, 2, 3 };
 	std::vector<uint8_t> bytes2{ 1 };
 	ASSERT_FALSE (filter.apply (bytes1.data (), bytes1.size ()));
@@ -132,9 +132,9 @@ TEST (network_filter, clear)
 
 TEST (network_filter, optional_digest)
 {
-	nano::network_filter filter (1);
+	celerix::network_filter filter (1);
 	std::vector<uint8_t> bytes1{ 1, 2, 3 };
-	nano::uint128_t digest{ 0 };
+	celerix::uint128_t digest{ 0 };
 	ASSERT_FALSE (filter.apply (bytes1.data (), bytes1.size (), &digest));
 	ASSERT_NE (0, digest);
 	ASSERT_TRUE (filter.apply (bytes1.data (), bytes1.size ()));
@@ -145,7 +145,7 @@ TEST (network_filter, optional_digest)
 TEST (network_filter, expire)
 {
 	// Expire entries older than 2 epochs
-	nano::network_filter filter{ 4, 2 };
+	celerix::network_filter filter{ 4, 2 };
 
 	ASSERT_FALSE (filter.apply (1)); // Entry with epoch 0
 	filter.update (); // Bump epoch to 1

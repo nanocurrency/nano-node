@@ -1,36 +1,36 @@
 #pragma once
 
-#include <nano/node/fwd.hpp>
+#include <celerix/node/fwd.hpp>
 
 #include <memory>
 #include <string>
 
-namespace nano::scheduler
+namespace celerix::scheduler
 {
 class component final
 {
 public:
-	component (nano::node_config &, nano::node &, nano::ledger &, nano::bucketing &, nano::block_processor &, nano::active_elections &, nano::online_reps &, nano::vote_cache &, nano::confirming_set &, nano::stats &, nano::logger &);
+	component (celerix::node_config &, celerix::node &, celerix::ledger &, celerix::bucketing &, celerix::block_processor &, celerix::active_elections &, celerix::online_reps &, celerix::vote_cache &, celerix::confirming_set &, celerix::stats &, celerix::logger &);
 	~component ();
 
 	void start ();
 	void stop ();
 
 	/// Does the block exist in any of the schedulers
-	bool contains (nano::block_hash const & hash) const;
+	bool contains (celerix::block_hash const & hash) const;
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 
 private:
-	std::unique_ptr<nano::scheduler::hinted> hinted_impl;
-	std::unique_ptr<nano::scheduler::manual> manual_impl;
-	std::unique_ptr<nano::scheduler::optimistic> optimistic_impl;
-	std::unique_ptr<nano::scheduler::priority> priority_impl;
+	std::unique_ptr<celerix::scheduler::hinted> hinted_impl;
+	std::unique_ptr<celerix::scheduler::manual> manual_impl;
+	std::unique_ptr<celerix::scheduler::optimistic> optimistic_impl;
+	std::unique_ptr<celerix::scheduler::priority> priority_impl;
 
 public: // Schedulers
-	nano::scheduler::hinted & hinted;
-	nano::scheduler::manual & manual;
-	nano::scheduler::optimistic & optimistic;
-	nano::scheduler::priority & priority;
+	celerix::scheduler::hinted & hinted;
+	celerix::scheduler::manual & manual;
+	celerix::scheduler::optimistic & optimistic;
+	celerix::scheduler::priority & priority;
 };
 }

@@ -1,24 +1,24 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/memory.hpp>
-#include <nano/lib/stream.hpp>
-#include <nano/node/active_elections.hpp>
-#include <nano/node/election.hpp>
-#include <nano/node/endpoint.hpp>
-#include <nano/node/network.hpp>
-#include <nano/node/wallet.hpp>
-#include <nano/secure/vote.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/memory.hpp>
+#include <celerix/lib/stream.hpp>
+#include <celerix/node/active_elections.hpp>
+#include <celerix/node/election.hpp>
+#include <celerix/node/endpoint.hpp>
+#include <celerix/node/network.hpp>
+#include <celerix/node/wallet.hpp>
+#include <celerix/secure/vote.hpp>
 
 #include <boost/format.hpp>
 
-uint64_t nano::ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint16_t port)
+uint64_t celerix::ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint16_t port)
 {
 	debug_assert (ip_a.is_v6 ());
 	uint64_t result;
-	nano::uint128_union address;
+	celerix::uint128_union address;
 	address.bytes = ip_a.to_v6 ().to_bytes ();
 	blake2b_state state;
 	blake2b_init (&state, sizeof (result));
-	blake2b_update (&state, nano::hardened_constants::get ().random_128.bytes.data (), nano::hardened_constants::get ().random_128.bytes.size ());
+	blake2b_update (&state, celerix::hardened_constants::get ().random_128.bytes.data (), celerix::hardened_constants::get ().random_128.bytes.size ());
 	if (port != 0)
 	{
 		blake2b_update (&state, &port, sizeof (port));
@@ -28,13 +28,13 @@ uint64_t nano::ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint1
 	return result;
 }
 
-uint64_t nano::endpoint_hash_raw (nano::endpoint const & endpoint_a)
+uint64_t celerix::endpoint_hash_raw (celerix::endpoint const & endpoint_a)
 {
-	uint64_t result (nano::ip_address_hash_raw (endpoint_a.address (), endpoint_a.port ()));
+	uint64_t result (celerix::ip_address_hash_raw (endpoint_a.address (), endpoint_a.port ()));
 	return result;
 }
 
-bool nano::parse_port (std::string const & string_a, uint16_t & port_a)
+bool celerix::parse_port (std::string const & string_a, uint16_t & port_a)
 {
 	bool result = false;
 	try
@@ -49,7 +49,7 @@ bool nano::parse_port (std::string const & string_a, uint16_t & port_a)
 }
 
 // Can handle both ipv4 & ipv6 addresses (with and without square brackets)
-bool nano::parse_address (std::string const & address_text_a, boost::asio::ip::address & address_a)
+bool celerix::parse_address (std::string const & address_text_a, boost::asio::ip::address & address_a)
 {
 	auto address_text = address_text_a;
 	if (!address_text.empty () && address_text.front () == '[' && address_text.back () == ']')
@@ -63,7 +63,7 @@ bool nano::parse_address (std::string const & address_text_a, boost::asio::ip::a
 	return !!address_ec;
 }
 
-bool nano::parse_address_port (std::string const & string, boost::asio::ip::address & address_a, uint16_t & port_a)
+bool celerix::parse_address_port (std::string const & string, boost::asio::ip::address & address_a, uint16_t & port_a)
 {
 	auto result (false);
 	auto port_position (string.rfind (':'));
@@ -105,21 +105,21 @@ bool nano::parse_address_port (std::string const & string, boost::asio::ip::addr
 	return result;
 }
 
-bool nano::parse_endpoint (std::string const & string, nano::endpoint & endpoint_a)
+bool celerix::parse_endpoint (std::string const & string, celerix::endpoint & endpoint_a)
 {
 	boost::asio::ip::address address;
 	uint16_t port;
 	auto result (parse_address_port (string, address, port));
 	if (!result)
 	{
-		endpoint_a = nano::endpoint (address, port);
+		endpoint_a = celerix::endpoint (address, port);
 	}
 	return result;
 }
 
-std::optional<nano::endpoint> nano::parse_endpoint (const std::string & str)
+std::optional<celerix::endpoint> celerix::parse_endpoint (const std::string & str)
 {
-	nano::endpoint endpoint;
+	celerix::endpoint endpoint;
 	if (!parse_endpoint (str, endpoint))
 	{
 		return endpoint; // Success
@@ -127,19 +127,19 @@ std::optional<nano::endpoint> nano::parse_endpoint (const std::string & str)
 	return {};
 }
 
-bool nano::parse_tcp_endpoint (std::string const & string, nano::tcp_endpoint & endpoint_a)
+bool celerix::parse_tcp_endpoint (std::string const & string, celerix::tcp_endpoint & endpoint_a)
 {
 	boost::asio::ip::address address;
 	uint16_t port;
 	auto result (parse_address_port (string, address, port));
 	if (!result)
 	{
-		endpoint_a = nano::tcp_endpoint (address, port);
+		endpoint_a = celerix::tcp_endpoint (address, port);
 	}
 	return result;
 }
 
-nano::node_singleton_memory_pool_purge_guard::node_singleton_memory_pool_purge_guard () :
-	cleanup_guard ({ nano::block_memory_pool_purge, nano::purge_shared_ptr_singleton_pool_memory<nano::vote>, nano::purge_shared_ptr_singleton_pool_memory<nano::election> })
+celerix::node_singleton_memory_pool_purge_guard::node_singleton_memory_pool_purge_guard () :
+	cleanup_guard ({ celerix::block_memory_pool_purge, celerix::purge_shared_ptr_singleton_pool_memory<celerix::vote>, celerix::purge_shared_ptr_singleton_pool_memory<celerix::election> })
 {
 }

@@ -1,41 +1,41 @@
 #pragma once
 
-#include <nano/store/block.hpp>
-#include <nano/store/rocksdb/db_val.hpp>
+#include <celerix/store/block.hpp>
+#include <celerix/store/rocksdb/db_val.hpp>
 
-namespace nano
+namespace celerix
 {
 class block_predecessor_rocksdb_set;
 }
-namespace nano::store::rocksdb
+namespace celerix::store::rocksdb
 {
 class component;
 }
-namespace nano::store::rocksdb
+namespace celerix::store::rocksdb
 {
-class block : public nano::store::block
+class block : public celerix::store::block
 {
-	friend class nano::block_predecessor_rocksdb_set;
-	nano::store::rocksdb::component & store;
+	friend class celerix::block_predecessor_rocksdb_set;
+	celerix::store::rocksdb::component & store;
 
 public:
-	explicit block (nano::store::rocksdb::component & store_a);
-	void put (store::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a) override;
-	void raw_put (store::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_hash const & hash_a) override;
-	std::optional<nano::block_hash> successor (store::transaction const & transaction_a, nano::block_hash const & hash_a) const override;
-	void successor_clear (store::write_transaction const & transaction_a, nano::block_hash const & hash_a) override;
-	std::shared_ptr<nano::block> get (store::transaction const & transaction_a, nano::block_hash const & hash_a) const override;
-	void del (store::write_transaction const & transaction_a, nano::block_hash const & hash_a) override;
-	bool exists (store::transaction const & transaction_a, nano::block_hash const & hash_a) override;
+	explicit block (celerix::store::rocksdb::component & store_a);
+	void put (store::write_transaction const & transaction_a, celerix::block_hash const & hash_a, celerix::block const & block_a) override;
+	void raw_put (store::write_transaction const & transaction_a, std::vector<uint8_t> const & data, celerix::block_hash const & hash_a) override;
+	std::optional<celerix::block_hash> successor (store::transaction const & transaction_a, celerix::block_hash const & hash_a) const override;
+	void successor_clear (store::write_transaction const & transaction_a, celerix::block_hash const & hash_a) override;
+	std::shared_ptr<celerix::block> get (store::transaction const & transaction_a, celerix::block_hash const & hash_a) const override;
+	void del (store::write_transaction const & transaction_a, celerix::block_hash const & hash_a) override;
+	bool exists (store::transaction const & transaction_a, celerix::block_hash const & hash_a) override;
 	uint64_t count (store::transaction const & transaction_a) override;
 	iterator begin (store::transaction const & transaction_a) const override;
-	iterator begin (store::transaction const & transaction_a, nano::block_hash const & hash_a) const override;
+	iterator begin (store::transaction const & transaction_a, celerix::block_hash const & hash_a) const override;
 	iterator end (store::transaction const & transaction_a) const override;
 	void for_each_par (std::function<void (store::read_transaction const &, iterator, iterator)> const & action_a) const override;
 
 protected:
-	void block_raw_get (store::transaction const & transaction_a, nano::block_hash const & hash_a, nano::store::rocksdb::db_val & value) const;
-	size_t block_successor_offset (store::transaction const & transaction_a, size_t entry_size_a, nano::block_type type_a) const;
-	static nano::block_type block_type_from_raw (void * data_a);
+	void block_raw_get (store::transaction const & transaction_a, celerix::block_hash const & hash_a, celerix::store::rocksdb::db_val & value) const;
+	size_t block_successor_offset (store::transaction const & transaction_a, size_t entry_size_a, celerix::block_type type_a) const;
+	static celerix::block_type block_type_from_raw (void * data_a);
 };
-} // namespace nano::store::rocksdb
+} // namespace celerix::store::rocksdb

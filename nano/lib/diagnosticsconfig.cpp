@@ -1,9 +1,9 @@
-#include <nano/lib/diagnosticsconfig.hpp>
-#include <nano/lib/tomlconfig.hpp>
+#include <celerix/lib/diagnosticsconfig.hpp>
+#include <celerix/lib/tomlconfig.hpp>
 
-nano::error nano::diagnostics_config::serialize_toml (nano::tomlconfig & toml) const
+celerix::error celerix::diagnostics_config::serialize_toml (celerix::tomlconfig & toml) const
 {
-	nano::tomlconfig txn_tracking_l;
+	celerix::tomlconfig txn_tracking_l;
 	txn_tracking_l.put ("enable", txn_tracking.enable, "Enable or disable database transaction tracing.\ntype:bool");
 	txn_tracking_l.put ("min_read_txn_time", txn_tracking.min_read_txn_time.count (), "Log stacktrace when read transactions are held longer than this duration.\ntype:milliseconds");
 	txn_tracking_l.put ("min_write_txn_time", txn_tracking.min_write_txn_time.count (), "Log stacktrace when write transactions are held longer than this duration.\ntype:milliseconds");
@@ -12,7 +12,7 @@ nano::error nano::diagnostics_config::serialize_toml (nano::tomlconfig & toml) c
 	return toml.get_error ();
 }
 
-nano::error nano::diagnostics_config::deserialize_toml (nano::tomlconfig & toml)
+celerix::error celerix::diagnostics_config::deserialize_toml (celerix::tomlconfig & toml)
 {
 	auto txn_tracking_l (toml.get_optional_child ("txn_tracking"));
 	if (txn_tracking_l)

@@ -1,11 +1,11 @@
 #pragma once
 
-#include <nano/lib/stats.hpp>
+#include <celerix/lib/stats.hpp>
 
 #include <string_view>
 #include <vector>
 
-namespace nano::transport
+namespace celerix::transport
 {
 enum class traffic_type
 {
@@ -27,5 +27,5 @@ enum class traffic_type
 
 std::string_view to_string (traffic_type);
 std::vector<traffic_type> all_traffic_types ();
-nano::stat::detail to_stat_detail (traffic_type);
+celerix::stat::detail to_stat_detail (traffic_type);
 }

@@ -1,23 +1,23 @@
 #pragma once
 
-#include <nano/lib/object_stream.hpp>
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/object_stream.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <ostream>
 #include <sstream>
 
 #include <fmt/ostream.h>
 
-namespace nano
+namespace celerix
 {
 template <class Streamable, class Writer>
 struct object_stream_formatter
 {
-	nano::object_stream_config const & config;
+	celerix::object_stream_config const & config;
 	Streamable const & value;
 	Writer writer;
 
-	explicit object_stream_formatter (Streamable const & value, Writer writer, nano::object_stream_config const & config) :
+	explicit object_stream_formatter (Streamable const & value, Writer writer, celerix::object_stream_config const & config) :
 		config{ config },
 		value{ value },
 		writer{ writer }
@@ -26,7 +26,7 @@ struct object_stream_formatter
 
 	friend std::ostream & operator<< (std::ostream & os, object_stream_formatter<Streamable, Writer> const & self)
 	{
-		nano::root_object_stream obs{ os, self.config };
+		celerix::root_object_stream obs{ os, self.config };
 		self.writer (self.value, obs);
 		return os;
 	}
@@ -44,30 +44,30 @@ enum class streamed_format
 	json
 };
 
-inline nano::object_stream_config const & to_object_stream_config (streamed_format format)
+inline celerix::object_stream_config const & to_object_stream_config (streamed_format format)
 {
 	switch (format)
 	{
 		case streamed_format::basic:
-			return nano::object_stream_config::default_config ();
+			return celerix::object_stream_config::default_config ();
 		case streamed_format::json:
-			return nano::object_stream_config::json_config ();
+			return celerix::object_stream_config::json_config ();
 		default:
 			debug_assert (false);
-			return nano::object_stream_config::default_config ();
+			return celerix::object_stream_config::default_config ();
 	}
 }
 
 template <class Streamable>
 auto streamed (Streamable const & value, streamed_format format = streamed_format::basic)
 {
-	return object_stream_formatter{ value, [] (auto const & value, nano::root_object_stream & obs) { obs.write (value); }, to_object_stream_config (format) };
+	return object_stream_formatter{ value, [] (auto const & value, celerix::root_object_stream & obs) { obs.write (value); }, to_object_stream_config (format) };
 }
 
 template <class StreamableRange>
 auto streamed_range (StreamableRange const & value, streamed_format format = streamed_format::basic)
 {
-	return object_stream_formatter{ value, [] (auto const & value, nano::root_object_stream & obs) { obs.write_range (value); }, to_object_stream_config (format) };
+	return object_stream_formatter{ value, [] (auto const & value, celerix::root_object_stream & obs) { obs.write_range (value); }, to_object_stream_config (format) };
 }
 
 /**
@@ -76,10 +76,10 @@ auto streamed_range (StreamableRange const & value, streamed_format format = str
 template <class... Args>
 struct object_stream_args_formatter
 {
-	nano::object_stream_config const & config;
+	celerix::object_stream_config const & config;
 	std::tuple<Args...> args;
 
-	explicit object_stream_args_formatter (nano::object_stream_config const & config, Args &&... args) :
+	explicit object_stream_args_formatter (celerix::object_stream_config const & config, Args &&... args) :
 		config{ config },
 		args{ std::forward<Args> (args)... }
 	{
@@ -87,7 +87,7 @@ struct object_stream_args_formatter
 
 	friend std::ostream & operator<< (std::ostream & os, object_stream_args_formatter<Args...> const & self)
 	{
-		nano::object_stream obs{ os, self.config };
+		celerix::object_stream obs{ os, self.config };
 		std::apply ([&obs] (auto &&... args) {
 			((obs.write (args.name, args.value)), ...);
 		},
@@ -103,7 +103,7 @@ struct object_stream_args_formatter
 };
 
 template <class... Args>
-auto streamed_args (nano::object_stream_config const & config, Args &&... args)
+auto streamed_args (celerix::object_stream_config const & config, Args &&... args)
 {
 	return object_stream_args_formatter<Args...>{ config, std::forward<Args> (args)... };
 }
@@ -112,27 +112,27 @@ auto streamed_args (nano::object_stream_config const & config, Args &&... args)
 /*
  * Adapter that allows for printing using '<<' operator for all classes that implement object streaming
  */
-namespace nano::object_stream_adapters
+namespace celerix::object_stream_adapters
 {
-template <nano::object_or_array_streamable Value>
+template <celerix::object_or_array_streamable Value>
 std::ostream & operator<< (std::ostream & os, Value const & value)
 {
-	return os << nano::streamed (value);
+	return os << celerix::streamed (value);
 }
 
-template <nano::object_or_array_streamable Value>
+template <celerix::object_or_array_streamable Value>
 std::string to_string (Value const & value)
 {
 	std::stringstream ss;
-	ss << nano::streamed (value);
+	ss << celerix::streamed (value);
 	return ss.str ();
 }
 
-template <nano::object_or_array_streamable Value>
+template <celerix::object_or_array_streamable Value>
 std::string to_json (Value const & value)
 {
 	std::stringstream ss;
-	ss << nano::streamed (value, nano::streamed_format::json);
+	ss << celerix::streamed (value, celerix::streamed_format::json);
 	return ss.str ();
 }
 }
@@ -140,11 +140,11 @@ std::string to_json (Value const & value)
 /*
  * Adapter that allows for printing using fmt library for all classes that implement object streaming
  */
-template <nano::object_or_array_streamable Streamable>
+template <celerix::object_or_array_streamable Streamable>
 struct fmt::formatter<Streamable> : fmt::ostream_formatter
 {
 	auto format (Streamable const & value, format_context & ctx)
 	{
-		return fmt::ostream_formatter::format (nano::streamed (value), ctx);
+		return fmt::ostream_formatter::format (celerix::streamed (value), ctx);
 	}
 };

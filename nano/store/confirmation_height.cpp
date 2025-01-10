@@ -1,11 +1,11 @@
-#include <nano/store/confirmation_height.hpp>
-#include <nano/store/typed_iterator_templ.hpp>
+#include <celerix/store/confirmation_height.hpp>
+#include <celerix/store/typed_iterator_templ.hpp>
 
-template class nano::store::typed_iterator<nano::account, nano::confirmation_height_info>;
+template class celerix::store::typed_iterator<celerix::account, celerix::confirmation_height_info>;
 
-std::optional<nano::confirmation_height_info> nano::store::confirmation_height::get (store::transaction const & transaction, nano::account const & account)
+std::optional<celerix::confirmation_height_info> celerix::store::confirmation_height::get (store::transaction const & transaction, celerix::account const & account)
 {
-	nano::confirmation_height_info info;
+	celerix::confirmation_height_info info;
 	bool error = get (transaction, account, info);
 	if (!error)
 	{

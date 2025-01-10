@@ -2,21 +2,21 @@
 
 set +e
 
-useradd -r nanocurrency
-groupadd -r nanocurrency
+useradd -r celerixcurrency
+groupadd -r celerixcurrency
 
-mkdir -p /var/nanocurrency/Nano
-mkdir -p /var/nanocurrency/NanoBeta
-mkdir -p /var/nanocurrency/NanoTest
-chown -R nanocurrency: /var/nanocurrency
+mkdir -p /var/celerixcurrency/Celerix
+mkdir -p /var/celerixcurrency/CelerixBeta
+mkdir -p /var/celerixcurrency/CelerixTest
+chown -R celerixcurrency: /var/celerixcurrency
 
-systemctl stop ${NANO_SERVICE} 2>/dev/null
-systemctl disable ${NANO_SERVICE} 2>/dev/null
-cp ${CMAKE_INSTALL_PREFIX}/extras/systemd/${NANO_SERVICE} /etc/systemd/system/${NANO_SERVICE}
+systemctl stop ${CELERIX_SERVICE} 2>/dev/null
+systemctl disable ${CELERIX_SERVICE} 2>/dev/null
+cp ${CMAKE_INSTALL_PREFIX}/extras/systemd/${CELERIX_SERVICE} /etc/systemd/system/${CELERIX_SERVICE}
 systemctl daemon-reload
-systemctl enable ${NANO_SERVICE}
-systemctl start ${NANO_SERVICE}
+systemctl enable ${CELERIX_SERVICE}
+systemctl start ${CELERIX_SERVICE}
 sleep 1
-systemctl --no-pager status ${NANO_SERVICE}
+systemctl --no-pager status ${CELERIX_SERVICE}
 
 set -e

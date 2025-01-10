@@ -1,5 +1,5 @@
-#include <nano/lib/rate_limiting.hpp>
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/rate_limiting.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <gtest/gtest.h>
 
@@ -10,7 +10,7 @@ using namespace std::chrono_literals;
 
 TEST (rate, basic)
 {
-	nano::rate::token_bucket bucket (10, 10);
+	celerix::rate::token_bucket bucket (10, 10);
 
 	// Initial burst
 	ASSERT_TRUE (bucket.try_consume (10));
@@ -31,7 +31,7 @@ TEST (rate, network)
 {
 	// For the purpose of the test, one token represents 1MB instead of one byte.
 	// Allow for 10 mb/s bursts (max bucket size), 5 mb/s long term rate
-	nano::rate::token_bucket bucket (10, 5);
+	celerix::rate::token_bucket bucket (10, 5);
 
 	// Initial burst of 10 mb/s over two calls
 	ASSERT_TRUE (bucket.try_consume (5));
@@ -48,7 +48,7 @@ TEST (rate, network)
 
 TEST (rate, reset)
 {
-	nano::rate::token_bucket bucket (0, 0);
+	celerix::rate::token_bucket bucket (0, 0);
 
 	// consume lots of tokens, buckets should be unlimited
 	ASSERT_TRUE (bucket.try_consume (1000000));
@@ -82,7 +82,7 @@ TEST (rate, reset)
 
 TEST (rate, unlimited)
 {
-	nano::rate::token_bucket bucket (0, 0);
+	celerix::rate::token_bucket bucket (0, 0);
 	ASSERT_TRUE (bucket.try_consume (5));
 	ASSERT_EQ (bucket.largest_burst (), 5);
 	ASSERT_TRUE (bucket.try_consume (static_cast<size_t> (1e9)));
@@ -96,7 +96,7 @@ TEST (rate, unlimited)
 TEST (rate, busy_spin)
 {
 	// Bucket should refill at a rate of 1 token per second
-	nano::rate::token_bucket bucket (1, 1);
+	celerix::rate::token_bucket bucket (1, 1);
 
 	// Run a very tight loop for 5 seconds + a bit of wiggle room
 	int counter = 0;

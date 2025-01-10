@@ -1,11 +1,11 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/numbers_templ.hpp>
-#include <nano/lib/uniquer.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/numbers_templ.hpp>
+#include <celerix/lib/uniquer.hpp>
 
-namespace nano
+namespace celerix
 {
 class block;
-using block_uniquer = nano::uniquer<nano::uint256_union, nano::block>;
+using block_uniquer = celerix::uniquer<celerix::uint256_union, celerix::block>;
 }

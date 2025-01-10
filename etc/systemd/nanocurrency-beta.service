@@ -1,12 +1,12 @@
 [Unit]
-Description=Nano Beta Network Daemon
+Description=Celerix Beta Network Daemon
 After=network.target
 
 [Service]
 Type=simple
-User=nanocurrency
-WorkingDirectory=/var/nanocurrency/NanoBeta
-ExecStart=/usr/bin/nano_node --daemon --network=beta --data_path=/var/nanocurrency/NanoBeta
+User=celerixcurrency
+WorkingDirectory=/var/celerixcurrency/CelerixBeta
+ExecStart=/usr/bin/celerix_node --daemon --network=beta --data_path=/var/celerixcurrency/CelerixBeta
 Restart=on-failure
 
 [Install]

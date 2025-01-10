@@ -1,52 +1,52 @@
-#include <nano/lib/block_type.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/files.hpp>
-#include <nano/lib/stream.hpp>
-#include <nano/lib/thread_pool.hpp>
-#include <nano/lib/thread_runner.hpp>
-#include <nano/lib/tomlconfig.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/lib/work_version.hpp>
-#include <nano/node/active_elections.hpp>
-#include <nano/node/backlog_scan.hpp>
-#include <nano/node/bandwidth_limiter.hpp>
-#include <nano/node/bootstrap/bootstrap_server.hpp>
-#include <nano/node/bootstrap/bootstrap_service.hpp>
-#include <nano/node/bootstrap_weights_beta.hpp>
-#include <nano/node/bootstrap_weights_live.hpp>
-#include <nano/node/bounded_backlog.hpp>
-#include <nano/node/bucketing.hpp>
-#include <nano/node/confirming_set.hpp>
-#include <nano/node/daemonconfig.hpp>
-#include <nano/node/election_status.hpp>
-#include <nano/node/endpoint.hpp>
-#include <nano/node/local_block_broadcaster.hpp>
-#include <nano/node/local_vote_history.hpp>
-#include <nano/node/make_store.hpp>
-#include <nano/node/message_processor.hpp>
-#include <nano/node/monitor.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/online_reps.hpp>
-#include <nano/node/peer_history.hpp>
-#include <nano/node/portmapping.hpp>
-#include <nano/node/request_aggregator.hpp>
-#include <nano/node/scheduler/component.hpp>
-#include <nano/node/scheduler/hinted.hpp>
-#include <nano/node/scheduler/manual.hpp>
-#include <nano/node/scheduler/optimistic.hpp>
-#include <nano/node/scheduler/priority.hpp>
-#include <nano/node/telemetry.hpp>
-#include <nano/node/transport/tcp_listener.hpp>
-#include <nano/node/vote_generator.hpp>
-#include <nano/node/vote_processor.hpp>
-#include <nano/node/vote_router.hpp>
-#include <nano/node/websocket.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/ledger_set_any.hpp>
-#include <nano/secure/ledger_set_confirmed.hpp>
-#include <nano/secure/vote.hpp>
-#include <nano/store/component.hpp>
-#include <nano/store/rocksdb/rocksdb.hpp>
+#include <celerix/lib/block_type.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/files.hpp>
+#include <celerix/lib/stream.hpp>
+#include <celerix/lib/thread_pool.hpp>
+#include <celerix/lib/thread_runner.hpp>
+#include <celerix/lib/tomlconfig.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/lib/work_version.hpp>
+#include <celerix/node/active_elections.hpp>
+#include <celerix/node/backlog_scan.hpp>
+#include <celerix/node/bandwidth_limiter.hpp>
+#include <celerix/node/bootstrap/bootstrap_server.hpp>
+#include <celerix/node/bootstrap/bootstrap_service.hpp>
+#include <celerix/node/bootstrap_weights_beta.hpp>
+#include <celerix/node/bootstrap_weights_live.hpp>
+#include <celerix/node/bounded_backlog.hpp>
+#include <celerix/node/bucketing.hpp>
+#include <celerix/node/confirming_set.hpp>
+#include <celerix/node/daemonconfig.hpp>
+#include <celerix/node/election_status.hpp>
+#include <celerix/node/endpoint.hpp>
+#include <celerix/node/local_block_broadcaster.hpp>
+#include <celerix/node/local_vote_history.hpp>
+#include <celerix/node/make_store.hpp>
+#include <celerix/node/message_processor.hpp>
+#include <celerix/node/monitor.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/online_reps.hpp>
+#include <celerix/node/peer_history.hpp>
+#include <celerix/node/portmapping.hpp>
+#include <celerix/node/request_aggregator.hpp>
+#include <celerix/node/scheduler/component.hpp>
+#include <celerix/node/scheduler/hinted.hpp>
+#include <celerix/node/scheduler/manual.hpp>
+#include <celerix/node/scheduler/optimistic.hpp>
+#include <celerix/node/scheduler/priority.hpp>
+#include <celerix/node/telemetry.hpp>
+#include <celerix/node/transport/tcp_listener.hpp>
+#include <celerix/node/vote_generator.hpp>
+#include <celerix/node/vote_processor.hpp>
+#include <celerix/node/vote_router.hpp>
+#include <celerix/node/websocket.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/ledger_set_any.hpp>
+#include <celerix/secure/ledger_set_confirmed.hpp>
+#include <celerix/secure/vote.hpp>
+#include <celerix/store/component.hpp>
+#include <celerix/store/rocksdb/rocksdb.hpp>
 
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -57,10 +57,10 @@
 #include <future>
 #include <sstream>
 
-double constexpr nano::node::price_max;
-double constexpr nano::node::free_cutoff;
+double constexpr celerix::node::price_max;
+double constexpr celerix::node::free_cutoff;
 
-namespace nano::weights
+namespace celerix::weights
 {
 extern std::vector<std::pair<std::string, std::string>> preconfigured_weights_live;
 extern uint64_t max_blocks_live;
@@ -72,12 +72,12 @@ extern uint64_t max_blocks_beta;
  * node
  */
 
-nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, uint16_t peering_port_a, std::filesystem::path const & application_path_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
-	node (io_ctx_a, application_path_a, nano::node_config (peering_port_a), work_a, flags_a, seq)
+celerix::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, uint16_t peering_port_a, std::filesystem::path const & application_path_a, celerix::work_pool & work_a, celerix::node_flags flags_a, unsigned seq) :
+	node (io_ctx_a, application_path_a, celerix::node_config (peering_port_a), work_a, flags_a, seq)
 {
 }
 
-nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesystem::path const & application_path_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
+celerix::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesystem::path const & application_path_a, celerix::node_config const & config_a, celerix::work_pool & work_a, celerix::node_flags flags_a, unsigned seq) :
 	application_path{ application_path_a },
 	node_id{ load_or_create_node_id (application_path_a) },
 	node_initialized_latch{ 1 },
@@ -86,45 +86,45 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	network_params{ config.network_params },
 	io_ctx_shared{ std::make_shared<boost::asio::io_context> () },
 	io_ctx{ *io_ctx_shared },
-	logger_impl{ std::make_unique<nano::logger> (make_logger_identifier (node_id)) },
+	logger_impl{ std::make_unique<celerix::logger> (make_logger_identifier (node_id)) },
 	logger{ *logger_impl },
-	stats_impl{ std::make_unique<nano::stats> (logger, config.stats_config) },
+	stats_impl{ std::make_unique<celerix::stats> (logger, config.stats_config) },
 	stats{ *stats_impl },
-	runner_impl{ std::make_unique<nano::thread_runner> (io_ctx_shared, logger, config.io_threads) },
+	runner_impl{ std::make_unique<celerix::thread_runner> (io_ctx_shared, logger, config.io_threads) },
 	runner{ *runner_impl },
-	observers_impl{ std::make_unique<nano::node_observers> () },
+	observers_impl{ std::make_unique<celerix::node_observers> () },
 	observers{ *observers_impl },
-	workers_impl{ std::make_unique<nano::thread_pool> (config.background_threads, nano::thread_role::name::worker, /* start immediately */ true) },
+	workers_impl{ std::make_unique<celerix::thread_pool> (config.background_threads, celerix::thread_role::name::worker, /* start immediately */ true) },
 	workers{ *workers_impl },
-	bootstrap_workers_impl{ std::make_unique<nano::thread_pool> (config.bootstrap_serving_threads, nano::thread_role::name::bootstrap_worker, /* start immediately */ true) },
+	bootstrap_workers_impl{ std::make_unique<celerix::thread_pool> (config.bootstrap_serving_threads, celerix::thread_role::name::bootstrap_worker, /* start immediately */ true) },
 	bootstrap_workers{ *bootstrap_workers_impl },
-	wallet_workers_impl{ std::make_unique<nano::thread_pool> (1, nano::thread_role::name::wallet_worker, /* start immediately */ true) },
+	wallet_workers_impl{ std::make_unique<celerix::thread_pool> (1, celerix::thread_role::name::wallet_worker, /* start immediately */ true) },
 	wallet_workers{ *wallet_workers_impl },
-	election_workers_impl{ std::make_unique<nano::thread_pool> (1, nano::thread_role::name::election_worker, /* start immediately */ true) },
+	election_workers_impl{ std::make_unique<celerix::thread_pool> (1, celerix::thread_role::name::election_worker, /* start immediately */ true) },
 	election_workers{ *election_workers_impl },
 	work{ work_a },
-	distributed_work_impl{ std::make_unique<nano::distributed_work_factory> (*this) },
+	distributed_work_impl{ std::make_unique<celerix::distributed_work_factory> (*this) },
 	distributed_work{ *distributed_work_impl },
-	store_impl{ nano::make_store (logger, application_path_a, network_params.ledger, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade) },
+	store_impl{ celerix::make_store (logger, application_path_a, network_params.ledger, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade) },
 	store{ *store_impl },
-	unchecked_impl{ std::make_unique<nano::unchecked_map> (config.max_unchecked_blocks, stats, flags.disable_block_processor_unchecked_deletion) },
+	unchecked_impl{ std::make_unique<celerix::unchecked_map> (config.max_unchecked_blocks, stats, flags.disable_block_processor_unchecked_deletion) },
 	unchecked{ *unchecked_impl },
-	wallets_store_impl{ std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config) },
+	wallets_store_impl{ std::make_unique<celerix::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config) },
 	wallets_store{ *wallets_store_impl },
-	wallets_impl{ std::make_unique<nano::wallets> (wallets_store.init_error (), *this) },
+	wallets_impl{ std::make_unique<celerix::wallets> (wallets_store.init_error (), *this) },
 	wallets{ *wallets_impl },
-	ledger_impl{ std::make_unique<nano::ledger> (store, stats, network_params.ledger, flags_a.generate_cache, config_a.representative_vote_weight_minimum.number ()) },
+	ledger_impl{ std::make_unique<celerix::ledger> (store, stats, network_params.ledger, flags_a.generate_cache, config_a.representative_vote_weight_minimum.number ()) },
 	ledger{ *ledger_impl },
-	outbound_limiter_impl{ std::make_unique<nano::bandwidth_limiter> (config) },
+	outbound_limiter_impl{ std::make_unique<celerix::bandwidth_limiter> (config) },
 	outbound_limiter{ *outbound_limiter_impl },
-	message_processor_impl{ std::make_unique<nano::message_processor> (config.message_processor, *this) },
+	message_processor_impl{ std::make_unique<celerix::message_processor> (config.message_processor, *this) },
 	message_processor{ *message_processor_impl },
 	// empty `config.peering_port` means the user made no port choice at all;
 	// otherwise, any value is considered, with `0` having the special meaning of 'let the OS pick a port instead'
 	//
-	network_impl{ std::make_unique<nano::network> (*this, config.peering_port.has_value () ? *config.peering_port : 0) },
+	network_impl{ std::make_unique<celerix::network> (*this, config.peering_port.has_value () ? *config.peering_port : 0) },
 	network{ *network_impl },
-	telemetry_impl{ std::make_unique<nano::telemetry> (flags, *this, network, observers, network_params, stats) },
+	telemetry_impl{ std::make_unique<celerix::telemetry> (flags, *this, network, observers, network_params, stats) },
 	telemetry{ *telemetry_impl },
 	// BEWARE: `bootstrap` takes `network.port` instead of `config.peering_port` because when the user doesn't specify
 	//         a peering port and wants the OS to pick one, the picking happens when `network` gets initialized
@@ -133,74 +133,74 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	//         Thus, be very careful if you change the order: if `bootstrap` gets constructed before `network`,
 	//         the latter would inherit the port from the former (if TCP is active, otherwise `network` picks first)
 	//
-	tcp_listener_impl{ std::make_unique<nano::transport::tcp_listener> (network.port, config.tcp, *this) },
+	tcp_listener_impl{ std::make_unique<celerix::transport::tcp_listener> (network.port, config.tcp, *this) },
 	tcp_listener{ *tcp_listener_impl },
-	port_mapping_impl{ std::make_unique<nano::port_mapping> (*this) },
+	port_mapping_impl{ std::make_unique<celerix::port_mapping> (*this) },
 	port_mapping{ *port_mapping_impl },
-	block_processor_impl{ std::make_unique<nano::block_processor> (config, ledger, unchecked, stats, logger) },
+	block_processor_impl{ std::make_unique<celerix::block_processor> (config, ledger, unchecked, stats, logger) },
 	block_processor{ *block_processor_impl },
-	confirming_set_impl{ std::make_unique<nano::confirming_set> (config.confirming_set, ledger, block_processor, stats, logger) },
+	confirming_set_impl{ std::make_unique<celerix::confirming_set> (config.confirming_set, ledger, block_processor, stats, logger) },
 	confirming_set{ *confirming_set_impl },
-	bucketing_impl{ std::make_unique<nano::bucketing> () },
+	bucketing_impl{ std::make_unique<celerix::bucketing> () },
 	bucketing{ *bucketing_impl },
-	active_impl{ std::make_unique<nano::active_elections> (*this, confirming_set, block_processor) },
+	active_impl{ std::make_unique<celerix::active_elections> (*this, confirming_set, block_processor) },
 	active{ *active_impl },
-	online_reps_impl{ std::make_unique<nano::online_reps> (config, ledger, stats, logger) },
+	online_reps_impl{ std::make_unique<celerix::online_reps> (config, ledger, stats, logger) },
 	online_reps{ *online_reps_impl },
-	rep_crawler_impl{ std::make_unique<nano::rep_crawler> (config.rep_crawler, *this) },
+	rep_crawler_impl{ std::make_unique<celerix::rep_crawler> (config.rep_crawler, *this) },
 	rep_crawler{ *rep_crawler_impl },
-	rep_tiers_impl{ std::make_unique<nano::rep_tiers> (ledger, network_params, online_reps, stats, logger) },
+	rep_tiers_impl{ std::make_unique<celerix::rep_tiers> (ledger, network_params, online_reps, stats, logger) },
 	rep_tiers{ *rep_tiers_impl },
-	history_impl{ std::make_unique<nano::local_vote_history> (config.network_params.voting) },
+	history_impl{ std::make_unique<celerix::local_vote_history> (config.network_params.voting) },
 	history{ *history_impl },
-	block_uniquer_impl{ std::make_unique<nano::block_uniquer> () },
+	block_uniquer_impl{ std::make_unique<celerix::block_uniquer> () },
 	block_uniquer{ *block_uniquer_impl },
-	vote_uniquer_impl{ std::make_unique<nano::vote_uniquer> () },
+	vote_uniquer_impl{ std::make_unique<celerix::vote_uniquer> () },
 	vote_uniquer{ *vote_uniquer_impl },
-	vote_cache_impl{ std::make_unique<nano::vote_cache> (config.vote_cache, stats) },
+	vote_cache_impl{ std::make_unique<celerix::vote_cache> (config.vote_cache, stats) },
 	vote_cache{ *vote_cache_impl },
-	vote_router_impl{ std::make_unique<nano::vote_router> (vote_cache, active.recently_confirmed) },
+	vote_router_impl{ std::make_unique<celerix::vote_router> (vote_cache, active.recently_confirmed) },
 	vote_router{ *vote_router_impl },
-	vote_processor_impl{ std::make_unique<nano::vote_processor> (config.vote_processor, vote_router, observers, stats, flags, logger, online_reps, rep_crawler, ledger, network_params, rep_tiers) },
+	vote_processor_impl{ std::make_unique<celerix::vote_processor> (config.vote_processor, vote_router, observers, stats, flags, logger, online_reps, rep_crawler, ledger, network_params, rep_tiers) },
 	vote_processor{ *vote_processor_impl },
-	vote_cache_processor_impl{ std::make_unique<nano::vote_cache_processor> (config.vote_processor, vote_router, vote_cache, stats, logger) },
+	vote_cache_processor_impl{ std::make_unique<celerix::vote_cache_processor> (config.vote_processor, vote_router, vote_cache, stats, logger) },
 	vote_cache_processor{ *vote_cache_processor_impl },
-	generator_impl{ std::make_unique<nano::vote_generator> (config, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* non-final */ false) },
+	generator_impl{ std::make_unique<celerix::vote_generator> (config, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* non-final */ false) },
 	generator{ *generator_impl },
-	final_generator_impl{ std::make_unique<nano::vote_generator> (config, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* final */ true) },
+	final_generator_impl{ std::make_unique<celerix::vote_generator> (config, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* final */ true) },
 	final_generator{ *final_generator_impl },
-	scheduler_impl{ std::make_unique<nano::scheduler::component> (config, *this, ledger, bucketing, block_processor, active, online_reps, vote_cache, confirming_set, stats, logger) },
+	scheduler_impl{ std::make_unique<celerix::scheduler::component> (config, *this, ledger, bucketing, block_processor, active, online_reps, vote_cache, confirming_set, stats, logger) },
 	scheduler{ *scheduler_impl },
-	aggregator_impl{ std::make_unique<nano::request_aggregator> (config.request_aggregator, *this, stats, generator, final_generator, history, ledger, wallets, vote_router) },
+	aggregator_impl{ std::make_unique<celerix::request_aggregator> (config.request_aggregator, *this, stats, generator, final_generator, history, ledger, wallets, vote_router) },
 	aggregator{ *aggregator_impl },
-	backlog_scan_impl{ std::make_unique<nano::backlog_scan> (config.backlog_scan, ledger, stats) },
+	backlog_scan_impl{ std::make_unique<celerix::backlog_scan> (config.backlog_scan, ledger, stats) },
 	backlog_scan{ *backlog_scan_impl },
-	backlog_impl{ std::make_unique<nano::bounded_backlog> (config, *this, ledger, bucketing, backlog_scan, block_processor, confirming_set, stats, logger) },
+	backlog_impl{ std::make_unique<celerix::bounded_backlog> (config, *this, ledger, bucketing, backlog_scan, block_processor, confirming_set, stats, logger) },
 	backlog{ *backlog_impl },
-	bootstrap_server_impl{ std::make_unique<nano::bootstrap_server> (config.bootstrap_server, store, ledger, network_params.network, stats) },
+	bootstrap_server_impl{ std::make_unique<celerix::bootstrap_server> (config.bootstrap_server, store, ledger, network_params.network, stats) },
 	bootstrap_server{ *bootstrap_server_impl },
-	bootstrap_impl{ std::make_unique<nano::bootstrap_service> (config, block_processor, ledger, network, stats, logger) },
+	bootstrap_impl{ std::make_unique<celerix::bootstrap_service> (config, block_processor, ledger, network, stats, logger) },
 	bootstrap{ *bootstrap_impl },
-	websocket_impl{ std::make_unique<nano::websocket_server> (config.websocket_config, observers, wallets, ledger, io_ctx, logger) },
+	websocket_impl{ std::make_unique<celerix::websocket_server> (config.websocket_config, observers, wallets, ledger, io_ctx, logger) },
 	websocket{ *websocket_impl },
-	epoch_upgrader_impl{ std::make_unique<nano::epoch_upgrader> (*this, ledger, store, network_params, logger) },
+	epoch_upgrader_impl{ std::make_unique<celerix::epoch_upgrader> (*this, ledger, store, network_params, logger) },
 	epoch_upgrader{ *epoch_upgrader_impl },
-	local_block_broadcaster_impl{ std::make_unique<nano::local_block_broadcaster> (config.local_block_broadcaster, *this, block_processor, network, confirming_set, stats, logger, !flags.disable_block_processor_republishing) },
+	local_block_broadcaster_impl{ std::make_unique<celerix::local_block_broadcaster> (config.local_block_broadcaster, *this, block_processor, network, confirming_set, stats, logger, !flags.disable_block_processor_republishing) },
 	local_block_broadcaster{ *local_block_broadcaster_impl },
-	process_live_dispatcher_impl{ std::make_unique<nano::process_live_dispatcher> (ledger, scheduler.priority, vote_cache, websocket) },
+	process_live_dispatcher_impl{ std::make_unique<celerix::process_live_dispatcher> (ledger, scheduler.priority, vote_cache, websocket) },
 	process_live_dispatcher{ *process_live_dispatcher_impl },
-	peer_history_impl{ std::make_unique<nano::peer_history> (config.peer_history, store, network, logger, stats) },
+	peer_history_impl{ std::make_unique<celerix::peer_history> (config.peer_history, store, network, logger, stats) },
 	peer_history{ *peer_history_impl },
-	monitor_impl{ std::make_unique<nano::monitor> (config.monitor, *this) },
+	monitor_impl{ std::make_unique<celerix::monitor> (config.monitor, *this) },
 	monitor{ *monitor_impl },
 	startup_time{ std::chrono::steady_clock::now () },
 	node_seq{ seq }
 {
-	logger.debug (nano::log::type::node, "Constructing node...");
+	logger.debug (celerix::log::type::node, "Constructing node...");
 
 	process_live_dispatcher.connect (block_processor);
 
-	vote_cache.rep_weight_query = [this] (nano::account const & rep) {
+	vote_cache.rep_weight_query = [this] (celerix::account const & rep) {
 		return ledger.weight (rep);
 	};
 
@@ -215,9 +215,9 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	});
 
 	// Republish vote if it is new and the node does not host a principal representative (or close to)
-	vote_router.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
+	vote_router.vote_processed.add ([this] (std::shared_ptr<celerix::vote> const & vote, celerix::vote_source source, std::unordered_map<celerix::block_hash, celerix::vote_code> const & results) {
 		bool processed = std::any_of (results.begin (), results.end (), [] (auto const & result) {
-			return result.second == nano::vote_code::vote;
+			return result.second == celerix::vote_code::vote;
 		});
 		if (processed)
 		{
@@ -252,9 +252,9 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 		};
 		if (!config.callback_address.empty ())
 		{
-			observers.blocks.add ([this] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
+			observers.blocks.add ([this] (celerix::election_status const & status_a, std::vector<celerix::vote_with_weight_info> const & votes_a, celerix::account const & account_a, celerix::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
 				auto block_a (status_a.winner);
-				if ((status_a.type == nano::election_status_type::active_confirmed_quorum || status_a.type == nano::election_status_type::active_confirmation_height))
+				if ((status_a.type == celerix::election_status_type::active_confirmed_quorum || status_a.type == celerix::election_status_type::active_confirmation_height))
 				{
 					auto node_l (shared_from_this ());
 					io_ctx.post ([node_l, block_a, account_a, amount_a, is_state_send_a, is_state_epoch_a] () {
@@ -271,7 +271,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 							event.add ("subtype", "send");
 						}
 						// Subtype field
-						else if (block_a->type () == nano::block_type::state)
+						else if (block_a->type () == celerix::block_type::state)
 						{
 							if (block_a->is_change ())
 							{
@@ -302,8 +302,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 							}
 							else
 							{
-								node_l->logger.error (nano::log::type::rpc_callbacks, "Error resolving callback: {}:{} ({})", address, port, ec.message ());
-								node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
+								node_l->logger.error (celerix::log::type::rpc_callbacks, "Error resolving callback: {}:{} ({})", address, port, ec.message ());
+								node_l->stats.inc (celerix::stat::type::error, celerix::stat::detail::http_callback, celerix::stat::dir::out);
 							}
 						});
 					});
@@ -311,19 +311,19 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			});
 		}
 
-		observers.channel_connected.add ([this] (std::shared_ptr<nano::transport::channel> const & channel) {
+		observers.channel_connected.add ([this] (std::shared_ptr<celerix::transport::channel> const & channel) {
 			network.send_keepalive_self (channel);
 		});
 
-		observers.vote.add ([this] (std::shared_ptr<nano::vote> vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_source source, nano::vote_code code) {
+		observers.vote.add ([this] (std::shared_ptr<celerix::vote> vote, std::shared_ptr<celerix::transport::channel> const & channel, celerix::vote_source source, celerix::vote_code code) {
 			debug_assert (vote != nullptr);
-			debug_assert (code != nano::vote_code::invalid);
+			debug_assert (code != celerix::vote_code::invalid);
 			if (channel == nullptr)
 			{
 				return; // Channel expired when waiting for vote to be processed
 			}
 			// Ignore republished votes
-			if (source == nano::vote_source::live)
+			if (source == celerix::vote_source::live)
 			{
 				bool active_in_rep_crawler = rep_crawler.process (vote, channel);
 				if (active_in_rep_crawler)
@@ -335,31 +335,31 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 		});
 
 		// Cancelling local work generation
-		observers.work_cancel.add ([this] (nano::root const & root_a) {
+		observers.work_cancel.add ([this] (celerix::root const & root_a) {
 			this->work.cancel (root_a);
 			this->distributed_work.cancel (root_a);
 		});
 
 		auto const network_label = network_params.network.get_current_network_as_string ();
 
-		logger.info (nano::log::type::node, "Version: {}", NANO_VERSION_STRING);
-		logger.info (nano::log::type::node, "Build information: {}", BUILD_INFO);
-		logger.info (nano::log::type::node, "Active network: {}", network_label);
-		logger.info (nano::log::type::node, "Database backend: {}", store.vendor_get ());
-		logger.info (nano::log::type::node, "Data path: {}", application_path.string ());
-		logger.info (nano::log::type::node, "Work pool threads: {} ({})", work.threads.size (), (work.opencl ? "OpenCL" : "CPU"));
-		logger.info (nano::log::type::node, "Work peers: {}", config.work_peers.size ());
-		logger.info (nano::log::type::node, "Node ID: {}", node_id.pub.to_node_id ());
-		logger.info (nano::log::type::node, "Number of buckets: {}", bucketing.size ());
-		logger.info (nano::log::type::node, "Genesis block: {}", config.network_params.ledger.genesis->hash ().to_string ());
-		logger.info (nano::log::type::node, "Genesis account: {}", config.network_params.ledger.genesis->account ().to_account ());
+		logger.info (celerix::log::type::node, "Version: {}", CELERIX_VERSION_STRING);
+		logger.info (celerix::log::type::node, "Build information: {}", BUILD_INFO);
+		logger.info (celerix::log::type::node, "Active network: {}", network_label);
+		logger.info (celerix::log::type::node, "Database backend: {}", store.vendor_get ());
+		logger.info (celerix::log::type::node, "Data path: {}", application_path.string ());
+		logger.info (celerix::log::type::node, "Work pool threads: {} ({})", work.threads.size (), (work.opencl ? "OpenCL" : "CPU"));
+		logger.info (celerix::log::type::node, "Work peers: {}", config.work_peers.size ());
+		logger.info (celerix::log::type::node, "Node ID: {}", node_id.pub.to_node_id ());
+		logger.info (celerix::log::type::node, "Number of buckets: {}", bucketing.size ());
+		logger.info (celerix::log::type::node, "Genesis block: {}", config.network_params.ledger.genesis->hash ().to_string ());
+		logger.info (celerix::log::type::node, "Genesis account: {}", config.network_params.ledger.genesis->account ().to_account ());
 
 		if (!work_generation_enabled ())
 		{
-			logger.warn (nano::log::type::node, "Work generation is disabled");
+			logger.warn (celerix::log::type::node, "Work generation is disabled");
 		}
 
-		logger.info (nano::log::type::node, "Outbound bandwidth limit: {} bytes/s, burst ratio: {}",
+		logger.info (celerix::log::type::node, "Outbound bandwidth limit: {} bytes/s, burst ratio: {}",
 		config.bandwidth_limit,
 		config.bandwidth_limit_burst_ratio);
 
@@ -379,11 +379,11 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 
 		if (!block_or_pruned_exists (config.network_params.ledger.genesis->hash ()))
 		{
-			logger.critical (nano::log::type::node, "Genesis block not found. This commonly indicates a configuration issue, check that the --network or --data_path command line arguments are correct, and also the ledger backend node config option. If using a read-only CLI command a ledger must already exist, start the node with --daemon first.");
+			logger.critical (celerix::log::type::node, "Genesis block not found. This commonly indicates a configuration issue, check that the --network or --data_path command line arguments are correct, and also the ledger backend node config option. If using a read-only CLI command a ledger must already exist, start the node with --daemon first.");
 
 			if (network_params.network.is_beta_network ())
 			{
-				logger.critical (nano::log::type::node, "Beta network may have reset, try clearing database files");
+				logger.critical (celerix::log::type::node, "Beta network may have reset, try clearing database files");
 			}
 
 			std::exit (1);
@@ -392,14 +392,14 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 		if (config.enable_voting)
 		{
 			auto reps = wallets.reps ();
-			logger.info (nano::log::type::node, "Voting is enabled, more system resources will be used, local representatives: {}", reps.accounts.size ());
+			logger.info (celerix::log::type::node, "Voting is enabled, more system resources will be used, local representatives: {}", reps.accounts.size ());
 			for (auto const & account : reps.accounts)
 			{
-				logger.info (nano::log::type::node, "Local representative: {}", account.to_account ());
+				logger.info (celerix::log::type::node, "Local representative: {}", account.to_account ());
 			}
 			if (reps.accounts.size () > 1)
 			{
-				logger.warn (nano::log::type::node, "Voting with more than one representative can limit performance");
+				logger.warn (celerix::log::type::node, "Voting with more than one representative can limit performance");
 			}
 		}
 
@@ -408,33 +408,33 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			auto const bootstrap_weights = get_bootstrap_weights ();
 			ledger.bootstrap_weight_max_blocks = bootstrap_weights.first;
 
-			logger.info (nano::log::type::node, "Initial bootstrap height: {}", ledger.bootstrap_weight_max_blocks);
-			logger.info (nano::log::type::node, "Current ledger height:    {}", ledger.block_count ());
+			logger.info (celerix::log::type::node, "Initial bootstrap height: {}", ledger.bootstrap_weight_max_blocks);
+			logger.info (celerix::log::type::node, "Current ledger height:    {}", ledger.block_count ());
 
 			// Use bootstrap weights if initial bootstrap is not completed
 			const bool use_bootstrap_weight = ledger.block_count () < bootstrap_weights.first;
 			if (use_bootstrap_weight)
 			{
-				logger.info (nano::log::type::node, "Using predefined representative weights, since block count is less than bootstrap threshold");
+				logger.info (celerix::log::type::node, "Using predefined representative weights, since block count is less than bootstrap threshold");
 
 				ledger.bootstrap_weights = bootstrap_weights.second;
 
-				logger.info (nano::log::type::node, "******************************************** Bootstrap weights ********************************************");
+				logger.info (celerix::log::type::node, "******************************************** Bootstrap weights ********************************************");
 
 				// Sort the weights
-				std::vector<std::pair<nano::account, nano::uint128_t>> sorted_weights (ledger.bootstrap_weights.begin (), ledger.bootstrap_weights.end ());
+				std::vector<std::pair<celerix::account, celerix::uint128_t>> sorted_weights (ledger.bootstrap_weights.begin (), ledger.bootstrap_weights.end ());
 				std::sort (sorted_weights.begin (), sorted_weights.end (), [] (auto const & entry1, auto const & entry2) {
 					return entry1.second > entry2.second;
 				});
 
 				for (auto const & rep : sorted_weights)
 				{
-					logger.info (nano::log::type::node, "Using bootstrap rep weight: {} -> {}",
+					logger.info (celerix::log::type::node, "Using bootstrap rep weight: {} -> {}",
 					rep.first.to_account (),
-					nano::uint128_union (rep.second).format_balance (nano_ratio, 0, true));
+					celerix::uint128_union (rep.second).format_balance (celerix_ratio, 0, true));
 				}
 
-				logger.info (nano::log::type::node, "******************************************** ================= ********************************************");
+				logger.info (celerix::log::type::node, "******************************************** ================= ********************************************");
 			}
 		}
 
@@ -444,12 +444,12 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 		{
 			if (config.enable_voting && !flags.inactive_node)
 			{
-				logger.critical (nano::log::type::node, "Incompatibility detected between config node.enable_voting and existing pruned blocks");
+				logger.critical (celerix::log::type::node, "Incompatibility detected between config node.enable_voting and existing pruned blocks");
 				std::exit (1);
 			}
 			else if (!flags.enable_pruning && !flags.inactive_node)
 			{
-				logger.critical (nano::log::type::node, "To start node with existing pruned blocks use launch flag --enable_pruning");
+				logger.critical (celerix::log::type::node, "To start node with existing pruned blocks use launch flag --enable_pruning");
 				std::exit (1);
 			}
 		}
@@ -466,14 +466,14 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	node_initialized_latch.count_down ();
 }
 
-nano::node::~node ()
+celerix::node::~node ()
 {
-	logger.debug (nano::log::type::node, "Destructing node...");
+	logger.debug (celerix::log::type::node, "Destructing node...");
 	stop ();
 }
 
 // TODO: Move to a separate class
-void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const & address, uint16_t port, std::shared_ptr<std::string> const & target, std::shared_ptr<std::string> const & body, std::shared_ptr<boost::asio::ip::tcp::resolver> const & resolver)
+void celerix::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const & address, uint16_t port, std::shared_ptr<std::string> const & target, std::shared_ptr<std::string> const & body, std::shared_ptr<boost::asio::ip::tcp::resolver> const & resolver)
 {
 	if (i_a != boost::asio::ip::tcp::resolver::iterator{})
 	{
@@ -500,32 +500,32 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 							{
 								if (boost::beast::http::to_status_class (resp->result ()) == boost::beast::http::status_class::successful)
 								{
-									node_l->stats.inc (nano::stat::type::http_callback, nano::stat::detail::initiate, nano::stat::dir::out);
+									node_l->stats.inc (celerix::stat::type::http_callback, celerix::stat::detail::initiate, celerix::stat::dir::out);
 								}
 								else
 								{
-									node_l->logger.error (nano::log::type::rpc_callbacks, "Callback to {}:{} failed [status: {}]", address, port, nano::util::to_str (resp->result ()));
-									node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
+									node_l->logger.error (celerix::log::type::rpc_callbacks, "Callback to {}:{} failed [status: {}]", address, port, celerix::util::to_str (resp->result ()));
+									node_l->stats.inc (celerix::stat::type::error, celerix::stat::detail::http_callback, celerix::stat::dir::out);
 								}
 							}
 							else
 							{
-								node_l->logger.error (nano::log::type::rpc_callbacks, "Unable to complete callback: {}:{} ({})", address, port, ec.message ());
-								node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
+								node_l->logger.error (celerix::log::type::rpc_callbacks, "Unable to complete callback: {}:{} ({})", address, port, ec.message ());
+								node_l->stats.inc (celerix::stat::type::error, celerix::stat::detail::http_callback, celerix::stat::dir::out);
 							};
 						});
 					}
 					else
 					{
-						node_l->logger.error (nano::log::type::rpc_callbacks, "Unable to send callback: {}:{} ({})", address, port, ec.message ());
-						node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
+						node_l->logger.error (celerix::log::type::rpc_callbacks, "Unable to send callback: {}:{} ({})", address, port, ec.message ());
+						node_l->stats.inc (celerix::stat::type::error, celerix::stat::detail::http_callback, celerix::stat::dir::out);
 					}
 				});
 			}
 			else
 			{
-				node_l->logger.error (nano::log::type::rpc_callbacks, "Unable to connect to callback address({}): {}:{} ({})", address, i_a->endpoint ().address ().to_string (), port, ec.message ());
-				node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
+				node_l->logger.error (celerix::log::type::rpc_callbacks, "Unable to connect to callback address({}): {}:{} ({})", address, i_a->endpoint ().address ().to_string (), port, ec.message ());
+				node_l->stats.inc (celerix::stat::type::error, celerix::stat::detail::http_callback, celerix::stat::dir::out);
 				++i_a;
 
 				node_l->do_rpc_callback (i_a, address, port, target, body, resolver);
@@ -534,12 +534,12 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 	}
 }
 
-bool nano::node::copy_with_compaction (std::filesystem::path const & destination)
+bool celerix::node::copy_with_compaction (std::filesystem::path const & destination)
 {
 	return store.copy_db (destination);
 }
 
-void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
+void celerix::node::keepalive (std::string const & address_a, uint16_t port_a)
 {
 	auto node_l (shared_from_this ());
 	network.resolver.async_resolve (boost::asio::ip::tcp::resolver::query (address_a, std::to_string (port_a)), [node_l, address_a, port_a] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
@@ -547,8 +547,8 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 		{
 			for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator{}); i != n; ++i)
 			{
-				auto endpoint (nano::transport::map_endpoint_to_v6 (i->endpoint ()));
-				std::weak_ptr<nano::node> node_w (node_l);
+				auto endpoint (celerix::transport::map_endpoint_to_v6 (i->endpoint ()));
+				std::weak_ptr<celerix::node> node_w (node_l);
 				auto channel (node_l->network.find_channel (endpoint));
 				if (!channel)
 				{
@@ -562,12 +562,12 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 		}
 		else
 		{
-			node_l->logger.error (nano::log::type::node, "Error resolving address for keepalive: {}:{} ({})", address_a, port_a, ec.message ());
+			node_l->logger.error (celerix::log::type::node, "Error resolving address for keepalive: {}:{} ({})", address_a, port_a, ec.message ());
 		}
 	});
 }
 
-void nano::node::inbound (const nano::message & message, const std::shared_ptr<nano::transport::channel> & channel)
+void celerix::node::inbound (const celerix::message & message, const std::shared_ptr<celerix::transport::channel> & channel)
 {
 	debug_assert (channel->owner () == shared_from_this ()); // This node should be the channel owner
 
@@ -577,35 +577,35 @@ void nano::node::inbound (const nano::message & message, const std::shared_ptr<n
 	message_processor.process (message, channel);
 }
 
-void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
+void celerix::node::process_active (std::shared_ptr<celerix::block> const & incoming)
 {
 	block_processor.add (incoming);
 }
 
-[[nodiscard]] nano::block_status nano::node::process (secure::write_transaction const & transaction, std::shared_ptr<nano::block> block)
+[[nodiscard]] celerix::block_status celerix::node::process (secure::write_transaction const & transaction, std::shared_ptr<celerix::block> block)
 {
 	auto status = ledger.process (transaction, block);
-	logger.debug (nano::log::type::node, "Directly processed block: {} (status: {})", block->hash ().to_string (), to_string (status));
+	logger.debug (celerix::log::type::node, "Directly processed block: {} (status: {})", block->hash ().to_string (), to_string (status));
 	return status;
 }
 
-nano::block_status nano::node::process (std::shared_ptr<nano::block> block)
+celerix::block_status celerix::node::process (std::shared_ptr<celerix::block> block)
 {
-	auto const transaction = ledger.tx_begin_write (nano::store::writer::node);
+	auto const transaction = ledger.tx_begin_write (celerix::store::writer::node);
 	return process (transaction, block);
 }
 
-std::optional<nano::block_status> nano::node::process_local (std::shared_ptr<nano::block> const & block_a)
+std::optional<celerix::block_status> celerix::node::process_local (std::shared_ptr<celerix::block> const & block_a)
 {
-	return block_processor.add_blocking (block_a, nano::block_source::local);
+	return block_processor.add_blocking (block_a, celerix::block_source::local);
 }
 
-void nano::node::process_local_async (std::shared_ptr<nano::block> const & block_a)
+void celerix::node::process_local_async (std::shared_ptr<celerix::block> const & block_a)
 {
-	block_processor.add (block_a, nano::block_source::local);
+	block_processor.add (block_a, celerix::block_source::local);
 }
 
-void nano::node::start ()
+void celerix::node::start ()
 {
 	network.start ();
 	message_processor.start ();
@@ -633,11 +633,11 @@ void nano::node::start ()
 			network.port = tcp_listener.endpoint ().port ();
 		}
 
-		logger.info (nano::log::type::node, "Peering port: {}", network.port.load ());
+		logger.info (celerix::log::type::node, "Peering port: {}", network.port.load ());
 	}
 	else
 	{
-		logger.warn (nano::log::type::node, "Peering is disabled");
+		logger.warn (celerix::log::type::node, "Peering is disabled");
 	}
 
 	if (!flags.disable_backup)
@@ -681,7 +681,7 @@ void nano::node::start ()
 	add_initial_peers ();
 }
 
-void nano::node::stop ()
+void celerix::node::stop ()
 {
 	// Ensure stop can only be called once
 	if (stopped.exchange (true))
@@ -689,7 +689,7 @@ void nano::node::stop ()
 		return;
 	}
 
-	logger.info (nano::log::type::node, "Node stopping...");
+	logger.info (celerix::log::type::node, "Node stopping...");
 
 	tcp_listener.stop ();
 	online_reps.stop ();
@@ -738,7 +738,7 @@ void nano::node::stop ()
 	debug_assert (io_ctx_shared.use_count () == 1); // Node should be the last user of the io_context
 }
 
-void nano::node::keepalive_preconfigured ()
+void celerix::node::keepalive_preconfigured ()
 {
 	for (auto const & peer : config.preconfigured_peers)
 	{
@@ -749,47 +749,47 @@ void nano::node::keepalive_preconfigured ()
 	}
 }
 
-nano::block_hash nano::node::latest (nano::account const & account_a)
+celerix::block_hash celerix::node::latest (celerix::account const & account_a)
 {
 	return ledger.any.account_head (ledger.tx_begin_read (), account_a);
 }
 
-nano::uint128_t nano::node::balance (nano::account const & account_a)
+celerix::uint128_t celerix::node::balance (celerix::account const & account_a)
 {
 	return ledger.any.account_balance (ledger.tx_begin_read (), account_a).value_or (0).number ();
 }
 
-std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)
+std::shared_ptr<celerix::block> celerix::node::block (celerix::block_hash const & hash_a)
 {
 	return ledger.any.block_get (ledger.tx_begin_read (), hash_a);
 }
 
-bool nano::node::block_or_pruned_exists (nano::block_hash const & hash_a) const
+bool celerix::node::block_or_pruned_exists (celerix::block_hash const & hash_a) const
 {
 	return ledger.any.block_exists_or_pruned (ledger.tx_begin_read (), hash_a);
 }
 
-std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::account const & account_a, bool only_confirmed_a)
+std::pair<celerix::uint128_t, celerix::uint128_t> celerix::node::balance_pending (celerix::account const & account_a, bool only_confirmed_a)
 {
-	std::pair<nano::uint128_t, nano::uint128_t> result;
+	std::pair<celerix::uint128_t, celerix::uint128_t> result;
 	auto const transaction = ledger.tx_begin_read ();
 	result.first = only_confirmed_a ? ledger.confirmed.account_balance (transaction, account_a).value_or (0).number () : ledger.any.account_balance (transaction, account_a).value_or (0).number ();
 	result.second = ledger.account_receivable (transaction, account_a, only_confirmed_a);
 	return result;
 }
 
-nano::uint128_t nano::node::weight (nano::account const & account_a)
+celerix::uint128_t celerix::node::weight (celerix::account const & account_a)
 {
 	auto txn = ledger.tx_begin_read ();
 	return ledger.weight_exact (txn, account_a);
 }
 
-nano::uint128_t nano::node::minimum_principal_weight ()
+celerix::uint128_t celerix::node::minimum_principal_weight ()
 {
 	return online_reps.trended () / network_params.network.principal_weight_factor;
 }
 
-void nano::node::backup_wallet ()
+void celerix::node::backup_wallet ()
 {
 	auto transaction (wallets.tx_begin_read ());
 	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
@@ -798,7 +798,7 @@ void nano::node::backup_wallet ()
 		auto backup_path (application_path / "backup");
 
 		std::filesystem::create_directories (backup_path);
-		nano::set_secure_perm_directory (backup_path, error_chmod);
+		celerix::set_secure_perm_directory (backup_path, error_chmod);
 		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
 	}
 	auto this_l (shared ());
@@ -807,7 +807,7 @@ void nano::node::backup_wallet ()
 	});
 }
 
-void nano::node::search_receivable_all ()
+void celerix::node::search_receivable_all ()
 {
 	// Reload wallets from disk
 	wallets.reload ();
@@ -819,7 +819,7 @@ void nano::node::search_receivable_all ()
 	});
 }
 
-bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & pruning_targets_a, nano::account & last_account_a, uint64_t const batch_read_size_a, uint64_t const max_depth_a, uint64_t const cutoff_time_a)
+bool celerix::node::collect_ledger_pruning_targets (std::deque<celerix::block_hash> & pruning_targets_a, celerix::account & last_account_a, uint64_t const batch_read_size_a, uint64_t const max_depth_a, uint64_t const cutoff_time_a)
 {
 	uint64_t read_operations (0);
 	bool finish_transaction (false);
@@ -828,7 +828,7 @@ bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & 
 	{
 		++read_operations;
 		auto const & account (i->first);
-		nano::block_hash hash (i->second.frontier);
+		celerix::block_hash hash (i->second.frontier);
 		uint64_t depth (0);
 		while (!hash.is_zero () && depth < max_depth_a)
 		{
@@ -873,14 +873,14 @@ bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & 
 	return !finish_transaction || last_account_a.is_zero ();
 }
 
-void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_weight_reached_a)
+void celerix::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_weight_reached_a)
 {
 	uint64_t const max_depth (config.max_pruning_depth != 0 ? config.max_pruning_depth : std::numeric_limits<uint64_t>::max ());
-	uint64_t const cutoff_time (bootstrap_weight_reached_a ? nano::seconds_since_epoch () - config.max_pruning_age.count () : std::numeric_limits<uint64_t>::max ());
+	uint64_t const cutoff_time (bootstrap_weight_reached_a ? celerix::seconds_since_epoch () - config.max_pruning_age.count () : std::numeric_limits<uint64_t>::max ());
 	uint64_t pruned_count (0);
 	uint64_t transaction_write_count (0);
-	nano::account last_account (1); // 0 Burn account is never opened. So it can be used to break loop
-	std::deque<nano::block_hash> pruning_targets;
+	celerix::account last_account (1); // 0 Burn account is never opened. So it can be used to break loop
+	std::deque<celerix::block_hash> pruning_targets;
 	bool target_finished (false);
 	while ((transaction_write_count != 0 || !target_finished) && !stopped)
 	{
@@ -893,7 +893,7 @@ void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_wei
 		transaction_write_count = 0;
 		if (!pruning_targets.empty () && !stopped)
 		{
-			auto write_transaction = ledger.tx_begin_write (nano::store::writer::pruning);
+			auto write_transaction = ledger.tx_begin_write (celerix::store::writer::pruning);
 			while (!pruning_targets.empty () && transaction_write_count < batch_size_a && !stopped)
 			{
 				auto const & pruning_hash (pruning_targets.front ());
@@ -903,14 +903,14 @@ void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_wei
 			}
 			pruned_count += transaction_write_count;
 
-			logger.debug (nano::log::type::prunning, "Pruned blocks: {}", pruned_count);
+			logger.debug (celerix::log::type::prunning, "Pruned blocks: {}", pruned_count);
 		}
 	}
 
-	logger.debug (nano::log::type::prunning, "Total recently pruned block count: {}", pruned_count);
+	logger.debug (celerix::log::type::prunning, "Total recently pruned block count: {}", pruned_count);
 }
 
-void nano::node::ongoing_ledger_pruning ()
+void celerix::node::ongoing_ledger_pruning ()
 {
 	auto bootstrap_weight_reached (ledger.block_count () >= ledger.bootstrap_weight_max_blocks);
 	ledger_pruning (flags.block_processor_batch_size != 0 ? flags.block_processor_batch_size : 2 * 1024, bootstrap_weight_reached);
@@ -923,12 +923,12 @@ void nano::node::ongoing_ledger_pruning ()
 	});
 }
 
-uint64_t nano::node::default_difficulty (nano::work_version const version_a) const
+uint64_t celerix::node::default_difficulty (celerix::work_version const version_a) const
 {
 	uint64_t result{ std::numeric_limits<uint64_t>::max () };
 	switch (version_a)
 	{
-		case nano::work_version::work_1:
+		case celerix::work_version::work_1:
 			result = network_params.work.threshold_base (version_a);
 			break;
 		default:
@@ -937,12 +937,12 @@ uint64_t nano::node::default_difficulty (nano::work_version const version_a) con
 	return result;
 }
 
-uint64_t nano::node::default_receive_difficulty (nano::work_version const version_a) const
+uint64_t celerix::node::default_receive_difficulty (celerix::work_version const version_a) const
 {
 	uint64_t result{ std::numeric_limits<uint64_t>::max () };
 	switch (version_a)
 	{
-		case nano::work_version::work_1:
+		case celerix::work_version::work_1:
 			result = network_params.work.epoch_2_receive;
 			break;
 		default:
@@ -951,27 +951,27 @@ uint64_t nano::node::default_receive_difficulty (nano::work_version const versio
 	return result;
 }
 
-uint64_t nano::node::max_work_generate_difficulty (nano::work_version const version_a) const
+uint64_t celerix::node::max_work_generate_difficulty (celerix::work_version const version_a) const
 {
-	return nano::difficulty::from_multiplier (config.max_work_generate_multiplier, default_difficulty (version_a));
+	return celerix::difficulty::from_multiplier (config.max_work_generate_multiplier, default_difficulty (version_a));
 }
 
-bool nano::node::local_work_generation_enabled () const
+bool celerix::node::local_work_generation_enabled () const
 {
 	return config.work_threads > 0 || work.opencl;
 }
 
-bool nano::node::work_generation_enabled () const
+bool celerix::node::work_generation_enabled () const
 {
 	return work_generation_enabled (config.work_peers);
 }
 
-bool nano::node::work_generation_enabled (std::vector<std::pair<std::string, uint16_t>> const & peers_a) const
+bool celerix::node::work_generation_enabled (std::vector<std::pair<std::string, uint16_t>> const & peers_a) const
 {
 	return !peers_a.empty () || local_work_generation_enabled ();
 }
 
-std::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
+std::optional<uint64_t> celerix::node::work_generate_blocking (celerix::block & block_a, uint64_t difficulty_a)
 {
 	auto opt_work_l (work_generate_blocking (block_a.work_version (), block_a.root (), difficulty_a, block_a.account_field ()));
 	if (opt_work_l.has_value ())
@@ -981,7 +981,7 @@ std::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_
 	return opt_work_l;
 }
 
-void nano::node::work_generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::function<void (std::optional<uint64_t>)> callback_a, std::optional<nano::account> const & account_a, bool secondary_work_peers_a)
+void celerix::node::work_generate (celerix::work_version const version_a, celerix::root const & root_a, uint64_t difficulty_a, std::function<void (std::optional<uint64_t>)> callback_a, std::optional<celerix::account> const & account_a, bool secondary_work_peers_a)
 {
 	auto const & peers_l (secondary_work_peers_a ? config.secondary_work_peers : config.work_peers);
 	if (distributed_work.make (version_a, root_a, peers_l, difficulty_a, callback_a, account_a))
@@ -991,7 +991,7 @@ void nano::node::work_generate (nano::work_version const version_a, nano::root c
 	}
 }
 
-std::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::optional<nano::account> const & account_a)
+std::optional<uint64_t> celerix::node::work_generate_blocking (celerix::work_version const version_a, celerix::root const & root_a, uint64_t difficulty_a, std::optional<celerix::account> const & account_a)
 {
 	std::promise<std::optional<uint64_t>> promise;
 	work_generate (
@@ -1002,35 +1002,35 @@ std::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version c
 	return promise.get_future ().get ();
 }
 
-std::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
+std::optional<uint64_t> celerix::node::work_generate_blocking (celerix::block & block_a)
 {
 	debug_assert (network_params.network.is_dev_network ());
-	return work_generate_blocking (block_a, default_difficulty (nano::work_version::work_1));
+	return work_generate_blocking (block_a, default_difficulty (celerix::work_version::work_1));
 }
 
-std::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a)
+std::optional<uint64_t> celerix::node::work_generate_blocking (celerix::root const & root_a)
 {
 	debug_assert (network_params.network.is_dev_network ());
-	return work_generate_blocking (root_a, default_difficulty (nano::work_version::work_1));
+	return work_generate_blocking (root_a, default_difficulty (celerix::work_version::work_1));
 }
 
-std::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a)
+std::optional<uint64_t> celerix::node::work_generate_blocking (celerix::root const & root_a, uint64_t difficulty_a)
 {
 	debug_assert (network_params.network.is_dev_network ());
-	return work_generate_blocking (nano::work_version::work_1, root_a, difficulty_a);
+	return work_generate_blocking (celerix::work_version::work_1, root_a, difficulty_a);
 }
 
-void nano::node::add_initial_peers ()
+void celerix::node::add_initial_peers ()
 {
 	if (flags.disable_add_initial_peers)
 	{
-		logger.warn (nano::log::type::node, "Not adding initial peers because `disable_add_initial_peers` flag is set");
+		logger.warn (celerix::log::type::node, "Not adding initial peers because `disable_add_initial_peers` flag is set");
 		return;
 	}
 
 	auto initial_peers = peer_history.peers ();
 
-	logger.info (nano::log::type::node, "Adding cached initial peers: {}", initial_peers.size ());
+	logger.info (celerix::log::type::node, "Adding cached initial peers: {}", initial_peers.size ());
 
 	for (auto const & peer : initial_peers)
 	{
@@ -1038,64 +1038,64 @@ void nano::node::add_initial_peers ()
 	}
 }
 
-void nano::node::start_election (std::shared_ptr<nano::block> const & block)
+void celerix::node::start_election (std::shared_ptr<celerix::block> const & block)
 {
 	scheduler.manual.push (block);
 }
 
-bool nano::node::block_confirmed (nano::block_hash const & hash)
+bool celerix::node::block_confirmed (celerix::block_hash const & hash)
 {
 	return ledger.confirmed.block_exists_or_pruned (ledger.tx_begin_read (), hash);
 }
 
-bool nano::node::block_confirmed_or_being_confirmed (nano::secure::transaction const & transaction, nano::block_hash const & hash)
+bool celerix::node::block_confirmed_or_being_confirmed (celerix::secure::transaction const & transaction, celerix::block_hash const & hash)
 {
 	return confirming_set.contains (hash) || ledger.confirmed.block_exists_or_pruned (transaction, hash);
 }
 
-bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & hash_a)
+bool celerix::node::block_confirmed_or_being_confirmed (celerix::block_hash const & hash_a)
 {
 	return block_confirmed_or_being_confirmed (ledger.tx_begin_read (), hash_a);
 }
 
-bool nano::node::online () const
+bool celerix::node::online () const
 {
 	return rep_crawler.total_weight () > online_reps.delta ();
 }
 
-std::shared_ptr<nano::node> nano::node::shared ()
+std::shared_ptr<celerix::node> celerix::node::shared ()
 {
 	return shared_from_this ();
 }
 
-int nano::node::store_version ()
+int celerix::node::store_version ()
 {
 	auto transaction (store.tx_begin_read ());
 	return store.version.get (transaction);
 }
 
-bool nano::node::init_error () const
+bool celerix::node::init_error () const
 {
 	return store.init_error () || wallets_store.init_error ();
 }
 
-std::pair<uint64_t, std::unordered_map<nano::account, nano::uint128_t>> nano::node::get_bootstrap_weights () const
+std::pair<uint64_t, std::unordered_map<celerix::account, celerix::uint128_t>> celerix::node::get_bootstrap_weights () const
 {
-	std::vector<std::pair<std::string, std::string>> preconfigured_weights = network_params.network.is_live_network () ? nano::weights::preconfigured_weights_live : nano::weights::preconfigured_weights_beta;
-	uint64_t max_blocks = network_params.network.is_live_network () ? nano::weights::max_blocks_live : nano::weights::max_blocks_beta;
-	std::unordered_map<nano::account, nano::uint128_t> weights;
+	std::vector<std::pair<std::string, std::string>> preconfigured_weights = network_params.network.is_live_network () ? celerix::weights::preconfigured_weights_live : celerix::weights::preconfigured_weights_beta;
+	uint64_t max_blocks = network_params.network.is_live_network () ? celerix::weights::max_blocks_live : celerix::weights::max_blocks_beta;
+	std::unordered_map<celerix::account, celerix::uint128_t> weights;
 
 	for (const auto & entry : preconfigured_weights)
 	{
-		nano::account account;
+		celerix::account account;
 		account.decode_account (entry.first);
-		weights[account] = nano::uint128_t (entry.second);
+		weights[account] = celerix::uint128_t (entry.second);
 	}
 
 	return { max_blocks, weights };
 }
 
-void nano::node::bootstrap_block (const nano::block_hash & hash)
+void celerix::node::bootstrap_block (const celerix::block_hash & hash)
 {
 	// If we are running pruning node check if block was not already pruned
 	if (!ledger.pruning || !store.pruned.exists (store.tx_begin_read (), hash))
@@ -1105,14 +1105,14 @@ void nano::node::bootstrap_block (const nano::block_hash & hash)
 	}
 }
 
-nano::account nano::node::get_node_id () const
+celerix::account celerix::node::get_node_id () const
 {
 	return node_id.pub;
 };
 
-nano::telemetry_data nano::node::local_telemetry () const
+celerix::telemetry_data celerix::node::local_telemetry () const
 {
-	nano::telemetry_data telemetry_data;
+	celerix::telemetry_data telemetry_data;
 	telemetry_data.node_id = node_id.pub;
 	telemetry_data.block_count = ledger.block_count ();
 	telemetry_data.cemented_count = ledger.cemented_count ();
@@ -1121,32 +1121,32 @@ nano::telemetry_data nano::node::local_telemetry () const
 	telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - startup_time).count ();
 	telemetry_data.unchecked_count = unchecked.count ();
 	telemetry_data.genesis_block = network_params.ledger.genesis->hash ();
-	telemetry_data.peer_count = nano::narrow_cast<decltype (telemetry_data.peer_count)> (network.size ());
+	telemetry_data.peer_count = celerix::narrow_cast<decltype (telemetry_data.peer_count)> (network.size ());
 	telemetry_data.account_count = ledger.account_count ();
-	telemetry_data.major_version = nano::get_major_node_version ();
-	telemetry_data.minor_version = nano::get_minor_node_version ();
-	telemetry_data.patch_version = nano::get_patch_node_version ();
-	telemetry_data.pre_release_version = nano::get_pre_release_node_version ();
+	telemetry_data.major_version = celerix::get_major_node_version ();
+	telemetry_data.minor_version = celerix::get_minor_node_version ();
+	telemetry_data.patch_version = celerix::get_patch_node_version ();
+	telemetry_data.pre_release_version = celerix::get_pre_release_node_version ();
 	telemetry_data.maker = static_cast<std::underlying_type_t<telemetry_maker>> (ledger.pruning ? telemetry_maker::nf_pruned_node : telemetry_maker::nf_node);
 	telemetry_data.timestamp = std::chrono::system_clock::now ();
-	telemetry_data.active_difficulty = default_difficulty (nano::work_version::work_1);
+	telemetry_data.active_difficulty = default_difficulty (celerix::work_version::work_1);
 	// Make sure this is the final operation!
 	telemetry_data.sign (node_id);
 	return telemetry_data;
 }
 
-std::string nano::node::identifier () const
+std::string celerix::node::identifier () const
 {
 	return make_logger_identifier (node_id);
 }
 
-std::string nano::node::make_logger_identifier (const nano::keypair & node_id)
+std::string celerix::node::make_logger_identifier (const celerix::keypair & node_id)
 {
 	// Node identifier consists of first 10 characters of node id
 	return node_id.pub.to_node_id ().substr (0, 10);
 }
 
-nano::container_info nano::node::container_info () const
+celerix::container_info celerix::node::container_info () const
 {
 	/*
 	 * TODO: Add container infos for:
@@ -1157,7 +1157,7 @@ nano::container_info nano::node::container_info () const
 	 * - websocket
 	 */
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.add ("work", work.container_info ());
 	info.add ("ledger", ledger.container_info ());
 	info.add ("active", active.container_info ());
@@ -1201,26 +1201,26 @@ nano::container_info nano::node::container_info () const
  *
  */
 
-nano::keypair nano::load_or_create_node_id (std::filesystem::path const & application_path)
+celerix::keypair celerix::load_or_create_node_id (std::filesystem::path const & application_path)
 {
 	auto node_private_key_path = application_path / "node_id_private.key";
 	std::ifstream ifs (node_private_key_path.c_str ());
 	if (ifs.good ())
 	{
-		nano::default_logger ().info (nano::log::type::init, "Reading node id from: '{}'", node_private_key_path.string ());
+		celerix::default_logger ().info (celerix::log::type::init, "Reading node id from: '{}'", node_private_key_path.string ());
 
 		std::string node_private_key;
 		ifs >> node_private_key;
 		release_assert (node_private_key.size () == 64);
-		nano::keypair kp = nano::keypair (node_private_key);
+		celerix::keypair kp = celerix::keypair (node_private_key);
 		return kp;
 	}
 	else
 	{
 		// no node_id found, generate new one
-		nano::default_logger ().info (nano::log::type::init, "Generating a new node id, saving to: '{}'", node_private_key_path.string ());
+		celerix::default_logger ().info (celerix::log::type::init, "Generating a new node id, saving to: '{}'", node_private_key_path.string ());
 
-		nano::keypair kp;
+		celerix::keypair kp;
 		std::ofstream ofs (node_private_key_path.c_str (), std::ofstream::out | std::ofstream::trunc);
 		ofs << kp.prv.to_string () << std::endl
 			<< std::flush;

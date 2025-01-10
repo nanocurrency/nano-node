@@ -1,46 +1,46 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/cli.hpp>
-#include <nano/lib/files.hpp>
-#include <nano/lib/tomlconfig.hpp>
-#include <nano/node/cli.hpp>
-#include <nano/node/daemonconfig.hpp>
-#include <nano/node/endpoint.hpp>
-#include <nano/node/inactive_node.hpp>
-#include <nano/node/node.hpp>
-#include <nano/secure/ledger.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/cli.hpp>
+#include <celerix/lib/files.hpp>
+#include <celerix/lib/tomlconfig.hpp>
+#include <celerix/node/cli.hpp>
+#include <celerix/node/daemonconfig.hpp>
+#include <celerix/node/endpoint.hpp>
+#include <celerix/node/inactive_node.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/secure/ledger.hpp>
 
 #include <boost/format.hpp>
 
 namespace
 {
-void reset_confirmation_heights (nano::store::write_transaction const & transaction, nano::ledger_constants & constants, nano::store::component & store);
+void reset_confirmation_heights (celerix::store::write_transaction const & transaction, celerix::ledger_constants & constants, celerix::store::component & store);
 bool is_using_rocksdb (std::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec);
 }
 
-std::string nano::error_cli_messages::message (int ev) const
+std::string celerix::error_cli_messages::message (int ev) const
 {
-	switch (static_cast<nano::error_cli> (ev))
+	switch (static_cast<celerix::error_cli> (ev))
 	{
-		case nano::error_cli::generic:
+		case celerix::error_cli::generic:
 			return "Unknown error";
-		case nano::error_cli::parse_error:
+		case celerix::error_cli::parse_error:
 			return "Could not parse command line";
-		case nano::error_cli::invalid_arguments:
+		case celerix::error_cli::invalid_arguments:
 			return "Invalid arguments";
-		case nano::error_cli::unknown_command:
+		case celerix::error_cli::unknown_command:
 			return "Unknown command";
-		case nano::error_cli::database_write_error:
+		case celerix::error_cli::database_write_error:
 			return "Database write error";
-		case nano::error_cli::reading_config:
+		case celerix::error_cli::reading_config:
 			return "Config file read error";
-		case nano::error_cli::ambiguous_pruning_voting_options:
+		case celerix::error_cli::ambiguous_pruning_voting_options:
 			return "Flag --enable_pruning and enable_voting in node config cannot be used together";
 	}
 
 	return "Invalid error code";
 }
 
-void nano::add_node_options (boost::program_options::options_description & description_a)
+void celerix::add_node_options (boost::program_options::options_description & description_a)
 {
 	// clang-format off
 	description_a.add_options ()
@@ -88,7 +88,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	// clang-format on
 }
 
-void nano::add_node_flag_options (boost::program_options::options_description & description_a)
+void celerix::add_node_flag_options (boost::program_options::options_description & description_a)
 {
 	// clang-format off
 	description_a.add_options()
@@ -126,7 +126,7 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 	// clang-format on
 }
 
-std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_options::variables_map const & vm)
+std::error_code celerix::update_flags (celerix::node_flags & flags_a, boost::program_options::variables_map const & vm)
 {
 	std::error_code ec;
 	flags_a.disable_add_initial_peers = (vm.count ("disable_add_initial_peers") > 0);
@@ -184,29 +184,29 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	auto disable_large_votes_it = vm.find ("disable_large_votes");
 	if (disable_large_votes_it != vm.end ())
 	{
-		nano::network::confirm_req_hashes_max = 7;
-		nano::network::confirm_ack_hashes_max = 12;
+		celerix::network::confirm_req_hashes_max = 7;
+		celerix::network::confirm_ack_hashes_max = 12;
 	}
 	// Config overriding
 	auto config (vm.find ("config"));
 	if (config != vm.end ())
 	{
-		flags_a.config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
+		flags_a.config_overrides = celerix::config_overrides (config->second.as<std::vector<celerix::config_key_value_pair>> ());
 	}
 	auto rpcconfig (vm.find ("rpcconfig"));
 	if (rpcconfig != vm.end ())
 	{
-		flags_a.rpc_config_overrides = nano::config_overrides (rpcconfig->second.as<std::vector<nano::config_key_value_pair>> ());
+		flags_a.rpc_config_overrides = celerix::config_overrides (rpcconfig->second.as<std::vector<celerix::config_key_value_pair>> ());
 	}
 	return ec;
 }
 
-std::error_code nano::flags_config_conflicts (nano::node_flags const & flags_a, nano::node_config const & config_a)
+std::error_code celerix::flags_config_conflicts (celerix::node_flags const & flags_a, celerix::node_config const & config_a)
 {
 	std::error_code ec;
 	if (flags_a.enable_pruning && config_a.enable_voting)
 	{
-		ec = nano::error_cli::ambiguous_pruning_voting_options;
+		ec = celerix::error_cli::ambiguous_pruning_voting_options;
 	}
 	return ec;
 }
@@ -216,7 +216,7 @@ namespace
 void database_write_lock_error (std::error_code & ec)
 {
 	std::cerr << "Write database error, this cannot be run while the node is already running\n";
-	ec = nano::error_cli::database_write_error;
+	ec = celerix::error_cli::database_write_error;
 }
 
 bool copy_database (std::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::filesystem::path const & output_path, std::error_code & ec)
@@ -224,10 +224,10 @@ bool copy_database (std::filesystem::path const & data_path, boost::program_opti
 	bool success = false;
 	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear") || vm.count ("final_vote_clear") || vm.count ("rebuild_database");
 
-	auto node_flags = nano::inactive_node_flag_defaults ();
+	auto node_flags = celerix::inactive_node_flag_defaults ();
 	node_flags.read_only = !needs_to_write;
-	nano::update_flags (node_flags, vm);
-	nano::inactive_node node (data_path, node_flags);
+	celerix::update_flags (node_flags, vm);
+	celerix::inactive_node node (data_path, node_flags);
 	if (!node.node->init_error ())
 	{
 		auto & store (node.node->store);
@@ -270,26 +270,26 @@ bool copy_database (std::filesystem::path const & data_path, boost::program_opti
 }
 }
 
-std::error_code nano::handle_node_options (boost::program_options::variables_map const & vm)
+std::error_code celerix::handle_node_options (boost::program_options::variables_map const & vm)
 {
 	std::error_code ec;
-	std::filesystem::path data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+	std::filesystem::path data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : celerix::working_path ();
 
 	if (vm.count ("initialize"))
 	{
 		// TODO: --config flag overrides are not taken into account here
-		nano::logger::initialize (nano::log_config::daemon_default (), data_path);
+		celerix::logger::initialize (celerix::log_config::daemon_default (), data_path);
 
-		auto node_flags = nano::inactive_node_flag_defaults ();
+		auto node_flags = celerix::inactive_node_flag_defaults ();
 		node_flags.read_only = false;
-		nano::update_flags (node_flags, vm);
-		nano::inactive_node node (data_path, node_flags);
+		celerix::update_flags (node_flags, vm);
+		celerix::inactive_node node (data_path, node_flags);
 	}
 	else if (vm.count ("account_create"))
 	{
 		if (vm.count ("wallet") == 1)
 		{
-			nano::wallet_id wallet_id;
+			celerix::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				std::string password;
@@ -297,7 +297,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				{
 					password = vm["password"].as<std::string> ();
 				}
-				auto inactive_node = nano::default_inactive_node (data_path, vm);
+				auto inactive_node = celerix::default_inactive_node (data_path, vm);
 				auto wallet (inactive_node->node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
@@ -310,53 +310,53 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					else
 					{
 						std::cerr << "Invalid password\n";
-						ec = nano::error_cli::invalid_arguments;
+						ec = celerix::error_cli::invalid_arguments;
 					}
 				}
 				else
 				{
 					std::cerr << "Wallet doesn't exist\n";
-					ec = nano::error_cli::invalid_arguments;
+					ec = celerix::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "Invalid wallet id\n";
-				ec = nano::error_cli::invalid_arguments;
+				ec = celerix::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "account_create command requires one <wallet> option and optionally one <password> option\n";
-			ec = nano::error_cli::invalid_arguments;
+			ec = celerix::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("account_get") > 0)
 	{
 		if (vm.count ("key") == 1)
 		{
-			nano::account pub;
+			celerix::account pub;
 			pub.decode_hex (vm["key"].as<std::string> ());
 			std::cout << "Account: " << pub.to_account () << std::endl;
 		}
 		else
 		{
 			std::cerr << "account command requires one <key> option\n";
-			ec = nano::error_cli::invalid_arguments;
+			ec = celerix::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("account_key") > 0)
 	{
 		if (vm.count ("account") == 1)
 		{
-			nano::account account;
+			celerix::account account;
 			account.decode_account (vm["account"].as<std::string> ());
 			std::cout << "Hex: " << account.to_string () << std::endl;
 		}
 		else
 		{
 			std::cerr << "account_key command requires one <account> option\n";
-			ec = nano::error_cli::invalid_arguments;
+			ec = celerix::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("vacuum") > 0)
@@ -398,9 +398,9 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					std::cout << "Finalizing" << std::endl;
 					if (using_rocksdb)
 					{
-						nano::remove_all_files_in_dir (backup_path);
-						nano::move_all_files_to_dir (source_path, backup_path);
-						nano::move_all_files_to_dir (vacuum_path, source_path);
+						celerix::remove_all_files_in_dir (backup_path);
+						celerix::move_all_files_to_dir (source_path, backup_path);
+						celerix::move_all_files_to_dir (vacuum_path, source_path);
 						std::filesystem::remove_all (vacuum_path);
 					}
 					else
@@ -479,13 +479,13 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("migrate_database_lmdb_to_rocksdb"))
 	{
-		nano::logger::initialize (nano::log_config::daemon_default (), data_path);
+		celerix::logger::initialize (celerix::log_config::daemon_default (), data_path);
 
-		auto data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
-		auto node_flags = nano::inactive_node_flag_defaults ();
+		auto data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : celerix::working_path ();
+		auto node_flags = celerix::inactive_node_flag_defaults ();
 		node_flags.config_overrides.push_back ("node.rocksdb.enable=false");
-		nano::update_flags (node_flags, vm);
-		nano::inactive_node node (data_path, node_flags);
+		celerix::update_flags (node_flags, vm);
+		celerix::inactive_node node (data_path, node_flags);
 		auto error (false);
 		if (!node.node->init_error ())
 		{
@@ -503,11 +503,11 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("unchecked_clear"))
 	{
-		std::filesystem::path data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
-		auto node_flags = nano::inactive_node_flag_defaults ();
+		std::filesystem::path data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : celerix::working_path ();
+		auto node_flags = celerix::inactive_node_flag_defaults ();
 		node_flags.read_only = false;
-		nano::update_flags (node_flags, vm);
-		nano::inactive_node node (data_path, node_flags);
+		celerix::update_flags (node_flags, vm);
+		celerix::inactive_node node (data_path, node_flags);
 		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
@@ -521,11 +521,11 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("clear_send_ids"))
 	{
-		std::filesystem::path data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
-		auto node_flags = nano::inactive_node_flag_defaults ();
+		std::filesystem::path data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : celerix::working_path ();
+		auto node_flags = celerix::inactive_node_flag_defaults ();
 		node_flags.read_only = false;
-		nano::update_flags (node_flags, vm);
-		nano::inactive_node node (data_path, node_flags);
+		celerix::update_flags (node_flags, vm);
+		celerix::inactive_node node (data_path, node_flags);
 		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->wallets.tx_begin_write ());
@@ -539,11 +539,11 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("online_weight_clear"))
 	{
-		std::filesystem::path data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
-		auto node_flags = nano::inactive_node_flag_defaults ();
+		std::filesystem::path data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : celerix::working_path ();
+		auto node_flags = celerix::inactive_node_flag_defaults ();
 		node_flags.read_only = false;
-		nano::update_flags (node_flags, vm);
-		nano::inactive_node node (data_path, node_flags);
+		celerix::update_flags (node_flags, vm);
+		celerix::inactive_node node (data_path, node_flags);
 		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
@@ -557,11 +557,11 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("peer_clear"))
 	{
-		std::filesystem::path data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
-		auto node_flags = nano::inactive_node_flag_defaults ();
+		std::filesystem::path data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : celerix::working_path ();
+		auto node_flags = celerix::inactive_node_flag_defaults ();
 		node_flags.read_only = false;
-		nano::update_flags (node_flags, vm);
-		nano::inactive_node node (data_path, node_flags);
+		celerix::update_flags (node_flags, vm);
+		celerix::inactive_node node (data_path, node_flags);
 		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
@@ -575,20 +575,20 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("confirmation_height_clear"))
 	{
-		std::filesystem::path data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
-		auto node_flags = nano::inactive_node_flag_defaults ();
+		std::filesystem::path data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : celerix::working_path ();
+		auto node_flags = celerix::inactive_node_flag_defaults ();
 		node_flags.read_only = false;
-		nano::update_flags (node_flags, vm);
-		nano::inactive_node node (data_path, node_flags);
+		celerix::update_flags (node_flags, vm);
+		celerix::inactive_node node (data_path, node_flags);
 		if (!node.node->init_error ())
 		{
 			if (vm.count ("account") == 1)
 			{
 				auto account_str = vm["account"].as<std::string> ();
-				nano::account account;
+				celerix::account account;
 				if (!account.decode_account (account_str))
 				{
-					nano::confirmation_height_info confirmation_height_info;
+					celerix::confirmation_height_info confirmation_height_info;
 					if (!node.node->store.confirmation_height.get (node.node->store.tx_begin_read (), account, confirmation_height_info))
 					{
 						auto transaction (node.node->store.tx_begin_write ());
@@ -608,7 +608,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					else
 					{
 						std::cerr << "Could not find account" << std::endl;
-						ec = nano::error_cli::generic;
+						ec = celerix::error_cli::generic;
 					}
 				}
 				else if (account_str == "all")
@@ -620,13 +620,13 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				else
 				{
 					std::cerr << "Specify either valid account id or 'all'\n";
-					ec = nano::error_cli::invalid_arguments;
+					ec = celerix::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "confirmation_height_clear command requires one <account> option that may contain an account or the value 'all'\n";
-				ec = nano::error_cli::invalid_arguments;
+				ec = celerix::error_cli::invalid_arguments;
 			}
 		}
 		else
@@ -636,18 +636,18 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("final_vote_clear"))
 	{
-		std::filesystem::path data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
-		auto node_flags = nano::inactive_node_flag_defaults ();
+		std::filesystem::path data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : celerix::working_path ();
+		auto node_flags = celerix::inactive_node_flag_defaults ();
 		node_flags.read_only = false;
-		nano::update_flags (node_flags, vm);
-		nano::inactive_node node (data_path, node_flags);
+		celerix::update_flags (node_flags, vm);
+		celerix::inactive_node node (data_path, node_flags);
 		if (!node.node->init_error ())
 		{
 			if (auto root_it = vm.find ("root"); root_it != vm.cend ())
 			{
 				auto root_str = root_it->second.as<std::string> ();
 				auto transaction (node.node->store.tx_begin_write ());
-				nano::qualified_root root;
+				celerix::qualified_root root;
 				if (!root.decode_hex (root_str))
 				{
 					node.node->store.final_vote.del (transaction, root);
@@ -656,7 +656,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				else
 				{
 					std::cerr << "Invalid root" << std::endl;
-					ec = nano::error_cli::invalid_arguments;
+					ec = celerix::error_cli::invalid_arguments;
 				}
 			}
 			else if (vm.count ("all"))
@@ -677,13 +677,13 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	else if (vm.count ("generate_config"))
 	{
 		auto type = vm["generate_config"].as<std::string> ();
-		nano::tomlconfig toml;
+		celerix::tomlconfig toml;
 		bool valid_type = false;
 		if (type == "node")
 		{
 			valid_type = true;
-			nano::network_params network_params{ nano::network_constants::active_network };
-			nano::daemon_config config{ data_path, network_params };
+			celerix::network_params network_params{ celerix::network_constants::active_network };
+			celerix::daemon_config config{ data_path, network_params };
 			// set the peering port to the default value so that it is printed in the example toml file
 			config.node.peering_port = network_params.network.default_node_port;
 			config.serialize_toml (toml);
@@ -691,13 +691,13 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		else if (type == "rpc")
 		{
 			valid_type = true;
-			nano::rpc_config config{ nano::dev::network_params.network };
+			celerix::rpc_config config{ celerix::dev::network_params.network };
 			config.serialize_toml (toml);
 		}
 		else if (type == "log")
 		{
 			valid_type = true;
-			nano::log_config config = nano::log_config::sample_config ();
+			celerix::log_config config = celerix::log_config::sample_config ();
 			config.serialize_toml (toml);
 		}
 		else
@@ -707,12 +707,12 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 
 		if (valid_type)
 		{
-			std::cout << "# This is an example configuration file for Nano. Visit https://docs.nano.org/running-a-node/configuration/ for more information.\n#\n"
+			std::cout << "# This is an example configuration file for Celerix. Visit https://docs.celerix.org/running-a-node/configuration/ for more information.\n#\n"
 					  << "# Fields may need to be defined in the context of a [category] above them.\n"
 					  << "# The desired configuration changes should be placed in config-" << type << ".toml in the node data path.\n"
 					  << "# To change a value from its default, uncomment (erasing #) the corresponding field.\n"
 					  << "# It is not recommended to uncomment every field, as the default value for important fields may change in the future. Only change what you need.\n"
-					  << "# Additional information for notable configuration options is available in https://docs.nano.org/running-a-node/configuration/#notable-configuration-options\n";
+					  << "# Additional information for notable configuration options is available in https://docs.celerix.org/running-a-node/configuration/#notable-configuration-options\n";
 
 			if (vm.count ("use_defaults"))
 			{
@@ -726,18 +726,18 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("update_config"))
 	{
-		nano::network_params network_params{ nano::network_constants::active_network };
-		nano::tomlconfig default_toml;
-		nano::tomlconfig current_toml;
-		nano::daemon_config default_config{ data_path, network_params };
-		nano::daemon_config current_config{ data_path, network_params };
+		celerix::network_params network_params{ celerix::network_constants::active_network };
+		celerix::tomlconfig default_toml;
+		celerix::tomlconfig current_toml;
+		celerix::daemon_config default_config{ data_path, network_params };
+		celerix::daemon_config current_config{ data_path, network_params };
 
 		std::vector<std::string> config_overrides;
-		auto error = nano::read_node_config_toml (data_path, current_config, config_overrides);
+		auto error = celerix::read_node_config_toml (data_path, current_config, config_overrides);
 		if (error)
 		{
 			std::cerr << "Could not read existing config file\n";
-			ec = nano::error_cli::reading_config;
+			ec = celerix::error_cli::reading_config;
 		}
 		else
 		{
@@ -751,19 +751,19 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("diagnostics"))
 	{
-		auto inactive_node = nano::default_inactive_node (data_path, vm);
+		auto inactive_node = celerix::default_inactive_node (data_path, vm);
 		std::cout << "Testing hash function" << std::endl;
-		nano::raw_key key;
+		celerix::raw_key key;
 		key.clear ();
-		nano::send_block send (0, 0, 0, key, 0, 0);
+		celerix::send_block send (0, 0, 0, key, 0, 0);
 		std::cout << "Testing key derivation function" << std::endl;
-		nano::raw_key junk1;
+		celerix::raw_key junk1;
 		junk1.clear ();
-		nano::uint256_union junk2 (0);
-		nano::kdf kdf{ inactive_node->node->config.network_params.kdf_work };
+		celerix::uint256_union junk2 (0);
+		celerix::kdf kdf{ inactive_node->node->config.network_params.kdf_work };
 		kdf.phs (junk1, "", junk2);
 		std::cout << "Testing time retrieval latency... " << std::flush;
-		nano::timer<std::chrono::nanoseconds> timer (nano::timer_state::started);
+		celerix::timer<std::chrono::celerixseconds> timer (celerix::timer_state::started);
 		auto const iters = 2'000'000;
 		for (auto i (0); i < iters; ++i)
 		{
@@ -772,7 +772,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		std::cout << timer.stop ().count () / iters << " " << timer.unit () << std::endl;
 		std::cout << "Dumping OpenCL information" << std::endl;
 		bool error (false);
-		nano::opencl_environment environment (error);
+		celerix::opencl_environment environment (error);
 		if (!error)
 		{
 			environment.dump (std::cout);
@@ -783,12 +783,12 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		else
 		{
 			std::cerr << "Error initializing OpenCL" << std::endl;
-			ec = nano::error_cli::generic;
+			ec = celerix::error_cli::generic;
 		}
 	}
 	else if (vm.count ("key_create"))
 	{
-		nano::keypair pair;
+		celerix::keypair pair;
 		std::cout << "Private: " << pair.prv.to_string () << std::endl
 				  << "Public: " << pair.pub.to_string () << std::endl
 				  << "Account: " << pair.pub.to_account () << std::endl;
@@ -797,9 +797,9 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("key") == 1)
 		{
-			nano::raw_key prv;
+			celerix::raw_key prv;
 			prv.decode_hex (vm["key"].as<std::string> ());
-			nano::public_key pub (nano::pub_key (prv));
+			celerix::public_key pub (celerix::pub_key (prv));
 			std::cout << "Private: " << prv.to_string () << std::endl
 					  << "Public: " << pub.to_string () << std::endl
 					  << "Account: " << pub.to_account () << std::endl;
@@ -807,14 +807,14 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		else
 		{
 			std::cerr << "key_expand command requires one <key> option\n";
-			ec = nano::error_cli::invalid_arguments;
+			ec = celerix::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_add_adhoc"))
 	{
 		if (vm.count ("wallet") == 1 && vm.count ("key") == 1)
 		{
-			nano::wallet_id wallet_id;
+			celerix::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				std::string password;
@@ -822,14 +822,14 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				{
 					password = vm["password"].as<std::string> ();
 				}
-				auto inactive_node = nano::default_inactive_node (data_path, vm);
+				auto inactive_node = celerix::default_inactive_node (data_path, vm);
 				auto wallet (inactive_node->node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
 					auto transaction (wallet->wallets.tx_begin_write ());
 					if (!wallet->enter_password (transaction, password))
 					{
-						nano::raw_key key;
+						celerix::raw_key key;
 						if (!key.decode_hex (vm["key"].as<std::string> ()))
 						{
 							wallet->store.insert_adhoc (transaction, key);
@@ -837,38 +837,38 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						else
 						{
 							std::cerr << "Invalid key\n";
-							ec = nano::error_cli::invalid_arguments;
+							ec = celerix::error_cli::invalid_arguments;
 						}
 					}
 					else
 					{
 						std::cerr << "Invalid password\n";
-						ec = nano::error_cli::invalid_arguments;
+						ec = celerix::error_cli::invalid_arguments;
 					}
 				}
 				else
 				{
 					std::cerr << "Wallet doesn't exist\n";
-					ec = nano::error_cli::invalid_arguments;
+					ec = celerix::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "Invalid wallet id\n";
-				ec = nano::error_cli::invalid_arguments;
+				ec = celerix::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "wallet_add command requires one <wallet> option and one <key> option and optionally one <password> option\n";
-			ec = nano::error_cli::invalid_arguments;
+			ec = celerix::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_change_seed"))
 	{
 		if (vm.count ("wallet") == 1 && (vm.count ("seed") == 1 || vm.count ("key") == 1))
 		{
-			nano::wallet_id wallet_id;
+			celerix::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				std::string password;
@@ -876,26 +876,26 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				{
 					password = vm["password"].as<std::string> ();
 				}
-				auto inactive_node = nano::default_inactive_node (data_path, vm);
+				auto inactive_node = celerix::default_inactive_node (data_path, vm);
 				auto wallet (inactive_node->node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
 					auto transaction (wallet->wallets.tx_begin_write ());
 					if (!wallet->enter_password (transaction, password))
 					{
-						nano::raw_key seed;
+						celerix::raw_key seed;
 						if (vm.count ("seed"))
 						{
 							if (seed.decode_hex (vm["seed"].as<std::string> ()))
 							{
 								std::cerr << "Invalid seed\n";
-								ec = nano::error_cli::invalid_arguments;
+								ec = celerix::error_cli::invalid_arguments;
 							}
 						}
 						else if (seed.decode_hex (vm["key"].as<std::string> ()))
 						{
 							std::cerr << "Invalid key seed\n";
-							ec = nano::error_cli::invalid_arguments;
+							ec = celerix::error_cli::invalid_arguments;
 						}
 						if (!ec)
 						{
@@ -906,60 +906,60 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					else
 					{
 						std::cerr << "Invalid password\n";
-						ec = nano::error_cli::invalid_arguments;
+						ec = celerix::error_cli::invalid_arguments;
 					}
 				}
 				else
 				{
 					std::cerr << "Wallet doesn't exist\n";
-					ec = nano::error_cli::invalid_arguments;
+					ec = celerix::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "Invalid wallet id\n";
-				ec = nano::error_cli::invalid_arguments;
+				ec = celerix::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "wallet_change_seed command requires one <wallet> option and one <seed> option and optionally one <password> option\n";
-			ec = nano::error_cli::invalid_arguments;
+			ec = celerix::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_create"))
 	{
-		nano::raw_key seed_key;
+		celerix::raw_key seed_key;
 		if (vm.count ("seed") == 1)
 		{
 			if (seed_key.decode_hex (vm["seed"].as<std::string> ()))
 			{
 				std::cerr << "Invalid seed\n";
-				ec = nano::error_cli::invalid_arguments;
+				ec = celerix::error_cli::invalid_arguments;
 			}
 		}
 		else if (vm.count ("seed") > 1)
 		{
 			std::cerr << "wallet_create command allows one optional <seed> parameter\n";
-			ec = nano::error_cli::invalid_arguments;
+			ec = celerix::error_cli::invalid_arguments;
 		}
 		else if (vm.count ("key") == 1)
 		{
 			if (seed_key.decode_hex (vm["key"].as<std::string> ()))
 			{
 				std::cerr << "Invalid seed key\n";
-				ec = nano::error_cli::invalid_arguments;
+				ec = celerix::error_cli::invalid_arguments;
 			}
 		}
 		else if (vm.count ("key") > 1)
 		{
 			std::cerr << "wallet_create command allows one optional <key> seed parameter\n";
-			ec = nano::error_cli::invalid_arguments;
+			ec = celerix::error_cli::invalid_arguments;
 		}
 		if (!ec)
 		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
-			auto wallet_key = nano::random_wallet_id ();
+			auto inactive_node = celerix::default_inactive_node (data_path, vm);
+			auto wallet_key = celerix::random_wallet_id ();
 			auto wallet (inactive_node->node->wallets.create (wallet_key));
 			if (wallet != nullptr)
 			{
@@ -971,7 +971,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					if (error)
 					{
 						std::cerr << "Password change error\n";
-						ec = nano::error_cli::invalid_arguments;
+						ec = celerix::error_cli::invalid_arguments;
 					}
 				}
 				if (vm.count ("seed") || vm.count ("key"))
@@ -984,7 +984,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			else
 			{
 				std::cerr << "Wallet creation error\n";
-				ec = nano::error_cli::invalid_arguments;
+				ec = celerix::error_cli::invalid_arguments;
 			}
 		}
 	}
@@ -997,10 +997,10 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			{
 				password = vm["password"].as<std::string> ();
 			}
-			nano::wallet_id wallet_id;
+			celerix::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
-				auto inactive_node = nano::default_inactive_node (data_path, vm);
+				auto inactive_node = celerix::default_inactive_node (data_path, vm);
 				auto node = inactive_node->node;
 				auto existing (inactive_node->node->wallets.items.find (wallet_id));
 				if (existing != inactive_node->node->wallets.items.end ())
@@ -1008,18 +1008,18 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					auto transaction (existing->second->wallets.tx_begin_write ());
 					if (!existing->second->enter_password (transaction, password))
 					{
-						nano::raw_key seed;
+						celerix::raw_key seed;
 						existing->second->store.seed (seed, transaction);
 						std::cout << boost::str (boost::format ("Seed: %1%\n") % seed.to_string ());
 						for (auto i (existing->second->store.begin (transaction)), m (existing->second->store.end (transaction)); i != m; ++i)
 						{
-							nano::account const & account (i->first);
-							nano::raw_key key;
+							celerix::account const & account (i->first);
+							celerix::raw_key key;
 							auto error (existing->second->store.fetch (transaction, account, key));
 							(void)error;
 							debug_assert (!error);
 							std::cout << boost::str (boost::format ("Pub: %1% Prv: %2%\n") % account.to_account () % key.to_string ());
-							if (nano::pub_key (key) != account)
+							if (celerix::pub_key (key) != account)
 							{
 								std::cerr << boost::str (boost::format ("Invalid private key %1%\n") % key.to_string ());
 							}
@@ -1028,35 +1028,35 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					else
 					{
 						std::cerr << "Invalid password\n";
-						ec = nano::error_cli::invalid_arguments;
+						ec = celerix::error_cli::invalid_arguments;
 					}
 				}
 				else
 				{
 					std::cerr << "Wallet doesn't exist\n";
-					ec = nano::error_cli::invalid_arguments;
+					ec = celerix::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "Invalid wallet id\n";
-				ec = nano::error_cli::invalid_arguments;
+				ec = celerix::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "wallet_decrypt_unsafe requires one <wallet> option\n";
-			ec = nano::error_cli::invalid_arguments;
+			ec = celerix::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_destroy"))
 	{
 		if (vm.count ("wallet") == 1)
 		{
-			nano::wallet_id wallet_id;
+			celerix::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
-				auto inactive_node = nano::default_inactive_node (data_path, vm);
+				auto inactive_node = celerix::default_inactive_node (data_path, vm);
 				auto node = inactive_node->node;
 				if (node->wallets.items.find (wallet_id) != node->wallets.items.end ())
 				{
@@ -1065,19 +1065,19 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				else
 				{
 					std::cerr << "Wallet doesn't exist\n";
-					ec = nano::error_cli::invalid_arguments;
+					ec = celerix::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "Invalid wallet id\n";
-				ec = nano::error_cli::invalid_arguments;
+				ec = celerix::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "wallet_destroy requires one <wallet> option\n";
-			ec = nano::error_cli::invalid_arguments;
+			ec = celerix::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_import"))
@@ -1103,10 +1103,10 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				}
 				if (vm.count ("wallet") == 1)
 				{
-					nano::wallet_id wallet_id;
+					celerix::wallet_id wallet_id;
 					if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 					{
-						auto inactive_node = nano::default_inactive_node (data_path, vm);
+						auto inactive_node = celerix::default_inactive_node (data_path, vm);
 						auto node = inactive_node->node;
 						auto existing (node->wallets.items.find (wallet_id));
 						if (existing != node->wallets.items.end ())
@@ -1125,7 +1125,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 								if (existing->second->import (contents.str (), password))
 								{
 									std::cerr << "Unable to import wallet\n";
-									ec = nano::error_cli::invalid_arguments;
+									ec = celerix::error_cli::invalid_arguments;
 								}
 								else
 								{
@@ -1135,7 +1135,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 							else
 							{
 								std::cerr << boost::str (boost::format ("Invalid password for wallet %1%\nNew wallet should have empty (default) password or passwords for new wallet & json file should match\n") % wallet_id.to_string ());
-								ec = nano::error_cli::invalid_arguments;
+								ec = celerix::error_cli::invalid_arguments;
 							}
 						}
 						else
@@ -1143,25 +1143,25 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 							if (!forced)
 							{
 								std::cerr << "Wallet doesn't exist\n";
-								ec = nano::error_cli::invalid_arguments;
+								ec = celerix::error_cli::invalid_arguments;
 							}
 							else
 							{
 								bool error (true);
 								{
-									nano::lock_guard<nano::mutex> lock{ node->wallets.mutex };
+									celerix::lock_guard<celerix::mutex> lock{ node->wallets.mutex };
 									auto transaction (node->wallets.tx_begin_write ());
-									nano::wallet wallet (error, transaction, node->wallets, wallet_id.to_string (), contents.str ());
+									celerix::wallet wallet (error, transaction, node->wallets, wallet_id.to_string (), contents.str ());
 								}
 								if (error)
 								{
 									std::cerr << "Unable to import wallet\n";
-									ec = nano::error_cli::invalid_arguments;
+									ec = celerix::error_cli::invalid_arguments;
 								}
 								else
 								{
 									node->wallets.reload ();
-									nano::lock_guard<nano::mutex> lock{ node->wallets.mutex };
+									celerix::lock_guard<celerix::mutex> lock{ node->wallets.mutex };
 									release_assert (node->wallets.items.find (wallet_id) != node->wallets.items.end ());
 									std::cout << "Import completed\n";
 								}
@@ -1171,30 +1171,30 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					else
 					{
 						std::cerr << "Invalid wallet id\n";
-						ec = nano::error_cli::invalid_arguments;
+						ec = celerix::error_cli::invalid_arguments;
 					}
 				}
 				else
 				{
 					std::cerr << "wallet_import requires one <wallet> option\n";
-					ec = nano::error_cli::invalid_arguments;
+					ec = celerix::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "Unable to open <file>\n";
-				ec = nano::error_cli::invalid_arguments;
+				ec = celerix::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "wallet_import requires one <file> option\n";
-			ec = nano::error_cli::invalid_arguments;
+			ec = celerix::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_list"))
 	{
-		auto inactive_node = nano::default_inactive_node (data_path, vm);
+		auto inactive_node = celerix::default_inactive_node (data_path, vm);
 		auto node = inactive_node->node;
 		for (auto i (node->wallets.items.begin ()), n (node->wallets.items.end ()); i != n; ++i)
 		{
@@ -1202,7 +1202,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			auto transaction (i->second->wallets.tx_begin_read ());
 			for (auto j (i->second->store.begin (transaction)), m (i->second->store.end (transaction)); j != m; ++j)
 			{
-				std::cout << nano::account (j->first).to_account () << '\n';
+				std::cout << celerix::account (j->first).to_account () << '\n';
 			}
 		}
 	}
@@ -1210,15 +1210,15 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("wallet") == 1 && vm.count ("account") == 1)
 		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
+			auto inactive_node = celerix::default_inactive_node (data_path, vm);
 			auto node = inactive_node->node;
-			nano::wallet_id wallet_id;
+			celerix::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				auto wallet (node->wallets.items.find (wallet_id));
 				if (wallet != node->wallets.items.end ())
 				{
-					nano::account account_id;
+					celerix::account account_id;
 					if (!account_id.decode_account (vm["account"].as<std::string> ()))
 					{
 						auto transaction (wallet->second->wallets.tx_begin_write ());
@@ -1230,41 +1230,41 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						else
 						{
 							std::cerr << "Account not found in wallet\n";
-							ec = nano::error_cli::invalid_arguments;
+							ec = celerix::error_cli::invalid_arguments;
 						}
 					}
 					else
 					{
 						std::cerr << "Invalid account id\n";
-						ec = nano::error_cli::invalid_arguments;
+						ec = celerix::error_cli::invalid_arguments;
 					}
 				}
 				else
 				{
 					std::cerr << "Wallet not found\n";
-					ec = nano::error_cli::invalid_arguments;
+					ec = celerix::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "Invalid wallet id\n";
-				ec = nano::error_cli::invalid_arguments;
+				ec = celerix::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "wallet_remove command requires one <wallet> and one <account> option\n";
-			ec = nano::error_cli::invalid_arguments;
+			ec = celerix::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_representative_get"))
 	{
 		if (vm.count ("wallet") == 1)
 		{
-			nano::wallet_id wallet_id;
+			celerix::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
-				auto inactive_node = nano::default_inactive_node (data_path, vm);
+				auto inactive_node = celerix::default_inactive_node (data_path, vm);
 				auto node = inactive_node->node;
 				auto wallet (node->wallets.items.find (wallet_id));
 				if (wallet != node->wallets.items.end ())
@@ -1276,19 +1276,19 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				else
 				{
 					std::cerr << "Wallet not found\n";
-					ec = nano::error_cli::invalid_arguments;
+					ec = celerix::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "Invalid wallet id\n";
-				ec = nano::error_cli::invalid_arguments;
+				ec = celerix::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "wallet_representative_get requires one <wallet> option\n";
-			ec = nano::error_cli::invalid_arguments;
+			ec = celerix::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("wallet_representative_set"))
@@ -1297,13 +1297,13 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		{
 			if (vm.count ("account") == 1)
 			{
-				nano::wallet_id wallet_id;
+				celerix::wallet_id wallet_id;
 				if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 				{
-					nano::account account;
+					celerix::account account;
 					if (!account.decode_account (vm["account"].as<std::string> ()))
 					{
-						auto inactive_node = nano::default_inactive_node (data_path, vm);
+						auto inactive_node = celerix::default_inactive_node (data_path, vm);
 						auto node = inactive_node->node;
 						auto wallet (node->wallets.items.find (wallet_id));
 						if (wallet != node->wallets.items.end ())
@@ -1314,51 +1314,51 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						else
 						{
 							std::cerr << "Wallet not found\n";
-							ec = nano::error_cli::invalid_arguments;
+							ec = celerix::error_cli::invalid_arguments;
 						}
 					}
 					else
 					{
 						std::cerr << "Invalid account\n";
-						ec = nano::error_cli::invalid_arguments;
+						ec = celerix::error_cli::invalid_arguments;
 					}
 				}
 				else
 				{
 					std::cerr << "Invalid wallet id\n";
-					ec = nano::error_cli::invalid_arguments;
+					ec = celerix::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
 				std::cerr << "wallet_representative_set requires one <account> option\n";
-				ec = nano::error_cli::invalid_arguments;
+				ec = celerix::error_cli::invalid_arguments;
 			}
 		}
 		else
 		{
 			std::cerr << "wallet_representative_set requires one <wallet> option\n";
-			ec = nano::error_cli::invalid_arguments;
+			ec = celerix::error_cli::invalid_arguments;
 		}
 	}
 	else
 	{
-		ec = nano::error_cli::unknown_command;
+		ec = celerix::error_cli::unknown_command;
 	}
 
 	return ec;
 }
 
-std::unique_ptr<nano::inactive_node> nano::default_inactive_node (std::filesystem::path const & path_a, boost::program_options::variables_map const & vm_a)
+std::unique_ptr<celerix::inactive_node> celerix::default_inactive_node (std::filesystem::path const & path_a, boost::program_options::variables_map const & vm_a)
 {
-	auto node_flags = nano::inactive_node_flag_defaults ();
-	nano::update_flags (node_flags, vm_a);
-	return std::make_unique<nano::inactive_node> (path_a, node_flags);
+	auto node_flags = celerix::inactive_node_flag_defaults ();
+	celerix::update_flags (node_flags, vm_a);
+	return std::make_unique<celerix::inactive_node> (path_a, node_flags);
 }
 
 namespace
 {
-void reset_confirmation_heights (nano::store::write_transaction const & transaction, nano::ledger_constants & constants, nano::store::component & store)
+void reset_confirmation_heights (celerix::store::write_transaction const & transaction, celerix::ledger_constants & constants, celerix::store::component & store)
 {
 	// First do a clean sweep
 	store.confirmation_height.clear (transaction);
@@ -1369,26 +1369,26 @@ void reset_confirmation_heights (nano::store::write_transaction const & transact
 
 bool is_using_rocksdb (std::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec)
 {
-	nano::network_params network_params{ nano::network_constants::active_network };
-	nano::daemon_config config{ data_path, network_params };
+	celerix::network_params network_params{ celerix::network_constants::active_network };
+	celerix::daemon_config config{ data_path, network_params };
 
 	// Config overriding
 	auto config_arg (vm.find ("config"));
 	std::vector<std::string> config_overrides;
 	if (config_arg != vm.end ())
 	{
-		config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
+		config_overrides = celerix::config_overrides (config_arg->second.as<std::vector<celerix::config_key_value_pair>> ());
 	}
 
 	// config override...
-	auto error = nano::read_node_config_toml (data_path, config, config_overrides);
+	auto error = celerix::read_node_config_toml (data_path, config, config_overrides);
 	if (!error)
 	{
 		return config.node.rocksdb_config.enable;
 	}
 	else
 	{
-		ec = nano::error_cli::reading_config;
+		ec = celerix::error_cli::reading_config;
 	}
 
 	return false;

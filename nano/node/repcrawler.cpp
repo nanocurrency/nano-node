@@ -1,13 +1,13 @@
-#include <nano/node/active_elections.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/online_reps.hpp>
-#include <nano/node/repcrawler.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/vote.hpp>
+#include <celerix/node/active_elections.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/online_reps.hpp>
+#include <celerix/node/repcrawler.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/vote.hpp>
 
 #include <ranges>
 
-nano::rep_crawler::rep_crawler (nano::rep_crawler_config const & config_a, nano::node & node_a) :
+celerix::rep_crawler::rep_crawler (celerix::rep_crawler_config const & config_a, celerix::node & node_a) :
 	config{ config_a },
 	node{ node_a },
 	stats{ node_a.stats },
@@ -15,11 +15,11 @@ nano::rep_crawler::rep_crawler (nano::rep_crawler_config const & config_a, nano:
 	network_constants{ node_a.network_params.network },
 	active{ node_a.active }
 {
-	node.observers.channel_connected.add ([this] (std::shared_ptr<nano::transport::channel> const & channel) {
+	node.observers.channel_connected.add ([this] (std::shared_ptr<celerix::transport::channel> const & channel) {
 		if (!node.flags.disable_rep_crawler)
 		{
 			{
-				nano::lock_guard<nano::mutex> lock{ mutex };
+				celerix::lock_guard<celerix::mutex> lock{ mutex };
 				prioritized.push_back (channel);
 			}
 			condition.notify_all ();
@@ -27,26 +27,26 @@ nano::rep_crawler::rep_crawler (nano::rep_crawler_config const & config_a, nano:
 	});
 }
 
-nano::rep_crawler::~rep_crawler ()
+celerix::rep_crawler::~rep_crawler ()
 {
 	// Thread must be stopped before destruction
 	debug_assert (!thread.joinable ());
 }
 
-void nano::rep_crawler::start ()
+void celerix::rep_crawler::start ()
 {
 	debug_assert (!thread.joinable ());
 
 	thread = std::thread{ [this] () {
-		nano::thread_role::set (nano::thread_role::name::rep_crawler);
+		celerix::thread_role::set (celerix::thread_role::name::rep_crawler);
 		run ();
 	} };
 }
 
-void nano::rep_crawler::stop ()
+void celerix::rep_crawler::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		stopped = true;
 	}
 	condition.notify_all ();
@@ -57,7 +57,7 @@ void nano::rep_crawler::stop ()
 }
 
 // Exits with the lock unlocked
-void nano::rep_crawler::validate_and_process (nano::unique_lock<nano::mutex> & lock)
+void celerix::rep_crawler::validate_and_process (celerix::unique_lock<celerix::mutex> & lock)
 {
 	debug_assert (!mutex.try_lock ());
 	debug_assert (lock.owns_lock ());
@@ -80,17 +80,17 @@ void nano::rep_crawler::validate_and_process (nano::unique_lock<nano::mutex> & l
 		release_assert (vote != nullptr);
 		release_assert (channel != nullptr);
 
-		if (channel->get_type () == nano::transport::transport_type::loopback)
+		if (channel->get_type () == celerix::transport::transport_type::loopback)
 		{
-			logger.debug (nano::log::type::rep_crawler, "Ignoring vote from loopback channel: {}", channel->to_string ());
+			logger.debug (celerix::log::type::rep_crawler, "Ignoring vote from loopback channel: {}", channel->to_string ());
 
 			continue; // Skip this vote
 		}
 
-		nano::uint128_t const rep_weight = node.ledger.weight (vote->account);
+		celerix::uint128_t const rep_weight = node.ledger.weight (vote->account);
 		if (rep_weight < minimum)
 		{
-			logger.debug (nano::log::type::rep_crawler, "Ignoring vote from account: {} with too little voting weight: {}",
+			logger.debug (celerix::log::type::rep_crawler, "Ignoring vote from account: {} with too little voting weight: {}",
 			vote->account.to_account (),
 			fmt::streamed (rep_weight));
 
@@ -100,7 +100,7 @@ void nano::rep_crawler::validate_and_process (nano::unique_lock<nano::mutex> & l
 		// temporary data used for logging after dropping the lock
 		bool inserted = false;
 		bool updated = false;
-		std::shared_ptr<nano::transport::channel> prev_channel;
+		std::shared_ptr<celerix::transport::channel> prev_channel;
 
 		lock.lock ();
 
@@ -129,28 +129,28 @@ void nano::rep_crawler::validate_and_process (nano::unique_lock<nano::mutex> & l
 
 		if (inserted)
 		{
-			logger.info (nano::log::type::rep_crawler, "Found representative: {} at: {}", vote->account.to_account (), channel->to_string ());
+			logger.info (celerix::log::type::rep_crawler, "Found representative: {} at: {}", vote->account.to_account (), channel->to_string ());
 		}
 		if (updated)
 		{
-			logger.warn (nano::log::type::rep_crawler, "Updated representative: {} at: {} (was at: {})", vote->account.to_account (), channel->to_string (), prev_channel->to_string ());
+			logger.warn (celerix::log::type::rep_crawler, "Updated representative: {} at: {} (was at: {})", vote->account.to_account (), channel->to_string (), prev_channel->to_string ());
 		}
 	}
 }
 
-std::chrono::milliseconds nano::rep_crawler::query_interval (bool sufficient_weight) const
+std::chrono::milliseconds celerix::rep_crawler::query_interval (bool sufficient_weight) const
 {
 	return sufficient_weight ? network_constants.rep_crawler_normal_interval : network_constants.rep_crawler_warmup_interval;
 }
 
-bool nano::rep_crawler::query_predicate (bool sufficient_weight) const
+bool celerix::rep_crawler::query_predicate (bool sufficient_weight) const
 {
-	return nano::elapsed (last_query, query_interval (sufficient_weight));
+	return celerix::elapsed (last_query, query_interval (sufficient_weight));
 }
 
-void nano::rep_crawler::run ()
+void celerix::rep_crawler::run ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		lock.unlock ();
@@ -161,7 +161,7 @@ void nano::rep_crawler::run ()
 		// If online weight drops below minimum, reach out to preconfigured peers
 		if (!sufficient_weight)
 		{
-			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::keepalive);
+			stats.inc (celerix::stat::type::rep_crawler, celerix::stat::detail::keepalive);
 			node.keepalive_preconfigured ();
 		}
 
@@ -176,7 +176,7 @@ void nano::rep_crawler::run ()
 			return;
 		}
 
-		stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::loop);
+		stats.inc (celerix::stat::type::rep_crawler, celerix::stat::detail::loop);
 
 		if (!responses.empty ())
 		{
@@ -212,7 +212,7 @@ void nano::rep_crawler::run ()
 	}
 }
 
-void nano::rep_crawler::cleanup ()
+void celerix::rep_crawler::cleanup ()
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -220,8 +220,8 @@ void nano::rep_crawler::cleanup ()
 	erase_if (reps, [this] (rep_entry const & rep) {
 		if (!rep.channel->alive ())
 		{
-			logger.info (nano::log::type::rep_crawler, "Evicting representative: {} with dead channel at: {}", rep.account.to_account (), rep.channel->to_string ());
-			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::channel_dead);
+			logger.info (celerix::log::type::rep_crawler, "Evicting representative: {} with dead channel at: {}", rep.account.to_account (), rep.channel->to_string ());
+			stats.inc (celerix::stat::type::rep_crawler, celerix::stat::detail::channel_dead);
 			return true; // Erase
 		}
 		return false;
@@ -229,17 +229,17 @@ void nano::rep_crawler::cleanup ()
 
 	// Evict queries that haven't been responded to in a while
 	erase_if (queries, [this] (query_entry const & query) {
-		if (nano::elapsed (query.time, config.query_timeout))
+		if (celerix::elapsed (query.time, config.query_timeout))
 		{
 			if (query.replies == 0)
 			{
-				logger.debug (nano::log::type::rep_crawler, "Aborting unresponsive query for block: {} from: {}", query.hash.to_string (), query.channel->to_string ());
-				stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_timeout);
+				logger.debug (celerix::log::type::rep_crawler, "Aborting unresponsive query for block: {} from: {}", query.hash.to_string (), query.channel->to_string ());
+				stats.inc (celerix::stat::type::rep_crawler, celerix::stat::detail::query_timeout);
 			}
 			else
 			{
-				logger.debug (nano::log::type::rep_crawler, "Completion of query with: {} replies for block: {} from: {}", query.replies, query.hash.to_string (), query.channel->to_string ());
-				stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_completion);
+				logger.debug (celerix::log::type::rep_crawler, "Completion of query with: {} replies for block: {} from: {}", query.replies, query.hash.to_string (), query.channel->to_string ());
+				stats.inc (celerix::stat::type::rep_crawler, celerix::stat::detail::query_completion);
 			}
 			return true; // Erase
 		}
@@ -247,7 +247,7 @@ void nano::rep_crawler::cleanup ()
 	});
 }
 
-std::deque<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::prepare_crawl_targets (bool sufficient_weight) const
+std::deque<std::shared_ptr<celerix::transport::channel>> celerix::rep_crawler::prepare_crawl_targets (bool sufficient_weight) const
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -258,14 +258,14 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::prepare
 	constexpr std::size_t aggressive_max_attempts = 8;
 	std::chrono::milliseconds rep_query_interval = node.network_params.network.is_dev_network () ? std::chrono::milliseconds{ 500 } : std::chrono::milliseconds{ 60 * 1000 };
 
-	stats.inc (nano::stat::type::rep_crawler, sufficient_weight ? nano::stat::detail::crawl_normal : nano::stat::detail::crawl_aggressive);
+	stats.inc (celerix::stat::type::rep_crawler, sufficient_weight ? celerix::stat::detail::crawl_normal : celerix::stat::detail::crawl_aggressive);
 
 	// Crawl more aggressively if we lack sufficient total peer weight.
 	auto const required_peer_count = sufficient_weight ? conservative_count : aggressive_count;
 
 	auto random_peers = node.network.random_set (required_peer_count);
 
-	auto should_query = [&, this] (std::shared_ptr<nano::transport::channel> const & channel) {
+	auto should_query = [&, this] (std::shared_ptr<celerix::transport::channel> const & channel) {
 		if (auto rep = reps.get<tag_channel> ().find (channel); rep != reps.get<tag_channel> ().end ())
 		{
 			// Throttle queries to active reps
@@ -279,14 +279,14 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::prepare
 		}
 	};
 
-	erase_if (random_peers, [&, this] (std::shared_ptr<nano::transport::channel> const & channel) {
+	erase_if (random_peers, [&, this] (std::shared_ptr<celerix::transport::channel> const & channel) {
 		return !should_query (channel);
 	});
 
 	return { random_peers.begin (), random_peers.end () };
 }
 
-auto nano::rep_crawler::prepare_query_target () const -> std::optional<hash_root_t>
+auto celerix::rep_crawler::prepare_query_target () const -> std::optional<hash_root_t>
 {
 	constexpr int max_attempts = 10;
 
@@ -304,7 +304,7 @@ auto nano::rep_crawler::prepare_query_target () const -> std::optional<hash_root
 	return std::nullopt;
 }
 
-bool nano::rep_crawler::track_rep_request (hash_root_t hash_root, std::shared_ptr<nano::transport::channel> const & channel)
+bool celerix::rep_crawler::track_rep_request (hash_root_t hash_root, std::shared_ptr<celerix::transport::channel> const & channel)
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -327,50 +327,50 @@ bool nano::rep_crawler::track_rep_request (hash_root_t hash_root, std::shared_pt
 	return true;
 }
 
-void nano::rep_crawler::query (std::deque<std::shared_ptr<nano::transport::channel>> const & target_channels)
+void celerix::rep_crawler::query (std::deque<std::shared_ptr<celerix::transport::channel>> const & target_channels)
 {
 	auto maybe_hash_root = prepare_query_target ();
 	if (!maybe_hash_root)
 	{
-		logger.debug (nano::log::type::rep_crawler, "No block to query");
-		stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_target_failed);
+		logger.debug (celerix::log::type::rep_crawler, "No block to query");
+		stats.inc (celerix::stat::type::rep_crawler, celerix::stat::detail::query_target_failed);
 		return;
 	}
 	auto hash_root = *maybe_hash_root;
 
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 	for (const auto & channel : target_channels)
 	{
 		bool tracked = track_rep_request (hash_root, channel);
 		if (tracked)
 		{
-			logger.debug (nano::log::type::rep_crawler, "Sending query for block: {} to: {}", hash_root.first.to_string (), channel->to_string ());
-			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_sent);
+			logger.debug (celerix::log::type::rep_crawler, "Sending query for block: {} to: {}", hash_root.first.to_string (), channel->to_string ());
+			stats.inc (celerix::stat::type::rep_crawler, celerix::stat::detail::query_sent);
 
 			auto const & [hash, root] = hash_root;
-			nano::confirm_req req{ network_constants, hash, root };
+			celerix::confirm_req req{ network_constants, hash, root };
 
-			channel->send (req, nano::transport::traffic_type::rep_crawler, [this] (auto & ec, auto size) {
-				stats.inc (nano::stat::type::rep_crawler_ec, to_stat_detail (ec), nano::stat::dir::out);
+			channel->send (req, celerix::transport::traffic_type::rep_crawler, [this] (auto & ec, auto size) {
+				stats.inc (celerix::stat::type::rep_crawler_ec, to_stat_detail (ec), celerix::stat::dir::out);
 			});
 		}
 		else
 		{
-			logger.debug (nano::log::type::rep_crawler, "Ignoring duplicate query for block: {} to: {}", hash_root.first.to_string (), channel->to_string ());
-			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_duplicate);
+			logger.debug (celerix::log::type::rep_crawler, "Ignoring duplicate query for block: {} to: {}", hash_root.first.to_string (), channel->to_string ());
+			stats.inc (celerix::stat::type::rep_crawler, celerix::stat::detail::query_duplicate);
 		}
 	}
 }
 
-void nano::rep_crawler::query (std::shared_ptr<nano::transport::channel> const & target_channel)
+void celerix::rep_crawler::query (std::shared_ptr<celerix::transport::channel> const & target_channel)
 {
 	query (std::deque{ target_channel });
 }
 
-bool nano::rep_crawler::is_pr (std::shared_ptr<nano::transport::channel> const & channel) const
+bool celerix::rep_crawler::is_pr (std::shared_ptr<celerix::transport::channel> const & channel) const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	auto existing = reps.get<tag_channel> ().find (channel);
 	if (existing != reps.get<tag_channel> ().end ())
 	{
@@ -379,25 +379,25 @@ bool nano::rep_crawler::is_pr (std::shared_ptr<nano::transport::channel> const &
 	return false;
 }
 
-bool nano::rep_crawler::process (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel)
+bool celerix::rep_crawler::process (std::shared_ptr<celerix::vote> const & vote, std::shared_ptr<celerix::transport::channel> const & channel)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 	auto [begin, end] = queries.get<tag_channel> ().equal_range (channel);
 	for (auto it = begin; it != end; ++it)
 	{
 		// TODO: This linear search could be slow, especially with large votes.
 		auto const target_hash = it->hash;
-		bool found = std::any_of (vote->hashes.begin (), vote->hashes.end (), [&target_hash] (nano::block_hash const & hash) {
+		bool found = std::any_of (vote->hashes.begin (), vote->hashes.end (), [&target_hash] (celerix::block_hash const & hash) {
 			return hash == target_hash;
 		});
 		if (found)
 		{
-			logger.debug (nano::log::type::rep_crawler, "Processing response for block: {} from: {}", target_hash.to_string (), channel->to_string ());
-			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::response);
+			logger.debug (celerix::log::type::rep_crawler, "Processing response for block: {} from: {}", target_hash.to_string (), channel->to_string ());
+			stats.inc (celerix::stat::type::rep_crawler, celerix::stat::detail::response);
 
 			// Track response time
-			stats.sample (nano::stat::sample::rep_response_time, nano::log::milliseconds_delta (it->time), { 0, config.query_timeout.count () });
+			stats.sample (celerix::stat::sample::rep_response_time, celerix::log::milliseconds_delta (it->time), { 0, config.query_timeout.count () });
 
 			responses.push_back ({ channel, vote });
 			queries.modify (it, [] (query_entry & e) {
@@ -410,10 +410,10 @@ bool nano::rep_crawler::process (std::shared_ptr<nano::vote> const & vote, std::
 	return false;
 }
 
-nano::uint128_t nano::rep_crawler::total_weight () const
+celerix::uint128_t celerix::rep_crawler::total_weight () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	nano::uint128_t result = 0;
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
+	celerix::uint128_t result = 0;
 	for (const auto & rep : reps)
 	{
 		if (rep.channel->alive ())
@@ -424,23 +424,23 @@ nano::uint128_t nano::rep_crawler::total_weight () const
 	return result;
 }
 
-std::vector<nano::representative> nano::rep_crawler::representatives (std::size_t count, nano::uint128_t const minimum_weight, std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version) const
+std::vector<celerix::representative> celerix::rep_crawler::representatives (std::size_t count, celerix::uint128_t const minimum_weight, std::optional<decltype (celerix::network_constants::protocol_version)> const & minimum_protocol_version) const
 {
 	auto const version_min = minimum_protocol_version.value_or (node.network_params.network.protocol_version_min);
 
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
-	std::multimap<nano::amount, rep_entry, std::greater<>> ordered;
+	std::multimap<celerix::amount, rep_entry, std::greater<>> ordered;
 	for (const auto & rep : reps.get<tag_account> ())
 	{
 		auto weight = node.ledger.weight (rep.account);
 		if (weight >= minimum_weight && rep.channel->get_network_version () >= version_min)
 		{
-			ordered.insert ({ nano::amount{ weight }, rep });
+			ordered.insert ({ celerix::amount{ weight }, rep });
 		}
 	}
 
-	std::vector<nano::representative> result;
+	std::vector<celerix::representative> result;
 	result.reserve (ordered.size ());
 	for (auto i = ordered.begin (), n = ordered.end (); i != n && result.size () < count; ++i)
 	{
@@ -450,46 +450,46 @@ std::vector<nano::representative> nano::rep_crawler::representatives (std::size_
 	return result;
 }
 
-std::vector<nano::representative> nano::rep_crawler::principal_representatives (std::size_t count, std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version) const
+std::vector<celerix::representative> celerix::rep_crawler::principal_representatives (std::size_t count, std::optional<decltype (celerix::network_constants::protocol_version)> const & minimum_protocol_version) const
 {
 	return representatives (count, node.minimum_principal_weight (), minimum_protocol_version);
 }
 
-std::size_t nano::rep_crawler::representative_count () const
+std::size_t celerix::rep_crawler::representative_count () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return reps.size ();
 }
 
 // Only for tests
-void nano::rep_crawler::force_add_rep (const nano::account & account, const std::shared_ptr<nano::transport::channel> & channel)
+void celerix::rep_crawler::force_add_rep (const celerix::account & account, const std::shared_ptr<celerix::transport::channel> & channel)
 {
 	release_assert (node.network_params.network.is_dev_network ());
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	reps.emplace (rep_entry{ account, channel });
 }
 
 // Only for tests
-void nano::rep_crawler::force_process (const std::shared_ptr<nano::vote> & vote, const std::shared_ptr<nano::transport::channel> & channel)
+void celerix::rep_crawler::force_process (const std::shared_ptr<celerix::vote> & vote, const std::shared_ptr<celerix::transport::channel> & channel)
 {
 	release_assert (node.network_params.network.is_dev_network ());
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	responses.push_back ({ channel, vote });
 }
 
 // Only for tests
-void nano::rep_crawler::force_query (const nano::block_hash & hash, const std::shared_ptr<nano::transport::channel> & channel)
+void celerix::rep_crawler::force_query (const celerix::block_hash & hash, const std::shared_ptr<celerix::transport::channel> & channel)
 {
 	release_assert (node.network_params.network.is_dev_network ());
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	queries.emplace (query_entry{ hash, channel });
 }
 
-nano::container_info nano::rep_crawler::container_info () const
+celerix::container_info celerix::rep_crawler::container_info () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("reps", reps);
 	info.put ("queries", queries);
 	info.put ("responses", responses);
@@ -501,7 +501,7 @@ nano::container_info nano::rep_crawler::container_info () const
  * rep_crawler_config
  */
 
-nano::rep_crawler_config::rep_crawler_config (nano::network_constants const & network_constants)
+celerix::rep_crawler_config::rep_crawler_config (celerix::network_constants const & network_constants)
 {
 	if (network_constants.is_dev_network ())
 	{
@@ -509,7 +509,7 @@ nano::rep_crawler_config::rep_crawler_config (nano::network_constants const & ne
 	}
 }
 
-nano::error nano::rep_crawler_config::serialize (nano::tomlconfig & toml) const
+celerix::error celerix::rep_crawler_config::serialize (celerix::tomlconfig & toml) const
 {
 	// TODO: Descriptions
 	toml.put ("query_timeout", query_timeout.count ());
@@ -517,7 +517,7 @@ nano::error nano::rep_crawler_config::serialize (nano::tomlconfig & toml) const
 	return toml.get_error ();
 }
 
-nano::error nano::rep_crawler_config::deserialize (nano::tomlconfig & toml)
+celerix::error celerix::rep_crawler_config::deserialize (celerix::tomlconfig & toml)
 {
 	auto query_timeout_l = query_timeout.count ();
 	toml.get ("query_timeout", query_timeout_l);

@@ -1,19 +1,19 @@
 #pragma once
 
-#include <nano/lib/block_sideband.hpp>
+#include <celerix/lib/block_sideband.hpp>
 
 #include <memory>
 
-namespace nano
+namespace celerix
 {
 class block;
 }
-namespace nano::store
+namespace celerix::store
 {
 class block_w_sideband
 {
 public:
-	std::shared_ptr<nano::block> block;
-	nano::block_sideband sideband;
+	std::shared_ptr<celerix::block> block;
+	celerix::block_sideband sideband;
 };
 }

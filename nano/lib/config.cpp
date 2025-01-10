@@ -1,10 +1,10 @@
-#include <nano/crypto/blake2/blake2.h>
-#include <nano/lib/block_type.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/config.hpp>
-#include <nano/lib/constants.hpp>
-#include <nano/lib/env.hpp>
-#include <nano/lib/logging.hpp>
+#include <celerix/crypto/blake2/blake2.h>
+#include <celerix/lib/block_type.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/constants.hpp>
+#include <celerix/lib/env.hpp>
+#include <celerix/lib/logging.hpp>
 
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
@@ -12,33 +12,33 @@
 
 #include <valgrind/valgrind.h>
 
-namespace nano
+namespace celerix
 {
 uint8_t get_major_node_version ()
 {
-	return boost::numeric_cast<uint8_t> (boost::lexical_cast<int> (NANO_MAJOR_VERSION_STRING));
+	return boost::numeric_cast<uint8_t> (boost::lexical_cast<int> (CELERIX_MAJOR_VERSION_STRING));
 }
 uint8_t get_minor_node_version ()
 {
-	return boost::numeric_cast<uint8_t> (boost::lexical_cast<int> (NANO_MINOR_VERSION_STRING));
+	return boost::numeric_cast<uint8_t> (boost::lexical_cast<int> (CELERIX_MINOR_VERSION_STRING));
 }
 uint8_t get_patch_node_version ()
 {
-	return boost::numeric_cast<uint8_t> (boost::lexical_cast<int> (NANO_PATCH_VERSION_STRING));
+	return boost::numeric_cast<uint8_t> (boost::lexical_cast<int> (CELERIX_PATCH_VERSION_STRING));
 }
 uint8_t get_pre_release_node_version ()
 {
-	return boost::numeric_cast<uint8_t> (boost::lexical_cast<int> (NANO_PRE_RELEASE_VERSION_STRING));
+	return boost::numeric_cast<uint8_t> (boost::lexical_cast<int> (CELERIX_PRE_RELEASE_VERSION_STRING));
 }
 
-void force_nano_dev_network ()
+void force_celerix_dev_network ()
 {
-	nano::network_constants::set_active_network (nano::networks::nano_dev_network);
+	celerix::network_constants::set_active_network (celerix::networks::celerix_dev_network);
 }
 
 bool is_dev_run ()
 {
-	return nano::network_constants::get_active_network () == nano::networks::nano_dev_network;
+	return celerix::network_constants::get_active_network () == celerix::networks::celerix_dev_network;
 }
 
 bool running_within_valgrind ()
@@ -48,17 +48,17 @@ bool running_within_valgrind ()
 
 bool memory_intensive_instrumentation ()
 {
-	auto env = nano::env::get<bool> ("NANO_MEMORY_INTENSIVE");
+	auto env = celerix::env::get<bool> ("CELERIX_MEMORY_INTENSIVE");
 	if (env)
 	{
 		return env.value ();
 	}
-	return is_tsan_build () || nano::running_within_valgrind ();
+	return is_tsan_build () || celerix::running_within_valgrind ();
 }
 
 bool slow_instrumentation ()
 {
-	return is_tsan_build () || nano::running_within_valgrind ();
+	return is_tsan_build () || celerix::running_within_valgrind ();
 }
 
 std::string get_node_toml_config_path (std::filesystem::path const & data_path)
@@ -87,12 +87,12 @@ std::string get_tls_toml_config_path (std::filesystem::path const & data_path)
 }
 }
 
-uint16_t nano::test_node_port ()
+uint16_t celerix::test_node_port ()
 {
 	static auto const test_env = [] () -> std::optional<uint16_t> {
-		if (auto value = nano::env::get<uint16_t> ("NANO_TEST_NODE_PORT"))
+		if (auto value = celerix::env::get<uint16_t> ("CELERIX_TEST_NODE_PORT"))
 		{
-			std::cerr << "Node port overridden by NANO_TEST_NODE_PORT environment variable: " << *value << std::endl;
+			std::cerr << "Node port overridden by CELERIX_TEST_NODE_PORT environment variable: " << *value << std::endl;
 			return *value;
 		}
 		return std::nullopt;
@@ -100,12 +100,12 @@ uint16_t nano::test_node_port ()
 	return test_env.value_or (17075);
 }
 
-uint16_t nano::test_rpc_port ()
+uint16_t celerix::test_rpc_port ()
 {
 	static auto const test_env = [] () -> std::optional<uint16_t> {
-		if (auto value = nano::env::get<uint16_t> ("NANO_TEST_RPC_PORT"))
+		if (auto value = celerix::env::get<uint16_t> ("CELERIX_TEST_RPC_PORT"))
 		{
-			std::cerr << "RPC port overridden by NANO_TEST_RPC_PORT environment variable: " << *value << std::endl;
+			std::cerr << "RPC port overridden by CELERIX_TEST_RPC_PORT environment variable: " << *value << std::endl;
 			return *value;
 		}
 		return std::nullopt;
@@ -113,12 +113,12 @@ uint16_t nano::test_rpc_port ()
 	return test_env.value_or (17076);
 }
 
-uint16_t nano::test_ipc_port ()
+uint16_t celerix::test_ipc_port ()
 {
 	static auto const test_env = [] () -> std::optional<uint16_t> {
-		if (auto value = nano::env::get<uint16_t> ("NANO_TEST_IPC_PORT"))
+		if (auto value = celerix::env::get<uint16_t> ("CELERIX_TEST_IPC_PORT"))
 		{
-			std::cerr << "IPC port overridden by NANO_TEST_IPC_PORT environment variable: " << *value << std::endl;
+			std::cerr << "IPC port overridden by CELERIX_TEST_IPC_PORT environment variable: " << *value << std::endl;
 			return *value;
 		}
 		return std::nullopt;
@@ -126,12 +126,12 @@ uint16_t nano::test_ipc_port ()
 	return test_env.value_or (17077);
 }
 
-uint16_t nano::test_websocket_port ()
+uint16_t celerix::test_websocket_port ()
 {
 	static auto const test_env = [] () -> std::optional<uint16_t> {
-		if (auto value = nano::env::get<uint16_t> ("NANO_TEST_WEBSOCKET_PORT"))
+		if (auto value = celerix::env::get<uint16_t> ("CELERIX_TEST_WEBSOCKET_PORT"))
 		{
-			std::cerr << "Websocket port overridden by NANO_TEST_WEBSOCKET_PORT environment variable: " << *value << std::endl;
+			std::cerr << "Websocket port overridden by CELERIX_TEST_WEBSOCKET_PORT environment variable: " << *value << std::endl;
 			return *value;
 		}
 		return std::nullopt;
@@ -139,12 +139,12 @@ uint16_t nano::test_websocket_port ()
 	return test_env.value_or (17078);
 }
 
-uint32_t nano::test_scan_wallet_reps_delay ()
+uint32_t celerix::test_scan_wallet_reps_delay ()
 {
 	static auto const test_env = [] () -> std::optional<uint32_t> {
-		if (auto value = nano::env::get<uint32_t> ("NANO_TEST_WALLET_SCAN_REPS_DELAY"))
+		if (auto value = celerix::env::get<uint32_t> ("CELERIX_TEST_WALLET_SCAN_REPS_DELAY"))
 		{
-			std::cerr << "Wallet scan interval overridden by NANO_TEST_WALLET_SCAN_REPS_DELAY environment variable: " << *value << std::endl;
+			std::cerr << "Wallet scan interval overridden by CELERIX_TEST_WALLET_SCAN_REPS_DELAY environment variable: " << *value << std::endl;
 			return *value;
 		}
 		return std::nullopt;
@@ -152,12 +152,12 @@ uint32_t nano::test_scan_wallet_reps_delay ()
 	return test_env.value_or (900000); // 15 minutes default
 }
 
-std::array<uint8_t, 2> nano::test_magic_number ()
+std::array<uint8_t, 2> celerix::test_magic_number ()
 {
 	static auto const test_env = [] () -> std::optional<std::string> {
-		if (auto value = nano::env::get<std::string> ("NANO_TEST_MAGIC_NUMBER"))
+		if (auto value = celerix::env::get<std::string> ("CELERIX_TEST_MAGIC_NUMBER"))
 		{
-			std::cerr << "Magic number overridden by NANO_TEST_MAGIC_NUMBER environment variable: " << *value << std::endl;
+			std::cerr << "Magic number overridden by CELERIX_TEST_MAGIC_NUMBER environment variable: " << *value << std::endl;
 			return *value;
 		}
 		return std::nullopt;
@@ -170,19 +170,19 @@ std::array<uint8_t, 2> nano::test_magic_number ()
 	return ret;
 }
 
-std::string_view nano::to_string (nano::networks network)
+std::string_view celerix::to_string (celerix::networks network)
 {
 	switch (network)
 	{
-		case nano::networks::invalid:
+		case celerix::networks::invalid:
 			return "invalid";
-		case nano::networks::nano_beta_network:
+		case celerix::networks::celerix_beta_network:
 			return "beta";
-		case nano::networks::nano_dev_network:
+		case celerix::networks::celerix_dev_network:
 			return "dev";
-		case nano::networks::nano_live_network:
+		case celerix::networks::celerix_live_network:
 			return "live";
-		case nano::networks::nano_test_network:
+		case celerix::networks::celerix_test_network:
 			return "test";
 			// default case intentionally omitted to cause warnings for unhandled enums
 	}
@@ -191,7 +191,7 @@ std::string_view nano::to_string (nano::networks network)
 }
 
 // Using std::cerr here, since logging may not be initialized yet
-nano::tomlconfig nano::load_toml_file (const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides)
+celerix::tomlconfig celerix::load_toml_file (const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides)
 {
 	std::stringstream config_overrides_stream;
 	for (auto const & entry : config_overrides)
@@ -204,7 +204,7 @@ nano::tomlconfig nano::load_toml_file (const std::filesystem::path & config_file
 	auto toml_config_path = data_path / config_filename;
 	if (std::filesystem::exists (toml_config_path))
 	{
-		nano::tomlconfig toml;
+		celerix::tomlconfig toml;
 		auto error = toml.read (config_overrides_stream, toml_config_path);
 		if (error)
 		{
@@ -216,7 +216,7 @@ nano::tomlconfig nano::load_toml_file (const std::filesystem::path & config_file
 	else
 	{
 		// If no config was found, return an empty config with overrides applied
-		nano::tomlconfig toml;
+		celerix::tomlconfig toml;
 		auto error = toml.read (config_overrides_stream);
 		if (error)
 		{

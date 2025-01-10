@@ -1,4 +1,4 @@
-#include <nano/store/peer.hpp>
-#include <nano/store/typed_iterator_templ.hpp>
+#include <celerix/store/peer.hpp>
+#include <celerix/store/typed_iterator_templ.hpp>
 
-template class nano::store::typed_iterator<nano::endpoint_key, nano::millis_t>;
+template class celerix::store::typed_iterator<celerix::endpoint_key, celerix::millis_t>;

@@ -1,16 +1,16 @@
-#include <nano/boost/asio/ip/tcp.hpp>
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/config.hpp>
-#include <nano/lib/enum_util.hpp>
-#include <nano/lib/env.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/stats.hpp>
-#include <nano/lib/stream.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/secure/common.hpp>
-#include <nano/store/component.hpp>
+#include <celerix/boost/asio/ip/tcp.hpp>
+#include <celerix/crypto_lib/random_pool.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/enum_util.hpp>
+#include <celerix/lib/env.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/stats.hpp>
+#include <celerix/lib/stream.hpp>
+#include <celerix/lib/timer.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/secure/common.hpp>
+#include <celerix/store/component.hpp>
 
 #include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -22,15 +22,15 @@
 #include <crypto/ed25519-donna/ed25519.h>
 #include <cryptopp/words.h>
 
-nano::networks nano::network_constants::active_network = nano::networks::ACTIVE_NETWORK;
+celerix::networks celerix::network_constants::active_network = celerix::networks::ACTIVE_NETWORK;
 
 namespace
 {
 char const * dev_private_key_data = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
 char const * dev_public_key_data = "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0"; // xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo
-char const * beta_public_key_data = "259A438A8F9F9226130C84D902C237AF3E57C0981C7D709C288046B110D8C8AC"; // nano_1betagoxpxwykx4kw86dnhosc8t3s7ix8eeentwkcg1hbpez1outjrcyg4n1
+char const * beta_public_key_data = "259A438A8F9F9226130C84D902C237AF3E57C0981C7D709C288046B110D8C8AC"; // celerix_1betagoxpxwykx4kw86dnhosc8t3s7ix8eeentwkcg1hbpez1outjrcyg4n1
 char const * live_public_key_data = "E89208DD038FBB269987689621D52292AE9C35941A7484756ECCED92A65093BA"; // xrb_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3
-std::string const test_public_key_data = nano::env::get ("NANO_TEST_GENESIS_PUB").value_or ("45C6FF9D1706D61F0821327752671BDA9F9ED2DA40326B01935AB566FB9E08ED"); // nano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j
+std::string const test_public_key_data = celerix::env::get ("CELERIX_TEST_GENESIS_PUB").value_or ("45C6FF9D1706D61F0821327752671BDA9F9ED2DA40326B01935AB566FB9E08ED"); // celerix_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j
 
 char const * dev_genesis_data = R"%%%({
 	"type": "open",
@@ -44,8 +44,8 @@ char const * dev_genesis_data = R"%%%({
 char const * beta_genesis_data = R"%%%({
 	"type": "open",
 	"source": "259A438A8F9F9226130C84D902C237AF3E57C0981C7D709C288046B110D8C8AC",	
-	"representative": "nano_1betag7az9wk6rbis38s1d35hdsycz1bi95xg4g4j148p6afjk7embcurda4",
-	"account": "nano_1betag7az9wk6rbis38s1d35hdsycz1bi95xg4g4j148p6afjk7embcurda4",	
+	"representative": "celerix_1betag7az9wk6rbis38s1d35hdsycz1bi95xg4g4j148p6afjk7embcurda4",
+	"account": "celerix_1betag7az9wk6rbis38s1d35hdsycz1bi95xg4g4j148p6afjk7embcurda4",	
 	"work": "e87a3ce39b43b84c",
 	"signature": "BC588273AC689726D129D3137653FB319B6EE6DB178F97421D11D075B46FD52B6748223C8FF4179399D35CB1A8DF36F759325BD2D3D4504904321FAFB71D7602"
 	})%%%";
@@ -59,55 +59,55 @@ char const * live_genesis_data = R"%%%({
 	"signature": "9F0C933C8ADE004D808EA1985FA746A7E95BA2A38F867640F53EC8F180BDFE9E2C1268DEAD7C2664F356E37ABA362BC58E46DBA03E523A7B5A19E4B6EB12BB02"
     })%%%";
 
-std::string const test_genesis_data = nano::env::get ("NANO_TEST_GENESIS_BLOCK").value_or (R"%%%({
+std::string const test_genesis_data = celerix::env::get ("CELERIX_TEST_GENESIS_BLOCK").value_or (R"%%%({
 	"type": "open",
 	"source": "45C6FF9D1706D61F0821327752671BDA9F9ED2DA40326B01935AB566FB9E08ED",
-	"representative": "nano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j",
-	"account": "nano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j",
+	"representative": "celerix_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j",
+	"account": "celerix_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j",
 	"work": "bc1ef279c1a34eb1",
 	"signature": "15049467CAEE3EC768639E8E35792399B6078DA763DA4EBA8ECAD33B0EDC4AF2E7403893A5A602EB89B978DABEF1D6606BB00F3C0EE11449232B143B6E07170E"
     })%%%");
 
-std::shared_ptr<nano::block> parse_block_from_genesis_data (std::string const & genesis_data_a)
+std::shared_ptr<celerix::block> parse_block_from_genesis_data (std::string const & genesis_data_a)
 {
 	boost::property_tree::ptree tree;
 	std::stringstream istream (genesis_data_a);
 	boost::property_tree::read_json (istream, tree);
-	return nano::deserialize_block_json (tree);
+	return celerix::deserialize_block_json (tree);
 }
 }
 
 /*
- * nano::dev constants
+ * celerix::dev constants
  */
 
-nano::keypair nano::dev::genesis_key{ dev_private_key_data };
-nano::network_params nano::dev::network_params{ nano::networks::nano_dev_network };
-nano::ledger_constants & nano::dev::constants{ nano::dev::network_params.ledger };
-std::shared_ptr<nano::block> & nano::dev::genesis = nano::dev::constants.genesis;
+celerix::keypair celerix::dev::genesis_key{ dev_private_key_data };
+celerix::network_params celerix::dev::network_params{ celerix::networks::celerix_dev_network };
+celerix::ledger_constants & celerix::dev::constants{ celerix::dev::network_params.ledger };
+std::shared_ptr<celerix::block> & celerix::dev::genesis = celerix::dev::constants.genesis;
 
 /*
  *
  */
 
-nano::work_thresholds const & nano::work_thresholds_for_network (nano::networks network_type)
+celerix::work_thresholds const & celerix::work_thresholds_for_network (celerix::networks network_type)
 {
 	switch (network_type)
 	{
-		case nano::networks::nano_live_network:
-			return nano::work_thresholds::publish_full;
-		case nano::networks::nano_beta_network:
-			return nano::work_thresholds::publish_beta;
-		case nano::networks::nano_dev_network:
-			return nano::work_thresholds::publish_dev;
-		case nano::networks::nano_test_network:
-			return nano::work_thresholds::publish_test;
+		case celerix::networks::celerix_live_network:
+			return celerix::work_thresholds::publish_full;
+		case celerix::networks::celerix_beta_network:
+			return celerix::work_thresholds::publish_beta;
+		case celerix::networks::celerix_dev_network:
+			return celerix::work_thresholds::publish_dev;
+		case celerix::networks::celerix_test_network:
+			return celerix::work_thresholds::publish_test;
 		default:
 			release_assert (false, "invalid network");
 	}
 }
 
-nano::network_params::network_params (nano::networks network_type) :
+celerix::network_params::network_params (celerix::networks network_type) :
 	work{ work_thresholds_for_network (network_type) },
 	network{ work, network_type },
 	ledger{ work, network_type },
@@ -125,92 +125,92 @@ nano::network_params::network_params (nano::networks network_type) :
  *
  */
 
-nano::ledger_constants::ledger_constants (nano::work_thresholds & work, nano::networks network_type) :
+celerix::ledger_constants::ledger_constants (celerix::work_thresholds & work, celerix::networks network_type) :
 	work{ work },
 	zero_key{ "0" },
-	nano_beta_account{ beta_public_key_data },
-	nano_live_account{ live_public_key_data },
-	nano_test_account{ test_public_key_data },
-	nano_dev_genesis{ parse_block_from_genesis_data (dev_genesis_data) },
-	nano_beta_genesis{ parse_block_from_genesis_data (beta_genesis_data) },
-	nano_live_genesis{ parse_block_from_genesis_data (live_genesis_data) },
-	nano_test_genesis{ parse_block_from_genesis_data (test_genesis_data) },
-	genesis_amount{ std::numeric_limits<nano::uint128_t>::max () },
-	burn_account{ nano::account{ 0 } }
+	celerix_beta_account{ beta_public_key_data },
+	celerix_live_account{ live_public_key_data },
+	celerix_test_account{ test_public_key_data },
+	celerix_dev_genesis{ parse_block_from_genesis_data (dev_genesis_data) },
+	celerix_beta_genesis{ parse_block_from_genesis_data (beta_genesis_data) },
+	celerix_live_genesis{ parse_block_from_genesis_data (live_genesis_data) },
+	celerix_test_genesis{ parse_block_from_genesis_data (test_genesis_data) },
+	genesis_amount{ std::numeric_limits<celerix::uint128_t>::max () },
+	burn_account{ celerix::account{ 0 } }
 {
-	nano_beta_genesis->sideband_set (nano::block_sideband{
-	/* account */ nano_beta_genesis->account_field ().value (),
-	/* successor (block_hash) */ nano::block_hash{ 0 },
-	/* balance (amount) */ nano::amount{ std::numeric_limits<nano::uint128_t>::max () },
+	celerix_beta_genesis->sideband_set (celerix::block_sideband{
+	/* account */ celerix_beta_genesis->account_field ().value (),
+	/* successor (block_hash) */ celerix::block_hash{ 0 },
+	/* balance (amount) */ celerix::amount{ std::numeric_limits<celerix::uint128_t>::max () },
 	/* height */ uint64_t{ 1 },
 	/* local_timestamp */ 0,
-	/* epoch */ nano::epoch::epoch_0,
+	/* epoch */ celerix::epoch::epoch_0,
 	/* is_send */ false,
 	/* is_receive */ false,
 	/* is_epoch */ false,
-	/* source_epoch */ nano::epoch::epoch_0 });
+	/* source_epoch */ celerix::epoch::epoch_0 });
 
-	nano_dev_genesis->sideband_set (nano::block_sideband{
-	/* account */ nano_dev_genesis->account_field ().value (),
-	/* successor (block_hash) */ nano::block_hash{ 0 },
-	/* balance (amount) */ nano::amount{ std::numeric_limits<nano::uint128_t>::max () },
+	celerix_dev_genesis->sideband_set (celerix::block_sideband{
+	/* account */ celerix_dev_genesis->account_field ().value (),
+	/* successor (block_hash) */ celerix::block_hash{ 0 },
+	/* balance (amount) */ celerix::amount{ std::numeric_limits<celerix::uint128_t>::max () },
 	/* height */ uint64_t{ 1 },
 	/* local_timestamp */ 0,
-	/* epoch */ nano::epoch::epoch_0,
+	/* epoch */ celerix::epoch::epoch_0,
 	/* is_send */ false,
 	/* is_receive */ false,
 	/* is_epoch */ false,
-	/* source_epoch */ nano::epoch::epoch_0 });
+	/* source_epoch */ celerix::epoch::epoch_0 });
 
-	nano_live_genesis->sideband_set (nano::block_sideband{
-	/* account */ nano_live_genesis->account_field ().value (),
-	/* successor (block_hash) */ nano::block_hash{ 0 },
-	/* balance (amount) */ nano::amount{ std::numeric_limits<nano::uint128_t>::max () },
+	celerix_live_genesis->sideband_set (celerix::block_sideband{
+	/* account */ celerix_live_genesis->account_field ().value (),
+	/* successor (block_hash) */ celerix::block_hash{ 0 },
+	/* balance (amount) */ celerix::amount{ std::numeric_limits<celerix::uint128_t>::max () },
 	/* height */ uint64_t{ 1 },
 	/* local_timestamp */ 0,
-	/* epoch */ nano::epoch::epoch_0,
+	/* epoch */ celerix::epoch::epoch_0,
 	/* is_send */ false,
 	/* is_receive */ false,
 	/* is_epoch */ false,
-	/* source_epoch */ nano::epoch::epoch_0 });
+	/* source_epoch */ celerix::epoch::epoch_0 });
 
-	nano_test_genesis->sideband_set (nano::block_sideband{
-	/* account */ nano_test_genesis->account_field ().value (),
-	/* successor (block_hash) */ nano::block_hash{ 0 },
-	/* balance (amount) */ nano::amount{ std::numeric_limits<nano::uint128_t>::max () },
+	celerix_test_genesis->sideband_set (celerix::block_sideband{
+	/* account */ celerix_test_genesis->account_field ().value (),
+	/* successor (block_hash) */ celerix::block_hash{ 0 },
+	/* balance (amount) */ celerix::amount{ std::numeric_limits<celerix::uint128_t>::max () },
 	/* height */ uint64_t{ 1 },
 	/* local_timestamp */ 0,
-	/* epoch */ nano::epoch::epoch_0,
+	/* epoch */ celerix::epoch::epoch_0,
 	/* is_send */ false,
 	/* is_receive */ false,
 	/* is_epoch */ false,
-	/* source_epoch */ nano::epoch::epoch_0 });
+	/* source_epoch */ celerix::epoch::epoch_0 });
 
-	nano::account epoch_v2_signer;
+	celerix::account epoch_v2_signer;
 	switch (network_type)
 	{
-		case networks::nano_dev_network:
+		case networks::celerix_dev_network:
 		{
-			genesis = nano_dev_genesis;
-			epoch_v2_signer = nano::dev::genesis_key.pub;
+			genesis = celerix_dev_genesis;
+			epoch_v2_signer = celerix::dev::genesis_key.pub;
 		}
 		break;
-		case networks::nano_live_network:
+		case networks::celerix_live_network:
 		{
-			genesis = nano_live_genesis;
-			epoch_v2_signer = nano::account::from_account ("nano_3qb6o6i1tkzr6jwr5s7eehfxwg9x6eemitdinbpi7u8bjjwsgqfj4wzser3x");
+			genesis = celerix_live_genesis;
+			epoch_v2_signer = celerix::account::from_account ("celerix_3qb6o6i1tkzr6jwr5s7eehfxwg9x6eemitdinbpi7u8bjjwsgqfj4wzser3x");
 		}
 		break;
-		case networks::nano_beta_network:
+		case networks::celerix_beta_network:
 		{
-			genesis = nano_beta_genesis;
-			epoch_v2_signer = nano_beta_account;
+			genesis = celerix_beta_genesis;
+			epoch_v2_signer = celerix_beta_account;
 		}
 		break;
-		case networks::nano_test_network:
+		case networks::celerix_test_network:
 		{
-			genesis = nano_test_genesis;
-			epoch_v2_signer = nano_test_account;
+			genesis = celerix_test_genesis;
+			epoch_v2_signer = celerix_test_account;
 		}
 		break;
 		default:
@@ -220,36 +220,36 @@ nano::ledger_constants::ledger_constants (nano::work_thresholds & work, nano::ne
 	release_assert (genesis != nullptr);
 	release_assert (!epoch_v2_signer.is_zero ());
 
-	nano::link const epoch_link_v1{ "epoch v1 block" };
-	epochs.add (nano::epoch::epoch_1, genesis->account (), epoch_link_v1);
+	celerix::link const epoch_link_v1{ "epoch v1 block" };
+	epochs.add (celerix::epoch::epoch_1, genesis->account (), epoch_link_v1);
 
-	nano::link const epoch_link_v2{ "epoch v2 block" };
-	epochs.add (nano::epoch::epoch_2, epoch_v2_signer, epoch_link_v2);
+	celerix::link const epoch_link_v2{ "epoch v2 block" };
+	epochs.add (celerix::epoch::epoch_2, epoch_v2_signer, epoch_link_v2);
 }
 
 /*
  *
  */
 
-nano::hardened_constants & nano::hardened_constants::get ()
+celerix::hardened_constants & celerix::hardened_constants::get ()
 {
 	static hardened_constants instance{};
 	return instance;
 }
 
-nano::hardened_constants::hardened_constants () :
+celerix::hardened_constants::hardened_constants () :
 	not_an_account{},
 	random_128{}
 {
-	nano::random_pool::generate_block (not_an_account.bytes.data (), not_an_account.bytes.size ());
-	nano::random_pool::generate_block (random_128.bytes.data (), random_128.bytes.size ());
+	celerix::random_pool::generate_block (not_an_account.bytes.data (), not_an_account.bytes.size ());
+	celerix::random_pool::generate_block (random_128.bytes.data (), random_128.bytes.size ());
 }
 
 /*
  *
  */
 
-nano::node_constants::node_constants (nano::network_constants & network_constants)
+celerix::node_constants::node_constants (celerix::network_constants & network_constants)
 {
 	backup_interval = std::chrono::minutes (5);
 	search_pending_interval = network_constants.is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
@@ -263,7 +263,7 @@ nano::node_constants::node_constants (nano::network_constants & network_constant
  *
  */
 
-nano::voting_constants::voting_constants (nano::network_constants & network_constants) :
+celerix::voting_constants::voting_constants (celerix::network_constants & network_constants) :
 	max_cache{ network_constants.is_dev_network () ? 256U : 128U * 1024 },
 	delay{ network_constants.is_dev_network () ? 1 : 15 }
 {
@@ -273,7 +273,7 @@ nano::voting_constants::voting_constants (nano::network_constants & network_cons
  *
  */
 
-nano::portmapping_constants::portmapping_constants (nano::network_constants & network_constants)
+celerix::portmapping_constants::portmapping_constants (celerix::network_constants & network_constants)
 {
 	lease_duration = std::chrono::seconds (1787); // ~30 minutes
 	health_check_period = std::chrono::seconds (53);
@@ -283,7 +283,7 @@ nano::portmapping_constants::portmapping_constants (nano::network_constants & ne
  *
  */
 
-nano::bootstrap_constants::bootstrap_constants (nano::network_constants & network_constants)
+celerix::bootstrap_constants::bootstrap_constants (celerix::network_constants & network_constants)
 {
 	lazy_max_pull_blocks = network_constants.is_dev_network () ? 2 : 512;
 	lazy_min_pull_blocks = network_constants.is_dev_network () ? 1 : 32;
@@ -299,21 +299,21 @@ nano::bootstrap_constants::bootstrap_constants (nano::network_constants & networ
  */
 
 // Create a new random keypair
-nano::keypair::keypair ()
+celerix::keypair::keypair ()
 {
 	random_pool::generate_block (prv.bytes.data (), prv.bytes.size ());
 	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
 }
 
 // Create a keypair given a private key
-nano::keypair::keypair (nano::raw_key && prv_a) :
+celerix::keypair::keypair (celerix::raw_key && prv_a) :
 	prv (std::move (prv_a))
 {
 	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
 }
 
 // Create a keypair given a hex string of the private key
-nano::keypair::keypair (std::string const & prv_a)
+celerix::keypair::keypair (std::string const & prv_a)
 {
 	[[maybe_unused]] auto error (prv.decode_hex (prv_a));
 	debug_assert (!error);
@@ -324,28 +324,28 @@ nano::keypair::keypair (std::string const & prv_a)
  * unchecked_info
  */
 
-nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> const & block_a) :
+celerix::unchecked_info::unchecked_info (std::shared_ptr<celerix::block> const & block_a) :
 	block (block_a),
-	modified_m (nano::seconds_since_epoch ())
+	modified_m (celerix::seconds_since_epoch ())
 {
 }
 
-void nano::unchecked_info::serialize (nano::stream & stream_a) const
+void celerix::unchecked_info::serialize (celerix::stream & stream_a) const
 {
 	debug_assert (block != nullptr);
-	nano::serialize_block (stream_a, *block);
-	nano::write (stream_a, modified_m);
+	celerix::serialize_block (stream_a, *block);
+	celerix::write (stream_a, modified_m);
 }
 
-bool nano::unchecked_info::deserialize (nano::stream & stream_a)
+bool celerix::unchecked_info::deserialize (celerix::stream & stream_a)
 {
-	block = nano::deserialize_block (stream_a);
+	block = celerix::deserialize_block (stream_a);
 	bool error (block == nullptr);
 	if (!error)
 	{
 		try
 		{
-			nano::read (stream_a, modified_m);
+			celerix::read (stream_a, modified_m);
 		}
 		catch (std::runtime_error const &)
 		{
@@ -355,7 +355,7 @@ bool nano::unchecked_info::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-uint64_t nano::unchecked_info::modified () const
+uint64_t celerix::unchecked_info::modified () const
 {
 	return modified_m;
 }
@@ -364,28 +364,28 @@ uint64_t nano::unchecked_info::modified () const
  * endpoint_key
  */
 
-nano::endpoint_key::endpoint_key (std::array<uint8_t, 16> const & address_a, uint16_t port_a) :
+celerix::endpoint_key::endpoint_key (std::array<uint8_t, 16> const & address_a, uint16_t port_a) :
 	address (address_a),
 	network_port (boost::endian::native_to_big (port_a))
 {
 }
 
-nano::endpoint_key::endpoint_key (nano::endpoint const & endpoint_a) :
+celerix::endpoint_key::endpoint_key (celerix::endpoint const & endpoint_a) :
 	endpoint_key (endpoint_a.address ().to_v6 ().to_bytes (), endpoint_a.port ())
 {
 }
 
-std::array<uint8_t, 16> const & nano::endpoint_key::address_bytes () const
+std::array<uint8_t, 16> const & celerix::endpoint_key::address_bytes () const
 {
 	return address;
 }
 
-uint16_t nano::endpoint_key::port () const
+uint16_t celerix::endpoint_key::port () const
 {
 	return boost::endian::big_to_native (network_port);
 }
 
-nano::endpoint nano::endpoint_key::endpoint () const
+celerix::endpoint celerix::endpoint_key::endpoint () const
 {
 	return { boost::asio::ip::address_v6 (address), port () };
 }
@@ -394,25 +394,25 @@ nano::endpoint nano::endpoint_key::endpoint () const
  * confirmation_height_info
  */
 
-nano::confirmation_height_info::confirmation_height_info (uint64_t confirmation_height_a, nano::block_hash const & confirmed_frontier_a) :
+celerix::confirmation_height_info::confirmation_height_info (uint64_t confirmation_height_a, celerix::block_hash const & confirmed_frontier_a) :
 	height (confirmation_height_a),
 	frontier (confirmed_frontier_a)
 {
 }
 
-void nano::confirmation_height_info::serialize (nano::stream & stream_a) const
+void celerix::confirmation_height_info::serialize (celerix::stream & stream_a) const
 {
-	nano::write (stream_a, height);
-	nano::write (stream_a, frontier);
+	celerix::write (stream_a, height);
+	celerix::write (stream_a, frontier);
 }
 
-bool nano::confirmation_height_info::deserialize (nano::stream & stream_a)
+bool celerix::confirmation_height_info::deserialize (celerix::stream & stream_a)
 {
 	auto error (false);
 	try
 	{
-		nano::read (stream_a, height);
-		nano::read (stream_a, frontier);
+		celerix::read (stream_a, height);
+		celerix::read (stream_a, frontier);
 	}
 	catch (std::runtime_error const &)
 	{
@@ -421,16 +421,16 @@ bool nano::confirmation_height_info::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-nano::block_info::block_info (nano::account const & account_a, nano::amount const & balance_a) :
+celerix::block_info::block_info (celerix::account const & account_a, celerix::amount const & balance_a) :
 	account (account_a),
 	balance (balance_a)
 {
 }
 
-nano::wallet_id nano::random_wallet_id ()
+celerix::wallet_id celerix::random_wallet_id ()
 {
-	nano::wallet_id wallet_id;
-	nano::uint256_union dummy_secret;
+	celerix::wallet_id wallet_id;
+	celerix::uint256_union dummy_secret;
 	random_pool::generate_block (dummy_secret.bytes.data (), dummy_secret.bytes.size ());
 	ed25519_publickey (dummy_secret.bytes.data (), wallet_id.bytes.data ());
 	return wallet_id;
@@ -440,30 +440,30 @@ nano::wallet_id nano::random_wallet_id ()
  * unchecked_key
  */
 
-nano::unchecked_key::unchecked_key (nano::hash_or_account const & dependency) :
+celerix::unchecked_key::unchecked_key (celerix::hash_or_account const & dependency) :
 	unchecked_key{ dependency, 0 }
 {
 }
 
-nano::unchecked_key::unchecked_key (nano::hash_or_account const & previous_a, nano::block_hash const & hash_a) :
+celerix::unchecked_key::unchecked_key (celerix::hash_or_account const & previous_a, celerix::block_hash const & hash_a) :
 	previous (previous_a.as_block_hash ()),
 	hash (hash_a)
 {
 }
 
-nano::unchecked_key::unchecked_key (nano::uint512_union const & union_a) :
+celerix::unchecked_key::unchecked_key (celerix::uint512_union const & union_a) :
 	previous (union_a.uint256s[0].number ()),
 	hash (union_a.uint256s[1].number ())
 {
 }
 
-bool nano::unchecked_key::deserialize (nano::stream & stream_a)
+bool celerix::unchecked_key::deserialize (celerix::stream & stream_a)
 {
 	auto error (false);
 	try
 	{
-		nano::read (stream_a, previous.bytes);
-		nano::read (stream_a, hash.bytes);
+		celerix::read (stream_a, previous.bytes);
+		celerix::read (stream_a, hash.bytes);
 	}
 	catch (std::runtime_error const &)
 	{
@@ -473,17 +473,17 @@ bool nano::unchecked_key::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-bool nano::unchecked_key::operator== (nano::unchecked_key const & other_a) const
+bool celerix::unchecked_key::operator== (celerix::unchecked_key const & other_a) const
 {
 	return previous == other_a.previous && hash == other_a.hash;
 }
 
-bool nano::unchecked_key::operator< (nano::unchecked_key const & other_a) const
+bool celerix::unchecked_key::operator< (celerix::unchecked_key const & other_a) const
 {
 	return previous != other_a.previous ? previous < other_a.previous : hash < other_a.hash;
 }
 
-nano::block_hash const & nano::unchecked_key::key () const
+celerix::block_hash const & celerix::unchecked_key::key () const
 {
 	return previous;
 }
@@ -492,12 +492,12 @@ nano::block_hash const & nano::unchecked_key::key () const
  *
  */
 
-std::string_view nano::to_string (nano::block_status code)
+std::string_view celerix::to_string (celerix::block_status code)
 {
-	return nano::enum_util::name (code);
+	return celerix::enum_util::name (code);
 }
 
-nano::stat::detail nano::to_stat_detail (nano::block_status code)
+celerix::stat::detail celerix::to_stat_detail (celerix::block_status code)
 {
-	return nano::enum_util::cast<nano::stat::detail> (code);
+	return celerix::enum_util::cast<celerix::stat::detail> (code);
 }

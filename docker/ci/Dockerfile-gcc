@@ -1,5 +1,5 @@
-ARG ENV_REPOSITORY=nanocurrency/nano-env
+ARG ENV_REPOSITORY=celerixcurrency/celerix-env
 FROM ${ENV_REPOSITORY}:base
 
-ARG REPOSITORY=nanocurrency/nano-node
+ARG REPOSITORY=celerixcurrency/celerix-node
 LABEL org.opencontainers.image.source https://github.com/$REPOSITORY

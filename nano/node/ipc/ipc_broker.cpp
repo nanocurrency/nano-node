@@ -1,29 +1,29 @@
-#include <nano/node/election.hpp>
-#include <nano/node/ipc/action_handler.hpp>
-#include <nano/node/ipc/flatbuffers_handler.hpp>
-#include <nano/node/ipc/flatbuffers_util.hpp>
-#include <nano/node/ipc/ipc_broker.hpp>
-#include <nano/node/ipc/ipc_server.hpp>
-#include <nano/node/node.hpp>
+#include <celerix/node/election.hpp>
+#include <celerix/node/ipc/action_handler.hpp>
+#include <celerix/node/ipc/flatbuffers_handler.hpp>
+#include <celerix/node/ipc/flatbuffers_util.hpp>
+#include <celerix/node/ipc/ipc_broker.hpp>
+#include <celerix/node/ipc/ipc_server.hpp>
+#include <celerix/node/node.hpp>
 
-nano::ipc::broker::broker (nano::node & node_a) :
+celerix::ipc::broker::broker (celerix::node & node_a) :
 	node (node_a)
 {
 }
 
-std::shared_ptr<flatbuffers::Parser> nano::ipc::subscriber::get_parser (nano::ipc::ipc_config const & ipc_config_a)
+std::shared_ptr<flatbuffers::Parser> celerix::ipc::subscriber::get_parser (celerix::ipc::ipc_config const & ipc_config_a)
 {
 	if (!parser)
 	{
-		parser = nano::ipc::flatbuffers_handler::make_flatbuffers_parser (ipc_config_a);
+		parser = celerix::ipc::flatbuffers_handler::make_flatbuffers_parser (ipc_config_a);
 	}
 	return parser;
 }
 
-void nano::ipc::broker::start ()
+void celerix::ipc::broker::start ()
 {
-	node.observers.blocks.add ([this_l = shared_from_this ()] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
-		debug_assert (status_a.type != nano::election_status_type::ongoing);
+	node.observers.blocks.add ([this_l = shared_from_this ()] (celerix::election_status const & status_a, std::vector<celerix::vote_with_weight_info> const & votes_a, celerix::account const & account_a, celerix::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
+		debug_assert (status_a.type != celerix::election_status_type::ongoing);
 
 		try
 		{
@@ -31,28 +31,28 @@ void nano::ipc::broker::start ()
 			// is that broadcast is called only to not find any live sessions.
 			if (this_l->confirmation_subscriber_count () > 0)
 			{
-				auto confirmation (std::make_shared<nanoapi::EventConfirmationT> ());
+				auto confirmation (std::make_shared<celerixapi::EventConfirmationT> ());
 
 				confirmation->account = account_a.to_account ();
 				confirmation->amount = amount_a.to_string_dec ();
 				switch (status_a.type)
 				{
-					case nano::election_status_type::active_confirmed_quorum:
-						confirmation->confirmation_type = nanoapi::TopicConfirmationType::TopicConfirmationType_active_quorum;
+					case celerix::election_status_type::active_confirmed_quorum:
+						confirmation->confirmation_type = celerixapi::TopicConfirmationType::TopicConfirmationType_active_quorum;
 						break;
-					case nano::election_status_type::active_confirmation_height:
-						confirmation->confirmation_type = nanoapi::TopicConfirmationType::TopicConfirmationType_active_confirmation_height;
+					case celerix::election_status_type::active_confirmation_height:
+						confirmation->confirmation_type = celerixapi::TopicConfirmationType::TopicConfirmationType_active_confirmation_height;
 						break;
-					case nano::election_status_type::inactive_confirmation_height:
-						confirmation->confirmation_type = nanoapi::TopicConfirmationType::TopicConfirmationType_inactive;
+					case celerix::election_status_type::inactive_confirmation_height:
+						confirmation->confirmation_type = celerixapi::TopicConfirmationType::TopicConfirmationType_inactive;
 						break;
 					default:
 						debug_assert (false);
 						break;
 				};
-				confirmation->confirmation_type = nanoapi::TopicConfirmationType::TopicConfirmationType_active_quorum;
-				confirmation->block = nano::ipc::flatbuffers_builder::block_to_union (*status_a.winner, amount_a, is_state_send_a, is_state_epoch_a);
-				confirmation->election_info = std::make_unique<nanoapi::ElectionInfoT> ();
+				confirmation->confirmation_type = celerixapi::TopicConfirmationType::TopicConfirmationType_active_quorum;
+				confirmation->block = celerix::ipc::flatbuffers_builder::block_to_union (*status_a.winner, amount_a, is_state_send_a, is_state_epoch_a);
+				confirmation->election_info = std::make_unique<celerixapi::ElectionInfoT> ();
 				confirmation->election_info->duration = status_a.election_duration.count ();
 				confirmation->election_info->time = status_a.election_end.count ();
 				confirmation->election_info->tally = status_a.tally.to_string_dec ();
@@ -63,15 +63,15 @@ void nano::ipc::broker::start ()
 				this_l->broadcast (confirmation);
 			}
 		}
-		catch (nano::error const & err)
+		catch (celerix::error const & err)
 		{
-			this_l->node.logger.error (nano::log::type::ipc, "Could not broadcast message: {}", err.get_message ());
+			this_l->node.logger.error (celerix::log::type::ipc, "Could not broadcast message: {}", err.get_message ());
 		}
 	});
 }
 
 template <typename COLL, typename TOPIC_TYPE>
-void subscribe_or_unsubscribe (nano::logger & logger, COLL & subscriber_collection, std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, TOPIC_TYPE topic_a)
+void subscribe_or_unsubscribe (celerix::logger & logger, COLL & subscriber_collection, std::weak_ptr<celerix::ipc::subscriber> const & subscriber_a, TOPIC_TYPE topic_a)
 {
 	// Evict subscribers from dead sessions. Also remove current subscriber if unsubscribing.
 	subscriber_collection.erase (std::remove_if (subscriber_collection.begin (), subscriber_collection.end (),
@@ -85,7 +85,7 @@ void subscribe_or_unsubscribe (nano::logger & logger, COLL & subscriber_collecti
 											 remove = topic_a->unsubscribe && subscriber_l->get_id () == calling_subscriber_l->get_id ();
 											 if (remove)
 											 {
-												 logger.info (nano::log::type::ipc, "Subscriber ubsubscribed #{}", calling_subscriber_l->get_id ());
+												 logger.info (celerix::log::type::ipc, "Subscriber ubsubscribed #{}", calling_subscriber_l->get_id ());
 											 }
 										 }
 									 }
@@ -103,17 +103,17 @@ void subscribe_or_unsubscribe (nano::logger & logger, COLL & subscriber_collecti
 	}
 }
 
-void nano::ipc::broker::subscribe (std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, std::shared_ptr<nanoapi::TopicConfirmationT> const & confirmation_a)
+void celerix::ipc::broker::subscribe (std::weak_ptr<celerix::ipc::subscriber> const & subscriber_a, std::shared_ptr<celerixapi::TopicConfirmationT> const & confirmation_a)
 {
 	auto subscribers = confirmation_subscribers.lock ();
 	subscribe_or_unsubscribe (node.logger, subscribers.get (), subscriber_a, confirmation_a);
 }
 
-void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> const & confirmation_a)
+void celerix::ipc::broker::broadcast (std::shared_ptr<celerixapi::EventConfirmationT> const & confirmation_a)
 {
-	using Filter = nanoapi::TopicConfirmationTypeFilter;
+	using Filter = celerixapi::TopicConfirmationTypeFilter;
 	decltype (confirmation_a->election_info) election_info;
-	nanoapi::BlockUnion block;
+	celerixapi::BlockUnion block;
 	auto itr (confirmation_subscribers->begin ());
 	while (itr != confirmation_subscribers->end ())
 	{
@@ -128,11 +128,11 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 				bool inactive_filter = conf_filter == Filter::TopicConfirmationTypeFilter_inactive;
 				bool active_filter = conf_filter == Filter::TopicConfirmationTypeFilter_active || conf_filter == Filter::TopicConfirmationTypeFilter_active_quorum || conf_filter == Filter::TopicConfirmationTypeFilter_active_confirmation_height;
 
-				if ((confirmation_a->confirmation_type == nanoapi::TopicConfirmationType::TopicConfirmationType_active_quorum || confirmation_a->confirmation_type == nanoapi::TopicConfirmationType::TopicConfirmationType_active_confirmation_height) && (all_filter || active_filter))
+				if ((confirmation_a->confirmation_type == celerixapi::TopicConfirmationType::TopicConfirmationType_active_quorum || confirmation_a->confirmation_type == celerixapi::TopicConfirmationType::TopicConfirmationType_active_confirmation_height) && (all_filter || active_filter))
 				{
 					should_filter_conf_type_l = false;
 				}
-				else if (confirmation_a->confirmation_type == nanoapi::TopicConfirmationType::TopicConfirmationType_inactive && (all_filter || inactive_filter))
+				else if (confirmation_a->confirmation_type == celerixapi::TopicConfirmationType::TopicConfirmationType_inactive && (all_filter || inactive_filter))
 				{
 					should_filter_conf_type_l = false;
 				}
@@ -144,8 +144,8 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 					if (itr->topic->options->all_local_accounts)
 					{
 						auto transaction_l (this->node.wallets.tx_begin_read ());
-						nano::account source_l{};
-						nano::account destination_l{};
+						celerix::account source_l{};
+						celerix::account destination_l{};
 						auto decode_source_ok_l (!source_l.decode_account (state->account));
 						auto decode_destination_ok_l (!destination_l.decode_account (state->link_as_account));
 						(void)decode_source_ok_l;
@@ -182,9 +182,9 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 			}
 			if (!options || !should_filter ())
 			{
-				auto fb (nano::ipc::flatbuffer_producer::make_buffer (*confirmation_a));
+				auto fb (celerix::ipc::flatbuffer_producer::make_buffer (*confirmation_a));
 
-				if (subscriber_l->get_active_encoding () == nano::ipc::payload_encoding::flatbuffers_json)
+				if (subscriber_l->get_active_encoding () == celerix::ipc::payload_encoding::flatbuffers_json)
 				{
 					auto parser (subscriber_l->get_parser (node.config.ipc_config));
 
@@ -192,14 +192,14 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 					auto json (std::make_shared<std::string> ());
 					if (!flatbuffers::GenerateText (*parser, fb->GetBufferPointer (), json.get ()))
 					{
-						throw nano::error ("Couldn't serialize response to JSON");
+						throw celerix::error ("Couldn't serialize response to JSON");
 					}
 
-					subscriber_l->async_send_message (reinterpret_cast<uint8_t const *> (json->data ()), json->size (), [json] (nano::error const & err) {});
+					subscriber_l->async_send_message (reinterpret_cast<uint8_t const *> (json->data ()), json->size (), [json] (celerix::error const & err) {});
 				}
 				else
 				{
-					subscriber_l->async_send_message (fb->GetBufferPointer (), fb->GetSize (), [fb] (nano::error const & err) {});
+					subscriber_l->async_send_message (fb->GetBufferPointer (), fb->GetSize (), [fb] (celerix::error const & err) {});
 				}
 			}
 
@@ -208,7 +208,7 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 			{
 				confirmation_a->election_info = std::move (election_info);
 			}
-			if (block.type != nanoapi::Block::Block_NONE)
+			if (block.type != celerixapi::Block::Block_NONE)
 			{
 				confirmation_a->block = block;
 			}
@@ -222,12 +222,12 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 	}
 }
 
-std::size_t nano::ipc::broker::confirmation_subscriber_count () const
+std::size_t celerix::ipc::broker::confirmation_subscriber_count () const
 {
 	return confirmation_subscribers->size ();
 }
 
-void nano::ipc::broker::service_register (std::string const & service_name_a, std::weak_ptr<nano::ipc::subscriber> const & subscriber_a)
+void celerix::ipc::broker::service_register (std::string const & service_name_a, std::weak_ptr<celerix::ipc::subscriber> const & subscriber_a)
 {
 	if (auto subscriber_l = subscriber_a.lock ())
 	{
@@ -235,7 +235,7 @@ void nano::ipc::broker::service_register (std::string const & service_name_a, st
 	}
 }
 
-void nano::ipc::broker::service_stop (std::string const & service_name_a)
+void celerix::ipc::broker::service_stop (std::string const & service_name_a)
 {
 	auto subscribers = service_stop_subscribers.lock ();
 	for (auto & subcription : subscribers.get ())
@@ -244,9 +244,9 @@ void nano::ipc::broker::service_stop (std::string const & service_name_a)
 		{
 			if (subscriber_l->get_service_name () == service_name_a)
 			{
-				nanoapi::EventServiceStopT event_stop;
-				auto fb (nano::ipc::flatbuffer_producer::make_buffer (event_stop));
-				subscriber_l->async_send_message (fb->GetBufferPointer (), fb->GetSize (), [fb] (nano::error const & err) {});
+				celerixapi::EventServiceStopT event_stop;
+				auto fb (celerix::ipc::flatbuffer_producer::make_buffer (event_stop));
+				subscriber_l->async_send_message (fb->GetBufferPointer (), fb->GetSize (), [fb] (celerix::error const & err) {});
 
 				break;
 			}
@@ -254,7 +254,7 @@ void nano::ipc::broker::service_stop (std::string const & service_name_a)
 	}
 }
 
-void nano::ipc::broker::subscribe (std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, std::shared_ptr<nanoapi::TopicServiceStopT> const & service_stop_a)
+void celerix::ipc::broker::subscribe (std::weak_ptr<celerix::ipc::subscriber> const & subscriber_a, std::shared_ptr<celerixapi::TopicServiceStopT> const & service_stop_a)
 {
 	auto subscribers = service_stop_subscribers.lock ();
 	subscribe_or_unsubscribe (node.logger, subscribers.get (), subscriber_a, service_stop_a);

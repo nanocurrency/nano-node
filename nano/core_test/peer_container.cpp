@@ -1,8 +1,8 @@
-#include <nano/node/transport/tcp_server.hpp>
-#include <nano/node/transport/tcp_socket.hpp>
-#include <nano/test_common/network.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/node/transport/tcp_server.hpp>
+#include <celerix/node/transport/tcp_socket.hpp>
+#include <celerix/test_common/network.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -12,8 +12,8 @@ using namespace std::chrono_literals;
 
 TEST (peer_container, empty_peers)
 {
-	nano::test::system system (1);
-	nano::network & network (system.nodes[0]->network);
+	celerix::test::system system (1);
+	celerix::network & network (system.nodes[0]->network);
 	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now ());
 	ASSERT_EQ (0, network.size ());
 }
@@ -21,47 +21,47 @@ TEST (peer_container, empty_peers)
 // Test a node cannot connect to its own endpoint.
 TEST (peer_container, no_self_incoming)
 {
-	nano::test::system system{ 1 };
+	celerix::test::system system{ 1 };
 	auto & node = *system.nodes[0];
 	node.network.tcp_channels.start_tcp (node.network.endpoint ());
 	auto error = system.poll_until_true (2s, [&node] {
-		auto result = node.network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node.network.endpoint ()));
+		auto result = node.network.tcp_channels.find_channel (celerix::transport::map_endpoint_to_tcp (node.network.endpoint ()));
 		return result != nullptr;
 	});
 	ASSERT_TRUE (error);
 	ASSERT_TRUE (system.nodes[0]->network.empty ());
 }
 
-// Tests the function network not_a_peer function used by the nano::transport::tcp_channels.insert ()
+// Tests the function network not_a_peer function used by the celerix::transport::tcp_channels.insert ()
 TEST (peer_container, reserved_ip_is_not_a_peer)
 {
-	nano::test::system system{ 1 };
-	auto not_a_peer = [&node = system.nodes[0]] (nano::endpoint endpoint_a) -> bool {
+	celerix::test::system system{ 1 };
+	auto not_a_peer = [&node = system.nodes[0]] (celerix::endpoint endpoint_a) -> bool {
 		return node->network.not_a_peer (endpoint_a, true);
 	};
 
 	// The return value as true means an error because the IP address is for reserved use
-	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0x00000001)), 10000))));
-	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xc0000201)), 10000))));
-	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xc6336401)), 10000))));
-	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xcb007101)), 10000))));
-	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xe9fc0001)), 10000))));
-	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xf0000001)), 10000))));
-	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xffffffff)), 10000))));
+	ASSERT_TRUE (not_a_peer (celerix::transport::map_endpoint_to_v6 (celerix::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0x00000001)), 10000))));
+	ASSERT_TRUE (not_a_peer (celerix::transport::map_endpoint_to_v6 (celerix::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xc0000201)), 10000))));
+	ASSERT_TRUE (not_a_peer (celerix::transport::map_endpoint_to_v6 (celerix::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xc6336401)), 10000))));
+	ASSERT_TRUE (not_a_peer (celerix::transport::map_endpoint_to_v6 (celerix::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xcb007101)), 10000))));
+	ASSERT_TRUE (not_a_peer (celerix::transport::map_endpoint_to_v6 (celerix::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xe9fc0001)), 10000))));
+	ASSERT_TRUE (not_a_peer (celerix::transport::map_endpoint_to_v6 (celerix::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xf0000001)), 10000))));
+	ASSERT_TRUE (not_a_peer (celerix::transport::map_endpoint_to_v6 (celerix::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xffffffff)), 10000))));
 
 	// Test with a valid IP address
-	ASSERT_FALSE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0x08080808)), 10000))));
+	ASSERT_FALSE (not_a_peer (celerix::transport::map_endpoint_to_v6 (celerix::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0x08080808)), 10000))));
 }
 
 // Test the TCP channel cleanup function works properly. It is used to remove peers that are not
 // exchanging messages after a while.
 TEST (peer_container, DISABLED_tcp_channel_cleanup_works)
 {
-	nano::test::system system;
-	nano::node_config node_config = system.default_config ();
+	celerix::test::system system;
+	celerix::node_config node_config = system.default_config ();
 	// Set the keepalive period to avoid background messages affecting the last_packet_set time
 	node_config.network_params.network.keepalive_period = std::chrono::minutes (10);
-	nano::node_flags node_flags;
+	celerix::node_flags node_flags;
 	// Want to test the cleanup function
 	node_flags.disable_connection_cleanup = true;
 	// Disable the confirm_req messages avoiding them to affect the last_packet_set time
@@ -70,17 +70,17 @@ TEST (peer_container, DISABLED_tcp_channel_cleanup_works)
 
 	auto config1 = node_config;
 	config1.network_params.network.keepalive_period = std::chrono::minutes (10);
-	auto outer_node1 = nano::test::add_outer_node (system, config1, node_flags);
+	auto outer_node1 = celerix::test::add_outer_node (system, config1, node_flags);
 	auto config2 = config1;
 	config2.network_params.network.keepalive_period = std::chrono::minutes (10);
-	auto outer_node2 = nano::test::add_outer_node (system, config2, node_flags);
+	auto outer_node2 = celerix::test::add_outer_node (system, config2, node_flags);
 	auto now = std::chrono::steady_clock::now ();
-	auto channel1 = nano::test::establish_tcp (system, node1, outer_node1->network.endpoint ());
+	auto channel1 = celerix::test::establish_tcp (system, node1, outer_node1->network.endpoint ());
 	ASSERT_NE (nullptr, channel1);
 	// set the last packet sent for channel1 only to guarantee it contains a value.
 	// it won't be necessarily the same use by the cleanup cutoff time
 	channel1->set_last_packet_sent (now - std::chrono::seconds (5));
-	auto channel2 = nano::test::establish_tcp (system, node1, outer_node2->network.endpoint ());
+	auto channel2 = celerix::test::establish_tcp (system, node1, outer_node2->network.endpoint ());
 	ASSERT_NE (nullptr, channel2);
 	// set the last packet sent for channel2 only to guarantee it contains a value.
 	// it won't be necessarily the same use by the cleanup cutoff time
@@ -114,36 +114,36 @@ TEST (peer_container, DISABLED_tcp_channel_cleanup_works)
 
 TEST (channels, fill_random_clear)
 {
-	nano::test::system system (1);
-	std::array<nano::endpoint, 8> target;
-	std::fill (target.begin (), target.end (), nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
+	celerix::test::system system (1);
+	std::array<celerix::endpoint, 8> target;
+	std::fill (target.begin (), target.end (), celerix::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
 	system.nodes[0]->network.random_fill (target);
-	ASSERT_TRUE (std::all_of (target.begin (), target.end (), [] (nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::any (), 0); }));
+	ASSERT_TRUE (std::all_of (target.begin (), target.end (), [] (celerix::endpoint const & endpoint_a) { return endpoint_a == celerix::endpoint (boost::asio::ip::address_v6::any (), 0); }));
 }
 
 // Test all targets get replaced by random_fill
 TEST (channels, fill_random_full)
 {
-	nano::test::system system{ 1 };
+	celerix::test::system system{ 1 };
 
 	// create 8 peer nodes so that the random_fill is completely filled with real connection data
 	for (int i = 0; i < 8; ++i)
 	{
-		auto outer_node = nano::test::add_outer_node (system);
-		ASSERT_NE (nullptr, nano::test::establish_tcp (system, *system.nodes[0], outer_node->network.endpoint ()));
+		auto outer_node = celerix::test::add_outer_node (system);
+		ASSERT_NE (nullptr, celerix::test::establish_tcp (system, *system.nodes[0], outer_node->network.endpoint ()));
 	}
 	ASSERT_TIMELY_EQ (5s, 8, system.nodes[0]->network.tcp_channels.size ());
 
 	// create an array of 8 endpoints with a known filler value
-	auto filler_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000);
-	std::array<nano::endpoint, 8> target;
+	auto filler_endpoint = celerix::endpoint (boost::asio::ip::address_v6::loopback (), 10000);
+	std::array<celerix::endpoint, 8> target;
 	std::fill (target.begin (), target.end (), filler_endpoint);
 
 	// random fill target array with endpoints taken from the network connections
 	system.nodes[0]->network.random_fill (target);
 
 	// check that all element in target got overwritten
-	auto is_filler = [&filler_endpoint] (nano::endpoint const & endpoint_a) {
+	auto is_filler = [&filler_endpoint] (celerix::endpoint const & endpoint_a) {
 		return endpoint_a == filler_endpoint;
 	};
 	ASSERT_TRUE (std::none_of (target.begin (), target.end (), is_filler));
@@ -152,26 +152,26 @@ TEST (channels, fill_random_full)
 // Test only the known channels are filled
 TEST (channels, fill_random_part)
 {
-	nano::test::system system{ 1 };
-	std::array<nano::endpoint, 8> target;
+	celerix::test::system system{ 1 };
+	std::array<celerix::endpoint, 8> target;
 	std::size_t half = target.size () / 2;
 	for (std::size_t i = 0; i < half; ++i)
 	{
-		auto outer_node = nano::test::add_outer_node (system);
-		ASSERT_NE (nullptr, nano::test::establish_tcp (system, *system.nodes[0], outer_node->network.endpoint ()));
+		auto outer_node = celerix::test::add_outer_node (system);
+		ASSERT_NE (nullptr, celerix::test::establish_tcp (system, *system.nodes[0], outer_node->network.endpoint ()));
 	}
 	ASSERT_EQ (half, system.nodes[0]->network.tcp_channels.size ());
-	std::fill (target.begin (), target.end (), nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
+	std::fill (target.begin (), target.end (), celerix::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
 	system.nodes[0]->network.random_fill (target);
-	ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [] (nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000); }));
-	ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [] (nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::loopback (), 0); }));
-	ASSERT_TRUE (std::all_of (target.begin () + half, target.end (), [] (nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::any (), 0); }));
+	ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [] (celerix::endpoint const & endpoint_a) { return endpoint_a == celerix::endpoint (boost::asio::ip::address_v6::loopback (), 10000); }));
+	ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [] (celerix::endpoint const & endpoint_a) { return endpoint_a == celerix::endpoint (boost::asio::ip::address_v6::loopback (), 0); }));
+	ASSERT_TRUE (std::all_of (target.begin () + half, target.end (), [] (celerix::endpoint const & endpoint_a) { return endpoint_a == celerix::endpoint (boost::asio::ip::address_v6::any (), 0); }));
 }
 
 // TODO: remove node instantiation requirement for testing with bigger network size
 TEST (peer_container, list_fanout)
 {
-	nano::test::system system{ 1 };
+	celerix::test::system system{ 1 };
 	auto node = system.nodes[0];
 	ASSERT_EQ (0, node->network.size ());
 	ASSERT_EQ (0.0, node->network.size_sqrt ());
@@ -179,8 +179,8 @@ TEST (peer_container, list_fanout)
 	ASSERT_TRUE (node->network.list (node->network.fanout ()).empty ());
 
 	auto add_peer = [&node, &system] () {
-		auto outer_node = nano::test::add_outer_node (system);
-		auto channel = nano::test::establish_tcp (system, *node, outer_node->network.endpoint ());
+		auto outer_node = celerix::test::add_outer_node (system);
+		auto channel = celerix::test::establish_tcp (system, *node, outer_node->network.endpoint ());
 	};
 
 	add_peer ();
@@ -210,21 +210,21 @@ TEST (peer_container, list_fanout)
 // Test to make sure we don't repeatedly send keepalive messages to nodes that aren't responding
 TEST (peer_container, reachout)
 {
-	nano::test::system system;
-	nano::node_config node_config = system.default_config ();
+	celerix::test::system system;
+	celerix::node_config node_config = system.default_config ();
 	// Disable automatic reachout
 	node_config.network.cached_peer_reachout = 0s;
 	node_config.network.peer_reachout = 0s;
-	nano::node_flags node_flags;
+	celerix::node_flags node_flags;
 	auto & node1 = *system.add_node (node_flags);
-	auto outer_node1 = nano::test::add_outer_node (system);
-	ASSERT_NE (nullptr, nano::test::establish_tcp (system, node1, outer_node1->network.endpoint ()));
+	auto outer_node1 = celerix::test::add_outer_node (system);
+	ASSERT_NE (nullptr, celerix::test::establish_tcp (system, node1, outer_node1->network.endpoint ()));
 	// Make sure having been contacted by them already indicates we shouldn't reach out
 	ASSERT_FALSE (node1.network.track_reachout (outer_node1->network.endpoint ()));
-	auto outer_node2 = nano::test::add_outer_node (system);
+	auto outer_node2 = celerix::test::add_outer_node (system);
 	auto outer_node2_endpoint = outer_node2->network.endpoint ();
 	ASSERT_TRUE (node1.network.track_reachout (outer_node2->network.endpoint ()));
-	ASSERT_NE (nullptr, nano::test::establish_tcp (system, node1, outer_node2->network.endpoint ()));
+	ASSERT_NE (nullptr, celerix::test::establish_tcp (system, node1, outer_node2->network.endpoint ()));
 	// Reaching out to them once should signal we shouldn't reach out again.
 	ASSERT_FALSE (node1.network.track_reachout (outer_node2->network.endpoint ()));
 	// Make sure we don't purge new items
@@ -243,7 +243,7 @@ TEST (peer_container, reachout)
 // is from an outdated node version.
 TEST (peer_container, depeer_on_outdated_version)
 {
-	nano::test::system system{ 2 };
+	celerix::test::system system{ 2 };
 	auto & node1 = *system.nodes[0];
 	auto & node2 = *system.nodes[1];
 
@@ -252,10 +252,10 @@ TEST (peer_container, depeer_on_outdated_version)
 	ASSERT_NE (nullptr, channel);
 
 	// send a keepalive, from node2 to node1, with the wrong version_using
-	nano::keepalive keepalive{ nano::dev::network_params.network };
-	const_cast<uint8_t &> (keepalive.header.version_using) = nano::dev::network_params.network.protocol_version_min - 1;
+	celerix::keepalive keepalive{ celerix::dev::network_params.network };
+	const_cast<uint8_t &> (keepalive.header.version_using) = celerix::dev::network_params.network.protocol_version_min - 1;
 	ASSERT_TIMELY (5s, channel->alive ());
-	channel->send (keepalive, nano::transport::traffic_type::test);
+	channel->send (keepalive, celerix::transport::traffic_type::test);
 
 	ASSERT_TIMELY (5s, !channel->alive ());
 }

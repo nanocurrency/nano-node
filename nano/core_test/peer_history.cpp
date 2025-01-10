@@ -1,12 +1,12 @@
-#include <nano/node/peer_history.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/node/peer_history.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
 TEST (peer_history, store_live)
 {
-	nano::test::system system;
+	celerix::test::system system;
 
 	auto & node1 = *system.add_node ();
 	auto & node2 = *system.add_node ();
@@ -24,7 +24,7 @@ TEST (peer_history, store_live)
 
 TEST (peer_history, erase_old)
 {
-	nano::test::system system;
+	celerix::test::system system;
 
 	auto node_config = system.default_config ();
 	node_config.peer_history.erase_cutoff = 1s;

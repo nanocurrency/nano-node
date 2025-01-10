@@ -17,11 +17,11 @@ if [[ "${RELEASE:-false}" == "true" ]]; then
 fi
 
 if [[ ${ASAN_INT:-0} -eq 1 ]]; then
-    SANITIZERS="-DNANO_ASAN_INT=ON"
+    SANITIZERS="-DCELERIX_ASAN_INT=ON"
 elif [[ ${ASAN:-0} -eq 1 ]]; then
-    SANITIZERS="-DNANO_ASAN=ON"
+    SANITIZERS="-DCELERIX_ASAN=ON"
 elif [[ ${TSAN:-0} -eq 1 ]]; then
-    SANITIZERS="-DNANO_TSAN=ON"
+    SANITIZERS="-DCELERIX_TSAN=ON"
 elif [[ ${LCOV:-0} -eq 1 ]]; then
     SANITIZERS="-DCOVERAGE=ON"
 fi
@@ -30,10 +30,10 @@ ulimit -S -n 8192
 
 if [[ "$OS" == 'Linux' ]]; then
     if clang --version && [ ${LCOV:-0} == 0 ]; then
-        BACKTRACE="-DNANO_STACKTRACE_BACKTRACE=ON \
-        -DNANO_BACKTRACE_INCLUDE=</tmp/backtrace.h>"
+        BACKTRACE="-DCELERIX_STACKTRACE_BACKTRACE=ON \
+        -DCELERIX_BACKTRACE_INCLUDE=</tmp/backtrace.h>"
     else
-        BACKTRACE="-DNANO_STACKTRACE_BACKTRACE=ON"
+        BACKTRACE="-DCELERIX_STACKTRACE_BACKTRACE=ON"
     fi
 else
     BACKTRACE=""
@@ -41,11 +41,11 @@ fi
 
 cmake \
 -G'Unix Makefiles' \
--DACTIVE_NETWORK=nano_dev_network \
--DNANO_TEST=ON \
--DNANO_GUI=ON \
+-DACTIVE_NETWORK=celerix_dev_network \
+-DCELERIX_TEST=ON \
+-DCELERIX_GUI=ON \
 -DPORTABLE=1 \
--DNANO_WARN_TO_ERR=ON \
+-DCELERIX_WARN_TO_ERR=ON \
 -DCMAKE_BUILD_TYPE=${BUILD_TYPE:-Debug} \
 -DQt5_DIR=${qt_dir} \
 ${SANITIZERS:-} \

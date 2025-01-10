@@ -1,10 +1,10 @@
 #pragma once
 
-#include <nano/boost/asio/deadline_timer.hpp>
+#include <celerix/boost/asio/deadline_timer.hpp>
 
 #include <string>
 
-namespace nano
+namespace celerix
 {
 namespace ipc
 {

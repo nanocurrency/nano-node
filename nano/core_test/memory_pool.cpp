@@ -1,8 +1,8 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/memory.hpp>
-#include <nano/node/active_elections.hpp>
-#include <nano/secure/common.hpp>
-#include <nano/secure/vote.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/memory.hpp>
+#include <celerix/node/active_elections.hpp>
+#include <celerix/secure/common.hpp>
+#include <celerix/secure/vote.hpp>
 
 #include <gtest/gtest.h>
 
@@ -61,31 +61,31 @@ size_t get_allocated_size ()
 TEST (memory_pool, validate_cleanup)
 {
 	// This might be turned off, e.g on Mac for instance, so don't do this test
-	if (!nano::get_use_memory_pools ())
+	if (!celerix::get_use_memory_pools ())
 	{
 		return;
 	}
 
-	nano::make_shared<nano::open_block> ();
-	nano::make_shared<nano::receive_block> ();
-	nano::make_shared<nano::send_block> ();
-	nano::make_shared<nano::change_block> ();
-	nano::make_shared<nano::state_block> ();
-	nano::make_shared<nano::vote> ();
+	celerix::make_shared<celerix::open_block> ();
+	celerix::make_shared<celerix::receive_block> ();
+	celerix::make_shared<celerix::send_block> ();
+	celerix::make_shared<celerix::change_block> ();
+	celerix::make_shared<celerix::state_block> ();
+	celerix::make_shared<celerix::vote> ();
 
-	ASSERT_TRUE (nano::purge_shared_ptr_singleton_pool_memory<nano::open_block> ());
-	ASSERT_TRUE (nano::purge_shared_ptr_singleton_pool_memory<nano::receive_block> ());
-	ASSERT_TRUE (nano::purge_shared_ptr_singleton_pool_memory<nano::send_block> ());
-	ASSERT_TRUE (nano::purge_shared_ptr_singleton_pool_memory<nano::state_block> ());
-	ASSERT_TRUE (nano::purge_shared_ptr_singleton_pool_memory<nano::vote> ());
+	ASSERT_TRUE (celerix::purge_shared_ptr_singleton_pool_memory<celerix::open_block> ());
+	ASSERT_TRUE (celerix::purge_shared_ptr_singleton_pool_memory<celerix::receive_block> ());
+	ASSERT_TRUE (celerix::purge_shared_ptr_singleton_pool_memory<celerix::send_block> ());
+	ASSERT_TRUE (celerix::purge_shared_ptr_singleton_pool_memory<celerix::state_block> ());
+	ASSERT_TRUE (celerix::purge_shared_ptr_singleton_pool_memory<celerix::vote> ());
 
 	// Change blocks have the same size as open_block so won't deallocate any memory
-	ASSERT_FALSE (nano::purge_shared_ptr_singleton_pool_memory<nano::change_block> ());
+	ASSERT_FALSE (celerix::purge_shared_ptr_singleton_pool_memory<celerix::change_block> ());
 
-	ASSERT_EQ (nano::determine_shared_ptr_pool_size<nano::open_block> (), get_allocated_size<nano::open_block> () - sizeof (size_t));
-	ASSERT_EQ (nano::determine_shared_ptr_pool_size<nano::receive_block> (), get_allocated_size<nano::receive_block> () - sizeof (size_t));
-	ASSERT_EQ (nano::determine_shared_ptr_pool_size<nano::send_block> (), get_allocated_size<nano::send_block> () - sizeof (size_t));
-	ASSERT_EQ (nano::determine_shared_ptr_pool_size<nano::change_block> (), get_allocated_size<nano::change_block> () - sizeof (size_t));
-	ASSERT_EQ (nano::determine_shared_ptr_pool_size<nano::state_block> (), get_allocated_size<nano::state_block> () - sizeof (size_t));
-	ASSERT_EQ (nano::determine_shared_ptr_pool_size<nano::vote> (), get_allocated_size<nano::vote> () - sizeof (size_t));
+	ASSERT_EQ (celerix::determine_shared_ptr_pool_size<celerix::open_block> (), get_allocated_size<celerix::open_block> () - sizeof (size_t));
+	ASSERT_EQ (celerix::determine_shared_ptr_pool_size<celerix::receive_block> (), get_allocated_size<celerix::receive_block> () - sizeof (size_t));
+	ASSERT_EQ (celerix::determine_shared_ptr_pool_size<celerix::send_block> (), get_allocated_size<celerix::send_block> () - sizeof (size_t));
+	ASSERT_EQ (celerix::determine_shared_ptr_pool_size<celerix::change_block> (), get_allocated_size<celerix::change_block> () - sizeof (size_t));
+	ASSERT_EQ (celerix::determine_shared_ptr_pool_size<celerix::state_block> (), get_allocated_size<celerix::state_block> () - sizeof (size_t));
+	ASSERT_EQ (celerix::determine_shared_ptr_pool_size<celerix::vote> (), get_allocated_size<celerix::vote> () - sizeof (size_t));
 }

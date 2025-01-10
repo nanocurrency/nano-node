@@ -1,10 +1,10 @@
-#include <nano/lib/block_uniquer.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/stream.hpp>
-#include <nano/lib/work_version.hpp>
-#include <nano/node/endpoint.hpp>
-#include <nano/node/messages.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/lib/block_uniquer.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/stream.hpp>
+#include <celerix/lib/work_version.hpp>
+#include <celerix/node/endpoint.hpp>
+#include <celerix/node/messages.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -16,10 +16,10 @@
 
 TEST (ed25519, signing)
 {
-	nano::raw_key prv (0);
-	auto pub (nano::pub_key (prv));
-	nano::uint256_union message (0);
-	nano::signature signature;
+	celerix::raw_key prv (0);
+	auto pub (celerix::pub_key (prv));
+	celerix::uint256_union message (0);
+	celerix::signature signature;
 	ed25519_sign (message.bytes.data (), sizeof (message.bytes), prv.bytes.data (), pub.bytes.data (), signature.bytes.data ());
 	auto valid1 (ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), pub.bytes.data (), signature.bytes.data ()));
 	ASSERT_EQ (0, valid1);
@@ -30,8 +30,8 @@ TEST (ed25519, signing)
 
 TEST (transaction_block, empty)
 {
-	nano::keypair key1;
-	nano::block_builder builder;
+	celerix::keypair key1;
+	celerix::block_builder builder;
 	auto block = builder
 				 .send ()
 				 .previous (0)
@@ -41,47 +41,47 @@ TEST (transaction_block, empty)
 				 .work (2)
 				 .build ();
 	auto hash (block->hash ());
-	ASSERT_FALSE (nano::validate_message (key1.pub, hash, block->signature));
+	ASSERT_FALSE (celerix::validate_message (key1.pub, hash, block->signature));
 	block->signature.bytes[32] ^= 0x1;
-	ASSERT_TRUE (nano::validate_message (key1.pub, hash, block->signature));
+	ASSERT_TRUE (celerix::validate_message (key1.pub, hash, block->signature));
 }
 
 TEST (block, send_serialize)
 {
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block1 = builder
 				  .send ()
 				  .previous (0)
 				  .destination (1)
 				  .balance (2)
-				  .sign (nano::keypair ().prv, 4)
+				  .sign (celerix::keypair ().prv, 4)
 				  .work (5)
 				  .build ();
 	std::vector<uint8_t> bytes;
 	{
-		nano::vectorstream stream1 (bytes);
+		celerix::vectorstream stream1 (bytes);
 		block1->serialize (stream1);
 	}
 	auto data (bytes.data ());
 	auto size (bytes.size ());
 	ASSERT_NE (nullptr, data);
 	ASSERT_NE (0, size);
-	nano::bufferstream stream2 (data, size);
+	celerix::bufferstream stream2 (data, size);
 	bool error (false);
-	nano::send_block block2 (error, stream2);
+	celerix::send_block block2 (error, stream2);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (*block1, block2);
 }
 
 TEST (block, send_serialize_json)
 {
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block1 = builder
 				  .send ()
 				  .previous (0)
 				  .destination (1)
 				  .balance (2)
-				  .sign (nano::keypair ().prv, 4)
+				  .sign (celerix::keypair ().prv, 4)
 				  .work (5)
 				  .build ();
 	std::string string1;
@@ -91,42 +91,42 @@ TEST (block, send_serialize_json)
 	std::stringstream istream (string1);
 	boost::property_tree::read_json (istream, tree1);
 	bool error (false);
-	nano::send_block block2 (error, tree1);
+	celerix::send_block block2 (error, tree1);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (*block1, block2);
 }
 
 TEST (block, receive_serialize)
 {
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block1 = builder
 				  .receive ()
 				  .previous (0)
 				  .source (1)
-				  .sign (nano::keypair ().prv, 3)
+				  .sign (celerix::keypair ().prv, 3)
 				  .work (4)
 				  .build ();
-	nano::keypair key1;
+	celerix::keypair key1;
 	std::vector<uint8_t> bytes;
 	{
-		nano::vectorstream stream1 (bytes);
+		celerix::vectorstream stream1 (bytes);
 		block1->serialize (stream1);
 	}
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	celerix::bufferstream stream2 (bytes.data (), bytes.size ());
 	bool error (false);
-	nano::receive_block block2 (error, stream2);
+	celerix::receive_block block2 (error, stream2);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (*block1, block2);
 }
 
 TEST (block, receive_serialize_json)
 {
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block1 = builder
 				  .receive ()
 				  .previous (0)
 				  .source (1)
-				  .sign (nano::keypair ().prv, 3)
+				  .sign (celerix::keypair ().prv, 3)
 				  .work (4)
 				  .build ();
 	std::string string1;
@@ -136,20 +136,20 @@ TEST (block, receive_serialize_json)
 	std::stringstream istream (string1);
 	boost::property_tree::read_json (istream, tree1);
 	bool error (false);
-	nano::receive_block block2 (error, tree1);
+	celerix::receive_block block2 (error, tree1);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (*block1, block2);
 }
 
 TEST (block, open_serialize_json)
 {
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block1 = builder
 				  .open ()
 				  .source (0)
 				  .representative (1)
 				  .account (0)
-				  .sign (nano::keypair ().prv, 0)
+				  .sign (celerix::keypair ().prv, 0)
 				  .work (0)
 				  .build ();
 	std::string string1;
@@ -159,19 +159,19 @@ TEST (block, open_serialize_json)
 	std::stringstream istream (string1);
 	boost::property_tree::read_json (istream, tree1);
 	bool error (false);
-	nano::open_block block2 (error, tree1);
+	celerix::open_block block2 (error, tree1);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (*block1, block2);
 }
 
 TEST (block, change_serialize_json)
 {
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block1 = builder
 				  .change ()
 				  .previous (0)
 				  .representative (1)
-				  .sign (nano::keypair ().prv, 3)
+				  .sign (celerix::keypair ().prv, 3)
 				  .work (4)
 				  .build ();
 	std::string string1;
@@ -181,17 +181,17 @@ TEST (block, change_serialize_json)
 	std::stringstream istream (string1);
 	boost::property_tree::read_json (istream, tree1);
 	bool error (false);
-	nano::change_block block2 (error, tree1);
+	celerix::change_block block2 (error, tree1);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (*block1, block2);
 }
 
 TEST (uint512_union, parse_zero)
 {
-	nano::uint512_union input (nano::uint512_t (0));
+	celerix::uint512_union input (celerix::uint512_t (0));
 	std::string text;
 	input.encode_hex (text);
-	nano::uint512_union output;
+	celerix::uint512_union output;
 	auto error (output.decode_hex (text));
 	ASSERT_FALSE (error);
 	ASSERT_EQ (input, output);
@@ -201,7 +201,7 @@ TEST (uint512_union, parse_zero)
 TEST (uint512_union, parse_zero_short)
 {
 	std::string text ("0");
-	nano::uint512_union output;
+	celerix::uint512_union output;
 	auto error (output.decode_hex (text));
 	ASSERT_FALSE (error);
 	ASSERT_TRUE (output.number ().is_zero ());
@@ -209,10 +209,10 @@ TEST (uint512_union, parse_zero_short)
 
 TEST (uint512_union, parse_one)
 {
-	nano::uint512_union input (nano::uint512_t (1));
+	celerix::uint512_union input (celerix::uint512_t (1));
 	std::string text;
 	input.encode_hex (text);
-	nano::uint512_union output;
+	celerix::uint512_union output;
 	auto error (output.decode_hex (text));
 	ASSERT_FALSE (error);
 	ASSERT_EQ (input, output);
@@ -221,71 +221,71 @@ TEST (uint512_union, parse_one)
 
 TEST (uint512_union, parse_error_symbol)
 {
-	nano::uint512_union input (nano::uint512_t (1000));
+	celerix::uint512_union input (celerix::uint512_t (1000));
 	std::string text;
 	input.encode_hex (text);
 	text[5] = '!';
-	nano::uint512_union output;
+	celerix::uint512_union output;
 	auto error (output.decode_hex (text));
 	ASSERT_TRUE (error);
 }
 
 TEST (uint512_union, max)
 {
-	nano::uint512_union input (std::numeric_limits<nano::uint512_t>::max ());
+	celerix::uint512_union input (std::numeric_limits<celerix::uint512_t>::max ());
 	std::string text;
 	input.encode_hex (text);
-	nano::uint512_union output;
+	celerix::uint512_union output;
 	auto error (output.decode_hex (text));
 	ASSERT_FALSE (error);
 	ASSERT_EQ (input, output);
-	ASSERT_EQ (nano::uint512_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
+	ASSERT_EQ (celerix::uint512_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
 }
 
 TEST (uint512_union, parse_error_overflow)
 {
-	nano::uint512_union input (std::numeric_limits<nano::uint512_t>::max ());
+	celerix::uint512_union input (std::numeric_limits<celerix::uint512_t>::max ());
 	std::string text;
 	input.encode_hex (text);
 	text.push_back (0);
-	nano::uint512_union output;
+	celerix::uint512_union output;
 	auto error (output.decode_hex (text));
 	ASSERT_TRUE (error);
 }
 
 TEST (send_block, deserialize)
 {
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block1 = builder
 				  .send ()
 				  .previous (0)
 				  .destination (1)
 				  .balance (2)
-				  .sign (nano::keypair ().prv, 4)
+				  .sign (celerix::keypair ().prv, 4)
 				  .work (5)
 				  .build ();
 	ASSERT_EQ (block1->hash (), block1->hash ());
 	std::vector<uint8_t> bytes;
 	{
-		nano::vectorstream stream1 (bytes);
+		celerix::vectorstream stream1 (bytes);
 		block1->serialize (stream1);
 	}
-	ASSERT_EQ (nano::send_block::size, bytes.size ());
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	ASSERT_EQ (celerix::send_block::size, bytes.size ());
+	celerix::bufferstream stream2 (bytes.data (), bytes.size ());
 	bool error (false);
-	nano::send_block block2 (error, stream2);
+	celerix::send_block block2 (error, stream2);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (*block1, block2);
 }
 
 TEST (receive_block, deserialize)
 {
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block1 = builder
 				  .receive ()
 				  .previous (0)
 				  .source (1)
-				  .sign (nano::keypair ().prv, 3)
+				  .sign (celerix::keypair ().prv, 3)
 				  .work (4)
 				  .build ();
 	ASSERT_EQ (block1->hash (), block1->hash ());
@@ -293,114 +293,114 @@ TEST (receive_block, deserialize)
 	block1->hashables.source = 4;
 	std::vector<uint8_t> bytes;
 	{
-		nano::vectorstream stream1 (bytes);
+		celerix::vectorstream stream1 (bytes);
 		block1->serialize (stream1);
 	}
-	ASSERT_EQ (nano::receive_block::size, bytes.size ());
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	ASSERT_EQ (celerix::receive_block::size, bytes.size ());
+	celerix::bufferstream stream2 (bytes.data (), bytes.size ());
 	bool error (false);
-	nano::receive_block block2 (error, stream2);
+	celerix::receive_block block2 (error, stream2);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (*block1, block2);
 }
 
 TEST (open_block, deserialize)
 {
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block1 = builder
 				  .open ()
 				  .source (0)
 				  .representative (1)
 				  .account (0)
-				  .sign (nano::keypair ().prv, 0)
+				  .sign (celerix::keypair ().prv, 0)
 				  .work (0)
 				  .build ();
 	ASSERT_EQ (block1->hash (), block1->hash ());
 	std::vector<uint8_t> bytes;
 	{
-		nano::vectorstream stream (bytes);
+		celerix::vectorstream stream (bytes);
 		block1->serialize (stream);
 	}
-	ASSERT_EQ (nano::open_block::size, bytes.size ());
-	nano::bufferstream stream (bytes.data (), bytes.size ());
+	ASSERT_EQ (celerix::open_block::size, bytes.size ());
+	celerix::bufferstream stream (bytes.data (), bytes.size ());
 	bool error (false);
-	nano::open_block block2 (error, stream);
+	celerix::open_block block2 (error, stream);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (*block1, block2);
 }
 
 TEST (change_block, deserialize)
 {
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block1 = builder
 				  .change ()
 				  .previous (1)
 				  .representative (2)
-				  .sign (nano::keypair ().prv, 4)
+				  .sign (celerix::keypair ().prv, 4)
 				  .work (5)
 				  .build ();
 	ASSERT_EQ (block1->hash (), block1->hash ());
 	std::vector<uint8_t> bytes;
 	{
-		nano::vectorstream stream1 (bytes);
+		celerix::vectorstream stream1 (bytes);
 		block1->serialize (stream1);
 	}
-	ASSERT_EQ (nano::change_block::size, bytes.size ());
+	ASSERT_EQ (celerix::change_block::size, bytes.size ());
 	auto data (bytes.data ());
 	auto size (bytes.size ());
 	ASSERT_NE (nullptr, data);
 	ASSERT_NE (0, size);
-	nano::bufferstream stream2 (data, size);
+	celerix::bufferstream stream2 (data, size);
 	bool error (false);
-	nano::change_block block2 (error, stream2);
+	celerix::change_block block2 (error, stream2);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (*block1, block2);
 }
 
 TEST (frontier_req, serialization)
 {
-	nano::frontier_req request1{ nano::dev::network_params.network };
+	celerix::frontier_req request1{ celerix::dev::network_params.network };
 	request1.start = 1;
 	request1.age = 2;
 	request1.count = 3;
 	std::vector<uint8_t> bytes;
 	{
-		nano::vectorstream stream (bytes);
+		celerix::vectorstream stream (bytes);
 		request1.serialize (stream);
 	}
 	auto error (false);
-	nano::bufferstream stream (bytes.data (), bytes.size ());
-	nano::message_header header (error, stream);
+	celerix::bufferstream stream (bytes.data (), bytes.size ());
+	celerix::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	nano::frontier_req request2 (error, stream, header);
+	celerix::frontier_req request2 (error, stream, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (request1, request2);
 }
 
 TEST (block, publish_req_serialization)
 {
-	nano::keypair key1;
-	nano::keypair key2;
-	nano::block_builder builder;
+	celerix::keypair key1;
+	celerix::keypair key2;
+	celerix::block_builder builder;
 	auto block = builder
 				 .send ()
 				 .previous (0)
 				 .destination (key2.pub)
 				 .balance (200)
-				 .sign (nano::keypair ().prv, 2)
+				 .sign (celerix::keypair ().prv, 2)
 				 .work (3)
 				 .build ();
-	nano::publish req{ nano::dev::network_params.network, block };
+	celerix::publish req{ celerix::dev::network_params.network, block };
 	std::vector<uint8_t> bytes;
 	{
-		nano::vectorstream stream (bytes);
+		celerix::vectorstream stream (bytes);
 		req.serialize (stream);
 	}
 	auto error (false);
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	nano::message_header header (error, stream2);
+	celerix::bufferstream stream2 (bytes.data (), bytes.size ());
+	celerix::message_header header (error, stream2);
 	ASSERT_FALSE (error);
-	nano::publish req2 (error, stream2, header);
+	celerix::publish req2 (error, stream2, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (req, req2);
 	ASSERT_EQ (*req.block, *req2.block);
@@ -408,23 +408,23 @@ TEST (block, publish_req_serialization)
 
 TEST (block, difficulty)
 {
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block = builder
 				 .send ()
 				 .previous (0)
 				 .destination (1)
 				 .balance (2)
-				 .sign (nano::keypair ().prv, 4)
+				 .sign (celerix::keypair ().prv, 4)
 				 .work (5)
 				 .build ();
-	ASSERT_EQ (nano::dev::network_params.work.difficulty (*block), nano::dev::network_params.work.difficulty (block->work_version (), block->root (), block->block_work ()));
+	ASSERT_EQ (celerix::dev::network_params.work.difficulty (*block), celerix::dev::network_params.work.difficulty (block->work_version (), block->root (), block->block_work ()));
 }
 
 TEST (state_block, serialization)
 {
-	nano::keypair key1;
-	nano::keypair key2;
-	nano::state_block_builder builder;
+	celerix::keypair key1;
+	celerix::keypair key2;
+	celerix::state_block_builder builder;
 	auto block1 = builder
 				  .account (key1.pub)
 				  .previous (1)
@@ -435,20 +435,20 @@ TEST (state_block, serialization)
 				  .work (5)
 				  .build ();
 	ASSERT_EQ (key1.pub, block1->hashables.account);
-	ASSERT_EQ (nano::block_hash (1), block1->previous ());
+	ASSERT_EQ (celerix::block_hash (1), block1->previous ());
 	ASSERT_EQ (key2.pub, block1->hashables.representative);
-	ASSERT_EQ (nano::amount (2), block1->hashables.balance);
-	ASSERT_EQ (nano::uint256_union (4), block1->hashables.link);
+	ASSERT_EQ (celerix::amount (2), block1->hashables.balance);
+	ASSERT_EQ (celerix::uint256_union (4), block1->hashables.link);
 	std::vector<uint8_t> bytes;
 	{
-		nano::vectorstream stream (bytes);
+		celerix::vectorstream stream (bytes);
 		block1->serialize (stream);
 	}
 	ASSERT_EQ (0x5, bytes[215]); // Ensure work is serialized big-endian
-	ASSERT_EQ (nano::state_block::size, bytes.size ());
+	ASSERT_EQ (celerix::state_block::size, bytes.size ());
 	bool error1 (false);
-	nano::bufferstream stream (bytes.data (), bytes.size ());
-	nano::state_block block2 (error1, stream);
+	celerix::bufferstream stream (bytes.data (), bytes.size ());
+	celerix::state_block block2 (error1, stream);
 	ASSERT_FALSE (error1);
 	ASSERT_EQ (*block1, block2);
 	block2.hashables.account.clear ();
@@ -458,7 +458,7 @@ TEST (state_block, serialization)
 	block2.hashables.link.clear ();
 	block2.signature.clear ();
 	block2.work = 0;
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	celerix::bufferstream stream2 (bytes.data (), bytes.size ());
 	ASSERT_FALSE (block2.deserialize (stream2));
 	ASSERT_EQ (*block1, block2);
 	std::string json;
@@ -467,7 +467,7 @@ TEST (state_block, serialization)
 	boost::property_tree::ptree tree;
 	boost::property_tree::read_json (body, tree);
 	bool error2 (false);
-	nano::state_block block3 (error2, tree);
+	celerix::state_block block3 (error2, tree);
 	ASSERT_FALSE (error2);
 	ASSERT_EQ (*block1, block3);
 	block3.hashables.account.clear ();
@@ -483,8 +483,8 @@ TEST (state_block, serialization)
 
 TEST (state_block, hashing)
 {
-	nano::keypair key;
-	nano::state_block_builder builder;
+	celerix::keypair key;
+	celerix::state_block_builder builder;
 	auto block = builder
 				 .account (key.pub)
 				 .previous (0)
@@ -530,23 +530,23 @@ TEST (state_block, hashing)
 
 TEST (blocks, work_version)
 {
-	ASSERT_EQ (nano::work_version::work_1, nano::send_block ().work_version ());
-	ASSERT_EQ (nano::work_version::work_1, nano::receive_block ().work_version ());
-	ASSERT_EQ (nano::work_version::work_1, nano::change_block ().work_version ());
-	ASSERT_EQ (nano::work_version::work_1, nano::open_block ().work_version ());
-	ASSERT_EQ (nano::work_version::work_1, nano::state_block ().work_version ());
+	ASSERT_EQ (celerix::work_version::work_1, celerix::send_block ().work_version ());
+	ASSERT_EQ (celerix::work_version::work_1, celerix::receive_block ().work_version ());
+	ASSERT_EQ (celerix::work_version::work_1, celerix::change_block ().work_version ());
+	ASSERT_EQ (celerix::work_version::work_1, celerix::open_block ().work_version ());
+	ASSERT_EQ (celerix::work_version::work_1, celerix::state_block ().work_version ());
 }
 
 TEST (block_uniquer, null)
 {
-	nano::block_uniquer uniquer;
+	celerix::block_uniquer uniquer;
 	ASSERT_EQ (nullptr, uniquer.unique (nullptr));
 }
 
 TEST (block_uniquer, single)
 {
-	nano::keypair key;
-	nano::state_block_builder builder;
+	celerix::keypair key;
+	celerix::state_block_builder builder;
 	auto block1 = builder
 				  .account (0)
 				  .previous (0)
@@ -556,12 +556,12 @@ TEST (block_uniquer, single)
 				  .sign (key.prv, key.pub)
 				  .work (0)
 				  .build ();
-	auto block2 (std::make_shared<nano::state_block> (*block1));
+	auto block2 (std::make_shared<celerix::state_block> (*block1));
 	ASSERT_NE (block1, block2);
 	ASSERT_EQ (*block1, *block2);
-	std::weak_ptr<nano::state_block> block3 (block2);
+	std::weak_ptr<celerix::state_block> block3 (block2);
 	ASSERT_NE (nullptr, block3.lock ());
-	nano::block_uniquer uniquer;
+	celerix::block_uniquer uniquer;
 	auto block4 (uniquer.unique (block1));
 	ASSERT_EQ (block1, block4);
 	auto block5 (uniquer.unique (block2));
@@ -572,8 +572,8 @@ TEST (block_uniquer, single)
 
 TEST (block_uniquer, cleanup)
 {
-	nano::keypair key;
-	nano::state_block_builder builder;
+	celerix::keypair key;
+	celerix::state_block_builder builder;
 	auto block1 = builder
 				  .account (0)
 				  .previous (0)
@@ -594,13 +594,13 @@ TEST (block_uniquer, cleanup)
 				  .work (1)
 				  .build ();
 
-	nano::block_uniquer uniquer;
+	celerix::block_uniquer uniquer;
 	auto block3 = uniquer.unique (block1);
 	auto block4 = uniquer.unique (block2);
 	block2.reset ();
 	block4.reset ();
 	ASSERT_EQ (2, uniquer.size ());
-	std::this_thread::sleep_for (nano::block_uniquer::cleanup_cutoff);
+	std::this_thread::sleep_for (celerix::block_uniquer::cleanup_cutoff);
 	auto block5 = uniquer.unique (block1);
 	ASSERT_EQ (1, uniquer.size ());
 }
@@ -608,7 +608,7 @@ TEST (block_uniquer, cleanup)
 TEST (block_builder, from)
 {
 	std::error_code ec;
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block = builder
 				 .state ()
 				 .account_address ("xrb_15nhh1kzw3x8ohez6s75wy3jr6dqgq65oaede1fzk5hqxk4j8ehz7iqtb3to")
@@ -628,9 +628,9 @@ TEST (block_builder, from)
 
 TEST (block_builder, zeroed_state_block)
 {
-	nano::block_builder builder;
-	nano::keypair key;
-	nano::state_block_builder state_builder;
+	celerix::block_builder builder;
+	celerix::keypair key;
+	celerix::state_block_builder state_builder;
 	// Make sure manually- and builder constructed all-zero blocks have equal hashes, and check signature.
 	auto zero_block_manual = state_builder
 							 .account (0)
@@ -643,14 +643,14 @@ TEST (block_builder, zeroed_state_block)
 							 .build ();
 	auto zero_block_build = builder.state ().zero ().sign (key.prv, key.pub).build ();
 	ASSERT_EQ (zero_block_manual->hash (), zero_block_build->hash ());
-	ASSERT_FALSE (nano::validate_message (key.pub, zero_block_build->hash (), zero_block_build->signature));
+	ASSERT_FALSE (celerix::validate_message (key.pub, zero_block_build->hash (), zero_block_build->signature));
 }
 
 TEST (block_builder, state)
 {
 	// Test against a random hash from the live network
 	std::error_code ec;
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block = builder
 				 .state ()
 				 .account_address ("xrb_15nhh1kzw3x8ohez6s75wy3jr6dqgq65oaede1fzk5hqxk4j8ehz7iqtb3to")
@@ -669,7 +669,7 @@ TEST (block_builder, state_missing_rep)
 {
 	// Test against a random hash from the live network
 	std::error_code ec;
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block = builder
 				 .state ()
 				 .account_address ("xrb_15nhh1kzw3x8ohez6s75wy3jr6dqgq65oaede1fzk5hqxk4j8ehz7iqtb3to")
@@ -679,17 +679,17 @@ TEST (block_builder, state_missing_rep)
 				 .sign_zero ()
 				 .work (0)
 				 .build (ec);
-	ASSERT_EQ (ec, nano::error_common::missing_representative);
+	ASSERT_EQ (ec, celerix::error_common::missing_representative);
 }
 
 TEST (block_builder, state_equality)
 {
 	std::error_code ec;
-	nano::block_builder builder;
+	celerix::block_builder builder;
 
 	// With constructor
-	nano::keypair key1, key2;
-	nano::state_block block1 (key1.pub, 1, key2.pub, 2, 4, key1.prv, key1.pub, 5);
+	celerix::keypair key1, key2;
+	celerix::state_block block1 (key1.pub, 1, key2.pub, 2, 4, key1.prv, key1.pub, 5);
 
 	// With builder
 	auto block2 = builder
@@ -711,11 +711,11 @@ TEST (block_builder, state_equality)
 TEST (block_builder, state_errors)
 {
 	std::error_code ec;
-	nano::block_builder builder;
+	celerix::block_builder builder;
 
 	// Ensure the proper error is generated
 	builder.state ().account_hex ("xrb_bad").build (ec);
-	ASSERT_EQ (ec, nano::error_common::bad_account_number);
+	ASSERT_EQ (ec, celerix::error_common::bad_account_number);
 
 	builder.state ().zero ().account_address ("xrb_1111111111111111111111111111111111111111111111111111hifc8npp").build (ec);
 	ASSERT_NO_ERROR (ec);
@@ -725,7 +725,7 @@ TEST (block_builder, open)
 {
 	// Test built block's hash against the Genesis open block from the live network
 	std::error_code ec;
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block = builder
 				 .open ()
 				 .account_address ("xrb_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3")
@@ -741,11 +741,11 @@ TEST (block_builder, open)
 TEST (block_builder, open_equality)
 {
 	std::error_code ec;
-	nano::block_builder builder;
+	celerix::block_builder builder;
 
 	// With constructor
-	nano::keypair key1, key2;
-	nano::open_block block1 (1, key1.pub, key2.pub, key1.prv, key1.pub, 5);
+	celerix::keypair key1, key2;
+	celerix::open_block block1 (1, key1.pub, key2.pub, key1.prv, key1.pub, 5);
 
 	// With builder
 	auto block2 = builder
@@ -765,7 +765,7 @@ TEST (block_builder, open_equality)
 TEST (block_builder, change)
 {
 	std::error_code ec;
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block = builder
 				 .change ()
 				 .representative_address ("xrb_3rropjiqfxpmrrkooej4qtmm1pueu36f9ghinpho4esfdor8785a455d16nf")
@@ -780,11 +780,11 @@ TEST (block_builder, change)
 TEST (block_builder, change_equality)
 {
 	std::error_code ec;
-	nano::block_builder builder;
+	celerix::block_builder builder;
 
 	// With constructor
-	nano::keypair key1, key2;
-	nano::change_block block1 (1, key1.pub, key1.prv, key1.pub, 5);
+	celerix::keypair key1, key2;
+	celerix::change_block block1 (1, key1.pub, key1.prv, key1.pub, 5);
 
 	// With builder
 	auto block2 = builder
@@ -803,7 +803,7 @@ TEST (block_builder, change_equality)
 TEST (block_builder, send)
 {
 	std::error_code ec;
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block = builder
 				 .send ()
 				 .destination_address ("xrb_1gys8r4crpxhp94n4uho5cshaho81na6454qni5gu9n53gksoyy1wcd4udyb")
@@ -812,18 +812,18 @@ TEST (block_builder, send)
 				 .build (ec);
 	ASSERT_EQ (block->hash ().to_string (), "4560E7B1F3735D082700CFC2852F5D1F378F7418FD24CEF1AD45AB69316F15CD");
 	ASSERT_FALSE (block->source_field ());
-	ASSERT_EQ (block->destination_field ().value ().to_account (), "nano_1gys8r4crpxhp94n4uho5cshaho81na6454qni5gu9n53gksoyy1wcd4udyb");
+	ASSERT_EQ (block->destination_field ().value ().to_account (), "celerix_1gys8r4crpxhp94n4uho5cshaho81na6454qni5gu9n53gksoyy1wcd4udyb");
 	ASSERT_FALSE (block->link_field ());
 }
 
 TEST (block_builder, send_equality)
 {
 	std::error_code ec;
-	nano::block_builder builder;
+	celerix::block_builder builder;
 
 	// With constructor
-	nano::keypair key1, key2;
-	nano::send_block block1 (1, key1.pub, 2, key1.prv, key1.pub, 5);
+	celerix::keypair key1, key2;
+	celerix::send_block block1 (1, key1.pub, 2, key1.prv, key1.pub, 5);
 
 	// With builder
 	auto block2 = builder
@@ -843,11 +843,11 @@ TEST (block_builder, send_equality)
 TEST (block_builder, receive_equality)
 {
 	std::error_code ec;
-	nano::block_builder builder;
+	celerix::block_builder builder;
 
 	// With constructor
-	nano::keypair key1;
-	nano::receive_block block1 (1, 2, key1.prv, key1.pub, 5);
+	celerix::keypair key1;
+	celerix::receive_block block1 (1, 2, key1.prv, key1.pub, 5);
 
 	// With builder
 	auto block2 = builder
@@ -866,7 +866,7 @@ TEST (block_builder, receive_equality)
 TEST (block_builder, receive)
 {
 	std::error_code ec;
-	nano::block_builder builder;
+	celerix::block_builder builder;
 	auto block = builder
 				 .receive ()
 				 .previous_hex ("59660153194CAC5DAC08509D87970BF86F6AEA943025E2A7ED7460930594950E")

@@ -1,12 +1,12 @@
 #pragma once
 
-#include <nano/lib/locks.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/threading.hpp>
-#include <nano/node/fair_queue.hpp>
-#include <nano/node/fwd.hpp>
-#include <nano/node/transport/channel.hpp>
-#include <nano/node/transport/transport.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/threading.hpp>
+#include <celerix/node/fair_queue.hpp>
+#include <celerix/node/fwd.hpp>
+#include <celerix/node/transport/channel.hpp>
+#include <celerix/node/transport/transport.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -20,16 +20,16 @@
 
 namespace mi = boost::multi_index;
 
-namespace nano
+namespace celerix
 {
 class request_aggregator_config final
 {
 public:
-	nano::error deserialize (nano::tomlconfig &);
-	nano::error serialize (nano::tomlconfig &) const;
+	celerix::error deserialize (celerix::tomlconfig &);
+	celerix::error serialize (celerix::tomlconfig &) const;
 
 public:
-	size_t threads{ std::clamp (nano::hardware_concurrency () / 2, 1u, 4u) };
+	size_t threads{ std::clamp (celerix::hardware_concurrency () / 2, 1u, 4u) };
 	size_t max_queue{ 128 };
 	size_t batch_size{ 16 };
 };
@@ -45,60 +45,60 @@ public:
 class request_aggregator final
 {
 public:
-	request_aggregator (request_aggregator_config const &, nano::node &, nano::stats &, nano::vote_generator &, nano::vote_generator &, nano::local_vote_history &, nano::ledger &, nano::wallets &, nano::vote_router &);
+	request_aggregator (request_aggregator_config const &, celerix::node &, celerix::stats &, celerix::vote_generator &, celerix::vote_generator &, celerix::local_vote_history &, celerix::ledger &, celerix::wallets &, celerix::vote_router &);
 	~request_aggregator ();
 
 	void start ();
 	void stop ();
 
-	using request_type = std::vector<std::pair<nano::block_hash, nano::root>>;
+	using request_type = std::vector<std::pair<celerix::block_hash, celerix::root>>;
 
 	/** Add a new request by \p channel_a for hashes \p hashes_roots_a */
-	bool request (request_type const & request, std::shared_ptr<nano::transport::channel> const &);
+	bool request (request_type const & request, std::shared_ptr<celerix::transport::channel> const &);
 
 	/** Returns the number of currently queued request pools */
 	std::size_t size () const;
 	bool empty () const;
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 
 private:
 	void run ();
-	void run_batch (nano::unique_lock<nano::mutex> & lock);
-	void process (nano::secure::transaction const &, request_type const &, std::shared_ptr<nano::transport::channel> const &);
+	void run_batch (celerix::unique_lock<celerix::mutex> & lock);
+	void process (celerix::secure::transaction const &, request_type const &, std::shared_ptr<celerix::transport::channel> const &);
 
 	/** Remove duplicate requests **/
-	void erase_duplicates (std::vector<std::pair<nano::block_hash, nano::root>> &) const;
+	void erase_duplicates (std::vector<std::pair<celerix::block_hash, celerix::root>> &) const;
 
 	struct aggregate_result
 	{
-		std::vector<std::shared_ptr<nano::block>> remaining_normal;
-		std::vector<std::shared_ptr<nano::block>> remaining_final;
+		std::vector<std::shared_ptr<celerix::block>> remaining_normal;
+		std::vector<std::shared_ptr<celerix::block>> remaining_final;
 	};
 
 	/** Aggregate \p requests_a and send cached votes to \p channel_a . Return the remaining hashes that need vote generation for each block for regular & final vote generators **/
-	aggregate_result aggregate (nano::secure::transaction const &, request_type const &, std::shared_ptr<nano::transport::channel> const &) const;
+	aggregate_result aggregate (celerix::secure::transaction const &, request_type const &, std::shared_ptr<celerix::transport::channel> const &) const;
 
-	void reply_action (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) const;
+	void reply_action (std::shared_ptr<celerix::vote> const & vote_a, std::shared_ptr<celerix::transport::channel> const & channel_a) const;
 
 private: // Dependencies
 	request_aggregator_config const & config;
-	nano::network_constants const & network_constants;
-	nano::stats & stats;
-	nano::local_vote_history & local_votes;
-	nano::ledger & ledger;
-	nano::wallets & wallets;
-	nano::vote_router & vote_router;
-	nano::vote_generator & generator;
-	nano::vote_generator & final_generator;
+	celerix::network_constants const & network_constants;
+	celerix::stats & stats;
+	celerix::local_vote_history & local_votes;
+	celerix::ledger & ledger;
+	celerix::wallets & wallets;
+	celerix::vote_router & vote_router;
+	celerix::vote_generator & generator;
+	celerix::vote_generator & final_generator;
 
 private:
-	using value_type = std::pair<request_type, std::shared_ptr<nano::transport::channel>>;
-	nano::fair_queue<value_type, nano::no_value> queue;
+	using value_type = std::pair<request_type, std::shared_ptr<celerix::transport::channel>>;
+	celerix::fair_queue<value_type, celerix::no_value> queue;
 
 	bool stopped{ false };
-	nano::condition_variable condition;
-	mutable nano::mutex mutex{ mutex_identifier (mutexes::request_aggregator) };
+	celerix::condition_variable condition;
+	mutable celerix::mutex mutex{ mutex_identifier (mutexes::request_aggregator) };
 	std::vector<std::thread> threads;
 };
 }

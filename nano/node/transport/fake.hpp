@@ -1,9 +1,9 @@
 #pragma once
 
-#include <nano/node/transport/channel.hpp>
-#include <nano/node/transport/transport.hpp>
+#include <celerix/node/transport/channel.hpp>
+#include <celerix/node/transport/transport.hpp>
 
-namespace nano
+namespace celerix
 {
 namespace transport
 {
@@ -12,31 +12,31 @@ namespace transport
 	 **/
 	namespace fake
 	{
-		class channel final : public nano::transport::channel
+		class channel final : public celerix::transport::channel
 		{
 		public:
-			explicit channel (nano::node &);
+			explicit channel (celerix::node &);
 
 			std::string to_string () const override;
 
-			void set_endpoint (nano::endpoint const & endpoint_a)
+			void set_endpoint (celerix::endpoint const & endpoint_a)
 			{
 				endpoint = endpoint_a;
 			}
 
-			nano::endpoint get_remote_endpoint () const override
+			celerix::endpoint get_remote_endpoint () const override
 			{
 				return endpoint;
 			}
 
-			nano::endpoint get_local_endpoint () const override
+			celerix::endpoint get_local_endpoint () const override
 			{
 				return endpoint;
 			}
 
-			nano::transport::transport_type get_type () const override
+			celerix::transport::transport_type get_type () const override
 			{
-				return nano::transport::transport_type::fake;
+				return celerix::transport::transport_type::fake;
 			}
 
 			void close () override
@@ -50,13 +50,13 @@ namespace transport
 			}
 
 		protected:
-			bool send_buffer (nano::shared_const_buffer const &, nano::transport::traffic_type, nano::transport::channel::callback_t) override;
+			bool send_buffer (celerix::shared_const_buffer const &, celerix::transport::traffic_type, celerix::transport::channel::callback_t) override;
 
 		private:
-			nano::endpoint endpoint;
+			celerix::endpoint endpoint;
 
 			std::atomic<bool> closed{ false };
 		};
 	} // namespace fake
 } // namespace transport
-} // namespace nano
+} // namespace celerix

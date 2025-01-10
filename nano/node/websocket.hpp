@@ -1,12 +1,12 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/work.hpp>
-#include <nano/node/endpoint.hpp>
-#include <nano/node/vote_with_weight_info.hpp>
-#include <nano/node/websocket_stream.hpp>
-#include <nano/node/websocketconfig.hpp>
-#include <nano/secure/common.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/work.hpp>
+#include <celerix/node/endpoint.hpp>
+#include <celerix/node/vote_with_weight_info.hpp>
+#include <celerix/node/websocket_stream.hpp>
+#include <celerix/node/websocketconfig.hpp>
+#include <celerix/secure/common.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
@@ -17,7 +17,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace nano
+namespace celerix
 {
 class block;
 class election_status;
@@ -31,7 +31,7 @@ enum class vote_code;
 class wallets;
 }
 
-namespace nano
+namespace celerix
 {
 namespace websocket
 {
@@ -70,17 +70,17 @@ namespace websocket
 	class message final
 	{
 	public:
-		message (nano::websocket::topic topic_a) :
+		message (celerix::websocket::topic topic_a) :
 			topic (topic_a)
 		{
 		}
-		message (nano::websocket::topic topic_a, boost::property_tree::ptree & tree_a) :
+		message (celerix::websocket::topic topic_a, boost::property_tree::ptree & tree_a) :
 			topic (topic_a), contents (tree_a)
 		{
 		}
 
 		std::string to_string () const;
-		nano::websocket::topic topic;
+		celerix::websocket::topic topic;
 		boost::property_tree::ptree contents;
 	};
 
@@ -88,17 +88,17 @@ namespace websocket
 	class message_builder final
 	{
 	public:
-		message block_confirmed (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a, nano::websocket::confirmation_options const & options_a);
-		message started_election (nano::block_hash const & hash_a);
-		message stopped_election (nano::block_hash const & hash_a);
-		message vote_received (std::shared_ptr<nano::vote> const & vote_a, nano::vote_code code_a);
-		message work_generation (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const work_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool const completed_a = true, bool const cancelled_a = false);
-		message work_cancelled (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);
-		message work_failed (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);
+		message block_confirmed (std::shared_ptr<celerix::block> const & block_a, celerix::account const & account_a, celerix::amount const & amount_a, std::string subtype, bool include_block, celerix::election_status const & election_status_a, std::vector<celerix::vote_with_weight_info> const & election_votes_a, celerix::websocket::confirmation_options const & options_a);
+		message started_election (celerix::block_hash const & hash_a);
+		message stopped_election (celerix::block_hash const & hash_a);
+		message vote_received (std::shared_ptr<celerix::vote> const & vote_a, celerix::vote_code code_a);
+		message work_generation (celerix::work_version const version_a, celerix::block_hash const & root_a, uint64_t const work_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool const completed_a = true, bool const cancelled_a = false);
+		message work_cancelled (celerix::work_version const version_a, celerix::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);
+		message work_failed (celerix::work_version const version_a, celerix::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);
 		message bootstrap_started (std::string const & id_a, std::string const & mode_a);
 		message bootstrap_exited (std::string const & id_a, std::string const & mode_a, std::chrono::steady_clock::time_point const start_time_a, uint64_t const total_blocks_a);
-		message telemetry_received (nano::telemetry_data const &, nano::endpoint const &);
-		message new_block_arrived (nano::block const & block_a);
+		message telemetry_received (celerix::telemetry_data const &, celerix::endpoint const &);
+		message new_block_arrived (celerix::block const & block_a);
 
 	private:
 		/** Set the common fields for messages: timestamp and topic. */
@@ -146,8 +146,8 @@ namespace websocket
 	class confirmation_options final : public options
 	{
 	public:
-		confirmation_options (nano::wallets & wallets_a, nano::logger &);
-		confirmation_options (boost::property_tree::ptree const & options_a, nano::wallets & wallets_a, nano::logger &);
+		confirmation_options (celerix::wallets & wallets_a, celerix::logger &);
+		confirmation_options (boost::property_tree::ptree const & options_a, celerix::wallets & wallets_a, celerix::logger &);
 
 		/**
 		 * Checks if a message should be filtered for given block confirmation options.
@@ -198,8 +198,8 @@ namespace websocket
 	private:
 		void check_filter_empty () const;
 
-		nano::wallets & wallets;
-		nano::logger & logger;
+		celerix::wallets & wallets;
+		celerix::logger & logger;
 
 		bool include_election_info{ false };
 		bool include_election_info_with_votes{ false };
@@ -219,7 +219,7 @@ namespace websocket
 	class vote_options final : public options
 	{
 	public:
-		vote_options (boost::property_tree::ptree const & options_a, nano::logger &);
+		vote_options (boost::property_tree::ptree const & options_a, celerix::logger &);
 
 		/**
 		 * Checks if a message should be filtered for given vote received options.
@@ -240,12 +240,12 @@ namespace websocket
 		friend class listener;
 
 	public:
-#ifdef NANO_SECURE_RPC
+#ifdef CELERIX_SECURE_RPC
 		/** Constructor that takes ownership over \p socket_a and creates an SSL stream */
-		explicit session (nano::websocket::listener & listener_a, socket_type socket_a, boost::asio::ssl::context & ctx_a);
+		explicit session (celerix::websocket::listener & listener_a, socket_type socket_a, boost::asio::ssl::context & ctx_a);
 #endif
 		/** Constructor that takes ownership over \p socket_a */
-		explicit session (nano::websocket::listener & listener_a, socket_type socket_a, nano::logger &);
+		explicit session (celerix::websocket::listener & listener_a, socket_type socket_a, celerix::logger &);
 
 		~session ();
 
@@ -259,14 +259,14 @@ namespace websocket
 		void read ();
 
 		/** Enqueue \p message_a for writing to the websockets */
-		void write (nano::websocket::message message_a);
+		void write (celerix::websocket::message message_a);
 
 	private:
 		/** The owning listener */
-		nano::websocket::listener & ws_listener;
+		celerix::websocket::listener & ws_listener;
 		/** Websocket stream, supporting both plain and tls connections */
-		nano::websocket::stream ws;
-		nano::logger & logger;
+		celerix::websocket::stream ws;
+		celerix::logger & logger;
 
 		/** Buffer for received messages */
 		boost::beast::multi_buffer read_buffer;
@@ -288,7 +288,7 @@ namespace websocket
 		};
 		/** Map of subscriptions -> options registered by this session. */
 		std::unordered_map<topic, std::unique_ptr<options>, topic_hash> subscriptions;
-		nano::mutex subscriptions_mutex;
+		celerix::mutex subscriptions_mutex;
 
 		/** Handle incoming message */
 		void handle_message (boost::property_tree::ptree const & message_a);
@@ -302,7 +302,7 @@ namespace websocket
 	class listener final : public std::enable_shared_from_this<listener>
 	{
 	public:
-		listener (nano::logger &, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a);
+		listener (celerix::logger &, celerix::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a);
 
 		/** Start accepting connections */
 		void run ();
@@ -313,17 +313,17 @@ namespace websocket
 		void stop ();
 
 		/** Broadcast block confirmation. The content of the message depends on subscription options (such as "include_block") */
-		void broadcast_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string const & subtype, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a);
+		void broadcast_confirmation (std::shared_ptr<celerix::block> const & block_a, celerix::account const & account_a, celerix::amount const & amount_a, std::string const & subtype, celerix::election_status const & election_status_a, std::vector<celerix::vote_with_weight_info> const & election_votes_a);
 
 		/** Broadcast \p message to all session subscribing to the message topic. */
-		void broadcast (nano::websocket::message message_a);
+		void broadcast (celerix::websocket::message message_a);
 
 		std::uint16_t listening_port ()
 		{
 			return acceptor.local_endpoint ().port ();
 		}
 
-		nano::wallets & get_wallets () const
+		celerix::wallets & get_wallets () const
 		{
 			return wallets;
 		}
@@ -332,30 +332,30 @@ namespace websocket
 		 * Per-topic subscribers check. Relies on all sessions correctly increasing and
 		 * decreasing the subscriber counts themselves.
 		 */
-		bool any_subscriber (nano::websocket::topic const & topic_a) const
+		bool any_subscriber (celerix::websocket::topic const & topic_a) const
 		{
 			return subscriber_count (topic_a) > 0;
 		}
 		/** Getter for subscriber count of a specific topic*/
-		std::size_t subscriber_count (nano::websocket::topic const & topic_a) const
+		std::size_t subscriber_count (celerix::websocket::topic const & topic_a) const
 		{
 			return topic_subscriber_count[static_cast<std::size_t> (topic_a)];
 		}
 
 	private:
 		/** A websocket session can increase and decrease subscription counts. */
-		friend nano::websocket::session;
+		friend celerix::websocket::session;
 
 		/** Adds to subscription count of a specific topic*/
-		void increase_subscriber_count (nano::websocket::topic const & topic_a);
+		void increase_subscriber_count (celerix::websocket::topic const & topic_a);
 		/** Removes from subscription count of a specific topic*/
-		void decrease_subscriber_count (nano::websocket::topic const & topic_a);
+		void decrease_subscriber_count (celerix::websocket::topic const & topic_a);
 
-		nano::logger & logger;
-		nano::wallets & wallets;
+		celerix::logger & logger;
+		celerix::wallets & wallets;
 		boost::asio::ip::tcp::acceptor acceptor;
 		socket_type socket;
-		nano::mutex sessions_mutex;
+		celerix::mutex sessions_mutex;
 		std::vector<std::weak_ptr<session>> sessions;
 		std::array<std::atomic<std::size_t>, number_topics> topic_subscriber_count;
 		std::atomic<bool> stopped{ false };
@@ -368,21 +368,21 @@ namespace websocket
 class websocket_server
 {
 public:
-	websocket_server (nano::websocket::config &, nano::node_observers &, nano::wallets &, nano::ledger &, boost::asio::io_context &, nano::logger &);
+	websocket_server (celerix::websocket::config &, celerix::node_observers &, celerix::wallets &, celerix::ledger &, boost::asio::io_context &, celerix::logger &);
 
 	void start ();
 	void stop ();
 
 private: // Dependencies
-	nano::websocket::config const & config;
-	nano::node_observers & observers;
-	nano::wallets & wallets;
-	nano::ledger & ledger;
+	celerix::websocket::config const & config;
+	celerix::node_observers & observers;
+	celerix::wallets & wallets;
+	celerix::ledger & ledger;
 	boost::asio::io_context & io_ctx;
-	nano::logger & logger;
+	celerix::logger & logger;
 
 public:
 	// TODO: Encapsulate, this is public just because existing code needs it
-	std::shared_ptr<nano::websocket::listener> server;
+	std::shared_ptr<celerix::websocket::listener> server;
 };
-} // namespace nano
+} // namespace celerix

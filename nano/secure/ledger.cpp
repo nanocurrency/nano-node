@@ -1,28 +1,28 @@
-#include <nano/lib/block_type.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/files.hpp>
-#include <nano/lib/logging.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/stats.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/lib/work.hpp>
-#include <nano/node/make_store.hpp>
-#include <nano/secure/common.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/ledger_set_any.hpp>
-#include <nano/secure/ledger_set_confirmed.hpp>
-#include <nano/secure/rep_weights.hpp>
-#include <nano/store/account.hpp>
-#include <nano/store/block.hpp>
-#include <nano/store/component.hpp>
-#include <nano/store/confirmation_height.hpp>
-#include <nano/store/final_vote.hpp>
-#include <nano/store/online_weight.hpp>
-#include <nano/store/peer.hpp>
-#include <nano/store/pending.hpp>
-#include <nano/store/pruned.hpp>
-#include <nano/store/rep_weight.hpp>
-#include <nano/store/version.hpp>
+#include <celerix/lib/block_type.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/files.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/stats.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/lib/work.hpp>
+#include <celerix/node/make_store.hpp>
+#include <celerix/secure/common.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/ledger_set_any.hpp>
+#include <celerix/secure/ledger_set_confirmed.hpp>
+#include <celerix/secure/rep_weights.hpp>
+#include <celerix/store/account.hpp>
+#include <celerix/store/block.hpp>
+#include <celerix/store/component.hpp>
+#include <celerix/store/confirmation_height.hpp>
+#include <celerix/store/final_vote.hpp>
+#include <celerix/store/online_weight.hpp>
+#include <celerix/store/peer.hpp>
+#include <celerix/store/pending.hpp>
+#include <celerix/store/pruned.hpp>
+#include <celerix/store/rep_weight.hpp>
+#include <celerix/store/version.hpp>
 
 #include <stack>
 
@@ -33,20 +33,20 @@ namespace
 /**
  * Roll back the visited block
  */
-class rollback_visitor : public nano::block_visitor
+class rollback_visitor : public celerix::block_visitor
 {
 public:
-	rollback_visitor (nano::secure::write_transaction const & transaction_a, nano::ledger & ledger_a, std::deque<std::shared_ptr<nano::block>> & list_a) :
+	rollback_visitor (celerix::secure::write_transaction const & transaction_a, celerix::ledger & ledger_a, std::deque<std::shared_ptr<celerix::block>> & list_a) :
 		transaction (transaction_a),
 		ledger (ledger_a),
 		list (list_a)
 	{
 	}
 	virtual ~rollback_visitor () = default;
-	void send_block (nano::send_block const & block_a) override
+	void send_block (celerix::send_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
-		nano::pending_key key (block_a.hashables.destination, hash);
+		celerix::pending_key key (block_a.hashables.destination, hash);
 		auto pending = ledger.store.pending.get (transaction, key);
 		while (!error && !pending.has_value ())
 		{
@@ -59,14 +59,14 @@ public:
 			debug_assert (info);
 			ledger.store.pending.del (transaction, key);
 			ledger.cache.rep_weights.representation_add (transaction, info->representative, pending.value ().amount.number ());
-			nano::account_info new_info (block_a.hashables.previous, info->representative, info->open_block, ledger.any.block_balance (transaction, block_a.hashables.previous).value (), nano::seconds_since_epoch (), info->block_count - 1, nano::epoch::epoch_0);
+			celerix::account_info new_info (block_a.hashables.previous, info->representative, info->open_block, ledger.any.block_balance (transaction, block_a.hashables.previous).value (), celerix::seconds_since_epoch (), info->block_count - 1, celerix::epoch::epoch_0);
 			ledger.update_account (transaction, pending.value ().source, *info, new_info);
 			ledger.store.block.del (transaction, hash);
 			ledger.store.block.successor_clear (transaction, block_a.hashables.previous);
-			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::send);
+			ledger.stats.inc (celerix::stat::type::rollback, celerix::stat::detail::send);
 		}
 	}
-	void receive_block (nano::receive_block const & block_a) override
+	void receive_block (celerix::receive_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
 		auto amount = ledger.any.block_amount (transaction, hash).value ().number ();
@@ -76,27 +76,27 @@ public:
 		auto info = ledger.any.account_get (transaction, destination_account);
 		debug_assert (info);
 		ledger.cache.rep_weights.representation_add (transaction, info->representative, 0 - amount);
-		nano::account_info new_info (block_a.hashables.previous, info->representative, info->open_block, ledger.any.block_balance (transaction, block_a.hashables.previous).value (), nano::seconds_since_epoch (), info->block_count - 1, nano::epoch::epoch_0);
+		celerix::account_info new_info (block_a.hashables.previous, info->representative, info->open_block, ledger.any.block_balance (transaction, block_a.hashables.previous).value (), celerix::seconds_since_epoch (), info->block_count - 1, celerix::epoch::epoch_0);
 		ledger.update_account (transaction, destination_account, *info, new_info);
 		ledger.store.block.del (transaction, hash);
-		ledger.store.pending.put (transaction, nano::pending_key (destination_account, block_a.hashables.source), { source_account.value_or (0), amount, nano::epoch::epoch_0 });
+		ledger.store.pending.put (transaction, celerix::pending_key (destination_account, block_a.hashables.source), { source_account.value_or (0), amount, celerix::epoch::epoch_0 });
 		ledger.store.block.successor_clear (transaction, block_a.hashables.previous);
-		ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::receive);
+		ledger.stats.inc (celerix::stat::type::rollback, celerix::stat::detail::receive);
 	}
-	void open_block (nano::open_block const & block_a) override
+	void open_block (celerix::open_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
 		auto amount = ledger.any.block_amount (transaction, hash).value ().number ();
 		auto destination_account = block_a.account ();
 		auto source_account = ledger.any.block_account (transaction, block_a.hashables.source);
 		ledger.cache.rep_weights.representation_add (transaction, block_a.representative_field ().value (), 0 - amount);
-		nano::account_info new_info;
+		celerix::account_info new_info;
 		ledger.update_account (transaction, destination_account, new_info, new_info);
 		ledger.store.block.del (transaction, hash);
-		ledger.store.pending.put (transaction, nano::pending_key (destination_account, block_a.hashables.source), { source_account.value_or (0), amount, nano::epoch::epoch_0 });
-		ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::open);
+		ledger.store.pending.put (transaction, celerix::pending_key (destination_account, block_a.hashables.source), { source_account.value_or (0), amount, celerix::epoch::epoch_0 });
+		ledger.stats.inc (celerix::stat::type::rollback, celerix::stat::detail::open);
 	}
-	void change_block (nano::change_block const & block_a) override
+	void change_block (celerix::change_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
 		auto rep_block (ledger.representative (transaction, block_a.hashables.previous));
@@ -109,22 +109,22 @@ public:
 		auto representative = block->representative_field ().value ();
 		ledger.cache.rep_weights.representation_add_dual (transaction, block_a.hashables.representative, 0 - balance.number (), representative, balance.number ());
 		ledger.store.block.del (transaction, hash);
-		nano::account_info new_info (block_a.hashables.previous, representative, info->open_block, info->balance, nano::seconds_since_epoch (), info->block_count - 1, nano::epoch::epoch_0);
+		celerix::account_info new_info (block_a.hashables.previous, representative, info->open_block, info->balance, celerix::seconds_since_epoch (), info->block_count - 1, celerix::epoch::epoch_0);
 		ledger.update_account (transaction, account, *info, new_info);
 		ledger.store.block.successor_clear (transaction, block_a.hashables.previous);
-		ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::change);
+		ledger.stats.inc (celerix::stat::type::rollback, celerix::stat::detail::change);
 	}
-	void state_block (nano::state_block const & block_a) override
+	void state_block (celerix::state_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
-		nano::block_hash rep_block_hash (0);
+		celerix::block_hash rep_block_hash (0);
 		if (!block_a.hashables.previous.is_zero ())
 		{
 			rep_block_hash = ledger.representative (transaction, block_a.hashables.previous);
 		}
-		nano::uint128_t balance = ledger.any.block_balance (transaction, block_a.hashables.previous).value_or (0).number ();
+		celerix::uint128_t balance = ledger.any.block_balance (transaction, block_a.hashables.previous).value_or (0).number ();
 		auto is_send (block_a.hashables.balance < balance);
-		nano::account representative{};
+		celerix::account representative{};
 		if (!rep_block_hash.is_zero ())
 		{
 			// Move existing representation & add in amount delta
@@ -144,26 +144,26 @@ public:
 
 		if (is_send)
 		{
-			nano::pending_key key (block_a.hashables.link.as_account (), hash);
+			celerix::pending_key key (block_a.hashables.link.as_account (), hash);
 			while (!error && !ledger.any.pending_get (transaction, key))
 			{
 				error = ledger.rollback (transaction, ledger.any.account_head (transaction, block_a.hashables.link.as_account ()), list);
 			}
 			ledger.store.pending.del (transaction, key);
-			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::send);
+			ledger.stats.inc (celerix::stat::type::rollback, celerix::stat::detail::send);
 		}
 		else if (!block_a.hashables.link.is_zero () && !ledger.is_epoch_link (block_a.hashables.link))
 		{
 			// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
 			auto source_account = ledger.any.block_account (transaction, block_a.hashables.link.as_block_hash ());
-			nano::pending_info pending_info (source_account.value_or (0), block_a.hashables.balance.number () - balance, block_a.sideband ().source_epoch);
-			ledger.store.pending.put (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()), pending_info);
-			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::receive);
+			celerix::pending_info pending_info (source_account.value_or (0), block_a.hashables.balance.number () - balance, block_a.sideband ().source_epoch);
+			ledger.store.pending.put (transaction, celerix::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()), pending_info);
+			ledger.stats.inc (celerix::stat::type::rollback, celerix::stat::detail::receive);
 		}
 
 		debug_assert (!error);
 		auto previous_version (ledger.version (transaction, block_a.hashables.previous));
-		nano::account_info new_info (block_a.hashables.previous, representative, info->open_block, balance, nano::seconds_since_epoch (), info->block_count - 1, previous_version);
+		celerix::account_info new_info (block_a.hashables.previous, representative, info->open_block, balance, celerix::seconds_since_epoch (), info->block_count - 1, previous_version);
 		ledger.update_account (transaction, block_a.hashables.account, *info, new_info);
 
 		auto previous (ledger.store.block.get (transaction, block_a.hashables.previous));
@@ -173,45 +173,45 @@ public:
 		}
 		else
 		{
-			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::open);
+			ledger.stats.inc (celerix::stat::type::rollback, celerix::stat::detail::open);
 		}
 		ledger.store.block.del (transaction, hash);
 	}
-	nano::secure::write_transaction const & transaction;
-	nano::ledger & ledger;
-	std::deque<std::shared_ptr<nano::block>> & list;
+	celerix::secure::write_transaction const & transaction;
+	celerix::ledger & ledger;
+	std::deque<std::shared_ptr<celerix::block>> & list;
 	bool error{ false };
 };
 
-class ledger_processor : public nano::mutable_block_visitor
+class ledger_processor : public celerix::mutable_block_visitor
 {
 public:
-	ledger_processor (nano::ledger &, nano::secure::write_transaction const &);
+	ledger_processor (celerix::ledger &, celerix::secure::write_transaction const &);
 	virtual ~ledger_processor () = default;
-	void send_block (nano::send_block &) override;
-	void receive_block (nano::receive_block &) override;
-	void open_block (nano::open_block &) override;
-	void change_block (nano::change_block &) override;
-	void state_block (nano::state_block &) override;
-	void state_block_impl (nano::state_block &);
-	void epoch_block_impl (nano::state_block &);
-	nano::ledger & ledger;
-	nano::secure::write_transaction const & transaction;
-	nano::block_status result;
+	void send_block (celerix::send_block &) override;
+	void receive_block (celerix::receive_block &) override;
+	void open_block (celerix::open_block &) override;
+	void change_block (celerix::change_block &) override;
+	void state_block (celerix::state_block &) override;
+	void state_block_impl (celerix::state_block &);
+	void epoch_block_impl (celerix::state_block &);
+	celerix::ledger & ledger;
+	celerix::secure::write_transaction const & transaction;
+	celerix::block_status result;
 
 private:
-	bool validate_epoch_block (nano::state_block const & block_a);
+	bool validate_epoch_block (celerix::state_block const & block_a);
 };
 
 // Returns true if this block which has an epoch link is correctly formed.
-bool ledger_processor::validate_epoch_block (nano::state_block const & block_a)
+bool ledger_processor::validate_epoch_block (celerix::state_block const & block_a)
 {
 	debug_assert (ledger.is_epoch_link (block_a.hashables.link));
-	nano::amount prev_balance (0);
+	celerix::amount prev_balance (0);
 	if (!block_a.hashables.previous.is_zero ())
 	{
-		result = ledger.store.block.exists (transaction, block_a.hashables.previous) ? nano::block_status::progress : nano::block_status::gap_previous;
-		if (result == nano::block_status::progress)
+		result = ledger.store.block.exists (transaction, block_a.hashables.previous) ? celerix::block_status::progress : celerix::block_status::gap_previous;
+		if (result == celerix::block_status::progress)
 		{
 			prev_balance = ledger.any.block_balance (transaction, block_a.hashables.previous).value ();
 		}
@@ -223,7 +223,7 @@ bool ledger_processor::validate_epoch_block (nano::state_block const & block_a)
 				// Is epoch block signed correctly
 				if (validate_message (ledger.epoch_signer (block_a.link_field ().value ()), block_a.hash (), block_a.signature))
 				{
-					result = nano::block_status::bad_signature;
+					result = celerix::block_status::bad_signature;
 				}
 			}
 		}
@@ -231,9 +231,9 @@ bool ledger_processor::validate_epoch_block (nano::state_block const & block_a)
 	return (block_a.hashables.balance == prev_balance);
 }
 
-void ledger_processor::state_block (nano::state_block & block_a)
+void ledger_processor::state_block (celerix::state_block & block_a)
 {
-	result = nano::block_status::progress;
+	result = celerix::block_status::progress;
 	auto is_epoch_block = false;
 	if (ledger.is_epoch_link (block_a.hashables.link))
 	{
@@ -241,7 +241,7 @@ void ledger_processor::state_block (nano::state_block & block_a)
 		is_epoch_block = validate_epoch_block (block_a);
 	}
 
-	if (result == nano::block_status::progress)
+	if (result == celerix::block_status::progress)
 	{
 		if (is_epoch_block)
 		{
@@ -254,24 +254,24 @@ void ledger_processor::state_block (nano::state_block & block_a)
 	}
 }
 
-void ledger_processor::state_block_impl (nano::state_block & block_a)
+void ledger_processor::state_block_impl (celerix::state_block & block_a)
 {
 	auto hash (block_a.hash ());
 	auto existing = ledger.any.block_exists_or_pruned (transaction, hash);
-	result = existing ? nano::block_status::old : nano::block_status::progress; // Have we seen this block before? (Unambiguous)
-	if (result == nano::block_status::progress)
+	result = existing ? celerix::block_status::old : celerix::block_status::progress; // Have we seen this block before? (Unambiguous)
+	if (result == celerix::block_status::progress)
 	{
-		result = validate_message (block_a.hashables.account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Unambiguous)
-		if (result == nano::block_status::progress)
+		result = validate_message (block_a.hashables.account, hash, block_a.signature) ? celerix::block_status::bad_signature : celerix::block_status::progress; // Is this block signed correctly (Unambiguous)
+		if (result == celerix::block_status::progress)
 		{
 			debug_assert (!validate_message (block_a.hashables.account, hash, block_a.signature));
-			result = block_a.hashables.account.is_zero () ? nano::block_status::opened_burn_account : nano::block_status::progress; // Is this for the burn account? (Unambiguous)
-			if (result == nano::block_status::progress)
+			result = block_a.hashables.account.is_zero () ? celerix::block_status::opened_burn_account : celerix::block_status::progress; // Is this for the burn account? (Unambiguous)
+			if (result == celerix::block_status::progress)
 			{
-				nano::epoch epoch (nano::epoch::epoch_0);
-				nano::epoch source_epoch (nano::epoch::epoch_0);
-				nano::account_info info;
-				nano::amount amount (block_a.hashables.balance);
+				celerix::epoch epoch (celerix::epoch::epoch_0);
+				celerix::epoch source_epoch (celerix::epoch::epoch_0);
+				celerix::account_info info;
+				celerix::amount amount (block_a.hashables.balance);
 				auto is_send (false);
 				auto is_receive (false);
 				auto account_error (ledger.store.account.get (transaction, block_a.hashables.account, info));
@@ -279,44 +279,44 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 				{
 					// Account already exists
 					epoch = info.epoch ();
-					result = block_a.hashables.previous.is_zero () ? nano::block_status::fork : nano::block_status::progress; // Has this account already been opened? (Ambigious)
-					if (result == nano::block_status::progress)
+					result = block_a.hashables.previous.is_zero () ? celerix::block_status::fork : celerix::block_status::progress; // Has this account already been opened? (Ambigious)
+					if (result == celerix::block_status::progress)
 					{
-						result = ledger.store.block.exists (transaction, block_a.hashables.previous) ? nano::block_status::progress : nano::block_status::gap_previous; // Does the previous block exist in the ledger? (Unambigious)
-						if (result == nano::block_status::progress)
+						result = ledger.store.block.exists (transaction, block_a.hashables.previous) ? celerix::block_status::progress : celerix::block_status::gap_previous; // Does the previous block exist in the ledger? (Unambigious)
+						if (result == celerix::block_status::progress)
 						{
 							is_send = block_a.hashables.balance < info.balance;
 							is_receive = !is_send && !block_a.hashables.link.is_zero ();
 							amount = is_send ? (info.balance.number () - amount.number ()) : (amount.number () - info.balance.number ());
-							result = block_a.hashables.previous == info.head ? nano::block_status::progress : nano::block_status::fork; // Is the previous block the account's head block? (Ambigious)
+							result = block_a.hashables.previous == info.head ? celerix::block_status::progress : celerix::block_status::fork; // Is the previous block the account's head block? (Ambigious)
 						}
 					}
 				}
 				else
 				{
 					// Account does not yet exists
-					result = block_a.previous ().is_zero () ? nano::block_status::progress : nano::block_status::gap_previous; // Does the first block in an account yield 0 for previous() ? (Unambigious)
-					if (result == nano::block_status::progress)
+					result = block_a.previous ().is_zero () ? celerix::block_status::progress : celerix::block_status::gap_previous; // Does the first block in an account yield 0 for previous() ? (Unambigious)
+					if (result == celerix::block_status::progress)
 					{
 						is_receive = true;
-						result = !block_a.hashables.link.is_zero () ? nano::block_status::progress : nano::block_status::gap_source; // Is the first block receiving from a send ? (Unambigious)
+						result = !block_a.hashables.link.is_zero () ? celerix::block_status::progress : celerix::block_status::gap_source; // Is the first block receiving from a send ? (Unambigious)
 					}
 				}
-				if (result == nano::block_status::progress)
+				if (result == celerix::block_status::progress)
 				{
 					if (!is_send)
 					{
 						if (!block_a.hashables.link.is_zero ())
 						{
-							result = ledger.any.block_exists_or_pruned (transaction, block_a.hashables.link.as_block_hash ()) ? nano::block_status::progress : nano::block_status::gap_source; // Have we seen the source block already? (Harmless)
-							if (result == nano::block_status::progress)
+							result = ledger.any.block_exists_or_pruned (transaction, block_a.hashables.link.as_block_hash ()) ? celerix::block_status::progress : celerix::block_status::gap_source; // Have we seen the source block already? (Harmless)
+							if (result == celerix::block_status::progress)
 							{
-								nano::pending_key key (block_a.hashables.account, block_a.hashables.link.as_block_hash ());
+								celerix::pending_key key (block_a.hashables.account, block_a.hashables.link.as_block_hash ());
 								auto pending = ledger.store.pending.get (transaction, key);
-								result = !pending ? nano::block_status::unreceivable : nano::block_status::progress; // Has this source already been received (Malformed)
-								if (result == nano::block_status::progress)
+								result = !pending ? celerix::block_status::unreceivable : celerix::block_status::progress; // Has this source already been received (Malformed)
+								if (result == celerix::block_status::progress)
 								{
-									result = amount == pending.value ().amount ? nano::block_status::progress : nano::block_status::balance_mismatch;
+									result = amount == pending.value ().amount ? celerix::block_status::progress : celerix::block_status::balance_mismatch;
 									source_epoch = pending.value ().epoch;
 									epoch = std::max (epoch, source_epoch);
 								}
@@ -325,18 +325,18 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 						else
 						{
 							// If there's no link, the balance must remain the same, only the representative can change
-							result = amount.is_zero () ? nano::block_status::progress : nano::block_status::balance_mismatch;
+							result = amount.is_zero () ? celerix::block_status::progress : celerix::block_status::balance_mismatch;
 						}
 					}
 				}
-				if (result == nano::block_status::progress)
+				if (result == celerix::block_status::progress)
 				{
-					nano::block_details block_details (epoch, is_send, is_receive, false);
-					result = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
-					if (result == nano::block_status::progress)
+					celerix::block_details block_details (epoch, is_send, is_receive, false);
+					result = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? celerix::block_status::progress : celerix::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
+					if (result == celerix::block_status::progress)
 					{
-						ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::state_block);
-						block_a.sideband_set (nano::block_sideband (block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), block_details, source_epoch));
+						ledger.stats.inc (celerix::stat::type::ledger, celerix::stat::detail::state_block);
+						block_a.sideband_set (celerix::block_sideband (block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, celerix::seconds_since_epoch (), block_details, source_epoch));
 						ledger.store.block.put (transaction, hash, block_a);
 
 						if (!info.head.is_zero ())
@@ -352,16 +352,16 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 
 						if (is_send)
 						{
-							nano::pending_key key (block_a.hashables.link.as_account (), hash);
-							nano::pending_info info (block_a.hashables.account, amount.number (), epoch);
+							celerix::pending_key key (block_a.hashables.link.as_account (), hash);
+							celerix::pending_info info (block_a.hashables.account, amount.number (), epoch);
 							ledger.store.pending.put (transaction, key, info);
 						}
 						else if (!block_a.hashables.link.is_zero ())
 						{
-							ledger.store.pending.del (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()));
+							ledger.store.pending.del (transaction, celerix::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()));
 						}
 
-						nano::account_info new_info (hash, block_a.hashables.representative, info.open_block.is_zero () ? hash : info.open_block, block_a.hashables.balance, nano::seconds_since_epoch (), info.block_count + 1, epoch);
+						celerix::account_info new_info (hash, block_a.hashables.representative, info.open_block.is_zero () ? hash : info.open_block, block_a.hashables.balance, celerix::seconds_since_epoch (), info.block_count + 1, epoch);
 						ledger.update_account (transaction, block_a.hashables.account, info, new_info);
 					}
 				}
@@ -370,64 +370,64 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 	}
 }
 
-void ledger_processor::epoch_block_impl (nano::state_block & block_a)
+void ledger_processor::epoch_block_impl (celerix::state_block & block_a)
 {
 	auto hash (block_a.hash ());
 	auto existing = ledger.any.block_exists_or_pruned (transaction, hash);
-	result = existing ? nano::block_status::old : nano::block_status::progress; // Have we seen this block before? (Unambiguous)
-	if (result == nano::block_status::progress)
+	result = existing ? celerix::block_status::old : celerix::block_status::progress; // Have we seen this block before? (Unambiguous)
+	if (result == celerix::block_status::progress)
 	{
-		result = validate_message (ledger.epoch_signer (block_a.hashables.link), hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Unambiguous)
-		if (result == nano::block_status::progress)
+		result = validate_message (ledger.epoch_signer (block_a.hashables.link), hash, block_a.signature) ? celerix::block_status::bad_signature : celerix::block_status::progress; // Is this block signed correctly (Unambiguous)
+		if (result == celerix::block_status::progress)
 		{
 			debug_assert (!validate_message (ledger.epoch_signer (block_a.hashables.link), hash, block_a.signature));
-			result = block_a.hashables.account.is_zero () ? nano::block_status::opened_burn_account : nano::block_status::progress; // Is this for the burn account? (Unambiguous)
-			if (result == nano::block_status::progress)
+			result = block_a.hashables.account.is_zero () ? celerix::block_status::opened_burn_account : celerix::block_status::progress; // Is this for the burn account? (Unambiguous)
+			if (result == celerix::block_status::progress)
 			{
-				nano::account_info info;
+				celerix::account_info info;
 				auto account_error (ledger.store.account.get (transaction, block_a.hashables.account, info));
 				if (!account_error)
 				{
 					// Account already exists
-					result = block_a.hashables.previous.is_zero () ? nano::block_status::fork : nano::block_status::progress; // Has this account already been opened? (Ambigious)
-					if (result == nano::block_status::progress)
+					result = block_a.hashables.previous.is_zero () ? celerix::block_status::fork : celerix::block_status::progress; // Has this account already been opened? (Ambigious)
+					if (result == celerix::block_status::progress)
 					{
-						result = block_a.hashables.previous == info.head ? nano::block_status::progress : nano::block_status::fork; // Is the previous block the account's head block? (Ambigious)
-						if (result == nano::block_status::progress)
+						result = block_a.hashables.previous == info.head ? celerix::block_status::progress : celerix::block_status::fork; // Is the previous block the account's head block? (Ambigious)
+						if (result == celerix::block_status::progress)
 						{
-							result = block_a.hashables.representative == info.representative ? nano::block_status::progress : nano::block_status::representative_mismatch;
+							result = block_a.hashables.representative == info.representative ? celerix::block_status::progress : celerix::block_status::representative_mismatch;
 						}
 					}
 				}
 				else
 				{
-					result = block_a.hashables.representative.is_zero () ? nano::block_status::progress : nano::block_status::representative_mismatch;
+					result = block_a.hashables.representative.is_zero () ? celerix::block_status::progress : celerix::block_status::representative_mismatch;
 					// Non-exisitng account should have pending entries
-					if (result == nano::block_status::progress)
+					if (result == celerix::block_status::progress)
 					{
 						bool pending_exists = ledger.any.receivable_exists (transaction, block_a.hashables.account);
-						result = pending_exists ? nano::block_status::progress : nano::block_status::gap_epoch_open_pending;
+						result = pending_exists ? celerix::block_status::progress : celerix::block_status::gap_epoch_open_pending;
 					}
 				}
-				if (result == nano::block_status::progress)
+				if (result == celerix::block_status::progress)
 				{
 					auto epoch = ledger.constants.epochs.epoch (block_a.hashables.link);
 					// Must be an epoch for an unopened account or the epoch upgrade must be sequential
-					auto is_valid_epoch_upgrade = account_error ? static_cast<std::underlying_type_t<nano::epoch>> (epoch) > 0 : nano::epochs::is_sequential (info.epoch (), epoch);
-					result = is_valid_epoch_upgrade ? nano::block_status::progress : nano::block_status::block_position;
-					if (result == nano::block_status::progress)
+					auto is_valid_epoch_upgrade = account_error ? static_cast<std::underlying_type_t<celerix::epoch>> (epoch) > 0 : celerix::epochs::is_sequential (info.epoch (), epoch);
+					result = is_valid_epoch_upgrade ? celerix::block_status::progress : celerix::block_status::block_position;
+					if (result == celerix::block_status::progress)
 					{
-						result = block_a.hashables.balance == info.balance ? nano::block_status::progress : nano::block_status::balance_mismatch;
-						if (result == nano::block_status::progress)
+						result = block_a.hashables.balance == info.balance ? celerix::block_status::progress : celerix::block_status::balance_mismatch;
+						if (result == celerix::block_status::progress)
 						{
-							nano::block_details block_details (epoch, false, false, true);
-							result = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
-							if (result == nano::block_status::progress)
+							celerix::block_details block_details (epoch, false, false, true);
+							result = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? celerix::block_status::progress : celerix::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
+							if (result == celerix::block_status::progress)
 							{
-								ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::epoch_block);
-								block_a.sideband_set (nano::block_sideband (block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
+								ledger.stats.inc (celerix::stat::type::ledger, celerix::stat::detail::epoch_block);
+								block_a.sideband_set (celerix::block_sideband (block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, celerix::seconds_since_epoch (), block_details, celerix::epoch::epoch_0 /* unused */));
 								ledger.store.block.put (transaction, hash, block_a);
-								nano::account_info new_info (hash, block_a.hashables.representative, info.open_block.is_zero () ? hash : info.open_block, info.balance, nano::seconds_since_epoch (), info.block_count + 1, epoch);
+								celerix::account_info new_info (hash, block_a.hashables.representative, info.open_block.is_zero () ? hash : info.open_block, info.balance, celerix::seconds_since_epoch (), info.block_count + 1, epoch);
 								ledger.update_account (transaction, block_a.hashables.account, info, new_info);
 							}
 						}
@@ -438,42 +438,42 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 	}
 }
 
-void ledger_processor::change_block (nano::change_block & block_a)
+void ledger_processor::change_block (celerix::change_block & block_a)
 {
 	auto hash (block_a.hash ());
 	auto existing = ledger.any.block_exists_or_pruned (transaction, hash);
-	result = existing ? nano::block_status::old : nano::block_status::progress; // Have we seen this block before? (Harmless)
-	if (result == nano::block_status::progress)
+	result = existing ? celerix::block_status::old : celerix::block_status::progress; // Have we seen this block before? (Harmless)
+	if (result == celerix::block_status::progress)
 	{
 		auto previous (ledger.store.block.get (transaction, block_a.hashables.previous));
-		result = previous != nullptr ? nano::block_status::progress : nano::block_status::gap_previous; // Have we seen the previous block already? (Harmless)
-		if (result == nano::block_status::progress)
+		result = previous != nullptr ? celerix::block_status::progress : celerix::block_status::gap_previous; // Have we seen the previous block already? (Harmless)
+		if (result == celerix::block_status::progress)
 		{
-			result = block_a.valid_predecessor (*previous) ? nano::block_status::progress : nano::block_status::block_position;
-			if (result == nano::block_status::progress)
+			result = block_a.valid_predecessor (*previous) ? celerix::block_status::progress : celerix::block_status::block_position;
+			if (result == celerix::block_status::progress)
 			{
 				auto account = previous->account ();
 				auto info = ledger.any.account_get (transaction, account);
 				debug_assert (info);
-				result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress;
-				if (result == nano::block_status::progress)
+				result = info->head != block_a.hashables.previous ? celerix::block_status::fork : celerix::block_status::progress;
+				if (result == celerix::block_status::progress)
 				{
 					debug_assert (info->head == block_a.hashables.previous);
-					result = validate_message (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Malformed)
-					if (result == nano::block_status::progress)
+					result = validate_message (account, hash, block_a.signature) ? celerix::block_status::bad_signature : celerix::block_status::progress; // Is this block signed correctly (Malformed)
+					if (result == celerix::block_status::progress)
 					{
-						nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
-						result = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
-						if (result == nano::block_status::progress)
+						celerix::block_details block_details (celerix::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
+						result = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? celerix::block_status::progress : celerix::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
+						if (result == celerix::block_status::progress)
 						{
 							debug_assert (!validate_message (account, hash, block_a.signature));
-							block_a.sideband_set (nano::block_sideband (account, 0, info->balance, info->block_count + 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
+							block_a.sideband_set (celerix::block_sideband (account, 0, info->balance, info->block_count + 1, celerix::seconds_since_epoch (), block_details, celerix::epoch::epoch_0 /* unused */));
 							ledger.store.block.put (transaction, hash, block_a);
 							auto balance = previous->balance ();
 							ledger.cache.rep_weights.representation_add_dual (transaction, block_a.hashables.representative, balance.number (), info->representative, 0 - balance.number ());
-							nano::account_info new_info (hash, block_a.hashables.representative, info->open_block, info->balance, nano::seconds_since_epoch (), info->block_count + 1, nano::epoch::epoch_0);
+							celerix::account_info new_info (hash, block_a.hashables.representative, info->open_block, info->balance, celerix::seconds_since_epoch (), info->block_count + 1, celerix::epoch::epoch_0);
 							ledger.update_account (transaction, account, *info, new_info);
-							ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::change);
+							ledger.stats.inc (celerix::stat::type::ledger, celerix::stat::detail::change);
 						}
 					}
 				}
@@ -482,46 +482,46 @@ void ledger_processor::change_block (nano::change_block & block_a)
 	}
 }
 
-void ledger_processor::send_block (nano::send_block & block_a)
+void ledger_processor::send_block (celerix::send_block & block_a)
 {
 	auto hash (block_a.hash ());
 	auto existing = ledger.any.block_exists_or_pruned (transaction, hash);
-	result = existing ? nano::block_status::old : nano::block_status::progress; // Have we seen this block before? (Harmless)
-	if (result == nano::block_status::progress)
+	result = existing ? celerix::block_status::old : celerix::block_status::progress; // Have we seen this block before? (Harmless)
+	if (result == celerix::block_status::progress)
 	{
 		auto previous (ledger.store.block.get (transaction, block_a.hashables.previous));
-		result = previous != nullptr ? nano::block_status::progress : nano::block_status::gap_previous; // Have we seen the previous block already? (Harmless)
-		if (result == nano::block_status::progress)
+		result = previous != nullptr ? celerix::block_status::progress : celerix::block_status::gap_previous; // Have we seen the previous block already? (Harmless)
+		if (result == celerix::block_status::progress)
 		{
-			result = block_a.valid_predecessor (*previous) ? nano::block_status::progress : nano::block_status::block_position;
-			if (result == nano::block_status::progress)
+			result = block_a.valid_predecessor (*previous) ? celerix::block_status::progress : celerix::block_status::block_position;
+			if (result == celerix::block_status::progress)
 			{
 				auto account = previous->account ();
 				auto info = ledger.any.account_get (transaction, account);
 				debug_assert (info);
-				result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress;
-				if (result == nano::block_status::progress)
+				result = info->head != block_a.hashables.previous ? celerix::block_status::fork : celerix::block_status::progress;
+				if (result == celerix::block_status::progress)
 				{
-					result = validate_message (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Malformed)
-					if (result == nano::block_status::progress)
+					result = validate_message (account, hash, block_a.signature) ? celerix::block_status::bad_signature : celerix::block_status::progress; // Is this block signed correctly (Malformed)
+					if (result == celerix::block_status::progress)
 					{
-						nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
-						result = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
-						if (result == nano::block_status::progress)
+						celerix::block_details block_details (celerix::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
+						result = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? celerix::block_status::progress : celerix::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
+						if (result == celerix::block_status::progress)
 						{
 							debug_assert (!validate_message (account, hash, block_a.signature));
 							debug_assert (info->head == block_a.hashables.previous);
-							result = info->balance.number () >= block_a.hashables.balance.number () ? nano::block_status::progress : nano::block_status::negative_spend; // Is this trying to spend a negative amount (Malicious)
-							if (result == nano::block_status::progress)
+							result = info->balance.number () >= block_a.hashables.balance.number () ? celerix::block_status::progress : celerix::block_status::negative_spend; // Is this trying to spend a negative amount (Malicious)
+							if (result == celerix::block_status::progress)
 							{
 								auto amount (info->balance.number () - block_a.hashables.balance.number ());
 								ledger.cache.rep_weights.representation_add (transaction, info->representative, 0 - amount);
-								block_a.sideband_set (nano::block_sideband (account, 0, block_a.hashables.balance /* unused */, info->block_count + 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
+								block_a.sideband_set (celerix::block_sideband (account, 0, block_a.hashables.balance /* unused */, info->block_count + 1, celerix::seconds_since_epoch (), block_details, celerix::epoch::epoch_0 /* unused */));
 								ledger.store.block.put (transaction, hash, block_a);
-								nano::account_info new_info (hash, info->representative, info->open_block, block_a.hashables.balance, nano::seconds_since_epoch (), info->block_count + 1, nano::epoch::epoch_0);
+								celerix::account_info new_info (hash, info->representative, info->open_block, block_a.hashables.balance, celerix::seconds_since_epoch (), info->block_count + 1, celerix::epoch::epoch_0);
 								ledger.update_account (transaction, account, *info, new_info);
-								ledger.store.pending.put (transaction, nano::pending_key (block_a.hashables.destination, hash), { account, amount, nano::epoch::epoch_0 });
-								ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::send);
+								ledger.store.pending.put (transaction, celerix::pending_key (block_a.hashables.destination, hash), { account, amount, celerix::epoch::epoch_0 });
+								ledger.stats.inc (celerix::stat::type::ledger, celerix::stat::detail::send);
 							}
 						}
 					}
@@ -531,56 +531,56 @@ void ledger_processor::send_block (nano::send_block & block_a)
 	}
 }
 
-void ledger_processor::receive_block (nano::receive_block & block_a)
+void ledger_processor::receive_block (celerix::receive_block & block_a)
 {
 	auto hash (block_a.hash ());
 	auto existing = ledger.any.block_exists_or_pruned (transaction, hash);
-	result = existing ? nano::block_status::old : nano::block_status::progress; // Have we seen this block already?  (Harmless)
-	if (result == nano::block_status::progress)
+	result = existing ? celerix::block_status::old : celerix::block_status::progress; // Have we seen this block already?  (Harmless)
+	if (result == celerix::block_status::progress)
 	{
 		auto previous (ledger.store.block.get (transaction, block_a.hashables.previous));
-		result = previous != nullptr ? nano::block_status::progress : nano::block_status::gap_previous;
-		if (result == nano::block_status::progress)
+		result = previous != nullptr ? celerix::block_status::progress : celerix::block_status::gap_previous;
+		if (result == celerix::block_status::progress)
 		{
-			result = block_a.valid_predecessor (*previous) ? nano::block_status::progress : nano::block_status::block_position;
-			if (result == nano::block_status::progress)
+			result = block_a.valid_predecessor (*previous) ? celerix::block_status::progress : celerix::block_status::block_position;
+			if (result == celerix::block_status::progress)
 			{
 				auto account = previous->account ();
 				auto info = ledger.any.account_get (transaction, account);
 				debug_assert (info);
-				result = info->head != block_a.hashables.previous ? nano::block_status::fork : nano::block_status::progress; // If we have the block but it's not the latest we have a signed fork (Malicious)
-				if (result == nano::block_status::progress)
+				result = info->head != block_a.hashables.previous ? celerix::block_status::fork : celerix::block_status::progress; // If we have the block but it's not the latest we have a signed fork (Malicious)
+				if (result == celerix::block_status::progress)
 				{
-					result = validate_message (account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is the signature valid (Malformed)
-					if (result == nano::block_status::progress)
+					result = validate_message (account, hash, block_a.signature) ? celerix::block_status::bad_signature : celerix::block_status::progress; // Is the signature valid (Malformed)
+					if (result == celerix::block_status::progress)
 					{
 						debug_assert (!validate_message (account, hash, block_a.signature));
-						result = ledger.any.block_exists_or_pruned (transaction, block_a.hashables.source) ? nano::block_status::progress : nano::block_status::gap_source; // Have we seen the source block already? (Harmless)
-						if (result == nano::block_status::progress)
+						result = ledger.any.block_exists_or_pruned (transaction, block_a.hashables.source) ? celerix::block_status::progress : celerix::block_status::gap_source; // Have we seen the source block already? (Harmless)
+						if (result == celerix::block_status::progress)
 						{
-							result = info->head == block_a.hashables.previous ? nano::block_status::progress : nano::block_status::gap_previous; // Block doesn't immediately follow latest block (Harmless)
-							if (result == nano::block_status::progress)
+							result = info->head == block_a.hashables.previous ? celerix::block_status::progress : celerix::block_status::gap_previous; // Block doesn't immediately follow latest block (Harmless)
+							if (result == celerix::block_status::progress)
 							{
-								nano::pending_key key (account, block_a.hashables.source);
+								celerix::pending_key key (account, block_a.hashables.source);
 								auto pending = ledger.store.pending.get (transaction, key);
-								result = !pending ? nano::block_status::unreceivable : nano::block_status::progress; // Has this source already been received (Malformed)
-								if (result == nano::block_status::progress)
+								result = !pending ? celerix::block_status::unreceivable : celerix::block_status::progress; // Has this source already been received (Malformed)
+								if (result == celerix::block_status::progress)
 								{
-									result = pending.value ().epoch == nano::epoch::epoch_0 ? nano::block_status::progress : nano::block_status::unreceivable; // Are we receiving a state-only send? (Malformed)
-									if (result == nano::block_status::progress)
+									result = pending.value ().epoch == celerix::epoch::epoch_0 ? celerix::block_status::progress : celerix::block_status::unreceivable; // Are we receiving a state-only send? (Malformed)
+									if (result == celerix::block_status::progress)
 									{
-										nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
-										result = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
-										if (result == nano::block_status::progress)
+										celerix::block_details block_details (celerix::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
+										result = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? celerix::block_status::progress : celerix::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
+										if (result == celerix::block_status::progress)
 										{
 											auto new_balance (info->balance.number () + pending.value ().amount.number ());
 											ledger.store.pending.del (transaction, key);
-											block_a.sideband_set (nano::block_sideband (account, 0, new_balance, info->block_count + 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
+											block_a.sideband_set (celerix::block_sideband (account, 0, new_balance, info->block_count + 1, celerix::seconds_since_epoch (), block_details, celerix::epoch::epoch_0 /* unused */));
 											ledger.store.block.put (transaction, hash, block_a);
-											nano::account_info new_info (hash, info->representative, info->open_block, new_balance, nano::seconds_since_epoch (), info->block_count + 1, nano::epoch::epoch_0);
+											celerix::account_info new_info (hash, info->representative, info->open_block, new_balance, celerix::seconds_since_epoch (), info->block_count + 1, celerix::epoch::epoch_0);
 											ledger.update_account (transaction, account, *info, new_info);
 											ledger.cache.rep_weights.representation_add (transaction, info->representative, pending.value ().amount.number ());
-											ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::receive);
+											ledger.stats.inc (celerix::stat::type::ledger, celerix::stat::detail::receive);
 										}
 									}
 								}
@@ -593,46 +593,46 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 	}
 }
 
-void ledger_processor::open_block (nano::open_block & block_a)
+void ledger_processor::open_block (celerix::open_block & block_a)
 {
 	auto hash (block_a.hash ());
 	auto existing = ledger.any.block_exists_or_pruned (transaction, hash);
-	result = existing ? nano::block_status::old : nano::block_status::progress; // Have we seen this block already? (Harmless)
-	if (result == nano::block_status::progress)
+	result = existing ? celerix::block_status::old : celerix::block_status::progress; // Have we seen this block already? (Harmless)
+	if (result == celerix::block_status::progress)
 	{
-		result = validate_message (block_a.hashables.account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is the signature valid (Malformed)
-		if (result == nano::block_status::progress)
+		result = validate_message (block_a.hashables.account, hash, block_a.signature) ? celerix::block_status::bad_signature : celerix::block_status::progress; // Is the signature valid (Malformed)
+		if (result == celerix::block_status::progress)
 		{
 			debug_assert (!validate_message (block_a.hashables.account, hash, block_a.signature));
-			result = ledger.any.block_exists_or_pruned (transaction, block_a.hashables.source) ? nano::block_status::progress : nano::block_status::gap_source; // Have we seen the source block? (Harmless)
-			if (result == nano::block_status::progress)
+			result = ledger.any.block_exists_or_pruned (transaction, block_a.hashables.source) ? celerix::block_status::progress : celerix::block_status::gap_source; // Have we seen the source block? (Harmless)
+			if (result == celerix::block_status::progress)
 			{
-				nano::account_info info;
-				result = ledger.store.account.get (transaction, block_a.hashables.account, info) ? nano::block_status::progress : nano::block_status::fork; // Has this account already been opened? (Malicious)
-				if (result == nano::block_status::progress)
+				celerix::account_info info;
+				result = ledger.store.account.get (transaction, block_a.hashables.account, info) ? celerix::block_status::progress : celerix::block_status::fork; // Has this account already been opened? (Malicious)
+				if (result == celerix::block_status::progress)
 				{
-					nano::pending_key key (block_a.hashables.account, block_a.hashables.source);
+					celerix::pending_key key (block_a.hashables.account, block_a.hashables.source);
 					auto pending = ledger.store.pending.get (transaction, key);
-					result = !pending ? nano::block_status::unreceivable : nano::block_status::progress; // Has this source already been received (Malformed)
-					if (result == nano::block_status::progress)
+					result = !pending ? celerix::block_status::unreceivable : celerix::block_status::progress; // Has this source already been received (Malformed)
+					if (result == celerix::block_status::progress)
 					{
-						result = block_a.hashables.account == ledger.constants.burn_account ? nano::block_status::opened_burn_account : nano::block_status::progress; // Is it burning 0 account? (Malicious)
-						if (result == nano::block_status::progress)
+						result = block_a.hashables.account == ledger.constants.burn_account ? celerix::block_status::opened_burn_account : celerix::block_status::progress; // Is it burning 0 account? (Malicious)
+						if (result == celerix::block_status::progress)
 						{
-							result = pending.value ().epoch == nano::epoch::epoch_0 ? nano::block_status::progress : nano::block_status::unreceivable; // Are we receiving a state-only send? (Malformed)
-							if (result == nano::block_status::progress)
+							result = pending.value ().epoch == celerix::epoch::epoch_0 ? celerix::block_status::progress : celerix::block_status::unreceivable; // Are we receiving a state-only send? (Malformed)
+							if (result == celerix::block_status::progress)
 							{
-								nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
-								result = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
-								if (result == nano::block_status::progress)
+								celerix::block_details block_details (celerix::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
+								result = ledger.constants.work.difficulty (block_a) >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? celerix::block_status::progress : celerix::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
+								if (result == celerix::block_status::progress)
 								{
 									ledger.store.pending.del (transaction, key);
-									block_a.sideband_set (nano::block_sideband (block_a.hashables.account, 0, pending.value ().amount, 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
+									block_a.sideband_set (celerix::block_sideband (block_a.hashables.account, 0, pending.value ().amount, 1, celerix::seconds_since_epoch (), block_details, celerix::epoch::epoch_0 /* unused */));
 									ledger.store.block.put (transaction, hash, block_a);
-									nano::account_info new_info (hash, block_a.representative_field ().value (), hash, pending.value ().amount.number (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0);
+									celerix::account_info new_info (hash, block_a.representative_field ().value (), hash, pending.value ().amount.number (), celerix::seconds_since_epoch (), 1, celerix::epoch::epoch_0);
 									ledger.update_account (transaction, block_a.hashables.account, info, new_info);
 									ledger.cache.rep_weights.representation_add (transaction, block_a.representative_field ().value (), pending.value ().amount.number ());
-									ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::open);
+									ledger.stats.inc (celerix::stat::type::ledger, celerix::stat::detail::open);
 								}
 							}
 						}
@@ -643,7 +643,7 @@ void ledger_processor::open_block (nano::open_block & block_a)
 	}
 }
 
-ledger_processor::ledger_processor (nano::ledger & ledger_a, nano::secure::write_transaction const & transaction_a) :
+ledger_processor::ledger_processor (celerix::ledger & ledger_a, celerix::secure::write_transaction const & transaction_a) :
 	ledger (ledger_a),
 	transaction (transaction_a)
 {
@@ -652,31 +652,31 @@ ledger_processor::ledger_processor (nano::ledger & ledger_a, nano::secure::write
 /**
  * Determine the representative for this block
  */
-class representative_visitor final : public nano::block_visitor
+class representative_visitor final : public celerix::block_visitor
 {
 public:
-	representative_visitor (nano::secure::transaction const & transaction_a, nano::ledger & ledger);
+	representative_visitor (celerix::secure::transaction const & transaction_a, celerix::ledger & ledger);
 	~representative_visitor () = default;
-	void compute (nano::block_hash const & hash_a);
-	void send_block (nano::send_block const & block_a) override;
-	void receive_block (nano::receive_block const & block_a) override;
-	void open_block (nano::open_block const & block_a) override;
-	void change_block (nano::change_block const & block_a) override;
-	void state_block (nano::state_block const & block_a) override;
-	nano::secure::transaction const & transaction;
-	nano::ledger & ledger;
-	nano::block_hash current;
-	nano::block_hash result;
+	void compute (celerix::block_hash const & hash_a);
+	void send_block (celerix::send_block const & block_a) override;
+	void receive_block (celerix::receive_block const & block_a) override;
+	void open_block (celerix::open_block const & block_a) override;
+	void change_block (celerix::change_block const & block_a) override;
+	void state_block (celerix::state_block const & block_a) override;
+	celerix::secure::transaction const & transaction;
+	celerix::ledger & ledger;
+	celerix::block_hash current;
+	celerix::block_hash result;
 };
 
-representative_visitor::representative_visitor (nano::secure::transaction const & transaction_a, nano::ledger & ledger) :
+representative_visitor::representative_visitor (celerix::secure::transaction const & transaction_a, celerix::ledger & ledger) :
 	transaction{ transaction_a },
 	ledger{ ledger },
 	result{ 0 }
 {
 }
 
-void representative_visitor::compute (nano::block_hash const & hash_a)
+void representative_visitor::compute (celerix::block_hash const & hash_a)
 {
 	current = hash_a;
 	while (result.is_zero ())
@@ -687,33 +687,33 @@ void representative_visitor::compute (nano::block_hash const & hash_a)
 	}
 }
 
-void representative_visitor::send_block (nano::send_block const & block_a)
+void representative_visitor::send_block (celerix::send_block const & block_a)
 {
 	current = block_a.previous ();
 }
 
-void representative_visitor::receive_block (nano::receive_block const & block_a)
+void representative_visitor::receive_block (celerix::receive_block const & block_a)
 {
 	current = block_a.previous ();
 }
 
-void representative_visitor::open_block (nano::open_block const & block_a)
+void representative_visitor::open_block (celerix::open_block const & block_a)
 {
 	result = block_a.hash ();
 }
 
-void representative_visitor::change_block (nano::change_block const & block_a)
+void representative_visitor::change_block (celerix::change_block const & block_a)
 {
 	result = block_a.hash ();
 }
 
-void representative_visitor::state_block (nano::state_block const & block_a)
+void representative_visitor::state_block (celerix::state_block const & block_a)
 {
 	result = block_a.hash ();
 }
 } // namespace
 
-nano::ledger::ledger (nano::store::component & store_a, nano::stats & stat_a, nano::ledger_constants & constants, nano::generate_cache_flags const & generate_cache_flags_a, nano::uint128_t min_rep_weight_a) :
+celerix::ledger::ledger (celerix::store::component & store_a, celerix::stats & stat_a, celerix::ledger_constants & constants, celerix::generate_cache_flags const & generate_cache_flags_a, celerix::uint128_t min_rep_weight_a) :
 	constants{ constants },
 	store{ store_a },
 	cache{ store_a.rep_weight, min_rep_weight_a },
@@ -730,23 +730,23 @@ nano::ledger::ledger (nano::store::component & store_a, nano::stats & stat_a, na
 	}
 }
 
-nano::ledger::~ledger ()
+celerix::ledger::~ledger ()
 {
 }
 
-auto nano::ledger::tx_begin_write (nano::store::writer guard_type) const -> secure::write_transaction
+auto celerix::ledger::tx_begin_write (celerix::store::writer guard_type) const -> secure::write_transaction
 {
 	auto guard = store.write_queue.wait (guard_type);
 	auto txn = store.tx_begin_write ();
 	return secure::write_transaction{ std::move (txn), std::move (guard) };
 }
 
-auto nano::ledger::tx_begin_read () const -> secure::read_transaction
+auto celerix::ledger::tx_begin_read () const -> secure::read_transaction
 {
 	return secure::read_transaction{ store.tx_begin_read () };
 }
 
-void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache_flags_a)
+void celerix::ledger::initialize (celerix::generate_cache_flags const & generate_cache_flags_a)
 {
 	if (generate_cache_flags_a.reps || generate_cache_flags_a.account_count || generate_cache_flags_a.block_count)
 	{
@@ -756,7 +756,7 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 			uint64_t account_count_l{ 0 };
 			for (; i != n; ++i)
 			{
-				nano::account_info const & info (i->second);
+				celerix::account_info const & info (i->second);
 				block_count_l += info.block_count;
 				++account_count_l;
 			}
@@ -766,7 +766,7 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 
 		store.rep_weight.for_each_par (
 		[this] (store::read_transaction const & /*unused*/, auto i, auto n) {
-			nano::rep_weights rep_weights_l{ this->store.rep_weight };
+			celerix::rep_weights rep_weights_l{ this->store.rep_weight };
 			for (; i != n; ++i)
 			{
 				rep_weights_l.representation_put (i->first, i->second.number ());
@@ -792,18 +792,18 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 	cache.pruned_count = store.pruned.count (transaction);
 }
 
-bool nano::ledger::unconfirmed_exists (secure::transaction const & transaction, nano::block_hash const & hash)
+bool celerix::ledger::unconfirmed_exists (secure::transaction const & transaction, celerix::block_hash const & hash)
 {
 	return any.block_exists (transaction, hash) && !confirmed.block_exists (transaction, hash);
 }
 
-nano::uint128_t nano::ledger::account_receivable (secure::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
+celerix::uint128_t celerix::ledger::account_receivable (secure::transaction const & transaction_a, celerix::account const & account_a, bool only_confirmed_a)
 {
-	nano::uint128_t result (0);
-	nano::account end (account_a.number () + 1);
-	for (auto i (store.pending.begin (transaction_a, nano::pending_key (account_a, 0))), n (store.pending.begin (transaction_a, nano::pending_key (end, 0))); i != n; ++i)
+	celerix::uint128_t result (0);
+	celerix::account end (account_a.number () + 1);
+	for (auto i (store.pending.begin (transaction_a, celerix::pending_key (account_a, 0))), n (store.pending.begin (transaction_a, celerix::pending_key (end, 0))); i != n; ++i)
 	{
-		nano::pending_info const & info (i->second);
+		celerix::pending_info const & info (i->second);
 		if (only_confirmed_a)
 		{
 			if (confirmed.block_exists_or_pruned (transaction_a, i->first.hash))
@@ -821,11 +821,11 @@ nano::uint128_t nano::ledger::account_receivable (secure::transaction const & tr
 
 // Both stack and result set are bounded to limit maximum memory usage
 // Callers must ensure that the target block was confirmed, and if not, call this function multiple times
-std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_transaction & transaction, nano::block_hash const & target_hash, size_t max_blocks)
+std::deque<std::shared_ptr<celerix::block>> celerix::ledger::confirm (secure::write_transaction & transaction, celerix::block_hash const & target_hash, size_t max_blocks)
 {
-	std::deque<std::shared_ptr<nano::block>> result;
+	std::deque<std::shared_ptr<celerix::block>> result;
 
-	std::deque<nano::block_hash> stack;
+	std::deque<celerix::block_hash> stack;
 	stack.push_back (target_hash);
 	while (!stack.empty ())
 	{
@@ -838,7 +838,7 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_tr
 		{
 			if (!dependent.is_zero () && !confirmed.block_exists_or_pruned (transaction, dependent))
 			{
-				stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::dependent_unconfirmed);
+				stats.inc (celerix::stat::type::confirmation_height, celerix::stat::detail::dependent_unconfirmed);
 
 				stack.push_back (dependent);
 
@@ -888,48 +888,48 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_tr
 	return result;
 }
 
-void nano::ledger::confirm_one (secure::write_transaction & transaction, nano::block const & block)
+void celerix::ledger::confirm_one (secure::write_transaction & transaction, celerix::block const & block)
 {
 	debug_assert ((!store.confirmation_height.get (transaction, block.account ()) && block.sideband ().height == 1) || store.confirmation_height.get (transaction, block.account ()).value ().height + 1 == block.sideband ().height);
 	confirmation_height_info info{ block.sideband ().height, block.hash () };
 	store.confirmation_height.put (transaction, block.account (), info);
 	++cache.cemented_count;
 
-	stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed);
+	stats.inc (celerix::stat::type::confirmation_height, celerix::stat::detail::blocks_confirmed);
 }
 
-nano::block_status nano::ledger::process (secure::write_transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
+celerix::block_status celerix::ledger::process (secure::write_transaction const & transaction_a, std::shared_ptr<celerix::block> block_a)
 {
-	debug_assert (!constants.work.validate_entry (*block_a) || constants.genesis == nano::dev::genesis);
+	debug_assert (!constants.work.validate_entry (*block_a) || constants.genesis == celerix::dev::genesis);
 	ledger_processor processor (*this, transaction_a);
 	block_a->visit (processor);
-	if (processor.result == nano::block_status::progress)
+	if (processor.result == celerix::block_status::progress)
 	{
 		++cache.block_count;
 	}
 	return processor.result;
 }
 
-nano::block_hash nano::ledger::representative (secure::transaction const & transaction_a, nano::block_hash const & hash_a)
+celerix::block_hash celerix::ledger::representative (secure::transaction const & transaction_a, celerix::block_hash const & hash_a)
 {
 	auto result (representative_calculated (transaction_a, hash_a));
 	debug_assert (result.is_zero () || any.block_exists (transaction_a, result));
 	return result;
 }
 
-nano::block_hash nano::ledger::representative_calculated (secure::transaction const & transaction_a, nano::block_hash const & hash_a)
+celerix::block_hash celerix::ledger::representative_calculated (secure::transaction const & transaction_a, celerix::block_hash const & hash_a)
 {
 	representative_visitor visitor (transaction_a, *this);
 	visitor.compute (hash_a);
 	return visitor.result;
 }
 
-std::string nano::ledger::block_text (char const * hash_a)
+std::string celerix::ledger::block_text (char const * hash_a)
 {
-	return block_text (nano::block_hash (hash_a));
+	return block_text (celerix::block_hash (hash_a));
 }
 
-std::string nano::ledger::block_text (nano::block_hash const & hash_a)
+std::string celerix::ledger::block_text (celerix::block_hash const & hash_a)
 {
 	std::string result;
 	auto transaction = tx_begin_read ();
@@ -941,11 +941,11 @@ std::string nano::ledger::block_text (nano::block_hash const & hash_a)
 	return result;
 }
 
-std::deque<std::shared_ptr<nano::block>> nano::ledger::random_blocks (secure::transaction const & transaction, size_t count) const
+std::deque<std::shared_ptr<celerix::block>> celerix::ledger::random_blocks (secure::transaction const & transaction, size_t count) const
 {
-	std::deque<std::shared_ptr<nano::block>> result;
+	std::deque<std::shared_ptr<celerix::block>> result;
 
-	auto const starting_hash = nano::random_pool::generate<nano::block_hash> ();
+	auto const starting_hash = celerix::random_pool::generate<celerix::block_hash> ();
 
 	// It is more efficient to choose a random starting point and pick a few sequential blocks from there
 	auto it = store.block.begin (transaction, starting_hash);
@@ -963,7 +963,7 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::random_blocks (secure::tr
 }
 
 // Vote weight of an account
-nano::uint128_t nano::ledger::weight (nano::account const & account_a) const
+celerix::uint128_t celerix::ledger::weight (celerix::account const & account_a) const
 {
 	if (check_bootstrap_weights.load ())
 	{
@@ -983,13 +983,13 @@ nano::uint128_t nano::ledger::weight (nano::account const & account_a) const
 	return cache.rep_weights.representation_get (account_a);
 }
 
-nano::uint128_t nano::ledger::weight_exact (secure::transaction const & txn_a, nano::account const & representative_a) const
+celerix::uint128_t celerix::ledger::weight_exact (secure::transaction const & txn_a, celerix::account const & representative_a) const
 {
 	return store.rep_weight.get (txn_a, representative_a);
 }
 
 // Rollback blocks until `block_a' doesn't exist or it tries to penetrate the confirmation height
-bool nano::ledger::rollback (secure::write_transaction const & transaction_a, nano::block_hash const & block_a, std::deque<std::shared_ptr<nano::block>> & list_a)
+bool celerix::ledger::rollback (secure::write_transaction const & transaction_a, celerix::block_hash const & block_a, std::deque<std::shared_ptr<celerix::block>> & list_a)
 {
 	debug_assert (any.block_exists (transaction_a, block_a));
 	auto account_l = any.block_account (transaction_a, block_a).value ();
@@ -998,7 +998,7 @@ bool nano::ledger::rollback (secure::write_transaction const & transaction_a, na
 	auto error (false);
 	while (!error && any.block_exists (transaction_a, block_a))
 	{
-		nano::confirmation_height_info confirmation_height_info;
+		celerix::confirmation_height_info confirmation_height_info;
 		store.confirmation_height.get (transaction_a, account_l, confirmation_height_info);
 		if (block_account_height > confirmation_height_info.height)
 		{
@@ -1021,14 +1021,14 @@ bool nano::ledger::rollback (secure::write_transaction const & transaction_a, na
 	return error;
 }
 
-bool nano::ledger::rollback (secure::write_transaction const & transaction_a, nano::block_hash const & block_a)
+bool celerix::ledger::rollback (secure::write_transaction const & transaction_a, celerix::block_hash const & block_a)
 {
-	std::deque<std::shared_ptr<nano::block>> rollback_list;
+	std::deque<std::shared_ptr<celerix::block>> rollback_list;
 	return rollback (transaction_a, block_a, rollback_list);
 }
 
 // Return latest root for account, account number if there are no blocks for this account.
-nano::root nano::ledger::latest_root (secure::transaction const & transaction_a, nano::account const & account_a)
+celerix::root celerix::ledger::latest_root (secure::transaction const & transaction_a, celerix::account const & account_a)
 {
 	auto info = any.account_get (transaction_a, account_a);
 	if (!info)
@@ -1041,7 +1041,7 @@ nano::root nano::ledger::latest_root (secure::transaction const & transaction_a,
 	}
 }
 
-void nano::ledger::dump_account_chain (nano::account const & account_a, std::ostream & stream)
+void celerix::ledger::dump_account_chain (celerix::account const & account_a, std::ostream & stream)
 {
 	auto transaction = tx_begin_read ();
 	auto hash (any.account_head (transaction, account_a));
@@ -1054,10 +1054,10 @@ void nano::ledger::dump_account_chain (nano::account const & account_a, std::ost
 	}
 }
 
-bool nano::ledger::dependents_confirmed (secure::transaction const & transaction_a, nano::block const & block_a) const
+bool celerix::ledger::dependents_confirmed (secure::transaction const & transaction_a, celerix::block const & block_a) const
 {
 	auto dependencies (dependent_blocks (transaction_a, block_a));
-	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction_a] (nano::block_hash const & hash_a) {
+	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction_a] (celerix::block_hash const & hash_a) {
 		auto result (hash_a.is_zero ());
 		if (!result)
 		{
@@ -1067,41 +1067,41 @@ bool nano::ledger::dependents_confirmed (secure::transaction const & transaction
 	});
 }
 
-bool nano::ledger::is_epoch_link (nano::link const & link_a) const
+bool celerix::ledger::is_epoch_link (celerix::link const & link_a) const
 {
 	return constants.epochs.is_epoch_link (link_a);
 }
 
-class dependent_block_visitor : public nano::block_visitor
+class dependent_block_visitor : public celerix::block_visitor
 {
 public:
-	dependent_block_visitor (nano::ledger const & ledger_a, nano::secure::transaction const & transaction_a) :
+	dependent_block_visitor (celerix::ledger const & ledger_a, celerix::secure::transaction const & transaction_a) :
 		ledger (ledger_a),
 		transaction (transaction_a),
 		result ({ 0, 0 })
 	{
 	}
-	void send_block (nano::send_block const & block_a) override
+	void send_block (celerix::send_block const & block_a) override
 	{
 		result[0] = block_a.previous ();
 	}
-	void receive_block (nano::receive_block const & block_a) override
+	void receive_block (celerix::receive_block const & block_a) override
 	{
 		result[0] = block_a.previous ();
 		result[1] = block_a.source_field ().value ();
 	}
-	void open_block (nano::open_block const & block_a) override
+	void open_block (celerix::open_block const & block_a) override
 	{
 		if (block_a.source_field ().value () != ledger.constants.genesis->account ().as_union ())
 		{
 			result[0] = block_a.source_field ().value ();
 		}
 	}
-	void change_block (nano::change_block const & block_a) override
+	void change_block (celerix::change_block const & block_a) override
 	{
 		result[0] = block_a.previous ();
 	}
-	void state_block (nano::state_block const & block_a) override
+	void state_block (celerix::state_block const & block_a) override
 	{
 		result[0] = block_a.hashables.previous;
 		result[1] = block_a.hashables.link.as_block_hash ();
@@ -1113,7 +1113,7 @@ public:
 	}
 	// This function is used in place of block->is_send () as it is tolerant to the block not having the sideband information loaded
 	// This is needed for instance in vote generation on forks which have not yet had sideband information attached
-	bool is_send (nano::state_block const & block) const
+	bool is_send (celerix::state_block const & block) const
 	{
 		if (block.previous ().is_zero ())
 		{
@@ -1125,12 +1125,12 @@ public:
 		}
 		return block.balance_field ().value () < ledger.any.block_balance (transaction, block.previous ());
 	}
-	nano::ledger const & ledger;
-	nano::secure::transaction const & transaction;
-	std::array<nano::block_hash, 2> result;
+	celerix::ledger const & ledger;
+	celerix::secure::transaction const & transaction;
+	std::array<celerix::block_hash, 2> result;
 };
 
-std::array<nano::block_hash, 2> nano::ledger::dependent_blocks (secure::transaction const & transaction_a, nano::block const & block_a) const
+std::array<celerix::block_hash, 2> celerix::ledger::dependent_blocks (secure::transaction const & transaction_a, celerix::block const & block_a) const
 {
 	dependent_block_visitor visitor (*this, transaction_a);
 	block_a.visit (visitor);
@@ -1141,13 +1141,13 @@ std::array<nano::block_hash, 2> nano::ledger::dependent_blocks (secure::transact
  *  The send block hash is not checked in any way, it is assumed to be correct.
  * @return Return the receive block on success and null on failure
  */
-std::shared_ptr<nano::block> nano::ledger::find_receive_block_by_send_hash (secure::transaction const & transaction, nano::account const & destination, nano::block_hash const & send_block_hash)
+std::shared_ptr<celerix::block> celerix::ledger::find_receive_block_by_send_hash (secure::transaction const & transaction, celerix::account const & destination, celerix::block_hash const & send_block_hash)
 {
-	std::shared_ptr<nano::block> result;
+	std::shared_ptr<celerix::block> result;
 	debug_assert (send_block_hash != 0);
 
 	// get the cemented frontier
-	nano::confirmation_height_info info;
+	celerix::confirmation_height_info info;
 	if (store.confirmation_height.get (transaction, destination, info))
 	{
 		return nullptr;
@@ -1170,17 +1170,17 @@ std::shared_ptr<nano::block> nano::ledger::find_receive_block_by_send_hash (secu
 	return result;
 }
 
-nano::account const & nano::ledger::epoch_signer (nano::link const & link_a) const
+celerix::account const & celerix::ledger::epoch_signer (celerix::link const & link_a) const
 {
 	return constants.epochs.signer (constants.epochs.epoch (link_a));
 }
 
-nano::link const & nano::ledger::epoch_link (nano::epoch epoch_a) const
+celerix::link const & celerix::ledger::epoch_link (celerix::epoch epoch_a) const
 {
 	return constants.epochs.link (epoch_a);
 }
 
-void nano::ledger::update_account (secure::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & old_a, nano::account_info const & new_a)
+void celerix::ledger::update_account (secure::write_transaction const & transaction_a, celerix::account const & account_a, celerix::account_info const & old_a, celerix::account_info const & new_a)
 {
 	if (!new_a.head.is_zero ())
 	{
@@ -1204,12 +1204,12 @@ void nano::ledger::update_account (secure::write_transaction const & transaction
 	}
 }
 
-std::shared_ptr<nano::block> nano::ledger::forked_block (secure::transaction const & transaction_a, nano::block const & block_a)
+std::shared_ptr<celerix::block> celerix::ledger::forked_block (secure::transaction const & transaction_a, celerix::block const & block_a)
 {
 	debug_assert (!any.block_exists (transaction_a, block_a.hash ()));
 	auto root (block_a.root ());
 	debug_assert (any.block_exists (transaction_a, root.as_block_hash ()) || store.account.exists (transaction_a, root.as_account ()));
-	std::shared_ptr<nano::block> result;
+	std::shared_ptr<celerix::block> result;
 	auto successor_l = any.block_successor (transaction_a, root.as_block_hash ());
 	if (successor_l)
 	{
@@ -1225,10 +1225,10 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (secure::transaction con
 	return result;
 }
 
-uint64_t nano::ledger::pruning_action (secure::write_transaction & transaction_a, nano::block_hash const & hash_a, uint64_t const batch_size_a)
+uint64_t celerix::ledger::pruning_action (secure::write_transaction & transaction_a, celerix::block_hash const & hash_a, uint64_t const batch_size_a)
 {
 	uint64_t pruned_count (0);
-	nano::block_hash hash (hash_a);
+	celerix::block_hash hash (hash_a);
 	while (!hash.is_zero () && hash != constants.genesis->hash ())
 	{
 		auto block_l = any.block_get (transaction_a, hash);
@@ -1259,7 +1259,7 @@ uint64_t nano::ledger::pruning_action (secure::write_transaction & transaction_a
 	return pruned_count;
 }
 
-auto nano::ledger::block_priority (nano::secure::transaction const & transaction, nano::block const & block) const -> block_priority_result
+auto celerix::ledger::block_priority (celerix::secure::transaction const & transaction, celerix::block const & block) const -> block_priority_result
 {
 	auto const balance = block.balance ();
 	auto const previous_block = !block.previous ().is_zero () ? any.block_get (transaction, block.previous ()) : nullptr;
@@ -1275,11 +1275,11 @@ auto nano::ledger::block_priority (nano::secure::transaction const & transaction
 }
 
 // A precondition is that the store is an LMDB store
-bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_path_a) const
+bool celerix::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_path_a) const
 {
-	nano::logger logger;
+	celerix::logger logger;
 
-	logger.info (nano::log::type::ledger, "Migrating LMDB database to RocksDB. This will take a while...");
+	logger.info (celerix::log::type::ledger, "Migrating LMDB database to RocksDB. This will take a while...");
 
 	std::filesystem::space_info si = std::filesystem::space (data_path_a);
 	auto file_size = std::filesystem::file_size (data_path_a / "data.ldb");
@@ -1287,30 +1287,30 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 
 	if (si.available < estimated_required_space)
 	{
-		logger.warn (nano::log::type::ledger, "You may not have enough available disk space. Estimated free space requirement is {} GB", estimated_required_space / 1024 / 1024 / 1024);
+		logger.warn (celerix::log::type::ledger, "You may not have enough available disk space. Estimated free space requirement is {} GB", estimated_required_space / 1024 / 1024 / 1024);
 	}
 
 	boost::system::error_code error_chmod;
-	nano::set_secure_perm_directory (data_path_a, error_chmod);
+	celerix::set_secure_perm_directory (data_path_a, error_chmod);
 	auto rockdb_data_path = data_path_a / "rocksdb";
 
 	if (std::filesystem::exists (rockdb_data_path))
 	{
-		logger.error (nano::log::type::ledger, "Existing RocksDB folder found in '{}'. Please remove it and try again.", rockdb_data_path.string ());
+		logger.error (celerix::log::type::ledger, "Existing RocksDB folder found in '{}'. Please remove it and try again.", rockdb_data_path.string ());
 		return true;
 	}
 
 	auto error (false);
 
 	// Open rocksdb database
-	nano::rocksdb_config rocksdb_config;
+	celerix::rocksdb_config rocksdb_config;
 	rocksdb_config.enable = true;
-	auto rocksdb_store = nano::make_store (logger, data_path_a, nano::dev::constants, false, true, rocksdb_config);
+	auto rocksdb_store = celerix::make_store (logger, data_path_a, celerix::dev::constants, false, true, rocksdb_config);
 
 	if (!rocksdb_store->init_error ())
 	{
 		auto table_size = store.count (store.tx_begin_read (), tables::blocks);
-		logger.info (nano::log::type::ledger, "Step 1 of 7: Converting {} entries from blocks table", table_size);
+		logger.info (celerix::log::type::ledger, "Step 1 of 7: Converting {} entries from blocks table", table_size);
 		std::atomic<std::size_t> count = 0;
 		store.block.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
@@ -1320,22 +1320,22 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				rocksdb_transaction.refresh_if_needed ();
 				std::vector<uint8_t> vector;
 				{
-					nano::vectorstream stream (vector);
-					nano::serialize_block (stream, *i->second.block);
+					celerix::vectorstream stream (vector);
+					celerix::serialize_block (stream, *i->second.block);
 					i->second.sideband.serialize (stream, i->second.block->type ());
 				}
 				rocksdb_store->block.raw_put (rocksdb_transaction, vector, i->first);
 
 				if (auto count_l = ++count; count_l % 5000000 == 0)
 				{
-					logger.info (nano::log::type::ledger, "{} blocks converted ({}%)", count_l, count_l * 100 / table_size);
+					logger.info (celerix::log::type::ledger, "{} blocks converted ({}%)", count_l, count_l * 100 / table_size);
 				}
 			}
 		});
-		logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
+		logger.info (celerix::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
 
 		table_size = store.count (store.tx_begin_read (), tables::pending);
-		logger.info (nano::log::type::ledger, "Step 2 of 7: Converting {} entries from pending table", table_size);
+		logger.info (celerix::log::type::ledger, "Step 2 of 7: Converting {} entries from pending table", table_size);
 		count = 0;
 		store.pending.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
@@ -1346,14 +1346,14 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				rocksdb_store->pending.put (rocksdb_transaction, i->first, i->second);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
-					logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
+					logger.info (celerix::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
 				}
 			}
 		});
-		logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
+		logger.info (celerix::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
 
 		table_size = store.count (store.tx_begin_read (), tables::confirmation_height);
-		logger.info (nano::log::type::ledger, "Step 3 of 7: Converting {} entries from confirmation_height table", table_size);
+		logger.info (celerix::log::type::ledger, "Step 3 of 7: Converting {} entries from confirmation_height table", table_size);
 		count = 0;
 		store.confirmation_height.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
@@ -1364,14 +1364,14 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				rocksdb_store->confirmation_height.put (rocksdb_transaction, i->first, i->second);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
-					logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
+					logger.info (celerix::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
 				}
 			}
 		});
-		logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
+		logger.info (celerix::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
 
 		table_size = store.count (store.tx_begin_read (), tables::accounts);
-		logger.info (nano::log::type::ledger, "Step 4 of 7: Converting {} entries from accounts table", table_size);
+		logger.info (celerix::log::type::ledger, "Step 4 of 7: Converting {} entries from accounts table", table_size);
 		count = 0;
 		store.account.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
@@ -1382,14 +1382,14 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				rocksdb_store->account.put (rocksdb_transaction, i->first, i->second);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
-					logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
+					logger.info (celerix::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
 				}
 			}
 		});
-		logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
+		logger.info (celerix::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
 
 		table_size = store.count (store.tx_begin_read (), tables::rep_weights);
-		logger.info (nano::log::type::ledger, "Step 5 of 7: Converting {} entries from rep_weights table", table_size);
+		logger.info (celerix::log::type::ledger, "Step 5 of 7: Converting {} entries from rep_weights table", table_size);
 		count = 0;
 		store.rep_weight.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
@@ -1400,14 +1400,14 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				rocksdb_store->rep_weight.put (rocksdb_transaction, i->first, i->second.number ());
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
-					logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
+					logger.info (celerix::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
 				}
 			}
 		});
-		logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
+		logger.info (celerix::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
 
 		table_size = store.count (store.tx_begin_read (), tables::pruned);
-		logger.info (nano::log::type::ledger, "Step 6 of 7: Converting {} entries from pruned table", table_size);
+		logger.info (celerix::log::type::ledger, "Step 6 of 7: Converting {} entries from pruned table", table_size);
 		count = 0;
 		store.pruned.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
@@ -1418,14 +1418,14 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				rocksdb_store->pruned.put (rocksdb_transaction, i->first);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
-					logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
+					logger.info (celerix::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
 				}
 			}
 		});
-		logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
+		logger.info (celerix::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
 
 		table_size = store.count (store.tx_begin_read (), tables::final_votes);
-		logger.info (nano::log::type::ledger, "Step 7 of 7: Converting {} entries from final_votes table", table_size);
+		logger.info (celerix::log::type::ledger, "Step 7 of 7: Converting {} entries from final_votes table", table_size);
 		count = 0;
 		store.final_vote.for_each_par (
 		[&] (store::read_transaction const & /*unused*/, auto i, auto n) {
@@ -1436,13 +1436,13 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 				rocksdb_store->final_vote.put (rocksdb_transaction, i->first, i->second);
 				if (auto count_l = ++count; count_l % 500000 == 0)
 				{
-					logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
+					logger.info (celerix::log::type::ledger, "{} entries converted ({}%)", count_l, count_l * 100 / table_size);
 				}
 			}
 		});
-		logger.info (nano::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
+		logger.info (celerix::log::type::ledger, "{} entries converted ({}%)", count.load (), table_size > 0 ? count.load () * 100 / table_size : 100);
 
-		logger.info (nano::log::type::ledger, "Finalizing migration...");
+		logger.info (celerix::log::type::ledger, "Finalizing migration...");
 
 		auto lmdb_transaction (tx_begin_read ());
 		auto version = store.version.get (lmdb_transaction);
@@ -1476,19 +1476,19 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 
 			error |= rocksdb_store->block.get (rocksdb_transaction, block->hash ()) == nullptr;
 
-			nano::account_info account_info;
+			celerix::account_info account_info;
 			error |= rocksdb_store->account.get (rocksdb_transaction, account, account_info);
 
 			// If confirmation height exists in the lmdb ledger for this account it should exist in the rocksdb ledger
-			nano::confirmation_height_info confirmation_height_info{};
+			celerix::confirmation_height_info confirmation_height_info{};
 			if (!store.confirmation_height.get (lmdb_transaction, account, confirmation_height_info))
 			{
 				error |= rocksdb_store->confirmation_height.get (rocksdb_transaction, account, confirmation_height_info);
 			}
 		}
 
-		logger.info (nano::log::type::ledger, "Migration completed. Make sure to enable RocksDB in the config file under [node.rocksdb]");
-		logger.info (nano::log::type::ledger, "After confirming correct node operation, the data.ldb file can be deleted if no longer required");
+		logger.info (celerix::log::type::ledger, "Migration completed. Make sure to enable RocksDB in the config file under [node.rocksdb]");
+		logger.info (celerix::log::type::ledger, "After confirming correct node operation, the data.ldb file can be deleted if no longer required");
 	}
 	else
 	{
@@ -1497,61 +1497,61 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (std::filesystem::path const & data_p
 	return error;
 }
 
-bool nano::ledger::bootstrap_weight_reached () const
+bool celerix::ledger::bootstrap_weight_reached () const
 {
 	return cache.block_count >= bootstrap_weight_max_blocks;
 }
 
-nano::epoch nano::ledger::version (nano::block const & block)
+celerix::epoch celerix::ledger::version (celerix::block const & block)
 {
-	if (block.type () == nano::block_type::state)
+	if (block.type () == celerix::block_type::state)
 	{
 		return block.sideband ().details.epoch;
 	}
 
-	return nano::epoch::epoch_0;
+	return celerix::epoch::epoch_0;
 }
 
-nano::epoch nano::ledger::version (secure::transaction const & transaction, nano::block_hash const & hash) const
+celerix::epoch celerix::ledger::version (secure::transaction const & transaction, celerix::block_hash const & hash) const
 {
 	auto block_l = any.block_get (transaction, hash);
 	if (block_l == nullptr)
 	{
-		return nano::epoch::epoch_0;
+		return celerix::epoch::epoch_0;
 	}
 	return version (*block_l);
 }
 
-uint64_t nano::ledger::cemented_count () const
+uint64_t celerix::ledger::cemented_count () const
 {
 	return cache.cemented_count;
 }
 
-uint64_t nano::ledger::block_count () const
+uint64_t celerix::ledger::block_count () const
 {
 	return cache.block_count;
 }
 
-uint64_t nano::ledger::account_count () const
+uint64_t celerix::ledger::account_count () const
 {
 	return cache.account_count;
 }
 
-uint64_t nano::ledger::pruned_count () const
+uint64_t celerix::ledger::pruned_count () const
 {
 	return cache.pruned_count;
 }
 
-uint64_t nano::ledger::backlog_count () const
+uint64_t celerix::ledger::backlog_count () const
 {
 	auto blocks = cache.block_count.load ();
 	auto cemented = cache.cemented_count.load ();
 	return (blocks > cemented) ? blocks - cemented : 0;
 }
 
-nano::container_info nano::ledger::container_info () const
+celerix::container_info celerix::ledger::container_info () const
 {
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("bootstrap_weights", bootstrap_weights);
 	info.add ("rep_weights", cache.rep_weights.container_info ());
 	return info;

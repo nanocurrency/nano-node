@@ -1,7 +1,7 @@
-#include <nano/lib/numbers.hpp>
-#include <nano/store/component.hpp>
-#include <nano/store/rep_weight.hpp>
-#include <nano/test_common/make_store.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/store/component.hpp>
+#include <celerix/store/rep_weight.hpp>
+#include <celerix/test_common/make_store.hpp>
 
 #include <gtest/gtest.h>
 
@@ -10,7 +10,7 @@
 
 TEST (rep_weight_store, empty)
 {
-	auto store = nano::test::make_store ();
+	auto store = celerix::test::make_store ();
 	ASSERT_TRUE (!store->init_error ());
 	auto txn{ store->tx_begin_read () };
 	ASSERT_EQ (0, store->rep_weight.count (txn));
@@ -18,12 +18,12 @@ TEST (rep_weight_store, empty)
 
 TEST (rep_weight_store, add_item)
 {
-	auto store = nano::test::make_store ();
+	auto store = celerix::test::make_store ();
 	ASSERT_TRUE (!store->init_error ());
 	auto txn{ store->tx_begin_write () };
 
-	nano::account representative{ 123 };
-	nano::uint128_t weight{ 456 };
+	celerix::account representative{ 123 };
+	celerix::uint128_t weight{ 456 };
 	store->rep_weight.put (txn, representative, weight);
 
 	ASSERT_EQ (1, store->rep_weight.count (txn));
@@ -32,7 +32,7 @@ TEST (rep_weight_store, add_item)
 
 TEST (rep_weight_store, del)
 {
-	auto store = nano::test::make_store ();
+	auto store = celerix::test::make_store ();
 	ASSERT_TRUE (!store->init_error ());
 	auto txn{ store->tx_begin_write () };
 
@@ -48,7 +48,7 @@ TEST (rep_weight_store, del)
 
 TEST (rep_weight_store, for_each_par)
 {
-	auto store = nano::test::make_store ();
+	auto store = celerix::test::make_store ();
 	ASSERT_TRUE (!store->init_error ());
 	{
 		auto txn{ store->tx_begin_write () };

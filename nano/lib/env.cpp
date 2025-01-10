@@ -1,10 +1,10 @@
-#include <nano/lib/env.hpp>
+#include <celerix/lib/env.hpp>
 
 #include <boost/algorithm/string.hpp>
 
 #include <string>
 
-std::optional<std::string> nano::env::get (std::string_view name)
+std::optional<std::string> celerix::env::get (std::string_view name)
 {
 	std::string name_str{ name };
 	if (auto value = std::getenv (name_str.c_str ()))
@@ -15,7 +15,7 @@ std::optional<std::string> nano::env::get (std::string_view name)
 }
 
 template <>
-std::optional<bool> nano::env::get (std::string_view name)
+std::optional<bool> celerix::env::get (std::string_view name)
 {
 	std::vector<std::string> const on_values{ "1", "true", "on" };
 	std::vector<std::string> const off_values{ "0", "false", "off" };

@@ -1,18 +1,18 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
+#include <celerix/lib/numbers.hpp>
 
 #include <chrono>
 
-namespace nano
+namespace celerix
 {
 class vote_with_weight_info final
 {
 public:
-	nano::account representative;
+	celerix::account representative;
 	std::chrono::steady_clock::time_point time;
 	uint64_t timestamp;
-	nano::block_hash hash;
-	nano::uint128_t weight;
+	celerix::block_hash hash;
+	celerix::uint128_t weight;
 };
 }

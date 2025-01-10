@@ -1,11 +1,11 @@
-#include <nano/lib/files.hpp>
-#include <nano/lib/optional_ptr.hpp>
-#include <nano/lib/rate_limiting.hpp>
-#include <nano/lib/relaxed_atomic.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/secure/pending_info.hpp>
-#include <nano/secure/utility.hpp>
+#include <celerix/lib/files.hpp>
+#include <celerix/lib/optional_ptr.hpp>
+#include <celerix/lib/rate_limiting.hpp>
+#include <celerix/lib/relaxed_atomic.hpp>
+#include <celerix/lib/timer.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/secure/pending_info.hpp>
+#include <celerix/secure/utility.hpp>
 
 #include <gtest/gtest.h>
 
@@ -25,7 +25,7 @@ TEST (optional_ptr, basic)
 		int64_t z{ 3 };
 	};
 
-	nano::optional_ptr<valtype> opt;
+	celerix::optional_ptr<valtype> opt;
 	ASSERT_FALSE (opt);
 	ASSERT_FALSE (opt.is_initialized ());
 
@@ -45,7 +45,7 @@ TEST (optional_ptr, basic)
 
 TEST (filesystem, remove_all_files)
 {
-	auto path = nano::unique_path ();
+	auto path = celerix::unique_path ();
 	auto dummy_directory = path / "tmp";
 	std::filesystem::create_directories (dummy_directory);
 
@@ -60,7 +60,7 @@ TEST (filesystem, remove_all_files)
 	ASSERT_TRUE (std::filesystem::exists (dummy_file2));
 
 	// Should remove only the files
-	nano::remove_all_files_in_dir (path);
+	celerix::remove_all_files_in_dir (path);
 
 	ASSERT_TRUE (std::filesystem::exists (dummy_directory));
 	ASSERT_FALSE (std::filesystem::exists (dummy_file1));
@@ -69,7 +69,7 @@ TEST (filesystem, remove_all_files)
 
 TEST (filesystem, move_all_files)
 {
-	auto path = nano::unique_path ();
+	auto path = celerix::unique_path ();
 	auto dummy_directory = path / "tmp";
 	std::filesystem::create_directories (dummy_directory);
 
@@ -84,7 +84,7 @@ TEST (filesystem, move_all_files)
 	ASSERT_TRUE (std::filesystem::exists (dummy_file2));
 
 	// Should move only the files
-	nano::move_all_files_to_dir (dummy_directory, path);
+	celerix::move_all_files_to_dir (dummy_directory, path);
 
 	ASSERT_TRUE (std::filesystem::exists (dummy_directory));
 	ASSERT_TRUE (std::filesystem::exists (path / "my_file1.txt"));
@@ -95,7 +95,7 @@ TEST (filesystem, move_all_files)
 
 TEST (relaxed_atomic_integral, basic)
 {
-	nano::relaxed_atomic_integral<uint32_t> atomic{ 0 };
+	celerix::relaxed_atomic_integral<uint32_t> atomic{ 0 };
 	ASSERT_EQ (0, atomic++);
 	ASSERT_EQ (1, atomic);
 	ASSERT_EQ (2, ++atomic);
@@ -135,7 +135,7 @@ TEST (relaxed_atomic_integral, many_threads)
 {
 	std::vector<std::thread> threads;
 	auto num = 4;
-	nano::relaxed_atomic_integral<uint32_t> atomic{ 0 };
+	celerix::relaxed_atomic_integral<uint32_t> atomic{ 0 };
 	for (int i = 0; i < num; ++i)
 	{
 		threads.emplace_back ([&atomic] {
@@ -162,13 +162,13 @@ TEST (relaxed_atomic_integral, many_threads)
 
 TEST (pending_key, sorting)
 {
-	nano::pending_key one{ 1, 2 };
-	nano::pending_key two{ 1, 3 };
-	nano::pending_key three{ 2, 1 };
+	celerix::pending_key one{ 1, 2 };
+	celerix::pending_key two{ 1, 3 };
+	celerix::pending_key three{ 2, 1 };
 	ASSERT_LT (one, two);
 	ASSERT_LT (one, three);
 	ASSERT_LT (two, three);
-	nano::pending_key one_same{ 1, 2 };
-	ASSERT_EQ (std::hash<nano::pending_key>{}(one), std::hash<nano::pending_key>{}(one_same));
-	ASSERT_NE (std::hash<nano::pending_key>{}(one), std::hash<nano::pending_key>{}(two));
+	celerix::pending_key one_same{ 1, 2 };
+	ASSERT_EQ (std::hash<celerix::pending_key>{}(one), std::hash<celerix::pending_key>{}(one_same));
+	ASSERT_NE (std::hash<celerix::pending_key>{}(one), std::hash<celerix::pending_key>{}(two));
 }

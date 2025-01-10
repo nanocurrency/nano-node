@@ -1,12 +1,12 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/numbers_templ.hpp>
-#include <nano/lib/observer_set.hpp>
-#include <nano/lib/thread_pool.hpp>
-#include <nano/node/fwd.hpp>
-#include <nano/secure/common.hpp>
-#include <nano/secure/fwd.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/numbers_templ.hpp>
+#include <celerix/lib/observer_set.hpp>
+#include <celerix/lib/thread_pool.hpp>
+#include <celerix/node/fwd.hpp>
+#include <celerix/secure/common.hpp>
+#include <celerix/secure/fwd.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -22,7 +22,7 @@
 
 namespace mi = boost::multi_index;
 
-namespace nano
+namespace celerix
 {
 class confirming_set_config final
 {
@@ -52,46 +52,46 @@ class confirming_set final
 	friend class confirmation_height_pruned_source_Test;
 
 public:
-	confirming_set (confirming_set_config const &, nano::ledger &, nano::block_processor &, nano::stats &, nano::logger &);
+	confirming_set (confirming_set_config const &, celerix::ledger &, celerix::block_processor &, celerix::stats &, celerix::logger &);
 	~confirming_set ();
 
 	void start ();
 	void stop ();
 
 	// Adds a block to the set of blocks to be confirmed
-	void add (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election = nullptr);
+	void add (celerix::block_hash const & hash, std::shared_ptr<celerix::election> const & election = nullptr);
 	// Added blocks will remain in this set until after ledger has them marked as confirmed.
-	bool contains (nano::block_hash const & hash) const;
+	bool contains (celerix::block_hash const & hash) const;
 	std::size_t size () const;
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 
 public: // Events
 	struct context
 	{
-		std::shared_ptr<nano::block> block;
-		nano::block_hash confirmation_root;
-		std::shared_ptr<nano::election> election;
+		std::shared_ptr<celerix::block> block;
+		celerix::block_hash confirmation_root;
+		std::shared_ptr<celerix::election> election;
 	};
 
-	nano::observer_set<std::deque<context> const &> batch_cemented;
-	nano::observer_set<std::deque<nano::block_hash> const &> already_cemented;
-	nano::observer_set<nano::block_hash> cementing_failed;
+	celerix::observer_set<std::deque<context> const &> batch_cemented;
+	celerix::observer_set<std::deque<celerix::block_hash> const &> already_cemented;
+	celerix::observer_set<celerix::block_hash> cementing_failed;
 
-	nano::observer_set<std::shared_ptr<nano::block>> cemented_observers;
+	celerix::observer_set<std::shared_ptr<celerix::block>> cemented_observers;
 
 private: // Dependencies
 	confirming_set_config const & config;
-	nano::ledger & ledger;
-	nano::block_processor & block_processor;
-	nano::stats & stats;
-	nano::logger & logger;
+	celerix::ledger & ledger;
+	celerix::block_processor & block_processor;
+	celerix::stats & stats;
+	celerix::logger & logger;
 
 private:
 	struct entry
 	{
-		nano::block_hash hash;
-		std::shared_ptr<nano::election> election;
+		celerix::block_hash hash;
+		std::shared_ptr<celerix::election> election;
 		std::chrono::steady_clock::time_point timestamp{ std::chrono::steady_clock::now () };
 	};
 
@@ -109,7 +109,7 @@ private:
 	mi::indexed_by<
 		mi::sequenced<mi::tag<tag_sequenced>>,
 		mi::hashed_unique<mi::tag<tag_hash>,
-			mi::member<entry, nano::block_hash, &entry::hash>>
+			mi::member<entry, celerix::block_hash, &entry::hash>>
 	>>;
 	// clang-format on
 
@@ -118,13 +118,13 @@ private:
 	// Blocks that could not be cemented immediately (e.g. waiting for rollbacks to complete)
 	ordered_entries deferred;
 	// Blocks that are being cemented in the current batch
-	std::unordered_set<nano::block_hash> current;
+	std::unordered_set<celerix::block_hash> current;
 
 	std::atomic<bool> stopped{ false };
 	mutable std::mutex mutex;
 	std::condition_variable condition;
 	std::thread thread;
 
-	nano::thread_pool workers;
+	celerix::thread_pool workers;
 };
 }

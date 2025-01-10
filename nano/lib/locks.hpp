@@ -1,19 +1,19 @@
 #pragma once
 
-#define USING_NANO_TIMED_LOCKS (NANO_TIMED_LOCKS > 0)
+#define USING_CELERIX_TIMED_LOCKS (CELERIX_TIMED_LOCKS > 0)
 
-#if USING_NANO_TIMED_LOCKS
-#include <nano/lib/timer.hpp>
+#if USING_CELERIX_TIMED_LOCKS
+#include <celerix/lib/timer.hpp>
 #endif
 
 #include <condition_variable>
 #include <mutex>
 
-namespace nano
+namespace celerix
 {
 class mutex;
-extern nano::mutex * mutex_to_filter;
-extern nano::mutex mutex_to_filter_mutex;
+extern celerix::mutex * mutex_to_filter;
+extern celerix::mutex mutex_to_filter_mutex;
 bool should_be_filtered (char const * name);
 bool any_filters_registered ();
 
@@ -44,12 +44,12 @@ class mutex
 public:
 	mutex () = default;
 	mutex (char const * name_a)
-#if USING_NANO_TIMED_LOCKS
+#if USING_CELERIX_TIMED_LOCKS
 		:
 		name (name_a)
 #endif
 	{
-#if USING_NANO_TIMED_LOCKS
+#if USING_CELERIX_TIMED_LOCKS
 		// This mutex should be filtered
 		if (name && should_be_filtered (name))
 		{
@@ -59,7 +59,7 @@ public:
 #endif
 	}
 
-#if USING_NANO_TIMED_LOCKS
+#if USING_CELERIX_TIMED_LOCKS
 	~mutex ()
 	{
 		// Unfilter this destroyed mutex
@@ -87,7 +87,7 @@ public:
 		return mutex_m.try_lock ();
 	}
 
-#if USING_NANO_TIMED_LOCKS
+#if USING_CELERIX_TIMED_LOCKS
 	char const * get_name () const
 	{
 		return name ? name : "";
@@ -95,22 +95,22 @@ public:
 #endif
 
 private:
-#if USING_NANO_TIMED_LOCKS
+#if USING_CELERIX_TIMED_LOCKS
 	char const * name{ nullptr };
 #endif
 	std::mutex mutex_m;
 };
 
-#if USING_NANO_TIMED_LOCKS
+#if USING_CELERIX_TIMED_LOCKS
 template <typename Mutex>
 void output (char const * str, std::chrono::milliseconds time, Mutex & mutex);
 
 template <typename Mutex>
-void output_if_held_long_enough (nano::timer<std::chrono::milliseconds> & timer, Mutex & mutex);
+void output_if_held_long_enough (celerix::timer<std::chrono::milliseconds> & timer, Mutex & mutex);
 
-#ifndef NANO_TIMED_LOCKS_IGNORE_BLOCKED
+#ifndef CELERIX_TIMED_LOCKS_IGNORE_BLOCKED
 template <typename Mutex>
-void output_if_blocked_long_enough (nano::timer<std::chrono::milliseconds> & timer, Mutex & mutex);
+void output_if_blocked_long_enough (celerix::timer<std::chrono::milliseconds> & timer, Mutex & mutex);
 #endif
 
 template <typename Mutex>
@@ -130,21 +130,21 @@ private:
 };
 
 template <>
-class lock_guard<nano::mutex> final
+class lock_guard<celerix::mutex> final
 {
 public:
-	explicit lock_guard (nano::mutex & mutex_a);
+	explicit lock_guard (celerix::mutex & mutex_a);
 	~lock_guard () noexcept;
 
 	lock_guard (const lock_guard &) = delete;
 	lock_guard & operator= (const lock_guard &) = delete;
 
 private:
-	nano::mutex & mut;
-	nano::timer<std::chrono::milliseconds> timer;
+	celerix::mutex & mut;
+	celerix::timer<std::chrono::milliseconds> timer;
 };
 
-template <typename Mutex, typename = std::enable_if_t<std::is_same<Mutex, nano::mutex>::value>>
+template <typename Mutex, typename = std::enable_if_t<std::is_same<Mutex, celerix::mutex>::value>>
 class unique_lock final
 {
 public:
@@ -168,7 +168,7 @@ private:
 	Mutex * mut{ nullptr };
 	bool owns{ false };
 
-	nano::timer<std::chrono::milliseconds> timer;
+	celerix::timer<std::chrono::milliseconds> timer;
 
 	void validate () const;
 	void lock_impl ();
@@ -176,7 +176,7 @@ private:
 	friend class condition_variable;
 };
 
-/** Assumes std implementations of std::condition_variable never actually call nano::unique_lock::lock/unlock,
+/** Assumes std implementations of std::condition_variable never actually call celerix::unique_lock::lock/unlock,
 	but instead use OS intrinsics with the mutex handle directly. Due to this we also do not account for any
 	time the condition variable is blocked on another holder of the mutex. */
 class condition_variable final
@@ -188,10 +188,10 @@ public:
 
 	void notify_one () noexcept;
 	void notify_all () noexcept;
-	void wait (nano::unique_lock<nano::mutex> & lt);
+	void wait (celerix::unique_lock<celerix::mutex> & lt);
 
 	template <typename Pred>
-	void wait (nano::unique_lock<nano::mutex> & lk, Pred pred)
+	void wait (celerix::unique_lock<celerix::mutex> & lk, Pred pred)
 	{
 		while (!pred ())
 		{
@@ -200,7 +200,7 @@ public:
 	}
 
 	template <typename Clock, typename Duration>
-	std::cv_status wait_until (nano::unique_lock<nano::mutex> & lk, std::chrono::time_point<Clock, Duration> const & timeout_time)
+	std::cv_status wait_until (celerix::unique_lock<celerix::mutex> & lk, std::chrono::time_point<Clock, Duration> const & timeout_time)
 	{
 		if (!lk.mut || !lk.owns)
 		{
@@ -216,7 +216,7 @@ public:
 	}
 
 	template <typename Clock, typename Duration, typename Pred>
-	bool wait_until (nano::unique_lock<nano::mutex> & lk, std::chrono::time_point<Clock, Duration> const & timeout_time, Pred pred)
+	bool wait_until (celerix::unique_lock<celerix::mutex> & lk, std::chrono::time_point<Clock, Duration> const & timeout_time, Pred pred)
 	{
 		while (!pred ())
 		{
@@ -229,13 +229,13 @@ public:
 	}
 
 	template <typename Rep, typename Period>
-	void wait_for (nano::unique_lock<nano::mutex> & lk, std::chrono::duration<Rep, Period> const & rel_time)
+	void wait_for (celerix::unique_lock<celerix::mutex> & lk, std::chrono::duration<Rep, Period> const & rel_time)
 	{
 		wait_until (lk, std::chrono::steady_clock::now () + rel_time);
 	}
 
 	template <typename Rep, typename Period, typename Pred>
-	bool wait_for (nano::unique_lock<nano::mutex> & lk, std::chrono::duration<Rep, Period> const & rel_time, Pred pred)
+	bool wait_for (celerix::unique_lock<celerix::mutex> & lk, std::chrono::duration<Rep, Period> const & rel_time, Pred pred)
 	{
 		return wait_until (lk, std::chrono::steady_clock::now () + rel_time, std::move (pred));
 	}
@@ -306,7 +306,7 @@ public:
 
 	T & operator= (T const & other)
 	{
-		nano::unique_lock<nano::mutex> lk (mutex);
+		celerix::unique_lock<celerix::mutex> lk (mutex);
 		obj = other;
 		return obj;
 	}
@@ -324,6 +324,6 @@ public:
 
 private:
 	T obj;
-	nano::mutex mutex;
+	celerix::mutex mutex;
 };
 }

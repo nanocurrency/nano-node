@@ -1,5 +1,5 @@
 add_library(
-  nano_store
+  celerix_store
   account.hpp
   block.hpp
   block_w_sideband.hpp
@@ -108,8 +108,8 @@ add_library(
   write_queue.cpp)
 
 target_link_libraries(
-  nano_store
-  nano_lib
+  celerix_store
+  celerix_lib
   Boost::circular_buffer
   Boost::endian
   Boost::iostreams

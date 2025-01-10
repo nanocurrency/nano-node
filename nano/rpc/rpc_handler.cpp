@@ -1,10 +1,10 @@
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/errors.hpp>
-#include <nano/lib/json_error_response.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/rpc_handler_interface.hpp>
-#include <nano/lib/rpcconfig.hpp>
-#include <nano/rpc/rpc_handler.hpp>
+#include <celerix/crypto_lib/random_pool.hpp>
+#include <celerix/lib/errors.hpp>
+#include <celerix/lib/json_error_response.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/rpc_handler_interface.hpp>
+#include <celerix/lib/rpcconfig.hpp>
+#include <celerix/rpc/rpc_handler.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
@@ -17,7 +17,7 @@ std::unordered_set<std::string> rpc_control_impl_set = create_rpc_control_impls 
 std::string filter_request (boost::property_tree::ptree tree_a);
 }
 
-nano::rpc_handler::rpc_handler (nano::rpc_config const & rpc_config, std::string const & body_a, std::string const & request_id_a, std::function<void (std::string const &)> const & response_a, nano::rpc_handler_interface & rpc_handler_interface_a, nano::logger & logger) :
+celerix::rpc_handler::rpc_handler (celerix::rpc_config const & rpc_config, std::string const & body_a, std::string const & request_id_a, std::function<void (std::string const &)> const & response_a, celerix::rpc_handler_interface & rpc_handler_interface_a, celerix::logger & logger) :
 	body (body_a),
 	request_id (request_id_a),
 	response (response_a),
@@ -27,7 +27,7 @@ nano::rpc_handler::rpc_handler (nano::rpc_config const & rpc_config, std::string
 {
 }
 
-void nano::rpc_handler::process_request (nano::rpc_handler_request_params const & request_params)
+void celerix::rpc_handler::process_request (celerix::rpc_handler_request_params const & request_params)
 {
 	try
 	{
@@ -63,11 +63,11 @@ void nano::rpc_handler::process_request (nano::rpc_handler_request_params const 
 				auto action = request.get<std::string> ("action");
 
 				// Bump logging level if RPC request logging is enabled
-				logger.log (rpc_config.rpc_logging.log_rpc ? nano::log::level::info : nano::log::level::debug,
-				nano::log::type::rpc_request, "Request {} : {}", request_id, filter_request (request));
+				logger.log (rpc_config.rpc_logging.log_rpc ? celerix::log::level::info : celerix::log::level::debug,
+				celerix::log::type::rpc_request, "Request {} : {}", request_id, filter_request (request));
 
 				// Check if this is a RPC command which requires RPC enabled control
-				std::error_code rpc_control_disabled_ec = nano::error_rpc::rpc_control_disabled;
+				std::error_code rpc_control_disabled_ec = celerix::error_rpc::rpc_control_disabled;
 
 				bool error = false;
 				auto found = rpc_control_impl_set.find (action);
@@ -99,8 +99,8 @@ void nano::rpc_handler::process_request (nano::rpc_handler_request_params const 
 					// Add random id to RPC send via IPC if not included
 					else if (action == "send" && request.find ("id") == request.not_found ())
 					{
-						nano::uint128_union random_id;
-						nano::random_pool::generate_block (random_id.bytes.data (), random_id.bytes.size ());
+						celerix::uint128_union random_id;
+						celerix::random_pool::generate_block (random_id.bytes.data (), random_id.bytes.size ());
 						std::string random_id_text;
 						random_id.encode_hex (random_id_text);
 						request.put ("id", random_id_text);

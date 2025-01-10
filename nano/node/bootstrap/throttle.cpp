@@ -1,19 +1,19 @@
-#include <nano/lib/utility.hpp>
-#include <nano/node/bootstrap/throttle.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/node/bootstrap/throttle.hpp>
 
-nano::bootstrap::throttle::throttle (std::size_t size) :
+celerix::bootstrap::throttle::throttle (std::size_t size) :
 	successes_m{ size }
 {
 	samples.insert (samples.end (), size, true);
 	debug_assert (size > 0);
 }
 
-bool nano::bootstrap::throttle::throttled () const
+bool celerix::bootstrap::throttle::throttled () const
 {
 	return successes_m == 0;
 }
 
-void nano::bootstrap::throttle::add (bool sample)
+void celerix::bootstrap::throttle::add (bool sample)
 {
 	debug_assert (!samples.empty ());
 	pop ();
@@ -24,7 +24,7 @@ void nano::bootstrap::throttle::add (bool sample)
 	}
 }
 
-void nano::bootstrap::throttle::resize (std::size_t size)
+void celerix::bootstrap::throttle::resize (std::size_t size)
 {
 	debug_assert (size > 0);
 	while (size < samples.size ())
@@ -37,17 +37,17 @@ void nano::bootstrap::throttle::resize (std::size_t size)
 	}
 }
 
-std::size_t nano::bootstrap::throttle::size () const
+std::size_t celerix::bootstrap::throttle::size () const
 {
 	return samples.size ();
 }
 
-std::size_t nano::bootstrap::throttle::successes () const
+std::size_t celerix::bootstrap::throttle::successes () const
 {
 	return successes_m;
 }
 
-void nano::bootstrap::throttle::pop ()
+void celerix::bootstrap::throttle::pop ()
 {
 	if (samples.front ())
 	{

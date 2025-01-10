@@ -2,7 +2,7 @@
 
 #include <filesystem>
 
-namespace nano
+namespace celerix
 {
 /*
  * Functions for managing filesystem permissions, platform specific

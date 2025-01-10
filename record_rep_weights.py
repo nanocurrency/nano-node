@@ -46,7 +46,7 @@ supplymax *= int('1000000000000000000000000000000')
 outputfile = 'bootstrap_weights_' + args.network + '.hpp'
 
 with open(outputfile, 'w') as of:
-    of.write(f"#pragma once\n\n#include <string>\n#include <vector>\n\nnamespace nano::weights\n{{\n")
+    of.write(f"#pragma once\n\n#include <string>\n#include <vector>\n\nnamespace celerix::weights\n{{\n")
     of.write(f"// Bootstrap weights for {args.network} network\n")
     of.write(f"std::vector<std::pair<std::string, std::string>> preconfigured_weights_{args.network} = {{\n")
 
@@ -56,7 +56,7 @@ with open(outputfile, 'w') as of:
         if rep["weight"] == 0:
             break
         acc_val = int(hexlify(b32decode(rep["account"].encode(
-            'utf-8').replace(b"nano_", b"").translate(tbl) + b"====")), 16)
+            'utf-8').replace(b"celerix_", b"").translate(tbl) + b"====")), 16)
         
         of.write(f'\t{{ "{rep["account"]}", "{rep["weight"]}" }},\n')
                 

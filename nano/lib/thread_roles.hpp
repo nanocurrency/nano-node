@@ -5,7 +5,7 @@
 /*
  * Functions for understanding the role of the current thread
  */
-namespace nano::thread_role
+namespace celerix::thread_role
 {
 enum class name
 {
@@ -75,13 +75,13 @@ std::string_view to_string (name);
 /*
  * Get/Set the identifier for the current thread
  */
-nano::thread_role::name get ();
-void set (nano::thread_role::name);
+celerix::thread_role::name get ();
+void set (celerix::thread_role::name);
 
 /*
  * Get the thread name as a string from enum
  */
-std::string get_string (nano::thread_role::name);
+std::string get_string (celerix::thread_role::name);
 
 /*
  * Get the current thread's role as a string

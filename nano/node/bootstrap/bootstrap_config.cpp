@@ -1,11 +1,11 @@
-#include <nano/lib/tomlconfig.hpp>
-#include <nano/node/bootstrap/bootstrap_config.hpp>
+#include <celerix/lib/tomlconfig.hpp>
+#include <celerix/node/bootstrap/bootstrap_config.hpp>
 
 /*
  * account_sets_config
  */
 
-nano::error nano::account_sets_config::deserialize (nano::tomlconfig & toml)
+celerix::error celerix::account_sets_config::deserialize (celerix::tomlconfig & toml)
 {
 	toml.get ("consideration_count", consideration_count);
 	toml.get ("priorities_max", priorities_max);
@@ -15,7 +15,7 @@ nano::error nano::account_sets_config::deserialize (nano::tomlconfig & toml)
 	return toml.get_error ();
 }
 
-nano::error nano::account_sets_config::serialize (nano::tomlconfig & toml) const
+celerix::error celerix::account_sets_config::serialize (celerix::tomlconfig & toml) const
 {
 	toml.put ("consideration_count", consideration_count, "Limit the number of account candidates to consider and also the number of iterations.\ntype:uint64");
 	toml.put ("priorities_max", priorities_max, "Cutoff size limit for the priority list.\ntype:uint64");
@@ -29,7 +29,7 @@ nano::error nano::account_sets_config::serialize (nano::tomlconfig & toml) const
  * bootstrap_config
  */
 
-nano::error nano::bootstrap_config::deserialize (nano::tomlconfig & toml)
+celerix::error celerix::bootstrap_config::deserialize (celerix::tomlconfig & toml)
 {
 	toml.get ("enable", enable);
 	toml.get ("enable_database_scan", enable_database_scan);
@@ -57,7 +57,7 @@ nano::error nano::bootstrap_config::deserialize (nano::tomlconfig & toml)
 	return toml.get_error ();
 }
 
-nano::error nano::bootstrap_config::serialize (nano::tomlconfig & toml) const
+celerix::error celerix::bootstrap_config::serialize (celerix::tomlconfig & toml) const
 {
 	toml.put ("enable", enable, "Enable or disable the bootstrap. Disabling it is not recommended and will prevent the node from syncing.\ntype:bool");
 	toml.put ("enable_database_scan", enable_database_scan, "Enable or disable the 'database scan` strategy for the ascending bootstrap.\ntype:bool");
@@ -76,7 +76,7 @@ nano::error nano::bootstrap_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("max_requests", max_requests, "Maximum total number of in flight requests.\ntype:uint64");
 	toml.put ("optimistic_request_percentage", optimistic_request_percentage, "Percentage of requests that will be optimistic. Optimistic requests start from the (possibly unconfirmed) account frontier and are vulnerable to bootstrap poisoning. Safe requests start from the confirmed frontier and given enough time will eventually resolve forks.\ntype:uint64");
 
-	nano::tomlconfig account_sets_l;
+	celerix::tomlconfig account_sets_l;
 	account_sets.serialize (account_sets_l);
 	toml.put_child ("account_sets", account_sets_l);
 

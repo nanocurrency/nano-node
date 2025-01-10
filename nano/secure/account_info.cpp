@@ -1,7 +1,7 @@
-#include <nano/lib/stream.hpp>
-#include <nano/secure/account_info.hpp>
+#include <celerix/lib/stream.hpp>
+#include <celerix/secure/account_info.hpp>
 
-nano::account_info::account_info (nano::block_hash const & head_a, nano::account const & representative_a, nano::block_hash const & open_block_a, nano::amount const & balance_a, nano::seconds_t modified_a, uint64_t block_count_a, nano::epoch epoch_a) :
+celerix::account_info::account_info (celerix::block_hash const & head_a, celerix::account const & representative_a, celerix::block_hash const & open_block_a, celerix::amount const & balance_a, celerix::seconds_t modified_a, uint64_t block_count_a, celerix::epoch epoch_a) :
 	head (head_a),
 	representative (representative_a),
 	open_block (open_block_a),
@@ -12,18 +12,18 @@ nano::account_info::account_info (nano::block_hash const & head_a, nano::account
 {
 }
 
-bool nano::account_info::deserialize (nano::stream & stream_a)
+bool celerix::account_info::deserialize (celerix::stream & stream_a)
 {
 	auto error (false);
 	try
 	{
-		nano::read (stream_a, head.bytes);
-		nano::read (stream_a, representative.bytes);
-		nano::read (stream_a, open_block.bytes);
-		nano::read (stream_a, balance.bytes);
-		nano::read (stream_a, modified);
-		nano::read (stream_a, block_count);
-		nano::read (stream_a, epoch_m);
+		celerix::read (stream_a, head.bytes);
+		celerix::read (stream_a, representative.bytes);
+		celerix::read (stream_a, open_block.bytes);
+		celerix::read (stream_a, balance.bytes);
+		celerix::read (stream_a, modified);
+		celerix::read (stream_a, block_count);
+		celerix::read (stream_a, epoch_m);
 	}
 	catch (std::runtime_error const &)
 	{
@@ -33,17 +33,17 @@ bool nano::account_info::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-bool nano::account_info::operator== (nano::account_info const & other_a) const
+bool celerix::account_info::operator== (celerix::account_info const & other_a) const
 {
 	return head == other_a.head && representative == other_a.representative && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && epoch () == other_a.epoch ();
 }
 
-bool nano::account_info::operator!= (nano::account_info const & other_a) const
+bool celerix::account_info::operator!= (celerix::account_info const & other_a) const
 {
 	return !(*this == other_a);
 }
 
-size_t nano::account_info::db_size () const
+size_t celerix::account_info::db_size () const
 {
 	debug_assert (reinterpret_cast<uint8_t const *> (this) == reinterpret_cast<uint8_t const *> (&head));
 	debug_assert (reinterpret_cast<uint8_t const *> (&head) + sizeof (head) == reinterpret_cast<uint8_t const *> (&representative));
@@ -55,12 +55,12 @@ size_t nano::account_info::db_size () const
 	return sizeof (head) + sizeof (representative) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count) + sizeof (epoch_m);
 }
 
-nano::epoch nano::account_info::epoch () const
+celerix::epoch celerix::account_info::epoch () const
 {
 	return epoch_m;
 }
 
-size_t nano::account_info_v22::db_size () const
+size_t celerix::account_info_v22::db_size () const
 {
 	debug_assert (reinterpret_cast<uint8_t const *> (this) == reinterpret_cast<uint8_t const *> (&head));
 	debug_assert (reinterpret_cast<uint8_t const *> (&head) + sizeof (head) == reinterpret_cast<uint8_t const *> (&representative));
@@ -72,18 +72,18 @@ size_t nano::account_info_v22::db_size () const
 	return sizeof (head) + sizeof (representative) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count) + sizeof (epoch_m);
 }
 
-bool nano::account_info_v22::deserialize (nano::stream & stream_a)
+bool celerix::account_info_v22::deserialize (celerix::stream & stream_a)
 {
 	auto error (false);
 	try
 	{
-		nano::read (stream_a, head.bytes);
-		nano::read (stream_a, representative.bytes);
-		nano::read (stream_a, open_block.bytes);
-		nano::read (stream_a, balance.bytes);
-		nano::read (stream_a, modified);
-		nano::read (stream_a, block_count);
-		nano::read (stream_a, epoch_m);
+		celerix::read (stream_a, head.bytes);
+		celerix::read (stream_a, representative.bytes);
+		celerix::read (stream_a, open_block.bytes);
+		celerix::read (stream_a, balance.bytes);
+		celerix::read (stream_a, modified);
+		celerix::read (stream_a, block_count);
+		celerix::read (stream_a, epoch_m);
 	}
 	catch (std::runtime_error const &)
 	{

@@ -8,14 +8,14 @@ if [ -e "${2}" ]; then
 fi
 
 TAG="${1}"
-repository="${2:-nanocurrency/nano-node}"
+repository="${2:-celerixcurrency/celerix-node}"
 VERSION=$(echo "${TAG}" | sed 's/V//' | sed 's/-/_/g')
 TAG_DATE=""
 scriptDir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 function make_source() {
-	git clone --recursive --single-branch --branch "${TAG}" "https://github.com/${repository}" "nano-${VERSION}"
-	cd "nano-${VERSION}"
+	git clone --recursive --single-branch --branch "${TAG}" "https://github.com/${repository}" "celerix-${VERSION}"
+	cd "celerix-${VERSION}"
 	git fetch --tags
 	COUNT=$(git tag -l "${TAG}" | wc -l)
 	if [ "$COUNT" -eq 0 ]; then
@@ -38,14 +38,14 @@ function source_information() {
 	export TAG_DATE
 }
 function cleanup_source() {
-	mv "nano-${VERSION}.tar.gz" ~/.
+	mv "celerix-${VERSION}.tar.gz" ~/.
 	echo "ARCHIVE MOVDED TO HOME..."
-	rm -fr "nano-${VERSION}"/
+	rm -fr "celerix-${VERSION}"/
 }
 
 function tarball_creation() {
 	cd ..
-	ARCHIVE_FILE_NAME="nano-${VERSION}.tar.gz"
+	ARCHIVE_FILE_NAME="celerix-${VERSION}.tar.gz"
 	echo "CREATING ${ARCHIVE_FILE_NAME}..."
 	# Determine if we can create a stable archive
 	tarArgs=()
@@ -60,7 +60,7 @@ function tarball_creation() {
 			tarArgs=("${tarArgs[@]}" --mtime="@${TAG_DATE}")
 		fi
 	fi
-	TZ=UTC LANG=C LC_ALL=C tar "${tarArgs[@]}" -cvf - "nano-${VERSION}" | TZ=UTC gzip --no-name -9c >"${ARCHIVE_FILE_NAME}" || exit 1
+	TZ=UTC LANG=C LC_ALL=C tar "${tarArgs[@]}" -cvf - "celerix-${VERSION}" | TZ=UTC gzip --no-name -9c >"${ARCHIVE_FILE_NAME}" || exit 1
 }
 
 set -x

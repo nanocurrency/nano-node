@@ -1,9 +1,9 @@
 #pragma once
 
-#include <nano/lib/errors.hpp>
-#include <nano/lib/observer_set.hpp>
-#include <nano/lib/stats_enums.hpp>
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/errors.hpp>
+#include <celerix/lib/observer_set.hpp>
+#include <celerix/lib/stats_enums.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <boost/circular_buffer.hpp>
 
@@ -16,7 +16,7 @@
 #include <string>
 #include <thread>
 
-namespace nano
+namespace celerix
 {
 class node;
 class tomlconfig;
@@ -32,8 +32,8 @@ class stats_config final
 {
 public:
 	/** Reads the JSON statistics node */
-	nano::error deserialize_toml (nano::tomlconfig & toml);
-	nano::error serialize_toml (nano::tomlconfig & toml) const;
+	celerix::error deserialize_toml (celerix::tomlconfig & toml);
+	celerix::error serialize_toml (celerix::tomlconfig & toml) const;
 
 public:
 	/** Maximum number samples to keep in the ring buffer */
@@ -72,7 +72,7 @@ public:
 	using sampler_value_t = int64_t;
 
 public:
-	explicit stats (nano::logger &, nano::stats_config = {});
+	explicit stats (celerix::logger &, celerix::stats_config = {});
 	~stats ();
 
 	void start ();
@@ -180,7 +180,7 @@ private:
 
 	private:
 		boost::circular_buffer<sampler_value_t> samples;
-		mutable nano::mutex mutex;
+		mutable celerix::mutex mutex;
 	};
 
 	// Wrap in unique_ptrs because mutex/atomic members are not movable
@@ -202,8 +202,8 @@ private:
 	static bool is_stat_logging_enabled ();
 
 private:
-	nano::stats_config const config;
-	nano::logger & logger;
+	celerix::stats_config const config;
+	celerix::logger & logger;
 
 	bool const enable_logging;
 
@@ -215,7 +215,7 @@ private:
 
 	bool stopped{ false };
 	mutable std::shared_mutex mutex;
-	nano::condition_variable condition;
+	celerix::condition_variable condition;
 	std::thread thread;
 };
 

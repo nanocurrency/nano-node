@@ -11,7 +11,7 @@
  * Update: it appears that these tests only work if run in isolation so I am disabling them.
  */
 
-#include <nano/lib/signal_manager.hpp>
+#include <celerix/lib/signal_manager.hpp>
 
 #include <gtest/gtest.h>
 
@@ -36,7 +36,7 @@ static int wait_for_sig_received (int millisecs, int & sig_received)
 
 static int trap (int signum)
 {
-	nano::signal_manager sigman;
+	celerix::signal_manager sigman;
 	int sig_received = 0;
 
 	std::function<void (int)> f = [&sig_received] (int signum) {
@@ -54,7 +54,7 @@ static int trap (int signum)
 
 static void repeattest (int signum, bool repeat)
 {
-	nano::signal_manager sigman;
+	celerix::signal_manager sigman;
 	int sig_received = 0;
 
 	std::function<void (int)> f = [&sig_received] (int signum) {

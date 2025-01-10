@@ -1,14 +1,14 @@
 #pragma once
 
-#include <nano/crypto_lib/random_pool.hpp>
+#include <celerix/crypto_lib/random_pool.hpp>
 
-namespace nano::bootstrap
+namespace celerix::bootstrap
 {
 using id_t = uint64_t;
-static nano::bootstrap::id_t generate_id ()
+static celerix::bootstrap::id_t generate_id ()
 {
-	nano::bootstrap::id_t id;
-	nano::random_pool::generate_block (reinterpret_cast<uint8_t *> (&id), sizeof (id));
+	celerix::bootstrap::id_t id;
+	celerix::random_pool::generate_block (reinterpret_cast<uint8_t *> (&id), sizeof (id));
 	return id;
 }
 }

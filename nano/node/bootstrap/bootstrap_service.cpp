@@ -1,24 +1,24 @@
-#include <nano/lib/block_type.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/enum_util.hpp>
-#include <nano/lib/stats_enums.hpp>
-#include <nano/lib/thread_roles.hpp>
-#include <nano/node/block_processor.hpp>
-#include <nano/node/bootstrap/bootstrap_service.hpp>
-#include <nano/node/bootstrap/crawlers.hpp>
-#include <nano/node/network.hpp>
-#include <nano/node/nodeconfig.hpp>
-#include <nano/node/transport/transport.hpp>
-#include <nano/secure/common.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/ledger_set_any.hpp>
-#include <nano/store/account.hpp>
-#include <nano/store/component.hpp>
-#include <nano/store/confirmation_height.hpp>
+#include <celerix/lib/block_type.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/enum_util.hpp>
+#include <celerix/lib/stats_enums.hpp>
+#include <celerix/lib/thread_roles.hpp>
+#include <celerix/node/block_processor.hpp>
+#include <celerix/node/bootstrap/bootstrap_service.hpp>
+#include <celerix/node/bootstrap/crawlers.hpp>
+#include <celerix/node/network.hpp>
+#include <celerix/node/nodeconfig.hpp>
+#include <celerix/node/transport/transport.hpp>
+#include <celerix/secure/common.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/ledger_set_any.hpp>
+#include <celerix/store/account.hpp>
+#include <celerix/store/component.hpp>
+#include <celerix/store/confirmation_height.hpp>
 
 using namespace std::chrono_literals;
 
-nano::bootstrap_service::bootstrap_service (nano::node_config const & node_config_a, nano::block_processor & block_processor_a, nano::ledger & ledger_a, nano::network & network_a, nano::stats & stat_a, nano::logger & logger_a) :
+celerix::bootstrap_service::bootstrap_service (celerix::node_config const & node_config_a, celerix::block_processor & block_processor_a, celerix::ledger & ledger_a, celerix::network & network_a, celerix::stats & stat_a, celerix::logger & logger_a) :
 	config{ node_config_a.bootstrap },
 	network_constants{ node_config_a.network_params.network },
 	block_processor{ block_processor_a },
@@ -34,11 +34,11 @@ nano::bootstrap_service::bootstrap_service (nano::node_config const & node_confi
 	limiter{ config.rate_limit },
 	database_limiter{ config.database_rate_limit },
 	frontiers_limiter{ config.frontier_rate_limit },
-	workers{ 1, nano::thread_role::name::bootstrap_worker }
+	workers{ 1, celerix::thread_role::name::bootstrap_worker }
 {
 	block_processor.batch_processed.add ([this] (auto const & batch) {
 		{
-			nano::lock_guard<nano::mutex> lock{ mutex };
+			celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 			auto transaction = ledger.tx_begin_read ();
 			for (auto const & [result, context] : batch)
@@ -52,7 +52,7 @@ nano::bootstrap_service::bootstrap_service (nano::node_config const & node_confi
 
 	// Unblock rolled back accounts as the dependency is no longer valid
 	block_processor.rolled_back.add ([this] (auto const & blocks, auto const & rollback_root) {
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		for (auto const & block : blocks)
 		{
 			debug_assert (block != nullptr);
@@ -63,7 +63,7 @@ nano::bootstrap_service::bootstrap_service (nano::node_config const & node_confi
 	accounts.priority_set (node_config_a.network_params.ledger.genesis->account_field ().value ());
 }
 
-nano::bootstrap_service::~bootstrap_service ()
+celerix::bootstrap_service::~bootstrap_service ()
 {
 	// All threads must be stopped before destruction
 	debug_assert (!priorities_thread.joinable ());
@@ -74,7 +74,7 @@ nano::bootstrap_service::~bootstrap_service ()
 	debug_assert (!workers.alive ());
 }
 
-void nano::bootstrap_service::start ()
+void celerix::bootstrap_service::start ()
 {
 	debug_assert (!priorities_thread.joinable ());
 	debug_assert (!database_thread.joinable ());
@@ -84,7 +84,7 @@ void nano::bootstrap_service::start ()
 
 	if (!config.enable)
 	{
-		logger.warn (nano::log::type::bootstrap, "Bootstrap is disabled, node will not be able to synchronize with the network");
+		logger.warn (celerix::log::type::bootstrap, "Bootstrap is disabled, node will not be able to synchronize with the network");
 		return;
 	}
 
@@ -93,7 +93,7 @@ void nano::bootstrap_service::start ()
 	if (config.enable_scan)
 	{
 		priorities_thread = std::thread ([this] () {
-			nano::thread_role::set (nano::thread_role::name::bootstrap);
+			celerix::thread_role::set (celerix::thread_role::name::bootstrap);
 			run_priorities ();
 		});
 	}
@@ -101,7 +101,7 @@ void nano::bootstrap_service::start ()
 	if (config.enable_database_scan)
 	{
 		database_thread = std::thread ([this] () {
-			nano::thread_role::set (nano::thread_role::name::bootstrap_database_scan);
+			celerix::thread_role::set (celerix::thread_role::name::bootstrap_database_scan);
 			run_database ();
 		});
 	}
@@ -109,7 +109,7 @@ void nano::bootstrap_service::start ()
 	if (config.enable_dependency_walker)
 	{
 		dependencies_thread = std::thread ([this] () {
-			nano::thread_role::set (nano::thread_role::name::bootstrap_dependency_walker);
+			celerix::thread_role::set (celerix::thread_role::name::bootstrap_dependency_walker);
 			run_dependencies ();
 		});
 	}
@@ -117,48 +117,48 @@ void nano::bootstrap_service::start ()
 	if (config.enable_frontier_scan)
 	{
 		frontiers_thread = std::thread ([this] () {
-			nano::thread_role::set (nano::thread_role::name::bootstrap_frontier_scan);
+			celerix::thread_role::set (celerix::thread_role::name::bootstrap_frontier_scan);
 			run_frontiers ();
 		});
 	}
 
 	cleanup_thread = std::thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::bootstrap_cleanup);
+		celerix::thread_role::set (celerix::thread_role::name::bootstrap_cleanup);
 		run_timeouts ();
 	});
 }
 
-void nano::bootstrap_service::stop ()
+void celerix::bootstrap_service::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		stopped = true;
 	}
 	condition.notify_all ();
 
-	nano::join_or_pass (priorities_thread);
-	nano::join_or_pass (database_thread);
-	nano::join_or_pass (dependencies_thread);
-	nano::join_or_pass (frontiers_thread);
-	nano::join_or_pass (cleanup_thread);
+	celerix::join_or_pass (priorities_thread);
+	celerix::join_or_pass (database_thread);
+	celerix::join_or_pass (dependencies_thread);
+	celerix::join_or_pass (frontiers_thread);
+	celerix::join_or_pass (cleanup_thread);
 
 	workers.stop ();
 }
 
-bool nano::bootstrap_service::send (std::shared_ptr<nano::transport::channel> const & channel, async_tag tag)
+bool celerix::bootstrap_service::send (std::shared_ptr<celerix::transport::channel> const & channel, async_tag tag)
 {
 	debug_assert (tag.type != query_type::invalid);
 	debug_assert (tag.source != query_source::invalid);
 
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		debug_assert (tags.get<tag_id> ().count (tag.id) == 0);
 		// Give extra time for the request to be processed by the channel
 		tag.cutoff = std::chrono::steady_clock::now () + config.request_timeout * 4;
 		tags.get<tag_id> ().insert (tag);
 	}
 
-	nano::asc_pull_req request{ network_constants };
+	celerix::asc_pull_req request{ network_constants };
 	request.id = tag.id;
 
 	switch (tag.type)
@@ -166,32 +166,32 @@ bool nano::bootstrap_service::send (std::shared_ptr<nano::transport::channel> co
 		case query_type::blocks_by_hash:
 		case query_type::blocks_by_account:
 		{
-			request.type = nano::asc_pull_type::blocks;
+			request.type = celerix::asc_pull_type::blocks;
 
-			nano::asc_pull_req::blocks_payload pld;
+			celerix::asc_pull_req::blocks_payload pld;
 			pld.start = tag.start;
 			pld.count = tag.count;
-			pld.start_type = tag.type == query_type::blocks_by_hash ? nano::asc_pull_req::hash_type::block : nano::asc_pull_req::hash_type::account;
+			pld.start_type = tag.type == query_type::blocks_by_hash ? celerix::asc_pull_req::hash_type::block : celerix::asc_pull_req::hash_type::account;
 			request.payload = pld;
 		}
 		break;
 		case query_type::account_info_by_hash:
 		{
-			request.type = nano::asc_pull_type::account_info;
+			request.type = celerix::asc_pull_type::account_info;
 
-			nano::asc_pull_req::account_info_payload pld;
-			pld.target_type = nano::asc_pull_req::hash_type::block; // Query account info by block hash
+			celerix::asc_pull_req::account_info_payload pld;
+			pld.target_type = celerix::asc_pull_req::hash_type::block; // Query account info by block hash
 			pld.target = tag.start;
 			request.payload = pld;
 		}
 		break;
 		case query_type::frontiers:
 		{
-			request.type = nano::asc_pull_type::frontiers;
+			request.type = celerix::asc_pull_type::frontiers;
 
-			nano::asc_pull_req::frontiers_payload pld;
+			celerix::asc_pull_req::frontiers_payload pld;
 			pld.start = tag.start.as_account ();
-			pld.count = nano::asc_pull_ack::frontiers_payload::max_frontiers;
+			pld.count = celerix::asc_pull_ack::frontiers_payload::max_frontiers;
 			request.payload = pld;
 		}
 		break;
@@ -202,14 +202,14 @@ bool nano::bootstrap_service::send (std::shared_ptr<nano::transport::channel> co
 	request.update_header ();
 
 	bool sent = channel->send (
-	request, nano::transport::traffic_type::bootstrap_requests, [this, id = tag.id] (auto const & ec, auto size) {
-		nano::lock_guard<nano::mutex> lock{ mutex };
+	request, celerix::transport::traffic_type::bootstrap_requests, [this, id = tag.id] (auto const & ec, auto size) {
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		if (auto it = tags.get<tag_id> ().find (id); it != tags.get<tag_id> ().end ())
 		{
-			stats.inc (nano::stat::type::bootstrap_request_ec, to_stat_detail (ec), nano::stat::dir::out);
+			stats.inc (celerix::stat::type::bootstrap_request_ec, to_stat_detail (ec), celerix::stat::dir::out);
 			if (!ec)
 			{
-				stats.inc (nano::stat::type::bootstrap, nano::stat::detail::request_success, nano::stat::dir::out);
+				stats.inc (celerix::stat::type::bootstrap, celerix::stat::detail::request_success, celerix::stat::dir::out);
 				tags.get<tag_id> ().modify (it, [&] (auto & tag) {
 					// After the request has been sent, the peer has a limited time to respond
 					tag.cutoff = std::chrono::steady_clock::now () + config.request_timeout;
@@ -217,51 +217,51 @@ bool nano::bootstrap_service::send (std::shared_ptr<nano::transport::channel> co
 			}
 			else
 			{
-				stats.inc (nano::stat::type::bootstrap, nano::stat::detail::request_failed, nano::stat::dir::out);
+				stats.inc (celerix::stat::type::bootstrap, celerix::stat::detail::request_failed, celerix::stat::dir::out);
 				tags.get<tag_id> ().erase (it);
 			}
 		} });
 
 	if (sent)
 	{
-		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::request);
-		stats.inc (nano::stat::type::bootstrap_request, to_stat_detail (tag.type));
+		stats.inc (celerix::stat::type::bootstrap, celerix::stat::detail::request);
+		stats.inc (celerix::stat::type::bootstrap_request, to_stat_detail (tag.type));
 	}
 	else
 	{
-		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::request_failed);
+		stats.inc (celerix::stat::type::bootstrap, celerix::stat::detail::request_failed);
 	}
 
 	return sent;
 }
 
-std::size_t nano::bootstrap_service::priority_size () const
+std::size_t celerix::bootstrap_service::priority_size () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return accounts.priority_size ();
 }
 
-std::size_t nano::bootstrap_service::blocked_size () const
+std::size_t celerix::bootstrap_service::blocked_size () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return accounts.blocked_size ();
 }
 
-std::size_t nano::bootstrap_service::score_size () const
+std::size_t celerix::bootstrap_service::score_size () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return scoring.size ();
 }
 
-bool nano::bootstrap_service::prioritized (nano::account const & account) const
+bool celerix::bootstrap_service::prioritized (celerix::account const & account) const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return accounts.prioritized (account);
 }
 
-bool nano::bootstrap_service::blocked (nano::account const & account) const
+bool celerix::bootstrap_service::blocked (celerix::account const & account) const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return accounts.blocked (account);
 }
 
@@ -269,7 +269,7 @@ bool nano::bootstrap_service::blocked (nano::account const & account) const
 - Marks an account as blocked if the result code is gap source as there is no reason request additional blocks for this account until the dependency is resolved
 - Marks an account as forwarded if it has been recently referenced by a block that has been inserted.
  */
-void nano::bootstrap_service::inspect (secure::transaction const & tx, nano::block_status const & result, nano::block const & block, nano::block_source source)
+void celerix::bootstrap_service::inspect (secure::transaction const & tx, celerix::block_status const & result, celerix::block const & block, celerix::block_source source)
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -277,10 +277,10 @@ void nano::bootstrap_service::inspect (secure::transaction const & tx, nano::blo
 
 	switch (result)
 	{
-		case nano::block_status::progress:
+		case celerix::block_status::progress:
 		{
 			// Progress blocks from live traffic don't need further bootstrapping
-			if (source != nano::block_source::live)
+			if (source != celerix::block_source::live)
 			{
 				const auto account = block.account ();
 
@@ -297,10 +297,10 @@ void nano::bootstrap_service::inspect (secure::transaction const & tx, nano::blo
 			}
 		}
 		break;
-		case nano::block_status::gap_source:
+		case celerix::block_status::gap_source:
 		{
 			// Prevent malicious live traffic from filling up the blocked set
-			if (source == nano::block_source::bootstrap)
+			if (source == celerix::block_source::bootstrap)
 			{
 				const auto account = block.previous ().is_zero () ? block.account_field ().value () : ledger.any.block_account (tx, block.previous ()).value_or (0);
 				const auto source_hash = block.source_field ().value_or (block.link_field ().value_or (0).as_block_hash ());
@@ -313,10 +313,10 @@ void nano::bootstrap_service::inspect (secure::transaction const & tx, nano::blo
 			}
 		}
 		break;
-		case nano::block_status::gap_previous:
+		case celerix::block_status::gap_previous:
 		{
 			// Prevent live traffic from evicting accounts from the priority list
-			if (source == nano::block_source::live && !accounts.priority_half_full () && !accounts.blocked_half_full ())
+			if (source == celerix::block_source::live && !accounts.priority_half_full () && !accounts.blocked_half_full ())
 			{
 				if (block.type () == block_type::state)
 				{
@@ -331,9 +331,9 @@ void nano::bootstrap_service::inspect (secure::transaction const & tx, nano::blo
 	}
 }
 
-void nano::bootstrap_service::wait (std::function<bool ()> const & predicate) const
+void celerix::bootstrap_service::wait (std::function<bool ()> const & predicate) const
 {
-	std::unique_lock<nano::mutex> lock{ mutex };
+	std::unique_lock<celerix::mutex> lock{ mutex };
 	std::chrono::milliseconds interval = 5ms;
 	while (!stopped && !predicate ())
 	{
@@ -342,14 +342,14 @@ void nano::bootstrap_service::wait (std::function<bool ()> const & predicate) co
 	}
 }
 
-void nano::bootstrap_service::wait_block_processor () const
+void celerix::bootstrap_service::wait_block_processor () const
 {
 	wait ([this] () {
-		return block_processor.size (nano::block_source::bootstrap) < config.block_processor_threshold;
+		return block_processor.size (celerix::block_source::bootstrap) < config.block_processor_threshold;
 	});
 }
 
-std::shared_ptr<nano::transport::channel> nano::bootstrap_service::wait_channel ()
+std::shared_ptr<celerix::transport::channel> celerix::bootstrap_service::wait_channel ()
 {
 	// Limit the number of in-flight requests
 	wait ([this] () {
@@ -362,7 +362,7 @@ std::shared_ptr<nano::transport::channel> nano::bootstrap_service::wait_channel 
 	});
 
 	// Wait until a channel is available
-	std::shared_ptr<nano::transport::channel> channel;
+	std::shared_ptr<celerix::transport::channel> channel;
 	wait ([this, &channel] () {
 		channel = scoring.channel ();
 		return channel != nullptr; // Wait until a channel is available
@@ -370,38 +370,38 @@ std::shared_ptr<nano::transport::channel> nano::bootstrap_service::wait_channel 
 	return channel;
 }
 
-size_t nano::bootstrap_service::count_tags (nano::account const & account, query_source source) const
+size_t celerix::bootstrap_service::count_tags (celerix::account const & account, query_source source) const
 {
 	debug_assert (!mutex.try_lock ());
 	auto [begin, end] = tags.get<tag_account> ().equal_range (account);
 	return std::count_if (begin, end, [source] (auto const & tag) { return tag.source == source; });
 }
 
-size_t nano::bootstrap_service::count_tags (nano::block_hash const & hash, query_source source) const
+size_t celerix::bootstrap_service::count_tags (celerix::block_hash const & hash, query_source source) const
 {
 	debug_assert (!mutex.try_lock ());
 	auto [begin, end] = tags.get<tag_hash> ().equal_range (hash);
 	return std::count_if (begin, end, [source] (auto const & tag) { return tag.source == source; });
 }
 
-nano::bootstrap::account_sets::priority_result nano::bootstrap_service::next_priority ()
+celerix::bootstrap::account_sets::priority_result celerix::bootstrap_service::next_priority ()
 {
 	debug_assert (!mutex.try_lock ());
 
-	auto next = accounts.next_priority ([this] (nano::account const & account) {
+	auto next = accounts.next_priority ([this] (celerix::account const & account) {
 		return count_tags (account, query_source::priority) < 4;
 	});
 	if (next.account.is_zero ())
 	{
 		return {};
 	}
-	stats.inc (nano::stat::type::bootstrap_next, nano::stat::detail::next_priority);
+	stats.inc (celerix::stat::type::bootstrap_next, celerix::stat::detail::next_priority);
 	return next;
 }
 
-nano::bootstrap::account_sets::priority_result nano::bootstrap_service::wait_priority ()
+celerix::bootstrap::account_sets::priority_result celerix::bootstrap_service::wait_priority ()
 {
-	nano::bootstrap::account_sets::priority_result result{};
+	celerix::bootstrap::account_sets::priority_result result{};
 	wait ([this, &result] () {
 		debug_assert (!mutex.try_lock ());
 		result = next_priority ();
@@ -414,7 +414,7 @@ nano::bootstrap::account_sets::priority_result nano::bootstrap_service::wait_pri
 	return result;
 }
 
-nano::account nano::bootstrap_service::next_database (bool should_throttle)
+celerix::account celerix::bootstrap_service::next_database (bool should_throttle)
 {
 	debug_assert (!mutex.try_lock ());
 	debug_assert (config.database_warmup_ratio > 0);
@@ -424,20 +424,20 @@ nano::account nano::bootstrap_service::next_database (bool should_throttle)
 	{
 		return { 0 };
 	}
-	auto account = database_scan.next ([this] (nano::account const & account) {
+	auto account = database_scan.next ([this] (celerix::account const & account) {
 		return count_tags (account, query_source::database) == 0;
 	});
 	if (account.is_zero ())
 	{
 		return { 0 };
 	}
-	stats.inc (nano::stat::type::bootstrap_next, nano::stat::detail::next_database);
+	stats.inc (celerix::stat::type::bootstrap_next, celerix::stat::detail::next_database);
 	return account;
 }
 
-nano::account nano::bootstrap_service::wait_database (bool should_throttle)
+celerix::account celerix::bootstrap_service::wait_database (bool should_throttle)
 {
-	nano::account result{ 0 };
+	celerix::account result{ 0 };
 	wait ([this, &result, should_throttle] () {
 		debug_assert (!mutex.try_lock ());
 		result = next_database (should_throttle);
@@ -450,24 +450,24 @@ nano::account nano::bootstrap_service::wait_database (bool should_throttle)
 	return result;
 }
 
-nano::block_hash nano::bootstrap_service::next_blocking ()
+celerix::block_hash celerix::bootstrap_service::next_blocking ()
 {
 	debug_assert (!mutex.try_lock ());
 
-	auto blocking = accounts.next_blocking ([this] (nano::block_hash const & hash) {
+	auto blocking = accounts.next_blocking ([this] (celerix::block_hash const & hash) {
 		return count_tags (hash, query_source::dependencies) == 0;
 	});
 	if (blocking.is_zero ())
 	{
 		return { 0 };
 	}
-	stats.inc (nano::stat::type::bootstrap_next, nano::stat::detail::next_blocking);
+	stats.inc (celerix::stat::type::bootstrap_next, celerix::stat::detail::next_blocking);
 	return blocking;
 }
 
-nano::block_hash nano::bootstrap_service::wait_blocking ()
+celerix::block_hash celerix::bootstrap_service::wait_blocking ()
 {
-	nano::block_hash result{ 0 };
+	celerix::block_hash result{ 0 };
 	wait ([this, &result] () {
 		debug_assert (!mutex.try_lock ());
 		result = next_blocking ();
@@ -480,15 +480,15 @@ nano::block_hash nano::bootstrap_service::wait_blocking ()
 	return result;
 }
 
-nano::account nano::bootstrap_service::wait_frontier ()
+celerix::account celerix::bootstrap_service::wait_frontier ()
 {
-	nano::account result{ 0 };
+	celerix::account result{ 0 };
 	wait ([this, &result] () {
 		debug_assert (!mutex.try_lock ());
 		result = frontiers.next ();
 		if (!result.is_zero ())
 		{
-			stats.inc (nano::stat::type::bootstrap_next, nano::stat::detail::next_frontier);
+			stats.inc (celerix::stat::type::bootstrap_next, celerix::stat::detail::next_frontier);
 			return true;
 		}
 		return false;
@@ -496,10 +496,10 @@ nano::account nano::bootstrap_service::wait_frontier ()
 	return result;
 }
 
-bool nano::bootstrap_service::request (nano::account account, size_t count, std::shared_ptr<nano::transport::channel> const & channel, query_source source)
+bool celerix::bootstrap_service::request (celerix::account account, size_t count, std::shared_ptr<celerix::transport::channel> const & channel, query_source source)
 {
 	debug_assert (count > 0);
-	debug_assert (count <= nano::bootstrap_server::max_blocks);
+	debug_assert (count <= celerix::bootstrap_server::max_blocks);
 
 	// Limit the max number of blocks to pull
 	count = std::min (count, config.max_pull_count);
@@ -525,21 +525,21 @@ bool nano::bootstrap_service::request (nano::account account, size_t count, std:
 			{
 				if (auto conf_info = ledger.store.confirmation_height.get (transaction, account))
 				{
-					stats.inc (nano::stat::type::bootstrap_request_blocks, nano::stat::detail::safe);
+					stats.inc (celerix::stat::type::bootstrap_request_blocks, celerix::stat::detail::safe);
 					tag.start = conf_info->frontier;
 					tag.hash = conf_info->height;
 				}
 			}
 			if (tag.start.is_zero ())
 			{
-				stats.inc (nano::stat::type::bootstrap_request_blocks, nano::stat::detail::optimistic);
+				stats.inc (celerix::stat::type::bootstrap_request_blocks, celerix::stat::detail::optimistic);
 				tag.start = info->head;
 				tag.hash = info->head;
 			}
 		}
 		else
 		{
-			stats.inc (nano::stat::type::bootstrap_request_blocks, nano::stat::detail::base);
+			stats.inc (celerix::stat::type::bootstrap_request_blocks, celerix::stat::detail::base);
 			tag.type = query_type::blocks_by_account;
 			tag.start = account;
 		}
@@ -548,7 +548,7 @@ bool nano::bootstrap_service::request (nano::account account, size_t count, std:
 	return send (channel, tag);
 }
 
-bool nano::bootstrap_service::request_info (nano::block_hash hash, std::shared_ptr<nano::transport::channel> const & channel, query_source source)
+bool celerix::bootstrap_service::request_info (celerix::block_hash hash, std::shared_ptr<celerix::transport::channel> const & channel, query_source source)
 {
 	async_tag tag{};
 	tag.type = query_type::account_info_by_hash;
@@ -558,7 +558,7 @@ bool nano::bootstrap_service::request_info (nano::block_hash hash, std::shared_p
 	return send (channel, tag);
 }
 
-bool nano::bootstrap_service::request_frontiers (nano::account start, std::shared_ptr<nano::transport::channel> const & channel, query_source source)
+bool celerix::bootstrap_service::request_frontiers (celerix::account start, std::shared_ptr<celerix::transport::channel> const & channel, query_source source)
 {
 	async_tag tag{};
 	tag.type = query_type::frontiers;
@@ -567,7 +567,7 @@ bool nano::bootstrap_service::request_frontiers (nano::account start, std::share
 	return send (channel, tag);
 }
 
-void nano::bootstrap_service::run_one_priority ()
+void celerix::bootstrap_service::run_one_priority ()
 {
 	wait_block_processor ();
 	auto channel = wait_channel ();
@@ -583,7 +583,7 @@ void nano::bootstrap_service::run_one_priority ()
 
 	// Decide how many blocks to request
 	size_t const min_pull_count = 2;
-	auto pull_count = std::clamp (static_cast<size_t> (priority), min_pull_count, nano::bootstrap_server::max_blocks);
+	auto pull_count = std::clamp (static_cast<size_t> (priority), min_pull_count, celerix::bootstrap_server::max_blocks);
 
 	bool sent = request (account, pull_count, channel, query_source::priority);
 
@@ -592,24 +592,24 @@ void nano::bootstrap_service::run_one_priority ()
 	// Not throttling accounts that are probably up-to-date allows us to evict them from the priority set faster
 	if (sent && fails == 0)
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		accounts.timestamp_set (account);
 	}
 }
 
-void nano::bootstrap_service::run_priorities ()
+void celerix::bootstrap_service::run_priorities ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		lock.unlock ();
-		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::loop);
+		stats.inc (celerix::stat::type::bootstrap, celerix::stat::detail::loop);
 		run_one_priority ();
 		lock.lock ();
 	}
 }
 
-void nano::bootstrap_service::run_one_database (bool should_throttle)
+void celerix::bootstrap_service::run_one_database (bool should_throttle)
 {
 	wait_block_processor ();
 	auto channel = wait_channel ();
@@ -625,21 +625,21 @@ void nano::bootstrap_service::run_one_database (bool should_throttle)
 	request (account, 2, channel, query_source::database);
 }
 
-void nano::bootstrap_service::run_database ()
+void celerix::bootstrap_service::run_database ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		// Avoid high churn rate of database requests
 		bool should_throttle = !database_scan.warmed_up () && throttle.throttled ();
 		lock.unlock ();
-		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::loop_database);
+		stats.inc (celerix::stat::type::bootstrap, celerix::stat::detail::loop_database);
 		run_one_database (should_throttle);
 		lock.lock ();
 	}
 }
 
-void nano::bootstrap_service::run_one_dependency ()
+void celerix::bootstrap_service::run_one_dependency ()
 {
 	// No need to wait for block_processor, as we are not processing blocks
 	auto channel = wait_channel ();
@@ -655,19 +655,19 @@ void nano::bootstrap_service::run_one_dependency ()
 	request_info (blocking, channel, query_source::dependencies);
 }
 
-void nano::bootstrap_service::run_dependencies ()
+void celerix::bootstrap_service::run_dependencies ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		lock.unlock ();
-		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::loop_dependencies);
+		stats.inc (celerix::stat::type::bootstrap, celerix::stat::detail::loop_dependencies);
 		run_one_dependency ();
 		lock.lock ();
 	}
 }
 
-void nano::bootstrap_service::run_one_frontier ()
+void celerix::bootstrap_service::run_one_frontier ()
 {
 	// No need to wait for block_processor, as we are not processing blocks
 	wait ([this] () {
@@ -692,19 +692,19 @@ void nano::bootstrap_service::run_one_frontier ()
 	request_frontiers (frontier, channel, query_source::frontiers);
 }
 
-void nano::bootstrap_service::run_frontiers ()
+void celerix::bootstrap_service::run_frontiers ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		lock.unlock ();
-		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::loop_frontiers);
+		stats.inc (celerix::stat::type::bootstrap, celerix::stat::detail::loop_frontiers);
 		run_one_frontier ();
 		lock.lock ();
 	}
 }
 
-void nano::bootstrap_service::cleanup_and_sync ()
+void celerix::bootstrap_service::cleanup_and_sync ()
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -722,42 +722,42 @@ void nano::bootstrap_service::cleanup_and_sync ()
 	while (!tags_by_order.empty () && should_timeout (tags_by_order.front ()))
 	{
 		auto tag = tags_by_order.front ();
-		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::timeout);
-		stats.inc (nano::stat::type::bootstrap_timeout, to_stat_detail (tag.type));
+		stats.inc (celerix::stat::type::bootstrap, celerix::stat::detail::timeout);
+		stats.inc (celerix::stat::type::bootstrap_timeout, to_stat_detail (tag.type));
 		tags_by_order.pop_front ();
 	}
 
 	if (sync_dependencies_interval.elapsed (60s))
 	{
-		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::sync_dependencies);
+		stats.inc (celerix::stat::type::bootstrap, celerix::stat::detail::sync_dependencies);
 		accounts.sync_dependencies ();
 	}
 }
 
-void nano::bootstrap_service::run_timeouts ()
+void celerix::bootstrap_service::run_timeouts ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::loop_cleanup);
+		stats.inc (celerix::stat::type::bootstrap, celerix::stat::detail::loop_cleanup);
 		cleanup_and_sync ();
 		condition.wait_for (lock, 5s, [this] () { return stopped; });
 	}
 }
 
-void nano::bootstrap_service::process (nano::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> const & channel)
+void celerix::bootstrap_service::process (celerix::asc_pull_ack const & message, std::shared_ptr<celerix::transport::channel> const & channel)
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 
 	// Only process messages that have a known tag
 	auto it = tags.get<tag_id> ().find (message.id);
 	if (it == tags.get<tag_id> ().end ())
 	{
-		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::missing_tag);
+		stats.inc (celerix::stat::type::bootstrap, celerix::stat::detail::missing_tag);
 		return;
 	}
 
-	stats.inc (nano::stat::type::bootstrap, nano::stat::detail::reply);
+	stats.inc (celerix::stat::type::bootstrap, celerix::stat::detail::reply);
 
 	auto tag = *it;
 	tags.get<tag_id> ().erase (it); // Iterator is invalid after this point
@@ -767,19 +767,19 @@ void nano::bootstrap_service::process (nano::asc_pull_ack const & message, std::
 	{
 		query_type type;
 
-		bool operator() (const nano::asc_pull_ack::blocks_payload & response) const
+		bool operator() (const celerix::asc_pull_ack::blocks_payload & response) const
 		{
 			return type == query_type::blocks_by_hash || type == query_type::blocks_by_account;
 		}
-		bool operator() (const nano::asc_pull_ack::account_info_payload & response) const
+		bool operator() (const celerix::asc_pull_ack::account_info_payload & response) const
 		{
 			return type == query_type::account_info_by_hash;
 		}
-		bool operator() (const nano::asc_pull_ack::frontiers_payload & response) const
+		bool operator() (const celerix::asc_pull_ack::frontiers_payload & response) const
 		{
 			return type == query_type::frontiers;
 		}
-		bool operator() (const nano::empty_payload & response) const
+		bool operator() (const celerix::empty_payload & response) const
 		{
 			return false; // Should not happen
 		}
@@ -788,13 +788,13 @@ void nano::bootstrap_service::process (nano::asc_pull_ack const & message, std::
 	bool valid = std::visit (payload_verifier{ tag.type }, message.payload);
 	if (!valid)
 	{
-		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::invalid_response_type);
+		stats.inc (celerix::stat::type::bootstrap, celerix::stat::detail::invalid_response_type);
 		return;
 	}
 
 	// Track bootstrap request response time
-	stats.inc (nano::stat::type::bootstrap_reply, to_stat_detail (tag.type));
-	stats.sample (nano::stat::sample::bootstrap_tag_duration, nano::log::milliseconds_delta (tag.timestamp), { 0, config.request_timeout.count () });
+	stats.inc (celerix::stat::type::bootstrap_reply, to_stat_detail (tag.type));
+	stats.sample (celerix::stat::sample::bootstrap_tag_duration, celerix::log::milliseconds_delta (tag.timestamp), { 0, config.request_timeout.count () });
 
 	lock.unlock ();
 
@@ -808,25 +808,25 @@ void nano::bootstrap_service::process (nano::asc_pull_ack const & message, std::
 	}
 	else
 	{
-		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::invalid_response);
+		stats.inc (celerix::stat::type::bootstrap, celerix::stat::detail::invalid_response);
 	}
 
 	condition.notify_all ();
 }
 
-bool nano::bootstrap_service::process (const nano::asc_pull_ack::blocks_payload & response, const async_tag & tag)
+bool celerix::bootstrap_service::process (const celerix::asc_pull_ack::blocks_payload & response, const async_tag & tag)
 {
 	debug_assert (tag.type == query_type::blocks_by_hash || tag.type == query_type::blocks_by_account);
 
-	stats.inc (nano::stat::type::bootstrap_process, nano::stat::detail::blocks);
+	stats.inc (celerix::stat::type::bootstrap_process, celerix::stat::detail::blocks);
 
 	auto result = verify (response, tag);
 	switch (result)
 	{
 		case verify_result::ok:
 		{
-			stats.inc (nano::stat::type::bootstrap_verify_blocks, nano::stat::detail::ok);
-			stats.add (nano::stat::type::bootstrap, nano::stat::detail::blocks, nano::stat::dir::in, response.blocks.size ());
+			stats.inc (celerix::stat::type::bootstrap_verify_blocks, celerix::stat::detail::ok);
+			stats.add (celerix::stat::type::bootstrap, celerix::stat::detail::blocks, celerix::stat::dir::in, response.blocks.size ());
 
 			auto blocks = response.blocks;
 
@@ -842,10 +842,10 @@ bool nano::bootstrap_service::process (const nano::asc_pull_ack::blocks_payload 
 				if (block == blocks.back ())
 				{
 					// It's the last block submitted for this account chain, reset timestamp to allow more requests
-					block_processor.add (block, nano::block_source::bootstrap, nullptr, [this, account = tag.account] (auto result) {
-						stats.inc (nano::stat::type::bootstrap, nano::stat::detail::timestamp_reset);
+					block_processor.add (block, celerix::block_source::bootstrap, nullptr, [this, account = tag.account] (auto result) {
+						stats.inc (celerix::stat::type::bootstrap, celerix::stat::detail::timestamp_reset);
 						{
-							nano::lock_guard<nano::mutex> guard{ mutex };
+							celerix::lock_guard<celerix::mutex> guard{ mutex };
 							accounts.timestamp_reset (account);
 						}
 						condition.notify_all ();
@@ -853,22 +853,22 @@ bool nano::bootstrap_service::process (const nano::asc_pull_ack::blocks_payload 
 				}
 				else
 				{
-					block_processor.add (block, nano::block_source::bootstrap);
+					block_processor.add (block, celerix::block_source::bootstrap);
 				}
 			}
 
 			if (tag.source == query_source::database)
 			{
-				nano::lock_guard<nano::mutex> lock{ mutex };
+				celerix::lock_guard<celerix::mutex> lock{ mutex };
 				throttle.add (true);
 			}
 		}
 		break;
 		case verify_result::nothing_new:
 		{
-			stats.inc (nano::stat::type::bootstrap_verify_blocks, nano::stat::detail::nothing_new);
+			stats.inc (celerix::stat::type::bootstrap_verify_blocks, celerix::stat::detail::nothing_new);
 			{
-				nano::lock_guard<nano::mutex> lock{ mutex };
+				celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 				accounts.priority_down (tag.account);
 				accounts.timestamp_reset (tag.account);
@@ -883,7 +883,7 @@ bool nano::bootstrap_service::process (const nano::asc_pull_ack::blocks_payload 
 		break;
 		case verify_result::invalid:
 		{
-			stats.inc (nano::stat::type::bootstrap_verify_blocks, nano::stat::detail::invalid);
+			stats.inc (celerix::stat::type::bootstrap_verify_blocks, celerix::stat::detail::invalid);
 		}
 		break;
 	}
@@ -891,52 +891,52 @@ bool nano::bootstrap_service::process (const nano::asc_pull_ack::blocks_payload 
 	return result != verify_result::invalid;
 }
 
-bool nano::bootstrap_service::process (const nano::asc_pull_ack::account_info_payload & response, const async_tag & tag)
+bool celerix::bootstrap_service::process (const celerix::asc_pull_ack::account_info_payload & response, const async_tag & tag)
 {
 	debug_assert (tag.type == query_type::account_info_by_hash);
 	debug_assert (!tag.hash.is_zero ());
 
 	if (response.account.is_zero ())
 	{
-		stats.inc (nano::stat::type::bootstrap_process, nano::stat::detail::account_info_empty);
+		stats.inc (celerix::stat::type::bootstrap_process, celerix::stat::detail::account_info_empty);
 		return true; // OK, but nothing to do
 	}
 
-	stats.inc (nano::stat::type::bootstrap_process, nano::stat::detail::account_info);
+	stats.inc (celerix::stat::type::bootstrap_process, celerix::stat::detail::account_info);
 
 	// Prioritize account containing the dependency
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		accounts.dependency_update (tag.hash, response.account);
-		accounts.priority_set (response.account, nano::bootstrap::account_sets::priority_cutoff); // Use the lowest possible priority here
+		accounts.priority_set (response.account, celerix::bootstrap::account_sets::priority_cutoff); // Use the lowest possible priority here
 	}
 
 	return true; // OK, no way to verify the response
 }
 
-bool nano::bootstrap_service::process (const nano::asc_pull_ack::frontiers_payload & response, const async_tag & tag)
+bool celerix::bootstrap_service::process (const celerix::asc_pull_ack::frontiers_payload & response, const async_tag & tag)
 {
 	debug_assert (tag.type == query_type::frontiers);
 	debug_assert (!tag.start.is_zero ());
 
 	if (response.frontiers.empty ())
 	{
-		stats.inc (nano::stat::type::bootstrap_process, nano::stat::detail::frontiers_empty);
+		stats.inc (celerix::stat::type::bootstrap_process, celerix::stat::detail::frontiers_empty);
 		return true; // OK, but nothing to do
 	}
 
-	stats.inc (nano::stat::type::bootstrap_process, nano::stat::detail::frontiers);
+	stats.inc (celerix::stat::type::bootstrap_process, celerix::stat::detail::frontiers);
 
 	auto result = verify (response, tag);
 	switch (result)
 	{
 		case verify_result::ok:
 		{
-			stats.inc (nano::stat::type::bootstrap_verify_frontiers, nano::stat::detail::ok);
-			stats.add (nano::stat::type::bootstrap, nano::stat::detail::frontiers, nano::stat::dir::in, response.frontiers.size ());
+			stats.inc (celerix::stat::type::bootstrap_verify_frontiers, celerix::stat::detail::ok);
+			stats.add (celerix::stat::type::bootstrap, celerix::stat::detail::frontiers, celerix::stat::dir::in, response.frontiers.size ());
 
 			{
-				nano::lock_guard<nano::mutex> lock{ mutex };
+				celerix::lock_guard<celerix::mutex> lock{ mutex };
 				frontiers.process (tag.start.as_account (), response.frontiers);
 			}
 
@@ -949,18 +949,18 @@ bool nano::bootstrap_service::process (const nano::asc_pull_ack::frontiers_paylo
 			}
 			else
 			{
-				stats.add (nano::stat::type::bootstrap, nano::stat::detail::frontiers_dropped, response.frontiers.size ());
+				stats.add (celerix::stat::type::bootstrap, celerix::stat::detail::frontiers_dropped, response.frontiers.size ());
 			}
 		}
 		break;
 		case verify_result::nothing_new:
 		{
-			stats.inc (nano::stat::type::bootstrap_verify_frontiers, nano::stat::detail::nothing_new);
+			stats.inc (celerix::stat::type::bootstrap_verify_frontiers, celerix::stat::detail::nothing_new);
 		}
 		break;
 		case verify_result::invalid:
 		{
-			stats.inc (nano::stat::type::bootstrap_verify_frontiers, nano::stat::detail::invalid);
+			stats.inc (celerix::stat::type::bootstrap_verify_frontiers, celerix::stat::detail::invalid);
 		}
 		break;
 	}
@@ -968,14 +968,14 @@ bool nano::bootstrap_service::process (const nano::asc_pull_ack::frontiers_paylo
 	return result != verify_result::invalid;
 }
 
-bool nano::bootstrap_service::process (const nano::empty_payload & response, const async_tag & tag)
+bool celerix::bootstrap_service::process (const celerix::empty_payload & response, const async_tag & tag)
 {
-	stats.inc (nano::stat::type::bootstrap_process, nano::stat::detail::empty);
+	stats.inc (celerix::stat::type::bootstrap_process, celerix::stat::detail::empty);
 	debug_assert (false, "empty payload"); // Should not happen
 	return false; // Invalid
 }
 
-void nano::bootstrap_service::process_frontiers (std::deque<std::pair<nano::account, nano::block_hash>> const & frontiers)
+void celerix::bootstrap_service::process_frontiers (std::deque<std::pair<celerix::account, celerix::block_hash>> const & frontiers)
 {
 	release_assert (!frontiers.empty ());
 
@@ -985,25 +985,25 @@ void nano::bootstrap_service::process_frontiers (std::deque<std::pair<nano::acco
 	})
 	== frontiers.end ());
 
-	stats.inc (nano::stat::type::bootstrap, nano::stat::detail::processing_frontiers);
+	stats.inc (celerix::stat::type::bootstrap, celerix::stat::detail::processing_frontiers);
 
 	size_t outdated = 0;
 	size_t pending = 0;
 
 	// Accounts with outdated frontiers to sync
-	std::deque<nano::account> result;
+	std::deque<celerix::account> result;
 	{
 		auto transaction = ledger.tx_begin_read ();
 
 		auto const start = frontiers.front ().first;
-		nano::bootstrap::account_database_crawler account_crawler{ ledger.store, transaction, start };
-		nano::bootstrap::pending_database_crawler pending_crawler{ ledger.store, transaction, start };
+		celerix::bootstrap::account_database_crawler account_crawler{ ledger.store, transaction, start };
+		celerix::bootstrap::pending_database_crawler pending_crawler{ ledger.store, transaction, start };
 
-		auto block_exists = [&] (nano::block_hash const & hash) {
+		auto block_exists = [&] (celerix::block_hash const & hash) {
 			return ledger.any.block_exists_or_pruned (transaction, hash);
 		};
 
-		auto should_prioritize = [&] (nano::account const & account, nano::block_hash const & frontier) {
+		auto should_prioritize = [&] (celerix::account const & account, celerix::block_hash const & frontier) {
 			account_crawler.advance_to (account);
 			pending_crawler.advance_to (account);
 
@@ -1042,21 +1042,21 @@ void nano::bootstrap_service::process_frontiers (std::deque<std::pair<nano::acco
 		}
 	}
 
-	stats.add (nano::stat::type::bootstrap_frontiers, nano::stat::detail::processed, frontiers.size ());
-	stats.add (nano::stat::type::bootstrap_frontiers, nano::stat::detail::prioritized, result.size ());
-	stats.add (nano::stat::type::bootstrap_frontiers, nano::stat::detail::outdated, outdated);
-	stats.add (nano::stat::type::bootstrap_frontiers, nano::stat::detail::pending, pending);
+	stats.add (celerix::stat::type::bootstrap_frontiers, celerix::stat::detail::processed, frontiers.size ());
+	stats.add (celerix::stat::type::bootstrap_frontiers, celerix::stat::detail::prioritized, result.size ());
+	stats.add (celerix::stat::type::bootstrap_frontiers, celerix::stat::detail::outdated, outdated);
+	stats.add (celerix::stat::type::bootstrap_frontiers, celerix::stat::detail::pending, pending);
 
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
 	for (auto const & account : result)
 	{
 		// Use the lowest possible priority here
-		accounts.priority_set (account, nano::bootstrap::account_sets::priority_cutoff);
+		accounts.priority_set (account, celerix::bootstrap::account_sets::priority_cutoff);
 	}
 }
 
-auto nano::bootstrap_service::verify (const nano::asc_pull_ack::blocks_payload & response, const async_tag & tag) const -> verify_result
+auto celerix::bootstrap_service::verify (const celerix::asc_pull_ack::blocks_payload & response, const async_tag & tag) const -> verify_result
 {
 	auto const & blocks = response.blocks;
 
@@ -1100,7 +1100,7 @@ auto nano::bootstrap_service::verify (const nano::asc_pull_ack::blocks_payload &
 	}
 
 	// Verify blocks make a valid chain
-	nano::block_hash previous_hash = blocks.front ()->hash ();
+	celerix::block_hash previous_hash = blocks.front ()->hash ();
 	for (int n = 1; n < blocks.size (); ++n)
 	{
 		auto & block = blocks[n];
@@ -1115,7 +1115,7 @@ auto nano::bootstrap_service::verify (const nano::asc_pull_ack::blocks_payload &
 	return verify_result::ok;
 }
 
-auto nano::bootstrap_service::verify (nano::asc_pull_ack::frontiers_payload const & response, async_tag const & tag) const -> verify_result
+auto celerix::bootstrap_service::verify (celerix::asc_pull_ack::frontiers_payload const & response, async_tag const & tag) const -> verify_result
 {
 	auto const & frontiers = response.frontiers;
 
@@ -1125,7 +1125,7 @@ auto nano::bootstrap_service::verify (nano::asc_pull_ack::frontiers_payload cons
 	}
 
 	// Ensure frontiers accounts are in ascending order
-	nano::account previous{ 0 };
+	celerix::account previous{ 0 };
 	for (auto const & [account, _] : frontiers)
 	{
 		if (account.number () <= previous.number ())
@@ -1144,13 +1144,13 @@ auto nano::bootstrap_service::verify (nano::asc_pull_ack::frontiers_payload cons
 	return verify_result::ok;
 }
 
-auto nano::bootstrap_service::info () const -> nano::bootstrap::account_sets::info_t
+auto celerix::bootstrap_service::info () const -> celerix::bootstrap::account_sets::info_t
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return accounts.info ();
 }
 
-std::size_t nano::bootstrap_service::compute_throttle_size () const
+std::size_t celerix::bootstrap_service::compute_throttle_size () const
 {
 	auto ledger_size = ledger.account_count ();
 	size_t target = ledger_size > 0 ? config.throttle_coefficient * static_cast<size_t> (std::log (ledger_size)) : 0;
@@ -1158,19 +1158,19 @@ std::size_t nano::bootstrap_service::compute_throttle_size () const
 	return std::max (target, min_size);
 }
 
-nano::container_info nano::bootstrap_service::container_info () const
+celerix::container_info celerix::bootstrap_service::container_info () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 	auto collect_limiters = [this] () {
-		nano::container_info info;
+		celerix::container_info info;
 		info.put ("total", limiter.size ());
 		info.put ("database", database_limiter.size ());
 		info.put ("frontiers", frontiers_limiter.size ());
 		return info;
 	};
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("tags", tags);
 	info.put ("throttle", throttle.size ());
 	info.put ("throttle_successes", throttle.successes ());
@@ -1187,7 +1187,7 @@ nano::container_info nano::bootstrap_service::container_info () const
  *
  */
 
-nano::stat::detail nano::to_stat_detail (nano::bootstrap_service::query_type type)
+celerix::stat::detail celerix::to_stat_detail (celerix::bootstrap_service::query_type type)
 {
-	return nano::enum_util::cast<nano::stat::detail> (type);
+	return celerix::enum_util::cast<celerix::stat::detail> (type);
 }

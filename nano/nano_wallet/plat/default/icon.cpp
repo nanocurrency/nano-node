@@ -1,5 +1,5 @@
-#include <nano/nano_wallet/icon.hpp>
+#include <celerix/celerix_wallet/icon.hpp>
 
-void nano::set_application_icon (QApplication &)
+void celerix::set_application_icon (QApplication &)
 {
 }

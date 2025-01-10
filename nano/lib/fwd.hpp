@@ -5,7 +5,7 @@
 
 struct uint8_char_traits;
 
-namespace nano
+namespace celerix
 {
 class block;
 class block_details;
@@ -29,7 +29,7 @@ enum class work_version;
 using stream = std::basic_streambuf<uint8_t, uint8_char_traits>;
 }
 
-namespace nano::stat
+namespace celerix::stat
 {
 enum class type;
 enum class detail;

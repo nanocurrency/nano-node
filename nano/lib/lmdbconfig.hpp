@@ -1,10 +1,10 @@
 #pragma once
 
-#include <nano/lib/errors.hpp>
+#include <celerix/lib/errors.hpp>
 
 #include <thread>
 
-namespace nano
+namespace celerix
 {
 class tomlconfig;
 
@@ -39,8 +39,8 @@ public:
 		nosync_unsafe_large_memory
 	};
 
-	nano::error serialize_toml (nano::tomlconfig & toml_a) const;
-	nano::error deserialize_toml (nano::tomlconfig & toml_a);
+	celerix::error serialize_toml (celerix::tomlconfig & toml_a) const;
+	celerix::error deserialize_toml (celerix::tomlconfig & toml_a);
 
 	/** Sync strategy for the ledger database */
 	sync_strategy sync{ always };

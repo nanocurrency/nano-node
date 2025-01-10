@@ -10,7 +10,7 @@
 #include <rocksdb/slice.h>
 #include <rocksdb/utilities/transaction.h>
 
-namespace nano::store::rocksdb
+namespace celerix::store::rocksdb
 {
 /**
  * @class iterator

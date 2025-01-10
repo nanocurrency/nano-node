@@ -133,7 +133,7 @@ class CliArgs:
             '-r', '--repo',
             help="<org/repo> to generate logs for",
             type=str, action="store",
-            default='nanocurrency/nano-node',
+            default='celerixcurrency/celerix-node',
         )
         parse.add_argument(
             '-s', '--start',

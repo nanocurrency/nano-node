@@ -1,5 +1,5 @@
-#include <nano/lib/timer.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/lib/timer.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -12,30 +12,30 @@
 
 TEST (timer, states)
 {
-	nano::timer<std::chrono::milliseconds> t1;
-	ASSERT_EQ (t1.current_state (), nano::timer_state::stopped);
+	celerix::timer<std::chrono::milliseconds> t1;
+	ASSERT_EQ (t1.current_state (), celerix::timer_state::stopped);
 	t1.start ();
-	ASSERT_EQ (t1.current_state (), nano::timer_state::started);
+	ASSERT_EQ (t1.current_state (), celerix::timer_state::started);
 	t1.restart ();
-	ASSERT_EQ (t1.current_state (), nano::timer_state::started);
+	ASSERT_EQ (t1.current_state (), celerix::timer_state::started);
 	t1.pause ();
-	ASSERT_EQ (t1.current_state (), nano::timer_state::stopped);
+	ASSERT_EQ (t1.current_state (), celerix::timer_state::stopped);
 	t1.start ();
-	ASSERT_EQ (t1.current_state (), nano::timer_state::started);
+	ASSERT_EQ (t1.current_state (), celerix::timer_state::started);
 	t1.stop ();
-	ASSERT_EQ (t1.current_state (), nano::timer_state::stopped);
+	ASSERT_EQ (t1.current_state (), celerix::timer_state::stopped);
 
-	nano::timer<std::chrono::milliseconds> t2 (nano::timer_state::started);
-	ASSERT_EQ (t2.current_state (), nano::timer_state::started);
+	celerix::timer<std::chrono::milliseconds> t2 (celerix::timer_state::started);
+	ASSERT_EQ (t2.current_state (), celerix::timer_state::started);
 	t2.stop ();
-	ASSERT_EQ (t2.current_state (), nano::timer_state::stopped);
+	ASSERT_EQ (t2.current_state (), celerix::timer_state::stopped);
 }
 
 TEST (timer, measure_and_compare)
 {
 	using namespace std::chrono_literals;
-	nano::timer<std::chrono::milliseconds> t1 (nano::timer_state::started);
-	ASSERT_EQ (t1.current_state (), nano::timer_state::started);
+	celerix::timer<std::chrono::milliseconds> t1 (celerix::timer_state::started);
+	ASSERT_EQ (t1.current_state (), celerix::timer_state::started);
 	std::this_thread::sleep_for (50ms);
 	ASSERT_TRUE (t1.after_deadline (30ms));
 	ASSERT_TRUE (t1.before_deadline (500ms));
@@ -49,7 +49,7 @@ TEST (timer, measure_and_compare)
 TEST (timer, cummulative_child)
 {
 	using namespace std::chrono_literals;
-	nano::timer<std::chrono::milliseconds> t1 (nano::timer_state::started);
+	celerix::timer<std::chrono::milliseconds> t1 (celerix::timer_state::started);
 	auto & child1 = t1.child ();
 	for (int i = 0; i < 10; i++)
 	{
@@ -76,7 +76,7 @@ TEST (timer, cummulative_child)
 TEST (timer, stop)
 {
 	using namespace std::chrono_literals;
-	nano::timer<std::chrono::milliseconds> t1 (nano::timer_state::started);
+	celerix::timer<std::chrono::milliseconds> t1 (celerix::timer_state::started);
 	std::this_thread::sleep_for (50ms);
 	auto stop_value = t1.stop ();
 	std::this_thread::sleep_for (50ms);

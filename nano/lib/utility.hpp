@@ -1,8 +1,8 @@
 #pragma once
 
-#include <nano/lib/assert.hpp>
-#include <nano/lib/container_info.hpp>
-#include <nano/lib/locks.hpp>
+#include <celerix/lib/assert.hpp>
+#include <celerix/lib/container_info.hpp>
+#include <celerix/lib/locks.hpp>
 
 #include <boost/lexical_cast.hpp>
 
@@ -23,7 +23,7 @@ namespace program_options
 }
 }
 
-namespace nano
+namespace celerix
 {
 // Lower priority of calling work generating thread
 void work_thread_reprioritize ();
@@ -78,7 +78,7 @@ void sort_options_description (const boost::program_options::options_description
 /*
  * Clock utilities
  */
-namespace nano
+namespace celerix
 {
 /**
  * Steady clock should always be used for measuring time intervals
@@ -90,7 +90,7 @@ using clock = std::chrono::steady_clock;
  * Force usage of steady clock
  */
 template <typename Duration>
-bool elapsed (nano::clock::time_point const & last, Duration const & duration, nano::clock::time_point const & now)
+bool elapsed (celerix::clock::time_point const & last, Duration const & duration, celerix::clock::time_point const & now)
 {
 	return last + duration < now;
 }
@@ -100,9 +100,9 @@ bool elapsed (nano::clock::time_point const & last, Duration const & duration, n
  * Force usage of steady clock
  */
 template <typename Duration>
-bool elapsed (nano::clock::time_point const & last, Duration const & duration)
+bool elapsed (celerix::clock::time_point const & last, Duration const & duration)
 {
-	return elapsed (last, duration, nano::clock::now ());
+	return elapsed (last, duration, celerix::clock::now ());
 }
 
 /**
@@ -110,9 +110,9 @@ bool elapsed (nano::clock::time_point const & last, Duration const & duration)
  * Force usage of steady clock
  */
 template <typename Duration>
-bool elapse (nano::clock::time_point & last, Duration const & duration)
+bool elapse (celerix::clock::time_point & last, Duration const & duration)
 {
-	auto now = nano::clock::now ();
+	auto now = celerix::clock::now ();
 	if (last + duration < now)
 	{
 		last = now;
@@ -122,7 +122,7 @@ bool elapse (nano::clock::time_point & last, Duration const & duration)
 }
 }
 
-namespace nano::util
+namespace celerix::util
 {
 /**
  * Joins elements with specified delimiter while transforming those elements via specified transform function

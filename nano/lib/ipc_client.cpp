@@ -1,11 +1,11 @@
-#include <nano/boost/asio/bind_executor.hpp>
-#include <nano/boost/asio/ip/tcp.hpp>
-#include <nano/boost/asio/local/stream_protocol.hpp>
-#include <nano/boost/asio/read.hpp>
-#include <nano/boost/asio/strand.hpp>
-#include <nano/lib/asio.hpp>
-#include <nano/lib/ipc.hpp>
-#include <nano/lib/ipc_client.hpp>
+#include <celerix/boost/asio/bind_executor.hpp>
+#include <celerix/boost/asio/ip/tcp.hpp>
+#include <celerix/boost/asio/local/stream_protocol.hpp>
+#include <celerix/boost/asio/read.hpp>
+#include <celerix/boost/asio/strand.hpp>
+#include <celerix/lib/asio.hpp>
+#include <celerix/lib/ipc.hpp>
+#include <celerix/lib/ipc_client.hpp>
 
 #include <boost/endian/conversion.hpp>
 #include <boost/polymorphic_cast.hpp>
@@ -20,7 +20,7 @@ class channel
 {
 public:
 	virtual void async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, size_t size_a, std::function<void (boost::system::error_code const &, size_t)> callback_a) = 0;
-	virtual void async_write (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, size_t)> callback_a) = 0;
+	virtual void async_write (celerix::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, size_t)> callback_a) = 0;
 
 	/**
 	 * Read a length-prefixed message asynchronously using the given timeout. This is suitable for full duplex scenarios where it may
@@ -42,7 +42,7 @@ using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost
 
 /** Domain and TCP client socket */
 template <typename SOCKET_TYPE, typename ENDPOINT_TYPE>
-class socket_client : public nano::ipc::socket_base, public channel, public std::enable_shared_from_this<socket_client<SOCKET_TYPE, ENDPOINT_TYPE>>
+class socket_client : public celerix::ipc::socket_base, public channel, public std::enable_shared_from_this<socket_client<SOCKET_TYPE, ENDPOINT_TYPE>>
 {
 public:
 	socket_client (boost::asio::io_context & io_ctx_a, ENDPOINT_TYPE endpoint_a) :
@@ -90,7 +90,7 @@ public:
 		}));
 	}
 
-	void async_write (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, size_t)> callback_a) override
+	void async_write (celerix::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, size_t)> callback_a) override
 	{
 		auto this_l (this->shared_from_this ());
 		boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, this_l] () {
@@ -114,7 +114,7 @@ public:
 		auto this_l (this->shared_from_this ());
 		auto msg (send_queue.front ());
 		this_l->timer_start (io_timeout);
-		nano::async_write (socket, msg.buffer,
+		celerix::async_write (socket, msg.buffer,
 		boost::asio::bind_executor (strand,
 		[msg, this_l] (boost::system::error_code ec, std::size_t size_a) {
 			this_l->timer_cancel ();
@@ -173,11 +173,11 @@ private:
 	class queue_item
 	{
 	public:
-		queue_item (nano::shared_const_buffer buffer_a, std::function<void (boost::system::error_code const &, size_t)> callback_a) :
+		queue_item (celerix::shared_const_buffer buffer_a, std::function<void (boost::system::error_code const &, size_t)> callback_a) :
 			buffer (std::move (buffer_a)), callback (std::move (callback_a))
 		{
 		}
-		nano::shared_const_buffer buffer;
+		celerix::shared_const_buffer buffer;
 		std::function<void (boost::system::error_code const &, size_t)> callback;
 	};
 	size_t const queue_size_max = 64 * 1024;
@@ -195,7 +195,7 @@ private:
  * PIMPL class for ipc_client. This ensures that socket_client and boost details can
  * stay out of the header file.
  */
-class client_impl : public nano::ipc::ipc_client_impl
+class client_impl : public celerix::ipc::ipc_client_impl
 {
 public:
 	explicit client_impl (boost::asio::io_context & io_ctx_a) :
@@ -203,7 +203,7 @@ public:
 	{
 	}
 
-	void connect (std::string const & host_a, uint16_t port_a, std::function<void (nano::error)> callback_a)
+	void connect (std::string const & host_a, uint16_t port_a, std::function<void (celerix::error)> callback_a)
 	{
 		tcp_client = std::make_shared<socket_client<socket_type, boost::asio::ip::tcp::endpoint>> (io_ctx, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v6 (), port_a));
 
@@ -211,23 +211,23 @@ public:
 			if (!ec_resolve_a)
 			{
 				this->tcp_client->async_connect ([cbk = std::move (callback)] (boost::system::error_code const & ec_connect_a) {
-					cbk (nano::error (ec_connect_a));
+					cbk (celerix::error (ec_connect_a));
 				});
 			}
 			else
 			{
-				callback (nano::error (ec_resolve_a));
+				callback (celerix::error (ec_resolve_a));
 			}
 		});
 	}
 
-	nano::error connect (std::string const & path_a)
+	celerix::error connect (std::string const & path_a)
 	{
-		nano::error err;
+		celerix::error err;
 #if defined(BOOST_ASIO_HAS_LOCAL_SOCKETS)
 		domain_client = std::make_shared<socket_client<boost::asio::local::stream_protocol::socket, boost::asio::local::stream_protocol::endpoint>> (io_ctx, boost::asio::local::stream_protocol::endpoint (path_a));
 #else
-		err = nano::error ("Domain sockets are not supported by this platform");
+		err = celerix::error ("Domain sockets are not supported by this platform");
 #endif
 		return err;
 	}
@@ -250,59 +250,59 @@ private:
 };
 }
 
-nano::ipc::ipc_client::ipc_client (boost::asio::io_context & io_ctx_a) :
+celerix::ipc::ipc_client::ipc_client (boost::asio::io_context & io_ctx_a) :
 	io_ctx (io_ctx_a)
 {
 }
 
-nano::error nano::ipc::ipc_client::connect (std::string const & path_a)
+celerix::error celerix::ipc::ipc_client::connect (std::string const & path_a)
 {
 	impl = std::make_unique<client_impl> (io_ctx);
 	return boost::polymorphic_downcast<client_impl *> (impl.get ())->connect (path_a);
 }
 
-void nano::ipc::ipc_client::async_connect (std::string const & host_a, uint16_t port_a, std::function<void (nano::error)> callback_a)
+void celerix::ipc::ipc_client::async_connect (std::string const & host_a, uint16_t port_a, std::function<void (celerix::error)> callback_a)
 {
 	impl = std::make_unique<client_impl> (io_ctx);
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
 	client->connect (host_a, port_a, std::move (callback_a));
 }
 
-nano::error nano::ipc::ipc_client::connect (std::string const & host, uint16_t port)
+celerix::error celerix::ipc::ipc_client::connect (std::string const & host, uint16_t port)
 {
-	std::promise<nano::error> result_l;
-	async_connect (host, port, [&result_l] (nano::error err_a) {
+	std::promise<celerix::error> result_l;
+	async_connect (host, port, [&result_l] (celerix::error err_a) {
 		result_l.set_value (std::move (err_a));
 	});
 	return result_l.get_future ().get ();
 }
 
-void nano::ipc::ipc_client::async_write (nano::shared_const_buffer const & buffer_a, std::function<void (nano::error, size_t)> callback_a)
+void celerix::ipc::ipc_client::async_write (celerix::shared_const_buffer const & buffer_a, std::function<void (celerix::error, size_t)> callback_a)
 {
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
 	client->get_channel ().async_write (buffer_a, [callback = std::move (callback_a)] (boost::system::error_code const & ec_a, size_t bytes_written_a) {
-		callback (nano::error (ec_a), bytes_written_a);
+		callback (celerix::error (ec_a), bytes_written_a);
 	});
 }
 
-void nano::ipc::ipc_client::async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, size_t size_a, std::function<void (nano::error, size_t)> callback_a)
+void celerix::ipc::ipc_client::async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, size_t size_a, std::function<void (celerix::error, size_t)> callback_a)
 {
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
 	client->get_channel ().async_read (buffer_a, size_a, [callback = std::move (callback_a), buffer_a] (boost::system::error_code const & ec_a, size_t bytes_read_a) {
-		callback (nano::error (ec_a), bytes_read_a);
+		callback (celerix::error (ec_a), bytes_read_a);
 	});
 }
 
 /** Read a length-prefixed message asynchronously. Received length must be a big endian 32-bit unsigned integer. */
-void nano::ipc::ipc_client::async_read_message (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::chrono::seconds timeout_a, std::function<void (nano::error, size_t)> callback_a)
+void celerix::ipc::ipc_client::async_read_message (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::chrono::seconds timeout_a, std::function<void (celerix::error, size_t)> callback_a)
 {
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
 	client->get_channel ().async_read_message (buffer_a, timeout_a, [callback = std::move (callback_a), buffer_a] (boost::system::error_code const & ec_a, size_t bytes_read_a) {
-		callback (nano::error (ec_a), bytes_read_a);
+		callback (celerix::error (ec_a), bytes_read_a);
 	});
 }
 
-std::vector<uint8_t> nano::ipc::get_preamble (nano::ipc::payload_encoding encoding_a)
+std::vector<uint8_t> celerix::ipc::get_preamble (celerix::ipc::payload_encoding encoding_a)
 {
 	std::vector<uint8_t> buffer_l;
 	buffer_l.push_back ('N');
@@ -312,21 +312,21 @@ std::vector<uint8_t> nano::ipc::get_preamble (nano::ipc::payload_encoding encodi
 	return buffer_l;
 }
 
-nano::shared_const_buffer nano::ipc::prepare_flatbuffers_request (std::shared_ptr<flatbuffers::FlatBufferBuilder> const & flatbuffer_a)
+celerix::shared_const_buffer celerix::ipc::prepare_flatbuffers_request (std::shared_ptr<flatbuffers::FlatBufferBuilder> const & flatbuffer_a)
 {
-	auto buffer_l (get_preamble (nano::ipc::payload_encoding::flatbuffers));
+	auto buffer_l (get_preamble (celerix::ipc::payload_encoding::flatbuffers));
 	auto payload_length = static_cast<uint32_t> (flatbuffer_a->GetSize ());
 	uint32_t be = boost::endian::native_to_big (payload_length);
 	char * chars = reinterpret_cast<char *> (&be);
 	buffer_l.insert (buffer_l.end (), chars, chars + sizeof (uint32_t));
 	buffer_l.insert (buffer_l.end (), flatbuffer_a->GetBufferPointer (), flatbuffer_a->GetBufferPointer () + flatbuffer_a->GetSize ());
-	return nano::shared_const_buffer{ std::move (buffer_l) };
+	return celerix::shared_const_buffer{ std::move (buffer_l) };
 }
 
-nano::shared_const_buffer nano::ipc::prepare_request (nano::ipc::payload_encoding encoding_a, std::string const & payload_a)
+celerix::shared_const_buffer celerix::ipc::prepare_request (celerix::ipc::payload_encoding encoding_a, std::string const & payload_a)
 {
 	std::vector<uint8_t> buffer_l;
-	if (encoding_a == nano::ipc::payload_encoding::json_v1 || encoding_a == nano::ipc::payload_encoding::flatbuffers_json)
+	if (encoding_a == celerix::ipc::payload_encoding::json_v1 || encoding_a == celerix::ipc::payload_encoding::flatbuffers_json)
 	{
 		buffer_l = get_preamble (encoding_a);
 		auto payload_length = static_cast<uint32_t> (payload_a.size ());
@@ -335,21 +335,21 @@ nano::shared_const_buffer nano::ipc::prepare_request (nano::ipc::payload_encodin
 		buffer_l.insert (buffer_l.end (), chars, chars + sizeof (uint32_t));
 		buffer_l.insert (buffer_l.end (), payload_a.begin (), payload_a.end ());
 	}
-	return nano::shared_const_buffer{ std::move (buffer_l) };
+	return celerix::shared_const_buffer{ std::move (buffer_l) };
 }
 
-std::string nano::ipc::request (nano::ipc::payload_encoding encoding_a, nano::ipc::ipc_client & ipc_client, std::string const & rpc_action_a)
+std::string celerix::ipc::request (celerix::ipc::payload_encoding encoding_a, celerix::ipc::ipc_client & ipc_client, std::string const & rpc_action_a)
 {
 	auto req (prepare_request (encoding_a, rpc_action_a));
 	auto res (std::make_shared<std::vector<uint8_t>> ());
 
 	std::promise<std::string> result_l;
-	ipc_client.async_write (req, [&ipc_client, &res, &result_l] (nano::error const &, size_t size_a) {
+	ipc_client.async_write (req, [&ipc_client, &res, &result_l] (celerix::error const &, size_t size_a) {
 		// Read length
-		ipc_client.async_read (res, sizeof (uint32_t), [&ipc_client, &res, &result_l] (nano::error const &, size_t size_read_a) {
+		ipc_client.async_read (res, sizeof (uint32_t), [&ipc_client, &res, &result_l] (celerix::error const &, size_t size_read_a) {
 			uint32_t payload_size_l = boost::endian::big_to_native (*reinterpret_cast<uint32_t *> (res->data ()));
 			// Read json payload
-			ipc_client.async_read (res, payload_size_l, [&res, &result_l] (nano::error const &, size_t size_read_a) {
+			ipc_client.async_read (res, payload_size_l, [&res, &result_l] (celerix::error const &, size_t size_read_a) {
 				result_l.set_value (std::string (res->begin (), res->end ()));
 			});
 		});

@@ -1,6 +1,6 @@
-#include <nano/store/rocksdb/transaction_impl.hpp>
+#include <celerix/store/rocksdb/transaction_impl.hpp>
 
-nano::store::rocksdb::read_transaction_impl::read_transaction_impl (::rocksdb::DB * db_a) :
+celerix::store::rocksdb::read_transaction_impl::read_transaction_impl (::rocksdb::DB * db_a) :
 	db (db_a)
 {
 	if (db_a)
@@ -9,12 +9,12 @@ nano::store::rocksdb::read_transaction_impl::read_transaction_impl (::rocksdb::D
 	}
 }
 
-nano::store::rocksdb::read_transaction_impl::~read_transaction_impl ()
+celerix::store::rocksdb::read_transaction_impl::~read_transaction_impl ()
 {
 	reset ();
 }
 
-void nano::store::rocksdb::read_transaction_impl::reset ()
+void celerix::store::rocksdb::read_transaction_impl::reset ()
 {
 	if (db)
 	{
@@ -22,17 +22,17 @@ void nano::store::rocksdb::read_transaction_impl::reset ()
 	}
 }
 
-void nano::store::rocksdb::read_transaction_impl::renew ()
+void celerix::store::rocksdb::read_transaction_impl::renew ()
 {
 	options.snapshot = db->GetSnapshot ();
 }
 
-void * nano::store::rocksdb::read_transaction_impl::get_handle () const
+void * celerix::store::rocksdb::read_transaction_impl::get_handle () const
 {
 	return (void *)&options;
 }
 
-nano::store::rocksdb::write_transaction_impl::write_transaction_impl (::rocksdb::TransactionDB * db_a) :
+celerix::store::rocksdb::write_transaction_impl::write_transaction_impl (::rocksdb::TransactionDB * db_a) :
 	db (db_a)
 {
 	debug_assert (check_no_write_tx ());
@@ -41,13 +41,13 @@ nano::store::rocksdb::write_transaction_impl::write_transaction_impl (::rocksdb:
 	txn = db->BeginTransaction (::rocksdb::WriteOptions (), txn_options);
 }
 
-nano::store::rocksdb::write_transaction_impl::~write_transaction_impl ()
+celerix::store::rocksdb::write_transaction_impl::~write_transaction_impl ()
 {
 	commit ();
 	delete txn;
 }
 
-void nano::store::rocksdb::write_transaction_impl::commit ()
+void celerix::store::rocksdb::write_transaction_impl::commit ()
 {
 	if (active)
 	{
@@ -57,7 +57,7 @@ void nano::store::rocksdb::write_transaction_impl::commit ()
 	}
 }
 
-void nano::store::rocksdb::write_transaction_impl::renew ()
+void celerix::store::rocksdb::write_transaction_impl::renew ()
 {
 	::rocksdb::TransactionOptions txn_options;
 	txn_options.set_snapshot = true;
@@ -65,17 +65,17 @@ void nano::store::rocksdb::write_transaction_impl::renew ()
 	active = true;
 }
 
-void * nano::store::rocksdb::write_transaction_impl::get_handle () const
+void * celerix::store::rocksdb::write_transaction_impl::get_handle () const
 {
 	return txn;
 }
 
-bool nano::store::rocksdb::write_transaction_impl::contains (nano::tables table_a) const
+bool celerix::store::rocksdb::write_transaction_impl::contains (celerix::tables table_a) const
 {
 	return true;
 }
 
-bool nano::store::rocksdb::write_transaction_impl::check_no_write_tx () const
+bool celerix::store::rocksdb::write_transaction_impl::check_no_write_tx () const
 {
 	std::vector<::rocksdb::Transaction *> transactions;
 	db->GetAllPreparedTransactions (&transactions);

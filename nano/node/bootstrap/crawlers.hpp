@@ -1,22 +1,22 @@
 #pragma once
 
-#include <nano/secure/account_info.hpp>
-#include <nano/secure/pending_info.hpp>
-#include <nano/store/account.hpp>
-#include <nano/store/component.hpp>
-#include <nano/store/pending.hpp>
+#include <celerix/secure/account_info.hpp>
+#include <celerix/secure/pending_info.hpp>
+#include <celerix/store/account.hpp>
+#include <celerix/store/component.hpp>
+#include <celerix/store/pending.hpp>
 
 #include <optional>
 
-namespace nano::bootstrap
+namespace celerix::bootstrap
 {
 struct account_database_crawler
 {
-	using value_type = std::pair<nano::account, nano::account_info>;
+	using value_type = std::pair<celerix::account, celerix::account_info>;
 
 	static constexpr size_t sequential_attempts = 10;
 
-	account_database_crawler (nano::store::component & store, nano::store::transaction const & transaction, nano::account const & start) :
+	account_database_crawler (celerix::store::component & store, celerix::store::transaction const & transaction, celerix::account const & start) :
 		store{ store },
 		transaction{ transaction },
 		it{ store.account.end (transaction) },
@@ -25,7 +25,7 @@ struct account_database_crawler
 		seek (start);
 	}
 
-	void seek (nano::account const & account)
+	void seek (celerix::account const & account)
 	{
 		it = store.account.begin (transaction, account);
 		update_current ();
@@ -43,7 +43,7 @@ struct account_database_crawler
 		update_current ();
 	}
 
-	void advance_to (nano::account const & account)
+	void advance_to (celerix::account const & account)
 	{
 		if (it == end)
 		{
@@ -81,20 +81,20 @@ private:
 		}
 	}
 
-	nano::store::component & store;
-	nano::store::transaction const & transaction;
+	celerix::store::component & store;
+	celerix::store::transaction const & transaction;
 
-	nano::store::account::iterator it;
-	nano::store::account::iterator const end;
+	celerix::store::account::iterator it;
+	celerix::store::account::iterator const end;
 };
 
 struct pending_database_crawler
 {
-	using value_type = std::pair<nano::pending_key, nano::pending_info>;
+	using value_type = std::pair<celerix::pending_key, celerix::pending_info>;
 
 	static constexpr size_t sequential_attempts = 10;
 
-	pending_database_crawler (nano::store::component & store, nano::store::transaction const & transaction, nano::account const & start) :
+	pending_database_crawler (celerix::store::component & store, celerix::store::transaction const & transaction, celerix::account const & start) :
 		store{ store },
 		transaction{ transaction },
 		it{ store.pending.end (transaction) },
@@ -103,7 +103,7 @@ struct pending_database_crawler
 		seek (start);
 	}
 
-	void seek (nano::account const & account)
+	void seek (celerix::account const & account)
 	{
 		it = store.pending.begin (transaction, { account, 0 });
 		update_current ();
@@ -140,7 +140,7 @@ struct pending_database_crawler
 		update_current ();
 	}
 
-	void advance_to (nano::account const & account)
+	void advance_to (celerix::account const & account)
 	{
 		if (it == end)
 		{
@@ -178,10 +178,10 @@ private:
 		}
 	}
 
-	nano::store::component & store;
-	nano::store::transaction const & transaction;
+	celerix::store::component & store;
+	celerix::store::transaction const & transaction;
 
-	nano::store::pending::iterator it;
-	nano::store::pending::iterator const end;
+	celerix::store::pending::iterator it;
+	celerix::store::pending::iterator const end;
 };
 }

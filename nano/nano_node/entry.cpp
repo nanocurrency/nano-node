@@ -1,26 +1,26 @@
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/block_type.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/cli.hpp>
-#include <nano/lib/files.hpp>
-#include <nano/lib/thread_runner.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/lib/work_version.hpp>
-#include <nano/nano_node/daemon.hpp>
-#include <nano/node/active_elections.hpp>
-#include <nano/node/cli.hpp>
-#include <nano/node/confirming_set.hpp>
-#include <nano/node/daemonconfig.hpp>
-#include <nano/node/inactive_node.hpp>
-#include <nano/node/ipc/ipc_server.hpp>
-#include <nano/node/json_handler.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/online_reps.hpp>
-#include <nano/node/transport/inproc.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/ledger_set_any.hpp>
-#include <nano/secure/vote.hpp>
-#include <nano/store/pending.hpp>
+#include <celerix/crypto_lib/random_pool.hpp>
+#include <celerix/lib/block_type.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/cli.hpp>
+#include <celerix/lib/files.hpp>
+#include <celerix/lib/thread_runner.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/lib/work_version.hpp>
+#include <celerix/celerix_node/daemon.hpp>
+#include <celerix/node/active_elections.hpp>
+#include <celerix/node/cli.hpp>
+#include <celerix/node/confirming_set.hpp>
+#include <celerix/node/daemonconfig.hpp>
+#include <celerix/node/inactive_node.hpp>
+#include <celerix/node/ipc/ipc_server.hpp>
+#include <celerix/node/json_handler.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/online_reps.hpp>
+#include <celerix/node/transport/inproc.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/ledger_set_any.hpp>
+#include <celerix/secure/vote.hpp>
+#include <celerix/store/pending.hpp>
 
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/format.hpp>
@@ -97,19 +97,19 @@ void register_pid_file ()
 
 int main (int argc, char * const * argv)
 {
-	nano::set_umask (); // Make sure the process umask is set before any files are created
-	nano::initialize_file_descriptor_limit ();
-	nano::logger::initialize (nano::log_config::cli_default ());
+	celerix::set_umask (); // Make sure the process umask is set before any files are created
+	celerix::initialize_file_descriptor_limit ();
+	celerix::logger::initialize (celerix::log_config::cli_default ());
 
-	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
+	celerix::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 
 	boost::program_options::options_description description ("Command line options");
 	// clang-format off
 	description.add_options ()
 		("help", "Print out options")
 		("version", "Prints out version")
-		("config", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
-		("rpcconfig", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass rpc configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
+		("config", boost::program_options::value<std::vector<celerix::config_key_value_pair>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
+		("rpcconfig", boost::program_options::value<std::vector<celerix::config_key_value_pair>>()->multitoken(), "Pass rpc configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
 		("compare_rep_weights", "Display a summarized comparison between the hardcoded bootstrap weights and representative weights from the ledger. Full comparison is output to logs")
 		("debug_block_dump", "Display all the blocks in the ledger in text format")
@@ -123,16 +123,16 @@ int main (int argc, char * const * argv)
 		("debug_profile_validate", "Profile work validation")
 		("debug_opencl", "OpenCL work generation")
 		("debug_profile_kdf", "Profile kdf function")
-		("debug_output_last_backtrace_dump", "Displays the contents of the latest backtrace in the event of a nano_node crash")
-		("debug_generate_crash_report", "Consolidates the nano_node_backtrace.dump file. Requires addr2line installed on Linux")
+		("debug_output_last_backtrace_dump", "Displays the contents of the latest backtrace in the event of a celerix_node crash")
+		("debug_generate_crash_report", "Consolidates the celerix_node_backtrace.dump file. Requires addr2line installed on Linux")
 		("debug_sys_logging", "Test the system logger")
 		("debug_verify_profile", "Profile signature verification")
 		("debug_verify_profile_batch", "Profile batch signature verification")
 		("debug_profile_bootstrap", "Profile bootstrap style blocks processing (at least 10GB of free storage space required)")
 		("debug_profile_sign", "Profile signature generation")
-		("debug_profile_process", "Profile active blocks processing (only for nano_dev_network)")
-		("debug_profile_votes", "Profile votes processing (only for nano_dev_network)")
-		("debug_profile_frontiers_confirmation", "Profile frontiers confirmation speed (only for nano_dev_network)")
+		("debug_profile_process", "Profile active blocks processing (only for celerix_dev_network)")
+		("debug_profile_votes", "Profile votes processing (only for celerix_dev_network)")
+		("debug_profile_frontiers_confirmation", "Profile frontiers confirmation speed (only for celerix_dev_network)")
 		("debug_random_feed", "Generates output to RNG test suites")
 		("debug_rpc", "Read an RPC command from stdin and invoke it. Network operations will have no effect.")
 		("debug_peers", "Display peer IPv6:port connections")
@@ -153,8 +153,8 @@ int main (int argc, char * const * argv)
 		("silent", "Silent command execution")
 		("pid_file", boost::program_options::value<std::string> (), "If present, node will write its process id to the specified file and delete the file upon exit");
 	// clang-format on
-	nano::add_node_options (description);
-	nano::add_node_flag_options (description);
+	celerix::add_node_options (description);
+	celerix::add_node_flag_options (description);
 	boost::program_options::variables_map vm;
 	try
 	{
@@ -171,7 +171,7 @@ int main (int argc, char * const * argv)
 	auto network (vm.find ("network"));
 	if (network != vm.end ())
 	{
-		auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
+		auto err (celerix::network_constants::set_active_network (network->second.as<std::string> ()));
 		if (err)
 		{
 			std::cerr << "Invalid network. Valid values are live, test, beta and dev." << std::endl;
@@ -185,17 +185,17 @@ int main (int argc, char * const * argv)
 		register_pid_file ();
 	}
 
-	nano::network_params network_params{ nano::network_constants::active_network };
+	celerix::network_params network_params{ celerix::network_constants::active_network };
 	auto data_path_it = vm.find ("data_path");
-	std::filesystem::path data_path ((data_path_it != vm.end ()) ? std::filesystem::path (data_path_it->second.as<std::string> ()) : nano::working_path ());
-	auto ec = nano::handle_node_options (vm);
-	if (ec == nano::error_cli::unknown_command)
+	std::filesystem::path data_path ((data_path_it != vm.end ()) ? std::filesystem::path (data_path_it->second.as<std::string> ()) : celerix::working_path ());
+	auto ec = celerix::handle_node_options (vm);
+	if (ec == celerix::error_cli::unknown_command)
 	{
 		if (vm.count ("daemon") > 0)
 		{
-			nano::daemon daemon;
-			nano::node_flags flags;
-			auto flags_ec = nano::update_flags (flags, vm);
+			celerix::daemon daemon;
+			celerix::node_flags flags;
+			auto flags_ec = celerix::update_flags (flags, vm);
 			if (flags_ec)
 			{
 				std::cerr << flags_ec.message () << std::endl;
@@ -205,12 +205,12 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("compare_rep_weights"))
 		{
-			if (nano::network_constants::active_network != nano::networks::nano_dev_network)
+			if (celerix::network_constants::active_network != celerix::networks::celerix_dev_network)
 			{
-				auto node_flags = nano::inactive_node_flag_defaults ();
-				nano::update_flags (node_flags, vm);
+				auto node_flags = celerix::inactive_node_flag_defaults ();
+				celerix::update_flags (node_flags, vm);
 				node_flags.generate_cache.reps = true;
-				nano::inactive_node inactive_node (data_path, node_flags);
+				celerix::inactive_node inactive_node (data_path, node_flags);
 				auto node = inactive_node.node;
 
 				auto const bootstrap_weights = node->get_bootstrap_weights ();
@@ -219,19 +219,19 @@ int main (int argc, char * const * argv)
 				auto const ledger_unfiltered = node->ledger.cache.rep_weights.get_rep_amounts ();
 				auto const ledger_height = node->ledger.block_count ();
 
-				auto get_total = [] (decltype (bootstrap_weights.second) const & reps) -> nano::uint128_union {
-					return std::accumulate (reps.begin (), reps.end (), nano::uint128_t{ 0 }, [] (auto sum, auto const & rep) { return sum + rep.second; });
+				auto get_total = [] (decltype (bootstrap_weights.second) const & reps) -> celerix::uint128_union {
+					return std::accumulate (reps.begin (), reps.end (), celerix::uint128_t{ 0 }, [] (auto sum, auto const & rep) { return sum + rep.second; });
 				};
 
 				// Hardcoded weights are filtered to a cumulative weight of 99%, need to do the same for ledger weights
 				std::remove_const_t<decltype (ledger_unfiltered)> ledger;
 				{
-					std::vector<std::pair<nano::account, nano::uint128_t>> sorted;
+					std::vector<std::pair<celerix::account, celerix::uint128_t>> sorted;
 					sorted.reserve (ledger_unfiltered.size ());
 					std::copy (ledger_unfiltered.begin (), ledger_unfiltered.end (), std::back_inserter (sorted));
 					std::sort (sorted.begin (), sorted.end (), [] (auto const & left, auto const & right) { return left.second > right.second; });
 					auto const total_unfiltered = get_total (ledger_unfiltered);
-					nano::uint128_t sum{ 0 };
+					celerix::uint128_t sum{ 0 };
 					auto target = (total_unfiltered.number () / 100) * 99;
 					for (auto i (sorted.begin ()), n (sorted.end ()); i != n && sum <= target; sum += i->second, ++i)
 					{
@@ -244,14 +244,14 @@ int main (int argc, char * const * argv)
 
 				struct mismatched_t
 				{
-					nano::account rep;
-					nano::uint128_union hardcoded;
-					nano::uint128_union ledger;
-					nano::uint128_union diff;
+					celerix::account rep;
+					celerix::uint128_union hardcoded;
+					celerix::uint128_union ledger;
+					celerix::uint128_union diff;
 					std::string get_entry () const
 					{
 						return boost::str (boost::format ("representative %1% hardcoded %2% ledger %3% mismatch %4%")
-						% rep.to_account () % hardcoded.format_balance (nano::nano_ratio, 0, true) % ledger.format_balance (nano::nano_ratio, 0, true) % diff.format_balance (nano::nano_ratio, 0, true));
+						% rep.to_account () % hardcoded.format_balance (celerix::celerix_ratio, 0, true) % ledger.format_balance (celerix::celerix_ratio, 0, true) % diff.format_balance (celerix::celerix_ratio, 0, true));
 					}
 				};
 
@@ -259,7 +259,7 @@ int main (int argc, char * const * argv)
 				mismatched.reserve (hardcoded.size ());
 				std::transform (hardcoded.begin (), hardcoded.end (), std::back_inserter (mismatched), [&ledger] (auto const & rep) {
 					auto ledger_rep (ledger.find (rep.first));
-					nano::uint128_t ledger_weight = (ledger_rep == ledger.end () ? 0 : ledger_rep->second);
+					celerix::uint128_t ledger_weight = (ledger_rep == ledger.end () ? 0 : ledger_rep->second);
 					auto absolute = ledger_weight > rep.second ? ledger_weight - rep.second : rep.second - ledger_weight;
 					return mismatched_t{ rep.first, rep.second, ledger_weight, absolute };
 				});
@@ -267,27 +267,27 @@ int main (int argc, char * const * argv)
 				// Sort by descending difference
 				std::sort (mismatched.begin (), mismatched.end (), [] (mismatched_t const & left, mismatched_t const & right) { return left.diff > right.diff; });
 
-				nano::uint128_union const mismatch_total = std::accumulate (mismatched.begin (), mismatched.end (), nano::uint128_t{ 0 }, [] (auto sum, mismatched_t const & sample) { return sum + sample.diff.number (); });
-				nano::uint128_union const mismatch_mean = mismatch_total.number () / mismatched.size ();
+				celerix::uint128_union const mismatch_total = std::accumulate (mismatched.begin (), mismatched.end (), celerix::uint128_t{ 0 }, [] (auto sum, mismatched_t const & sample) { return sum + sample.diff.number (); });
+				celerix::uint128_union const mismatch_mean = mismatch_total.number () / mismatched.size ();
 
-				nano::uint512_union mismatch_variance = std::accumulate (mismatched.begin (), mismatched.end (), nano::uint512_t (0), [M = mismatch_mean.number (), N = mismatched.size ()] (nano::uint512_t sum, mismatched_t const & sample) {
+				celerix::uint512_union mismatch_variance = std::accumulate (mismatched.begin (), mismatched.end (), celerix::uint512_t (0), [M = mismatch_mean.number (), N = mismatched.size ()] (celerix::uint512_t sum, mismatched_t const & sample) {
 					auto x = sample.diff.number ();
-					nano::uint512_t const mean_diff = x > M ? x - M : M - x;
-					nano::uint512_t const sqr = mean_diff * mean_diff;
+					celerix::uint512_t const mean_diff = x > M ? x - M : M - x;
+					celerix::uint512_t const sqr = mean_diff * mean_diff;
 					return sum + sqr;
 				})
 				/ mismatched.size ();
 
-				nano::uint128_union const mismatch_stddev = nano::narrow_cast<nano::uint128_t> (boost::multiprecision::sqrt (mismatch_variance.number ()));
+				celerix::uint128_union const mismatch_stddev = celerix::narrow_cast<celerix::uint128_t> (boost::multiprecision::sqrt (mismatch_variance.number ()));
 
-				auto const outlier_threshold = std::max (nano::Knano_ratio, mismatch_mean.number () + 1 * mismatch_stddev.number ());
+				auto const outlier_threshold = std::max (celerix::Kcelerix_ratio, mismatch_mean.number () + 1 * mismatch_stddev.number ());
 				decltype (mismatched) outliers;
 				std::copy_if (mismatched.begin (), mismatched.end (), std::back_inserter (outliers), [outlier_threshold] (mismatched_t const & sample) {
 					return sample.diff > outlier_threshold;
 				});
 
-				auto const newcomer_threshold = std::max (nano::Knano_ratio, mismatch_mean.number ());
-				std::vector<std::pair<nano::account, nano::uint128_t>> newcomers;
+				auto const newcomer_threshold = std::max (celerix::Kcelerix_ratio, mismatch_mean.number ());
+				std::vector<std::pair<celerix::account, celerix::uint128_t>> newcomers;
 				std::copy_if (ledger.begin (), ledger.end (), std::back_inserter (newcomers), [&hardcoded] (auto const & rep) {
 					return !hardcoded.count (rep.first) && rep.second;
 				});
@@ -296,18 +296,18 @@ int main (int argc, char * const * argv)
 				std::sort (newcomers.begin (), newcomers.end (), [] (auto const & left, auto const & right) { return left.second > right.second; });
 
 				auto newcomer_entry = [] (auto const & rep) {
-					return boost::str (boost::format ("representative %1% hardcoded --- ledger %2%") % rep.first.to_account () % nano::uint128_union (rep.second).format_balance (nano::nano_ratio, 0, true));
+					return boost::str (boost::format ("representative %1% hardcoded --- ledger %2%") % rep.first.to_account () % celerix::uint128_union (rep.second).format_balance (celerix::celerix_ratio, 0, true));
 				};
 
-				std::cout << boost::str (boost::format ("hardcoded weight %1% Mnano at %2% blocks\nledger weight %3% Mnano at %4% blocks\nmismatched\n\tsamples %5%\n\ttotal %6% Mnano\n\tmean %7% Mnano\n\tsigma %8% Mnano\n")
-				% total_hardcoded.format_balance (nano::nano_ratio, 0, true)
+				std::cout << boost::str (boost::format ("hardcoded weight %1% Mcelerix at %2% blocks\nledger weight %3% Mcelerix at %4% blocks\nmismatched\n\tsamples %5%\n\ttotal %6% Mcelerix\n\tmean %7% Mcelerix\n\tsigma %8% Mcelerix\n")
+				% total_hardcoded.format_balance (celerix::celerix_ratio, 0, true)
 				% hardcoded_height
-				% total_ledger.format_balance (nano::nano_ratio, 0, true)
+				% total_ledger.format_balance (celerix::celerix_ratio, 0, true)
 				% ledger_height
 				% mismatched.size ()
-				% mismatch_total.format_balance (nano::nano_ratio, 0, true)
-				% mismatch_mean.format_balance (nano::nano_ratio, 0, true)
-				% mismatch_stddev.format_balance (nano::nano_ratio, 0, true));
+				% mismatch_total.format_balance (celerix::celerix_ratio, 0, true)
+				% mismatch_mean.format_balance (celerix::celerix_ratio, 0, true)
+				% mismatch_stddev.format_balance (celerix::celerix_ratio, 0, true));
 
 				if (!outliers.empty ())
 				{
@@ -331,7 +331,7 @@ int main (int argc, char * const * argv)
 				}
 
 				// Log more data
-				auto const log_threshold = nano::Knano_ratio;
+				auto const log_threshold = celerix::Kcelerix_ratio;
 				for (auto const & sample : mismatched)
 				{
 					if (sample.diff > log_threshold)
@@ -355,25 +355,25 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_block_dump"))
 		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
+			auto inactive_node = celerix::default_inactive_node (data_path, vm);
 			auto transaction = inactive_node->node->store.tx_begin_read ();
 			auto i = inactive_node->node->store.block.begin (transaction);
 			auto end = inactive_node->node->store.block.end (transaction);
 			for (; i != end; ++i)
 			{
-				nano::block_hash hash = i->first;
-				nano::store::block_w_sideband sideband = i->second;
-				std::shared_ptr<nano::block> b = sideband.block;
+				celerix::block_hash hash = i->first;
+				celerix::store::block_w_sideband sideband = i->second;
+				std::shared_ptr<celerix::block> b = sideband.block;
 				std::cout << hash.to_string () << std::endl
 						  << b->to_json ();
 			}
 		}
 		else if (vm.count ("debug_block_count"))
 		{
-			auto node_flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (node_flags, vm);
+			auto node_flags = celerix::inactive_node_flag_defaults ();
+			celerix::update_flags (node_flags, vm);
 			node_flags.generate_cache.block_count = true;
-			nano::inactive_node inactive_node (data_path, node_flags);
+			celerix::inactive_node inactive_node (data_path, node_flags);
 			auto node = inactive_node.node;
 			std::cout << boost::str (boost::format ("Block count: %1%\n") % node->ledger.block_count ());
 		}
@@ -382,39 +382,39 @@ int main (int argc, char * const * argv)
 			auto key_it = vm.find ("key");
 			if (key_it != vm.end ())
 			{
-				nano::uint256_union key;
+				celerix::uint256_union key;
 				if (!key.decode_hex (key_it->second.as<std::string> ()))
 				{
-					nano::keypair genesis (key.to_string ());
-					nano::work_pool work{ network_params.network, std::numeric_limits<unsigned>::max () };
+					celerix::keypair genesis (key.to_string ());
+					celerix::work_pool work{ network_params.network, std::numeric_limits<unsigned>::max () };
 					std::cout << "Genesis: " << genesis.prv.to_string () << "\n"
 							  << "Public: " << genesis.pub.to_string () << "\n"
 							  << "Account: " << genesis.pub.to_account () << "\n";
-					nano::keypair landing;
+					celerix::keypair landing;
 					std::cout << "Landing: " << landing.prv.to_string () << "\n"
 							  << "Public: " << landing.pub.to_string () << "\n"
 							  << "Account: " << landing.pub.to_account () << "\n";
 					for (auto i (0); i != 32; ++i)
 					{
-						nano::keypair rep;
+						celerix::keypair rep;
 						std::cout << "Rep" << i << ": " << rep.prv.to_string () << "\n"
 								  << "Public: " << rep.pub.to_string () << "\n"
 								  << "Account: " << rep.pub.to_account () << "\n";
 					}
-					nano::uint128_t balance (std::numeric_limits<nano::uint128_t>::max ());
-					nano::open_block genesis_block (reinterpret_cast<nano::block_hash const &> (genesis.pub), genesis.pub, genesis.pub, genesis.prv, genesis.pub, *work.generate (nano::work_version::work_1, genesis.pub, network_params.work.epoch_1));
+					celerix::uint128_t balance (std::numeric_limits<celerix::uint128_t>::max ());
+					celerix::open_block genesis_block (reinterpret_cast<celerix::block_hash const &> (genesis.pub), genesis.pub, genesis.pub, genesis.prv, genesis.pub, *work.generate (celerix::work_version::work_1, genesis.pub, network_params.work.epoch_1));
 					std::cout << genesis_block.to_json ();
 					std::cout.flush ();
-					nano::block_hash previous (genesis_block.hash ());
+					celerix::block_hash previous (genesis_block.hash ());
 					for (auto i (0); i != 8; ++i)
 					{
-						nano::uint128_t yearly_distribution (nano::uint128_t (1) << (127 - (i == 7 ? 6 : i)));
+						celerix::uint128_t yearly_distribution (celerix::uint128_t (1) << (127 - (i == 7 ? 6 : i)));
 						auto weekly_distribution (yearly_distribution / 52);
 						for (auto j (0); j != 52; ++j)
 						{
 							debug_assert (balance > weekly_distribution);
 							balance = balance < (weekly_distribution * 2) ? 0 : balance - weekly_distribution;
-							nano::send_block send (previous, landing.pub, balance, genesis.prv, genesis.pub, *work.generate (nano::work_version::work_1, previous, network_params.work.epoch_1));
+							celerix::send_block send (previous, landing.pub, balance, genesis.prv, genesis.pub, *work.generate (celerix::work_version::work_1, previous, network_params.work.epoch_1));
 							previous = send.hash ();
 							std::cout << send.to_json ();
 							std::cout.flush ();
@@ -435,7 +435,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_dump_trended_weight"))
 		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
+			auto inactive_node = celerix::default_inactive_node (data_path, vm);
 			auto node = inactive_node->node;
 			auto current (node->online_reps.trended ());
 			std::cout << boost::str (boost::format ("Trended Weight %1%\n") % current);
@@ -443,7 +443,7 @@ int main (int argc, char * const * argv)
 			for (auto i (node->store.online_weight.begin (transaction)), n (node->store.online_weight.end (transaction)); i != n; ++i)
 			{
 				using time_point = std::chrono::system_clock::time_point;
-				time_point ts (std::chrono::duration_cast<time_point::duration> (std::chrono::nanoseconds (i->first)));
+				time_point ts (std::chrono::duration_cast<time_point::duration> (std::chrono::celerixseconds (i->first)));
 				std::time_t timestamp = std::chrono::system_clock::to_time_t (ts);
 				std::string weight;
 				i->second.encode_dec (weight);
@@ -452,15 +452,15 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_dump_representatives"))
 		{
-			auto node_flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (node_flags, vm);
+			auto node_flags = celerix::inactive_node_flag_defaults ();
+			celerix::update_flags (node_flags, vm);
 			node_flags.generate_cache.reps = true;
-			nano::inactive_node inactive_node (data_path, node_flags);
+			celerix::inactive_node inactive_node (data_path, node_flags);
 			auto node = inactive_node.node;
 			auto transaction (node->store.tx_begin_read ());
-			nano::uint128_t total;
+			celerix::uint128_t total;
 			auto rep_amounts = node->ledger.cache.rep_weights.get_rep_amounts ();
-			std::map<nano::account, nano::uint128_t> ordered_reps (rep_amounts.begin (), rep_amounts.end ());
+			std::map<celerix::account, celerix::uint128_t> ordered_reps (rep_amounts.begin (), rep_amounts.end ());
 			for (auto const & rep : ordered_reps)
 			{
 				total += rep.second;
@@ -469,20 +469,20 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_dump_frontier_unchecked_dependents"))
 		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
+			auto inactive_node = celerix::default_inactive_node (data_path, vm);
 			auto node = inactive_node->node;
 			std::cout << "Outputting any frontier hashes which have associated key hashes in the unchecked table (may take some time)...\n";
 
 			// Cache the account heads to make searching quicker against unchecked keys.
 			auto transaction (node->store.tx_begin_read ());
-			std::unordered_set<nano::block_hash> frontier_hashes;
+			std::unordered_set<celerix::block_hash> frontier_hashes;
 			for (auto i (node->store.account.begin (transaction)), n (node->store.account.end (transaction)); i != n; ++i)
 			{
 				frontier_hashes.insert (i->second.head);
 			}
 
 			// Check all unchecked keys for matching frontier hashes. Indicates an issue with process_batch algorithm
-			node->unchecked.for_each ([&frontier_hashes] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+			node->unchecked.for_each ([&frontier_hashes] (celerix::unchecked_key const & key, celerix::unchecked_info const & info) {
 				auto it = frontier_hashes.find (key.key ());
 				if (it != frontier_hashes.cend ())
 				{
@@ -492,17 +492,17 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_account_count"))
 		{
-			auto node_flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (node_flags, vm);
+			auto node_flags = celerix::inactive_node_flag_defaults ();
+			celerix::update_flags (node_flags, vm);
 			node_flags.generate_cache.account_count = true;
-			nano::inactive_node inactive_node (data_path, node_flags);
+			celerix::inactive_node inactive_node (data_path, node_flags);
 			std::cout << boost::str (boost::format ("Frontier count: %1%\n") % inactive_node.node->ledger.account_count ());
 		}
 		else if (vm.count ("debug_profile_kdf"))
 		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
-			nano::uint256_union result;
-			nano::uint256_union salt (0);
+			auto inactive_node = celerix::default_inactive_node (data_path, vm);
+			celerix::uint256_union result;
+			celerix::uint256_union salt (0);
 			std::string password ("");
 			while (true)
 			{
@@ -515,14 +515,14 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_generate"))
 		{
-			uint64_t difficulty{ nano::work_thresholds::publish_full.base };
+			uint64_t difficulty{ celerix::work_thresholds::publish_full.base };
 			auto multiplier_it = vm.find ("multiplier");
 			if (multiplier_it != vm.end ())
 			{
 				try
 				{
 					auto multiplier (boost::lexical_cast<double> (multiplier_it->second.as<std::string> ()));
-					difficulty = nano::difficulty::from_multiplier (multiplier, difficulty);
+					difficulty = celerix::difficulty::from_multiplier (multiplier, difficulty);
 				}
 				catch (boost::bad_lexical_cast &)
 				{
@@ -535,7 +535,7 @@ int main (int argc, char * const * argv)
 				auto difficulty_it = vm.find ("difficulty");
 				if (difficulty_it != vm.end ())
 				{
-					if (nano::from_string_hex (difficulty_it->second.as<std::string> (), difficulty))
+					if (celerix::from_string_hex (difficulty_it->second.as<std::string> (), difficulty))
 					{
 						std::cerr << "Invalid difficulty\n";
 						return -1;
@@ -543,23 +543,23 @@ int main (int argc, char * const * argv)
 				}
 			}
 
-			auto pow_rate_limiter = std::chrono::nanoseconds (0);
+			auto pow_rate_limiter = std::chrono::celerixseconds (0);
 			auto pow_sleep_interval_it = vm.find ("pow_sleep_interval");
 			if (pow_sleep_interval_it != vm.cend ())
 			{
-				pow_rate_limiter = std::chrono::nanoseconds (boost::lexical_cast<uint64_t> (pow_sleep_interval_it->second.as<std::string> ()));
+				pow_rate_limiter = std::chrono::celerixseconds (boost::lexical_cast<uint64_t> (pow_sleep_interval_it->second.as<std::string> ()));
 			}
 
-			nano::work_pool work{ network_params.network, std::numeric_limits<unsigned>::max (), pow_rate_limiter };
-			nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
+			celerix::work_pool work{ network_params.network, std::numeric_limits<unsigned>::max (), pow_rate_limiter };
+			celerix::change_block block (0, 0, celerix::keypair ().prv, 0, 0);
 			if (!result)
 			{
-				std::cerr << boost::str (boost::format ("Starting generation profiling. Difficulty: %1$#x (%2%x from base difficulty %3$#x)\n") % difficulty % nano::to_string (nano::difficulty::to_multiplier (difficulty, nano::work_thresholds::publish_full.base), 4) % nano::work_thresholds::publish_full.base);
+				std::cerr << boost::str (boost::format ("Starting generation profiling. Difficulty: %1$#x (%2%x from base difficulty %3$#x)\n") % difficulty % celerix::to_string (celerix::difficulty::to_multiplier (difficulty, celerix::work_thresholds::publish_full.base), 4) % celerix::work_thresholds::publish_full.base);
 				while (!result)
 				{
 					block.hashables.previous.qwords[0] += 1;
 					auto begin1 (std::chrono::high_resolution_clock::now ());
-					block.block_work_set (*work.generate (nano::work_version::work_1, block.root (), difficulty));
+					block.block_work_set (*work.generate (celerix::work_version::work_1, block.root (), difficulty));
 					auto end1 (std::chrono::high_resolution_clock::now ());
 					std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 				}
@@ -567,25 +567,25 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_validate"))
 		{
-			uint64_t difficulty{ nano::work_thresholds::publish_full.base };
+			uint64_t difficulty{ celerix::work_thresholds::publish_full.base };
 			std::cerr << "Starting validation profile" << std::endl;
 			auto start (std::chrono::steady_clock::now ());
 			bool valid{ false };
-			nano::block_hash hash{ 0 };
+			celerix::block_hash hash{ 0 };
 			uint64_t count{ 10000000U }; // 10M
 			for (uint64_t i (0); i < count; ++i)
 			{
 				valid = network_params.work.value (hash, i) > difficulty;
 			}
 			std::ostringstream oss (valid ? "true" : "false"); // IO forces compiler to not dismiss the variable
-			auto total_time (std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::steady_clock::now () - start).count ());
+			auto total_time (std::chrono::duration_cast<std::chrono::celerixseconds> (std::chrono::steady_clock::now () - start).count ());
 			uint64_t average (total_time / count);
 			std::cout << "Average validation time: " << std::to_string (average) << " ns (" << std::to_string (static_cast<unsigned> (count * 1e9 / total_time)) << " validations/s)" << std::endl;
 		}
 		else if (vm.count ("debug_opencl"))
 		{
 			bool error (false);
-			nano::opencl_environment environment (error);
+			celerix::opencl_environment environment (error);
 			if (!error)
 			{
 				unsigned short platform (0);
@@ -630,14 +630,14 @@ int main (int argc, char * const * argv)
 						return -1;
 					}
 				}
-				uint64_t difficulty (nano::work_thresholds::publish_full.base);
+				uint64_t difficulty (celerix::work_thresholds::publish_full.base);
 				auto multiplier_it = vm.find ("multiplier");
 				if (multiplier_it != vm.end ())
 				{
 					try
 					{
 						auto multiplier (boost::lexical_cast<double> (multiplier_it->second.as<std::string> ()));
-						difficulty = nano::difficulty::from_multiplier (multiplier, difficulty);
+						difficulty = celerix::difficulty::from_multiplier (multiplier, difficulty);
 					}
 					catch (boost::bad_lexical_cast &)
 					{
@@ -650,7 +650,7 @@ int main (int argc, char * const * argv)
 					auto difficulty_it = vm.find ("difficulty");
 					if (difficulty_it != vm.end ())
 					{
-						if (nano::from_string_hex (difficulty_it->second.as<std::string> (), difficulty))
+						if (celerix::from_string_hex (difficulty_it->second.as<std::string> (), difficulty))
 						{
 							std::cerr << "Invalid difficulty\n";
 							return -1;
@@ -665,24 +665,24 @@ int main (int argc, char * const * argv)
 						error |= device >= environment.platforms[platform].devices.size ();
 						if (!error)
 						{
-							nano::logger logger;
-							nano::opencl_config config (platform, device, threads);
-							auto opencl = nano::opencl_work::create (true, config, logger, network_params.work);
-							nano::opencl_work_func_t opencl_work_func;
+							celerix::logger logger;
+							celerix::opencl_config config (platform, device, threads);
+							auto opencl = celerix::opencl_work::create (true, config, logger, network_params.work);
+							celerix::opencl_work_func_t opencl_work_func;
 							if (opencl)
 							{
-								opencl_work_func = [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
+								opencl_work_func = [&opencl] (celerix::work_version const version_a, celerix::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
 									return opencl->generate_work (version_a, root_a, difficulty_a);
 								};
 							}
-							nano::work_pool work_pool{ network_params.network, 0, std::chrono::nanoseconds (0), opencl_work_func };
-							nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
-							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x (%5%x from base difficulty %6$#x)\n") % platform % device % threads % difficulty % nano::to_string (nano::difficulty::to_multiplier (difficulty, nano::work_thresholds::publish_full.base), 4) % nano::work_thresholds::publish_full.base);
+							celerix::work_pool work_pool{ network_params.network, 0, std::chrono::celerixseconds (0), opencl_work_func };
+							celerix::change_block block (0, 0, celerix::keypair ().prv, 0, 0);
+							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x (%5%x from base difficulty %6$#x)\n") % platform % device % threads % difficulty % celerix::to_string (celerix::difficulty::to_multiplier (difficulty, celerix::work_thresholds::publish_full.base), 4) % celerix::work_thresholds::publish_full.base);
 							for (uint64_t i (0); true; ++i)
 							{
 								block.hashables.previous.qwords[0] += 1;
 								auto begin1 (std::chrono::high_resolution_clock::now ());
-								block.block_work_set (*work_pool.generate (nano::work_version::work_1, block.root (), difficulty));
+								block.block_work_set (*work_pool.generate (celerix::work_version::work_1, block.root (), difficulty));
 								auto end1 (std::chrono::high_resolution_clock::now ());
 								std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 							}
@@ -710,10 +710,10 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_output_last_backtrace_dump"))
 		{
-			if (std::filesystem::exists ("nano_node_backtrace.dump"))
+			if (std::filesystem::exists ("celerix_node_backtrace.dump"))
 			{
 				// There is a backtrace, so output the contents
-				std::ifstream ifs ("nano_node_backtrace.dump");
+				std::ifstream ifs ("celerix_node_backtrace.dump");
 
 				boost::stacktrace::stacktrace st = boost::stacktrace::stacktrace::from_dump (ifs);
 				std::cout << "Latest crash backtrace:\n"
@@ -722,13 +722,13 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_generate_crash_report"))
 		{
-			if (std::filesystem::exists ("nano_node_backtrace.dump"))
+			if (std::filesystem::exists ("celerix_node_backtrace.dump"))
 			{
 				// There is a backtrace, so output the contents
-				std::ifstream ifs ("nano_node_backtrace.dump");
+				std::ifstream ifs ("celerix_node_backtrace.dump");
 				boost::stacktrace::stacktrace st = boost::stacktrace::stacktrace::from_dump (ifs);
 
-				std::string crash_report_filename = "nano_node_crash_report.txt";
+				std::string crash_report_filename = "celerix_node_crash_report.txt";
 
 #if defined(_WIN32) || defined(__APPLE__)
 				// Only linux has load addresses, so just write the dump to a readable file.
@@ -736,13 +736,13 @@ int main (int argc, char * const * argv)
 				std::ofstream ofs (crash_report_filename);
 				ofs << st;
 #else
-				// Read all the nano node files
+				// Read all the celerix node files
 				boost::system::error_code err;
 				auto running_executable_filepath = boost::dll::program_location (err);
 				if (!err)
 				{
 					auto num = 0;
-					auto format = boost::format ("nano_node_crash_load_address_dump_%1%.txt");
+					auto format = boost::format ("celerix_node_crash_load_address_dump_%1%.txt");
 					std::vector<address_library_pair> base_addresses;
 
 					// The first one only has the load address
@@ -837,7 +837,7 @@ int main (int argc, char * const * argv)
 					std::filesystem::remove (crash_report_filename);
 					{
 						std::ofstream ofs (crash_report_filename);
-						nano::set_secure_perm_file (crash_report_filename);
+						celerix::set_secure_perm_file (crash_report_filename);
 					}
 
 					// Hold the results from all addr2line calls, if all fail we can assume that addr2line is not installed,
@@ -874,12 +874,12 @@ int main (int argc, char * const * argv)
 							<< "Using relative addresses:" << std::endl; // Add an empty line to separate the absolute & relative output
 					}
 
-					// Now run using relative addresses. This will give actual results for other dlls, the results from the nano_node executable.
+					// Now run using relative addresses. This will give actual results for other dlls, the results from the celerix_node executable.
 					run_addr2line (true);
 
 					if (std::find (system_codes.begin (), system_codes.end (), 0) == system_codes.end ())
 					{
-						std::cerr << "Error: Check that addr2line is installed and that nano_node_crash_load_address_dump_*.txt files exist." << std::endl;
+						std::cerr << "Error: Check that addr2line is installed and that celerix_node_crash_load_address_dump_*.txt files exist." << std::endl;
 						result = -1;
 					}
 				}
@@ -896,19 +896,19 @@ int main (int argc, char * const * argv)
 			}
 			else
 			{
-				std::cerr << "Error: nano_node_backtrace.dump could not be found";
+				std::cerr << "Error: celerix_node_backtrace.dump could not be found";
 				result = -1;
 			}
 		}
 		else if (vm.count ("debug_verify_profile"))
 		{
-			nano::keypair key;
-			nano::uint256_union message;
-			auto signature = nano::sign_message (key.prv, key.pub, message);
+			celerix::keypair key;
+			celerix::uint256_union message;
+			auto signature = celerix::sign_message (key.prv, key.pub, message);
 			auto begin (std::chrono::high_resolution_clock::now ());
 			for (auto i (0u); i < 1000; ++i)
 			{
-				nano::validate_message (key.pub, message, signature);
+				celerix::validate_message (key.pub, message, signature);
 			}
 			auto end (std::chrono::high_resolution_clock::now ());
 			std::cerr << "Signature verifications " << std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count () << std::endl;
@@ -918,9 +918,9 @@ int main (int argc, char * const * argv)
 			std::cerr << "Starting blocks signing profiling\n";
 			while (true)
 			{
-				nano::keypair key;
-				nano::block_builder builder;
-				nano::block_hash latest (0);
+				celerix::keypair key;
+				celerix::block_builder builder;
+				celerix::block_hash latest (0);
 				auto begin1 (std::chrono::high_resolution_clock::now ());
 				for (uint64_t balance (0); balance < 1000; ++balance)
 				{
@@ -940,36 +940,36 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_process"))
 		{
-			nano::block_builder builder;
+			celerix::block_builder builder;
 			size_t num_accounts (100000);
 			size_t num_iterations (5); // 100,000 * 5 * 2 = 1,000,000 blocks
 			size_t max_blocks (2 * num_accounts * num_iterations + num_accounts * 2); //  1,000,000 + 2 * 100,000 = 1,200,000 blocks
 			std::cout << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
-			nano::node_flags node_flags;
-			nano::update_flags (node_flags, vm);
-			nano::inactive_node inactive_node (nano::unique_path (), data_path, node_flags);
+			celerix::node_flags node_flags;
+			celerix::update_flags (node_flags, vm);
+			celerix::inactive_node inactive_node (celerix::unique_path (), data_path, node_flags);
 			auto node = inactive_node.node;
 
-			nano::block_hash genesis_latest (node->latest (nano::dev::genesis_key.pub));
-			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
+			celerix::block_hash genesis_latest (node->latest (celerix::dev::genesis_key.pub));
+			celerix::uint128_t genesis_balance (std::numeric_limits<celerix::uint128_t>::max ());
 			// Generating keys
-			std::vector<nano::keypair> keys (num_accounts);
-			std::vector<nano::root> frontiers (num_accounts);
-			std::vector<nano::uint128_t> balances (num_accounts, 1000000000);
+			std::vector<celerix::keypair> keys (num_accounts);
+			std::vector<celerix::root> frontiers (num_accounts);
+			std::vector<celerix::uint128_t> balances (num_accounts, 1000000000);
 			// Generating blocks
-			std::deque<std::shared_ptr<nano::block>> blocks;
+			std::deque<std::shared_ptr<celerix::block>> blocks;
 			for (auto i (0); i != num_accounts; ++i)
 			{
 				genesis_balance = genesis_balance - 1000000000;
 
 				auto send = builder.state ()
-							.account (nano::dev::genesis_key.pub)
+							.account (celerix::dev::genesis_key.pub)
 							.previous (genesis_latest)
-							.representative (nano::dev::genesis_key.pub)
+							.representative (celerix::dev::genesis_key.pub)
 							.balance (genesis_balance)
 							.link (keys[i].pub)
-							.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-							.work (*node->work.generate (nano::work_version::work_1, genesis_latest, node->network_params.work.epoch_1))
+							.sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
+							.work (*node->work.generate (celerix::work_version::work_1, genesis_latest, node->network_params.work.epoch_1))
 							.build ();
 
 				genesis_latest = send->hash ();
@@ -982,7 +982,7 @@ int main (int argc, char * const * argv)
 							.balance (balances[i])
 							.link (genesis_latest)
 							.sign (keys[i].prv, keys[i].pub)
-							.work (*node->work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.work.epoch_1))
+							.work (*node->work.generate (celerix::work_version::work_1, keys[i].pub, node->network_params.work.epoch_1))
 							.build ();
 
 				frontiers[i] = open->hash ();
@@ -1003,7 +1003,7 @@ int main (int argc, char * const * argv)
 								.balance (balances[j])
 								.link (keys[other].pub)
 								.sign (keys[j].prv, keys[j].pub)
-								.work (*node->work.generate (nano::work_version::work_1, frontiers[j], node->network_params.work.epoch_1))
+								.work (*node->work.generate (celerix::work_version::work_1, frontiers[j], node->network_params.work.epoch_1))
 								.build ();
 
 					frontiers[j] = send->hash ();
@@ -1018,7 +1018,7 @@ int main (int argc, char * const * argv)
 								   .balance (balances[other])
 								   .link (frontiers[j].as_block_hash ())
 								   .sign (keys[other].prv, keys[other].pub)
-								   .work (*node->work.generate (nano::work_version::work_1, frontiers[other], node->network_params.work.epoch_1))
+								   .work (*node->work.generate (celerix::work_version::work_1, frontiers[other], node->network_params.work.epoch_1))
 								   .build ();
 
 					frontiers[other] = receive->hash ();
@@ -1034,7 +1034,7 @@ int main (int argc, char * const * argv)
 				node->process_active (block);
 				blocks.pop_front ();
 			}
-			nano::timer<std::chrono::seconds> timer_l (nano::timer_state::started);
+			celerix::timer<std::chrono::seconds> timer_l (celerix::timer_state::started);
 			while (node->ledger.block_count () != max_blocks + 1)
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (10));
@@ -1054,34 +1054,34 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_votes"))
 		{
-			nano::block_builder builder;
+			celerix::block_builder builder;
 			size_t num_elections (40000);
 			size_t num_representatives (25);
 			size_t max_votes (num_elections * num_representatives); // 40,000 * 25 = 1,000,000 votes
 			std::cerr << boost::str (boost::format ("Starting pregenerating %1% votes\n") % max_votes);
-			nano::node_flags node_flags;
-			nano::update_flags (node_flags, vm);
-			nano::node_wrapper node_wrapper (nano::unique_path (), data_path, node_flags);
+			celerix::node_flags node_flags;
+			celerix::update_flags (node_flags, vm);
+			celerix::node_wrapper node_wrapper (celerix::unique_path (), data_path, node_flags);
 			auto node = node_wrapper.node;
 
-			nano::block_hash genesis_latest (node->latest (nano::dev::genesis_key.pub));
-			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
+			celerix::block_hash genesis_latest (node->latest (celerix::dev::genesis_key.pub));
+			celerix::uint128_t genesis_balance (std::numeric_limits<celerix::uint128_t>::max ());
 			// Generating keys
-			std::vector<nano::keypair> keys (num_representatives);
-			nano::uint128_t balance ((node->config.online_weight_minimum.number () / num_representatives) + 1);
+			std::vector<celerix::keypair> keys (num_representatives);
+			celerix::uint128_t balance ((node->config.online_weight_minimum.number () / num_representatives) + 1);
 			for (auto i (0); i != num_representatives; ++i)
 			{
 				auto transaction = node->ledger.tx_begin_write ();
 				genesis_balance = genesis_balance - balance;
 
 				auto send = builder.state ()
-							.account (nano::dev::genesis_key.pub)
+							.account (celerix::dev::genesis_key.pub)
 							.previous (genesis_latest)
-							.representative (nano::dev::genesis_key.pub)
+							.representative (celerix::dev::genesis_key.pub)
 							.balance (genesis_balance)
 							.link (keys[i].pub)
-							.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-							.work (*node->work.generate (nano::work_version::work_1, genesis_latest, node->network_params.work.epoch_1))
+							.sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
+							.work (*node->work.generate (celerix::work_version::work_1, genesis_latest, node->network_params.work.epoch_1))
 							.build ();
 
 				genesis_latest = send->hash ();
@@ -1094,39 +1094,39 @@ int main (int argc, char * const * argv)
 							.balance (balance)
 							.link (genesis_latest)
 							.sign (keys[i].prv, keys[i].pub)
-							.work (*node->work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.work.epoch_1))
+							.work (*node->work.generate (celerix::work_version::work_1, keys[i].pub, node->network_params.work.epoch_1))
 							.build ();
 
 				node->ledger.process (transaction, open);
 			}
 			// Generating blocks
-			std::deque<std::shared_ptr<nano::block>> blocks;
+			std::deque<std::shared_ptr<celerix::block>> blocks;
 			for (auto i (0); i != num_elections; ++i)
 			{
 				genesis_balance = genesis_balance - 1;
-				nano::keypair destination;
+				celerix::keypair destination;
 
 				auto send = builder.state ()
-							.account (nano::dev::genesis_key.pub)
+							.account (celerix::dev::genesis_key.pub)
 							.previous (genesis_latest)
-							.representative (nano::dev::genesis_key.pub)
+							.representative (celerix::dev::genesis_key.pub)
 							.balance (genesis_balance)
 							.link (destination.pub)
-							.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-							.work (*node->work.generate (nano::work_version::work_1, genesis_latest, node->network_params.work.epoch_1))
+							.sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
+							.work (*node->work.generate (celerix::work_version::work_1, genesis_latest, node->network_params.work.epoch_1))
 							.build ();
 
 				genesis_latest = send->hash ();
 				blocks.push_back (std::move (send));
 			}
 			// Generating votes
-			std::deque<std::shared_ptr<nano::vote>> votes;
+			std::deque<std::shared_ptr<celerix::vote>> votes;
 			for (auto j (0); j != num_representatives; ++j)
 			{
 				uint64_t sequence (1);
 				for (auto & i : blocks)
 				{
-					auto vote (std::make_shared<nano::vote> (keys[j].pub, keys[j].prv, sequence, 0, std::vector<nano::block_hash> (1, i->hash ())));
+					auto vote (std::make_shared<celerix::vote> (keys[j].pub, keys[j].prv, sequence, 0, std::vector<celerix::block_hash> (1, i->hash ())));
 					votes.push_back (vote);
 					sequence++;
 				}
@@ -1148,7 +1148,7 @@ int main (int argc, char * const * argv)
 			while (!votes.empty ())
 			{
 				auto vote (votes.front ());
-				auto channel (std::make_shared<nano::transport::inproc::channel> (*node, *node));
+				auto channel (std::make_shared<celerix::transport::inproc::channel> (*node, *node));
 				node->vote_processor.vote (vote, channel);
 				votes.pop_front ();
 			}
@@ -1163,7 +1163,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_frontiers_confirmation"))
 		{
-			nano::block_builder builder;
+			celerix::block_builder builder;
 			size_t count (32 * 1024);
 			auto count_it = vm.find ("count");
 			if (count_it != vm.end ())
@@ -1181,45 +1181,45 @@ int main (int argc, char * const * argv)
 			std::cout << boost::str (boost::format ("Starting generating %1% blocks...\n") % (count * 2));
 			auto io_ctx1 = std::make_shared<boost::asio::io_context> ();
 			auto io_ctx2 = std::make_shared<boost::asio::io_context> ();
-			nano::work_pool work{ network_params.network, std::numeric_limits<unsigned>::max () };
-			auto path1 (nano::unique_path ());
-			auto path2 (nano::unique_path ());
+			celerix::work_pool work{ network_params.network, std::numeric_limits<unsigned>::max () };
+			auto path1 (celerix::unique_path ());
+			auto path2 (celerix::unique_path ());
 			std::vector<std::string> config_overrides;
 			auto config (vm.find ("config"));
 			if (config != vm.end ())
 			{
-				config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
+				config_overrides = celerix::config_overrides (config->second.as<std::vector<celerix::config_key_value_pair>> ());
 			}
-			nano::daemon_config daemon_config{ data_path, network_params };
-			auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides);
+			celerix::daemon_config daemon_config{ data_path, network_params };
+			auto error = celerix::read_node_config_toml (data_path, daemon_config, config_overrides);
 
-			nano::node_config config1 = daemon_config.node;
+			celerix::node_config config1 = daemon_config.node;
 			config1.peering_port = 24000;
 
-			nano::node_flags flags;
-			nano::update_flags (flags, vm);
+			celerix::node_flags flags;
+			celerix::update_flags (flags, vm);
 			flags.disable_lazy_bootstrap = true;
 			flags.disable_legacy_bootstrap = true;
 			flags.disable_wallet_bootstrap = true;
 			flags.disable_bootstrap_listener = true;
-			auto node1 (std::make_shared<nano::node> (io_ctx1, path1, config1, work, flags, 0));
-			nano::block_hash genesis_latest (node1->latest (nano::dev::genesis_key.pub));
-			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
+			auto node1 (std::make_shared<celerix::node> (io_ctx1, path1, config1, work, flags, 0));
+			celerix::block_hash genesis_latest (node1->latest (celerix::dev::genesis_key.pub));
+			celerix::uint128_t genesis_balance (std::numeric_limits<celerix::uint128_t>::max ());
 			// Generating blocks
-			std::deque<std::shared_ptr<nano::block>> blocks;
+			std::deque<std::shared_ptr<celerix::block>> blocks;
 			for (auto i (0); i != count; ++i)
 			{
-				nano::keypair key;
+				celerix::keypair key;
 				genesis_balance = genesis_balance - 1;
 
 				auto send = builder.state ()
-							.account (nano::dev::genesis_key.pub)
+							.account (celerix::dev::genesis_key.pub)
 							.previous (genesis_latest)
-							.representative (nano::dev::genesis_key.pub)
+							.representative (celerix::dev::genesis_key.pub)
 							.balance (genesis_balance)
 							.link (key.pub)
-							.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-							.work (*work.generate (nano::work_version::work_1, genesis_latest, nano::dev::network_params.work.epoch_1))
+							.sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
+							.work (*work.generate (celerix::work_version::work_1, genesis_latest, celerix::dev::network_params.work.epoch_1))
 							.build ();
 
 				genesis_latest = send->hash ();
@@ -1231,7 +1231,7 @@ int main (int argc, char * const * argv)
 							.balance (1)
 							.link (genesis_latest)
 							.sign (key.prv, key.pub)
-							.work (*work.generate (nano::work_version::work_1, key.pub, nano::dev::network_params.work.epoch_1))
+							.work (*work.generate (celerix::work_version::work_1, key.pub, celerix::dev::network_params.work.epoch_1))
 							.build ();
 
 				blocks.push_back (std::move (send));
@@ -1242,7 +1242,7 @@ int main (int argc, char * const * argv)
 				}
 			}
 			node1->start ();
-			nano::thread_runner runner1 (io_ctx1, nano::default_logger (), node1->config.io_threads);
+			celerix::thread_runner runner1 (io_ctx1, celerix::default_logger (), node1->config.io_threads);
 
 			std::cout << boost::str (boost::format ("Processing %1% blocks\n") % (count * 2));
 			for (auto & block : blocks)
@@ -1273,7 +1273,7 @@ int main (int argc, char * const * argv)
 			}
 
 			// Start new node
-			nano::node_config config2 = daemon_config.node;
+			celerix::node_config config2 = daemon_config.node;
 			config1.peering_port = 24001;
 			if (error)
 			{
@@ -1286,9 +1286,9 @@ int main (int argc, char * const * argv)
 				config2.active_elections.size = daemon_config.node.active_elections.size;
 			}
 
-			auto node2 (std::make_shared<nano::node> (io_ctx2, path2, config2, work, flags, 1));
+			auto node2 (std::make_shared<celerix::node> (io_ctx2, path2, config2, work, flags, 1));
 			node2->start ();
-			nano::thread_runner runner2 (io_ctx2, nano::default_logger (), node2->config.io_threads);
+			celerix::thread_runner runner2 (io_ctx2, celerix::default_logger (), node2->config.io_threads);
 			std::cout << boost::str (boost::format ("Processing %1% blocks (test node)\n") % (count * 2));
 			// Processing block
 			while (!blocks.empty ())
@@ -1307,8 +1307,8 @@ int main (int argc, char * const * argv)
 			}
 			// Insert representative
 			std::cout << "Initializing representative\n";
-			auto wallet (node1->wallets.create (nano::random_wallet_id ()));
-			wallet->insert_adhoc (nano::dev::genesis_key.prv);
+			auto wallet (node1->wallets.create (celerix::random_wallet_id ()));
+			wallet->insert_adhoc (celerix::dev::genesis_key.prv);
 			node2->network.merge_peer (node1->network.endpoint ());
 			while (node2->rep_crawler.representative_count () == 0)
 			{
@@ -1347,12 +1347,12 @@ int main (int argc, char * const * argv)
 			 *
 			 * Example, running the entire dieharder test suite:
 			 *
-			 *   ./nano_node --debug_random_feed | dieharder -a -g 200
+			 *   ./celerix_node --debug_random_feed | dieharder -a -g 200
 			 */
-			nano::raw_key seed;
+			celerix::raw_key seed;
 			for (;;)
 			{
-				nano::random_pool::generate_block (seed.bytes.data (), seed.bytes.size ());
+				celerix::random_pool::generate_block (seed.bytes.data (), seed.bytes.size ());
 				std::cout.write (reinterpret_cast<char const *> (seed.bytes.data ()), seed.bytes.size ());
 			}
 		}
@@ -1371,24 +1371,24 @@ int main (int argc, char * const * argv)
 				std::exit (0);
 			});
 
-			auto node_flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (node_flags, vm);
+			auto node_flags = celerix::inactive_node_flag_defaults ();
+			celerix::update_flags (node_flags, vm);
 			node_flags.generate_cache.enable_all ();
-			nano::inactive_node inactive_node_l (data_path, node_flags);
+			celerix::inactive_node inactive_node_l (data_path, node_flags);
 
-			nano::node_rpc_config config;
-			nano::ipc::ipc_server server (*inactive_node_l.node, config);
-			auto handler_l (std::make_shared<nano::json_handler> (*inactive_node_l.node, config, command_l.str (), response_handler_l));
+			celerix::node_rpc_config config;
+			celerix::ipc::ipc_server server (*inactive_node_l.node, config);
+			auto handler_l (std::make_shared<celerix::json_handler> (*inactive_node_l.node, config, command_l.str (), response_handler_l));
 			handler_l->process_request ();
 		}
 		else if (vm.count ("validate_blocks") || vm.count ("debug_validate_blocks"))
 		{
-			nano::timer<std::chrono::seconds> timer;
+			celerix::timer<std::chrono::seconds> timer;
 			timer.start ();
-			auto node_flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (node_flags, vm);
+			auto node_flags = celerix::inactive_node_flag_defaults ();
+			celerix::update_flags (node_flags, vm);
 			node_flags.generate_cache.block_count = true;
-			nano::inactive_node inactive_node (data_path, node_flags);
+			celerix::inactive_node inactive_node (data_path, node_flags);
 			auto node = inactive_node.node;
 			bool const silent (vm.count ("silent"));
 			unsigned threads_count (1);
@@ -1403,10 +1403,10 @@ int main (int argc, char * const * argv)
 			}
 			threads_count = std::max (1u, threads_count);
 			std::vector<std::thread> threads;
-			nano::mutex mutex;
-			nano::condition_variable condition;
+			celerix::mutex mutex;
+			celerix::condition_variable condition;
 			std::atomic<bool> finished (false);
-			std::deque<std::pair<nano::account, nano::account_info>> accounts;
+			std::deque<std::pair<celerix::account, celerix::account_info>> accounts;
 			std::atomic<size_t> count (0);
 			std::atomic<uint64_t> block_count (0);
 			std::atomic<uint64_t> errors (0);
@@ -1414,8 +1414,8 @@ int main (int argc, char * const * argv)
 			auto print_error_message = [&silent, &errors] (std::string const & error_message_a) {
 				if (!silent)
 				{
-					static nano::mutex cerr_mutex;
-					nano::lock_guard<nano::mutex> lock{ cerr_mutex };
+					static celerix::mutex cerr_mutex;
+					celerix::lock_guard<celerix::mutex> lock{ cerr_mutex };
 					std::cerr << error_message_a;
 				}
 				++errors;
@@ -1426,7 +1426,7 @@ int main (int argc, char * const * argv)
 				{
 					threads.emplace_back ([&function_a, node, &mutex, &condition, &finished, &deque_a] () {
 						auto transaction = node->ledger.tx_begin_read ();
-						nano::unique_lock<nano::mutex> lock{ mutex };
+						celerix::unique_lock<celerix::mutex> lock{ mutex };
 						while (!deque_a.empty () || !finished)
 						{
 							while (deque_a.empty () && !finished)
@@ -1446,13 +1446,13 @@ int main (int argc, char * const * argv)
 				}
 			};
 
-			auto check_account = [&print_error_message, &silent, &count, &block_count] (std::shared_ptr<nano::node> const & node, nano::secure::read_transaction const & transaction, nano::account const & account, nano::account_info const & info) {
+			auto check_account = [&print_error_message, &silent, &count, &block_count] (std::shared_ptr<celerix::node> const & node, celerix::secure::read_transaction const & transaction, celerix::account const & account, celerix::account_info const & info) {
 				++count;
 				if (!silent && (count % 20000) == 0)
 				{
 					std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
 				}
-				nano::confirmation_height_info confirmation_height_info;
+				celerix::confirmation_height_info confirmation_height_info;
 				node->store.confirmation_height.get (transaction, account, confirmation_height_info);
 
 				if (confirmation_height_info.height > info.block_count)
@@ -1461,7 +1461,7 @@ int main (int argc, char * const * argv)
 				}
 
 				auto hash (info.open_block);
-				nano::block_hash calculated_hash (0);
+				celerix::block_hash calculated_hash (0);
 				auto block = node->ledger.any.block_get (transaction, hash); // Block data
 				uint64_t height (0);
 				if (node->ledger.pruning && confirmation_height_info.height != 0)
@@ -1495,13 +1495,13 @@ int main (int argc, char * const * argv)
 					}
 				}
 				uint64_t previous_timestamp (0);
-				nano::account calculated_representative{};
+				celerix::account calculated_representative{};
 				while (!hash.is_zero () && block != nullptr)
 				{
 					++block_count;
 					auto const & sideband (block->sideband ());
 					// Check for state & open blocks if account field is correct
-					if (block->type () == nano::block_type::open || block->type () == nano::block_type::state)
+					if (block->type () == celerix::block_type::open || block->type () == celerix::block_type::state)
 					{
 						if (block->account () != account)
 						{
@@ -1523,7 +1523,7 @@ int main (int argc, char * const * argv)
 					{
 						print_error_message (boost::str (boost::format ("Incorrect previous for open block %1%\n") % hash.to_string ()));
 					}
-					if (height == 0 && block->type () != nano::block_type::open && block->type () != nano::block_type::state)
+					if (height == 0 && block->type () != celerix::block_type::open && block->type () != celerix::block_type::state)
 					{
 						print_error_message (boost::str (boost::format ("Incorrect type for open block %1%\n") % hash.to_string ()));
 					}
@@ -1538,10 +1538,10 @@ int main (int argc, char * const * argv)
 					{
 						bool invalid (true);
 						// Epoch blocks
-						if (block->type () == nano::block_type::state)
+						if (block->type () == celerix::block_type::state)
 						{
-							auto & state_block (static_cast<nano::state_block &> (*block.get ()));
-							nano::amount prev_balance (0);
+							auto & state_block (static_cast<celerix::state_block &> (*block.get ()));
+							celerix::amount prev_balance (0);
 							bool error_or_pruned (false);
 							if (!state_block.hashables.previous.is_zero ())
 							{
@@ -1562,7 +1562,7 @@ int main (int argc, char * const * argv)
 					}
 					// Validate block details set in the sideband
 					bool block_details_error = false;
-					if (block->type () != nano::block_type::state)
+					if (block->type () != celerix::block_type::state)
 					{
 						// Not state
 						block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
@@ -1617,7 +1617,7 @@ int main (int argc, char * const * argv)
 					// Check if block work value is correct
 					if (node->network_params.work.difficulty (*block) < node->network_params.work.threshold (block->work_version (), block->sideband ().details))
 					{
-						print_error_message (boost::str (boost::format ("Invalid work for block %1% value: %2%\n") % hash.to_string () % nano::to_string_hex (block->block_work ())));
+						print_error_message (boost::str (boost::format ("Invalid work for block %1% value: %2%\n") % hash.to_string () % celerix::to_string_hex (block->block_work ())));
 					}
 					// Check if sideband height is correct
 					++height;
@@ -1632,7 +1632,7 @@ int main (int argc, char * const * argv)
 					}
 					previous_timestamp = sideband.timestamp;
 					// Calculate representative block
-					if (block->type () == nano::block_type::open || block->type () == nano::block_type::change || block->type () == nano::block_type::state)
+					if (block->type () == celerix::block_type::open || block->type () == celerix::block_type::change || block->type () == celerix::block_type::state)
 					{
 						calculated_representative = block->representative_field ().value ();
 					}
@@ -1677,7 +1677,7 @@ int main (int argc, char * const * argv)
 			for (auto i (node->store.account.begin (transaction)), n (node->store.account.end (transaction)); i != n; ++i)
 			{
 				{
-					nano::unique_lock<nano::mutex> lock{ mutex };
+					celerix::unique_lock<celerix::mutex> lock{ mutex };
 					if (accounts.size () > accounts_deque_overflow)
 					{
 						auto wait_ms (250 * accounts.size () / accounts_deque_overflow);
@@ -1689,7 +1689,7 @@ int main (int argc, char * const * argv)
 				condition.notify_all ();
 			}
 			{
-				nano::lock_guard<nano::mutex> lock{ mutex };
+				celerix::lock_guard<celerix::mutex> lock{ mutex };
 				finished = true;
 			}
 			condition.notify_all ();
@@ -1717,9 +1717,9 @@ int main (int argc, char * const * argv)
 			// Validate pending blocks
 			count = 0;
 			finished = false;
-			std::deque<std::pair<nano::pending_key, nano::pending_info>> pending;
+			std::deque<std::pair<celerix::pending_key, celerix::pending_info>> pending;
 
-			auto check_pending = [&print_error_message, &silent, &count] (std::shared_ptr<nano::node> const & node, nano::secure::read_transaction const & transaction, nano::pending_key const & key, nano::pending_info const & info) {
+			auto check_pending = [&print_error_message, &silent, &count] (std::shared_ptr<celerix::node> const & node, celerix::secure::read_transaction const & transaction, celerix::pending_key const & key, celerix::pending_info const & info) {
 				++count;
 				if (!silent && (count % 500000) == 0)
 				{
@@ -1739,20 +1739,20 @@ int main (int argc, char * const * argv)
 				else
 				{
 					// Check if pending destination is correct
-					nano::account destination{};
+					celerix::account destination{};
 					bool previous_pruned = node->ledger.pruning && node->store.pruned.exists (transaction, block->previous ());
 					if (previous_pruned)
 					{
 						block = node->ledger.any.block_get (transaction, key.hash);
 					}
-					if (auto state = dynamic_cast<nano::state_block *> (block.get ()))
+					if (auto state = dynamic_cast<celerix::state_block *> (block.get ()))
 					{
 						if (state->is_send ())
 						{
 							destination = state->hashables.link.as_account ();
 						}
 					}
-					else if (auto send = dynamic_cast<nano::send_block *> (block.get ()))
+					else if (auto send = dynamic_cast<celerix::send_block *> (block.get ()))
 					{
 						destination = send->hashables.destination;
 					}
@@ -1788,7 +1788,7 @@ int main (int argc, char * const * argv)
 			for (auto i (node->store.pending.begin (transaction)), n (node->store.pending.end (transaction)); i != n; ++i)
 			{
 				{
-					nano::unique_lock<nano::mutex> lock{ mutex };
+					celerix::unique_lock<celerix::mutex> lock{ mutex };
 					if (pending.size () > pending_deque_overflow)
 					{
 						auto wait_ms (50 * pending.size () / pending_deque_overflow);
@@ -1800,7 +1800,7 @@ int main (int argc, char * const * argv)
 				condition.notify_all ();
 			}
 			{
-				nano::lock_guard<nano::mutex> lock{ mutex };
+				celerix::lock_guard<celerix::mutex> lock{ mutex };
 				finished = true;
 			}
 			condition.notify_all ();
@@ -1825,27 +1825,27 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_bootstrap"))
 		{
-			auto node_flags = nano::inactive_node_flag_defaults ();
+			auto node_flags = celerix::inactive_node_flag_defaults ();
 			node_flags.read_only = false;
-			nano::update_flags (node_flags, vm);
-			nano::inactive_node node (nano::unique_path (), node_flags);
+			celerix::update_flags (node_flags, vm);
+			celerix::inactive_node node (celerix::unique_path (), node_flags);
 			auto begin (std::chrono::high_resolution_clock::now ());
 			uint64_t block_count (0);
 			size_t count (0);
-			std::deque<std::shared_ptr<nano::block>> epoch_open_blocks;
+			std::deque<std::shared_ptr<celerix::block>> epoch_open_blocks;
 			{
-				auto node_flags = nano::inactive_node_flag_defaults ();
-				nano::update_flags (node_flags, vm);
+				auto node_flags = celerix::inactive_node_flag_defaults ();
+				celerix::update_flags (node_flags, vm);
 				node_flags.generate_cache.block_count = true;
-				nano::inactive_node inactive_node (data_path, node_flags);
+				celerix::inactive_node inactive_node (data_path, node_flags);
 				auto source_node = inactive_node.node;
 				auto transaction = source_node->ledger.tx_begin_read ();
 				block_count = source_node->ledger.block_count ();
 				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
 				for (auto i (source_node->store.account.begin (transaction)), n (source_node->store.account.end (transaction)); i != n; ++i)
 				{
-					nano::account const & account (i->first);
-					nano::account_info const & info (i->second);
+					celerix::account const & account (i->first);
+					celerix::account_info const & info (i->second);
 					auto hash (info.head);
 					while (!hash.is_zero ())
 					{
@@ -1859,7 +1859,7 @@ int main (int argc, char * const * argv)
 								std::cout << boost::str (boost::format ("%1% blocks retrieved") % count) << std::endl;
 							}
 							node.node->block_processor.add (block);
-							if (block->type () == nano::block_type::state && block->previous ().is_zero () && source_node->ledger.is_epoch_link (block->link_field ().value ()))
+							if (block->type () == celerix::block_type::state && block->previous ().is_zero () && source_node->ledger.is_epoch_link (block->link_field ().value ()))
 							{
 								// Epoch open blocks can be rejected without processed pending blocks to account, push it later again
 								epoch_open_blocks.push_back (block);
@@ -1870,7 +1870,7 @@ int main (int argc, char * const * argv)
 					}
 				}
 			}
-			nano::timer<std::chrono::seconds> timer_l (nano::timer_state::started);
+			celerix::timer<std::chrono::seconds> timer_l (celerix::timer_state::started);
 			while (node.node->ledger.block_count () != block_count)
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (500));
@@ -1894,13 +1894,13 @@ int main (int argc, char * const * argv)
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
 			auto us_in_second (1000000);
 			auto seconds (time / us_in_second);
-			nano::remove_temporary_directories ();
+			celerix::remove_temporary_directories ();
 			std::cout << boost::str (boost::format ("%|1$ 12d| seconds \n%2% blocks per second") % seconds % (block_count * us_in_second / time)) << std::endl;
 			release_assert (node.node->ledger.block_count () == block_count);
 		}
 		else if (vm.count ("debug_peers"))
 		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
+			auto inactive_node = celerix::default_inactive_node (data_path, vm);
 			auto node = inactive_node->node;
 			auto peers = node->peer_history.peers ();
 			for (auto const & peer : peers)
@@ -1910,18 +1910,18 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_cemented_block_count"))
 		{
-			auto node_flags = nano::inactive_node_flag_defaults ();
+			auto node_flags = celerix::inactive_node_flag_defaults ();
 			node_flags.generate_cache.cemented_count = true;
-			nano::update_flags (node_flags, vm);
-			nano::inactive_node node (data_path, node_flags);
+			celerix::update_flags (node_flags, vm);
+			celerix::inactive_node node (data_path, node_flags);
 			std::cout << "Total cemented block count: " << node.node->ledger.cemented_count () << std::endl;
 		}
 		else if (vm.count ("debug_prune"))
 		{
-			auto node_flags = nano::inactive_node_flag_defaults ();
+			auto node_flags = celerix::inactive_node_flag_defaults ();
 			node_flags.read_only = false;
-			nano::update_flags (node_flags, vm);
-			nano::inactive_node inactive_node (data_path, node_flags);
+			celerix::update_flags (node_flags, vm);
+			celerix::inactive_node inactive_node (data_path, node_flags);
 			auto node = inactive_node.node;
 			node->ledger_pruning (node_flags.block_processor_batch_size != 0 ? node_flags.block_processor_batch_size : 16 * 1024, true);
 		}
@@ -1931,7 +1931,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_sys_logging"))
 		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
+			auto inactive_node = celerix::default_inactive_node (data_path, vm);
 			inactive_node->node->logger.critical ({}, "Testing system logger (CRITICAL)");
 			inactive_node->node->logger.error ({}, "Testing system logger (ERROR)");
 			inactive_node->node->logger.warn ({}, "Testing system logger (WARN)");
@@ -1940,14 +1940,14 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_account_versions"))
 		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
+			auto inactive_node = celerix::default_inactive_node (data_path, vm);
 			auto node = inactive_node->node;
-			auto const epoch_count = nano::normalized_epoch (nano::epoch::max) + static_cast<std::underlying_type<nano::epoch>::type> (1);
+			auto const epoch_count = celerix::normalized_epoch (celerix::epoch::max) + static_cast<std::underlying_type<celerix::epoch>::type> (1);
 			// Cache the accounts in a collection to make searching quicker against unchecked keys. Group by epoch
-			nano::locked<std::vector<boost::unordered_set<nano::account>>> opened_account_versions_shared (epoch_count);
+			celerix::locked<std::vector<boost::unordered_set<celerix::account>>> opened_account_versions_shared (epoch_count);
 			using opened_account_versions_t = decltype (opened_account_versions_shared)::value_type;
 			node->store.account.for_each_par (
-			[&opened_account_versions_shared, epoch_count] (nano::store::read_transaction const & /*unused*/, auto i, auto n) {
+			[&opened_account_versions_shared, epoch_count] (celerix::store::read_transaction const & /*unused*/, auto i, auto n) {
 				// First cache locally
 				opened_account_versions_t opened_account_versions_l (epoch_count);
 				for (; i != n; ++i)
@@ -1956,7 +1956,7 @@ int main (int argc, char * const * argv)
 					auto const & account_info (i->second);
 
 					// Epoch 0 will be index 0 for instance
-					auto epoch_idx = nano::normalized_epoch (account_info.epoch ());
+					auto epoch_idx = celerix::normalized_epoch (account_info.epoch ());
 					opened_account_versions_l[epoch_idx].emplace (account);
 				}
 				// Now merge
@@ -1971,7 +1971,7 @@ int main (int argc, char * const * argv)
 			});
 
 			// Caching in a single set speeds up lookup
-			boost::unordered_set<nano::account> opened_accounts;
+			boost::unordered_set<celerix::account> opened_accounts;
 			{
 				auto opened_account_versions = opened_account_versions_shared.lock ();
 				for (auto const & account_version : *opened_account_versions)
@@ -1981,22 +1981,22 @@ int main (int argc, char * const * argv)
 			}
 
 			// Iterate all pending blocks and collect the lowest version for each unopened account
-			nano::locked<boost::unordered_map<nano::account, std::underlying_type_t<nano::epoch>>> unopened_highest_pending_shared;
+			celerix::locked<boost::unordered_map<celerix::account, std::underlying_type_t<celerix::epoch>>> unopened_highest_pending_shared;
 			using unopened_highest_pending_t = decltype (unopened_highest_pending_shared)::value_type;
 			node->store.pending.for_each_par (
-			[&unopened_highest_pending_shared, &opened_accounts] (nano::store::read_transaction const & /*unused*/, auto i, auto n) {
+			[&unopened_highest_pending_shared, &opened_accounts] (celerix::store::read_transaction const & /*unused*/, auto i, auto n) {
 				// First cache locally
 				unopened_highest_pending_t unopened_highest_pending_l;
 				for (; i != n; ++i)
 				{
-					nano::pending_key const & key (i->first);
-					nano::pending_info const & info (i->second);
+					celerix::pending_key const & key (i->first);
+					celerix::pending_info const & info (i->second);
 					auto & account = key.account;
 					auto exists = opened_accounts.find (account) != opened_accounts.end ();
 					if (!exists)
 					{
 						// This is an unopened account, store the lowest pending version
-						auto epoch = nano::normalized_epoch (info.epoch);
+						auto epoch = celerix::normalized_epoch (info.epoch);
 						auto & existing_or_new = unopened_highest_pending_l[key.account];
 						existing_or_new = std::max (epoch, existing_or_new);
 					}
@@ -2041,7 +2041,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("version"))
 		{
-			std::cout << "Version " << NANO_VERSION_STRING << "\n"
+			std::cout << "Version " << CELERIX_VERSION_STRING << "\n"
 					  << "Build Info " << BUILD_INFO << std::endl;
 		}
 		else
@@ -2049,7 +2049,7 @@ int main (int argc, char * const * argv)
 			// Issue #3748
 			// Regardless how the options were added, output the options in alphabetical order so they are easy to find.
 			boost::program_options::options_description sorted_description ("Command line options");
-			nano::sort_options_description (description, sorted_description);
+			celerix::sort_options_description (description, sorted_description);
 			std::cout << sorted_description << std::endl;
 			result = -1;
 		}

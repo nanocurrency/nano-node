@@ -1,6 +1,6 @@
-#include <nano/lib/files.hpp>
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/files.hpp>
+#include <celerix/lib/utility.hpp>
 
-void nano::create_load_memory_address_files ()
+void celerix::create_load_memory_address_files ()
 {
 }

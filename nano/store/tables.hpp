@@ -2,7 +2,7 @@
 
 #include <functional>
 
-namespace nano
+namespace celerix
 {
 // Keep this in alphabetical order
 enum class tables
@@ -20,14 +20,14 @@ enum class tables
 	vote,
 	rep_weights,
 };
-} // namespace nano
+} // namespace celerix
 
 namespace std
 {
 template <>
-struct hash<::nano::tables>
+struct hash<::celerix::tables>
 {
-	size_t operator() (::nano::tables const & table_a) const
+	size_t operator() (::celerix::tables const & table_a) const
 	{
 		return static_cast<size_t> (table_a);
 	}

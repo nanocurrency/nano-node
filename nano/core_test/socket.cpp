@@ -1,11 +1,11 @@
-#include <nano/boost/asio/ip/address_v6.hpp>
-#include <nano/boost/asio/ip/network_v6.hpp>
-#include <nano/lib/thread_runner.hpp>
-#include <nano/node/inactive_node.hpp>
-#include <nano/node/transport/tcp_listener.hpp>
-#include <nano/node/transport/tcp_socket.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/boost/asio/ip/address_v6.hpp>
+#include <celerix/boost/asio/ip/network_v6.hpp>
+#include <celerix/lib/thread_runner.hpp>
+#include <celerix/node/inactive_node.hpp>
+#include <celerix/node/transport/tcp_listener.hpp>
+#include <celerix/node/transport/tcp_socket.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -23,7 +23,7 @@ using namespace std::chrono_literals;
 TEST (socket_functions, limited_subnet_address)
 {
 	auto address = boost::asio::ip::make_address ("a41d:b7b2:8298:cf45:672e:bd1a:e7fb:f713");
-	auto network = nano::transport::socket_functions::get_ipv6_subnet_address (address.to_v6 (), 32); // network prefix = 32.
+	auto network = celerix::transport::socket_functions::get_ipv6_subnet_address (address.to_v6 (), 32); // network prefix = 32.
 	ASSERT_EQ ("a41d:b7b2:8298:cf45:672e:bd1a:e7fb:f713/32", network.to_string ());
 	ASSERT_EQ ("a41d:b7b2::/32", network.canonical ().to_string ());
 }
@@ -31,20 +31,20 @@ TEST (socket_functions, limited_subnet_address)
 TEST (socket_functions, first_ipv6_subnet_address)
 {
 	auto address = boost::asio::ip::make_address ("a41d:b7b2:8298:cf45:672e:bd1a:e7fb:f713");
-	auto first_address = nano::transport::socket_functions::first_ipv6_subnet_address (address.to_v6 (), 32); // network prefix = 32.
+	auto first_address = celerix::transport::socket_functions::first_ipv6_subnet_address (address.to_v6 (), 32); // network prefix = 32.
 	ASSERT_EQ ("a41d:b7b2::", first_address.to_string ());
 }
 
 TEST (socket_functions, last_ipv6_subnet_address)
 {
 	auto address = boost::asio::ip::make_address ("a41d:b7b2:8298:cf45:672e:bd1a:e7fb:f713");
-	auto last_address = nano::transport::socket_functions::last_ipv6_subnet_address (address.to_v6 (), 32); // network prefix = 32.
+	auto last_address = celerix::transport::socket_functions::last_ipv6_subnet_address (address.to_v6 (), 32); // network prefix = 32.
 	ASSERT_EQ ("a41d:b7b2:ffff:ffff:ffff:ffff:ffff:ffff", last_address.to_string ());
 }
 
 TEST (socket_functions, count_subnetwork_connections)
 {
-	nano::test::system system;
+	celerix::test::system system;
 	auto node = system.add_node ();
 
 	auto address0 = boost::asio::ip::make_address ("a41d:b7b1:ffff:ffff:ffff:ffff:ffff:ffff"); // out of network prefix
@@ -55,15 +55,15 @@ TEST (socket_functions, count_subnetwork_connections)
 	auto address5 = boost::asio::ip::make_address ("a41d:b7b3::"); // out of the network prefix
 	auto address6 = boost::asio::ip::make_address ("a41d:b7b3::1"); // out of the network prefix
 
-	auto connection0 = std::make_shared<nano::transport::tcp_socket> (*node);
-	auto connection1 = std::make_shared<nano::transport::tcp_socket> (*node);
-	auto connection2 = std::make_shared<nano::transport::tcp_socket> (*node);
-	auto connection3 = std::make_shared<nano::transport::tcp_socket> (*node);
-	auto connection4 = std::make_shared<nano::transport::tcp_socket> (*node);
-	auto connection5 = std::make_shared<nano::transport::tcp_socket> (*node);
-	auto connection6 = std::make_shared<nano::transport::tcp_socket> (*node);
+	auto connection0 = std::make_shared<celerix::transport::tcp_socket> (*node);
+	auto connection1 = std::make_shared<celerix::transport::tcp_socket> (*node);
+	auto connection2 = std::make_shared<celerix::transport::tcp_socket> (*node);
+	auto connection3 = std::make_shared<celerix::transport::tcp_socket> (*node);
+	auto connection4 = std::make_shared<celerix::transport::tcp_socket> (*node);
+	auto connection5 = std::make_shared<celerix::transport::tcp_socket> (*node);
+	auto connection6 = std::make_shared<celerix::transport::tcp_socket> (*node);
 
-	nano::transport::address_socket_mmap connections_per_address;
+	celerix::transport::address_socket_mmap connections_per_address;
 	connections_per_address.emplace (address0, connection0);
 	connections_per_address.emplace (address1, connection1);
 	connections_per_address.emplace (address2, connection2);
@@ -73,14 +73,14 @@ TEST (socket_functions, count_subnetwork_connections)
 	connections_per_address.emplace (address6, connection6);
 
 	// Asserts it counts only the connections for the specified address and its network prefix.
-	ASSERT_EQ (4, nano::transport::socket_functions::count_subnetwork_connections (connections_per_address, address1.to_v6 (), 32));
+	ASSERT_EQ (4, celerix::transport::socket_functions::count_subnetwork_connections (connections_per_address, address1.to_v6 (), 32));
 }
 
 TEST (socket, disconnection_of_silent_connections)
 {
-	nano::test::system system;
+	celerix::test::system system;
 
-	nano::node_config config;
+	celerix::node_config config;
 	// Increasing the timer timeout, so we don't let the connection to timeout due to the timer checker.
 	config.tcp_io_timeout = std::chrono::seconds::max ();
 	config.network_params.network.idle_timeout = std::chrono::seconds::max ();
@@ -89,8 +89,8 @@ TEST (socket, disconnection_of_silent_connections)
 	auto node = system.add_node (config);
 
 	// On a connection, a server data socket is created. The shared pointer guarantees the object's lifecycle until the end of this test.
-	std::promise<std::shared_ptr<nano::transport::tcp_socket>> server_data_socket_promise;
-	std::future<std::shared_ptr<nano::transport::tcp_socket>> server_data_socket_future = server_data_socket_promise.get_future ();
+	std::promise<std::shared_ptr<celerix::transport::tcp_socket>> server_data_socket_promise;
+	std::future<std::shared_ptr<celerix::transport::tcp_socket>> server_data_socket_future = server_data_socket_promise.get_future ();
 	node->tcp_listener.connection_accepted.add ([&server_data_socket_promise] (auto const & socket, auto const & server) {
 		server_data_socket_promise.set_value (socket);
 	});
@@ -98,7 +98,7 @@ TEST (socket, disconnection_of_silent_connections)
 	boost::asio::ip::tcp::endpoint dst_endpoint{ boost::asio::ip::address_v6::loopback (), node->tcp_listener.endpoint ().port () };
 
 	// Instantiates a client to simulate an incoming connection.
-	auto client_socket = std::make_shared<nano::transport::tcp_socket> (*node);
+	auto client_socket = std::make_shared<celerix::transport::tcp_socket> (*node);
 	std::atomic<bool> connected{ false };
 	// Opening a connection that will be closed because it remains silent during the tolerance time.
 	client_socket->async_connect (dst_endpoint, [client_socket, &connected] (boost::system::error_code const & ec_a) {
@@ -113,18 +113,18 @@ TEST (socket, disconnection_of_silent_connections)
 	ASSERT_TIMELY (10s, server_data_socket->is_closed ());
 
 	// Just to ensure the disconnection wasn't due to the timer timeout.
-	ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, nano::stat::dir::in));
+	ASSERT_EQ (0, node->stats.count (celerix::stat::type::tcp, celerix::stat::detail::tcp_io_timeout_drop, celerix::stat::dir::in));
 	// Asserts the silent checker worked.
-	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_silent_connection_drop, nano::stat::dir::in));
+	ASSERT_EQ (1, node->stats.count (celerix::stat::type::tcp, celerix::stat::detail::tcp_silent_connection_drop, celerix::stat::dir::in));
 }
 
 TEST (socket, drop_policy)
 {
-	nano::test::system system;
+	celerix::test::system system;
 
-	auto node_flags = nano::inactive_node_flag_defaults ();
+	auto node_flags = celerix::inactive_node_flag_defaults ();
 	node_flags.read_only = false;
-	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
+	celerix::inactive_node inactivenode (celerix::unique_path (), node_flags);
 	auto node = inactivenode.node;
 
 	std::atomic completed_writes{ 0 };
@@ -142,7 +142,7 @@ TEST (socket, drop_policy)
 			EXPECT_FALSE (ec);
 		});
 
-		auto client = std::make_shared<nano::transport::tcp_socket> (*node);
+		auto client = std::make_shared<celerix::transport::tcp_socket> (*node);
 
 		completed_writes = 0;
 		failed_writes = 0;
@@ -152,7 +152,7 @@ TEST (socket, drop_policy)
 			for (int i = 0; i < total_message_count; i++)
 			{
 				std::vector<uint8_t> buff (1);
-				client->async_write (nano::shared_const_buffer (std::move (buff)), [&] (boost::system::error_code const & ec, size_t size_a) {
+				client->async_write (celerix::shared_const_buffer (std::move (buff)), [&] (boost::system::error_code const & ec, size_t size_a) {
 					if (!ec)
 					{
 						++completed_writes;
@@ -171,10 +171,10 @@ TEST (socket, drop_policy)
 
 	// We're going to write twice the queue size + 1, and the server isn't reading
 	// The total number of drops should thus be 1 (the socket allows doubling the queue size for no_socket_drop)
-	func (nano::transport::tcp_socket::default_queue_size * 2 + 1);
+	func (celerix::transport::tcp_socket::default_queue_size * 2 + 1);
 	ASSERT_EQ (1, failed_writes);
 
-	func (nano::transport::tcp_socket::default_queue_size + 1);
+	func (celerix::transport::tcp_socket::default_queue_size + 1);
 	ASSERT_EQ (0, failed_writes);
 }
 
@@ -182,13 +182,13 @@ TEST (socket, drop_policy)
 // TEST (socket, DISABLED_concurrent_writes)
 TEST (socket, concurrent_writes)
 {
-	nano::test::system system;
+	celerix::test::system system;
 
-	auto node_flags = nano::inactive_node_flag_defaults ();
+	auto node_flags = celerix::inactive_node_flag_defaults ();
 	node_flags.read_only = false;
 	node_flags.disable_max_peers_per_ip = true;
 	node_flags.disable_max_peers_per_subnetwork = true;
-	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
+	celerix::inactive_node inactivenode (celerix::unique_path (), node_flags);
 	auto node = inactivenode.node;
 
 	constexpr size_t max_connections = 4;
@@ -199,8 +199,8 @@ TEST (socket, concurrent_writes)
 	// We're expecting client_count*4 messages
 	std::atomic completed_reads{ 0 };
 
-	using reader_callback_t = std::function<void (std::shared_ptr<nano::transport::tcp_socket> const &)>;
-	reader_callback_t reader = [&completed_reads, &total_message_count, &reader] (std::shared_ptr<nano::transport::tcp_socket> const & socket_a) {
+	using reader_callback_t = std::function<void (std::shared_ptr<celerix::transport::tcp_socket> const &)>;
+	reader_callback_t reader = [&completed_reads, &total_message_count, &reader] (std::shared_ptr<celerix::transport::tcp_socket> const & socket_a) {
 		auto buff (std::make_shared<std::vector<uint8_t>> ());
 		buff->resize (1);
 		socket_a->async_read (buff, 1, [&completed_reads, &reader, &total_message_count, socket_a, buff] (boost::system::error_code const & ec, size_t size_a) {
@@ -218,7 +218,7 @@ TEST (socket, concurrent_writes)
 		});
 	};
 
-	std::vector<std::shared_ptr<nano::transport::tcp_socket>> connections;
+	std::vector<std::shared_ptr<celerix::transport::tcp_socket>> connections;
 
 	auto server_port (system.get_available_port ());
 	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v6::any (), server_port);
@@ -231,7 +231,7 @@ TEST (socket, concurrent_writes)
 	accept_callback_t accept_callback = [&] (boost::system::error_code const & ec, boost::asio::ip::tcp::socket socket) {
 		if (!ec)
 		{
-			auto new_connection = std::make_shared<nano::transport::tcp_socket> (*node, std::move (socket), socket.remote_endpoint (), socket.local_endpoint ());
+			auto new_connection = std::make_shared<celerix::transport::tcp_socket> (*node, std::move (socket), socket.remote_endpoint (), socket.local_endpoint ());
 			connections.push_back (new_connection);
 			reader (new_connection);
 
@@ -246,10 +246,10 @@ TEST (socket, concurrent_writes)
 
 	std::atomic completed_connections{ 0 };
 
-	std::vector<std::shared_ptr<nano::transport::tcp_socket>> clients;
+	std::vector<std::shared_ptr<celerix::transport::tcp_socket>> clients;
 	for (unsigned i = 0; i < client_count; i++)
 	{
-		auto client = std::make_shared<nano::transport::tcp_socket> (*node);
+		auto client = std::make_shared<celerix::transport::tcp_socket> (*node);
 		clients.push_back (client);
 		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), acceptor.local_endpoint ().port ()),
 		[&completed_connections] (boost::system::error_code const & ec_a) {
@@ -276,7 +276,7 @@ TEST (socket, concurrent_writes)
 			{
 				std::vector<uint8_t> buff;
 				buff.push_back ('A' + i);
-				client->async_write (nano::shared_const_buffer (std::move (buff)));
+				client->async_write (celerix::shared_const_buffer (std::move (buff)));
 			}
 		});
 	}
@@ -304,8 +304,8 @@ TEST (socket, concurrent_writes)
 TEST (socket_timeout, connect)
 {
 	// create one node and set timeout to 1 second
-	nano::test::system system (1);
-	std::shared_ptr<nano::node> node = system.nodes[0];
+	celerix::test::system system (1);
+	std::shared_ptr<celerix::node> node = system.nodes[0];
 	node->config.tcp_io_timeout = 1s;
 
 	// try to connect to an IP address that most likely does not exist and will not reply
@@ -314,7 +314,7 @@ TEST (socket_timeout, connect)
 	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::make_address_v6 ("::ffff:10.255.254.253"), 1234);
 
 	// create a client socket and try to connect to the IP address that wil not respond
-	auto socket = std::make_shared<nano::transport::tcp_socket> (*node);
+	auto socket = std::make_shared<celerix::transport::tcp_socket> (*node);
 	std::atomic<bool> done = false;
 	boost::system::error_code ec;
 	socket->async_connect (endpoint, [&ec, &done] (boost::system::error_code const & ec_a) {
@@ -330,8 +330,8 @@ TEST (socket_timeout, connect)
 TEST (socket_timeout, read)
 {
 	// create one node and set timeout to 1 second
-	nano::test::system system (1);
-	std::shared_ptr<nano::node> node = system.nodes[0];
+	celerix::test::system system (1);
+	std::shared_ptr<celerix::node> node = system.nodes[0];
 	node->config.tcp_io_timeout = std::chrono::seconds (2);
 
 	// create a server socket
@@ -348,7 +348,7 @@ TEST (socket_timeout, read)
 	});
 
 	// create a client socket to connect and call async_read, which should time out
-	auto socket = std::make_shared<nano::transport::tcp_socket> (*node);
+	auto socket = std::make_shared<celerix::transport::tcp_socket> (*node);
 	std::atomic<bool> done = false;
 	boost::system::error_code ec;
 	socket->async_connect (acceptor.local_endpoint (), [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
@@ -367,10 +367,10 @@ TEST (socket_timeout, read)
 	// check that the callback was called and we got an error
 	ASSERT_TIMELY_EQ (10s, done, true);
 	ASSERT_TRUE (ec);
-	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_read_error, nano::stat::dir::in));
+	ASSERT_EQ (1, node->stats.count (celerix::stat::type::tcp, celerix::stat::detail::tcp_read_error, celerix::stat::dir::in));
 
 	// check that the socket was closed due to tcp_io_timeout timeout
-	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, nano::stat::dir::out));
+	ASSERT_EQ (1, node->stats.count (celerix::stat::type::tcp, celerix::stat::detail::tcp_io_timeout_drop, celerix::stat::dir::out));
 }
 
 TEST (socket_timeout, write)
@@ -378,8 +378,8 @@ TEST (socket_timeout, write)
 	std::atomic<bool> done = false;
 
 	// create one node and set timeout to 1 second
-	nano::test::system system (1);
-	std::shared_ptr<nano::node> node = system.nodes[0];
+	celerix::test::system system (1);
+	std::shared_ptr<celerix::node> node = system.nodes[0];
 	node->config.tcp_io_timeout = std::chrono::seconds (2);
 
 	// create a server socket
@@ -398,7 +398,7 @@ TEST (socket_timeout, write)
 	// create a client socket and send lots of data to fill the socket queue on the local and remote side
 	// eventually, the all tcp queues should fill up and async_write will not be able to progress
 	// and the timeout should kick in and close the socket, which will cause the async_write to return an error
-	auto socket = std::make_shared<nano::transport::tcp_socket> (*node, nano::transport::socket_endpoint::client, 1024 * 1024); // socket with a max queue size much larger than OS buffers
+	auto socket = std::make_shared<celerix::transport::tcp_socket> (*node, celerix::transport::socket_endpoint::client, 1024 * 1024); // socket with a max queue size much larger than OS buffers
 
 	socket->async_connect (acceptor.local_endpoint (), [&socket, &done] (boost::system::error_code const & ec_a) {
 		EXPECT_FALSE (ec_a);
@@ -406,7 +406,7 @@ TEST (socket_timeout, write)
 		auto buffer = std::make_shared<std::vector<uint8_t>> (128 * 1024);
 		for (auto i = 0; i < 1024; ++i)
 		{
-			socket->async_write (nano::shared_const_buffer{ buffer }, [&done] (boost::system::error_code const & ec_a, size_t size_a) {
+			socket->async_write (celerix::shared_const_buffer{ buffer }, [&done] (boost::system::error_code const & ec_a, size_t size_a) {
 				if (ec_a)
 				{
 					done = true;
@@ -417,17 +417,17 @@ TEST (socket_timeout, write)
 
 	// check that the callback was called and we got an error
 	ASSERT_TIMELY (10s, done);
-	ASSERT_LE (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in));
+	ASSERT_LE (1, node->stats.count (celerix::stat::type::tcp, celerix::stat::detail::tcp_write_error, celerix::stat::dir::in));
 
 	// check that the socket was closed due to tcp_io_timeout timeout
-	ASSERT_LE (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, nano::stat::dir::out));
+	ASSERT_LE (1, node->stats.count (celerix::stat::type::tcp, celerix::stat::detail::tcp_io_timeout_drop, celerix::stat::dir::out));
 }
 
 TEST (socket_timeout, read_overlapped)
 {
 	// create one node and set timeout to 1 second
-	nano::test::system system (1);
-	std::shared_ptr<nano::node> node = system.nodes[0];
+	celerix::test::system system (1);
+	std::shared_ptr<celerix::node> node = system.nodes[0];
 	node->config.tcp_io_timeout = std::chrono::seconds (2);
 
 	// create a server socket
@@ -443,14 +443,14 @@ TEST (socket_timeout, read_overlapped)
 		EXPECT_FALSE (ec_a);
 
 		auto buffer = std::make_shared<std::vector<uint8_t>> (1);
-		nano::async_write (newsock, nano::shared_const_buffer (buffer), [] (boost::system::error_code const & ec_a, size_t size_a) {
+		celerix::async_write (newsock, celerix::shared_const_buffer (buffer), [] (boost::system::error_code const & ec_a, size_t size_a) {
 			EXPECT_TRUE (!ec_a);
 			EXPECT_TRUE (size_a == 1);
 		});
 	});
 
 	// create a client socket to connect and call async_read twice, the second call should time out
-	auto socket = std::make_shared<nano::transport::tcp_socket> (*node);
+	auto socket = std::make_shared<celerix::transport::tcp_socket> (*node);
 	std::atomic<bool> done = false;
 	boost::system::error_code ec;
 	socket->async_connect (acceptor.local_endpoint (), [&socket, &ec, &done] (boost::system::error_code const & ec_a) {
@@ -476,10 +476,10 @@ TEST (socket_timeout, read_overlapped)
 	// check that the callback was called and we got an error
 	ASSERT_TIMELY_EQ (10s, done, true);
 	ASSERT_TRUE (ec);
-	ASSERT_LE (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_read_error, nano::stat::dir::in));
+	ASSERT_LE (1, node->stats.count (celerix::stat::type::tcp, celerix::stat::detail::tcp_read_error, celerix::stat::dir::in));
 
 	// check that the socket was closed due to tcp_io_timeout timeout
-	ASSERT_LE (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, nano::stat::dir::out));
+	ASSERT_LE (1, node->stats.count (celerix::stat::type::tcp, celerix::stat::detail::tcp_io_timeout_drop, celerix::stat::dir::out));
 }
 
 TEST (socket_timeout, write_overlapped)
@@ -487,8 +487,8 @@ TEST (socket_timeout, write_overlapped)
 	std::atomic<bool> done = false;
 
 	// create one node and set timeout to 1 second
-	nano::test::system system (1);
-	std::shared_ptr<nano::node> node = system.nodes[0];
+	celerix::test::system system (1);
+	std::shared_ptr<celerix::node> node = system.nodes[0];
 	node->config.tcp_io_timeout = std::chrono::seconds (2);
 
 	// create a server socket
@@ -513,19 +513,19 @@ TEST (socket_timeout, write_overlapped)
 	// create a client socket and send lots of data to fill the socket queue on the local and remote side
 	// eventually, the all tcp queues should fill up and async_write will not be able to progress
 	// and the timeout should kick in and close the socket, which will cause the async_write to return an error
-	auto socket = std::make_shared<nano::transport::tcp_socket> (*node, nano::transport::socket_endpoint::client, 1024 * 1024); // socket with a max queue size much larger than OS buffers
+	auto socket = std::make_shared<celerix::transport::tcp_socket> (*node, celerix::transport::socket_endpoint::client, 1024 * 1024); // socket with a max queue size much larger than OS buffers
 	socket->async_connect (acceptor.local_endpoint (), [&socket, &done] (boost::system::error_code const & ec_a) {
 		EXPECT_FALSE (ec_a);
 
 		auto buffer1 = std::make_shared<std::vector<uint8_t>> (1);
 		auto buffer2 = std::make_shared<std::vector<uint8_t>> (128 * 1024);
-		socket->async_write (nano::shared_const_buffer{ buffer1 }, [] (boost::system::error_code const & ec_a, size_t size_a) {
+		socket->async_write (celerix::shared_const_buffer{ buffer1 }, [] (boost::system::error_code const & ec_a, size_t size_a) {
 			EXPECT_FALSE (ec_a);
 			EXPECT_EQ (size_a, 1);
 		});
 		for (auto i = 0; i < 1024; ++i)
 		{
-			socket->async_write (nano::shared_const_buffer{ buffer2 }, [&done] (boost::system::error_code const & ec_a, size_t size_a) {
+			socket->async_write (celerix::shared_const_buffer{ buffer2 }, [&done] (boost::system::error_code const & ec_a, size_t size_a) {
 				if (ec_a)
 				{
 					done = true;
@@ -536,8 +536,8 @@ TEST (socket_timeout, write_overlapped)
 
 	// check that the callback was called and we got an error
 	ASSERT_TIMELY_EQ (10s, done, true);
-	ASSERT_LE (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in));
+	ASSERT_LE (1, node->stats.count (celerix::stat::type::tcp, celerix::stat::detail::tcp_write_error, celerix::stat::dir::in));
 
 	// check that the socket was closed due to tcp_io_timeout timeout
-	ASSERT_LE (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, nano::stat::dir::out));
+	ASSERT_LE (1, node->stats.count (celerix::stat::type::tcp, celerix::stat::detail::tcp_io_timeout_drop, celerix::stat::dir::out));
 }

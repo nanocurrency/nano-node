@@ -15,12 +15,12 @@
    wallets_entry_get
    Memcheck:Cond
    ...
-   fun:_ZN4nano12wallet_store13entry_get_rawERKNS_11transactionERKNS_13uint256_unionE
+   fun:_ZN4celerix12wallet_store13entry_get_rawERKNS_11transactionERKNS_13uint256_unionE
 }
 
 {
    wallets_entry_get_size8
    Memcheck:Value8
    ...
-   fun:_ZN4nano12wallet_store13entry_get_rawERKNS_11transactionERKNS_13uint256_unionE
+   fun:_ZN4celerix12wallet_store13entry_get_rawERKNS_11transactionERKNS_13uint256_unionE
 }

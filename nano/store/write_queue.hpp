@@ -1,12 +1,12 @@
 #pragma once
 
-#include <nano/lib/locks.hpp>
+#include <celerix/lib/locks.hpp>
 
 #include <condition_variable>
 #include <deque>
 #include <functional>
 
-namespace nano::store
+namespace celerix::store
 {
 /** Distinct areas write locking is done, order is irrelevant */
 enum class writer
@@ -75,9 +75,9 @@ private:
 	uint64_t next{ 0 };
 	using entry = std::pair<writer, uint64_t>; // uint64_t is a unique id for each write_guard
 	std::deque<entry> queue;
-	mutable nano::mutex mutex;
-	nano::condition_variable condition;
+	mutable celerix::mutex mutex;
+	celerix::condition_variable condition;
 
 	std::function<void ()> guard_finish_callback;
 };
-} // namespace nano::store
+} // namespace celerix::store

@@ -1,7 +1,7 @@
-#include <nano/lib/utility.hpp>
-#include <nano/store/lmdb/iterator.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/store/lmdb/iterator.hpp>
 
-namespace nano::store::lmdb
+namespace celerix::store::lmdb
 {
 auto iterator::span () const -> std::pair<std::span<uint8_t const>, std::span<uint8_t const>>
 {
@@ -123,4 +123,4 @@ auto iterator::operator== (iterator const & other) const -> bool
 	debug_assert (std::make_pair (lhs.first.mv_data, lhs.first.mv_size) == std::make_pair (rhs.first.mv_data, rhs.first.mv_size) && std::make_pair (lhs.second.mv_data, lhs.second.mv_size) == std::make_pair (rhs.second.mv_data, rhs.second.mv_size));
 	return result;
 }
-} // namespace nano::store::lmdb
+} // namespace celerix::store::lmdb

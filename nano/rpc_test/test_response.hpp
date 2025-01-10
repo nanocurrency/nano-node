@@ -5,7 +5,7 @@
 #include <boost/beast/http.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-namespace nano::test
+namespace celerix::test
 {
 class test_response
 {

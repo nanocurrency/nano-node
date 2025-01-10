@@ -3,7 +3,7 @@
 #include <atomic>
 #include <random>
 
-namespace nano
+namespace celerix
 {
 class id_dispenser
 {

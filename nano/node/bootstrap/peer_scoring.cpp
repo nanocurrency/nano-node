@@ -1,18 +1,18 @@
-#include <nano/node/bootstrap/bootstrap_config.hpp>
-#include <nano/node/bootstrap/peer_scoring.hpp>
-#include <nano/node/transport/channel.hpp>
+#include <celerix/node/bootstrap/bootstrap_config.hpp>
+#include <celerix/node/bootstrap/peer_scoring.hpp>
+#include <celerix/node/transport/channel.hpp>
 
 /*
  * peer_scoring
  */
 
-nano::bootstrap::peer_scoring::peer_scoring (bootstrap_config const & config_a, nano::network_constants const & network_constants_a) :
+celerix::bootstrap::peer_scoring::peer_scoring (bootstrap_config const & config_a, celerix::network_constants const & network_constants_a) :
 	config{ config_a },
 	network_constants{ network_constants_a }
 {
 }
 
-bool nano::bootstrap::peer_scoring::limit_exceeded (std::shared_ptr<nano::transport::channel> const & channel) const
+bool celerix::bootstrap::peer_scoring::limit_exceeded (std::shared_ptr<celerix::transport::channel> const & channel) const
 {
 	auto & index = scoring.get<tag_channel> ();
 	if (auto existing = index.find (channel.get ()); existing != index.end ())
@@ -22,7 +22,7 @@ bool nano::bootstrap::peer_scoring::limit_exceeded (std::shared_ptr<nano::transp
 	return false;
 }
 
-bool nano::bootstrap::peer_scoring::try_send_message (std::shared_ptr<nano::transport::channel> const & channel)
+bool celerix::bootstrap::peer_scoring::try_send_message (std::shared_ptr<celerix::transport::channel> const & channel)
 {
 	auto & index = scoring.get<tag_channel> ();
 	auto existing = index.find (channel.get ());
@@ -48,7 +48,7 @@ bool nano::bootstrap::peer_scoring::try_send_message (std::shared_ptr<nano::tran
 	return false;
 }
 
-void nano::bootstrap::peer_scoring::received_message (std::shared_ptr<nano::transport::channel> const & channel)
+void celerix::bootstrap::peer_scoring::received_message (std::shared_ptr<celerix::transport::channel> const & channel)
 {
 	auto & index = scoring.get<tag_channel> ();
 	if (auto existing = index.find (channel.get ()); existing != index.end ())
@@ -64,7 +64,7 @@ void nano::bootstrap::peer_scoring::received_message (std::shared_ptr<nano::tran
 	}
 }
 
-std::shared_ptr<nano::transport::channel> nano::bootstrap::peer_scoring::channel ()
+std::shared_ptr<celerix::transport::channel> celerix::bootstrap::peer_scoring::channel ()
 {
 	for (auto const & channel : channels)
 	{
@@ -79,19 +79,19 @@ std::shared_ptr<nano::transport::channel> nano::bootstrap::peer_scoring::channel
 	return nullptr;
 }
 
-std::size_t nano::bootstrap::peer_scoring::size () const
+std::size_t celerix::bootstrap::peer_scoring::size () const
 {
 	return scoring.size ();
 }
 
-std::size_t nano::bootstrap::peer_scoring::available () const
+std::size_t celerix::bootstrap::peer_scoring::available () const
 {
 	return std::count_if (channels.begin (), channels.end (), [this] (auto const & channel) {
 		return !limit_exceeded (channel);
 	});
 }
 
-void nano::bootstrap::peer_scoring::timeout ()
+void celerix::bootstrap::peer_scoring::timeout ()
 {
 	erase_if (scoring, [] (auto const & score) {
 		if (auto channel = score.shared ())
@@ -112,14 +112,14 @@ void nano::bootstrap::peer_scoring::timeout ()
 	}
 }
 
-void nano::bootstrap::peer_scoring::sync (std::deque<std::shared_ptr<nano::transport::channel>> const & list)
+void celerix::bootstrap::peer_scoring::sync (std::deque<std::shared_ptr<celerix::transport::channel>> const & list)
 {
 	channels = list;
 }
 
-nano::container_info nano::bootstrap::peer_scoring::container_info () const
+celerix::container_info celerix::bootstrap::peer_scoring::container_info () const
 {
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("scores", size ());
 	info.put ("available", available ());
 	info.put ("channels", channels.size ());
@@ -130,7 +130,7 @@ nano::container_info nano::bootstrap::peer_scoring::container_info () const
  * peer_score
  */
 
-nano::bootstrap::peer_scoring::peer_score::peer_score (std::shared_ptr<nano::transport::channel> const & channel_a, uint64_t outstanding_a, uint64_t request_count_total_a, uint64_t response_count_total_a) :
+celerix::bootstrap::peer_scoring::peer_score::peer_score (std::shared_ptr<celerix::transport::channel> const & channel_a, uint64_t outstanding_a, uint64_t request_count_total_a, uint64_t response_count_total_a) :
 	channel{ channel_a },
 	channel_ptr{ channel_a.get () },
 	outstanding{ outstanding_a },

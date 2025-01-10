@@ -1,9 +1,9 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/node/active_elections.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/test_common/chains.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/node/active_elections.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/test_common/chains.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -16,25 +16,25 @@ using namespace std::chrono_literals;
  */
 TEST (backlog, population)
 {
-	nano::mutex mutex;
-	std::unordered_set<nano::account> activated;
+	celerix::mutex mutex;
+	std::unordered_set<celerix::account> activated;
 
-	nano::test::system system{};
+	celerix::test::system system{};
 	auto & node = *system.add_node ();
 
 	node.backlog_scan.batch_activated.add ([&] (auto const & batch) {
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		for (auto const & info : batch)
 		{
 			activated.insert (info.account);
 		}
 	});
 
-	auto blocks = nano::test::setup_independent_blocks (system, node, 256);
+	auto blocks = celerix::test::setup_independent_blocks (system, node, 256);
 
 	// Checks if `activated` set contains all accounts we previously set up
 	auto all_activated = [&] () {
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		return std::all_of (blocks.begin (), blocks.end (), [&] (auto const & item) {
 			return activated.count (item->account ()) != 0;
 		});
@@ -43,7 +43,7 @@ TEST (backlog, population)
 
 	// Clear activated set to ensure we activate those accounts more than once
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		activated.clear ();
 	}
 
@@ -55,24 +55,24 @@ TEST (backlog, population)
  */
 TEST (backlog, election_activation)
 {
-	nano::test::system system;
-	nano::node_config node_config = system.default_config ();
+	celerix::test::system system;
+	celerix::node_config node_config = system.default_config ();
 	auto & node = *system.add_node (node_config);
-	nano::keypair key;
-	nano::block_builder builder;
+	celerix::keypair key;
+	celerix::block_builder builder;
 	auto send = builder
 				.state ()
-				.account (nano::dev::genesis_key.pub)
-				.previous (nano::dev::genesis->hash ())
-				.representative (nano::dev::genesis_key.pub)
-				.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
+				.account (celerix::dev::genesis_key.pub)
+				.previous (celerix::dev::genesis->hash ())
+				.representative (celerix::dev::genesis_key.pub)
+				.balance (celerix::dev::constants.genesis_amount - celerix::Kcelerix_ratio)
 				.link (key.pub)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*node.work_generate_blocking (nano::dev::genesis->hash ()))
+				.sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
+				.work (*node.work_generate_blocking (celerix::dev::genesis->hash ()))
 				.build ();
 	{
 		auto transaction = node.ledger.tx_begin_write ();
-		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, send));
+		ASSERT_EQ (celerix::block_status::progress, node.ledger.process (transaction, send));
 	}
 	ASSERT_TIMELY_EQ (5s, node.active.size (), 1);
 }

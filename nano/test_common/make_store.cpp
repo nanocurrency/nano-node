@@ -1,11 +1,11 @@
-#include <nano/lib/logging.hpp>
-#include <nano/node/make_store.hpp>
-#include <nano/secure/common.hpp>
-#include <nano/secure/utility.hpp>
-#include <nano/store/component.hpp>
-#include <nano/test_common/make_store.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/node/make_store.hpp>
+#include <celerix/secure/common.hpp>
+#include <celerix/secure/utility.hpp>
+#include <celerix/store/component.hpp>
+#include <celerix/test_common/make_store.hpp>
 
-std::unique_ptr<nano::store::component> nano::test::make_store ()
+std::unique_ptr<celerix::store::component> celerix::test::make_store ()
 {
-	return nano::make_store (nano::default_logger (), nano::unique_path (), nano::dev::constants);
+	return celerix::make_store (celerix::default_logger (), celerix::unique_path (), celerix::dev::constants);
 }

@@ -1,16 +1,16 @@
 #pragma once
-#include <nano/ipc_flatbuffers_lib/generated/flatbuffers/nanoapi_generated.h>
+#include <celerix/ipc_flatbuffers_lib/generated/flatbuffers/celerixapi_generated.h>
 
 #include <chrono>
 #include <memory>
 
 #include <flatbuffers/flatbuffers.h>
 
-namespace nano
+namespace celerix
 {
 namespace ipc
 {
-	/** Produces Nano API compliant Flatbuffers from objects and builders */
+	/** Produces Celerix API compliant Flatbuffers from objects and builders */
 	class flatbuffer_producer
 	{
 	public:
@@ -20,7 +20,7 @@ namespace ipc
 		template <typename T>
 		static std::shared_ptr<flatbuffers::FlatBufferBuilder> make_buffer (T & object_a, std::string const & correlation_id_a = {}, std::string const & credentials_a = {})
 		{
-			nano::ipc::flatbuffer_producer producer;
+			celerix::ipc::flatbuffer_producer producer;
 			producer.set_correlation_id (correlation_id_a);
 			producer.set_credentials (credentials_a);
 			producer.create_response (object_a);
@@ -35,9 +35,9 @@ namespace ipc
 		{
 			auto correlation_id_string = fbb->CreateString (correlation_id);
 			auto credentials_string = fbb->CreateString (credentials);
-			nanoapi::EnvelopeBuilder envelope_builder (*fbb);
+			celerixapi::EnvelopeBuilder envelope_builder (*fbb);
 			envelope_builder.add_time (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ());
-			envelope_builder.add_message_type (nanoapi::MessageTraits<T>::enum_value);
+			envelope_builder.add_message_type (celerixapi::MessageTraits<T>::enum_value);
 			envelope_builder.add_message (obj.Union ());
 
 			if (!correlation_id.empty ())

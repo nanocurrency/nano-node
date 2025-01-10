@@ -1,14 +1,14 @@
 #pragma once
 
-#include <nano/boost/asio/ip/tcp.hpp>
-#include <nano/node/endpoint.hpp>
+#include <celerix/boost/asio/ip/tcp.hpp>
+#include <celerix/node/endpoint.hpp>
 
 namespace std
 {
 template <>
-struct hash<::nano::endpoint>
+struct hash<::celerix::endpoint>
 {
-	std::size_t operator() (::nano::endpoint const & endpoint_a) const
+	std::size_t operator() (::celerix::endpoint const & endpoint_a) const
 	{
 		endpoint_hash<sizeof (std::size_t)> ehash;
 		return ehash (endpoint_a);
@@ -31,11 +31,11 @@ struct hash<boost::asio::ip::address>
 namespace boost
 {
 template <>
-struct hash<::nano::endpoint>
+struct hash<::celerix::endpoint>
 {
-	std::size_t operator() (::nano::endpoint const & endpoint_a) const
+	std::size_t operator() (::celerix::endpoint const & endpoint_a) const
 	{
-		std::hash<::nano::endpoint> hash;
+		std::hash<::celerix::endpoint> hash;
 		return hash (endpoint_a);
 	}
 };

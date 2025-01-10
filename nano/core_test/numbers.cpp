@@ -1,6 +1,6 @@
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/numbers_templ.hpp>
-#include <nano/secure/common.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/numbers_templ.hpp>
+#include <celerix/secure/common.hpp>
 
 #include <gtest/gtest.h>
 
@@ -11,9 +11,9 @@
 
 TEST (numbers, identity)
 {
-	ASSERT_EQ (1, nano::uint128_union (1).number ().convert_to<uint8_t> ());
-	ASSERT_EQ (1, nano::uint256_union (1).number ().convert_to<uint8_t> ());
-	ASSERT_EQ (1, nano::uint512_union (1).number ().convert_to<uint8_t> ());
+	ASSERT_EQ (1, celerix::uint128_union (1).number ().convert_to<uint8_t> ());
+	ASSERT_EQ (1, celerix::uint256_union (1).number ().convert_to<uint8_t> ());
+	ASSERT_EQ (1, celerix::uint512_union (1).number ().convert_to<uint8_t> ());
 }
 
 namespace
@@ -86,17 +86,17 @@ void test_comparison ()
 
 TEST (numbers, comparison)
 {
-	test_comparison<nano::uint128_union> ();
-	test_comparison<nano::uint256_union> ();
-	test_comparison<nano::uint512_union> ();
-	test_comparison<nano::block_hash> ();
-	test_comparison<nano::public_key> ();
-	test_comparison<nano::hash_or_account> ();
-	test_comparison<nano::link> ();
-	test_comparison<nano::root> ();
-	test_comparison<nano::raw_key> ();
-	test_comparison<nano::wallet_id> ();
-	test_comparison<nano::qualified_root> ();
+	test_comparison<celerix::uint128_union> ();
+	test_comparison<celerix::uint256_union> ();
+	test_comparison<celerix::uint512_union> ();
+	test_comparison<celerix::block_hash> ();
+	test_comparison<celerix::public_key> ();
+	test_comparison<celerix::hash_or_account> ();
+	test_comparison<celerix::link> ();
+	test_comparison<celerix::root> ();
+	test_comparison<celerix::raw_key> ();
+	test_comparison<celerix::wallet_id> ();
+	test_comparison<celerix::qualified_root> ();
 }
 
 namespace
@@ -164,35 +164,35 @@ void test_hashing ()
 TEST (numbers, hashing)
 {
 	// Using std::hash
-	test_hashing<nano::uint128_union, std::hash> ();
-	test_hashing<nano::uint256_union, std::hash> ();
-	test_hashing<nano::uint512_union, std::hash> ();
-	test_hashing<nano::block_hash, std::hash> ();
-	test_hashing<nano::public_key, std::hash> ();
-	test_hashing<nano::hash_or_account, std::hash> ();
-	test_hashing<nano::link, std::hash> ();
-	test_hashing<nano::root, std::hash> ();
-	test_hashing<nano::raw_key, std::hash> ();
-	test_hashing<nano::wallet_id, std::hash> ();
-	test_hashing<nano::qualified_root, std::hash> ();
+	test_hashing<celerix::uint128_union, std::hash> ();
+	test_hashing<celerix::uint256_union, std::hash> ();
+	test_hashing<celerix::uint512_union, std::hash> ();
+	test_hashing<celerix::block_hash, std::hash> ();
+	test_hashing<celerix::public_key, std::hash> ();
+	test_hashing<celerix::hash_or_account, std::hash> ();
+	test_hashing<celerix::link, std::hash> ();
+	test_hashing<celerix::root, std::hash> ();
+	test_hashing<celerix::raw_key, std::hash> ();
+	test_hashing<celerix::wallet_id, std::hash> ();
+	test_hashing<celerix::qualified_root, std::hash> ();
 
 	// Using boost::hash
-	test_hashing<nano::uint128_union, boost::hash> ();
-	test_hashing<nano::uint256_union, boost::hash> ();
-	test_hashing<nano::uint512_union, boost::hash> ();
-	test_hashing<nano::block_hash, boost::hash> ();
-	test_hashing<nano::public_key, boost::hash> ();
-	test_hashing<nano::hash_or_account, boost::hash> ();
-	test_hashing<nano::link, boost::hash> ();
-	test_hashing<nano::root, boost::hash> ();
-	test_hashing<nano::raw_key, boost::hash> ();
-	test_hashing<nano::wallet_id, boost::hash> ();
-	test_hashing<nano::qualified_root, boost::hash> ();
+	test_hashing<celerix::uint128_union, boost::hash> ();
+	test_hashing<celerix::uint256_union, boost::hash> ();
+	test_hashing<celerix::uint512_union, boost::hash> ();
+	test_hashing<celerix::block_hash, boost::hash> ();
+	test_hashing<celerix::public_key, boost::hash> ();
+	test_hashing<celerix::hash_or_account, boost::hash> ();
+	test_hashing<celerix::link, boost::hash> ();
+	test_hashing<celerix::root, boost::hash> ();
+	test_hashing<celerix::raw_key, boost::hash> ();
+	test_hashing<celerix::wallet_id, boost::hash> ();
+	test_hashing<celerix::qualified_root, boost::hash> ();
 }
 
 TEST (uint128_union, decode_dec)
 {
-	nano::uint128_union value;
+	celerix::uint128_union value;
 	std::string text ("16");
 	ASSERT_FALSE (value.decode_dec (text));
 	ASSERT_EQ (16, value.bytes[15]);
@@ -200,7 +200,7 @@ TEST (uint128_union, decode_dec)
 
 TEST (uint128_union, decode_dec_negative)
 {
-	nano::uint128_union value;
+	celerix::uint128_union value;
 	std::string text ("-1");
 	auto error (value.decode_dec (text));
 	ASSERT_TRUE (error);
@@ -208,7 +208,7 @@ TEST (uint128_union, decode_dec_negative)
 
 TEST (uint128_union, decode_dec_zero)
 {
-	nano::uint128_union value;
+	celerix::uint128_union value;
 	std::string text ("0");
 	ASSERT_FALSE (value.decode_dec (text));
 	ASSERT_TRUE (value.is_zero ());
@@ -216,7 +216,7 @@ TEST (uint128_union, decode_dec_zero)
 
 TEST (uint128_union, decode_dec_leading_zero)
 {
-	nano::uint128_union value;
+	celerix::uint128_union value;
 	std::string text ("010");
 	auto error (value.decode_dec (text));
 	ASSERT_TRUE (error);
@@ -224,7 +224,7 @@ TEST (uint128_union, decode_dec_leading_zero)
 
 TEST (uint128_union, decode_dec_overflow)
 {
-	nano::uint128_union value;
+	celerix::uint128_union value;
 	std::string text ("340282366920938463463374607431768211456");
 	auto error (value.decode_dec (text));
 	ASSERT_TRUE (error);
@@ -256,81 +256,81 @@ struct test_punct : std::moneypunct<char>
 
 TEST (uint128_union, balance_format)
 {
-	ASSERT_EQ ("0", nano::amount (nano::uint128_t ("0")).format_balance (nano::nano_ratio, 0, false));
-	ASSERT_EQ ("0", nano::amount (nano::uint128_t ("0")).format_balance (nano::nano_ratio, 2, true));
-	ASSERT_EQ ("340,282,366", nano::amount (nano::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")).format_balance (nano::nano_ratio, 0, true));
-	ASSERT_EQ ("340,282,366.920938463463374607431768211455", nano::amount (nano::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")).format_balance (nano::nano_ratio, 64, true));
-	ASSERT_EQ ("340,282,366,920,938,463,463,374,607,431,768,211,455", nano::amount (nano::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")).format_balance (1, 4, true));
-	ASSERT_EQ ("340,282,366", nano::amount (nano::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (nano::nano_ratio, 0, true));
-	ASSERT_EQ ("340,282,366.920938463463374607431768211454", nano::amount (nano::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (nano::nano_ratio, 64, true));
-	ASSERT_EQ ("340282366920938463463374607431768211454", nano::amount (nano::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (1, 4, false));
-	ASSERT_EQ ("170,141,183", nano::amount (nano::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (nano::nano_ratio, 0, true));
-	ASSERT_EQ ("170,141,183.460469231731687303715884105726", nano::amount (nano::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (nano::nano_ratio, 64, true));
-	ASSERT_EQ ("170141183460469231731687303715884105726", nano::amount (nano::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (1, 4, false));
-	ASSERT_EQ ("1", nano::amount (nano::uint128_t ("1000000000000000000000000000000")).format_balance (nano::nano_ratio, 2, true));
-	ASSERT_EQ ("1.2", nano::amount (nano::uint128_t ("1200000000000000000000000000000")).format_balance (nano::nano_ratio, 2, true));
-	ASSERT_EQ ("1.23", nano::amount (nano::uint128_t ("1230000000000000000000000000000")).format_balance (nano::nano_ratio, 2, true));
-	ASSERT_EQ ("1.2", nano::amount (nano::uint128_t ("1230000000000000000000000000000")).format_balance (nano::nano_ratio, 1, true));
-	ASSERT_EQ ("1", nano::amount (nano::uint128_t ("1230000000000000000000000000000")).format_balance (nano::nano_ratio, 0, true));
-	ASSERT_EQ ("123456789", nano::amount (nano::nano_ratio * 123456789).format_balance (nano::nano_ratio, 2, false));
-	ASSERT_EQ ("123,456,789", nano::amount (nano::nano_ratio * 123456789).format_balance (nano::nano_ratio, 2, true));
+	ASSERT_EQ ("0", celerix::amount (celerix::uint128_t ("0")).format_balance (celerix::celerix_ratio, 0, false));
+	ASSERT_EQ ("0", celerix::amount (celerix::uint128_t ("0")).format_balance (celerix::celerix_ratio, 2, true));
+	ASSERT_EQ ("340,282,366", celerix::amount (celerix::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")).format_balance (celerix::celerix_ratio, 0, true));
+	ASSERT_EQ ("340,282,366.920938463463374607431768211455", celerix::amount (celerix::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")).format_balance (celerix::celerix_ratio, 64, true));
+	ASSERT_EQ ("340,282,366,920,938,463,463,374,607,431,768,211,455", celerix::amount (celerix::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")).format_balance (1, 4, true));
+	ASSERT_EQ ("340,282,366", celerix::amount (celerix::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (celerix::celerix_ratio, 0, true));
+	ASSERT_EQ ("340,282,366.920938463463374607431768211454", celerix::amount (celerix::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (celerix::celerix_ratio, 64, true));
+	ASSERT_EQ ("340282366920938463463374607431768211454", celerix::amount (celerix::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (1, 4, false));
+	ASSERT_EQ ("170,141,183", celerix::amount (celerix::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (celerix::celerix_ratio, 0, true));
+	ASSERT_EQ ("170,141,183.460469231731687303715884105726", celerix::amount (celerix::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (celerix::celerix_ratio, 64, true));
+	ASSERT_EQ ("170141183460469231731687303715884105726", celerix::amount (celerix::uint128_t ("0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")).format_balance (1, 4, false));
+	ASSERT_EQ ("1", celerix::amount (celerix::uint128_t ("1000000000000000000000000000000")).format_balance (celerix::celerix_ratio, 2, true));
+	ASSERT_EQ ("1.2", celerix::amount (celerix::uint128_t ("1200000000000000000000000000000")).format_balance (celerix::celerix_ratio, 2, true));
+	ASSERT_EQ ("1.23", celerix::amount (celerix::uint128_t ("1230000000000000000000000000000")).format_balance (celerix::celerix_ratio, 2, true));
+	ASSERT_EQ ("1.2", celerix::amount (celerix::uint128_t ("1230000000000000000000000000000")).format_balance (celerix::celerix_ratio, 1, true));
+	ASSERT_EQ ("1", celerix::amount (celerix::uint128_t ("1230000000000000000000000000000")).format_balance (celerix::celerix_ratio, 0, true));
+	ASSERT_EQ ("123456789", celerix::amount (celerix::celerix_ratio * 123456789).format_balance (celerix::celerix_ratio, 2, false));
+	ASSERT_EQ ("123,456,789", celerix::amount (celerix::celerix_ratio * 123456789).format_balance (celerix::celerix_ratio, 2, true));
 }
 
 TEST (uint128_union, decode_decimal)
 {
-	nano::amount amount;
-	ASSERT_FALSE (amount.decode_dec ("340282366920938463463374607431768211455", nano::raw_ratio));
-	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max (), amount.number ());
-	ASSERT_TRUE (amount.decode_dec ("340282366920938463463374607431768211456", nano::raw_ratio));
-	ASSERT_TRUE (amount.decode_dec ("340282366920938463463374607431768211455.1", nano::raw_ratio));
-	ASSERT_TRUE (amount.decode_dec ("0.1", nano::raw_ratio));
-	ASSERT_FALSE (amount.decode_dec ("1", nano::raw_ratio));
+	celerix::amount amount;
+	ASSERT_FALSE (amount.decode_dec ("340282366920938463463374607431768211455", celerix::raw_ratio));
+	ASSERT_EQ (std::numeric_limits<celerix::uint128_t>::max (), amount.number ());
+	ASSERT_TRUE (amount.decode_dec ("340282366920938463463374607431768211456", celerix::raw_ratio));
+	ASSERT_TRUE (amount.decode_dec ("340282366920938463463374607431768211455.1", celerix::raw_ratio));
+	ASSERT_TRUE (amount.decode_dec ("0.1", celerix::raw_ratio));
+	ASSERT_FALSE (amount.decode_dec ("1", celerix::raw_ratio));
 	ASSERT_EQ (1, amount.number ());
-	ASSERT_FALSE (amount.decode_dec ("340282366.920938463463374607431768211454", nano::nano_ratio));
-	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max () - 1, amount.number ());
-	ASSERT_TRUE (amount.decode_dec ("340282366.920938463463374607431768211456", nano::nano_ratio));
-	ASSERT_TRUE (amount.decode_dec ("340282367", nano::nano_ratio));
-	ASSERT_FALSE (amount.decode_dec ("0.000000000000000000000001", nano::nano_ratio));
+	ASSERT_FALSE (amount.decode_dec ("340282366.920938463463374607431768211454", celerix::celerix_ratio));
+	ASSERT_EQ (std::numeric_limits<celerix::uint128_t>::max () - 1, amount.number ());
+	ASSERT_TRUE (amount.decode_dec ("340282366.920938463463374607431768211456", celerix::celerix_ratio));
+	ASSERT_TRUE (amount.decode_dec ("340282367", celerix::celerix_ratio));
+	ASSERT_FALSE (amount.decode_dec ("0.000000000000000000000001", celerix::celerix_ratio));
 	ASSERT_EQ (1000000, amount.number ());
-	ASSERT_FALSE (amount.decode_dec ("0.000000000000000000000000000001", nano::nano_ratio));
+	ASSERT_FALSE (amount.decode_dec ("0.000000000000000000000000000001", celerix::celerix_ratio));
 	ASSERT_EQ (1, amount.number ());
-	ASSERT_TRUE (amount.decode_dec ("0.0000000000000000000000000000001", nano::nano_ratio));
-	ASSERT_TRUE (amount.decode_dec (".1", nano::nano_ratio));
-	ASSERT_TRUE (amount.decode_dec ("0.", nano::nano_ratio));
-	ASSERT_FALSE (amount.decode_dec ("9.999999999999999999999999999999", nano::nano_ratio));
-	ASSERT_EQ (nano::uint128_t ("9999999999999999999999999999999"), amount.number ());
-	ASSERT_FALSE (amount.decode_dec ("170141183.460469231731687303715884105727", nano::nano_ratio));
-	ASSERT_EQ (nano::uint128_t ("170141183460469231731687303715884105727"), amount.number ());
-	ASSERT_FALSE (amount.decode_dec ("1230", nano::Knano_ratio));
-	ASSERT_EQ (1230 * nano::Knano_ratio, amount.number ());
+	ASSERT_TRUE (amount.decode_dec ("0.0000000000000000000000000000001", celerix::celerix_ratio));
+	ASSERT_TRUE (amount.decode_dec (".1", celerix::celerix_ratio));
+	ASSERT_TRUE (amount.decode_dec ("0.", celerix::celerix_ratio));
+	ASSERT_FALSE (amount.decode_dec ("9.999999999999999999999999999999", celerix::celerix_ratio));
+	ASSERT_EQ (celerix::uint128_t ("9999999999999999999999999999999"), amount.number ());
+	ASSERT_FALSE (amount.decode_dec ("170141183.460469231731687303715884105727", celerix::celerix_ratio));
+	ASSERT_EQ (celerix::uint128_t ("170141183460469231731687303715884105727"), amount.number ());
+	ASSERT_FALSE (amount.decode_dec ("1230", celerix::Kcelerix_ratio));
+	ASSERT_EQ (1230 * celerix::Kcelerix_ratio, amount.number ());
 }
 
 TEST (uint256_union, key_encryption)
 {
-	nano::keypair key1;
-	nano::raw_key secret_key;
+	celerix::keypair key1;
+	celerix::raw_key secret_key;
 	secret_key.clear ();
-	nano::uint256_union encrypted;
+	celerix::uint256_union encrypted;
 	encrypted.encrypt (key1.prv, secret_key, key1.pub.owords[0]);
-	nano::raw_key key4;
+	celerix::raw_key key4;
 	key4.decrypt (encrypted, secret_key, key1.pub.owords[0]);
 	ASSERT_EQ (key1.prv, key4);
-	auto pub (nano::pub_key (key4));
+	auto pub (celerix::pub_key (key4));
 	ASSERT_EQ (key1.pub, pub);
 }
 
 TEST (uint256_union, encryption)
 {
-	nano::raw_key key;
+	celerix::raw_key key;
 	key.clear ();
-	nano::raw_key number1;
+	celerix::raw_key number1;
 	number1 = 1;
-	nano::uint256_union encrypted1;
+	celerix::uint256_union encrypted1;
 	encrypted1.encrypt (number1, key, key.owords[0]);
-	nano::uint256_union encrypted2;
+	celerix::uint256_union encrypted2;
 	encrypted2.encrypt (number1, key, key.owords[0]);
 	ASSERT_EQ (encrypted1, encrypted2);
-	nano::raw_key number2;
+	celerix::raw_key number2;
 	number2.decrypt (encrypted1, key, key.owords[0]);
 	ASSERT_EQ (number1, number2);
 }
@@ -338,16 +338,16 @@ TEST (uint256_union, encryption)
 TEST (uint256_union, decode_empty)
 {
 	std::string text;
-	nano::uint256_union val;
+	celerix::uint256_union val;
 	ASSERT_TRUE (val.decode_hex (text));
 }
 
 TEST (uint256_union, parse_zero)
 {
-	nano::uint256_union input (nano::uint256_t (0));
+	celerix::uint256_union input (celerix::uint256_t (0));
 	std::string text;
 	input.encode_hex (text);
-	nano::uint256_union output;
+	celerix::uint256_union output;
 	auto error (output.decode_hex (text));
 	ASSERT_FALSE (error);
 	ASSERT_EQ (input, output);
@@ -357,7 +357,7 @@ TEST (uint256_union, parse_zero)
 TEST (uint256_union, parse_zero_short)
 {
 	std::string text ("0");
-	nano::uint256_union output;
+	celerix::uint256_union output;
 	auto error (output.decode_hex (text));
 	ASSERT_FALSE (error);
 	ASSERT_TRUE (output.number ().is_zero ());
@@ -365,10 +365,10 @@ TEST (uint256_union, parse_zero_short)
 
 TEST (uint256_union, parse_one)
 {
-	nano::uint256_union input (nano::uint256_t (1));
+	celerix::uint256_union input (celerix::uint256_t (1));
 	std::string text;
 	input.encode_hex (text);
-	nano::uint256_union output;
+	celerix::uint256_union output;
 	auto error (output.decode_hex (text));
 	ASSERT_FALSE (error);
 	ASSERT_EQ (input, output);
@@ -377,30 +377,30 @@ TEST (uint256_union, parse_one)
 
 TEST (uint256_union, parse_error_symbol)
 {
-	nano::uint256_union input (nano::uint256_t (1000));
+	celerix::uint256_union input (celerix::uint256_t (1000));
 	std::string text;
 	input.encode_hex (text);
 	text[5] = '!';
-	nano::uint256_union output;
+	celerix::uint256_union output;
 	auto error (output.decode_hex (text));
 	ASSERT_TRUE (error);
 }
 
 TEST (uint256_union, max_hex)
 {
-	nano::uint256_union input (std::numeric_limits<nano::uint256_t>::max ());
+	celerix::uint256_union input (std::numeric_limits<celerix::uint256_t>::max ());
 	std::string text;
 	input.encode_hex (text);
-	nano::uint256_union output;
+	celerix::uint256_union output;
 	auto error (output.decode_hex (text));
 	ASSERT_FALSE (error);
 	ASSERT_EQ (input, output);
-	ASSERT_EQ (nano::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
+	ASSERT_EQ (celerix::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
 }
 
 TEST (uint256_union, decode_dec)
 {
-	nano::uint256_union value;
+	celerix::uint256_union value;
 	std::string text ("16");
 	ASSERT_FALSE (value.decode_dec (text));
 	ASSERT_EQ (16, value.bytes[31]);
@@ -408,19 +408,19 @@ TEST (uint256_union, decode_dec)
 
 TEST (uint256_union, max_dec)
 {
-	nano::uint256_union input (std::numeric_limits<nano::uint256_t>::max ());
+	celerix::uint256_union input (std::numeric_limits<celerix::uint256_t>::max ());
 	std::string text;
 	input.encode_dec (text);
-	nano::uint256_union output;
+	celerix::uint256_union output;
 	auto error (output.decode_dec (text));
 	ASSERT_FALSE (error);
 	ASSERT_EQ (input, output);
-	ASSERT_EQ (nano::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
+	ASSERT_EQ (celerix::uint256_t ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), output.number ());
 }
 
 TEST (uint256_union, decode_dec_negative)
 {
-	nano::uint256_union value;
+	celerix::uint256_union value;
 	std::string text ("-1");
 	auto error (value.decode_dec (text));
 	ASSERT_TRUE (error);
@@ -428,7 +428,7 @@ TEST (uint256_union, decode_dec_negative)
 
 TEST (uint256_union, decode_dec_zero)
 {
-	nano::uint256_union value;
+	celerix::uint256_union value;
 	std::string text ("0");
 	ASSERT_FALSE (value.decode_dec (text));
 	ASSERT_TRUE (value.is_zero ());
@@ -436,7 +436,7 @@ TEST (uint256_union, decode_dec_zero)
 
 TEST (uint256_union, decode_dec_leading_zero)
 {
-	nano::uint256_union value;
+	celerix::uint256_union value;
 	std::string text ("010");
 	auto error (value.decode_dec (text));
 	ASSERT_TRUE (error);
@@ -444,28 +444,28 @@ TEST (uint256_union, decode_dec_leading_zero)
 
 TEST (uint256_union, parse_error_overflow)
 {
-	nano::uint256_union input (std::numeric_limits<nano::uint256_t>::max ());
+	celerix::uint256_union input (std::numeric_limits<celerix::uint256_t>::max ());
 	std::string text;
 	input.encode_hex (text);
 	text.push_back (0);
-	nano::uint256_union output;
+	celerix::uint256_union output;
 	auto error (output.decode_hex (text));
 	ASSERT_TRUE (error);
 }
 
 TEST (uint256_union, big_endian_union_constructor)
 {
-	nano::uint256_t value1 (1);
-	nano::uint256_union bytes1 (value1);
+	celerix::uint256_t value1 (1);
+	celerix::uint256_union bytes1 (value1);
 	ASSERT_EQ (1, bytes1.bytes[31]);
-	nano::uint512_t value2 (1);
-	nano::uint512_union bytes2 (value2);
+	celerix::uint512_t value2 (1);
+	celerix::uint512_union bytes2 (value2);
 	ASSERT_EQ (1, bytes2.bytes[63]);
 }
 
 TEST (uint256_union, big_endian_union_function)
 {
-	nano::uint256_union bytes1 ("FEDCBA9876543210FEDCBA9876543210FEDCBA9876543210FEDCBA9876543210");
+	celerix::uint256_union bytes1 ("FEDCBA9876543210FEDCBA9876543210FEDCBA9876543210FEDCBA9876543210");
 	ASSERT_EQ (0xfe, bytes1.bytes[0x00]);
 	ASSERT_EQ (0xdc, bytes1.bytes[0x01]);
 	ASSERT_EQ (0xba, bytes1.bytes[0x02]);
@@ -499,18 +499,18 @@ TEST (uint256_union, big_endian_union_function)
 	ASSERT_EQ (0x32, bytes1.bytes[0x1e]);
 	ASSERT_EQ (0x10, bytes1.bytes[0x1f]);
 	ASSERT_EQ ("FEDCBA9876543210FEDCBA9876543210FEDCBA9876543210FEDCBA9876543210", bytes1.to_string ());
-	ASSERT_EQ (nano::uint256_t ("0xFEDCBA9876543210FEDCBA9876543210FEDCBA9876543210FEDCBA9876543210"), bytes1.number ());
-	nano::uint512_union bytes2;
+	ASSERT_EQ (celerix::uint256_t ("0xFEDCBA9876543210FEDCBA9876543210FEDCBA9876543210FEDCBA9876543210"), bytes1.number ());
+	celerix::uint512_union bytes2;
 	bytes2.clear ();
 	bytes2.bytes[63] = 1;
-	ASSERT_EQ (nano::uint512_t (1), bytes2.number ());
+	ASSERT_EQ (celerix::uint512_t (1), bytes2.number ());
 }
 
-TEST (uint256_union, decode_nano_variant)
+TEST (uint256_union, decode_celerix_variant)
 {
-	nano::account key;
+	celerix::account key;
 	ASSERT_FALSE (key.decode_account ("xrb_1111111111111111111111111111111111111111111111111111hifc8npp"));
-	ASSERT_FALSE (key.decode_account ("nano_1111111111111111111111111111111111111111111111111111hifc8npp"));
+	ASSERT_FALSE (key.decode_account ("celerix_1111111111111111111111111111111111111111111111111111hifc8npp"));
 }
 
 /**
@@ -520,41 +520,41 @@ TEST (uint256_union, decode_nano_variant)
  */
 TEST (uint256_union, key_is_not_updated_on_checksum_error)
 {
-	nano::account key;
+	celerix::account key;
 	ASSERT_EQ (key, 0);
-	bool result = key.decode_account ("nano_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtd1");
+	bool result = key.decode_account ("celerix_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtd1");
 	ASSERT_EQ (key, 0);
 	ASSERT_TRUE (result);
 }
 
 TEST (uint256_union, account_transcode)
 {
-	nano::account value;
-	auto text (nano::dev::genesis_key.pub.to_account ());
+	celerix::account value;
+	auto text (celerix::dev::genesis_key.pub.to_account ());
 	ASSERT_FALSE (value.decode_account (text));
-	ASSERT_EQ (nano::dev::genesis_key.pub, value);
+	ASSERT_EQ (celerix::dev::genesis_key.pub, value);
 
 	/*
 	 * Handle different offsets for the underscore separator
-	 * for "xrb_" prefixed and "nano_" prefixed accounts
+	 * for "xrb_" prefixed and "celerix_" prefixed accounts
 	 */
 	unsigned offset = (text.front () == 'x') ? 3 : 4;
 	ASSERT_EQ ('_', text[offset]);
 	text[offset] = '-';
-	nano::account value2;
+	celerix::account value2;
 	ASSERT_FALSE (value2.decode_account (text));
 	ASSERT_EQ (value, value2);
 }
 
 TEST (uint256_union, account_encode_lex)
 {
-	nano::account min ("0000000000000000000000000000000000000000000000000000000000000000");
-	nano::account max ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+	celerix::account min ("0000000000000000000000000000000000000000000000000000000000000000");
+	celerix::account max ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 	auto min_text (min.to_account ());
 	auto max_text (max.to_account ());
 
 	/*
-	 * Handle different lengths for "xrb_" prefixed and "nano_" prefixed accounts
+	 * Handle different lengths for "xrb_" prefixed and "celerix_" prefixed accounts
 	 */
 	unsigned length = (min_text.front () == 'x') ? 64 : 65;
 	ASSERT_EQ (length, min_text.size ());
@@ -563,9 +563,9 @@ TEST (uint256_union, account_encode_lex)
 	auto previous (min_text);
 	for (auto i (1); i != 1000; ++i)
 	{
-		nano::account number (min.number () + i);
+		celerix::account number (min.number () + i);
 		auto text (number.to_account ());
-		nano::account output;
+		celerix::account output;
 		output.decode_account (text);
 		ASSERT_EQ (number, output);
 		ASSERT_GT (text, previous);
@@ -573,9 +573,9 @@ TEST (uint256_union, account_encode_lex)
 	}
 	for (auto i (1); i != 1000; ++i)
 	{
-		nano::keypair key;
+		celerix::keypair key;
 		auto text (key.pub.to_account ());
-		nano::account output;
+		celerix::account output;
 		output.decode_account (text);
 		ASSERT_EQ (key.pub, output);
 	}
@@ -583,7 +583,7 @@ TEST (uint256_union, account_encode_lex)
 
 TEST (uint256_union, bounds)
 {
-	nano::account key;
+	celerix::account key;
 	std::string bad1 (64, '\x000');
 	bad1[0] = 'x';
 	bad1[1] = 'r';
@@ -601,27 +601,27 @@ TEST (uint256_union, bounds)
 TEST (uint64_t, parse)
 {
 	uint64_t value0 (1);
-	ASSERT_FALSE (nano::from_string_hex ("0", value0));
+	ASSERT_FALSE (celerix::from_string_hex ("0", value0));
 	ASSERT_EQ (0, value0);
 	uint64_t value1 (1);
-	ASSERT_FALSE (nano::from_string_hex ("ffffffffffffffff", value1));
+	ASSERT_FALSE (celerix::from_string_hex ("ffffffffffffffff", value1));
 	ASSERT_EQ (0xffffffffffffffffULL, value1);
 	uint64_t value2 (1);
-	ASSERT_TRUE (nano::from_string_hex ("g", value2));
+	ASSERT_TRUE (celerix::from_string_hex ("g", value2));
 	uint64_t value3 (1);
-	ASSERT_TRUE (nano::from_string_hex ("ffffffffffffffff0", value3));
+	ASSERT_TRUE (celerix::from_string_hex ("ffffffffffffffff0", value3));
 	uint64_t value4 (1);
-	ASSERT_TRUE (nano::from_string_hex ("", value4));
+	ASSERT_TRUE (celerix::from_string_hex ("", value4));
 }
 
 TEST (uint256_union, hash)
 {
-	ASSERT_EQ (4, nano::uint256_union{}.qwords.size ());
-	std::hash<nano::uint256_union> h{};
-	for (size_t i (0), n (nano::uint256_union{}.bytes.size ()); i < n; ++i)
+	ASSERT_EQ (4, celerix::uint256_union{}.qwords.size ());
+	std::hash<celerix::uint256_union> h{};
+	for (size_t i (0), n (celerix::uint256_union{}.bytes.size ()); i < n; ++i)
 	{
-		nano::uint256_union x1{ 0 };
-		nano::uint256_union x2{ 0 };
+		celerix::uint256_union x1{ 0 };
+		celerix::uint256_union x2{ 0 };
 		x2.bytes[i] = 1;
 		ASSERT_NE (h (x1), h (x2));
 	}
@@ -629,21 +629,21 @@ TEST (uint256_union, hash)
 
 TEST (uint512_union, hash)
 {
-	ASSERT_EQ (2, nano::uint512_union{}.uint256s.size ());
-	std::hash<nano::uint512_union> h{};
-	for (size_t i (0), n (nano::uint512_union{}.bytes.size ()); i < n; ++i)
+	ASSERT_EQ (2, celerix::uint512_union{}.uint256s.size ());
+	std::hash<celerix::uint512_union> h{};
+	for (size_t i (0), n (celerix::uint512_union{}.bytes.size ()); i < n; ++i)
 	{
-		nano::uint512_union x1{ 0 };
-		nano::uint512_union x2{ 0 };
+		celerix::uint512_union x1{ 0 };
+		celerix::uint512_union x2{ 0 };
 		x2.bytes[i] = 1;
 		ASSERT_NE (h (x1), h (x2));
 	}
-	for (auto part (0); part < nano::uint512_union{}.uint256s.size (); ++part)
+	for (auto part (0); part < celerix::uint512_union{}.uint256s.size (); ++part)
 	{
-		for (size_t i (0), n (nano::uint512_union{}.uint256s[part].bytes.size ()); i < n; ++i)
+		for (size_t i (0), n (celerix::uint512_union{}.uint256s[part].bytes.size ()); i < n; ++i)
 		{
-			nano::uint512_union x1{ 0 };
-			nano::uint512_union x2{ 0 };
+			celerix::uint512_union x1{ 0 };
+			celerix::uint512_union x2{ 0 };
 			x2.uint256s[part].bytes[i] = 1;
 			ASSERT_NE (h (x1), h (x2));
 		}
@@ -654,45 +654,45 @@ TEST (sat_math, add_sat)
 {
 	// Test uint128_t
 	{
-		nano::uint128_t max = std::numeric_limits<nano::uint128_t>::max ();
-		nano::uint128_t one = 1;
-		nano::uint128_t large_val = max - 100;
+		celerix::uint128_t max = std::numeric_limits<celerix::uint128_t>::max ();
+		celerix::uint128_t one = 1;
+		celerix::uint128_t large_val = max - 100;
 
 		// Normal addition
-		ASSERT_EQ (nano::add_sat (one, one), nano::uint128_t (2));
+		ASSERT_EQ (celerix::add_sat (one, one), celerix::uint128_t (2));
 
 		// Saturation at max
-		ASSERT_EQ (nano::add_sat (max, one), max);
-		ASSERT_EQ (nano::add_sat (large_val, nano::uint128_t (200)), max);
-		ASSERT_EQ (nano::add_sat (max, max), max);
+		ASSERT_EQ (celerix::add_sat (max, one), max);
+		ASSERT_EQ (celerix::add_sat (large_val, celerix::uint128_t (200)), max);
+		ASSERT_EQ (celerix::add_sat (max, max), max);
 	}
 	// Test uint256_t
 	{
-		nano::uint256_t max = std::numeric_limits<nano::uint256_t>::max ();
-		nano::uint256_t one = 1;
-		nano::uint256_t large_val = max - 100;
+		celerix::uint256_t max = std::numeric_limits<celerix::uint256_t>::max ();
+		celerix::uint256_t one = 1;
+		celerix::uint256_t large_val = max - 100;
 
 		// Normal addition
-		ASSERT_EQ (nano::add_sat (one, one), nano::uint256_t (2));
+		ASSERT_EQ (celerix::add_sat (one, one), celerix::uint256_t (2));
 
 		// Saturation at max
-		ASSERT_EQ (nano::add_sat (max, one), max);
-		ASSERT_EQ (nano::add_sat (large_val, nano::uint256_t (200)), max);
-		ASSERT_EQ (nano::add_sat (max, max), max);
+		ASSERT_EQ (celerix::add_sat (max, one), max);
+		ASSERT_EQ (celerix::add_sat (large_val, celerix::uint256_t (200)), max);
+		ASSERT_EQ (celerix::add_sat (max, max), max);
 	}
 	// Test uint512_t
 	{
-		nano::uint512_t max = std::numeric_limits<nano::uint512_t>::max ();
-		nano::uint512_t one = 1;
-		nano::uint512_t large_val = max - 100;
+		celerix::uint512_t max = std::numeric_limits<celerix::uint512_t>::max ();
+		celerix::uint512_t one = 1;
+		celerix::uint512_t large_val = max - 100;
 
 		// Normal addition
-		ASSERT_EQ (nano::add_sat (one, one), nano::uint512_t (2));
+		ASSERT_EQ (celerix::add_sat (one, one), celerix::uint512_t (2));
 
 		// Saturation at max
-		ASSERT_EQ (nano::add_sat (max, one), max);
-		ASSERT_EQ (nano::add_sat (large_val, nano::uint512_t (200)), max);
-		ASSERT_EQ (nano::add_sat (max, max), max);
+		ASSERT_EQ (celerix::add_sat (max, one), max);
+		ASSERT_EQ (celerix::add_sat (large_val, celerix::uint512_t (200)), max);
+		ASSERT_EQ (celerix::add_sat (max, max), max);
 	}
 }
 
@@ -700,47 +700,47 @@ TEST (sat_math, sub_sat)
 {
 	// Test uint128_t
 	{
-		nano::uint128_t max = std::numeric_limits<nano::uint128_t>::max ();
-		nano::uint128_t min = std::numeric_limits<nano::uint128_t>::min ();
-		nano::uint128_t one = 1;
-		nano::uint128_t hundred (100);
+		celerix::uint128_t max = std::numeric_limits<celerix::uint128_t>::max ();
+		celerix::uint128_t min = std::numeric_limits<celerix::uint128_t>::min ();
+		celerix::uint128_t one = 1;
+		celerix::uint128_t hundred (100);
 
 		// Normal subtraction
-		ASSERT_EQ (nano::sub_sat (hundred, one), nano::uint128_t (99));
+		ASSERT_EQ (celerix::sub_sat (hundred, one), celerix::uint128_t (99));
 
 		// Saturation at min
-		ASSERT_EQ (nano::sub_sat (min, one), min);
-		ASSERT_EQ (nano::sub_sat (hundred, nano::uint128_t (200)), min);
-		ASSERT_EQ (nano::sub_sat (min, max), min);
+		ASSERT_EQ (celerix::sub_sat (min, one), min);
+		ASSERT_EQ (celerix::sub_sat (hundred, celerix::uint128_t (200)), min);
+		ASSERT_EQ (celerix::sub_sat (min, max), min);
 	}
 	// Test uint256_t
 	{
-		nano::uint256_t max = std::numeric_limits<nano::uint256_t>::max ();
-		nano::uint256_t min = std::numeric_limits<nano::uint256_t>::min ();
-		nano::uint256_t one = 1;
-		nano::uint256_t hundred (100);
+		celerix::uint256_t max = std::numeric_limits<celerix::uint256_t>::max ();
+		celerix::uint256_t min = std::numeric_limits<celerix::uint256_t>::min ();
+		celerix::uint256_t one = 1;
+		celerix::uint256_t hundred (100);
 
 		// Normal subtraction
-		ASSERT_EQ (nano::sub_sat (hundred, one), nano::uint256_t (99));
+		ASSERT_EQ (celerix::sub_sat (hundred, one), celerix::uint256_t (99));
 
 		// Saturation at min
-		ASSERT_EQ (nano::sub_sat (min, one), min);
-		ASSERT_EQ (nano::sub_sat (hundred, nano::uint256_t (200)), min);
-		ASSERT_EQ (nano::sub_sat (min, max), min);
+		ASSERT_EQ (celerix::sub_sat (min, one), min);
+		ASSERT_EQ (celerix::sub_sat (hundred, celerix::uint256_t (200)), min);
+		ASSERT_EQ (celerix::sub_sat (min, max), min);
 	}
 	// Test uint512_t
 	{
-		nano::uint512_t max = std::numeric_limits<nano::uint512_t>::max ();
-		nano::uint512_t min = std::numeric_limits<nano::uint512_t>::min ();
-		nano::uint512_t one = 1;
-		nano::uint512_t hundred (100);
+		celerix::uint512_t max = std::numeric_limits<celerix::uint512_t>::max ();
+		celerix::uint512_t min = std::numeric_limits<celerix::uint512_t>::min ();
+		celerix::uint512_t one = 1;
+		celerix::uint512_t hundred (100);
 
 		// Normal subtraction
-		ASSERT_EQ (nano::sub_sat (hundred, one), nano::uint512_t (99));
+		ASSERT_EQ (celerix::sub_sat (hundred, one), celerix::uint512_t (99));
 
 		// Saturation at min
-		ASSERT_EQ (nano::sub_sat (min, one), min);
-		ASSERT_EQ (nano::sub_sat (hundred, nano::uint512_t (200)), min);
-		ASSERT_EQ (nano::sub_sat (min, max), min);
+		ASSERT_EQ (celerix::sub_sat (min, one), min);
+		ASSERT_EQ (celerix::sub_sat (hundred, celerix::uint512_t (200)), min);
+		ASSERT_EQ (celerix::sub_sat (min, max), min);
 	}
 }

@@ -1,16 +1,16 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/threading.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/node/block_processor.hpp>
-#include <nano/node/confirming_set.hpp>
-#include <nano/node/local_block_broadcaster.hpp>
-#include <nano/node/network.hpp>
-#include <nano/node/node.hpp>
-#include <nano/secure/ledger.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/threading.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/node/block_processor.hpp>
+#include <celerix/node/confirming_set.hpp>
+#include <celerix/node/local_block_broadcaster.hpp>
+#include <celerix/node/network.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/secure/ledger.hpp>
 
 #include <boost/range/iterator_range.hpp>
 
-nano::local_block_broadcaster::local_block_broadcaster (local_block_broadcaster_config const & config_a, nano::node & node_a, nano::block_processor & block_processor_a, nano::network & network_a, nano::confirming_set & confirming_set_a, nano::stats & stats_a, nano::logger & logger_a, bool enabled_a) :
+celerix::local_block_broadcaster::local_block_broadcaster (local_block_broadcaster_config const & config_a, celerix::node & node_a, celerix::block_processor & block_processor_a, celerix::network & network_a, celerix::confirming_set & confirming_set_a, celerix::stats & stats_a, celerix::logger & logger_a, bool enabled_a) :
 	config{ config_a },
 	node{ node_a },
 	block_processor{ block_processor_a },
@@ -31,19 +31,19 @@ nano::local_block_broadcaster::local_block_broadcaster (local_block_broadcaster_
 		for (auto const & [result, context] : batch)
 		{
 			// Only rebroadcast local blocks that were successfully processed (no forks or gaps)
-			if (result == nano::block_status::progress && context.source == nano::block_source::local)
+			if (result == celerix::block_status::progress && context.source == celerix::block_source::local)
 			{
 				release_assert (context.block != nullptr);
 
-				nano::lock_guard<nano::mutex> guard{ mutex };
+				celerix::lock_guard<celerix::mutex> guard{ mutex };
 
 				local_blocks.emplace_back (local_entry{ context.block, std::chrono::steady_clock::now () });
-				stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::insert);
+				stats.inc (celerix::stat::type::local_block_broadcaster, celerix::stat::detail::insert);
 
 				// Erase oldest blocks if the queue gets too big
 				while (local_blocks.size () > config.max_size)
 				{
-					stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::erase_oldest);
+					stats.inc (celerix::stat::type::local_block_broadcaster, celerix::stat::detail::erase_oldest);
 					local_blocks.pop_front ();
 				}
 
@@ -57,28 +57,28 @@ nano::local_block_broadcaster::local_block_broadcaster (local_block_broadcaster_
 	});
 
 	block_processor.rolled_back.add ([this] (auto const & blocks, auto const & rollback_root) {
-		nano::lock_guard<nano::mutex> guard{ mutex };
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
 		for (auto const & block : blocks)
 		{
 			auto erased = local_blocks.get<tag_hash> ().erase (block->hash ());
-			stats.add (nano::stat::type::local_block_broadcaster, nano::stat::detail::rollback, erased);
+			stats.add (celerix::stat::type::local_block_broadcaster, celerix::stat::detail::rollback, erased);
 		}
 	});
 
 	confirming_set.cemented_observers.add ([this] (auto const & block) {
-		nano::lock_guard<nano::mutex> guard{ mutex };
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
 		auto erased = local_blocks.get<tag_hash> ().erase (block->hash ());
-		stats.add (nano::stat::type::local_block_broadcaster, nano::stat::detail::cemented, erased);
+		stats.add (celerix::stat::type::local_block_broadcaster, celerix::stat::detail::cemented, erased);
 	});
 }
 
-nano::local_block_broadcaster::~local_block_broadcaster ()
+celerix::local_block_broadcaster::~local_block_broadcaster ()
 {
 	// Thread must be stopped before destruction
 	debug_assert (!thread.joinable ());
 }
 
-void nano::local_block_broadcaster::start ()
+void celerix::local_block_broadcaster::start ()
 {
 	if (!enabled)
 	{
@@ -88,36 +88,36 @@ void nano::local_block_broadcaster::start ()
 	debug_assert (!thread.joinable ());
 
 	thread = std::thread{ [this] () {
-		nano::thread_role::set (nano::thread_role::name::local_block_broadcasting);
+		celerix::thread_role::set (celerix::thread_role::name::local_block_broadcasting);
 		run ();
 	} };
 }
 
-void nano::local_block_broadcaster::stop ()
+void celerix::local_block_broadcaster::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		stopped = true;
 	}
 	condition.notify_all ();
-	nano::join_or_pass (thread);
+	celerix::join_or_pass (thread);
 }
 
-bool nano::local_block_broadcaster::contains (nano::block_hash const & hash) const
+bool celerix::local_block_broadcaster::contains (celerix::block_hash const & hash) const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return local_blocks.get<tag_hash> ().contains (hash);
 }
 
-size_t nano::local_block_broadcaster::size () const
+size_t celerix::local_block_broadcaster::size () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return local_blocks.size ();
 }
 
-void nano::local_block_broadcaster::run ()
+void celerix::local_block_broadcaster::run ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		condition.wait_for (lock, 1s);
@@ -125,7 +125,7 @@ void nano::local_block_broadcaster::run ()
 
 		if (!stopped && !local_blocks.empty ())
 		{
-			stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::loop);
+			stats.inc (celerix::stat::type::local_block_broadcaster, celerix::stat::detail::loop);
 
 			if (cleanup_interval.elapsed (config.cleanup_interval))
 			{
@@ -140,12 +140,12 @@ void nano::local_block_broadcaster::run ()
 	}
 }
 
-std::chrono::milliseconds nano::local_block_broadcaster::rebroadcast_interval (unsigned rebroadcasts) const
+std::chrono::milliseconds celerix::local_block_broadcaster::rebroadcast_interval (unsigned rebroadcasts) const
 {
 	return std::min (config.rebroadcast_interval * rebroadcasts, config.max_rebroadcast_interval);
 }
 
-void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mutex> & lock)
+void celerix::local_block_broadcaster::run_broadcasts (celerix::unique_lock<celerix::mutex> & lock)
 {
 	debug_assert (lock.owns_lock ());
 	debug_assert (!mutex.try_lock ());
@@ -190,16 +190,16 @@ void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mute
 			}
 		}
 
-		logger.debug (nano::log::type::local_block_broadcaster, "Broadcasting block: {} (rebroadcasts so far: {})",
+		logger.debug (celerix::log::type::local_block_broadcaster, "Broadcasting block: {} (rebroadcasts so far: {})",
 		entry.block->hash ().to_string (),
 		entry.rebroadcasts);
 
-		stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::broadcast, nano::stat::dir::out);
+		stats.inc (celerix::stat::type::local_block_broadcaster, celerix::stat::detail::broadcast, celerix::stat::dir::out);
 		network.flood_block_initial (entry.block);
 	}
 }
 
-void nano::local_block_broadcaster::cleanup (nano::unique_lock<nano::mutex> & lock)
+void celerix::local_block_broadcaster::cleanup (celerix::unique_lock<celerix::mutex> & lock)
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -208,7 +208,7 @@ void nano::local_block_broadcaster::cleanup (nano::unique_lock<nano::mutex> & lo
 
 	lock.unlock ();
 
-	std::set<nano::block_hash> already_confirmed;
+	std::set<celerix::block_hash> already_confirmed;
 	{
 		auto transaction = node.ledger.tx_begin_read ();
 		for (auto const & entry : local_blocks_copy)
@@ -220,7 +220,7 @@ void nano::local_block_broadcaster::cleanup (nano::unique_lock<nano::mutex> & lo
 			}
 			if (node.block_confirmed_or_being_confirmed (transaction, entry.block->hash ()))
 			{
-				stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::already_confirmed);
+				stats.inc (celerix::stat::type::local_block_broadcaster, celerix::stat::detail::already_confirmed);
 				already_confirmed.insert (entry.block->hash ());
 			}
 		}
@@ -234,11 +234,11 @@ void nano::local_block_broadcaster::cleanup (nano::unique_lock<nano::mutex> & lo
 	});
 }
 
-nano::container_info nano::local_block_broadcaster::container_info () const
+celerix::container_info celerix::local_block_broadcaster::container_info () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("local", local_blocks);
 	return info;
 }

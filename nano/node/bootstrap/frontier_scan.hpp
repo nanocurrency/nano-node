@@ -1,7 +1,7 @@
 #pragma once
 
-#include <nano/node/bootstrap/bootstrap_config.hpp>
-#include <nano/node/bootstrap/common.hpp>
+#include <celerix/node/bootstrap/bootstrap_config.hpp>
+#include <celerix/node/bootstrap/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
@@ -17,7 +17,7 @@
 
 namespace mi = boost::multi_index;
 
-namespace nano::bootstrap
+namespace celerix::bootstrap
 {
 /*
  * Frontier scan divides the account space into ranges and scans each range for outdated frontiers in parallel.
@@ -26,22 +26,22 @@ namespace nano::bootstrap
 class frontier_scan
 {
 public:
-	frontier_scan (frontier_scan_config const &, nano::stats &);
+	frontier_scan (frontier_scan_config const &, celerix::stats &);
 
-	nano::account next ();
-	bool process (nano::account start, std::deque<std::pair<nano::account, nano::block_hash>> const & response);
+	celerix::account next ();
+	bool process (celerix::account start, std::deque<std::pair<celerix::account, celerix::block_hash>> const & response);
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 
 private: // Dependencies
 	frontier_scan_config const & config;
-	nano::stats & stats;
+	celerix::stats & stats;
 
 private:
 	// Represents a range of accounts to scan, once the full range is scanned (goes past `end`) the head wraps around (to the `start`)
 	struct frontier_head
 	{
-		frontier_head (nano::account start_a, nano::account end_a) :
+		frontier_head (celerix::account start_a, celerix::account end_a) :
 			start{ start_a },
 			end{ end_a },
 			next{ start_a }
@@ -49,19 +49,19 @@ private:
 		}
 
 		// The range of accounts to scan is [start, end)
-		nano::account const start;
-		nano::account const end;
+		celerix::account const start;
+		celerix::account const end;
 
 		// We scan the range by querying frontiers starting at 'next' and gathering candidates
-		nano::account next;
-		std::set<nano::account> candidates;
+		celerix::account next;
+		std::set<celerix::account> candidates;
 
 		unsigned requests{ 0 };
 		unsigned completed{ 0 };
 		std::chrono::steady_clock::time_point timestamp{};
 		size_t processed{ 0 }; // Total number of accounts processed
 
-		nano::account index () const
+		celerix::account index () const
 		{
 			return start;
 		}
@@ -76,7 +76,7 @@ private:
 	mi::indexed_by<
 		mi::random_access<mi::tag<tag_sequenced>>,
 		mi::ordered_unique<mi::tag<tag_start>,
-			mi::const_mem_fun<frontier_head, nano::account, &frontier_head::index>>,
+			mi::const_mem_fun<frontier_head, celerix::account, &frontier_head::index>>,
 		mi::ordered_non_unique<mi::tag<tag_timestamp>,
 			mi::member<frontier_head, std::chrono::steady_clock::time_point, &frontier_head::timestamp>>
 	>>;

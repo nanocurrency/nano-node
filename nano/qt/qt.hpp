@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/node/node.hpp>
+#include <celerix/node/node.hpp>
 
 #include <boost/thread.hpp>
 
@@ -8,7 +8,7 @@
 #include <QtWidgets>
 #include <set>
 
-namespace nano_qt
+namespace celerix_qt
 {
 static const QString saved_ratio_key = "settings/ratio";
 class wallet;
@@ -26,7 +26,7 @@ public:
 class settings
 {
 public:
-	settings (nano_qt::wallet &);
+	settings (celerix_qt::wallet &);
 	void refresh_representative ();
 	void activate ();
 	void update_locked (bool, bool);
@@ -44,12 +44,12 @@ public:
 	QLineEdit * new_representative;
 	QPushButton * change_rep;
 	QPushButton * back;
-	nano_qt::wallet & wallet;
+	celerix_qt::wallet & wallet;
 };
 class advanced_actions
 {
 public:
-	advanced_actions (nano_qt::wallet &);
+	advanced_actions (celerix_qt::wallet &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QPushButton * show_ledger;
@@ -66,7 +66,7 @@ public:
 	QHBoxLayout * scale_layout;
 	QLabel * scale_label;
 	QButtonGroup * ratio_group;
-	QRadioButton * nano_unit;
+	QRadioButton * celerix_unit;
 	QRadioButton * raw_unit;
 	QPushButton * back;
 
@@ -88,7 +88,7 @@ public:
 	QPushButton * peers_refresh;
 	QPushButton * peers_back;
 
-	nano_qt::wallet & wallet;
+	celerix_qt::wallet & wallet;
 
 private:
 	void refresh_ledger ();
@@ -98,19 +98,19 @@ private:
 class block_entry
 {
 public:
-	block_entry (nano_qt::wallet &);
+	block_entry (celerix_qt::wallet &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QPlainTextEdit * block;
 	QLabel * status;
 	QPushButton * process;
 	QPushButton * back;
-	nano_qt::wallet & wallet;
+	celerix_qt::wallet & wallet;
 };
 class block_creation
 {
 public:
-	block_creation (nano_qt::wallet &);
+	block_creation (celerix_qt::wallet &);
 	void deactivate_all ();
 	void activate_send ();
 	void activate_receive ();
@@ -142,13 +142,13 @@ public:
 	QLabel * status;
 	QPushButton * create;
 	QPushButton * back;
-	nano_qt::wallet & wallet;
+	celerix_qt::wallet & wallet;
 };
 class self_pane
 {
 public:
-	self_pane (nano_qt::wallet &, nano::account const &);
-	void set_balance_text (std::pair<nano::uint128_t, nano::uint128_t>);
+	self_pane (celerix_qt::wallet &, celerix::account const &);
+	void set_balance_text (std::pair<celerix::uint128_t, celerix::uint128_t>);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QHBoxLayout * self_layout;
@@ -162,12 +162,12 @@ public:
 	QWidget * balance_window;
 	QHBoxLayout * balance_layout;
 	QLabel * balance_label;
-	nano_qt::wallet & wallet;
+	celerix_qt::wallet & wallet;
 };
 class accounts
 {
 public:
-	accounts (nano_qt::wallet &);
+	accounts (celerix_qt::wallet &);
 	void refresh ();
 	void refresh_wallet_balance ();
 	QLabel * wallet_balance_label;
@@ -183,12 +183,12 @@ public:
 	QLineEdit * account_key_line;
 	QPushButton * account_key_button;
 	QPushButton * back;
-	nano_qt::wallet & wallet;
+	celerix_qt::wallet & wallet;
 };
 class import
 {
 public:
-	import (nano_qt::wallet &);
+	import (celerix_qt::wallet &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QLabel * seed_label;
@@ -203,12 +203,12 @@ public:
 	QLineEdit * password;
 	QPushButton * perform;
 	QPushButton * back;
-	nano_qt::wallet & wallet;
+	celerix_qt::wallet & wallet;
 };
 class history
 {
 public:
-	history (nano::ledger &, nano::account const &, nano_qt::wallet &);
+	history (celerix::ledger &, celerix::account const &, celerix_qt::wallet &);
 	void refresh ();
 	QWidget * window;
 	QVBoxLayout * layout;
@@ -218,15 +218,15 @@ public:
 	QHBoxLayout * tx_layout;
 	QLabel * tx_label;
 	QSpinBox * tx_count;
-	nano::ledger & ledger;
-	nano::account const & account;
-	nano_qt::wallet & wallet;
+	celerix::ledger & ledger;
+	celerix::account const & account;
+	celerix_qt::wallet & wallet;
 };
 class block_viewer
 {
 public:
-	block_viewer (nano_qt::wallet &);
-	void rebroadcast_action (nano::block_hash const &);
+	block_viewer (celerix_qt::wallet &);
+	void rebroadcast_action (celerix::block_hash const &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QLabel * hash_label;
@@ -238,12 +238,12 @@ public:
 	QPushButton * retrieve;
 	QPushButton * rebroadcast;
 	QPushButton * back;
-	nano_qt::wallet & wallet;
+	celerix_qt::wallet & wallet;
 };
 class account_viewer
 {
 public:
-	account_viewer (nano_qt::wallet &);
+	account_viewer (celerix_qt::wallet &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QLabel * account_label;
@@ -252,15 +252,15 @@ public:
 	QWidget * balance_window;
 	QHBoxLayout * balance_layout;
 	QLabel * balance_label;
-	nano_qt::history history;
+	celerix_qt::history history;
 	QPushButton * back;
-	nano::account account;
-	nano_qt::wallet & wallet;
+	celerix::account account;
+	celerix_qt::wallet & wallet;
 };
 class stats_viewer
 {
 public:
-	stats_viewer (nano_qt::wallet &);
+	stats_viewer (celerix_qt::wallet &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QPushButton * refresh;
@@ -268,7 +268,7 @@ public:
 	QStandardItemModel * model;
 	QTableView * view;
 	QPushButton * back;
-	nano_qt::wallet & wallet;
+	celerix_qt::wallet & wallet;
 	void refresh_stats ();
 };
 enum class status_types
@@ -285,41 +285,41 @@ enum class status_types
 class status
 {
 public:
-	status (nano_qt::wallet &);
-	void erase (nano_qt::status_types);
-	void insert (nano_qt::status_types);
+	status (celerix_qt::wallet &);
+	void erase (celerix_qt::status_types);
+	void insert (celerix_qt::status_types);
 	void set_text ();
 	std::string text ();
 	std::string color ();
-	std::set<nano_qt::status_types> active;
-	nano_qt::wallet & wallet;
+	std::set<celerix_qt::status_types> active;
+	celerix_qt::wallet & wallet;
 };
-class wallet : public std::enable_shared_from_this<nano_qt::wallet>
+class wallet : public std::enable_shared_from_this<celerix_qt::wallet>
 {
 public:
-	wallet (QApplication &, nano_qt::eventloop_processor &, nano::node &, std::shared_ptr<nano::wallet> const &, nano::account &);
+	wallet (QApplication &, celerix_qt::eventloop_processor &, celerix::node &, std::shared_ptr<celerix::wallet> const &, celerix::account &);
 	void start ();
 	void refresh ();
 	void update_connected ();
 	void empty_password ();
-	void change_rendering_ratio (nano::uint128_t const &);
-	std::string format_balance (nano::uint128_t const &) const;
-	nano::uint128_t rendering_ratio;
-	nano::node & node;
-	std::shared_ptr<nano::wallet> wallet_m;
-	nano::account & account;
-	nano_qt::eventloop_processor & processor;
-	nano_qt::history history;
-	nano_qt::accounts accounts;
-	nano_qt::self_pane self;
-	nano_qt::settings settings;
-	nano_qt::advanced_actions advanced;
-	nano_qt::block_creation block_creation;
-	nano_qt::block_entry block_entry;
-	nano_qt::block_viewer block_viewer;
-	nano_qt::account_viewer account_viewer;
-	nano_qt::stats_viewer stats_viewer;
-	nano_qt::import import;
+	void change_rendering_ratio (celerix::uint128_t const &);
+	std::string format_balance (celerix::uint128_t const &) const;
+	celerix::uint128_t rendering_ratio;
+	celerix::node & node;
+	std::shared_ptr<celerix::wallet> wallet_m;
+	celerix::account & account;
+	celerix_qt::eventloop_processor & processor;
+	celerix_qt::history history;
+	celerix_qt::accounts accounts;
+	celerix_qt::self_pane self;
+	celerix_qt::settings settings;
+	celerix_qt::advanced_actions advanced;
+	celerix_qt::block_creation block_creation;
+	celerix_qt::block_entry block_entry;
+	celerix_qt::block_viewer block_viewer;
+	celerix_qt::account_viewer account_viewer;
+	celerix_qt::stats_viewer stats_viewer;
+	celerix_qt::import import;
 
 	QApplication & application;
 	QLabel * status;
@@ -346,7 +346,7 @@ public:
 	QPushButton * send_blocks_send;
 	QPushButton * send_blocks_back;
 
-	nano_qt::status active_status;
+	celerix_qt::status active_status;
 	void pop_main_stack ();
 	void push_main_stack (QWidget *);
 	void ongoing_refresh ();

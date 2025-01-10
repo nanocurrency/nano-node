@@ -1,21 +1,21 @@
 #pragma once
 
-#include <nano/crypto/blake2/blake2.h>
-#include <nano/lib/blockbuilders.hpp>
-#include <nano/lib/common.hpp>
-#include <nano/lib/config.hpp>
-#include <nano/lib/constants.hpp>
-#include <nano/lib/epochs.hpp>
-#include <nano/lib/fwd.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/object_stream.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/lib/utility.hpp>
+#include <celerix/crypto/blake2/blake2.h>
+#include <celerix/lib/blockbuilders.hpp>
+#include <celerix/lib/common.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/constants.hpp>
+#include <celerix/lib/epochs.hpp>
+#include <celerix/lib/fwd.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/object_stream.hpp>
+#include <celerix/lib/timer.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <array>
 #include <unordered_map>
 
-namespace nano
+namespace celerix
 {
 /**
  * A key pair. The private key is generated from the random pool, or passed in
@@ -26,16 +26,16 @@ class keypair
 public:
 	keypair ();
 	keypair (std::string const &);
-	keypair (nano::raw_key &&);
-	nano::public_key pub;
-	nano::raw_key prv;
+	keypair (celerix::raw_key &&);
+	celerix::public_key pub;
+	celerix::raw_key prv;
 };
 
 class endpoint_key final
 {
 public:
 	endpoint_key () = default;
-	endpoint_key (nano::endpoint const &);
+	endpoint_key (celerix::endpoint const &);
 
 	/*
 	 * @param address_a This should be in network byte order
@@ -53,7 +53,7 @@ public:
 	 */
 	uint16_t port () const;
 
-	nano::endpoint endpoint () const;
+	celerix::endpoint endpoint () const;
 
 private:
 	// Both stored internally in network byte order
@@ -70,15 +70,15 @@ class unchecked_key final
 {
 public:
 	unchecked_key () = default;
-	explicit unchecked_key (nano::hash_or_account const & dependency);
-	unchecked_key (nano::hash_or_account const &, nano::block_hash const &);
-	unchecked_key (nano::uint512_union const &);
-	bool deserialize (nano::stream &);
-	bool operator== (nano::unchecked_key const &) const;
-	bool operator< (nano::unchecked_key const &) const;
-	nano::block_hash const & key () const;
-	nano::block_hash previous{ 0 };
-	nano::block_hash hash{ 0 };
+	explicit unchecked_key (celerix::hash_or_account const & dependency);
+	unchecked_key (celerix::hash_or_account const &, celerix::block_hash const &);
+	unchecked_key (celerix::uint512_union const &);
+	bool deserialize (celerix::stream &);
+	bool operator== (celerix::unchecked_key const &) const;
+	bool operator< (celerix::unchecked_key const &) const;
+	celerix::block_hash const & key () const;
+	celerix::block_hash previous{ 0 };
+	celerix::block_hash hash{ 0 };
 };
 
 /**
@@ -88,11 +88,11 @@ class unchecked_info final
 {
 public:
 	unchecked_info () = default;
-	unchecked_info (std::shared_ptr<nano::block> const &);
-	void serialize (nano::stream &) const;
-	bool deserialize (nano::stream &);
-	nano::seconds_t modified () const;
-	std::shared_ptr<nano::block> block;
+	unchecked_info (std::shared_ptr<celerix::block> const &);
+	void serialize (celerix::stream &) const;
+	bool deserialize (celerix::stream &);
+	celerix::seconds_t modified () const;
+	std::shared_ptr<celerix::block> block;
 
 private:
 	/** Seconds since posix epoch */
@@ -103,25 +103,25 @@ class block_info final
 {
 public:
 	block_info () = default;
-	block_info (nano::account const &, nano::amount const &);
-	nano::account account{};
-	nano::amount balance{ 0 };
+	block_info (celerix::account const &, celerix::amount const &);
+	celerix::account account{};
+	celerix::amount balance{ 0 };
 };
 
 class confirmation_height_info final
 {
 public:
 	confirmation_height_info () = default;
-	confirmation_height_info (uint64_t, nano::block_hash const &);
+	confirmation_height_info (uint64_t, celerix::block_hash const &);
 
-	void serialize (nano::stream &) const;
-	bool deserialize (nano::stream &);
+	void serialize (celerix::stream &) const;
+	bool deserialize (celerix::stream &);
 
 	/** height of the cemented frontier */
 	uint64_t height{};
 
 	/** hash of the highest cemented block, the cemented/confirmed frontier */
-	nano::block_hash frontier{};
+	celerix::block_hash frontier{};
 };
 
 namespace confirmation_height
@@ -149,7 +149,7 @@ enum class block_status
 };
 
 std::string_view to_string (block_status);
-nano::stat::detail to_stat_detail (block_status);
+celerix::stat::detail to_stat_detail (block_status);
 
 enum class tally_result
 {
@@ -164,28 +164,28 @@ class network_params;
 class ledger_constants
 {
 public:
-	ledger_constants (nano::work_thresholds &, nano::networks);
-	nano::work_thresholds & work;
-	nano::keypair zero_key;
-	nano::account nano_beta_account;
-	nano::account nano_live_account;
-	nano::account nano_test_account;
-	std::shared_ptr<nano::block> nano_dev_genesis;
-	std::shared_ptr<nano::block> nano_beta_genesis;
-	std::shared_ptr<nano::block> nano_live_genesis;
-	std::shared_ptr<nano::block> nano_test_genesis;
-	std::shared_ptr<nano::block> genesis;
-	nano::uint128_t genesis_amount;
-	nano::account burn_account;
-	nano::epochs epochs;
+	ledger_constants (celerix::work_thresholds &, celerix::networks);
+	celerix::work_thresholds & work;
+	celerix::keypair zero_key;
+	celerix::account celerix_beta_account;
+	celerix::account celerix_live_account;
+	celerix::account celerix_test_account;
+	std::shared_ptr<celerix::block> celerix_dev_genesis;
+	std::shared_ptr<celerix::block> celerix_beta_genesis;
+	std::shared_ptr<celerix::block> celerix_live_genesis;
+	std::shared_ptr<celerix::block> celerix_test_genesis;
+	std::shared_ptr<celerix::block> genesis;
+	celerix::uint128_t genesis_amount;
+	celerix::account burn_account;
+	celerix::epochs epochs;
 };
 
 namespace dev
 {
-	extern nano::keypair genesis_key;
-	extern nano::network_params network_params;
-	extern nano::ledger_constants & constants;
-	extern std::shared_ptr<nano::block> & genesis;
+	extern celerix::keypair genesis_key;
+	extern celerix::network_params network_params;
+	extern celerix::ledger_constants & constants;
+	extern std::shared_ptr<celerix::block> & genesis;
 }
 
 /** Constants which depend on random values (always used as singleton) */
@@ -194,8 +194,8 @@ class hardened_constants
 public:
 	static hardened_constants & get ();
 
-	nano::account not_an_account;
-	nano::uint128_union random_128;
+	celerix::account not_an_account;
+	celerix::uint128_union random_128;
 
 private:
 	hardened_constants ();
@@ -205,7 +205,7 @@ private:
 class node_constants
 {
 public:
-	node_constants (nano::network_constants & network_constants);
+	node_constants (celerix::network_constants & network_constants);
 	std::chrono::minutes backup_interval;
 	std::chrono::seconds search_pending_interval;
 	std::chrono::minutes unchecked_cleaning_interval;
@@ -221,7 +221,7 @@ public:
 class voting_constants
 {
 public:
-	voting_constants (nano::network_constants & network_constants);
+	voting_constants (celerix::network_constants & network_constants);
 	size_t const max_cache;
 	std::chrono::seconds const delay;
 };
@@ -230,7 +230,7 @@ public:
 class portmapping_constants
 {
 public:
-	portmapping_constants (nano::network_constants & network_constants);
+	portmapping_constants (celerix::network_constants & network_constants);
 	// Timeouts are primes so they infrequently happen at the same time
 	std::chrono::seconds lease_duration;
 	std::chrono::seconds health_check_period;
@@ -240,7 +240,7 @@ public:
 class bootstrap_constants
 {
 public:
-	bootstrap_constants (nano::network_constants & network_constants);
+	bootstrap_constants (celerix::network_constants & network_constants);
 	uint32_t lazy_max_pull_blocks;
 	uint32_t lazy_min_pull_blocks;
 	unsigned frontier_retry_limit;
@@ -250,23 +250,23 @@ public:
 	uint32_t default_frontiers_age_seconds;
 };
 
-nano::work_thresholds const & work_thresholds_for_network (nano::networks);
+celerix::work_thresholds const & work_thresholds_for_network (celerix::networks);
 
 /** Constants whose value depends on the active network */
 class network_params
 {
 public:
-	explicit network_params (nano::networks);
+	explicit network_params (celerix::networks);
 
 	unsigned kdf_work;
-	nano::work_thresholds work;
-	nano::network_constants network;
-	nano::ledger_constants ledger;
-	nano::voting_constants voting;
-	nano::node_constants node;
-	nano::portmapping_constants portmapping;
-	nano::bootstrap_constants bootstrap;
+	celerix::work_thresholds work;
+	celerix::network_constants network;
+	celerix::ledger_constants ledger;
+	celerix::voting_constants voting;
+	celerix::node_constants node;
+	celerix::portmapping_constants portmapping;
+	celerix::bootstrap_constants bootstrap;
 };
 
-nano::wallet_id random_wallet_id ();
+celerix::wallet_id random_wallet_id ();
 }

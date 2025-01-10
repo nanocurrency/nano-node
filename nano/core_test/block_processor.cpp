@@ -1,11 +1,11 @@
-#include <nano/lib/blockbuilders.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/nodeconfig.hpp>
-#include <nano/secure/common.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/lib/blockbuilders.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/nodeconfig.hpp>
+#include <celerix/secure/common.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 

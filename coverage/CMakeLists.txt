@@ -15,7 +15,7 @@ add_custom_target(
 add_custom_target(
   coveralls_upload
   COMMAND echo "UPLOADING COVERALLS COVERAGE REPORT"
-  COMMAND coveralls -i nano -b build -r . --gcov-options '\\-lp'
+  COMMAND coveralls -i celerix -b build -r . --gcov-options '\\-lp'
   WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
   DEPENDS coverage_tests)
 
@@ -30,16 +30,16 @@ add_custom_target(
     '${PROJECT_SOURCE_DIR}/crypto/*'
     '${PROJECT_SOURCE_DIR}/submodules/flatbuffers/*'
     '${PROJECT_SOURCE_DIR}/gtest/*' '${PROJECT_SOURCE_DIR}/submodules/rocksdb/*'
-    '${PROJECT_SOURCE_DIR}/valgrind/*' '${PROJECT_SOURCE_DIR}/nano/core_test/*'
-    '${PROJECT_SOURCE_DIR}/nano/load_test/*'
-    '${PROJECT_SOURCE_DIR}/nano/ipc_flatbuffers_test/*'
-    '${PROJECT_SOURCE_DIR}/nano/ipc_flatbuffers_lib/*'
-    '${PROJECT_SOURCE_DIR}/nano/nano_node/*'
-    '${PROJECT_SOURCE_DIR}/nano/nano_wallet/*'
-    '${PROJECT_SOURCE_DIR}/nano/nano_rpc/*'
-    '${PROJECT_SOURCE_DIR}/nano/rpc_test/*'
-    '${PROJECT_SOURCE_DIR}/nano/qt_test/*' '${PROJECT_SOURCE_DIR}/nano/qt/*'
-    '${PROJECT_SOURCE_DIR}/nano/test_common/*' --output-file
+    '${PROJECT_SOURCE_DIR}/valgrind/*' '${PROJECT_SOURCE_DIR}/celerix/core_test/*'
+    '${PROJECT_SOURCE_DIR}/celerix/load_test/*'
+    '${PROJECT_SOURCE_DIR}/celerix/ipc_flatbuffers_test/*'
+    '${PROJECT_SOURCE_DIR}/celerix/ipc_flatbuffers_lib/*'
+    '${PROJECT_SOURCE_DIR}/celerix/celerix_node/*'
+    '${PROJECT_SOURCE_DIR}/celerix/celerix_wallet/*'
+    '${PROJECT_SOURCE_DIR}/celerix/celerix_rpc/*'
+    '${PROJECT_SOURCE_DIR}/celerix/rpc_test/*'
+    '${PROJECT_SOURCE_DIR}/celerix/qt_test/*' '${PROJECT_SOURCE_DIR}/celerix/qt/*'
+    '${PROJECT_SOURCE_DIR}/celerix/test_common/*' --output-file
     ${PROJECT_SOURCE_DIR}/coverage/lcov.info -q
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   DEPENDS coverage_tests)

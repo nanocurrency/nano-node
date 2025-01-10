@@ -1,7 +1,7 @@
-#include <nano/node/election.hpp>
-#include <nano/node/vote_cache.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/node/election.hpp>
+#include <celerix/node/vote_cache.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -9,26 +9,26 @@
 
 namespace
 {
-std::map<nano::account, nano::uint128_t> & rep_to_weight_map ()
+std::map<celerix::account, celerix::uint128_t> & rep_to_weight_map ()
 {
-	static std::map<nano::account, nano::uint128_t> map;
+	static std::map<celerix::account, celerix::uint128_t> map;
 	return map;
 }
 
-std::function<nano::uint128_t (nano::account const & rep)> rep_weight_query ()
+std::function<celerix::uint128_t (celerix::account const & rep)> rep_weight_query ()
 {
-	return [] (nano::account const & rep) { return rep_to_weight_map ()[rep]; };
+	return [] (celerix::account const & rep) { return rep_to_weight_map ()[rep]; };
 }
 
-void register_rep (nano::account & rep, nano::uint128_t weight)
+void register_rep (celerix::account & rep, celerix::uint128_t weight)
 {
 	auto & map = rep_to_weight_map ();
 	map[rep] = weight;
 }
 
-nano::keypair create_rep (nano::uint128_t weight)
+celerix::keypair create_rep (celerix::uint128_t weight)
 {
-	nano::keypair key;
+	celerix::keypair key;
 	register_rep (key.pub, weight);
 	return key;
 }
@@ -36,12 +36,12 @@ nano::keypair create_rep (nano::uint128_t weight)
 
 TEST (vote_cache, construction)
 {
-	nano::test::system system;
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg, system.stats };
+	celerix::test::system system;
+	celerix::vote_cache_config cfg;
+	celerix::vote_cache vote_cache{ cfg, system.stats };
 	ASSERT_EQ (0, vote_cache.size ());
 	ASSERT_TRUE (vote_cache.empty ());
-	auto hash1 = nano::test::random_hash ();
+	auto hash1 = celerix::test::random_hash ();
 	ASSERT_TRUE (vote_cache.find (hash1).empty ());
 }
 
@@ -50,13 +50,13 @@ TEST (vote_cache, construction)
  */
 TEST (vote_cache, insert_one_hash)
 {
-	nano::test::system system;
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg, system.stats };
+	celerix::test::system system;
+	celerix::vote_cache_config cfg;
+	celerix::vote_cache vote_cache{ cfg, system.stats };
 	vote_cache.rep_weight_query = rep_weight_query ();
 	auto rep1 = create_rep (7);
-	auto hash1 = nano::test::random_hash ();
-	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 1024 * 1024);
+	auto hash1 = celerix::test::random_hash ();
+	auto vote1 = celerix::test::make_vote (rep1, { hash1 }, 1024 * 1024);
 	ASSERT_FALSE (vote_cache.contains (hash1));
 	vote_cache.insert (vote1);
 	ASSERT_TRUE (vote_cache.contains (hash1));
@@ -79,17 +79,17 @@ TEST (vote_cache, insert_one_hash)
  */
 TEST (vote_cache, insert_one_hash_many_votes)
 {
-	nano::test::system system;
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg, system.stats };
+	celerix::test::system system;
+	celerix::vote_cache_config cfg;
+	celerix::vote_cache vote_cache{ cfg, system.stats };
 	vote_cache.rep_weight_query = rep_weight_query ();
-	auto hash1 = nano::test::random_hash ();
+	auto hash1 = celerix::test::random_hash ();
 	auto rep1 = create_rep (7);
 	auto rep2 = create_rep (9);
 	auto rep3 = create_rep (11);
-	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 1 * 1024 * 1024);
-	auto vote2 = nano::test::make_vote (rep2, { hash1 }, 2 * 1024 * 1024);
-	auto vote3 = nano::test::make_vote (rep3, { hash1 }, 3 * 1024 * 1024);
+	auto vote1 = celerix::test::make_vote (rep1, { hash1 }, 1 * 1024 * 1024);
+	auto vote2 = celerix::test::make_vote (rep2, { hash1 }, 2 * 1024 * 1024);
+	auto vote3 = celerix::test::make_vote (rep3, { hash1 }, 3 * 1024 * 1024);
 	vote_cache.insert (vote1);
 	vote_cache.insert (vote2);
 	vote_cache.insert (vote3);
@@ -115,24 +115,24 @@ TEST (vote_cache, insert_one_hash_many_votes)
  */
 TEST (vote_cache, insert_many_hashes_many_votes)
 {
-	nano::test::system system;
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg, system.stats };
+	celerix::test::system system;
+	celerix::vote_cache_config cfg;
+	celerix::vote_cache vote_cache{ cfg, system.stats };
 	vote_cache.rep_weight_query = rep_weight_query ();
 	// There will be 3 random hashes to vote for
-	auto hash1 = nano::test::random_hash ();
-	auto hash2 = nano::test::random_hash ();
-	auto hash3 = nano::test::random_hash ();
+	auto hash1 = celerix::test::random_hash ();
+	auto hash2 = celerix::test::random_hash ();
+	auto hash3 = celerix::test::random_hash ();
 	// There will be 4 reps with different weights
 	auto rep1 = create_rep (7);
 	auto rep2 = create_rep (9);
 	auto rep3 = create_rep (11);
 	auto rep4 = create_rep (13);
 	// Votes: rep1 > hash1, rep2 > hash2, rep3 > hash3, rep4 > hash1 (the same as rep1)
-	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 1024 * 1024);
-	auto vote2 = nano::test::make_vote (rep2, { hash2 }, 1024 * 1024);
-	auto vote3 = nano::test::make_vote (rep3, { hash3 }, 1024 * 1024);
-	auto vote4 = nano::test::make_vote (rep4, { hash1 }, 1024 * 1024);
+	auto vote1 = celerix::test::make_vote (rep1, { hash1 }, 1024 * 1024);
+	auto vote2 = celerix::test::make_vote (rep2, { hash2 }, 1024 * 1024);
+	auto vote3 = celerix::test::make_vote (rep3, { hash3 }, 1024 * 1024);
+	auto vote4 = celerix::test::make_vote (rep4, { hash1 }, 1024 * 1024);
 	// Insert first 3 votes in cache
 	vote_cache.insert (vote1);
 	vote_cache.insert (vote2);
@@ -189,14 +189,14 @@ TEST (vote_cache, insert_many_hashes_many_votes)
  */
 TEST (vote_cache, insert_duplicate)
 {
-	nano::test::system system;
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg, system.stats };
+	celerix::test::system system;
+	celerix::vote_cache_config cfg;
+	celerix::vote_cache vote_cache{ cfg, system.stats };
 	vote_cache.rep_weight_query = rep_weight_query ();
-	auto hash1 = nano::test::random_hash ();
+	auto hash1 = celerix::test::random_hash ();
 	auto rep1 = create_rep (9);
-	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 1 * 1024 * 1024);
-	auto vote2 = nano::test::make_vote (rep1, { hash1 }, 1 * 1024 * 1024);
+	auto vote1 = celerix::test::make_vote (rep1, { hash1 }, 1 * 1024 * 1024);
+	auto vote2 = celerix::test::make_vote (rep1, { hash1 }, 1 * 1024 * 1024);
 	vote_cache.insert (vote1);
 	vote_cache.insert (vote2);
 	ASSERT_EQ (1, vote_cache.size ());
@@ -207,18 +207,18 @@ TEST (vote_cache, insert_duplicate)
  */
 TEST (vote_cache, insert_newer)
 {
-	nano::test::system system;
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg, system.stats };
+	celerix::test::system system;
+	celerix::vote_cache_config cfg;
+	celerix::vote_cache vote_cache{ cfg, system.stats };
 	vote_cache.rep_weight_query = rep_weight_query ();
-	auto hash1 = nano::test::random_hash ();
+	auto hash1 = celerix::test::random_hash ();
 	auto rep1 = create_rep (9);
-	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 1 * 1024 * 1024);
+	auto vote1 = celerix::test::make_vote (rep1, { hash1 }, 1 * 1024 * 1024);
 	vote_cache.insert (vote1);
 	auto peek1 = vote_cache.find (hash1);
 	ASSERT_EQ (peek1.size (), 1);
 	ASSERT_EQ (peek1.front (), vote1);
-	auto vote2 = nano::test::make_final_vote (rep1, { hash1 });
+	auto vote2 = celerix::test::make_final_vote (rep1, { hash1 });
 	vote_cache.insert (vote2);
 	auto peek2 = vote_cache.find (hash1);
 	ASSERT_EQ (peek2.size (), 1);
@@ -230,18 +230,18 @@ TEST (vote_cache, insert_newer)
  */
 TEST (vote_cache, insert_older)
 {
-	nano::test::system system;
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg, system.stats };
+	celerix::test::system system;
+	celerix::vote_cache_config cfg;
+	celerix::vote_cache vote_cache{ cfg, system.stats };
 	vote_cache.rep_weight_query = rep_weight_query ();
-	auto hash1 = nano::test::random_hash ();
+	auto hash1 = celerix::test::random_hash ();
 	auto rep1 = create_rep (9);
-	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 2 * 1024 * 1024);
+	auto vote1 = celerix::test::make_vote (rep1, { hash1 }, 2 * 1024 * 1024);
 	vote_cache.insert (vote1);
 	auto peek1 = vote_cache.find (hash1);
 	ASSERT_EQ (peek1.size (), 1);
 	ASSERT_EQ (peek1.front (), vote1);
-	auto vote2 = nano::test::make_vote (rep1, { hash1 }, 1 * 1024 * 1024);
+	auto vote2 = celerix::test::make_vote (rep1, { hash1 }, 1 * 1024 * 1024);
 	vote_cache.insert (vote2);
 	auto peek2 = vote_cache.find (hash1);
 	ASSERT_EQ (peek2.size (), 1);
@@ -253,20 +253,20 @@ TEST (vote_cache, insert_older)
  */
 TEST (vote_cache, erase)
 {
-	nano::test::system system;
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg, system.stats };
+	celerix::test::system system;
+	celerix::vote_cache_config cfg;
+	celerix::vote_cache vote_cache{ cfg, system.stats };
 	vote_cache.rep_weight_query = rep_weight_query ();
-	auto hash1 = nano::test::random_hash ();
-	auto hash2 = nano::test::random_hash ();
-	auto hash3 = nano::test::random_hash ();
+	auto hash1 = celerix::test::random_hash ();
+	auto hash2 = celerix::test::random_hash ();
+	auto hash3 = celerix::test::random_hash ();
 	auto rep1 = create_rep (7);
 	auto rep2 = create_rep (9);
 	auto rep3 = create_rep (11);
 	auto rep4 = create_rep (13);
-	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 1024 * 1024);
-	auto vote2 = nano::test::make_vote (rep2, { hash2 }, 1024 * 1024);
-	auto vote3 = nano::test::make_vote (rep3, { hash3 }, 1024 * 1024);
+	auto vote1 = celerix::test::make_vote (rep1, { hash1 }, 1024 * 1024);
+	auto vote2 = celerix::test::make_vote (rep2, { hash2 }, 1024 * 1024);
+	auto vote3 = celerix::test::make_vote (rep3, { hash3 }, 1024 * 1024);
 	ASSERT_TRUE (vote_cache.empty ());
 	ASSERT_FALSE (vote_cache.contains (hash1));
 	vote_cache.insert (vote1);
@@ -303,19 +303,19 @@ TEST (vote_cache, erase)
  */
 TEST (vote_cache, overfill)
 {
-	nano::test::system system;
+	celerix::test::system system;
 	// Create a vote cache with max size set to 1024
-	nano::vote_cache_config cfg;
+	celerix::vote_cache_config cfg;
 	cfg.max_size = 1024;
-	nano::vote_cache vote_cache{ cfg, system.stats };
+	celerix::vote_cache vote_cache{ cfg, system.stats };
 	vote_cache.rep_weight_query = rep_weight_query ();
 	const int count = 16 * 1024;
 	for (int n = 0; n < count; ++n)
 	{
 		// The more recent the vote, the less voting weight it has
 		auto rep1 = create_rep (count - n);
-		auto hash1 = nano::test::random_hash ();
-		auto vote1 = nano::test::make_vote (rep1, { hash1 }, 1024 * 1024);
+		auto hash1 = celerix::test::random_hash ();
+		auto vote1 = celerix::test::make_vote (rep1, { hash1 }, 1024 * 1024);
 		vote_cache.insert (vote1);
 	}
 	ASSERT_LT (vote_cache.size (), count);
@@ -330,16 +330,16 @@ TEST (vote_cache, overfill)
  */
 TEST (vote_cache, overfill_entry)
 {
-	nano::test::system system;
-	nano::vote_cache_config cfg;
-	nano::vote_cache vote_cache{ cfg, system.stats };
+	celerix::test::system system;
+	celerix::vote_cache_config cfg;
+	celerix::vote_cache vote_cache{ cfg, system.stats };
 	vote_cache.rep_weight_query = rep_weight_query ();
 	const int count = 1024;
-	auto hash1 = nano::test::random_hash ();
+	auto hash1 = celerix::test::random_hash ();
 	for (int n = 0; n < count; ++n)
 	{
 		auto rep1 = create_rep (9);
-		auto vote1 = nano::test::make_vote (rep1, { hash1 }, 1024 * 1024);
+		auto vote1 = celerix::test::make_vote (rep1, { hash1 }, 1024 * 1024);
 		vote_cache.insert (vote1);
 	}
 	ASSERT_EQ (1, vote_cache.size ());
@@ -347,15 +347,15 @@ TEST (vote_cache, overfill_entry)
 
 TEST (vote_cache, age_cutoff)
 {
-	nano::test::system system;
-	nano::vote_cache_config cfg;
+	celerix::test::system system;
+	celerix::vote_cache_config cfg;
 	cfg.age_cutoff = std::chrono::seconds{ 3 };
-	nano::vote_cache vote_cache{ cfg, system.stats };
+	celerix::vote_cache vote_cache{ cfg, system.stats };
 	vote_cache.rep_weight_query = rep_weight_query ();
 
-	auto hash1 = nano::test::random_hash ();
+	auto hash1 = celerix::test::random_hash ();
 	auto rep1 = create_rep (9);
-	auto vote1 = nano::test::make_vote (rep1, { hash1 }, 3);
+	auto vote1 = celerix::test::make_vote (rep1, { hash1 }, 3);
 	vote_cache.insert (vote1);
 	ASSERT_EQ (1, vote_cache.size ());
 	ASSERT_FALSE (vote_cache.find (hash1).empty ());
@@ -363,13 +363,13 @@ TEST (vote_cache, age_cutoff)
 	auto tops1 = vote_cache.top (0);
 	ASSERT_EQ (tops1.size (), 1);
 	ASSERT_EQ (tops1[0].hash, hash1);
-	ASSERT_EQ (system.stats.count (nano::stat::type::vote_cache, nano::stat::detail::cleanup), 0);
+	ASSERT_EQ (system.stats.count (celerix::stat::type::vote_cache, celerix::stat::detail::cleanup), 0);
 
 	// Wait for first cleanup
 	auto check = [&] () {
 		// Cleanup is performed periodically when calling `top ()`
 		vote_cache.top (0);
-		return system.stats.count (nano::stat::type::vote_cache, nano::stat::detail::cleanup);
+		return system.stats.count (celerix::stat::type::vote_cache, celerix::stat::detail::cleanup);
 	};
 	ASSERT_TIMELY_EQ (5s, 1, check ());
 

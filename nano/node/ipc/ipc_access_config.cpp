@@ -1,45 +1,45 @@
-#include <nano/lib/tomlconfig.hpp>
-#include <nano/node/ipc/ipc_access_config.hpp>
+#include <celerix/lib/tomlconfig.hpp>
+#include <celerix/node/ipc/ipc_access_config.hpp>
 
 #include <boost/algorithm/string.hpp>
 
 namespace
 {
 /** Convert string to permission */
-nano::ipc::access_permission from_string (std::string permission)
+celerix::ipc::access_permission from_string (std::string permission)
 {
 	if (permission == "unrestricted")
-		return nano::ipc::access_permission::unrestricted;
+		return celerix::ipc::access_permission::unrestricted;
 	if (permission == "api_account_weight")
-		return nano::ipc::access_permission::api_account_weight;
+		return celerix::ipc::access_permission::api_account_weight;
 	if (permission == "api_service_register")
-		return nano::ipc::access_permission::api_service_register;
+		return celerix::ipc::access_permission::api_service_register;
 	if (permission == "api_service_stop")
-		return nano::ipc::access_permission::api_service_stop;
+		return celerix::ipc::access_permission::api_service_stop;
 	if (permission == "api_topic_service_stop")
-		return nano::ipc::access_permission::api_topic_service_stop;
+		return celerix::ipc::access_permission::api_topic_service_stop;
 	if (permission == "api_topic_confirmation")
-		return nano::ipc::access_permission::api_topic_confirmation;
+		return celerix::ipc::access_permission::api_topic_confirmation;
 	if (permission == "account_query")
-		return nano::ipc::access_permission::account_query;
+		return celerix::ipc::access_permission::account_query;
 	if (permission == "epoch_upgrade")
-		return nano::ipc::access_permission::epoch_upgrade;
+		return celerix::ipc::access_permission::epoch_upgrade;
 	if (permission == "service")
-		return nano::ipc::access_permission::service;
+		return celerix::ipc::access_permission::service;
 	if (permission == "wallet")
-		return nano::ipc::access_permission::wallet;
+		return celerix::ipc::access_permission::wallet;
 	if (permission == "wallet_read")
-		return nano::ipc::access_permission::wallet_read;
+		return celerix::ipc::access_permission::wallet_read;
 	if (permission == "wallet_write")
-		return nano::ipc::access_permission::wallet_write;
+		return celerix::ipc::access_permission::wallet_write;
 	if (permission == "wallet_seed_change")
-		return nano::ipc::access_permission::wallet_seed_change;
+		return celerix::ipc::access_permission::wallet_seed_change;
 
-	return nano::ipc::access_permission::invalid;
+	return celerix::ipc::access_permission::invalid;
 }
 }
 
-void nano::ipc::access::set_effective_permissions (nano::ipc::access_subject & subject_a, std::shared_ptr<cpptoml::table> const & config_subject_a)
+void celerix::ipc::access::set_effective_permissions (celerix::ipc::access_subject & subject_a, std::shared_ptr<cpptoml::table> const & config_subject_a)
 {
 	std::string allow_l (config_subject_a->get_as<std::string> ("allow").value_or (""));
 	std::vector<std::string> allow_strings_l;
@@ -49,7 +49,7 @@ void nano::ipc::access::set_effective_permissions (nano::ipc::access_subject & s
 		if (!permission.empty ())
 		{
 			auto permission_enum = from_string (boost::trim_copy (permission));
-			if (permission_enum != nano::ipc::access_permission::invalid)
+			if (permission_enum != celerix::ipc::access_permission::invalid)
 			{
 				subject_a.permissions.insert (permission_enum);
 			}
@@ -64,7 +64,7 @@ void nano::ipc::access::set_effective_permissions (nano::ipc::access_subject & s
 		if (!permission.empty ())
 		{
 			auto permission_enum = from_string (boost::trim_copy (permission));
-			if (permission_enum != nano::ipc::access_permission::invalid)
+			if (permission_enum != celerix::ipc::access_permission::invalid)
 			{
 				subject_a.permissions.erase (permission_enum);
 			}
@@ -72,7 +72,7 @@ void nano::ipc::access::set_effective_permissions (nano::ipc::access_subject & s
 	}
 }
 
-void nano::ipc::access::clear ()
+void celerix::ipc::access::clear ()
 {
 	users.clear ();
 	roles.clear ();
@@ -87,19 +87,19 @@ void nano::ipc::access::clear ()
 
 	// The default set of permissions. A new insert should be made as new safe
 	// api's or resource permissions are made.
-	default_user.permissions.insert (nano::ipc::access_permission::api_account_weight);
+	default_user.permissions.insert (celerix::ipc::access_permission::api_account_weight);
 }
 
-nano::error nano::ipc::access::deserialize_toml (nano::tomlconfig & toml)
+celerix::error celerix::ipc::access::deserialize_toml (celerix::tomlconfig & toml)
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	clear ();
 
-	nano::error error;
+	celerix::error error;
 	if (toml.has_key ("role"))
 	{
 		auto get_role = [this] (std::shared_ptr<cpptoml::table> const & role_a) {
-			nano::ipc::access_role role;
+			celerix::ipc::access_role role;
 			std::string id_l (role_a->get_as<std::string> ("id").value_or (""));
 			role.id = id_l;
 			set_effective_permissions (role, role_a);
@@ -137,7 +137,7 @@ nano::error nano::ipc::access::deserialize_toml (nano::tomlconfig & toml)
 	if (!error && toml.has_key ("user"))
 	{
 		auto get_user = [this, &error] (std::shared_ptr<cpptoml::table> const & user_a) {
-			nano::ipc::access_user user;
+			celerix::ipc::access_user user;
 			user.id = user_a->get_as<std::string> ("id").value_or ("");
 			// Check bare flag. The tomlconfig parser stringifies values, so we must retrieve as string.
 			bool is_bare = user_a->get_as<std::string> ("bare").value_or ("false") == "true";
@@ -206,9 +206,9 @@ nano::error nano::ipc::access::deserialize_toml (nano::tomlconfig & toml)
 	return error;
 }
 
-bool nano::ipc::access::has_access (std::string const & credentials_a, nano::ipc::access_permission permssion_a) const
+bool celerix::ipc::access::has_access (std::string const & credentials_a, celerix::ipc::access_permission permssion_a) const
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	bool permitted = false;
 	auto user = users.find (credentials_a);
 	if (user != users.end ())
@@ -216,15 +216,15 @@ bool nano::ipc::access::has_access (std::string const & credentials_a, nano::ipc
 		permitted = user->second.permissions.find (permssion_a) != user->second.permissions.end ();
 		if (!permitted)
 		{
-			permitted = user->second.permissions.find (nano::ipc::access_permission::unrestricted) != user->second.permissions.end ();
+			permitted = user->second.permissions.find (celerix::ipc::access_permission::unrestricted) != user->second.permissions.end ();
 		}
 	}
 	return permitted;
 }
 
-bool nano::ipc::access::has_access_to_all (std::string const & credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const
+bool celerix::ipc::access::has_access_to_all (std::string const & credentials_a, std::initializer_list<celerix::ipc::access_permission> permissions_a) const
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	bool permitted = false;
 	auto user = users.find (credentials_a);
 	if (user != users.end ())
@@ -241,9 +241,9 @@ bool nano::ipc::access::has_access_to_all (std::string const & credentials_a, st
 	return permitted;
 }
 
-bool nano::ipc::access::has_access_to_oneof (std::string const & credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const
+bool celerix::ipc::access::has_access_to_oneof (std::string const & credentials_a, std::initializer_list<celerix::ipc::access_permission> permissions_a) const
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	bool permitted = false;
 	auto user = users.find (credentials_a);
 	if (user != users.end ())
@@ -258,33 +258,33 @@ bool nano::ipc::access::has_access_to_oneof (std::string const & credentials_a, 
 		}
 		if (!permitted)
 		{
-			permitted = user->second.permissions.find (nano::ipc::access_permission::unrestricted) != user->second.permissions.end ();
+			permitted = user->second.permissions.find (celerix::ipc::access_permission::unrestricted) != user->second.permissions.end ();
 		}
 	}
 	return permitted;
 }
 
-void nano::ipc::access_subject::clear ()
+void celerix::ipc::access_subject::clear ()
 {
 	permissions.clear ();
 }
 
-void nano::ipc::access_user::clear ()
+void celerix::ipc::access_user::clear ()
 {
 	access_subject::clear ();
 	roles.clear ();
 }
 
-namespace nano
+namespace celerix
 {
 namespace ipc
 {
-	nano::error read_access_config_toml (std::filesystem::path const & data_path_a, nano::ipc::access & config_a)
+	celerix::error read_access_config_toml (std::filesystem::path const & data_path_a, celerix::ipc::access & config_a)
 	{
-		nano::error error;
-		auto toml_config_path = nano::get_access_toml_config_path (data_path_a);
+		celerix::error error;
+		auto toml_config_path = celerix::get_access_toml_config_path (data_path_a);
 
-		nano::tomlconfig toml;
+		celerix::tomlconfig toml;
 		if (std::filesystem::exists (toml_config_path))
 		{
 			error = toml.read (toml_config_path);

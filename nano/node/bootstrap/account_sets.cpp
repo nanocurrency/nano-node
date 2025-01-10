@@ -1,7 +1,7 @@
-#include <nano/lib/stats.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/node/bootstrap/account_sets.hpp>
-#include <nano/node/bootstrap/bootstrap_config.hpp>
+#include <celerix/lib/stats.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/node/bootstrap/account_sets.hpp>
+#include <celerix/node/bootstrap/bootstrap_config.hpp>
 
 #include <boost/range/iterator_range.hpp>
 
@@ -13,13 +13,13 @@
  * account_sets
  */
 
-nano::bootstrap::account_sets::account_sets (nano::account_sets_config const & config_a, nano::stats & stats_a) :
+celerix::bootstrap::account_sets::account_sets (celerix::account_sets_config const & config_a, celerix::stats & stats_a) :
 	config{ config_a },
 	stats{ stats_a }
 {
 }
 
-void nano::bootstrap::account_sets::priority_up (nano::account const & account)
+void celerix::bootstrap::account_sets::priority_up (celerix::account const & account)
 {
 	if (account.is_zero ())
 	{
@@ -28,7 +28,7 @@ void nano::bootstrap::account_sets::priority_up (nano::account const & account)
 
 	if (!blocked (account))
 	{
-		stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::prioritize);
+		stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::prioritize);
 
 		if (auto it = priorities.get<tag_account> ().find (account); it != priorities.get<tag_account> ().end ())
 		{
@@ -39,18 +39,18 @@ void nano::bootstrap::account_sets::priority_up (nano::account const & account)
 		}
 		else
 		{
-			stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::priority_insert);
+			stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::priority_insert);
 			priorities.get<tag_account> ().insert ({ account, account_sets::priority_initial });
 			trim_overflow ();
 		}
 	}
 	else
 	{
-		stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::prioritize_failed);
+		stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::prioritize_failed);
 	}
 }
 
-void nano::bootstrap::account_sets::priority_down (nano::account const & account)
+void celerix::bootstrap::account_sets::priority_down (celerix::account const & account)
 {
 	if (account.is_zero ())
 	{
@@ -59,13 +59,13 @@ void nano::bootstrap::account_sets::priority_down (nano::account const & account
 
 	if (auto it = priorities.get<tag_account> ().find (account); it != priorities.get<tag_account> ().end ())
 	{
-		stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::deprioritize);
+		stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::deprioritize);
 
 		auto priority = it->priority / account_sets::priority_divide;
 
 		if (it->fails >= account_sets::max_fails || it->fails >= it->priority || priority <= account_sets::priority_cutoff)
 		{
-			stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::erase_by_threshold);
+			stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::erase_by_threshold);
 			priorities.get<tag_account> ().erase (it);
 		}
 		else
@@ -78,11 +78,11 @@ void nano::bootstrap::account_sets::priority_down (nano::account const & account
 	}
 	else
 	{
-		stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::deprioritize_failed);
+		stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::deprioritize_failed);
 	}
 }
 
-void nano::bootstrap::account_sets::priority_set (nano::account const & account, double priority)
+void celerix::bootstrap::account_sets::priority_set (celerix::account const & account, double priority)
 {
 	if (account.is_zero ())
 	{
@@ -93,26 +93,26 @@ void nano::bootstrap::account_sets::priority_set (nano::account const & account,
 	{
 		if (!priorities.get<tag_account> ().contains (account))
 		{
-			stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::priority_set);
+			stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::priority_set);
 			priorities.get<tag_account> ().insert ({ account, priority });
 			trim_overflow ();
 		}
 	}
 	else
 	{
-		stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::prioritize_failed);
+		stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::prioritize_failed);
 	}
 }
 
-void nano::bootstrap::account_sets::block (nano::account const & account, nano::block_hash const & dependency)
+void celerix::bootstrap::account_sets::block (celerix::account const & account, celerix::block_hash const & dependency)
 {
 	debug_assert (!account.is_zero ());
 
 	auto erased = priorities.get<tag_account> ().erase (account);
 	if (erased > 0)
 	{
-		stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::erase_by_blocking);
-		stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::block);
+		stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::erase_by_blocking);
+		stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::block);
 
 		debug_assert (blocking.get<tag_account> ().count (account) == 0);
 		blocking.get<tag_account> ().insert ({ account, dependency });
@@ -120,11 +120,11 @@ void nano::bootstrap::account_sets::block (nano::account const & account, nano::
 	}
 	else
 	{
-		stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::block_failed);
+		stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::block_failed);
 	}
 }
 
-void nano::bootstrap::account_sets::unblock (nano::account const & account, std::optional<nano::block_hash> const & hash)
+void celerix::bootstrap::account_sets::unblock (celerix::account const & account, std::optional<celerix::block_hash> const & hash)
 {
 	if (account.is_zero ())
 	{
@@ -135,8 +135,8 @@ void nano::bootstrap::account_sets::unblock (nano::account const & account, std:
 	auto existing = blocking.get<tag_account> ().find (account);
 	if (existing != blocking.get<tag_account> ().end () && (!hash || existing->dependency == *hash))
 	{
-		stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::unblock);
-		stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::priority_unblocked);
+		stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::unblock);
+		stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::priority_unblocked);
 
 		debug_assert (priorities.get<tag_account> ().count (account) == 0);
 		priorities.get<tag_account> ().insert ({ account, account_sets::priority_initial });
@@ -145,11 +145,11 @@ void nano::bootstrap::account_sets::unblock (nano::account const & account, std:
 	}
 	else
 	{
-		stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::unblock_failed);
+		stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::unblock_failed);
 	}
 }
 
-void nano::bootstrap::account_sets::timestamp_set (const nano::account & account)
+void celerix::bootstrap::account_sets::timestamp_set (const celerix::account & account)
 {
 	debug_assert (!account.is_zero ());
 
@@ -162,7 +162,7 @@ void nano::bootstrap::account_sets::timestamp_set (const nano::account & account
 	}
 }
 
-void nano::bootstrap::account_sets::timestamp_reset (const nano::account & account)
+void celerix::bootstrap::account_sets::timestamp_reset (const celerix::account & account)
 {
 	debug_assert (!account.is_zero ());
 
@@ -175,7 +175,7 @@ void nano::bootstrap::account_sets::timestamp_reset (const nano::account & accou
 	}
 }
 
-void nano::bootstrap::account_sets::dependency_update (nano::block_hash const & hash, nano::account const & dependency_account)
+void celerix::bootstrap::account_sets::dependency_update (celerix::block_hash const & hash, celerix::account const & dependency_account)
 {
 	debug_assert (!dependency_account.is_zero ());
 
@@ -186,7 +186,7 @@ void nano::bootstrap::account_sets::dependency_update (nano::block_hash const & 
 		{
 			if (it->dependency_account != dependency_account)
 			{
-				stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::dependency_update);
+				stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::dependency_update);
 
 				blocking.get<tag_dependency> ().modify (it++, [dependency_account] (auto & entry) {
 					entry.dependency_account = dependency_account;
@@ -200,27 +200,27 @@ void nano::bootstrap::account_sets::dependency_update (nano::block_hash const & 
 	}
 	else
 	{
-		stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::dependency_update_failed);
+		stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::dependency_update_failed);
 	}
 }
 
-void nano::bootstrap::account_sets::trim_overflow ()
+void celerix::bootstrap::account_sets::trim_overflow ()
 {
 	while (!priorities.empty () && priorities.size () > config.priorities_max)
 	{
 		// Erase the lowest priority entry
-		stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::priority_overflow);
+		stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::priority_overflow);
 		priorities.get<tag_priority> ().erase (std::prev (priorities.get<tag_priority> ().end ()));
 	}
 	while (!blocking.empty () && blocking.size () > config.blocking_max)
 	{
 		// Erase the lowest priority entry
-		stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::blocking_overflow);
+		stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::blocking_overflow);
 		blocking.pop_front ();
 	}
 }
 
-auto nano::bootstrap::account_sets::next_priority (std::function<bool (nano::account const &)> const & filter) -> priority_result
+auto celerix::bootstrap::account_sets::next_priority (std::function<bool (celerix::account const &)> const & filter) -> priority_result
 {
 	if (priorities.empty ())
 	{
@@ -249,7 +249,7 @@ auto nano::bootstrap::account_sets::next_priority (std::function<bool (nano::acc
 	return {};
 }
 
-nano::block_hash nano::bootstrap::account_sets::next_blocking (std::function<bool (nano::block_hash const &)> const & filter)
+celerix::block_hash celerix::bootstrap::account_sets::next_blocking (std::function<bool (celerix::block_hash const &)> const & filter)
 {
 	if (blocking.empty ())
 	{
@@ -257,7 +257,7 @@ nano::block_hash nano::bootstrap::account_sets::next_blocking (std::function<boo
 	}
 
 	// Scan all entries with unknown dependency account
-	auto [begin, end] = blocking.get<tag_dependency_account> ().equal_range (nano::account{ 0 });
+	auto [begin, end] = blocking.get<tag_dependency_account> ().equal_range (celerix::account{ 0 });
 	for (auto const & entry : boost::make_iterator_range (begin, end))
 	{
 		debug_assert (entry.dependency_account.is_zero ());
@@ -271,12 +271,12 @@ nano::block_hash nano::bootstrap::account_sets::next_blocking (std::function<boo
 	return { 0 };
 }
 
-void nano::bootstrap::account_sets::sync_dependencies ()
+void celerix::bootstrap::account_sets::sync_dependencies ()
 {
-	stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::sync_dependencies);
+	stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::sync_dependencies);
 
 	// Sample all accounts with a known dependency account (> account 0)
-	auto begin = blocking.get<tag_dependency_account> ().upper_bound (nano::account{ 0 });
+	auto begin = blocking.get<tag_dependency_account> ().upper_bound (celerix::account{ 0 });
 	auto end = blocking.get<tag_dependency_account> ().end ();
 
 	for (auto const & entry : boost::make_iterator_range (begin, end))
@@ -290,7 +290,7 @@ void nano::bootstrap::account_sets::sync_dependencies ()
 
 		if (!blocked (entry.dependency_account) && !prioritized (entry.dependency_account))
 		{
-			stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::dependency_synced);
+			stats.inc (celerix::stat::type::bootstrap_account_sets, celerix::stat::detail::dependency_synced);
 			priority_set (entry.dependency_account);
 		}
 	}
@@ -298,37 +298,37 @@ void nano::bootstrap::account_sets::sync_dependencies ()
 	trim_overflow ();
 }
 
-bool nano::bootstrap::account_sets::blocked (nano::account const & account) const
+bool celerix::bootstrap::account_sets::blocked (celerix::account const & account) const
 {
 	return blocking.get<tag_account> ().contains (account);
 }
 
-bool nano::bootstrap::account_sets::prioritized (nano::account const & account) const
+bool celerix::bootstrap::account_sets::prioritized (celerix::account const & account) const
 {
 	return priorities.get<tag_account> ().contains (account);
 }
 
-std::size_t nano::bootstrap::account_sets::priority_size () const
+std::size_t celerix::bootstrap::account_sets::priority_size () const
 {
 	return priorities.size ();
 }
 
-std::size_t nano::bootstrap::account_sets::blocked_size () const
+std::size_t celerix::bootstrap::account_sets::blocked_size () const
 {
 	return blocking.size ();
 }
 
-bool nano::bootstrap::account_sets::priority_half_full () const
+bool celerix::bootstrap::account_sets::priority_half_full () const
 {
 	return priorities.size () > config.priorities_max / 2;
 }
 
-bool nano::bootstrap::account_sets::blocked_half_full () const
+bool celerix::bootstrap::account_sets::blocked_half_full () const
 {
 	return blocking.size () > config.blocking_max / 2;
 }
 
-double nano::bootstrap::account_sets::priority (nano::account const & account) const
+double celerix::bootstrap::account_sets::priority (celerix::account const & account) const
 {
 	if (!blocked (account))
 	{
@@ -340,17 +340,17 @@ double nano::bootstrap::account_sets::priority (nano::account const & account) c
 	return 0.0;
 }
 
-auto nano::bootstrap::account_sets::info () const -> nano::bootstrap::account_sets::info_t
+auto celerix::bootstrap::account_sets::info () const -> celerix::bootstrap::account_sets::info_t
 {
 	return { blocking, priorities };
 }
 
-nano::container_info nano::bootstrap::account_sets::container_info () const
+celerix::container_info celerix::bootstrap::account_sets::container_info () const
 {
 	// Count blocking entries with their dependency account unknown
-	auto blocking_unknown = blocking.get<tag_dependency_account> ().count (nano::account{ 0 });
+	auto blocking_unknown = blocking.get<tag_dependency_account> ().count (celerix::account{ 0 });
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("priorities", priorities);
 	info.put ("blocking", blocking);
 	info.put ("blocking_unknown", blocking_unknown);

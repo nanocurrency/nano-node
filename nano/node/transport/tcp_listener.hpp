@@ -1,12 +1,12 @@
 #pragma once
 
-#include <nano/lib/async.hpp>
-#include <nano/lib/fwd.hpp>
-#include <nano/lib/observer_set.hpp>
-#include <nano/node/endpoint.hpp>
-#include <nano/node/fwd.hpp>
-#include <nano/node/transport/common.hpp>
-#include <nano/node/transport/tcp_config.hpp>
+#include <celerix/lib/async.hpp>
+#include <celerix/lib/fwd.hpp>
+#include <celerix/lib/observer_set.hpp>
+#include <celerix/node/endpoint.hpp>
+#include <celerix/node/fwd.hpp>
+#include <celerix/node/transport/common.hpp>
+#include <celerix/node/transport/tcp_config.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -23,7 +23,7 @@
 namespace mi = boost::multi_index;
 namespace asio = boost::asio;
 
-namespace nano::transport
+namespace celerix::transport
 {
 /**
  * Server side portion of tcp sessions. Listens for new socket connections and spawns tcp_server objects when connected.
@@ -38,7 +38,7 @@ public:
 	};
 
 public:
-	tcp_listener (uint16_t port, tcp_config const &, nano::node &);
+	tcp_listener (uint16_t port, tcp_config const &, celerix::node &);
 	~tcp_listener ();
 
 	void start ();
@@ -50,7 +50,7 @@ public:
 	 */
 	bool connect (asio::ip::address ip, uint16_t port = 0);
 
-	nano::tcp_endpoint endpoint () const;
+	celerix::tcp_endpoint endpoint () const;
 
 	size_t connection_count () const;
 	size_t connection_count (connection_type) const;
@@ -61,17 +61,17 @@ public:
 	std::vector<std::shared_ptr<tcp_socket>> sockets () const;
 	std::vector<std::shared_ptr<tcp_server>> servers () const;
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 
 public: // Events
-	using connection_accepted_event_t = nano::observer_set<std::shared_ptr<tcp_socket>, std::shared_ptr<tcp_server>>;
+	using connection_accepted_event_t = celerix::observer_set<std::shared_ptr<tcp_socket>, std::shared_ptr<tcp_server>>;
 	connection_accepted_event_t connection_accepted;
 
 private: // Dependencies
 	tcp_config const & config;
-	nano::node & node;
-	nano::stats & stats;
-	nano::logger & logger;
+	celerix::node & node;
+	celerix::stats & stats;
+	celerix::logger & logger;
 
 private:
 	asio::awaitable<void> start_impl ();
@@ -96,8 +96,8 @@ private:
 	struct accept_return
 	{
 		accept_result result;
-		std::shared_ptr<nano::transport::tcp_socket> socket;
-		std::shared_ptr<nano::transport::tcp_server> server;
+		std::shared_ptr<celerix::transport::tcp_socket> socket;
+		std::shared_ptr<celerix::transport::tcp_server> server;
 	};
 
 	accept_return accept_one (asio::ip::tcp::socket, connection_type);
@@ -126,7 +126,7 @@ private:
 	struct attempt
 	{
 		asio::ip::tcp::endpoint endpoint;
-		nano::async::task task;
+		celerix::async::task task;
 
 		std::chrono::steady_clock::time_point const start{ std::chrono::steady_clock::now () };
 
@@ -142,20 +142,20 @@ private:
 	std::list<connection> connections;
 	std::list<attempt> attempts;
 
-	nano::async::strand strand;
+	celerix::async::strand strand;
 
 	asio::ip::tcp::acceptor acceptor;
 	asio::ip::tcp::endpoint local;
 
 	std::atomic<bool> stopped;
-	nano::condition_variable condition;
-	mutable nano::mutex mutex;
-	nano::async::task task;
+	celerix::condition_variable condition;
+	mutable celerix::mutex mutex;
+	celerix::async::task task;
 	std::thread cleanup_thread;
 
 private:
-	static nano::stat::dir to_stat_dir (connection_type);
+	static celerix::stat::dir to_stat_dir (connection_type);
 	static std::string_view to_string (connection_type);
-	static nano::transport::socket_endpoint to_socket_endpoint (connection_type);
+	static celerix::transport::socket_endpoint to_socket_endpoint (connection_type);
 };
 }

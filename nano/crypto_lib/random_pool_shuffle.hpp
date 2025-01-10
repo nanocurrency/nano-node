@@ -1,10 +1,10 @@
 #pragma once
 
-#include <nano/crypto_lib/random_pool.hpp>
+#include <celerix/crypto_lib/random_pool.hpp>
 
 #include <cryptopp/osrng.h>
 
-namespace nano
+namespace celerix
 {
 template <class Iter>
 void random_pool_shuffle (Iter begin, Iter end)

@@ -1,9 +1,9 @@
-#include <nano/lib/enum_util.hpp>
-#include <nano/lib/interval.hpp>
-#include <nano/node/messages.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/transport/tcp_listener.hpp>
-#include <nano/node/transport/tcp_server.hpp>
+#include <celerix/lib/enum_util.hpp>
+#include <celerix/lib/interval.hpp>
+#include <celerix/node/messages.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/transport/tcp_listener.hpp>
+#include <celerix/node/transport/tcp_server.hpp>
 
 #include <boost/asio/use_future.hpp>
 
@@ -16,7 +16,7 @@ using namespace std::chrono_literals;
  * tcp_listener
  */
 
-nano::transport::tcp_listener::tcp_listener (uint16_t port_a, tcp_config const & config_a, nano::node & node_a) :
+celerix::transport::tcp_listener::tcp_listener (uint16_t port_a, tcp_config const & config_a, celerix::node & node_a) :
 	config{ config_a },
 	node{ node_a },
 	stats{ node_a.stats },
@@ -31,7 +31,7 @@ nano::transport::tcp_listener::tcp_listener (uint16_t port_a, tcp_config const &
 	});
 }
 
-nano::transport::tcp_listener::~tcp_listener ()
+celerix::transport::tcp_listener::~tcp_listener ()
 {
 	debug_assert (!cleanup_thread.joinable ());
 	debug_assert (!task.joinable ());
@@ -39,7 +39,7 @@ nano::transport::tcp_listener::~tcp_listener ()
 	debug_assert (attempt_count () == 0);
 }
 
-void nano::transport::tcp_listener::start ()
+void celerix::transport::tcp_listener::start ()
 {
 	debug_assert (!cleanup_thread.joinable ());
 	debug_assert (!task.joinable ());
@@ -54,31 +54,31 @@ void nano::transport::tcp_listener::start ()
 		acceptor.listen (asio::socket_base::max_listen_connections);
 
 		{
-			std::lock_guard<nano::mutex> lock{ mutex };
+			std::lock_guard<celerix::mutex> lock{ mutex };
 			local = acceptor.local_endpoint ();
 		}
 
-		logger.debug (nano::log::type::tcp_listener, "Listening for incoming connections on: {}", fmt::streamed (acceptor.local_endpoint ()));
+		logger.debug (celerix::log::type::tcp_listener, "Listening for incoming connections on: {}", fmt::streamed (acceptor.local_endpoint ()));
 	}
 	catch (boost::system::system_error const & ex)
 	{
-		logger.critical (nano::log::type::tcp_listener, "Error while binding for incoming TCP: {} (port: {})", ex.what (), port);
+		logger.critical (celerix::log::type::tcp_listener, "Error while binding for incoming TCP: {} (port: {})", ex.what (), port);
 		throw;
 	}
 
-	task = nano::async::task (strand, start_impl ());
+	task = celerix::async::task (strand, start_impl ());
 
 	cleanup_thread = std::thread ([this] {
-		nano::thread_role::set (nano::thread_role::name::tcp_listener);
+		celerix::thread_role::set (celerix::thread_role::name::tcp_listener);
 		run_cleanup ();
 	});
 }
 
-asio::awaitable<void> nano::transport::tcp_listener::start_impl ()
+asio::awaitable<void> celerix::transport::tcp_listener::start_impl ()
 {
 	try
 	{
-		logger.debug (nano::log::type::tcp_listener, "Starting acceptor");
+		logger.debug (celerix::log::type::tcp_listener, "Starting acceptor");
 
 		try
 		{
@@ -91,28 +91,28 @@ asio::awaitable<void> nano::transport::tcp_listener::start_impl ()
 		}
 		debug_assert (strand.running_in_this_thread ());
 
-		logger.debug (nano::log::type::tcp_listener, "Stopped acceptor");
+		logger.debug (celerix::log::type::tcp_listener, "Stopped acceptor");
 	}
 	catch (std::exception const & ex)
 	{
-		logger.critical (nano::log::type::tcp_listener, "Error: {}", ex.what ());
+		logger.critical (celerix::log::type::tcp_listener, "Error: {}", ex.what ());
 		release_assert (false); // Unexpected error
 	}
 	catch (...)
 	{
-		logger.critical (nano::log::type::tcp_listener, "Unknown error");
+		logger.critical (celerix::log::type::tcp_listener, "Unknown error");
 		release_assert (false); // Unexpected error
 	}
 }
 
-void nano::transport::tcp_listener::stop ()
+void celerix::transport::tcp_listener::stop ()
 {
 	debug_assert (!stopped);
 
-	logger.debug (nano::log::type::tcp_listener, "Stopping listening for incoming connections and closing all sockets...");
+	logger.debug (celerix::log::type::tcp_listener, "Stopping listening for incoming connections and closing all sockets...");
 
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		stopped = true;
 		local = {};
 	}
@@ -132,13 +132,13 @@ void nano::transport::tcp_listener::stop ()
 	acceptor.close (ec); // Best effort to close the acceptor, ignore errors
 	if (ec)
 	{
-		logger.error (nano::log::type::tcp_listener, "Error while closing acceptor: {}", ec.message ());
+		logger.error (celerix::log::type::tcp_listener, "Error while closing acceptor: {}", ec.message ());
 	}
 
 	decltype (connections) connections_l;
 	decltype (attempts) attempts_l;
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		connections_l.swap (connections);
 		attempts_l.swap (attempts);
 	}
@@ -163,12 +163,12 @@ void nano::transport::tcp_listener::stop ()
 	}
 }
 
-void nano::transport::tcp_listener::run_cleanup ()
+void celerix::transport::tcp_listener::run_cleanup ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::cleanup);
+		stats.inc (celerix::stat::type::tcp_listener, celerix::stat::detail::cleanup);
 
 		cleanup ();
 		timeout ();
@@ -177,7 +177,7 @@ void nano::transport::tcp_listener::run_cleanup ()
 	}
 }
 
-void nano::transport::tcp_listener::cleanup ()
+void celerix::transport::tcp_listener::cleanup ()
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -185,8 +185,8 @@ void nano::transport::tcp_listener::cleanup ()
 	erase_if (connections, [this] (auto const & connection) {
 		if (connection.socket.expired () && connection.server.expired ())
 		{
-			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::erase_dead);
-			logger.debug (nano::log::type::tcp_listener, "Evicting dead connection: {}", fmt::streamed (connection.endpoint));
+			stats.inc (celerix::stat::type::tcp_listener, celerix::stat::detail::erase_dead);
+			logger.debug (celerix::log::type::tcp_listener, "Evicting dead connection: {}", fmt::streamed (connection.endpoint));
 			return true;
 		}
 		else
@@ -201,7 +201,7 @@ void nano::transport::tcp_listener::cleanup ()
 	});
 }
 
-void nano::transport::tcp_listener::timeout ()
+void celerix::transport::tcp_listener::timeout ()
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -214,16 +214,16 @@ void nano::transport::tcp_listener::timeout ()
 		{
 			attempt.task.cancel ();
 
-			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::attempt_timeout);
-			logger.debug (nano::log::type::tcp_listener, "Connection attempt timed out: {} (started {}s ago)",
-			fmt::streamed (attempt.endpoint), nano::log::seconds_delta (attempt.start));
+			stats.inc (celerix::stat::type::tcp_listener, celerix::stat::detail::attempt_timeout);
+			logger.debug (celerix::log::type::tcp_listener, "Connection attempt timed out: {} (started {}s ago)",
+			fmt::streamed (attempt.endpoint), celerix::log::seconds_delta (attempt.start));
 		}
 	}
 }
 
-bool nano::transport::tcp_listener::connect (asio::ip::address ip, uint16_t port)
+bool celerix::transport::tcp_listener::connect (asio::ip::address ip, uint16_t port)
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 
 	if (stopped)
 	{
@@ -237,8 +237,8 @@ bool nano::transport::tcp_listener::connect (asio::ip::address ip, uint16_t port
 
 	if (auto count = attempts.size (); count > config.max_attempts)
 	{
-		stats.inc (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_attempts, nano::stat::dir::out);
-		logger.debug (nano::log::type::tcp_listener, "Max connection attempts reached ({}), rejected connection attempt: {}",
+		stats.inc (celerix::stat::type::tcp_listener_rejected, celerix::stat::detail::max_attempts, celerix::stat::dir::out);
+		logger.debug (celerix::log::type::tcp_listener, "Max connection attempts reached ({}), rejected connection attempt: {}",
 		count, ip.to_string ());
 
 		return false; // Rejected
@@ -246,8 +246,8 @@ bool nano::transport::tcp_listener::connect (asio::ip::address ip, uint16_t port
 
 	if (auto count = count_attempts (ip); count >= config.max_attempts_per_ip)
 	{
-		stats.inc (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_attempts_per_ip, nano::stat::dir::out);
-		logger.debug (nano::log::type::tcp_listener, "Connection attempt already in progress ({}), rejected connection attempt: {}",
+		stats.inc (celerix::stat::type::tcp_listener_rejected, celerix::stat::detail::max_attempts_per_ip, celerix::stat::dir::out);
+		logger.debug (celerix::log::type::tcp_listener, "Connection attempt already in progress ({}), rejected connection attempt: {}",
 		count, ip.to_string ());
 
 		return false; // Rejected
@@ -255,25 +255,25 @@ bool nano::transport::tcp_listener::connect (asio::ip::address ip, uint16_t port
 
 	if (auto result = check_limits (ip, connection_type::outbound); result != accept_result::accepted)
 	{
-		stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::connect_rejected, nano::stat::dir::out);
+		stats.inc (celerix::stat::type::tcp_listener, celerix::stat::detail::connect_rejected, celerix::stat::dir::out);
 		// Refusal reason should be logged earlier
 
 		return false; // Rejected
 	}
 
-	nano::tcp_endpoint const endpoint{ ip, port };
+	celerix::tcp_endpoint const endpoint{ ip, port };
 
-	stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::connect_initiate, nano::stat::dir::out);
-	logger.debug (nano::log::type::tcp_listener, "Initiating outgoing connection to: {}", fmt::streamed (endpoint));
+	stats.inc (celerix::stat::type::tcp_listener, celerix::stat::detail::connect_initiate, celerix::stat::dir::out);
+	logger.debug (celerix::log::type::tcp_listener, "Initiating outgoing connection to: {}", fmt::streamed (endpoint));
 
-	auto task = nano::async::task (strand, connect_impl (endpoint));
+	auto task = celerix::async::task (strand, connect_impl (endpoint));
 
 	attempts.emplace_back (attempt{ endpoint, std::move (task) });
 
 	return true; // Attempt started
 }
 
-auto nano::transport::tcp_listener::connect_impl (asio::ip::tcp::endpoint endpoint) -> asio::awaitable<void>
+auto celerix::transport::tcp_listener::connect_impl (asio::ip::tcp::endpoint endpoint) -> asio::awaitable<void>
 {
 	debug_assert (strand.running_in_this_thread ());
 
@@ -285,26 +285,26 @@ auto nano::transport::tcp_listener::connect_impl (asio::ip::tcp::endpoint endpoi
 		auto result = accept_one (std::move (raw_socket), connection_type::outbound);
 		if (result.result == accept_result::accepted)
 		{
-			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::connect_success, nano::stat::dir::out);
-			logger.debug (nano::log::type::tcp_listener, "Successfully connected to: {}", fmt::streamed (endpoint));
+			stats.inc (celerix::stat::type::tcp_listener, celerix::stat::detail::connect_success, celerix::stat::dir::out);
+			logger.debug (celerix::log::type::tcp_listener, "Successfully connected to: {}", fmt::streamed (endpoint));
 
 			release_assert (result.server);
 			result.server->initiate_handshake ();
 		}
 		else
 		{
-			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::connect_failure, nano::stat::dir::out);
+			stats.inc (celerix::stat::type::tcp_listener, celerix::stat::detail::connect_failure, celerix::stat::dir::out);
 			// Refusal reason should be logged earlier
 		}
 	}
 	catch (boost::system::system_error const & ex)
 	{
-		stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::connect_error, nano::stat::dir::out);
-		logger.log (nano::log::level::debug, nano::log::type::tcp_listener, "Error connecting to: {} ({})", fmt::streamed (endpoint), ex.what ());
+		stats.inc (celerix::stat::type::tcp_listener, celerix::stat::detail::connect_error, celerix::stat::dir::out);
+		logger.log (celerix::log::level::debug, celerix::log::type::tcp_listener, "Error connecting to: {} ({})", fmt::streamed (endpoint), ex.what ());
 	}
 }
 
-asio::awaitable<void> nano::transport::tcp_listener::run ()
+asio::awaitable<void> celerix::transport::tcp_listener::run ()
 {
 	debug_assert (strand.running_in_this_thread ());
 
@@ -320,34 +320,34 @@ asio::awaitable<void> nano::transport::tcp_listener::run ()
 			auto result = accept_one (std::move (socket), connection_type::inbound);
 			if (result.result != accept_result::accepted)
 			{
-				stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::accept_failure, nano::stat::dir::in);
+				stats.inc (celerix::stat::type::tcp_listener, celerix::stat::detail::accept_failure, celerix::stat::dir::in);
 				// Refusal reason should be logged earlier
 			}
 		}
 		catch (boost::system::system_error const & ex)
 		{
-			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::accept_error, nano::stat::dir::in);
-			logger.log (nano::log::level::debug, nano::log::type::tcp_listener, "Error accepting incoming connection: {}", ex.what ());
+			stats.inc (celerix::stat::type::tcp_listener, celerix::stat::detail::accept_error, celerix::stat::dir::in);
+			logger.log (celerix::log::level::debug, celerix::log::type::tcp_listener, "Error accepting incoming connection: {}", ex.what ());
 		}
 
 		// Sleep for a while to prevent busy loop
-		co_await nano::async::sleep_for (10ms);
+		co_await celerix::async::sleep_for (10ms);
 	}
 	if (!stopped)
 	{
-		logger.error (nano::log::type::tcp_listener, "Acceptor stopped unexpectedly");
+		logger.error (celerix::log::type::tcp_listener, "Acceptor stopped unexpectedly");
 		debug_assert (false, "acceptor stopped unexpectedly");
 	}
 }
 
-asio::awaitable<asio::ip::tcp::socket> nano::transport::tcp_listener::accept_socket ()
+asio::awaitable<asio::ip::tcp::socket> celerix::transport::tcp_listener::accept_socket ()
 {
 	debug_assert (strand.running_in_this_thread ());
 
 	co_return co_await acceptor.async_accept (asio::use_awaitable);
 }
 
-asio::awaitable<asio::ip::tcp::socket> nano::transport::tcp_listener::connect_socket (asio::ip::tcp::endpoint endpoint)
+asio::awaitable<asio::ip::tcp::socket> celerix::transport::tcp_listener::connect_socket (asio::ip::tcp::endpoint endpoint)
 {
 	debug_assert (strand.running_in_this_thread ());
 
@@ -357,27 +357,27 @@ asio::awaitable<asio::ip::tcp::socket> nano::transport::tcp_listener::connect_so
 	co_return raw_socket;
 }
 
-asio::awaitable<void> nano::transport::tcp_listener::wait_available_slots () const
+asio::awaitable<void> celerix::transport::tcp_listener::wait_available_slots () const
 {
-	nano::interval log_interval;
+	celerix::interval log_interval;
 	while (connection_count () >= config.max_inbound_connections && !stopped)
 	{
 		if (log_interval.elapsed (node.network_params.network.is_dev_network () ? 1s : 15s))
 		{
-			logger.warn (nano::log::type::tcp_listener, "Waiting for available slots to accept new connections (current: {} / max: {})",
+			logger.warn (celerix::log::type::tcp_listener, "Waiting for available slots to accept new connections (current: {} / max: {})",
 			connection_count (), config.max_inbound_connections);
 		}
 
-		co_await nano::async::sleep_for (100ms);
+		co_await celerix::async::sleep_for (100ms);
 	}
 }
 
-auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket, connection_type type) -> accept_return
+auto celerix::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket, connection_type type) -> accept_return
 {
 	auto const remote_endpoint = raw_socket.remote_endpoint ();
 	auto const local_endpoint = raw_socket.local_endpoint ();
 
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 
 	if (stopped)
 	{
@@ -386,8 +386,8 @@ auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket
 
 	if (auto result = check_limits (remote_endpoint.address (), type); result != accept_result::accepted)
 	{
-		stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::accept_rejected, to_stat_dir (type));
-		logger.debug (nano::log::type::tcp_listener, "Rejected connection from: {} ({})", fmt::streamed (remote_endpoint), to_string (type));
+		stats.inc (celerix::stat::type::tcp_listener, celerix::stat::detail::accept_rejected, to_stat_dir (type));
+		logger.debug (celerix::log::type::tcp_listener, "Rejected connection from: {} ({})", fmt::streamed (remote_endpoint), to_string (type));
 		// Rejection reason should be logged earlier
 
 		try
@@ -398,18 +398,18 @@ auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket
 		}
 		catch (boost::system::system_error const & ex)
 		{
-			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::close_error, to_stat_dir (type));
-			logger.debug (nano::log::type::tcp_listener, "Error while closing socket after refusing connection: {} ({})", ex.what (), to_string (type));
+			stats.inc (celerix::stat::type::tcp_listener, celerix::stat::detail::close_error, to_stat_dir (type));
+			logger.debug (celerix::log::type::tcp_listener, "Error while closing socket after refusing connection: {} ({})", ex.what (), to_string (type));
 		}
 
 		return { result };
 	}
 
-	stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::accept_success, to_stat_dir (type));
-	logger.debug (nano::log::type::tcp_listener, "Accepted connection: {} ({})", fmt::streamed (remote_endpoint), to_string (type));
+	stats.inc (celerix::stat::type::tcp_listener, celerix::stat::detail::accept_success, to_stat_dir (type));
+	logger.debug (celerix::log::type::tcp_listener, "Accepted connection: {} ({})", fmt::streamed (remote_endpoint), to_string (type));
 
-	auto socket = std::make_shared<nano::transport::tcp_socket> (node, std::move (raw_socket), remote_endpoint, local_endpoint, to_socket_endpoint (type));
-	auto server = std::make_shared<nano::transport::tcp_server> (socket, node.shared (), true);
+	auto socket = std::make_shared<celerix::transport::tcp_socket> (node, std::move (raw_socket), remote_endpoint, local_endpoint, to_socket_endpoint (type));
+	auto server = std::make_shared<celerix::transport::tcp_server> (socket, node.shared (), true);
 
 	connections.emplace_back (connection{ type, remote_endpoint, socket, server });
 
@@ -424,7 +424,7 @@ auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket
 	return { accept_result::accepted, socket, server };
 }
 
-auto nano::transport::tcp_listener::check_limits (asio::ip::address const & ip, connection_type type) -> accept_result
+auto celerix::transport::tcp_listener::check_limits (asio::ip::address const & ip, connection_type type) -> accept_result
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -437,8 +437,8 @@ auto nano::transport::tcp_listener::check_limits (asio::ip::address const & ip, 
 
 	if (node.network.excluded_peers.check (ip)) // true => error
 	{
-		stats.inc (nano::stat::type::tcp_listener_rejected, nano::stat::detail::excluded, to_stat_dir (type));
-		logger.debug (nano::log::type::tcp_listener, "Rejected connection from excluded peer: {} ({})",
+		stats.inc (celerix::stat::type::tcp_listener_rejected, celerix::stat::detail::excluded, to_stat_dir (type));
+		logger.debug (celerix::log::type::tcp_listener, "Rejected connection from excluded peer: {} ({})",
 		ip.to_string (),
 		to_string (type));
 
@@ -449,8 +449,8 @@ auto nano::transport::tcp_listener::check_limits (asio::ip::address const & ip, 
 	{
 		if (auto count = count_per_ip (ip); count >= node.config.network.max_peers_per_ip)
 		{
-			stats.inc (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_per_ip, to_stat_dir (type));
-			logger.debug (nano::log::type::tcp_listener, "Max connections: {} per IP: {} reached, unable to open a new connection ({})",
+			stats.inc (celerix::stat::type::tcp_listener_rejected, celerix::stat::detail::max_per_ip, to_stat_dir (type));
+			logger.debug (celerix::log::type::tcp_listener, "Max connections: {} per IP: {} reached, unable to open a new connection ({})",
 			count,
 			ip.to_string (),
 			to_string (type));
@@ -460,12 +460,12 @@ auto nano::transport::tcp_listener::check_limits (asio::ip::address const & ip, 
 	}
 
 	// If the address is IPv4 we don't check for a subnetwork limit, since its address space isn't big as IPv6/64.
-	if (!node.flags.disable_max_peers_per_subnetwork && !nano::transport::is_ipv4_or_v4_mapped_address (ip))
+	if (!node.flags.disable_max_peers_per_subnetwork && !celerix::transport::is_ipv4_or_v4_mapped_address (ip))
 	{
 		if (auto count = count_per_subnetwork (ip); count >= node.config.network.max_peers_per_subnetwork)
 		{
-			stats.inc (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_per_subnetwork, to_stat_dir (type));
-			logger.debug (nano::log::type::tcp_listener, "Max connections: {} per subnetwork of IP: {} reached, unable to open a new connection ({})",
+			stats.inc (celerix::stat::type::tcp_listener_rejected, celerix::stat::detail::max_per_subnetwork, to_stat_dir (type));
+			logger.debug (celerix::log::type::tcp_listener, "Max connections: {} per subnetwork of IP: {} reached, unable to open a new connection ({})",
 			count,
 			ip.to_string (),
 			to_string (type));
@@ -480,8 +480,8 @@ auto nano::transport::tcp_listener::check_limits (asio::ip::address const & ip, 
 
 		if (auto count = count_per_type (connection_type::inbound); count >= config.max_inbound_connections)
 		{
-			stats.inc (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_attempts, to_stat_dir (type));
-			logger.debug (nano::log::type::tcp_listener, "Max inbound connections reached: {}, unable to accept new connection: {}",
+			stats.inc (celerix::stat::type::tcp_listener_rejected, celerix::stat::detail::max_attempts, to_stat_dir (type));
+			logger.debug (celerix::log::type::tcp_listener, "Max inbound connections reached: {}, unable to accept new connection: {}",
 			count, ip.to_string ());
 
 			return accept_result::rejected;
@@ -491,8 +491,8 @@ auto nano::transport::tcp_listener::check_limits (asio::ip::address const & ip, 
 	{
 		if (auto count = count_per_type (connection_type::outbound); count >= config.max_outbound_connections)
 		{
-			stats.inc (nano::stat::type::tcp_listener_rejected, nano::stat::detail::max_attempts, to_stat_dir (type));
-			logger.debug (nano::log::type::tcp_listener, "Max outbound connections reached: {}, unable to initiate new connection: {}",
+			stats.inc (celerix::stat::type::tcp_listener_rejected, celerix::stat::detail::max_attempts, to_stat_dir (type));
+			logger.debug (celerix::log::type::tcp_listener, "Max outbound connections reached: {}, unable to initiate new connection: {}",
 			count, ip.to_string ());
 
 			return accept_result::rejected;
@@ -502,27 +502,27 @@ auto nano::transport::tcp_listener::check_limits (asio::ip::address const & ip, 
 	return accept_result::accepted;
 }
 
-size_t nano::transport::tcp_listener::connection_count () const
+size_t celerix::transport::tcp_listener::connection_count () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return connections.size ();
 }
 
-size_t nano::transport::tcp_listener::connection_count (connection_type type) const
+size_t celerix::transport::tcp_listener::connection_count (connection_type type) const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return count_per_type (type);
 }
 
-size_t nano::transport::tcp_listener::attempt_count () const
+size_t celerix::transport::tcp_listener::attempt_count () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return attempts.size ();
 }
 
-size_t nano::transport::tcp_listener::realtime_count () const
+size_t celerix::transport::tcp_listener::realtime_count () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 	return std::count_if (connections.begin (), connections.end (), [] (auto const & connection) {
 		if (auto socket = connection.socket.lock ())
@@ -533,9 +533,9 @@ size_t nano::transport::tcp_listener::realtime_count () const
 	});
 }
 
-size_t nano::transport::tcp_listener::bootstrap_count () const
+size_t celerix::transport::tcp_listener::bootstrap_count () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 	return std::count_if (connections.begin (), connections.end (), [] (auto const & connection) {
 		if (auto socket = connection.socket.lock ())
@@ -546,7 +546,7 @@ size_t nano::transport::tcp_listener::bootstrap_count () const
 	});
 }
 
-size_t nano::transport::tcp_listener::count_per_type (connection_type type) const
+size_t celerix::transport::tcp_listener::count_per_type (connection_type type) const
 {
 	debug_assert (!mutex.try_lock ());
 	return std::count_if (connections.begin (), connections.end (), [&] (auto const & connection) {
@@ -554,59 +554,59 @@ size_t nano::transport::tcp_listener::count_per_type (connection_type type) cons
 	});
 }
 
-size_t nano::transport::tcp_listener::count_per_ip (asio::ip::address const & ip) const
+size_t celerix::transport::tcp_listener::count_per_ip (asio::ip::address const & ip) const
 {
 	debug_assert (!mutex.try_lock ());
 	return std::count_if (connections.begin (), connections.end (), [&] (auto const & connection) {
-		return nano::transport::is_same_ip (connection.address (), ip);
+		return celerix::transport::is_same_ip (connection.address (), ip);
 	});
 }
 
-size_t nano::transport::tcp_listener::count_per_subnetwork (asio::ip::address const & ip) const
+size_t celerix::transport::tcp_listener::count_per_subnetwork (asio::ip::address const & ip) const
 {
 	debug_assert (!mutex.try_lock ());
 	return std::count_if (connections.begin (), connections.end (), [&] (auto const & connection) {
-		return nano::transport::is_same_subnetwork (connection.address (), ip);
+		return celerix::transport::is_same_subnetwork (connection.address (), ip);
 	});
 }
 
-size_t nano::transport::tcp_listener::count_attempts (asio::ip::address const & ip) const
+size_t celerix::transport::tcp_listener::count_attempts (asio::ip::address const & ip) const
 {
 	debug_assert (!mutex.try_lock ());
 	return std::count_if (attempts.begin (), attempts.end (), [&] (auto const & attempt) {
-		return nano::transport::is_same_ip (attempt.address (), ip);
+		return celerix::transport::is_same_ip (attempt.address (), ip);
 	});
 }
 
-asio::ip::tcp::endpoint nano::transport::tcp_listener::endpoint () const
+asio::ip::tcp::endpoint celerix::transport::tcp_listener::endpoint () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return { asio::ip::address_v6::loopback (), local.port () };
 }
 
-auto nano::transport::tcp_listener::sockets () const -> std::vector<std::shared_ptr<tcp_socket>>
+auto celerix::transport::tcp_listener::sockets () const -> std::vector<std::shared_ptr<tcp_socket>>
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	auto r = connections
 	| std::views::transform ([] (auto const & connection) { return connection.socket.lock (); })
 	| std::views::filter ([] (auto const & socket) { return socket != nullptr; });
 	return { r.begin (), r.end () };
 }
 
-auto nano::transport::tcp_listener::servers () const -> std::vector<std::shared_ptr<tcp_server>>
+auto celerix::transport::tcp_listener::servers () const -> std::vector<std::shared_ptr<tcp_server>>
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	auto r = connections
 	| std::views::transform ([] (auto const & connection) { return connection.server.lock (); })
 	| std::views::filter ([] (auto const & server) { return server != nullptr; });
 	return { r.begin (), r.end () };
 }
 
-nano::container_info nano::transport::tcp_listener::container_info () const
+celerix::container_info celerix::transport::tcp_listener::container_info () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("connections", connections.size ());
 	info.put ("attempts", attempts.size ());
 	return info;
@@ -616,25 +616,25 @@ nano::container_info nano::transport::tcp_listener::container_info () const
  *
  */
 
-nano::stat::dir nano::transport::tcp_listener::to_stat_dir (connection_type type)
+celerix::stat::dir celerix::transport::tcp_listener::to_stat_dir (connection_type type)
 {
 	switch (type)
 	{
 		case connection_type::inbound:
-			return nano::stat::dir::in;
+			return celerix::stat::dir::in;
 		case connection_type::outbound:
-			return nano::stat::dir::out;
+			return celerix::stat::dir::out;
 	}
 	debug_assert (false);
 	return {};
 }
 
-std::string_view nano::transport::tcp_listener::to_string (connection_type type)
+std::string_view celerix::transport::tcp_listener::to_string (connection_type type)
 {
-	return nano::enum_util::name (type);
+	return celerix::enum_util::name (type);
 }
 
-nano::transport::socket_endpoint nano::transport::tcp_listener::to_socket_endpoint (connection_type type)
+celerix::transport::socket_endpoint celerix::transport::tcp_listener::to_socket_endpoint (connection_type type)
 {
 	switch (type)
 	{

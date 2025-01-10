@@ -1,21 +1,21 @@
-#include <nano/crypto_lib/random_pool.hpp>
+#include <celerix/crypto_lib/random_pool.hpp>
 
 #include <cryptopp/misc.h>
 #include <cryptopp/osrng.h>
 
-void nano::random_pool::generate_block (unsigned char * output, size_t size)
+void celerix::random_pool::generate_block (unsigned char * output, size_t size)
 {
 	auto & pool = get_pool ();
 	pool.GenerateBlock (output, size);
 }
 
-unsigned nano::random_pool::generate_word32 (unsigned min, unsigned max)
+unsigned celerix::random_pool::generate_word32 (unsigned min, unsigned max)
 {
 	auto & pool = get_pool ();
 	return pool.GenerateWord32 (min, max);
 }
 
-uint64_t nano::random_pool::generate_word64 (uint64_t min, uint64_t max)
+uint64_t celerix::random_pool::generate_word64 (uint64_t min, uint64_t max)
 {
 	auto & pool = get_pool ();
 
@@ -33,13 +33,13 @@ uint64_t nano::random_pool::generate_word64 (uint64_t min, uint64_t max)
 	return value + min;
 }
 
-unsigned char nano::random_pool::generate_byte ()
+unsigned char celerix::random_pool::generate_byte ()
 {
 	auto & pool = get_pool ();
 	return pool.GenerateByte ();
 }
 
-CryptoPP::AutoSeededRandomPool & nano::random_pool::get_pool ()
+CryptoPP::AutoSeededRandomPool & celerix::random_pool::get_pool ()
 {
 	static thread_local CryptoPP::AutoSeededRandomPool pool;
 	return pool;

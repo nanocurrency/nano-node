@@ -1,10 +1,10 @@
 #pragma once
 
-#include <nano/lib/errors.hpp>
+#include <celerix/lib/errors.hpp>
 
 #include <chrono>
 
-namespace nano
+namespace celerix
 {
 class jsonconfig;
 class tomlconfig;
@@ -22,8 +22,8 @@ public:
 class diagnostics_config final
 {
 public:
-	nano::error serialize_toml (nano::tomlconfig &) const;
-	nano::error deserialize_toml (nano::tomlconfig &);
+	celerix::error serialize_toml (celerix::tomlconfig &) const;
+	celerix::error deserialize_toml (celerix::tomlconfig &);
 
 	txn_tracking_config txn_tracking;
 };

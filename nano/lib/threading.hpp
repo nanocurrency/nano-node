@@ -1,12 +1,12 @@
 #pragma once
 
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <boost/thread/thread.hpp>
 
 #include <thread>
 
-namespace nano
+namespace celerix
 {
 namespace thread_attributes
 {
@@ -14,7 +14,7 @@ namespace thread_attributes
 } // namespace thread_attributes
 
 /**
- * Number of available logical processor cores. Might be overridden by setting `NANO_HARDWARE_CONCURRENCY` environment variable
+ * Number of available logical processor cores. Might be overridden by setting `CELERIX_HARDWARE_CONCURRENCY` environment variable
  */
 unsigned hardware_concurrency ();
 
@@ -23,4 +23,4 @@ unsigned hardware_concurrency ();
  * Returns thread.joinable()
  */
 bool join_or_pass (std::thread &);
-} // namespace nano
+} // namespace celerix

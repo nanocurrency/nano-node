@@ -1,7 +1,7 @@
 #pragma once
 
-#include <nano/store/lmdb/iterator.hpp>
-#include <nano/store/rocksdb/iterator.hpp>
+#include <celerix/store/lmdb/iterator.hpp>
+#include <celerix/store/rocksdb/iterator.hpp>
 
 #include <cstddef>
 #include <iterator>
@@ -9,7 +9,7 @@
 #include <span>
 #include <utility>
 
-namespace nano::store
+namespace celerix::store
 {
 /**
  * @class iterator
@@ -54,4 +54,4 @@ public:
 	auto operator== (iterator const & other) const -> bool;
 	bool is_end () const;
 };
-} // namespace nano::store
+} // namespace celerix::store

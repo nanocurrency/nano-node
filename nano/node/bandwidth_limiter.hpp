@@ -1,15 +1,15 @@
 #pragma once
 
-#include <nano/lib/rate_limiting.hpp>
-#include <nano/node/fwd.hpp>
-#include <nano/node/transport/traffic_type.hpp>
+#include <celerix/lib/rate_limiting.hpp>
+#include <celerix/node/fwd.hpp>
+#include <celerix/node/transport/traffic_type.hpp>
 
-namespace nano
+namespace celerix
 {
 class bandwidth_limiter_config final
 {
 public:
-	explicit bandwidth_limiter_config (nano::node_config const &);
+	explicit bandwidth_limiter_config (celerix::node_config const &);
 
 public:
 	std::size_t generic_limit;
@@ -25,31 +25,31 @@ public:
 class bandwidth_limiter final
 {
 public:
-	explicit bandwidth_limiter (nano::node_config const &);
+	explicit bandwidth_limiter (celerix::node_config const &);
 
 	/**
 	 * Check whether packet falls withing bandwidth limits and should be allowed
 	 * @return true if OK, false if needs to be dropped
 	 */
-	bool should_pass (std::size_t buffer_size, nano::transport::traffic_type type);
+	bool should_pass (std::size_t buffer_size, celerix::transport::traffic_type type);
 	/**
 	 * Reset limits of selected limiter type to values passed in arguments
 	 */
-	void reset (std::size_t limit, double burst_ratio, nano::transport::traffic_type type = nano::transport::traffic_type::generic);
+	void reset (std::size_t limit, double burst_ratio, celerix::transport::traffic_type type = celerix::transport::traffic_type::generic);
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 
 private:
 	/**
 	 * Returns reference to limiter corresponding to the limit type
 	 */
-	nano::rate_limiter & select_limiter (nano::transport::traffic_type type);
+	celerix::rate_limiter & select_limiter (celerix::transport::traffic_type type);
 
 private:
 	bandwidth_limiter_config const config;
 
 private:
-	nano::rate_limiter limiter_generic;
-	nano::rate_limiter limiter_bootstrap;
+	celerix::rate_limiter limiter_generic;
+	celerix::rate_limiter limiter_bootstrap;
 };
 }

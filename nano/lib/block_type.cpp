@@ -1,7 +1,7 @@
-#include <nano/lib/block_type.hpp>
-#include <nano/lib/enum_util.hpp>
+#include <celerix/lib/block_type.hpp>
+#include <celerix/lib/enum_util.hpp>
 
-std::string_view nano::to_string (nano::block_type type)
+std::string_view celerix::to_string (celerix::block_type type)
 {
-	return nano::enum_util::name (type);
+	return celerix::enum_util::name (type);
 }

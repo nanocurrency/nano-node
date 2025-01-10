@@ -1,46 +1,46 @@
-#include <nano/lib/asio.hpp>
-#include <nano/lib/json_error_response.hpp>
-#include <nano/lib/thread_roles.hpp>
-#include <nano/rpc/rpc_request_processor.hpp>
+#include <celerix/lib/asio.hpp>
+#include <celerix/lib/json_error_response.hpp>
+#include <celerix/lib/thread_roles.hpp>
+#include <celerix/rpc/rpc_request_processor.hpp>
 
 #include <boost/endian/conversion.hpp>
 
-nano::rpc_request_processor::rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config, std::uint16_t ipc_port_a) :
+celerix::rpc_request_processor::rpc_request_processor (boost::asio::io_context & io_ctx, celerix::rpc_config & rpc_config, std::uint16_t ipc_port_a) :
 	ipc_address (rpc_config.rpc_process.ipc_address),
 	ipc_port (ipc_port_a),
 	thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::rpc_request_processor);
+		celerix::thread_role::set (celerix::thread_role::name::rpc_request_processor);
 		this->run ();
 	})
 {
-	nano::lock_guard<nano::mutex> lk{ this->request_mutex };
+	celerix::lock_guard<celerix::mutex> lk{ this->request_mutex };
 	this->connections.reserve (rpc_config.rpc_process.num_ipc_connections);
 	for (auto i = 0u; i < rpc_config.rpc_process.num_ipc_connections; ++i)
 	{
-		connections.push_back (std::make_shared<nano::ipc_connection> (nano::ipc::ipc_client (io_ctx), false));
+		connections.push_back (std::make_shared<celerix::ipc_connection> (celerix::ipc::ipc_client (io_ctx), false));
 		auto connection = this->connections.back ();
 		connection->client.async_connect (ipc_address, ipc_port,
-		[connection] (nano::error err) {
+		[connection] (celerix::error err) {
 			// Even if there is an error this needs to be set so that another attempt can be made to connect with the ipc connection
 			connection->is_available = true;
 		});
 	}
 }
 
-nano::rpc_request_processor::rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config) :
+celerix::rpc_request_processor::rpc_request_processor (boost::asio::io_context & io_ctx, celerix::rpc_config & rpc_config) :
 	rpc_request_processor (io_ctx, rpc_config, rpc_config.rpc_process.ipc_port)
 {
 }
 
-nano::rpc_request_processor::~rpc_request_processor ()
+celerix::rpc_request_processor::~rpc_request_processor ()
 {
 	stop ();
 }
 
-void nano::rpc_request_processor::stop ()
+void celerix::rpc_request_processor::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> lock{ request_mutex };
+		celerix::lock_guard<celerix::mutex> lock{ request_mutex };
 		stopped = true;
 	}
 	condition.notify_one ();
@@ -50,21 +50,21 @@ void nano::rpc_request_processor::stop ()
 	}
 }
 
-void nano::rpc_request_processor::add (std::shared_ptr<rpc_request> const & request)
+void celerix::rpc_request_processor::add (std::shared_ptr<rpc_request> const & request)
 {
 	{
-		nano::lock_guard<nano::mutex> lk{ request_mutex };
+		celerix::lock_guard<celerix::mutex> lk{ request_mutex };
 		requests.push_back (request);
 	}
 	condition.notify_one ();
 }
 
-void nano::rpc_request_processor::read_payload (std::shared_ptr<nano::ipc_connection> const & connection, std::shared_ptr<std::vector<uint8_t>> const & res, std::shared_ptr<nano::rpc_request> const & rpc_request)
+void celerix::rpc_request_processor::read_payload (std::shared_ptr<celerix::ipc_connection> const & connection, std::shared_ptr<std::vector<uint8_t>> const & res, std::shared_ptr<celerix::rpc_request> const & rpc_request)
 {
 	uint32_t payload_size_l = boost::endian::big_to_native (*reinterpret_cast<uint32_t *> (res->data ()));
 	res->resize (payload_size_l);
 	// Read JSON payload
-	connection->client.async_read (res, payload_size_l, [this, connection, res, rpc_request] (nano::error err_read_a, size_t size_read_a) {
+	connection->client.async_read (res, payload_size_l, [this, connection, res, rpc_request] (celerix::error err_read_a, size_t size_read_a) {
 		// We need 2 sequential reads to get both the header and payload, so only allow other writes
 		// when they have both been read.
 		make_available (*connection);
@@ -83,22 +83,22 @@ void nano::rpc_request_processor::read_payload (std::shared_ptr<nano::ipc_connec
 	});
 }
 
-void nano::rpc_request_processor::make_available (nano::ipc_connection & connection)
+void celerix::rpc_request_processor::make_available (celerix::ipc_connection & connection)
 {
 	connection.is_available = true; // Allow people to use it now
 }
 
 // Connection does not exist or has been closed, try to connect to it again and then resend IPC request
-void nano::rpc_request_processor::try_reconnect_and_execute_request (std::shared_ptr<nano::ipc_connection> const & connection, nano::shared_const_buffer const & req, std::shared_ptr<std::vector<uint8_t>> const & res, std::shared_ptr<nano::rpc_request> const & rpc_request)
+void celerix::rpc_request_processor::try_reconnect_and_execute_request (std::shared_ptr<celerix::ipc_connection> const & connection, celerix::shared_const_buffer const & req, std::shared_ptr<std::vector<uint8_t>> const & res, std::shared_ptr<celerix::rpc_request> const & rpc_request)
 {
-	connection->client.async_connect (ipc_address, ipc_port, [this, connection, req, res, rpc_request] (nano::error err) {
+	connection->client.async_connect (ipc_address, ipc_port, [this, connection, req, res, rpc_request] (celerix::error err) {
 		if (!err)
 		{
-			connection->client.async_write (req, [this, connection, res, rpc_request] (nano::error err_a, size_t size_a) {
+			connection->client.async_write (req, [this, connection, res, rpc_request] (celerix::error err_a, size_t size_a) {
 				if (size_a != 0 && !err_a)
 				{
 					// Read length
-					connection->client.async_read (res, sizeof (uint32_t), [this, connection, res, rpc_request] (nano::error err_read_a, size_t size_read_a) {
+					connection->client.async_read (res, sizeof (uint32_t), [this, connection, res, rpc_request] (celerix::error err_read_a, size_t size_read_a) {
 						if (size_read_a != 0 && !err_read_a)
 						{
 							this->read_payload (connection, res, rpc_request);
@@ -125,16 +125,16 @@ void nano::rpc_request_processor::try_reconnect_and_execute_request (std::shared
 	});
 }
 
-void nano::rpc_request_processor::run ()
+void celerix::rpc_request_processor::run ()
 {
 	// This should be a conditioned wait
-	nano::unique_lock<nano::mutex> lk (request_mutex);
+	celerix::unique_lock<celerix::mutex> lk (request_mutex);
 	while (!stopped)
 	{
 		if (!requests.empty ())
 		{
 			lk.unlock ();
-			nano::unique_lock<nano::mutex> conditions_lk (connections_mutex);
+			celerix::unique_lock<celerix::mutex> conditions_lk (connections_mutex);
 			// Find the first free ipc_client
 			auto it = std::find_if (connections.begin (), connections.end (), [] (auto connection) -> bool {
 				return connection->is_available;
@@ -150,15 +150,15 @@ void nano::rpc_request_processor::run ()
 				auto connection = *it;
 				connection->is_available = false; // Make sure no one else can take it
 				conditions_lk.unlock ();
-				auto encoding (rpc_request->rpc_api_version == 1 ? nano::ipc::payload_encoding::json_v1 : nano::ipc::payload_encoding::flatbuffers_json);
-				auto req (nano::ipc::prepare_request (encoding, rpc_request->body));
+				auto encoding (rpc_request->rpc_api_version == 1 ? celerix::ipc::payload_encoding::json_v1 : celerix::ipc::payload_encoding::flatbuffers_json);
+				auto req (celerix::ipc::prepare_request (encoding, rpc_request->body));
 				auto res (std::make_shared<std::vector<uint8_t>> ());
 
 				// Have we tried to connect yet?
-				connection->client.async_write (req, [this, connection, req, res, rpc_request] (nano::error err_a, size_t size_a) {
+				connection->client.async_write (req, [this, connection, req, res, rpc_request] (celerix::error err_a, size_t size_a) {
 					if (!err_a)
 					{
-						connection->client.async_read (res, sizeof (uint32_t), [this, connection, req, res, rpc_request] (nano::error err_read_a, size_t size_read_a) {
+						connection->client.async_read (res, sizeof (uint32_t), [this, connection, req, res, rpc_request] (celerix::error err_read_a, size_t size_read_a) {
 							if (size_read_a != 0 && !err_read_a)
 							{
 								this->read_payload (connection, res, rpc_request);

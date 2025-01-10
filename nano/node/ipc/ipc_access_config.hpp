@@ -1,8 +1,8 @@
 #pragma once
 
-#include <nano/lib/config.hpp>
-#include <nano/lib/errors.hpp>
-#include <nano/lib/locks.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/errors.hpp>
+#include <celerix/lib/locks.hpp>
 
 #include <string>
 #include <unordered_map>
@@ -13,7 +13,7 @@ namespace cpptoml
 class table;
 }
 
-namespace nano
+namespace celerix
 {
 class tomlconfig;
 namespace ipc
@@ -66,7 +66,7 @@ namespace ipc
 	class access_subject
 	{
 	public:
-		std::unordered_set<nano::ipc::access_permission, enum_hash> permissions;
+		std::unordered_set<celerix::ipc::access_permission, enum_hash> permissions;
 		virtual ~access_subject () = default;
 		virtual void clear ();
 	};
@@ -84,7 +84,7 @@ namespace ipc
 	public:
 		/* User credentials, serving as the id */
 		std::string id;
-		std::vector<nano::ipc::access_role> roles;
+		std::vector<celerix::ipc::access_role> roles;
 		void clear () override;
 	};
 
@@ -96,20 +96,20 @@ namespace ipc
 	class access final
 	{
 	public:
-		bool has_access (std::string const & credentials_a, nano::ipc::access_permission permission_a) const;
-		bool has_access_to_all (std::string const & credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const;
-		bool has_access_to_oneof (std::string const & credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const;
-		nano::error deserialize_toml (nano::tomlconfig &);
+		bool has_access (std::string const & credentials_a, celerix::ipc::access_permission permission_a) const;
+		bool has_access_to_all (std::string const & credentials_a, std::initializer_list<celerix::ipc::access_permission> permissions_a) const;
+		bool has_access_to_oneof (std::string const & credentials_a, std::initializer_list<celerix::ipc::access_permission> permissions_a) const;
+		celerix::error deserialize_toml (celerix::tomlconfig &);
 
 	private:
 		/** Process allow and deny entries for the given subject */
-		void set_effective_permissions (nano::ipc::access_subject & subject_a, std::shared_ptr<cpptoml::table> const & config_subject_a);
+		void set_effective_permissions (celerix::ipc::access_subject & subject_a, std::shared_ptr<cpptoml::table> const & config_subject_a);
 
 		/** Clear current users, roles and default permissions */
 		void clear ();
 
-		std::unordered_map<std::string, nano::ipc::access_user> users;
-		std::unordered_map<std::string, nano::ipc::access_role> roles;
+		std::unordered_map<std::string, celerix::ipc::access_user> users;
+		std::unordered_map<std::string, celerix::ipc::access_role> roles;
 
 		/**
 		 * Default user with a basic set of permissions. Additional users will derive the permissions
@@ -117,9 +117,9 @@ namespace ipc
 		 */
 		access_user default_user;
 		/** The config can be externally reloaded and concurrently accessed */
-		mutable nano::mutex mutex;
+		mutable celerix::mutex mutex;
 	};
 
-	nano::error read_access_config_toml (std::filesystem::path const & data_path_a, nano::ipc::access & config_a);
+	celerix::error read_access_config_toml (std::filesystem::path const & data_path_a, celerix::ipc::access & config_a);
 }
 }

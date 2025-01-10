@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/store/iterator.hpp>
+#include <celerix/store/iterator.hpp>
 
 #include <cstddef>
 #include <iterator>
@@ -8,7 +8,7 @@
 #include <span>
 #include <utility>
 
-namespace nano::store
+namespace celerix::store
 {
 /**
  * @class typed_iterator
@@ -60,4 +60,4 @@ public:
 	auto operator== (typed_iterator const & other) const -> bool;
 	auto is_end () const -> bool;
 };
-} // namespace nano::store
+} // namespace celerix::store

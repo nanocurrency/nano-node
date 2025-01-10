@@ -2,7 +2,7 @@
 
 #include <chrono>
 
-namespace nano
+namespace celerix
 {
 class interval
 {

@@ -1,21 +1,21 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
-#include <nano/secure/rep_weights.hpp>
-#include <nano/store/rep_weight.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/secure/rep_weights.hpp>
+#include <celerix/store/rep_weight.hpp>
 
 #include <atomic>
 
-namespace nano
+namespace celerix
 {
 class ledger;
 }
-namespace nano::store
+namespace celerix::store
 {
 class component;
 }
 
-namespace nano
+namespace celerix
 {
 /* Holds an in-memory cache of various counts */
 class ledger_cache
@@ -24,8 +24,8 @@ class ledger_cache
 	friend class ledger;
 
 public:
-	explicit ledger_cache (nano::store::rep_weight & rep_weight_store_a, nano::uint128_t min_rep_weight_a = 0);
-	nano::rep_weights rep_weights;
+	explicit ledger_cache (celerix::store::rep_weight & rep_weight_store_a, celerix::uint128_t min_rep_weight_a = 0);
+	celerix::rep_weights rep_weights;
 
 private:
 	std::atomic<uint64_t> cemented_count{ 0 };

@@ -1,10 +1,10 @@
 #pragma once
 
-#include <nano/lib/logging.hpp>
-#include <nano/lib/thread_pool.hpp>
-#include <nano/node/fair_queue.hpp>
-#include <nano/node/fwd.hpp>
-#include <nano/secure/common.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/lib/thread_pool.hpp>
+#include <celerix/node/fair_queue.hpp>
+#include <celerix/node/fwd.hpp>
+#include <celerix/secure/common.hpp>
 
 #include <chrono>
 #include <future>
@@ -12,7 +12,7 @@
 #include <optional>
 #include <thread>
 
-namespace nano
+namespace celerix
 {
 enum class block_source
 {
@@ -28,15 +28,15 @@ enum class block_source
 };
 
 std::string_view to_string (block_source);
-nano::stat::detail to_stat_detail (block_source);
+celerix::stat::detail to_stat_detail (block_source);
 
 class block_processor_config final
 {
 public:
-	explicit block_processor_config (nano::network_constants const &);
+	explicit block_processor_config (celerix::network_constants const &);
 
-	nano::error deserialize (nano::tomlconfig & toml);
-	nano::error serialize (nano::tomlconfig & toml) const;
+	celerix::error deserialize (celerix::tomlconfig & toml);
+	celerix::error serialize (celerix::tomlconfig & toml) const;
 
 public:
 	// Maximum number of blocks to queue from network peers
@@ -64,13 +64,13 @@ public: // Context
 	class context
 	{
 	public:
-		using result_t = nano::block_status;
+		using result_t = celerix::block_status;
 		using callback_t = std::function<void (result_t)>;
 
-		context (std::shared_ptr<nano::block> block, nano::block_source source, callback_t callback = nullptr);
+		context (std::shared_ptr<celerix::block> block, celerix::block_source source, callback_t callback = nullptr);
 
-		std::shared_ptr<nano::block> block;
-		nano::block_source source;
+		std::shared_ptr<celerix::block> block;
+		celerix::block_source source;
 		callback_t callback;
 		std::chrono::steady_clock::time_point arrival{ std::chrono::steady_clock::now () };
 
@@ -84,58 +84,58 @@ public: // Context
 	};
 
 public:
-	block_processor (nano::node_config const &, nano::ledger &, nano::unchecked_map &, nano::stats &, nano::logger &);
+	block_processor (celerix::node_config const &, celerix::ledger &, celerix::unchecked_map &, celerix::stats &, celerix::logger &);
 	~block_processor ();
 
 	void start ();
 	void stop ();
 
 	std::size_t size () const;
-	std::size_t size (nano::block_source) const;
-	bool add (std::shared_ptr<nano::block> const &, nano::block_source = nano::block_source::live, std::shared_ptr<nano::transport::channel> const & channel = nullptr, std::function<void (nano::block_status)> callback = {});
-	std::optional<nano::block_status> add_blocking (std::shared_ptr<nano::block> const & block, nano::block_source);
-	void force (std::shared_ptr<nano::block> const &);
+	std::size_t size (celerix::block_source) const;
+	bool add (std::shared_ptr<celerix::block> const &, celerix::block_source = celerix::block_source::live, std::shared_ptr<celerix::transport::channel> const & channel = nullptr, std::function<void (celerix::block_status)> callback = {});
+	std::optional<celerix::block_status> add_blocking (std::shared_ptr<celerix::block> const & block, celerix::block_source);
+	void force (std::shared_ptr<celerix::block> const &);
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 
 	std::atomic<bool> flushing{ false };
 
 public: // Events
 	// All processed blocks including forks, rejected etc
-	using processed_batch_t = std::deque<std::pair<nano::block_status, context>>;
-	using processed_batch_event_t = nano::observer_set<processed_batch_t>;
+	using processed_batch_t = std::deque<std::pair<celerix::block_status, context>>;
+	using processed_batch_event_t = celerix::observer_set<processed_batch_t>;
 	processed_batch_event_t batch_processed;
 
 	// Rolled back blocks <rolled back blocks, root of rollback>
-	using rolled_back_event_t = nano::observer_set<std::deque<std::shared_ptr<nano::block>>, nano::qualified_root>;
+	using rolled_back_event_t = celerix::observer_set<std::deque<std::shared_ptr<celerix::block>>, celerix::qualified_root>;
 	rolled_back_event_t rolled_back;
 
 private: // Dependencies
 	block_processor_config const & config;
-	nano::network_params const & network_params;
-	nano::ledger & ledger;
-	nano::unchecked_map & unchecked;
-	nano::stats & stats;
-	nano::logger & logger;
+	celerix::network_params const & network_params;
+	celerix::ledger & ledger;
+	celerix::unchecked_map & unchecked;
+	celerix::stats & stats;
+	celerix::logger & logger;
 
 private:
 	void run ();
 	// Roll back block in the ledger that conflicts with 'block'
-	void rollback_competitor (secure::write_transaction const &, nano::block const & block);
-	nano::block_status process_one (secure::write_transaction const &, context const &, bool forced = false);
-	processed_batch_t process_batch (nano::unique_lock<nano::mutex> &);
+	void rollback_competitor (secure::write_transaction const &, celerix::block const & block);
+	celerix::block_status process_one (secure::write_transaction const &, context const &, bool forced = false);
+	processed_batch_t process_batch (celerix::unique_lock<celerix::mutex> &);
 	std::deque<context> next_batch (size_t max_count);
 	context next ();
-	bool add_impl (context, std::shared_ptr<nano::transport::channel> const & channel = nullptr);
+	bool add_impl (context, std::shared_ptr<celerix::transport::channel> const & channel = nullptr);
 
 private:
-	nano::fair_queue<context, nano::block_source> queue;
+	celerix::fair_queue<context, celerix::block_source> queue;
 
 	bool stopped{ false };
-	nano::condition_variable condition;
-	mutable nano::mutex mutex{ mutex_identifier (mutexes::block_processor) };
+	celerix::condition_variable condition;
+	mutable celerix::mutex mutex{ mutex_identifier (mutexes::block_processor) };
 	std::thread thread;
 
-	nano::thread_pool workers;
+	celerix::thread_pool workers;
 };
 }

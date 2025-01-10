@@ -1,18 +1,18 @@
-#include <nano/boost/asio/connect.hpp>
-#include <nano/boost/asio/ip/tcp.hpp>
-#include <nano/boost/asio/strand.hpp>
-#include <nano/boost/beast/core/flat_buffer.hpp>
-#include <nano/boost/beast/http.hpp>
-#include <nano/boost/process/child.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/logging.hpp>
-#include <nano/lib/signal_manager.hpp>
-#include <nano/lib/thread_runner.hpp>
-#include <nano/lib/threading.hpp>
-#include <nano/lib/tomlconfig.hpp>
-#include <nano/node/daemonconfig.hpp>
-#include <nano/secure/utility.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/boost/asio/connect.hpp>
+#include <celerix/boost/asio/ip/tcp.hpp>
+#include <celerix/boost/asio/strand.hpp>
+#include <celerix/boost/beast/core/flat_buffer.hpp>
+#include <celerix/boost/beast/http.hpp>
+#include <celerix/boost/process/child.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/lib/signal_manager.hpp>
+#include <celerix/lib/thread_runner.hpp>
+#include <celerix/lib/threading.hpp>
+#include <celerix/lib/tomlconfig.hpp>
+#include <celerix/node/daemonconfig.hpp>
+#include <celerix/secure/utility.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/program_options.hpp>
@@ -31,9 +31,9 @@ using socket_type = boost::asio::ip::tcp::socket;
 using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost::asio::io_context::executor_type>;
 #endif
 
-namespace nano
+namespace celerix
 {
-void force_nano_dev_network ();
+void force_celerix_dev_network ();
 }
 
 namespace beast = boost::beast;
@@ -47,8 +47,8 @@ constexpr auto ipc_port_start = 62000;
 
 void write_config_files (std::filesystem::path const & data_path, int index)
 {
-	nano::network_params network_params{ nano::network_constants::active_network };
-	nano::daemon_config daemon_config{ data_path, network_params };
+	celerix::network_params network_params{ celerix::network_constants::active_network };
+	celerix::daemon_config daemon_config{ data_path, network_params };
 	daemon_config.node.peering_port = peering_port_start + index;
 	daemon_config.node.ipc_config.transport_tcp.enabled = true;
 	daemon_config.node.ipc_config.transport_tcp.port = ipc_port_start + index;
@@ -57,19 +57,19 @@ void write_config_files (std::filesystem::path const & data_path, int index)
 	daemon_config.node.use_memory_pools = (index % 2) == 0;
 
 	// Write daemon config
-	nano::tomlconfig toml;
+	celerix::tomlconfig toml;
 	daemon_config.serialize_toml (toml);
-	toml.write (nano::get_node_toml_config_path (data_path));
+	toml.write (celerix::get_node_toml_config_path (data_path));
 
-	nano::rpc_config rpc_config{ daemon_config.node.network_params.network };
+	celerix::rpc_config rpc_config{ daemon_config.node.network_params.network };
 	rpc_config.port = rpc_port_start + index;
 	rpc_config.enable_control = true;
 	rpc_config.rpc_process.ipc_port = ipc_port_start + index;
 
 	// Write rpc config
-	nano::tomlconfig toml_rpc;
+	celerix::tomlconfig toml_rpc;
 	rpc_config.serialize_toml (toml_rpc);
-	toml_rpc.write (nano::get_rpc_toml_config_path (data_path));
+	toml_rpc.write (celerix::get_rpc_toml_config_path (data_path));
 }
 
 class account final
@@ -493,8 +493,8 @@ account_info account_info_rpc (boost::asio::io_context & ioc, tcp::resolver::res
 /** This launches a node and fires a lot of send/recieve RPC requests at it (configurable), then other nodes are tested to make sure they observe these blocks as well. */
 int main (int argc, char * const * argv)
 {
-	nano::logger::initialize_for_tests (nano::log_config::tests_default ());
-	nano::force_nano_dev_network ();
+	celerix::logger::initialize_for_tests (celerix::log_config::tests_default ());
+	celerix::force_celerix_dev_network ();
 
 	boost::program_options::options_description description ("Command line options");
 
@@ -505,8 +505,8 @@ int main (int argc, char * const * argv)
 		("send_count,s", boost::program_options::value<int> ()->default_value (2000), "How many send blocks to generate")
 		("simultaneous_process_calls", boost::program_options::value<int> ()->default_value (20), "Number of simultaneous rpc sends to do")
 		("destination_count", boost::program_options::value<int> ()->default_value (2), "How many destination accounts to choose between")
-		("node_path", boost::program_options::value<std::string> (), "The path to the nano_node to test")
-		("rpc_path", boost::program_options::value<std::string> (), "The path to the nano_rpc to test");
+		("node_path", boost::program_options::value<std::string> (), "The path to the celerix_node to test")
+		("rpc_path", boost::program_options::value<std::string> (), "The path to the celerix_rpc to test");
 	// clang-format on
 
 	boost::program_options::variables_map vm;
@@ -537,7 +537,7 @@ int main (int argc, char * const * argv)
 	}
 	else
 	{
-		auto node_filepath = running_executable_filepath.parent_path () / "nano_node";
+		auto node_filepath = running_executable_filepath.parent_path () / "celerix_node";
 		if (running_executable_filepath.has_extension ())
 		{
 			node_filepath.replace_extension (running_executable_filepath.extension ());
@@ -546,7 +546,7 @@ int main (int argc, char * const * argv)
 	}
 	if (!std::filesystem::exists (node_path))
 	{
-		std::cerr << "nano_node executable could not be found in " << node_path << std::endl;
+		std::cerr << "celerix_node executable could not be found in " << node_path << std::endl;
 		return 1;
 	}
 
@@ -558,7 +558,7 @@ int main (int argc, char * const * argv)
 	}
 	else
 	{
-		auto rpc_filepath = running_executable_filepath.parent_path () / "nano_rpc";
+		auto rpc_filepath = running_executable_filepath.parent_path () / "celerix_rpc";
 		if (running_executable_filepath.has_extension ())
 		{
 			rpc_filepath.replace_extension (running_executable_filepath.extension ());
@@ -567,20 +567,20 @@ int main (int argc, char * const * argv)
 	}
 	if (!std::filesystem::exists (rpc_path))
 	{
-		std::cerr << "nano_rpc executable could not be found in " << rpc_path << std::endl;
+		std::cerr << "celerix_rpc executable could not be found in " << rpc_path << std::endl;
 		return 1;
 	}
 
 	std::vector<std::filesystem::path> data_paths;
 	for (auto i = 0; i < node_count; ++i)
 	{
-		auto data_path = nano::unique_path ();
+		auto data_path = celerix::unique_path ();
 		std::filesystem::create_directory (data_path);
 		write_config_files (data_path, i);
 		data_paths.push_back (std::move (data_path));
 	}
 
-	std::string current_network{ nano::dev::network_params.network.get_current_network_as_string () };
+	std::string current_network{ celerix::dev::network_params.network.get_current_network_as_string () };
 	std::vector<std::unique_ptr<boost::process::child>> nodes;
 	std::vector<std::unique_ptr<boost::process::child>> rpc_servers;
 	for (auto const & data_path : data_paths)
@@ -596,7 +596,7 @@ int main (int argc, char * const * argv)
 	std::shared_ptr<boost::asio::io_context> ioc_shared = std::make_shared<boost::asio::io_context> ();
 	boost::asio::io_context & ioc{ *ioc_shared };
 
-	nano::signal_manager sigman;
+	celerix::signal_manager sigman;
 
 	auto signal_handler = [&ioc] (int signum) {
 		ioc.stop ();
@@ -627,7 +627,7 @@ int main (int argc, char * const * argv)
 		std::string wallet = wallet_create_rpc (ioc, primary_node_results);
 
 		// Add genesis account to it
-		wallet_add_rpc (ioc, primary_node_results, wallet, nano::dev::genesis_key.prv.to_string ());
+		wallet_add_rpc (ioc, primary_node_results, wallet, celerix::dev::genesis_key.prv.to_string ());
 
 		// Add destination accounts
 		for (auto & account : destination_accounts)
@@ -656,7 +656,7 @@ int main (int argc, char * const * argv)
 			}
 
 			// Send from genesis account to different accounts and receive the funds
-			auto send_receive = std::make_shared<send_receive_impl> (ioc, wallet, nano::dev::genesis_key.pub.to_account (), destination_account->as_string, send_calls_remaining, primary_node_results);
+			auto send_receive = std::make_shared<send_receive_impl> (ioc, wallet, celerix::dev::genesis_key.pub.to_account (), destination_account->as_string, send_calls_remaining, primary_node_results);
 			boost::asio::strand<boost::asio::io_context::executor_type> strand{ ioc.get_executor () };
 			boost::asio::post (strand,
 			[send_receive] () {
@@ -686,7 +686,7 @@ int main (int argc, char * const * argv)
 			known_account_info.emplace (destination_accounts[i].as_string, account_info_rpc (ioc, primary_node_results, destination_accounts[i].as_string));
 		}
 
-		nano::timer<std::chrono::milliseconds> timer;
+		celerix::timer<std::chrono::milliseconds> timer;
 		timer.start ();
 
 		for (int i = 1; i < node_count; ++i)
@@ -719,7 +719,7 @@ int main (int argc, char * const * argv)
 		stop_rpc (ioc, primary_node_results);
 	});
 
-	nano::thread_runner runner (ioc_shared, nano::default_logger (), simultaneous_process_calls);
+	celerix::thread_runner runner (ioc_shared, celerix::default_logger (), simultaneous_process_calls);
 	t.join ();
 	runner.join ();
 

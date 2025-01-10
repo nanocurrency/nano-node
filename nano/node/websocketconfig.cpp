@@ -1,15 +1,15 @@
-#include <nano/boost/asio/ip/address_v6.hpp>
-#include <nano/lib/tomlconfig.hpp>
-#include <nano/node/websocketconfig.hpp>
+#include <celerix/boost/asio/ip/address_v6.hpp>
+#include <celerix/lib/tomlconfig.hpp>
+#include <celerix/node/websocketconfig.hpp>
 
-nano::websocket::config::config (nano::network_constants & network_constants) :
+celerix::websocket::config::config (celerix::network_constants & network_constants) :
 	network_constants{ network_constants },
 	port{ network_constants.default_websocket_port },
 	address{ boost::asio::ip::address_v6::loopback ().to_string () }
 {
 }
 
-nano::error nano::websocket::config::serialize_toml (nano::tomlconfig & toml) const
+celerix::error celerix::websocket::config::serialize_toml (celerix::tomlconfig & toml) const
 {
 	toml.put ("enable", enabled, "Enable or disable WebSocket server.\ntype:bool");
 	toml.put ("address", address, "WebSocket server bind address.\ntype:string,ip");
@@ -17,7 +17,7 @@ nano::error nano::websocket::config::serialize_toml (nano::tomlconfig & toml) co
 	return toml.get_error ();
 }
 
-nano::error nano::websocket::config::deserialize_toml (nano::tomlconfig & toml)
+celerix::error celerix::websocket::config::deserialize_toml (celerix::tomlconfig & toml)
 {
 	toml.get<bool> ("enable", enabled);
 	boost::asio::ip::address_v6 address_l;

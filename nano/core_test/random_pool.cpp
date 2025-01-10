@@ -1,5 +1,5 @@
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/numbers.hpp>
+#include <celerix/crypto_lib/random_pool.hpp>
+#include <celerix/lib/numbers.hpp>
 
 #include <gtest/gtest.h>
 
@@ -11,8 +11,8 @@ TEST (random_pool, multithreading)
 	for (auto i = 0; i < 100; ++i)
 	{
 		threads.emplace_back ([] () {
-			nano::uint256_union number;
-			nano::random_pool::generate_block (number.bytes.data (), number.bytes.size ());
+			celerix::uint256_union number;
+			celerix::random_pool::generate_block (number.bytes.data (), number.bytes.size ());
 		});
 	}
 	for (auto & i : threads)
@@ -27,7 +27,7 @@ TEST (random_pool, generate_word64)
 	int occurrences[10] = { 0 };
 	for (auto i = 0; i < 1000; ++i)
 	{
-		auto random = nano::random_pool::generate_word64 (1, 9);
+		auto random = celerix::random_pool::generate_word64 (1, 9);
 		ASSERT_TRUE (random >= 1 && random <= 9);
 		occurrences[random] += 1;
 	}
@@ -43,6 +43,6 @@ TEST (random_pool, generate_word64_big_number)
 {
 	uint64_t min = static_cast<uint64_t> (std::numeric_limits<uint32_t>::max ()) + 1;
 	uint64_t max = std::numeric_limits<uint64_t>::max ();
-	auto big_random = nano::random_pool::generate_word64 (min, max);
+	auto big_random = celerix::random_pool::generate_word64 (min, max);
 	ASSERT_GE (big_random, min);
 }

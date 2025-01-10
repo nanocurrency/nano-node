@@ -1,11 +1,11 @@
 #pragma once
 
-#include <nano/lib/constants.hpp>
-#include <nano/lib/errors.hpp>
+#include <celerix/lib/constants.hpp>
+#include <celerix/lib/errors.hpp>
 
 #include <memory>
 
-namespace nano
+namespace celerix
 {
 class tomlconfig;
 namespace websocket
@@ -14,10 +14,10 @@ namespace websocket
 	class config final
 	{
 	public:
-		config (nano::network_constants & network_constants);
-		nano::error deserialize_toml (nano::tomlconfig & toml_a);
-		nano::error serialize_toml (nano::tomlconfig & toml) const;
-		nano::network_constants & network_constants;
+		config (celerix::network_constants & network_constants);
+		celerix::error deserialize_toml (celerix::tomlconfig & toml_a);
+		celerix::error serialize_toml (celerix::tomlconfig & toml) const;
+		celerix::network_constants & network_constants;
 		bool enabled{ false };
 		uint16_t port;
 		std::string address;

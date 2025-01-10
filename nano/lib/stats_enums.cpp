@@ -1,22 +1,22 @@
-#include <nano/lib/enum_util.hpp>
-#include <nano/lib/stats_enums.hpp>
+#include <celerix/lib/enum_util.hpp>
+#include <celerix/lib/stats_enums.hpp>
 
-std::string_view nano::to_string (nano::stat::type type)
+std::string_view celerix::to_string (celerix::stat::type type)
 {
-	return nano::enum_util::name (type);
+	return celerix::enum_util::name (type);
 }
 
-std::string_view nano::to_string (nano::stat::detail detail)
+std::string_view celerix::to_string (celerix::stat::detail detail)
 {
-	return nano::enum_util::name (detail);
+	return celerix::enum_util::name (detail);
 }
 
-std::string_view nano::to_string (nano::stat::dir dir)
+std::string_view celerix::to_string (celerix::stat::dir dir)
 {
-	return nano::enum_util::name (dir);
+	return celerix::enum_util::name (dir);
 }
 
-std::string_view nano::to_string (nano::stat::sample sample)
+std::string_view celerix::to_string (celerix::stat::sample sample)
 {
-	return nano::enum_util::name (sample);
+	return celerix::enum_util::name (sample);
 }

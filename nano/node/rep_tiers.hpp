@@ -1,15 +1,15 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/numbers_templ.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/secure/common.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/numbers_templ.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/secure/common.hpp>
 
 #include <memory>
 #include <thread>
 #include <unordered_set>
 
-namespace nano
+namespace celerix
 {
 class ledger;
 class network_params;
@@ -27,28 +27,28 @@ enum class rep_tier
 	tier_3, // (> 5%) of online stake
 };
 
-nano::stat::detail to_stat_detail (rep_tier);
+celerix::stat::detail to_stat_detail (rep_tier);
 
 class rep_tiers final
 {
 public:
-	rep_tiers (nano::ledger &, nano::network_params &, nano::online_reps &, nano::stats &, nano::logger &);
+	rep_tiers (celerix::ledger &, celerix::network_params &, celerix::online_reps &, celerix::stats &, celerix::logger &);
 	~rep_tiers ();
 
 	void start ();
 	void stop ();
 
 	/** Returns the representative tier for the account */
-	nano::rep_tier tier (nano::account const & representative) const;
+	celerix::rep_tier tier (celerix::account const & representative) const;
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 
 private: // Dependencies
-	nano::ledger & ledger;
-	nano::network_params & network_params;
-	nano::online_reps & online_reps;
-	nano::stats & stats;
-	nano::logger & logger;
+	celerix::ledger & ledger;
+	celerix::network_params & network_params;
+	celerix::online_reps & online_reps;
+	celerix::stats & stats;
+	celerix::logger & logger;
 
 private:
 	void run ();
@@ -56,13 +56,13 @@ private:
 
 private:
 	/** Representatives levels for early prioritization */
-	std::unordered_set<nano::account> representatives_1;
-	std::unordered_set<nano::account> representatives_2;
-	std::unordered_set<nano::account> representatives_3;
+	std::unordered_set<celerix::account> representatives_1;
+	std::unordered_set<celerix::account> representatives_2;
+	std::unordered_set<celerix::account> representatives_3;
 
 	std::atomic<bool> stopped{ false };
-	nano::condition_variable condition;
-	mutable nano::mutex mutex;
+	celerix::condition_variable condition;
+	mutable celerix::mutex mutex;
 	std::thread thread;
 };
 }

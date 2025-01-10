@@ -1,8 +1,8 @@
 #pragma once
 
-#include <nano/secure/common.hpp>
+#include <celerix/secure/common.hpp>
 
-namespace nano
+namespace celerix
 {
 std::filesystem::path app_path_impl ();
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <boost/asio.hpp>
 
@@ -9,7 +9,7 @@
 
 namespace asio = boost::asio;
 
-namespace nano::async
+namespace celerix::async
 {
 using strand = asio::strand<asio::io_context::executor_type>;
 
@@ -35,7 +35,7 @@ inline asio::awaitable<bool> cancelled ()
 class cancellation
 {
 public:
-	explicit cancellation (nano::async::strand & strand) :
+	explicit cancellation (celerix::async::strand & strand) :
 		strand{ strand },
 		signal{ std::make_shared<asio::cancellation_signal> () }
 	{
@@ -69,7 +69,7 @@ public:
 		return signal->slot ();
 	}
 
-	nano::async::strand & strand;
+	celerix::async::strand & strand;
 
 private:
 	std::shared_ptr<asio::cancellation_signal> signal;
@@ -79,7 +79,7 @@ private:
 class condition
 {
 public:
-	explicit condition (nano::async::strand & strand) :
+	explicit condition (celerix::async::strand & strand) :
 		strand{ strand },
 		state{ std::make_shared<shared_state> (strand) }
 	{
@@ -142,7 +142,7 @@ public:
 		return state != nullptr;
 	}
 
-	nano::async::strand & strand;
+	celerix::async::strand & strand;
 
 private:
 	struct shared_state
@@ -150,7 +150,7 @@ private:
 		asio::steady_timer timer;
 		std::atomic<bool> scheduled{ false };
 
-		explicit shared_state (nano::async::strand & strand) :
+		explicit shared_state (celerix::async::strand & strand) :
 			timer{ strand } {};
 	};
 	std::shared_ptr<shared_state> state;
@@ -186,14 +186,14 @@ public:
 	// Only thread-like void tasks are supported for now
 	using value_type = void;
 
-	explicit task (nano::async::strand & strand) :
+	explicit task (celerix::async::strand & strand) :
 		strand{ strand },
 		cancellation{ strand }
 	{
 	}
 
 	template <async_task Func>
-	task (nano::async::strand & strand, Func && func) :
+	task (celerix::async::strand & strand, Func && func) :
 		strand{ strand },
 		cancellation{ strand }
 	{
@@ -204,7 +204,7 @@ public:
 	}
 
 	template <async_factory Func>
-	task (nano::async::strand & strand, Func && func) :
+	task (celerix::async::strand & strand, Func && func) :
 		strand{ strand },
 		cancellation{ strand }
 	{
@@ -215,10 +215,10 @@ public:
 	}
 
 	template <async_factory_with_condition Func>
-	task (nano::async::strand & strand, Func && func) :
+	task (celerix::async::strand & strand, Func && func) :
 		strand{ strand },
 		cancellation{ strand },
-		condition{ std::make_unique<nano::async::condition> (strand) }
+		condition{ std::make_unique<celerix::async::condition> (strand) }
 	{
 		auto awaitable_func = func (*condition);
 		future = asio::co_spawn (
@@ -284,11 +284,11 @@ public:
 		}
 	}
 
-	nano::async::strand & strand;
+	celerix::async::strand & strand;
 
 private:
 	std::future<value_type> future;
-	nano::async::cancellation cancellation;
-	std::unique_ptr<nano::async::condition> condition;
+	celerix::async::cancellation cancellation;
+	std::unique_ptr<celerix::async::condition> condition;
 };
 }

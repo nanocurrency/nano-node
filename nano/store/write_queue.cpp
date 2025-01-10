@@ -1,6 +1,6 @@
-#include <nano/lib/config.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/store/write_queue.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/store/write_queue.hpp>
 
 #include <algorithm>
 
@@ -8,14 +8,14 @@
  * write_guard
  */
 
-nano::store::write_guard::write_guard (write_queue & queue, writer type) :
+celerix::store::write_guard::write_guard (write_queue & queue, writer type) :
 	queue{ queue },
 	type{ type }
 {
 	renew ();
 }
 
-nano::store::write_guard::write_guard (write_guard && other) noexcept :
+celerix::store::write_guard::write_guard (write_guard && other) noexcept :
 	queue{ other.queue },
 	type{ other.type },
 	owns{ other.owns }
@@ -23,7 +23,7 @@ nano::store::write_guard::write_guard (write_guard && other) noexcept :
 	other.owns = false;
 }
 
-nano::store::write_guard::~write_guard ()
+celerix::store::write_guard::~write_guard ()
 {
 	if (owns)
 	{
@@ -31,19 +31,19 @@ nano::store::write_guard::~write_guard ()
 	}
 }
 
-bool nano::store::write_guard::is_owned () const
+bool celerix::store::write_guard::is_owned () const
 {
 	return owns;
 }
 
-void nano::store::write_guard::release ()
+void celerix::store::write_guard::release ()
 {
 	release_assert (owns);
 	queue.release (type);
 	owns = false;
 }
 
-void nano::store::write_guard::renew ()
+void celerix::store::write_guard::renew ()
 {
 	release_assert (!owns);
 	queue.acquire (type);
@@ -54,26 +54,26 @@ void nano::store::write_guard::renew ()
  * write_queue
  */
 
-nano::store::write_queue::write_queue ()
+celerix::store::write_queue::write_queue ()
 {
 }
 
-nano::store::write_guard nano::store::write_queue::wait (writer writer)
+celerix::store::write_guard celerix::store::write_queue::wait (writer writer)
 {
 	return write_guard{ *this, writer };
 }
 
-bool nano::store::write_queue::contains (writer writer) const
+bool celerix::store::write_queue::contains (writer writer) const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return std::any_of (queue.cbegin (), queue.cend (), [writer] (auto const & item) {
 		return item.first == writer;
 	});
 }
 
-void nano::store::write_queue::pop ()
+void celerix::store::write_queue::pop ()
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	if (!queue.empty ())
 	{
 		queue.pop_front ();
@@ -81,9 +81,9 @@ void nano::store::write_queue::pop ()
 	condition.notify_all ();
 }
 
-void nano::store::write_queue::acquire (writer writer)
+void celerix::store::write_queue::acquire (writer writer)
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 
 	// There should be no duplicates in the queue (exception is testing)
 	debug_assert (std::none_of (queue.cbegin (), queue.cend (), [writer] (auto const & item) {
@@ -100,10 +100,10 @@ void nano::store::write_queue::acquire (writer writer)
 	condition.wait (lock, [&] () { return queue.front ().second == id; });
 }
 
-void nano::store::write_queue::release (writer writer)
+void celerix::store::write_queue::release (writer writer)
 {
 	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
 		release_assert (!queue.empty ());
 		release_assert (queue.front ().first == writer);
 		queue.pop_front ();

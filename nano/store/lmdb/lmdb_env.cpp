@@ -1,15 +1,15 @@
-#include <nano/lib/files.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/store/lmdb/lmdb_env.hpp>
+#include <celerix/lib/files.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/store/lmdb/lmdb_env.hpp>
 
 #include <boost/system/error_code.hpp>
 
-nano::store::lmdb::env::env (bool & error_a, std::filesystem::path const & path_a, nano::store::lmdb::env::options options_a)
+celerix::store::lmdb::env::env (bool & error_a, std::filesystem::path const & path_a, celerix::store::lmdb::env::options options_a)
 {
 	init (error_a, path_a, options_a);
 }
 
-void nano::store::lmdb::env::init (bool & error_a, std::filesystem::path const & path_a, nano::store::lmdb::env::options options_a)
+void celerix::store::lmdb::env::init (bool & error_a, std::filesystem::path const & path_a, celerix::store::lmdb::env::options options_a)
 {
 	debug_assert (path_a.extension () == ".ldb", "invalid filename extension for lmdb database file");
 
@@ -17,7 +17,7 @@ void nano::store::lmdb::env::init (bool & error_a, std::filesystem::path const &
 	if (path_a.has_parent_path ())
 	{
 		std::filesystem::create_directories (path_a.parent_path (), error_mkdir);
-		nano::set_secure_perm_directory (path_a.parent_path (), error_chmod);
+		celerix::set_secure_perm_directory (path_a.parent_path (), error_chmod);
 		if (!error_mkdir)
 		{
 			MDB_env * environment;
@@ -40,15 +40,15 @@ void nano::store::lmdb::env::init (bool & error_a, std::filesystem::path const &
 			// MDB_NORDAHEAD will allow platforms that support it to load the DB in memory as needed.
 			// MDB_NOMEMINIT prevents zeroing malloc'ed pages. Can provide improvement for non-sensitive data but may make memory checkers noisy (e.g valgrind).
 			auto environment_flags = MDB_NOSUBDIR | MDB_NOTLS | MDB_NORDAHEAD;
-			if (options_a.config.sync == nano::lmdb_config::sync_strategy::nosync_safe)
+			if (options_a.config.sync == celerix::lmdb_config::sync_strategy::nosync_safe)
 			{
 				environment_flags |= MDB_NOMETASYNC;
 			}
-			else if (options_a.config.sync == nano::lmdb_config::sync_strategy::nosync_unsafe)
+			else if (options_a.config.sync == celerix::lmdb_config::sync_strategy::nosync_unsafe)
 			{
 				environment_flags |= MDB_NOSYNC;
 			}
-			else if (options_a.config.sync == nano::lmdb_config::sync_strategy::nosync_unsafe_large_memory)
+			else if (options_a.config.sync == celerix::lmdb_config::sync_strategy::nosync_unsafe_large_memory)
 			{
 				environment_flags |= MDB_NOSYNC | MDB_WRITEMAP | MDB_MAPASYNC;
 			}
@@ -77,7 +77,7 @@ void nano::store::lmdb::env::init (bool & error_a, std::filesystem::path const &
 	}
 }
 
-nano::store::lmdb::env::~env ()
+celerix::store::lmdb::env::~env ()
 {
 	if (environment != nullptr)
 	{
@@ -86,22 +86,22 @@ nano::store::lmdb::env::~env ()
 	}
 }
 
-nano::store::lmdb::env::operator MDB_env * () const
+celerix::store::lmdb::env::operator MDB_env * () const
 {
 	return environment.get ();
 }
 
-nano::store::read_transaction nano::store::lmdb::env::tx_begin_read (store::lmdb::txn_callbacks mdb_txn_callbacks) const
+celerix::store::read_transaction celerix::store::lmdb::env::tx_begin_read (store::lmdb::txn_callbacks mdb_txn_callbacks) const
 {
-	return store::read_transaction{ std::make_unique<nano::store::lmdb::read_transaction_impl> (*this, mdb_txn_callbacks) };
+	return store::read_transaction{ std::make_unique<celerix::store::lmdb::read_transaction_impl> (*this, mdb_txn_callbacks) };
 }
 
-nano::store::write_transaction nano::store::lmdb::env::tx_begin_write (store::lmdb::txn_callbacks mdb_txn_callbacks) const
+celerix::store::write_transaction celerix::store::lmdb::env::tx_begin_write (store::lmdb::txn_callbacks mdb_txn_callbacks) const
 {
-	return store::write_transaction{ std::make_unique<nano::store::lmdb::write_transaction_impl> (*this, mdb_txn_callbacks) };
+	return store::write_transaction{ std::make_unique<celerix::store::lmdb::write_transaction_impl> (*this, mdb_txn_callbacks) };
 }
 
-MDB_txn * nano::store::lmdb::env::tx (store::transaction const & transaction_a) const
+MDB_txn * celerix::store::lmdb::env::tx (store::transaction const & transaction_a) const
 {
 	debug_assert (transaction_a.store_id () == store_id);
 	return static_cast<MDB_txn *> (transaction_a.get_handle ());

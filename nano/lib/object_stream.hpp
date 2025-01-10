@@ -11,7 +11,7 @@
 #include <fmt/ostream.h>
 #include <magic_enum_iostream.hpp>
 
-namespace nano
+namespace celerix
 {
 struct object_stream_config
 {
@@ -241,7 +241,7 @@ public:
 		write_range (name, std::views::transform (container, transform));
 	}
 
-	// Handle `.write_range ("name", container, [] (auto const & entry, nano::object_stream &) { ... })`
+	// Handle `.write_range ("name", container, [] (auto const & entry, celerix::object_stream &) { ... })`
 	template <class Container, class Writer>
 		requires (std::is_invocable_v<Writer, typename Container::value_type, object_stream &>)
 	void write_range (std::string_view name, Container const & container, Writer writer)
@@ -253,7 +253,7 @@ public:
 		});
 	}
 
-	// Handle `.write_range ("name", container, [] (auto const & entry, nano::array_stream &) { ... })`
+	// Handle `.write_range ("name", container, [] (auto const & entry, celerix::array_stream &) { ... })`
 	template <class Container, class Writer>
 		requires (std::is_invocable_v<Writer, typename Container::value_type, array_stream &>)
 	void write_range (std::string_view name, Container const & container, Writer writer)
@@ -308,7 +308,7 @@ public:
 		write (std::views::transform (container, transform));
 	}
 
-	// Handle `.write (container, [] (auto const & entry, nano::object_stream &) { ... })`
+	// Handle `.write (container, [] (auto const & entry, celerix::object_stream &) { ... })`
 	template <class Container, class Writer>
 		requires (std::is_invocable_v<Writer, typename Container::value_type, object_stream &>)
 	void write (Container const & container, Writer writer)
@@ -320,7 +320,7 @@ public:
 		});
 	}
 
-	// Handle `.write_range (container, [] (auto const & entry, nano::array_stream &) { ... })`
+	// Handle `.write_range (container, [] (auto const & entry, celerix::array_stream &) { ... })`
 	template <class Container, class Writer>
 		requires (std::is_invocable_v<Writer, typename Container::value_type, array_stream &>)
 	void write (Container const & container, Writer writer)
@@ -365,7 +365,7 @@ public:
 		write_range (std::views::transform (container, transform));
 	}
 
-	// Handle `.write_range (container, [] (auto const & entry, nano::object_stream &) { ... })`
+	// Handle `.write_range (container, [] (auto const & entry, celerix::object_stream &) { ... })`
 	template <class Container, class Writer>
 		requires (std::is_invocable_v<Writer, typename Container::value_type, object_stream &>)
 	void write_range (Container const & container, Writer writer)
@@ -377,7 +377,7 @@ public:
 		});
 	}
 
-	// Handle `.write_range (container, [] (auto const & entry, nano::array_stream &) { ... })`
+	// Handle `.write_range (container, [] (auto const & entry, celerix::array_stream &) { ... })`
 	template <class Container, class Writer>
 		requires (std::is_invocable_v<Writer, typename Container::value_type, array_stream &>)
 	void write_range (Container const & container, Writer writer)
@@ -395,7 +395,7 @@ public:
  */
 
 template <class Container>
-inline void nano::object_stream::write_range (std::string_view name, Container const & container)
+inline void celerix::object_stream::write_range (std::string_view name, Container const & container)
 {
 	write (name, [&container] (array_stream & ars) {
 		ars.write (container);
@@ -403,7 +403,7 @@ inline void nano::object_stream::write_range (std::string_view name, Container c
 }
 
 template <class Container>
-inline void nano::root_object_stream::write_range (Container const & container)
+inline void celerix::root_object_stream::write_range (Container const & container)
 {
 	write ([&container] (array_stream & ars) {
 		ars.write (container);
@@ -431,7 +431,7 @@ inline void stream_as_value (Value const & value, object_stream_context & ctx)
 	ctx.begin_object ();
 
 	// Write as object
-	nano::object_stream obs{ ctx };
+	celerix::object_stream obs{ ctx };
 	stream_as (value, obs);
 
 	ctx.end_object ();
@@ -443,7 +443,7 @@ inline void stream_as_value (Value const & value, object_stream_context & ctx)
 	ctx.begin_array ();
 
 	// Write as array
-	nano::array_stream ars{ ctx };
+	celerix::array_stream ars{ ctx };
 	stream_as (value, ars);
 
 	ctx.end_array ();
@@ -484,7 +484,7 @@ inline void stream_as (Value const & value, array_stream & ars)
  * Specializations for primitive types
  */
 
-namespace nano
+namespace celerix
 {
 template <class Value>
 	requires (std::is_integral_v<Value> && sizeof (Value) > 1) // Exclude bool, char, etc.

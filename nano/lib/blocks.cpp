@@ -1,14 +1,14 @@
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/block_type.hpp>
-#include <nano/lib/block_uniquer.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/enum_util.hpp>
-#include <nano/lib/memory.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/stream.hpp>
-#include <nano/lib/threading.hpp>
-#include <nano/lib/work_version.hpp>
-#include <nano/secure/common.hpp>
+#include <celerix/crypto_lib/random_pool.hpp>
+#include <celerix/lib/block_type.hpp>
+#include <celerix/lib/block_uniquer.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/enum_util.hpp>
+#include <celerix/lib/memory.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/stream.hpp>
+#include <celerix/lib/threading.hpp>
+#include <celerix/lib/work_version.hpp>
+#include <celerix/secure/common.hpp>
 
 #include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -17,27 +17,27 @@
 
 #include <cryptopp/words.h>
 
-size_t constexpr nano::send_block::size;
-size_t constexpr nano::receive_block::size;
-size_t constexpr nano::open_block::size;
-size_t constexpr nano::change_block::size;
-size_t constexpr nano::state_block::size;
+size_t constexpr celerix::send_block::size;
+size_t constexpr celerix::receive_block::size;
+size_t constexpr celerix::open_block::size;
+size_t constexpr celerix::change_block::size;
+size_t constexpr celerix::state_block::size;
 
 /** Compare blocks, first by type, then content. This is an optimization over dynamic_cast, which is very slow on some platforms. */
 namespace
 {
 template <typename T>
-bool blocks_equal (T const & first, nano::block const & second)
+bool blocks_equal (T const & first, celerix::block const & second)
 {
-	static_assert (std::is_base_of<nano::block, T>::value, "Input parameter is not a block type");
+	static_assert (std::is_base_of<celerix::block, T>::value, "Input parameter is not a block type");
 	return (first.type () == second.type ()) && (static_cast<T const &> (second)) == first;
 }
 
 template <typename block>
-std::shared_ptr<block> deserialize_block (nano::stream & stream_a)
+std::shared_ptr<block> deserialize_block (celerix::stream & stream_a)
 {
 	auto error (false);
-	auto result = nano::make_shared<block> (error, stream_a);
+	auto result = celerix::make_shared<block> (error, stream_a);
 	if (error)
 	{
 		result = nullptr;
@@ -47,61 +47,61 @@ std::shared_ptr<block> deserialize_block (nano::stream & stream_a)
 }
 }
 
-void nano::block_memory_pool_purge ()
+void celerix::block_memory_pool_purge ()
 {
-	nano::purge_shared_ptr_singleton_pool_memory<nano::open_block> ();
-	nano::purge_shared_ptr_singleton_pool_memory<nano::state_block> ();
-	nano::purge_shared_ptr_singleton_pool_memory<nano::send_block> ();
-	nano::purge_shared_ptr_singleton_pool_memory<nano::change_block> ();
+	celerix::purge_shared_ptr_singleton_pool_memory<celerix::open_block> ();
+	celerix::purge_shared_ptr_singleton_pool_memory<celerix::state_block> ();
+	celerix::purge_shared_ptr_singleton_pool_memory<celerix::send_block> ();
+	celerix::purge_shared_ptr_singleton_pool_memory<celerix::change_block> ();
 }
 
 /*
  * block
  */
 
-std::string nano::block::to_json () const
+std::string celerix::block::to_json () const
 {
 	std::string result;
 	serialize_json (result);
 	return result;
 }
 
-size_t nano::block::size (nano::block_type type_a)
+size_t celerix::block::size (celerix::block_type type_a)
 {
 	size_t result (0);
 	switch (type_a)
 	{
-		case nano::block_type::invalid:
-		case nano::block_type::not_a_block:
+		case celerix::block_type::invalid:
+		case celerix::block_type::not_a_block:
 			debug_assert (false);
 			break;
-		case nano::block_type::send:
-			result = nano::send_block::size;
+		case celerix::block_type::send:
+			result = celerix::send_block::size;
 			break;
-		case nano::block_type::receive:
-			result = nano::receive_block::size;
+		case celerix::block_type::receive:
+			result = celerix::receive_block::size;
 			break;
-		case nano::block_type::change:
-			result = nano::change_block::size;
+		case celerix::block_type::change:
+			result = celerix::change_block::size;
 			break;
-		case nano::block_type::open:
-			result = nano::open_block::size;
+		case celerix::block_type::open:
+			result = celerix::open_block::size;
 			break;
-		case nano::block_type::state:
-			result = nano::state_block::size;
+		case celerix::block_type::state:
+			result = celerix::state_block::size;
 			break;
 	}
 	return result;
 }
 
-nano::work_version nano::block::work_version () const
+celerix::work_version celerix::block::work_version () const
 {
-	return nano::work_version::work_1;
+	return celerix::work_version::work_1;
 }
 
-nano::block_hash nano::block::generate_hash () const
+celerix::block_hash celerix::block::generate_hash () const
 {
-	nano::block_hash result;
+	celerix::block_hash result;
 	blake2b_state hash_l;
 	auto status (blake2b_init (&hash_l, sizeof (result.bytes)));
 	debug_assert (status == 0);
@@ -111,7 +111,7 @@ nano::block_hash nano::block::generate_hash () const
 	return result;
 }
 
-void nano::block::refresh ()
+void celerix::block::refresh ()
 {
 	if (!cached_hash.is_zero ())
 	{
@@ -119,43 +119,43 @@ void nano::block::refresh ()
 	}
 }
 
-bool nano::block::is_send () const noexcept
+bool celerix::block::is_send () const noexcept
 {
 	release_assert (has_sideband ());
 	switch (type ())
 	{
-		case nano::block_type::send:
+		case celerix::block_type::send:
 			return true;
-		case nano::block_type::state:
+		case celerix::block_type::state:
 			return sideband ().details.is_send;
 		default:
 			return false;
 	}
 }
 
-bool nano::block::is_receive () const noexcept
+bool celerix::block::is_receive () const noexcept
 {
 	release_assert (has_sideband ());
 	switch (type ())
 	{
-		case nano::block_type::receive:
-		case nano::block_type::open:
+		case celerix::block_type::receive:
+		case celerix::block_type::open:
 			return true;
-		case nano::block_type::state:
+		case celerix::block_type::state:
 			return sideband ().details.is_receive;
 		default:
 			return false;
 	}
 }
 
-bool nano::block::is_change () const noexcept
+bool celerix::block::is_change () const noexcept
 {
 	release_assert (has_sideband ());
 	switch (type ())
 	{
-		case nano::block_type::change:
+		case celerix::block_type::change:
 			return true;
-		case nano::block_type::state:
+		case celerix::block_type::state:
 			if (link_field ().value ().is_zero ())
 			{
 				return true;
@@ -166,19 +166,19 @@ bool nano::block::is_change () const noexcept
 	}
 }
 
-bool nano::block::is_epoch () const noexcept
+bool celerix::block::is_epoch () const noexcept
 {
 	release_assert (has_sideband ());
 	switch (type ())
 	{
-		case nano::block_type::state:
+		case celerix::block_type::state:
 			return sideband ().details.is_epoch;
 		default:
 			return false;
 	}
 }
 
-nano::block_hash const & nano::block::hash () const
+celerix::block_hash const & celerix::block::hash () const
 {
 	if (!cached_hash.is_zero ())
 	{
@@ -194,9 +194,9 @@ nano::block_hash const & nano::block::hash () const
 	return cached_hash;
 }
 
-nano::block_hash nano::block::full_hash () const
+celerix::block_hash celerix::block::full_hash () const
 {
-	nano::block_hash result;
+	celerix::block_hash result;
 	blake2b_state state;
 	blake2b_init (&state, sizeof (result.bytes));
 	blake2b_update (&state, hash ().bytes.data (), sizeof (hash ()));
@@ -208,43 +208,43 @@ nano::block_hash nano::block::full_hash () const
 	return result;
 }
 
-nano::block_sideband const & nano::block::sideband () const
+celerix::block_sideband const & celerix::block::sideband () const
 {
 	release_assert (sideband_m.is_initialized ());
 	return *sideband_m;
 }
 
-void nano::block::sideband_set (nano::block_sideband const & sideband_a)
+void celerix::block::sideband_set (celerix::block_sideband const & sideband_a)
 {
 	sideband_m = sideband_a;
 }
 
-bool nano::block::has_sideband () const
+bool celerix::block::has_sideband () const
 {
 	return sideband_m.is_initialized ();
 }
 
-std::optional<nano::account> nano::block::representative_field () const
+std::optional<celerix::account> celerix::block::representative_field () const
 {
 	return std::nullopt;
 }
 
-std::optional<nano::block_hash> nano::block::source_field () const
+std::optional<celerix::block_hash> celerix::block::source_field () const
 {
 	return std::nullopt;
 }
 
-std::optional<nano::account> nano::block::destination_field () const
+std::optional<celerix::account> celerix::block::destination_field () const
 {
 	return std::nullopt;
 }
 
-std::optional<nano::link> nano::block::link_field () const
+std::optional<celerix::link> celerix::block::link_field () const
 {
 	return std::nullopt;
 }
 
-nano::account nano::block::account () const noexcept
+celerix::account celerix::block::account () const noexcept
 {
 	release_assert (has_sideband ());
 	switch (type ())
@@ -261,31 +261,31 @@ nano::account nano::block::account () const noexcept
 	}
 }
 
-nano::amount nano::block::balance () const noexcept
+celerix::amount celerix::block::balance () const noexcept
 {
 	release_assert (has_sideband ());
 	switch (type ())
 	{
-		case nano::block_type::open:
-		case nano::block_type::receive:
-		case nano::block_type::change:
+		case celerix::block_type::open:
+		case celerix::block_type::receive:
+		case celerix::block_type::change:
 			return sideband ().balance;
-		case nano::block_type::send:
-		case nano::block_type::state:
+		case celerix::block_type::send:
+		case celerix::block_type::state:
 			return balance_field ().value ();
 		default:
 			release_assert (false);
 	}
 }
 
-nano::account nano::block::destination () const noexcept
+celerix::account celerix::block::destination () const noexcept
 {
 	release_assert (has_sideband ());
 	switch (type ())
 	{
-		case nano::block_type::send:
+		case celerix::block_type::send:
 			return destination_field ().value ();
-		case nano::block_type::state:
+		case celerix::block_type::state:
 			release_assert (sideband ().details.is_send);
 			return link_field ().value ().as_account ();
 		default:
@@ -293,15 +293,15 @@ nano::account nano::block::destination () const noexcept
 	}
 }
 
-nano::block_hash nano::block::source () const noexcept
+celerix::block_hash celerix::block::source () const noexcept
 {
 	release_assert (has_sideband ());
 	switch (type ())
 	{
-		case nano::block_type::open:
-		case nano::block_type::receive:
+		case celerix::block_type::open:
+		case celerix::block_type::receive:
 			return source_field ().value ();
-		case nano::block_type::state:
+		case celerix::block_type::state:
 			release_assert (sideband ().details.is_receive);
 			return link_field ().value ().as_block_hash ();
 		default:
@@ -310,10 +310,10 @@ nano::block_hash nano::block::source () const noexcept
 }
 
 // TODO - Remove comments below and fixup usages to not need to check .is_zero ()
-// std::optional<nano::block_hash> nano::block::previous () const
-nano::block_hash nano::block::previous () const noexcept
+// std::optional<celerix::block_hash> celerix::block::previous () const
+celerix::block_hash celerix::block::previous () const noexcept
 {
-	std::optional<nano::block_hash> result = previous_field ();
+	std::optional<celerix::block_hash> result = previous_field ();
 	/*
 	if (result && result.value ().is_zero ())
 	{
@@ -323,22 +323,22 @@ nano::block_hash nano::block::previous () const noexcept
 	return result.value_or (0);
 }
 
-std::optional<nano::account> nano::block::account_field () const
+std::optional<celerix::account> celerix::block::account_field () const
 {
 	return std::nullopt;
 }
 
-nano::qualified_root nano::block::qualified_root () const
+celerix::qualified_root celerix::block::qualified_root () const
 {
 	return { root (), previous () };
 }
 
-std::optional<nano::amount> nano::block::balance_field () const
+std::optional<celerix::amount> celerix::block::balance_field () const
 {
 	return std::nullopt;
 }
 
-void nano::block::operator() (nano::object_stream & obs) const
+void celerix::block::operator() (celerix::object_stream & obs) const
 {
 	obs.write ("type", type ());
 	obs.write ("hash", hash ());
@@ -353,45 +353,45 @@ void nano::block::operator() (nano::object_stream & obs) const
  * send_block
  */
 
-void nano::send_block::visit (nano::block_visitor & visitor_a) const
+void celerix::send_block::visit (celerix::block_visitor & visitor_a) const
 {
 	visitor_a.send_block (*this);
 }
 
-void nano::send_block::visit (nano::mutable_block_visitor & visitor_a)
+void celerix::send_block::visit (celerix::mutable_block_visitor & visitor_a)
 {
 	visitor_a.send_block (*this);
 }
 
-void nano::send_block::generate_hash (blake2b_state & hash_a) const
+void celerix::send_block::generate_hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
 }
 
-uint64_t nano::send_block::block_work () const
+uint64_t celerix::send_block::block_work () const
 {
 	return work;
 }
 
-void nano::send_block::block_work_set (uint64_t work_a)
+void celerix::send_block::block_work_set (uint64_t work_a)
 {
 	work = work_a;
 }
 
-nano::send_hashables::send_hashables (nano::block_hash const & previous_a, nano::account const & destination_a, nano::amount const & balance_a) :
+celerix::send_hashables::send_hashables (celerix::block_hash const & previous_a, celerix::account const & destination_a, celerix::amount const & balance_a) :
 	previous (previous_a),
 	destination (destination_a),
 	balance (balance_a)
 {
 }
 
-nano::send_hashables::send_hashables (bool & error_a, nano::stream & stream_a)
+celerix::send_hashables::send_hashables (bool & error_a, celerix::stream & stream_a)
 {
 	try
 	{
-		nano::read (stream_a, previous.bytes);
-		nano::read (stream_a, destination.bytes);
-		nano::read (stream_a, balance.bytes);
+		celerix::read (stream_a, previous.bytes);
+		celerix::read (stream_a, destination.bytes);
+		celerix::read (stream_a, balance.bytes);
 	}
 	catch (std::runtime_error const &)
 	{
@@ -399,7 +399,7 @@ nano::send_hashables::send_hashables (bool & error_a, nano::stream & stream_a)
 	}
 }
 
-nano::send_hashables::send_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
+celerix::send_hashables::send_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
 {
 	try
 	{
@@ -422,7 +422,7 @@ nano::send_hashables::send_hashables (bool & error_a, boost::property_tree::ptre
 	}
 }
 
-void nano::send_hashables::hash (blake2b_state & hash_a) const
+void celerix::send_hashables::hash (blake2b_state & hash_a) const
 {
 	auto status (blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes)));
 	debug_assert (status == 0);
@@ -432,7 +432,7 @@ void nano::send_hashables::hash (blake2b_state & hash_a) const
 	debug_assert (status == 0);
 }
 
-void nano::send_block::serialize (nano::stream & stream_a) const
+void celerix::send_block::serialize (celerix::stream & stream_a) const
 {
 	write (stream_a, hashables.previous.bytes);
 	write (stream_a, hashables.destination.bytes);
@@ -441,7 +441,7 @@ void nano::send_block::serialize (nano::stream & stream_a) const
 	write (stream_a, work);
 }
 
-bool nano::send_block::deserialize (nano::stream & stream_a)
+bool celerix::send_block::deserialize (celerix::stream & stream_a)
 {
 	auto error (false);
 	try
@@ -460,7 +460,7 @@ bool nano::send_block::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-void nano::send_block::serialize_json (std::string & string_a, bool single_line) const
+void celerix::send_block::serialize_json (std::string & string_a, bool single_line) const
 {
 	boost::property_tree::ptree tree;
 	serialize_json (tree);
@@ -469,7 +469,7 @@ void nano::send_block::serialize_json (std::string & string_a, bool single_line)
 	string_a = ostream.str ();
 }
 
-void nano::send_block::serialize_json (boost::property_tree::ptree & tree) const
+void celerix::send_block::serialize_json (boost::property_tree::ptree & tree) const
 {
 	tree.put ("type", "send");
 	std::string previous;
@@ -481,11 +481,11 @@ void nano::send_block::serialize_json (boost::property_tree::ptree & tree) const
 	tree.put ("balance", balance);
 	std::string signature_l;
 	signature.encode_hex (signature_l);
-	tree.put ("work", nano::to_string_hex (work));
+	tree.put ("work", celerix::to_string_hex (work));
 	tree.put ("signature", signature_l);
 }
 
-bool nano::send_block::deserialize_json (boost::property_tree::ptree const & tree_a)
+bool celerix::send_block::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
 	auto error (false);
 	try
@@ -505,7 +505,7 @@ bool nano::send_block::deserialize_json (boost::property_tree::ptree const & tre
 				error = hashables.balance.decode_hex (balance_l);
 				if (!error)
 				{
-					error = nano::from_string_hex (work_l, work);
+					error = celerix::from_string_hex (work_l, work);
 					if (!error)
 					{
 						error = signature.decode_hex (signature_l);
@@ -521,24 +521,24 @@ bool nano::send_block::deserialize_json (boost::property_tree::ptree const & tre
 	return error;
 }
 
-nano::send_block::send_block (nano::block_hash const & previous_a, nano::account const & destination_a, nano::amount const & balance_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
+celerix::send_block::send_block (celerix::block_hash const & previous_a, celerix::account const & destination_a, celerix::amount const & balance_a, celerix::raw_key const & prv_a, celerix::public_key const & pub_a, uint64_t work_a) :
 	hashables (previous_a, destination_a, balance_a),
-	signature (nano::sign_message (prv_a, pub_a, hash ())),
+	signature (celerix::sign_message (prv_a, pub_a, hash ())),
 	work (work_a)
 {
 	debug_assert (destination_a != nullptr);
 	debug_assert (pub_a != nullptr);
 }
 
-nano::send_block::send_block (bool & error_a, nano::stream & stream_a) :
+celerix::send_block::send_block (bool & error_a, celerix::stream & stream_a) :
 	hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
 		try
 		{
-			nano::read (stream_a, signature.bytes);
-			nano::read (stream_a, work);
+			celerix::read (stream_a, signature.bytes);
+			celerix::read (stream_a, work);
 		}
 		catch (std::runtime_error const &)
 		{
@@ -547,7 +547,7 @@ nano::send_block::send_block (bool & error_a, nano::stream & stream_a) :
 	}
 }
 
-nano::send_block::send_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
+celerix::send_block::send_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
 	hashables (error_a, tree_a)
 {
 	if (!error_a)
@@ -559,7 +559,7 @@ nano::send_block::send_block (bool & error_a, boost::property_tree::ptree const 
 			error_a = signature.decode_hex (signature_l);
 			if (!error_a)
 			{
-				error_a = nano::from_string_hex (work_l, work);
+				error_a = celerix::from_string_hex (work_l, work);
 			}
 		}
 		catch (std::runtime_error const &)
@@ -569,25 +569,25 @@ nano::send_block::send_block (bool & error_a, boost::property_tree::ptree const 
 	}
 }
 
-std::shared_ptr<nano::block> nano::send_block::clone () const
+std::shared_ptr<celerix::block> celerix::send_block::clone () const
 {
-	return std::make_shared<nano::send_block> (*this);
+	return std::make_shared<celerix::send_block> (*this);
 }
 
-bool nano::send_block::operator== (nano::block const & other_a) const
+bool celerix::send_block::operator== (celerix::block const & other_a) const
 {
 	return blocks_equal (*this, other_a);
 }
 
-bool nano::send_block::valid_predecessor (nano::block const & block_a) const
+bool celerix::send_block::valid_predecessor (celerix::block const & block_a) const
 {
 	bool result;
 	switch (block_a.type ())
 	{
-		case nano::block_type::send:
-		case nano::block_type::receive:
-		case nano::block_type::open:
-		case nano::block_type::change:
+		case celerix::block_type::send:
+		case celerix::block_type::receive:
+		case celerix::block_type::open:
+		case celerix::block_type::change:
 			result = true;
 			break;
 		default:
@@ -597,50 +597,50 @@ bool nano::send_block::valid_predecessor (nano::block const & block_a) const
 	return result;
 }
 
-nano::block_type nano::send_block::type () const
+celerix::block_type celerix::send_block::type () const
 {
-	return nano::block_type::send;
+	return celerix::block_type::send;
 }
 
-bool nano::send_block::operator== (nano::send_block const & other_a) const
+bool celerix::send_block::operator== (celerix::send_block const & other_a) const
 {
 	auto result (hashables.destination == other_a.hashables.destination && hashables.previous == other_a.hashables.previous && hashables.balance == other_a.hashables.balance && work == other_a.work && signature == other_a.signature);
 	return result;
 }
 
-std::optional<nano::block_hash> nano::send_block::previous_field () const
+std::optional<celerix::block_hash> celerix::send_block::previous_field () const
 {
 	return hashables.previous;
 }
 
-std::optional<nano::account> nano::send_block::destination_field () const
+std::optional<celerix::account> celerix::send_block::destination_field () const
 {
 	return hashables.destination;
 }
 
-nano::root nano::send_block::root () const
+celerix::root celerix::send_block::root () const
 {
 	return hashables.previous;
 }
 
-std::optional<nano::amount> nano::send_block::balance_field () const
+std::optional<celerix::amount> celerix::send_block::balance_field () const
 {
 	return hashables.balance;
 }
 
-nano::signature const & nano::send_block::block_signature () const
+celerix::signature const & celerix::send_block::block_signature () const
 {
 	return signature;
 }
 
-void nano::send_block::signature_set (nano::signature const & signature_a)
+void celerix::send_block::signature_set (celerix::signature const & signature_a)
 {
 	signature = signature_a;
 }
 
-void nano::send_block::operator() (nano::object_stream & obs) const
+void celerix::send_block::operator() (celerix::object_stream & obs) const
 {
-	nano::block::operator() (obs); // Write common data
+	celerix::block::operator() (obs); // Write common data
 
 	obs.write ("previous", hashables.previous);
 	obs.write ("destination", hashables.destination);
@@ -653,20 +653,20 @@ void nano::send_block::operator() (nano::object_stream & obs) const
  * open_block
  */
 
-nano::open_hashables::open_hashables (nano::block_hash const & source_a, nano::account const & representative_a, nano::account const & account_a) :
+celerix::open_hashables::open_hashables (celerix::block_hash const & source_a, celerix::account const & representative_a, celerix::account const & account_a) :
 	source (source_a),
 	representative (representative_a),
 	account (account_a)
 {
 }
 
-nano::open_hashables::open_hashables (bool & error_a, nano::stream & stream_a)
+celerix::open_hashables::open_hashables (bool & error_a, celerix::stream & stream_a)
 {
 	try
 	{
-		nano::read (stream_a, source.bytes);
-		nano::read (stream_a, representative.bytes);
-		nano::read (stream_a, account.bytes);
+		celerix::read (stream_a, source.bytes);
+		celerix::read (stream_a, representative.bytes);
+		celerix::read (stream_a, account.bytes);
 	}
 	catch (std::runtime_error const &)
 	{
@@ -674,7 +674,7 @@ nano::open_hashables::open_hashables (bool & error_a, nano::stream & stream_a)
 	}
 }
 
-nano::open_hashables::open_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
+celerix::open_hashables::open_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
 {
 	try
 	{
@@ -697,16 +697,16 @@ nano::open_hashables::open_hashables (bool & error_a, boost::property_tree::ptre
 	}
 }
 
-void nano::open_hashables::hash (blake2b_state & hash_a) const
+void celerix::open_hashables::hash (blake2b_state & hash_a) const
 {
 	blake2b_update (&hash_a, source.bytes.data (), sizeof (source.bytes));
 	blake2b_update (&hash_a, representative.bytes.data (), sizeof (representative.bytes));
 	blake2b_update (&hash_a, account.bytes.data (), sizeof (account.bytes));
 }
 
-nano::open_block::open_block (nano::block_hash const & source_a, nano::account const & representative_a, nano::account const & account_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
+celerix::open_block::open_block (celerix::block_hash const & source_a, celerix::account const & representative_a, celerix::account const & account_a, celerix::raw_key const & prv_a, celerix::public_key const & pub_a, uint64_t work_a) :
 	hashables (source_a, representative_a, account_a),
-	signature (nano::sign_message (prv_a, pub_a, hash ())),
+	signature (celerix::sign_message (prv_a, pub_a, hash ())),
 	work (work_a)
 {
 	debug_assert (representative_a != nullptr);
@@ -714,7 +714,7 @@ nano::open_block::open_block (nano::block_hash const & source_a, nano::account c
 	debug_assert (pub_a != nullptr);
 }
 
-nano::open_block::open_block (nano::block_hash const & source_a, nano::account const & representative_a, nano::account const & account_a, std::nullptr_t) :
+celerix::open_block::open_block (celerix::block_hash const & source_a, celerix::account const & representative_a, celerix::account const & account_a, std::nullptr_t) :
 	hashables (source_a, representative_a, account_a),
 	work (0)
 {
@@ -724,15 +724,15 @@ nano::open_block::open_block (nano::block_hash const & source_a, nano::account c
 	signature.clear ();
 }
 
-nano::open_block::open_block (bool & error_a, nano::stream & stream_a) :
+celerix::open_block::open_block (bool & error_a, celerix::stream & stream_a) :
 	hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
 		try
 		{
-			nano::read (stream_a, signature);
-			nano::read (stream_a, work);
+			celerix::read (stream_a, signature);
+			celerix::read (stream_a, work);
 		}
 		catch (std::runtime_error const &)
 		{
@@ -741,7 +741,7 @@ nano::open_block::open_block (bool & error_a, nano::stream & stream_a) :
 	}
 }
 
-nano::open_block::open_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
+celerix::open_block::open_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
 	hashables (error_a, tree_a)
 {
 	if (!error_a)
@@ -750,7 +750,7 @@ nano::open_block::open_block (bool & error_a, boost::property_tree::ptree const 
 		{
 			auto work_l (tree_a.get<std::string> ("work"));
 			auto signature_l (tree_a.get<std::string> ("signature"));
-			error_a = nano::from_string_hex (work_l, work);
+			error_a = celerix::from_string_hex (work_l, work);
 			if (!error_a)
 			{
 				error_a = signature.decode_hex (signature_l);
@@ -763,37 +763,37 @@ nano::open_block::open_block (bool & error_a, boost::property_tree::ptree const 
 	}
 }
 
-std::shared_ptr<nano::block> nano::open_block::clone () const
+std::shared_ptr<celerix::block> celerix::open_block::clone () const
 {
-	return std::make_shared<nano::open_block> (*this);
+	return std::make_shared<celerix::open_block> (*this);
 }
 
-void nano::open_block::generate_hash (blake2b_state & hash_a) const
+void celerix::open_block::generate_hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
 }
 
-uint64_t nano::open_block::block_work () const
+uint64_t celerix::open_block::block_work () const
 {
 	return work;
 }
 
-void nano::open_block::block_work_set (uint64_t work_a)
+void celerix::open_block::block_work_set (uint64_t work_a)
 {
 	work = work_a;
 }
 
-std::optional<nano::block_hash> nano::open_block::previous_field () const
+std::optional<celerix::block_hash> celerix::open_block::previous_field () const
 {
 	return std::nullopt;
 }
 
-std::optional<nano::account> nano::open_block::account_field () const
+std::optional<celerix::account> celerix::open_block::account_field () const
 {
 	return hashables.account;
 }
 
-void nano::open_block::serialize (nano::stream & stream_a) const
+void celerix::open_block::serialize (celerix::stream & stream_a) const
 {
 	write (stream_a, hashables.source);
 	write (stream_a, hashables.representative);
@@ -802,7 +802,7 @@ void nano::open_block::serialize (nano::stream & stream_a) const
 	write (stream_a, work);
 }
 
-bool nano::open_block::deserialize (nano::stream & stream_a)
+bool celerix::open_block::deserialize (celerix::stream & stream_a)
 {
 	auto error (false);
 	try
@@ -821,7 +821,7 @@ bool nano::open_block::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-void nano::open_block::serialize_json (std::string & string_a, bool single_line) const
+void celerix::open_block::serialize_json (std::string & string_a, bool single_line) const
 {
 	boost::property_tree::ptree tree;
 	serialize_json (tree);
@@ -830,7 +830,7 @@ void nano::open_block::serialize_json (std::string & string_a, bool single_line)
 	string_a = ostream.str ();
 }
 
-void nano::open_block::serialize_json (boost::property_tree::ptree & tree) const
+void celerix::open_block::serialize_json (boost::property_tree::ptree & tree) const
 {
 	tree.put ("type", "open");
 	tree.put ("source", hashables.source.to_string ());
@@ -838,11 +838,11 @@ void nano::open_block::serialize_json (boost::property_tree::ptree & tree) const
 	tree.put ("account", hashables.account.to_account ());
 	std::string signature_l;
 	signature.encode_hex (signature_l);
-	tree.put ("work", nano::to_string_hex (work));
+	tree.put ("work", celerix::to_string_hex (work));
 	tree.put ("signature", signature_l);
 }
 
-bool nano::open_block::deserialize_json (boost::property_tree::ptree const & tree_a)
+bool celerix::open_block::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
 	auto error (false);
 	try
@@ -862,7 +862,7 @@ bool nano::open_block::deserialize_json (boost::property_tree::ptree const & tre
 				error = hashables.account.decode_hex (account_l);
 				if (!error)
 				{
-					error = nano::from_string_hex (work_l, work);
+					error = celerix::from_string_hex (work_l, work);
 					if (!error)
 					{
 						error = signature.decode_hex (signature_l);
@@ -878,64 +878,64 @@ bool nano::open_block::deserialize_json (boost::property_tree::ptree const & tre
 	return error;
 }
 
-void nano::open_block::visit (nano::block_visitor & visitor_a) const
+void celerix::open_block::visit (celerix::block_visitor & visitor_a) const
 {
 	visitor_a.open_block (*this);
 }
 
-void nano::open_block::visit (nano::mutable_block_visitor & visitor_a)
+void celerix::open_block::visit (celerix::mutable_block_visitor & visitor_a)
 {
 	visitor_a.open_block (*this);
 }
 
-nano::block_type nano::open_block::type () const
+celerix::block_type celerix::open_block::type () const
 {
-	return nano::block_type::open;
+	return celerix::block_type::open;
 }
 
-bool nano::open_block::operator== (nano::block const & other_a) const
+bool celerix::open_block::operator== (celerix::block const & other_a) const
 {
 	return blocks_equal (*this, other_a);
 }
 
-bool nano::open_block::operator== (nano::open_block const & other_a) const
+bool celerix::open_block::operator== (celerix::open_block const & other_a) const
 {
 	return hashables.source == other_a.hashables.source && hashables.representative == other_a.hashables.representative && hashables.account == other_a.hashables.account && work == other_a.work && signature == other_a.signature;
 }
 
-bool nano::open_block::valid_predecessor (nano::block const & block_a) const
+bool celerix::open_block::valid_predecessor (celerix::block const & block_a) const
 {
 	return false;
 }
 
-std::optional<nano::block_hash> nano::open_block::source_field () const
+std::optional<celerix::block_hash> celerix::open_block::source_field () const
 {
 	return hashables.source;
 }
 
-nano::root nano::open_block::root () const
+celerix::root celerix::open_block::root () const
 {
 	return hashables.account;
 }
 
-std::optional<nano::account> nano::open_block::representative_field () const
+std::optional<celerix::account> celerix::open_block::representative_field () const
 {
 	return hashables.representative;
 }
 
-nano::signature const & nano::open_block::block_signature () const
+celerix::signature const & celerix::open_block::block_signature () const
 {
 	return signature;
 }
 
-void nano::open_block::signature_set (nano::signature const & signature_a)
+void celerix::open_block::signature_set (celerix::signature const & signature_a)
 {
 	signature = signature_a;
 }
 
-void nano::open_block::operator() (nano::object_stream & obs) const
+void celerix::open_block::operator() (celerix::object_stream & obs) const
 {
-	nano::block::operator() (obs); // Write common data
+	celerix::block::operator() (obs); // Write common data
 
 	obs.write ("source", hashables.source);
 	obs.write ("representative", hashables.representative);
@@ -948,18 +948,18 @@ void nano::open_block::operator() (nano::object_stream & obs) const
  * change_block
  */
 
-nano::change_hashables::change_hashables (nano::block_hash const & previous_a, nano::account const & representative_a) :
+celerix::change_hashables::change_hashables (celerix::block_hash const & previous_a, celerix::account const & representative_a) :
 	previous (previous_a),
 	representative (representative_a)
 {
 }
 
-nano::change_hashables::change_hashables (bool & error_a, nano::stream & stream_a)
+celerix::change_hashables::change_hashables (bool & error_a, celerix::stream & stream_a)
 {
 	try
 	{
-		nano::read (stream_a, previous);
-		nano::read (stream_a, representative);
+		celerix::read (stream_a, previous);
+		celerix::read (stream_a, representative);
 	}
 	catch (std::runtime_error const &)
 	{
@@ -967,7 +967,7 @@ nano::change_hashables::change_hashables (bool & error_a, nano::stream & stream_
 	}
 }
 
-nano::change_hashables::change_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
+celerix::change_hashables::change_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
 {
 	try
 	{
@@ -985,30 +985,30 @@ nano::change_hashables::change_hashables (bool & error_a, boost::property_tree::
 	}
 }
 
-void nano::change_hashables::hash (blake2b_state & hash_a) const
+void celerix::change_hashables::hash (blake2b_state & hash_a) const
 {
 	blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
 	blake2b_update (&hash_a, representative.bytes.data (), sizeof (representative.bytes));
 }
 
-nano::change_block::change_block (nano::block_hash const & previous_a, nano::account const & representative_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
+celerix::change_block::change_block (celerix::block_hash const & previous_a, celerix::account const & representative_a, celerix::raw_key const & prv_a, celerix::public_key const & pub_a, uint64_t work_a) :
 	hashables (previous_a, representative_a),
-	signature (nano::sign_message (prv_a, pub_a, hash ())),
+	signature (celerix::sign_message (prv_a, pub_a, hash ())),
 	work (work_a)
 {
 	debug_assert (representative_a != nullptr);
 	debug_assert (pub_a != nullptr);
 }
 
-nano::change_block::change_block (bool & error_a, nano::stream & stream_a) :
+celerix::change_block::change_block (bool & error_a, celerix::stream & stream_a) :
 	hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
 		try
 		{
-			nano::read (stream_a, signature);
-			nano::read (stream_a, work);
+			celerix::read (stream_a, signature);
+			celerix::read (stream_a, work);
 		}
 		catch (std::runtime_error const &)
 		{
@@ -1017,7 +1017,7 @@ nano::change_block::change_block (bool & error_a, nano::stream & stream_a) :
 	}
 }
 
-nano::change_block::change_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
+celerix::change_block::change_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
 	hashables (error_a, tree_a)
 {
 	if (!error_a)
@@ -1026,7 +1026,7 @@ nano::change_block::change_block (bool & error_a, boost::property_tree::ptree co
 		{
 			auto work_l (tree_a.get<std::string> ("work"));
 			auto signature_l (tree_a.get<std::string> ("signature"));
-			error_a = nano::from_string_hex (work_l, work);
+			error_a = celerix::from_string_hex (work_l, work);
 			if (!error_a)
 			{
 				error_a = signature.decode_hex (signature_l);
@@ -1039,32 +1039,32 @@ nano::change_block::change_block (bool & error_a, boost::property_tree::ptree co
 	}
 }
 
-std::shared_ptr<nano::block> nano::change_block::clone () const
+std::shared_ptr<celerix::block> celerix::change_block::clone () const
 {
-	return std::make_shared<nano::change_block> (*this);
+	return std::make_shared<celerix::change_block> (*this);
 }
 
-void nano::change_block::generate_hash (blake2b_state & hash_a) const
+void celerix::change_block::generate_hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
 }
 
-uint64_t nano::change_block::block_work () const
+uint64_t celerix::change_block::block_work () const
 {
 	return work;
 }
 
-void nano::change_block::block_work_set (uint64_t work_a)
+void celerix::change_block::block_work_set (uint64_t work_a)
 {
 	work = work_a;
 }
 
-std::optional<nano::block_hash> nano::change_block::previous_field () const
+std::optional<celerix::block_hash> celerix::change_block::previous_field () const
 {
 	return hashables.previous;
 }
 
-void nano::change_block::serialize (nano::stream & stream_a) const
+void celerix::change_block::serialize (celerix::stream & stream_a) const
 {
 	write (stream_a, hashables.previous);
 	write (stream_a, hashables.representative);
@@ -1072,7 +1072,7 @@ void nano::change_block::serialize (nano::stream & stream_a) const
 	write (stream_a, work);
 }
 
-bool nano::change_block::deserialize (nano::stream & stream_a)
+bool celerix::change_block::deserialize (celerix::stream & stream_a)
 {
 	auto error (false);
 	try
@@ -1090,7 +1090,7 @@ bool nano::change_block::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-void nano::change_block::serialize_json (std::string & string_a, bool single_line) const
+void celerix::change_block::serialize_json (std::string & string_a, bool single_line) const
 {
 	boost::property_tree::ptree tree;
 	serialize_json (tree);
@@ -1099,18 +1099,18 @@ void nano::change_block::serialize_json (std::string & string_a, bool single_lin
 	string_a = ostream.str ();
 }
 
-void nano::change_block::serialize_json (boost::property_tree::ptree & tree) const
+void celerix::change_block::serialize_json (boost::property_tree::ptree & tree) const
 {
 	tree.put ("type", "change");
 	tree.put ("previous", hashables.previous.to_string ());
 	tree.put ("representative", hashables.representative.to_account ());
-	tree.put ("work", nano::to_string_hex (work));
+	tree.put ("work", celerix::to_string_hex (work));
 	std::string signature_l;
 	signature.encode_hex (signature_l);
 	tree.put ("signature", signature_l);
 }
 
-bool nano::change_block::deserialize_json (boost::property_tree::ptree const & tree_a)
+bool celerix::change_block::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
 	auto error (false);
 	try
@@ -1126,7 +1126,7 @@ bool nano::change_block::deserialize_json (boost::property_tree::ptree const & t
 			error = hashables.representative.decode_hex (representative_l);
 			if (!error)
 			{
-				error = nano::from_string_hex (work_l, work);
+				error = celerix::from_string_hex (work_l, work);
 				if (!error)
 				{
 					error = signature.decode_hex (signature_l);
@@ -1141,40 +1141,40 @@ bool nano::change_block::deserialize_json (boost::property_tree::ptree const & t
 	return error;
 }
 
-void nano::change_block::visit (nano::block_visitor & visitor_a) const
+void celerix::change_block::visit (celerix::block_visitor & visitor_a) const
 {
 	visitor_a.change_block (*this);
 }
 
-void nano::change_block::visit (nano::mutable_block_visitor & visitor_a)
+void celerix::change_block::visit (celerix::mutable_block_visitor & visitor_a)
 {
 	visitor_a.change_block (*this);
 }
 
-nano::block_type nano::change_block::type () const
+celerix::block_type celerix::change_block::type () const
 {
-	return nano::block_type::change;
+	return celerix::block_type::change;
 }
 
-bool nano::change_block::operator== (nano::block const & other_a) const
+bool celerix::change_block::operator== (celerix::block const & other_a) const
 {
 	return blocks_equal (*this, other_a);
 }
 
-bool nano::change_block::operator== (nano::change_block const & other_a) const
+bool celerix::change_block::operator== (celerix::change_block const & other_a) const
 {
 	return hashables.previous == other_a.hashables.previous && hashables.representative == other_a.hashables.representative && work == other_a.work && signature == other_a.signature;
 }
 
-bool nano::change_block::valid_predecessor (nano::block const & block_a) const
+bool celerix::change_block::valid_predecessor (celerix::block const & block_a) const
 {
 	bool result;
 	switch (block_a.type ())
 	{
-		case nano::block_type::send:
-		case nano::block_type::receive:
-		case nano::block_type::open:
-		case nano::block_type::change:
+		case celerix::block_type::send:
+		case celerix::block_type::receive:
+		case celerix::block_type::open:
+		case celerix::block_type::change:
 			result = true;
 			break;
 		default:
@@ -1184,29 +1184,29 @@ bool nano::change_block::valid_predecessor (nano::block const & block_a) const
 	return result;
 }
 
-nano::root nano::change_block::root () const
+celerix::root celerix::change_block::root () const
 {
 	return hashables.previous;
 }
 
-std::optional<nano::account> nano::change_block::representative_field () const
+std::optional<celerix::account> celerix::change_block::representative_field () const
 {
 	return hashables.representative;
 }
 
-nano::signature const & nano::change_block::block_signature () const
+celerix::signature const & celerix::change_block::block_signature () const
 {
 	return signature;
 }
 
-void nano::change_block::signature_set (nano::signature const & signature_a)
+void celerix::change_block::signature_set (celerix::signature const & signature_a)
 {
 	signature = signature_a;
 }
 
-void nano::change_block::operator() (nano::object_stream & obs) const
+void celerix::change_block::operator() (celerix::object_stream & obs) const
 {
-	nano::block::operator() (obs); // Write common data
+	celerix::block::operator() (obs); // Write common data
 
 	obs.write ("previous", hashables.previous);
 	obs.write ("representative", hashables.representative);
@@ -1218,7 +1218,7 @@ void nano::change_block::operator() (nano::object_stream & obs) const
  * state_block
  */
 
-nano::state_hashables::state_hashables (nano::account const & account_a, nano::block_hash const & previous_a, nano::account const & representative_a, nano::amount const & balance_a, nano::link const & link_a) :
+celerix::state_hashables::state_hashables (celerix::account const & account_a, celerix::block_hash const & previous_a, celerix::account const & representative_a, celerix::amount const & balance_a, celerix::link const & link_a) :
 	account (account_a),
 	previous (previous_a),
 	representative (representative_a),
@@ -1227,15 +1227,15 @@ nano::state_hashables::state_hashables (nano::account const & account_a, nano::b
 {
 }
 
-nano::state_hashables::state_hashables (bool & error_a, nano::stream & stream_a)
+celerix::state_hashables::state_hashables (bool & error_a, celerix::stream & stream_a)
 {
 	try
 	{
-		nano::read (stream_a, account);
-		nano::read (stream_a, previous);
-		nano::read (stream_a, representative);
-		nano::read (stream_a, balance);
-		nano::read (stream_a, link);
+		celerix::read (stream_a, account);
+		celerix::read (stream_a, previous);
+		celerix::read (stream_a, representative);
+		celerix::read (stream_a, balance);
+		celerix::read (stream_a, link);
 	}
 	catch (std::runtime_error const &)
 	{
@@ -1243,7 +1243,7 @@ nano::state_hashables::state_hashables (bool & error_a, nano::stream & stream_a)
 	}
 }
 
-nano::state_hashables::state_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
+celerix::state_hashables::state_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
 {
 	try
 	{
@@ -1276,7 +1276,7 @@ nano::state_hashables::state_hashables (bool & error_a, boost::property_tree::pt
 	}
 }
 
-void nano::state_hashables::hash (blake2b_state & hash_a) const
+void celerix::state_hashables::hash (blake2b_state & hash_a) const
 {
 	blake2b_update (&hash_a, account.bytes.data (), sizeof (account.bytes));
 	blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
@@ -1285,9 +1285,9 @@ void nano::state_hashables::hash (blake2b_state & hash_a) const
 	blake2b_update (&hash_a, link.bytes.data (), sizeof (link.bytes));
 }
 
-nano::state_block::state_block (nano::account const & account_a, nano::block_hash const & previous_a, nano::account const & representative_a, nano::amount const & balance_a, nano::link const & link_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
+celerix::state_block::state_block (celerix::account const & account_a, celerix::block_hash const & previous_a, celerix::account const & representative_a, celerix::amount const & balance_a, celerix::link const & link_a, celerix::raw_key const & prv_a, celerix::public_key const & pub_a, uint64_t work_a) :
 	hashables (account_a, previous_a, representative_a, balance_a, link_a),
-	signature (nano::sign_message (prv_a, pub_a, hash ())),
+	signature (celerix::sign_message (prv_a, pub_a, hash ())),
 	work (work_a)
 {
 	debug_assert (account_a != nullptr);
@@ -1296,15 +1296,15 @@ nano::state_block::state_block (nano::account const & account_a, nano::block_has
 	debug_assert (pub_a != nullptr);
 }
 
-nano::state_block::state_block (bool & error_a, nano::stream & stream_a) :
+celerix::state_block::state_block (bool & error_a, celerix::stream & stream_a) :
 	hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
 		try
 		{
-			nano::read (stream_a, signature);
-			nano::read (stream_a, work);
+			celerix::read (stream_a, signature);
+			celerix::read (stream_a, work);
 			boost::endian::big_to_native_inplace (work);
 		}
 		catch (std::runtime_error const &)
@@ -1314,7 +1314,7 @@ nano::state_block::state_block (bool & error_a, nano::stream & stream_a) :
 	}
 }
 
-nano::state_block::state_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
+celerix::state_block::state_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
 	hashables (error_a, tree_a)
 {
 	if (!error_a)
@@ -1327,7 +1327,7 @@ nano::state_block::state_block (bool & error_a, boost::property_tree::ptree cons
 			error_a = type_l != "state";
 			if (!error_a)
 			{
-				error_a = nano::from_string_hex (work_l, work);
+				error_a = celerix::from_string_hex (work_l, work);
 				if (!error_a)
 				{
 					error_a = signature.decode_hex (signature_l);
@@ -1341,39 +1341,39 @@ nano::state_block::state_block (bool & error_a, boost::property_tree::ptree cons
 	}
 }
 
-std::shared_ptr<nano::block> nano::state_block::clone () const
+std::shared_ptr<celerix::block> celerix::state_block::clone () const
 {
-	return std::make_shared<nano::state_block> (*this);
+	return std::make_shared<celerix::state_block> (*this);
 }
 
-void nano::state_block::generate_hash (blake2b_state & hash_a) const
+void celerix::state_block::generate_hash (blake2b_state & hash_a) const
 {
-	nano::uint256_union preamble (static_cast<uint64_t> (nano::block_type::state));
+	celerix::uint256_union preamble (static_cast<uint64_t> (celerix::block_type::state));
 	blake2b_update (&hash_a, preamble.bytes.data (), preamble.bytes.size ());
 	hashables.hash (hash_a);
 }
 
-uint64_t nano::state_block::block_work () const
+uint64_t celerix::state_block::block_work () const
 {
 	return work;
 }
 
-void nano::state_block::block_work_set (uint64_t work_a)
+void celerix::state_block::block_work_set (uint64_t work_a)
 {
 	work = work_a;
 }
 
-std::optional<nano::block_hash> nano::state_block::previous_field () const
+std::optional<celerix::block_hash> celerix::state_block::previous_field () const
 {
 	return hashables.previous;
 }
 
-std::optional<nano::account> nano::state_block::account_field () const
+std::optional<celerix::account> celerix::state_block::account_field () const
 {
 	return hashables.account;
 }
 
-void nano::state_block::serialize (nano::stream & stream_a) const
+void celerix::state_block::serialize (celerix::stream & stream_a) const
 {
 	write (stream_a, hashables.account);
 	write (stream_a, hashables.previous);
@@ -1384,7 +1384,7 @@ void nano::state_block::serialize (nano::stream & stream_a) const
 	write (stream_a, boost::endian::native_to_big (work));
 }
 
-bool nano::state_block::deserialize (nano::stream & stream_a)
+bool celerix::state_block::deserialize (celerix::stream & stream_a)
 {
 	auto error (false);
 	try
@@ -1406,7 +1406,7 @@ bool nano::state_block::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-void nano::state_block::serialize_json (std::string & string_a, bool single_line) const
+void celerix::state_block::serialize_json (std::string & string_a, bool single_line) const
 {
 	boost::property_tree::ptree tree;
 	serialize_json (tree);
@@ -1415,7 +1415,7 @@ void nano::state_block::serialize_json (std::string & string_a, bool single_line
 	string_a = ostream.str ();
 }
 
-void nano::state_block::serialize_json (boost::property_tree::ptree & tree) const
+void celerix::state_block::serialize_json (boost::property_tree::ptree & tree) const
 {
 	tree.put ("type", "state");
 	tree.put ("account", hashables.account.to_account ());
@@ -1427,10 +1427,10 @@ void nano::state_block::serialize_json (boost::property_tree::ptree & tree) cons
 	std::string signature_l;
 	signature.encode_hex (signature_l);
 	tree.put ("signature", signature_l);
-	tree.put ("work", nano::to_string_hex (work));
+	tree.put ("work", celerix::to_string_hex (work));
 }
 
-bool nano::state_block::deserialize_json (boost::property_tree::ptree const & tree_a)
+bool celerix::state_block::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
 	auto error (false);
 	try
@@ -1458,7 +1458,7 @@ bool nano::state_block::deserialize_json (boost::property_tree::ptree const & tr
 						error = hashables.link.decode_account (link_l) && hashables.link.decode_hex (link_l);
 						if (!error)
 						{
-							error = nano::from_string_hex (work_l, work);
+							error = celerix::from_string_hex (work_l, work);
 							if (!error)
 							{
 								error = signature.decode_hex (signature_l);
@@ -1476,37 +1476,37 @@ bool nano::state_block::deserialize_json (boost::property_tree::ptree const & tr
 	return error;
 }
 
-void nano::state_block::visit (nano::block_visitor & visitor_a) const
+void celerix::state_block::visit (celerix::block_visitor & visitor_a) const
 {
 	visitor_a.state_block (*this);
 }
 
-void nano::state_block::visit (nano::mutable_block_visitor & visitor_a)
+void celerix::state_block::visit (celerix::mutable_block_visitor & visitor_a)
 {
 	visitor_a.state_block (*this);
 }
 
-nano::block_type nano::state_block::type () const
+celerix::block_type celerix::state_block::type () const
 {
-	return nano::block_type::state;
+	return celerix::block_type::state;
 }
 
-bool nano::state_block::operator== (nano::block const & other_a) const
+bool celerix::state_block::operator== (celerix::block const & other_a) const
 {
 	return blocks_equal (*this, other_a);
 }
 
-bool nano::state_block::operator== (nano::state_block const & other_a) const
+bool celerix::state_block::operator== (celerix::state_block const & other_a) const
 {
 	return hashables.account == other_a.hashables.account && hashables.previous == other_a.hashables.previous && hashables.representative == other_a.hashables.representative && hashables.balance == other_a.hashables.balance && hashables.link == other_a.hashables.link && signature == other_a.signature && work == other_a.work;
 }
 
-bool nano::state_block::valid_predecessor (nano::block const & block_a) const
+bool celerix::state_block::valid_predecessor (celerix::block const & block_a) const
 {
 	return true;
 }
 
-nano::root nano::state_block::root () const
+celerix::root celerix::state_block::root () const
 {
 	if (!hashables.previous.is_zero ())
 	{
@@ -1518,34 +1518,34 @@ nano::root nano::state_block::root () const
 	}
 }
 
-std::optional<nano::link> nano::state_block::link_field () const
+std::optional<celerix::link> celerix::state_block::link_field () const
 {
 	return hashables.link;
 }
 
-std::optional<nano::account> nano::state_block::representative_field () const
+std::optional<celerix::account> celerix::state_block::representative_field () const
 {
 	return hashables.representative;
 }
 
-std::optional<nano::amount> nano::state_block::balance_field () const
+std::optional<celerix::amount> celerix::state_block::balance_field () const
 {
 	return hashables.balance;
 }
 
-nano::signature const & nano::state_block::block_signature () const
+celerix::signature const & celerix::state_block::block_signature () const
 {
 	return signature;
 }
 
-void nano::state_block::signature_set (nano::signature const & signature_a)
+void celerix::state_block::signature_set (celerix::signature const & signature_a)
 {
 	signature = signature_a;
 }
 
-void nano::state_block::operator() (nano::object_stream & obs) const
+void celerix::state_block::operator() (celerix::object_stream & obs) const
 {
-	nano::block::operator() (obs); // Write common data
+	celerix::block::operator() (obs); // Write common data
 
 	obs.write ("account", hashables.account);
 	obs.write ("previous", hashables.previous);
@@ -1560,33 +1560,33 @@ void nano::state_block::operator() (nano::object_stream & obs) const
  *
  */
 
-std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree::ptree const & tree_a, nano::block_uniquer * uniquer_a)
+std::shared_ptr<celerix::block> celerix::deserialize_block_json (boost::property_tree::ptree const & tree_a, celerix::block_uniquer * uniquer_a)
 {
-	std::shared_ptr<nano::block> result;
+	std::shared_ptr<celerix::block> result;
 	try
 	{
 		auto type (tree_a.get<std::string> ("type"));
 		bool error (false);
-		std::unique_ptr<nano::block> obj;
+		std::unique_ptr<celerix::block> obj;
 		if (type == "receive")
 		{
-			obj = std::make_unique<nano::receive_block> (error, tree_a);
+			obj = std::make_unique<celerix::receive_block> (error, tree_a);
 		}
 		else if (type == "send")
 		{
-			obj = std::make_unique<nano::send_block> (error, tree_a);
+			obj = std::make_unique<celerix::send_block> (error, tree_a);
 		}
 		else if (type == "open")
 		{
-			obj = std::make_unique<nano::open_block> (error, tree_a);
+			obj = std::make_unique<celerix::open_block> (error, tree_a);
 		}
 		else if (type == "change")
 		{
-			obj = std::make_unique<nano::change_block> (error, tree_a);
+			obj = std::make_unique<celerix::change_block> (error, tree_a);
 		}
 		else if (type == "state")
 		{
-			obj = std::make_unique<nano::state_block> (error, tree_a);
+			obj = std::make_unique<celerix::state_block> (error, tree_a);
 		}
 
 		if (!error)
@@ -1604,52 +1604,52 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 	return result;
 }
 
-void nano::serialize_block (nano::stream & stream_a, nano::block const & block_a)
+void celerix::serialize_block (celerix::stream & stream_a, celerix::block const & block_a)
 {
-	nano::write (stream_a, block_a.type ());
+	celerix::write (stream_a, block_a.type ());
 	block_a.serialize (stream_a);
 }
 
-std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a)
+std::shared_ptr<celerix::block> celerix::deserialize_block (celerix::stream & stream_a)
 {
-	nano::block_type type;
+	celerix::block_type type;
 	auto error (try_read (stream_a, type));
-	std::shared_ptr<nano::block> result;
+	std::shared_ptr<celerix::block> result;
 	if (!error)
 	{
-		result = nano::deserialize_block (stream_a, type);
+		result = celerix::deserialize_block (stream_a, type);
 	}
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::block_type type_a, nano::block_uniquer * uniquer_a)
+std::shared_ptr<celerix::block> celerix::deserialize_block (celerix::stream & stream_a, celerix::block_type type_a, celerix::block_uniquer * uniquer_a)
 {
-	std::shared_ptr<nano::block> result;
+	std::shared_ptr<celerix::block> result;
 	switch (type_a)
 	{
-		case nano::block_type::receive:
+		case celerix::block_type::receive:
 		{
-			result = ::deserialize_block<nano::receive_block> (stream_a);
+			result = ::deserialize_block<celerix::receive_block> (stream_a);
 			break;
 		}
-		case nano::block_type::send:
+		case celerix::block_type::send:
 		{
-			result = ::deserialize_block<nano::send_block> (stream_a);
+			result = ::deserialize_block<celerix::send_block> (stream_a);
 			break;
 		}
-		case nano::block_type::open:
+		case celerix::block_type::open:
 		{
-			result = ::deserialize_block<nano::open_block> (stream_a);
+			result = ::deserialize_block<celerix::open_block> (stream_a);
 			break;
 		}
-		case nano::block_type::change:
+		case celerix::block_type::change:
 		{
-			result = ::deserialize_block<nano::change_block> (stream_a);
+			result = ::deserialize_block<celerix::change_block> (stream_a);
 			break;
 		}
-		case nano::block_type::state:
+		case celerix::block_type::state:
 		{
-			result = ::deserialize_block<nano::state_block> (stream_a);
+			result = ::deserialize_block<celerix::state_block> (stream_a);
 			break;
 		}
 		default:
@@ -1668,23 +1668,23 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
  * receive_block
  */
 
-void nano::receive_block::visit (nano::block_visitor & visitor_a) const
+void celerix::receive_block::visit (celerix::block_visitor & visitor_a) const
 {
 	visitor_a.receive_block (*this);
 }
 
-void nano::receive_block::visit (nano::mutable_block_visitor & visitor_a)
+void celerix::receive_block::visit (celerix::mutable_block_visitor & visitor_a)
 {
 	visitor_a.receive_block (*this);
 }
 
-bool nano::receive_block::operator== (nano::receive_block const & other_a) const
+bool celerix::receive_block::operator== (celerix::receive_block const & other_a) const
 {
 	auto result (hashables.previous == other_a.hashables.previous && hashables.source == other_a.hashables.source && work == other_a.work && signature == other_a.signature);
 	return result;
 }
 
-void nano::receive_block::serialize (nano::stream & stream_a) const
+void celerix::receive_block::serialize (celerix::stream & stream_a) const
 {
 	write (stream_a, hashables.previous.bytes);
 	write (stream_a, hashables.source.bytes);
@@ -1692,7 +1692,7 @@ void nano::receive_block::serialize (nano::stream & stream_a) const
 	write (stream_a, work);
 }
 
-bool nano::receive_block::deserialize (nano::stream & stream_a)
+bool celerix::receive_block::deserialize (celerix::stream & stream_a)
 {
 	auto error (false);
 	try
@@ -1710,7 +1710,7 @@ bool nano::receive_block::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-void nano::receive_block::serialize_json (std::string & string_a, bool single_line) const
+void celerix::receive_block::serialize_json (std::string & string_a, bool single_line) const
 {
 	boost::property_tree::ptree tree;
 	serialize_json (tree);
@@ -1719,7 +1719,7 @@ void nano::receive_block::serialize_json (std::string & string_a, bool single_li
 	string_a = ostream.str ();
 }
 
-void nano::receive_block::serialize_json (boost::property_tree::ptree & tree) const
+void celerix::receive_block::serialize_json (boost::property_tree::ptree & tree) const
 {
 	tree.put ("type", "receive");
 	std::string previous;
@@ -1730,11 +1730,11 @@ void nano::receive_block::serialize_json (boost::property_tree::ptree & tree) co
 	tree.put ("source", source);
 	std::string signature_l;
 	signature.encode_hex (signature_l);
-	tree.put ("work", nano::to_string_hex (work));
+	tree.put ("work", celerix::to_string_hex (work));
 	tree.put ("signature", signature_l);
 }
 
-bool nano::receive_block::deserialize_json (boost::property_tree::ptree const & tree_a)
+bool celerix::receive_block::deserialize_json (boost::property_tree::ptree const & tree_a)
 {
 	auto error (false);
 	try
@@ -1750,7 +1750,7 @@ bool nano::receive_block::deserialize_json (boost::property_tree::ptree const & 
 			error = hashables.source.decode_hex (source_l);
 			if (!error)
 			{
-				error = nano::from_string_hex (work_l, work);
+				error = celerix::from_string_hex (work_l, work);
 				if (!error)
 				{
 					error = signature.decode_hex (signature_l);
@@ -1765,23 +1765,23 @@ bool nano::receive_block::deserialize_json (boost::property_tree::ptree const & 
 	return error;
 }
 
-nano::receive_block::receive_block (nano::block_hash const & previous_a, nano::block_hash const & source_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
+celerix::receive_block::receive_block (celerix::block_hash const & previous_a, celerix::block_hash const & source_a, celerix::raw_key const & prv_a, celerix::public_key const & pub_a, uint64_t work_a) :
 	hashables (previous_a, source_a),
-	signature (nano::sign_message (prv_a, pub_a, hash ())),
+	signature (celerix::sign_message (prv_a, pub_a, hash ())),
 	work (work_a)
 {
 	debug_assert (pub_a != nullptr);
 }
 
-nano::receive_block::receive_block (bool & error_a, nano::stream & stream_a) :
+celerix::receive_block::receive_block (bool & error_a, celerix::stream & stream_a) :
 	hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
 		try
 		{
-			nano::read (stream_a, signature);
-			nano::read (stream_a, work);
+			celerix::read (stream_a, signature);
+			celerix::read (stream_a, work);
 		}
 		catch (std::runtime_error const &)
 		{
@@ -1790,7 +1790,7 @@ nano::receive_block::receive_block (bool & error_a, nano::stream & stream_a) :
 	}
 }
 
-nano::receive_block::receive_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
+celerix::receive_block::receive_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
 	hashables (error_a, tree_a)
 {
 	if (!error_a)
@@ -1802,7 +1802,7 @@ nano::receive_block::receive_block (bool & error_a, boost::property_tree::ptree 
 			error_a = signature.decode_hex (signature_l);
 			if (!error_a)
 			{
-				error_a = nano::from_string_hex (work_l, work);
+				error_a = celerix::from_string_hex (work_l, work);
 			}
 		}
 		catch (std::runtime_error const &)
@@ -1812,40 +1812,40 @@ nano::receive_block::receive_block (bool & error_a, boost::property_tree::ptree 
 	}
 }
 
-std::shared_ptr<nano::block> nano::receive_block::clone () const
+std::shared_ptr<celerix::block> celerix::receive_block::clone () const
 {
-	return std::make_shared<nano::receive_block> (*this);
+	return std::make_shared<celerix::receive_block> (*this);
 }
 
-void nano::receive_block::generate_hash (blake2b_state & hash_a) const
+void celerix::receive_block::generate_hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
 }
 
-uint64_t nano::receive_block::block_work () const
+uint64_t celerix::receive_block::block_work () const
 {
 	return work;
 }
 
-void nano::receive_block::block_work_set (uint64_t work_a)
+void celerix::receive_block::block_work_set (uint64_t work_a)
 {
 	work = work_a;
 }
 
-bool nano::receive_block::operator== (nano::block const & other_a) const
+bool celerix::receive_block::operator== (celerix::block const & other_a) const
 {
 	return blocks_equal (*this, other_a);
 }
 
-bool nano::receive_block::valid_predecessor (nano::block const & block_a) const
+bool celerix::receive_block::valid_predecessor (celerix::block const & block_a) const
 {
 	bool result;
 	switch (block_a.type ())
 	{
-		case nano::block_type::send:
-		case nano::block_type::receive:
-		case nano::block_type::open:
-		case nano::block_type::change:
+		case celerix::block_type::send:
+		case celerix::block_type::receive:
+		case celerix::block_type::open:
+		case celerix::block_type::change:
 			result = true;
 			break;
 		default:
@@ -1855,48 +1855,48 @@ bool nano::receive_block::valid_predecessor (nano::block const & block_a) const
 	return result;
 }
 
-std::optional<nano::block_hash> nano::receive_block::previous_field () const
+std::optional<celerix::block_hash> celerix::receive_block::previous_field () const
 {
 	return hashables.previous;
 }
 
-std::optional<nano::block_hash> nano::receive_block::source_field () const
+std::optional<celerix::block_hash> celerix::receive_block::source_field () const
 {
 	return hashables.source;
 }
 
-nano::root nano::receive_block::root () const
+celerix::root celerix::receive_block::root () const
 {
 	return hashables.previous;
 }
 
-nano::signature const & nano::receive_block::block_signature () const
+celerix::signature const & celerix::receive_block::block_signature () const
 {
 	return signature;
 }
 
-void nano::receive_block::signature_set (nano::signature const & signature_a)
+void celerix::receive_block::signature_set (celerix::signature const & signature_a)
 {
 	signature = signature_a;
 }
 
-nano::block_type nano::receive_block::type () const
+celerix::block_type celerix::receive_block::type () const
 {
-	return nano::block_type::receive;
+	return celerix::block_type::receive;
 }
 
-nano::receive_hashables::receive_hashables (nano::block_hash const & previous_a, nano::block_hash const & source_a) :
+celerix::receive_hashables::receive_hashables (celerix::block_hash const & previous_a, celerix::block_hash const & source_a) :
 	previous (previous_a),
 	source (source_a)
 {
 }
 
-nano::receive_hashables::receive_hashables (bool & error_a, nano::stream & stream_a)
+celerix::receive_hashables::receive_hashables (bool & error_a, celerix::stream & stream_a)
 {
 	try
 	{
-		nano::read (stream_a, previous.bytes);
-		nano::read (stream_a, source.bytes);
+		celerix::read (stream_a, previous.bytes);
+		celerix::read (stream_a, source.bytes);
 	}
 	catch (std::runtime_error const &)
 	{
@@ -1904,7 +1904,7 @@ nano::receive_hashables::receive_hashables (bool & error_a, nano::stream & strea
 	}
 }
 
-nano::receive_hashables::receive_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
+celerix::receive_hashables::receive_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
 {
 	try
 	{
@@ -1922,15 +1922,15 @@ nano::receive_hashables::receive_hashables (bool & error_a, boost::property_tree
 	}
 }
 
-void nano::receive_hashables::hash (blake2b_state & hash_a) const
+void celerix::receive_hashables::hash (blake2b_state & hash_a) const
 {
 	blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes));
 	blake2b_update (&hash_a, source.bytes.data (), sizeof (source.bytes));
 }
 
-void nano::receive_block::operator() (nano::object_stream & obs) const
+void celerix::receive_block::operator() (celerix::object_stream & obs) const
 {
-	nano::block::operator() (obs); // Write common data
+	celerix::block::operator() (obs); // Write common data
 
 	obs.write ("previous", hashables.previous);
 	obs.write ("source", hashables.source);

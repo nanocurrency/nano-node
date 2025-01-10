@@ -1,9 +1,9 @@
-#include <nano/lib/utility.hpp>
-#include <nano/store/db_val_impl.hpp>
-#include <nano/store/lmdb/db_val.hpp>
-#include <nano/store/typed_iterator.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/store/db_val_impl.hpp>
+#include <celerix/store/lmdb/db_val.hpp>
+#include <celerix/store/typed_iterator.hpp>
 
-namespace nano::store
+namespace celerix::store
 {
 template <typename Key, typename Value>
 void typed_iterator<Key, Value>::update ()

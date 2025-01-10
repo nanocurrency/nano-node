@@ -1,12 +1,12 @@
-#include <nano/lib/object_stream.hpp>
+#include <celerix/lib/object_stream.hpp>
 
-nano::object_stream_config const & nano::object_stream_config::default_config ()
+celerix::object_stream_config const & celerix::object_stream_config::default_config ()
 {
 	static object_stream_config const config{};
 	return config;
 }
 
-nano::object_stream_config const & nano::object_stream_config::json_config ()
+celerix::object_stream_config const & celerix::object_stream_config::json_config ()
 {
 	static object_stream_config const config{
 		.field_name_begin = "\"",

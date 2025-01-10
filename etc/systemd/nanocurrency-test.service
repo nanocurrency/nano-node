@@ -1,12 +1,12 @@
 [Unit]
-Description=Nano Test Network Daemon
+Description=Celerix Test Network Daemon
 After=network.target
 
 [Service]
 Type=simple
-User=nanocurrency
-WorkingDirectory=/var/nanocurrency/NanoTest
-ExecStart=/usr/bin/nano_node --daemon --network=test --data_path=/var/nanocurrency/NanoTest
+User=celerixcurrency
+WorkingDirectory=/var/celerixcurrency/CelerixTest
+ExecStart=/usr/bin/celerix_node --daemon --network=test --data_path=/var/celerixcurrency/CelerixTest
 Restart=on-failure
 
 [Install]

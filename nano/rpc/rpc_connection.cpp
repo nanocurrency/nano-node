@@ -1,19 +1,19 @@
-#include <nano/boost/asio/bind_executor.hpp>
-#include <nano/lib/json_error_response.hpp>
-#include <nano/lib/rpc_handler_interface.hpp>
-#include <nano/lib/rpcconfig.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/rpc/rpc_connection.hpp>
-#include <nano/rpc/rpc_handler.hpp>
+#include <celerix/boost/asio/bind_executor.hpp>
+#include <celerix/lib/json_error_response.hpp>
+#include <celerix/lib/rpc_handler_interface.hpp>
+#include <celerix/lib/rpcconfig.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/rpc/rpc_connection.hpp>
+#include <celerix/rpc/rpc_handler.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
-#ifdef NANO_SECURE_RPC
+#ifdef CELERIX_SECURE_RPC
 #include <boost/asio/ssl/stream.hpp>
 #endif
 #include <boost/format.hpp>
 
-nano::rpc_connection::rpc_connection (nano::rpc_config const & rpc_config, boost::asio::io_context & io_ctx, nano::logger & logger, nano::rpc_handler_interface & rpc_handler_interface) :
+celerix::rpc_connection::rpc_connection (celerix::rpc_config const & rpc_config, boost::asio::io_context & io_ctx, celerix::logger & logger, celerix::rpc_handler_interface & rpc_handler_interface) :
 	socket (io_ctx),
 	strand (io_ctx.get_executor ()),
 	io_ctx (io_ctx),
@@ -24,12 +24,12 @@ nano::rpc_connection::rpc_connection (nano::rpc_config const & rpc_config, boost
 	responded.clear ();
 }
 
-void nano::rpc_connection::parse_connection ()
+void celerix::rpc_connection::parse_connection ()
 {
 	read (socket);
 }
 
-void nano::rpc_connection::prepare_head (unsigned version, boost::beast::http::status status)
+void celerix::rpc_connection::prepare_head (unsigned version, boost::beast::http::status status)
 {
 	res.version (version);
 	res.result (status);
@@ -41,7 +41,7 @@ void nano::rpc_connection::prepare_head (unsigned version, boost::beast::http::s
 	res.set (boost::beast::http::field::connection, "close");
 }
 
-void nano::rpc_connection::write_result (std::string body, unsigned version, boost::beast::http::status status)
+void celerix::rpc_connection::write_result (std::string body, unsigned version, boost::beast::http::status status)
 {
 	if (!responded.test_and_set ())
 	{
@@ -55,13 +55,13 @@ void nano::rpc_connection::write_result (std::string body, unsigned version, boo
 	}
 }
 
-void nano::rpc_connection::write_completion_handler (std::shared_ptr<nano::rpc_connection> const & rpc_connection)
+void celerix::rpc_connection::write_completion_handler (std::shared_ptr<celerix::rpc_connection> const & rpc_connection)
 {
 	// Intentional no-op
 }
 
 template <typename STREAM_TYPE>
-void nano::rpc_connection::read (STREAM_TYPE & stream)
+void celerix::rpc_connection::read (STREAM_TYPE & stream)
 {
 	auto this_l (shared_from_this ());
 	auto header_parser (std::make_shared<boost::beast::http::request_parser<boost::beast::http::empty_body>> ());
@@ -75,7 +75,7 @@ void nano::rpc_connection::read (STREAM_TYPE & stream)
 				auto continue_response (std::make_shared<boost::beast::http::response<boost::beast::http::empty_body>> ());
 				continue_response->version (11);
 				continue_response->result (boost::beast::http::status::continue_);
-				continue_response->set (boost::beast::http::field::server, "nano");
+				continue_response->set (boost::beast::http::field::server, "celerix");
 				boost::beast::http::async_write (stream, *continue_response, boost::asio::bind_executor (this_l->strand, [this_l, continue_response] (boost::system::error_code const & ec, size_t bytes_transferred) {}));
 			}
 
@@ -83,7 +83,7 @@ void nano::rpc_connection::read (STREAM_TYPE & stream)
 		}
 		else
 		{
-			this_l->logger.error (nano::log::type::rpc_connection, "RPC header error: ", ec.message ());
+			this_l->logger.error (celerix::log::type::rpc_connection, "RPC header error: ", ec.message ());
 
 			// Respond with the reason for the invalid header
 			auto response_handler ([this_l, &stream] (std::string const & tree_a) {
@@ -92,17 +92,17 @@ void nano::rpc_connection::read (STREAM_TYPE & stream)
 					this_l->write_completion_handler (this_l);
 				}));
 			});
-			nano::json_error_response (response_handler, std::string ("Invalid header: ") + ec.message ());
+			celerix::json_error_response (response_handler, std::string ("Invalid header: ") + ec.message ());
 		}
 	}));
 }
 
 template <typename STREAM_TYPE>
-void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>> const & header_parser)
+void celerix::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>> const & header_parser)
 {
 	auto this_l (shared_from_this ());
-	auto header_field_credentials_l (header_parser->get ()["nano-api-key"]);
-	auto header_corr_id_l (header_parser->get ()["nano-correlation-id"]);
+	auto header_field_credentials_l (header_parser->get ()["celerix-api-key"]);
+	auto header_corr_id_l (header_parser->get ()["celerix-correlation-id"]);
 	auto body_parser (std::make_shared<boost::beast::http::request_parser<boost::beast::http::string_body>> (std::move (*header_parser)));
 	std::string path_l = body_parser->get ().target ();
 	boost::beast::http::async_read (stream, buffer, *body_parser, boost::asio::bind_executor (strand, [this_l, body_parser, header_field_credentials_l, header_corr_id_l, path_l, &stream] (boost::system::error_code const & ec, size_t bytes_transferred) {
@@ -123,8 +123,8 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 					}));
 
 					// Bump logging level if RPC request logging is enabled
-					this_l->logger.log (this_l->rpc_config.rpc_logging.log_rpc ? nano::log::level::info : nano::log::level::debug,
-					nano::log::type::rpc_request, "RPC request {} completed in {} microseconds", request_id, std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count ());
+					this_l->logger.log (this_l->rpc_config.rpc_logging.log_rpc ? celerix::log::level::info : celerix::log::level::debug,
+					celerix::log::type::rpc_request, "RPC request {} completed in {} microseconds", request_id, std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count ());
 				});
 
 				std::string api_path_l = "/api/v2";
@@ -135,8 +135,8 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 				{
 					case boost::beast::http::verb::post:
 					{
-						auto handler (std::make_shared<nano::rpc_handler> (this_l->rpc_config, req.body (), request_id, response_handler, this_l->rpc_handler_interface, this_l->logger));
-						nano::rpc_handler_request_params request_params;
+						auto handler (std::make_shared<celerix::rpc_handler> (this_l->rpc_config, req.body (), request_id, response_handler, this_l->rpc_handler_interface, this_l->logger));
+						celerix::rpc_handler_request_params request_params;
 						request_params.rpc_version = rpc_version_l;
 						request_params.credentials = header_field_credentials_l;
 						request_params.correlation_id = header_corr_id_l;
@@ -156,7 +156,7 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 					}
 					default:
 					{
-						nano::json_error_response (response_handler, "Can only POST requests");
+						celerix::json_error_response (response_handler, "Can only POST requests");
 						break;
 					}
 				}
@@ -164,14 +164,14 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 		}
 		else
 		{
-			this_l->logger.error (nano::log::type::rpc_connection, "RPC read error: ", ec.message ());
+			this_l->logger.error (celerix::log::type::rpc_connection, "RPC read error: ", ec.message ());
 		}
 	}));
 }
 
-template void nano::rpc_connection::read (socket_type &);
-template void nano::rpc_connection::parse_request (socket_type &, std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>> const &);
-#ifdef NANO_SECURE_RPC
-template void nano::rpc_connection::read (boost::asio::ssl::stream<socket_type &> &);
-template void nano::rpc_connection::parse_request (boost::asio::ssl::stream<socket_type &> &, std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>> const &);
+template void celerix::rpc_connection::read (socket_type &);
+template void celerix::rpc_connection::parse_request (socket_type &, std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>> const &);
+#ifdef CELERIX_SECURE_RPC
+template void celerix::rpc_connection::read (boost::asio::ssl::stream<socket_type &> &);
+template void celerix::rpc_connection::parse_request (boost::asio::ssl::stream<socket_type &> &, std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>> const &);
 #endif

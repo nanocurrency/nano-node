@@ -1,5 +1,5 @@
-#include <nano/lib/files.hpp>
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/files.hpp>
+#include <celerix/lib/utility.hpp>
 
 // clang-format off
 // Keep windows.h header at the top
@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 // clang-format on
 
-void nano::set_umask ()
+void celerix::set_umask ()
 {
 	int oldMode;
 
@@ -17,27 +17,27 @@ void nano::set_umask ()
 	debug_assert (result == 0);
 }
 
-void nano::set_secure_perm_directory (std::filesystem::path const & path)
+void celerix::set_secure_perm_directory (std::filesystem::path const & path)
 {
 	std::filesystem::permissions (path, std::filesystem::perms::owner_all);
 }
 
-void nano::set_secure_perm_directory (std::filesystem::path const & path, std::error_code & ec)
+void celerix::set_secure_perm_directory (std::filesystem::path const & path, std::error_code & ec)
 {
 	std::filesystem::permissions (path, std::filesystem::perms::owner_all, ec);
 }
 
-void nano::set_secure_perm_file (std::filesystem::path const & path)
+void celerix::set_secure_perm_file (std::filesystem::path const & path)
 {
 	std::filesystem::permissions (path, std::filesystem::perms::owner_read | std::filesystem::perms::owner_write);
 }
 
-void nano::set_secure_perm_file (std::filesystem::path const & path, std::error_code & ec)
+void celerix::set_secure_perm_file (std::filesystem::path const & path, std::error_code & ec)
 {
 	std::filesystem::permissions (path, std::filesystem::perms::owner_read | std::filesystem::perms::owner_write, ec);
 }
 
-bool nano::is_windows_elevated ()
+bool celerix::is_windows_elevated ()
 {
 	bool is_elevated = false;
 	HANDLE h_token = nullptr;

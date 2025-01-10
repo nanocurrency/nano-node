@@ -4,7 +4,7 @@
 #include <functional>
 #include <type_traits>
 
-namespace nano
+namespace celerix
 {
 /**
  * Tag for which epoch an entry belongs to
@@ -21,16 +21,16 @@ enum class epoch : uint8_t
 };
 
 /* This turns epoch_0 into 0 for instance */
-std::underlying_type_t<nano::epoch> normalized_epoch (nano::epoch epoch_a);
+std::underlying_type_t<celerix::epoch> normalized_epoch (celerix::epoch epoch_a);
 }
 namespace std
 {
 template <>
-struct hash<::nano::epoch>
+struct hash<::celerix::epoch>
 {
-	std::size_t operator() (::nano::epoch const & epoch_a) const
+	std::size_t operator() (::celerix::epoch const & epoch_a) const
 	{
-		return std::underlying_type_t<::nano::epoch> (epoch_a);
+		return std::underlying_type_t<::celerix::epoch> (epoch_a);
 	}
 };
 }

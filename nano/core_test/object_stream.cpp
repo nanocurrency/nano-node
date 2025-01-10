@@ -1,7 +1,7 @@
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/object_stream.hpp>
-#include <nano/lib/object_stream_adapters.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/object_stream.hpp>
+#include <celerix/lib/object_stream_adapters.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -27,7 +27,7 @@ TEST (object_stream, primitive_string)
 {
 	std::stringstream ss;
 
-	nano::object_stream obs{ ss };
+	celerix::object_stream obs{ ss };
 	obs.write ("field_name_1", "field_value");
 
 	auto expected = R"(field_name_1: "field_value")";
@@ -38,7 +38,7 @@ TEST (object_stream, primitive_string_view)
 {
 	std::stringstream ss;
 
-	nano::object_stream obs{ ss };
+	celerix::object_stream obs{ ss };
 	obs.write ("field_name_1", std::string_view{ "field_value" });
 
 	auto expected = R"(field_name_1: "field_value")";
@@ -49,7 +49,7 @@ TEST (object_stream, primitive_char)
 {
 	std::stringstream ss;
 
-	nano::object_stream obs{ ss };
+	celerix::object_stream obs{ ss };
 	obs.write ("field_name_1", 'a');
 
 	auto expected = R"(field_name_1: "a")";
@@ -60,7 +60,7 @@ TEST (object_stream, primitive_bool)
 {
 	std::stringstream ss;
 
-	nano::object_stream obs{ ss };
+	celerix::object_stream obs{ ss };
 	obs.write ("bool_field_1", true);
 	obs.write ("bool_field_2", false);
 
@@ -76,7 +76,7 @@ TEST (object_stream, primitive_int)
 {
 	std::stringstream ss;
 
-	nano::object_stream obs{ ss };
+	celerix::object_stream obs{ ss };
 	obs.write ("int_field_1", 1234);
 	obs.write ("int_field_2", -1234);
 	obs.write ("int_field_3", std::numeric_limits<int>::max ());
@@ -96,7 +96,7 @@ TEST (object_stream, primitive_uint)
 {
 	std::stringstream ss;
 
-	nano::object_stream obs{ ss };
+	celerix::object_stream obs{ ss };
 	obs.write ("uint_field_1", static_cast<unsigned int> (1234));
 	obs.write ("uint_field_2", static_cast<unsigned int> (-1234));
 	obs.write ("uint_field_3", std::numeric_limits<unsigned int>::max ());
@@ -116,7 +116,7 @@ TEST (object_stream, primitive_uint64)
 {
 	std::stringstream ss;
 
-	nano::object_stream obs{ ss };
+	celerix::object_stream obs{ ss };
 	obs.write ("uint64_field_1", static_cast<uint64_t> (1234));
 	obs.write ("uint64_field_2", static_cast<uint64_t> (-1234));
 	obs.write ("uint64_field_3", std::numeric_limits<uint64_t>::max ());
@@ -136,7 +136,7 @@ TEST (object_stream, primitive_int8)
 {
 	std::stringstream ss;
 
-	nano::object_stream obs{ ss };
+	celerix::object_stream obs{ ss };
 	obs.write ("int8_field_1", static_cast<int8_t> (123));
 
 	auto expected = R"(int8_field_1: 123)";
@@ -147,7 +147,7 @@ TEST (object_stream, primitive_uint8)
 {
 	std::stringstream ss;
 
-	nano::object_stream obs{ ss };
+	celerix::object_stream obs{ ss };
 	obs.write ("uint8_field_1", static_cast<uint8_t> (123));
 
 	auto expected = R"(uint8_field_1: 123)";
@@ -158,7 +158,7 @@ TEST (object_stream, primitive_float)
 {
 	std::stringstream ss;
 
-	nano::object_stream obs{ ss };
+	celerix::object_stream obs{ ss };
 	obs.write ("float_field_1", 1234.5678f);
 	obs.write ("float_field_2", -1234.5678f);
 	obs.write ("float_field_3", std::numeric_limits<float>::max ());
@@ -180,7 +180,7 @@ TEST (object_stream, primitive_double)
 {
 	std::stringstream ss;
 
-	nano::object_stream obs{ ss };
+	celerix::object_stream obs{ ss };
 	obs.write ("double_field_1", 1234.5678f);
 	obs.write ("double_field_2", -1234.5678f);
 	obs.write ("double_field_3", std::numeric_limits<double>::max ());
@@ -202,8 +202,8 @@ TEST (object_stream, object_writer_basic)
 {
 	std::stringstream ss;
 
-	nano::object_stream obs{ ss };
-	obs.write ("object_field", [] (nano::object_stream & obs) {
+	celerix::object_stream obs{ ss };
+	obs.write ("object_field", [] (celerix::object_stream & obs) {
 		obs.write ("field1", "value1");
 		obs.write ("field2", "value2");
 		obs.write ("field3", true);
@@ -226,11 +226,11 @@ TEST (object_stream, object_writer_nested)
 {
 	std::stringstream ss;
 
-	nano::object_stream obs{ ss };
-	obs.write ("object_field", [] (nano::object_stream & obs) {
+	celerix::object_stream obs{ ss };
+	obs.write ("object_field", [] (celerix::object_stream & obs) {
 		obs.write ("field1", "value1");
 
-		obs.write ("nested_object", [] (nano::object_stream & obs) {
+		obs.write ("nested_object", [] (celerix::object_stream & obs) {
 			obs.write ("nested_field1", "nested_value1");
 			obs.write ("nested_field2", false);
 			obs.write ("nested_field3", -1234);
@@ -262,8 +262,8 @@ TEST (object_stream, array_writer_basic)
 {
 	std::stringstream ss;
 
-	nano::object_stream obs{ ss };
-	obs.write ("array_field", [] (nano::array_stream & ars) {
+	celerix::object_stream obs{ ss };
+	obs.write ("array_field", [] (celerix::array_stream & ars) {
 		ars.write (std::views::iota (0, 3));
 	});
 
@@ -283,10 +283,10 @@ namespace
 class object_basic
 {
 public:
-	nano::uint256_union uint256_union_field{ 0 };
-	nano::block_hash block_hash{ 0 };
+	celerix::uint256_union uint256_union_field{ 0 };
+	celerix::block_hash block_hash{ 0 };
 
-	void operator() (nano::object_stream & obs) const
+	void operator() (celerix::object_stream & obs) const
 	{
 		obs.write ("uint256_union_field", uint256_union_field);
 		obs.write ("block_hash", block_hash);
@@ -298,7 +298,7 @@ TEST (object_stream, object_basic)
 {
 	std::stringstream ss;
 
-	nano::object_stream obs{ ss };
+	celerix::object_stream obs{ ss };
 	object_basic test_object;
 	obs.write ("test_object", test_object);
 
@@ -321,8 +321,8 @@ TEST (object_stream, array_writer_objects)
 	objects.push_back ({ .block_hash = 1 });
 	objects.push_back ({ .block_hash = 2 });
 
-	nano::object_stream obs{ ss };
-	obs.write ("array_field", [&objects] (nano::array_stream & ars) {
+	celerix::object_stream obs{ ss };
+	obs.write ("array_field", [&objects] (celerix::array_stream & ars) {
 		ars.write (objects);
 	});
 
@@ -353,7 +353,7 @@ class object_array_basic
 public:
 	std::vector<int> values{ 1, 2, 3 };
 
-	void operator() (nano::array_stream & ars) const
+	void operator() (celerix::array_stream & ars) const
 	{
 		ars.write (values);
 	}
@@ -364,7 +364,7 @@ TEST (object_stream, object_array_basic)
 {
 	std::stringstream ss;
 
-	nano::object_stream obs{ ss };
+	celerix::object_stream obs{ ss };
 	object_array_basic test_object;
 	obs.write ("test_object_array", test_object);
 
@@ -384,13 +384,13 @@ namespace
 class object_nested
 {
 public:
-	nano::uint256_union uint256_union_field{ 0 };
-	nano::block_hash block_hash{ 0 };
+	celerix::uint256_union uint256_union_field{ 0 };
+	celerix::block_hash block_hash{ 0 };
 
 	object_basic nested_object;
 	object_array_basic nested_array_object;
 
-	void operator() (nano::object_stream & obs) const
+	void operator() (celerix::object_stream & obs) const
 	{
 		obs.write ("uint256_union_field", uint256_union_field);
 		obs.write ("block_hash", block_hash);
@@ -404,7 +404,7 @@ TEST (object_stream, object_nested)
 {
 	std::stringstream ss;
 
-	nano::object_stream obs{ ss };
+	celerix::object_stream obs{ ss };
 	object_nested test_object;
 	obs.write ("test_object", test_object);
 
@@ -427,11 +427,11 @@ test_object: {
 	ASSERT_EQ (ss.str (), expected);
 }
 
-namespace nano
+namespace celerix
 {
-using builtin_array_with_pair = std::vector<std::pair<nano::block_hash, int>>;
+using builtin_array_with_pair = std::vector<std::pair<celerix::block_hash, int>>;
 
-void stream_as (std::pair<nano::block_hash, int> const & entry, nano::object_stream & obs)
+void stream_as (std::pair<celerix::block_hash, int> const & entry, celerix::object_stream & obs)
 {
 	auto const & [hash, value] = entry;
 	obs.write ("hash", hash);
@@ -441,16 +441,16 @@ void stream_as (std::pair<nano::block_hash, int> const & entry, nano::object_str
 
 TEST (object_stream, builtin_array)
 {
-	using namespace nano;
+	using namespace celerix;
 
 	std::stringstream ss;
 
 	builtin_array_with_pair array;
-	array.push_back ({ nano::block_hash{ 1 }, 1 });
-	array.push_back ({ nano::block_hash{ 2 }, 2 });
-	array.push_back ({ nano::block_hash{ 3 }, 3 });
+	array.push_back ({ celerix::block_hash{ 1 }, 1 });
+	array.push_back ({ celerix::block_hash{ 2 }, 2 });
+	array.push_back ({ celerix::block_hash{ 3 }, 3 });
 
-	nano::object_stream obs{ ss };
+	celerix::object_stream obs{ ss };
 	obs.write_range ("array_field", array);
 
 	auto expected = trim (R"(
@@ -478,10 +478,10 @@ namespace
 class streamable_object
 {
 public:
-	nano::uint256_union uint256_union_field{ 0 };
-	nano::block_hash block_hash{ 0 };
+	celerix::uint256_union uint256_union_field{ 0 };
+	celerix::block_hash block_hash{ 0 };
 
-	void operator() (nano::object_stream & obs) const
+	void operator() (celerix::object_stream & obs) const
 	{
 		obs.write ("uint256_union_field", uint256_union_field);
 		obs.write ("block_hash", block_hash);
@@ -491,13 +491,13 @@ public:
 
 TEST (object_stream, ostream_adapter)
 {
-	using namespace nano::object_stream_adapters;
+	using namespace celerix::object_stream_adapters;
 
 	std::stringstream ss1, ss2;
 
 	streamable_object test_object;
-	ss1 << test_object; // Using automatic ostream adapter (in `nano::ostream_operators`)
-	ss2 << nano::streamed (test_object); // Using explicit ostream adapter
+	ss1 << test_object; // Using automatic ostream adapter (in `celerix::ostream_operators`)
+	ss2 << celerix::streamed (test_object); // Using explicit ostream adapter
 
 	auto expected = trim (R"(
 {
@@ -514,7 +514,7 @@ TEST (object_stream, fmt_adapter)
 {
 	streamable_object test_object;
 	auto str1 = fmt::format ("{}", test_object); // Using automatic fmt adapter
-	auto str2 = fmt::format ("{}", nano::streamed (test_object)); // Using explicit fmt adapter
+	auto str2 = fmt::format ("{}", celerix::streamed (test_object)); // Using explicit fmt adapter
 
 	auto expected = trim (R"(
 {
@@ -529,7 +529,7 @@ TEST (object_stream, fmt_adapter)
 
 TEST (object_stream, to_string)
 {
-	using namespace nano::object_stream_adapters;
+	using namespace celerix::object_stream_adapters;
 
 	streamable_object test_object;
 	auto str = to_string (test_object); // Using automatic to_string adapter
@@ -546,7 +546,7 @@ TEST (object_stream, to_string)
 
 TEST (object_stream, to_json)
 {
-	using namespace nano::object_stream_adapters;
+	using namespace celerix::object_stream_adapters;
 
 	streamable_object test_object;
 	auto str = to_json (test_object); // Using automatic to_string adapter
@@ -566,8 +566,8 @@ TEST (object_stream, print_range)
 	objects.push_back ({ 3 });
 
 	std::stringstream ss1, ss2;
-	ss1 << nano::streamed_range (objects);
-	ss2 << fmt::format ("{}", nano::streamed_range (objects));
+	ss1 << celerix::streamed_range (objects);
+	ss2 << fmt::format ("{}", celerix::streamed_range (objects));
 
 	auto expected = trim (R"(
 [

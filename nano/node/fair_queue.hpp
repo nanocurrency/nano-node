@@ -1,7 +1,7 @@
 #pragma once
 
-#include <nano/lib/utility.hpp>
-#include <nano/node/transport/channel.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/node/transport/channel.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -12,7 +12,7 @@
 #include <tuple>
 #include <utility>
 
-namespace nano
+namespace celerix
 {
 template <typename Request, typename Source>
 class fair_queue final
@@ -26,9 +26,9 @@ public:
 		Source source;
 
 		// This can be null for some sources (eg. local RPC) to indicate that the source is not associated with a channel.
-		std::shared_ptr<nano::transport::channel> channel;
+		std::shared_ptr<celerix::transport::channel> channel;
 
-		origin (Source source, std::shared_ptr<nano::transport::channel> channel = nullptr) :
+		origin (Source source, std::shared_ptr<celerix::transport::channel> channel = nullptr) :
 			source{ source },
 			channel{ std::move (channel) }
 		{
@@ -302,9 +302,9 @@ private:
 	std::chrono::steady_clock::time_point last_update{ std::chrono::steady_clock::now () };
 
 public:
-	nano::container_info container_info () const
+	celerix::container_info container_info () const
 	{
-		nano::container_info info;
+		celerix::container_info info;
 		info.put ("queues", queues);
 		info.put ("total_size", size ());
 		return info;

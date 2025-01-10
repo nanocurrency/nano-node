@@ -1,11 +1,11 @@
 #pragma once
 
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <magic_enum.hpp>
 #include <magic_enum_containers.hpp>
 
-namespace nano
+namespace celerix
 {
 /**
  * Array indexable by enum values
@@ -15,7 +15,7 @@ using enum_array = magic_enum::containers::array<Index, Value>;
 }
 
 // Needs nested namespace to avoid ADL collisions with magic_enum
-namespace nano::enum_util
+namespace celerix::enum_util
 {
 std::string_view name (auto value)
 {
@@ -96,7 +96,7 @@ T cast (S value)
 {
 	ensure_all_castable<T, S> ();
 
-	auto conv = magic_enum::enum_cast<T> (nano::enum_util::name (value));
+	auto conv = magic_enum::enum_cast<T> (celerix::enum_util::name (value));
 	debug_assert (conv);
 	return conv.value_or (T{});
 }

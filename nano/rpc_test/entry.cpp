@@ -1,28 +1,28 @@
-#include <nano/lib/files.hpp>
-#include <nano/lib/logging.hpp>
-#include <nano/lib/memory.hpp>
-#include <nano/node/endpoint.hpp>
+#include <celerix/lib/files.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/lib/memory.hpp>
+#include <celerix/node/endpoint.hpp>
 
 #include <gtest/gtest.h>
 
-namespace nano
+namespace celerix
 {
 namespace test
 {
 	void cleanup_dev_directories_on_exit ();
 }
-void force_nano_dev_network ();
+void force_celerix_dev_network ();
 }
 
 int main (int argc, char ** argv)
 {
-	nano::initialize_file_descriptor_limit ();
-	nano::logger::initialize_for_tests (nano::log_config::tests_default ());
-	nano::force_nano_dev_network ();
-	nano::set_use_memory_pools (false);
-	nano::node_singleton_memory_pool_purge_guard cleanup_guard;
+	celerix::initialize_file_descriptor_limit ();
+	celerix::logger::initialize_for_tests (celerix::log_config::tests_default ());
+	celerix::force_celerix_dev_network ();
+	celerix::set_use_memory_pools (false);
+	celerix::node_singleton_memory_pool_purge_guard cleanup_guard;
 	testing::InitGoogleTest (&argc, argv);
 	auto res = RUN_ALL_TESTS ();
-	nano::test::cleanup_dev_directories_on_exit ();
+	celerix::test::cleanup_dev_directories_on_exit ();
 	return res;
 }

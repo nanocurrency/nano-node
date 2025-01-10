@@ -1,4 +1,4 @@
-#include <nano/lib/assert.hpp>
+#include <celerix/lib/assert.hpp>
 
 #include <gtest/gtest.h>
 

@@ -1,9 +1,9 @@
-#include <nano/lib/utility.hpp>
-#include <nano/store/rocksdb/iterator.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/store/rocksdb/iterator.hpp>
 
 #include <rocksdb/iterator.h>
 
-namespace nano::store::rocksdb
+namespace celerix::store::rocksdb
 {
 auto iterator::span () const -> std::pair<std::span<uint8_t const>, std::span<uint8_t const>>
 {
@@ -143,4 +143,4 @@ auto iterator::operator== (iterator const & other) const -> bool
 	}
 	return std::get<value_type> (current) == std::get<value_type> (other.current);
 }
-} // namespace nano::store::lmdb
+} // namespace celerix::store::lmdb

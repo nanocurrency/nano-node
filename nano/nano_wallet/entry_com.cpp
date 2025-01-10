@@ -1,9 +1,9 @@
-#include <nano/lib/errors.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/node/cli.hpp>
-#include <nano/rpc/rpc.hpp>
-#include <nano/secure/utility.hpp>
-#include <nano/secure/working.hpp>
+#include <celerix/lib/errors.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/node/cli.hpp>
+#include <celerix/rpc/rpc.hpp>
+#include <celerix/secure/utility.hpp>
+#include <celerix/secure/working.hpp>
 
 #include <boost/format.hpp>
 #include <boost/make_shared.hpp>
@@ -11,19 +11,19 @@
 
 int main (int argc, char * const * argv)
 {
-	nano::set_umask ();
+	celerix::set_umask ();
 	try
 	{
 		boost::program_options::options_description description ("Command line options");
 		description.add_options () ("help", "Print out options");
-		nano::add_node_options (description);
+		celerix::add_node_options (description);
 		boost::program_options::variables_map vm;
 		boost::program_options::store (boost::program_options::command_line_parser (argc, argv).options (description).allow_unregistered ().run (), vm);
 		boost::program_options::notify (vm);
 		int result (0);
 
-		auto ec = nano::handle_node_options (vm);
-		if (ec == nano::error_cli::unknown_command && vm.count ("help") != 0)
+		auto ec = celerix::handle_node_options (vm);
+		if (ec == celerix::error_cli::unknown_command && vm.count ("help") != 0)
 		{
 			std::cout << description << std::endl;
 		}

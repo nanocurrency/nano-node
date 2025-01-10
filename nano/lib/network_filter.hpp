@@ -1,13 +1,13 @@
 
 #pragma once
 
-#include <nano/lib/locks.hpp>
-#include <nano/lib/numbers.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/numbers.hpp>
 
 #include <cryptopp/seckey.h>
 #include <cryptopp/siphash.h>
 
-namespace nano
+namespace celerix
 {
 /**
  * A probabilistic duplicate filter based on directed map caches, using SipHash 2/4/128
@@ -18,7 +18,7 @@ namespace nano
 class network_filter final
 {
 public:
-	using digest_t = nano::uint128_t;
+	using digest_t = celerix::uint128_t;
 	using epoch_t = uint64_t;
 
 public:
@@ -91,7 +91,7 @@ private:
 	using siphash_t = CryptoPP::SipHash<2, 4, true>;
 	CryptoPP::SecByteBlock key{ siphash_t::KEYLENGTH };
 
-	mutable nano::mutex mutex{ mutex_identifier (mutexes::network_filter) };
+	mutable celerix::mutex mutex{ mutex_identifier (mutexes::network_filter) };
 
 private:
 	struct entry

@@ -1,16 +1,16 @@
 #pragma once
 
-#include <nano/lib/config.hpp>
-#include <nano/lib/constants.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/constants.hpp>
 
 #include <chrono>
 
-namespace nano::transport
+namespace celerix::transport
 {
 class tcp_config
 {
 public:
-	explicit tcp_config (nano::network_constants const & network)
+	explicit tcp_config (celerix::network_constants const & network)
 	{
 		if (network.is_dev_network ())
 		{
@@ -23,8 +23,8 @@ public:
 	}
 
 public:
-	nano::error deserialize (nano::tomlconfig &);
-	nano::error serialize (nano::tomlconfig &) const;
+	celerix::error deserialize (celerix::tomlconfig &);
+	celerix::error serialize (celerix::tomlconfig &) const;
 
 public:
 	size_t max_inbound_connections{ 2048 };

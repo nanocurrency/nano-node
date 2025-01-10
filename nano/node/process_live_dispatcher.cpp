@@ -1,15 +1,15 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/node/block_processor.hpp>
-#include <nano/node/process_live_dispatcher.hpp>
-#include <nano/node/scheduler/priority.hpp>
-#include <nano/node/vote_cache.hpp>
-#include <nano/node/websocket.hpp>
-#include <nano/secure/common.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/transaction.hpp>
-#include <nano/store/component.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/node/block_processor.hpp>
+#include <celerix/node/process_live_dispatcher.hpp>
+#include <celerix/node/scheduler/priority.hpp>
+#include <celerix/node/vote_cache.hpp>
+#include <celerix/node/websocket.hpp>
+#include <celerix/secure/common.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/transaction.hpp>
+#include <celerix/store/component.hpp>
 
-nano::process_live_dispatcher::process_live_dispatcher (nano::ledger & ledger, nano::scheduler::priority & scheduler, nano::vote_cache & vote_cache, nano::websocket_server & websocket) :
+celerix::process_live_dispatcher::process_live_dispatcher (celerix::ledger & ledger, celerix::scheduler::priority & scheduler, celerix::vote_cache & vote_cache, celerix::websocket_server & websocket) :
 	ledger{ ledger },
 	scheduler{ scheduler },
 	vote_cache{ vote_cache },
@@ -17,7 +17,7 @@ nano::process_live_dispatcher::process_live_dispatcher (nano::ledger & ledger, n
 {
 }
 
-void nano::process_live_dispatcher::connect (nano::block_processor & block_processor)
+void celerix::process_live_dispatcher::connect (celerix::block_processor & block_processor)
 {
 	block_processor.batch_processed.add ([this] (auto const & batch) {
 		auto const transaction = ledger.tx_begin_read ();
@@ -29,11 +29,11 @@ void nano::process_live_dispatcher::connect (nano::block_processor & block_proce
 	});
 }
 
-void nano::process_live_dispatcher::inspect (nano::block_status const & result, nano::block const & block, secure::transaction const & transaction)
+void celerix::process_live_dispatcher::inspect (celerix::block_status const & result, celerix::block const & block, secure::transaction const & transaction)
 {
 	switch (result)
 	{
-		case nano::block_status::progress:
+		case celerix::block_status::progress:
 			process_live (block, transaction);
 			break;
 		default:
@@ -41,10 +41,10 @@ void nano::process_live_dispatcher::inspect (nano::block_status const & result, 
 	}
 }
 
-void nano::process_live_dispatcher::process_live (nano::block const & block, secure::transaction const & transaction)
+void celerix::process_live_dispatcher::process_live (celerix::block const & block, secure::transaction const & transaction)
 {
-	if (websocket.server && websocket.server->any_subscriber (nano::websocket::topic::new_unconfirmed_block))
+	if (websocket.server && websocket.server->any_subscriber (celerix::websocket::topic::new_unconfirmed_block))
 	{
-		websocket.server->broadcast (nano::websocket::message_builder ().new_block_arrived (block));
+		websocket.server->broadcast (celerix::websocket::message_builder ().new_block_arrived (block));
 	}
 }

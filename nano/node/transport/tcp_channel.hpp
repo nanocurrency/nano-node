@@ -1,12 +1,12 @@
 #pragma once
 
-#include <nano/lib/async.hpp>
-#include <nano/lib/enum_util.hpp>
-#include <nano/node/transport/channel.hpp>
-#include <nano/node/transport/fwd.hpp>
-#include <nano/node/transport/transport.hpp>
+#include <celerix/lib/async.hpp>
+#include <celerix/lib/enum_util.hpp>
+#include <celerix/node/transport/channel.hpp>
+#include <celerix/node/transport/fwd.hpp>
+#include <celerix/node/transport/transport.hpp>
 
-namespace nano::transport
+namespace celerix::transport
 {
 class tcp_channel_queue final
 {
@@ -14,7 +14,7 @@ public:
 	explicit tcp_channel_queue ();
 
 	using callback_t = std::function<void (boost::system::error_code const &, std::size_t)>;
-	using entry_t = std::pair<nano::shared_const_buffer, callback_t>;
+	using entry_t = std::pair<celerix::shared_const_buffer, callback_t>;
 	using value_t = std::pair<traffic_type, entry_t>;
 	using batch_t = std::deque<value_t>;
 
@@ -37,56 +37,56 @@ private:
 	size_t priority (traffic_type) const;
 
 	using queue_t = std::pair<traffic_type, std::deque<entry_t>>;
-	nano::enum_array<traffic_type, queue_t> queues{};
-	nano::enum_array<traffic_type, queue_t>::iterator current{ queues.end () };
+	celerix::enum_array<traffic_type, queue_t> queues{};
+	celerix::enum_array<traffic_type, queue_t>::iterator current{ queues.end () };
 	size_t counter{ 0 };
 };
 
-class tcp_channel final : public nano::transport::channel, public std::enable_shared_from_this<tcp_channel>
+class tcp_channel final : public celerix::transport::channel, public std::enable_shared_from_this<tcp_channel>
 {
-	friend class nano::transport::tcp_channels;
+	friend class celerix::transport::tcp_channels;
 
 public:
-	tcp_channel (nano::node &, std::shared_ptr<nano::transport::tcp_socket>);
+	tcp_channel (celerix::node &, std::shared_ptr<celerix::transport::tcp_socket>);
 	~tcp_channel () override;
 
 	void close () override;
 
-	bool max (nano::transport::traffic_type traffic_type) override;
+	bool max (celerix::transport::traffic_type traffic_type) override;
 	bool alive () const override;
 
-	nano::endpoint get_remote_endpoint () const override;
-	nano::endpoint get_local_endpoint () const override;
+	celerix::endpoint get_remote_endpoint () const override;
+	celerix::endpoint get_local_endpoint () const override;
 
-	nano::transport::transport_type get_type () const override
+	celerix::transport::transport_type get_type () const override
 	{
-		return nano::transport::transport_type::tcp;
+		return celerix::transport::transport_type::tcp;
 	}
 
 	std::string to_string () const override;
 
 protected:
-	bool send_buffer (nano::shared_const_buffer const &, nano::transport::traffic_type, nano::transport::channel::callback_t) override;
+	bool send_buffer (celerix::shared_const_buffer const &, celerix::transport::traffic_type, celerix::transport::channel::callback_t) override;
 
 private:
 	void start ();
 	void stop ();
 
-	asio::awaitable<void> start_sending (nano::async::condition &);
-	asio::awaitable<void> run_sending (nano::async::condition &);
+	asio::awaitable<void> start_sending (celerix::async::condition &);
+	asio::awaitable<void> run_sending (celerix::async::condition &);
 	asio::awaitable<void> send_one (traffic_type, tcp_channel_queue::entry_t const &);
 
 public:
-	std::shared_ptr<nano::transport::tcp_socket> socket;
+	std::shared_ptr<celerix::transport::tcp_socket> socket;
 
 private:
-	nano::endpoint remote_endpoint;
-	nano::endpoint local_endpoint;
+	celerix::endpoint remote_endpoint;
+	celerix::endpoint local_endpoint;
 
-	nano::async::strand strand;
-	nano::async::task sending_task;
+	celerix::async::strand strand;
+	celerix::async::task sending_task;
 
-	mutable nano::mutex mutex;
+	mutable celerix::mutex mutex;
 	tcp_channel_queue queue;
 	std::atomic<size_t> allocated_bandwidth{ 0 };
 
@@ -95,6 +95,6 @@ private:
 	std::string stacktrace;
 
 public: // Logging
-	void operator() (nano::object_stream &) const override;
+	void operator() (celerix::object_stream &) const override;
 };
 }

@@ -3,23 +3,23 @@ set -uo pipefail
 
 source "$(dirname "$BASH_SOURCE")/common.sh"
 
-# Path to the nano-node repository can be provided as an argument
+# Path to the celerix-node repository can be provided as an argument
 # Otherwise parent directory of working directory is assumed
-NANO_REPO_DIR=${1:-../}
-NANO_SYSTEST_DIR=${NANO_REPO_DIR}/systest
+CELERIX_REPO_DIR=${1:-../}
+CELERIX_SYSTEST_DIR=${CELERIX_REPO_DIR}/systest
 
 # Allow TEST_TIMEOUT to be set from an environment variable
 TEST_TIMEOUT=${TEST_TIMEOUT:-300s}
 
-echo "Running systests from: ${NANO_SYSTEST_DIR}"
+echo "Running systests from: ${CELERIX_SYSTEST_DIR}"
 
 # This assumes that the executables are in the current working directory
-export NANO_NODE_EXE=./nano_node$(get_exec_extension)
-export NANO_RPC_EXE=./nano_rpc$(get_exec_extension)
+export CELERIX_NODE_EXE=./celerix_node$(get_exec_extension)
+export CELERIX_RPC_EXE=./celerix_rpc$(get_exec_extension)
 
 overall_status=0
 
-for script in ${NANO_SYSTEST_DIR}/*.sh; do
+for script in ${CELERIX_SYSTEST_DIR}/*.sh; do
     name=$(basename ${script})
 
     echo "::group::Running: $name"

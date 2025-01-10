@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace nano
+namespace celerix
 {
 /**
  * Dumps a stacktrace file which can be read using the --debug_output_last_backtrace_dump CLI command

@@ -1,12 +1,12 @@
 #pragma once
 
-#include <nano/lib/config.hpp>
-#include <nano/lib/errors.hpp>
-#include <nano/lib/fwd.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/errors.hpp>
+#include <celerix/lib/fwd.hpp>
 
 #include <string>
 
-namespace nano
+namespace celerix
 {
 namespace ipc
 {
@@ -39,15 +39,15 @@ namespace ipc
 		 * Default domain socket path for Unix systems. Once Boost supports Windows 10 usocks,
 		 * this value will be conditional on OS.
 		 */
-		std::string path{ "/tmp/nano" };
+		std::string path{ "/tmp/celerix" };
 	};
 
 	/** TCP specific transport config */
 	class ipc_config_tcp_socket : public ipc_config_transport
 	{
 	public:
-		ipc_config_tcp_socket (nano::network_constants & network_constants);
-		nano::network_constants & network_constants;
+		ipc_config_tcp_socket (celerix::network_constants & network_constants);
+		celerix::network_constants & network_constants;
 		/** Listening port */
 		uint16_t port;
 	};
@@ -56,12 +56,12 @@ namespace ipc
 	class ipc_config
 	{
 	public:
-		ipc_config (nano::network_constants & network_constants) :
+		ipc_config (celerix::network_constants & network_constants) :
 			transport_tcp{ network_constants }
 		{
 		}
-		nano::error deserialize_toml (nano::tomlconfig & toml_a);
-		nano::error serialize_toml (nano::tomlconfig & toml) const;
+		celerix::error deserialize_toml (celerix::tomlconfig & toml_a);
+		celerix::error serialize_toml (celerix::tomlconfig & toml) const;
 		ipc_config_domain_socket transport_domain;
 		ipc_config_tcp_socket transport_tcp;
 		ipc_config_flatbuffers flatbuffers;

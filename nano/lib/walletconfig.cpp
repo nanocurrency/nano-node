@@ -1,16 +1,16 @@
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/tomlconfig.hpp>
-#include <nano/lib/walletconfig.hpp>
+#include <celerix/crypto_lib/random_pool.hpp>
+#include <celerix/lib/tomlconfig.hpp>
+#include <celerix/lib/walletconfig.hpp>
 
-nano::wallet_config::wallet_config ()
+celerix::wallet_config::wallet_config ()
 {
-	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
+	celerix::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
 	debug_assert (!wallet.is_zero ());
 }
 
-nano::error nano::wallet_config::parse (std::string const & wallet_a, std::string const & account_a)
+celerix::error celerix::wallet_config::parse (std::string const & wallet_a, std::string const & account_a)
 {
-	nano::error error;
+	celerix::error error;
 	if (wallet.decode_hex (wallet_a))
 	{
 		error.set ("Invalid wallet id");
@@ -22,7 +22,7 @@ nano::error nano::wallet_config::parse (std::string const & wallet_a, std::strin
 	return error;
 }
 
-nano::error nano::wallet_config::serialize_toml (nano::tomlconfig & toml) const
+celerix::error celerix::wallet_config::serialize_toml (celerix::tomlconfig & toml) const
 {
 	std::string wallet_string;
 	wallet.encode_hex (wallet_string);
@@ -32,7 +32,7 @@ nano::error nano::wallet_config::serialize_toml (nano::tomlconfig & toml) const
 	return toml.get_error ();
 }
 
-nano::error nano::wallet_config::deserialize_toml (nano::tomlconfig & toml)
+celerix::error celerix::wallet_config::deserialize_toml (celerix::tomlconfig & toml)
 {
 	std::string wallet_l;
 	std::string account_l;

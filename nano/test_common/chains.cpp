@@ -1,18 +1,18 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/test_common/chains.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/test_common/chains.hpp>
 
 using namespace std::chrono_literals;
 
-nano::block_list_t nano::test::setup_chain (nano::test::system & system, nano::node & node, int count, nano::keypair target, bool confirm)
+celerix::block_list_t celerix::test::setup_chain (celerix::test::system & system, celerix::node & node, int count, celerix::keypair target, bool confirm)
 {
 	auto latest = node.latest (target.pub);
 	auto balance = node.balance (target.pub);
 
-	std::vector<std::shared_ptr<nano::block>> blocks;
+	std::vector<std::shared_ptr<celerix::block>> blocks;
 	for (int n = 0; n < count; ++n)
 	{
-		nano::keypair throwaway;
-		nano::block_builder builder;
+		celerix::keypair throwaway;
+		celerix::block_builder builder;
 
 		balance -= 1;
 		auto send = builder
@@ -31,27 +31,27 @@ nano::block_list_t nano::test::setup_chain (nano::test::system & system, nano::n
 		blocks.push_back (send);
 	}
 
-	EXPECT_TRUE (nano::test::process (node, blocks));
+	EXPECT_TRUE (celerix::test::process (node, blocks));
 
 	if (confirm)
 	{
 		// Confirm whole chain at once
-		nano::test::confirm (node.ledger, blocks);
+		celerix::test::confirm (node.ledger, blocks);
 	}
 
 	return blocks;
 }
 
-std::vector<std::pair<nano::account, nano::block_list_t>> nano::test::setup_chains (nano::test::system & system, nano::node & node, int chain_count, int block_count, nano::keypair source, bool confirm)
+std::vector<std::pair<celerix::account, celerix::block_list_t>> celerix::test::setup_chains (celerix::test::system & system, celerix::node & node, int chain_count, int block_count, celerix::keypair source, bool confirm)
 {
 	auto latest = node.latest (source.pub);
 	auto balance = node.balance (source.pub);
 
-	std::vector<std::pair<nano::account, block_list_t>> chains;
+	std::vector<std::pair<celerix::account, block_list_t>> chains;
 	for (int n = 0; n < chain_count; ++n)
 	{
-		nano::keypair key;
-		nano::block_builder builder;
+		celerix::keypair key;
+		celerix::block_builder builder;
 
 		balance -= block_count * 2; // Send enough to later create `block_count` blocks
 		auto send = builder
@@ -78,15 +78,15 @@ std::vector<std::pair<nano::account, nano::block_list_t>> nano::test::setup_chai
 
 		latest = send->hash ();
 
-		EXPECT_TRUE (nano::test::process (node, { send, open }));
+		EXPECT_TRUE (celerix::test::process (node, { send, open }));
 
 		if (confirm)
 		{
 			// Ensure blocks are in the ledger and confirmed
-			nano::test::confirm (node.ledger, open);
+			celerix::test::confirm (node.ledger, open);
 		}
 
-		auto added_blocks = nano::test::setup_chain (system, node, block_count, key, confirm);
+		auto added_blocks = celerix::test::setup_chain (system, node, block_count, key, confirm);
 
 		auto blocks = block_list_t{ open };
 		blocks.insert (blocks.end (), added_blocks.begin (), added_blocks.end ());
@@ -97,17 +97,17 @@ std::vector<std::pair<nano::account, nano::block_list_t>> nano::test::setup_chai
 	return chains;
 }
 
-nano::block_list_t nano::test::setup_independent_blocks (nano::test::system & system, nano::node & node, int count, nano::keypair source)
+celerix::block_list_t celerix::test::setup_independent_blocks (celerix::test::system & system, celerix::node & node, int count, celerix::keypair source)
 {
-	std::vector<std::shared_ptr<nano::block>> blocks;
+	std::vector<std::shared_ptr<celerix::block>> blocks;
 
 	auto latest = node.latest (source.pub);
 	auto balance = node.balance (source.pub);
 
 	for (int n = 0; n < count; ++n)
 	{
-		nano::keypair key;
-		nano::block_builder builder;
+		celerix::keypair key;
+		celerix::block_builder builder;
 
 		balance -= 1;
 		auto send = builder
@@ -134,24 +134,24 @@ nano::block_list_t nano::test::setup_independent_blocks (nano::test::system & sy
 					.work (*system.work.generate (key.pub))
 					.build ();
 
-		EXPECT_TRUE (nano::test::process (node, { send, open }));
-		EXPECT_TIMELY (5s, nano::test::exists (node, { send, open })); // Ensure blocks are in the ledger
+		EXPECT_TRUE (celerix::test::process (node, { send, open }));
+		EXPECT_TIMELY (5s, celerix::test::exists (node, { send, open })); // Ensure blocks are in the ledger
 
 		blocks.push_back (open);
 	}
 
 	// Confirm whole genesis chain at once
-	nano::test::confirm (node.ledger, latest);
+	celerix::test::confirm (node.ledger, latest);
 
 	return blocks;
 }
 
-std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::block>> nano::test::setup_new_account (nano::test::system & system, nano::node & node, nano::uint128_t const amount, nano::keypair source, nano::keypair dest, nano::account dest_rep, bool force_confirm)
+std::pair<std::shared_ptr<celerix::block>, std::shared_ptr<celerix::block>> celerix::test::setup_new_account (celerix::test::system & system, celerix::node & node, celerix::uint128_t const amount, celerix::keypair source, celerix::keypair dest, celerix::account dest_rep, bool force_confirm)
 {
 	auto latest = node.latest (source.pub);
 	auto balance = node.balance (source.pub);
 
-	auto send = nano::block_builder ()
+	auto send = celerix::block_builder ()
 				.state ()
 				.account (source.pub)
 				.previous (latest)
@@ -162,7 +162,7 @@ std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::block>> nano::test
 				.work (*system.work.generate (latest))
 				.build ();
 
-	auto open = nano::block_builder ()
+	auto open = celerix::block_builder ()
 				.state ()
 				.account (dest.pub)
 				.previous (0)
@@ -173,17 +173,17 @@ std::pair<std::shared_ptr<nano::block>, std::shared_ptr<nano::block>> nano::test
 				.work (*system.work.generate (dest.pub))
 				.build ();
 
-	EXPECT_TRUE (nano::test::process (node, { send, open }));
+	EXPECT_TRUE (celerix::test::process (node, { send, open }));
 	if (force_confirm)
 	{
-		nano::test::confirm (node.ledger, open);
+		celerix::test::confirm (node.ledger, open);
 	}
 	return std::make_pair (send, open);
 }
 
-nano::keypair nano::test::setup_rep (nano::test::system & system, nano::node & node, nano::uint128_t const amount, nano::keypair source)
+celerix::keypair celerix::test::setup_rep (celerix::test::system & system, celerix::node & node, celerix::uint128_t const amount, celerix::keypair source)
 {
-	nano::keypair destkey;
-	nano::test::setup_new_account (system, node, amount, source, destkey, destkey.pub, true);
+	celerix::keypair destkey;
+	celerix::test::setup_new_account (system, node, amount, source, destkey, destkey.pub, true);
 	return destkey;
 }

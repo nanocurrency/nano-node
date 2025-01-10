@@ -11,7 +11,7 @@
 #define NOT_OPTIMIZED
 #endif
 
-namespace nano
+namespace celerix
 {
 void NOT_OPTIMIZED secure_wipe_memory (void * v, size_t n);
 }

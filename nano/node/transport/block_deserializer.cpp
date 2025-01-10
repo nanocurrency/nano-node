@@ -1,14 +1,14 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/stream.hpp>
-#include <nano/node/transport/block_deserializer.hpp>
-#include <nano/node/transport/tcp_socket.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/stream.hpp>
+#include <celerix/node/transport/block_deserializer.hpp>
+#include <celerix/node/transport/tcp_socket.hpp>
 
-nano::transport::block_deserializer::block_deserializer () :
+celerix::transport::block_deserializer::block_deserializer () :
 	read_buffer{ std::make_shared<std::vector<uint8_t>> () }
 {
 }
 
-void nano::transport::block_deserializer::read (nano::transport::tcp_socket & socket, callback_type const && callback)
+void celerix::transport::block_deserializer::read (celerix::transport::tcp_socket & socket, callback_type const && callback)
 {
 	debug_assert (callback);
 	read_buffer->resize (1);
@@ -27,15 +27,15 @@ void nano::transport::block_deserializer::read (nano::transport::tcp_socket & so
 	});
 }
 
-void nano::transport::block_deserializer::received_type (nano::transport::tcp_socket & socket, callback_type const && callback)
+void celerix::transport::block_deserializer::received_type (celerix::transport::tcp_socket & socket, callback_type const && callback)
 {
-	nano::block_type type = static_cast<nano::block_type> (read_buffer->data ()[0]);
-	if (type == nano::block_type::not_a_block)
+	celerix::block_type type = static_cast<celerix::block_type> (read_buffer->data ()[0]);
+	if (type == celerix::block_type::not_a_block)
 	{
 		callback (boost::system::error_code{}, nullptr);
 		return;
 	}
-	auto size = nano::block::size (type);
+	auto size = celerix::block::size (type);
 	if (size == 0)
 	{
 		callback (boost::asio::error::fault, nullptr);
@@ -57,9 +57,9 @@ void nano::transport::block_deserializer::received_type (nano::transport::tcp_so
 	});
 }
 
-void nano::transport::block_deserializer::received_block (nano::block_type type, callback_type const && callback)
+void celerix::transport::block_deserializer::received_block (celerix::block_type type, callback_type const && callback)
 {
-	nano::bufferstream stream{ read_buffer->data (), read_buffer->size () };
-	auto block = nano::deserialize_block (stream, type);
+	celerix::bufferstream stream{ read_buffer->data (), read_buffer->size () };
+	auto block = celerix::deserialize_block (stream, type);
 	callback (boost::system::error_code{}, block);
 }

@@ -1,8 +1,8 @@
-#include <nano/lib/enum_util.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/transport/message_deserializer.hpp>
+#include <celerix/lib/enum_util.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/transport/message_deserializer.hpp>
 
-nano::transport::message_deserializer::message_deserializer (nano::network_constants const & network_constants_a, nano::network_filter & network_filter_a, nano::block_uniquer & block_uniquer_a, nano::vote_uniquer & vote_uniquer_a,
+celerix::transport::message_deserializer::message_deserializer (celerix::network_constants const & network_constants_a, celerix::network_filter & network_filter_a, celerix::block_uniquer & block_uniquer_a, celerix::vote_uniquer & vote_uniquer_a,
 read_query read_op) :
 	read_buffer{ std::make_shared<std::vector<uint8_t>> () },
 	network_constants_m{ network_constants_a },
@@ -15,7 +15,7 @@ read_query read_op) :
 	read_buffer->resize (MAX_MESSAGE_SIZE);
 }
 
-void nano::transport::message_deserializer::read (const nano::transport::message_deserializer::callback_type && callback)
+void celerix::transport::message_deserializer::read (const celerix::transport::message_deserializer::callback_type && callback)
 {
 	debug_assert (callback);
 	debug_assert (read_op);
@@ -37,11 +37,11 @@ void nano::transport::message_deserializer::read (const nano::transport::message
 	});
 }
 
-void nano::transport::message_deserializer::received_header (const nano::transport::message_deserializer::callback_type && callback)
+void celerix::transport::message_deserializer::received_header (const celerix::transport::message_deserializer::callback_type && callback)
 {
-	nano::bufferstream stream{ read_buffer->data (), HEADER_SIZE };
+	celerix::bufferstream stream{ read_buffer->data (), HEADER_SIZE };
 	auto error = false;
-	nano::message_header header{ error, stream };
+	celerix::message_header header{ error, stream };
 	if (error)
 	{
 		status = parse_status::invalid_header;
@@ -100,7 +100,7 @@ void nano::transport::message_deserializer::received_header (const nano::transpo
 	}
 }
 
-void nano::transport::message_deserializer::received_message (nano::message_header header, std::size_t payload_size, const nano::transport::message_deserializer::callback_type && callback)
+void celerix::transport::message_deserializer::received_message (celerix::message_header header, std::size_t payload_size, const celerix::transport::message_deserializer::callback_type && callback)
 {
 	auto message = deserialize (header, payload_size);
 	if (message)
@@ -116,20 +116,20 @@ void nano::transport::message_deserializer::received_message (nano::message_head
 	}
 }
 
-std::unique_ptr<nano::message> nano::transport::message_deserializer::deserialize (nano::message_header header, std::size_t payload_size)
+std::unique_ptr<celerix::message> celerix::transport::message_deserializer::deserialize (celerix::message_header header, std::size_t payload_size)
 {
 	release_assert (payload_size <= MAX_MESSAGE_SIZE);
-	nano::bufferstream stream{ read_buffer->data (), payload_size };
+	celerix::bufferstream stream{ read_buffer->data (), payload_size };
 	switch (header.type)
 	{
-		case nano::message_type::keepalive:
+		case celerix::message_type::keepalive:
 		{
 			return deserialize_keepalive (stream, header);
 		}
-		case nano::message_type::publish:
+		case celerix::message_type::publish:
 		{
 			// Early filtering to not waste time deserializing duplicates
-			nano::uint128_t digest;
+			celerix::uint128_t digest;
 			if (!network_filter_m.apply (read_buffer->data (), payload_size, &digest))
 			{
 				return deserialize_publish (stream, header, digest);
@@ -140,14 +140,14 @@ std::unique_ptr<nano::message> nano::transport::message_deserializer::deserializ
 			}
 			break;
 		}
-		case nano::message_type::confirm_req:
+		case celerix::message_type::confirm_req:
 		{
 			return deserialize_confirm_req (stream, header);
 		}
-		case nano::message_type::confirm_ack:
+		case celerix::message_type::confirm_ack:
 		{
 			// Early filtering to not waste time deserializing duplicates
-			nano::uint128_t digest;
+			celerix::uint128_t digest;
 			if (!network_filter_m.apply (read_buffer->data (), payload_size, &digest))
 			{
 				return deserialize_confirm_ack (stream, header, digest);
@@ -158,39 +158,39 @@ std::unique_ptr<nano::message> nano::transport::message_deserializer::deserializ
 			}
 			break;
 		}
-		case nano::message_type::node_id_handshake:
+		case celerix::message_type::node_id_handshake:
 		{
 			return deserialize_node_id_handshake (stream, header);
 		}
-		case nano::message_type::telemetry_req:
+		case celerix::message_type::telemetry_req:
 		{
 			return deserialize_telemetry_req (stream, header);
 		}
-		case nano::message_type::telemetry_ack:
+		case celerix::message_type::telemetry_ack:
 		{
 			return deserialize_telemetry_ack (stream, header);
 		}
-		case nano::message_type::bulk_pull:
+		case celerix::message_type::bulk_pull:
 		{
 			return deserialize_bulk_pull (stream, header);
 		}
-		case nano::message_type::bulk_pull_account:
+		case celerix::message_type::bulk_pull_account:
 		{
 			return deserialize_bulk_pull_account (stream, header);
 		}
-		case nano::message_type::bulk_push:
+		case celerix::message_type::bulk_push:
 		{
 			return deserialize_bulk_push (stream, header);
 		}
-		case nano::message_type::frontier_req:
+		case celerix::message_type::frontier_req:
 		{
 			return deserialize_frontier_req (stream, header);
 		}
-		case nano::message_type::asc_pull_req:
+		case celerix::message_type::asc_pull_req:
 		{
 			return deserialize_asc_pull_req (stream, header);
 		}
-		case nano::message_type::asc_pull_ack:
+		case celerix::message_type::asc_pull_ack:
 		{
 			return deserialize_asc_pull_ack (stream, header);
 		}
@@ -203,11 +203,11 @@ std::unique_ptr<nano::message> nano::transport::message_deserializer::deserializ
 	return {};
 }
 
-std::unique_ptr<nano::keepalive> nano::transport::message_deserializer::deserialize_keepalive (nano::stream & stream, nano::message_header const & header)
+std::unique_ptr<celerix::keepalive> celerix::transport::message_deserializer::deserialize_keepalive (celerix::stream & stream, celerix::message_header const & header)
 {
 	auto error = false;
-	auto incoming = std::make_unique<nano::keepalive> (error, stream, header);
-	if (!error && nano::at_end (stream))
+	auto incoming = std::make_unique<celerix::keepalive> (error, stream, header);
+	if (!error && celerix::at_end (stream))
 	{
 		return incoming;
 	}
@@ -218,11 +218,11 @@ std::unique_ptr<nano::keepalive> nano::transport::message_deserializer::deserial
 	return {};
 }
 
-std::unique_ptr<nano::publish> nano::transport::message_deserializer::deserialize_publish (nano::stream & stream, nano::message_header const & header, nano::network_filter::digest_t const & digest_a)
+std::unique_ptr<celerix::publish> celerix::transport::message_deserializer::deserialize_publish (celerix::stream & stream, celerix::message_header const & header, celerix::network_filter::digest_t const & digest_a)
 {
 	auto error = false;
-	auto incoming = std::make_unique<nano::publish> (error, stream, header, digest_a, &block_uniquer_m);
-	if (!error && nano::at_end (stream))
+	auto incoming = std::make_unique<celerix::publish> (error, stream, header, digest_a, &block_uniquer_m);
+	if (!error && celerix::at_end (stream))
 	{
 		release_assert (incoming->block);
 		if (!network_constants_m.work.validate_entry (*incoming->block))
@@ -241,11 +241,11 @@ std::unique_ptr<nano::publish> nano::transport::message_deserializer::deserializ
 	return {};
 }
 
-std::unique_ptr<nano::confirm_req> nano::transport::message_deserializer::deserialize_confirm_req (nano::stream & stream, nano::message_header const & header)
+std::unique_ptr<celerix::confirm_req> celerix::transport::message_deserializer::deserialize_confirm_req (celerix::stream & stream, celerix::message_header const & header)
 {
 	auto error = false;
-	auto incoming = std::make_unique<nano::confirm_req> (error, stream, header);
-	if (!error && nano::at_end (stream))
+	auto incoming = std::make_unique<celerix::confirm_req> (error, stream, header);
+	if (!error && celerix::at_end (stream))
 	{
 		return incoming;
 	}
@@ -256,11 +256,11 @@ std::unique_ptr<nano::confirm_req> nano::transport::message_deserializer::deseri
 	return {};
 }
 
-std::unique_ptr<nano::confirm_ack> nano::transport::message_deserializer::deserialize_confirm_ack (nano::stream & stream, nano::message_header const & header, nano::network_filter::digest_t const & digest_a)
+std::unique_ptr<celerix::confirm_ack> celerix::transport::message_deserializer::deserialize_confirm_ack (celerix::stream & stream, celerix::message_header const & header, celerix::network_filter::digest_t const & digest_a)
 {
 	auto error = false;
-	auto incoming = std::make_unique<nano::confirm_ack> (error, stream, header, digest_a, &vote_uniquer_m);
-	if (!error && nano::at_end (stream))
+	auto incoming = std::make_unique<celerix::confirm_ack> (error, stream, header, digest_a, &vote_uniquer_m);
+	if (!error && celerix::at_end (stream))
 	{
 		return incoming;
 	}
@@ -271,11 +271,11 @@ std::unique_ptr<nano::confirm_ack> nano::transport::message_deserializer::deseri
 	return {};
 }
 
-std::unique_ptr<nano::node_id_handshake> nano::transport::message_deserializer::deserialize_node_id_handshake (nano::stream & stream, nano::message_header const & header)
+std::unique_ptr<celerix::node_id_handshake> celerix::transport::message_deserializer::deserialize_node_id_handshake (celerix::stream & stream, celerix::message_header const & header)
 {
 	bool error = false;
-	auto incoming = std::make_unique<nano::node_id_handshake> (error, stream, header);
-	if (!error && nano::at_end (stream))
+	auto incoming = std::make_unique<celerix::node_id_handshake> (error, stream, header);
+	if (!error && celerix::at_end (stream))
 	{
 		return incoming;
 	}
@@ -286,16 +286,16 @@ std::unique_ptr<nano::node_id_handshake> nano::transport::message_deserializer::
 	return {};
 }
 
-std::unique_ptr<nano::telemetry_req> nano::transport::message_deserializer::deserialize_telemetry_req (nano::stream & stream, nano::message_header const & header)
+std::unique_ptr<celerix::telemetry_req> celerix::transport::message_deserializer::deserialize_telemetry_req (celerix::stream & stream, celerix::message_header const & header)
 {
 	// Message does not use stream payload (header only)
-	return std::make_unique<nano::telemetry_req> (header);
+	return std::make_unique<celerix::telemetry_req> (header);
 }
 
-std::unique_ptr<nano::telemetry_ack> nano::transport::message_deserializer::deserialize_telemetry_ack (nano::stream & stream, nano::message_header const & header)
+std::unique_ptr<celerix::telemetry_ack> celerix::transport::message_deserializer::deserialize_telemetry_ack (celerix::stream & stream, celerix::message_header const & header)
 {
 	bool error = false;
-	auto incoming = std::make_unique<nano::telemetry_ack> (error, stream, header);
+	auto incoming = std::make_unique<celerix::telemetry_ack> (error, stream, header);
 	// Intentionally not checking if at the end of stream, because these messages support backwards/forwards compatibility
 	if (!error)
 	{
@@ -308,11 +308,11 @@ std::unique_ptr<nano::telemetry_ack> nano::transport::message_deserializer::dese
 	return {};
 }
 
-std::unique_ptr<nano::bulk_pull> nano::transport::message_deserializer::deserialize_bulk_pull (nano::stream & stream, const nano::message_header & header)
+std::unique_ptr<celerix::bulk_pull> celerix::transport::message_deserializer::deserialize_bulk_pull (celerix::stream & stream, const celerix::message_header & header)
 {
 	bool error = false;
-	auto incoming = std::make_unique<nano::bulk_pull> (error, stream, header);
-	if (!error && nano::at_end (stream))
+	auto incoming = std::make_unique<celerix::bulk_pull> (error, stream, header);
+	if (!error && celerix::at_end (stream))
 	{
 		return incoming;
 	}
@@ -323,11 +323,11 @@ std::unique_ptr<nano::bulk_pull> nano::transport::message_deserializer::deserial
 	return {};
 }
 
-std::unique_ptr<nano::bulk_pull_account> nano::transport::message_deserializer::deserialize_bulk_pull_account (nano::stream & stream, const nano::message_header & header)
+std::unique_ptr<celerix::bulk_pull_account> celerix::transport::message_deserializer::deserialize_bulk_pull_account (celerix::stream & stream, const celerix::message_header & header)
 {
 	bool error = false;
-	auto incoming = std::make_unique<nano::bulk_pull_account> (error, stream, header);
-	if (!error && nano::at_end (stream))
+	auto incoming = std::make_unique<celerix::bulk_pull_account> (error, stream, header);
+	if (!error && celerix::at_end (stream))
 	{
 		return incoming;
 	}
@@ -338,11 +338,11 @@ std::unique_ptr<nano::bulk_pull_account> nano::transport::message_deserializer::
 	return {};
 }
 
-std::unique_ptr<nano::frontier_req> nano::transport::message_deserializer::deserialize_frontier_req (nano::stream & stream, const nano::message_header & header)
+std::unique_ptr<celerix::frontier_req> celerix::transport::message_deserializer::deserialize_frontier_req (celerix::stream & stream, const celerix::message_header & header)
 {
 	bool error = false;
-	auto incoming = std::make_unique<nano::frontier_req> (error, stream, header);
-	if (!error && nano::at_end (stream))
+	auto incoming = std::make_unique<celerix::frontier_req> (error, stream, header);
+	if (!error && celerix::at_end (stream))
 	{
 		return incoming;
 	}
@@ -353,16 +353,16 @@ std::unique_ptr<nano::frontier_req> nano::transport::message_deserializer::deser
 	return {};
 }
 
-std::unique_ptr<nano::bulk_push> nano::transport::message_deserializer::deserialize_bulk_push (nano::stream & stream, const nano::message_header & header)
+std::unique_ptr<celerix::bulk_push> celerix::transport::message_deserializer::deserialize_bulk_push (celerix::stream & stream, const celerix::message_header & header)
 {
 	// Message does not use stream payload (header only)
-	return std::make_unique<nano::bulk_push> (header);
+	return std::make_unique<celerix::bulk_push> (header);
 }
 
-std::unique_ptr<nano::asc_pull_req> nano::transport::message_deserializer::deserialize_asc_pull_req (nano::stream & stream, const nano::message_header & header)
+std::unique_ptr<celerix::asc_pull_req> celerix::transport::message_deserializer::deserialize_asc_pull_req (celerix::stream & stream, const celerix::message_header & header)
 {
 	bool error = false;
-	auto incoming = std::make_unique<nano::asc_pull_req> (error, stream, header);
+	auto incoming = std::make_unique<celerix::asc_pull_req> (error, stream, header);
 	// Intentionally not checking if at the end of stream, because these messages support backwards/forwards compatibility
 	if (!error)
 	{
@@ -375,10 +375,10 @@ std::unique_ptr<nano::asc_pull_req> nano::transport::message_deserializer::deser
 	return {};
 }
 
-std::unique_ptr<nano::asc_pull_ack> nano::transport::message_deserializer::deserialize_asc_pull_ack (nano::stream & stream, const nano::message_header & header)
+std::unique_ptr<celerix::asc_pull_ack> celerix::transport::message_deserializer::deserialize_asc_pull_ack (celerix::stream & stream, const celerix::message_header & header)
 {
 	bool error = false;
-	auto incoming = std::make_unique<nano::asc_pull_ack> (error, stream, header);
+	auto incoming = std::make_unique<celerix::asc_pull_ack> (error, stream, header);
 	// Intentionally not checking if at the end of stream, because these messages support backwards/forwards compatibility
 	if (!error)
 	{
@@ -395,12 +395,12 @@ std::unique_ptr<nano::asc_pull_ack> nano::transport::message_deserializer::deser
  *
  */
 
-nano::stat::detail nano::transport::to_stat_detail (nano::transport::parse_status status)
+celerix::stat::detail celerix::transport::to_stat_detail (celerix::transport::parse_status status)
 {
-	return nano::enum_util::cast<nano::stat::detail> (status);
+	return celerix::enum_util::cast<celerix::stat::detail> (status);
 }
 
-std::string_view nano::transport::to_string (nano::transport::parse_status status)
+std::string_view celerix::transport::to_string (celerix::transport::parse_status status)
 {
-	return nano::enum_util::name (status);
+	return celerix::enum_util::name (status);
 }

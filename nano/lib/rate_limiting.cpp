@@ -1,6 +1,6 @@
-#include <nano/lib/locks.hpp>
-#include <nano/lib/rate_limiting.hpp>
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/rate_limiting.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <limits>
 
@@ -8,12 +8,12 @@
  * token_bucket
  */
 
-nano::rate::token_bucket::token_bucket (std::size_t max_token_count_a, std::size_t refill_rate_a)
+celerix::rate::token_bucket::token_bucket (std::size_t max_token_count_a, std::size_t refill_rate_a)
 {
 	reset (max_token_count_a, refill_rate_a);
 }
 
-bool nano::rate::token_bucket::try_consume (unsigned tokens_required_a)
+bool celerix::rate::token_bucket::try_consume (unsigned tokens_required_a)
 {
 	debug_assert (tokens_required_a <= 1e9);
 	refill ();
@@ -33,10 +33,10 @@ bool nano::rate::token_bucket::try_consume (unsigned tokens_required_a)
 	return possible || refill_rate == unlimited_rate_sentinel;
 }
 
-void nano::rate::token_bucket::refill ()
+void celerix::rate::token_bucket::refill ()
 {
 	auto now (std::chrono::steady_clock::now ());
-	std::size_t tokens_to_add = static_cast<std::size_t> (std::chrono::duration_cast<std::chrono::nanoseconds> (now - last_refill).count () / 1e9 * refill_rate);
+	std::size_t tokens_to_add = static_cast<std::size_t> (std::chrono::duration_cast<std::chrono::celerixseconds> (now - last_refill).count () / 1e9 * refill_rate);
 	// Only update if there are any tokens to add
 	if (tokens_to_add > 0)
 	{
@@ -45,7 +45,7 @@ void nano::rate::token_bucket::refill ()
 	}
 }
 
-void nano::rate::token_bucket::reset (std::size_t max_token_count_a, std::size_t refill_rate_a)
+void celerix::rate::token_bucket::reset (std::size_t max_token_count_a, std::size_t refill_rate_a)
 {
 	// A token count of 0 indicates unlimited capacity. We use 1e9 as
 	// a sentinel, allowing largest burst to still be computed.
@@ -58,12 +58,12 @@ void nano::rate::token_bucket::reset (std::size_t max_token_count_a, std::size_t
 	last_refill = std::chrono::steady_clock::now ();
 }
 
-std::size_t nano::rate::token_bucket::largest_burst () const
+std::size_t celerix::rate::token_bucket::largest_burst () const
 {
 	return max_token_count - smallest_size;
 }
 
-std::size_t nano::rate::token_bucket::size () const
+std::size_t celerix::rate::token_bucket::size () const
 {
 	return current_size;
 }
@@ -72,25 +72,25 @@ std::size_t nano::rate::token_bucket::size () const
  * rate_limiter
  */
 
-nano::rate_limiter::rate_limiter (std::size_t limit_a, double burst_ratio_a) :
+celerix::rate_limiter::rate_limiter (std::size_t limit_a, double burst_ratio_a) :
 	bucket (static_cast<std::size_t> (limit_a * burst_ratio_a), limit_a)
 {
 }
 
-bool nano::rate_limiter::should_pass (std::size_t message_size_a)
+bool celerix::rate_limiter::should_pass (std::size_t message_size_a)
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	return bucket.try_consume (nano::narrow_cast<unsigned int> (message_size_a));
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	return bucket.try_consume (celerix::narrow_cast<unsigned int> (message_size_a));
 }
 
-void nano::rate_limiter::reset (std::size_t limit_a, double burst_ratio_a)
+void celerix::rate_limiter::reset (std::size_t limit_a, double burst_ratio_a)
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	bucket.reset (static_cast<std::size_t> (limit_a * burst_ratio_a), limit_a);
 }
 
-std::size_t nano::rate_limiter::size () const
+std::size_t celerix::rate_limiter::size () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return bucket.size ();
 }

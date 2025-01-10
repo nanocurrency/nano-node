@@ -1,7 +1,7 @@
-#include <nano/lib/config.hpp>
-#include <nano/lib/env.hpp>
-#include <nano/secure/utility.hpp>
-#include <nano/secure/working.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/env.hpp>
+#include <celerix/secure/utility.hpp>
+#include <celerix/secure/working.hpp>
 
 #include <boost/system/error_code.hpp>
 
@@ -9,45 +9,45 @@
 
 static std::vector<std::filesystem::path> all_unique_paths;
 
-std::filesystem::path nano::app_path ()
+std::filesystem::path celerix::app_path ()
 {
 	static auto const path = [] () {
-		if (auto value = nano::env::get ("NANO_APP_PATH"))
+		if (auto value = celerix::env::get ("CELERIX_APP_PATH"))
 		{
-			std::cerr << "Application path overridden by NANO_APP_PATH environment variable: " << *value << std::endl;
+			std::cerr << "Application path overridden by CELERIX_APP_PATH environment variable: " << *value << std::endl;
 			return std::filesystem::path{ *value };
 		}
-		return nano::app_path_impl ();
+		return celerix::app_path_impl ();
 	}();
 	return path;
 }
 
-std::filesystem::path nano::working_path (nano::networks network)
+std::filesystem::path celerix::working_path (celerix::networks network)
 {
-	auto result = nano::app_path ();
+	auto result = celerix::app_path ();
 
 	switch (network)
 	{
-		case nano::networks::invalid:
+		case celerix::networks::invalid:
 			release_assert (false);
 			break;
-		case nano::networks::nano_dev_network:
-			result /= "NanoDev";
+		case celerix::networks::celerix_dev_network:
+			result /= "CelerixDev";
 			break;
-		case nano::networks::nano_beta_network:
-			result /= "NanoBeta";
+		case celerix::networks::celerix_beta_network:
+			result /= "CelerixBeta";
 			break;
-		case nano::networks::nano_live_network:
-			result /= "Nano";
+		case celerix::networks::celerix_live_network:
+			result /= "Celerix";
 			break;
-		case nano::networks::nano_test_network:
-			result /= "NanoTest";
+		case celerix::networks::celerix_test_network:
+			result /= "CelerixTest";
 			break;
 	}
 	return result;
 }
 
-std::filesystem::path nano::random_filename ()
+std::filesystem::path celerix::random_filename ()
 {
 	std::random_device rd;
 	std::mt19937 gen (rd ());
@@ -64,7 +64,7 @@ std::filesystem::path nano::random_filename ()
 	return std::filesystem::path{ random_string };
 }
 
-std::filesystem::path nano::unique_path (nano::networks network)
+std::filesystem::path celerix::unique_path (celerix::networks network)
 {
 	auto result = working_path (network) / random_filename ();
 
@@ -74,7 +74,7 @@ std::filesystem::path nano::unique_path (nano::networks network)
 	return result;
 }
 
-void nano::remove_temporary_directories ()
+void celerix::remove_temporary_directories ()
 {
 	for (auto & path : all_unique_paths)
 	{

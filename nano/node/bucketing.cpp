@@ -1,10 +1,10 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/node/bucketing.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/ledger_set_any.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/node/bucketing.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/ledger_set_any.hpp>
 
-nano::bucketing::bucketing ()
+celerix::bucketing::bucketing ()
 {
 	auto build_region = [this] (uint128_t const & begin, uint128_t const & end, size_t count) {
 		auto width = (end - begin) / count;
@@ -32,7 +32,7 @@ nano::bucketing::bucketing ()
 	}
 }
 
-nano::bucket_index nano::bucketing::bucket_index (nano::amount balance) const
+celerix::bucket_index celerix::bucketing::bucket_index (celerix::amount balance) const
 {
 	release_assert (!minimums.empty ());
 	auto it = std::upper_bound (minimums.begin (), minimums.end (), balance);
@@ -40,12 +40,12 @@ nano::bucket_index nano::bucketing::bucket_index (nano::amount balance) const
 	return std::distance (minimums.begin (), std::prev (it));
 }
 
-std::vector<nano::bucket_index> const & nano::bucketing::bucket_indices () const
+std::vector<celerix::bucket_index> const & celerix::bucketing::bucket_indices () const
 {
 	return indices;
 }
 
-size_t nano::bucketing::size () const
+size_t celerix::bucketing::size () const
 {
 	return minimums.size ();
 }

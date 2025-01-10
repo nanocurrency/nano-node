@@ -5,7 +5,7 @@
 #include <optional>
 #include <string_view>
 
-namespace nano::env
+namespace celerix::env
 {
 /**
  * Get environment variable as a specific type or none if variable is not present.

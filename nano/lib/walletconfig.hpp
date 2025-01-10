@@ -1,11 +1,11 @@
 #pragma once
 
-#include <nano/lib/errors.hpp>
-#include <nano/lib/numbers.hpp>
+#include <celerix/lib/errors.hpp>
+#include <celerix/lib/numbers.hpp>
 
 #include <string>
 
-namespace nano
+namespace celerix
 {
 class tomlconfig;
 
@@ -15,10 +15,10 @@ class wallet_config final
 public:
 	wallet_config ();
 	/** Update this instance by parsing the given wallet and account */
-	nano::error parse (std::string const & wallet_a, std::string const & account_a);
-	nano::error serialize_toml (nano::tomlconfig & toml_a) const;
-	nano::error deserialize_toml (nano::tomlconfig & toml_a);
-	nano::wallet_id wallet;
-	nano::account account{};
+	celerix::error parse (std::string const & wallet_a, std::string const & account_a);
+	celerix::error serialize_toml (celerix::tomlconfig & toml_a) const;
+	celerix::error deserialize_toml (celerix::tomlconfig & toml_a);
+	celerix::wallet_id wallet;
+	celerix::account account{};
 };
 }

@@ -1,6 +1,6 @@
-#include <nano/secure/generate_cache_flags.hpp>
+#include <celerix/secure/generate_cache_flags.hpp>
 
-void nano::generate_cache_flags::enable_all ()
+void celerix::generate_cache_flags::enable_all ()
 {
 	reps = true;
 	cemented_count = true;

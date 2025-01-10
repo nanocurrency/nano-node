@@ -1,8 +1,8 @@
-#include <nano/lib/async.hpp>
-#include <nano/lib/logging.hpp>
-#include <nano/lib/thread_runner.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/lib/async.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/lib/thread_runner.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -18,9 +18,9 @@ class test_context
 {
 public:
 	std::shared_ptr<asio::io_context> io_ctx{ std::make_shared<asio::io_context> () };
-	nano::logger logger;
-	nano::thread_runner runner{ io_ctx, logger, 1 };
-	nano::async::strand strand{ io_ctx->get_executor () };
+	celerix::logger logger;
+	celerix::thread_runner runner{ io_ctx, logger, 1 };
+	celerix::async::strand strand{ io_ctx->get_executor () };
 };
 }
 
@@ -31,7 +31,7 @@ TEST (async, sleep)
 	auto fut = asio::co_spawn (
 	ctx.strand,
 	[&] () -> asio::awaitable<void> {
-		co_await nano::async::sleep_for (500ms);
+		co_await celerix::async::sleep_for (500ms);
 	},
 	asio::use_future);
 
@@ -43,12 +43,12 @@ TEST (async, cancellation)
 {
 	test_context ctx;
 
-	nano::async::cancellation cancellation{ ctx.strand };
+	celerix::async::cancellation cancellation{ ctx.strand };
 
 	auto fut = asio::co_spawn (
 	ctx.strand,
 	[&] () -> asio::awaitable<void> {
-		co_await nano::async::sleep_for (10s);
+		co_await celerix::async::sleep_for (10s);
 	},
 	asio::bind_cancellation_slot (cancellation.slot (), asio::use_future));
 
@@ -65,12 +65,12 @@ TEST (async, cancellation_lifetime)
 {
 	test_context ctx;
 
-	nano::async::cancellation cancellation{ ctx.strand };
+	celerix::async::cancellation cancellation{ ctx.strand };
 	{
 		auto fut = asio::co_spawn (
 		ctx.strand,
 		[&] () -> asio::awaitable<void> {
-			co_await nano::async::sleep_for (100ms);
+			co_await celerix::async::sleep_for (100ms);
 		},
 		asio::bind_cancellation_slot (cancellation.slot (), asio::use_future));
 		ASSERT_EQ (fut.wait_for (1s), std::future_status::ready);
@@ -82,16 +82,16 @@ TEST (async, cancellation_lifetime)
 
 TEST (async, task)
 {
-	nano::test::system system;
+	celerix::test::system system;
 	test_context ctx;
 
-	nano::async::task task{ ctx.strand };
+	celerix::async::task task{ ctx.strand };
 
 	// Default state, empty task
 	ASSERT_FALSE (task.joinable ());
 
-	task = nano::async::task (ctx.strand, [&] () -> asio::awaitable<void> {
-		co_await nano::async::sleep_for (500ms);
+	task = celerix::async::task (ctx.strand, [&] () -> asio::awaitable<void> {
+		co_await celerix::async::sleep_for (500ms);
 	});
 
 	// Task should now be joinable, but not ready
@@ -115,11 +115,11 @@ TEST (async, task)
 
 TEST (async, task_cancel)
 {
-	nano::test::system system;
+	celerix::test::system system;
 	test_context ctx;
 
-	nano::async::task task = nano::async::task (ctx.strand, [&] () -> asio::awaitable<void> {
-		co_await nano::async::sleep_for (10s);
+	celerix::async::task task = celerix::async::task (ctx.strand, [&] () -> asio::awaitable<void> {
+		co_await celerix::async::sleep_for (10s);
 	});
 
 	// Task should be joinable, but not ready

@@ -5,7 +5,7 @@
 #include <sstream>
 #include <string>
 
-namespace nano
+namespace celerix
 {
 class rpc;
 
@@ -22,7 +22,7 @@ public:
 	 * If the path is non-empty, this wraps the body inside an IPC API compliant envelope.
 	 * Otherwise the input string is returned unchanged.
 	 * This allows HTTP clients to use a simplified request format by omitting the envelope.
-	 * Envelope fields may still be specified through corresponding nano- header fields.
+	 * Envelope fields may still be specified through corresponding celerix- header fields.
 	 */
 	std::string json_envelope (std::string const & body_a) const
 	{
@@ -61,6 +61,6 @@ public:
 	/** Process RPC 2.0 request. This is called via the IPC API */
 	virtual void process_request_v2 (rpc_handler_request_params const & params_a, std::string const & body, std::function<void (std::shared_ptr<std::string> const &)> response) = 0;
 	virtual void stop () = 0;
-	virtual void rpc_instance (nano::rpc & rpc) = 0;
+	virtual void rpc_instance (celerix::rpc & rpc) = 0;
 };
 }

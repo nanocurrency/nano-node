@@ -1,21 +1,21 @@
 #pragma once
 
-#include <nano/lib/config.hpp>
-#include <nano/lib/logging.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/rocksdbconfig.hpp>
-#include <nano/secure/common.hpp>
-#include <nano/store/rocksdb/account.hpp>
-#include <nano/store/rocksdb/block.hpp>
-#include <nano/store/rocksdb/confirmation_height.hpp>
-#include <nano/store/rocksdb/final_vote.hpp>
-#include <nano/store/rocksdb/iterator.hpp>
-#include <nano/store/rocksdb/online_weight.hpp>
-#include <nano/store/rocksdb/peer.hpp>
-#include <nano/store/rocksdb/pending.hpp>
-#include <nano/store/rocksdb/pruned.hpp>
-#include <nano/store/rocksdb/rep_weight.hpp>
-#include <nano/store/rocksdb/version.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/rocksdbconfig.hpp>
+#include <celerix/secure/common.hpp>
+#include <celerix/store/rocksdb/account.hpp>
+#include <celerix/store/rocksdb/block.hpp>
+#include <celerix/store/rocksdb/confirmation_height.hpp>
+#include <celerix/store/rocksdb/final_vote.hpp>
+#include <celerix/store/rocksdb/iterator.hpp>
+#include <celerix/store/rocksdb/online_weight.hpp>
+#include <celerix/store/rocksdb/peer.hpp>
+#include <celerix/store/rocksdb/pending.hpp>
+#include <celerix/store/rocksdb/pruned.hpp>
+#include <celerix/store/rocksdb/rep_weight.hpp>
+#include <celerix/store/rocksdb/version.hpp>
 
 #include <rocksdb/db.h>
 #include <rocksdb/filter_policy.h>
@@ -24,47 +24,47 @@
 #include <rocksdb/table.h>
 #include <rocksdb/utilities/transaction_db.h>
 
-namespace nano
+namespace celerix
 {
 class logging_mt;
 class rocksdb_config;
 class rocksdb_block_store_tombstone_count_Test;
 }
 
-namespace nano::store::rocksdb
+namespace celerix::store::rocksdb
 {
 class rocksdb_block_store_upgrade_v21_v22_Test;
 
 /**
  * rocksdb implementation of the block store
  */
-class component : public nano::store::component
+class component : public celerix::store::component
 {
 private:
-	nano::store::rocksdb::account account_store;
-	nano::store::rocksdb::block block_store;
-	nano::store::rocksdb::confirmation_height confirmation_height_store;
-	nano::store::rocksdb::final_vote final_vote_store;
-	nano::store::rocksdb::online_weight online_weight_store;
-	nano::store::rocksdb::peer peer_store;
-	nano::store::rocksdb::pending pending_store;
-	nano::store::rocksdb::pruned pruned_store;
-	nano::store::rocksdb::version version_store;
-	nano::store::rocksdb::rep_weight rep_weight_store;
+	celerix::store::rocksdb::account account_store;
+	celerix::store::rocksdb::block block_store;
+	celerix::store::rocksdb::confirmation_height confirmation_height_store;
+	celerix::store::rocksdb::final_vote final_vote_store;
+	celerix::store::rocksdb::online_weight online_weight_store;
+	celerix::store::rocksdb::peer peer_store;
+	celerix::store::rocksdb::pending pending_store;
+	celerix::store::rocksdb::pruned pruned_store;
+	celerix::store::rocksdb::version version_store;
+	celerix::store::rocksdb::rep_weight rep_weight_store;
 
 public:
-	friend class nano::store::rocksdb::account;
-	friend class nano::store::rocksdb::block;
-	friend class nano::store::rocksdb::confirmation_height;
-	friend class nano::store::rocksdb::final_vote;
-	friend class nano::store::rocksdb::online_weight;
-	friend class nano::store::rocksdb::peer;
-	friend class nano::store::rocksdb::pending;
-	friend class nano::store::rocksdb::pruned;
-	friend class nano::store::rocksdb::version;
-	friend class nano::store::rocksdb::rep_weight;
+	friend class celerix::store::rocksdb::account;
+	friend class celerix::store::rocksdb::block;
+	friend class celerix::store::rocksdb::confirmation_height;
+	friend class celerix::store::rocksdb::final_vote;
+	friend class celerix::store::rocksdb::online_weight;
+	friend class celerix::store::rocksdb::peer;
+	friend class celerix::store::rocksdb::pending;
+	friend class celerix::store::rocksdb::pruned;
+	friend class celerix::store::rocksdb::version;
+	friend class celerix::store::rocksdb::rep_weight;
 
-	explicit component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
+	explicit component (celerix::logger &, std::filesystem::path const &, celerix::ledger_constants & constants, celerix::rocksdb_config const & = celerix::rocksdb_config{}, bool open_read_only = false);
 
 	store::write_transaction tx_begin_write () override;
 	store::read_transaction tx_begin_read () const override;
@@ -73,10 +73,10 @@ public:
 
 	uint64_t count (store::transaction const & transaction_a, tables table_a) const override;
 
-	bool exists (store::transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a) const;
-	int get (store::transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val & value_a) const;
-	int put (store::write_transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a, nano::store::rocksdb::db_val const & value_a);
-	int del (store::write_transaction const & transaction_a, tables table_a, nano::store::rocksdb::db_val const & key_a);
+	bool exists (store::transaction const & transaction_a, tables table_a, celerix::store::rocksdb::db_val const & key_a) const;
+	int get (store::transaction const & transaction_a, tables table_a, celerix::store::rocksdb::db_val const & key_a, celerix::store::rocksdb::db_val & value_a) const;
+	int put (store::write_transaction const & transaction_a, tables table_a, celerix::store::rocksdb::db_val const & key_a, celerix::store::rocksdb::db_val const & value_a);
+	int del (store::write_transaction const & transaction_a, tables table_a, celerix::store::rocksdb::db_val const & key_a);
 
 	void serialize_memory_stats (boost::property_tree::ptree &) override;
 
@@ -91,12 +91,12 @@ public:
 
 private:
 	bool error{ false };
-	nano::logger & logger;
-	nano::ledger_constants & constants;
+	celerix::logger & logger;
+	celerix::ledger_constants & constants;
 	::rocksdb::TransactionDB * transaction_db = nullptr;
 	std::unique_ptr<::rocksdb::DB> db;
 	std::vector<std::unique_ptr<::rocksdb::ColumnFamilyHandle>> handles;
-	nano::rocksdb_config rocksdb_config;
+	celerix::rocksdb_config rocksdb_config;
 	unsigned const max_block_write_batch_num_m;
 
 	class tombstone_info
@@ -107,10 +107,10 @@ private:
 		uint64_t const max;
 	};
 
-	std::unordered_map<nano::tables, tombstone_info> tombstone_map;
-	std::unordered_map<char const *, nano::tables> cf_name_table_map;
+	std::unordered_map<celerix::tables, tombstone_info> tombstone_map;
+	std::unordered_map<char const *, celerix::tables> cf_name_table_map;
 
-	std::vector<nano::tables> all_tables () const;
+	std::vector<celerix::tables> all_tables () const;
 
 	bool not_found (int status) const override;
 	bool success (int status) const override;
@@ -143,14 +143,14 @@ private:
 	::rocksdb::ColumnFamilyOptions get_cf_options (std::string const & cf_name_a) const;
 
 	void on_flush (::rocksdb::FlushJobInfo const &);
-	void flush_table (nano::tables table_a);
-	void flush_tombstones_check (nano::tables table_a);
+	void flush_table (celerix::tables table_a);
+	void flush_tombstones_check (celerix::tables table_a);
 	void generate_tombstone_map ();
-	std::unordered_map<char const *, nano::tables> create_cf_name_table_map () const;
+	std::unordered_map<char const *, celerix::tables> create_cf_name_table_map () const;
 
 	std::vector<::rocksdb::ColumnFamilyDescriptor> create_column_families ();
 
-	friend class nano::rocksdb_block_store_tombstone_count_Test;
+	friend class celerix::rocksdb_block_store_tombstone_count_Test;
 	friend class rocksdb_block_store_upgrade_v21_v22_Test;
 };
-} // namespace nano::store::rocksdb
+} // namespace celerix::store::rocksdb

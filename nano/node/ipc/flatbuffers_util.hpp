@@ -1,10 +1,10 @@
 #pragma once
 
-#include <nano/ipc_flatbuffers_lib/generated/flatbuffers/nanoapi_generated.h>
+#include <celerix/ipc_flatbuffers_lib/generated/flatbuffers/celerixapi_generated.h>
 
 #include <memory>
 
-namespace nano
+namespace celerix
 {
 class amount;
 class block;
@@ -21,12 +21,12 @@ namespace ipc
 	class flatbuffers_builder
 	{
 	public:
-		static nanoapi::BlockUnion block_to_union (nano::block const & block_a, nano::amount const & amount_a, bool is_state_send_a = false, bool is_state_epoch_a = false);
-		static std::unique_ptr<nanoapi::BlockStateT> from (nano::state_block const & block_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a);
-		static std::unique_ptr<nanoapi::BlockSendT> from (nano::send_block const & block_a);
-		static std::unique_ptr<nanoapi::BlockReceiveT> from (nano::receive_block const & block_a);
-		static std::unique_ptr<nanoapi::BlockOpenT> from (nano::open_block const & block_a);
-		static std::unique_ptr<nanoapi::BlockChangeT> from (nano::change_block const & block_a);
+		static celerixapi::BlockUnion block_to_union (celerix::block const & block_a, celerix::amount const & amount_a, bool is_state_send_a = false, bool is_state_epoch_a = false);
+		static std::unique_ptr<celerixapi::BlockStateT> from (celerix::state_block const & block_a, celerix::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a);
+		static std::unique_ptr<celerixapi::BlockSendT> from (celerix::send_block const & block_a);
+		static std::unique_ptr<celerixapi::BlockReceiveT> from (celerix::receive_block const & block_a);
+		static std::unique_ptr<celerixapi::BlockOpenT> from (celerix::open_block const & block_a);
+		static std::unique_ptr<celerixapi::BlockChangeT> from (celerix::change_block const & block_a);
 	};
 }
 }

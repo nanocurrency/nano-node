@@ -4,12 +4,12 @@
 
 #include <rocksdb/utilities/transaction_db.h>
 
-namespace nano::store
+namespace celerix::store
 {
 class transaction;
 }
 
-namespace nano::store::rocksdb
+namespace celerix::store::rocksdb
 {
 auto tx (store::transaction const & transaction_a) -> std::variant<::rocksdb::Transaction *, ::rocksdb::ReadOptions *>;
 }

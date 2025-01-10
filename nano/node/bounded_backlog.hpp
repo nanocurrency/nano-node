@@ -1,14 +1,14 @@
 #pragma once
 
-#include <nano/lib/locks.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/numbers_templ.hpp>
-#include <nano/lib/observer_set.hpp>
-#include <nano/lib/rate_limiting.hpp>
-#include <nano/lib/thread_pool.hpp>
-#include <nano/node/bucketing.hpp>
-#include <nano/node/fwd.hpp>
-#include <nano/secure/common.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/numbers_templ.hpp>
+#include <celerix/lib/observer_set.hpp>
+#include <celerix/lib/rate_limiting.hpp>
+#include <celerix/lib/thread_pool.hpp>
+#include <celerix/node/bucketing.hpp>
+#include <celerix/node/fwd.hpp>
+#include <celerix/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
@@ -21,25 +21,25 @@
 
 namespace mi = boost::multi_index;
 
-namespace nano
+namespace celerix
 {
 class backlog_index
 {
 public:
 	struct priority_key
 	{
-		nano::bucket_index bucket;
-		nano::priority_timestamp priority;
+		celerix::bucket_index bucket;
+		celerix::priority_timestamp priority;
 
 		auto operator<=> (priority_key const &) const = default;
 	};
 
 	struct entry
 	{
-		nano::block_hash hash;
-		nano::account account;
-		nano::bucket_index bucket;
-		nano::priority_timestamp priority;
+		celerix::block_hash hash;
+		celerix::account account;
+		celerix::bucket_index bucket;
+		celerix::priority_timestamp priority;
 
 		backlog_index::priority_key priority_key () const
 		{
@@ -50,21 +50,21 @@ public:
 public:
 	backlog_index () = default;
 
-	bool insert (nano::block const & block, nano::bucket_index, nano::priority_timestamp);
+	bool insert (celerix::block const & block, celerix::bucket_index, celerix::priority_timestamp);
 
-	bool erase (nano::account const & account);
-	bool erase (nano::block_hash const & hash);
+	bool erase (celerix::account const & account);
+	bool erase (celerix::block_hash const & hash);
 
-	using filter_callback = std::function<bool (nano::block_hash const &)>;
-	std::deque<nano::block_hash> top (nano::bucket_index, size_t count, filter_callback const &) const;
+	using filter_callback = std::function<bool (celerix::block_hash const &)>;
+	std::deque<celerix::block_hash> top (celerix::bucket_index, size_t count, filter_callback const &) const;
 
-	std::deque<nano::block_hash> next (nano::block_hash last, size_t count) const;
+	std::deque<celerix::block_hash> next (celerix::block_hash last, size_t count) const;
 
-	bool contains (nano::block_hash const & hash) const;
+	bool contains (celerix::block_hash const & hash) const;
 	size_t size () const;
-	size_t size (nano::bucket_index) const;
+	size_t size (celerix::bucket_index) const;
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 
 private:
 	// clang-format off
@@ -76,11 +76,11 @@ private:
 	using ordered_blocks = boost::multi_index_container<entry,
 	mi::indexed_by<
 		mi::hashed_unique<mi::tag<tag_hash>, // Allows for fast lookup
-			mi::member<entry, nano::block_hash, &entry::hash>>,
+			mi::member<entry, celerix::block_hash, &entry::hash>>,
 		mi::ordered_unique<mi::tag<tag_hash_ordered>, // Allows for sequential scan
-			mi::member<entry, nano::block_hash, &entry::hash>>,
+			mi::member<entry, celerix::block_hash, &entry::hash>>,
 		mi::hashed_non_unique<mi::tag<tag_account>,
-			mi::member<entry, nano::account, &entry::account>>,
+			mi::member<entry, celerix::account, &entry::account>>,
 		mi::ordered_non_unique<mi::tag<tag_priority>,
 			mi::const_mem_fun<entry, priority_key, &entry::priority_key>, std::greater<>> // DESC order
 	>>;
@@ -89,14 +89,14 @@ private:
 	ordered_blocks blocks;
 
 	// Keep track of the size of the backlog in number of unconfirmed blocks per bucket
-	std::unordered_map<nano::bucket_index, size_t> size_by_bucket;
+	std::unordered_map<celerix::bucket_index, size_t> size_by_bucket;
 };
 
 class bounded_backlog_config
 {
 public:
-	nano::error deserialize (nano::tomlconfig &);
-	nano::error serialize (nano::tomlconfig &) const;
+	celerix::error deserialize (celerix::tomlconfig &);
+	celerix::error serialize (celerix::tomlconfig &) const;
 
 public:
 	bool enable{ true };
@@ -108,7 +108,7 @@ public:
 class bounded_backlog
 {
 public:
-	bounded_backlog (nano::node_config const &, nano::node &, nano::ledger &, nano::bucketing &, nano::backlog_scan &, nano::block_processor &, nano::confirming_set &, nano::stats &, nano::logger &);
+	bounded_backlog (celerix::node_config const &, celerix::node &, celerix::ledger &, celerix::bucketing &, celerix::backlog_scan &, celerix::block_processor &, celerix::confirming_set &, celerix::stats &, celerix::logger &);
 	~bounded_backlog ();
 
 	void start ();
@@ -116,46 +116,46 @@ public:
 
 	size_t index_size () const;
 	size_t bucket_threshold () const;
-	bool contains (nano::block_hash const &) const;
+	bool contains (celerix::block_hash const &) const;
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 
 private: // Dependencies
-	nano::node_config const & config;
-	nano::node & node;
-	nano::ledger & ledger;
-	nano::bucketing & bucketing;
-	nano::backlog_scan & backlog_scan;
-	nano::block_processor & block_processor;
-	nano::confirming_set & confirming_set;
-	nano::stats & stats;
-	nano::logger & logger;
+	celerix::node_config const & config;
+	celerix::node & node;
+	celerix::ledger & ledger;
+	celerix::bucketing & bucketing;
+	celerix::backlog_scan & backlog_scan;
+	celerix::block_processor & block_processor;
+	celerix::confirming_set & confirming_set;
+	celerix::stats & stats;
+	celerix::logger & logger;
 
 private:
-	void activate (nano::secure::transaction &, nano::account const &, nano::account_info const &, nano::confirmation_height_info const &);
-	void update (nano::secure::transaction const &, nano::block_hash const &);
-	bool insert (nano::secure::transaction const &, nano::block const &);
+	void activate (celerix::secure::transaction &, celerix::account const &, celerix::account_info const &, celerix::confirmation_height_info const &);
+	void update (celerix::secure::transaction const &, celerix::block_hash const &);
+	bool insert (celerix::secure::transaction const &, celerix::block const &);
 
 	bool predicate () const;
 	void run ();
-	std::deque<nano::block_hash> gather_targets (size_t max_count) const;
-	bool should_rollback (nano::block_hash const &) const;
+	std::deque<celerix::block_hash> gather_targets (size_t max_count) const;
+	bool should_rollback (celerix::block_hash const &) const;
 
-	std::deque<nano::block_hash> perform_rollbacks (std::deque<nano::block_hash> const & targets, size_t max_rollbacks);
+	std::deque<celerix::block_hash> perform_rollbacks (std::deque<celerix::block_hash> const & targets, size_t max_rollbacks);
 
 	void run_scan ();
 
 private:
-	nano::backlog_index index;
+	celerix::backlog_index index;
 
-	nano::rate_limiter scan_limiter;
+	celerix::rate_limiter scan_limiter;
 
 	std::atomic<bool> stopped{ false };
-	nano::condition_variable condition;
-	mutable nano::mutex mutex;
+	celerix::condition_variable condition;
+	mutable celerix::mutex mutex;
 	std::thread thread;
 	std::thread scan_thread;
 
-	nano::thread_pool workers;
+	celerix::thread_pool workers;
 };
 }

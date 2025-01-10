@@ -1,7 +1,7 @@
-#include <nano/lib/processing_queue.hpp>
-#include <nano/lib/stats.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/lib/processing_queue.hpp>
+#include <celerix/lib/stats.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -9,21 +9,21 @@ using namespace std::chrono_literals;
 
 TEST (processing_queue, construction)
 {
-	nano::test::system system{};
-	nano::processing_queue<int> queue{ system.stats, nano::stat::type::test, {}, 4, 8 * 1024, 1024 };
+	celerix::test::system system{};
+	celerix::processing_queue<int> queue{ system.stats, celerix::stat::type::test, {}, 4, 8 * 1024, 1024 };
 	ASSERT_EQ (queue.size (), 0);
 }
 
 TEST (processing_queue, process_one)
 {
-	nano::test::system system{};
-	nano::processing_queue<int> queue{ system.stats, nano::stat::type::test, {}, 4, 8 * 1024, 1024 };
+	celerix::test::system system{};
+	celerix::processing_queue<int> queue{ system.stats, celerix::stat::type::test, {}, 4, 8 * 1024, 1024 };
 
 	std::atomic<std::size_t> processed{ 0 };
 	queue.process_batch = [&] (auto & batch) {
 		processed += batch.size ();
 	};
-	nano::test::start_stop_guard queue_guard{ queue };
+	celerix::test::start_stop_guard queue_guard{ queue };
 
 	queue.add (1);
 
@@ -34,14 +34,14 @@ TEST (processing_queue, process_one)
 
 TEST (processing_queue, process_many)
 {
-	nano::test::system system{};
-	nano::processing_queue<int> queue{ system.stats, nano::stat::type::test, {}, 4, 8 * 1024, 1024 };
+	celerix::test::system system{};
+	celerix::processing_queue<int> queue{ system.stats, celerix::stat::type::test, {}, 4, 8 * 1024, 1024 };
 
 	std::atomic<std::size_t> processed{ 0 };
 	queue.process_batch = [&] (auto & batch) {
 		processed += batch.size ();
 	};
-	nano::test::start_stop_guard queue_guard{ queue };
+	celerix::test::start_stop_guard queue_guard{ queue };
 
 	const int count = 1024;
 	for (int n = 0; n < count; ++n)
@@ -56,8 +56,8 @@ TEST (processing_queue, process_many)
 
 TEST (processing_queue, max_queue_size)
 {
-	nano::test::system system{};
-	nano::processing_queue<int> queue{ system.stats, nano::stat::type::test, {}, 4, 1024, 128 };
+	celerix::test::system system{};
+	celerix::processing_queue<int> queue{ system.stats, celerix::stat::type::test, {}, 4, 1024, 128 };
 
 	const int count = 2 * 1024; // Double the max queue size
 	for (int n = 0; n < count; ++n)
@@ -70,8 +70,8 @@ TEST (processing_queue, max_queue_size)
 
 TEST (processing_queue, max_batch_size)
 {
-	nano::test::system system{};
-	nano::processing_queue<int> queue{ system.stats, nano::stat::type::test, {}, 4, 1024, 128 };
+	celerix::test::system system{};
+	celerix::processing_queue<int> queue{ system.stats, celerix::stat::type::test, {}, 4, 1024, 128 };
 
 	// Fill queue before starting processing threads
 	const int count = 1024;
@@ -87,7 +87,7 @@ TEST (processing_queue, max_batch_size)
 			max_batch = batch.size ();
 		}
 	};
-	nano::test::start_stop_guard queue_guard{ queue };
+	celerix::test::start_stop_guard queue_guard{ queue };
 
 	ASSERT_TIMELY_EQ (5s, max_batch, 128);
 	ASSERT_ALWAYS (1s, max_batch == 128);
@@ -96,15 +96,15 @@ TEST (processing_queue, max_batch_size)
 
 TEST (processing_queue, parallel)
 {
-	nano::test::system system{};
-	nano::processing_queue<int> queue{ system.stats, nano::stat::type::test, {}, 16, 1024, 1 };
+	celerix::test::system system{};
+	celerix::processing_queue<int> queue{ system.stats, celerix::stat::type::test, {}, 16, 1024, 1 };
 
 	std::atomic<std::size_t> processed{ 0 };
 	queue.process_batch = [&] (auto & batch) {
 		std::this_thread::sleep_for (2s);
 		processed += batch.size ();
 	};
-	nano::test::start_stop_guard queue_guard{ queue };
+	celerix::test::start_stop_guard queue_guard{ queue };
 
 	const int count = 16;
 	for (int n = 0; n < count; ++n)

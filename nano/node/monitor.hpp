@@ -1,20 +1,20 @@
 #pragma once
 
-#include <nano/lib/locks.hpp>
-#include <nano/node/fwd.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/node/fwd.hpp>
 
 #include <chrono>
 #include <thread>
 
 using namespace std::chrono_literals;
 
-namespace nano
+namespace celerix
 {
 class monitor_config final
 {
 public:
-	nano::error deserialize (nano::tomlconfig &);
-	nano::error serialize (nano::tomlconfig &) const;
+	celerix::error deserialize (celerix::tomlconfig &);
+	celerix::error serialize (celerix::tomlconfig &) const;
 
 public:
 	bool enable{ true };
@@ -24,7 +24,7 @@ public:
 class monitor final
 {
 public:
-	monitor (monitor_config const &, nano::node &);
+	monitor (monitor_config const &, celerix::node &);
 	~monitor ();
 
 	void start ();
@@ -32,8 +32,8 @@ public:
 
 private: // Dependencies
 	monitor_config const & config;
-	nano::node & node;
-	nano::logger & logger;
+	celerix::node & node;
+	celerix::logger & logger;
 
 private:
 	void run ();
@@ -45,8 +45,8 @@ private:
 	size_t last_blocks_total{ 0 };
 
 	bool stopped{ false };
-	nano::condition_variable condition;
-	mutable nano::mutex mutex;
+	celerix::condition_variable condition;
+	mutable celerix::mutex mutex;
 	std::thread thread;
 };
 }

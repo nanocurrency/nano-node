@@ -1,13 +1,13 @@
 #pragma once
 
-#include <nano/boost/asio/ip/tcp.hpp>
-#include <nano/lib/locks.hpp>
+#include <celerix/boost/asio/ip/tcp.hpp>
+#include <celerix/lib/locks.hpp>
 
 #include <miniupnp/miniupnpc/include/miniupnpc.h>
 
 #include <thread>
 
-namespace nano
+namespace celerix
 {
 class node;
 
@@ -44,14 +44,14 @@ public:
 class port_mapping
 {
 public:
-	port_mapping (nano::node &);
+	port_mapping (celerix::node &);
 	~port_mapping ();
 
 	void start ();
 	void stop ();
 
 	void refresh_devices ();
-	nano::endpoint external_address ();
+	celerix::endpoint external_address ();
 	std::string to_string ();
 
 private:
@@ -68,7 +68,7 @@ private:
 	std::string get_config_port (std::string const &);
 
 private: // Dependencies
-	nano::node & node;
+	celerix::node & node;
 
 private:
 	upnp_state upnp;
@@ -77,8 +77,8 @@ private:
 	uint64_t check_count{ 0 };
 
 	std::atomic<bool> stopped{ false };
-	nano::condition_variable condition;
-	nano::mutex mutex;
+	celerix::condition_variable condition;
+	celerix::mutex mutex;
 	std::thread thread;
 };
 }

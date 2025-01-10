@@ -1,7 +1,7 @@
 #pragma once
 
-#include <nano/lib/logging.hpp>
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/system/error_code.hpp>
@@ -12,7 +12,7 @@
 #include <thread>
 #include <vector>
 
-namespace nano
+namespace celerix
 {
 /**
  * Manages signal handling and allows to register custom handlers for any signal.
@@ -56,9 +56,9 @@ private:
 	 * This is the actual handler that is registered with boost asio.
 	 * It calls the caller supplied function (if one is given) and sets the handler to repeat (or not).
 	 */
-	static void base_handler (nano::signal_manager::signal_descriptor descriptor, boost::system::error_code const & error, int signum);
+	static void base_handler (celerix::signal_manager::signal_descriptor descriptor, boost::system::error_code const & error, int signum);
 
-	nano::logger logger;
+	celerix::logger logger;
 
 	/** boost asio context to use */
 	boost::asio::io_context ioc;

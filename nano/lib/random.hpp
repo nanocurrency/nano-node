@@ -3,7 +3,7 @@
 #include <mutex>
 #include <random>
 
-namespace nano
+namespace celerix
 {
 /**
  * Not safe for any crypto related code, use for non-crypto PRNG only.

@@ -2,7 +2,7 @@
 
 #include <string_view>
 
-namespace nano::transport
+namespace celerix::transport
 {
 /** Policy to affect at which stage a buffer can be dropped */
 enum class buffer_drop_policy

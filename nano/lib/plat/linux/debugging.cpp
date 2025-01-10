@@ -1,5 +1,5 @@
-#include <nano/lib/files.hpp>
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/files.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <cstring>
 
@@ -17,7 +17,7 @@ int create_load_memory_address_file (dl_phdr_info * info, size_t, void *)
 	static int counter = 0;
 	debug_assert (counter <= 99);
 	// Create filename
-	char const file_prefix[] = "nano_node_crash_load_address_dump_";
+	char const file_prefix[] = "celerix_node_crash_load_address_dump_";
 	// Holds the filename prefix, a unique (max 2 digits) number and extension (null terminator is included in file_prefix size)
 	char filename[sizeof (file_prefix) + 2 + 4];
 	snprintf (filename, sizeof (filename), "%s%d.txt", file_prefix, counter);
@@ -63,7 +63,7 @@ int create_load_memory_address_file (dl_phdr_info * info, size_t, void *)
 }
 }
 
-void nano::create_load_memory_address_files ()
+void celerix::create_load_memory_address_files ()
 {
 	dl_iterate_phdr (create_load_memory_address_file, nullptr);
 }

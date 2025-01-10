@@ -1,11 +1,11 @@
 #pragma once
 
-#include <nano/lib/errors.hpp>
-#include <nano/node/nodeconfig.hpp>
+#include <celerix/lib/errors.hpp>
+#include <celerix/node/nodeconfig.hpp>
 
 #include <boost/program_options.hpp>
 
-namespace nano
+namespace celerix
 {
 /** Command line related error codes */
 enum class error_cli
@@ -21,9 +21,9 @@ enum class error_cli
 
 void add_node_options (boost::program_options::options_description &);
 void add_node_flag_options (boost::program_options::options_description &);
-std::error_code update_flags (nano::node_flags &, boost::program_options::variables_map const &);
-std::error_code flags_config_conflicts (nano::node_flags const &, nano::node_config const &);
+std::error_code update_flags (celerix::node_flags &, boost::program_options::variables_map const &);
+std::error_code flags_config_conflicts (celerix::node_flags const &, celerix::node_config const &);
 std::error_code handle_node_options (boost::program_options::variables_map const &);
 }
 
-REGISTER_ERROR_CODES (nano, error_cli)
+REGISTER_ERROR_CODES (celerix, error_cli)

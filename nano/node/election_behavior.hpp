@@ -1,10 +1,10 @@
 #pragma once
 
-#include <nano/lib/stats.hpp>
+#include <celerix/lib/stats.hpp>
 
 #include <string_view>
 
-namespace nano
+namespace celerix
 {
 enum class election_behavior
 {
@@ -26,5 +26,5 @@ enum class election_behavior
 };
 
 std::string_view to_string (election_behavior);
-nano::stat::detail to_stat_detail (election_behavior);
+celerix::stat::detail to_stat_detail (election_behavior);
 }

@@ -1,18 +1,18 @@
-#include <nano/boost/asio/bind_executor.hpp>
-#include <nano/boost/asio/local/stream_protocol.hpp>
-#include <nano/boost/asio/read.hpp>
-#include <nano/boost/asio/strand.hpp>
-#include <nano/lib/config.hpp>
-#include <nano/lib/ipc.hpp>
-#include <nano/lib/locks.hpp>
-#include <nano/lib/thread_runner.hpp>
-#include <nano/lib/threading.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/node/ipc/action_handler.hpp>
-#include <nano/node/ipc/flatbuffers_handler.hpp>
-#include <nano/node/ipc/ipc_server.hpp>
-#include <nano/node/json_handler.hpp>
-#include <nano/node/node.hpp>
+#include <celerix/boost/asio/bind_executor.hpp>
+#include <celerix/boost/asio/local/stream_protocol.hpp>
+#include <celerix/boost/asio/read.hpp>
+#include <celerix/boost/asio/strand.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/ipc.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/thread_runner.hpp>
+#include <celerix/lib/threading.hpp>
+#include <celerix/lib/timer.hpp>
+#include <celerix/node/ipc/action_handler.hpp>
+#include <celerix/node/ipc/flatbuffers_handler.hpp>
+#include <celerix/node/ipc/ipc_server.hpp>
+#include <celerix/node/json_handler.hpp>
+#include <celerix/node/node.hpp>
 
 #include <boost/array.hpp>
 #include <boost/endian/conversion.hpp>
@@ -29,15 +29,15 @@ namespace
  * A session manages an inbound connection over which messages are exchanged.
  */
 template <typename SOCKET_TYPE>
-class session final : public nano::ipc::socket_base, public std::enable_shared_from_this<session<SOCKET_TYPE>>
+class session final : public celerix::ipc::socket_base, public std::enable_shared_from_this<session<SOCKET_TYPE>>
 {
 public:
-	session (nano::ipc::ipc_server & server_a, boost::asio::io_context & io_ctx_a, nano::ipc::ipc_config_transport & config_transport_a) :
+	session (celerix::ipc::ipc_server & server_a, boost::asio::io_context & io_ctx_a, celerix::ipc::ipc_config_transport & config_transport_a) :
 		socket_base (io_ctx_a),
 		server (server_a), node (server_a.node), session_id (server_a.id_dispenser.fetch_add (1)),
 		io_ctx (io_ctx_a), strand (io_ctx_a.get_executor ()), socket (io_ctx_a), config_transport (config_transport_a)
 	{
-		node.logger.debug (nano::log::type::ipc, "Creating session with id: {}", session_id.load ());
+		node.logger.debug (celerix::log::type::ipc, "Creating session with id: {}", session_id.load ());
 	}
 
 	~session ()
@@ -50,16 +50,16 @@ public:
 		return socket;
 	}
 
-	std::shared_ptr<nano::ipc::subscriber> get_subscriber ()
+	std::shared_ptr<celerix::ipc::subscriber> get_subscriber ()
 	{
-		class subscriber_impl final : public nano::ipc::subscriber, public std::enable_shared_from_this<subscriber_impl>
+		class subscriber_impl final : public celerix::ipc::subscriber, public std::enable_shared_from_this<subscriber_impl>
 		{
 		public:
 			subscriber_impl (std::shared_ptr<session> const & session_a) :
 				session_m (session_a)
 			{
 			}
-			virtual void async_send_message (uint8_t const * data_a, std::size_t length_a, std::function<void (nano::error const &)> broadcast_completion_handler_a) override
+			virtual void async_send_message (uint8_t const * data_a, std::size_t length_a, std::function<void (celerix::error const &)> broadcast_completion_handler_a) override
 			{
 				if (auto session_l = session_m.lock ())
 				{
@@ -72,7 +72,7 @@ public:
 					session_l->queued_write (buffers, [broadcast_completion_handler_a, big_endian_length] (boost::system::error_code const & ec_a, std::size_t size_a) {
 						if (broadcast_completion_handler_a)
 						{
-							nano::error error_l (ec_a);
+							celerix::error error_l (ec_a);
 							broadcast_completion_handler_a (error_l);
 						}
 					});
@@ -107,9 +107,9 @@ public:
 				}
 			}
 
-			nano::ipc::payload_encoding get_active_encoding () const override
+			celerix::ipc::payload_encoding get_active_encoding () const override
 			{
-				nano::ipc::payload_encoding encoding{ nano::ipc::payload_encoding::flatbuffers };
+				celerix::ipc::payload_encoding encoding{ celerix::ipc::payload_encoding::flatbuffers };
 				if (auto session_l = session_m.lock ())
 				{
 					encoding = session_l->active_encoding;
@@ -121,8 +121,8 @@ public:
 			std::weak_ptr<session> session_m;
 		};
 
-		static nano::mutex subscriber_mutex;
-		nano::unique_lock<nano::mutex> lock{ subscriber_mutex };
+		static celerix::mutex subscriber_mutex;
+		celerix::unique_lock<celerix::mutex> lock{ subscriber_mutex };
 
 		if (!subscriber)
 		{
@@ -157,7 +157,7 @@ public:
 	/**
 	 * Write to underlying socket. Writes goes through a queue protected by the strand. Thus, this function
 	 * can be called concurrently with other writes.
-	 * @note This function explicitly doesn't use nano::shared_const_buffer, as buffers usually originate from Flatbuffers
+	 * @note This function explicitly doesn't use celerix::shared_const_buffer, as buffers usually originate from Flatbuffers
 	 * and copying into the shared_const_buffer vector would impose a significant overhead for large requests and responses.
 	 */
 	void queued_write (boost::asio::const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
@@ -182,7 +182,7 @@ public:
 		std::weak_ptr<session> this_w (this->shared_from_this ());
 		auto msg (send_queue.front ());
 		timer_start (std::chrono::seconds (config_transport.io_timeout));
-		nano::unsafe_async_write (socket, msg.buffer,
+		celerix::unsafe_async_write (socket, msg.buffer,
 		boost::asio::bind_executor (strand,
 		[msg, this_w] (boost::system::error_code ec, std::size_t size_a) {
 			if (auto this_l = this_w.lock ())
@@ -229,7 +229,7 @@ public:
 			this_l->timer_cancel ();
 			if (ec == boost::asio::error::broken_pipe || ec == boost::asio::error::connection_aborted || ec == boost::asio::error::connection_reset || ec == boost::asio::error::connection_refused)
 			{
-				this_l->node.logger.error (nano::log::type::ipc, "Error reading: ", ec.message ());
+				this_l->node.logger.error (celerix::log::type::ipc, "Error reading: ", ec.message ());
 			}
 			else if (bytes_transferred_a > 0)
 			{
@@ -244,7 +244,7 @@ public:
 		session_timer.restart ();
 		auto request_id_l (std::to_string (server.id_dispenser.fetch_add (1)));
 
-		// This is called when nano::rpc_handler#process_request is done. We convert to
+		// This is called when celerix::rpc_handler#process_request is done. We convert to
 		// json and write the response to the ipc socket with a length prefix.
 		auto this_l (this->shared_from_this ());
 		auto response_handler_l ([this_l, request_id_l] (std::string const & body) {
@@ -253,7 +253,7 @@ public:
 			buffer->insert (buffer->end (), reinterpret_cast<std::uint8_t *> (&big), reinterpret_cast<std::uint8_t *> (&big) + sizeof (std::uint32_t));
 			buffer->insert (buffer->end (), body.begin (), body.end ());
 
-			this_l->node.logger.debug (nano::log::type::ipc, "IPC/RPC request {} completed in: {} {}",
+			this_l->node.logger.debug (celerix::log::type::ipc, "IPC/RPC request {} completed in: {} {}",
 			request_id_l,
 			this_l->session_timer.stop ().count (),
 			this_l->session_timer.unit ());
@@ -267,18 +267,18 @@ public:
 				}
 				else
 				{
-					this_l->node.logger.error (nano::log::type::ipc, "Write failed: ", error_a.message ());
+					this_l->node.logger.error (celerix::log::type::ipc, "Write failed: ", error_a.message ());
 				}
 			});
 
 			// Do not call any member variables here (like session_timer) as it's possible that the next request may already be underway.
 		});
 
-		node.stats.inc (nano::stat::type::ipc, nano::stat::detail::invocations);
+		node.stats.inc (celerix::stat::type::ipc, celerix::stat::detail::invocations);
 		auto body (std::string (reinterpret_cast<char *> (buffer.data ()), buffer.size ()));
 
 		// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
-		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, [server_w = server.weak_from_this ()] () {
+		auto handler (std::make_shared<celerix::json_handler> (node, server.node_rpc_config, body, response_handler_l, [server_w = server.weak_from_this ()] () {
 			// TODO: Previously this was stopping node.io_ctx, which was wrong. Investigate what's going on here. Why isn't it using stop_callback passed externally?
 			// This is running on the IO thread, so attempting to directly stop the server will cause it to try joining itself.
 			// This RPC/IPC system is really badly designed...
@@ -303,15 +303,15 @@ public:
 		// Await next request indefinitely
 		buffer.resize (sizeof (buffer_size));
 		async_read_exactly (buffer.data (), buffer.size (), std::chrono::seconds::max (), [this_l] () {
-			auto encoding (this_l->buffer[nano::ipc::preamble_offset::encoding]);
-			this_l->active_encoding = static_cast<nano::ipc::payload_encoding> (encoding);
-			if (this_l->buffer[nano::ipc::preamble_offset::lead] != 'N' || this_l->buffer[nano::ipc::preamble_offset::reserved_1] != 0 || this_l->buffer[nano::ipc::preamble_offset::reserved_2] != 0)
+			auto encoding (this_l->buffer[celerix::ipc::preamble_offset::encoding]);
+			this_l->active_encoding = static_cast<celerix::ipc::payload_encoding> (encoding);
+			if (this_l->buffer[celerix::ipc::preamble_offset::lead] != 'N' || this_l->buffer[celerix::ipc::preamble_offset::reserved_1] != 0 || this_l->buffer[celerix::ipc::preamble_offset::reserved_2] != 0)
 			{
-				this_l->node.logger.error (nano::log::type::ipc, "Invalid preamble");
+				this_l->node.logger.error (celerix::log::type::ipc, "Invalid preamble");
 			}
-			else if (encoding == static_cast<uint8_t> (nano::ipc::payload_encoding::json_v1) || encoding == static_cast<uint8_t> (nano::ipc::payload_encoding::json_v1_unsafe))
+			else if (encoding == static_cast<uint8_t> (celerix::ipc::payload_encoding::json_v1) || encoding == static_cast<uint8_t> (celerix::ipc::payload_encoding::json_v1_unsafe))
 			{
-				auto allow_unsafe (encoding == static_cast<uint8_t> (nano::ipc::payload_encoding::json_v1_unsafe));
+				auto allow_unsafe (encoding == static_cast<uint8_t> (celerix::ipc::payload_encoding::json_v1_unsafe));
 				// Length of payload
 				this_l->async_read_exactly (&this_l->buffer_size, sizeof (this_l->buffer_size), [this_l, allow_unsafe] () {
 					boost::endian::big_to_native_inplace (this_l->buffer_size);
@@ -322,7 +322,7 @@ public:
 					});
 				});
 			}
-			else if (encoding == static_cast<uint8_t> (nano::ipc::payload_encoding::flatbuffers) || encoding == static_cast<uint8_t> (nano::ipc::payload_encoding::flatbuffers_json))
+			else if (encoding == static_cast<uint8_t> (celerix::ipc::payload_encoding::flatbuffers) || encoding == static_cast<uint8_t> (celerix::ipc::payload_encoding::flatbuffers_json))
 			{
 				// Length of payload
 				this_l->async_read_exactly (&this_l->buffer_size, sizeof (this_l->buffer_size), [this_l, encoding] () {
@@ -335,13 +335,13 @@ public:
 						// Lazily create one Flatbuffers handler instance per session
 						if (!this_l->flatbuffers_handler)
 						{
-							this_l->flatbuffers_handler = std::make_shared<nano::ipc::flatbuffers_handler> (this_l->node, this_l->server, this_l->get_subscriber (), this_l->node.config.ipc_config);
+							this_l->flatbuffers_handler = std::make_shared<celerix::ipc::flatbuffers_handler> (this_l->node, this_l->server, this_l->get_subscriber (), this_l->node.config.ipc_config);
 						}
 
-						if (encoding == static_cast<uint8_t> (nano::ipc::payload_encoding::flatbuffers_json))
+						if (encoding == static_cast<uint8_t> (celerix::ipc::payload_encoding::flatbuffers_json))
 						{
 							this_l->flatbuffers_handler->process_json (this_l->buffer.data (), this_l->buffer_size, [this_l] (std::shared_ptr<std::string> const & body) {
-								this_l->node.logger.debug (nano::log::type::ipc, "IPC/Flatbuffer request completed in: {} {}",
+								this_l->node.logger.debug (celerix::log::type::ipc, "IPC/Flatbuffer request completed in: {} {}",
 								this_l->session_timer.stop ().count (),
 								this_l->session_timer.unit ());
 
@@ -358,7 +358,7 @@ public:
 									}
 									else
 									{
-										this_l->node.logger.error (nano::log::type::ipc, "Write failed: {}", error_a.message ());
+										this_l->node.logger.error (celerix::log::type::ipc, "Write failed: {}", error_a.message ());
 									}
 								});
 							});
@@ -366,7 +366,7 @@ public:
 						else
 						{
 							this_l->flatbuffers_handler->process (this_l->buffer.data (), this_l->buffer_size, [this_l] (std::shared_ptr<flatbuffers::FlatBufferBuilder> const & fbb) {
-								this_l->node.logger.debug (nano::log::type::ipc, "IPC/Flatbuffer request completed in: {} {}",
+								this_l->node.logger.debug (celerix::log::type::ipc, "IPC/Flatbuffer request completed in: {} {}",
 								this_l->session_timer.stop ().count (),
 								this_l->session_timer.unit ());
 
@@ -383,7 +383,7 @@ public:
 									}
 									else
 									{
-										this_l->node.logger.error (nano::log::type::ipc, "Write failed: {}", error_a.message ());
+										this_l->node.logger.error (celerix::log::type::ipc, "Write failed: {}", error_a.message ());
 									}
 								});
 							});
@@ -393,7 +393,7 @@ public:
 			}
 			else
 			{
-				this_l->node.logger.error (nano::log::type::ipc, "Unsupported payload encoding");
+				this_l->node.logger.error (celerix::log::type::ipc, "Unsupported payload encoding");
 			}
 		});
 	}
@@ -416,23 +416,23 @@ private:
 	};
 	std::size_t const queue_size_max = 64 * 1024;
 
-	nano::ipc::ipc_server & server;
-	nano::node & node;
+	celerix::ipc::ipc_server & server;
+	celerix::node & node;
 
 	/** Unique session id */
 	std::atomic<uint64_t> session_id;
 
 	/** Service name associated with this session. This is set through the ServiceRegister API */
-	nano::locked<std::string> service_name;
+	celerix::locked<std::string> service_name;
 
 	/**
 	 * The payload encoding currently in use by this session. This is set as requests are
 	 * received and usually never changes (although a client technically can)
 	 */
-	std::atomic<nano::ipc::payload_encoding> active_encoding;
+	std::atomic<celerix::ipc::payload_encoding> active_encoding;
 
 	/** Timer for measuring the duration of ipc calls */
-	nano::timer<std::chrono::microseconds> session_timer;
+	celerix::timer<std::chrono::microseconds> session_timer;
 
 	/**
 	 * IO context from node, or per-transport, depending on configuration.
@@ -456,21 +456,21 @@ private:
 	std::vector<uint8_t> buffer;
 
 	/** Transport configuration */
-	nano::ipc::ipc_config_transport & config_transport;
+	celerix::ipc::ipc_config_transport & config_transport;
 
 	/** Handler for Flatbuffers requests. This is created lazily on the first request. */
-	std::shared_ptr<nano::ipc::flatbuffers_handler> flatbuffers_handler;
+	std::shared_ptr<celerix::ipc::flatbuffers_handler> flatbuffers_handler;
 
 	/** Session subscriber */
-	std::shared_ptr<nano::ipc::subscriber> subscriber;
+	std::shared_ptr<celerix::ipc::subscriber> subscriber;
 };
 
 /** Domain and TCP socket transport */
 template <typename ACCEPTOR_TYPE, typename SOCKET_TYPE, typename ENDPOINT_TYPE>
-class socket_transport : public nano::ipc::transport
+class socket_transport : public celerix::ipc::transport
 {
 public:
-	socket_transport (nano::ipc::ipc_server & server_a, ENDPOINT_TYPE endpoint_a, nano::ipc::ipc_config_transport & config_transport_a, int concurrency_a) :
+	socket_transport (celerix::ipc::ipc_server & server_a, ENDPOINT_TYPE endpoint_a, celerix::ipc::ipc_config_transport & config_transport_a, int concurrency_a) :
 		server (server_a),
 		config_transport (config_transport_a)
 	{
@@ -483,7 +483,7 @@ public:
 		acceptor->set_option (option_keepalive);
 		accept ();
 
-		runner = std::make_unique<nano::thread_runner> (io_ctx, server.logger, static_cast<unsigned> (std::max (1, concurrency_a)), nano::thread_role::name::io_ipc);
+		runner = std::make_unique<celerix::thread_runner> (io_ctx, server.logger, static_cast<unsigned> (std::max (1, concurrency_a)), celerix::thread_role::name::io_ipc);
 	}
 
 	boost::asio::io_context & context () const
@@ -497,9 +497,9 @@ public:
 		// Prepare the next session
 		auto new_session (std::make_shared<session<SOCKET_TYPE>> (server, context (), config_transport));
 
-		std::weak_ptr<nano::node> nano_weak = server.node.shared ();
-		acceptor->async_accept (new_session->get_socket (), [this, new_session, nano_weak] (boost::system::error_code const & ec) {
-			auto node = nano_weak.lock ();
+		std::weak_ptr<celerix::node> celerix_weak = server.node.shared ();
+		acceptor->async_accept (new_session->get_socket (), [this, new_session, celerix_weak] (boost::system::error_code const & ec) {
+			auto node = celerix_weak.lock ();
 			if (!node)
 			{
 				return;
@@ -511,7 +511,7 @@ public:
 			}
 			else
 			{
-				node->logger.error (nano::log::type::ipc, "Acceptor error: {}", ec.message ());
+				node->logger.error (celerix::log::type::ipc, "Acceptor error: {}", ec.message ());
 			}
 
 			if (ec != boost::asio::error::operation_aborted && acceptor->is_open ())
@@ -520,7 +520,7 @@ public:
 			}
 			else
 			{
-				node->logger.info (nano::log::type::ipc, "Shutting down");
+				node->logger.info (celerix::log::type::ipc, "Shutting down");
 			}
 		});
 	}
@@ -538,9 +538,9 @@ public:
 	std::optional<std::uint16_t> listening_port () const;
 
 private:
-	nano::ipc::ipc_server & server;
-	nano::ipc::ipc_config_transport & config_transport;
-	std::unique_ptr<nano::thread_runner> runner;
+	celerix::ipc::ipc_server & server;
+	celerix::ipc::ipc_config_transport & config_transport;
+	std::unique_ptr<celerix::thread_runner> runner;
 	std::shared_ptr<boost::asio::io_context> io_ctx;
 	std::unique_ptr<ACCEPTOR_TYPE> acceptor;
 };
@@ -564,14 +564,14 @@ std::optional<std::uint16_t> socket_transport<ACCEPTOR_TYPE, SOCKET_TYPE, ENDPOI
 
 }
 
-nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a) :
+celerix::ipc::ipc_server::ipc_server (celerix::node & node_a, celerix::node_rpc_config const & node_rpc_config_a) :
 	node (node_a),
 	node_rpc_config (node_rpc_config_a),
-	broker (std::make_shared<nano::ipc::broker> (node_a))
+	broker (std::make_shared<celerix::ipc::broker> (node_a))
 {
 	try
 	{
-		nano::error access_config_error (reload_access_config ());
+		celerix::error access_config_error (reload_access_config ());
 		if (access_config_error)
 		{
 			std::exit (1);
@@ -584,7 +584,7 @@ nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config co
 			boost::asio::local::stream_protocol::endpoint ep{ node_a.config.ipc_config.transport_domain.path };
 			transports.push_back (std::make_shared<domain_socket_transport> (*this, ep, node_a.config.ipc_config.transport_domain, threads));
 #else
-			node.logger.error (nano::log::type::ipc_server, "Domain sockets are not supported on this platform");
+			node.logger.error (celerix::log::type::ipc_server, "Domain sockets are not supported on this platform");
 #endif
 		}
 
@@ -594,7 +594,7 @@ nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config co
 			transports.push_back (std::make_shared<tcp_socket_transport> (*this, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v6 (), node_a.config.ipc_config.transport_tcp.port), node_a.config.ipc_config.transport_tcp, threads));
 		}
 
-		node.logger.debug (nano::log::type::ipc_server, "Server started");
+		node.logger.debug (celerix::log::type::ipc_server, "Server started");
 
 		if (!transports.empty ())
 		{
@@ -603,18 +603,18 @@ nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config co
 	}
 	catch (std::runtime_error const & ex)
 	{
-		node.logger.error (nano::log::type::ipc_server, "Error: {}", ex.what ());
+		node.logger.error (celerix::log::type::ipc_server, "Error: {}", ex.what ());
 	}
 }
 
-nano::ipc::ipc_server::~ipc_server ()
+celerix::ipc::ipc_server::~ipc_server ()
 {
-	node.logger.debug (nano::log::type::ipc_server, "Server stopped");
+	node.logger.debug (celerix::log::type::ipc_server, "Server stopped");
 
 	stop ();
 }
 
-void nano::ipc::ipc_server::stop ()
+void celerix::ipc::ipc_server::stop ()
 {
 	for (auto & transport : transports)
 	{
@@ -626,7 +626,7 @@ void nano::ipc::ipc_server::stop ()
 	}
 }
 
-std::optional<std::uint16_t> nano::ipc::ipc_server::listening_tcp_port () const
+std::optional<std::uint16_t> celerix::ipc::ipc_server::listening_tcp_port () const
 {
 	for (const auto & transport : transports)
 	{
@@ -640,22 +640,22 @@ std::optional<std::uint16_t> nano::ipc::ipc_server::listening_tcp_port () const
 	return std::nullopt;
 }
 
-std::shared_ptr<nano::ipc::broker> nano::ipc::ipc_server::get_broker ()
+std::shared_ptr<celerix::ipc::broker> celerix::ipc::ipc_server::get_broker ()
 {
 	return broker;
 }
 
-nano::ipc::access & nano::ipc::ipc_server::get_access ()
+celerix::ipc::access & celerix::ipc::ipc_server::get_access ()
 {
 	return access;
 }
 
-nano::error nano::ipc::ipc_server::reload_access_config ()
+celerix::error celerix::ipc::ipc_server::reload_access_config ()
 {
-	nano::error access_config_error (nano::ipc::read_access_config_toml (node.application_path, access));
+	celerix::error access_config_error (celerix::ipc::read_access_config_toml (node.application_path, access));
 	if (access_config_error)
 	{
-		node.logger.error (nano::log::type::ipc_server, "Invalid access configuration file: {}", access_config_error.get_message ());
+		node.logger.error (celerix::log::type::ipc_server, "Invalid access configuration file: {}", access_config_error.get_message ());
 	}
 	return access_config_error;
 }

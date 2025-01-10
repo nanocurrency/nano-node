@@ -1,13 +1,13 @@
 #pragma once
 
-#include <nano/boost/asio/ip/tcp.hpp>
-#include <nano/boost/asio/strand.hpp>
-#include <nano/lib/asio.hpp>
-#include <nano/lib/locks.hpp>
-#include <nano/lib/logging.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/node/transport/common.hpp>
-#include <nano/node/transport/traffic_type.hpp>
+#include <celerix/boost/asio/ip/tcp.hpp>
+#include <celerix/boost/asio/strand.hpp>
+#include <celerix/lib/asio.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/lib/timer.hpp>
+#include <celerix/node/transport/common.hpp>
+#include <celerix/node/transport/traffic_type.hpp>
 
 #include <chrono>
 #include <map>
@@ -22,17 +22,17 @@ namespace boost::asio::ip
 class network_v6;
 }
 
-namespace nano
+namespace celerix
 {
 class node;
 }
 
-namespace nano::transport
+namespace celerix::transport
 {
 class socket_queue final
 {
 public:
-	using buffer_t = nano::shared_const_buffer;
+	using buffer_t = celerix::shared_const_buffer;
 	using callback_t = std::function<void (boost::system::error_code const &, std::size_t)>;
 
 	struct entry
@@ -42,21 +42,21 @@ public:
 	};
 
 public:
-	using result_t = std::pair<entry, nano::transport::traffic_type>;
+	using result_t = std::pair<entry, celerix::transport::traffic_type>;
 
 	explicit socket_queue (std::size_t max_size);
 
-	bool insert (buffer_t const &, callback_t, nano::transport::traffic_type);
+	bool insert (buffer_t const &, callback_t, celerix::transport::traffic_type);
 	std::optional<result_t> pop ();
 	void clear ();
-	std::size_t size (nano::transport::traffic_type) const;
+	std::size_t size (celerix::transport::traffic_type) const;
 	bool empty () const;
 
 	std::size_t const max_size;
 
 private:
-	mutable nano::mutex mutex;
-	std::unordered_map<nano::transport::traffic_type, std::queue<entry>> queues;
+	mutable celerix::mutex mutex;
+	std::unordered_map<celerix::transport::traffic_type, std::queue<entry>> queues;
 };
 
 /** Socket class for tcp clients and newly accepted connections */
@@ -70,15 +70,15 @@ public:
 	static size_t constexpr default_queue_size = 16;
 
 public:
-	explicit tcp_socket (nano::node &, nano::transport::socket_endpoint = socket_endpoint::client, size_t queue_size = default_queue_size);
+	explicit tcp_socket (celerix::node &, celerix::transport::socket_endpoint = socket_endpoint::client, size_t queue_size = default_queue_size);
 
 	// TODO: Accepting remote/local endpoints as a parameter is unnecessary, but is needed for now to keep compatibility with the legacy code
 	tcp_socket (
-	nano::node &,
+	celerix::node &,
 	boost::asio::ip::tcp::socket,
 	boost::asio::ip::tcp::endpoint remote_endpoint,
 	boost::asio::ip::tcp::endpoint local_endpoint,
-	nano::transport::socket_endpoint = socket_endpoint::server,
+	celerix::transport::socket_endpoint = socket_endpoint::server,
 	size_t queue_size = default_queue_size);
 
 	~tcp_socket ();
@@ -96,7 +96,7 @@ public:
 	std::function<void (boost::system::error_code const &, std::size_t)> callback);
 
 	void async_write (
-	nano::shared_const_buffer const &,
+	celerix::shared_const_buffer const &,
 	std::function<void (boost::system::error_code const &, std::size_t)> callback = nullptr);
 
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;
@@ -112,15 +112,15 @@ public:
 	bool max () const;
 	bool full () const;
 
-	nano::transport::socket_type type () const
+	celerix::transport::socket_type type () const
 	{
 		return type_m;
 	};
-	void type_set (nano::transport::socket_type type)
+	void type_set (celerix::transport::socket_type type)
 	{
 		type_m = type;
 	}
-	nano::transport::socket_endpoint endpoint_type () const
+	celerix::transport::socket_endpoint endpoint_type () const
 	{
 		return endpoint_type_m;
 	}
@@ -146,7 +146,7 @@ private:
 	socket_queue send_queue;
 
 protected:
-	std::weak_ptr<nano::node> node_w;
+	std::weak_ptr<celerix::node> node_w;
 
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 	boost::asio::ip::tcp::socket raw_socket;
@@ -168,7 +168,7 @@ protected:
 	/** the timestamp (in seconds since epoch) of the last time there was successful receive on the socket
 	 *  successful receive includes graceful closing of the socket by the peer (the read succeeds but returns 0 bytes)
 	 */
-	std::atomic<nano::seconds_t> last_receive_time_or_init;
+	std::atomic<celerix::seconds_t> last_receive_time_or_init;
 
 	/** Flag that is set when cleanup decides to close the socket due to timeout.
 	 *  NOTE: Currently used by tcp_server::timeout() but I suspect that this and tcp_server::timeout() are not needed.
@@ -201,6 +201,6 @@ private:
 	std::atomic<socket_type> type_m{ socket_type::undefined };
 
 public: // Logging
-	virtual void operator() (nano::object_stream &) const;
+	virtual void operator() (celerix::object_stream &) const;
 };
 }

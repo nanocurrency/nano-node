@@ -1,11 +1,11 @@
-#include <nano/lib/epoch.hpp>
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/epoch.hpp>
+#include <celerix/lib/utility.hpp>
 
-std::underlying_type_t<nano::epoch> nano::normalized_epoch (nano::epoch epoch_a)
+std::underlying_type_t<celerix::epoch> celerix::normalized_epoch (celerix::epoch epoch_a)
 {
 	// Currently assumes that the epoch versions in the enum are sequential.
-	auto start = std::underlying_type_t<nano::epoch> (nano::epoch::epoch_0);
-	auto end = std::underlying_type_t<nano::epoch> (epoch_a);
+	auto start = std::underlying_type_t<celerix::epoch> (celerix::epoch::epoch_0);
+	auto end = std::underlying_type_t<celerix::epoch> (epoch_a);
 	debug_assert (end >= start);
 	return end - start;
 }

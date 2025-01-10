@@ -1,17 +1,17 @@
 #pragma once
 
-#include <nano/store/version.hpp>
+#include <celerix/store/version.hpp>
 
-namespace nano::store::rocksdb
+namespace celerix::store::rocksdb
 {
-class version : public nano::store::version
+class version : public celerix::store::version
 {
 protected:
-	nano::store::rocksdb::component & store;
+	celerix::store::rocksdb::component & store;
 
 public:
-	explicit version (nano::store::rocksdb::component & store_a);
+	explicit version (celerix::store::rocksdb::component & store_a);
 	void put (store::write_transaction const & transaction_a, int version_a) override;
 	int get (store::transaction const & transaction_a) const override;
 };
-} // namespace nano::store::rocksdb
+} // namespace celerix::store::rocksdb

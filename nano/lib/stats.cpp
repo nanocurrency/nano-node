@@ -1,12 +1,12 @@
-#include <nano/lib/config.hpp>
-#include <nano/lib/env.hpp>
-#include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/locks.hpp>
-#include <nano/lib/logging.hpp>
-#include <nano/lib/stats.hpp>
-#include <nano/lib/stats_sinks.hpp>
-#include <nano/lib/thread_roles.hpp>
-#include <nano/lib/tomlconfig.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/env.hpp>
+#include <celerix/lib/jsonconfig.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/lib/stats.hpp>
+#include <celerix/lib/stats_sinks.hpp>
+#include <celerix/lib/thread_roles.hpp>
+#include <celerix/lib/tomlconfig.hpp>
 
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -21,7 +21,7 @@ using namespace std::chrono_literals;
  * stat_log_sink
  */
 
-std::string nano::stat_log_sink::tm_to_string (tm & tm)
+std::string celerix::stat_log_sink::tm_to_string (tm & tm)
 {
 	return (boost::format ("%04d.%02d.%02d %02d:%02d:%02d") % (1900 + tm.tm_year) % (tm.tm_mon + 1) % tm.tm_mday % tm.tm_hour % tm.tm_min % tm.tm_sec).str ();
 }
@@ -30,20 +30,20 @@ std::string nano::stat_log_sink::tm_to_string (tm & tm)
  * stats
  */
 
-nano::stats::stats (nano::logger & logger_a, nano::stats_config config_a) :
+celerix::stats::stats (celerix::logger & logger_a, celerix::stats_config config_a) :
 	config{ std::move (config_a) },
 	logger{ logger_a },
 	enable_logging{ is_stat_logging_enabled () }
 {
 }
 
-nano::stats::~stats ()
+celerix::stats::~stats ()
 {
 	// Thread must be stopped before destruction
 	debug_assert (!thread.joinable ());
 }
 
-void nano::stats::start ()
+void celerix::stats::start ()
 {
 	if (!should_run ())
 	{
@@ -51,12 +51,12 @@ void nano::stats::start ()
 	}
 
 	thread = std::thread ([this] {
-		nano::thread_role::set (nano::thread_role::name::stats);
+		celerix::thread_role::set (celerix::thread_role::name::stats);
 		run ();
 	});
 }
 
-void nano::stats::stop ()
+void celerix::stats::stop ()
 {
 	{
 		std::lock_guard guard{ mutex };
@@ -69,7 +69,7 @@ void nano::stats::stop ()
 	}
 }
 
-void nano::stats::clear ()
+void celerix::stats::clear ()
 {
 	std::lock_guard guard{ mutex };
 	counters.clear ();
@@ -77,7 +77,7 @@ void nano::stats::clear ()
 	timestamp = std::chrono::steady_clock::now ();
 }
 
-void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, counter_value_t value, bool aggregate_all)
+void celerix::stats::add (stat::type type, stat::detail detail, stat::dir dir, counter_value_t value, bool aggregate_all)
 {
 	debug_assert (type != stat::type::_invalid);
 	debug_assert (detail != stat::detail::_invalid);
@@ -89,7 +89,7 @@ void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, coun
 
 	if (enable_logging)
 	{
-		logger.debug (nano::log::type::stats, "Stat: {}::{}::{} += {}",
+		logger.debug (celerix::log::type::stats, "Stat: {}::{}::{} += {}",
 		to_string (type),
 		to_string (detail),
 		to_string (dir),
@@ -97,7 +97,7 @@ void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, coun
 	}
 
 	// Updates need to happen while holding the mutex
-	auto update_counter = [this, aggregate_all] (nano::stats::counter_key key, auto && updater) {
+	auto update_counter = [this, aggregate_all] (celerix::stats::counter_key key, auto && updater) {
 		counter_key all_key{ key.type, stat::detail::all, key.dir };
 
 		// This is a two-step process to avoid exclusively locking the mutex in the common case
@@ -139,7 +139,7 @@ void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, coun
 	});
 }
 
-nano::stats::counter_value_t nano::stats::count (stat::type type, stat::detail detail, stat::dir dir) const
+celerix::stats::counter_value_t celerix::stats::count (stat::type type, stat::detail detail, stat::dir dir) const
 {
 	std::shared_lock lock{ mutex };
 	if (auto it = counters.find (counter_key{ type, detail, dir }); it != counters.end ())
@@ -149,7 +149,7 @@ nano::stats::counter_value_t nano::stats::count (stat::type type, stat::detail d
 	return 0;
 }
 
-nano::stats::counter_value_t nano::stats::count (stat::type type, stat::dir dir) const
+celerix::stats::counter_value_t celerix::stats::count (stat::type type, stat::dir dir) const
 {
 	std::shared_lock lock{ mutex };
 	counter_value_t result = 0;
@@ -165,17 +165,17 @@ nano::stats::counter_value_t nano::stats::count (stat::type type, stat::dir dir)
 	return result;
 }
 
-void nano::stats::sample (stat::sample sample, nano::stats::sampler_value_t value, std::pair<sampler_value_t, sampler_value_t> expected_min_max)
+void celerix::stats::sample (stat::sample sample, celerix::stats::sampler_value_t value, std::pair<sampler_value_t, sampler_value_t> expected_min_max)
 {
 	debug_assert (sample != stat::sample::_invalid);
 
 	if (enable_logging)
 	{
-		logger.debug (nano::log::type::stats, "Sample: {} -> {}", to_string (sample), value);
+		logger.debug (celerix::log::type::stats, "Sample: {} -> {}", to_string (sample), value);
 	}
 
 	// Updates need to happen while holding the mutex
-	auto update_sampler = [this, expected_min_max] (nano::stats::sampler_key key, auto && updater) {
+	auto update_sampler = [this, expected_min_max] (celerix::stats::sampler_key key, auto && updater) {
 		// This is a two-step process to avoid exclusively locking the mutex in the common case
 		{
 			std::shared_lock lock{ mutex };
@@ -202,7 +202,7 @@ void nano::stats::sample (stat::sample sample, nano::stats::sampler_value_t valu
 	});
 }
 
-auto nano::stats::samples (stat::sample sample) -> std::vector<sampler_value_t>
+auto celerix::stats::samples (stat::sample sample) -> std::vector<sampler_value_t>
 {
 	std::shared_lock lock{ mutex };
 	if (auto it = samplers.find (sampler_key{ sample }); it != samplers.end ())
@@ -212,7 +212,7 @@ auto nano::stats::samples (stat::sample sample) -> std::vector<sampler_value_t>
 	return {};
 }
 
-void nano::stats::log_counters (stat_log_sink & sink)
+void celerix::stats::log_counters (stat_log_sink & sink)
 {
 	// TODO: Replace with a proper std::chrono time
 	std::time_t time = std::chrono::system_clock::to_time_t (std::chrono::system_clock::now ());
@@ -222,7 +222,7 @@ void nano::stats::log_counters (stat_log_sink & sink)
 	log_counters_impl (sink, local_tm);
 }
 
-void nano::stats::log_counters_impl (stat_log_sink & sink, tm & tm)
+void celerix::stats::log_counters_impl (stat_log_sink & sink, tm & tm)
 {
 	sink.begin ();
 	if (sink.entries () >= config.log_rotation_count)
@@ -248,7 +248,7 @@ void nano::stats::log_counters_impl (stat_log_sink & sink, tm & tm)
 	sink.finalize ();
 }
 
-void nano::stats::log_samples (stat_log_sink & sink)
+void celerix::stats::log_samples (stat_log_sink & sink)
 {
 	// TODO: Replace with a proper std::chrono time
 	std::time_t time = std::chrono::system_clock::to_time_t (std::chrono::system_clock::now ());
@@ -258,7 +258,7 @@ void nano::stats::log_samples (stat_log_sink & sink)
 	log_samples_impl (sink, local_tm);
 }
 
-void nano::stats::log_samples_impl (stat_log_sink & sink, tm & tm)
+void celerix::stats::log_samples_impl (stat_log_sink & sink, tm & tm)
 {
 	sink.begin ();
 	if (sink.entries () >= config.log_rotation_count)
@@ -283,7 +283,7 @@ void nano::stats::log_samples_impl (stat_log_sink & sink, tm & tm)
 	sink.finalize ();
 }
 
-bool nano::stats::should_run () const
+bool celerix::stats::should_run () const
 {
 	if (config.log_counters_interval.count () > 0)
 	{
@@ -296,7 +296,7 @@ bool nano::stats::should_run () const
 	return false;
 }
 
-void nano::stats::run ()
+void celerix::stats::run ()
 {
 	std::unique_lock lock{ mutex };
 	while (!stopped)
@@ -310,7 +310,7 @@ void nano::stats::run ()
 	}
 }
 
-void nano::stats::run_one (std::unique_lock<std::shared_mutex> & lock)
+void celerix::stats::run_one (std::unique_lock<std::shared_mutex> & lock)
 {
 	static stat_file_writer log_count{ config.log_counters_filename };
 	static stat_file_writer log_sample{ config.log_samples_filename };
@@ -325,7 +325,7 @@ void nano::stats::run_one (std::unique_lock<std::shared_mutex> & lock)
 	// Counters
 	if (config.log_counters_interval.count () > 0)
 	{
-		if (nano::elapse (log_last_count_writeout, config.log_counters_interval))
+		if (celerix::elapse (log_last_count_writeout, config.log_counters_interval))
 		{
 			log_counters_impl (log_count, local_tm);
 		}
@@ -334,21 +334,21 @@ void nano::stats::run_one (std::unique_lock<std::shared_mutex> & lock)
 	// Samples
 	if (config.log_samples_interval.count () > 0)
 	{
-		if (nano::elapse (log_last_sample_writeout, config.log_samples_interval))
+		if (celerix::elapse (log_last_sample_writeout, config.log_samples_interval))
 		{
 			log_samples_impl (log_sample, local_tm);
 		}
 	}
 }
 
-std::chrono::seconds nano::stats::last_reset ()
+std::chrono::seconds celerix::stats::last_reset ()
 {
 	std::lock_guard guard{ mutex };
 	auto now (std::chrono::steady_clock::now ());
 	return std::chrono::duration_cast<std::chrono::seconds> (now - timestamp);
 }
 
-std::string nano::stats::dump (category category)
+std::string celerix::stats::dump (category category)
 {
 	stat_json_writer sink;
 	switch (category)
@@ -365,12 +365,12 @@ std::string nano::stats::dump (category category)
 	return sink.to_string ();
 }
 
-bool nano::stats::is_stat_logging_enabled ()
+bool celerix::stats::is_stat_logging_enabled ()
 {
 	static auto const enabled = [] () {
-		if (auto value = nano::env::get<bool> ("NANO_LOG_STATS"))
+		if (auto value = celerix::env::get<bool> ("CELERIX_LOG_STATS"))
 		{
-			std::cerr << "Stats logging enabled by NANO_LOG_STATS environment variable" << std::endl;
+			std::cerr << "Stats logging enabled by CELERIX_LOG_STATS environment variable" << std::endl;
 			return *value;
 		}
 		return false;
@@ -382,15 +382,15 @@ bool nano::stats::is_stat_logging_enabled ()
  * stats::sampler_entry
  */
 
-void nano::stats::sampler_entry::add (nano::stats::sampler_value_t value)
+void celerix::stats::sampler_entry::add (celerix::stats::sampler_value_t value)
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	samples.push_back (value);
 }
 
-auto nano::stats::sampler_entry::collect () -> std::vector<sampler_value_t>
+auto celerix::stats::sampler_entry::collect () -> std::vector<sampler_value_t>
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	std::vector<sampler_value_t> result{ samples.begin (), samples.end () };
 	samples.clear ();
 	return result;
@@ -400,11 +400,11 @@ auto nano::stats::sampler_entry::collect () -> std::vector<sampler_value_t>
  * stats_config
  */
 
-nano::error nano::stats_config::serialize_toml (nano::tomlconfig & toml) const
+celerix::error celerix::stats_config::serialize_toml (celerix::tomlconfig & toml) const
 {
 	toml.put ("max_samples", max_samples, "Maximum number of samples to keep in the ring buffer.\ntype:uint64");
 
-	nano::tomlconfig log_l;
+	celerix::tomlconfig log_l;
 	log_l.put ("headers", log_headers, "If true, write headers on each counter or samples writeout.\nThe header contains log type and the current wall time.\ntype:bool");
 	log_l.put ("interval_counters", log_counters_interval.count (), "How often to log counters. 0 disables logging.\ntype:milliseconds");
 	log_l.put ("interval_samples", log_samples_interval.count (), "How often to log samples. 0 disables logging.\ntype:milliseconds");
@@ -416,7 +416,7 @@ nano::error nano::stats_config::serialize_toml (nano::tomlconfig & toml) const
 	return toml.get_error ();
 }
 
-nano::error nano::stats_config::deserialize_toml (nano::tomlconfig & toml)
+celerix::error celerix::stats_config::deserialize_toml (celerix::tomlconfig & toml)
 {
 	toml.get ("max_samples", max_samples);
 

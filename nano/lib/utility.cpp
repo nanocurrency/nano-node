@@ -1,9 +1,9 @@
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <boost/program_options.hpp>
 
 // Issue #3748
-void nano::sort_options_description (const boost::program_options::options_description & source, boost::program_options::options_description & target)
+void celerix::sort_options_description (const boost::program_options::options_description & source, boost::program_options::options_description & target)
 {
 	// Grab all of the options, get the option display name, stick it in a map using the display name as
 	// the key (the map will sort) and the value as the option itself.

@@ -1,10 +1,10 @@
-#include <nano/lib/utility.hpp>
-#include <nano/secure/working.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/secure/working.hpp>
 
 #include <pwd.h>
 #include <sys/types.h>
 
-namespace nano
+namespace celerix
 {
 std::filesystem::path app_path_impl ()
 {

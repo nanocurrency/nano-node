@@ -1,9 +1,9 @@
 #pragma once
 
-#include <nano/lib/locks.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/observer_set.hpp>
-#include <nano/secure/common.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/observer_set.hpp>
+#include <celerix/secure/common.hpp>
 
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
@@ -15,59 +15,59 @@
 
 namespace mi = boost::multi_index;
 
-namespace nano
+namespace celerix
 {
 class stats;
 
 class unchecked_map
 {
 public:
-	unchecked_map (unsigned const max_unchecked_blocks, nano::stats &, bool const & do_delete);
+	unchecked_map (unsigned const max_unchecked_blocks, celerix::stats &, bool const & do_delete);
 	~unchecked_map ();
 
 	void start ();
 	void stop ();
 
-	void put (nano::hash_or_account const & dependency, nano::unchecked_info const & info);
+	void put (celerix::hash_or_account const & dependency, celerix::unchecked_info const & info);
 	void for_each (
-	std::function<void (nano::unchecked_key const &, nano::unchecked_info const &)> action, std::function<bool ()> predicate = [] () { return true; });
+	std::function<void (celerix::unchecked_key const &, celerix::unchecked_info const &)> action, std::function<bool ()> predicate = [] () { return true; });
 	void for_each (
-	nano::hash_or_account const & dependency, std::function<void (nano::unchecked_key const &, nano::unchecked_info const &)> action, std::function<bool ()> predicate = [] () { return true; });
-	std::vector<nano::unchecked_info> get (nano::block_hash const &);
-	bool exists (nano::unchecked_key const & key) const;
-	void del (nano::unchecked_key const & key);
+	celerix::hash_or_account const & dependency, std::function<void (celerix::unchecked_key const &, celerix::unchecked_info const &)> action, std::function<bool ()> predicate = [] () { return true; });
+	std::vector<celerix::unchecked_info> get (celerix::block_hash const &);
+	bool exists (celerix::unchecked_key const & key) const;
+	void del (celerix::unchecked_key const & key);
 	void clear ();
 
 	/**
 	 * Trigger requested dependencies
 	 */
-	void trigger (nano::hash_or_account const & dependency);
+	void trigger (celerix::hash_or_account const & dependency);
 
 	size_t count () const; // Same as `entries_size ()`
 	size_t entries_size () const;
 	size_t queries_size () const;
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 
 public: // Events
-	nano::observer_set<nano::unchecked_info const &> satisfied;
+	celerix::observer_set<celerix::unchecked_info const &> satisfied;
 
 private:
 	void run ();
-	void query_impl (nano::block_hash const & hash);
+	void query_impl (celerix::block_hash const & hash);
 
 private: // Dependencies
-	nano::stats & stats;
+	celerix::stats & stats;
 
 private:
 	bool const & disable_delete;
-	std::deque<nano::hash_or_account> buffer;
-	std::deque<nano::hash_or_account> back_buffer;
+	std::deque<celerix::hash_or_account> buffer;
+	std::deque<celerix::hash_or_account> back_buffer;
 	bool writing_back_buffer{ false };
 
 	bool stopped{ false };
-	nano::condition_variable condition;
-	mutable nano::mutex mutex; // Protects queries
+	celerix::condition_variable condition;
+	mutable celerix::mutex mutex; // Protects queries
 	std::thread thread;
 
 	unsigned const max_unchecked_blocks;
@@ -77,8 +77,8 @@ private:
 private:
 	struct entry
 	{
-		nano::unchecked_key key;
-		nano::unchecked_info info;
+		celerix::unchecked_key key;
+		celerix::unchecked_info info;
 	};
 
 	// clang-format off
@@ -89,7 +89,7 @@ private:
 		mi::indexed_by<
 			mi::sequenced<mi::tag<tag_sequenced>>,
 			mi::ordered_unique<mi::tag<tag_root>,
-				mi::member<entry, nano::unchecked_key, &entry::key>>>>;
+				mi::member<entry, celerix::unchecked_key, &entry::key>>>>;
 	// clang-format on
 	ordered_unchecked entries;
 

@@ -2,12 +2,12 @@
 
 #include <memory>
 
-namespace nano::store
+namespace celerix::store
 {
 class component;
 }
 
-namespace nano::test
+namespace celerix::test
 {
-std::unique_ptr<nano::store::component> make_store ();
+std::unique_ptr<celerix::store::component> make_store ();
 }

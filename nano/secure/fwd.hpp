@@ -1,6 +1,6 @@
 #pragma once
 
-namespace nano
+namespace celerix
 {
 class account_info;
 class keypair;
@@ -10,7 +10,7 @@ class ledger_constants;
 class network_params;
 class vote;
 }
-namespace nano::secure
+namespace celerix::secure
 {
 class read_transaction;
 class transaction;

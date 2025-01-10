@@ -56,7 +56,7 @@ run_tests()
     xvfb_run_ ./qt_test
     qt_test_res=${?}
 
-    (cd ../systest && export NANO_NODE_EXE=../build/nano_node && ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} 300 ./RUNALL)
+    (cd ../systest && export CELERIX_NODE_EXE=../build/celerix_node && ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} 300 ./RUNALL)
     sys_test_res=${?}
 
     echo "Core Test return code: ${core_test_res}"

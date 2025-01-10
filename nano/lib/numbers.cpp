@@ -1,9 +1,9 @@
-#include <nano/crypto/blake2/blake2.h>
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/crypto_lib/secure_memory.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/secure/common.hpp>
+#include <celerix/crypto/blake2/blake2.h>
+#include <celerix/crypto_lib/random_pool.hpp>
+#include <celerix/crypto_lib/secure_memory.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/secure/common.hpp>
 
 #include <crypto/ed25519-donna/ed25519.h>
 #include <cryptopp/aes.h>
@@ -36,23 +36,23 @@ uint8_t account_decode (char value)
  * public_key
  */
 
-nano::public_key nano::public_key::from_account (std::string const & text)
+celerix::public_key celerix::public_key::from_account (std::string const & text)
 {
-	nano::public_key result;
+	celerix::public_key result;
 	bool error = result.decode_account (text);
 	release_assert (!error);
 	return result;
 }
 
-nano::public_key nano::public_key::from_node_id (std::string const & text)
+celerix::public_key celerix::public_key::from_node_id (std::string const & text)
 {
-	nano::public_key result;
+	celerix::public_key result;
 	bool error = result.decode_node_id (text);
 	release_assert (!error);
 	return result;
 }
 
-void nano::public_key::encode_account (std::string & destination_a) const
+void celerix::public_key::encode_account (std::string & destination_a) const
 {
 	debug_assert (destination_a.empty ());
 	destination_a.reserve (65);
@@ -61,58 +61,58 @@ void nano::public_key::encode_account (std::string & destination_a) const
 	blake2b_init (&hash, 5);
 	blake2b_update (&hash, bytes.data (), bytes.size ());
 	blake2b_final (&hash, reinterpret_cast<uint8_t *> (&check), 5);
-	nano::uint512_t number_l (number ());
+	celerix::uint512_t number_l (number ());
 	number_l <<= 40;
-	number_l |= nano::uint512_t (check);
+	number_l |= celerix::uint512_t (check);
 	for (auto i (0); i < 60; ++i)
 	{
 		uint8_t r (number_l & static_cast<uint8_t> (0x1f));
 		number_l >>= 5;
 		destination_a.push_back (account_encode (r));
 	}
-	destination_a.append ("_onan"); // nano_
+	destination_a.append ("_onan"); // celerix_
 	std::reverse (destination_a.begin (), destination_a.end ());
 }
 
-std::string nano::public_key::to_account () const
+std::string celerix::public_key::to_account () const
 {
 	std::string result;
 	encode_account (result);
 	return result;
 }
 
-nano::public_key const & nano::public_key::null ()
+celerix::public_key const & celerix::public_key::null ()
 {
-	return nano::hardened_constants::get ().not_an_account;
+	return celerix::hardened_constants::get ().not_an_account;
 }
 
-std::string nano::public_key::to_node_id () const
+std::string celerix::public_key::to_node_id () const
 {
 	return to_account ().replace (0, 4, "node");
 }
 
-bool nano::public_key::decode_node_id (std::string const & source_a)
+bool celerix::public_key::decode_node_id (std::string const & source_a)
 {
 	return decode_account (source_a);
 }
 
-bool nano::public_key::decode_account (std::string const & source_a)
+bool celerix::public_key::decode_account (std::string const & source_a)
 {
 	auto error (source_a.size () < 5);
 	if (!error)
 	{
 		auto xrb_prefix (source_a[0] == 'x' && source_a[1] == 'r' && source_a[2] == 'b' && (source_a[3] == '_' || source_a[3] == '-'));
-		auto nano_prefix (source_a[0] == 'n' && source_a[1] == 'a' && source_a[2] == 'n' && source_a[3] == 'o' && (source_a[4] == '_' || source_a[4] == '-'));
+		auto celerix_prefix (source_a[0] == 'n' && source_a[1] == 'a' && source_a[2] == 'n' && source_a[3] == 'o' && (source_a[4] == '_' || source_a[4] == '-'));
 		auto node_id_prefix = (source_a[0] == 'n' && source_a[1] == 'o' && source_a[2] == 'd' && source_a[3] == 'e' && source_a[4] == '_');
-		error = (xrb_prefix && source_a.size () != 64) || (nano_prefix && source_a.size () != 65);
+		error = (xrb_prefix && source_a.size () != 64) || (celerix_prefix && source_a.size () != 65);
 		if (!error)
 		{
-			if (xrb_prefix || nano_prefix || node_id_prefix)
+			if (xrb_prefix || celerix_prefix || node_id_prefix)
 			{
 				auto i (source_a.begin () + (xrb_prefix ? 4 : 5));
 				if (*i == '1' || *i == '3')
 				{
-					nano::uint512_t number_l;
+					celerix::uint512_t number_l;
 					for (auto j (source_a.end ()); !error && i != j; ++i)
 					{
 						uint8_t character (*i);
@@ -130,7 +130,7 @@ bool nano::public_key::decode_account (std::string const & source_a)
 					}
 					if (!error)
 					{
-						nano::public_key temp = (number_l >> 40).convert_to<nano::uint256_t> ();
+						celerix::public_key temp = (number_l >> 40).convert_to<celerix::uint256_t> ();
 						uint64_t check (number_l & static_cast<uint64_t> (0xffffffffff));
 						uint64_t validation (0);
 						blake2b_state hash;
@@ -163,21 +163,21 @@ bool nano::public_key::decode_account (std::string const & source_a)
  */
 
 // Construct a uint256_union = AES_ENC_CTR (cleartext, key, iv)
-void nano::uint256_union::encrypt (nano::raw_key const & cleartext, nano::raw_key const & key, uint128_union const & iv)
+void celerix::uint256_union::encrypt (celerix::raw_key const & cleartext, celerix::raw_key const & key, uint128_union const & iv)
 {
 	CryptoPP::AES::Encryption alg (key.bytes.data (), sizeof (key.bytes));
 	CryptoPP::CTR_Mode_ExternalCipher::Encryption enc (alg, iv.bytes.data ());
 	enc.ProcessData (bytes.data (), cleartext.bytes.data (), sizeof (cleartext.bytes));
 }
 
-std::string nano::uint256_union::to_string () const
+std::string celerix::uint256_union::to_string () const
 {
 	std::string result;
 	encode_hex (result);
 	return result;
 }
 
-nano::uint256_union & nano::uint256_union::operator^= (nano::uint256_union const & other_a)
+celerix::uint256_union & celerix::uint256_union::operator^= (celerix::uint256_union const & other_a)
 {
 	auto j (other_a.qwords.begin ());
 	for (auto i (qwords.begin ()), n (qwords.end ()); i != n; ++i, ++j)
@@ -187,9 +187,9 @@ nano::uint256_union & nano::uint256_union::operator^= (nano::uint256_union const
 	return *this;
 }
 
-nano::uint256_union nano::uint256_union::operator^ (nano::uint256_union const & other_a) const
+celerix::uint256_union celerix::uint256_union::operator^ (celerix::uint256_union const & other_a) const
 {
-	nano::uint256_union result;
+	celerix::uint256_union result;
 	auto k (result.qwords.begin ());
 	for (auto i (qwords.begin ()), j (other_a.qwords.begin ()), n (qwords.end ()); i != n; ++i, ++j, ++k)
 	{
@@ -198,13 +198,13 @@ nano::uint256_union nano::uint256_union::operator^ (nano::uint256_union const & 
 	return result;
 }
 
-nano::uint256_union::uint256_union (std::string const & hex_a)
+celerix::uint256_union::uint256_union (std::string const & hex_a)
 {
 	auto error (decode_hex (hex_a));
 	release_assert (!error);
 }
 
-void nano::uint256_union::encode_hex (std::string & text) const
+void celerix::uint256_union::encode_hex (std::string & text) const
 {
 	debug_assert (text.empty ());
 	std::stringstream stream;
@@ -213,14 +213,14 @@ void nano::uint256_union::encode_hex (std::string & text) const
 	text = stream.str ();
 }
 
-bool nano::uint256_union::decode_hex (std::string const & text)
+bool celerix::uint256_union::decode_hex (std::string const & text)
 {
 	auto error (false);
 	if (!text.empty () && text.size () <= 64)
 	{
 		std::stringstream stream (text);
 		stream << std::hex << std::noshowbase;
-		nano::uint256_t number_l;
+		celerix::uint256_t number_l;
 		try
 		{
 			stream >> number_l;
@@ -242,7 +242,7 @@ bool nano::uint256_union::decode_hex (std::string const & text)
 	return error;
 }
 
-void nano::uint256_union::encode_dec (std::string & text) const
+void celerix::uint256_union::encode_dec (std::string & text) const
 {
 	debug_assert (text.empty ());
 	std::stringstream stream;
@@ -251,14 +251,14 @@ void nano::uint256_union::encode_dec (std::string & text) const
 	text = stream.str ();
 }
 
-bool nano::uint256_union::decode_dec (std::string const & text)
+bool celerix::uint256_union::decode_dec (std::string const & text)
 {
 	auto error (text.size () > 78 || (text.size () > 1 && text.front () == '0') || (!text.empty () && text.front () == '-'));
 	if (!error)
 	{
 		std::stringstream stream (text);
 		stream << std::dec << std::noshowbase;
-		nano::uint256_t number_l;
+		celerix::uint256_t number_l;
 		try
 		{
 			stream >> number_l;
@@ -276,7 +276,7 @@ bool nano::uint256_union::decode_dec (std::string const & text)
 	return error;
 }
 
-void nano::uint512_union::encode_hex (std::string & text) const
+void celerix::uint512_union::encode_hex (std::string & text) const
 {
 	debug_assert (text.empty ());
 	std::stringstream stream;
@@ -285,14 +285,14 @@ void nano::uint512_union::encode_hex (std::string & text) const
 	text = stream.str ();
 }
 
-bool nano::uint512_union::decode_hex (std::string const & text)
+bool celerix::uint512_union::decode_hex (std::string const & text)
 {
 	auto error (text.size () > 128);
 	if (!error)
 	{
 		std::stringstream stream (text);
 		stream << std::hex << std::noshowbase;
-		nano::uint512_t number_l;
+		celerix::uint512_t number_l;
 		try
 		{
 			stream >> number_l;
@@ -310,74 +310,74 @@ bool nano::uint512_union::decode_hex (std::string const & text)
 	return error;
 }
 
-std::string nano::uint512_union::to_string () const
+std::string celerix::uint512_union::to_string () const
 {
 	std::string result;
 	encode_hex (result);
 	return result;
 }
 
-nano::raw_key::~raw_key ()
+celerix::raw_key::~raw_key ()
 {
 	secure_wipe_memory (bytes.data (), bytes.size ());
 }
 
 // This this = AES_DEC_CTR (ciphertext, key, iv)
-void nano::raw_key::decrypt (nano::uint256_union const & ciphertext, nano::raw_key const & key_a, uint128_union const & iv)
+void celerix::raw_key::decrypt (celerix::uint256_union const & ciphertext, celerix::raw_key const & key_a, uint128_union const & iv)
 {
 	CryptoPP::AES::Encryption alg (key_a.bytes.data (), sizeof (key_a.bytes));
 	CryptoPP::CTR_Mode_ExternalCipher::Decryption dec (alg, iv.bytes.data ());
 	dec.ProcessData (bytes.data (), ciphertext.bytes.data (), sizeof (ciphertext.bytes));
 }
 
-nano::raw_key nano::deterministic_key (nano::raw_key const & seed_a, uint32_t index_a)
+celerix::raw_key celerix::deterministic_key (celerix::raw_key const & seed_a, uint32_t index_a)
 {
-	nano::raw_key prv_key;
+	celerix::raw_key prv_key;
 	blake2b_state hash;
 	blake2b_init (&hash, prv_key.bytes.size ());
 	blake2b_update (&hash, seed_a.bytes.data (), seed_a.bytes.size ());
-	nano::uint256_union index (index_a);
+	celerix::uint256_union index (index_a);
 	blake2b_update (&hash, reinterpret_cast<uint8_t *> (&index.dwords[7]), sizeof (uint32_t));
 	blake2b_final (&hash, prv_key.bytes.data (), prv_key.bytes.size ());
 	return prv_key;
 }
 
-nano::public_key nano::pub_key (nano::raw_key const & raw_key_a)
+celerix::public_key celerix::pub_key (celerix::raw_key const & raw_key_a)
 {
-	nano::public_key result;
+	celerix::public_key result;
 	ed25519_publickey (raw_key_a.bytes.data (), result.bytes.data ());
 	return result;
 }
 
-nano::signature nano::sign_message (nano::raw_key const & private_key, nano::public_key const & public_key, uint8_t const * data, size_t size)
+celerix::signature celerix::sign_message (celerix::raw_key const & private_key, celerix::public_key const & public_key, uint8_t const * data, size_t size)
 {
-	nano::signature result;
+	celerix::signature result;
 	ed25519_sign (data, size, private_key.bytes.data (), public_key.bytes.data (), result.bytes.data ());
 	return result;
 }
 
-nano::signature nano::sign_message (nano::raw_key const & private_key, nano::public_key const & public_key, nano::uint256_union const & message)
+celerix::signature celerix::sign_message (celerix::raw_key const & private_key, celerix::public_key const & public_key, celerix::uint256_union const & message)
 {
-	return nano::sign_message (private_key, public_key, message.bytes.data (), sizeof (message.bytes));
+	return celerix::sign_message (private_key, public_key, message.bytes.data (), sizeof (message.bytes));
 }
 
-bool nano::validate_message (nano::public_key const & public_key, uint8_t const * data, size_t size, nano::signature const & signature)
+bool celerix::validate_message (celerix::public_key const & public_key, uint8_t const * data, size_t size, celerix::signature const & signature)
 {
 	return 0 != ed25519_sign_open (data, size, public_key.bytes.data (), signature.bytes.data ());
 }
 
-bool nano::validate_message (nano::public_key const & public_key, nano::uint256_union const & message, nano::signature const & signature)
+bool celerix::validate_message (celerix::public_key const & public_key, celerix::uint256_union const & message, celerix::signature const & signature)
 {
 	return validate_message (public_key, message.bytes.data (), sizeof (message.bytes), signature);
 }
 
-nano::uint128_union::uint128_union (std::string const & string_a)
+celerix::uint128_union::uint128_union (std::string const & string_a)
 {
 	auto error (decode_hex (string_a));
 	release_assert (!error);
 }
 
-void nano::uint128_union::encode_hex (std::string & text) const
+void celerix::uint128_union::encode_hex (std::string & text) const
 {
 	debug_assert (text.empty ());
 	std::stringstream stream;
@@ -386,14 +386,14 @@ void nano::uint128_union::encode_hex (std::string & text) const
 	text = stream.str ();
 }
 
-bool nano::uint128_union::decode_hex (std::string const & text)
+bool celerix::uint128_union::decode_hex (std::string const & text)
 {
 	auto error (text.size () > 32);
 	if (!error)
 	{
 		std::stringstream stream (text);
 		stream << std::hex << std::noshowbase;
-		nano::uint128_t number_l;
+		celerix::uint128_t number_l;
 		try
 		{
 			stream >> number_l;
@@ -411,7 +411,7 @@ bool nano::uint128_union::decode_hex (std::string const & text)
 	return error;
 }
 
-void nano::uint128_union::encode_dec (std::string & text) const
+void celerix::uint128_union::encode_dec (std::string & text) const
 {
 	debug_assert (text.empty ());
 	std::stringstream stream;
@@ -420,7 +420,7 @@ void nano::uint128_union::encode_dec (std::string & text) const
 	text = stream.str ();
 }
 
-bool nano::uint128_union::decode_dec (std::string const & text, bool decimal)
+bool celerix::uint128_union::decode_dec (std::string const & text, bool decimal)
 {
 	auto error (text.size () > 39 || (text.size () > 1 && text.front () == '0' && !decimal) || (!text.empty () && text.front () == '-'));
 	if (!error)
@@ -431,7 +431,7 @@ bool nano::uint128_union::decode_dec (std::string const & text, bool decimal)
 		try
 		{
 			stream >> number_l;
-			nano::uint128_t unchecked (number_l);
+			celerix::uint128_t unchecked (number_l);
 			*this = unchecked;
 			if (!stream.eof ())
 			{
@@ -446,7 +446,7 @@ bool nano::uint128_union::decode_dec (std::string const & text, bool decimal)
 	return error;
 }
 
-bool nano::uint128_union::decode_dec (std::string const & text, nano::uint128_t scale)
+bool celerix::uint128_union::decode_dec (std::string const & text, celerix::uint128_t scale)
 {
 	bool error (text.size () > 40 || (!text.empty () && text.front () == '-'));
 	if (!error)
@@ -454,7 +454,7 @@ bool nano::uint128_union::decode_dec (std::string const & text, nano::uint128_t 
 		auto delimiter_position (text.find (".")); // Dot delimiter hardcoded until decision for supporting other locales
 		if (delimiter_position == std::string::npos)
 		{
-			nano::uint128_union integer;
+			celerix::uint128_union integer;
 			error = integer.decode_dec (text);
 			if (!error)
 			{
@@ -462,10 +462,10 @@ bool nano::uint128_union::decode_dec (std::string const & text, nano::uint128_t 
 				try
 				{
 					auto result (boost::multiprecision::checked_uint128_t (integer.number ()) * boost::multiprecision::checked_uint128_t (scale));
-					error = (result > std::numeric_limits<nano::uint128_t>::max ());
+					error = (result > std::numeric_limits<celerix::uint128_t>::max ());
 					if (!error)
 					{
-						*this = nano::uint128_t (result);
+						*this = celerix::uint128_t (result);
 					}
 				}
 				catch (std::overflow_error &)
@@ -476,7 +476,7 @@ bool nano::uint128_union::decode_dec (std::string const & text, nano::uint128_t 
 		}
 		else
 		{
-			nano::uint128_union integer_part;
+			celerix::uint128_union integer_part;
 			std::string integer_text (text.substr (0, delimiter_position));
 			error = (integer_text.empty () || integer_part.decode_dec (integer_text));
 			if (!error)
@@ -484,7 +484,7 @@ bool nano::uint128_union::decode_dec (std::string const & text, nano::uint128_t 
 				// Overflow check
 				try
 				{
-					error = ((boost::multiprecision::checked_uint128_t (integer_part.number ()) * boost::multiprecision::checked_uint128_t (scale)) > std::numeric_limits<nano::uint128_t>::max ());
+					error = ((boost::multiprecision::checked_uint128_t (integer_part.number ()) * boost::multiprecision::checked_uint128_t (scale)) > std::numeric_limits<celerix::uint128_t>::max ());
 				}
 				catch (std::overflow_error &)
 				{
@@ -492,7 +492,7 @@ bool nano::uint128_union::decode_dec (std::string const & text, nano::uint128_t 
 				}
 				if (!error)
 				{
-					nano::uint128_union decimal_part;
+					celerix::uint128_union decimal_part;
 					std::string decimal_text (text.substr (delimiter_position + 1, text.length ()));
 					error = (decimal_text.empty () || decimal_part.decode_dec (decimal_text, true));
 					if (!error)
@@ -511,10 +511,10 @@ bool nano::uint128_union::decode_dec (std::string const & text, nano::uint128_t 
 							auto result = integer_part_scaled + decimal_part_mult_pow;
 
 							// Overflow check
-							error = (result > std::numeric_limits<nano::uint128_t>::max ());
+							error = (result > std::numeric_limits<celerix::uint128_t>::max ());
 							if (!error)
 							{
-								*this = nano::uint128_t (result);
+								*this = celerix::uint128_t (result);
 							}
 						}
 					}
@@ -525,7 +525,7 @@ bool nano::uint128_union::decode_dec (std::string const & text, nano::uint128_t 
 	return error;
 }
 
-void format_frac (std::ostringstream & stream, nano::uint128_t value, nano::uint128_t scale, int precision)
+void format_frac (std::ostringstream & stream, celerix::uint128_t value, celerix::uint128_t scale, int precision)
 {
 	auto reduce = scale;
 	auto rem = value;
@@ -539,9 +539,9 @@ void format_frac (std::ostringstream & stream, nano::uint128_t value, nano::uint
 	}
 }
 
-void format_dec (std::ostringstream & stream, nano::uint128_t value, char group_sep, std::string const & groupings)
+void format_dec (std::ostringstream & stream, celerix::uint128_t value, char group_sep, std::string const & groupings)
 {
-	auto largestPow10 = nano::uint256_t (1);
+	auto largestPow10 = celerix::uint256_t (1);
 	int dec_count = 1;
 	while (1)
 	{
@@ -582,8 +582,8 @@ void format_dec (std::ostringstream & stream, nano::uint128_t value, char group_
 		}
 	}
 
-	auto reduce = nano::uint128_t (largestPow10);
-	nano::uint128_t rem = value;
+	auto reduce = celerix::uint128_t (largestPow10);
+	celerix::uint128_t rem = value;
 	while (reduce > 0)
 	{
 		auto val = rem / reduce;
@@ -598,7 +598,7 @@ void format_dec (std::ostringstream & stream, nano::uint128_t value, char group_
 	}
 }
 
-std::string format_balance (nano::uint128_t balance, nano::uint128_t scale, int precision, bool group_digits, char thousands_sep, char decimal_point, std::string & grouping)
+std::string format_balance (celerix::uint128_t balance, celerix::uint128_t scale, int precision, bool group_digits, char thousands_sep, char decimal_point, std::string & grouping)
 {
 	std::ostringstream stream;
 	auto int_part = balance / scale;
@@ -635,7 +635,7 @@ std::string format_balance (nano::uint128_t balance, nano::uint128_t scale, int 
 	return stream.str ();
 }
 
-std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits) const
+std::string celerix::uint128_union::format_balance (celerix::uint128_t scale, int precision, bool group_digits) const
 {
 	auto thousands_sep = std::use_facet<std::numpunct<char>> (std::locale ()).thousands_sep ();
 	auto decimal_point = std::use_facet<std::numpunct<char>> (std::locale ()).decimal_point ();
@@ -643,7 +643,7 @@ std::string nano::uint128_union::format_balance (nano::uint128_t scale, int prec
 	return ::format_balance (number (), scale, precision, group_digits, thousands_sep, decimal_point, grouping);
 }
 
-std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits, std::locale const & locale) const
+std::string celerix::uint128_union::format_balance (celerix::uint128_t scale, int precision, bool group_digits, std::locale const & locale) const
 {
 	auto thousands_sep = std::use_facet<std::moneypunct<char>> (locale).thousands_sep ();
 	auto decimal_point = std::use_facet<std::moneypunct<char>> (locale).decimal_point ();
@@ -651,41 +651,41 @@ std::string nano::uint128_union::format_balance (nano::uint128_t scale, int prec
 	return ::format_balance (number (), scale, precision, group_digits, thousands_sep, decimal_point, grouping);
 }
 
-std::string nano::uint128_union::to_string () const
+std::string celerix::uint128_union::to_string () const
 {
 	std::string result;
 	encode_hex (result);
 	return result;
 }
 
-std::string nano::uint128_union::to_string_dec () const
+std::string celerix::uint128_union::to_string_dec () const
 {
 	std::string result;
 	encode_dec (result);
 	return result;
 }
 
-bool nano::hash_or_account::decode_hex (std::string const & text_a)
+bool celerix::hash_or_account::decode_hex (std::string const & text_a)
 {
 	return raw.decode_hex (text_a);
 }
 
-bool nano::hash_or_account::decode_account (std::string const & source_a)
+bool celerix::hash_or_account::decode_account (std::string const & source_a)
 {
 	return account.decode_account (source_a);
 }
 
-std::string nano::hash_or_account::to_string () const
+std::string celerix::hash_or_account::to_string () const
 {
 	return raw.to_string ();
 }
 
-std::string nano::hash_or_account::to_account () const
+std::string celerix::hash_or_account::to_account () const
 {
 	return account.to_account ();
 }
 
-std::string nano::to_string_hex (uint64_t const value_a)
+std::string celerix::to_string_hex (uint64_t const value_a)
 {
 	std::stringstream stream;
 	stream << std::hex << std::noshowbase << std::setw (16) << std::setfill ('0');
@@ -693,7 +693,7 @@ std::string nano::to_string_hex (uint64_t const value_a)
 	return stream.str ();
 }
 
-std::string nano::to_string_hex (uint16_t const value_a)
+std::string celerix::to_string_hex (uint16_t const value_a)
 {
 	std::stringstream stream;
 	stream << std::hex << std::noshowbase << std::setw (4) << std::setfill ('0');
@@ -701,7 +701,7 @@ std::string nano::to_string_hex (uint16_t const value_a)
 	return stream.str ();
 }
 
-bool nano::from_string_hex (std::string const & value_a, uint64_t & target_a)
+bool celerix::from_string_hex (std::string const & value_a, uint64_t & target_a)
 {
 	auto error (value_a.empty ());
 	if (!error)
@@ -730,7 +730,7 @@ bool nano::from_string_hex (std::string const & value_a, uint64_t & target_a)
 	return error;
 }
 
-std::string nano::to_string (double const value_a, int const precision_a)
+std::string celerix::to_string (double const value_a, int const precision_a)
 {
 	std::stringstream stream;
 	stream << std::setprecision (precision_a) << std::fixed;
@@ -738,28 +738,28 @@ std::string nano::to_string (double const value_a, int const precision_a)
 	return stream.str ();
 }
 
-std::ostream & nano::operator<< (std::ostream & os, const uint128_union & val)
+std::ostream & celerix::operator<< (std::ostream & os, const uint128_union & val)
 {
 	// TODO: Replace with streaming implementation
 	os << val.to_string ();
 	return os;
 }
 
-std::ostream & nano::operator<< (std::ostream & os, const uint256_union & val)
+std::ostream & celerix::operator<< (std::ostream & os, const uint256_union & val)
 {
 	// TODO: Replace with streaming implementation
 	os << val.to_string ();
 	return os;
 }
 
-std::ostream & nano::operator<< (std::ostream & os, const uint512_union & val)
+std::ostream & celerix::operator<< (std::ostream & os, const uint512_union & val)
 {
 	// TODO: Replace with streaming implementation
 	os << val.to_string ();
 	return os;
 }
 
-std::ostream & nano::operator<< (std::ostream & os, const hash_or_account & val)
+std::ostream & celerix::operator<< (std::ostream & os, const hash_or_account & val)
 {
 	// TODO: Replace with streaming implementation
 	os << val.to_string ();
@@ -771,10 +771,10 @@ std::ostream & nano::operator<< (std::ostream & os, const hash_or_account & val)
 #pragma warning(disable : 4146) // warning C4146: unary minus operator applied to unsigned type, result still unsigned
 #endif
 
-uint64_t nano::difficulty::from_multiplier (double const multiplier_a, uint64_t const base_difficulty_a)
+uint64_t celerix::difficulty::from_multiplier (double const multiplier_a, uint64_t const base_difficulty_a)
 {
 	debug_assert (multiplier_a > 0.);
-	nano::uint128_t reverse_difficulty ((-base_difficulty_a) / multiplier_a);
+	celerix::uint128_t reverse_difficulty ((-base_difficulty_a) / multiplier_a);
 	if (reverse_difficulty > std::numeric_limits<std::uint64_t>::max ())
 	{
 		return 0;
@@ -789,7 +789,7 @@ uint64_t nano::difficulty::from_multiplier (double const multiplier_a, uint64_t 
 	}
 }
 
-double nano::difficulty::to_multiplier (uint64_t const difficulty_a, uint64_t const base_difficulty_a)
+double celerix::difficulty::to_multiplier (uint64_t const difficulty_a, uint64_t const base_difficulty_a)
 {
 	debug_assert (difficulty_a > 0);
 	return static_cast<double> (-base_difficulty_a) / (-difficulty_a);

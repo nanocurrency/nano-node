@@ -1,18 +1,18 @@
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/files.hpp>
-#include <nano/lib/threading.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/lib/work_version.hpp>
-#include <nano/node/confirming_set.hpp>
-#include <nano/node/election.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/wallet.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/ledger_set_any.hpp>
-#include <nano/secure/ledger_set_confirmed.hpp>
-#include <nano/store/lmdb/iterator.hpp>
-#include <nano/store/typed_iterator_templ.hpp>
+#include <celerix/crypto_lib/random_pool.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/files.hpp>
+#include <celerix/lib/threading.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/lib/work_version.hpp>
+#include <celerix/node/confirming_set.hpp>
+#include <celerix/node/election.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/wallet.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/ledger_set_any.hpp>
+#include <celerix/secure/ledger_set_confirmed.hpp>
+#include <celerix/store/lmdb/iterator.hpp>
+#include <celerix/store/typed_iterator_templ.hpp>
 
 #include <boost/format.hpp>
 #include <boost/polymorphic_cast.hpp>
@@ -22,108 +22,108 @@
 
 #include <argon2.h>
 
-template class nano::store::typed_iterator<nano::account, nano::wallet_value>;
+template class celerix::store::typed_iterator<celerix::account, celerix::wallet_value>;
 
-nano::uint256_union nano::wallet_store::check (store::transaction const & transaction_a)
+celerix::uint256_union celerix::wallet_store::check (store::transaction const & transaction_a)
 {
-	nano::wallet_value value (entry_get_raw (transaction_a, nano::wallet_store::check_special));
+	celerix::wallet_value value (entry_get_raw (transaction_a, celerix::wallet_store::check_special));
 	return value.key;
 }
 
-nano::uint256_union nano::wallet_store::salt (store::transaction const & transaction_a)
+celerix::uint256_union celerix::wallet_store::salt (store::transaction const & transaction_a)
 {
-	nano::wallet_value value (entry_get_raw (transaction_a, nano::wallet_store::salt_special));
+	celerix::wallet_value value (entry_get_raw (transaction_a, celerix::wallet_store::salt_special));
 	return value.key;
 }
 
-void nano::wallet_store::wallet_key (nano::raw_key & prv_a, store::transaction const & transaction_a)
+void celerix::wallet_store::wallet_key (celerix::raw_key & prv_a, store::transaction const & transaction_a)
 {
-	nano::lock_guard<std::recursive_mutex> lock{ mutex };
-	nano::raw_key wallet_l;
+	celerix::lock_guard<std::recursive_mutex> lock{ mutex };
+	celerix::raw_key wallet_l;
 	wallet_key_mem.value (wallet_l);
-	nano::raw_key password_l;
+	celerix::raw_key password_l;
 	password.value (password_l);
 	prv_a.decrypt (wallet_l, password_l, salt (transaction_a).owords[0]);
 }
 
-void nano::wallet_store::seed (nano::raw_key & prv_a, store::transaction const & transaction_a)
+void celerix::wallet_store::seed (celerix::raw_key & prv_a, store::transaction const & transaction_a)
 {
-	nano::wallet_value value (entry_get_raw (transaction_a, nano::wallet_store::seed_special));
-	nano::raw_key password_l;
+	celerix::wallet_value value (entry_get_raw (transaction_a, celerix::wallet_store::seed_special));
+	celerix::raw_key password_l;
 	wallet_key (password_l, transaction_a);
 	prv_a.decrypt (value.key, password_l, salt (transaction_a).owords[seed_iv_index]);
 }
 
-void nano::wallet_store::seed_set (store::transaction const & transaction_a, nano::raw_key const & prv_a)
+void celerix::wallet_store::seed_set (store::transaction const & transaction_a, celerix::raw_key const & prv_a)
 {
-	nano::raw_key password_l;
+	celerix::raw_key password_l;
 	wallet_key (password_l, transaction_a);
-	nano::raw_key ciphertext;
+	celerix::raw_key ciphertext;
 	ciphertext.encrypt (prv_a, password_l, salt (transaction_a).owords[seed_iv_index]);
-	entry_put_raw (transaction_a, nano::wallet_store::seed_special, nano::wallet_value (ciphertext, 0));
+	entry_put_raw (transaction_a, celerix::wallet_store::seed_special, celerix::wallet_value (ciphertext, 0));
 	deterministic_clear (transaction_a);
 }
 
-nano::public_key nano::wallet_store::deterministic_insert (store::transaction const & transaction_a)
+celerix::public_key celerix::wallet_store::deterministic_insert (store::transaction const & transaction_a)
 {
 	auto index (deterministic_index_get (transaction_a));
 	auto prv = deterministic_key (transaction_a, index);
-	nano::public_key result (nano::pub_key (prv));
+	celerix::public_key result (celerix::pub_key (prv));
 	while (exists (transaction_a, result))
 	{
 		++index;
 		prv = deterministic_key (transaction_a, index);
-		result = nano::pub_key (prv);
+		result = celerix::pub_key (prv);
 	}
 	uint64_t marker (1);
 	marker <<= 32;
 	marker |= index;
-	entry_put_raw (transaction_a, result, nano::wallet_value (marker, 0));
+	entry_put_raw (transaction_a, result, celerix::wallet_value (marker, 0));
 	++index;
 	deterministic_index_set (transaction_a, index);
 	return result;
 }
 
-nano::public_key nano::wallet_store::deterministic_insert (store::transaction const & transaction_a, uint32_t const index)
+celerix::public_key celerix::wallet_store::deterministic_insert (store::transaction const & transaction_a, uint32_t const index)
 {
 	auto prv = deterministic_key (transaction_a, index);
-	nano::public_key result (nano::pub_key (prv));
+	celerix::public_key result (celerix::pub_key (prv));
 	uint64_t marker (1);
 	marker <<= 32;
 	marker |= index;
-	entry_put_raw (transaction_a, result, nano::wallet_value (marker, 0));
+	entry_put_raw (transaction_a, result, celerix::wallet_value (marker, 0));
 	return result;
 }
 
-nano::raw_key nano::wallet_store::deterministic_key (store::transaction const & transaction_a, uint32_t index_a)
+celerix::raw_key celerix::wallet_store::deterministic_key (store::transaction const & transaction_a, uint32_t index_a)
 {
 	debug_assert (valid_password (transaction_a));
-	nano::raw_key seed_l;
+	celerix::raw_key seed_l;
 	seed (seed_l, transaction_a);
-	return nano::deterministic_key (seed_l, index_a);
+	return celerix::deterministic_key (seed_l, index_a);
 }
 
-uint32_t nano::wallet_store::deterministic_index_get (store::transaction const & transaction_a)
+uint32_t celerix::wallet_store::deterministic_index_get (store::transaction const & transaction_a)
 {
-	nano::wallet_value value (entry_get_raw (transaction_a, nano::wallet_store::deterministic_index_special));
+	celerix::wallet_value value (entry_get_raw (transaction_a, celerix::wallet_store::deterministic_index_special));
 	return static_cast<uint32_t> (value.key.number () & static_cast<uint32_t> (-1));
 }
 
-void nano::wallet_store::deterministic_index_set (store::transaction const & transaction_a, uint32_t index_a)
+void celerix::wallet_store::deterministic_index_set (store::transaction const & transaction_a, uint32_t index_a)
 {
-	nano::raw_key index_l (index_a);
-	nano::wallet_value value (index_l, 0);
-	entry_put_raw (transaction_a, nano::wallet_store::deterministic_index_special, value);
+	celerix::raw_key index_l (index_a);
+	celerix::wallet_value value (index_l, 0);
+	entry_put_raw (transaction_a, celerix::wallet_store::deterministic_index_special, value);
 }
 
-void nano::wallet_store::deterministic_clear (store::transaction const & transaction_a)
+void celerix::wallet_store::deterministic_clear (store::transaction const & transaction_a)
 {
-	nano::uint256_union key (0);
+	celerix::uint256_union key (0);
 	for (auto i (begin (transaction_a)), n (end (transaction_a)); i != n;)
 	{
-		switch (key_type (nano::wallet_value (i->second)))
+		switch (key_type (celerix::wallet_value (i->second)))
 		{
-			case nano::key_type::deterministic:
+			case celerix::key_type::deterministic:
 			{
 				auto const & key (i->first);
 				erase (transaction_a, key);
@@ -140,24 +140,24 @@ void nano::wallet_store::deterministic_clear (store::transaction const & transac
 	deterministic_index_set (transaction_a, 0);
 }
 
-bool nano::wallet_store::valid_password (store::transaction const & transaction_a)
+bool celerix::wallet_store::valid_password (store::transaction const & transaction_a)
 {
-	nano::raw_key zero;
+	celerix::raw_key zero;
 	zero.clear ();
-	nano::raw_key wallet_key_l;
+	celerix::raw_key wallet_key_l;
 	wallet_key (wallet_key_l, transaction_a);
-	nano::uint256_union check_l;
+	celerix::uint256_union check_l;
 	check_l.encrypt (zero, wallet_key_l, salt (transaction_a).owords[check_iv_index]);
 	bool ok = check (transaction_a) == check_l;
 	return ok;
 }
 
-bool nano::wallet_store::attempt_password (store::transaction const & transaction_a, std::string const & password_a)
+bool celerix::wallet_store::attempt_password (store::transaction const & transaction_a, std::string const & password_a)
 {
 	bool result = false;
 	{
-		nano::lock_guard<std::recursive_mutex> lock{ mutex };
-		nano::raw_key password_l;
+		celerix::lock_guard<std::recursive_mutex> lock{ mutex };
+		celerix::raw_key password_l;
 		derive_key (password_l, transaction_a, password_a);
 		password.value_set (password_l);
 		result = !valid_password (transaction_a);
@@ -175,25 +175,25 @@ bool nano::wallet_store::attempt_password (store::transaction const & transactio
 	return result;
 }
 
-bool nano::wallet_store::rekey (store::transaction const & transaction_a, std::string const & password_a)
+bool celerix::wallet_store::rekey (store::transaction const & transaction_a, std::string const & password_a)
 {
-	nano::lock_guard<std::recursive_mutex> lock{ mutex };
+	celerix::lock_guard<std::recursive_mutex> lock{ mutex };
 	bool result (false);
 	if (valid_password (transaction_a))
 	{
-		nano::raw_key password_new;
+		celerix::raw_key password_new;
 		derive_key (password_new, transaction_a, password_a);
-		nano::raw_key wallet_key_l;
+		celerix::raw_key wallet_key_l;
 		wallet_key (wallet_key_l, transaction_a);
-		nano::raw_key password_l;
+		celerix::raw_key password_l;
 		password.value (password_l);
 		password.value_set (password_new);
-		nano::raw_key encrypted;
+		celerix::raw_key encrypted;
 		encrypted.encrypt (wallet_key_l, password_new, salt (transaction_a).owords[0]);
-		nano::raw_key wallet_enc;
+		celerix::raw_key wallet_enc;
 		wallet_enc = encrypted;
 		wallet_key_mem.value_set (wallet_enc);
-		entry_put_raw (transaction_a, nano::wallet_store::wallet_key_special, nano::wallet_value (encrypted, 0));
+		entry_put_raw (transaction_a, celerix::wallet_store::wallet_key_special, celerix::wallet_value (encrypted, 0));
 	}
 	else
 	{
@@ -202,32 +202,32 @@ bool nano::wallet_store::rekey (store::transaction const & transaction_a, std::s
 	return result;
 }
 
-void nano::wallet_store::derive_key (nano::raw_key & prv_a, store::transaction const & transaction_a, std::string const & password_a)
+void celerix::wallet_store::derive_key (celerix::raw_key & prv_a, store::transaction const & transaction_a, std::string const & password_a)
 {
 	auto salt_l (salt (transaction_a));
 	kdf.phs (prv_a, password_a, salt_l);
 }
 
-nano::fan::fan (nano::raw_key const & key, std::size_t count_a)
+celerix::fan::fan (celerix::raw_key const & key, std::size_t count_a)
 {
-	auto first (std::make_unique<nano::raw_key> (key));
+	auto first (std::make_unique<celerix::raw_key> (key));
 	for (auto i (1); i < count_a; ++i)
 	{
-		auto entry (std::make_unique<nano::raw_key> ());
-		nano::random_pool::generate_block (entry->bytes.data (), entry->bytes.size ());
+		auto entry (std::make_unique<celerix::raw_key> ());
+		celerix::random_pool::generate_block (entry->bytes.data (), entry->bytes.size ());
 		*first ^= *entry;
 		values.push_back (std::move (entry));
 	}
 	values.push_back (std::move (first));
 }
 
-void nano::fan::value (nano::raw_key & prv_a)
+void celerix::fan::value (celerix::raw_key & prv_a)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	value_get (prv_a);
 }
 
-void nano::fan::value_get (nano::raw_key & prv_a)
+void celerix::fan::value_get (celerix::raw_key & prv_a)
 {
 	debug_assert (!mutex.try_lock ());
 	prv_a.clear ();
@@ -237,10 +237,10 @@ void nano::fan::value_get (nano::raw_key & prv_a)
 	}
 }
 
-void nano::fan::value_set (nano::raw_key const & value_a)
+void celerix::fan::value_set (celerix::raw_key const & value_a)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	nano::raw_key value_l;
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
+	celerix::raw_key value_l;
 	value_get (value_l);
 	*(values[0]) ^= value_l;
 	*(values[0]) ^= value_a;
@@ -251,24 +251,24 @@ void nano::fan::value_set (nano::raw_key const & value_a)
  */
 
 // Wallet version number
-nano::account const nano::wallet_store::version_special{};
+celerix::account const celerix::wallet_store::version_special{};
 // Random number used to salt private key encryption
-nano::account const nano::wallet_store::salt_special (1);
+celerix::account const celerix::wallet_store::salt_special (1);
 // Key used to encrypt wallet keys, encrypted itself by the user password
-nano::account const nano::wallet_store::wallet_key_special (2);
+celerix::account const celerix::wallet_store::wallet_key_special (2);
 // Check value used to see if password is valid
-nano::account const nano::wallet_store::check_special (3);
+celerix::account const celerix::wallet_store::check_special (3);
 // Representative account to be used if we open a new account
-nano::account const nano::wallet_store::representative_special (4);
+celerix::account const celerix::wallet_store::representative_special (4);
 // Wallet seed for deterministic key generation
-nano::account const nano::wallet_store::seed_special (5);
+celerix::account const celerix::wallet_store::seed_special (5);
 // Current key index for deterministic keys
-nano::account const nano::wallet_store::deterministic_index_special (6);
-int const nano::wallet_store::special_count (7);
-std::size_t const nano::wallet_store::check_iv_index (0);
-std::size_t const nano::wallet_store::seed_iv_index (1);
+celerix::account const celerix::wallet_store::deterministic_index_special (6);
+int const celerix::wallet_store::special_count (7);
+std::size_t const celerix::wallet_store::check_iv_index (0);
+std::size_t const celerix::wallet_store::seed_iv_index (1);
 
-nano::wallet_store::wallet_store (bool & init_a, nano::kdf & kdf_a, store::transaction & transaction_a, store::lmdb::env & env_a, nano::account representative_a, unsigned fanout_a, std::string const & wallet_a, std::string const & json_a) :
+celerix::wallet_store::wallet_store (bool & init_a, celerix::kdf & kdf_a, store::transaction & transaction_a, store::lmdb::env & env_a, celerix::account representative_a, unsigned fanout_a, std::string const & wallet_a, std::string const & json_a) :
 	password (0, fanout_a),
 	wallet_key_mem (0, fanout_a),
 	kdf (kdf_a),
@@ -279,7 +279,7 @@ nano::wallet_store::wallet_store (bool & init_a, nano::kdf & kdf_a, store::trans
 	if (!init_a)
 	{
 		MDB_val junk;
-		debug_assert (mdb_get (env.tx (transaction_a), handle, nano::store::lmdb::db_val (version_special), &junk) == MDB_NOTFOUND);
+		debug_assert (mdb_get (env.tx (transaction_a), handle, celerix::store::lmdb::db_val (version_special), &junk) == MDB_NOTFOUND);
 		boost::property_tree::ptree wallet_l;
 		std::stringstream istream (json_a);
 		try
@@ -292,15 +292,15 @@ nano::wallet_store::wallet_store (bool & init_a, nano::kdf & kdf_a, store::trans
 		}
 		for (auto i (wallet_l.begin ()), n (wallet_l.end ()); i != n; ++i)
 		{
-			nano::account key;
+			celerix::account key;
 			init_a = key.decode_hex (i->first);
 			if (!init_a)
 			{
-				nano::raw_key value;
+				celerix::raw_key value;
 				init_a = value.decode_hex (wallet_l.get<std::string> (i->first));
 				if (!init_a)
 				{
-					entry_put_raw (transaction_a, key, nano::wallet_value (value, 0));
+					entry_put_raw (transaction_a, key, celerix::wallet_value (value, 0));
 				}
 				else
 				{
@@ -312,20 +312,20 @@ nano::wallet_store::wallet_store (bool & init_a, nano::kdf & kdf_a, store::trans
 				init_a = true;
 			}
 		}
-		init_a |= mdb_get (env.tx (transaction_a), handle, nano::store::lmdb::db_val (version_special), &junk) != 0;
-		init_a |= mdb_get (env.tx (transaction_a), handle, nano::store::lmdb::db_val (wallet_key_special), &junk) != 0;
-		init_a |= mdb_get (env.tx (transaction_a), handle, nano::store::lmdb::db_val (salt_special), &junk) != 0;
-		init_a |= mdb_get (env.tx (transaction_a), handle, nano::store::lmdb::db_val (check_special), &junk) != 0;
-		init_a |= mdb_get (env.tx (transaction_a), handle, nano::store::lmdb::db_val (representative_special), &junk) != 0;
-		nano::raw_key key;
+		init_a |= mdb_get (env.tx (transaction_a), handle, celerix::store::lmdb::db_val (version_special), &junk) != 0;
+		init_a |= mdb_get (env.tx (transaction_a), handle, celerix::store::lmdb::db_val (wallet_key_special), &junk) != 0;
+		init_a |= mdb_get (env.tx (transaction_a), handle, celerix::store::lmdb::db_val (salt_special), &junk) != 0;
+		init_a |= mdb_get (env.tx (transaction_a), handle, celerix::store::lmdb::db_val (check_special), &junk) != 0;
+		init_a |= mdb_get (env.tx (transaction_a), handle, celerix::store::lmdb::db_val (representative_special), &junk) != 0;
+		celerix::raw_key key;
 		key.clear ();
 		password.value_set (key);
-		key = entry_get_raw (transaction_a, nano::wallet_store::wallet_key_special).key;
+		key = entry_get_raw (transaction_a, celerix::wallet_store::wallet_key_special).key;
 		wallet_key_mem.value_set (key);
 	}
 }
 
-nano::wallet_store::wallet_store (bool & init_a, nano::kdf & kdf_a, store::transaction & transaction_a, store::lmdb::env & env_a, nano::account representative_a, unsigned fanout_a, std::string const & wallet_a) :
+celerix::wallet_store::wallet_store (bool & init_a, celerix::kdf & kdf_a, store::transaction & transaction_a, store::lmdb::env & env_a, celerix::account representative_a, unsigned fanout_a, std::string const & wallet_a) :
 	password (0, fanout_a),
 	wallet_key_mem (0, fanout_a),
 	kdf (kdf_a),
@@ -337,57 +337,57 @@ nano::wallet_store::wallet_store (bool & init_a, nano::kdf & kdf_a, store::trans
 	{
 		int version_status;
 		MDB_val version_value;
-		version_status = mdb_get (env.tx (transaction_a), handle, nano::store::lmdb::db_val (version_special), &version_value);
+		version_status = mdb_get (env.tx (transaction_a), handle, celerix::store::lmdb::db_val (version_special), &version_value);
 		if (version_status == MDB_NOTFOUND)
 		{
 			version_put (transaction_a, version_current);
-			nano::raw_key salt_l;
+			celerix::raw_key salt_l;
 			random_pool::generate_block (salt_l.bytes.data (), salt_l.bytes.size ());
-			entry_put_raw (transaction_a, nano::wallet_store::salt_special, nano::wallet_value (salt_l, 0));
+			entry_put_raw (transaction_a, celerix::wallet_store::salt_special, celerix::wallet_value (salt_l, 0));
 			// Wallet key is a fixed random key that encrypts all entries
-			nano::raw_key wallet_key;
+			celerix::raw_key wallet_key;
 			random_pool::generate_block (wallet_key.bytes.data (), sizeof (wallet_key.bytes));
-			nano::raw_key password_l;
+			celerix::raw_key password_l;
 			password_l.clear ();
 			password.value_set (password_l);
-			nano::raw_key zero;
+			celerix::raw_key zero;
 			zero.clear ();
 			// Wallet key is encrypted by the user's password
-			nano::raw_key encrypted;
+			celerix::raw_key encrypted;
 			encrypted.encrypt (wallet_key, zero, salt_l.owords[0]);
-			entry_put_raw (transaction_a, nano::wallet_store::wallet_key_special, nano::wallet_value (encrypted, 0));
-			nano::raw_key wallet_key_enc;
+			entry_put_raw (transaction_a, celerix::wallet_store::wallet_key_special, celerix::wallet_value (encrypted, 0));
+			celerix::raw_key wallet_key_enc;
 			wallet_key_enc = encrypted;
 			wallet_key_mem.value_set (wallet_key_enc);
-			nano::raw_key check;
+			celerix::raw_key check;
 			check.encrypt (zero, wallet_key, salt_l.owords[check_iv_index]);
-			entry_put_raw (transaction_a, nano::wallet_store::check_special, nano::wallet_value (check, 0));
-			nano::raw_key rep;
+			entry_put_raw (transaction_a, celerix::wallet_store::check_special, celerix::wallet_value (check, 0));
+			celerix::raw_key rep;
 			rep.bytes = representative_a.bytes;
-			entry_put_raw (transaction_a, nano::wallet_store::representative_special, nano::wallet_value (rep, 0));
-			nano::raw_key seed;
+			entry_put_raw (transaction_a, celerix::wallet_store::representative_special, celerix::wallet_value (rep, 0));
+			celerix::raw_key seed;
 			random_pool::generate_block (seed.bytes.data (), seed.bytes.size ());
 			seed_set (transaction_a, seed);
-			entry_put_raw (transaction_a, nano::wallet_store::deterministic_index_special, nano::wallet_value (0, 0));
+			entry_put_raw (transaction_a, celerix::wallet_store::deterministic_index_special, celerix::wallet_value (0, 0));
 		}
 	}
-	nano::raw_key key;
-	key = entry_get_raw (transaction_a, nano::wallet_store::wallet_key_special).key;
+	celerix::raw_key key;
+	key = entry_get_raw (transaction_a, celerix::wallet_store::wallet_key_special).key;
 	wallet_key_mem.value_set (key);
 }
 
-std::vector<nano::account> nano::wallet_store::accounts (store::transaction const & transaction_a)
+std::vector<celerix::account> celerix::wallet_store::accounts (store::transaction const & transaction_a)
 {
-	std::vector<nano::account> result;
+	std::vector<celerix::account> result;
 	for (auto i (begin (transaction_a)), n (end (transaction_a)); i != n; ++i)
 	{
-		nano::account const & account (i->first);
+		celerix::account const & account (i->first);
 		result.push_back (account);
 	}
 	return result;
 }
 
-void nano::wallet_store::initialize (store::transaction const & transaction_a, bool & init_a, std::string const & path_a)
+void celerix::wallet_store::initialize (store::transaction const & transaction_a, bool & init_a, std::string const & path_a)
 {
 	debug_assert (strlen (path_a.c_str ()) == path_a.size ());
 	auto error (0);
@@ -397,61 +397,61 @@ void nano::wallet_store::initialize (store::transaction const & transaction_a, b
 	init_a = error != 0;
 }
 
-bool nano::wallet_store::is_representative (store::transaction const & transaction_a)
+bool celerix::wallet_store::is_representative (store::transaction const & transaction_a)
 {
 	return exists (transaction_a, representative (transaction_a));
 }
 
-void nano::wallet_store::representative_set (store::transaction const & transaction_a, nano::account const & representative_a)
+void celerix::wallet_store::representative_set (store::transaction const & transaction_a, celerix::account const & representative_a)
 {
-	nano::raw_key rep;
+	celerix::raw_key rep;
 	rep.bytes = representative_a.bytes;
-	entry_put_raw (transaction_a, nano::wallet_store::representative_special, nano::wallet_value (rep, 0));
+	entry_put_raw (transaction_a, celerix::wallet_store::representative_special, celerix::wallet_value (rep, 0));
 }
 
-nano::account nano::wallet_store::representative (store::transaction const & transaction_a)
+celerix::account celerix::wallet_store::representative (store::transaction const & transaction_a)
 {
-	nano::wallet_value value (entry_get_raw (transaction_a, nano::wallet_store::representative_special));
-	return reinterpret_cast<nano::account const &> (value.key);
+	celerix::wallet_value value (entry_get_raw (transaction_a, celerix::wallet_store::representative_special));
+	return reinterpret_cast<celerix::account const &> (value.key);
 }
 
-nano::public_key nano::wallet_store::insert_adhoc (store::transaction const & transaction_a, nano::raw_key const & prv)
+celerix::public_key celerix::wallet_store::insert_adhoc (store::transaction const & transaction_a, celerix::raw_key const & prv)
 {
 	debug_assert (valid_password (transaction_a));
-	nano::public_key pub (nano::pub_key (prv));
-	nano::raw_key password_l;
+	celerix::public_key pub (celerix::pub_key (prv));
+	celerix::raw_key password_l;
 	wallet_key (password_l, transaction_a);
-	nano::raw_key ciphertext;
+	celerix::raw_key ciphertext;
 	ciphertext.encrypt (prv, password_l, pub.owords[0].number ());
-	entry_put_raw (transaction_a, pub, nano::wallet_value (ciphertext, 0));
+	entry_put_raw (transaction_a, pub, celerix::wallet_value (ciphertext, 0));
 	return pub;
 }
 
-bool nano::wallet_store::insert_watch (store::transaction const & transaction_a, nano::account const & pub_a)
+bool celerix::wallet_store::insert_watch (store::transaction const & transaction_a, celerix::account const & pub_a)
 {
 	bool error (!valid_public_key (pub_a));
 	if (!error)
 	{
-		entry_put_raw (transaction_a, pub_a, nano::wallet_value (nano::raw_key (0), 0));
+		entry_put_raw (transaction_a, pub_a, celerix::wallet_value (celerix::raw_key (0), 0));
 	}
 	return error;
 }
 
-void nano::wallet_store::erase (store::transaction const & transaction_a, nano::account const & pub)
+void celerix::wallet_store::erase (store::transaction const & transaction_a, celerix::account const & pub)
 {
-	auto status (mdb_del (env.tx (transaction_a), handle, nano::store::lmdb::db_val (pub), nullptr));
+	auto status (mdb_del (env.tx (transaction_a), handle, celerix::store::lmdb::db_val (pub), nullptr));
 	(void)status;
 	debug_assert (status == 0);
 }
 
-nano::wallet_value nano::wallet_store::entry_get_raw (store::transaction const & transaction_a, nano::account const & pub_a)
+celerix::wallet_value celerix::wallet_store::entry_get_raw (store::transaction const & transaction_a, celerix::account const & pub_a)
 {
-	nano::wallet_value result;
-	nano::store::lmdb::db_val value;
-	auto status (mdb_get (env.tx (transaction_a), handle, nano::store::lmdb::db_val (pub_a), value));
+	celerix::wallet_value result;
+	celerix::store::lmdb::db_val value;
+	auto status (mdb_get (env.tx (transaction_a), handle, celerix::store::lmdb::db_val (pub_a), value));
 	if (status == 0)
 	{
-		result = nano::wallet_value (value);
+		result = celerix::wallet_value (value);
 	}
 	else
 	{
@@ -461,58 +461,58 @@ nano::wallet_value nano::wallet_store::entry_get_raw (store::transaction const &
 	return result;
 }
 
-void nano::wallet_store::entry_put_raw (store::transaction const & transaction_a, nano::account const & pub_a, nano::wallet_value const & entry_a)
+void celerix::wallet_store::entry_put_raw (store::transaction const & transaction_a, celerix::account const & pub_a, celerix::wallet_value const & entry_a)
 {
-	auto status (mdb_put (env.tx (transaction_a), handle, nano::store::lmdb::db_val (pub_a), nano::store::lmdb::db_val (sizeof (entry_a), const_cast<nano::wallet_value *> (&entry_a)), 0));
+	auto status (mdb_put (env.tx (transaction_a), handle, celerix::store::lmdb::db_val (pub_a), celerix::store::lmdb::db_val (sizeof (entry_a), const_cast<celerix::wallet_value *> (&entry_a)), 0));
 	(void)status;
 	debug_assert (status == 0);
 }
 
-nano::key_type nano::wallet_store::key_type (nano::wallet_value const & value_a)
+celerix::key_type celerix::wallet_store::key_type (celerix::wallet_value const & value_a)
 {
 	auto number (value_a.key.number ());
-	nano::key_type result;
+	celerix::key_type result;
 	auto text (number.convert_to<std::string> ());
 	if (number > std::numeric_limits<uint64_t>::max ())
 	{
-		result = nano::key_type::adhoc;
+		result = celerix::key_type::adhoc;
 	}
 	else
 	{
 		if ((number >> 32).convert_to<uint32_t> () == 1)
 		{
-			result = nano::key_type::deterministic;
+			result = celerix::key_type::deterministic;
 		}
 		else
 		{
-			result = nano::key_type::unknown;
+			result = celerix::key_type::unknown;
 		}
 	}
 	return result;
 }
 
-bool nano::wallet_store::fetch (store::transaction const & transaction_a, nano::account const & pub, nano::raw_key & prv)
+bool celerix::wallet_store::fetch (store::transaction const & transaction_a, celerix::account const & pub, celerix::raw_key & prv)
 {
 	auto result (false);
 	if (valid_password (transaction_a))
 	{
-		nano::wallet_value value (entry_get_raw (transaction_a, pub));
+		celerix::wallet_value value (entry_get_raw (transaction_a, pub));
 		if (!value.key.is_zero ())
 		{
 			switch (key_type (value))
 			{
-				case nano::key_type::deterministic:
+				case celerix::key_type::deterministic:
 				{
-					nano::raw_key seed_l;
+					celerix::raw_key seed_l;
 					seed (seed_l, transaction_a);
 					uint32_t index (static_cast<uint32_t> (value.key.number () & static_cast<uint32_t> (-1)));
 					prv = deterministic_key (transaction_a, index);
 					break;
 				}
-				case nano::key_type::adhoc:
+				case celerix::key_type::adhoc:
 				{
 					// Ad-hoc keys
-					nano::raw_key password_l;
+					celerix::raw_key password_l;
 					wallet_key (password_l, transaction_a);
 					prv.decrypt (value.key, password_l, pub.owords[0].number ());
 					break;
@@ -535,7 +535,7 @@ bool nano::wallet_store::fetch (store::transaction const & transaction_a, nano::
 	}
 	if (!result)
 	{
-		nano::public_key compare (nano::pub_key (prv));
+		celerix::public_key compare (celerix::pub_key (prv));
 		if (!(pub == compare))
 		{
 			result = true;
@@ -544,20 +544,20 @@ bool nano::wallet_store::fetch (store::transaction const & transaction_a, nano::
 	return result;
 }
 
-bool nano::wallet_store::valid_public_key (nano::public_key const & pub)
+bool celerix::wallet_store::valid_public_key (celerix::public_key const & pub)
 {
 	return pub.number () >= special_count;
 }
 
-bool nano::wallet_store::exists (store::transaction const & transaction_a, nano::public_key const & pub)
+bool celerix::wallet_store::exists (store::transaction const & transaction_a, celerix::public_key const & pub)
 {
 	return valid_public_key (pub) && find (transaction_a, pub) != end (transaction_a);
 }
 
-void nano::wallet_store::serialize_json (store::transaction const & transaction_a, std::string & string_a)
+void celerix::wallet_store::serialize_json (store::transaction const & transaction_a, std::string & string_a)
 {
 	boost::property_tree::ptree tree;
-	using iterator = store::typed_iterator<nano::uint256_union, nano::wallet_value>;
+	using iterator = store::typed_iterator<celerix::uint256_union, celerix::wallet_value>;
 	for (iterator i{ store::iterator{ store::lmdb::iterator::begin (env.tx (transaction_a), handle) } }, n{ store::iterator{ store::lmdb::iterator::end (env.tx (transaction_a), handle) } }; i != n; ++i)
 	{
 		tree.put (i->first.to_string (), i->second.key.to_string ());
@@ -567,7 +567,7 @@ void nano::wallet_store::serialize_json (store::transaction const & transaction_
 	string_a = ostream.str ();
 }
 
-void nano::wallet_store::write_backup (store::transaction const & transaction_a, std::filesystem::path const & path_a)
+void celerix::wallet_store::write_backup (store::transaction const & transaction_a, std::filesystem::path const & path_a)
 {
 	std::ofstream backup_file;
 	backup_file.open (path_a.string ());
@@ -575,7 +575,7 @@ void nano::wallet_store::write_backup (store::transaction const & transaction_a,
 	{
 		// Set permissions to 600
 		boost::system::error_code ec;
-		nano::set_secure_perm_file (path_a, ec);
+		celerix::set_secure_perm_file (path_a, ec);
 
 		std::string json;
 		serialize_json (transaction_a, json);
@@ -583,14 +583,14 @@ void nano::wallet_store::write_backup (store::transaction const & transaction_a,
 	}
 }
 
-bool nano::wallet_store::move (store::transaction const & transaction_a, nano::wallet_store & other_a, std::vector<nano::public_key> const & keys)
+bool celerix::wallet_store::move (store::transaction const & transaction_a, celerix::wallet_store & other_a, std::vector<celerix::public_key> const & keys)
 {
 	debug_assert (valid_password (transaction_a));
 	debug_assert (other_a.valid_password (transaction_a));
 	auto result (false);
 	for (auto i (keys.begin ()), n (keys.end ()); i != n; ++i)
 	{
-		nano::raw_key prv;
+		celerix::raw_key prv;
 		auto error (other_a.fetch (transaction_a, *i, prv));
 		result = result | error;
 		if (!result)
@@ -602,14 +602,14 @@ bool nano::wallet_store::move (store::transaction const & transaction_a, nano::w
 	return result;
 }
 
-bool nano::wallet_store::import (store::transaction const & transaction_a, nano::wallet_store & other_a)
+bool celerix::wallet_store::import (store::transaction const & transaction_a, celerix::wallet_store & other_a)
 {
 	debug_assert (valid_password (transaction_a));
 	debug_assert (other_a.valid_password (transaction_a));
 	auto result (false);
 	for (auto i (other_a.begin (transaction_a)), n (end (transaction_a)); i != n; ++i)
 	{
-		nano::raw_key prv;
+		celerix::raw_key prv;
 		auto error (other_a.fetch (transaction_a, i->first, prv));
 		result = result | error;
 		if (!result)
@@ -628,7 +628,7 @@ bool nano::wallet_store::import (store::transaction const & transaction_a, nano:
 	return result;
 }
 
-bool nano::wallet_store::work_get (store::transaction const & transaction_a, nano::public_key const & pub_a, uint64_t & work_a)
+bool celerix::wallet_store::work_get (store::transaction const & transaction_a, celerix::public_key const & pub_a, uint64_t & work_a)
 {
 	auto result (false);
 	auto entry (entry_get_raw (transaction_a, pub_a));
@@ -643,7 +643,7 @@ bool nano::wallet_store::work_get (store::transaction const & transaction_a, nan
 	return result;
 }
 
-void nano::wallet_store::work_put (store::transaction const & transaction_a, nano::public_key const & pub_a, uint64_t work_a)
+void celerix::wallet_store::work_put (store::transaction const & transaction_a, celerix::public_key const & pub_a, uint64_t work_a)
 {
 	auto entry (entry_get_raw (transaction_a, pub_a));
 	debug_assert (!entry.key.is_zero ());
@@ -651,23 +651,23 @@ void nano::wallet_store::work_put (store::transaction const & transaction_a, nan
 	entry_put_raw (transaction_a, pub_a, entry);
 }
 
-unsigned nano::wallet_store::version (store::transaction const & transaction_a)
+unsigned celerix::wallet_store::version (store::transaction const & transaction_a)
 {
-	nano::wallet_value value (entry_get_raw (transaction_a, nano::wallet_store::version_special));
+	celerix::wallet_value value (entry_get_raw (transaction_a, celerix::wallet_store::version_special));
 	auto entry (value.key);
 	auto result (static_cast<unsigned> (entry.bytes[31]));
 	return result;
 }
 
-void nano::wallet_store::version_put (store::transaction const & transaction_a, unsigned version_a)
+void celerix::wallet_store::version_put (store::transaction const & transaction_a, unsigned version_a)
 {
-	nano::raw_key entry (version_a);
-	entry_put_raw (transaction_a, nano::wallet_store::version_special, nano::wallet_value (entry, 0));
+	celerix::raw_key entry (version_a);
+	entry_put_raw (transaction_a, celerix::wallet_store::version_special, celerix::wallet_value (entry, 0));
 }
 
-void nano::kdf::phs (nano::raw_key & result_a, std::string const & password_a, nano::uint256_union const & salt_a)
+void celerix::kdf::phs (celerix::raw_key & result_a, std::string const & password_a, celerix::uint256_union const & salt_a)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	auto success (argon2_hash (1, kdf_work, 1, password_a.data (), password_a.size (), salt_a.bytes.data (), salt_a.bytes.size (), result_a.bytes.data (), result_a.bytes.size (), NULL, 0, Argon2_d, 0x10));
 	debug_assert (success == 0);
 	(void)success;
@@ -677,7 +677,7 @@ void nano::kdf::phs (nano::raw_key & result_a, std::string const & password_a, n
  * wallet
  */
 
-nano::wallet::wallet (bool & init_a, store::transaction & transaction_a, nano::wallets & wallets_a, std::string const & wallet_a) :
+celerix::wallet::wallet (bool & init_a, store::transaction & transaction_a, celerix::wallets & wallets_a, std::string const & wallet_a) :
 	lock_observer ([] (bool, bool) {}),
 	store (init_a, wallets_a.kdf, transaction_a, wallets_a.env, wallets_a.node.config.random_representative (), wallets_a.node.config.password_fanout, wallet_a),
 	wallets (wallets_a),
@@ -685,7 +685,7 @@ nano::wallet::wallet (bool & init_a, store::transaction & transaction_a, nano::w
 {
 }
 
-nano::wallet::wallet (bool & init_a, store::transaction & transaction_a, nano::wallets & wallets_a, std::string const & wallet_a, std::string const & json) :
+celerix::wallet::wallet (bool & init_a, store::transaction & transaction_a, celerix::wallets & wallets_a, std::string const & wallet_a, std::string const & json) :
 	lock_observer ([] (bool, bool) {}),
 	store (init_a, wallets_a.kdf, transaction_a, wallets_a.env, wallets_a.node.config.random_representative (), wallets_a.node.config.password_fanout, wallet_a, json),
 	wallets (wallets_a),
@@ -693,11 +693,11 @@ nano::wallet::wallet (bool & init_a, store::transaction & transaction_a, nano::w
 {
 }
 
-void nano::wallet::enter_initial_password ()
+void celerix::wallet::enter_initial_password ()
 {
-	nano::raw_key password_l;
+	celerix::raw_key password_l;
 	{
-		nano::lock_guard<std::recursive_mutex> lock{ store.mutex };
+		celerix::lock_guard<std::recursive_mutex> lock{ store.mutex };
 		store.password.value (password_l);
 	}
 	if (password_l.is_zero ())
@@ -715,35 +715,35 @@ void nano::wallet::enter_initial_password ()
 	}
 }
 
-bool nano::wallet::enter_password (store::transaction const & transaction_a, std::string const & password_a)
+bool celerix::wallet::enter_password (store::transaction const & transaction_a, std::string const & password_a)
 {
 	auto result (store.attempt_password (transaction_a, password_a));
 	if (!result)
 	{
-		logger.info (nano::log::type::wallet, "Wallet unlocked");
+		logger.info (celerix::log::type::wallet, "Wallet unlocked");
 
 		auto this_l = shared_from_this ();
-		wallets.queue_wallet_action (nano::wallets::high_priority, this_l, [this_l] (nano::wallet & wallet) {
+		wallets.queue_wallet_action (celerix::wallets::high_priority, this_l, [this_l] (celerix::wallet & wallet) {
 			// Wallets must survive node lifetime
 			this_l->search_receivable (this_l->wallets.tx_begin_read ());
 		});
 	}
 	else
 	{
-		logger.warn (nano::log::type::wallet, "Invalid password, wallet locked");
+		logger.warn (celerix::log::type::wallet, "Invalid password, wallet locked");
 	}
 	lock_observer (result, password_a.empty ());
 	return result;
 }
 
-nano::public_key nano::wallet::deterministic_insert (store::transaction const & transaction_a, bool generate_work_a)
+celerix::public_key celerix::wallet::deterministic_insert (store::transaction const & transaction_a, bool generate_work_a)
 {
-	nano::public_key key{};
+	celerix::public_key key{};
 	if (store.valid_password (transaction_a))
 	{
 		key = store.deterministic_insert (transaction_a);
 
-		logger.info (nano::log::type::wallet, "Deterministically inserted new account: {}", key.to_account ());
+		logger.info (celerix::log::type::wallet, "Deterministically inserted new account: {}", key.to_account ());
 
 		if (generate_work_a)
 		{
@@ -752,24 +752,24 @@ nano::public_key nano::wallet::deterministic_insert (store::transaction const & 
 		auto half_principal_weight (wallets.node.minimum_principal_weight () / 2);
 		if (wallets.check_rep (key, half_principal_weight))
 		{
-			logger.info (nano::log::type::wallet, "New account qualified as a representative: {}", key.to_account ());
+			logger.info (celerix::log::type::wallet, "New account qualified as a representative: {}", key.to_account ());
 
-			nano::lock_guard<nano::mutex> lock{ representatives_mutex };
+			celerix::lock_guard<celerix::mutex> lock{ representatives_mutex };
 			representatives.insert (key);
 		}
 	}
 	return key;
 }
 
-nano::public_key nano::wallet::deterministic_insert (uint32_t const index, bool generate_work_a)
+celerix::public_key celerix::wallet::deterministic_insert (uint32_t const index, bool generate_work_a)
 {
 	auto transaction (wallets.tx_begin_write ());
-	nano::public_key key{};
+	celerix::public_key key{};
 	if (store.valid_password (transaction))
 	{
 		key = store.deterministic_insert (transaction, index);
 
-		logger.info (nano::log::type::wallet, "Deterministically inserted new account: {}", key.to_account ());
+		logger.info (celerix::log::type::wallet, "Deterministically inserted new account: {}", key.to_account ());
 
 		if (generate_work_a)
 		{
@@ -779,16 +779,16 @@ nano::public_key nano::wallet::deterministic_insert (uint32_t const index, bool 
 	return key;
 }
 
-nano::public_key nano::wallet::deterministic_insert (bool generate_work_a)
+celerix::public_key celerix::wallet::deterministic_insert (bool generate_work_a)
 {
 	auto transaction (wallets.tx_begin_write ());
 	auto result (deterministic_insert (transaction, generate_work_a));
 	return result;
 }
 
-nano::public_key nano::wallet::insert_adhoc (nano::raw_key const & key_a, bool generate_work_a)
+celerix::public_key celerix::wallet::insert_adhoc (celerix::raw_key const & key_a, bool generate_work_a)
 {
-	nano::public_key key{};
+	celerix::public_key key{};
 	auto transaction (wallets.tx_begin_write ());
 	if (store.valid_password (transaction))
 	{
@@ -804,33 +804,33 @@ nano::public_key nano::wallet::insert_adhoc (nano::raw_key const & key_a, bool g
 		transaction.commit ();
 		if (wallets.check_rep (key, half_principal_weight))
 		{
-			nano::lock_guard<nano::mutex> lock{ representatives_mutex };
+			celerix::lock_guard<celerix::mutex> lock{ representatives_mutex };
 			representatives.insert (key);
 		}
 	}
 	return key;
 }
 
-bool nano::wallet::insert_watch (store::transaction const & transaction_a, nano::public_key const & pub_a)
+bool celerix::wallet::insert_watch (store::transaction const & transaction_a, celerix::public_key const & pub_a)
 {
 	return store.insert_watch (transaction_a, pub_a);
 }
 
-bool nano::wallet::exists (nano::public_key const & account_a)
+bool celerix::wallet::exists (celerix::public_key const & account_a)
 {
 	auto transaction (wallets.tx_begin_read ());
 	return store.exists (transaction, account_a);
 }
 
-bool nano::wallet::import (std::string const & json_a, std::string const & password_a)
+bool celerix::wallet::import (std::string const & json_a, std::string const & password_a)
 {
 	auto error (false);
-	std::unique_ptr<nano::wallet_store> temp;
+	std::unique_ptr<celerix::wallet_store> temp;
 	{
 		auto transaction (wallets.tx_begin_write ());
-		nano::uint256_union id;
+		celerix::uint256_union id;
 		random_pool::generate_block (id.bytes.data (), id.bytes.size ());
-		temp = std::make_unique<nano::wallet_store> (error, wallets.node.wallets.kdf, transaction, wallets.env, 0, 1, id.to_string (), json_a);
+		temp = std::make_unique<celerix::wallet_store> (error, wallets.node.wallets.kdf, transaction, wallets.env, 0, 1, id.to_string (), json_a);
 	}
 	if (!error)
 	{
@@ -846,13 +846,13 @@ bool nano::wallet::import (std::string const & json_a, std::string const & passw
 	return error;
 }
 
-void nano::wallet::serialize (std::string & json_a)
+void celerix::wallet::serialize (std::string & json_a)
 {
 	auto transaction (wallets.tx_begin_read ());
 	store.serialize_json (transaction, json_a);
 }
 
-void nano::wallet_store::destroy (store::transaction const & transaction_a)
+void celerix::wallet_store::destroy (store::transaction const & transaction_a)
 {
 	auto status (mdb_drop (env.tx (transaction_a), handle, 1));
 	(void)status;
@@ -860,10 +860,10 @@ void nano::wallet_store::destroy (store::transaction const & transaction_a)
 	handle = 0;
 }
 
-std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash const & send_hash_a, nano::account const & representative_a, nano::uint128_union const & amount_a, nano::account const & account_a, uint64_t work_a, bool generate_work_a)
+std::shared_ptr<celerix::block> celerix::wallet::receive_action (celerix::block_hash const & send_hash_a, celerix::account const & representative_a, celerix::uint128_union const & amount_a, celerix::account const & account_a, uint64_t work_a, bool generate_work_a)
 {
-	std::shared_ptr<nano::block> block;
-	nano::block_details details;
+	std::shared_ptr<celerix::block> block;
+	celerix::block_details details;
 	details.is_receive = true;
 	if (wallets.node.config.receive_minimum.number () <= amount_a.number ())
 	{
@@ -871,13 +871,13 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 		auto transaction (wallets.tx_begin_read ());
 		if (wallets.node.ledger.any.block_exists_or_pruned (block_transaction, send_hash_a))
 		{
-			auto pending_info = wallets.node.ledger.any.pending_get (block_transaction, nano::pending_key (account_a, send_hash_a));
+			auto pending_info = wallets.node.ledger.any.pending_get (block_transaction, celerix::pending_key (account_a, send_hash_a));
 			if (pending_info)
 			{
-				nano::raw_key prv;
+				celerix::raw_key prv;
 				if (!store.fetch (transaction, account_a, prv))
 				{
-					logger.info (nano::log::type::wallet, "Receiving block {} from account {}, amount: {}",
+					logger.info (celerix::log::type::wallet, "Receiving block {} from account {}, amount: {}",
 					send_hash_a.to_string (),
 					account_a.to_account (),
 					pending_info->amount.number ().convert_to<std::string> ());
@@ -889,18 +889,18 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 					auto info = wallets.node.ledger.any.account_get (block_transaction, account_a);
 					if (info)
 					{
-						block = std::make_shared<nano::state_block> (account_a, info->head, info->representative, info->balance.number () + pending_info->amount.number (), send_hash_a, prv, account_a, work_a);
+						block = std::make_shared<celerix::state_block> (account_a, info->head, info->representative, info->balance.number () + pending_info->amount.number (), send_hash_a, prv, account_a, work_a);
 						details.epoch = std::max (info->epoch (), pending_info->epoch);
 					}
 					else
 					{
-						block = std::make_shared<nano::state_block> (account_a, 0, representative_a, pending_info->amount, reinterpret_cast<nano::link const &> (send_hash_a), prv, account_a, work_a);
+						block = std::make_shared<celerix::state_block> (account_a, 0, representative_a, pending_info->amount, reinterpret_cast<celerix::link const &> (send_hash_a), prv, account_a, work_a);
 						details.epoch = pending_info->epoch;
 					}
 				}
 				else
 				{
-					logger.warn (nano::log::type::wallet, "Unable to receive, wallet locked, block {} to account: {}",
+					logger.warn (celerix::log::type::wallet, "Unable to receive, wallet locked, block {} to account: {}",
 					send_hash_a.to_string (),
 					account_a.to_account ());
 				}
@@ -908,19 +908,19 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 			else
 			{
 				// Ledger doesn't have this marked as available to receive anymore
-				logger.warn (nano::log::type::wallet, "Not receiving block {}, block already received", send_hash_a.to_string ());
+				logger.warn (celerix::log::type::wallet, "Not receiving block {}, block already received", send_hash_a.to_string ());
 			}
 		}
 		else
 		{
 			// Ledger doesn't have this block anymore.
-			logger.warn (nano::log::type::wallet, "Not receiving block {}, block no longer exists or pruned", send_hash_a.to_string ());
+			logger.warn (celerix::log::type::wallet, "Not receiving block {}, block no longer exists or pruned", send_hash_a.to_string ());
 		}
 	}
 	else
 	{
 		// Someone sent us something below the threshold of receiving
-		logger.warn (nano::log::type::wallet, "Not receiving block {} due to minimum receive threshold", send_hash_a.to_string ());
+		logger.warn (celerix::log::type::wallet, "Not receiving block {} due to minimum receive threshold", send_hash_a.to_string ());
 	}
 	if (block != nullptr)
 	{
@@ -933,10 +933,10 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 	return block;
 }
 
-std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & source_a, nano::account const & representative_a, uint64_t work_a, bool generate_work_a)
+std::shared_ptr<celerix::block> celerix::wallet::change_action (celerix::account const & source_a, celerix::account const & representative_a, uint64_t work_a, bool generate_work_a)
 {
-	std::shared_ptr<nano::block> block;
-	nano::block_details details;
+	std::shared_ptr<celerix::block> block;
+	celerix::block_details details;
 	{
 		auto transaction (wallets.tx_begin_read ());
 		auto block_transaction = wallets.node.ledger.tx_begin_read ();
@@ -945,13 +945,13 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 			auto existing (store.find (transaction, source_a));
 			if (existing != store.end (transaction) && !wallets.node.ledger.any.account_head (block_transaction, source_a).is_zero ())
 			{
-				logger.info (nano::log::type::wallet, "Changing representative for account {} to {}",
+				logger.info (celerix::log::type::wallet, "Changing representative for account {} to {}",
 				source_a.to_account (),
 				representative_a.to_account ());
 
 				auto info = wallets.node.ledger.any.account_get (block_transaction, source_a);
 				debug_assert (info);
-				nano::raw_key prv;
+				celerix::raw_key prv;
 				auto error2 (store.fetch (transaction, source_a, prv));
 				(void)error2;
 				debug_assert (!error2);
@@ -959,18 +959,18 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 				{
 					store.work_get (transaction, source_a, work_a);
 				}
-				block = std::make_shared<nano::state_block> (source_a, info->head, representative_a, info->balance, 0, prv, source_a, work_a);
+				block = std::make_shared<celerix::state_block> (source_a, info->head, representative_a, info->balance, 0, prv, source_a, work_a);
 				details.epoch = info->epoch ();
 			}
 			else
 			{
-				logger.warn (nano::log::type::wallet, "Changing representative for account {} failed, wallet locked or account not found",
+				logger.warn (celerix::log::type::wallet, "Changing representative for account {} failed, wallet locked or account not found",
 				source_a.to_account ());
 			}
 		}
 		else
 		{
-			logger.warn (nano::log::type::wallet, "Changing representative for account {} failed, wallet locked",
+			logger.warn (celerix::log::type::wallet, "Changing representative for account {} failed, wallet locked",
 			source_a.to_account ());
 		}
 	}
@@ -985,41 +985,41 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 	return block;
 }
 
-std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, uint64_t work_a, bool generate_work_a, boost::optional<std::string> id_a)
+std::shared_ptr<celerix::block> celerix::wallet::send_action (celerix::account const & source_a, celerix::account const & account_a, celerix::uint128_t const & amount_a, uint64_t work_a, bool generate_work_a, boost::optional<std::string> id_a)
 {
-	boost::optional<nano::store::lmdb::db_val> id_mdb_val;
+	boost::optional<celerix::store::lmdb::db_val> id_mdb_val;
 	if (id_a)
 	{
-		id_mdb_val = nano::store::lmdb::db_val (id_a->size (), const_cast<char *> (id_a->data ()));
+		id_mdb_val = celerix::store::lmdb::db_val (id_a->size (), const_cast<char *> (id_a->data ()));
 	}
 
 	auto prepare_send = [this, &id_mdb_val, &wallets = this->wallets, &store = this->store, &source_a, &amount_a, &work_a, &account_a, &id_a] (auto const & transaction) {
 		auto block_transaction = wallets.node.ledger.tx_begin_read ();
 		auto error (false);
 		auto cached_block (false);
-		std::shared_ptr<nano::block> block;
-		nano::block_details details;
+		std::shared_ptr<celerix::block> block;
+		celerix::block_details details;
 		details.is_send = true;
 		if (id_mdb_val)
 		{
-			nano::store::lmdb::db_val result;
+			celerix::store::lmdb::db_val result;
 			auto status (mdb_get (wallets.env.tx (transaction), wallets.node.wallets.send_action_ids, *id_mdb_val, result));
 			if (status == 0)
 			{
-				nano::block_hash hash (result);
+				celerix::block_hash hash (result);
 				block = wallets.node.ledger.any.block_get (block_transaction, hash);
 				if (block != nullptr)
 				{
-					logger.warn (nano::log::type::wallet, "Block already exists for send action with id: {}, existing hash: {}",
+					logger.warn (celerix::log::type::wallet, "Block already exists for send action with id: {}, existing hash: {}",
 					id_a.value (),
 					hash.to_string ());
 
 					cached_block = true;
-					wallets.node.network.flood_block (block, nano::transport::traffic_type::block_broadcast_initial);
+					wallets.node.network.flood_block (block, celerix::transport::traffic_type::block_broadcast_initial);
 				}
 				else
 				{
-					logger.warn (nano::log::type::wallet, "Block was not found in ledger for send action with id: {}, hash: {}",
+					logger.warn (celerix::log::type::wallet, "Block was not found in ledger for send action with id: {}, hash: {}",
 					id_a.value (),
 					hash.to_string ());
 				}
@@ -1039,14 +1039,14 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 					auto balance (wallets.node.ledger.any.account_balance (block_transaction, source_a));
 					if (balance && balance.value ().number () >= amount_a)
 					{
-						logger.info (nano::log::type::wallet, "Sending from account: {} to: {}, amount: {}",
+						logger.info (celerix::log::type::wallet, "Sending from account: {} to: {}, amount: {}",
 						source_a.to_account (),
 						account_a.to_account (),
 						amount_a.convert_to<std::string> ());
 
 						auto info = wallets.node.ledger.any.account_get (block_transaction, source_a);
 						debug_assert (info);
-						nano::raw_key prv;
+						celerix::raw_key prv;
 						auto error2 (store.fetch (transaction, source_a, prv));
 						(void)error2;
 						debug_assert (!error2);
@@ -1054,11 +1054,11 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 						{
 							store.work_get (transaction, source_a, work_a);
 						}
-						block = std::make_shared<nano::state_block> (source_a, info->head, info->representative, balance.value ().number () - amount_a, account_a, prv, source_a, work_a);
+						block = std::make_shared<celerix::state_block> (source_a, info->head, info->representative, balance.value ().number () - amount_a, account_a, prv, source_a, work_a);
 						details.epoch = info->epoch ();
 						if (id_mdb_val && block != nullptr)
 						{
-							auto status (mdb_put (wallets.env.tx (transaction), wallets.node.wallets.send_action_ids, *id_mdb_val, nano::store::lmdb::db_val (block->hash ()), 0));
+							auto status (mdb_put (wallets.env.tx (transaction), wallets.node.wallets.send_action_ids, *id_mdb_val, celerix::store::lmdb::db_val (block->hash ()), 0));
 							if (status != 0)
 							{
 								block = nullptr;
@@ -1068,7 +1068,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 					}
 					else
 					{
-						logger.warn (nano::log::type::wallet, "Insufficient balance for send from: {}, required: {} but available: {}",
+						logger.warn (celerix::log::type::wallet, "Insufficient balance for send from: {}, required: {} but available: {}",
 						account_a.to_account (),
 						amount_a.convert_to<std::string> (),
 						balance ? balance.value ().number ().convert_to<std::string> () : "unknown");
@@ -1079,7 +1079,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 		return std::make_tuple (block, error, cached_block, details);
 	};
 
-	std::tuple<std::shared_ptr<nano::block>, bool, bool, nano::block_details> result;
+	std::tuple<std::shared_ptr<celerix::block>, bool, bool, celerix::block_details> result;
 	{
 		if (id_mdb_val)
 		{
@@ -1091,10 +1091,10 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 		}
 	}
 
-	std::shared_ptr<nano::block> block;
+	std::shared_ptr<celerix::block> block;
 	bool error;
 	bool cached_block;
-	nano::block_details details;
+	celerix::block_details details;
 	std::tie (block, error, cached_block, details) = result;
 
 	if (!error && block != nullptr && !cached_block)
@@ -1108,7 +1108,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 	return block;
 }
 
-bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, bool const generate_work_a, nano::block_details const & details_a)
+bool celerix::wallet::action_complete (std::shared_ptr<celerix::block> const & block_a, celerix::account const & account_a, bool const generate_work_a, celerix::block_details const & details_a)
 {
 	bool error{ false };
 	// Unschedule any work caching for this account
@@ -1118,7 +1118,7 @@ bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a
 		auto required_difficulty{ wallets.node.network_params.work.threshold (block_a->work_version (), details_a) };
 		if (wallets.node.network_params.work.difficulty (*block_a) < required_difficulty)
 		{
-			logger.info (nano::log::type::wallet, "Cached or provided work for block {} account {} is invalid, regenerating...",
+			logger.info (celerix::log::type::wallet, "Cached or provided work for block {} account {} is invalid, regenerating...",
 			block_a->hash ().to_string (),
 			account_a.to_account ());
 
@@ -1128,7 +1128,7 @@ bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a
 		if (!error)
 		{
 			auto result = wallets.node.process_local (block_a);
-			error = !result || result.value () != nano::block_status::progress;
+			error = !result || result.value () != celerix::block_status::progress;
 			debug_assert (error || block_a->sideband ().details == details_a);
 		}
 		if (!error && generate_work_a)
@@ -1140,73 +1140,73 @@ bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a
 	return error;
 }
 
-bool nano::wallet::change_sync (nano::account const & source_a, nano::account const & representative_a)
+bool celerix::wallet::change_sync (celerix::account const & source_a, celerix::account const & representative_a)
 {
 	std::promise<bool> result;
 	std::future<bool> future = result.get_future ();
 	change_async (
-	source_a, representative_a, [&result] (std::shared_ptr<nano::block> const & block_a) {
+	source_a, representative_a, [&result] (std::shared_ptr<celerix::block> const & block_a) {
 		result.set_value (block_a == nullptr);
 	},
 	true);
 	return future.get ();
 }
 
-void nano::wallet::change_async (nano::account const & source_a, nano::account const & representative_a, std::function<void (std::shared_ptr<nano::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a)
+void celerix::wallet::change_async (celerix::account const & source_a, celerix::account const & representative_a, std::function<void (std::shared_ptr<celerix::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a)
 {
 	auto this_l (shared_from_this ());
-	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, this_l, [this_l, source_a, representative_a, action_a, work_a, generate_work_a] (nano::wallet & wallet_a) {
+	wallets.node.wallets.queue_wallet_action (celerix::wallets::high_priority, this_l, [this_l, source_a, representative_a, action_a, work_a, generate_work_a] (celerix::wallet & wallet_a) {
 		auto block (wallet_a.change_action (source_a, representative_a, work_a, generate_work_a));
 		action_a (block);
 	});
 }
 
-bool nano::wallet::receive_sync (std::shared_ptr<nano::block> const & block_a, nano::account const & representative_a, nano::uint128_t const & amount_a)
+bool celerix::wallet::receive_sync (std::shared_ptr<celerix::block> const & block_a, celerix::account const & representative_a, celerix::uint128_t const & amount_a)
 {
 	std::promise<bool> result;
 	std::future<bool> future = result.get_future ();
 	receive_async (
-	block_a->hash (), representative_a, amount_a, block_a->destination (), [&result] (std::shared_ptr<nano::block> const & block_a) {
+	block_a->hash (), representative_a, amount_a, block_a->destination (), [&result] (std::shared_ptr<celerix::block> const & block_a) {
 		result.set_value (block_a == nullptr);
 	},
 	true);
 	return future.get ();
 }
 
-void nano::wallet::receive_async (nano::block_hash const & hash_a, nano::account const & representative_a, nano::uint128_t const & amount_a, nano::account const & account_a, std::function<void (std::shared_ptr<nano::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a)
+void celerix::wallet::receive_async (celerix::block_hash const & hash_a, celerix::account const & representative_a, celerix::uint128_t const & amount_a, celerix::account const & account_a, std::function<void (std::shared_ptr<celerix::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a)
 {
 	auto this_l (shared_from_this ());
-	wallets.node.wallets.queue_wallet_action (amount_a, this_l, [this_l, hash_a, representative_a, amount_a, account_a, action_a, work_a, generate_work_a] (nano::wallet & wallet_a) {
+	wallets.node.wallets.queue_wallet_action (amount_a, this_l, [this_l, hash_a, representative_a, amount_a, account_a, action_a, work_a, generate_work_a] (celerix::wallet & wallet_a) {
 		auto block (wallet_a.receive_action (hash_a, representative_a, amount_a, account_a, work_a, generate_work_a));
 		action_a (block);
 	});
 }
 
-nano::block_hash nano::wallet::send_sync (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a)
+celerix::block_hash celerix::wallet::send_sync (celerix::account const & source_a, celerix::account const & account_a, celerix::uint128_t const & amount_a)
 {
-	std::promise<nano::block_hash> result;
-	std::future<nano::block_hash> future = result.get_future ();
+	std::promise<celerix::block_hash> result;
+	std::future<celerix::block_hash> future = result.get_future ();
 	send_async (
-	source_a, account_a, amount_a, [&result] (std::shared_ptr<nano::block> const & block_a) {
+	source_a, account_a, amount_a, [&result] (std::shared_ptr<celerix::block> const & block_a) {
 		result.set_value (block_a->hash ());
 	},
 	true);
 	return future.get ();
 }
 
-void nano::wallet::send_async (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, std::function<void (std::shared_ptr<nano::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a, boost::optional<std::string> id_a)
+void celerix::wallet::send_async (celerix::account const & source_a, celerix::account const & account_a, celerix::uint128_t const & amount_a, std::function<void (std::shared_ptr<celerix::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a, boost::optional<std::string> id_a)
 {
 	auto this_l (shared_from_this ());
-	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, this_l, [this_l, source_a, account_a, amount_a, action_a, work_a, generate_work_a, id_a] (nano::wallet & wallet_a) {
+	wallets.node.wallets.queue_wallet_action (celerix::wallets::high_priority, this_l, [this_l, source_a, account_a, amount_a, action_a, work_a, generate_work_a, id_a] (celerix::wallet & wallet_a) {
 		auto block (wallet_a.send_action (source_a, account_a, amount_a, work_a, generate_work_a, id_a));
 		action_a (block);
 	});
 }
 
 // Update work for account if latest root is root_a
-void nano::wallet::work_update (store::transaction const & transaction_a, nano::account const & account_a, nano::root const & root_a, uint64_t work_a)
+void celerix::wallet::work_update (store::transaction const & transaction_a, celerix::account const & account_a, celerix::root const & root_a, uint64_t work_a)
 {
-	debug_assert (!wallets.node.network_params.work.validate_entry (nano::work_version::work_1, root_a, work_a));
+	debug_assert (!wallets.node.network_params.work.validate_entry (celerix::work_version::work_1, root_a, work_a));
 	debug_assert (store.exists (transaction_a, account_a));
 	auto block_transaction = wallets.node.ledger.tx_begin_read ();
 	auto latest (wallets.node.ledger.latest_root (block_transaction, account_a));
@@ -1216,11 +1216,11 @@ void nano::wallet::work_update (store::transaction const & transaction_a, nano::
 	}
 	else
 	{
-		logger.warn (nano::log::type::wallet, "Cached work no longer valid, discarding");
+		logger.warn (celerix::log::type::wallet, "Cached work no longer valid, discarding");
 	}
 }
 
-void nano::wallet::work_ensure (nano::account const & account_a, nano::root const & root_a)
+void celerix::wallet::work_ensure (celerix::account const & account_a, celerix::root const & root_a)
 {
 	using namespace std::chrono_literals;
 	std::chrono::seconds const precache_delay = wallets.node.network_params.network.is_dev_network () ? 1s : 10s;
@@ -1233,42 +1233,42 @@ void nano::wallet::work_ensure (nano::account const & account_a, nano::root cons
 		if (existing != delayed_work->end () && existing->second == root_a)
 		{
 			delayed_work->erase (existing);
-			this_l->wallets.queue_wallet_action (nano::wallets::generate_priority, this_l, [account_a, root_a] (nano::wallet & wallet_a) {
+			this_l->wallets.queue_wallet_action (celerix::wallets::generate_priority, this_l, [account_a, root_a] (celerix::wallet & wallet_a) {
 				wallet_a.work_cache_blocking (account_a, root_a);
 			});
 		}
 	});
 }
 
-bool nano::wallet::search_receivable (store::transaction const & wallet_transaction_a)
+bool celerix::wallet::search_receivable (store::transaction const & wallet_transaction_a)
 {
 	auto result (!store.valid_password (wallet_transaction_a));
 	if (!result)
 	{
-		logger.info (nano::log::type::wallet, "Beginning receivable block search");
+		logger.info (celerix::log::type::wallet, "Beginning receivable block search");
 
 		for (auto i (store.begin (wallet_transaction_a)), n (store.end (wallet_transaction_a)); i != n; ++i)
 		{
 			auto block_transaction = wallets.node.ledger.tx_begin_read ();
-			nano::account const & account (i->first);
+			celerix::account const & account (i->first);
 			// Don't search pending for watch-only accounts
-			if (!nano::wallet_value (i->second).key.is_zero ())
+			if (!celerix::wallet_value (i->second).key.is_zero ())
 			{
-				for (auto j (wallets.node.store.pending.begin (block_transaction, nano::pending_key (account, 0))), k (wallets.node.store.pending.end (block_transaction)); j != k && nano::pending_key (j->first).account == account; ++j)
+				for (auto j (wallets.node.store.pending.begin (block_transaction, celerix::pending_key (account, 0))), k (wallets.node.store.pending.end (block_transaction)); j != k && celerix::pending_key (j->first).account == account; ++j)
 				{
-					nano::pending_key key (j->first);
+					celerix::pending_key key (j->first);
 					auto hash (key.hash);
-					nano::pending_info pending (j->second);
+					celerix::pending_info pending (j->second);
 					auto amount (pending.amount.number ());
 					if (wallets.node.config.receive_minimum.number () <= amount)
 					{
-						logger.info (nano::log::type::wallet, "Found a receivable block {} for account {}", hash.to_string (), pending.source.to_account ());
+						logger.info (celerix::log::type::wallet, "Found a receivable block {} for account {}", hash.to_string (), pending.source.to_account ());
 
 						if (wallets.node.ledger.confirmed.block_exists_or_pruned (block_transaction, hash))
 						{
 							auto representative = store.representative (wallet_transaction_a);
 							// Receive confirmed block
-							receive_async (hash, representative, amount, account, [] (std::shared_ptr<nano::block> const &) {});
+							receive_async (hash, representative, amount, account, [] (std::shared_ptr<celerix::block> const &) {});
 						}
 						else if (!wallets.node.confirming_set.contains (hash))
 						{
@@ -1284,16 +1284,16 @@ bool nano::wallet::search_receivable (store::transaction const & wallet_transact
 			}
 		}
 
-		logger.info (nano::log::type::wallet, "Receivable block search phase complete");
+		logger.info (celerix::log::type::wallet, "Receivable block search phase complete");
 	}
 	else
 	{
-		logger.warn (nano::log::type::wallet, "Unable to search receivable blocks, wallet is locked");
+		logger.warn (celerix::log::type::wallet, "Unable to search receivable blocks, wallet is locked");
 	}
 	return result;
 }
 
-void nano::wallet::init_free_accounts (store::transaction const & transaction_a)
+void celerix::wallet::init_free_accounts (store::transaction const & transaction_a)
 {
 	free_accounts.clear ();
 	for (auto i (store.begin (transaction_a)), n (store.end (transaction_a)); i != n; ++i)
@@ -1302,13 +1302,13 @@ void nano::wallet::init_free_accounts (store::transaction const & transaction_a)
 	}
 }
 
-uint32_t nano::wallet::deterministic_check (store::transaction const & transaction_a, uint32_t index)
+uint32_t celerix::wallet::deterministic_check (store::transaction const & transaction_a, uint32_t index)
 {
 	auto block_transaction = wallets.node.ledger.tx_begin_read ();
 	for (uint32_t i (index + 1), n (index + 64); i < n; ++i)
 	{
 		auto prv = store.deterministic_key (transaction_a, i);
-		nano::keypair pair (prv.to_string ());
+		celerix::keypair pair (prv.to_string ());
 		// Check if account received at least 1 block
 		auto latest (wallets.node.ledger.any.account_head (block_transaction, pair.pub));
 		if (!latest.is_zero ())
@@ -1332,16 +1332,16 @@ uint32_t nano::wallet::deterministic_check (store::transaction const & transacti
 	return index;
 }
 
-nano::public_key nano::wallet::change_seed (store::transaction const & transaction_a, nano::raw_key const & prv_a, uint32_t count)
+celerix::public_key celerix::wallet::change_seed (store::transaction const & transaction_a, celerix::raw_key const & prv_a, uint32_t count)
 {
-	logger.info (nano::log::type::wallet, "Changing wallet seed");
+	logger.info (celerix::log::type::wallet, "Changing wallet seed");
 
 	store.seed_set (transaction_a, prv_a);
 	auto account = deterministic_insert (transaction_a);
 	if (count == 0)
 	{
 		count = deterministic_check (transaction_a, 0);
-		logger.info (nano::log::type::wallet, "Auto-detected {} accounts to generate", count);
+		logger.info (celerix::log::type::wallet, "Auto-detected {} accounts to generate", count);
 	}
 	for (uint32_t i (0); i < count; ++i)
 	{
@@ -1349,12 +1349,12 @@ nano::public_key nano::wallet::change_seed (store::transaction const & transacti
 		account = deterministic_insert (transaction_a, false);
 	}
 
-	logger.info (nano::log::type::wallet, "Completed changing wallet seed and generating accounts");
+	logger.info (celerix::log::type::wallet, "Completed changing wallet seed and generating accounts");
 
 	return account;
 }
 
-void nano::wallet::deterministic_restore (store::transaction const & transaction_a)
+void celerix::wallet::deterministic_restore (store::transaction const & transaction_a)
 {
 	auto index (store.deterministic_index_get (transaction_a));
 	auto new_index (deterministic_check (transaction_a, index));
@@ -1365,17 +1365,17 @@ void nano::wallet::deterministic_restore (store::transaction const & transaction
 	}
 }
 
-bool nano::wallet::live ()
+bool celerix::wallet::live ()
 {
 	return store.handle != 0;
 }
 
-void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::root const & root_a)
+void celerix::wallet::work_cache_blocking (celerix::account const & account_a, celerix::root const & root_a)
 {
 	if (wallets.node.work_generation_enabled ())
 	{
-		auto difficulty (wallets.node.default_difficulty (nano::work_version::work_1));
-		auto opt_work_l (wallets.node.work_generate_blocking (nano::work_version::work_1, root_a, difficulty, account_a));
+		auto difficulty (wallets.node.default_difficulty (celerix::work_version::work_1));
+		auto opt_work_l (wallets.node.work_generate_blocking (celerix::work_version::work_1, root_a, difficulty, account_a));
 		if (opt_work_l.has_value ())
 		{
 			auto transaction_l (wallets.tx_begin_write ());
@@ -1386,7 +1386,7 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::r
 		}
 		else if (!wallets.node.stopped)
 		{
-			logger.warn (nano::log::type::wallet, "Could not precache work for root {} due to work generation failure", root_a.to_string ());
+			logger.warn (celerix::log::type::wallet, "Could not precache work for root {} due to work generation failure", root_a.to_string ());
 		}
 	}
 }
@@ -1395,9 +1395,9 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::r
  * wallets
  */
 
-void nano::wallets::do_wallet_actions ()
+void celerix::wallets::do_wallet_actions ()
 {
-	nano::unique_lock<nano::mutex> action_lock{ action_mutex };
+	celerix::unique_lock<celerix::mutex> action_lock{ action_mutex };
 	while (!stopped)
 	{
 		if (!actions.empty ())
@@ -1422,36 +1422,36 @@ void nano::wallets::do_wallet_actions ()
 	}
 }
 
-nano::wallets::wallets (bool error_a, nano::node & node_a) :
+celerix::wallets::wallets (bool error_a, celerix::node & node_a) :
 	network_params{ node_a.config.network_params },
 	observer ([] (bool) {}),
 	kdf{ node_a.config.network_params.kdf_work },
 	node (node_a),
 	logger (node_a.logger),
-	env (boost::polymorphic_downcast<nano::mdb_wallets_store *> (node_a.wallets_store_impl.get ())->environment),
+	env (boost::polymorphic_downcast<celerix::mdb_wallets_store *> (node_a.wallets_store_impl.get ())->environment),
 	stopped (false)
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	if (!error_a)
 	{
 		auto transaction (tx_begin_write ());
 		auto status (mdb_dbi_open (env.tx (transaction), nullptr, MDB_CREATE, &handle));
 		status |= mdb_dbi_open (env.tx (transaction), "send_action_ids", MDB_CREATE, &send_action_ids);
 		release_assert (status == 0);
-		std::string beginning (nano::uint256_union (0).to_string ());
-		nano::store::lmdb::db_val beginning_val{ beginning.size (), const_cast<char *> (beginning.c_str ()) };
-		std::string end ((nano::uint256_union (nano::uint256_t (0) - nano::uint256_t (1))).to_string ());
-		nano::store::lmdb::db_val end_val{ end.size (), const_cast<char *> (end.c_str ()) };
+		std::string beginning (celerix::uint256_union (0).to_string ());
+		celerix::store::lmdb::db_val beginning_val{ beginning.size (), const_cast<char *> (beginning.c_str ()) };
+		std::string end ((celerix::uint256_union (celerix::uint256_t (0) - celerix::uint256_t (1))).to_string ());
+		celerix::store::lmdb::db_val end_val{ end.size (), const_cast<char *> (end.c_str ()) };
 		store::iterator i{ store::lmdb::iterator::lower_bound (env.tx (transaction), handle, beginning_val) };
 		store::iterator n{ store::lmdb::iterator::lower_bound (env.tx (transaction), handle, end_val) };
 		for (; i != n; ++i)
 		{
-			nano::wallet_id id;
+			celerix::wallet_id id;
 			std::string text (reinterpret_cast<char const *> (i->first.data ()), i->first.size ());
 			auto error (id.decode_hex (text));
 			release_assert (!error);
 			release_assert (items.find (id) == items.end ());
-			auto wallet (std::make_shared<nano::wallet> (error, transaction, *this, text));
+			auto wallet (std::make_shared<celerix::wallet> (error, transaction, *this, text));
 			if (!error)
 			{
 				items[id] = wallet;
@@ -1469,7 +1469,7 @@ nano::wallets::wallets (bool error_a, nano::node & node_a) :
 		auto transaction (tx_begin_read ());
 		for (auto & item : items)
 		{
-			if (item.second->store.version (transaction) != nano::wallet_store::version_current)
+			if (item.second->store.version (transaction) != celerix::wallet_store::version_current)
 			{
 				backup_required = true;
 				break;
@@ -1481,7 +1481,7 @@ nano::wallets::wallets (bool error_a, nano::node & node_a) :
 		char const * store_path;
 		mdb_env_get_path (env, &store_path);
 		std::filesystem::path const path (store_path);
-		nano::store::lmdb::component::create_backup_file (env, path, node_a.logger);
+		celerix::store::lmdb::component::create_backup_file (env, path, node_a.logger);
 	}
 	for (auto & item : items)
 	{
@@ -1489,15 +1489,15 @@ nano::wallets::wallets (bool error_a, nano::node & node_a) :
 	}
 }
 
-nano::wallets::~wallets ()
+celerix::wallets::~wallets ()
 {
 	stop ();
 }
 
-void nano::wallets::start ()
+void celerix::wallets::start ()
 {
 	thread = std::thread{ [this] () {
-		nano::thread_role::set (nano::thread_role::name::wallet_actions);
+		celerix::thread_role::set (celerix::thread_role::name::wallet_actions);
 		do_wallet_actions ();
 	} };
 
@@ -1507,10 +1507,10 @@ void nano::wallets::start ()
 	}
 }
 
-void nano::wallets::stop ()
+void celerix::wallets::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> action_lock{ action_mutex };
+		celerix::lock_guard<celerix::mutex> action_lock{ action_mutex };
 		stopped = true;
 		actions.clear ();
 	}
@@ -1521,10 +1521,10 @@ void nano::wallets::stop ()
 	}
 }
 
-std::shared_ptr<nano::wallet> nano::wallets::open (nano::wallet_id const & id_a)
+std::shared_ptr<celerix::wallet> celerix::wallets::open (celerix::wallet_id const & id_a)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	std::shared_ptr<nano::wallet> result;
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
+	std::shared_ptr<celerix::wallet> result;
 	auto existing (items.find (id_a));
 	if (existing != items.end ())
 	{
@@ -1533,15 +1533,15 @@ std::shared_ptr<nano::wallet> nano::wallets::open (nano::wallet_id const & id_a)
 	return result;
 }
 
-std::shared_ptr<nano::wallet> nano::wallets::create (nano::wallet_id const & id_a)
+std::shared_ptr<celerix::wallet> celerix::wallets::create (celerix::wallet_id const & id_a)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	debug_assert (items.find (id_a) == items.end ());
-	std::shared_ptr<nano::wallet> result;
+	std::shared_ptr<celerix::wallet> result;
 	bool error;
 	{
 		auto transaction (tx_begin_write ());
-		result = std::make_shared<nano::wallet> (error, transaction, *this, id_a.to_string ());
+		result = std::make_shared<celerix::wallet> (error, transaction, *this, id_a.to_string ());
 	}
 	if (!error)
 	{
@@ -1551,7 +1551,7 @@ std::shared_ptr<nano::wallet> nano::wallets::create (nano::wallet_id const & id_
 	return result;
 }
 
-bool nano::wallets::search_receivable (nano::wallet_id const & wallet_a)
+bool celerix::wallets::search_receivable (celerix::wallet_id const & wallet_a)
 {
 	auto result (false);
 	if (auto wallet = open (wallet_a); wallet != nullptr)
@@ -1561,9 +1561,9 @@ bool nano::wallets::search_receivable (nano::wallet_id const & wallet_a)
 	return result;
 }
 
-void nano::wallets::search_receivable_all ()
+void celerix::wallets::search_receivable_all ()
 {
-	nano::unique_lock<nano::mutex> lk{ mutex };
+	celerix::unique_lock<celerix::mutex> lk{ mutex };
 	auto wallets_l = get_wallets ();
 	auto wallet_transaction (tx_begin_read ());
 	lk.unlock ();
@@ -1573,12 +1573,12 @@ void nano::wallets::search_receivable_all ()
 	}
 }
 
-void nano::wallets::destroy (nano::wallet_id const & id_a)
+void celerix::wallets::destroy (celerix::wallet_id const & id_a)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	auto transaction (tx_begin_write ());
 	// action_mutex should be after transactions to prevent deadlocks in deterministic_insert () & insert_adhoc ()
-	nano::lock_guard<nano::mutex> action_lock{ action_mutex };
+	celerix::lock_guard<celerix::mutex> action_lock{ action_mutex };
 	auto existing (items.find (id_a));
 	debug_assert (existing != items.end ());
 	auto wallet (existing->second);
@@ -1586,27 +1586,27 @@ void nano::wallets::destroy (nano::wallet_id const & id_a)
 	wallet->store.destroy (transaction);
 }
 
-void nano::wallets::reload ()
+void celerix::wallets::reload ()
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	auto transaction (tx_begin_write ());
-	std::unordered_set<nano::uint256_union> stored_items;
-	std::string beginning (nano::uint256_union (0).to_string ());
-	nano::store::lmdb::db_val beginning_val{ beginning.size (), const_cast<char *> (beginning.c_str ()) };
-	std::string end ((nano::uint256_union (nano::uint256_t (0) - nano::uint256_t (1))).to_string ());
-	nano::store::lmdb::db_val end_val{ end.size (), const_cast<char *> (end.c_str ()) };
+	std::unordered_set<celerix::uint256_union> stored_items;
+	std::string beginning (celerix::uint256_union (0).to_string ());
+	celerix::store::lmdb::db_val beginning_val{ beginning.size (), const_cast<char *> (beginning.c_str ()) };
+	std::string end ((celerix::uint256_union (celerix::uint256_t (0) - celerix::uint256_t (1))).to_string ());
+	celerix::store::lmdb::db_val end_val{ end.size (), const_cast<char *> (end.c_str ()) };
 	store::iterator i{ store::lmdb::iterator::lower_bound (env.tx (transaction), handle, beginning_val) };
 	store::iterator n{ store::lmdb::iterator::lower_bound (env.tx (transaction), handle, end_val) };
 	for (; i != n; ++i)
 	{
-		nano::wallet_id id;
+		celerix::wallet_id id;
 		std::string text (reinterpret_cast<char const *> (i->first.data ()), i->first.size ());
 		auto error (id.decode_hex (text));
 		debug_assert (!error);
 		// New wallet
 		if (items.find (id) == items.end ())
 		{
-			auto wallet (std::make_shared<nano::wallet> (error, transaction, *this, text));
+			auto wallet (std::make_shared<celerix::wallet> (error, transaction, *this, text));
 			if (!error)
 			{
 				items[id] = wallet;
@@ -1616,7 +1616,7 @@ void nano::wallets::reload ()
 		stored_items.insert (id);
 	}
 	// Delete non existing wallets from memory
-	std::vector<nano::wallet_id> deleted_items;
+	std::vector<celerix::wallet_id> deleted_items;
 	for (auto i : items)
 	{
 		if (stored_items.find (i.first) == stored_items.end ())
@@ -1631,31 +1631,31 @@ void nano::wallets::reload ()
 	}
 }
 
-void nano::wallets::queue_wallet_action (nano::uint128_t const & amount_a, std::shared_ptr<nano::wallet> const & wallet_a, std::function<void (nano::wallet &)> action_a)
+void celerix::wallets::queue_wallet_action (celerix::uint128_t const & amount_a, std::shared_ptr<celerix::wallet> const & wallet_a, std::function<void (celerix::wallet &)> action_a)
 {
 	{
-		nano::lock_guard<nano::mutex> action_lock{ action_mutex };
+		celerix::lock_guard<celerix::mutex> action_lock{ action_mutex };
 		actions.emplace (amount_a, std::make_pair (wallet_a, action_a));
 	}
 	condition.notify_all ();
 }
 
-void nano::wallets::foreach_representative (std::function<void (nano::public_key const & pub_a, nano::raw_key const & prv_a)> const & action_a)
+void celerix::wallets::foreach_representative (std::function<void (celerix::public_key const & pub_a, celerix::raw_key const & prv_a)> const & action_a)
 {
 	if (node.config.enable_voting)
 	{
-		std::vector<std::pair<nano::public_key const, nano::raw_key const>> action_accounts_l;
+		std::vector<std::pair<celerix::public_key const, celerix::raw_key const>> action_accounts_l;
 		{
 			auto transaction_l (tx_begin_read ());
 			auto ledger_txn = node.ledger.tx_begin_read ();
-			nano::lock_guard<nano::mutex> lock{ mutex };
+			celerix::lock_guard<celerix::mutex> lock{ mutex };
 			for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
 			{
 				auto & wallet (*i->second);
-				nano::lock_guard<std::recursive_mutex> store_lock{ wallet.store.mutex };
+				celerix::lock_guard<std::recursive_mutex> store_lock{ wallet.store.mutex };
 				decltype (wallet.representatives) representatives_l;
 				{
-					nano::lock_guard<nano::mutex> representatives_lock{ wallet.representatives_mutex };
+					celerix::lock_guard<celerix::mutex> representatives_lock{ wallet.representatives_mutex };
 					representatives_l = wallet.representatives;
 				}
 				for (auto const & account : representatives_l)
@@ -1666,7 +1666,7 @@ void nano::wallets::foreach_representative (std::function<void (nano::public_key
 						{
 							if (wallet.store.valid_password (transaction_l))
 							{
-								nano::raw_key prv;
+								celerix::raw_key prv;
 								auto error (wallet.store.fetch (transaction_l, account, prv));
 								(void)error;
 								debug_assert (!error);
@@ -1680,7 +1680,7 @@ void nano::wallets::foreach_representative (std::function<void (nano::public_key
 								{
 									last_log = std::chrono::steady_clock::now ();
 
-									logger.warn (nano::log::type::wallet, "Representative locked inside wallet: {}", i->first.to_string ());
+									logger.warn (celerix::log::type::wallet, "Representative locked inside wallet: {}", i->first.to_string ());
 								}
 							}
 						}
@@ -1695,9 +1695,9 @@ void nano::wallets::foreach_representative (std::function<void (nano::public_key
 	}
 }
 
-bool nano::wallets::exists (store::transaction const & transaction_a, nano::account const & account_a)
+bool celerix::wallets::exists (store::transaction const & transaction_a, celerix::account const & account_a)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	auto result (false);
 	for (auto i (items.begin ()), n (items.end ()); !result && i != n; ++i)
 	{
@@ -1706,30 +1706,30 @@ bool nano::wallets::exists (store::transaction const & transaction_a, nano::acco
 	return result;
 }
 
-nano::store::write_transaction nano::wallets::tx_begin_write ()
+celerix::store::write_transaction celerix::wallets::tx_begin_write ()
 {
 	return env.tx_begin_write ();
 }
 
-nano::store::read_transaction nano::wallets::tx_begin_read ()
+celerix::store::read_transaction celerix::wallets::tx_begin_read ()
 {
 	return env.tx_begin_read ();
 }
 
-void nano::wallets::clear_send_ids (store::transaction const & transaction_a)
+void celerix::wallets::clear_send_ids (store::transaction const & transaction_a)
 {
 	auto status (mdb_drop (env.tx (transaction_a), send_action_ids, 0));
 	(void)status;
 	debug_assert (status == 0);
 }
 
-nano::wallet_representatives nano::wallets::reps () const
+celerix::wallet_representatives celerix::wallets::reps () const
 {
-	nano::lock_guard<nano::mutex> counts_guard{ reps_cache_mutex };
+	celerix::lock_guard<celerix::mutex> counts_guard{ reps_cache_mutex };
 	return representatives;
 }
 
-bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t const & half_principal_weight_a, bool const acquire_lock_a)
+bool celerix::wallets::check_rep (celerix::account const & account_a, celerix::uint128_t const & half_principal_weight_a, bool const acquire_lock_a)
 {
 	auto weight = node.ledger.weight (account_a);
 	if (weight < node.config.vote_minimum.number ())
@@ -1737,10 +1737,10 @@ bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t 
 		return false; // account not a representative
 	}
 
-	nano::unique_lock<nano::mutex> lock;
+	celerix::unique_lock<celerix::mutex> lock;
 	if (acquire_lock_a)
 	{
-		lock = nano::unique_lock<nano::mutex>{ reps_cache_mutex };
+		lock = celerix::unique_lock<celerix::mutex>{ reps_cache_mutex };
 	}
 
 	if (weight >= half_principal_weight_a)
@@ -1759,10 +1759,10 @@ bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t 
 	return true;
 }
 
-void nano::wallets::compute_reps ()
+void celerix::wallets::compute_reps ()
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	nano::lock_guard<nano::mutex> counts_guard{ reps_cache_mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> counts_guard{ reps_cache_mutex };
 	representatives.clear ();
 	auto half_principal_weight (node.minimum_principal_weight () / 2);
 	auto transaction (tx_begin_read ());
@@ -1778,25 +1778,25 @@ void nano::wallets::compute_reps ()
 				representatives_l.insert (account);
 			}
 		}
-		nano::lock_guard<nano::mutex> representatives_guard{ wallet.representatives_mutex };
+		celerix::lock_guard<celerix::mutex> representatives_guard{ wallet.representatives_mutex };
 		wallet.representatives.swap (representatives_l);
 	}
 }
 
-void nano::wallets::ongoing_compute_reps ()
+void celerix::wallets::ongoing_compute_reps ()
 {
 	compute_reps ();
 	auto & node_l (node);
 	// Representation drifts quickly on the test network but very slowly on the live network
-	auto compute_delay = network_params.network.is_dev_network () ? std::chrono::milliseconds (10) : (network_params.network.is_test_network () ? std::chrono::milliseconds (nano::test_scan_wallet_reps_delay ()) : std::chrono::minutes (15));
+	auto compute_delay = network_params.network.is_dev_network () ? std::chrono::milliseconds (10) : (network_params.network.is_test_network () ? std::chrono::milliseconds (celerix::test_scan_wallet_reps_delay ()) : std::chrono::minutes (15));
 	node.workers.post_delayed (compute_delay, [&node_l] () {
 		node_l.wallets.ongoing_compute_reps ();
 	});
 }
 
-void nano::wallets::receive_confirmed (nano::block_hash const & hash_a, nano::account const & destination_a)
+void celerix::wallets::receive_confirmed (celerix::block_hash const & hash_a, celerix::account const & destination_a)
 {
-	nano::unique_lock<nano::mutex> lk{ mutex };
+	celerix::unique_lock<celerix::mutex> lk{ mutex };
 	auto wallets_l = get_wallets ();
 	auto wallet_transaction = tx_begin_read ();
 	lk.unlock ();
@@ -1804,54 +1804,54 @@ void nano::wallets::receive_confirmed (nano::block_hash const & hash_a, nano::ac
 	{
 		if (wallet->store.exists (wallet_transaction, destination_a))
 		{
-			nano::account representative;
+			celerix::account representative;
 			representative = wallet->store.representative (wallet_transaction);
-			auto pending = node.ledger.any.pending_get (node.ledger.tx_begin_read (), nano::pending_key (destination_a, hash_a));
+			auto pending = node.ledger.any.pending_get (node.ledger.tx_begin_read (), celerix::pending_key (destination_a, hash_a));
 			if (pending)
 			{
 				auto amount (pending->amount.number ());
-				wallet->receive_async (hash_a, representative, amount, destination_a, [] (std::shared_ptr<nano::block> const &) {});
+				wallet->receive_async (hash_a, representative, amount, destination_a, [] (std::shared_ptr<celerix::block> const &) {});
 			}
 			else
 			{
 				if (!node.ledger.confirmed.block_exists_or_pruned (node.ledger.tx_begin_read (), hash_a))
 				{
-					logger.warn (nano::log::type::wallet, "Confirmed block is missing: {}", hash_a.to_string ());
+					logger.warn (celerix::log::type::wallet, "Confirmed block is missing: {}", hash_a.to_string ());
 					debug_assert (false, "confirmed block is missing");
 				}
 				else
 				{
-					logger.warn (nano::log::type::wallet, "Block has already been received: {}", hash_a.to_string ());
+					logger.warn (celerix::log::type::wallet, "Block has already been received: {}", hash_a.to_string ());
 				}
 			}
 		}
 	}
 }
 
-std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> nano::wallets::get_wallets ()
+std::unordered_map<celerix::wallet_id, std::shared_ptr<celerix::wallet>> celerix::wallets::get_wallets ()
 {
 	debug_assert (!mutex.try_lock ());
 	return items;
 }
 
-nano::uint128_t const nano::wallets::generate_priority = std::numeric_limits<nano::uint128_t>::max ();
-nano::uint128_t const nano::wallets::high_priority = std::numeric_limits<nano::uint128_t>::max () - 1;
+celerix::uint128_t const celerix::wallets::generate_priority = std::numeric_limits<celerix::uint128_t>::max ();
+celerix::uint128_t const celerix::wallets::high_priority = std::numeric_limits<celerix::uint128_t>::max () - 1;
 
-auto nano::wallet_store::begin (store::transaction const & transaction_a) -> iterator
+auto celerix::wallet_store::begin (store::transaction const & transaction_a) -> iterator
 {
-	nano::account account{ special_count };
-	nano::store::lmdb::db_val val{ account };
+	celerix::account account{ special_count };
+	celerix::store::lmdb::db_val val{ account };
 	return iterator{ store::iterator{ store::lmdb::iterator::lower_bound (env.tx (transaction_a), handle, val) } };
 }
 
-auto nano::wallet_store::begin (store::transaction const & transaction_a, nano::account const & key) -> iterator
+auto celerix::wallet_store::begin (store::transaction const & transaction_a, celerix::account const & key) -> iterator
 {
-	nano::account account (key);
-	nano::store::lmdb::db_val val{ account };
+	celerix::account account (key);
+	celerix::store::lmdb::db_val val{ account };
 	return iterator{ store::iterator{ store::lmdb::iterator::lower_bound (env.tx (transaction_a), handle, val) } };
 }
 
-auto nano::wallet_store::find (store::transaction const & transaction_a, nano::account const & key) -> iterator
+auto celerix::wallet_store::find (store::transaction const & transaction_a, celerix::account const & key) -> iterator
 {
 	auto result = begin (transaction_a, key);
 	auto end = this->end (transaction_a);
@@ -1873,26 +1873,26 @@ auto nano::wallet_store::find (store::transaction const & transaction_a, nano::a
 	return result;
 }
 
-auto nano::wallet_store::end (store::transaction const & transaction_a) -> iterator
+auto celerix::wallet_store::end (store::transaction const & transaction_a) -> iterator
 {
 	return iterator{ store::iterator{ store::lmdb::iterator::end (env.tx (transaction_a), handle) } };
 }
 
-nano::mdb_wallets_store::mdb_wallets_store (std::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a) :
-	environment (error, path_a, nano::store::lmdb::env::options::make ().set_config (lmdb_config_a).override_config_sync (nano::lmdb_config::sync_strategy::always).override_config_map_size (1ULL * 1024 * 1024 * 1024))
+celerix::mdb_wallets_store::mdb_wallets_store (std::filesystem::path const & path_a, celerix::lmdb_config const & lmdb_config_a) :
+	environment (error, path_a, celerix::store::lmdb::env::options::make ().set_config (lmdb_config_a).override_config_sync (celerix::lmdb_config::sync_strategy::always).override_config_map_size (1ULL * 1024 * 1024 * 1024))
 {
 }
 
-bool nano::mdb_wallets_store::init_error () const
+bool celerix::mdb_wallets_store::init_error () const
 {
 	return error;
 }
 
-nano::container_info nano::wallets::container_info () const
+celerix::container_info celerix::wallets::container_info () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("items", items.size ());
 	info.put ("actions", actions.size ());
 	return info;

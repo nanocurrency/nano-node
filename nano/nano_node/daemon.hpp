@@ -1,14 +1,14 @@
-#include <nano/lib/logging.hpp>
+#include <celerix/lib/logging.hpp>
 
-namespace nano
+namespace celerix
 {
 class node_flags;
 
 class daemon
 {
-	nano::logger logger{ "daemon" };
+	celerix::logger logger{ "daemon" };
 
 public:
-	void run (std::filesystem::path const &, nano::node_flags const & flags);
+	void run (std::filesystem::path const &, celerix::node_flags const & flags);
 };
 }

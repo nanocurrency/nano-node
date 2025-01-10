@@ -1,15 +1,15 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
-#include <nano/store/component.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/store/component.hpp>
 
 #include <functional>
 
-namespace nano
+namespace celerix
 {
 class block_hash;
 }
-namespace nano::store
+namespace celerix::store
 {
 /**
  * Manages version storage
@@ -20,4 +20,4 @@ public:
 	virtual void put (store::write_transaction const &, int) = 0;
 	virtual int get (store::transaction const &) const = 0;
 };
-} // namespace nano::store
+} // namespace celerix::store

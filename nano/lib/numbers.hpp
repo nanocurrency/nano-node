@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/lib/assert.hpp>
+#include <celerix/lib/assert.hpp>
 
 #include <boost/functional/hash_fwd.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
@@ -13,16 +13,16 @@
 
 #include <fmt/ostream.h>
 
-namespace nano
+namespace celerix
 {
 using uint128_t = boost::multiprecision::uint128_t;
 using uint256_t = boost::multiprecision::uint256_t;
 using uint512_t = boost::multiprecision::uint512_t;
 
 // SI dividers
-nano::uint128_t const Knano_ratio = nano::uint128_t ("1000000000000000000000000000000000"); // 10^33 = 1000 nano
-nano::uint128_t const nano_ratio = nano::uint128_t ("1000000000000000000000000000000"); // 10^30 = 1 nano
-nano::uint128_t const raw_ratio = nano::uint128_t ("1"); // 10^0
+celerix::uint128_t const Kcelerix_ratio = celerix::uint128_t ("1000000000000000000000000000000000"); // 10^33 = 1000 celerix
+celerix::uint128_t const celerix_ratio = celerix::uint128_t ("1000000000000000000000000000000"); // 10^30 = 1 celerix
+celerix::uint128_t const raw_ratio = celerix::uint128_t ("1"); // 10^0
 
 using bucket_index = uint64_t;
 using priority_timestamp = uint64_t; // Priority within the bucket
@@ -31,13 +31,13 @@ class uint128_union
 {
 public:
 	// Type that is implicitly convertible to this union
-	using underlying_type = nano::uint128_t;
+	using underlying_type = celerix::uint128_t;
 
 public:
 	uint128_union () = default;
 	uint128_union (uint64_t value) :
-		uint128_union (nano::uint128_t{ value }){};
-	uint128_union (nano::uint128_t const & value)
+		uint128_union (celerix::uint128_t{ value }){};
+	uint128_union (celerix::uint128_t const & value)
 	{
 		bytes.fill (0);
 		boost::multiprecision::export_bits (value, bytes.rbegin (), 8, false);
@@ -53,10 +53,10 @@ public:
 	bool decode_hex (std::string const &);
 	void encode_dec (std::string &) const;
 	bool decode_dec (std::string const &, bool = false);
-	bool decode_dec (std::string const &, nano::uint128_t);
+	bool decode_dec (std::string const &, celerix::uint128_t);
 
-	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits) const;
-	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits, std::locale const & locale) const;
+	std::string format_balance (celerix::uint128_t scale, int precision, bool group_digits) const;
+	std::string format_balance (celerix::uint128_t scale, int precision, bool group_digits, std::locale const & locale) const;
 
 	void clear ()
 	{
@@ -67,9 +67,9 @@ public:
 		return qwords[0] == 0 && qwords[1] == 0;
 	}
 
-	nano::uint128_t number () const
+	celerix::uint128_t number () const
 	{
-		nano::uint128_t result;
+		celerix::uint128_t result;
 		boost::multiprecision::import_bits (result, bytes.begin (), bytes.end ());
 		return result;
 	}
@@ -87,15 +87,15 @@ public:
 	};
 
 public: // Keep operators inlined
-	std::strong_ordering operator<=> (nano::uint128_union const & other) const
+	std::strong_ordering operator<=> (celerix::uint128_union const & other) const
 	{
 		return std::memcmp (bytes.data (), other.bytes.data (), 16) <=> 0;
 	};
-	bool operator== (nano::uint128_union const & other) const
+	bool operator== (celerix::uint128_union const & other) const
 	{
 		return *this <=> other == 0;
 	}
-	operator nano::uint128_t () const
+	operator celerix::uint128_t () const
 	{
 		return number ();
 	}
@@ -112,11 +112,11 @@ class amount : public uint128_union
 public:
 	using uint128_union::uint128_union;
 
-	auto operator<=> (nano::amount const & other) const
+	auto operator<=> (celerix::amount const & other) const
 	{
 		return uint128_union::operator<=> (other);
 	}
-	operator nano::uint128_t () const
+	operator celerix::uint128_t () const
 	{
 		return number ();
 	}
@@ -128,13 +128,13 @@ class uint256_union
 {
 public:
 	// Type that is implicitly convertible to this union
-	using underlying_type = nano::uint256_t;
+	using underlying_type = celerix::uint256_t;
 
 public:
 	uint256_union () = default;
 	uint256_union (uint64_t value) :
-		uint256_union (nano::uint256_t{ value }){};
-	uint256_union (nano::uint256_t const & value)
+		uint256_union (celerix::uint256_t{ value }){};
+	uint256_union (celerix::uint256_t const & value)
 	{
 		bytes.fill (0);
 		boost::multiprecision::export_bits (value, bytes.rbegin (), 8, false);
@@ -146,7 +146,7 @@ public:
 	 */
 	explicit uint256_union (std::string const &);
 
-	void encrypt (nano::raw_key const &, nano::raw_key const &, uint128_union const &);
+	void encrypt (celerix::raw_key const &, celerix::raw_key const &, uint128_union const &);
 
 	uint256_union & operator^= (uint256_union const &);
 	uint256_union operator^ (uint256_union const &) const;
@@ -165,9 +165,9 @@ public:
 		return owords[0].is_zero () && owords[1].is_zero ();
 	}
 
-	nano::uint256_t number () const
+	celerix::uint256_t number () const
 	{
-		nano::uint256_t result;
+		celerix::uint256_t result;
 		boost::multiprecision::import_bits (result, bytes.begin (), bytes.end ());
 		return result;
 	}
@@ -185,15 +185,15 @@ public:
 	};
 
 public: // Keep operators inlined
-	std::strong_ordering operator<=> (nano::uint256_union const & other) const
+	std::strong_ordering operator<=> (celerix::uint256_union const & other) const
 	{
 		return std::memcmp (bytes.data (), other.bytes.data (), 32) <=> 0;
 	};
-	bool operator== (nano::uint256_union const & other) const
+	bool operator== (celerix::uint256_union const & other) const
 	{
 		return *this <=> other == 0;
 	}
-	operator nano::uint256_t () const
+	operator celerix::uint256_t () const
 	{
 		return number ();
 	}
@@ -211,15 +211,15 @@ public:
 	using uint256_union::uint256_union;
 
 public: // Keep operators inlined
-	auto operator<=> (nano::block_hash const & other) const
+	auto operator<=> (celerix::block_hash const & other) const
 	{
 		return uint256_union::operator<=> (other);
 	}
-	bool operator== (nano::block_hash const & other) const
+	bool operator== (celerix::block_hash const & other) const
 	{
 		return *this <=> other == 0;
 	}
-	operator nano::uint256_t () const
+	operator celerix::uint256_t () const
 	{
 		return number ();
 	}
@@ -255,11 +255,11 @@ public:
 	static public_key from_node_id (std::string const &);
 
 public: // Keep operators inlined
-	auto operator<=> (nano::public_key const & other) const
+	auto operator<=> (celerix::public_key const & other) const
 	{
 		return uint256_union::operator<=> (other);
 	}
-	bool operator== (nano::public_key const & other) const
+	bool operator== (celerix::public_key const & other) const
 	{
 		return *this <=> other == 0;
 	}
@@ -267,7 +267,7 @@ public: // Keep operators inlined
 	{
 		return *this == null ();
 	}
-	operator nano::uint256_t () const
+	operator celerix::uint256_t () const
 	{
 		return number ();
 	}
@@ -285,7 +285,7 @@ class hash_or_account
 {
 public:
 	// Type that is implicitly convertible to this union
-	using underlying_type = nano::uint256_t;
+	using underlying_type = celerix::uint256_t;
 
 public:
 	hash_or_account () :
@@ -314,37 +314,37 @@ public:
 	union
 	{
 		std::array<uint8_t, 32> bytes;
-		nano::uint256_union raw; // This can be used when you don't want to explicitly mention either of the types
-		nano::account account;
-		nano::block_hash hash;
+		celerix::uint256_union raw; // This can be used when you don't want to explicitly mention either of the types
+		celerix::account account;
+		celerix::block_hash hash;
 	};
 
 public: // Keep operators inlined
-	auto operator<=> (nano::hash_or_account const & other) const
+	auto operator<=> (celerix::hash_or_account const & other) const
 	{
 		return raw <=> other.raw;
 	};
-	bool operator== (nano::hash_or_account const & other) const
+	bool operator== (celerix::hash_or_account const & other) const
 	{
 		return *this <=> other == 0;
 	}
-	explicit operator nano::uint256_t () const
+	explicit operator celerix::uint256_t () const
 	{
 		return raw.number ();
 	}
-	explicit operator nano::uint256_union () const
+	explicit operator celerix::uint256_union () const
 	{
 		return raw;
 	}
-	nano::account const & as_account () const
+	celerix::account const & as_account () const
 	{
 		return account;
 	}
-	nano::block_hash const & as_block_hash () const
+	celerix::block_hash const & as_block_hash () const
 	{
 		return hash;
 	}
-	nano::uint256_union const & as_union () const
+	celerix::uint256_union const & as_union () const
 	{
 		return raw;
 	}
@@ -363,11 +363,11 @@ public:
 	}
 
 public: // Keep operators inlined
-	auto operator<=> (nano::link const & other) const
+	auto operator<=> (celerix::link const & other) const
 	{
 		return hash_or_account::operator<=> (other);
 	}
-	bool operator== (nano::link const & other) const
+	bool operator== (celerix::link const & other) const
 	{
 		return *this <=> other == 0;
 	}
@@ -379,17 +379,17 @@ class root final : public hash_or_account
 public:
 	using hash_or_account::hash_or_account;
 
-	nano::block_hash const & previous () const
+	celerix::block_hash const & previous () const
 	{
 		return hash;
 	}
 
 public: // Keep operators inlined
-	auto operator<=> (nano::root const & other) const
+	auto operator<=> (celerix::root const & other) const
 	{
 		return hash_or_account::operator<=> (other);
 	}
-	bool operator== (nano::root const & other) const
+	bool operator== (celerix::root const & other) const
 	{
 		return *this <=> other == 0;
 	}
@@ -401,26 +401,26 @@ class raw_key final : public uint256_union
 public:
 	using uint256_union::uint256_union;
 	~raw_key ();
-	void decrypt (nano::uint256_union const &, nano::raw_key const &, uint128_union const &);
+	void decrypt (celerix::uint256_union const &, celerix::raw_key const &, uint128_union const &);
 };
 
 class uint512_union
 {
 public:
 	// Type that is implicitly convertible to this union
-	using underlying_type = nano::uint512_t;
+	using underlying_type = celerix::uint512_t;
 
 public:
 	uint512_union () = default;
-	uint512_union (nano::uint512_t const & value)
+	uint512_union (celerix::uint512_t const & value)
 	{
 		bytes.fill (0);
 		boost::multiprecision::export_bits (value, bytes.rbegin (), 8, false);
 	}
-	uint512_union (nano::uint256_union const & upper, nano::uint256_union const & lower) :
+	uint512_union (celerix::uint256_union const & upper, celerix::uint256_union const & lower) :
 		uint256s{ upper, lower } {};
 
-	nano::uint512_union & operator^= (nano::uint512_union const & other)
+	celerix::uint512_union & operator^= (celerix::uint512_union const & other)
 	{
 		uint256s[0] ^= other.uint256s[0];
 		uint256s[1] ^= other.uint256s[1];
@@ -439,9 +439,9 @@ public:
 		return uint256s[0].is_zero () && uint256s[1].is_zero ();
 	}
 
-	nano::uint512_t number () const
+	celerix::uint512_t number () const
 	{
-		nano::uint512_t result;
+		celerix::uint512_t result;
 		boost::multiprecision::import_bits (result, bytes.begin (), bytes.end ());
 		return result;
 	}
@@ -458,15 +458,15 @@ public:
 	};
 
 public: // Keep operators inlined
-	std::strong_ordering operator<=> (nano::uint512_union const & other) const
+	std::strong_ordering operator<=> (celerix::uint512_union const & other) const
 	{
 		return std::memcmp (bytes.data (), other.bytes.data (), 64) <=> 0;
 	};
-	bool operator== (nano::uint512_union const & other) const
+	bool operator== (celerix::uint512_union const & other) const
 	{
 		return *this <=> other == 0;
 	}
-	operator nano::uint512_t () const
+	operator celerix::uint512_t () const
 	{
 		return number ();
 	}
@@ -487,27 +487,27 @@ class qualified_root : public uint512_union
 {
 public:
 	qualified_root () = default;
-	qualified_root (nano::root const & root, nano::block_hash const & previous) :
+	qualified_root (celerix::root const & root, celerix::block_hash const & previous) :
 		uint512_union{ root.as_union (), previous.as_union () } {};
-	qualified_root (nano::uint512_t const & value) :
+	qualified_root (celerix::uint512_t const & value) :
 		uint512_union{ value } {};
 
-	nano::root root () const
+	celerix::root root () const
 	{
-		return nano::root{ uint256s[0] };
+		return celerix::root{ uint256s[0] };
 	}
-	nano::block_hash previous () const
+	celerix::block_hash previous () const
 	{
-		return nano::block_hash{ uint256s[1] };
+		return celerix::block_hash{ uint256s[1] };
 	}
 };
 
-nano::signature sign_message (nano::raw_key const &, nano::public_key const &, nano::uint256_union const &);
-nano::signature sign_message (nano::raw_key const &, nano::public_key const &, uint8_t const *, size_t);
-bool validate_message (nano::public_key const &, nano::uint256_union const &, nano::signature const &);
-bool validate_message (nano::public_key const &, uint8_t const *, size_t, nano::signature const &);
-nano::raw_key deterministic_key (nano::raw_key const &, uint32_t);
-nano::public_key pub_key (nano::raw_key const &);
+celerix::signature sign_message (celerix::raw_key const &, celerix::public_key const &, celerix::uint256_union const &);
+celerix::signature sign_message (celerix::raw_key const &, celerix::public_key const &, uint8_t const *, size_t);
+bool validate_message (celerix::public_key const &, celerix::uint256_union const &, celerix::signature const &);
+bool validate_message (celerix::public_key const &, uint8_t const *, size_t, celerix::signature const &);
+celerix::raw_key deterministic_key (celerix::raw_key const &, uint32_t);
+celerix::public_key pub_key (celerix::raw_key const &);
 
 /* Conversion methods */
 std::string to_string_hex (uint64_t const);
@@ -567,53 +567,53 @@ T dec_sat (T const & value) noexcept
 namespace std
 {
 template <>
-struct hash<::nano::uint128_union>;
+struct hash<::celerix::uint128_union>;
 template <>
-struct hash<::nano::uint256_union>;
+struct hash<::celerix::uint256_union>;
 template <>
-struct hash<::nano::public_key>;
+struct hash<::celerix::public_key>;
 template <>
-struct hash<::nano::block_hash>;
+struct hash<::celerix::block_hash>;
 template <>
-struct hash<::nano::hash_or_account>;
+struct hash<::celerix::hash_or_account>;
 template <>
-struct hash<::nano::root>;
+struct hash<::celerix::root>;
 template <>
-struct hash<::nano::link>;
+struct hash<::celerix::link>;
 template <>
-struct hash<::nano::raw_key>;
+struct hash<::celerix::raw_key>;
 template <>
-struct hash<::nano::wallet_id>;
+struct hash<::celerix::wallet_id>;
 template <>
-struct hash<::nano::uint512_union>;
+struct hash<::celerix::uint512_union>;
 template <>
-struct hash<::nano::qualified_root>;
+struct hash<::celerix::qualified_root>;
 }
 
 namespace boost
 {
 template <>
-struct hash<::nano::uint128_union>;
+struct hash<::celerix::uint128_union>;
 template <>
-struct hash<::nano::uint256_union>;
+struct hash<::celerix::uint256_union>;
 template <>
-struct hash<::nano::public_key>;
+struct hash<::celerix::public_key>;
 template <>
-struct hash<::nano::block_hash>;
+struct hash<::celerix::block_hash>;
 template <>
-struct hash<::nano::hash_or_account>;
+struct hash<::celerix::hash_or_account>;
 template <>
-struct hash<::nano::root>;
+struct hash<::celerix::root>;
 template <>
-struct hash<::nano::link>;
+struct hash<::celerix::link>;
 template <>
-struct hash<::nano::raw_key>;
+struct hash<::celerix::raw_key>;
 template <>
-struct hash<::nano::wallet_id>;
+struct hash<::celerix::wallet_id>;
 template <>
-struct hash<::nano::uint512_union>;
+struct hash<::celerix::uint512_union>;
 template <>
-struct hash<::nano::qualified_root>;
+struct hash<::celerix::qualified_root>;
 }
 
 /*
@@ -621,36 +621,36 @@ struct hash<::nano::qualified_root>;
  */
 
 template <>
-struct fmt::formatter<nano::uint128_union> : fmt::ostream_formatter
+struct fmt::formatter<celerix::uint128_union> : fmt::ostream_formatter
 {
 };
 
 template <>
-struct fmt::formatter<nano::uint256_union> : fmt::ostream_formatter
+struct fmt::formatter<celerix::uint256_union> : fmt::ostream_formatter
 {
 };
 
 template <>
-struct fmt::formatter<nano::uint512_union> : fmt::ostream_formatter
+struct fmt::formatter<celerix::uint512_union> : fmt::ostream_formatter
 {
 };
 
 template <>
-struct fmt::formatter<nano::hash_or_account> : fmt::ostream_formatter
+struct fmt::formatter<celerix::hash_or_account> : fmt::ostream_formatter
 {
 };
 
 template <>
-struct fmt::formatter<nano::block_hash> : fmt::formatter<nano::uint256_union>
+struct fmt::formatter<celerix::block_hash> : fmt::formatter<celerix::uint256_union>
 {
 };
 
 template <>
-struct fmt::formatter<nano::public_key> : fmt::formatter<nano::uint256_union>
+struct fmt::formatter<celerix::public_key> : fmt::formatter<celerix::uint256_union>
 {
 };
 
 template <>
-struct fmt::formatter<nano::qualified_root> : fmt::formatter<nano::uint512_union>
+struct fmt::formatter<celerix::qualified_root> : fmt::formatter<celerix::uint512_union>
 {
 };

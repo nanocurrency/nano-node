@@ -1,4 +1,4 @@
-#include <nano/lib/files.hpp>
+#include <celerix/lib/files.hpp>
 
 #include <cstddef>
 #include <cstring>
@@ -13,7 +13,7 @@
 #include <sys/resource.h>
 #endif
 
-std::size_t nano::get_file_descriptor_limit ()
+std::size_t celerix::get_file_descriptor_limit ()
 {
 	std::size_t fd_limit = std::numeric_limits<std::size_t>::max ();
 #ifndef _WIN32
@@ -26,7 +26,7 @@ std::size_t nano::get_file_descriptor_limit ()
 	return fd_limit;
 }
 
-void nano::set_file_descriptor_limit (std::size_t limit)
+void celerix::set_file_descriptor_limit (std::size_t limit)
 {
 #ifndef _WIN32
 	rlimit fd_limit{};
@@ -50,17 +50,17 @@ void nano::set_file_descriptor_limit (std::size_t limit)
 #endif
 }
 
-void nano::initialize_file_descriptor_limit ()
+void celerix::initialize_file_descriptor_limit ()
 {
-	nano::set_file_descriptor_limit (DEFAULT_FILE_DESCRIPTOR_LIMIT);
-	auto limit = nano::get_file_descriptor_limit ();
+	celerix::set_file_descriptor_limit (DEFAULT_FILE_DESCRIPTOR_LIMIT);
+	auto limit = celerix::get_file_descriptor_limit ();
 	if (limit < DEFAULT_FILE_DESCRIPTOR_LIMIT)
 	{
 		std::cerr << "WARNING: Current file descriptor limit of " << limit << " is lower than the " << DEFAULT_FILE_DESCRIPTOR_LIMIT << " recommended. Node was unable to change it." << std::endl;
 	}
 }
 
-void nano::remove_all_files_in_dir (std::filesystem::path const & dir)
+void celerix::remove_all_files_in_dir (std::filesystem::path const & dir)
 {
 	for (auto & p : std::filesystem::directory_iterator (dir))
 	{
@@ -72,7 +72,7 @@ void nano::remove_all_files_in_dir (std::filesystem::path const & dir)
 	}
 }
 
-void nano::move_all_files_to_dir (std::filesystem::path const & from, std::filesystem::path const & to)
+void celerix::move_all_files_to_dir (std::filesystem::path const & from, std::filesystem::path const & to)
 {
 	for (auto & p : std::filesystem::directory_iterator (from))
 	{

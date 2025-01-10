@@ -1,14 +1,14 @@
-#include <nano/node/peer_exclusion.hpp>
+#include <celerix/node/peer_exclusion.hpp>
 
-nano::peer_exclusion::peer_exclusion (std::size_t max_size_a) :
+celerix::peer_exclusion::peer_exclusion (std::size_t max_size_a) :
 	max_size{ max_size_a }
 {
 }
 
-uint64_t nano::peer_exclusion::add (nano::tcp_endpoint const & endpoint)
+uint64_t celerix::peer_exclusion::add (celerix::tcp_endpoint const & endpoint)
 {
 	uint64_t result = 0;
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
 	if (auto existing = peers.get<tag_endpoint> ().find (endpoint.address ()); existing == peers.get<tag_endpoint> ().end ())
 	{
@@ -44,9 +44,9 @@ uint64_t nano::peer_exclusion::add (nano::tcp_endpoint const & endpoint)
 	return result;
 }
 
-uint64_t nano::peer_exclusion::score (const nano::tcp_endpoint & endpoint) const
+uint64_t celerix::peer_exclusion::score (const celerix::tcp_endpoint & endpoint) const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
 	if (auto existing = peers.get<tag_endpoint> ().find (endpoint.address ()); existing != peers.get<tag_endpoint> ().end ())
 	{
@@ -55,9 +55,9 @@ uint64_t nano::peer_exclusion::score (const nano::tcp_endpoint & endpoint) const
 	return 0;
 }
 
-std::chrono::steady_clock::time_point nano::peer_exclusion::until (const nano::tcp_endpoint & endpoint) const
+std::chrono::steady_clock::time_point celerix::peer_exclusion::until (const celerix::tcp_endpoint & endpoint) const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
 	if (auto existing = peers.get<tag_endpoint> ().find (endpoint.address ()); existing != peers.get<tag_endpoint> ().end ())
 	{
@@ -66,14 +66,14 @@ std::chrono::steady_clock::time_point nano::peer_exclusion::until (const nano::t
 	return {};
 }
 
-bool nano::peer_exclusion::check (nano::tcp_endpoint const & endpoint) const
+bool celerix::peer_exclusion::check (celerix::tcp_endpoint const & endpoint) const
 {
 	return check (endpoint.address ());
 }
 
-bool nano::peer_exclusion::check (boost::asio::ip::address const & address) const
+bool celerix::peer_exclusion::check (boost::asio::ip::address const & address) const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
 	if (auto existing = peers.get<tag_endpoint> ().find (address); existing != peers.get<tag_endpoint> ().end ())
 	{
@@ -85,23 +85,23 @@ bool nano::peer_exclusion::check (boost::asio::ip::address const & address) cons
 	return false;
 }
 
-void nano::peer_exclusion::remove (nano::tcp_endpoint const & endpoint_a)
+void celerix::peer_exclusion::remove (celerix::tcp_endpoint const & endpoint_a)
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	peers.get<tag_endpoint> ().erase (endpoint_a.address ());
 }
 
-std::size_t nano::peer_exclusion::size () const
+std::size_t celerix::peer_exclusion::size () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return peers.size ();
 }
 
-nano::container_info nano::peer_exclusion::container_info () const
+celerix::container_info celerix::peer_exclusion::container_info () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("peers", peers.size ());
 	return info;
 }

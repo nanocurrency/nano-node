@@ -1,18 +1,18 @@
-Name:                   nanocurrency-beta
+Name:                   celerixcurrency-beta
 Version:                @VERSION@ 
 Release:                @RELEASE@%{?dist}
-Summary:                Nanocurrency Beta Daemon
+Summary:                Celerixcurrency Beta Daemon
 License:                BSD-2-Clause
-URL:                    https://nano.org/
+URL:                    https://celerix.org/
 Requires(pre):          /usr/sbin/useradd, /usr/bin/getent
 Requires(postun):       /usr/sbin/userdel
 BuildRequires:          make, glibc-devel, glibc-headers
-Source:                 nano-%{version}.tar.gz
+Source:                 celerix-%{version}.tar.gz
 
 %description
-This is nanocurrency daemon.  Nano is a digital currency that is
+This is celerixcurrency daemon.  Celerix is a digital currency that is
 peer-to-peer, decentralized, and trustless. This package includes
-the nano daemon, and a service.
+the celerix daemon, and a service.
 
 %prep
 if [ ! -x "$(which cmake)" ]; then
@@ -25,39 +25,39 @@ if cc --std=c++20 --version 2>&1 >/dev/null | grep '^' >/dev/null; then
 	echo "      scl enable gcc-toolset-12 'rpmbuild ...'" >&2
 	exit 1
 fi
-%autosetup -n nano-%{version}
+%autosetup -n celerix-%{version}
 
 %build
-cmake -DCMAKE_VERBOSE_MAKEFILE=ON -DACTIVE_NETWORK=nano_beta_network -DCMAKE_BUILD_TYPE=RelWithDebInfo .
-make nano_node %{?_smp_mflags}
-make nano_rpc %{?_smp_mflags}
+cmake -DCMAKE_VERBOSE_MAKEFILE=ON -DACTIVE_NETWORK=celerix_beta_network -DCMAKE_BUILD_TYPE=RelWithDebInfo .
+make celerix_node %{?_smp_mflags}
+make celerix_rpc %{?_smp_mflags}
 
 %install
 if [ ! %{buildroot} = "/" ]; then %{__rm} -rf %{buildroot}; fi
 mkdir -p %{buildroot}/usr/bin
 mkdir -p %{buildroot}/etc/systemd/system/
-cp nano_node %{buildroot}/usr/bin/nano_node-beta
-cp nano_rpc %{buildroot}/usr/bin/nano_rpc-beta
-cp etc/systemd/nanocurrency-beta.service %{buildroot}/etc/systemd/system/nanocurrency-beta.service
-sed -i "s/nano_node/nano_node-beta/g" %{buildroot}/etc/systemd/system/nanocurrency-beta.service
+cp celerix_node %{buildroot}/usr/bin/celerix_node-beta
+cp celerix_rpc %{buildroot}/usr/bin/celerix_rpc-beta
+cp etc/systemd/celerixcurrency-beta.service %{buildroot}/etc/systemd/system/celerixcurrency-beta.service
+sed -i "s/celerix_node/celerix_node-beta/g" %{buildroot}/etc/systemd/system/celerixcurrency-beta.service
 
 %clean
 if [ ! %{buildroot} = "/" ]; then %{__rm} -rf %{buildroot}; fi
 
 %files
 %defattr(755,root,root)
-%{_bindir}/nano_node-beta
-%{_bindir}/nano_rpc-beta
-%attr(644,root,root) /etc/systemd/system/nanocurrency-beta.service
+%{_bindir}/celerix_node-beta
+%{_bindir}/celerix_rpc-beta
+%attr(644,root,root) /etc/systemd/system/celerixcurrency-beta.service
 
 %pre
 PATH="/usr/bin:/usr/sbin:/bin:/sbin:${PATH}"; export PATH
-mkdir -p /var/nanocurrency/Nano
-getent group nanocurrency >/dev/null || groupadd --system nanocurrency || exit 1
-getent passwd nanocurrency >/dev/null || useradd --system --create-home --home-dir /var/nanocurrency --shell /bin/bash --comment "Nanocurrency Daemon user" --gid nanocurrency nanocurrency || exit 1
-chown -R nanocurrency:nanocurrency /var/nanocurrency
-chmod 700 /var/nanocurrency
+mkdir -p /var/celerixcurrency/Celerix
+getent group celerixcurrency >/dev/null || groupadd --system celerixcurrency || exit 1
+getent passwd celerixcurrency >/dev/null || useradd --system --create-home --home-dir /var/celerixcurrency --shell /bin/bash --comment "Celerixcurrency Daemon user" --gid celerixcurrency celerixcurrency || exit 1
+chown -R celerixcurrency:celerixcurrency /var/celerixcurrency
+chmod 700 /var/celerixcurrency
 
 %postun
 PATH="/usr/bin:/usr/sbin:/bin:/sbin:${PATH}"; export PATH
-userdel nanocurrency >/dev/null 2>/dev/null || :
+userdel celerixcurrency >/dev/null 2>/dev/null || :

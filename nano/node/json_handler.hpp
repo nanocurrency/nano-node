@@ -1,21 +1,21 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
-#include <nano/node/ipc/flatbuffers_handler.hpp>
-#include <nano/node/wallet.hpp>
-#include <nano/rpc/rpc.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/node/ipc/flatbuffers_handler.hpp>
+#include <celerix/node/wallet.hpp>
+#include <celerix/rpc/rpc.hpp>
 
 #include <boost/property_tree/ptree.hpp>
 
 #include <functional>
 #include <string>
 
-namespace nano::secure
+namespace celerix::secure
 {
 class transaction;
 }
 
-namespace nano
+namespace celerix
 {
 namespace ipc
 {
@@ -24,11 +24,11 @@ namespace ipc
 class node;
 class node_rpc_config;
 
-class json_handler : public std::enable_shared_from_this<nano::json_handler>
+class json_handler : public std::enable_shared_from_this<celerix::json_handler>
 {
 public:
 	json_handler (
-	nano::node &, nano::node_rpc_config const &, std::string const &, std::function<void (std::string const &)> const &, std::function<void ()> stop_callback = [] () {});
+	celerix::node &, celerix::node_rpc_config const &, std::string const &, std::function<void (std::string const &)> const &, std::function<void ()> stop_callback = [] () {});
 	void process_request (bool unsafe = false);
 	void account_balance ();
 	void account_block_count ();
@@ -81,8 +81,8 @@ public:
 	void key_create ();
 	void key_expand ();
 	void ledger ();
-	void nano_to_raw ();
-	void raw_to_nano ();
+	void celerix_to_raw ();
+	void raw_to_celerix ();
 	void node_id ();
 	void node_id_delete ();
 	void password_change ();
@@ -150,41 +150,41 @@ public:
 	void work_set ();
 	void work_validate ();
 	std::string body;
-	nano::node & node;
+	celerix::node & node;
 	boost::property_tree::ptree request;
 	std::function<void (std::string const &)> response;
 	void response_errors ();
 	std::error_code ec;
 	std::string action;
 	boost::property_tree::ptree response_l;
-	std::shared_ptr<nano::wallet> wallet_impl ();
-	bool wallet_locked_impl (store::transaction const &, std::shared_ptr<nano::wallet> const &);
-	bool wallet_account_impl (store::transaction const &, std::shared_ptr<nano::wallet> const &, nano::account const &);
-	nano::account account_impl (std::string = "", std::error_code = nano::error_common::bad_account_number);
-	nano::account_info account_info_impl (secure::transaction const &, nano::account const &);
-	nano::amount amount_impl ();
-	std::shared_ptr<nano::block> block_impl (bool = true);
-	nano::block_hash hash_impl (std::string = "hash");
-	nano::amount threshold_optional_impl ();
+	std::shared_ptr<celerix::wallet> wallet_impl ();
+	bool wallet_locked_impl (store::transaction const &, std::shared_ptr<celerix::wallet> const &);
+	bool wallet_account_impl (store::transaction const &, std::shared_ptr<celerix::wallet> const &, celerix::account const &);
+	celerix::account account_impl (std::string = "", std::error_code = celerix::error_common::bad_account_number);
+	celerix::account_info account_info_impl (secure::transaction const &, celerix::account const &);
+	celerix::amount amount_impl ();
+	std::shared_ptr<celerix::block> block_impl (bool = true);
+	celerix::block_hash hash_impl (std::string = "hash");
+	celerix::amount threshold_optional_impl ();
 	uint64_t work_optional_impl ();
 	uint64_t count_impl ();
 	uint64_t count_optional_impl (uint64_t = std::numeric_limits<uint64_t>::max ());
 	uint64_t offset_optional_impl (uint64_t = 0);
-	uint64_t difficulty_optional_impl (nano::work_version const);
-	uint64_t difficulty_ledger (nano::block const &);
-	double multiplier_optional_impl (nano::work_version const, uint64_t &);
-	nano::work_version work_version_optional_impl (nano::work_version const default_a);
+	uint64_t difficulty_optional_impl (celerix::work_version const);
+	uint64_t difficulty_ledger (celerix::block const &);
+	double multiplier_optional_impl (celerix::work_version const, uint64_t &);
+	celerix::work_version work_version_optional_impl (celerix::work_version const default_a);
 	bool enable_sign_hash{ false };
 	std::function<void ()> stop_callback;
-	nano::node_rpc_config const & node_rpc_config;
-	std::function<void ()> create_worker_task (std::function<void (std::shared_ptr<nano::json_handler> const &)> const &);
+	celerix::node_rpc_config const & node_rpc_config;
+	std::function<void ()> create_worker_task (std::function<void (std::shared_ptr<celerix::json_handler> const &)> const &);
 };
 
-class inprocess_rpc_handler final : public nano::rpc_handler_interface
+class inprocess_rpc_handler final : public celerix::rpc_handler_interface
 {
 public:
 	inprocess_rpc_handler (
-	nano::node & node_a, nano::ipc::ipc_server & ipc_server_a, nano::node_rpc_config const & node_rpc_config_a, std::function<void ()> stop_callback_a = [] () {}) :
+	celerix::node & node_a, celerix::ipc::ipc_server & ipc_server_a, celerix::node_rpc_config const & node_rpc_config_a, std::function<void ()> stop_callback_a = [] () {}) :
 		node (node_a),
 		ipc_server (ipc_server_a),
 		stop_callback (stop_callback_a),
@@ -203,16 +203,16 @@ public:
 		}
 	}
 
-	void rpc_instance (nano::rpc & rpc_a) override
+	void rpc_instance (celerix::rpc & rpc_a) override
 	{
 		rpc = rpc_a;
 	}
 
 private:
-	nano::node & node;
-	nano::ipc::ipc_server & ipc_server;
-	boost::optional<nano::rpc &> rpc;
+	celerix::node & node;
+	celerix::ipc::ipc_server & ipc_server;
+	boost::optional<celerix::rpc &> rpc;
 	std::function<void ()> stop_callback;
-	nano::node_rpc_config const & node_rpc_config;
+	celerix::node_rpc_config const & node_rpc_config;
 };
 }

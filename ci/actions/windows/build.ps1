@@ -12,7 +12,7 @@ if (${env:artifact} -eq 1) {
     else {
         $env:NETWORK_CFG = "live"
     }
-    $env:NANO_TEST = "-DNANO_TEST=OFF"
+    $env:CELERIX_TEST = "-DCELERIX_TEST=OFF"
     if ([string]::IsNullOrEmpty(${env:VERSION_PRE_RELEASE})) {
         $env:CI_VERSION_PRE_RELEASE = "OFF"
     } else {
@@ -29,7 +29,7 @@ else {
         $env:BUILD_TYPE = "Debug"
     }
     $env:NETWORK_CFG = "dev"
-    $env:NANO_TEST = "-DNANO_TEST=ON"
+    $env:CELERIX_TEST = "-DCELERIX_TEST=ON"
     $env:RUN = "test"
 }
 

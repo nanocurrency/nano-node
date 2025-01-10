@@ -1,12 +1,12 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/stats.hpp>
-#include <nano/lib/threading.hpp>
-#include <nano/node/network.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/node_observers.hpp>
-#include <nano/node/telemetry.hpp>
-#include <nano/node/transport/transport.hpp>
-#include <nano/secure/ledger.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/stats.hpp>
+#include <celerix/lib/threading.hpp>
+#include <celerix/node/network.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/node_observers.hpp>
+#include <celerix/node/telemetry.hpp>
+#include <celerix/node/transport/transport.hpp>
+#include <celerix/secure/ledger.hpp>
 
 #include <boost/algorithm/string.hpp>
 
@@ -18,7 +18,7 @@
 
 using namespace std::chrono_literals;
 
-nano::telemetry::telemetry (nano::node_flags const & flags_a, nano::node & node_a, nano::network & network_a, nano::node_observers & observers_a, nano::network_params & network_params_a, nano::stats & stats_a) :
+celerix::telemetry::telemetry (celerix::node_flags const & flags_a, celerix::node & node_a, celerix::network & network_a, celerix::node_observers & observers_a, celerix::network_params & network_params_a, celerix::stats & stats_a) :
 	config{ flags_a },
 	node{ node_a },
 	network{ network_a },
@@ -28,51 +28,51 @@ nano::telemetry::telemetry (nano::node_flags const & flags_a, nano::node & node_
 {
 }
 
-nano::telemetry::~telemetry ()
+celerix::telemetry::~telemetry ()
 {
 	// Thread must be stopped before destruction
 	debug_assert (!thread.joinable ());
 }
 
-void nano::telemetry::start ()
+void celerix::telemetry::start ()
 {
 	debug_assert (!thread.joinable ());
 
 	thread = std::thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::telemetry);
+		celerix::thread_role::set (celerix::thread_role::name::telemetry);
 		run ();
 	});
 }
 
-void nano::telemetry::stop ()
+void celerix::telemetry::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
 		stopped = true;
 	}
 	condition.notify_all ();
-	nano::join_or_pass (thread);
+	celerix::join_or_pass (thread);
 }
 
-bool nano::telemetry::verify (const nano::telemetry_ack & telemetry, const std::shared_ptr<nano::transport::channel> & channel) const
+bool celerix::telemetry::verify (const celerix::telemetry_ack & telemetry, const std::shared_ptr<celerix::transport::channel> & channel) const
 {
 	if (telemetry.is_empty_payload ())
 	{
-		stats.inc (nano::stat::type::telemetry, nano::stat::detail::empty_payload);
+		stats.inc (celerix::stat::type::telemetry, celerix::stat::detail::empty_payload);
 		return false;
 	}
 
 	// Check if telemetry node id matches channel node id
 	if (telemetry.data.node_id != channel->get_node_id ())
 	{
-		stats.inc (nano::stat::type::telemetry, nano::stat::detail::node_id_mismatch);
+		stats.inc (celerix::stat::type::telemetry, celerix::stat::detail::node_id_mismatch);
 		return false;
 	}
 
 	// Check whether data is signed by node id presented in telemetry message
 	if (telemetry.data.validate_signature ()) // Returns false when signature OK
 	{
-		stats.inc (nano::stat::type::telemetry, nano::stat::detail::invalid_signature);
+		stats.inc (celerix::stat::type::telemetry, celerix::stat::detail::invalid_signature);
 		return false;
 	}
 
@@ -80,25 +80,25 @@ bool nano::telemetry::verify (const nano::telemetry_ack & telemetry, const std::
 	{
 		network.exclude (channel);
 
-		stats.inc (nano::stat::type::telemetry, nano::stat::detail::genesis_mismatch);
+		stats.inc (celerix::stat::type::telemetry, celerix::stat::detail::genesis_mismatch);
 		return false;
 	}
 
 	return true; // Telemetry is OK
 }
 
-void nano::telemetry::process (const nano::telemetry_ack & telemetry, const std::shared_ptr<nano::transport::channel> & channel)
+void celerix::telemetry::process (const celerix::telemetry_ack & telemetry, const std::shared_ptr<celerix::transport::channel> & channel)
 {
 	if (!verify (telemetry, channel))
 	{
 		return;
 	}
 
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 
 	if (auto it = telemetries.get<tag_channel> ().find (channel); it != telemetries.get<tag_channel> ().end ())
 	{
-		stats.inc (nano::stat::type::telemetry, nano::stat::detail::update);
+		stats.inc (celerix::stat::type::telemetry, celerix::stat::detail::update);
 
 		telemetries.get<tag_channel> ().modify (it, [&telemetry, &channel] (auto & entry) {
 			entry.data = telemetry.data;
@@ -107,12 +107,12 @@ void nano::telemetry::process (const nano::telemetry_ack & telemetry, const std:
 	}
 	else
 	{
-		stats.inc (nano::stat::type::telemetry, nano::stat::detail::insert);
+		stats.inc (celerix::stat::type::telemetry, celerix::stat::detail::insert);
 		telemetries.get<tag_channel> ().insert ({ channel, telemetry.data, std::chrono::steady_clock::now () });
 
 		if (telemetries.size () > max_size)
 		{
-			stats.inc (nano::stat::type::telemetry, nano::stat::detail::overfill);
+			stats.inc (celerix::stat::type::telemetry, celerix::stat::detail::overfill);
 			telemetries.get<tag_sequenced> ().pop_front (); // Erase oldest entry
 		}
 	}
@@ -121,25 +121,25 @@ void nano::telemetry::process (const nano::telemetry_ack & telemetry, const std:
 
 	observers.telemetry.notify (telemetry.data, channel);
 
-	stats.inc (nano::stat::type::telemetry, nano::stat::detail::process);
+	stats.inc (celerix::stat::type::telemetry, celerix::stat::detail::process);
 }
 
-void nano::telemetry::trigger ()
+void celerix::telemetry::trigger ()
 {
 	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
 		triggered = true;
 	}
 	condition.notify_all ();
 }
 
-std::size_t nano::telemetry::size () const
+std::size_t celerix::telemetry::size () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return telemetries.size ();
 }
 
-bool nano::telemetry::request_predicate () const
+bool celerix::telemetry::request_predicate () const
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -154,7 +154,7 @@ bool nano::telemetry::request_predicate () const
 	return false;
 }
 
-bool nano::telemetry::broadcast_predicate () const
+bool celerix::telemetry::broadcast_predicate () const
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -165,12 +165,12 @@ bool nano::telemetry::broadcast_predicate () const
 	return false;
 }
 
-void nano::telemetry::run ()
+void celerix::telemetry::run ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		stats.inc (nano::stat::type::telemetry, nano::stat::detail::loop);
+		stats.inc (celerix::stat::type::telemetry, celerix::stat::detail::loop);
 
 		cleanup ();
 
@@ -199,7 +199,7 @@ void nano::telemetry::run ()
 	}
 }
 
-void nano::telemetry::run_requests ()
+void celerix::telemetry::run_requests ()
 {
 	auto peers = network.list ();
 
@@ -209,15 +209,15 @@ void nano::telemetry::run_requests ()
 	}
 }
 
-void nano::telemetry::request (std::shared_ptr<nano::transport::channel> const & channel)
+void celerix::telemetry::request (std::shared_ptr<celerix::transport::channel> const & channel)
 {
-	stats.inc (nano::stat::type::telemetry, nano::stat::detail::request);
+	stats.inc (celerix::stat::type::telemetry, celerix::stat::detail::request);
 
-	nano::telemetry_req message{ network_params.network };
-	channel->send (message, nano::transport::traffic_type::telemetry);
+	celerix::telemetry_req message{ network_params.network };
+	channel->send (message, celerix::transport::traffic_type::telemetry);
 }
 
-void nano::telemetry::run_broadcasts ()
+void celerix::telemetry::run_broadcasts ()
 {
 	auto telemetry = node.local_telemetry ();
 	auto peers = network.list ();
@@ -228,15 +228,15 @@ void nano::telemetry::run_broadcasts ()
 	}
 }
 
-void nano::telemetry::broadcast (std::shared_ptr<nano::transport::channel> const & channel, const nano::telemetry_data & telemetry)
+void celerix::telemetry::broadcast (std::shared_ptr<celerix::transport::channel> const & channel, const celerix::telemetry_data & telemetry)
 {
-	stats.inc (nano::stat::type::telemetry, nano::stat::detail::broadcast);
+	stats.inc (celerix::stat::type::telemetry, celerix::stat::detail::broadcast);
 
-	nano::telemetry_ack message{ network_params.network, telemetry };
-	channel->send (message, nano::transport::traffic_type::telemetry);
+	celerix::telemetry_ack message{ network_params.network, telemetry };
+	channel->send (message, celerix::transport::traffic_type::telemetry);
 }
 
-void nano::telemetry::cleanup ()
+void celerix::telemetry::cleanup ()
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -244,26 +244,26 @@ void nano::telemetry::cleanup ()
 		// Remove if telemetry data is stale
 		if (!check_timeout (entry))
 		{
-			stats.inc (nano::stat::type::telemetry, nano::stat::detail::erase_stale);
+			stats.inc (celerix::stat::type::telemetry, celerix::stat::detail::erase_stale);
 			return true; // Erase
 		}
 		if (!entry.channel->alive ())
 		{
-			stats.inc (nano::stat::type::telemetry, nano::stat::detail::erase_dead);
+			stats.inc (celerix::stat::type::telemetry, celerix::stat::detail::erase_dead);
 			return true; // Erase
 		}
 		return false; // Do not erase
 	});
 }
 
-bool nano::telemetry::check_timeout (const entry & entry) const
+bool celerix::telemetry::check_timeout (const entry & entry) const
 {
 	return entry.last_updated + network_params.network.telemetry_cache_cutoff >= std::chrono::steady_clock::now ();
 }
 
-std::optional<nano::telemetry_data> nano::telemetry::get_telemetry (const nano::endpoint & endpoint) const
+std::optional<celerix::telemetry_data> celerix::telemetry::get_telemetry (const celerix::endpoint & endpoint) const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
 	if (auto it = telemetries.get<tag_endpoint> ().find (endpoint); it != telemetries.get<tag_endpoint> ().end ())
 	{
@@ -275,11 +275,11 @@ std::optional<nano::telemetry_data> nano::telemetry::get_telemetry (const nano::
 	return {};
 }
 
-std::unordered_map<nano::endpoint, nano::telemetry_data> nano::telemetry::get_all_telemetries () const
+std::unordered_map<celerix::endpoint, celerix::telemetry_data> celerix::telemetry::get_all_telemetries () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
-	std::unordered_map<nano::endpoint, nano::telemetry_data> result;
+	std::unordered_map<celerix::endpoint, celerix::telemetry_data> result;
 	for (auto const & entry : telemetries)
 	{
 		if (check_timeout (entry))
@@ -290,11 +290,11 @@ std::unordered_map<nano::endpoint, nano::telemetry_data> nano::telemetry::get_al
 	return result;
 }
 
-nano::container_info nano::telemetry::container_info () const
+celerix::container_info celerix::telemetry::container_info () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("telemetries", telemetries.size ());
 	return info;
 }

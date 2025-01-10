@@ -1,18 +1,18 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/thread_roles.hpp>
-#include <nano/node/backlog_scan.hpp>
-#include <nano/node/block_processor.hpp>
-#include <nano/node/bounded_backlog.hpp>
-#include <nano/node/confirming_set.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/scheduler/component.hpp>
-#include <nano/secure/common.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/ledger_set_any.hpp>
-#include <nano/secure/ledger_set_confirmed.hpp>
-#include <nano/secure/transaction.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/thread_roles.hpp>
+#include <celerix/node/backlog_scan.hpp>
+#include <celerix/node/block_processor.hpp>
+#include <celerix/node/bounded_backlog.hpp>
+#include <celerix/node/confirming_set.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/scheduler/component.hpp>
+#include <celerix/secure/common.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/ledger_set_any.hpp>
+#include <celerix/secure/ledger_set_confirmed.hpp>
+#include <celerix/secure/transaction.hpp>
 
-nano::bounded_backlog::bounded_backlog (nano::node_config const & config_a, nano::node & node_a, nano::ledger & ledger_a, nano::bucketing & bucketing_a, nano::backlog_scan & backlog_scan_a, nano::block_processor & block_processor_a, nano::confirming_set & confirming_set_a, nano::stats & stats_a, nano::logger & logger_a) :
+celerix::bounded_backlog::bounded_backlog (celerix::node_config const & config_a, celerix::node & node_a, celerix::ledger & ledger_a, celerix::bucketing & bucketing_a, celerix::backlog_scan & backlog_scan_a, celerix::block_processor & block_processor_a, celerix::confirming_set & confirming_set_a, celerix::stats & stats_a, celerix::logger & logger_a) :
 	config{ config_a },
 	node{ node_a },
 	ledger{ ledger_a },
@@ -23,7 +23,7 @@ nano::bounded_backlog::bounded_backlog (nano::node_config const & config_a, nano
 	stats{ stats_a },
 	logger{ logger_a },
 	scan_limiter{ config.bounded_backlog.scan_rate },
-	workers{ 1, nano::thread_role::name::bounded_backlog_notifications }
+	workers{ 1, celerix::thread_role::name::bounded_backlog_notifications }
 {
 	// Activate accounts with unconfirmed blocks
 	backlog_scan.batch_activated.add ([this] (auto const & batch) {
@@ -36,7 +36,7 @@ nano::bounded_backlog::bounded_backlog (nano::node_config const & config_a, nano
 
 	// Erase accounts with all confirmed blocks
 	backlog_scan.batch_scanned.add ([this] (auto const & batch) {
-		nano::lock_guard<nano::mutex> guard{ mutex };
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
 		for (auto const & info : batch)
 		{
 			if (info.conf_info.height == info.account_info.block_count)
@@ -51,7 +51,7 @@ nano::bounded_backlog::bounded_backlog (nano::node_config const & config_a, nano
 		auto transaction = ledger.tx_begin_read ();
 		for (auto const & [result, context] : batch)
 		{
-			if (result == nano::block_status::progress)
+			if (result == celerix::block_status::progress)
 			{
 				auto const & block = context.block;
 				insert (transaction, *block);
@@ -61,7 +61,7 @@ nano::bounded_backlog::bounded_backlog (nano::node_config const & config_a, nano
 
 	// Remove rolled back blocks from the backlog
 	block_processor.rolled_back.add ([this] (auto const & blocks, auto const & rollback_root) {
-		nano::lock_guard<nano::mutex> guard{ mutex };
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
 		for (auto const & block : blocks)
 		{
 			index.erase (block->hash ());
@@ -70,7 +70,7 @@ nano::bounded_backlog::bounded_backlog (nano::node_config const & config_a, nano
 
 	// Remove cemented blocks from the backlog
 	confirming_set.batch_cemented.add ([this] (auto const & batch) {
-		nano::lock_guard<nano::mutex> guard{ mutex };
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
 		for (auto const & context : batch)
 		{
 			index.erase (context.block->hash ());
@@ -78,7 +78,7 @@ nano::bounded_backlog::bounded_backlog (nano::node_config const & config_a, nano
 	});
 }
 
-nano::bounded_backlog::~bounded_backlog ()
+celerix::bounded_backlog::~bounded_backlog ()
 {
 	// Thread must be stopped before destruction
 	debug_assert (!thread.joinable ());
@@ -86,7 +86,7 @@ nano::bounded_backlog::~bounded_backlog ()
 	debug_assert (!workers.alive ());
 }
 
-void nano::bounded_backlog::start ()
+void celerix::bounded_backlog::start ()
 {
 	debug_assert (!thread.joinable ());
 
@@ -98,20 +98,20 @@ void nano::bounded_backlog::start ()
 	workers.start ();
 
 	thread = std::thread{ [this] () {
-		nano::thread_role::set (nano::thread_role::name::bounded_backlog);
+		celerix::thread_role::set (celerix::thread_role::name::bounded_backlog);
 		run ();
 	} };
 
 	scan_thread = std::thread{ [this] () {
-		nano::thread_role::set (nano::thread_role::name::bounded_backlog_scan);
+		celerix::thread_role::set (celerix::thread_role::name::bounded_backlog_scan);
 		run_scan ();
 	} };
 }
 
-void nano::bounded_backlog::stop ()
+void celerix::bounded_backlog::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		stopped = true;
 	}
 	condition.notify_all ();
@@ -126,13 +126,13 @@ void nano::bounded_backlog::stop ()
 	workers.stop ();
 }
 
-size_t nano::bounded_backlog::index_size () const
+size_t celerix::bounded_backlog::index_size () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return index.size ();
 }
 
-void nano::bounded_backlog::activate (nano::secure::transaction & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info)
+void celerix::bounded_backlog::activate (celerix::secure::transaction & transaction, celerix::account const & account, celerix::account_info const & account_info, celerix::confirmation_height_info const & conf_info)
 {
 	debug_assert (conf_info.frontier != account_info.head);
 
@@ -165,36 +165,36 @@ void nano::bounded_backlog::activate (nano::secure::transaction & transaction, n
 	}
 }
 
-void nano::bounded_backlog::update (nano::secure::transaction const & transaction, nano::block_hash const & hash)
+void celerix::bounded_backlog::update (celerix::secure::transaction const & transaction, celerix::block_hash const & hash)
 {
 	// Erase if the block is either confirmed or missing
 	if (!ledger.unconfirmed_exists (transaction, hash))
 	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
+		celerix::lock_guard<celerix::mutex> guard{ mutex };
 		index.erase (hash);
 	}
 }
 
-bool nano::bounded_backlog::insert (nano::secure::transaction const & transaction, nano::block const & block)
+bool celerix::bounded_backlog::insert (celerix::secure::transaction const & transaction, celerix::block const & block)
 {
 	auto const [priority_balance, priority_timestamp] = ledger.block_priority (transaction, block);
 	auto const bucket_index = bucketing.bucket_index (priority_balance);
 
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
 	return index.insert (block, bucket_index, priority_timestamp);
 }
 
-bool nano::bounded_backlog::predicate () const
+bool celerix::bounded_backlog::predicate () const
 {
 	debug_assert (!mutex.try_lock ());
 	// Both ledger and tracked backlog must be over the threshold
 	return ledger.backlog_count () > config.max_backlog && index.size () > config.max_backlog;
 }
 
-void nano::bounded_backlog::run ()
+void celerix::bounded_backlog::run ()
 {
-	std::unique_lock<nano::mutex> lock{ mutex };
+	std::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		condition.wait_for (lock, 1s, [this] {
@@ -209,7 +209,7 @@ void nano::bounded_backlog::run ()
 		// Wait until all notification about the previous rollbacks are processed
 		while (workers.queued_tasks () >= config.bounded_backlog.max_queued_notifications)
 		{
-			stats.inc (nano::stat::type::bounded_backlog, nano::stat::detail::cooldown);
+			stats.inc (celerix::stat::type::bounded_backlog, celerix::stat::detail::cooldown);
 			condition.wait_for (lock, 100ms, [this] { return stopped.load (); });
 			if (stopped)
 			{
@@ -217,7 +217,7 @@ void nano::bounded_backlog::run ()
 			}
 		}
 
-		stats.inc (nano::stat::type::bounded_backlog, nano::stat::detail::loop);
+		stats.inc (celerix::stat::type::bounded_backlog, celerix::stat::detail::loop);
 
 		// Calculate the number of targets to rollback
 		uint64_t const backlog = ledger.backlog_count ();
@@ -228,7 +228,7 @@ void nano::bounded_backlog::run ()
 		{
 			lock.unlock ();
 
-			stats.add (nano::stat::type::bounded_backlog, nano::stat::detail::gathered_targets, targets.size ());
+			stats.add (celerix::stat::type::bounded_backlog, celerix::stat::detail::gathered_targets, targets.size ());
 			auto processed = perform_rollbacks (targets, target_count);
 
 			lock.lock ();
@@ -242,7 +242,7 @@ void nano::bounded_backlog::run ()
 		else
 		{
 			// Cooldown, this should not happen in normal operation
-			stats.inc (nano::stat::type::bounded_backlog, nano::stat::detail::no_targets);
+			stats.inc (celerix::stat::type::bounded_backlog, celerix::stat::detail::no_targets);
 			condition.wait_for (lock, 100ms, [this] {
 				return stopped.load ();
 			});
@@ -250,7 +250,7 @@ void nano::bounded_backlog::run ()
 	}
 }
 
-bool nano::bounded_backlog::should_rollback (nano::block_hash const & hash) const
+bool celerix::bounded_backlog::should_rollback (celerix::block_hash const & hash) const
 {
 	if (node.vote_cache.contains (hash))
 	{
@@ -279,30 +279,30 @@ bool nano::bounded_backlog::should_rollback (nano::block_hash const & hash) cons
 	return true;
 }
 
-std::deque<nano::block_hash> nano::bounded_backlog::perform_rollbacks (std::deque<nano::block_hash> const & targets, size_t max_rollbacks)
+std::deque<celerix::block_hash> celerix::bounded_backlog::perform_rollbacks (std::deque<celerix::block_hash> const & targets, size_t max_rollbacks)
 {
-	stats.inc (nano::stat::type::bounded_backlog, nano::stat::detail::performing_rollbacks);
+	stats.inc (celerix::stat::type::bounded_backlog, celerix::stat::detail::performing_rollbacks);
 
-	auto transaction = ledger.tx_begin_write (nano::store::writer::bounded_backlog);
+	auto transaction = ledger.tx_begin_write (celerix::store::writer::bounded_backlog);
 
-	std::deque<nano::block_hash> processed;
+	std::deque<celerix::block_hash> processed;
 	for (auto const & hash : targets)
 	{
 		// Skip the rollback if the block is being used by the node, this should be race free as it's checked while holding the ledger write lock
 		if (!should_rollback (hash))
 		{
-			stats.inc (nano::stat::type::bounded_backlog, nano::stat::detail::rollback_skipped);
+			stats.inc (celerix::stat::type::bounded_backlog, celerix::stat::detail::rollback_skipped);
 			continue;
 		}
 
 		// Here we check that the block is still OK to rollback, there could be a delay between gathering the targets and performing the rollbacks
 		if (auto block = ledger.any.block_get (transaction, hash))
 		{
-			logger.debug (nano::log::type::bounded_backlog, "Rolling back: {}, account: {}", hash.to_string (), block->account ().to_account ());
+			logger.debug (celerix::log::type::bounded_backlog, "Rolling back: {}, account: {}", hash.to_string (), block->account ().to_account ());
 
-			std::deque<std::shared_ptr<nano::block>> rollback_list;
+			std::deque<std::shared_ptr<celerix::block>> rollback_list;
 			bool error = ledger.rollback (transaction, hash, rollback_list);
-			stats.inc (nano::stat::type::bounded_backlog, error ? nano::stat::detail::rollback_failed : nano::stat::detail::rollback);
+			stats.inc (celerix::stat::type::bounded_backlog, error ? celerix::stat::detail::rollback_failed : celerix::stat::detail::rollback);
 
 			for (auto const & rollback : rollback_list)
 			{
@@ -323,7 +323,7 @@ std::deque<nano::block_hash> nano::bounded_backlog::perform_rollbacks (std::dequ
 		}
 		else
 		{
-			stats.inc (nano::stat::type::bounded_backlog, nano::stat::detail::rollback_missing_block);
+			stats.inc (celerix::stat::type::bounded_backlog, celerix::stat::detail::rollback_missing_block);
 			processed.push_back (hash);
 		}
 	}
@@ -331,16 +331,16 @@ std::deque<nano::block_hash> nano::bounded_backlog::perform_rollbacks (std::dequ
 	return processed;
 }
 
-size_t nano::bounded_backlog::bucket_threshold () const
+size_t celerix::bounded_backlog::bucket_threshold () const
 {
 	return config.max_backlog / bucketing.size ();
 }
 
-std::deque<nano::block_hash> nano::bounded_backlog::gather_targets (size_t max_count) const
+std::deque<celerix::block_hash> celerix::bounded_backlog::gather_targets (size_t max_count) const
 {
 	debug_assert (!mutex.try_lock ());
 
-	std::deque<nano::block_hash> targets;
+	std::deque<celerix::block_hash> targets;
 
 	// Start rolling back from lowest index buckets first
 	for (auto bucket : bucketing.bucket_indices ())
@@ -365,9 +365,9 @@ std::deque<nano::block_hash> nano::bounded_backlog::gather_targets (size_t max_c
 	return targets;
 }
 
-void nano::bounded_backlog::run_scan ()
+void celerix::bounded_backlog::run_scan ()
 {
-	std::unique_lock<nano::mutex> lock{ mutex };
+	std::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		auto wait = [&] (auto count) {
@@ -381,12 +381,12 @@ void nano::bounded_backlog::run_scan ()
 			}
 		};
 
-		nano::block_hash last = 0;
+		celerix::block_hash last = 0;
 		while (!stopped)
 		{
 			wait (config.bounded_backlog.batch_size);
 
-			stats.inc (nano::stat::type::bounded_backlog, nano::stat::detail::loop_scan);
+			stats.inc (celerix::stat::type::bounded_backlog, celerix::stat::detail::loop_scan);
 
 			auto batch = index.next (last, config.bounded_backlog.batch_size);
 			if (batch.empty ()) // If batch is empty, we iterated over all accounts in the index
@@ -399,7 +399,7 @@ void nano::bounded_backlog::run_scan ()
 				auto transaction = ledger.tx_begin_read ();
 				for (auto const & hash : batch)
 				{
-					stats.inc (nano::stat::type::bounded_backlog, nano::stat::detail::scanned);
+					stats.inc (celerix::stat::type::bounded_backlog, celerix::stat::detail::scanned);
 					update (transaction, hash);
 					last = hash;
 				}
@@ -409,16 +409,16 @@ void nano::bounded_backlog::run_scan ()
 	}
 }
 
-bool nano::bounded_backlog::contains (nano::block_hash const & hash) const
+bool celerix::bounded_backlog::contains (celerix::block_hash const & hash) const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return index.contains (hash);
 }
 
-nano::container_info nano::bounded_backlog::container_info () const
+celerix::container_info celerix::bounded_backlog::container_info () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	nano::container_info info;
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	celerix::container_info info;
 	info.put ("backlog", index.size ());
 	info.put ("notifications", workers.queued_tasks ());
 	info.add ("index", index.container_info ());
@@ -429,7 +429,7 @@ nano::container_info nano::bounded_backlog::container_info () const
  * backlog_index
  */
 
-bool nano::backlog_index::insert (nano::block const & block, nano::bucket_index bucket, nano::priority_timestamp priority)
+bool celerix::backlog_index::insert (celerix::block const & block, celerix::bucket_index bucket, celerix::priority_timestamp priority)
 {
 	auto const hash = block.hash ();
 	auto const account = block.account ();
@@ -450,7 +450,7 @@ bool nano::backlog_index::insert (nano::block const & block, nano::bucket_index 
 	return false;
 }
 
-bool nano::backlog_index::erase (nano::account const & account)
+bool celerix::backlog_index::erase (celerix::account const & account)
 {
 	auto const [begin, end] = blocks.get<tag_account> ().equal_range (account);
 	for (auto it = begin; it != end;)
@@ -461,7 +461,7 @@ bool nano::backlog_index::erase (nano::account const & account)
 	return begin != end;
 }
 
-bool nano::backlog_index::erase (nano::block_hash const & hash)
+bool celerix::backlog_index::erase (celerix::block_hash const & hash)
 {
 	if (auto existing = blocks.get<tag_hash> ().find (hash); existing != blocks.get<tag_hash> ().end ())
 	{
@@ -472,12 +472,12 @@ bool nano::backlog_index::erase (nano::block_hash const & hash)
 	return false;
 }
 
-std::deque<nano::block_hash> nano::backlog_index::top (nano::bucket_index bucket, size_t count, filter_callback const & filter) const
+std::deque<celerix::block_hash> celerix::backlog_index::top (celerix::bucket_index bucket, size_t count, filter_callback const & filter) const
 {
 	// Highest timestamp, lowest priority, iterate in descending order
-	priority_key const starting_key{ bucket, std::numeric_limits<nano::priority_timestamp>::max () };
+	priority_key const starting_key{ bucket, std::numeric_limits<celerix::priority_timestamp>::max () };
 
-	std::deque<nano::block_hash> results;
+	std::deque<celerix::block_hash> results;
 	auto begin = blocks.get<tag_priority> ().lower_bound (starting_key);
 	for (auto it = begin; it != blocks.get<tag_priority> ().end () && it->bucket == bucket && results.size () < count; ++it)
 	{
@@ -489,7 +489,7 @@ std::deque<nano::block_hash> nano::backlog_index::top (nano::bucket_index bucket
 	return results;
 }
 
-std::deque<nano::block_hash> nano::backlog_index::next (nano::block_hash last, size_t count) const
+std::deque<celerix::block_hash> celerix::backlog_index::next (celerix::block_hash last, size_t count) const
 {
 	std::deque<block_hash> results;
 
@@ -503,17 +503,17 @@ std::deque<nano::block_hash> nano::backlog_index::next (nano::block_hash last, s
 	return results;
 }
 
-bool nano::backlog_index::contains (nano::block_hash const & hash) const
+bool celerix::backlog_index::contains (celerix::block_hash const & hash) const
 {
 	return blocks.get<tag_hash> ().contains (hash);
 }
 
-size_t nano::backlog_index::size () const
+size_t celerix::backlog_index::size () const
 {
 	return blocks.size ();
 }
 
-size_t nano::backlog_index::size (nano::bucket_index bucket) const
+size_t celerix::backlog_index::size (celerix::bucket_index bucket) const
 {
 	if (auto it = size_by_bucket.find (bucket); it != size_by_bucket.end ())
 	{
@@ -522,10 +522,10 @@ size_t nano::backlog_index::size (nano::bucket_index bucket) const
 	return 0;
 }
 
-nano::container_info nano::backlog_index::container_info () const
+celerix::container_info celerix::backlog_index::container_info () const
 {
 	auto collect_bucket_sizes = [&] () {
-		nano::container_info info;
+		celerix::container_info info;
 		for (auto [bucket, count] : size_by_bucket)
 		{
 			info.put (std::to_string (bucket), count);
@@ -533,7 +533,7 @@ nano::container_info nano::backlog_index::container_info () const
 		return info;
 	};
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("blocks", blocks);
 	info.add ("sizes", collect_bucket_sizes ());
 	return info;
@@ -543,7 +543,7 @@ nano::container_info nano::backlog_index::container_info () const
  * bounded_backlog_config
  */
 
-nano::error nano::bounded_backlog_config::serialize (nano::tomlconfig & toml) const
+celerix::error celerix::bounded_backlog_config::serialize (celerix::tomlconfig & toml) const
 {
 	toml.put ("enable", enable, "Enable the bounded backlog. \ntype:bool");
 	toml.put ("batch_size", batch_size, "Maximum number of blocks to rollback per iteration. \ntype:uint64");
@@ -553,7 +553,7 @@ nano::error nano::bounded_backlog_config::serialize (nano::tomlconfig & toml) co
 	return toml.get_error ();
 }
 
-nano::error nano::bounded_backlog_config::deserialize (nano::tomlconfig & toml)
+celerix::error celerix::bounded_backlog_config::deserialize (celerix::tomlconfig & toml)
 {
 	toml.get ("enable", enable);
 	toml.get ("batch_size", batch_size);

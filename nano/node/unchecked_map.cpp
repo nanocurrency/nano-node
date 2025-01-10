@@ -1,37 +1,37 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/locks.hpp>
-#include <nano/lib/stats.hpp>
-#include <nano/lib/stats_enums.hpp>
-#include <nano/lib/thread_roles.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/node/unchecked_map.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/stats.hpp>
+#include <celerix/lib/stats_enums.hpp>
+#include <celerix/lib/thread_roles.hpp>
+#include <celerix/lib/timer.hpp>
+#include <celerix/node/unchecked_map.hpp>
 
-nano::unchecked_map::unchecked_map (unsigned const max_unchecked_blocks, nano::stats & stats, bool const & disable_delete) :
+celerix::unchecked_map::unchecked_map (unsigned const max_unchecked_blocks, celerix::stats & stats, bool const & disable_delete) :
 	max_unchecked_blocks{ max_unchecked_blocks },
 	stats{ stats },
 	disable_delete{ disable_delete }
 {
 }
 
-nano::unchecked_map::~unchecked_map ()
+celerix::unchecked_map::~unchecked_map ()
 {
 	debug_assert (!thread.joinable ());
 }
 
-void nano::unchecked_map::start ()
+void celerix::unchecked_map::start ()
 {
 	debug_assert (!thread.joinable ());
 
 	thread = std::thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::unchecked);
+		celerix::thread_role::set (celerix::thread_role::name::unchecked);
 		run ();
 	});
 }
 
-void nano::unchecked_map::stop ()
+void celerix::unchecked_map::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		stopped = true;
 	}
 	condition.notify_all ();
@@ -42,10 +42,10 @@ void nano::unchecked_map::stop ()
 	}
 }
 
-void nano::unchecked_map::put (nano::hash_or_account const & dependency, nano::unchecked_info const & info)
+void celerix::unchecked_map::put (celerix::hash_or_account const & dependency, celerix::unchecked_info const & info)
 {
-	nano::lock_guard<std::recursive_mutex> lock{ entries_mutex };
-	nano::unchecked_key key{ dependency, info.block->hash () };
+	celerix::lock_guard<std::recursive_mutex> lock{ entries_mutex };
+	celerix::unchecked_key key{ dependency, info.block->hash () };
 	entries.get<tag_root> ().insert ({ key, info });
 
 	if (entries.size () > max_unchecked_blocks)
@@ -53,82 +53,82 @@ void nano::unchecked_map::put (nano::hash_or_account const & dependency, nano::u
 		entries.get<tag_sequenced> ().pop_front ();
 	}
 
-	stats.inc (nano::stat::type::unchecked, nano::stat::detail::put);
+	stats.inc (celerix::stat::type::unchecked, celerix::stat::detail::put);
 }
 
-void nano::unchecked_map::for_each (std::function<void (nano::unchecked_key const &, nano::unchecked_info const &)> action, std::function<bool ()> predicate)
+void celerix::unchecked_map::for_each (std::function<void (celerix::unchecked_key const &, celerix::unchecked_info const &)> action, std::function<bool ()> predicate)
 {
-	nano::lock_guard<std::recursive_mutex> lock{ entries_mutex };
+	celerix::lock_guard<std::recursive_mutex> lock{ entries_mutex };
 	for (auto i = entries.begin (), n = entries.end (); predicate () && i != n; ++i)
 	{
 		action (i->key, i->info);
 	}
 }
 
-void nano::unchecked_map::for_each (nano::hash_or_account const & dependency, std::function<void (nano::unchecked_key const &, nano::unchecked_info const &)> action, std::function<bool ()> predicate)
+void celerix::unchecked_map::for_each (celerix::hash_or_account const & dependency, std::function<void (celerix::unchecked_key const &, celerix::unchecked_info const &)> action, std::function<bool ()> predicate)
 {
-	nano::lock_guard<std::recursive_mutex> lock{ entries_mutex };
-	for (auto i = entries.template get<tag_root> ().lower_bound (nano::unchecked_key{ dependency, 0 }), n = entries.template get<tag_root> ().end (); predicate () && i != n && i->key.key () == dependency.as_block_hash (); ++i)
+	celerix::lock_guard<std::recursive_mutex> lock{ entries_mutex };
+	for (auto i = entries.template get<tag_root> ().lower_bound (celerix::unchecked_key{ dependency, 0 }), n = entries.template get<tag_root> ().end (); predicate () && i != n && i->key.key () == dependency.as_block_hash (); ++i)
 	{
 		action (i->key, i->info);
 	}
 }
 
-std::vector<nano::unchecked_info> nano::unchecked_map::get (nano::block_hash const & hash)
+std::vector<celerix::unchecked_info> celerix::unchecked_map::get (celerix::block_hash const & hash)
 {
-	std::vector<nano::unchecked_info> result;
-	for_each (hash, [&result] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+	std::vector<celerix::unchecked_info> result;
+	for_each (hash, [&result] (celerix::unchecked_key const & key, celerix::unchecked_info const & info) {
 		result.push_back (info);
 	});
 	return result;
 }
 
-bool nano::unchecked_map::exists (nano::unchecked_key const & key) const
+bool celerix::unchecked_map::exists (celerix::unchecked_key const & key) const
 {
-	nano::lock_guard<std::recursive_mutex> lock{ entries_mutex };
+	celerix::lock_guard<std::recursive_mutex> lock{ entries_mutex };
 	return entries.get<tag_root> ().count (key) != 0;
 }
 
-void nano::unchecked_map::del (nano::unchecked_key const & key)
+void celerix::unchecked_map::del (celerix::unchecked_key const & key)
 {
-	nano::lock_guard<std::recursive_mutex> lock{ entries_mutex };
+	celerix::lock_guard<std::recursive_mutex> lock{ entries_mutex };
 	auto erased = entries.get<tag_root> ().erase (key);
 	debug_assert (erased);
 }
 
-void nano::unchecked_map::clear ()
+void celerix::unchecked_map::clear ()
 {
-	nano::lock_guard<std::recursive_mutex> lock{ entries_mutex };
+	celerix::lock_guard<std::recursive_mutex> lock{ entries_mutex };
 	entries.clear ();
 }
 
-size_t nano::unchecked_map::entries_size () const
+size_t celerix::unchecked_map::entries_size () const
 {
-	nano::lock_guard<std::recursive_mutex> lock{ entries_mutex };
+	celerix::lock_guard<std::recursive_mutex> lock{ entries_mutex };
 	return entries.size ();
 }
 
-size_t nano::unchecked_map::queries_size () const
+size_t celerix::unchecked_map::queries_size () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return buffer.size ();
 }
 
-size_t nano::unchecked_map::count () const
+size_t celerix::unchecked_map::count () const
 {
 	return entries_size ();
 }
 
-void nano::unchecked_map::trigger (nano::hash_or_account const & dependency)
+void celerix::unchecked_map::trigger (celerix::hash_or_account const & dependency)
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	buffer.emplace_back (dependency);
 	lock.unlock ();
-	stats.inc (nano::stat::type::unchecked, nano::stat::detail::trigger);
+	stats.inc (celerix::stat::type::unchecked, celerix::stat::detail::trigger);
 	condition.notify_all (); // Notify run ()
 }
 
-void nano::unchecked_map::process_queries (decltype (buffer) const & back_buffer)
+void celerix::unchecked_map::process_queries (decltype (buffer) const & back_buffer)
 {
 	for (auto const & item : back_buffer)
 	{
@@ -136,9 +136,9 @@ void nano::unchecked_map::process_queries (decltype (buffer) const & back_buffer
 	}
 }
 
-void nano::unchecked_map::run ()
+void celerix::unchecked_map::run ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		if (!buffer.empty ())
@@ -160,12 +160,12 @@ void nano::unchecked_map::run ()
 	}
 }
 
-void nano::unchecked_map::query_impl (nano::block_hash const & hash)
+void celerix::unchecked_map::query_impl (celerix::block_hash const & hash)
 {
-	std::deque<nano::unchecked_key> delete_queue;
-	for_each (hash, [this, &delete_queue] (nano::unchecked_key const & key, nano::unchecked_info const & info) {
+	std::deque<celerix::unchecked_key> delete_queue;
+	for_each (hash, [this, &delete_queue] (celerix::unchecked_key const & key, celerix::unchecked_info const & info) {
 		delete_queue.push_back (key);
-		stats.inc (nano::stat::type::unchecked, nano::stat::detail::satisfied);
+		stats.inc (celerix::stat::type::unchecked, celerix::stat::detail::satisfied);
 		satisfied.notify (info);
 	});
 	if (!disable_delete)
@@ -177,9 +177,9 @@ void nano::unchecked_map::query_impl (nano::block_hash const & hash)
 	}
 }
 
-nano::container_info nano::unchecked_map::container_info () const
+celerix::container_info celerix::unchecked_map::container_info () const
 {
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("entries", entries_size ());
 	info.put ("queries", queries_size ());
 	return info;

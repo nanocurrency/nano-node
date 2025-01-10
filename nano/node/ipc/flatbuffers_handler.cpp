@@ -1,8 +1,8 @@
-#include <nano/lib/errors.hpp>
-#include <nano/node/ipc/action_handler.hpp>
-#include <nano/node/ipc/flatbuffers_handler.hpp>
-#include <nano/node/ipc/ipc_config.hpp>
-#include <nano/node/ipc/ipc_server.hpp>
+#include <celerix/lib/errors.hpp>
+#include <celerix/node/ipc/action_handler.hpp>
+#include <celerix/node/ipc/flatbuffers_handler.hpp>
+#include <celerix/node/ipc/ipc_config.hpp>
+#include <celerix/node/ipc/ipc_server.hpp>
 
 #include <boost/dll.hpp>
 #include <boost/optional.hpp>
@@ -16,7 +16,7 @@
 
 namespace
 {
-auto handler_map = nano::ipc::action_handler::handler_map ();
+auto handler_map = celerix::ipc::action_handler::handler_map ();
 
 /**
  * A helper for when it's necessary to create a JSON error response manually
@@ -44,7 +44,7 @@ boost::optional<std::filesystem::path> get_api_path ()
 }
 }
 
-nano::ipc::flatbuffers_handler::flatbuffers_handler (nano::node & node_a, nano::ipc::ipc_server & ipc_server_a, std::shared_ptr<nano::ipc::subscriber> const & subscriber_a, nano::ipc::ipc_config const & ipc_config_a) :
+celerix::ipc::flatbuffers_handler::flatbuffers_handler (celerix::node & node_a, celerix::ipc::ipc_server & ipc_server_a, std::shared_ptr<celerix::ipc::subscriber> const & subscriber_a, celerix::ipc::ipc_config const & ipc_config_a) :
 	node (node_a),
 	ipc_server (ipc_server_a),
 	subscriber (subscriber_a),
@@ -52,7 +52,7 @@ nano::ipc::flatbuffers_handler::flatbuffers_handler (nano::node & node_a, nano::
 {
 }
 
-std::shared_ptr<flatbuffers::Parser> nano::ipc::flatbuffers_handler::make_flatbuffers_parser (nano::ipc::ipc_config const & ipc_config_a)
+std::shared_ptr<flatbuffers::Parser> celerix::ipc::flatbuffers_handler::make_flatbuffers_parser (celerix::ipc::ipc_config const & ipc_config_a)
 {
 	auto parser (std::make_shared<flatbuffers::Parser> ());
 	parser->opts.strict_json = true;
@@ -61,15 +61,15 @@ std::shared_ptr<flatbuffers::Parser> nano::ipc::flatbuffers_handler::make_flatbu
 	auto api_path = get_api_path ();
 	if (!api_path)
 	{
-		throw nano::error ("Internal IPC error: unable to find api path");
+		throw celerix::error ("Internal IPC error: unable to find api path");
 	}
 
 	const std::string api_path_str = api_path->string ();
 	char const * include_directories[] = { api_path_str.c_str (), nullptr };
 	std::string schemafile;
-	if (!flatbuffers::LoadFile ((*api_path / "nanoapi.fbs").string ().c_str (), false, &schemafile))
+	if (!flatbuffers::LoadFile ((*api_path / "celerixapi.fbs").string ().c_str (), false, &schemafile))
 	{
-		throw nano::error ("Internal IPC error: unable to load schema file");
+		throw celerix::error ("Internal IPC error: unable to load schema file");
 	}
 
 	auto parse_success = parser->Parse (schemafile.c_str (), include_directories);
@@ -77,12 +77,12 @@ std::shared_ptr<flatbuffers::Parser> nano::ipc::flatbuffers_handler::make_flatbu
 	{
 		std::string parser_error = "Internal IPC error: unable to parse schema file: ";
 		parser_error += parser->error_.c_str ();
-		throw nano::error (parser_error);
+		throw celerix::error (parser_error);
 	}
 	return parser;
 }
 
-void nano::ipc::flatbuffers_handler::process_json (uint8_t const * message_buffer_a, std::size_t buffer_size_a,
+void celerix::ipc::flatbuffers_handler::process_json (uint8_t const * message_buffer_a, std::size_t buffer_size_a,
 std::function<void (std::shared_ptr<std::string> const &)> const & response_handler)
 {
 	try
@@ -102,7 +102,7 @@ std::function<void (std::shared_ptr<std::string> const &)> const & response_hand
 				auto json (std::make_shared<std::string> ());
 				if (!flatbuffers::GenerateText (*parser, fbb->GetBufferPointer (), json.get ()))
 				{
-					throw nano::error ("Couldn't serialize response to JSON");
+					throw celerix::error ("Couldn't serialize response to JSON");
 				}
 
 				response_handler (json);
@@ -112,10 +112,10 @@ std::function<void (std::shared_ptr<std::string> const &)> const & response_hand
 		{
 			std::string parser_error = "Invalid message format: ";
 			parser_error += parser->error_.c_str ();
-			throw nano::error (parser_error);
+			throw celerix::error (parser_error);
 		}
 	}
-	catch (nano::error const & err)
+	catch (celerix::error const & err)
 	{
 		// Forces the parser construction to be retried as certain errors are
 		// recoverable (such path errors getting fixed by the user without a node restart)
@@ -132,7 +132,7 @@ std::function<void (std::shared_ptr<std::string> const &)> const & response_hand
 	}
 }
 
-void nano::ipc::flatbuffers_handler::process (uint8_t const * message_buffer_a, std::size_t buffer_size_a,
+void celerix::ipc::flatbuffers_handler::process (uint8_t const * message_buffer_a, std::size_t buffer_size_a,
 std::function<void (std::shared_ptr<flatbuffers::FlatBufferBuilder> const &)> const & response_handler)
 {
 	auto buffer_l (std::make_shared<flatbuffers::FlatBufferBuilder> ());
@@ -147,16 +147,16 @@ std::function<void (std::shared_ptr<flatbuffers::FlatBufferBuilder> const &)> co
 		if (ipc_config.flatbuffers.verify_buffers)
 		{
 			auto verifier (flatbuffers::Verifier (message_buffer_a, buffer_size_a));
-			if (!nanoapi::VerifyEnvelopeBuffer (verifier))
+			if (!celerixapi::VerifyEnvelopeBuffer (verifier))
 			{
-				throw nano::error ("Envelope buffer did not pass verifier");
+				throw celerix::error ("Envelope buffer did not pass verifier");
 			}
 		}
 
-		auto incoming = nanoapi::GetEnvelope (message_buffer_a);
+		auto incoming = celerixapi::GetEnvelope (message_buffer_a);
 		if (incoming == nullptr)
 		{
-			nano::error err ("Invalid message");
+			celerix::error err ("Invalid message");
 			actionhandler->make_error (err.error_code_as_int (), err.get_message ());
 			response_handler (buffer_l);
 			return;
@@ -173,11 +173,11 @@ std::function<void (std::shared_ptr<flatbuffers::FlatBufferBuilder> const &)> co
 		}
 		else
 		{
-			nano::error err ("Unknown message type");
+			celerix::error err ("Unknown message type");
 			actionhandler->make_error (err.error_code_as_int (), err.get_message ());
 		}
 	}
-	catch (nano::error const & err)
+	catch (celerix::error const & err)
 	{
 		actionhandler->make_error (err.error_code_as_int (), err.get_message ());
 	}

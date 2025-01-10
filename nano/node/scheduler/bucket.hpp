@@ -1,10 +1,10 @@
 #pragma once
 
-#include <nano/lib/errors.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/numbers_templ.hpp>
-#include <nano/node/fwd.hpp>
-#include <nano/secure/common.hpp>
+#include <celerix/lib/errors.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/numbers_templ.hpp>
+#include <celerix/node/fwd.hpp>
+#include <celerix/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
@@ -21,13 +21,13 @@
 
 namespace mi = boost::multi_index;
 
-namespace nano::scheduler
+namespace celerix::scheduler
 {
 class priority_bucket_config final
 {
 public:
-	nano::error deserialize (nano::tomlconfig & toml);
-	nano::error serialize (nano::tomlconfig & toml) const;
+	celerix::error deserialize (celerix::tomlconfig & toml);
+	celerix::error serialize (celerix::tomlconfig & toml) const;
 
 public:
 	// Maximum number of blocks to sort by priority per bucket.
@@ -47,43 +47,43 @@ public:
 class bucket final
 {
 public:
-	nano::bucket_index const index;
+	celerix::bucket_index const index;
 
 public:
-	bucket (nano::bucket_index, priority_bucket_config const &, nano::active_elections &, nano::stats &);
+	bucket (celerix::bucket_index, priority_bucket_config const &, celerix::active_elections &, celerix::stats &);
 	~bucket ();
 
 	bool available () const;
 	bool activate ();
 	void update ();
 
-	bool push (uint64_t time, std::shared_ptr<nano::block> block);
+	bool push (uint64_t time, std::shared_ptr<celerix::block> block);
 
-	bool contains (nano::block_hash const &) const;
+	bool contains (celerix::block_hash const &) const;
 	size_t size () const;
 	size_t election_count () const;
 	bool empty () const;
-	std::deque<std::shared_ptr<nano::block>> blocks () const;
+	std::deque<std::shared_ptr<celerix::block>> blocks () const;
 
 	void dump () const;
 
 private:
-	bool election_vacancy (nano::priority_timestamp candidate) const;
+	bool election_vacancy (celerix::priority_timestamp candidate) const;
 	bool election_overfill () const;
 	void cancel_lowest_election ();
 
 private: // Dependencies
 	priority_bucket_config const & config;
-	nano::active_elections & active;
-	nano::stats & stats;
+	celerix::active_elections & active;
+	celerix::stats & stats;
 
 private: // Blocks
 	struct block_entry
 	{
 		uint64_t time;
-		std::shared_ptr<nano::block> block;
+		std::shared_ptr<celerix::block> block;
 
-		nano::block_hash hash () const
+		celerix::block_hash hash () const
 		{
 			return block->hash ();
 		}
@@ -112,7 +112,7 @@ private: // Blocks
 		mi::ordered_non_unique<mi::tag<tag_priority>,
 			mi::identity<block_entry>>,
 		mi::hashed_unique<mi::tag<tag_hash>,
-			mi::const_mem_fun<block_entry, nano::block_hash, &block_entry::hash>>
+			mi::const_mem_fun<block_entry, celerix::block_hash, &block_entry::hash>>
 	>>;
 	// clang-format on
 
@@ -121,9 +121,9 @@ private: // Blocks
 private: // Elections
 	struct election_entry
 	{
-		std::shared_ptr<nano::election> election;
-		nano::qualified_root root;
-		nano::priority_timestamp priority;
+		std::shared_ptr<celerix::election> election;
+		celerix::qualified_root root;
+		celerix::priority_timestamp priority;
 	};
 
 	// clang-format off
@@ -131,15 +131,15 @@ private: // Elections
 	mi::indexed_by<
 		mi::sequenced<mi::tag<tag_sequenced>>,
 		mi::hashed_unique<mi::tag<tag_root>,
-			mi::member<election_entry, nano::qualified_root, &election_entry::root>>,
+			mi::member<election_entry, celerix::qualified_root, &election_entry::root>>,
 		mi::ordered_non_unique<mi::tag<tag_priority>,
-			mi::member<election_entry, nano::priority_timestamp, &election_entry::priority>>
+			mi::member<election_entry, celerix::priority_timestamp, &election_entry::priority>>
 	>>;
 	// clang-format on
 
 	ordered_elections elections;
 
 private:
-	mutable nano::mutex mutex;
+	mutable celerix::mutex mutex;
 };
 }

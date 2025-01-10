@@ -1,9 +1,9 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/node/transport/inproc.hpp>
-#include <nano/node/vote_processor.hpp>
-#include <nano/secure/vote.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/node/transport/inproc.hpp>
+#include <celerix/node/vote_processor.hpp>
+#include <celerix/secure/vote.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -16,9 +16,9 @@ using namespace std::chrono_literals;
 // so the producer always wins. Also exercises the flush operation, so it must never deadlock.
 TEST (vote_processor, producer_consumer)
 {
-	nano::test::system system (1);
+	celerix::test::system system (1);
 	auto & node (*system.nodes[0]);
-	auto channel (std::make_shared<nano::transport::inproc::channel> (node, node));
+	auto channel (std::make_shared<celerix::transport::inproc::channel> (node, node));
 
 	unsigned number_of_producers{ 40 }; // Enough to overwhelm any vote processing threads
 	unsigned number_of_votes{ 25'000 };
@@ -28,7 +28,7 @@ TEST (vote_processor, producer_consumer)
 	auto producer = [&node, &channel, &number_of_votes] () -> void {
 		for (unsigned i = 0; i < number_of_votes; ++i)
 		{
-			auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::vote::timestamp_min * (1 + i), 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () });
+			auto vote = std::make_shared<celerix::vote> (celerix::dev::genesis_key.pub, celerix::dev::genesis_key.prv, celerix::vote::timestamp_min * (1 + i), 0, std::vector<celerix::block_hash>{ celerix::dev::genesis->hash () });
 			node.vote_processor.vote (vote, channel);
 		}
 	};

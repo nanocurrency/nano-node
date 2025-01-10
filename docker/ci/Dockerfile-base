@@ -19,5 +19,5 @@ qtbase5-dev-tools \
 valgrind \
 xorg xvfb xauth xfonts-100dpi xfonts-75dpi xfonts-scalable xfonts-cyrillic
 
-ARG REPOSITORY=nanocurrency/nano-node
+ARG REPOSITORY=celerixcurrency/celerix-node
 LABEL org.opencontainers.image.source https://github.com/$REPOSITORY

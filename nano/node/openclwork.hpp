@@ -1,9 +1,9 @@
 #pragma once
 
-#include <nano/lib/config.hpp>
-#include <nano/lib/constants.hpp>
-#include <nano/node/openclconfig.hpp>
-#include <nano/node/xorshift.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/constants.hpp>
+#include <celerix/node/openclconfig.hpp>
+#include <celerix/node/xorshift.hpp>
 
 #include <boost/optional.hpp>
 
@@ -19,7 +19,7 @@
 #include <CL/cl.h>
 #endif
 
-namespace nano
+namespace celerix
 {
 extern bool opencl_loaded;
 class logger;
@@ -36,7 +36,7 @@ class opencl_environment
 public:
 	opencl_environment (bool &);
 	void dump (std::ostream & stream);
-	std::vector<nano::opencl_platform> platforms;
+	std::vector<celerix::opencl_platform> platforms;
 };
 
 class root;
@@ -45,13 +45,13 @@ class work_pool;
 class opencl_work
 {
 public:
-	opencl_work (bool &, nano::opencl_config const &, nano::opencl_environment &, nano::logger &, nano::work_thresholds & work);
+	opencl_work (bool &, celerix::opencl_config const &, celerix::opencl_environment &, celerix::logger &, celerix::work_thresholds & work);
 	~opencl_work ();
-	boost::optional<uint64_t> generate_work (nano::work_version const, nano::root const &, uint64_t const);
-	boost::optional<uint64_t> generate_work (nano::work_version const, nano::root const &, uint64_t const, std::atomic<int> &);
-	static std::unique_ptr<opencl_work> create (bool, nano::opencl_config const &, nano::logger &, nano::work_thresholds & work);
-	nano::opencl_config const & config;
-	nano::mutex mutex;
+	boost::optional<uint64_t> generate_work (celerix::work_version const, celerix::root const &, uint64_t const);
+	boost::optional<uint64_t> generate_work (celerix::work_version const, celerix::root const &, uint64_t const, std::atomic<int> &);
+	static std::unique_ptr<opencl_work> create (bool, celerix::opencl_config const &, celerix::logger &, celerix::work_thresholds & work);
+	celerix::opencl_config const & config;
+	celerix::mutex mutex;
 	cl_context context;
 	cl_mem attempt_buffer;
 	cl_mem result_buffer;
@@ -60,8 +60,8 @@ public:
 	cl_program program;
 	cl_kernel kernel;
 	cl_command_queue queue;
-	nano::xorshift1024star rand;
-	nano::logger & logger;
-	nano::work_thresholds & work;
+	celerix::xorshift1024star rand;
+	celerix::logger & logger;
+	celerix::work_thresholds & work;
 };
 }

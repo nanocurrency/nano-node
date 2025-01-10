@@ -4,11 +4,11 @@ set -euf
 
 usage() {
 	printf "Usage:\n"
-	printf "  $0 nano_node [daemon] [cli_options] [-l] [-v size]\n"
+	printf "  $0 celerix_node [daemon] [cli_options] [-l] [-v size]\n"
 	printf "    daemon\n"
 	printf "      start as daemon\n\n"
 	printf "    cli_options\n"
-	printf "      nano_node cli options <see nano_node --help>\n\n"
+	printf "      celerix_node cli options <see celerix_node --help>\n\n"
 	printf "    -l\n"
 	printf "      log to console <use docker logs {container}>\n\n"
 	printf "    -v<size>\n"
@@ -20,7 +20,7 @@ usage() {
 	printf "    *\n"
 	printf "      usage\n\n"
 	printf "default:\n"
-	printf "  $0 nano_node daemon -l\n"
+	printf "  $0 celerix_node daemon -l\n"
 }
 
 OPTIND=1
@@ -34,8 +34,8 @@ if [ $# -lt 2 ]; then
 	exit 1
 fi
 
-if [ "$1" = 'nano_node' ]; then
-	command="${command}nano_node"
+if [ "$1" = 'celerix_node' ]; then
+	command="${command}celerix_node"
 	shift
 	for i in $@; do
 		case $i in
@@ -84,7 +84,7 @@ else
 	exit 1
 fi
 
-network="$(cat /etc/nano-network)"
+network="$(cat /etc/celerix-network)"
 case "${network}" in
 live | '')
 	network='live'
@@ -102,20 +102,20 @@ test)
 esac
 
 raidir="${HOME}/RaiBlocks${dirSuffix}"
-nanodir="${HOME}/Nano${dirSuffix}"
-dbFile="${nanodir}/data.ldb"
+celerixdir="${HOME}/Celerix${dirSuffix}"
+dbFile="${celerixdir}/data.ldb"
 
 if [ -d "${raidir}" ]; then
-	echo "Moving ${raidir} to ${nanodir}"
-	mv "$raidir" "$nanodir"
+	echo "Moving ${raidir} to ${celerixdir}"
+	mv "$raidir" "$celerixdir"
 else
-	mkdir -p "${nanodir}"
+	mkdir -p "${celerixdir}"
 fi
 
-if [ ! -f "${nanodir}/config-node.toml" ] && [ ! -f "${nanodir}/config.json" ]; then
+if [ ! -f "${celerixdir}/config-node.toml" ] && [ ! -f "${celerixdir}/config.json" ]; then
 	echo "Config file not found, adding default."
-	cp "/usr/share/nano/config/config-node.toml" "${nanodir}/config-node.toml"
-	cp "/usr/share/nano/config/config-rpc.toml" "${nanodir}/config-rpc.toml"
+	cp "/usr/share/celerix/config/config-node.toml" "${celerixdir}/config-node.toml"
+	cp "/usr/share/celerix/config/config-rpc.toml" "${celerixdir}/config-rpc.toml"
 fi
 
 case $command in
@@ -125,7 +125,7 @@ case $command in
 			dbFileSize="$(stat -c %s "${dbFile}" 2>/dev/null)"
 			if [ "${dbFileSize}" -gt $((1024 * 1024 * 1024 * db_size)) ]; then
 				echo "ERROR: Database size grew above ${db_size}GB (size = ${dbFileSize})" >&2
-				nano_node --vacuum
+				celerix_node --vacuum
 			fi
 		fi
 	fi

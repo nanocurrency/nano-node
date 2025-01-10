@@ -1,10 +1,10 @@
-#include <nano/lib/numbers_templ.hpp>
-#include <nano/lib/tomlconfig.hpp>
-#include <nano/node/election.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/vote_cache.hpp>
-#include <nano/node/vote_router.hpp>
-#include <nano/secure/vote.hpp>
+#include <celerix/lib/numbers_templ.hpp>
+#include <celerix/lib/tomlconfig.hpp>
+#include <celerix/node/election.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/vote_cache.hpp>
+#include <celerix/node/vote_router.hpp>
+#include <celerix/secure/vote.hpp>
 
 #include <ranges>
 
@@ -12,12 +12,12 @@
  * entvote_cache_entryry
  */
 
-nano::vote_cache_entry::vote_cache_entry (const nano::block_hash & hash) :
+celerix::vote_cache_entry::vote_cache_entry (const celerix::block_hash & hash) :
 	hash_m{ hash }
 {
 }
 
-bool nano::vote_cache_entry::vote (std::shared_ptr<nano::vote> const & vote, const nano::uint128_t & rep_weight, std::size_t max_voters)
+bool celerix::vote_cache_entry::vote (std::shared_ptr<celerix::vote> const & vote, const celerix::uint128_t & rep_weight, std::size_t max_voters)
 {
 	bool updated = vote_impl (vote, rep_weight, max_voters);
 	if (updated)
@@ -30,7 +30,7 @@ bool nano::vote_cache_entry::vote (std::shared_ptr<nano::vote> const & vote, con
 	return updated;
 }
 
-bool nano::vote_cache_entry::vote_impl (std::shared_ptr<nano::vote> const & vote, const nano::uint128_t & rep_weight, std::size_t max_voters)
+bool celerix::vote_cache_entry::vote_impl (std::shared_ptr<celerix::vote> const & vote, const celerix::uint128_t & rep_weight, std::size_t max_voters)
 {
 	auto const representative = vote->account;
 
@@ -82,14 +82,14 @@ bool nano::vote_cache_entry::vote_impl (std::shared_ptr<nano::vote> const & vote
 	return false; // Tally unchanged
 }
 
-std::size_t nano::vote_cache_entry::size () const
+std::size_t celerix::vote_cache_entry::size () const
 {
 	return voters.size ();
 }
 
-auto nano::vote_cache_entry::calculate_tally () const -> std::pair<nano::uint128_t, nano::uint128_t>
+auto celerix::vote_cache_entry::calculate_tally () const -> std::pair<celerix::uint128_t, celerix::uint128_t>
 {
-	nano::uint128_t tally{ 0 }, final_tally{ 0 };
+	celerix::uint128_t tally{ 0 }, final_tally{ 0 };
 	for (auto const & voter : voters)
 	{
 		tally += voter.weight;
@@ -98,7 +98,7 @@ auto nano::vote_cache_entry::calculate_tally () const -> std::pair<nano::uint128
 	return { tally, final_tally };
 }
 
-std::vector<std::shared_ptr<nano::vote>> nano::vote_cache_entry::votes () const
+std::vector<std::shared_ptr<celerix::vote>> celerix::vote_cache_entry::votes () const
 {
 	auto r = voters | std::views::transform ([] (auto const & item) { return item.vote; });
 	return { r.begin (), r.end () };
@@ -108,13 +108,13 @@ std::vector<std::shared_ptr<nano::vote>> nano::vote_cache_entry::votes () const
  * vote_cache
  */
 
-nano::vote_cache::vote_cache (vote_cache_config const & config_a, nano::stats & stats_a) :
+celerix::vote_cache::vote_cache (vote_cache_config const & config_a, celerix::stats & stats_a) :
 	config{ config_a },
 	stats{ stats_a }
 {
 }
 
-void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, std::unordered_map<nano::block_hash, nano::vote_code> const & results)
+void celerix::vote_cache::insert (std::shared_ptr<celerix::vote> const & vote, std::unordered_map<celerix::block_hash, celerix::vote_code> const & results)
 {
 	// Results map should be empty or have the same hashes as the vote
 	debug_assert (results.empty () || std::all_of (vote->hashes.begin (), vote->hashes.end (), [&results] (auto const & hash) { return results.find (hash) != results.end (); }));
@@ -122,11 +122,11 @@ void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, std::un
 	auto const representative = vote->account;
 	auto const rep_weight = rep_weight_query (representative);
 
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 	// Cache votes with a corresponding active election (indicated by `vote_code::vote`) in case that election gets dropped
 	auto filter = [] (auto code) {
-		return code == nano::vote_code::vote || code == nano::vote_code::indeterminate;
+		return code == celerix::vote_code::vote || code == celerix::vote_code::indeterminate;
 	};
 
 	// If results map is empty, insert all hashes (meant for testing)
@@ -149,14 +149,14 @@ void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, std::un
 	}
 }
 
-void nano::vote_cache::insert_impl (std::shared_ptr<nano::vote> const & vote, nano::block_hash const & hash, nano::uint128_t const & rep_weight)
+void celerix::vote_cache::insert_impl (std::shared_ptr<celerix::vote> const & vote, celerix::block_hash const & hash, celerix::uint128_t const & rep_weight)
 {
 	debug_assert (!mutex.try_lock ());
 	debug_assert (std::any_of (vote->hashes.begin (), vote->hashes.end (), [&hash] (auto const & vote_hash) { return vote_hash == hash; }));
 
 	if (auto existing = cache.find (hash); existing != cache.end ())
 	{
-		stats.inc (nano::stat::type::vote_cache, nano::stat::detail::update);
+		stats.inc (celerix::stat::type::vote_cache, celerix::stat::detail::update);
 
 		cache.modify (existing, [this, &vote, &rep_weight] (entry & ent) {
 			ent.vote (vote, rep_weight, config.max_voters);
@@ -164,7 +164,7 @@ void nano::vote_cache::insert_impl (std::shared_ptr<nano::vote> const & vote, na
 	}
 	else
 	{
-		stats.inc (nano::stat::type::vote_cache, nano::stat::detail::insert);
+		stats.inc (celerix::stat::type::vote_cache, celerix::stat::detail::insert);
 
 		entry cache_entry{ hash };
 		cache_entry.vote (vote, rep_weight, config.max_voters);
@@ -178,21 +178,21 @@ void nano::vote_cache::insert_impl (std::shared_ptr<nano::vote> const & vote, na
 	}
 }
 
-bool nano::vote_cache::empty () const
+bool celerix::vote_cache::empty () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return cache.empty ();
 }
 
-std::size_t nano::vote_cache::size () const
+std::size_t celerix::vote_cache::size () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return cache.size ();
 }
 
-std::vector<std::shared_ptr<nano::vote>> nano::vote_cache::find (const nano::block_hash & hash) const
+std::vector<std::shared_ptr<celerix::vote>> celerix::vote_cache::find (const celerix::block_hash & hash) const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 	auto & cache_by_hash = cache.get<tag_hash> ();
 	if (auto existing = cache_by_hash.find (hash); existing != cache_by_hash.end ())
@@ -202,17 +202,17 @@ std::vector<std::shared_ptr<nano::vote>> nano::vote_cache::find (const nano::blo
 	return {};
 }
 
-bool nano::vote_cache::contains (const nano::block_hash & hash) const
+bool celerix::vote_cache::contains (const celerix::block_hash & hash) const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 	auto & cache_by_hash = cache.get<tag_hash> ();
 	return cache_by_hash.find (hash) != cache_by_hash.end ();
 }
 
-bool nano::vote_cache::erase (const nano::block_hash & hash)
+bool celerix::vote_cache::erase (const celerix::block_hash & hash)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 	bool result = false;
 	auto & cache_by_hash = cache.get<tag_hash> ();
@@ -224,19 +224,19 @@ bool nano::vote_cache::erase (const nano::block_hash & hash)
 	return result;
 }
 
-void nano::vote_cache::clear ()
+void celerix::vote_cache::clear ()
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	cache.clear ();
 }
 
-std::deque<nano::vote_cache::top_entry> nano::vote_cache::top (const nano::uint128_t & min_tally)
+std::deque<celerix::vote_cache::top_entry> celerix::vote_cache::top (const celerix::uint128_t & min_tally)
 {
-	stats.inc (nano::stat::type::vote_cache, nano::stat::detail::top);
+	stats.inc (celerix::stat::type::vote_cache, celerix::stat::detail::top);
 
 	std::deque<top_entry> results;
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 		if (cleanup_interval.elapsed (config.age_cutoff / 2))
 		{
@@ -269,11 +269,11 @@ std::deque<nano::vote_cache::top_entry> nano::vote_cache::top (const nano::uint1
 	return results;
 }
 
-void nano::vote_cache::cleanup ()
+void celerix::vote_cache::cleanup ()
 {
 	debug_assert (!mutex.try_lock ());
 
-	stats.inc (nano::stat::type::vote_cache, nano::stat::detail::cleanup);
+	stats.inc (celerix::stat::type::vote_cache, celerix::stat::detail::cleanup);
 
 	auto const cutoff = std::chrono::steady_clock::now () - config.age_cutoff;
 
@@ -282,11 +282,11 @@ void nano::vote_cache::cleanup ()
 	});
 }
 
-nano::container_info nano::vote_cache::container_info () const
+celerix::container_info celerix::vote_cache::container_info () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("cache", cache);
 	return info;
 }
@@ -295,7 +295,7 @@ nano::container_info nano::vote_cache::container_info () const
  * vote_cache_config
  */
 
-nano::error nano::vote_cache_config::serialize (nano::tomlconfig & toml) const
+celerix::error celerix::vote_cache_config::serialize (celerix::tomlconfig & toml) const
 {
 	toml.put ("max_size", max_size, "Maximum number of blocks to cache votes for. \ntype:uint64");
 	toml.put ("max_voters", max_voters, "Maximum number of voters to cache per block. \ntype:uint64");
@@ -304,7 +304,7 @@ nano::error nano::vote_cache_config::serialize (nano::tomlconfig & toml) const
 	return toml.get_error ();
 }
 
-nano::error nano::vote_cache_config::deserialize (nano::tomlconfig & toml)
+celerix::error celerix::vote_cache_config::deserialize (celerix::tomlconfig & toml)
 {
 	toml.get ("max_size", max_size);
 	toml.get ("max_voters", max_voters);

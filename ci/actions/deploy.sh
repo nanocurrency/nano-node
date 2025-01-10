@@ -5,7 +5,7 @@ set -o nounset
 set -o xtrace
 OS=$(uname)
 IS_RPM_DEPLOY="${LINUX_RPM:-0}"
-S3_BUCKET_NAME="${S3_BUCKET_NAME:-repo.nano.org}"
+S3_BUCKET_NAME="${S3_BUCKET_NAME:-repo.celerix.org}"
 
 case "${NETWORK}" in
   "BETA")
@@ -47,23 +47,23 @@ if [[ "$OS" == 'Linux' && "$IS_RPM_DEPLOY" -eq "1" ]]; then
         aws s3 cp ${GITHUB_WORKSPACE}/$(basename "${srpm}).sha256") s3://${S3_BUCKET_NAME}/$DIRECTORY/source/$(basename "${srpm}.sha256") --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
     done
 elif [[ "$OS" == 'Linux' ]]; then
-    SHA=$(sha256sum $GITHUB_WORKSPACE/build/nano-node-*-Linux.tar.bz2)
+    SHA=$(sha256sum $GITHUB_WORKSPACE/build/celerix-node-*-Linux.tar.bz2)
     echo "::notice::Hash: $SHA"
-    echo $SHA >$GITHUB_WORKSPACE/nano-node-$TAG-Linux.tar.bz2.sha256
+    echo $SHA >$GITHUB_WORKSPACE/celerix-node-$TAG-Linux.tar.bz2.sha256
 
-    SHA=$(sha256sum $GITHUB_WORKSPACE/build/nano-node-*-Linux.deb)
+    SHA=$(sha256sum $GITHUB_WORKSPACE/build/celerix-node-*-Linux.deb)
     echo "::notice::Hash: $SHA"
-    echo $SHA >$GITHUB_WORKSPACE/nano-node-$TAG-Linux.deb.sha256
+    echo $SHA >$GITHUB_WORKSPACE/celerix-node-$TAG-Linux.deb.sha256
 
-    aws s3 cp $GITHUB_WORKSPACE/build/nano-node-*-Linux.tar.bz2 s3://${S3_BUCKET_NAME}/$DIRECTORY/binaries/nano-node-$TAG-Linux.tar.bz2 --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
-    aws s3 cp $GITHUB_WORKSPACE/nano-node-$TAG-Linux.tar.bz2.sha256 s3://${S3_BUCKET_NAME}/$DIRECTORY/binaries/nano-node-$TAG-Linux.tar.bz2.sha256 --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
-    aws s3 cp $GITHUB_WORKSPACE/build/nano-node-*-Linux.deb s3://${S3_BUCKET_NAME}/$DIRECTORY/binaries/nano-node-$TAG-Linux.deb --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
-    aws s3 cp $GITHUB_WORKSPACE/nano-node-$TAG-Linux.deb.sha256 s3://${S3_BUCKET_NAME}/$DIRECTORY/binaries/nano-node-$TAG-Linux.deb.sha256 --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
+    aws s3 cp $GITHUB_WORKSPACE/build/celerix-node-*-Linux.tar.bz2 s3://${S3_BUCKET_NAME}/$DIRECTORY/binaries/celerix-node-$TAG-Linux.tar.bz2 --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
+    aws s3 cp $GITHUB_WORKSPACE/celerix-node-$TAG-Linux.tar.bz2.sha256 s3://${S3_BUCKET_NAME}/$DIRECTORY/binaries/celerix-node-$TAG-Linux.tar.bz2.sha256 --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
+    aws s3 cp $GITHUB_WORKSPACE/build/celerix-node-*-Linux.deb s3://${S3_BUCKET_NAME}/$DIRECTORY/binaries/celerix-node-$TAG-Linux.deb --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
+    aws s3 cp $GITHUB_WORKSPACE/celerix-node-$TAG-Linux.deb.sha256 s3://${S3_BUCKET_NAME}/$DIRECTORY/binaries/celerix-node-$TAG-Linux.deb.sha256 --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
 else
-    SHA=$(sha256sum $GITHUB_WORKSPACE/build/nano-node-*-Darwin.dmg)
+    SHA=$(sha256sum $GITHUB_WORKSPACE/build/celerix-node-*-Darwin.dmg)
     echo "::notice::Hash: $SHA"
-    echo $SHA >$GITHUB_WORKSPACE/build/nano-node-$TAG-Darwin.dmg.sha256
+    echo $SHA >$GITHUB_WORKSPACE/build/celerix-node-$TAG-Darwin.dmg.sha256
 
-    aws s3 cp $GITHUB_WORKSPACE/build/nano-node-*-Darwin.dmg s3://${S3_BUCKET_NAME}/$DIRECTORY/binaries/nano-node-$TAG-Darwin.dmg --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
-    aws s3 cp $GITHUB_WORKSPACE/build/nano-node-$TAG-Darwin.dmg.sha256 s3://${S3_BUCKET_NAME}/$DIRECTORY/binaries/nano-node-$TAG-Darwin.dmg.sha256 --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
+    aws s3 cp $GITHUB_WORKSPACE/build/celerix-node-*-Darwin.dmg s3://${S3_BUCKET_NAME}/$DIRECTORY/binaries/celerix-node-$TAG-Darwin.dmg --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
+    aws s3 cp $GITHUB_WORKSPACE/build/celerix-node-$TAG-Darwin.dmg.sha256 s3://${S3_BUCKET_NAME}/$DIRECTORY/binaries/celerix-node-$TAG-Darwin.dmg.sha256 --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
 fi

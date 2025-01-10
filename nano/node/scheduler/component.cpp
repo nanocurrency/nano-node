@@ -1,15 +1,15 @@
-#include <nano/node/node.hpp>
-#include <nano/node/scheduler/component.hpp>
-#include <nano/node/scheduler/hinted.hpp>
-#include <nano/node/scheduler/manual.hpp>
-#include <nano/node/scheduler/optimistic.hpp>
-#include <nano/node/scheduler/priority.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/scheduler/component.hpp>
+#include <celerix/node/scheduler/hinted.hpp>
+#include <celerix/node/scheduler/manual.hpp>
+#include <celerix/node/scheduler/optimistic.hpp>
+#include <celerix/node/scheduler/priority.hpp>
 
-nano::scheduler::component::component (nano::node_config & node_config, nano::node & node, nano::ledger & ledger, nano::bucketing & bucketing, nano::block_processor & block_processor, nano::active_elections & active, nano::online_reps & online_reps, nano::vote_cache & vote_cache, nano::confirming_set & confirming_set, nano::stats & stats, nano::logger & logger) :
-	hinted_impl{ std::make_unique<nano::scheduler::hinted> (node_config.hinted_scheduler, node, vote_cache, active, online_reps, stats) },
-	manual_impl{ std::make_unique<nano::scheduler::manual> (node) },
-	optimistic_impl{ std::make_unique<nano::scheduler::optimistic> (node_config.optimistic_scheduler, node, ledger, active, node_config.network_params.network, stats) },
-	priority_impl{ std::make_unique<nano::scheduler::priority> (node_config, node, ledger, bucketing, block_processor, active, confirming_set, stats, logger) },
+celerix::scheduler::component::component (celerix::node_config & node_config, celerix::node & node, celerix::ledger & ledger, celerix::bucketing & bucketing, celerix::block_processor & block_processor, celerix::active_elections & active, celerix::online_reps & online_reps, celerix::vote_cache & vote_cache, celerix::confirming_set & confirming_set, celerix::stats & stats, celerix::logger & logger) :
+	hinted_impl{ std::make_unique<celerix::scheduler::hinted> (node_config.hinted_scheduler, node, vote_cache, active, online_reps, stats) },
+	manual_impl{ std::make_unique<celerix::scheduler::manual> (node) },
+	optimistic_impl{ std::make_unique<celerix::scheduler::optimistic> (node_config.optimistic_scheduler, node, ledger, active, node_config.network_params.network, stats) },
+	priority_impl{ std::make_unique<celerix::scheduler::priority> (node_config, node, ledger, bucketing, block_processor, active, confirming_set, stats, logger) },
 	hinted{ *hinted_impl },
 	manual{ *manual_impl },
 	optimistic{ *optimistic_impl },
@@ -23,11 +23,11 @@ nano::scheduler::component::component (nano::node_config & node_config, nano::no
 	});
 }
 
-nano::scheduler::component::~component ()
+celerix::scheduler::component::~component ()
 {
 }
 
-void nano::scheduler::component::start ()
+void celerix::scheduler::component::start ()
 {
 	hinted.start ();
 	manual.start ();
@@ -35,7 +35,7 @@ void nano::scheduler::component::start ()
 	priority.start ();
 }
 
-void nano::scheduler::component::stop ()
+void celerix::scheduler::component::stop ()
 {
 	hinted.stop ();
 	manual.stop ();
@@ -43,14 +43,14 @@ void nano::scheduler::component::stop ()
 	priority.stop ();
 }
 
-bool nano::scheduler::component::contains (nano::block_hash const & hash) const
+bool celerix::scheduler::component::contains (celerix::block_hash const & hash) const
 {
 	return manual.contains (hash) || priority.contains (hash);
 }
 
-nano::container_info nano::scheduler::component::container_info () const
+celerix::container_info celerix::scheduler::component::container_info () const
 {
-	nano::container_info info;
+	celerix::container_info info;
 	info.add ("hinted", hinted.container_info ());
 	info.add ("manual", manual.container_info ());
 	info.add ("optimistic", optimistic.container_info ());

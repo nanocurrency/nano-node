@@ -1,28 +1,28 @@
-#include <nano/node/node.hpp>
-#include <nano/node/transport/tcp_channels.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/transport/tcp_channels.hpp>
 
 /*
  * tcp_channels
  */
 
-nano::transport::tcp_channels::tcp_channels (nano::node & node) :
+celerix::transport::tcp_channels::tcp_channels (celerix::node & node) :
 	node{ node }
 {
 }
 
-nano::transport::tcp_channels::~tcp_channels ()
+celerix::transport::tcp_channels::~tcp_channels ()
 {
 	debug_assert (channels.empty ());
 }
 
-void nano::transport::tcp_channels::start ()
+void celerix::transport::tcp_channels::start ()
 {
 }
 
-void nano::transport::tcp_channels::stop ()
+void celerix::transport::tcp_channels::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		stopped = true;
 	}
 	condition.notify_all ();
@@ -30,9 +30,9 @@ void nano::transport::tcp_channels::stop ()
 	close ();
 }
 
-void nano::transport::tcp_channels::close ()
+void celerix::transport::tcp_channels::close ()
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 	for (auto const & entry : channels)
 	{
@@ -44,7 +44,7 @@ void nano::transport::tcp_channels::close ()
 	channels.clear ();
 }
 
-bool nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, const nano::account & node_id) const
+bool celerix::transport::tcp_channels::check (const celerix::tcp_endpoint & endpoint, const celerix::account & node_id) const
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -53,16 +53,16 @@ bool nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, 
 		return false; // Reject
 	}
 
-	if (node.network.not_a_peer (nano::transport::map_tcp_to_endpoint (endpoint), node.config.allow_local_peers))
+	if (node.network.not_a_peer (celerix::transport::map_tcp_to_endpoint (endpoint), node.config.allow_local_peers))
 	{
-		node.stats.inc (nano::stat::type::tcp_channels_rejected, nano::stat::detail::not_a_peer);
-		node.logger.debug (nano::log::type::tcp_channels, "Rejected invalid endpoint channel: {}", fmt::streamed (endpoint));
+		node.stats.inc (celerix::stat::type::tcp_channels_rejected, celerix::stat::detail::not_a_peer);
+		node.logger.debug (celerix::log::type::tcp_channels, "Rejected invalid endpoint channel: {}", fmt::streamed (endpoint));
 
 		return false; // Reject
 	}
 
 	bool has_duplicate = std::any_of (channels.begin (), channels.end (), [&endpoint, &node_id] (auto const & channel) {
-		if (nano::transport::is_same_ip (channel.endpoint ().address (), endpoint.address ()))
+		if (celerix::transport::is_same_ip (channel.endpoint ().address (), endpoint.address ()))
 		{
 			// Only counsider channels with the same node id as duplicates if they come from the same IP
 			if (channel.node_id () == node_id)
@@ -75,8 +75,8 @@ bool nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, 
 
 	if (has_duplicate)
 	{
-		node.stats.inc (nano::stat::type::tcp_channels_rejected, nano::stat::detail::channel_duplicate);
-		node.logger.debug (nano::log::type::tcp_channels, "Rejected duplicate channel: {} ({})", fmt::streamed (endpoint), node_id.to_node_id ());
+		node.stats.inc (celerix::stat::type::tcp_channels_rejected, celerix::stat::detail::channel_duplicate);
+		node.logger.debug (celerix::log::type::tcp_channels, "Rejected duplicate channel: {} ({})", fmt::streamed (endpoint), node_id.to_node_id ());
 
 		return false; // Reject
 	}
@@ -85,12 +85,12 @@ bool nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, 
 }
 
 // This should be the only place in node where channels are created
-std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::create (const std::shared_ptr<nano::transport::tcp_socket> & socket, const std::shared_ptr<nano::transport::tcp_server> & server, const nano::account & node_id)
+std::shared_ptr<celerix::transport::tcp_channel> celerix::transport::tcp_channels::create (const std::shared_ptr<celerix::transport::tcp_socket> & socket, const std::shared_ptr<celerix::transport::tcp_server> & server, const celerix::account & node_id)
 {
 	auto const endpoint = socket->remote_endpoint ();
 	debug_assert (endpoint.address ().is_v6 ());
 
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 
 	if (stopped)
 	{
@@ -99,20 +99,20 @@ std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::cre
 
 	if (!check (endpoint, node_id))
 	{
-		node.stats.inc (nano::stat::type::tcp_channels, nano::stat::detail::channel_rejected);
-		node.logger.debug (nano::log::type::tcp_channels, "Rejected channel: {} ({})", fmt::streamed (endpoint), node_id.to_node_id ());
+		node.stats.inc (celerix::stat::type::tcp_channels, celerix::stat::detail::channel_rejected);
+		node.logger.debug (celerix::log::type::tcp_channels, "Rejected channel: {} ({})", fmt::streamed (endpoint), node_id.to_node_id ());
 		// Rejection reason should be logged earlier
 
 		return nullptr;
 	}
 
-	node.stats.inc (nano::stat::type::tcp_channels, nano::stat::detail::channel_accepted);
-	node.logger.debug (nano::log::type::tcp_channels, "Accepted channel: {} ({}) ({})",
+	node.stats.inc (celerix::stat::type::tcp_channels, celerix::stat::detail::channel_accepted);
+	node.logger.debug (celerix::log::type::tcp_channels, "Accepted channel: {} ({}) ({})",
 	fmt::streamed (socket->remote_endpoint ()),
 	to_string (socket->endpoint_type ()),
 	node_id.to_node_id ());
 
-	auto channel = std::make_shared<nano::transport::tcp_channel> (node, socket);
+	auto channel = std::make_shared<celerix::transport::tcp_channel> (node, socket);
 	channel->set_node_id (node_id);
 
 	attempts.get<endpoint_tag> ().erase (endpoint);
@@ -127,22 +127,22 @@ std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::cre
 	return channel;
 }
 
-void nano::transport::tcp_channels::erase (nano::tcp_endpoint const & endpoint_a)
+void celerix::transport::tcp_channels::erase (celerix::tcp_endpoint const & endpoint_a)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	channels.get<endpoint_tag> ().erase (endpoint_a);
 }
 
-std::size_t nano::transport::tcp_channels::size () const
+std::size_t celerix::transport::tcp_channels::size () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return channels.size ();
 }
 
-std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::find_channel (nano::tcp_endpoint const & endpoint_a) const
+std::shared_ptr<celerix::transport::tcp_channel> celerix::transport::tcp_channels::find_channel (celerix::tcp_endpoint const & endpoint_a) const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	std::shared_ptr<nano::transport::tcp_channel> result;
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
+	std::shared_ptr<celerix::transport::tcp_channel> result;
 	auto existing (channels.get<endpoint_tag> ().find (endpoint_a));
 	if (existing != channels.get<endpoint_tag> ().end ())
 	{
@@ -151,11 +151,11 @@ std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::fin
 	return result;
 }
 
-std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::tcp_channels::random_set (std::size_t count_a, uint8_t min_version) const
+std::unordered_set<std::shared_ptr<celerix::transport::channel>> celerix::transport::tcp_channels::random_set (std::size_t count_a, uint8_t min_version) const
 {
-	std::unordered_set<std::shared_ptr<nano::transport::channel>> result;
+	std::unordered_set<std::shared_ptr<celerix::transport::channel>> result;
 	result.reserve (count_a);
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	// Stop trying to fill result with random samples after this many attempts
 	auto random_cutoff (count_a * 2);
 	// Usually count_a will be much smaller than peers.size()
@@ -180,11 +180,11 @@ std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::t
 	return result;
 }
 
-void nano::transport::tcp_channels::random_fill (std::array<nano::endpoint, 8> & target_a) const
+void celerix::transport::tcp_channels::random_fill (std::array<celerix::endpoint, 8> & target_a) const
 {
 	auto peers (random_set (target_a.size ()));
 	debug_assert (peers.size () <= target_a.size ());
-	auto endpoint (nano::endpoint (boost::asio::ip::address_v6{}, 0));
+	auto endpoint (celerix::endpoint (boost::asio::ip::address_v6{}, 0));
 	debug_assert (endpoint.address ().is_v6 ());
 	std::fill (target_a.begin (), target_a.end (), endpoint);
 	auto j (target_a.begin ());
@@ -196,10 +196,10 @@ void nano::transport::tcp_channels::random_fill (std::array<nano::endpoint, 8> &
 	}
 }
 
-std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::find_node_id (nano::account const & node_id_a)
+std::shared_ptr<celerix::transport::tcp_channel> celerix::transport::tcp_channels::find_node_id (celerix::account const & node_id_a)
 {
-	std::shared_ptr<nano::transport::tcp_channel> result;
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	std::shared_ptr<celerix::transport::tcp_channel> result;
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	auto existing (channels.get<node_id_tag> ().find (node_id_a));
 	if (existing != channels.get<node_id_tag> ().end ())
 	{
@@ -208,15 +208,15 @@ std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::fin
 	return result;
 }
 
-nano::tcp_endpoint nano::transport::tcp_channels::bootstrap_peer ()
+celerix::tcp_endpoint celerix::transport::tcp_channels::bootstrap_peer ()
 {
-	nano::tcp_endpoint result (boost::asio::ip::address_v6::any (), 0);
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::tcp_endpoint result (boost::asio::ip::address_v6::any (), 0);
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	for (auto i (channels.get<last_bootstrap_attempt_tag> ().begin ()), n (channels.get<last_bootstrap_attempt_tag> ().end ()); i != n;)
 	{
 		if (i->channel->get_network_version () >= node.network_params.network.protocol_version_min)
 		{
-			result = nano::transport::map_endpoint_to_tcp (i->channel->get_peering_endpoint ());
+			result = celerix::transport::map_endpoint_to_tcp (i->channel->get_peering_endpoint ());
 			channels.get<last_bootstrap_attempt_tag> ().modify (i, [] (channel_entry & wrapper_a) {
 				wrapper_a.channel->set_last_bootstrap_attempt (std::chrono::steady_clock::now ());
 			});
@@ -230,15 +230,15 @@ nano::tcp_endpoint nano::transport::tcp_channels::bootstrap_peer ()
 	return result;
 }
 
-bool nano::transport::tcp_channels::max_ip_connections (nano::tcp_endpoint const & endpoint_a)
+bool celerix::transport::tcp_channels::max_ip_connections (celerix::tcp_endpoint const & endpoint_a)
 {
 	if (node.flags.disable_max_peers_per_ip)
 	{
 		return false;
 	}
 	bool result{ false };
-	auto const address (nano::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ()));
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	auto const address (celerix::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ()));
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	result = channels.get<ip_address_tag> ().count (address) >= node.config.network.max_peers_per_ip;
 	if (!result)
 	{
@@ -246,20 +246,20 @@ bool nano::transport::tcp_channels::max_ip_connections (nano::tcp_endpoint const
 	}
 	if (result)
 	{
-		node.stats.inc (nano::stat::type::tcp, nano::stat::detail::max_per_ip, nano::stat::dir::out);
+		node.stats.inc (celerix::stat::type::tcp, celerix::stat::detail::max_per_ip, celerix::stat::dir::out);
 	}
 	return result;
 }
 
-bool nano::transport::tcp_channels::max_subnetwork_connections (nano::tcp_endpoint const & endpoint_a)
+bool celerix::transport::tcp_channels::max_subnetwork_connections (celerix::tcp_endpoint const & endpoint_a)
 {
 	if (node.flags.disable_max_peers_per_subnetwork)
 	{
 		return false;
 	}
 	bool result{ false };
-	auto const subnet (nano::transport::map_address_to_subnetwork (endpoint_a.address ()));
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	auto const subnet (celerix::transport::map_address_to_subnetwork (endpoint_a.address ()));
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	result = channels.get<subnetwork_tag> ().count (subnet) >= node.config.network.max_peers_per_subnetwork;
 	if (!result)
 	{
@@ -267,19 +267,19 @@ bool nano::transport::tcp_channels::max_subnetwork_connections (nano::tcp_endpoi
 	}
 	if (result)
 	{
-		node.stats.inc (nano::stat::type::tcp, nano::stat::detail::max_per_subnetwork, nano::stat::dir::out);
+		node.stats.inc (celerix::stat::type::tcp, celerix::stat::detail::max_per_subnetwork, celerix::stat::dir::out);
 	}
 	return result;
 }
 
-bool nano::transport::tcp_channels::max_ip_or_subnetwork_connections (nano::tcp_endpoint const & endpoint_a)
+bool celerix::transport::tcp_channels::max_ip_or_subnetwork_connections (celerix::tcp_endpoint const & endpoint_a)
 {
 	return max_ip_connections (endpoint_a) || max_subnetwork_connections (endpoint_a);
 }
 
-bool nano::transport::tcp_channels::track_reachout (nano::endpoint const & endpoint_a)
+bool celerix::transport::tcp_channels::track_reachout (celerix::endpoint const & endpoint_a)
 {
-	auto const tcp_endpoint = nano::transport::map_endpoint_to_tcp (endpoint_a);
+	auto const tcp_endpoint = celerix::transport::map_endpoint_to_tcp (endpoint_a);
 
 	// Don't overload single IP
 	if (max_ip_or_subnetwork_connections (tcp_endpoint))
@@ -301,31 +301,31 @@ bool nano::transport::tcp_channels::track_reachout (nano::endpoint const & endpo
 		return false;
 	}
 
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	auto [it, inserted] = attempts.emplace (tcp_endpoint);
 	return inserted;
 }
 
-void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point cutoff_deadline)
+void celerix::transport::tcp_channels::purge (std::chrono::steady_clock::time_point cutoff_deadline)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 	auto should_close = [this, cutoff_deadline] (auto const & channel) {
 		// Remove channels that haven't successfully sent a message within the cutoff time
 		if (auto last = channel->get_last_packet_sent (); last < cutoff_deadline)
 		{
-			node.stats.inc (nano::stat::type::tcp_channels_purge, nano::stat::detail::idle);
-			node.logger.debug (nano::log::type::tcp_channels, "Closing idle channel: {} (idle for {}s)",
+			node.stats.inc (celerix::stat::type::tcp_channels_purge, celerix::stat::detail::idle);
+			node.logger.debug (celerix::log::type::tcp_channels, "Closing idle channel: {} (idle for {}s)",
 			channel->to_string (),
-			nano::log::seconds_delta (last));
+			celerix::log::seconds_delta (last));
 
 			return true; // Close
 		}
 		// Check if any tcp channels belonging to old protocol versions which may still be alive due to async operations
 		if (channel->get_network_version () < node.network_params.network.protocol_version_min)
 		{
-			node.stats.inc (nano::stat::type::tcp_channels_purge, nano::stat::detail::outdated);
-			node.logger.debug (nano::log::type::tcp_channels, "Closing channel with old protocol version: {}", channel->to_string ());
+			node.stats.inc (celerix::stat::type::tcp_channels_purge, celerix::stat::detail::outdated);
+			node.logger.debug (celerix::log::type::tcp_channels, "Closing channel with old protocol version: {}", channel->to_string ());
 
 			return true; // Close
 		}
@@ -343,7 +343,7 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 	erase_if (channels, [this] (auto const & entry) {
 		if (!entry.channel->alive ())
 		{
-			node.logger.debug (nano::log::type::tcp_channels, "Removing dead channel: {}", entry.channel->to_string ());
+			node.logger.debug (celerix::log::type::tcp_channels, "Removing dead channel: {}", entry.channel->to_string ());
 			entry.channel->close ();
 			return true; // Erase
 		}
@@ -355,17 +355,17 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 	attempts.get<last_attempt_tag> ().erase (attempts.get<last_attempt_tag> ().begin (), attempts_cutoff);
 }
 
-void nano::transport::tcp_channels::keepalive ()
+void celerix::transport::tcp_channels::keepalive ()
 {
-	nano::keepalive message{ node.network_params.network };
+	celerix::keepalive message{ node.network_params.network };
 	node.network.random_fill (message.peers);
 
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 
 	auto const cutoff_time = std::chrono::steady_clock::now () - node.network_params.network.keepalive_period;
 
 	// Wake up channels
-	std::vector<std::shared_ptr<nano::transport::tcp_channel>> to_wakeup;
+	std::vector<std::shared_ptr<celerix::transport::tcp_channel>> to_wakeup;
 	for (auto const & entry : channels)
 	{
 		if (entry.channel->get_last_packet_sent () < cutoff_time)
@@ -378,13 +378,13 @@ void nano::transport::tcp_channels::keepalive ()
 
 	for (auto & channel : to_wakeup)
 	{
-		channel->send (message, nano::transport::traffic_type::keepalive);
+		channel->send (message, celerix::transport::traffic_type::keepalive);
 	}
 }
 
-std::optional<nano::keepalive> nano::transport::tcp_channels::sample_keepalive ()
+std::optional<celerix::keepalive> celerix::transport::tcp_channels::sample_keepalive ()
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 	size_t counter = 0;
 	while (counter++ < channels.size ())
@@ -402,11 +402,11 @@ std::optional<nano::keepalive> nano::transport::tcp_channels::sample_keepalive (
 	return std::nullopt;
 }
 
-std::deque<std::shared_ptr<nano::transport::channel>> nano::transport::tcp_channels::list (uint8_t minimum_version) const
+std::deque<std::shared_ptr<celerix::transport::channel>> celerix::transport::tcp_channels::list (uint8_t minimum_version) const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
-	std::deque<std::shared_ptr<nano::transport::channel>> result;
+	std::deque<std::shared_ptr<celerix::transport::channel>> result;
 	for (auto const & entry : channels)
 	{
 		if (entry.channel->get_network_version () >= minimum_version)
@@ -417,16 +417,16 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::transport::tcp_chann
 	return result;
 }
 
-bool nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint)
+bool celerix::transport::tcp_channels::start_tcp (celerix::endpoint const & endpoint)
 {
 	return node.tcp_listener.connect (endpoint.address (), endpoint.port ());
 }
 
-nano::container_info nano::transport::tcp_channels::container_info () const
+celerix::container_info celerix::transport::tcp_channels::container_info () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("channels", channels.size ());
 	info.put ("attempts", attempts.size ());
 	return info;

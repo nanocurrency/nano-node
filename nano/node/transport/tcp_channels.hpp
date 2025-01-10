@@ -1,12 +1,12 @@
 #pragma once
 
-#include <nano/lib/numbers_templ.hpp>
-#include <nano/lib/random.hpp>
-#include <nano/node/endpoint.hpp>
-#include <nano/node/transport/channel.hpp>
-#include <nano/node/transport/fwd.hpp>
-#include <nano/node/transport/tcp_channel.hpp>
-#include <nano/node/transport/transport.hpp>
+#include <celerix/lib/numbers_templ.hpp>
+#include <celerix/lib/random.hpp>
+#include <celerix/node/endpoint.hpp>
+#include <celerix/node/transport/channel.hpp>
+#include <celerix/node/transport/fwd.hpp>
+#include <celerix/node/transport/tcp_channel.hpp>
+#include <celerix/node/transport/transport.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
@@ -21,7 +21,7 @@
 
 namespace mi = boost::multi_index;
 
-namespace nano::transport
+namespace celerix::transport
 {
 class tcp_channels final
 {
@@ -30,42 +30,42 @@ class tcp_channels final
 	friend class network_peer_max_tcp_attempts_subnetwork_Test;
 
 public:
-	explicit tcp_channels (nano::node &);
+	explicit tcp_channels (celerix::node &);
 	~tcp_channels ();
 
 	void start ();
 	void stop ();
 
-	std::shared_ptr<nano::transport::tcp_channel> create (std::shared_ptr<nano::transport::tcp_socket> const &, std::shared_ptr<nano::transport::tcp_server> const &, nano::account const & node_id);
-	void erase (nano::tcp_endpoint const &);
+	std::shared_ptr<celerix::transport::tcp_channel> create (std::shared_ptr<celerix::transport::tcp_socket> const &, std::shared_ptr<celerix::transport::tcp_server> const &, celerix::account const & node_id);
+	void erase (celerix::tcp_endpoint const &);
 	std::size_t size () const;
-	std::shared_ptr<nano::transport::tcp_channel> find_channel (nano::tcp_endpoint const &) const;
-	void random_fill (std::array<nano::endpoint, 8> &) const;
-	std::shared_ptr<nano::transport::tcp_channel> find_node_id (nano::account const &);
+	std::shared_ptr<celerix::transport::tcp_channel> find_channel (celerix::tcp_endpoint const &) const;
+	void random_fill (std::array<celerix::endpoint, 8> &) const;
+	std::shared_ptr<celerix::transport::tcp_channel> find_node_id (celerix::account const &);
 	// Get the next peer for attempting a tcp connection
-	nano::tcp_endpoint bootstrap_peer ();
-	bool max_ip_connections (nano::tcp_endpoint const & endpoint);
-	bool max_subnetwork_connections (nano::tcp_endpoint const & endpoint);
-	bool max_ip_or_subnetwork_connections (nano::tcp_endpoint const & endpoint);
+	celerix::tcp_endpoint bootstrap_peer ();
+	bool max_ip_connections (celerix::tcp_endpoint const & endpoint);
+	bool max_subnetwork_connections (celerix::tcp_endpoint const & endpoint);
+	bool max_ip_or_subnetwork_connections (celerix::tcp_endpoint const & endpoint);
 	// Should we reach out to this endpoint with a keepalive message? If yes, register a new reachout attempt
-	bool track_reachout (nano::endpoint const &);
+	bool track_reachout (celerix::endpoint const &);
 	void purge (std::chrono::steady_clock::time_point cutoff_deadline);
-	std::deque<std::shared_ptr<nano::transport::channel>> list (uint8_t minimum_version = 0) const;
-	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t max_count, uint8_t minimum_version = 0) const;
+	std::deque<std::shared_ptr<celerix::transport::channel>> list (uint8_t minimum_version = 0) const;
+	std::unordered_set<std::shared_ptr<celerix::transport::channel>> random_set (std::size_t max_count, uint8_t minimum_version = 0) const;
 	void keepalive ();
-	std::optional<nano::keepalive> sample_keepalive ();
+	std::optional<celerix::keepalive> sample_keepalive ();
 
 	// Connection start
-	bool start_tcp (nano::endpoint const &);
+	bool start_tcp (celerix::endpoint const &);
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 
 private: // Dependencies
-	nano::node & node;
+	celerix::node & node;
 
 private:
 	void close ();
-	bool check (nano::tcp_endpoint const &, nano::account const & node_id) const;
+	bool check (celerix::tcp_endpoint const &, celerix::account const & node_id) const;
 
 private:
 	class channel_entry final
@@ -85,7 +85,7 @@ private:
 			release_assert (server);
 			release_assert (channel);
 		}
-		nano::tcp_endpoint endpoint () const
+		celerix::tcp_endpoint endpoint () const
 		{
 			return channel->get_remote_endpoint ();
 		}
@@ -95,13 +95,13 @@ private:
 		}
 		boost::asio::ip::address ip_address () const
 		{
-			return nano::transport::ipv4_address_or_ipv6_subnet (endpoint ().address ());
+			return celerix::transport::ipv4_address_or_ipv6_subnet (endpoint ().address ());
 		}
 		boost::asio::ip::address subnetwork () const
 		{
-			return nano::transport::map_address_to_subnetwork (endpoint ().address ());
+			return celerix::transport::map_address_to_subnetwork (endpoint ().address ());
 		}
-		nano::account node_id () const
+		celerix::account node_id () const
 		{
 			return channel->get_node_id ();
 		}
@@ -114,16 +114,16 @@ private:
 	class attempt_entry final
 	{
 	public:
-		nano::tcp_endpoint endpoint;
+		celerix::tcp_endpoint endpoint;
 		boost::asio::ip::address address;
 		boost::asio::ip::address subnetwork;
 		std::chrono::steady_clock::time_point last_attempt{ std::chrono::steady_clock::now () };
 
 	public:
-		explicit attempt_entry (nano::tcp_endpoint const & endpoint_a) :
+		explicit attempt_entry (celerix::tcp_endpoint const & endpoint_a) :
 			endpoint (endpoint_a),
-			address (nano::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ())),
-			subnetwork (nano::transport::map_address_to_subnetwork (endpoint_a.address ()))
+			address (celerix::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ())),
+			subnetwork (celerix::transport::map_address_to_subnetwork (endpoint_a.address ()))
 		{
 		}
 	};
@@ -146,9 +146,9 @@ private:
 		mi::ordered_non_unique<mi::tag<last_bootstrap_attempt_tag>,
 			mi::const_mem_fun<channel_entry, std::chrono::steady_clock::time_point, &channel_entry::last_bootstrap_attempt>>,
 		mi::hashed_unique<mi::tag<endpoint_tag>,
-			mi::const_mem_fun<channel_entry, nano::tcp_endpoint, &channel_entry::endpoint>>,
+			mi::const_mem_fun<channel_entry, celerix::tcp_endpoint, &channel_entry::endpoint>>,
 		mi::hashed_non_unique<mi::tag<node_id_tag>,
-			mi::const_mem_fun<channel_entry, nano::account, &channel_entry::node_id>>,
+			mi::const_mem_fun<channel_entry, celerix::account, &channel_entry::node_id>>,
 		mi::ordered_non_unique<mi::tag<version_tag>,
 			mi::const_mem_fun<channel_entry, uint8_t, &channel_entry::network_version>>,
 		mi::hashed_non_unique<mi::tag<ip_address_tag>,
@@ -160,7 +160,7 @@ private:
 	boost::multi_index_container<attempt_entry,
 	mi::indexed_by<
 		mi::hashed_unique<mi::tag<endpoint_tag>,
-			mi::member<attempt_entry, nano::tcp_endpoint, &attempt_entry::endpoint>>,
+			mi::member<attempt_entry, celerix::tcp_endpoint, &attempt_entry::endpoint>>,
 		mi::hashed_non_unique<mi::tag<ip_address_tag>,
 			mi::member<attempt_entry, boost::asio::ip::address, &attempt_entry::address>>,
 		mi::hashed_non_unique<mi::tag<subnetwork_tag>,
@@ -172,9 +172,9 @@ private:
 
 private:
 	std::atomic<bool> stopped{ false };
-	nano::condition_variable condition;
-	mutable nano::mutex mutex;
+	celerix::condition_variable condition;
+	mutable celerix::mutex mutex;
 
-	mutable nano::random_generator rng;
+	mutable celerix::random_generator rng;
 };
 }

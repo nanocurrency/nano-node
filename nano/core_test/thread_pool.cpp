@@ -1,6 +1,6 @@
-#include <nano/lib/thread_pool.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/lib/thread_pool.hpp>
+#include <celerix/lib/timer.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -15,12 +15,12 @@ TEST (thread_pool, thread_pool)
 		passed_sleep = true;
 	};
 
-	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
-	nano::test::start_stop_guard stop_guard{ workers };
+	celerix::thread_pool workers (1u, celerix::thread_role::name::unknown);
+	celerix::test::start_stop_guard stop_guard{ workers };
 	workers.post (func);
 	ASSERT_FALSE (passed_sleep);
 
-	nano::timer<std::chrono::milliseconds> timer_l;
+	celerix::timer<std::chrono::milliseconds> timer_l;
 	timer_l.start ();
 	while (!passed_sleep)
 	{
@@ -35,39 +35,39 @@ TEST (thread_pool, thread_pool)
 TEST (thread_pool, one)
 {
 	std::atomic<bool> done (false);
-	nano::mutex mutex;
-	nano::condition_variable condition;
-	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
-	nano::test::start_stop_guard stop_guard{ workers };
+	celerix::mutex mutex;
+	celerix::condition_variable condition;
+	celerix::thread_pool workers (1u, celerix::thread_role::name::unknown);
+	celerix::test::start_stop_guard stop_guard{ workers };
 	workers.post ([&] () {
 		{
-			nano::lock_guard<nano::mutex> lock{ mutex };
+			celerix::lock_guard<celerix::mutex> lock{ mutex };
 			done = true;
 		}
 		condition.notify_one ();
 	});
-	nano::unique_lock<nano::mutex> unique{ mutex };
+	celerix::unique_lock<celerix::mutex> unique{ mutex };
 	condition.wait (unique, [&] () { return !!done; });
 }
 
 TEST (thread_pool, many)
 {
 	std::atomic<int> count (0);
-	nano::mutex mutex;
-	nano::condition_variable condition;
-	nano::thread_pool workers (50u, nano::thread_role::name::unknown);
-	nano::test::start_stop_guard stop_guard{ workers };
+	celerix::mutex mutex;
+	celerix::condition_variable condition;
+	celerix::thread_pool workers (50u, celerix::thread_role::name::unknown);
+	celerix::test::start_stop_guard stop_guard{ workers };
 	for (auto i (0); i < 50; ++i)
 	{
 		workers.post ([&] () {
 			{
-				nano::lock_guard<nano::mutex> lock{ mutex };
+				celerix::lock_guard<celerix::mutex> lock{ mutex };
 				count += 1;
 			}
 			condition.notify_one ();
 		});
 	}
-	nano::unique_lock<nano::mutex> unique{ mutex };
+	celerix::unique_lock<celerix::mutex> unique{ mutex };
 	condition.wait (unique, [&] () { return count == 50; });
 }
 
@@ -75,22 +75,22 @@ TEST (thread_pool, top_execution)
 {
 	int value1 (0);
 	int value2 (0);
-	nano::mutex mutex;
+	celerix::mutex mutex;
 	std::promise<bool> promise;
-	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
-	nano::test::start_stop_guard stop_guard{ workers };
+	celerix::thread_pool workers (1u, celerix::thread_role::name::unknown);
+	celerix::test::start_stop_guard stop_guard{ workers };
 	workers.post ([&] () {
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		value1 = 1;
 		value2 = 1;
 	});
 	workers.post_delayed (std::chrono::milliseconds (1), [&] () {
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		value2 = 2;
 		promise.set_value (false);
 	});
 	promise.get_future ().get ();
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	ASSERT_EQ (1, value1);
 	ASSERT_EQ (2, value2);
 }

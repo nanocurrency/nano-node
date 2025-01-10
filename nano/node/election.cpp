@@ -1,20 +1,20 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/enum_util.hpp>
-#include <nano/node/active_elections.hpp>
-#include <nano/node/confirmation_solicitor.hpp>
-#include <nano/node/election.hpp>
-#include <nano/node/local_vote_history.hpp>
-#include <nano/node/network.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/online_reps.hpp>
-#include <nano/node/vote_generator.hpp>
-#include <nano/node/vote_router.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/vote.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/enum_util.hpp>
+#include <celerix/node/active_elections.hpp>
+#include <celerix/node/confirmation_solicitor.hpp>
+#include <celerix/node/election.hpp>
+#include <celerix/node/local_vote_history.hpp>
+#include <celerix/node/network.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/online_reps.hpp>
+#include <celerix/node/vote_generator.hpp>
+#include <celerix/node/vote_router.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/vote.hpp>
 
 using namespace std::chrono;
 
-std::chrono::milliseconds nano::election::base_latency () const
+std::chrono::milliseconds celerix::election::base_latency () const
 {
 	return node.network_params.network.is_dev_network () ? 25ms : 1000ms;
 }
@@ -23,7 +23,7 @@ std::chrono::milliseconds nano::election::base_latency () const
  * election
  */
 
-nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> const & block_a, std::function<void (std::shared_ptr<nano::block> const &)> const & confirmation_action_a, std::function<void (nano::account const &)> const & live_vote_action_a, nano::election_behavior election_behavior_a) :
+celerix::election::election (celerix::node & node_a, std::shared_ptr<celerix::block> const & block_a, std::function<void (std::shared_ptr<celerix::block> const &)> const & confirmation_action_a, std::function<void (celerix::account const &)> const & live_vote_action_a, celerix::election_behavior election_behavior_a) :
 	confirmation_action (confirmation_action_a),
 	live_vote_action (live_vote_action_a),
 	node (node_a),
@@ -33,38 +33,38 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 	root (block_a->root ()),
 	qualified_root (block_a->qualified_root ())
 {
-	last_votes.emplace (nano::account::null (), nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
+	last_votes.emplace (celerix::account::null (), celerix::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
 	last_blocks.emplace (block_a->hash (), block_a);
 }
 
-void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock)
+void celerix::election::confirm_once (celerix::unique_lock<celerix::mutex> & lock)
 {
 	debug_assert (lock.owns_lock ());
 	debug_assert (!mutex.try_lock ());
 
-	bool just_confirmed = state_m != nano::election_state::confirmed;
-	state_m = nano::election_state::confirmed;
+	bool just_confirmed = state_m != celerix::election_state::confirmed;
+	state_m = celerix::election_state::confirmed;
 
 	if (just_confirmed)
 	{
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
 		status.confirmation_request_count = confirmation_request_count;
-		status.block_count = nano::narrow_cast<decltype (status.block_count)> (last_blocks.size ());
-		status.voter_count = nano::narrow_cast<decltype (status.voter_count)> (last_votes.size ());
+		status.block_count = celerix::narrow_cast<decltype (status.block_count)> (last_blocks.size ());
+		status.voter_count = celerix::narrow_cast<decltype (status.voter_count)> (last_votes.size ());
 		auto const status_l = status;
 
 		node.active.recently_confirmed.put (qualified_root, status_l.winner->hash ());
 
 		auto const extended_status = current_status_locked ();
 
-		node.stats.inc (nano::stat::type::election, nano::stat::detail::confirm_once);
-		node.logger.trace (nano::log::type::election, nano::log::detail::election_confirmed,
-		nano::log::arg{ "id", id },
-		nano::log::arg{ "qualified_root", qualified_root },
-		nano::log::arg{ "status", extended_status });
+		node.stats.inc (celerix::stat::type::election, celerix::stat::detail::confirm_once);
+		node.logger.trace (celerix::log::type::election, celerix::log::detail::election_confirmed,
+		celerix::log::arg{ "id", id },
+		celerix::log::arg{ "qualified_root", qualified_root },
+		celerix::log::arg{ "status", extended_status });
 
-		node.logger.debug (nano::log::type::election, "Election confirmed with winner: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms, confirmation requests: {})",
+		node.logger.debug (celerix::log::type::election, "Election confirmed with winner: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms, confirmation requests: {})",
 		status_l.winner->hash ().to_string (),
 		to_string (behavior_m),
 		to_string (state_m),
@@ -86,57 +86,57 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock)
 	}
 	else
 	{
-		node.stats.inc (nano::stat::type::election, nano::stat::detail::confirm_once_failed);
+		node.stats.inc (celerix::stat::type::election, celerix::stat::detail::confirm_once_failed);
 		lock.unlock ();
 	}
 }
 
-bool nano::election::valid_change (nano::election_state expected_a, nano::election_state desired_a) const
+bool celerix::election::valid_change (celerix::election_state expected_a, celerix::election_state desired_a) const
 {
 	switch (expected_a)
 	{
-		case nano::election_state::passive:
+		case celerix::election_state::passive:
 			switch (desired_a)
 			{
-				case nano::election_state::active:
-				case nano::election_state::confirmed:
-				case nano::election_state::expired_unconfirmed:
-				case nano::election_state::cancelled:
+				case celerix::election_state::active:
+				case celerix::election_state::confirmed:
+				case celerix::election_state::expired_unconfirmed:
+				case celerix::election_state::cancelled:
 					return true; // Valid
 				default:
 					break;
 			}
 			break;
-		case nano::election_state::active:
+		case celerix::election_state::active:
 			switch (desired_a)
 			{
-				case nano::election_state::confirmed:
-				case nano::election_state::expired_unconfirmed:
-				case nano::election_state::cancelled:
+				case celerix::election_state::confirmed:
+				case celerix::election_state::expired_unconfirmed:
+				case celerix::election_state::cancelled:
 					return true; // Valid
 				default:
 					break;
 			}
 			break;
-		case nano::election_state::confirmed:
+		case celerix::election_state::confirmed:
 			switch (desired_a)
 			{
-				case nano::election_state::expired_confirmed:
+				case celerix::election_state::expired_confirmed:
 					return true; // Valid
 				default:
 					break;
 			}
 			break;
-		case nano::election_state::expired_unconfirmed:
-		case nano::election_state::expired_confirmed:
-		case nano::election_state::cancelled:
+		case celerix::election_state::expired_unconfirmed:
+		case celerix::election_state::expired_confirmed:
+		case celerix::election_state::cancelled:
 			// No transitions are valid from these states
 			break;
 	}
 	return false;
 }
 
-bool nano::election::state_change (nano::election_state expected_a, nano::election_state desired_a)
+bool celerix::election::state_change (celerix::election_state expected_a, celerix::election_state desired_a)
 {
 	bool result = true;
 	if (valid_change (expected_a, desired_a))
@@ -151,7 +151,7 @@ bool nano::election::state_change (nano::election_state expected_a, nano::electi
 	return result;
 }
 
-std::chrono::milliseconds nano::election::confirm_req_time () const
+std::chrono::milliseconds celerix::election::confirm_req_time () const
 {
 	switch (behavior_m)
 	{
@@ -166,7 +166,7 @@ std::chrono::milliseconds nano::election::confirm_req_time () const
 	return {};
 }
 
-void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_a)
+void celerix::election::send_confirm_req (celerix::confirmation_solicitor & solicitor_a)
 {
 	if (confirm_req_time () < (std::chrono::steady_clock::now () - last_req))
 	{
@@ -178,56 +178,56 @@ void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_
 	}
 }
 
-void nano::election::transition_active ()
+void celerix::election::transition_active ()
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	state_change (nano::election_state::passive, nano::election_state::active);
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	state_change (celerix::election_state::passive, celerix::election_state::active);
 }
 
-bool nano::election::transition_priority ()
+bool celerix::election::transition_priority ()
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
-	if (behavior_m == nano::election_behavior::priority || behavior_m == nano::election_behavior::manual)
+	if (behavior_m == celerix::election_behavior::priority || behavior_m == celerix::election_behavior::manual)
 	{
 		return false;
 	}
 
-	behavior_m = nano::election_behavior::priority;
+	behavior_m = celerix::election_behavior::priority;
 	last_vote = std::chrono::steady_clock::time_point{}; // allow new outgoing votes immediately
 
-	node.logger.debug (nano::log::type::election, "Transitioned election behavior to priority from {} for root: {}",
+	node.logger.debug (celerix::log::type::election, "Transitioned election behavior to priority from {} for root: {}",
 	to_string (behavior_m),
 	qualified_root.to_string ());
 
 	return true;
 }
 
-void nano::election::cancel ()
+void celerix::election::cancel ()
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	state_change (state_m, nano::election_state::cancelled);
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	state_change (state_m, celerix::election_state::cancelled);
 }
 
-bool nano::election::confirmed_locked () const
+bool celerix::election::confirmed_locked () const
 {
 	debug_assert (!mutex.try_lock ());
-	return state_m == nano::election_state::confirmed || state_m == nano::election_state::expired_confirmed;
+	return state_m == celerix::election_state::confirmed || state_m == celerix::election_state::expired_confirmed;
 }
 
-bool nano::election::confirmed () const
+bool celerix::election::confirmed () const
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	return confirmed_locked ();
 }
 
-bool nano::election::failed () const
+bool celerix::election::failed () const
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	return state_m == nano::election_state::expired_unconfirmed;
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
+	return state_m == celerix::election_state::expired_unconfirmed;
 }
 
-bool nano::election::broadcast_block_predicate () const
+bool celerix::election::broadcast_block_predicate () const
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -244,7 +244,7 @@ bool nano::election::broadcast_block_predicate () const
 	return false;
 }
 
-void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a)
+void celerix::election::broadcast_block (celerix::confirmation_solicitor & solicitor_a)
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -252,7 +252,7 @@ void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a
 	{
 		if (!solicitor_a.broadcast (*this))
 		{
-			node.stats.inc (nano::stat::type::election, last_block_hash.is_zero () ? nano::stat::detail::broadcast_block_initial : nano::stat::detail::broadcast_block_repeat);
+			node.stats.inc (celerix::stat::type::election, last_block_hash.is_zero () ? celerix::stat::detail::broadcast_block_initial : celerix::stat::detail::broadcast_block_repeat);
 
 			last_block = std::chrono::steady_clock::now ();
 			last_block_hash = status.winner->hash ();
@@ -260,57 +260,57 @@ void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a
 	}
 }
 
-void nano::election::broadcast_vote ()
+void celerix::election::broadcast_vote ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	broadcast_vote_locked (lock);
 }
 
-nano::vote_info nano::election::get_last_vote (nano::account const & account)
+celerix::vote_info celerix::election::get_last_vote (celerix::account const & account)
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return last_votes[account];
 }
 
-void nano::election::set_last_vote (nano::account const & account, nano::vote_info vote_info)
+void celerix::election::set_last_vote (celerix::account const & account, celerix::vote_info vote_info)
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	last_votes[account] = vote_info;
 }
 
-nano::election_status nano::election::get_status () const
+celerix::election_status celerix::election::get_status () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return status;
 }
 
-bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a)
+bool celerix::election::transition_time (celerix::confirmation_solicitor & solicitor_a)
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	bool result = false;
 	switch (state_m)
 	{
-		case nano::election_state::passive:
+		case celerix::election_state::passive:
 			if (base_latency () * passive_duration_factor < std::chrono::steady_clock::now ().time_since_epoch () - state_start)
 			{
-				state_change (nano::election_state::passive, nano::election_state::active);
+				state_change (celerix::election_state::passive, celerix::election_state::active);
 			}
 			break;
-		case nano::election_state::active:
+		case celerix::election_state::active:
 			broadcast_vote_locked (lock);
 			broadcast_block (solicitor_a);
 			send_confirm_req (solicitor_a);
 			break;
-		case nano::election_state::confirmed:
+		case celerix::election_state::confirmed:
 			result = true; // Return true to indicate this election should be cleaned up
 			broadcast_block (solicitor_a); // Ensure election winner is broadcasted
-			state_change (nano::election_state::confirmed, nano::election_state::expired_confirmed);
+			state_change (celerix::election_state::confirmed, celerix::election_state::expired_confirmed);
 			break;
-		case nano::election_state::expired_unconfirmed:
-		case nano::election_state::expired_confirmed:
+		case celerix::election_state::expired_unconfirmed:
+		case celerix::election_state::expired_confirmed:
 			debug_assert (false);
 			break;
-		case nano::election_state::cancelled:
+		case celerix::election_state::cancelled:
 			return true; // Clean up cancelled elections immediately
 	}
 
@@ -318,21 +318,21 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 	{
 		// It is possible the election confirmed while acquiring the mutex
 		// state_change returning true would indicate it
-		if (!state_change (state_m, nano::election_state::expired_unconfirmed))
+		if (!state_change (state_m, celerix::election_state::expired_unconfirmed))
 		{
-			node.logger.trace (nano::log::type::election, nano::log::detail::election_expired,
-			nano::log::arg{ "id", id },
-			nano::log::arg{ "qualified_root", qualified_root },
-			nano::log::arg{ "status", current_status_locked () });
+			node.logger.trace (celerix::log::type::election, celerix::log::detail::election_expired,
+			celerix::log::arg{ "id", id },
+			celerix::log::arg{ "qualified_root", qualified_root },
+			celerix::log::arg{ "status", current_status_locked () });
 
 			result = true; // Return true to indicate this election should be cleaned up
-			status.type = nano::election_status_type::stopped;
+			status.type = celerix::election_status_type::stopped;
 		}
 	}
 	return result;
 }
 
-std::chrono::milliseconds nano::election::time_to_live () const
+std::chrono::milliseconds celerix::election::time_to_live () const
 {
 	switch (behavior_m)
 	{
@@ -347,7 +347,7 @@ std::chrono::milliseconds nano::election::time_to_live () const
 	return {};
 }
 
-std::chrono::seconds nano::election::cooldown_time (nano::uint128_t weight) const
+std::chrono::seconds celerix::election::cooldown_time (celerix::uint128_t weight) const
 {
 	auto online_stake = node.online_reps.trended ();
 	if (weight > online_stake / 20) // Reps with more than 5% weight
@@ -362,7 +362,7 @@ std::chrono::seconds nano::election::cooldown_time (nano::uint128_t weight) cons
 	return std::chrono::seconds{ 15 };
 }
 
-bool nano::election::have_quorum (nano::tally_t const & tally_a) const
+bool celerix::election::have_quorum (celerix::tally_t const & tally_a) const
 {
 	auto i (tally_a.begin ());
 	++i;
@@ -373,16 +373,16 @@ bool nano::election::have_quorum (nano::tally_t const & tally_a) const
 	return result;
 }
 
-nano::tally_t nano::election::tally () const
+celerix::tally_t celerix::election::tally () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return tally_impl ();
 }
 
-nano::tally_t nano::election::tally_impl () const
+celerix::tally_t celerix::election::tally_impl () const
 {
-	std::unordered_map<nano::block_hash, nano::uint128_t> block_weights;
-	std::unordered_map<nano::block_hash, nano::uint128_t> final_weights_l;
+	std::unordered_map<celerix::block_hash, celerix::uint128_t> block_weights;
+	std::unordered_map<celerix::block_hash, celerix::uint128_t> final_weights_l;
 	for (auto const & [account, info] : last_votes)
 	{
 		auto rep_weight (node.ledger.weight (account));
@@ -393,7 +393,7 @@ nano::tally_t nano::election::tally_impl () const
 		}
 	}
 	last_tally = block_weights;
-	nano::tally_t result;
+	celerix::tally_t result;
 	for (auto const & [hash, amount] : block_weights)
 	{
 		auto block (last_blocks.find (hash));
@@ -415,7 +415,7 @@ nano::tally_t nano::election::tally_impl () const
 	return result;
 }
 
-void nano::election::confirm_if_quorum (nano::unique_lock<nano::mutex> & lock_a)
+void celerix::election::confirm_if_quorum (celerix::unique_lock<celerix::mutex> & lock_a)
 {
 	debug_assert (lock_a.owns_lock ());
 	auto tally_l (tally_impl ());
@@ -426,7 +426,7 @@ void nano::election::confirm_if_quorum (nano::unique_lock<nano::mutex> & lock_a)
 	status.tally = winner->first;
 	status.final_tally = final_weight;
 	auto const & status_winner_hash_l (status.winner->hash ());
-	nano::uint128_t sum (0);
+	celerix::uint128_t sum (0);
 	for (auto & i : tally_l)
 	{
 		sum += i.first;
@@ -447,16 +447,16 @@ void nano::election::confirm_if_quorum (nano::unique_lock<nano::mutex> & lock_a)
 		if (final_weight >= node.online_reps.delta ())
 		{
 			// In some edge cases block might get rolled back while the election is confirming, reprocess it to ensure it's present in the ledger
-			node.block_processor.add (block_l, nano::block_source::election);
+			node.block_processor.add (block_l, celerix::block_source::election);
 			confirm_once (lock_a);
 			debug_assert (!lock_a.owns_lock ());
 		}
 	}
 }
 
-void nano::election::try_confirm (nano::block_hash const & hash)
+void celerix::election::try_confirm (celerix::block_hash const & hash)
 {
-	nano::unique_lock<nano::mutex> election_lock{ mutex };
+	celerix::unique_lock<celerix::mutex> election_lock{ mutex };
 	auto winner = status.winner;
 	if (winner && winner->hash () == hash)
 	{
@@ -468,10 +468,10 @@ void nano::election::try_confirm (nano::block_hash const & hash)
 	}
 }
 
-std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash_a) const
+std::shared_ptr<celerix::block> celerix::election::find (celerix::block_hash const & hash_a) const
 {
-	std::shared_ptr<nano::block> result;
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	std::shared_ptr<celerix::block> result;
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	if (auto existing = last_blocks.find (hash_a); existing != last_blocks.end ())
 	{
 		result = existing->second;
@@ -479,7 +479,7 @@ std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash
 	return result;
 }
 
-nano::vote_code nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano::block_hash const & block_hash_a, nano::vote_source vote_source_a)
+celerix::vote_code celerix::election::vote (celerix::account const & rep, uint64_t timestamp_a, celerix::block_hash const & block_hash_a, celerix::vote_source vote_source_a)
 {
 	auto weight = node.ledger.weight (rep);
 	if (!node.network_params.network.is_dev_network () && weight <= node.minimum_principal_weight ())
@@ -487,7 +487,7 @@ nano::vote_code nano::election::vote (nano::account const & rep, uint64_t timest
 		return vote_code::indeterminate;
 	}
 
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 
 	auto last_vote_it (last_votes.find (rep));
 	if (last_vote_it != last_votes.end ())
@@ -523,18 +523,18 @@ nano::vote_code nano::election::vote (nano::account const & rep, uint64_t timest
 		live_vote_action (rep);
 	}
 
-	node.stats.inc (nano::stat::type::election, nano::stat::detail::vote);
-	node.stats.inc (nano::stat::type::election_vote, to_stat_detail (vote_source_a));
+	node.stats.inc (celerix::stat::type::election, celerix::stat::detail::vote);
+	node.stats.inc (celerix::stat::type::election_vote, to_stat_detail (vote_source_a));
 
-	node.logger.trace (nano::log::type::election, nano::log::detail::vote_processed,
-	nano::log::arg{ "id", id },
-	nano::log::arg{ "qualified_root", qualified_root },
-	nano::log::arg{ "account", rep },
-	nano::log::arg{ "hash", block_hash_a },
-	nano::log::arg{ "final", nano::vote::is_final_timestamp (timestamp_a) },
-	nano::log::arg{ "timestamp", timestamp_a },
-	nano::log::arg{ "vote_source", vote_source_a },
-	nano::log::arg{ "weight", weight });
+	node.logger.trace (celerix::log::type::election, celerix::log::detail::vote_processed,
+	celerix::log::arg{ "id", id },
+	celerix::log::arg{ "qualified_root", qualified_root },
+	celerix::log::arg{ "account", rep },
+	celerix::log::arg{ "hash", block_hash_a },
+	celerix::log::arg{ "final", celerix::vote::is_final_timestamp (timestamp_a) },
+	celerix::log::arg{ "timestamp", timestamp_a },
+	celerix::log::arg{ "vote_source", vote_source_a },
+	celerix::log::arg{ "weight", weight });
 
 	if (!confirmed_locked ())
 	{
@@ -544,9 +544,9 @@ nano::vote_code nano::election::vote (nano::account const & rep, uint64_t timest
 	return vote_code::vote;
 }
 
-bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
+bool celerix::election::publish (std::shared_ptr<celerix::block> const & block_a)
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 
 	// Do not insert new blocks if already confirmed
 	auto result (confirmed_locked ());
@@ -573,7 +573,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 			if (status.winner->hash () == block_a->hash ())
 			{
 				status.winner = block_a;
-				node.network.flood_block (block_a, nano::transport::traffic_type::block_broadcast);
+				node.network.flood_block (block_a, celerix::transport::traffic_type::block_broadcast);
 			}
 		}
 	}
@@ -586,36 +586,36 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 	return result;
 }
 
-nano::election_extended_status nano::election::current_status () const
+celerix::election_extended_status celerix::election::current_status () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return current_status_locked ();
 }
 
-nano::election_extended_status nano::election::current_status_locked () const
+celerix::election_extended_status celerix::election::current_status_locked () const
 {
 	debug_assert (!mutex.try_lock ());
 
-	nano::election_status status_l = status;
+	celerix::election_status status_l = status;
 	status_l.confirmation_request_count = confirmation_request_count;
 	status_l.vote_broadcast_count = vote_broadcast_count;
-	status_l.block_count = nano::narrow_cast<decltype (status_l.block_count)> (last_blocks.size ());
-	status_l.voter_count = nano::narrow_cast<decltype (status_l.voter_count)> (last_votes.size ());
-	return nano::election_extended_status{ status_l, last_votes, last_blocks, tally_impl () };
+	status_l.block_count = celerix::narrow_cast<decltype (status_l.block_count)> (last_blocks.size ());
+	status_l.voter_count = celerix::narrow_cast<decltype (status_l.voter_count)> (last_votes.size ());
+	return celerix::election_extended_status{ status_l, last_votes, last_blocks, tally_impl () };
 }
 
-std::shared_ptr<nano::block> nano::election::winner () const
+std::shared_ptr<celerix::block> celerix::election::winner () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return status.winner;
 }
 
-std::chrono::milliseconds nano::election::duration () const
+std::chrono::milliseconds celerix::election::duration () const
 {
 	return std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
 }
 
-void nano::election::broadcast_vote_locked (nano::unique_lock<nano::mutex> & lock)
+void celerix::election::broadcast_vote_locked (celerix::unique_lock<celerix::mutex> & lock)
 {
 	debug_assert (lock.owns_lock ());
 
@@ -627,35 +627,35 @@ void nano::election::broadcast_vote_locked (nano::unique_lock<nano::mutex> & loc
 
 	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 	{
-		node.stats.inc (nano::stat::type::election, nano::stat::detail::broadcast_vote);
+		node.stats.inc (celerix::stat::type::election, celerix::stat::detail::broadcast_vote);
 		++vote_broadcast_count;
 
 		if (confirmed_locked () || have_quorum (tally_impl ()))
 		{
-			node.stats.inc (nano::stat::type::election, nano::stat::detail::broadcast_vote_final);
-			node.logger.trace (nano::log::type::election, nano::log::detail::broadcast_vote,
-			nano::log::arg{ "id", id },
-			nano::log::arg{ "qualified_root", qualified_root },
-			nano::log::arg{ "winner", status.winner },
-			nano::log::arg{ "type", "final" });
+			node.stats.inc (celerix::stat::type::election, celerix::stat::detail::broadcast_vote_final);
+			node.logger.trace (celerix::log::type::election, celerix::log::detail::broadcast_vote,
+			celerix::log::arg{ "id", id },
+			celerix::log::arg{ "qualified_root", qualified_root },
+			celerix::log::arg{ "winner", status.winner },
+			celerix::log::arg{ "type", "final" });
 
 			node.final_generator.add (root, status.winner->hash ()); // Broadcasts vote to the network
 		}
 		else
 		{
-			node.stats.inc (nano::stat::type::election, nano::stat::detail::broadcast_vote_normal);
-			node.logger.trace (nano::log::type::election, nano::log::detail::broadcast_vote,
-			nano::log::arg{ "id", id },
-			nano::log::arg{ "qualified_root", qualified_root },
-			nano::log::arg{ "winner", status.winner },
-			nano::log::arg{ "type", "normal" });
+			node.stats.inc (celerix::stat::type::election, celerix::stat::detail::broadcast_vote_normal);
+			node.logger.trace (celerix::log::type::election, celerix::log::detail::broadcast_vote,
+			celerix::log::arg{ "id", id },
+			celerix::log::arg{ "qualified_root", qualified_root },
+			celerix::log::arg{ "winner", status.winner },
+			celerix::log::arg{ "type", "normal" });
 
 			node.generator.add (root, status.winner->hash ()); // Broadcasts vote to the network
 		}
 	}
 }
 
-void nano::election::remove_votes (nano::block_hash const & hash_a)
+void celerix::election::remove_votes (celerix::block_hash const & hash_a)
 {
 	debug_assert (!mutex.try_lock ());
 	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
@@ -671,7 +671,7 @@ void nano::election::remove_votes (nano::block_hash const & hash_a)
 	}
 }
 
-void nano::election::remove_block (nano::block_hash const & hash_a)
+void celerix::election::remove_block (celerix::block_hash const & hash_a)
 {
 	debug_assert (!mutex.try_lock ());
 	if (status.winner->hash () != hash_a)
@@ -688,13 +688,13 @@ void nano::election::remove_block (nano::block_hash const & hash_a)
 	}
 }
 
-bool nano::election::replace_by_weight (nano::unique_lock<nano::mutex> & lock_a, nano::block_hash const & hash_a)
+bool celerix::election::replace_by_weight (celerix::unique_lock<celerix::mutex> & lock_a, celerix::block_hash const & hash_a)
 {
 	debug_assert (lock_a.owns_lock ());
-	nano::block_hash replaced_block (0);
+	celerix::block_hash replaced_block (0);
 	auto winner_hash (status.winner->hash ());
 	// Sort existing blocks tally
-	std::vector<std::pair<nano::block_hash, nano::uint128_t>> sorted;
+	std::vector<std::pair<celerix::block_hash, celerix::uint128_t>> sorted;
 	sorted.reserve (last_tally.size ());
 	std::copy (last_tally.begin (), last_tally.end (), std::back_inserter (sorted));
 	lock_a.unlock ();
@@ -702,8 +702,8 @@ bool nano::election::replace_by_weight (nano::unique_lock<nano::mutex> & lock_a,
 	// Sort in ascending order
 	std::sort (sorted.begin (), sorted.end (), [] (auto const & left, auto const & right) { return left.second < right.second; });
 
-	auto votes_tally = [this] (std::vector<std::shared_ptr<nano::vote>> const & votes) {
-		nano::uint128_t result{ 0 };
+	auto votes_tally = [this] (std::vector<std::shared_ptr<celerix::vote>> const & votes) {
+		celerix::uint128_t result{ 0 };
 		for (auto const & vote : votes)
 		{
 			result += node.ledger.weight (vote->account);
@@ -754,36 +754,36 @@ bool nano::election::replace_by_weight (nano::unique_lock<nano::mutex> & lock_a,
 	return replaced;
 }
 
-void nano::election::force_confirm ()
+void celerix::election::force_confirm ()
 {
 	release_assert (node.network_params.network.is_dev_network ());
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	confirm_once (lock);
 }
 
-std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election::blocks () const
+std::unordered_map<celerix::block_hash, std::shared_ptr<celerix::block>> celerix::election::blocks () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return last_blocks;
 }
 
-std::unordered_map<nano::account, nano::vote_info> nano::election::votes () const
+std::unordered_map<celerix::account, celerix::vote_info> celerix::election::votes () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return last_votes;
 }
 
-std::vector<nano::vote_with_weight_info> nano::election::votes_with_weight () const
+std::vector<celerix::vote_with_weight_info> celerix::election::votes_with_weight () const
 {
-	std::multimap<nano::uint128_t, nano::vote_with_weight_info, std::greater<nano::uint128_t>> sorted_votes;
-	std::vector<nano::vote_with_weight_info> result;
+	std::multimap<celerix::uint128_t, celerix::vote_with_weight_info, std::greater<celerix::uint128_t>> sorted_votes;
+	std::vector<celerix::vote_with_weight_info> result;
 	auto votes_l (votes ());
 	for (auto const & vote_l : votes_l)
 	{
 		if (vote_l.first != nullptr)
 		{
 			auto amount (node.ledger.cache.rep_weights.representation_get (vote_l.first));
-			nano::vote_with_weight_info vote_info{ vote_l.first, vote_l.second.time, vote_l.second.timestamp, vote_l.second.hash, amount };
+			celerix::vote_with_weight_info vote_info{ vote_l.first, vote_l.second.time, vote_l.second.timestamp, vote_l.second.hash, amount };
 			sorted_votes.emplace (std::move (amount), vote_info);
 		}
 	}
@@ -792,26 +792,26 @@ std::vector<nano::vote_with_weight_info> nano::election::votes_with_weight () co
 	return result;
 }
 
-nano::election_behavior nano::election::behavior () const
+celerix::election_behavior celerix::election::behavior () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return behavior_m;
 }
 
-nano::election_state nano::election::state () const
+celerix::election_state celerix::election::state () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return state_m;
 }
 
-bool nano::election::contains (nano::block_hash const & hash) const
+bool celerix::election::contains (celerix::block_hash const & hash) const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return last_blocks.contains (hash);
 }
 
 // TODO: Remove the need for .to_string () calls
-void nano::election::operator() (nano::object_stream & obs) const
+void celerix::election::operator() (celerix::object_stream & obs) const
 {
 	obs.write ("id", id);
 	obs.write ("qualified_root", qualified_root.to_string ());
@@ -820,7 +820,7 @@ void nano::election::operator() (nano::object_stream & obs) const
 	obs.write ("status", current_status ());
 }
 
-void nano::election_extended_status::operator() (nano::object_stream & obs) const
+void celerix::election_extended_status::operator() (celerix::object_stream & obs) const
 {
 	obs.write ("winner", status.winner->hash ().to_string ());
 	obs.write ("tally_amount", status.tally.to_string_dec ());
@@ -831,11 +831,11 @@ void nano::election_extended_status::operator() (nano::object_stream & obs) cons
 	obs.write ("voter_count", status.voter_count);
 	obs.write ("type", status.type);
 
-	obs.write_range ("votes", votes, [] (auto const & entry, nano::object_stream & obs) {
+	obs.write_range ("votes", votes, [] (auto const & entry, celerix::object_stream & obs) {
 		auto & [account, info] = entry;
 		obs.write ("account", account.to_account ());
 		obs.write ("hash", info.hash.to_string ());
-		obs.write ("final", nano::vote::is_final_timestamp (info.timestamp));
+		obs.write ("final", celerix::vote::is_final_timestamp (info.timestamp));
 		obs.write ("timestamp", info.timestamp);
 		obs.write ("time", info.time.time_since_epoch ().count ());
 	});
@@ -845,7 +845,7 @@ void nano::election_extended_status::operator() (nano::object_stream & obs) cons
 		return block;
 	});
 
-	obs.write_range ("tally", tally, [] (auto const & entry, nano::object_stream & obs) {
+	obs.write_range ("tally", tally, [] (auto const & entry, celerix::object_stream & obs) {
 		auto & [amount, block] = entry;
 		obs.write ("hash", block->hash ().to_string ());
 		obs.write ("amount", amount);
@@ -856,22 +856,22 @@ void nano::election_extended_status::operator() (nano::object_stream & obs) cons
  *
  */
 
-std::string_view nano::to_string (nano::election_behavior behavior)
+std::string_view celerix::to_string (celerix::election_behavior behavior)
 {
-	return nano::enum_util::name (behavior);
+	return celerix::enum_util::name (behavior);
 }
 
-nano::stat::detail nano::to_stat_detail (nano::election_behavior behavior)
+celerix::stat::detail celerix::to_stat_detail (celerix::election_behavior behavior)
 {
-	return nano::enum_util::cast<nano::stat::detail> (behavior);
+	return celerix::enum_util::cast<celerix::stat::detail> (behavior);
 }
 
-std::string_view nano::to_string (nano::election_state state)
+std::string_view celerix::to_string (celerix::election_state state)
 {
-	return nano::enum_util::name (state);
+	return celerix::enum_util::name (state);
 }
 
-nano::stat::detail nano::to_stat_detail (nano::election_state state)
+celerix::stat::detail celerix::to_stat_detail (celerix::election_state state)
 {
-	return nano::enum_util::cast<nano::stat::detail> (state);
+	return celerix::enum_util::cast<celerix::stat::detail> (state);
 }

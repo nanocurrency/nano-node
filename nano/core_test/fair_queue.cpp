@@ -1,7 +1,7 @@
-#include <nano/node/fair_queue.hpp>
-#include <nano/node/transport/fake.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/node/fair_queue.hpp>
+#include <celerix/node/transport/fake.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -25,14 +25,14 @@ enum class source_enum
 
 TEST (fair_queue, construction)
 {
-	nano::fair_queue<source_enum, int> queue;
+	celerix::fair_queue<source_enum, int> queue;
 	ASSERT_EQ (queue.size (), 0);
 	ASSERT_TRUE (queue.empty ());
 }
 
 TEST (fair_queue, process_one)
 {
-	nano::fair_queue<int, source_enum> queue;
+	celerix::fair_queue<int, source_enum> queue;
 	queue.priority_query = [] (auto const &) { return 1; };
 	queue.max_size_query = [] (auto const &) { return 1; };
 
@@ -52,7 +52,7 @@ TEST (fair_queue, process_one)
 
 TEST (fair_queue, fifo)
 {
-	nano::fair_queue<int, source_enum> queue;
+	celerix::fair_queue<int, source_enum> queue;
 	queue.priority_query = [] (auto const &) { return 1; };
 	queue.max_size_query = [] (auto const &) { return 999; };
 
@@ -84,7 +84,7 @@ TEST (fair_queue, fifo)
 
 TEST (fair_queue, process_many)
 {
-	nano::fair_queue<int, source_enum> queue;
+	celerix::fair_queue<int, source_enum> queue;
 	queue.priority_query = [] (auto const &) { return 1; };
 	queue.max_size_query = [] (auto const &) { return 1; };
 
@@ -118,7 +118,7 @@ TEST (fair_queue, process_many)
 
 TEST (fair_queue, max_queue_size)
 {
-	nano::fair_queue<int, source_enum> queue;
+	celerix::fair_queue<int, source_enum> queue;
 	queue.priority_query = [] (auto const &) { return 1; };
 	queue.max_size_query = [] (auto const &) { return 2; };
 
@@ -145,7 +145,7 @@ TEST (fair_queue, max_queue_size)
 
 TEST (fair_queue, round_robin_with_priority)
 {
-	nano::fair_queue<int, source_enum> queue;
+	celerix::fair_queue<int, source_enum> queue;
 	queue.priority_query = [] (auto const & origin) {
 		switch (origin.source)
 		{
@@ -188,15 +188,15 @@ TEST (fair_queue, round_robin_with_priority)
 
 TEST (fair_queue, source_channel)
 {
-	nano::test::system system{ 1 };
+	celerix::test::system system{ 1 };
 
-	nano::fair_queue<int, source_enum> queue;
+	celerix::fair_queue<int, source_enum> queue;
 	queue.priority_query = [] (auto const &) { return 1; };
 	queue.max_size_query = [] (auto const &) { return 999; };
 
-	auto channel1 = nano::test::fake_channel (system.node (0));
-	auto channel2 = nano::test::fake_channel (system.node (0));
-	auto channel3 = nano::test::fake_channel (system.node (0));
+	auto channel1 = celerix::test::fake_channel (system.node (0));
+	auto channel2 = celerix::test::fake_channel (system.node (0));
+	auto channel3 = celerix::test::fake_channel (system.node (0));
 
 	queue.push (6, { source_enum::live, channel1 });
 	queue.push (7, { source_enum::live, channel2 });
@@ -241,15 +241,15 @@ TEST (fair_queue, source_channel)
 
 TEST (fair_queue, cleanup)
 {
-	nano::test::system system{ 1 };
+	celerix::test::system system{ 1 };
 
-	nano::fair_queue<int, source_enum> queue;
+	celerix::fair_queue<int, source_enum> queue;
 	queue.priority_query = [] (auto const &) { return 1; };
 	queue.max_size_query = [] (auto const &) { return 999; };
 
-	auto channel1 = nano::test::fake_channel (system.node (0));
-	auto channel2 = nano::test::fake_channel (system.node (0));
-	auto channel3 = nano::test::fake_channel (system.node (0));
+	auto channel1 = celerix::test::fake_channel (system.node (0));
+	auto channel2 = celerix::test::fake_channel (system.node (0));
+	auto channel3 = celerix::test::fake_channel (system.node (0));
 
 	queue.push (7, { source_enum::live, channel1 });
 	queue.push (8, { source_enum::live, channel2 });

@@ -1,6 +1,6 @@
 #pragma once
 
-namespace nano::transport
+namespace celerix::transport
 {
 class channel;
 class tcp_channel;
@@ -8,7 +8,7 @@ class tcp_channels;
 class tcp_server;
 class tcp_socket;
 }
-namespace nano::transport::fake
+namespace celerix::transport::fake
 {
 class channel;
 }

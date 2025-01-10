@@ -1,15 +1,15 @@
-#include <nano/lib/stacktrace.hpp>
+#include <celerix/lib/stacktrace.hpp>
 
 #include <boost/stacktrace.hpp>
 
 #include <sstream>
 
-void nano::dump_crash_stacktrace ()
+void celerix::dump_crash_stacktrace ()
 {
-	boost::stacktrace::safe_dump_to ("nano_node_backtrace.dump");
+	boost::stacktrace::safe_dump_to ("celerix_node_backtrace.dump");
 }
 
-std::string nano::generate_stacktrace ()
+std::string celerix::generate_stacktrace ()
 {
 	auto stacktrace = boost::stacktrace::stacktrace ();
 	std::stringstream ss;

@@ -1,22 +1,22 @@
-#include <nano/lib/config.hpp>
-#include <nano/lib/locks.hpp>
-#include <nano/lib/stacktrace.hpp>
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/stacktrace.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <boost/format.hpp>
 
 #include <cstring>
 #include <iostream>
 
-#if USING_NANO_TIMED_LOCKS
-namespace nano
+#if USING_CELERIX_TIMED_LOCKS
+namespace celerix
 {
 // These mutexes must have std::mutex interface in addition to "char const * get_name ()" method
 template <typename Mutex>
 void output (char const * str, std::chrono::milliseconds time, Mutex & mutex)
 {
-	static nano::mutex cout_mutex;
-	auto stacktrace = nano::generate_stacktrace ();
+	static celerix::mutex cout_mutex;
+	auto stacktrace = celerix::generate_stacktrace ();
 	// Guard standard out to keep the output from being interleaved
 	std::lock_guard guard (cout_mutex);
 	std::cout << (boost::format ("%1% Mutex %2% %3% for %4%ms\n%5%") % std::addressof (mutex) % mutex.get_name () % str % time.count () % stacktrace).str ()
@@ -24,33 +24,33 @@ void output (char const * str, std::chrono::milliseconds time, Mutex & mutex)
 }
 
 template <typename Mutex>
-void output_if_held_long_enough (nano::timer<std::chrono::milliseconds> & timer, Mutex & mutex)
+void output_if_held_long_enough (celerix::timer<std::chrono::milliseconds> & timer, Mutex & mutex)
 {
 	auto time_held = timer.since_start ();
-	if (time_held >= std::chrono::milliseconds (NANO_TIMED_LOCKS))
+	if (time_held >= std::chrono::milliseconds (CELERIX_TIMED_LOCKS))
 	{
-		std::unique_lock lk (nano::mutex_to_filter_mutex);
-		if (!nano::any_filters_registered () || (nano::mutex_to_filter == &mutex))
+		std::unique_lock lk (celerix::mutex_to_filter_mutex);
+		if (!celerix::any_filters_registered () || (celerix::mutex_to_filter == &mutex))
 		{
 			lk.unlock ();
 			output ("held", time_held, mutex);
 		}
 	}
-	if (timer.current_state () != nano::timer_state::stopped)
+	if (timer.current_state () != celerix::timer_state::stopped)
 	{
 		timer.stop ();
 	}
 }
 
-#ifndef NANO_TIMED_LOCKS_IGNORE_BLOCKED
+#ifndef CELERIX_TIMED_LOCKS_IGNORE_BLOCKED
 template <typename Mutex>
-void output_if_blocked_long_enough (nano::timer<std::chrono::milliseconds> & timer, Mutex & mutex)
+void output_if_blocked_long_enough (celerix::timer<std::chrono::milliseconds> & timer, Mutex & mutex)
 {
 	auto time_blocked = timer.since_start ();
-	if (time_blocked >= std::chrono::milliseconds (NANO_TIMED_LOCKS))
+	if (time_blocked >= std::chrono::milliseconds (CELERIX_TIMED_LOCKS))
 	{
-		std::unique_lock lk (nano::mutex_to_filter_mutex);
-		if (!nano::any_filters_registered () || (nano::mutex_to_filter == &mutex))
+		std::unique_lock lk (celerix::mutex_to_filter_mutex);
+		if (!celerix::any_filters_registered () || (celerix::mutex_to_filter == &mutex))
 		{
 			lk.unlock ();
 			output ("blocked", time_blocked, mutex);
@@ -59,18 +59,18 @@ void output_if_blocked_long_enough (nano::timer<std::chrono::milliseconds> & tim
 }
 #endif
 
-lock_guard<nano::mutex>::lock_guard (nano::mutex & mutex) :
+lock_guard<celerix::mutex>::lock_guard (celerix::mutex & mutex) :
 	mut (mutex)
 {
 	timer.start ();
 
 	mut.lock ();
-#ifndef NANO_TIMED_LOCKS_IGNORE_BLOCKED
+#ifndef CELERIX_TIMED_LOCKS_IGNORE_BLOCKED
 	output_if_blocked_long_enough (timer, mut);
 #endif
 }
 
-lock_guard<nano::mutex>::~lock_guard () noexcept
+lock_guard<celerix::mutex>::~lock_guard () noexcept
 {
 	mut.unlock ();
 	output_if_held_long_enough (timer, mut);
@@ -96,7 +96,7 @@ void unique_lock<Mutex, U>::lock_impl ()
 
 	mut->lock ();
 	owns = true;
-#ifndef NANO_TIMED_LOCKS_IGNORE_BLOCKED
+#ifndef CELERIX_TIMED_LOCKS_IGNORE_BLOCKED
 	output_if_blocked_long_enough (timer, *mut);
 #endif
 }
@@ -204,7 +204,7 @@ void unique_lock<Mutex, U>::validate () const
 }
 
 // Explicit instantiations for allowed types
-template class unique_lock<nano::mutex>;
+template class unique_lock<celerix::mutex>;
 
 void condition_variable::notify_one () noexcept
 {
@@ -216,7 +216,7 @@ void condition_variable::notify_all () noexcept
 	cnd.notify_all ();
 }
 
-void condition_variable::wait (nano::unique_lock<nano::mutex> & lk)
+void condition_variable::wait (celerix::unique_lock<celerix::mutex> & lk)
 {
 	if (!lk.mut || !lk.owns)
 	{
@@ -230,22 +230,22 @@ void condition_variable::wait (nano::unique_lock<nano::mutex> & lk)
 	lk.timer.restart ();
 }
 
-nano::mutex * mutex_to_filter{ nullptr };
-nano::mutex mutex_to_filter_mutex;
+celerix::mutex * mutex_to_filter{ nullptr };
+celerix::mutex mutex_to_filter_mutex;
 
 bool should_be_filtered (char const * name)
 {
-	return std::strcmp (name, xstr (NANO_TIMED_LOCKS_FILTER)) == 0;
+	return std::strcmp (name, xstr (CELERIX_TIMED_LOCKS_FILTER)) == 0;
 }
 
 bool any_filters_registered ()
 {
-	return std::strcmp ("", xstr (NANO_TIMED_LOCKS_FILTER)) != 0;
+	return std::strcmp ("", xstr (CELERIX_TIMED_LOCKS_FILTER)) != 0;
 }
 }
 #endif
 
-char const * nano::mutex_identifier (mutexes mutex)
+char const * celerix::mutex_identifier (mutexes mutex)
 {
 	switch (mutex)
 	{

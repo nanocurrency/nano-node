@@ -1,6 +1,6 @@
 #pragma once
 
-namespace nano
+namespace celerix
 {
 /* Holds flags for various cacheable data. For most CLI operations caching is unnecessary
  * (e.g getting the cemented block count) so it can be disabled for performance reasons. */

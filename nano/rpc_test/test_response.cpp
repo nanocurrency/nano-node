@@ -1,29 +1,29 @@
-#include <nano/node/ipc/ipc_server.hpp>
-#include <nano/rpc/rpc_request_processor.hpp>
-#include <nano/rpc_test/test_response.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/node/ipc/ipc_server.hpp>
+#include <celerix/rpc/rpc_request_processor.hpp>
+#include <celerix/rpc_test/test_response.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
 #include <boost/property_tree/json_parser.hpp>
 
-nano::test::test_response::test_response (boost::property_tree::ptree const & request_a, boost::asio::io_context & io_ctx_a) :
+celerix::test::test_response::test_response (boost::property_tree::ptree const & request_a, boost::asio::io_context & io_ctx_a) :
 	request (request_a),
 	sock (io_ctx_a)
 {
 }
 
-nano::test::test_response::test_response (boost::property_tree::ptree const & request_a, uint16_t port_a, boost::asio::io_context & io_ctx_a) :
+celerix::test::test_response::test_response (boost::property_tree::ptree const & request_a, uint16_t port_a, boost::asio::io_context & io_ctx_a) :
 	request (request_a),
 	sock (io_ctx_a)
 {
 	run (port_a);
 }
 
-void nano::test::test_response::run (uint16_t port_a)
+void celerix::test::test_response::run (uint16_t port_a)
 {
-	sock.async_connect (nano::tcp_endpoint (boost::asio::ip::address_v6::loopback (), port_a), [this] (boost::system::error_code const & ec) {
+	sock.async_connect (celerix::tcp_endpoint (boost::asio::ip::address_v6::loopback (), port_a), [this] (boost::system::error_code const & ec) {
 		if (!ec)
 		{
 			std::stringstream ostream;

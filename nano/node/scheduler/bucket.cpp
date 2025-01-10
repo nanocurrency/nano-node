@@ -1,14 +1,14 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/node/active_elections.hpp>
-#include <nano/node/election.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/scheduler/bucket.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/node/active_elections.hpp>
+#include <celerix/node/election.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/scheduler/bucket.hpp>
 
 /*
  * bucket
  */
 
-nano::scheduler::bucket::bucket (nano::bucket_index index_a, priority_bucket_config const & config_a, nano::active_elections & active_a, nano::stats & stats_a) :
+celerix::scheduler::bucket::bucket (celerix::bucket_index index_a, priority_bucket_config const & config_a, celerix::active_elections & active_a, celerix::stats & stats_a) :
 	index{ index_a },
 	config{ config_a },
 	active{ active_a },
@@ -16,13 +16,13 @@ nano::scheduler::bucket::bucket (nano::bucket_index index_a, priority_bucket_con
 {
 }
 
-nano::scheduler::bucket::~bucket ()
+celerix::scheduler::bucket::~bucket ()
 {
 }
 
-bool nano::scheduler::bucket::available () const
+bool celerix::scheduler::bucket::available () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 	if (queue.empty ())
 	{
@@ -34,13 +34,13 @@ bool nano::scheduler::bucket::available () const
 	}
 }
 
-bool nano::scheduler::bucket::election_vacancy (nano::priority_timestamp candidate) const
+bool celerix::scheduler::bucket::election_vacancy (celerix::priority_timestamp candidate) const
 {
 	debug_assert (!mutex.try_lock ());
 
 	if (elections.size () < config.reserved_elections || elections.size () < config.max_elections)
 	{
-		return active.vacancy (nano::election_behavior::priority) > 0;
+		return active.vacancy (celerix::election_behavior::priority) > 0;
 	}
 	if (!elections.empty ())
 	{
@@ -56,7 +56,7 @@ bool nano::scheduler::bucket::election_vacancy (nano::priority_timestamp candida
 	return false;
 }
 
-bool nano::scheduler::bucket::election_overfill () const
+bool celerix::scheduler::bucket::election_overfill () const
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -66,14 +66,14 @@ bool nano::scheduler::bucket::election_overfill () const
 	}
 	if (elections.size () < config.max_elections)
 	{
-		return active.vacancy (nano::election_behavior::priority) < 0;
+		return active.vacancy (celerix::election_behavior::priority) < 0;
 	}
 	return true;
 }
 
-bool nano::scheduler::bucket::activate ()
+bool celerix::scheduler::bucket::activate ()
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 	if (queue.empty ())
 	{
@@ -86,30 +86,30 @@ bool nano::scheduler::bucket::activate ()
 	auto block = top.block;
 	auto priority = top.time;
 
-	auto erase_callback = [this] (std::shared_ptr<nano::election> election) {
-		nano::lock_guard<nano::mutex> lock{ mutex };
+	auto erase_callback = [this] (std::shared_ptr<celerix::election> election) {
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		elections.get<tag_root> ().erase (election->qualified_root);
 	};
 
-	auto result = active.insert (block, nano::election_behavior::priority, erase_callback);
+	auto result = active.insert (block, celerix::election_behavior::priority, erase_callback);
 	if (result.inserted)
 	{
 		release_assert (result.election);
 		elections.get<tag_root> ().insert ({ result.election, result.election->qualified_root, priority });
 
-		stats.inc (nano::stat::type::election_bucket, nano::stat::detail::activate_success);
+		stats.inc (celerix::stat::type::election_bucket, celerix::stat::detail::activate_success);
 	}
 	else
 	{
-		stats.inc (nano::stat::type::election_bucket, nano::stat::detail::activate_failed);
+		stats.inc (celerix::stat::type::election_bucket, celerix::stat::detail::activate_failed);
 	}
 
 	return result.inserted;
 }
 
-void nano::scheduler::bucket::update ()
+void celerix::scheduler::bucket::update ()
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 	if (election_overfill ())
 	{
@@ -118,9 +118,9 @@ void nano::scheduler::bucket::update ()
 }
 
 // Returns true if the block was inserted
-bool nano::scheduler::bucket::push (uint64_t time, std::shared_ptr<nano::block> block)
+bool celerix::scheduler::bucket::push (uint64_t time, std::shared_ptr<celerix::block> block)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
 	auto [it, inserted] = queue.insert ({ time, block });
 	release_assert (!queue.empty ());
@@ -133,31 +133,31 @@ bool nano::scheduler::bucket::push (uint64_t time, std::shared_ptr<nano::block> 
 	return inserted;
 }
 
-bool nano::scheduler::bucket::contains (nano::block_hash const & hash) const
+bool celerix::scheduler::bucket::contains (celerix::block_hash const & hash) const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return queue.get<tag_hash> ().contains (hash);
 }
 
-size_t nano::scheduler::bucket::size () const
+size_t celerix::scheduler::bucket::size () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return queue.size ();
 }
 
-bool nano::scheduler::bucket::empty () const
+bool celerix::scheduler::bucket::empty () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return queue.empty ();
 }
 
-size_t nano::scheduler::bucket::election_count () const
+size_t celerix::scheduler::bucket::election_count () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return elections.size ();
 }
 
-void nano::scheduler::bucket::cancel_lowest_election ()
+void celerix::scheduler::bucket::cancel_lowest_election ()
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -165,15 +165,15 @@ void nano::scheduler::bucket::cancel_lowest_election ()
 	{
 		elections.get<tag_priority> ().begin ()->election->cancel ();
 
-		stats.inc (nano::stat::type::election_bucket, nano::stat::detail::cancel_lowest);
+		stats.inc (celerix::stat::type::election_bucket, celerix::stat::detail::cancel_lowest);
 	}
 }
 
-std::deque<std::shared_ptr<nano::block>> nano::scheduler::bucket::blocks () const
+std::deque<std::shared_ptr<celerix::block>> celerix::scheduler::bucket::blocks () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 
-	std::deque<std::shared_ptr<nano::block>> result;
+	std::deque<std::shared_ptr<celerix::block>> result;
 	for (auto const & item : queue)
 	{
 		result.push_back (item.block);
@@ -181,7 +181,7 @@ std::deque<std::shared_ptr<nano::block>> nano::scheduler::bucket::blocks () cons
 	return result;
 }
 
-void nano::scheduler::bucket::dump () const
+void celerix::scheduler::bucket::dump () const
 {
 	for (auto const & item : queue)
 	{
@@ -193,7 +193,7 @@ void nano::scheduler::bucket::dump () const
  * priority_bucket_config
  */
 
-nano::error nano::scheduler::priority_bucket_config::serialize (nano::tomlconfig & toml) const
+celerix::error celerix::scheduler::priority_bucket_config::serialize (celerix::tomlconfig & toml) const
 {
 	toml.put ("max_blocks", max_blocks, "Maximum number of blocks to sort by priority per bucket. \nType: uint64");
 	toml.put ("reserved_elections", reserved_elections, "Number of guaranteed slots per bucket available for election activation. \nType: uint64");
@@ -202,7 +202,7 @@ nano::error nano::scheduler::priority_bucket_config::serialize (nano::tomlconfig
 	return toml.get_error ();
 }
 
-nano::error nano::scheduler::priority_bucket_config::deserialize (nano::tomlconfig & toml)
+celerix::error celerix::scheduler::priority_bucket_config::deserialize (celerix::tomlconfig & toml)
 {
 	toml.get ("max_blocks", max_blocks);
 	toml.get ("reserved_elections", reserved_elections);

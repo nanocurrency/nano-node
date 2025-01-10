@@ -17,7 +17,7 @@ else()
 endif()
 
 add_library(
-  nano_lib
+  celerix_lib
   ${platform_sources}
   asio.hpp
   asio.cpp
@@ -126,10 +126,10 @@ add_library(
 
 include_directories(${CMAKE_SOURCE_DIR}/submodules)
 include_directories(
-  ${CMAKE_SOURCE_DIR}/submodules/nano-pow-server/deps/cpptoml/include)
+  ${CMAKE_SOURCE_DIR}/submodules/celerix-pow-server/deps/cpptoml/include)
 
 target_link_libraries(
-  nano_lib
+  celerix_lib
   ipc_flatbuffers_lib
   crypto_lib
   blake2
@@ -146,12 +146,12 @@ target_link_libraries(
   Boost::property_tree
   Boost::stacktrace)
 
-if(NANO_STACKTRACE_BACKTRACE)
-  target_link_libraries(nano_lib backtrace)
+if(CELERIX_STACKTRACE_BACKTRACE)
+  target_link_libraries(celerix_lib backtrace)
 endif()
 
 target_compile_definitions(
-  nano_lib
+  celerix_lib
   PRIVATE -DMAJOR_VERSION_STRING=${CPACK_PACKAGE_VERSION_MAJOR}
           -DMINOR_VERSION_STRING=${CPACK_PACKAGE_VERSION_MINOR}
           -DPATCH_VERSION_STRING=${CPACK_PACKAGE_VERSION_PATCH}

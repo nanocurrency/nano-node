@@ -1,14 +1,14 @@
-#include <nano/lib/utility.hpp>
-#include <nano/secure/account_info.hpp>
-#include <nano/secure/account_iterator.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/secure/account_info.hpp>
+#include <celerix/secure/account_iterator.hpp>
 
 template <typename Set>
-nano::account_iterator<Set>::account_iterator ()
+celerix::account_iterator<Set>::account_iterator ()
 {
 }
 
 template <typename Set>
-nano::account_iterator<Set>::account_iterator (secure::transaction const & transaction, Set const & set, std::optional<std::pair<nano::account, nano::account_info>> const & item) :
+celerix::account_iterator<Set>::account_iterator (secure::transaction const & transaction, Set const & set, std::optional<std::pair<celerix::account, celerix::account_info>> const & item) :
 	transaction{ &transaction },
 	set{ &set },
 	item{ item }
@@ -16,7 +16,7 @@ nano::account_iterator<Set>::account_iterator (secure::transaction const & trans
 }
 
 template <typename Set>
-bool nano::account_iterator<Set>::operator== (account_iterator const & other) const
+bool celerix::account_iterator<Set>::operator== (account_iterator const & other) const
 {
 	debug_assert (set == nullptr || other.set == nullptr || set == other.set);
 	return item == other.item;
@@ -24,7 +24,7 @@ bool nano::account_iterator<Set>::operator== (account_iterator const & other) co
 
 // Iteration is performed by calling set->account_lower_bound (tx, next) where next is one higher than the current iterator
 template <typename Set>
-auto nano::account_iterator<Set>::operator++ () -> account_iterator<Set> &
+auto celerix::account_iterator<Set>::operator++ () -> account_iterator<Set> &
 {
 	auto next = item.value ().first.number () + 1;
 	if (next != 0)
@@ -40,13 +40,13 @@ auto nano::account_iterator<Set>::operator++ () -> account_iterator<Set> &
 }
 
 template <typename Set>
-std::pair<nano::account, nano::account_info> const & nano::account_iterator<Set>::operator* () const
+std::pair<celerix::account, celerix::account_info> const & celerix::account_iterator<Set>::operator* () const
 {
 	return item.value ();
 }
 
 template <typename Set>
-std::pair<nano::account, nano::account_info> const * nano::account_iterator<Set>::operator->() const
+std::pair<celerix::account, celerix::account_info> const * celerix::account_iterator<Set>::operator->() const
 {
 	return &item.value ();
 }

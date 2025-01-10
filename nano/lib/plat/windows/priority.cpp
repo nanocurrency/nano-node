@@ -1,6 +1,6 @@
 #include <windows.h>
 
-namespace nano
+namespace celerix
 {
 void work_thread_reprioritize ()
 {

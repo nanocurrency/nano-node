@@ -4,8 +4,8 @@ set -a
 
 scripts="$PWD/ci"
 CI_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-DOCKER_REGISTRY="${DOCKER_REGISTRY:-nanocurrency}"
-DOCKER_USER="${DOCKER_USER:-nanoreleaseteam}"
+DOCKER_REGISTRY="${DOCKER_REGISTRY:-celerixcurrency}"
+DOCKER_USER="${DOCKER_USER:-celerixreleaseteam}"
 tags=()
 
 if [ -n "$CI_TAG" ]; then
@@ -34,8 +34,8 @@ elif [[ "$NETWORK" = "TEST" ]]; then
     network="test"
 fi
 
-docker_image_name="${DOCKER_REGISTRY}/nano${network_tag_suffix}"
-ghcr_image_name="ghcr.io/${GITHUB_REPOSITORY}/nano${network_tag_suffix}"
+docker_image_name="${DOCKER_REGISTRY}/celerix${network_tag_suffix}"
+ghcr_image_name="ghcr.io/${GITHUB_REPOSITORY}/celerix${network_tag_suffix}"
 
 docker_build()
 {
@@ -55,7 +55,7 @@ docker_build()
 build_docker_image() {
     local ci_version_pre_release="$1"
     "$scripts"/build-docker-image.sh docker/node/Dockerfile "$docker_image_name" \
-        --build-arg NANO_NETWORK="$network" \
+        --build-arg CELERIX_NETWORK="$network" \
         --build-arg CI_VERSION_PRE_RELEASE="$ci_version_pre_release" \
         --build-arg CI_TAG="$CI_TAG"
 }
@@ -98,9 +98,9 @@ docker_deploy_env()
 {
     docker_login "$DOCKER_USER" "$DOCKER_PASSWORD" 
     local images=(
-        "${DOCKER_REGISTRY}/nano-env:base"
-        "${DOCKER_REGISTRY}/nano-env:gcc"
-        "${DOCKER_REGISTRY}/nano-env:clang"
+        "${DOCKER_REGISTRY}/celerix-env:base"
+        "${DOCKER_REGISTRY}/celerix-env:gcc"
+        "${DOCKER_REGISTRY}/celerix-env:clang"
     )
     deploy_env_images "${images[@]}"
 }
@@ -109,10 +109,10 @@ ghcr_deploy_env()
 {
     docker_login "$DOCKER_USER" "$DOCKER_PASSWORD" "ghcr.io"
     local images=(
-        "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/nano-env:base"
-        "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/nano-env:gcc"
-        "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/nano-env:clang"
-        "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/nano-env:rhel"
+        "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/celerix-env:base"
+        "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/celerix-env:gcc"
+        "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/celerix-env:clang"
+        "${DOCKER_REGISTRY}/${GITHUB_REPOSITORY}/celerix-env:rhel"
     )
     deploy_env_images "${images[@]}"
 }
@@ -160,7 +160,7 @@ deploy_env_images()
         push_docker_image "$image"
     done
 
-    echo "Deployed nano-env"
+    echo "Deployed celerix-env"
 }
 
 deploy_tags()

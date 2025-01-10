@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string>
 
-namespace nano
+namespace celerix
 {
 enum class block_type : uint8_t
 {
@@ -17,4 +17,4 @@ enum class block_type : uint8_t
 };
 
 std::string_view to_string (block_type);
-} // namespace nano
+} // namespace celerix

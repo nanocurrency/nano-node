@@ -1,11 +1,11 @@
 #pragma once
 
-#include <nano/lib/errors.hpp>
-#include <nano/lib/threading.hpp>
+#include <celerix/lib/errors.hpp>
+#include <celerix/lib/threading.hpp>
 
 #include <thread>
 
-namespace nano
+namespace celerix
 {
 class tomlconfig;
 
@@ -18,14 +18,14 @@ public:
 	{
 	}
 
-	nano::error serialize_toml (nano::tomlconfig &) const;
-	nano::error deserialize_toml (nano::tomlconfig &);
+	celerix::error serialize_toml (celerix::tomlconfig &) const;
+	celerix::error deserialize_toml (celerix::tomlconfig &);
 
 	/** To use RocksDB in tests make sure the environment variable TEST_USE_ROCKSDB=1 is set */
 	static bool using_rocksdb_in_tests ();
 
 	bool enable{ false };
-	unsigned io_threads{ std::max (nano::hardware_concurrency () / 2, 1u) };
+	unsigned io_threads{ std::max (celerix::hardware_concurrency () / 2, 1u) };
 	long read_cache{ 32 };
 	long write_cache{ 64 };
 };

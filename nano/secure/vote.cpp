@@ -1,26 +1,26 @@
-#include <nano/lib/stream.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/secure/common.hpp>
-#include <nano/secure/vote.hpp>
+#include <celerix/lib/stream.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/secure/common.hpp>
+#include <celerix/secure/vote.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
-nano::vote::vote (bool & error_a, nano::stream & stream_a)
+celerix::vote::vote (bool & error_a, celerix::stream & stream_a)
 {
 	error_a = deserialize (stream_a);
 }
 
-nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, uint8_t duration, std::vector<nano::block_hash> const & hashes) :
+celerix::vote::vote (celerix::account const & account_a, celerix::raw_key const & prv_a, uint64_t timestamp_a, uint8_t duration, std::vector<celerix::block_hash> const & hashes) :
 	hashes{ hashes },
 	timestamp_m{ packed_timestamp (timestamp_a, duration) },
 	account{ account_a }
 {
 	debug_assert (hashes.size () <= max_hashes);
 
-	signature = nano::sign_message (prv_a, account_a, hash ());
+	signature = celerix::sign_message (prv_a, account_a, hash ());
 }
 
-void nano::vote::serialize (nano::stream & stream_a) const
+void celerix::vote::serialize (celerix::stream & stream_a) const
 {
 	debug_assert (hashes.size () <= max_hashes);
 
@@ -33,19 +33,19 @@ void nano::vote::serialize (nano::stream & stream_a) const
 	}
 }
 
-bool nano::vote::deserialize (nano::stream & stream_a)
+bool celerix::vote::deserialize (celerix::stream & stream_a)
 {
 	auto error = false;
 	try
 	{
-		nano::read (stream_a, account.bytes);
-		nano::read (stream_a, signature.bytes);
-		nano::read (stream_a, timestamp_m);
+		celerix::read (stream_a, account.bytes);
+		celerix::read (stream_a, signature.bytes);
+		celerix::read (stream_a, timestamp_m);
 
 		while (stream_a.in_avail () > 0 && hashes.size () < max_hashes)
 		{
-			nano::block_hash block_hash;
-			nano::read (stream_a, block_hash);
+			celerix::block_hash block_hash;
+			celerix::read (stream_a, block_hash);
 			hashes.push_back (block_hash);
 		}
 	}
@@ -56,17 +56,17 @@ bool nano::vote::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-std::size_t nano::vote::size (uint8_t count)
+std::size_t celerix::vote::size (uint8_t count)
 {
 	debug_assert (count <= max_hashes);
-	return partial_size + count * sizeof (nano::block_hash);
+	return partial_size + count * sizeof (celerix::block_hash);
 }
 
-std::string const nano::vote::hash_prefix = "vote ";
+std::string const celerix::vote::hash_prefix = "vote ";
 
-nano::block_hash nano::vote::hash () const
+celerix::block_hash celerix::vote::hash () const
 {
-	nano::block_hash result;
+	celerix::block_hash result;
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (result.bytes));
 	blake2b_update (&hash, hash_prefix.data (), hash_prefix.size ());
@@ -85,9 +85,9 @@ nano::block_hash nano::vote::hash () const
 	return result;
 }
 
-nano::block_hash nano::vote::full_hash () const
+celerix::block_hash celerix::vote::full_hash () const
 {
-	nano::block_hash result;
+	celerix::block_hash result;
 	blake2b_state state;
 	blake2b_init (&state, sizeof (result.bytes));
 	blake2b_update (&state, hash ().bytes.data (), sizeof (hash ().bytes));
@@ -97,17 +97,17 @@ nano::block_hash nano::vote::full_hash () const
 	return result;
 }
 
-bool nano::vote::validate () const
+bool celerix::vote::validate () const
 {
-	return nano::validate_message (account, hash (), signature);
+	return celerix::validate_message (account, hash (), signature);
 }
 
-bool nano::vote::operator== (nano::vote const & other_a) const
+bool celerix::vote::operator== (celerix::vote const & other_a) const
 {
 	return timestamp_m == other_a.timestamp_m && hashes == other_a.hashes && account == other_a.account && signature == other_a.signature;
 }
 
-bool nano::vote::operator!= (nano::vote const & other_a) const
+bool celerix::vote::operator!= (celerix::vote const & other_a) const
 {
 	return !(*this == other_a);
 }
@@ -116,14 +116,14 @@ bool nano::vote::operator!= (nano::vote const & other_a) const
  * Returns the timestamp of the vote (with the duration bits masked, set to zero)
  * If it is a final vote, all the bits including duration bits are returned as they are, all FF
  */
-uint64_t nano::vote::timestamp () const
+uint64_t celerix::vote::timestamp () const
 {
 	return (timestamp_m == std::numeric_limits<uint64_t>::max ())
 	? timestamp_m // final vote
 	: (timestamp_m & timestamp_mask);
 }
 
-uint8_t nano::vote::duration_bits () const
+uint8_t celerix::vote::duration_bits () const
 {
 	// Duration field is specified in the 4 low-order bits of the timestamp.
 	// This makes the timestamp have a minimum granularity of 16ms
@@ -133,17 +133,17 @@ uint8_t nano::vote::duration_bits () const
 	return static_cast<uint8_t> (result);
 }
 
-std::chrono::milliseconds nano::vote::duration () const
+std::chrono::milliseconds celerix::vote::duration () const
 {
 	return std::chrono::milliseconds{ 1u << (duration_bits () + 4) };
 }
 
-bool nano::vote::is_final () const
+bool celerix::vote::is_final () const
 {
 	return is_final_timestamp (timestamp_m);
 }
 
-void nano::vote::serialize_json (boost::property_tree::ptree & tree) const
+void celerix::vote::serialize_json (boost::property_tree::ptree & tree) const
 {
 	tree.put ("account", account.to_account ());
 	tree.put ("signature", signature.number ());
@@ -160,7 +160,7 @@ void nano::vote::serialize_json (boost::property_tree::ptree & tree) const
 	tree.add_child ("blocks", blocks_tree);
 }
 
-std::string nano::vote::to_json () const
+std::string celerix::vote::to_json () const
 {
 	std::stringstream stream;
 	boost::property_tree::ptree tree;
@@ -169,26 +169,26 @@ std::string nano::vote::to_json () const
 	return stream.str ();
 }
 
-std::string nano::vote::hashes_string () const
+std::string celerix::vote::hashes_string () const
 {
-	return nano::util::join (hashes, ", ", [] (auto const & hash) {
+	return celerix::util::join (hashes, ", ", [] (auto const & hash) {
 		return hash.to_string ();
 	});
 }
 
-uint64_t nano::vote::packed_timestamp (uint64_t timestamp, uint8_t duration)
+uint64_t celerix::vote::packed_timestamp (uint64_t timestamp, uint8_t duration)
 {
 	debug_assert (duration <= duration_max && "Invalid duration");
 	debug_assert ((!(timestamp == timestamp_max) || (duration == duration_max)) && "Invalid final vote");
 	return (timestamp & timestamp_mask) | duration;
 }
 
-bool nano::vote::is_final_timestamp (uint64_t timestamp)
+bool celerix::vote::is_final_timestamp (uint64_t timestamp)
 {
 	return timestamp == std::numeric_limits<uint64_t>::max ();
 }
 
-void nano::vote::operator() (nano::object_stream & obs) const
+void celerix::vote::operator() (celerix::object_stream & obs) const
 {
 	obs.write ("account", account);
 	obs.write ("final", is_final_timestamp (timestamp_m));

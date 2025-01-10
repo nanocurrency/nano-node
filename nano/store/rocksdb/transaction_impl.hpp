@@ -1,13 +1,13 @@
 #pragma once
 
-#include <nano/store/component.hpp>
+#include <celerix/store/component.hpp>
 
 #include <rocksdb/db.h>
 #include <rocksdb/options.h>
 #include <rocksdb/utilities/transaction.h>
 #include <rocksdb/utilities/transaction_db.h>
 
-namespace nano::store::rocksdb
+namespace celerix::store::rocksdb
 {
 class read_transaction_impl final : public store::read_transaction_impl
 {
@@ -31,7 +31,7 @@ public:
 	void commit () override;
 	void renew () override;
 	void * get_handle () const override;
-	bool contains (nano::tables table_a) const override;
+	bool contains (celerix::tables table_a) const override;
 
 private:
 	bool check_no_write_tx () const;

@@ -2,7 +2,7 @@
 
 #include <deque>
 
-namespace nano::bootstrap
+namespace celerix::bootstrap
 {
 // Class used to throttle the ascending bootstrapper once it reaches a steady state
 // Tracks verify_result samples and signals throttling if no tracked samples have gotten results

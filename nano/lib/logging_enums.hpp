@@ -6,7 +6,7 @@
 
 #include <magic_enum.hpp>
 
-namespace nano::log
+namespace celerix::log
 {
 enum class level
 {
@@ -187,32 +187,32 @@ enum class tracing_format
 };
 }
 
-namespace nano::log
+namespace celerix::log
 {
-std::string_view to_string (nano::log::type);
-std::string_view to_string (nano::log::detail);
-std::string_view to_string (nano::log::level);
+std::string_view to_string (celerix::log::type);
+std::string_view to_string (celerix::log::detail);
+std::string_view to_string (celerix::log::level);
 
 /// @throw std::invalid_argument if the input string does not match a log::level
-nano::log::level parse_level (std::string_view);
+celerix::log::level parse_level (std::string_view);
 
 /// @throw std::invalid_argument if the input string does not match a log::type
-nano::log::type parse_type (std::string_view);
+celerix::log::type parse_type (std::string_view);
 
 /// @throw std::invalid_argument if the input string does not match a log::detail
-nano::log::detail parse_detail (std::string_view);
+celerix::log::detail parse_detail (std::string_view);
 
-std::vector<nano::log::level> const & all_levels ();
-std::vector<nano::log::type> const & all_types ();
+std::vector<celerix::log::level> const & all_levels ();
+std::vector<celerix::log::type> const & all_types ();
 
-std::string_view to_string (nano::log::tracing_format);
-nano::log::tracing_format parse_tracing_format (std::string_view);
-std::vector<nano::log::tracing_format> const & all_tracing_formats ();
+std::string_view to_string (celerix::log::tracing_format);
+celerix::log::tracing_format parse_tracing_format (std::string_view);
+std::vector<celerix::log::tracing_format> const & all_tracing_formats ();
 }
 
 // Ensure that the enum_range is large enough to hold all values (including future ones)
 template <>
-struct magic_enum::customize::enum_range<nano::log::type>
+struct magic_enum::customize::enum_range<celerix::log::type>
 {
 	static constexpr int min = 0;
 	static constexpr int max = 128;
@@ -220,7 +220,7 @@ struct magic_enum::customize::enum_range<nano::log::type>
 
 // Ensure that the enum_range is large enough to hold all values (including future ones)
 template <>
-struct magic_enum::customize::enum_range<nano::log::detail>
+struct magic_enum::customize::enum_range<celerix::log::detail>
 {
 	static constexpr int min = 0;
 	static constexpr int max = 512;

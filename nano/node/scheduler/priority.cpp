@@ -1,14 +1,14 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/node/active_elections.hpp>
-#include <nano/node/bucketing.hpp>
-#include <nano/node/election.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/scheduler/priority.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/ledger_set_any.hpp>
-#include <nano/secure/ledger_set_confirmed.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/node/active_elections.hpp>
+#include <celerix/node/bucketing.hpp>
+#include <celerix/node/election.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/scheduler/priority.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/ledger_set_any.hpp>
+#include <celerix/secure/ledger_set_confirmed.hpp>
 
-nano::scheduler::priority::priority (nano::node_config & node_config, nano::node & node_a, nano::ledger & ledger_a, nano::bucketing & bucketing_a, nano::block_processor & block_processor_a, nano::active_elections & active_a, nano::confirming_set & confirming_set_a, nano::stats & stats_a, nano::logger & logger_a) :
+celerix::scheduler::priority::priority (celerix::node_config & node_config, celerix::node & node_a, celerix::ledger & ledger_a, celerix::bucketing & bucketing_a, celerix::block_processor & block_processor_a, celerix::active_elections & active_a, celerix::confirming_set & confirming_set_a, celerix::stats & stats_a, celerix::logger & logger_a) :
 	config{ node_config.priority_scheduler },
 	node{ node_a },
 	ledger{ ledger_a },
@@ -29,7 +29,7 @@ nano::scheduler::priority::priority (nano::node_config & node_config, nano::node
 		auto transaction = ledger.tx_begin_read ();
 		for (auto const & [result, context] : batch)
 		{
-			if (result == nano::block_status::progress)
+			if (result == celerix::block_status::progress)
 			{
 				release_assert (context.block != nullptr);
 				activate (transaction, context.block->account ());
@@ -53,14 +53,14 @@ nano::scheduler::priority::priority (nano::node_config & node_config, nano::node
 	});
 }
 
-nano::scheduler::priority::~priority ()
+celerix::scheduler::priority::~priority ()
 {
 	// Thread must be stopped before destruction
 	debug_assert (!thread.joinable ());
 	debug_assert (!cleanup_thread.joinable ());
 }
 
-void nano::scheduler::priority::start ()
+void celerix::scheduler::priority::start ()
 {
 	debug_assert (!thread.joinable ());
 	debug_assert (!cleanup_thread.joinable ());
@@ -71,20 +71,20 @@ void nano::scheduler::priority::start ()
 	}
 
 	thread = std::thread{ [this] () {
-		nano::thread_role::set (nano::thread_role::name::scheduler_priority);
+		celerix::thread_role::set (celerix::thread_role::name::scheduler_priority);
 		run ();
 	} };
 
 	cleanup_thread = std::thread{ [this] () {
-		nano::thread_role::set (nano::thread_role::name::scheduler_priority);
+		celerix::thread_role::set (celerix::thread_role::name::scheduler_priority);
 		run_cleanup ();
 	} };
 }
 
-void nano::scheduler::priority::stop ()
+void celerix::scheduler::priority::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		stopped = true;
 	}
 	condition.notify_all ();
@@ -92,23 +92,23 @@ void nano::scheduler::priority::stop ()
 	join_or_pass (cleanup_thread);
 }
 
-bool nano::scheduler::priority::activate (secure::transaction const & transaction, nano::account const & account)
+bool celerix::scheduler::priority::activate (secure::transaction const & transaction, celerix::account const & account)
 {
 	debug_assert (!account.is_zero ());
 	if (auto info = ledger.any.account_get (transaction, account))
 	{
-		nano::confirmation_height_info conf_info;
+		celerix::confirmation_height_info conf_info;
 		ledger.store.confirmation_height.get (transaction, account, conf_info);
 		if (conf_info.height < info->block_count)
 		{
 			return activate (transaction, account, *info, conf_info);
 		}
 	}
-	stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activate_skip);
+	stats.inc (celerix::stat::type::election_scheduler, celerix::stat::detail::activate_skip);
 	return false; // Not activated
 }
 
-bool nano::scheduler::priority::activate (secure::transaction const & transaction, nano::account const & account, nano::account_info const & account_info, nano::confirmation_height_info const & conf_info)
+bool celerix::scheduler::priority::activate (secure::transaction const & transaction, celerix::account const & account, celerix::account_info const & account_info, celerix::confirmation_height_info const & conf_info)
 {
 	debug_assert (conf_info.frontier != account_info.head);
 
@@ -132,29 +132,29 @@ bool nano::scheduler::priority::activate (secure::transaction const & transactio
 		}
 		if (added)
 		{
-			stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activated);
-			logger.trace (nano::log::type::election_scheduler, nano::log::detail::block_activated,
-			nano::log::arg{ "account", account.to_account () }, // TODO: Convert to lazy eval
-			nano::log::arg{ "block", block },
-			nano::log::arg{ "time", account_info.modified },
-			nano::log::arg{ "priority_balance", priority_balance },
-			nano::log::arg{ "priority_timestamp", priority_timestamp });
+			stats.inc (celerix::stat::type::election_scheduler, celerix::stat::detail::activated);
+			logger.trace (celerix::log::type::election_scheduler, celerix::log::detail::block_activated,
+			celerix::log::arg{ "account", account.to_account () }, // TODO: Convert to lazy eval
+			celerix::log::arg{ "block", block },
+			celerix::log::arg{ "time", account_info.modified },
+			celerix::log::arg{ "priority_balance", priority_balance },
+			celerix::log::arg{ "priority_timestamp", priority_timestamp });
 
 			notify ();
 		}
 		else
 		{
-			stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activate_full);
+			stats.inc (celerix::stat::type::election_scheduler, celerix::stat::detail::activate_full);
 		}
 
 		return true; // Activated
 	}
 
-	stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::activate_failed);
+	stats.inc (celerix::stat::type::election_scheduler, celerix::stat::detail::activate_failed);
 	return false; // Not activated
 }
 
-bool nano::scheduler::priority::activate_successors (secure::transaction const & transaction, nano::block const & block)
+bool celerix::scheduler::priority::activate_successors (secure::transaction const & transaction, celerix::block const & block)
 {
 	bool result = activate (transaction, block.account ());
 	// Start or vote for the next unconfirmed block in the destination account
@@ -165,42 +165,42 @@ bool nano::scheduler::priority::activate_successors (secure::transaction const &
 	return result;
 }
 
-bool nano::scheduler::priority::contains (nano::block_hash const & hash) const
+bool celerix::scheduler::priority::contains (celerix::block_hash const & hash) const
 {
 	return std::any_of (buckets.begin (), buckets.end (), [&hash] (auto const & bucket) {
 		return bucket.second->contains (hash);
 	});
 }
 
-void nano::scheduler::priority::notify ()
+void celerix::scheduler::priority::notify ()
 {
 	condition.notify_all ();
 }
 
-std::size_t nano::scheduler::priority::size () const
+std::size_t celerix::scheduler::priority::size () const
 {
 	return std::accumulate (buckets.begin (), buckets.end (), std::size_t{ 0 }, [] (auto const & sum, auto const & bucket) {
 		return sum + bucket.second->size ();
 	});
 }
 
-bool nano::scheduler::priority::empty () const
+bool celerix::scheduler::priority::empty () const
 {
 	return std::all_of (buckets.begin (), buckets.end (), [] (auto const & bucket) {
 		return bucket.second->empty ();
 	});
 }
 
-bool nano::scheduler::priority::predicate () const
+bool celerix::scheduler::priority::predicate () const
 {
 	return std::any_of (buckets.begin (), buckets.end (), [] (auto const & bucket) {
 		return bucket.second->available ();
 	});
 }
 
-void nano::scheduler::priority::run ()
+void celerix::scheduler::priority::run ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		condition.wait (lock, [this] () {
@@ -209,7 +209,7 @@ void nano::scheduler::priority::run ()
 		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
 		if (!stopped)
 		{
-			stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::loop);
+			stats.inc (celerix::stat::type::election_scheduler, celerix::stat::detail::loop);
 
 			lock.unlock ();
 
@@ -226,9 +226,9 @@ void nano::scheduler::priority::run ()
 	}
 }
 
-void nano::scheduler::priority::run_cleanup ()
+void celerix::scheduler::priority::run_cleanup ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		condition.wait_for (lock, 1s, [this] () {
@@ -236,7 +236,7 @@ void nano::scheduler::priority::run_cleanup ()
 		});
 		if (!stopped)
 		{
-			stats.inc (nano::stat::type::election_scheduler, nano::stat::detail::cleanup);
+			stats.inc (celerix::stat::type::election_scheduler, celerix::stat::detail::cleanup);
 
 			lock.unlock ();
 
@@ -250,10 +250,10 @@ void nano::scheduler::priority::run_cleanup ()
 	}
 }
 
-nano::container_info nano::scheduler::priority::container_info () const
+celerix::container_info celerix::scheduler::priority::container_info () const
 {
 	auto collect_blocks = [&] () {
-		nano::container_info info;
+		celerix::container_info info;
 		for (auto const & [index, bucket] : buckets)
 		{
 			info.put (std::to_string (index), bucket->size ());
@@ -262,7 +262,7 @@ nano::container_info nano::scheduler::priority::container_info () const
 	};
 
 	auto collect_elections = [&] () {
-		nano::container_info info;
+		celerix::container_info info;
 		for (auto const & [index, bucket] : buckets)
 		{
 			info.put (std::to_string (index), bucket->election_count ());
@@ -270,7 +270,7 @@ nano::container_info nano::scheduler::priority::container_info () const
 		return info;
 	};
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.add ("blocks", collect_blocks ());
 	info.add ("elections", collect_elections ());
 	return info;

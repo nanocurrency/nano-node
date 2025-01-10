@@ -1,6 +1,6 @@
-#include <nano/node/transport/tcp_config.hpp>
+#include <celerix/node/transport/tcp_config.hpp>
 
-nano::error nano::transport::tcp_config::serialize (nano::tomlconfig & toml) const
+celerix::error celerix::transport::tcp_config::serialize (celerix::tomlconfig & toml) const
 {
 	toml.put ("max_inbound_connections", max_inbound_connections, "Maximum number of incoming TCP connections. \ntype:uint64");
 	toml.put ("max_outbound_connections", max_outbound_connections, "Maximum number of outgoing TCP connections. \ntype:uint64");
@@ -14,7 +14,7 @@ nano::error nano::transport::tcp_config::serialize (nano::tomlconfig & toml) con
 	return toml.get_error ();
 }
 
-nano::error nano::transport::tcp_config::deserialize (nano::tomlconfig & toml)
+celerix::error celerix::transport::tcp_config::deserialize (celerix::tomlconfig & toml)
 {
 	toml.get ("max_inbound_connections", max_inbound_connections);
 	toml.get ("max_outbound_connections", max_outbound_connections);

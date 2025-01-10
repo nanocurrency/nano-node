@@ -1,10 +1,10 @@
 #pragma once
 
-#include <nano/lib/locks.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/node/fwd.hpp>
-#include <nano/secure/common.hpp>
-#include <nano/store/transaction.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/node/fwd.hpp>
+#include <celerix/secure/common.hpp>
+#include <celerix/store/transaction.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/ordered_index.hpp>
@@ -17,15 +17,15 @@
 
 namespace mi = boost::multi_index;
 
-namespace nano::scheduler
+namespace celerix::scheduler
 {
 class hinted_config final
 {
 public:
-	explicit hinted_config (nano::network_constants const &);
+	explicit hinted_config (celerix::network_constants const &);
 
-	nano::error deserialize (nano::tomlconfig & toml);
-	nano::error serialize (nano::tomlconfig & toml) const;
+	celerix::error deserialize (celerix::tomlconfig & toml);
+	celerix::error serialize (celerix::tomlconfig & toml) const;
 
 public:
 	bool enable{ true };
@@ -41,7 +41,7 @@ public:
 class hinted final
 {
 public:
-	hinted (hinted_config const &, nano::node &, nano::vote_cache &, nano::active_elections &, nano::online_reps &, nano::stats &);
+	hinted (hinted_config const &, celerix::node &, celerix::vote_cache &, celerix::active_elections &, celerix::online_reps &, celerix::stats &);
 	~hinted ();
 
 	void start ();
@@ -52,38 +52,38 @@ public:
 	 */
 	void notify ();
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 
 private:
 	bool predicate () const;
 	void run ();
 	void run_iterative ();
-	void activate (secure::read_transaction &, nano::block_hash const & hash, bool check_dependents);
+	void activate (secure::read_transaction &, celerix::block_hash const & hash, bool check_dependents);
 
-	nano::uint128_t tally_threshold () const;
-	nano::uint128_t final_tally_threshold () const;
+	celerix::uint128_t tally_threshold () const;
+	celerix::uint128_t final_tally_threshold () const;
 
 private: // Dependencies
-	nano::node & node;
-	nano::vote_cache & vote_cache;
-	nano::active_elections & active;
-	nano::online_reps & online_reps;
-	nano::stats & stats;
+	celerix::node & node;
+	celerix::vote_cache & vote_cache;
+	celerix::active_elections & active;
+	celerix::online_reps & online_reps;
+	celerix::stats & stats;
 
 private:
 	hinted_config const & config;
 
 	std::atomic<bool> stopped{ false };
-	nano::condition_variable condition;
-	mutable nano::mutex mutex;
+	celerix::condition_variable condition;
+	mutable celerix::mutex mutex;
 	std::thread thread;
 
 private:
-	bool cooldown (nano::block_hash const & hash);
+	bool cooldown (celerix::block_hash const & hash);
 
 	struct cooldown_entry
 	{
-		nano::block_hash hash;
+		celerix::block_hash hash;
 		std::chrono::steady_clock::time_point timeout;
 	};
 
@@ -96,7 +96,7 @@ private:
 	using ordered_cooldowns = boost::multi_index_container<cooldown_entry,
 	mi::indexed_by<
 		mi::hashed_unique<mi::tag<tag_hash>,
-			mi::member<cooldown_entry, nano::block_hash, &cooldown_entry::hash>>,
+			mi::member<cooldown_entry, celerix::block_hash, &cooldown_entry::hash>>,
 		mi::ordered_non_unique<mi::tag<tag_timeout>,
 			mi::member<cooldown_entry, std::chrono::steady_clock::time_point, &cooldown_entry::timeout>>
 	>>;

@@ -1,8 +1,8 @@
 #pragma once
 
-#include <nano/lib/configbase.hpp>
-#include <nano/lib/errors.hpp>
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/configbase.hpp>
+#include <celerix/lib/errors.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -21,15 +21,15 @@ namespace asio
 }
 }
 
-namespace nano
+namespace celerix
 {
 /** Manages a node in a boost configuration tree. */
-class jsonconfig : public nano::configbase
+class jsonconfig : public celerix::configbase
 {
 public:
 	jsonconfig ();
-	jsonconfig (boost::property_tree::ptree & tree_a, std::shared_ptr<nano::error> const & error_a = nullptr);
-	nano::error & read (std::filesystem::path const & path_a);
+	jsonconfig (boost::property_tree::ptree & tree_a, std::shared_ptr<celerix::error> const & error_a = nullptr);
+	celerix::error & read (std::filesystem::path const & path_a);
 	void write (std::filesystem::path const & path_a);
 	void write (std::ostream & stream_a) const;
 	void read (std::istream & stream_a);
@@ -39,8 +39,8 @@ public:
 	bool empty () const;
 	boost::optional<jsonconfig> get_optional_child (std::string const & key_a);
 	jsonconfig get_required_child (std::string const & key_a);
-	jsonconfig & put_child (std::string const & key_a, nano::jsonconfig & conf_a);
-	jsonconfig & replace_child (std::string const & key_a, nano::jsonconfig & conf_a);
+	jsonconfig & put_child (std::string const & key_a, celerix::jsonconfig & conf_a);
+	jsonconfig & replace_child (std::string const & key_a, celerix::jsonconfig & conf_a);
 	bool has_key (std::string const & key_a);
 	jsonconfig & erase (std::string const & key_a);
 
@@ -83,7 +83,7 @@ public:
 
 	/**
 	 * Get optional value, using the current value of \p target as the default if \p key is missing.
-	 * @return May return nano::error_config::invalid_value
+	 * @return May return celerix::error_config::invalid_value
 	 */
 	template <typename T>
 	jsonconfig & get_optional (std::string const & key, T & target)
@@ -127,7 +127,7 @@ public:
 
 	/**
 	 * Get required value.
-	 * @note May set nano::error_config::missing_value if \p key is missing, nano::error_config::invalid_value if value is invalid.
+	 * @note May set celerix::error_config::missing_value if \p key is missing, celerix::error_config::invalid_value if value is invalid.
 	 */
 	template <typename T>
 	jsonconfig & get_required (std::string const & key, T & target)
@@ -144,7 +144,7 @@ public:
 	}
 
 protected:
-	template <typename T, typename = std::enable_if_t<nano::is_lexical_castable<T>::value>>
+	template <typename T, typename = std::enable_if_t<celerix::is_lexical_castable<T>::value>>
 	jsonconfig & get_config (bool optional, std::string key, T & target, T default_value = T ())
 	{
 		try
@@ -152,14 +152,14 @@ protected:
 			auto val (tree.get<std::string> (key));
 			if (!boost::conversion::try_lexical_convert<T> (val, target))
 			{
-				conditionally_set_error<T> (nano::error_config::invalid_value, optional, key);
+				conditionally_set_error<T> (celerix::error_config::invalid_value, optional, key);
 			}
 		}
 		catch (boost::property_tree::ptree_bad_path const &)
 		{
 			if (!optional)
 			{
-				conditionally_set_error<T> (nano::error_config::missing_value, optional, key);
+				conditionally_set_error<T> (celerix::error_config::missing_value, optional, key);
 			}
 			else
 			{

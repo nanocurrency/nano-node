@@ -1,5 +1,5 @@
-#include <nano/secure/pending_info.hpp>
-#include <nano/store/pending.hpp>
-#include <nano/store/typed_iterator_templ.hpp>
+#include <celerix/secure/pending_info.hpp>
+#include <celerix/store/pending.hpp>
+#include <celerix/store/typed_iterator_templ.hpp>
 
-template class nano::store::typed_iterator<nano::pending_key, nano::pending_info>;
+template class celerix::store::typed_iterator<celerix::pending_key, celerix::pending_info>;

@@ -10,7 +10,7 @@ namespace flatbuffers
 class FlatBufferBuilder;
 class Parser;
 }
-namespace nano
+namespace celerix
 {
 class node;
 namespace ipc
@@ -22,7 +22,7 @@ namespace ipc
 	 * This handler sits between the IPC server and the action handler. Its job is to deserialize
 	 * Flatbuffers in binary and json formats into high level message objects. These messages are
 	 * then used to dispatch the correct action handler.
-	 * @throws Methods of this class throw nano::error on failure.
+	 * @throws Methods of this class throw celerix::error on failure.
 	 * @note This class is not thread safe; use one instance per session/thread.
 	 */
 	class flatbuffers_handler final : public std::enable_shared_from_this<flatbuffers_handler>
@@ -34,7 +34,7 @@ namespace ipc
 		 * @param subscriber Subscriber instance
 		 * @param ipc_server_a Optional IPC server (may be nullptr, i.e when calling through the RPC gateway)
 		 */
-		flatbuffers_handler (nano::node & node_a, nano::ipc::ipc_server & ipc_server_a, std::shared_ptr<nano::ipc::subscriber> const & subscriber_a, nano::ipc::ipc_config const & ipc_config_a);
+		flatbuffers_handler (celerix::node & node_a, celerix::ipc::ipc_server & ipc_server_a, std::shared_ptr<celerix::ipc::subscriber> const & subscriber_a, celerix::ipc::ipc_config const & ipc_config_a);
 
 		/**
 		 * Deserialize flatbuffer message, look up and call the action handler, then call the response handler with a
@@ -52,14 +52,14 @@ namespace ipc
 		/**
 		 * Creates a Flatbuffers parser with the schema preparsed. This can then be used to parse and produce JSON.
 		 */
-		static std::shared_ptr<flatbuffers::Parser> make_flatbuffers_parser (nano::ipc::ipc_config const & ipc_config_a);
+		static std::shared_ptr<flatbuffers::Parser> make_flatbuffers_parser (celerix::ipc::ipc_config const & ipc_config_a);
 
 	private:
 		std::shared_ptr<flatbuffers::Parser> parser;
-		nano::node & node;
-		nano::ipc::ipc_server & ipc_server;
-		std::weak_ptr<nano::ipc::subscriber> subscriber;
-		nano::ipc::ipc_config const & ipc_config;
+		celerix::node & node;
+		celerix::ipc::ipc_server & ipc_server;
+		std::weak_ptr<celerix::ipc::subscriber> subscriber;
+		celerix::ipc::ipc_config const & ipc_config;
 	};
 }
 }

@@ -1,9 +1,9 @@
-#include <nano/lib/config.hpp>
-#include <nano/lib/enum_util.hpp>
-#include <nano/lib/env.hpp>
-#include <nano/lib/logging.hpp>
-#include <nano/lib/logging_enums.hpp>
-#include <nano/lib/utility.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/enum_util.hpp>
+#include <celerix/lib/env.hpp>
+#include <celerix/lib/logging.hpp>
+#include <celerix/lib/logging_enums.hpp>
+#include <celerix/lib/utility.hpp>
 
 #include <fmt/chrono.h>
 #include <spdlog/pattern_formatter.h>
@@ -12,9 +12,9 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/stdout_sinks.h>
 
-nano::logger & nano::default_logger ()
+celerix::logger & celerix::default_logger ()
 {
-	static nano::logger logger{ "default" };
+	static celerix::logger logger{ "default" };
 	return logger;
 }
 
@@ -22,20 +22,20 @@ nano::logger & nano::default_logger ()
  * logger
  */
 
-bool nano::logger::global_initialized{ false };
-nano::log_config nano::logger::global_config{};
-std::vector<spdlog::sink_ptr> nano::logger::global_sinks{};
-nano::object_stream_config nano::logger::global_tracing_config{};
+bool celerix::logger::global_initialized{ false };
+celerix::log_config celerix::logger::global_config{};
+std::vector<spdlog::sink_ptr> celerix::logger::global_sinks{};
+celerix::object_stream_config celerix::logger::global_tracing_config{};
 
 // By default, use only the tag as the logger name, since only one node is running in the process
-std::function<std::string (nano::log::logger_id, std::string identifier)> nano::logger::global_name_formatter{ [] (nano::log::logger_id logger_id, std::string identifier) {
+std::function<std::string (celerix::log::logger_id, std::string identifier)> celerix::logger::global_name_formatter{ [] (celerix::log::logger_id logger_id, std::string identifier) {
 	return to_string (logger_id);
 } };
 
-void nano::logger::initialize (nano::log_config fallback, std::optional<std::filesystem::path> data_path, std::vector<std::string> const & config_overrides)
+void celerix::logger::initialize (celerix::log_config fallback, std::optional<std::filesystem::path> data_path, std::vector<std::string> const & config_overrides)
 {
 	// Only load log config from file if data_path is available (i.e. not running in cli mode)
-	nano::log_config config = data_path ? nano::load_log_config (fallback, *data_path, config_overrides) : fallback;
+	celerix::log_config config = data_path ? celerix::load_log_config (fallback, *data_path, config_overrides) : fallback;
 	initialize_common (config, data_path);
 	global_initialized = true;
 }
@@ -93,13 +93,13 @@ public:
 };
 }
 
-void nano::logger::initialize_for_tests (nano::log_config fallback)
+void celerix::logger::initialize_for_tests (celerix::log_config fallback)
 {
-	auto config = nano::load_log_config (std::move (fallback), /* load log config from current workdir */ std::filesystem::current_path ());
+	auto config = celerix::load_log_config (std::move (fallback), /* load log config from current workdir */ std::filesystem::current_path ());
 	initialize_common (config, /* store log file in current workdir */ std::filesystem::current_path ());
 
 	// Use tag and identifier as the logger name, since multiple nodes may be running in the same process
-	global_name_formatter = [] (nano::log::logger_id logger_id, std::string identifier) {
+	global_name_formatter = [] (celerix::log::logger_id logger_id, std::string identifier) {
 		return fmt::format ("{}::{}", identifier, to_string (logger_id));
 	};
 
@@ -118,7 +118,7 @@ void nano::logger::initialize_for_tests (nano::log_config fallback)
 }
 
 // Using std::cerr here, since logging may not be initialized yet
-void nano::logger::initialize_common (nano::log_config const & config, std::optional<std::filesystem::path> data_path)
+void celerix::logger::initialize_common (celerix::log_config const & config, std::optional<std::filesystem::path> data_path)
 {
 	global_config = config;
 
@@ -191,16 +191,16 @@ void nano::logger::initialize_common (nano::log_config const & config, std::opti
 	// Tracing setup
 	switch (config.tracing_format)
 	{
-		case nano::log::tracing_format::standard:
-			global_tracing_config = nano::object_stream_config::default_config ();
+		case celerix::log::tracing_format::standard:
+			global_tracing_config = celerix::object_stream_config::default_config ();
 			break;
-		case nano::log::tracing_format::json:
-			global_tracing_config = nano::object_stream_config::json_config ();
+		case celerix::log::tracing_format::json:
+			global_tracing_config = celerix::object_stream_config::json_config ();
 			break;
 	}
 }
 
-void nano::logger::flush ()
+void celerix::logger::flush ()
 {
 	for (auto & sink : global_sinks)
 	{
@@ -212,18 +212,18 @@ void nano::logger::flush ()
  * logger
  */
 
-nano::logger::logger (std::string identifier) :
+celerix::logger::logger (std::string identifier) :
 	identifier{ std::move (identifier) }
 {
 	release_assert (global_initialized, "logging should be initialized before creating a logger");
 }
 
-nano::logger::~logger ()
+celerix::logger::~logger ()
 {
 	flush ();
 }
 
-spdlog::logger & nano::logger::get_logger (nano::log::type type, nano::log::detail detail)
+spdlog::logger & celerix::logger::get_logger (celerix::log::type type, celerix::log::detail detail)
 {
 	// This is a two-step process to avoid exclusively locking the mutex in the common case
 	{
@@ -243,7 +243,7 @@ spdlog::logger & nano::logger::get_logger (nano::log::type type, nano::log::deta
 	}
 }
 
-std::shared_ptr<spdlog::logger> nano::logger::make_logger (nano::log::logger_id logger_id)
+std::shared_ptr<spdlog::logger> celerix::logger::make_logger (celerix::log::logger_id logger_id)
 {
 	auto const & config = global_config;
 	auto const & sinks = global_sinks;
@@ -257,7 +257,7 @@ std::shared_ptr<spdlog::logger> nano::logger::make_logger (nano::log::logger_id 
 	return spd_logger;
 }
 
-nano::log::level nano::logger::find_level (nano::log::logger_id logger_id) const
+celerix::log::level celerix::logger::find_level (celerix::log::logger_id logger_id) const
 {
 	auto const & config = global_config;
 	auto const & [type, detail] = logger_id;
@@ -268,7 +268,7 @@ nano::log::level nano::logger::find_level (nano::log::logger_id logger_id) const
 		return it->second;
 	}
 	// Check for a default level for this logger type
-	if (auto it = config.levels.find ({ type, nano::log::detail::all }); it != config.levels.end ())
+	if (auto it = config.levels.find ({ type, celerix::log::detail::all }); it != config.levels.end ())
 	{
 		return it->second;
 	}
@@ -276,23 +276,23 @@ nano::log::level nano::logger::find_level (nano::log::logger_id logger_id) const
 	return config.default_level;
 }
 
-spdlog::level::level_enum nano::logger::to_spdlog_level (nano::log::level level)
+spdlog::level::level_enum celerix::logger::to_spdlog_level (celerix::log::level level)
 {
 	switch (level)
 	{
-		case nano::log::level::off:
+		case celerix::log::level::off:
 			return spdlog::level::off;
-		case nano::log::level::critical:
+		case celerix::log::level::critical:
 			return spdlog::level::critical;
-		case nano::log::level::error:
+		case celerix::log::level::error:
 			return spdlog::level::err;
-		case nano::log::level::warn:
+		case celerix::log::level::warn:
 			return spdlog::level::warn;
-		case nano::log::level::info:
+		case celerix::log::level::info:
 			return spdlog::level::info;
-		case nano::log::level::debug:
+		case celerix::log::level::debug:
 			return spdlog::level::debug;
-		case nano::log::level::trace:
+		case celerix::log::level::trace:
 			return spdlog::level::trace;
 	}
 	debug_assert (false, "Invalid log level");
@@ -303,36 +303,36 @@ spdlog::level::level_enum nano::logger::to_spdlog_level (nano::log::level level)
  * logging config presets
  */
 
-nano::log_config nano::log_config::cli_default ()
+celerix::log_config celerix::log_config::cli_default ()
 {
 	log_config config{};
-	config.default_level = nano::log::level::critical;
+	config.default_level = celerix::log::level::critical;
 	config.console.colors = false; // to avoid printing warning about cerr and colors
 	config.console.to_cerr = true; // Use cerr to avoid interference with CLI output that goes to stdout
 	config.file.enable = false;
 	return config;
 }
 
-nano::log_config nano::log_config::daemon_default ()
+celerix::log_config celerix::log_config::daemon_default ()
 {
 	log_config config{};
-	config.default_level = nano::log::level::info;
+	config.default_level = celerix::log::level::info;
 	return config;
 }
 
-nano::log_config nano::log_config::tests_default ()
+celerix::log_config celerix::log_config::tests_default ()
 {
 	log_config config{};
-	config.default_level = nano::log::level::off;
+	config.default_level = celerix::log::level::off;
 	config.file.enable = false;
 	return config;
 }
 
-nano::log_config nano::log_config::sample_config ()
+celerix::log_config celerix::log_config::sample_config ()
 {
 	log_config config{};
-	config.default_level = nano::log::level::info;
-	config.levels = default_levels (nano::log::level::info); // Populate with default levels
+	config.default_level = celerix::log::level::info;
+	config.levels = default_levels (celerix::log::level::info); // Populate with default levels
 	return config;
 }
 
@@ -340,16 +340,16 @@ nano::log_config nano::log_config::sample_config ()
  * logging config
  */
 
-nano::error nano::log_config::serialize_toml (nano::tomlconfig & toml) const
+celerix::error celerix::log_config::serialize_toml (celerix::tomlconfig & toml) const
 {
-	nano::tomlconfig config_toml;
+	celerix::tomlconfig config_toml;
 	serialize (config_toml);
 	toml.put_child ("log", config_toml);
 
 	return toml.get_error ();
 }
 
-nano::error nano::log_config::deserialize_toml (nano::tomlconfig & toml)
+celerix::error celerix::log_config::deserialize_toml (celerix::tomlconfig & toml)
 {
 	try
 	{
@@ -367,23 +367,23 @@ nano::error nano::log_config::deserialize_toml (nano::tomlconfig & toml)
 	return toml.get_error ();
 }
 
-void nano::log_config::serialize (nano::tomlconfig & toml) const
+void celerix::log_config::serialize (celerix::tomlconfig & toml) const
 {
 	toml.put ("default_level", std::string{ to_string (default_level) });
 
-	nano::tomlconfig console_config;
+	celerix::tomlconfig console_config;
 	console_config.put ("enable", console.enable);
 	console_config.put ("to_cerr", console.to_cerr);
 	console_config.put ("colors", console.colors);
 	toml.put_child ("console", console_config);
 
-	nano::tomlconfig file_config;
+	celerix::tomlconfig file_config;
 	file_config.put ("enable", file.enable);
 	file_config.put ("max_size", file.max_size);
 	file_config.put ("rotation_count", file.rotation_count);
 	toml.put_child ("file", file_config);
 
-	nano::tomlconfig levels_config;
+	celerix::tomlconfig levels_config;
 	for (auto const & [logger_id, level] : levels)
 	{
 		auto logger_name = to_string (logger_id.first);
@@ -392,12 +392,12 @@ void nano::log_config::serialize (nano::tomlconfig & toml) const
 	toml.put_child ("levels", levels_config);
 }
 
-void nano::log_config::deserialize (nano::tomlconfig & toml)
+void celerix::log_config::deserialize (celerix::tomlconfig & toml)
 {
 	if (toml.has_key ("default_level"))
 	{
 		auto default_level_l = toml.get<std::string> ("default_level");
-		default_level = nano::log::parse_level (default_level_l);
+		default_level = celerix::log::parse_level (default_level_l);
 	}
 
 	if (toml.has_key ("console"))
@@ -424,8 +424,8 @@ void nano::log_config::deserialize (nano::tomlconfig & toml)
 			try
 			{
 				auto & [name_str, level_str] = level;
-				auto logger_level = nano::log::parse_level (level_str);
-				auto logger_id = nano::log::parse_logger_id (name_str);
+				auto logger_level = celerix::log::parse_level (level_str);
+				auto logger_id = celerix::log::parse_logger_id (name_str);
 
 				levels[logger_id] = logger_level;
 			}
@@ -438,12 +438,12 @@ void nano::log_config::deserialize (nano::tomlconfig & toml)
 	}
 }
 
-std::map<nano::log::logger_id, nano::log::level> nano::log_config::default_levels (nano::log::level default_level)
+std::map<celerix::log::logger_id, celerix::log::level> celerix::log_config::default_levels (celerix::log::level default_level)
 {
-	std::map<nano::log::logger_id, nano::log::level> result;
-	for (auto const & type : nano::log::all_types ())
+	std::map<celerix::log::logger_id, celerix::log::level> result;
+	for (auto const & type : celerix::log::all_types ())
 	{
-		result.emplace (std::make_pair (type, nano::log::detail::all), default_level);
+		result.emplace (std::make_pair (type, celerix::log::detail::all), default_level);
 	}
 	return result;
 }
@@ -453,40 +453,40 @@ std::map<nano::log::logger_id, nano::log::level> nano::log_config::default_level
  */
 
 // Using std::cerr here, since logging may not be initialized yet
-nano::log_config nano::load_log_config (nano::log_config fallback, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides)
+celerix::log_config celerix::load_log_config (celerix::log_config fallback, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides)
 {
 	const std::string config_filename = "config-log.toml";
 	try
 	{
-		auto config = nano::load_config_file<nano::log_config> (fallback, config_filename, data_path, config_overrides);
+		auto config = celerix::load_config_file<celerix::log_config> (fallback, config_filename, data_path, config_overrides);
 
-		// Parse default log level from environment variable, e.g. "NANO_LOG=debug"
-		auto env_level = nano::env::get ("NANO_LOG");
+		// Parse default log level from environment variable, e.g. "CELERIX_LOG=debug"
+		auto env_level = celerix::env::get ("CELERIX_LOG");
 		if (env_level)
 		{
 			try
 			{
-				auto level = nano::log::parse_level (*env_level);
+				auto level = celerix::log::parse_level (*env_level);
 				config.default_level = level;
 
-				std::cerr << "Using default log level from NANO_LOG environment variable: " << to_string (level) << std::endl;
+				std::cerr << "Using default log level from CELERIX_LOG environment variable: " << to_string (level) << std::endl;
 			}
 			catch (std::invalid_argument const & ex)
 			{
-				std::cerr << "Invalid log level from NANO_LOG environment variable: " << ex.what () << std::endl;
+				std::cerr << "Invalid log level from CELERIX_LOG environment variable: " << ex.what () << std::endl;
 			}
 		}
 
-		// Parse per logger levels from environment variable, e.g. "NANO_LOG_LEVELS=ledger=debug,node=trace"
-		if (auto env_levels = nano::env::get ("NANO_LOG_LEVELS"))
+		// Parse per logger levels from environment variable, e.g. "CELERIX_LOG_LEVELS=ledger=debug,node=trace"
+		if (auto env_levels = celerix::env::get ("CELERIX_LOG_LEVELS"))
 		{
-			std::map<nano::log::logger_id, nano::log::level> levels;
-			for (auto const & env_level_str : nano::util::split (*env_levels, ","))
+			std::map<celerix::log::logger_id, celerix::log::level> levels;
+			for (auto const & env_level_str : celerix::util::split (*env_levels, ","))
 			{
 				try
 				{
 					// Split 'logger_name=level' into a pair of 'logger_name' and 'level'
-					auto arr = nano::util::split (env_level_str, "=");
+					auto arr = celerix::util::split (env_level_str, "=");
 					if (arr.size () != 2)
 					{
 						throw std::invalid_argument ("Invalid entry: " + env_level_str);
@@ -495,16 +495,16 @@ nano::log_config nano::load_log_config (nano::log_config fallback, const std::fi
 					auto name_str = arr[0];
 					auto level_str = arr[1];
 
-					auto logger_id = nano::log::parse_logger_id (name_str);
-					auto logger_level = nano::log::parse_level (level_str);
+					auto logger_id = celerix::log::parse_logger_id (name_str);
+					auto logger_level = celerix::log::parse_level (level_str);
 
 					levels[logger_id] = logger_level;
 
-					std::cerr << "Using logger log level from NANO_LOG_LEVELS environment variable: " << to_string (logger_id) << "=" << to_string (logger_level) << std::endl;
+					std::cerr << "Using logger log level from CELERIX_LOG_LEVELS environment variable: " << to_string (logger_id) << "=" << to_string (logger_level) << std::endl;
 				}
 				catch (std::invalid_argument const & ex)
 				{
-					std::cerr << "Invalid log level from NANO_LOG_LEVELS environment variable: " << ex.what () << std::endl;
+					std::cerr << "Invalid log level from CELERIX_LOG_LEVELS environment variable: " << ex.what () << std::endl;
 				}
 			}
 
@@ -515,29 +515,29 @@ nano::log_config nano::load_log_config (nano::log_config fallback, const std::fi
 			}
 		}
 
-		if (auto env_tracing_format = nano::env::get ("NANO_TRACE_FORMAT"))
+		if (auto env_tracing_format = celerix::env::get ("CELERIX_TRACE_FORMAT"))
 		{
 			try
 			{
-				auto tracing_format = nano::log::parse_tracing_format (*env_tracing_format);
+				auto tracing_format = celerix::log::parse_tracing_format (*env_tracing_format);
 				config.tracing_format = tracing_format;
 
-				std::cerr << "Using trace format from NANO_TRACE_FORMAT environment variable: " << to_string (tracing_format) << std::endl;
+				std::cerr << "Using trace format from CELERIX_TRACE_FORMAT environment variable: " << to_string (tracing_format) << std::endl;
 			}
 			catch (std::invalid_argument const & ex)
 			{
-				std::cerr << "Invalid trace format from NANO_TRACE_FORMAT environment variable: " << ex.what () << std::endl;
+				std::cerr << "Invalid trace format from CELERIX_TRACE_FORMAT environment variable: " << ex.what () << std::endl;
 			}
 		}
 
 		auto tracing_configured = [&] () {
-			if (config.default_level == nano::log::level::trace)
+			if (config.default_level == celerix::log::level::trace)
 			{
 				return true;
 			}
 			for (auto const & [logger_id, level] : config.levels)
 			{
-				if (level == nano::log::level::trace)
+				if (level == celerix::log::level::trace)
 				{
 					return true;
 				}
@@ -559,10 +559,10 @@ nano::log_config nano::load_log_config (nano::log_config fallback, const std::fi
 	return fallback;
 }
 
-std::string nano::log::to_string (nano::log::logger_id logger_id)
+std::string celerix::log::to_string (celerix::log::logger_id logger_id)
 {
 	auto const & [type, detail] = logger_id;
-	if (detail == nano::log::detail::all)
+	if (detail == celerix::log::detail::all)
 	{
 		return fmt::format ("{}", to_string (type));
 	}
@@ -576,16 +576,16 @@ std::string nano::log::to_string (nano::log::logger_id logger_id)
  * Parse `logger_name[:logger_detail]` into a pair of `log::type` and `log::detail`
  * @throw std::invalid_argument if `logger_name` or `logger_detail` are invalid
  */
-nano::log::logger_id nano::log::parse_logger_id (const std::string & logger_name)
+celerix::log::logger_id celerix::log::parse_logger_id (const std::string & logger_name)
 {
-	auto parts = nano::util::split (logger_name, "::");
+	auto parts = celerix::util::split (logger_name, "::");
 	if (parts.size () == 1)
 	{
-		return { nano::log::parse_type (parts[0]), nano::log::detail::all };
+		return { celerix::log::parse_type (parts[0]), celerix::log::detail::all };
 	}
 	if (parts.size () == 2)
 	{
-		return { nano::log::parse_type (parts[0]), nano::log::parse_detail (parts[1]) };
+		return { celerix::log::parse_type (parts[0]), celerix::log::parse_detail (parts[1]) };
 	}
 	throw std::invalid_argument ("Invalid logger name: " + logger_name);
 }

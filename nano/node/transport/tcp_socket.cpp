@@ -1,9 +1,9 @@
-#include <nano/boost/asio/bind_executor.hpp>
-#include <nano/boost/asio/read.hpp>
-#include <nano/lib/enum_util.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/transport/tcp_socket.hpp>
-#include <nano/node/transport/transport.hpp>
+#include <celerix/boost/asio/bind_executor.hpp>
+#include <celerix/boost/asio/read.hpp>
+#include <celerix/lib/enum_util.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/transport/tcp_socket.hpp>
+#include <celerix/node/transport/transport.hpp>
 
 #include <cstdint>
 #include <cstdlib>
@@ -16,12 +16,12 @@
  * socket
  */
 
-nano::transport::tcp_socket::tcp_socket (nano::node & node_a, nano::transport::socket_endpoint endpoint_type_a, size_t queue_size_a) :
+celerix::transport::tcp_socket::tcp_socket (celerix::node & node_a, celerix::transport::socket_endpoint endpoint_type_a, size_t queue_size_a) :
 	tcp_socket{ node_a, boost::asio::ip::tcp::socket{ node_a.io_ctx }, {}, {}, endpoint_type_a, queue_size_a }
 {
 }
 
-nano::transport::tcp_socket::tcp_socket (nano::node & node_a, boost::asio::ip::tcp::socket raw_socket_a, boost::asio::ip::tcp::endpoint remote_endpoint_a, boost::asio::ip::tcp::endpoint local_endpoint_a, nano::transport::socket_endpoint endpoint_type_a, size_t queue_size_a) :
+celerix::transport::tcp_socket::tcp_socket (celerix::node & node_a, boost::asio::ip::tcp::socket raw_socket_a, boost::asio::ip::tcp::endpoint remote_endpoint_a, boost::asio::ip::tcp::endpoint local_endpoint_a, celerix::transport::socket_endpoint endpoint_type_a, size_t queue_size_a) :
 	queue_size{ queue_size_a },
 	send_queue{ queue_size },
 	node_w{ node_a.shared () },
@@ -31,25 +31,25 @@ nano::transport::tcp_socket::tcp_socket (nano::node & node_a, boost::asio::ip::t
 	local{ local_endpoint_a },
 	endpoint_type_m{ endpoint_type_a },
 	timeout{ std::numeric_limits<uint64_t>::max () },
-	last_completion_time_or_init{ nano::seconds_since_epoch () },
-	last_receive_time_or_init{ nano::seconds_since_epoch () },
+	last_completion_time_or_init{ celerix::seconds_since_epoch () },
+	last_receive_time_or_init{ celerix::seconds_since_epoch () },
 	default_timeout{ node_a.config.tcp_io_timeout },
 	silent_connection_tolerance_time{ node_a.network_params.network.silent_connection_tolerance_time }
 {
 }
 
-nano::transport::tcp_socket::~tcp_socket ()
+celerix::transport::tcp_socket::~tcp_socket ()
 {
 	close_internal ();
 	closed = true;
 }
 
-void nano::transport::tcp_socket::start ()
+void celerix::transport::tcp_socket::start ()
 {
 	ongoing_checkup ();
 }
 
-void nano::transport::tcp_socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::function<void (boost::system::error_code const &)> callback_a)
+void celerix::transport::tcp_socket::async_connect (celerix::tcp_endpoint const & endpoint_a, std::function<void (boost::system::error_code const &)> callback_a)
 {
 	debug_assert (callback_a);
 	debug_assert (endpoint_type () == socket_endpoint::client);
@@ -72,7 +72,7 @@ void nano::transport::tcp_socket::async_connect (nano::tcp_endpoint const & endp
 
 			if (ec)
 			{
-				node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_connect_error, nano::stat::dir::in);
+				node_l->stats.inc (celerix::stat::type::tcp, celerix::stat::detail::tcp_connect_error, celerix::stat::dir::in);
 				this_l->close ();
 			}
 			else
@@ -84,7 +84,7 @@ void nano::transport::tcp_socket::async_connect (nano::tcp_endpoint const & endp
 					this_l->local = this_l->raw_socket.local_endpoint (ec);
 				}
 
-				node_l->logger.debug (nano::log::type::tcp_socket, "Successfully connected to: {}, local: {}",
+				node_l->logger.debug (celerix::log::type::tcp_socket, "Successfully connected to: {}, local: {}",
 				fmt::streamed (this_l->remote),
 				fmt::streamed (this_l->local));
 			}
@@ -93,7 +93,7 @@ void nano::transport::tcp_socket::async_connect (nano::tcp_endpoint const & endp
 	});
 }
 
-void nano::transport::tcp_socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
+void celerix::transport::tcp_socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
 {
 	debug_assert (callback_a);
 
@@ -116,12 +116,12 @@ void nano::transport::tcp_socket::async_read (std::shared_ptr<std::vector<uint8_
 
 					if (ec)
 					{
-						node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_read_error, nano::stat::dir::in);
+						node_l->stats.inc (celerix::stat::type::tcp, celerix::stat::detail::tcp_read_error, celerix::stat::dir::in);
 						this_l->close ();
 					}
 					else
 					{
-						node_l->stats.add (nano::stat::type::traffic_tcp, nano::stat::detail::all, nano::stat::dir::in, size_a);
+						node_l->stats.add (celerix::stat::type::traffic_tcp, celerix::stat::detail::all, celerix::stat::dir::in, size_a);
 						this_l->set_last_completion ();
 						this_l->set_last_receive_time ();
 					}
@@ -132,13 +132,13 @@ void nano::transport::tcp_socket::async_read (std::shared_ptr<std::vector<uint8_
 	}
 	else
 	{
-		debug_assert (false && "nano::transport::tcp_socket::async_read called with incorrect buffer size");
+		debug_assert (false && "celerix::transport::tcp_socket::async_read called with incorrect buffer size");
 		boost::system::error_code ec_buffer = boost::system::errc::make_error_code (boost::system::errc::no_buffer_space);
 		callback_a (ec_buffer, 0);
 	}
 }
 
-void nano::transport::tcp_socket::async_write (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
+void celerix::transport::tcp_socket::async_write (celerix::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
 {
 	auto node_l = node_w.lock ();
 	if (!node_l)
@@ -178,7 +178,7 @@ void nano::transport::tcp_socket::async_write (nano::shared_const_buffer const &
 }
 
 // Must be called from strand
-void nano::transport::tcp_socket::write_queued_messages ()
+void celerix::transport::tcp_socket::write_queued_messages ()
 {
 	debug_assert (strand.running_in_this_thread ());
 
@@ -197,7 +197,7 @@ void nano::transport::tcp_socket::write_queued_messages ()
 	set_default_timeout ();
 
 	write_in_progress = true;
-	nano::async_write (raw_socket, next.buffer,
+	celerix::async_write (raw_socket, next.buffer,
 	boost::asio::bind_executor (strand, [this_l = shared_from_this (), next /* `next` object keeps buffer in scope */, type] (boost::system::error_code ec, std::size_t size) {
 		debug_assert (this_l->strand.running_in_this_thread ());
 
@@ -210,12 +210,12 @@ void nano::transport::tcp_socket::write_queued_messages ()
 		this_l->write_in_progress = false;
 		if (ec)
 		{
-			node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_error, nano::stat::dir::in);
+			node_l->stats.inc (celerix::stat::type::tcp, celerix::stat::detail::tcp_write_error, celerix::stat::dir::in);
 			this_l->close ();
 		}
 		else
 		{
-			node_l->stats.add (nano::stat::type::traffic_tcp, nano::stat::detail::all, nano::stat::dir::out, size, /* aggregate all */ true);
+			node_l->stats.add (celerix::stat::type::traffic_tcp, celerix::stat::detail::all, celerix::stat::dir::out, size, /* aggregate all */ true);
 			this_l->set_last_completion ();
 		}
 
@@ -231,18 +231,18 @@ void nano::transport::tcp_socket::write_queued_messages ()
 	}));
 }
 
-bool nano::transport::tcp_socket::max () const
+bool celerix::transport::tcp_socket::max () const
 {
 	return send_queue.size (traffic_type::generic) >= queue_size;
 }
 
-bool nano::transport::tcp_socket::full () const
+bool celerix::transport::tcp_socket::full () const
 {
 	return send_queue.size (traffic_type::generic) >= 2 * queue_size;
 }
 
 /** Call set_timeout with default_timeout as parameter */
-void nano::transport::tcp_socket::set_default_timeout ()
+void celerix::transport::tcp_socket::set_default_timeout ()
 {
 	set_timeout (default_timeout);
 }
@@ -253,22 +253,22 @@ void nano::transport::tcp_socket::set_default_timeout ()
  *  to set infinite timeout, use std::numeric_limits<uint64_t>::max ()
  *  the function checkup() checks for timeout on a regular interval
  */
-void nano::transport::tcp_socket::set_timeout (std::chrono::seconds timeout_a)
+void celerix::transport::tcp_socket::set_timeout (std::chrono::seconds timeout_a)
 {
 	timeout = timeout_a.count ();
 }
 
-void nano::transport::tcp_socket::set_last_completion ()
+void celerix::transport::tcp_socket::set_last_completion ()
 {
-	last_completion_time_or_init = nano::seconds_since_epoch ();
+	last_completion_time_or_init = celerix::seconds_since_epoch ();
 }
 
-void nano::transport::tcp_socket::set_last_receive_time ()
+void celerix::transport::tcp_socket::set_last_receive_time ()
 {
-	last_receive_time_or_init = nano::seconds_since_epoch ();
+	last_receive_time_or_init = celerix::seconds_since_epoch ();
 }
 
-void nano::transport::tcp_socket::ongoing_checkup ()
+void celerix::transport::tcp_socket::ongoing_checkup ()
 {
 	auto node_l = node_w.lock ();
 	if (!node_l)
@@ -296,13 +296,13 @@ void nano::transport::tcp_socket::ongoing_checkup ()
 			}
 		});
 
-		nano::seconds_t now = nano::seconds_since_epoch ();
+		celerix::seconds_t now = celerix::seconds_since_epoch ();
 		auto condition_to_disconnect{ false };
 
 		// if this is a server socket, and no data is received for silent_connection_tolerance_time seconds then disconnect
 		if (this_l->endpoint_type () == socket_endpoint::server && (now - this_l->last_receive_time_or_init) > static_cast<uint64_t> (this_l->silent_connection_tolerance_time.count ()))
 		{
-			node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_silent_connection_drop, nano::stat::dir::in);
+			node_l->stats.inc (celerix::stat::type::tcp, celerix::stat::detail::tcp_silent_connection_drop, celerix::stat::dir::in);
 
 			condition_to_disconnect = true;
 		}
@@ -310,7 +310,7 @@ void nano::transport::tcp_socket::ongoing_checkup ()
 		// if there is no activity for timeout seconds then disconnect
 		if ((now - this_l->last_completion_time_or_init) > this_l->timeout)
 		{
-			node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_io_timeout_drop, this_l->endpoint_type () == socket_endpoint::server ? nano::stat::dir::in : nano::stat::dir::out);
+			node_l->stats.inc (celerix::stat::type::tcp, celerix::stat::detail::tcp_io_timeout_drop, this_l->endpoint_type () == socket_endpoint::server ? celerix::stat::dir::in : celerix::stat::dir::out);
 
 			condition_to_disconnect = true;
 		}
@@ -318,7 +318,7 @@ void nano::transport::tcp_socket::ongoing_checkup ()
 		if (condition_to_disconnect)
 		{
 			// TODO: Stats
-			node_l->logger.debug (nano::log::type::tcp_socket, "Socket timeout, closing: {}", fmt::streamed (this_l->remote));
+			node_l->logger.debug (celerix::log::type::tcp_socket, "Socket timeout, closing: {}", fmt::streamed (this_l->remote));
 			this_l->timed_out = true;
 			this_l->close ();
 		}
@@ -329,7 +329,7 @@ void nano::transport::tcp_socket::ongoing_checkup ()
 	});
 }
 
-void nano::transport::tcp_socket::read_impl (std::shared_ptr<std::vector<uint8_t>> const & data_a, std::size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
+void celerix::transport::tcp_socket::read_impl (std::shared_ptr<std::vector<uint8_t>> const & data_a, std::size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a)
 {
 	auto node_l = node_w.lock ();
 	if (!node_l)
@@ -346,22 +346,22 @@ void nano::transport::tcp_socket::read_impl (std::shared_ptr<std::vector<uint8_t
 	});
 }
 
-bool nano::transport::tcp_socket::has_timed_out () const
+bool celerix::transport::tcp_socket::has_timed_out () const
 {
 	return timed_out;
 }
 
-void nano::transport::tcp_socket::set_default_timeout_value (std::chrono::seconds timeout_a)
+void celerix::transport::tcp_socket::set_default_timeout_value (std::chrono::seconds timeout_a)
 {
 	default_timeout = timeout_a;
 }
 
-std::chrono::seconds nano::transport::tcp_socket::get_default_timeout_value () const
+std::chrono::seconds celerix::transport::tcp_socket::get_default_timeout_value () const
 {
 	return default_timeout;
 }
 
-void nano::transport::tcp_socket::close ()
+void celerix::transport::tcp_socket::close ()
 {
 	boost::asio::dispatch (strand, [this_l = shared_from_this ()] {
 		this_l->close_internal ();
@@ -369,7 +369,7 @@ void nano::transport::tcp_socket::close ()
 }
 
 // This must be called from a strand or the destructor
-void nano::transport::tcp_socket::close_internal ()
+void celerix::transport::tcp_socket::close_internal ()
 {
 	auto node_l = node_w.lock ();
 	if (!node_l)
@@ -393,31 +393,31 @@ void nano::transport::tcp_socket::close_internal ()
 
 	if (ec)
 	{
-		node_l->stats.inc (nano::stat::type::socket, nano::stat::detail::error_socket_close);
-		node_l->logger.error (nano::log::type::tcp_socket, "Failed to close socket gracefully: {} ({})",
+		node_l->stats.inc (celerix::stat::type::socket, celerix::stat::detail::error_socket_close);
+		node_l->logger.error (celerix::log::type::tcp_socket, "Failed to close socket gracefully: {} ({})",
 		fmt::streamed (remote),
 		ec.message ());
 	}
 	else
 	{
 		// TODO: Stats
-		node_l->logger.debug (nano::log::type::tcp_socket, "Closed socket: {}", fmt::streamed (remote));
+		node_l->logger.debug (celerix::log::type::tcp_socket, "Closed socket: {}", fmt::streamed (remote));
 	}
 }
 
-nano::tcp_endpoint nano::transport::tcp_socket::remote_endpoint () const
+celerix::tcp_endpoint celerix::transport::tcp_socket::remote_endpoint () const
 {
 	// Using cached value to avoid calling tcp_socket.remote_endpoint() which may be invalid (throw) after closing the socket
 	return remote;
 }
 
-nano::tcp_endpoint nano::transport::tcp_socket::local_endpoint () const
+celerix::tcp_endpoint celerix::transport::tcp_socket::local_endpoint () const
 {
 	// Using cached value to avoid calling tcp_socket.local_endpoint() which may be invalid (throw) after closing the socket
 	return local;
 }
 
-void nano::transport::tcp_socket::operator() (nano::object_stream & obs) const
+void celerix::transport::tcp_socket::operator() (celerix::object_stream & obs) const
 {
 	obs.write ("remote_endpoint", remote_endpoint ());
 	obs.write ("local_endpoint", local_endpoint ());
@@ -429,14 +429,14 @@ void nano::transport::tcp_socket::operator() (nano::object_stream & obs) const
  * socket_queue
  */
 
-nano::transport::socket_queue::socket_queue (std::size_t max_size_a) :
+celerix::transport::socket_queue::socket_queue (std::size_t max_size_a) :
 	max_size{ max_size_a }
 {
 }
 
-bool nano::transport::socket_queue::insert (const buffer_t & buffer, callback_t callback, nano::transport::traffic_type traffic_type)
+bool celerix::transport::socket_queue::insert (const buffer_t & buffer, callback_t callback, celerix::transport::traffic_type traffic_type)
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	if (queues[traffic_type].size () < 2 * max_size)
 	{
 		queues[traffic_type].push (entry{ buffer, callback });
@@ -445,11 +445,11 @@ bool nano::transport::socket_queue::insert (const buffer_t & buffer, callback_t 
 	return false; // Not queued
 }
 
-auto nano::transport::socket_queue::pop () -> std::optional<result_t>
+auto celerix::transport::socket_queue::pop () -> std::optional<result_t>
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
-	auto try_pop = [this] (nano::transport::traffic_type type) -> std::optional<result_t> {
+	auto try_pop = [this] (celerix::transport::traffic_type type) -> std::optional<result_t> {
 		auto & que = queues[type];
 		if (!que.empty ())
 		{
@@ -461,7 +461,7 @@ auto nano::transport::socket_queue::pop () -> std::optional<result_t>
 	};
 
 	// TODO: This is a very basic prioritization, implement something more advanced and configurable
-	if (auto item = try_pop (nano::transport::traffic_type::generic))
+	if (auto item = try_pop (celerix::transport::traffic_type::generic))
 	{
 		return item;
 	}
@@ -469,15 +469,15 @@ auto nano::transport::socket_queue::pop () -> std::optional<result_t>
 	return std::nullopt;
 }
 
-void nano::transport::socket_queue::clear ()
+void celerix::transport::socket_queue::clear ()
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	queues.clear ();
 }
 
-std::size_t nano::transport::socket_queue::size (nano::transport::traffic_type traffic_type) const
+std::size_t celerix::transport::socket_queue::size (celerix::transport::traffic_type traffic_type) const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	if (auto it = queues.find (traffic_type); it != queues.end ())
 	{
 		return it->second.size ();
@@ -485,9 +485,9 @@ std::size_t nano::transport::socket_queue::size (nano::transport::traffic_type t
 	return 0;
 }
 
-bool nano::transport::socket_queue::empty () const
+bool celerix::transport::socket_queue::empty () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return std::all_of (queues.begin (), queues.end (), [] (auto const & que) {
 		return que.second.empty ();
 	});
@@ -497,12 +497,12 @@ bool nano::transport::socket_queue::empty () const
  *
  */
 
-std::string_view nano::transport::to_string (socket_type type)
+std::string_view celerix::transport::to_string (socket_type type)
 {
-	return nano::enum_util::name (type);
+	return celerix::enum_util::name (type);
 }
 
-std::string_view nano::transport::to_string (socket_endpoint type)
+std::string_view celerix::transport::to_string (socket_endpoint type)
 {
-	return nano::enum_util::name (type);
+	return celerix::enum_util::name (type);
 }

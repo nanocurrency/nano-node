@@ -4,7 +4,7 @@ set -eux
 DATADIR=$(mktemp -d)
 
 # Start the node in daemon mode in the background
-$NANO_NODE_EXE --daemon --network dev --data_path $DATADIR --config rpc.enable=true --rpcconfig enable_control=true &
+$CELERIX_NODE_EXE --daemon --network dev --data_path $DATADIR --config rpc.enable=true --rpcconfig enable_control=true &
 NODE_PID=$!
 
 # Allow some time for the node to start up completely

@@ -2,7 +2,7 @@
 # Looking at where it’s instantiated it’s a static local function variable that is also thread_local.
 # This could be some sort of bug in the thread_local alignment, maybe in combination with being a static local function variable.
 # This issue is only reproducible on the GitHub MacOS UBSAN runners.
-#  /Users/runner/work/nano-node/nano-node/submodules/boost/libs/beast/include/boost/beast/core/detail/chacha.hpp:101:5: runtime error: constructor call on misaligned address 0x0001408c3e08 for type 'boost::beast::detail::chacha<20> *', which requires 16 byte alignment
+#  /Users/runner/work/celerix-node/celerix-node/submodules/boost/libs/beast/include/boost/beast/core/detail/chacha.hpp:101:5: runtime error: constructor call on misaligned address 0x0001408c3e08 for type 'boost::beast::detail::chacha<20> *', which requires 16 byte alignment
 #  0x0001408c3e08: note: pointer points here
 #   00 00 00 00  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  00 00 00 00
 #                ^ 

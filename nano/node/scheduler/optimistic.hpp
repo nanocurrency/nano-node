@@ -1,11 +1,11 @@
 #pragma once
 
-#include <nano/lib/locks.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/node/fwd.hpp>
-#include <nano/secure/common.hpp>
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/timer.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/node/fwd.hpp>
+#include <celerix/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -21,13 +21,13 @@
 
 namespace mi = boost::multi_index;
 
-namespace nano::scheduler
+namespace celerix::scheduler
 {
 class optimistic_config final
 {
 public:
-	nano::error deserialize (nano::tomlconfig & toml);
-	nano::error serialize (nano::tomlconfig & toml) const;
+	celerix::error deserialize (celerix::tomlconfig & toml);
+	celerix::error serialize (celerix::tomlconfig & toml) const;
 
 public:
 	bool enable{ true };
@@ -44,7 +44,7 @@ class optimistic final
 	struct entry;
 
 public:
-	optimistic (optimistic_config const &, nano::node &, nano::ledger &, nano::active_elections &, nano::network_constants const & network_constants, nano::stats &);
+	optimistic (optimistic_config const &, celerix::node &, celerix::ledger &, celerix::active_elections &, celerix::network_constants const & network_constants, celerix::stats &);
 	~optimistic ();
 
 	void start ();
@@ -53,17 +53,17 @@ public:
 	/**
 	 * Called from backlog population to process accounts with unconfirmed blocks
 	 */
-	bool activate (nano::account const &, nano::account_info const &, nano::confirmation_height_info const &);
+	bool activate (celerix::account const &, celerix::account_info const &, celerix::confirmation_height_info const &);
 
 	/**
 	 * Notify about changes in AEC vacancy
 	 */
 	void notify ();
 
-	nano::container_info container_info () const;
+	celerix::container_info container_info () const;
 
 private:
-	bool activate_predicate (nano::account_info const &, nano::confirmation_height_info const &) const;
+	bool activate_predicate (celerix::account_info const &, celerix::confirmation_height_info const &) const;
 
 	bool predicate () const;
 	void run ();
@@ -71,17 +71,17 @@ private:
 
 private: // Dependencies
 	optimistic_config const & config;
-	nano::node & node;
-	nano::ledger & ledger;
-	nano::active_elections & active;
-	nano::network_constants const & network_constants;
-	nano::stats & stats;
+	celerix::node & node;
+	celerix::ledger & ledger;
+	celerix::active_elections & active;
+	celerix::network_constants const & network_constants;
+	celerix::stats & stats;
 
 private:
 	struct entry
 	{
-		nano::account account;
-		nano::clock::time_point timestamp;
+		celerix::account account;
+		celerix::clock::time_point timestamp;
 	};
 
 	// clang-format off
@@ -92,7 +92,7 @@ private:
 	mi::indexed_by<
 		mi::sequenced<mi::tag<tag_sequenced>>,
 		mi::hashed_unique<mi::tag<tag_account>,
-			mi::member<entry, nano::account, &entry::account>>
+			mi::member<entry, celerix::account, &entry::account>>
 	>>;
 	// clang-format on
 
@@ -100,8 +100,8 @@ private:
 	ordered_candidates candidates;
 
 	bool stopped{ false };
-	nano::condition_variable condition;
-	mutable nano::mutex mutex;
+	celerix::condition_variable condition;
+	mutable celerix::mutex mutex;
 	std::thread thread;
 };
 }

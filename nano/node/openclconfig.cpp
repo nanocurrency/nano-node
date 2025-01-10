@@ -1,15 +1,15 @@
-#include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/tomlconfig.hpp>
-#include <nano/node/openclconfig.hpp>
+#include <celerix/lib/jsonconfig.hpp>
+#include <celerix/lib/tomlconfig.hpp>
+#include <celerix/node/openclconfig.hpp>
 
-nano::opencl_config::opencl_config (unsigned platform_a, unsigned device_a, unsigned threads_a) :
+celerix::opencl_config::opencl_config (unsigned platform_a, unsigned device_a, unsigned threads_a) :
 	platform (platform_a),
 	device (device_a),
 	threads (threads_a)
 {
 }
 
-nano::error nano::opencl_config::serialize_toml (nano::tomlconfig & toml) const
+celerix::error celerix::opencl_config::serialize_toml (celerix::tomlconfig & toml) const
 {
 	toml.put ("platform", platform);
 	toml.put ("device", device);
@@ -23,7 +23,7 @@ nano::error nano::opencl_config::serialize_toml (nano::tomlconfig & toml) const
 	return toml.get_error ();
 }
 
-nano::error nano::opencl_config::deserialize_toml (nano::tomlconfig & toml)
+celerix::error celerix::opencl_config::deserialize_toml (celerix::tomlconfig & toml)
 {
 	toml.get_optional<unsigned> ("platform", platform);
 	toml.get_optional<unsigned> ("device", device);

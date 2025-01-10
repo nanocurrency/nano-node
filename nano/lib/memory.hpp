@@ -6,7 +6,7 @@
 #include <memory>
 #include <vector>
 
-namespace nano
+namespace celerix
 {
 #ifdef __APPLE__
 #define MEMORY_POOL_DISABLED
@@ -35,7 +35,7 @@ constexpr size_t determine_shared_ptr_pool_size ()
 template <typename object>
 bool purge_shared_ptr_singleton_pool_memory ()
 {
-	return boost::singleton_pool<boost::fast_pool_allocator_tag, nano::determine_shared_ptr_pool_size<object> ()>::purge_memory ();
+	return boost::singleton_pool<boost::fast_pool_allocator_tag, celerix::determine_shared_ptr_pool_size<object> ()>::purge_memory ();
 }
 
 class cleanup_guard final
@@ -55,13 +55,13 @@ public:
 	node_singleton_memory_pool_purge_guard ();
 
 private:
-	nano::cleanup_guard cleanup_guard;
+	celerix::cleanup_guard cleanup_guard;
 };
 
 template <typename T, typename... Args>
 std::shared_ptr<T> make_shared (Args &&... args)
 {
-	if (nano::get_use_memory_pools ())
+	if (celerix::get_use_memory_pools ())
 	{
 		return std::allocate_shared<T> (boost::fast_pool_allocator<T> (), std::forward<Args> (args)...);
 	}

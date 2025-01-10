@@ -1,9 +1,9 @@
-#include <nano/lib/blocks.hpp>
-#include <nano/node/active_elections.hpp>
-#include <nano/node/vote_router.hpp>
-#include <nano/test_common/rate_observer.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <celerix/lib/blocks.hpp>
+#include <celerix/node/active_elections.hpp>
+#include <celerix/node/vote_router.hpp>
+#include <celerix/test_common/rate_observer.hpp>
+#include <celerix/test_common/system.hpp>
+#include <celerix/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -14,20 +14,20 @@ using namespace std::chrono_literals;
 
 namespace
 {
-nano::keypair setup_rep (nano::test::system & system, nano::node & node, nano::uint128_t amount)
+celerix::keypair setup_rep (celerix::test::system & system, celerix::node & node, celerix::uint128_t amount)
 {
-	auto latest = node.latest (nano::dev::genesis_key.pub);
-	auto balance = node.balance (nano::dev::genesis_key.pub);
+	auto latest = node.latest (celerix::dev::genesis_key.pub);
+	auto balance = node.balance (celerix::dev::genesis_key.pub);
 
-	nano::keypair key;
-	nano::block_builder builder;
+	celerix::keypair key;
+	celerix::block_builder builder;
 
 	auto send = builder
 				.send ()
 				.previous (latest)
 				.destination (key.pub)
 				.balance (balance - amount)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
 				.work (*system.work.generate (latest))
 				.build ();
 
@@ -40,16 +40,16 @@ nano::keypair setup_rep (nano::test::system & system, nano::node & node, nano::u
 				.work (*system.work.generate (key.pub))
 				.build ();
 
-	EXPECT_TRUE (nano::test::process (node, { send, open }));
-	nano::test::confirm (node.ledger, open->hash ());
+	EXPECT_TRUE (celerix::test::process (node, { send, open }));
+	celerix::test::confirm (node.ledger, open->hash ());
 
 	return key;
 }
 
-std::vector<nano::keypair> setup_reps (nano::test::system & system, nano::node & node, int count)
+std::vector<celerix::keypair> setup_reps (celerix::test::system & system, celerix::node & node, int count)
 {
-	const nano::uint128_t weight = nano::Knano_ratio * 1000;
-	std::vector<nano::keypair> reps;
+	const celerix::uint128_t weight = celerix::Kcelerix_ratio * 1000;
+	std::vector<celerix::keypair> reps;
 	for (int n = 0; n < count; ++n)
 	{
 		reps.push_back (setup_rep (system, node, weight));
@@ -60,20 +60,20 @@ std::vector<nano::keypair> setup_reps (nano::test::system & system, nano::node &
 /*
  * Creates `count` number of unconfirmed blocks with their dependencies confirmed, each directly sent from genesis
  */
-std::vector<std::shared_ptr<nano::block>> setup_blocks (nano::test::system & system, nano::node & node, int count)
+std::vector<std::shared_ptr<celerix::block>> setup_blocks (celerix::test::system & system, celerix::node & node, int count)
 {
-	auto latest = node.latest (nano::dev::genesis_key.pub);
-	auto balance = node.balance (nano::dev::genesis_key.pub);
+	auto latest = node.latest (celerix::dev::genesis_key.pub);
+	auto balance = node.balance (celerix::dev::genesis_key.pub);
 
-	std::vector<std::shared_ptr<nano::block>> sends;
-	std::vector<std::shared_ptr<nano::block>> receives;
+	std::vector<std::shared_ptr<celerix::block>> sends;
+	std::vector<std::shared_ptr<celerix::block>> receives;
 	for (int n = 0; n < count; ++n)
 	{
 		if (n % 10000 == 0)
 			std::cout << "setup_blocks: " << n << std::endl;
 
-		nano::keypair key;
-		nano::block_builder builder;
+		celerix::keypair key;
+		celerix::block_builder builder;
 
 		balance -= 1;
 		auto send = builder
@@ -81,7 +81,7 @@ std::vector<std::shared_ptr<nano::block>> setup_blocks (nano::test::system & sys
 					.previous (latest)
 					.destination (key.pub)
 					.balance (balance)
-					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.sign (celerix::dev::genesis_key.prv, celerix::dev::genesis_key.pub)
 					.work (*system.work.generate (latest))
 					.build ();
 
@@ -102,11 +102,11 @@ std::vector<std::shared_ptr<nano::block>> setup_blocks (nano::test::system & sys
 
 	std::cout << "setup_blocks confirming" << std::endl;
 
-	EXPECT_TRUE (nano::test::process (node, sends));
-	EXPECT_TRUE (nano::test::process (node, receives));
+	EXPECT_TRUE (celerix::test::process (node, sends));
+	EXPECT_TRUE (celerix::test::process (node, receives));
 
 	// Confirm whole genesis chain at once
-	nano::test::confirm (node.ledger, sends.back ()->hash ());
+	celerix::test::confirm (node.ledger, sends.back ()->hash ());
 
 	std::cout << "setup_blocks done" << std::endl;
 
@@ -131,9 +131,9 @@ void run_parallel (int thread_count, std::function<void (int)> func)
 
 TEST (vote_cache, perf_singlethreaded)
 {
-	nano::test::system system;
-	nano::node_flags flags;
-	nano::node_config config = system.default_config ();
+	celerix::test::system system;
+	celerix::node_flags flags;
+	celerix::node_config config = system.default_config ();
 	config.backlog_scan.enable = false;
 	auto & node = *system.add_node (config, flags);
 
@@ -149,8 +149,8 @@ TEST (vote_cache, perf_singlethreaded)
 	std::cout << "preparation done" << std::endl;
 
 	// Start monitoring rate of blocks processed by vote cache
-	nano::test::rate_observer rate;
-	rate.observe (node, nano::stat::type::vote_cache, nano::stat::detail::vote_processed, nano::stat::dir::in);
+	celerix::test::rate_observer rate;
+	rate.observe (node, celerix::stat::type::vote_cache, celerix::stat::detail::vote_processed, celerix::stat::dir::in);
 	rate.background_print (3s);
 
 	// Ensure votes are not inserted into active elections
@@ -158,7 +158,7 @@ TEST (vote_cache, perf_singlethreaded)
 
 	int block_idx = 0;
 	int rep_idx = 0;
-	std::vector<nano::block_hash> hashes;
+	std::vector<celerix::block_hash> hashes;
 	for (int n = 0; n < vote_count; ++n)
 	{
 		// Fill block hashes for this vote
@@ -172,17 +172,17 @@ TEST (vote_cache, perf_singlethreaded)
 		for (int i = 0; i < single_vote_reps; ++i)
 		{
 			rep_idx = (rep_idx + 13) % reps.size ();
-			auto vote = nano::test::make_vote (reps[rep_idx], hashes);
+			auto vote = celerix::test::make_vote (reps[rep_idx], hashes);
 
 			// Process the vote
 			node.vote_router.vote (vote);
 		}
 	}
 
-	std::cout << "total votes processed: " << node.stats.count (nano::stat::type::vote_cache, nano::stat::detail::vote_processed, nano::stat::dir::in) << std::endl;
+	std::cout << "total votes processed: " << node.stats.count (celerix::stat::type::vote_cache, celerix::stat::detail::vote_processed, celerix::stat::dir::in) << std::endl;
 
 	// Ensure we processed all the votes
-	ASSERT_EQ (node.stats.count (nano::stat::type::vote_cache, nano::stat::detail::vote_processed, nano::stat::dir::in), vote_count * single_vote_size * single_vote_reps);
+	ASSERT_EQ (node.stats.count (celerix::stat::type::vote_cache, celerix::stat::detail::vote_processed, celerix::stat::dir::in), vote_count * single_vote_size * single_vote_reps);
 
 	// Ensure vote cache size is at max capacity
 	ASSERT_EQ (node.vote_cache.size (), config.vote_cache.max_size);
@@ -190,9 +190,9 @@ TEST (vote_cache, perf_singlethreaded)
 
 TEST (vote_cache, perf_multithreaded)
 {
-	nano::test::system system;
-	nano::node_flags flags;
-	nano::node_config config = system.default_config ();
+	celerix::test::system system;
+	celerix::node_flags flags;
+	celerix::node_config config = system.default_config ();
 	config.backlog_scan.enable = false;
 	auto & node = *system.add_node (config, flags);
 
@@ -209,8 +209,8 @@ TEST (vote_cache, perf_multithreaded)
 	std::cout << "preparation done" << std::endl;
 
 	// Start monitoring rate of blocks processed by vote cache
-	nano::test::rate_observer rate;
-	rate.observe (node, nano::stat::type::vote_cache, nano::stat::detail::vote_processed, nano::stat::dir::in);
+	celerix::test::rate_observer rate;
+	rate.observe (node, celerix::stat::type::vote_cache, celerix::stat::detail::vote_processed, celerix::stat::dir::in);
 	rate.background_print (3s);
 
 	// Ensure our generated votes go to inactive vote cache instead of active elections
@@ -219,7 +219,7 @@ TEST (vote_cache, perf_multithreaded)
 	run_parallel (thread_count, [&node, &reps, &blocks, &vote_count, &single_vote_size, &single_vote_reps] (int index) {
 		int block_idx = index;
 		int rep_idx = index;
-		std::vector<nano::block_hash> hashes;
+		std::vector<celerix::block_hash> hashes;
 
 		// Each iteration generates vote with `single_vote_size` hashes in it
 		// and that vote is then independently signed by `single_vote_reps` representatives
@@ -237,7 +237,7 @@ TEST (vote_cache, perf_multithreaded)
 			for (int i = 0; i < single_vote_reps; ++i)
 			{
 				rep_idx = (rep_idx + 13) % reps.size ();
-				auto vote = nano::test::make_vote (reps[rep_idx], hashes);
+				auto vote = celerix::test::make_vote (reps[rep_idx], hashes);
 
 				// Process the vote
 				node.vote_router.vote (vote);
@@ -245,7 +245,7 @@ TEST (vote_cache, perf_multithreaded)
 		}
 	});
 
-	std::cout << "total votes processed: " << node.stats.count (nano::stat::type::vote_cache, nano::stat::detail::vote_processed, nano::stat::dir::in) << std::endl;
+	std::cout << "total votes processed: " << node.stats.count (celerix::stat::type::vote_cache, celerix::stat::detail::vote_processed, celerix::stat::dir::in) << std::endl;
 
 	// Ensure vote cache size is at max capacity
 	ASSERT_EQ (node.vote_cache.size (), config.vote_cache.max_size);

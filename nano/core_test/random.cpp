@@ -1,3 +1,3 @@
-#include <nano/lib/random.hpp>
+#include <celerix/lib/random.hpp>
 
 #include <gtest/gtest.h>

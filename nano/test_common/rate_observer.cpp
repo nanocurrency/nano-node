@@ -1,6 +1,6 @@
-#include <nano/lib/stats.hpp>
-#include <nano/node/node.hpp>
-#include <nano/test_common/rate_observer.hpp>
+#include <celerix/lib/stats.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/test_common/rate_observer.hpp>
 
 #include <sstream>
 #include <utility>
@@ -9,13 +9,13 @@
  * rate_observer::counter
  */
 
-nano::test::rate_observer::counter::counter (std::string name_a, std::function<value_t ()> count_a) :
+celerix::test::rate_observer::counter::counter (std::string name_a, std::function<value_t ()> count_a) :
 	name{ std::move (name_a) },
 	count{ std::move (count_a) }
 {
 }
 
-nano::test::rate_observer::counter::observation nano::test::rate_observer::counter::observe ()
+celerix::test::rate_observer::counter::observation celerix::test::rate_observer::counter::observe ()
 {
 	auto now = std::chrono::system_clock::now ();
 	auto total = count ();
@@ -35,7 +35,7 @@ nano::test::rate_observer::counter::observation nano::test::rate_observer::count
 	}
 }
 
-nano::test::rate_observer::~rate_observer ()
+celerix::test::rate_observer::~rate_observer ()
 {
 	if (!stopped.exchange (true))
 	{
@@ -46,13 +46,13 @@ nano::test::rate_observer::~rate_observer ()
 	}
 }
 
-void nano::test::rate_observer::background_print (std::chrono::seconds interval)
+void celerix::test::rate_observer::background_print (std::chrono::seconds interval)
 {
 	release_assert (!thread.joinable ());
 	thread = std::thread{ [this, interval] () { background_print_impl (interval); } };
 }
 
-void nano::test::rate_observer::background_print_impl (std::chrono::seconds interval)
+void celerix::test::rate_observer::background_print_impl (std::chrono::seconds interval)
 {
 	while (!stopped)
 	{
@@ -62,7 +62,7 @@ void nano::test::rate_observer::background_print_impl (std::chrono::seconds inte
 	}
 }
 
-void nano::test::rate_observer::print_once ()
+void celerix::test::rate_observer::print_once ()
 {
 	std::stringstream ss;
 
@@ -90,15 +90,15 @@ void nano::test::rate_observer::print_once ()
 	std::cout << ss.str () << std::endl;
 }
 
-void nano::test::rate_observer::observe (std::string name, std::function<int64_t ()> observe)
+void celerix::test::rate_observer::observe (std::string name, std::function<int64_t ()> observe)
 {
 	auto counter_instance = std::make_shared<counter> (name, observe);
 	counters.push_back (counter_instance);
 }
 
-void nano::test::rate_observer::observe (nano::node & node, nano::stat::type type, nano::stat::detail detail, nano::stat::dir dir)
+void celerix::test::rate_observer::observe (celerix::node & node, celerix::stat::type type, celerix::stat::detail detail, celerix::stat::dir dir)
 {
-	auto name = std::string{ nano::to_string (type) } + "::" + std::string{ nano::to_string (detail) } + "::" + std::string{ nano::to_string (dir) };
+	auto name = std::string{ celerix::to_string (type) } + "::" + std::string{ celerix::to_string (detail) } + "::" + std::string{ celerix::to_string (dir) };
 	observe (name, [&node, type, detail, dir] () {
 		return node.stats.count (type, detail, dir);
 	});

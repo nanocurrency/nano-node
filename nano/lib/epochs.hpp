@@ -1,18 +1,18 @@
 #pragma once
 
-#include <nano/lib/epoch.hpp>
-#include <nano/lib/numbers.hpp>
+#include <celerix/lib/epoch.hpp>
+#include <celerix/lib/numbers.hpp>
 
 #include <cstdint>
 #include <unordered_map>
 
-namespace nano
+namespace celerix
 {
 class epoch_info
 {
 public:
-	nano::public_key signer;
-	nano::link link;
+	celerix::public_key signer;
+	celerix::link link;
 };
 class epochs
 {
@@ -28,15 +28,15 @@ public:
 	 *    epoch blocks never change the representative
 	 *    epoch blocks are not signed by the account key, they are signed either by genesis or by special epoch keys
 	 */
-	bool is_epoch_link (nano::link const & link_a) const;
-	nano::link const & link (nano::epoch epoch_a) const;
-	nano::public_key const & signer (nano::epoch epoch_a) const;
-	nano::epoch epoch (nano::link const & link_a) const;
-	void add (nano::epoch epoch_a, nano::public_key const & signer_a, nano::link const & link_a);
+	bool is_epoch_link (celerix::link const & link_a) const;
+	celerix::link const & link (celerix::epoch epoch_a) const;
+	celerix::public_key const & signer (celerix::epoch epoch_a) const;
+	celerix::epoch epoch (celerix::link const & link_a) const;
+	void add (celerix::epoch epoch_a, celerix::public_key const & signer_a, celerix::link const & link_a);
 	/** Checks that new_epoch is 1 version higher than epoch */
-	static bool is_sequential (nano::epoch epoch_a, nano::epoch new_epoch_a);
+	static bool is_sequential (celerix::epoch epoch_a, celerix::epoch new_epoch_a);
 
 private:
-	std::unordered_map<nano::epoch, nano::epoch_info> epochs_m;
+	std::unordered_map<celerix::epoch, celerix::epoch_info> epochs_m;
 };
 }

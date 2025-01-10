@@ -1,12 +1,12 @@
 #pragma once
 
-#include <nano/lib/epoch.hpp>
-#include <nano/lib/fwd.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/numbers_templ.hpp>
-#include <nano/secure/fwd.hpp>
+#include <celerix/lib/epoch.hpp>
+#include <celerix/lib/fwd.hpp>
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/numbers_templ.hpp>
+#include <celerix/secure/fwd.hpp>
 
-namespace nano
+namespace celerix
 {
 /**
  * Information on an uncollected send
@@ -16,17 +16,17 @@ class pending_info final
 {
 public:
 	pending_info () = default;
-	pending_info (nano::account const &, nano::amount const &, nano::epoch);
+	pending_info (celerix::account const &, celerix::amount const &, celerix::epoch);
 	size_t db_size () const;
-	bool deserialize (nano::stream &);
-	bool operator== (nano::pending_info const &) const;
-	nano::account source{}; // the account sending the funds
-	nano::amount amount{ 0 }; // amount receivable in this transaction
-	nano::epoch epoch{ nano::epoch::epoch_0 }; // epoch of sending block, this info is stored here to make it possible to prune the send block
+	bool deserialize (celerix::stream &);
+	bool operator== (celerix::pending_info const &) const;
+	celerix::account source{}; // the account sending the funds
+	celerix::amount amount{ 0 }; // amount receivable in this transaction
+	celerix::epoch epoch{ celerix::epoch::epoch_0 }; // epoch of sending block, this info is stored here to make it possible to prune the send block
 
-	friend std::ostream & operator<< (std::ostream & os, const nano::pending_info & info)
+	friend std::ostream & operator<< (std::ostream & os, const celerix::pending_info & info)
 	{
-		const int epoch = nano::normalized_epoch (info.epoch);
+		const int epoch = celerix::normalized_epoch (info.epoch);
 		os << "Source: " << info.source << ", Amount: " << info.amount.to_string_dec () << " Epoch: " << epoch;
 		return os;
 	}
@@ -38,15 +38,15 @@ class pending_key final
 {
 public:
 	pending_key () = default;
-	pending_key (nano::account const &, nano::block_hash const &);
-	bool deserialize (nano::stream &);
-	bool operator== (nano::pending_key const &) const;
-	bool operator< (nano::pending_key const &) const;
-	nano::account const & key () const;
-	nano::account account{}; // receiving account
-	nano::block_hash hash{ 0 }; // hash of the send block
+	pending_key (celerix::account const &, celerix::block_hash const &);
+	bool deserialize (celerix::stream &);
+	bool operator== (celerix::pending_key const &) const;
+	bool operator< (celerix::pending_key const &) const;
+	celerix::account const & key () const;
+	celerix::account account{}; // receiving account
+	celerix::block_hash hash{ 0 }; // hash of the send block
 
-	friend std::ostream & operator<< (std::ostream & os, const nano::pending_key & key)
+	friend std::ostream & operator<< (std::ostream & os, const celerix::pending_key & key)
 	{
 		os << "Account: " << key.account << ", Hash: " << key.hash;
 		return os;
@@ -57,11 +57,11 @@ public:
 namespace std
 {
 template <>
-struct hash<::nano::pending_key>
+struct hash<::celerix::pending_key>
 {
-	size_t operator() (::nano::pending_key const & value) const
+	size_t operator() (::celerix::pending_key const & value) const
 	{
-		return hash<::nano::uint512_union>{}({ ::nano::uint256_union{ value.account.number () }, value.hash });
+		return hash<::celerix::uint512_union>{}({ ::celerix::uint256_union{ value.account.number () }, value.hash });
 	}
 };
 }

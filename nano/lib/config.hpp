@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/lib/tomlconfig.hpp>
+#include <celerix/lib/tomlconfig.hpp>
 
 #include <boost/config.hpp>
 #include <boost/version.hpp>
@@ -20,18 +20,18 @@ using namespace std::chrono_literals;
 /**
  * Returns build version information
  */
-char const * const NANO_VERSION_STRING = xstr (TAG_VERSION_STRING);
-char const * const NANO_MAJOR_VERSION_STRING = xstr (MAJOR_VERSION_STRING);
-char const * const NANO_MINOR_VERSION_STRING = xstr (MINOR_VERSION_STRING);
-char const * const NANO_PATCH_VERSION_STRING = xstr (PATCH_VERSION_STRING);
-char const * const NANO_PRE_RELEASE_VERSION_STRING = xstr (PRE_RELEASE_VERSION_STRING);
+char const * const CELERIX_VERSION_STRING = xstr (TAG_VERSION_STRING);
+char const * const CELERIX_MAJOR_VERSION_STRING = xstr (MAJOR_VERSION_STRING);
+char const * const CELERIX_MINOR_VERSION_STRING = xstr (MINOR_VERSION_STRING);
+char const * const CELERIX_PATCH_VERSION_STRING = xstr (PATCH_VERSION_STRING);
+char const * const CELERIX_PRE_RELEASE_VERSION_STRING = xstr (PRE_RELEASE_VERSION_STRING);
 
 char const * const BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
 
 /*
  * Sanitizer info
  */
-namespace nano
+namespace celerix
 {
 consteval bool is_asan_build ()
 {
@@ -72,7 +72,7 @@ consteval bool is_sanitizer_build ()
 }
 }
 
-namespace nano
+namespace celerix
 {
 uint8_t get_major_node_version ();
 uint8_t get_minor_node_version ();
@@ -104,19 +104,19 @@ bool memory_intensive_instrumentation ();
 bool slow_instrumentation ();
 
 /** Set the active network to the dev network */
-void force_nano_dev_network ();
+void force_celerix_dev_network ();
 
 /** Checks that we are running in test mode */
 bool is_dev_run ();
 }
 
-namespace nano
+namespace celerix
 {
 /**
  * Attempt to read a configuration file from specified directory. Returns empty tomlconfig if nothing is found.
  * @throws std::runtime_error with error code if the file or overrides are not valid toml
  */
-nano::tomlconfig load_toml_file (const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides);
+celerix::tomlconfig load_toml_file (const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides);
 
 /**
  * Attempt to read a configuration file from specified directory. Returns fallback config if nothing is found.

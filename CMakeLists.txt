@@ -14,7 +14,7 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET
     13.3
     CACHE STRING "")
 
-project(nano-node)
+project(celerix-node)
 
 # Get the latest abbreviated commit hash of the working branch
 execute_process(
@@ -39,7 +39,7 @@ if(MSVC)
     -D_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING) # Suppress iterator warning
 endif()
 
-set(CPACK_PACKAGE_VENDOR "Nano Currency")
+set(CPACK_PACKAGE_VENDOR "Celerix Currency")
 set(CPACK_PACKAGE_VERSION_MAJOR "28")
 set(CPACK_PACKAGE_VERSION_MINOR "0")
 set(CPACK_PACKAGE_VERSION_PATCH "0")
@@ -68,32 +68,32 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR})
 
-set(NANO_GUI
+set(CELERIX_GUI
     OFF
     CACHE BOOL "")
-set(NANO_TEST
+set(CELERIX_TEST
     OFF
     CACHE BOOL "")
-set(NANO_SECURE_RPC
+set(CELERIX_SECURE_RPC
     OFF
     CACHE BOOL "")
-set(NANO_WARN_TO_ERR
+set(CELERIX_WARN_TO_ERR
     OFF
     CACHE BOOL "")
-set(NANO_TIMED_LOCKS
+set(CELERIX_TIMED_LOCKS
     0
     CACHE STRING "")
-set(NANO_TIMED_LOCKS_IGNORE_BLOCKED
+set(CELERIX_TIMED_LOCKS_IGNORE_BLOCKED
     OFF
     CACHE BOOL "")
-set(NANO_TIMED_LOCKS_FILTER
+set(CELERIX_TIMED_LOCKS_FILTER
     ""
     CACHE
       STRING
       "Selects which mutex should be the only one to have stacktraces generated, empty string means report on all"
 )
 set_property(
-  CACHE NANO_TIMED_LOCKS_FILTER
+  CACHE CELERIX_TIMED_LOCKS_FILTER
   PROPERTY STRINGS
            active
            block_arrival
@@ -112,104 +112,104 @@ set_property(
            vote_uniquer
            votes_cache
            work_pool)
-set(NANO_FUZZER_TEST
+set(CELERIX_FUZZER_TEST
     OFF
     CACHE BOOL "")
-set(NANO_ASIO_HANDLER_TRACKING
+set(CELERIX_ASIO_HANDLER_TRACKING
     OFF
     CACHE BOOL "")
-set(NANO_ROCKSDB_TOOLS
+set(CELERIX_ROCKSDB_TOOLS
     OFF
     CACHE BOOL "")
 
-option(NANO_STACKTRACE_BACKTRACE
+option(CELERIX_STACKTRACE_BACKTRACE
        "Use BOOST_STACKTRACE_USE_BACKTRACE in stacktraces, for POSIX" OFF)
 
-if(NANO_STACKTRACE_BACKTRACE)
-  add_definitions(-DNANO_STACKTRACE_BACKTRACE)
+if(CELERIX_STACKTRACE_BACKTRACE)
+  add_definitions(-DCELERIX_STACKTRACE_BACKTRACE)
   add_definitions(-DBOOST_STACKTRACE_USE_BACKTRACE)
-  if(NANO_BACKTRACE_INCLUDE)
+  if(CELERIX_BACKTRACE_INCLUDE)
     add_definitions(
-      -DBOOST_STACKTRACE_BACKTRACE_INCLUDE_FILE=${NANO_BACKTRACE_INCLUDE})
+      -DBOOST_STACKTRACE_BACKTRACE_INCLUDE_FILE=${CELERIX_BACKTRACE_INCLUDE})
   endif()
 endif()
 
-# Enable NANO_TRACING by default in Debug builds
+# Enable CELERIX_TRACING by default in Debug builds
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  option(NANO_TRACING "Enable trace logging" ON)
+  option(CELERIX_TRACING "Enable trace logging" ON)
 else()
-  option(NANO_TRACING "Enable trace logging" OFF)
+  option(CELERIX_TRACING "Enable trace logging" OFF)
 endif()
-if(NANO_TRACING)
+if(CELERIX_TRACING)
   message(STATUS "Using trace logging")
-  add_compile_definitions(NANO_TRACING)
+  add_compile_definitions(CELERIX_TRACING)
 endif()
 
-if(${NANO_TIMED_LOCKS} GREATER 0)
-  add_definitions(-DNANO_TIMED_LOCKS=${NANO_TIMED_LOCKS})
-  add_definitions(-DNANO_TIMED_LOCKS_FILTER=${NANO_TIMED_LOCKS_FILTER})
-  if(NANO_TIMED_LOCKS_IGNORE_BLOCKED)
-    add_definitions(-DNANO_TIMED_LOCKS_IGNORE_BLOCKED)
+if(${CELERIX_TIMED_LOCKS} GREATER 0)
+  add_definitions(-DCELERIX_TIMED_LOCKS=${CELERIX_TIMED_LOCKS})
+  add_definitions(-DCELERIX_TIMED_LOCKS_FILTER=${CELERIX_TIMED_LOCKS_FILTER})
+  if(CELERIX_TIMED_LOCKS_IGNORE_BLOCKED)
+    add_definitions(-DCELERIX_TIMED_LOCKS_IGNORE_BLOCKED)
   endif()
 endif()
 
-if(NANO_ASIO_HANDLER_TRACKING)
+if(CELERIX_ASIO_HANDLER_TRACKING)
   add_definitions(-DBOOST_ASIO_ENABLE_HANDLER_TRACKING)
 endif()
 
-option(NANO_SIMD_OPTIMIZATIONS
+option(CELERIX_SIMD_OPTIMIZATIONS
        "Enable CPU-specific SIMD optimizations (SSE/AVX or NEON, e.g.)" OFF)
 option(
   ENABLE_AES
-  "Enable AES optimizations (enabled by default with NANO_SIMD_OPTIMIZATIONS, set OFF to disable"
+  "Enable AES optimizations (enabled by default with CELERIX_SIMD_OPTIMIZATIONS, set OFF to disable"
   ON)
 option(ENABLE_AVX2 "Enable AVX2 optimizations" OFF)
 
 set(ACTIVE_NETWORK
-    nano_live_network
+    celerix_live_network
     CACHE STRING "Selects which network parameters are used")
 set_property(
-  CACHE ACTIVE_NETWORK PROPERTY STRINGS nano_dev_network nano_beta_network
-                                nano_live_network nano_test_network)
+  CACHE ACTIVE_NETWORK PROPERTY STRINGS celerix_dev_network celerix_beta_network
+                                celerix_live_network celerix_test_network)
 set(CPACK_PACKAGE_NAME
-    "nano-node"
+    "celerix-node"
     CACHE STRING "" FORCE)
 set(CPACK_NSIS_PACKAGE_NAME
-    "Nano"
+    "Celerix"
     CACHE STRING "" FORCE)
 set(CPACK_PACKAGE_INSTALL_DIRECTORY
-    "nanocurrency"
+    "celerixcurrency"
     CACHE STRING "" FORCE)
-set(NANO_SERVICE "nanocurrency.service")
-set(NANO_PREFIX "")
-if("${ACTIVE_NETWORK}" MATCHES "nano_beta_network")
-  project("nano-node-beta")
+set(CELERIX_SERVICE "celerixcurrency.service")
+set(CELERIX_PREFIX "")
+if("${ACTIVE_NETWORK}" MATCHES "celerix_beta_network")
+  project("celerix-node-beta")
   set(CPACK_PACKAGE_NAME
-      "nano-node-beta"
+      "celerix-node-beta"
       CACHE STRING "" FORCE)
   set(CPACK_NSIS_PACKAGE_NAME
-      "Nano-Beta"
+      "Celerix-Beta"
       CACHE STRING "" FORCE)
   set(CPACK_PACKAGE_INSTALL_DIRECTORY
-      "nanocurrency-beta"
+      "celerixcurrency-beta"
       CACHE STRING "" FORCE)
-  set(NANO_SERVICE "nanocurrency-beta.service")
-  set(NANO_PREFIX "Beta")
-elseif("${ACTIVE_NETWORK}" MATCHES "nano_test_network")
-  project("nano-node-test")
+  set(CELERIX_SERVICE "celerixcurrency-beta.service")
+  set(CELERIX_PREFIX "Beta")
+elseif("${ACTIVE_NETWORK}" MATCHES "celerix_test_network")
+  project("celerix-node-test")
   set(CPACK_PACKAGE_NAME
-      "nano-node-test"
+      "celerix-node-test"
       CACHE STRING "" FORCE)
   set(CPACK_NSIS_PACKAGE_NAME
-      "Nano-Test"
+      "Celerix-Test"
       CACHE STRING "" FORCE)
   set(CPACK_PACKAGE_INSTALL_DIRECTORY
-      "nanocurrency-test"
+      "celerixcurrency-test"
       CACHE STRING "" FORCE)
-  set(NANO_SERVICE "nanocurrency-test.service")
-  set(NANO_PREFIX "Test")
+  set(CELERIX_SERVICE "celerixcurrency-test.service")
+  set(CELERIX_PREFIX "Test")
 endif()
-set(NANO_OSX_PACKAGE_NAME
+set(CELERIX_OSX_PACKAGE_NAME
     ${CPACK_NSIS_PACKAGE_NAME}
     CACHE STRING "" FORCE)
 
@@ -227,8 +227,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 find_package(Threads)
 
 # Sanitizers
-option(NANO_ASAN "Enable ASan" OFF)
-if(NANO_ASAN)
+option(CELERIX_ASAN "Enable ASan" OFF)
+if(CELERIX_ASAN)
   if(MSVC)
     message(FATAL_ERROR "ASan is not supported on MSVC")
   endif()
@@ -247,8 +247,8 @@ if(NANO_ASAN)
   add_definitions(-DED25519_NO_INLINE_ASM)
 endif()
 
-option(NANO_ASAN_INT "Enable ASan+Integer overflow" OFF)
-if(NANO_ASAN_INT)
+option(CELERIX_ASAN_INT "Enable ASan+Integer overflow" OFF)
+if(CELERIX_ASAN_INT)
   if(MSVC)
     message(FATAL_ERROR "ASan+Integer overflow is not supported on MSVC")
   endif()
@@ -267,8 +267,8 @@ if(NANO_ASAN_INT)
   add_definitions(-DED25519_NO_INLINE_ASM)
 endif()
 
-option(NANO_UBSAN "Enable UBSan" OFF)
-if(NANO_UBSAN)
+option(CELERIX_UBSAN "Enable UBSan" OFF)
+if(CELERIX_UBSAN)
   if(MSVC)
     message(FATAL_ERROR "UBSan is not supported on MSVC")
   endif()
@@ -288,8 +288,8 @@ if(NANO_UBSAN)
   add_definitions(-DROCKSDB_UBSAN_RUN)
 endif()
 
-option(NANO_TSAN "Enable TSan" OFF)
-if(NANO_TSAN)
+option(CELERIX_TSAN "Enable TSan" OFF)
+if(CELERIX_TSAN)
   if(MSVC)
     message(FATAL_ERROR "TSan is not supported on MSVC")
   endif()
@@ -308,7 +308,7 @@ if(NANO_TSAN)
   add_definitions(-DED25519_NO_INLINE_ASM)
 endif()
 
-if(NANO_WARN_TO_ERR)
+if(CELERIX_WARN_TO_ERR)
   add_compile_options(-Werror -Wno-deprecated-declarations)
 endif()
 
@@ -317,13 +317,13 @@ if(WIN32)
   add_definitions(-D_WIN32_WINNT=0x0600 -DWINVER=0x0600 -DMINIUPNP_STATICLIB
                   -D_CRT_SECURE_NO_WARNINGS -DNOGDI /EHsc)
 else()
-  if(NANO_FUZZER_TEST)
+  if(CELERIX_FUZZER_TEST)
     add_compile_options(-fsanitize=fuzzer-no-link -fno-omit-frame-pointer)
-    add_definitions(-DNANO_FUZZER_TEST)
+    add_definitions(-DCELERIX_FUZZER_TEST)
   endif()
 
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
-    if(NANO_SIMD_OPTIMIZATIONS
+    if(CELERIX_SIMD_OPTIMIZATIONS
        OR RAIBLOCKS_SIMD_OPTIMIZATIONS
        OR ENABLE_AVX2)
       add_compile_options(-msse4)
@@ -338,7 +338,7 @@ else()
     endif()
 
   elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
-    if(NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS)
+    if(CELERIX_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS)
       add_compile_options(-march=armv8-a+crc+crypto)
     else()
       add_compile_options(-march=armv8-a)
@@ -378,17 +378,17 @@ else()
     set(PLATFORM_LINK_FLAGS "-static-libgcc -static-libstdc++")
   endif()
 
-  if(NANO_FUZZER_TEST)
+  if(CELERIX_FUZZER_TEST)
     set(PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=fuzzer-no-link")
   endif()
 endif()
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${PLATFORM_LINK_FLAGS}")
 
-if(NANO_SECURE_RPC OR RAIBLOCKS_SECURE_RPC)
+if(CELERIX_SECURE_RPC OR RAIBLOCKS_SECURE_RPC)
   find_package(OpenSSL 1.0 REQUIRED)
   include_directories(${OPENSSL_INCLUDE_DIR})
-  add_definitions(-DNANO_SECURE_RPC)
+  add_definitions(-DCELERIX_SECURE_RPC)
   message("OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
   message("OpenSSL libraries: ${OPENSSL_LIBRARIES}")
   message("OpenSSL lib: ${OPENSSL_SSL_LIBRARY}")
@@ -521,10 +521,10 @@ set(ROCKSDB_BUILD_SHARED
     OFF
     CACHE BOOL "")
 set(WITH_CORE_TOOLS
-    ${NANO_ROCKSDB_TOOLS}
+    ${CELERIX_ROCKSDB_TOOLS}
     CACHE BOOL "" FORCE)
 set(WITH_TOOLS
-    ${NANO_ROCKSDB_TOOLS}
+    ${CELERIX_ROCKSDB_TOOLS}
     CACHE BOOL "" FORCE)
 if(ENABLE_AVX2)
   set(PORTABLE
@@ -545,8 +545,8 @@ include_directories(submodules/magic_enum/include/magic_enum)
 
 add_subdirectory(crypto/ed25519-donna)
 
-add_subdirectory(nano/ipc_flatbuffers_lib)
-add_subdirectory(nano/ipc_flatbuffers_test)
+add_subdirectory(celerix/ipc_flatbuffers_lib)
+add_subdirectory(celerix/ipc_flatbuffers_test)
 
 # fmt
 add_subdirectory(submodules/fmt EXCLUDE_FROM_ALL)
@@ -577,7 +577,7 @@ if(WIN32)
   add_definitions(-DCRYPTOPP_DISABLE_ASM -DCRYPTOPP_DISABLE_SSSE3
                   -DCRYPTOPP_DISABLE_AESNI)
 elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64"
-       AND (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS))
+       AND (CELERIX_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS))
   set(CRYPTOPP_EXTRA
       submodules/cryptopp/crc_simd.cpp submodules/cryptopp/gcm_simd.cpp
       submodules/cryptopp/gf2n_simd.cpp submodules/cryptopp/neon_simd.cpp)
@@ -692,32 +692,32 @@ add_library(blake2 crypto/blake2/blake2-config.h crypto/blake2/blake2-impl.h
 
 target_compile_definitions(blake2 PRIVATE -D__SSE2__)
 
-add_subdirectory(nano/crypto_lib)
-add_subdirectory(nano/secure)
-add_subdirectory(nano/store)
-target_include_directories(nano_store PUBLIC ${BOOST_LIBRARY_INCLUDES})
-target_include_directories(nano_store PUBLIC submodules)
-add_subdirectory(nano/lib)
-add_subdirectory(nano/node)
-add_subdirectory(nano/nano_node)
-add_subdirectory(nano/rpc)
-add_subdirectory(nano/nano_rpc)
+add_subdirectory(celerix/crypto_lib)
+add_subdirectory(celerix/secure)
+add_subdirectory(celerix/store)
+target_include_directories(celerix_store PUBLIC ${BOOST_LIBRARY_INCLUDES})
+target_include_directories(celerix_store PUBLIC submodules)
+add_subdirectory(celerix/lib)
+add_subdirectory(celerix/node)
+add_subdirectory(celerix/celerix_node)
+add_subdirectory(celerix/rpc)
+add_subdirectory(celerix/celerix_rpc)
 
 add_custom_target(
   executables
   COMMAND echo "BATCH BUILDING node + rpc"
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-  DEPENDS nano_node nano_rpc)
+  DEPENDS celerix_node celerix_rpc)
 
-if(NANO_FUZZER_TEST)
+if(CELERIX_FUZZER_TEST)
   if(NOT WIN32)
-    add_subdirectory(nano/fuzzer_test)
+    add_subdirectory(celerix/fuzzer_test)
   else()
     message(WARNING "Fuzzing is not supported on Windows")
   endif()
 endif()
 
-if(NANO_TEST OR RAIBLOCKS_TEST)
+if(CELERIX_TEST OR RAIBLOCKS_TEST)
   if(WIN32)
     if(MSVC_VERSION)
       if(MSVC_VERSION GREATER_EQUAL 1910)
@@ -730,7 +730,7 @@ if(NANO_TEST OR RAIBLOCKS_TEST)
     set(gtest_force_shared_crt OFF)
   endif()
 
-  add_subdirectory(nano/load_test)
+  add_subdirectory(celerix/load_test)
 
   # FIXME: This fixes googletest GOOGLETEST_VERSION requirement
   set(GOOGLETEST_VERSION 1.11.0)
@@ -742,19 +742,19 @@ if(NANO_TEST OR RAIBLOCKS_TEST)
     gtest PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
                      "${CMAKE_SOURCE_DIR}/submodules/gtest/googletest/include")
 
-  add_subdirectory(nano/test_common)
-  add_subdirectory(nano/core_test)
-  add_subdirectory(nano/rpc_test)
-  add_subdirectory(nano/slow_test)
+  add_subdirectory(celerix/test_common)
+  add_subdirectory(celerix/core_test)
+  add_subdirectory(celerix/rpc_test)
+  add_subdirectory(celerix/slow_test)
   add_custom_target(
     all_tests
     COMMAND echo "BATCH BUILDING TESTS"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    DEPENDS core_test load_test rpc_test slow_test nano_node nano_rpc)
+    DEPENDS core_test load_test rpc_test slow_test celerix_node celerix_rpc)
 endif()
 
-if(NANO_TEST OR RAIBLOCKS_TEST)
-  if(NANO_GUI OR RAIBLOCKS_GUI)
+if(CELERIX_TEST OR RAIBLOCKS_TEST)
+  if(CELERIX_GUI OR RAIBLOCKS_GUI)
     add_custom_target(
       quick_tests
       COMMAND echo "BATCH QUICK TESTS"
@@ -769,7 +769,7 @@ if(NANO_TEST OR RAIBLOCKS_TEST)
   endif()
 endif()
 
-if(NANO_GUI OR RAIBLOCKS_GUI)
+if(CELERIX_GUI OR RAIBLOCKS_GUI)
   install(FILES ${PROJECT_BINARY_DIR}/config-node.toml.sample DESTINATION .)
   install(FILES ${PROJECT_BINARY_DIR}/config-rpc.toml.sample DESTINATION .)
   install(FILES ${PROJECT_BINARY_DIR}/config-log.toml.sample DESTINATION .)
@@ -781,14 +781,14 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
 
   find_package(Qt5 COMPONENTS Core Gui Widgets Test ${PLATFORM_QT_PACKAGES})
 
-  add_library(qt nano/qt/qt.cpp nano/qt/qt.hpp)
+  add_library(qt celerix/qt/qt.cpp celerix/qt/qt.hpp)
   include_directories(${CMAKE_SOURCE_DIR}/submodules)
 
   target_link_libraries(
     qt
     node
     secure
-    nano_lib
+    celerix_lib
     libminiupnpc-static
     Qt5::Gui
     Qt5::Widgets)
@@ -804,13 +804,13 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
   endif()
 
   if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    set(PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/default/icon.cpp)
+    set(PLATFORM_WALLET_SOURCE celerix/celerix_wallet/plat/default/icon.cpp)
   elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    set(PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/windows/icon.cpp Nano.rc)
+    set(PLATFORM_WALLET_SOURCE celerix/celerix_wallet/plat/windows/icon.cpp Celerix.rc)
   elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set(PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/default/icon.cpp)
+    set(PLATFORM_WALLET_SOURCE celerix/celerix_wallet/plat/default/icon.cpp)
   elseif(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-    set(PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/default/icon.cpp)
+    set(PLATFORM_WALLET_SOURCE celerix/celerix_wallet/plat/default/icon.cpp)
   else()
     error("Unknown platform: ${CMAKE_SYSTEM_NAME}")
   endif()
@@ -818,29 +818,29 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
   qt5_add_resources(RES resources.qrc)
 
   add_executable(
-    nano_wallet ${PLATFORM_GUI_TARGET_PROPERTIES} ${PLATFORM_WALLET_SOURCE}
-                nano/nano_wallet/entry.cpp nano/nano_wallet/icon.hpp ${RES})
+    celerix_wallet ${PLATFORM_GUI_TARGET_PROPERTIES} ${PLATFORM_WALLET_SOURCE}
+                celerix/celerix_wallet/entry.cpp celerix/celerix_wallet/icon.hpp ${RES})
 
-  target_link_libraries(nano_wallet Boost::process rpc node qt)
+  target_link_libraries(celerix_wallet Boost::process rpc node qt)
 
   if(WIN32)
-    target_link_libraries(nano_wallet Qt5::WinExtras)
-    # nano_wallet.com executable for Windows console
-    add_executable(nano_wallet_com nano/nano_wallet/entry_com.cpp)
-    target_link_libraries(nano_wallet_com node)
+    target_link_libraries(celerix_wallet Qt5::WinExtras)
+    # celerix_wallet.com executable for Windows console
+    add_executable(celerix_wallet_com celerix/celerix_wallet/entry_com.cpp)
+    target_link_libraries(celerix_wallet_com node)
     set_target_properties(
-      nano_wallet_com
+      celerix_wallet_com
       PROPERTIES COMPILE_FLAGS "-DBOOST_ASIO_HAS_STD_ARRAY=1"
-                 OUTPUT_NAME "nano_wallet"
+                 OUTPUT_NAME "celerix_wallet"
                  SUFFIX ".com")
   endif()
 
   set_target_properties(
-    qt nano_wallet PROPERTIES COMPILE_FLAGS
+    qt celerix_wallet PROPERTIES COMPILE_FLAGS
                               "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
 
-  if(NANO_TEST OR RAIBLOCKS_TEST)
-    add_executable(qt_test nano/qt_test/entry.cpp nano/qt_test/qt.cpp)
+  if(CELERIX_TEST OR RAIBLOCKS_TEST)
+    add_executable(qt_test celerix/qt_test/entry.cpp celerix/qt_test/qt.cpp)
 
     target_link_libraries(
       qt_test
@@ -862,31 +862,31 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     set(CPACK_GENERATOR "DragNDrop")
     configure_file(${CMAKE_SOURCE_DIR}/Info.plist.in
                    ${CMAKE_SOURCE_DIR}/Info.plist @ONLY)
-    install(TARGETS nano_wallet
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
-    install(TARGETS nano_node
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
-    install(TARGETS nano_rpc
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
-    install(FILES Info.plist DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents)
+    install(TARGETS celerix_wallet
+            DESTINATION ${CELERIX_OSX_PACKAGE_NAME}.app/Contents/MacOS)
+    install(TARGETS celerix_node
+            DESTINATION ${CELERIX_OSX_PACKAGE_NAME}.app/Contents/MacOS)
+    install(TARGETS celerix_rpc
+            DESTINATION ${CELERIX_OSX_PACKAGE_NAME}.app/Contents/MacOS)
+    install(FILES Info.plist DESTINATION ${CELERIX_OSX_PACKAGE_NAME}.app/Contents)
     install(FILES qt.conf
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Resources)
+            DESTINATION ${CELERIX_OSX_PACKAGE_NAME}.app/Contents/Resources)
     install(DIRECTORY ${Qt5_DIR}/../../QtCore.framework
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
+            DESTINATION ${CELERIX_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
     install(DIRECTORY ${Qt5_DIR}/../../QtDBus.framework
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
+            DESTINATION ${CELERIX_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
     install(DIRECTORY ${Qt5_DIR}/../../QtGui.framework
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
+            DESTINATION ${CELERIX_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
     install(DIRECTORY ${Qt5_DIR}/../../QtPrintSupport.framework
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
+            DESTINATION ${CELERIX_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
     install(DIRECTORY ${Qt5_DIR}/../../QtTest.framework
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
+            DESTINATION ${CELERIX_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
     install(DIRECTORY ${Qt5_DIR}/../../QtWidgets.framework
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
+            DESTINATION ${CELERIX_OSX_PACKAGE_NAME}.app/Contents/Frameworks)
     install(FILES "${Qt5_DIR}/../../../plugins/platforms/libqcocoa.dylib"
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/PlugIns/platforms)
-    install(FILES Nano.icns
-            DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Resources)
+            DESTINATION ${CELERIX_OSX_PACKAGE_NAME}.app/Contents/PlugIns/platforms)
+    install(FILES Celerix.icns
+            DESTINATION ${CELERIX_OSX_PACKAGE_NAME}.app/Contents/Resources)
   elseif(WIN32)
     if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
       set(WIN_REDIST vc_redist.x64.exe)
@@ -895,24 +895,24 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     endif()
     set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS
         "ExecWait '\\\"$INSTDIR\\\\${WIN_REDIST}\\\" /quiet /norestart'
-												WriteRegDWORD HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano\\\\Nano${NANO_PREFIX}' 'TypesSupported' '0x7'
-												WriteRegStr HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano\\\\Nano${NANO_PREFIX}' 'EventMessageFile' '$INSTDIR\\\\nano_wallet.exe'"
+												WriteRegDWORD HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Celerix\\\\Celerix${CELERIX_PREFIX}' 'TypesSupported' '0x7'
+												WriteRegStr HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Celerix\\\\Celerix${CELERIX_PREFIX}' 'EventMessageFile' '$INSTDIR\\\\celerix_wallet.exe'"
     )
     set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS
-        "DeleteRegKey HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano${NANO_PREFIX}'"
+        "DeleteRegKey HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Celerix${CELERIX_PREFIX}'"
     )
-    set(CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/Nano.ico)
-    set(CPACK_NSIS_DISPLAY_NAME "Nano${NANO_PREFIX}")
-    set(CPACK_NSIS_URL_INFO_ABOUT "https://nano.org")
-    set(CPACK_NSIS_CONTACT "info@nano.org")
-    set(CPACK_NSIS_MENU_LINKS "nano_wallet.exe" "Nano Wallet"
-                              "https://nano.org" "Nano website")
+    set(CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/Celerix.ico)
+    set(CPACK_NSIS_DISPLAY_NAME "Celerix${CELERIX_PREFIX}")
+    set(CPACK_NSIS_URL_INFO_ABOUT "https://celerix.org")
+    set(CPACK_NSIS_CONTACT "info@celerix.org")
+    set(CPACK_NSIS_MENU_LINKS "celerix_wallet.exe" "Celerix Wallet"
+                              "https://celerix.org" "Celerix website")
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
     get_target_property(Qt5WindowsPlugin Qt5::QWindowsIntegrationPlugin
                         LOCATION)
     get_filename_component(Qt5_bin_DIR ${Qt5_DIR}/../../../bin ABSOLUTE)
-    install(TARGETS nano_wallet DESTINATION .)
-    install(TARGETS nano_wallet_com DESTINATION .)
+    install(TARGETS celerix_wallet DESTINATION .)
+    install(TARGETS celerix_wallet_com DESTINATION .)
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${WIN_REDIST} DESTINATION .)
     install(FILES ${Qt5_bin_DIR}/libGLESv2.dll DESTINATION .)
     install(FILES ${Qt5_bin_DIR}/Qt5Core.dll DESTINATION .)
@@ -924,8 +924,8 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     set(CPACK_GENERATOR "TBZ2;DEB")
     set(CPACK_DEBIAN_PACKAGE_DEPENDS
         "qt5-default | qtbase5-dev, qtchooser, qt5-qmake, qtbase5-dev-tools")
-    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "russel@nano.org")
-    install(TARGETS nano_wallet RUNTIME DESTINATION ./bin)
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "russel@celerix.org")
+    install(TARGETS celerix_wallet RUNTIME DESTINATION ./bin)
     set(DEBIAN_POSTINST postinst.in)
     set(DEBIAN_POSTRM postrm.in)
 
@@ -945,7 +945,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
         GROUP_EXECUTE
         WORLD_READ
         WORLD_EXECUTE)
-    install(FILES etc/systemd/${NANO_SERVICE} DESTINATION ./extras/systemd/.)
+    install(FILES etc/systemd/${CELERIX_SERVICE} DESTINATION ./extras/systemd/.)
     set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
         "${CMAKE_CURRENT_BINARY_DIR}/debian-control/postinst;${CMAKE_CURRENT_BINARY_DIR}/debian-control/postrm"
     )

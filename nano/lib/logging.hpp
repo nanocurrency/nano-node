@@ -1,9 +1,9 @@
 #pragma once
 
-#include <nano/lib/logging_enums.hpp>
-#include <nano/lib/object_stream.hpp>
-#include <nano/lib/object_stream_adapters.hpp>
-#include <nano/lib/tomlconfig.hpp>
+#include <celerix/lib/logging_enums.hpp>
+#include <celerix/lib/object_stream.hpp>
+#include <celerix/lib/object_stream_adapters.hpp>
+#include <celerix/lib/tomlconfig.hpp>
 
 #include <initializer_list>
 #include <memory>
@@ -13,7 +13,7 @@
 #include <fmt/ostream.h>
 #include <spdlog/spdlog.h>
 
-namespace nano::log
+namespace celerix::log
 {
 template <class T>
 struct arg
@@ -28,14 +28,14 @@ struct arg
 	}
 };
 
-using logger_id = std::pair<nano::log::type, nano::log::detail>;
+using logger_id = std::pair<celerix::log::type, celerix::log::detail>;
 
 std::string to_string (logger_id);
 logger_id parse_logger_id (std::string const &);
 }
 
 // Time helpers
-namespace nano::log
+namespace celerix::log
 {
 template <class Clock>
 auto microseconds (std::chrono::time_point<Clock> time)
@@ -86,11 +86,11 @@ auto seconds_delta (std::chrono::time_point<Clock> time, std::chrono::time_point
 }
 }
 
-namespace nano
+namespace celerix
 {
 consteval bool is_tracing_enabled ()
 {
-#ifdef NANO_TRACING
+#ifdef CELERIX_TRACING
 	return true;
 #else
 	return false;
@@ -100,18 +100,18 @@ consteval bool is_tracing_enabled ()
 class log_config final
 {
 public:
-	nano::error serialize_toml (nano::tomlconfig &) const;
-	nano::error deserialize_toml (nano::tomlconfig &);
+	celerix::error serialize_toml (celerix::tomlconfig &) const;
+	celerix::error deserialize_toml (celerix::tomlconfig &);
 
 private:
-	void serialize (nano::tomlconfig &) const;
-	void deserialize (nano::tomlconfig &);
+	void serialize (celerix::tomlconfig &) const;
+	void deserialize (celerix::tomlconfig &);
 
 public:
-	nano::log::level default_level{ nano::log::level::info };
-	nano::log::level flush_level{ nano::log::level::error };
+	celerix::log::level default_level{ celerix::log::level::info };
+	celerix::log::level flush_level{ celerix::log::level::error };
 
-	std::map<nano::log::logger_id, nano::log::level> levels;
+	std::map<celerix::log::logger_id, celerix::log::level> levels;
 
 	struct console_config
 	{
@@ -130,7 +130,7 @@ public:
 	console_config console;
 	file_config file;
 
-	nano::log::tracing_format tracing_format{ nano::log::tracing_format::standard };
+	celerix::log::tracing_format tracing_format{ celerix::log::tracing_format::standard };
 
 public: // Predefined defaults
 	static log_config cli_default ();
@@ -140,10 +140,10 @@ public: // Predefined defaults
 
 private:
 	/// Returns placeholder log levels for all loggers
-	static std::map<nano::log::logger_id, nano::log::level> default_levels (nano::log::level);
+	static std::map<celerix::log::logger_id, celerix::log::level> default_levels (celerix::log::level);
 };
 
-nano::log_config load_log_config (nano::log_config fallback, std::filesystem::path const & data_path, std::vector<std::string> const & config_overrides = {});
+celerix::log_config load_log_config (celerix::log_config fallback, std::filesystem::path const & data_path, std::vector<std::string> const & config_overrides = {});
 
 class logger final
 {
@@ -155,63 +155,63 @@ public:
 	logger (logger const &) = delete;
 
 public:
-	static void initialize (nano::log_config fallback, std::optional<std::filesystem::path> data_path = std::nullopt, std::vector<std::string> const & config_overrides = {});
-	static void initialize_for_tests (nano::log_config fallback);
+	static void initialize (celerix::log_config fallback, std::optional<std::filesystem::path> data_path = std::nullopt, std::vector<std::string> const & config_overrides = {});
+	static void initialize_for_tests (celerix::log_config fallback);
 	static void flush ();
 
 private:
 	static bool global_initialized;
-	static nano::log_config global_config;
+	static celerix::log_config global_config;
 	static std::vector<spdlog::sink_ptr> global_sinks;
-	static std::function<std::string (nano::log::logger_id, std::string identifier)> global_name_formatter;
-	static nano::object_stream_config global_tracing_config;
+	static std::function<std::string (celerix::log::logger_id, std::string identifier)> global_name_formatter;
+	static celerix::object_stream_config global_tracing_config;
 
-	static void initialize_common (nano::log_config const &, std::optional<std::filesystem::path> data_path);
+	static void initialize_common (celerix::log_config const &, std::optional<std::filesystem::path> data_path);
 
 public:
 	template <class... Args>
-	void log (nano::log::level level, nano::log::type type, spdlog::format_string_t<Args...> fmt, Args &&... args)
+	void log (celerix::log::level level, celerix::log::type type, spdlog::format_string_t<Args...> fmt, Args &&... args)
 	{
 		get_logger (type).log (to_spdlog_level (level), fmt, std::forward<Args> (args)...);
 	}
 
 	template <class... Args>
-	void debug (nano::log::type type, spdlog::format_string_t<Args...> fmt, Args &&... args)
+	void debug (celerix::log::type type, spdlog::format_string_t<Args...> fmt, Args &&... args)
 	{
 		get_logger (type).debug (fmt, std::forward<Args> (args)...);
 	}
 
 	template <class... Args>
-	void info (nano::log::type type, spdlog::format_string_t<Args...> fmt, Args &&... args)
+	void info (celerix::log::type type, spdlog::format_string_t<Args...> fmt, Args &&... args)
 	{
 		get_logger (type).info (fmt, std::forward<Args> (args)...);
 	}
 
 	template <class... Args>
-	void warn (nano::log::type type, spdlog::format_string_t<Args...> fmt, Args &&... args)
+	void warn (celerix::log::type type, spdlog::format_string_t<Args...> fmt, Args &&... args)
 	{
 		get_logger (type).warn (fmt, std::forward<Args> (args)...);
 	}
 
 	template <class... Args>
-	void error (nano::log::type type, spdlog::format_string_t<Args...> fmt, Args &&... args)
+	void error (celerix::log::type type, spdlog::format_string_t<Args...> fmt, Args &&... args)
 	{
 		get_logger (type).error (fmt, std::forward<Args> (args)...);
 	}
 
 	template <class... Args>
-	void critical (nano::log::type type, spdlog::format_string_t<Args...> fmt, Args &&... args)
+	void critical (celerix::log::type type, spdlog::format_string_t<Args...> fmt, Args &&... args)
 	{
 		get_logger (type).critical (fmt, std::forward<Args> (args)...);
 	}
 
 public:
 	template <typename... Args>
-	void trace (nano::log::type type, nano::log::detail detail, Args &&... args)
+	void trace (celerix::log::type type, celerix::log::detail detail, Args &&... args)
 	{
 		if constexpr (is_tracing_enabled ())
 		{
-			debug_assert (detail != nano::log::detail::all);
+			debug_assert (detail != celerix::log::detail::all);
 
 			// Include info about precise time of the event
 			auto now = std::chrono::high_resolution_clock::now ();
@@ -219,9 +219,9 @@ public:
 			// TODO: Improve code indentation config
 			auto & logger = get_logger (type, detail);
 			logger.trace ("{}",
-			nano::streamed_args (global_tracing_config,
-			nano::log::arg{ "event", event_formatter{ type, detail } },
-			nano::log::arg{ "time", nano::log::microseconds (now) },
+			celerix::streamed_args (global_tracing_config,
+			celerix::log::arg{ "event", event_formatter{ type, detail } },
+			celerix::log::arg{ "time", celerix::log::microseconds (now) },
 			std::forward<Args> (args)...));
 		}
 	}
@@ -229,8 +229,8 @@ public:
 private:
 	struct event_formatter final
 	{
-		nano::log::type type;
-		nano::log::detail detail;
+		celerix::log::type type;
+		celerix::log::detail detail;
 
 		friend std::ostream & operator<< (std::ostream & os, event_formatter const & self)
 		{
@@ -241,20 +241,20 @@ private:
 private:
 	const std::string identifier;
 
-	std::map<nano::log::logger_id, std::shared_ptr<spdlog::logger>> spd_loggers;
+	std::map<celerix::log::logger_id, std::shared_ptr<spdlog::logger>> spd_loggers;
 	std::shared_mutex mutex;
 
 private:
-	spdlog::logger & get_logger (nano::log::type, nano::log::detail = nano::log::detail::all);
-	std::shared_ptr<spdlog::logger> make_logger (nano::log::logger_id);
-	nano::log::level find_level (nano::log::logger_id) const;
+	spdlog::logger & get_logger (celerix::log::type, celerix::log::detail = celerix::log::detail::all);
+	std::shared_ptr<spdlog::logger> make_logger (celerix::log::logger_id);
+	celerix::log::level find_level (celerix::log::logger_id) const;
 
-	static spdlog::level::level_enum to_spdlog_level (nano::log::level);
+	static spdlog::level::level_enum to_spdlog_level (celerix::log::level);
 };
 
 /**
  * Returns a logger instance that can be used before node specific logging is available.
  * Should only be used for logging that happens during startup and initialization, since it won't contain node specific identifier.
  */
-nano::logger & default_logger ();
+celerix::logger & default_logger ();
 }

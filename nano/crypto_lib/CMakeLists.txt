@@ -1,6 +1,6 @@
-add_library(nano_ed25519 interface.cpp)
+add_library(celerix_ed25519 interface.cpp)
 
-target_link_libraries(ed25519 nano_ed25519)
+target_link_libraries(ed25519 celerix_ed25519)
 
 add_library(crypto_lib random_pool.hpp random_pool.cpp random_pool_shuffle.hpp
                        secure_memory.hpp secure_memory.cpp)

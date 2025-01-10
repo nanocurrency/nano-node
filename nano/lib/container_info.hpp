@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace nano
+namespace celerix
 {
 /* These containers are used to collect information about sequence containers.
  * It makes use of the composite design pattern to collect information
@@ -54,7 +54,7 @@ private:
 /*
  * New version
  */
-namespace nano
+namespace celerix
 {
 class container_info;
 
@@ -145,15 +145,15 @@ public:
 
 public:
 	// Needed to convert to legacy container_info_component during transition period
-	std::unique_ptr<nano::container_info_component> to_legacy (std::string const & name) const
+	std::unique_ptr<celerix::container_info_component> to_legacy (std::string const & name) const
 	{
-		auto composite = std::make_unique<nano::container_info_composite> (name);
+		auto composite = std::make_unique<celerix::container_info_composite> (name);
 
 		// Add entries as leaf components
 		for (const auto & entry : entries_m)
 		{
-			nano::container_info_entry info{ entry.name, entry.size, entry.sizeof_element };
-			composite->add_component (std::make_unique<nano::container_info_leaf> (info));
+			celerix::container_info_entry info{ entry.name, entry.size, entry.sizeof_element };
+			composite->add_component (std::make_unique<celerix::container_info_leaf> (info));
 		}
 
 		// Recursively convert children to composites and add them

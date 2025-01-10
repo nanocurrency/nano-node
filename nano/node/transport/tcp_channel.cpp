@@ -1,48 +1,48 @@
-#include <nano/lib/stacktrace.hpp>
-#include <nano/lib/stats.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/transport/message_deserializer.hpp>
-#include <nano/node/transport/tcp_channel.hpp>
-#include <nano/node/transport/transport.hpp>
+#include <celerix/lib/stacktrace.hpp>
+#include <celerix/lib/stats.hpp>
+#include <celerix/lib/utility.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/transport/message_deserializer.hpp>
+#include <celerix/node/transport/tcp_channel.hpp>
+#include <celerix/node/transport/transport.hpp>
 
 /*
  * tcp_channel
  */
 
-nano::transport::tcp_channel::tcp_channel (nano::node & node_a, std::shared_ptr<nano::transport::tcp_socket> socket_a) :
+celerix::transport::tcp_channel::tcp_channel (celerix::node & node_a, std::shared_ptr<celerix::transport::tcp_socket> socket_a) :
 	channel (node_a),
 	socket{ socket_a },
 	strand{ node_a.io_ctx.get_executor () },
 	sending_task{ strand }
 {
-	stacktrace = nano::generate_stacktrace ();
+	stacktrace = celerix::generate_stacktrace ();
 	remote_endpoint = socket_a->remote_endpoint ();
 	local_endpoint = socket_a->local_endpoint ();
 	start ();
 }
 
-nano::transport::tcp_channel::~tcp_channel ()
+celerix::transport::tcp_channel::~tcp_channel ()
 {
 	close ();
 	release_assert (!sending_task.joinable ());
 }
 
-void nano::transport::tcp_channel::close ()
+void celerix::transport::tcp_channel::close ()
 {
 	stop ();
 	socket->close ();
 	closed = true;
 }
 
-void nano::transport::tcp_channel::start ()
+void celerix::transport::tcp_channel::start ()
 {
-	sending_task = nano::async::task (strand, [this] (nano::async::condition & condition) {
+	sending_task = celerix::async::task (strand, [this] (celerix::async::condition & condition) {
 		return start_sending (condition); // This is not a coroutine, but a corotuine factory
 	});
 }
 
-asio::awaitable<void> nano::transport::tcp_channel::start_sending (nano::async::condition & condition)
+asio::awaitable<void> celerix::transport::tcp_channel::start_sending (celerix::async::condition & condition)
 {
 	debug_assert (strand.running_in_this_thread ());
 	try
@@ -57,7 +57,7 @@ asio::awaitable<void> nano::transport::tcp_channel::start_sending (nano::async::
 	debug_assert (strand.running_in_this_thread ());
 }
 
-void nano::transport::tcp_channel::stop ()
+void celerix::transport::tcp_channel::stop ()
 {
 	if (sending_task.joinable ())
 	{
@@ -70,41 +70,41 @@ void nano::transport::tcp_channel::stop ()
 	}
 }
 
-bool nano::transport::tcp_channel::max (nano::transport::traffic_type traffic_type)
+bool celerix::transport::tcp_channel::max (celerix::transport::traffic_type traffic_type)
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 	return queue.max (traffic_type);
 }
 
-bool nano::transport::tcp_channel::send_buffer (nano::shared_const_buffer const & buffer, nano::transport::traffic_type type, nano::transport::channel::callback_t callback)
+bool celerix::transport::tcp_channel::send_buffer (celerix::shared_const_buffer const & buffer, celerix::transport::traffic_type type, celerix::transport::channel::callback_t callback)
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	if (!queue.full (type))
 	{
 		queue.push (type, { buffer, callback });
 		lock.unlock ();
-		node.stats.inc (nano::stat::type::tcp_channel, nano::stat::detail::queued, nano::stat::dir::out);
-		node.stats.inc (nano::stat::type::tcp_channel_queued, to_stat_detail (type), nano::stat::dir::out);
+		node.stats.inc (celerix::stat::type::tcp_channel, celerix::stat::detail::queued, celerix::stat::dir::out);
+		node.stats.inc (celerix::stat::type::tcp_channel_queued, to_stat_detail (type), celerix::stat::dir::out);
 		sending_task.notify ();
 		return true;
 	}
 	else
 	{
-		node.stats.inc (nano::stat::type::tcp_channel, nano::stat::detail::drop, nano::stat::dir::out);
-		node.stats.inc (nano::stat::type::tcp_channel_drop, to_stat_detail (type), nano::stat::dir::out);
+		node.stats.inc (celerix::stat::type::tcp_channel, celerix::stat::detail::drop, celerix::stat::dir::out);
+		node.stats.inc (celerix::stat::type::tcp_channel_drop, to_stat_detail (type), celerix::stat::dir::out);
 	}
 	return false;
 }
 
-asio::awaitable<void> nano::transport::tcp_channel::run_sending (nano::async::condition & condition)
+asio::awaitable<void> celerix::transport::tcp_channel::run_sending (celerix::async::condition & condition)
 {
-	while (!co_await nano::async::cancelled ())
+	while (!co_await celerix::async::cancelled ())
 	{
 		debug_assert (strand.running_in_this_thread ());
 
 		auto next_batch = [this] () {
 			const size_t max_batch = 8; // TODO: Make this configurable
-			nano::lock_guard<nano::mutex> lock{ mutex };
+			celerix::lock_guard<celerix::mutex> lock{ mutex };
 			return queue.next_batch (max_batch);
 		};
 
@@ -122,7 +122,7 @@ asio::awaitable<void> nano::transport::tcp_channel::run_sending (nano::async::co
 	}
 }
 
-asio::awaitable<void> nano::transport::tcp_channel::send_one (traffic_type type, tcp_channel_queue::entry_t const & item)
+asio::awaitable<void> celerix::transport::tcp_channel::send_one (traffic_type type, tcp_channel_queue::entry_t const & item)
 {
 	debug_assert (strand.running_in_this_thread ());
 
@@ -132,8 +132,8 @@ asio::awaitable<void> nano::transport::tcp_channel::send_one (traffic_type type,
 	// Wait for socket
 	while (socket->full ())
 	{
-		node.stats.inc (nano::stat::type::tcp_channel_wait, nano::stat::detail::wait_socket, nano::stat::dir::out);
-		co_await nano::async::sleep_for (100ms); // TODO: Exponential backoff
+		node.stats.inc (celerix::stat::type::tcp_channel_wait, celerix::stat::detail::wait_socket, celerix::stat::dir::out);
+		co_await celerix::async::sleep_for (100ms); // TODO: Exponential backoff
 	}
 
 	// Wait for bandwidth
@@ -149,22 +149,22 @@ asio::awaitable<void> nano::transport::tcp_channel::send_one (traffic_type type,
 		}
 		else
 		{
-			node.stats.inc (nano::stat::type::tcp_channel_wait, nano::stat::detail::wait_bandwidth, nano::stat::dir::out);
-			co_await nano::async::sleep_for (100ms); // TODO: Exponential backoff
+			node.stats.inc (celerix::stat::type::tcp_channel_wait, celerix::stat::detail::wait_bandwidth, celerix::stat::dir::out);
+			co_await celerix::async::sleep_for (100ms); // TODO: Exponential backoff
 		}
 	}
 	allocated_bandwidth -= size;
 
-	node.stats.inc (nano::stat::type::tcp_channel, nano::stat::detail::send, nano::stat::dir::out);
-	node.stats.inc (nano::stat::type::tcp_channel_send, to_stat_detail (type), nano::stat::dir::out);
+	node.stats.inc (celerix::stat::type::tcp_channel, celerix::stat::detail::send, celerix::stat::dir::out);
+	node.stats.inc (celerix::stat::type::tcp_channel_send, to_stat_detail (type), celerix::stat::dir::out);
 
 	socket->async_write (buffer, [this_w = weak_from_this (), callback, type] (boost::system::error_code const & ec, std::size_t size) {
 		if (auto this_l = this_w.lock ())
 		{
-			this_l->node.stats.inc (nano::stat::type::tcp_channel_ec, nano::to_stat_detail (ec), nano::stat::dir::out);
+			this_l->node.stats.inc (celerix::stat::type::tcp_channel_ec, celerix::to_stat_detail (ec), celerix::stat::dir::out);
 			if (!ec)
 			{
-				this_l->node.stats.add (nano::stat::type::traffic_tcp_type, to_stat_detail (type), nano::stat::dir::out, size);
+				this_l->node.stats.add (celerix::stat::type::traffic_tcp_type, to_stat_detail (type), celerix::stat::dir::out, size);
 				this_l->set_last_packet_sent (std::chrono::steady_clock::now ());
 			}
 		}
@@ -175,31 +175,31 @@ asio::awaitable<void> nano::transport::tcp_channel::send_one (traffic_type type,
 	});
 }
 
-bool nano::transport::tcp_channel::alive () const
+bool celerix::transport::tcp_channel::alive () const
 {
 	return socket->alive ();
 }
 
-nano::endpoint nano::transport::tcp_channel::get_remote_endpoint () const
+celerix::endpoint celerix::transport::tcp_channel::get_remote_endpoint () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return remote_endpoint;
 }
 
-nano::endpoint nano::transport::tcp_channel::get_local_endpoint () const
+celerix::endpoint celerix::transport::tcp_channel::get_local_endpoint () const
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	celerix::lock_guard<celerix::mutex> lock{ mutex };
 	return local_endpoint;
 }
 
-std::string nano::transport::tcp_channel::to_string () const
+std::string celerix::transport::tcp_channel::to_string () const
 {
-	return nano::util::to_str (get_remote_endpoint ());
+	return celerix::util::to_str (get_remote_endpoint ());
 }
 
-void nano::transport::tcp_channel::operator() (nano::object_stream & obs) const
+void celerix::transport::tcp_channel::operator() (celerix::object_stream & obs) const
 {
-	nano::transport::channel::operator() (obs); // Write common data
+	celerix::transport::channel::operator() (obs); // Write common data
 	obs.write ("socket", socket);
 }
 
@@ -207,7 +207,7 @@ void nano::transport::tcp_channel::operator() (nano::object_stream & obs) const
  * tcp_channel_queue
  */
 
-nano::transport::tcp_channel_queue::tcp_channel_queue ()
+celerix::transport::tcp_channel_queue::tcp_channel_queue ()
 {
 	for (auto type : all_traffic_types ())
 	{
@@ -215,42 +215,42 @@ nano::transport::tcp_channel_queue::tcp_channel_queue ()
 	}
 }
 
-bool nano::transport::tcp_channel_queue::empty () const
+bool celerix::transport::tcp_channel_queue::empty () const
 {
 	return std::all_of (queues.begin (), queues.end (), [] (auto const & queue) {
 		return queue.second.empty ();
 	});
 }
 
-size_t nano::transport::tcp_channel_queue::size () const
+size_t celerix::transport::tcp_channel_queue::size () const
 {
 	return std::accumulate (queues.begin (), queues.end (), size_t{ 0 }, [] (size_t acc, auto const & queue) {
 		return acc + queue.second.size ();
 	});
 }
 
-size_t nano::transport::tcp_channel_queue::size (traffic_type type) const
+size_t celerix::transport::tcp_channel_queue::size (traffic_type type) const
 {
 	return queues.at (type).second.size ();
 }
 
-bool nano::transport::tcp_channel_queue::max (traffic_type type) const
+bool celerix::transport::tcp_channel_queue::max (traffic_type type) const
 {
 	return size (type) >= max_size;
 }
 
-bool nano::transport::tcp_channel_queue::full (traffic_type type) const
+bool celerix::transport::tcp_channel_queue::full (traffic_type type) const
 {
 	return size (type) >= full_size;
 }
 
-void nano::transport::tcp_channel_queue::push (traffic_type type, entry_t entry)
+void celerix::transport::tcp_channel_queue::push (traffic_type type, entry_t entry)
 {
 	debug_assert (!full (type)); // Should be checked before calling this function
 	queues.at (type).second.push_back (entry);
 }
 
-auto nano::transport::tcp_channel_queue::next () -> value_t
+auto celerix::transport::tcp_channel_queue::next () -> value_t
 {
 	debug_assert (!empty ()); // Should be checked before calling next
 
@@ -290,7 +290,7 @@ auto nano::transport::tcp_channel_queue::next () -> value_t
 	return { source, entry };
 }
 
-auto nano::transport::tcp_channel_queue::next_batch (size_t max_count) -> batch_t
+auto celerix::transport::tcp_channel_queue::next_batch (size_t max_count) -> batch_t
 {
 	// TODO: Naive implementation, could be optimized
 	std::deque<value_t> result;
@@ -301,7 +301,7 @@ auto nano::transport::tcp_channel_queue::next_batch (size_t max_count) -> batch_
 	return result;
 }
 
-size_t nano::transport::tcp_channel_queue::priority (traffic_type type) const
+size_t celerix::transport::tcp_channel_queue::priority (traffic_type type) const
 {
 	switch (type)
 	{
@@ -313,7 +313,7 @@ size_t nano::transport::tcp_channel_queue::priority (traffic_type type) const
 	}
 }
 
-void nano::transport::tcp_channel_queue::seek_next ()
+void celerix::transport::tcp_channel_queue::seek_next ()
 {
 	counter = 0;
 	do

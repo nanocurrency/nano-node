@@ -1,18 +1,18 @@
-#include <nano/lib/stats.hpp>
-#include <nano/lib/tomlconfig.hpp>
-#include <nano/node/active_elections.hpp>
-#include <nano/node/election_behavior.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/online_reps.hpp>
-#include <nano/node/scheduler/hinted.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/ledger_set_any.hpp>
+#include <celerix/lib/stats.hpp>
+#include <celerix/lib/tomlconfig.hpp>
+#include <celerix/node/active_elections.hpp>
+#include <celerix/node/election_behavior.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/online_reps.hpp>
+#include <celerix/node/scheduler/hinted.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/ledger_set_any.hpp>
 
 /*
  * hinted
  */
 
-nano::scheduler::hinted::hinted (hinted_config const & config_a, nano::node & node_a, nano::vote_cache & vote_cache_a, nano::active_elections & active_a, nano::online_reps & online_reps_a, nano::stats & stats_a) :
+celerix::scheduler::hinted::hinted (hinted_config const & config_a, celerix::node & node_a, celerix::vote_cache & vote_cache_a, celerix::active_elections & active_a, celerix::online_reps & online_reps_a, celerix::stats & stats_a) :
 	config{ config_a },
 	node{ node_a },
 	vote_cache{ vote_cache_a },
@@ -22,13 +22,13 @@ nano::scheduler::hinted::hinted (hinted_config const & config_a, nano::node & no
 {
 }
 
-nano::scheduler::hinted::~hinted ()
+celerix::scheduler::hinted::~hinted ()
 {
 	// Thread must be stopped before destruction
 	debug_assert (!thread.joinable ());
 }
 
-void nano::scheduler::hinted::start ()
+void celerix::scheduler::hinted::start ()
 {
 	debug_assert (!thread.joinable ());
 
@@ -38,43 +38,43 @@ void nano::scheduler::hinted::start ()
 	}
 
 	thread = std::thread{ [this] () {
-		nano::thread_role::set (nano::thread_role::name::scheduler_hinted);
+		celerix::thread_role::set (celerix::thread_role::name::scheduler_hinted);
 		run ();
 	} };
 }
 
-void nano::scheduler::hinted::stop ()
+void celerix::scheduler::hinted::stop ()
 {
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
+		celerix::lock_guard<celerix::mutex> lock{ mutex };
 		stopped = true;
 	}
 	notify ();
-	nano::join_or_pass (thread);
+	celerix::join_or_pass (thread);
 }
 
-void nano::scheduler::hinted::notify ()
+void celerix::scheduler::hinted::notify ()
 {
 	// Avoid notifying when there is very little space inside AEC
-	auto const limit = active.limit (nano::election_behavior::hinted);
-	if (active.vacancy (nano::election_behavior::hinted) >= (limit * config.vacancy_threshold_percent / 100))
+	auto const limit = active.limit (celerix::election_behavior::hinted);
+	if (active.vacancy (celerix::election_behavior::hinted) >= (limit * config.vacancy_threshold_percent / 100))
 	{
 		condition.notify_all ();
 	}
 }
 
-bool nano::scheduler::hinted::predicate () const
+bool celerix::scheduler::hinted::predicate () const
 {
 	// Check if there is space inside AEC for a new hinted election
-	return active.vacancy (nano::election_behavior::hinted) > 0;
+	return active.vacancy (celerix::election_behavior::hinted) > 0;
 }
 
-void nano::scheduler::hinted::activate (secure::read_transaction & transaction, nano::block_hash const & hash, bool check_dependents)
+void celerix::scheduler::hinted::activate (secure::read_transaction & transaction, celerix::block_hash const & hash, bool check_dependents)
 {
 	const int max_iterations = 64;
 
-	std::set<nano::block_hash> visited;
-	std::stack<nano::block_hash> stack;
+	std::set<celerix::block_hash> visited;
+	std::stack<celerix::block_hash> stack;
 	stack.push (hash);
 
 	int iterations = 0;
@@ -82,7 +82,7 @@ void nano::scheduler::hinted::activate (secure::read_transaction & transaction, 
 	{
 		transaction.refresh_if_needed ();
 
-		const nano::block_hash current_hash = stack.top ();
+		const celerix::block_hash current_hash = stack.top ();
 		stack.pop ();
 
 		// Check if block exists
@@ -91,7 +91,7 @@ void nano::scheduler::hinted::activate (secure::read_transaction & transaction, 
 			// Ensure block is not already confirmed
 			if (node.block_confirmed_or_being_confirmed (transaction, current_hash))
 			{
-				stats.inc (nano::stat::type::hinting, nano::stat::detail::already_confirmed);
+				stats.inc (celerix::stat::type::hinting, celerix::stat::detail::already_confirmed);
 				vote_cache.erase (current_hash); // Remove from vote cache
 				continue; // Move on to the next item in the stack
 			}
@@ -101,7 +101,7 @@ void nano::scheduler::hinted::activate (secure::read_transaction & transaction, 
 				// Perform a depth-first search of the dependency graph
 				if (!node.ledger.dependents_confirmed (transaction, *block))
 				{
-					stats.inc (nano::stat::type::hinting, nano::stat::detail::dependent_unconfirmed);
+					stats.inc (celerix::stat::type::hinting, celerix::stat::detail::dependent_unconfirmed);
 					auto dependents = node.ledger.dependent_blocks (transaction, *block);
 					for (const auto & dependent_hash : dependents)
 					{
@@ -115,19 +115,19 @@ void nano::scheduler::hinted::activate (secure::read_transaction & transaction, 
 			}
 
 			// Try to insert it into AEC as hinted election
-			auto result = node.active.insert (block, nano::election_behavior::hinted);
-			stats.inc (nano::stat::type::hinting, result.inserted ? nano::stat::detail::insert : nano::stat::detail::insert_failed);
+			auto result = node.active.insert (block, celerix::election_behavior::hinted);
+			stats.inc (celerix::stat::type::hinting, result.inserted ? celerix::stat::detail::insert : celerix::stat::detail::insert_failed);
 		}
 		else
 		{
-			stats.inc (nano::stat::type::hinting, nano::stat::detail::missing_block);
+			stats.inc (celerix::stat::type::hinting, celerix::stat::detail::missing_block);
 
 			// TODO: Block is missing, bootstrap it
 		}
 	}
 }
 
-void nano::scheduler::hinted::run_iterative ()
+void celerix::scheduler::hinted::run_iterative ()
 {
 	const auto minimum_tally = tally_threshold ();
 	const auto minimum_final_tally = final_tally_threshold ();
@@ -158,24 +158,24 @@ void nano::scheduler::hinted::run_iterative ()
 		if (entry.final_tally < minimum_final_tally)
 		{
 			// Ensure all dependent blocks are already confirmed before activating
-			stats.inc (nano::stat::type::hinting, nano::stat::detail::activate);
+			stats.inc (celerix::stat::type::hinting, celerix::stat::detail::activate);
 			activate (transaction, entry.hash, /* activate dependents */ true);
 		}
 		else
 		{
 			// Blocks with a vote tally higher than quorum, can be activated and confirmed immediately
-			stats.inc (nano::stat::type::hinting, nano::stat::detail::activate_immediate);
+			stats.inc (celerix::stat::type::hinting, celerix::stat::detail::activate_immediate);
 			activate (transaction, entry.hash, false);
 		}
 	}
 }
 
-void nano::scheduler::hinted::run ()
+void celerix::scheduler::hinted::run ()
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		stats.inc (nano::stat::type::hinting, nano::stat::detail::loop);
+		stats.inc (celerix::stat::type::hinting, celerix::stat::detail::loop);
 
 		condition.wait_for (lock, config.check_interval);
 
@@ -195,21 +195,21 @@ void nano::scheduler::hinted::run ()
 	}
 }
 
-nano::uint128_t nano::scheduler::hinted::tally_threshold () const
+celerix::uint128_t celerix::scheduler::hinted::tally_threshold () const
 {
 	auto min_tally = (online_reps.trended () / 100) * config.hinting_threshold_percent;
 	return min_tally;
 }
 
-nano::uint128_t nano::scheduler::hinted::final_tally_threshold () const
+celerix::uint128_t celerix::scheduler::hinted::final_tally_threshold () const
 {
 	auto quorum = online_reps.delta ();
 	return quorum;
 }
 
-bool nano::scheduler::hinted::cooldown (const nano::block_hash & hash)
+bool celerix::scheduler::hinted::cooldown (const celerix::block_hash & hash)
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
 	auto const now = std::chrono::steady_clock::now ();
 
@@ -237,11 +237,11 @@ bool nano::scheduler::hinted::cooldown (const nano::block_hash & hash)
 	return false; // No need to cooldown
 }
 
-nano::container_info nano::scheduler::hinted::container_info () const
+celerix::container_info celerix::scheduler::hinted::container_info () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
 
-	nano::container_info info;
+	celerix::container_info info;
 	info.put ("cooldowns", cooldowns_m);
 	return info;
 }
@@ -250,7 +250,7 @@ nano::container_info nano::scheduler::hinted::container_info () const
  * hinted_config
  */
 
-nano::scheduler::hinted_config::hinted_config (nano::network_constants const & network)
+celerix::scheduler::hinted_config::hinted_config (celerix::network_constants const & network)
 {
 	if (network.is_dev_network ())
 	{
@@ -259,7 +259,7 @@ nano::scheduler::hinted_config::hinted_config (nano::network_constants const & n
 	}
 }
 
-nano::error nano::scheduler::hinted_config::serialize (nano::tomlconfig & toml) const
+celerix::error celerix::scheduler::hinted_config::serialize (celerix::tomlconfig & toml) const
 {
 	toml.put ("enable", enable, "Enable or disable hinted elections\ntype:bool");
 	toml.put ("hinting_threshold", hinting_threshold_percent, "Percentage of online weight needed to start a hinted election. \ntype:uint32,[0,100]");
@@ -270,7 +270,7 @@ nano::error nano::scheduler::hinted_config::serialize (nano::tomlconfig & toml) 
 	return toml.get_error ();
 }
 
-nano::error nano::scheduler::hinted_config::deserialize (nano::tomlconfig & toml)
+celerix::error celerix::scheduler::hinted_config::deserialize (celerix::tomlconfig & toml)
 {
 	toml.get ("enable", enable);
 	toml.get ("hinting_threshold", hinting_threshold_percent);

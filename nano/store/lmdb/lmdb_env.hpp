@@ -1,11 +1,11 @@
 #pragma once
 
-#include <nano/lib/id_dispenser.hpp>
-#include <nano/lib/lmdbconfig.hpp>
-#include <nano/store/component.hpp>
-#include <nano/store/lmdb/transaction_impl.hpp>
+#include <celerix/lib/id_dispenser.hpp>
+#include <celerix/lib/lmdbconfig.hpp>
+#include <celerix/store/component.hpp>
+#include <celerix/store/lmdb/transaction_impl.hpp>
 
-namespace nano::store::lmdb
+namespace celerix::store::lmdb
 {
 /**
  * RAII wrapper for MDB_env
@@ -24,7 +24,7 @@ public:
 			return options ();
 		}
 
-		options & set_config (nano::lmdb_config config_a)
+		options & set_config (celerix::lmdb_config config_a)
 		{
 			config = config_a;
 			return *this;
@@ -44,7 +44,7 @@ public:
 		}
 
 		/** Used by the wallet to override the sync strategy */
-		options & override_config_sync (nano::lmdb_config::sync_strategy sync_a)
+		options & override_config_sync (celerix::lmdb_config::sync_strategy sync_a)
 		{
 			config.sync = sync_a;
 			return *this;
@@ -52,7 +52,7 @@ public:
 
 	private:
 		bool use_no_mem_init{ false };
-		nano::lmdb_config config;
+		celerix::lmdb_config config;
 	};
 
 	env (bool &, std::filesystem::path const &, env::options options_a = env::options::make ());
@@ -63,6 +63,6 @@ public:
 	store::write_transaction tx_begin_write (txn_callbacks callbacks = txn_callbacks{}) const;
 	MDB_txn * tx (store::transaction const & transaction_a) const;
 	std::unique_ptr<MDB_env, decltype (&mdb_env_close)> environment{ nullptr, mdb_env_close };
-	nano::id_t const store_id{ nano::next_id () };
+	celerix::id_t const store_id{ celerix::next_id () };
 };
-} // namespace nano::store::lmdb
+} // namespace celerix::store::lmdb

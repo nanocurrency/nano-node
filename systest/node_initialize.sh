@@ -10,16 +10,16 @@ test_cmd() {
     DATADIR=$(mktemp -d)
 
     # initialise data directory
-    $NANO_NODE_EXE --initialize --data_path "$DATADIR" "$netcmd" "$netarg"
+    $CELERIX_NODE_EXE --initialize --data_path "$DATADIR" "$netcmd" "$netarg"
 
     # check that it is the live network
     grep -q "Active network: $netmatch" "$DATADIR"/log/log_*.log
 
     # check that the ledger file is created and has one block, the genesis block
-    $NANO_NODE_EXE --debug_block_count --data_path "$DATADIR" "$netcmd" "$netarg" | grep -q 'Block count: 1'
+    $CELERIX_NODE_EXE --debug_block_count --data_path "$DATADIR" "$netcmd" "$netarg" | grep -q 'Block count: 1'
 
     # check the genesis block is correct
-    $NANO_NODE_EXE --debug_block_dump --data_path "$DATADIR" "$netcmd" "$netarg" | head -n 1 | grep -qi "$genesishash"
+    $CELERIX_NODE_EXE --debug_block_dump --data_path "$DATADIR" "$netcmd" "$netarg" | head -n 1 | grep -qi "$genesishash"
 }
 
 test_cmd "live" "--network" "live" "991CF190094C00F0B68E2E5F75F6BEE95A2E0BD93CEAA4A6734DB9F19B728948"
