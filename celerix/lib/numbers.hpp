@@ -20,8 +20,8 @@ using uint256_t = boost::multiprecision::uint256_t;
 using uint512_t = boost::multiprecision::uint512_t;
 
 // SI dividers
-celerix::uint128_t const Kcelerix_ratio = celerix::uint128_t ("1000000000000000000000000000000000"); // 10^33 = 1000 celerix
-celerix::uint128_t const celerix_ratio = celerix::uint128_t ("1000000000000000000000000000000"); // 10^30 = 1 celerix
+celerix::uint128_t const Kcelerix_ratio = celerix::uint128_t ("100000"); // 10^5 = 1000 celerix
+celerix::uint128_t const celerix_ratio = celerix::uint128_t ("100"); // 10^2 = 1 celerix
 celerix::uint128_t const raw_ratio = celerix::uint128_t ("1"); // 10^0
 
 using bucket_index = uint64_t;
