@@ -1,0 +1,52 @@
+#pragma once
+
+#include <celerix/lib/numbers.hpp>
+#include <celerix/lib/stats_enums.hpp>
+
+#include <chrono>
+#include <memory>
+
+namespace celerix
+{
+class block;
+}
+
+namespace celerix
+{
+/* Defines the possible states for an election to stop in */
+enum class election_status_type : uint8_t
+{
+	ongoing = 0,
+	active_confirmed_quorum = 1,
+	active_confirmation_height = 2,
+	inactive_confirmation_height = 3,
+	stopped = 5
+};
+
+celerix::stat::detail to_stat_detail (election_status_type);
+
+/* Holds a summary of an election */
+class election_status final
+{
+public:
+	std::shared_ptr<celerix::block> winner;
+	celerix::amount tally{ 0 };
+	celerix::amount final_tally{ 0 };
+	std::chrono::milliseconds election_end{ std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()) };
+	std::chrono::milliseconds election_duration{ std::chrono::duration_values<std::chrono::milliseconds>::zero () };
+	unsigned confirmation_request_count{ 0 };
+	unsigned vote_broadcast_count{ 0 };
+	unsigned block_count{ 0 };
+	unsigned voter_count{ 0 };
+	election_status_type type{ celerix::election_status_type::inactive_confirmation_height };
+
+	election_status () = default;
+
+	election_status (std::shared_ptr<celerix::block> block_a, election_status_type type_a = celerix::election_status_type::ongoing) :
+		winner (block_a),
+		type (type_a)
+	{
+		block_count = 1;
+	}
+};
+}

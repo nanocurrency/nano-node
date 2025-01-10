@@ -1,0 +1,877 @@
+#include <celerix/lib/blocks.hpp>
+#include <celerix/lib/enum_util.hpp>
+#include <celerix/node/active_elections.hpp>
+#include <celerix/node/confirmation_solicitor.hpp>
+#include <celerix/node/election.hpp>
+#include <celerix/node/local_vote_history.hpp>
+#include <celerix/node/network.hpp>
+#include <celerix/node/node.hpp>
+#include <celerix/node/online_reps.hpp>
+#include <celerix/node/vote_generator.hpp>
+#include <celerix/node/vote_router.hpp>
+#include <celerix/secure/ledger.hpp>
+#include <celerix/secure/vote.hpp>
+
+using namespace std::chrono;
+
+std::chrono::milliseconds celerix::election::base_latency () const
+{
+	return node.network_params.network.is_dev_network () ? 25ms : 1000ms;
+}
+
+/*
+ * election
+ */
+
+celerix::election::election (celerix::node & node_a, std::shared_ptr<celerix::block> const & block_a, std::function<void (std::shared_ptr<celerix::block> const &)> const & confirmation_action_a, std::function<void (celerix::account const &)> const & live_vote_action_a, celerix::election_behavior election_behavior_a) :
+	confirmation_action (confirmation_action_a),
+	live_vote_action (live_vote_action_a),
+	node (node_a),
+	behavior_m (election_behavior_a),
+	status (block_a),
+	height (block_a->sideband ().height),
+	root (block_a->root ()),
+	qualified_root (block_a->qualified_root ())
+{
+	last_votes.emplace (celerix::account::null (), celerix::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
+	last_blocks.emplace (block_a->hash (), block_a);
+}
+
+void celerix::election::confirm_once (celerix::unique_lock<celerix::mutex> & lock)
+{
+	debug_assert (lock.owns_lock ());
+	debug_assert (!mutex.try_lock ());
+
+	bool just_confirmed = state_m != celerix::election_state::confirmed;
+	state_m = celerix::election_state::confirmed;
+
+	if (just_confirmed)
+	{
+		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
+		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
+		status.confirmation_request_count = confirmation_request_count;
+		status.block_count = celerix::narrow_cast<decltype (status.block_count)> (last_blocks.size ());
+		status.voter_count = celerix::narrow_cast<decltype (status.voter_count)> (last_votes.size ());
+		auto const status_l = status;
+
+		node.active.recently_confirmed.put (qualified_root, status_l.winner->hash ());
+
+		auto const extended_status = current_status_locked ();
+
+		node.stats.inc (celerix::stat::type::election, celerix::stat::detail::confirm_once);
+		node.logger.trace (celerix::log::type::election, celerix::log::detail::election_confirmed,
+		celerix::log::arg{ "id", id },
+		celerix::log::arg{ "qualified_root", qualified_root },
+		celerix::log::arg{ "status", extended_status });
+
+		node.logger.debug (celerix::log::type::election, "Election confirmed with winner: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms, confirmation requests: {})",
+		status_l.winner->hash ().to_string (),
+		to_string (behavior_m),
+		to_string (state_m),
+		extended_status.status.voter_count,
+		extended_status.status.block_count,
+		extended_status.status.election_duration.count (),
+		extended_status.status.confirmation_request_count);
+
+		node.confirming_set.add (status_l.winner->hash (), shared_from_this ());
+
+		lock.unlock ();
+
+		node.election_workers.post ([status_l, confirmation_action_l = confirmation_action] () {
+			if (confirmation_action_l)
+			{
+				confirmation_action_l (status_l.winner);
+			}
+		});
+	}
+	else
+	{
+		node.stats.inc (celerix::stat::type::election, celerix::stat::detail::confirm_once_failed);
+		lock.unlock ();
+	}
+}
+
+bool celerix::election::valid_change (celerix::election_state expected_a, celerix::election_state desired_a) const
+{
+	switch (expected_a)
+	{
+		case celerix::election_state::passive:
+			switch (desired_a)
+			{
+				case celerix::election_state::active:
+				case celerix::election_state::confirmed:
+				case celerix::election_state::expired_unconfirmed:
+				case celerix::election_state::cancelled:
+					return true; // Valid
+				default:
+					break;
+			}
+			break;
+		case celerix::election_state::active:
+			switch (desired_a)
+			{
+				case celerix::election_state::confirmed:
+				case celerix::election_state::expired_unconfirmed:
+				case celerix::election_state::cancelled:
+					return true; // Valid
+				default:
+					break;
+			}
+			break;
+		case celerix::election_state::confirmed:
+			switch (desired_a)
+			{
+				case celerix::election_state::expired_confirmed:
+					return true; // Valid
+				default:
+					break;
+			}
+			break;
+		case celerix::election_state::expired_unconfirmed:
+		case celerix::election_state::expired_confirmed:
+		case celerix::election_state::cancelled:
+			// No transitions are valid from these states
+			break;
+	}
+	return false;
+}
+
+bool celerix::election::state_change (celerix::election_state expected_a, celerix::election_state desired_a)
+{
+	bool result = true;
+	if (valid_change (expected_a, desired_a))
+	{
+		if (state_m == expected_a)
+		{
+			state_m = desired_a;
+			state_start = std::chrono::steady_clock::now ().time_since_epoch ();
+			result = false;
+		}
+	}
+	return result;
+}
+
+std::chrono::milliseconds celerix::election::confirm_req_time () const
+{
+	switch (behavior_m)
+	{
+		case election_behavior::manual:
+		case election_behavior::priority:
+		case election_behavior::hinted:
+			return base_latency () * 5;
+		case election_behavior::optimistic:
+			return base_latency () * 2;
+	}
+	debug_assert (false);
+	return {};
+}
+
+void celerix::election::send_confirm_req (celerix::confirmation_solicitor & solicitor_a)
+{
+	if (confirm_req_time () < (std::chrono::steady_clock::now () - last_req))
+	{
+		if (!solicitor_a.add (*this))
+		{
+			last_req = std::chrono::steady_clock::now ();
+			++confirmation_request_count;
+		}
+	}
+}
+
+void celerix::election::transition_active ()
+{
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	state_change (celerix::election_state::passive, celerix::election_state::active);
+}
+
+bool celerix::election::transition_priority ()
+{
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+
+	if (behavior_m == celerix::election_behavior::priority || behavior_m == celerix::election_behavior::manual)
+	{
+		return false;
+	}
+
+	behavior_m = celerix::election_behavior::priority;
+	last_vote = std::chrono::steady_clock::time_point{}; // allow new outgoing votes immediately
+
+	node.logger.debug (celerix::log::type::election, "Transitioned election behavior to priority from {} for root: {}",
+	to_string (behavior_m),
+	qualified_root.to_string ());
+
+	return true;
+}
+
+void celerix::election::cancel ()
+{
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	state_change (state_m, celerix::election_state::cancelled);
+}
+
+bool celerix::election::confirmed_locked () const
+{
+	debug_assert (!mutex.try_lock ());
+	return state_m == celerix::election_state::confirmed || state_m == celerix::election_state::expired_confirmed;
+}
+
+bool celerix::election::confirmed () const
+{
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
+	return confirmed_locked ();
+}
+
+bool celerix::election::failed () const
+{
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
+	return state_m == celerix::election_state::expired_unconfirmed;
+}
+
+bool celerix::election::broadcast_block_predicate () const
+{
+	debug_assert (!mutex.try_lock ());
+
+	// Broadcast the block if enough time has passed since the last broadcast (or it's the first broadcast)
+	if (last_block + node.config.network_params.network.block_broadcast_interval < std::chrono::steady_clock::now ())
+	{
+		return true;
+	}
+	// Or the current election winner has changed
+	if (status.winner->hash () != last_block_hash)
+	{
+		return true;
+	}
+	return false;
+}
+
+void celerix::election::broadcast_block (celerix::confirmation_solicitor & solicitor_a)
+{
+	debug_assert (!mutex.try_lock ());
+
+	if (broadcast_block_predicate ())
+	{
+		if (!solicitor_a.broadcast (*this))
+		{
+			node.stats.inc (celerix::stat::type::election, last_block_hash.is_zero () ? celerix::stat::detail::broadcast_block_initial : celerix::stat::detail::broadcast_block_repeat);
+
+			last_block = std::chrono::steady_clock::now ();
+			last_block_hash = status.winner->hash ();
+		}
+	}
+}
+
+void celerix::election::broadcast_vote ()
+{
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
+	broadcast_vote_locked (lock);
+}
+
+celerix::vote_info celerix::election::get_last_vote (celerix::account const & account)
+{
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	return last_votes[account];
+}
+
+void celerix::election::set_last_vote (celerix::account const & account, celerix::vote_info vote_info)
+{
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	last_votes[account] = vote_info;
+}
+
+celerix::election_status celerix::election::get_status () const
+{
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	return status;
+}
+
+bool celerix::election::transition_time (celerix::confirmation_solicitor & solicitor_a)
+{
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
+	bool result = false;
+	switch (state_m)
+	{
+		case celerix::election_state::passive:
+			if (base_latency () * passive_duration_factor < std::chrono::steady_clock::now ().time_since_epoch () - state_start)
+			{
+				state_change (celerix::election_state::passive, celerix::election_state::active);
+			}
+			break;
+		case celerix::election_state::active:
+			broadcast_vote_locked (lock);
+			broadcast_block (solicitor_a);
+			send_confirm_req (solicitor_a);
+			break;
+		case celerix::election_state::confirmed:
+			result = true; // Return true to indicate this election should be cleaned up
+			broadcast_block (solicitor_a); // Ensure election winner is broadcasted
+			state_change (celerix::election_state::confirmed, celerix::election_state::expired_confirmed);
+			break;
+		case celerix::election_state::expired_unconfirmed:
+		case celerix::election_state::expired_confirmed:
+			debug_assert (false);
+			break;
+		case celerix::election_state::cancelled:
+			return true; // Clean up cancelled elections immediately
+	}
+
+	if (!confirmed_locked () && time_to_live () < std::chrono::steady_clock::now () - election_start)
+	{
+		// It is possible the election confirmed while acquiring the mutex
+		// state_change returning true would indicate it
+		if (!state_change (state_m, celerix::election_state::expired_unconfirmed))
+		{
+			node.logger.trace (celerix::log::type::election, celerix::log::detail::election_expired,
+			celerix::log::arg{ "id", id },
+			celerix::log::arg{ "qualified_root", qualified_root },
+			celerix::log::arg{ "status", current_status_locked () });
+
+			result = true; // Return true to indicate this election should be cleaned up
+			status.type = celerix::election_status_type::stopped;
+		}
+	}
+	return result;
+}
+
+std::chrono::milliseconds celerix::election::time_to_live () const
+{
+	switch (behavior_m)
+	{
+		case election_behavior::manual:
+		case election_behavior::priority:
+			return std::chrono::milliseconds (5 * 60 * 1000);
+		case election_behavior::hinted:
+		case election_behavior::optimistic:
+			return std::chrono::milliseconds (30 * 1000);
+	}
+	debug_assert (false);
+	return {};
+}
+
+std::chrono::seconds celerix::election::cooldown_time (celerix::uint128_t weight) const
+{
+	auto online_stake = node.online_reps.trended ();
+	if (weight > online_stake / 20) // Reps with more than 5% weight
+	{
+		return std::chrono::seconds{ 1 };
+	}
+	if (weight > online_stake / 100) // Reps with more than 1% weight
+	{
+		return std::chrono::seconds{ 5 };
+	}
+	// The rest of smaller reps
+	return std::chrono::seconds{ 15 };
+}
+
+bool celerix::election::have_quorum (celerix::tally_t const & tally_a) const
+{
+	auto i (tally_a.begin ());
+	++i;
+	auto second (i != tally_a.end () ? i->first : 0);
+	auto delta_l (node.online_reps.delta ());
+	release_assert (tally_a.begin ()->first >= second);
+	bool result{ (tally_a.begin ()->first - second) >= delta_l };
+	return result;
+}
+
+celerix::tally_t celerix::election::tally () const
+{
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	return tally_impl ();
+}
+
+celerix::tally_t celerix::election::tally_impl () const
+{
+	std::unordered_map<celerix::block_hash, celerix::uint128_t> block_weights;
+	std::unordered_map<celerix::block_hash, celerix::uint128_t> final_weights_l;
+	for (auto const & [account, info] : last_votes)
+	{
+		auto rep_weight (node.ledger.weight (account));
+		block_weights[info.hash] += rep_weight;
+		if (info.timestamp == std::numeric_limits<uint64_t>::max ())
+		{
+			final_weights_l[info.hash] += rep_weight;
+		}
+	}
+	last_tally = block_weights;
+	celerix::tally_t result;
+	for (auto const & [hash, amount] : block_weights)
+	{
+		auto block (last_blocks.find (hash));
+		if (block != last_blocks.end ())
+		{
+			result.emplace (amount, block->second);
+		}
+	}
+	// Calculate final votes sum for winner
+	if (!final_weights_l.empty () && !result.empty ())
+	{
+		auto winner_hash (result.begin ()->second->hash ());
+		auto find_final (final_weights_l.find (winner_hash));
+		if (find_final != final_weights_l.end ())
+		{
+			final_weight = find_final->second;
+		}
+	}
+	return result;
+}
+
+void celerix::election::confirm_if_quorum (celerix::unique_lock<celerix::mutex> & lock_a)
+{
+	debug_assert (lock_a.owns_lock ());
+	auto tally_l (tally_impl ());
+	release_assert (!tally_l.empty ());
+	auto winner (tally_l.begin ());
+	auto block_l (winner->second);
+	auto const & winner_hash_l (block_l->hash ());
+	status.tally = winner->first;
+	status.final_tally = final_weight;
+	auto const & status_winner_hash_l (status.winner->hash ());
+	celerix::uint128_t sum (0);
+	for (auto & i : tally_l)
+	{
+		sum += i.first;
+	}
+	if (sum >= node.online_reps.delta () && winner_hash_l != status_winner_hash_l)
+	{
+		status.winner = block_l;
+		remove_votes (status_winner_hash_l);
+		node.block_processor.force (block_l);
+	}
+	if (have_quorum (tally_l))
+	{
+		if (!is_quorum.exchange (true) && node.config.enable_voting && node.wallets.reps ().voting > 0)
+		{
+			++vote_broadcast_count;
+			node.final_generator.add (root, status.winner->hash ());
+		}
+		if (final_weight >= node.online_reps.delta ())
+		{
+			// In some edge cases block might get rolled back while the election is confirming, reprocess it to ensure it's present in the ledger
+			node.block_processor.add (block_l, celerix::block_source::election);
+			confirm_once (lock_a);
+			debug_assert (!lock_a.owns_lock ());
+		}
+	}
+}
+
+void celerix::election::try_confirm (celerix::block_hash const & hash)
+{
+	celerix::unique_lock<celerix::mutex> election_lock{ mutex };
+	auto winner = status.winner;
+	if (winner && winner->hash () == hash)
+	{
+		if (!confirmed_locked ())
+		{
+			confirm_once (election_lock);
+			debug_assert (!election_lock.owns_lock ());
+		}
+	}
+}
+
+std::shared_ptr<celerix::block> celerix::election::find (celerix::block_hash const & hash_a) const
+{
+	std::shared_ptr<celerix::block> result;
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	if (auto existing = last_blocks.find (hash_a); existing != last_blocks.end ())
+	{
+		result = existing->second;
+	}
+	return result;
+}
+
+celerix::vote_code celerix::election::vote (celerix::account const & rep, uint64_t timestamp_a, celerix::block_hash const & block_hash_a, celerix::vote_source vote_source_a)
+{
+	auto weight = node.ledger.weight (rep);
+	if (!node.network_params.network.is_dev_network () && weight <= node.minimum_principal_weight ())
+	{
+		return vote_code::indeterminate;
+	}
+
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
+
+	auto last_vote_it (last_votes.find (rep));
+	if (last_vote_it != last_votes.end ())
+	{
+		auto last_vote_l (last_vote_it->second);
+		if (last_vote_l.timestamp > timestamp_a)
+		{
+			return vote_code::replay;
+		}
+		if (last_vote_l.timestamp == timestamp_a && !(last_vote_l.hash < block_hash_a))
+		{
+			return vote_code::replay;
+		}
+
+		auto max_vote = timestamp_a == std::numeric_limits<uint64_t>::max () && last_vote_l.timestamp < timestamp_a;
+
+		bool past_cooldown = true;
+		if (vote_source_a != vote_source::cache) // Only cooldown live votes
+		{
+			const auto cooldown = cooldown_time (weight);
+			past_cooldown = last_vote_l.time <= std::chrono::steady_clock::now () - cooldown;
+		}
+
+		if (!max_vote && !past_cooldown)
+		{
+			return vote_code::ignored;
+		}
+	}
+
+	last_votes[rep] = { std::chrono::steady_clock::now (), timestamp_a, block_hash_a };
+	if (vote_source_a != vote_source::cache)
+	{
+		live_vote_action (rep);
+	}
+
+	node.stats.inc (celerix::stat::type::election, celerix::stat::detail::vote);
+	node.stats.inc (celerix::stat::type::election_vote, to_stat_detail (vote_source_a));
+
+	node.logger.trace (celerix::log::type::election, celerix::log::detail::vote_processed,
+	celerix::log::arg{ "id", id },
+	celerix::log::arg{ "qualified_root", qualified_root },
+	celerix::log::arg{ "account", rep },
+	celerix::log::arg{ "hash", block_hash_a },
+	celerix::log::arg{ "final", celerix::vote::is_final_timestamp (timestamp_a) },
+	celerix::log::arg{ "timestamp", timestamp_a },
+	celerix::log::arg{ "vote_source", vote_source_a },
+	celerix::log::arg{ "weight", weight });
+
+	if (!confirmed_locked ())
+	{
+		confirm_if_quorum (lock);
+	}
+
+	return vote_code::vote;
+}
+
+bool celerix::election::publish (std::shared_ptr<celerix::block> const & block_a)
+{
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
+
+	// Do not insert new blocks if already confirmed
+	auto result (confirmed_locked ());
+	if (!result && last_blocks.size () >= max_blocks && last_blocks.find (block_a->hash ()) == last_blocks.end ())
+	{
+		if (!replace_by_weight (lock, block_a->hash ()))
+		{
+			result = true;
+			node.network.filter.clear (block_a);
+		}
+		debug_assert (lock.owns_lock ());
+	}
+	if (!result)
+	{
+		auto existing = last_blocks.find (block_a->hash ());
+		if (existing == last_blocks.end ())
+		{
+			last_blocks.emplace (std::make_pair (block_a->hash (), block_a));
+		}
+		else
+		{
+			result = true;
+			existing->second = block_a;
+			if (status.winner->hash () == block_a->hash ())
+			{
+				status.winner = block_a;
+				node.network.flood_block (block_a, celerix::transport::traffic_type::block_broadcast);
+			}
+		}
+	}
+	/*
+	Result is true if:
+	1) election is confirmed or expired
+	2) given election contains 10 blocks & new block didn't receive enough votes to replace existing blocks
+	3) given block in already in election & election contains less than 10 blocks (replacing block content with new)
+	*/
+	return result;
+}
+
+celerix::election_extended_status celerix::election::current_status () const
+{
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	return current_status_locked ();
+}
+
+celerix::election_extended_status celerix::election::current_status_locked () const
+{
+	debug_assert (!mutex.try_lock ());
+
+	celerix::election_status status_l = status;
+	status_l.confirmation_request_count = confirmation_request_count;
+	status_l.vote_broadcast_count = vote_broadcast_count;
+	status_l.block_count = celerix::narrow_cast<decltype (status_l.block_count)> (last_blocks.size ());
+	status_l.voter_count = celerix::narrow_cast<decltype (status_l.voter_count)> (last_votes.size ());
+	return celerix::election_extended_status{ status_l, last_votes, last_blocks, tally_impl () };
+}
+
+std::shared_ptr<celerix::block> celerix::election::winner () const
+{
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	return status.winner;
+}
+
+std::chrono::milliseconds celerix::election::duration () const
+{
+	return std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
+}
+
+void celerix::election::broadcast_vote_locked (celerix::unique_lock<celerix::mutex> & lock)
+{
+	debug_assert (lock.owns_lock ());
+
+	if (std::chrono::steady_clock::now () < last_vote + node.config.network_params.network.vote_broadcast_interval)
+	{
+		return;
+	}
+	last_vote = std::chrono::steady_clock::now ();
+
+	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
+	{
+		node.stats.inc (celerix::stat::type::election, celerix::stat::detail::broadcast_vote);
+		++vote_broadcast_count;
+
+		if (confirmed_locked () || have_quorum (tally_impl ()))
+		{
+			node.stats.inc (celerix::stat::type::election, celerix::stat::detail::broadcast_vote_final);
+			node.logger.trace (celerix::log::type::election, celerix::log::detail::broadcast_vote,
+			celerix::log::arg{ "id", id },
+			celerix::log::arg{ "qualified_root", qualified_root },
+			celerix::log::arg{ "winner", status.winner },
+			celerix::log::arg{ "type", "final" });
+
+			node.final_generator.add (root, status.winner->hash ()); // Broadcasts vote to the network
+		}
+		else
+		{
+			node.stats.inc (celerix::stat::type::election, celerix::stat::detail::broadcast_vote_normal);
+			node.logger.trace (celerix::log::type::election, celerix::log::detail::broadcast_vote,
+			celerix::log::arg{ "id", id },
+			celerix::log::arg{ "qualified_root", qualified_root },
+			celerix::log::arg{ "winner", status.winner },
+			celerix::log::arg{ "type", "normal" });
+
+			node.generator.add (root, status.winner->hash ()); // Broadcasts vote to the network
+		}
+	}
+}
+
+void celerix::election::remove_votes (celerix::block_hash const & hash_a)
+{
+	debug_assert (!mutex.try_lock ());
+	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
+	{
+		// Remove votes from election
+		auto list_generated_votes (node.history.votes (root, hash_a));
+		for (auto const & vote : list_generated_votes)
+		{
+			last_votes.erase (vote->account);
+		}
+		// Clear votes cache
+		node.history.erase (root);
+	}
+}
+
+void celerix::election::remove_block (celerix::block_hash const & hash_a)
+{
+	debug_assert (!mutex.try_lock ());
+	if (status.winner->hash () != hash_a)
+	{
+		if (auto existing = last_blocks.find (hash_a); existing != last_blocks.end ())
+		{
+			erase_if (last_votes, [hash_a] (auto const & entry) {
+				return entry.second.hash == hash_a;
+			});
+
+			node.network.filter.clear (existing->second);
+			last_blocks.erase (hash_a);
+		}
+	}
+}
+
+bool celerix::election::replace_by_weight (celerix::unique_lock<celerix::mutex> & lock_a, celerix::block_hash const & hash_a)
+{
+	debug_assert (lock_a.owns_lock ());
+	celerix::block_hash replaced_block (0);
+	auto winner_hash (status.winner->hash ());
+	// Sort existing blocks tally
+	std::vector<std::pair<celerix::block_hash, celerix::uint128_t>> sorted;
+	sorted.reserve (last_tally.size ());
+	std::copy (last_tally.begin (), last_tally.end (), std::back_inserter (sorted));
+	lock_a.unlock ();
+
+	// Sort in ascending order
+	std::sort (sorted.begin (), sorted.end (), [] (auto const & left, auto const & right) { return left.second < right.second; });
+
+	auto votes_tally = [this] (std::vector<std::shared_ptr<celerix::vote>> const & votes) {
+		celerix::uint128_t result{ 0 };
+		for (auto const & vote : votes)
+		{
+			result += node.ledger.weight (vote->account);
+		}
+		return result;
+	};
+
+	// Replace if lowest tally is below inactive cache new block weight
+	auto inactive_existing = node.vote_cache.find (hash_a);
+	auto inactive_tally = votes_tally (inactive_existing);
+	if (inactive_tally > 0 && sorted.size () < max_blocks)
+	{
+		// If count of tally items is less than 10, remove any block without tally
+		for (auto const & [hash, block] : blocks ())
+		{
+			if (std::find_if (sorted.begin (), sorted.end (), [&hash = hash] (auto const & item_a) { return item_a.first == hash; }) == sorted.end () && hash != winner_hash)
+			{
+				replaced_block = hash;
+				break;
+			}
+		}
+	}
+	else if (inactive_tally > 0 && inactive_tally > sorted.front ().second)
+	{
+		if (sorted.front ().first != winner_hash)
+		{
+			replaced_block = sorted.front ().first;
+		}
+		else if (inactive_tally > sorted[1].second)
+		{
+			// Avoid removing winner
+			replaced_block = sorted[1].first;
+		}
+	}
+
+	bool replaced (false);
+	if (!replaced_block.is_zero ())
+	{
+		node.vote_router.disconnect (replaced_block);
+		lock_a.lock ();
+		remove_block (replaced_block);
+		replaced = true;
+	}
+	else
+	{
+		lock_a.lock ();
+	}
+	return replaced;
+}
+
+void celerix::election::force_confirm ()
+{
+	release_assert (node.network_params.network.is_dev_network ());
+	celerix::unique_lock<celerix::mutex> lock{ mutex };
+	confirm_once (lock);
+}
+
+std::unordered_map<celerix::block_hash, std::shared_ptr<celerix::block>> celerix::election::blocks () const
+{
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	return last_blocks;
+}
+
+std::unordered_map<celerix::account, celerix::vote_info> celerix::election::votes () const
+{
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	return last_votes;
+}
+
+std::vector<celerix::vote_with_weight_info> celerix::election::votes_with_weight () const
+{
+	std::multimap<celerix::uint128_t, celerix::vote_with_weight_info, std::greater<celerix::uint128_t>> sorted_votes;
+	std::vector<celerix::vote_with_weight_info> result;
+	auto votes_l (votes ());
+	for (auto const & vote_l : votes_l)
+	{
+		if (vote_l.first != nullptr)
+		{
+			auto amount (node.ledger.cache.rep_weights.representation_get (vote_l.first));
+			celerix::vote_with_weight_info vote_info{ vote_l.first, vote_l.second.time, vote_l.second.timestamp, vote_l.second.hash, amount };
+			sorted_votes.emplace (std::move (amount), vote_info);
+		}
+	}
+	result.reserve (sorted_votes.size ());
+	std::transform (sorted_votes.begin (), sorted_votes.end (), std::back_inserter (result), [] (auto const & entry) { return entry.second; });
+	return result;
+}
+
+celerix::election_behavior celerix::election::behavior () const
+{
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	return behavior_m;
+}
+
+celerix::election_state celerix::election::state () const
+{
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	return state_m;
+}
+
+bool celerix::election::contains (celerix::block_hash const & hash) const
+{
+	celerix::lock_guard<celerix::mutex> guard{ mutex };
+	return last_blocks.contains (hash);
+}
+
+// TODO: Remove the need for .to_string () calls
+void celerix::election::operator() (celerix::object_stream & obs) const
+{
+	obs.write ("id", id);
+	obs.write ("qualified_root", qualified_root.to_string ());
+	obs.write ("behavior", behavior_m);
+	obs.write ("height", height);
+	obs.write ("status", current_status ());
+}
+
+void celerix::election_extended_status::operator() (celerix::object_stream & obs) const
+{
+	obs.write ("winner", status.winner->hash ().to_string ());
+	obs.write ("tally_amount", status.tally.to_string_dec ());
+	obs.write ("final_tally_amount", status.final_tally.to_string_dec ());
+	obs.write ("confirmation_request_count", status.confirmation_request_count);
+	obs.write ("vote_broadcast_count", status.vote_broadcast_count);
+	obs.write ("block_count", status.block_count);
+	obs.write ("voter_count", status.voter_count);
+	obs.write ("type", status.type);
+
+	obs.write_range ("votes", votes, [] (auto const & entry, celerix::object_stream & obs) {
+		auto & [account, info] = entry;
+		obs.write ("account", account.to_account ());
+		obs.write ("hash", info.hash.to_string ());
+		obs.write ("final", celerix::vote::is_final_timestamp (info.timestamp));
+		obs.write ("timestamp", info.timestamp);
+		obs.write ("time", info.time.time_since_epoch ().count ());
+	});
+
+	obs.write_range ("blocks", blocks, [] (auto const & entry) {
+		auto [hash, block] = entry;
+		return block;
+	});
+
+	obs.write_range ("tally", tally, [] (auto const & entry, celerix::object_stream & obs) {
+		auto & [amount, block] = entry;
+		obs.write ("hash", block->hash ().to_string ());
+		obs.write ("amount", amount);
+	});
+}
+
+/*
+ *
+ */
+
+std::string_view celerix::to_string (celerix::election_behavior behavior)
+{
+	return celerix::enum_util::name (behavior);
+}
+
+celerix::stat::detail celerix::to_stat_detail (celerix::election_behavior behavior)
+{
+	return celerix::enum_util::cast<celerix::stat::detail> (behavior);
+}
+
+std::string_view celerix::to_string (celerix::election_state state)
+{
+	return celerix::enum_util::name (state);
+}
+
+celerix::stat::detail celerix::to_stat_detail (celerix::election_state state)
+{
+	return celerix::enum_util::cast<celerix::stat::detail> (state);
+}

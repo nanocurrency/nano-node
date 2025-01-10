@@ -1,0 +1,68 @@
+#pragma once
+
+#include <celerix/lib/id_dispenser.hpp>
+#include <celerix/lib/lmdbconfig.hpp>
+#include <celerix/store/component.hpp>
+#include <celerix/store/lmdb/transaction_impl.hpp>
+
+namespace celerix::store::lmdb
+{
+/**
+ * RAII wrapper for MDB_env
+ */
+class env final
+{
+public:
+	/** Environment options, most of which originates from the config file. */
+	class options final
+	{
+		friend class env;
+
+	public:
+		static options make ()
+		{
+			return options ();
+		}
+
+		options & set_config (celerix::lmdb_config config_a)
+		{
+			config = config_a;
+			return *this;
+		}
+
+		options & set_use_no_mem_init (int use_no_mem_init_a)
+		{
+			use_no_mem_init = use_no_mem_init_a;
+			return *this;
+		}
+
+		/** Used by the wallet to override the config map size */
+		options & override_config_map_size (std::size_t map_size_a)
+		{
+			config.map_size = map_size_a;
+			return *this;
+		}
+
+		/** Used by the wallet to override the sync strategy */
+		options & override_config_sync (celerix::lmdb_config::sync_strategy sync_a)
+		{
+			config.sync = sync_a;
+			return *this;
+		}
+
+	private:
+		bool use_no_mem_init{ false };
+		celerix::lmdb_config config;
+	};
+
+	env (bool &, std::filesystem::path const &, env::options options_a = env::options::make ());
+	void init (bool &, std::filesystem::path const &, env::options options_a = env::options::make ());
+	~env ();
+	operator MDB_env * () const;
+	store::read_transaction tx_begin_read (txn_callbacks callbacks = txn_callbacks{}) const;
+	store::write_transaction tx_begin_write (txn_callbacks callbacks = txn_callbacks{}) const;
+	MDB_txn * tx (store::transaction const & transaction_a) const;
+	std::unique_ptr<MDB_env, decltype (&mdb_env_close)> environment{ nullptr, mdb_env_close };
+	celerix::id_t const store_id{ celerix::next_id () };
+};
+} // namespace celerix::store::lmdb

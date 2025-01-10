@@ -1,0 +1,134 @@
+#include <celerix/boost/asio/ip/address_v6.hpp>
+#include <celerix/lib/config.hpp>
+#include <celerix/lib/rpcconfig.hpp>
+#include <celerix/lib/tomlconfig.hpp>
+
+#include <boost/dll/runtime_symbol_info.hpp>
+
+celerix::rpc_config::rpc_config (celerix::network_constants & network_constants) :
+	rpc_process{ network_constants },
+	address{ boost::asio::ip::address_v6::loopback ().to_string () }
+{
+}
+
+celerix::rpc_config::rpc_config (celerix::network_constants & network_constants, uint16_t port_a, bool enable_control_a) :
+	rpc_process{ network_constants },
+	address{ boost::asio::ip::address_v6::loopback ().to_string () },
+	port{ port_a },
+	enable_control{ enable_control_a }
+{
+}
+
+celerix::error celerix::rpc_config::serialize_toml (celerix::tomlconfig & toml) const
+{
+	toml.put ("address", address, "Bind address for the RPC server.\ntype:string,ip");
+	toml.put ("port", port, "Listening port for the RPC server.\ntype:uint16");
+	toml.put ("enable_control", enable_control, "Enable or disable control-level requests.\nWARNING: Enabling this gives anyone with RPC access the ability to stop the node and access wallet funds.\ntype:bool");
+	toml.put ("max_json_depth", max_json_depth, "Maximum number of levels in JSON requests.\ntype:uint8");
+	toml.put ("max_request_size", max_request_size, "Maximum number of bytes allowed in request bodies.\ntype:uint64");
+
+	celerix::tomlconfig rpc_process_l;
+	rpc_process_l.put ("io_threads", rpc_process.io_threads, "Number of threads used to serve IO.\ntype:uint32");
+	rpc_process_l.put ("ipc_address", rpc_process.ipc_address, "Address of IPC server.\ntype:string,ip");
+	rpc_process_l.put ("ipc_port", rpc_process.ipc_port, "Listening port of IPC server.\ntype:uint16");
+	rpc_process_l.put ("num_ipc_connections", rpc_process.num_ipc_connections, "Number of IPC connections to establish.\ntype:uint32");
+	toml.put_child ("process", rpc_process_l);
+
+	celerix::tomlconfig rpc_logging_l;
+	rpc_logging_l.put ("log_rpc", rpc_logging.log_rpc, "Whether to log RPC calls.\ntype:bool");
+	toml.put_child ("logging", rpc_logging_l);
+	return toml.get_error ();
+}
+
+celerix::error celerix::rpc_config::deserialize_toml (celerix::tomlconfig & toml)
+{
+	if (!toml.empty ())
+	{
+		boost::asio::ip::address_v6 address_l;
+		toml.get_optional<boost::asio::ip::address_v6> ("address", address_l, boost::asio::ip::address_v6::loopback ());
+		address = address_l.to_string ();
+		toml.get_optional<uint16_t> ("port", port);
+		toml.get_optional<bool> ("enable_control", enable_control);
+		toml.get_optional<uint8_t> ("max_json_depth", max_json_depth);
+		toml.get_optional<uint64_t> ("max_request_size", max_request_size);
+
+		auto rpc_logging_l (toml.get_optional_child ("logging"));
+		if (rpc_logging_l)
+		{
+			rpc_logging_l->get_optional<bool> ("log_rpc", rpc_logging.log_rpc);
+		}
+
+		auto rpc_process_l (toml.get_optional_child ("process"));
+		if (rpc_process_l)
+		{
+			rpc_process_l->get_optional<unsigned> ("io_threads", rpc_process.io_threads);
+			rpc_process_l->get_optional<uint16_t> ("ipc_port", rpc_process.ipc_port);
+			boost::asio::ip::address_v6 ipc_address_l;
+			rpc_process_l->get_optional<boost::asio::ip::address_v6> ("ipc_address", ipc_address_l, boost::asio::ip::address_v6::loopback ());
+			rpc_process.ipc_address = address_l.to_string ();
+			rpc_process_l->get_optional<unsigned> ("num_ipc_connections", rpc_process.num_ipc_connections);
+		}
+	}
+
+	return toml.get_error ();
+}
+
+celerix::rpc_process_config::rpc_process_config (celerix::network_constants & network_constants) :
+	network_constants{ network_constants },
+	ipc_address{ boost::asio::ip::address_v6::loopback ().to_string () }
+{
+}
+
+namespace celerix
+{
+celerix::error read_rpc_config_toml (std::filesystem::path const & data_path_a, celerix::rpc_config & config_a, std::vector<std::string> const & config_overrides)
+{
+	celerix::error error;
+	auto toml_config_path = celerix::get_rpc_toml_config_path (data_path_a);
+
+	// Parse and deserialize
+	celerix::tomlconfig toml;
+
+	std::stringstream config_overrides_stream;
+	for (auto const & entry : config_overrides)
+	{
+		config_overrides_stream << entry << std::endl;
+	}
+	config_overrides_stream << std::endl;
+
+	// Make sure we don't create an empty toml file if it doesn't exist. Running without a toml file is the default.
+	if (!error)
+	{
+		if (std::filesystem::exists (toml_config_path))
+		{
+			error = toml.read (config_overrides_stream, toml_config_path);
+		}
+		else
+		{
+			error = toml.read (config_overrides_stream);
+		}
+	}
+
+	if (!error)
+	{
+		error = config_a.deserialize_toml (toml);
+	}
+
+	return error;
+}
+
+std::string get_default_rpc_filepath ()
+{
+	boost::system::error_code err;
+	auto running_executable_filepath = boost::dll::program_location (err);
+
+	// Construct the celerix_rpc executable file path based on where the currently running executable is found.
+	auto rpc_filepath = running_executable_filepath.parent_path () / "celerix_rpc";
+	if (running_executable_filepath.has_extension ())
+	{
+		rpc_filepath.replace_extension (running_executable_filepath.extension ());
+	}
+
+	return rpc_filepath.string ();
+}
+}

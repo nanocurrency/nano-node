@@ -1,0 +1,230 @@
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  # No opencl
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+  set(platform_sources plat/windows/openclapi.cpp)
+  set(psapi_lib Psapi)
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+  set(platform_sources plat/posix/openclapi.cpp)
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+  set(platform_sources plat/posix/openclapi.cpp)
+else()
+  error("Unknown platform: ${CMAKE_SYSTEM_NAME}")
+endif()
+
+add_library(
+  node
+  ${platform_sources}
+  active_elections.hpp
+  active_elections.cpp
+  backlog_scan.hpp
+  backlog_scan.cpp
+  bandwidth_limiter.hpp
+  bandwidth_limiter.cpp
+  block_processor.hpp
+  block_processor.cpp
+  bucketing.hpp
+  bucketing.cpp
+  bounded_backlog.hpp
+  bounded_backlog.cpp
+  bootstrap_weights_beta.hpp
+  bootstrap_weights_live.hpp
+  bootstrap/account_sets.hpp
+  bootstrap/account_sets.cpp
+  bootstrap/bootstrap_config.hpp
+  bootstrap/bootstrap_config.cpp
+  bootstrap/bootstrap_server.hpp
+  bootstrap/bootstrap_server.cpp
+  bootstrap/bootstrap_service.hpp
+  bootstrap/bootstrap_service.cpp
+  bootstrap/common.hpp
+  bootstrap/throttle.hpp
+  bootstrap/throttle.cpp
+  bootstrap/database_scan.hpp
+  bootstrap/database_scan.cpp
+  bootstrap/frontier_scan.hpp
+  bootstrap/frontier_scan.cpp
+  bootstrap/peer_scoring.hpp
+  bootstrap/peer_scoring.cpp
+  cli.hpp
+  cli.cpp
+  confirming_set.hpp
+  confirming_set.cpp
+  confirmation_solicitor.hpp
+  confirmation_solicitor.cpp
+  daemonconfig.hpp
+  daemonconfig.cpp
+  distributed_work.hpp
+  distributed_work.cpp
+  distributed_work_factory.hpp
+  distributed_work_factory.cpp
+  election.hpp
+  election.cpp
+  election_behavior.hpp
+  election_insertion_result.hpp
+  election_status.hpp
+  endpoint.cpp
+  endpoint.hpp
+  endpoint_templ.hpp
+  epoch_upgrader.hpp
+  epoch_upgrader.cpp
+  fair_queue.hpp
+  fwd.hpp
+  ipc/action_handler.hpp
+  ipc/action_handler.cpp
+  ipc/flatbuffers_handler.hpp
+  ipc/flatbuffers_handler.cpp
+  ipc/flatbuffers_util.hpp
+  ipc/flatbuffers_util.cpp
+  ipc/ipc_access_config.hpp
+  ipc/ipc_access_config.cpp
+  ipc/ipc_broker.hpp
+  ipc/ipc_broker.cpp
+  ipc/ipc_config.hpp
+  ipc/ipc_config.cpp
+  ipc/ipc_server.hpp
+  ipc/ipc_server.cpp
+  json_handler.hpp
+  json_handler.cpp
+  local_block_broadcaster.cpp
+  local_block_broadcaster.hpp
+  local_vote_history.cpp
+  local_vote_history.hpp
+  make_store.hpp
+  make_store.cpp
+  message_processor.hpp
+  message_processor.cpp
+  messages.hpp
+  messages.cpp
+  monitor.hpp
+  monitor.cpp
+  network.hpp
+  network.cpp
+  nodeconfig.hpp
+  nodeconfig.cpp
+  node_observers.hpp
+  node_observers.cpp
+  node_rpc_config.hpp
+  node_rpc_config.cpp
+  node_wrapper.hpp
+  node_wrapper.cpp
+  inactive_node.hpp
+  inactive_node.cpp
+  node.hpp
+  node.cpp
+  online_reps.hpp
+  online_reps.cpp
+  openclconfig.hpp
+  openclconfig.cpp
+  openclwork.hpp
+  openclwork.cpp
+  peer_history.hpp
+  peer_history.cpp
+  peer_exclusion.hpp
+  peer_exclusion.cpp
+  portmapping.hpp
+  portmapping.cpp
+  process_live_dispatcher.cpp
+  process_live_dispatcher.hpp
+  recently_cemented_cache.cpp
+  recently_cemented_cache.hpp
+  recently_confirmed_cache.cpp
+  recently_confirmed_cache.hpp
+  repcrawler.hpp
+  repcrawler.cpp
+  rep_tiers.hpp
+  rep_tiers.cpp
+  request_aggregator.hpp
+  request_aggregator.cpp
+  scheduler/bucket.cpp
+  scheduler/bucket.hpp
+  scheduler/component.hpp
+  scheduler/component.cpp
+  scheduler/hinted.hpp
+  scheduler/hinted.cpp
+  scheduler/manual.hpp
+  scheduler/manual.cpp
+  scheduler/optimistic.hpp
+  scheduler/optimistic.cpp
+  scheduler/priority.hpp
+  scheduler/priority.cpp
+  telemetry.hpp
+  telemetry.cpp
+  transport/block_deserializer.hpp
+  transport/block_deserializer.cpp
+  transport/channel.hpp
+  transport/channel.cpp
+  transport/tcp_channel.hpp
+  transport/tcp_channel.cpp
+  transport/fake.hpp
+  transport/fake.cpp
+  transport/fwd.hpp
+  transport/inproc.hpp
+  transport/inproc.cpp
+  transport/message_deserializer.hpp
+  transport/message_deserializer.cpp
+  transport/tcp_channels.hpp
+  transport/tcp_channels.cpp
+  transport/tcp_config.hpp
+  transport/tcp_config.cpp
+  transport/tcp_listener.hpp
+  transport/tcp_listener.cpp
+  transport/tcp_server.hpp
+  transport/tcp_server.cpp
+  transport/tcp_socket.hpp
+  transport/tcp_socket.cpp
+  transport/traffic_type.hpp
+  transport/traffic_type.cpp
+  transport/transport.hpp
+  transport/transport.cpp
+  unchecked_map.cpp
+  unchecked_map.hpp
+  vote_cache.hpp
+  vote_cache.cpp
+  vote_generator.hpp
+  vote_generator.cpp
+  vote_processor.hpp
+  vote_processor.cpp
+  vote_router.hpp
+  vote_router.cpp
+  vote_spacing.hpp
+  vote_spacing.cpp
+  vote_with_weight_info.hpp
+  wallet.hpp
+  wallet.cpp
+  websocket.hpp
+  websocket.cpp
+  websocketconfig.hpp
+  websocketconfig.cpp
+  websocket_stream.hpp
+  websocket_stream.cpp
+  xorshift.hpp)
+
+target_link_libraries(
+  node
+  celerix_lib
+  celerix_store
+  secure
+  rpc
+  libminiupnpc-static
+  argon2
+  lmdb
+  Boost::beast
+  Boost::program_options
+  Boost::stacktrace
+  Boost::system
+  Boost::thread
+  rocksdb
+  ${CMAKE_DL_LIBS}
+  ${psapi_lib})
+
+target_compile_definitions(
+  node PRIVATE -DTAG_VERSION_STRING=${TAG_VERSION_STRING}
+               -DGIT_COMMIT_HASH=${GIT_COMMIT_HASH})
+
+# This ensures that any changes to Flatbuffers source files will cause a
+# regeneration of any C++ header files.
+add_dependencies(node ipc_flatbuffers_lib)
+
+include_directories(${CMAKE_SOURCE_DIR}/submodules)
+include_directories(
+  ${CMAKE_SOURCE_DIR}/submodules/celerix-pow-server/deps/cpptoml/include)

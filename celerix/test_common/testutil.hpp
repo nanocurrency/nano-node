@@ -1,0 +1,438 @@
+#pragma once
+
+#include <celerix/lib/locks.hpp>
+#include <celerix/lib/timer.hpp>
+#include <celerix/node/fwd.hpp>
+#include <celerix/node/transport/fwd.hpp>
+#include <celerix/secure/account_info.hpp>
+#include <celerix/store/fwd.hpp>
+
+#include <gtest/gtest.h>
+
+#include <boost/iostreams/concepts.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
+
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
+#include <string>
+
+#define GTEST_TEST_ERROR_CODE(expression, text, actual, expected, fail)                       \
+	GTEST_AMBIGUOUS_ELSE_BLOCKER_                                                             \
+	if (const ::testing::AssertionResult gtest_ar_ = ::testing::AssertionResult (expression)) \
+		;                                                                                     \
+	else                                                                                      \
+		fail (::testing::internal::GetBoolAssertionFailureMessage (                           \
+		gtest_ar_, text, actual, expected)                                                    \
+			  .c_str ())
+
+/** Extends gtest with a std::error_code assert that prints the error code message when non-zero */
+#define ASSERT_NO_ERROR(condition)                                                      \
+	GTEST_TEST_ERROR_CODE (!(condition), #condition, condition.message ().c_str (), "", \
+	GTEST_FATAL_FAILURE_)
+
+/** Extends gtest with a std::error_code assert that prints the error code message when non-zero */
+#define EXPECT_NO_ERROR(condition)                                                      \
+	GTEST_TEST_ERROR_CODE (!(condition), #condition, condition.message ().c_str (), "", \
+	GTEST_NONFATAL_FAILURE_)
+
+/** Extends gtest with a std::error_code assert that expects an error */
+#define ASSERT_IS_ERROR(condition)                                                             \
+	GTEST_TEST_ERROR_CODE ((condition.value () != 0), #condition, "An error was expected", "", \
+	GTEST_FATAL_FAILURE_)
+
+/** Extends gtest with a std::error_code assert that expects an error */
+#define EXPECT_IS_ERROR(condition)                                                             \
+	GTEST_TEST_ERROR_CODE ((condition.value () != 0), #condition, "An error was expected", "", \
+	GTEST_NONFATAL_FAILURE_)
+
+/** Asserts that the condition becomes true within the deadline */
+#define ASSERT_TIMELY(time, condition)    \
+	system.deadline_set (time);           \
+	while (!(condition))                  \
+	{                                     \
+		ASSERT_NO_ERROR (system.poll ()); \
+	}
+
+/** Expects that the condition becomes true within the deadline */
+#define EXPECT_TIMELY(time, condition)                  \
+	system.deadline_set (time);                         \
+	{                                                   \
+		std::error_code _ec;                            \
+		while (!(condition) && !(_ec = system.poll ())) \
+		{                                               \
+		}                                               \
+		EXPECT_NO_ERROR (_ec);                          \
+	}
+
+/*
+ * Asserts that the `val1 == val2` condition becomes true within the deadline
+ * Condition must hold for at least 2 consecutive reads
+ */
+#define ASSERT_TIMELY_EQ(time, val1, val2)         \
+	system.deadline_set (time);                    \
+	while (!((val1) == (val2)) && !system.poll ()) \
+	{                                              \
+	}                                              \
+	ASSERT_EQ (val1, val2);
+
+/*
+ * Waits specified number of time while keeping system running.
+ * Useful for asserting conditions that should still hold after some delay of time
+ */
+#define WAIT(time)              \
+	system.deadline_set (time); \
+	while (!system.poll ())     \
+	{                           \
+	}
+
+/*
+ * Asserts that condition is always true during the specified amount of time
+ */
+#define ASSERT_ALWAYS(time, condition) \
+	system.deadline_set (time);        \
+	while (!system.poll ())            \
+	{                                  \
+		ASSERT_TRUE (condition);       \
+	}
+
+/*
+ * Asserts that condition is always true during the specified amount of time
+ */
+#define ASSERT_ALWAYS_EQ(time, val1, val2) \
+	system.deadline_set (time);            \
+	while (!system.poll ())                \
+	{                                      \
+		ASSERT_EQ (val1, val2);            \
+	}
+
+/*
+ * Asserts that condition is never true during the specified amount of time
+ */
+#define ASSERT_NEVER(time, condition) \
+	system.deadline_set (time);       \
+	while (!system.poll ())           \
+	{                                 \
+		ASSERT_FALSE (condition);     \
+	}
+
+namespace celerix::test
+{
+template <class... Ts>
+class start_stop_guard
+{
+public:
+	explicit start_stop_guard (Ts &... refs_a) :
+		refs{ std::forward<Ts &> (refs_a)... }
+	{
+		std::apply ([] (Ts &... refs) { (refs.start (), ...); }, refs);
+	}
+
+	~start_stop_guard ()
+	{
+		std::apply ([] (Ts &... refs) { (refs.stop (), ...); }, refs);
+	}
+
+private:
+	std::tuple<Ts &...> refs;
+};
+
+template <class... Ts>
+class stop_guard
+{
+public:
+	explicit stop_guard (Ts &... refs_a) :
+		refs{ std::forward<Ts &> (refs_a)... }
+	{
+	}
+
+	~stop_guard ()
+	{
+		std::apply ([] (Ts &... refs) { (refs.stop (), ...); }, refs);
+	}
+
+private:
+	std::tuple<Ts &...> refs;
+};
+}
+
+/* Convenience globals for gtest projects */
+namespace celerix
+{
+namespace test
+{
+	class system;
+
+	class cout_redirect
+	{
+	public:
+		cout_redirect (std::streambuf * new_buffer)
+		{
+			std::cout.rdbuf (new_buffer);
+		}
+
+		~cout_redirect ()
+		{
+			std::cout.rdbuf (old);
+		}
+
+	private:
+		std::streambuf * old{ std::cout.rdbuf () };
+	};
+
+	/**
+	 * Helper to signal completion of async handlers in tests.
+	 * Subclasses implement specific conditions for completion.
+	 */
+	class completion_signal
+	{
+	public:
+		virtual ~completion_signal ()
+		{
+			notify ();
+		}
+
+		/** Explicitly notify the completion */
+		void notify ()
+		{
+			cv.notify_all ();
+		}
+
+	protected:
+		celerix::condition_variable cv;
+		celerix::mutex mutex;
+	};
+
+	/**
+	 * Signals completion when a count is reached.
+	 */
+	class counted_completion : public completion_signal
+	{
+	public:
+		/**
+		 * Constructor
+		 * @param required_count_a When increment() reaches this count within the deadline, await_count_for() will return false.
+		 */
+		counted_completion (unsigned required_count_a) :
+			required_count (required_count_a)
+		{
+		}
+
+		/**
+		 * Wait for increment() to signal completion, or reaching the deadline.
+		 * @param deadline_duration_a Deadline as a std::chrono duration
+		 * @return true if the count is reached within the deadline
+		 */
+		template <typename UNIT>
+		bool await_count_for (UNIT deadline_duration_a)
+		{
+			celerix::timer<UNIT> timer (celerix::timer_state::started);
+			bool error = true;
+			while (error && timer.before_deadline (deadline_duration_a))
+			{
+				error = count < required_count;
+				if (error)
+				{
+					celerix::unique_lock<celerix::mutex> lock{ mutex };
+					cv.wait_for (lock, std::chrono::milliseconds (1));
+				}
+			}
+			return error;
+		}
+
+		/** Increments the current count. If the required count is reached, await_count_for() waiters are notified. */
+		unsigned increment ()
+		{
+			auto val (count.fetch_add (1));
+			if (val >= required_count)
+			{
+				notify ();
+			}
+			return val;
+		}
+
+		void increment_required_count ()
+		{
+			++required_count;
+		}
+
+	private:
+		std::atomic<unsigned> count{ 0 };
+		std::atomic<unsigned> required_count;
+	};
+
+	void wait_peer_connections (celerix::test::system &);
+
+	/**
+	 * Generate a random block hash
+	 */
+	celerix::hash_or_account random_hash_or_account ();
+	/**
+	 * Generate a random block hash
+	 */
+	celerix::block_hash random_hash ();
+	/**
+	 * Generate a random block hash
+	 */
+	celerix::account random_account ();
+
+	/**
+		Convenience function to call `node::process` function for multiple blocks at once.
+		@return true if all blocks were successfully processed and inserted into ledger
+	 */
+	bool process (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks);
+	/*
+	 * Convenience function to process multiple blocks as if they were live blocks arriving from the network
+	 * It is not guaranted that those blocks will be inserted into ledger (there might be forks, missing links etc)
+	 * @return true if all blocks were successfully processed
+	 */
+	bool process_live (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks);
+	/*
+	 * Convenience function to check whether a list of blocks is confirmed.
+	 * @return true if all blocks are confirmed, false otherwise
+	 */
+	bool confirmed (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks);
+	/*
+	 * Convenience function to check whether a list of hashes is confirmed.
+	 * @return true if all blocks are confirmed, false otherwise
+	 */
+	bool confirmed (celerix::node & node, std::vector<celerix::block_hash> hashes);
+	/*
+	 * Convenience function to check whether a list of hashes exists in node ledger.
+	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
+	 */
+	bool exists (celerix::node & node, std::vector<celerix::block_hash> hashes);
+	/*
+	 * Convenience function to check whether a list of blocks exists in node ledger.
+	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
+	 */
+	bool exists (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks);
+	/*
+	 * Convenience function to confirm/cement a block in the ledger by setting the confirmation
+	 * height of the account to be the height of the block.
+	 * The blocks are confirmed in the order that they are given.
+	 */
+	void confirm (celerix::ledger & ledger, std::vector<std::shared_ptr<celerix::block>> const blocks);
+	void confirm (celerix::ledger & ledger, std::shared_ptr<celerix::block> const block);
+	void confirm (celerix::ledger & ledger, celerix::block_hash const & hash);
+	void confirm (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> const blocks);
+	/*
+	 * Convenience function to check whether *all* of the hashes exists in node ledger or in the pruned table.
+	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
+	 */
+	bool block_or_pruned_all_exists (celerix::node & node, std::vector<celerix::block_hash> hashes);
+	/*
+	 * Convenience function to check whether *all* of the blocks exists in node ledger or their hash exists in the pruned table.
+	 * @return true if all blocks are fully processed and inserted in the ledger, false otherwise
+	 */
+	bool block_or_pruned_all_exists (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks);
+	/*
+	 * Convenience function to check whether *none* of the hashes exists in node ledger or in the pruned table.
+	 * @return true if none of the blocks are processed and inserted in the ledger, false otherwise
+	 */
+	bool block_or_pruned_none_exists (celerix::node & node, std::vector<celerix::block_hash> hashes);
+	/*
+	 * Convenience function to check whether *none* of the blocks exists in node ledger or their hash exists in the pruned table.
+	 * @return true if none of the blocks are processed and inserted in the ledger, false otherwise
+	 */
+	bool block_or_pruned_none_exists (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks);
+	/*
+	 * Convenience function to start elections for a list of hashes. Blocks are loaded from ledger.
+	 * @return true if all blocks exist and were queued to election scheduler
+	 */
+	bool activate (celerix::node & node, std::vector<celerix::block_hash> hashes);
+	/*
+	 * Convenience function to start elections for a list of hashes. Blocks are loaded from ledger.
+	 * @return true if all blocks exist and were queued to election scheduler
+	 */
+	bool activate (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks);
+	/*
+	 * Convenience function that checks whether all hashes from list have currently active elections
+	 * @return true if all blocks have currently active elections, false othersie
+	 */
+	bool active (celerix::node & node, std::vector<celerix::block_hash> hashes);
+	/*
+	 * Convenience function that checks whether all hashes from list have currently active elections
+	 * @return true if all blocks have currently active elections, false othersie
+	 */
+	bool active (celerix::node & node, std::vector<std::shared_ptr<celerix::block>> blocks);
+	/*
+	 * Convenience function to create a new vote from list of blocks
+	 */
+	std::shared_ptr<celerix::vote> make_vote (celerix::keypair key, std::vector<std::shared_ptr<celerix::block>> blocks, uint64_t timestamp = 0, uint8_t duration = 0);
+	/*
+	 * Convenience function to create a new vote from list of block hashes
+	 */
+	std::shared_ptr<celerix::vote> make_vote (celerix::keypair key, std::vector<celerix::block_hash> hashes, uint64_t timestamp = 0, uint8_t duration = 0);
+	/*
+	 * Convenience function to create a new final vote from list of blocks
+	 */
+	std::shared_ptr<celerix::vote> make_final_vote (celerix::keypair key, std::vector<std::shared_ptr<celerix::block>> blocks);
+	/*
+	 * Convenience function to create a new final vote from list of block hashes
+	 */
+	std::shared_ptr<celerix::vote> make_final_vote (celerix::keypair key, std::vector<celerix::block_hash> hashes);
+	/*
+	 * Converts list of blocks to list of hashes
+	 */
+	std::vector<celerix::block_hash> blocks_to_hashes (std::vector<std::shared_ptr<celerix::block>> blocks);
+	/*
+	 * Clones list of blocks
+	 */
+	std::vector<std::shared_ptr<celerix::block>> clone (std::vector<std::shared_ptr<celerix::block>> blocks);
+	/*
+	 * Creates a new fake channel associated with `node`
+	 */
+	std::shared_ptr<celerix::transport::fake::channel> fake_channel (celerix::node & node, celerix::account node_id = { 0 });
+	/*
+	 * Start an election on system system_a, node node_a and hash hash_a by reading the block
+	 * out of the ledger and adding it to the manual election scheduler queue.
+	 * It waits up to 5 seconds for the block to appear in the ledger and the election to start
+	 * and calls the system poll function while waiting.
+	 * Returns nullptr if the election did not start within the timeframe.
+	 */
+	std::shared_ptr<celerix::election> start_election (celerix::test::system & system_a, celerix::node & node_a, const celerix::block_hash & hash_a);
+	/*
+	 * Call start_election for every block identified in the hash vector.
+	 * Optionally, force confirm the election if forced_a is set.
+	 * @return true if all elections were successfully started
+	 * NOTE: Each election is given 5 seconds to complete, if it does not complete in 5 seconds, it will return an error
+	 */
+	[[nodiscard]] bool start_elections (celerix::test::system &, celerix::node &, std::vector<celerix::block_hash> const &, bool const forced_a = false);
+	/*
+	 * Call start_election for every block in the vector.
+	 * Optionally, force confirm the election if forced_a is set.
+	 * @return true if all elections were successfully started
+	 * NOTE: Each election is given 5 seconds to complete, if it does not complete in 5 seconds, it will return an error.
+	 */
+	[[nodiscard]] bool start_elections (celerix::test::system &, celerix::node &, std::vector<std::shared_ptr<celerix::block>> const &, bool const forced_a = false);
+
+	/**
+	 *  Return account_info for account "acc", if account is not found, a default initialised object is returned
+	 */
+	celerix::account_info account_info (celerix::node const & node, celerix::account const & acc);
+
+	/**
+	 * \brief Debugging function to print all entries in the pending table. Intended to be used to debug unit tests.
+	 */
+	void print_all_receivable_entries (const celerix::store::component & store);
+
+	/**
+	 * \brief Debugging function to print all accounts in a ledger. Intended to be used to debug unit tests.
+	 */
+	void print_all_account_info (const celerix::ledger & ledger);
+
+	/**
+	 * \brief Debugging function to print all blocks in a node. Intended to be used to debug unit tests.
+	 */
+	void print_all_blocks (const celerix::store::component & store);
+
+	/**
+	 * Returns all blocks in the ledger
+	 */
+	std::vector<std::shared_ptr<celerix::block>> all_blocks (celerix::node &);
+
+	celerix::uint128_t minimum_principal_weight ();
+}
+}

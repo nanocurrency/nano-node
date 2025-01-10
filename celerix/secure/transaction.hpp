@@ -1,0 +1,147 @@
+#pragma once
+
+#include <celerix/store/transaction.hpp>
+#include <celerix/store/write_queue.hpp>
+
+#include <utility>
+
+namespace celerix::secure
+{
+
+class transaction
+{
+public:
+	transaction () = default;
+	virtual ~transaction () = default;
+
+	// Deleting copy and assignment operations
+	transaction (const transaction &) = delete;
+	transaction & operator= (const transaction &) = delete;
+
+	// Default move operations
+	transaction (transaction &&) noexcept = default;
+	transaction & operator= (transaction &&) noexcept = default;
+
+	// Pure virtual function to get a const reference to the base store transaction
+	virtual const celerix::store::transaction & base_txn () const = 0;
+
+	// Conversion operator to const celerix::store::transaction&
+	virtual operator const celerix::store::transaction & () const = 0;
+
+	// Certain transactions may need to be refreshed if they are held for a long time
+	virtual bool refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 }) = 0;
+};
+
+class write_transaction final : public transaction
+{
+	celerix::store::write_guard guard; // Guard should be released after the transaction
+	celerix::store::write_transaction txn;
+	std::chrono::steady_clock::time_point start;
+
+public:
+	explicit write_transaction (celerix::store::write_transaction && txn_a, celerix::store::write_guard && guard_a) noexcept :
+		guard{ std::move (guard_a) },
+		txn{ std::move (txn_a) }
+	{
+		debug_assert (guard.is_owned ());
+		start = std::chrono::steady_clock::now ();
+	}
+
+	// Override to return a reference to the encapsulated write_transaction
+	const celerix::store::transaction & base_txn () const override
+	{
+		return txn;
+	}
+
+	void commit ()
+	{
+		txn.commit ();
+		guard.release ();
+	}
+
+	void renew ()
+	{
+		guard.renew ();
+		txn.renew ();
+		start = std::chrono::steady_clock::now ();
+	}
+
+	void refresh ()
+	{
+		commit ();
+		renew ();
+	}
+
+	bool refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 }) override
+	{
+		auto now = std::chrono::steady_clock::now ();
+		if (now - start > max_age)
+		{
+			refresh ();
+			return true;
+		}
+		return false;
+	}
+
+	auto timestamp () const
+	{
+		return txn.timestamp ();
+	}
+
+	// Conversion operator to const celerix::store::transaction&
+	operator const celerix::store::transaction & () const override
+	{
+		return txn;
+	}
+
+	// Additional conversion operator specific to celerix::store::write_transaction
+	operator const celerix::store::write_transaction & () const
+	{
+		return txn;
+	}
+};
+
+class read_transaction final : public transaction
+{
+	celerix::store::read_transaction txn;
+
+public:
+	explicit read_transaction (celerix::store::read_transaction && t) noexcept :
+		txn{ std::move (t) }
+	{
+	}
+
+	// Override to return a reference to the encapsulated read_transaction
+	const celerix::store::transaction & base_txn () const override
+	{
+		return txn;
+	}
+
+	void refresh ()
+	{
+		txn.refresh ();
+	}
+
+	bool refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 }) override
+	{
+		return txn.refresh_if_needed (max_age);
+	}
+
+	auto timestamp () const
+	{
+		return txn.timestamp ();
+	}
+
+	// Conversion operator to const celerix::store::transaction&
+	operator const celerix::store::transaction & () const override
+	{
+		return txn;
+	}
+
+	// Additional conversion operator specific to celerix::store::read_transaction
+	operator const celerix::store::read_transaction & () const
+	{
+		return txn;
+	}
+};
+}

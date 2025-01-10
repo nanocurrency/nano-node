@@ -1,0 +1,62 @@
+Name:                   celerixcurrency
+Version:                @VERSION@ 
+Release:                @RELEASE@%{?dist}
+Summary:                Celerixcurrency Daemon
+License:                BSD-2-Clause
+URL:                    https://celerix.org/
+Requires(pre):          /usr/sbin/useradd, /usr/bin/getent
+Requires(postun):       /usr/sbin/userdel
+BuildRequires:          make, glibc-devel, glibc-headers
+Source:                 celerix-%{version}.tar.gz
+
+%description
+This is celerixcurrency daemon.  Celerix is a digital currency that is
+peer-to-peer, decentralized, and trustless. This package includes
+the celerix daemon, and a service.
+
+%prep
+if [ ! -x "$(which cmake)" ]; then
+	echo "cmake must exist, try:" >&2
+	echo "      scl enable gcc-toolset-12 'rpmbuild ...'" >&2
+	exit 1
+fi
+if cc --std=c++20 --version 2>&1 >/dev/null | grep '^' >/dev/null; then
+	echo "Unsupported C++ compiler, try:" >&2
+	echo "      scl enable gcc-toolset-12 'rpmbuild ...'" >&2
+	exit 1
+fi
+%autosetup -n celerix-%{version}
+
+%build
+cmake -DCMAKE_VERBOSE_MAKEFILE=ON .
+make celerix_node %{?_smp_mflags}
+make celerix_rpc %{?_smp_mflags}
+
+%install
+if [ ! %{buildroot} = "/" ]; then %{__rm} -rf %{buildroot}; fi
+mkdir -p %{buildroot}/usr/bin
+mkdir -p %{buildroot}/etc/systemd/system/
+cp celerix_node %{buildroot}/usr/bin/celerix_node
+cp celerix_rpc %{buildroot}/usr/bin/celerix_rpc
+cp etc/systemd/celerixcurrency.service %{buildroot}/etc/systemd/system/celerixcurrency.service
+
+%clean
+if [ ! %{buildroot} = "/" ]; then %{__rm} -rf %{buildroot}; fi
+
+%files
+%defattr(755,root,root)
+%{_bindir}/celerix_node
+%{_bindir}/celerix_rpc
+%attr(644,root,root) /etc/systemd/system/celerixcurrency.service
+
+%pre
+PATH="/usr/bin:/usr/sbin:/bin:/sbin:${PATH}"; export PATH
+mkdir -p /var/celerixcurrency/Celerix
+getent group celerixcurrency >/dev/null || groupadd --system celerixcurrency || exit 1
+getent passwd celerixcurrency >/dev/null || useradd --system --create-home --home-dir /var/celerixcurrency --shell /bin/bash --comment "Celerixcurrency Daemon user" --gid celerixcurrency celerixcurrency || exit 1
+chown -R celerixcurrency:celerixcurrency /var/celerixcurrency
+chmod 700 /var/celerixcurrency
+
+%postun
+PATH="/usr/bin:/usr/sbin:/bin:/sbin:${PATH}"; export PATH
+userdel celerixcurrency >/dev/null 2>/dev/null || :
