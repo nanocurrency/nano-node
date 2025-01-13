@@ -4,7 +4,7 @@ body:
 - type: markdown
   attributes:
     value: |
-      NOTE: If this is a security issue that could impact network availability, consensus or other sensitive areas of the node and network operations, please see the [Security vulnerability disclosure documentation](https://docs.nano.org/node-implementation/contributing/#security-vulnerability-disclosure) to learn how to submit the issue directly to the Nano Foundation.
+      NOTE: If this is a security issue that could impact network availability, consensus or other sensitive areas of the node and network operations, please see the [Security vulnerability disclosure documentation](https://docs.celerix.org/node-implementation/contributing/#security-vulnerability-disclosure) to learn how to submit the issue directly to the Celerix Foundation.
 - type: textarea
   attributes:
     label: Summary
@@ -61,6 +61,6 @@ body:
 - type: textarea
   attributes:
     label: Supporting files
-    description: When applicable, add links out to helpful [log files](https://docs.nano.org/running-a-node/troubleshooting/#log-files) and [dump files](https://docs.nano.org/running-a-node/troubleshooting/#what-to-do-if-the-node-crashes-linux) related to the issue.
+    description: When applicable, add links out to helpful [log files](https://docs.celerix.org/running-a-node/troubleshooting/#log-files) and [dump files](https://docs.celerix.org/running-a-node/troubleshooting/#what-to-do-if-the-node-crashes-linux) related to the issue.
   validations:
     required: false

@@ -4,7 +4,7 @@ body:
 - type: markdown
   attributes:
     value: |
-      NOTE: Feature requests without sufficient detail, or those with a broad scope and no prior discussion with the community, are best posted in the [Nano Forum](https://forum.nano.org) first for feedback and evaluating relevance.
+      NOTE: Feature requests without sufficient detail, or those with a broad scope and no prior discussion with the community, are best posted in the [Celerix Forum](https://forum.celerix.org) first for feedback and evaluating relevance.
 - type: textarea
   attributes:
     label: Summary
@@ -47,6 +47,6 @@ body:
 - type: textarea
   attributes:
     label: Supporting files
-    description: When applicable, add links out to helpful [log files](https://docs.nano.org/running-a-node/troubleshooting/#log-files) and [dump files](https://docs.nano.org/running-a-node/troubleshooting/#what-to-do-if-the-node-crashes-linux) related to the issue.
+    description: When applicable, add links out to helpful [log files](https://docs.celerix.org/running-a-node/troubleshooting/#log-files) and [dump files](https://docs.celerix.org/running-a-node/troubleshooting/#what-to-do-if-the-node-crashes-linux) related to the issue.
   validations:
     required: false
