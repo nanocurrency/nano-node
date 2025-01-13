@@ -23,6 +23,7 @@
 #include <cryptopp/words.h>
 
 celerix::networks celerix::network_constants::active_network = celerix::networks::ACTIVE_NETWORK;
+celerix::uint128_t GENESIS_AMOUNT = 21700000000; //21.7 billion
 
 namespace
 {
@@ -135,13 +136,13 @@ celerix::ledger_constants::ledger_constants (celerix::work_thresholds & work, ce
 	celerix_beta_genesis{ parse_block_from_genesis_data (beta_genesis_data) },
 	celerix_live_genesis{ parse_block_from_genesis_data (live_genesis_data) },
 	celerix_test_genesis{ parse_block_from_genesis_data (test_genesis_data) },
-	genesis_amount{ std::numeric_limits<celerix::uint128_t>::max () },
+	genesis_amount{ GENESIS_AMOUNT },
 	burn_account{ celerix::account{ 0 } }
 {
 	celerix_beta_genesis->sideband_set (celerix::block_sideband{
 	/* account */ celerix_beta_genesis->account_field ().value (),
 	/* successor (block_hash) */ celerix::block_hash{ 0 },
-	/* balance (amount) */ celerix::amount{ std::numeric_limits<celerix::uint128_t>::max () },
+	/* balance (amount) */ celerix::amount{ GENESIS_AMOUNT },
 	/* height */ uint64_t{ 1 },
 	/* local_timestamp */ 0,
 	/* epoch */ celerix::epoch::epoch_0,
@@ -153,7 +154,7 @@ celerix::ledger_constants::ledger_constants (celerix::work_thresholds & work, ce
 	celerix_dev_genesis->sideband_set (celerix::block_sideband{
 	/* account */ celerix_dev_genesis->account_field ().value (),
 	/* successor (block_hash) */ celerix::block_hash{ 0 },
-	/* balance (amount) */ celerix::amount{ std::numeric_limits<celerix::uint128_t>::max () },
+	/* balance (amount) */ celerix::amount{ GENESIS_AMOUNT },
 	/* height */ uint64_t{ 1 },
 	/* local_timestamp */ 0,
 	/* epoch */ celerix::epoch::epoch_0,
@@ -165,7 +166,7 @@ celerix::ledger_constants::ledger_constants (celerix::work_thresholds & work, ce
 	celerix_live_genesis->sideband_set (celerix::block_sideband{
 	/* account */ celerix_live_genesis->account_field ().value (),
 	/* successor (block_hash) */ celerix::block_hash{ 0 },
-	/* balance (amount) */ celerix::amount{ std::numeric_limits<celerix::uint128_t>::max () },
+	/* balance (amount) */ celerix::amount{ GENESIS_AMOUNT },
 	/* height */ uint64_t{ 1 },
 	/* local_timestamp */ 0,
 	/* epoch */ celerix::epoch::epoch_0,
@@ -177,7 +178,7 @@ celerix::ledger_constants::ledger_constants (celerix::work_thresholds & work, ce
 	celerix_test_genesis->sideband_set (celerix::block_sideband{
 	/* account */ celerix_test_genesis->account_field ().value (),
 	/* successor (block_hash) */ celerix::block_hash{ 0 },
-	/* balance (amount) */ celerix::amount{ std::numeric_limits<celerix::uint128_t>::max () },
+	/* balance (amount) */ celerix::amount{ GENESIS_AMOUNT },
 	/* height */ uint64_t{ 1 },
 	/* local_timestamp */ 0,
 	/* epoch */ celerix::epoch::epoch_0,
