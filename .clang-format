@@ -48,8 +48,8 @@ IncludeCategories:
   # Headers in other third party libraries
   - Regex:           '<(gtest|crypto|miniupnp)/([A-Za-z0-9.\/-_])+>'
     Priority:        3
-  # Headers from nano workspace.
-  - Regex:           '<nano/([A-Za-z0-9.\/-_])+>'
+  # Headers from celerix workspace.
+  - Regex:           '<celerix/([A-Za-z0-9.\/-_])+>'
     Priority:        2
   # Headers in ""
   - Regex:           '"([A-Za-z0-9.\/-_])+"'

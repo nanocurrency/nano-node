@@ -4,7 +4,7 @@ on:
     inputs:
       repo:
         description: "Repository"
-        default: "nanocurrency/nano-node"
+        default: "celerixcurrency/celerix-node"
         required: true
       ref:
         description: "Version (VX.Y tag)"
