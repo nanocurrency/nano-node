@@ -107,7 +107,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	work{ work_a },
 	distributed_work_impl{ std::make_unique<nano::distributed_work_factory> (*this) },
 	distributed_work{ *distributed_work_impl },
-	store_impl{ nano::make_store (logger, application_path_a, network_params.ledger, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade) },
+	store_impl{ nano::make_store (logger, application_path_a, network_params.ledger, flags.read_only, true, config_a) },
 	store{ *store_impl },
 	unchecked_impl{ std::make_unique<nano::unchecked_map> (config.max_unchecked_blocks, stats, flags.disable_block_processor_unchecked_deletion) },
 	unchecked{ *unchecked_impl },
