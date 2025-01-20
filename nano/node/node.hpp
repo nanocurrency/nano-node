@@ -13,7 +13,6 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
 #include <nano/node/portmapping.hpp>
-#include <nano/node/process_live_dispatcher.hpp>
 #include <nano/node/rep_tiers.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/transport/tcp_server.hpp>
@@ -193,8 +192,6 @@ public:
 	nano::epoch_upgrader & epoch_upgrader;
 	std::unique_ptr<nano::local_block_broadcaster> local_block_broadcaster_impl;
 	nano::local_block_broadcaster & local_block_broadcaster;
-	std::unique_ptr<nano::process_live_dispatcher> process_live_dispatcher_impl;
-	nano::process_live_dispatcher & process_live_dispatcher;
 	std::unique_ptr<nano::peer_history> peer_history_impl;
 	nano::peer_history & peer_history;
 	std::unique_ptr<nano::monitor> monitor_impl;

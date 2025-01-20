@@ -128,8 +128,6 @@ add_library(
   peer_exclusion.cpp
   portmapping.hpp
   portmapping.cpp
-  process_live_dispatcher.cpp
-  process_live_dispatcher.hpp
   pruning.hpp
   pruning.cpp
   recently_cemented_cache.cpp

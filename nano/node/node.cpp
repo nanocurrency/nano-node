@@ -192,8 +192,6 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	epoch_upgrader{ *epoch_upgrader_impl },
 	local_block_broadcaster_impl{ std::make_unique<nano::local_block_broadcaster> (config.local_block_broadcaster, *this, ledger_notifications, network, confirming_set, stats, logger, !flags.disable_block_processor_republishing) },
 	local_block_broadcaster{ *local_block_broadcaster_impl },
-	process_live_dispatcher_impl{ std::make_unique<nano::process_live_dispatcher> (ledger, scheduler.priority, vote_cache, websocket) },
-	process_live_dispatcher{ *process_live_dispatcher_impl },
 	peer_history_impl{ std::make_unique<nano::peer_history> (config.peer_history, store, network, logger, stats) },
 	peer_history{ *peer_history_impl },
 	monitor_impl{ std::make_unique<nano::monitor> (config.monitor, *this) },
@@ -206,8 +204,6 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	node_seq{ seq }
 {
 	logger.debug (nano::log::type::node, "Constructing node...");
-
-	process_live_dispatcher.connect (block_processor);
 
 	vote_cache.rep_weight_query = [this] (nano::account const & rep) {
 		return ledger.weight (rep);
