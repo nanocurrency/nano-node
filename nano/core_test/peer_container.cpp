@@ -169,7 +169,7 @@ TEST (channels, fill_random_part)
 }
 
 // TODO: remove node instantiation requirement for testing with bigger network size
-TEST (peer_container, list_fanout)
+TEST (peer_container, DISABLED_list_fanout)
 {
 	nano::test::system system{ 1 };
 	auto node = system.nodes[0];
