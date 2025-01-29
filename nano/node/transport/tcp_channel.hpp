@@ -90,9 +90,7 @@ private:
 	tcp_channel_queue queue;
 	std::atomic<size_t> allocated_bandwidth{ 0 };
 
-	// Debugging
 	std::atomic<bool> closed{ false };
-	std::string stacktrace;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;

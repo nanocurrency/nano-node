@@ -16,7 +16,6 @@ nano::transport::tcp_channel::tcp_channel (nano::node & node_a, std::shared_ptr<
 	strand{ node_a.io_ctx.get_executor () },
 	sending_task{ strand }
 {
-	stacktrace = nano::generate_stacktrace ();
 	remote_endpoint = socket_a->remote_endpoint ();
 	local_endpoint = socket_a->local_endpoint ();
 	start ();
