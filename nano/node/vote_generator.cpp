@@ -230,15 +230,8 @@ void nano::vote_generator::reply (nano::unique_lock<nano::mutex> & lock_a, reque
 			auto const & [root, hash] = *i;
 			if (std::find (roots.begin (), roots.end (), root) == roots.end ())
 			{
-				if (spacing.votable (root, hash))
-				{
-					roots.push_back (root);
-					hashes.push_back (hash);
-				}
-				else
-				{
-					stats.inc (nano::stat::type::vote_generator, nano::stat::detail::generator_spacing);
-				}
+				roots.push_back (root);
+				hashes.push_back (hash);
 			}
 		}
 		if (!hashes.empty ())

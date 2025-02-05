@@ -7,13 +7,16 @@ void nano::vote_spacing::trim ()
 
 bool nano::vote_spacing::votable (nano::root const & root_a, nano::block_hash const & hash_a) const
 {
-	bool result = true;
-	for (auto range = recent.get<tag_root> ().equal_range (root_a); result && range.first != range.second; ++range.first)
+	auto now = std::chrono::steady_clock::now ();
+	for (auto range = recent.get<tag_root> ().equal_range (root_a); range.first != range.second; ++range.first)
 	{
 		auto & item = *range.first;
-		result = hash_a == item.hash || item.time < std::chrono::steady_clock::now () - delay;
+		if (hash_a == item.hash && item.time >= now - delay)
+		{
+			return false; // Same hash and not expired -> not votable
+		}
 	}
-	return result;
+	return true; // Either different hash or expired -> votable
 }
 
 void nano::vote_spacing::flag (nano::root const & root_a, nano::block_hash const & hash_a)
@@ -23,8 +26,12 @@ void nano::vote_spacing::flag (nano::root const & root_a, nano::block_hash const
 	auto existing = recent.get<tag_root> ().find (root_a);
 	if (existing != recent.end ())
 	{
-		recent.get<tag_root> ().modify (existing, [now] (entry & entry) {
+		// We update both timestamp and hash because we want to track which fork
+		// we most recently voted for. This ensures proper spacing between votes
+		// for the same block while allowing immediate votes for competing forks.
+		recent.get<tag_root> ().modify (existing, [now, hash_a] (entry & entry) {
 			entry.time = now;
+			entry.hash = hash_a;
 		});
 	}
 	else
