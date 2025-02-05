@@ -230,6 +230,7 @@ void nano::vote_generator::reply (nano::unique_lock<nano::mutex> & lock_a, reque
 			auto const & [root, hash] = *i;
 			if (std::find (roots.begin (), roots.end (), root) == roots.end ())
 			{
+				// Vote spacing skipped for replies - allows all peers to request same vote
 				roots.push_back (root);
 				hashes.push_back (hash);
 			}
