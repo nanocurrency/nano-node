@@ -299,9 +299,45 @@ public:
 		locked * owner{ nullptr };
 	};
 
+	struct const_scoped_lock final
+	{
+		const_scoped_lock (locked const * owner_a) :
+			owner (owner_a)
+		{
+			owner->mutex.lock ();
+		}
+
+		~const_scoped_lock ()
+		{
+			owner->mutex.unlock ();
+		}
+
+		T const * operator->() const
+		{
+			return &owner->obj;
+		}
+
+		T const & get () const
+		{
+			return owner->obj;
+		}
+
+		T const & operator* () const
+		{
+			return get ();
+		}
+
+		locked const * owner{ nullptr };
+	};
+
 	scoped_lock operator->()
 	{
 		return scoped_lock (this);
+	}
+
+	const_scoped_lock operator->() const
+	{
+		return const_scoped_lock (this);
 	}
 
 	T & operator= (T const & other)
@@ -313,6 +349,7 @@ public:
 
 	operator T () const
 	{
+		nano::unique_lock<nano::mutex> lk (mutex);
 		return obj;
 	}
 
@@ -322,8 +359,14 @@ public:
 		return scoped_lock (this);
 	}
 
+	/** Returns a const scoped lock wrapper, allowing multiple calls to the underlying object under the same lock */
+	const_scoped_lock lock () const
+	{
+		return const_scoped_lock (this);
+	}
+
 private:
 	T obj;
-	nano::mutex mutex;
+	mutable nano::mutex mutex; // Mutex needs to be mutable to allow locking in const methods
 };
 }
