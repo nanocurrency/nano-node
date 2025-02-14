@@ -1135,6 +1135,19 @@ void nano::json_handler::block_info ()
 		{
 			auto account = block->account ();
 			response_l.put ("block_account", account.to_account ());
+			bool include_linked_account = request.get<bool> ("include_linked_account", false);
+			if (include_linked_account)
+			{
+				auto linked_account = node.ledger.linked_account (transaction, *block);
+				if (linked_account.has_value ())
+				{
+					response_l.put ("linked_account", linked_account.value ().to_account ());
+				}
+				else
+				{
+					response_l.put ("linked_account", "0");
+				}
+			}
 			auto amount = node.ledger.any.block_amount (transaction, hash);
 			if (amount)
 			{
@@ -1273,6 +1286,7 @@ void nano::json_handler::blocks_info ()
 	bool const receive_hash = request.get<bool> ("receive_hash", false);
 	bool const source = request.get<bool> ("source", false);
 	bool const json_block_l = request.get<bool> ("json_block", false);
+	bool const include_linked_account = request.get<bool> ("include_linked_account", false);
 	bool const include_not_found = request.get<bool> ("include_not_found", false);
 
 	boost::property_tree::ptree blocks;
@@ -1292,6 +1306,18 @@ void nano::json_handler::blocks_info ()
 					boost::property_tree::ptree entry;
 					auto account = block->account ();
 					entry.put ("block_account", account.to_account ());
+					if (include_linked_account)
+					{
+						auto linked_account = node.ledger.linked_account (transaction, *block);
+						if (linked_account.has_value ())
+						{
+							entry.put ("linked_account", linked_account.value ().to_account ());
+						}
+						else
+						{
+							entry.put ("linked_account", "0");
+						}
+					}
 					auto amount = node.ledger.any.block_amount (transaction, hash);
 					if (amount)
 					{
@@ -2593,6 +2619,7 @@ void nano::json_handler::account_history ()
 	if (!ec)
 	{
 		boost::property_tree::ptree history;
+		bool include_linked_account (request.get_optional<bool> ("include_linked_account") == true);
 		bool output_raw (request.get_optional<bool> ("raw") == true);
 		response_l.put ("account", account.to_account ());
 		auto block = node.ledger.any.block_get (transaction, hash);
@@ -2609,6 +2636,18 @@ void nano::json_handler::account_history ()
 				block->visit (visitor);
 				if (!entry.empty ())
 				{
+					if (include_linked_account)
+					{
+						auto linked_account = node.ledger.linked_account (transaction, *block);
+						if (linked_account.has_value ())
+						{
+							entry.put ("linked_account", linked_account.value ().to_account ());
+						}
+						else
+						{
+							entry.put ("linked_account", "0");
+						}
+					}
 					entry.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
 					entry.put ("height", std::to_string (block->sideband ().height));
 					entry.put ("hash", hash.to_string ());

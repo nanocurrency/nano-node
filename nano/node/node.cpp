@@ -187,7 +187,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	bootstrap_server{ *bootstrap_server_impl },
 	bootstrap_impl{ std::make_unique<nano::bootstrap_service> (config, ledger, ledger_notifications, block_processor, network, stats, logger) },
 	bootstrap{ *bootstrap_impl },
-	websocket_impl{ std::make_unique<nano::websocket_server> (config.websocket_config, observers, wallets, ledger, io_ctx, logger) },
+	websocket_impl{ std::make_unique<nano::websocket_server> (config.websocket_config, *this, observers, wallets, ledger, io_ctx, logger) },
 	websocket{ *websocket_impl },
 	epoch_upgrader_impl{ std::make_unique<nano::epoch_upgrader> (*this, ledger, store, network_params, logger) },
 	epoch_upgrader{ *epoch_upgrader_impl },
@@ -236,7 +236,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			{
 				if (websocket.server && websocket.server->any_subscriber (nano::websocket::topic::new_unconfirmed_block))
 				{
-					websocket.server->broadcast (nano::websocket::message_builder ().new_block_arrived (*context.block));
+					websocket.server->broadcast (nano::websocket::message_builder (ledger).new_block_arrived (*context.block));
 				}
 			}
 		}

@@ -72,6 +72,7 @@ public:
 	bool is_epoch_link (nano::link const &) const;
 	std::array<nano::block_hash, 2> dependent_blocks (secure::transaction const &, nano::block const &) const;
 	std::shared_ptr<nano::block> find_receive_block_by_send_hash (secure::transaction const &, nano::account const & destination, nano::block_hash const & send_block_hash);
+	std::optional<nano::account> linked_account (secure::transaction const &, nano::block const &);
 	nano::account const & epoch_signer (nano::link const &) const;
 	nano::link const & epoch_link (nano::epoch) const;
 	bool migrate_lmdb_to_rocksdb (std::filesystem::path const &) const;

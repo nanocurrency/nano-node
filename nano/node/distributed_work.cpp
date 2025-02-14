@@ -41,7 +41,7 @@ nano::distributed_work::~distributed_work ()
 	{
 		if (!node_l->stopped && node_l->websocket.server && node_l->websocket.server->any_subscriber (nano::websocket::topic::work))
 		{
-			nano::websocket::message_builder builder;
+			nano::websocket::message_builder builder{ node_l->ledger };
 			if (status == work_generation_status::success)
 			{
 				node_l->websocket.server->broadcast (builder.work_generation (request.version, request.root.as_block_hash (), work_result, request.difficulty, node_l->default_difficulty (request.version), elapsed.value (), winner, bad_peers));

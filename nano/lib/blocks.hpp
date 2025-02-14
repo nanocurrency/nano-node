@@ -71,13 +71,17 @@ public: // Direct access to the block fields or nullopt if the block type does n
 	nano::account destination () const noexcept;
 	// Destination account for send blocks
 	virtual std::optional<nano::account> destination_field () const;
+	// Returns the link hash or account for state blocks
+	nano::link link () const noexcept;
 	// Link field for state blocks
 	virtual std::optional<nano::link> link_field () const;
 	// Previous block if field exists or 0
 	nano::block_hash previous () const noexcept;
 	// Previous block in chain if the field exists
 	virtual std::optional<nano::block_hash> previous_field () const = 0;
-	// Representative field for open/change blocks
+	// Returns the representative account for open/change/state blocks
+	nano::account representative () const noexcept;
+	// Representative field for open/change/state blocks
 	virtual std::optional<nano::account> representative_field () const;
 	// Returns the source block hash for open/receive/state blocks that are receives
 	nano::block_hash source () const noexcept;

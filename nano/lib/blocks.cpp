@@ -293,6 +293,19 @@ nano::account nano::block::destination () const noexcept
 	}
 }
 
+nano::account nano::block::representative () const noexcept
+{
+	switch (type ())
+	{
+		case nano::block_type::open:
+		case nano::block_type::change:
+		case nano::block_type::state:
+			return representative_field ().value ();
+		default:
+			release_assert (false);
+	}
+}
+
 nano::block_hash nano::block::source () const noexcept
 {
 	release_assert (has_sideband ());
@@ -304,6 +317,17 @@ nano::block_hash nano::block::source () const noexcept
 		case nano::block_type::state:
 			release_assert (sideband ().details.is_receive);
 			return link_field ().value ().as_block_hash ();
+		default:
+			release_assert (false);
+	}
+}
+
+nano::link nano::block::link () const noexcept
+{
+	switch (type ())
+	{
+		case nano::block_type::state:
+			return link_field ().value ();
 		default:
 			release_assert (false);
 	}

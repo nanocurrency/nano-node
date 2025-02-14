@@ -24,6 +24,7 @@ class election_status;
 enum class election_status_type : uint8_t;
 class ledger;
 class logger;
+class node;
 class node_observers;
 class telemetry_data;
 class vote;
@@ -88,6 +89,8 @@ namespace websocket
 	class message_builder final
 	{
 	public:
+		message_builder (nano::ledger & ledger);
+
 		message block_confirmed (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a, nano::websocket::confirmation_options const & options_a);
 		message started_election (nano::block_hash const & hash_a);
 		message stopped_election (nano::block_hash const & hash_a);
@@ -103,6 +106,8 @@ namespace websocket
 	private:
 		/** Set the common fields for messages: timestamp and topic. */
 		void set_common_fields (message & message_a);
+
+		nano::ledger & ledger;
 	};
 
 	/** Options for subscriptions */
@@ -183,6 +188,12 @@ namespace websocket
 			return include_election_info_with_votes;
 		}
 
+		/** Returns whether or not to include linked accounts */
+		bool get_include_linked_account () const
+		{
+			return include_linked_account;
+		}
+
 		/** Returns whether or not to include sideband info */
 		bool get_include_sideband_info () const
 		{
@@ -203,6 +214,7 @@ namespace websocket
 
 		bool include_election_info{ false };
 		bool include_election_info_with_votes{ false };
+		bool include_linked_account{ false };
 		bool include_sideband_info{ false };
 		bool include_block{ true };
 		bool has_account_filtering_options{ false };
@@ -302,7 +314,7 @@ namespace websocket
 	class listener final : public std::enable_shared_from_this<listener>
 	{
 	public:
-		listener (nano::logger &, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a);
+		listener (nano::logger &, nano::node &, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a);
 
 		/** Start accepting connections */
 		void run ();
@@ -352,6 +364,7 @@ namespace websocket
 		void decrease_subscriber_count (nano::websocket::topic const & topic_a);
 
 		nano::logger & logger;
+		nano::node & node;
 		nano::wallets & wallets;
 		boost::asio::ip::tcp::acceptor acceptor;
 		socket_type socket;
@@ -368,7 +381,7 @@ namespace websocket
 class websocket_server
 {
 public:
-	websocket_server (nano::websocket::config &, nano::node_observers &, nano::wallets &, nano::ledger &, boost::asio::io_context &, nano::logger &);
+	websocket_server (nano::websocket::config &, nano::node &, nano::node_observers &, nano::wallets &, nano::ledger &, boost::asio::io_context &, nano::logger &);
 
 	void start ();
 	void stop ();
