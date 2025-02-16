@@ -60,6 +60,47 @@ TEST (local_vote_history, basic)
 }
 }
 
+/*
+ * vote_spacing
+ */
+
+TEST (vote_spacing, basic)
+{
+	nano::vote_spacing spacing{ std::chrono::milliseconds{ 100 } };
+	nano::root root1{ 1 };
+	nano::root root2{ 2 };
+	nano::block_hash hash3{ 3 };
+	nano::block_hash hash4{ 4 };
+	nano::block_hash hash5{ 5 };
+	ASSERT_EQ (0, spacing.size ());
+	ASSERT_TRUE (spacing.votable (root1, hash3));
+	spacing.flag (root1, hash3);
+	ASSERT_EQ (1, spacing.size ());
+	ASSERT_FALSE (spacing.votable (root1, hash3));
+	ASSERT_TRUE (spacing.votable (root1, hash4));
+	spacing.flag (root2, hash5);
+	ASSERT_EQ (2, spacing.size ());
+}
+
+TEST (vote_spacing, prune)
+{
+	auto length = std::chrono::milliseconds{ 100 };
+	nano::vote_spacing spacing{ length };
+	nano::root root1{ 1 };
+	nano::root root2{ 2 };
+	nano::block_hash hash3{ 3 };
+	nano::block_hash hash4{ 4 };
+	spacing.flag (root1, hash3);
+	ASSERT_EQ (1, spacing.size ());
+	std::this_thread::sleep_for (length);
+	spacing.flag (root2, hash4);
+	ASSERT_EQ (1, spacing.size ());
+}
+
+/*
+ * vote_generator
+ */
+
 TEST (vote_generator, cache)
 {
 	nano::test::system system (1);
@@ -110,40 +151,7 @@ TEST (vote_generator, multiple_representatives)
 	}
 }
 
-TEST (vote_spacing, basic)
-{
-	nano::vote_spacing spacing{ std::chrono::milliseconds{ 100 } };
-	nano::root root1{ 1 };
-	nano::root root2{ 2 };
-	nano::block_hash hash3{ 3 };
-	nano::block_hash hash4{ 4 };
-	nano::block_hash hash5{ 5 };
-	ASSERT_EQ (0, spacing.size ());
-	ASSERT_TRUE (spacing.votable (root1, hash3));
-	spacing.flag (root1, hash3);
-	ASSERT_EQ (1, spacing.size ());
-	ASSERT_FALSE (spacing.votable (root1, hash3));
-	ASSERT_TRUE (spacing.votable (root1, hash4));
-	spacing.flag (root2, hash5);
-	ASSERT_EQ (2, spacing.size ());
-}
-
-TEST (vote_spacing, prune)
-{
-	auto length = std::chrono::milliseconds{ 100 };
-	nano::vote_spacing spacing{ length };
-	nano::root root1{ 1 };
-	nano::root root2{ 2 };
-	nano::block_hash hash3{ 3 };
-	nano::block_hash hash4{ 4 };
-	spacing.flag (root1, hash3);
-	ASSERT_EQ (1, spacing.size ());
-	std::this_thread::sleep_for (length);
-	spacing.flag (root2, hash4);
-	ASSERT_EQ (1, spacing.size ());
-}
-
-TEST (vote_spacing, vote_generator)
+TEST (vote_generator, vote_spacing)
 {
 	nano::node_config config;
 	config.backlog_scan.enable = false;
@@ -188,7 +196,7 @@ TEST (vote_spacing, vote_generator)
 	ASSERT_TIMELY_EQ (3s, 2, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts));
 }
 
-TEST (vote_spacing, rapid)
+TEST (vote_generator, vote_spacing_rapid)
 {
 	nano::node_config config;
 	config.backlog_scan.enable = false;
