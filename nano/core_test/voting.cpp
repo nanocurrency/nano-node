@@ -84,16 +84,18 @@ TEST (vote_spacing, basic)
 
 TEST (vote_spacing, prune)
 {
+	auto now = std::chrono::steady_clock::now ();
+
 	auto length = std::chrono::milliseconds{ 100 };
 	nano::vote_spacing spacing{ length };
 	nano::root root1{ 1 };
 	nano::root root2{ 2 };
 	nano::block_hash hash3{ 3 };
 	nano::block_hash hash4{ 4 };
-	spacing.flag (root1, hash3);
+	spacing.flag (root1, hash3, now);
 	ASSERT_EQ (1, spacing.size ());
-	std::this_thread::sleep_for (length);
-	spacing.flag (root2, hash4);
+	// Wait for the spacing to expire
+	spacing.flag (root2, hash4, now + length);
 	ASSERT_EQ (1, spacing.size ());
 }
 

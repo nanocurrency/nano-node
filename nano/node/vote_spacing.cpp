@@ -1,13 +1,12 @@
 #include <nano/node/vote_spacing.hpp>
 
-void nano::vote_spacing::trim ()
+void nano::vote_spacing::trim (std::chrono::steady_clock::time_point now)
 {
-	recent.get<tag_time> ().erase (recent.get<tag_time> ().begin (), recent.get<tag_time> ().upper_bound (std::chrono::steady_clock::now () - delay));
+	recent.get<tag_time> ().erase (recent.get<tag_time> ().begin (), recent.get<tag_time> ().upper_bound (now - delay));
 }
 
-bool nano::vote_spacing::votable (nano::root const & root_a, nano::block_hash const & hash_a) const
+bool nano::vote_spacing::votable (nano::root const & root_a, nano::block_hash const & hash_a, std::chrono::steady_clock::time_point now) const
 {
-	auto now = std::chrono::steady_clock::now ();
 	for (auto range = recent.get<tag_root> ().equal_range (root_a); range.first != range.second; ++range.first)
 	{
 		auto & item = *range.first;
@@ -19,10 +18,10 @@ bool nano::vote_spacing::votable (nano::root const & root_a, nano::block_hash co
 	return true; // Either different hash or expired -> votable
 }
 
-void nano::vote_spacing::flag (nano::root const & root_a, nano::block_hash const & hash_a)
+void nano::vote_spacing::flag (nano::root const & root_a, nano::block_hash const & hash_a, std::chrono::steady_clock::time_point now)
 {
-	trim ();
-	auto now = std::chrono::steady_clock::now ();
+	trim (now);
+
 	auto existing = recent.get<tag_root> ().find (root_a);
 	if (existing != recent.end ())
 	{

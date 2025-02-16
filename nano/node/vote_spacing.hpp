@@ -22,12 +22,12 @@ public:
 	{
 	}
 
-	bool votable (nano::root const & root, nano::block_hash const & hash) const;
-	void flag (nano::root const & root, nano::block_hash const & hash);
+	bool votable (nano::root const & root, nano::block_hash const & hash, std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now ()) const;
+	void flag (nano::root const & root, nano::block_hash const & hash, std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now ());
 	std::size_t size () const;
 
 private:
-	void trim ();
+	void trim (std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now ());
 
 private:
 	std::chrono::milliseconds const delay;
