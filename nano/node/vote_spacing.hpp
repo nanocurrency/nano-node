@@ -22,8 +22,8 @@ public:
 	{
 	}
 
-	bool votable (nano::root const & root, nano::block_hash const & hash, std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now ()) const;
-	void flag (nano::root const & root, nano::block_hash const & hash, std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now ());
+	bool votable (nano::qualified_root const & root, nano::block_hash const & hash, std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now ()) const;
+	void flag (nano::qualified_root const & root, nano::block_hash const & hash, std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now ());
 	std::size_t size () const;
 
 private:
@@ -34,9 +34,9 @@ private:
 
 	struct entry
 	{
-		nano::root root;
-		std::chrono::steady_clock::time_point time;
+		nano::qualified_root root;
 		nano::block_hash hash;
+		std::chrono::steady_clock::time_point time;
 	};
 
 	// clang-format off
@@ -45,8 +45,8 @@ private:
 
 	using ordered_votes = boost::multi_index_container<entry,
 	mi::indexed_by<
-	    mi::hashed_non_unique<mi::tag<tag_root>,
-			mi::member<entry, nano::root, &entry::root>>,
+	    mi::hashed_unique<mi::tag<tag_root>,
+			mi::member<entry, nano::qualified_root, &entry::root>>,
 	    mi::ordered_non_unique<mi::tag<tag_time>,
 			mi::member<entry, std::chrono::steady_clock::time_point, &entry::time>>
 	>>;

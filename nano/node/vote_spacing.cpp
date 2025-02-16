@@ -5,12 +5,11 @@ void nano::vote_spacing::trim (std::chrono::steady_clock::time_point now)
 	recent.get<tag_time> ().erase (recent.get<tag_time> ().begin (), recent.get<tag_time> ().upper_bound (now - delay));
 }
 
-bool nano::vote_spacing::votable (nano::root const & root_a, nano::block_hash const & hash_a, std::chrono::steady_clock::time_point now) const
+bool nano::vote_spacing::votable (nano::qualified_root const & root, nano::block_hash const & hash, std::chrono::steady_clock::time_point now) const
 {
-	for (auto range = recent.get<tag_root> ().equal_range (root_a); range.first != range.second; ++range.first)
+	if (auto it = recent.get<tag_root> ().find (root); it != recent.end ())
 	{
-		auto & item = *range.first;
-		if (hash_a == item.hash && item.time >= now - delay)
+		if (hash == it->hash && it->time >= now - delay)
 		{
 			return false; // Same hash and not expired -> not votable
 		}
@@ -18,24 +17,23 @@ bool nano::vote_spacing::votable (nano::root const & root_a, nano::block_hash co
 	return true; // Either different hash or expired -> votable
 }
 
-void nano::vote_spacing::flag (nano::root const & root_a, nano::block_hash const & hash_a, std::chrono::steady_clock::time_point now)
+void nano::vote_spacing::flag (nano::qualified_root const & root, nano::block_hash const & hash, std::chrono::steady_clock::time_point now)
 {
 	trim (now);
 
-	auto existing = recent.get<tag_root> ().find (root_a);
-	if (existing != recent.end ())
+	if (auto it = recent.get<tag_root> ().find (root); it != recent.end ())
 	{
 		// We update both timestamp and hash because we want to track which fork
 		// we most recently voted for. This ensures proper spacing between votes
 		// for the same block while allowing immediate votes for competing forks.
-		recent.get<tag_root> ().modify (existing, [now, hash_a] (entry & entry) {
+		recent.get<tag_root> ().modify (it, [now, hash] (entry & entry) {
+			entry.hash = hash;
 			entry.time = now;
-			entry.hash = hash_a;
 		});
 	}
 	else
 	{
-		recent.insert ({ root_a, now, hash_a });
+		recent.insert ({ root, hash, now });
 	}
 }
 
