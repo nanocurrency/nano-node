@@ -31,8 +31,9 @@ TEST (optimistic_scheduler, activate_one)
 
 	// Ensure unconfirmed account head block gets activated
 	auto const & block = blocks.back ();
-	ASSERT_TIMELY (5s, node.vote_router.active (block->hash ()));
-	ASSERT_EQ (node.active.election (block->qualified_root ())->behavior (), nano::election_behavior::optimistic);
+	std::shared_ptr<nano::election> election;
+	ASSERT_TIMELY (5s, election = node.active.election (block->qualified_root ()));
+	ASSERT_EQ (election->behavior (), nano::election_behavior::optimistic);
 }
 
 /*
@@ -52,8 +53,9 @@ TEST (optimistic_scheduler, activate_one_zero_conf)
 
 	// Ensure unconfirmed account head block gets activated
 	auto const & block = blocks.back ();
-	ASSERT_TIMELY (5s, node.vote_router.active (block->hash ()));
-	ASSERT_EQ (node.active.election (block->qualified_root ())->behavior (), nano::election_behavior::optimistic);
+	std::shared_ptr<nano::election> election;
+	ASSERT_TIMELY (5s, election = node.active.election (block->qualified_root ()));
+	ASSERT_EQ (election->behavior (), nano::election_behavior::optimistic);
 }
 
 /*
@@ -74,7 +76,8 @@ TEST (optimistic_scheduler, activate_many)
 	ASSERT_TIMELY (5s, std::all_of (chains.begin (), chains.end (), [&] (auto const & entry) {
 		auto const & [account, blocks] = entry;
 		auto const & block = blocks.back ();
-		return node.vote_router.active (block->hash ()) && node.active.election (block->qualified_root ())->behavior () == nano::election_behavior::optimistic;
+		auto election = node.active.election (block->qualified_root ());
+		return election && election->behavior () == nano::election_behavior::optimistic;
 	}));
 }
 
