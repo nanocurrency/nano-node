@@ -1,35 +1,39 @@
 #include <nano/node/vote_spacing.hpp>
 
-void nano::vote_spacing::trim ()
+void nano::vote_spacing::trim (std::chrono::steady_clock::time_point now)
 {
-	recent.get<tag_time> ().erase (recent.get<tag_time> ().begin (), recent.get<tag_time> ().upper_bound (std::chrono::steady_clock::now () - delay));
+	recent.get<tag_time> ().erase (recent.get<tag_time> ().begin (), recent.get<tag_time> ().upper_bound (now - delay));
 }
 
-bool nano::vote_spacing::votable (nano::root const & root_a, nano::block_hash const & hash_a) const
+bool nano::vote_spacing::votable (nano::qualified_root const & root, nano::block_hash const & hash, std::chrono::steady_clock::time_point now) const
 {
-	bool result = true;
-	for (auto range = recent.get<tag_root> ().equal_range (root_a); result && range.first != range.second; ++range.first)
+	if (auto it = recent.get<tag_root> ().find (root); it != recent.end ())
 	{
-		auto & item = *range.first;
-		result = hash_a == item.hash || item.time < std::chrono::steady_clock::now () - delay;
+		if (hash == it->hash && it->time >= now - delay)
+		{
+			return false; // Same hash and not expired -> not votable
+		}
 	}
-	return result;
+	return true; // Either different hash or expired -> votable
 }
 
-void nano::vote_spacing::flag (nano::root const & root_a, nano::block_hash const & hash_a)
+void nano::vote_spacing::flag (nano::qualified_root const & root, nano::block_hash const & hash, std::chrono::steady_clock::time_point now)
 {
-	trim ();
-	auto now = std::chrono::steady_clock::now ();
-	auto existing = recent.get<tag_root> ().find (root_a);
-	if (existing != recent.end ())
+	trim (now);
+
+	if (auto it = recent.get<tag_root> ().find (root); it != recent.end ())
 	{
-		recent.get<tag_root> ().modify (existing, [now] (entry & entry) {
+		// We update both timestamp and hash because we want to track which fork
+		// we most recently voted for. This ensures proper spacing between votes
+		// for the same block while allowing immediate votes for competing forks.
+		recent.get<tag_root> ().modify (it, [now, hash] (entry & entry) {
+			entry.hash = hash;
 			entry.time = now;
 		});
 	}
 	else
 	{
-		recent.insert ({ root_a, now, hash_a });
+		recent.insert ({ root, hash, now });
 	}
 }
 
