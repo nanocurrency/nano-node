@@ -300,7 +300,7 @@ auto nano::transport::tcp_listener::connect_impl (asio::ip::tcp::endpoint endpoi
 	catch (boost::system::system_error const & ex)
 	{
 		stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::connect_error, nano::stat::dir::out);
-		logger.log (nano::log::level::debug, nano::log::type::tcp_listener, "Error connecting to: {} ({})", endpoint, ex.what ());
+		logger.log (nano::log::level::debug, nano::log::type::tcp_listener, "Error connecting to: {} ({})", endpoint, ex.code ().message ());
 	}
 }
 
@@ -327,7 +327,7 @@ asio::awaitable<void> nano::transport::tcp_listener::run ()
 		catch (boost::system::system_error const & ex)
 		{
 			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::accept_error, nano::stat::dir::in);
-			logger.log (nano::log::level::debug, nano::log::type::tcp_listener, "Error accepting incoming connection: {}", ex.what ());
+			logger.log (nano::log::level::debug, nano::log::type::tcp_listener, "Error accepting incoming connection: {}", ex.code ().message ());
 		}
 
 		// Sleep for a while to prevent busy loop
@@ -399,7 +399,8 @@ auto nano::transport::tcp_listener::accept_one (asio::ip::tcp::socket raw_socket
 		catch (boost::system::system_error const & ex)
 		{
 			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::close_error, to_stat_dir (type));
-			logger.debug (nano::log::type::tcp_listener, "Error while closing socket after refusing connection: {} ({})", ex.what (), to_string (type));
+			logger.debug (nano::log::type::tcp_listener, "Error while closing socket after refusing connection: {} ({})",
+			ex.code ().message (), to_string (type));
 		}
 
 		return { result };
