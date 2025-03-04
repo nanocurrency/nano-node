@@ -58,6 +58,8 @@ private:
 	bool should_vote (transaction_variant_t const &, nano::root const &, nano::block_hash const &) const;
 	bool broadcast_predicate () const;
 
+	nano::stat::type stat_type () const;
+
 private: // Dependencies
 	nano::node_config const & config;
 	nano::node & node;

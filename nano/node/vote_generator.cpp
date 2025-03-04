@@ -168,7 +168,7 @@ std::size_t nano::vote_generator::generate (std::vector<std::shared_ptr<nano::bl
 	{
 		// On a large queue of requests, erase the oldest one
 		requests.pop_front ();
-		stats.inc (nano::stat::type::vote_generator, nano::stat::detail::generator_replies_discarded);
+		stats.inc (stat_type (), nano::stat::detail::generator_replies_discarded);
 	}
 	return result;
 }
@@ -193,7 +193,7 @@ void nano::vote_generator::broadcast (nano::unique_lock<nano::mutex> & lock_a)
 			}
 			else
 			{
-				stats.inc (nano::stat::type::vote_generator, nano::stat::detail::generator_spacing);
+				stats.inc (stat_type (), nano::stat::detail::generator_spacing);
 			}
 		}
 		candidates.pop_front ();
@@ -202,7 +202,7 @@ void nano::vote_generator::broadcast (nano::unique_lock<nano::mutex> & lock_a)
 	{
 		lock_a.unlock ();
 		vote (hashes, roots, [this] (auto const & generated_vote) {
-			stats.inc (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts);
+			stats.inc (stat_type (), nano::stat::detail::generator_broadcasts);
 			stats.sample (is_final ? nano::stat::sample::vote_generator_final_hashes : nano::stat::sample::vote_generator_hashes, generated_vote->hashes.size (), { 0, nano::network::confirm_ack_hashes_max });
 			broadcast_action (generated_vote);
 		});
@@ -237,7 +237,7 @@ void nano::vote_generator::reply (nano::unique_lock<nano::mutex> & lock_a, reque
 				}
 				else
 				{
-					stats.inc (nano::stat::type::vote_generator, nano::stat::detail::generator_spacing);
+					stats.inc (stat_type (), nano::stat::detail::generator_spacing);
 				}
 			}
 		}
@@ -252,7 +252,7 @@ void nano::vote_generator::reply (nano::unique_lock<nano::mutex> & lock_a, reque
 			});
 		}
 	}
-	stats.inc (nano::stat::type::vote_generator, nano::stat::detail::generator_replies);
+	stats.inc (stat_type (), nano::stat::detail::generator_replies);
 	lock_a.lock ();
 }
 
@@ -283,8 +283,8 @@ void nano::vote_generator::broadcast_action (std::shared_ptr<nano::vote> const &
 	auto sent_pr = network.flood_vote_pr (vote_a);
 	auto sent_non_pr = network.flood_vote_non_pr (vote_a, 2.0f);
 
-	stats.add (nano::stat::type::vote_generator, nano::stat::detail::sent_pr, sent_pr);
-	stats.add (nano::stat::type::vote_generator, nano::stat::detail::sent_non_pr, sent_non_pr);
+	stats.add (stat_type (), nano::stat::detail::sent_pr, sent_pr);
+	stats.add (stat_type (), nano::stat::detail::sent_non_pr, sent_non_pr);
 }
 
 void nano::vote_generator::run ()
@@ -340,4 +340,9 @@ nano::container_info nano::vote_generator::container_info () const
 	info.put ("requests", requests.size ());
 	info.add ("queue", vote_generation_queue.container_info ());
 	return info;
+}
+
+nano::stat::type nano::vote_generator::stat_type () const
+{
+	return is_final ? nano::stat::type::vote_generator_final : nano::stat::type::vote_generator;
 }

@@ -62,6 +62,7 @@ enum class type
 	filter,
 	telemetry,
 	vote_generator,
+	vote_generator_final,
 	vote_cache,
 	vote_cache_processor,
 	hinting,
