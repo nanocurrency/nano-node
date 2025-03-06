@@ -250,6 +250,18 @@ TEST (rep_crawler, rep_connection_close)
 	ASSERT_TIMELY_EQ (10s, node1.rep_crawler.representative_count (), 0);
 }
 
+TEST (rep_crawler, rep_local)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	ASSERT_EQ (0, node.online_reps.online ());
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	ASSERT_TIMELY_EQ (5s, node.rep_crawler.representative_count (), 1);
+	auto reps = node.rep_crawler.representatives ();
+	ASSERT_EQ (1, reps.size ());
+	ASSERT_EQ (nano::dev::genesis_key.pub, reps[0].account);
+}
+
 // This test checks that if a block is in the recently_confirmed list then the repcrawler will not send a request for it.
 // The behaviour of this test previously was the opposite, that the repcrawler eventually send out such a block and deleted the block
 // from the recently confirmed list to try to make ammends for sending it, which is bad behaviour.
@@ -268,18 +280,6 @@ TEST (rep_crawler, DISABLED_recently_confirmed)
 	ASSERT_NE (nullptr, channel);
 	node1.rep_crawler.query (channel); // this query should be dropped due to the recently_confirmed entry
 	ASSERT_ALWAYS_EQ (0.5s, node1.rep_crawler.representative_count (), 0);
-}
-
-// Votes from local channels should be ignored
-TEST (rep_crawler, ignore_local)
-{
-	nano::test::system system;
-	nano::node_flags flags;
-	auto & node = *system.add_node (flags);
-	auto loopback = std::make_shared<nano::transport::inproc::channel> (node, node);
-	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, 0, 0, std::vector{ nano::dev::genesis->hash () });
-	node.rep_crawler.force_process (vote, loopback);
-	ASSERT_ALWAYS_EQ (0.5s, node.rep_crawler.representative_count (), 0);
 }
 
 // Test that nodes can track PRs when multiple PRs are inside one node

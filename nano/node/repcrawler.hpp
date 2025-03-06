@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/locks.hpp>
+#include <nano/node/fwd.hpp>
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/transport.hpp>
 
@@ -23,9 +24,6 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
-class node;
-class active_elections;
-
 struct representative
 {
 	nano::account account;
