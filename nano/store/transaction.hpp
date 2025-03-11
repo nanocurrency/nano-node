@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/fwd.hpp>
 #include <nano/lib/id_dispenser.hpp>
 #include <nano/store/tables.hpp>
 
@@ -10,17 +11,18 @@ namespace nano::store
 class transaction_impl
 {
 public:
-	transaction_impl (nano::id_dispenser::id_t const store_id);
+	transaction_impl (nano::logger & logger, nano::id_dispenser::id_t const store_id);
 	virtual ~transaction_impl () = default;
 	virtual void * get_handle () const = 0;
 
+	nano::logger & logger;
 	nano::id_dispenser::id_t const store_id;
 };
 
 class read_transaction_impl : public transaction_impl
 {
 public:
-	explicit read_transaction_impl (nano::id_dispenser::id_t const store_id = 0);
+	explicit read_transaction_impl (nano::logger & logger, nano::id_dispenser::id_t const store_id = 0);
 	virtual void reset () = 0;
 	virtual void renew () = 0;
 };
@@ -28,7 +30,7 @@ public:
 class write_transaction_impl : public transaction_impl
 {
 public:
-	explicit write_transaction_impl (nano::id_dispenser::id_t const store_id = 0);
+	explicit write_transaction_impl (nano::logger & logger, nano::id_dispenser::id_t const store_id = 0);
 	virtual void commit () = 0;
 	virtual void renew () = 0;
 	virtual bool contains (nano::tables table_a) const = 0;

@@ -12,7 +12,7 @@ namespace nano::store::rocksdb
 class read_transaction_impl final : public store::read_transaction_impl
 {
 public:
-	read_transaction_impl (::rocksdb::DB * db);
+	read_transaction_impl (nano::logger & logger, ::rocksdb::DB * db);
 	~read_transaction_impl ();
 	void reset () override;
 	void renew () override;
@@ -26,7 +26,7 @@ private:
 class write_transaction_impl final : public store::write_transaction_impl
 {
 public:
-	write_transaction_impl (::rocksdb::TransactionDB * db_a);
+	write_transaction_impl (nano::logger & logger, ::rocksdb::TransactionDB * db_a);
 	~write_transaction_impl ();
 	void commit () override;
 	void renew () override;

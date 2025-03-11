@@ -44,7 +44,7 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 	rep_weight_store{ *this },
 	database_path{ path_a },
 	logger{ logger_a },
-	env (error, path_a, nano::store::lmdb::env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
+	env (error, logger, path_a, nano::store::lmdb::env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
 	mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
 	txn_tracking_enabled (txn_tracking_config_a.enable)
 {

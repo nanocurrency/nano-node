@@ -114,7 +114,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	store{ *store_impl },
 	unchecked_impl{ std::make_unique<nano::unchecked_map> (config.max_unchecked_blocks, stats, flags.disable_block_processor_unchecked_deletion) },
 	unchecked{ *unchecked_impl },
-	wallets_store_impl{ std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config) },
+	wallets_store_impl{ std::make_unique<nano::mdb_wallets_store> (logger, application_path_a / "wallets.ldb", config_a.lmdb_config) },
 	wallets_store{ *wallets_store_impl },
 	wallets_impl{ std::make_unique<nano::wallets> (wallets_store.init_error (), *this) },
 	wallets{ *wallets_impl },

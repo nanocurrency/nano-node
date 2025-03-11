@@ -6,7 +6,8 @@
  * transaction_impl
  */
 
-nano::store::transaction_impl::transaction_impl (nano::id_dispenser::id_t const store_id_a) :
+nano::store::transaction_impl::transaction_impl (nano::logger & logger, nano::id_dispenser::id_t const store_id_a) :
+	logger{ logger },
 	store_id{ store_id_a }
 {
 	debug_assert (!nano::thread_role::is_network_io (), "database operations are not allowed to run on network IO threads");
@@ -16,8 +17,8 @@ nano::store::transaction_impl::transaction_impl (nano::id_dispenser::id_t const 
  * read_transaction_impl
  */
 
-nano::store::read_transaction_impl::read_transaction_impl (nano::id_dispenser::id_t const store_id_a) :
-	transaction_impl (store_id_a)
+nano::store::read_transaction_impl::read_transaction_impl (nano::logger & logger, nano::id_dispenser::id_t const store_id_a) :
+	transaction_impl (logger, store_id_a)
 {
 }
 
@@ -25,8 +26,8 @@ nano::store::read_transaction_impl::read_transaction_impl (nano::id_dispenser::i
  * write_transaction_impl
  */
 
-nano::store::write_transaction_impl::write_transaction_impl (nano::id_dispenser::id_t const store_id_a) :
-	transaction_impl (store_id_a)
+nano::store::write_transaction_impl::write_transaction_impl (nano::logger & logger, nano::id_dispenser::id_t const store_id_a) :
+	transaction_impl (logger, store_id_a)
 {
 }
 

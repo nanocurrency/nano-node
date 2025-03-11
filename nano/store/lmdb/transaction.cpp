@@ -36,19 +36,27 @@ private:
 }
 
 nano::store::lmdb::read_transaction_impl::read_transaction_impl (nano::store::lmdb::env const & environment_a, nano::store::lmdb::txn_callbacks txn_callbacks_a) :
-	store::read_transaction_impl (environment_a.store_id),
+	store::read_transaction_impl (environment_a.logger, environment_a.store_id),
 	txn_callbacks (txn_callbacks_a)
 {
-	auto status (mdb_txn_begin (environment_a, nullptr, MDB_RDONLY, &handle));
-	release_assert (status == 0);
+	auto status = mdb_txn_begin (environment_a, nullptr, MDB_RDONLY, &handle);
+	if (status != MDB_SUCCESS)
+	{
+		logger.critical (nano::log::type::lmdb, "Unable to open read transaction {}", status);
+		release_assert (false);
+	}
 	txn_callbacks.txn_start (this);
 }
 
 nano::store::lmdb::read_transaction_impl::~read_transaction_impl ()
 {
 	// This uses commit rather than abort, as it is needed when opening databases with a read only transaction
-	auto status (mdb_txn_commit (handle));
-	release_assert (status == MDB_SUCCESS);
+	auto status = mdb_txn_commit (handle);
+	if (status != MDB_SUCCESS)
+	{
+		logger.critical (nano::log::type::lmdb, "Unable to commit read transaction {}", status);
+		release_assert (false);
+	}
 	txn_callbacks.txn_end (this);
 }
 
@@ -60,8 +68,12 @@ void nano::store::lmdb::read_transaction_impl::reset ()
 
 void nano::store::lmdb::read_transaction_impl::renew ()
 {
-	auto status (mdb_txn_renew (handle));
-	release_assert (status == 0);
+	auto status = mdb_txn_renew (handle);
+	if (status != MDB_SUCCESS)
+	{
+		logger.critical (nano::log::type::lmdb, "Unable to renew read transaction {}", status);
+		release_assert (false);
+	}
 	txn_callbacks.txn_start (this);
 }
 
@@ -71,7 +83,7 @@ void * nano::store::lmdb::read_transaction_impl::get_handle () const
 }
 
 nano::store::lmdb::write_transaction_impl::write_transaction_impl (nano::store::lmdb::env const & environment_a, nano::store::lmdb::txn_callbacks txn_callbacks_a) :
-	store::write_transaction_impl (environment_a.store_id),
+	store::write_transaction_impl (env.logger, environment_a.store_id),
 	env (environment_a),
 	txn_callbacks (txn_callbacks_a)
 {
@@ -90,7 +102,8 @@ void nano::store::lmdb::write_transaction_impl::commit ()
 		auto status = mdb_txn_commit (handle);
 		if (status != MDB_SUCCESS)
 		{
-			release_assert (false && "Unable to write to the LMDB database", mdb_strerror (status));
+			logger.critical (nano::log::type::lmdb, "Unable to commit write transaction {}", status);
+			release_assert (false);
 		}
 		txn_callbacks.txn_end (this);
 		active = false;
@@ -100,7 +113,11 @@ void nano::store::lmdb::write_transaction_impl::commit ()
 void nano::store::lmdb::write_transaction_impl::renew ()
 {
 	auto status (mdb_txn_begin (env, nullptr, 0, &handle));
-	release_assert (status == MDB_SUCCESS, mdb_strerror (status));
+	if (status != MDB_SUCCESS)
+	{
+		logger.critical (nano::log::type::lmdb, "Unable to renew write transaction {}", status);
+		release_assert (false);
+	}
 	txn_callbacks.txn_start (this);
 	active = true;
 }

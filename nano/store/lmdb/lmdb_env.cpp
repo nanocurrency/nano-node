@@ -4,7 +4,8 @@
 
 #include <boost/system/error_code.hpp>
 
-nano::store::lmdb::env::env (bool & error_a, std::filesystem::path const & path_a, nano::store::lmdb::env::options options_a) :
+nano::store::lmdb::env::env (bool & error_a, nano::logger & logger, std::filesystem::path const & path_a, nano::store::lmdb::env::options options_a) :
+	logger{ logger },
 	database_path{ path_a }
 {
 	init (error_a, path_a, options_a);
@@ -22,11 +23,19 @@ void nano::store::lmdb::env::init (bool & error_a, std::filesystem::path const &
 		if (!error_mkdir)
 		{
 			MDB_env * environment;
-			auto status1 (mdb_env_create (&environment));
-			release_assert (status1 == 0);
+			auto status1 = mdb_env_create (&environment);
+			if (status1 != MDB_SUCCESS)
+			{
+				logger.critical (nano::log::type::lmdb, "Unable to create lmdb environment {}", status1);
+				release_assert (false);
+			}
 			this->environment.reset (environment);
-			auto status2 (mdb_env_set_maxdbs (environment, options_a.config.max_databases));
-			release_assert (status2 == 0);
+			auto status2 = mdb_env_set_maxdbs (environment, options_a.config.max_databases);
+			if (status2 != MDB_SUCCESS)
+			{
+				logger.critical (nano::log::type::lmdb, "Unable to set maximum dbs to: {} {}", options_a.config.max_databases, status2);
+				release_assert (false);
+			}
 			auto map_size = options_a.config.map_size;
 			auto max_instrumented_map_size = 16 * 1024 * 1024;
 			if (memory_intensive_instrumentation () && map_size > max_instrumented_map_size)
@@ -34,8 +43,12 @@ void nano::store::lmdb::env::init (bool & error_a, std::filesystem::path const &
 				// In order to run LMDB with some types of memory instrumentation, the maximum map size must be smaller than what is normally used when non-instrumented
 				map_size = max_instrumented_map_size;
 			}
-			auto status3 (mdb_env_set_mapsize (environment, map_size));
-			release_assert (status3 == 0);
+			auto status3 = mdb_env_set_mapsize (environment, map_size);
+			if (status3 != MDB_SUCCESS)
+			{
+				logger.critical (nano::log::type::lmdb, "Unable to set enviroment map size to: {} {}", map_size, status3);
+				release_assert (false);
+			}
 			// It seems if there's ever more threads than mdb_env_set_maxreaders has read slots available, we get failures on transaction creation unless MDB_NOTLS is specified
 			// This can happen if something like 256 io_threads are specified in the node config
 			// MDB_NORDAHEAD will allow platforms that support it to load the DB in memory as needed.
@@ -58,13 +71,12 @@ void nano::store::lmdb::env::init (bool & error_a, std::filesystem::path const &
 			{
 				environment_flags |= MDB_NOMEMINIT;
 			}
-			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), environment_flags, 00600));
-			if (status4 != 0)
+			auto status4 = mdb_env_open (environment, path_a.string ().c_str (), environment_flags, 00600);
+			if (status4 != MDB_SUCCESS)
 			{
-				std::string message = "Could not open lmdb environment(" + std::to_string (status4) + "): " + mdb_strerror (status4);
-				throw std::runtime_error (message);
+				logger.critical (nano::log::type::lmdb, "Could not open lmdb environment at: {} {}", path_a.string (), status4);
+				release_assert (false);
 			}
-			release_assert (status4 == 0);
 			error_a = status4 != 0;
 		}
 		else
