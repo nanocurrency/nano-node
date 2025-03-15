@@ -209,13 +209,7 @@ void nano::rep_crawler::run ()
 
 			lock.unlock ();
 			query (targets);
-			lock.lock ();
-		}
-
-		// Query local representative
-		{
-			lock.unlock ();
-			query (node.loopback_channel);
+			query (node.loopback_channel); // Query local representative
 			lock.lock ();
 		}
 
