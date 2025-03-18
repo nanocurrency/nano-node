@@ -844,6 +844,10 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
 
   target_link_libraries(nano_wallet Boost::process rpc node qt)
 
+  if(WIN32)
+    target_link_libraries(nano_wallet Qt5::WinExtras)
+  endif()
+
   set_target_properties(
     qt nano_wallet PROPERTIES COMPILE_FLAGS
                               "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
