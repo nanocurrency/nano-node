@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/fwd.hpp>
 #include <nano/lib/id_dispenser.hpp>
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/locks.hpp>
@@ -270,7 +271,7 @@ public:
 class mdb_wallets_store final : public wallets_store
 {
 public:
-	mdb_wallets_store (std::filesystem::path const &, nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{});
+	mdb_wallets_store (nano::logger & logger, std::filesystem::path const &, nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{});
 	nano::store::lmdb::env environment;
 	bool init_error () const override;
 	bool error{ false };

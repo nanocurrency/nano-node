@@ -1,7 +1,9 @@
+#include <nano/lib/logging.hpp>
 #include <nano/store/rocksdb/transaction_impl.hpp>
 
-nano::store::rocksdb::read_transaction_impl::read_transaction_impl (::rocksdb::DB * db_a) :
-	db (db_a)
+nano::store::rocksdb::read_transaction_impl::read_transaction_impl (nano::logger & logger, ::rocksdb::DB * db_a) :
+	store::read_transaction_impl{ logger },
+	db{ db_a }
 {
 	if (db_a)
 	{
@@ -32,8 +34,9 @@ void * nano::store::rocksdb::read_transaction_impl::get_handle () const
 	return (void *)&options;
 }
 
-nano::store::rocksdb::write_transaction_impl::write_transaction_impl (::rocksdb::TransactionDB * db_a) :
-	db (db_a)
+nano::store::rocksdb::write_transaction_impl::write_transaction_impl (nano::logger & logger, ::rocksdb::TransactionDB * db_a) :
+	store::write_transaction_impl{ logger },
+	db{ db_a }
 {
 	debug_assert (check_no_write_tx ());
 	::rocksdb::TransactionOptions txn_options;
@@ -52,7 +55,11 @@ void nano::store::rocksdb::write_transaction_impl::commit ()
 	if (active)
 	{
 		auto status = txn->Commit ();
-		release_assert (status.ok () && "Unable to write to the RocksDB database", status.ToString ());
+		if (!status.ok ())
+		{
+			logger.critical (nano::log::type::rocksdb, "Unable to commit write transaction {}", status.ToString ());
+			release_assert (false);
+		}
 		active = false;
 	}
 }

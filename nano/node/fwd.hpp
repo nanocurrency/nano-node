@@ -22,7 +22,6 @@ class election_status;
 class ledger_notifications;
 class local_block_broadcaster;
 class local_vote_history;
-class logger;
 class network;
 class network_params;
 class node;

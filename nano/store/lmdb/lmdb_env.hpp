@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/fwd.hpp>
 #include <nano/lib/id_dispenser.hpp>
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/store/component.hpp>
@@ -55,13 +56,14 @@ public:
 		nano::lmdb_config config;
 	};
 
-	env (bool &, std::filesystem::path const &, env::options options_a = env::options::make ());
+	env (bool &, nano::logger & logger, std::filesystem::path const &, env::options options_a = env::options::make ());
 	void init (bool &, std::filesystem::path const &, env::options options_a = env::options::make ());
 	~env ();
 	operator MDB_env * () const;
 	store::read_transaction tx_begin_read (txn_callbacks callbacks = txn_callbacks{}) const;
 	store::write_transaction tx_begin_write (txn_callbacks callbacks = txn_callbacks{}) const;
 	MDB_txn * tx (store::transaction const & transaction_a) const;
+	nano::logger & logger;
 	std::unique_ptr<MDB_env, decltype (&mdb_env_close)> environment{ nullptr, mdb_env_close };
 	nano::id_t const store_id{ nano::next_id () };
 	std::filesystem::path const database_path;

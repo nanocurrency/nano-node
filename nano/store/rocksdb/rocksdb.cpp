@@ -412,12 +412,12 @@ std::vector<rocksdb::ColumnFamilyDescriptor> nano::store::rocksdb::component::cr
 nano::store::write_transaction nano::store::rocksdb::component::tx_begin_write ()
 {
 	release_assert (transaction_db != nullptr);
-	return store::write_transaction{ std::make_unique<nano::store::rocksdb::write_transaction_impl> (transaction_db) };
+	return store::write_transaction{ std::make_unique<nano::store::rocksdb::write_transaction_impl> (logger, transaction_db) };
 }
 
 nano::store::read_transaction nano::store::rocksdb::component::tx_begin_read () const
 {
-	return store::read_transaction{ std::make_unique<nano::store::rocksdb::read_transaction_impl> (db.get ()) };
+	return store::read_transaction{ std::make_unique<nano::store::rocksdb::read_transaction_impl> (logger, db.get ()) };
 }
 
 std::string nano::store::rocksdb::component::vendor_get () const
