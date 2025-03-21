@@ -28,6 +28,12 @@ case "${NETWORK}" in
       ;;
 esac
 
+# macOS-specific universal build settings
+CMAKE_MACOS_FLAGS=""
+if [[ "$OS" == 'Darwin' ]]; then
+    CMAKE_MACOS_FLAGS="-DCMAKE_OSX_ARCHITECTURES=\"x86_64;arm64\" -DBOOST_CONTEXT_ABI=sysv -DBOOST_CONTEXT_ARCHITECTURE=combined"
+fi
+
 cmake \
 -G'Unix Makefiles' \
 -DACTIVE_NETWORK=nano_${NETWORK_CFG}_network \
@@ -38,6 +44,7 @@ cmake \
 -DQt5_DIR=${qt_dir} \
 -DCI_BUILD=true \
 -DCI_VERSION_PRE_RELEASE="${ci_version_pre_release}" \
+${CMAKE_MACOS_FLAGS} \
 ..
 
 if [[ "$OS" == 'Linux' ]]; then
