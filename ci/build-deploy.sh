@@ -13,12 +13,12 @@ OS=$(uname)
 
 mkdir build
 pushd build
-CONFIGURATION="Release"
+
+CONFIGURATION="RelWithDebInfo"
 
 case "${NETWORK}" in
   "BETA")
       NETWORK_CFG="beta"
-      CONFIGURATION="RelWithDebInfo"
       ;;
   "TEST")
       NETWORK_CFG="test"
