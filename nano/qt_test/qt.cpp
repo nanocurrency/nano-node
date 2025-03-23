@@ -572,48 +572,175 @@ TEST (history, pruned_source)
 		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
 		auto send2 = std::make_shared<nano::send_block> (send1->hash (), key.pub, nano::dev::constants.genesis_amount - 200, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send1->hash ()));
 		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
-		auto receive = std::make_shared<nano::receive_block> (send2->hash (), send1->hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send2->hash ()));
-		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive));
+		auto receive1 = std::make_shared<nano::receive_block> (send2->hash (), send1->hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send2->hash ()));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive1));
 		auto open = std::make_shared<nano::open_block> (send2->hash (), key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
 		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open));
 		ledger.confirm (transaction, send1->hash ());
 		ASSERT_EQ (1, ledger.pruning_action (transaction, send1->hash (), 2));
 		next_pruning = send2->hash ();
 	}
+	// Set rendering ration to raw units
+	ASSERT_NE (wallet->rendering_ratio, nano::raw_ratio);
+	wallet->rendering_ratio = nano::raw_ratio;
+	// Genesis account pruned values
 	nano_qt::history history1 (ledger, nano::dev::genesis_key.pub, *wallet);
 	history1.refresh ();
 	ASSERT_EQ (2, history1.model->rowCount ());
+	// Source block send1 is removed
+	auto type1 (history1.model->item (0, 0));
+	ASSERT_EQ ("Receive (pruned source)", type1->text ().toStdString ());
+	// Source block account is unknown
+	auto account1 (history1.model->item (0, 1));
+	ASSERT_EQ (nano::account (0).to_account (), account1->text ().toStdString ());
+	// Amount is known because previous block (send2) isn't removed
+	auto amount1 (history1.model->item (0, 2));
+	ASSERT_EQ ("100 raw", amount1->text ().toStdString ());
+	// Last not pruned block in chain (send2)
+	auto type2 (history1.model->item (1, 0));
+	ASSERT_EQ ("Send (pruned)", type2->text ().toStdString ());
+	auto account2 (history1.model->item (1, 1));
+	// Amount is unknown because previous block (send1) is removed
+	ASSERT_EQ (key.pub.to_account (), account2->text ().toStdString ());
+	auto amount2 (history1.model->item (1, 2));
+	ASSERT_EQ ("0 raw", amount2->text ().toStdString ());
+	// New account pruned values
 	nano_qt::history history2 (ledger, key.pub, *wallet);
 	history2.refresh ();
 	ASSERT_EQ (1, history2.model->rowCount ());
+	auto type3 (history2.model->item (0, 0));
+	ASSERT_EQ ("Receive", type3->text ().toStdString ());
+	// Source block (send2) account is known
+	auto account3 (history2.model->item (0, 1));
+	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), account3->text ().toStdString ());
+	auto amount3 (history2.model->item (0, 2));
+	ASSERT_EQ ("100 raw", amount3->text ().toStdString ());
 	// Additional legacy test
 	{
 		auto transaction = ledger.tx_begin_write ();
 		ledger.confirm (transaction, next_pruning);
 		ASSERT_EQ (1, ledger.pruning_action (transaction, next_pruning, 2));
 	}
+	// Genesis account pruned values
 	history1.refresh ();
 	ASSERT_EQ (1, history1.model->rowCount ());
+	auto type4 (history1.model->item (0, 0));
+	ASSERT_EQ ("Receive (pruned)", type4->text ().toStdString ());
+	auto account4 (history1.model->item (0, 1));
+	ASSERT_EQ (nano::account (0).to_account (), account4->text ().toStdString ());
+	// Amount is unknown because previous block (send2) is removed
+	auto amount4 (history1.model->item (0, 2));
+	ASSERT_EQ ("0 raw", amount4->text ().toStdString ());
+	// New account pruned values
 	history2.refresh ();
 	ASSERT_EQ (1, history2.model->rowCount ());
+	auto type5 (history2.model->item (0, 0));
+	ASSERT_EQ ("Receive (pruned source)", type5->text ().toStdString ());
+	// Source block (send2) account is unknown
+	auto account5 (history2.model->item (0, 1));
+	ASSERT_EQ (nano::account (0).to_account (), account5->text ().toStdString ());
+	auto amount5 (history2.model->item (0, 2));
+	ASSERT_EQ ("100 raw", amount5->text ().toStdString ());
 	// Pruning for state blocks. Previous block is pruned, source is pruned
 	{
 		auto transaction = ledger.tx_begin_write ();
 		auto latest (ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
-		auto send = std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, latest, nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 200, key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
-		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send));
+		auto send3 = std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, latest, nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 200, key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send3));
 		auto latest_key (ledger.any.account_head (transaction, key.pub));
-		auto receive = std::make_shared<nano::state_block> (key.pub, latest_key, key.pub, 200, send->hash (), key.prv, key.pub, *system.work.generate (latest_key));
-		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive));
+		auto receive2 = std::make_shared<nano::state_block> (key.pub, latest_key, key.pub, 200, send3->hash (), key.prv, key.pub, *system.work.generate (latest_key));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive2));
 		ledger.confirm (transaction, latest);
 		ASSERT_EQ (1, ledger.pruning_action (transaction, latest, 2));
 		ledger.confirm (transaction, latest_key);
 		ASSERT_EQ (1, ledger.pruning_action (transaction, latest_key, 2));
 	}
+	// Genesis account pruned values
 	history1.refresh ();
 	ASSERT_EQ (1, history1.model->rowCount ());
+	auto type6 (history1.model->item (0, 0));
+	ASSERT_EQ ("Send (pruned)", type6->text ().toStdString ());
+	auto account6 (history1.model->item (0, 1));
+	ASSERT_EQ (key.pub.to_account (), account6->text ().toStdString ());
+	// Amount is unknown because previous block (receive1) is removed
+	auto amount6 (history1.model->item (0, 2));
+	ASSERT_EQ ("0 raw", amount6->text ().toStdString ());
+	// New account pruned values
 	history2.refresh ();
 	ASSERT_EQ (1, history2.model->rowCount ());
+	auto type7 (history2.model->item (0, 0));
+	ASSERT_EQ ("Receive (pruned)", type7->text ().toStdString ());
+	// Source block (send3) account is known
+	auto account7 (history2.model->item (0, 1));
+	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), account7->text ().toStdString ());
+	// Amount is unknown because previous block (receive1) is removed
+	auto amount7 (history2.model->item (0, 2));
+	ASSERT_EQ ("0 raw", amount7->text ().toStdString ());
+	// Pruning for state blocks. Change state block
+	{
+		auto transaction = ledger.tx_begin_write ();
+		auto latest (ledger.any.account_head (transaction, nano::dev::genesis_key.pub));
+		auto change = std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, latest, key.pub, nano::dev::constants.genesis_amount - 200, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, change));
+		ledger.confirm (transaction, latest);
+		ASSERT_EQ (1, ledger.pruning_action (transaction, latest, 2));
+	}
+	// Genesis account pruned values
+	history1.refresh ();
+	ASSERT_EQ (1, history1.model->rowCount ());
+	auto type8 (history1.model->item (0, 0));
+	ASSERT_EQ ("Change (pruned)", type8->text ().toStdString ());
+	auto account8 (history1.model->item (0, 1));
+	ASSERT_EQ (key.pub.to_account (), account8->text ().toStdString ());
+	// Amount is 0 for change blocks
+	auto amount8 (history1.model->item (0, 2));
+	ASSERT_EQ ("0 raw", amount8->text ().toStdString ());
+	// New account pruned values
+	history2.refresh ();
+	ASSERT_EQ (1, history2.model->rowCount ());
+	auto type9 (history2.model->item (0, 0));
+	ASSERT_EQ ("Receive (pruned)", type9->text ().toStdString ());
+	// Source block (send3) account is unknown
+	auto account9 (history2.model->item (0, 1));
+	ASSERT_EQ (nano::account (0).to_account (), account9->text ().toStdString ());
+	// Amount is unknown because previous block (receive1) is removed
+	auto amount9 (history2.model->item (0, 2));
+	ASSERT_EQ ("0 raw", amount9->text ().toStdString ());
+	// Pruning for state blocks. Open state block
+	nano::keypair key2;
+	system.wallet (0)->insert_adhoc (key2.prv);
+	{
+		auto transaction = ledger.tx_begin_write ();
+		auto latest_key (ledger.any.account_head (transaction, key.pub));
+		auto send4 = std::make_shared<nano::state_block> (key.pub, latest_key, key.pub, 100, key2.pub, key.prv, key.pub, *system.work.generate (latest_key));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send4));
+		auto open2 = std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, 100, send4->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open2));
+		ledger.confirm (transaction, latest_key);
+		ASSERT_EQ (1, ledger.pruning_action (transaction, latest_key, 2));
+	}
+	// New account (key) pruned values
+	history2.refresh ();
+	ASSERT_EQ (1, history2.model->rowCount ());
+	auto type10 (history2.model->item (0, 0));
+	ASSERT_EQ ("Send (pruned)", type10->text ().toStdString ());
+	auto account10 (history2.model->item (0, 1));
+	ASSERT_EQ (key2.pub.to_account (), account10->text ().toStdString ());
+	// Amount is unknown because previous block (receive2) is removed
+	auto amount10 (history2.model->item (0, 2));
+	ASSERT_EQ ("0 raw", amount10->text ().toStdString ());
+	// Account (key2) pruned values
+	nano_qt::history history3 (ledger, key2.pub, *wallet);
+	history3.refresh ();
+	ASSERT_EQ (1, history3.model->rowCount ());
+	// Type is "Recieve" for open block because source block (send4) isn't removed
+	auto type11 (history3.model->item (0, 0));
+	ASSERT_EQ ("Receive", type11->text ().toStdString ());
+	auto account11 (history3.model->item (0, 1));
+	ASSERT_EQ (key.pub.to_account (), account11->text ().toStdString ());
+	// Amount is known for open blocks
+	auto amount11 (history3.model->item (0, 2));
+	ASSERT_EQ ("100 raw", amount11->text ().toStdString ());
 }
 
 TEST (wallet, startup_work)
