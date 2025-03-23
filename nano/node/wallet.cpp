@@ -1466,6 +1466,10 @@ nano::wallets::wallets (bool error_a, nano::node & node_a) :
 	}
 
 	logger.info (nano::log::type::wallet, "Found {} wallet(s)", items.size ());
+	for (auto const & item : items)
+	{
+		logger.info (nano::log::type::wallet, "Wallet: {}", item.first.to_string ());
+	}
 
 	// Backup before upgrade wallets
 	bool backup_required (false);
