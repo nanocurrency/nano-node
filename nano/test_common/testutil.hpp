@@ -385,7 +385,7 @@ namespace test
 	/*
 	 * Creates a new fake channel associated with `node`
 	 */
-	std::shared_ptr<nano::transport::fake::channel> fake_channel (nano::node & node, nano::account node_id = { 0 });
+	std::shared_ptr<nano::transport::channel> fake_channel (nano::node & node, nano::account node_id = { 0 });
 	/*
 	 * Creates a new test channel associated with `node`
 	 */

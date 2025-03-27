@@ -246,7 +246,7 @@ std::vector<std::shared_ptr<nano::block>> nano::test::clone (std::vector<std::sh
 	return clones;
 }
 
-std::shared_ptr<nano::transport::fake::channel> nano::test::fake_channel (nano::node & node, nano::account node_id)
+std::shared_ptr<nano::transport::channel> nano::test::fake_channel (nano::node & node, nano::account node_id)
 {
 	auto channel = std::make_shared<nano::transport::fake::channel> (node);
 	if (!node_id.is_zero ())
