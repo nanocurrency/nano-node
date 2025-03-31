@@ -2131,20 +2131,33 @@ void nano::json_handler::confirmation_info ()
 				if (representatives)
 				{
 					std::multimap<nano::uint128_t, nano::account, std::greater<nano::uint128_t>> representatives;
+					std::multimap<nano::uint128_t, nano::account, std::greater<nano::uint128_t>> representatives_final;
 					for (auto const & [representative, vote] : info.votes)
 					{
 						if (block->hash () == vote.hash)
 						{
 							auto amount (node.ledger.cache.rep_weights.representation_get (representative));
-							representatives.emplace (std::move (amount), representative);
+							representatives.emplace (amount, representative);
+							if (vote.timestamp == std::numeric_limits<uint64_t>::max ())
+							{
+								representatives_final.emplace (amount, representative);
+							}
 						}
 					}
-					boost::property_tree::ptree representatives_list;
+
+					boost::property_tree::ptree representatives_ptree;
+					boost::property_tree::ptree representatives_ptree_final;
 					for (auto const & [amount, representative] : representatives)
 					{
-						representatives_list.put (representative.to_account (), amount.convert_to<std::string> ());
+						representatives_ptree.put (representative.to_account (), amount.convert_to<std::string> ());
 					}
-					entry.add_child ("representatives", representatives_list);
+					for (auto const & [amount, representative] : representatives_final)
+					{
+						representatives_ptree_final.put (representative.to_account (), amount.convert_to<std::string> ());
+					}
+
+					entry.add_child ("representatives", representatives_ptree);
+					entry.add_child ("representatives_final", representatives_ptree_final);
 				}
 				blocks.add_child ((block->hash ()).to_string (), entry);
 			}

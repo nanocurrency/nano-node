@@ -6844,6 +6844,91 @@ TEST (rpc, confirmation_active)
 TEST (rpc, confirmation_info)
 {
 	nano::test::system system;
+	nano::node_config node_config;
+	node_config.backlog_scan.enable = false; // Disable backlog scan to avoid unwanted elections
+	auto node = add_ipc_enabled_node (system, node_config);
+	auto const rpc_ctx = add_rpc (system, node);
+
+	auto rep1 = nano::test::setup_rep (system, *node, 100 * nano::Knano_ratio);
+	auto rep2 = nano::test::setup_rep (system, *node, 1000 * nano::Knano_ratio);
+	auto rep3 = nano::test::setup_rep (system, *node, 2000 * nano::Knano_ratio);
+	auto rep4 = nano::keypair{}; // Representative with zero weight
+	auto rep5 = nano::test::setup_rep (system, *node, 1500 * nano::Knano_ratio); // Additional final representative
+
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (node->latest (nano::dev::genesis_key.pub))
+				.link (nano::public_key{})
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 10000 * nano::Knano_ratio)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (node->latest (nano::dev::genesis_key.pub)))
+				.build ();
+	node->process_active (send);
+
+	ASSERT_TIMELY (5s, !node->active.empty ());
+
+	auto election = node->active.election (send->qualified_root ());
+	ASSERT_NE (nullptr, election);
+
+	auto vote1 = nano::test::make_vote (rep1, { send });
+	auto vote2 = nano::test::make_vote (rep2, { send });
+	auto vote3 = nano::test::make_final_vote (rep3, { send });
+	auto vote4 = nano::test::make_vote (rep4, { send }); // Add vote from zero-weight representative
+	auto vote5 = nano::test::make_final_vote (rep5, { send }); // Add another final vote
+
+	node->vote_processor.vote_blocking (vote1, nano::test::fake_channel (*node));
+	node->vote_processor.vote_blocking (vote2, nano::test::fake_channel (*node));
+	node->vote_processor.vote_blocking (vote3, nano::test::fake_channel (*node));
+	node->vote_processor.vote_blocking (vote4, nano::test::fake_channel (*node));
+	node->vote_processor.vote_blocking (vote5, nano::test::fake_channel (*node));
+
+	boost::property_tree::ptree request;
+	request.put ("action", "confirmation_info");
+	request.put ("root", send->qualified_root ().to_string ());
+	request.put ("representatives", "true");
+	request.put ("json_block", "true");
+	{
+		auto response (wait_response (system, rpc_ctx, request));
+
+		ASSERT_EQ (0, response.get<unsigned> ("announcements"));
+		// FIXME: The voters and representatives list always contains a "ghost" representative with zero weight, investigate why
+		ASSERT_EQ (6, response.get<unsigned> ("voters"));
+		ASSERT_EQ (send->hash ().to_string (), response.get<std::string> ("last_winner"));
+		ASSERT_EQ ("4600000000000000000000000000000000000", response.get<std::string> ("total_tally"));
+		ASSERT_EQ ("3500000000000000000000000000000000000", response.get<std::string> ("final_tally"));
+
+		auto & blocks (response.get_child ("blocks"));
+		ASSERT_EQ (1, blocks.size ());
+
+		auto block_info = blocks.find (send->hash ().to_string ());
+		ASSERT_NE (block_info, blocks.not_found ());
+
+		ASSERT_EQ ("4600000000000000000000000000000000000", block_info->second.get<std::string> ("tally"));
+
+		auto & representatives = block_info->second.get_child ("representatives");
+		ASSERT_EQ (6, representatives.size ());
+		ASSERT_EQ ("100000000000000000000000000000000000", representatives.get<std::string> (rep1.pub.to_account ()));
+		ASSERT_EQ ("1000000000000000000000000000000000000", representatives.get<std::string> (rep2.pub.to_account ()));
+		ASSERT_EQ ("2000000000000000000000000000000000000", representatives.get<std::string> (rep3.pub.to_account ()));
+		ASSERT_EQ ("0", representatives.get<std::string> (rep4.pub.to_account ()));
+		ASSERT_EQ ("1500000000000000000000000000000000000", representatives.get<std::string> (rep5.pub.to_account ()));
+
+		auto & representatives_final = block_info->second.get_child ("representatives_final");
+		ASSERT_EQ (2, representatives_final.size ());
+		ASSERT_EQ ("2000000000000000000000000000000000000", representatives_final.get<std::string> (rep3.pub.to_account ()));
+		ASSERT_EQ ("1500000000000000000000000000000000000", representatives_final.get<std::string> (rep5.pub.to_account ()));
+
+		// Verify the contents field exists
+		ASSERT_TRUE (block_info->second.get_child_optional ("contents").is_initialized ());
+	}
+}
+
+TEST (rpc, confirmation_info_empty)
+{
+	nano::test::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node1);
 
@@ -6867,13 +6952,17 @@ TEST (rpc, confirmation_info)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		ASSERT_EQ (1, response.count ("announcements"));
+		// FIXME: The voters and representatives list always contains a "ghost" representative with zero weight, investigate why
 		ASSERT_EQ (1, response.get<unsigned> ("voters"));
 		ASSERT_EQ (send->hash ().to_string (), response.get<std::string> ("last_winner"));
 		auto & blocks (response.get_child ("blocks"));
 		ASSERT_EQ (1, blocks.size ());
 		auto & representatives (blocks.front ().second.get_child ("representatives"));
 		ASSERT_EQ (1, representatives.size ());
+		auto & representatives_final (blocks.front ().second.get_child ("representatives_final"));
+		ASSERT_EQ (0, representatives_final.size ());
 		ASSERT_EQ (0, response.get<unsigned> ("total_tally"));
+		ASSERT_EQ (0, response.get<unsigned> ("final_tally"));
 	}
 }
 
