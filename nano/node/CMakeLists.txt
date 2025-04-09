@@ -71,6 +71,8 @@ add_library(
   epoch_upgrader.hpp
   epoch_upgrader.cpp
   fair_queue.hpp
+  fork_cache.hpp
+  fork_cache.cpp
   fwd.hpp
   ipc/action_handler.hpp
   ipc/action_handler.cpp

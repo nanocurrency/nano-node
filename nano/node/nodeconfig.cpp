@@ -274,6 +274,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	bounded_backlog.serialize (bounded_backlog_l);
 	toml.put_child ("bounded_backlog", bounded_backlog_l);
 
+	nano::tomlconfig fork_cache_l;
+	fork_cache.serialize (fork_cache_l);
+	toml.put_child ("fork_cache", fork_cache_l);
+
 	return toml.get_error ();
 }
 
@@ -429,6 +433,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto config_l = toml.get_required_child ("bounded_backlog");
 			bounded_backlog.deserialize (config_l);
+		}
+
+		if (toml.has_key ("fork_cache"))
+		{
+			auto config_l = toml.get_required_child ("fork_cache");
+			fork_cache.deserialize (config_l);
 		}
 
 		/*

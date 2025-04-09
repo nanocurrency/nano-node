@@ -353,7 +353,14 @@ class state_block : public nano::block
 {
 public:
 	state_block () = default;
-	state_block (nano::account const &, nano::block_hash const &, nano::account const &, nano::amount const &, nano::link const &, nano::raw_key const &, nano::public_key const &, uint64_t);
+	state_block (nano::account const & account,
+	nano::block_hash const & previous,
+	nano::account const & representative,
+	nano::amount const & balance,
+	nano::link const & link,
+	nano::raw_key const & prv,
+	nano::public_key const & pub,
+	uint64_t work);
 	state_block (bool &, nano::stream &);
 	state_block (bool &, boost::property_tree::ptree const &);
 	virtual ~state_block () = default;

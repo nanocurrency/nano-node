@@ -147,6 +147,8 @@ public:
 	nano::port_mapping & port_mapping;
 	std::unique_ptr<nano::block_processor> block_processor_impl;
 	nano::block_processor & block_processor;
+	std::unique_ptr<nano::fork_cache> fork_cache_impl;
+	nano::fork_cache & fork_cache;
 	std::unique_ptr<nano::confirming_set> confirming_set_impl;
 	nano::confirming_set & confirming_set;
 	std::unique_ptr<nano::bucketing> bucketing_impl;

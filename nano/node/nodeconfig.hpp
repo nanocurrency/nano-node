@@ -15,6 +15,7 @@
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/bounded_backlog.hpp>
 #include <nano/node/confirming_set.hpp>
+#include <nano/node/fork_cache.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
 #include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/message_processor.hpp>
@@ -164,6 +165,7 @@ public:
 	nano::backlog_scan_config backlog_scan;
 	nano::bounded_backlog_config bounded_backlog;
 	nano::vote_rebroadcaster_config vote_rebroadcaster;
+	nano::fork_cache_config fork_cache;
 
 public:
 	/** Entry is ignored if it cannot be parsed as a valid address:port */

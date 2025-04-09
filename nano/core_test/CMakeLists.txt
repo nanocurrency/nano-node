@@ -25,6 +25,7 @@ add_executable(
   enums.cpp
   epochs.cpp
   fair_queue.cpp
+  fork_cache.cpp
   ipc.cpp
   ledger.cpp
   ledger_confirm.cpp

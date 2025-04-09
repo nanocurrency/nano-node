@@ -37,6 +37,11 @@ void nano::bootstrap_server::start ()
 {
 	debug_assert (threads.empty ());
 
+	if (!config.enable)
+	{
+		return;
+	}
+
 	for (auto i = 0u; i < config.threads; ++i)
 	{
 		threads.push_back (std::thread ([this] () {
@@ -107,6 +112,11 @@ bool nano::bootstrap_server::verify (const nano::asc_pull_req & message) const
 
 bool nano::bootstrap_server::request (nano::asc_pull_req const & message, std::shared_ptr<nano::transport::channel> const & channel)
 {
+	if (!config.enable)
+	{
+		return false;
+	}
+
 	if (!verify (message))
 	{
 		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::invalid);
@@ -439,6 +449,7 @@ nano::stat::detail nano::to_stat_detail (nano::asc_pull_type type)
 
 nano::error nano::bootstrap_server_config::serialize (nano::tomlconfig & toml) const
 {
+	toml.put ("enable", enable, "Enable bootstrap server. \ntype:bool");
 	toml.put ("max_queue", max_queue, "Maximum number of queued requests per peer. \ntype:uint64");
 	toml.put ("threads", threads, "Number of threads to process requests. \ntype:uint64");
 	toml.put ("batch_size", batch_size, "Maximum number of requests to process in a single batch. \ntype:uint64");
@@ -449,6 +460,7 @@ nano::error nano::bootstrap_server_config::serialize (nano::tomlconfig & toml) c
 
 nano::error nano::bootstrap_server_config::deserialize (nano::tomlconfig & toml)
 {
+	toml.get ("enable", enable);
 	toml.get ("max_queue", max_queue);
 	toml.get ("threads", threads);
 	toml.get ("batch_size", batch_size);

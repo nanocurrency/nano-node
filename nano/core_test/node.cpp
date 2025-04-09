@@ -3232,8 +3232,6 @@ TEST (node, dependency_graph_frontier)
 	ASSERT_TIMELY_EQ (15s, node2.ledger.cemented_count (), node2.ledger.block_count ());
 }
 
-namespace nano
-{
 TEST (node, deferred_dependent_elections)
 {
 	nano::test::system system;
@@ -3354,7 +3352,6 @@ TEST (node, deferred_dependent_elections)
 	election_send2->force_confirm ();
 	ASSERT_TIMELY (5s, node.block_confirmed (send2->hash ()));
 	ASSERT_TIMELY (5s, node.active.active (receive->qualified_root ()));
-}
 }
 
 // Test that a node configured with `enable_pruning` and `max_pruning_age = 1s` will automatically
@@ -3667,4 +3664,144 @@ TEST (node, bounded_backlog)
 	node.backlog_scan.trigger ();
 
 	ASSERT_TIMELY_EQ (20s, node.ledger.block_count (), 11); // 10 + genesis
+}
+
+// This test checks that a bootstrapping node can resolve a fork when a "poisoned" node
+// attempts to feed it the incorrect side of a fork.
+// The scenario involves:
+// 1. A bootstrapping node (node_boot) - the node being tested
+// 2. A poisoned node (node_poison) that has bootstrap serving enabled with an incorrect block
+// 3. A representative node (node_rep) with enough voting weight but bootstrap serving disabled
+// 4. A non-representative node (node_correct) that serves the correct side of the fork
+TEST (node, bootstrap_poison)
+{
+	nano::test::system system;
+
+	// Create the representative node with bootstrap serving disabled
+	nano::node_config rep_config = system.default_config ();
+	rep_config.bootstrap_server.enable = false; // Disable bootstrap serving
+	rep_config.bootstrap.enable = false; // Disable bootstrap from the network
+	// Disable schedulers
+	rep_config.priority_scheduler.enable = false;
+	rep_config.hinted_scheduler.enable = false;
+	rep_config.optimistic_scheduler.enable = false;
+	rep_config.backlog_scan.enable = false;
+	auto & node_rep = *system.add_node (rep_config);
+
+	// Create the poisoned node with bootstrap serving enabled
+	nano::node_config poison_config = system.default_config ();
+	poison_config.bootstrap_server.enable = true; // Enable bootstrap serving
+	poison_config.bootstrap.enable = false; // Disable bootstrap from the network
+	// Disable schedulers
+	poison_config.priority_scheduler.enable = false;
+	poison_config.hinted_scheduler.enable = false;
+	poison_config.optimistic_scheduler.enable = false;
+	poison_config.backlog_scan.enable = false;
+	auto & node_poison = *system.add_node (poison_config);
+
+	// Representative node needs to hold the genesis key to have voting weight
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	// Create keys for our test accounts
+	nano::keypair key1;
+
+	// Create and process blocks on representative node (the correct chain)
+	nano::block_builder builder;
+
+	// First send from genesis to key1
+	auto send1 = builder.send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key1.pub)
+				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+
+	ASSERT_EQ (nano::block_status::progress, node_rep.process (send1));
+	ASSERT_EQ (nano::block_status::progress, node_poison.process (send1));
+
+	// Valid open block for key1 (correct version)
+	auto open_correct = builder.open ()
+						.source (send1->hash ())
+						.representative (key1.pub)
+						.account (key1.pub)
+						.sign (key1.prv, key1.pub)
+						.work (*system.work.generate (key1.pub))
+						.build ();
+
+	// Fork of the open block (incorrect version) - using a different representative
+	nano::keypair bad_rep;
+	auto open_fork = builder.open ()
+					 .source (send1->hash ())
+					 .representative (bad_rep.pub) // Different representative
+					 .account (key1.pub)
+					 .sign (key1.prv, key1.pub)
+					 .work (*system.work.generate (key1.pub))
+					 .build ();
+
+	// Process the correct open block on the representative node
+	ASSERT_EQ (nano::block_status::progress, node_rep.process (open_correct));
+
+	// Process the forked open block on the poisoned node
+	ASSERT_EQ (nano::block_status::progress, node_poison.process (open_fork));
+
+	// Confirm the correct block on the representative node
+	nano::test::confirm (node_rep, { open_correct });
+
+	// Now create a bootstrapping node that will try to sync from both nodes
+	nano::node_config node_config = system.default_config ();
+	node_config.bootstrap.account_sets.cooldown = 100ms; // Short cooldown between requests to speed up the test
+	node_config.bootstrap.request_timeout = 250ms;
+	node_config.bootstrap.frontier_rate_limit = 100;
+	// Disable schedulers
+	node_config.priority_scheduler.enable = false;
+	node_config.hinted_scheduler.enable = false;
+	node_config.optimistic_scheduler.enable = false;
+	node_config.backlog_scan.enable = false;
+	nano::node_flags node_flags;
+	auto & node = *system.add_node (node_config, node_flags);
+	ASSERT_EQ (node.network.size (), 2);
+
+	std::cout << "Main node: " << node.identifier () << std::endl;
+	std::cout << "Waiting for: " << open_fork->hash ().to_string () << std::endl;
+
+	// The node should initially get the incorrect block from the poisoned node
+	ASSERT_TIMELY (15s, node.block (open_fork->hash ()) != nullptr);
+	ASSERT_NEVER (1s, node.stats.count (nano::stat::type::ledger, nano::stat::detail::fork) > 0);
+
+	// Create another non-rep node that will serve the correct side of the fork
+	nano::node_config correct_config = system.default_config ();
+	correct_config.bootstrap_server.enable = true; // Enable bootstrap serving
+	correct_config.bootstrap.enable = false; // Disable bootstrap from the network
+	correct_config.priority_scheduler.enable = false;
+	correct_config.hinted_scheduler.enable = false;
+	correct_config.optimistic_scheduler.enable = false;
+	auto & node_correct = *system.add_node (correct_config);
+	ASSERT_EQ (node.network.size (), 3);
+
+	// Process the correct open block on the non-representative node
+	ASSERT_EQ (nano::block_status::progress, node_correct.process (send1));
+	ASSERT_EQ (nano::block_status::progress, node_correct.process (open_correct));
+
+	// The node should at some point notice that there is a forked block
+	ASSERT_TIMELY (15s, node.stats.count (nano::stat::type::ledger, nano::stat::detail::fork) > 0);
+
+	// Should no longer be needed, fork should be cached
+	node_correct.stop ();
+
+	// We need an election active to force the correct side of the fork
+	ASSERT_TRUE (nano::test::start_election (system, node, open_fork->hash ()));
+
+	// Wait for the node to resolve the fork conflict
+	ASSERT_TIMELY (15s, node.block (open_correct->hash ()) != nullptr);
+
+	// Verify that the node got the correct block and not the fork
+	ASSERT_NE (nullptr, node.block (open_correct->hash ()));
+	ASSERT_EQ (nullptr, node.block (open_fork->hash ()));
+
+	// Verify the account information on the bootstrap node is correct
+	nano::account_info account_info;
+	ASSERT_FALSE (node.store.account.get (node.store.tx_begin_read (), key1.pub, account_info));
+	ASSERT_EQ (account_info.head, open_correct->hash ());
+	ASSERT_EQ (account_info.representative, key1.pub); // Correct representative
 }

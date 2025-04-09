@@ -121,6 +121,7 @@ enum class type
 	process_confirmed,
 	online_reps,
 	pruning,
+	fork_cache,
 
 	_last // Must be the last enum
 };
@@ -478,18 +479,17 @@ enum class detail
 	activate_full,
 	scanned,
 
-	// active
+	// active_elections
 	insert,
 	insert_failed,
 	transition_priority,
 	transition_priority_failed,
 	election_cleanup,
 	activate_immediately,
-
-	// active_elections
 	started,
 	stopped,
 	confirm_dependent,
+	forks_cached,
 
 	// unchecked
 	put,
@@ -676,6 +676,9 @@ enum class detail
 	pruning_target,
 	pruned_count,
 	collect_targets,
+
+	// fork_cache
+	overfill_entry,
 
 	_last // Must be the last enum
 };

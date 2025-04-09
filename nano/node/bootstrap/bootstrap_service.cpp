@@ -789,7 +789,7 @@ void nano::bootstrap_service::cleanup_and_sync ()
 	}
 
 	// Reinsert known dependencies into the priority set
-	if (sync_dependencies_interval.elapse (nano::is_dev_run () ? 1s : 60s))
+	if (sync_dependencies_interval.elapse (nano::is_dev_run () ? 500ms : 60s))
 	{
 		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::sync_dependencies);
 		accounts.sync_dependencies ();
@@ -803,7 +803,7 @@ void nano::bootstrap_service::run_timeouts ()
 	{
 		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::loop_cleanup);
 		cleanup_and_sync ();
-		condition.wait_for (lock, 5s, [this] () { return stopped; });
+		condition.wait_for (lock, nano::is_dev_run () ? 500ms : 5s, [this] () { return stopped; });
 	}
 }
 

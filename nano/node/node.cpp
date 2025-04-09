@@ -20,6 +20,7 @@
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/endpoint.hpp>
+#include <nano/node/fork_cache.hpp>
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/local_vote_history.hpp>
@@ -147,6 +148,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	port_mapping{ *port_mapping_impl },
 	block_processor_impl{ std::make_unique<nano::block_processor> (config, ledger, ledger_notifications, unchecked, stats, logger) },
 	block_processor{ *block_processor_impl },
+	fork_cache_impl{ std::make_unique<nano::fork_cache> (config.fork_cache, stats) },
+	fork_cache{ *fork_cache_impl },
 	confirming_set_impl{ std::make_unique<nano::confirming_set> (config.confirming_set, ledger, ledger_notifications, stats, logger) },
 	confirming_set{ *confirming_set_impl },
 	bucketing_impl{ std::make_unique<nano::bucketing> () },
@@ -227,6 +230,17 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	// Do some cleanup due to this block never being processed by confirmation height processor
 	confirming_set.cementing_failed.add ([this] (auto const & hash) {
 		active.recently_confirmed.erase (hash);
+	});
+
+	// Cache forks
+	ledger_notifications.blocks_processed.add ([this] (auto const & batch) {
+		for (auto const & [result, context] : batch)
+		{
+			if (result == nano::block_status::fork)
+			{
+				fork_cache.put (context.block);
+			}
+		}
 	});
 
 	// Announce new blocks via websocket
@@ -998,6 +1012,7 @@ nano::container_info nano::node::container_info () const
 	info.add ("http_callbacks", http_callbacks.container_info ());
 	info.add ("pruning", pruning.container_info ());
 	info.add ("vote_rebroadcaster", vote_rebroadcaster.container_info ());
+	info.add ("fork_cache", fork_cache.container_info ());
 	return info;
 }
 

@@ -456,6 +456,17 @@ void nano::election::confirm_if_quorum (nano::unique_lock<nano::mutex> & lock_a)
 	{
 		status.winner = block_l;
 		remove_votes (status_winner_hash_l);
+
+		node.logger.debug (nano::log::type::election, "Winning fork changed from {} to {} for root: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
+		status_winner_hash_l,
+		winner_hash_l,
+		qualified_root,
+		to_string (behavior_m),
+		to_string (state_m),
+		status.voter_count,
+		status.block_count,
+		duration ().count ());
+
 		node.block_processor.force (block_l);
 	}
 	if (have_quorum (tally_l))

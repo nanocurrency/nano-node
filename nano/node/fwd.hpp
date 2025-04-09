@@ -19,6 +19,7 @@ class bootstrap_service;
 class confirming_set;
 class election;
 class election_status;
+class fork_cache;
 class ledger_notifications;
 class local_block_broadcaster;
 class local_vote_history;

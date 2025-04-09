@@ -400,8 +400,8 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 
 	auto const root = block_a->qualified_root ();
 	auto const hash = block_a->hash ();
-	auto const existing = roots.get<tag_root> ().find (root);
-	if (existing == roots.get<tag_root> ().end ())
+
+	if (auto existing = roots.get<tag_root> ().find (root); existing == roots.get<tag_root> ().end ())
 	{
 		if (!recently_confirmed.exists (root))
 		{
@@ -479,9 +479,21 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 	{
 		debug_assert (result.election);
 
-		node.vote_cache_processor.trigger (hash);
+		// Notifications
 		node.observers.active_started.notify (hash);
 		vacancy_updated.notify ();
+
+		// Let the election know about already observed votes
+		node.vote_cache_processor.trigger (hash);
+
+		// Let the election know about already observed forks
+		auto forks = node.fork_cache.get (root);
+		node.stats.add (nano::stat::type::active_elections, nano::stat::detail::forks_cached, forks.size ());
+
+		for (auto const & fork : forks)
+		{
+			publish (fork);
+		}
 	}
 
 	// Votes are generated for inserted or ongoing elections
