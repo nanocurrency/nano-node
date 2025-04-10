@@ -9,7 +9,7 @@ nano::error nano::node_rpc_config::serialize_toml (nano::tomlconfig & toml) cons
 	toml.put ("enable_sign_hash", enable_sign_hash, "Allow or disallow signing of hashes.\ntype:bool");
 
 	nano::tomlconfig child_process_l;
-	child_process_l.put ("enable", child_process.enable, "Enable or disable RPC child process. If false, an in-process RPC server is used.\ntype:bool");
+	child_process_l.put ("enable", child_process.enable, "Enable or disable RPC child process. WARNING: This is a legacy, experimental feature and should not be used to protect against malicious RPC calls.\ntype:bool");
 	child_process_l.put ("rpc_path", child_process.rpc_path, "Path to the nano_rpc executable. Must be set if child process is enabled.\ntype:string,path");
 	toml.put_child ("child_process", child_process_l);
 	return toml.get_error ();
