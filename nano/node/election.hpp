@@ -151,6 +151,9 @@ public: // Information
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
 	bool contains (nano::block_hash const &) const;
 
+	size_t voter_count () const;
+	size_t block_count () const;
+
 private:
 	nano::tally_t tally_impl () const;
 	bool confirmed_locked () const;
