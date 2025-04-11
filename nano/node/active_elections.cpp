@@ -305,7 +305,7 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 			node.logger.debug (nano::log::type::active_elections, "Bootstrapping account: {} with stale election with root: {}, blocks: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
 			election->account (),
 			election->qualified_root,
-			fmt::join (std::views::keys (election->blocks ()), ", "),
+			fmt::join (election->blocks_hashes (), ", "), // TODO: Lazy eval
 			to_string (election->behavior ()),
 			to_string (election->state ()),
 			election->voter_count (),
@@ -345,7 +345,7 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 
 	node.logger.debug (nano::log::type::active_elections, "Erased election for root: {} with blocks: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
 	election->qualified_root,
-	fmt::join (std::views::keys (blocks_l), ", "),
+	fmt::join (election->blocks_hashes (), ", "), // TODO: Lazy eval
 	to_string (election->behavior ()),
 	to_string (election->state ()),
 	election->voter_count (),
@@ -460,7 +460,7 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 
 			node.logger.debug (nano::log::type::active_elections, "Started new election for root: {} with blocks: {} (behavior: {}, active immediately: {})",
 			root,
-			fmt::join (std::views::keys (result.election->blocks ()), ", "),
+			fmt::join (result.election->blocks_hashes (), ", "), // TODO: Lazy eval
 			to_string (election_behavior_a),
 			activate_immediately);
 		}

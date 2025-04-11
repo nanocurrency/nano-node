@@ -811,6 +811,17 @@ nano::account nano::election::account () const
 	return status.winner->account ();
 }
 
+std::unordered_set<nano::block_hash> nano::election::blocks_hashes () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	std::unordered_set<nano::block_hash> hashes;
+	for (auto const & block : last_blocks)
+	{
+		hashes.emplace (block.first);
+	}
+	return hashes;
+}
+
 std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election::blocks () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
