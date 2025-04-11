@@ -8,8 +8,8 @@
 #include <nano/lib/work_version.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/active_elections.hpp>
+#include <nano/node/cementing_set.hpp>
 #include <nano/node/cli.hpp>
-#include <nano/node/confirming_set.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/inactive_node.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
@@ -1261,7 +1261,7 @@ int main (int argc, char * const * argv)
 			// Confirm blocks for node1
 			for (auto & block : blocks)
 			{
-				node1->confirming_set.add (block->hash ());
+				node1->cementing_set.add (block->hash ());
 			}
 			while (node1->ledger.cemented_count () != node1->ledger.block_count ())
 			{

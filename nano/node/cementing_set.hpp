@@ -24,7 +24,7 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
-class confirming_set_config final
+class cementing_set_config final
 {
 public:
 	// TODO: Serialization & deserialization
@@ -46,14 +46,14 @@ public:
 /**
  * Set of blocks to be durably confirmed
  */
-class confirming_set final
+class cementing_set final
 {
 	friend class confirmation_heightDeathTest_missing_block_Test;
 	friend class confirmation_height_pruned_source_Test;
 
 public:
-	confirming_set (confirming_set_config const &, nano::ledger &, nano::ledger_notifications &, nano::stats &, nano::logger &);
-	~confirming_set ();
+	cementing_set (cementing_set_config const &, nano::ledger &, nano::ledger_notifications &, nano::stats &, nano::logger &);
+	~cementing_set ();
 
 	void start ();
 	void stop ();
@@ -81,7 +81,7 @@ public: // Events
 	nano::observer_set<std::shared_ptr<nano::block>> cemented_observers;
 
 private: // Dependencies
-	confirming_set_config const & config;
+	cementing_set_config const & config;
 	nano::ledger & ledger;
 	nano::ledger_notifications & ledger_notifications;
 	nano::stats & stats;

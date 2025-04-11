@@ -8,7 +8,7 @@
 #include <nano/lib/work_version.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/bootstrap/bootstrap_service.hpp>
-#include <nano/node/confirming_set.hpp>
+#include <nano/node/cementing_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/endpoint.hpp>
 #include <nano/node/json_handler.hpp>
@@ -1200,7 +1200,7 @@ void nano::json_handler::block_confirm ()
 			if (!node.ledger.confirmed.block_exists_or_pruned (transaction, hash))
 			{
 				// Start new confirmation for unconfirmed (or not being confirmed) block
-				if (!node.confirming_set.contains (hash))
+				if (!node.cementing_set.contains (hash))
 				{
 					node.start_election (std::move (block_l));
 				}

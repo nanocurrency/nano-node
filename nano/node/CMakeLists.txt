@@ -50,8 +50,8 @@ add_library(
   bootstrap/peer_scoring.cpp
   cli.hpp
   cli.cpp
-  confirming_set.hpp
-  confirming_set.cpp
+  cementing_set.hpp
+  cementing_set.cpp
   confirmation_solicitor.hpp
   confirmation_solicitor.cpp
   daemonconfig.hpp

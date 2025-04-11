@@ -149,8 +149,8 @@ public:
 	nano::block_processor & block_processor;
 	std::unique_ptr<nano::fork_cache> fork_cache_impl;
 	nano::fork_cache & fork_cache;
-	std::unique_ptr<nano::confirming_set> confirming_set_impl;
-	nano::confirming_set & confirming_set;
+	std::unique_ptr<nano::cementing_set> cementing_set_impl;
+	nano::cementing_set & cementing_set;
 	std::unique_ptr<nano::bucketing> bucketing_impl;
 	nano::bucketing & bucketing;
 	std::unique_ptr<nano::active_elections> active_impl;

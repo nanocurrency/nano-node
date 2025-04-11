@@ -1,7 +1,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/active_elections.hpp>
-#include <nano/node/confirming_set.hpp>
+#include <nano/node/cementing_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/online_reps.hpp>
 #include <nano/node/scheduler/component.hpp>
@@ -1232,7 +1232,7 @@ TEST (active_elections, activate_inactive)
 	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
 
-	ASSERT_TIMELY (5s, !node.confirming_set.contains (send2->hash ()));
+	ASSERT_TIMELY (5s, !node.cementing_set.contains (send2->hash ()));
 	ASSERT_TIMELY (5s, node.block_confirmed (send2->hash ()));
 	ASSERT_TIMELY (5s, node.block_confirmed (send->hash ()));
 
@@ -1409,7 +1409,7 @@ TEST (active_elections, bound_election_winners)
 	// Set election winner limit to a low value
 	config.active_elections.max_election_winners = 5;
 	// Large batch size would complicate this testcase
-	config.confirming_set.batch_size = 1;
+	config.cementing_set.batch_size = 1;
 	auto & node = *system.add_node (config);
 
 	// Start elections for a couple of blocks, number of elections is larger than the election winner set limit

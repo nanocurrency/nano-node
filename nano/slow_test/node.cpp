@@ -4,7 +4,7 @@
 #include <nano/lib/thread_runner.hpp>
 #include <nano/lib/work_version.hpp>
 #include <nano/node/active_elections.hpp>
-#include <nano/node/confirming_set.hpp>
+#include <nano/node/cementing_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/make_store.hpp>
@@ -977,10 +977,10 @@ TEST (confirmation_height, dynamic_algorithm)
 		}
 	}
 
-	node->confirming_set.add (state_blocks.front ()->hash ());
+	node->cementing_set.add (state_blocks.front ()->hash ());
 	ASSERT_TIMELY_EQ (20s, node->ledger.cemented_count (), 2);
 
-	node->confirming_set.add (latest_genesis->hash ());
+	node->cementing_set.add (latest_genesis->hash ());
 
 	ASSERT_TIMELY_EQ (20s, node->ledger.cemented_count (), num_blocks + 1);
 
@@ -1146,8 +1146,8 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	nano::node_config node_config;
 	nano::unchecked_map unchecked{ 0, stats, false };
 	nano::ledger_notifications ledger_notifications{ node_config, stats, logger };
-	nano::confirming_set_config confirming_set_config{};
-	nano::confirming_set confirming_set{ confirming_set_config, ledger, ledger_notifications, stats, logger };
+	nano::cementing_set_config cementing_set_config{};
+	nano::cementing_set cementing_set{ cementing_set_config, ledger, ledger_notifications, stats, logger };
 
 	auto const num_accounts = 100000;
 
@@ -1191,7 +1191,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 
 	for (auto & open_block : open_blocks)
 	{
-		confirming_set.add (open_block->hash ());
+		cementing_set.add (open_block->hash ());
 	}
 
 	system.deadline_set (1000s);
@@ -1242,8 +1242,8 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	// Now send and receive to self
 	for (int i = 0; i < open_blocks.size (); ++i)
 	{
-		confirming_set.add (send_blocks[i]->hash ());
-		confirming_set.add (receive_blocks[i]->hash ());
+		cementing_set.add (send_blocks[i]->hash ());
+		cementing_set.add (receive_blocks[i]->hash ());
 	}
 
 	system.deadline_set (1000s);
@@ -1253,7 +1253,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	while (confirming_set.size () > 0)
+	while (cementing_set.size () > 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -2079,7 +2079,7 @@ TEST (node, wallet_create_block_confirm_conflicts)
 			election->force_confirm ();
 		}
 
-		ASSERT_TIMELY (120s, node->ledger.confirmed.block_exists_or_pruned (node->ledger.tx_begin_read (), latest) && node->confirming_set.size () == 0);
+		ASSERT_TIMELY (120s, node->ledger.confirmed.block_exists_or_pruned (node->ledger.tx_begin_read (), latest) && node->cementing_set.size () == 0);
 		done = true;
 		t.join ();
 	}

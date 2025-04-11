@@ -93,7 +93,7 @@ private: // Elections
 	ordered_roots roots;
 
 public:
-	active_elections (nano::node &, nano::ledger_notifications &, nano::confirming_set &);
+	active_elections (nano::node &, nano::ledger_notifications &, nano::cementing_set &);
 	~active_elections ();
 
 	void start ();
@@ -149,7 +149,7 @@ private: // Dependencies
 	active_elections_config const & config;
 	nano::node & node;
 	nano::ledger_notifications & ledger_notifications;
-	nano::confirming_set & confirming_set;
+	nano::cementing_set & cementing_set;
 
 public:
 	nano::recently_confirmed_cache recently_confirmed;

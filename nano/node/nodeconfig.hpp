@@ -14,7 +14,7 @@
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/bounded_backlog.hpp>
-#include <nano/node/confirming_set.hpp>
+#include <nano/node/cementing_set.hpp>
 #include <nano/node/fork_cache.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
 #include <nano/node/local_block_broadcaster.hpp>
@@ -133,7 +133,7 @@ public:
 	double bootstrap_bandwidth_burst_ratio{ 1. };
 	nano::bootstrap_config bootstrap;
 	nano::bootstrap_server_config bootstrap_server;
-	std::chrono::milliseconds confirming_set_batch_time{ 250 };
+	std::chrono::milliseconds cementing_set_batch_time{ 250 };
 	bool backup_before_upgrade{ false };
 	double max_work_generate_multiplier{ 64. };
 	uint32_t max_queued_requests{ 512 };
@@ -160,7 +160,7 @@ public:
 	nano::message_processor_config message_processor;
 	nano::network_config network;
 	nano::local_block_broadcaster_config local_block_broadcaster;
-	nano::confirming_set_config confirming_set;
+	nano::cementing_set_config cementing_set;
 	nano::monitor_config monitor;
 	nano::backlog_scan_config backlog_scan;
 	nano::bounded_backlog_config bounded_backlog;

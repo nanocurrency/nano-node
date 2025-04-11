@@ -3,7 +3,7 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/work_version.hpp>
 #include <nano/node/active_elections.hpp>
-#include <nano/node/confirming_set.hpp>
+#include <nano/node/cementing_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/inactive_node.hpp>
 #include <nano/node/local_vote_history.hpp>
@@ -1433,7 +1433,7 @@ TEST (node, bootstrap_fork_open)
 
 	// They disagree about open0/open1
 	ASSERT_EQ (nano::block_status::progress, node0->process (open0));
-	node0->confirming_set.add (open0->hash ());
+	node0->cementing_set.add (open0->hash ());
 	ASSERT_TIMELY (5s, node0->block_confirmed (open0->hash ()));
 
 	ASSERT_EQ (nano::block_status::progress, node1->process (open1));
@@ -1747,7 +1747,7 @@ TEST (node, DISABLED_local_votes_cache_batch)
 				 .work (*node.work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), send1));
-	node.confirming_set.add (send1->hash ());
+	node.cementing_set.add (send1->hash ());
 	ASSERT_TIMELY (5s, node.ledger.confirmed.block_exists_or_pruned (node.ledger.tx_begin_read (), send1->hash ()));
 	auto send2 = nano::state_block_builder ()
 				 .account (nano::dev::genesis_key.pub)
@@ -3394,9 +3394,9 @@ TEST (node, pruning_automatic)
 	ASSERT_TIMELY (5s, node1.block (send2->hash ()) != nullptr);
 
 	// Force-confirm both blocks
-	node1.confirming_set.add (send1->hash ());
+	node1.cementing_set.add (send1->hash ());
 	ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
-	node1.confirming_set.add (send2->hash ());
+	node1.cementing_set.add (send2->hash ());
 	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
 
 	// Check pruning result
@@ -3445,9 +3445,9 @@ TEST (node, DISABLED_pruning_age)
 	node1.process_active (send2);
 
 	// Force-confirm both blocks
-	node1.confirming_set.add (send1->hash ());
+	node1.cementing_set.add (send1->hash ());
 	ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
-	node1.confirming_set.add (send2->hash ());
+	node1.cementing_set.add (send2->hash ());
 	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
 
 	// Three blocks in total, nothing pruned yet
@@ -3506,9 +3506,9 @@ TEST (node, DISABLED_pruning_depth)
 	node1.process_active (send2);
 
 	// Force-confirm both blocks
-	node1.confirming_set.add (send1->hash ());
+	node1.cementing_set.add (send1->hash ());
 	ASSERT_TIMELY (5s, node1.block_confirmed (send1->hash ()));
-	node1.confirming_set.add (send2->hash ());
+	node1.cementing_set.add (send2->hash ());
 	ASSERT_TIMELY (5s, node1.block_confirmed (send2->hash ()));
 
 	// Three blocks in total, nothing pruned yet

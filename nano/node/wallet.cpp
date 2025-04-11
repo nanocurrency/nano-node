@@ -4,7 +4,7 @@
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work_version.hpp>
-#include <nano/node/confirming_set.hpp>
+#include <nano/node/cementing_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/wallet.hpp>
@@ -1270,7 +1270,7 @@ bool nano::wallet::search_receivable (store::transaction const & wallet_transact
 							// Receive confirmed block
 							receive_async (hash, representative, amount, account, [] (std::shared_ptr<nano::block> const &) {});
 						}
-						else if (!wallets.node.confirming_set.contains (hash))
+						else if (!wallets.node.cementing_set.contains (hash))
 						{
 							auto block = wallets.node.ledger.any.block_get (block_transaction, hash);
 							if (block)

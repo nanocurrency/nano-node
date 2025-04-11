@@ -16,7 +16,7 @@ class bucketing;
 class bootstrap_config;
 class bootstrap_server;
 class bootstrap_service;
-class confirming_set;
+class cementing_set;
 class election;
 class election_status;
 class fork_cache;
