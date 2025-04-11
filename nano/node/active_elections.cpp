@@ -4,6 +4,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/active_elections.hpp>
+#include <nano/node/bootstrap/bootstrap_service.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
@@ -94,8 +95,8 @@ void nano::active_elections::start ()
 	debug_assert (!thread.joinable ());
 
 	thread = std::thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::request_loop);
-		request_loop ();
+		nano::thread_role::set (nano::thread_role::name::aec_loop);
+		run ();
 	});
 }
 
@@ -108,6 +109,28 @@ void nano::active_elections::stop ()
 	condition.notify_all ();
 	nano::join_or_pass (thread);
 	clear ();
+}
+
+void nano::active_elections::run ()
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	while (!stopped)
+	{
+		auto const stamp = std::chrono::steady_clock::now ();
+
+		node.stats.inc (nano::stat::type::active, nano::stat::detail::loop);
+
+		tick_elections (lock);
+		debug_assert (!lock.owns_lock ());
+		lock.lock ();
+
+		auto const min_sleep = node.network_params.network.aec_loop_interval / 2;
+		auto const wakeup = std::max (stamp + node.network_params.network.aec_loop_interval, std::chrono::steady_clock::now () + min_sleep);
+
+		condition.wait_until (lock, wakeup, [this, wakeup] {
+			return stopped || std::chrono::steady_clock::now () >= wakeup;
+		});
+	}
 }
 
 auto nano::active_elections::block_cemented (std::shared_ptr<nano::block> const & block, nano::block_hash const & confirmation_root, std::shared_ptr<nano::election> const & source_election) -> block_cemented_result
@@ -245,41 +268,43 @@ int64_t nano::active_elections::vacancy (nano::election_behavior behavior) const
 	return std::min (election_vacancy (behavior), election_winners_vacancy ());
 }
 
-void nano::active_elections::request_confirm (nano::unique_lock<nano::mutex> & lock_a)
+void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lock)
 {
-	debug_assert (lock_a.owns_lock ());
+	debug_assert (lock.owns_lock ());
 
-	std::size_t const this_loop_target_l (roots.size ());
-	auto const elections_l{ list_active_impl (this_loop_target_l) };
+	auto const election_list = list_active_impl ();
 
-	lock_a.unlock ();
+	lock.unlock ();
 
 	nano::confirmation_solicitor solicitor (node.network, node.config);
 	solicitor.prepare (node.rep_crawler.principal_representatives (std::numeric_limits<std::size_t>::max ()));
 
-	std::size_t unconfirmed_count_l (0);
 	nano::timer<std::chrono::milliseconds> elapsed (nano::timer_state::started);
 
-	/*
-	 * Loop through active elections in descending order of proof-of-work difficulty, requesting confirmation
-	 *
-	 * Only up to a certain amount of elections are queued for confirmation request and block rebroadcasting. The remaining elections can still be confirmed if votes arrive
-	 * Elections extending the soft config.size limit are flushed after a certain time-to-live cutoff
-	 * Flushed elections are later re-activated via frontier confirmation
-	 */
-	for (auto const & election_l : elections_l)
+	std::deque<std::shared_ptr<nano::election>> stale_elections;
+	for (auto const & election : election_list)
 	{
-		bool const confirmed_l (election_l->confirmed ());
-		unconfirmed_count_l += !confirmed_l;
-
-		if (election_l->transition_time (solicitor))
+		if (election->transition_time (solicitor))
 		{
-			erase (election_l->qualified_root);
+			erase (election->qualified_root);
+		}
+		else if (election->duration () > config.bootstrap_stale_threshold)
+		{
+			stale_elections.push_back (election);
 		}
 	}
 
 	solicitor.flush ();
-	lock_a.lock ();
+
+	if (bootstrap_stale_interval.elapse (config.bootstrap_stale_threshold / 2))
+	{
+		node.stats.add (nano::stat::type::active_elections, nano::stat::detail::bootstrap_stale, stale_elections.size ());
+
+		for (auto const & election : stale_elections)
+		{
+			node.bootstrap.prioritize (election->account ());
+		}
+	}
 }
 
 void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::election> election)
@@ -342,46 +367,24 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 	}
 }
 
-std::vector<std::shared_ptr<nano::election>> nano::active_elections::list_active (std::size_t max_a)
+std::vector<std::shared_ptr<nano::election>> nano::active_elections::list_active (std::size_t max_count)
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-	return list_active_impl (max_a);
+	return list_active_impl (max_count);
 }
 
-std::vector<std::shared_ptr<nano::election>> nano::active_elections::list_active_impl (std::size_t max_a) const
+std::vector<std::shared_ptr<nano::election>> nano::active_elections::list_active_impl (std::size_t max_count) const
 {
 	std::vector<std::shared_ptr<nano::election>> result_l;
-	result_l.reserve (std::min (max_a, roots.size ()));
+	result_l.reserve (std::min (max_count, roots.size ()));
 	{
 		auto & sorted_roots_l (roots.get<tag_sequenced> ());
-		std::size_t count_l{ 0 };
-		for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n && count_l < max_a; ++i, ++count_l)
+		for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n && result_l.size () < max_count; ++i)
 		{
 			result_l.push_back (i->election);
 		}
 	}
 	return result_l;
-}
-
-void nano::active_elections::request_loop ()
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped)
-	{
-		auto const stamp_l = std::chrono::steady_clock::now ();
-
-		node.stats.inc (nano::stat::type::active, nano::stat::detail::loop);
-
-		request_confirm (lock);
-		debug_assert (lock.owns_lock ());
-
-		if (!stopped)
-		{
-			auto const min_sleep_l = std::chrono::milliseconds (node.network_params.network.aec_loop_interval_ms / 2);
-			auto const wakeup_l = std::max (stamp_l + std::chrono::milliseconds (node.network_params.network.aec_loop_interval_ms), std::chrono::steady_clock::now () + min_sleep_l);
-			condition.wait_until (lock, wakeup_l, [&wakeup_l, &stopped = stopped] { return stopped || std::chrono::steady_clock::now () >= wakeup_l; });
-		}
-	}
 }
 
 nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<nano::block> const & block_a, nano::election_behavior election_behavior_a, erased_callback_t erased_callback_a)
@@ -639,7 +642,8 @@ nano::error nano::active_elections_config::serialize (nano::tomlconfig & toml) c
 	toml.put ("optimistic_limit_percentage", optimistic_limit_percentage, "Limit of optimistic elections as percentage of `active_elections_size`. \ntype:uint64");
 	toml.put ("confirmation_history_size", confirmation_history_size, "Maximum confirmation history size. If tracking the rate of block confirmations, the websocket feature is recommended instead. \ntype:uint64");
 	toml.put ("confirmation_cache", confirmation_cache, "Maximum number of confirmed elections kept in cache to prevent restarting an election. \ntype:uint64");
-
+	toml.put ("max_election_winners", max_election_winners, "Maximum size of election winner details set. \ntype:uint64");
+	toml.put ("bootstrap_stale_threshold", bootstrap_stale_threshold.count (), "Time after which additional bootstrap attempts are made to find missing blocks for an election. \ntype:seconds");
 	return toml.get_error ();
 }
 
@@ -650,6 +654,8 @@ nano::error nano::active_elections_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("optimistic_limit_percentage", optimistic_limit_percentage);
 	toml.get ("confirmation_history_size", confirmation_history_size);
 	toml.get ("confirmation_cache", confirmation_cache);
+	toml.get ("max_election_winners", max_election_winners);
+	toml.get_duration ("bootstrap_stale_threshold", bootstrap_stale_threshold);
 
 	return toml.get_error ();
 }

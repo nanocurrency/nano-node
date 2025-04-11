@@ -46,8 +46,8 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::ledger_notifications:
 			thread_role_name_string = "Ledger notif";
 			break;
-		case nano::thread_role::name::request_loop:
-			thread_role_name_string = "Request loop";
+		case nano::thread_role::name::aec_loop:
+			thread_role_name_string = "AEC";
 			break;
 		case nano::thread_role::name::wallet_actions:
 			thread_role_name_string = "Wallet actions";

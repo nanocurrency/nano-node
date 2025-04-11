@@ -20,7 +20,7 @@ enum class name
 	vote_rebroadcasting,
 	block_processing,
 	ledger_notifications,
-	request_loop,
+	aec_loop,
 	wallet_actions,
 	bootstrap_initiator,
 	bootstrap_connections,

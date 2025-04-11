@@ -46,6 +46,11 @@ public:
 	 */
 	void reset ();
 
+	/**
+	 * Adds an account to the priority set
+	 */
+	void prioritize (nano::account const & account);
+
 	std::size_t blocked_size () const;
 	std::size_t priority_size () const;
 	std::size_t score_size () const;

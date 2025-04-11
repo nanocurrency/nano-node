@@ -1482,3 +1482,40 @@ TEST (active_elections, broadcast_block_on_activation)
 	ASSERT_TIMELY (5s, node1->active.active (send1->qualified_root ()));
 	ASSERT_TIMELY (5s, node2->block_or_pruned_exists (send1->hash ()));
 }
+
+TEST (active_elections, bootstrap_stale)
+{
+	nano::test::system system;
+
+	// Configure node with short stale threshold for testing
+	nano::node_config node_config = system.default_config ();
+	node_config.active_elections.bootstrap_stale_threshold = 2s; // Short threshold for faster testing
+
+	auto & node = *system.add_node (node_config);
+
+	// Create a test block
+	nano::keypair key;
+	nano::state_block_builder builder;
+	auto send = builder.make_block ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+
+	// Process the block and start an election
+	node.process_active (send);
+
+	// Ensure election starts
+	std::shared_ptr<nano::election> election;
+	ASSERT_TIMELY (5s, (election = node.active.election (send->qualified_root ())) != nullptr);
+
+	// Check initial state
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::bootstrap_stale));
+
+	// Wait for bootstrap_stale_threshold to pass and the statistic to be incremented
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::bootstrap_stale) > 0);
+}

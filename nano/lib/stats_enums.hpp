@@ -490,6 +490,7 @@ enum class detail
 	stopped,
 	confirm_dependent,
 	forks_cached,
+	bootstrap_stale,
 
 	// unchecked
 	put,

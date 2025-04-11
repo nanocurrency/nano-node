@@ -805,6 +805,12 @@ void nano::election::force_confirm ()
 	confirm_once (lock);
 }
 
+nano::account nano::election::account () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return status.winner->account ();
+}
+
 std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election::blocks () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };

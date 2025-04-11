@@ -163,6 +163,12 @@ void nano::bootstrap_service::reset ()
 	throttle.reset ();
 }
 
+void nano::bootstrap_service::prioritize (nano::account const & account)
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	accounts.priority_set (account);
+}
+
 bool nano::bootstrap_service::send (std::shared_ptr<nano::transport::channel> const & channel, async_tag tag)
 {
 	debug_assert (tag.type != query_type::invalid);
