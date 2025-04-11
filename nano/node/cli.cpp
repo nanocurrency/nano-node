@@ -8,6 +8,8 @@
 #include <nano/node/inactive_node.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/ledger_set_any.hpp>
+#include <nano/secure/ledger_set_confirmed.hpp>
 
 #include <boost/format.hpp>
 
@@ -60,6 +62,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("final_vote_clear", "Clear final votes")
 	("rebuild_database", "Rebuild LMDB database with vacuum for best compaction")
 	("migrate_database_lmdb_to_rocksdb", "Migrates LMDB database to RocksDB")
+	("rollback", "Rolls back the specified block hash, effectively removing this block and all blocks following it")
 	("diagnostics", "Run internal diagnostics")
 	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node, rpc or log. See also use_defaults.")
 	("update_config", "Reads the current node configuration and updates it with missing keys and values and delete keys that are no longer used. Updated configuration is written to stdout.")
@@ -78,6 +81,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("all", "Only valid with --final_vote_clear")
 	("account", boost::program_options::value<std::string> (), "Defines <account> for other commands")
 	("root", boost::program_options::value<std::string> (), "Defines <root> for other commands")
+	("hash", boost::program_options::value<std::string> (), "Defines <hash> for other commands")
 	("file", boost::program_options::value<std::string> (), "Defines <file> for other commands")
 	("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex")
 	("seed", boost::program_options::value<std::string> (), "Defines the <seed> for other commands, hex")
@@ -499,6 +503,71 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (error)
 		{
 			std::cerr << "There was an error migrating" << std::endl;
+		}
+	}
+	else if (vm.count ("rollback"))
+	{
+		if (vm.count ("hash") == 1)
+		{
+			nano::block_hash block_hash;
+			if (!block_hash.decode_hex (vm["hash"].as<std::string> ()))
+			{
+				std::filesystem::path data_path = vm.count ("data_path") ? std::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+				auto node_flags = nano::inactive_node_flag_defaults ();
+				node_flags.read_only = false;
+				nano::update_flags (node_flags, vm);
+
+				nano::inactive_node node (data_path, node_flags);
+				if (!node.node->init_error ())
+				{
+					auto transaction (node.node->ledger.tx_begin_write ());
+					auto block = node.node->ledger.any.block_get (transaction, block_hash);
+					if (block != nullptr)
+					{
+						if (!node.node->ledger.confirmed.block_exists (transaction, block_hash))
+						{
+							std::cout << "Rolling back " << block_hash.to_string () << " ..." << std::endl;
+
+							std::deque<std::shared_ptr<nano::block>> rollback_list;
+							bool error = node.node->ledger.rollback (transaction, block_hash, rollback_list);
+							if (!error)
+							{
+								std::cout << "Block rollback complete" << std::endl;
+								std::cout << "Rolled back " << rollback_list.size () << " dependent blocks" << std::endl;
+							}
+							else
+							{
+								std::cerr << "Error rolling back block" << std::endl;
+								ec = nano::error_cli::generic;
+							}
+						}
+						else
+						{
+							std::cerr << "Cannot rollback cemented block" << std::endl;
+							ec = nano::error_cli::invalid_arguments;
+						}
+					}
+					else
+					{
+						std::cerr << "Block not found in ledger" << std::endl;
+						ec = nano::error_cli::invalid_arguments;
+					}
+				}
+				else
+				{
+					database_write_lock_error (ec);
+				}
+			}
+			else
+			{
+				std::cerr << "Invalid block hash" << std::endl;
+				ec = nano::error_cli::invalid_arguments;
+			}
+		}
+		else
+		{
+			std::cerr << "rollback command requires one <hash> option\n";
+			ec = nano::error_cli::invalid_arguments;
 		}
 	}
 	else if (vm.count ("unchecked_clear"))
