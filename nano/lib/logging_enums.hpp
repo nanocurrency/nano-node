@@ -85,7 +85,7 @@ enum class type
 	online_reps,
 	local_block_broadcaster,
 	monitor,
-	confirming_set,
+	cementing_set,
 	bounded_backlog,
 	request_aggregator,
 

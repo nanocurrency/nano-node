@@ -2,7 +2,7 @@
 #include <nano/lib/logging.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/block_processor.hpp>
-#include <nano/node/confirming_set.hpp>
+#include <nano/node/cementing_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/make_store.hpp>
@@ -21,72 +21,72 @@ using namespace std::chrono_literals;
 
 namespace
 {
-struct confirming_set_context
+struct cementing_set_context
 {
 	nano::logger & logger;
 	nano::stats & stats;
 	nano::ledger & ledger;
 
 	nano::ledger_notifications ledger_notifications;
-	nano::confirming_set confirming_set;
+	nano::cementing_set cementing_set;
 
-	explicit confirming_set_context (nano::test::ledger_context & ledger_context, nano::node_config node_config = {}) :
+	explicit cementing_set_context (nano::test::ledger_context & ledger_context, nano::node_config node_config = {}) :
 		logger{ ledger_context.logger () },
 		stats{ ledger_context.stats () },
 		ledger{ ledger_context.ledger () },
 		ledger_notifications{ node_config, stats, logger },
-		confirming_set{ node_config.confirming_set, ledger, ledger_notifications, stats, logger }
+		cementing_set{ node_config.cementing_set, ledger, ledger_notifications, stats, logger }
 	{
 	}
 };
 }
 
-TEST (confirming_set, construction)
+TEST (cementing_set, construction)
 {
 	auto ledger_ctx = nano::test::ledger_empty ();
-	confirming_set_context ctx{ ledger_ctx };
+	cementing_set_context ctx{ ledger_ctx };
 }
 
-TEST (confirming_set, add_exists)
+TEST (cementing_set, add_exists)
 {
 	auto ledger_ctx = nano::test::ledger_send_receive ();
-	confirming_set_context ctx{ ledger_ctx };
-	nano::confirming_set & confirming_set = ctx.confirming_set;
+	cementing_set_context ctx{ ledger_ctx };
+	nano::cementing_set & cementing_set = ctx.cementing_set;
 	auto send = ledger_ctx.blocks ()[0];
-	confirming_set.add (send->hash ());
-	ASSERT_TRUE (confirming_set.contains (send->hash ()));
+	cementing_set.add (send->hash ());
+	ASSERT_TRUE (cementing_set.contains (send->hash ()));
 }
 
-TEST (confirming_set, process_one)
+TEST (cementing_set, process_one)
 {
 	auto ledger_ctx = nano::test::ledger_send_receive ();
-	confirming_set_context ctx{ ledger_ctx };
-	nano::confirming_set & confirming_set = ctx.confirming_set;
+	cementing_set_context ctx{ ledger_ctx };
+	nano::cementing_set & cementing_set = ctx.cementing_set;
 	std::atomic<int> count = 0;
 	std::mutex mutex;
 	std::condition_variable condition;
-	confirming_set.cemented_observers.add ([&] (auto const &) { ++count; condition.notify_all (); });
-	confirming_set.add (ledger_ctx.blocks ()[0]->hash ());
-	nano::test::start_stop_guard guard{ confirming_set };
+	cementing_set.cemented_observers.add ([&] (auto const &) { ++count; condition.notify_all (); });
+	cementing_set.add (ledger_ctx.blocks ()[0]->hash ());
+	nano::test::start_stop_guard guard{ cementing_set };
 	std::unique_lock lock{ mutex };
 	ASSERT_TRUE (condition.wait_for (lock, 5s, [&] () { return count == 1; }));
 	ASSERT_EQ (1, ctx.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 	ASSERT_EQ (2, ctx.ledger.cemented_count ());
 }
 
-TEST (confirming_set, process_multiple)
+TEST (cementing_set, process_multiple)
 {
 	nano::test::system system;
 	auto ledger_ctx = nano::test::ledger_send_receive ();
-	confirming_set_context ctx{ ledger_ctx };
-	nano::confirming_set & confirming_set = ctx.confirming_set;
+	cementing_set_context ctx{ ledger_ctx };
+	nano::cementing_set & cementing_set = ctx.cementing_set;
 	std::atomic<int> count = 0;
 	std::mutex mutex;
 	std::condition_variable condition;
-	confirming_set.cemented_observers.add ([&] (auto const &) { ++count; condition.notify_all (); });
-	confirming_set.add (ledger_ctx.blocks ()[0]->hash ());
-	confirming_set.add (ledger_ctx.blocks ()[1]->hash ());
-	nano::test::start_stop_guard guard{ confirming_set };
+	cementing_set.cemented_observers.add ([&] (auto const &) { ++count; condition.notify_all (); });
+	cementing_set.add (ledger_ctx.blocks ()[0]->hash ());
+	cementing_set.add (ledger_ctx.blocks ()[1]->hash ());
+	nano::test::start_stop_guard guard{ cementing_set };
 	std::unique_lock lock{ mutex };
 	ASSERT_TRUE (condition.wait_for (lock, 5s, [&] () { return count == 2; }));
 	ASSERT_EQ (2, ctx.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
@@ -129,7 +129,7 @@ TEST (confirmation_callback, observer_callbacks)
 		ASSERT_EQ (nano::block_status::progress, node->ledger.process (transaction, send1));
 	}
 
-	node->confirming_set.add (send1->hash ());
+	node->cementing_set.add (send1->hash ());
 
 	// Callback is performed for all blocks that are confirmed
 	ASSERT_TIMELY_EQ (5s, 2, node->ledger.stats.count (nano::stat::type::confirmation_observer, nano::stat::dir::out));
@@ -263,7 +263,7 @@ TEST (confirmation_callback, dependent_election)
 	// Wait for blocks to be confirmed in ledger, callbacks will happen after
 	ASSERT_TIMELY_EQ (5s, 3, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 	// Once the item added to the confirming set no longer exists, callbacks have completed
-	ASSERT_TIMELY (5s, !node->confirming_set.contains (send2->hash ()));
+	ASSERT_TIMELY (5s, !node->cementing_set.contains (send2->hash ()));
 
 	ASSERT_TIMELY_EQ (5s, 1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out));
 	ASSERT_TIMELY_EQ (5s, 1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_conf_height, nano::stat::dir::out));

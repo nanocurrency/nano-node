@@ -288,7 +288,7 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.bootstrap_serving_threads, defaults.node.bootstrap_serving_threads);
 	ASSERT_EQ (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_EQ (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
-	ASSERT_EQ (conf.node.confirming_set_batch_time, defaults.node.confirming_set_batch_time);
+	ASSERT_EQ (conf.node.cementing_set_batch_time, defaults.node.cementing_set_batch_time);
 	ASSERT_EQ (conf.node.enable_voting, defaults.node.enable_voting);
 	ASSERT_EQ (conf.node.external_address, defaults.node.external_address);
 	ASSERT_EQ (conf.node.external_port, defaults.node.external_port);
@@ -456,7 +456,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	bootstrap_serving_threads = 999
 	bootstrap_frontier_request_count = 9999
 	bootstrap_fraction_numerator = 999
-	confirming_set_batch_time = 999
+	cementing_set_batch_time = 999
 	enable_voting = false
 	external_address = "0:0:0:0:0:ffff:7f01:101"
 	external_port = 999
@@ -720,7 +720,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.bootstrap_serving_threads, defaults.node.bootstrap_serving_threads);
 	ASSERT_NE (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_NE (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
-	ASSERT_NE (conf.node.confirming_set_batch_time, defaults.node.confirming_set_batch_time);
+	ASSERT_NE (conf.node.cementing_set_batch_time, defaults.node.cementing_set_batch_time);
 	ASSERT_NE (conf.node.enable_voting, defaults.node.enable_voting);
 	ASSERT_NE (conf.node.external_address, defaults.node.external_address);
 	ASSERT_NE (conf.node.external_port, defaults.node.external_port);

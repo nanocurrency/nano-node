@@ -53,7 +53,7 @@ enum class type
 	socket,
 	confirmation_height,
 	confirmation_observer,
-	confirming_set,
+	cementing_set,
 	drop, // TODO: Rename to message_drop
 	aggregator,
 	requests,
@@ -605,7 +605,7 @@ enum class detail
 	notify_processed,
 	notify_rolled_back,
 
-	// confirming_set
+	// cementing_set
 	notify_cemented,
 	notify_already_cemented,
 	notify_intermediate,

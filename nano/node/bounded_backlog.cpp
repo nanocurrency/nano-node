@@ -3,7 +3,7 @@
 #include <nano/node/backlog_scan.hpp>
 #include <nano/node/block_processor.hpp>
 #include <nano/node/bounded_backlog.hpp>
-#include <nano/node/confirming_set.hpp>
+#include <nano/node/cementing_set.hpp>
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/scheduler/component.hpp>
@@ -13,14 +13,14 @@
 #include <nano/secure/ledger_set_confirmed.hpp>
 #include <nano/secure/transaction.hpp>
 
-nano::bounded_backlog::bounded_backlog (nano::node_config const & config_a, nano::node & node_a, nano::ledger & ledger_a, nano::ledger_notifications & ledger_notifications_a, nano::bucketing & bucketing_a, nano::backlog_scan & backlog_scan_a, nano::block_processor & block_processor_a, nano::confirming_set & confirming_set_a, nano::stats & stats_a, nano::logger & logger_a) :
+nano::bounded_backlog::bounded_backlog (nano::node_config const & config_a, nano::node & node_a, nano::ledger & ledger_a, nano::ledger_notifications & ledger_notifications_a, nano::bucketing & bucketing_a, nano::backlog_scan & backlog_scan_a, nano::block_processor & block_processor_a, nano::cementing_set & cementing_set_a, nano::stats & stats_a, nano::logger & logger_a) :
 	config{ config_a },
 	node{ node_a },
 	ledger{ ledger_a },
 	ledger_notifications{ ledger_notifications_a },
 	bucketing{ bucketing_a },
 	backlog_scan{ backlog_scan_a },
-	confirming_set{ confirming_set_a },
+	cementing_set{ cementing_set_a },
 	stats{ stats_a },
 	logger{ logger_a },
 	scan_limiter{ config.bounded_backlog.scan_rate }
@@ -69,7 +69,7 @@ nano::bounded_backlog::bounded_backlog (nano::node_config const & config_a, nano
 	});
 
 	// Remove cemented blocks from the backlog
-	confirming_set.batch_cemented.add ([this] (auto const & batch) {
+	cementing_set.batch_cemented.add ([this] (auto const & batch) {
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		for (auto const & context : batch)
 		{
@@ -262,7 +262,7 @@ bool nano::bounded_backlog::should_rollback (nano::block_hash const & hash) cons
 	{
 		return false;
 	}
-	if (node.confirming_set.contains (hash))
+	if (node.cementing_set.contains (hash))
 	{
 		return false;
 	}

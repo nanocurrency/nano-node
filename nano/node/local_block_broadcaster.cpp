@@ -2,7 +2,7 @@
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/block_processor.hpp>
-#include <nano/node/confirming_set.hpp>
+#include <nano/node/cementing_set.hpp>
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/network.hpp>
@@ -11,12 +11,12 @@
 
 #include <boost/range/iterator_range.hpp>
 
-nano::local_block_broadcaster::local_block_broadcaster (local_block_broadcaster_config const & config_a, nano::node & node_a, nano::ledger_notifications & ledger_notifications_a, nano::network & network_a, nano::confirming_set & confirming_set_a, nano::stats & stats_a, nano::logger & logger_a, bool enabled_a) :
+nano::local_block_broadcaster::local_block_broadcaster (local_block_broadcaster_config const & config_a, nano::node & node_a, nano::ledger_notifications & ledger_notifications_a, nano::network & network_a, nano::cementing_set & cementing_set_a, nano::stats & stats_a, nano::logger & logger_a, bool enabled_a) :
 	config{ config_a },
 	node{ node_a },
 	ledger_notifications{ ledger_notifications_a },
 	network{ network_a },
-	confirming_set{ confirming_set_a },
+	cementing_set{ cementing_set_a },
 	stats{ stats_a },
 	logger{ logger_a },
 	enabled{ enabled_a },
@@ -66,7 +66,7 @@ nano::local_block_broadcaster::local_block_broadcaster (local_block_broadcaster_
 		}
 	});
 
-	confirming_set.cemented_observers.add ([this] (auto const & block) {
+	cementing_set.cemented_observers.add ([this] (auto const & block) {
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		auto erased = local_blocks.get<tag_hash> ().erase (block->hash ());
 		stats.add (nano::stat::type::local_block_broadcaster, nano::stat::detail::cemented, erased);

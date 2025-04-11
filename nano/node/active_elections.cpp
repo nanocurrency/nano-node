@@ -5,8 +5,8 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/bootstrap/bootstrap_service.hpp>
+#include <nano/node/cementing_set.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
-#include <nano/node/confirming_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/node.hpp>
@@ -23,18 +23,18 @@
 
 using namespace std::chrono;
 
-nano::active_elections::active_elections (nano::node & node_a, nano::ledger_notifications & ledger_notifications_a, nano::confirming_set & confirming_set_a) :
+nano::active_elections::active_elections (nano::node & node_a, nano::ledger_notifications & ledger_notifications_a, nano::cementing_set & cementing_set_a) :
 	config{ node_a.config.active_elections },
 	node{ node_a },
 	ledger_notifications{ ledger_notifications_a },
-	confirming_set{ confirming_set_a },
+	cementing_set{ cementing_set_a },
 	recently_confirmed{ config.confirmation_cache },
 	recently_cemented{ config.confirmation_history_size }
 {
 	count_by_behavior.fill (0); // Zero initialize array
 
 	// Cementing blocks might implicitly confirm dependent elections
-	confirming_set.batch_cemented.add ([this] (auto const & cemented) {
+	cementing_set.batch_cemented.add ([this] (auto const & cemented) {
 		std::deque<block_cemented_result> results;
 		{
 			// Process all cemented blocks while holding the lock to avoid races where an election for a block that is already cemented is inserted
@@ -262,7 +262,7 @@ int64_t nano::active_elections::vacancy (nano::election_behavior behavior) const
 	};
 
 	auto election_winners_vacancy = [this] () -> int64_t {
-		return static_cast<int64_t> (config.max_election_winners) - static_cast<int64_t> (confirming_set.size ());
+		return static_cast<int64_t> (config.max_election_winners) - static_cast<int64_t> (cementing_set.size ());
 	};
 
 	return std::min (election_vacancy (behavior), election_winners_vacancy ());

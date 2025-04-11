@@ -73,7 +73,7 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock)
 		extended_status.status.election_duration.count (),
 		extended_status.status.confirmation_request_count);
 
-		node.confirming_set.add (status_l.winner->hash (), shared_from_this ());
+		node.cementing_set.add (status_l.winner->hash (), shared_from_this ());
 
 		lock.unlock ();
 

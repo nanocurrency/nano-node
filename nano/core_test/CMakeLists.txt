@@ -16,7 +16,7 @@ add_executable(
   bucketing.cpp
   cli.cpp
   confirmation_solicitor.cpp
-  confirming_set.cpp
+  cementing_set.cpp
   conflicts.cpp
   difficulty.cpp
   distributed_work.cpp

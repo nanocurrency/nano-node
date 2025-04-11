@@ -16,7 +16,7 @@
 #include <nano/node/bootstrap_weights_live.hpp>
 #include <nano/node/bounded_backlog.hpp>
 #include <nano/node/bucketing.hpp>
-#include <nano/node/confirming_set.hpp>
+#include <nano/node/cementing_set.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/endpoint.hpp>
@@ -150,11 +150,11 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	block_processor{ *block_processor_impl },
 	fork_cache_impl{ std::make_unique<nano::fork_cache> (config.fork_cache, stats) },
 	fork_cache{ *fork_cache_impl },
-	confirming_set_impl{ std::make_unique<nano::confirming_set> (config.confirming_set, ledger, ledger_notifications, stats, logger) },
-	confirming_set{ *confirming_set_impl },
+	cementing_set_impl{ std::make_unique<nano::cementing_set> (config.cementing_set, ledger, ledger_notifications, stats, logger) },
+	cementing_set{ *cementing_set_impl },
 	bucketing_impl{ std::make_unique<nano::bucketing> () },
 	bucketing{ *bucketing_impl },
-	active_impl{ std::make_unique<nano::active_elections> (*this, ledger_notifications, confirming_set) },
+	active_impl{ std::make_unique<nano::active_elections> (*this, ledger_notifications, cementing_set) },
 	active{ *active_impl },
 	online_reps_impl{ std::make_unique<nano::online_reps> (config, ledger, stats, logger) },
 	online_reps{ *online_reps_impl },
@@ -180,13 +180,13 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	generator{ *generator_impl },
 	final_generator_impl{ std::make_unique<nano::vote_generator> (config, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* final */ true, loopback_channel) },
 	final_generator{ *final_generator_impl },
-	scheduler_impl{ std::make_unique<nano::scheduler::component> (config, *this, ledger, ledger_notifications, bucketing, active, online_reps, vote_cache, confirming_set, stats, logger) },
+	scheduler_impl{ std::make_unique<nano::scheduler::component> (config, *this, ledger, ledger_notifications, bucketing, active, online_reps, vote_cache, cementing_set, stats, logger) },
 	scheduler{ *scheduler_impl },
 	aggregator_impl{ std::make_unique<nano::request_aggregator> (config.request_aggregator, *this, generator, final_generator, history, ledger, wallets, vote_router) },
 	aggregator{ *aggregator_impl },
 	backlog_scan_impl{ std::make_unique<nano::backlog_scan> (config.backlog_scan, ledger, stats) },
 	backlog_scan{ *backlog_scan_impl },
-	backlog_impl{ std::make_unique<nano::bounded_backlog> (config, *this, ledger, ledger_notifications, bucketing, backlog_scan, block_processor, confirming_set, stats, logger) },
+	backlog_impl{ std::make_unique<nano::bounded_backlog> (config, *this, ledger, ledger_notifications, bucketing, backlog_scan, block_processor, cementing_set, stats, logger) },
 	backlog{ *backlog_impl },
 	bootstrap_server_impl{ std::make_unique<nano::bootstrap_server> (config.bootstrap_server, store, ledger, network_params.network, stats) },
 	bootstrap_server{ *bootstrap_server_impl },
@@ -196,7 +196,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	websocket{ *websocket_impl },
 	epoch_upgrader_impl{ std::make_unique<nano::epoch_upgrader> (*this, ledger, store, network_params, logger) },
 	epoch_upgrader{ *epoch_upgrader_impl },
-	local_block_broadcaster_impl{ std::make_unique<nano::local_block_broadcaster> (config.local_block_broadcaster, *this, ledger_notifications, network, confirming_set, stats, logger, !flags.disable_block_processor_republishing) },
+	local_block_broadcaster_impl{ std::make_unique<nano::local_block_broadcaster> (config.local_block_broadcaster, *this, ledger_notifications, network, cementing_set, stats, logger, !flags.disable_block_processor_republishing) },
 	local_block_broadcaster{ *local_block_broadcaster_impl },
 	peer_history_impl{ std::make_unique<nano::peer_history> (config.peer_history, store, network, logger, stats) },
 	peer_history{ *peer_history_impl },
@@ -228,7 +228,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	});
 
 	// Do some cleanup due to this block never being processed by confirmation height processor
-	confirming_set.cementing_failed.add ([this] (auto const & hash) {
+	cementing_set.cementing_failed.add ([this] (auto const & hash) {
 		active.recently_confirmed.erase (hash);
 	});
 
@@ -418,7 +418,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 				std::exit (1);
 			}
 		}
-		confirming_set.cemented_observers.add ([this] (auto const & block) {
+		cementing_set.cemented_observers.add ([this] (auto const & block) {
 			// TODO: Is it neccessary to call this for all blocks?
 			if (block->is_send ())
 			{
@@ -564,7 +564,7 @@ void nano::node::start ()
 	active.start ();
 	generator.start ();
 	final_generator.start ();
-	confirming_set.start ();
+	cementing_set.start ();
 	scheduler.start ();
 	aggregator.start ();
 	backlog_scan.start ();
@@ -617,7 +617,7 @@ void nano::node::stop ()
 	active.stop ();
 	generator.stop ();
 	final_generator.stop ();
-	confirming_set.stop ();
+	cementing_set.stop ();
 	ledger_notifications.stop ();
 	telemetry.stop ();
 	websocket.stop ();
@@ -855,7 +855,7 @@ bool nano::node::block_confirmed (nano::block_hash const & hash)
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::secure::transaction const & transaction, nano::block_hash const & hash)
 {
-	return confirming_set.contains (hash) || ledger.confirmed.block_exists_or_pruned (transaction, hash);
+	return cementing_set.contains (hash) || ledger.confirmed.block_exists_or_pruned (transaction, hash);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & hash_a)
@@ -993,7 +993,7 @@ nano::container_info nano::node::container_info () const
 	info.add ("history", history.container_info ());
 	info.add ("block_uniquer", block_uniquer.container_info ());
 	info.add ("vote_uniquer", vote_uniquer.container_info ());
-	info.add ("confirming_set", confirming_set.container_info ());
+	info.add ("cementing_set", cementing_set.container_info ());
 	info.add ("distributed_work", distributed_work.container_info ());
 	info.add ("aggregator", aggregator.container_info ());
 	info.add ("scheduler", scheduler.container_info ());

@@ -8,7 +8,7 @@
 #include <nano/lib/threading.hpp>
 #include <nano/lib/work_version.hpp>
 #include <nano/node/active_elections.hpp>
-#include <nano/node/confirming_set.hpp>
+#include <nano/node/cementing_set.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
