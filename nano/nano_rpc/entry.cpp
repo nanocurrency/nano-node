@@ -19,10 +19,10 @@
 
 namespace
 {
-nano::logger logger{ "rpc_daemon" };
-
 void run (std::filesystem::path const & data_path, std::vector<std::string> const & config_overrides)
 {
+	nano::logger logger{ "rpc_daemon" };
+
 	logger.info (nano::log::type::daemon_rpc, "Daemon started (RPC)");
 
 	std::filesystem::create_directories (data_path);
@@ -49,7 +49,7 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 
 			std::atomic stopped{ false };
 
-			auto signal_handler = [&stopped] (int signum) {
+			auto signal_handler = [&stopped, &logger] (int signum) {
 				logger.warn (nano::log::type::daemon_rpc, "Interrupt signal received ({}), stopping...", nano::to_signal_name (signum));
 				stopped = true;
 				stopped.notify_all ();
