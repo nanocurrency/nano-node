@@ -238,11 +238,7 @@ auto nano::transport::tcp_server::process_message (std::unique_ptr<nano::message
 	// The server will switch to bootstrap mode immediately after processing the first bootstrap message, thus no `else if`
 	if (is_bootstrap_connection ())
 	{
-		bootstrap_message_visitor bootstrap_visitor{ shared_from_this () };
-		message->visit (bootstrap_visitor);
-
-		// Pause receiving new messages if bootstrap serving started
-		return bootstrap_visitor.processed ? process_result::pause : process_result::progress;
+		return process_result::abort;
 	}
 
 	debug_assert (false);
@@ -501,39 +497,6 @@ void nano::transport::tcp_server::realtime_message_visitor::asc_pull_req (const 
 void nano::transport::tcp_server::realtime_message_visitor::asc_pull_ack (const nano::asc_pull_ack & message)
 {
 	process = true;
-}
-
-/*
- * bootstrap_message_visitor
- */
-
-nano::transport::tcp_server::bootstrap_message_visitor::bootstrap_message_visitor (std::shared_ptr<tcp_server> server) :
-	server{ std::move (server) }
-{
-}
-
-void nano::transport::tcp_server::bootstrap_message_visitor::bulk_pull (const nano::bulk_pull & message)
-{
-	// Ignored since V28
-	// TODO: Abort connection?
-}
-
-void nano::transport::tcp_server::bootstrap_message_visitor::bulk_pull_account (const nano::bulk_pull_account & message)
-{
-	// Ignored since V28
-	// TODO: Abort connection?
-}
-
-void nano::transport::tcp_server::bootstrap_message_visitor::bulk_push (const nano::bulk_push &)
-{
-	// Ignored since V28
-	// TODO: Abort connection?
-}
-
-void nano::transport::tcp_server::bootstrap_message_visitor::frontier_req (const nano::frontier_req & message)
-{
-	// Ignored since V28
-	// TODO: Abort connection?
 }
 
 /*

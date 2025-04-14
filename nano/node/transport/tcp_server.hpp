@@ -119,22 +119,6 @@ private: // Visitors
 		tcp_server & server;
 	};
 
-	class bootstrap_message_visitor : public nano::message_visitor
-	{
-	public:
-		bool processed{ false };
-
-		explicit bootstrap_message_visitor (std::shared_ptr<tcp_server>);
-
-		void bulk_pull (nano::bulk_pull const &) override;
-		void bulk_pull_account (nano::bulk_pull_account const &) override;
-		void bulk_push (nano::bulk_push const &) override;
-		void frontier_req (nano::frontier_req const &) override;
-
-	private:
-		std::shared_ptr<tcp_server> server;
-	};
-
 	friend class handshake_message_visitor;
 };
 }
