@@ -302,6 +302,16 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 
 		for (auto const & election : stale_elections)
 		{
+			node.logger.debug (nano::log::type::active_elections, "Bootstrapping account: {} with stale election with root: {}, blocks: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
+			election->account (),
+			election->qualified_root,
+			fmt::join (election->blocks_hashes (), ", "), // TODO: Lazy eval
+			to_string (election->behavior ()),
+			to_string (election->state ()),
+			election->voter_count (),
+			election->block_count (),
+			election->duration ().count ());
+
 			node.bootstrap.prioritize (election->account ());
 		}
 	}
@@ -333,10 +343,14 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 
 	node.logger.trace (nano::log::type::active_elections, nano::log::detail::active_stopped, nano::log::arg{ "election", election });
 
-	node.logger.debug (nano::log::type::active_elections, "Erased election for blocks: {} (behavior: {}, state: {})",
-	fmt::join (std::views::keys (blocks_l), ", "),
+	node.logger.debug (nano::log::type::active_elections, "Erased election for root: {} with blocks: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
+	election->qualified_root,
+	fmt::join (election->blocks_hashes (), ", "), // TODO: Lazy eval
 	to_string (election->behavior ()),
-	to_string (election->state ()));
+	to_string (election->state ()),
+	election->voter_count (),
+	election->block_count (),
+	election->duration ().count ());
 
 	lock_a.unlock ();
 
@@ -444,8 +458,9 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 			nano::log::arg{ "behavior", election_behavior_a },
 			nano::log::arg{ "election", result.election });
 
-			node.logger.debug (nano::log::type::active_elections, "Started new election for block: {} (behavior: {}, active immediately: {})",
-			hash,
+			node.logger.debug (nano::log::type::active_elections, "Started new election for root: {} with blocks: {} (behavior: {}, active immediately: {})",
+			root,
+			fmt::join (result.election->blocks_hashes (), ", "), // TODO: Lazy eval
 			to_string (election_behavior_a),
 			activate_immediately);
 		}
@@ -595,7 +610,15 @@ bool nano::active_elections::publish (std::shared_ptr<nano::block> const & block
 			node.vote_cache_processor.trigger (block_a->hash ());
 
 			node.stats.inc (nano::stat::type::active, nano::stat::detail::election_block_conflict);
-			node.logger.debug (nano::log::type::active_elections, "Block was added to an existing election: {}", block_a->hash ());
+
+			node.logger.debug (nano::log::type::active_elections, "Block was added to an existing election: {} with root: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
+			block_a->hash (),
+			election->qualified_root,
+			to_string (election->behavior ()),
+			to_string (election->state ()),
+			election->voter_count (),
+			election->block_count (),
+			election->duration ().count ());
 		}
 	}
 	return result;

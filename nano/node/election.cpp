@@ -566,7 +566,7 @@ nano::vote_code nano::election::vote (nano::account const & rep, uint64_t timest
 	nano::log::arg{ "vote_source", vote_source_a },
 	nano::log::arg{ "weight", weight });
 
-	node.logger.debug (nano::log::type::election, "Vote received for: {} from: {} root: {} (final: {}, weight: {}, source: {})",
+	node.logger.debug (nano::log::type::election, "Vote received for hash: {} from: {} for root: {} (final: {}, weight: {}, source: {})",
 	block_hash_a,
 	rep,
 	qualified_root,
@@ -811,6 +811,17 @@ nano::account nano::election::account () const
 	return status.winner->account ();
 }
 
+std::unordered_set<nano::block_hash> nano::election::blocks_hashes () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	std::unordered_set<nano::block_hash> hashes;
+	for (auto const & block : last_blocks)
+	{
+		hashes.emplace (block.first);
+	}
+	return hashes;
+}
+
 std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election::blocks () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
@@ -858,6 +869,18 @@ bool nano::election::contains (nano::block_hash const & hash) const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return last_blocks.contains (hash);
+}
+
+size_t nano::election::voter_count () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return last_votes.size ();
+}
+
+size_t nano::election::block_count () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return last_blocks.size ();
 }
 
 void nano::election::operator() (nano::object_stream & obs) const

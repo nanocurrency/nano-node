@@ -11,6 +11,8 @@
 #include <atomic>
 #include <chrono>
 #include <memory>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace nano
 {
@@ -149,7 +151,11 @@ public: // Information
 
 	std::unordered_map<nano::account, nano::vote_info> votes () const;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
+	std::unordered_set<nano::block_hash> blocks_hashes () const;
 	bool contains (nano::block_hash const &) const;
+
+	size_t voter_count () const;
+	size_t block_count () const;
 
 private:
 	nano::tally_t tally_impl () const;
