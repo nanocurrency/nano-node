@@ -20,7 +20,7 @@ public:
 	}
 
 private:
-	std::chrono::steady_clock::time_point last{ std::chrono::steady_clock::now () };
+	std::chrono::steady_clock::time_point last{};
 };
 
 class interval_mt
@@ -40,6 +40,6 @@ public:
 
 private:
 	std::mutex mutex;
-	std::chrono::steady_clock::time_point last{ std::chrono::steady_clock::now () };
+	std::chrono::steady_clock::time_point last{};
 };
 }

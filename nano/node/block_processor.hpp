@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/interval.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/thread_pool.hpp>
 #include <nano/node/block_context.hpp>
@@ -37,6 +38,9 @@ public:
 	size_t priority_bootstrap{ 8 };
 	size_t priority_local{ 16 };
 	size_t priority_system{ 32 };
+
+	std::chrono::milliseconds backlog_throttle{ 100ms };
+	std::chrono::milliseconds backlog_throttle_max{ 1s };
 };
 
 /**
@@ -64,6 +68,7 @@ public:
 
 private: // Dependencies
 	block_processor_config const & config;
+	nano::node_config const & node_config;
 	nano::network_params const & network_params;
 	nano::ledger & ledger;
 	nano::ledger_notifications & ledger_notifications;
@@ -73,6 +78,7 @@ private: // Dependencies
 
 private:
 	void run ();
+
 	// Roll back block in the ledger that conflicts with 'block'
 	void rollback_competitor (secure::write_transaction &, nano::block const & block);
 	nano::block_status process_one (secure::write_transaction const &, nano::block_context const &, bool forced = false);
@@ -81,6 +87,9 @@ private:
 	nano::block_context next ();
 	bool add_impl (nano::block_context, std::shared_ptr<nano::transport::channel> const & channel = nullptr);
 
+	void wait_backlog (nano::unique_lock<nano::mutex> &);
+	double backlog_factor () const;
+
 private:
 	nano::fair_queue<nano::block_context, nano::block_source> queue;
 
@@ -88,5 +97,8 @@ private:
 	nano::condition_variable condition;
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::block_processor) };
 	std::thread thread;
+
+	nano::interval log_processing_interval;
+	nano::interval log_backlog_interval;
 };
 }
