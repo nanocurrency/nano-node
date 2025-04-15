@@ -356,18 +356,33 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			std::exit (1);
 		}
 
-		if (config.enable_voting)
+		auto reps = wallets.reps ();
+		if (reps.half_principal)
 		{
-			auto reps = wallets.reps ();
-			logger.info (nano::log::type::node, "Voting is enabled, more system resources will be used, local representatives: {}", reps.accounts.size ());
+			logger.info (nano::log::type::node, "Found {} local representatives in wallets", reps.accounts.size ());
+
 			for (auto const & account : reps.accounts)
 			{
 				logger.info (nano::log::type::node, "Local representative: {}", account.to_account ());
 			}
+		}
+
+		if (flags.enable_voting)
+		{
+			config.enable_voting = true;
+		}
+
+		if (config.enable_voting)
+		{
+			logger.info (nano::log::type::node, "Voting is enabled, more system resources will be used, local representatives: {}", reps.accounts.size ());
 			if (reps.accounts.size () > 1)
 			{
 				logger.warn (nano::log::type::node, "Voting with more than one representative can limit performance");
 			}
+		}
+		else if (reps.half_principal)
+		{
+			logger.warn (nano::log::type::node, "Found local representatives in wallets, but voting is disabled. To enable voting, set `[node] enable_voting=true` in the `config-node.toml` file or use `--enable_voting` command line argument");
 		}
 
 		if ((network_params.network.is_live_network () || network_params.network.is_beta_network ()) && !flags.inactive_node)

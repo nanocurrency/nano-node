@@ -202,6 +202,7 @@ public:
 	bool disable_max_peers_per_subnetwork{ false }; // For testing only
 	bool disable_search_pending{ false }; // For testing only
 	bool enable_pruning{ false };
+	bool enable_voting{ false };
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
 	bool disable_connection_cleanup{ false };

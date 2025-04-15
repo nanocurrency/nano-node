@@ -118,6 +118,7 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_block_processor_republishing", "Disables block republishing by disabling the local_block_broadcaster component")
 		("disable_search_pending", "Disables the periodic search for pending transactions")
 		("enable_pruning", "Enable experimental ledger pruning")
+		("enable_voting", "Enable voting")
 		("allow_bootstrap_peers_duplicates", "Allow multiple connections to same peer in bootstrap attempts")
 		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
 		("block_processor_batch_size", boost::program_options::value<std::size_t>(), "Increase block processor transaction batch write size, default 0 (limited by config block_processor_batch_max_time), 256k for fast_bootstrap")
@@ -156,6 +157,7 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	flags_a.disable_providing_telemetry_metrics = (vm.count ("disable_providing_telemetry_metrics") > 0);
 	flags_a.disable_block_processor_unchecked_deletion = (vm.count ("disable_block_processor_unchecked_deletion") > 0);
 	flags_a.enable_pruning = (vm.count ("enable_pruning") > 0);
+	flags_a.enable_voting = (vm.count ("enable_voting") > 0);
 	flags_a.allow_bootstrap_peers_duplicates = (vm.count ("allow_bootstrap_peers_duplicates") > 0);
 	flags_a.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
 	if (flags_a.fast_bootstrap)
@@ -208,7 +210,7 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 std::error_code nano::flags_config_conflicts (nano::node_flags const & flags_a, nano::node_config const & config_a)
 {
 	std::error_code ec;
-	if (flags_a.enable_pruning && config_a.enable_voting)
+	if (flags_a.enable_pruning && (config_a.enable_voting || flags_a.enable_voting))
 	{
 		ec = nano::error_cli::ambiguous_pruning_voting_options;
 	}
