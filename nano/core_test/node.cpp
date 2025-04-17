@@ -916,7 +916,7 @@ TEST (node, fork_open_flip)
 
 	// ensure open2 is in node2 ledger (and therefore has sideband) and manually trigger an election for open2
 	ASSERT_TIMELY (5s, node2.block (open2->hash ()) != nullptr);
-	node2.scheduler.manual.push (open2);
+	node2.scheduler.manual.push (open2->clone ());
 	ASSERT_TIMELY (5s, (election = node2.active.election (open2->qualified_root ())) != nullptr);
 	election->transition_active ();
 
@@ -928,8 +928,8 @@ TEST (node, fork_open_flip)
 	ASSERT_TIMELY (5s, node1.block_confirmed (open1->hash ()));
 
 	// Notify both nodes of both blocks, both nodes will become aware that a fork exists
-	node1.process_active (open2);
-	node2.process_active (open1);
+	node1.process_active (open2->clone ());
+	node2.process_active (open1->clone ());
 
 	ASSERT_TIMELY_EQ (5s, 2, election->votes ().size ()); // one more than expected due to elections having dummy votes
 

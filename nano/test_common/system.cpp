@@ -181,13 +181,13 @@ void nano::test::system::setup_node (nano::node & node)
 
 	for (auto block : initialization_blocks)
 	{
-		auto result = node.ledger.process (transaction, block);
+		auto result = node.ledger.process (transaction, block->clone ());
 		debug_assert (result == nano::block_status::progress);
 	}
 
 	for (auto block : initialization_blocks_cemented)
 	{
-		auto result = node.ledger.process (transaction, block);
+		auto result = node.ledger.process (transaction, block->clone ());
 		debug_assert (result == nano::block_status::progress);
 
 		auto cemented = node.ledger.confirm (transaction, block->hash ());
