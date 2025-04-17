@@ -457,3 +457,31 @@ size_t nano::vote_rebroadcaster_index::total_hashes () const
 		return total + entry.hashes.size ();
 	});
 }
+
+/*
+ * vote_rebroadcaster_config
+ */
+
+nano::error nano::vote_rebroadcaster_config::deserialize (nano::tomlconfig & toml)
+{
+	toml.get ("enable", enable);
+	toml.get ("max_queue", max_queue);
+	toml.get ("max_history", max_history);
+	toml.get ("max_representatives", max_representatives);
+	toml.get_duration ("rebroadcast_threshold", rebroadcast_threshold);
+	toml.get ("priority_coefficient", priority_coefficient);
+
+	return toml.get_error ();
+}
+
+nano::error nano::vote_rebroadcaster_config::serialize (nano::tomlconfig & toml) const
+{
+	toml.put ("enable", enable, "Enable or disable vote rebroadcasting. Disabling it will reduce bandwidth usage but should be done with understanding that the node will not participate fully in network consensus.\ntype:bool");
+	toml.put ("max_queue", max_queue, "Maximum number of votes to keep in queue for processing.\ntype:uint64");
+	toml.put ("max_history", max_history, "Maximum number of recently broadcast hashes to keep per representative.\ntype:uint64");
+	toml.put ("max_representatives", max_representatives, "Maximum number of representatives to track rebroadcasts for.\ntype:uint64");
+	toml.put ("rebroadcast_threshold", rebroadcast_threshold.count (), "Minimum amount of time between rebroadcasts for the same hash from the same representative.\ntype:milliseconds");
+	toml.put ("priority_coefficient", priority_coefficient, "Priority coefficient for prioritizing votes from representative tiers.\ntype:uint64");
+
+	return toml.get_error ();
+}
