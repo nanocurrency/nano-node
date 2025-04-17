@@ -25,6 +25,11 @@ nano::bounded_backlog::bounded_backlog (nano::node_config const & config_a, nano
 	logger{ logger_a },
 	scan_limiter{ config.bounded_backlog.scan_rate }
 {
+	if (!config.bounded_backlog.enable || config.max_backlog == 0)
+	{
+		return;
+	}
+
 	// Activate accounts with unconfirmed blocks
 	backlog_scan.batch_activated.add ([this] (auto const & batch) {
 		auto transaction = ledger.tx_begin_read ();
@@ -89,7 +94,7 @@ void nano::bounded_backlog::start ()
 {
 	debug_assert (!thread.joinable ());
 
-	if (!config.bounded_backlog.enable)
+	if (!config.bounded_backlog.enable || config.max_backlog == 0)
 	{
 		return;
 	}
@@ -184,6 +189,8 @@ bool nano::bounded_backlog::insert (nano::secure::transaction const & transactio
 bool nano::bounded_backlog::predicate () const
 {
 	debug_assert (!mutex.try_lock ());
+	debug_assert (config.max_backlog > 0); // Should be fully disabled if max_backlog is 0
+
 	// Both ledger and tracked backlog must be over the threshold
 	return ledger.backlog_count () > config.max_backlog && index.size () > config.max_backlog;
 }
