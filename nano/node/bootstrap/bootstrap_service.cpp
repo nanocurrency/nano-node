@@ -94,7 +94,7 @@ void nano::bootstrap_service::start ()
 
 	workers.start ();
 
-	if (config.enable_scan)
+	if (config.enable_priorities)
 	{
 		priorities_thread = std::thread ([this] () {
 			nano::thread_role::set (nano::thread_role::name::bootstrap);

@@ -27,8 +27,10 @@ public:
 class frontier_scan_config final
 {
 public:
-	// TODO: Serialize & deserialize
+	nano::error deserialize (nano::tomlconfig & toml);
+	nano::error serialize (nano::tomlconfig & toml) const;
 
+public:
 	unsigned head_parallelism{ 128 };
 	unsigned consideration_count{ 4 };
 	std::size_t candidates{ 1000 };
@@ -44,7 +46,7 @@ public:
 
 public:
 	bool enable{ true };
-	bool enable_scan{ true };
+	bool enable_priorities{ true };
 	bool enable_database_scan{ false };
 	bool enable_dependency_walker{ true };
 	bool enable_frontier_scan{ true };
