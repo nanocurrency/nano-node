@@ -28,7 +28,8 @@ namespace nano
 class vote_rebroadcaster_config final
 {
 public:
-	// TODO: Serde
+	nano::error deserialize (nano::tomlconfig &);
+	nano::error serialize (nano::tomlconfig &) const;
 
 public:
 	bool enable{ true };
