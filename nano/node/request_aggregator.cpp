@@ -123,6 +123,11 @@ void nano::request_aggregator::run ()
 
 		if (!queue.empty ())
 		{
+			if (log_interval.elapse (15s))
+			{
+				logger.info (nano::log::type::request_aggregator, "{} requests in processing queue", queue.size ());
+			}
+
 			run_batch (lock);
 			debug_assert (!lock.owns_lock ());
 			lock.lock ();

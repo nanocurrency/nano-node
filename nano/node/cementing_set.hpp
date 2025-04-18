@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/interval.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/numbers_templ.hpp>
 #include <nano/lib/observer_set.hpp>
@@ -126,5 +127,7 @@ private:
 	std::thread thread;
 
 	nano::thread_pool workers;
+
+	nano::interval log_interval;
 };
 }

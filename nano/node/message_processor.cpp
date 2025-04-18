@@ -115,6 +115,11 @@ void nano::message_processor::run ()
 
 		if (!queue.empty ())
 		{
+			if (log_interval.elapse (15s))
+			{
+				logger.info (nano::log::type::message_processor, "{} messages in processing queue", queue.size ());
+			}
+
 			run_batch (lock);
 			debug_assert (!lock.owns_lock ());
 			lock.lock ();

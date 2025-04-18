@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/interval.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/fair_queue.hpp>
@@ -56,5 +57,7 @@ private:
 	mutable nano::mutex mutex;
 	nano::condition_variable condition;
 	std::vector<std::thread> threads;
+
+	nano::interval log_interval;
 };
 }

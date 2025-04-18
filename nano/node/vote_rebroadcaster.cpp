@@ -206,6 +206,15 @@ void nano::vote_rebroadcaster::run ()
 
 		if (!queue.empty ())
 		{
+			if (log_interval.elapse (15s))
+			{
+				logger.info (nano::log::type::vote_rebroadcaster, "{} votes (tier 3: {}, tier 2: {}, tier 1: {}) in rebroadcast queue",
+				queue.size (),
+				queue.size ({ nano::rep_tier::tier_3 }),
+				queue.size ({ nano::rep_tier::tier_2 }),
+				queue.size ({ nano::rep_tier::tier_1 }));
+			}
+
 			auto [vote, tier] = next ();
 
 			lock.unlock ();

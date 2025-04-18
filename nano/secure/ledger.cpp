@@ -799,11 +799,11 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 		cache.pruned_count = store.pruned.count (transaction);
 	}
 
-	logger.info (nano::log::type::ledger, "Block count:    {:>10}", cache.block_count.load ());
-	logger.info (nano::log::type::ledger, "Cemented count: {:>10}", cache.cemented_count.load ());
-	logger.info (nano::log::type::ledger, "Account count:  {:>10}", cache.account_count.load ());
-	logger.info (nano::log::type::ledger, "Pruned count:   {:>10}", cache.pruned_count.load ());
-	logger.info (nano::log::type::ledger, "Representative count: {}", cache.rep_weights.size ());
+	logger.info (nano::log::type::ledger, "Block count:    {:>11}", cache.block_count.load ());
+	logger.info (nano::log::type::ledger, "Cemented count: {:>11}", cache.cemented_count.load ());
+	logger.info (nano::log::type::ledger, "Account count:  {:>11}", cache.account_count.load ());
+	logger.info (nano::log::type::ledger, "Pruned count:   {:>11}", cache.pruned_count.load ());
+	logger.info (nano::log::type::ledger, "Representative count: {:>5}", cache.rep_weights.size ());
 }
 
 bool nano::ledger::unconfirmed_exists (secure::transaction const & transaction, nano::block_hash const & hash)

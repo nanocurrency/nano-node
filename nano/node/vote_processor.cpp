@@ -136,6 +136,15 @@ void nano::vote_processor::run ()
 
 		if (!queue.empty ())
 		{
+			if (log_interval.elapse (15s))
+			{
+				logger.info (nano::log::type::vote_processor, "{} votes (tier 3: {}, tier 2: {}, tier 1: {}) in processing queue",
+				queue.size (),
+				queue.size ({ nano::rep_tier::tier_3 }),
+				queue.size ({ nano::rep_tier::tier_2 }),
+				queue.size ({ nano::rep_tier::tier_1 }));
+			}
+
 			run_batch (lock);
 			debug_assert (!lock.owns_lock ());
 			lock.lock ();
@@ -314,6 +323,11 @@ void nano::vote_cache_processor::run ()
 
 		if (!triggered.empty ())
 		{
+			if (log_interval.elapse (15s))
+			{
+				logger.info (nano::log::type::vote_cache_processor, "{} hashes in processing queue", triggered.size ());
+			}
+
 			run_batch (lock);
 			debug_assert (!lock.owns_lock ());
 			lock.lock ();

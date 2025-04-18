@@ -219,5 +219,5 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 		logger.critical (nano::log::type::daemon, "Error while running node: {}", e.what ());
 	}
 
-	logger.info (nano::log::type::daemon, "Daemon stopped");
+	logger.info (nano::log::type::daemon, "Stopped");
 }
