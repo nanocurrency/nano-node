@@ -275,13 +275,8 @@ nano::error nano::scheduler::hinted_config::deserialize (nano::tomlconfig & toml
 	toml.get ("enable", enable);
 	toml.get ("hinting_threshold", hinting_threshold_percent);
 
-	auto check_interval_l = check_interval.count ();
-	toml.get ("check_interval", check_interval_l);
-	check_interval = std::chrono::milliseconds{ check_interval_l };
-
-	auto block_cooldown_l = block_cooldown.count ();
-	toml.get ("block_cooldown", block_cooldown_l);
-	block_cooldown = std::chrono::milliseconds{ block_cooldown_l };
+	toml.get_duration ("check_interval", check_interval);
+	toml.get_duration ("block_cooldown", block_cooldown);
 
 	toml.get ("vacancy_threshold", vacancy_threshold_percent);
 

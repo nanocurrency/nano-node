@@ -25,6 +25,11 @@ nano::scheduler::priority::priority (nano::node_config & node_config, nano::node
 		buckets[index] = std::make_unique<scheduler::bucket> (index, node_config.priority_bucket, active, stats);
 	}
 
+	if (!config.enable)
+	{
+		return;
+	}
+
 	// Activate accounts with fresh blocks
 	ledger_notifications.blocks_processed.add ([this] (auto const & batch) {
 		auto transaction = ledger.tx_begin_read ();
@@ -275,4 +280,22 @@ nano::container_info nano::scheduler::priority::container_info () const
 	info.add ("blocks", collect_blocks ());
 	info.add ("elections", collect_elections ());
 	return info;
+}
+
+/*
+ * priority_config
+ */
+
+nano::error nano::scheduler::priority_config::serialize (nano::tomlconfig & toml) const
+{
+	toml.put ("enable", enable, "Enable or disable priority scheduler\ntype:bool");
+
+	return toml.get_error ();
+}
+
+nano::error nano::scheduler::priority_config::deserialize (nano::tomlconfig & toml)
+{
+	toml.get ("enable", enable);
+
+	return toml.get_error ();
 }

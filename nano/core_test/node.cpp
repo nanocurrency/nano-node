@@ -3615,7 +3615,7 @@ TEST (node, local_block_broadcast)
 
 	// Wait until a broadcast is attempted
 	ASSERT_TIMELY_EQ (5s, node1.local_block_broadcaster.size (), 1);
-	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::local_block_broadcaster, nano::stat::detail::broadcast, nano::stat::dir::out) >= 1);
+	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::local_block_broadcaster, nano::stat::detail::broadcast) >= 1);
 
 	// The other node should not have received the block
 	ASSERT_NEVER (500ms, node2.block (send1->hash ()));

@@ -27,7 +27,8 @@ namespace nano
 class cementing_set_config final
 {
 public:
-	// TODO: Serialization & deserialization
+	nano::error deserialize (nano::tomlconfig &);
+	nano::error serialize (nano::tomlconfig &) const;
 
 public:
 	bool enable{ true };

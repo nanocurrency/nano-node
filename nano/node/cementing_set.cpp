@@ -340,3 +340,31 @@ nano::container_info nano::cementing_set::container_info () const
 	info.add ("workers", workers.container_info ());
 	return info;
 }
+
+/*
+ * cementing_set_config
+ */
+
+nano::error nano::cementing_set_config::serialize (nano::tomlconfig & toml) const
+{
+	toml.put ("enable", enable, "Enable or disable cementing set.\ntype:bool");
+	toml.put ("batch_size", batch_size, "Number of blocks to cement in a single batch.\ntype:uint64");
+	toml.put ("max_blocks", max_blocks, "Maximum number of dependent blocks to be stored in memory during processing.\ntype:uint64");
+	toml.put ("max_queued_notifications", max_queued_notifications, "Maximum number of notification batches to queue.\ntype:uint64");
+	toml.put ("max_deferred", max_deferred, "Maximum number of failed blocks to keep for requeuing.\ntype:uint64");
+	toml.put ("deferred_age_cutoff", deferred_age_cutoff.count (), "Max age of deferred blocks before they are dropped.\ntype:seconds");
+
+	return toml.get_error ();
+}
+
+nano::error nano::cementing_set_config::deserialize (nano::tomlconfig & toml)
+{
+	toml.get ("enable", enable);
+	toml.get ("batch_size", batch_size);
+	toml.get ("max_blocks", max_blocks);
+	toml.get ("max_queued_notifications", max_queued_notifications);
+	toml.get ("max_deferred", max_deferred);
+	toml.get_duration ("deferred_age_cutoff", deferred_age_cutoff);
+
+	return toml.get_error ();
+}

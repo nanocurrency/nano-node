@@ -195,8 +195,11 @@ void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mute
 		entry.block->hash (),
 		entry.rebroadcasts);
 
-		stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::broadcast, nano::stat::dir::out);
-		network.flood_block_initial (entry.block);
+		stats.inc (nano::stat::type::local_block_broadcaster, nano::stat::detail::broadcast);
+
+		auto sent = network.flood_block_initial (entry.block);
+
+		stats.add (nano::stat::type::local_block_broadcaster, nano::stat::detail::sent, sent);
 	}
 }
 
@@ -242,4 +245,32 @@ nano::container_info nano::local_block_broadcaster::container_info () const
 	nano::container_info info;
 	info.put ("local", local_blocks);
 	return info;
+}
+
+/*
+ * local_block_broadcaster_config
+ */
+
+nano::error nano::local_block_broadcaster_config::serialize (nano::tomlconfig & toml) const
+{
+	toml.put ("max_size", max_size, "Maximum number of blocks to keep in the local block broadcaster set. \ntype:uint64");
+	toml.put ("rebroadcast_interval", rebroadcast_interval.count (), "Interval between rebroadcasts of the same block. Interval increases with each rebroadcast. \ntype:seconds");
+	toml.put ("max_rebroadcast_interval", max_rebroadcast_interval.count (), "Maximum interval between rebroadcasts of the same block. \ntype:seconds");
+	toml.put ("broadcast_rate_limit", broadcast_rate_limit, "Rate limit for broadcasting blocks. \ntype:uint64");
+	toml.put ("broadcast_rate_burst_ratio", broadcast_rate_burst_ratio, "Burst ratio for broadcasting blocks. \ntype:double");
+	toml.put ("cleanup_interval", cleanup_interval.count (), "Cleanup interval of the local blocks broadcaster set. \ntype:seconds");
+
+	return toml.get_error ();
+}
+
+nano::error nano::local_block_broadcaster_config::deserialize (nano::tomlconfig & toml)
+{
+	toml.get ("max_size", max_size);
+	toml.get_duration ("rebroadcast_interval", rebroadcast_interval);
+	toml.get_duration ("max_rebroadcast_interval", max_rebroadcast_interval);
+	toml.get ("broadcast_rate_limit", broadcast_rate_limit);
+	toml.get ("broadcast_rate_burst_ratio", broadcast_rate_burst_ratio);
+	toml.get_duration ("cleanup_interval", cleanup_interval);
+
+	return toml.get_error ();
 }

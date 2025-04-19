@@ -35,7 +35,8 @@ public:
 		}
 	}
 
-	// TODO: Serialization & deserialization
+	nano::error deserialize (nano::tomlconfig &);
+	nano::error serialize (nano::tomlconfig &) const;
 
 public:
 	std::size_t max_size{ 1024 * 8 };

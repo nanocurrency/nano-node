@@ -133,7 +133,6 @@ public:
 	double bootstrap_bandwidth_burst_ratio{ 1. };
 	nano::bootstrap_config bootstrap;
 	nano::bootstrap_server_config bootstrap_server;
-	std::chrono::milliseconds cementing_set_batch_time{ 250 };
 	bool backup_before_upgrade{ false };
 	double max_work_generate_multiplier{ 64. };
 	uint32_t max_queued_requests{ 512 };

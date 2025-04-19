@@ -519,17 +519,14 @@ nano::rep_crawler_config::rep_crawler_config (nano::network_constants const & ne
 
 nano::error nano::rep_crawler_config::serialize (nano::tomlconfig & toml) const
 {
-	// TODO: Descriptions
-	toml.put ("query_timeout", query_timeout.count ());
+	toml.put ("query_timeout", query_timeout.count (), "Timeout for rep crawler queries.\ntype:milliseconds");
 
 	return toml.get_error ();
 }
 
 nano::error nano::rep_crawler_config::deserialize (nano::tomlconfig & toml)
 {
-	auto query_timeout_l = query_timeout.count ();
-	toml.get ("query_timeout", query_timeout_l);
-	query_timeout = std::chrono::milliseconds{ query_timeout_l };
+	toml.get_duration ("query_timeout", query_timeout);
 
 	return toml.get_error ();
 }

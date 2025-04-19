@@ -133,7 +133,6 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("bootstrap_bandwidth_limit", bootstrap_bandwidth_limit, "Outbound bootstrap traffic limit in bytes/sec after which messages will be dropped.\nNote: changing to unlimited bandwidth (0) is not recommended for limited connections.\ntype:uint64");
 	toml.put ("bootstrap_bandwidth_burst_ratio", bootstrap_bandwidth_burst_ratio, "Burst ratio for outbound bootstrap traffic.\ntype:double");
 
-	toml.put ("cementing_set_batch_time", cementing_set_batch_time.count (), "Maximum time the confirming set will hold the database write transaction.\ntype:milliseconds");
 	toml.put ("backup_before_upgrade", backup_before_upgrade, "Backup the ledger database before performing upgrades.\nWarning: uses more disk storage and increases startup time when upgrading.\ntype:bool");
 	toml.put ("max_work_generate_multiplier", max_work_generate_multiplier, "Maximum allowed difficulty multiplier for work generation.\ntype:double,[1..]");
 	toml.put ("max_queued_requests", max_queued_requests, "Limit for number of queued confirmation requests for one channel, after which new requests are dropped until the queue drops below this value.\ntype:uint32");
@@ -211,6 +210,14 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	optimistic_scheduler.serialize (optimistic_l);
 	toml.put_child ("optimistic_scheduler", optimistic_l);
 
+	nano::tomlconfig hinted_l;
+	hinted_scheduler.serialize (hinted_l);
+	toml.put_child ("hinted_scheduler", hinted_l);
+
+	nano::tomlconfig priority_l;
+	priority_scheduler.serialize (priority_l);
+	toml.put_child ("priority_scheduler", priority_l);
+
 	nano::tomlconfig priority_bucket_l;
 	priority_bucket.serialize (priority_bucket_l);
 	toml.put_child ("priority_bucket", priority_bucket_l);
@@ -283,6 +290,14 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	vote_rebroadcaster.serialize (vote_rebroadcaster_l);
 	toml.put_child ("vote_rebroadcaster", vote_rebroadcaster_l);
 
+	nano::tomlconfig cementing_set_l;
+	cementing_set.serialize (cementing_set_l);
+	toml.put_child ("cementing_set", cementing_set_l);
+
+	nano::tomlconfig local_block_broadcaster_l;
+	local_block_broadcaster.serialize (local_block_broadcaster_l);
+	toml.put_child ("local_block_broadcaster", local_block_broadcaster_l);
+
 	return toml.get_error ();
 }
 
@@ -342,6 +357,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto config_l = toml.get_required_child ("hinted_scheduler");
 			hinted_scheduler.deserialize (config_l);
+		}
+
+		if (toml.has_key ("priority_scheduler"))
+		{
+			auto config_l = toml.get_required_child ("priority_scheduler");
+			priority_scheduler.deserialize (config_l);
 		}
 
 		if (toml.has_key ("priority_bucket"))
@@ -450,6 +471,18 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto config_l = toml.get_required_child ("vote_rebroadcaster");
 			vote_rebroadcaster.deserialize (config_l);
+		}
+
+		if (toml.has_key ("cementing_set"))
+		{
+			auto config_l = toml.get_required_child ("cementing_set");
+			cementing_set.deserialize (config_l);
+		}
+
+		if (toml.has_key ("local_block_broadcaster"))
+		{
+			auto config_l = toml.get_required_child ("local_block_broadcaster");
+			local_block_broadcaster.deserialize (config_l);
 		}
 
 		/*
@@ -604,10 +637,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<double> ("bootstrap_bandwidth_burst_ratio", bootstrap_bandwidth_burst_ratio);
 
 		toml.get<bool> ("backup_before_upgrade", backup_before_upgrade);
-
-		auto cementing_set_batch_time_l (cementing_set_batch_time.count ());
-		toml.get ("cementing_set_batch_time", cementing_set_batch_time_l);
-		cementing_set_batch_time = std::chrono::milliseconds (cementing_set_batch_time_l);
 
 		toml.get<double> ("max_work_generate_multiplier", max_work_generate_multiplier);
 
