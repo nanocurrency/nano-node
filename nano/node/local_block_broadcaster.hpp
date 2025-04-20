@@ -122,5 +122,7 @@ private:
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
 	std::thread thread;
+
+	nano::interval log_interval;
 };
 }

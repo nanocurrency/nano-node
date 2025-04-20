@@ -609,7 +609,7 @@ void nano::node::stop ()
 		return;
 	}
 
-	logger.info (nano::log::type::node, "Node stopping...");
+	logger.info (nano::log::type::node, "Stopping...");
 
 	tcp_listener.stop ();
 	online_reps.stop ();

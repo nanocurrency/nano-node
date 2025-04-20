@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/interval.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
@@ -81,6 +82,8 @@ private:
 	nano::condition_variable condition;
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::vote_processor) };
 	std::vector<std::thread> threads;
+
+	nano::interval log_interval;
 };
 
 class vote_cache_processor final
@@ -118,5 +121,7 @@ private:
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
 	std::thread thread;
+
+	nano::interval log_interval;
 };
 }

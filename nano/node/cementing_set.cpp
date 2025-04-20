@@ -129,6 +129,13 @@ void nano::cementing_set::run ()
 
 		if (!set.empty ())
 		{
+			if (log_interval.elapse (15s))
+			{
+				logger.info (nano::log::type::cementing_set, "{} blocks in cementing set, {} deferred",
+				set.size (),
+				deferred.size ());
+			}
+
 			run_batch (lock);
 			debug_assert (!lock.owns_lock ());
 			lock.lock ();

@@ -78,7 +78,7 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 		logger.critical (nano::log::type::daemon_rpc, "Error deserializing config: {}", error.get_message ());
 	}
 
-	logger.info (nano::log::type::daemon_rpc, "Daemon stopped (RPC)");
+	logger.info (nano::log::type::daemon_rpc, "Stopped");
 }
 }
 

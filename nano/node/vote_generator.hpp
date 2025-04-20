@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/interval.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/numbers.hpp>
@@ -59,6 +60,7 @@ private:
 	bool broadcast_predicate () const;
 
 	nano::stat::type stat_type () const;
+	nano::log::type log_type () const;
 
 private: // Dependencies
 	nano::node_config const & config;
@@ -84,5 +86,7 @@ private:
 	std::thread thread;
 	std::shared_ptr<nano::transport::channel> inproc_channel;
 	nano::processing_queue<queue_entry_t> vote_generation_queue;
+
+	nano::interval log_interval;
 };
 }

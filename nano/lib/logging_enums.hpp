@@ -74,8 +74,10 @@ enum class type
 	txn_tracker,
 	gap_cache,
 	vote_processor,
+	vote_cache_processor,
 	election_scheduler,
 	vote_generator,
+	vote_generator_final,
 	rep_tiers,
 	syn_cookies,
 	thread_runner,
@@ -88,6 +90,7 @@ enum class type
 	cementing_set,
 	bounded_backlog,
 	request_aggregator,
+	vote_rebroadcaster,
 
 	// bootstrap
 	bulk_pull_client,

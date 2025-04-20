@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/interval.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/fair_queue.hpp>
@@ -170,5 +171,7 @@ private:
 	std::condition_variable condition;
 	mutable std::mutex mutex;
 	std::thread thread;
+
+	nano::interval log_interval;
 };
 }

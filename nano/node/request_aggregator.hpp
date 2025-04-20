@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/interval.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
@@ -101,5 +102,7 @@ private:
 	nano::condition_variable condition;
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::request_aggregator) };
 	std::vector<std::thread> threads;
+
+	nano::interval log_interval;
 };
 }

@@ -232,7 +232,7 @@ void nano::block_processor::run ()
 		{
 			if (log_interval.elapse (15s))
 			{
-				logger.info (nano::log::type::block_processor, "{} blocks (+ {} forced) in processing queue",
+				logger.info (nano::log::type::block_processor, "{} blocks ({} forced) in processing queue",
 				queue.size (),
 				queue.size ({ nano::block_source::forced }));
 			}

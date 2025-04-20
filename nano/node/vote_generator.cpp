@@ -65,7 +65,7 @@ bool nano::vote_generator::should_vote (transaction_variant_t const & transactio
 		should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block);
 	}
 
-	logger.trace (nano::log::type::vote_generator, nano::log::detail::should_vote,
+	logger.trace (log_type (), nano::log::detail::should_vote,
 	nano::log::arg{ "should_vote", should_vote },
 	nano::log::arg{ "block", block },
 	nano::log::arg{ "is_final", is_final });
@@ -292,6 +292,7 @@ void nano::vote_generator::run ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
+		// Wait for at most vote_generator_delay in case no further notification is received
 		condition.wait_for (lock, config.vote_generator_delay, [this] () {
 			return stopped || broadcast_predicate () || !requests.empty ();
 		});
@@ -301,17 +302,27 @@ void nano::vote_generator::run ()
 			return;
 		}
 
-		if (broadcast_predicate ())
+		if (broadcast_predicate () || !requests.empty ())
 		{
-			broadcast (lock);
-			next_broadcast = std::chrono::steady_clock::now () + config.vote_generator_delay;
-		}
+			stats.inc (stat_type (), nano::stat::detail::loop);
 
-		if (!requests.empty ())
-		{
-			auto request (requests.front ());
-			requests.pop_front ();
-			reply (lock, std::move (request));
+			if (log_interval.elapse (15s))
+			{
+				logger.info (log_type (), "{} candidates, {} requests in processing queue", candidates.size (), requests.size ());
+			}
+
+			if (broadcast_predicate ())
+			{
+				broadcast (lock);
+				next_broadcast = std::chrono::steady_clock::now () + config.vote_generator_delay;
+			}
+
+			if (!requests.empty ())
+			{
+				auto request (requests.front ());
+				requests.pop_front ();
+				reply (lock, std::move (request));
+			}
 		}
 	}
 }
@@ -345,4 +356,9 @@ nano::container_info nano::vote_generator::container_info () const
 nano::stat::type nano::vote_generator::stat_type () const
 {
 	return is_final ? nano::stat::type::vote_generator_final : nano::stat::type::vote_generator;
+}
+
+nano::log::type nano::vote_generator::log_type () const
+{
+	return is_final ? nano::log::type::vote_generator_final : nano::log::type::vote_generator;
 }
