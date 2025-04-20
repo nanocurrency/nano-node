@@ -89,6 +89,7 @@ TEST (async, task)
 
 	// Default state, empty task
 	ASSERT_FALSE (task.joinable ());
+	ASSERT_FALSE (task.running ());
 
 	task = nano::async::task (ctx.strand, [&] () -> asio::awaitable<void> {
 		co_await nano::async::sleep_for (500ms);
@@ -96,21 +97,26 @@ TEST (async, task)
 
 	// Task should now be joinable, but not ready
 	ASSERT_TRUE (task.joinable ());
+	ASSERT_TRUE (task.running ());
 	ASSERT_FALSE (task.ready ());
 
 	WAIT (50ms);
 	ASSERT_TRUE (task.joinable ());
+	ASSERT_TRUE (task.running ());
 	ASSERT_FALSE (task.ready ());
 
 	WAIT (1s);
 
 	// Task completed, not yet joined
 	ASSERT_TRUE (task.joinable ());
+	ASSERT_FALSE (task.running ());
 	ASSERT_TRUE (task.ready ());
 
 	task.join ();
 
-	ASSERT_FALSE (task.joinable ());
+	// It is allowed to join a task multiple times
+	ASSERT_TRUE (task.joinable ());
+	task.join ();
 }
 
 TEST (async, task_cancel)
@@ -125,6 +131,7 @@ TEST (async, task_cancel)
 	// Task should be joinable, but not ready
 	WAIT (100ms);
 	ASSERT_TRUE (task.joinable ());
+	ASSERT_TRUE (task.running ());
 	ASSERT_FALSE (task.ready ());
 
 	task.cancel ();
@@ -134,4 +141,61 @@ TEST (async, task_cancel)
 	ASSERT_TRUE (task.ready ());
 
 	// It should not be necessary to join a ready task
+}
+
+TEST (async, task_join)
+{
+	nano::test::system system;
+	test_context ctx;
+
+	nano::async::task task = nano::async::task (ctx.strand, [&] () -> asio::awaitable<void> {
+		co_await nano::async::sleep_for (500ms);
+	});
+
+	ASSERT_FALSE (task.ready ());
+	ASSERT_TRUE (task.running ());
+	ASSERT_TRUE (task.joinable ());
+
+	task.join ();
+	ASSERT_TRUE (task.ready ());
+	ASSERT_FALSE (task.running ());
+
+	// It is allowed to join a task multiple times
+	ASSERT_TRUE (task.joinable ());
+	task.join ();
+}
+
+TEST (async, task_join_multithread)
+{
+	nano::test::system system;
+	test_context ctx;
+
+	nano::async::task task = nano::async::task (ctx.strand, [&] () -> asio::awaitable<void> {
+		co_await nano::async::sleep_for (500ms);
+	});
+
+	ASSERT_FALSE (task.ready ());
+	ASSERT_TRUE (task.joinable ());
+
+	const int howmany_threads = 5;
+
+	std::vector<std::thread> threads;
+	for (int i = 0; i < howmany_threads; ++i)
+	{
+		threads.emplace_back ([&task] () {
+			task.join ();
+		});
+	}
+
+	// Join all threads
+	for (auto & thread : threads)
+	{
+		thread.join ();
+	}
+
+	// Threads should be able to join the task without throwing an exception
+
+	// It is allowed to join a task multiple times
+	ASSERT_TRUE (task.joinable ());
+	task.join ();
 }
