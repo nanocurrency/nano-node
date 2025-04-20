@@ -55,7 +55,7 @@ public:
 	};
 
 public:
-	auto emit (asio::cancellation_type type = asio::cancellation_type::all)
+	std::future<void> emit (asio::cancellation_type type = asio::cancellation_type::all)
 	{
 		return asio::dispatch (strand, asio::use_future ([signal_l = signal, type] () {
 			signal_l->emit (type);
@@ -179,6 +179,7 @@ concept async_factory_with_condition = requires (T t, condition & c) {
 /**
  * Wrapper with convenience functions and safety checks for asynchronous tasks.
  * Aims to provide interface similar to std::thread.
+ * Uses std::shared_future for multiple waiters capability.
  */
 class task
 {
@@ -197,10 +198,13 @@ public:
 		strand{ strand },
 		cancellation{ strand }
 	{
-		future = asio::co_spawn (
+		std::future<value_type> fut = asio::co_spawn (
 		strand,
 		std::forward<Func> (func),
 		asio::bind_cancellation_slot (cancellation.slot (), asio::use_future));
+
+		// Convert to shared_future
+		future = fut.share ();
 	}
 
 	template <async_factory Func>
@@ -208,10 +212,12 @@ public:
 		strand{ strand },
 		cancellation{ strand }
 	{
-		future = asio::co_spawn (
+		auto fut = asio::co_spawn (
 		strand,
 		func (),
 		asio::bind_cancellation_slot (cancellation.slot (), asio::use_future));
+
+		future = fut.share (); // Convert to shared_future
 	}
 
 	template <async_factory_with_condition Func>
@@ -221,15 +227,17 @@ public:
 		condition{ std::make_unique<nano::async::condition> (strand) }
 	{
 		auto awaitable_func = func (*condition);
-		future = asio::co_spawn (
+		auto fut = asio::co_spawn (
 		strand,
 		func (*condition),
 		asio::bind_cancellation_slot (cancellation.slot (), asio::use_future));
+
+		future = fut.share (); // Convert to shared_future
 	}
 
 	~task ()
 	{
-		release_assert (!joinable () || ready (), "async task not joined before destruction");
+		release_assert (!running (), "async task not joined before destruction");
 	}
 
 	task (task && other) = default;
@@ -248,6 +256,11 @@ public:
 	}
 
 public:
+	std::shared_future<value_type> get_future () const
+	{
+		return future; // Give a copy of the shared future
+	}
+
 	bool joinable () const
 	{
 		return future.valid ();
@@ -256,14 +269,19 @@ public:
 	bool ready () const
 	{
 		release_assert (future.valid ());
-		return future.wait_for (std::chrono::seconds{ 0 }) == std::future_status::ready;
+		return get_future ().wait_for (std::chrono::seconds{ 0 }) == std::future_status::ready;
+	}
+
+	bool running () const
+	{
+		return joinable () && !ready ();
 	}
 
 	void join ()
 	{
 		release_assert (future.valid ());
-		future.wait ();
-		future = {};
+		get_future ().wait ();
+		// No need to invalidate shared_future after waiting
 	}
 
 	void cancel ()
@@ -287,8 +305,8 @@ public:
 	nano::async::strand & strand;
 
 private:
-	std::future<value_type> future;
+	std::shared_future<value_type> future;
 	nano::async::cancellation cancellation;
-	std::unique_ptr<nano::async::condition> condition;
+	std::unique_ptr<nano::async::condition> condition; // Optional, but needs a fixed address
 };
 }

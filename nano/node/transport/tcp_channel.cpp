@@ -24,7 +24,6 @@ nano::transport::tcp_channel::tcp_channel (nano::node & node_a, std::shared_ptr<
 nano::transport::tcp_channel::~tcp_channel ()
 {
 	close ();
-	release_assert (!sending_task.joinable ());
 }
 
 void nano::transport::tcp_channel::close ()
@@ -58,7 +57,7 @@ asio::awaitable<void> nano::transport::tcp_channel::start_sending (nano::async::
 
 void nano::transport::tcp_channel::stop ()
 {
-	if (sending_task.joinable ())
+	if (sending_task.running ())
 	{
 		// Node context must be running to gracefully stop async tasks
 		debug_assert (!node.io_ctx.stopped ());

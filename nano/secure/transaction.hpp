@@ -111,7 +111,7 @@ public:
 		return guard.is_owned ();
 	}
 
-	std::shared_future<void> get_future ()
+	std::shared_future<void> get_future () const
 	{
 		return future; // Give a copy of the shared future
 	}
