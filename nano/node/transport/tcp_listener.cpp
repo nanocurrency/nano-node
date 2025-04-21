@@ -34,7 +34,6 @@ nano::transport::tcp_listener::tcp_listener (uint16_t port_a, tcp_config const &
 nano::transport::tcp_listener::~tcp_listener ()
 {
 	debug_assert (!cleanup_thread.joinable ());
-	debug_assert (!task.joinable ());
 	debug_assert (connection_count () == 0);
 	debug_assert (attempt_count () == 0);
 }
