@@ -65,7 +65,12 @@ private:
 	/** Iterate over all database samples and remove invalid records. This is meant to clean potential leftovers from previous versions. */
 	void sanitize_trended (nano::store::write_transaction const &);
 
-	nano::uint128_t calculate_trended (nano::store::transaction const &) const;
+	struct trended_result
+	{
+		nano::uint128_t trended;
+		size_t samples;
+	};
+	trended_result calculate_trended (nano::store::transaction const &) const;
 	nano::uint128_t calculate_online () const;
 
 	bool verify_consistency (nano::store::write_transaction const &, std::chrono::system_clock::time_point now, std::chrono::system_clock::time_point cutoff) const;

@@ -26,13 +26,16 @@ void nano::online_reps::start ()
 
 	{
 		auto transaction = ledger.tx_begin_write (nano::store::writer::online_weight);
+
 		sanitize_trended (transaction);
+		auto trended_result = calculate_trended (transaction);
 
-		auto trended_l = calculate_trended (transaction);
 		nano::lock_guard<nano::mutex> lock{ mutex };
-		cached_trended = trended_l;
+		cached_trended = trended_result.trended;
 
-		logger.info (nano::log::type::online_reps, "Initial trended weight: {}", cached_trended);
+		logger.info (nano::log::type::online_reps, "Initial trended weight: {} (samples: {})",
+		nano::uint128_union{ trended_result.trended }.format_balance (nano_ratio, 1, true),
+		trended_result.samples);
 	}
 
 	thread = std::thread ([this] () {
@@ -71,6 +74,7 @@ void nano::online_reps::observe (nano::account const & rep)
 		{
 			stats.inc (nano::stat::type::online_reps, nano::stat::detail::update_online);
 			logger.debug (nano::log::type::online_reps, "Observed new representative: {}", rep.to_account ());
+
 			cached_online = calculate_online ();
 		}
 	}
@@ -135,13 +139,15 @@ void nano::online_reps::sample ()
 	ledger.store.online_weight.put (transaction, nano::seconds_since_epoch (), online ());
 
 	// Update current trended weight
-	auto trended_l = calculate_trended (transaction);
+	auto trended_result = calculate_trended (transaction);
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
-		cached_trended = trended_l;
+		cached_trended = trended_result.trended;
 	}
 
-	logger.info (nano::log::type::online_reps, "Updated trended weight: {}", trended_l);
+	logger.info (nano::log::type::online_reps, "Updated trended weight: {} (samples: {})",
+	nano::uint128_union{ trended_result.trended }.format_balance (nano_ratio, 1, true),
+	trended_result.samples);
 }
 
 nano::uint128_t nano::online_reps::calculate_online () const
@@ -214,7 +220,8 @@ void nano::online_reps::sanitize_trended (nano::store::write_transaction const &
 		ledger.store.online_weight.del (transaction, entry.first);
 	}
 
-	logger.debug (nano::log::type::online_reps, "Sanitized online weight trend, remaining entries: {}, removed: {} (old: {}, future: {})",
+	logger.log ((removed_old + removed_future) > 0 ? nano::log::level::info : nano::log::level::debug,
+	nano::log::type::online_reps, "Sanitized online weight trend, remaining samples: {}, removed: {} (old: {}, future: {})",
 	ledger.store.online_weight.count (transaction),
 	removed_old + removed_future,
 	removed_old,
@@ -237,9 +244,9 @@ bool nano::online_reps::verify_consistency (nano::store::write_transaction const
 	return true;
 }
 
-nano::uint128_t nano::online_reps::calculate_trended (nano::store::transaction const & transaction) const
+auto nano::online_reps::calculate_trended (nano::store::transaction const & transaction) const -> trended_result
 {
-	std::vector<nano::uint128_t> items;
+	std::deque<nano::uint128_t> items;
 	for (auto it = ledger.store.online_weight.begin (transaction); it != ledger.store.online_weight.end (transaction); ++it)
 	{
 		items.push_back (it->second.number ());
@@ -249,9 +256,13 @@ nano::uint128_t nano::online_reps::calculate_trended (nano::store::transaction c
 		// Pick median value for our target vote weight
 		auto median_idx = items.size () / 2;
 		std::nth_element (items.begin (), items.begin () + median_idx, items.end ());
-		return items[median_idx];
+		auto median_value = items[median_idx];
+		return {
+			.trended = median_value,
+			.samples = items.size ()
+		};
 	}
-	return 0;
+	return { 0, 0 };
 }
 
 nano::uint128_t nano::online_reps::trended () const
