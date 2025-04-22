@@ -38,13 +38,19 @@ void nano::pruning::stop ()
 
 void nano::pruning::ongoing_ledger_pruning ()
 {
+	if (stopped)
+	{
+		return;
+	}
+
 	auto bootstrap_weight_reached (ledger.block_count () >= ledger.bootstrap_weight_max_blocks);
+
 	ledger_pruning (flags.block_processor_batch_size != 0 ? flags.block_processor_batch_size : 2 * 1024, bootstrap_weight_reached);
+
 	auto const ledger_pruning_interval (bootstrap_weight_reached ? config.max_pruning_age : std::min (config.max_pruning_age, std::chrono::seconds (15 * 60)));
+	logger.debug (nano::log::type::pruning, "Next pruning iteration in {}s", ledger_pruning_interval.count ());
 	workers.post_delayed (ledger_pruning_interval, [this] () {
-		workers.post ([this] () {
-			ongoing_ledger_pruning ();
-		});
+		ongoing_ledger_pruning ();
 	});
 }
 
@@ -89,7 +95,7 @@ void nano::pruning::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_
 		}
 	}
 
-	logger.debug (nano::log::type::pruning, "Total recently pruned block count: {}", pruned_count);
+	logger.info (nano::log::type::pruning, "Recently pruned blocks: {}", pruned_count);
 }
 
 bool nano::pruning::collect_ledger_pruning_targets (std::deque<nano::block_hash> & pruning_targets_a, nano::account & last_account_a, uint64_t const batch_read_size_a, uint64_t const max_depth_a, uint64_t const cutoff_time_a)
@@ -122,11 +128,7 @@ bool nano::pruning::collect_ledger_pruning_targets (std::deque<nano::block_hash>
 				release_assert (depth != 0);
 				hash = 0;
 			}
-			if (++depth % batch_read_size_a == 0)
-			{
-				// FIXME: This is triggering an assertion where the iterator is still used after transaction is refreshed
-				transaction.refresh ();
-			}
+			++depth;
 		}
 		if (!hash.is_zero ())
 		{

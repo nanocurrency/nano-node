@@ -427,12 +427,15 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 				logger.critical (nano::log::type::node, "Incompatibility detected between config node.enable_voting and existing pruned blocks");
 				std::exit (1);
 			}
-			else if (!flags.enable_pruning && !flags.inactive_node)
+			if (!flags.enable_pruning && !flags.inactive_node)
 			{
 				logger.critical (nano::log::type::node, "To start node with existing pruned blocks use launch flag --enable_pruning");
 				std::exit (1);
 			}
+
+			logger.warn (nano::log::type::node, "WARNING: Ledger pruning is enabled. This feature is experimental and may result in node instability! Please see release notes for more information.");
 		}
+
 		cementing_set.cemented_observers.add ([this] (auto const & block) {
 			// TODO: Is it neccessary to call this for all blocks?
 			if (block->is_send ())

@@ -3409,7 +3409,7 @@ TEST (node, pruning_automatic)
 	ASSERT_TRUE (nano::test::block_or_pruned_all_exists (node1, { nano::dev::genesis, send1, send2 }));
 }
 
-TEST (node, DISABLED_pruning_age)
+TEST (node, pruning_age)
 {
 	nano::test::system system{};
 
@@ -3470,7 +3470,7 @@ TEST (node, DISABLED_pruning_age)
 
 // Test that a node configured with `enable_pruning` will
 // prune DEEP-enough confirmed blocks by explicitly saying `node.ledger_pruning` in the unit test
-TEST (node, DISABLED_pruning_depth)
+TEST (node, pruning_depth)
 {
 	nano::test::system system{};
 
