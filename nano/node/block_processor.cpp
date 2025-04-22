@@ -19,8 +19,9 @@
  * block_processor
  */
 
-nano::block_processor::block_processor (nano::node_config const & node_config, nano::ledger & ledger_a, nano::ledger_notifications & ledger_notifications_a, nano::unchecked_map & unchecked_a, nano::stats & stats_a, nano::logger & logger_a) :
-	config{ node_config.block_processor },
+nano::block_processor::block_processor (nano::node_config const & node_config_a, nano::ledger & ledger_a, nano::ledger_notifications & ledger_notifications_a, nano::unchecked_map & unchecked_a, nano::stats & stats_a, nano::logger & logger_a) :
+	config{ node_config_a.block_processor },
+	node_config{ node_config_a },
 	network_params{ node_config.network_params },
 	ledger{ ledger_a },
 	ledger_notifications{ ledger_notifications_a },
@@ -204,9 +205,50 @@ void nano::block_processor::rollback_competitor (secure::write_transaction & tra
 	}
 }
 
+double nano::block_processor::backlog_factor () const
+{
+	if (node_config.max_backlog == 0 || ledger.backlog_count () <= node_config.max_backlog)
+	{
+		return 0.0;
+	}
+	return std::min (1.0, static_cast<double> (ledger.backlog_count ()) / static_cast<double> (node_config.max_backlog));
+}
+
+void nano::block_processor::wait_backlog (nano::unique_lock<nano::mutex> & lock)
+{
+	debug_assert (lock.owns_lock ());
+	debug_assert (!mutex.try_lock ());
+
+	double const factor = backlog_factor ();
+
+	if (factor < 1.0)
+	{
+		return;
+	}
+
+	auto scaling = [] (double factor) {
+		// This uses a power of approximately 3.32, which gives ~1x at 1.0 and ~10x at 2.0
+		return std::pow (factor, 3.32);
+	};
+
+	auto const throttle_wait = std::min (config.backlog_throttle * scaling (factor), config.backlog_throttle_max * 1.0);
+
+	if (log_backlog_interval.elapse (15s))
+	{
+		logger.warn (nano::log::type::block_processor, "Backlog exceeded, throttling for {}ms (backlog size: {})",
+		throttle_wait.count (),
+		ledger.backlog_count ());
+	}
+
+	stats.inc (nano::stat::type::block_processor, nano::stat::detail::cooldown_backlog);
+
+	condition.wait_for (lock, throttle_wait, [&] {
+		return stopped || backlog_factor () < 1.0;
+	});
+}
+
 void nano::block_processor::run ()
 {
-	nano::interval log_interval;
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
@@ -219,6 +261,8 @@ void nano::block_processor::run ()
 			return;
 		}
 
+		wait_backlog (lock);
+
 		lock.unlock ();
 
 		// It's possible that ledger processing happens faster than the notifications can be processed by other components, cooldown here
@@ -230,7 +274,7 @@ void nano::block_processor::run ()
 
 		if (!queue.empty ())
 		{
-			if (log_interval.elapse (15s))
+			if (log_processing_interval.elapse (15s))
 			{
 				logger.info (nano::log::type::block_processor, "{} blocks ({} forced) in processing queue",
 				queue.size (),
@@ -459,6 +503,8 @@ nano::error nano::block_processor_config::serialize (nano::tomlconfig & toml) co
 	toml.put ("priority_live", priority_live, "Priority for live network blocks. Higher priority gets processed more frequently. \ntype:uint64");
 	toml.put ("priority_bootstrap", priority_bootstrap, "Priority for bootstrap blocks. Higher priority gets processed more frequently. \ntype:uint64");
 	toml.put ("priority_local", priority_local, "Priority for local RPC blocks. Higher priority gets processed more frequently. \ntype:uint64");
+	toml.put ("backlog_throttle", backlog_throttle.count (), "Throttling interval for processing blocks when backlog is above threshold. \ntype:milliseconds");
+	toml.put ("backlog_throttle_max", backlog_throttle_max.count (), "Maximum throttling interval for processing blocks when backlog is above threshold. \ntype:milliseconds");
 
 	return toml.get_error ();
 }
@@ -470,6 +516,8 @@ nano::error nano::block_processor_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("priority_live", priority_live);
 	toml.get ("priority_bootstrap", priority_bootstrap);
 	toml.get ("priority_local", priority_local);
+	toml.get_duration ("backlog_throttle", backlog_throttle);
+	toml.get_duration ("backlog_throttle_max", backlog_throttle_max);
 
 	return toml.get_error ();
 }

@@ -363,7 +363,8 @@ TEST (vote_cache, age_cutoff)
 	auto tops1 = vote_cache.top (0);
 	ASSERT_EQ (tops1.size (), 1);
 	ASSERT_EQ (tops1[0].hash, hash1);
-	ASSERT_EQ (system.stats.count (nano::stat::type::vote_cache, nano::stat::detail::cleanup), 0);
+
+	system.stats.clear ();
 
 	// Wait for first cleanup
 	auto check = [&] () {

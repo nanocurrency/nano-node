@@ -224,6 +224,7 @@ enum class detail
 	process_blocking,
 	process_blocking_timeout,
 	force,
+	cooldown_backlog,
 
 	// block source
 	live,
