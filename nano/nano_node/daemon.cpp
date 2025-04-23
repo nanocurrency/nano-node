@@ -61,9 +61,15 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 {
 	nano::logger::initialize (nano::log_config::daemon_default (), data_path, flags.config_overrides);
 
-	logger.info (nano::log::type::daemon, "Daemon started");
-
 	install_abort_signal_handler ();
+
+	logger.info (nano::log::type::daemon, "Daemon started");
+	logger.info (nano::log::type::daemon, "Version: {}", NANO_VERSION_STRING);
+	logger.info (nano::log::type::daemon, "Build info: {}", BUILD_INFO);
+	logger.info (nano::log::type::daemon, "Data path: {}", data_path.string ());
+
+	std::time_t dateTime = std::time (nullptr);
+	logger.info (nano::log::type::daemon, "Start time: {:%c} UTC", fmt::gmtime (dateTime));
 
 	std::filesystem::create_directories (data_path);
 	boost::system::error_code error_chmod;
@@ -117,16 +123,6 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 		auto node = std::make_shared<nano::node> (io_ctx, data_path, config.node, opencl_work, flags);
 		if (!node->init_error ())
 		{
-			auto network_label = node->network_params.network.get_current_network_as_string ();
-			std::time_t dateTime = std::time (nullptr);
-
-			logger.info (nano::log::type::daemon, "Network: {}", network_label);
-			logger.info (nano::log::type::daemon, "Version: {}", NANO_VERSION_STRING);
-			logger.info (nano::log::type::daemon, "Data path: '{}'", node->application_path.string ());
-			logger.info (nano::log::type::daemon, "Build info: {}", BUILD_INFO);
-			logger.info (nano::log::type::daemon, "Database backend: {}", node->store.vendor_get ());
-			logger.info (nano::log::type::daemon, "Start time: {:%c} UTC", fmt::gmtime (dateTime));
-
 			// IO context runner should be started first and stopped last to allow asio handlers to execute during node start/stop
 			runner = std::make_unique<nano::thread_runner> (io_ctx, logger, node->config.io_threads, nano::thread_role::name::io_daemon);
 
