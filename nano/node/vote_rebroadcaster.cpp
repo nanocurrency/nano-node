@@ -206,7 +206,8 @@ void nano::vote_rebroadcaster::run ()
 
 		if (!queue.empty ())
 		{
-			if (log_interval.elapse (15s))
+			// Only log if component is under pressure
+			if (queue.size () > nano::queue_warning_threshold () && log_interval.elapse (15s))
 			{
 				logger.info (nano::log::type::vote_rebroadcaster, "{} votes (tier 3: {}, tier 2: {}, tier 1: {}) in rebroadcast queue",
 				queue.size (),

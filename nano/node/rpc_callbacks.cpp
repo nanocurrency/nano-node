@@ -52,9 +52,7 @@ void nano::http_callbacks::setup_callbacks ()
 		{
 			stats.inc (nano::stat::type::http_callbacks_notified, nano::stat::detail::block_confirmed);
 
-			constexpr size_t warning_threshold = 10000;
-
-			if (workers.queued_tasks () > warning_threshold && warning_interval.elapse (15s))
+			if (workers.queued_tasks () > nano::queue_warning_threshold () && warning_interval.elapse (15s))
 			{
 				stats.inc (nano::stat::type::http_callbacks, nano::stat::detail::large_backlog);
 				logger.warn (nano::log::type::http_callbacks, "Backlog of {} http callback notifications to process", workers.queued_tasks ());

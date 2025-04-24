@@ -306,7 +306,8 @@ void nano::vote_generator::run ()
 		{
 			stats.inc (stat_type (), nano::stat::detail::loop);
 
-			if (log_interval.elapse (15s))
+			// Only log if component is under pressure
+			if ((candidates.size () + requests.size ()) > nano::queue_warning_threshold () && log_interval.elapse (15s))
 			{
 				logger.info (log_type (), "{} candidates, {} requests in processing queue", candidates.size (), requests.size ());
 			}

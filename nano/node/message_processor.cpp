@@ -115,7 +115,8 @@ void nano::message_processor::run ()
 
 		if (!queue.empty ())
 		{
-			if (log_interval.elapse (15s))
+			// Only log if component is under pressure
+			if (queue.size () > nano::queue_warning_threshold () && log_interval.elapse (15s))
 			{
 				logger.info (nano::log::type::message_processor, "{} messages in processing queue", queue.size ());
 			}

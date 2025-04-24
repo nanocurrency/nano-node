@@ -170,6 +170,19 @@ std::array<uint8_t, 2> nano::test_magic_number ()
 	return ret;
 }
 
+size_t nano::queue_warning_threshold ()
+{
+	static auto const env_override = [] () -> std::optional<size_t> {
+		if (auto value = nano::env::get<size_t> ("NANO_QUEUE_WARNING_THRESHOLD"))
+		{
+			std::cerr << "Queue warning threshold overridden by NANO_QUEUE_WARNING_THRESHOLD environment variable: " << *value << std::endl;
+			return *value;
+		}
+		return std::nullopt;
+	}();
+	return env_override.value_or (100);
+}
+
 std::string_view nano::to_string (nano::networks network)
 {
 	switch (network)
