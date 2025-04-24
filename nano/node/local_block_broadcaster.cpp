@@ -136,7 +136,7 @@ void nano::local_block_broadcaster::run ()
 
 			if (log_interval.elapse (15s))
 			{
-				logger.info (nano::log::type::local_block_broadcaster, "{} blocks in broadcasting set", local_blocks.size ());
+				logger.info (nano::log::type::local_block_broadcaster, "{} blocks in local broadcasting set", local_blocks.size ());
 			}
 
 			run_broadcasts (lock);

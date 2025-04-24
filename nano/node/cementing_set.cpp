@@ -129,7 +129,8 @@ void nano::cementing_set::run ()
 
 		if (!set.empty ())
 		{
-			if (log_interval.elapse (15s))
+			// Only log if component is under pressure
+			if ((set.size () + deferred.size ()) > nano::queue_warning_threshold () && log_interval.elapse (15s))
 			{
 				logger.info (nano::log::type::cementing_set, "{} blocks in cementing set, {} deferred",
 				set.size (),

@@ -235,9 +235,9 @@ void nano::block_processor::wait_backlog (nano::unique_lock<nano::mutex> & lock)
 
 	if (log_backlog_interval.elapse (15s))
 	{
-		logger.warn (nano::log::type::block_processor, "Backlog exceeded, throttling for {}ms (backlog size: {})",
+		logger.warn (nano::log::type::block_processor, "Backlog exceeded, throttling for {}ms (backlog factor: {})",
 		throttle_wait.count (),
-		ledger.backlog_count ());
+		factor);
 	}
 
 	stats.inc (nano::stat::type::block_processor, nano::stat::detail::cooldown_backlog);
@@ -274,7 +274,8 @@ void nano::block_processor::run ()
 
 		if (!queue.empty ())
 		{
-			if (log_processing_interval.elapse (15s))
+			// Only log if component is under pressure
+			if (queue.size () > nano::queue_warning_threshold () && log_processing_interval.elapse (15s))
 			{
 				logger.info (nano::log::type::block_processor, "{} blocks ({} forced) in processing queue",
 				queue.size (),

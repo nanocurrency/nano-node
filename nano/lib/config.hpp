@@ -108,6 +108,8 @@ void force_nano_dev_network ();
 
 /** Checks that we are running in test mode */
 bool is_dev_run ();
+
+size_t queue_warning_threshold ();
 }
 
 namespace nano

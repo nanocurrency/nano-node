@@ -123,7 +123,8 @@ void nano::request_aggregator::run ()
 
 		if (!queue.empty ())
 		{
-			if (log_interval.elapse (15s))
+			// Only log if component is under pressure
+			if (queue.size () > nano::queue_warning_threshold () && log_interval.elapse (15s))
 			{
 				logger.info (nano::log::type::request_aggregator, "{} requests in processing queue", queue.size ());
 			}
