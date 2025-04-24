@@ -191,6 +191,7 @@ public:
 	{
 		// Put blocks that are being initially broadcasted in a separate queue, so that they won't have to compete with rebroadcasted blocks
 		// Both queues have the same priority and size, so the potential for exploiting this is limited
+		debug_assert (message.digest != 0 || channel->get_type () != nano::transport::transport_type::tcp); // Messages received from the network should have their digest set
 		bool added = node.block_processor.add (message.block, message.is_originator () ? nano::block_source::live_originator : nano::block_source::live, channel);
 		if (!added)
 		{
@@ -221,6 +222,7 @@ public:
 			return;
 		}
 
+		debug_assert (message.digest != 0 || channel->get_type () != nano::transport::transport_type::tcp); // Messages received from the network should have their digest set
 		bool added = node.vote_processor.vote (message.vote, channel, message.is_rebroadcasted () ? nano::vote_source::rebroadcast : nano::vote_source::live);
 		if (!added)
 		{
