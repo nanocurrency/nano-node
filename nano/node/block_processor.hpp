@@ -39,7 +39,9 @@ public:
 	size_t priority_local{ 16 };
 	size_t priority_system{ 32 };
 
-	std::chrono::milliseconds backlog_throttle{ 100ms };
+	bool enable_throttling{ true };
+	double backlog_threshold{ 1.5 };
+	std::chrono::milliseconds backlog_throttle{ 30ms };
 	std::chrono::milliseconds backlog_throttle_max{ 1s };
 };
 

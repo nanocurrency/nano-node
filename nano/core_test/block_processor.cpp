@@ -18,8 +18,9 @@ TEST (block_processor, backlog_throttling)
 
 	nano::node_config node_config;
 	// Backlog won't be rolled back, as we want to test the throttling works when backlog is exceeded
-	node_config.max_backlog = 20;
+	node_config.max_backlog = 5;
 	node_config.backlog_scan.enable = false;
+	node_config.bounded_backlog.enable = false; // Disable rollbacks
 	// Allow at most 4 blocks per second when throttling
 	node_config.block_processor.batch_size = 1;
 	node_config.block_processor.backlog_throttle = 500ms;

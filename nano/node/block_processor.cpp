@@ -207,11 +207,12 @@ void nano::block_processor::rollback_competitor (secure::write_transaction & tra
 
 double nano::block_processor::backlog_factor () const
 {
-	if (node_config.max_backlog == 0 || ledger.backlog_count () <= node_config.max_backlog)
+	auto const backlog = ledger.backlog_count ();
+	if (node_config.max_backlog == 0 || backlog <= node_config.max_backlog * config.backlog_threshold)
 	{
 		return 0.0;
 	}
-	return std::min (1.0, static_cast<double> (ledger.backlog_count ()) / static_cast<double> (node_config.max_backlog));
+	return std::max (1.0, static_cast<double> (backlog) / static_cast<double> (node_config.max_backlog * config.backlog_threshold));
 }
 
 void nano::block_processor::wait_backlog (nano::unique_lock<nano::mutex> & lock)
@@ -230,7 +231,6 @@ void nano::block_processor::wait_backlog (nano::unique_lock<nano::mutex> & lock)
 		// This uses a power of approximately 3.32, which gives ~1x at 1.0 and ~10x at 2.0
 		return std::pow (factor, 3.32);
 	};
-
 	auto const throttle_wait = std::min (config.backlog_throttle * scaling (factor), config.backlog_throttle_max * 1.0);
 
 	if (log_backlog_interval.elapse (15s))
@@ -261,7 +261,11 @@ void nano::block_processor::run ()
 			return;
 		}
 
-		wait_backlog (lock);
+		if (config.enable_throttling)
+		{
+			wait_backlog (lock);
+			debug_assert (lock.owns_lock ());
+		}
 
 		lock.unlock ();
 
@@ -504,6 +508,8 @@ nano::error nano::block_processor_config::serialize (nano::tomlconfig & toml) co
 	toml.put ("priority_live", priority_live, "Priority for live network blocks. Higher priority gets processed more frequently. \ntype:uint64");
 	toml.put ("priority_bootstrap", priority_bootstrap, "Priority for bootstrap blocks. Higher priority gets processed more frequently. \ntype:uint64");
 	toml.put ("priority_local", priority_local, "Priority for local RPC blocks. Higher priority gets processed more frequently. \ntype:uint64");
+	toml.put ("enable_throttling", enable_throttling, "Enable throttling of block processing when backlog exceeds threshold. \ntype:bool");
+	toml.put ("backlog_threshold", backlog_threshold, "Threshold for backlog before throttling is applied. \ntype:double");
 	toml.put ("backlog_throttle", backlog_throttle.count (), "Throttling interval for processing blocks when backlog is above threshold. \ntype:milliseconds");
 	toml.put ("backlog_throttle_max", backlog_throttle_max.count (), "Maximum throttling interval for processing blocks when backlog is above threshold. \ntype:milliseconds");
 
@@ -517,6 +523,8 @@ nano::error nano::block_processor_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("priority_live", priority_live);
 	toml.get ("priority_bootstrap", priority_bootstrap);
 	toml.get ("priority_local", priority_local);
+	toml.get ("enable_throttling", enable_throttling);
+	toml.get ("backlog_threshold", backlog_threshold);
 	toml.get_duration ("backlog_throttle", backlog_throttle);
 	toml.get_duration ("backlog_throttle_max", backlog_throttle_max);
 
