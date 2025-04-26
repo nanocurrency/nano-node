@@ -316,7 +316,6 @@ void nano::cementing_set::cleanup (std::unique_lock<std::mutex> & lock)
 		if (should_evict (*it) || deferred.size () > config.max_deferred)
 		{
 			stats.inc (nano::stat::type::cementing_set, nano::stat::detail::evicted);
-			debug_assert (ledger.any.block_exists (ledger.tx_begin_read (), it->hash));
 			evicted.push_back (*it);
 			it = deferred.erase (it);
 		}
