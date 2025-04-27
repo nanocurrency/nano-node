@@ -110,6 +110,8 @@ void force_nano_dev_network ();
 bool is_dev_run ();
 
 size_t queue_warning_threshold ();
+size_t ledger_thread_stack_size ();
+size_t ledger_max_rollback_depth ();
 }
 
 namespace nano

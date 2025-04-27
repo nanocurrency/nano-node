@@ -1,5 +1,6 @@
 #include <nano/lib/block_type.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
@@ -73,7 +74,10 @@ void nano::block_processor::start ()
 {
 	debug_assert (!thread.joinable ());
 
-	thread = std::thread ([this] () {
+	boost::thread::attributes attrs;
+	attrs.set_stack_size (nano::ledger_thread_stack_size ());
+
+	thread = boost::thread (attrs, [this] () {
 		nano::thread_role::set (nano::thread_role::name::block_processing);
 		run ();
 	});
@@ -184,15 +188,16 @@ void nano::block_processor::rollback_competitor (secure::write_transaction & tra
 		logger.debug (nano::log::type::block_processor, "Rolling back: {} and replacing with: {}", successor->hash ().to_string (), hash.to_string ());
 
 		std::deque<std::shared_ptr<nano::block>> rollback_list;
-		if (ledger.rollback (transaction, successor->hash (), rollback_list))
+		bool error = ledger.rollback (transaction, successor->hash (), rollback_list);
+		if (error)
 		{
 			stats.inc (nano::stat::type::ledger, nano::stat::detail::rollback_failed);
-			logger.error (nano::log::type::block_processor, "Failed to roll back: {} because it or a successor was confirmed", successor->hash ().to_string ());
+			logger.warn (nano::log::type::block_processor, "Failed to roll back: {} (succeeded with {} dependents)", successor->hash ().to_string (), rollback_list.size ());
 		}
 		else
 		{
 			stats.inc (nano::stat::type::ledger, nano::stat::detail::rollback);
-			logger.debug (nano::log::type::block_processor, "Blocks rolled back: {}", rollback_list.size ());
+			logger.debug (nano::log::type::block_processor, "Rolled back {} with {} dependents", successor->hash ().to_string (), rollback_list.size ());
 		}
 
 		if (!rollback_list.empty ())

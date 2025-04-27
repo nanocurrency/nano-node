@@ -539,7 +539,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 							}
 							else
 							{
-								std::cerr << "Error rolling back block" << std::endl;
+								std::cerr << "Error rolling back block, rolled back " << rollback_list.size () << " dependents" << std::endl;
 								ec = nano::error_cli::generic;
 							}
 						}

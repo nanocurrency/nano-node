@@ -35,6 +35,7 @@ public: // Operations on accounts
 	account_iterator account_begin (secure::transaction const & transaction) const;
 	account_iterator account_end () const;
 	std::optional<nano::account_info> account_get (secure::transaction const & transaction, nano::account const & account) const;
+	bool account_exists (secure::transaction const & transaction, nano::account const & account) const;
 	nano::block_hash account_head (secure::transaction const & transaction, nano::account const & account) const;
 	uint64_t account_height (secure::transaction const & transaction, nano::account const & account) const;
 	// Returns the next account entry equal or greater than 'account'

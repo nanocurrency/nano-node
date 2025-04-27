@@ -1,4 +1,5 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/node/backlog_scan.hpp>
 #include <nano/node/block_processor.hpp>
@@ -99,15 +100,18 @@ void nano::bounded_backlog::start ()
 		return;
 	}
 
-	thread = std::thread{ [this] () {
+	boost::thread::attributes attrs;
+	attrs.set_stack_size (nano::ledger_thread_stack_size ());
+
+	thread = boost::thread (attrs, [this] () {
 		nano::thread_role::set (nano::thread_role::name::bounded_backlog);
 		run ();
-	} };
+	});
 
-	scan_thread = std::thread{ [this] () {
+	scan_thread = std::thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::bounded_backlog_scan);
 		run_scan ();
-	} };
+	});
 }
 
 void nano::bounded_backlog::stop ()
@@ -290,7 +294,7 @@ std::deque<nano::block_hash> nano::bounded_backlog::perform_rollbacks (std::dequ
 	for (auto const & hash : targets)
 	{
 		// Skip the rollback if the block is being used by the node, this should be race free as it's checked while holding the ledger write lock
-		if (!should_rollback (hash))
+		if (!should_rollback (hash) || !ledger.unconfirmed_exists (transaction, hash))
 		{
 			stats.inc (nano::stat::type::bounded_backlog, nano::stat::detail::rollback_skipped);
 			continue;
@@ -303,17 +307,29 @@ std::deque<nano::block_hash> nano::bounded_backlog::perform_rollbacks (std::dequ
 
 			std::deque<std::shared_ptr<nano::block>> rollback_list;
 			bool error = ledger.rollback (transaction, hash, rollback_list);
-			stats.inc (nano::stat::type::bounded_backlog, error ? nano::stat::detail::rollback_failed : nano::stat::detail::rollback);
+			if (error)
+			{
+				stats.inc (nano::stat::type::bounded_backlog, nano::stat::detail::rollback_failed);
+				logger.warn (nano::log::type::bounded_backlog, "Failed to roll back: {} (succeeded with {} dependents)", hash.to_string (), rollback_list.size ());
+			}
+			else
+			{
+				stats.inc (nano::stat::type::bounded_backlog, nano::stat::detail::rollback);
+				logger.debug (nano::log::type::bounded_backlog, "Rolled back {} with {} dependents", hash.to_string (), rollback_list.size ());
+			}
 
 			for (auto const & rollback : rollback_list)
 			{
 				processed.push_back (rollback->hash ());
 			}
 
-			// Notify observers of the rolled back blocks on a background thread, avoid dispatching notifications when holding ledger write transaction
-			ledger_notifications.notify_rolled_back (transaction, std::move (rollback_list), block->qualified_root (), [this] {
-				stats.inc (nano::stat::type::bounded_backlog, nano::stat::detail::notify_rolled_back);
-			});
+			if (!rollback_list.empty ())
+			{
+				// Notify observers of the rolled back blocks on a background thread, avoid dispatching notifications when holding ledger write transaction
+				ledger_notifications.notify_rolled_back (transaction, std::move (rollback_list), block->qualified_root (), [this] {
+					stats.inc (nano::stat::type::bounded_backlog, nano::stat::detail::notify_rolled_back);
+				});
+			}
 
 			// Return early if we reached the maximum number of rollbacks
 			if (processed.size () >= max_rollbacks)

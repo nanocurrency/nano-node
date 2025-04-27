@@ -35,6 +35,11 @@ std::optional<nano::account_info> nano::ledger_set_any::account_get (secure::tra
 	return ledger.store.account.get (transaction, account);
 }
 
+bool nano::ledger_set_any::account_exists (secure::transaction const & transaction, nano::account const & account) const
+{
+	return ledger.store.account.exists (transaction, account);
+}
+
 nano::block_hash nano::ledger_set_any::account_head (secure::transaction const & transaction, nano::account const & account) const
 {
 	auto info = account_get (transaction, account);

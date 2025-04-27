@@ -16,6 +16,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/thread.hpp>
 
 #include <unordered_map>
 
@@ -152,7 +153,7 @@ private:
 	std::atomic<bool> stopped{ false };
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
-	std::thread thread;
+	boost::thread thread;
 	std::thread scan_thread;
 };
 }

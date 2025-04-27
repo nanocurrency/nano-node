@@ -3463,6 +3463,77 @@ TEST (ledger, state_receive_change_rollback)
 	ASSERT_EQ (store.account.count (transaction), ledger.account_count ());
 }
 
+TEST (ledger, rollback_depth_exceeded)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & store = ctx.store ();
+	auto transaction = ledger.tx_begin_write ();
+	auto & pool = ctx.pool ();
+
+	// Chain: G->A0->A1
+	nano::keypair key1, key2;
+	nano::keypair rep1, rep2;
+	nano::block_builder builder;
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
+	auto receive1 = builder
+					.state ()
+					.account (key1.pub)
+					.previous (0)
+					.representative (rep1.pub)
+					.balance (nano::Knano_ratio)
+					.link (send1->hash ())
+					.sign (key1.prv, key1.pub)
+					.work (*pool.generate (key1.pub))
+					.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive1));
+	auto send2 = builder
+				 .state ()
+				 .account (key1.pub)
+				 .previous (receive1->hash ())
+				 .representative (rep1.pub)
+				 .balance (0)
+				 .link (key2.pub)
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (receive1->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
+	auto receive2 = builder
+					.state ()
+					.account (key2.pub)
+					.previous (0)
+					.representative (rep2.pub)
+					.balance (nano::Knano_ratio)
+					.link (send2->hash ())
+					.sign (key2.prv, key2.pub)
+					.work (*pool.generate (key2.pub))
+					.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive2));
+
+	// This call should fail because the rollback depth exceeds the limit
+	std::deque<std::shared_ptr<nano::block>> rollback_list;
+	ASSERT_TRUE (ledger.rollback (transaction, send1->hash (), rollback_list, 0, 1));
+	ASSERT_EQ (rollback_list.size (), 0);
+	ASSERT_EQ (ledger.any.account_balance (transaction, key1.pub), 0);
+	ASSERT_EQ (ledger.any.account_balance (transaction, key2.pub), nano::Knano_ratio);
+	ASSERT_EQ (ledger.any.account_balance (transaction, nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount - nano::Knano_ratio);
+	ASSERT_EQ (ledger.weight (rep1.pub), 0);
+	ASSERT_EQ (ledger.weight (rep2.pub), nano::Knano_ratio);
+	ASSERT_EQ (ledger.weight (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount - nano::Knano_ratio);
+	ASSERT_FALSE (ledger.any.pending_get (transaction, nano::pending_key (key1.pub, send1->hash ())));
+	ASSERT_FALSE (ledger.any.pending_get (transaction, nano::pending_key (key2.pub, send2->hash ())));
+}
+
 TEST (ledger, epoch_blocks_v1_general)
 {
 	auto ctx = nano::test::ledger_empty ();

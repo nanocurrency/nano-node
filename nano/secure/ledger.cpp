@@ -36,10 +36,12 @@ namespace
 class rollback_visitor : public nano::block_visitor
 {
 public:
-	rollback_visitor (nano::secure::write_transaction const & transaction_a, nano::ledger & ledger_a, std::deque<std::shared_ptr<nano::block>> & list_a) :
+	rollback_visitor (nano::secure::write_transaction const & transaction_a, nano::ledger & ledger_a, std::deque<std::shared_ptr<nano::block>> & list_a, size_t depth_a, size_t max_depth_a) :
 		transaction (transaction_a),
 		ledger (ledger_a),
-		list (list_a)
+		list (list_a),
+		depth (depth_a),
+		max_depth (max_depth_a)
 	{
 	}
 	virtual ~rollback_visitor () = default;
@@ -50,7 +52,7 @@ public:
 		auto pending = ledger.store.pending.get (transaction, key);
 		while (!error && !pending.has_value ())
 		{
-			error = ledger.rollback (transaction, ledger.any.account_head (transaction, block_a.hashables.destination), list);
+			error = ledger.rollback (transaction, ledger.any.account_head (transaction, block_a.hashables.destination), list, depth + 1, max_depth);
 			pending = ledger.store.pending.get (transaction, key);
 		}
 		if (!error)
@@ -116,28 +118,9 @@ public:
 	}
 	void state_block (nano::state_block const & block_a) override
 	{
-		auto hash (block_a.hash ());
-		nano::block_hash rep_block_hash (0);
-		if (!block_a.hashables.previous.is_zero ())
-		{
-			rep_block_hash = ledger.representative (transaction, block_a.hashables.previous);
-		}
-		nano::uint128_t balance = ledger.any.block_balance (transaction, block_a.hashables.previous).value_or (0).number ();
-		auto is_send (block_a.hashables.balance < balance);
-		nano::account representative{};
-		if (!rep_block_hash.is_zero ())
-		{
-			// Move existing representation & add in amount delta
-			auto block (ledger.store.block.get (transaction, rep_block_hash));
-			release_assert (block != nullptr);
-			representative = block->representative_field ().value ();
-			ledger.cache.rep_weights.representation_add_dual (transaction, representative, balance, block_a.hashables.representative, 0 - block_a.hashables.balance.number ());
-		}
-		else
-		{
-			// Add in amount delta only
-			ledger.cache.rep_weights.representation_add (transaction, block_a.hashables.representative, 0 - block_a.hashables.balance.number ());
-		}
+		auto const hash = block_a.hash ();
+		auto const previous_balance = ledger.any.block_balance (transaction, block_a.hashables.previous).value_or (0).number ();
+		bool const is_send = block_a.hashables.balance < previous_balance;
 
 		auto info = ledger.any.account_get (transaction, block_a.hashables.account);
 		release_assert (info);
@@ -147,7 +130,11 @@ public:
 			nano::pending_key key (block_a.hashables.link.as_account (), hash);
 			while (!error && !ledger.any.pending_get (transaction, key))
 			{
-				error = ledger.rollback (transaction, ledger.any.account_head (transaction, block_a.hashables.link.as_account ()), list);
+				error = ledger.rollback (transaction, ledger.any.account_head (transaction, block_a.hashables.link.as_account ()), list, depth + 1, max_depth);
+			}
+			if (error)
+			{
+				return;
 			}
 			ledger.store.pending.del (transaction, key);
 			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::send);
@@ -156,14 +143,36 @@ public:
 		{
 			// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
 			auto source_account = ledger.any.block_account (transaction, block_a.hashables.link.as_block_hash ());
-			nano::pending_info pending_info (source_account.value_or (0), block_a.hashables.balance.number () - balance, block_a.sideband ().source_epoch);
+			nano::pending_info pending_info (source_account.value_or (0), block_a.hashables.balance.number () - previous_balance, block_a.sideband ().source_epoch);
 			ledger.store.pending.put (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()), pending_info);
 			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::receive);
 		}
 
-		debug_assert (!error);
+		release_assert (!error);
+
+		nano::block_hash rep_block_hash (0);
+		if (!block_a.hashables.previous.is_zero ())
+		{
+			rep_block_hash = ledger.representative (transaction, block_a.hashables.previous);
+		}
+
+		nano::account representative{};
+		if (!rep_block_hash.is_zero ())
+		{
+			// Move existing representation & add in amount delta
+			auto rep_block (ledger.store.block.get (transaction, rep_block_hash));
+			release_assert (rep_block != nullptr);
+			representative = rep_block->representative_field ().value ();
+			ledger.cache.rep_weights.representation_add_dual (transaction, representative, previous_balance, block_a.hashables.representative, 0 - block_a.hashables.balance.number ());
+		}
+		else
+		{
+			// Add in amount delta only
+			ledger.cache.rep_weights.representation_add (transaction, block_a.hashables.representative, 0 - block_a.hashables.balance.number ());
+		}
+
 		auto previous_version (ledger.version (transaction, block_a.hashables.previous));
-		nano::account_info new_info (block_a.hashables.previous, representative, info->open_block, balance, nano::seconds_since_epoch (), info->block_count - 1, previous_version);
+		nano::account_info new_info (block_a.hashables.previous, representative, info->open_block, previous_balance, nano::seconds_since_epoch (), info->block_count - 1, previous_version);
 		ledger.update_account (transaction, block_a.hashables.account, *info, new_info);
 
 		auto previous (ledger.store.block.get (transaction, block_a.hashables.previous));
@@ -180,6 +189,8 @@ public:
 	nano::secure::write_transaction const & transaction;
 	nano::ledger & ledger;
 	std::deque<std::shared_ptr<nano::block>> & list;
+	size_t const depth;
+	size_t const max_depth;
 	bool error{ false };
 };
 
@@ -1016,12 +1027,19 @@ nano::uint128_t nano::ledger::weight_exact (secure::transaction const & txn_a, n
 }
 
 // Rollback blocks until `block_a' doesn't exist or it tries to penetrate the confirmation height
-bool nano::ledger::rollback (secure::write_transaction const & transaction_a, nano::block_hash const & block_a, std::deque<std::shared_ptr<nano::block>> & list_a)
+// TODO: Refactor rollback operation to use non-recursive algorithm
+bool nano::ledger::rollback (secure::write_transaction const & transaction_a, nano::block_hash const & block_a, std::deque<std::shared_ptr<nano::block>> & list_a, size_t depth, size_t const max_depth)
 {
+	if (depth > max_depth)
+	{
+		logger.critical (nano::log::type::ledger, "Rollback depth exceeded: {} (max depth: {})", depth, max_depth);
+		return true; // Error
+	}
+
 	debug_assert (any.block_exists (transaction_a, block_a));
 	auto account_l = any.block_account (transaction_a, block_a).value ();
 	auto block_account_height (any.block_height (transaction_a, block_a));
-	rollback_visitor rollback (transaction_a, *this, list_a);
+	rollback_visitor rollback (transaction_a, *this, list_a, depth, max_depth);
 	auto error (false);
 	while (!error && any.block_exists (transaction_a, block_a))
 	{
@@ -1033,11 +1051,11 @@ bool nano::ledger::rollback (secure::write_transaction const & transaction_a, na
 			release_assert (info);
 			auto block_l = any.block_get (transaction_a, info->head);
 			release_assert (block_l != nullptr);
-			list_a.push_back (block_l);
 			block_l->visit (rollback);
 			error = rollback.error;
 			if (!error)
 			{
+				list_a.push_back (block_l);
 				--cache.block_count;
 			}
 		}

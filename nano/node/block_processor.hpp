@@ -9,6 +9,8 @@
 #include <nano/node/fwd.hpp>
 #include <nano/secure/common.hpp>
 
+#include <boost/thread.hpp>
+
 #include <chrono>
 #include <future>
 #include <memory>
@@ -98,7 +100,7 @@ private:
 	bool stopped{ false };
 	nano::condition_variable condition;
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::block_processor) };
-	std::thread thread;
+	boost::thread thread;
 
 	nano::interval log_processing_interval;
 	nano::interval log_backlog_interval;
