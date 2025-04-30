@@ -27,6 +27,17 @@ bool nano::bootstrap::peer_scoring::limit_exceeded (std::shared_ptr<nano::transp
 	return false;
 }
 
+bool nano::bootstrap::peer_scoring::try_insert (std::shared_ptr<nano::transport::channel> const & channel)
+{
+	auto & index = scoring.get<tag_channel> ();
+	if (index.find (channel.get ()) == index.end ())
+	{
+		index.emplace (channel, 0, 0, 0);
+		return true;
+	}
+	return false;
+}
+
 bool nano::bootstrap::peer_scoring::try_send_message (std::shared_ptr<nano::transport::channel> const & channel)
 {
 	auto & index = scoring.get<tag_channel> ();
@@ -47,10 +58,10 @@ bool nano::bootstrap::peer_scoring::try_send_message (std::shared_ptr<nano::tran
 		}
 		else
 		{
-			return true;
+			return false; // Channel limit exceeded
 		}
 	}
-	return false;
+	return true;
 }
 
 void nano::bootstrap::peer_scoring::received_message (std::shared_ptr<nano::transport::channel> const & channel)
@@ -71,11 +82,14 @@ void nano::bootstrap::peer_scoring::received_message (std::shared_ptr<nano::tran
 
 std::shared_ptr<nano::transport::channel> nano::bootstrap::peer_scoring::channel ()
 {
-	for (auto const & channel : channels)
+	// Iterate channels in ascending order of outstanding requests
+	auto & index = scoring.get<tag_outstanding> ();
+	for (auto const & entry : index)
 	{
-		if (!channel->max (traffic_type))
+		auto channel = entry.channel.lock ();
+		if (channel && !channel->max (traffic_type))
 		{
-			if (!try_send_message (channel))
+			if (try_send_message (channel))
 			{
 				return channel;
 			}
@@ -91,8 +105,9 @@ std::size_t nano::bootstrap::peer_scoring::size () const
 
 std::size_t nano::bootstrap::peer_scoring::available () const
 {
-	return std::count_if (channels.begin (), channels.end (), [this] (auto const & channel) {
-		return !limit_exceeded (channel);
+	return std::count_if (scoring.begin (), scoring.end (), [this] (auto const & entry) {
+		auto channel = entry.channel.lock ();
+		return channel && !limit_exceeded (channel);
 	});
 }
 
@@ -119,15 +134,17 @@ void nano::bootstrap::peer_scoring::timeout ()
 
 void nano::bootstrap::peer_scoring::sync (std::deque<std::shared_ptr<nano::transport::channel>> const & list)
 {
-	channels = list;
+	for (auto const & channel : list)
+	{
+		try_insert (channel);
+	}
 }
 
 nano::container_info nano::bootstrap::peer_scoring::container_info () const
 {
 	nano::container_info info;
-	info.put ("scores", size ());
+	info.put ("scoring", size ());
 	info.put ("available", available ());
-	info.put ("channels", channels.size ());
 	return info;
 }
 

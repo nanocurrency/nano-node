@@ -551,9 +551,9 @@ bool nano::bootstrap_service::request (nano::account account, size_t count, std:
 			// Probabilistically choose between requesting blocks from account frontier or confirmed frontier
 			// Optimistic requests start from the (possibly unconfirmed) account frontier and are vulnerable to bootstrap poisoning
 			// Safe requests start from the confirmed frontier and given enough time will eventually resolve forks
-			bool optimistic_reuest = rng.random (100) < config.optimistic_request_percentage;
+			bool const optimistic_request = rng.random (100) < config.optimistic_request_percentage;
 
-			if (optimistic_reuest) // Optimistic request case
+			if (optimistic_request) // Optimistic request case
 			{
 				stats.inc (nano::stat::type::bootstrap_request_blocks, nano::stat::detail::optimistic);
 
@@ -561,10 +561,11 @@ bool nano::bootstrap_service::request (nano::account account, size_t count, std:
 				tag.start = info->head;
 				tag.hash = info->head;
 
-				logger.debug (nano::log::type::bootstrap, "Requesting blocks for {} starting from account frontier: {} (optimistic: {})",
+				logger.debug (nano::log::type::bootstrap, "Requesting blocks for {} starting from account frontier: {} (optimistic: {}) from: {}",
 				account,
 				tag.start,
-				optimistic_reuest);
+				optimistic_request,
+				channel->to_string ());
 			}
 			else // Pessimistic (safe) request case
 			{
@@ -576,19 +577,21 @@ bool nano::bootstrap_service::request (nano::account account, size_t count, std:
 					tag.start = conf_info->frontier;
 					tag.hash = conf_info->frontier;
 
-					logger.debug (nano::log::type::bootstrap, "Requesting blocks for {} starting from confirmation frontier: {} (optimistic: {})",
+					logger.debug (nano::log::type::bootstrap, "Requesting blocks for {} starting from confirmation frontier: {} (optimistic: {}) from: {}",
 					account,
 					tag.start,
-					optimistic_reuest);
+					optimistic_request,
+					channel->to_string ());
 				}
 				else
 				{
 					tag.type = query_type::blocks_by_account;
 					tag.start = account;
 
-					logger.debug (nano::log::type::bootstrap, "Requesting blocks for {} starting from account root (optimistic: {})",
+					logger.debug (nano::log::type::bootstrap, "Requesting blocks for {} starting from account root (optimistic: {}) from: {}",
 					account,
-					optimistic_reuest);
+					optimistic_request,
+					channel->to_string ());
 				}
 			}
 		}
@@ -599,7 +602,7 @@ bool nano::bootstrap_service::request (nano::account account, size_t count, std:
 			tag.type = query_type::blocks_by_account;
 			tag.start = account;
 
-			logger.debug (nano::log::type::bootstrap, "Requesting blocks for {}", account);
+			logger.debug (nano::log::type::bootstrap, "Requesting blocks for {} from: {}", account, channel->to_string ());
 		}
 	}
 
@@ -614,7 +617,7 @@ bool nano::bootstrap_service::request_info (nano::block_hash hash, std::shared_p
 	tag.start = hash;
 	tag.hash = hash;
 
-	logger.debug (nano::log::type::bootstrap, "Requesting account info for: {}", hash);
+	logger.debug (nano::log::type::bootstrap, "Requesting account info for: {} from: {}", hash, channel->to_string ());
 
 	return send (channel, tag);
 }
@@ -626,7 +629,7 @@ bool nano::bootstrap_service::request_frontiers (nano::account start, std::share
 	tag.source = source;
 	tag.start = start;
 
-	logger.debug (nano::log::type::bootstrap, "Requesting frontiers starting from: {}", start);
+	logger.debug (nano::log::type::bootstrap, "Requesting frontiers starting from: {} from: {}", start, channel->to_string ());
 
 	return send (channel, tag);
 }

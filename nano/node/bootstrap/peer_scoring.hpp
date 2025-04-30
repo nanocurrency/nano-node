@@ -28,6 +28,7 @@ public:
 
 	// Returns true if channel limit has been exceeded
 	bool limit_exceeded (std::shared_ptr<nano::transport::channel> const & channel) const;
+	bool try_insert (std::shared_ptr<nano::transport::channel> const & channel);
 	bool try_send_message (std::shared_ptr<nano::transport::channel> const & channel);
 	void received_message (std::shared_ptr<nano::transport::channel> const & channel);
 
@@ -83,10 +84,8 @@ private:
 	};
 
 	// clang-format off
-	// Indexes scores by their shared channel pointer
-	class tag_channel {};
-	// Indexes scores by the number of outstanding requests in ascending order
-	class tag_outstanding {};
+	class tag_channel {}; // Indexes scores by their shared channel pointer
+	class tag_outstanding {}; // Indexes scores by the number of outstanding requests in ascending order
 
 	using ordered_scoring = boost::multi_index_container<peer_score,
 	mi::indexed_by<
@@ -96,7 +95,5 @@ private:
 			mi::member<peer_score, uint64_t, &peer_score::outstanding>>>>;
 	// clang-format on
 	ordered_scoring scoring;
-
-	std::deque<std::shared_ptr<nano::transport::channel>> channels;
 };
 }
