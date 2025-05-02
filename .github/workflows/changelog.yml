@@ -27,7 +27,7 @@ env:
 
 jobs:
   changelog_job:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 90
     steps:
       - name: Sets the tag and repo variables (to build)
