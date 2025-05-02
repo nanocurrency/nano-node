@@ -36,29 +36,35 @@ jobs:
           echo "REF_START=${{ github.event.inputs.ref_start }}" >> $GITHUB_ENV
           echo "REPO_TO_RUN=${{ github.event.inputs.repo }}" >> $GITHUB_ENV
           echo "MODE=${{ github.event.inputs.mode }}" >> $GITHUB_ENV
+
       - name: Checks out the required workflow files (workflow repo)
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
           repository: ${{ github.repository }}
+
       - name: Install Dependencies
         run: sudo apt-get install -yqq uuid
+
       - name: Setup Python 3.x
         uses: actions/setup-python@13ae5bb136fac2878aff31522b9efb785519f984 #v4.3.0
         with:
           python-version: '3.x'
+
       - name: Installs PIP Packages
         run: |
           pip install PyGithub
           pip install mdutils
+
       - name: Generating the CHANGELOG file (automatic interval)
         if: ${{ github.event.inputs.ref_start == '' }}
         run: python util/changelog.py -v --repo $REPO_TO_RUN -m $MODE -t $TAG -p "${{ secrets.GITHUB_TOKEN }}"
       - name: Generating the CHANGELOG file (selected interval)
         if: ${{ github.event.inputs.ref_start != '' }}
         run: python util/changelog.py -v --repo $REPO_TO_RUN --start-tag $REF_START -t $TAG -p "${{ secrets.GITHUB_TOKEN }}"
+
       - name: Upload the Changelog Artifact
-        uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb #v3.1.1
+        uses: actions/upload-artifact@v4
         with:
           name: CHANGELOG_${{ env.TAG }}.md
           path: |
