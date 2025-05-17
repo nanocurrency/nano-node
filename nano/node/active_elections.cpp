@@ -29,7 +29,8 @@ nano::active_elections::active_elections (nano::node & node_a, nano::ledger_noti
 	ledger_notifications{ ledger_notifications_a },
 	cementing_set{ cementing_set_a },
 	recently_confirmed{ config.confirmation_cache },
-	recently_cemented{ config.confirmation_history_size }
+	recently_cemented{ config.confirmation_history_size },
+	workers{ 1, nano::thread_role::name::aec_notifications }
 {
 	count_by_behavior.fill (0); // Zero initialize array
 
@@ -45,15 +46,16 @@ nano::active_elections::active_elections (nano::node & node_a, nano::ledger_noti
 				results.push_back (result);
 			}
 		}
-		{
-			// TODO: This could be offloaded to a separate notification worker, profiling is needed
+
+		// Notify observers about cemented blocks on a background thread
+		workers.post ([this, results = std::move (results)] () {
 			auto transaction = node.ledger.tx_begin_read ();
 			for (auto const & [status, votes] : results)
 			{
 				transaction.refresh_if_needed ();
 				notify_observers (transaction, status, votes);
 			}
-		}
+		});
 	});
 
 	// Notify elections about alternative (forked) blocks
@@ -87,6 +89,8 @@ nano::active_elections::~active_elections ()
 
 void nano::active_elections::start ()
 {
+	workers.start ();
+
 	if (node.flags.disable_request_loop)
 	{
 		return;
@@ -107,7 +111,12 @@ void nano::active_elections::stop ()
 		stopped = true;
 	}
 	condition.notify_all ();
-	nano::join_or_pass (thread);
+	if (thread.joinable ())
+	{
+		thread.join ();
+	}
+	workers.stop ();
+
 	clear ();
 }
 
@@ -182,8 +191,10 @@ auto nano::active_elections::block_cemented (std::shared_ptr<nano::block> const 
 
 void nano::active_elections::notify_observers (nano::secure::transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes) const
 {
-	auto block = status.winner;
-	auto account = block->account ();
+	// Get block from ledger to ensure sideband is set (forked blocks may not have sideband)
+	auto const block = node.ledger.any.block_get (transaction, status.winner->hash ());
+	release_assert (block != nullptr); // Block must exist in the ledger since it was cemented
+	auto const account = block->account ();
 
 	switch (status.type)
 	{
@@ -209,6 +220,7 @@ void nano::active_elections::notify_observers (nano::secure::transaction const &
 	}
 
 	node.observers.account_balance.notify (account, false);
+
 	if (block->is_send ())
 	{
 		node.observers.account_balance.notify (block->destination (), true);
@@ -303,7 +315,7 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 		for (auto const & election : stale_elections)
 		{
 			node.logger.debug (nano::log::type::active_elections, "Bootstrapping account: {} with stale election with root: {}, blocks: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
-			election->account (),
+			election->account,
 			election->qualified_root,
 			fmt::join (election->blocks_hashes (), ", "), // TODO: Lazy eval
 			to_string (election->behavior ()),
@@ -312,7 +324,7 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 			election->block_count (),
 			election->duration ().count ());
 
-			node.bootstrap.prioritize (election->account ());
+			node.bootstrap.prioritize (election->account);
 		}
 	}
 }
@@ -324,7 +336,7 @@ void nano::active_elections::cleanup_election (nano::unique_lock<nano::mutex> & 
 	debug_assert (!election->confirmed () || recently_confirmed.exists (election->qualified_root));
 
 	// Keep track of election count by election type
-	debug_assert (count_by_behavior[election->behavior ()] > 0);
+	release_assert (count_by_behavior[election->behavior ()] > 0);
 	count_by_behavior[election->behavior ()]--;
 
 	auto blocks_l = election->blocks ();
@@ -403,8 +415,8 @@ std::vector<std::shared_ptr<nano::election>> nano::active_elections::list_active
 
 nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<nano::block> const & block_a, nano::election_behavior election_behavior_a, erased_callback_t erased_callback_a)
 {
-	debug_assert (block_a);
-	debug_assert (block_a->has_sideband ());
+	release_assert (block_a);
+	release_assert (block_a->has_sideband ());
 
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
@@ -435,7 +447,7 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 			node.vote_router.connect (hash, result.election);
 
 			// Keep track of election count by election type
-			debug_assert (count_by_behavior[result.election->behavior ()] >= 0);
+			release_assert (count_by_behavior[result.election->behavior ()] >= 0);
 			count_by_behavior[result.election->behavior ()]++;
 
 			// Skip passive phase for blocks without cached votes to avoid bootstrap delays
@@ -495,7 +507,7 @@ nano::election_insertion_result nano::active_elections::insert (std::shared_ptr<
 
 	if (result.inserted)
 	{
-		debug_assert (result.election);
+		release_assert (result.election);
 
 		// Notifications
 		node.observers.active_started.notify (hash);
@@ -646,6 +658,7 @@ nano::container_info nano::active_elections::container_info () const
 
 	info.add ("recently_confirmed", recently_confirmed.container_info ());
 	info.add ("recently_cemented", recently_cemented.container_info ());
+	info.add ("workers", workers.container_info ());
 
 	return info;
 }

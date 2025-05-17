@@ -21,6 +21,7 @@ enum class name
 	block_processing,
 	ledger_notifications,
 	aec_loop,
+	aec_notifications,
 	wallet_actions,
 	bootstrap_initiator,
 	bootstrap_connections,

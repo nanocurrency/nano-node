@@ -31,7 +31,8 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 	status (block_a),
 	height (block_a->sideband ().height),
 	root (block_a->root ()),
-	qualified_root (block_a->qualified_root ())
+	qualified_root (block_a->qualified_root ()),
+	account (block_a->account ())
 {
 	last_votes.emplace (nano::account::null (), nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
 	last_blocks.emplace (block_a->hash (), block_a);
@@ -803,12 +804,6 @@ void nano::election::force_confirm ()
 	release_assert (node.network_params.network.is_dev_network ());
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	confirm_once (lock);
-}
-
-nano::account nano::election::account () const
-{
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	return status.winner->account ();
 }
 
 std::unordered_set<nano::block_hash> nano::election::blocks_hashes () const

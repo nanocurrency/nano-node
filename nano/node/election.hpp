@@ -143,8 +143,8 @@ public: // Information
 	uint64_t const height;
 	nano::root const root;
 	nano::qualified_root const qualified_root;
+	nano::account const account;
 
-	nano::account account () const;
 	std::vector<nano::vote_with_weight_info> votes_with_weight () const;
 	nano::election_behavior behavior () const;
 	nano::election_state state () const;

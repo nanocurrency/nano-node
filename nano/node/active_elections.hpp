@@ -4,6 +4,7 @@
 #include <nano/lib/interval.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/observer_set.hpp>
+#include <nano/lib/thread_pool.hpp>
 #include <nano/node/election_behavior.hpp>
 #include <nano/node/election_insertion_result.hpp>
 #include <nano/node/election_status.hpp>
@@ -166,6 +167,8 @@ private:
 	nano::condition_variable condition;
 	bool stopped{ false };
 	std::thread thread;
+
+	nano::thread_pool workers;
 
 	nano::interval bootstrap_stale_interval;
 
