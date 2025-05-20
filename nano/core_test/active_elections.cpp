@@ -164,6 +164,102 @@ TEST (active_elections, confirm_frontier)
 	ASSERT_GT (election2->confirmation_request_count, 0u);
 }
 
+// Tests that confirming the other side of the initial fork works
+TEST (active_elections, confirm_fork)
+{
+	nano::test::system system;
+	// One node is enough because we can cast the deciding vote locally.
+	auto & node = *system.add_node ();
+
+	nano::keypair dest;
+	nano::state_block_builder builder{};
+
+	// Base state: genesis → fork_* (two alternatives)
+	auto fork1 = builder.make_block ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100) // –100 RAW
+				 .link (dest.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+
+	auto fork2 = builder.make_block ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 200) // –200 RAW
+				 .link (dest.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+
+	// Inject both forks live; they’ll merge into a single election
+	node.process_active (fork1);
+
+	// Wait until the election object exists
+	std::shared_ptr<nano::election> election;
+	ASSERT_TIMELY (5s, (election = node.active.election (fork1->qualified_root ())) != nullptr);
+
+	// Cast the decisive final vote for fork2
+	auto vote_fork2 = nano::test::make_final_vote (nano::dev::genesis_key, { fork2 });
+	node.vote_processor.vote (vote_fork2,
+	std::make_shared<nano::transport::inproc::channel> (node, node));
+
+	node.process_active (fork2);
+
+	// The election should confirm and choose fork2 as the winner
+	ASSERT_TIMELY (5s, election->confirmed ());
+	ASSERT_EQ (fork2->hash (), election->status.winner->hash ());
+
+	// Ledger view: fork2 cemented, fork1 not
+	ASSERT_TIMELY (3s, node.block_confirmed (fork2->hash ()));
+	ASSERT_FALSE (node.block_confirmed (fork1->hash ()));
+}
+
+// Tests that confirming a block that was initially in the fork cache works
+TEST (active_elections, confirm_fork_cache)
+{
+	nano::test::system system;
+	// One node is enough because we can cast the deciding vote locally.
+	auto & node = *system.add_node ();
+
+	nano::keypair dest;
+	nano::state_block_builder builder{};
+
+	auto fork1 = builder.make_block ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100) // –100 RAW
+				 .link (dest.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+
+	// Inject fork1 into the fork cache, this block is without sideband
+	node.fork_cache.put (fork1->clone ());
+
+	// Inject both forks live; they’ll merge into a single election
+	node.process_active (fork1->clone ());
+
+	// Wait until the election object exists
+	std::shared_ptr<nano::election> election;
+	ASSERT_TIMELY (5s, (election = node.active.election (fork1->qualified_root ())) != nullptr);
+
+	// Cast the decisive final vote
+	auto vote_fork2 = nano::test::make_final_vote (nano::dev::genesis_key, { fork1 });
+	node.vote_processor.vote (vote_fork2,
+	std::make_shared<nano::transport::inproc::channel> (node, node));
+
+	// The election should confirm
+	ASSERT_TIMELY (5s, election->confirmed ());
+	ASSERT_EQ (fork1->hash (), election->status.winner->hash ());
+
+	ASSERT_TIMELY (3s, node.block_confirmed (fork1->hash ()));
+}
+
 // TODO: Adjust for new behaviour of bounded buckets
 TEST (active_elections, DISABLED_keep_local)
 {
