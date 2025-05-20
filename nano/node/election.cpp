@@ -618,7 +618,6 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 			if (status.winner->hash () == block_a->hash ())
 			{
 				status.winner = block_a;
-				node.network.flood_block (block_a, nano::transport::traffic_type::block_broadcast);
 			}
 		}
 	}
