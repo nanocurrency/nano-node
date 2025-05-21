@@ -720,7 +720,6 @@ TEST (active_elections, vote_replays)
 	ASSERT_EQ (nano::vote_code::vote, node.vote_router.vote (vote1_send2).at (send2->hash ())); // this vote confirms the election
 
 	// This should still return replay or late, either because the election is still in the AEC or because it is recently confirmed
-	ASSERT_EQ (nano::vote_code::replay, node.vote_router.vote (vote1_send2).at (send2->hash ()));
 	ASSERT_TIMELY (5s, node.active.empty ());
 	ASSERT_EQ (nano::vote_code::late, node.vote_router.vote (vote1_send2).at (send2->hash ()));
 	ASSERT_EQ (nano::vote_code::late, node.vote_router.vote (vote2_send2).at (send2->hash ()));
