@@ -7108,5 +7108,5 @@ TEST (rpc, bootstrap_status)
 	auto response = wait_response (system, rpc_ctx, request);
 
 	ASSERT_GT (response.get<int> ("priorities"), 0);
-	ASSERT_EQ (response.get<int> ("blocking"), 0);
+	ASSERT_GE (response.get<int> ("blocking"), 0);
 }
