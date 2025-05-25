@@ -37,6 +37,19 @@ public:
 		outbound,
 	};
 
+	enum class accept_result
+	{
+		invalid,
+		accepted,
+		rejected,
+		rejected_excluded,
+		rejected_max_per_ip,
+		rejected_max_per_subnetwork,
+		rejected_max_inbound,
+		rejected_max_outbound,
+		error,
+	};
+
 public:
 	tcp_listener (uint16_t port, tcp_config const &, nano::node &);
 	~tcp_listener ();
@@ -81,14 +94,6 @@ private:
 	void run_cleanup ();
 	void cleanup ();
 	void timeout ();
-
-	enum class accept_result
-	{
-		invalid,
-		accepted,
-		rejected,
-		error,
-	};
 
 	asio::awaitable<void> connect_impl (asio::ip::tcp::endpoint);
 	asio::awaitable<asio::ip::tcp::socket> connect_socket (asio::ip::tcp::endpoint);
@@ -155,7 +160,9 @@ private:
 
 private:
 	static nano::stat::dir to_stat_dir (connection_type);
-	static std::string_view to_string (connection_type);
 	static nano::transport::socket_endpoint to_socket_endpoint (connection_type);
 };
+
+std::string_view to_string (tcp_listener::connection_type);
+std::string_view to_string (tcp_listener::accept_result);
 }
