@@ -222,16 +222,12 @@ nano::transport::tcp_channel_queue::tcp_channel_queue ()
 
 bool nano::transport::tcp_channel_queue::empty () const
 {
-	return std::all_of (queues.begin (), queues.end (), [] (auto const & queue) {
-		return queue.second.empty ();
-	});
+	return total_size == 0;
 }
 
 size_t nano::transport::tcp_channel_queue::size () const
 {
-	return std::accumulate (queues.begin (), queues.end (), size_t{ 0 }, [] (size_t acc, auto const & queue) {
-		return acc + queue.second.size ();
-	});
+	return total_size;
 }
 
 size_t nano::transport::tcp_channel_queue::size (traffic_type type) const
@@ -252,7 +248,8 @@ bool nano::transport::tcp_channel_queue::full (traffic_type type) const
 void nano::transport::tcp_channel_queue::push (traffic_type type, entry_t entry)
 {
 	debug_assert (!full (type)); // Should be checked before calling this function
-	queues.at (type).second.push_back (entry);
+	queues.at (type).second.push_back (std::move (entry));
+	++total_size;
 }
 
 auto nano::transport::tcp_channel_queue::next () -> value_t
@@ -277,6 +274,22 @@ auto nano::transport::tcp_channel_queue::next () -> value_t
 		return false;
 	};
 
+	auto seek_next = [&, this] () {
+		counter = 0;
+		do
+		{
+			if (current != queues.end ())
+			{
+				++current;
+			}
+			if (current == queues.end ())
+			{
+				current = queues.begin ();
+			}
+			release_assert (current != queues.end ());
+		} while (current->second.empty ());
+	};
+
 	if (should_seek ())
 	{
 		seek_next ();
@@ -288,16 +301,16 @@ auto nano::transport::tcp_channel_queue::next () -> value_t
 	auto & queue = current->second;
 
 	++counter;
+	--total_size;
 
 	release_assert (!queue.empty ());
-	auto entry = queue.front ();
+	auto entry = std::move (queue.front ());
 	queue.pop_front ();
-	return { source, entry };
+	return { source, std::move (entry) };
 }
 
 auto nano::transport::tcp_channel_queue::next_batch (size_t max_count) -> batch_t
 {
-	// TODO: Naive implementation, could be optimized
 	std::deque<value_t> result;
 	while (!empty () && result.size () < max_count)
 	{
@@ -316,21 +329,4 @@ size_t nano::transport::tcp_channel_queue::priority (traffic_type type) const
 		default:
 			return 4;
 	}
-}
-
-void nano::transport::tcp_channel_queue::seek_next ()
-{
-	counter = 0;
-	do
-	{
-		if (current != queues.end ())
-		{
-			++current;
-		}
-		if (current == queues.end ())
-		{
-			current = queues.begin ();
-		}
-		release_assert (current != queues.end ());
-	} while (current->second.empty ());
 }

@@ -33,13 +33,13 @@ public:
 	constexpr static size_t full_size = 4 * max_size;
 
 private:
-	void seek_next ();
 	size_t priority (traffic_type) const;
 
 	using queue_t = std::pair<traffic_type, std::deque<entry_t>>;
 	nano::enum_array<traffic_type, queue_t> queues{};
 	nano::enum_array<traffic_type, queue_t>::iterator current{ queues.end () };
 	size_t counter{ 0 };
+	size_t total_size{ 0 };
 };
 
 class tcp_channel final : public nano::transport::channel, public std::enable_shared_from_this<tcp_channel>
