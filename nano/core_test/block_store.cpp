@@ -1640,10 +1640,6 @@ TEST (block_store, incompatible_version)
 	{
 		auto store = nano::make_store (logger, path, nano::dev::constants, true);
 		ASSERT_TRUE (store->init_error ());
-
-		auto transaction = store->tx_begin_read ();
-		auto version_l = store->version.get (transaction);
-		ASSERT_EQ (version_l, std::numeric_limits<int>::max ());
 	}
 }
 

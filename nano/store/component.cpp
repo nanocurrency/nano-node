@@ -1,4 +1,5 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/enum_util.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/secure/ledger_cache.hpp>
 #include <nano/store/account.hpp>
@@ -38,4 +39,13 @@ void nano::store::component::initialize (store::write_transaction const & transa
 	++ledger_cache_a.account_count;
 	rep_weight.put (transaction_a, constants.genesis->account (), std::numeric_limits<nano::uint128_t>::max ());
 	ledger_cache_a.rep_weights.representation_put (constants.genesis->account (), std::numeric_limits<nano::uint128_t>::max ());
+}
+
+/*
+ *
+ */
+
+std::string_view nano::store::to_string (open_mode mode)
+{
+	return nano::enum_util::name (mode);
 }

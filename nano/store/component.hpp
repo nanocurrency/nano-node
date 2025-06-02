@@ -26,6 +26,8 @@ namespace store
 		read_write
 	};
 
+	std::string_view to_string (open_mode mode);
+
 	/**
 	 * Store manager
 	 */

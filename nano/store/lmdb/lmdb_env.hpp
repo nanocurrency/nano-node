@@ -30,6 +30,12 @@ public:
 			return *this;
 		}
 
+		options & set_read_only (bool read_only_a)
+		{
+			read_only = read_only_a;
+			return *this;
+		}
+
 		options & set_use_no_mem_init (int use_no_mem_init_a)
 		{
 			use_no_mem_init = use_no_mem_init_a;
@@ -52,6 +58,7 @@ public:
 
 	private:
 		bool use_no_mem_init{ false };
+		bool read_only{ false };
 		nano::lmdb_config config;
 	};
 

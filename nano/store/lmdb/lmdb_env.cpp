@@ -37,6 +37,7 @@ void nano::store::lmdb::env::init (bool & error_a, std::filesystem::path const &
 			}
 			auto status3 (mdb_env_set_mapsize (environment, map_size));
 			release_assert (success (status3), error_string (status3));
+
 			// It seems if there's ever more threads than mdb_env_set_maxreaders has read slots available, we get failures on transaction creation unless MDB_NOTLS is specified
 			// This can happen if something like 256 io_threads are specified in the node config
 			// MDB_NORDAHEAD will allow platforms that support it to load the DB in memory as needed.
@@ -55,14 +56,21 @@ void nano::store::lmdb::env::init (bool & error_a, std::filesystem::path const &
 				environment_flags |= MDB_NOSYNC | MDB_WRITEMAP | MDB_MAPASYNC;
 			}
 
+			if (options_a.read_only)
+			{
+				environment_flags |= MDB_RDONLY;
+			}
+
 			if (!memory_intensive_instrumentation () && options_a.use_no_mem_init)
 			{
 				environment_flags |= MDB_NOMEMINIT;
 			}
+
 			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), environment_flags, 00600));
 			if (!success (status4))
 			{
-				std::string message = "Could not open lmdb environment(" + std::to_string (status4) + "): " + mdb_strerror (status4);
+				std::string message = "Could not open lmdb environment: (" + std::to_string (status4) + ") " + mdb_strerror (status4);
+				nano::default_logger ().error (nano::log::type::lmdb, "{}", message);
 				throw std::runtime_error (message);
 			}
 			release_assert (success (status4), error_string (status4));
