@@ -20,6 +20,12 @@ namespace nano
 {
 namespace store
 {
+	enum class open_mode
+	{
+		read_only,
+		read_write
+	};
+
 	/**
 	 * Store manager
 	 */
@@ -89,6 +95,7 @@ namespace store
 
 		virtual std::string vendor_get () const = 0;
 		virtual std::filesystem::path get_database_path () const = 0;
+		virtual nano::store::open_mode get_mode () const = 0;
 	};
 } // namespace store
 } // namespace nano

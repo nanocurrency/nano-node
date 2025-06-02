@@ -17,7 +17,7 @@
 
 template class nano::store::typed_iterator<nano::account, nano::account_info_v22>;
 
-nano::store::lmdb::component::component (nano::logger & logger_a, std::filesystem::path const & path_a, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a) :
+nano::store::lmdb::component::component (nano::logger & logger_a, std::filesystem::path const & path_a, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a, nano::store::open_mode mode_a) :
 	// clang-format off
 	nano::store::component{
 		block_store,
@@ -43,6 +43,7 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 	version_store{ *this },
 	rep_weight_store{ *this },
 	database_path{ path_a },
+	mode{ mode_a },
 	logger{ logger_a },
 	env (error, path_a, nano::store::lmdb::env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
 	mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
@@ -190,6 +191,11 @@ std::string nano::store::lmdb::component::vendor_get () const
 std::filesystem::path nano::store::lmdb::component::get_database_path () const
 {
 	return database_path;
+}
+
+nano::store::open_mode nano::store::lmdb::component::get_mode () const
+{
+	return mode;
 }
 
 nano::store::lmdb::txn_callbacks nano::store::lmdb::component::create_txn_callbacks () const

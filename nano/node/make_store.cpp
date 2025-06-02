@@ -15,16 +15,18 @@ std::unique_ptr<nano::store::component> nano::make_store (nano::logger & logger,
 		return node_config.database_backend;
 	};
 
+	nano::store::open_mode const mode = read_only ? nano::store::open_mode::read_only : nano::store::open_mode::read_write;
+
 	auto backend = decide_backend ();
 	switch (backend)
 	{
 		case nano::database_backend::lmdb:
 		{
-			return std::make_unique<nano::store::lmdb::component> (logger, add_db_postfix ? path / "data.ldb" : path, constants, node_config.diagnostics_config.txn_tracking, node_config.block_processor_batch_max_time, node_config.lmdb_config, node_config.backup_before_upgrade);
+			return std::make_unique<nano::store::lmdb::component> (logger, add_db_postfix ? path / "data.ldb" : path, constants, node_config.diagnostics_config.txn_tracking, node_config.block_processor_batch_max_time, node_config.lmdb_config, node_config.backup_before_upgrade, mode);
 		}
 		case nano::database_backend::rocksdb:
 		{
-			return std::make_unique<nano::store::rocksdb::component> (logger, add_db_postfix ? path / "rocksdb" : path, constants, node_config.rocksdb_config, read_only);
+			return std::make_unique<nano::store::rocksdb::component> (logger, add_db_postfix ? path / "rocksdb" : path, constants, node_config.rocksdb_config, mode);
 		}
 	}
 
