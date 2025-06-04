@@ -743,6 +743,11 @@ nano::ledger::ledger (nano::store::component & store_a, nano::ledger_constants &
 	{
 		initialize (generate_cache_flags_a);
 	}
+	else
+	{
+		logger.error (nano::log::type::ledger, "Ledger initialization failed, store initialization error");
+		throw std::runtime_error ("Ledger initialization failed, store initialization error");
+	}
 }
 
 nano::ledger::~ledger ()

@@ -26,12 +26,6 @@
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
-namespace nano
-{
-class logging_mt;
-
-}
-
 namespace nano::store::lmdb
 {
 /**
@@ -63,12 +57,14 @@ private:
 	friend class nano::store::lmdb::rep_weight;
 
 public:
-	component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
+	component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false, nano::store::open_mode = nano::store::open_mode::read_write);
+
 	store::write_transaction tx_begin_write () override;
 	store::read_transaction tx_begin_read () const override;
 
 	std::string vendor_get () const override;
 	std::filesystem::path get_database_path () const override;
+	nano::store::open_mode get_mode () const override;
 
 	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) override;
 
@@ -81,6 +77,7 @@ public:
 private:
 	bool error{ false };
 	std::filesystem::path const database_path;
+	nano::store::open_mode const mode;
 	nano::logger & logger;
 
 public:

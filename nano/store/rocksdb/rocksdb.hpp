@@ -26,7 +26,6 @@
 
 namespace nano
 {
-class logging_mt;
 class rocksdb_config;
 class rocksdb_block_store_tombstone_count_Test;
 }
@@ -64,13 +63,14 @@ public:
 	friend class nano::store::rocksdb::version;
 	friend class nano::store::rocksdb::rep_weight;
 
-	explicit component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
+	explicit component (nano::logger &, std::filesystem::path const &, nano::ledger_constants & constants, nano::rocksdb_config const & = nano::rocksdb_config{}, nano::store::open_mode = nano::store::open_mode::read_write);
 
 	store::write_transaction tx_begin_write () override;
 	store::read_transaction tx_begin_read () const override;
 
 	std::string vendor_get () const override;
 	std::filesystem::path get_database_path () const override;
+	nano::store::open_mode get_mode () const override;
 
 	uint64_t count (store::transaction const & transaction_a, tables table_a) const override;
 
@@ -93,6 +93,7 @@ public:
 private:
 	bool error{ false };
 	std::filesystem::path const database_path;
+	nano::store::open_mode const mode;
 	nano::logger & logger;
 	nano::ledger_constants & constants;
 	::rocksdb::TransactionDB * transaction_db = nullptr;

@@ -17,7 +17,7 @@
 
 template class nano::store::typed_iterator<nano::account, nano::account_info_v22>;
 
-nano::store::lmdb::component::component (nano::logger & logger_a, std::filesystem::path const & path_a, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a) :
+nano::store::lmdb::component::component (nano::logger & logger_a, std::filesystem::path const & path_a, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a, nano::store::open_mode mode_a) :
 	// clang-format off
 	nano::store::component{
 		block_store,
@@ -43,8 +43,9 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 	version_store{ *this },
 	rep_weight_store{ *this },
 	database_path{ path_a },
+	mode{ mode_a },
 	logger{ logger_a },
-	env (error, path_a, nano::store::lmdb::env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
+	env (error, path_a, nano::store::lmdb::env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true).set_read_only (mode_a == nano::store::open_mode::read_only)),
 	mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
 	txn_tracking_enabled (txn_tracking_config_a.enable)
 {
@@ -72,6 +73,15 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 		// (can be a few minutes with the --fast_bootstrap flag for instance)
 		if (!is_fully_upgraded)
 		{
+			if (mode == nano::store::open_mode::read_only)
+			{
+				// Either following cases cannot run in read-only mode:
+				// a) there is no database yet, the access needs to be in write mode for it to be created;
+				// b) it will upgrade, and it is not possible to do it in read-only mode.
+				error = true;
+				return;
+			}
+
 			if (!is_fresh_db)
 			{
 				logger.info (nano::log::type::lmdb, "Upgrade in progress...");
@@ -88,12 +98,21 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 				if (!error)
 				{
 					error |= do_upgrades (transaction, constants, needs_vacuuming);
+					if (error)
+					{
+						logger.error (nano::log::type::lmdb, "Failed to upgrade database: {}", database_path.string ());
+						return;
+					}
+					else
+					{
+						logger.info (nano::log::type::lmdb, "Database upgraded successfully to version {}", version_current);
+					}
 				}
 			}
 
 			if (needs_vacuuming)
 			{
-				logger.info (nano::log::type::lmdb, "Ledger vaccum in progress...");
+				logger.info (nano::log::type::lmdb, "Ledger vacuum in progress...");
 
 				auto vacuum_success = vacuum_after_upgrade (path_a, lmdb_config_a);
 				if (vacuum_success)
@@ -102,7 +121,7 @@ nano::store::lmdb::component::component (nano::logger & logger_a, std::filesyste
 				}
 				else
 				{
-					logger.error (nano::log::type::lmdb, "Ledger vaccum failed");
+					logger.error (nano::log::type::lmdb, "Ledger vacuum failed");
 					logger.error (nano::log::type::lmdb, "(Optional) Please ensure enough disk space is available for a copy of the database and try to vacuum after shutting down the node");
 				}
 			}
@@ -190,6 +209,11 @@ std::string nano::store::lmdb::component::vendor_get () const
 std::filesystem::path nano::store::lmdb::component::get_database_path () const
 {
 	return database_path;
+}
+
+nano::store::open_mode nano::store::lmdb::component::get_mode () const
+{
+	return mode;
 }
 
 nano::store::lmdb::txn_callbacks nano::store::lmdb::component::create_txn_callbacks () const

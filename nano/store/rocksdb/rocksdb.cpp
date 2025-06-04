@@ -38,7 +38,7 @@ private:
 };
 }
 
-nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
+nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, nano::store::open_mode mode_a) :
 	// clang-format off
 	nano::store::component{
 		block_store,
@@ -64,6 +64,7 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 	version_store{ *this },
 	rep_weight_store{ *this },
 	database_path{ path_a },
+	mode{ mode_a },
 	logger{ logger_a },
 	constants{ constants },
 	rocksdb_config{ rocksdb_config_a },
@@ -126,11 +127,11 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 
 	if (is_fully_upgraded)
 	{
-		open (error, path_a, open_read_only_a, options, create_column_families ());
+		open (error, path_a, (mode == nano::store::open_mode::read_only), options, create_column_families ());
 		return;
 	}
 
-	if (open_read_only_a)
+	if (mode == nano::store::open_mode::read_only)
 	{
 		// Either following cases cannot run in read-only mode:
 		// a) there is no database yet, the access needs to be in write mode for it to be created;
@@ -141,7 +142,7 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 
 	if (is_fresh_db)
 	{
-		open (error, path_a, open_read_only_a, options, create_column_families ());
+		open (error, path_a, (mode == nano::store::open_mode::read_only), options, create_column_families ());
 		if (!error)
 		{
 			version.put (tx_begin_write (), version_current); // It is fresh, someone needs to tell it its version.
@@ -150,7 +151,7 @@ nano::store::rocksdb::component::component (nano::logger & logger_a, std::filesy
 	}
 
 	// The database is not upgraded, and it may not be compatible with the current column family set.
-	open (error, path_a, open_read_only_a, options, get_current_column_families (path_a.string (), options));
+	open (error, path_a, (mode == nano::store::open_mode::read_only), options, get_current_column_families (path_a.string (), options));
 	if (!error)
 	{
 		logger.info (nano::log::type::rocksdb, "Upgrade in progress...");
@@ -444,6 +445,11 @@ std::string nano::store::rocksdb::component::vendor_get () const
 std::filesystem::path nano::store::rocksdb::component::get_database_path () const
 {
 	return database_path;
+}
+
+nano::store::open_mode nano::store::rocksdb::component::get_mode () const
+{
+	return mode;
 }
 
 std::vector<::rocksdb::ColumnFamilyDescriptor> nano::store::rocksdb::component::get_single_column_family (std::string cf_name) const
@@ -868,7 +874,7 @@ bool nano::store::rocksdb::component::copy_db (std::filesystem::path const & des
 	// Open it so that it flushes all WAL files
 	if (status.ok ())
 	{
-		nano::store::rocksdb::component rocksdb_store{ logger, destination_path.string (), constants, rocksdb_config, false };
+		nano::store::rocksdb::component rocksdb_store{ logger, destination_path.string (), constants, rocksdb_config };
 		return !rocksdb_store.init_error ();
 	}
 	return false;

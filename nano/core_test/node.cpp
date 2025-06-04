@@ -89,23 +89,10 @@ TEST (node, block_store_path_failure)
 	ASSERT_TRUE (node->wallets.items.empty ());
 }
 
-#if defined(__clang__) && defined(__linux__) && CI
-// Disable test due to instability with clang and actions
-TEST (node_DeathTest, DISABLED_readonly_block_store_not_exist)
-#else
 TEST (node_DeathTest, readonly_block_store_not_exist)
-#endif
 {
 	// This is a read-only node with no ledger file
-	if (nano::rocksdb_config::using_rocksdb_in_tests ())
-	{
-		nano::inactive_node node (nano::unique_path (), nano::inactive_node_flag_defaults ());
-		ASSERT_TRUE (node.node->init_error ());
-	}
-	else
-	{
-		ASSERT_EXIT (nano::inactive_node node (nano::unique_path (), nano::inactive_node_flag_defaults ()), ::testing::ExitedWithCode (1), "");
-	}
+	ASSERT_THROW (nano::inactive_node (nano::unique_path (), nano::inactive_node_flag_defaults ()), std::runtime_error);
 }
 
 TEST (node, password_fanout)
