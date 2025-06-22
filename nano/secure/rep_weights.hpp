@@ -3,6 +3,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/numbers_templ.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/secure/fwd.hpp>
 
 #include <memory>
 #include <shared_mutex>
@@ -10,35 +11,52 @@
 
 namespace nano
 {
-namespace store
-{
-	class component;
-	class rep_weight;
-	class write_transaction;
-}
-
 class rep_weights
 {
 public:
-	explicit rep_weights (nano::store::rep_weight & rep_weight_store_a, nano::uint128_t min_weight_a = 0);
-	void representation_add (store::write_transaction const & txn_a, nano::account const & source_rep_a, nano::uint128_t const & amount_a);
-	void representation_add_dual (store::write_transaction const & txn_a, nano::account const & source_rep_1, nano::uint128_t const & amount_1, nano::account const & source_rep_2, nano::uint128_t const & amount_2);
-	nano::uint128_t representation_get (nano::account const & account_a) const;
+	explicit rep_weights (nano::store::rep_weight &, nano::uint128_t min_weight = 0);
+
+	/* Adds or subtracts weight to the representative */
+	void add (store::write_transaction const &, nano::account const & rep, nano::uint128_t const & amount_add);
+	void sub (store::write_transaction const &, nano::account const & rep, nano::uint128_t const & amount_sub);
+
+	/* Move weight from one representative to another */
+	void move (store::write_transaction const &, nano::account const & source_rep, nano::account const & dest_rep, nano::uint128_t const & amount);
+
+	/* Move weight from one representative to another while adding or subtracting the weight */
+	void move_add_sub (store::write_transaction const &, nano::account const & source_rep, nano::uint128_t const & amount_source, nano::account const & dest_rep, nano::uint128_t const & amount_dest);
+
 	/* Only use this method when loading rep weights from the database table */
-	void representation_put (nano::account const & account_a, nano::uint128_t const & representation_a);
+	void put (nano::account const & rep, nano::uint128_t const & weight);
+	void put_unused (nano::uint128_t const & weight);
+	void append_from (rep_weights const & other);
+
+	nano::uint128_t get (nano::account const & rep) const;
 	std::unordered_map<nano::account, nano::uint128_t> get_rep_amounts () const;
-	/* Only use this method when loading rep weights from the database table */
-	void copy_from (rep_weights & other_a);
+
 	size_t size () const;
 	nano::container_info container_info () const;
+	bool empty () const;
+
+	nano::uint128_t get_weight_committed () const;
+	nano::uint128_t get_weight_unused () const;
+
+	void verify_consistency () const;
 
 private:
+	nano::store::rep_weight & rep_weight_store;
+	nano::uint128_t const min_weight;
+
 	mutable std::shared_mutex mutex;
 	std::unordered_map<nano::account, nano::uint128_t> rep_amounts;
-	nano::store::rep_weight & rep_weight_store;
-	nano::uint128_t min_weight;
-	void put_cache (nano::account const & account_a, nano::uint128_union const & representation_a);
-	void put_store (store::write_transaction const & txn_a, nano::account const & rep_a, nano::uint128_t const & previous_weight_a, nano::uint128_t const & new_weight_a);
-	nano::uint128_t get (nano::account const & account_a) const;
+
+	// Used for consistency checking, use higher precision types to detect overflows
+	nano::uint256_t weight_committed{ 0 };
+	nano::uint256_t weight_unused{ 0 };
+
+private:
+	void put_cache (nano::account const & rep, nano::uint128_union const & weight);
+	void put_store (store::write_transaction const &, nano::account const & rep, nano::uint128_t const & previous_weight, nano::uint128_t const & new_weight);
+	nano::uint128_t get_impl (nano::account const & rep) const;
 };
 }

@@ -4,6 +4,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/store/component.hpp>
 #include <nano/store/fwd.hpp>
 
 namespace nano::test
@@ -14,6 +15,7 @@ public:
 	/** 'blocks' initialises the ledger with each block in-order
 		Blocks must all return process_result::progress when processed */
 	ledger_context (std::deque<std::shared_ptr<nano::block>> && blocks = std::deque<std::shared_ptr<nano::block>>{});
+
 	nano::ledger & ledger ();
 	nano::store::component & store ();
 	std::deque<std::shared_ptr<nano::block>> const & blocks () const;
@@ -23,8 +25,8 @@ public:
 
 private:
 	nano::logger logger_m;
+	nano::stats stats_m{ logger_m };
 	std::unique_ptr<nano::store::component> store_m;
-	nano::stats stats_m;
 	nano::ledger ledger_m;
 	std::deque<std::shared_ptr<nano::block>> blocks_m;
 	nano::work_pool pool_m;

@@ -5,14 +5,12 @@
 
 nano::test::ledger_context::ledger_context (std::deque<std::shared_ptr<nano::block>> && blocks) :
 	store_m{ nano::make_store (logger_m, nano::unique_path (), nano::dev::constants) },
-	stats_m{ logger_m },
 	ledger_m{ *store_m, nano::dev::constants, stats_m, logger_m },
 	blocks_m{ blocks },
 	pool_m{ nano::dev::network_params.network, 1 }
 {
 	debug_assert (!store_m->init_error ());
 	auto tx = ledger_m.tx_begin_write ();
-	store_m->initialize (tx, ledger_m.cache, ledger_m.constants);
 	for (auto const & i : blocks_m)
 	{
 		auto process_result = ledger_m.process (tx, i);

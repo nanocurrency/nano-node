@@ -37,24 +37,24 @@ namespace store
 		friend class mdb_block_store_upgrade_v21_v22_Test;
 
 	public:
-		// clang-format off
-	explicit component (
+		explicit component (
 		nano::store::block &,
 		nano::store::account &,
 		nano::store::pending &,
-		nano::store::online_weight&,
+		nano::store::online_weight &,
 		nano::store::pruned &,
 		nano::store::peer &,
 		nano::store::confirmation_height &,
 		nano::store::final_vote &,
 		nano::store::version &,
-		nano::store::rep_weight &
-	);
-		// clang-format on
+		nano::store::rep_weight &);
+
 		virtual ~component () = default;
-		void initialize (write_transaction const & transaction_a, nano::ledger_cache & ledger_cache_a, nano::ledger_constants & constants);
+
+		void initialize (store::write_transaction const &, nano::ledger_constants &);
+
 		virtual uint64_t count (store::transaction const & transaction_a, tables table_a) const = 0;
-		virtual int drop (write_transaction const & transaction_a, tables table_a) = 0;
+		virtual int drop (store::write_transaction const & transaction_a, tables table_a) = 0;
 		virtual bool not_found (int status) const = 0;
 		virtual bool success (int status) const = 0;
 		virtual std::string error_string (int status) const = 0;
@@ -63,6 +63,7 @@ namespace store
 		store::account & account;
 		store::pending & pending;
 		store::rep_weight & rep_weight;
+
 		static int constexpr version_minimum{ 21 };
 		static int constexpr version_current{ 24 };
 

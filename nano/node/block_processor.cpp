@@ -368,6 +368,9 @@ void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 		processed.emplace_back (result, std::move (ctx));
 	}
 
+	// We had rocksdb issues in the past, ensure that rep weights are always consistent
+	ledger.rep_weights.verify_consistency ();
+
 	if (number_of_blocks_processed != 0 && timer.stop () > std::chrono::milliseconds (100))
 	{
 		logger.debug (nano::log::type::block_processor, "Processed {} blocks ({} forced) in {} {}", number_of_blocks_processed, number_of_forced_processed, timer.value ().count (), timer.unit ());

@@ -330,20 +330,6 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 		config.bandwidth_limit,
 		config.bandwidth_limit_burst_ratio);
 
-		// First do a pass with a read to see if any writing needs doing, this saves needing to open a write lock (and potentially blocking)
-		auto is_initialized (false);
-		{
-			auto const transaction (store.tx_begin_read ());
-			is_initialized = (store.account.begin (transaction) != store.account.end (transaction));
-		}
-
-		if (!is_initialized && !flags.read_only)
-		{
-			auto const transaction = store.tx_begin_write ();
-			// Store was empty meaning we just created it, add the genesis block
-			store.initialize (transaction, ledger.cache, ledger.constants);
-		}
-
 		if (!block_or_pruned_exists (config.network_params.ledger.genesis->hash ()))
 		{
 			logger.critical (nano::log::type::node, "Genesis block not found. This commonly indicates a configuration issue, check that the --network or --data_path command line arguments are correct, and also the ledger backend node config option. If using a read-only CLI command a ledger must already exist, start the node with --daemon first.");

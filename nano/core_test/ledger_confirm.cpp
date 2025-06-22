@@ -817,7 +817,6 @@ TEST (ledger_confirm, pruned_source)
 				 .work (*pool.generate (key2.pub))
 				 .build ();
 	auto transaction = ledger.tx_begin_write ();
-	store->initialize (transaction, ledger.cache, nano::dev::constants);
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, open1));
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
@@ -859,7 +858,6 @@ TEST (ledger_confirmDeathTest, rollback_added_block)
 					.work (*pool.generate (nano::dev::genesis->hash ()))
 					.build ();
 		auto transaction = ledger.tx_begin_write ();
-		store->initialize (transaction, ledger.cache, ledger.constants);
 		ASSERT_DEATH_IF_SUPPORTED (ledger.confirm (transaction, send->hash ()), "");
 	}
 }

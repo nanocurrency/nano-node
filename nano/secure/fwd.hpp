@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/fwd.hpp>
+#include <nano/store/fwd.hpp>
 
 namespace nano
 {

@@ -1,27 +1,35 @@
 #pragma once
 
+#include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/secure/account_info.hpp>
 #include <nano/secure/fwd.hpp>
 #include <nano/secure/generate_cache_flags.hpp>
-#include <nano/secure/ledger_cache.hpp>
 #include <nano/secure/pending_info.hpp>
+#include <nano/secure/rep_weights.hpp>
 #include <nano/secure/transaction.hpp>
 
 #include <deque>
 #include <map>
 #include <memory>
 
-namespace nano::store
-{
-class component;
-}
-
 namespace nano
 {
+class ledger;
 class ledger_set_any;
 class ledger_set_confirmed;
+
+class ledger_cache
+{
+	friend class ledger;
+
+private:
+	std::atomic<uint64_t> cemented_count{ 0 };
+	std::atomic<uint64_t> block_count{ 0 };
+	std::atomic<uint64_t> pruned_count{ 0 };
+	std::atomic<uint64_t> account_count{ 0 };
+};
 
 class ledger final
 {
@@ -29,7 +37,7 @@ class ledger final
 	friend class receivable_iterator;
 
 public:
-	ledger (nano::store::component &, nano::ledger_constants &, nano::stats &, nano::logger &, nano::generate_cache_flags const & = nano::generate_cache_flags{}, nano::uint128_t min_rep_weight_a = 0);
+	ledger (nano::store::component &, nano::ledger_constants &, nano::stats &, nano::logger &, nano::generate_cache_flags = {}, nano::uint128_t min_rep_weight = 0);
 	~ledger ();
 
 	/** Start read-write transaction */
@@ -92,12 +100,15 @@ public:
 public:
 	static nano::uint128_t const unit;
 
-	nano::ledger_constants & constants;
 	nano::store::component & store;
-	nano::ledger_cache cache;
+	nano::ledger_constants & constants;
 	nano::stats & stats;
 	nano::logger & logger;
 
+	nano::ledger_cache cache;
+	nano::rep_weights rep_weights;
+
+public:
 	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;
 	uint64_t bootstrap_weight_max_blocks{ 1 };
 

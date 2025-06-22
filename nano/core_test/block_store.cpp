@@ -383,9 +383,8 @@ TEST (block_store, genesis)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::ledger_cache ledger_cache{ store->rep_weight };
 	auto transaction (store->tx_begin_write ());
-	store->initialize (transaction, ledger_cache, nano::dev::constants);
+	store->initialize (transaction, nano::dev::constants);
 	nano::account_info info;
 	ASSERT_FALSE (store->account.get (transaction, nano::dev::genesis_key.pub, info));
 	ASSERT_EQ (nano::dev::genesis->hash (), info.head);
@@ -635,7 +634,6 @@ TEST (mdb_block_store, supported_version_upgrades)
 		nano::stats stats{ logger };
 		nano::ledger ledger (store, nano::dev::constants, stats, logger);
 		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, ledger.cache, nano::dev::constants);
 		// Lower the database to the max version unsupported for upgrades
 		store.version.put (transaction, store.version_minimum - 1);
 	}
@@ -653,7 +651,6 @@ TEST (mdb_block_store, supported_version_upgrades)
 		nano::stats stats{ logger };
 		nano::ledger ledger (store, nano::dev::constants, stats, logger);
 		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, ledger.cache, nano::dev::constants);
 		// Lower the database version to the minimum version supported for upgrade.
 		store.version.put (transaction, store.version_minimum);
 	}
@@ -897,10 +894,8 @@ TEST (block_store, cemented_count_cache)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	auto transaction (store->tx_begin_write ());
 	nano::stats stats{ logger };
 	nano::ledger ledger (*store, nano::dev::constants, stats, logger);
-	store->initialize (transaction, ledger.cache, nano::dev::constants);
 	ASSERT_EQ (1, ledger.cemented_count ());
 }
 
@@ -921,9 +916,8 @@ TEST (block_store, pruned_random)
 	block->sideband_set ({});
 	auto hash1 (block->hash ());
 	{
-		nano::ledger_cache ledger_cache{ store->rep_weight };
 		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, ledger_cache, nano::dev::constants);
+		store->initialize (transaction, nano::dev::constants);
 		store->pruned.put (transaction, hash1);
 	}
 	auto transaction (store->tx_begin_read ());
@@ -951,9 +945,8 @@ TEST (block_store, state_block)
 
 	block1->sideband_set ({});
 	{
-		nano::ledger_cache ledger_cache{ store->rep_weight };
 		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, ledger_cache, nano::dev::constants);
+		store->initialize (transaction, nano::dev::constants);
 		ASSERT_EQ (nano::block_type::state, block1->type ());
 		store->block.put (transaction, block1->hash (), *block1);
 		ASSERT_TRUE (store->block.exists (transaction, block1->hash ()));
@@ -990,7 +983,6 @@ TEST (mdb_block_store, sideband_height)
 	nano::ledger ledger (store, nano::dev::constants, stats, logger);
 	nano::block_builder builder;
 	auto transaction = ledger.tx_begin_write ();
-	store.initialize (transaction, ledger.cache, nano::dev::constants);
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	auto send = builder
 				.send ()
