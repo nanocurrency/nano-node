@@ -1373,7 +1373,7 @@ int main (int argc, char * const * argv)
 
 			auto node_flags = nano::inactive_node_flag_defaults ();
 			nano::update_flags (node_flags, vm);
-			node_flags.generate_cache.enable_all ();
+			node_flags.generate_cache = nano::generate_cache_flags::all_enabled ();
 			nano::inactive_node inactive_node_l (data_path, node_flags);
 
 			nano::node_rpc_config config;

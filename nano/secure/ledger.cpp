@@ -790,6 +790,8 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 
 	if (generate_cache_flags.account_count || generate_cache_flags.block_count)
 	{
+		logger.debug (nano::log::type::ledger, "Generating block count cache...");
+
 		store.account.for_each_par (
 		[this] (store::read_transaction const &, auto i, auto n) {
 			uint64_t block_count_l{ 0 };
@@ -803,10 +805,40 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 			this->cache.block_count += block_count_l;
 			this->cache.account_count += account_count_l;
 		});
+
+		logger.debug (nano::log::type::ledger, "Block count cache generated");
+	}
+
+	if (generate_cache_flags.cemented_count)
+	{
+		logger.debug (nano::log::type::ledger, "Generating cemented count cache...");
+
+		store.confirmation_height.for_each_par (
+		[this] (store::read_transaction const &, auto i, auto n) {
+			uint64_t cemented_count_l (0);
+			for (; i != n; ++i)
+			{
+				cemented_count_l += i->second.height;
+			}
+			this->cache.cemented_count += cemented_count_l;
+		});
+
+		logger.debug (nano::log::type::ledger, "Cemented count cache generated");
+	}
+
+	{
+		logger.debug (nano::log::type::ledger, "Generating pruned count cache...");
+
+		auto transaction = store.tx_begin_read ();
+		cache.pruned_count = store.pruned.count (transaction);
+
+		logger.debug (nano::log::type::ledger, "Pruned count cache generated");
 	}
 
 	if (generate_cache_flags.reps)
 	{
+		logger.debug (nano::log::type::ledger, "Generating representative weights cache...");
+
 		store.rep_weight.for_each_par (
 		[this] (store::read_transaction const &, auto i, auto n) {
 			nano::rep_weights rep_weights_l{ this->store.rep_weight };
@@ -827,25 +859,80 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 			this->rep_weights.append_from (rep_weights_l);
 		});
 
-		rep_weights.verify_consistency ();
+		logger.debug (nano::log::type::ledger, "Representative weights cache generated");
 	}
 
-	if (generate_cache_flags.cemented_count)
+	// Use larger precision types to detect potential overflow issues
+	nano::uint256_t active_balance, pending_balance, burned_balance;
+
+	if (generate_cache_flags.consistency_check)
 	{
-		store.confirmation_height.for_each_par (
-		[this] (store::read_transaction const &, auto i, auto n) {
-			uint64_t cemented_count_l (0);
+		logger.debug (nano::log::type::ledger, "Verifying ledger balance consistency...");
+
+		// Verify sum of all account and pending balances
+		nano::locked<nano::uint256_t> active_balance_s{ 0 };
+		nano::locked<nano::uint256_t> pending_balance_s{ 0 };
+		nano::locked<nano::uint256_t> burned_balance_s{ 0 };
+
+		store.account.for_each_par (
+		[&] (store::read_transaction const &, auto i, auto n) {
+			nano::uint256_t balance_l{ 0 };
+			nano::uint256_t burned_l{ 0 };
 			for (; i != n; ++i)
 			{
-				cemented_count_l += i->second.height;
+				nano::account_info const & info = i->second;
+				if (i->first == constants.burn_account)
+				{
+					burned_l += info.balance.number ();
+				}
+				else
+				{
+					balance_l += info.balance.number ();
+				}
 			}
-			this->cache.cemented_count += cemented_count_l;
+			(*active_balance_s.lock ()) += balance_l;
+			release_assert (burned_l == 0); // The burn account should not have any active balance
 		});
+
+		store.pending.for_each_par (
+		[&] (store::read_transaction const &, auto i, auto n) {
+			nano::uint256_t balance_l{ 0 };
+			nano::uint256_t burned_l{ 0 };
+			for (; i != n; ++i)
+			{
+				nano::pending_key const & key = i->first;
+				nano::pending_info const & info = i->second;
+				if (key.account == constants.burn_account)
+				{
+					burned_l += info.amount.number ();
+				}
+				else
+				{
+					balance_l += info.amount.number ();
+				}
+			}
+			(*pending_balance_s.lock ()) += balance_l;
+			(*burned_balance_s.lock ()) += burned_l;
+		});
+
+		active_balance = *active_balance_s.lock ();
+		pending_balance = *pending_balance_s.lock ();
+		burned_balance = *burned_balance_s.lock ();
+
+		release_assert (active_balance <= std::numeric_limits<nano::uint128_t>::max ());
+		release_assert (pending_balance <= std::numeric_limits<nano::uint128_t>::max ());
+		release_assert (burned_balance <= std::numeric_limits<nano::uint128_t>::max ());
+
+		release_assert (active_balance + pending_balance + burned_balance == constants.genesis_amount, "ledger corruption detected: account and pending balances do not match genesis amount", to_string (active_balance) + " + " + to_string (pending_balance) + " + " + to_string (burned_balance) + " != " + to_string (constants.genesis_amount));
+		release_assert (active_balance == rep_weights.get_weight_committed (), "ledger corruption detected: active balance does not match committed representative weights", to_string (active_balance) + " != " + to_string (rep_weights.get_weight_committed ()));
+		release_assert (pending_balance + burned_balance == rep_weights.get_weight_unused (), "ledger corruption detected: pending balance does not match unused representative weights", to_string (pending_balance) + " != " + to_string (rep_weights.get_weight_unused ()));
+
+		logger.debug (nano::log::type::ledger, "Ledger balance consistency verified");
 	}
 
+	if (generate_cache_flags.reps && generate_cache_flags.consistency_check)
 	{
-		auto transaction (store.tx_begin_read ());
-		cache.pruned_count = store.pruned.count (transaction);
+		rep_weights.verify_consistency (static_cast<nano::uint128_t> (burned_balance));
 	}
 
 	logger.info (nano::log::type::ledger, "Block count:    {:>11}", cache.block_count.load ());
@@ -853,17 +940,26 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 	logger.info (nano::log::type::ledger, "Account count:  {:>11}", cache.account_count.load ());
 	logger.info (nano::log::type::ledger, "Pruned count:   {:>11}", cache.pruned_count.load ());
 	logger.info (nano::log::type::ledger, "Representative count: {:>5}", rep_weights.size ());
-	logger.info (nano::log::type::ledger, "Weight commited: {} | unused: {}",
+	logger.info (nano::log::type::ledger, "Active balance: {} | pending: {} | burned: {}",
+	nano::uint128_union{ static_cast<nano::uint128_t> (active_balance) }.format_balance (nano::nano_ratio, 0, true),
+	nano::uint128_union{ static_cast<nano::uint128_t> (pending_balance) }.format_balance (nano::nano_ratio, 0, true),
+	nano::uint128_union{ static_cast<nano::uint128_t> (burned_balance) }.format_balance (nano::nano_ratio, 0, true));
+	logger.info (nano::log::type::ledger, "Weight committed: {} | unused: {}",
 	nano::uint128_union{ rep_weights.get_weight_committed () }.format_balance (nano::nano_ratio, 0, true),
 	nano::uint128_union{ rep_weights.get_weight_unused () }.format_balance (nano::nano_ratio, 0, true));
 }
 
-bool nano::ledger::unconfirmed_exists (secure::transaction const & transaction, nano::block_hash const & hash)
+void nano::ledger::verify_consistency (secure::transaction const & transaction) const
+{
+	rep_weights.verify_consistency (0); // It's impractical to recompute burned weight, so we skip it here
+}
+
+bool nano::ledger::unconfirmed_exists (secure::transaction const & transaction, nano::block_hash const & hash) const
 {
 	return any.block_exists (transaction, hash) && !confirmed.block_exists (transaction, hash);
 }
 
-nano::uint128_t nano::ledger::account_receivable (secure::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
+nano::uint128_t nano::ledger::account_receivable (secure::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a) const
 {
 	nano::uint128_t result (0);
 	nano::account end (account_a.number () + 1);
@@ -1267,7 +1363,6 @@ std::optional<nano::account> nano::ledger::linked_account (secure::transaction c
 	{
 		return any.block_account (transaction, block.source ());
 	}
-
 	return std::nullopt;
 }
 
@@ -1602,7 +1697,6 @@ nano::epoch nano::ledger::version (nano::block const & block)
 	{
 		return block.sideband ().details.epoch;
 	}
-
 	return nano::epoch::epoch_0;
 }
 

@@ -45,8 +45,8 @@ public:
 	/** Start read-only transaction */
 	secure::read_transaction tx_begin_read () const;
 
-	bool unconfirmed_exists (secure::transaction const &, nano::block_hash const &);
-	nano::uint128_t account_receivable (secure::transaction const &, nano::account const &, bool = false);
+	bool unconfirmed_exists (secure::transaction const &, nano::block_hash const &) const;
+	nano::uint128_t account_receivable (secure::transaction const &, nano::account const &, bool = false) const;
 	/**
 	 * Returns the cached vote weight for the given representative.
 	 * If the weight is below the cache limit it returns 0.
@@ -94,6 +94,8 @@ public:
 	// Returned timestamp is the previous block timestamp or the current timestamp if there's no previous block
 	using block_priority_result = std::pair<nano::amount, nano::priority_timestamp>;
 	block_priority_result block_priority (secure::transaction const &, nano::block const &) const;
+
+	void verify_consistency (secure::transaction const &) const;
 
 	nano::container_info container_info () const;
 

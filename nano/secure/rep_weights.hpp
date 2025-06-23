@@ -41,7 +41,7 @@ public:
 	nano::uint128_t get_weight_committed () const;
 	nano::uint128_t get_weight_unused () const;
 
-	void verify_consistency () const;
+	void verify_consistency (nano::uint128_t burn_balance) const;
 
 private:
 	nano::store::rep_weight & rep_weight_store;

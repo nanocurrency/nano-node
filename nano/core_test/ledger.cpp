@@ -4623,7 +4623,7 @@ TEST (ledger, confirmation_height_not_updated)
 	ASSERT_EQ (nano::block_hash (0), confirmation_height_info.frontier);
 }
 
-TEST (ledger, zero_rep)
+TEST (ledger, zero_rep_weight)
 {
 	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
@@ -4640,7 +4640,7 @@ TEST (ledger, zero_rep)
 	auto transaction = node1.ledger.tx_begin_write ();
 	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, block1));
 	ASSERT_EQ (0, node1.ledger.rep_weights.get (nano::dev::genesis_key.pub));
-	ASSERT_EQ (nano::dev::constants.genesis_amount, node1.ledger.rep_weights.get (0));
+	ASSERT_EQ (0, node1.ledger.rep_weights.get (0));
 	auto block2 = builder.state ()
 				  .account (nano::dev::genesis_key.pub)
 				  .previous (block1->hash ())
