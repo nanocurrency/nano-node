@@ -1,9 +1,8 @@
-#include "nano/secure/ledger.hpp"
-
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/monitor.hpp>
 #include <nano/node/node.hpp>
+#include <nano/secure/ledger.hpp>
 
 nano::monitor::monitor (nano::monitor_config const & config_a, nano::node & node_a) :
 	config{ config_a },
@@ -77,10 +76,16 @@ void nano::monitor::run_one ()
 	// Wait for node to warm up before logging rates
 	if (last_time != std::chrono::steady_clock::time_point{})
 	{
-		// Calculate the rates
 		auto elapsed_seconds = std::chrono::duration_cast<std::chrono::seconds> (now - last_time).count ();
-		auto blocks_confirmed_rate = static_cast<double> (blocks_cemented - last_blocks_cemented) / elapsed_seconds;
-		auto blocks_checked_rate = static_cast<double> (blocks_total - last_blocks_total) / elapsed_seconds;
+		debug_assert (elapsed_seconds > 0);
+
+		// Cast to signed type to correctly handle negative differences (e.g., from rollbacks)
+		auto cemented_diff = static_cast<std::int64_t> (blocks_cemented) - static_cast<std::int64_t> (last_blocks_cemented);
+		auto total_diff = static_cast<std::int64_t> (blocks_total) - static_cast<std::int64_t> (last_blocks_total);
+
+		// Calculate the rates
+		auto blocks_confirmed_rate = static_cast<double> (cemented_diff) / elapsed_seconds;
+		auto blocks_checked_rate = static_cast<double> (total_diff) / elapsed_seconds;
 
 		logger.info (nano::log::type::monitor, "Blocks rate (avg over {}s): confirmed {:.2f}/s | total {:.2f}/s",
 		elapsed_seconds,

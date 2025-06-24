@@ -11,6 +11,7 @@ class block;
 class block_details;
 class block_visitor;
 class container_info;
+class error;
 class jsonconfig;
 class logger;
 class mutable_block_visitor;
