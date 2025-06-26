@@ -171,6 +171,7 @@ private:
 	nano::thread_pool workers;
 
 	nano::interval bootstrap_stale_interval;
+	nano::interval warning_interval;
 
 	friend class election;
 
