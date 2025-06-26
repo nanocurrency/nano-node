@@ -47,6 +47,11 @@ nano::active_elections::active_elections (nano::node & node_a, nano::ledger_noti
 			}
 		}
 
+		if (workers.queued_tasks () >= nano::queue_warning_threshold () && warning_interval.elapse (15s))
+		{
+			node.logger.warn (nano::log::type::active_elections, "Notification queue has {} tasks", workers.queued_tasks ());
+		}
+
 		// Notify observers about cemented blocks on a background thread
 		workers.post ([this, results = std::move (results)] () {
 			auto transaction = node.ledger.tx_begin_read ();
