@@ -104,5 +104,6 @@ private:
 
 	nano::interval log_processing_interval;
 	nano::interval log_backlog_interval;
+	nano::interval log_cooldown_interval;
 };
 }
