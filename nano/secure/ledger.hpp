@@ -37,7 +37,7 @@ class ledger final
 	friend class receivable_iterator;
 
 public:
-	ledger (nano::store::component &, nano::ledger_constants &, nano::stats &, nano::logger &, nano::generate_cache_flags = {}, nano::uint128_t min_rep_weight = 0);
+	ledger (nano::store::component &, nano::ledger_constants &, nano::stats &, nano::logger &, nano::generate_cache_flags = {}, nano::uint128_t min_rep_weight = 0, uint64_t max_backlog = 0);
 	~ledger ();
 
 	/** Start read-write transaction */
@@ -86,7 +86,8 @@ public:
 	uint64_t block_count () const;
 	uint64_t account_count () const;
 	uint64_t pruned_count () const;
-	uint64_t backlog_count () const;
+	uint64_t backlog_size () const;
+	uint64_t max_backlog () const;
 
 	// Returned priority balance is maximum of block balance and previous block balance to handle full account balance send cases
 	// Returned timestamp is the previous block timestamp or the current timestamp if there's no previous block
@@ -109,6 +110,8 @@ public:
 	nano::rep_weights rep_weights;
 
 public:
+	uint64_t const max_backlog_size{ 0 };
+
 	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;
 	uint64_t bootstrap_weight_max_blocks{ 1 };
 

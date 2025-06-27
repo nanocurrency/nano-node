@@ -30,12 +30,13 @@
 
 #include <cryptopp/words.h>
 
-nano::ledger::ledger (nano::store::component & store_a, nano::ledger_constants & constants_a, nano::stats & stats_a, nano::logger & logger_a, nano::generate_cache_flags generate_cache_flags_a, nano::uint128_t min_rep_weight_a) :
+nano::ledger::ledger (nano::store::component & store_a, nano::ledger_constants & constants_a, nano::stats & stats_a, nano::logger & logger_a, nano::generate_cache_flags generate_cache_flags_a, nano::uint128_t min_rep_weight_a, uint64_t max_backlog_a) :
 	store{ store_a },
 	constants{ constants_a },
 	stats{ stats_a },
 	logger{ logger_a },
 	rep_weights{ store_a.rep_weight, min_rep_weight_a },
+	max_backlog_size{ max_backlog_a },
 	any_impl{ std::make_unique<ledger_set_any> (*this) },
 	confirmed_impl{ std::make_unique<ledger_set_confirmed> (*this) },
 	any{ *any_impl },
@@ -1069,11 +1070,35 @@ uint64_t nano::ledger::pruned_count () const
 	return cache.pruned_count;
 }
 
-uint64_t nano::ledger::backlog_count () const
+uint64_t nano::ledger::backlog_size () const
 {
 	auto blocks = cache.block_count.load ();
 	auto cemented = cache.cemented_count.load ();
 	return (blocks > cemented) ? blocks - cemented : 0;
+}
+
+uint64_t nano::ledger::max_backlog () const
+{
+	auto const count = cemented_count ();
+	auto const max_bootstrap_count = bootstrap_weight_max_blocks;
+
+	if (max_backlog_size == 0)
+	{
+		return 0; // Unlimited backlog
+	}
+
+	// Use cemented block count to determine the switch point for backlog
+	if (count >= max_bootstrap_count)
+	{
+		return max_backlog_size;
+	}
+	else
+	{
+		// If the bootstrap weight hasn't been reached, we allow a backlog of up to bootstrap_weight_max_blocks
+		// This should avoid having to rollback too many blocks once the bootstrap weight is reached
+		auto const allowed_backlog = max_bootstrap_count - count;
+		return std::max (allowed_backlog, max_backlog_size);
+	}
 }
 
 nano::container_info nano::ledger::container_info () const

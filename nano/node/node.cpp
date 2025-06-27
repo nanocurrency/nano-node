@@ -102,7 +102,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	wallets_store{ *wallets_store_impl },
 	wallets_impl{ std::make_unique<nano::wallets> (wallets_store.init_error (), *this) },
 	wallets{ *wallets_impl },
-	ledger_impl{ std::make_unique<nano::ledger> (store, network_params.ledger, stats, logger, flags_a.generate_cache, config_a.representative_vote_weight_minimum.number ()) },
+	ledger_impl{ std::make_unique<nano::ledger> (store, network_params.ledger, stats, logger, flags_a.generate_cache, config.representative_vote_weight_minimum.number (), config.max_backlog) },
 	ledger{ *ledger_impl },
 	runner_impl{ std::make_unique<nano::thread_runner> (io_ctx_shared, logger, config.io_threads) },
 	runner{ *runner_impl },

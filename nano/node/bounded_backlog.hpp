@@ -115,7 +115,6 @@ public:
 	void stop ();
 
 	size_t index_size () const;
-	size_t bucket_threshold () const;
 	bool contains (nano::block_hash const &) const;
 
 	nano::container_info container_info () const;
@@ -138,7 +137,7 @@ private:
 
 	bool predicate () const;
 	void run ();
-	std::deque<nano::block_hash> gather_targets (size_t max_count) const;
+	std::deque<nano::block_hash> gather_targets (size_t max_count, size_t bucket_threshold) const;
 	bool should_rollback (nano::block_hash const &) const;
 
 	std::deque<nano::block_hash> perform_rollbacks (std::deque<nano::block_hash> const & targets, size_t max_rollbacks);
