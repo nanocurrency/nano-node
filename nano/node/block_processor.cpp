@@ -212,12 +212,13 @@ void nano::block_processor::rollback_competitor (secure::write_transaction & tra
 
 double nano::block_processor::backlog_factor () const
 {
-	auto const backlog = ledger.backlog_count ();
-	if (node_config.max_backlog == 0 || backlog <= node_config.max_backlog * config.backlog_threshold)
+	auto const backlog = ledger.backlog_size ();
+	auto const max_backlog = ledger.max_backlog ();
+	if (max_backlog == 0 || backlog <= max_backlog * config.backlog_threshold)
 	{
 		return 0.0;
 	}
-	return std::max (1.0, static_cast<double> (backlog) / static_cast<double> (node_config.max_backlog * config.backlog_threshold));
+	return std::max (1.0, static_cast<double> (backlog) / static_cast<double> (max_backlog * config.backlog_threshold));
 }
 
 void nano::block_processor::wait_backlog (nano::unique_lock<nano::mutex> & lock)

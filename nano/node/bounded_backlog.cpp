@@ -26,7 +26,7 @@ nano::bounded_backlog::bounded_backlog (nano::node_config const & config_a, nano
 	logger{ logger_a },
 	scan_limiter{ config.bounded_backlog.scan_rate }
 {
-	if (!config.bounded_backlog.enable || config.max_backlog == 0)
+	if (!config.bounded_backlog.enable || ledger.max_backlog () == 0)
 	{
 		return;
 	}
@@ -95,7 +95,7 @@ void nano::bounded_backlog::start ()
 {
 	debug_assert (!thread.joinable ());
 
-	if (!config.bounded_backlog.enable || config.max_backlog == 0)
+	if (!config.bounded_backlog.enable || ledger.max_backlog () == 0)
 	{
 		return;
 	}
@@ -193,10 +193,12 @@ bool nano::bounded_backlog::insert (nano::secure::transaction const & transactio
 bool nano::bounded_backlog::predicate () const
 {
 	debug_assert (!mutex.try_lock ());
-	debug_assert (config.max_backlog > 0); // Should be fully disabled if max_backlog is 0
 
 	// Both ledger and tracked backlog must be over the threshold
-	return ledger.backlog_count () > config.max_backlog && index.size () > config.max_backlog;
+	auto const max_backlog = ledger.max_backlog ();
+	debug_assert (max_backlog > 0); // Should be fully disabled if max_backlog is 0
+
+	return ledger.backlog_size () > max_backlog && index.size () > max_backlog;
 }
 
 void nano::bounded_backlog::run ()
@@ -225,10 +227,17 @@ void nano::bounded_backlog::run ()
 		stats.inc (nano::stat::type::bounded_backlog, nano::stat::detail::loop);
 
 		// Calculate the number of targets to rollback
-		uint64_t const backlog = ledger.backlog_count ();
-		uint64_t const target_count = backlog > config.max_backlog ? backlog - config.max_backlog : 0;
+		auto const backlog = ledger.backlog_size ();
+		auto const max_backlog = ledger.max_backlog ();
+		uint64_t const target_count = backlog > max_backlog ? backlog - max_backlog : 0;
 
-		auto targets = gather_targets (std::min (target_count, static_cast<uint64_t> (config.bounded_backlog.batch_size)));
+		if (target_count == 0)
+		{
+			continue;
+		}
+
+		auto const bucket_threshold = max_backlog / bucketing.size ();
+		auto targets = gather_targets (std::min (target_count, static_cast<uint64_t> (config.bounded_backlog.batch_size)), bucket_threshold);
 		if (!targets.empty ())
 		{
 			lock.unlock ();
@@ -350,12 +359,7 @@ std::deque<nano::block_hash> nano::bounded_backlog::perform_rollbacks (std::dequ
 	return processed;
 }
 
-size_t nano::bounded_backlog::bucket_threshold () const
-{
-	return config.max_backlog / bucketing.size ();
-}
-
-std::deque<nano::block_hash> nano::bounded_backlog::gather_targets (size_t max_count) const
+std::deque<nano::block_hash> nano::bounded_backlog::gather_targets (size_t max_count, size_t bucket_threshold) const
 {
 	debug_assert (!mutex.try_lock ());
 
@@ -365,7 +369,7 @@ std::deque<nano::block_hash> nano::bounded_backlog::gather_targets (size_t max_c
 	for (auto bucket : bucketing.bucket_indices ())
 	{
 		// Only start rolling back if the bucket is over the threshold of unconfirmed blocks
-		if (index.size (bucket) > bucket_threshold ())
+		if (index.size (bucket) > bucket_threshold)
 		{
 			auto const count = std::min (max_count, config.bounded_backlog.batch_size);
 
