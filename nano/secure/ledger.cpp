@@ -233,7 +233,11 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 
 	if (generate_cache_flags.reps && generate_cache_flags.consistency_check)
 	{
+		logger.debug (nano::log::type::ledger, "Verifying total weights consistency...");
+
 		rep_weights.verify_consistency (static_cast<nano::uint128_t> (burned_balance));
+
+		logger.debug (nano::log::type::ledger, "Total weights consistency verified");
 	}
 
 	logger.info (nano::log::type::ledger, "Block count:    {:>11}", cache.block_count.load ());

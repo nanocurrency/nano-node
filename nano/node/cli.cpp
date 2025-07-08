@@ -36,7 +36,7 @@ std::string nano::error_cli_messages::message (int ev) const
 		case nano::error_cli::reading_config:
 			return "Config file read error";
 		case nano::error_cli::ambiguous_pruning_voting_options:
-			return "Flag --enable_pruning and enable_voting in node config cannot be used together";
+			return "Flag --enable_pruning and --enable_voting in node config cannot be used together";
 	}
 
 	return "Invalid error code";
@@ -127,6 +127,7 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("inactive_votes_cache_size", boost::program_options::value<std::size_t>(), "Increase cached votes without active elections size, default 16384")
 		("vote_processor_capacity", boost::program_options::value<std::size_t>(), "Vote processor queue size before dropping votes, default 144k")
 		("disable_large_votes", boost::program_options::value<bool>(), "Disable large votes")
+		("skip_consistency_check", "Skip ledger consistency check on startup, this is not recommended and should only be used for testing or recovery purposes")
 		;
 	// clang-format on
 }
@@ -192,6 +193,10 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	{
 		nano::network::confirm_req_hashes_max = 7;
 		nano::network::confirm_ack_hashes_max = 12;
+	}
+	if (vm.contains ("skip_consistency_check"))
+	{
+		flags_a.generate_cache.consistency_check = false;
 	}
 	// Config overriding
 	auto config (vm.find ("config"));
