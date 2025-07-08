@@ -267,7 +267,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	});
 
 	// Representative is defined as online if replying to live votes or rep crawler queries
-	observers.vote.add ([this] (std::shared_ptr<nano::vote> vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_source source, nano::vote_code code) {
+	observers.vote.add ([this] (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_source source, nano::vote_code code) {
 		release_assert (vote != nullptr);
 		release_assert (channel != nullptr);
 		debug_assert (code != nano::vote_code::invalid);
