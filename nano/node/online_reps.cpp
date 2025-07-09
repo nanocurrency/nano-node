@@ -64,18 +64,15 @@ void nano::online_reps::observe (nano::account const & rep)
 		nano::lock_guard<nano::mutex> lock{ mutex };
 
 		auto now = std::chrono::steady_clock::now ();
-		auto new_insert = reps.get<tag_account> ().erase (rep) == 0;
+		bool new_insert = reps.get<tag_account> ().erase (rep) == 0;
 		reps.insert ({ now, rep });
 
 		stats.inc (nano::stat::type::online_reps, new_insert ? nano::stat::detail::rep_new : nano::stat::detail::rep_update);
 
-		// Update current online weight if anything changed
 		if (new_insert)
 		{
-			stats.inc (nano::stat::type::online_reps, nano::stat::detail::update_online);
 			logger.debug (nano::log::type::online_reps, "Observed new representative: {}", rep.to_account ());
-
-			cached_online = calculate_online ();
+			update_online ();
 		}
 	}
 }
@@ -106,22 +103,39 @@ void nano::online_reps::trim ()
 	}
 }
 
+void nano::online_reps::update_online ()
+{
+	stats.inc (nano::stat::type::online_reps, nano::stat::detail::update_online);
+	cached_online = calculate_online ();
+}
+
 void nano::online_reps::run ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
+	last_sample = std::chrono::steady_clock::now ();
 	while (!stopped)
 	{
-		// Set next time point explicitly to ensure that we don't sample too early
-		auto next = std::chrono::steady_clock::now () + config.network_params.node.weight_interval;
-		condition.wait_until (lock, next, [this, next] {
-			return stopped || std::chrono::steady_clock::now () >= next;
+		condition.wait_for (lock, nano::is_dev_run () ? 100ms : 1s, [this] () {
+			return stopped;
 		});
-		if (!stopped)
+		if (stopped)
+		{
+			return;
+		}
+
+		// Always recalculate online weight
+		update_online ();
+
+		// Sample trended weight if the next sample time has been reached
+		auto const now = std::chrono::steady_clock::now ();
+		auto const next_sample = last_sample + config.network_params.node.weight_interval;
+		if (now >= next_sample)
 		{
 			trim ();
 			lock.unlock ();
 			sample ();
 			lock.lock ();
+			last_sample = now;
 		}
 	}
 }

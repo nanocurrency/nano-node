@@ -201,17 +201,23 @@ TEST (node, quick_confirm)
 	auto genesis_start_balance (node1.balance (nano::dev::genesis_key.pub));
 	system.wallet (0)->insert_adhoc (key.prv);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	// Wait for online weight to stabilize after wallet insertion
+	ASSERT_TIMELY (5s, node1.online_reps.online () >= genesis_start_balance);
+	auto delta = node1.online_reps.delta ();
+
 	auto send = nano::send_block_builder ()
 				.previous (previous)
 				.destination (key.pub)
-				.balance (node1.online_reps.delta () + 1)
+				.balance (delta + 1)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (previous))
 				.build ();
 	node1.process_active (send);
 	ASSERT_TIMELY (10s, !node1.balance (key.pub).is_zero ());
-	ASSERT_EQ (node1.balance (nano::dev::genesis_key.pub), node1.online_reps.delta () + 1);
-	ASSERT_EQ (node1.balance (key.pub), genesis_start_balance - (node1.online_reps.delta () + 1));
+
+	ASSERT_EQ (node1.balance (nano::dev::genesis_key.pub), delta + 1);
+	ASSERT_EQ (node1.balance (key.pub), genesis_start_balance - (delta + 1));
 }
 
 TEST (node, node_receive_quorum)
