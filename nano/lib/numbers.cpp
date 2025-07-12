@@ -805,7 +805,11 @@ std::ostream & nano::operator<< (std::ostream & os, const nano::account & val)
 
 uint64_t nano::difficulty::from_multiplier (double const multiplier_a, uint64_t const base_difficulty_a)
 {
-	debug_assert (multiplier_a > 0.);
+	if (multiplier_a <= 0.)
+	{
+		return 0;
+	}
+
 	nano::uint128_t reverse_difficulty ((-base_difficulty_a) / multiplier_a);
 	if (reverse_difficulty > std::numeric_limits<std::uint64_t>::max ())
 	{
@@ -823,7 +827,10 @@ uint64_t nano::difficulty::from_multiplier (double const multiplier_a, uint64_t 
 
 double nano::difficulty::to_multiplier (uint64_t const difficulty_a, uint64_t const base_difficulty_a)
 {
-	debug_assert (difficulty_a > 0);
+	if (difficulty_a == 0)
+	{
+		return 0;
+	}
 	return static_cast<double> (-base_difficulty_a) / (-difficulty_a);
 }
 
