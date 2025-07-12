@@ -64,6 +64,7 @@ private:
 	void trim_trended (nano::store::write_transaction const &);
 	/** Iterate over all database samples and remove invalid records. This is meant to clean potential leftovers from previous versions. */
 	void sanitize_trended (nano::store::write_transaction const &);
+	void update_online ();
 
 	struct trended_result
 	{
@@ -98,6 +99,8 @@ private:
 
 	nano::uint128_t cached_trended{0};
 	nano::uint128_t cached_online{0};
+
+	std::chrono::steady_clock::time_point last_sample;
 
 	bool stopped{ false };
 	nano::condition_variable condition;
