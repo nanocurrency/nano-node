@@ -61,10 +61,12 @@ public:
 	void stop ();
 
 	// Adds a block to the set of blocks to be confirmed
-	void add (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election = nullptr);
+	bool add (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election = nullptr);
+
 	// Added blocks will remain in this set until after ledger has them marked as confirmed.
 	bool contains (nano::block_hash const & hash) const;
 	std::size_t size () const;
+	std::size_t deferred_size () const;
 
 	nano::container_info container_info () const;
 
@@ -119,6 +121,7 @@ private:
 	ordered_entries set;
 	// Blocks that could not be cemented immediately (e.g. waiting for rollbacks to complete)
 	ordered_entries deferred;
+
 	// Blocks that are being cemented in the current batch
 	std::unordered_set<nano::block_hash> current;
 

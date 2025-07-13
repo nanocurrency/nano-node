@@ -54,7 +54,7 @@ nano::cementing_set::~cementing_set ()
 	debug_assert (!thread.joinable ());
 }
 
-void nano::cementing_set::add (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election)
+bool nano::cementing_set::add (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election)
 {
 	bool added = false;
 	{
@@ -71,6 +71,7 @@ void nano::cementing_set::add (nano::block_hash const & hash, std::shared_ptr<na
 	{
 		stats.inc (nano::stat::type::cementing_set, nano::stat::detail::duplicate);
 	}
+	return added;
 }
 
 void nano::cementing_set::start ()
@@ -115,6 +116,12 @@ std::size_t nano::cementing_set::size () const
 	// Do not report deferred blocks, as they are not currently being processed (and might never be requeued)
 	std::lock_guard lock{ mutex };
 	return set.size () + current.size ();
+}
+
+std::size_t nano::cementing_set::deferred_size () const
+{
+	std::lock_guard lock{ mutex };
+	return deferred.size ();
 }
 
 void nano::cementing_set::run ()

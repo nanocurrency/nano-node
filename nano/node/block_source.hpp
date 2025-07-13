@@ -17,6 +17,7 @@ enum class block_source
 	local,
 	forced,
 	election,
+	test,
 };
 
 std::string_view to_string (block_source);

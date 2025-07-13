@@ -312,10 +312,10 @@ spdlog::level::level_enum nano::logger::to_spdlog_level (nano::log::level level)
  * logging config presets
  */
 
-nano::log_config nano::log_config::cli_default ()
+nano::log_config nano::log_config::cli_default (nano::log::level default_level)
 {
 	log_config config{};
-	config.default_level = nano::log::level::critical;
+	config.default_level = default_level;
 	config.console.colors = false;
 	config.console.to_cerr = true; // Use cerr to avoid interference with CLI output that goes to stdout
 	config.file.enable = false;

@@ -134,7 +134,7 @@ public:
 	nano::log::tracing_format tracing_format{ nano::log::tracing_format::standard };
 
 public: // Predefined defaults
-	static log_config cli_default ();
+	static log_config cli_default (nano::log::level default_level = nano::log::level::critical);
 	static log_config daemon_default ();
 	static log_config tests_default ();
 	static log_config dummy_default (); // For empty logger
