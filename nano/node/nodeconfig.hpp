@@ -145,7 +145,7 @@ public:
 	nano::lmdb_config lmdb_config;
 	nano::database_backend database_backend{ env_database_backend ().value_or (nano::database_backend::lmdb) };
 	bool enable_upnp{ true };
-	std::size_t max_ledger_notifications{ 8 };
+	std::size_t max_ledger_notifications{ 300 };
 
 public:
 	nano::vote_cache_config vote_cache;
