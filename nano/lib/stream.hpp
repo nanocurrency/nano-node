@@ -19,7 +19,7 @@ using stream = std::basic_streambuf<uint8_t, uint8_char_traits>;
 using bufferstream = boost::iostreams::stream_buffer<boost::iostreams::basic_array_source<uint8_t>, uint8_char_traits>;
 using vectorstream = boost::iostreams::stream_buffer<boost::iostreams::back_insert_device<std::vector<uint8_t>>, uint8_char_traits>;
 
-// Read a raw byte stream the size of `T' and fill value. Returns true if there was an error, false otherwise
+// Read a raw byte stream the size of `T` and fill value. Returns true if there was an error, false otherwise
 template <typename T>
 bool try_read (nano::stream & stream_a, T & value_a)
 {

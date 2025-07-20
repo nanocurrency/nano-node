@@ -505,7 +505,7 @@ nano::uint128_t nano::ledger::weight_exact (secure::transaction const & txn_a, n
 	return store.rep_weight.get (txn_a, representative_a);
 }
 
-// Rollback blocks until `block_a' doesn't exist or it tries to penetrate the confirmation height
+// Rollback blocks until `block_a` doesn't exist or it tries to penetrate the confirmation height
 // TODO: Refactor rollback operation to use non-recursive algorithm
 bool nano::ledger::rollback (secure::write_transaction const & transaction_a, nano::block_hash const & block_a, std::deque<std::shared_ptr<nano::block>> & list_a, size_t depth, size_t const max_depth)
 {
