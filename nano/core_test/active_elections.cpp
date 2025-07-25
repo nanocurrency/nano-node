@@ -678,10 +678,14 @@ TEST (active_elections, vote_replays)
 	ASSERT_TRUE (nano::test::start_elections (system, node, { send1, open1 }));
 	ASSERT_EQ (2, node.active.size ());
 
-	// First vote is not a replay and confirms the election, second vote should be a replay since the election has confirmed but not yet removed
-	auto vote_send1 = nano::test::make_final_vote (nano::dev::genesis_key, { send1 });
+	// First vote is not a replay and should not confirm the election, second vote should be a replay
+	auto vote_send1 = nano::test::make_vote (nano::dev::genesis_key, { send1 }, 0, 0);
 	ASSERT_EQ (nano::vote_code::vote, node.vote_router.vote (vote_send1).at (send1->hash ()));
 	ASSERT_EQ (nano::vote_code::replay, node.vote_router.vote (vote_send1).at (send1->hash ()));
+
+	// Now send a final vote to actually confirm the election
+	auto final_vote_send1 = nano::test::make_final_vote (nano::dev::genesis_key, { send1 });
+	node.vote_router.vote (final_vote_send1);
 
 	// Wait until the election is removed, at which point the vote is considered late since it's been recently confirmed
 	ASSERT_TIMELY_EQ (5s, node.active.size (), 1);
