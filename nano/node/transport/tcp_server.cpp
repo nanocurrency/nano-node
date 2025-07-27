@@ -118,6 +118,7 @@ auto nano::transport::tcp_server::perform_handshake () -> asio::awaitable<proces
 			node.logger.debug (nano::log::type::tcp_server, "Error deserializing handshake message: {} ({})",
 			to_string (message_status),
 			get_remote_endpoint ());
+			co_return process_result::abort;
 		}
 
 		handshake_message_visitor handshake_visitor{};
