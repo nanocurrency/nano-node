@@ -62,6 +62,7 @@ add_executable(
   stacktrace.cpp
   system.cpp
   tcp_listener.cpp
+  tcp_server.cpp
   telemetry.cpp
   thread_pool.cpp
   throttle.cpp

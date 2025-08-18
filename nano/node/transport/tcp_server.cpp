@@ -59,6 +59,7 @@ auto nano::transport::tcp_server::start_impl () -> asio::awaitable<void>
 		auto handshake_result = co_await perform_handshake ();
 		if (handshake_result != process_result::progress)
 		{
+			node.stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort);
 			node.logger.debug (nano::log::type::tcp_server, "Handshake aborted: {}", get_remote_endpoint ());
 		}
 		else
@@ -118,6 +119,7 @@ auto nano::transport::tcp_server::perform_handshake () -> asio::awaitable<proces
 			node.logger.debug (nano::log::type::tcp_server, "Error deserializing handshake message: {} ({})",
 			to_string (message_status),
 			get_remote_endpoint ());
+
 			co_return process_result::abort;
 		}
 
@@ -135,11 +137,6 @@ auto nano::transport::tcp_server::perform_handshake () -> asio::awaitable<proces
 			case handshake_status::abort:
 			case handshake_status::bootstrap: // Legacy bootstrap is no longer supported
 			{
-				node.stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort);
-				node.logger.debug (nano::log::type::tcp_server, "Aborting handshake: {} ({})",
-				to_string (message->type ()),
-				get_remote_endpoint ());
-
 				co_return process_result::abort;
 			}
 			case handshake_status::realtime:
