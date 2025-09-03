@@ -46,8 +46,8 @@ void nano::scheduler::optimistic::stop ()
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		stopped = true;
 	}
-	notify ();
-	nano::join_or_pass (thread);
+	condition.notify_all ();
+	join_or_pass (thread);
 }
 
 void nano::scheduler::optimistic::notify ()
