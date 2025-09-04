@@ -1871,7 +1871,7 @@ namespace detail {
 #endif // #if defined(CL_HPP_ENABLE_EXCEPTIONS)
 
 
-/*! \stuct ImageFormat
+/*! \struct ImageFormat
  *  \brief Adds constructors and member functions for cl_image_format.
  *
  *  \see cl_image_format
