@@ -70,7 +70,10 @@ private:
 
 	bool predicate () const;
 	void run ();
-	void run_one (secure::transaction const &, entry const & candidate);
+	void run_iterative (nano::unique_lock<nano::mutex> &);
+	bool run_one (secure::transaction const &, entry const & candidate);
+
+	std::deque<entry> snapshot (size_t max_count) const;
 
 private: // Dependencies
 	optimistic_config const & config;
@@ -84,8 +87,8 @@ private:
 	struct entry
 	{
 		nano::account account;
-		nano::clock::time_point timestamp;
 		uint64_t unconfirmed_height;
+		std::chrono::steady_clock::time_point timestamp;
 	};
 
 	// clang-format off
@@ -99,14 +102,14 @@ private:
 		mi::hashed_unique<mi::tag<tag_account>,
 			mi::member<entry, nano::account, &entry::account>>,
 		mi::ordered_non_unique<mi::tag<tag_unconfirmed_height>,
-			mi::member<entry, uint64_t, &entry::unconfirmed_height>, std::greater<uint64_t>> // Descending
+			mi::member<entry, uint64_t, &entry::unconfirmed_height>, std::greater<>> // Descending
 	>>;
 	// clang-format on
 
 	/** Accounts eligible for optimistic scheduling */
 	ordered_candidates candidates;
 
-	bool stopped{ false };
+	std::atomic<bool> stopped{ false };
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;
 	std::thread thread;

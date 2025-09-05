@@ -64,6 +64,7 @@ private:
 	nano::uint128_t final_tally_threshold () const;
 
 private: // Dependencies
+	hinted_config const & config;
 	nano::node & node;
 	nano::vote_cache & vote_cache;
 	nano::active_elections & active;
@@ -71,8 +72,6 @@ private: // Dependencies
 	nano::stats & stats;
 
 private:
-	hinted_config const & config;
-
 	std::atomic<bool> stopped{ false };
 	nano::condition_variable condition;
 	mutable nano::mutex mutex;

@@ -90,7 +90,7 @@ bool nano::scheduler::optimistic::activate (const nano::account & account, const
 		// Assume gap_threshold for accounts with nothing confirmed
 		auto const unconfirmed_height = std::max (account_info.block_count - conf_info.height, config.gap_threshold);
 
-		auto [it, inserted] = candidates.push_back ({ account, nano::clock::now (), unconfirmed_height });
+		auto [it, inserted] = candidates.push_back ({ account, unconfirmed_height, std::chrono::steady_clock::now () });
 
 		stats.inc (nano::stat::type::optimistic_scheduler, inserted ? nano::stat::detail::activated : nano::stat::detail::duplicate);
 
@@ -113,19 +113,26 @@ bool nano::scheduler::optimistic::predicate () const
 {
 	debug_assert (!mutex.try_lock ());
 
-	if (active.vacancy (nano::election_behavior::optimistic) <= 0)
+	// Check if there is space inside AEC for a new optimistic election
+	return !candidates.empty () && active.vacancy (nano::election_behavior::optimistic) > 0;
+}
+
+auto nano::scheduler::optimistic::snapshot (size_t max_count) const -> std::deque<entry>
+{
+	auto const now = std::chrono::steady_clock::now ();
+
+	std::deque<entry> result;
+
+	auto & height_index = candidates.get<tag_unconfirmed_height> ();
+	for (auto it = height_index.begin (); it != height_index.end () && result.size () < max_count; ++it)
 	{
-		return false;
-	}
-	if (candidates.empty ())
-	{
-		return false;
+		if (elapsed (it->timestamp, config.activation_delay, now))
+		{
+			result.push_back (*it);
+		}
 	}
 
-	auto candidate = candidates.get<tag_unconfirmed_height> ().begin ();
-	debug_assert (candidate != candidates.get<tag_unconfirmed_height> ().end ());
-
-	return elapsed (candidate->timestamp, config.activation_delay);
+	return result;
 }
 
 void nano::scheduler::optimistic::run ()
@@ -133,8 +140,9 @@ void nano::scheduler::optimistic::run ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		condition.wait_for (lock, config.activation_delay / 2, [this] () {
-			return stopped || predicate ();
+		// Ignore predicate in condition, we always want to wait for activation_delay to elapse before next wake up
+		condition.wait_for (lock, config.activation_delay, [this] () {
+			return stopped.load ();
 		});
 
 		if (stopped)
@@ -146,32 +154,46 @@ void nano::scheduler::optimistic::run ()
 		{
 			stats.inc (nano::stat::type::optimistic_scheduler, nano::stat::detail::loop);
 
-			lock.unlock ();
-
-			// Acquire transaction outside of the lock
-			auto transaction = ledger.tx_begin_read ();
-
+			run_iterative (lock);
+			debug_assert (!lock.owns_lock ());
 			lock.lock ();
-
-			while (predicate () && !stopped)
-			{
-				debug_assert (!candidates.empty ());
-				auto & height_index = candidates.get<tag_unconfirmed_height> ();
-				auto candidate = *height_index.begin ();
-				height_index.erase (height_index.begin ());
-
-				lock.unlock ();
-
-				transaction.refresh_if_needed ();
-				run_one (transaction, candidate);
-
-				lock.lock ();
-			}
 		}
 	}
 }
 
-void nano::scheduler::optimistic::run_one (secure::transaction const & transaction, entry const & candidate)
+void nano::scheduler::optimistic::run_iterative (nano::unique_lock<nano::mutex> & lock)
+{
+	debug_assert (lock.owns_lock ());
+	debug_assert (!mutex.try_lock ());
+
+	auto tops = snapshot (active.limit (nano::election_behavior::optimistic));
+
+	lock.unlock ();
+
+	auto transaction = ledger.tx_begin_read ();
+
+	for (auto const & candidate : tops)
+	{
+		if (stopped)
+		{
+			return;
+		}
+
+		transaction.refresh_if_needed ();
+
+		bool good = run_one (transaction, candidate);
+		if (!good)
+		{
+			// Remove no longer valid candidate
+			nano::lock_guard<nano::mutex> guard{ mutex };
+			auto & account_index = candidates.get<tag_account> ();
+			account_index.erase (candidate.account);
+			stats.inc (nano::stat::type::optimistic_scheduler, nano::stat::detail::erased);
+		}
+	}
+}
+
+bool nano::scheduler::optimistic::run_one (secure::transaction const & transaction, entry const & candidate)
 {
 	auto block = ledger.any.block_get (transaction, ledger.any.account_head (transaction, candidate.account));
 	if (block)
@@ -180,12 +202,13 @@ void nano::scheduler::optimistic::run_one (secure::transaction const & transacti
 		if (!node.block_confirmed_or_being_confirmed (transaction, block->hash ()))
 		{
 			// Try to insert it into AEC
-			// We check for AEC vacancy inside the predicate
 			auto result = node.active.insert (block, nano::election_behavior::optimistic);
-
 			stats.inc (nano::stat::type::optimistic_scheduler, result.inserted ? nano::stat::detail::insert : nano::stat::detail::insert_failed);
+
+			return true; // Activation attempted
 		}
 	}
+	return false; // Activation not attempted, block not found or already confirmed, should be erased from candidates
 }
 
 nano::container_info nano::scheduler::optimistic::container_info () const
