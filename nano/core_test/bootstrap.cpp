@@ -309,11 +309,10 @@ TEST (bootstrap, account_inductive)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send1->hash ()))
 				 .build ();
-	//	std::cerr << "Genesis: " << nano::dev::genesis->hash ().to_string () << std::endl;
-	//	std::cerr << "Send1: " << send1->hash ().to_string () << std::endl;
-	//	std::cerr << "Send2: " << send2->hash ().to_string () << std::endl;
+
 	ASSERT_EQ (nano::block_status::progress, node0.process (send1));
 	ASSERT_EQ (nano::block_status::progress, node0.process (send2));
+
 	auto & node1 = *system.add_node (flags);
 	ASSERT_TIMELY (50s, node1.block (send2->hash ()) != nullptr);
 }
@@ -352,7 +351,7 @@ TEST (bootstrap, trace_base)
 	ASSERT_EQ (nano::block_status::progress, node0.process (send1));
 	ASSERT_EQ (nano::block_status::progress, node0.process (receive1));
 
-	ASSERT_EQ (node1.ledger.any.receivable_end (), node1.ledger.any.receivable_upper_bound (node1.ledger.tx_begin_read (), key.pub, 0));
+	ASSERT_TIMELY (10s, node1.ledger.any.receivable_upper_bound (node1.ledger.tx_begin_read (), key.pub, 0) != node1.ledger.any.receivable_end ());
 	ASSERT_TIMELY (10s, node1.block (receive1->hash ()) != nullptr);
 }
 
