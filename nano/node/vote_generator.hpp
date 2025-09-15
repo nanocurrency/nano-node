@@ -25,6 +25,18 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
+class vote_generator_config final
+{
+public:
+	nano::error serialize (nano::tomlconfig & toml) const;
+	nano::error deserialize (nano::tomlconfig & toml);
+
+public:
+	size_t max_queue{ 1024 * 32 };
+	size_t batch_size{ 256 };
+	std::chrono::milliseconds delay{ 100ms };
+};
+
 class vote_generator final
 {
 private:
@@ -34,7 +46,7 @@ private:
 	std::chrono::steady_clock::time_point next_broadcast = { std::chrono::steady_clock::now () };
 
 public:
-	vote_generator (nano::node_config const &, nano::node &, nano::ledger &, nano::wallets &, nano::vote_processor &, nano::local_vote_history &, nano::network &, nano::stats &, nano::logger &, bool is_final, std::shared_ptr<nano::transport::channel> inproc_channel);
+	vote_generator (vote_generator_config const &, nano::node &, nano::ledger &, nano::wallets &, nano::vote_processor &, nano::local_vote_history &, nano::network &, nano::stats &, nano::logger &, bool is_final, std::shared_ptr<nano::transport::channel> inproc_channel);
 	~vote_generator ();
 
 	/** Queue items for vote generation, or broadcast votes already in cache */
@@ -63,7 +75,7 @@ private:
 	nano::log::type log_type () const;
 
 private: // Dependencies
-	nano::node_config const & config;
+	vote_generator_config const & config;
 	nano::node & node;
 	nano::ledger & ledger;
 	nano::wallets & wallets;

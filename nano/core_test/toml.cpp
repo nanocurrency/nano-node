@@ -308,7 +308,7 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.signature_checker_threads, defaults.node.signature_checker_threads);
 	ASSERT_EQ (conf.node.unchecked_cutoff_time, defaults.node.unchecked_cutoff_time);
 	ASSERT_EQ (conf.node.use_memory_pools, defaults.node.use_memory_pools);
-	ASSERT_EQ (conf.node.vote_generator_delay, defaults.node.vote_generator_delay);
+	ASSERT_EQ (conf.node.vote_generator.delay, defaults.node.vote_generator.delay);
 	ASSERT_EQ (conf.node.vote_minimum, defaults.node.vote_minimum);
 	ASSERT_EQ (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_EQ (conf.node.work_threads, defaults.node.work_threads);
@@ -740,7 +740,7 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.signature_checker_threads, defaults.node.signature_checker_threads);
 	ASSERT_NE (conf.node.unchecked_cutoff_time, defaults.node.unchecked_cutoff_time);
 	ASSERT_NE (conf.node.use_memory_pools, defaults.node.use_memory_pools);
-	ASSERT_NE (conf.node.vote_generator_delay, defaults.node.vote_generator_delay);
+	ASSERT_NE (conf.node.vote_generator.delay, defaults.node.vote_generator.delay);
 	ASSERT_NE (conf.node.vote_minimum, defaults.node.vote_minimum);
 	ASSERT_NE (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_NE (conf.node.work_threads, defaults.node.work_threads);

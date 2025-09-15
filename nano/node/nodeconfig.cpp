@@ -119,7 +119,6 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("block_processor_batch_max_time", block_processor_batch_max_time.count (), "The maximum time the block processor can continuously process blocks for.\ntype:milliseconds");
 	toml.put ("allow_local_peers", allow_local_peers, "Enable or disable local host peering.\ntype:bool");
 	toml.put ("vote_minimum", vote_minimum.to_string_dec (), "Local representatives do not vote if the delegated weight is under this threshold. Saves on system resources.\ntype:string,amount,raw");
-	toml.put ("vote_generator_delay", vote_generator_delay.count (), "Delay before votes are sent to allow for efficient bundling of hashes in votes.\ntype:milliseconds");
 	toml.put ("unchecked_cutoff_time", unchecked_cutoff_time.count (), "Number of seconds before deleting an unchecked entry.\nWarning: lower values (e.g., 3600 seconds, or 1 hour) may result in unsuccessful bootstraps, especially a bootstrap from scratch.\ntype:seconds");
 	toml.put ("pow_sleep_interval", pow_sleep_interval.count (), "Time to sleep between batch work generation attempts. Reduces max CPU usage at the expense of a longer generation time.\ntype:nanoseconds");
 	toml.put ("external_address", external_address, "The external address of this node (NAT). If not set, the node will request this information via UPnP.\ntype:string,ip");
@@ -244,6 +243,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	nano::tomlconfig block_processor_l;
 	block_processor.serialize (block_processor_l);
 	toml.put_child ("block_processor", block_processor_l);
+
+	nano::tomlconfig vote_generator_l;
+	vote_generator.serialize (vote_generator_l);
+	toml.put_child ("vote_generator", vote_generator_l);
 
 	nano::tomlconfig vote_processor_l;
 	vote_processor.serialize (vote_processor_l);
@@ -406,6 +409,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			block_processor.deserialize (config_l);
 		}
 
+		if (toml.has_key ("vote_generator"))
+		{
+			auto config_l = toml.get_required_child ("vote_generator");
+			vote_generator.deserialize (config_l);
+		}
+
 		if (toml.has_key ("vote_processor"))
 		{
 			auto config_l = toml.get_required_child ("vote_processor");
@@ -561,10 +570,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			toml.get_error ().set ("vote_minimum contains an invalid decimal amount");
 		}
-
-		auto delay_l = vote_generator_delay.count ();
-		toml.get ("vote_generator_delay", delay_l);
-		vote_generator_delay = std::chrono::milliseconds (delay_l);
 
 		auto block_processor_batch_max_time_l = block_processor_batch_max_time.count ();
 		toml.get ("block_processor_batch_max_time", block_processor_batch_max_time_l);

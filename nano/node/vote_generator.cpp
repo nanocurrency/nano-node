@@ -3,6 +3,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/network.hpp>
+#include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/vote_generator.hpp>
@@ -16,21 +17,21 @@
 
 #include <chrono>
 
-nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::node & node_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stats & stats_a, nano::logger & logger_a, bool is_final_a, std::shared_ptr<nano::transport::channel> inproc_channel_a) :
+nano::vote_generator::vote_generator (vote_generator_config const & config_a, nano::node & node_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stats & stats_a, nano::logger & logger_a, bool is_final_a, std::shared_ptr<nano::transport::channel> inproc_channel_a) :
 	config (config_a),
 	node (node_a),
 	ledger (ledger_a),
 	wallets (wallets_a),
 	vote_processor (vote_processor_a),
 	history (history_a),
-	spacing_impl{ std::make_unique<nano::vote_spacing> (config_a.network_params.voting.delay) },
+	spacing_impl{ std::make_unique<nano::vote_spacing> (node_a.network_params.voting.delay) },
 	spacing{ *spacing_impl },
 	network (network_a),
 	stats (stats_a),
 	logger (logger_a),
 	is_final (is_final_a),
 	inproc_channel{ inproc_channel_a },
-	vote_generation_queue{ stats, nano::stat::type::vote_generator, is_final ? nano::thread_role::name::voting_final : nano::thread_role::name::voting, /* single threaded */ 1, /* max queue size */ 1024 * 32, /* max batch size */ 256 }
+	vote_generation_queue{ stats, nano::stat::type::vote_generator, is_final ? nano::thread_role::name::voting_final : nano::thread_role::name::voting, /* single threaded */ 1, config.max_queue, config.batch_size }
 {
 	vote_generation_queue.process_batch = [this] (auto & batch) {
 		process_batch (batch);
@@ -246,7 +247,7 @@ void nano::vote_generator::reply (nano::unique_lock<nano::mutex> & lock_a, reque
 			stats.add (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes, stat::dir::in, hashes.size ());
 
 			vote (hashes, roots, [this, channel = request_a.second] (std::shared_ptr<nano::vote> const & vote_a) {
-				nano::confirm_ack confirm{ config.network_params.network, vote_a };
+				nano::confirm_ack confirm{ node.network_params.network, vote_a };
 				channel->send (confirm, nano::transport::traffic_type::vote_reply);
 				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_generated_votes, stat::dir::in);
 			});
@@ -292,8 +293,8 @@ void nano::vote_generator::run ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		// Wait for at most vote_generator_delay in case no further notification is received
-		condition.wait_for (lock, config.vote_generator_delay, [this] () {
+		// Wait for at most delay in case no further notification is received
+		condition.wait_for (lock, config.delay, [this] () {
 			return stopped || broadcast_predicate () || !requests.empty ();
 		});
 
@@ -315,7 +316,7 @@ void nano::vote_generator::run ()
 			if (broadcast_predicate ())
 			{
 				broadcast (lock);
-				next_broadcast = std::chrono::steady_clock::now () + config.vote_generator_delay;
+				next_broadcast = std::chrono::steady_clock::now () + config.delay;
 			}
 
 			if (!requests.empty ())
@@ -362,4 +363,26 @@ nano::stat::type nano::vote_generator::stat_type () const
 nano::log::type nano::vote_generator::log_type () const
 {
 	return is_final ? nano::log::type::vote_generator_final : nano::log::type::vote_generator;
+}
+
+/*
+ * vote_generator_config
+ */
+
+nano::error nano::vote_generator_config::serialize (nano::tomlconfig & toml) const
+{
+	toml.put ("max_queue", max_queue, "Maximum number of entries in the vote generation queue. \ntype:uint64");
+	toml.put ("batch_size", batch_size, "Maximum number of entries to process in a single batch. \ntype:uint64");
+	toml.put ("delay", delay.count (), "Delay before votes are sent to allow for efficient bundling of hashes in votes. \ntype:milliseconds");
+
+	return toml.get_error ();
+}
+
+nano::error nano::vote_generator_config::deserialize (nano::tomlconfig & toml)
+{
+	toml.get ("max_queue", max_queue);
+	toml.get ("batch_size", batch_size);
+	toml.get_duration ("delay", delay);
+
+	return toml.get_error ();
 }

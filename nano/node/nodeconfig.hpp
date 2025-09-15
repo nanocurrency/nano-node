@@ -31,6 +31,7 @@
 #include <nano/node/transport/tcp_config.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/vote_cache.hpp>
+#include <nano/node/vote_generator.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_rebroadcaster.hpp>
 #include <nano/node/websocketconfig.hpp>
@@ -85,7 +86,6 @@ public:
 	nano::amount receive_minimum{ nano::nano_ratio / 1000 / 1000 }; // 0.000001 nano
 	nano::amount vote_minimum{ nano::Knano_ratio }; // 1000 nano
 	nano::amount rep_crawler_weight_minimum{ "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF" };
-	std::chrono::milliseconds vote_generator_delay{ std::chrono::milliseconds (100) };
 	nano::amount online_weight_minimum{ 60000 * nano::Knano_ratio }; // 60 million nano
 	/*
 	 * The minimum vote weight that a representative must have for its vote to be counted.
@@ -150,6 +150,7 @@ public:
 	nano::rep_crawler_config rep_crawler;
 	nano::block_processor_config block_processor;
 	nano::active_elections_config active_elections;
+	nano::vote_generator_config vote_generator;
 	nano::vote_processor_config vote_processor;
 	nano::peer_history_config peer_history;
 	nano::transport::tcp_config tcp;
