@@ -15,7 +15,18 @@
 #include <fstream>
 #include <sstream>
 
+#include <magic_enum.hpp>
+
 using namespace std::chrono_literals;
+
+// Static assertions to ensure our predefined array sizes are sufficient for the enums
+// We check the _last value's integer value, which should be the highest valid index we need
+static_assert (magic_enum::enum_integer (nano::stat::type::_last) <= nano::stats::types_count,
+"stat::type enum has grown beyond the predefined array size. Increase types_count in stats.hpp");
+static_assert (magic_enum::enum_integer (nano::stat::detail::_last) <= nano::stats::details_count,
+"stat::detail enum has grown beyond the predefined array size. Increase details_count in stats.hpp");
+static_assert (magic_enum::enum_integer (nano::stat::dir::_last) <= nano::stats::dirs_count,
+"stat::dir enum has grown beyond the predefined array size. Increase dirs_count in stats.hpp");
 
 /*
  * stat_log_sink
@@ -31,6 +42,8 @@ std::string nano::stat_log_sink::tm_to_string (tm & tm)
  */
 
 nano::stats::stats (nano::logger & logger_a, nano::stats_config config_a) :
+	counters_impl{ std::make_unique<counters_array_t> () },
+	counters{ *counters_impl },
 	config{ std::move (config_a) },
 	logger{ logger_a },
 	enable_logging{ is_stat_logging_enabled () }
@@ -71,21 +84,50 @@ void nano::stats::stop ()
 
 void nano::stats::clear ()
 {
-	std::lock_guard guard{ mutex };
-	counters.clear ();
-	samplers.clear ();
-	timestamp = std::chrono::steady_clock::now ();
+	// Clear all counters
+	for (auto & counter : counters)
+	{
+		counter.store (0, std::memory_order_relaxed);
+	}
+
+	// Clear samplers (still needs mutex)
+	{
+		std::lock_guard guard{ mutex };
+		samplers.clear ();
+		timestamp = std::chrono::steady_clock::now ();
+	}
+}
+
+size_t nano::stats::idx (stat::type type, stat::detail detail, stat::dir dir)
+{
+	// Dir is the slowest changing dimension, so it goes first for better cache locality
+	auto type_idx = magic_enum::enum_integer (type);
+	auto detail_idx = magic_enum::enum_integer (detail);
+	auto dir_idx = magic_enum::enum_integer (dir);
+	return (dir_idx * types_count * details_count) + (type_idx * details_count) + detail_idx;
+}
+
+std::atomic<nano::stats::counter_value_t> & nano::stats::counter_ref (stat::type type, stat::detail detail, stat::dir dir)
+{
+	auto index = idx (type, detail, dir);
+	debug_assert (index < counters.size ());
+	return counters[index];
+}
+
+std::atomic<nano::stats::counter_value_t> const & nano::stats::counter_ref (stat::type type, stat::detail detail, stat::dir dir) const
+{
+	auto index = idx (type, detail, dir);
+	debug_assert (index < counters.size ());
+	return counters[index];
 }
 
 void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, counter_value_t value, bool aggregate_all)
 {
 	debug_assert (type != stat::type::_invalid);
+	debug_assert (type != stat::type::_last);
 	debug_assert (detail != stat::detail::_invalid);
-
-	if (value == 0)
-	{
-		return;
-	}
+	debug_assert (detail != stat::detail::_last);
+	debug_assert (dir != stat::dir::_last);
 
 	if (enable_logging)
 	{
@@ -96,71 +138,30 @@ void nano::stats::add (stat::type type, stat::detail detail, stat::dir dir, coun
 		value);
 	}
 
-	// Updates need to happen while holding the mutex
-	auto update_counter = [this, aggregate_all] (nano::stats::counter_key key, auto && updater) {
-		counter_key all_key{ key.type, stat::detail::all, key.dir };
+	counter_ref (type, detail, dir).fetch_add (value, std::memory_order_relaxed);
 
-		// This is a two-step process to avoid exclusively locking the mutex in the common case
-		{
-			std::shared_lock lock{ mutex };
-
-			if (auto it = counters.find (key); it != counters.end ())
-			{
-				updater (*it->second);
-
-				if (aggregate_all && key != all_key)
-				{
-					auto it_all = counters.find (all_key);
-					release_assert (it_all != counters.end ()); // The `all` counter should always be created together
-					updater (*it_all->second); // Also update the `all` counter
-				}
-
-				return;
-			}
-		}
-		// Not found, create a new entry
-		{
-			std::unique_lock lock{ mutex };
-
-			// Insertions will be ignored if the key already exists
-			auto [it, inserted] = counters.emplace (key, std::make_unique<counter_entry> ());
-			updater (*it->second);
-
-			if (aggregate_all && key != all_key)
-			{
-				auto [it_all, inserted_all] = counters.emplace (all_key, std::make_unique<counter_entry> ());
-				updater (*it_all->second); // Also update the `all` counter
-			}
-		}
-	};
-
-	update_counter (counter_key{ type, detail, dir }, [value] (counter_entry & counter) {
-		counter.value += value;
-	});
+	if (aggregate_all && detail != stat::detail::all)
+	{
+		counter_ref (type, stat::detail::all, dir).fetch_add (value, std::memory_order_relaxed);
+	}
 }
 
 nano::stats::counter_value_t nano::stats::count (stat::type type, stat::detail detail, stat::dir dir) const
 {
-	std::shared_lock lock{ mutex };
-	if (auto it = counters.find (counter_key{ type, detail, dir }); it != counters.end ())
-	{
-		return it->second->value;
-	}
-	return 0;
+	return counter_ref (type, detail, dir).load (std::memory_order_relaxed);
 }
 
 nano::stats::counter_value_t nano::stats::count (stat::type type, stat::dir dir) const
 {
-	std::shared_lock lock{ mutex };
 	counter_value_t result = 0;
-	auto it = counters.lower_bound (counter_key{ type, stat::detail::all, dir });
-	while (it != counters.end () && it->first.type == type)
+
+	// Sum all detail counters for this type and direction (except the 'all' detail)
+	for (auto detail : magic_enum::enum_values<stat::detail> ())
 	{
-		if (it->first.dir == dir && it->first.detail != stat::detail::all)
+		if (detail != stat::detail::all && detail != stat::detail::_invalid && detail != stat::detail::_last)
 		{
-			result += it->second->value;
+			result += counter_ref (type, detail, dir).load (std::memory_order_relaxed);
 		}
-		++it;
 	}
 	return result;
 }
@@ -225,6 +226,7 @@ void nano::stats::log_counters (stat_log_sink & sink)
 void nano::stats::log_counters_impl (stat_log_sink & sink, tm & tm)
 {
 	sink.begin ();
+
 	if (sink.entries () >= config.log_rotation_count)
 	{
 		sink.rotate ();
@@ -236,14 +238,35 @@ void nano::stats::log_counters_impl (stat_log_sink & sink, tm & tm)
 		sink.write_header ("counters", walltime);
 	}
 
-	for (auto const & [key, entry] : counters)
+	for (auto dir : magic_enum::enum_values<stat::dir> ())
 	{
-		std::string type{ to_string (key.type) };
-		std::string detail{ to_string (key.detail) };
-		std::string dir{ to_string (key.dir) };
+		if (dir == stat::dir::_last)
+			continue;
 
-		sink.write_counter_entry (tm, type, detail, dir, entry->value);
+		for (auto type : magic_enum::enum_values<stat::type> ())
+		{
+			if (type == stat::type::_invalid || type == stat::type::_last)
+				continue;
+
+			for (auto detail : magic_enum::enum_values<stat::detail> ())
+			{
+				if (detail == stat::detail::_invalid || detail == stat::detail::_last)
+					continue;
+
+				auto value = counter_ref (type, detail, dir).load (std::memory_order_relaxed);
+
+				if (value > 0) // Only log non-zero counters
+				{
+					std::string type_str{ to_string (type) };
+					std::string detail_str{ to_string (detail) };
+					std::string dir_str{ to_string (dir) };
+
+					sink.write_counter_entry (tm, type_str, detail_str, dir_str, value);
+				}
+			}
+		}
 	}
+
 	sink.entries ()++;
 	sink.finalize ();
 }
@@ -301,7 +324,9 @@ void nano::stats::run ()
 	std::unique_lock lock{ mutex };
 	while (!stopped)
 	{
-		condition.wait_for (lock, 1s);
+		condition.wait_for (lock, 1s, [this] {
+			return stopped;
+		});
 		if (!stopped)
 		{
 			run_one (lock);

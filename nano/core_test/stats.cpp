@@ -11,6 +11,11 @@ TEST (stats, counters)
 	nano::test::system system;
 	auto & node = *system.add_node ();
 
+	// Initial state
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::ledger, nano::stat::dir::in));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::ledger, nano::stat::detail::test, nano::stat::dir::in));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::ledger, nano::stat::detail::send, nano::stat::dir::out));
+
 	node.stats.add (nano::stat::type::ledger, nano::stat::detail::test, nano::stat::dir::in, 1);
 	node.stats.add (nano::stat::type::ledger, nano::stat::detail::test, nano::stat::dir::in, 5);
 	node.stats.inc (nano::stat::type::ledger, nano::stat::detail::test, nano::stat::dir::in);
