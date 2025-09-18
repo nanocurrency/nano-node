@@ -116,6 +116,7 @@ add_library(
   stats_sinks.hpp
   stream.hpp
   thread_pool.hpp
+  thread_pool.cpp
   thread_roles.hpp
   thread_roles.cpp
   thread_runner.hpp

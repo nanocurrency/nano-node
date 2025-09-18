@@ -116,8 +116,8 @@ public:
 	nano::thread_runner & runner;
 	std::unique_ptr<nano::node_observers> observers_impl;
 	nano::node_observers & observers;
-	std::unique_ptr<nano::thread_pool> workers_impl;
-	nano::thread_pool & workers;
+	std::unique_ptr<nano::timed_thread_pool> workers_impl;
+	nano::timed_thread_pool & workers;
 	std::unique_ptr<nano::thread_pool> bootstrap_workers_impl;
 	nano::thread_pool & bootstrap_workers;
 	std::unique_ptr<nano::thread_pool> wallet_workers_impl;
