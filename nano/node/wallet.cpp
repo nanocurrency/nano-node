@@ -901,7 +901,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 				nano::raw_key prv;
 				if (!store.fetch (transaction, account_a, prv))
 				{
-					logger.info (nano::log::type::wallet, "Receiving block {} from account {}, amount: {}",
+					logger.info (nano::log::type::wallet, "Receiving block: {} from account: {}, amount: {}",
 					send_hash_a.to_string (),
 					account_a.to_account (),
 					pending_info->amount.number ().convert_to<std::string> ());
@@ -924,7 +924,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 				}
 				else
 				{
-					logger.warn (nano::log::type::wallet, "Unable to receive, wallet locked, block {} to account: {}",
+					logger.warn (nano::log::type::wallet, "Unable to receive, wallet locked, block: {} to account: {}",
 					send_hash_a.to_string (),
 					account_a.to_account ());
 				}
@@ -932,19 +932,19 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 			else
 			{
 				// Ledger doesn't have this marked as available to receive anymore
-				logger.warn (nano::log::type::wallet, "Not receiving block {}, block already received", send_hash_a.to_string ());
+				logger.warn (nano::log::type::wallet, "Not receiving block: {}, block already received", send_hash_a.to_string ());
 			}
 		}
 		else
 		{
 			// Ledger doesn't have this block anymore.
-			logger.warn (nano::log::type::wallet, "Not receiving block {}, block no longer exists or pruned", send_hash_a.to_string ());
+			logger.warn (nano::log::type::wallet, "Not receiving block: {}, block no longer exists or pruned", send_hash_a.to_string ());
 		}
 	}
 	else
 	{
 		// Someone sent us something below the threshold of receiving
-		logger.warn (nano::log::type::wallet, "Not receiving block {} due to minimum receive threshold", send_hash_a.to_string ());
+		logger.warn (nano::log::type::wallet, "Not receiving block: {} due to minimum receive threshold", send_hash_a.to_string ());
 	}
 	if (block != nullptr)
 	{
@@ -969,7 +969,7 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 			auto existing (store.find (transaction, source_a));
 			if (existing != store.end (transaction) && !wallets.node.ledger.any.account_head (block_transaction, source_a).is_zero ())
 			{
-				logger.info (nano::log::type::wallet, "Changing representative for account {} to {}",
+				logger.info (nano::log::type::wallet, "Changing representative for account: {} to: {}",
 				source_a.to_account (),
 				representative_a.to_account ());
 
@@ -988,13 +988,13 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 			}
 			else
 			{
-				logger.warn (nano::log::type::wallet, "Changing representative for account {} failed, wallet locked or account not found",
+				logger.warn (nano::log::type::wallet, "Changing representative for account: {} failed, wallet locked or account not found",
 				source_a.to_account ());
 			}
 		}
 		else
 		{
-			logger.warn (nano::log::type::wallet, "Changing representative for account {} failed, wallet locked",
+			logger.warn (nano::log::type::wallet, "Changing representative for account: {} failed, wallet locked",
 			source_a.to_account ());
 		}
 	}
@@ -1148,7 +1148,7 @@ bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a
 		auto required_difficulty{ wallets.node.network_params.work.threshold (block_a->work_version (), details_a) };
 		if (wallets.node.network_params.work.difficulty (*block_a) < required_difficulty)
 		{
-			logger.info (nano::log::type::wallet, "Cached or provided work for block {} account {} is invalid, regenerating...",
+			logger.info (nano::log::type::wallet, "Cached or provided work for block: {}, account {}: is invalid, regenerating...",
 			block_a->hash ().to_string (),
 			account_a.to_account ());
 
@@ -1292,9 +1292,15 @@ bool nano::wallet::search_receivable (store::transaction const & wallet_transact
 					auto amount (pending.amount.number ());
 					if (wallets.node.config.receive_minimum.number () <= amount)
 					{
-						logger.info (nano::log::type::wallet, "Found a receivable block {} for account {}", hash.to_string (), pending.source.to_account ());
+						bool const confirmed = wallets.node.ledger.confirmed.block_exists_or_pruned (block_transaction, hash);
 
-						if (wallets.node.ledger.confirmed.block_exists_or_pruned (block_transaction, hash))
+						logger.info (nano::log::type::wallet, "Found a receivable block: {} ({}) for account: {} from: {}",
+						hash.to_string (),
+						confirmed ? "confirmed" : "unconfirmed",
+						key.account.to_account (),
+						pending.source.to_account ());
+
+						if (confirmed)
 						{
 							auto representative = store.representative (wallet_transaction_a);
 							// Receive confirmed block
@@ -1371,7 +1377,7 @@ nano::public_key nano::wallet::change_seed (store::transaction const & transacti
 	if (count == 0)
 	{
 		count = deterministic_check (transaction_a, 0);
-		logger.info (nano::log::type::wallet, "Auto-detected {} accounts to generate", count);
+		logger.info (nano::log::type::wallet, "Auto-detected {} accounts to generate from seed", count);
 	}
 	for (uint32_t i (0); i < count; ++i)
 	{
@@ -1416,7 +1422,7 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::r
 		}
 		else if (!wallets.node.stopped)
 		{
-			logger.warn (nano::log::type::wallet, "Could not precache work for root {} due to work generation failure", root_a.to_string ());
+			logger.warn (nano::log::type::wallet, "Could not precache work for root: {} due to work generation failure", root_a.to_string ());
 		}
 	}
 }
