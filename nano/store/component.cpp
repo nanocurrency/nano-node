@@ -28,7 +28,7 @@ nano::store::component::component (nano::store::block & block_store_a, nano::sto
  * If using a different store version than the latest then you may need
  * to modify some of the objects in the store to be appropriate for the version before an upgrade.
  */
-void nano::store::component::initialize (store::write_transaction const & transaction, nano::ledger_constants & constants)
+void nano::store::component::initialize (store::write_transaction const & transaction, nano::ledger_constants const & constants)
 {
 	release_assert (constants.genesis->has_sideband ());
 	release_assert (account.begin (transaction) == account.end (transaction));

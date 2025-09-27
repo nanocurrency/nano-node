@@ -4,6 +4,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/secure/account_info.hpp>
+#include <nano/secure/common.hpp>
 #include <nano/secure/fwd.hpp>
 #include <nano/secure/generate_cache_flags.hpp>
 #include <nano/secure/pending_info.hpp>
@@ -37,7 +38,7 @@ class ledger final
 	friend class receivable_iterator;
 
 public:
-	ledger (nano::store::component &, nano::ledger_constants &, nano::stats &, nano::logger &, nano::generate_cache_flags = {}, nano::uint128_t min_rep_weight = 0, uint64_t max_backlog = 0);
+	ledger (nano::store::component &, nano::network_params const &, nano::stats &, nano::logger &, nano::generate_cache_flags = {}, nano::uint128_t min_rep_weight = 0, uint64_t max_backlog = 0);
 	~ledger ();
 
 	/** Start read-write transaction */
@@ -101,8 +102,9 @@ public:
 public:
 	static nano::uint128_t const unit;
 
+	nano::ledger_constants const & constants;
+	nano::work_thresholds const & work;
 	nano::store::component & store;
-	nano::ledger_constants & constants;
 	nano::stats & stats;
 	nano::logger & logger;
 

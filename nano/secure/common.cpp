@@ -90,7 +90,7 @@ std::shared_ptr<nano::block> & nano::dev::genesis = nano::dev::constants.genesis
  *
  */
 
-nano::work_thresholds const & nano::work_thresholds_for_network (nano::networks network_type)
+nano::work_thresholds nano::work_thresholds_for_network (nano::networks network_type)
 {
 	switch (network_type)
 	{
@@ -110,7 +110,7 @@ nano::work_thresholds const & nano::work_thresholds_for_network (nano::networks 
 nano::network_params::network_params (nano::networks network_type) :
 	work{ work_thresholds_for_network (network_type) },
 	network{ work, network_type },
-	ledger{ work, network_type },
+	ledger{ network_type },
 	voting{ network },
 	node{ network },
 	portmapping{ network },
@@ -125,8 +125,7 @@ nano::network_params::network_params (nano::networks network_type) :
  *
  */
 
-nano::ledger_constants::ledger_constants (nano::work_thresholds & work, nano::networks network_type) :
-	work{ work },
+nano::ledger_constants::ledger_constants (nano::networks network_type) :
 	zero_key{ "0" },
 	nano_beta_account{ beta_public_key_data },
 	nano_live_account{ live_public_key_data },
@@ -249,7 +248,7 @@ nano::hardened_constants::hardened_constants () :
  *
  */
 
-nano::node_constants::node_constants (nano::network_constants & network_constants)
+nano::node_constants::node_constants (nano::network_constants const & network_constants)
 {
 	backup_interval = std::chrono::minutes (5);
 	search_pending_interval = network_constants.is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
@@ -263,7 +262,7 @@ nano::node_constants::node_constants (nano::network_constants & network_constant
  *
  */
 
-nano::voting_constants::voting_constants (nano::network_constants & network_constants) :
+nano::voting_constants::voting_constants (nano::network_constants const & network_constants) :
 	max_cache{ network_constants.is_dev_network () ? 256U : 128U * 1024 },
 	delay{ network_constants.is_dev_network () ? 1 : 15 }
 {
@@ -273,7 +272,7 @@ nano::voting_constants::voting_constants (nano::network_constants & network_cons
  *
  */
 
-nano::portmapping_constants::portmapping_constants (nano::network_constants & network_constants)
+nano::portmapping_constants::portmapping_constants (nano::network_constants const & network_constants)
 {
 	lease_duration = std::chrono::seconds (1787); // ~30 minutes
 	health_check_period = std::chrono::seconds (53);
@@ -283,7 +282,7 @@ nano::portmapping_constants::portmapping_constants (nano::network_constants & ne
  *
  */
 
-nano::bootstrap_constants::bootstrap_constants (nano::network_constants & network_constants)
+nano::bootstrap_constants::bootstrap_constants (nano::network_constants const & network_constants)
 {
 	lazy_max_pull_blocks = network_constants.is_dev_network () ? 2 : 512;
 	lazy_min_pull_blocks = network_constants.is_dev_network () ? 1 : 32;

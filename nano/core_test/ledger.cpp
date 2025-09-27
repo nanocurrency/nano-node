@@ -876,7 +876,7 @@ TEST (ledger, double_open)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	nano::stats stats{ logger };
-	nano::ledger ledger (*store, nano::dev::constants, stats, logger);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair key2;
@@ -4810,7 +4810,7 @@ TEST (ledger, dependents_confirmed_pruning)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	nano::stats stats{ logger };
-	nano::ledger ledger (*store, nano::dev::constants, stats, logger);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
 	ledger.pruning = true;
 	auto transaction = ledger.tx_begin_write ();
 	nano::block_builder builder;
@@ -4908,7 +4908,7 @@ TEST (ledger, cache)
 		};
 
 		cache_check (ledger);
-		cache_check (nano::ledger (store, nano::dev::constants, stats, logger));
+		cache_check (nano::ledger (store, nano::dev::network_params, stats, logger));
 
 		nano::keypair key;
 		auto const latest = ledger.any.account_head (ledger.tx_begin_read (), nano::dev::genesis_key.pub);
@@ -4938,7 +4938,7 @@ TEST (ledger, cache)
 		++block_count;
 		--genesis_weight;
 		cache_check (ledger);
-		cache_check (nano::ledger (store, nano::dev::constants, stats, logger));
+		cache_check (nano::ledger (store, nano::dev::network_params, stats, logger));
 
 		{
 			auto transaction = ledger.tx_begin_write ();
@@ -4948,7 +4948,7 @@ TEST (ledger, cache)
 		++block_count;
 		++account_count;
 		cache_check (ledger);
-		cache_check (nano::ledger (store, nano::dev::constants, stats, logger));
+		cache_check (nano::ledger (store, nano::dev::network_params, stats, logger));
 
 		{
 			auto transaction = ledger.tx_begin_write ();
@@ -4958,7 +4958,7 @@ TEST (ledger, cache)
 
 		++cemented_count;
 		cache_check (ledger);
-		cache_check (nano::ledger (store, nano::dev::constants, stats, logger));
+		cache_check (nano::ledger (store, nano::dev::network_params, stats, logger));
 
 		{
 			auto transaction = ledger.tx_begin_write ();
@@ -4968,7 +4968,7 @@ TEST (ledger, cache)
 
 		++cemented_count;
 		cache_check (ledger);
-		cache_check (nano::ledger (store, nano::dev::constants, stats, logger));
+		cache_check (nano::ledger (store, nano::dev::network_params, stats, logger));
 
 		{
 			auto transaction = ledger.tx_begin_write ();
@@ -4976,7 +4976,7 @@ TEST (ledger, cache)
 		}
 		++pruned_count;
 		cache_check (ledger);
-		cache_check (nano::ledger (store, nano::dev::constants, stats, logger));
+		cache_check (nano::ledger (store, nano::dev::network_params, stats, logger));
 	}
 }
 
@@ -4985,7 +4985,7 @@ TEST (ledger, pruning_action)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	nano::stats stats{ logger };
-	nano::ledger ledger (*store, nano::dev::constants, stats, logger);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
 	ledger.pruning = true;
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -5069,7 +5069,7 @@ TEST (ledger, pruning_large_chain)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	nano::stats stats{ logger };
-	nano::ledger ledger (*store, nano::dev::constants, stats, logger);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
 	ledger.pruning = true;
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -5123,7 +5123,7 @@ TEST (ledger, pruning_source_rollback)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	nano::stats stats{ logger };
-	nano::ledger ledger (*store, nano::dev::constants, stats, logger);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
 	ledger.pruning = true;
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -5210,7 +5210,7 @@ TEST (ledger, pruning_source_rollback_legacy)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	nano::stats stats{ logger };
-	nano::ledger ledger (*store, nano::dev::constants, stats, logger);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
 	ledger.pruning = true;
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -5322,7 +5322,7 @@ TEST (ledger, pruning_legacy_blocks)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	nano::stats stats{ logger };
-	nano::ledger ledger (*store, nano::dev::constants, stats, logger);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
 	ledger.pruning = true;
 	nano::keypair key1;
 	auto transaction = ledger.tx_begin_write ();
@@ -5407,7 +5407,7 @@ TEST (ledger, pruning_safe_functions)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	nano::stats stats{ logger };
-	nano::ledger ledger (*store, nano::dev::constants, stats, logger);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
 	ledger.pruning = true;
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -5457,7 +5457,7 @@ TEST (ledger, random_blocks)
 	nano::logger logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	nano::stats stats{ logger };
-	nano::ledger ledger (*store, nano::dev::constants, stats, logger);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
 	ledger.pruning = true;
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -5544,7 +5544,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	boost::asio::ip::address_v6 address (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"));
 	uint16_t port = 100;
 	nano::store::lmdb::component store{ logger, path / "data.ldb", nano::dev::constants };
-	nano::ledger ledger{ store, nano::dev::constants, system.stats, system.logger };
+	nano::ledger ledger{ store, nano::dev::network_params, system.stats, system.logger };
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 
 	std::shared_ptr<nano::block> send = nano::state_block_builder ()

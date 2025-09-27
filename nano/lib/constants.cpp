@@ -35,6 +35,10 @@ struct HexTo
 };
 }
 
+/*
+ * Work thresholds
+ */
+
 nano::work_thresholds const nano::work_thresholds::publish_full (
 0xffffffc000000000,
 0xfffffff800000000, // 8x higher than epoch_1
@@ -58,6 +62,10 @@ nano::env::get<HexTo<uint64_t>> ("NANO_TEST_EPOCH_1").value_or (0xffffffc0000000
 nano::env::get<HexTo<uint64_t>> ("NANO_TEST_EPOCH_2").value_or (0xfffffff800000000), // 8x higher than epoch_1
 nano::env::get<HexTo<uint64_t>> ("NANO_TEST_EPOCH_2_RECV").value_or (0xfffffe0000000000) // 8x lower than epoch_1
 );
+
+/*
+ *
+ */
 
 uint64_t nano::work_thresholds::threshold_entry (nano::work_version const version_a, nano::block_type const type_a) const
 {

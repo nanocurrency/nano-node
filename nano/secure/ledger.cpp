@@ -30,9 +30,10 @@
 
 #include <cryptopp/words.h>
 
-nano::ledger::ledger (nano::store::component & store_a, nano::ledger_constants & constants_a, nano::stats & stats_a, nano::logger & logger_a, nano::generate_cache_flags generate_cache_flags_a, nano::uint128_t min_rep_weight_a, uint64_t max_backlog_a) :
+nano::ledger::ledger (nano::store::component & store_a, nano::network_params const & params_a, nano::stats & stats_a, nano::logger & logger_a, nano::generate_cache_flags generate_cache_flags_a, nano::uint128_t min_rep_weight_a, uint64_t max_backlog_a) :
+	constants{ params_a.ledger },
+	work{ params_a.work },
 	store{ store_a },
-	constants{ constants_a },
 	stats{ stats_a },
 	logger{ logger_a },
 	rep_weights{ store_a.rep_weight, min_rep_weight_a },
@@ -356,11 +357,12 @@ void nano::ledger::confirm_one (secure::write_transaction & transaction, nano::b
 	stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed);
 }
 
-nano::block_status nano::ledger::process (secure::write_transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
+nano::block_status nano::ledger::process (secure::write_transaction const & transaction, std::shared_ptr<nano::block> block)
 {
-	debug_assert (!constants.work.validate_entry (*block_a) || constants.genesis == nano::dev::genesis);
-	ledger_processor processor (transaction_a, *this);
-	block_a->visit (processor);
+	debug_assert (!work.validate_entry (*block) || constants.genesis == nano::dev::genesis);
+
+	ledger_processor processor (transaction, *this);
+	block->visit (processor);
 	if (processor.result == nano::block_status::progress)
 	{
 		++cache.block_count;

@@ -17,7 +17,7 @@ TEST (processor_service, bad_send_signature)
 	nano::test::system system;
 
 	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
-	nano::ledger ledger (*store, nano::dev::constants, system.stats, system.logger);
+	nano::ledger ledger (*store, nano::dev::network_params, system.stats, system.logger);
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	auto info1 = ledger.any.account_get (transaction, nano::dev::genesis_key.pub);
@@ -41,7 +41,7 @@ TEST (processor_service, bad_receive_signature)
 	nano::test::system system;
 
 	auto store = nano::make_store (system.logger, nano::unique_path (), nano::dev::constants);
-	nano::ledger ledger (*store, nano::dev::constants, system.stats, system.logger);
+	nano::ledger ledger (*store, nano::dev::network_params, system.stats, system.logger);
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	auto info1 = ledger.any.account_get (transaction, nano::dev::genesis_key.pub);

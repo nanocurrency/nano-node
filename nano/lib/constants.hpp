@@ -29,16 +29,17 @@ std::string_view to_string (nano::networks);
 class work_thresholds
 {
 public:
-	uint64_t const epoch_1;
-	uint64_t const epoch_2;
-	uint64_t const epoch_2_receive;
+	uint64_t epoch_1;
+	uint64_t epoch_2;
+	uint64_t epoch_2_receive;
 
 	// Automatically calculated. The base threshold is the maximum of all thresholds and is used for all work multiplier calculations
-	uint64_t const base;
+	uint64_t base;
 
 	// Automatically calculated. The entry threshold is the minimum of all thresholds and defines the required work to enter the node, but does not guarantee a block is processed
-	uint64_t const entry;
+	uint64_t entry;
 
+public:
 	constexpr work_thresholds (uint64_t epoch_1_a, uint64_t epoch_2_a, uint64_t epoch_2_receive_a) :
 		epoch_1 (epoch_1_a), epoch_2 (epoch_2_a), epoch_2_receive (epoch_2_receive_a),
 		base (std::max ({ epoch_1, epoch_2, epoch_2_receive })),
@@ -46,25 +47,21 @@ public:
 	{
 	}
 	work_thresholds () = delete;
-	work_thresholds operator= (nano::work_thresholds const & other_a)
-	{
-		return other_a;
-	}
 
-	uint64_t threshold_entry (nano::work_version const, nano::block_type const) const;
+	uint64_t threshold_entry (nano::work_version, nano::block_type) const;
 	uint64_t threshold (nano::block_details const &) const;
 	// Ledger threshold
-	uint64_t threshold (nano::work_version const, nano::block_details const) const;
-	uint64_t threshold_base (nano::work_version const) const;
-	uint64_t value (nano::root const & root_a, uint64_t work_a) const;
-	double normalized_multiplier (double const, uint64_t const) const;
-	double denormalized_multiplier (double const, uint64_t const) const;
-	uint64_t difficulty (nano::work_version const, nano::root const &, uint64_t const) const;
-	uint64_t difficulty (nano::block const & block_a) const;
-	bool validate_entry (nano::work_version const, nano::root const &, uint64_t const) const;
-	bool validate_entry (nano::block const &) const;
+	uint64_t threshold (nano::work_version, nano::block_details) const;
+	uint64_t threshold_base (nano::work_version) const;
+	uint64_t value (nano::root const & root, uint64_t work) const;
+	double normalized_multiplier (double multiplier, uint64_t threshold) const;
+	double denormalized_multiplier (double multiplier, uint64_t threshold) const;
+	uint64_t difficulty (nano::work_version, nano::root const & root, uint64_t work) const;
+	uint64_t difficulty (nano::block const & block) const;
+	bool validate_entry (nano::work_version, nano::root const & root, uint64_t work) const;
+	bool validate_entry (nano::block const & block) const;
 
-	/** Network work thresholds. Define these inline as constexpr when moving to cpp17. */
+public: // Network work thresholds
 	static nano::work_thresholds const publish_full;
 	static nano::work_thresholds const publish_beta;
 	static nano::work_thresholds const publish_dev;
@@ -73,22 +70,20 @@ public:
 
 class network_constants
 {
-	static constexpr std::chrono::seconds default_cleanup_period = std::chrono::seconds (60);
-
 public:
-	network_constants (nano::work_thresholds const & work_, nano::networks network_a) :
+	network_constants (nano::work_thresholds const & work_a, nano::networks network_a) :
 		current_network (network_a),
-		work (work_),
+		work (work_a),
 		principal_weight_factor (1000), // 0.1% A representative is classified as principal based on its weight and this factor
 		default_node_port (44000),
 		default_rpc_port (45000),
 		default_ipc_port (46000),
 		default_websocket_port (47000),
 		aec_loop_interval (300ms), // Update AEC ~3 times per second
-		cleanup_period (default_cleanup_period),
+		cleanup_period (60s),
 		merge_period (std::chrono::milliseconds (250)),
 		keepalive_period (std::chrono::seconds (15)),
-		idle_timeout (default_cleanup_period * 2),
+		idle_timeout (120s),
 		silent_connection_tolerance_time (std::chrono::seconds (120)),
 		syn_cookie_cutoff (std::chrono::seconds (5)),
 		bootstrap_interval (std::chrono::seconds (15 * 60)),

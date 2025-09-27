@@ -50,7 +50,7 @@ namespace store
 
 		virtual ~component () = default;
 
-		void initialize (store::write_transaction const &, nano::ledger_constants &);
+		void initialize (store::write_transaction const &, nano::ledger_constants const &);
 
 		virtual uint64_t count (store::transaction const & transaction_a, tables table_a) const = 0;
 		virtual int drop (store::write_transaction const & transaction_a, tables table_a) = 0;

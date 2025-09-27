@@ -166,8 +166,8 @@ class network_params;
 class ledger_constants
 {
 public:
-	ledger_constants (nano::work_thresholds &, nano::networks);
-	nano::work_thresholds & work;
+	ledger_constants (nano::networks);
+
 	nano::keypair zero_key;
 	nano::account nano_beta_account;
 	nano::account nano_live_account;
@@ -207,7 +207,8 @@ private:
 class node_constants
 {
 public:
-	node_constants (nano::network_constants & network_constants);
+	explicit node_constants (nano::network_constants const &);
+
 	std::chrono::minutes backup_interval;
 	std::chrono::seconds search_pending_interval;
 	std::chrono::minutes unchecked_cleaning_interval;
@@ -223,7 +224,8 @@ public:
 class voting_constants
 {
 public:
-	voting_constants (nano::network_constants & network_constants);
+	explicit voting_constants (nano::network_constants const &);
+
 	size_t const max_cache;
 	std::chrono::seconds const delay;
 };
@@ -232,7 +234,8 @@ public:
 class portmapping_constants
 {
 public:
-	portmapping_constants (nano::network_constants & network_constants);
+	explicit portmapping_constants (nano::network_constants const &);
+
 	// Timeouts are primes so they infrequently happen at the same time
 	std::chrono::seconds lease_duration;
 	std::chrono::seconds health_check_period;
@@ -242,7 +245,8 @@ public:
 class bootstrap_constants
 {
 public:
-	bootstrap_constants (nano::network_constants & network_constants);
+	explicit bootstrap_constants (nano::network_constants const &);
+
 	uint32_t lazy_max_pull_blocks;
 	uint32_t lazy_min_pull_blocks;
 	unsigned frontier_retry_limit;
@@ -252,7 +256,7 @@ public:
 	uint32_t default_frontiers_age_seconds;
 };
 
-nano::work_thresholds const & work_thresholds_for_network (nano::networks);
+nano::work_thresholds work_thresholds_for_network (nano::networks);
 
 /** Constants whose value depends on the active network */
 class network_params

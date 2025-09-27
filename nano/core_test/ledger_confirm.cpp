@@ -760,7 +760,7 @@ TEST (ledger_confirm, pruned_source)
 	auto path (nano::unique_path ());
 	auto store = nano::make_store (system.logger, path, nano::dev::constants);
 
-	nano::ledger ledger (*store, nano::dev::constants, system.stats, system.logger);
+	nano::ledger ledger (*store, nano::dev::network_params, system.stats, system.logger);
 	ledger.pruning = true;
 	nano::store::write_queue write_queue;
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -844,7 +844,7 @@ TEST (ledger_confirmDeathTest, rollback_added_block)
 		auto path (nano::unique_path ());
 		auto store = nano::make_store (system.logger, path, nano::dev::constants);
 
-		nano::ledger ledger (*store, nano::dev::constants, system.stats, system.logger);
+		nano::ledger ledger (*store, nano::dev::network_params, system.stats, system.logger);
 		nano::store::write_queue write_queue;
 		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 		nano::keypair key1;

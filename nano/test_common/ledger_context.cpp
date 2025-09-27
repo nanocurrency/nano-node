@@ -5,7 +5,7 @@
 
 nano::test::ledger_context::ledger_context (std::deque<std::shared_ptr<nano::block>> && blocks) :
 	store_m{ nano::make_store (logger_m, nano::unique_path (), nano::dev::constants) },
-	ledger_m{ *store_m, nano::dev::constants, stats_m, logger_m },
+	ledger_m{ *store_m, nano::dev::network_params, stats_m, logger_m },
 	blocks_m{ blocks },
 	pool_m{ nano::dev::network_params.network, 1 }
 {

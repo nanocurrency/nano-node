@@ -520,7 +520,7 @@ TEST (history, short_text)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	nano::ledger ledger (*store, nano::dev::constants, stats, logger);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
 	{
 		auto transaction (ledger.tx_begin_write ());
 		nano::keypair key;
@@ -557,7 +557,7 @@ TEST (history, pruned_source)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
-	nano::ledger ledger (*store, nano::dev::constants, stats, logger);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
 	ledger.pruning = true;
 	nano::block_hash next_pruning;
 	// Basic pruning for legacy blocks. Previous block is pruned, source is pruned
