@@ -14,10 +14,12 @@ namespace websocket
 	class config final
 	{
 	public:
-		config (nano::network_constants & network_constants);
-		nano::error deserialize_toml (nano::tomlconfig & toml_a);
-		nano::error serialize_toml (nano::tomlconfig & toml) const;
-		nano::network_constants & network_constants;
+		config (nano::network_constants const &);
+
+		nano::error deserialize_toml (nano::tomlconfig &);
+		nano::error serialize_toml (nano::tomlconfig &) const;
+
+		nano::network_constants const & network_constants;
 		bool enabled{ false };
 		uint16_t port;
 		std::string address;

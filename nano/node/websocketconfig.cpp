@@ -2,10 +2,10 @@
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/websocketconfig.hpp>
 
-nano::websocket::config::config (nano::network_constants & network_constants) :
+nano::websocket::config::config (nano::network_constants const & network_constants) :
 	network_constants{ network_constants },
 	port{ network_constants.default_websocket_port },
-	address{ boost::asio::ip::address_v6::loopback ().to_string () }
+	address{ "127.0.0.1" }
 {
 }
 

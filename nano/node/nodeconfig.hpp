@@ -57,13 +57,13 @@ std::optional<database_backend> parse_database_backend (std::string const &);
 
 /**
  * Node configuration
+ * TODO: Users of this class rely on the default copy constructor. This prevents using unique_ptrs with forward declared types.
  */
 class node_config
 {
 public:
-	// TODO: Users of this class rely on the default copy consturctor. This prevents using unique_ptrs with forward declared types.
-	node_config (nano::network_params & network_params = nano::dev::network_params);
-	node_config (const std::optional<uint16_t> &, nano::network_params & network_params = nano::dev::network_params);
+	node_config (std::optional<uint16_t> peering_port, nano::network_params const & = nano::dev::network_params);
+	node_config (nano::network_params const & = nano::dev::network_params);
 	~node_config ();
 
 	nano::error serialize_toml (nano::tomlconfig &) const;

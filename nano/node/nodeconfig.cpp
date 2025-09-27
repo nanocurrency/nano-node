@@ -22,12 +22,7 @@ std::string const default_beta_peer_network = nano::env::get ("NANO_DEFAULT_PEER
 std::string const default_test_peer_network = nano::env::get ("NANO_DEFAULT_PEER").value_or ("peering-test.nano.org");
 }
 
-nano::node_config::node_config (nano::network_params & network_params) :
-	node_config (std::nullopt, network_params)
-{
-}
-
-nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, nano::network_params & network_params) :
+nano::node_config::node_config (std::optional<uint16_t> peering_port_a, nano::network_params const & network_params) :
 	network_params{ network_params },
 	peering_port{ peering_port_a },
 	hinted_scheduler{ network_params.network },
@@ -86,6 +81,11 @@ nano::node_config::node_config (const std::optional<uint16_t> & peering_port_a, 
 			debug_assert (false);
 			break;
 	}
+}
+
+nano::node_config::node_config (nano::network_params const & network_params) :
+	node_config{ std::nullopt, network_params }
+{
 }
 
 nano::node_config::~node_config ()

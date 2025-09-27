@@ -3,7 +3,7 @@
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
 
-nano::ipc::ipc_config_tcp_socket::ipc_config_tcp_socket (nano::network_constants & network_constants) :
+nano::ipc::ipc_config_tcp_socket::ipc_config_tcp_socket (nano::network_constants const & network_constants) :
 	network_constants{ network_constants },
 	port{ network_constants.default_ipc_port }
 {

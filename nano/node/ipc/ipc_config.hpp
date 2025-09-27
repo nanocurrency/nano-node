@@ -15,6 +15,7 @@ namespace ipc
 	{
 	public:
 		virtual ~ipc_config_transport () = default;
+
 		bool enabled{ false };
 		bool allow_unsafe{ false };
 		std::size_t io_timeout{ 15 };
@@ -46,8 +47,9 @@ namespace ipc
 	class ipc_config_tcp_socket : public ipc_config_transport
 	{
 	public:
-		ipc_config_tcp_socket (nano::network_constants & network_constants);
-		nano::network_constants & network_constants;
+		ipc_config_tcp_socket (nano::network_constants const &);
+
+		nano::network_constants const & network_constants;
 		/** Listening port */
 		uint16_t port;
 	};
@@ -56,12 +58,14 @@ namespace ipc
 	class ipc_config
 	{
 	public:
-		ipc_config (nano::network_constants & network_constants) :
+		ipc_config (nano::network_constants const & network_constants) :
 			transport_tcp{ network_constants }
 		{
 		}
+
 		nano::error deserialize_toml (nano::tomlconfig & toml_a);
 		nano::error serialize_toml (nano::tomlconfig & toml) const;
+
 		ipc_config_domain_socket transport_domain;
 		ipc_config_tcp_socket transport_tcp;
 		ipc_config_flatbuffers flatbuffers;
