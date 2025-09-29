@@ -111,6 +111,8 @@ public:
 
 public: // Events
 	nano::observer_set<> vacancy_updated;
+	nano::observer_set<std::shared_ptr<nano::election>, nano::bucket_index, nano::priority_timestamp> election_started;
+	nano::observer_set<std::shared_ptr<nano::election>> election_erased;
 	nano::observer_set<std::shared_ptr<nano::election>> election_stale;
 
 private:

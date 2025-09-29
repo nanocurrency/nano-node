@@ -195,6 +195,9 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 			root,
 			fmt::join (result.election->blocks_hashes (), ", "), // TODO: Lazy eval
 			to_string (behavior));
+
+			// Notify observers that a new election started (while still holding the lock to avoid races)
+			election_started.notify (result.election, bucket, priority);
 		}
 		else
 		{
@@ -214,6 +217,9 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 			{
 				index.update (result.election, behavior);
 				node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::transition_priority);
+
+				// Notify observers that this election is now priority (same as election_started)
+				election_started.notify (result.election, bucket, priority);
 			}
 			else
 			{
@@ -350,6 +356,9 @@ void nano::active_elections::erase_election (nano::unique_lock<nano::mutex> & lo
 	{
 		erased_callback (election);
 	}
+
+	// Notify observers that the election was erased
+	election_erased.notify (election);
 
 	vacancy_updated.notify ();
 
