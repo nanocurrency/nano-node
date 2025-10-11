@@ -137,6 +137,7 @@ int main (int argc, char * const * argv)
 		("benchmark_cementing", "Run cementing throughput benchmark")
 		("benchmark_elections", "Run elections confirmation and cementing benchmark")
 		("benchmark_pipeline", "Run full confirmation pipeline benchmark")
+		("benchmark_pipeline_multinode", "Run multi-node pipeline benchmark with configurable representatives and observers")
 		("debug_profile_votes", "Profile votes processing (only for nano_dev_network)")
 		("debug_profile_frontiers_confirmation", "Profile frontiers confirmation speed (only for nano_dev_network)")
 		("debug_random_feed", "Generates output to RNG test suites")
@@ -158,6 +159,8 @@ int main (int argc, char * const * argv)
 		("iterations", boost::program_options::value<std::string> (), "Defines <iterations> for throughput benchmark (default 10)")
 		("batch_size", boost::program_options::value<std::string> (), "Defines <batch_size> for throughput benchmark (default 250000)")
 		("cementing_mode", boost::program_options::value<std::string> (), "Defines cementing mode for benchmark: 'sequential' or 'root' (default sequential)")
+		("representatives", boost::program_options::value<std::string> (), "Defines <representatives> for multi-node benchmark (default 4)")
+		("observers", boost::program_options::value<std::string> (), "Defines <observers> for multi-node benchmark (default 2)")
 		("pow_sleep_interval", boost::program_options::value<std::string> (), "Defines the amount to sleep inbetween each pow calculation attempt")
 		("address_column", boost::program_options::value<std::string> (), "Defines which column the addresses are located, 0 indexed (check --debug_output_last_backtrace_dump output)")
 		("silent", "Silent command execution")
@@ -1071,6 +1074,10 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("benchmark_pipeline"))
 		{
 			nano::cli::run_pipeline_benchmark (vm, data_path);
+		}
+		else if (vm.count ("benchmark_pipeline_multinode"))
+		{
+			nano::cli::run_pipeline_multinode_benchmark (vm, data_path);
 		}
 		else if (vm.count ("debug_profile_votes"))
 		{

@@ -6,6 +6,7 @@ add_executable(
   benchmarks/benchmark_cementing.cpp
   benchmarks/benchmark_elections.cpp
   benchmarks/benchmark_pipeline.cpp
+  benchmarks/benchmark_pipeline_multinode.cpp
   daemon.cpp
   daemon.hpp
   entry.cpp)

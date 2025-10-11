@@ -57,6 +57,8 @@ struct benchmark_config
 	size_t num_iterations{ 5 };
 	size_t batch_size{ 250000 };
 	nano::cli::cementing_mode cementing_mode{ nano::cli::cementing_mode::sequential };
+	size_t num_representatives{ 4 };
+	size_t num_observers{ 2 };
 
 	static benchmark_config parse (boost::program_options::variables_map const & vm);
 };
@@ -93,4 +95,5 @@ void run_block_processing_benchmark (boost::program_options::variables_map const
 void run_cementing_benchmark (boost::program_options::variables_map const & vm, std::filesystem::path const & data_path);
 void run_elections_benchmark (boost::program_options::variables_map const & vm, std::filesystem::path const & data_path);
 void run_pipeline_benchmark (boost::program_options::variables_map const & vm, std::filesystem::path const & data_path);
+void run_pipeline_multinode_benchmark (boost::program_options::variables_map const & vm, std::filesystem::path const & data_path);
 }
