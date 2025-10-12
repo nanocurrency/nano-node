@@ -1,3 +1,5 @@
+#include <nano/lib/thread_roles.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/pruning.hpp>
 #include <nano/secure/ledger.hpp>
@@ -8,50 +10,61 @@ nano::pruning::pruning (nano::node_config const & config_a, nano::node_flags con
 	flags{ flags_a },
 	ledger{ ledger_a },
 	stats{ stats_a },
-	logger{ logger_a },
-	workers{ /* single threaded */ 1, nano::thread_role::name::pruning }
+	logger{ logger_a }
 {
 }
 
 nano::pruning::~pruning ()
 {
-	// Must be stopped before destruction
-	debug_assert (stopped);
+	// Thread must be stopped before destruction
+	debug_assert (!thread.joinable ());
 }
 
 void nano::pruning::start ()
 {
-	if (flags.enable_pruning)
-	{
-		workers.start ();
-		workers.post ([this] () {
-			ongoing_ledger_pruning ();
-		});
-	}
-}
+	debug_assert (!thread.joinable ());
 
-void nano::pruning::stop ()
-{
-	stopped = true;
-	workers.stop ();
-}
-
-void nano::pruning::ongoing_ledger_pruning ()
-{
-	if (stopped)
+	if (!flags.enable_pruning)
 	{
 		return;
 	}
 
-	auto bootstrap_weight_reached (ledger.block_count () >= ledger.bootstrap_weight_max_blocks);
+	thread = std::thread{ [this] () {
+		nano::thread_role::set (nano::thread_role::name::pruning);
+		run ();
+	} };
+}
 
-	ledger_pruning (flags.block_processor_batch_size != 0 ? flags.block_processor_batch_size : 2 * 1024, bootstrap_weight_reached);
+void nano::pruning::stop ()
+{
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		stopped = true;
+	}
+	condition.notify_all ();
+	nano::join_or_pass (thread);
+}
 
-	auto const ledger_pruning_interval (bootstrap_weight_reached ? config.max_pruning_age : std::min (config.max_pruning_age, std::chrono::seconds (15 * 60)));
-	logger.debug (nano::log::type::pruning, "Next pruning iteration in {}s", ledger_pruning_interval.count ());
-	workers.post_delayed (ledger_pruning_interval, [this] () {
-		ongoing_ledger_pruning ();
-	});
+void nano::pruning::run ()
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	while (!stopped)
+	{
+		lock.unlock ();
+
+		bool bootstrap_height_reached = ledger.bootstrap_height_reached ();
+
+		ledger_pruning (flags.block_processor_batch_size != 0 ? flags.block_processor_batch_size : 2 * 1024, bootstrap_height_reached);
+
+		auto const ledger_pruning_interval (bootstrap_height_reached ? config.max_pruning_age : std::min (config.max_pruning_age, std::chrono::seconds (15 * 60)));
+		logger.debug (nano::log::type::pruning, "Next pruning iteration in {}s", ledger_pruning_interval.count ());
+
+		lock.lock ();
+
+		condition.wait_for (lock, ledger_pruning_interval, [this] () {
+			return stopped;
+		});
+	}
 }
 
 void nano::pruning::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_weight_reached_a)
@@ -150,5 +163,6 @@ bool nano::pruning::collect_ledger_pruning_targets (std::deque<nano::block_hash>
 
 nano::container_info nano::pruning::container_info () const
 {
-	return workers.container_info ();
+	nano::container_info info;
+	return info;
 }

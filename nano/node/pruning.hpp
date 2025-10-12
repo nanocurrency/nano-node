@@ -1,8 +1,10 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/fwd.hpp>
 
+#include <condition_variable>
 #include <deque>
 #include <thread>
 
@@ -19,7 +21,6 @@ public:
 
 	nano::container_info container_info () const;
 
-	void ongoing_ledger_pruning ();
 	void ledger_pruning (uint64_t batch_size, bool bootstrap_weight_reached);
 	bool collect_ledger_pruning_targets (std::deque<nano::block_hash> & pruning_targets_out, nano::account & last_account_out, uint64_t batch_read_size, uint64_t max_depth, uint64_t cutoff_time);
 
@@ -33,7 +34,10 @@ private: // Dependencies
 private:
 	void run ();
 
-	std::atomic<bool> stopped{ false };
-	nano::thread_pool workers;
+private:
+	bool stopped{ false };
+	nano::condition_variable condition;
+	mutable nano::mutex mutex;
+	std::thread thread;
 };
 }
