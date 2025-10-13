@@ -1,5 +1,5 @@
+#include <nano/lib/files.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/secure/working.hpp>
 
 #include <pwd.h>
 #include <sys/types.h>

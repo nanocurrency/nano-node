@@ -2,6 +2,7 @@
 
 #include <nano/lib/block_uniquer.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/work.hpp>
@@ -20,7 +21,6 @@
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
-#include <nano/secure/utility.hpp>
 
 #include <boost/program_options.hpp>
 #include <boost/thread/latch.hpp>

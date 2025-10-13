@@ -1,24 +1,29 @@
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  set(platform_sources plat/default/priority.cpp plat/posix/perms.cpp
-                       plat/darwin/thread_role.cpp plat/default/debugging.cpp)
+  set(PLATFORM_SOURCES
+      plat/default/priority.cpp plat/posix/perms.cpp
+      plat/darwin/thread_role.cpp plat/default/debugging.cpp
+      plat/darwin/working.mm)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-  set(platform_sources
+  set(PLATFORM_SOURCES
       plat/windows/priority.cpp plat/windows/perms.cpp
       plat/windows/registry.cpp plat/windows/thread_role.cpp
-      plat/default/debugging.cpp)
+      plat/default/debugging.cpp plat/windows/working.cpp)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-  set(platform_sources plat/linux/priority.cpp plat/posix/perms.cpp
-                       plat/linux/thread_role.cpp plat/linux/debugging.cpp)
+  set(PLATFORM_SOURCES
+      plat/linux/priority.cpp plat/posix/perms.cpp plat/linux/thread_role.cpp
+      plat/linux/debugging.cpp plat/posix/working.cpp)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-  set(platform_sources plat/default/priority.cpp plat/posix/perms.cpp
-                       plat/freebsd/thread_role.cpp plat/default/debugging.cpp)
+  set(PLATFORM_SOURCES
+      plat/default/priority.cpp plat/posix/perms.cpp
+      plat/freebsd/thread_role.cpp plat/default/debugging.cpp
+      plat/posix/working.cpp)
 else()
   error("Unknown platform: ${CMAKE_SYSTEM_NAME}")
 endif()
 
 add_library(
   nano_lib
-  ${platform_sources}
+  ${PLATFORM_SOURCES}
   asio.hpp
   asio.cpp
   assert.hpp

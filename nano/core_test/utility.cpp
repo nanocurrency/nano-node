@@ -5,7 +5,6 @@
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/secure/pending_info.hpp>
-#include <nano/secure/utility.hpp>
 
 #include <gtest/gtest.h>
 

@@ -17,7 +17,6 @@
 #include <nano/node/node_rpc_config.hpp>
 #include <nano/qt/qt.hpp>
 #include <nano/rpc/rpc.hpp>
-#include <nano/secure/working.hpp>
 
 #include <boost/format.hpp>
 #include <boost/make_shared.hpp>

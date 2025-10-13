@@ -1,9 +1,9 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/files.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/utility.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 

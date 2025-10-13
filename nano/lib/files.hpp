@@ -1,9 +1,27 @@
 #pragma once
 
+#include <nano/lib/networks.hpp>
+
 #include <filesystem>
 
 namespace nano
 {
+/*
+ * Functions for determining various filesystem paths used by the node
+ */
+std::filesystem::path app_path ();
+std::filesystem::path app_path_impl ();
+// Path to a node data directory
+std::filesystem::path working_path (nano::network_type network = nano::get_active_network ());
+// Construct a random filename
+std::filesystem::path random_filename ();
+// Get a unique random path used for testing
+// Can be cleaned up later with remove_temporary_directories
+std::filesystem::path unique_path (nano::network_type network = nano::get_active_network ());
+
+// Remove all directories created by unique_path
+void remove_temporary_directories ();
+
 /*
  * Functions for managing filesystem permissions, platform specific
  */

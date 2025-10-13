@@ -1,10 +1,15 @@
+#include <nano/lib/config.hpp>
+#include <nano/lib/env.hpp>
 #include <nano/lib/files.hpp>
+
+#include <boost/system/error_code.hpp>
 
 #include <cstddef>
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <random>
 #include <sstream>
 #include <string_view>
 #include <thread>
@@ -12,6 +17,8 @@
 #ifndef _WIN32
 #include <sys/resource.h>
 #endif
+
+static std::vector<std::filesystem::path> all_unique_paths;
 
 std::size_t nano::get_file_descriptor_limit ()
 {
@@ -80,6 +87,84 @@ void nano::move_all_files_to_dir (std::filesystem::path const & from, std::files
 		if (std::filesystem::is_regular_file (path))
 		{
 			std::filesystem::rename (path, to / path.filename ());
+		}
+	}
+}
+
+std::filesystem::path nano::app_path ()
+{
+	static auto const path = [] () {
+		if (auto value = nano::env::get ("NANO_APP_PATH"))
+		{
+			std::cerr << "Application path overridden by NANO_APP_PATH environment variable: " << *value << std::endl;
+			return std::filesystem::path{ *value };
+		}
+		return nano::app_path_impl ();
+	}();
+	return path;
+}
+
+std::filesystem::path nano::working_path (nano::network_type network)
+{
+	auto result = nano::app_path ();
+
+	switch (network)
+	{
+		case nano::network_type::invalid:
+			release_assert (false);
+			break;
+		case nano::network_type::nano_dev_network:
+			result /= "NanoDev";
+			break;
+		case nano::network_type::nano_beta_network:
+			result /= "NanoBeta";
+			break;
+		case nano::network_type::nano_live_network:
+			result /= "Nano";
+			break;
+		case nano::network_type::nano_test_network:
+			result /= "NanoTest";
+			break;
+	}
+	return result;
+}
+
+std::filesystem::path nano::random_filename ()
+{
+	std::random_device rd;
+	std::mt19937 gen (rd ());
+	std::uniform_int_distribution<> dis (0, 15);
+
+	const char * hex_chars = "0123456789ABCDEF";
+	std::string random_string;
+	random_string.reserve (32);
+
+	for (int i = 0; i < 32; ++i)
+	{
+		random_string += hex_chars[dis (gen)];
+	}
+	return std::filesystem::path{ random_string };
+}
+
+std::filesystem::path nano::unique_path (nano::network_type network)
+{
+	auto result = working_path (network) / random_filename ();
+
+	std::filesystem::create_directories (result);
+
+	all_unique_paths.push_back (result);
+	return result;
+}
+
+void nano::remove_temporary_directories ()
+{
+	for (auto & path : all_unique_paths)
+	{
+		boost::system::error_code ec;
+		std::filesystem::remove_all (path, ec);
+		if (ec)
+		{
+			std::cerr << "Could not remove temporary directory: " << ec.message () << std::endl;
 		}
 	}
 }

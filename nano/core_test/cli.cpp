@@ -1,6 +1,6 @@
 #include <nano/lib/cli.hpp>
+#include <nano/lib/files.hpp>
 #include <nano/node/cli.hpp>
-#include <nano/secure/utility.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>

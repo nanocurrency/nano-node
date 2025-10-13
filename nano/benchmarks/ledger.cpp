@@ -1,9 +1,9 @@
+#include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
-#include <nano/secure/utility.hpp>
 #include <nano/store/account.hpp>
 
 #include <benchmark/benchmark.h>

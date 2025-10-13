@@ -1,7 +1,7 @@
+#include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/utility.hpp>
 #include <nano/store/component.hpp>
 #include <nano/test_common/make_store.hpp>
 

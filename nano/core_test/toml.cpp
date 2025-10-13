@@ -1,8 +1,8 @@
+#include <nano/lib/files.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
-#include <nano/secure/utility.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>

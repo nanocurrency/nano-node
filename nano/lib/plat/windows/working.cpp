@@ -1,4 +1,5 @@
-#include <nano/secure/working.hpp>
+#include <nano/lib/assert.hpp>
+#include <nano/lib/files.hpp>
 
 #include <shlobj.h>
 

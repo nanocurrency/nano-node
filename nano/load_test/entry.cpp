@@ -5,13 +5,13 @@
 #include <nano/boost/beast/http.hpp>
 #include <nano/boost/process/child.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/signal_manager.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
-#include <nano/secure/utility.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <boost/dll/runtime_symbol_info.hpp>

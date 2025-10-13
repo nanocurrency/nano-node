@@ -11,7 +11,6 @@
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
-#include <nano/secure/utility.hpp>
 
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>

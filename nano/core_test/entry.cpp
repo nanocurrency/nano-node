@@ -1,7 +1,6 @@
 #include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/memory.hpp>
-#include <nano/secure/utility.hpp>
 
 #include <gtest/gtest.h>
 
