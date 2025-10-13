@@ -179,12 +179,13 @@ int main (int argc, char * const * argv)
 	auto network (vm.find ("network"));
 	if (network != vm.end ())
 	{
-		auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
-		if (err)
+		auto parsed = nano::parse_network (network->second.as<std::string> ());
+		if (!parsed)
 		{
 			std::cerr << "Invalid network. Valid values are live, test, beta and dev." << std::endl;
 			std::exit (1);
 		}
+		nano::set_active_network (parsed.value ());
 	}
 
 	if (auto existing = vm.find ("pid_file"); existing != vm.end ())
@@ -193,7 +194,7 @@ int main (int argc, char * const * argv)
 		register_pid_file ();
 	}
 
-	nano::network_params network_params{ nano::network_constants::active_network };
+	nano::network_params network_params{ nano::get_active_network () };
 	auto data_path_it = vm.find ("data_path");
 	std::filesystem::path data_path ((data_path_it != vm.end ()) ? std::filesystem::path (data_path_it->second.as<std::string> ()) : nano::working_path ());
 	auto ec = nano::handle_node_options (vm);
@@ -208,7 +209,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("compare_rep_weights"))
 		{
-			if (nano::network_constants::active_network != nano::networks::nano_dev_network)
+			if (nano::get_active_network () != nano::networks::nano_dev_network)
 			{
 				auto node_flags = nano::inactive_node_flag_defaults ();
 				nano::update_flags (node_flags, vm);
@@ -352,7 +353,7 @@ int main (int argc, char * const * argv)
 			}
 			else
 			{
-				std::cout << "Not available for the test network" << std::endl;
+				std::cout << "Not available for the dev network" << std::endl;
 				result = -1;
 			}
 		}

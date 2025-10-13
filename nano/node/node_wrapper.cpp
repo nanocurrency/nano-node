@@ -4,7 +4,7 @@
 #include <nano/node/node_wrapper.hpp>
 
 nano::node_wrapper::node_wrapper (std::filesystem::path const & path_a, std::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
-	network_params{ nano::network_constants::active_network },
+	network_params{ nano::get_active_network () },
 	io_context (std::make_shared<boost::asio::io_context> ()),
 	work{ network_params.network, 1 }
 {

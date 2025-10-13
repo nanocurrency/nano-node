@@ -1,5 +1,7 @@
 #pragma once
 
+#include <nano/lib/assert.hpp>
+#include <nano/lib/networks.hpp>
 #include <nano/lib/tomlconfig.hpp>
 
 #include <boost/config.hpp>

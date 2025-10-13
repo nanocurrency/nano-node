@@ -17,12 +17,12 @@ namespace nano
 {
 void force_nano_dev_network ()
 {
-	nano::network_constants::set_active_network (nano::networks::nano_dev_network);
+	nano::set_active_network (nano::networks::nano_dev_network);
 }
 
 bool is_dev_run ()
 {
-	return nano::network_constants::get_active_network () == nano::networks::nano_dev_network;
+	return nano::get_active_network () == nano::networks::nano_dev_network;
 }
 
 bool running_within_valgrind ()
@@ -191,26 +191,6 @@ size_t nano::ledger_max_rollback_depth ()
 		return std::nullopt;
 	}();
 	return env_override.value_or (100000);
-}
-
-std::string_view nano::to_string (nano::networks network)
-{
-	switch (network)
-	{
-		case nano::networks::invalid:
-			return "invalid";
-		case nano::networks::nano_beta_network:
-			return "beta";
-		case nano::networks::nano_dev_network:
-			return "dev";
-		case nano::networks::nano_live_network:
-			return "live";
-		case nano::networks::nano_test_network:
-			return "test";
-			// default case intentionally omitted to cause warnings for unhandled enums
-	}
-
-	return "n/a";
 }
 
 // Using std::cerr here, since logging may not be initialized yet

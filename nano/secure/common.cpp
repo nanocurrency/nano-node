@@ -22,8 +22,6 @@
 #include <crypto/ed25519-donna/ed25519.h>
 #include <cryptopp/words.h>
 
-nano::networks nano::network_constants::active_network = nano::networks::ACTIVE_NETWORK;
-
 namespace
 {
 char const * dev_private_key_data = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";

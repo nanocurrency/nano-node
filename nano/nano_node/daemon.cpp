@@ -76,7 +76,7 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 
 	std::unique_ptr<nano::thread_runner> runner;
 
-	nano::network_params network_params{ nano::network_constants::active_network };
+	nano::network_params network_params{ nano::get_active_network () };
 	nano::daemon_config config{ data_path, network_params };
 	if (auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides))
 	{

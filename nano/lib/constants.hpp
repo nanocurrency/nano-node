@@ -2,30 +2,15 @@
 
 #include <nano/lib/config.hpp>
 #include <nano/lib/fwd.hpp>
+#include <nano/lib/networks.hpp>
 
 #include <chrono>
 #include <string_view>
 
+using namespace std::chrono_literals;
+
 namespace nano
 {
-/**
- * Network variants with different genesis blocks and network parameters
- */
-enum class networks : uint16_t
-{
-	invalid = 0x0,
-	// Low work parameters, publicly known genesis key, dev IP ports
-	nano_dev_network = 0x5241, // 'R', 'A'
-	// Normal work parameters, secret beta genesis key, beta IP ports
-	nano_beta_network = 0x5242, // 'R', 'B'
-	// Normal work parameters, secret live key, live IP ports
-	nano_live_network = 0x5243, // 'R', 'C'
-	// Normal work parameters, secret test genesis key, test IP ports
-	nano_test_network = 0x5258, // 'R', 'X'
-};
-
-std::string_view to_string (nano::networks);
-
 class work_thresholds
 {
 public:
@@ -40,6 +25,12 @@ public:
 	uint64_t entry;
 
 public:
+	static work_thresholds const publish_full;
+	static work_thresholds const publish_beta;
+	static work_thresholds const publish_dev;
+	static work_thresholds const publish_test;
+
+public:
 	constexpr work_thresholds (uint64_t epoch_1_a, uint64_t epoch_2_a, uint64_t epoch_2_receive_a) :
 		epoch_1 (epoch_1_a), epoch_2 (epoch_2_a), epoch_2_receive (epoch_2_receive_a),
 		base (std::max ({ epoch_1, epoch_2, epoch_2_receive })),
@@ -50,7 +41,6 @@ public:
 
 	uint64_t threshold_entry (nano::work_version, nano::block_type) const;
 	uint64_t threshold (nano::block_details const &) const;
-	// Ledger threshold
 	uint64_t threshold (nano::work_version, nano::block_details) const;
 	uint64_t threshold_base (nano::work_version) const;
 	uint64_t value (nano::root const & root, uint64_t work) const;
@@ -60,12 +50,6 @@ public:
 	uint64_t difficulty (nano::block const & block) const;
 	bool validate_entry (nano::work_version, nano::root const & root, uint64_t work) const;
 	bool validate_entry (nano::block const & block) const;
-
-public: // Network work thresholds
-	static nano::work_thresholds const publish_full;
-	static nano::work_thresholds const publish_beta;
-	static nano::work_thresholds const publish_dev;
-	static nano::work_thresholds const publish_test;
 };
 
 class network_constants
@@ -133,7 +117,7 @@ public:
 	}
 
 	/** The network this param object represents. This may differ from the global active network; this is needed for certain --debug... commands */
-	nano::networks current_network{ nano::network_constants::active_network };
+	nano::networks current_network{ nano::get_active_network () };
 	nano::work_thresholds const & work;
 
 	unsigned principal_weight_factor;
@@ -186,52 +170,6 @@ public:
 		return current_network;
 	}
 
-	/**
-	 * Optionally called on startup to override the global active network.
-	 * If not called, the compile-time option will be used.
-	 * @param network_a The new active network
-	 */
-	static void set_active_network (nano::networks network_a)
-	{
-		active_network = network_a;
-	}
-
-	static nano::networks get_active_network ()
-	{
-		return active_network;
-	}
-
-	/**
-	 * Optionally called on startup to override the global active network.
-	 * If not called, the compile-time option will be used.
-	 * @param network_a The new active network. Valid values are "live", "beta" and "dev"
-	 */
-	static bool set_active_network (std::string network_a)
-	{
-		auto error{ false };
-		if (network_a == "live")
-		{
-			active_network = nano::networks::nano_live_network;
-		}
-		else if (network_a == "beta")
-		{
-			active_network = nano::networks::nano_beta_network;
-		}
-		else if (network_a == "dev")
-		{
-			active_network = nano::networks::nano_dev_network;
-		}
-		else if (network_a == "test")
-		{
-			active_network = nano::networks::nano_test_network;
-		}
-		else
-		{
-			error = true;
-		}
-		return error;
-	}
-
 	std::string_view get_current_network_as_string () const
 	{
 		switch (current_network)
@@ -266,9 +204,6 @@ public:
 	{
 		return current_network == nano::networks::nano_test_network;
 	}
-
-	/** Initial value is ACTIVE_NETWORK compile flag, but can be overridden by a CLI flag */
-	static nano::networks active_network;
 
 	/** Current protocol version */
 	uint8_t const protocol_version = 0x15;

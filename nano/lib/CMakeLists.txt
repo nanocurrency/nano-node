@@ -81,6 +81,8 @@ add_library(
   memory.cpp
   network_filter.hpp
   network_filter.cpp
+  networks.hpp
+  networks.cpp
   numbers.hpp
   numbers.cpp
   numbers_templ.hpp

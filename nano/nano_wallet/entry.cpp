@@ -93,7 +93,7 @@ public:
 		splash->showMessage (QSplashScreen::tr ("Remember - Back Up Your Wallet Seed"), Qt::AlignBottom | Qt::AlignHCenter, Qt::darkGray);
 		QApplication::processEvents ();
 
-		nano::network_params network_params{ nano::network_constants::active_network };
+		nano::network_params network_params{ nano::get_active_network () };
 		nano::daemon_config config{ data_path, network_params };
 		nano::wallet_config wallet_config;
 
@@ -278,12 +278,13 @@ int main (int argc, char * const * argv)
 		auto network (vm.find ("network"));
 		if (network != vm.end ())
 		{
-			auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
-			if (err)
+			auto parsed = nano::parse_network (network->second.as<std::string> ());
+			if (!parsed)
 			{
 				daemon.show_error ("Invalid network. Valid values are live, test, beta and dev.");
 				std::exit (1);
 			}
+			nano::set_active_network (parsed.value ());
 		}
 
 		std::vector<std::string> config_overrides;

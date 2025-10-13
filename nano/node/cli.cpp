@@ -754,7 +754,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (type == "node")
 		{
 			valid_type = true;
-			nano::network_params network_params{ nano::network_constants::active_network };
+			nano::network_params network_params{ nano::get_active_network () };
 			nano::daemon_config config{ data_path, network_params };
 			// set the peering port to the default value so that it is printed in the example toml file
 			config.node.peering_port = network_params.network.default_node_port;
@@ -798,7 +798,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("update_config"))
 	{
-		nano::network_params network_params{ nano::network_constants::active_network };
+		nano::network_params network_params{ nano::get_active_network () };
 		nano::tomlconfig default_toml;
 		nano::tomlconfig current_toml;
 		nano::daemon_config default_config{ data_path, network_params };
@@ -1441,7 +1441,7 @@ void reset_confirmation_heights (nano::store::write_transaction const & transact
 
 bool is_using_rocksdb (std::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec)
 {
-	nano::network_params network_params{ nano::network_constants::active_network };
+	nano::network_params network_params{ nano::get_active_network () };
 	nano::daemon_config config{ data_path, network_params };
 
 	// Config overriding

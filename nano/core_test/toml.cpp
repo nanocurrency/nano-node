@@ -1132,7 +1132,7 @@ TEST (toml_config, log_config_no_required)
 
 TEST (toml_config, merge_config_files)
 {
-	nano::network_params network_params{ nano::network_constants::active_network };
+	nano::network_params network_params{ nano::get_active_network () };
 	nano::tomlconfig default_toml;
 	nano::tomlconfig current_toml;
 	nano::tomlconfig merged_toml;
