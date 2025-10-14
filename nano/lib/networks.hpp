@@ -10,7 +10,7 @@ namespace nano
 /**
  * Network variants with different genesis blocks and network parameters
  */
-enum class networks : uint16_t
+enum class network_type : uint16_t
 {
 	invalid = 0x0,
 	// Low work parameters, publicly known genesis key, dev IP ports
@@ -23,17 +23,17 @@ enum class networks : uint16_t
 	nano_test_network = 0x5258, // 'R', 'X'
 };
 
-std::string_view to_string (nano::networks);
-std::optional<nano::networks> parse_network (std::string const &);
+std::string_view to_string (nano::network_type);
+std::optional<nano::network_type> parse_network (std::string const &);
 
 /**
  * Current active network. Defaults to the compile-time option, but can be overridden.
  */
-nano::networks get_active_network ();
+nano::network_type get_active_network ();
 
 /**
  * Optionally called on startup to override the global active network.
  * If not called, the compile-time option will be used.
  */
-void set_active_network (nano::networks network);
+void set_active_network (nano::network_type network);
 }

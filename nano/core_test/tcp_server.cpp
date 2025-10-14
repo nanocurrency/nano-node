@@ -329,9 +329,9 @@ TEST (tcp_server, handshake_wrong_network_id)
 	std::vector<uint8_t> handshake_data;
 
 	// Use a different network ID - create a different network_constants
-	nano::networks wrong_network = (node->network_params.network.current_network == nano::networks::nano_live_network)
-	? nano::networks::nano_beta_network
-	: nano::networks::nano_live_network;
+	nano::network_type wrong_network = (node->network_params.network.current_network == nano::network_type::nano_live_network)
+	? nano::network_type::nano_beta_network
+	: nano::network_type::nano_live_network;
 	nano::network_constants wrong_network_constants (nano::work_thresholds::publish_dev, wrong_network);
 
 	nano::message_header header (wrong_network_constants, nano::message_type::node_id_handshake);

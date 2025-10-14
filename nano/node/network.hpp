@@ -170,7 +170,7 @@ private: // Dependencies
 	nano::node & node;
 
 public:
-	nano::networks const id;
+	nano::network_type const id;
 	nano::syn_cookies syn_cookies;
 	boost::asio::ip::tcp::resolver resolver;
 	nano::peer_exclusion excluded_peers;

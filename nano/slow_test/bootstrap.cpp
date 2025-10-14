@@ -64,7 +64,7 @@ TEST (bootstrap, profile)
 {
 	nano::test::system system;
 	nano::thread_runner runner{ system.io_ctx, system.logger, 2 };
-	nano::networks network = nano::networks::nano_beta_network;
+	nano::network_type network = nano::network_type::nano_beta_network;
 	nano::network_params network_params{ network };
 
 	// Set up client and server nodes

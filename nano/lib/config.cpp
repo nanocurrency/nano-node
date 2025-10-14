@@ -17,12 +17,12 @@ namespace nano
 {
 void force_nano_dev_network ()
 {
-	nano::set_active_network (nano::networks::nano_dev_network);
+	nano::set_active_network (nano::network_type::nano_dev_network);
 }
 
 bool is_dev_run ()
 {
-	return nano::get_active_network () == nano::networks::nano_dev_network;
+	return nano::get_active_network () == nano::network_type::nano_dev_network;
 }
 
 bool running_within_valgrind ()

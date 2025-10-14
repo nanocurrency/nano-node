@@ -97,7 +97,7 @@ void run_pipeline_benchmark (boost::program_options::variables_map const & vm, s
 	std::cout << fmt::format ("  Batch size: {}\n", config.batch_size);
 
 	// Setup node directly in run method
-	nano::set_active_network (nano::networks::nano_dev_network);
+	nano::set_active_network (nano::network_type::nano_dev_network);
 	nano::logger::initialize (nano::log_config::cli_default (nano::log::level::warn));
 
 	nano::node_flags node_flags;

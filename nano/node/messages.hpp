@@ -91,7 +91,7 @@ public:
 	bool deserialize (nano::stream &);
 
 public: // Payload
-	nano::networks network;
+	nano::network_type network;
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;
@@ -99,7 +99,7 @@ public: // Payload
 	extensions_bitset_t extensions;
 
 public:
-	static std::size_t constexpr size = sizeof (nano::networks) + sizeof (version_max) + sizeof (version_using) + sizeof (version_min) + sizeof (type) + sizeof (/* extensions */ uint16_t);
+	static std::size_t constexpr size = sizeof (nano::network_type) + sizeof (version_max) + sizeof (version_using) + sizeof (version_min) + sizeof (type) + sizeof (/* extensions */ uint16_t);
 
 	bool flag_test (uint8_t flag) const;
 	void flag_set (uint8_t flag, bool enable = true);

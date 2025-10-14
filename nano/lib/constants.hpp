@@ -55,7 +55,7 @@ public:
 class network_constants
 {
 public:
-	network_constants (nano::work_thresholds const & work_a, nano::networks network_a) :
+	network_constants (nano::work_thresholds const & work_a, nano::network_type network_a) :
 		current_network (network_a),
 		work (work_a),
 		principal_weight_factor (1000), // 0.1% A representative is classified as principal based on its weight and this factor
@@ -117,7 +117,7 @@ public:
 	}
 
 	/** The network this param object represents. This may differ from the global active network; this is needed for certain --debug... commands */
-	nano::networks current_network{ nano::get_active_network () };
+	nano::network_type current_network{ nano::get_active_network () };
 	nano::work_thresholds const & work;
 
 	unsigned principal_weight_factor;
@@ -165,7 +165,7 @@ public:
 	std::chrono::milliseconds rep_crawler_warmup_interval{ 1000 * 3 };
 
 	/** Returns the network this object contains values for */
-	nano::networks network () const
+	nano::network_type network () const
 	{
 		return current_network;
 	}
@@ -174,15 +174,15 @@ public:
 	{
 		switch (current_network)
 		{
-			case nano::networks::nano_live_network:
+			case nano::network_type::nano_live_network:
 				return "live";
-			case nano::networks::nano_beta_network:
+			case nano::network_type::nano_beta_network:
 				return "beta";
-			case nano::networks::nano_dev_network:
+			case nano::network_type::nano_dev_network:
 				return "dev";
-			case nano::networks::nano_test_network:
+			case nano::network_type::nano_test_network:
 				return "test";
-			case networks::invalid:
+			case network_type::invalid:
 				break;
 		}
 		release_assert (false, "invalid network");
@@ -190,19 +190,19 @@ public:
 
 	bool is_live_network () const
 	{
-		return current_network == nano::networks::nano_live_network;
+		return current_network == nano::network_type::nano_live_network;
 	}
 	bool is_beta_network () const
 	{
-		return current_network == nano::networks::nano_beta_network;
+		return current_network == nano::network_type::nano_beta_network;
 	}
 	bool is_dev_network () const
 	{
-		return current_network == nano::networks::nano_dev_network;
+		return current_network == nano::network_type::nano_dev_network;
 	}
 	bool is_test_network () const
 	{
-		return current_network == nano::networks::nano_test_network;
+		return current_network == nano::network_type::nano_test_network;
 	}
 
 	/** Current protocol version */

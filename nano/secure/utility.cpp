@@ -22,25 +22,25 @@ std::filesystem::path nano::app_path ()
 	return path;
 }
 
-std::filesystem::path nano::working_path (nano::networks network)
+std::filesystem::path nano::working_path (nano::network_type network)
 {
 	auto result = nano::app_path ();
 
 	switch (network)
 	{
-		case nano::networks::invalid:
+		case nano::network_type::invalid:
 			release_assert (false);
 			break;
-		case nano::networks::nano_dev_network:
+		case nano::network_type::nano_dev_network:
 			result /= "NanoDev";
 			break;
-		case nano::networks::nano_beta_network:
+		case nano::network_type::nano_beta_network:
 			result /= "NanoBeta";
 			break;
-		case nano::networks::nano_live_network:
+		case nano::network_type::nano_live_network:
 			result /= "Nano";
 			break;
-		case nano::networks::nano_test_network:
+		case nano::network_type::nano_test_network:
 			result /= "NanoTest";
 			break;
 	}
@@ -64,7 +64,7 @@ std::filesystem::path nano::random_filename ()
 	return std::filesystem::path{ random_string };
 }
 
-std::filesystem::path nano::unique_path (nano::networks network)
+std::filesystem::path nano::unique_path (nano::network_type network)
 {
 	auto result = working_path (network) / random_filename ();
 

@@ -919,7 +919,7 @@ TEST (network, filter_invalid_network_bytes)
 
 	// send a keepalive, from node2 to node1, with the wrong network bytes
 	nano::keepalive keepalive{ nano::dev::network_params.network };
-	const_cast<nano::networks &> (keepalive.header.network) = nano::networks::invalid;
+	const_cast<nano::network_type &> (keepalive.header.network) = nano::network_type::invalid;
 	channel->send (keepalive, nano::transport::traffic_type::test);
 
 	ASSERT_TIMELY_EQ (5s, 1, node1.stats.count (nano::stat::type::tcp_server_message_error, nano::stat::detail::invalid_network));

@@ -16,7 +16,7 @@ static void BM_ledger_iterate_accounts (benchmark::State & state)
 	nano::stats stats{ logger };
 
 	// Use live ledger
-	nano::networks network = nano::networks::nano_live_network;
+	nano::network_type network = nano::network_type::nano_live_network;
 	nano::network_params network_params{ network };
 	auto application_path = nano::working_path (network);
 
@@ -58,7 +58,7 @@ static void BM_store_iterate_accounts (benchmark::State & state)
 	nano::stats stats{ logger };
 
 	// Use live ledger
-	nano::networks network = nano::networks::nano_live_network;
+	nano::network_type network = nano::network_type::nano_live_network;
 	nano::network_params network_params{ network };
 	nano::node_flags flags;
 	auto application_path = nano::working_path (network);
