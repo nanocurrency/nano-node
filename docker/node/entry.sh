@@ -1,136 +1,186 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-set -euf
+readonly CONFIG_SRC_DIR="/usr/share/nano/config"
 
 usage() {
-	printf "Usage:\n"
-	printf "  $0 nano_node [daemon] [cli_options] [-l] [-v size]\n"
-	printf "    daemon\n"
-	printf "      start as daemon\n\n"
-	printf "    cli_options\n"
-	printf "      nano_node cli options <see nano_node --help>\n\n"
-	printf "    -l\n"
-	printf "      log to console <use docker logs {container}>\n\n"
-	printf "    -v<size>\n"
-	printf "      vacuum database if over size GB on startup\n\n"
-	printf "  $0 sh [other]\n"
-	printf "    other\n"
-	printf "      sh pass through\n"
-	printf "  $0 [*]\n"
-	printf "    *\n"
-	printf "      usage\n\n"
-	printf "default:\n"
-	printf "  $0 nano_node daemon -l\n"
+	cat <<'EOF'
+Usage:
+  [daemon] [-v<size>|-v size] [cli_options]
+    daemon
+      start as daemon (default mode)
+
+    cli_options
+      nano_node CLI options (see nano_node --help)
+
+    -v<size> | -v size
+      vacuum database if over size GB on startup (daemon mode only)
+
+  sh [command]
+    command
+      shell passthrough (defaults to $SHELL)
+
+Note: 'nano_node' is the default executable and can be omitted.
+EOF
 }
 
-OPTIND=1
-command=""
-passthrough=""
-db_size=0
-log_to_cerr=0
-
-if [ $# -lt 2 ]; then
-	usage
+log() { printf '%s\n' "$*"; }
+err() { printf 'ERROR: %s\n' "$*" >&2; }
+die() {
+	err "$@"
 	exit 1
-fi
+}
 
-if [ "$1" = 'nano_node' ]; then
-	command="${command}nano_node"
-	shift
-	for i in $@; do
-		case $i in
-		"daemon")
-			command="${command} --daemon"
-			;;
-		*)
-			if [ ${#passthrough} -ge 0 ]; then
-				passthrough="${passthrough} $i"
-			else
-				passthrough="$i"
-			fi
-			;;
-		esac
-	done
-	for i in $passthrough; do
-		case $i in
-		*"-v"*)
-			db_size=$(echo $i | tr -d -c 0-9)
-			echo "Vacuum DB if over $db_size GB on startup"
-			;;
-		"-l")
-			echo "log_to_cerr = true"
-			command="${command} --config"
-			command="${command} node.logging.log_to_cerr=true"
-			;;
-		*)
-			command="${command} $i"
-			;;
-		esac
-	done
-elif [ "$1" = 'sh' ]; then
-	shift
-	command=""
-	for i in $@; do
-		if [ "$command" = "" ]; then
-			command="$i"
+read_network() {
+	# live | beta | dev | test ; default live
+	local n=''
+	if [[ -r /etc/nano-network ]]; then
+		read -r n </etc/nano-network || n=''
+	fi
+	case "$n" in
+	live | '') echo live ;;
+	beta | dev | test) echo "$n" ;;
+	*) echo live ;;
+	esac
+}
+
+network_suffix() {
+	case "$1" in
+	live) echo '' ;;
+	beta) echo 'Beta' ;;
+	dev) echo 'Dev' ;;
+	test) echo 'Test' ;;
+	*) echo '' ;;
+	esac
+}
+
+ensure_data_directory() {
+	# Move legacy dir if needed, then ensure target exists
+	local legacy_dir="$1" target_dir="$2"
+	if [[ -d "$legacy_dir" && ! -d "$target_dir" ]]; then
+		log "Renaming legacy directory $legacy_dir to $target_dir"
+		mv -- "$legacy_dir" "$target_dir"
+	fi
+	mkdir -p -- "$target_dir"
+}
+
+ensure_configs() {
+	local target_dir="$1"
+	if [[ ! -f "$target_dir/config-node.toml" && ! -f "$target_dir/config.json" ]]; then
+		log "Config file not found, copying defaults"
+		cp -- "$CONFIG_SRC_DIR/config-node.toml" "$target_dir/config-node.toml"
+		cp -- "$CONFIG_SRC_DIR/config-rpc.toml" "$target_dir/config-rpc.toml"
+	fi
+}
+
+parse_vacuum_size() {
+	local v="${1:-}"
+	[[ "$v" =~ ^[0-9]+$ ]] || die "Invalid vacuum size '$v'. Expected integer GB."
+	echo "$v"
+}
+
+maybe_vacuum() {
+	# Only in daemon mode, when limit set, and DB file exceeds limit
+	local limit_gb="$1" db_file="$2"
+	((DAEMON_MODE && limit_gb > 0)) || return 0
+	[[ -f "$db_file" ]] || return 0
+
+	local bytes
+	if ! bytes="$(stat --format=%s "$db_file" 2>/dev/null)"; then
+		log "Unable to determine database size for $db_file"
+		return 0
+	fi
+	local limit_bytes=$((limit_gb * 1024 * 1024 * 1024))
+	if ((bytes > limit_bytes)); then
+		local size_gb=$((bytes / 1024 / 1024 / 1024))
+		log "Current ledger size: ${size_gb}GB (${bytes} bytes) is over threshold: ${limit_gb}GB. Vacuuming..."
+		nano_node --vacuum
+		log "Database vacuum completed"
+	fi
+}
+
+# Parsed args / state
+DAEMON_MODE=0
+LOG_TO_CERR=0
+DB_SIZE_GB=0
+EXEC="nano_node" # default executable is nano_node
+declare -a PASSTHROUGH=()
+declare -a CMD=() # filled after we finalize EXEC
+
+parse_args() {
+	# "sh ..." -> shell passthrough
+	if [[ ${1:-} == 'sh' ]]; then
+		shift || true
+		if (($# == 0)); then
+			log "SHELL PASSTHROUGH: ${SHELL:-/bin/bash}"
+			exec "${SHELL:-/bin/bash}"
 		else
-			command="${command} $i"
-		fi
-	done
-	printf "EXECUTING: ${command}\n"
-	exec $command
-else
-	usage
-	exit 1
-fi
-
-network="$(cat /etc/nano-network)"
-case "${network}" in
-live | '')
-	network='live'
-	dirSuffix=''
-	;;
-beta)
-	dirSuffix='Beta'
-	;;
-dev)
-	dirSuffix='Dev'
-	;;
-test)
-	dirSuffix='Test'
-	;;
-esac
-
-raidir="${HOME}/RaiBlocks${dirSuffix}"
-nanodir="${HOME}/Nano${dirSuffix}"
-dbFile="${nanodir}/data.ldb"
-
-if [ -d "${raidir}" ]; then
-	echo "Moving ${raidir} to ${nanodir}"
-	mv "$raidir" "$nanodir"
-else
-	mkdir -p "${nanodir}"
-fi
-
-if [ ! -f "${nanodir}/config-node.toml" ] && [ ! -f "${nanodir}/config.json" ]; then
-	echo "Config file not found, adding default."
-	cp "/usr/share/nano/config/config-node.toml" "${nanodir}/config-node.toml"
-	cp "/usr/share/nano/config/config-rpc.toml" "${nanodir}/config-rpc.toml"
-fi
-
-case $command in
-*"--daemon"*)
-	if [ $db_size -ne 0 ]; then
-		if [ -f "${dbFile}" ]; then
-			dbFileSize="$(stat -c %s "${dbFile}" 2>/dev/null)"
-			if [ "${dbFileSize}" -gt $((1024 * 1024 * 1024 * db_size)) ]; then
-				echo "ERROR: Database size grew above ${db_size}GB (size = ${dbFileSize})" >&2
-				nano_node --vacuum
-			fi
+			log "COMMAND PASSTHROUGH: $*"
+			exec "$@"
 		fi
 	fi
-	;;
-esac
 
-printf "EXECUTING: ${command}\n"
-exec $command
+	# First argument may be an explicit executable: nano_node or nano_rpc
+	case "${1:-}" in
+	nano_node)
+		EXEC="nano_node"
+		shift || true
+		;;
+	nano_rpc)
+		EXEC="nano_rpc"
+		shift || true
+		;;
+	esac
+
+	CMD=("$EXEC")
+
+	while (($# > 0)); do
+		case "$1" in
+		daemon)
+			DAEMON_MODE=1
+			CMD+=('--daemon')
+			;;
+		-l)
+			LOG_TO_CERR=1
+			;;
+		-v)
+			shift || die "Option -v requires a size in GB"
+			DB_SIZE_GB="$(parse_vacuum_size "${1:-}")"
+			log "Vacuum DB if over ${DB_SIZE_GB} GB on startup"
+			;;
+		-v[0-9]*)
+			DB_SIZE_GB="$(parse_vacuum_size "${1#-v}")"
+			log "Vacuum DB if over ${DB_SIZE_GB} GB on startup"
+			;;
+		--help | -h)
+			usage
+			exit 0
+			;;
+		*)
+			PASSTHROUGH+=("$1")
+			;;
+		esac
+		shift || true
+	done
+
+	((LOG_TO_CERR)) && CMD+=('--config' 'node.logging.log_to_cerr=true')
+
+	if ((${#PASSTHROUGH[@]})); then
+		CMD+=("${PASSTHROUGH[@]}")
+	fi
+}
+
+parse_args "$@"
+
+NETWORK="$(read_network)"
+SUFFIX="$(network_suffix "$NETWORK")"
+LEGACY_DIR="${HOME}/RaiBlocks${SUFFIX}"
+DATA_DIR="${HOME}/Nano${SUFFIX}"
+DB_FILE="${DATA_DIR}/data.ldb"
+
+ensure_data_directory "$LEGACY_DIR" "$DATA_DIR"
+ensure_configs "$DATA_DIR"
+maybe_vacuum "$DB_SIZE_GB" "$DB_FILE"
+
+log "EXECUTING: ${CMD[*]}"
+exec "${CMD[@]}"
