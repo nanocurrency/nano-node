@@ -45,7 +45,7 @@ USER root
 
 ENV PATH="${PATH}:/usr/bin"
 ENTRYPOINT ["/usr/bin/entry.sh"]
-CMD ["nano_node", "daemon", "-l"]
+CMD ["daemon"]
 
 ARG REPOSITORY=nanocurrency/nano-node
 LABEL org.opencontainers.image.source https://github.com/$REPOSITORY

@@ -21,6 +21,7 @@ Usage:
       shell passthrough (defaults to $SHELL)
 
 Note: 'nano_node' is the default executable and can be omitted.
+Use --docker-help to show this message.
 EOF
 }
 
@@ -101,7 +102,6 @@ maybe_vacuum() {
 
 # Parsed args / state
 DAEMON_MODE=0
-LOG_TO_CERR=0
 DB_SIZE_GB=0
 EXEC="nano_node" # default executable is nano_node
 declare -a PASSTHROUGH=()
@@ -141,7 +141,7 @@ parse_args() {
 			CMD+=('--daemon')
 			;;
 		-l)
-			LOG_TO_CERR=1
+			# Deprecated, retained for backwards compatibility
 			;;
 		-v)
 			shift || die "Option -v requires a size in GB"
@@ -152,7 +152,7 @@ parse_args() {
 			DB_SIZE_GB="$(parse_vacuum_size "${1#-v}")"
 			log "Vacuum DB if over ${DB_SIZE_GB} GB on startup"
 			;;
-		--help | -h)
+		--docker-help)
 			usage
 			exit 0
 			;;
@@ -162,8 +162,6 @@ parse_args() {
 		esac
 		shift || true
 	done
-
-	((LOG_TO_CERR)) && CMD+=('--config' 'node.logging.log_to_cerr=true')
 
 	if ((${#PASSTHROUGH[@]})); then
 		CMD+=("${PASSTHROUGH[@]}")
