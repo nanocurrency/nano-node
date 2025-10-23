@@ -6,15 +6,16 @@ readonly CONFIG_SRC_DIR="/usr/share/nano/config"
 usage() {
 	cat <<'EOF'
 Usage:
-  [daemon] [-v<size>|-v size] [cli_options]
+  [daemon] [--vacuum-over <size>] [cli_options]
     daemon
       start as daemon (default mode)
 
     cli_options
       nano_node CLI options (see nano_node --help)
 
-    -v<size> | -v size
+    --vacuum-over <size>
       vacuum database if over size GB on startup (daemon mode only)
+      (deprecated alias: -v<size> or -v <size>)
 
   sh [command]
     command
@@ -102,7 +103,7 @@ maybe_vacuum() {
 
 # Parsed args / state
 DAEMON_MODE=0
-DB_SIZE_GB=0
+VACUUM_THRESHOLD_GB=0
 EXEC="nano_node" # default executable is nano_node
 declare -a PASSTHROUGH=()
 declare -a CMD=() # filled after we finalize EXEC
@@ -140,17 +141,17 @@ parse_args() {
 			DAEMON_MODE=1
 			CMD+=('--daemon')
 			;;
+		--vacuum-over)
+			shift || die "Option --vacuum-over requires a size in GB"
+			VACUUM_THRESHOLD_GB="$(parse_vacuum_size "${1:-}")"
+			log "Vacuum DB if over ${VACUUM_THRESHOLD_GB} GB on startup"
+			;;
+		--vacuum-over=*)
+			VACUUM_THRESHOLD_GB="$(parse_vacuum_size "${1#--vacuum-over=}")"
+			log "Vacuum DB if over ${VACUUM_THRESHOLD_GB} GB on startup"
+			;;
 		-l)
 			# Deprecated, retained for backwards compatibility
-			;;
-		-v)
-			shift || die "Option -v requires a size in GB"
-			DB_SIZE_GB="$(parse_vacuum_size "${1:-}")"
-			log "Vacuum DB if over ${DB_SIZE_GB} GB on startup"
-			;;
-		-v[0-9]*)
-			DB_SIZE_GB="$(parse_vacuum_size "${1#-v}")"
-			log "Vacuum DB if over ${DB_SIZE_GB} GB on startup"
 			;;
 		--docker-help)
 			usage
@@ -178,7 +179,7 @@ DB_FILE="${DATA_DIR}/data.ldb"
 
 ensure_data_directory "$LEGACY_DIR" "$DATA_DIR"
 ensure_configs "$DATA_DIR"
-maybe_vacuum "$DB_SIZE_GB" "$DB_FILE"
+maybe_vacuum "$VACUUM_THRESHOLD_GB" "$DB_FILE"
 
 log "EXECUTING: ${CMD[*]}"
 exec "${CMD[@]}"
