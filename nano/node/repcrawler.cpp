@@ -346,7 +346,7 @@ void nano::rep_crawler::query (std::deque<std::shared_ptr<nano::transport::chann
 {
 	auto hash_root = prepare_query_target ();
 
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	nano::unique_lock<nano::mutex> lock{ mutex };
 
 	for (const auto & channel : target_channels)
 	{
@@ -356,12 +356,16 @@ void nano::rep_crawler::query (std::deque<std::shared_ptr<nano::transport::chann
 			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::query_sent);
 			logger.debug (nano::log::type::rep_crawler, "Sending query for block: {} to: {}", hash_root.first, channel->to_string ());
 
+			lock.unlock ();
+
 			auto const & [hash, root] = hash_root;
 			nano::confirm_req req{ network_constants, hash, root };
 
 			channel->send (req, nano::transport::traffic_type::rep_crawler, [this] (auto & ec, auto size) {
 				stats.inc (nano::stat::type::rep_crawler_ec, to_stat_detail (ec), nano::stat::dir::out);
 			});
+
+			lock.lock ();
 		}
 		else
 		{
