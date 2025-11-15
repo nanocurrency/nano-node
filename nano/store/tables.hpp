@@ -17,6 +17,7 @@ enum class tables
 	peers,
 	pending,
 	pruned,
+	successors,
 	vote,
 	rep_weights,
 };

@@ -41,9 +41,14 @@ public:
 	 */
 	MDB_dbi blocks_handle{ 0 };
 
+	/**
+	 * Maps block hash to successor hash
+	 * nano::block_hash -> nano::block_hash
+	 */
+	MDB_dbi successors_handle{ 0 };
+
 protected:
 	void block_raw_get (store::transaction const & transaction_a, nano::block_hash const & hash_a, db_val & value) const;
-	size_t block_successor_offset (store::transaction const & transaction_a, size_t entry_size_a, nano::block_type type_a) const;
 	static nano::block_type block_type_from_raw (void * data_a);
 };
 } // namespace nano::store::lmdb

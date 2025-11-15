@@ -1,3 +1,5 @@
+#include <nano/lib/block_sideband.hpp>
+#include <nano/lib/block_type.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/utility.hpp>
@@ -14,6 +16,7 @@
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
+#include <cstring>
 #include <queue>
 #include <stdexcept>
 
@@ -233,6 +236,7 @@ void nano::store::lmdb::component::open_databases (store::transaction const & tr
 	pending_store.pending_handle = pending_store.pending_v0_handle;
 	open_table (transaction_a, "final_votes", flags, final_vote_store.final_votes_handle);
 	open_table (transaction_a, "blocks", MDB_CREATE, block_store.blocks_handle);
+	open_table (transaction_a, "successors", flags, block_store.successors_handle);
 	open_table (transaction_a, "rep_weights", flags, rep_weight_store.rep_weights_handle);
 }
 
@@ -460,6 +464,8 @@ MDB_dbi nano::store::lmdb::component::table_to_dbi (tables table_a) const
 			return confirmation_height_store.confirmation_height_handle;
 		case tables::final_votes:
 			return final_vote_store.final_votes_handle;
+		case tables::successors:
+			return block_store.successors_handle;
 		case tables::rep_weights:
 			return rep_weight_store.rep_weights_handle;
 		default:
