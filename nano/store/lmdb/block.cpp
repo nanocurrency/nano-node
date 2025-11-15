@@ -30,7 +30,6 @@ nano::store::lmdb::block::block (nano::store::lmdb::component & store_a) :
 
 void nano::store::lmdb::block::put (store::write_transaction const & transaction, nano::block_hash const & hash, nano::block const & block)
 {
-	debug_assert (block.sideband ().successor.is_zero () || exists (transaction, block.sideband ().successor));
 	std::vector<uint8_t> vector;
 	{
 		nano::vectorstream stream (vector);
