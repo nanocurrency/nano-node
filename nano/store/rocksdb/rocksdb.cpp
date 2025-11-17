@@ -171,7 +171,8 @@ std::unordered_map<char const *, nano::tables> nano::store::rocksdb::component::
 		{ "confirmation_height", tables::confirmation_height },
 		{ "pruned", tables::pruned },
 		{ "final_votes", tables::final_votes },
-		{ "rep_weights", tables::rep_weights } };
+		{ "rep_weights", tables::rep_weights },
+		{ "successors", tables::successors } };
 
 	debug_assert (map.size () == all_tables ().size () + 1);
 	return map;
@@ -521,6 +522,8 @@ rocksdb::ColumnFamilyHandle * nano::store::rocksdb::component::table_to_column_f
 			return get_column_family ("final_votes");
 		case tables::rep_weights:
 			return get_column_family ("rep_weights");
+		case tables::successors:
+			return get_column_family ("successors");
 		default:
 			release_assert (false);
 			return get_column_family ("");
@@ -807,7 +810,7 @@ void nano::store::rocksdb::component::on_flush (::rocksdb::FlushJobInfo const & 
 
 std::vector<nano::tables> nano::store::rocksdb::component::all_tables () const
 {
-	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::final_votes, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::vote, tables::rep_weights };
+	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::final_votes, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::vote, tables::rep_weights, tables::successors };
 }
 
 bool nano::store::rocksdb::component::copy_db (std::filesystem::path const & destination_path)

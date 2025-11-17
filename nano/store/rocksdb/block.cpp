@@ -30,7 +30,6 @@ nano::store::rocksdb::block::block (nano::store::rocksdb::component & store_a) :
 
 void nano::store::rocksdb::block::put (store::write_transaction const & transaction, nano::block_hash const & hash, nano::block const & block)
 {
-	debug_assert (block.sideband ().successor.is_zero () || exists (transaction, block.sideband ().successor));
 	std::vector<uint8_t> vector;
 	{
 		nano::vectorstream stream (vector);
@@ -40,6 +39,7 @@ void nano::store::rocksdb::block::put (store::write_transaction const & transact
 	raw_put (transaction, vector, hash);
 	block_predecessor_rocksdb_set predecessor (transaction, *this);
 	block.visit (predecessor);
+
 	debug_assert (block.previous ().is_zero () || successor (transaction, block.previous ()) == hash);
 }
 
@@ -53,37 +53,30 @@ void nano::store::rocksdb::block::raw_put (store::write_transaction const & tran
 std::optional<nano::block_hash> nano::store::rocksdb::block::successor (store::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
 	nano::store::rocksdb::db_val value;
-	block_raw_get (transaction_a, hash_a, value);
-	nano::block_hash result;
-	if (value.size () != 0)
+	auto status = store.get (transaction_a, tables::successors, hash_a, value);
+	if (store.success (status))
 	{
-		debug_assert (value.size () >= result.bytes.size ());
-		auto type = block_type_from_raw (value.data ());
-		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()) + block_successor_offset (transaction_a, value.size (), type), result.bytes.size ());
+		debug_assert (value.size () == sizeof (nano::block_hash));
+		nano::block_hash result;
+		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 		auto error (nano::try_read (stream, result.bytes));
 		(void)error;
 		debug_assert (!error);
+		if (!result.is_zero ())
+		{
+			return result;
+		}
 	}
-	else
-	{
-		result.clear ();
-	}
-	if (result.is_zero ())
-	{
-		return std::nullopt;
-	}
-	return result;
+	return std::nullopt;
 }
 
 void nano::store::rocksdb::block::successor_clear (store::write_transaction const & transaction, nano::block_hash const & hash)
 {
-	nano::store::rocksdb::db_val value;
-	block_raw_get (transaction, hash, value);
-	debug_assert (value.size () != 0);
-	auto type = block_type_from_raw (value.data ());
-	std::vector<uint8_t> data (static_cast<uint8_t *> (value.data ()), static_cast<uint8_t *> (value.data ()) + value.size ());
-	std::fill_n (data.begin () + block_successor_offset (transaction, value.size (), type), sizeof (nano::block_hash), uint8_t{ 0 });
-	raw_put (transaction, data, hash);
+	if (store.exists (transaction, tables::successors, hash))
+	{
+		auto status = store.del (transaction, tables::successors, hash);
+		store.release_assert_success (status);
+	}
 }
 
 std::shared_ptr<nano::block> nano::store::rocksdb::block::get (store::transaction const & transaction, nano::block_hash const & hash) const
@@ -102,6 +95,9 @@ std::shared_ptr<nano::block> nano::store::rocksdb::block::get (store::transactio
 		nano::block_sideband sideband;
 		error = (sideband.deserialize (stream, type));
 		release_assert (!error);
+
+		auto successor_hash = successor (transaction, hash);
+		sideband.successor = successor_hash.value_or (0);
 		result->sideband_set (sideband);
 	}
 	return result;
@@ -111,6 +107,12 @@ void nano::store::rocksdb::block::del (store::write_transaction const & transact
 {
 	auto status = store.del (transaction_a, tables::blocks, hash_a);
 	store.release_assert_success (status);
+	// Also remove from successors table if it exists
+	if (store.exists (transaction_a, tables::successors, hash_a))
+	{
+		auto successor_status = store.del (transaction_a, tables::successors, hash_a);
+		store.release_assert_success (successor_status);
+	}
 }
 
 bool nano::store::rocksdb::block::exists (store::transaction const & transaction, nano::block_hash const & hash)
@@ -153,11 +155,6 @@ void nano::store::rocksdb::block::block_raw_get (store::transaction const & tran
 	release_assert (store.success (status) || store.not_found (status), store.error_string (status));
 }
 
-size_t nano::store::rocksdb::block::block_successor_offset (store::transaction const & transaction_a, size_t entry_size_a, nano::block_type type_a) const
-{
-	return entry_size_a - nano::block_sideband::size (type_a);
-}
-
 nano::block_type nano::store::rocksdb::block::block_type_from_raw (void * data_a)
 {
 	// The block type is the first byte
@@ -173,13 +170,10 @@ nano::block_predecessor_rocksdb_set::block_predecessor_rocksdb_set (store::write
 void nano::block_predecessor_rocksdb_set::fill_value (nano::block const & block_a)
 {
 	auto hash = block_a.hash ();
-	nano::store::rocksdb::db_val value;
-	block_store.block_raw_get (transaction, block_a.previous (), value);
-	debug_assert (value.size () != 0);
-	auto type = block_store.block_type_from_raw (value.data ());
-	std::vector<uint8_t> data (static_cast<uint8_t *> (value.data ()), static_cast<uint8_t *> (value.data ()) + value.size ());
-	std::copy (hash.bytes.begin (), hash.bytes.end (), data.begin () + block_store.block_successor_offset (transaction, value.size (), type));
-	block_store.raw_put (transaction, data, block_a.previous ());
+	auto previous = block_a.previous ();
+	nano::store::rocksdb::db_val value{ sizeof (nano::block_hash), (void *)hash.bytes.data () };
+	auto status = block_store.store.put (transaction, tables::successors, previous, value);
+	release_assert (nano::store::rocksdb::success (status), nano::store::rocksdb::error_string (status));
 }
 
 void nano::block_predecessor_rocksdb_set::send_block (nano::send_block const & block_a)
