@@ -538,7 +538,7 @@ namespace difficulty
 }
 
 /**
- * Add to or substract from a value without overflow
+ * Add to or subtract from a value without overflow
  * TODO: C++26 replace with std::add_sat and std::sub_sat
  */
 template <typename T>
