@@ -260,6 +260,9 @@ void nano::store::lmdb::component::do_upgrades (store::write_transaction & trans
 			upgrade_v23_to_v24 (transaction);
 			[[fallthrough]];
 		case 24:
+			upgrade_v24_to_v25 (transaction);
+			[[fallthrough]];
+		case 25:
 			break;
 		default:
 			logger.critical (nano::log::type::lmdb, "The version of the ledger ({}) is too high for this node", version_l);
@@ -356,6 +359,142 @@ void nano::store::lmdb::component::upgrade_v23_to_v24 (store::write_transaction 
 	version.put (transaction, 24);
 
 	logger.info (nano::log::type::lmdb, "Upgrading database from v23 to v24 completed");
+}
+
+void nano::store::lmdb::component::upgrade_v24_to_v25 (store::write_transaction & transaction)
+{
+	logger.info (nano::log::type::lmdb, "Upgrading database from v24 to v25...");
+	logger.info (nano::log::type::lmdb, "Removing successor from block sideband and moving to successor table...");
+
+	// Get total block count for progress reporting
+	auto const total_blocks = count (transaction, block_store.blocks_handle);
+	logger.info (nano::log::type::lmdb, "Total blocks to process: {}", total_blocks);
+
+	size_t const batch_size = 500000;
+	size_t processed = 0;
+
+	// Struct to hold block migration data
+	struct block_migration_data
+	{
+		nano::block_hash hash;
+		nano::block_hash successor;
+		std::vector<uint8_t> new_data;
+	};
+
+	// Process blocks in batches to avoid loading entire database into memory
+	bool has_more = true;
+	std::optional<nano::block_hash> last_key;
+
+	while (has_more)
+	{
+		// Read a batch of blocks
+		std::vector<block_migration_data> blocks_to_migrate;
+		blocks_to_migrate.reserve (batch_size);
+
+		{
+			MDB_cursor * cursor;
+			auto status = mdb_cursor_open (env.tx (transaction), block_store.blocks_handle, &cursor);
+			release_assert (success (status), error_string (status));
+
+			MDB_val key, value;
+			MDB_cursor_op op;
+
+			// Position cursor: either at the start or after the last processed key
+			if (!last_key.has_value ())
+			{
+				op = MDB_FIRST;
+			}
+			else
+			{
+				// Seek to the last processed key and move to the next one
+				nano::store::lmdb::db_val last_key_val{ last_key.value () };
+				auto mdb_key = to_mdb_val (last_key_val);
+				status = mdb_cursor_get (cursor, &mdb_key, &value, MDB_SET);
+				release_assert (success (status), error_string (status));
+				op = MDB_NEXT;
+			}
+
+			for (size_t i = 0; i < batch_size && has_more; ++i)
+			{
+				status = mdb_cursor_get (cursor, &key, &value, op);
+				if (not_found (status))
+				{
+					has_more = false;
+					break;
+				}
+				release_assert (success (status), error_string (status));
+				op = MDB_NEXT;
+
+				// Extract block hash (key)
+				release_assert (key.mv_size == sizeof (nano::block_hash), "Invalid block hash size");
+				nano::block_hash hash;
+				std::memcpy (hash.bytes.data (), key.mv_data, sizeof (nano::block_hash));
+
+				// Get block type from first byte
+				auto data_ptr = static_cast<uint8_t const *> (value.mv_data);
+				auto block_type = static_cast<nano::block_type> (data_ptr[0]);
+
+				// Calculate sideband sizes
+				size_t const new_sideband_size = nano::block_sideband::size (block_type);
+				size_t const old_sideband_size = new_sideband_size + 32; // +32 for successor
+				size_t const block_size = value.mv_size - old_sideband_size;
+
+				release_assert (value.mv_size >= old_sideband_size, "Block data too small");
+
+				// Extract successor (first 32 bytes of old sideband)
+				size_t const successor_offset = block_size;
+				nano::block_hash successor;
+				std::memcpy (successor.bytes.data (), data_ptr + successor_offset, 32);
+
+				// Build new block data (block + new sideband, without successor)
+				std::vector<uint8_t> new_data;
+				new_data.reserve (block_size + new_sideband_size);
+				// Copy block portion
+				new_data.insert (new_data.end (), data_ptr, data_ptr + block_size);
+				// Copy sideband without successor (skip first 32 bytes)
+				new_data.insert (new_data.end (), data_ptr + successor_offset + 32, data_ptr + value.mv_size);
+
+				blocks_to_migrate.push_back ({ hash, successor, std::move (new_data) });
+
+				// Remember the last key processed in this batch
+				last_key = hash;
+			}
+
+			// Close cursor before writing to avoid conflicts
+			mdb_cursor_close (cursor);
+		}
+
+		// Write this batch of blocks (cursor is now closed)
+		for (auto & block_data : blocks_to_migrate)
+		{
+			// Write successor to successor table
+			nano::store::lmdb::db_val successor_key{ block_data.hash };
+			nano::store::lmdb::db_val successor_value{ block_data.successor };
+			auto write_status = put (transaction, tables::successors, successor_key, successor_value);
+			release_assert (success (write_status), error_string (write_status));
+
+			// Update block with new data (without successor in sideband)
+			nano::store::lmdb::db_val block_key{ block_data.hash };
+			nano::store::lmdb::db_val block_value{ block_data.new_data.size (), block_data.new_data.data () };
+			write_status = put (transaction, tables::blocks, block_key, block_value);
+			release_assert (success (write_status), error_string (write_status));
+
+			processed++;
+		}
+
+		// Report progress after each batch
+		if (!blocks_to_migrate.empty ())
+		{
+			double const percentage = total_blocks > 0 ? (static_cast<double> (processed) / total_blocks * 100.0) : 0.0;
+			logger.info (nano::log::type::lmdb, "Processed {} blocks ({:.1f}%)", processed, percentage);
+			transaction.refresh (); // Refresh to prevent excessive memory usage
+		}
+	}
+
+	logger.info (nano::log::type::lmdb, "Processed {} blocks total (100.0%)", processed);
+	version.put (transaction, 25);
+
+	logger.info (nano::log::type::lmdb, "Upgrading database from v24 to v25 completed");
 }
 
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */

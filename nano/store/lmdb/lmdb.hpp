@@ -101,6 +101,7 @@ private:
 	void upgrade_v21_to_v22 (store::write_transaction &);
 	void upgrade_v22_to_v23 (store::write_transaction &);
 	void upgrade_v23_to_v24 (store::write_transaction &);
+	void upgrade_v24_to_v25 (store::write_transaction &);
 
 	void open_databases (store::transaction const &, unsigned);
 	void open_table (store::transaction const &, char const * name, unsigned flags, MDB_dbi & handle);

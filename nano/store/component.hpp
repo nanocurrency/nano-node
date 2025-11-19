@@ -64,7 +64,7 @@ namespace store
 		store::rep_weight & rep_weight;
 
 		static int constexpr version_minimum{ 21 };
-		static int constexpr version_current{ 24 };
+		static int constexpr version_current{ 25 };
 
 	public:
 		store::online_weight & online_weight;
