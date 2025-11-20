@@ -158,7 +158,8 @@ TEST (block_store, clear_successor)
 	{
 		auto block1_store (store->block.get (transaction, block1->hash ()));
 		ASSERT_NE (nullptr, block1_store);
-		ASSERT_EQ (0, block1_store->sideband ().successor.number ());
+		auto successor = store->block.successor (transaction, block1->hash ());
+		ASSERT_FALSE (successor.has_value ());
 	}
 
 	// Create block2 - second block in chain (previous = block1)
@@ -180,7 +181,9 @@ TEST (block_store, clear_successor)
 	{
 		auto block1_store (store->block.get (transaction, block1->hash ()));
 		ASSERT_NE (nullptr, block1_store);
-		ASSERT_EQ (block2->hash (), block1_store->sideband ().successor);
+		auto successor = store->block.successor (transaction, block1->hash ());
+		ASSERT_TRUE (successor.has_value ());
+		ASSERT_EQ (block2->hash (), successor.value ());
 	}
 
 	// Clear block1's successor
@@ -190,7 +193,8 @@ TEST (block_store, clear_successor)
 	{
 		auto block1_store (store->block.get (transaction, block1->hash ()));
 		ASSERT_NE (nullptr, block1_store);
-		ASSERT_EQ (0, block1_store->sideband ().successor.number ());
+		auto successor = store->block.successor (transaction, block1->hash ());
+		ASSERT_FALSE (successor.has_value ());
 	}
 }
 
