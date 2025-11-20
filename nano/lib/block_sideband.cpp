@@ -201,7 +201,6 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_typ
 
 void nano::block_sideband::operator() (nano::object_stream & obs) const
 {
-	obs.write ("successor", successor);
 	obs.write ("account", account);
 	obs.write ("balance", balance);
 	obs.write ("height", height);

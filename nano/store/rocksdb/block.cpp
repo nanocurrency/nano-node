@@ -97,7 +97,6 @@ std::shared_ptr<nano::block> nano::store::rocksdb::block::get (store::transactio
 		release_assert (!error);
 
 		auto successor_hash = successor (transaction, hash);
-		sideband.successor = successor_hash.value_or (0);
 		result->sideband_set (sideband);
 	}
 	return result;

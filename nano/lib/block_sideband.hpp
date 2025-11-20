@@ -56,7 +56,6 @@ public:
 	static size_t size (nano::block_type);
 
 public:
-	nano::block_hash successor{ 0 };
 	nano::account account{};
 	nano::amount balance{ 0 };
 	uint64_t height{ 0 };
