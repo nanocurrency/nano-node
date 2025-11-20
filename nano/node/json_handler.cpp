@@ -1158,7 +1158,8 @@ void nano::json_handler::block_info ()
 			response_l.put ("balance", balance.number ().convert_to<std::string> ());
 			response_l.put ("height", std::to_string (block->sideband ().height));
 			response_l.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
-			response_l.put ("successor", block->sideband ().successor.to_string ());
+			auto successor = node.ledger.any.block_successor (transaction, hash);
+			response_l.put ("successor", successor.value_or (0).to_string ());
 			auto confirmed (node.ledger.confirmed.block_exists_or_pruned (transaction, hash));
 			response_l.put ("confirmed", confirmed);
 
@@ -1328,7 +1329,8 @@ void nano::json_handler::blocks_info ()
 					entry.put ("balance", balance.number ().convert_to<std::string> ());
 					entry.put ("height", std::to_string (block->sideband ().height));
 					entry.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
-					entry.put ("successor", block->sideband ().successor.to_string ());
+					auto successor = node.ledger.any.block_successor (transaction, hash);
+					entry.put ("successor", successor.value_or (0).to_string ());
 					auto confirmed (node.ledger.confirmed.block_exists_or_pruned (transaction, hash));
 					entry.put ("confirmed", confirmed);
 
