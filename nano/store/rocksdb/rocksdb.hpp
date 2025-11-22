@@ -134,6 +134,7 @@ private:
 	void upgrade_v21_to_v22 (store::write_transaction &);
 	void upgrade_v22_to_v23 (store::write_transaction &);
 	void upgrade_v23_to_v24 (store::write_transaction &);
+	void upgrade_v24_to_v25 (store::write_transaction &);
 
 	::rocksdb::Options get_db_options ();
 	::rocksdb::BlockBasedTableOptions get_table_options () const;
