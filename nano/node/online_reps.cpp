@@ -113,11 +113,13 @@ void nano::online_reps::run ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	last_sample = std::chrono::steady_clock::now ();
+	bool sampled = true; // Use full interval before first sample
 	while (!stopped)
 	{
 		condition.wait_for (lock, nano::is_dev_run () ? 100ms : 1s, [this] () {
 			return stopped;
 		});
+
 		if (stopped)
 		{
 			return;
@@ -128,20 +130,36 @@ void nano::online_reps::run ()
 
 		// Sample trended weight if the next sample time has been reached
 		auto const now = std::chrono::steady_clock::now ();
-		auto const next_sample = last_sample + config.network_params.node.weight_interval;
+		// Reduce interval if the last sample was skipped
+		auto const interval = sampled ? config.network_params.node.weight_interval : config.network_params.node.weight_interval / 2;
+		auto const next_sample = last_sample + interval;
 		if (now >= next_sample)
 		{
 			trim ();
 			lock.unlock ();
-			sample ();
+
+			sampled = sample ();
+
 			lock.lock ();
 			last_sample = now;
 		}
 	}
 }
 
-void nano::online_reps::sample ()
+bool nano::online_reps::sample ()
 {
+	auto current_online = online ();
+
+	if (current_online < config.online_weight_minimum.number ())
+	{
+		stats.inc (nano::stat::type::online_reps, nano::stat::detail::sample_skipped);
+		logger.warn (nano::log::type::online_reps, "Current online weight {} is below minimum threshold {}. This often occurs when the node cannot reach enough peers; check network connectivity and peer count.",
+		nano::uint128_union{ current_online }.format_balance (nano_ratio, 1, true),
+		nano::uint128_union{ config.online_weight_minimum.number () }.format_balance (nano_ratio, 1, true));
+
+		return false; // Skipped
+	}
+
 	stats.inc (nano::stat::type::online_reps, nano::stat::detail::sample);
 
 	auto transaction = ledger.tx_begin_write (nano::store::writer::online_weight);
@@ -150,7 +168,7 @@ void nano::online_reps::sample ()
 	trim_trended (transaction);
 
 	// Put current online weight sample into the database
-	ledger.store.online_weight.put (transaction, nano::seconds_since_epoch (), online ());
+	ledger.store.online_weight.put (transaction, nano::seconds_since_epoch (), current_online);
 
 	// Update current trended weight
 	auto trended_result = calculate_trended (transaction);
@@ -162,6 +180,8 @@ void nano::online_reps::sample ()
 	logger.info (nano::log::type::online_reps, "Updated trended weight: {} (samples: {})",
 	nano::uint128_union{ trended_result.trended }.format_balance (nano_ratio, 1, true),
 	trended_result.samples);
+
+	return true; // Sampled
 }
 
 nano::uint128_t nano::online_reps::calculate_online () const

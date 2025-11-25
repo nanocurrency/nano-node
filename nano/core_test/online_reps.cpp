@@ -1,5 +1,4 @@
-#include "nano/node/election.hpp"
-
+#include <nano/node/election.hpp>
 #include <nano/node/online_reps.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/secure/vote.hpp>
@@ -14,18 +13,17 @@ TEST (online_reps, basic)
 	auto & node1 = *system.add_node ();
 	// 1 sample of minimum weight
 	ASSERT_EQ (node1.config.online_weight_minimum, node1.online_reps.trended ());
-	auto vote (std::make_shared<nano::vote> ());
 	ASSERT_EQ (0, node1.online_reps.online ());
 	node1.online_reps.observe (nano::dev::genesis_key.pub);
 	ASSERT_EQ (nano::dev::constants.genesis_amount, node1.online_reps.online ());
 	// 1 minimum, 1 maximum
-	ASSERT_EQ (node1.config.online_weight_minimum, node1.online_reps.trended ());
 	node1.online_reps.force_sample ();
 	ASSERT_EQ (nano::dev::constants.genesis_amount, node1.online_reps.trended ());
+	// Clearing simulates all reps going offline (network error, etc)
+	// Should remain at the latest trended weight until enough weight reconnects
 	node1.online_reps.clear ();
-	// 2 minimum, 1 maximum
 	node1.online_reps.force_sample ();
-	ASSERT_EQ (node1.config.online_weight_minimum, node1.online_reps.trended ());
+	ASSERT_EQ (nano::dev::constants.genesis_amount, node1.online_reps.trended ());
 }
 
 TEST (online_reps, rep_crawler)

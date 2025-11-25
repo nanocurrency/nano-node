@@ -680,6 +680,7 @@ enum class detail
 	sanitize_old,
 	sanitize_future,
 	sample,
+	sample_skipped,
 	rep_new,
 	rep_update,
 	rep_trim,

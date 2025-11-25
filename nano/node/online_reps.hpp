@@ -58,7 +58,7 @@ private: // Dependencies
 private:
 	void run ();
 	/** Called periodically to sample online weight */
-	void sample ();
+	bool sample ();
 	void trim ();
 	/** Remove old records from the database */
 	void trim_trended (nano::store::write_transaction const &);
