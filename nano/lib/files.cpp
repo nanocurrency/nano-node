@@ -20,17 +20,25 @@
 
 static std::vector<std::filesystem::path> all_unique_paths;
 
-std::size_t nano::get_file_descriptor_limit ()
+/*
+ *
+ */
+
+nano::file_descriptor_limits nano::get_file_descriptor_limit ()
 {
-	std::size_t fd_limit = std::numeric_limits<std::size_t>::max ();
+	nano::file_descriptor_limits limits{
+		.soft_limit = std::numeric_limits<std::size_t>::max (),
+		.hard_limit = std::numeric_limits<std::size_t>::max (),
+	};
 #ifndef _WIN32
 	rlimit limit{};
 	if (getrlimit (RLIMIT_NOFILE, &limit) == 0)
 	{
-		fd_limit = static_cast<std::size_t> (limit.rlim_cur);
+		limits.soft_limit = static_cast<std::size_t> (limit.rlim_cur);
+		limits.hard_limit = static_cast<std::size_t> (limit.rlim_max);
 	}
 #endif
-	return fd_limit;
+	return limits;
 }
 
 void nano::set_file_descriptor_limit (std::size_t limit)
@@ -59,13 +67,21 @@ void nano::set_file_descriptor_limit (std::size_t limit)
 
 void nano::initialize_file_descriptor_limit ()
 {
-	nano::set_file_descriptor_limit (DEFAULT_FILE_DESCRIPTOR_LIMIT);
-	auto limit = nano::get_file_descriptor_limit ();
-	if (limit < DEFAULT_FILE_DESCRIPTOR_LIMIT)
+	// Attempt to set the file descriptor limit to the maximum allowed value
+	auto limits = nano::get_file_descriptor_limit ();
+	nano::set_file_descriptor_limit (limits.hard_limit);
+
+	auto updated_limits = nano::get_file_descriptor_limit ();
+	if (updated_limits.soft_limit < DEFAULT_FILE_DESCRIPTOR_LIMIT)
 	{
-		std::cerr << "WARNING: Current file descriptor limit of " << limit << " is lower than the " << DEFAULT_FILE_DESCRIPTOR_LIMIT << " recommended. Node was unable to change it." << std::endl;
+		std::cerr << "WARNING: Current file descriptor limit of " << updated_limits.soft_limit << " (hard limit " << updated_limits.hard_limit << ")"
+				  << " is lower than the " << DEFAULT_FILE_DESCRIPTOR_LIMIT << " recommended. Node was unable to change it." << std::endl;
 	}
 }
+
+/*
+ *
+ */
 
 void nano::remove_all_files_in_dir (std::filesystem::path const & dir)
 {

@@ -109,7 +109,8 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 
 		// Print info about number of logical cores detected, those are used to decide how many IO, worker and signature checker threads to spawn
 		logger.info (nano::log::type::daemon, "Hardware concurrency: {} (configured: {})", std::thread::hardware_concurrency (), nano::hardware_concurrency ());
-		logger.info (nano::log::type::daemon, "File descriptors limit: {}", nano::get_file_descriptor_limit ());
+		auto const file_descriptor_limits = nano::get_file_descriptor_limit ();
+		logger.info (nano::log::type::daemon, "File descriptor limit: {} (hard cap: {})", file_descriptor_limits.soft_limit, file_descriptor_limits.hard_limit);
 
 		// for the daemon start up, if the user hasn't specified a port in
 		// the config, we must use the default peering port for the network

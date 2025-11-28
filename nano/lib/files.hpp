@@ -46,6 +46,10 @@ bool event_log_reg_entry_exists ();
  */
 void create_load_memory_address_files ();
 
+void remove_all_files_in_dir (std::filesystem::path const & dir);
+void move_all_files_to_dir (std::filesystem::path const & from, std::filesystem::path const & to);
+}
+
 /**
  * Some systems, especially in virtualized environments, may have very low file descriptor limits,
  * causing the node to fail. This function attempts to query the limit and returns the value. If the
@@ -53,14 +57,18 @@ void create_load_memory_address_files ();
  * Increasing the limit programmatically can be done only for the soft limit, the hard one requiring
  * super user permissions to modify.
  */
-std::size_t get_file_descriptor_limit ();
-void set_file_descriptor_limit (std::size_t limit);
-/**
- * This should be called from entry points. It sets the file descriptor limit to the maximum allowed and logs any errors.
- */
-constexpr std::size_t DEFAULT_FILE_DESCRIPTOR_LIMIT = 16384;
-void initialize_file_descriptor_limit ();
+namespace nano
+{
+constexpr std::size_t DEFAULT_FILE_DESCRIPTOR_LIMIT = 65535;
 
-void remove_all_files_in_dir (std::filesystem::path const & dir);
-void move_all_files_to_dir (std::filesystem::path const & from, std::filesystem::path const & to);
+struct file_descriptor_limits
+{
+	std::size_t soft_limit;
+	std::size_t hard_limit;
+};
+file_descriptor_limits get_file_descriptor_limit ();
+void set_file_descriptor_limit (std::size_t limit);
+
+// This should be called from entry points. It sets the file descriptor limit to the maximum allowed and logs any errors
+void initialize_file_descriptor_limit ();
 }
