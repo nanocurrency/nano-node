@@ -222,6 +222,10 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 
 		logger.debug (nano::log::type::ledger, "Ledger balance consistency verified");
 	}
+	else
+	{
+		logger.warn (nano::log::type::ledger, "Ledger consistency check skipped; ensure your environment provides data-integrity safeguards");
+	}
 
 	if (generate_cache_flags.reps && generate_cache_flags.consistency_check)
 	{
