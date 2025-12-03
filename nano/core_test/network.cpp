@@ -505,10 +505,6 @@ TEST (network, endpoint_bad_fd)
 	ASSERT_TIMELY_EQ (10s, system.nodes[0]->network.endpoint ().port (), 0);
 }
 
-// Test disabled because it's failing repeatedly for Windows + LMDB.
-// PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3622
-// Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3621
-#ifndef _WIN32
 TEST (network, peer_max_tcp_attempts)
 {
 	nano::test::system system;
@@ -534,7 +530,6 @@ TEST (network, peer_max_tcp_attempts)
 	ASSERT_FALSE (node->network.tcp_channels.track_reachout (nano::endpoint (node->network.endpoint ().address (), system.get_available_port ())));
 	ASSERT_LE (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::max_per_ip, nano::stat::dir::out));
 }
-#endif
 
 TEST (network, peer_max_tcp_attempts_subnetwork)
 {
