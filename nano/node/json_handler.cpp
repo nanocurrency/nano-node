@@ -3701,7 +3701,7 @@ void nano::json_handler::republish ()
 				if (destinations != 0) // Republish destination chain
 				{
 					auto block_b = node.ledger.any.block_get (transaction, hash);
-					auto destination = block_b->destination ();
+					auto destination = block_b->is_send () ? block_b->destination () : nano::account (0);
 					if (!destination.is_zero ())
 					{
 						if (!node.ledger.any.pending_get (transaction, nano::pending_key{ destination, hash }))

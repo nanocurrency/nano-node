@@ -2805,6 +2805,32 @@ TEST (rpc, republish)
 	ASSERT_EQ (nano::dev::genesis->hash (), blocks[0]);
 	ASSERT_EQ (send->hash (), blocks[1]);
 	ASSERT_EQ (open->hash (), blocks[2]);
+
+	request.put ("hash", open->hash ().to_string ());
+	request.put ("sources", 0);
+	request.put ("destinations", 2);
+	auto response3 (wait_response (system, rpc_ctx, request));
+	blocks_node = response3.get_child ("blocks");
+	blocks.clear ();
+	for (auto i (blocks_node.begin ()), n (blocks_node.end ()); i != n; ++i)
+	{
+		blocks.push_back (nano::block_hash (i->second.get<std::string> ("")));
+	}
+	ASSERT_EQ (1, blocks.size ());
+
+	request.put ("hash", send->hash ().to_string ());
+	request.put ("sources", 0);
+	request.put ("destinations", 2);
+	auto response4 (wait_response (system, rpc_ctx, request));
+	blocks_node = response4.get_child ("blocks");
+	blocks.clear ();
+	for (auto i (blocks_node.begin ()), n (blocks_node.end ()); i != n; ++i)
+	{
+		blocks.push_back (nano::block_hash (i->second.get<std::string> ("")));
+	}
+	ASSERT_EQ (2, blocks.size ());
+	ASSERT_EQ (send->hash (), blocks[0]);
+	ASSERT_EQ (open->hash (), blocks[1]);
 }
 
 TEST (rpc, deterministic_key)
