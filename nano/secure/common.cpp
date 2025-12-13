@@ -28,7 +28,6 @@ char const * dev_private_key_data = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E
 char const * dev_public_key_data = "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0"; // xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo
 char const * beta_public_key_data = "259A438A8F9F9226130C84D902C237AF3E57C0981C7D709C288046B110D8C8AC"; // nano_1betagoxpxwykx4kw86dnhosc8t3s7ix8eeentwkcg1hbpez1outjrcyg4n1
 char const * live_public_key_data = "E89208DD038FBB269987689621D52292AE9C35941A7484756ECCED92A65093BA"; // xrb_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3
-std::string const test_public_key_data = nano::env::get ("NANO_TEST_GENESIS_PUB").value_or ("45C6FF9D1706D61F0821327752671BDA9F9ED2DA40326B01935AB566FB9E08ED"); // nano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j
 
 char const * dev_genesis_data = R"%%%({
 	"type": "open",
@@ -56,15 +55,6 @@ char const * live_genesis_data = R"%%%({
 	"work": "62f05417dd3fb691",
 	"signature": "9F0C933C8ADE004D808EA1985FA746A7E95BA2A38F867640F53EC8F180BDFE9E2C1268DEAD7C2664F356E37ABA362BC58E46DBA03E523A7B5A19E4B6EB12BB02"
     })%%%";
-
-std::string const test_genesis_data = nano::env::get ("NANO_TEST_GENESIS_BLOCK").value_or (R"%%%({
-	"type": "open",
-	"source": "45C6FF9D1706D61F0821327752671BDA9F9ED2DA40326B01935AB566FB9E08ED",
-	"representative": "nano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j",
-	"account": "nano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j",
-	"work": "bc1ef279c1a34eb1",
-	"signature": "15049467CAEE3EC768639E8E35792399B6078DA763DA4EBA8ECAD33B0EDC4AF2E7403893A5A602EB89B978DABEF1D6606BB00F3C0EE11449232B143B6E07170E"
-    })%%%");
 
 std::shared_ptr<nano::block> parse_block_from_genesis_data (std::string const & genesis_data_a)
 {
@@ -98,8 +88,6 @@ nano::work_thresholds nano::work_thresholds_for_network (nano::network_type netw
 			return nano::work_thresholds::publish_beta;
 		case nano::network_type::nano_dev_network:
 			return nano::work_thresholds::publish_dev;
-		case nano::network_type::nano_test_network:
-			return nano::work_thresholds::publish_test;
 		default:
 			release_assert (false, "invalid network");
 	}
@@ -127,11 +115,9 @@ nano::ledger_constants::ledger_constants (nano::network_type network_type) :
 	zero_key{ "0" },
 	nano_beta_account{ beta_public_key_data },
 	nano_live_account{ live_public_key_data },
-	nano_test_account{ test_public_key_data },
 	nano_dev_genesis{ parse_block_from_genesis_data (dev_genesis_data) },
 	nano_beta_genesis{ parse_block_from_genesis_data (beta_genesis_data) },
 	nano_live_genesis{ parse_block_from_genesis_data (live_genesis_data) },
-	nano_test_genesis{ parse_block_from_genesis_data (test_genesis_data) },
 	genesis_amount{ std::numeric_limits<nano::uint128_t>::max () },
 	burn_account{ nano::account{ 0 } }
 {
@@ -171,18 +157,6 @@ nano::ledger_constants::ledger_constants (nano::network_type network_type) :
 	/* is_epoch */ false,
 	/* source_epoch */ nano::epoch::epoch_0 });
 
-	nano_test_genesis->sideband_set (nano::block_sideband{
-	/* account */ nano_test_genesis->account_field ().value (),
-	/* successor (block_hash) */ nano::block_hash{ 0 },
-	/* balance (amount) */ nano::amount{ std::numeric_limits<nano::uint128_t>::max () },
-	/* height */ uint64_t{ 1 },
-	/* local_timestamp */ 0,
-	/* epoch */ nano::epoch::epoch_0,
-	/* is_send */ false,
-	/* is_receive */ false,
-	/* is_epoch */ false,
-	/* source_epoch */ nano::epoch::epoch_0 });
-
 	nano::account epoch_v2_signer;
 	switch (network_type)
 	{
@@ -202,12 +176,6 @@ nano::ledger_constants::ledger_constants (nano::network_type network_type) :
 		{
 			genesis = nano_beta_genesis;
 			epoch_v2_signer = nano_beta_account;
-		}
-		break;
-		case nano::network_type::nano_test_network:
-		{
-			genesis = nano_test_genesis;
-			epoch_v2_signer = nano_test_account;
 		}
 		break;
 		default:
@@ -253,7 +221,7 @@ nano::node_constants::node_constants (nano::network_constants const & network_co
 	unchecked_cleaning_interval = std::chrono::minutes (30);
 	process_confirmed_interval = network_constants.is_dev_network () ? std::chrono::milliseconds (50) : std::chrono::milliseconds (500);
 	weight_interval = network_constants.is_dev_network () ? std::chrono::seconds (1) : std::chrono::minutes (5);
-	weight_cutoff = (network_constants.is_live_network () || network_constants.is_test_network ()) ? std::chrono::weeks (2) : std::chrono::days (1);
+	weight_cutoff = network_constants.is_live_network () ? std::chrono::weeks (2) : std::chrono::days (1);
 }
 
 /*

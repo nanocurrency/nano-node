@@ -23,8 +23,7 @@ public:
 	unsigned io_threads{ std::max (nano::hardware_concurrency (), 4u) };
 	std::string ipc_address;
 	uint16_t ipc_port{ network_constants.default_ipc_port };
-	unsigned num_ipc_connections{ (network_constants.is_live_network () || network_constants.is_test_network ()) ? 8u : network_constants.is_beta_network () ? 4u
-																																							 : 1u };
+	unsigned num_ipc_connections{ network_constants.is_live_network () ? 8u : (network_constants.is_beta_network () ? 4u : 1u) };
 };
 
 class rpc_logging_config final

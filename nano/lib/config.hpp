@@ -62,13 +62,6 @@ consteval bool is_sanitizer_build ()
 
 namespace nano
 {
-uint16_t test_node_port ();
-uint16_t test_rpc_port ();
-uint16_t test_ipc_port ();
-uint16_t test_websocket_port ();
-std::array<uint8_t, 2> test_magic_number ();
-uint32_t test_scan_wallet_reps_delay (); // How often to scan for representatives in local wallet, in milliseconds
-
 // Configuration file names
 constexpr std::string_view node_config_filename{ "config-node.toml" };
 constexpr std::string_view rpc_config_filename{ "config-rpc.toml" };

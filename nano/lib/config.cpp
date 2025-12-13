@@ -69,92 +69,8 @@ std::string get_tls_toml_config_path (std::filesystem::path const & data_path)
 {
 	return (data_path / tls_config_filename).string ();
 }
-}
 
-uint16_t nano::test_node_port ()
-{
-	static auto const test_env = [] () -> std::optional<uint16_t> {
-		if (auto value = nano::env::get<uint16_t> ("NANO_TEST_NODE_PORT"))
-		{
-			std::cerr << "Node port overridden by NANO_TEST_NODE_PORT environment variable: " << *value << std::endl;
-			return *value;
-		}
-		return std::nullopt;
-	}();
-	return test_env.value_or (17075);
-}
-
-uint16_t nano::test_rpc_port ()
-{
-	static auto const test_env = [] () -> std::optional<uint16_t> {
-		if (auto value = nano::env::get<uint16_t> ("NANO_TEST_RPC_PORT"))
-		{
-			std::cerr << "RPC port overridden by NANO_TEST_RPC_PORT environment variable: " << *value << std::endl;
-			return *value;
-		}
-		return std::nullopt;
-	}();
-	return test_env.value_or (17076);
-}
-
-uint16_t nano::test_ipc_port ()
-{
-	static auto const test_env = [] () -> std::optional<uint16_t> {
-		if (auto value = nano::env::get<uint16_t> ("NANO_TEST_IPC_PORT"))
-		{
-			std::cerr << "IPC port overridden by NANO_TEST_IPC_PORT environment variable: " << *value << std::endl;
-			return *value;
-		}
-		return std::nullopt;
-	}();
-	return test_env.value_or (17077);
-}
-
-uint16_t nano::test_websocket_port ()
-{
-	static auto const test_env = [] () -> std::optional<uint16_t> {
-		if (auto value = nano::env::get<uint16_t> ("NANO_TEST_WEBSOCKET_PORT"))
-		{
-			std::cerr << "Websocket port overridden by NANO_TEST_WEBSOCKET_PORT environment variable: " << *value << std::endl;
-			return *value;
-		}
-		return std::nullopt;
-	}();
-	return test_env.value_or (17078);
-}
-
-uint32_t nano::test_scan_wallet_reps_delay ()
-{
-	static auto const test_env = [] () -> std::optional<uint32_t> {
-		if (auto value = nano::env::get<uint32_t> ("NANO_TEST_WALLET_SCAN_REPS_DELAY"))
-		{
-			std::cerr << "Wallet scan interval overridden by NANO_TEST_WALLET_SCAN_REPS_DELAY environment variable: " << *value << std::endl;
-			return *value;
-		}
-		return std::nullopt;
-	}();
-	return test_env.value_or (900000); // 15 minutes default
-}
-
-std::array<uint8_t, 2> nano::test_magic_number ()
-{
-	static auto const test_env = [] () -> std::optional<std::string> {
-		if (auto value = nano::env::get<std::string> ("NANO_TEST_MAGIC_NUMBER"))
-		{
-			std::cerr << "Magic number overridden by NANO_TEST_MAGIC_NUMBER environment variable: " << *value << std::endl;
-			return *value;
-		}
-		return std::nullopt;
-	}();
-
-	auto value = test_env.value_or ("RX");
-	release_assert (value.size () == 2);
-	std::array<uint8_t, 2> ret{};
-	std::copy (value.begin (), value.end (), ret.data ());
-	return ret;
-}
-
-size_t nano::queue_warning_threshold ()
+size_t queue_warning_threshold ()
 {
 	static auto const env_override = [] () -> std::optional<size_t> {
 		if (auto value = nano::env::get<size_t> ("NANO_QUEUE_WARNING_THRESHOLD"))
@@ -165,6 +81,7 @@ size_t nano::queue_warning_threshold ()
 		return std::nullopt;
 	}();
 	return env_override.value_or (100);
+}
 }
 
 size_t nano::ledger_thread_stack_size ()

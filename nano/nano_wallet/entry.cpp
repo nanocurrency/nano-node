@@ -280,7 +280,7 @@ int main (int argc, char * const * argv)
 			auto parsed = nano::parse_network (network->second.as<std::string> ());
 			if (!parsed)
 			{
-				daemon.show_error ("Invalid network. Valid values are live, test, beta and dev.");
+				daemon.show_error ("Invalid network. Valid values are live, beta and dev.");
 				std::exit (1);
 			}
 			nano::set_active_network (parsed.value ());

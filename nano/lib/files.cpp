@@ -138,9 +138,6 @@ std::filesystem::path nano::working_path (nano::network_type network)
 		case nano::network_type::nano_live_network:
 			result /= "Nano";
 			break;
-		case nano::network_type::nano_test_network:
-			result /= "NanoTest";
-			break;
 	}
 	return result;
 }

@@ -28,7 +28,6 @@ public:
 	static work_thresholds const publish_full;
 	static work_thresholds const publish_beta;
 	static work_thresholds const publish_dev;
-	static work_thresholds const publish_test;
 
 public:
 	constexpr work_thresholds (uint64_t epoch_1_a, uint64_t epoch_2_a, uint64_t epoch_2_receive_a) :
@@ -89,13 +88,6 @@ public:
 			default_rpc_port = 55000;
 			default_ipc_port = 56000;
 			default_websocket_port = 57000;
-		}
-		else if (is_test_network ())
-		{
-			default_node_port = test_node_port ();
-			default_rpc_port = test_rpc_port ();
-			default_ipc_port = test_ipc_port ();
-			default_websocket_port = test_websocket_port ();
 		}
 		else if (is_dev_network ())
 		{
@@ -180,8 +172,6 @@ public:
 				return "beta";
 			case nano::network_type::nano_dev_network:
 				return "dev";
-			case nano::network_type::nano_test_network:
-				return "test";
 			case network_type::invalid:
 				break;
 		}
@@ -199,10 +189,6 @@ public:
 	bool is_dev_network () const
 	{
 		return current_network == nano::network_type::nano_dev_network;
-	}
-	bool is_test_network () const
-	{
-		return current_network == nano::network_type::nano_test_network;
 	}
 
 	/** Current protocol version */

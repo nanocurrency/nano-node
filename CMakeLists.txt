@@ -160,9 +160,8 @@ option(ENABLE_AVX2 "Enable AVX2 optimizations" OFF)
 set(ACTIVE_NETWORK
     nano_live_network
     CACHE STRING "Selects which network parameters are used")
-set_property(
-  CACHE ACTIVE_NETWORK PROPERTY STRINGS nano_dev_network nano_beta_network
-                                nano_live_network nano_test_network)
+set_property(CACHE ACTIVE_NETWORK PROPERTY STRINGS nano_dev_network
+                                           nano_beta_network nano_live_network)
 set(CPACK_PACKAGE_NAME
     "nano-node"
     CACHE STRING "" FORCE)
@@ -187,19 +186,6 @@ if("${ACTIVE_NETWORK}" MATCHES "nano_beta_network")
       CACHE STRING "" FORCE)
   set(NANO_SERVICE "nanocurrency-beta.service")
   set(NANO_PREFIX "Beta")
-elseif("${ACTIVE_NETWORK}" MATCHES "nano_test_network")
-  project("nano-node-test")
-  set(CPACK_PACKAGE_NAME
-      "nano-node-test"
-      CACHE STRING "" FORCE)
-  set(CPACK_NSIS_PACKAGE_NAME
-      "Nano-Test"
-      CACHE STRING "" FORCE)
-  set(CPACK_PACKAGE_INSTALL_DIRECTORY
-      "nanocurrency-test"
-      CACHE STRING "" FORCE)
-  set(NANO_SERVICE "nanocurrency-test.service")
-  set(NANO_PREFIX "Test")
 endif()
 set(NANO_OSX_PACKAGE_NAME
     ${CPACK_NSIS_PACKAGE_NAME}

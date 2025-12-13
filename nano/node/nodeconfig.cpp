@@ -19,7 +19,6 @@ char const * signature_checker_threads_key = "signature_checker_threads";
 char const * pow_sleep_interval_key = "pow_sleep_interval";
 std::string const default_live_peer_network = nano::env::get ("NANO_DEFAULT_PEER").value_or ("peering.nano.org");
 std::string const default_beta_peer_network = nano::env::get ("NANO_DEFAULT_PEER").value_or ("peering-beta.nano.org");
-std::string const default_test_peer_network = nano::env::get ("NANO_DEFAULT_PEER").value_or ("peering-test.nano.org");
 }
 
 nano::node_config::node_config (std::optional<uint16_t> peering_port_a, nano::network_params const & network_params) :
@@ -72,10 +71,6 @@ nano::node_config::node_config (std::optional<uint16_t> peering_port_a, nano::ne
 			preconfigured_representatives.emplace_back ("2399A083C600AA0572F5E36247D978FCFC840405F8D4B6D33161C0066A55F431");
 			preconfigured_representatives.emplace_back ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A");
 			preconfigured_representatives.emplace_back ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56");
-			break;
-		case nano::network_type::nano_test_network:
-			preconfigured_peers.push_back (default_test_peer_network);
-			preconfigured_representatives.push_back (network_params.ledger.genesis->account ());
 			break;
 		default:
 			debug_assert (false);

@@ -53,10 +53,6 @@ if [[ ${FLAVOR-_} == "_" ]]; then
 fi
 
 case "${NETWORK}" in
-  "TEST")
-      NETWORK_CFG="-DACTIVE_NETWORK=nano_test_network"
-      CONFIGURATION="RelWithDebInfo"
-      ;;
   "BETA")
       NETWORK_CFG="-DACTIVE_NETWORK=nano_beta_network"
       CONFIGURATION="RelWithDebInfo"

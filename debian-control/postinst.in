@@ -7,7 +7,6 @@ groupadd -r nanocurrency
 
 mkdir -p /var/nanocurrency/Nano
 mkdir -p /var/nanocurrency/NanoBeta
-mkdir -p /var/nanocurrency/NanoTest
 chown -R nanocurrency: /var/nanocurrency
 
 systemctl stop ${NANO_SERVICE} 2>/dev/null
