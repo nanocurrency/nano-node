@@ -501,11 +501,13 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			if (error)
 			{
 				std::cerr << "There was an error migrating" << std::endl;
+				std::exit (1);
 			}
 		}
 		catch (std::exception const & e)
 		{
 			std::cerr << "Error initializing node for migration: " << e.what () << std::endl;
+			std::exit (1);
 		}
 	}
 	else if (vm.count ("rollback"))
