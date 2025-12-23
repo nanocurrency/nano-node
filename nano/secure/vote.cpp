@@ -146,7 +146,7 @@ bool nano::vote::is_final () const
 void nano::vote::serialize_json (boost::property_tree::ptree & tree) const
 {
 	tree.put ("account", account.to_account ());
-	tree.put ("signature", signature.number ());
+	tree.put ("signature", signature.to_string ());
 	tree.put ("sequence", std::to_string (timestamp ()));
 	tree.put ("timestamp", std::to_string (timestamp ()));
 	tree.put ("duration", std::to_string (duration_bits ()));

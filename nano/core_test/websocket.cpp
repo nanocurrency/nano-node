@@ -826,6 +826,19 @@ TEST (websocket, vote)
 	stream << response;
 	boost::property_tree::read_json (stream, event);
 	ASSERT_EQ (event.get<std::string> ("topic"), "vote");
+	auto message_contents = event.get_child ("message");
+	ASSERT_EQ (message_contents.count ("account"), 1);
+	ASSERT_EQ (message_contents.count ("signature"), 1);
+	ASSERT_EQ (message_contents.count ("sequence"), 1);
+	ASSERT_EQ (message_contents.count ("timestamp"), 1);
+	ASSERT_EQ (message_contents.count ("duration"), 1);
+	ASSERT_EQ (message_contents.count ("blocks"), 1);
+	ASSERT_EQ (message_contents.count ("type"), 1);
+
+	nano::signature signature;
+	std::string signature_text (message_contents.get<std::string> ("signature"));
+	ASSERT_EQ (signature_text.size (), 128);
+	ASSERT_FALSE (signature.decode_hex (signature_text));
 }
 
 // Tests vote subscription options - vote type
