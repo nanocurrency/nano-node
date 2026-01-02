@@ -30,7 +30,7 @@ public:
 	void initialize (nano::store::write_transaction const &, nano::ledger_constants const &);
 	void perform_upgrades (nano::store::backend_meta);
 
-	uint64_t count (nano::store::transaction const &, tables) const;
+	uint64_t count (nano::store::transaction const &, nano::store::table) const;
 
 	std::string vendor_get () const;
 	std::filesystem::path get_database_path () const;

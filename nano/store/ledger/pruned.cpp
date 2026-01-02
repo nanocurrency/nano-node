@@ -11,19 +11,19 @@ pruned_view::pruned_view (nano::store::backend & backend_a) :
 
 void pruned_view::put (nano::store::write_transaction const & txn, nano::block_hash const & hash)
 {
-	auto status = backend.put (txn, tables::pruned, hash, nullptr);
+	auto status = backend.put (txn, nano::store::table::pruned, hash, nullptr);
 	backend.release_assert_success (status);
 }
 
 void pruned_view::del (nano::store::write_transaction const & txn, nano::block_hash const & hash)
 {
-	auto status = backend.del (txn, tables::pruned, hash);
+	auto status = backend.del (txn, nano::store::table::pruned, hash);
 	backend.release_assert_success (status);
 }
 
 bool pruned_view::exists (nano::store::transaction const & txn, nano::block_hash const & hash) const
 {
-	return backend.exists (txn, tables::pruned, hash);
+	return backend.exists (txn, nano::store::table::pruned, hash);
 }
 
 nano::block_hash pruned_view::random (nano::store::transaction const & txn) const
@@ -40,28 +40,28 @@ nano::block_hash pruned_view::random (nano::store::transaction const & txn) cons
 
 size_t pruned_view::count (nano::store::transaction const & txn) const
 {
-	return backend.count (txn, tables::pruned);
+	return backend.count (txn, nano::store::table::pruned);
 }
 
 void pruned_view::clear ()
 {
-	auto status = backend.clear (tables::pruned);
+	auto status = backend.clear (nano::store::table::pruned);
 	backend.release_assert_success (status);
 }
 
 auto pruned_view::begin (nano::store::transaction const & txn, nano::block_hash const & hash) const -> iterator
 {
-	return iterator{ backend.begin (txn, tables::pruned, hash) };
+	return iterator{ backend.begin (txn, nano::store::table::pruned, hash) };
 }
 
 auto pruned_view::begin (nano::store::transaction const & txn) const -> iterator
 {
-	return iterator{ backend.begin (txn, tables::pruned) };
+	return iterator{ backend.begin (txn, nano::store::table::pruned) };
 }
 
 auto pruned_view::end (nano::store::transaction const & txn) const -> iterator
 {
-	return iterator{ backend.end (txn, tables::pruned) };
+	return iterator{ backend.end (txn, nano::store::table::pruned) };
 }
 
 void pruned_view::for_each_par (std::function<void (nano::store::read_transaction const &, iterator, iterator)> const & action) const

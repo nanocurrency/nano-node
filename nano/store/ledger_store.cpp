@@ -16,16 +16,16 @@
 namespace nano::store
 {
 nano::store::column_schema const ledger_store::schema_current{
-	{ tables::blocks, "blocks" },
-	{ tables::accounts, "accounts" },
-	{ tables::pending, "pending" },
-	{ tables::rep_weights, "rep_weights" },
-	{ tables::online_weight, "online_weight" },
-	{ tables::pruned, "pruned" },
-	{ tables::peers, "peers" },
-	{ tables::confirmation_height, "confirmation_height" },
-	{ tables::final_votes, "final_votes" },
-	{ tables::meta, "meta" }
+	{ nano::store::table::blocks, "blocks" },
+	{ nano::store::table::accounts, "accounts" },
+	{ nano::store::table::pending, "pending" },
+	{ nano::store::table::rep_weights, "rep_weights" },
+	{ nano::store::table::online_weight, "online_weight" },
+	{ nano::store::table::pruned, "pruned" },
+	{ nano::store::table::peers, "peers" },
+	{ nano::store::table::confirmation_height, "confirmation_height" },
+	{ nano::store::table::final_votes, "final_votes" },
+	{ nano::store::table::meta, "meta" }
 };
 }
 
@@ -162,7 +162,7 @@ bool ledger_store::empty (nano::store::transaction const & txn) const
 {
 	for (auto const & [table, table_name] : schema_current)
 	{
-		if (table == tables::meta)
+		if (table == nano::store::table::meta)
 		{
 			continue; // Ignore meta table
 		}
@@ -203,57 +203,57 @@ void ledger_store::perform_upgrades (nano::store::backend_meta meta)
  */
 
 nano::store::column_schema const ledger_store::schema_v21{
-	{ tables::blocks, "blocks" },
-	{ tables::accounts, "accounts" },
-	{ tables::pending, "pending" },
-	{ tables::online_weight, "online_weight" },
-	{ tables::pruned, "pruned" },
-	{ tables::peers, "peers" },
-	{ tables::confirmation_height, "confirmation_height" },
-	{ tables::final_votes, "final_votes" },
-	{ tables::frontiers, "frontiers" },
-	{ tables::unchecked, "unchecked" },
-	{ tables::meta, "meta" }
+	{ nano::store::table::blocks, "blocks" },
+	{ nano::store::table::accounts, "accounts" },
+	{ nano::store::table::pending, "pending" },
+	{ nano::store::table::online_weight, "online_weight" },
+	{ nano::store::table::pruned, "pruned" },
+	{ nano::store::table::peers, "peers" },
+	{ nano::store::table::confirmation_height, "confirmation_height" },
+	{ nano::store::table::final_votes, "final_votes" },
+	{ nano::store::table::frontiers, "frontiers" },
+	{ nano::store::table::unchecked, "unchecked" },
+	{ nano::store::table::meta, "meta" }
 };
 
 nano::store::column_schema const ledger_store::schema_v22{
-	{ tables::blocks, "blocks" },
-	{ tables::accounts, "accounts" },
-	{ tables::pending, "pending" },
-	{ tables::online_weight, "online_weight" },
-	{ tables::pruned, "pruned" },
-	{ tables::peers, "peers" },
-	{ tables::confirmation_height, "confirmation_height" },
-	{ tables::final_votes, "final_votes" },
-	{ tables::frontiers, "frontiers" },
-	{ tables::meta, "meta" }
+	{ nano::store::table::blocks, "blocks" },
+	{ nano::store::table::accounts, "accounts" },
+	{ nano::store::table::pending, "pending" },
+	{ nano::store::table::online_weight, "online_weight" },
+	{ nano::store::table::pruned, "pruned" },
+	{ nano::store::table::peers, "peers" },
+	{ nano::store::table::confirmation_height, "confirmation_height" },
+	{ nano::store::table::final_votes, "final_votes" },
+	{ nano::store::table::frontiers, "frontiers" },
+	{ nano::store::table::meta, "meta" }
 };
 
 nano::store::column_schema const ledger_store::schema_v23{
-	{ tables::blocks, "blocks" },
-	{ tables::accounts, "accounts" },
-	{ tables::pending, "pending" },
-	{ tables::rep_weights, "rep_weights" },
-	{ tables::online_weight, "online_weight" },
-	{ tables::pruned, "pruned" },
-	{ tables::peers, "peers" },
-	{ tables::confirmation_height, "confirmation_height" },
-	{ tables::final_votes, "final_votes" },
-	{ tables::frontiers, "frontiers" },
-	{ tables::meta, "meta" }
+	{ nano::store::table::blocks, "blocks" },
+	{ nano::store::table::accounts, "accounts" },
+	{ nano::store::table::pending, "pending" },
+	{ nano::store::table::rep_weights, "rep_weights" },
+	{ nano::store::table::online_weight, "online_weight" },
+	{ nano::store::table::pruned, "pruned" },
+	{ nano::store::table::peers, "peers" },
+	{ nano::store::table::confirmation_height, "confirmation_height" },
+	{ nano::store::table::final_votes, "final_votes" },
+	{ nano::store::table::frontiers, "frontiers" },
+	{ nano::store::table::meta, "meta" }
 };
 
 nano::store::column_schema const ledger_store::schema_v24{
-	{ tables::blocks, "blocks" },
-	{ tables::accounts, "accounts" },
-	{ tables::pending, "pending" },
-	{ tables::rep_weights, "rep_weights" },
-	{ tables::online_weight, "online_weight" },
-	{ tables::pruned, "pruned" },
-	{ tables::peers, "peers" },
-	{ tables::confirmation_height, "confirmation_height" },
-	{ tables::final_votes, "final_votes" },
-	{ tables::meta, "meta" }
+	{ nano::store::table::blocks, "blocks" },
+	{ nano::store::table::accounts, "accounts" },
+	{ nano::store::table::pending, "pending" },
+	{ nano::store::table::rep_weights, "rep_weights" },
+	{ nano::store::table::online_weight, "online_weight" },
+	{ nano::store::table::pruned, "pruned" },
+	{ nano::store::table::peers, "peers" },
+	{ nano::store::table::confirmation_height, "confirmation_height" },
+	{ nano::store::table::final_votes, "final_votes" },
+	{ nano::store::table::meta, "meta" }
 };
 
 // Drop unchecked table
@@ -288,7 +288,7 @@ void ledger_store::upgrade_v22_to_v23 ()
 
 		// Always drop rep_weights table to ensure it's empty before populating
 		// This can happen if an upgrade was attempted but failed halfway through
-		backend.clear (tables::rep_weights);
+		backend.clear (nano::store::table::rep_weights);
 
 		auto transaction = backend.tx_begin_write ();
 
@@ -298,8 +298,8 @@ void ledger_store::upgrade_v22_to_v23 ()
 			auto transaction = backend.tx_begin_read ();
 
 			// Manually create v22 compatible iterator to read accounts
-			auto it = nano::store::typed_iterator<nano::account, nano::account_info_v22>{ backend.begin (transaction, tables::accounts) };
-			auto const end = nano::store::typed_iterator<nano::account, nano::account_info_v22>{ backend.end (transaction, tables::accounts) };
+			auto it = nano::store::typed_iterator<nano::account, nano::account_info_v22>{ backend.begin (transaction, nano::store::table::accounts) };
+			auto const end = nano::store::typed_iterator<nano::account, nano::account_info_v22>{ backend.end (transaction, nano::store::table::accounts) };
 
 			for (; it != end; ++it)
 			{
@@ -319,13 +319,13 @@ void ledger_store::upgrade_v22_to_v23 ()
 			{
 				nano::uint128_t total{ 0 };
 				nano::store::db_val value;
-				auto status = backend.get (transaction, tables::rep_weights, account_info.representative, value);
+				auto status = backend.get (transaction, nano::store::table::rep_weights, account_info.representative, value);
 				if (backend.success (status))
 				{
 					total = nano::amount{ value }.number ();
 				}
 				total += account_info.balance.number ();
-				status = backend.put (transaction, tables::rep_weights, account_info.representative, nano::amount{ total });
+				status = backend.put (transaction, nano::store::table::rep_weights, account_info.representative, nano::amount{ total });
 				backend.release_assert_success (status);
 			}
 
@@ -380,7 +380,7 @@ nano::store::open_mode ledger_store::get_mode () const
 	return backend.get_mode ().value ();
 }
 
-uint64_t ledger_store::count (nano::store::transaction const & txn, tables table) const
+uint64_t ledger_store::count (nano::store::transaction const & txn, nano::store::table table) const
 {
 	return backend.count (txn, table);
 }

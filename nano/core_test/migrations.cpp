@@ -183,7 +183,7 @@ TEST (migrations, lmdb_to_rocksdb)
 	auto data_path = nano::unique_path ();
 
 	migration_test_data expected;
-	std::map<nano::tables, size_t> src_counts;
+	std::map<nano::store::table, size_t> src_counts;
 
 	// Create and populate LMDB store
 	{

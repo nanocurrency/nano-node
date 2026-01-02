@@ -147,7 +147,7 @@ void nano::store::write_transaction::refresh_if_needed (std::chrono::millisecond
 	}
 }
 
-bool nano::store::write_transaction::contains (nano::tables table_a) const
+bool nano::store::write_transaction::contains (nano::store::table table) const
 {
-	return impl->contains (table_a);
+	return impl->contains (table);
 }

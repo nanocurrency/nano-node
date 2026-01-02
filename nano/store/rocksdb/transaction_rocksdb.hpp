@@ -34,7 +34,7 @@ public:
 	void commit () override;
 	void renew () override;
 	void * get_handle () const override;
-	bool contains (nano::tables) const override;
+	bool contains (nano::store::table) const override;
 
 private:
 	bool check_no_write_tx () const;

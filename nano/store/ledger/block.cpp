@@ -84,7 +84,7 @@ void block_view::put (nano::store::write_transaction const & txn, nano::block_ha
 void block_view::raw_put (nano::store::write_transaction const & txn, std::vector<uint8_t> const & data, nano::block_hash const & hash)
 {
 	nano::store::db_val value{ data.size (), (void *)data.data () };
-	auto status = backend.put (txn, tables::blocks, hash, value);
+	auto status = backend.put (txn, nano::store::table::blocks, hash, value);
 	backend.release_assert_success (status);
 }
 
@@ -147,33 +147,33 @@ std::shared_ptr<nano::block> block_view::get (nano::store::transaction const & t
 
 void block_view::del (nano::store::write_transaction const & txn, nano::block_hash const & hash)
 {
-	auto status = backend.del (txn, tables::blocks, hash);
+	auto status = backend.del (txn, nano::store::table::blocks, hash);
 	backend.release_assert_success (status);
 }
 
 bool block_view::exists (nano::store::transaction const & txn, nano::block_hash const & hash) const
 {
-	return backend.exists (txn, tables::blocks, hash);
+	return backend.exists (txn, nano::store::table::blocks, hash);
 }
 
 uint64_t block_view::count (nano::store::transaction const & txn) const
 {
-	return backend.count (txn, tables::blocks);
+	return backend.count (txn, nano::store::table::blocks);
 }
 
 auto block_view::begin (nano::store::transaction const & txn) const -> iterator
 {
-	return iterator{ backend.begin (txn, tables::blocks) };
+	return iterator{ backend.begin (txn, nano::store::table::blocks) };
 }
 
 auto block_view::begin (nano::store::transaction const & txn, nano::block_hash const & hash) const -> iterator
 {
-	return iterator{ backend.begin (txn, tables::blocks, hash) };
+	return iterator{ backend.begin (txn, nano::store::table::blocks, hash) };
 }
 
 auto block_view::end (nano::store::transaction const & txn) const -> iterator
 {
-	return iterator{ backend.end (txn, tables::blocks) };
+	return iterator{ backend.end (txn, nano::store::table::blocks) };
 }
 
 void block_view::for_each_par (std::function<void (nano::store::read_transaction const &, iterator, iterator)> const & action) const
@@ -187,7 +187,7 @@ void block_view::for_each_par (std::function<void (nano::store::read_transaction
 
 void block_view::block_raw_get (nano::store::transaction const & txn, nano::block_hash const & hash, nano::store::db_val & value) const
 {
-	auto status = backend.get (txn, tables::blocks, hash, value);
+	auto status = backend.get (txn, nano::store::table::blocks, hash, value);
 	release_assert (backend.success (status) || backend.not_found (status), backend.error_string (status));
 }
 

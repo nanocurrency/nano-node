@@ -116,7 +116,7 @@ void * nano::store::lmdb::write_transaction_impl::get_handle () const
 	return handle;
 }
 
-bool nano::store::lmdb::write_transaction_impl::contains (nano::tables table_a) const
+bool nano::store::lmdb::write_transaction_impl::contains (nano::store::table table) const
 {
 	// LMDB locks on every write
 	return true;

@@ -20,20 +20,20 @@ public:
 	backend_lmdb (std::filesystem::path const & path, nano::logger & logger, nano::lmdb_config const & config, nano::txn_tracking_config const & txn_tracking_config = {}, std::chrono::milliseconds block_processor_batch_max_time = std::chrono::milliseconds{ 5000 });
 	~backend_lmdb () override;
 
-	int get (nano::store::transaction const &, tables, nano::store::db_val const & key, nano::store::db_val & value) const override;
-	int put (nano::store::write_transaction const &, tables, nano::store::db_val const & key, nano::store::db_val const & value) override;
-	int del (nano::store::write_transaction const &, tables, nano::store::db_val const & key) override;
-	bool exists (nano::store::transaction const &, tables, nano::store::db_val const & key) const override;
+	int get (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val & value) const override;
+	int put (nano::store::write_transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val const & value) override;
+	int del (nano::store::write_transaction const &, nano::store::table, nano::store::db_val const & key) override;
+	bool exists (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key) const override;
 
-	uint64_t count (nano::store::transaction const &, tables) const override;
-	bool count_is_exact (tables) const override;
-	int clear (tables) override;
+	uint64_t count (nano::store::transaction const &, nano::store::table) const override;
+	bool count_is_exact (nano::store::table) const override;
+	int clear (nano::store::table) override;
 	bool drop_table (std::string const & name) override;
 	bool table_exists (std::string const & name) const override;
 
-	nano::store::iterator begin (nano::store::transaction const &, tables) const override;
-	nano::store::iterator begin (nano::store::transaction const &, tables, nano::store::db_val const & key) const override;
-	nano::store::iterator end (nano::store::transaction const &, tables) const override;
+	nano::store::iterator begin (nano::store::transaction const &, nano::store::table) const override;
+	nano::store::iterator begin (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key) const override;
+	nano::store::iterator end (nano::store::transaction const &, nano::store::table) const override;
 
 	bool success (int status) const override;
 	bool not_found (int status) const override;
@@ -62,13 +62,13 @@ private:
 	std::chrono::milliseconds block_processor_batch_max_time;
 
 	std::unique_ptr<nano::store::lmdb::env> env;
-	std::unordered_map<tables, nano::store::lmdb::env::table_handle> table_handles;
+	std::unordered_map<nano::store::table, nano::store::lmdb::env::table_handle> table_handles;
 
 	mutable nano::mdb_txn_tracker mdb_txn_tracker;
 	bool txn_tracking_enabled{ false };
 
-	nano::store::lmdb::env::table_handle table_to_dbi (tables table) const;
-	void open_table (MDB_txn * mdb_txn, tables table, std::string const & name, unsigned flags);
+	nano::store::lmdb::env::table_handle table_to_dbi (nano::store::table) const;
+	void open_table (MDB_txn *, nano::store::table, std::string const & name, unsigned flags);
 
 	nano::store::lmdb::txn_callbacks create_txn_callbacks () const;
 };

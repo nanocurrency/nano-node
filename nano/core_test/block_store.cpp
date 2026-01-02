@@ -1484,9 +1484,9 @@ TEST (block_store, rocksdb_tombstone_count)
 
 	// Verify account exists
 	ASSERT_TRUE (store.account.exists (tx, account));
-	ASSERT_EQ (rocksdb_backend->get_tombstone_map ().at (nano::tables::accounts).num_since_last_flush.load (), 0);
+	ASSERT_EQ (rocksdb_backend->get_tombstone_map ().at (nano::store::table::accounts).num_since_last_flush.load (), 0);
 
 	// Perform delete and check tombstone counter
 	store.account.del (tx, account);
-	ASSERT_EQ (rocksdb_backend->get_tombstone_map ().at (nano::tables::accounts).num_since_last_flush.load (), 1);
+	ASSERT_EQ (rocksdb_backend->get_tombstone_map ().at (nano::store::table::accounts).num_since_last_flush.load (), 1);
 }

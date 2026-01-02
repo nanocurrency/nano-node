@@ -32,7 +32,7 @@ public:
 	explicit write_transaction_impl (nano::id_dispenser::id_t store_id = 0);
 	virtual void commit () = 0;
 	virtual void renew () = 0;
-	virtual bool contains (nano::tables table_a) const = 0;
+	virtual bool contains (nano::store::table) const = 0;
 };
 
 class transaction
@@ -88,7 +88,7 @@ public:
 	void renew ();
 	void refresh ();
 	void refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 });
-	bool contains (nano::tables table_a) const;
+	bool contains (nano::store::table) const;
 
 private:
 	std::unique_ptr<write_transaction_impl> impl;

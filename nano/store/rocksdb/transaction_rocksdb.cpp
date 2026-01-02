@@ -81,7 +81,7 @@ void * nano::store::rocksdb::write_transaction_impl::get_handle () const
 	return txn;
 }
 
-bool nano::store::rocksdb::write_transaction_impl::contains (nano::tables table_a) const
+bool nano::store::rocksdb::write_transaction_impl::contains (nano::store::table table) const
 {
 	return true;
 }

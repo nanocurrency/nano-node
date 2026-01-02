@@ -8,7 +8,7 @@
 
 namespace nano::store
 {
-nano::store::column_schema const backend::schema_meta{ { tables::meta, "meta" } };
+nano::store::column_schema const backend::schema_meta{ { nano::store::table::meta, "meta" } };
 
 backend::~backend () = default;
 
@@ -120,7 +120,7 @@ void backend::set_version (nano::store::write_transaction const & txn, nano::sto
 	meta.put_version (txn, version);
 }
 
-bool backend::empty (nano::store::transaction const & txn, tables table) const
+bool backend::empty (nano::store::transaction const & txn, nano::store::table table) const
 {
 	return begin (txn, table) == end (txn, table);
 }
@@ -138,7 +138,7 @@ bool backend::empty (nano::store::transaction const & txn) const
 	return true;
 }
 
-uint64_t backend::count_exact (nano::store::transaction const & txn, tables table) const
+uint64_t backend::count_exact (nano::store::transaction const & txn, nano::store::table table) const
 {
 	uint64_t result = 0;
 	for (auto i = begin (txn, table), n = end (txn, table); i != n; ++i)
@@ -148,7 +148,7 @@ uint64_t backend::count_exact (nano::store::transaction const & txn, tables tabl
 	return result;
 }
 
-void backend::for_each_par (tables table, std::function<void (read_transaction const &, iterator, iterator)> const & action) const
+void backend::for_each_par (nano::store::table table, std::function<void (read_transaction const &, iterator, iterator)> const & action) const
 {
 	// Split based on first byte of keys (0-255)
 	// This works regardless of actual key type/length

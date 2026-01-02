@@ -69,7 +69,7 @@ void backend_lmdb::open_impl (column_schema schema, nano::store::open_mode mode)
 	release_assert (success (status), "failed to commit lmdb opening transaction", error_string (status));
 }
 
-void backend_lmdb::open_table (MDB_txn * mdb_txn, tables table, std::string const & name, unsigned flags)
+void backend_lmdb::open_table (MDB_txn * mdb_txn, nano::store::table table, std::string const & name, unsigned flags)
 {
 	MDB_dbi handle{};
 	auto status = mdb_dbi_open (mdb_txn, name.c_str (), flags, &handle);
@@ -80,14 +80,14 @@ void backend_lmdb::open_table (MDB_txn * mdb_txn, tables table, std::string cons
 	table_handles[table] = handle;
 }
 
-auto backend_lmdb::table_to_dbi (tables table) const -> nano::store::lmdb::env::table_handle
+auto backend_lmdb::table_to_dbi (nano::store::table table) const -> nano::store::lmdb::env::table_handle
 {
 	auto it = table_handles.find (table);
 	release_assert (it != table_handles.end (), "table not found");
 	return it->second;
 }
 
-int backend_lmdb::get (nano::store::transaction const & txn, tables table, nano::store::db_val const & key, nano::store::db_val & value) const
+int backend_lmdb::get (nano::store::transaction const & txn, nano::store::table table, nano::store::db_val const & key, nano::store::db_val & value) const
 {
 	auto mdb_key = to_mdb_val (key);
 	MDB_val mdb_value{};
@@ -100,14 +100,14 @@ int backend_lmdb::get (nano::store::transaction const & txn, tables table, nano:
 	return result;
 }
 
-int backend_lmdb::put (nano::store::write_transaction const & txn, tables table, nano::store::db_val const & key, nano::store::db_val const & value)
+int backend_lmdb::put (nano::store::write_transaction const & txn, nano::store::table table, nano::store::db_val const & key, nano::store::db_val const & value)
 {
 	auto mdb_key = to_mdb_val (key);
 	auto mdb_value = to_mdb_val (value);
 	return mdb_put (env->tx (txn), table_to_dbi (table), &mdb_key, &mdb_value, 0);
 }
 
-int backend_lmdb::del (nano::store::write_transaction const & txn, tables table, nano::store::db_val const & key)
+int backend_lmdb::del (nano::store::write_transaction const & txn, nano::store::table table, nano::store::db_val const & key)
 {
 	auto mdb_key = to_mdb_val (key);
 	auto status = mdb_del (env->tx (txn), table_to_dbi (table), &mdb_key, nullptr);
@@ -119,7 +119,7 @@ int backend_lmdb::del (nano::store::write_transaction const & txn, tables table,
 	return status;
 }
 
-bool backend_lmdb::exists (nano::store::transaction const & txn, tables table, nano::store::db_val const & key) const
+bool backend_lmdb::exists (nano::store::transaction const & txn, nano::store::table table, nano::store::db_val const & key) const
 {
 	nano::store::db_val junk;
 	auto status = get (txn, table, key, junk);
@@ -127,7 +127,7 @@ bool backend_lmdb::exists (nano::store::transaction const & txn, tables table, n
 	return success (status);
 }
 
-uint64_t backend_lmdb::count (nano::store::transaction const & txn, tables table) const
+uint64_t backend_lmdb::count (nano::store::transaction const & txn, nano::store::table table) const
 {
 	MDB_stat stats;
 	auto status = mdb_stat (env->tx (txn), table_to_dbi (table), &stats);
@@ -135,13 +135,13 @@ uint64_t backend_lmdb::count (nano::store::transaction const & txn, tables table
 	return stats.ms_entries;
 }
 
-bool backend_lmdb::count_is_exact (tables table) const
+bool backend_lmdb::count_is_exact (nano::store::table table) const
 {
 	// LMDB provides exact counts for all tables via mdb_stat
 	return true;
 }
 
-int backend_lmdb::clear (tables table)
+int backend_lmdb::clear (nano::store::table table)
 {
 	auto txn = tx_begin_write ();
 	auto status = mdb_drop (env->tx (txn), table_to_dbi (table), /* only empty the db */ 0);
@@ -180,18 +180,18 @@ bool backend_lmdb::table_exists (std::string const & name) const
 	return success (status);
 }
 
-nano::store::iterator backend_lmdb::begin (nano::store::transaction const & txn, tables table) const
+nano::store::iterator backend_lmdb::begin (nano::store::transaction const & txn, nano::store::table table) const
 {
 	return nano::store::iterator{ iterator::begin (env->tx (txn), table_to_dbi (table)) };
 }
 
-nano::store::iterator backend_lmdb::begin (nano::store::transaction const & txn, tables table, nano::store::db_val const & key) const
+nano::store::iterator backend_lmdb::begin (nano::store::transaction const & txn, nano::store::table table, nano::store::db_val const & key) const
 {
 	auto mdb_key = to_mdb_val (key);
 	return nano::store::iterator{ iterator::lower_bound (env->tx (txn), table_to_dbi (table), mdb_key) };
 }
 
-nano::store::iterator backend_lmdb::end (nano::store::transaction const & txn, tables table) const
+nano::store::iterator backend_lmdb::end (nano::store::transaction const & txn, nano::store::table table) const
 {
 	return nano::store::iterator{ iterator::end (env->tx (txn), table_to_dbi (table)) };
 }

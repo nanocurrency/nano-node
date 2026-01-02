@@ -12,14 +12,14 @@ account_view::account_view (nano::store::backend & backend_a) :
 
 void account_view::put (nano::store::write_transaction const & txn, nano::account const & account, nano::account_info const & info)
 {
-	auto status = backend.put (txn, tables::accounts, account, info);
+	auto status = backend.put (txn, nano::store::table::accounts, account, info);
 	backend.release_assert_success (status);
 }
 
 bool account_view::get (nano::store::transaction const & txn, nano::account const & account, nano::account_info & info) const
 {
 	nano::store::db_val value;
-	auto status = backend.get (txn, tables::accounts, account, value);
+	auto status = backend.get (txn, nano::store::table::accounts, account, value);
 	release_assert (backend.success (status) || backend.not_found (status), backend.error_string (status));
 	bool result = true;
 	if (backend.success (status))
@@ -44,28 +44,28 @@ std::optional<nano::account_info> account_view::get (nano::store::transaction co
 
 void account_view::del (nano::store::write_transaction const & txn, nano::account const & account)
 {
-	auto status = backend.del (txn, tables::accounts, account);
+	auto status = backend.del (txn, nano::store::table::accounts, account);
 	backend.release_assert_success (status);
 }
 
 bool account_view::exists (nano::store::transaction const & txn, nano::account const & account) const
 {
-	return backend.exists (txn, tables::accounts, account);
+	return backend.exists (txn, nano::store::table::accounts, account);
 }
 
 size_t account_view::count (nano::store::transaction const & txn) const
 {
-	return backend.count (txn, tables::accounts);
+	return backend.count (txn, nano::store::table::accounts);
 }
 
 auto account_view::begin (nano::store::transaction const & txn, nano::account const & account) const -> iterator
 {
-	return iterator{ backend.begin (txn, tables::accounts, account) };
+	return iterator{ backend.begin (txn, nano::store::table::accounts, account) };
 }
 
 auto account_view::begin (nano::store::transaction const & txn) const -> iterator
 {
-	return iterator{ backend.begin (txn, tables::accounts) };
+	return iterator{ backend.begin (txn, nano::store::table::accounts) };
 }
 
 auto account_view::rbegin (nano::store::transaction const & txn) const -> reverse_iterator
@@ -80,7 +80,7 @@ auto account_view::rend (nano::store::transaction const & txn) const -> reverse_
 
 auto account_view::end (nano::store::transaction const & txn) const -> iterator
 {
-	return iterator{ backend.end (txn, tables::accounts) };
+	return iterator{ backend.end (txn, nano::store::table::accounts) };
 }
 
 void account_view::for_each_par (std::function<void (nano::store::read_transaction const &, iterator, iterator)> const & action) const

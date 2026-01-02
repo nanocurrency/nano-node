@@ -2,11 +2,10 @@
 
 #include <functional>
 
-namespace nano
+namespace nano::store
 {
-// TODO: Move to store::tables
 // Keep this in alphabetical order
-enum class tables
+enum class table
 {
 	accounts,
 	blocks,
@@ -28,11 +27,11 @@ enum class tables
 namespace std
 {
 template <>
-struct hash<::nano::tables>
+struct hash<::nano::store::table>
 {
-	size_t operator() (::nano::tables const & table_a) const
+	size_t operator() (::nano::store::table const & table) const
 	{
-		return static_cast<size_t> (table_a);
+		return static_cast<size_t> (table);
 	}
 }; // struct hash
 }

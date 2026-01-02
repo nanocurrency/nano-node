@@ -226,7 +226,7 @@ void backend_rocksdb::open_db (std::filesystem::path const & path, nano::store::
 	return cf_options;
 }
 
-::rocksdb::ColumnFamilyHandle * backend_rocksdb::table_to_column_family (tables table) const
+::rocksdb::ColumnFamilyHandle * backend_rocksdb::table_to_column_family (nano::store::table table) const
 {
 	auto it = table_handles.find (table);
 	release_assert (it != table_handles.end (), "table not found");
@@ -250,7 +250,7 @@ bool backend_rocksdb::column_family_exists (std::string const & name) const
 	return iter != handles.end ();
 }
 
-int backend_rocksdb::get (nano::store::transaction const & txn, tables table, nano::store::db_val const & key, nano::store::db_val & value) const
+int backend_rocksdb::get (nano::store::transaction const & txn, nano::store::table table, nano::store::db_val const & key, nano::store::db_val & value) const
 {
 	::rocksdb::PinnableSlice slice;
 	auto key_slice = to_slice (key);
@@ -283,21 +283,21 @@ int backend_rocksdb::get (nano::store::transaction const & txn, tables table, na
 	return status.code ();
 }
 
-int backend_rocksdb::put (nano::store::write_transaction const & txn, tables table, nano::store::db_val const & key, nano::store::db_val const & value)
+int backend_rocksdb::put (nano::store::write_transaction const & txn, nano::store::table table, nano::store::db_val const & key, nano::store::db_val const & value)
 {
 	auto key_slice = to_slice (key);
 	auto value_slice = to_slice (value);
 	return std::get<::rocksdb::Transaction *> (rocksdb::tx (txn))->Put (table_to_column_family (table), key_slice, value_slice).code ();
 }
 
-int backend_rocksdb::del (nano::store::write_transaction const & txn, tables table, nano::store::db_val const & key)
+int backend_rocksdb::del (nano::store::write_transaction const & txn, nano::store::table table, nano::store::db_val const & key)
 {
 	flush_tombstones_check (table);
 	auto key_slice = to_slice (key);
 	return std::get<::rocksdb::Transaction *> (rocksdb::tx (txn))->Delete (table_to_column_family (table), key_slice).code ();
 }
 
-bool backend_rocksdb::exists (nano::store::transaction const & txn, tables table, nano::store::db_val const & key) const
+bool backend_rocksdb::exists (nano::store::transaction const & txn, nano::store::table table, nano::store::db_val const & key) const
 {
 	::rocksdb::PinnableSlice slice;
 	auto key_slice = to_slice (key);
@@ -326,7 +326,7 @@ bool backend_rocksdb::exists (nano::store::transaction const & txn, tables table
 	return status.ok ();
 }
 
-uint64_t backend_rocksdb::count (nano::store::transaction const & txn, tables table) const
+uint64_t backend_rocksdb::count (nano::store::transaction const & txn, nano::store::table table) const
 {
 	if (count_is_exact (table))
 	{
@@ -341,26 +341,26 @@ uint64_t backend_rocksdb::count (nano::store::transaction const & txn, tables ta
 	}
 }
 
-bool backend_rocksdb::count_is_exact (tables table) const
+bool backend_rocksdb::count_is_exact (nano::store::table table) const
 {
 	switch (table)
 	{
-		case tables::pruned:
-		case tables::final_votes:
+		case nano::store::table::pruned:
+		case nano::store::table::final_votes:
 			// These tables use rocksdb.estimate-num-keys which may be inaccurate
 			return false;
-		case tables::accounts:
-		case tables::blocks:
-		case tables::confirmation_height:
-		case tables::default_unused:
-		case tables::meta:
-		case tables::online_weight:
-		case tables::peers:
-		case tables::pending:
-		case tables::vote:
-		case tables::rep_weights:
-		case tables::unchecked:
-		case tables::frontiers:
+		case nano::store::table::accounts:
+		case nano::store::table::blocks:
+		case nano::store::table::confirmation_height:
+		case nano::store::table::default_unused:
+		case nano::store::table::meta:
+		case nano::store::table::online_weight:
+		case nano::store::table::peers:
+		case nano::store::table::pending:
+		case nano::store::table::vote:
+		case nano::store::table::rep_weights:
+		case nano::store::table::unchecked:
+		case nano::store::table::frontiers:
 			// These tables use iteration for exact counts (may be slow)
 			return true;
 	}
@@ -371,7 +371,7 @@ bool backend_rocksdb::count_is_exact (tables table) const
 // RocksDB's WriteBatchWithIndex does not support DeleteRange - reads within the same
 // transaction cannot see range tombstones. By managing our own transaction and committing
 // it before returning, subsequent reads will correctly see the cleared table.
-int backend_rocksdb::clear (tables table)
+int backend_rocksdb::clear (nano::store::table table)
 {
 	auto txn = tx_begin_write ();
 
@@ -446,18 +446,18 @@ bool backend_rocksdb::table_exists (std::string const & name) const
 	return column_family_exists (name);
 }
 
-nano::store::iterator backend_rocksdb::begin (nano::store::transaction const & txn, tables table) const
+nano::store::iterator backend_rocksdb::begin (nano::store::transaction const & txn, nano::store::table table) const
 {
 	return nano::store::iterator{ iterator::begin (db.get (), rocksdb::tx (txn), table_to_column_family (table)) };
 }
 
-nano::store::iterator backend_rocksdb::begin (nano::store::transaction const & txn, tables table, nano::store::db_val const & key) const
+nano::store::iterator backend_rocksdb::begin (nano::store::transaction const & txn, nano::store::table table, nano::store::db_val const & key) const
 {
 	auto key_slice = to_slice (key);
 	return nano::store::iterator{ iterator::lower_bound (db.get (), rocksdb::tx (txn), table_to_column_family (table), key_slice) };
 }
 
-nano::store::iterator backend_rocksdb::end (nano::store::transaction const & txn, tables table) const
+nano::store::iterator backend_rocksdb::end (nano::store::transaction const & txn, nano::store::table table) const
 {
 	return nano::store::iterator{ iterator::end (db.get (), rocksdb::tx (txn), table_to_column_family (table)) };
 }
@@ -768,12 +768,12 @@ void backend_rocksdb::collect_memory_stats (boost::property_tree::ptree & ptree)
 
 void backend_rocksdb::generate_tombstone_map ()
 {
-	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (tables::blocks), std::forward_as_tuple (0, 25000));
-	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (tables::accounts), std::forward_as_tuple (0, 25000));
-	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (tables::pending), std::forward_as_tuple (0, 25000));
+	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::store::table::blocks), std::forward_as_tuple (0, 25000));
+	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::store::table::accounts), std::forward_as_tuple (0, 25000));
+	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::store::table::pending), std::forward_as_tuple (0, 25000));
 }
 
-void backend_rocksdb::flush_tombstones_check (tables table)
+void backend_rocksdb::flush_tombstones_check (nano::store::table table)
 {
 	// Update the number of deletes for some tables, and force a flush if there are too many tombstones
 	// as it can affect read performance.
@@ -788,7 +788,7 @@ void backend_rocksdb::flush_tombstones_check (tables table)
 	}
 }
 
-void backend_rocksdb::flush_table (tables table)
+void backend_rocksdb::flush_table (nano::store::table table)
 {
 	db->Flush (::rocksdb::FlushOptions{}, table_to_column_family (table));
 }

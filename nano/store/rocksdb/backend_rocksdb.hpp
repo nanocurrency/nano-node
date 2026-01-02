@@ -23,22 +23,22 @@ public:
 	backend_rocksdb (std::filesystem::path const & path, nano::rocksdb_config const & config);
 	~backend_rocksdb () override;
 
-	int get (nano::store::transaction const &, tables, nano::store::db_val const & key, nano::store::db_val & value) const override;
-	int put (nano::store::write_transaction const &, tables, nano::store::db_val const & key, nano::store::db_val const & value) override;
-	int del (nano::store::write_transaction const &, tables, nano::store::db_val const & key) override;
-	bool exists (nano::store::transaction const &, tables, nano::store::db_val const & key) const override;
+	int get (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val & value) const override;
+	int put (nano::store::write_transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val const & value) override;
+	int del (nano::store::write_transaction const &, nano::store::table, nano::store::db_val const & key) override;
+	bool exists (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key) const override;
 
 	// WARNING: count() may return estimates for some tables
 	// Use count_is_exact() to check, or use empty() for reliable emptiness checks
-	uint64_t count (nano::store::transaction const &, tables) const override;
-	bool count_is_exact (tables) const override;
-	int clear (tables) override;
+	uint64_t count (nano::store::transaction const &, nano::store::table) const override;
+	bool count_is_exact (nano::store::table) const override;
+	int clear (nano::store::table) override;
 	bool drop_table (std::string const & name) override;
 	bool table_exists (std::string const & name) const override;
 
-	nano::store::iterator begin (nano::store::transaction const &, tables) const override;
-	nano::store::iterator begin (nano::store::transaction const &, tables, nano::store::db_val const & key) const override;
-	nano::store::iterator end (nano::store::transaction const &, tables) const override;
+	nano::store::iterator begin (nano::store::transaction const &, nano::store::table) const override;
+	nano::store::iterator begin (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key) const override;
+	nano::store::iterator end (nano::store::transaction const &, nano::store::table) const override;
 
 	bool success (int status) const override;
 	bool not_found (int status) const override;
@@ -62,7 +62,7 @@ protected:
 private:
 	void open_db (std::filesystem::path const & path, nano::store::open_mode mode, ::rocksdb::Options const & options, std::vector<::rocksdb::ColumnFamilyDescriptor> column_families);
 
-	::rocksdb::ColumnFamilyHandle * table_to_column_family (tables table) const;
+	::rocksdb::ColumnFamilyHandle * table_to_column_family (nano::store::table) const;
 	::rocksdb::ColumnFamilyHandle * get_column_family (std::string const & name) const;
 	bool column_family_exists (std::string const & name) const;
 
@@ -77,8 +77,8 @@ private:
 	std::unique_ptr<::rocksdb::DB> db;
 	::rocksdb::TransactionDB * transaction_db{ nullptr };
 	std::vector<std::unique_ptr<::rocksdb::ColumnFamilyHandle>> handles;
-	std::map<tables, ::rocksdb::ColumnFamilyHandle *> table_handles;
-	std::map<std::string, tables> name_to_table;
+	std::map<nano::store::table, ::rocksdb::ColumnFamilyHandle *> table_handles;
+	std::map<std::string, nano::store::table> name_to_table;
 
 public: // Tombstone management
 	class tombstone_info
@@ -88,17 +88,17 @@ public: // Tombstone management
 		std::atomic<uint64_t> num_since_last_flush;
 		uint64_t const max;
 	};
-	std::unordered_map<tables, tombstone_info> const & get_tombstone_map () const
+	std::unordered_map<nano::store::table, tombstone_info> const & get_tombstone_map () const
 	{
 		return tombstone_map;
 	}
 
 private:
-	std::unordered_map<tables, tombstone_info> tombstone_map;
+	std::unordered_map<nano::store::table, tombstone_info> tombstone_map;
 
 	void generate_tombstone_map ();
-	void flush_tombstones_check (tables table);
-	void flush_table (tables table);
+	void flush_tombstones_check (nano::store::table);
+	void flush_table (nano::store::table);
 	void on_flush (::rocksdb::FlushJobInfo const & flush_info);
 };
 }

@@ -51,7 +51,7 @@ public:
 	void commit () override;
 	void renew () override;
 	void * get_handle () const override;
-	bool contains (nano::tables table_a) const override;
+	bool contains (nano::store::table) const override;
 
 private:
 	nano::store::lmdb::env const & env;

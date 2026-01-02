@@ -10,20 +10,20 @@ pending_view::pending_view (nano::store::backend & backend_a) :
 
 void pending_view::put (nano::store::write_transaction const & txn, nano::pending_key const & key, nano::pending_info const & pending)
 {
-	auto status = backend.put (txn, tables::pending, key, pending);
+	auto status = backend.put (txn, nano::store::table::pending, key, pending);
 	backend.release_assert_success (status);
 }
 
 void pending_view::del (nano::store::write_transaction const & txn, nano::pending_key const & key)
 {
-	auto status = backend.del (txn, tables::pending, key);
+	auto status = backend.del (txn, nano::store::table::pending, key);
 	backend.release_assert_success (status);
 }
 
 auto pending_view::get (nano::store::transaction const & txn, nano::pending_key const & key) const -> std::optional<nano::pending_info>
 {
 	nano::store::db_val value;
-	auto status = backend.get (txn, tables::pending, key, value);
+	auto status = backend.get (txn, nano::store::table::pending, key, value);
 	release_assert (backend.success (status) || backend.not_found (status), backend.error_string (status));
 	std::optional<nano::pending_info> result;
 	if (backend.success (status))
@@ -39,7 +39,7 @@ auto pending_view::get (nano::store::transaction const & txn, nano::pending_key 
 
 bool pending_view::exists (nano::store::transaction const & txn, nano::pending_key const & key) const
 {
-	return backend.exists (txn, tables::pending, key);
+	return backend.exists (txn, nano::store::table::pending, key);
 }
 
 bool pending_view::any (nano::store::transaction const & txn, nano::account const & account) const
@@ -50,17 +50,17 @@ bool pending_view::any (nano::store::transaction const & txn, nano::account cons
 
 auto pending_view::begin (nano::store::transaction const & txn, nano::pending_key const & key) const -> iterator
 {
-	return iterator{ backend.begin (txn, tables::pending, key) };
+	return iterator{ backend.begin (txn, nano::store::table::pending, key) };
 }
 
 auto pending_view::begin (nano::store::transaction const & txn) const -> iterator
 {
-	return iterator{ backend.begin (txn, tables::pending) };
+	return iterator{ backend.begin (txn, nano::store::table::pending) };
 }
 
 auto pending_view::end (nano::store::transaction const & txn) const -> iterator
 {
-	return iterator{ backend.end (txn, tables::pending) };
+	return iterator{ backend.end (txn, nano::store::table::pending) };
 }
 
 void pending_view::for_each_par (std::function<void (nano::store::read_transaction const &, iterator, iterator)> const & action) const

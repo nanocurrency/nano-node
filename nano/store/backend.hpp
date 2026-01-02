@@ -39,14 +39,14 @@ struct backend_meta
 	backend_version_t version;
 };
 
-using column_definition = std::pair<tables, std::string>;
+using column_definition = std::pair<nano::store::table, std::string>;
 using column_schema = std::set<column_definition>;
 
 struct copy_progress
 {
 	size_t current_table_index;
 	size_t total_tables;
-	tables table;
+	nano::store::table table;
 	std::string table_name;
 	uint64_t entries_copied;
 	uint64_t total_entries;
@@ -71,28 +71,28 @@ public:
 	void close ();
 
 	// Basic CRUD operations
-	virtual int get (nano::store::transaction const &, tables, nano::store::db_val const & key, nano::store::db_val & value) const = 0;
-	virtual int put (nano::store::write_transaction const &, tables, nano::store::db_val const & key, nano::store::db_val const & value) = 0;
-	virtual int del (nano::store::write_transaction const &, tables, nano::store::db_val const & key) = 0;
-	virtual bool exists (nano::store::transaction const &, tables, nano::store::db_val const & key) const = 0;
+	virtual int get (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val & value) const = 0;
+	virtual int put (nano::store::write_transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val const & value) = 0;
+	virtual int del (nano::store::write_transaction const &, nano::store::table, nano::store::db_val const & key) = 0;
+	virtual bool exists (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key) const = 0;
 
 	// Table operations
 	bool empty (nano::store::transaction const &) const; // Checks if all tables are empty
-	bool empty (nano::store::transaction const &, tables) const;
-	virtual uint64_t count (nano::store::transaction const &, tables) const = 0;
-	virtual bool count_is_exact (tables) const = 0; // Returns true if count() returns exact value, false if estimate
-	uint64_t count_exact (nano::store::transaction const &, tables) const; // Exact count via iteration (always accurate)
-	virtual int clear (tables) = 0; // Empties the table but keeps it
+	bool empty (nano::store::transaction const &, nano::store::table) const;
+	virtual uint64_t count (nano::store::transaction const &, nano::store::table) const = 0;
+	virtual bool count_is_exact (nano::store::table) const = 0; // Returns true if count() returns exact value, false if estimate
+	uint64_t count_exact (nano::store::transaction const &, nano::store::table) const; // Exact count via iteration (always accurate)
+	virtual int clear (nano::store::table) = 0; // Empties the table but keeps it
 	virtual bool drop_table (std::string const & name) = 0; // Deletes the table entirely
 	virtual bool table_exists (std::string const & name) const = 0;
 
 	// Iterator operations
-	virtual nano::store::iterator begin (nano::store::transaction const &, tables) const = 0;
-	virtual nano::store::iterator begin (nano::store::transaction const &, tables, nano::store::db_val const & key) const = 0;
-	virtual nano::store::iterator end (nano::store::transaction const &, tables) const = 0;
+	virtual nano::store::iterator begin (nano::store::transaction const &, nano::store::table) const = 0;
+	virtual nano::store::iterator begin (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key) const = 0;
+	virtual nano::store::iterator end (nano::store::transaction const &, nano::store::table) const = 0;
 
 	// Parallel iteration
-	void for_each_par (tables table,
+	void for_each_par (nano::store::table,
 	std::function<void (read_transaction const &, iterator, iterator)> const & action) const;
 
 	// Copy all tables to another backend

@@ -28,44 +28,44 @@ namespace
  * Schema definitions matching historical ledger versions
  */
 nano::store::column_schema const schema_v21{
-	{ nano::tables::blocks, "blocks" },
-	{ nano::tables::accounts, "accounts" },
-	{ nano::tables::pending, "pending" },
-	{ nano::tables::online_weight, "online_weight" },
-	{ nano::tables::pruned, "pruned" },
-	{ nano::tables::peers, "peers" },
-	{ nano::tables::confirmation_height, "confirmation_height" },
-	{ nano::tables::final_votes, "final_votes" },
-	{ nano::tables::frontiers, "frontiers" },
-	{ nano::tables::unchecked, "unchecked" },
-	{ nano::tables::meta, "meta" }
+	{ nano::store::table::blocks, "blocks" },
+	{ nano::store::table::accounts, "accounts" },
+	{ nano::store::table::pending, "pending" },
+	{ nano::store::table::online_weight, "online_weight" },
+	{ nano::store::table::pruned, "pruned" },
+	{ nano::store::table::peers, "peers" },
+	{ nano::store::table::confirmation_height, "confirmation_height" },
+	{ nano::store::table::final_votes, "final_votes" },
+	{ nano::store::table::frontiers, "frontiers" },
+	{ nano::store::table::unchecked, "unchecked" },
+	{ nano::store::table::meta, "meta" }
 };
 
 nano::store::column_schema const schema_v22{
-	{ nano::tables::blocks, "blocks" },
-	{ nano::tables::accounts, "accounts" },
-	{ nano::tables::pending, "pending" },
-	{ nano::tables::online_weight, "online_weight" },
-	{ nano::tables::pruned, "pruned" },
-	{ nano::tables::peers, "peers" },
-	{ nano::tables::confirmation_height, "confirmation_height" },
-	{ nano::tables::final_votes, "final_votes" },
-	{ nano::tables::frontiers, "frontiers" },
-	{ nano::tables::meta, "meta" }
+	{ nano::store::table::blocks, "blocks" },
+	{ nano::store::table::accounts, "accounts" },
+	{ nano::store::table::pending, "pending" },
+	{ nano::store::table::online_weight, "online_weight" },
+	{ nano::store::table::pruned, "pruned" },
+	{ nano::store::table::peers, "peers" },
+	{ nano::store::table::confirmation_height, "confirmation_height" },
+	{ nano::store::table::final_votes, "final_votes" },
+	{ nano::store::table::frontiers, "frontiers" },
+	{ nano::store::table::meta, "meta" }
 };
 
 nano::store::column_schema const schema_v23{
-	{ nano::tables::blocks, "blocks" },
-	{ nano::tables::accounts, "accounts" },
-	{ nano::tables::pending, "pending" },
-	{ nano::tables::rep_weights, "rep_weights" },
-	{ nano::tables::online_weight, "online_weight" },
-	{ nano::tables::pruned, "pruned" },
-	{ nano::tables::peers, "peers" },
-	{ nano::tables::confirmation_height, "confirmation_height" },
-	{ nano::tables::final_votes, "final_votes" },
-	{ nano::tables::frontiers, "frontiers" },
-	{ nano::tables::meta, "meta" }
+	{ nano::store::table::blocks, "blocks" },
+	{ nano::store::table::accounts, "accounts" },
+	{ nano::store::table::pending, "pending" },
+	{ nano::store::table::rep_weights, "rep_weights" },
+	{ nano::store::table::online_weight, "online_weight" },
+	{ nano::store::table::pruned, "pruned" },
+	{ nano::store::table::peers, "peers" },
+	{ nano::store::table::confirmation_height, "confirmation_height" },
+	{ nano::store::table::final_votes, "final_votes" },
+	{ nano::store::table::frontiers, "frontiers" },
+	{ nano::store::table::meta, "meta" }
 };
 }
 
@@ -216,14 +216,14 @@ public:
 		auto tx = backend->tx_begin_write ();
 		nano::store::db_val key{ sizeof (key_value), &key_value };
 		nano::store::db_val value{ sizeof (data_value), &data_value };
-		auto status = backend->put (tx, nano::tables::unchecked, key, value);
+		auto status = backend->put (tx, nano::store::table::unchecked, key, value);
 		backend->release_assert_success (status);
 	}
 
 	void add_account (nano::account const & account, nano::account_info_v22 const & info)
 	{
 		auto tx = backend->tx_begin_write ();
-		auto status = backend->put (tx, nano::tables::accounts, account, info);
+		auto status = backend->put (tx, nano::store::table::accounts, account, info);
 		backend->release_assert_success (status);
 	}
 
@@ -247,7 +247,7 @@ TEST (ledger_upgrades, upgrade_v21_to_v22)
 		// Verify unchecked table exists before upgrade
 		ASSERT_TRUE (legacy_db.backend->table_exists ("unchecked"));
 		auto tx = legacy_db.backend->tx_begin_read ();
-		ASSERT_EQ (legacy_db.backend->count (tx, nano::tables::unchecked), 2);
+		ASSERT_EQ (legacy_db.backend->count (tx, nano::store::table::unchecked), 2);
 	}
 
 	// Perform the upgrade
@@ -291,7 +291,7 @@ public:
 	void add_account (nano::account const & account, nano::account_info_v22 const & info)
 	{
 		auto tx = backend->tx_begin_write ();
-		auto status = backend->put (tx, nano::tables::accounts, account, info);
+		auto status = backend->put (tx, nano::store::table::accounts, account, info);
 		backend->release_assert_success (status);
 	}
 
@@ -480,8 +480,8 @@ TEST (ledger_upgrades, upgrade_v22_to_v23_stale_rep_weights)
 			// Add stale/incorrect data as if upgrade crashed mid-way
 			// - rep_a has wrong value
 			// - rep_stale shouldn't exist (was from deleted account in previous attempt)
-			backend->put (tx, nano::tables::rep_weights, rep_a, nano::amount{ 999999 }); // Wrong value
-			backend->put (tx, nano::tables::rep_weights, rep_stale, nano::amount{ 12345 }); // Stale entry
+			backend->put (tx, nano::store::table::rep_weights, rep_a, nano::amount{ 999999 }); // Wrong value
+			backend->put (tx, nano::store::table::rep_weights, rep_stale, nano::amount{ 12345 }); // Stale entry
 
 			// Version is still 22 (upgrade didn't complete)
 			ASSERT_EQ (backend->get_version (tx), 22);
@@ -529,7 +529,7 @@ public:
 		auto tx = backend->tx_begin_write ();
 		nano::store::db_val key{ sizeof (key_value), &key_value };
 		nano::store::db_val value{ sizeof (data_value), &data_value };
-		auto status = backend->put (tx, nano::tables::frontiers, key, value);
+		auto status = backend->put (tx, nano::store::table::frontiers, key, value);
 		backend->release_assert_success (status);
 	}
 
@@ -553,7 +553,7 @@ TEST (ledger_upgrades, upgrade_v23_to_v24)
 		// Verify frontiers table exists before upgrade
 		ASSERT_TRUE (legacy_db.backend->table_exists ("frontiers"));
 		auto tx = legacy_db.backend->tx_begin_read ();
-		ASSERT_EQ (legacy_db.backend->count (tx, nano::tables::frontiers), 2);
+		ASSERT_EQ (legacy_db.backend->count (tx, nano::store::table::frontiers), 2);
 	}
 
 	// Perform the upgrade

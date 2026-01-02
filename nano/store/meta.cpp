@@ -14,7 +14,7 @@ void meta_view::put_version (nano::store::write_transaction const & txn, uint64_
 {
 	nano::uint256_union db_key{ version_key };
 	nano::uint256_union db_value{ version };
-	auto status = backend.put (txn, tables::meta, db_key, db_value);
+	auto status = backend.put (txn, nano::store::table::meta, db_key, db_value);
 	backend.release_assert_success (status);
 }
 
@@ -22,7 +22,7 @@ auto meta_view::get_version (nano::store::transaction const & txn) const -> uint
 {
 	nano::uint256_union db_key{ version_key };
 	nano::store::db_val data;
-	auto status = backend.get (txn, tables::meta, db_key, data);
+	auto status = backend.get (txn, nano::store::table::meta, db_key, data);
 	uint64_t result = 0; // Default minimum version
 	if (backend.success (status))
 	{
@@ -36,6 +36,6 @@ auto meta_view::get_version (nano::store::transaction const & txn) const -> uint
 bool meta_view::version_exists (nano::store::transaction const & txn) const
 {
 	nano::uint256_union db_key{ version_key };
-	return backend.exists (txn, tables::meta, db_key);
+	return backend.exists (txn, nano::store::table::meta, db_key);
 }
 }
