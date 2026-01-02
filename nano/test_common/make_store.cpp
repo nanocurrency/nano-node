@@ -20,13 +20,13 @@ std::unique_ptr<nano::store::backend> nano::test::make_backend (std::filesystem:
 		{
 			auto db_path = path / "data.ldb";
 			nano::lmdb_config lmdb_config{};
-			return std::make_unique<nano::store::lmdb::backend_lmdb> (db_path, nano::test::default_logger (), lmdb_config);
+			return std::make_unique<nano::store::lmdb::backend_lmdb> (db_path, lmdb_config, nano::test::default_logger ());
 		}
 		case nano::database_backend::rocksdb:
 		{
 			auto db_path = path / "rocksdb";
 			nano::rocksdb_config rocksdb_config{};
-			return std::make_unique<nano::store::rocksdb::backend_rocksdb> (db_path, rocksdb_config);
+			return std::make_unique<nano::store::rocksdb::backend_rocksdb> (db_path, rocksdb_config, nano::test::default_logger ());
 		}
 	}
 	release_assert (false, "unknown database backend");

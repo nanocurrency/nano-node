@@ -1471,7 +1471,7 @@ TEST (block_store, rocksdb_tombstone_count)
 	nano::rocksdb_config config{};
 
 	// Create backend directly and keep pointer for tombstone access
-	auto backend = std::make_unique<nano::store::rocksdb::backend_rocksdb> (path, config);
+	auto backend = std::make_unique<nano::store::rocksdb::backend_rocksdb> (path, config, logger);
 	auto * rocksdb_backend = backend.get ();
 
 	nano::store::ledger_store store (std::move (backend), nano::store::open_mode::read_write, stats, logger);

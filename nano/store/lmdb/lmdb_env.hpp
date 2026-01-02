@@ -65,8 +65,8 @@ public:
 	void init (std::filesystem::path const &, env::options options_a = env::options::make ());
 	~env ();
 	operator MDB_env * () const;
-	store::read_transaction tx_begin_read (txn_callbacks callbacks = txn_callbacks{}) const;
-	store::write_transaction tx_begin_write (txn_callbacks callbacks = txn_callbacks{}) const;
+	store::read_transaction tx_begin_read (nano::store::txn_callbacks callbacks = {}) const;
+	store::write_transaction tx_begin_write (nano::store::txn_callbacks callbacks = {}) const;
 	MDB_txn * tx (store::transaction const & transaction_a) const;
 	void create_backup_file (std::filesystem::path const & filepath, nano::logger & logger) const;
 

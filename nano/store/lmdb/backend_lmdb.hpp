@@ -17,7 +17,7 @@ namespace nano::store::lmdb
 class backend_lmdb : public nano::store::backend
 {
 public:
-	backend_lmdb (std::filesystem::path const & path, nano::logger & logger, nano::lmdb_config const & config, nano::txn_tracking_config const & txn_tracking_config = {}, std::chrono::milliseconds block_processor_batch_max_time = std::chrono::milliseconds{ 5000 });
+	backend_lmdb (std::filesystem::path const & path, nano::lmdb_config const & config, nano::logger & logger, nano::txn_tracking_config const & txn_tracking_config = {}, std::chrono::milliseconds block_processor_batch_max_time = std::chrono::milliseconds{ 5000 });
 	~backend_lmdb () override;
 
 	int get (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val & value) const override;
@@ -45,7 +45,6 @@ public:
 	void copy_with_compaction (std::filesystem::path const & destination) override;
 	void backup () override;
 
-	void collect_txn_tracker (boost::property_tree::ptree &, std::chrono::milliseconds min_read_time, std::chrono::milliseconds min_write_time) const override;
 	void collect_memory_stats (boost::property_tree::ptree &) const override;
 
 	std::string vendor_get () const override;
@@ -58,18 +57,11 @@ protected:
 private:
 	std::filesystem::path const database_path;
 	nano::lmdb_config config;
-	nano::txn_tracking_config txn_tracking_config;
-	std::chrono::milliseconds block_processor_batch_max_time;
 
 	std::unique_ptr<nano::store::lmdb::env> env;
 	std::unordered_map<nano::store::table, nano::store::lmdb::env::table_handle> table_handles;
 
-	mutable nano::mdb_txn_tracker mdb_txn_tracker;
-	bool txn_tracking_enabled{ false };
-
 	nano::store::lmdb::env::table_handle table_to_dbi (nano::store::table) const;
 	void open_table (MDB_txn *, nano::store::table, std::string const & name, unsigned flags);
-
-	nano::store::lmdb::txn_callbacks create_txn_callbacks () const;
 };
 }

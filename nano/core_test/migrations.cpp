@@ -208,7 +208,7 @@ TEST (migrations, lmdb_to_rocksdb)
 
 	// Open RocksDB store and verify
 	auto rocksdb_path = nano::database_path_for_backend (data_path, nano::database_backend::rocksdb);
-	auto rocksdb_backend = std::make_unique<nano::store::rocksdb::backend_rocksdb> (rocksdb_path, nano::rocksdb_config{});
+	auto rocksdb_backend = std::make_unique<nano::store::rocksdb::backend_rocksdb> (rocksdb_path, nano::rocksdb_config{}, logger);
 	nano::store::ledger_store rocksdb_store{ std::move (rocksdb_backend), nano::store::open_mode::read_only, stats, logger };
 
 	auto txn = rocksdb_store.tx_begin_read ();

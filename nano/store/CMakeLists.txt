@@ -58,6 +58,8 @@ add_library(
   tables.hpp
   transaction.hpp
   transaction.cpp
+  txn_tracking.hpp
+  txn_tracking.cpp
   typed_iterator.hpp
   typed_iterator.cpp
   typed_iterator_templ.hpp

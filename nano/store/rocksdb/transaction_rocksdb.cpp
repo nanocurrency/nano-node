@@ -5,8 +5,9 @@
  * read_transaction_impl
  */
 
-nano::store::rocksdb::read_transaction_impl::read_transaction_impl (::rocksdb::DB * db_a) :
-	db{ db_a }
+nano::store::rocksdb::read_transaction_impl::read_transaction_impl (::rocksdb::DB * db_a, nano::store::txn_callbacks txn_callbacks_a) :
+	db{ db_a },
+	txn_callbacks{ txn_callbacks_a }
 {
 	renew ();
 }
@@ -21,6 +22,7 @@ void nano::store::rocksdb::read_transaction_impl::reset ()
 	if (active)
 	{
 		db->ReleaseSnapshot (options.snapshot);
+		txn_callbacks.txn_end (this);
 		active = false;
 	}
 }
@@ -30,6 +32,7 @@ void nano::store::rocksdb::read_transaction_impl::renew ()
 	release_assert (db != nullptr);
 	release_assert (!active);
 	options.snapshot = db->GetSnapshot ();
+	txn_callbacks.txn_start (this);
 	active = true;
 }
 
@@ -42,8 +45,9 @@ void * nano::store::rocksdb::read_transaction_impl::get_handle () const
  * write_transaction_impl
  */
 
-nano::store::rocksdb::write_transaction_impl::write_transaction_impl (::rocksdb::TransactionDB * db_a) :
-	db{ db_a }
+nano::store::rocksdb::write_transaction_impl::write_transaction_impl (::rocksdb::TransactionDB * db_a, nano::store::txn_callbacks txn_callbacks_a) :
+	db{ db_a },
+	txn_callbacks{ txn_callbacks_a }
 {
 	renew ();
 }
@@ -61,6 +65,7 @@ void nano::store::rocksdb::write_transaction_impl::commit ()
 		release_assert (status.ok (), "Unable to write to the RocksDB database", status.ToString ());
 		delete txn;
 		txn = nullptr;
+		txn_callbacks.txn_end (this);
 		active = false;
 	}
 }
@@ -73,6 +78,7 @@ void nano::store::rocksdb::write_transaction_impl::renew ()
 	::rocksdb::TransactionOptions txn_options;
 	txn_options.set_snapshot = true;
 	txn = db->BeginTransaction (::rocksdb::WriteOptions (), txn_options);
+	txn_callbacks.txn_start (this);
 	active = true;
 }
 

@@ -44,11 +44,11 @@ nano::rocksdb_config const & rocksdb_config)
 	nano::set_secure_perm_directory (data_path, error_chmod);
 
 	// Create and open source LMDB backend (read-only)
-	auto lmdb_backend = std::make_unique<nano::store::lmdb::backend_lmdb> (lmdb_path, nano::default_logger (), lmdb_config);
+	auto lmdb_backend = std::make_unique<nano::store::lmdb::backend_lmdb> (lmdb_path, lmdb_config, nano::default_logger ());
 	lmdb_backend->open (nano::store::ledger_store::schema_current, nano::store::open_mode::read_only);
 
 	// Create and open destination RocksDB backend (read-write)
-	auto rocksdb_backend = std::make_unique<nano::store::rocksdb::backend_rocksdb> (rocksdb_path, rocksdb_config);
+	auto rocksdb_backend = std::make_unique<nano::store::rocksdb::backend_rocksdb> (rocksdb_path, rocksdb_config, nano::default_logger ());
 	rocksdb_backend->open (nano::store::ledger_store::schema_current, nano::store::open_mode::read_write);
 
 	auto progress_cb = [] (nano::store::copy_progress const & p) {

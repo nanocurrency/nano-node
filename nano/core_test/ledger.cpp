@@ -5622,7 +5622,7 @@ TEST (ledger, copy_to_rocksdb)
 
 	// Create RocksDB backend and copy data
 	{
-		auto rocksdb_backend = std::make_unique<nano::store::rocksdb::backend_rocksdb> (path / "rocksdb_copy", nano::rocksdb_config{});
+		auto rocksdb_backend = std::make_unique<nano::store::rocksdb::backend_rocksdb> (path / "rocksdb_copy", nano::rocksdb_config{}, logger);
 		rocksdb_backend->open (nano::store::ledger_store::schema_current, nano::store::open_mode::read_write);
 
 		// Copy the backend
@@ -5631,7 +5631,7 @@ TEST (ledger, copy_to_rocksdb)
 
 	// Open RocksDB store for verification (creates new backend)
 	{
-		auto rocksdb_backend = std::make_unique<nano::store::rocksdb::backend_rocksdb> (path / "rocksdb_copy", nano::rocksdb_config{});
+		auto rocksdb_backend = std::make_unique<nano::store::rocksdb::backend_rocksdb> (path / "rocksdb_copy", nano::rocksdb_config{}, logger);
 		auto rocksdb_store = std::make_unique<nano::store::ledger_store> (std::move (rocksdb_backend), nano::store::open_mode::read_only, stats, logger);
 
 		auto rocksdb_transaction = rocksdb_store->tx_begin_read ();

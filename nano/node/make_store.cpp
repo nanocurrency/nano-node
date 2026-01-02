@@ -39,13 +39,13 @@ std::unique_ptr<nano::store::ledger_store> nano::make_store (nano::logger & logg
 		case nano::database_backend::lmdb:
 		{
 			auto db_path = add_db_postfix ? database_path_for_backend (path, backend_type) : path;
-			backend = std::make_unique<nano::store::lmdb::backend_lmdb> (db_path, logger, node_config.lmdb_config, node_config.diagnostics_config.txn_tracking, node_config.block_processor_batch_max_time);
+			backend = std::make_unique<nano::store::lmdb::backend_lmdb> (db_path, node_config.lmdb_config, logger, node_config.diagnostics_config.txn_tracking, node_config.block_processor_batch_max_time);
 			break;
 		}
 		case nano::database_backend::rocksdb:
 		{
 			auto db_path = add_db_postfix ? database_path_for_backend (path, backend_type) : path;
-			backend = std::make_unique<nano::store::rocksdb::backend_rocksdb> (db_path, node_config.rocksdb_config);
+			backend = std::make_unique<nano::store::rocksdb::backend_rocksdb> (db_path, node_config.rocksdb_config, logger, node_config.diagnostics_config.txn_tracking, node_config.block_processor_batch_max_time);
 			break;
 		}
 	}

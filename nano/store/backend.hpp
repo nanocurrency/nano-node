@@ -8,6 +8,7 @@
 #include <nano/store/meta.hpp>
 #include <nano/store/tables.hpp>
 #include <nano/store/transaction.hpp>
+#include <nano/store/txn_tracking.hpp>
 
 #include <boost/property_tree/ptree_fwd.hpp>
 
@@ -132,6 +133,12 @@ public:
 protected:
 	virtual void open_impl (column_schema, nano::store::open_mode) = 0;
 	virtual void close_impl () = 0;
+
+	// Transaction tracking (optional, enabled via config)
+	mutable std::unique_ptr<txn_tracker> tracker;
+
+	// Helper to create callbacks that use the tracker
+	txn_callbacks create_txn_callbacks () const;
 
 private:
 	void load_meta ();
