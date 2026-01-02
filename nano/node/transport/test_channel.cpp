@@ -6,7 +6,7 @@ nano::transport::test_channel::test_channel (nano::node & node_a) :
 {
 }
 
-bool nano::transport::test_channel::send_impl (nano::message const & message, nano::transport::traffic_type traffic_type, callback_t callback)
+bool nano::transport::test_channel::send_impl (nano::messages::message const & message, nano::transport::traffic_type traffic_type, callback_t callback)
 {
 	observers.notify (message, traffic_type);
 

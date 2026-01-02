@@ -17,7 +17,7 @@
 
 auto nano::deserialize_message (
 nano::buffer_view buffer,
-nano::message_header const & header,
+nano::messages::message_header const & header,
 nano::network_constants const & network_constants,
 nano::network_filter * network_filter,
 nano::block_uniquer * block_uniquer,
@@ -28,10 +28,10 @@ nano::vote_uniquer * vote_uniquer)
 
 	switch (header.type)
 	{
-		case nano::message_type::keepalive:
+		case nano::messages::message_type::keepalive:
 		{
 			bool error = false;
-			auto message = std::make_unique<nano::keepalive> (error, stream, header);
+			auto message = std::make_unique<nano::messages::keepalive> (error, stream, header);
 			if (!error && at_end (stream))
 			{
 				return { std::move (message), deserialize_message_status::success };
@@ -39,7 +39,7 @@ nano::vote_uniquer * vote_uniquer)
 			return { nullptr, deserialize_message_status::invalid_keepalive_message };
 		}
 		break;
-		case nano::message_type::publish:
+		case nano::messages::message_type::publish:
 		{
 			nano::uint128_t digest{ 0 };
 			if (network_filter)
@@ -51,7 +51,7 @@ nano::vote_uniquer * vote_uniquer)
 			}
 
 			bool error = false;
-			auto message = std::make_unique<nano::publish> (error, stream, header, digest, block_uniquer);
+			auto message = std::make_unique<nano::messages::publish> (error, stream, header, digest, block_uniquer);
 			if (!error && at_end (stream) || !message->block)
 			{
 				if (!network_constants.work.validate_entry (*message->block))
@@ -66,10 +66,10 @@ nano::vote_uniquer * vote_uniquer)
 			return { nullptr, deserialize_message_status::invalid_publish_message };
 		}
 		break;
-		case nano::message_type::confirm_req:
+		case nano::messages::message_type::confirm_req:
 		{
 			bool error = false;
-			auto message = std::make_unique<nano::confirm_req> (error, stream, header);
+			auto message = std::make_unique<nano::messages::confirm_req> (error, stream, header);
 			if (!error && at_end (stream))
 			{
 				return { std::move (message), deserialize_message_status::success };
@@ -77,7 +77,7 @@ nano::vote_uniquer * vote_uniquer)
 			return { nullptr, deserialize_message_status::invalid_confirm_req_message };
 		}
 		break;
-		case nano::message_type::confirm_ack:
+		case nano::messages::message_type::confirm_ack:
 		{
 			nano::uint128_t digest{ 0 };
 			if (network_filter)
@@ -89,7 +89,7 @@ nano::vote_uniquer * vote_uniquer)
 			}
 
 			bool error = false;
-			auto message = std::make_unique<nano::confirm_ack> (error, stream, header, digest, vote_uniquer);
+			auto message = std::make_unique<nano::messages::confirm_ack> (error, stream, header, digest, vote_uniquer);
 			if (!error && at_end (stream))
 			{
 				return { std::move (message), deserialize_message_status::success };
@@ -97,10 +97,10 @@ nano::vote_uniquer * vote_uniquer)
 			return { nullptr, deserialize_message_status::invalid_confirm_ack_message };
 		}
 		break;
-		case nano::message_type::node_id_handshake:
+		case nano::messages::message_type::node_id_handshake:
 		{
 			bool error = false;
-			auto message = std::make_unique<nano::node_id_handshake> (error, stream, header);
+			auto message = std::make_unique<nano::messages::node_id_handshake> (error, stream, header);
 			if (!error && at_end (stream))
 			{
 				return { std::move (message), deserialize_message_status::success };
@@ -108,15 +108,15 @@ nano::vote_uniquer * vote_uniquer)
 			return { nullptr, deserialize_message_status::invalid_node_id_handshake_message };
 		}
 		break;
-		case nano::message_type::telemetry_req:
+		case nano::messages::message_type::telemetry_req:
 		{
-			return { std::make_unique<nano::telemetry_req> (header), deserialize_message_status::success };
+			return { std::make_unique<nano::messages::telemetry_req> (header), deserialize_message_status::success };
 		}
 		break;
-		case nano::message_type::telemetry_ack:
+		case nano::messages::message_type::telemetry_ack:
 		{
 			bool error = false;
-			auto message = std::make_unique<nano::telemetry_ack> (error, stream, header);
+			auto message = std::make_unique<nano::messages::telemetry_ack> (error, stream, header);
 			if (!error) // Intentionally not checking at_end here for forward compatibility
 			{
 				return { std::move (message), deserialize_message_status::success };
@@ -124,10 +124,10 @@ nano::vote_uniquer * vote_uniquer)
 			return { nullptr, deserialize_message_status::invalid_telemetry_ack_message };
 		}
 		break;
-		case nano::message_type::bulk_pull:
+		case nano::messages::message_type::bulk_pull:
 		{
 			bool error = false;
-			auto message = std::make_unique<nano::bulk_pull> (error, stream, header);
+			auto message = std::make_unique<nano::messages::bulk_pull> (error, stream, header);
 			if (!error && at_end (stream))
 			{
 				return { std::move (message), deserialize_message_status::success };
@@ -135,10 +135,10 @@ nano::vote_uniquer * vote_uniquer)
 			return { nullptr, deserialize_message_status::invalid_bulk_pull_message };
 		}
 		break;
-		case nano::message_type::bulk_pull_account:
+		case nano::messages::message_type::bulk_pull_account:
 		{
 			bool error = false;
-			auto message = std::make_unique<nano::bulk_pull_account> (error, stream, header);
+			auto message = std::make_unique<nano::messages::bulk_pull_account> (error, stream, header);
 			if (!error && at_end (stream))
 			{
 				return { std::move (message), deserialize_message_status::success };
@@ -146,15 +146,15 @@ nano::vote_uniquer * vote_uniquer)
 			return { nullptr, deserialize_message_status::invalid_bulk_pull_account_message };
 		}
 		break;
-		case nano::message_type::bulk_push:
+		case nano::messages::message_type::bulk_push:
 		{
-			return { std::make_unique<nano::bulk_push> (header), deserialize_message_status::success };
+			return { std::make_unique<nano::messages::bulk_push> (header), deserialize_message_status::success };
 		}
 		break;
-		case nano::message_type::frontier_req:
+		case nano::messages::message_type::frontier_req:
 		{
 			bool error = false;
-			auto message = std::make_unique<nano::frontier_req> (error, stream, header);
+			auto message = std::make_unique<nano::messages::frontier_req> (error, stream, header);
 			if (!error && at_end (stream))
 			{
 				return { std::move (message), deserialize_message_status::success };
@@ -162,10 +162,10 @@ nano::vote_uniquer * vote_uniquer)
 			return { nullptr, deserialize_message_status::invalid_frontier_req_message };
 		}
 		break;
-		case nano::message_type::asc_pull_req:
+		case nano::messages::message_type::asc_pull_req:
 		{
 			bool error = false;
-			auto message = std::make_unique<nano::asc_pull_req> (error, stream, header);
+			auto message = std::make_unique<nano::messages::asc_pull_req> (error, stream, header);
 			if (!error)
 			{
 				return { std::move (message), deserialize_message_status::success };
@@ -173,10 +173,10 @@ nano::vote_uniquer * vote_uniquer)
 			return { nullptr, deserialize_message_status::invalid_asc_pull_req_message };
 		}
 		break;
-		case nano::message_type::asc_pull_ack:
+		case nano::messages::message_type::asc_pull_ack:
 		{
 			bool error = false;
-			auto message = std::make_unique<nano::asc_pull_ack> (error, stream, header);
+			auto message = std::make_unique<nano::messages::asc_pull_ack> (error, stream, header);
 			if (!error)
 			{
 				return { std::move (message), deserialize_message_status::success };

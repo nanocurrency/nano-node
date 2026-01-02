@@ -16,40 +16,40 @@ namespace
 std::shared_ptr<nano::test::system> system0;
 std::shared_ptr<nano::node> node0;
 
-class fuzz_visitor : public nano::message_visitor
+class fuzz_visitor : public nano::messages::message_visitor
 {
 public:
-	virtual void keepalive (nano::keepalive const &) override
+	virtual void keepalive (nano::messages::keepalive const &) override
 	{
 	}
-	virtual void publish (nano::publish const &) override
+	virtual void publish (nano::messages::publish const &) override
 	{
 	}
-	virtual void confirm_req (nano::confirm_req const &) override
+	virtual void confirm_req (nano::messages::confirm_req const &) override
 	{
 	}
-	virtual void confirm_ack (nano::confirm_ack const &) override
+	virtual void confirm_ack (nano::messages::confirm_ack const &) override
 	{
 	}
-	virtual void bulk_pull (nano::bulk_pull const &) override
+	virtual void bulk_pull (nano::messages::bulk_pull const &) override
 	{
 	}
-	virtual void bulk_pull_account (nano::bulk_pull_account const &) override
+	virtual void bulk_pull_account (nano::messages::bulk_pull_account const &) override
 	{
 	}
-	virtual void bulk_push (nano::bulk_push const &) override
+	virtual void bulk_push (nano::messages::bulk_push const &) override
 	{
 	}
-	virtual void frontier_req (nano::frontier_req const &) override
+	virtual void frontier_req (nano::messages::frontier_req const &) override
 	{
 	}
-	virtual void node_id_handshake (nano::node_id_handshake const &) override
+	virtual void node_id_handshake (nano::messages::node_id_handshake const &) override
 	{
 	}
-	virtual void telemetry_req (nano::telemetry_req const &) override
+	virtual void telemetry_req (nano::messages::telemetry_req const &) override
 	{
 	}
-	virtual void telemetry_ack (nano::telemetry_ack const &) override
+	virtual void telemetry_ack (nano::messages::telemetry_ack const &) override
 	{
 	}
 };
@@ -68,7 +68,7 @@ void fuzz_message_parser (uint8_t const * Data, size_t Size)
 	}
 
 	fuzz_visitor visitor;
-	nano::message_parser parser (node0->network.filter, node0->block_uniquer, node0->vote_uniquer, visitor, node0->work);
+	nano::messages::message_parser parser (node0->network.filter, node0->block_uniquer, node0->vote_uniquer, visitor, node0->work);
 	parser.deserialize_buffer (Data, Size);
 }
 

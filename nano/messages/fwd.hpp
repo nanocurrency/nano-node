@@ -2,7 +2,7 @@
 
 #include <nano/lib/fwd.hpp>
 
-namespace nano
+namespace nano::messages
 {
 enum class message_type : uint8_t;
 enum class bulk_pull_account_flags : uint8_t;

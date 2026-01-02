@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-namespace nano
+namespace nano::messages
 {
 /*
  * Binary Format:
@@ -29,20 +29,20 @@ namespace nano
 class confirm_req final : public message
 {
 public:
-	confirm_req (bool & error, nano::stream &, nano::message_header const &);
+	confirm_req (bool & error, nano::stream &, message_header const &);
 	confirm_req (nano::network_constants const & constants, std::vector<std::pair<nano::block_hash, nano::root>> const &);
 	confirm_req (nano::network_constants const & constants, nano::block_hash const &, nano::root const &);
 
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
-	void visit (nano::message_visitor &) const override;
-	bool operator== (nano::confirm_req const &) const;
+	void visit (message_visitor &) const override;
+	bool operator== (confirm_req const &) const;
 	std::string roots_string () const;
 
-	static std::size_t size (nano::message_header const &);
+	static std::size_t size (message_header const &);
 
 private:
-	static uint8_t hash_count (nano::message_header const &);
+	static uint8_t hash_count (message_header const &);
 
 public: // Payload
 	std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes;
@@ -69,20 +69,20 @@ public: // Logging
 class confirm_ack final : public message
 {
 public:
-	confirm_ack (bool & error, nano::stream &, nano::message_header const &, nano::network_filter::digest_t const & digest = 0, nano::vote_uniquer * = nullptr);
+	confirm_ack (bool & error, nano::stream &, message_header const &, nano::network_filter::digest_t const & digest = 0, nano::vote_uniquer * = nullptr);
 	confirm_ack (nano::network_constants const & constants, std::shared_ptr<nano::vote> const &, bool rebroadcasted = false);
 
 	void serialize (nano::stream &) const override;
-	void visit (nano::message_visitor &) const override;
-	bool operator== (nano::confirm_ack const &) const;
+	void visit (message_visitor &) const override;
+	bool operator== (confirm_ack const &) const;
 
-	static std::size_t size (nano::message_header const &);
+	static std::size_t size (message_header const &);
 
 	static uint8_t constexpr rebroadcasted_flag = 2; // 0x0004
 	bool is_rebroadcasted () const;
 
 private:
-	static uint8_t hash_count (nano::message_header const &);
+	static uint8_t hash_count (message_header const &);
 
 public: // Payload
 	std::shared_ptr<nano::vote> vote;

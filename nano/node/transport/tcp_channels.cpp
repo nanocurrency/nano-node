@@ -367,7 +367,7 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 
 void nano::transport::tcp_channels::keepalive ()
 {
-	nano::keepalive message{ node.network_params.network };
+	nano::messages::keepalive message{ node.network_params.network };
 	node.network.random_fill (message.peers);
 
 	nano::unique_lock<nano::mutex> lock{ mutex };
@@ -392,7 +392,7 @@ void nano::transport::tcp_channels::keepalive ()
 	}
 }
 
-std::optional<nano::keepalive> nano::transport::tcp_channels::sample_keepalive ()
+std::optional<nano::messages::keepalive> nano::transport::tcp_channels::sample_keepalive ()
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 

@@ -98,7 +98,7 @@ public:
 	// Checks if we have enough channel capacity for the given traffic type
 	bool check_capacity (nano::transport::traffic_type, float scale = 1.0f) const;
 
-	size_t flood_message (nano::message const &, nano::transport::traffic_type, float scale = 1.0f) const;
+	size_t flood_message (nano::messages::message const &, nano::transport::traffic_type, float scale = 1.0f) const;
 	size_t flood_keepalive (float scale = 1.0f) const;
 	size_t flood_keepalive_self (float scale = 0.5f) const;
 	size_t flood_vote_pr (std::shared_ptr<nano::vote> const &) const;
@@ -155,9 +155,9 @@ public:
 
 public: // Handshake
 	/** Verifies that handshake response matches our query. @returns true if OK */
-	bool verify_handshake_response (nano::node_id_handshake::response_payload const & response, nano::endpoint const & remote_endpoint);
-	std::optional<nano::node_id_handshake::query_payload> prepare_handshake_query (nano::endpoint const & remote_endpoint);
-	nano::node_id_handshake::response_payload prepare_handshake_response (nano::node_id_handshake::query_payload const & query, bool v2) const;
+	bool verify_handshake_response (nano::messages::node_id_handshake::response_payload const & response, nano::endpoint const & remote_endpoint);
+	std::optional<nano::messages::node_id_handshake::query_payload> prepare_handshake_query (nano::endpoint const & remote_endpoint);
+	nano::messages::node_id_handshake::response_payload prepare_handshake_response (nano::messages::node_id_handshake::query_payload const & query, bool v2) const;
 
 private:
 	void run_cleanup ();

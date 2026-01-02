@@ -41,7 +41,7 @@ void nano::transport::message_deserializer::received_header (const nano::transpo
 {
 	nano::bufferstream stream{ read_buffer->data (), HEADER_SIZE };
 	auto error = false;
-	nano::message_header header{ error, stream };
+	nano::messages::message_header header{ error, stream };
 	if (error)
 	{
 		status = parse_status::invalid_header;
@@ -100,7 +100,7 @@ void nano::transport::message_deserializer::received_header (const nano::transpo
 	}
 }
 
-void nano::transport::message_deserializer::received_message (nano::message_header header, std::size_t payload_size, const nano::transport::message_deserializer::callback_type && callback)
+void nano::transport::message_deserializer::received_message (nano::messages::message_header header, std::size_t payload_size, const nano::transport::message_deserializer::callback_type && callback)
 {
 	auto message = deserialize (header, payload_size);
 	if (message)
@@ -116,17 +116,17 @@ void nano::transport::message_deserializer::received_message (nano::message_head
 	}
 }
 
-std::unique_ptr<nano::message> nano::transport::message_deserializer::deserialize (nano::message_header header, std::size_t payload_size)
+std::unique_ptr<nano::messages::message> nano::transport::message_deserializer::deserialize (nano::messages::message_header header, std::size_t payload_size)
 {
 	release_assert (payload_size <= MAX_MESSAGE_SIZE);
 	nano::bufferstream stream{ read_buffer->data (), payload_size };
 	switch (header.type)
 	{
-		case nano::message_type::keepalive:
+		case nano::messages::message_type::keepalive:
 		{
 			return deserialize_keepalive (stream, header);
 		}
-		case nano::message_type::publish:
+		case nano::messages::message_type::publish:
 		{
 			// Early filtering to not waste time deserializing duplicates
 			nano::uint128_t digest;
@@ -140,11 +140,11 @@ std::unique_ptr<nano::message> nano::transport::message_deserializer::deserializ
 			}
 			break;
 		}
-		case nano::message_type::confirm_req:
+		case nano::messages::message_type::confirm_req:
 		{
 			return deserialize_confirm_req (stream, header);
 		}
-		case nano::message_type::confirm_ack:
+		case nano::messages::message_type::confirm_ack:
 		{
 			// Early filtering to not waste time deserializing duplicates
 			nano::uint128_t digest;
@@ -158,39 +158,39 @@ std::unique_ptr<nano::message> nano::transport::message_deserializer::deserializ
 			}
 			break;
 		}
-		case nano::message_type::node_id_handshake:
+		case nano::messages::message_type::node_id_handshake:
 		{
 			return deserialize_node_id_handshake (stream, header);
 		}
-		case nano::message_type::telemetry_req:
+		case nano::messages::message_type::telemetry_req:
 		{
 			return deserialize_telemetry_req (stream, header);
 		}
-		case nano::message_type::telemetry_ack:
+		case nano::messages::message_type::telemetry_ack:
 		{
 			return deserialize_telemetry_ack (stream, header);
 		}
-		case nano::message_type::bulk_pull:
+		case nano::messages::message_type::bulk_pull:
 		{
 			return deserialize_bulk_pull (stream, header);
 		}
-		case nano::message_type::bulk_pull_account:
+		case nano::messages::message_type::bulk_pull_account:
 		{
 			return deserialize_bulk_pull_account (stream, header);
 		}
-		case nano::message_type::bulk_push:
+		case nano::messages::message_type::bulk_push:
 		{
 			return deserialize_bulk_push (stream, header);
 		}
-		case nano::message_type::frontier_req:
+		case nano::messages::message_type::frontier_req:
 		{
 			return deserialize_frontier_req (stream, header);
 		}
-		case nano::message_type::asc_pull_req:
+		case nano::messages::message_type::asc_pull_req:
 		{
 			return deserialize_asc_pull_req (stream, header);
 		}
-		case nano::message_type::asc_pull_ack:
+		case nano::messages::message_type::asc_pull_ack:
 		{
 			return deserialize_asc_pull_ack (stream, header);
 		}
@@ -203,10 +203,10 @@ std::unique_ptr<nano::message> nano::transport::message_deserializer::deserializ
 	return {};
 }
 
-std::unique_ptr<nano::keepalive> nano::transport::message_deserializer::deserialize_keepalive (nano::stream & stream, nano::message_header const & header)
+std::unique_ptr<nano::messages::keepalive> nano::transport::message_deserializer::deserialize_keepalive (nano::stream & stream, nano::messages::message_header const & header)
 {
 	auto error = false;
-	auto incoming = std::make_unique<nano::keepalive> (error, stream, header);
+	auto incoming = std::make_unique<nano::messages::keepalive> (error, stream, header);
 	if (!error && nano::at_end (stream))
 	{
 		return incoming;
@@ -218,10 +218,10 @@ std::unique_ptr<nano::keepalive> nano::transport::message_deserializer::deserial
 	return {};
 }
 
-std::unique_ptr<nano::publish> nano::transport::message_deserializer::deserialize_publish (nano::stream & stream, nano::message_header const & header, nano::network_filter::digest_t const & digest_a)
+std::unique_ptr<nano::messages::publish> nano::transport::message_deserializer::deserialize_publish (nano::stream & stream, nano::messages::message_header const & header, nano::network_filter::digest_t const & digest_a)
 {
 	auto error = false;
-	auto incoming = std::make_unique<nano::publish> (error, stream, header, digest_a, &block_uniquer_m);
+	auto incoming = std::make_unique<nano::messages::publish> (error, stream, header, digest_a, &block_uniquer_m);
 	if (!error && nano::at_end (stream))
 	{
 		release_assert (incoming->block);
@@ -241,10 +241,10 @@ std::unique_ptr<nano::publish> nano::transport::message_deserializer::deserializ
 	return {};
 }
 
-std::unique_ptr<nano::confirm_req> nano::transport::message_deserializer::deserialize_confirm_req (nano::stream & stream, nano::message_header const & header)
+std::unique_ptr<nano::messages::confirm_req> nano::transport::message_deserializer::deserialize_confirm_req (nano::stream & stream, nano::messages::message_header const & header)
 {
 	auto error = false;
-	auto incoming = std::make_unique<nano::confirm_req> (error, stream, header);
+	auto incoming = std::make_unique<nano::messages::confirm_req> (error, stream, header);
 	if (!error && nano::at_end (stream))
 	{
 		return incoming;
@@ -256,10 +256,10 @@ std::unique_ptr<nano::confirm_req> nano::transport::message_deserializer::deseri
 	return {};
 }
 
-std::unique_ptr<nano::confirm_ack> nano::transport::message_deserializer::deserialize_confirm_ack (nano::stream & stream, nano::message_header const & header, nano::network_filter::digest_t const & digest_a)
+std::unique_ptr<nano::messages::confirm_ack> nano::transport::message_deserializer::deserialize_confirm_ack (nano::stream & stream, nano::messages::message_header const & header, nano::network_filter::digest_t const & digest_a)
 {
 	auto error = false;
-	auto incoming = std::make_unique<nano::confirm_ack> (error, stream, header, digest_a, &vote_uniquer_m);
+	auto incoming = std::make_unique<nano::messages::confirm_ack> (error, stream, header, digest_a, &vote_uniquer_m);
 	if (!error && nano::at_end (stream))
 	{
 		return incoming;
@@ -271,10 +271,10 @@ std::unique_ptr<nano::confirm_ack> nano::transport::message_deserializer::deseri
 	return {};
 }
 
-std::unique_ptr<nano::node_id_handshake> nano::transport::message_deserializer::deserialize_node_id_handshake (nano::stream & stream, nano::message_header const & header)
+std::unique_ptr<nano::messages::node_id_handshake> nano::transport::message_deserializer::deserialize_node_id_handshake (nano::stream & stream, nano::messages::message_header const & header)
 {
 	bool error = false;
-	auto incoming = std::make_unique<nano::node_id_handshake> (error, stream, header);
+	auto incoming = std::make_unique<nano::messages::node_id_handshake> (error, stream, header);
 	if (!error && nano::at_end (stream))
 	{
 		return incoming;
@@ -286,16 +286,16 @@ std::unique_ptr<nano::node_id_handshake> nano::transport::message_deserializer::
 	return {};
 }
 
-std::unique_ptr<nano::telemetry_req> nano::transport::message_deserializer::deserialize_telemetry_req (nano::stream & stream, nano::message_header const & header)
+std::unique_ptr<nano::messages::telemetry_req> nano::transport::message_deserializer::deserialize_telemetry_req (nano::stream & stream, nano::messages::message_header const & header)
 {
 	// Message does not use stream payload (header only)
-	return std::make_unique<nano::telemetry_req> (header);
+	return std::make_unique<nano::messages::telemetry_req> (header);
 }
 
-std::unique_ptr<nano::telemetry_ack> nano::transport::message_deserializer::deserialize_telemetry_ack (nano::stream & stream, nano::message_header const & header)
+std::unique_ptr<nano::messages::telemetry_ack> nano::transport::message_deserializer::deserialize_telemetry_ack (nano::stream & stream, nano::messages::message_header const & header)
 {
 	bool error = false;
-	auto incoming = std::make_unique<nano::telemetry_ack> (error, stream, header);
+	auto incoming = std::make_unique<nano::messages::telemetry_ack> (error, stream, header);
 	// Intentionally not checking if at the end of stream, because these messages support backwards/forwards compatibility
 	if (!error)
 	{
@@ -308,10 +308,10 @@ std::unique_ptr<nano::telemetry_ack> nano::transport::message_deserializer::dese
 	return {};
 }
 
-std::unique_ptr<nano::bulk_pull> nano::transport::message_deserializer::deserialize_bulk_pull (nano::stream & stream, const nano::message_header & header)
+std::unique_ptr<nano::messages::bulk_pull> nano::transport::message_deserializer::deserialize_bulk_pull (nano::stream & stream, const nano::messages::message_header & header)
 {
 	bool error = false;
-	auto incoming = std::make_unique<nano::bulk_pull> (error, stream, header);
+	auto incoming = std::make_unique<nano::messages::bulk_pull> (error, stream, header);
 	if (!error && nano::at_end (stream))
 	{
 		return incoming;
@@ -323,10 +323,10 @@ std::unique_ptr<nano::bulk_pull> nano::transport::message_deserializer::deserial
 	return {};
 }
 
-std::unique_ptr<nano::bulk_pull_account> nano::transport::message_deserializer::deserialize_bulk_pull_account (nano::stream & stream, const nano::message_header & header)
+std::unique_ptr<nano::messages::bulk_pull_account> nano::transport::message_deserializer::deserialize_bulk_pull_account (nano::stream & stream, const nano::messages::message_header & header)
 {
 	bool error = false;
-	auto incoming = std::make_unique<nano::bulk_pull_account> (error, stream, header);
+	auto incoming = std::make_unique<nano::messages::bulk_pull_account> (error, stream, header);
 	if (!error && nano::at_end (stream))
 	{
 		return incoming;
@@ -338,10 +338,10 @@ std::unique_ptr<nano::bulk_pull_account> nano::transport::message_deserializer::
 	return {};
 }
 
-std::unique_ptr<nano::frontier_req> nano::transport::message_deserializer::deserialize_frontier_req (nano::stream & stream, const nano::message_header & header)
+std::unique_ptr<nano::messages::frontier_req> nano::transport::message_deserializer::deserialize_frontier_req (nano::stream & stream, const nano::messages::message_header & header)
 {
 	bool error = false;
-	auto incoming = std::make_unique<nano::frontier_req> (error, stream, header);
+	auto incoming = std::make_unique<nano::messages::frontier_req> (error, stream, header);
 	if (!error && nano::at_end (stream))
 	{
 		return incoming;
@@ -353,16 +353,16 @@ std::unique_ptr<nano::frontier_req> nano::transport::message_deserializer::deser
 	return {};
 }
 
-std::unique_ptr<nano::bulk_push> nano::transport::message_deserializer::deserialize_bulk_push (nano::stream & stream, const nano::message_header & header)
+std::unique_ptr<nano::messages::bulk_push> nano::transport::message_deserializer::deserialize_bulk_push (nano::stream & stream, const nano::messages::message_header & header)
 {
 	// Message does not use stream payload (header only)
-	return std::make_unique<nano::bulk_push> (header);
+	return std::make_unique<nano::messages::bulk_push> (header);
 }
 
-std::unique_ptr<nano::asc_pull_req> nano::transport::message_deserializer::deserialize_asc_pull_req (nano::stream & stream, const nano::message_header & header)
+std::unique_ptr<nano::messages::asc_pull_req> nano::transport::message_deserializer::deserialize_asc_pull_req (nano::stream & stream, const nano::messages::message_header & header)
 {
 	bool error = false;
-	auto incoming = std::make_unique<nano::asc_pull_req> (error, stream, header);
+	auto incoming = std::make_unique<nano::messages::asc_pull_req> (error, stream, header);
 	// Intentionally not checking if at the end of stream, because these messages support backwards/forwards compatibility
 	if (!error)
 	{
@@ -375,10 +375,10 @@ std::unique_ptr<nano::asc_pull_req> nano::transport::message_deserializer::deser
 	return {};
 }
 
-std::unique_ptr<nano::asc_pull_ack> nano::transport::message_deserializer::deserialize_asc_pull_ack (nano::stream & stream, const nano::message_header & header)
+std::unique_ptr<nano::messages::asc_pull_ack> nano::transport::message_deserializer::deserialize_asc_pull_ack (nano::stream & stream, const nano::messages::message_header & header)
 {
 	bool error = false;
-	auto incoming = std::make_unique<nano::asc_pull_ack> (error, stream, header);
+	auto incoming = std::make_unique<nano::messages::asc_pull_ack> (error, stream, header);
 	// Intentionally not checking if at the end of stream, because these messages support backwards/forwards compatibility
 	if (!error)
 	{

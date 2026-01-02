@@ -247,7 +247,7 @@ void nano::vote_generator::reply (nano::unique_lock<nano::mutex> & lock_a, reque
 			stats.add (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes, stat::dir::in, hashes.size ());
 
 			vote (hashes, roots, [this, channel = request_a.second] (std::shared_ptr<nano::vote> const & vote_a) {
-				nano::confirm_ack confirm{ node.network_params.network, vote_a };
+				nano::messages::confirm_ack confirm{ node.network_params.network, vote_a };
 				channel->send (confirm, nano::transport::traffic_type::vote_reply);
 				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_generated_votes, stat::dir::in);
 			});

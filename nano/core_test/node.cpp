@@ -655,7 +655,7 @@ TEST (node, fork_flip)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	nano::publish publish1{ nano::dev::network_params.network, send1 };
+	nano::messages::publish publish1{ nano::dev::network_params.network, send1 };
 	nano::keypair key2;
 	auto send2 = builder.make_block ()
 				 .previous (nano::dev::genesis->hash ())
@@ -664,7 +664,7 @@ TEST (node, fork_flip)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	nano::publish publish2{ nano::dev::network_params.network, send2 };
+	nano::messages::publish publish2{ nano::dev::network_params.network, send2 };
 	node1.inbound (publish1, nano::test::fake_channel (node1));
 	node2.inbound (publish2, nano::test::fake_channel (node2));
 	ASSERT_TIMELY_EQ (5s, 1, node1.active.size ());
@@ -805,7 +805,7 @@ TEST (node, fork_open)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	nano::publish publish1{ nano::dev::network_params.network, send1 };
+	nano::messages::publish publish1{ nano::dev::network_params.network, send1 };
 	auto channel1 = std::make_shared<nano::transport::fake::channel> (node);
 	node.inbound (publish1, channel1);
 	ASSERT_TIMELY (5s, (election = node.active.election (publish1.block->qualified_root ())) != nullptr);
@@ -825,7 +825,7 @@ TEST (node, fork_open)
 				 .sign (key1.prv, key1.pub)
 				 .work (*system.work.generate (key1.pub))
 				 .build ();
-	nano::publish publish2{ nano::dev::network_params.network, open1 };
+	nano::messages::publish publish2{ nano::dev::network_params.network, open1 };
 	node.inbound (publish2, channel1);
 	ASSERT_TIMELY_EQ (5s, 1, node.active.size ());
 
@@ -837,7 +837,7 @@ TEST (node, fork_open)
 				 .sign (key1.prv, key1.pub)
 				 .work (*system.work.generate (key1.pub))
 				 .build ();
-	nano::publish publish3{ nano::dev::network_params.network, open2 };
+	nano::messages::publish publish3{ nano::dev::network_params.network, open2 };
 	node.inbound (publish3, channel1);
 	ASSERT_TIMELY (5s, (election = node.active.election (publish3.block->qualified_root ())) != nullptr);
 
@@ -1000,7 +1000,7 @@ TEST (node, fork_no_vote_quorum)
 	auto transaction (system.wallet (1)->wallets.tx_begin_read ());
 	ASSERT_FALSE (system.wallet (1)->store.fetch (transaction, key1, key3));
 	auto vote = std::make_shared<nano::vote> (key1, key3, 0, 0, std::vector<nano::block_hash>{ send2->hash () });
-	nano::confirm_ack confirm{ nano::dev::network_params.network, vote };
+	nano::messages::confirm_ack confirm{ nano::dev::network_params.network, vote };
 	auto channel = node2.network.find_node_id (node3.node_id.pub);
 	ASSERT_NE (nullptr, channel);
 	channel->send (confirm, nano::transport::traffic_type::test);
@@ -1685,8 +1685,8 @@ TEST (node, DISABLED_local_votes_cache)
 	election->force_confirm ();
 	ASSERT_TIMELY_EQ (3s, node.ledger.cemented_count (), 3);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::confirm_req message1{ nano::dev::network_params.network, send1->hash (), send1->root () };
-	nano::confirm_req message2{ nano::dev::network_params.network, send2->hash (), send2->root () };
+	nano::messages::confirm_req message1{ nano::dev::network_params.network, send1->hash (), send1->root () };
+	nano::messages::confirm_req message2{ nano::dev::network_params.network, send2->hash (), send2->root () };
 	auto channel = std::make_shared<nano::transport::fake::channel> (node);
 	node.inbound (message1, channel);
 	ASSERT_TIMELY_EQ (3s, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes), 1);
@@ -1704,7 +1704,7 @@ TEST (node, DISABLED_local_votes_cache)
 		auto transaction = node.ledger.tx_begin_write ();
 		ASSERT_EQ (nano::block_status::progress, node.ledger.process (transaction, send3));
 	}
-	nano::confirm_req message3{ nano::dev::network_params.network, send3->hash (), send3->root () };
+	nano::messages::confirm_req message3{ nano::dev::network_params.network, send3->hash (), send3->root () };
 	node.inbound (message3, channel);
 	ASSERT_TIMELY_EQ (3s, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes), 3);
 	ASSERT_TIMELY (3s, !node.history.votes (send1->root (), send1->hash ()).empty ());
@@ -1764,7 +1764,7 @@ TEST (node, DISABLED_local_votes_cache_batch)
 					.build ();
 	ASSERT_EQ (nano::block_status::progress, node.ledger.process (node.ledger.tx_begin_write (), receive1));
 	std::vector<std::pair<nano::block_hash, nano::root>> batch{ { send2->hash (), send2->root () }, { receive1->hash (), receive1->root () } };
-	nano::confirm_req message{ nano::dev::network_params.network, batch };
+	nano::messages::confirm_req message{ nano::dev::network_params.network, batch };
 	auto channel = std::make_shared<nano::transport::fake::channel> (node);
 	// Generates and sends one vote for both hashes which is then cached
 	node.inbound (message, channel);
@@ -1779,10 +1779,10 @@ TEST (node, DISABLED_local_votes_cache_batch)
 	// Test when votes are different
 	node.history.erase (send2->root ());
 	node.history.erase (receive1->root ());
-	node.inbound (nano::confirm_req{ nano::dev::network_params.network, send2->hash (), send2->root () }, channel);
+	node.inbound (nano::messages::confirm_req{ nano::dev::network_params.network, send2->hash (), send2->root () }, channel);
 	ASSERT_TIMELY_EQ (3s, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out), 3);
 	ASSERT_EQ (3, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
-	node.inbound (nano::confirm_req{ nano::dev::network_params.network, receive1->hash (), receive1->root () }, channel);
+	node.inbound (nano::messages::confirm_req{ nano::dev::network_params.network, receive1->hash (), receive1->root () }, channel);
 	ASSERT_TIMELY_EQ (3s, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out), 4);
 	ASSERT_EQ (4, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	// There are two different votes, so both should be sent in response
@@ -1805,7 +1805,7 @@ TEST (node, DISABLED_local_votes_cache_generate_new_vote)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
 	// Send a confirm req for genesis block to node
-	nano::confirm_req message1{ nano::dev::network_params.network, nano::dev::genesis->hash (), nano::dev::genesis->root () };
+	nano::messages::confirm_req message1{ nano::dev::network_params.network, nano::dev::genesis->hash (), nano::dev::genesis->root () };
 	auto channel = std::make_shared<nano::transport::fake::channel> (node);
 	node.inbound (message1, channel);
 
@@ -1829,7 +1829,7 @@ TEST (node, DISABLED_local_votes_cache_generate_new_vote)
 	ASSERT_EQ (nano::block_status::progress, node.process (send1));
 	// One of the hashes is cached
 	std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes{ std::make_pair (nano::dev::genesis->hash (), nano::dev::genesis->root ()), std::make_pair (send1->hash (), send1->root ()) };
-	nano::confirm_req message2{ nano::dev::network_params.network, roots_hashes };
+	nano::messages::confirm_req message2{ nano::dev::network_params.network, roots_hashes };
 	node.inbound (message2, channel);
 	ASSERT_TIMELY (3s, !node.history.votes (send1->root (), send1->hash ()).empty ());
 	auto votes2 (node.history.votes (send1->root (), send1->hash ()));
@@ -2276,13 +2276,13 @@ TEST (node, fork_election_invalid_block_signature)
 				 .build ();
 
 	auto channel1 = std::make_shared<nano::transport::fake::channel> (node1);
-	node1.inbound (nano::publish{ nano::dev::network_params.network, send1 }, channel1);
+	node1.inbound (nano::messages::publish{ nano::dev::network_params.network, send1 }, channel1);
 	ASSERT_TIMELY (5s, node1.active.active (send1->qualified_root ()));
 	auto election (node1.active.election (send1->qualified_root ()));
 	ASSERT_NE (nullptr, election);
 	ASSERT_EQ (1, election->blocks ().size ());
-	node1.inbound (nano::publish{ nano::dev::network_params.network, send3 }, channel1);
-	node1.inbound (nano::publish{ nano::dev::network_params.network, send2 }, channel1);
+	node1.inbound (nano::messages::publish{ nano::dev::network_params.network, send3 }, channel1);
+	node1.inbound (nano::messages::publish{ nano::dev::network_params.network, send2 }, channel1);
 	ASSERT_TIMELY (3s, election->blocks ().size () > 1);
 	ASSERT_EQ (election->blocks ()[send2->hash ()]->block_signature (), send2->block_signature ());
 }

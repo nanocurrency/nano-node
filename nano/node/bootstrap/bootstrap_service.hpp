@@ -39,7 +39,7 @@ public:
 	/**
 	 * Process bootstrap messages coming from the network
 	 */
-	void process (nano::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> const &);
+	void process (nano::messages::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> const &);
 
 	/**
 	 * Clears priority and blocking accounts state
@@ -153,10 +153,10 @@ private:
 	bool request_frontiers (nano::account, std::shared_ptr<nano::transport::channel> const &, query_source);
 	bool send (std::shared_ptr<nano::transport::channel> const &, async_tag tag);
 
-	bool process (nano::asc_pull_ack::blocks_payload const & response, async_tag const & tag);
-	bool process (nano::asc_pull_ack::account_info_payload const & response, async_tag const & tag);
-	bool process (nano::asc_pull_ack::frontiers_payload const & response, async_tag const & tag);
-	bool process (nano::empty_payload const & response, async_tag const & tag);
+	bool process (nano::messages::asc_pull_ack::blocks_payload const & response, async_tag const & tag);
+	bool process (nano::messages::asc_pull_ack::account_info_payload const & response, async_tag const & tag);
+	bool process (nano::messages::asc_pull_ack::frontiers_payload const & response, async_tag const & tag);
+	bool process (nano::messages::empty_payload const & response, async_tag const & tag);
 
 	void process_frontiers (std::deque<std::pair<nano::account, nano::block_hash>> const & frontiers);
 
@@ -173,8 +173,8 @@ private:
 	 * - nothing_new: when received response indicates that the account chain does not have more blocks
 	 * - ok: otherwise, if all checks pass
 	 */
-	verify_result verify (nano::asc_pull_ack::blocks_payload const & response, async_tag const & tag) const;
-	verify_result verify (nano::asc_pull_ack::frontiers_payload const & response, async_tag const & tag) const;
+	verify_result verify (nano::messages::asc_pull_ack::blocks_payload const & response, async_tag const & tag) const;
+	verify_result verify (nano::messages::asc_pull_ack::frontiers_payload const & response, async_tag const & tag) const;
 
 	size_t count_tags (nano::account const & account, query_source source) const;
 	size_t count_tags (nano::block_hash const & hash, query_source source) const;

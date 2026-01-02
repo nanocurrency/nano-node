@@ -4,16 +4,16 @@
 #include <nano/messages/message.hpp>
 #include <nano/messages/message_type.hpp>
 
-namespace nano
+namespace nano::messages
 {
 class bulk_pull_account final : public message
 {
 public:
 	explicit bulk_pull_account (nano::network_constants const & constants);
-	bulk_pull_account (bool &, nano::stream &, nano::message_header const &);
+	bulk_pull_account (bool &, nano::stream &, message_header const &);
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
-	void visit (nano::message_visitor &) const override;
+	void visit (message_visitor &) const override;
 	nano::account account;
 	nano::amount minimum_amount;
 	bulk_pull_account_flags flags;

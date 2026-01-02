@@ -31,7 +31,7 @@ std::shared_ptr<nano::block> random_block ()
 TEST (message, header_version)
 {
 	// Simplest message type
-	nano::keepalive original{ nano::dev::network_params.network };
+	nano::messages::keepalive original{ nano::dev::network_params.network };
 
 	// Serialize the original keepalive message
 	std::vector<uint8_t> bytes;
@@ -43,19 +43,19 @@ TEST (message, header_version)
 	// Deserialize the byte stream back to a message header
 	nano::bufferstream stream (bytes.data (), bytes.size ());
 	bool error = false;
-	nano::message_header header (error, stream);
+	nano::messages::message_header header (error, stream);
 	ASSERT_FALSE (error);
 
 	// Check header versions
 	ASSERT_EQ (nano::dev::network_params.network.protocol_version_min, header.version_min);
 	ASSERT_EQ (nano::dev::network_params.network.protocol_version, header.version_using);
 	ASSERT_EQ (nano::dev::network_params.network.protocol_version, header.version_max);
-	ASSERT_EQ (nano::message_type::keepalive, header.type);
+	ASSERT_EQ (nano::messages::message_type::keepalive, header.type);
 }
 
 TEST (message, keepalive_serialization)
 {
-	nano::keepalive request1{ nano::dev::network_params.network };
+	nano::messages::keepalive request1{ nano::dev::network_params.network };
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
@@ -63,16 +63,16 @@ TEST (message, keepalive_serialization)
 	}
 	auto error (false);
 	nano::bufferstream stream (bytes.data (), bytes.size ());
-	nano::message_header header (error, stream);
+	nano::messages::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	nano::keepalive request2 (error, stream, header);
+	nano::messages::keepalive request2 (error, stream, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (request1, request2);
 }
 
 TEST (message, keepalive_deserialize)
 {
-	nano::keepalive message1{ nano::dev::network_params.network };
+	nano::messages::keepalive message1{ nano::dev::network_params.network };
 	message1.peers[0] = nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000);
 	std::vector<uint8_t> bytes;
 	{
@@ -81,10 +81,10 @@ TEST (message, keepalive_deserialize)
 	}
 	nano::bufferstream stream (bytes.data (), bytes.size ());
 	auto error (false);
-	nano::message_header header (error, stream);
+	nano::messages::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (nano::message_type::keepalive, header.type);
-	nano::keepalive message2 (error, stream, header);
+	ASSERT_EQ (nano::messages::message_type::keepalive, header.type);
+	nano::messages::keepalive message2 (error, stream, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (message1.peers, message2.peers);
 }
@@ -93,7 +93,7 @@ TEST (message, publish)
 {
 	// Create a random block
 	auto block = random_block ();
-	nano::publish original{ nano::dev::network_params.network, block };
+	nano::messages::publish original{ nano::dev::network_params.network, block };
 	ASSERT_FALSE (original.is_originator ());
 
 	// Serialize the original publish message
@@ -106,9 +106,9 @@ TEST (message, publish)
 	// Deserialize the byte stream back to a publish message
 	nano::bufferstream stream (bytes.data (), bytes.size ());
 	bool error = false;
-	nano::message_header header (error, stream);
+	nano::messages::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	nano::publish deserialized (error, stream, header);
+	nano::messages::publish deserialized (error, stream, header);
 	ASSERT_FALSE (error);
 
 	// Assert that the original and deserialized messages are equal
@@ -121,7 +121,7 @@ TEST (message, publish_originator_flag)
 {
 	// Create a random block
 	auto block = random_block ();
-	nano::publish original{ nano::dev::network_params.network, block, /* originator */ true };
+	nano::messages::publish original{ nano::dev::network_params.network, block, /* originator */ true };
 	ASSERT_TRUE (original.is_originator ());
 
 	// Serialize the original publish message
@@ -134,9 +134,9 @@ TEST (message, publish_originator_flag)
 	// Deserialize the byte stream back to a publish message
 	nano::bufferstream stream (bytes.data (), bytes.size ());
 	bool error = false;
-	nano::message_header header (error, stream);
+	nano::messages::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	nano::publish deserialized (error, stream, header);
+	nano::messages::publish deserialized (error, stream, header);
 	ASSERT_FALSE (error);
 
 	// Assert that the originator flag is set correctly in both the original and deserialized messages
@@ -147,7 +147,7 @@ TEST (message, publish_originator_flag)
 
 TEST (message, confirm_header_flags)
 {
-	nano::message_header header_v2{ nano::dev::network_params.network, nano::message_type::confirm_req };
+	nano::messages::message_header header_v2{ nano::dev::network_params.network, nano::messages::message_type::confirm_req };
 	header_v2.confirm_set_v2 (true);
 
 	const uint8_t value = 0b0110'1001;
@@ -165,9 +165,9 @@ TEST (message, confirm_header_flags)
 	nano::bufferstream stream (bytes.data (), bytes.size ());
 
 	bool error = false;
-	nano::message_header header (error, stream);
+	nano::messages::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (nano::message_type::confirm_req, header.type);
+	ASSERT_EQ (nano::messages::message_type::confirm_req, header.type);
 
 	ASSERT_TRUE (header.confirm_is_v2 ());
 	ASSERT_EQ (header.count_v2_get (), value);
@@ -175,7 +175,7 @@ TEST (message, confirm_header_flags)
 
 TEST (message, confirm_header_flags_max)
 {
-	nano::message_header header_v2{ nano::dev::network_params.network, nano::message_type::confirm_req };
+	nano::messages::message_header header_v2{ nano::dev::network_params.network, nano::messages::message_type::confirm_req };
 	header_v2.confirm_set_v2 (true);
 	header_v2.count_v2_set (255); // Max count value
 
@@ -190,9 +190,9 @@ TEST (message, confirm_header_flags_max)
 	nano::bufferstream stream (bytes.data (), bytes.size ());
 
 	bool error = false;
-	nano::message_header header (error, stream);
+	nano::messages::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (nano::message_type::confirm_req, header.type);
+	ASSERT_EQ (nano::messages::message_type::confirm_req, header.type);
 
 	ASSERT_TRUE (header.confirm_is_v2 ());
 	ASSERT_EQ (header.count_v2_get (), 255);
@@ -221,7 +221,7 @@ TEST (message, confirm_ack_hash_serialization)
 	}
 	nano::keypair representative1;
 	auto vote = nano::test::make_vote (representative1, { hashes }, 0, 0);
-	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
+	nano::messages::confirm_ack con1{ nano::dev::network_params.network, vote };
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream1 (bytes);
@@ -229,8 +229,8 @@ TEST (message, confirm_ack_hash_serialization)
 	}
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
 	bool error (false);
-	nano::message_header header (error, stream2);
-	nano::confirm_ack con2 (error, stream2, header);
+	nano::messages::message_header header (error, stream2);
+	nano::messages::confirm_ack con2 (error, stream2, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (con1, con2);
 	ASSERT_EQ (hashes, con2.vote->hashes);
@@ -263,7 +263,7 @@ TEST (message, confirm_ack_hash_serialization_v2)
 
 	nano::keypair representative1;
 	auto vote = nano::test::make_vote (representative1, { hashes }, 0, 0);
-	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
+	nano::messages::confirm_ack con1{ nano::dev::network_params.network, vote };
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream1 (bytes);
@@ -271,8 +271,8 @@ TEST (message, confirm_ack_hash_serialization_v2)
 	}
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
 	bool error (false);
-	nano::message_header header (error, stream2);
-	nano::confirm_ack con2 (error, stream2, header);
+	nano::messages::message_header header (error, stream2);
+	nano::messages::confirm_ack con2 (error, stream2, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (con1, con2);
 	ASSERT_EQ (hashes, con2.vote->hashes);
@@ -285,7 +285,7 @@ TEST (message, confirm_ack_rebroadcasted_flag)
 {
 	nano::keypair representative1;
 	auto vote = nano::test::make_vote (representative1, std::vector<nano::block_hash> (), 0, 0);
-	nano::confirm_ack con1{ nano::dev::network_params.network, vote, /* rebroadcasted */ true };
+	nano::messages::confirm_ack con1{ nano::dev::network_params.network, vote, /* rebroadcasted */ true };
 	ASSERT_TRUE (con1.is_rebroadcasted ());
 	std::vector<uint8_t> bytes;
 	{
@@ -294,8 +294,8 @@ TEST (message, confirm_ack_rebroadcasted_flag)
 	}
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
 	bool error (false);
-	nano::message_header header (error, stream2);
-	nano::confirm_ack con2 (error, stream2, header);
+	nano::messages::message_header header (error, stream2);
+	nano::messages::confirm_ack con2 (error, stream2, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (con1, con2);
 	ASSERT_TRUE (con2.vote->hashes.empty ());
@@ -315,7 +315,7 @@ TEST (message, confirm_req_hash_serialization)
 				 .sign (nano::keypair ().prv, 2)
 				 .work (3)
 				 .build ();
-	nano::confirm_req req{ nano::dev::network_params.network, block->hash (), block->root () };
+	nano::messages::confirm_req req{ nano::dev::network_params.network, block->hash (), block->root () };
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
@@ -323,8 +323,8 @@ TEST (message, confirm_req_hash_serialization)
 	}
 	auto error (false);
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	nano::message_header header (error, stream2);
-	nano::confirm_req req2 (error, stream2, header);
+	nano::messages::message_header header (error, stream2);
+	nano::messages::confirm_req req2 (error, stream2, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (req, req2);
 	ASSERT_EQ (req.roots_hashes, req2.roots_hashes);
@@ -366,7 +366,7 @@ TEST (message, confirm_req_hash_batch_serialization)
 		roots_hashes.push_back (std::make_pair (block->hash (), block->root ()));
 	}
 	roots_hashes.push_back (std::make_pair (open->hash (), open->root ()));
-	nano::confirm_req req{ nano::dev::network_params.network, roots_hashes };
+	nano::messages::confirm_req req{ nano::dev::network_params.network, roots_hashes };
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
@@ -374,8 +374,8 @@ TEST (message, confirm_req_hash_batch_serialization)
 	}
 	auto error (false);
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	nano::message_header header (error, stream2);
-	nano::confirm_req req2 (error, stream2, header);
+	nano::messages::message_header header (error, stream2);
+	nano::messages::confirm_req req2 (error, stream2, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (req, req2);
 	ASSERT_EQ (req.roots_hashes, req2.roots_hashes);
@@ -421,7 +421,7 @@ TEST (message, confirm_req_hash_batch_serialization_v2)
 		roots_hashes.push_back (std::make_pair (block->hash (), block->root ()));
 	}
 
-	nano::confirm_req req{ nano::dev::network_params.network, roots_hashes };
+	nano::messages::confirm_req req{ nano::dev::network_params.network, roots_hashes };
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
@@ -429,8 +429,8 @@ TEST (message, confirm_req_hash_batch_serialization_v2)
 	}
 	auto error (false);
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	nano::message_header header (error, stream2);
-	nano::confirm_req req2 (error, stream2, header);
+	nano::messages::message_header header (error, stream2);
+	nano::messages::confirm_req req2 (error, stream2, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (req, req2);
 	ASSERT_EQ (req.roots_hashes, req2.roots_hashes);
@@ -447,13 +447,13 @@ TEST (confirm_ack, empty_vote_hashes)
 {
 	nano::keypair key;
 	auto vote = std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, std::vector<nano::block_hash>{} /* empty */);
-	nano::confirm_ack message{ nano::dev::network_params.network, vote };
+	nano::messages::confirm_ack message{ nano::dev::network_params.network, vote };
 }
 
 TEST (message, bulk_pull_serialization)
 {
-	nano::bulk_pull message_in{ nano::dev::network_params.network };
-	message_in.header.flag_set (nano::message_header::bulk_pull_ascending_flag);
+	nano::messages::bulk_pull message_in{ nano::dev::network_params.network };
+	message_in.header.flag_set (nano::messages::message_header::bulk_pull_ascending_flag);
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream{ bytes };
@@ -461,20 +461,20 @@ TEST (message, bulk_pull_serialization)
 	}
 	nano::bufferstream stream{ bytes.data (), bytes.size () };
 	bool error = false;
-	nano::message_header header{ error, stream };
+	nano::messages::message_header header{ error, stream };
 	ASSERT_FALSE (error);
-	nano::bulk_pull message_out{ error, stream, header };
+	nano::messages::bulk_pull message_out{ error, stream, header };
 	ASSERT_FALSE (error);
 	ASSERT_TRUE (header.bulk_pull_ascending ());
 }
 
 TEST (message, asc_pull_req_serialization_blocks)
 {
-	nano::asc_pull_req original{ nano::dev::network_params.network };
+	nano::messages::asc_pull_req original{ nano::dev::network_params.network };
 	original.id = 7;
-	original.type = nano::asc_pull_type::blocks;
+	original.type = nano::messages::asc_pull_type::blocks;
 
-	nano::asc_pull_req::blocks_payload original_payload{};
+	nano::messages::asc_pull_req::blocks_payload original_payload{};
 	original_payload.start = nano::test::random_hash ();
 	original_payload.count = 111;
 
@@ -491,18 +491,18 @@ TEST (message, asc_pull_req_serialization_blocks)
 
 	// Header
 	bool error = false;
-	nano::message_header header (error, stream);
+	nano::messages::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (nano::message_type::asc_pull_req, header.type);
+	ASSERT_EQ (nano::messages::message_type::asc_pull_req, header.type);
 
 	// Message
-	nano::asc_pull_req message (error, stream, header);
+	nano::messages::asc_pull_req message (error, stream, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (original.id, message.id);
 	ASSERT_EQ (original.type, message.type);
 
-	nano::asc_pull_req::blocks_payload message_payload;
-	ASSERT_NO_THROW (message_payload = std::get<nano::asc_pull_req::blocks_payload> (message.payload));
+	nano::messages::asc_pull_req::blocks_payload message_payload;
+	ASSERT_NO_THROW (message_payload = std::get<nano::messages::asc_pull_req::blocks_payload> (message.payload));
 	ASSERT_EQ (original_payload.start, message_payload.start);
 	ASSERT_EQ (original_payload.count, message_payload.count);
 
@@ -511,11 +511,11 @@ TEST (message, asc_pull_req_serialization_blocks)
 
 TEST (message, asc_pull_req_serialization_account_info)
 {
-	nano::asc_pull_req original{ nano::dev::network_params.network };
+	nano::messages::asc_pull_req original{ nano::dev::network_params.network };
 	original.id = 7;
-	original.type = nano::asc_pull_type::account_info;
+	original.type = nano::messages::asc_pull_type::account_info;
 
-	nano::asc_pull_req::account_info_payload original_payload{};
+	nano::messages::asc_pull_req::account_info_payload original_payload{};
 	original_payload.target = nano::test::random_hash ();
 
 	original.payload = original_payload;
@@ -531,18 +531,18 @@ TEST (message, asc_pull_req_serialization_account_info)
 
 	// Header
 	bool error = false;
-	nano::message_header header (error, stream);
+	nano::messages::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (nano::message_type::asc_pull_req, header.type);
+	ASSERT_EQ (nano::messages::message_type::asc_pull_req, header.type);
 
 	// Message
-	nano::asc_pull_req message (error, stream, header);
+	nano::messages::asc_pull_req message (error, stream, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (original.id, message.id);
 	ASSERT_EQ (original.type, message.type);
 
-	nano::asc_pull_req::account_info_payload message_payload;
-	ASSERT_NO_THROW (message_payload = std::get<nano::asc_pull_req::account_info_payload> (message.payload));
+	nano::messages::asc_pull_req::account_info_payload message_payload;
+	ASSERT_NO_THROW (message_payload = std::get<nano::messages::asc_pull_req::account_info_payload> (message.payload));
 	ASSERT_EQ (original_payload.target, message_payload.target);
 
 	ASSERT_TRUE (nano::at_end (stream));
@@ -550,11 +550,11 @@ TEST (message, asc_pull_req_serialization_account_info)
 
 TEST (message, asc_pull_req_serialization_frontiers)
 {
-	nano::asc_pull_req original{ nano::dev::network_params.network };
+	nano::messages::asc_pull_req original{ nano::dev::network_params.network };
 	original.id = 7;
-	original.type = nano::asc_pull_type::frontiers;
+	original.type = nano::messages::asc_pull_type::frontiers;
 
-	nano::asc_pull_req::frontiers_payload original_payload{};
+	nano::messages::asc_pull_req::frontiers_payload original_payload{};
 	original_payload.start = nano::test::random_account ();
 	original_payload.count = 123;
 
@@ -571,18 +571,18 @@ TEST (message, asc_pull_req_serialization_frontiers)
 
 	// Header
 	bool error = false;
-	nano::message_header header (error, stream);
+	nano::messages::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (nano::message_type::asc_pull_req, header.type);
+	ASSERT_EQ (nano::messages::message_type::asc_pull_req, header.type);
 
 	// Message
-	nano::asc_pull_req message (error, stream, header);
+	nano::messages::asc_pull_req message (error, stream, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (original.id, message.id);
 	ASSERT_EQ (original.type, message.type);
 
-	nano::asc_pull_req::frontiers_payload message_payload;
-	ASSERT_NO_THROW (message_payload = std::get<nano::asc_pull_req::frontiers_payload> (message.payload));
+	nano::messages::asc_pull_req::frontiers_payload message_payload;
+	ASSERT_NO_THROW (message_payload = std::get<nano::messages::asc_pull_req::frontiers_payload> (message.payload));
 	ASSERT_EQ (original_payload.start, message_payload.start);
 	ASSERT_EQ (original_payload.count, message_payload.count);
 
@@ -591,12 +591,12 @@ TEST (message, asc_pull_req_serialization_frontiers)
 
 TEST (message, asc_pull_ack_serialization_blocks)
 {
-	nano::asc_pull_ack original{ nano::dev::network_params.network };
+	nano::messages::asc_pull_ack original{ nano::dev::network_params.network };
 	original.id = 11;
-	original.type = nano::asc_pull_type::blocks;
+	original.type = nano::messages::asc_pull_type::blocks;
 
-	nano::asc_pull_ack::blocks_payload original_payload{};
-	for (int n = 0; n < nano::asc_pull_ack::blocks_payload::max_blocks; ++n)
+	nano::messages::asc_pull_ack::blocks_payload original_payload{};
+	for (int n = 0; n < nano::messages::asc_pull_ack::blocks_payload::max_blocks; ++n)
 	{
 		original_payload.blocks.push_back (random_block ());
 	}
@@ -614,18 +614,18 @@ TEST (message, asc_pull_ack_serialization_blocks)
 
 	// Header
 	bool error = false;
-	nano::message_header header (error, stream);
+	nano::messages::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (nano::message_type::asc_pull_ack, header.type);
+	ASSERT_EQ (nano::messages::message_type::asc_pull_ack, header.type);
 
 	// Message
-	nano::asc_pull_ack message (error, stream, header);
+	nano::messages::asc_pull_ack message (error, stream, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (original.id, message.id);
 	ASSERT_EQ (original.type, message.type);
 
-	nano::asc_pull_ack::blocks_payload message_payload;
-	ASSERT_NO_THROW (message_payload = std::get<nano::asc_pull_ack::blocks_payload> (message.payload));
+	nano::messages::asc_pull_ack::blocks_payload message_payload;
+	ASSERT_NO_THROW (message_payload = std::get<nano::messages::asc_pull_ack::blocks_payload> (message.payload));
 
 	// Compare blocks
 	ASSERT_EQ (original_payload.blocks.size (), message_payload.blocks.size ());
@@ -638,11 +638,11 @@ TEST (message, asc_pull_ack_serialization_blocks)
 
 TEST (message, asc_pull_ack_serialization_account_info)
 {
-	nano::asc_pull_ack original{ nano::dev::network_params.network };
+	nano::messages::asc_pull_ack original{ nano::dev::network_params.network };
 	original.id = 11;
-	original.type = nano::asc_pull_type::account_info;
+	original.type = nano::messages::asc_pull_type::account_info;
 
-	nano::asc_pull_ack::account_info_payload original_payload{};
+	nano::messages::asc_pull_ack::account_info_payload original_payload{};
 	original_payload.account = nano::test::random_account ();
 	original_payload.account_open = nano::test::random_hash ();
 	original_payload.account_head = nano::test::random_hash ();
@@ -663,18 +663,18 @@ TEST (message, asc_pull_ack_serialization_account_info)
 
 	// Header
 	bool error = false;
-	nano::message_header header (error, stream);
+	nano::messages::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (nano::message_type::asc_pull_ack, header.type);
+	ASSERT_EQ (nano::messages::message_type::asc_pull_ack, header.type);
 
 	// Message
-	nano::asc_pull_ack message (error, stream, header);
+	nano::messages::asc_pull_ack message (error, stream, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (original.id, message.id);
 	ASSERT_EQ (original.type, message.type);
 
-	nano::asc_pull_ack::account_info_payload message_payload;
-	ASSERT_NO_THROW (message_payload = std::get<nano::asc_pull_ack::account_info_payload> (message.payload));
+	nano::messages::asc_pull_ack::account_info_payload message_payload;
+	ASSERT_NO_THROW (message_payload = std::get<nano::messages::asc_pull_ack::account_info_payload> (message.payload));
 
 	ASSERT_EQ (original_payload.account, message_payload.account);
 	ASSERT_EQ (original_payload.account_open, message_payload.account_open);
@@ -688,12 +688,12 @@ TEST (message, asc_pull_ack_serialization_account_info)
 
 TEST (message, asc_pull_ack_serialization_frontiers)
 {
-	nano::asc_pull_ack original{ nano::dev::network_params.network };
+	nano::messages::asc_pull_ack original{ nano::dev::network_params.network };
 	original.id = 11;
-	original.type = nano::asc_pull_type::frontiers;
+	original.type = nano::messages::asc_pull_type::frontiers;
 
-	nano::asc_pull_ack::frontiers_payload original_payload{};
-	for (int n = 0; n < nano::asc_pull_ack::frontiers_payload::max_frontiers; ++n)
+	nano::messages::asc_pull_ack::frontiers_payload original_payload{};
+	for (int n = 0; n < nano::messages::asc_pull_ack::frontiers_payload::max_frontiers; ++n)
 	{
 		original_payload.frontiers.push_back ({ nano::test::random_account (), nano::test::random_hash () });
 	}
@@ -711,18 +711,18 @@ TEST (message, asc_pull_ack_serialization_frontiers)
 
 	// Header
 	bool error = false;
-	nano::message_header header (error, stream);
+	nano::messages::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (nano::message_type::asc_pull_ack, header.type);
+	ASSERT_EQ (nano::messages::message_type::asc_pull_ack, header.type);
 
 	// Message
-	nano::asc_pull_ack message (error, stream, header);
+	nano::messages::asc_pull_ack message (error, stream, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (original.id, message.id);
 	ASSERT_EQ (original.type, message.type);
 
-	nano::asc_pull_ack::frontiers_payload message_payload;
-	ASSERT_NO_THROW (message_payload = std::get<nano::asc_pull_ack::frontiers_payload> (message.payload));
+	nano::messages::asc_pull_ack::frontiers_payload message_payload;
+	ASSERT_NO_THROW (message_payload = std::get<nano::messages::asc_pull_ack::frontiers_payload> (message.payload));
 
 	ASSERT_EQ (original_payload.frontiers, message_payload.frontiers);
 
@@ -731,9 +731,9 @@ TEST (message, asc_pull_ack_serialization_frontiers)
 
 TEST (message, node_id_handshake_query_serialization)
 {
-	nano::node_id_handshake::query_payload query{};
+	nano::messages::node_id_handshake::query_payload query{};
 	query.cookie = 7;
-	nano::node_id_handshake original{ nano::dev::network_params.network, query };
+	nano::messages::node_id_handshake original{ nano::dev::network_params.network, query };
 
 	// Serialize
 	std::vector<uint8_t> bytes;
@@ -745,12 +745,12 @@ TEST (message, node_id_handshake_query_serialization)
 
 	// Header
 	bool error = false;
-	nano::message_header header (error, stream);
+	nano::messages::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (nano::message_type::node_id_handshake, header.type);
+	ASSERT_EQ (nano::messages::message_type::node_id_handshake, header.type);
 
 	// Message
-	nano::node_id_handshake message{ error, stream, header };
+	nano::messages::node_id_handshake message{ error, stream, header };
 	ASSERT_FALSE (error);
 	ASSERT_TRUE (message.query);
 	ASSERT_FALSE (message.response);
@@ -762,10 +762,10 @@ TEST (message, node_id_handshake_query_serialization)
 
 TEST (message, node_id_handshake_response_serialization)
 {
-	nano::node_id_handshake::response_payload response{};
+	nano::messages::node_id_handshake::response_payload response{};
 	response.node_id = nano::account{ 7 };
 	response.signature = nano::signature{ 11 };
-	nano::node_id_handshake original{ nano::dev::network_params.network, std::nullopt, response };
+	nano::messages::node_id_handshake original{ nano::dev::network_params.network, std::nullopt, response };
 
 	// Serialize
 	std::vector<uint8_t> bytes;
@@ -777,12 +777,12 @@ TEST (message, node_id_handshake_response_serialization)
 
 	// Header
 	bool error = false;
-	nano::message_header header (error, stream);
+	nano::messages::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (nano::message_type::node_id_handshake, header.type);
+	ASSERT_EQ (nano::messages::message_type::node_id_handshake, header.type);
 
 	// Message
-	nano::node_id_handshake message{ error, stream, header };
+	nano::messages::node_id_handshake message{ error, stream, header };
 	ASSERT_FALSE (error);
 	ASSERT_FALSE (message.query);
 	ASSERT_TRUE (message.response);
@@ -796,15 +796,15 @@ TEST (message, node_id_handshake_response_serialization)
 
 TEST (message, node_id_handshake_response_v2_serialization)
 {
-	nano::node_id_handshake::response_payload response{};
+	nano::messages::node_id_handshake::response_payload response{};
 	response.node_id = nano::account{ 7 };
 	response.signature = nano::signature{ 11 };
-	nano::node_id_handshake::response_payload::v2_payload v2_pld{};
+	nano::messages::node_id_handshake::response_payload::v2_payload v2_pld{};
 	v2_pld.salt = 17;
 	v2_pld.genesis = nano::block_hash{ 13 };
 	response.v2 = v2_pld;
 
-	nano::node_id_handshake original{ nano::dev::network_params.network, std::nullopt, response };
+	nano::messages::node_id_handshake original{ nano::dev::network_params.network, std::nullopt, response };
 
 	// Serialize
 	std::vector<uint8_t> bytes;
@@ -816,12 +816,12 @@ TEST (message, node_id_handshake_response_v2_serialization)
 
 	// Header
 	bool error = false;
-	nano::message_header header (error, stream);
+	nano::messages::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (nano::message_type::node_id_handshake, header.type);
+	ASSERT_EQ (nano::messages::message_type::node_id_handshake, header.type);
 
 	// Message
-	nano::node_id_handshake message{ error, stream, header };
+	nano::messages::node_id_handshake message{ error, stream, header };
 	ASSERT_FALSE (error);
 	ASSERT_FALSE (message.query);
 	ASSERT_TRUE (message.response);
@@ -842,7 +842,7 @@ TEST (handshake, signature)
 	auto cookie = nano::random_pool::generate<nano::uint256_union> ();
 	auto cookie_2 = nano::random_pool::generate<nano::uint256_union> ();
 
-	nano::node_id_handshake::response_payload response{};
+	nano::messages::node_id_handshake::response_payload response{};
 	response.node_id = node_id.pub;
 	response.sign (cookie, node_id);
 	ASSERT_TRUE (response.validate (cookie));
@@ -862,9 +862,9 @@ TEST (handshake, signature_v2)
 	auto cookie = nano::random_pool::generate<nano::uint256_union> ();
 	auto cookie_2 = nano::random_pool::generate<nano::uint256_union> ();
 
-	nano::node_id_handshake::response_payload original{};
+	nano::messages::node_id_handshake::response_payload original{};
 	original.node_id = node_id.pub;
-	original.v2 = nano::node_id_handshake::response_payload::v2_payload{};
+	original.v2 = nano::messages::node_id_handshake::response_payload::v2_payload{};
 	original.v2->genesis = nano::test::random_hash ();
 	original.v2->salt = nano::random_pool::generate<nano::uint256_union> ();
 	original.sign (cookie, node_id);

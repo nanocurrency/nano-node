@@ -5,7 +5,7 @@
 
 #include <array>
 
-namespace nano
+namespace nano::messages
 {
 /*
  * Binary Format:
@@ -19,11 +19,11 @@ class keepalive final : public message
 {
 public:
 	explicit keepalive (nano::network_constants const & constants);
-	keepalive (bool &, nano::stream &, nano::message_header const &);
-	void visit (nano::message_visitor &) const override;
+	keepalive (bool &, nano::stream &, message_header const &);
+	void visit (message_visitor &) const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
-	bool operator== (nano::keepalive const &) const;
+	bool operator== (keepalive const &) const;
 	std::array<nano::endpoint, 8> peers;
 	static std::size_t constexpr size = 8 * (16 + 2);
 

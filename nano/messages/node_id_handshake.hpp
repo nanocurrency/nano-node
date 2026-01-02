@@ -7,7 +7,7 @@
 #include <optional>
 #include <vector>
 
-namespace nano
+namespace nano::messages
 {
 class node_id_handshake final : public message
 {
@@ -31,7 +31,7 @@ public: // Payload definitions
 	{
 	public:
 		void serialize (nano::stream &) const;
-		void deserialize (nano::stream &, nano::message_header const &);
+		void deserialize (nano::stream &, message_header const &);
 
 		void sign (nano::uint256_union const & cookie, nano::keypair const &);
 		bool validate (nano::uint256_union const & cookie) const;
@@ -54,7 +54,7 @@ public: // Payload definitions
 	public:
 		static std::size_t constexpr size_v1 = sizeof (nano::account) + sizeof (nano::signature);
 		static std::size_t constexpr size_v2 = sizeof (nano::account) + sizeof (nano::signature) + sizeof (v2_payload);
-		static std::size_t size (nano::message_header const &);
+		static std::size_t size (message_header const &);
 
 	public: // Logging
 		void operator() (nano::object_stream &) const;
@@ -62,23 +62,23 @@ public: // Payload definitions
 
 public:
 	explicit node_id_handshake (nano::network_constants const &, std::optional<query_payload> query = std::nullopt, std::optional<response_payload> response = std::nullopt);
-	node_id_handshake (bool &, nano::stream &, nano::message_header const &);
+	node_id_handshake (bool &, nano::stream &, message_header const &);
 
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 
-	void visit (nano::message_visitor &) const override;
+	void visit (message_visitor &) const override;
 	std::size_t size () const;
-	static std::size_t size (nano::message_header const &);
+	static std::size_t size (message_header const &);
 
 public: // Header
 	static uint8_t constexpr query_flag = 0;
 	static uint8_t constexpr response_flag = 1;
 	static uint8_t constexpr v2_flag = 2;
 
-	static bool is_query (nano::message_header const &);
-	static bool is_response (nano::message_header const &);
-	static bool is_v2 (nano::message_header const &);
+	static bool is_query (message_header const &);
+	static bool is_response (message_header const &);
+	static bool is_v2 (message_header const &);
 	bool is_v2 () const;
 
 public: // Payload

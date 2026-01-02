@@ -470,23 +470,23 @@ TEST (request_aggregator, cannot_vote)
 
 namespace
 {
-std::future<nano::confirm_ack> observe_confirm_ack (std::shared_ptr<nano::transport::test_channel> const & channel)
+std::future<nano::messages::confirm_ack> observe_confirm_ack (std::shared_ptr<nano::transport::test_channel> const & channel)
 {
-	std::promise<nano::confirm_ack> promise;
+	std::promise<nano::messages::confirm_ack> promise;
 	auto future = promise.get_future ();
 
-	struct confirm_ack_visitor : public nano::message_visitor
+	struct confirm_ack_visitor : public nano::messages::message_visitor
 	{
-		std::optional<nano::confirm_ack> result;
+		std::optional<nano::messages::confirm_ack> result;
 
-		void confirm_ack (nano::confirm_ack const & msg) override
+		void confirm_ack (nano::messages::confirm_ack const & msg) override
 		{
 			result = msg;
 		}
 	};
 
 	channel->observers.clear ();
-	channel->observers.add (nano::wrap_move_only ([&, promise = std::move (promise)] (nano::message const & message, nano::transport::traffic_type const & type) mutable {
+	channel->observers.add (nano::wrap_move_only ([&, promise = std::move (promise)] (nano::messages::message const & message, nano::transport::traffic_type const & type) mutable {
 		confirm_ack_visitor visitor{};
 		message.visit (visitor);
 		if (visitor.result)

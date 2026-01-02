@@ -56,8 +56,8 @@ private:
 	asio::awaitable<nano::deserialize_message_result> receive_message_impl ();
 	asio::awaitable<nano::buffer_view> read_socket (size_t size) const;
 
-	asio::awaitable<handshake_status> process_handshake (nano::node_id_handshake const & message);
-	asio::awaitable<void> send_handshake_response (nano::node_id_handshake::query_payload const & query, bool v2);
+	asio::awaitable<handshake_status> process_handshake (nano::messages::node_id_handshake const & message);
+	asio::awaitable<void> send_handshake_response (nano::messages::node_id_handshake::query_payload const & query, bool v2);
 	asio::awaitable<void> send_handshake_request ();
 
 private:
@@ -79,20 +79,20 @@ private:
 	bool to_realtime_connection (nano::account const & node_id);
 
 private: // Visitors
-	class realtime_message_visitor : public nano::message_visitor
+	class realtime_message_visitor : public nano::messages::message_visitor
 	{
 	public:
 		bool process{ false };
 
-		void keepalive (nano::keepalive const &) override;
-		void publish (nano::publish const &) override;
-		void confirm_req (nano::confirm_req const &) override;
-		void confirm_ack (nano::confirm_ack const &) override;
-		void frontier_req (nano::frontier_req const &) override;
-		void telemetry_req (nano::telemetry_req const &) override;
-		void telemetry_ack (nano::telemetry_ack const &) override;
-		void asc_pull_req (nano::asc_pull_req const &) override;
-		void asc_pull_ack (nano::asc_pull_ack const &) override;
+		void keepalive (nano::messages::keepalive const &) override;
+		void publish (nano::messages::publish const &) override;
+		void confirm_req (nano::messages::confirm_req const &) override;
+		void confirm_ack (nano::messages::confirm_ack const &) override;
+		void frontier_req (nano::messages::frontier_req const &) override;
+		void telemetry_req (nano::messages::telemetry_req const &) override;
+		void telemetry_ack (nano::messages::telemetry_ack const &) override;
+		void asc_pull_req (nano::messages::asc_pull_req const &) override;
+		void asc_pull_ack (nano::messages::asc_pull_ack const &) override;
 	};
 };
 }

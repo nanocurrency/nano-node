@@ -100,12 +100,12 @@ auto nano::transport::tcp_server::perform_handshake () -> asio::awaitable<handsh
 		co_await send_handshake_request ();
 	}
 
-	struct handshake_message_visitor : public nano::message_visitor
+	struct handshake_message_visitor : public nano::messages::message_visitor
 	{
 		bool process{ false };
-		std::optional<nano::node_id_handshake> handshake;
+		std::optional<nano::messages::node_id_handshake> handshake;
 
-		void node_id_handshake (nano::node_id_handshake const & msg) override
+		void node_id_handshake (nano::messages::node_id_handshake const & msg) override
 		{
 			process = true;
 			handshake = msg;
@@ -245,11 +245,11 @@ auto nano::transport::tcp_server::receive_message_impl () -> asio::awaitable<nan
 	node.stats.inc (nano::stat::type::tcp_server, nano::stat::detail::read_header, nano::stat::dir::in);
 	node.stats.inc (nano::stat::type::tcp_server_read, nano::stat::detail::header, nano::stat::dir::in);
 
-	auto header_payload = co_await read_socket (nano::message_header::size);
+	auto header_payload = co_await read_socket (nano::messages::message_header::size);
 	auto header_stream = nano::bufferstream{ header_payload.data (), header_payload.size () };
 
 	bool error = false;
-	nano::message_header header{ error, header_stream };
+	nano::messages::message_header header{ error, header_stream };
 
 	if (error)
 	{
@@ -301,7 +301,7 @@ auto nano::transport::tcp_server::read_socket (size_t size) const -> asio::await
 	co_return nano::buffer_view{ buffer->data (), size_read };
 }
 
-auto nano::transport::tcp_server::process_handshake (nano::node_id_handshake const & message) -> asio::awaitable<handshake_status>
+auto nano::transport::tcp_server::process_handshake (nano::messages::node_id_handshake const & message) -> asio::awaitable<handshake_status>
 {
 	if (node.flags.disable_tcp_realtime)
 	{
@@ -370,7 +370,7 @@ auto nano::transport::tcp_server::process_handshake (nano::node_id_handshake con
 auto nano::transport::tcp_server::send_handshake_request () -> asio::awaitable<void>
 {
 	auto query = node.network.prepare_handshake_query (get_remote_endpoint ());
-	nano::node_id_handshake message{ node.network_params.network, query };
+	nano::messages::node_id_handshake message{ node.network_params.network, query };
 
 	node.stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake_initiate, nano::stat::dir::out);
 	node.logger.debug (nano::log::type::tcp_server, "Initiating handshake query ({})", get_remote_endpoint ());
@@ -392,11 +392,11 @@ auto nano::transport::tcp_server::send_handshake_request () -> asio::awaitable<v
 	}
 }
 
-auto nano::transport::tcp_server::send_handshake_response (nano::node_id_handshake::query_payload const & query, bool v2) -> asio::awaitable<void>
+auto nano::transport::tcp_server::send_handshake_response (nano::messages::node_id_handshake::query_payload const & query, bool v2) -> asio::awaitable<void>
 {
 	auto response = node.network.prepare_handshake_response (query, v2);
 	auto own_query = node.network.prepare_handshake_query (get_remote_endpoint ());
-	nano::node_id_handshake handshake_response{ node.network_params.network, own_query, response };
+	nano::messages::node_id_handshake handshake_response{ node.network_params.network, own_query, response };
 
 	node.stats.inc (nano::stat::type::tcp_server, nano::stat::detail::handshake_response, nano::stat::dir::out);
 	node.logger.debug (nano::log::type::tcp_server, "Responding to handshake ({})", get_remote_endpoint ());
@@ -422,47 +422,47 @@ auto nano::transport::tcp_server::send_handshake_response (nano::node_id_handsha
  * realtime_message_visitor
  */
 
-void nano::transport::tcp_server::realtime_message_visitor::keepalive (const nano::keepalive & message)
+void nano::transport::tcp_server::realtime_message_visitor::keepalive (const nano::messages::keepalive & message)
 {
 	process = true;
 }
 
-void nano::transport::tcp_server::realtime_message_visitor::publish (const nano::publish & message)
+void nano::transport::tcp_server::realtime_message_visitor::publish (const nano::messages::publish & message)
 {
 	process = true;
 }
 
-void nano::transport::tcp_server::realtime_message_visitor::confirm_req (const nano::confirm_req & message)
+void nano::transport::tcp_server::realtime_message_visitor::confirm_req (const nano::messages::confirm_req & message)
 {
 	process = true;
 }
 
-void nano::transport::tcp_server::realtime_message_visitor::confirm_ack (const nano::confirm_ack & message)
+void nano::transport::tcp_server::realtime_message_visitor::confirm_ack (const nano::messages::confirm_ack & message)
 {
 	process = true;
 }
 
-void nano::transport::tcp_server::realtime_message_visitor::frontier_req (const nano::frontier_req & message)
+void nano::transport::tcp_server::realtime_message_visitor::frontier_req (const nano::messages::frontier_req & message)
 {
 	process = true;
 }
 
-void nano::transport::tcp_server::realtime_message_visitor::telemetry_req (const nano::telemetry_req & message)
+void nano::transport::tcp_server::realtime_message_visitor::telemetry_req (const nano::messages::telemetry_req & message)
 {
 	process = true;
 }
 
-void nano::transport::tcp_server::realtime_message_visitor::telemetry_ack (const nano::telemetry_ack & message)
+void nano::transport::tcp_server::realtime_message_visitor::telemetry_ack (const nano::messages::telemetry_ack & message)
 {
 	process = true;
 }
 
-void nano::transport::tcp_server::realtime_message_visitor::asc_pull_req (const nano::asc_pull_req & message)
+void nano::transport::tcp_server::realtime_message_visitor::asc_pull_req (const nano::messages::asc_pull_req & message)
 {
 	process = true;
 }
 
-void nano::transport::tcp_server::realtime_message_visitor::asc_pull_ack (const nano::asc_pull_ack & message)
+void nano::transport::tcp_server::realtime_message_visitor::asc_pull_ack (const nano::messages::asc_pull_ack & message)
 {
 	process = true;
 }

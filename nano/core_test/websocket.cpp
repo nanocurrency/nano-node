@@ -167,7 +167,7 @@ TEST (websocket, started_election)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	nano::publish publish1{ nano::dev::network_params.network, send1 };
+	nano::messages::publish publish1{ nano::dev::network_params.network, send1 };
 	auto channel1 = std::make_shared<nano::transport::fake::channel> (*node1);
 	node1->inbound (publish1, channel1);
 	ASSERT_TIMELY (1s, node1->active.election (send1->qualified_root ()));
@@ -215,7 +215,7 @@ TEST (websocket, stopped_election)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	nano::publish publish1{ nano::dev::network_params.network, send1 };
+	nano::messages::publish publish1{ nano::dev::network_params.network, send1 };
 	auto channel1 = std::make_shared<nano::transport::fake::channel> (*node1);
 	node1->inbound (publish1, channel1);
 	ASSERT_TIMELY (5s, node1->active.election (send1->qualified_root ()));
@@ -1091,7 +1091,7 @@ TEST (websocket, telemetry)
 
 	auto & contents = event.get_child ("message");
 	nano::jsonconfig telemetry_contents (contents);
-	nano::telemetry_data telemetry_data;
+	nano::messages::telemetry_data telemetry_data;
 	telemetry_data.deserialize_json (telemetry_contents, false);
 
 	ASSERT_TRUE (nano::test::compare_telemetry (telemetry_data, *node2));

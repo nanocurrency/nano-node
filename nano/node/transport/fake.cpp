@@ -14,7 +14,7 @@ nano::transport::fake::channel::channel (nano::node & node) :
 /**
  * The send function behaves like a null device, it throws the data away and returns success.
  */
-bool nano::transport::fake::channel::send_impl (nano::message const & message, nano::transport::traffic_type traffic_type, nano::transport::channel::callback_t callback)
+bool nano::transport::fake::channel::send_impl (nano::messages::message const & message, nano::transport::traffic_type traffic_type, nano::transport::channel::callback_t callback)
 {
 	auto buffer = message.to_shared_const_buffer ();
 	auto size = buffer.size ();

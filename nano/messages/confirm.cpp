@@ -7,11 +7,13 @@
 #include <nano/messages/confirm.hpp>
 #include <nano/messages/message_visitor.hpp>
 
+namespace nano::messages
+{
 /*
  * confirm_req
  */
 
-nano::confirm_req::confirm_req (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
+confirm_req::confirm_req (bool & error_a, nano::stream & stream_a, message_header const & header_a) :
 	message (header_a)
 {
 	if (!error_a)
@@ -20,8 +22,8 @@ nano::confirm_req::confirm_req (bool & error_a, nano::stream & stream_a, nano::m
 	}
 }
 
-nano::confirm_req::confirm_req (nano::network_constants const & constants, std::vector<std::pair<nano::block_hash, nano::root>> const & roots_hashes_a) :
-	message (constants, nano::message_type::confirm_req),
+confirm_req::confirm_req (nano::network_constants const & constants, std::vector<std::pair<nano::block_hash, nano::root>> const & roots_hashes_a) :
+	message (constants, message_type::confirm_req),
 	roots_hashes (roots_hashes_a)
 {
 	debug_assert (!roots_hashes.empty ());
@@ -43,17 +45,17 @@ nano::confirm_req::confirm_req (nano::network_constants const & constants, std::
 	}
 }
 
-nano::confirm_req::confirm_req (nano::network_constants const & constants, nano::block_hash const & hash_a, nano::root const & root_a) :
+confirm_req::confirm_req (nano::network_constants const & constants, nano::block_hash const & hash_a, nano::root const & root_a) :
 	confirm_req (constants, std::vector<std::pair<nano::block_hash, nano::root>>{ { hash_a, root_a } })
 {
 }
 
-void nano::confirm_req::visit (nano::message_visitor & visitor_a) const
+void confirm_req::visit (message_visitor & visitor_a) const
 {
 	visitor_a.confirm_req (*this);
 }
 
-void nano::confirm_req::serialize (nano::stream & stream_a) const
+void confirm_req::serialize (nano::stream & stream_a) const
 {
 	debug_assert (!roots_hashes.empty ());
 
@@ -67,9 +69,9 @@ void nano::confirm_req::serialize (nano::stream & stream_a) const
 	}
 }
 
-bool nano::confirm_req::deserialize (nano::stream & stream_a)
+bool confirm_req::deserialize (nano::stream & stream_a)
 {
-	debug_assert (header.type == nano::message_type::confirm_req);
+	debug_assert (header.type == message_type::confirm_req);
 
 	bool result = false;
 	try
@@ -97,7 +99,7 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a)
 	return result;
 }
 
-bool nano::confirm_req::operator== (nano::confirm_req const & other_a) const
+bool confirm_req::operator== (confirm_req const & other_a) const
 {
 	bool equal (false);
 	if (!roots_hashes.empty () && !other_a.roots_hashes.empty ())
@@ -107,7 +109,7 @@ bool nano::confirm_req::operator== (nano::confirm_req const & other_a) const
 	return equal;
 }
 
-uint8_t nano::confirm_req::hash_count (const nano::message_header & header)
+uint8_t confirm_req::hash_count (const message_header & header)
 {
 	if (header.confirm_is_v2 ())
 	{
@@ -119,15 +121,15 @@ uint8_t nano::confirm_req::hash_count (const nano::message_header & header)
 	}
 }
 
-std::size_t nano::confirm_req::size (nano::message_header const & header)
+std::size_t confirm_req::size (message_header const & header)
 {
 	auto const count = hash_count (header);
 	return count * (sizeof (decltype (roots_hashes)::value_type::first) + sizeof (decltype (roots_hashes)::value_type::second));
 }
 
-void nano::confirm_req::operator() (nano::object_stream & obs) const
+void confirm_req::operator() (nano::object_stream & obs) const
 {
-	nano::message::operator() (obs); // Write common data
+	message::operator() (obs); // Write common data
 
 	// Write roots as: [ { root: ##, hash: ## } ,...]
 	obs.write_range ("roots", roots_hashes, [] (auto const & root_hash, nano::object_stream & obs) {
@@ -141,7 +143,7 @@ void nano::confirm_req::operator() (nano::object_stream & obs) const
  * confirm_ack
  */
 
-nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::network_filter::digest_t const & digest_a, nano::vote_uniquer * uniquer_a) :
+confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, message_header const & header_a, nano::network_filter::digest_t const & digest_a, nano::vote_uniquer * uniquer_a) :
 	message (header_a),
 	vote{ nano::make_shared<nano::vote> (error_a, stream_a) },
 	digest{ digest_a }
@@ -152,8 +154,8 @@ nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::m
 	}
 }
 
-nano::confirm_ack::confirm_ack (nano::network_constants const & constants, std::shared_ptr<nano::vote> const & vote_a, bool rebroadcasted_a) :
-	message (constants, nano::message_type::confirm_ack),
+confirm_ack::confirm_ack (nano::network_constants const & constants, std::shared_ptr<nano::vote> const & vote_a, bool rebroadcasted_a) :
+	message (constants, message_type::confirm_ack),
 	vote{ vote_a }
 {
 	debug_assert (vote->hashes.size () < 256);
@@ -173,24 +175,24 @@ nano::confirm_ack::confirm_ack (nano::network_constants const & constants, std::
 	}
 }
 
-void nano::confirm_ack::serialize (nano::stream & stream_a) const
+void confirm_ack::serialize (nano::stream & stream_a) const
 {
 	header.serialize (stream_a);
 	vote->serialize (stream_a);
 }
 
-bool nano::confirm_ack::operator== (nano::confirm_ack const & other_a) const
+bool confirm_ack::operator== (confirm_ack const & other_a) const
 {
 	auto result (*vote == *other_a.vote);
 	return result;
 }
 
-void nano::confirm_ack::visit (nano::message_visitor & visitor_a) const
+void confirm_ack::visit (message_visitor & visitor_a) const
 {
 	visitor_a.confirm_ack (*this);
 }
 
-uint8_t nano::confirm_ack::hash_count (const nano::message_header & header)
+uint8_t confirm_ack::hash_count (const message_header & header)
 {
 	if (header.confirm_is_v2 ())
 	{
@@ -202,21 +204,22 @@ uint8_t nano::confirm_ack::hash_count (const nano::message_header & header)
 	}
 }
 
-std::size_t nano::confirm_ack::size (const nano::message_header & header)
+std::size_t confirm_ack::size (const message_header & header)
 {
 	auto const count = hash_count (header);
 	return nano::vote::size (count);
 }
 
-bool nano::confirm_ack::is_rebroadcasted () const
+bool confirm_ack::is_rebroadcasted () const
 {
 	return header.flag_test (rebroadcasted_flag);
 }
 
-void nano::confirm_ack::operator() (nano::object_stream & obs) const
+void confirm_ack::operator() (nano::object_stream & obs) const
 {
-	nano::message::operator() (obs); // Write common data
+	message::operator() (obs); // Write common data
 
 	obs.write ("vote", vote);
 	obs.write ("rebroadcasted", is_rebroadcasted ());
+}
 }

@@ -13,7 +13,7 @@ nano::transport::loopback_channel::loopback_channel (nano::node & node) :
 	set_network_version (node.network_params.network.protocol_version);
 }
 
-bool nano::transport::loopback_channel::send_impl (nano::message const & message, nano::transport::traffic_type traffic_type, nano::transport::channel::callback_t callback)
+bool nano::transport::loopback_channel::send_impl (nano::messages::message const & message, nano::transport::traffic_type traffic_type, nano::transport::channel::callback_t callback)
 {
 	node.stats.inc (nano::stat::type::message_loopback, to_stat_detail (message.type ()), nano::stat::dir::in);
 

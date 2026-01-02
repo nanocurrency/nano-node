@@ -253,7 +253,7 @@ TEST (peer_container, depeer_on_outdated_version)
 	ASSERT_NE (nullptr, channel);
 
 	// send a keepalive, from node2 to node1, with the wrong version_using
-	nano::keepalive keepalive{ nano::dev::network_params.network };
+	nano::messages::keepalive keepalive{ nano::dev::network_params.network };
 	const_cast<uint8_t &> (keepalive.header.version_using) = nano::dev::network_params.network.protocol_version_min - 1;
 	ASSERT_TIMELY (5s, channel->alive ());
 	channel->send (keepalive, nano::transport::traffic_type::test);

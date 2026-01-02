@@ -6,8 +6,10 @@
 
 #include <boost/asio/ip/address_v6.hpp>
 
-nano::keepalive::keepalive (nano::network_constants const & constants) :
-	message (constants, nano::message_type::keepalive)
+namespace nano::messages
+{
+keepalive::keepalive (nano::network_constants const & constants) :
+	message (constants, message_type::keepalive)
 {
 	nano::endpoint endpoint (boost::asio::ip::address_v6{}, 0);
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
@@ -16,7 +18,7 @@ nano::keepalive::keepalive (nano::network_constants const & constants) :
 	}
 }
 
-nano::keepalive::keepalive (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
+keepalive::keepalive (bool & error_a, nano::stream & stream_a, message_header const & header_a) :
 	message (header_a)
 {
 	if (!error_a)
@@ -25,12 +27,12 @@ nano::keepalive::keepalive (bool & error_a, nano::stream & stream_a, nano::messa
 	}
 }
 
-void nano::keepalive::visit (nano::message_visitor & visitor_a) const
+void keepalive::visit (message_visitor & visitor_a) const
 {
 	visitor_a.keepalive (*this);
 }
 
-void nano::keepalive::serialize (nano::stream & stream_a) const
+void keepalive::serialize (nano::stream & stream_a) const
 {
 	header.serialize (stream_a);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
@@ -42,9 +44,9 @@ void nano::keepalive::serialize (nano::stream & stream_a) const
 	}
 }
 
-bool nano::keepalive::deserialize (nano::stream & stream_a)
+bool keepalive::deserialize (nano::stream & stream_a)
 {
-	debug_assert (header.type == nano::message_type::keepalive);
+	debug_assert (header.type == message_type::keepalive);
 	auto error (false);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j && !error; ++i)
 	{
@@ -62,14 +64,15 @@ bool nano::keepalive::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-bool nano::keepalive::operator== (nano::keepalive const & other_a) const
+bool keepalive::operator== (keepalive const & other_a) const
 {
 	return peers == other_a.peers;
 }
 
-void nano::keepalive::operator() (nano::object_stream & obs) const
+void keepalive::operator() (nano::object_stream & obs) const
 {
-	nano::message::operator() (obs); // Write common data
+	message::operator() (obs); // Write common data
 
 	obs.write_range ("peers", peers);
+}
 }

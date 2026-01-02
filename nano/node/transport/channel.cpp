@@ -14,7 +14,7 @@ nano::transport::channel::channel (nano::node & node_a) :
 	set_network_version (node_a.network_params.network.protocol_version);
 }
 
-bool nano::transport::channel::send (nano::message const & message, nano::transport::traffic_type traffic_type, callback_t callback)
+bool nano::transport::channel::send (nano::messages::message const & message, nano::transport::traffic_type traffic_type, callback_t callback)
 {
 	bool sent = send_impl (message, traffic_type, std::move (callback));
 	node.stats.inc (sent ? nano::stat::type::message : nano::stat::type::drop, to_stat_detail (message.type ()), nano::stat::dir::out, /* aggregate all */ true);
@@ -39,13 +39,13 @@ nano::endpoint nano::transport::channel::get_peering_endpoint () const
 	return get_remote_endpoint ();
 }
 
-void nano::transport::channel::set_last_keepalive (nano::keepalive const & message)
+void nano::transport::channel::set_last_keepalive (nano::messages::keepalive const & message)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	last_keepalive = message;
 }
 
-std::optional<nano::keepalive> nano::transport::channel::pop_last_keepalive ()
+std::optional<nano::messages::keepalive> nano::transport::channel::pop_last_keepalive ()
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto result = last_keepalive;

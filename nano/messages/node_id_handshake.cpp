@@ -5,18 +5,20 @@
 #include <nano/messages/message_visitor.hpp>
 #include <nano/messages/node_id_handshake.hpp>
 
+namespace nano::messages
+{
 /*
  * node_id_handshake
  */
 
-nano::node_id_handshake::node_id_handshake (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
+node_id_handshake::node_id_handshake (bool & error_a, nano::stream & stream_a, message_header const & header_a) :
 	message (header_a)
 {
 	error_a = deserialize (stream_a);
 }
 
-nano::node_id_handshake::node_id_handshake (nano::network_constants const & constants, std::optional<query_payload> query_a, std::optional<response_payload> response_a) :
-	message (constants, nano::message_type::node_id_handshake),
+node_id_handshake::node_id_handshake (nano::network_constants const & constants, std::optional<query_payload> query_a, std::optional<response_payload> response_a) :
+	message (constants, message_type::node_id_handshake),
 	query{ query_a },
 	response{ response_a }
 {
@@ -32,7 +34,7 @@ nano::node_id_handshake::node_id_handshake (nano::network_constants const & cons
 	}
 }
 
-void nano::node_id_handshake::serialize (nano::stream & stream) const
+void node_id_handshake::serialize (nano::stream & stream) const
 {
 	header.serialize (stream);
 	if (query)
@@ -45,9 +47,9 @@ void nano::node_id_handshake::serialize (nano::stream & stream) const
 	}
 }
 
-bool nano::node_id_handshake::deserialize (nano::stream & stream)
+bool node_id_handshake::deserialize (nano::stream & stream)
 {
-	debug_assert (header.type == nano::message_type::node_id_handshake);
+	debug_assert (header.type == message_type::node_id_handshake);
 	bool error = false;
 	try
 	{
@@ -72,43 +74,43 @@ bool nano::node_id_handshake::deserialize (nano::stream & stream)
 	return error;
 }
 
-bool nano::node_id_handshake::is_query (nano::message_header const & header)
+bool node_id_handshake::is_query (message_header const & header)
 {
-	debug_assert (header.type == nano::message_type::node_id_handshake);
+	debug_assert (header.type == message_type::node_id_handshake);
 	bool result = header.extensions.test (query_flag);
 	return result;
 }
 
-bool nano::node_id_handshake::is_response (nano::message_header const & header)
+bool node_id_handshake::is_response (message_header const & header)
 {
-	debug_assert (header.type == nano::message_type::node_id_handshake);
+	debug_assert (header.type == message_type::node_id_handshake);
 	bool result = header.extensions.test (response_flag);
 	return result;
 }
 
-bool nano::node_id_handshake::is_v2 (nano::message_header const & header)
+bool node_id_handshake::is_v2 (message_header const & header)
 {
-	debug_assert (header.type == nano::message_type::node_id_handshake);
+	debug_assert (header.type == message_type::node_id_handshake);
 	bool result = header.extensions.test (v2_flag);
 	return result;
 }
 
-bool nano::node_id_handshake::is_v2 () const
+bool node_id_handshake::is_v2 () const
 {
 	return is_v2 (header);
 }
 
-void nano::node_id_handshake::visit (nano::message_visitor & visitor_a) const
+void node_id_handshake::visit (message_visitor & visitor_a) const
 {
 	visitor_a.node_id_handshake (*this);
 }
 
-std::size_t nano::node_id_handshake::size () const
+std::size_t node_id_handshake::size () const
 {
 	return size (header);
 }
 
-std::size_t nano::node_id_handshake::size (nano::message_header const & header)
+std::size_t node_id_handshake::size (message_header const & header)
 {
 	std::size_t result = 0;
 	if (is_query (header))
@@ -122,9 +124,9 @@ std::size_t nano::node_id_handshake::size (nano::message_header const & header)
 	return result;
 }
 
-void nano::node_id_handshake::operator() (nano::object_stream & obs) const
+void node_id_handshake::operator() (nano::object_stream & obs) const
 {
-	nano::message::operator() (obs); // Write common data
+	message::operator() (obs); // Write common data
 
 	obs.write ("query", query);
 	obs.write ("response", response);
@@ -134,17 +136,17 @@ void nano::node_id_handshake::operator() (nano::object_stream & obs) const
  * node_id_handshake::query_payload
  */
 
-void nano::node_id_handshake::query_payload::serialize (nano::stream & stream) const
+void node_id_handshake::query_payload::serialize (nano::stream & stream) const
 {
 	nano::write (stream, cookie);
 }
 
-void nano::node_id_handshake::query_payload::deserialize (nano::stream & stream)
+void node_id_handshake::query_payload::deserialize (nano::stream & stream)
 {
 	nano::read (stream, cookie);
 }
 
-void nano::node_id_handshake::query_payload::operator() (nano::object_stream & obs) const
+void node_id_handshake::query_payload::operator() (nano::object_stream & obs) const
 {
 	obs.write ("cookie", cookie);
 }
@@ -153,7 +155,7 @@ void nano::node_id_handshake::query_payload::operator() (nano::object_stream & o
  * node_id_handshake::response_payload
  */
 
-void nano::node_id_handshake::response_payload::serialize (nano::stream & stream) const
+void node_id_handshake::response_payload::serialize (nano::stream & stream) const
 {
 	if (v2)
 	{
@@ -170,7 +172,7 @@ void nano::node_id_handshake::response_payload::serialize (nano::stream & stream
 	}
 }
 
-void nano::node_id_handshake::response_payload::deserialize (nano::stream & stream, nano::message_header const & header)
+void node_id_handshake::response_payload::deserialize (nano::stream & stream, message_header const & header)
 {
 	if (is_v2 (header))
 	{
@@ -188,12 +190,12 @@ void nano::node_id_handshake::response_payload::deserialize (nano::stream & stre
 	}
 }
 
-std::size_t nano::node_id_handshake::response_payload::size (const nano::message_header & header)
+std::size_t node_id_handshake::response_payload::size (const message_header & header)
 {
 	return is_v2 (header) ? size_v2 : size_v1;
 }
 
-std::vector<uint8_t> nano::node_id_handshake::response_payload::data_to_sign (const nano::uint256_union & cookie) const
+std::vector<uint8_t> node_id_handshake::response_payload::data_to_sign (const nano::uint256_union & cookie) const
 {
 	std::vector<uint8_t> bytes;
 	{
@@ -214,7 +216,7 @@ std::vector<uint8_t> nano::node_id_handshake::response_payload::data_to_sign (co
 	return bytes;
 }
 
-void nano::node_id_handshake::response_payload::sign (const nano::uint256_union & cookie, nano::keypair const & key)
+void node_id_handshake::response_payload::sign (const nano::uint256_union & cookie, nano::keypair const & key)
 {
 	debug_assert (key.pub == node_id);
 	auto data = data_to_sign (cookie);
@@ -222,7 +224,7 @@ void nano::node_id_handshake::response_payload::sign (const nano::uint256_union 
 	debug_assert (validate (cookie));
 }
 
-bool nano::node_id_handshake::response_payload::validate (const nano::uint256_union & cookie) const
+bool node_id_handshake::response_payload::validate (const nano::uint256_union & cookie) const
 {
 	auto data = data_to_sign (cookie);
 	if (nano::validate_message (node_id, data.data (), data.size (), signature)) // true => error
@@ -232,7 +234,7 @@ bool nano::node_id_handshake::response_payload::validate (const nano::uint256_un
 	return true; // OK
 }
 
-void nano::node_id_handshake::response_payload::operator() (nano::object_stream & obs) const
+void node_id_handshake::response_payload::operator() (nano::object_stream & obs) const
 {
 	obs.write ("node_id", node_id);
 	obs.write ("signature", signature);
@@ -243,4 +245,5 @@ void nano::node_id_handshake::response_payload::operator() (nano::object_stream 
 		obs.write ("salt", v2->salt);
 		obs.write ("genesis", v2->genesis);
 	}
+}
 }

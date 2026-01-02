@@ -327,7 +327,7 @@ TEST (rep_crawler, ignore_rebroadcasted)
 	node1.rep_crawler.force_query (nano::dev::genesis->hash (), channel1to2);
 
 	auto tick = [&] () {
-		nano::confirm_ack msg{ nano::dev::network_params.network, vote, /* rebroadcasted */ true };
+		nano::messages::confirm_ack msg{ nano::dev::network_params.network, vote, /* rebroadcasted */ true };
 		channel2to1->send (msg, nano::transport::traffic_type::test);
 		return false;
 	};

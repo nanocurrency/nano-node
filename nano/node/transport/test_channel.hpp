@@ -9,7 +9,7 @@ namespace nano::transport
 class test_channel final : public nano::transport::channel
 {
 public:
-	nano::observer_set<nano::message, nano::transport::traffic_type> observers; // Called for each queued message
+	nano::observer_set<nano::messages::message, nano::transport::traffic_type> observers; // Called for each queued message
 
 public:
 	explicit test_channel (nano::node &);
@@ -40,6 +40,6 @@ public:
 	}
 
 protected:
-	bool send_impl (nano::message const &, nano::transport::traffic_type, callback_t) override;
+	bool send_impl (nano::messages::message const &, nano::transport::traffic_type, callback_t) override;
 };
 }

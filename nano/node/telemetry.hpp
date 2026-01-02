@@ -54,7 +54,7 @@ public:
 	/**
 	 * Process telemetry message from network
 	 */
-	void process (nano::telemetry_ack const &, std::shared_ptr<nano::transport::channel> const &);
+	void process (nano::messages::telemetry_ack const &, std::shared_ptr<nano::transport::channel> const &);
 
 	/**
 	 * Trigger manual telemetry request to all peers
@@ -66,12 +66,12 @@ public:
 	/**
 	 * Returns telemetry for selected endpoint
 	 */
-	std::optional<nano::telemetry_data> get_telemetry (nano::endpoint const &) const;
+	std::optional<nano::messages::telemetry_data> get_telemetry (nano::endpoint const &) const;
 
 	/**
 	 * Returns all available telemetry
 	 */
-	std::unordered_map<nano::endpoint, nano::telemetry_data> get_all_telemetries () const;
+	std::unordered_map<nano::endpoint, nano::messages::telemetry_data> get_all_telemetries () const;
 
 	nano::container_info container_info () const;
 
@@ -87,7 +87,7 @@ private:
 	struct entry
 	{
 		std::shared_ptr<nano::transport::channel> channel;
-		nano::telemetry_data data;
+		nano::messages::telemetry_data data;
 		std::chrono::steady_clock::time_point last_updated;
 
 		nano::endpoint endpoint () const
@@ -106,9 +106,9 @@ private:
 	void cleanup ();
 
 	void request (std::shared_ptr<nano::transport::channel> const &);
-	void broadcast (std::shared_ptr<nano::transport::channel> const &, nano::telemetry_data const &);
+	void broadcast (std::shared_ptr<nano::transport::channel> const &, nano::messages::telemetry_data const &);
 
-	bool verify (nano::telemetry_ack const &, std::shared_ptr<nano::transport::channel> const &) const;
+	bool verify (nano::messages::telemetry_ack const &, std::shared_ptr<nano::transport::channel> const &) const;
 	bool check_timeout (entry const &) const;
 
 private:

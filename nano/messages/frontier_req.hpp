@@ -5,17 +5,17 @@
 
 #include <cstdint>
 
-namespace nano
+namespace nano::messages
 {
 class frontier_req final : public message
 {
 public:
 	explicit frontier_req (nano::network_constants const & constants);
-	frontier_req (bool &, nano::stream &, nano::message_header const &);
+	frontier_req (bool &, nano::stream &, message_header const &);
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
-	void visit (nano::message_visitor &) const override;
-	bool operator== (nano::frontier_req const &) const;
+	void visit (message_visitor &) const override;
+	bool operator== (frontier_req const &) const;
 	nano::account start;
 	uint32_t age;
 	uint32_t count;

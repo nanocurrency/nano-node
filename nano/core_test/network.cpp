@@ -307,7 +307,7 @@ TEST (network, send_insufficient_work)
 	auto tcp_channel = node1.network.tcp_channels.find_node_id (node2.get_node_id ());
 	ASSERT_NE (nullptr, tcp_channel);
 
-	nano::publish publish{ nano::dev::network_params.network, block };
+	nano::messages::publish publish{ nano::dev::network_params.network, block };
 	tcp_channel->send (publish, nano::transport::traffic_type::test);
 
 	ASSERT_TIMELY_EQ (5s, 1, node2.stats.count (nano::stat::type::tcp_server_message_error, nano::stat::detail::insufficient_work));
@@ -331,7 +331,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
 	auto election = nano::test::start_election (system, node1, block1->hash ());
 	nano::keypair key1;
 	auto vote = nano::test::make_final_vote (key1, { block1 });
-	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
+	nano::messages::confirm_ack con1{ nano::dev::network_params.network, vote };
 	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
 	ASSERT_EQ (1, election->votes ().size ());
 	node1.inbound (con1, channel1);
@@ -356,7 +356,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 	ASSERT_EQ (nano::block_status::progress, node1.process (block1));
 	auto election = nano::test::start_election (system, node1, block1->hash ());
 	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { block1 });
-	nano::confirm_ack con1{ nano::dev::network_params.network, vote };
+	nano::messages::confirm_ack con1{ nano::dev::network_params.network, vote };
 	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
 	ASSERT_EQ (1, election->votes ().size ());
 	node1.inbound (con1, channel1);
@@ -557,15 +557,15 @@ TEST (network, peer_max_tcp_attempts_subnetwork)
 namespace
 {
 // Skip the first 8 bytes of the message header, which is the common header for all messages
-std::vector<uint8_t> message_payload_to_bytes (nano::message const & message)
+std::vector<uint8_t> message_payload_to_bytes (nano::messages::message const & message)
 {
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
 		message.serialize (stream);
 	}
-	debug_assert (bytes.size () > nano::message_header::size);
-	return std::vector<uint8_t> (bytes.begin () + nano::message_header::size, bytes.end ());
+	debug_assert (bytes.size () > nano::messages::message_header::size);
+	return std::vector<uint8_t> (bytes.begin () + nano::messages::message_header::size, bytes.end ());
 }
 }
 
@@ -576,7 +576,7 @@ TEST (network, duplicate_detection)
 	nano::node_flags node_flags;
 	auto & node0 = *system.add_node (node_flags);
 	auto & node1 = *system.add_node (node_flags);
-	nano::publish publish{ nano::dev::network_params.network, nano::dev::genesis };
+	nano::messages::publish publish{ nano::dev::network_params.network, nano::dev::genesis };
 
 	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message));
 
@@ -597,7 +597,7 @@ TEST (network, duplicate_revert_publish)
 	nano::node_config node_config = system.default_config ();
 	node_config.block_processor.max_peer_queue = 0;
 	auto & node (*system.add_node (node_config));
-	nano::publish publish{ nano::dev::network_params.network, nano::dev::genesis };
+	nano::messages::publish publish{ nano::dev::network_params.network, nano::dev::genesis };
 	std::vector<uint8_t> bytes = message_payload_to_bytes (publish);
 	// Add to the blocks filter
 	// Should be cleared when dropping due to a full block processor, as long as the message has the optional digest attached
@@ -625,7 +625,7 @@ TEST (network, duplicate_vote_detection)
 	auto & node1 = *system.add_node ();
 
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () });
-	nano::confirm_ack message{ nano::dev::network_params.network, vote };
+	nano::messages::confirm_ack message{ nano::dev::network_params.network, vote };
 
 	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message));
 
@@ -652,11 +652,11 @@ TEST (network, duplicate_revert_vote)
 	auto & node1 = *system.add_node (node_config);
 
 	auto vote1 = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () }, 1);
-	nano::confirm_ack message1{ nano::dev::network_params.network, vote1 };
+	nano::messages::confirm_ack message1{ nano::dev::network_params.network, vote1 };
 	auto bytes1 = message_payload_to_bytes (message1);
 
 	auto vote2 = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () }, 2);
-	nano::confirm_ack message2{ nano::dev::network_params.network, vote2 };
+	nano::messages::confirm_ack message2{ nano::dev::network_params.network, vote2 };
 	auto bytes2 = message_payload_to_bytes (message2);
 
 	// Publish duplicate detection through TCP
@@ -685,7 +685,7 @@ TEST (network, expire_duplicate_filter)
 	auto & node1 = *system.add_node (node_config);
 
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () });
-	nano::confirm_ack message{ nano::dev::network_params.network, vote };
+	nano::messages::confirm_ack message{ nano::dev::network_params.network, vote };
 	auto bytes = message_payload_to_bytes (message);
 
 	// Publish duplicate detection through TCP
@@ -708,7 +708,7 @@ TEST (network, expire_duplicate_filter)
 TEST (network, DISABLED_bandwidth_limiter_4_messages)
 {
 	nano::test::system system;
-	nano::publish message{ nano::dev::network_params.network, nano::dev::genesis };
+	nano::messages::publish message{ nano::dev::network_params.network, nano::dev::genesis };
 	auto message_size = message.to_bytes ()->size ();
 	auto message_limit = 4; // must be multiple of the number of channels
 	nano::node_config node_config = system.default_config ();
@@ -738,7 +738,7 @@ TEST (network, DISABLED_bandwidth_limiter_4_messages)
 TEST (network, DISABLED_bandwidth_limiter_2_messages)
 {
 	nano::test::system system;
-	nano::publish message{ nano::dev::network_params.network, nano::dev::genesis };
+	nano::messages::publish message{ nano::dev::network_params.network, nano::dev::genesis };
 	auto message_size = message.to_bytes ()->size ();
 	auto message_limit = 2; // must be multiple of the number of channels
 	nano::node_config node_config = system.default_config ();
@@ -758,7 +758,7 @@ TEST (network, DISABLED_bandwidth_limiter_2_messages)
 TEST (network, bandwidth_limiter_with_burst)
 {
 	nano::test::system system;
-	nano::publish message{ nano::dev::network_params.network, nano::dev::genesis };
+	nano::messages::publish message{ nano::dev::network_params.network, nano::dev::genesis };
 	auto message_size = message.to_bytes ()->size ();
 	auto message_limit = 2; // must be multiple of the number of channels
 	nano::node_config node_config = system.default_config ();
@@ -913,7 +913,7 @@ TEST (network, filter_invalid_network_bytes)
 	ASSERT_NE (nullptr, channel);
 
 	// send a keepalive, from node2 to node1, with the wrong network bytes
-	nano::keepalive keepalive{ nano::dev::network_params.network };
+	nano::messages::keepalive keepalive{ nano::dev::network_params.network };
 	const_cast<nano::network_type &> (keepalive.header.network) = nano::network_type::invalid;
 	channel->send (keepalive, nano::transport::traffic_type::test);
 
@@ -932,7 +932,7 @@ TEST (network, filter_invalid_version_using)
 	ASSERT_NE (nullptr, channel);
 
 	// send a keepalive, from node2 to node1, with the wrong version_using
-	nano::keepalive keepalive{ nano::dev::network_params.network };
+	nano::messages::keepalive keepalive{ nano::dev::network_params.network };
 	const_cast<uint8_t &> (keepalive.header.version_using) = nano::dev::network_params.network.protocol_version_min - 1;
 	channel->send (keepalive, nano::transport::traffic_type::test);
 

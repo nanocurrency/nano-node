@@ -37,11 +37,11 @@ enum class deserialize_message_status
 nano::stat::detail to_stat_detail (deserialize_message_status);
 std::string_view to_string (deserialize_message_status);
 
-using deserialize_message_result = std::tuple<std::unique_ptr<nano::message>, nano::deserialize_message_status>;
+using deserialize_message_result = std::tuple<std::unique_ptr<nano::messages::message>, nano::deserialize_message_status>;
 
 deserialize_message_result deserialize_message (
 nano::buffer_view buffer,
-nano::message_header const & header,
+nano::messages::message_header const & header,
 nano::network_constants const &,
 nano::network_filter * = nullptr,
 nano::block_uniquer * = nullptr,

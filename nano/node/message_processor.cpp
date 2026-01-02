@@ -79,7 +79,7 @@ void nano::message_processor::stop ()
 	threads.clear ();
 }
 
-bool nano::message_processor::put (std::unique_ptr<nano::message> message, std::shared_ptr<nano::transport::channel> const & channel)
+bool nano::message_processor::put (std::unique_ptr<nano::messages::message> message, std::shared_ptr<nano::transport::channel> const & channel)
 {
 	release_assert (message != nullptr);
 	release_assert (channel != nullptr);
@@ -166,7 +166,7 @@ void nano::message_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
 
 namespace
 {
-class process_visitor : public nano::message_visitor
+class process_visitor : public nano::messages::message_visitor
 {
 public:
 	process_visitor (nano::node & node_a, std::shared_ptr<nano::transport::channel> const & channel_a) :
@@ -175,7 +175,7 @@ public:
 	{
 	}
 
-	void keepalive (nano::keepalive const & message) override
+	void keepalive (nano::messages::keepalive const & message) override
 	{
 		// Check for self reported peering port
 		auto self_report = message.peers[0];
@@ -188,7 +188,7 @@ public:
 		channel->set_last_keepalive (message);
 	}
 
-	void publish (nano::publish const & message) override
+	void publish (nano::messages::publish const & message) override
 	{
 		// Put blocks that are being initially broadcasted in a separate queue, so that they won't have to compete with rebroadcasted blocks
 		// Both queues have the same priority and size, so the potential for exploiting this is limited
@@ -201,7 +201,7 @@ public:
 		}
 	}
 
-	void confirm_req (nano::confirm_req const & message) override
+	void confirm_req (nano::messages::confirm_req const & message) override
 	{
 		// Don't load nodes with disabled voting
 		// TODO: This check should be cached somewhere
@@ -214,7 +214,7 @@ public:
 		}
 	}
 
-	void confirm_ack (nano::confirm_ack const & message) override
+	void confirm_ack (nano::messages::confirm_ack const & message) override
 	{
 		// Ignore zero account votes
 		if (message.vote->account.is_zero ())
@@ -232,47 +232,47 @@ public:
 		}
 	}
 
-	void bulk_pull (nano::bulk_pull const &) override
+	void bulk_pull (nano::messages::bulk_pull const &) override
 	{
 		debug_assert (false);
 	}
 
-	void bulk_pull_account (nano::bulk_pull_account const &) override
+	void bulk_pull_account (nano::messages::bulk_pull_account const &) override
 	{
 		debug_assert (false);
 	}
 
-	void bulk_push (nano::bulk_push const &) override
+	void bulk_push (nano::messages::bulk_push const &) override
 	{
 		debug_assert (false);
 	}
 
-	void frontier_req (nano::frontier_req const &) override
+	void frontier_req (nano::messages::frontier_req const &) override
 	{
 		debug_assert (false);
 	}
 
-	void node_id_handshake (nano::node_id_handshake const & message) override
+	void node_id_handshake (nano::messages::node_id_handshake const & message) override
 	{
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
 	}
 
-	void telemetry_req (nano::telemetry_req const & message) override
+	void telemetry_req (nano::messages::telemetry_req const & message) override
 	{
 		// Ignore telemetry requests as telemetry is being periodically broadcasted since V25+
 	}
 
-	void telemetry_ack (nano::telemetry_ack const & message) override
+	void telemetry_ack (nano::messages::telemetry_ack const & message) override
 	{
 		node.telemetry.process (message, channel);
 	}
 
-	void asc_pull_req (nano::asc_pull_req const & message) override
+	void asc_pull_req (nano::messages::asc_pull_req const & message) override
 	{
 		node.bootstrap_server.request (message, channel);
 	}
 
-	void asc_pull_ack (nano::asc_pull_ack const & message) override
+	void asc_pull_ack (nano::messages::asc_pull_ack const & message) override
 	{
 		node.bootstrap.process (message, channel);
 	}
@@ -283,7 +283,7 @@ private:
 };
 }
 
-void nano::message_processor::process (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel)
+void nano::message_processor::process (nano::messages::message const & message, std::shared_ptr<nano::transport::channel> const & channel)
 {
 	release_assert (channel != nullptr);
 

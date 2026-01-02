@@ -485,7 +485,7 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 	});
 }
 
-void nano::node::inbound (const nano::message & message, const std::shared_ptr<nano::transport::channel> & channel)
+void nano::node::inbound (const nano::messages::message & message, const std::shared_ptr<nano::transport::channel> & channel)
 {
 	debug_assert (channel->owner () == shared_from_this ()); // This node should be the channel owner
 
@@ -930,9 +930,9 @@ nano::account nano::node::get_node_id () const
 	return node_id.pub;
 };
 
-nano::telemetry_data nano::node::local_telemetry () const
+nano::messages::telemetry_data nano::node::local_telemetry () const
 {
-	nano::telemetry_data telemetry_data;
+	nano::messages::telemetry_data telemetry_data;
 	telemetry_data.node_id = node_id.pub;
 	telemetry_data.block_count = ledger.block_count ();
 	telemetry_data.cemented_count = ledger.cemented_count ();
@@ -947,7 +947,7 @@ nano::telemetry_data nano::node::local_telemetry () const
 	telemetry_data.minor_version = nano::get_minor_node_version ();
 	telemetry_data.patch_version = nano::get_patch_node_version ();
 	telemetry_data.pre_release_version = nano::get_pre_release_node_version ();
-	telemetry_data.maker = static_cast<std::underlying_type_t<telemetry_maker>> (ledger.pruning ? telemetry_maker::nf_pruned_node : telemetry_maker::nf_node);
+	telemetry_data.maker = static_cast<std::underlying_type_t<nano::messages::telemetry_maker>> (ledger.pruning ? nano::messages::telemetry_maker::nf_pruned_node : nano::messages::telemetry_maker::nf_node);
 	telemetry_data.timestamp = std::chrono::system_clock::now ();
 	telemetry_data.active_difficulty = default_difficulty (nano::work_version::work_1);
 	// Make sure this is the final operation!

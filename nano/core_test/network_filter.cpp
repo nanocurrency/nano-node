@@ -24,16 +24,16 @@ TEST (network_filter, unit)
 {
 	nano::network_filter filter (1);
 	auto one_block = [&filter] (std::shared_ptr<nano::block> const & block_a, bool expect_duplicate_a) {
-		nano::publish message{ nano::dev::network_params.network, block_a };
+		nano::messages::publish message{ nano::dev::network_params.network, block_a };
 		auto bytes (message.to_bytes ());
 		nano::bufferstream stream (bytes->data (), bytes->size ());
 
 		// First read the header
 		bool error{ false };
-		nano::message_header header (error, stream);
+		nano::messages::message_header header (error, stream);
 		ASSERT_FALSE (error);
 
-		// This validates nano::message_header::size
+		// This validates nano::messages::message_header::size
 		ASSERT_EQ (bytes->size (), block_a->size (block_a->type ()) + header.size);
 
 		// Now filter the rest of the stream
@@ -90,16 +90,16 @@ TEST (network_filter, many)
 					 .work (0)
 					 .build ();
 
-		nano::publish message{ nano::dev::network_params.network, block };
+		nano::messages::publish message{ nano::dev::network_params.network, block };
 		auto bytes (message.to_bytes ());
 		nano::bufferstream stream (bytes->data (), bytes->size ());
 
 		// First read the header
 		bool error{ false };
-		nano::message_header header (error, stream);
+		nano::messages::message_header header (error, stream);
 		ASSERT_FALSE (error);
 
-		// This validates nano::message_header::size
+		// This validates nano::messages::message_header::size
 		ASSERT_EQ (bytes->size (), block->size + header.size);
 
 		// Now filter the rest of the stream

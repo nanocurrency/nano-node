@@ -1498,7 +1498,7 @@ TEST (telemetry, cache_read_and_timeout)
 	auto node_server = system.add_node (node_flags);
 
 	// Request telemetry metrics
-	std::optional<nano::telemetry_data> telemetry_data;
+	std::optional<nano::messages::telemetry_data> telemetry_data;
 	auto channel = node_client->network.find_node_id (node_server->get_node_id ());
 	ASSERT_NE (channel, nullptr);
 
@@ -1595,12 +1595,12 @@ TEST (telemetry, many_nodes)
 	// This is the node which will request metrics from all other nodes
 	auto node_client = system.nodes.front ();
 
-	std::vector<nano::telemetry_data> telemetry_datas;
+	std::vector<nano::messages::telemetry_data> telemetry_datas;
 	auto peers = node_client->network.list (num_nodes - 1);
 	ASSERT_EQ (peers.size (), num_nodes - 1);
 	for (auto const & peer : peers)
 	{
-		std::optional<nano::telemetry_data> telemetry_data;
+		std::optional<nano::messages::telemetry_data> telemetry_data;
 		ASSERT_TIMELY (5s, telemetry_data = node_client->telemetry.get_telemetry (peer->get_remote_endpoint ()));
 		telemetry_datas.push_back (*telemetry_data);
 	}

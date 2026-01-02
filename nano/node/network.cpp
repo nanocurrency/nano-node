@@ -235,14 +235,14 @@ void nano::network::run_reachout_cached ()
 
 void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> const & channel) const
 {
-	nano::keepalive message{ node.network_params.network };
+	nano::messages::keepalive message{ node.network_params.network };
 	random_fill (message.peers);
 	channel->send (message, nano::transport::traffic_type::keepalive);
 }
 
 void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channel> const & channel) const
 {
-	nano::keepalive message{ node.network_params.network };
+	nano::messages::keepalive message{ node.network_params.network };
 	fill_keepalive_self (message.peers);
 	channel->send (message, nano::transport::traffic_type::keepalive);
 }
@@ -256,7 +256,7 @@ bool nano::network::check_capacity (nano::transport::traffic_type type, float sc
 	return !channels.empty () && channels.size () >= target_count / 2; // We need to have at least half of the target capacity available
 }
 
-size_t nano::network::flood_message (nano::message const & message, nano::transport::traffic_type type, float scale) const
+size_t nano::network::flood_message (nano::messages::message const & message, nano::transport::traffic_type type, float scale) const
 {
 	auto channels = list (fanout (scale), [type] (auto const & channel) {
 		return !channel->max (type); // Only use channels that are not full for this traffic type
@@ -272,27 +272,27 @@ size_t nano::network::flood_message (nano::message const & message, nano::transp
 
 size_t nano::network::flood_keepalive (float scale) const
 {
-	nano::keepalive message{ node.network_params.network };
+	nano::messages::keepalive message{ node.network_params.network };
 	random_fill (message.peers);
 	return flood_message (message, nano::transport::traffic_type::keepalive, scale);
 }
 
 size_t nano::network::flood_keepalive_self (float scale) const
 {
-	nano::keepalive message{ node.network_params.network };
+	nano::messages::keepalive message{ node.network_params.network };
 	fill_keepalive_self (message.peers);
 	return flood_message (message, nano::transport::traffic_type::keepalive, scale);
 }
 
 size_t nano::network::flood_block (std::shared_ptr<nano::block> const & block, nano::transport::traffic_type type) const
 {
-	nano::publish message{ node.network_params.network, block };
+	nano::messages::publish message{ node.network_params.network, block };
 	return flood_message (message, type);
 }
 
 size_t nano::network::flood_block_initial (std::shared_ptr<nano::block> const & block) const
 {
-	nano::publish message{ node.network_params.network, block, /* is_originator */ true };
+	nano::messages::publish message{ node.network_params.network, block, /* is_originator */ true };
 
 	size_t result = 0;
 	for (auto const & rep : node.rep_crawler.principal_representatives ())
@@ -310,7 +310,7 @@ size_t nano::network::flood_block_initial (std::shared_ptr<nano::block> const & 
 
 size_t nano::network::flood_vote_rebroadcasted (std::shared_ptr<nano::vote> const & vote, float scale) const
 {
-	nano::confirm_ack message{ node.network_params.network, vote, /* rebroadcasted */ true };
+	nano::messages::confirm_ack message{ node.network_params.network, vote, /* rebroadcasted */ true };
 
 	auto const type = nano::transport::traffic_type::vote_rebroadcast;
 
@@ -329,7 +329,7 @@ size_t nano::network::flood_vote_rebroadcasted (std::shared_ptr<nano::vote> cons
 
 size_t nano::network::flood_vote_non_pr (std::shared_ptr<nano::vote> const & vote, float scale) const
 {
-	nano::confirm_ack message{ node.network_params.network, vote };
+	nano::messages::confirm_ack message{ node.network_params.network, vote };
 
 	auto const type = transport::traffic_type::vote;
 
@@ -348,7 +348,7 @@ size_t nano::network::flood_vote_non_pr (std::shared_ptr<nano::vote> const & vot
 
 size_t nano::network::flood_vote_pr (std::shared_ptr<nano::vote> const & vote) const
 {
-	nano::confirm_ack message{ node.network_params.network, vote };
+	nano::messages::confirm_ack message{ node.network_params.network, vote };
 
 	auto const type = nano::transport::traffic_type::vote;
 
@@ -605,7 +605,7 @@ void nano::network::exclude (std::shared_ptr<nano::transport::channel> const & c
 	erase (*channel);
 }
 
-bool nano::network::verify_handshake_response (const nano::node_id_handshake::response_payload & response, const nano::endpoint & remote_endpoint)
+bool nano::network::verify_handshake_response (const nano::messages::node_id_handshake::response_payload & response, const nano::endpoint & remote_endpoint)
 {
 	// Prevent connection with ourselves
 	if (response.node_id == node.node_id.pub)
@@ -638,23 +638,23 @@ bool nano::network::verify_handshake_response (const nano::node_id_handshake::re
 	return true; // OK
 }
 
-std::optional<nano::node_id_handshake::query_payload> nano::network::prepare_handshake_query (const nano::endpoint & remote_endpoint)
+std::optional<nano::messages::node_id_handshake::query_payload> nano::network::prepare_handshake_query (const nano::endpoint & remote_endpoint)
 {
 	if (auto cookie = syn_cookies.assign (remote_endpoint); cookie)
 	{
-		nano::node_id_handshake::query_payload query{ *cookie };
+		nano::messages::node_id_handshake::query_payload query{ *cookie };
 		return query;
 	}
 	return std::nullopt;
 }
 
-nano::node_id_handshake::response_payload nano::network::prepare_handshake_response (const nano::node_id_handshake::query_payload & query, bool v2) const
+nano::messages::node_id_handshake::response_payload nano::network::prepare_handshake_response (const nano::messages::node_id_handshake::query_payload & query, bool v2) const
 {
-	nano::node_id_handshake::response_payload response{};
+	nano::messages::node_id_handshake::response_payload response{};
 	response.node_id = node.node_id.pub;
 	if (v2)
 	{
-		nano::node_id_handshake::response_payload::v2_payload response_v2{};
+		nano::messages::node_id_handshake::response_payload::v2_payload response_v2{};
 		response_v2.salt = nano::random_pool::generate<uint256_union> ();
 		response_v2.genesis = node.network_params.ledger.genesis->hash ();
 		response.v2 = response_v2;

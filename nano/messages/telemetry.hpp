@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace nano
+namespace nano::messages
 {
 enum class telemetry_maker : uint8_t
 {
@@ -47,8 +47,8 @@ public:
 	nano::error deserialize_json (nano::jsonconfig &, bool);
 	void sign (nano::keypair const &);
 	bool validate_signature () const;
-	bool operator== (nano::telemetry_data const &) const;
-	bool operator!= (nano::telemetry_data const &) const;
+	bool operator== (telemetry_data const &) const;
+	bool operator!= (telemetry_data const &) const;
 
 	// Size does not include unknown_data
 	static auto constexpr size = sizeof (signature) + sizeof (node_id) + sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version) + sizeof (minor_version) + sizeof (patch_version) + sizeof (pre_release_version) + sizeof (maker) + sizeof (uint64_t) + sizeof (active_difficulty);
@@ -65,10 +65,10 @@ class telemetry_req final : public message
 {
 public:
 	explicit telemetry_req (nano::network_constants const & constants);
-	explicit telemetry_req (nano::message_header const &);
+	explicit telemetry_req (message_header const &);
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
-	void visit (nano::message_visitor &) const override;
+	void visit (message_visitor &) const override;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;
@@ -78,15 +78,15 @@ class telemetry_ack final : public message
 {
 public:
 	explicit telemetry_ack (nano::network_constants const & constants);
-	telemetry_ack (bool &, nano::stream &, nano::message_header const &);
+	telemetry_ack (bool &, nano::stream &, message_header const &);
 	telemetry_ack (nano::network_constants const & constants, telemetry_data const &);
 	void serialize (nano::stream &) const override;
-	void visit (nano::message_visitor &) const override;
+	void visit (message_visitor &) const override;
 	bool deserialize (nano::stream &);
 	uint16_t size () const;
 	bool is_empty_payload () const;
-	static uint16_t size (nano::message_header const &);
-	nano::telemetry_data data;
+	static uint16_t size (message_header const &);
+	telemetry_data data;
 
 public: // Logging
 	void operator() (nano::object_stream &) const override;

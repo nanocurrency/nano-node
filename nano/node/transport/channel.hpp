@@ -30,7 +30,7 @@ public:
 	virtual ~channel () = default;
 
 	/// @returns true if the message was sent (or queued to be sent), false if it was immediately dropped
-	bool send (nano::message const &, nano::transport::traffic_type, callback_t = nullptr);
+	bool send (nano::messages::message const &, nano::transport::traffic_type, callback_t = nullptr);
 
 	virtual void close () = 0;
 
@@ -111,13 +111,13 @@ public:
 	nano::endpoint get_peering_endpoint () const;
 	void set_peering_endpoint (nano::endpoint endpoint);
 
-	void set_last_keepalive (nano::keepalive const & message);
-	std::optional<nano::keepalive> pop_last_keepalive ();
+	void set_last_keepalive (nano::messages::keepalive const & message);
+	std::optional<nano::messages::keepalive> pop_last_keepalive ();
 
 	std::shared_ptr<nano::node> owner () const;
 
 protected:
-	virtual bool send_impl (nano::message const &, nano::transport::traffic_type, callback_t) = 0;
+	virtual bool send_impl (nano::messages::message const &, nano::transport::traffic_type, callback_t) = 0;
 
 protected:
 	nano::node & node;
@@ -130,7 +130,7 @@ private:
 	std::optional<nano::account> node_id{};
 	std::atomic<uint8_t> network_version{ 0 };
 	std::optional<nano::endpoint> peering_endpoint{};
-	std::optional<nano::keepalive> last_keepalive{};
+	std::optional<nano::messages::keepalive> last_keepalive{};
 
 public: // Logging
 	virtual void operator() (nano::object_stream &) const;

@@ -34,8 +34,8 @@ public:
 	void start ();
 	void stop ();
 
-	bool put (std::unique_ptr<nano::message>, std::shared_ptr<nano::transport::channel> const &);
-	void process (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
+	bool put (std::unique_ptr<nano::messages::message>, std::shared_ptr<nano::transport::channel> const &);
+	void process (nano::messages::message const &, std::shared_ptr<nano::transport::channel> const &);
 
 	nano::container_info container_info () const;
 
@@ -50,7 +50,7 @@ private: // Dependencies
 	nano::logger & logger;
 
 private:
-	using entry_t = std::pair<std::unique_ptr<nano::message>, std::shared_ptr<nano::transport::channel>>;
+	using entry_t = std::pair<std::unique_ptr<nano::messages::message>, std::shared_ptr<nano::transport::channel>>;
 	nano::fair_queue<entry_t, nano::no_value> queue;
 
 	std::atomic<bool> stopped{ false };

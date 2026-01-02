@@ -181,7 +181,7 @@ bool nano::bootstrap_service::send (std::shared_ptr<nano::transport::channel> co
 		tags.get<tag_id> ().insert (tag);
 	}
 
-	nano::asc_pull_req request{ network_constants };
+	nano::messages::asc_pull_req request{ network_constants };
 	request.id = tag.id;
 
 	switch (tag.type)
@@ -189,32 +189,32 @@ bool nano::bootstrap_service::send (std::shared_ptr<nano::transport::channel> co
 		case query_type::blocks_by_hash:
 		case query_type::blocks_by_account:
 		{
-			request.type = nano::asc_pull_type::blocks;
+			request.type = nano::messages::asc_pull_type::blocks;
 
-			nano::asc_pull_req::blocks_payload pld;
+			nano::messages::asc_pull_req::blocks_payload pld;
 			pld.start = tag.start;
 			pld.count = tag.count;
-			pld.start_type = tag.type == query_type::blocks_by_hash ? nano::asc_pull_req::hash_type::block : nano::asc_pull_req::hash_type::account;
+			pld.start_type = tag.type == query_type::blocks_by_hash ? nano::messages::asc_pull_req::hash_type::block : nano::messages::asc_pull_req::hash_type::account;
 			request.payload = pld;
 		}
 		break;
 		case query_type::account_info_by_hash:
 		{
-			request.type = nano::asc_pull_type::account_info;
+			request.type = nano::messages::asc_pull_type::account_info;
 
-			nano::asc_pull_req::account_info_payload pld;
-			pld.target_type = nano::asc_pull_req::hash_type::block; // Query account info by block hash
+			nano::messages::asc_pull_req::account_info_payload pld;
+			pld.target_type = nano::messages::asc_pull_req::hash_type::block; // Query account info by block hash
 			pld.target = tag.start;
 			request.payload = pld;
 		}
 		break;
 		case query_type::frontiers:
 		{
-			request.type = nano::asc_pull_type::frontiers;
+			request.type = nano::messages::asc_pull_type::frontiers;
 
-			nano::asc_pull_req::frontiers_payload pld;
+			nano::messages::asc_pull_req::frontiers_payload pld;
 			pld.start = tag.start.as_account ();
-			pld.count = nano::asc_pull_ack::frontiers_payload::max_frontiers;
+			pld.count = nano::messages::asc_pull_ack::frontiers_payload::max_frontiers;
 			request.payload = pld;
 		}
 		break;
@@ -815,7 +815,7 @@ void nano::bootstrap_service::run_timeouts ()
 	}
 }
 
-void nano::bootstrap_service::process (nano::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> const & channel)
+void nano::bootstrap_service::process (nano::messages::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> const & channel)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
@@ -837,19 +837,19 @@ void nano::bootstrap_service::process (nano::asc_pull_ack const & message, std::
 	{
 		query_type type;
 
-		bool operator() (const nano::asc_pull_ack::blocks_payload & response) const
+		bool operator() (const nano::messages::asc_pull_ack::blocks_payload & response) const
 		{
 			return type == query_type::blocks_by_hash || type == query_type::blocks_by_account;
 		}
-		bool operator() (const nano::asc_pull_ack::account_info_payload & response) const
+		bool operator() (const nano::messages::asc_pull_ack::account_info_payload & response) const
 		{
 			return type == query_type::account_info_by_hash;
 		}
-		bool operator() (const nano::asc_pull_ack::frontiers_payload & response) const
+		bool operator() (const nano::messages::asc_pull_ack::frontiers_payload & response) const
 		{
 			return type == query_type::frontiers;
 		}
-		bool operator() (const nano::empty_payload & response) const
+		bool operator() (const nano::messages::empty_payload & response) const
 		{
 			return false; // Should not happen
 		}
@@ -884,7 +884,7 @@ void nano::bootstrap_service::process (nano::asc_pull_ack const & message, std::
 	condition.notify_all ();
 }
 
-bool nano::bootstrap_service::process (const nano::asc_pull_ack::blocks_payload & response, const async_tag & tag)
+bool nano::bootstrap_service::process (const nano::messages::asc_pull_ack::blocks_payload & response, const async_tag & tag)
 {
 	debug_assert (tag.type == query_type::blocks_by_hash || tag.type == query_type::blocks_by_account);
 
@@ -961,7 +961,7 @@ bool nano::bootstrap_service::process (const nano::asc_pull_ack::blocks_payload 
 	return result != verify_result::invalid;
 }
 
-bool nano::bootstrap_service::process (const nano::asc_pull_ack::account_info_payload & response, const async_tag & tag)
+bool nano::bootstrap_service::process (const nano::messages::asc_pull_ack::account_info_payload & response, const async_tag & tag)
 {
 	debug_assert (tag.type == query_type::account_info_by_hash);
 	debug_assert (!tag.hash.is_zero ());
@@ -984,7 +984,7 @@ bool nano::bootstrap_service::process (const nano::asc_pull_ack::account_info_pa
 	return true; // OK, no way to verify the response
 }
 
-bool nano::bootstrap_service::process (const nano::asc_pull_ack::frontiers_payload & response, const async_tag & tag)
+bool nano::bootstrap_service::process (const nano::messages::asc_pull_ack::frontiers_payload & response, const async_tag & tag)
 {
 	debug_assert (tag.type == query_type::frontiers);
 	debug_assert (!tag.start.is_zero ());
@@ -1038,7 +1038,7 @@ bool nano::bootstrap_service::process (const nano::asc_pull_ack::frontiers_paylo
 	return result != verify_result::invalid;
 }
 
-bool nano::bootstrap_service::process (const nano::empty_payload & response, const async_tag & tag)
+bool nano::bootstrap_service::process (const nano::messages::empty_payload & response, const async_tag & tag)
 {
 	stats.inc (nano::stat::type::bootstrap_process, nano::stat::detail::empty);
 	debug_assert (false, "empty payload"); // Should not happen
@@ -1128,7 +1128,7 @@ void nano::bootstrap_service::process_frontiers (std::deque<std::pair<nano::acco
 	}
 }
 
-auto nano::bootstrap_service::verify (const nano::asc_pull_ack::blocks_payload & response, const async_tag & tag) const -> verify_result
+auto nano::bootstrap_service::verify (const nano::messages::asc_pull_ack::blocks_payload & response, const async_tag & tag) const -> verify_result
 {
 	auto const & blocks = response.blocks;
 
@@ -1187,7 +1187,7 @@ auto nano::bootstrap_service::verify (const nano::asc_pull_ack::blocks_payload &
 	return verify_result::ok;
 }
 
-auto nano::bootstrap_service::verify (nano::asc_pull_ack::frontiers_payload const & response, async_tag const & tag) const -> verify_result
+auto nano::bootstrap_service::verify (nano::messages::asc_pull_ack::frontiers_payload const & response, async_tag const & tag) const -> verify_result
 {
 	auto const & frontiers = response.frontiers;
 

@@ -33,7 +33,7 @@ public:
 	}
 
 protected:
-	bool send_impl (nano::message const &, nano::transport::traffic_type, nano::transport::channel::callback_t) override;
+	bool send_impl (nano::messages::message const &, nano::transport::traffic_type, nano::transport::channel::callback_t) override;
 
 private:
 	nano::endpoint const endpoint;

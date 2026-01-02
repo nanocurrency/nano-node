@@ -174,8 +174,8 @@ TEST (tcp_listener, node_id_handshake)
 	auto bootstrap_endpoint (system.nodes[0]->tcp_listener.endpoint ());
 	auto cookie (system.nodes[0]->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (bootstrap_endpoint)));
 	ASSERT_TRUE (cookie);
-	nano::node_id_handshake::query_payload query{ *cookie };
-	nano::node_id_handshake node_id_handshake{ nano::dev::network_params.network, query };
+	nano::messages::node_id_handshake::query_payload query{ *cookie };
+	nano::messages::node_id_handshake node_id_handshake{ nano::dev::network_params.network, query };
 	auto input (node_id_handshake.to_shared_const_buffer ());
 	std::atomic<bool> write_done (false);
 	socket->async_connect (bootstrap_endpoint, [&input, socket, &write_done] (boost::system::error_code const & ec) {
@@ -189,8 +189,8 @@ TEST (tcp_listener, node_id_handshake)
 
 	ASSERT_TIMELY (5s, write_done);
 
-	nano::node_id_handshake::response_payload response_zero{ 0 };
-	nano::node_id_handshake node_id_handshake_response{ nano::dev::network_params.network, std::nullopt, response_zero };
+	nano::messages::node_id_handshake::response_payload response_zero{ 0 };
+	nano::messages::node_id_handshake node_id_handshake_response{ nano::dev::network_params.network, std::nullopt, response_zero };
 	auto output (node_id_handshake_response.to_bytes ());
 	std::atomic<bool> done (false);
 	socket->async_read (output, output->size (), [&output, &done] (boost::system::error_code const & ec, size_t size_a) {
@@ -224,8 +224,8 @@ TEST (tcp_listener, timeout_node_id_handshake)
 	auto socket (std::make_shared<nano::transport::tcp_socket> (*node0));
 	auto cookie (node0->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (node0->tcp_listener.endpoint ())));
 	ASSERT_TRUE (cookie);
-	nano::node_id_handshake::query_payload query{ *cookie };
-	nano::node_id_handshake node_id_handshake{ nano::dev::network_params.network, query };
+	nano::messages::node_id_handshake::query_payload query{ *cookie };
+	nano::messages::node_id_handshake node_id_handshake{ nano::dev::network_params.network, query };
 	auto channel = std::make_shared<nano::transport::tcp_channel> (*node0, socket);
 	socket->async_connect (node0->tcp_listener.endpoint (), [&node_id_handshake, channel] (boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);

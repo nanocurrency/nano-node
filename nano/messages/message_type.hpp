@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace nano
+namespace nano::messages
 {
 /**
  * Message types are serialized to the network and existing values must thus never change as
@@ -32,9 +32,9 @@ enum class message_type : uint8_t
 	asc_pull_ack = 0x0f,
 };
 
-std::string_view to_string (nano::message_type);
-stat::detail to_stat_detail (nano::message_type);
-log::detail to_log_detail (nano::message_type);
+std::string_view to_string (message_type);
+nano::stat::detail to_stat_detail (message_type);
+nano::log::detail to_log_detail (message_type);
 
 enum class bulk_pull_account_flags : uint8_t
 {

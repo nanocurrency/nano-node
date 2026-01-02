@@ -47,7 +47,7 @@ public:
 
 	void keepalive (std::string const &, uint16_t);
 	int store_version ();
-	void inbound (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
+	void inbound (nano::messages::message const &, std::shared_ptr<nano::transport::channel> const &);
 	void process_active (std::shared_ptr<nano::block> const &);
 	std::optional<nano::block_status> process_local (std::shared_ptr<nano::block> const &);
 	void process_local_async (std::shared_ptr<nano::block> const &);
@@ -87,7 +87,7 @@ public:
 	void bootstrap_block (nano::block_hash const &);
 
 	nano::account get_node_id () const;
-	nano::telemetry_data local_telemetry () const;
+	nano::messages::telemetry_data local_telemetry () const;
 	std::string identifier () const;
 
 	nano::container_info container_info () const;

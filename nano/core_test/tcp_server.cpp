@@ -55,7 +55,7 @@ TEST (tcp_server, handshake_deserialization_failure)
 	// Create an invalid message header with wrong message type and invalid size
 	std::vector<uint8_t> malformed_data;
 
-	nano::message_header header (nano::dev::network_params.network, static_cast<nano::message_type> (0xFF)); // Invalid message type
+	nano::messages::message_header header (nano::dev::network_params.network, static_cast<nano::messages::message_type> (0xFF)); // Invalid message type
 	header.version_using = 0x12; // Some version
 	header.version_min = 0x01;
 	header.extensions = 0;
@@ -104,7 +104,7 @@ TEST (tcp_server, handshake_incomplete_message)
 
 	// Send only partial header (not enough bytes for a complete header)
 	std::vector<uint8_t> partial_header;
-	nano::message_header header (nano::dev::network_params.network, nano::message_type::node_id_handshake);
+	nano::messages::message_header header (nano::dev::network_params.network, nano::messages::message_type::node_id_handshake);
 
 	// Serialize header but only send first few bytes
 	{
@@ -144,7 +144,7 @@ TEST (tcp_server, handshake_invalid_message_type_aborts)
 	std::vector<uint8_t> invalid_handshake_data;
 
 	// Use a valid message type that's not a handshake (e.g., keepalive)
-	nano::message_header header (nano::dev::network_params.network, nano::message_type::keepalive);
+	nano::messages::message_header header (nano::dev::network_params.network, nano::messages::message_type::keepalive);
 	header.version_using = nano::dev::network_params.network.protocol_version;
 	header.version_min = nano::dev::network_params.network.protocol_version_min;
 	header.extensions = 0;
@@ -156,7 +156,7 @@ TEST (tcp_server, handshake_invalid_message_type_aborts)
 	}
 
 	// Add a valid keepalive message body
-	nano::keepalive message (nano::dev::network_params.network);
+	nano::messages::keepalive message (nano::dev::network_params.network);
 	{
 		nano::vectorstream stream (invalid_handshake_data);
 		message.serialize (stream);
@@ -192,17 +192,17 @@ TEST (tcp_server, handshake_self_connection_rejected)
 	ASSERT_TIMELY_EQ (5s, node->tcp_listener.all_sockets ().size (), 1);
 
 	// Create a handshake response claiming to be from the same node
-	nano::node_id_handshake::query_payload query{ nano::random_pool::generate<nano::uint256_union> () };
+	nano::messages::node_id_handshake::query_payload query{ nano::random_pool::generate<nano::uint256_union> () };
 
-	nano::node_id_handshake::response_payload response;
+	nano::messages::node_id_handshake::response_payload response;
 	response.node_id = node->node_id.pub; // Use our own node ID
-	response.v2 = nano::node_id_handshake::response_payload::v2_payload{
+	response.v2 = nano::messages::node_id_handshake::response_payload::v2_payload{
 		nano::random_pool::generate<nano::uint256_union> (), // salt
 		node->network_params.ledger.genesis->hash () // genesis
 	};
 	response.sign (query.cookie, node->node_id); // Sign with our own key
 
-	nano::node_id_handshake handshake_msg (node->network_params.network, query, response);
+	nano::messages::node_id_handshake handshake_msg (node->network_params.network, query, response);
 
 	// Send the handshake with our own node ID
 	auto shared_const_buffer = handshake_msg.to_shared_const_buffer ();
@@ -234,8 +234,8 @@ TEST (tcp_server, handshake_multiple_queries_rejected)
 	ASSERT_TIMELY_EQ (5s, node->tcp_listener.all_sockets ().size (), 1);
 
 	// Send first handshake query
-	nano::node_id_handshake::query_payload query1{ nano::random_pool::generate<nano::uint256_union> () };
-	nano::node_id_handshake handshake1 (node->network_params.network, query1);
+	nano::messages::node_id_handshake::query_payload query1{ nano::random_pool::generate<nano::uint256_union> () };
+	nano::messages::node_id_handshake handshake1 (node->network_params.network, query1);
 
 	auto buffer1 = handshake1.to_shared_const_buffer ();
 	auto [write_ec1, bytes_written1] = client_socket->blocking_write (buffer1, buffer1.size ());
@@ -243,8 +243,8 @@ TEST (tcp_server, handshake_multiple_queries_rejected)
 	ASSERT_EQ (bytes_written1, buffer1.size ());
 
 	// Send second handshake query (should be rejected)
-	nano::node_id_handshake::query_payload query2{ nano::random_pool::generate<nano::uint256_union> () };
-	nano::node_id_handshake handshake2 (node->network_params.network, query2);
+	nano::messages::node_id_handshake::query_payload query2{ nano::random_pool::generate<nano::uint256_union> () };
+	nano::messages::node_id_handshake handshake2 (node->network_params.network, query2);
 
 	auto buffer2 = handshake2.to_shared_const_buffer ();
 	auto [write_ec2, bytes_written2] = client_socket->blocking_write (buffer2, buffer2.size ());
@@ -277,7 +277,7 @@ TEST (tcp_server, handshake_outdated_protocol_version)
 	// Create a handshake message with outdated protocol version
 	std::vector<uint8_t> handshake_data;
 
-	nano::message_header header (nano::dev::network_params.network, nano::message_type::node_id_handshake);
+	nano::messages::message_header header (nano::dev::network_params.network, nano::messages::message_type::node_id_handshake);
 	header.version_using = node->network_params.network.protocol_version_min - 1; // Use version below minimum
 	header.version_min = node->network_params.network.protocol_version_min - 1;
 	header.extensions = 0;
@@ -289,8 +289,8 @@ TEST (tcp_server, handshake_outdated_protocol_version)
 	}
 
 	// Add a basic handshake payload
-	nano::node_id_handshake::query_payload query{ nano::random_pool::generate<nano::uint256_union> () };
-	nano::node_id_handshake handshake_msg (node->network_params.network, query);
+	nano::messages::node_id_handshake::query_payload query{ nano::random_pool::generate<nano::uint256_union> () };
+	nano::messages::node_id_handshake handshake_msg (node->network_params.network, query);
 	{
 		nano::vectorstream stream (handshake_data);
 		handshake_msg.serialize (stream);
@@ -335,7 +335,7 @@ TEST (tcp_server, handshake_wrong_network_id)
 	: nano::network_type::nano_live_network;
 	nano::network_constants wrong_network_constants (nano::work_thresholds::publish_dev, wrong_network);
 
-	nano::message_header header (wrong_network_constants, nano::message_type::node_id_handshake);
+	nano::messages::message_header header (wrong_network_constants, nano::messages::message_type::node_id_handshake);
 	header.version_using = node->network_params.network.protocol_version;
 	header.version_min = node->network_params.network.protocol_version_min;
 	header.extensions = 0;
@@ -347,8 +347,8 @@ TEST (tcp_server, handshake_wrong_network_id)
 	}
 
 	// Add a basic handshake payload
-	nano::node_id_handshake::query_payload query{ nano::random_pool::generate<nano::uint256_union> () };
-	nano::node_id_handshake handshake_msg (node->network_params.network, query);
+	nano::messages::node_id_handshake::query_payload query{ nano::random_pool::generate<nano::uint256_union> () };
+	nano::messages::node_id_handshake handshake_msg (node->network_params.network, query);
 	{
 		nano::vectorstream stream (handshake_data);
 		handshake_msg.serialize (stream);

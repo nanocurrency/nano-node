@@ -9,7 +9,7 @@
 #include <utility>
 #include <variant>
 
-namespace nano
+namespace nano::messages
 {
 /**
  * Type of requested asc pull data
@@ -31,13 +31,13 @@ public:
 	using id_t = uint64_t;
 
 	explicit asc_pull_req (nano::network_constants const &);
-	asc_pull_req (bool & error, nano::stream &, nano::message_header const &);
+	asc_pull_req (bool & error, nano::stream &, message_header const &);
 
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
-	void visit (nano::message_visitor &) const override;
+	void visit (message_visitor &) const override;
 
-	static std::size_t size (nano::message_header const &);
+	static std::size_t size (message_header const &);
 
 	/**
 	 * Update payload size stored in header
@@ -125,13 +125,13 @@ public:
 	using id_t = asc_pull_req::id_t;
 
 	explicit asc_pull_ack (nano::network_constants const &);
-	asc_pull_ack (bool & error, nano::stream &, nano::message_header const &);
+	asc_pull_ack (bool & error, nano::stream &, message_header const &);
 
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
-	void visit (nano::message_visitor &) const override;
+	void visit (message_visitor &) const override;
 
-	static std::size_t size (nano::message_header const &);
+	static std::size_t size (message_header const &);
 
 	/**
 	 * Update payload size stored in header

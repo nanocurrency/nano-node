@@ -14,7 +14,7 @@ using namespace std::chrono_literals;
 TEST (telemetry, signatures)
 {
 	nano::keypair node_id;
-	nano::telemetry_data data;
+	nano::messages::telemetry_data data;
 	data.node_id = node_id.pub;
 	data.major_version = 20;
 	data.minor_version = 1;
@@ -34,7 +34,7 @@ TEST (telemetry, signatures)
 TEST (telemetry, unknown_data)
 {
 	nano::keypair node_id;
-	nano::telemetry_data data;
+	nano::messages::telemetry_data data;
 	data.node_id = node_id.pub;
 	data.major_version = 20;
 	data.minor_version = 1;
@@ -66,7 +66,7 @@ TEST (telemetry, basic)
 	auto channel = node_client->network.find_node_id (node_server->get_node_id ());
 	ASSERT_NE (nullptr, channel);
 
-	std::optional<nano::telemetry_data> telemetry_data;
+	std::optional<nano::messages::telemetry_data> telemetry_data;
 	ASSERT_TIMELY (5s, telemetry_data = node_client->telemetry.get_telemetry (channel->get_remote_endpoint ()));
 	ASSERT_EQ (node_server->get_node_id (), telemetry_data->node_id);
 
@@ -87,7 +87,7 @@ TEST (telemetry, basic)
 	// Wait the cache period and check cache is not used
 	WAIT (3s);
 
-	std::optional<nano::telemetry_data> telemetry_data_4;
+	std::optional<nano::messages::telemetry_data> telemetry_data_4;
 	ASSERT_TIMELY (5s, telemetry_data_4 = node_client->telemetry.get_telemetry (channel->get_remote_endpoint ()));
 	ASSERT_NE (*telemetry_data, *telemetry_data_4);
 }
@@ -139,7 +139,7 @@ TEST (telemetry, dos_tcp)
 	auto channel = node_client->network.tcp_channels.find_node_id (node_server->get_node_id ());
 	ASSERT_NE (nullptr, channel);
 
-	nano::telemetry_req message{ nano::dev::network_params.network };
+	nano::messages::telemetry_req message{ nano::dev::network_params.network };
 	for (int i = 0; i < 10; ++i)
 	{
 		channel->send (message, nano::transport::traffic_type::test, [] (boost::system::error_code const & ec, size_t size_a) {
@@ -174,7 +174,7 @@ TEST (telemetry, disable_metrics)
 	auto channel1 = node_server->network.find_node_id (node_client->get_node_id ());
 	ASSERT_NE (nullptr, channel1);
 
-	std::optional<nano::telemetry_data> telemetry_data;
+	std::optional<nano::messages::telemetry_data> telemetry_data;
 	ASSERT_TIMELY (5s, telemetry_data = node_server->telemetry.get_telemetry (channel1->get_remote_endpoint ()));
 
 	ASSERT_TRUE (nano::test::compare_telemetry (*telemetry_data, *node_client));
@@ -188,10 +188,10 @@ TEST (telemetry, max_possible_size)
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
-	nano::telemetry_data data;
-	data.unknown_data.resize (nano::message_header::telemetry_size_mask.to_ulong () - nano::telemetry_data::latest_size);
+	nano::messages::telemetry_data data;
+	data.unknown_data.resize (nano::messages::message_header::telemetry_size_mask.to_ulong () - nano::messages::telemetry_data::latest_size);
 
-	nano::telemetry_ack message{ nano::dev::network_params.network, data };
+	nano::messages::telemetry_ack message{ nano::dev::network_params.network, data };
 
 	auto channel = node_client->network.tcp_channels.find_node_id (node_server->get_node_id ());
 	ASSERT_NE (nullptr, channel);
@@ -216,12 +216,12 @@ TEST (telemetry, maker_pruning)
 	auto channel = node_client->network.find_node_id (node_server->get_node_id ());
 	ASSERT_NE (nullptr, channel);
 
-	std::optional<nano::telemetry_data> telemetry_data;
+	std::optional<nano::messages::telemetry_data> telemetry_data;
 	ASSERT_TIMELY (5s, telemetry_data = node_client->telemetry.get_telemetry (channel->get_remote_endpoint ()));
 	ASSERT_EQ (node_server->get_node_id (), telemetry_data->node_id);
 
 	// Ensure telemetry response indicates pruned node
-	ASSERT_EQ (nano::telemetry_maker::nf_pruned_node, static_cast<nano::telemetry_maker> (telemetry_data->maker));
+	ASSERT_EQ (nano::messages::telemetry_maker::nf_pruned_node, static_cast<nano::messages::telemetry_maker> (telemetry_data->maker));
 }
 
 TEST (telemetry, invalid_signature)
@@ -232,7 +232,7 @@ TEST (telemetry, invalid_signature)
 	auto telemetry = node.local_telemetry ();
 	telemetry.block_count = 9999; // Change data so signature is no longer valid
 
-	auto message = nano::telemetry_ack{ nano::dev::network_params.network, telemetry };
+	auto message = nano::messages::telemetry_ack{ nano::dev::network_params.network, telemetry };
 	node.inbound (message, nano::test::fake_channel (node));
 
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::invalid_signature) > 0);
@@ -246,7 +246,7 @@ TEST (telemetry, mismatched_node_id)
 
 	auto telemetry = node.local_telemetry ();
 
-	auto message = nano::telemetry_ack{ nano::dev::network_params.network, telemetry };
+	auto message = nano::messages::telemetry_ack{ nano::dev::network_params.network, telemetry };
 	node.inbound (message, nano::test::fake_channel (node, /* node id */ { 123 }));
 
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::telemetry, nano::stat::detail::node_id_mismatch) > 0);

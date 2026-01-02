@@ -3,7 +3,7 @@
 #include <nano/lib/assert.hpp>
 #include <nano/lib/stream.hpp>
 
-namespace nano
+namespace nano::messages
 {
 struct empty_payload
 {

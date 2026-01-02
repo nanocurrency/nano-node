@@ -57,7 +57,7 @@ public:
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t max_count, uint8_t minimum_version = 0) const;
 
 	void keepalive ();
-	std::optional<nano::keepalive> sample_keepalive ();
+	std::optional<nano::messages::keepalive> sample_keepalive ();
 
 	// Connection start
 	bool start_tcp (nano::endpoint const &);

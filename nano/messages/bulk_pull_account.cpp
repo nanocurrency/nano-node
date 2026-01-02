@@ -4,12 +4,14 @@
 #include <nano/messages/bulk_pull_account.hpp>
 #include <nano/messages/message_visitor.hpp>
 
-nano::bulk_pull_account::bulk_pull_account (nano::network_constants const & constants) :
-	message (constants, nano::message_type::bulk_pull_account)
+namespace nano::messages
+{
+bulk_pull_account::bulk_pull_account (nano::network_constants const & constants) :
+	message (constants, message_type::bulk_pull_account)
 {
 }
 
-nano::bulk_pull_account::bulk_pull_account (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
+bulk_pull_account::bulk_pull_account (bool & error_a, nano::stream & stream_a, message_header const & header_a) :
 	message (header_a)
 {
 	if (!error_a)
@@ -18,12 +20,12 @@ nano::bulk_pull_account::bulk_pull_account (bool & error_a, nano::stream & strea
 	}
 }
 
-void nano::bulk_pull_account::visit (nano::message_visitor & visitor_a) const
+void bulk_pull_account::visit (message_visitor & visitor_a) const
 {
 	visitor_a.bulk_pull_account (*this);
 }
 
-void nano::bulk_pull_account::serialize (nano::stream & stream_a) const
+void bulk_pull_account::serialize (nano::stream & stream_a) const
 {
 	header.serialize (stream_a);
 	write (stream_a, account);
@@ -31,9 +33,9 @@ void nano::bulk_pull_account::serialize (nano::stream & stream_a) const
 	write (stream_a, flags);
 }
 
-bool nano::bulk_pull_account::deserialize (nano::stream & stream_a)
+bool bulk_pull_account::deserialize (nano::stream & stream_a)
 {
-	debug_assert (header.type == nano::message_type::bulk_pull_account);
+	debug_assert (header.type == message_type::bulk_pull_account);
 	auto error (false);
 	try
 	{
@@ -49,11 +51,12 @@ bool nano::bulk_pull_account::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-void nano::bulk_pull_account::operator() (nano::object_stream & obs) const
+void bulk_pull_account::operator() (nano::object_stream & obs) const
 {
-	nano::message::operator() (obs); // Write common data
+	message::operator() (obs); // Write common data
 
 	obs.write ("account", account);
 	obs.write ("minimum_amount", minimum_amount);
 	obs.write ("flags", static_cast<uint8_t> (flags)); // TODO: Prettier flag printing
+}
 }

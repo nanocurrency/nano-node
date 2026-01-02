@@ -54,7 +54,7 @@ void nano::telemetry::stop ()
 	nano::join_or_pass (thread);
 }
 
-bool nano::telemetry::verify (const nano::telemetry_ack & telemetry, const std::shared_ptr<nano::transport::channel> & channel) const
+bool nano::telemetry::verify (const nano::messages::telemetry_ack & telemetry, const std::shared_ptr<nano::transport::channel> & channel) const
 {
 	if (telemetry.is_empty_payload ())
 	{
@@ -87,7 +87,7 @@ bool nano::telemetry::verify (const nano::telemetry_ack & telemetry, const std::
 	return true; // Telemetry is OK
 }
 
-void nano::telemetry::process (const nano::telemetry_ack & telemetry, const std::shared_ptr<nano::transport::channel> & channel)
+void nano::telemetry::process (const nano::messages::telemetry_ack & telemetry, const std::shared_ptr<nano::transport::channel> & channel)
 {
 	if (!verify (telemetry, channel))
 	{
@@ -213,7 +213,7 @@ void nano::telemetry::request (std::shared_ptr<nano::transport::channel> const &
 {
 	stats.inc (nano::stat::type::telemetry, nano::stat::detail::request);
 
-	nano::telemetry_req message{ network_params.network };
+	nano::messages::telemetry_req message{ network_params.network };
 	channel->send (message, nano::transport::traffic_type::telemetry);
 }
 
@@ -228,11 +228,11 @@ void nano::telemetry::run_broadcasts ()
 	}
 }
 
-void nano::telemetry::broadcast (std::shared_ptr<nano::transport::channel> const & channel, const nano::telemetry_data & telemetry)
+void nano::telemetry::broadcast (std::shared_ptr<nano::transport::channel> const & channel, const nano::messages::telemetry_data & telemetry)
 {
 	stats.inc (nano::stat::type::telemetry, nano::stat::detail::broadcast);
 
-	nano::telemetry_ack message{ network_params.network, telemetry };
+	nano::messages::telemetry_ack message{ network_params.network, telemetry };
 	channel->send (message, nano::transport::traffic_type::telemetry);
 }
 
@@ -261,7 +261,7 @@ bool nano::telemetry::check_timeout (const entry & entry) const
 	return entry.last_updated + network_params.network.telemetry_cache_cutoff >= std::chrono::steady_clock::now ();
 }
 
-std::optional<nano::telemetry_data> nano::telemetry::get_telemetry (const nano::endpoint & endpoint) const
+std::optional<nano::messages::telemetry_data> nano::telemetry::get_telemetry (const nano::endpoint & endpoint) const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
@@ -275,11 +275,11 @@ std::optional<nano::telemetry_data> nano::telemetry::get_telemetry (const nano::
 	return {};
 }
 
-std::unordered_map<nano::endpoint, nano::telemetry_data> nano::telemetry::get_all_telemetries () const
+std::unordered_map<nano::endpoint, nano::messages::telemetry_data> nano::telemetry::get_all_telemetries () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 
-	std::unordered_map<nano::endpoint, nano::telemetry_data> result;
+	std::unordered_map<nano::endpoint, nano::messages::telemetry_data> result;
 	for (auto const & entry : telemetries)
 	{
 		if (check_timeout (entry))

@@ -44,7 +44,7 @@ auto message_deserializer_success_checker (message_type & message_original) -> v
 
 	// Deserializing and testing the success path.
 	message_deserializer->read (
-	[&message_original] (boost::system::error_code ec_a, std::unique_ptr<nano::message> message_a) {
+	[&message_original] (boost::system::error_code ec_a, std::unique_ptr<nano::messages::message> message_a) {
 		auto deserialized_message = dynamic_cast<message_type *> (message_a.get ());
 		// Ensure the message type is supported.
 		ASSERT_NE (deserialized_message, nullptr);
@@ -70,7 +70,7 @@ TEST (message_deserializer, exact_confirm_ack)
 				 .work (*system.work.generate (nano::root (1)))
 				 .build ();
 	auto vote (std::make_shared<nano::vote> (0, nano::keypair ().prv, 0, 0, std::vector<nano::block_hash>{ block->hash () }));
-	nano::confirm_ack message{ nano::dev::network_params.network, vote };
+	nano::messages::confirm_ack message{ nano::dev::network_params.network, vote };
 
 	message_deserializer_success_checker<decltype (message)> (message);
 }
@@ -88,7 +88,7 @@ TEST (message_deserializer, exact_confirm_req_hash)
 				 .work (*system.work.generate (nano::root (1)))
 				 .build ();
 	// This test differs from the previous `exact_confirm_req` because this tests the confirm_req created from the block hash.
-	nano::confirm_req message{ nano::dev::network_params.network, block->hash (), block->root () };
+	nano::messages::confirm_req message{ nano::dev::network_params.network, block->hash (), block->root () };
 
 	message_deserializer_success_checker<decltype (message)> (message);
 }
@@ -105,78 +105,78 @@ TEST (message_deserializer, exact_publish)
 				 .sign (nano::keypair ().prv, 4)
 				 .work (*system.work.generate (nano::root (1)))
 				 .build ();
-	nano::publish message{ nano::dev::network_params.network, block };
+	nano::messages::publish message{ nano::dev::network_params.network, block };
 
 	message_deserializer_success_checker<decltype (message)> (message);
 }
 
 TEST (message_deserializer, exact_keepalive)
 {
-	nano::keepalive message{ nano::dev::network_params.network };
+	nano::messages::keepalive message{ nano::dev::network_params.network };
 
 	message_deserializer_success_checker<decltype (message)> (message);
 }
 
 TEST (message_deserializer, exact_frontier_req)
 {
-	nano::frontier_req message{ nano::dev::network_params.network };
+	nano::messages::frontier_req message{ nano::dev::network_params.network };
 	message_deserializer_success_checker<decltype (message)> (message);
 }
 
 TEST (message_deserializer, exact_telemetry_req)
 {
-	nano::telemetry_req message{ nano::dev::network_params.network };
+	nano::messages::telemetry_req message{ nano::dev::network_params.network };
 	message_deserializer_success_checker<decltype (message)> (message);
 }
 
 TEST (message_deserializer, exact_telemetry_ack)
 {
-	nano::telemetry_data data;
+	nano::messages::telemetry_data data;
 	data.unknown_data.push_back (0xFF);
 
-	nano::telemetry_ack message{ nano::dev::network_params.network, data };
+	nano::messages::telemetry_ack message{ nano::dev::network_params.network, data };
 	message_deserializer_success_checker<decltype (message)> (message);
 }
 
 TEST (message_deserializer, exact_bulk_pull)
 {
-	nano::bulk_pull message{ nano::dev::network_params.network };
-	message.header.flag_set (nano::message_header::bulk_pull_ascending_flag);
+	nano::messages::bulk_pull message{ nano::dev::network_params.network };
+	message.header.flag_set (nano::messages::message_header::bulk_pull_ascending_flag);
 
 	message_deserializer_success_checker<decltype (message)> (message);
 }
 
 TEST (message_deserializer, exact_bulk_pull_account)
 {
-	nano::bulk_pull_account message{ nano::dev::network_params.network };
-	message.flags = nano::bulk_pull_account_flags::pending_address_only;
+	nano::messages::bulk_pull_account message{ nano::dev::network_params.network };
+	message.flags = nano::messages::bulk_pull_account_flags::pending_address_only;
 
 	message_deserializer_success_checker<decltype (message)> (message);
 }
 
 TEST (message_deserializer, exact_bulk_push)
 {
-	nano::bulk_push message{ nano::dev::network_params.network };
+	nano::messages::bulk_push message{ nano::dev::network_params.network };
 	message_deserializer_success_checker<decltype (message)> (message);
 }
 
 TEST (message_deserializer, exact_node_id_handshake)
 {
-	nano::node_id_handshake message{ nano::dev::network_params.network, std::nullopt, std::nullopt };
+	nano::messages::node_id_handshake message{ nano::dev::network_params.network, std::nullopt, std::nullopt };
 	message_deserializer_success_checker<decltype (message)> (message);
 }
 
 TEST (message_deserializer, exact_asc_pull_req)
 {
-	nano::asc_pull_req message{ nano::dev::network_params.network };
+	nano::messages::asc_pull_req message{ nano::dev::network_params.network };
 
 	// The asc_pull_req checks for the message fields and the payload to be filled.
 	message.id = 7;
-	message.type = nano::asc_pull_type::account_info;
+	message.type = nano::messages::asc_pull_type::account_info;
 
-	nano::asc_pull_req::account_info_payload message_payload;
+	nano::messages::asc_pull_req::account_info_payload message_payload;
 	message_payload.target = nano::test::random_account ();
-	message_payload.target_type = nano::asc_pull_req::hash_type::account;
+	message_payload.target_type = nano::messages::asc_pull_req::hash_type::account;
 
 	message.payload = message_payload;
 	message.update_header ();
@@ -186,13 +186,13 @@ TEST (message_deserializer, exact_asc_pull_req)
 
 TEST (message_deserializer, exact_asc_pull_ack)
 {
-	nano::asc_pull_ack message{ nano::dev::network_params.network };
+	nano::messages::asc_pull_ack message{ nano::dev::network_params.network };
 
 	// The asc_pull_ack checks for the message fields and the payload to be filled.
 	message.id = 11;
-	message.type = nano::asc_pull_type::account_info;
+	message.type = nano::messages::asc_pull_type::account_info;
 
-	nano::asc_pull_ack::account_info_payload message_payload;
+	nano::messages::asc_pull_ack::account_info_payload message_payload;
 	message_payload.account = nano::test::random_account ();
 	message_payload.account_open = nano::test::random_hash ();
 	message_payload.account_head = nano::test::random_hash ();

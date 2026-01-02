@@ -8,7 +8,7 @@
 #include <bitset>
 #include <cstdint>
 
-namespace nano
+namespace nano::messages
 {
 /*
  * Common Header Binary Format:
@@ -27,7 +27,7 @@ class message_header final
 public:
 	using extensions_bitset_t = std::bitset<16>;
 
-	message_header (nano::network_constants const &, nano::message_type);
+	message_header (nano::network_constants const &, message_type);
 	message_header (bool &, nano::stream &);
 
 	void serialize (nano::stream &) const;
@@ -38,7 +38,7 @@ public: // Payload
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;
-	nano::message_type type;
+	message_type type;
 	extensions_bitset_t extensions;
 
 public:

@@ -6,12 +6,14 @@
 
 #include <boost/endian/conversion.hpp>
 
-nano::bulk_pull::bulk_pull (nano::network_constants const & constants) :
-	message (constants, nano::message_type::bulk_pull)
+namespace nano::messages
+{
+bulk_pull::bulk_pull (nano::network_constants const & constants) :
+	message (constants, message_type::bulk_pull)
 {
 }
 
-nano::bulk_pull::bulk_pull (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
+bulk_pull::bulk_pull (bool & error_a, nano::stream & stream_a, message_header const & header_a) :
 	message (header_a)
 {
 	if (!error_a)
@@ -20,12 +22,12 @@ nano::bulk_pull::bulk_pull (bool & error_a, nano::stream & stream_a, nano::messa
 	}
 }
 
-void nano::bulk_pull::visit (nano::message_visitor & visitor_a) const
+void bulk_pull::visit (message_visitor & visitor_a) const
 {
 	visitor_a.bulk_pull (*this);
 }
 
-void nano::bulk_pull::serialize (nano::stream & stream_a) const
+void bulk_pull::serialize (nano::stream & stream_a) const
 {
 	/*
 	 * Ensure the "count_present" flag is set if there
@@ -54,9 +56,9 @@ void nano::bulk_pull::serialize (nano::stream & stream_a) const
 	}
 }
 
-bool nano::bulk_pull::deserialize (nano::stream & stream_a)
+bool bulk_pull::deserialize (nano::stream & stream_a)
 {
-	debug_assert (header.type == nano::message_type::bulk_pull);
+	debug_assert (header.type == message_type::bulk_pull);
 	auto error (false);
 	try
 	{
@@ -92,21 +94,22 @@ bool nano::bulk_pull::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-bool nano::bulk_pull::is_count_present () const
+bool bulk_pull::is_count_present () const
 {
 	return header.extensions.test (count_present_flag);
 }
 
-void nano::bulk_pull::set_count_present (bool value_a)
+void bulk_pull::set_count_present (bool value_a)
 {
 	header.extensions.set (count_present_flag, value_a);
 }
 
-void nano::bulk_pull::operator() (nano::object_stream & obs) const
+void bulk_pull::operator() (nano::object_stream & obs) const
 {
-	nano::message::operator() (obs); // Write common data
+	message::operator() (obs); // Write common data
 
 	obs.write ("start", start);
 	obs.write ("end", end);
 	obs.write ("count", count);
+}
 }

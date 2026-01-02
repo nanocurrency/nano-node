@@ -6,7 +6,7 @@
 
 #include <memory>
 
-namespace nano
+namespace nano::messages
 {
 /*
  * Binary Format:
@@ -20,13 +20,13 @@ namespace nano
 class publish final : public message
 {
 public:
-	publish (bool &, nano::stream &, nano::message_header const &, nano::network_filter::digest_t const & digest = 0, nano::block_uniquer * = nullptr);
+	publish (bool &, nano::stream &, message_header const &, nano::network_filter::digest_t const & digest = 0, nano::block_uniquer * = nullptr);
 	publish (nano::network_constants const & constants, std::shared_ptr<nano::block> const &, bool is_originator = false);
 
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
-	void visit (nano::message_visitor &) const override;
-	bool operator== (nano::publish const &) const;
+	void visit (message_visitor &) const override;
+	bool operator== (publish const &) const;
 
 	static uint8_t constexpr originator_flag = 2; // 0x0004
 	bool is_originator () const;
