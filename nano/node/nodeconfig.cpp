@@ -189,7 +189,9 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put_child ("ipc", ipc_l);
 
 	nano::tomlconfig diagnostics_l;
-	diagnostics_config.serialize_toml (diagnostics_l);
+	nano::tomlconfig txn_tracking_l;
+	txn_tracking.serialize_toml (txn_tracking_l);
+	diagnostics_l.put_child ("txn_tracking", txn_tracking_l);
 	toml.put_child ("diagnostics", diagnostics_l);
 
 	nano::tomlconfig stat_l;
@@ -329,8 +331,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 
 		if (toml.has_key ("diagnostics"))
 		{
-			auto diagnostics_config_l (toml.get_required_child ("diagnostics"));
-			diagnostics_config.deserialize_toml (diagnostics_config_l);
+			auto diagnostics_l (toml.get_required_child ("diagnostics"));
+			auto txn_tracking_l (diagnostics_l.get_optional_child ("txn_tracking"));
+			if (txn_tracking_l)
+			{
+				txn_tracking.deserialize_toml (*txn_tracking_l);
+			}
 		}
 
 		if (toml.has_key ("statistics"))

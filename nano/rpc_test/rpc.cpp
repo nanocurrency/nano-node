@@ -5947,7 +5947,7 @@ TEST (rpc, database_txn_tracker)
 	// Now try enabling it but with invalid amounts
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	node_config.diagnostics_config.txn_tracking.enable = true;
+	node_config.txn_tracking.enable = true;
 	auto node = add_ipc_enabled_node (system, node_config);
 	auto const rpc_ctx = add_rpc (system, node);
 

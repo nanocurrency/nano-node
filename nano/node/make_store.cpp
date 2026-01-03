@@ -32,7 +32,7 @@ std::unique_ptr<nano::store::ledger_store> nano::make_store (nano::logger & logg
 	nano::store::open_mode const mode = read_only ? nano::store::open_mode::read_only : nano::store::open_mode::read_write;
 
 	// Copy txn_tracking config and set block_processor_batch_max_time from node config
-	auto txn_tracking = node_config.diagnostics_config.txn_tracking;
+	auto txn_tracking = node_config.txn_tracking;
 	txn_tracking.block_processor_batch_max_time = node_config.block_processor_batch_max_time;
 
 	auto backend_type = decide_backend ();

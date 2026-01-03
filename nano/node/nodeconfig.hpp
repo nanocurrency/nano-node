@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
-#include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/logging.hpp>
@@ -37,6 +36,7 @@
 #include <nano/node/websocketconfig.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/generate_cache_flags.hpp>
+#include <nano/store/txn_tracking.hpp>
 
 #include <chrono>
 #include <optional>
@@ -95,7 +95,7 @@ public:
 	unsigned bootstrap_serving_threads{ 1 };
 	uint32_t bootstrap_frontier_request_count{ 1024 * 1024 };
 	nano::websocket::config websocket_config;
-	nano::diagnostics_config diagnostics_config;
+	nano::store::txn_tracking_config txn_tracking;
 	std::string callback_address;
 	uint16_t callback_port{ 0 };
 	std::string callback_target;

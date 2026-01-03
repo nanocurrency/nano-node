@@ -2212,7 +2212,7 @@ void nano::json_handler::database_txn_tracker ()
 {
 	boost::property_tree::ptree json;
 
-	if (node.config.diagnostics_config.txn_tracking.enable)
+	if (node.config.txn_tracking.enable)
 	{
 		unsigned min_read_time_milliseconds = 0;
 		boost::optional<std::string> min_read_time_text (request.get_optional<std::string> ("min_read_time"));

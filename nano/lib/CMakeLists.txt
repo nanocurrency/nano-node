@@ -51,8 +51,6 @@ add_library(
   constants.cpp
   container_info.hpp
   container_info.cpp
-  diagnosticsconfig.hpp
-  diagnosticsconfig.cpp
   env.hpp
   env.cpp
   epoch.hpp

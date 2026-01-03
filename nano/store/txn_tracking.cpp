@@ -2,6 +2,7 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/thread_roles.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/store/txn_tracking.hpp>
 
@@ -48,9 +49,9 @@ bool nano::store::txn_stats::is_write () const
  * txn_tracker
  */
 
-nano::store::txn_tracker::txn_tracker (nano::logger & logger_a, nano::txn_tracking_config const & txn_tracking_config_a) :
+nano::store::txn_tracker::txn_tracker (nano::logger & logger_a, txn_tracking_config const & config_a) :
 	logger (logger_a),
-	txn_tracking_config (txn_tracking_config_a)
+	config (config_a)
 {
 }
 
@@ -115,14 +116,14 @@ void nano::store::txn_tracker::log_if_held_long_enough (txn_stats const & stats)
 
 	auto should_ignore = false;
 	// Reduce noise in log files by removing any entries from the block processor (if enabled) which are less than the max batch time (+ a few second buffer) because these are expected writes during bootstrapping.
-	auto is_below_max_time = time_open <= (txn_tracking_config.block_processor_batch_max_time + std::chrono::seconds (3));
+	auto is_below_max_time = time_open <= (config.block_processor_batch_max_time + std::chrono::seconds (3));
 	bool is_blk_processing_thread = stats.thread_name == nano::thread_role::get_string (nano::thread_role::name::block_processing);
-	if (txn_tracking_config.ignore_writes_below_block_processor_max_time && is_blk_processing_thread && is_write && is_below_max_time)
+	if (config.ignore_writes_below_block_processor_max_time && is_blk_processing_thread && is_write && is_below_max_time)
 	{
 		should_ignore = true;
 	}
 
-	if (!should_ignore && ((is_write && time_open >= txn_tracking_config.min_write_txn_time) || (!is_write && time_open >= txn_tracking_config.min_read_txn_time)))
+	if (!should_ignore && ((is_write && time_open >= config.min_write_txn_time) || (!is_write && time_open >= config.min_read_txn_time)))
 	{
 		debug_assert (stats.stacktrace);
 
@@ -152,4 +153,34 @@ void nano::store::txn_tracker::erase (transaction_impl const * transaction_impl)
 		lk.unlock ();
 		log_if_held_long_enough (tracker_stats_copy);
 	}
+}
+
+/*
+ * txn_tracking_config
+ */
+
+nano::error nano::store::txn_tracking_config::serialize_toml (nano::tomlconfig & toml) const
+{
+	toml.put ("enable", enable, "Enable or disable database transaction tracing.\ntype:bool");
+	toml.put ("min_read_txn_time", min_read_txn_time.count (), "Log stacktrace when read transactions are held longer than this duration.\ntype:milliseconds");
+	toml.put ("min_write_txn_time", min_write_txn_time.count (), "Log stacktrace when write transactions are held longer than this duration.\ntype:milliseconds");
+	toml.put ("ignore_writes_below_block_processor_max_time", ignore_writes_below_block_processor_max_time, "Ignore any block processor writes less than block_processor_batch_max_time.\ntype:bool");
+	return toml.get_error ();
+}
+
+nano::error nano::store::txn_tracking_config::deserialize_toml (nano::tomlconfig & toml)
+{
+	toml.get_optional<bool> ("enable", enable);
+
+	auto min_read_txn_time_l = static_cast<unsigned long> (min_read_txn_time.count ());
+	toml.get_optional ("min_read_txn_time", min_read_txn_time_l);
+	min_read_txn_time = std::chrono::milliseconds (min_read_txn_time_l);
+
+	auto min_write_txn_time_l = static_cast<unsigned long> (min_write_txn_time.count ());
+	toml.get_optional ("min_write_txn_time", min_write_txn_time_l);
+	min_write_txn_time = std::chrono::milliseconds (min_write_txn_time_l);
+
+	toml.get_optional<bool> ("ignore_writes_below_block_processor_max_time", ignore_writes_below_block_processor_max_time);
+
+	return toml.get_error ();
 }

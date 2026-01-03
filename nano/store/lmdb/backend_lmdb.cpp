@@ -10,7 +10,7 @@
 
 namespace nano::store::lmdb
 {
-backend_lmdb::backend_lmdb (std::filesystem::path const & path, nano::lmdb_config const & config_a, nano::logger & logger_a, nano::txn_tracking_config const & txn_tracking_config_a) :
+backend_lmdb::backend_lmdb (std::filesystem::path const & path, nano::lmdb_config const & config_a, nano::logger & logger_a, nano::store::txn_tracking_config const & txn_tracking_config_a) :
 	database_path{ path },
 	config{ config_a }
 {

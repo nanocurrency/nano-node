@@ -17,7 +17,7 @@ namespace nano::store::lmdb
 class backend_lmdb : public nano::store::backend
 {
 public:
-	backend_lmdb (std::filesystem::path const & path, nano::lmdb_config const & config, nano::logger & logger, nano::txn_tracking_config const & txn_tracking_config = {});
+	backend_lmdb (std::filesystem::path const & path, nano::lmdb_config const & config, nano::logger & logger, nano::store::txn_tracking_config const & txn_tracking_config = {});
 	~backend_lmdb () override;
 
 	int get (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val & value) const override;

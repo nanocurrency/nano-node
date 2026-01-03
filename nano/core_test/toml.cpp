@@ -346,10 +346,10 @@ TEST (toml_config, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.ipc_config.flatbuffers.skip_unexpected_fields_in_json, defaults.node.ipc_config.flatbuffers.skip_unexpected_fields_in_json);
 	ASSERT_EQ (conf.node.ipc_config.flatbuffers.verify_buffers, defaults.node.ipc_config.flatbuffers.verify_buffers);
 
-	ASSERT_EQ (conf.node.diagnostics_config.txn_tracking.enable, defaults.node.diagnostics_config.txn_tracking.enable);
-	ASSERT_EQ (conf.node.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time, defaults.node.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
-	ASSERT_EQ (conf.node.diagnostics_config.txn_tracking.min_read_txn_time, defaults.node.diagnostics_config.txn_tracking.min_read_txn_time);
-	ASSERT_EQ (conf.node.diagnostics_config.txn_tracking.min_write_txn_time, defaults.node.diagnostics_config.txn_tracking.min_write_txn_time);
+	ASSERT_EQ (conf.node.txn_tracking.enable, defaults.node.txn_tracking.enable);
+	ASSERT_EQ (conf.node.txn_tracking.ignore_writes_below_block_processor_max_time, defaults.node.txn_tracking.ignore_writes_below_block_processor_max_time);
+	ASSERT_EQ (conf.node.txn_tracking.min_read_txn_time, defaults.node.txn_tracking.min_read_txn_time);
+	ASSERT_EQ (conf.node.txn_tracking.min_write_txn_time, defaults.node.txn_tracking.min_write_txn_time);
 
 	ASSERT_EQ (conf.node.stats_config.max_samples, defaults.node.stats_config.max_samples);
 	ASSERT_EQ (conf.node.stats_config.log_rotation_count, defaults.node.stats_config.log_rotation_count);
@@ -778,10 +778,10 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.ipc_config.flatbuffers.skip_unexpected_fields_in_json, defaults.node.ipc_config.flatbuffers.skip_unexpected_fields_in_json);
 	ASSERT_NE (conf.node.ipc_config.flatbuffers.verify_buffers, defaults.node.ipc_config.flatbuffers.verify_buffers);
 
-	ASSERT_NE (conf.node.diagnostics_config.txn_tracking.enable, defaults.node.diagnostics_config.txn_tracking.enable);
-	ASSERT_NE (conf.node.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time, defaults.node.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
-	ASSERT_NE (conf.node.diagnostics_config.txn_tracking.min_read_txn_time, defaults.node.diagnostics_config.txn_tracking.min_read_txn_time);
-	ASSERT_NE (conf.node.diagnostics_config.txn_tracking.min_write_txn_time, defaults.node.diagnostics_config.txn_tracking.min_write_txn_time);
+	ASSERT_NE (conf.node.txn_tracking.enable, defaults.node.txn_tracking.enable);
+	ASSERT_NE (conf.node.txn_tracking.ignore_writes_below_block_processor_max_time, defaults.node.txn_tracking.ignore_writes_below_block_processor_max_time);
+	ASSERT_NE (conf.node.txn_tracking.min_read_txn_time, defaults.node.txn_tracking.min_read_txn_time);
+	ASSERT_NE (conf.node.txn_tracking.min_write_txn_time, defaults.node.txn_tracking.min_write_txn_time);
 
 	ASSERT_NE (conf.node.stats_config.max_samples, defaults.node.stats_config.max_samples);
 	ASSERT_NE (conf.node.stats_config.log_rotation_count, defaults.node.stats_config.log_rotation_count);
