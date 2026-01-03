@@ -22,7 +22,7 @@ namespace nano::store::rocksdb
 class backend_rocksdb : public nano::store::backend
 {
 public:
-	backend_rocksdb (std::filesystem::path const & path, nano::rocksdb_config const & config, nano::logger & logger, nano::txn_tracking_config const & txn_tracking_config = {}, std::chrono::milliseconds block_processor_batch_max_time = std::chrono::milliseconds{ 5000 });
+	backend_rocksdb (std::filesystem::path const & path, nano::rocksdb_config const & config, nano::logger & logger, nano::txn_tracking_config const & txn_tracking_config = {});
 	~backend_rocksdb () override;
 
 	int get (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val & value) const override;

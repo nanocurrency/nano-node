@@ -48,10 +48,9 @@ bool nano::store::txn_stats::is_write () const
  * txn_tracker
  */
 
-nano::store::txn_tracker::txn_tracker (nano::logger & logger_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a) :
+nano::store::txn_tracker::txn_tracker (nano::logger & logger_a, nano::txn_tracking_config const & txn_tracking_config_a) :
 	logger (logger_a),
-	txn_tracking_config (txn_tracking_config_a),
-	block_processor_batch_max_time (block_processor_batch_max_time_a)
+	txn_tracking_config (txn_tracking_config_a)
 {
 }
 
@@ -116,7 +115,7 @@ void nano::store::txn_tracker::log_if_held_long_enough (txn_stats const & stats)
 
 	auto should_ignore = false;
 	// Reduce noise in log files by removing any entries from the block processor (if enabled) which are less than the max batch time (+ a few second buffer) because these are expected writes during bootstrapping.
-	auto is_below_max_time = time_open <= (block_processor_batch_max_time + std::chrono::seconds (3));
+	auto is_below_max_time = time_open <= (txn_tracking_config.block_processor_batch_max_time + std::chrono::seconds (3));
 	bool is_blk_processing_thread = stats.thread_name == nano::thread_role::get_string (nano::thread_role::name::block_processing);
 	if (txn_tracking_config.ignore_writes_below_block_processor_max_time && is_blk_processing_thread && is_write && is_below_max_time)
 	{

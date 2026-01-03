@@ -31,6 +31,10 @@ std::unique_ptr<nano::store::ledger_store> nano::make_store (nano::logger & logg
 
 	nano::store::open_mode const mode = read_only ? nano::store::open_mode::read_only : nano::store::open_mode::read_write;
 
+	// Copy txn_tracking config and set block_processor_batch_max_time from node config
+	auto txn_tracking = node_config.diagnostics_config.txn_tracking;
+	txn_tracking.block_processor_batch_max_time = node_config.block_processor_batch_max_time;
+
 	auto backend_type = decide_backend ();
 	std::unique_ptr<nano::store::backend> backend;
 
@@ -39,13 +43,13 @@ std::unique_ptr<nano::store::ledger_store> nano::make_store (nano::logger & logg
 		case nano::database_backend::lmdb:
 		{
 			auto db_path = add_db_postfix ? database_path_for_backend (path, backend_type) : path;
-			backend = std::make_unique<nano::store::lmdb::backend_lmdb> (db_path, node_config.lmdb_config, logger, node_config.diagnostics_config.txn_tracking, node_config.block_processor_batch_max_time);
+			backend = std::make_unique<nano::store::lmdb::backend_lmdb> (db_path, node_config.lmdb_config, logger, txn_tracking);
 			break;
 		}
 		case nano::database_backend::rocksdb:
 		{
 			auto db_path = add_db_postfix ? database_path_for_backend (path, backend_type) : path;
-			backend = std::make_unique<nano::store::rocksdb::backend_rocksdb> (db_path, node_config.rocksdb_config, logger, node_config.diagnostics_config.txn_tracking, node_config.block_processor_batch_max_time);
+			backend = std::make_unique<nano::store::rocksdb::backend_rocksdb> (db_path, node_config.rocksdb_config, logger, txn_tracking);
 			break;
 		}
 	}

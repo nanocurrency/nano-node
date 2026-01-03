@@ -51,7 +51,7 @@ public:
 class txn_tracker
 {
 public:
-	txn_tracker (nano::logger &, nano::txn_tracking_config const & txn_tracking_config, std::chrono::milliseconds block_processor_batch_max_time);
+	txn_tracker (nano::logger &, nano::txn_tracking_config const & txn_tracking_config);
 
 	void serialize_json (boost::property_tree::ptree & json, std::chrono::milliseconds min_read_time, std::chrono::milliseconds min_write_time);
 	void add (transaction_impl const * transaction_impl);
@@ -62,7 +62,6 @@ private:
 	std::vector<txn_stats> stats;
 	nano::logger & logger;
 	nano::txn_tracking_config txn_tracking_config;
-	std::chrono::milliseconds block_processor_batch_max_time;
 
 	void log_if_held_long_enough (txn_stats const & stats) const;
 };
