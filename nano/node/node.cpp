@@ -14,8 +14,6 @@
 #include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/bootstrap/bootstrap_service.hpp>
-#include <nano/node/bootstrap_weights_beta.hpp>
-#include <nano/node/bootstrap_weights_live.hpp>
 #include <nano/node/bounded_backlog.hpp>
 #include <nano/node/bucketing.hpp>
 #include <nano/node/cementing_set.hpp>
@@ -65,6 +63,7 @@
 #include <nano/store/ledger/version.hpp>
 #include <nano/store/ledger_store.hpp>
 #include <nano/store/rocksdb/backend_rocksdb.hpp>
+#include <nano/weights/bootstrap_weights.hpp>
 
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -74,21 +73,6 @@
 #include <fstream>
 #include <future>
 #include <sstream>
-
-double constexpr nano::node::price_max;
-double constexpr nano::node::free_cutoff;
-
-namespace nano::weights
-{
-extern std::vector<std::pair<std::string, std::string>> preconfigured_weights_live;
-extern uint64_t max_blocks_live;
-extern std::vector<std::pair<std::string, std::string>> preconfigured_weights_beta;
-extern uint64_t max_blocks_beta;
-}
-
-/*
- * node
- */
 
 nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, uint16_t peering_port_a, std::filesystem::path const & application_path_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
 	node (io_ctx_a, application_path_a, nano::node_config (peering_port_a), work_a, flags_a, seq)
@@ -390,8 +374,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	if ((network_params.network.is_live_network () || network_params.network.is_beta_network ()) && !flags.inactive_node)
 	{
 		auto const bootstrap_weights = get_bootstrap_weights ();
-		ledger.bootstrap_weight_max_blocks = bootstrap_weights.first;
-		ledger.bootstrap_weights = bootstrap_weights.second;
+		ledger.bootstrap_weight_max_blocks = bootstrap_weights.max_blocks;
+		ledger.bootstrap_weights = bootstrap_weights.representatives;
 
 		logger.info (nano::log::type::node, "Initial bootstrap height: {:>10}", ledger.bootstrap_weight_max_blocks);
 		logger.info (nano::log::type::node, "Current ledger height:    {:>10}", ledger.block_count ());
@@ -889,20 +873,9 @@ int nano::node::store_version ()
 	return store.version.get (transaction);
 }
 
-std::pair<uint64_t, std::unordered_map<nano::account, nano::uint128_t>> nano::node::get_bootstrap_weights () const
+nano::bootstrap_weights nano::node::get_bootstrap_weights () const
 {
-	std::vector<std::pair<std::string, std::string>> preconfigured_weights = network_params.network.is_live_network () ? nano::weights::preconfigured_weights_live : nano::weights::preconfigured_weights_beta;
-	uint64_t max_blocks = network_params.network.is_live_network () ? nano::weights::max_blocks_live : nano::weights::max_blocks_beta;
-	std::unordered_map<nano::account, nano::uint128_t> weights;
-
-	for (const auto & entry : preconfigured_weights)
-	{
-		nano::account account;
-		account.decode_account (entry.first);
-		weights[account] = nano::uint128_t (entry.second);
-	}
-
-	return { max_blocks, weights };
+	return nano::get_bootstrap_weights (network_params.network.current_network);
 }
 
 void nano::node::bootstrap_block (const nano::block_hash & hash)

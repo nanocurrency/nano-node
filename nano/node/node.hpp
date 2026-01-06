@@ -21,6 +21,7 @@
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
+#include <nano/weights/bootstrap_weights.hpp>
 
 #include <boost/program_options.hpp>
 #include <boost/thread/latch.hpp>
@@ -71,6 +72,7 @@ public:
 	void work_generate (nano::work_version const, nano::root const &, uint64_t, std::function<void (std::optional<uint64_t>)>, std::optional<nano::account> const & = std::nullopt, bool const = false);
 	void add_initial_peers ();
 	void start_election (std::shared_ptr<nano::block> const & block);
+
 	bool block_confirmed (nano::block_hash const &);
 	// This function may spuriously return false after returning true until the database transaction is refreshed
 	bool block_confirmed_or_being_confirmed (nano::secure::transaction const &, nano::block_hash const &);
@@ -80,10 +82,10 @@ public:
 	uint64_t cemented_count () const;
 
 	bool online () const;
-	std::pair<uint64_t, std::unordered_map<nano::account, nano::uint128_t>> get_bootstrap_weights () const;
-	/*
-	 * Attempts to bootstrap block. This is the best effort, there is no guarantee that the block will be bootstrapped.
-	 */
+
+	nano::bootstrap_weights get_bootstrap_weights () const;
+
+	// Attempts to bootstrap block. This is the best effort, there is no guarantee that the block will be bootstrapped.
 	void bootstrap_block (nano::block_hash const &);
 
 	nano::account get_node_id () const;
@@ -216,8 +218,6 @@ public:
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	std::atomic<bool> unresponsive_work_peers{ false };
 	std::atomic<bool> stopped{ false };
-	static double constexpr price_max = 16.0;
-	static double constexpr free_cutoff = 1024.0;
 
 public: // For tests only
 	const unsigned node_seq;
@@ -238,5 +238,4 @@ private:
 nano::keypair load_or_create_node_id (std::filesystem::path const & application_path);
 
 nano::node_flags const & inactive_node_flag_defaults ();
-
 }

@@ -31,8 +31,6 @@ add_library(
   bucketing.cpp
   bounded_backlog.hpp
   bounded_backlog.cpp
-  bootstrap_weights_beta.hpp
-  bootstrap_weights_live.hpp
   bootstrap/account_sets.hpp
   bootstrap/account_sets.cpp
   bootstrap/bootstrap_config.hpp
@@ -224,6 +222,7 @@ target_link_libraries(
   nano_messages
   nano_store
   secure
+  weights
   rpc
   libminiupnpc-static
   argon2
