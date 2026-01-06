@@ -5922,13 +5922,6 @@ TEST (rpc, block_confirmed)
 
 TEST (rpc, database_txn_tracker)
 {
-	// TODO: Reenable when RocksDB supports transaction tracking
-	if (nano::default_database_backend () == nano::database_backend::rocksdb)
-	{
-		// Don't test this in rocksdb mode
-		return;
-	}
-
 	// First try when database tracking is disabled
 	{
 		nano::test::system system;
