@@ -11,6 +11,7 @@
 #include <nano/secure/rep_weights.hpp>
 #include <nano/secure/transaction.hpp>
 #include <nano/store/ledger_store.hpp>
+#include <nano/weights/bootstrap_weights.hpp>
 
 #include <deque>
 #include <map>
@@ -113,11 +114,9 @@ public:
 
 public:
 	uint64_t const max_backlog_size{ 0 };
-
-	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;
-	uint64_t bootstrap_weight_max_blocks{ 1 };
-
 	bool pruning{ false };
+
+	nano::bootstrap_weights bootstrap_weights{};
 
 private:
 	void initialize (nano::generate_cache_flags const &);

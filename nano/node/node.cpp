@@ -373,11 +373,9 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 
 	if ((network_params.network.is_live_network () || network_params.network.is_beta_network ()) && !flags.inactive_node)
 	{
-		auto const bootstrap_weights = get_bootstrap_weights ();
-		ledger.bootstrap_weight_max_blocks = bootstrap_weights.max_blocks;
-		ledger.bootstrap_weights = bootstrap_weights.representatives;
+		ledger.bootstrap_weights = get_bootstrap_weights ();
 
-		logger.info (nano::log::type::node, "Initial bootstrap height: {:>10}", ledger.bootstrap_weight_max_blocks);
+		logger.info (nano::log::type::node, "Initial bootstrap height: {:>10}", ledger.bootstrap_weights.max_blocks);
 		logger.info (nano::log::type::node, "Current ledger height:    {:>10}", ledger.block_count ());
 
 		// Use bootstrap weights if initial bootstrap is not completed
@@ -388,7 +386,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			logger.info (nano::log::type::node, "******************************************** Bootstrap weights ********************************************");
 
 			// Sort the weights
-			std::vector<std::pair<nano::account, nano::uint128_t>> sorted_weights (ledger.bootstrap_weights.begin (), ledger.bootstrap_weights.end ());
+			std::vector<std::pair<nano::account, nano::uint128_t>> sorted_weights (ledger.bootstrap_weights.representatives.begin (), ledger.bootstrap_weights.representatives.end ());
 			std::sort (sorted_weights.begin (), sorted_weights.end (), [] (auto const & entry1, auto const & entry2) {
 				return entry1.second > entry2.second;
 			});

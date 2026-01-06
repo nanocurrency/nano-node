@@ -475,14 +475,14 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::random_blocks (secure::tr
 
 bool nano::ledger::bootstrap_height_reached () const
 {
-	return cache.block_count >= bootstrap_weight_max_blocks;
+	return cache.block_count >= bootstrap_weights.max_blocks;
 }
 
 std::unordered_map<nano::account, nano::uint128_t> nano::ledger::rep_weights_snapshot () const
 {
 	if (!bootstrap_height_reached ())
 	{
-		return bootstrap_weights;
+		return bootstrap_weights.representatives;
 	}
 	else
 	{
@@ -494,8 +494,8 @@ nano::uint128_t nano::ledger::weight (nano::account const & account) const
 {
 	if (!bootstrap_height_reached ())
 	{
-		auto weight = bootstrap_weights.find (account);
-		if (weight != bootstrap_weights.end ())
+		auto weight = bootstrap_weights.representatives.find (account);
+		if (weight != bootstrap_weights.representatives.end ())
 		{
 			return weight->second;
 		}
@@ -861,7 +861,7 @@ uint64_t nano::ledger::backlog_size () const
 uint64_t nano::ledger::max_backlog () const
 {
 	auto const count = cemented_count ();
-	auto const max_bootstrap_count = bootstrap_weight_max_blocks;
+	auto const max_bootstrap_count = bootstrap_weights.max_blocks;
 
 	if (max_backlog_size == 0)
 	{
@@ -875,7 +875,7 @@ uint64_t nano::ledger::max_backlog () const
 	}
 	else
 	{
-		// If the bootstrap weight hasn't been reached, we allow a backlog of up to bootstrap_weight_max_blocks
+		// If the bootstrap weight hasn't been reached, we allow a backlog of up to bootstrap_weights.max_blocks
 		// This should avoid having to rollback too many blocks once the bootstrap weight is reached
 		auto const allowed_backlog = max_bootstrap_count - count;
 		return std::max (allowed_backlog, max_backlog_size);
@@ -885,7 +885,7 @@ uint64_t nano::ledger::max_backlog () const
 nano::container_info nano::ledger::container_info () const
 {
 	nano::container_info info;
-	info.put ("bootstrap_weights", bootstrap_weights);
+	info.put ("bootstrap_weights", bootstrap_weights.representatives);
 	info.add ("rep_weights", rep_weights.container_info ());
 	return info;
 }

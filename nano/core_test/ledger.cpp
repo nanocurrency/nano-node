@@ -2291,8 +2291,8 @@ TEST (ledger, bootstrap_weights)
 	}
 
 	// Override bootstrap weights
-	ledger.bootstrap_weight_max_blocks = 4;
-	ledger.bootstrap_weights[rep_key1.pub] = 1000;
+	ledger.bootstrap_weights.max_blocks = 4;
+	ledger.bootstrap_weights.representatives[rep_key1.pub] = 1000;
 
 	// Should use bootstrap weights
 	ASSERT_EQ (2, ledger.block_count ());
