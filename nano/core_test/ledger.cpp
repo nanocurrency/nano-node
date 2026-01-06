@@ -29,6 +29,7 @@
 #include <nano/test_common/make_store.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
+#include <nano/weights/bootstrap_weights.hpp>
 
 #include <gtest/gtest.h>
 
@@ -6029,5 +6030,50 @@ TEST (ledger_transaction, multithreaded_interleaving)
 	for (auto & thread : threads)
 	{
 		thread.join ();
+	}
+}
+
+TEST (bootstrap_weights, bootstrap_weights)
+{
+	// Live network should return non-empty weights with sane values
+	{
+		auto weights = nano::get_bootstrap_weights (nano::network_type::nano_live_network);
+		ASSERT_GT (weights.max_blocks, 100'000'000); // Should be at least 100M blocks
+		ASSERT_GT (weights.representatives.size (), 100); // Should have many representatives
+		ASSERT_LT (weights.representatives.size (), 10000);
+		nano::uint128_t total_weight{ 0 };
+		for (auto const & [account, weight] : weights.representatives)
+		{
+			ASSERT_GT (weight, 0);
+			total_weight += weight;
+		}
+		ASSERT_GT (total_weight, nano::nano_ratio * 100'000'000); // Should represent significant voting weight (>100M nano)
+		ASSERT_LT (total_weight, nano::nano_ratio * 340'000'000); // Should not exceed max supply (~340M nano)
+	}
+	// Beta network should return non-empty weights
+	{
+		auto weights = nano::get_bootstrap_weights (nano::network_type::nano_beta_network);
+		ASSERT_GT (weights.max_blocks, 0);
+		ASSERT_FALSE (weights.representatives.empty ());
+		for (auto const & [account, weight] : weights.representatives)
+		{
+			ASSERT_GT (weight, 0);
+		}
+	}
+	// Dev/test/invalid networks should return empty weights
+	{
+		auto weights = nano::get_bootstrap_weights (nano::network_type::nano_dev_network);
+		ASSERT_EQ (weights.max_blocks, 0);
+		ASSERT_TRUE (weights.representatives.empty ());
+	}
+	{
+		auto weights = nano::get_bootstrap_weights (nano::network_type::nano_test_network);
+		ASSERT_EQ (weights.max_blocks, 0);
+		ASSERT_TRUE (weights.representatives.empty ());
+	}
+	{
+		auto weights = nano::get_bootstrap_weights (nano::network_type::invalid);
+		ASSERT_EQ (weights.max_blocks, 0);
+		ASSERT_TRUE (weights.representatives.empty ());
 	}
 }
