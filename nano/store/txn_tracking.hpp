@@ -30,9 +30,6 @@ public:
 	bool enable{ false };
 	std::chrono::milliseconds min_read_txn_time{ 5000 };
 	std::chrono::milliseconds min_write_txn_time{ 500 };
-	bool ignore_writes_below_block_processor_max_time{ true };
-	/** Time threshold for filtering block processor writes (used when ignore_writes_below_block_processor_max_time is true) */
-	std::chrono::milliseconds block_processor_batch_max_time{ 5000 };
 };
 
 /**

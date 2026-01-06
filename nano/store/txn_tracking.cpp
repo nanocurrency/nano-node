@@ -114,16 +114,7 @@ void nano::store::txn_tracker::log_if_held_long_enough (txn_stats const & stats)
 	auto is_write = stats.is_write ();
 	auto time_open = stats.timer.since_start ();
 
-	auto should_ignore = false;
-	// Reduce noise in log files by removing any entries from the block processor (if enabled) which are less than the max batch time (+ a few second buffer) because these are expected writes during bootstrapping.
-	auto is_below_max_time = time_open <= (config.block_processor_batch_max_time + std::chrono::seconds (3));
-	bool is_blk_processing_thread = stats.thread_name == nano::thread_role::get_string (nano::thread_role::name::block_processing);
-	if (config.ignore_writes_below_block_processor_max_time && is_blk_processing_thread && is_write && is_below_max_time)
-	{
-		should_ignore = true;
-	}
-
-	if (!should_ignore && ((is_write && time_open >= config.min_write_txn_time) || (!is_write && time_open >= config.min_read_txn_time)))
+	if ((is_write && time_open >= config.min_write_txn_time) || (!is_write && time_open >= config.min_read_txn_time))
 	{
 		debug_assert (stats.stacktrace);
 
@@ -164,23 +155,13 @@ nano::error nano::store::txn_tracking_config::serialize_toml (nano::tomlconfig &
 	toml.put ("enable", enable, "Enable or disable database transaction tracing.\ntype:bool");
 	toml.put ("min_read_txn_time", min_read_txn_time.count (), "Log stacktrace when read transactions are held longer than this duration.\ntype:milliseconds");
 	toml.put ("min_write_txn_time", min_write_txn_time.count (), "Log stacktrace when write transactions are held longer than this duration.\ntype:milliseconds");
-	toml.put ("ignore_writes_below_block_processor_max_time", ignore_writes_below_block_processor_max_time, "Ignore any block processor writes less than block_processor_batch_max_time.\ntype:bool");
 	return toml.get_error ();
 }
 
 nano::error nano::store::txn_tracking_config::deserialize_toml (nano::tomlconfig & toml)
 {
-	toml.get_optional<bool> ("enable", enable);
-
-	auto min_read_txn_time_l = static_cast<unsigned long> (min_read_txn_time.count ());
-	toml.get_optional ("min_read_txn_time", min_read_txn_time_l);
-	min_read_txn_time = std::chrono::milliseconds (min_read_txn_time_l);
-
-	auto min_write_txn_time_l = static_cast<unsigned long> (min_write_txn_time.count ());
-	toml.get_optional ("min_write_txn_time", min_write_txn_time_l);
-	min_write_txn_time = std::chrono::milliseconds (min_write_txn_time_l);
-
-	toml.get_optional<bool> ("ignore_writes_below_block_processor_max_time", ignore_writes_below_block_processor_max_time);
-
+	toml.get ("enable", enable);
+	toml.get_duration ("min_read_txn_time", min_read_txn_time);
+	toml.get_duration ("min_write_txn_time", min_write_txn_time);
 	return toml.get_error ();
 }
