@@ -52,14 +52,10 @@ bool is_not_found (::rocksdb::Status const & status)
 namespace nano::store::rocksdb
 {
 backend_rocksdb::backend_rocksdb (std::filesystem::path const & path, nano::rocksdb_config const & config_a, nano::logger & logger_a, nano::store::txn_tracking_config const & txn_tracking_config_a) :
+	backend{ logger_a, txn_tracking_config_a },
 	database_path{ path },
 	config{ config_a }
 {
-	if (txn_tracking_config_a.enable)
-	{
-		tracker = std::make_unique<nano::store::txn_tracker> (logger_a, txn_tracking_config_a);
-	}
-
 	generate_tombstone_map ();
 }
 
@@ -484,13 +480,13 @@ std::string backend_rocksdb::error_string (int status) const
 
 nano::store::read_transaction backend_rocksdb::tx_begin_read () const
 {
-	return store::read_transaction{ std::make_unique<nano::store::rocksdb::read_transaction_impl> (db.get (), create_txn_callbacks ()) };
+	return store::read_transaction{ std::make_unique<nano::store::rocksdb::read_transaction_impl> (db.get (), txn_tracking_callbacks ()) };
 }
 
 nano::store::write_transaction backend_rocksdb::tx_begin_write ()
 {
 	release_assert (transaction_db != nullptr);
-	return store::write_transaction{ std::make_unique<nano::store::rocksdb::write_transaction_impl> (transaction_db, create_txn_callbacks ()) };
+	return store::write_transaction{ std::make_unique<nano::store::rocksdb::write_transaction_impl> (transaction_db, txn_tracking_callbacks ()) };
 }
 
 void backend_rocksdb::backup ()

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/errors.hpp>
+#include <nano/lib/fwd.hpp>
 #include <nano/lib/result.hpp>
 #include <nano/store/common.hpp>
 #include <nano/store/db_val.hpp>
@@ -63,6 +64,7 @@ using copy_progress_callback = std::function<void (copy_progress const &)>;
 class backend
 {
 public:
+	backend (nano::logger &, nano::store::txn_tracking_config const &);
 	virtual ~backend ();
 
 	std::optional<backend_meta> fetch_meta ();
@@ -134,14 +136,12 @@ protected:
 	virtual void open_impl (column_schema, nano::store::open_mode) = 0;
 	virtual void close_impl () = 0;
 
-	// Transaction tracking (optional, enabled via config)
-	mutable std::unique_ptr<txn_tracker> tracker;
-
-	// Helper to create callbacks that use the tracker
-	txn_callbacks create_txn_callbacks () const;
-
 private:
 	void load_meta ();
+
+protected: // Transaction tracking
+	mutable std::unique_ptr<nano::store::txn_tracker> tracker;
+	nano::store::txn_callbacks txn_tracking_callbacks () const;
 
 private:
 	bool is_open{ false };

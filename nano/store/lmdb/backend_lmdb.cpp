@@ -11,13 +11,10 @@
 namespace nano::store::lmdb
 {
 backend_lmdb::backend_lmdb (std::filesystem::path const & path, nano::lmdb_config const & config_a, nano::logger & logger_a, nano::store::txn_tracking_config const & txn_tracking_config_a) :
+	backend{ logger_a, txn_tracking_config_a },
 	database_path{ path },
 	config{ config_a }
 {
-	if (txn_tracking_config_a.enable)
-	{
-		tracker = std::make_unique<nano::store::txn_tracker> (logger_a, txn_tracking_config_a);
-	}
 }
 
 backend_lmdb::~backend_lmdb ()
@@ -213,12 +210,12 @@ std::string backend_lmdb::error_string (int status) const
 
 nano::store::read_transaction backend_lmdb::tx_begin_read () const
 {
-	return env->tx_begin_read (create_txn_callbacks ());
+	return env->tx_begin_read (txn_tracking_callbacks ());
 }
 
 nano::store::write_transaction backend_lmdb::tx_begin_write ()
 {
-	return env->tx_begin_write (create_txn_callbacks ());
+	return env->tx_begin_write (txn_tracking_callbacks ());
 }
 
 void backend_lmdb::backup ()
