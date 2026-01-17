@@ -115,8 +115,6 @@ public:
 	nano::store::ledger_store & store;
 	std::unique_ptr<nano::wallets_store> wallets_store_impl;
 	nano::wallets_store & wallets_store;
-	std::unique_ptr<nano::wallets> wallets_impl;
-	nano::wallets & wallets;
 	std::unique_ptr<nano::ledger> ledger_impl;
 	nano::ledger & ledger;
 	std::unique_ptr<nano::thread_runner> runner_impl;
@@ -163,6 +161,8 @@ public:
 	nano::active_elections & active;
 	std::unique_ptr<nano::online_reps> online_reps_impl;
 	nano::online_reps & online_reps;
+	std::unique_ptr<nano::wallets> wallets_impl;
+	nano::wallets & wallets;
 	std::unique_ptr<nano::rep_crawler> rep_crawler_impl;
 	nano::rep_crawler & rep_crawler;
 	std::unique_ptr<nano::rep_tiers> rep_tiers_impl;

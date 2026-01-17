@@ -12,12 +12,19 @@
 
 using namespace std::chrono_literals;
 
+namespace
+{
+nano::wallets make_wallets (nano::node & node)
+{
+	return nano::wallets (node, node.wallets_store, node.ledger, node.config, node.network_params, node.online_reps, node.network, node.logger);
+}
+}
+
 TEST (wallets, open_create)
 {
 	nano::test::system system (1);
-	bool error (false);
-	nano::wallets wallets (error, *system.nodes[0]);
-	ASSERT_FALSE (error);
+	auto & node = *system.nodes[0];
+	auto wallets = make_wallets (node);
 	ASSERT_EQ (1, wallets.items.size ()); // it starts out with a default wallet
 	auto id = nano::random_wallet_id ();
 	ASSERT_EQ (nullptr, wallets.open (id));
@@ -29,11 +36,10 @@ TEST (wallets, open_create)
 TEST (wallets, open_existing)
 {
 	nano::test::system system (1);
+	auto & node = *system.nodes[0];
 	auto id (nano::random_wallet_id ());
 	{
-		bool error (false);
-		nano::wallets wallets (error, *system.nodes[0]);
-		ASSERT_FALSE (error);
+		auto wallets = make_wallets (node);
 		ASSERT_EQ (1, wallets.items.size ());
 		auto wallet (wallets.create (id));
 		ASSERT_NE (nullptr, wallet);
@@ -48,9 +54,7 @@ TEST (wallets, open_existing)
 		}
 	}
 	{
-		bool error (false);
-		nano::wallets wallets (error, *system.nodes[0]);
-		ASSERT_FALSE (error);
+		auto wallets = make_wallets (node);
 		ASSERT_EQ (2, wallets.items.size ());
 		ASSERT_NE (nullptr, wallets.open (id));
 	}
@@ -59,11 +63,10 @@ TEST (wallets, open_existing)
 TEST (wallets, remove)
 {
 	nano::test::system system (1);
+	auto & node = *system.nodes[0];
 	nano::wallet_id one (1);
 	{
-		bool error (false);
-		nano::wallets wallets (error, *system.nodes[0]);
-		ASSERT_FALSE (error);
+		auto wallets = make_wallets (node);
 		ASSERT_EQ (1, wallets.items.size ());
 		auto wallet (wallets.create (one));
 		ASSERT_NE (nullptr, wallet);
@@ -72,9 +75,7 @@ TEST (wallets, remove)
 		ASSERT_EQ (1, wallets.items.size ());
 	}
 	{
-		bool error (false);
-		nano::wallets wallets (error, *system.nodes[0]);
-		ASSERT_FALSE (error);
+		auto wallets = make_wallets (node);
 		ASSERT_EQ (1, wallets.items.size ());
 	}
 }
