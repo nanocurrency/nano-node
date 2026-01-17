@@ -1074,10 +1074,9 @@ TEST (wallet, foreach_representative_deadlock)
 	ASSERT_EQ (1, node.wallets.reps ().voting);
 
 	bool set = false;
-	node.wallets.foreach_representative ([&node, &set, &system] (nano::public_key const & pub, nano::raw_key const & prv) {
-		node.wallets.foreach_representative ([&node, &set, &system] (nano::public_key const & pub, nano::raw_key const & prv) {
-			ASSERT_TIMELY (5s, node.wallets.mutex.try_lock () == 1);
-			node.wallets.mutex.unlock ();
+	node.wallets.foreach_representative ([&node, &set] (nano::public_key const & pub, nano::raw_key const & prv) {
+		node.wallets.foreach_representative ([&set] (nano::public_key const & pub, nano::raw_key const & prv) {
+			// Nested foreach_representative should work without deadlock since items is using nano::locked<>
 			set = true;
 		});
 	});

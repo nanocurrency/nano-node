@@ -250,10 +250,9 @@ void nano::test::system::ledger_initialization_set (std::deque<nano::keypair> co
 std::shared_ptr<nano::wallet> nano::test::system::wallet (size_t index_a)
 {
 	debug_assert (nodes.size () > index_a);
-	auto size (nodes[index_a]->wallets.items.size ());
-	(void)size;
-	debug_assert (size == 1);
-	return nodes[index_a]->wallets.items.begin ()->second;
+	auto wallets_l = nodes[index_a]->wallets.get_wallets ();
+	debug_assert (wallets_l.size () == 1);
+	return wallets_l.begin ()->second;
 }
 
 nano::account nano::test::system::account (store::transaction const & transaction_a, size_t index_a)
@@ -588,7 +587,8 @@ void nano::test::system::generate_change_unknown (nano::node & node_a, std::vect
 
 void nano::test::system::generate_send_new (nano::node & node_a, std::vector<nano::account> & accounts_a)
 {
-	debug_assert (node_a.wallets.items.size () == 1);
+	auto wallets_l = node_a.wallets.get_wallets ();
+	debug_assert (wallets_l.size () == 1);
 	nano::uint128_t amount;
 	nano::account source;
 	{
@@ -598,7 +598,7 @@ void nano::test::system::generate_send_new (nano::node & node_a, std::vector<nan
 	}
 	if (!amount.is_zero ())
 	{
-		auto pub (node_a.wallets.items.begin ()->second->deterministic_insert ());
+		auto pub (wallets_l.begin ()->second->deterministic_insert ());
 		accounts_a.push_back (pub);
 		auto hash (wallet (0)->send_sync (source, pub, amount));
 		(void)hash;

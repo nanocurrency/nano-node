@@ -150,7 +150,7 @@ TEST (rpc, account_create)
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "account_create");
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	auto response0 (wait_response (system, rpc_ctx, request));
 	auto account_text0 (response0.get<std::string> ("account"));
 	nano::account account0;
@@ -199,7 +199,7 @@ TEST (rpc, wallet_contains)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "wallet_contains");
 	request.put ("account", nano::dev::genesis_key.pub.to_account ());
@@ -214,7 +214,7 @@ TEST (rpc, wallet_doesnt_contain)
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "wallet_contains");
 	request.put ("account", nano::dev::genesis_key.pub.to_account ());
@@ -258,7 +258,7 @@ TEST (rpc, send)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "send");
 	request.put ("source", nano::dev::genesis_key.pub.to_account ());
@@ -280,7 +280,7 @@ TEST (rpc, send_fail)
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "send");
 	request.put ("source", nano::dev::genesis_key.pub.to_account ());
@@ -297,7 +297,7 @@ TEST (rpc, send_work)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "send");
 	request.put ("source", nano::dev::genesis_key.pub.to_account ());
@@ -325,7 +325,7 @@ TEST (rpc, send_work_disabled)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "send");
 	request.put ("source", nano::dev::genesis_key.pub.to_account ());
@@ -342,7 +342,7 @@ TEST (rpc, send_idempotent)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "send");
 	request.put ("source", nano::dev::genesis_key.pub.to_account ());
@@ -383,7 +383,7 @@ TEST (rpc, send_epoch_2)
 
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "send");
 	request.put ("source", nano::dev::genesis_key.pub.to_account ());
@@ -437,7 +437,7 @@ TEST (rpc, wallet_add)
 	nano::keypair key1;
 	std::string key_text = key1.prv.to_string ();
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "wallet_add");
 	request.put ("key", key_text);
@@ -453,7 +453,7 @@ TEST (rpc, wallet_password_valid)
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "password_valid");
 	auto response (wait_response (system, rpc_ctx, request));
@@ -467,7 +467,7 @@ TEST (rpc, wallet_password_change)
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "password_change");
 	request.put ("password", "test");
@@ -496,7 +496,7 @@ TEST (rpc, wallet_password_enter)
 		system.wallet (0)->store.password.value (password_l);
 	}
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "password_enter");
 	request.put ("password", "");
@@ -511,7 +511,7 @@ TEST (rpc, wallet_representative)
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "wallet_representative");
 	auto response (wait_response (system, rpc_ctx, request));
@@ -525,14 +525,14 @@ TEST (rpc, wallet_representative_set)
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	nano::keypair key;
 	request.put ("action", "wallet_representative_set");
 	request.put ("representative", key.pub.to_account ());
 	auto response (wait_response (system, rpc_ctx, request));
 	auto transaction (node->wallets.tx_begin_read ());
-	ASSERT_EQ (key.pub, node->wallets.items.begin ()->second->store.representative (transaction));
+	ASSERT_EQ (key.pub, node->wallets.get_wallets ().begin ()->second->store.representative (transaction));
 }
 
 TEST (rpc, wallet_representative_set_force)
@@ -542,7 +542,7 @@ TEST (rpc, wallet_representative_set_force)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	nano::keypair key;
 	request.put ("action", "wallet_representative_set");
@@ -551,7 +551,7 @@ TEST (rpc, wallet_representative_set_force)
 	auto response (wait_response (system, rpc_ctx, request));
 	{
 		auto transaction (node->wallets.tx_begin_read ());
-		ASSERT_EQ (key.pub, node->wallets.items.begin ()->second->store.representative (transaction));
+		ASSERT_EQ (key.pub, node->wallets.get_wallets ().begin ()->second->store.representative (transaction));
 	}
 	nano::account representative{};
 	while (representative != key.pub)
@@ -575,7 +575,7 @@ TEST (rpc, account_list)
 	system.wallet (0)->insert_adhoc (key2.prv);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "account_list");
 	auto response (wait_response (system, rpc_ctx, request));
@@ -602,7 +602,7 @@ TEST (rpc, wallet_key_valid)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "wallet_key_valid");
 	auto response (wait_response (system, rpc_ctx, request));
@@ -621,7 +621,7 @@ TEST (rpc, wallet_create)
 	std::string wallet_text (response.get<std::string> ("wallet"));
 	nano::wallet_id wallet_id;
 	ASSERT_FALSE (wallet_id.decode_hex (wallet_text));
-	ASSERT_NE (node->wallets.items.end (), node->wallets.items.find (wallet_id));
+	ASSERT_NE (nullptr, node->wallets.get (wallet_id));
 }
 
 TEST (rpc, wallet_create_seed)
@@ -640,18 +640,18 @@ TEST (rpc, wallet_create_seed)
 	std::string wallet_text (response.get<std::string> ("wallet"));
 	nano::wallet_id wallet_id;
 	ASSERT_FALSE (wallet_id.decode_hex (wallet_text));
-	auto existing (node->wallets.items.find (wallet_id));
-	ASSERT_NE (node->wallets.items.end (), existing);
+	auto existing = node->wallets.get (wallet_id);
+	ASSERT_NE (nullptr, existing);
 	{
 		auto transaction (node->wallets.tx_begin_read ());
 		nano::raw_key seed0;
-		existing->second->store.seed (seed0, transaction);
+		existing->store.seed (seed0, transaction);
 		ASSERT_EQ (seed, seed0);
 	}
 	auto account_text (response.get<std::string> ("last_restored_account"));
 	nano::account account;
 	ASSERT_FALSE (account.decode_account (account_text));
-	ASSERT_TRUE (existing->second->exists (account));
+	ASSERT_TRUE (existing->exists (account));
 	ASSERT_EQ (pub, account);
 	ASSERT_EQ ("1", response.get<std::string> ("restored_count"));
 }
@@ -664,7 +664,7 @@ TEST (rpc, wallet_export)
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_export");
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	auto response (wait_response (system, rpc_ctx, request));
 	std::string wallet_json (response.get<std::string> ("json"));
 	bool error (false);
@@ -681,19 +681,19 @@ TEST (rpc, wallet_destroy)
 	auto node = add_ipc_enabled_node (system);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto const rpc_ctx = add_rpc (system, node);
-	auto wallet_id (node->wallets.items.begin ()->first);
+	auto wallet_id (node->wallets.get_wallets ().begin ()->first);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_destroy");
 	request.put ("wallet", wallet_id.to_string ());
 	auto response (wait_response (system, rpc_ctx, request));
-	ASSERT_EQ (node->wallets.items.end (), node->wallets.items.find (wallet_id));
+	ASSERT_EQ (nullptr, node->wallets.get (wallet_id));
 }
 
 TEST (rpc, account_move)
 {
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
-	auto wallet_id (node->wallets.items.begin ()->first);
+	auto wallet_id (node->wallets.get_wallets ().begin ()->first);
 	auto destination (system.wallet (0));
 	destination->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key;
@@ -2425,7 +2425,7 @@ TEST (rpc, account_representative_set)
 	boost::property_tree::ptree request;
 	request.put ("account", key2.pub.to_account ());
 	request.put ("representative", key2.pub.to_account ());
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	request.put ("action", "account_representative_set");
 	auto response (wait_response (system, rpc_ctx, request));
 	std::string block_text1 (response.get<std::string> ("block"));
@@ -2452,7 +2452,7 @@ TEST (rpc, account_representative_set_work_disabled)
 	nano::keypair rep;
 	request.put ("account", nano::dev::genesis_key.pub.to_account ());
 	request.put ("representative", rep.pub.to_account ());
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	request.put ("action", "account_representative_set");
 	{
 		auto response (wait_response (system, rpc_ctx, request, 10s));
@@ -2478,7 +2478,7 @@ TEST (rpc, account_representative_set_epoch_2_insufficient_work)
 
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "account_representative_set");
 	request.put ("account", nano::dev::genesis_key.pub.to_account ());
@@ -2505,7 +2505,7 @@ TEST (rpc, account_remove)
 	auto const rpc_ctx = add_rpc (system0, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "account_remove");
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	request.put ("account", key1.to_account ());
 	auto response (wait_response (system0, rpc_ctx, request));
 	ASSERT_FALSE (system0.wallet (0)->exists (key1));
@@ -2544,7 +2544,7 @@ TEST (rpc, wallet_seed)
 	}
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_seed");
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	auto response (wait_response (system, rpc_ctx, request));
 	{
 		std::string seed_text (response.get<std::string> ("seed"));
@@ -2570,7 +2570,7 @@ TEST (rpc, wallet_change_seed)
 	auto pub (nano::pub_key (prv));
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_change_seed");
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	request.put ("seed", seed.to_string ());
 	auto response (wait_response (system0, rpc_ctx, request));
 	{
@@ -2595,7 +2595,7 @@ TEST (rpc, wallet_frontiers)
 	auto const rpc_ctx = add_rpc (system0, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_frontiers");
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	auto response (wait_response (system0, rpc_ctx, request));
 	auto & frontiers_node (response.get_child ("frontiers"));
 	std::vector<nano::account> frontiers;
@@ -3205,7 +3205,7 @@ TEST (rpc, wallet_info)
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_info");
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	auto response (wait_response (system, rpc_ctx, request));
 	std::string balance_text (response.get<std::string> ("balance"));
 	ASSERT_EQ ("340282366920938463463374607431768211454", balance_text);
@@ -3233,7 +3233,7 @@ TEST (rpc, wallet_balances)
 	auto const rpc_ctx = add_rpc (system0, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_balances");
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	auto response (wait_response (system0, rpc_ctx, request));
 	for (auto & balances : response.get_child ("balances"))
 	{
@@ -3309,7 +3309,7 @@ TEST (rpc, wallet_pending)
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_pending");
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	auto response (wait_response (system, rpc_ctx, request));
 	ASSERT_EQ ("1", response.get<std::string> ("deprecated"));
 	ASSERT_EQ (1, response.get_child ("blocks").size ());
@@ -3335,7 +3335,7 @@ TEST (rpc, wallet_receivable)
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_receivable");
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	request.put ("count", "100");
 	auto response (wait_response (system, rpc_ctx, request));
 	ASSERT_EQ (1, response.get_child ("blocks").size ());
@@ -3438,13 +3438,13 @@ TEST (rpc, work_get)
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "work_get");
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	request.put ("account", nano::dev::genesis_key.pub.to_account ());
 	auto response (wait_response (system, rpc_ctx, request));
 	std::string work_text (response.get<std::string> ("work"));
 	uint64_t work (1);
 	auto transaction (node->wallets.tx_begin_read ());
-	node->wallets.items.begin ()->second->store.work_get (transaction, nano::dev::genesis_key.pub, work);
+	node->wallets.get_wallets ().begin ()->second->store.work_get (transaction, nano::dev::genesis_key.pub, work);
 	ASSERT_EQ (nano::to_string_hex (work), work_text);
 }
 
@@ -3457,7 +3457,7 @@ TEST (rpc, wallet_work_get)
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_work_get");
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	auto response (wait_response (system, rpc_ctx, request));
 	auto transaction (node->wallets.tx_begin_read ());
 	for (auto & works : response.get_child ("works"))
@@ -3466,7 +3466,7 @@ TEST (rpc, wallet_work_get)
 		ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), account_text);
 		std::string work_text (works.second.get<std::string> (""));
 		uint64_t work (1);
-		node->wallets.items.begin ()->second->store.work_get (transaction, nano::dev::genesis_key.pub, work);
+		node->wallets.get_wallets ().begin ()->second->store.work_get (transaction, nano::dev::genesis_key.pub, work);
 		ASSERT_EQ (nano::to_string_hex (work), work_text);
 	}
 }
@@ -3480,7 +3480,7 @@ TEST (rpc, work_set)
 	uint64_t work0 (100);
 	boost::property_tree::ptree request;
 	request.put ("action", "work_set");
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	request.put ("account", nano::dev::genesis_key.pub.to_account ());
 	request.put ("work", nano::to_string_hex (work0));
 	auto response (wait_response (system, rpc_ctx, request));
@@ -3488,7 +3488,7 @@ TEST (rpc, work_set)
 	ASSERT_TRUE (success.empty ());
 	uint64_t work1 (1);
 	auto transaction (node->wallets.tx_begin_read ());
-	node->wallets.items.begin ()->second->store.work_get (transaction, nano::dev::genesis_key.pub, work1);
+	node->wallets.get_wallets ().begin ()->second->store.work_get (transaction, nano::dev::genesis_key.pub, work1);
 	ASSERT_EQ (work1, work0);
 }
 
@@ -3554,7 +3554,7 @@ TEST (rpc, wallet_republish)
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_republish");
-	request.put ("wallet", node1->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node1->wallets.get_wallets ().begin ()->first.to_string ());
 	request.put ("count", 1);
 	auto response (wait_response (system, rpc_ctx, request));
 	auto & blocks_node (response.get_child ("blocks"));
@@ -3958,7 +3958,7 @@ TEST (rpc, json_block_input)
 	boost::property_tree::ptree request;
 	request.put ("action", "sign");
 	request.put ("json_block", "true");
-	std::string wallet = node1->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node1->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("account", key.pub.to_account ());
 	boost::property_tree::ptree json;
@@ -4587,7 +4587,7 @@ TEST (rpc, accounts_create)
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "accounts_create");
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	request.put ("count", "8");
 	auto response (wait_response (system, rpc_ctx, request));
 	auto & accounts (response.get_child ("accounts"));
@@ -4632,7 +4632,7 @@ TEST (rpc, block_create)
 	boost::property_tree::ptree request;
 	request.put ("action", "block_create");
 	request.put ("type", "send");
-	request.put ("wallet", node1->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node1->wallets.get_wallets ().begin ()->first.to_string ());
 	request.put ("account", nano::dev::genesis_key.pub.to_account ());
 	request.put ("previous", latest.to_string ());
 	request.put ("amount", "340282366920938463463374607431768211355");
@@ -4702,7 +4702,7 @@ TEST (rpc, block_create)
 	boost::property_tree::ptree request2;
 	request2.put ("action", "block_create");
 	request2.put ("type", "receive");
-	request2.put ("wallet", node1->wallets.items.begin ()->first.to_string ());
+	request2.put ("wallet", node1->wallets.get_wallets ().begin ()->first.to_string ());
 	request2.put ("account", key.pub.to_account ());
 	request2.put ("source", send2->hash ().to_string ());
 	request2.put ("previous", change->hash ().to_string ());
@@ -4729,7 +4729,7 @@ TEST (rpc, block_create_state)
 	boost::property_tree::ptree request;
 	request.put ("action", "block_create");
 	request.put ("type", "state");
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	request.put ("account", nano::dev::genesis_key.pub.to_account ());
 	request.put ("previous", nano::dev::genesis->hash ().to_string ());
 	request.put ("representative", nano::dev::genesis_key.pub.to_account ());
@@ -4812,7 +4812,7 @@ TEST (rpc, block_create_state_request_work)
 		boost::property_tree::ptree request;
 		request.put ("action", "block_create");
 		request.put ("type", "state");
-		request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+		request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 		request.put ("account", nano::dev::genesis_key.pub.to_account ());
 		request.put ("representative", nano::dev::genesis_key.pub.to_account ());
 		request.put ("balance", (nano::dev::constants.genesis_amount - nano::Knano_ratio).convert_to<std::string> ());
@@ -5003,7 +5003,7 @@ TEST (rpc, wallet_lock)
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 		ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
@@ -5023,7 +5023,7 @@ TEST (rpc, wallet_locked)
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "wallet_locked");
 	auto response (wait_response (system, rpc_ctx, request));
@@ -5077,7 +5077,7 @@ TEST (rpc, wallet_ledger)
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_ledger");
-	request.put ("wallet", node1->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node1->wallets.get_wallets ().begin ()->first.to_string ());
 	request.put ("sorting", "1");
 	request.put ("count", "1");
 	auto response (wait_response (system, rpc_ctx, request));
@@ -5128,7 +5128,7 @@ TEST (rpc, wallet_add_watch)
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	std::string wallet = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("action", "wallet_add_watch");
 	boost::property_tree::ptree entry;
@@ -5663,7 +5663,7 @@ TEST (rpc, wallet_history)
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_history");
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.get_wallets ().begin ()->first.to_string ());
 	auto response (wait_response (system, rpc_ctx, request));
 	std::vector<std::tuple<std::string, std::string, std::string, std::string, std::string, std::string>> history_l;
 	auto & history_node (response.get_child ("history"));
@@ -5753,7 +5753,7 @@ TEST (rpc, sign_block)
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request;
 	request.put ("action", "sign");
-	std::string wallet = node1->wallets.items.begin ()->first.to_string ();
+	std::string wallet = node1->wallets.get_wallets ().begin ()->first.to_string ();
 	request.put ("wallet", wallet);
 	request.put ("account", key.pub.to_account ());
 	std::string json;
@@ -6493,7 +6493,7 @@ TEST (rpc, receive)
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
 	auto wallet = system.wallet (0);
-	std::string wallet_text = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet_text = node->wallets.get_wallets ().begin ()->first.to_string ();
 	wallet->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key1;
 	wallet->insert_adhoc (key1.prv);
@@ -6533,7 +6533,7 @@ TEST (rpc, receive_unopened)
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
 	auto wallet = system.wallet (0);
-	std::string wallet_text = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet_text = node->wallets.get_wallets ().begin ()->first.to_string ();
 	wallet->insert_adhoc (nano::dev::genesis_key.prv);
 	// Test receiving for unopened account
 	nano::keypair key1;
@@ -6590,7 +6590,7 @@ TEST (rpc, receive_work_disabled)
 	config.work_threads = 0;
 	auto node = add_ipc_enabled_node (system, config);
 	auto wallet = system.wallet (1);
-	std::string wallet_text = node->wallets.items.begin ()->first.to_string ();
+	std::string wallet_text = node->wallets.get_wallets ().begin ()->first.to_string ();
 	wallet->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key1;
 	ASSERT_TRUE (worker_node.work_generation_enabled ());
@@ -6623,7 +6623,7 @@ TEST (rpc, receive_pruned)
 	auto node2 = add_ipc_enabled_node (system, node_config, node_flags);
 	auto wallet1 = system.wallet (0);
 	auto wallet2 = system.wallet (1);
-	std::string wallet_text = node2->wallets.items.begin ()->first.to_string ();
+	std::string wallet_text = node2->wallets.get_wallets ().begin ()->first.to_string ();
 	wallet1->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key1;
 	wallet2->insert_adhoc (key1.prv);

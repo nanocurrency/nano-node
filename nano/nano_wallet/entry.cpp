@@ -130,12 +130,13 @@ public:
 				}
 				nano::work_pool work{ config.node.network_params.network, config.node.work_threads, config.node.pow_sleep_interval, opencl_work_func };
 				node = std::make_shared<nano::node> (io_ctx, data_path, config.node, work, flags);
-				auto wallet (node->wallets.open (wallet_config.wallet));
+				auto wallet (node->wallets.get (wallet_config.wallet));
 				if (wallet == nullptr)
 				{
-					auto existing (node->wallets.items.begin ());
-					if (existing != node->wallets.items.end ())
+					auto wallets_l = node->wallets.get_wallets ();
+					if (!wallets_l.empty ())
 					{
+						auto existing = wallets_l.begin ();
 						wallet = existing->second;
 						wallet_config.wallet = existing->first;
 					}

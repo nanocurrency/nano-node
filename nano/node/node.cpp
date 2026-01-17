@@ -711,14 +711,14 @@ nano::uint128_t nano::node::minimum_principal_weight ()
 void nano::node::backup_wallet ()
 {
 	auto transaction (wallets.tx_begin_read ());
-	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
+	for (auto const & [id, wallet] : wallets.get_wallets ())
 	{
 		boost::system::error_code error_chmod;
 		auto backup_path (application_path / "backup");
 
 		std::filesystem::create_directories (backup_path);
 		nano::set_secure_perm_directory (backup_path, error_chmod);
-		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
+		wallet->store.write_backup (transaction, backup_path / (id.to_string () + ".json"));
 	}
 	auto this_l (shared ());
 	workers.post_delayed (network_params.node.backup_interval, [this_l] () {

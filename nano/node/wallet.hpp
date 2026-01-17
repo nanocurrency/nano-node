@@ -237,7 +237,7 @@ public:
 	void start ();
 	void stop ();
 
-	std::shared_ptr<nano::wallet> open (nano::wallet_id const &);
+	std::shared_ptr<nano::wallet> get (nano::wallet_id const &);
 	std::shared_ptr<nano::wallet> create (nano::wallet_id const &);
 	bool search_receivable (nano::wallet_id const &);
 	void search_receivable_all ();
@@ -254,6 +254,7 @@ public:
 	void ongoing_compute_reps ();
 	void receive_confirmed (nano::block_hash const & hash_a, nano::account const & destination_a);
 	std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> get_wallets ();
+	std::shared_ptr<nano::wallet> import_wallet (nano::wallet_id const & id, std::string const & json);
 	nano::container_info container_info () const;
 
 	store::write_transaction tx_begin_write ();
@@ -272,7 +273,6 @@ public: // Dependencies
 public:
 	std::function<void (bool)> observer;
 
-	std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> items;
 	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<nano::wallet>, std::function<void (nano::wallet &)>>, std::greater<nano::uint128_t>> actions;
 	nano::locked<std::unordered_map<nano::account, nano::root>> delayed_work;
 
@@ -282,7 +282,6 @@ public:
 	MDB_dbi send_action_ids{};
 	nano::store::lmdb::env & env;
 
-	mutable nano::mutex mutex;
 	mutable nano::mutex action_mutex;
 	nano::condition_variable condition;
 	std::atomic<bool> stopped{ false };
@@ -294,6 +293,7 @@ public:
 	static nano::uint128_t const high_priority;
 
 private:
-	mutable nano::locked<nano::wallet_representatives> representatives;
+	nano::locked<std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>>> items;
+	nano::locked<nano::wallet_representatives> representatives;
 };
 }

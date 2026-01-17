@@ -25,12 +25,12 @@ TEST (wallets, open_create)
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
 	auto wallets = make_wallets (node);
-	ASSERT_EQ (1, wallets.items.size ()); // it starts out with a default wallet
+	ASSERT_EQ (1, wallets.get_wallets ().size ()); // it starts out with a default wallet
 	auto id = nano::random_wallet_id ();
-	ASSERT_EQ (nullptr, wallets.open (id));
+	ASSERT_EQ (nullptr, wallets.get (id));
 	auto wallet (wallets.create (id));
 	ASSERT_NE (nullptr, wallet);
-	ASSERT_EQ (wallet, wallets.open (id));
+	ASSERT_EQ (wallet, wallets.get (id));
 }
 
 TEST (wallets, open_existing)
@@ -40,10 +40,10 @@ TEST (wallets, open_existing)
 	auto id (nano::random_wallet_id ());
 	{
 		auto wallets = make_wallets (node);
-		ASSERT_EQ (1, wallets.items.size ());
+		ASSERT_EQ (1, wallets.get_wallets ().size ());
 		auto wallet (wallets.create (id));
 		ASSERT_NE (nullptr, wallet);
-		ASSERT_EQ (wallet, wallets.open (id));
+		ASSERT_EQ (wallet, wallets.get (id));
 		nano::raw_key password;
 		password.clear ();
 		system.deadline_set (10s);
@@ -55,8 +55,8 @@ TEST (wallets, open_existing)
 	}
 	{
 		auto wallets = make_wallets (node);
-		ASSERT_EQ (2, wallets.items.size ());
-		ASSERT_NE (nullptr, wallets.open (id));
+		ASSERT_EQ (2, wallets.get_wallets ().size ());
+		ASSERT_NE (nullptr, wallets.get (id));
 	}
 }
 
@@ -67,16 +67,16 @@ TEST (wallets, remove)
 	nano::wallet_id one (1);
 	{
 		auto wallets = make_wallets (node);
-		ASSERT_EQ (1, wallets.items.size ());
+		ASSERT_EQ (1, wallets.get_wallets ().size ());
 		auto wallet (wallets.create (one));
 		ASSERT_NE (nullptr, wallet);
-		ASSERT_EQ (2, wallets.items.size ());
+		ASSERT_EQ (2, wallets.get_wallets ().size ());
 		wallets.destroy (one);
-		ASSERT_EQ (1, wallets.items.size ());
+		ASSERT_EQ (1, wallets.get_wallets ().size ());
 	}
 	{
 		auto wallets = make_wallets (node);
-		ASSERT_EQ (1, wallets.items.size ());
+		ASSERT_EQ (1, wallets.get_wallets ().size ());
 	}
 }
 
@@ -89,15 +89,14 @@ TEST (wallets, DISABLED_reload)
 	nano::wallet_id one (1);
 	bool error (false);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (1, node1.wallets.items.size ());
+	ASSERT_EQ (1, node1.wallets.get_wallets ().size ());
 	{
-		nano::lock_guard<nano::mutex> lock_wallet (node1.wallets.mutex);
 		nano::inactive_node node (node1.application_path, nano::inactive_node_flag_defaults ());
 		auto wallet (node.node->wallets.create (one));
 		ASSERT_NE (wallet, nullptr);
 	}
-	ASSERT_TIMELY (5s, node1.wallets.open (one) != nullptr);
-	ASSERT_EQ (2, node1.wallets.items.size ());
+	ASSERT_TIMELY (5s, node1.wallets.get (one) != nullptr);
+	ASSERT_EQ (2, node1.wallets.get_wallets ().size ());
 }
 
 TEST (wallets, vote_minimum)
@@ -152,7 +151,7 @@ TEST (wallets, vote_minimum)
 				 .work (*system.work.generate (key2.pub))
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node1.process (open2));
-	auto wallet (node1.wallets.items.begin ()->second);
+	auto wallet (node1.wallets.get_wallets ().begin ()->second);
 	ASSERT_EQ (0, wallet->representatives->size ());
 	wallet->insert_adhoc (nano::dev::genesis_key.prv);
 	wallet->insert_adhoc (key1.prv);
@@ -198,9 +197,7 @@ TEST (wallets, search_receivable)
 		flags.disable_search_pending = true;
 		auto & node (*system.add_node (config, flags));
 
-		nano::unique_lock<nano::mutex> lk (node.wallets.mutex);
 		auto wallets = node.wallets.get_wallets ();
-		lk.unlock ();
 		ASSERT_EQ (1, wallets.size ());
 		auto wallet_id = wallets.begin ()->first;
 		auto wallet = wallets.begin ()->second;
