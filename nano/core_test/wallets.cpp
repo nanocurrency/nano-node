@@ -257,3 +257,179 @@ TEST (wallets, search_receivable)
 		ASSERT_EQ (send->hash (), receive->source ());
 	}
 }
+
+// Test that local rep scan is called during wallets construction and correctly identifies representatives
+TEST (wallets, local_reps)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	// Get the default wallet
+	auto wallet = node.wallets.get_wallets ().begin ()->second;
+
+	// Insert genesis key - it has massive weight, should set half_principal = true
+	wallet->insert_adhoc (nano::dev::genesis_key.prv);
+
+	// Create an account with exactly vote_minimum balance
+	nano::keypair exact_minimum_key;
+	nano::block_builder builder;
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - node.config.vote_minimum.number ())
+				 .link (exact_minimum_key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send1));
+
+	auto open1 = builder
+				 .state ()
+				 .account (exact_minimum_key.pub)
+				 .previous (0)
+				 .representative (exact_minimum_key.pub)
+				 .balance (node.config.vote_minimum.number ())
+				 .link (send1->hash ())
+				 .sign (exact_minimum_key.prv, exact_minimum_key.pub)
+				 .work (*system.work.generate (exact_minimum_key.pub))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (open1));
+
+	// Create an account with vote_minimum - 1 balance (should NOT qualify)
+	nano::keypair below_minimum_key;
+	auto send2 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 2 * node.config.vote_minimum.number () + 1)
+				 .link (below_minimum_key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (send1->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send2));
+
+	auto open2 = builder
+				 .state ()
+				 .account (below_minimum_key.pub)
+				 .previous (0)
+				 .representative (below_minimum_key.pub)
+				 .balance (node.config.vote_minimum.number () - 1)
+				 .link (send2->hash ())
+				 .sign (below_minimum_key.prv, below_minimum_key.pub)
+				 .work (*system.work.generate (below_minimum_key.pub))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (open2));
+
+	// Insert both keys into wallet
+	wallet->insert_adhoc (exact_minimum_key.prv);
+	wallet->insert_adhoc (below_minimum_key.prv);
+
+	// Re-construct wallets
+	auto wallets = make_wallets (node);
+
+	// Verify representatives were correctly identified
+	auto reps = wallets.reps ();
+	ASSERT_EQ (2, reps.voting); // genesis + exact_minimum_key
+	ASSERT_TRUE (reps.exists (nano::dev::genesis_key.pub));
+	ASSERT_TRUE (reps.exists (exact_minimum_key.pub));
+	ASSERT_FALSE (reps.exists (below_minimum_key.pub));
+	ASSERT_TRUE (reps.half_principal); // genesis has massive weight
+
+	// Verify per-wallet representatives
+	auto wallet_after = wallets.get_wallets ().begin ()->second;
+	ASSERT_EQ (2, wallet_after->representatives->size ());
+	ASSERT_EQ (1, wallet_after->representatives->count (nano::dev::genesis_key.pub));
+	ASSERT_EQ (1, wallet_after->representatives->count (exact_minimum_key.pub));
+	ASSERT_EQ (0, wallet_after->representatives->count (below_minimum_key.pub));
+}
+
+// Test that rep scan correctly handles multiple wallets and tracks representatives per-wallet
+TEST (wallets, local_reps_multiple_wallets)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	// Create two accounts with vote_minimum balance
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::block_builder builder;
+
+	auto send1 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - node.config.vote_minimum.number ())
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send1));
+
+	auto open1 = builder
+				 .state ()
+				 .account (key1.pub)
+				 .previous (0)
+				 .representative (key1.pub)
+				 .balance (node.config.vote_minimum.number ())
+				 .link (send1->hash ())
+				 .sign (key1.prv, key1.pub)
+				 .work (*system.work.generate (key1.pub))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (open1));
+
+	auto send2 = builder
+				 .state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 2 * node.config.vote_minimum.number ())
+				 .link (key2.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (send1->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send2));
+
+	auto open2 = builder
+				 .state ()
+				 .account (key2.pub)
+				 .previous (0)
+				 .representative (key2.pub)
+				 .balance (node.config.vote_minimum.number ())
+				 .link (send2->hash ())
+				 .sign (key2.prv, key2.pub)
+				 .work (*system.work.generate (key2.pub))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (open2));
+
+	// Create additional wallets
+	auto wallet1 = node.wallets.get_wallets ().begin ()->second;
+	auto wallet2_id = nano::random_wallet_id ();
+	auto wallet2 = node.wallets.create (wallet2_id);
+	auto wallet3_id = nano::random_wallet_id ();
+	auto wallet3 = node.wallets.create (wallet3_id);
+
+	// Insert key1 into wallet1, key2 into wallet2 (wallet3 remains empty)
+	wallet1->insert_adhoc (key1.prv);
+	wallet2->insert_adhoc (key2.prv);
+
+	// Verify global reps
+	auto reps = node.wallets.reps ();
+	ASSERT_EQ (2, reps.voting);
+	ASSERT_TRUE (reps.exists (key1.pub));
+	ASSERT_TRUE (reps.exists (key2.pub));
+
+	// Verify per-wallet representatives
+	ASSERT_EQ (1, wallet1->representatives->size ());
+	ASSERT_EQ (1, wallet1->representatives->count (key1.pub));
+	ASSERT_EQ (0, wallet1->representatives->count (key2.pub));
+
+	ASSERT_EQ (1, wallet2->representatives->size ());
+	ASSERT_EQ (1, wallet2->representatives->count (key2.pub));
+	ASSERT_EQ (0, wallet2->representatives->count (key1.pub));
+
+	ASSERT_TRUE (wallet3->representatives->empty ());
+}
