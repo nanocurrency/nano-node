@@ -176,8 +176,7 @@ public:
 	nano::wallet_store store;
 	nano::wallets & wallets;
 	nano::logger & logger;
-	nano::mutex representatives_mutex;
-	std::unordered_set<nano::account> representatives;
+	nano::locked<std::unordered_set<nano::account>> representatives;
 };
 
 class wallet_representatives
@@ -250,8 +249,8 @@ public:
 	bool exists (store::transaction const &, nano::account const &);
 	void clear_send_ids (store::transaction const &);
 	nano::wallet_representatives reps () const;
-	bool check_rep (nano::account const &, nano::uint128_t const &, bool const = true);
 	void compute_reps ();
+	void trigger_compute_reps ();
 	void ongoing_compute_reps ();
 	void receive_confirmed (nano::block_hash const & hash_a, nano::account const & destination_a);
 	std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> get_wallets ();
@@ -295,7 +294,6 @@ public:
 	static nano::uint128_t const high_priority;
 
 private:
-	mutable nano::mutex reps_cache_mutex;
-	nano::wallet_representatives representatives;
+	mutable nano::locked<nano::wallet_representatives> representatives;
 };
 }

@@ -153,15 +153,12 @@ TEST (wallets, vote_minimum)
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node1.process (open2));
 	auto wallet (node1.wallets.items.begin ()->second);
-	nano::unique_lock<nano::mutex> representatives_lk (wallet->representatives_mutex);
-	ASSERT_EQ (0, wallet->representatives.size ());
-	representatives_lk.unlock ();
+	ASSERT_EQ (0, wallet->representatives->size ());
 	wallet->insert_adhoc (nano::dev::genesis_key.prv);
 	wallet->insert_adhoc (key1.prv);
 	wallet->insert_adhoc (key2.prv);
 	node1.wallets.compute_reps ();
-	representatives_lk.lock ();
-	ASSERT_EQ (2, wallet->representatives.size ());
+	ASSERT_EQ (2, wallet->representatives->size ());
 }
 
 TEST (wallets, exists)

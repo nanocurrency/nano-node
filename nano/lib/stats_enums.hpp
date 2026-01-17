@@ -130,6 +130,7 @@ enum class type
 	online_reps,
 	pruning,
 	fork_cache,
+	wallet,
 
 	_last // Must be the last enum
 };
@@ -715,6 +716,9 @@ enum class detail
 
 	// fork_cache
 	overfill_entry,
+
+	// wallet
+	compute_reps,
 
 	_last // Must be the last enum
 };

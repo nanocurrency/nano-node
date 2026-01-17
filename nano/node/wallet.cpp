@@ -775,14 +775,8 @@ nano::public_key nano::wallet::deterministic_insert (store::transaction const & 
 		{
 			work_ensure (key, key);
 		}
-		auto half_principal_weight (wallets.node.minimum_principal_weight () / 2);
-		if (wallets.check_rep (key, half_principal_weight))
-		{
-			logger.info (nano::log::type::wallet, "New account qualified as a representative: {}", key.to_account ());
 
-			nano::lock_guard<nano::mutex> lock{ representatives_mutex };
-			representatives.insert (key);
-		}
+		wallets.trigger_compute_reps ();
 	}
 	return key;
 }
@@ -824,15 +818,9 @@ nano::public_key nano::wallet::insert_adhoc (nano::raw_key const & key_a, bool g
 		{
 			work_ensure (key, wallets.ledger.latest_root (ledger_txn, key));
 		}
-		auto half_principal_weight (wallets.node.minimum_principal_weight () / 2);
-		// Makes sure that the representatives container will
-		// be in sync with any added keys.
 		transaction.commit ();
-		if (wallets.check_rep (key, half_principal_weight))
-		{
-			nano::lock_guard<nano::mutex> lock{ representatives_mutex };
-			representatives.insert (key);
-		}
+
+		wallets.trigger_compute_reps ();
 	}
 	return key;
 }
@@ -1691,11 +1679,7 @@ void nano::wallets::foreach_representative (std::function<void (nano::public_key
 			{
 				auto & wallet (*i->second);
 				nano::lock_guard<std::recursive_mutex> store_lock{ wallet.store.mutex };
-				decltype (wallet.representatives) representatives_l;
-				{
-					nano::lock_guard<nano::mutex> representatives_lock{ wallet.representatives_mutex };
-					representatives_l = wallet.representatives;
-				}
+				std::unordered_set<nano::account> representatives_l = wallet.representatives;
 				for (auto const & account : representatives_l)
 				{
 					if (wallet.store.exists (transaction_l, account))
@@ -1763,72 +1747,100 @@ void nano::wallets::clear_send_ids (store::transaction const & transaction_a)
 
 nano::wallet_representatives nano::wallets::reps () const
 {
-	nano::lock_guard<nano::mutex> counts_guard{ reps_cache_mutex };
 	return representatives;
-}
-
-bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t const & half_principal_weight_a, bool const acquire_lock_a)
-{
-	auto weight = ledger.weight (account_a);
-	if (weight < config.vote_minimum.number ())
-	{
-		return false; // account not a representative
-	}
-
-	nano::unique_lock<nano::mutex> lock;
-	if (acquire_lock_a)
-	{
-		lock = nano::unique_lock<nano::mutex>{ reps_cache_mutex };
-	}
-
-	if (weight >= half_principal_weight_a)
-	{
-		representatives.half_principal = true;
-	}
-
-	auto insert_result = representatives.accounts.insert (account_a);
-	if (!insert_result.second)
-	{
-		return false; // account already exists
-	}
-
-	++representatives.voting;
-
-	return true;
 }
 
 void nano::wallets::compute_reps ()
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	nano::lock_guard<nano::mutex> counts_guard{ reps_cache_mutex };
-	representatives.clear ();
-	auto half_principal_weight (node.minimum_principal_weight () / 2);
-	auto transaction (tx_begin_read ());
-	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
+	node.stats.inc (nano::stat::type::wallet, nano::stat::detail::compute_reps);
+
+	// Build new state from scratch
+	nano::wallet_representatives new_reps;
+	std::vector<std::pair<std::shared_ptr<nano::wallet>, std::unordered_set<nano::account>>> new_wallet_reps;
+
+	auto const half_principal_weight = node.minimum_principal_weight () / 2;
+
 	{
-		auto & wallet (*i->second);
-		decltype (wallet.representatives) representatives_l;
-		for (auto ii (wallet.store.begin (transaction)), nn (wallet.store.end (transaction)); ii != nn; ++ii)
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		auto transaction = tx_begin_read ();
+
+		for (auto const & [id, wallet] : items)
 		{
-			auto account (ii->first);
-			if (check_rep (account, half_principal_weight, false))
+			std::unordered_set<nano::account> wallet_rep_accounts;
+
+			for (auto it = wallet->store.begin (transaction), end = wallet->store.end (transaction); it != end; ++it)
 			{
-				representatives_l.insert (account);
+				auto account = it->first;
+				auto weight = ledger.weight (account);
+
+				if (weight >= config.vote_minimum.number ())
+				{
+					auto [_, inserted] = new_reps.accounts.insert (account);
+					if (inserted)
+					{
+						++new_reps.voting;
+						if (weight >= half_principal_weight)
+						{
+							new_reps.half_principal = true;
+						}
+					}
+					wallet_rep_accounts.insert (account);
+				}
+			}
+
+			new_wallet_reps.emplace_back (wallet, std::move (wallet_rep_accounts));
+		}
+	}
+
+	// Compare with old state and log changes
+	{
+		auto reps_lock = representatives.lock ();
+
+		// Find newly gained representatives
+		for (auto const & account : new_reps.accounts)
+		{
+			if (reps_lock->accounts.count (account) == 0)
+			{
+				logger.info (nano::log::type::wallet, "New account qualified as a representative: {}", account.to_account ());
 			}
 		}
-		nano::lock_guard<nano::mutex> representatives_guard{ wallet.representatives_mutex };
-		wallet.representatives.swap (representatives_l);
+
+		// Find lost representatives
+		for (auto const & account : reps_lock->accounts)
+		{
+			if (new_reps.accounts.count (account) == 0)
+			{
+				logger.info (nano::log::type::wallet, "Local account no longer qualifies as a representative: {}", account.to_account ());
+			}
+		}
+
+		// Update global state
+		*reps_lock = std::move (new_reps);
+	}
+
+	// Update per-wallet representatives
+	for (auto & [wallet, rep_accounts] : new_wallet_reps)
+	{
+		wallet->representatives = rep_accounts;
+	}
+}
+
+void nano::wallets::trigger_compute_reps ()
+{
+	if (config.enable_voting)
+	{
+		compute_reps ();
 	}
 }
 
 void nano::wallets::ongoing_compute_reps ()
 {
-	compute_reps ();
-	auto & node_l (node);
 	// Representation drifts quickly on the test network but very slowly on the live network
 	auto compute_delay = network_params.network.is_dev_network () ? std::chrono::milliseconds (10) : (network_params.network.is_test_network () ? std::chrono::milliseconds (nano::test_scan_wallet_reps_delay ()) : std::chrono::minutes (15));
-	workers.post_delayed (compute_delay, [&node_l] () {
-		node_l.wallets.ongoing_compute_reps ();
+
+	workers.post_delayed (compute_delay, [this] () {
+		compute_reps ();
+		ongoing_compute_reps ();
 	});
 }
 
