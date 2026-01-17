@@ -75,9 +75,9 @@ nano::vote_rebroadcaster::vote_rebroadcaster (nano::vote_rebroadcaster_config co
 		});
 
 		// Enable vote rebroadcasting only if the node does not host a representative (or super_rebroadcaster mode)
-		// Do not rebroadcast votes from non-principal representatives
 		if (should_rebroadcast && (!has_principal || flags.super_rebroadcaster))
 		{
+			// Do not rebroadcast votes coming from non-principal representatives
 			auto tier = rep_tiers.tier (vote->account);
 			if (tier != nano::rep_tier::none)
 			{
@@ -127,7 +127,7 @@ bool nano::vote_rebroadcaster::push (std::shared_ptr<nano::vote> const & vote, n
 		std::lock_guard guard{ mutex };
 
 		// Do not rebroadcast local representative votes
-		if (!reps.exists (vote->account) && !queue_hashes.contains (vote->signature))
+		if (!reps.accounts.contains (vote->account) && !queue_hashes.contains (vote->signature))
 		{
 			added = queue.push (vote, tier);
 			if (added)
@@ -184,7 +184,7 @@ void nano::vote_rebroadcaster::run ()
 
 			// Check if node has a principal representative (rebroadcasting is disabled when true)
 			reps = wallets.reps ();
-			has_principal = reps.have_half_rep ();
+			has_principal = reps.half_principal;
 		}
 
 		// Cleanup expired representatives from rebroadcasts

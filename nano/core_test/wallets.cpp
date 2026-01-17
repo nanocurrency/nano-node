@@ -333,9 +333,9 @@ TEST (wallets, local_reps)
 	// Verify representatives were correctly identified
 	auto reps = wallets.reps ();
 	ASSERT_EQ (2, reps.voting); // genesis + exact_minimum_key
-	ASSERT_TRUE (reps.exists (nano::dev::genesis_key.pub));
-	ASSERT_TRUE (reps.exists (exact_minimum_key.pub));
-	ASSERT_FALSE (reps.exists (below_minimum_key.pub));
+	ASSERT_TRUE (reps.accounts.contains (nano::dev::genesis_key.pub));
+	ASSERT_TRUE (reps.accounts.contains (exact_minimum_key.pub));
+	ASSERT_FALSE (reps.accounts.contains (below_minimum_key.pub));
 	ASSERT_TRUE (reps.half_principal); // genesis has massive weight
 
 	// Verify per-wallet representatives
@@ -419,8 +419,8 @@ TEST (wallets, local_reps_multiple_wallets)
 	// Verify global reps
 	auto reps = node.wallets.reps ();
 	ASSERT_EQ (2, reps.voting);
-	ASSERT_TRUE (reps.exists (key1.pub));
-	ASSERT_TRUE (reps.exists (key2.pub));
+	ASSERT_TRUE (reps.accounts.contains (key1.pub));
+	ASSERT_TRUE (reps.accounts.contains (key2.pub));
 
 	// Verify per-wallet representatives
 	ASSERT_EQ (1, wallet1->representatives->size ());

@@ -184,8 +184,8 @@ TEST (vote_processor, no_broadcast_local)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	// Ensure that the node knows the genesis key in its wallet.
 	node.wallets.compute_reps ();
-	ASSERT_TRUE (node.wallets.reps ().exists (nano::dev::genesis_key.pub));
-	ASSERT_FALSE (node.wallets.reps ().have_half_rep ()); // Genesis balance remaining after `send' is less than the half_rep threshold
+	ASSERT_TRUE (node.wallets.reps ().accounts.contains (nano::dev::genesis_key.pub));
+	ASSERT_FALSE (node.wallets.reps ().half_principal); // Genesis balance remaining after `send' is less than the half_rep threshold
 	// Process a vote with a key that is in the local wallet.
 	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch (), nano::vote::duration_max, std::vector<nano::block_hash>{ send->hash () });
 	ASSERT_EQ (nano::vote_code::vote, node.vote_router.vote (vote).at (send->hash ()));
@@ -288,8 +288,8 @@ TEST (vote_processor, no_broadcast_local_with_a_principal_representative)
 
 	// Ensure that the node knows the genesis key in its wallet.
 	node.wallets.compute_reps ();
-	ASSERT_TRUE (node.wallets.reps ().exists (nano::dev::genesis_key.pub));
-	ASSERT_TRUE (node.wallets.reps ().have_half_rep ()); // Genesis balance after `send' is over both half_rep and PR threshold.
+	ASSERT_TRUE (node.wallets.reps ().accounts.contains (nano::dev::genesis_key.pub));
+	ASSERT_TRUE (node.wallets.reps ().half_principal); // Genesis balance after `send' is over both half_rep and PR threshold.
 
 	// Process a vote with a key that is in the local wallet.
 	auto vote = std::make_shared<nano::vote> (nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::milliseconds_since_epoch (), nano::vote::duration_max, std::vector<nano::block_hash>{ send->hash () });

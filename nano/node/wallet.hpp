@@ -179,26 +179,11 @@ public:
 	nano::locked<std::unordered_set<nano::account>> representatives;
 };
 
-class wallet_representatives
+struct wallet_representatives
 {
-public:
 	uint64_t voting{ 0 }; // Number of representatives with at least the configured minimum voting weight
 	bool half_principal{ false }; // has representatives with at least 50% of principal representative requirements
 	std::unordered_set<nano::account> accounts; // Representatives with at least the configured minimum voting weight
-	bool have_half_rep () const
-	{
-		return half_principal;
-	}
-	bool exists (nano::account const & rep_a) const
-	{
-		return accounts.count (rep_a) > 0;
-	}
-	void clear ()
-	{
-		voting = 0;
-		half_principal = false;
-		accounts.clear ();
-	}
 };
 
 class wallets_store
