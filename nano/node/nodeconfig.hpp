@@ -87,6 +87,7 @@ public:
 	unsigned network_threads{ std::max (4u, nano::hardware_concurrency ()) };
 	unsigned work_threads{ std::max (4u, nano::hardware_concurrency ()) };
 	unsigned background_threads{ std::max (4u, nano::hardware_concurrency ()) };
+	unsigned wallet_threads{ 4 };
 	/* Use half available threads on the system for signature checking. The calling thread does checks as well, so these are extra worker threads */
 	unsigned signature_checker_threads{ std::max (2u, nano::hardware_concurrency () / 2) };
 	bool enable_voting{ false };

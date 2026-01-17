@@ -5,7 +5,9 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/numbers_templ.hpp>
+#include <nano/lib/thread_pool.hpp>
 #include <nano/lib/work.hpp>
+#include <nano/node/fwd.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/store/lmdb/lmdb_env.hpp>
@@ -40,13 +42,13 @@ private:
 class kdf final
 {
 public:
-	kdf (unsigned & kdf_work) :
+	kdf (unsigned const & kdf_work) :
 		kdf_work{ kdf_work }
 	{
 	}
 	void phs (nano::raw_key &, std::string const &, nano::uint256_union const &);
 	nano::mutex mutex;
-	unsigned & kdf_work;
+	unsigned const & kdf_work;
 };
 
 enum class key_type
@@ -200,6 +202,20 @@ public:
 	}
 };
 
+class wallets_store
+{
+public:
+	virtual ~wallets_store () = default;
+};
+
+class mdb_wallets_store final : public wallets_store
+{
+public:
+	mdb_wallets_store (std::filesystem::path const &, nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{});
+	nano::store::lmdb::env environment;
+	bool error{ false };
+};
+
 /**
  * The wallets set is all the wallets a node controls.
  * A node may contain multiple wallets independently encrypted and operated.
@@ -207,7 +223,16 @@ public:
 class wallets final
 {
 public:
-	wallets (bool error, nano::node &);
+	wallets (
+	nano::node &,
+	nano::wallets_store &,
+	nano::ledger &,
+	nano::node_config const &,
+	nano::network_params const &,
+	nano::online_reps &,
+	nano::network &,
+	nano::logger &);
+
 	~wallets ();
 
 	void start ();
@@ -232,46 +257,45 @@ public:
 	std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> get_wallets ();
 	nano::container_info container_info () const;
 
-	nano::network_params & network_params;
+	store::write_transaction tx_begin_write ();
+	store::read_transaction tx_begin_read ();
+
+public: // Dependencies
+	nano::node & node;
+	nano::wallets_store & wallets_store;
+	nano::ledger & ledger;
+	nano::node_config const & config;
+	nano::network_params const & network_params;
+	nano::online_reps & online_reps;
+	nano::network & network;
+	nano::logger & logger;
+
+public:
 	std::function<void (bool)> observer;
+
 	std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> items;
 	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<nano::wallet>, std::function<void (nano::wallet &)>>, std::greater<nano::uint128_t>> actions;
 	nano::locked<std::unordered_map<nano::account, nano::root>> delayed_work;
+
+	nano::kdf kdf;
+
+	MDB_dbi handle{};
+	MDB_dbi send_action_ids{};
+	nano::store::lmdb::env & env;
+
 	mutable nano::mutex mutex;
 	mutable nano::mutex action_mutex;
 	nano::condition_variable condition;
-	nano::kdf kdf;
-	MDB_dbi handle;
-	MDB_dbi send_action_ids;
-	nano::node & node;
-	nano::logger & logger;
-	nano::store::lmdb::env & env;
-	std::atomic<bool> stopped;
+	std::atomic<bool> stopped{ false };
 	std::thread thread;
+
+	nano::thread_pool workers;
+
 	static nano::uint128_t const generate_priority;
 	static nano::uint128_t const high_priority;
-
-	/** Start read-write transaction */
-	store::write_transaction tx_begin_write ();
-	/** Start read-only transaction */
-	store::read_transaction tx_begin_read ();
 
 private:
 	mutable nano::mutex reps_cache_mutex;
 	nano::wallet_representatives representatives;
-};
-
-class wallets_store
-{
-public:
-	virtual ~wallets_store () = default;
-};
-
-class mdb_wallets_store final : public wallets_store
-{
-public:
-	mdb_wallets_store (std::filesystem::path const &, nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{});
-	nano::store::lmdb::env environment;
-	bool error{ false };
 };
 }
