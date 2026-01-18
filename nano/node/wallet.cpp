@@ -1446,8 +1446,8 @@ nano::logger & logger_a) :
 	logger.info (nano::log::type::wallet, "Loading wallets from: {}", env.database_path.string ());
 
 	{
-		auto locked_items = items.lock ();
 		auto transaction (tx_begin_write ());
+		auto locked_items = items.lock ();
 		auto status (mdb_dbi_open (env.tx (transaction), nullptr, MDB_CREATE, &handle));
 		status |= mdb_dbi_open (env.tx (transaction), "send_action_ids", MDB_CREATE, &send_action_ids);
 		release_assert (status == 0);
@@ -1576,9 +1576,12 @@ std::shared_ptr<nano::wallet> nano::wallets::create (nano::wallet_id const & id_
 	}
 	if (!error)
 	{
-		auto locked_items = items.lock ();
-		debug_assert (locked_items->find (id_a) == locked_items->end ());
-		(*locked_items)[id_a] = result;
+		release_assert (result != nullptr);
+		{
+			auto locked_items = items.lock ();
+			debug_assert (locked_items->find (id_a) == locked_items->end ());
+			(*locked_items)[id_a] = result;
+		}
 		result->enter_initial_password ();
 	}
 	else
@@ -1610,8 +1613,8 @@ void nano::wallets::search_receivable_all ()
 
 void nano::wallets::destroy (nano::wallet_id const & id_a)
 {
-	auto locked_items = items.lock ();
 	auto transaction (tx_begin_write ());
+	auto locked_items = items.lock ();
 	// action_mutex should be after transactions to prevent deadlocks in deterministic_insert () & insert_adhoc ()
 	nano::lock_guard<nano::mutex> action_lock{ action_mutex };
 	auto existing (locked_items->find (id_a));
@@ -1623,8 +1626,8 @@ void nano::wallets::destroy (nano::wallet_id const & id_a)
 
 void nano::wallets::reload ()
 {
-	auto locked_items = items.lock ();
 	auto transaction (tx_begin_write ());
+	auto locked_items = items.lock ();
 	std::unordered_set<nano::uint256_union> stored_items;
 	std::string beginning (nano::uint256_union (0).to_string ());
 	nano::store::lmdb::db_val beginning_val{ beginning.size (), const_cast<char *> (beginning.c_str ()) };
