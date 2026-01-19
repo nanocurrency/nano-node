@@ -152,11 +152,8 @@ public:
 	nano::recently_confirmed_cache recently_confirmed;
 	nano::recently_cemented_cache recently_cemented;
 
-	// TODO: This mutex is currently public because many tests access it
-	// TODO: This is bad. Remove the need to explicitly lock this from any code outside of this class
-	mutable nano::mutex mutex{ mutex_identifier (mutexes::active) };
-
 private:
+	mutable nano::mutex mutex{ mutex_identifier (mutexes::active) };
 	nano::condition_variable condition;
 	bool stopped{ false };
 	std::thread thread;

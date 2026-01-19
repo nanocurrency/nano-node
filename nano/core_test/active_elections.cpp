@@ -1111,7 +1111,6 @@ TEST (active_elections, confirmation_consistency)
 		ASSERT_NE (nullptr, block);
 		ASSERT_TIMELY (5s, node.block_confirmed (block->hash ()));
 		ASSERT_NO_ERROR (system.poll_until_true (1s, [&node, &block, i] {
-			nano::lock_guard<nano::mutex> guard (node.active.mutex);
 			EXPECT_EQ (i + 1, node.active.recently_confirmed.size ());
 			EXPECT_EQ (block->qualified_root (), node.active.recently_confirmed.back ().first);
 			return i + 1 == node.active.recently_cemented.size (); // done after a callback

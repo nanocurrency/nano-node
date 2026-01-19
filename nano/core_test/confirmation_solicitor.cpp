@@ -45,19 +45,16 @@ TEST (confirmation_solicitor, batches)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build ();
 	send->sideband_set ({});
+	for (size_t i (0); i < nano::network::confirm_req_hashes_max; ++i)
 	{
-		nano::lock_guard<nano::mutex> guard (node2.active.mutex);
-		for (size_t i (0); i < nano::network::confirm_req_hashes_max; ++i)
-		{
-			auto election (std::make_shared<nano::election> (node2, send, nano::election_behavior::priority));
-			ASSERT_FALSE (solicitor.add (*election));
-		}
-		// Reached the maximum amount of requests for the channel
 		auto election (std::make_shared<nano::election> (node2, send, nano::election_behavior::priority));
-		// Broadcasting should be immediate
-		ASSERT_EQ (0, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
-		ASSERT_FALSE (solicitor.broadcast (*election));
+		ASSERT_FALSE (solicitor.add (*election));
 	}
+	// Reached the maximum amount of requests for the channel
+	auto election (std::make_shared<nano::election> (node2, send, nano::election_behavior::priority));
+	// Broadcasting should be immediate
+	ASSERT_EQ (0, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
+	ASSERT_FALSE (solicitor.broadcast (*election));
 	// One publish through directed broadcasting (random flooding moved to block_rebroadcaster)
 	ASSERT_EQ (1, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
 	solicitor.flush ();

@@ -1015,7 +1015,6 @@ TEST (votes, add_one)
 	auto existing1 (votes1.find (nano::dev::genesis_key.pub));
 	ASSERT_NE (votes1.end (), existing1);
 	ASSERT_EQ (send1->hash (), existing1->second.hash);
-	nano::lock_guard<nano::mutex> guard{ node1.active.mutex };
 	auto winner (*election1->tally ().begin ());
 	ASSERT_EQ (*send1, *winner.second);
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, winner.first);
