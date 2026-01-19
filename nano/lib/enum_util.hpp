@@ -14,6 +14,12 @@ template <typename Index, typename Value>
 using enum_array = magic_enum::containers::array<Index, Value>;
 
 /**
+ * Bitset indexed by enum values
+ */
+template <typename E>
+using enum_bitset = magic_enum::containers::bitset<E>;
+
+/**
  * Concept that checks if all values of source enum S can be converted to target enum T by name.
  * Used to provide clear compile-time errors when enum conversion is not possible.
  */
