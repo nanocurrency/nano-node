@@ -4,10 +4,10 @@
 
 std::string_view nano::to_string (nano::block_source source)
 {
-	return nano::enum_util::name (source);
+	return nano::enum_to_string (source);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::block_source type)
 {
-	return nano::enum_util::cast<nano::stat::detail> (type);
+	return nano::enum_convert<nano::stat::detail> (type);
 }

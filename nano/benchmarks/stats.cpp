@@ -30,8 +30,8 @@ static void BM_stats_inc_random (benchmark::State & state)
 		return { elements.begin (), elements.begin () + std::min (count, elements.size ()) };
 	};
 
-	auto stat_types = random_subset (nano::enum_util::values<nano::stat::type> (), state.range (0));
-	auto stat_details = random_subset (nano::enum_util::values<nano::stat::detail> (), state.range (1));
+	auto stat_types = random_subset (nano::enum_values<nano::stat::type> (), state.range (0));
+	auto stat_details = random_subset (nano::enum_values<nano::stat::detail> (), state.range (1));
 
 	size_t type_index = 0;
 	size_t detail_index = 0;

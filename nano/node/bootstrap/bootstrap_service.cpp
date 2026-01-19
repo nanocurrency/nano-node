@@ -1270,5 +1270,5 @@ nano::container_info nano::bootstrap_service::container_info () const
 
 nano::stat::detail nano::to_stat_detail (nano::bootstrap_service::query_type type)
 {
-	return nano::enum_util::cast<nano::stat::detail> (type);
+	return nano::enum_convert<nano::stat::detail> (type);
 }

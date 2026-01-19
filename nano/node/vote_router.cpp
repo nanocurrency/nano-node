@@ -198,20 +198,20 @@ nano::container_info nano::vote_router::container_info () const
 
 nano::stat::detail nano::to_stat_detail (nano::vote_code code)
 {
-	return nano::enum_util::cast<nano::stat::detail> (code);
+	return nano::enum_convert<nano::stat::detail> (code);
 }
 
 std::string_view nano::to_string (nano::vote_code code)
 {
-	return nano::enum_util::name (code);
+	return nano::enum_to_string (code);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::vote_source source)
 {
-	return nano::enum_util::cast<nano::stat::detail> (source);
+	return nano::enum_convert<nano::stat::detail> (source);
 }
 
 std::string_view nano::to_string (nano::vote_source source)
 {
-	return nano::enum_util::name (source);
+	return nano::enum_to_string (source);
 }

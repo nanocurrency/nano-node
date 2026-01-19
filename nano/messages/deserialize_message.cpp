@@ -192,10 +192,10 @@ nano::vote_uniquer * vote_uniquer)
 
 nano::stat::detail nano::to_stat_detail (nano::deserialize_message_status status)
 {
-	return nano::enum_util::cast<nano::stat::detail> (status);
+	return nano::enum_convert<nano::stat::detail> (status);
 }
 
 std::string_view nano::to_string (nano::deserialize_message_status status)
 {
-	return nano::enum_util::name (status);
+	return nano::enum_to_string (status);
 }

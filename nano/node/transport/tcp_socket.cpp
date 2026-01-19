@@ -452,10 +452,10 @@ void nano::transport::tcp_socket::operator() (nano::object_stream & obs) const
 
 std::string_view nano::transport::to_string (socket_type type)
 {
-	return nano::enum_util::name (type);
+	return nano::enum_to_string (type);
 }
 
 std::string_view nano::transport::to_string (socket_endpoint type)
 {
-	return nano::enum_util::name (type);
+	return nano::enum_to_string (type);
 }

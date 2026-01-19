@@ -4,32 +4,32 @@
 
 std::string_view nano::log::to_string (nano::log::type tag)
 {
-	return nano::enum_util::name (tag);
+	return nano::enum_to_string (tag);
 }
 
 std::string_view nano::log::to_string (nano::log::detail detail)
 {
-	return nano::enum_util::name (detail);
+	return nano::enum_to_string (detail);
 }
 
 std::string_view nano::log::to_string (nano::log::level level)
 {
-	return nano::enum_util::name (level);
+	return nano::enum_to_string (level);
 }
 
 const std::vector<nano::log::level> & nano::log::all_levels ()
 {
-	return nano::enum_util::values<nano::log::level> ();
+	return nano::enum_values<nano::log::level> ();
 }
 
 const std::vector<nano::log::type> & nano::log::all_types ()
 {
-	return nano::enum_util::values<nano::log::type> ();
+	return nano::enum_values<nano::log::type> ();
 }
 
 nano::log::level nano::log::parse_level (std::string_view name)
 {
-	auto value = nano::enum_util::try_parse<nano::log::level> (name);
+	auto value = nano::enum_try_parse<nano::log::level> (name);
 	if (value.has_value ())
 	{
 		return value.value ();
@@ -42,7 +42,7 @@ nano::log::level nano::log::parse_level (std::string_view name)
 
 nano::log::type nano::log::parse_type (std::string_view name)
 {
-	auto value = nano::enum_util::try_parse<nano::log::type> (name);
+	auto value = nano::enum_try_parse<nano::log::type> (name);
 	if (value.has_value ())
 	{
 		return value.value ();
@@ -52,7 +52,7 @@ nano::log::type nano::log::parse_type (std::string_view name)
 
 nano::log::detail nano::log::parse_detail (std::string_view name)
 {
-	auto value = nano::enum_util::try_parse<nano::log::detail> (name);
+	auto value = nano::enum_try_parse<nano::log::detail> (name);
 	if (value.has_value ())
 	{
 		return value.value ();
@@ -62,12 +62,12 @@ nano::log::detail nano::log::parse_detail (std::string_view name)
 
 std::string_view nano::log::to_string (nano::log::tracing_format format)
 {
-	return nano::enum_util::name (format);
+	return nano::enum_to_string (format);
 }
 
 nano::log::tracing_format nano::log::parse_tracing_format (std::string_view name)
 {
-	auto value = nano::enum_util::try_parse<nano::log::tracing_format> (name);
+	auto value = nano::enum_try_parse<nano::log::tracing_format> (name);
 	if (value.has_value ())
 	{
 		return value.value ();
@@ -80,5 +80,5 @@ nano::log::tracing_format nano::log::parse_tracing_format (std::string_view name
 
 const std::vector<nano::log::tracing_format> & nano::log::all_tracing_formats ()
 {
-	return nano::enum_util::values<nano::log::tracing_format> ();
+	return nano::enum_values<nano::log::tracing_format> ();
 }

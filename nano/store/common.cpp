@@ -3,5 +3,5 @@
 
 std::string_view nano::store::to_string (nano::store::open_mode mode)
 {
-	return nano::enum_util::name (mode);
+	return nano::enum_to_string (mode);
 }

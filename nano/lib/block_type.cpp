@@ -3,5 +3,5 @@
 
 std::string_view nano::to_string (nano::block_type type)
 {
-	return nano::enum_util::name (type);
+	return nano::enum_to_string (type);
 }

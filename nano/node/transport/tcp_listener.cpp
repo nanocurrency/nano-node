@@ -641,10 +641,10 @@ nano::transport::socket_endpoint nano::transport::tcp_listener::to_socket_endpoi
 
 std::string_view nano::transport::to_string (nano::transport::tcp_listener::connection_type type)
 {
-	return nano::enum_util::name (type);
+	return nano::enum_to_string (type);
 }
 
 std::string_view nano::transport::to_string (nano::transport::tcp_listener::accept_result result)
 {
-	return nano::enum_util::name (result);
+	return nano::enum_to_string (result);
 }

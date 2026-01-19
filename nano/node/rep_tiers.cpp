@@ -149,5 +149,5 @@ nano::container_info nano::rep_tiers::container_info () const
 
 nano::stat::detail nano::to_stat_detail (nano::rep_tier tier)
 {
-	return nano::enum_util::cast<nano::stat::detail> (tier);
+	return nano::enum_convert<nano::stat::detail> (tier);
 }

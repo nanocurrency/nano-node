@@ -873,10 +873,10 @@ nano::stat::type nano::to_stat_type (nano::election_state state)
 
 std::string_view nano::to_string (nano::election_status_type type)
 {
-	return nano::enum_util::name (type);
+	return nano::enum_to_string (type);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::election_status_type type)
 {
-	return nano::enum_util::cast<nano::stat::detail> (type);
+	return nano::enum_convert<nano::stat::detail> (type);
 }

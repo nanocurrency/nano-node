@@ -282,7 +282,7 @@ bool nano::vote_rebroadcaster::process (std::shared_ptr<nano::vote> const & vote
 	}
 	else
 	{
-		stats.inc (nano::stat::type::vote_rebroadcaster, nano::enum_util::cast<nano::stat::detail> (result));
+		stats.inc (nano::stat::type::vote_rebroadcaster, nano::enum_convert<nano::stat::detail> (result));
 		return false; // Vote does not qualify for rebroadcast
 	}
 }

@@ -464,10 +464,10 @@ nano::block_hash const & nano::unchecked_key::key () const
 
 std::string_view nano::to_string (nano::block_status code)
 {
-	return nano::enum_util::name (code);
+	return nano::enum_to_string (code);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::block_status code)
 {
-	return nano::enum_util::cast<nano::stat::detail> (code);
+	return nano::enum_convert<nano::stat::detail> (code);
 }

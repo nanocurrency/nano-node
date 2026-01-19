@@ -7,16 +7,16 @@ namespace nano::messages
 {
 std::string_view to_string (message_type type)
 {
-	return nano::enum_util::name (type);
+	return nano::enum_to_string (type);
 }
 
 nano::stat::detail to_stat_detail (message_type type)
 {
-	return nano::enum_util::cast<nano::stat::detail> (type);
+	return nano::enum_convert<nano::stat::detail> (type);
 }
 
 nano::log::detail to_log_detail (message_type type)
 {
-	return nano::enum_util::cast<nano::log::detail> (type);
+	return nano::enum_convert<nano::log::detail> (type);
 }
 }

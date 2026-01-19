@@ -397,10 +397,10 @@ std::unique_ptr<nano::messages::asc_pull_ack> nano::transport::message_deseriali
 
 nano::stat::detail nano::transport::to_stat_detail (nano::transport::parse_status status)
 {
-	return nano::enum_util::cast<nano::stat::detail> (status);
+	return nano::enum_convert<nano::stat::detail> (status);
 }
 
 std::string_view nano::transport::to_string (nano::transport::parse_status status)
 {
-	return nano::enum_util::name (status);
+	return nano::enum_to_string (status);
 }

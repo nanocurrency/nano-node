@@ -4,7 +4,7 @@
 
 std::string_view nano::thread_role::to_string (nano::thread_role::name name)
 {
-	return nano::enum_util::name (name);
+	return nano::enum_to_string (name);
 }
 
 std::string nano::thread_role::get_string (nano::thread_role::name role)
