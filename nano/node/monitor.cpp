@@ -54,14 +54,6 @@ void nano::monitor::run ()
 
 void nano::monitor::run_one ()
 {
-	// Node status:
-	// - blocks (confirmed, total)
-	// - blocks rate (over last 5m, peak over last 5m)
-	// - peers
-	// - stake (online, peered, trended, quorum needed)
-	// - elections active (normal, hinted, optimistic)
-	// - election stats over last 5m (confirmed, dropped)
-
 	auto const now = std::chrono::steady_clock::now ();
 
 	auto blocks_cemented = node.ledger.cemented_count ();
@@ -100,16 +92,34 @@ void nano::monitor::run_one ()
 	node.tcp_listener.connection_count (nano::transport::tcp_listener::connection_type::inbound),
 	node.tcp_listener.connection_count (nano::transport::tcp_listener::connection_type::outbound));
 
+	auto const quorum = node.online_reps.delta ();
+	auto const stake_online = node.online_reps.online ();
+	auto const stake_peered = node.rep_crawler.total_weight ();
+
 	logger.info (nano::log::type::monitor, "Quorum: {} (stake peered: {} | stake online: {})",
-	nano::uint128_union{ node.online_reps.delta () }.format_balance (nano_ratio, 1, true),
-	nano::uint128_union{ node.rep_crawler.total_weight () }.format_balance (nano_ratio, 1, true),
-	nano::uint128_union{ node.online_reps.online () }.format_balance (nano_ratio, 1, true));
+	nano::uint128_union{ quorum }.format_balance (nano_ratio, 1, true),
+	nano::uint128_union{ stake_peered }.format_balance (nano_ratio, 1, true),
+	nano::uint128_union{ stake_online }.format_balance (nano_ratio, 1, true));
 
 	logger.info (nano::log::type::monitor, "Elections active: {} (priority: {} | hinted: {} | optimistic: {})",
 	node.active.size (),
 	node.active.size (nano::election_behavior::priority),
 	node.active.size (nano::election_behavior::hinted),
 	node.active.size (nano::election_behavior::optimistic));
+
+	bool const sufficient_stake = stake_peered >= quorum;
+
+	// Grace period to allow node to discover peers after startup
+	constexpr auto warmup_period = 5min;
+	auto const elapsed_since_startup = now - node.startup_time;
+	bool const warmup_complete = elapsed_since_startup >= warmup_period;
+
+	if (!sufficient_stake && warmup_complete)
+	{
+		logger.warn (nano::log::type::monitor, "Peered stake ({}) is below quorum threshold ({}). The node may not be able to confirm transactions. This is usually caused by NAT, firewall rules, or internet connectivity issues.",
+		nano::uint128_union{ stake_peered }.format_balance (nano_ratio, 1, true),
+		nano::uint128_union{ quorum }.format_balance (nano_ratio, 1, true));
+	}
 
 	last_time = now;
 	last_blocks_cemented = blocks_cemented;
