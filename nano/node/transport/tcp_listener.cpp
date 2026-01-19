@@ -4,6 +4,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/transport/tcp_server.hpp>
+#include <nano/node/transport/transport.hpp>
 
 #include <boost/asio/use_future.hpp>
 
@@ -316,6 +317,7 @@ auto nano::transport::tcp_listener::connect_impl (asio::ip::tcp::endpoint endpoi
 	catch (boost::system::system_error const & ex)
 	{
 		stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::connect_error, nano::stat::dir::out);
+		stats.inc (nano::stat::type::tcp_listener_connect_ec, nano::to_stat_detail (ex.code ()));
 		logger.log (nano::log::level::debug, nano::log::type::tcp_listener, "Error connecting to: {} ({})", endpoint, ex.code ());
 	}
 }
@@ -343,6 +345,7 @@ asio::awaitable<void> nano::transport::tcp_listener::run ()
 		catch (boost::system::system_error const & ex)
 		{
 			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::accept_error, nano::stat::dir::in);
+			stats.inc (nano::stat::type::tcp_listener_accept_ec, nano::to_stat_detail (ex.code ()));
 			logger.log (nano::log::level::debug, nano::log::type::tcp_listener, "Error accepting incoming connection: {}", ex.code ());
 		}
 

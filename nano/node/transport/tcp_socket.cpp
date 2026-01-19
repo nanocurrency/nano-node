@@ -263,6 +263,7 @@ auto nano::transport::tcp_socket::co_connect_impl (nano::endpoint endpoint) -> a
 	{
 		node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_connect_error);
 		node.stats.inc (nano::stat::type::tcp_socket, nano::stat::detail::connect_error);
+		node.stats.inc (nano::stat::type::tcp_socket_connect_ec, nano::to_stat_detail (ec));
 		node.logger.debug (nano::log::type::tcp_socket, "Failed to connect to: {} ({})",
 		endpoint, local_endpoint, ec);
 
@@ -317,6 +318,7 @@ auto nano::transport::tcp_socket::co_read_impl (nano::shared_buffer buffer, size
 	else
 	{
 		node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_read_error);
+		node.stats.inc (nano::stat::type::tcp_socket_read_ec, nano::to_stat_detail (ec));
 		node.logger.debug (nano::log::type::tcp_socket, "Error reading from: {} ({})", remote_endpoint, ec);
 
 		error = true;
@@ -369,6 +371,7 @@ auto nano::transport::tcp_socket::co_write_impl (nano::shared_buffer buffer, siz
 	else
 	{
 		node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_error);
+		node.stats.inc (nano::stat::type::tcp_socket_write_ec, nano::to_stat_detail (ec));
 		node.logger.debug (nano::log::type::tcp_socket, "Error writing to: {} ({})", remote_endpoint, ec);
 
 		error = true;

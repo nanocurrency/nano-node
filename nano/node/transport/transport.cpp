@@ -188,6 +188,14 @@ nano::stat::detail nano::to_stat_detail (boost::system::error_code const & ec)
 			return nano::stat::detail::host_unreachable;
 		case boost::system::errc::not_supported:
 			return nano::stat::detail::not_supported;
+		case boost::system::errc::connection_reset:
+			return nano::stat::detail::connection_reset;
+		case boost::system::errc::broken_pipe:
+			return nano::stat::detail::broken_pipe;
+		case boost::system::errc::network_unreachable:
+			return nano::stat::detail::network_unreachable;
+		case boost::system::errc::connection_aborted:
+			return nano::stat::detail::connection_aborted;
 		default:
 			return nano::stat::detail::other;
 	}
