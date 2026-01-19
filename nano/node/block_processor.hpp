@@ -1,8 +1,6 @@
 #pragma once
 
 #include <nano/lib/interval.hpp>
-#include <nano/lib/logging.hpp>
-#include <nano/lib/thread_pool.hpp>
 #include <nano/node/block_context.hpp>
 #include <nano/node/block_source.hpp>
 #include <nano/node/fair_queue.hpp>
@@ -67,8 +65,6 @@ public:
 	void force (std::shared_ptr<nano::block> const &);
 
 	nano::container_info container_info () const;
-
-	std::atomic<bool> flushing{ false };
 
 private: // Dependencies
 	block_processor_config const & config;
