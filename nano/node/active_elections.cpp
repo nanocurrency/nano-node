@@ -785,6 +785,20 @@ std::size_t nano::active_elections::size (nano::election_behavior behavior, nano
 	return index.size (behavior, bucket);
 }
 
+std::size_t nano::active_elections::stale_count () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	std::size_t count = 0;
+	for (auto const & election : index.list ())
+	{
+		if (election->duration () > config.stale_threshold)
+		{
+			++count;
+		}
+	}
+	return count;
+}
+
 void nano::active_elections::clear ()
 {
 	// TODO: Call erased_callback for each election

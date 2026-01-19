@@ -1620,10 +1620,12 @@ TEST (active_elections, stale_election)
 
 	// Check initial state
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::stale));
+	ASSERT_EQ (0, node.active.stale_count ());
 
 	// Wait for stale_threshold to pass and stats to be incremented
 	ASSERT_TIMELY (5s, stale_detected);
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::stale) > 0);
+	ASSERT_TIMELY_EQ (5s, 1, node.active.stale_count ());
 }
 
 TEST (active_elections, stale_election_multiple)
@@ -1658,10 +1660,12 @@ TEST (active_elections, stale_election_multiple)
 
 	// Check initial state
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::stale));
+	ASSERT_EQ (0, node.active.stale_count ());
 
 	// Wait for stale_threshold to pass (2s) plus some buffer
 	// The stale event should fire for ALL elections that are stale
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::stale) >= blocks.size ());
+	ASSERT_TIMELY_EQ (5s, blocks.size (), node.active.stale_count ());
 
 	// Check that all elections had their stale event fired
 	ASSERT_TIMELY_EQ (5s, blocks.size (), stale_detected.lock ()->size ());

@@ -99,6 +99,7 @@ public:
 	size_t size () const;
 	size_t size (nano::election_behavior) const;
 	size_t size (nano::election_behavior, nano::bucket_index) const;
+	size_t stale_count () const;
 
 	/// Maximum number of elections that should be present in this container
 	/// NOTE: This is only a soft limit, it is possible for this container to exceed this count

@@ -101,11 +101,12 @@ void nano::monitor::run_one ()
 	nano::uint128_union{ stake_peered }.format_balance (nano_ratio, 1, true),
 	nano::uint128_union{ stake_online }.format_balance (nano_ratio, 1, true));
 
-	logger.info (nano::log::type::monitor, "Elections active: {} (priority: {} | hinted: {} | optimistic: {})",
+	logger.info (nano::log::type::monitor, "Elections active: {} (priority: {} | hinted: {} | optimistic: {}) of which stale: {}",
 	node.active.size (),
 	node.active.size (nano::election_behavior::priority),
 	node.active.size (nano::election_behavior::hinted),
-	node.active.size (nano::election_behavior::optimistic));
+	node.active.size (nano::election_behavior::optimistic),
+	node.active.stale_count ());
 
 	bool const sufficient_stake = stake_peered >= quorum;
 
