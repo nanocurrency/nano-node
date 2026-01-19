@@ -724,15 +724,15 @@ TEST (network, DISABLED_bandwidth_limiter_4_messages)
 		channel2.send (message, nano::transport::traffic_type::test);
 	}
 	// Only sent messages below limit, so we don't expect any drops
-	ASSERT_TIMELY_EQ (1s, 0, node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (1s, 0, node.stats.count (nano::stat::type::message_drop, nano::stat::detail::publish, nano::stat::dir::out));
 
 	// Send droppable message; drop stats should increase by one now
 	channel1.send (message, nano::transport::traffic_type::test);
-	ASSERT_TIMELY_EQ (1s, 1, node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (1s, 1, node.stats.count (nano::stat::type::message_drop, nano::stat::detail::publish, nano::stat::dir::out));
 
 	// Send non-droppable message, i.e. drop stats should not increase
 	channel2.send (message, nano::transport::traffic_type::test);
-	ASSERT_TIMELY_EQ (1s, 1, node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (1s, 1, node.stats.count (nano::stat::type::message_drop, nano::stat::detail::publish, nano::stat::dir::out));
 }
 
 TEST (network, DISABLED_bandwidth_limiter_2_messages)
@@ -752,7 +752,7 @@ TEST (network, DISABLED_bandwidth_limiter_2_messages)
 	channel2.send (message, nano::transport::traffic_type::test);
 	channel1.send (message, nano::transport::traffic_type::test);
 	channel2.send (message, nano::transport::traffic_type::test);
-	ASSERT_TIMELY_EQ (1s, 2, node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (1s, 2, node.stats.count (nano::stat::type::message_drop, nano::stat::detail::publish, nano::stat::dir::out));
 }
 
 TEST (network, bandwidth_limiter_with_burst)
@@ -772,7 +772,7 @@ TEST (network, bandwidth_limiter_with_burst)
 	channel2.send (message, nano::transport::traffic_type::test);
 	channel1.send (message, nano::transport::traffic_type::test);
 	channel2.send (message, nano::transport::traffic_type::test);
-	ASSERT_TIMELY_EQ (1s, 0, node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+	ASSERT_TIMELY_EQ (1s, 0, node.stats.count (nano::stat::type::message_drop, nano::stat::detail::publish, nano::stat::dir::out));
 }
 
 namespace nano

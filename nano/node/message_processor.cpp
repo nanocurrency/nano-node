@@ -197,7 +197,7 @@ public:
 		if (!added)
 		{
 			node.network.filter.clear (message.digest);
-			node.stats.inc (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::in);
+			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::publish, nano::stat::dir::in);
 		}
 	}
 
@@ -219,7 +219,7 @@ public:
 		// Ignore zero account votes
 		if (message.vote->account.is_zero ())
 		{
-			node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack_zero_account, nano::stat::dir::in);
+			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::confirm_ack_zero_account, nano::stat::dir::in);
 			return;
 		}
 
@@ -228,7 +228,7 @@ public:
 		if (!added)
 		{
 			node.network.filter.clear (message.digest);
-			node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
+			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
 		}
 	}
 

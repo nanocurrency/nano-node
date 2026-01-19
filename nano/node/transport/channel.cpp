@@ -17,7 +17,7 @@ nano::transport::channel::channel (nano::node & node_a) :
 bool nano::transport::channel::send (nano::messages::message const & message, nano::transport::traffic_type traffic_type, callback_t callback)
 {
 	bool sent = send_impl (message, traffic_type, std::move (callback));
-	node.stats.inc (sent ? nano::stat::type::message : nano::stat::type::drop, to_stat_detail (message.type ()), nano::stat::dir::out, /* aggregate all */ true);
+	node.stats.inc (sent ? nano::stat::type::message : nano::stat::type::message_drop, to_stat_detail (message.type ()), nano::stat::dir::out, /* aggregate all */ true);
 	return sent;
 }
 

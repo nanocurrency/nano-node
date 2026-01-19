@@ -15,6 +15,7 @@ enum class type
 	test,
 	error,
 	message,
+	message_drop,
 	message_loopback,
 	block,
 	ledger,
@@ -61,7 +62,6 @@ enum class type
 	confirmation_height,
 	confirmation_observer,
 	cementing_set,
-	drop, // TODO: Rename to message_drop
 	aggregator,
 	requests,
 	request_aggregator,
