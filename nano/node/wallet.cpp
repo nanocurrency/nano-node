@@ -1568,8 +1568,6 @@ std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> nano::wallets
 
 std::shared_ptr<nano::wallet> nano::wallets::create (nano::wallet_id const & id_a)
 {
-	auto locked_items = items.lock ();
-	debug_assert (locked_items->find (id_a) == locked_items->end ());
 	std::shared_ptr<nano::wallet> result;
 	bool error;
 	{
@@ -1578,8 +1576,14 @@ std::shared_ptr<nano::wallet> nano::wallets::create (nano::wallet_id const & id_
 	}
 	if (!error)
 	{
+		auto locked_items = items.lock ();
+		debug_assert (locked_items->find (id_a) == locked_items->end ());
 		(*locked_items)[id_a] = result;
 		result->enter_initial_password ();
+	}
+	else
+	{
+		result = nullptr;
 	}
 	return result;
 }
