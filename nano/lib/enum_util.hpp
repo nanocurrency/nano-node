@@ -13,18 +13,21 @@ namespace nano
 template <typename Index, typename Value>
 using enum_array = magic_enum::containers::array<Index, Value>;
 
-template <typename T, typename S>
-consteval void ensure_all_enum_castable ()
-{
+/**
+ * Concept that checks if all values of source enum S can be converted to target enum T by name.
+ * Used to provide clear compile-time errors when enum conversion is not possible.
+ */
+template <typename S, typename T>
+concept enum_convertible_to = std::is_enum_v<S> && std::is_enum_v<T> && ([] {
 	for (auto value : magic_enum::enum_values<S> ())
 	{
 		if (!magic_enum::enum_cast<T> (magic_enum::enum_name (value)))
 		{
-			// If this fails, it means that the target enum is missing a value present in the source enum
-			throw std::logic_error ("Value of " + std::string{ magic_enum::enum_type_name<S> () } + " (" + std::string{ magic_enum::enum_name (value) } + ") cannot be cast to " + std::string{ magic_enum::enum_type_name<T> () });
+			return false;
 		}
 	}
-}
+	return true;
+}());
 
 /**
  * Returns the string name of an enum value.
@@ -98,10 +101,9 @@ E enum_parse (std::string_view name, bool ignore_reserved = true)
  * Validates at compile-time that all source enum values exist in target enum.
  */
 template <class T, class S>
+	requires enum_convertible_to<S, T>
 T enum_convert (S value)
 {
-	ensure_all_enum_castable<T, S> ();
-
 	auto conv = magic_enum::enum_cast<T> (nano::enum_to_string (value));
 	debug_assert (conv);
 	return conv.value_or (T{});
