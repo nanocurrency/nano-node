@@ -6,6 +6,14 @@
 #define xstr(a) ver_str (a)
 #define ver_str(a) #a
 
+#ifndef TAG_VERSION_STRING
+#error "TAG_VERSION_STRING must be defined"
+#endif
+
+#ifndef GIT_COMMIT_HASH
+#define GIT_COMMIT_HASH UNKNOWN
+#endif
+
 namespace nano
 {
 /**
