@@ -79,6 +79,8 @@ enum class test_enum
 enum class test_enum2
 {
 	one,
+	two,
+	three,
 };
 }
 
@@ -122,7 +124,9 @@ TEST (enum_util, parse)
 	ASSERT_THROW (nano::enum_parse<test_enum> ("_invalid"), std::invalid_argument);
 }
 
-TEST (enum_util, cast)
+TEST (enum_util, convert)
 {
 	ASSERT_EQ (nano::enum_convert<test_enum> (test_enum2::one), test_enum::one);
+	ASSERT_EQ (nano::enum_convert<test_enum> (test_enum2::two), test_enum::two);
+	ASSERT_EQ (nano::enum_convert<test_enum> (test_enum2::three), test_enum::three);
 }

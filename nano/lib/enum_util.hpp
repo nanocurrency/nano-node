@@ -4,6 +4,7 @@
 
 #include <magic_enum.hpp>
 #include <magic_enum_containers.hpp>
+#include <magic_enum_switch.hpp>
 
 namespace nano
 {
@@ -105,13 +106,20 @@ E enum_parse (std::string_view name, bool ignore_reserved = true)
 /**
  * Converts an enum value to another enum type by matching names.
  * Validates at compile-time that all source enum values exist in target enum.
+ * Uses enum_switch to generate a switch statement instead of runtime string comparison.
  */
 template <class T, class S>
 	requires enum_convertible_to<S, T>
-T enum_convert (S value)
+constexpr T enum_convert (S value)
 {
-	auto conv = magic_enum::enum_cast<T> (nano::enum_to_string (value));
-	debug_assert (conv);
-	return conv.value_or (T{});
+	return magic_enum::enum_switch (
+	[] (auto val) -> T {
+		constexpr S src_value = decltype (val)::value;
+		constexpr auto name = magic_enum::enum_name (src_value);
+		constexpr auto conv = magic_enum::enum_cast<T> (name);
+		static_assert (conv.has_value ());
+		return *conv;
+	},
+	value, T{});
 }
 }
