@@ -1824,11 +1824,10 @@ void nano::wallets::compute_reps ()
 void nano::wallets::ongoing_compute_reps ()
 {
 	compute_reps ();
-	auto & node_l (node);
 	// Representation drifts quickly on the test network but very slowly on the live network
 	auto compute_delay = network_params.network.is_dev_network () ? std::chrono::milliseconds (10) : (network_params.network.is_test_network () ? std::chrono::milliseconds (nano::test_scan_wallet_reps_delay ()) : std::chrono::minutes (15));
-	workers.post_delayed (compute_delay, [&node_l] () {
-		node_l.wallets.ongoing_compute_reps ();
+	workers.post_delayed (compute_delay, [this] () {
+		ongoing_compute_reps ();
 	});
 }
 

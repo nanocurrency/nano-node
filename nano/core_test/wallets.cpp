@@ -24,6 +24,7 @@ TEST (wallets, open_create)
 {
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
+	node.wallets.stop (); // Stop node wallets to avoid race condition with local wallets sharing same LMDB environment
 	auto wallets = make_wallets (node);
 	ASSERT_EQ (1, wallets.items.size ()); // it starts out with a default wallet
 	auto id = nano::random_wallet_id ();
@@ -37,6 +38,7 @@ TEST (wallets, open_existing)
 {
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
+	node.wallets.stop (); // Stop node wallets to avoid race condition with local wallets sharing same LMDB environment
 	auto id (nano::random_wallet_id ());
 	{
 		auto wallets = make_wallets (node);
@@ -64,6 +66,7 @@ TEST (wallets, remove)
 {
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
+	node.wallets.stop (); // Stop node wallets to avoid race condition with local wallets sharing same LMDB environment
 	nano::wallet_id one (1);
 	{
 		auto wallets = make_wallets (node);
