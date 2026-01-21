@@ -1,5 +1,4 @@
 #include <nano/lib/utility.hpp>
-#include <nano/node/bootstrap/crawlers.hpp>
 #include <nano/node/bootstrap/database_scan.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
@@ -82,21 +81,24 @@ std::deque<nano::account> nano::bootstrap::account_database_scanner::next_batch 
 {
 	std::deque<nano::account> result;
 
-	nano::bootstrap::account_database_crawler crawler{ ledger.store, transaction, next };
+	auto crawler = ledger.store.account.crawl (transaction, next);
 
-	for (size_t count = 0; crawler.current && count < batch_size; crawler.advance (), ++count)
+	for (; crawler && result.size () < batch_size; ++crawler)
 	{
-		auto const & [account, info] = crawler.current.value ();
+		auto const & [account, info] = *crawler;
 		result.push_back (account);
-		next = inc_sat (account.number ());
 	}
 
-	// Empty current value indicates the end of the table
-	if (!crawler.current)
+	// Empty crawler indicates end of ledger
+	if (!crawler)
 	{
 		// Reset for the next ledger iteration
 		next = { 0 };
 		++completed;
+	}
+	else
+	{
+		next = crawler.key ();
 	}
 
 	return result;
@@ -110,21 +112,24 @@ std::deque<nano::account> nano::bootstrap::pending_database_scanner::next_batch 
 {
 	std::deque<nano::account> result;
 
-	nano::bootstrap::pending_database_crawler crawler{ ledger.store, transaction, next };
+	auto crawler = ledger.store.pending.crawl (transaction, next);
 
-	for (size_t count = 0; crawler.current && count < batch_size; crawler.advance (), ++count)
+	for (; crawler && result.size () < batch_size; ++crawler)
 	{
-		auto const & [key, info] = crawler.current.value ();
+		auto const & [key, info] = *crawler;
 		result.push_back (key.account);
-		next = inc_sat (key.account.number ());
 	}
 
-	// Empty current value indicates the end of the table
-	if (!crawler.current)
+	// Empty crawler indicates end of ledger
+	if (!crawler)
 	{
 		// Reset for the next ledger iteration
 		next = { 0 };
 		++completed;
+	}
+	else
+	{
+		next = crawler.key ();
 	}
 
 	return result;

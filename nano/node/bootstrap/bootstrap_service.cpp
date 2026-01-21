@@ -5,7 +5,6 @@
 #include <nano/lib/thread_roles.hpp>
 #include <nano/node/block_processor.hpp>
 #include <nano/node/bootstrap/bootstrap_service.hpp>
-#include <nano/node/bootstrap/crawlers.hpp>
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -15,6 +14,7 @@
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
+#include <nano/store/ledger/pending.hpp>
 
 using namespace std::chrono_literals;
 
@@ -1066,22 +1066,22 @@ void nano::bootstrap_service::process_frontiers (std::deque<std::pair<nano::acco
 		auto transaction = ledger.tx_begin_read ();
 
 		auto const start = frontiers.front ().first;
-		nano::bootstrap::account_database_crawler account_crawler{ ledger.store, transaction, start };
-		nano::bootstrap::pending_database_crawler pending_crawler{ ledger.store, transaction, start };
+		auto account_crawler = ledger.store.account.crawl (transaction, start);
+		auto pending_crawler = ledger.store.pending.crawl (transaction, start);
 
 		auto block_exists = [&] (nano::block_hash const & hash) {
 			return ledger.any.block_exists_or_pruned (transaction, hash);
 		};
 
 		auto should_prioritize = [&] (nano::account const & account, nano::block_hash const & frontier) {
-			account_crawler.advance_to (account);
-			pending_crawler.advance_to (account);
+			account_crawler.skip_to (account);
+			pending_crawler.skip_to (account);
 
 			// Check if account exists in our ledger
-			if (account_crawler.current && account_crawler.current->first == account)
+			if (account_crawler && account_crawler->first == account)
 			{
 				// Check for frontier mismatch
-				if (account_crawler.current->second.head != frontier)
+				if (account_crawler->second.head != frontier)
 				{
 					// Check if frontier block exists in our ledger
 					if (!block_exists (frontier))
@@ -1094,7 +1094,7 @@ void nano::bootstrap_service::process_frontiers (std::deque<std::pair<nano::acco
 			}
 
 			// Check if account has pending blocks in our ledger
-			if (pending_crawler.current && pending_crawler.current->first.account == account)
+			if (pending_crawler && pending_crawler->first.account == account)
 			{
 				pending++;
 				return true; // Account doesn't exist but has pending blocks in the ledger

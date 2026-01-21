@@ -83,6 +83,11 @@ auto account_view::end (nano::store::transaction const & txn) const -> iterator
 	return iterator{ backend.end (txn, nano::store::table::accounts) };
 }
 
+auto account_view::crawl (nano::store::transaction const & txn, nano::account const & start) const -> crawler
+{
+	return crawler{ *this, txn, start };
+}
+
 void account_view::for_each_par (std::function<void (nano::store::read_transaction const &, iterator, iterator)> const & action) const
 {
 	parallel_traversal<nano::uint256_t> (

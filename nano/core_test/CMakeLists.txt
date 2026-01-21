@@ -19,6 +19,7 @@ add_executable(
   bucketing.cpp
   cli.cpp
   confirmation_solicitor.cpp
+  crawler.cpp
   cementing_set.cpp
   conflicts.cpp
   difficulty.cpp

@@ -25,6 +25,7 @@ add_library(
   ledger/version.hpp
   ledger/version.cpp
   block_w_sideband.hpp
+  crawler.hpp
   common.hpp
   common.cpp
   db_val.hpp
