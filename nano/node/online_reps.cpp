@@ -152,9 +152,13 @@ bool nano::online_reps::sample ()
 	if (current_online < config.online_weight_minimum.number ())
 	{
 		stats.inc (nano::stat::type::online_reps, nano::stat::detail::sample_skipped);
-		logger.warn (nano::log::type::online_reps, "Current online weight {} is below minimum threshold {}. This often occurs when the node cannot reach enough peers; check network connectivity and peer count.",
-		nano::uint128_union{ current_online }.format_balance (nano_ratio, 1, true),
-		nano::uint128_union{ config.online_weight_minimum.number () }.format_balance (nano_ratio, 1, true));
+
+		if (low_weight_warning_interval.elapse (1min))
+		{
+			logger.warn (nano::log::type::online_reps, "Current online weight {} is below minimum threshold {}. This often occurs when the node cannot reach enough peers; check network connectivity and peer count.",
+			nano::uint128_union{ current_online }.format_balance (nano_ratio, 1, true),
+			nano::uint128_union{ config.online_weight_minimum.number () }.format_balance (nano_ratio, 1, true));
+		}
 
 		return false; // Skipped
 	}

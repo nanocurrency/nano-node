@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/interval.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/numbers_templ.hpp>
 #include <nano/lib/utility.hpp>
@@ -101,6 +102,8 @@ private:
 	nano::uint128_t cached_online{0};
 
 	std::chrono::steady_clock::time_point last_sample;
+
+	nano::interval low_weight_warning_interval;
 
 	bool stopped{ false };
 	nano::condition_variable condition;
