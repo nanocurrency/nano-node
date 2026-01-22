@@ -6,6 +6,11 @@ nano::ipc::socket_base::socket_base (boost::asio::io_context & io_ctx_a) :
 {
 }
 
+nano::ipc::socket_base::~socket_base ()
+{
+	timer_cancel ();
+}
+
 void nano::ipc::socket_base::timer_start (std::chrono::seconds timeout_a)
 {
 	if (timeout_a < std::chrono::seconds::max ())

@@ -30,7 +30,7 @@ namespace ipc
 	{
 	public:
 		socket_base (boost::asio::io_context & io_ctx_a);
-		virtual ~socket_base () = default;
+		virtual ~socket_base ();
 
 		/** Close socket */
 		virtual void close () = 0;
