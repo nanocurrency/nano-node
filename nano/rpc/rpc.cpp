@@ -78,7 +78,8 @@ void nano::rpc::accept ()
 void nano::rpc::stop ()
 {
 	stopped = true;
-	acceptor.close ();
+	boost::system::error_code ec;
+	acceptor.close (ec); // Best effort to close, ignore errors during shutdown
 }
 
 std::shared_ptr<nano::rpc> nano::get_rpc (std::shared_ptr<boost::asio::io_context> io_ctx_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a)

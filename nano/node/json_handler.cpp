@@ -4013,7 +4013,14 @@ void nano::json_handler::stop ()
 	response_errors ();
 	if (!ec)
 	{
-		stop_callback ();
+		try
+		{
+			stop_callback ();
+		}
+		catch (std::exception const & ex)
+		{
+			release_assert (false, "unexpected exception in stop callback", ex.what ());
+		}
 	}
 }
 
