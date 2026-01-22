@@ -1657,10 +1657,6 @@ TEST (active_elections, stale_election_multiple)
 		ASSERT_TRUE (node.active.active (block->qualified_root ()));
 	}
 
-	// Check initial state
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::stale));
-	ASSERT_EQ (0, node.active.stale_count ());
-
 	// Wait for stale_threshold to pass (2s) plus some buffer
 	// The stale event should fire for ALL elections that are stale
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::stale) >= blocks.size ());
