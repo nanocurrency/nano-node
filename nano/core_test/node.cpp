@@ -1057,7 +1057,7 @@ TEST (node, fork_open_flip)
  *
  * The test sends a vote for the forking block (send2) from key1, which lacks
  * enough weight to reach quorum. It verifies that all nodes retain send1 as
- * the confirmed block, demonstrating that votes without quorum cannot override consensus.
+ * the latest block in the ledger, demonstrating that votes without quorum cannot override consensus.
  */
 TEST (node, fork_no_vote_quorum)
 {
