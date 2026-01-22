@@ -104,7 +104,7 @@ private:
 
 	std::chrono::steady_clock::time_point last_sample;
 
-	nano::interval low_weight_warning_interval;
+	nano::interval_mt low_weight_warning_interval;
 
 	bool stopped{ false };
 	nano::condition_variable condition;
