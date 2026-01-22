@@ -110,12 +110,7 @@ void nano::monitor::run_one ()
 
 	bool const sufficient_stake = stake_peered >= quorum;
 
-	// Grace period to allow node to discover peers after startup
-	constexpr auto warmup_period = 5min;
-	auto const elapsed_since_startup = now - node.startup_time;
-	bool const warmup_complete = elapsed_since_startup >= warmup_period;
-
-	if (!sufficient_stake && warmup_complete)
+	if (!sufficient_stake && node.warmed_up ())
 	{
 		logger.warn (nano::log::type::monitor, "Peered stake ({}) is below quorum threshold ({}). The node may not be able to confirm transactions. This is usually caused by NAT, firewall rules, or internet connectivity issues.",
 		nano::uint128_union{ stake_peered }.format_balance (nano_ratio, 1, true),

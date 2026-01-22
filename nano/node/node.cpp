@@ -151,7 +151,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	bucketing{ *bucketing_impl },
 	active_impl{ std::make_unique<nano::active_elections> (*this, ledger_notifications, cementing_set) },
 	active{ *active_impl },
-	online_reps_impl{ std::make_unique<nano::online_reps> (config, ledger, stats, logger) },
+	online_reps_impl{ std::make_unique<nano::online_reps> (config, *this, ledger, stats, logger) },
 	online_reps{ *online_reps_impl },
 	wallets_impl{ std::make_unique<nano::wallets> (*this, wallets_store, ledger, config, network_params, online_reps, network, logger) },
 	wallets{ *wallets_impl },
@@ -876,6 +876,11 @@ bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & ha
 bool nano::node::online () const
 {
 	return rep_crawler.total_weight () > online_reps.delta ();
+}
+
+bool nano::node::warmed_up () const
+{
+	return std::chrono::steady_clock::now () - startup_time >= warmup_time;
 }
 
 std::shared_ptr<nano::node> nano::node::shared ()

@@ -73,6 +73,7 @@ public:
 	void work_generate (nano::work_version const, nano::root const &, uint64_t, std::function<void (std::optional<uint64_t>)>, std::optional<nano::account> const & = std::nullopt, bool const = false);
 	void add_initial_peers ();
 	void start_election (std::shared_ptr<nano::block> const & block);
+	bool warmed_up () const;
 
 	bool block_confirmed (nano::block_hash const &);
 	// This function may spuriously return false after returning true until the database transaction is refreshed
@@ -218,9 +219,11 @@ public:
 
 public:
 	std::chrono::steady_clock::time_point const startup_time;
-	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	std::atomic<bool> unresponsive_work_peers{ false };
 	std::atomic<bool> stopped{ false };
+
+	// Grace period after startup to allow the node to discover peers and gather online weight
+	static constexpr auto warmup_time = std::chrono::minutes{ 5 };
 
 public: // For tests only
 	const unsigned node_seq;

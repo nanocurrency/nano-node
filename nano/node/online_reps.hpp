@@ -24,7 +24,7 @@ namespace nano
 class online_reps final
 {
 public:
-	online_reps (nano::node_config const &, nano::ledger &, nano::stats &, nano::logger &);
+	online_reps (nano::node_config const &, nano::node &, nano::ledger &, nano::stats &, nano::logger &);
 	~online_reps ();
 
 	void start ();
@@ -52,6 +52,7 @@ public:
 
 private: // Dependencies
 	nano::node_config const & config;
+	nano::node & node;
 	nano::ledger & ledger;
 	nano::stats & stats;
 	nano::logger & logger;

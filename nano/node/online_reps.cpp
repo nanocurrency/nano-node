@@ -1,13 +1,15 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/ledger/online_weight.hpp>
 
-nano::online_reps::online_reps (nano::node_config const & config_a, nano::ledger & ledger_a, nano::stats & stats_a, nano::logger & logger_a) :
+nano::online_reps::online_reps (nano::node_config const & config_a, nano::node & node_a, nano::ledger & ledger_a, nano::stats & stats_a, nano::logger & logger_a) :
 	config{ config_a },
+	node{ node_a },
 	ledger{ ledger_a },
 	stats{ stats_a },
 	logger{ logger_a }
@@ -153,7 +155,8 @@ bool nano::online_reps::sample ()
 	{
 		stats.inc (nano::stat::type::online_reps, nano::stat::detail::sample_skipped);
 
-		if (low_weight_warning_interval.elapse (1min))
+		// Only warn after warmup period to allow node to discover peers
+		if (node.warmed_up () && low_weight_warning_interval.elapse (1min))
 		{
 			logger.warn (nano::log::type::online_reps, "Current online weight {} is below minimum threshold {}. This often occurs when the node cannot reach enough peers; check network connectivity and peer count.",
 			nano::uint128_union{ current_online }.format_balance (nano_ratio, 1, true),
