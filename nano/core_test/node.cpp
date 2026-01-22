@@ -1090,9 +1090,9 @@ TEST (node, fork_no_vote_quorum)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (block->hash ()))
 				 .build ();
-	ASSERT_EQ (nano::block_status::progress, node1.process (send1));
-	ASSERT_EQ (nano::block_status::progress, node2.process (send1));
-	ASSERT_EQ (nano::block_status::progress, node3.process (send1));
+	nano::test::process (node1, { send1 });
+	nano::test::process (node2, { send1 });
+	nano::test::process (node3, { send1 });
 	auto key2 (system.wallet (2)->deterministic_insert ());
 	auto send2 = nano::send_block_builder ()
 				 .previous (block->hash ())
