@@ -237,6 +237,7 @@ public:
 	nano::network_params const &,
 	nano::online_reps &,
 	nano::network &,
+	nano::stats &,
 	nano::logger &);
 
 	~wallets ();
@@ -259,13 +260,15 @@ public:
 	nano::wallet_representatives reps () const;
 	bool check_rep (nano::account const &, nano::uint128_t const &, bool const = true);
 	void compute_reps ();
-	void ongoing_compute_reps ();
 	void receive_confirmed (nano::block_hash const & hash, nano::account const & destination);
 	std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> get_wallets ();
 	nano::container_info container_info () const;
 
 	nano::store::write_transaction tx_begin_write ();
 	nano::store::read_transaction tx_begin_read ();
+
+private:
+	void run_reps_scan ();
 
 public: // Dependencies
 	nano::node & node;
@@ -275,6 +278,7 @@ public: // Dependencies
 	nano::network_params const & network_params;
 	nano::online_reps & online_reps;
 	nano::network & network;
+	nano::stats & stats;
 	nano::logger & logger;
 
 public:
@@ -293,8 +297,10 @@ public:
 	mutable nano::mutex mutex;
 	mutable nano::mutex action_mutex;
 	nano::condition_variable condition;
+	nano::condition_variable reps_condition;
 	std::atomic<bool> stopped{ false };
 	std::thread thread;
+	std::thread reps_thread;
 
 	nano::thread_pool workers;
 

@@ -55,9 +55,6 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::aec_notifications:
 			thread_role_name_string = "AEC notif";
 			break;
-		case nano::thread_role::name::wallet_actions:
-			thread_role_name_string = "Wallet actions";
-			break;
 		case nano::thread_role::name::bootstrap_initiator:
 			thread_role_name_string = "Bootstrap init";
 			break;
@@ -87,9 +84,6 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 			break;
 		case nano::thread_role::name::worker:
 			thread_role_name_string = "Worker";
-			break;
-		case nano::thread_role::name::wallet_worker:
-			thread_role_name_string = "Wallet work";
 			break;
 		case nano::thread_role::name::election_worker:
 			thread_role_name_string = "Election work";
@@ -204,6 +198,15 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 			break;
 		case nano::thread_role::name::pruning:
 			thread_role_name_string = "Pruning";
+			break;
+		case nano::thread_role::name::wallet_actions:
+			thread_role_name_string = "Wallet actions";
+			break;
+		case nano::thread_role::name::wallet_worker:
+			thread_role_name_string = "Wallet work";
+			break;
+		case nano::thread_role::name::wallet_reps:
+			thread_role_name_string = "Wallet reps";
 			break;
 		default:
 			debug_assert (false && "nano::thread_role::get_string unhandled thread role");

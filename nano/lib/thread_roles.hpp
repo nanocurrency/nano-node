@@ -23,7 +23,6 @@ enum class name
 	aec_loop,
 	aec_checkup,
 	aec_notifications,
-	wallet_actions,
 	bootstrap_initiator,
 	bootstrap_connections,
 	voting,
@@ -34,7 +33,6 @@ enum class name
 	confirmation_height,
 	confirmation_height_notifications,
 	worker,
-	wallet_worker,
 	election_worker,
 	request_aggregator,
 	state_block_signature_verification,
@@ -73,6 +71,9 @@ enum class name
 	monitor,
 	http_callbacks,
 	pruning,
+	wallet_actions,
+	wallet_worker,
+	wallet_reps,
 };
 
 std::string_view to_string (name);

@@ -136,6 +136,7 @@ enum class type
 	online_reps,
 	pruning,
 	fork_cache,
+	wallet,
 
 	_last // Must be the last enum
 };
@@ -153,6 +154,7 @@ enum class detail
 	loop,
 	loop_cleanup,
 	loop_checkup,
+	loop_reps,
 	process,
 	processed,
 	ignored,

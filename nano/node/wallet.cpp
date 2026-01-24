@@ -1,6 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/files.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work_version.hpp>
@@ -1437,6 +1438,7 @@ nano::node_config const & config_a,
 nano::network_params const & network_params_a,
 nano::online_reps & online_reps_a,
 nano::network & network_a,
+nano::stats & stats_a,
 nano::logger & logger_a) :
 	node{ node_a },
 	wallets_store{ wallets_store_a },
@@ -1445,6 +1447,7 @@ nano::logger & logger_a) :
 	network_params{ network_params_a },
 	online_reps{ online_reps_a },
 	network{ network_a },
+	stats{ stats_a },
 	logger{ logger_a },
 	observer{ [] (bool) {} },
 	kdf{ network_params.kdf_work },
@@ -1533,7 +1536,10 @@ void nano::wallets::start ()
 
 	if (config.enable_voting)
 	{
-		ongoing_compute_reps ();
+		reps_thread = std::thread{ [this] () {
+			nano::thread_role::set (nano::thread_role::name::wallet_reps);
+			run_reps_scan ();
+		} };
 	}
 }
 
@@ -1545,9 +1551,15 @@ void nano::wallets::stop ()
 		actions.clear ();
 	}
 	condition.notify_all ();
+	reps_condition.notify_all ();
+
 	if (thread.joinable ())
 	{
 		thread.join ();
+	}
+	if (reps_thread.joinable ())
+	{
+		reps_thread.join ();
 	}
 
 	workers.stop ();
@@ -1822,14 +1834,31 @@ void nano::wallets::compute_reps ()
 	}
 }
 
-void nano::wallets::ongoing_compute_reps ()
+void nano::wallets::run_reps_scan ()
 {
-	compute_reps ();
-	// Representation drifts quickly on the test network but very slowly on the live network
-	auto compute_delay = network_params.network.is_dev_network () ? std::chrono::milliseconds (10) : (network_params.network.is_test_network () ? std::chrono::milliseconds (nano::test_scan_wallet_reps_delay ()) : std::chrono::minutes (15));
-	workers.post_delayed (compute_delay, [this] () {
-		ongoing_compute_reps ();
-	});
+	auto delay = [this] () {
+		// Representation drifts quickly on the test network but very slowly on the live network
+		return network_params.network.is_dev_network ()
+		? std::chrono::milliseconds (10)
+		: (network_params.network.is_test_network ()
+		? std::chrono::milliseconds (nano::test_scan_wallet_reps_delay ())
+		: std::chrono::minutes (15));
+	};
+
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	while (!stopped)
+	{
+		lock.unlock ();
+
+		stats.inc (nano::stat::type::wallet, nano::stat::detail::loop_reps);
+		compute_reps ();
+
+		lock.lock ();
+
+		reps_condition.wait_for (lock, delay (), [this] () {
+			return stopped.load ();
+		});
+	}
 }
 
 void nano::wallets::receive_confirmed (nano::block_hash const & hash_a, nano::account const & destination_a)

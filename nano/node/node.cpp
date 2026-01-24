@@ -153,7 +153,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	active{ *active_impl },
 	online_reps_impl{ std::make_unique<nano::online_reps> (config, *this, ledger, stats, logger) },
 	online_reps{ *online_reps_impl },
-	wallets_impl{ std::make_unique<nano::wallets> (*this, wallets_store, ledger, config, network_params, online_reps, network, logger) },
+	wallets_impl{ std::make_unique<nano::wallets> (*this, wallets_store, ledger, config, network_params, online_reps, network, stats, logger) },
 	wallets{ *wallets_impl },
 	rep_crawler_impl{ std::make_unique<nano::rep_crawler> (config.rep_crawler, *this) },
 	rep_crawler{ *rep_crawler_impl },

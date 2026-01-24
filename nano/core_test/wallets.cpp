@@ -16,7 +16,7 @@ namespace
 {
 nano::wallets make_wallets (nano::node & node)
 {
-	return nano::wallets (node, node.wallets_store, node.ledger, node.config, node.network_params, node.online_reps, node.network, node.logger);
+	return nano::wallets (node, node.wallets_store, node.ledger, node.config, node.network_params, node.online_reps, node.network, node.stats, node.logger);
 }
 }
 
