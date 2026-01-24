@@ -386,6 +386,7 @@ TEST (vote_rebroadcaster, disabled_when_principal_representative)
 	ASSERT_TIMELY (5s, node.wallets.reps ().have_half_rep ());
 
 	// Wait for rebroadcaster to refresh and detect has_principal
+	node.stats.clear ();
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::vote_rebroadcaster, nano::stat::detail::refresh) > 1);
 
 	// Create a different representative key with enough weight to be tier 1+
@@ -421,9 +422,6 @@ TEST (vote_rebroadcaster, disabled_when_principal_representative)
 
 	// Wait for rep tiers to recognize other_rep
 	ASSERT_TIMELY (10s, node.rep_tiers.tier (other_rep.pub) != nano::rep_tier::none);
-
-	// Clear stats
-	node.stats.clear ();
 
 	// Create a vote from other_rep (external principal representative)
 	auto vote = nano::test::make_vote (other_rep, { send->hash () });
