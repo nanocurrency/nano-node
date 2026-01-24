@@ -1257,6 +1257,10 @@ void nano::wallet::work_ensure (nano::account const & account_a, nano::root cons
 	wallets.delayed_work->operator[] (account_a) = root_a;
 
 	wallets.workers.post_delayed (precache_delay, [this_l = shared_from_this (), account_a, root_a] {
+		if (this_l->wallets.stopped)
+		{
+			return;
+		}
 		auto delayed_work = this_l->wallets.delayed_work.lock ();
 		auto existing (delayed_work->find (account_a));
 		if (existing != delayed_work->end () && existing->second == root_a)
