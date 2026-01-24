@@ -23,29 +23,51 @@ nano::vote_router::~vote_router ()
 	debug_assert (!thread.joinable ());
 }
 
+void nano::vote_router::start ()
+{
+	thread = std::thread{ [this] () {
+		nano::thread_role::set (nano::thread_role::name::vote_router);
+		run ();
+	} };
+}
+
+void nano::vote_router::stop ()
+{
+	{
+		std::unique_lock lock{ mutex };
+		stopped = true;
+	}
+	condition.notify_all ();
+	if (thread.joinable ())
+	{
+		thread.join ();
+	}
+}
+
 void nano::vote_router::connect (nano::block_hash const & hash, std::weak_ptr<nano::election> election)
 {
 	std::unique_lock lock{ mutex };
 	elections.insert_or_assign (hash, election);
 }
 
-void nano::vote_router::disconnect (nano::election const & election)
+std::size_t nano::vote_router::disconnect (nano::election const & election)
 {
 	std::unique_lock lock{ mutex };
+	std::size_t erased = 0;
 	for (auto const & [hash, _] : election.blocks ())
 	{
-		elections.erase (hash);
+		erased += elections.erase (hash);
 	}
+	return erased;
 }
 
-void nano::vote_router::disconnect (nano::block_hash const & hash)
+bool nano::vote_router::disconnect (nano::block_hash const & hash)
 {
 	std::unique_lock lock{ mutex };
-	[[maybe_unused]] auto erased = elections.erase (hash);
-	debug_assert (erased == 1);
+	auto erased = elections.erase (hash);
+	return erased > 0;
 }
 
-// Validate a vote and apply it to the current election if one exists
 std::unordered_map<nano::block_hash, nano::vote_code> nano::vote_router::vote (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, nano::block_hash filter)
 {
 	debug_assert (!vote->validate ()); // false => valid vote
@@ -146,31 +168,19 @@ std::shared_ptr<nano::election> nano::vote_router::election (nano::block_hash co
 	return nullptr;
 }
 
-// This is meant to be a fast check and may return false positives if weak pointers have expired, but we don't care about that here
 bool nano::vote_router::contains (nano::block_hash const & hash) const
 {
 	std::shared_lock lock{ mutex };
 	return elections.contains (hash);
 }
 
-void nano::vote_router::start ()
+nano::container_info nano::vote_router::container_info () const
 {
-	thread = std::thread{ [this] () {
-		nano::thread_role::set (nano::thread_role::name::vote_router);
-		run ();
-	} };
-}
+	std::shared_lock lock{ mutex };
 
-void nano::vote_router::stop ()
-{
-	std::unique_lock lock{ mutex };
-	stopped = true;
-	lock.unlock ();
-	condition.notify_all ();
-	if (thread.joinable ())
-	{
-		thread.join ();
-	}
+	nano::container_info info;
+	info.put ("elections", elections);
+	return info;
 }
 
 void nano::vote_router::run ()
@@ -181,15 +191,6 @@ void nano::vote_router::run ()
 		std::erase_if (elections, [] (auto const & pair) { return pair.second.lock () == nullptr; });
 		condition.wait_for (lock, 15s, [&] () { return stopped; });
 	}
-}
-
-nano::container_info nano::vote_router::container_info () const
-{
-	std::shared_lock lock{ mutex };
-
-	nano::container_info info;
-	info.put ("elections", elections);
-	return info;
 }
 
 /*
