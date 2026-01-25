@@ -257,3 +257,64 @@ TEST (wallets, search_receivable)
 		ASSERT_EQ (send->hash (), receive->source ());
 	}
 }
+
+// Test that the background reps scanning thread automatically detects new representatives
+TEST (wallets, rep_scan)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.enable_voting = true;
+	auto & node = *system.add_node (config);
+
+	auto wallet = node.wallets.items.begin ()->second;
+
+	// Insert a key that initially has no balance (not a representative)
+	nano::keypair key;
+	wallet->insert_adhoc (key.prv);
+
+	// Initially the account should not be detected as a representative
+	{
+		nano::lock_guard<nano::mutex> lock{ wallet->representatives_mutex };
+		ASSERT_EQ (0, wallet->representatives.count (key.pub));
+	}
+
+	// Send funds to make the account a representative (vote_minimum amount)
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - node.config.vote_minimum.number ())
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+
+	auto open = builder
+				.state ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.balance (node.config.vote_minimum.number ())
+				.link (send->hash ())
+				.sign (key.prv, key.pub)
+				.work (*system.work.generate (key.pub))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (open));
+
+	// Clear stats and wait for the reps scan loop to run
+	node.stats.clear ();
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::wallet, nano::stat::detail::loop_reps) > 1);
+
+	// Verify that the wallet now detects the account as a representative
+	ASSERT_TIMELY (5s, [&] {
+		nano::lock_guard<nano::mutex> lock{ wallet->representatives_mutex };
+		return wallet->representatives.count (key.pub) == 1;
+	}());
+
+	// Also verify via the wallets reps() accessor
+	auto reps = node.wallets.reps ();
+	ASSERT_TRUE (reps.exists (key.pub));
+}
