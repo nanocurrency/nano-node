@@ -318,3 +318,46 @@ TEST (wallets, rep_scan)
 	auto reps = node.wallets.reps ();
 	ASSERT_TRUE (reps.exists (key.pub));
 }
+
+// Test that the background receivable scanning thread automatically processes receivables
+TEST (wallets, receivable_scan)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.backlog_scan.enable = false;
+	auto & node = *system.add_node (config);
+
+	auto wallet = node.wallets.items.begin ()->second;
+	wallet->insert_adhoc (nano::dev::genesis_key.prv);
+
+	// Create a send block to self (creates a receivable)
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - node.config.receive_minimum.number ())
+				.link (nano::dev::genesis_key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+
+	// Confirm the send block (receivable scan only processes confirmed blocks)
+	ASSERT_TIMELY (5s, node.block_confirmed (send->hash ()));
+
+	// Clear stats and wait for the receivable scan loop to run
+	node.stats.clear ();
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::wallet, nano::stat::detail::loop_receivable) > 1);
+
+	// Verify the background scan automatically created the receive block
+	ASSERT_TIMELY_EQ (5s, node.balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount);
+
+	// Verify the receive block exists
+	auto receive_hash = node.ledger.any.account_head (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
+	auto receive = node.block (receive_hash);
+	ASSERT_NE (nullptr, receive);
+	ASSERT_EQ (receive->sideband ().height, 3);
+	ASSERT_EQ (send->hash (), receive->source ());
+}

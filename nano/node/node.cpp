@@ -553,10 +553,6 @@ void nano::node::start ()
 	{
 		backup_wallet ();
 	}
-	if (!flags.disable_search_pending)
-	{
-		search_receivable_all ();
-	}
 	// Start port mapping if external address is not defined and TCP ports are enabled
 	if (config.external_address == boost::asio::ip::address_v6::any ().to_string () && tcp_enabled)
 	{
@@ -723,18 +719,6 @@ void nano::node::backup_wallet ()
 	auto this_l (shared ());
 	workers.post_delayed (network_params.node.backup_interval, [this_l] () {
 		this_l->backup_wallet ();
-	});
-}
-
-void nano::node::search_receivable_all ()
-{
-	// Reload wallets from disk
-	wallets.reload ();
-	// Search pending
-	wallets.search_receivable_all ();
-	auto this_l (shared ());
-	workers.post_delayed (network_params.node.search_pending_interval, [this_l] () {
-		this_l->search_receivable_all ();
 	});
 }
 

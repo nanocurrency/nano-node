@@ -74,6 +74,7 @@ enum class name
 	wallet_actions,
 	wallet_worker,
 	wallet_reps,
+	wallet_receivable,
 };
 
 std::string_view to_string (name);

@@ -1545,6 +1545,14 @@ void nano::wallets::start ()
 			run_reps_scan ();
 		} };
 	}
+
+	if (!node.flags.disable_search_pending)
+	{
+		receivable_thread = std::thread{ [this] () {
+			nano::thread_role::set (nano::thread_role::name::wallet_receivable);
+			run_receivable_scan ();
+		} };
+	}
 }
 
 void nano::wallets::stop ()
@@ -1556,6 +1564,7 @@ void nano::wallets::stop ()
 	}
 	condition.notify_all ();
 	reps_condition.notify_all ();
+	receivable_condition.notify_all ();
 
 	if (thread.joinable ())
 	{
@@ -1564,6 +1573,10 @@ void nano::wallets::stop ()
 	if (reps_thread.joinable ())
 	{
 		reps_thread.join ();
+	}
+	if (receivable_thread.joinable ())
+	{
+		receivable_thread.join ();
 	}
 
 	workers.stop ();
@@ -1860,6 +1873,29 @@ void nano::wallets::run_reps_scan ()
 		lock.lock ();
 
 		reps_condition.wait_for (lock, delay (), [this] () {
+			return stopped.load ();
+		});
+	}
+}
+
+void nano::wallets::run_receivable_scan ()
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	while (!stopped)
+	{
+		lock.unlock ();
+
+		stats.inc (nano::stat::type::wallet, nano::stat::detail::loop_receivable);
+
+		// Reload wallets from disk
+		reload ();
+
+		// Search pending
+		search_receivable_all ();
+
+		lock.lock ();
+
+		receivable_condition.wait_for (lock, network_params.node.search_pending_interval, [this] () {
 			return stopped.load ();
 		});
 	}

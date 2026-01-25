@@ -60,7 +60,6 @@ public:
 	nano::uint128_t weight (nano::account const &);
 	nano::uint128_t minimum_principal_weight ();
 	void backup_wallet ();
-	void search_receivable_all ();
 	// The default difficulty updates to base only when the first epoch_2 block is processed
 	uint64_t default_difficulty (nano::work_version const) const;
 	uint64_t default_receive_difficulty (nano::work_version const) const;

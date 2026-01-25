@@ -269,6 +269,7 @@ public:
 
 private:
 	void run_reps_scan ();
+	void run_receivable_scan ();
 
 public: // Dependencies
 	nano::node & node;
@@ -298,9 +299,11 @@ public:
 	mutable nano::mutex action_mutex;
 	nano::condition_variable condition;
 	nano::condition_variable reps_condition;
+	nano::condition_variable receivable_condition;
 	std::atomic<bool> stopped{ false };
 	std::thread thread;
 	std::thread reps_thread;
+	std::thread receivable_thread;
 
 	nano::thread_pool workers;
 

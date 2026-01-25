@@ -155,6 +155,7 @@ enum class detail
 	loop_cleanup,
 	loop_checkup,
 	loop_reps,
+	loop_receivable,
 	process,
 	processed,
 	ignored,
