@@ -2282,7 +2282,9 @@ TEST (rpc, block_count)
 TEST (rpc, block_count_pruning)
 {
 	nano::test::system system;
-	auto & node0 = *system.add_node ();
+	nano::node_config node_config0 = system.default_config ();
+	node_config0.receive_minimum = nano::dev::constants.genesis_amount; // Prevent auto-receive & receive1 block conflicts
+	auto & node0 = *system.add_node (node_config0);
 	nano::node_config node_config = system.default_config ();
 	node_config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
