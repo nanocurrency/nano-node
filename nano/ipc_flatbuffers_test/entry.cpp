@@ -51,7 +51,7 @@ void read_message_loop (std::shared_ptr<nano::ipc::ipc_client> const & connectio
 /** A sample IPC/flatbuffers client that subscribes to confirmations from a local node */
 int main (int argc, char * const * argv)
 {
-	boost::asio::io_context io_ctx;
+	auto io_ctx = std::make_shared<boost::asio::io_context> ();
 	auto connection (std::make_shared<nano::ipc::ipc_client> (io_ctx));
 	// The client only connects to a local live node for now; the test will
 	// be improved later to handle various options, including port and address.
@@ -75,6 +75,6 @@ int main (int argc, char * const * argv)
 		}
 	});
 
-	io_ctx.run ();
+	io_ctx->run ();
 	return 0;
 }

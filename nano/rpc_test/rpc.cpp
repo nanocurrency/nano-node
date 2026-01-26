@@ -6085,7 +6085,7 @@ TEST (rpc, simultaneous_calls)
 	const auto ipc_tcp_port = ipc_server.listening_tcp_port ();
 	ASSERT_TRUE (ipc_tcp_port.has_value ());
 	rpc_config.rpc_process.num_ipc_connections = 8;
-	nano::ipc_rpc_processor ipc_rpc_processor (*system.io_ctx, rpc_config, ipc_tcp_port.value ());
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config, ipc_tcp_port.value ());
 	auto rpc = std::make_shared<nano::rpc> (system.io_ctx, rpc_config, ipc_rpc_processor);
 	nano::test::start_stop_guard stop_guard{ *rpc };
 

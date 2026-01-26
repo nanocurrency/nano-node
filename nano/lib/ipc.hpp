@@ -2,6 +2,7 @@
 
 #include <nano/boost/asio/deadline_timer.hpp>
 
+#include <memory>
 #include <string>
 
 namespace nano
@@ -29,7 +30,7 @@ namespace ipc
 	class socket_base
 	{
 	public:
-		socket_base (boost::asio::io_context & io_ctx_a);
+		explicit socket_base (std::shared_ptr<boost::asio::io_context>);
 		virtual ~socket_base ();
 
 		/** Close socket */
@@ -37,13 +38,22 @@ namespace ipc
 
 		/**
 		 * Start IO timer.
-		 * @param timeout_a Seconds to wait. To wait indefinitely, use std::chrono::seconds::max ()
+		 * @param timeout Seconds to wait. To wait indefinitely, use std::chrono::seconds::max ()
 		 */
-		void timer_start (std::chrono::seconds timeout_a);
+		void timer_start (std::chrono::seconds timeout);
 		void timer_expired ();
 		void timer_cancel ();
 
+	protected:
+		/**
+		 * IO context from node, or per-transport, depending on configuration.
+		 * Certain transports may scale better if they use a separate context.
+		 */
+		boost::asio::io_context & io_ctx;
+
 	private:
+		/** Prevent io_context destruction while this socket is alive */
+		std::shared_ptr<boost::asio::io_context> io_ctx_shared;
 		/** IO operation timer */
 		boost::asio::deadline_timer io_timer;
 	};

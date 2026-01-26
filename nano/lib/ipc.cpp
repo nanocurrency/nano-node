@@ -1,8 +1,14 @@
 #include <nano/lib/ipc.hpp>
 #include <nano/lib/utility.hpp>
 
-nano::ipc::socket_base::socket_base (boost::asio::io_context & io_ctx_a) :
-	io_timer (io_ctx_a)
+/*
+ * socket_base
+ */
+
+nano::ipc::socket_base::socket_base (std::shared_ptr<boost::asio::io_context> io_ctx_a) :
+	io_ctx{ *io_ctx_a },
+	io_ctx_shared{ std::move (io_ctx_a) },
+	io_timer{ io_ctx }
 {
 }
 
@@ -36,6 +42,10 @@ void nano::ipc::socket_base::timer_cancel ()
 	io_timer.cancel (ec);
 	debug_assert (!ec);
 }
+
+/*
+ * dsock_file_remover
+ */
 
 nano::ipc::dsock_file_remover::dsock_file_remover (std::string const & file_a) :
 	filename (file_a)

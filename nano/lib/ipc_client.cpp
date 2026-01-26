@@ -45,8 +45,12 @@ template <typename SOCKET_TYPE, typename ENDPOINT_TYPE>
 class socket_client : public nano::ipc::socket_base, public channel, public std::enable_shared_from_this<socket_client<SOCKET_TYPE, ENDPOINT_TYPE>>
 {
 public:
-	socket_client (boost::asio::io_context & io_ctx_a, ENDPOINT_TYPE endpoint_a) :
-		socket_base (io_ctx_a), endpoint (std::move (endpoint_a)), socket (io_ctx_a), resolver (io_ctx_a), strand (io_ctx_a.get_executor ())
+	socket_client (std::shared_ptr<boost::asio::io_context> io_ctx_a, ENDPOINT_TYPE endpoint_a) :
+		socket_base{ io_ctx_a },
+		endpoint{ std::move (endpoint_a) },
+		socket{ io_ctx },
+		resolver{ io_ctx },
+		strand{ io_ctx.get_executor () }
 	{
 	}
 
@@ -108,7 +112,6 @@ public:
 	}
 
 	// TODO: investigate clang-tidy warning about recursive call chain
-	//
 	void write_queued_messages ()
 	{
 		auto this_l (this->shared_from_this ());
@@ -198,8 +201,8 @@ private:
 class client_impl : public nano::ipc::ipc_client_impl
 {
 public:
-	explicit client_impl (boost::asio::io_context & io_ctx_a) :
-		io_ctx (io_ctx_a)
+	explicit client_impl (std::shared_ptr<boost::asio::io_context> io_ctx_a) :
+		io_ctx{ std::move (io_ctx_a) }
 	{
 	}
 
@@ -242,7 +245,7 @@ public:
 	}
 
 private:
-	boost::asio::io_context & io_ctx;
+	std::shared_ptr<boost::asio::io_context> io_ctx;
 	std::shared_ptr<socket_client<socket_type, boost::asio::ip::tcp::endpoint>> tcp_client;
 #if defined(BOOST_ASIO_HAS_LOCAL_SOCKETS)
 	std::shared_ptr<socket_client<boost::asio::local::stream_protocol::socket, boost::asio::local::stream_protocol::endpoint>> domain_client;
@@ -250,8 +253,8 @@ private:
 };
 }
 
-nano::ipc::ipc_client::ipc_client (boost::asio::io_context & io_ctx_a) :
-	io_ctx (io_ctx_a)
+nano::ipc::ipc_client::ipc_client (std::shared_ptr<boost::asio::io_context> io_ctx_a) :
+	io_ctx{ std::move (io_ctx_a) }
 {
 }
 

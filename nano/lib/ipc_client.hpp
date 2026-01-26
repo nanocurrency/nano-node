@@ -27,7 +27,7 @@ namespace ipc
 	class ipc_client
 	{
 	public:
-		ipc_client (boost::asio::io_context & io_ctx_a);
+		ipc_client (std::shared_ptr<boost::asio::io_context> io_ctx_a);
 		ipc_client (ipc_client && ipc_client) = default;
 		virtual ~ipc_client () = default;
 
@@ -57,7 +57,7 @@ namespace ipc
 		void async_read_message (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::chrono::seconds timeout_a, std::function<void (nano::error, size_t)> callback_a);
 
 	private:
-		boost::asio::io_context & io_ctx;
+		std::shared_ptr<boost::asio::io_context> io_ctx;
 
 		// PIMPL pattern to hide implementation details
 		std::unique_ptr<ipc_client_impl> impl;

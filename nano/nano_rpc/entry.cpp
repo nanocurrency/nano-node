@@ -45,7 +45,7 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 
 		try
 		{
-			nano::ipc_rpc_processor ipc_rpc_processor (*io_ctx, rpc_config);
+			nano::ipc_rpc_processor ipc_rpc_processor (io_ctx, rpc_config);
 			auto rpc = nano::get_rpc (io_ctx, rpc_config, ipc_rpc_processor);
 			rpc->start ();
 
