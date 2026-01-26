@@ -41,8 +41,8 @@ namespace ipc
 		nano::logger logger{ "ipc_server" };
 
 	private:
-		void
-		setup_callbacks ();
+		void setup_callbacks ();
+
 		std::shared_ptr<nano::ipc::broker> broker;
 		nano::ipc::access access;
 		std::unique_ptr<dsock_file_remover> file_remover;
