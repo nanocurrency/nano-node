@@ -15,7 +15,7 @@ env:
 jobs:
   prepare_build:
     name: Prepare Build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       ci_tag: ${{ steps.set_vars.outputs.ci_tag }}
       tag_created: ${{ steps.set_vars.outputs.tag_created }}
@@ -78,7 +78,7 @@ jobs:
     name: Linux [${{ matrix.network }}]
     needs: prepare_build
     if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
       matrix:
@@ -115,7 +115,7 @@ jobs:
     name: Docker [${{ matrix.network }}]
     needs: prepare_build
     if: ${{ needs.prepare_build.outputs.tag_created == 'true' }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
       matrix:

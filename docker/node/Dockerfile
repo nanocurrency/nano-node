@@ -1,4 +1,4 @@
-FROM ubuntu:22.04 AS builder
+FROM ubuntu:24.04 AS builder
 
 ARG COMPILER=gcc
 ARG NANO_NETWORK=live
@@ -24,7 +24,7 @@ ARG SANITIZER
 RUN ci/build-node.sh
 RUN echo ${NANO_NETWORK} >/etc/nano-network
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 RUN groupadd --gid 1000 nanocurrency && \
     useradd --uid 1000 --gid nanocurrency --shell /bin/bash --create-home nanocurrency
