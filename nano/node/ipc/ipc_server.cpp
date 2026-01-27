@@ -540,18 +540,19 @@ public:
 
 		// Close all active sessions to cancel pending async operations
 		{
-			auto sessions_lockeded = sessions.lock ();
-			for (auto & session_weak : sessions_lockeded.get ())
+			auto sessions_locked = sessions.lock ();
+			for (auto & session_weak : sessions_locked.get ())
 			{
 				if (auto session = session_weak.lock ())
 				{
 					session->close ();
 				}
 			}
-			sessions_lockeded->clear ();
+			sessions_locked->clear ();
 		}
 
-		io_ctx->stop ();
+		// Let io_context drain naturally - don't call io_ctx->stop()
+		// The cancelled handlers need to run to release their captured shared_ptrs
 		runner->join ();
 	}
 
