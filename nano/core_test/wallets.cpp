@@ -156,15 +156,12 @@ TEST (wallets, vote_minimum)
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node1.process (open2));
 	auto wallet (node1.wallets.items.begin ()->second);
-	nano::unique_lock<nano::mutex> representatives_lk (wallet->representatives_mutex);
-	ASSERT_EQ (0, wallet->representatives.size ());
-	representatives_lk.unlock ();
+	ASSERT_EQ (0, wallet->reps ().size ());
 	wallet->insert_adhoc (nano::dev::genesis_key.prv);
 	wallet->insert_adhoc (key1.prv);
 	wallet->insert_adhoc (key2.prv);
 	node1.wallets.compute_reps ();
-	representatives_lk.lock ();
-	ASSERT_EQ (2, wallet->representatives.size ());
+	ASSERT_EQ (2, wallet->reps ().size ());
 }
 
 TEST (wallets, exists)
@@ -273,10 +270,7 @@ TEST (wallets, rep_scan)
 	wallet->insert_adhoc (key.prv);
 
 	// Initially the account should not be detected as a representative
-	{
-		nano::lock_guard<nano::mutex> lock{ wallet->representatives_mutex };
-		ASSERT_EQ (0, wallet->representatives.count (key.pub));
-	}
+	ASSERT_EQ (0, wallet->reps ().count (key.pub));
 
 	// Send funds to make the account a representative (vote_minimum amount)
 	nano::block_builder builder;
@@ -309,10 +303,7 @@ TEST (wallets, rep_scan)
 	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::wallet, nano::stat::detail::loop_reps) > 1);
 
 	// Verify that the wallet now detects the account as a representative
-	ASSERT_TIMELY (5s, [&] {
-		nano::lock_guard<nano::mutex> lock{ wallet->representatives_mutex };
-		return wallet->representatives.count (key.pub) == 1;
-	}());
+	ASSERT_TIMELY (5s, wallet->reps ().count (key.pub) == 1);
 
 	// Also verify via the wallets reps() accessor
 	auto reps = node.wallets.reps ();

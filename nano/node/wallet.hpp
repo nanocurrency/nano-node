@@ -175,6 +175,7 @@ public:
 	nano::public_key change_seed (nano::store::write_transaction const &, nano::raw_key const & prv, uint32_t count = 0);
 	void deterministic_restore (nano::store::write_transaction const &);
 	bool live ();
+	std::unordered_set<nano::account> reps () const;
 
 public:
 	std::unordered_set<nano::account> free_accounts;
@@ -182,8 +183,11 @@ public:
 	nano::wallet_store store;
 	nano::wallets & wallets;
 	nano::logger & logger;
-	nano::mutex representatives_mutex;
-	std::unordered_set<nano::account> representatives;
+
+private:
+	nano::locked<std::unordered_set<nano::account>> representatives;
+
+	friend class wallets;
 };
 
 class wallet_representatives
