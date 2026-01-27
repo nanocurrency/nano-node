@@ -258,7 +258,7 @@ public:
 	bool exists (nano::account const &);
 	void clear_send_ids ();
 	nano::wallet_representatives reps () const;
-	bool check_rep (nano::account const &, nano::uint128_t const &, bool const = true);
+	bool check_rep (nano::account const &);
 	void compute_reps ();
 	void receive_confirmed (nano::block_hash const & hash, nano::account const & destination);
 	std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> get_wallets ();
@@ -270,6 +270,7 @@ public:
 private:
 	void run_reps_scan ();
 	void run_receivable_scan ();
+	bool check_rep_impl (wallet_representatives &, nano::account const &, nano::uint128_t const & half_principal_weight);
 
 public: // Dependencies
 	nano::node & node;
@@ -311,7 +312,6 @@ public:
 	static nano::uint128_t const high_priority;
 
 private:
-	mutable nano::mutex reps_cache_mutex;
-	nano::wallet_representatives representatives;
+	mutable nano::locked<nano::wallet_representatives> representatives;
 };
 }
