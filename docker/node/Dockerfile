@@ -48,4 +48,4 @@ ENTRYPOINT ["/usr/bin/entry.sh"]
 CMD ["daemon"]
 
 ARG REPOSITORY=nanocurrency/nano-node
-LABEL org.opencontainers.image.source https://github.com/$REPOSITORY
+LABEL org.opencontainers.image.source=https://github.com/$REPOSITORY

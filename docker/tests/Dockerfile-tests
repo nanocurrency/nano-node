@@ -1,0 +1,23 @@
+FROM ubuntu:22.04
+
+ARG COMPILER=gcc
+ENV COMPILER=${COMPILER}
+
+# Install build dependencies (same as node Dockerfile)
+COPY ./ci/prepare/linux /tmp/prepare
+RUN /tmp/prepare/prepare.sh
+
+# Install test-specific dependencies
+RUN apt-get install -yqq sudo jq netcat-openbsd
+
+# Copy source code
+COPY ./ /workspace
+WORKDIR /workspace
+
+# Build tests
+RUN ci/build-tests.sh
+
+CMD ["docker/tests/docker-test-entrypoint.sh"]
+
+ARG REPOSITORY=nanocurrency/nano-node
+LABEL org.opencontainers.image.source=https://github.com/$REPOSITORY
