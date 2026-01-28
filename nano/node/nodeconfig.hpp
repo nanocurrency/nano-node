@@ -124,6 +124,7 @@ public:
 	nano::bootstrap_config bootstrap;
 	nano::bootstrap_server_config bootstrap_server;
 	bool backup_before_upgrade{ false };
+	bool work_server_use_peers{ false };
 	double max_work_generate_multiplier{ 64. };
 	uint32_t max_queued_requests{ 512 };
 	unsigned request_aggregator_threads{ std::min (nano::hardware_concurrency (), 4u) }; // Max 4 threads if available

@@ -5078,7 +5078,7 @@ void nano::json_handler::work_generate ()
 		}
 		if (!ec && response_l.empty ())
 		{
-			auto use_peers (request.get<bool> ("use_peers", false));
+			auto use_peers (request.get<bool> ("use_peers", node.config.work_server_use_peers));
 			auto rpc_l (shared_from_this ());
 			auto callback = [rpc_l, hash, work_version, this] (std::optional<uint64_t> const & work_a) {
 				if (work_a)
