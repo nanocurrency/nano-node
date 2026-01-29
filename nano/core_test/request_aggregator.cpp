@@ -749,3 +749,19 @@ TEST (request_aggregator, cemented_no_spacing)
 	ASSERT_TRUE (voted_hashes.find (send2->hash ()) != voted_hashes.end ());
 	ASSERT_TRUE (voted_hashes.find (send3->hash ()) != voted_hashes.end ());
 }
+
+TEST (request_aggregator, disabled)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.enable_voting = false;
+	auto & node = *system.add_node (config);
+
+	std::vector<std::pair<nano::block_hash, nano::root>> request;
+	request.emplace_back (nano::dev::genesis->hash (), nano::dev::genesis->root ());
+
+	auto channel = nano::test::fake_channel (node);
+
+	// Request should return false when aggregator is disabled
+	ASSERT_FALSE (node.aggregator.request (request, channel));
+}

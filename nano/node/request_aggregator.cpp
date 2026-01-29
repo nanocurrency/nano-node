@@ -17,6 +17,7 @@
 
 nano::request_aggregator::request_aggregator (request_aggregator_config const & config_a, nano::node & node_a, nano::vote_generator & generator_a, nano::vote_generator & final_generator_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_router & vote_router_a) :
 	config{ config_a },
+	node_config{ node_a.config },
 	network_constants{ node_a.network_params.network },
 	local_votes (history_a),
 	ledger (ledger_a),
@@ -43,6 +44,11 @@ nano::request_aggregator::~request_aggregator ()
 void nano::request_aggregator::start ()
 {
 	debug_assert (threads.empty ());
+
+	if (!node_config.enable_voting)
+	{
+		return;
+	}
 
 	for (auto i = 0; i < config.threads; ++i)
 	{
@@ -87,10 +93,16 @@ bool nano::request_aggregator::request (request_type const & request, std::share
 	release_assert (channel != nullptr);
 	debug_assert (!request.empty ());
 
+	// Do not accept requests if disabled
+	if (threads.empty ())
+	{
+		return false;
+	}
+
 	bool added = false;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
-		added = queue.push ({ request, channel }, { nano::no_value{ }, channel });
+		added = queue.push ({ request, channel }, { nano::no_value{}, channel });
 	}
 	if (added)
 	{

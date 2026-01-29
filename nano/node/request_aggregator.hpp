@@ -84,6 +84,7 @@ private:
 
 private: // Dependencies
 	request_aggregator_config const & config;
+	nano::node_config const & node_config;
 	nano::network_constants const & network_constants;
 	nano::local_vote_history & local_votes;
 	nano::ledger & ledger;
