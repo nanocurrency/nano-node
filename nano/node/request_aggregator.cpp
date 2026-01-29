@@ -85,15 +85,12 @@ bool nano::request_aggregator::empty () const
 bool nano::request_aggregator::request (request_type const & request, std::shared_ptr<nano::transport::channel> const & channel)
 {
 	release_assert (channel != nullptr);
-
-	// This should be checked before calling request
-	debug_assert (wallets.reps ().voting > 0);
 	debug_assert (!request.empty ());
 
 	bool added = false;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
-		added = queue.push ({ request, channel }, { nano::no_value{}, channel });
+		added = queue.push ({ request, channel }, { nano::no_value{ }, channel });
 	}
 	if (added)
 	{
