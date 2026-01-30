@@ -193,7 +193,7 @@ TEST (wallets, search_receivable)
 		auto & node (*system.add_node (config, flags));
 
 		nano::unique_lock<nano::mutex> lk (node.wallets.mutex);
-		auto wallets = node.wallets.get_wallets ();
+		auto wallets = node.wallets.all_wallets ();
 		lk.unlock ();
 		ASSERT_EQ (1, wallets.size ());
 		auto wallet_id = wallets.begin ()->first;

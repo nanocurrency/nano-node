@@ -146,15 +146,14 @@ public:
 				}
 				if (wallet_config.account.is_zero () || !wallet->exists (wallet_config.account))
 				{
-					auto transaction (wallet->wallets.tx_begin_write ());
-					auto existing (wallet->store.begin (transaction));
-					if (existing != wallet->store.end (transaction))
+					auto wallet_accounts = wallet->accounts ();
+					if (!wallet_accounts.empty ())
 					{
-						wallet_config.account = existing->first;
+						wallet_config.account = wallet_accounts.front ();
 					}
 					else
 					{
-						wallet_config.account = wallet->deterministic_insert (transaction);
+						wallet_config.account = wallet->deterministic_insert ();
 					}
 				}
 

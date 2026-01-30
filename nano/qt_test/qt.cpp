@@ -331,8 +331,7 @@ TEST (wallet, send_locked)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key1;
 	{
-		auto transaction (system.wallet (0)->wallets.tx_begin_write ());
-		system.wallet (0)->enter_password (transaction, "0");
+		system.wallet (0)->enter_password ("0");
 	}
 	auto account (nano::dev::genesis_key.pub);
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
@@ -1023,21 +1022,18 @@ TEST (wallet, import_locked)
 	QTest::keyClicks (wallet->import.seed, seed1.to_string ().c_str ());
 	QTest::keyClicks (wallet->import.clear_line, "clear keys");
 	{
-		auto transaction (system.wallet (0)->wallets.tx_begin_write ());
-		system.wallet (0)->enter_password (transaction, "");
+		system.wallet (0)->enter_password ("");
 	}
 	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
 	nano::raw_key seed2;
 	{
-		auto transaction (system.wallet (0)->wallets.tx_begin_write ());
-		system.wallet (0)->store.seed (seed2, transaction);
+		system.wallet (0)->get_seed (seed2);
 		ASSERT_NE (seed1, seed2);
-		system.wallet (0)->enter_password (transaction, "1");
+		system.wallet (0)->enter_password ("1");
 	}
 	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
 	nano::raw_key seed3;
-	auto transaction (system.wallet (0)->wallets.tx_begin_read ());
-	system.wallet (0)->store.seed (seed3, transaction);
+	system.wallet (0)->get_seed (seed3);
 	ASSERT_EQ (seed1, seed3);
 }
 

@@ -474,12 +474,11 @@ TEST (rpc, wallet_password_change)
 	auto response (wait_response (system, rpc_ctx, request));
 	std::string account_text1 (response.get<std::string> ("changed"));
 	ASSERT_EQ (account_text1, "1");
-	auto transaction (system.wallet (0)->wallets.tx_begin_write ());
-	ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
-	ASSERT_TRUE (system.wallet (0)->enter_password (transaction, ""));
-	ASSERT_FALSE (system.wallet (0)->store.valid_password (transaction));
-	ASSERT_FALSE (system.wallet (0)->enter_password (transaction, "test"));
-	ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
+	ASSERT_FALSE (system.wallet (0)->is_locked ());
+	ASSERT_TRUE (system.wallet (0)->enter_password (""));
+	ASSERT_TRUE (system.wallet (0)->is_locked ());
+	ASSERT_FALSE (system.wallet (0)->enter_password ("test"));
+	ASSERT_FALSE (system.wallet (0)->is_locked ());
 }
 
 TEST (rpc, wallet_password_enter)

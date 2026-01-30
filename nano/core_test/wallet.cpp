@@ -642,13 +642,11 @@ TEST (wallet, insert_locked)
 	nano::test::system system (1);
 	auto wallet (system.wallet (0));
 	{
-		auto transaction (wallet->wallets.tx_begin_write ());
-		wallet->store.rekey (transaction, "1");
-		ASSERT_TRUE (wallet->store.valid_password (transaction));
-		wallet->enter_password (transaction, "");
+		wallet->rekey ("1");
+		ASSERT_FALSE (wallet->is_locked ());
+		wallet->enter_password ("");
 	}
-	auto transaction (wallet->wallets.tx_begin_read ());
-	ASSERT_FALSE (wallet->store.valid_password (transaction));
+	ASSERT_TRUE (wallet->is_locked ());
 	ASSERT_TRUE (wallet->insert_adhoc (nano::keypair ().prv).is_zero ());
 }
 
@@ -730,12 +728,11 @@ TEST (wallet, insert_deterministic_locked)
 {
 	nano::test::system system (1);
 	auto wallet (system.wallet (0));
-	auto transaction (wallet->wallets.tx_begin_write ());
-	wallet->store.rekey (transaction, "1");
-	ASSERT_TRUE (wallet->store.valid_password (transaction));
-	wallet->enter_password (transaction, "");
-	ASSERT_FALSE (wallet->store.valid_password (transaction));
-	ASSERT_TRUE (wallet->deterministic_insert (transaction).is_zero ());
+	wallet->rekey ("1");
+	ASSERT_FALSE (wallet->is_locked ());
+	wallet->enter_password ("");
+	ASSERT_TRUE (wallet->is_locked ());
+	ASSERT_TRUE (wallet->deterministic_insert ().is_zero ());
 }
 
 TEST (wallet, no_work)
@@ -879,11 +876,11 @@ TEST (wallet, change_seed)
 	ASSERT_NE (nullptr, block);
 	ASSERT_TIMELY (5s, nano::test::exists (*system.nodes[0], { block }));
 	{
-		auto transaction (wallet->wallets.tx_begin_write ());
-		wallet->change_seed (transaction, seed1);
+		wallet->change_seed (seed1);
 		nano::raw_key seed2;
-		wallet->store.seed (seed2, transaction);
+		wallet->get_seed (seed2);
 		ASSERT_EQ (seed1, seed2);
+		auto transaction (wallet->wallets.tx_begin_read ());
 		ASSERT_EQ (index + 1, wallet->store.deterministic_index_get (transaction));
 	}
 	ASSERT_TRUE (wallet->exists (pub));
@@ -899,11 +896,11 @@ TEST (wallet, deterministic_restore)
 	nano::public_key pub;
 	uint32_t index (4);
 	{
-		auto transaction (wallet->wallets.tx_begin_write ());
-		wallet->change_seed (transaction, seed1);
+		wallet->change_seed (seed1);
 		nano::raw_key seed2;
-		wallet->store.seed (seed2, transaction);
+		wallet->get_seed (seed2);
 		ASSERT_EQ (seed1, seed2);
+		auto transaction (wallet->wallets.tx_begin_read ());
 		ASSERT_EQ (1, wallet->store.deterministic_index_get (transaction));
 		auto prv = nano::deterministic_key (seed1, index);
 		pub = nano::pub_key (prv);
@@ -913,8 +910,8 @@ TEST (wallet, deterministic_restore)
 	ASSERT_NE (nullptr, block);
 	ASSERT_TIMELY (5s, nano::test::exists (*system.nodes[0], { block }));
 	{
-		auto transaction (wallet->wallets.tx_begin_write ());
-		wallet->deterministic_restore (transaction);
+		wallet->deterministic_restore ();
+		auto transaction (wallet->wallets.tx_begin_read ());
 		ASSERT_EQ (index + 1, wallet->store.deterministic_index_get (transaction));
 	}
 	ASSERT_TRUE (wallet->exists (pub));
@@ -1110,7 +1107,7 @@ TEST (wallet, search_receivable)
 
 	// Pending search should start an election
 	ASSERT_TRUE (node.active.empty ());
-	ASSERT_FALSE (wallet.search_receivable (wallet.wallets.tx_begin_read ()));
+	ASSERT_FALSE (wallet.search_receivable ());
 	std::shared_ptr<nano::election> election;
 	ASSERT_TIMELY (5s, election = node.active.election (send->qualified_root ()));
 
@@ -1127,7 +1124,7 @@ TEST (wallet, search_receivable)
 
 	// Pending search should create the receive block
 	ASSERT_EQ (2, node.ledger.block_count ());
-	ASSERT_FALSE (wallet.search_receivable (wallet.wallets.tx_begin_read ()));
+	ASSERT_FALSE (wallet.search_receivable ());
 	ASSERT_TIMELY_EQ (3s, node.balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount);
 	auto receive_hash = node.ledger.any.account_head (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 	auto receive = node.block (receive_hash);

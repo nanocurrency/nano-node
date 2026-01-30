@@ -203,10 +203,9 @@ nano_qt::accounts::accounts (nano_qt::wallet & wallet_a) :
 	});
 	QObject::connect (create_account, &QPushButton::released, [this] () {
 		{
-			auto transaction (this->wallet.wallet_m->wallets.tx_begin_write ());
-			if (this->wallet.wallet_m->store.valid_password (transaction))
+			if (!this->wallet.wallet_m->is_locked ())
 			{
-				this->wallet.wallet_m->deterministic_insert (transaction);
+				this->wallet.wallet_m->deterministic_insert ();
 				show_button_success (*create_account);
 				create_account->setText ("New account was created");
 				this->wallet.node.workers.post_delayed (std::chrono::seconds (5), [this] () {
@@ -402,10 +401,9 @@ nano_qt::import::import (nano_qt::wallet & wallet_a) :
 			{
 				bool successful (false);
 				{
-					auto transaction (this->wallet.wallet_m->wallets.tx_begin_write ());
-					if (this->wallet.wallet_m->store.valid_password (transaction))
+					if (!this->wallet.wallet_m->is_locked ())
 					{
-						this->wallet.account = this->wallet.wallet_m->change_seed (transaction, seed_l);
+						this->wallet.account = this->wallet.wallet_m->change_seed (seed_l);
 						successful = true;
 					}
 					else
@@ -1487,8 +1485,7 @@ void nano_qt::wallet::update_connected ()
 void nano_qt::wallet::empty_password ()
 {
 	this->node.workers.post_delayed (std::chrono::seconds (3), [this] () {
-		auto transaction (wallet_m->wallets.tx_begin_write ());
-		wallet_m->enter_password (transaction, std::string (""));
+		wallet_m->enter_password (std::string (""));
 	});
 }
 
@@ -1672,8 +1669,7 @@ nano_qt::settings::settings (nano_qt::wallet & wallet_a) :
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (lock_toggle, &QPushButton::released, [this] () {
-		auto transaction (this->wallet.wallet_m->wallets.tx_begin_write ());
-		if (this->wallet.wallet_m->store.valid_password (transaction))
+		if (!this->wallet.wallet_m->is_locked ())
 		{
 			// lock wallet
 			nano::raw_key empty;
@@ -1687,7 +1683,7 @@ nano_qt::settings::settings (nano_qt::wallet & wallet_a) :
 		else
 		{
 			// try to unlock wallet
-			if (!this->wallet.wallet_m->enter_password (transaction, std::string (password->text ().toLocal8Bit ())))
+			if (!this->wallet.wallet_m->enter_password (std::string (password->text ().toLocal8Bit ())))
 			{
 				password->clear ();
 				lock_toggle->setText ("Lock");
@@ -1917,7 +1913,7 @@ nano_qt::advanced_actions::advanced_actions (nano_qt::wallet & wallet_a) :
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (search_for_receivables, &QPushButton::released, [this] () {
-		std::thread ([this] { this->wallet.wallet_m->search_receivable (this->wallet.wallet_m->wallets.tx_begin_read ()); }).detach ();
+		std::thread ([this] { this->wallet.wallet_m->search_receivable (); }).detach ();
 	});
 	QObject::connect (bootstrap, &QPushButton::released, [this] () {
 	});

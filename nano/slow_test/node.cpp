@@ -599,10 +599,9 @@ TEST (wallets, rep_scan)
 	auto & node (*system.nodes[0]);
 	auto wallet (system.wallet (0));
 	{
-		auto transaction (node.wallets.tx_begin_write ());
 		for (auto i (0); i < 10000; ++i)
 		{
-			wallet->deterministic_insert (transaction);
+			wallet->deterministic_insert ();
 		}
 	}
 	auto begin (std::chrono::steady_clock::now ());

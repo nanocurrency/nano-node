@@ -306,10 +306,9 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				auto wallet (inactive_node->node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
-					auto transaction (wallet->wallets.tx_begin_write ());
-					if (!wallet->enter_password (transaction, password))
+					if (!wallet->enter_password (password))
 					{
-						auto pub (wallet->store.deterministic_insert (transaction));
+						auto pub (wallet->deterministic_insert ());
 						std::cout << boost::str (boost::format ("Account: %1%\n") % pub.to_account ());
 					}
 					else
@@ -891,13 +890,12 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				auto wallet (inactive_node->node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
-					auto transaction (wallet->wallets.tx_begin_write ());
-					if (!wallet->enter_password (transaction, password))
+					if (!wallet->enter_password (password))
 					{
 						nano::raw_key key;
 						if (!key.decode_hex (vm["key"].as<std::string> ()))
 						{
-							wallet->store.insert_adhoc (transaction, key);
+							wallet->insert_adhoc (key);
 						}
 						else
 						{
@@ -945,8 +943,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				auto wallet (inactive_node->node->wallets.open (wallet_id));
 				if (wallet != nullptr)
 				{
-					auto transaction (wallet->wallets.tx_begin_write ());
-					if (!wallet->enter_password (transaction, password))
+					if (!wallet->enter_password (password))
 					{
 						nano::raw_key seed;
 						if (vm.count ("seed"))
@@ -965,7 +962,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						if (!ec)
 						{
 							std::cout << "Changing seed and caching work. Please wait..." << std::endl;
-							wallet->change_seed (transaction, seed);
+							wallet->change_seed (seed);
 						}
 					}
 					else
@@ -1041,8 +1038,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				}
 				if (vm.count ("seed") || vm.count ("key"))
 				{
-					auto transaction (wallet->wallets.tx_begin_write ());
-					wallet->change_seed (transaction, seed_key);
+					wallet->change_seed (seed_key);
 				}
 				std::cout << wallet_key.to_string () << std::endl;
 			}
@@ -1070,17 +1066,15 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				auto existing (inactive_node->node->wallets.items.find (wallet_id));
 				if (existing != inactive_node->node->wallets.items.end ())
 				{
-					auto transaction (existing->second->wallets.tx_begin_write ());
-					if (!existing->second->enter_password (transaction, password))
+					if (!existing->second->enter_password (password))
 					{
 						nano::raw_key seed;
-						existing->second->store.seed (seed, transaction);
+						existing->second->get_seed (seed);
 						std::cout << boost::str (boost::format ("Seed: %1%\n") % seed.to_string ());
-						for (auto i (existing->second->store.begin (transaction)), m (existing->second->store.end (transaction)); i != m; ++i)
+						for (auto const & account : existing->second->accounts ())
 						{
-							nano::account const & account (i->first);
 							nano::raw_key key;
-							auto error (existing->second->store.fetch (transaction, account, key));
+							auto error (existing->second->fetch_prv (account, key));
 							(void)error;
 							debug_assert (!error);
 							std::cout << boost::str (boost::format ("Pub: %1% Prv: %2%\n") % account.to_account () % key.to_string ());
@@ -1176,14 +1170,10 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						auto existing (node->wallets.items.find (wallet_id));
 						if (existing != node->wallets.items.end ())
 						{
-							bool valid (false);
+							bool valid (!existing->second->is_locked ());
+							if (!valid)
 							{
-								auto transaction (node->wallets.tx_begin_write ());
-								valid = existing->second->store.valid_password (transaction);
-								if (!valid)
-								{
-									valid = !existing->second->enter_password (transaction, password);
-								}
+								valid = !existing->second->enter_password (password);
 							}
 							if (valid)
 							{

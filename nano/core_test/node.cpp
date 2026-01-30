@@ -323,7 +323,7 @@ TEST (node, search_receivable)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, node->config.receive_minimum.number ()));
 	system.wallet (0)->insert_adhoc (key2.prv);
-	ASSERT_FALSE (system.wallet (0)->search_receivable (system.wallet (0)->wallets.tx_begin_read ()));
+	ASSERT_FALSE (system.wallet (0)->search_receivable ());
 	ASSERT_TIMELY (10s, !node->balance (key2.pub).is_zero ());
 }
 
@@ -336,7 +336,7 @@ TEST (node, search_receivable_same)
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, node->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, node->config.receive_minimum.number ()));
 	system.wallet (0)->insert_adhoc (key2.prv);
-	ASSERT_FALSE (system.wallet (0)->search_receivable (system.wallet (0)->wallets.tx_begin_read ()));
+	ASSERT_FALSE (system.wallet (0)->search_receivable ());
 	ASSERT_TIMELY_EQ (10s, node->balance (key2.pub), 2 * node->config.receive_minimum.number ());
 }
 
@@ -353,7 +353,7 @@ TEST (node, search_receivable_multiple)
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, node->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (key3.pub, key2.pub, node->config.receive_minimum.number ()));
 	system.wallet (0)->insert_adhoc (key2.prv);
-	ASSERT_FALSE (system.wallet (0)->search_receivable (system.wallet (0)->wallets.tx_begin_read ()));
+	ASSERT_FALSE (system.wallet (0)->search_receivable ());
 	ASSERT_TIMELY_EQ (10s, node->balance (key2.pub), 2 * node->config.receive_minimum.number ());
 }
 
@@ -380,7 +380,7 @@ TEST (node, search_receivable_confirmed)
 	}
 
 	system.wallet (0)->insert_adhoc (key2.prv);
-	ASSERT_FALSE (system.wallet (0)->search_receivable (system.wallet (0)->wallets.tx_begin_read ()));
+	ASSERT_FALSE (system.wallet (0)->search_receivable ());
 	ASSERT_TIMELY (5s, !node->vote_router.active (send1->hash ()));
 	ASSERT_TIMELY (5s, !node->vote_router.active (send2->hash ()));
 	ASSERT_TIMELY_EQ (5s, node->balance (key2.pub), 2 * node->config.receive_minimum.number ());
@@ -420,7 +420,7 @@ TEST (node, search_receivable_pruned)
 
 	// Receive pruned block
 	system.wallet (1)->insert_adhoc (key2.prv);
-	ASSERT_FALSE (system.wallet (1)->search_receivable (system.wallet (1)->wallets.tx_begin_read ()));
+	ASSERT_FALSE (system.wallet (1)->search_receivable ());
 	ASSERT_TIMELY_EQ (10s, node2->balance (key2.pub), 2 * node2->config.receive_minimum.number ());
 }
 
@@ -444,8 +444,7 @@ TEST (node, unlock_search)
 		system.wallet (0)->store.password.value_set (nano::keypair ().prv);
 	}
 	{
-		auto transaction (system.wallet (0)->wallets.tx_begin_write ());
-		ASSERT_FALSE (system.wallet (0)->enter_password (transaction, ""));
+		ASSERT_FALSE (system.wallet (0)->enter_password (""));
 	}
 	ASSERT_TIMELY (10s, !node->balance (key2.pub).is_zero ());
 }
@@ -460,8 +459,7 @@ TEST (node, confirm_locked)
 {
 	nano::test::system system (1);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto transaction (system.wallet (0)->wallets.tx_begin_read ());
-	system.wallet (0)->enter_password (transaction, "1");
+	system.wallet (0)->enter_password ("1");
 	auto block = nano::send_block_builder ()
 				 .previous (0)
 				 .destination (0)
