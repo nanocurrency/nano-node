@@ -374,10 +374,7 @@ TEST (node, search_receivable_confirmed)
 	ASSERT_NE (nullptr, send2);
 	ASSERT_TIMELY (5s, nano::test::confirmed (*node, { send2 }));
 
-	{
-		auto transaction (node->wallets.tx_begin_write ());
-		system.wallet (0)->store.erase (transaction, nano::dev::genesis_key.pub);
-	}
+	system.wallet (0)->remove_account (nano::dev::genesis_key.pub);
 
 	system.wallet (0)->insert_adhoc (key2.prv);
 	ASSERT_FALSE (system.wallet (0)->search_receivable ());
@@ -408,7 +405,7 @@ TEST (node, search_receivable_pruned)
 	ASSERT_TIMELY (10s, node1->active.empty () && node2->active.empty ());
 	ASSERT_TIMELY (5s, node1->ledger.confirmed.block_exists_or_pruned (node1->ledger.tx_begin_read (), send2->hash ()));
 	ASSERT_TIMELY_EQ (5s, node2->ledger.cemented_count (), 3);
-	system.wallet (0)->store.erase (node1->wallets.tx_begin_write (), nano::dev::genesis_key.pub);
+	system.wallet (0)->remove_account (nano::dev::genesis_key.pub);
 
 	// Pruning
 	{
@@ -430,10 +427,7 @@ TEST (node, unlock_search)
 	auto node (system.nodes[0]);
 	nano::keypair key2;
 	nano::uint128_t balance (node->balance (nano::dev::genesis_key.pub));
-	{
-		auto transaction (system.wallet (0)->wallets.tx_begin_write ());
-		system.wallet (0)->store.rekey (transaction, "");
-	}
+	system.wallet (0)->rekey ("");
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, node->config.receive_minimum.number ()));
 	ASSERT_TIMELY (10s, node->balance (nano::dev::genesis_key.pub) != balance);
@@ -1067,10 +1061,7 @@ TEST (node, fork_no_vote_quorum)
 	auto key4 (system.wallet (0)->deterministic_insert ());
 	system.wallet (0)->send_action (nano::dev::genesis_key.pub, key4, nano::dev::constants.genesis_amount / 4);
 	auto key1 (system.wallet (1)->deterministic_insert ());
-	{
-		auto transaction (system.wallet (1)->wallets.tx_begin_write ());
-		system.wallet (1)->store.representative_set (transaction, key1);
-	}
+	system.wallet (1)->set_representative (key1);
 	auto block (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1, node1.config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, block);
 	ASSERT_TIMELY (30s, node3.balance (key1) == node1.config.receive_minimum.number () && node2.balance (key1) == node1.config.receive_minimum.number () && node1.balance (key1) == node1.config.receive_minimum.number ());
@@ -1100,8 +1091,7 @@ TEST (node, fork_no_vote_quorum)
 				 .work (*system.work.generate (block->hash ()))
 				 .build ();
 	nano::raw_key key3;
-	auto transaction (system.wallet (1)->wallets.tx_begin_read ());
-	ASSERT_FALSE (system.wallet (1)->store.fetch (transaction, key1, key3));
+	ASSERT_FALSE (system.wallet (1)->fetch_prv (key1, key3));
 	auto vote = std::make_shared<nano::vote> (key1, key3, 0, 0, std::vector<nano::block_hash>{ send2->hash () });
 	nano::messages::confirm_ack confirm{ nano::dev::network_params.network, vote };
 	auto channel = node2.network.find_node_id (node3.node_id.pub);
@@ -1138,16 +1128,10 @@ TEST (node, DISABLED_fork_pre_confirm)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair key1;
 	system.wallet (1)->insert_adhoc (key1.prv);
-	{
-		auto transaction (system.wallet (1)->wallets.tx_begin_write ());
-		system.wallet (1)->store.representative_set (transaction, key1.pub);
-	}
+	system.wallet (1)->set_representative (key1.pub);
 	nano::keypair key2;
 	system.wallet (2)->insert_adhoc (key2.prv);
-	{
-		auto transaction (system.wallet (2)->wallets.tx_begin_write ());
-		system.wallet (2)->store.representative_set (transaction, key2.pub);
-	}
+	system.wallet (2)->set_representative (key2.pub);
 	auto block0 (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, nano::dev::constants.genesis_amount / 3));
 	ASSERT_NE (nullptr, block0);
 	ASSERT_TIMELY (30s, node0.balance (key1.pub) != 0);
@@ -2795,10 +2779,7 @@ TEST (node, bidirectional_tcp)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	// Test block propagation & confirmation from node 2 (remove representative from node 1)
-	{
-		auto transaction (system.wallet (0)->wallets.tx_begin_write ());
-		system.wallet (0)->store.erase (transaction, nano::dev::genesis_key.pub);
-	}
+	system.wallet (0)->remove_account (nano::dev::genesis_key.pub);
 	/* Test block propagation from node 2
 	Node 2 has only ephemeral TCP port open. Node 1 cannot establish connection to node 2 listening port */
 	auto send2 = builder.make_block ()

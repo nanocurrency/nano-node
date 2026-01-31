@@ -125,20 +125,15 @@ TEST (system, DISABLED_generate_send_new)
 	system.generate_send_new (node1, accounts);
 	nano::account new_account{};
 	{
-		auto transaction (node1.wallets.tx_begin_read ());
-		auto iterator2 (system.wallet (0)->store.begin (transaction));
-		if (iterator2->first != nano::dev::genesis_key.pub)
+		auto wallet_accounts = system.wallet (0)->accounts ();
+		ASSERT_EQ (2, wallet_accounts.size ());
+		for (auto const & acc : wallet_accounts)
 		{
-			new_account = iterator2->first;
+			if (acc != nano::dev::genesis_key.pub)
+			{
+				new_account = acc;
+			}
 		}
-		++iterator2;
-		ASSERT_NE (system.wallet (0)->store.end (transaction), iterator2);
-		if (iterator2->first != nano::dev::genesis_key.pub)
-		{
-			new_account = iterator2->first;
-		}
-		++iterator2;
-		ASSERT_EQ (system.wallet (0)->store.end (transaction), iterator2);
 		ASSERT_FALSE (new_account.is_zero ());
 	}
 	ASSERT_TIMELY (10s, node1.balance (new_account) != 0);

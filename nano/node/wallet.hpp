@@ -298,6 +298,7 @@ public:
 	// Wallet management
 	std::shared_ptr<nano::wallet> open (nano::wallet_id const &);
 	std::shared_ptr<nano::wallet> create (nano::wallet_id const &);
+	std::shared_ptr<nano::wallet> create_from_json (nano::wallet_id const &, std::string const & json);
 	void destroy (nano::wallet_id const &);
 	void reload ();
 	void clear_send_ids ();
@@ -324,7 +325,7 @@ public:
 
 	nano::container_info container_info () const;
 
-	// Transaction
+private: // Transactions
 	nano::store::write_transaction tx_begin_write ();
 	nano::store::read_transaction tx_begin_read ();
 
@@ -375,5 +376,7 @@ private:
 
 private:
 	mutable nano::locked<nano::wallet_representatives> representatives;
+
+	friend class wallet;
 };
 }

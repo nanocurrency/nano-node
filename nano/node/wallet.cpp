@@ -1752,6 +1752,27 @@ std::shared_ptr<nano::wallet> nano::wallets::create (nano::wallet_id const & id_
 	return result;
 }
 
+std::shared_ptr<nano::wallet> nano::wallets::create_from_json (nano::wallet_id const & id_a, std::string const & json_a)
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	debug_assert (items.find (id_a) == items.end ());
+	std::shared_ptr<nano::wallet> result;
+	bool error;
+	{
+		auto transaction (tx_begin_write ());
+		result = std::make_shared<nano::wallet> (error, transaction, *this, id_a.to_string (), json_a);
+	}
+	if (!error)
+	{
+		items[id_a] = result;
+	}
+	else
+	{
+		result = nullptr;
+	}
+	return result;
+}
+
 bool nano::wallets::search_receivable (nano::wallet_id const & wallet_a)
 {
 	auto result (false);
@@ -1764,9 +1785,7 @@ bool nano::wallets::search_receivable (nano::wallet_id const & wallet_a)
 
 void nano::wallets::search_receivable_all ()
 {
-	nano::unique_lock<nano::mutex> lk{ mutex };
 	auto wallets_l = all_wallets ();
-	lk.unlock ();
 	for (auto const & [id, wallet] : wallets_l)
 	{
 		wallet->search_receivable ();
@@ -2045,10 +2064,8 @@ void nano::wallets::run_receivable_scan ()
 
 void nano::wallets::receive_confirmed (nano::block_hash const & hash_a, nano::account const & destination_a)
 {
-	nano::unique_lock<nano::mutex> lk{ mutex };
 	auto wallets_l = all_wallets ();
 	auto wallet_transaction = tx_begin_read ();
-	lk.unlock ();
 	for ([[maybe_unused]] auto const & [id, wallet] : wallets_l)
 	{
 		if (wallet->store.exists (wallet_transaction, destination_a))
@@ -2079,7 +2096,7 @@ void nano::wallets::receive_confirmed (nano::block_hash const & hash_a, nano::ac
 
 std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> nano::wallets::all_wallets ()
 {
-	debug_assert (!mutex.try_lock ());
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	return items;
 }
 

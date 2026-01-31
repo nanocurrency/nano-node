@@ -45,7 +45,6 @@ namespace test
 		void generate_send_existing (nano::node &, std::vector<nano::account> &);
 		std::shared_ptr<nano::state_block> upgrade_genesis_epoch (nano::node &, nano::epoch const);
 		std::shared_ptr<nano::wallet> wallet (size_t);
-		nano::account account (store::transaction const &, size_t);
 		/** Generate work with difficulty between \p min_difficulty_a (inclusive) and \p max_difficulty_a (exclusive) */
 		uint64_t work_generate_limited (nano::block_hash const & root_a, uint64_t min_difficulty_a, uint64_t max_difficulty_a);
 		/**

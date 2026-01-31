@@ -530,8 +530,7 @@ TEST (rpc, wallet_representative_set)
 	request.put ("action", "wallet_representative_set");
 	request.put ("representative", key.pub.to_account ());
 	auto response (wait_response (system, rpc_ctx, request));
-	auto transaction (node->wallets.tx_begin_read ());
-	ASSERT_EQ (key.pub, node->wallets.items.begin ()->second->store.representative (transaction));
+	ASSERT_EQ (key.pub, node->wallets.items.begin ()->second->get_representative ());
 }
 
 TEST (rpc, wallet_representative_set_force)
@@ -548,10 +547,7 @@ TEST (rpc, wallet_representative_set_force)
 	request.put ("representative", key.pub.to_account ());
 	request.put ("update_existing_accounts", true);
 	auto response (wait_response (system, rpc_ctx, request));
-	{
-		auto transaction (node->wallets.tx_begin_read ());
-		ASSERT_EQ (key.pub, node->wallets.items.begin ()->second->store.representative (transaction));
-	}
+	ASSERT_EQ (key.pub, node->wallets.items.begin ()->second->get_representative ());
 	nano::account representative{};
 	while (representative != key.pub)
 	{
@@ -642,9 +638,8 @@ TEST (rpc, wallet_create_seed)
 	auto existing (node->wallets.items.find (wallet_id));
 	ASSERT_NE (node->wallets.items.end (), existing);
 	{
-		auto transaction (node->wallets.tx_begin_read ());
 		nano::raw_key seed0;
-		existing->second->store.seed (seed0, transaction);
+		existing->second->get_seed (seed0);
 		ASSERT_EQ (seed, seed0);
 	}
 	auto account_text (response.get<std::string> ("last_restored_account"));
@@ -666,12 +661,11 @@ TEST (rpc, wallet_export)
 	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
 	auto response (wait_response (system, rpc_ctx, request));
 	std::string wallet_json (response.get<std::string> ("json"));
-	bool error (false);
-	auto transaction (node->wallets.tx_begin_write ());
-	nano::kdf kdf{ nano::dev::network_params.kdf_work };
-	nano::wallet_store store (error, kdf, transaction, node->wallets.env, nano::dev::genesis_key.pub, 1, "0", wallet_json);
-	ASSERT_FALSE (error);
-	ASSERT_TRUE (store.exists (transaction, nano::dev::genesis_key.pub));
+	// Verify exported JSON is valid by importing it into a new wallet
+	auto new_wallet = node->wallets.create (nano::random_wallet_id ());
+	ASSERT_NE (nullptr, new_wallet);
+	ASSERT_FALSE (new_wallet->import (wallet_json, ""));
+	ASSERT_TRUE (new_wallet->exists (nano::dev::genesis_key.pub));
 }
 
 TEST (rpc, wallet_destroy)
@@ -713,8 +707,7 @@ TEST (rpc, account_move)
 	ASSERT_EQ ("1", response.get<std::string> ("moved"));
 	ASSERT_TRUE (destination->exists (key.pub));
 	ASSERT_TRUE (destination->exists (nano::dev::genesis_key.pub));
-	auto transaction (node->wallets.tx_begin_read ());
-	ASSERT_EQ (source->store.end (transaction), source->store.begin (transaction));
+	ASSERT_TRUE (source->accounts ().empty ());
 }
 
 TEST (rpc, block)
@@ -2539,10 +2532,7 @@ TEST (rpc, wallet_seed)
 	auto node = add_ipc_enabled_node (system);
 	auto const rpc_ctx = add_rpc (system, node);
 	nano::raw_key seed;
-	{
-		auto transaction (node->wallets.tx_begin_read ());
-		system.wallet (0)->store.seed (seed, transaction);
-	}
+	system.wallet (0)->get_seed (seed);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_seed");
 	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
@@ -2561,10 +2551,8 @@ TEST (rpc, wallet_change_seed)
 	nano::raw_key seed;
 	nano::random_pool::generate_block (seed.bytes.data (), seed.bytes.size ());
 	{
-		auto transaction (node->wallets.tx_begin_read ());
 		nano::raw_key seed0;
-		nano::random_pool::generate_block (seed0.bytes.data (), seed0.bytes.size ());
-		system0.wallet (0)->store.seed (seed0, transaction);
+		system0.wallet (0)->get_seed (seed0);
 		ASSERT_NE (seed, seed0);
 	}
 	auto prv = nano::deterministic_key (seed, 0);
@@ -2575,9 +2563,8 @@ TEST (rpc, wallet_change_seed)
 	request.put ("seed", seed.to_string ());
 	auto response (wait_response (system0, rpc_ctx, request));
 	{
-		auto transaction (node->wallets.tx_begin_read ());
 		nano::raw_key seed0;
-		system0.wallet (0)->store.seed (seed0, transaction);
+		system0.wallet (0)->get_seed (seed0);
 		ASSERT_EQ (seed, seed0);
 	}
 	auto account_text (response.get<std::string> ("last_restored_account"));
@@ -2844,10 +2831,7 @@ TEST (rpc, deterministic_key)
 	nano::test::system system0;
 	auto node = add_ipc_enabled_node (system0);
 	nano::raw_key seed;
-	{
-		auto transaction (system0.nodes[0]->wallets.tx_begin_read ());
-		system0.wallet (0)->store.seed (seed, transaction);
-	}
+	system0.wallet (0)->get_seed (seed);
 	nano::account account0 (system0.wallet (0)->deterministic_insert ());
 	nano::account account1 (system0.wallet (0)->deterministic_insert ());
 	nano::account account2 (system0.wallet (0)->deterministic_insert ());
@@ -3198,10 +3182,7 @@ TEST (rpc, wallet_info)
 	ASSERT_TIMELY (5s, node->block_confirmed (send2->hash ()));
 
 	nano::account account (system.wallet (0)->deterministic_insert ());
-	{
-		auto transaction (node->wallets.tx_begin_write ());
-		system.wallet (0)->store.erase (transaction, account);
-	}
+	system.wallet (0)->remove_account (account);
 	account = system.wallet (0)->deterministic_insert ();
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
@@ -3444,8 +3425,7 @@ TEST (rpc, work_get)
 	auto response (wait_response (system, rpc_ctx, request));
 	std::string work_text (response.get<std::string> ("work"));
 	uint64_t work (1);
-	auto transaction (node->wallets.tx_begin_read ());
-	node->wallets.items.begin ()->second->store.work_get (transaction, nano::dev::genesis_key.pub, work);
+	node->wallets.items.begin ()->second->get_work (nano::dev::genesis_key.pub, work);
 	ASSERT_EQ (nano::to_string_hex (work), work_text);
 }
 
@@ -3460,14 +3440,13 @@ TEST (rpc, wallet_work_get)
 	request.put ("action", "wallet_work_get");
 	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
 	auto response (wait_response (system, rpc_ctx, request));
-	auto transaction (node->wallets.tx_begin_read ());
 	for (auto & works : response.get_child ("works"))
 	{
 		std::string account_text (works.first);
 		ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), account_text);
 		std::string work_text (works.second.get<std::string> (""));
 		uint64_t work (1);
-		node->wallets.items.begin ()->second->store.work_get (transaction, nano::dev::genesis_key.pub, work);
+		node->wallets.items.begin ()->second->get_work (nano::dev::genesis_key.pub, work);
 		ASSERT_EQ (nano::to_string_hex (work), work_text);
 	}
 }
@@ -3488,8 +3467,7 @@ TEST (rpc, work_set)
 	std::string success (response.get<std::string> ("success"));
 	ASSERT_TRUE (success.empty ());
 	uint64_t work1 (1);
-	auto transaction (node->wallets.tx_begin_read ());
-	node->wallets.items.begin ()->second->store.work_get (transaction, nano::dev::genesis_key.pub, work1);
+	node->wallets.items.begin ()->second->get_work (nano::dev::genesis_key.pub, work1);
 	ASSERT_EQ (work1, work0);
 }
 
@@ -5005,17 +4983,13 @@ TEST (rpc, wallet_lock)
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	std::string wallet = node->wallets.items.begin ()->first.to_string ();
-	{
-		auto transaction (system.wallet (0)->wallets.tx_begin_read ());
-		ASSERT_TRUE (system.wallet (0)->store.valid_password (transaction));
-	}
+	ASSERT_FALSE (system.wallet (0)->is_locked ());
 	request.put ("wallet", wallet);
 	request.put ("action", "wallet_lock");
 	auto response (wait_response (system, rpc_ctx, request));
 	std::string account_text1 (response.get<std::string> ("locked"));
 	ASSERT_EQ (account_text1, "1");
-	auto transaction (system.wallet (0)->wallets.tx_begin_read ());
-	ASSERT_FALSE (system.wallet (0)->store.valid_password (transaction));
+	ASSERT_TRUE (system.wallet (0)->is_locked ());
 }
 
 TEST (rpc, wallet_locked)
@@ -6567,7 +6541,7 @@ TEST (rpc, receive_unopened)
 	ASSERT_FALSE (node->store.account.exists (node->ledger.tx_begin_read (), key2.pub));
 	ASSERT_TRUE (node->ledger.any.block_exists (node->ledger.tx_begin_read (), send2->hash ()));
 	nano::public_key rep;
-	wallet->store.representative_set (node->wallets.tx_begin_write (), rep);
+	wallet->set_representative (rep);
 	wallet->insert_adhoc (key2.prv); // should not auto receive, amount sent was lower than minimum
 	request.put ("account", key2.pub.to_account ());
 	request.put ("block", send2->hash ().to_string ());

@@ -568,9 +568,8 @@ TEST (wallet, work)
 	system.deadline_set (20s);
 	while (!done)
 	{
-		auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 		uint64_t work (0);
-		if (!wallet->store.work_get (transaction, nano::dev::genesis_key.pub, work))
+		if (!wallet->get_work (nano::dev::genesis_key.pub, work))
 		{
 			done = nano::dev::network_params.work.difficulty (nano::dev::genesis->work_version (), nano::dev::genesis->hash (), work) >= system.nodes[0]->default_difficulty (nano::dev::genesis->work_version ());
 		}
@@ -586,11 +585,7 @@ TEST (wallet, work_generate)
 	nano::uint128_t amount1 (node1.balance (nano::dev::genesis_key.pub));
 	uint64_t work1;
 	wallet->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::account account1;
-	{
-		auto transaction = node1.wallets.tx_begin_read ();
-		account1 = system.account (transaction, 0);
-	}
+	nano::account account1 = system.wallet (0)->accounts ().front ();
 	nano::keypair key;
 	auto block (wallet->send_action (nano::dev::genesis_key.pub, key.pub, 100));
 	ASSERT_TIMELY (10s, node1.ledger.any.account_balance (node1.ledger.tx_begin_read (), nano::dev::genesis_key.pub) != amount1);
@@ -600,8 +595,7 @@ TEST (wallet, work_generate)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 		auto block_transaction = node1.ledger.tx_begin_read ();
-		auto transaction (system.wallet (0)->wallets.tx_begin_read ());
-		again = wallet->store.work_get (transaction, account1, work1) || nano::dev::network_params.work.difficulty (block->work_version (), node1.ledger.latest_root (block_transaction, account1), work1) < node1.default_difficulty (block->work_version ());
+		again = wallet->get_work (account1, work1) || nano::dev::network_params.work.difficulty (block->work_version (), node1.ledger.latest_root (block_transaction, account1), work1) < node1.default_difficulty (block->work_version ());
 	}
 }
 
@@ -612,11 +606,7 @@ TEST (wallet, work_cache_delayed)
 	auto wallet (system.wallet (0));
 	uint64_t work1;
 	wallet->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::account account1;
-	{
-		auto transaction = node1.wallets.tx_begin_read ();
-		account1 = system.account (transaction, 0);
-	}
+	nano::account account1 = system.wallet (0)->accounts ().front ();
 	nano::keypair key;
 	auto block1 (wallet->send_action (nano::dev::genesis_key.pub, key.pub, 100));
 	ASSERT_EQ (block1->hash (), node1.latest (nano::dev::genesis_key.pub));
@@ -629,7 +619,7 @@ TEST (wallet, work_cache_delayed)
 	while (again)
 	{
 		ASSERT_NO_ERROR (system.poll ());
-		if (!wallet->store.work_get (node1.wallets.tx_begin_read (), account1, work1))
+		if (!wallet->get_work (account1, work1))
 		{
 			again = nano::dev::network_params.work.difficulty (nano::work_version::work_1, block2->hash (), work1) < threshold;
 		}
@@ -744,9 +734,8 @@ TEST (wallet, no_work)
 	ASSERT_NE (nullptr, block);
 	ASSERT_NE (0, block->block_work ());
 	ASSERT_GE (nano::dev::network_params.work.difficulty (*block), nano::dev::network_params.work.threshold (block->work_version (), block->sideband ().details));
-	auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 	uint64_t cached_work (0);
-	system.wallet (0)->store.work_get (transaction, nano::dev::genesis_key.pub, cached_work);
+	system.wallet (0)->get_work (nano::dev::genesis_key.pub, cached_work);
 	ASSERT_EQ (0, cached_work);
 }
 
@@ -770,15 +759,13 @@ TEST (wallet, password_race)
 	std::thread thread ([&wallet] () {
 		for (int i = 0; i < 100; i++)
 		{
-			auto transaction (wallet->wallets.tx_begin_write ());
-			wallet->store.rekey (transaction, std::to_string (i));
+			wallet->rekey (std::to_string (i));
 		}
 	});
 	for (int i = 0; i < 100; i++)
 	{
-		auto transaction (wallet->wallets.tx_begin_read ());
 		// Password should always be valid, the rekey operation should be atomic.
-		bool ok = wallet->store.valid_password (transaction);
+		bool ok = !wallet->is_locked ();
 		EXPECT_TRUE (ok);
 		if (!ok)
 		{
@@ -797,10 +784,9 @@ TEST (wallet, password_race_corrupt_seed)
 	auto wallet = system.wallet (0);
 	nano::raw_key seed;
 	{
-		auto transaction (wallet->wallets.tx_begin_write ());
-		ASSERT_FALSE (wallet->store.rekey (transaction, "4567"));
-		wallet->store.seed (seed, transaction);
-		ASSERT_FALSE (wallet->store.attempt_password (transaction, "4567"));
+		ASSERT_FALSE (wallet->rekey ("4567"));
+		wallet->get_seed (seed);
+		ASSERT_FALSE (wallet->enter_password ("4567"));
 	}
 	std::vector<std::thread> threads;
 	for (int i = 0; i < 100; i++)
@@ -808,22 +794,19 @@ TEST (wallet, password_race_corrupt_seed)
 		threads.emplace_back ([&wallet] () {
 			for (int i = 0; i < 10; i++)
 			{
-				auto transaction (wallet->wallets.tx_begin_write ());
-				wallet->store.rekey (transaction, "0000");
+				wallet->rekey ("0000");
 			}
 		});
 		threads.emplace_back ([&wallet] () {
 			for (int i = 0; i < 10; i++)
 			{
-				auto transaction (wallet->wallets.tx_begin_write ());
-				wallet->store.rekey (transaction, "1234");
+				wallet->rekey ("1234");
 			}
 		});
 		threads.emplace_back ([&wallet] () {
 			for (int i = 0; i < 10; i++)
 			{
-				auto transaction (wallet->wallets.tx_begin_read ());
-				wallet->store.attempt_password (transaction, "1234");
+				wallet->enter_password ("1234");
 			}
 		});
 	}
@@ -834,23 +817,22 @@ TEST (wallet, password_race_corrupt_seed)
 	system.stop ();
 	runner.join ();
 	{
-		auto transaction (wallet->wallets.tx_begin_write ());
-		if (!wallet->store.attempt_password (transaction, "1234"))
+		if (!wallet->enter_password ("1234"))
 		{
 			nano::raw_key seed_now;
-			wallet->store.seed (seed_now, transaction);
+			wallet->get_seed (seed_now);
 			ASSERT_EQ (seed_now, seed);
 		}
-		else if (!wallet->store.attempt_password (transaction, "0000"))
+		else if (!wallet->enter_password ("0000"))
 		{
 			nano::raw_key seed_now;
-			wallet->store.seed (seed_now, transaction);
+			wallet->get_seed (seed_now);
 			ASSERT_EQ (seed_now, seed);
 		}
-		else if (!wallet->store.attempt_password (transaction, "4567"))
+		else if (!wallet->enter_password ("4567"))
 		{
 			nano::raw_key seed_now;
-			wallet->store.seed (seed_now, transaction);
+			wallet->get_seed (seed_now);
 			ASSERT_EQ (seed_now, seed);
 		}
 		else
@@ -880,8 +862,7 @@ TEST (wallet, change_seed)
 		nano::raw_key seed2;
 		wallet->get_seed (seed2);
 		ASSERT_EQ (seed1, seed2);
-		auto transaction (wallet->wallets.tx_begin_read ());
-		ASSERT_EQ (index + 1, wallet->store.deterministic_index_get (transaction));
+		ASSERT_EQ (index + 1, wallet->get_deterministic_index ());
 	}
 	ASSERT_TRUE (wallet->exists (pub));
 }
@@ -900,8 +881,7 @@ TEST (wallet, deterministic_restore)
 		nano::raw_key seed2;
 		wallet->get_seed (seed2);
 		ASSERT_EQ (seed1, seed2);
-		auto transaction (wallet->wallets.tx_begin_read ());
-		ASSERT_EQ (1, wallet->store.deterministic_index_get (transaction));
+		ASSERT_EQ (1, wallet->get_deterministic_index ());
 		auto prv = nano::deterministic_key (seed1, index);
 		pub = nano::pub_key (prv);
 	}
@@ -911,8 +891,7 @@ TEST (wallet, deterministic_restore)
 	ASSERT_TIMELY (5s, nano::test::exists (*system.nodes[0], { block }));
 	{
 		wallet->deterministic_restore ();
-		auto transaction (wallet->wallets.tx_begin_read ());
-		ASSERT_EQ (index + 1, wallet->store.deterministic_index_get (transaction));
+		ASSERT_EQ (index + 1, wallet->get_deterministic_index ());
 	}
 	ASSERT_TRUE (wallet->exists (pub));
 }
@@ -1112,7 +1091,7 @@ TEST (wallet, search_receivable)
 	ASSERT_TIMELY (5s, election = node.active.election (send->qualified_root ()));
 
 	// Erase the key so the confirmation does not trigger an automatic receive
-	wallet.store.erase (node.wallets.tx_begin_write (), nano::dev::genesis_key.pub);
+	wallet.remove_account (nano::dev::genesis_key.pub);
 
 	// Now confirm the election
 	election->force_confirm ();

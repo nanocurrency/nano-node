@@ -256,16 +256,6 @@ std::shared_ptr<nano::wallet> nano::test::system::wallet (size_t index_a)
 	return nodes[index_a]->wallets.items.begin ()->second;
 }
 
-nano::account nano::test::system::account (store::transaction const & transaction_a, size_t index_a)
-{
-	auto wallet_l (wallet (index_a));
-	auto keys (wallet_l->store.begin (transaction_a));
-	debug_assert (keys != wallet_l->store.end (transaction_a));
-	auto result (keys->first);
-	debug_assert (++keys == wallet_l->store.end (transaction_a));
-	return nano::account (result);
-}
-
 uint64_t nano::test::system::work_generate_limited (nano::block_hash const & root_a, uint64_t min_a, uint64_t max_a)
 {
 	debug_assert (min_a > 0);

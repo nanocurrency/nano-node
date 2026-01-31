@@ -1926,7 +1926,7 @@ TEST (node, aggressive_flooding)
 	for (auto & node_wallet : nodes_wallets)
 	{
 		nano::keypair keypair;
-		node_wallet.second->store.representative_set (node_wallet.first->wallets.tx_begin_write (), keypair.pub);
+		node_wallet.second->set_representative (keypair.pub);
 		node_wallet.second->insert_adhoc (keypair.prv);
 		auto block (wallet1.send_action (nano::dev::genesis_key.pub, keypair.pub, large_amount));
 		ASSERT_NE (nullptr, block);
@@ -1951,7 +1951,7 @@ TEST (node, aggressive_flooding)
 	// Wait until all genesis blocks are received
 	auto all_received = [&nodes_wallets] () {
 		return std::all_of (nodes_wallets.begin (), nodes_wallets.end (), [] (auto const & node_wallet) {
-			auto local_representative (node_wallet.second->store.representative (node_wallet.first->wallets.tx_begin_read ()));
+			auto local_representative (node_wallet.second->get_representative ());
 			return node_wallet.first->ledger.any.account_balance (node_wallet.first->ledger.tx_begin_read (), local_representative) > 0;
 		});
 	};

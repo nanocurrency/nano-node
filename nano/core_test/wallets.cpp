@@ -83,6 +83,39 @@ TEST (wallets, remove)
 	}
 }
 
+TEST (wallets, create_from_json)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	node.wallets.stop (); // Stop node wallets to avoid race condition with local wallets sharing same LMDB environment
+	nano::wallet_id id (1);
+	std::string json;
+	nano::public_key account;
+	{
+		auto wallets = make_wallets (node);
+		auto wallet = wallets.create (id);
+		ASSERT_NE (nullptr, wallet);
+		account = wallet->deterministic_insert ();
+		wallet->serialize (json);
+		ASSERT_FALSE (json.empty ());
+		wallets.destroy (id);
+		ASSERT_EQ (nullptr, wallets.open (id));
+	}
+	{
+		auto wallets = make_wallets (node);
+		// Invalid JSON should return nullptr
+		auto bad_wallet = wallets.create_from_json (id, "not valid json");
+		ASSERT_EQ (nullptr, bad_wallet);
+		ASSERT_EQ (nullptr, wallets.open (id));
+		// Create wallet from exported JSON
+		auto wallet = wallets.create_from_json (id, json);
+		ASSERT_NE (nullptr, wallet);
+		ASSERT_NE (nullptr, wallets.open (id));
+		// Verify the account was restored
+		ASSERT_TRUE (wallet->exists (account));
+	}
+}
+
 // Opening multiple environments using the same file within the same process is not supported.
 // http://www.lmdb.tech/doc/starting.html
 TEST (wallets, DISABLED_reload)
@@ -192,9 +225,7 @@ TEST (wallets, search_receivable)
 		flags.disable_search_pending = true;
 		auto & node (*system.add_node (config, flags));
 
-		nano::unique_lock<nano::mutex> lk (node.wallets.mutex);
 		auto wallets = node.wallets.all_wallets ();
-		lk.unlock ();
 		ASSERT_EQ (1, wallets.size ());
 		auto wallet_id = wallets.begin ()->first;
 		auto wallet = wallets.begin ()->second;
@@ -226,7 +257,7 @@ TEST (wallets, search_receivable)
 		ASSERT_TIMELY (5s, election = node.active.election (send->qualified_root ()));
 
 		// Erase the key so the confirmation does not trigger an automatic receive
-		wallet->store.erase (node.wallets.tx_begin_write (), nano::dev::genesis_key.pub);
+		wallet->remove_account (nano::dev::genesis_key.pub);
 
 		// Now confirm the election
 		election->force_confirm ();
