@@ -150,6 +150,7 @@ public:
 	bool enter_password (std::string const & password);
 	bool rekey (std::string const & password);
 	bool is_locked () const;
+	void lock ();
 
 	// Account management
 	nano::public_key insert_adhoc (nano::raw_key const & prv, bool generate_work = true);
@@ -159,12 +160,15 @@ public:
 	void remove_account (nano::account const & account);
 	std::vector<nano::account> accounts () const;
 	bool exists (nano::public_key const & pub);
+	bool move_accounts (wallet & source, std::vector<nano::public_key> const & accounts);
+	nano::key_type key_type (nano::account const & account) const;
 
 	// Seed management
 	bool get_seed (nano::raw_key & result) const;
 	nano::public_key change_seed (nano::raw_key const & seed, uint32_t count = 0);
 	void deterministic_restore ();
 	uint32_t deterministic_check (uint32_t index);
+	uint32_t get_deterministic_index () const;
 
 	// Representative management
 	void set_representative (nano::account const & rep);
@@ -202,6 +206,7 @@ public:
 	// Import/export
 	bool import (std::string const & json, std::string const & password);
 	void serialize (std::string & json);
+	void write_backup (std::filesystem::path const & path);
 
 	// Status
 	bool live ();

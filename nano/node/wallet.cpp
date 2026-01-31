@@ -892,6 +892,12 @@ void nano::wallet::serialize (std::string & json_a)
 	store.serialize_json (transaction, json_a);
 }
 
+void nano::wallet::write_backup (std::filesystem::path const & path_a)
+{
+	auto transaction (wallets.tx_begin_read ());
+	store.write_backup (transaction, path_a);
+}
+
 void nano::wallet_store::destroy (nano::store::write_transaction const & transaction_a)
 {
 	auto status (mdb_drop (env.tx (transaction_a), handle, 1));
@@ -1454,6 +1460,13 @@ bool nano::wallet::is_locked () const
 	return !store.valid_password (transaction);
 }
 
+void nano::wallet::lock ()
+{
+	nano::raw_key empty;
+	empty.clear ();
+	store.password.value_set (empty);
+}
+
 void nano::wallet::remove_account (nano::account const & account_a)
 {
 	auto transaction = wallets.tx_begin_write ();
@@ -1464,6 +1477,19 @@ std::vector<nano::account> nano::wallet::accounts () const
 {
 	auto transaction = wallets.tx_begin_read ();
 	return store.accounts (transaction);
+}
+
+bool nano::wallet::move_accounts (wallet & source, std::vector<nano::public_key> const & accounts_a)
+{
+	auto transaction = wallets.tx_begin_write ();
+	return store.move (transaction, source.store, accounts_a);
+}
+
+nano::key_type nano::wallet::key_type (nano::account const & account_a) const
+{
+	auto transaction = wallets.tx_begin_read ();
+	auto value = store.entry_get_raw (transaction, account_a);
+	return store.key_type (value);
 }
 
 void nano::wallet::set_representative (nano::account const & rep_a)
@@ -1487,6 +1513,12 @@ bool nano::wallet::get_seed (nano::raw_key & seed_a) const
 	}
 	store.seed (seed_a, transaction);
 	return false;
+}
+
+uint32_t nano::wallet::get_deterministic_index () const
+{
+	auto transaction = wallets.tx_begin_read ();
+	return store.deterministic_index_get (transaction);
 }
 
 bool nano::wallet::get_work (nano::public_key const & pub_a, uint64_t & work_a) const

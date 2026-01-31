@@ -234,10 +234,9 @@ nano_qt::accounts::accounts (nano_qt::wallet & wallet_a) :
 	});
 	QObject::connect (backup_seed, &QPushButton::released, [this] () {
 		nano::raw_key seed;
-		auto transaction (this->wallet.wallet_m->wallets.tx_begin_read ());
-		if (this->wallet.wallet_m->store.valid_password (transaction))
+		if (!this->wallet.wallet_m->is_locked ())
 		{
-			this->wallet.wallet_m->store.seed (seed, transaction);
+			this->wallet.wallet_m->get_seed (seed);
 			this->wallet.application.clipboard ()->setText (QString (seed.to_string ().c_str ()));
 			show_button_success (*backup_seed);
 			backup_seed->setText ("Seed was copied to clipboard");
@@ -271,13 +270,11 @@ nano_qt::accounts::accounts (nano_qt::wallet & wallet_a) :
 
 void nano_qt::accounts::refresh_wallet_balance ()
 {
-	auto transaction (this->wallet.wallet_m->wallets.tx_begin_read ());
 	auto block_transaction = this->wallet.node.ledger.tx_begin_read ();
 	nano::uint128_t balance (0);
 	nano::uint128_t pending (0);
-	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end (transaction)); i != j; ++i)
+	for (auto const & key : this->wallet.wallet_m->accounts ())
 	{
-		nano::public_key const & key (i->first);
 		balance = balance + this->wallet.node.ledger.any.account_balance (block_transaction, key).value_or (0).number ();
 		pending = pending + (this->wallet.node.ledger.account_receivable (block_transaction, key));
 	}
@@ -297,15 +294,13 @@ void nano_qt::accounts::refresh_wallet_balance ()
 void nano_qt::accounts::refresh ()
 {
 	model->removeRows (0, model->rowCount ());
-	auto transaction (wallet.wallet_m->wallets.tx_begin_read ());
 	auto block_transaction = this->wallet.node.ledger.tx_begin_read ();
 	QBrush brush;
-	for (auto i (wallet.wallet_m->store.begin (transaction)), j (wallet.wallet_m->store.end (transaction)); i != j; ++i)
+	for (auto const & key : wallet.wallet_m->accounts ())
 	{
-		nano::public_key key (i->first);
 		auto balance_amount = wallet.node.ledger.any.account_balance (block_transaction, key).value_or (0).number ();
 		bool display (true);
-		switch (wallet.wallet_m->store.key_type (i->second))
+		switch (wallet.wallet_m->key_type (key))
 		{
 			case nano::key_type::adhoc:
 			{
@@ -1240,8 +1235,7 @@ void nano_qt::wallet::start ()
 					auto balance (this_l->node.balance (this_l->account));
 					if (actual <= balance)
 					{
-						auto transaction (this_l->wallet_m->wallets.tx_begin_read ());
-						if (this_l->wallet_m->store.valid_password (transaction))
+						if (!this_l->wallet_m->is_locked ())
 						{
 							this_l->send_blocks_send->setEnabled (false);
 							this_l->node.workers.post ([this_w, account_l, actual] () {
@@ -1458,10 +1452,7 @@ void nano_qt::wallet::start ()
 
 void nano_qt::wallet::refresh ()
 {
-	{
-		auto transaction (wallet_m->wallets.tx_begin_read ());
-		debug_assert (wallet_m->store.exists (transaction, account));
-	}
+	debug_assert (wallet_m->exists (account));
 	self.account_text->setText (QString (account.to_account ().c_str ()));
 	needs_balance_refresh = true;
 	accounts.refresh ();
@@ -1565,8 +1556,7 @@ nano_qt::settings::settings (nano_qt::wallet & wallet_a) :
 	layout->addWidget (back);
 	window->setLayout (layout);
 	QObject::connect (change, &QPushButton::released, [this] () {
-		auto transaction (this->wallet.wallet_m->wallets.tx_begin_write ());
-		if (this->wallet.wallet_m->store.valid_password (transaction))
+		if (!this->wallet.wallet_m->is_locked ())
 		{
 			if (new_password->text ().isEmpty ())
 			{
@@ -1579,7 +1569,7 @@ nano_qt::settings::settings (nano_qt::wallet & wallet_a) :
 			{
 				if (new_password->text () == retype_password->text ())
 				{
-					this->wallet.wallet_m->store.rekey (transaction, std::string (new_password->text ().toLocal8Bit ()));
+					this->wallet.wallet_m->rekey (std::string (new_password->text ().toLocal8Bit ()));
 					new_password->clear ();
 					retype_password->clear ();
 					retype_password->setPlaceholderText ("Retype password");
@@ -1617,14 +1607,10 @@ nano_qt::settings::settings (nano_qt::wallet & wallet_a) :
 		nano::account representative_l;
 		if (!representative_l.decode_account (new_representative->text ().toStdString ()))
 		{
-			auto transaction (this->wallet.wallet_m->wallets.tx_begin_read ());
-			if (this->wallet.wallet_m->store.valid_password (transaction))
+			if (!this->wallet.wallet_m->is_locked ())
 			{
 				change_rep->setEnabled (false);
-				{
-					auto transaction_l (this->wallet.wallet_m->wallets.tx_begin_write ());
-					this->wallet.wallet_m->store.representative_set (transaction_l, representative_l);
-				}
+				this->wallet.wallet_m->set_representative (representative_l);
 				this->wallet.wallet_m->change_sync (this->wallet.account, representative_l);
 				change_rep->setEnabled (true);
 				show_button_success (*change_rep);
@@ -1700,8 +1686,7 @@ nano_qt::settings::settings (nano_qt::wallet & wallet_a) :
 						show_button_ok (*lock_toggle);
 
 						// if wallet is still not unlocked by now, change button text
-						auto transaction (this->wallet.wallet_m->wallets.tx_begin_write ());
-						if (!this->wallet.wallet_m->store.valid_password (transaction))
+						if (this->wallet.wallet_m->is_locked ())
 						{
 							lock_toggle->setText ("Unlock");
 						}
@@ -1717,8 +1702,7 @@ nano_qt::settings::settings (nano_qt::wallet & wallet_a) :
 	});
 
 	// initial state for lock toggle button
-	auto transaction (this->wallet.wallet_m->wallets.tx_begin_write ());
-	if (this->wallet.wallet_m->store.valid_password (transaction))
+	if (!this->wallet.wallet_m->is_locked ())
 	{
 		lock_toggle->setText ("Lock");
 		password->setDisabled (1);
@@ -1739,8 +1723,7 @@ void nano_qt::settings::refresh_representative ()
 	}
 	else
 	{
-		auto wallet_transaction (this->wallet.wallet_m->wallets.tx_begin_read ());
-		current_representative->setText (this->wallet.wallet_m->store.representative (wallet_transaction).to_account ().c_str ());
+		current_representative->setText (this->wallet.wallet_m->get_representative ().to_account ().c_str ());
 	}
 }
 
@@ -2240,10 +2223,9 @@ void nano_qt::block_creation::create_send ()
 			error = destination_l.decode_account (destination->text ().toStdString ());
 			if (!error)
 			{
-				auto transaction (wallet.node.wallets.tx_begin_read ());
 				auto block_transaction = wallet.node.ledger.tx_begin_read ();
 				nano::raw_key key;
-				if (!wallet.wallet_m->store.fetch (transaction, account_l, key))
+				if (!wallet.wallet_m->fetch_prv (account_l, key))
 				{
 					auto balance = wallet.node.ledger.any.account_balance (block_transaction, account_l).value_or (0).number ();
 					if (amount_l.number () <= balance)
@@ -2316,7 +2298,6 @@ void nano_qt::block_creation::create_receive ()
 	auto error (source_l.decode_hex (source->text ().toStdString ()));
 	if (!error)
 	{
-		auto transaction (wallet.node.wallets.tx_begin_read ());
 		auto block_transaction = wallet.node.ledger.tx_begin_read ();
 		auto block_l (wallet.node.ledger.any.block_get (block_transaction, source_l));
 		if (block_l != nullptr)
@@ -2332,7 +2313,7 @@ void nano_qt::block_creation::create_receive ()
 					if (!error)
 					{
 						nano::raw_key key;
-						auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
+						auto error (wallet.wallet_m->fetch_prv (pending_key.account, key));
 						if (!error)
 						{
 							nano::state_block receive (pending_key.account, info.head, info.representative, info.balance.number () + pending.value ().amount.number (), source_l, key, pending_key.account, 0);
@@ -2409,14 +2390,13 @@ void nano_qt::block_creation::create_change ()
 		error = representative_l.decode_account (representative->text ().toStdString ());
 		if (!error)
 		{
-			auto transaction (wallet.node.wallets.tx_begin_read ());
 			auto block_transaction (wallet.node.store.tx_begin_read ());
 			nano::account_info info;
 			auto error (wallet.node.store.account.get (block_transaction, account_l, info));
 			if (!error)
 			{
 				nano::raw_key key;
-				auto error (wallet.wallet_m->store.fetch (transaction, account_l, key));
+				auto error (wallet.wallet_m->fetch_prv (account_l, key));
 				if (!error)
 				{
 					nano::state_block change (account_l, info.head, representative_l, info.balance, 0, key, account_l, 0);
@@ -2480,7 +2460,6 @@ void nano_qt::block_creation::create_open ()
 		error = representative_l.decode_account (representative->text ().toStdString ());
 		if (!error)
 		{
-			auto transaction (wallet.node.wallets.tx_begin_read ());
 			auto block_transaction = wallet.node.ledger.tx_begin_read ();
 			auto block_l (wallet.node.ledger.any.block_get (block_transaction, source_l));
 			if (block_l != nullptr)
@@ -2496,7 +2475,7 @@ void nano_qt::block_creation::create_open ()
 						if (error)
 						{
 							nano::raw_key key;
-							auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
+							auto error (wallet.wallet_m->fetch_prv (pending_key.account, key));
 							if (!error)
 							{
 								nano::state_block open (pending_key.account, 0, representative_l, pending.value ().amount, source_l, key, pending_key.account, 0);
