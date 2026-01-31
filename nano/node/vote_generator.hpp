@@ -7,7 +7,6 @@
 #include <nano/lib/processing_queue.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/fwd.hpp>
-#include <nano/node/wallet.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>

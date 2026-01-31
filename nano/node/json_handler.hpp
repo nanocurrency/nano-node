@@ -1,8 +1,8 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/node/fwd.hpp>
 #include <nano/node/ipc/flatbuffers_handler.hpp>
-#include <nano/node/wallet.hpp>
 #include <nano/rpc/rpc.hpp>
 
 #include <boost/property_tree/ptree.hpp>

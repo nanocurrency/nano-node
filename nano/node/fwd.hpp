@@ -47,6 +47,7 @@ class vote_processor;
 class vote_rebroadcaster;
 class vote_router;
 class vote_spacing;
+class wallet;
 class wallets;
 
 enum class block_source;
