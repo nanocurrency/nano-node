@@ -886,7 +886,7 @@ bool nano::wallet::import (std::string const & json_a, std::string const & passw
 	return error;
 }
 
-void nano::wallet::serialize (std::string & json_a)
+void nano::wallet::serialize_json (std::string & json_a)
 {
 	auto transaction (wallets.tx_begin_read ());
 	store.serialize_json (transaction, json_a);

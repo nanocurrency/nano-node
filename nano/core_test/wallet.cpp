@@ -527,7 +527,7 @@ TEST (wallet_store, import)
 	nano::keypair key1;
 	wallet1->insert_adhoc (key1.prv);
 	std::string json;
-	wallet1->serialize (json);
+	wallet1->serialize_json (json);
 	ASSERT_FALSE (wallet2->exists (key1.pub));
 	auto error (wallet2->import (json, ""));
 	ASSERT_FALSE (error);
@@ -542,7 +542,7 @@ TEST (wallet_store, fail_import_bad_password)
 	nano::keypair key1;
 	wallet1->insert_adhoc (key1.prv);
 	std::string json;
-	wallet1->serialize (json);
+	wallet1->serialize_json (json);
 	ASSERT_FALSE (wallet2->exists (key1.pub));
 	auto error (wallet2->import (json, "1"));
 	ASSERT_TRUE (error);

@@ -205,7 +205,7 @@ public:
 
 	// Import/export
 	bool import (std::string const & json, std::string const & password);
-	void serialize (std::string & json);
+	void serialize_json (std::string & json);
 	void write_backup (std::filesystem::path const & path);
 
 	// Status

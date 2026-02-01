@@ -4611,7 +4611,7 @@ void nano::json_handler::wallet_export ()
 	if (!ec)
 	{
 		std::string json;
-		wallet->serialize (json);
+		wallet->serialize_json (json);
 		response_l.put ("json", json);
 	}
 	response_errors ();

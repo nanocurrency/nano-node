@@ -733,7 +733,7 @@ TEST (wallet, import)
 	nano::keypair key1;
 	nano::keypair key2;
 	system.wallet (0)->insert_adhoc (key1.prv);
-	system.wallet (0)->serialize (json);
+	system.wallet (0)->serialize_json (json);
 	system.wallet (1)->insert_adhoc (key2.prv);
 	auto path{ nano::unique_path () / "wallet.json" };
 	{
