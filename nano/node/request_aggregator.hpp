@@ -9,17 +9,11 @@
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/transport.hpp>
 
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/member.hpp>
-#include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index_container.hpp>
-
+#include <atomic>
 #include <condition_variable>
 #include <thread>
 #include <unordered_map>
 #include <vector>
-
-namespace mi = boost::multi_index;
 
 namespace nano
 {
@@ -99,6 +93,7 @@ private:
 	using value_type = std::pair<request_type, std::shared_ptr<nano::transport::channel>>;
 	nano::fair_queue<value_type, nano::no_value> queue;
 
+	std::atomic<bool> enabled{ true };
 	bool stopped{ false };
 	nano::condition_variable condition;
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::request_aggregator) };

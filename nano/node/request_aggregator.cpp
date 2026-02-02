@@ -31,9 +31,15 @@ nano::request_aggregator::request_aggregator (request_aggregator_config const & 
 	queue.max_size_query = [this] (auto const & origin) {
 		return config.max_queue;
 	};
-	queue.priority_query = [this] (auto const & origin) {
+	queue.priority_query = [] (auto const & origin) {
 		return 1;
 	};
+
+	// Disable if voting is disabled
+	if (!node_config.enable_voting)
+	{
+		enabled = false;
+	}
 }
 
 nano::request_aggregator::~request_aggregator ()
@@ -45,7 +51,7 @@ void nano::request_aggregator::start ()
 {
 	debug_assert (threads.empty ());
 
-	if (!node_config.enable_voting)
+	if (!enabled)
 	{
 		return;
 	}
@@ -94,7 +100,7 @@ bool nano::request_aggregator::request (request_type const & request, std::share
 	debug_assert (!request.empty ());
 
 	// Do not accept requests if disabled
-	if (threads.empty ())
+	if (!enabled.load (std::memory_order_relaxed))
 	{
 		return false;
 	}
