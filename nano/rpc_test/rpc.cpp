@@ -391,7 +391,8 @@ TEST (rpc, send_epoch_2)
 	request.put ("amount", "1");
 
 	// Test that the correct error is given if there is insufficient work
-	auto insufficient = system.work_generate_limited (nano::dev::genesis->hash (), min_difficulty, target_difficulty);
+	auto latest = node->ledger.any.account_head (node->ledger.tx_begin_read (), nano::dev::genesis_key.pub);
+	auto insufficient = system.work_generate_limited (latest, min_difficulty, target_difficulty);
 	request.put ("work", nano::to_string_hex (insufficient));
 	{
 		auto response (wait_response (system, rpc_ctx, request));
