@@ -11,9 +11,6 @@ fi
 
 echo "Running tests for target: ${target}"
 
-# Enable core dumps
-setup_core_dumps
-
 # Run the test
 shift
 executable=./${target}$(get_exec_extension)
@@ -23,9 +20,10 @@ status=$?
 if [ $status -ne 0 ]; then
     echo "::error::Test failed: ${target}"
 
-    # Show core dumps
-    export EXECUTABLE=${executable}
-    "$(dirname "$BASH_SOURCE")/show-core-dumps.sh"
+    # Show core dumps if core dump collection is enabled
+    if [ -n "${COREDUMP_DIR-}" ]; then
+        "$(dirname "$BASH_SOURCE")/show-core-dumps.sh" "${executable}"
+    fi
 
     exit $status
 else

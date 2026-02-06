@@ -31,6 +31,10 @@ jobs:
         id: build
         run: ci/build-tests.sh
 
+      - name: Setup Core Dumps
+        if: steps.build.outcome == 'success' && (success() || failure())
+        run: ci/tests/setup-core-dumps.sh
+
       - name: Core Tests
         if: steps.build.outcome == 'success' && (success() || failure())
         run: ../ci/tests/run-core-tests.sh
@@ -76,6 +80,10 @@ jobs:
       - name: Build Tests
         id: build
         run: ci/build-tests.sh
+
+      - name: Setup Core Dumps
+        if: steps.build.outcome == 'success' && (success() || failure())
+        run: ci/tests/setup-core-dumps.sh
 
       - name: Core Tests
         if: steps.build.outcome == 'success' && (success() || failure())
@@ -125,6 +133,11 @@ jobs:
       - name: Build Tests
         id: build
         run: ci/build-tests.sh
+        shell: bash
+
+      - name: Setup Core Dumps
+        if: steps.build.outcome == 'success' && (success() || failure())
+        run: ci/tests/setup-core-dumps.sh
         shell: bash
 
       - name: Core Tests

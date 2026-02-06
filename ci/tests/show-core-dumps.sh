@@ -1,6 +1,8 @@
 #!/bin/bash
 set -uo pipefail
 
+EXECUTABLE=${1-}
+
 echo "Analyzing core dumps..."
 
 if [ -z "${COREDUMP_DIR-}" ]; then
@@ -8,8 +10,8 @@ if [ -z "${COREDUMP_DIR-}" ]; then
     exit 1
 fi
 
-if [ -z "${EXECUTABLE-}" ]; then
-    echo "EXECUTABLE environment variable is not set."
+if [ -z "${EXECUTABLE}" ]; then
+    echo "Usage: $0 <executable>"
     exit 1
 fi
 

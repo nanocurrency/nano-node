@@ -23,4 +23,4 @@ docker run --rm \
     -e TEST_USE_ROCKSDB \
     -e DEADLINE_SCALE_FACTOR \
     nano-test:latest \
-    bash -c "cd build && ../ci/tests/run-${TEST_TYPE}-tests.sh"
+    bash -c "source ci/tests/setup-core-dumps.sh && cd build && ../ci/tests/run-${TEST_TYPE}-tests.sh"
