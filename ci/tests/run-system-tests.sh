@@ -17,6 +17,9 @@ echo "Running systests from: ${NANO_SYSTEST_DIR}"
 export NANO_NODE_EXE=./nano_node$(get_exec_extension)
 export NANO_RPC_EXE=./nano_rpc$(get_exec_extension)
 
+# Enable core dumps
+setup_core_dumps
+
 overall_status=0
 
 for script in ${NANO_SYSTEST_DIR}/*.sh; do
@@ -29,6 +32,12 @@ for script in ${NANO_SYSTEST_DIR}/*.sh; do
     timeout $TEST_TIMEOUT ./$script > "${name}.log" 2>&1
     status=$?
     cat "${name}.log"
+    
+    # Show core dumps after each test
+		if [ -n "${COREDUMP_DIR-}" ]; then
+				export EXECUTABLE="${NANO_NODE_EXE}"
+				"$(dirname "$BASH_SOURCE")/show-core-dumps.sh"
+		fi
 
     echo "::endgroup::"
 
