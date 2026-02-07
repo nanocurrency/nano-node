@@ -17,6 +17,11 @@ echo "Running systests from: ${NANO_SYSTEST_DIR}"
 export NANO_NODE_EXE=./nano_node$(get_exec_extension)
 export NANO_RPC_EXE=./nano_rpc$(get_exec_extension)
 
+# Enable core dumps for this process
+if [ -n "${COREDUMP_DIR-}" ]; then
+    ulimit -c unlimited
+fi
+
 overall_status=0
 
 for script in ${NANO_SYSTEST_DIR}/*.sh; do

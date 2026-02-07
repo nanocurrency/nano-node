@@ -11,6 +11,11 @@ fi
 
 echo "Running tests for target: ${target}"
 
+# Enable core dumps for this process
+if [ -n "${COREDUMP_DIR-}" ]; then
+    ulimit -c unlimited
+fi
+
 # Run the test
 shift
 executable=./${target}$(get_exec_extension)
