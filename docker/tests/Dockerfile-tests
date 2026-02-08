@@ -8,7 +8,7 @@ COPY ./ci/prepare/linux /tmp/prepare
 RUN /tmp/prepare/prepare.sh
 
 # Install test-specific dependencies
-RUN apt-get install -yqq sudo jq netcat-openbsd
+RUN apt-get install -yqq sudo jq netcat-openbsd gdb
 
 # Copy source code
 COPY ./ /workspace
