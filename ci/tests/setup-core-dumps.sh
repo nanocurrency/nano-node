@@ -14,6 +14,7 @@ case "$(uname -s)" in
         # Enable core dumps
         ulimit -c unlimited
         echo "${DEFAULT_COREDUMP_DIR}/core-%e.%p" | sudo tee /proc/sys/kernel/core_pattern
+        
         export COREDUMP_DIR=${DEFAULT_COREDUMP_DIR}
 
         echo "Core dumps enabled (Linux)"
@@ -26,7 +27,9 @@ case "$(uname -s)" in
         rm -f "${DEFAULT_COREDUMP_DIR}"/core*
         # Enable core dumps
         ulimit -c unlimited
-        # By default, macOS writes core dumps to /cores
+        # Configure core dump filename to include executable name (%N) and PID (%P)
+        sudo sysctl kern.corefile="${DEFAULT_COREDUMP_DIR}/core-%N.%P"
+
         export COREDUMP_DIR=${DEFAULT_COREDUMP_DIR}
 
         echo "Core dumps enabled (macOS)"
