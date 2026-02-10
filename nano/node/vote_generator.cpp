@@ -54,7 +54,7 @@ bool nano::vote_generator::should_vote (transaction_variant_t const & transactio
 		auto const & transaction = std::get<nano::secure::write_transaction> (transaction_variant);
 
 		block = ledger.any.block_get (transaction, hash_a);
-		should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block) && ledger.store.final_vote.put (transaction, block->qualified_root (), hash_a);
+		should_vote = block != nullptr && ledger.dependencies_confirmed (transaction, *block) && ledger.store.final_vote.put (transaction, block->qualified_root (), hash_a);
 		debug_assert (block == nullptr || root_a == block->root ());
 	}
 	else
@@ -63,7 +63,7 @@ bool nano::vote_generator::should_vote (transaction_variant_t const & transactio
 		auto const & transaction = std::get<nano::secure::read_transaction> (transaction_variant);
 
 		block = ledger.any.block_get (transaction, hash_a);
-		should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block);
+		should_vote = block != nullptr && ledger.dependencies_confirmed (transaction, *block);
 	}
 
 	logger.trace (log_type (), nano::log::detail::should_vote,
@@ -154,13 +154,13 @@ std::size_t nano::vote_generator::generate (std::vector<std::shared_ptr<nano::bl
 	request_t::first_type req_candidates;
 	{
 		auto transaction = ledger.tx_begin_read ();
-		auto dependents_confirmed = [&transaction, this] (auto const & block_a) {
-			return this->ledger.dependents_confirmed (transaction, *block_a);
+		auto dependencies_confirmed = [&transaction, this] (auto const & block_a) {
+			return this->ledger.dependencies_confirmed (transaction, *block_a);
 		};
 		auto as_candidate = [] (auto const & block_a) {
 			return candidate_t{ block_a->root (), block_a->hash () };
 		};
-		nano::transform_if (blocks_a.begin (), blocks_a.end (), std::back_inserter (req_candidates), dependents_confirmed, as_candidate);
+		nano::transform_if (blocks_a.begin (), blocks_a.end (), std::back_inserter (req_candidates), dependencies_confirmed, as_candidate);
 	}
 	auto const result = req_candidates.size ();
 	nano::lock_guard<nano::mutex> guard{ mutex };

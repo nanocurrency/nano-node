@@ -4749,14 +4749,14 @@ TEST (ledger, work_validation)
 	process_block (epoch, nano::block_details (nano::epoch::epoch_1, false, false, true));
 }
 
-TEST (ledger, dependents_confirmed)
+TEST (ledger, dependencies_confirmed)
 {
 	auto ctx = nano::test::ledger_empty ();
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto transaction = ledger.tx_begin_write ();
 	nano::block_builder builder;
-	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *nano::dev::genesis));
+	ASSERT_TRUE (ledger.dependencies_confirmed (transaction, *nano::dev::genesis));
 	auto & pool = ctx.pool ();
 	nano::keypair key1;
 	auto send1 = builder.state ()
@@ -4769,7 +4769,7 @@ TEST (ledger, dependents_confirmed)
 				 .work (*pool.generate (nano::dev::genesis->hash ()))
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send1));
-	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *send1));
+	ASSERT_TRUE (ledger.dependencies_confirmed (transaction, *send1));
 	auto send2 = builder.state ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (send1->hash ())
@@ -4780,7 +4780,7 @@ TEST (ledger, dependents_confirmed)
 				 .work (*pool.generate (send1->hash ()))
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send2));
-	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *send2));
+	ASSERT_FALSE (ledger.dependencies_confirmed (transaction, *send2));
 	auto receive1 = builder.state ()
 					.account (key1.pub)
 					.previous (0)
@@ -4791,9 +4791,9 @@ TEST (ledger, dependents_confirmed)
 					.work (*pool.generate (key1.pub))
 					.build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive1));
-	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *receive1));
+	ASSERT_FALSE (ledger.dependencies_confirmed (transaction, *receive1));
 	ledger.confirm (transaction, send1->hash ());
-	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *receive1));
+	ASSERT_TRUE (ledger.dependencies_confirmed (transaction, *receive1));
 	auto receive2 = builder.state ()
 					.account (key1.pub)
 					.previous (receive1->hash ())
@@ -4804,14 +4804,14 @@ TEST (ledger, dependents_confirmed)
 					.work (*pool.generate (receive1->hash ()))
 					.build ();
 	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive2));
-	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *receive2));
+	ASSERT_FALSE (ledger.dependencies_confirmed (transaction, *receive2));
 	ledger.confirm (transaction, receive1->hash ());
-	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *receive2));
+	ASSERT_FALSE (ledger.dependencies_confirmed (transaction, *receive2));
 	ledger.confirm (transaction, send2->hash ());
-	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *receive2));
+	ASSERT_TRUE (ledger.dependencies_confirmed (transaction, *receive2));
 }
 
-TEST (ledger, dependents_confirmed_pruning)
+TEST (ledger, dependencies_confirmed_pruning)
 {
 	nano::logger logger;
 	nano::stats stats{ logger };
@@ -4854,7 +4854,7 @@ TEST (ledger, dependents_confirmed_pruning)
 					.sign (key1.prv, key1.pub)
 					.work (*pool.generate (key1.pub))
 					.build ();
-	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *receive1));
+	ASSERT_TRUE (ledger.dependencies_confirmed (transaction, *receive1));
 }
 
 TEST (ledger, block_confirmed)
@@ -5703,7 +5703,7 @@ TEST (ledger, cement_bounded)
 	ASSERT_EQ (confirmed1.size (), 3);
 	// Only topmost dependencies should get cemented during this call
 	ASSERT_TRUE (std::all_of (confirmed1.begin (), confirmed1.end (), [&] (auto const & block) {
-		return ledger.dependents_confirmed (ledger.tx_begin_read (), *block);
+		return ledger.dependencies_confirmed (ledger.tx_begin_read (), *block);
 	}));
 
 	{
@@ -5715,7 +5715,7 @@ TEST (ledger, cement_bounded)
 	ASSERT_EQ (confirmed2.size (), 16);
 	// Only topmost dependencies should get cemented during this call
 	ASSERT_TRUE (std::all_of (confirmed2.begin (), confirmed2.end (), [&] (auto const & block) {
-		return ledger.dependents_confirmed (ledger.tx_begin_read (), *block);
+		return ledger.dependencies_confirmed (ledger.tx_begin_read (), *block);
 	}));
 
 	{
@@ -5749,7 +5749,7 @@ TEST (ledger, cement_bounded_diamond)
 	ASSERT_EQ (confirmed1.size (), 3);
 	// Only topmost dependencies should get cemented during this call
 	ASSERT_TRUE (std::all_of (confirmed1.begin (), confirmed1.end (), [&] (auto const & block) {
-		return ledger.dependents_confirmed (ledger.tx_begin_read (), *block);
+		return ledger.dependencies_confirmed (ledger.tx_begin_read (), *block);
 	}));
 
 	{
@@ -5761,7 +5761,7 @@ TEST (ledger, cement_bounded_diamond)
 	ASSERT_EQ (confirmed2.size (), 16);
 	// Only topmost dependencies should get cemented during this call
 	ASSERT_TRUE (std::all_of (confirmed2.begin (), confirmed2.end (), [&] (auto const & block) {
-		return ledger.dependents_confirmed (ledger.tx_begin_read (), *block);
+		return ledger.dependencies_confirmed (ledger.tx_begin_read (), *block);
 	}));
 
 	{
@@ -5773,7 +5773,7 @@ TEST (ledger, cement_bounded_diamond)
 	ASSERT_EQ (confirmed3.size (), 64);
 	// Only topmost dependencies should get cemented during this call
 	ASSERT_TRUE (std::all_of (confirmed2.begin (), confirmed2.end (), [&] (auto const & block) {
-		return ledger.dependents_confirmed (ledger.tx_begin_read (), *block);
+		return ledger.dependencies_confirmed (ledger.tx_begin_read (), *block);
 	}));
 
 	{

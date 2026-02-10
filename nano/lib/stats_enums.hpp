@@ -497,11 +497,11 @@ enum class detail
 
 	// hinting
 	missing_block,
-	dependent_unconfirmed,
+	dependency_unconfirmed,
 	already_confirmed,
 	activate,
 	activate_immediate,
-	dependent_activated,
+	dependency_activated,
 
 	// bootstrap server
 	response,

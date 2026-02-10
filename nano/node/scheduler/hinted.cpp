@@ -67,7 +67,7 @@ bool nano::scheduler::hinted::predicate () const
 	return active.vacancy (nano::election_behavior::hinted) > 0;
 }
 
-void nano::scheduler::hinted::activate (secure::read_transaction & transaction, nano::block_hash const & hash, bool check_dependents)
+void nano::scheduler::hinted::activate (secure::read_transaction & transaction, nano::block_hash const & hash, bool check_dependencies)
 {
 	const int max_iterations = 64;
 
@@ -94,18 +94,18 @@ void nano::scheduler::hinted::activate (secure::read_transaction & transaction, 
 				continue; // Move on to the next item in the stack
 			}
 
-			if (check_dependents)
+			if (check_dependencies)
 			{
 				// Perform a depth-first search of the dependency graph
-				if (!node.ledger.dependents_confirmed (transaction, *block))
+				if (!node.ledger.dependencies_confirmed (transaction, *block))
 				{
-					stats.inc (nano::stat::type::hinting, nano::stat::detail::dependent_unconfirmed);
-					auto dependents = node.ledger.dependent_blocks (transaction, *block);
-					for (const auto & dependent_hash : dependents)
+					stats.inc (nano::stat::type::hinting, nano::stat::detail::dependency_unconfirmed);
+					auto dependencies = node.ledger.block_dependencies (transaction, *block);
+					for (const auto & dependency_hash : dependencies)
 					{
-						if (!dependent_hash.is_zero () && visited.insert (dependent_hash).second) // Avoid visiting the same block twice
+						if (!dependency_hash.is_zero () && visited.insert (dependency_hash).second) // Avoid visiting the same block twice
 						{
-							stack.push (dependent_hash); // Add dependent block to the stack
+							stack.push (dependency_hash); // Add dependency block to the stack
 						}
 					}
 					continue; // Move on to the next item in the stack
@@ -152,12 +152,12 @@ void nano::scheduler::hinted::run_iterative ()
 			continue;
 		}
 
-		// Check dependents only if cached tally is lower than quorum
+		// Check dependencies only if cached tally is lower than quorum
 		if (entry.final_tally < minimum_final_tally)
 		{
-			// Ensure all dependent blocks are already confirmed before activating
+			// Ensure all dependency blocks are already confirmed before activating
 			stats.inc (nano::stat::type::hinting, nano::stat::detail::activate);
-			activate (transaction, entry.hash, /* activate dependents */ true);
+			activate (transaction, entry.hash, /* check dependencies */ true);
 		}
 		else
 		{

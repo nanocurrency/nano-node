@@ -422,7 +422,7 @@ TEST (request_aggregator, cannot_vote)
 	ASSERT_EQ (nano::block_status::progress, node.process (send1));
 	ASSERT_EQ (nano::block_status::progress, node.process (send2));
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	ASSERT_FALSE (node.ledger.dependents_confirmed (node.ledger.tx_begin_read (), *send2));
+	ASSERT_FALSE (node.ledger.dependencies_confirmed (node.ledger.tx_begin_read (), *send2));
 
 	std::vector<std::pair<nano::block_hash, nano::root>> request;
 	// Correct hash, correct root

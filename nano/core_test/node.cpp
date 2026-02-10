@@ -3447,12 +3447,12 @@ TEST (node, deferred_dependent_elections)
 	auto election_send2 = node.active.election (send2->qualified_root ());
 	ASSERT_NE (nullptr, election_open);
 
-	// Confirm one of the dependents of the receive but not the other, to ensure both have to be confirmed to start an election on processing
+	// Confirm one of the dependencies of the receive but not the other, to ensure both have to be confirmed to start an election on processing
 	ASSERT_EQ (nano::block_status::progress, node.process (receive));
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 	election_open->force_confirm ();
 	ASSERT_TIMELY (5s, node.block_confirmed (open->hash ()));
-	ASSERT_FALSE (node.ledger.dependents_confirmed (node.ledger.tx_begin_read (), *receive));
+	ASSERT_FALSE (node.ledger.dependencies_confirmed (node.ledger.tx_begin_read (), *receive));
 	ASSERT_NEVER (0.5s, node.active.active (receive->qualified_root ()));
 	ASSERT_FALSE (node.ledger.rollback (node.ledger.tx_begin_write (), receive->hash ()));
 	ASSERT_FALSE (node.block (receive->hash ()));

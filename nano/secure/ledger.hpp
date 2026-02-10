@@ -71,9 +71,7 @@ public:
 	bool rollback (secure::write_transaction const &, nano::block_hash const &);
 	void update_account (secure::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
 	uint64_t pruning_action (secure::write_transaction &, nano::block_hash const &, uint64_t const);
-	bool dependents_confirmed (secure::transaction const &, nano::block const &) const;
 	bool is_epoch_link (nano::link const &) const;
-	std::array<nano::block_hash, 2> dependent_blocks (secure::transaction const &, nano::block const &) const;
 	std::shared_ptr<nano::block> find_receive_block_by_send_hash (secure::transaction const &, nano::account const & destination, nano::block_hash const & send_block_hash);
 	std::optional<nano::account> linked_account (secure::transaction const &, nano::block const &);
 	nano::account const & epoch_signer (nano::link const &) const;
@@ -84,17 +82,29 @@ public:
 	static nano::epoch version (nano::block const & block);
 	nano::epoch version (secure::transaction const &, nano::block_hash const & hash) const;
 
+	/**
+	 * Returns the blocks that this block depends on (previous block and/or source/link block)
+	 * Up to 2 dependency hashes, unused slots are zero
+	 */
+	std::array<nano::block_hash, 2> block_dependencies (secure::transaction const &, nano::block const &) const;
+
+	/**
+	 * Checks if all blocks that this block depends on are confirmed (or pruned)
+	 */
+	bool dependencies_confirmed (secure::transaction const &, nano::block const &) const;
+
+	/**
+	 * Computes the priority balance and timestamp for bucket-based prioritization
+	 */
+	using block_priority_result = std::pair<nano::amount, nano::priority_timestamp>;
+	block_priority_result block_priority (secure::transaction const &, nano::block const &) const;
+
 	uint64_t cemented_count () const;
 	uint64_t block_count () const;
 	uint64_t account_count () const;
 	uint64_t pruned_count () const;
 	uint64_t backlog_size () const;
 	uint64_t max_backlog () const;
-
-	// Returned priority balance is maximum of block balance and previous block balance to handle full account balance send cases
-	// Returned timestamp is the previous block timestamp or the current timestamp if there's no previous block
-	using block_priority_result = std::pair<nano::amount, nano::priority_timestamp>;
-	block_priority_result block_priority (secure::transaction const &, nano::block const &) const;
 
 	void verify_consistency (secure::transaction const &) const;
 

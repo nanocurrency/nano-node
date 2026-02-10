@@ -297,14 +297,14 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_tr
 		auto block = any.block_get (transaction, hash);
 		release_assert (block);
 
-		auto dependents = dependent_blocks (transaction, *block);
-		for (auto const & dependent : dependents)
+		auto dependencies = block_dependencies (transaction, *block);
+		for (auto const & dependency : dependencies)
 		{
-			if (!dependent.is_zero () && !confirmed.block_exists_or_pruned (transaction, dependent))
+			if (!dependency.is_zero () && !confirmed.block_exists_or_pruned (transaction, dependency))
 			{
-				stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::dependent_unconfirmed);
+				stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::dependency_unconfirmed);
 
-				stack.push_back (dependent);
+				stack.push_back (dependency);
 
 				// Limit the stack size to avoid excessive memory usage
 				// This will forget the bottom of the dependency tree
@@ -321,7 +321,7 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_tr
 			if (!confirmed.block_exists_or_pruned (transaction, hash))
 			{
 				// We must only confirm blocks that have their dependencies confirmed
-				debug_assert (dependents_confirmed (transaction, *block));
+				debug_assert (dependencies_confirmed (transaction, *block));
 				confirm_one (transaction, *block);
 				result.push_back (block);
 			}
@@ -573,9 +573,9 @@ nano::root nano::ledger::latest_root (secure::transaction const & transaction_a,
 	}
 }
 
-bool nano::ledger::dependents_confirmed (secure::transaction const & transaction_a, nano::block const & block_a) const
+bool nano::ledger::dependencies_confirmed (secure::transaction const & transaction_a, nano::block const & block_a) const
 {
-	auto dependencies (dependent_blocks (transaction_a, block_a));
+	auto dependencies (block_dependencies (transaction_a, block_a));
 	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction_a] (nano::block_hash const & hash_a) {
 		auto result (hash_a.is_zero ());
 		if (!result)
@@ -593,12 +593,12 @@ bool nano::ledger::is_epoch_link (nano::link const & link_a) const
 
 namespace
 {
-class dependent_block_visitor final : public nano::block_visitor
+class dependency_block_visitor final : public nano::block_visitor
 {
 public:
-	dependent_block_visitor (nano::secure::transaction const & transaction, nano::ledger const & ledger) :
-		transaction{ transaction },
-		ledger{ ledger }
+	dependency_block_visitor (nano::secure::transaction const & transaction, nano::ledger const & ledger) :
+		ledger{ ledger },
+		transaction{ transaction }
 	{
 	}
 
@@ -655,9 +655,9 @@ public:
 };
 }
 
-std::array<nano::block_hash, 2> nano::ledger::dependent_blocks (secure::transaction const & transaction, nano::block const & block) const
+std::array<nano::block_hash, 2> nano::ledger::block_dependencies (secure::transaction const & transaction, nano::block const & block) const
 {
-	dependent_block_visitor visitor{ transaction, *this };
+	dependency_block_visitor visitor{ transaction, *this };
 	block.visit (visitor);
 	return visitor.result;
 }
@@ -797,6 +797,9 @@ uint64_t nano::ledger::pruning_action (secure::write_transaction & transaction_a
 	return pruned_count;
 }
 
+// Balance uses the maximum of current and previous block balance to avoid deprioritizing full sends
+// Timestamp uses the previous block's timestamp for least-recently-used ordering within a bucket,
+// falling back to the current block's sideband timestamp when there is no previous block (e.g. open blocks)
 auto nano::ledger::block_priority (nano::secure::transaction const & transaction, nano::block const & block) const -> block_priority_result
 {
 	auto const balance = block.balance ();

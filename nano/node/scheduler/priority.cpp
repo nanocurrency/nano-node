@@ -132,7 +132,7 @@ bool nano::scheduler::priority::activate (secure::transaction const & transactio
 		return false; // Not activated
 	}
 
-	if (ledger.dependents_confirmed (transaction, *block))
+	if (ledger.dependencies_confirmed (transaction, *block))
 	{
 		auto const [priority_balance, priority_timestamp] = ledger.block_priority (transaction, *block);
 		auto const bucket_index = bucketing.bucket_index (priority_balance);
