@@ -83,12 +83,6 @@ public:
 	nano::epoch version (secure::transaction const &, nano::block_hash const & hash) const;
 
 	/**
-	 * Returns the blocks that this block depends on (previous block and/or source/link block)
-	 * Up to 2 dependency hashes, unused slots are zero
-	 */
-	std::array<nano::block_hash, 2> block_dependencies (secure::transaction const &, nano::block const &) const;
-
-	/**
 	 * Checks if all blocks that this block depends on are confirmed (or pruned)
 	 */
 	bool dependencies_confirmed (secure::transaction const &, nano::block const &) const;

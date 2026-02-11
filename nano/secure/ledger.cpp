@@ -297,7 +297,7 @@ std::deque<std::shared_ptr<nano::block>> nano::ledger::confirm (secure::write_tr
 		auto block = any.block_get (transaction, hash);
 		release_assert (block);
 
-		auto dependencies = block_dependencies (transaction, *block);
+		auto dependencies = block->dependencies ();
 		for (auto const & dependency : dependencies)
 		{
 			if (!dependency.is_zero () && !confirmed.block_exists_or_pruned (transaction, dependency))
@@ -573,93 +573,18 @@ nano::root nano::ledger::latest_root (secure::transaction const & transaction_a,
 	}
 }
 
-bool nano::ledger::dependencies_confirmed (secure::transaction const & transaction_a, nano::block const & block_a) const
+bool nano::ledger::dependencies_confirmed (secure::transaction const & transaction, nano::block const & block) const
 {
-	auto dependencies (block_dependencies (transaction_a, block_a));
-	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction_a] (nano::block_hash const & hash_a) {
-		auto result (hash_a.is_zero ());
-		if (!result)
-		{
-			result = confirmed.block_exists_or_pruned (transaction_a, hash_a);
-		}
-		return result;
+	release_assert (block.has_sideband ());
+	auto dependencies = block.dependencies ();
+	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction] (nano::block_hash const & hash) {
+		return hash.is_zero () || confirmed.block_exists_or_pruned (transaction, hash);
 	});
 }
 
 bool nano::ledger::is_epoch_link (nano::link const & link_a) const
 {
 	return constants.epochs.is_epoch_link (link_a);
-}
-
-namespace
-{
-class dependency_block_visitor final : public nano::block_visitor
-{
-public:
-	dependency_block_visitor (nano::secure::transaction const & transaction, nano::ledger const & ledger) :
-		ledger{ ledger },
-		transaction{ transaction }
-	{
-	}
-
-	void send_block (nano::send_block const & block) override
-	{
-		result[0] = block.previous ();
-	}
-	void receive_block (nano::receive_block const & block) override
-	{
-		result[0] = block.previous ();
-		result[1] = block.source_field ().value ();
-	}
-	void open_block (nano::open_block const & block) override
-	{
-		if (block.source_field ().value () != ledger.constants.genesis->account ().as_union ())
-		{
-			result[0] = block.source_field ().value ();
-		}
-	}
-	void change_block (nano::change_block const & block) override
-	{
-		result[0] = block.previous ();
-	}
-	void state_block (nano::state_block const & block) override
-	{
-		result[0] = block.hashables.previous;
-		result[1] = block.hashables.link.as_block_hash ();
-		// ledger.is_send will check the sideband first, if block_a has a loaded sideband the check that previous block exists can be skipped
-		if (ledger.is_epoch_link (block.hashables.link) || is_send (block))
-		{
-			result[1].clear ();
-		}
-	}
-
-	// This function is used in place of block->is_send () as it is tolerant to the block not having the sideband information loaded
-	// This is needed for instance in vote generation on forks which have not yet had sideband information attached
-	bool is_send (nano::state_block const & block) const
-	{
-		if (block.previous ().is_zero ())
-		{
-			return false;
-		}
-		if (block.has_sideband ())
-		{
-			return block.sideband ().details.is_send;
-		}
-		return block.balance_field ().value () < ledger.any.block_balance (transaction, block.previous ());
-	}
-
-	nano::ledger const & ledger;
-	nano::secure::transaction const & transaction;
-
-	std::array<nano::block_hash, 2> result{ 0, 0 };
-};
-}
-
-std::array<nano::block_hash, 2> nano::ledger::block_dependencies (secure::transaction const & transaction, nano::block const & block) const
-{
-	dependency_block_visitor visitor{ transaction, *this };
-	block.visit (visitor);
-	return visitor.result;
 }
 
 /** Given the block hash of a send block, find the associated receive block that receives that send.

@@ -9,13 +9,14 @@
 
 #include <boost/property_tree/ptree_fwd.hpp>
 
+#include <array>
 #include <optional>
 
 typedef struct blake2b_state__ blake2b_state;
 
 namespace nano
 {
-using block_uniquer = uniquer<nano::uint256_union, nano::block>;
+using block_uniquer = nano::uniquer<nano::uint256_union, nano::block>;
 }
 
 namespace nano
@@ -24,6 +25,7 @@ class block
 {
 public:
 	virtual ~block () = default;
+
 	// Return a digest of the hashables in this block.
 	nano::block_hash const & hash () const;
 	// Return a digest of hashables and non-hashables in this block.
@@ -48,15 +50,22 @@ public:
 	virtual nano::signature const & block_signature () const = 0;
 	virtual void signature_set (nano::signature const &) = 0;
 	virtual bool valid_predecessor (nano::block const &) const = 0;
-	static size_t size (nano::block_type);
 	virtual nano::work_version work_version () const;
 	virtual std::shared_ptr<nano::block> clone () const = 0;
+
 	// If there are any changes to the hashables, call this to update the cached hash
 	void refresh ();
+
 	bool is_send () const noexcept;
 	bool is_receive () const noexcept;
 	bool is_change () const noexcept;
 	bool is_epoch () const noexcept;
+
+	// Returns block hashes that this block depends on (must be confirmed before this block)
+	// Non-zero entries are: [0] = previous block, [1] = source/send block (for receives)
+	std::array<nano::block_hash, 2> dependencies () const;
+
+	static size_t size (nano::block_type);
 
 public: // Direct access to the block fields or nullopt if the block type does not have the specified field
 	// Returns account field or account from sideband
@@ -87,6 +96,7 @@ public: // Direct access to the block fields or nullopt if the block type does n
 protected:
 	virtual void generate_hash (blake2b_state &) const = 0;
 	mutable nano::block_hash cached_hash{ 0 };
+
 	/**
 	 * Contextual details about a block, some fields may or may not be set depending on block type.
 	 * This field is set via sideband_set in ledger processing or deserializing blocks from the database.

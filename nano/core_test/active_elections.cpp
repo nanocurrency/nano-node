@@ -633,8 +633,7 @@ TEST (active_elections, cached_vote_election_start)
 	node.process_active (send3);
 	// An election is started for send6 but does not
 	ASSERT_FALSE (node.block_confirmed_or_being_confirmed (send3->hash ()));
-	// send7 cannot be voted on but an election should be started from inactive votes
-	ASSERT_FALSE (node.ledger.dependencies_confirmed (node.ledger.tx_begin_read (), *send4));
+	// send4 cannot be voted on but an election should be started from inactive votes
 	node.process_active (send4);
 	ASSERT_TIMELY_EQ (5s, 7, node.ledger.cemented_count ());
 }

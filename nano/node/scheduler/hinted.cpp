@@ -100,7 +100,7 @@ void nano::scheduler::hinted::activate (secure::read_transaction & transaction, 
 				if (!node.ledger.dependencies_confirmed (transaction, *block))
 				{
 					stats.inc (nano::stat::type::hinting, nano::stat::detail::dependency_unconfirmed);
-					auto dependencies = node.ledger.block_dependencies (transaction, *block);
+					auto dependencies = block->dependencies ();
 					for (const auto & dependency_hash : dependencies)
 					{
 						if (!dependency_hash.is_zero () && visited.insert (dependency_hash).second) // Avoid visiting the same block twice

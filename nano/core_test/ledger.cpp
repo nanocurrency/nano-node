@@ -4749,6 +4749,271 @@ TEST (ledger, work_validation)
 	process_block (epoch, nano::block_details (nano::epoch::epoch_1, false, false, true));
 }
 
+TEST (ledger, block_dependencies)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	auto transaction = ledger.tx_begin_write ();
+	nano::block_builder builder;
+	nano::block_hash zero{ 0 };
+
+	// Genesis open block has no dependencies
+	{
+		auto deps = nano::dev::genesis->dependencies ();
+		ASSERT_EQ (deps[0], zero);
+		ASSERT_EQ (deps[1], zero);
+	}
+
+	nano::keypair key1;
+
+	// Legacy send
+	auto legacy_send = builder
+					   .send ()
+					   .previous (nano::dev::genesis->hash ())
+					   .destination (key1.pub)
+					   .balance (nano::dev::constants.genesis_amount - 100)
+					   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					   .work (*pool.generate (nano::dev::genesis->hash ()))
+					   .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, legacy_send));
+	{
+		auto deps = legacy_send->dependencies ();
+		ASSERT_EQ (deps[0], nano::dev::genesis->hash ());
+		ASSERT_EQ (deps[1], zero);
+	}
+
+	// Legacy open (non-genesis)
+	auto legacy_open = builder
+					   .open ()
+					   .source (legacy_send->hash ())
+					   .representative (key1.pub)
+					   .account (key1.pub)
+					   .sign (key1.prv, key1.pub)
+					   .work (*pool.generate (key1.pub))
+					   .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, legacy_open));
+	{
+		auto deps = legacy_open->dependencies ();
+		ASSERT_EQ (deps[0], zero);
+		ASSERT_EQ (deps[1], legacy_send->hash ());
+	}
+
+	auto legacy_send2 = builder
+						.send ()
+						.previous (legacy_send->hash ())
+						.destination (key1.pub)
+						.balance (nano::dev::constants.genesis_amount - 200)
+						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						.work (*pool.generate (legacy_send->hash ()))
+						.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, legacy_send2));
+
+	// Legacy receive
+	auto legacy_receive = builder
+						  .receive ()
+						  .previous (legacy_open->hash ())
+						  .source (legacy_send2->hash ())
+						  .sign (key1.prv, key1.pub)
+						  .work (*pool.generate (legacy_open->hash ()))
+						  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, legacy_receive));
+	{
+		auto deps = legacy_receive->dependencies ();
+		ASSERT_EQ (deps[0], legacy_open->hash ());
+		ASSERT_EQ (deps[1], legacy_send2->hash ());
+	}
+
+	// Legacy change
+	auto legacy_change = builder
+						 .change ()
+						 .previous (legacy_receive->hash ())
+						 .representative (nano::dev::genesis_key.pub)
+						 .sign (key1.prv, key1.pub)
+						 .work (*pool.generate (legacy_receive->hash ()))
+						 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, legacy_change));
+	{
+		auto deps = legacy_change->dependencies ();
+		ASSERT_EQ (deps[0], legacy_receive->hash ());
+		ASSERT_EQ (deps[1], zero);
+	}
+
+	nano::keypair key2;
+
+	// State send
+	auto state_send = builder.state ()
+					  .account (nano::dev::genesis_key.pub)
+					  .previous (legacy_send2->hash ())
+					  .representative (nano::dev::genesis_key.pub)
+					  .balance (nano::dev::constants.genesis_amount - 300)
+					  .link (key2.pub)
+					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					  .work (*pool.generate (legacy_send2->hash ()))
+					  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, state_send));
+	{
+		ASSERT_TRUE (state_send->is_send ());
+		auto deps = state_send->dependencies ();
+		ASSERT_EQ (deps[0], legacy_send2->hash ());
+		ASSERT_EQ (deps[1], zero);
+	}
+
+	// State receive opening an account
+	auto state_open_receive = builder.state ()
+							  .account (key2.pub)
+							  .previous (0)
+							  .representative (key2.pub)
+							  .balance (100)
+							  .link (state_send->hash ())
+							  .sign (key2.prv, key2.pub)
+							  .work (*pool.generate (key2.pub))
+							  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, state_open_receive));
+	{
+		ASSERT_TRUE (state_open_receive->is_receive ());
+		auto deps = state_open_receive->dependencies ();
+		ASSERT_EQ (deps[0], zero);
+		ASSERT_EQ (deps[1], state_send->hash ());
+	}
+
+	auto state_send2 = builder.state ()
+					   .account (nano::dev::genesis_key.pub)
+					   .previous (state_send->hash ())
+					   .representative (nano::dev::genesis_key.pub)
+					   .balance (nano::dev::constants.genesis_amount - 400)
+					   .link (key2.pub)
+					   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					   .work (*pool.generate (state_send->hash ()))
+					   .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, state_send2));
+
+	// State receive on existing account
+	auto state_receive = builder.state ()
+						 .account (key2.pub)
+						 .previous (state_open_receive->hash ())
+						 .representative (key2.pub)
+						 .balance (200)
+						 .link (state_send2->hash ())
+						 .sign (key2.prv, key2.pub)
+						 .work (*pool.generate (state_open_receive->hash ()))
+						 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, state_receive));
+	{
+		ASSERT_TRUE (state_receive->is_receive ());
+		auto deps = state_receive->dependencies ();
+		ASSERT_EQ (deps[0], state_open_receive->hash ());
+		ASSERT_EQ (deps[1], state_send2->hash ());
+	}
+
+	// State change
+	auto state_change = builder.state ()
+						.account (key2.pub)
+						.previous (state_receive->hash ())
+						.representative (nano::dev::genesis_key.pub)
+						.balance (200)
+						.link (0)
+						.sign (key2.prv, key2.pub)
+						.work (*pool.generate (state_receive->hash ()))
+						.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, state_change));
+	{
+		ASSERT_TRUE (state_change->is_change ());
+		auto deps = state_change->dependencies ();
+		ASSERT_EQ (deps[0], state_receive->hash ());
+		ASSERT_EQ (deps[1], zero);
+	}
+
+	// Epoch v1 on existing account
+	auto epoch1 = builder.state ()
+				  .account (nano::dev::genesis_key.pub)
+				  .previous (state_send2->hash ())
+				  .representative (nano::dev::genesis_key.pub)
+				  .balance (nano::dev::constants.genesis_amount - 400)
+				  .link (ledger.epoch_link (nano::epoch::epoch_1))
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (state_send2->hash ()))
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, epoch1));
+	{
+		ASSERT_TRUE (epoch1->is_epoch ());
+		ASSERT_FALSE (epoch1->is_receive ());
+		auto deps = epoch1->dependencies ();
+		ASSERT_EQ (deps[0], state_send2->hash ());
+		ASSERT_EQ (deps[1], zero);
+	}
+
+	// Epoch v2 on existing account
+	auto epoch2 = builder.state ()
+				  .account (nano::dev::genesis_key.pub)
+				  .previous (epoch1->hash ())
+				  .representative (nano::dev::genesis_key.pub)
+				  .balance (nano::dev::constants.genesis_amount - 400)
+				  .link (ledger.epoch_link (nano::epoch::epoch_2))
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (epoch1->hash ()))
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, epoch2));
+	{
+		ASSERT_TRUE (epoch2->is_epoch ());
+		auto deps = epoch2->dependencies ();
+		ASSERT_EQ (deps[0], epoch1->hash ());
+		ASSERT_EQ (deps[1], zero);
+	}
+
+	nano::keypair key3;
+
+	// Send to key3 to create a pending entry for epoch open
+	auto send_for_epoch = builder.state ()
+						  .account (nano::dev::genesis_key.pub)
+						  .previous (epoch2->hash ())
+						  .representative (nano::dev::genesis_key.pub)
+						  .balance (nano::dev::constants.genesis_amount - 500)
+						  .link (key3.pub)
+						  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+						  .work (*pool.generate (epoch2->hash ()))
+						  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send_for_epoch));
+
+	// Epoch v1 opening an account
+	auto epoch_open = builder.state ()
+					  .account (key3.pub)
+					  .previous (0)
+					  .representative (0)
+					  .balance (0)
+					  .link (ledger.epoch_link (nano::epoch::epoch_1))
+					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					  .work (*pool.generate (key3.pub))
+					  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, epoch_open));
+	{
+		ASSERT_TRUE (epoch_open->is_epoch ());
+		ASSERT_FALSE (epoch_open->is_receive ());
+		auto deps = epoch_open->dependencies ();
+		ASSERT_EQ (deps[0], zero);
+		ASSERT_EQ (deps[1], zero);
+	}
+
+	// Send to an account whose public key equals the epoch v1 link
+	auto send_to_epoch_link = builder.state ()
+							  .account (nano::dev::genesis_key.pub)
+							  .previous (send_for_epoch->hash ())
+							  .representative (nano::dev::genesis_key.pub)
+							  .balance (nano::dev::constants.genesis_amount - 600)
+							  .link (ledger.epoch_link (nano::epoch::epoch_1))
+							  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+							  .work (*pool.generate (send_for_epoch->hash ()))
+							  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send_to_epoch_link));
+	{
+		ASSERT_TRUE (send_to_epoch_link->is_send ());
+		ASSERT_FALSE (send_to_epoch_link->is_epoch ());
+		auto deps = send_to_epoch_link->dependencies ();
+		ASSERT_EQ (deps[0], send_for_epoch->hash ());
+		ASSERT_EQ (deps[1], zero);
+	}
+}
+
 TEST (ledger, dependencies_confirmed)
 {
 	auto ctx = nano::test::ledger_empty ();
@@ -4854,6 +5119,7 @@ TEST (ledger, dependencies_confirmed_pruning)
 					.sign (key1.prv, key1.pub)
 					.work (*pool.generate (key1.pub))
 					.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, receive1));
 	ASSERT_TRUE (ledger.dependencies_confirmed (transaction, *receive1));
 }
 
