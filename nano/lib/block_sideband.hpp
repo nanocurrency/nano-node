@@ -43,6 +43,8 @@ public: // Logging
 
 std::string state_subtype (nano::block_details);
 
+// WARNING: Sideband layout is block-type dependent. Not all fields below are serialized for every block type
+// Use nano::block accessors (e.g. block.account(), block.balance(), block.previous()) for canonical values
 class block_sideband final
 {
 public:
@@ -55,14 +57,19 @@ public:
 
 	static size_t size (nano::block_type);
 
+	static bool includes_account (nano::block_type);
+	static bool includes_height (nano::block_type);
+	static bool includes_balance (nano::block_type);
+	static bool includes_details (nano::block_type);
+
 public:
 	nano::block_hash successor{ 0 };
-	nano::account account{};
-	nano::amount balance{ 0 };
-	uint64_t height{ 0 };
+	nano::account account{}; // Not serialized for state/open blocks
+	nano::amount balance{ 0 }; // Serialized only for receive/change/open blocks
+	uint64_t height{ 0 }; // Not serialized for open blocks (deserialized as 1)
 	uint64_t timestamp{ 0 };
-	nano::block_details details;
-	nano::epoch source_epoch{ nano::epoch::epoch_0 };
+	nano::block_details details; // Serialized only for state blocks
+	nano::epoch source_epoch{ nano::epoch::epoch_0 }; // Serialized only for state blocks
 
 public: // Logging
 	void operator() (nano::object_stream &) const;

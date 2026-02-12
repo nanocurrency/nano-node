@@ -115,24 +115,44 @@ nano::block_sideband::block_sideband (nano::account const & account_a, nano::blo
 {
 }
 
-size_t nano::block_sideband::size (nano::block_type type_a)
+bool nano::block_sideband::includes_account (nano::block_type const type)
+{
+	return type != nano::block_type::state && type != nano::block_type::open;
+}
+
+bool nano::block_sideband::includes_height (nano::block_type const type)
+{
+	return type != nano::block_type::open;
+}
+
+bool nano::block_sideband::includes_balance (nano::block_type const type)
+{
+	return type == nano::block_type::receive || type == nano::block_type::change || type == nano::block_type::open;
+}
+
+bool nano::block_sideband::includes_details (nano::block_type const type)
+{
+	return type == nano::block_type::state;
+}
+
+size_t nano::block_sideband::size (nano::block_type type)
 {
 	size_t result (0);
 	result += sizeof (successor);
-	if (type_a != nano::block_type::state && type_a != nano::block_type::open)
+	if (includes_account (type))
 	{
 		result += sizeof (account);
 	}
-	if (type_a != nano::block_type::open)
+	if (includes_height (type))
 	{
 		result += sizeof (height);
 	}
-	if (type_a == nano::block_type::receive || type_a == nano::block_type::change || type_a == nano::block_type::open)
+	if (includes_balance (type))
 	{
 		result += sizeof (balance);
 	}
 	result += sizeof (timestamp);
-	if (type_a == nano::block_type::state)
+	if (includes_details (type))
 	{
 		static_assert (sizeof (nano::epoch) == nano::block_details::size (), "block_details is larger than the epoch enum");
 		result += nano::block_details::size () + sizeof (nano::epoch);
@@ -140,40 +160,44 @@ size_t nano::block_sideband::size (nano::block_type type_a)
 	return result;
 }
 
-void nano::block_sideband::serialize (nano::stream & stream_a, nano::block_type type_a) const
+void nano::block_sideband::serialize (nano::stream & stream_a, nano::block_type type) const
 {
 	nano::write (stream_a, successor.bytes);
-	if (type_a != nano::block_type::state && type_a != nano::block_type::open)
+	if (includes_account (type))
 	{
 		nano::write (stream_a, account.bytes);
 	}
-	if (type_a != nano::block_type::open)
+	if (includes_height (type))
 	{
 		nano::write (stream_a, boost::endian::native_to_big (height));
 	}
-	if (type_a == nano::block_type::receive || type_a == nano::block_type::change || type_a == nano::block_type::open)
+	if (includes_balance (type))
 	{
 		nano::write (stream_a, balance.bytes);
 	}
 	nano::write (stream_a, boost::endian::native_to_big (timestamp));
-	if (type_a == nano::block_type::state)
+	if (includes_details (type))
 	{
 		details.serialize (stream_a);
 		nano::write (stream_a, static_cast<uint8_t> (source_epoch));
 	}
 }
 
-bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_type type_a)
+bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_type type)
 {
 	bool result (false);
 	try
 	{
 		nano::read (stream_a, successor.bytes);
-		if (type_a != nano::block_type::state && type_a != nano::block_type::open)
+		if (includes_account (type))
 		{
 			nano::read (stream_a, account.bytes);
 		}
-		if (type_a != nano::block_type::open)
+		else
+		{
+			account.clear ();
+		}
+		if (includes_height (type))
 		{
 			nano::read (stream_a, height);
 			boost::endian::big_to_native_inplace (height);
@@ -182,18 +206,27 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_typ
 		{
 			height = 1;
 		}
-		if (type_a == nano::block_type::receive || type_a == nano::block_type::change || type_a == nano::block_type::open)
+		if (includes_balance (type))
 		{
 			nano::read (stream_a, balance.bytes);
 		}
+		else
+		{
+			balance.clear ();
+		}
 		nano::read (stream_a, timestamp);
 		boost::endian::big_to_native_inplace (timestamp);
-		if (type_a == nano::block_type::state)
+		if (includes_details (type))
 		{
 			result = details.deserialize (stream_a);
 			uint8_t source_epoch_uint8_t{ 0 };
 			nano::read (stream_a, source_epoch_uint8_t);
 			source_epoch = static_cast<nano::epoch> (source_epoch_uint8_t);
+		}
+		else
+		{
+			details = {};
+			source_epoch = nano::epoch::epoch_0;
 		}
 	}
 	catch (std::runtime_error &)
