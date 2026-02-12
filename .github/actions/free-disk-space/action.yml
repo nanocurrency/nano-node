@@ -1,0 +1,43 @@
+name: "Free Disk Space"
+description: "Remove unnecessary files and clean Docker system to free up disk space on GitHub runners"
+runs:
+  using: "composite"
+  steps:
+    - name: Display disk space before cleanup
+      shell: bash
+      run: |
+        echo "=== Disk space before cleanup ==="
+        df -h
+        echo ""
+
+    - name: Remove unnecessary preinstalled tools
+      shell: bash
+      run: |
+        echo "Removing unnecessary preinstalled tools..."
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
+        echo "Done removing preinstalled tools"
+
+    - name: Clean Docker system
+      shell: bash
+      run: |
+        echo "Cleaning Docker system..."
+        docker system prune -af --volumes
+        echo "Done cleaning Docker"
+
+    - name: Clean apt cache
+      shell: bash
+      run: |
+        echo "Cleaning apt cache..."
+        sudo apt-get clean
+        sudo rm -rf /var/lib/apt/lists/*
+        echo "Done cleaning apt cache"
+
+    - name: Display disk space after cleanup
+      shell: bash
+      run: |
+        echo ""
+        echo "=== Disk space after cleanup ==="
+        df -h

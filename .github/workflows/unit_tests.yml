@@ -178,6 +178,9 @@ jobs:
         with:
           submodules: "recursive"
 
+      - name: Free Disk Space
+        uses: ./.github/actions/free-disk-space
+
       - name: Build Docker Test Image
         id: build
         run: ci/build-docker-tests.sh

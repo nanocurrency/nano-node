@@ -134,6 +134,9 @@ jobs:
           ref: ${{ needs.prepare_build.outputs.ci_tag }}
           repository: ${{ github.repository }}
 
+      - name: Free Disk Space
+        uses: ./.github/actions/free-disk-space
+
       - name: Build Docker
         run: ci/actions/linux/docker-build.sh
         env:
