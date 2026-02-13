@@ -449,18 +449,18 @@ bool backend_rocksdb::table_exists (std::string const & name) const
 
 nano::store::iterator backend_rocksdb::begin (nano::store::transaction const & txn, nano::store::table table) const
 {
-	return nano::store::iterator{ iterator::begin (db.get (), rocksdb::tx (txn), table_to_column_family (table)) };
+	return nano::store::iterator{ txn, iterator::begin (db.get (), rocksdb::tx (txn), table_to_column_family (table)) };
 }
 
 nano::store::iterator backend_rocksdb::begin (nano::store::transaction const & txn, nano::store::table table, nano::store::db_val const & key) const
 {
 	auto key_slice = to_slice (key);
-	return nano::store::iterator{ iterator::lower_bound (db.get (), rocksdb::tx (txn), table_to_column_family (table), key_slice) };
+	return nano::store::iterator{ txn, iterator::lower_bound (db.get (), rocksdb::tx (txn), table_to_column_family (table), key_slice) };
 }
 
 nano::store::iterator backend_rocksdb::end (nano::store::transaction const & txn, nano::store::table table) const
 {
-	return nano::store::iterator{ iterator::end (db.get (), rocksdb::tx (txn), table_to_column_family (table)) };
+	return nano::store::iterator{ txn, iterator::end (db.get (), rocksdb::tx (txn), table_to_column_family (table)) };
 }
 
 bool backend_rocksdb::success (int status) const

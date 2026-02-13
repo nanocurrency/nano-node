@@ -1403,3 +1403,48 @@ TEST (backend, copy_to_nonempty_destination_throws)
 	// Copying to non-empty destination should throw
 	EXPECT_THROW (src_backend->copy_to (*dst_backend), std::runtime_error);
 }
+
+// Death tests for iterator-transaction epoch validation
+// The naming convention `_DeathTest` tells gtest to use threadsafe death test style
+
+TEST (backend_DeathTest, iterator_epoch_check_read_refresh)
+{
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+	auto backend = nano::test::make_backend ();
+	backend->create (test_schema, 1);
+	backend->open (test_schema, nano::store::open_mode::read_write);
+
+	{
+		auto write_tx = backend->tx_begin_write ();
+		backend->put (write_tx, nano::store::table::accounts, nano::store::db_val{ make_key (1) }, nano::store::db_val{ make_value (1) });
+	}
+
+	// Refreshing a read transaction while an iterator is alive should trigger assertion on iterator destruction
+	ASSERT_DEATH ({
+		auto read_tx = backend->tx_begin_read ();
+		auto it = backend->begin (read_tx, nano::store::table::accounts);
+		read_tx.refresh ();
+		// Iterator destructor fires here with mismatched epoch
+	},
+	"invalid iterator-transaction lifetime detected");
+}
+
+TEST (backend_DeathTest, iterator_epoch_check_write_refresh)
+{
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+	auto backend = nano::test::make_backend ();
+	backend->create (test_schema, 1);
+	backend->open (test_schema, nano::store::open_mode::read_write);
+
+	// Refreshing a write transaction while an iterator is alive should trigger assertion on iterator destruction
+	ASSERT_DEATH ({
+		auto write_tx = backend->tx_begin_write ();
+		backend->put (write_tx, nano::store::table::accounts, nano::store::db_val{ make_key (1) }, nano::store::db_val{ make_value (1) });
+		auto it = backend->begin (write_tx, nano::store::table::accounts);
+		write_tx.refresh ();
+		// Iterator destructor fires here with mismatched epoch
+	},
+	"invalid iterator-transaction lifetime detected");
+}

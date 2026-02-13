@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/store/fwd.hpp>
 #include <nano/store/lmdb/iterator.hpp>
 #include <nano/store/rocksdb/iterator.hpp>
 
@@ -34,12 +35,15 @@ public:
 	using const_reference = value_type const &;
 
 private:
+	nano::store::transaction const * txn;
+	size_t transaction_epoch;
 	std::variant<lmdb::iterator, rocksdb::iterator> internals;
 	std::variant<std::monostate, value_type> current;
 	void update ();
 
 public:
-	iterator (std::variant<lmdb::iterator, rocksdb::iterator> && internals) noexcept;
+	iterator (nano::store::transaction const & txn, std::variant<lmdb::iterator, rocksdb::iterator> && internals) noexcept;
+	~iterator ();
 
 	iterator (iterator const &) = delete;
 	auto operator= (iterator const &) -> iterator & = delete;

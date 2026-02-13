@@ -179,18 +179,18 @@ bool backend_lmdb::table_exists (std::string const & name) const
 
 nano::store::iterator backend_lmdb::begin (nano::store::transaction const & txn, nano::store::table table) const
 {
-	return nano::store::iterator{ iterator::begin (env->tx (txn), table_to_dbi (table)) };
+	return nano::store::iterator{ txn, iterator::begin (env->tx (txn), table_to_dbi (table)) };
 }
 
 nano::store::iterator backend_lmdb::begin (nano::store::transaction const & txn, nano::store::table table, nano::store::db_val const & key) const
 {
 	auto mdb_key = to_mdb_val (key);
-	return nano::store::iterator{ iterator::lower_bound (env->tx (txn), table_to_dbi (table), mdb_key) };
+	return nano::store::iterator{ txn, iterator::lower_bound (env->tx (txn), table_to_dbi (table), mdb_key) };
 }
 
 nano::store::iterator backend_lmdb::end (nano::store::transaction const & txn, nano::store::table table) const
 {
-	return nano::store::iterator{ iterator::end (env->tx (txn), table_to_dbi (table)) };
+	return nano::store::iterator{ txn, iterator::end (env->tx (txn), table_to_dbi (table)) };
 }
 
 bool backend_lmdb::success (int status) const

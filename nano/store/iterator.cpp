@@ -1,5 +1,6 @@
 #include <nano/lib/utility.hpp>
 #include <nano/store/iterator.hpp>
+#include <nano/store/transaction.hpp>
 
 namespace nano::store
 {
@@ -18,22 +19,42 @@ void iterator::update ()
 	internals);
 }
 
-iterator::iterator (std::variant<lmdb::iterator, rocksdb::iterator> && internals) noexcept :
+iterator::iterator (transaction const & txn, std::variant<lmdb::iterator, rocksdb::iterator> && internals) noexcept :
+	txn{ &txn },
+	transaction_epoch{ txn.epoch () },
 	internals{ std::move (internals) }
 {
 	update ();
 }
 
+iterator::~iterator ()
+{
+	if (txn)
+	{
+		release_assert (transaction_epoch == txn->epoch (), "invalid iterator-transaction lifetime detected");
+	}
+}
+
 iterator::iterator (iterator && other) noexcept :
+	txn{ other.txn },
+	transaction_epoch{ other.transaction_epoch },
 	internals{ std::move (other.internals) }
 {
+	other.txn = nullptr;
 	current = std::move (other.current);
 }
 
 auto iterator::operator= (iterator && other) noexcept -> iterator &
 {
+	if (txn)
+	{
+		release_assert (transaction_epoch == txn->epoch (), "invalid iterator-transaction lifetime detected");
+	}
+	txn = other.txn;
+	transaction_epoch = other.transaction_epoch;
 	internals = std::move (other.internals);
 	current = std::move (other.current);
+	other.txn = nullptr;
 	return *this;
 }
 
