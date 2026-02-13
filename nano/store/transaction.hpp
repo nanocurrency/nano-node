@@ -49,6 +49,7 @@ public:
 
 	virtual void * get_handle () const = 0;
 	virtual nano::id_dispenser::id_t store_id () const = 0;
+	virtual void refresh () = 0;
 
 	epoch_t epoch () const;
 	std::chrono::steady_clock::time_point timestamp () const;
@@ -72,7 +73,7 @@ public:
 
 	void reset ();
 	void renew ();
-	void refresh ();
+	void refresh () override;
 	bool refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 });
 
 private:
@@ -93,7 +94,7 @@ public:
 
 	void commit ();
 	void renew ();
-	void refresh ();
+	void refresh () override;
 	void refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 });
 	bool contains (nano::store::table) const;
 

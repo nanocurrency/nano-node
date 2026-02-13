@@ -19,7 +19,7 @@ void iterator::update ()
 	internals);
 }
 
-iterator::iterator (transaction const & txn, std::variant<lmdb::iterator, rocksdb::iterator> && internals) noexcept :
+iterator::iterator (transaction const & txn, backend_iterator && internals) noexcept :
 	txn{ &txn },
 	transaction_epoch{ txn.epoch () },
 	internals{ std::move (internals) }
@@ -99,4 +99,5 @@ bool iterator::is_end () const
 {
 	return std::holds_alternative<std::monostate> (current);
 }
+
 }

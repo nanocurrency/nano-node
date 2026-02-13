@@ -14,8 +14,7 @@ namespace nano::store::ledger
 class pending_view
 {
 public:
-	using iterator = store::typed_iterator<nano::pending_key, nano::pending_info>;
-	using crawler = store::crawler<pending_view>;
+	using iterator = nano::store::typed_iterator<nano::pending_key, nano::pending_info>;
 
 public:
 	explicit pending_view (nano::store::backend &);
@@ -28,8 +27,13 @@ public:
 	iterator begin (nano::store::transaction const &, nano::pending_key const &) const;
 	iterator begin (nano::store::transaction const &) const;
 	iterator end (nano::store::transaction const &) const;
-	crawler crawl (nano::store::transaction const &, nano::account const & start = { 0 }) const;
 	void for_each_par (std::function<void (nano::store::read_transaction const &, iterator, iterator)> const & action) const;
+
+	template <typename Transaction>
+	auto crawl (Transaction & txn, nano::account const & start = { 0 }) const -> nano::store::crawler<pending_view, Transaction>
+	{
+		return nano::store::crawler<pending_view, Transaction>{ *this, txn, start };
+	}
 
 private:
 	nano::store::backend & backend;

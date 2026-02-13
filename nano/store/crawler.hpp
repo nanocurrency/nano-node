@@ -4,6 +4,9 @@
 #include <nano/lib/utility.hpp>
 #include <nano/store/transaction.hpp>
 
+#include <chrono>
+#include <optional>
+
 namespace nano::store
 {
 /**
@@ -53,7 +56,7 @@ struct crawler_traits
  * a key prefix via crawler_traits specialization. The next() method then advances to
  * the next distinct group rather than the next individual entry.
  */
-template <typename View>
+template <typename View, typename Transaction>
 class crawler
 {
 public:
@@ -71,7 +74,7 @@ public:
 	/**
 	 * Construct a crawler starting at the given seek key.
 	 */
-	crawler (View const & view, nano::store::transaction const & transaction, seek_key_type const & start) :
+	crawler (View const & view, Transaction & transaction, seek_key_type const & start) :
 		view_{ view },
 		transaction_{ transaction },
 		it_{ view_.end (transaction_) },
@@ -198,16 +201,69 @@ public:
 		return it_ != end_;
 	}
 
-	// Reset to beginning
-	void reset ()
+	/**
+	 * Seek back to the beginning of the range.
+	 */
+	void rewind ()
 	{
 		seek (seek_key_type{ 0 });
 	}
 
+	/**
+	 * Refresh the stored transaction and re-establish the iterator position.
+	 * After refresh, the crawler points to the same entry it was at before,
+	 * or the next valid entry if the original was deleted.
+	 */
+	void refresh ()
+	{
+		// Save the full iterator key for precise position restoration
+		std::optional<key_type> saved;
+		if (it_ != end_)
+		{
+			saved = it_->first;
+		}
+
+		// Destroy old iterators before refreshing transaction.
+		// Cursors must be closed before the transaction commits (LMDB frees cursors on commit).
+		// Moving to scoped temporaries ensures proper destruction while epoch is still valid.
+		{
+			[[maybe_unused]] auto old_it = std::move (it_);
+			[[maybe_unused]] auto old_end = std::move (end_);
+		}
+
+		transaction_.refresh ();
+
+		// Recreate iterators
+		end_ = view_.end (transaction_);
+		if (saved)
+		{
+			it_ = view_.begin (transaction_, *saved);
+		}
+		else
+		{
+			it_ = view_.end (transaction_);
+		}
+	}
+
+	/**
+	 * Refresh the transaction if it has been held longer than max_age.
+	 * @return true if refresh occurred
+	 */
+	bool refresh_if_needed (std::chrono::milliseconds max_age = std::chrono::milliseconds{ 500 })
+	{
+		auto now = std::chrono::steady_clock::now ();
+		if (now - transaction_.timestamp () > max_age)
+		{
+			refresh ();
+			return true;
+		}
+		return false;
+	}
+
 private:
 	View const & view_;
-	nano::store::transaction const & transaction_;
+	Transaction & transaction_;
 	iterator it_;
-	iterator const end_;
+	iterator end_;
 };
 }

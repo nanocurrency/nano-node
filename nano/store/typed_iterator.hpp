@@ -61,4 +61,4 @@ public:
 	auto operator== (typed_iterator const & other) const -> bool;
 	auto is_end () const -> bool;
 };
-} // namespace nano::store
+}

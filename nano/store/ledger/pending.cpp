@@ -63,11 +63,6 @@ auto pending_view::end (nano::store::transaction const & txn) const -> iterator
 	return iterator{ backend.end (txn, nano::store::table::pending) };
 }
 
-auto pending_view::crawl (nano::store::transaction const & txn, nano::account const & start) const -> crawler
-{
-	return crawler{ *this, txn, start };
-}
-
 void pending_view::for_each_par (std::function<void (nano::store::read_transaction const &, iterator, iterator)> const & action) const
 {
 	parallel_traversal<nano::uint512_t> (

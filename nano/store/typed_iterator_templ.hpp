@@ -85,4 +85,5 @@ auto typed_iterator<Key, Value>::is_end () const -> bool
 {
 	return std::holds_alternative<std::monostate> (current);
 }
+
 }

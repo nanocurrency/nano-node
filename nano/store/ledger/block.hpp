@@ -3,6 +3,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/store/backend.hpp>
 #include <nano/store/block_w_sideband.hpp>
+#include <nano/store/crawler.hpp>
 #include <nano/store/typed_iterator.hpp>
 #include <nano/store/typed_iterator_templ.hpp>
 
@@ -16,7 +17,7 @@ class successor_view;
 class block_view
 {
 public:
-	using iterator = store::typed_iterator<nano::block_hash, block_w_sideband>;
+	using iterator = nano::store::typed_iterator<nano::block_hash, block_w_sideband>;
 
 public:
 	block_view (nano::store::backend &, nano::store::ledger::successor_view &);
@@ -31,6 +32,12 @@ public:
 	iterator begin (nano::store::transaction const &) const;
 	iterator end (nano::store::transaction const &) const;
 	void for_each_par (std::function<void (nano::store::read_transaction const &, iterator, iterator)> const & action) const;
+
+	template <typename Transaction>
+	auto crawl (Transaction & txn, nano::block_hash const & start = { 0 }) const -> nano::store::crawler<block_view, Transaction>
+	{
+		return nano::store::crawler<block_view, Transaction>{ *this, txn, start };
+	}
 
 private:
 	void block_raw_get (nano::store::transaction const &, nano::block_hash const &, nano::store::db_val & value) const;

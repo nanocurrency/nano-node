@@ -64,7 +64,6 @@ add_library(
   txn_tracking.hpp
   txn_tracking.cpp
   typed_iterator.hpp
-  typed_iterator.cpp
   typed_iterator_templ.hpp
   iterator.cpp
   reverse_iterator.hpp

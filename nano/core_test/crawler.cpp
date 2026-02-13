@@ -19,7 +19,7 @@
 namespace
 {
 // Get sequential_attempts threshold from crawler traits
-constexpr size_t sequential_threshold = nano::store::ledger::account_view::crawler::sequential_attempts;
+constexpr size_t sequential_threshold = nano::store::crawler<nano::store::ledger::account_view, nano::store::read_transaction>::sequential_attempts;
 
 // Helper to populate accounts with given keys
 void populate_accounts (nano::store::ledger_store & store, std::vector<nano::uint256_t> const & keys)
@@ -103,10 +103,6 @@ TEST (crawler, empty_db)
 
 	// Seek should keep it invalid (no data to find)
 	crawler.seek (nano::account{ 50 });
-	ASSERT_FALSE (crawler);
-
-	// Reset should keep it invalid
-	crawler.reset ();
 	ASSERT_FALSE (crawler);
 }
 
@@ -250,7 +246,7 @@ TEST (crawler, skip_to_next_available)
 	ASSERT_EQ (crawler.key (), nano::account{ 30 });
 }
 
-TEST (crawler, reset_to_beginning)
+TEST (crawler, rewind_to_beginning)
 {
 	auto store = nano::test::make_store ();
 
@@ -261,7 +257,7 @@ TEST (crawler, reset_to_beginning)
 
 	ASSERT_EQ (crawler.key (), nano::account{ 30 });
 
-	crawler.reset ();
+	crawler.rewind ();
 	ASSERT_TRUE (crawler);
 	ASSERT_EQ (crawler.key (), nano::account{ 10 });
 }
@@ -290,8 +286,8 @@ TEST (crawler, single_element)
 	ASSERT_FALSE (crawler.next ());
 	ASSERT_FALSE (crawler);
 
-	// Reset and test skip_to past end
-	crawler.reset ();
+	// Rewind and test skip_to past end
+	crawler.rewind ();
 	ASSERT_TRUE (crawler);
 	ASSERT_FALSE (crawler.skip_to (nano::account{ 43 }));
 	ASSERT_FALSE (crawler);
@@ -737,4 +733,92 @@ TEST (crawler, boundary_max_is_end)
 	// The saturation check should detect this and move to end
 	ASSERT_FALSE (crawler.next ());
 	ASSERT_FALSE (crawler);
+}
+
+/*
+ * Refresh - Transaction refresh with iterator re-establishment
+ */
+
+TEST (crawler, refresh)
+{
+	auto store = nano::test::make_store ();
+
+	auto txn = store->tx_begin_write ();
+	for (nano::uint256_t i = 1; i <= 10; ++i)
+	{
+		store->account.put (txn, nano::account{ i }, nano::account_info{});
+	}
+
+	auto crawler = store->account.crawl (txn);
+	ASSERT_EQ (crawler.key (), nano::account{ 1 });
+
+	// Refresh maintains position
+	crawler.refresh ();
+	ASSERT_TRUE (crawler);
+	ASSERT_EQ (crawler.key (), nano::account{ 1 });
+
+	// Iterate with periodic refresh (simulates batch processing)
+	std::vector<nano::uint256_t> visited;
+	size_t count = 0;
+	while (crawler)
+	{
+		visited.push_back (crawler.key ().number ());
+		++crawler;
+		++count;
+		if (count % 3 == 0)
+		{
+			crawler.refresh ();
+		}
+	}
+	ASSERT_EQ (visited, (std::vector<nano::uint256_t>{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }));
+
+	// Refresh at end stays at end
+	ASSERT_FALSE (crawler);
+	crawler.refresh ();
+	ASSERT_FALSE (crawler);
+
+	// Refresh when current entry was deleted lands on next valid entry
+	crawler.rewind ();
+	++crawler; // at 2
+	++crawler; // at 3
+	ASSERT_EQ (crawler.key (), nano::account{ 3 });
+	store->account.del (txn, nano::account{ 3 });
+	crawler.refresh ();
+	ASSERT_TRUE (crawler);
+	ASSERT_EQ (crawler.key (), nano::account{ 4 });
+
+	// Refresh when current entry was the last one and deleted → end
+	crawler.seek (nano::account{ 10 });
+	ASSERT_EQ (crawler.key (), nano::account{ 10 });
+	store->account.del (txn, nano::account{ 10 });
+	crawler.refresh ();
+	ASSERT_FALSE (crawler);
+}
+
+TEST (crawler, const_transaction)
+{
+	auto store = nano::test::make_store ();
+
+	{
+		auto txn = store->tx_begin_write ();
+		for (nano::uint256_t i = 1; i <= 5; ++i)
+		{
+			store->account.put (txn, nano::account{ i }, nano::account_info{});
+		}
+	}
+
+	auto txn = store->tx_begin_read ();
+	auto const & const_txn = txn;
+	auto crawler = store->account.crawl (const_txn);
+
+	ASSERT_TRUE (crawler);
+	ASSERT_EQ (crawler.key (), nano::account{ 1 });
+
+	std::vector<nano::uint256_t> visited;
+	while (crawler)
+	{
+		visited.push_back (crawler.key ().number ());
+		++crawler;
+	}
+	ASSERT_EQ (visited, (std::vector<nano::uint256_t>{ 1, 2, 3, 4, 5 }));
 }

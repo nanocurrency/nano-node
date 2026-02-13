@@ -144,4 +144,4 @@ auto iterator::operator== (iterator const & other) const -> bool
 	}
 	return std::get<value_type> (current) == std::get<value_type> (other.current);
 }
-} // namespace nano::store::lmdb
+}

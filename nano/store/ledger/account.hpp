@@ -16,9 +16,8 @@ namespace nano::store::ledger
 class account_view
 {
 public:
-	using iterator = store::typed_iterator<nano::account, nano::account_info>;
-	using reverse_iterator = store::reverse_iterator<iterator>;
-	using crawler = store::crawler<account_view>;
+	using iterator = nano::store::typed_iterator<nano::account, nano::account_info>;
+	using reverse_iterator = nano::store::reverse_iterator<iterator>;
 
 public:
 	explicit account_view (nano::store::backend &);
@@ -34,8 +33,13 @@ public:
 	reverse_iterator rbegin (nano::store::transaction const &) const;
 	reverse_iterator rend (nano::store::transaction const &) const;
 	iterator end (nano::store::transaction const &) const;
-	crawler crawl (nano::store::transaction const &, nano::account const & start = { 0 }) const;
 	void for_each_par (std::function<void (nano::store::read_transaction const &, iterator, iterator)> const & action) const;
+
+	template <typename Transaction>
+	auto crawl (Transaction & txn, nano::account const & start = { 0 }) const -> nano::store::crawler<account_view, Transaction>
+	{
+		return nano::store::crawler<account_view, Transaction>{ *this, txn, start };
+	}
 
 private:
 	nano::store::backend & backend;
