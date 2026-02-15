@@ -535,28 +535,31 @@ bool nano::network::merge_peer (nano::endpoint const & peer)
 	return false; // Not initiated
 }
 
-bool nano::network::not_a_peer (nano::endpoint const & endpoint_a, bool allow_local_peers) const
+bool nano::network::not_a_peer (nano::endpoint const & endpoint) const
 {
-	bool result (false);
-	if (endpoint_a.address ().to_v6 ().is_unspecified ())
+	if (endpoint.address ().to_v6 ().is_unspecified ())
 	{
-		result = true;
+		return true;
 	}
-	else if (nano::transport::reserved_address (endpoint_a, allow_local_peers))
+	if (node.flags.disable_non_loopback_peers && !endpoint.address ().to_v6 ().is_loopback ())
 	{
-		result = true;
+		return true;
 	}
-	else if (endpoint_a == endpoint ())
+	if (nano::transport::reserved_address (endpoint, node.config.allow_local_peers))
 	{
-		result = true;
+		return true;
 	}
-	return result;
+	if (endpoint == this->endpoint ())
+	{
+		return true;
+	}
+	return false;
 }
 
 bool nano::network::track_reachout (nano::endpoint const & endpoint_a)
 {
 	// Don't contact invalid IPs
-	if (not_a_peer (endpoint_a, node.config.allow_local_peers))
+	if (not_a_peer (endpoint_a))
 	{
 		return false;
 	}

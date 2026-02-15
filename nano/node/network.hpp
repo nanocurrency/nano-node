@@ -141,7 +141,7 @@ public:
 	std::shared_ptr<nano::transport::channel> find_channel (nano::endpoint const &);
 
 	// Check if the endpoint address looks OK
-	bool not_a_peer (nano::endpoint const &, bool allow_local_peers) const;
+	bool not_a_peer (nano::endpoint const &) const;
 	// Should we reach out to this endpoint with a keepalive message? If yes, register a new reachout attempt
 	bool track_reachout (nano::endpoint const &);
 

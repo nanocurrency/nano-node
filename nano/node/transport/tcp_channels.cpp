@@ -68,7 +68,7 @@ bool nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, 
 		return false; // Reject
 	}
 
-	if (node.network.not_a_peer (nano::transport::map_tcp_to_endpoint (endpoint), node.config.allow_local_peers))
+	if (node.network.not_a_peer (nano::transport::map_tcp_to_endpoint (endpoint)))
 	{
 		node.stats.inc (nano::stat::type::tcp_channels_rejected, nano::stat::detail::not_a_peer);
 		node.logger.debug (nano::log::type::tcp_channels, "Rejected invalid endpoint channel: {}", endpoint);
