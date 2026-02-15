@@ -1,7 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/cli.hpp>
 #include <nano/lib/files.hpp>
-#include <nano/lib/kdf.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/tomlconfig.hpp>
@@ -9,6 +8,7 @@
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/endpoint.hpp>
 #include <nano/node/inactive_node.hpp>
+#include <nano/node/make_store.hpp>
 #include <nano/node/migrations.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
@@ -72,6 +72,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("confirmation_height_clear", "Clear confirmation height. Requires an <account> option that can be 'all' to clear all accounts")
 	("final_vote_clear", "Clear final votes")
 	("migrate_database_lmdb_to_rocksdb", "Migrates LMDB database to RocksDB")
+	("database_upgrade", "Upgrade the ledger database to the latest version without starting the node")
 	("rollback", "Rolls back the specified block hash, effectively removing this block and all blocks following it")
 	("diagnostics", "Run internal diagnostics")
 	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node, rpc or log. See also use_defaults.")
@@ -522,6 +523,41 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		{
 			nano::default_logger ().error (nano::log::type::migration, "Migration failed: {}", e.what ());
 			std::cerr << "Migration failed: " << e.what () << std::endl;
+		}
+	}
+	else if (vm.count ("database_upgrade"))
+	{
+		nano::logger::initialize (nano::log_config::daemon_default (), data_path);
+
+		nano::network_params network_params{ nano::get_active_network () };
+		nano::daemon_config daemon_config{ data_path, network_params };
+
+		auto config_arg (vm.find ("config"));
+		std::vector<std::string> config_overrides;
+		if (config_arg != vm.end ())
+		{
+			config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
+		}
+
+		if (auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides))
+		{
+			std::cerr << "Error reading config: " << error.get_message () << std::endl;
+			ec = nano::error_cli::reading_config;
+		}
+		else
+		{
+			try
+			{
+				auto & logger = nano::default_logger ();
+				nano::stats stats{ logger };
+				auto store = nano::make_store (logger, stats, data_path, network_params.ledger, false, true, daemon_config.node);
+				std::cout << "Database upgrade completed successfully" << std::endl;
+			}
+			catch (std::exception const & e)
+			{
+				std::cerr << "Database upgrade failed: " << e.what () << std::endl;
+				ec = nano::error_cli::generic;
+			}
 		}
 	}
 	else if (vm.count ("rollback"))
