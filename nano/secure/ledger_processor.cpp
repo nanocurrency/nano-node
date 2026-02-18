@@ -488,12 +488,6 @@ void nano::ledger_processor::epoch_block_impl (nano::state_block & block_a)
 				else
 				{
 					result = block_a.hashables.representative.is_zero () ? nano::block_status::progress : nano::block_status::representative_mismatch;
-					// Non-exisitng account should have pending entries
-					if (result == nano::block_status::progress)
-					{
-						bool pending_exists = ledger.any.receivable_exists (transaction, block_a.hashables.account);
-						result = pending_exists ? nano::block_status::progress : nano::block_status::gap_epoch_open_pending;
-					}
 				}
 				if (result == nano::block_status::progress)
 				{
@@ -514,10 +508,11 @@ void nano::ledger_processor::epoch_block_impl (nano::state_block & block_a)
 
 								// Epoch open on an unopened account is the only block type with no
 								// usable block-graph dep (no `previous`, and `link` is the epoch
-								// payload rather than a block hash). It's still anchored to the graph
-								// implicitly via the pending entry it requires, so we treat it as a
-								// known rootless start and index it at 1. For an epoch *upgrade* on
-								// an existing chain we go through the standard path keyed off `previous`.
+								// payload rather than a block hash). Topology ordering must therefore
+								// treat it as a rootless start and index it at 1, alongside genesis.
+								// Later receives still carry explicit dependencies on this open block
+								// and their source send. For an epoch *upgrade* on an existing chain we
+								// go through the standard path keyed off `previous`.
 								uint64_t topo = 0;
 								if (ledger.flags.topo_index)
 								{
