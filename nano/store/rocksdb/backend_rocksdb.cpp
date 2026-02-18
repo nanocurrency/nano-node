@@ -291,6 +291,12 @@ int backend_rocksdb::put (nano::store::write_transaction const & txn, nano::stor
 	return std::get<::rocksdb::Transaction *> (rocksdb::tx (txn))->Put (table_to_column_family (table), key_slice, value_slice).code ();
 }
 
+int backend_rocksdb::put_append (nano::store::write_transaction const & txn, nano::store::table table, nano::store::db_val const & key, nano::store::db_val const & value)
+{
+	// RocksDB doesn't have an APPEND optimization like LMDB; just use regular put
+	return put (txn, table, key, value);
+}
+
 int backend_rocksdb::del (nano::store::write_transaction const & txn, nano::store::table table, nano::store::db_val const & key)
 {
 	flush_tombstones_check (table);
@@ -351,13 +357,15 @@ bool backend_rocksdb::count_is_exact (nano::store::table table) const
 			// These tables use rocksdb.estimate-num-keys which may be inaccurate
 			return false;
 		case nano::store::table::accounts:
-		case nano::store::table::blocks:
+		case nano::store::table::block_data:
+		case nano::store::table::block_index:
 		case nano::store::table::confirmation_height:
 		case nano::store::table::default_unused:
 		case nano::store::table::meta:
 		case nano::store::table::online_weight:
 		case nano::store::table::peers:
 		case nano::store::table::pending:
+		case nano::store::table::successor:
 		case nano::store::table::vote:
 		case nano::store::table::rep_weights:
 		case nano::store::table::unchecked:
@@ -769,7 +777,8 @@ void backend_rocksdb::collect_memory_stats (boost::property_tree::ptree & ptree)
 
 void backend_rocksdb::generate_tombstone_map ()
 {
-	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::store::table::blocks), std::forward_as_tuple (0, 25000));
+	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::store::table::block_data), std::forward_as_tuple (0, 25000));
+	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::store::table::block_index), std::forward_as_tuple (0, 25000));
 	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::store::table::accounts), std::forward_as_tuple (0, 25000));
 	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::store::table::pending), std::forward_as_tuple (0, 25000));
 }

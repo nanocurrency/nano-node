@@ -138,7 +138,6 @@ bool nano::block_sideband::includes_details (nano::block_type const type)
 size_t nano::block_sideband::size (nano::block_type type)
 {
 	size_t result (0);
-	result += sizeof (successor);
 	if (includes_account (type))
 	{
 		result += sizeof (account);
@@ -162,7 +161,6 @@ size_t nano::block_sideband::size (nano::block_type type)
 
 void nano::block_sideband::serialize (nano::stream & stream_a, nano::block_type type) const
 {
-	nano::write (stream_a, successor.bytes);
 	if (includes_account (type))
 	{
 		nano::write (stream_a, account.bytes);
@@ -188,7 +186,6 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_typ
 	bool result (false);
 	try
 	{
-		nano::read (stream_a, successor.bytes);
 		if (includes_account (type))
 		{
 			nano::read (stream_a, account.bytes);

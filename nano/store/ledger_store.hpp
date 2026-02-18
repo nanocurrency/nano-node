@@ -41,6 +41,7 @@ public: // Upgrades
 	void upgrade_v22_to_v23 ();
 	void upgrade_v23_to_v24 ();
 	void upgrade_v24_to_v25 ();
+	void upgrade_v25_to_v26 ();
 
 public:
 	nano::store::write_queue write_queue; // TODO: Shouldn't be public
@@ -79,7 +80,7 @@ public:
 
 public:
 	static nano::store::backend_version_t constexpr version_minimum{ 21 };
-	static nano::store::backend_version_t constexpr version_current{ 25 };
+	static nano::store::backend_version_t constexpr version_current{ 26 };
 
 public:
 	static nano::store::column_schema const schema_current;
@@ -87,5 +88,6 @@ public:
 	static nano::store::column_schema const schema_v22;
 	static nano::store::column_schema const schema_v23;
 	static nano::store::column_schema const schema_v24;
+	static nano::store::column_schema const schema_v25;
 };
 };

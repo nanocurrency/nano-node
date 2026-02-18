@@ -8,7 +8,9 @@ namespace nano::store
 enum class table
 {
 	accounts,
-	blocks,
+	block_data,
+	block_index,
+	blocks, // (v25 and earlier, kept for migration)
 	confirmation_height,
 	default_unused, // RocksDB only
 	final_votes,

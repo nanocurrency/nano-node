@@ -96,7 +96,6 @@ TEST (block_store, sideband_serialization)
 	sideband1.account = 1;
 	sideband1.balance = 2;
 	sideband1.height = 3;
-	sideband1.successor = 4;
 	sideband1.timestamp = 5;
 	std::vector<uint8_t> vector;
 	{
@@ -109,7 +108,6 @@ TEST (block_store, sideband_serialization)
 	ASSERT_EQ (sideband1.account, sideband2.account);
 	ASSERT_EQ (sideband1.balance, sideband2.balance);
 	ASSERT_EQ (sideband1.height, sideband2.height);
-	ASSERT_EQ (sideband1.successor, sideband2.successor);
 	ASSERT_EQ (sideband1.timestamp, sideband2.timestamp);
 }
 

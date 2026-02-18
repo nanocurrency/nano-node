@@ -76,6 +76,7 @@ public:
 	// Basic CRUD operations
 	virtual int get (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val & value) const = 0;
 	virtual int put (nano::store::write_transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val const & value) = 0;
+	virtual int put_append (nano::store::write_transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val const & value) = 0;
 	virtual int del (nano::store::write_transaction const &, nano::store::table, nano::store::db_val const & key) = 0;
 	virtual bool exists (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key) const = 0;
 

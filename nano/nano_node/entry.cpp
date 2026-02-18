@@ -341,9 +341,9 @@ int main (int argc, char * const * argv)
 			auto end = inactive_node->node->store.block.end (transaction);
 			for (; i != end; ++i)
 			{
-				nano::block_hash hash = i->first;
-				nano::store::block_w_sideband sideband = i->second;
-				std::shared_ptr<nano::block> b = sideband.block;
+				auto hash = i->second.block->hash ();
+				auto & bws = i->second;
+				std::shared_ptr<nano::block> b = bws.block;
 				std::cout << hash.to_string () << std::endl
 						  << b->to_json ();
 			}

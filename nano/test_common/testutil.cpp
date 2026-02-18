@@ -346,14 +346,13 @@ void nano::test::print_all_blocks (const nano::store::ledger_store & store)
 	std::cout << "Listing all blocks" << std::endl;
 	for (; i != end; ++i)
 	{
-		nano::block_hash hash = i->first;
-		nano::store::block_w_sideband sideband = i->second;
-		std::shared_ptr<nano::block> b = sideband.block;
+		auto & bws = i->second;
+		auto hash = bws.block->hash ();
 		std::cout << "Hash: " << hash.to_string () << std::endl;
-		const auto acc = sideband.sideband.account;
+		const auto acc = bws.sideband.account;
 		std::cout << "Acc: " << acc.to_string () << "(" << acc.to_account () << ")" << std::endl;
-		std::cout << "Height: " << sideband.sideband.height << std::endl;
-		std::cout << b->to_json ();
+		std::cout << "Height: " << bws.sideband.height << std::endl;
+		std::cout << bws.block->to_json ();
 	}
 }
 

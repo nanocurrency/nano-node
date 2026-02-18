@@ -104,6 +104,13 @@ int backend_lmdb::put (nano::store::write_transaction const & txn, nano::store::
 	return mdb_put (env->tx (txn), table_to_dbi (table), &mdb_key, &mdb_value, 0);
 }
 
+int backend_lmdb::put_append (nano::store::write_transaction const & txn, nano::store::table table, nano::store::db_val const & key, nano::store::db_val const & value)
+{
+	auto mdb_key = to_mdb_val (key);
+	auto mdb_value = to_mdb_val (value);
+	return mdb_put (env->tx (txn), table_to_dbi (table), &mdb_key, &mdb_value, MDB_APPEND);
+}
+
 int backend_lmdb::del (nano::store::write_transaction const & txn, nano::store::table table, nano::store::db_val const & key)
 {
 	auto mdb_key = to_mdb_val (key);

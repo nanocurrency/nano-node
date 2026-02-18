@@ -27,6 +27,7 @@ public:
 
 	int get (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val & value) const override;
 	int put (nano::store::write_transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val const & value) override;
+	int put_append (nano::store::write_transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val const & value) override;
 	int del (nano::store::write_transaction const &, nano::store::table, nano::store::db_val const & key) override;
 	bool exists (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key) const override;
 

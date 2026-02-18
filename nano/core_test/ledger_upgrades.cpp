@@ -4,6 +4,7 @@
 #include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/stream.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/secure/account_info.hpp>
 #include <nano/secure/common.hpp>
@@ -618,15 +619,13 @@ public:
 	{
 		auto tx = backend->tx_begin_write ();
 
-		// Set successor in sideband before serializing
-		auto sideband = block.sideband ();
-		sideband.successor = successor_hash;
-		block.sideband_set (sideband);
-
 		std::vector<uint8_t> data;
 		{
 			nano::vectorstream stream{ data };
 			nano::serialize_block (stream, block);
+			// Manually write v24 sideband format: successor first, then remaining sideband fields
+			// This is needed because sideband.serialize() no longer writes the successor field
+			nano::write (stream, successor_hash.bytes);
 			block.sideband ().serialize (stream, block.type ());
 		}
 
