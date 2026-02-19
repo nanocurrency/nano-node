@@ -5082,7 +5082,6 @@ void nano::json_handler::work_generate ()
 			if (!node.config.work_peers.empty() || !node.config.secondary_work_peers.empty())
 			{
 				default_use_peers = true;
-				node.config.work_server_use_peers = true;
 			}
 			auto use_peers (request.get<bool> ("use_peers", default_use_peers));
 
