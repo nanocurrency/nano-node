@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/common.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/fwd.hpp>
 #include <nano/lib/keypair.hpp>
@@ -17,6 +18,15 @@ enum class telemetry_maker : uint8_t
 	nf_node = 0,
 	nf_pruned_node = 1
 };
+
+enum class telemetry_database_backend : uint8_t
+{
+	unknown = 0,
+	lmdb = 1,
+	rocksdb = 2
+};
+
+telemetry_database_backend to_telemetry_database_backend (nano::database_backend);
 
 class telemetry_data
 {
@@ -39,6 +49,7 @@ public:
 	uint8_t maker{ static_cast<std::underlying_type_t<telemetry_maker>> (telemetry_maker::nf_node) }; // Where this telemetry information originated
 	std::chrono::system_clock::time_point timestamp;
 	uint64_t active_difficulty{ 0 };
+	uint8_t database_backend{ 0 };
 	std::vector<uint8_t> unknown_data;
 
 	void serialize (nano::stream &) const;
@@ -51,10 +62,14 @@ public:
 	bool operator!= (telemetry_data const &) const;
 
 	// Size does not include unknown_data
-	static auto constexpr size = sizeof (signature) + sizeof (node_id) + sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version) + sizeof (minor_version) + sizeof (patch_version) + sizeof (pre_release_version) + sizeof (maker) + sizeof (uint64_t) + sizeof (active_difficulty);
+	static auto constexpr size_v1 = sizeof (signature) + sizeof (node_id) + sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version) + sizeof (minor_version) + sizeof (patch_version) + sizeof (pre_release_version) + sizeof (maker) + sizeof (uint64_t) + sizeof (active_difficulty);
+	static auto constexpr size = size_v1 + sizeof (database_backend);
 	static auto constexpr latest_size = size; // This needs to be updated for each new telemetry version
 
+	uint16_t serialized_size () const;
+
 private:
+	uint16_t data_size_{ latest_size };
 	void serialize_without_signature (nano::stream &) const;
 
 public: // Logging

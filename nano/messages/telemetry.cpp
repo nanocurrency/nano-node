@@ -67,9 +67,9 @@ telemetry_ack::telemetry_ack (nano::network_constants const & constants, telemet
 	message (constants, message_type::telemetry_ack),
 	data (telemetry_data_a)
 {
-	debug_assert (telemetry_data::size + telemetry_data_a.unknown_data.size () <= message_header::telemetry_size_mask.to_ulong ()); // Maximum size the mask allows
+	debug_assert (telemetry_data_a.serialized_size () <= message_header::telemetry_size_mask.to_ulong ()); // Maximum size the mask allows
 	header.extensions &= ~message_header::telemetry_size_mask;
-	header.extensions |= std::bitset<16> (static_cast<unsigned long long> (telemetry_data::size) + telemetry_data_a.unknown_data.size ());
+	header.extensions |= std::bitset<16> (static_cast<unsigned long long> (telemetry_data_a.serialized_size ()));
 }
 
 void telemetry_ack::serialize (nano::stream & stream_a) const
@@ -166,6 +166,11 @@ void telemetry_data::deserialize (nano::stream & stream_a, uint16_t payload_leng
 	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
 	read (stream_a, active_difficulty);
 	boost::endian::big_to_native_inplace (active_difficulty);
+	if (payload_length_a >= size)
+	{
+		read (stream_a, database_backend);
+	}
+	data_size_ = std::min (payload_length_a, static_cast<uint16_t> (latest_size));
 	if (payload_length_a > latest_size)
 	{
 		read (stream_a, unknown_data, payload_length_a - latest_size);
@@ -192,6 +197,10 @@ void telemetry_data::serialize_without_signature (nano::stream & stream_a) const
 	write (stream_a, maker);
 	write (stream_a, boost::endian::native_to_big (std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ()));
 	write (stream_a, boost::endian::native_to_big (active_difficulty));
+	if (data_size_ > size_v1)
+	{
+		write (stream_a, database_backend);
+	}
 	write (stream_a, unknown_data);
 }
 
@@ -219,6 +228,7 @@ nano::error telemetry_data::serialize_json (nano::jsonconfig & json, bool ignore
 	json.put ("maker", maker);
 	json.put ("timestamp", std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ());
 	json.put ("active_difficulty", nano::to_string_hex (active_difficulty));
+	json.put ("database_backend", database_backend);
 	// Keep these last for UI purposes
 	if (!ignore_identification_metrics_a)
 	{
@@ -280,12 +290,13 @@ nano::error telemetry_data::deserialize_json (nano::jsonconfig & json, bool igno
 	auto current_active_difficulty_text = json.get<std::string> ("active_difficulty");
 	auto ec = nano::from_string_hex (current_active_difficulty_text, active_difficulty);
 	debug_assert (!ec);
+	json.get ("database_backend", database_backend);
 	return json.get_error ();
 }
 
 bool telemetry_data::operator== (telemetry_data const & data_a) const
 {
-	return (signature == data_a.signature && node_id == data_a.node_id && block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version == data_a.protocol_version && genesis_block == data_a.genesis_block && major_version == data_a.major_version && minor_version == data_a.minor_version && patch_version == data_a.patch_version && pre_release_version == data_a.pre_release_version && maker == data_a.maker && timestamp == data_a.timestamp && active_difficulty == data_a.active_difficulty && unknown_data == data_a.unknown_data);
+	return (signature == data_a.signature && node_id == data_a.node_id && block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version == data_a.protocol_version && genesis_block == data_a.genesis_block && major_version == data_a.major_version && minor_version == data_a.minor_version && patch_version == data_a.patch_version && pre_release_version == data_a.pre_release_version && maker == data_a.maker && timestamp == data_a.timestamp && active_difficulty == data_a.active_difficulty && database_backend == data_a.database_backend && unknown_data == data_a.unknown_data);
 }
 
 bool telemetry_data::operator!= (telemetry_data const & data_a) const
@@ -296,6 +307,8 @@ bool telemetry_data::operator!= (telemetry_data const & data_a) const
 void telemetry_data::sign (nano::keypair const & node_id_a)
 {
 	debug_assert (node_id == node_id_a.pub);
+	// Always sign with latest format so all current fields are included
+	data_size_ = latest_size;
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
@@ -316,8 +329,26 @@ bool telemetry_data::validate_signature () const
 	return nano::validate_message (node_id, bytes.data (), bytes.size (), signature);
 }
 
+uint16_t telemetry_data::serialized_size () const
+{
+	return data_size_ + static_cast<uint16_t> (unknown_data.size ());
+}
+
 void telemetry_data::operator() (nano::object_stream & obs) const
 {
 	// TODO: Telemetry data
+}
+
+telemetry_database_backend to_telemetry_database_backend (nano::database_backend backend)
+{
+	switch (backend)
+	{
+		case nano::database_backend::lmdb:
+			return telemetry_database_backend::lmdb;
+		case nano::database_backend::rocksdb:
+			return telemetry_database_backend::rocksdb;
+		default:
+			return telemetry_database_backend::unknown;
+	}
 }
 }

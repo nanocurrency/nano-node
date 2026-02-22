@@ -928,6 +928,7 @@ nano::messages::telemetry_data nano::node::local_telemetry () const
 	telemetry_data.maker = static_cast<std::underlying_type_t<nano::messages::telemetry_maker>> (ledger.pruning ? nano::messages::telemetry_maker::nf_pruned_node : nano::messages::telemetry_maker::nf_node);
 	telemetry_data.timestamp = std::chrono::system_clock::now ();
 	telemetry_data.active_difficulty = default_difficulty (nano::work_version::work_1);
+	telemetry_data.database_backend = static_cast<uint8_t> (nano::messages::to_telemetry_database_backend (config.database_backend));
 	// Make sure this is the final operation!
 	telemetry_data.sign (node_id);
 	return telemetry_data;
