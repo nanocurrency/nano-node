@@ -929,6 +929,21 @@ nano::messages::telemetry_data nano::node::local_telemetry () const
 	telemetry_data.timestamp = std::chrono::system_clock::now ();
 	telemetry_data.active_difficulty = default_difficulty (nano::work_version::work_1);
 	telemetry_data.database_backend = static_cast<uint8_t> (nano::messages::to_telemetry_database_backend (config.database_backend));
+	auto cemented = active.recently_cemented.list ();
+	if (!cemented.empty ())
+	{
+		uint64_t total = 0;
+		for (auto const & status : cemented)
+		{
+			total += status.election_duration.count ();
+		}
+		telemetry_data.confirmation_latency_ms = static_cast<uint32_t> (total / cemented.size ());
+	}
+	auto bs = bootstrap.status ();
+	telemetry_data.bootstrap_status = static_cast<uint8_t> (
+		bs.priorities == 0
+			? nano::messages::telemetry_bootstrap_status::synced
+			: nano::messages::telemetry_bootstrap_status::syncing);
 	// Make sure this is the final operation!
 	telemetry_data.sign (node_id);
 	return telemetry_data;
