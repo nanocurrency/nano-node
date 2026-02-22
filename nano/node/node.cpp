@@ -941,9 +941,9 @@ nano::messages::telemetry_data nano::node::local_telemetry () const
 	}
 	auto bs = bootstrap.status ();
 	telemetry_data.bootstrap_status = static_cast<uint8_t> (
-		bs.priorities == 0
-			? nano::messages::telemetry_bootstrap_status::synced
-			: nano::messages::telemetry_bootstrap_status::syncing);
+	bs.priorities == 0
+	? nano::messages::telemetry_bootstrap_status::synced
+	: nano::messages::telemetry_bootstrap_status::syncing);
 	// Make sure this is the final operation!
 	telemetry_data.sign (node_id);
 	return telemetry_data;
