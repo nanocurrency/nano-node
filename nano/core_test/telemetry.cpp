@@ -25,6 +25,8 @@ TEST (telemetry, signatures)
 	data.pre_release_version = 2;
 	data.maker = 1;
 	data.database_backend = static_cast<uint8_t> (nano::messages::telemetry_database_backend::lmdb);
+	data.confirmation_latency_ms = 500;
+	data.bootstrap_status = static_cast<uint8_t> (nano::messages::telemetry_bootstrap_status::synced);
 	data.timestamp = std::chrono::system_clock::time_point (100ms);
 	data.sign (node_id);
 	ASSERT_FALSE (data.validate_signature ());
@@ -51,8 +53,8 @@ TEST (telemetry, unknown_data)
 	ASSERT_FALSE (data.validate_signature ());
 }
 
-// Old node (150-byte payload) -> New node: signature must validate, database_backend defaults to 0
-TEST (telemetry, backward_compat_old_to_new)
+// Old node (150-byte payload, size_v1) -> New node: signature must validate, new fields default to 0
+TEST (telemetry, backward_compat_v1_to_new)
 {
 	nano::keypair node_id;
 	nano::messages::telemetry_data data;
@@ -66,11 +68,9 @@ TEST (telemetry, backward_compat_old_to_new)
 	data.active_difficulty = 0xffffffc000000000;
 
 	// Simulate old node: serialize with size_v1 (150 bytes, no database_backend)
-	// Old node signs data without database_backend field
 	std::vector<uint8_t> old_payload;
 	{
 		nano::vectorstream stream (old_payload);
-		// Manually serialize old-format payload (size_v1 = 150 bytes, no database_backend)
 		nano::write (stream, data.signature);
 		nano::write (stream, data.node_id);
 		nano::write (stream, boost::endian::native_to_big (data.block_count));
@@ -94,21 +94,20 @@ TEST (telemetry, backward_compat_old_to_new)
 	// Sign using only old-format fields (without signature prefix)
 	std::vector<uint8_t> sign_bytes (old_payload.begin () + sizeof (nano::signature), old_payload.end ());
 	auto sig = nano::sign_message (node_id.prv, node_id.pub, sign_bytes.data (), sign_bytes.size ());
-
-	// Write signature into the payload
 	std::copy (sig.bytes.begin (), sig.bytes.end (), old_payload.begin ());
 
-	// Now deserialize with new code using size_v1 payload length
 	nano::messages::telemetry_data received;
 	nano::bufferstream stream (old_payload.data (), old_payload.size ());
 	received.deserialize (stream, nano::messages::telemetry_data::size_v1);
 
-	ASSERT_EQ (received.database_backend, 0); // defaults to unknown
-	ASSERT_FALSE (received.validate_signature ()); // signature must validate
+	ASSERT_EQ (received.database_backend, 0);
+	ASSERT_EQ (received.confirmation_latency_ms, 0);
+	ASSERT_EQ (received.bootstrap_status, 0);
+	ASSERT_FALSE (received.validate_signature ());
 	ASSERT_EQ (received.node_id, node_id.pub);
 }
 
-// New node (151-byte payload) -> Old node: extra byte goes to unknown_data, signature validates
+// New node (156-byte payload) -> Old v1 node: extra 6 bytes go to unknown_data, signature validates
 TEST (telemetry, forward_compat_new_to_old)
 {
 	nano::keypair node_id;
@@ -120,12 +119,14 @@ TEST (telemetry, forward_compat_new_to_old)
 	data.pre_release_version = 2;
 	data.maker = 1;
 	data.database_backend = static_cast<uint8_t> (nano::messages::telemetry_database_backend::lmdb);
+	data.confirmation_latency_ms = 250;
+	data.bootstrap_status = static_cast<uint8_t> (nano::messages::telemetry_bootstrap_status::synced);
 	data.timestamp = std::chrono::system_clock::time_point (100ms);
 	data.active_difficulty = 0xffffffc000000000;
 	data.sign (node_id);
 	ASSERT_FALSE (data.validate_signature ());
 
-	// Serialize the new-format data (151 bytes)
+	// Serialize the new-format data (156 bytes)
 	std::vector<uint8_t> payload;
 	{
 		nano::vectorstream stream (payload);
@@ -133,15 +134,11 @@ TEST (telemetry, forward_compat_new_to_old)
 	}
 	ASSERT_EQ (payload.size (), nano::messages::telemetry_data::size);
 
-	// Simulate old node deserializing: it only knows size_v1 as its latest_size,
-	// so it reads only the first size_v1 known fields and puts the remaining
-	// byte(s) into unknown_data. We manually replicate old-node deserialization
-	// since the current code's latest_size has already been updated.
+	// Simulate old v1 node deserializing: it only knows size_v1 as its latest_size
 	nano::messages::telemetry_data old_received;
 	uint16_t const old_latest_size = nano::messages::telemetry_data::size_v1;
 	{
 		nano::bufferstream stream (payload.data (), payload.size ());
-		// Read all fields that the old node knows about (up to size_v1)
 		nano::read (stream, old_received.signature);
 		nano::read (stream, old_received.node_id);
 		nano::read (stream, old_received.block_count);
@@ -171,22 +168,16 @@ TEST (telemetry, forward_compat_new_to_old)
 		old_received.timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
 		nano::read (stream, old_received.active_difficulty);
 		boost::endian::big_to_native_inplace (old_received.active_difficulty);
-		// Old node doesn't know about database_backend, so remaining bytes
-		// (payload.size() - size_v1 = 1 byte) go into unknown_data
+		// Old node doesn't know about database_backend or new fields
 		auto remaining = static_cast<uint16_t> (payload.size ()) - old_latest_size;
-		ASSERT_EQ (remaining, 1); // the database_backend byte
+		ASSERT_EQ (remaining, 6); // database_backend(1) + confirmation_latency_ms(4) + bootstrap_status(1)
 		nano::read (stream, old_received.unknown_data, remaining);
 	}
 
-	// Old node does not interpret database_backend — it stays at default 0
 	ASSERT_EQ (old_received.database_backend, 0);
-	// The extra byte is in unknown_data instead
-	ASSERT_EQ (old_received.unknown_data.size (), 1);
-	ASSERT_EQ (old_received.unknown_data[0], static_cast<uint8_t> (nano::messages::telemetry_database_backend::lmdb));
+	ASSERT_EQ (old_received.unknown_data.size (), 6);
 
-	// Old node's validate_signature serializes known fields + unknown_data,
-	// which reconstructs the original signed payload — signature must validate
-	// We replicate old-node validation: serialize without signature, then verify
+	// Old node's validate_signature: serialize known fields + unknown_data
 	std::vector<uint8_t> verify_bytes;
 	{
 		nano::vectorstream stream (verify_bytes);
@@ -207,7 +198,6 @@ TEST (telemetry, forward_compat_new_to_old)
 		nano::write (stream, old_received.maker);
 		nano::write (stream, boost::endian::native_to_big (std::chrono::duration_cast<std::chrono::milliseconds> (old_received.timestamp.time_since_epoch ()).count ()));
 		nano::write (stream, boost::endian::native_to_big (old_received.active_difficulty));
-		// Old node appends unknown_data verbatim
 		nano::write (stream, old_received.unknown_data);
 	}
 	ASSERT_FALSE (nano::validate_message (old_received.node_id, verify_bytes.data (), verify_bytes.size (), old_received.signature));

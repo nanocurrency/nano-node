@@ -27,6 +27,8 @@ void compare_telemetry_data_impl (const nano::messages::telemetry_data & data_a,
 	ASSERT_GT (data_a.timestamp, std::chrono::system_clock::now () - std::chrono::seconds (100));
 	ASSERT_EQ (data_a.active_difficulty, data_b.active_difficulty);
 	ASSERT_EQ (data_a.database_backend, data_b.database_backend);
+	ASSERT_EQ (data_a.confirmation_latency_ms, data_b.confirmation_latency_ms);
+	// bootstrap_status is not compared because it can change between telemetry snapshots
 	ASSERT_EQ (data_a.unknown_data, std::vector<uint8_t>{});
 	result = true;
 }
