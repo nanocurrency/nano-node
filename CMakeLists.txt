@@ -699,6 +699,7 @@ target_include_directories(argon2 PUBLIC submodules/phc-winner-argon2/include)
 target_include_directories(argon2 PUBLIC submodules/phc-winner-argon2/src)
 target_include_directories(argon2 PUBLIC crypto/blake2)
 
+# LMDB
 add_library(
   lmdb
   submodules/lmdb/libraries/liblmdb/lmdb.h
@@ -707,6 +708,12 @@ add_library(
 
 if(WIN32)
   target_link_libraries(lmdb ntdll)
+endif()
+
+# LMDB defaults to SysV semaphores on macOS, which are blocked by Seatbelt
+# sandbox Use POSIX semaphores instead to avoid EPERM from mdb_env_open()
+if(APPLE AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+  target_compile_definitions(lmdb PRIVATE MDB_USE_POSIX_SEM=1)
 endif()
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
