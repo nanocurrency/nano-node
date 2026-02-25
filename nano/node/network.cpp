@@ -55,7 +55,7 @@ void nano::network::start ()
 		run_keepalive ();
 	});
 
-	if (config.peer_reachout.count () > 0)
+	if (!node.flags.disable_reachout && config.peer_reachout.count () > 0)
 	{
 		reachout_thread = std::thread ([this] () {
 			nano::thread_role::set (nano::thread_role::name::network_reachout);
@@ -67,7 +67,7 @@ void nano::network::start ()
 		node.logger.warn (nano::log::type::network, "Peer reachout is disabled");
 	}
 
-	if (config.cached_peer_reachout.count () > 0)
+	if (!node.flags.disable_reachout && config.cached_peer_reachout.count () > 0)
 	{
 		reachout_cached_thread = std::thread ([this] () {
 			nano::thread_role::set (nano::thread_role::name::network_reachout);
