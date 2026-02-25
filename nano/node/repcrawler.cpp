@@ -166,7 +166,7 @@ void nano::rep_crawler::run ()
 		if (!sufficient_weight)
 		{
 			stats.inc (nano::stat::type::rep_crawler, nano::stat::detail::keepalive);
-			node.keepalive_preconfigured ();
+			node.network.trigger_reachout ();
 		}
 
 		lock.lock ();

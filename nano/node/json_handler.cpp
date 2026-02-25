@@ -2725,7 +2725,7 @@ void nano::json_handler::keepalive ()
 		uint16_t port;
 		if (!nano::parse_port (port_text, port))
 		{
-			node.keepalive (address_text, port);
+			node.network.reachout (address_text, port);
 			response_l.put ("started", "1");
 		}
 		else

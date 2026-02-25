@@ -111,6 +111,8 @@ public:
 			telemetry_broadcast_interval = 500ms;
 			rep_crawler_normal_interval = 500ms;
 			rep_crawler_warmup_interval = 500ms;
+			reachout_preconfigured_period = std::chrono::seconds (1);
+			reachout_preconfigured_warmup_period = std::chrono::seconds (1);
 		}
 	}
 
@@ -134,6 +136,7 @@ public:
 	{
 		return cleanup_period * 5;
 	}
+
 	/** How often to connect to other peers */
 	std::chrono::milliseconds merge_period;
 	/** How often to send keepalive messages */
@@ -161,6 +164,10 @@ public:
 
 	std::chrono::milliseconds rep_crawler_normal_interval{ 1000 * 7 };
 	std::chrono::milliseconds rep_crawler_warmup_interval{ 1000 * 3 };
+
+	/** How often to reach out to preconfigured peers */
+	std::chrono::seconds reachout_preconfigured_period{ 10min };
+	std::chrono::seconds reachout_preconfigured_warmup_period{ 1min };
 
 	/** Returns the network this object contains values for */
 	nano::network_type network () const

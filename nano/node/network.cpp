@@ -41,6 +41,7 @@ nano::network::~network ()
 	debug_assert (!keepalive_thread.joinable ());
 	debug_assert (!reachout_thread.joinable ());
 	debug_assert (!reachout_cached_thread.joinable ());
+	debug_assert (!reachout_preconfigured_thread.joinable ());
 }
 
 void nano::network::start ()
@@ -79,6 +80,14 @@ void nano::network::start ()
 		node.logger.warn (nano::log::type::network, "Cached peer reachout is disabled");
 	}
 
+	if (!node.flags.disable_reachout)
+	{
+		reachout_preconfigured_thread = std::thread ([this] () {
+			nano::thread_role::set (nano::thread_role::name::network_reachout);
+			run_reachout_preconfigured ();
+		});
+	}
+
 	if (!node.flags.disable_tcp_realtime)
 	{
 		tcp_channels.start ();
@@ -104,6 +113,7 @@ void nano::network::stop ()
 	join_or_pass (cleanup_thread);
 	join_or_pass (reachout_thread);
 	join_or_pass (reachout_cached_thread);
+	join_or_pass (reachout_preconfigured_thread);
 
 	port = 0;
 }
@@ -230,6 +240,82 @@ void nano::network::run_reachout_cached ()
 		}
 
 		lock.lock ();
+	}
+}
+
+void nano::network::run_reachout_preconfigured ()
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	while (!stopped)
+	{
+		condition.wait_for (lock, 1s);
+		if (stopped)
+		{
+			return;
+		}
+		lock.unlock ();
+
+		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_reachout_preconfigured);
+
+		auto const target_interval = empty ()
+		? node.network_params.network.reachout_preconfigured_warmup_period
+		: node.network_params.network.reachout_preconfigured_period;
+
+		if (reachout_preconfigured_interval.elapse (target_interval))
+		{
+			reachout_preconfigured ();
+		}
+
+		lock.lock ();
+	}
+}
+
+void nano::network::trigger_reachout ()
+{
+	node.stats.inc (nano::stat::type::network, nano::stat::detail::trigger_reachout);
+	reachout_preconfigured_interval.reset ();
+	condition.notify_all ();
+}
+
+void nano::network::reachout (std::string const & address_a, uint16_t port_a)
+{
+	auto node_l (node.shared_from_this ());
+	resolver.async_resolve (boost::asio::ip::tcp::resolver::query (address_a, std::to_string (port_a)), [this, node_l, address_a, port_a] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
+		if (!ec)
+		{
+			for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator{}); i != n; ++i)
+			{
+				auto endpoint (nano::transport::map_endpoint_to_v6 (i->endpoint ()));
+				auto channel (find_channel (endpoint));
+				if (!channel)
+				{
+					tcp_channels.start_tcp (endpoint);
+				}
+				else
+				{
+					send_keepalive (channel);
+				}
+			}
+		}
+		else
+		{
+			node.logger.error (nano::log::type::network, "Error resolving address for reachout: {}:{} ({})", address_a, port_a, ec.message ());
+		}
+	});
+}
+
+void nano::network::reachout_preconfigured ()
+{
+	if (node.config.preconfigured_peers.empty ())
+	{
+		return;
+	}
+
+	node.stats.inc (nano::stat::type::network, nano::stat::detail::reachout_preconfigured);
+
+	for (auto const & peer : node.config.preconfigured_peers)
+	{
+		reachout (peer, node.network_params.network.default_node_port);
 	}
 }
 

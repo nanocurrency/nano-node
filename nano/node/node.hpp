@@ -45,14 +45,12 @@ public:
 
 	std::shared_ptr<nano::node> shared ();
 
-	void keepalive (std::string const &, uint16_t);
 	int store_version ();
 	void inbound (nano::messages::message const &, std::shared_ptr<nano::transport::channel> const &);
 	void process_active (std::shared_ptr<nano::block> const &);
 	void process_active (std::shared_ptr<nano::vote> const &);
 	std::optional<nano::block_status> process_local (std::shared_ptr<nano::block> const &);
 	void process_local_async (std::shared_ptr<nano::block> const &);
-	void keepalive_preconfigured ();
 	std::shared_ptr<nano::block> block (nano::block_hash const &);
 	bool block_or_pruned_exists (nano::block_hash const &) const;
 	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &, bool only_confirmed);

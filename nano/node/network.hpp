@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/interval.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/network_filter.hpp>
 #include <nano/messages/messages.hpp>
@@ -124,6 +125,11 @@ public:
 	void send_keepalive (std::shared_ptr<nano::transport::channel> const &) const;
 	void send_keepalive_self (std::shared_ptr<nano::transport::channel> const &) const;
 
+	// Trigger immediate reachout to preconfigured peers
+	void trigger_reachout ();
+	void reachout (std::string const & address, uint16_t port);
+	void reachout_preconfigured ();
+
 	void merge_peers (std::array<nano::endpoint, 8> const & ips);
 	bool merge_peer (nano::endpoint const & ip);
 
@@ -175,6 +181,7 @@ private:
 	void run_keepalive ();
 	void run_reachout ();
 	void run_reachout_cached ();
+	void run_reachout_preconfigured ();
 
 private: // Dependencies
 	network_config const & config;
@@ -193,6 +200,9 @@ public: // Callbacks
 	std::function<void ()> disconnect_observer{ [] () {} };
 
 private:
+	nano::interval_mt reachout_preconfigured_interval;
+
+private:
 	std::atomic<bool> stopped{ false };
 	mutable nano::mutex mutex;
 	nano::condition_variable condition;
@@ -200,6 +210,7 @@ private:
 	std::thread keepalive_thread;
 	std::thread reachout_thread;
 	std::thread reachout_cached_thread;
+	std::thread reachout_preconfigured_thread;
 
 public:
 	static std::size_t const buffer_size = 512;

@@ -1116,3 +1116,21 @@ TEST (network, flood_vote)
 	ASSERT_EQ (2, node.network.flood_vote_non_pr (vote, 999.0f));
 	ASSERT_EQ (1, node.network.flood_vote_pr (vote));
 }
+
+// Verify that disable_reachout flag prevents all reachout threads from starting
+TEST (network, disable_reachout)
+{
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_reachout = true;
+	auto & node = *system.add_node (flags);
+
+	// Wait a bit for any background activity
+	WAIT (1s);
+
+	// No reachout should have occurred
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::reachout_live));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::reachout_cached));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::reachout_preconfigured));
+}
+}

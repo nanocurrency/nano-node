@@ -1,4 +1,5 @@
 #include <nano/lib/files.hpp>
+#include <nano/lib/interval.hpp>
 #include <nano/lib/optional_ptr.hpp>
 #include <nano/lib/rate_limiting.hpp>
 #include <nano/lib/relaxed_atomic.hpp>
@@ -157,6 +158,32 @@ TEST (relaxed_atomic_integral, many_threads)
 
 	// Check values
 	ASSERT_EQ (0, atomic);
+}
+
+TEST (interval, reset)
+{
+	nano::interval interval;
+
+	// First elapse always fires
+	ASSERT_TRUE (interval.elapse (1min));
+
+	// Immediate second call should not fire
+	ASSERT_FALSE (interval.elapse (1min));
+
+	// After reset, next elapse should fire immediately
+	interval.reset ();
+	ASSERT_TRUE (interval.elapse (1min));
+}
+
+TEST (interval_mt, reset)
+{
+	nano::interval_mt interval;
+
+	ASSERT_TRUE (interval.elapse (1min));
+	ASSERT_FALSE (interval.elapse (1min));
+
+	interval.reset ();
+	ASSERT_TRUE (interval.elapse (1min));
 }
 
 TEST (pending_key, sorting)

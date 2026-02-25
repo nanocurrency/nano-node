@@ -451,34 +451,6 @@ nano::node::~node ()
 	stop ();
 }
 
-void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
-{
-	auto node_l (shared_from_this ());
-	network.resolver.async_resolve (boost::asio::ip::tcp::resolver::query (address_a, std::to_string (port_a)), [node_l, address_a, port_a] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
-		if (!ec)
-		{
-			for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator{}); i != n; ++i)
-			{
-				auto endpoint (nano::transport::map_endpoint_to_v6 (i->endpoint ()));
-				std::weak_ptr<nano::node> node_w (node_l);
-				auto channel (node_l->network.find_channel (endpoint));
-				if (!channel)
-				{
-					node_l->network.tcp_channels.start_tcp (endpoint);
-				}
-				else
-				{
-					node_l->network.send_keepalive (channel);
-				}
-			}
-		}
-		else
-		{
-			node_l->logger.error (nano::log::type::node, "Error resolving address for keepalive: {}:{} ({})", address_a, port_a, ec.message ());
-		}
-	});
-}
-
 void nano::node::inbound (const nano::messages::message & message, const std::shared_ptr<nano::transport::channel> & channel)
 {
 	debug_assert (channel->owner () == shared_from_this ()); // This node should be the channel owner
@@ -652,17 +624,6 @@ void nano::node::stop ()
 	runner.abort (); // TODO: Remove this
 	runner.join ();
 	debug_assert (io_ctx_shared.use_count () == 1); // Node should be the last user of the io_context
-}
-
-void nano::node::keepalive_preconfigured ()
-{
-	for (auto const & peer : config.preconfigured_peers)
-	{
-		// can't use `network.port` here because preconfigured peers are referenced
-		// just by their address, so we rely on them listening on the default port
-		//
-		keepalive (peer, network_params.network.default_node_port);
-	}
 }
 
 nano::block_hash nano::node::latest (nano::account const & account_a)

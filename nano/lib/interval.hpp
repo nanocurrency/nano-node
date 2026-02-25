@@ -19,6 +19,11 @@ public:
 		return false;
 	}
 
+	void reset ()
+	{
+		last = {};
+	}
+
 private:
 	std::chrono::steady_clock::time_point last{};
 };
@@ -36,6 +41,12 @@ public:
 			return true;
 		}
 		return false;
+	}
+
+	void reset ()
+	{
+		std::lock_guard guard{ mutex };
+		last = {};
 	}
 
 private:

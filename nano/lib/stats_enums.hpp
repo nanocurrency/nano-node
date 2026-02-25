@@ -359,10 +359,13 @@ enum class detail
 	loop_keepalive,
 	loop_reachout,
 	loop_reachout_cached,
+	loop_reachout_preconfigured,
 	merge_peer,
 	merge_peer_failed,
 	reachout_live,
 	reachout_cached,
+	reachout_preconfigured,
+	trigger_reachout,
 	connected,
 
 	// traffic type
