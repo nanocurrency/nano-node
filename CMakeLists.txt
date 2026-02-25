@@ -407,101 +407,35 @@ if(NOT WIN32)
   endif()
 endif()
 
-# Then set up boost modules
-set(Boost_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/submodules/boost/libs/config/include)
-set(BOOST_MODULE_LIBS
+# Then set up boost modules Only list libraries directly used by nano-node;
+# BoostRoot resolves transitive dependencies automatically.
+set(BOOST_INCLUDE_LIBRARIES
     algorithm
-    align
-    any
-    array
     asio
-    assert
-    atomic
     beast
-    bind
-    chrono
     circular_buffer
-    concept_check
-    config
-    container
-    container_hash
-    context
-    conversion
-    core
-    coroutine
-    date_time
-    describe
-    detail
     dll
-    dynamic_bitset
     endian
-    exception
     filesystem
-    foreach
     format
-    function
-    function_types
-    functional
-    fusion
-    integer
-    interprocess
-    intrusive
-    io
     iostreams
-    iterator
     lexical_cast
-    property_tree
-    lambda
-    log
-    logic
-    math
-    move
-    mp11
-    mpl
     multi_index
     multiprecision
-    numeric/conversion
     optional
-    parameter
-    phoenix
+    outcome
     pool
-    predef
-    preprocessor
     process
     program_options
-    proto
-    random
-    range
-    ratio
-    rational
-    regex
-    scope
-    scope_exit
-    serialization
-    smart_ptr
-    spirit
+    property_tree
     stacktrace
-    static_assert
-    static_string
     system
-    test
     thread
-    throw_exception
-    tokenizer
-    tuple
-    type_index
-    type_traits
-    typeof
     unordered
-    utility
-    variant
-    variant2
-    winapi)
+    variant)
 
 add_definitions(-DBOOST_ALL_NO_LIB) # Disable automatic boost linking
-foreach(lib IN LISTS BOOST_MODULE_LIBS)
-  add_subdirectory(submodules/boost/libs/${lib} EXCLUDE_FROM_ALL)
-endforeach()
+add_subdirectory(submodules/boost EXCLUDE_FROM_ALL)
 include_directories(${BOOST_LIBRARY_INCLUDES})
 
 # Configure stacktrace with appropriate backend
@@ -522,11 +456,6 @@ else()
   add_definitions(-DBOOST_STACKTRACE_GNU_SOURCE_NOT_REQUIRED)
   add_library(Boost::stacktrace ALIAS boost_stacktrace_basic)
 endif()
-
-# Workaround for missing reference errata in the boost property_tree module
-target_link_libraries(boost_property_tree INTERFACE Boost::any)
-target_link_libraries(boost_property_tree INTERFACE Boost::format)
-target_link_libraries(boost_property_tree INTERFACE Boost::multi_index)
 
 # RocksDB
 include_directories(submodules/rocksdb/include)
