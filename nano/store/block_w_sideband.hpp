@@ -16,4 +16,12 @@ public:
 	std::shared_ptr<nano::block> block;
 	nano::block_sideband sideband;
 };
+
+// Legacy sideband format: includes successor field (used during migrations)
+class block_w_sideband_legacy
+{
+public:
+	std::shared_ptr<nano::block> block;
+	nano::block_sideband sideband;
+};
 }

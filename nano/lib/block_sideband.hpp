@@ -55,7 +55,12 @@ public:
 	void serialize (nano::stream &, nano::block_type) const;
 	bool deserialize (nano::stream &, nano::block_type);
 
+	// Legacy v25 format (includes successor field in sideband)
+	void serialize_v25 (nano::stream &, nano::block_type) const;
+	bool deserialize_v25 (nano::stream &, nano::block_type);
+
 	static size_t size (nano::block_type);
+	static size_t size_v25 (nano::block_type);
 
 	static bool includes_account (nano::block_type);
 	static bool includes_height (nano::block_type);

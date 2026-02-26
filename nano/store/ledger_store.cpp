@@ -205,6 +205,9 @@ void ledger_store::perform_upgrades (nano::store::backend_meta meta)
 			upgrade_v24_to_v25 ();
 			[[fallthrough]];
 		case 25:
+			upgrade_v25_to_v26 ();
+			[[fallthrough]];
+		case 26:
 			break;
 		default:
 			release_assert (false, "invalid ledger database version for upgrade", std::to_string (meta.version));
@@ -263,6 +266,20 @@ nano::store::column_schema const ledger_store::schema_v24{
 	{ nano::store::table::rep_weights, "rep_weights" },
 	{ nano::store::table::online_weight, "online_weight" },
 	{ nano::store::table::pruned, "pruned" },
+	{ nano::store::table::peers, "peers" },
+	{ nano::store::table::confirmation_height, "confirmation_height" },
+	{ nano::store::table::final_votes, "final_votes" },
+	{ nano::store::table::meta, "meta" }
+};
+
+nano::store::column_schema const ledger_store::schema_v25{
+	{ nano::store::table::blocks, "blocks" },
+	{ nano::store::table::accounts, "accounts" },
+	{ nano::store::table::pending, "pending" },
+	{ nano::store::table::rep_weights, "rep_weights" },
+	{ nano::store::table::online_weight, "online_weight" },
+	{ nano::store::table::pruned, "pruned" },
+	{ nano::store::table::successor, "successor" },
 	{ nano::store::table::peers, "peers" },
 	{ nano::store::table::confirmation_height, "confirmation_height" },
 	{ nano::store::table::final_votes, "final_votes" },
@@ -383,8 +400,8 @@ void ledger_store::upgrade_v24_to_v25 ()
 {
 	logger.info (nano::log::type::ledger_upgrade, "Upgrading database from v24 to v25...");
 
-	// Open with schema_current so we have access to the successor table
-	backend.open (schema_current, nano::store::open_mode::read_write);
+	// Open with schema_v25 so we have access to the successor table
+	backend.open (schema_v25, nano::store::open_mode::read_write);
 	{
 		release_assert (backend.get_version (backend.tx_begin_read ()) == 24, "unexpected version during upgrade", std::to_string (backend.get_version (backend.tx_begin_read ())));
 
@@ -400,10 +417,11 @@ void ledger_store::upgrade_v24_to_v25 ()
 		auto const total_blocks = backend.count (backend.tx_begin_read (), nano::store::table::blocks);
 
 		// Iterate all blocks using a separate read transaction
+		// Use block_w_sideband_legacy to read old format with successor in sideband
 		auto iterate_blocks = [this] (auto && func) {
 			auto read_txn = backend.tx_begin_read ();
-			auto it = nano::store::typed_iterator<nano::block_hash, nano::store::block_w_sideband>{ backend.begin (read_txn, nano::store::table::blocks) };
-			auto const end = nano::store::typed_iterator<nano::block_hash, nano::store::block_w_sideband>{ backend.end (read_txn, nano::store::table::blocks) };
+			auto it = nano::store::typed_iterator<nano::block_hash, nano::store::block_w_sideband_legacy>{ backend.begin (read_txn, nano::store::table::blocks) };
+			auto const end = nano::store::typed_iterator<nano::block_hash, nano::store::block_w_sideband_legacy>{ backend.end (read_txn, nano::store::table::blocks) };
 			for (; it != end; ++it)
 			{
 				auto const & [hash, block_w_sideband] = *it;
@@ -411,7 +429,7 @@ void ledger_store::upgrade_v24_to_v25 ()
 			}
 		};
 
-		iterate_blocks ([this, &transaction, &processed, batch_size, total_blocks] (nano::block_hash const & hash, nano::store::block_w_sideband const & block_w_sideband) {
+		iterate_blocks ([this, &transaction, &processed, batch_size, total_blocks] (nano::block_hash const & hash, nano::store::block_w_sideband_legacy const & block_w_sideband) {
 			// If successor is non-zero, write to successor table
 			if (!block_w_sideband.sideband.successor.is_zero ())
 			{
@@ -434,6 +452,79 @@ void ledger_store::upgrade_v24_to_v25 ()
 	backend.close ();
 
 	logger.info (nano::log::type::ledger_upgrade, "Upgrading database from v24 to v25 completed");
+}
+
+// Remove successor from block sideband
+void ledger_store::upgrade_v25_to_v26 ()
+{
+	logger.info (nano::log::type::ledger_upgrade, "Upgrading database from v25 to v26...");
+
+	// Open with schema_v25
+	backend.open (schema_v25, nano::store::open_mode::read_write);
+	{
+		release_assert (backend.get_version (backend.tx_begin_read ()) == 25, "unexpected version during upgrade", std::to_string (backend.get_version (backend.tx_begin_read ())));
+
+		auto transaction = backend.tx_begin_write ();
+
+		// Smaller batch size for dev runs to potentially trigger edge cases
+		const size_t batch_size = nano::is_dev_run () ? 2 : 250000;
+		size_t processed = 0;
+		auto const total_blocks = backend.count (backend.tx_begin_read (), nano::store::table::blocks);
+
+		// Use cursor-based iteration with short-lived read transactions
+		// This allows LMDB to reuse old pages between batches, preventing database bloat during migration
+		nano::block_hash cursor{ 0 };
+		while (true)
+		{
+			auto read_txn = backend.tx_begin_read ();
+			auto it = cursor.is_zero ()
+			? nano::store::typed_iterator<nano::block_hash, nano::store::block_w_sideband_legacy>{ backend.begin (read_txn, nano::store::table::blocks) }
+			: nano::store::typed_iterator<nano::block_hash, nano::store::block_w_sideband_legacy>{ backend.begin (read_txn, nano::store::table::blocks, nano::store::db_val{ cursor }) };
+
+			// Skip the cursor key itself (already processed in previous batch)
+			if (!cursor.is_zero () && !it.is_end () && (*it).first == cursor)
+			{
+				++it;
+			}
+
+			size_t batch_count = 0;
+			for (; !it.is_end () && batch_count < batch_size; ++it, ++batch_count)
+			{
+				auto const & [hash, block_w_sideband] = *it;
+
+				// Rewrite block with new sideband format (no successor)
+				std::vector<uint8_t> data;
+				{
+					nano::vectorstream stream{ data };
+					nano::serialize_block (stream, *block_w_sideband.block);
+					block_w_sideband.sideband.serialize (stream, block_w_sideband.block->type ());
+				}
+
+				nano::store::db_val value{ data.size (), data.data () };
+				auto status = backend.put (transaction, nano::store::table::blocks, hash, value);
+				backend.release_assert_success (status);
+
+				cursor = hash;
+				processed++;
+			}
+
+			if (batch_count == 0)
+			{
+				break;
+			}
+
+			double const percentage = total_blocks > 0 ? (static_cast<double> (processed) / total_blocks * 100.0) : 0.0;
+			logger.info (nano::log::type::ledger_upgrade, "Processed {} blocks ({:.1f}%)", processed, percentage);
+			transaction.refresh ();
+		}
+
+		logger.info (nano::log::type::ledger_upgrade, "Done processing {} blocks", processed);
+		version.put (transaction, 26);
+	}
+
+	backend.close ();
+
+	logger.info (nano::log::type::ledger_upgrade, "Upgrading database from v25 to v26 completed");
 }
 
 std::string ledger_store::vendor_get () const

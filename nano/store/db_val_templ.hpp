@@ -244,6 +244,31 @@ inline db_val::operator nano::store::block_w_sideband () const
 	return block_w_sideband;
 }
 
+inline db_val::operator nano::store::block_w_sideband_legacy () const
+{
+	nano::bufferstream stream{ span_view.data (), span_view.size () };
+	nano::store::block_w_sideband_legacy block_w_sideband;
+	block_w_sideband.block = (nano::deserialize_block (stream));
+	auto remaining = stream.in_avail ();
+	auto block_type = block_w_sideband.block->type ();
+	bool error;
+	if (remaining == nano::block_sideband::size_v25 (block_type))
+	{
+		error = block_w_sideband.sideband.deserialize_v25 (stream, block_type);
+	}
+	else if (remaining == nano::block_sideband::size (block_type))
+	{
+		error = block_w_sideband.sideband.deserialize (stream, block_type);
+	}
+	else
+	{
+		release_assert (false, "unexpected sideband size", std::to_string (remaining));
+	}
+	release_assert (!error);
+	block_w_sideband.block->sideband_set (block_w_sideband.sideband);
+	return block_w_sideband;
+}
+
 inline db_val::operator std::shared_ptr<nano::vote> () const
 {
 	nano::bufferstream stream{ span_view.data (), span_view.size () };
