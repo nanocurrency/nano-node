@@ -109,7 +109,8 @@ TEST (block_store, sideband_serialization)
 	ASSERT_EQ (sideband1.account, sideband2.account);
 	ASSERT_EQ (sideband1.balance, sideband2.balance);
 	ASSERT_EQ (sideband1.height, sideband2.height);
-	ASSERT_EQ (sideband1.successor, sideband2.successor);
+	// Successor is no longer serialized in sideband (stored in separate table since v25)
+	ASSERT_EQ (sideband2.successor, nano::block_hash{ 0 });
 	ASSERT_EQ (sideband1.timestamp, sideband2.timestamp);
 }
 
