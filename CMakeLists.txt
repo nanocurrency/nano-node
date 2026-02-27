@@ -407,8 +407,9 @@ if(NOT WIN32)
   endif()
 endif()
 
-# Then set up boost modules Only list libraries directly used by nano-node;
-# BoostRoot resolves transitive dependencies automatically.
+# Then set up Boost modules. Only list libraries directly used by nano-node;
+# BoostRoot resolves transitive dependencies automatically. BoostRoot resolves
+# transitive dependencies automatically.
 set(BOOST_INCLUDE_LIBRARIES
     algorithm
     asio
