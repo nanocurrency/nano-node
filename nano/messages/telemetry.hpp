@@ -33,6 +33,13 @@ enum class telemetry_bootstrap_status : uint8_t
 	synced = 2
 };
 
+// Tracks which set of fields are present in a telemetry payload.
+enum class telemetry_version : uint8_t
+{
+	v1 = 1,
+	v2 = 2,
+};
+
 telemetry_database_backend to_telemetry_database_backend (nano::database_backend);
 
 class telemetry_data
@@ -60,6 +67,7 @@ public:
 	uint32_t confirmation_latency_ms{ 0 };
 	uint8_t bootstrap_status{ 0 };
 	std::vector<uint8_t> unknown_data;
+	telemetry_version version{ telemetry_version::v2 };
 
 	void serialize (nano::stream &) const;
 	void deserialize (nano::stream &, uint16_t);
@@ -72,13 +80,14 @@ public:
 
 	// Size does not include unknown_data
 	static auto constexpr size_v1 = sizeof (signature) + sizeof (node_id) + sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version) + sizeof (minor_version) + sizeof (patch_version) + sizeof (pre_release_version) + sizeof (maker) + sizeof (uint64_t) + sizeof (active_difficulty);
-	static auto constexpr size = size_v1 + sizeof (database_backend) + sizeof (confirmation_latency_ms) + sizeof (bootstrap_status);
+	static auto constexpr size_v2 = size_v1 + sizeof (database_backend) + sizeof (confirmation_latency_ms) + sizeof (bootstrap_status);
+	static auto constexpr size = size_v2; // Current version size
 	static auto constexpr latest_size = size; // This needs to be updated for each new telemetry version
 
 	uint16_t serialized_size () const;
 
 private:
-	uint16_t data_size_{ latest_size };
+	static uint16_t size_for_version (telemetry_version ver);
 	void serialize_without_signature (nano::stream &) const;
 
 public: // Logging
