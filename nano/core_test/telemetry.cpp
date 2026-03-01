@@ -100,6 +100,7 @@ TEST (telemetry, backward_compat_v1_to_new)
 	nano::bufferstream stream (old_payload.data (), old_payload.size ());
 	received.deserialize (stream, nano::messages::telemetry_data::size_v1);
 
+	ASSERT_EQ (received.version, nano::messages::telemetry_version::v1);
 	ASSERT_EQ (received.database_backend, 0);
 	ASSERT_EQ (received.confirmation_latency_ms, 0);
 	ASSERT_EQ (received.bootstrap_status, 0);
