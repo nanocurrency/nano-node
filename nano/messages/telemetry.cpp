@@ -178,9 +178,10 @@ void telemetry_data::deserialize (nano::stream & stream_a, uint16_t payload_leng
 	{
 		version = telemetry_version::v1;
 	}
-	if (payload_length_a > latest_size)
+	auto known_size = size_for_version (version);
+	if (payload_length_a > known_size)
 	{
-		read (stream_a, unknown_data, payload_length_a - latest_size);
+		read (stream_a, unknown_data, payload_length_a - known_size);
 	}
 }
 
