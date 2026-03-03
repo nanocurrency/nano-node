@@ -360,6 +360,7 @@ bool backend_rocksdb::count_is_exact (nano::store::table table) const
 		case nano::store::table::pending:
 		case nano::store::table::vote:
 		case nano::store::table::rep_weights:
+		case nano::store::table::successor:
 		case nano::store::table::unchecked:
 		case nano::store::table::frontiers:
 			// These tables use iteration for exact counts (may be slow)
