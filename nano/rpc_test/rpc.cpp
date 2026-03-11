@@ -6804,6 +6804,34 @@ TEST (rpc, telemetry_self)
 	}
 }
 
+// Verify that telemetry JSON response contains string representations of enum fields
+TEST (rpc, telemetry_json_serialization)
+{
+	nano::test::system system{ 1 };
+	auto node1 = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node1);
+
+	auto outer_node = system.nodes[0];
+	nano::test::establish_tcp (system, *node1, outer_node->network.endpoint ());
+
+	boost::property_tree::ptree request;
+	request.put ("action", "telemetry");
+	request.put ("address", "::1");
+	request.put ("port", node1->network.endpoint ().port ());
+
+	auto response (wait_response (system, rpc_ctx, request, 10s));
+
+	// Verify enum fields are serialized as human-readable strings, not raw integers
+	auto maker_str = response.get<std::string> ("maker");
+	ASSERT_TRUE (maker_str == "nf_node");
+
+	auto database_backend_str = response.get<std::string> ("database_backend");
+	ASSERT_TRUE (database_backend_str == "lmdb" || database_backend_str == "rocksdb");
+
+	auto bootstrap_status_str = response.get<std::string> ("bootstrap_status");
+	ASSERT_TRUE (bootstrap_status_str == "syncing" || bootstrap_status_str == "synced");
+}
+
 TEST (rpc, confirmation_active)
 {
 	nano::test::system system;

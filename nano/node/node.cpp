@@ -925,19 +925,18 @@ nano::messages::telemetry_data nano::node::local_telemetry () const
 	telemetry_data.minor_version = nano::get_minor_node_version ();
 	telemetry_data.patch_version = nano::get_patch_node_version ();
 	telemetry_data.pre_release_version = nano::get_pre_release_node_version ();
-	telemetry_data.maker = static_cast<std::underlying_type_t<nano::messages::telemetry_maker>> (ledger.pruning ? nano::messages::telemetry_maker::nf_pruned_node : nano::messages::telemetry_maker::nf_node);
+	telemetry_data.maker = ledger.pruning ? nano::messages::telemetry_maker::nf_pruned_node : nano::messages::telemetry_maker::nf_node;
 	telemetry_data.timestamp = std::chrono::system_clock::now ();
 	telemetry_data.active_difficulty = default_difficulty (nano::work_version::work_1);
-	telemetry_data.database_backend = static_cast<uint8_t> (nano::messages::to_telemetry_database_backend (config.database_backend));
+	telemetry_data.database_backend = nano::messages::to_telemetry_database_backend (config.database_backend);
 	auto conf_latency = active.recently_confirmed.latency_percentiles ();
 	telemetry_data.confirmation_latency_ms_p50 = conf_latency.p50;
 	telemetry_data.confirmation_latency_ms_p90 = conf_latency.p90;
 	telemetry_data.confirmation_latency_ms_p99 = conf_latency.p99;
 	auto bs = bootstrap.status ();
-	telemetry_data.bootstrap_status = static_cast<uint8_t> (
-	bs.priorities == 0
+	telemetry_data.bootstrap_status = bs.priorities == 0
 	? nano::messages::telemetry_bootstrap_status::synced
-	: nano::messages::telemetry_bootstrap_status::syncing);
+	: nano::messages::telemetry_bootstrap_status::syncing;
 	// Make sure this is the final operation!
 	telemetry_data.sign (node_id);
 	return telemetry_data;

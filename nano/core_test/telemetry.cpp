@@ -23,18 +23,18 @@ TEST (telemetry, signatures)
 	data.minor_version = 1;
 	data.patch_version = 5;
 	data.pre_release_version = 2;
-	data.maker = 1;
-	data.database_backend = static_cast<uint8_t> (nano::messages::telemetry_database_backend::lmdb);
+	data.maker = nano::messages::telemetry_maker::nf_pruned_node;
+	data.database_backend = nano::messages::telemetry_database_backend::lmdb;
 	data.confirmation_latency_ms_p50 = 250;
 	data.confirmation_latency_ms_p90 = 500;
 	data.confirmation_latency_ms_p99 = 750;
-	data.bootstrap_status = static_cast<uint8_t> (nano::messages::telemetry_bootstrap_status::synced);
+	data.bootstrap_status = nano::messages::telemetry_bootstrap_status::synced;
 	data.timestamp = std::chrono::system_clock::time_point (100ms);
 	data.sign (node_id);
 	ASSERT_FALSE (data.validate_signature ());
 	auto signature = data.signature;
 	// Check that the signature is different if changing a piece of data
-	data.maker = 2;
+	data.maker = nano::messages::telemetry_maker::nf_node;
 	data.sign (node_id);
 	ASSERT_NE (data.signature, signature);
 }
@@ -48,7 +48,7 @@ TEST (telemetry, unknown_data)
 	data.minor_version = 1;
 	data.patch_version = 5;
 	data.pre_release_version = 2;
-	data.maker = 1;
+	data.maker = nano::messages::telemetry_maker::nf_pruned_node;
 	data.timestamp = std::chrono::system_clock::time_point (100ms);
 	data.unknown_data.push_back (1);
 	data.sign (node_id);
@@ -65,7 +65,7 @@ TEST (telemetry, backward_compat_v1_to_new)
 	data.minor_version = 1;
 	data.patch_version = 5;
 	data.pre_release_version = 2;
-	data.maker = 1;
+	data.maker = nano::messages::telemetry_maker::nf_pruned_node;
 	data.timestamp = std::chrono::system_clock::time_point (100ms);
 	data.active_difficulty = 0xffffffc000000000;
 
@@ -88,7 +88,7 @@ TEST (telemetry, backward_compat_v1_to_new)
 		nano::write (stream, data.minor_version);
 		nano::write (stream, data.patch_version);
 		nano::write (stream, data.pre_release_version);
-		nano::write (stream, data.maker);
+		nano::write (stream, static_cast<uint8_t> (data.maker));
 		nano::write (stream, boost::endian::native_to_big (std::chrono::duration_cast<std::chrono::milliseconds> (data.timestamp.time_since_epoch ()).count ()));
 		nano::write (stream, boost::endian::native_to_big (data.active_difficulty));
 	}
@@ -102,12 +102,12 @@ TEST (telemetry, backward_compat_v1_to_new)
 	nano::bufferstream stream (old_payload.data (), old_payload.size ());
 	received.deserialize (stream, nano::messages::telemetry_data::size_v1);
 
-	ASSERT_EQ (received.version, nano::messages::telemetry_version::v1);
-	ASSERT_EQ (received.database_backend, 0);
+	ASSERT_EQ (received.version, nano::messages::telemetry_data_version::v1);
+	ASSERT_EQ (received.database_backend, nano::messages::telemetry_database_backend::unknown);
 	ASSERT_EQ (received.confirmation_latency_ms_p50, 0);
 	ASSERT_EQ (received.confirmation_latency_ms_p90, 0);
 	ASSERT_EQ (received.confirmation_latency_ms_p99, 0);
-	ASSERT_EQ (received.bootstrap_status, 0);
+	ASSERT_EQ (received.bootstrap_status, nano::messages::telemetry_bootstrap_status::unknown);
 	ASSERT_FALSE (received.validate_signature ());
 	ASSERT_EQ (received.node_id, node_id.pub);
 }
@@ -122,12 +122,12 @@ TEST (telemetry, forward_compat_new_to_old)
 	data.minor_version = 1;
 	data.patch_version = 5;
 	data.pre_release_version = 2;
-	data.maker = 1;
-	data.database_backend = static_cast<uint8_t> (nano::messages::telemetry_database_backend::lmdb);
+	data.maker = nano::messages::telemetry_maker::nf_pruned_node;
+	data.database_backend = nano::messages::telemetry_database_backend::lmdb;
 	data.confirmation_latency_ms_p50 = 100;
 	data.confirmation_latency_ms_p90 = 250;
 	data.confirmation_latency_ms_p99 = 500;
-	data.bootstrap_status = static_cast<uint8_t> (nano::messages::telemetry_bootstrap_status::synced);
+	data.bootstrap_status = nano::messages::telemetry_bootstrap_status::synced;
 	data.timestamp = std::chrono::system_clock::time_point (100ms);
 	data.active_difficulty = 0xffffffc000000000;
 	data.sign (node_id);
@@ -168,7 +168,9 @@ TEST (telemetry, forward_compat_new_to_old)
 		nano::read (stream, old_received.minor_version);
 		nano::read (stream, old_received.patch_version);
 		nano::read (stream, old_received.pre_release_version);
-		nano::read (stream, old_received.maker);
+		uint8_t maker_l;
+		nano::read (stream, maker_l);
+		old_received.maker = static_cast<nano::messages::telemetry_maker> (maker_l);
 		uint64_t timestamp_l;
 		nano::read (stream, timestamp_l);
 		boost::endian::big_to_native_inplace (timestamp_l);
@@ -181,7 +183,7 @@ TEST (telemetry, forward_compat_new_to_old)
 		nano::read (stream, old_received.unknown_data, remaining);
 	}
 
-	ASSERT_EQ (old_received.database_backend, 0);
+	ASSERT_EQ (old_received.database_backend, nano::messages::telemetry_database_backend::unknown);
 	ASSERT_EQ (old_received.unknown_data.size (), 14);
 
 	// Old node's validate_signature: serialize known fields + unknown_data
@@ -202,7 +204,7 @@ TEST (telemetry, forward_compat_new_to_old)
 		nano::write (stream, old_received.minor_version);
 		nano::write (stream, old_received.patch_version);
 		nano::write (stream, old_received.pre_release_version);
-		nano::write (stream, old_received.maker);
+		nano::write (stream, static_cast<uint8_t> (old_received.maker));
 		nano::write (stream, boost::endian::native_to_big (std::chrono::duration_cast<std::chrono::milliseconds> (old_received.timestamp.time_since_epoch ()).count ()));
 		nano::write (stream, boost::endian::native_to_big (old_received.active_difficulty));
 		nano::write (stream, old_received.unknown_data);
@@ -384,7 +386,7 @@ TEST (telemetry, maker_pruning)
 	ASSERT_EQ (node_server->get_node_id (), telemetry_data->node_id);
 
 	// Ensure telemetry response indicates pruned node
-	ASSERT_EQ (nano::messages::telemetry_maker::nf_pruned_node, static_cast<nano::messages::telemetry_maker> (telemetry_data->maker));
+	ASSERT_EQ (nano::messages::telemetry_maker::nf_pruned_node, telemetry_data->maker);
 }
 
 TEST (telemetry, invalid_signature)

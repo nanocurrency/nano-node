@@ -158,7 +158,9 @@ void telemetry_data::deserialize (nano::stream & stream_a, uint16_t payload_leng
 	read (stream_a, minor_version);
 	read (stream_a, patch_version);
 	read (stream_a, pre_release_version);
-	read (stream_a, maker);
+	uint8_t maker_l;
+	read (stream_a, maker_l);
+	maker = static_cast<telemetry_maker> (maker_l);
 
 	uint64_t timestamp_l;
 	read (stream_a, timestamp_l);
@@ -168,19 +170,23 @@ void telemetry_data::deserialize (nano::stream & stream_a, uint16_t payload_leng
 	boost::endian::big_to_native_inplace (active_difficulty);
 	if (payload_length_a >= size_v2)
 	{
-		read (stream_a, database_backend);
+		uint8_t database_backend_l;
+		read (stream_a, database_backend_l);
+		database_backend = static_cast<telemetry_database_backend> (database_backend_l);
 		read (stream_a, confirmation_latency_ms_p50);
 		boost::endian::big_to_native_inplace (confirmation_latency_ms_p50);
 		read (stream_a, confirmation_latency_ms_p90);
 		boost::endian::big_to_native_inplace (confirmation_latency_ms_p90);
 		read (stream_a, confirmation_latency_ms_p99);
 		boost::endian::big_to_native_inplace (confirmation_latency_ms_p99);
-		read (stream_a, bootstrap_status);
-		version = telemetry_version::v2;
+		uint8_t bootstrap_status_l;
+		read (stream_a, bootstrap_status_l);
+		bootstrap_status = static_cast<telemetry_bootstrap_status> (bootstrap_status_l);
+		version = telemetry_data_version::v2;
 	}
 	else
 	{
-		version = telemetry_version::v1;
+		version = telemetry_data_version::v1;
 	}
 	auto known_size = size_for_version (version);
 	if (payload_length_a > known_size)
@@ -206,16 +212,16 @@ void telemetry_data::serialize_without_signature (nano::stream & stream_a) const
 	write (stream_a, minor_version);
 	write (stream_a, patch_version);
 	write (stream_a, pre_release_version);
-	write (stream_a, maker);
+	write (stream_a, static_cast<uint8_t> (maker));
 	write (stream_a, boost::endian::native_to_big (std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ()));
 	write (stream_a, boost::endian::native_to_big (active_difficulty));
-	if (version >= telemetry_version::v2)
+	if (version >= telemetry_data_version::v2)
 	{
-		write (stream_a, database_backend);
+		write (stream_a, static_cast<uint8_t> (database_backend));
 		write (stream_a, boost::endian::native_to_big (confirmation_latency_ms_p50));
 		write (stream_a, boost::endian::native_to_big (confirmation_latency_ms_p90));
 		write (stream_a, boost::endian::native_to_big (confirmation_latency_ms_p99));
-		write (stream_a, bootstrap_status);
+		write (stream_a, static_cast<uint8_t> (bootstrap_status));
 	}
 	write (stream_a, unknown_data);
 }
@@ -241,16 +247,16 @@ nano::error telemetry_data::serialize_json (nano::jsonconfig & json, bool ignore
 	json.put ("minor_version", minor_version);
 	json.put ("patch_version", patch_version);
 	json.put ("pre_release_version", pre_release_version);
-	json.put ("maker", maker);
+	json.put ("maker", to_string (maker));
 	json.put ("timestamp", std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ());
 	json.put ("active_difficulty", nano::to_string_hex (active_difficulty));
-	if (version >= telemetry_version::v2)
+	if (version >= telemetry_data_version::v2)
 	{
-		json.put ("database_backend", database_backend);
+		json.put ("database_backend", to_string (database_backend));
 		json.put ("confirmation_latency_ms_p50", confirmation_latency_ms_p50);
 		json.put ("confirmation_latency_ms_p90", confirmation_latency_ms_p90);
 		json.put ("confirmation_latency_ms_p99", confirmation_latency_ms_p99);
-		json.put ("bootstrap_status", bootstrap_status);
+		json.put ("bootstrap_status", to_string (bootstrap_status));
 	}
 	// Keep these last for UI purposes
 	if (!ignore_identification_metrics_a)
@@ -307,7 +313,8 @@ nano::error telemetry_data::deserialize_json (nano::jsonconfig & json, bool igno
 	json.get ("minor_version", minor_version);
 	json.get ("patch_version", patch_version);
 	json.get ("pre_release_version", pre_release_version);
-	json.get ("maker", maker);
+	auto maker_l = json.get<std::string> ("maker");
+	maker = telemetry_maker_from_string (maker_l);
 	auto timestamp_l = json.get<uint64_t> ("timestamp");
 	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
 	auto current_active_difficulty_text = json.get<std::string> ("active_difficulty");
@@ -315,16 +322,18 @@ nano::error telemetry_data::deserialize_json (nano::jsonconfig & json, bool igno
 	debug_assert (!ec);
 	if (json.has_key ("database_backend"))
 	{
-		json.get ("database_backend", database_backend);
+		auto database_backend_l = json.get<std::string> ("database_backend");
+		database_backend = telemetry_database_backend_from_string (database_backend_l);
 		json.get ("confirmation_latency_ms_p50", confirmation_latency_ms_p50);
 		json.get ("confirmation_latency_ms_p90", confirmation_latency_ms_p90);
 		json.get ("confirmation_latency_ms_p99", confirmation_latency_ms_p99);
-		json.get ("bootstrap_status", bootstrap_status);
-		version = telemetry_version::v2;
+		auto bootstrap_status_l = json.get<std::string> ("bootstrap_status");
+		bootstrap_status = telemetry_bootstrap_status_from_string (bootstrap_status_l);
+		version = telemetry_data_version::v2;
 	}
 	else
 	{
-		version = telemetry_version::v1;
+		version = telemetry_data_version::v1;
 	}
 	return json.get_error ();
 }
@@ -367,13 +376,13 @@ uint16_t telemetry_data::serialized_size () const
 	return size_for_version (version) + static_cast<uint16_t> (unknown_data.size ());
 }
 
-uint16_t telemetry_data::size_for_version (telemetry_version ver)
+uint16_t telemetry_data::size_for_version (telemetry_data_version ver)
 {
 	switch (ver)
 	{
-		case telemetry_version::v1:
+		case telemetry_data_version::v1:
 			return size_v1;
-		case telemetry_version::v2:
+		case telemetry_data_version::v2:
 			return size_v2;
 		default:
 			debug_assert (false, "unknown telemetry version");
@@ -385,7 +394,14 @@ void telemetry_data::operator() (nano::object_stream & obs) const
 {
 	// TODO: Telemetry data
 }
+}
 
+/*
+ *
+ */
+
+namespace nano::messages
+{
 telemetry_database_backend to_telemetry_database_backend (nano::database_backend backend)
 {
 	switch (backend)
@@ -397,5 +413,72 @@ telemetry_database_backend to_telemetry_database_backend (nano::database_backend
 		default:
 			return telemetry_database_backend::unknown;
 	}
+}
+
+std::string to_string (telemetry_maker maker)
+{
+	switch (maker)
+	{
+		case telemetry_maker::nf_node:
+			return "nf_node";
+		case telemetry_maker::nf_pruned_node:
+			return "nf_pruned_node";
+	}
+	return "invalid";
+}
+
+std::string to_string (telemetry_database_backend backend)
+{
+	switch (backend)
+	{
+		case telemetry_database_backend::unknown:
+			return "unknown";
+		case telemetry_database_backend::lmdb:
+			return "lmdb";
+		case telemetry_database_backend::rocksdb:
+			return "rocksdb";
+	}
+	return "invalid";
+}
+
+std::string to_string (telemetry_bootstrap_status status)
+{
+	switch (status)
+	{
+		case telemetry_bootstrap_status::unknown:
+			return "unknown";
+		case telemetry_bootstrap_status::syncing:
+			return "syncing";
+		case telemetry_bootstrap_status::synced:
+			return "synced";
+	}
+	return "invalid";
+}
+
+telemetry_maker telemetry_maker_from_string (std::string const & str)
+{
+	if (str == "nf_node")
+		return telemetry_maker::nf_node;
+	if (str == "nf_pruned_node")
+		return telemetry_maker::nf_pruned_node;
+	return telemetry_maker::nf_node;
+}
+
+telemetry_database_backend telemetry_database_backend_from_string (std::string const & str)
+{
+	if (str == "lmdb")
+		return telemetry_database_backend::lmdb;
+	if (str == "rocksdb")
+		return telemetry_database_backend::rocksdb;
+	return telemetry_database_backend::unknown;
+}
+
+telemetry_bootstrap_status telemetry_bootstrap_status_from_string (std::string const & str)
+{
+	if (str == "syncing")
+		return telemetry_bootstrap_status::syncing;
+	if (str == "synced")
+		return telemetry_bootstrap_status::synced;
+	return telemetry_bootstrap_status::unknown;
 }
 }
