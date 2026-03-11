@@ -24,14 +24,14 @@ std::shared_ptr<nano::block> make_test_block ()
 	.build ();
 }
 
-nano::election_status make_test_election_status ()
+nano::election_status make_test_election_status (std::chrono::milliseconds duration = std::chrono::milliseconds (100))
 {
 	auto block = make_test_block ();
 	nano::election_status status;
 	status.winner = block;
 	status.type = nano::election_status_type::active_confirmed_quorum;
 	status.election_end = std::chrono::system_clock::now ();
-	status.election_duration = std::chrono::milliseconds (100);
+	status.election_duration = duration;
 	return status;
 }
 }
@@ -59,13 +59,13 @@ TEST (recently_confirmed_cache, put)
 		auto hash = nano::test::random_hash ();
 		roots.push_back (root);
 		hashes.push_back (hash);
-		cache.put (root, hash);
+		cache.put (root, hash, {});
 	}
 
 	ASSERT_EQ (3, cache.size ());
 
 	// Test duplicate filtering
-	cache.put (roots[4], hashes[4]);
+	cache.put (roots[4], hashes[4], {});
 	ASSERT_EQ (3, cache.size ());
 
 	// First entries should have been evicted (LRU)
@@ -84,7 +84,7 @@ TEST (recently_confirmed_cache, erase)
 	auto root = nano::test::random_qualified_root ();
 	auto hash = nano::test::random_hash ();
 
-	cache.put (root, hash);
+	cache.put (root, hash, {});
 	ASSERT_TRUE (cache.contains (hash));
 	ASSERT_EQ (1, cache.size ());
 
@@ -101,12 +101,69 @@ TEST (recently_confirmed_cache, clear)
 	{
 		auto root = nano::test::random_qualified_root ();
 		auto hash = nano::test::random_hash ();
-		cache.put (root, hash);
+		cache.put (root, hash, {});
 	}
 
 	ASSERT_EQ (5, cache.size ());
 	cache.clear ();
 	ASSERT_EQ (0, cache.size ());
+}
+
+TEST (recently_confirmed_cache, latency_percentiles_empty)
+{
+	nano::recently_confirmed_cache cache (10);
+	auto stats = cache.latency_percentiles ();
+	ASSERT_EQ (0, stats.p50);
+	ASSERT_EQ (0, stats.p90);
+	ASSERT_EQ (0, stats.p99);
+}
+
+TEST (recently_confirmed_cache, latency_percentiles_single)
+{
+	nano::recently_confirmed_cache cache (10);
+	auto status = make_test_election_status (std::chrono::milliseconds (500));
+	cache.put (status.winner->qualified_root (), status.winner->hash (), status);
+
+	auto stats = cache.latency_percentiles ();
+	ASSERT_EQ (500, stats.p50);
+	ASSERT_EQ (500, stats.p90);
+	ASSERT_EQ (500, stats.p99);
+}
+
+TEST (recently_confirmed_cache, latency_percentiles_distribution)
+{
+	nano::recently_confirmed_cache cache (1000);
+	for (int i = 1; i <= 100; ++i)
+	{
+		auto status = make_test_election_status (std::chrono::milliseconds (i));
+		cache.put (status.winner->qualified_root (), status.winner->hash (), status);
+	}
+
+	auto stats = cache.latency_percentiles ();
+	ASSERT_EQ (50, stats.p50);
+	ASSERT_EQ (90, stats.p90);
+	ASSERT_EQ (99, stats.p99);
+}
+
+TEST (recently_confirmed_cache, latency_percentiles_outliers)
+{
+	nano::recently_confirmed_cache cache (1000);
+
+	// 9 fast confirmations + 1 slow outlier (10 total)
+	for (int i = 0; i < 9; ++i)
+	{
+		auto status = make_test_election_status (std::chrono::milliseconds (10));
+		cache.put (status.winner->qualified_root (), status.winner->hash (), status);
+	}
+	auto status = make_test_election_status (std::chrono::milliseconds (10000));
+	cache.put (status.winner->qualified_root (), status.winner->hash (), status);
+
+	auto stats = cache.latency_percentiles ();
+	// p50 and p90 should reflect the fast majority
+	ASSERT_EQ (10, stats.p50);
+	ASSERT_EQ (10, stats.p90);
+	// p99 with 10 entries: ceil(0.99*10)-1 = 9, captures the outlier
+	ASSERT_EQ (10000, stats.p99);
 }
 
 /*

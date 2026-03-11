@@ -273,7 +273,9 @@ TEST (rep_crawler, DISABLED_recently_confirmed)
 	auto & node1 (*system.nodes[0]);
 	ASSERT_EQ (1, node1.ledger.block_count ());
 	auto const block = nano::dev::genesis;
-	node1.active.recently_confirmed.put (block->qualified_root (), block->hash ());
+	nano::election_status status;
+	status.winner = block;
+	node1.active.recently_confirmed.put (block->qualified_root (), block->hash (), status);
 	auto & node2 (*system.add_node ());
 	system.wallet (1)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto channel = node1.network.find_node_id (node2.get_node_id ());

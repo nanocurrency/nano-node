@@ -25,7 +25,9 @@ TEST (telemetry, signatures)
 	data.pre_release_version = 2;
 	data.maker = 1;
 	data.database_backend = static_cast<uint8_t> (nano::messages::telemetry_database_backend::lmdb);
-	data.confirmation_latency_ms = 500;
+	data.confirmation_latency_ms_p50 = 250;
+	data.confirmation_latency_ms_p90 = 500;
+	data.confirmation_latency_ms_p99 = 750;
 	data.bootstrap_status = static_cast<uint8_t> (nano::messages::telemetry_bootstrap_status::synced);
 	data.timestamp = std::chrono::system_clock::time_point (100ms);
 	data.sign (node_id);
@@ -102,13 +104,15 @@ TEST (telemetry, backward_compat_v1_to_new)
 
 	ASSERT_EQ (received.version, nano::messages::telemetry_version::v1);
 	ASSERT_EQ (received.database_backend, 0);
-	ASSERT_EQ (received.confirmation_latency_ms, 0);
+	ASSERT_EQ (received.confirmation_latency_ms_p50, 0);
+	ASSERT_EQ (received.confirmation_latency_ms_p90, 0);
+	ASSERT_EQ (received.confirmation_latency_ms_p99, 0);
 	ASSERT_EQ (received.bootstrap_status, 0);
 	ASSERT_FALSE (received.validate_signature ());
 	ASSERT_EQ (received.node_id, node_id.pub);
 }
 
-// New node (156-byte payload) -> Old v1 node: extra 6 bytes go to unknown_data, signature validates
+// New node (v2 payload) -> Old v1 node: extra 14 bytes go to unknown_data, signature validates
 TEST (telemetry, forward_compat_new_to_old)
 {
 	nano::keypair node_id;
@@ -120,7 +124,9 @@ TEST (telemetry, forward_compat_new_to_old)
 	data.pre_release_version = 2;
 	data.maker = 1;
 	data.database_backend = static_cast<uint8_t> (nano::messages::telemetry_database_backend::lmdb);
-	data.confirmation_latency_ms = 250;
+	data.confirmation_latency_ms_p50 = 100;
+	data.confirmation_latency_ms_p90 = 250;
+	data.confirmation_latency_ms_p99 = 500;
 	data.bootstrap_status = static_cast<uint8_t> (nano::messages::telemetry_bootstrap_status::synced);
 	data.timestamp = std::chrono::system_clock::time_point (100ms);
 	data.active_difficulty = 0xffffffc000000000;
@@ -171,12 +177,12 @@ TEST (telemetry, forward_compat_new_to_old)
 		boost::endian::big_to_native_inplace (old_received.active_difficulty);
 		// Old node doesn't know about database_backend or new fields
 		auto remaining = static_cast<uint16_t> (payload.size ()) - old_latest_size;
-		ASSERT_EQ (remaining, 6); // database_backend(1) + confirmation_latency_ms(4) + bootstrap_status(1)
+		ASSERT_EQ (remaining, 14); // database_backend(1) + confirmation_latency_ms_p50(4) + p90(4) + p99(4) + bootstrap_status(1)
 		nano::read (stream, old_received.unknown_data, remaining);
 	}
 
 	ASSERT_EQ (old_received.database_backend, 0);
-	ASSERT_EQ (old_received.unknown_data.size (), 6);
+	ASSERT_EQ (old_received.unknown_data.size (), 14);
 
 	// Old node's validate_signature: serialize known fields + unknown_data
 	std::vector<uint8_t> verify_bytes;

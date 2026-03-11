@@ -1094,8 +1094,6 @@ TEST (active_elections, fork_replacement_tally)
 	ASSERT_TRUE (votes2.find (nano::dev::genesis_key.pub) != votes2.end ());
 }
 
-namespace nano
-{
 // Blocks that won an election must always be seen as confirming or cemented
 TEST (active_elections, confirmation_consistency)
 {
@@ -1111,11 +1109,10 @@ TEST (active_elections, confirmation_consistency)
 		ASSERT_TIMELY (5s, node.block_confirmed (block->hash ()));
 		ASSERT_NO_ERROR (system.poll_until_true (1s, [&node, &block, i] {
 			EXPECT_EQ (i + 1, node.active.recently_confirmed.size ());
-			EXPECT_EQ (block->qualified_root (), node.active.recently_confirmed.back ().first);
+			EXPECT_TRUE (node.active.recently_confirmed.contains (block->qualified_root ()));
 			return i + 1 == node.active.recently_cemented.size (); // done after a callback
 		}));
 	}
-}
 }
 
 TEST (active_elections, confirm_new)

@@ -57,7 +57,7 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock)
 		status.voter_count = nano::narrow_cast<decltype (status.voter_count)> (last_votes.size ());
 		auto const status_l = status;
 
-		node.active.recently_confirmed.put (qualified_root, status_l.winner->hash ());
+		node.active.recently_confirmed.put (qualified_root, status_l.winner->hash (), status_l);
 
 		auto const extended_status = current_status_locked ();
 

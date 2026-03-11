@@ -64,7 +64,9 @@ public:
 	std::chrono::system_clock::time_point timestamp;
 	uint64_t active_difficulty{ 0 };
 	uint8_t database_backend{ 0 };
-	uint32_t confirmation_latency_ms{ 0 };
+	uint32_t confirmation_latency_ms_p50{ 0 };
+	uint32_t confirmation_latency_ms_p90{ 0 };
+	uint32_t confirmation_latency_ms_p99{ 0 };
 	uint8_t bootstrap_status{ 0 };
 	std::vector<uint8_t> unknown_data;
 	telemetry_version version{ telemetry_version::v2 };
@@ -80,7 +82,7 @@ public:
 
 	// Size does not include unknown_data
 	static auto constexpr size_v1 = sizeof (signature) + sizeof (node_id) + sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version) + sizeof (minor_version) + sizeof (patch_version) + sizeof (pre_release_version) + sizeof (maker) + sizeof (uint64_t) + sizeof (active_difficulty);
-	static auto constexpr size_v2 = size_v1 + sizeof (database_backend) + sizeof (confirmation_latency_ms) + sizeof (bootstrap_status);
+	static auto constexpr size_v2 = size_v1 + sizeof (database_backend) + sizeof (confirmation_latency_ms_p50) + sizeof (confirmation_latency_ms_p90) + sizeof (confirmation_latency_ms_p99) + sizeof (bootstrap_status);
 	static auto constexpr size = size_v2; // Current version size
 	static auto constexpr latest_size = size; // This needs to be updated for each new telemetry version
 
