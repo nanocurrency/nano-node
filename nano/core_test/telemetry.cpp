@@ -55,7 +55,7 @@ TEST (telemetry, unknown_data)
 	ASSERT_FALSE (data.validate_signature ());
 }
 
-// Old node (150-byte payload, size_v1) -> New node: signature must validate, new fields default to 0
+// Old node (size_v1 payload) -> New node: signature must validate, new fields default to 0
 TEST (telemetry, backward_compat_v1_to_new)
 {
 	nano::keypair node_id;
@@ -69,7 +69,7 @@ TEST (telemetry, backward_compat_v1_to_new)
 	data.timestamp = std::chrono::system_clock::time_point (100ms);
 	data.active_difficulty = 0xffffffc000000000;
 
-	// Simulate old node: serialize with size_v1 (150 bytes, no database_backend)
+	// Simulate old node: serialize with size_v1 (no v2 fields)
 	std::vector<uint8_t> old_payload;
 	{
 		nano::vectorstream stream (old_payload);
@@ -112,7 +112,7 @@ TEST (telemetry, backward_compat_v1_to_new)
 	ASSERT_EQ (received.node_id, node_id.pub);
 }
 
-// New node (v2 payload) -> Old v1 node: extra 14 bytes go to unknown_data, signature validates
+// New node (v2 payload) -> Old v1 node: extra v2 bytes go to unknown_data, signature validates
 TEST (telemetry, forward_compat_new_to_old)
 {
 	nano::keypair node_id;
@@ -133,7 +133,7 @@ TEST (telemetry, forward_compat_new_to_old)
 	data.sign (node_id);
 	ASSERT_FALSE (data.validate_signature ());
 
-	// Serialize the new-format data (156 bytes)
+	// Serialize the new-format data (size_v2)
 	std::vector<uint8_t> payload;
 	{
 		nano::vectorstream stream (payload);
@@ -179,12 +179,12 @@ TEST (telemetry, forward_compat_new_to_old)
 		boost::endian::big_to_native_inplace (old_received.active_difficulty);
 		// Old node doesn't know about database_backend or new fields
 		auto remaining = static_cast<uint16_t> (payload.size ()) - old_latest_size;
-		ASSERT_EQ (remaining, 14); // database_backend(1) + confirmation_latency_ms_p50(4) + p90(4) + p99(4) + bootstrap_status(1)
+		ASSERT_EQ (remaining, nano::messages::telemetry_data::size_v2 - nano::messages::telemetry_data::size_v1);
 		nano::read (stream, old_received.unknown_data, remaining);
 	}
 
 	ASSERT_EQ (old_received.database_backend, nano::messages::telemetry_database_backend::unknown);
-	ASSERT_EQ (old_received.unknown_data.size (), 14);
+	ASSERT_EQ (old_received.unknown_data.size (), nano::messages::telemetry_data::size_v2 - nano::messages::telemetry_data::size_v1);
 
 	// Old node's validate_signature: serialize known fields + unknown_data
 	std::vector<uint8_t> verify_bytes;
