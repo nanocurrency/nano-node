@@ -1868,6 +1868,38 @@ TEST (rpc, work_generate)
 	verify_response (request, hash);
 }
 
+// When work_peers are configured, use_peers defaults to true and work is generated via the remote peer
+TEST (rpc, work_generate_with_peers_defaults_distributed)
+{
+	nano::test::system system;
+
+	// Set up peer node (node1) with RPC to serve work_generate requests
+	auto node1 = add_ipc_enabled_node (system);
+	auto const rpc_ctx_peer = add_rpc (system, node1);
+
+	// Set up requesting node (node2) with local work generation disabled and work_peers pointing to node1's RPC
+	nano::node_config config2 = system.default_config ();
+	config2.work_threads = 0;
+	config2.work_peers.emplace_back ("::1", rpc_ctx_peer.rpc->listening_port ());
+	auto node2 = add_ipc_enabled_node (system, config2);
+	auto const rpc_ctx = add_rpc (system, node2);
+	ASSERT_FALSE (node2->local_work_generation_enabled ());
+	ASSERT_FALSE (node2->config.work_peers.empty ());
+
+	nano::block_hash hash (1);
+	boost::property_tree::ptree request;
+	request.put ("action", "work_generate");
+	request.put ("hash", hash.to_string ());
+
+	// Work must come from the remote peer since local generation is disabled
+	auto response (wait_response (system, rpc_ctx, request));
+	ASSERT_EQ (hash.to_string (), response.get<std::string> ("hash"));
+	auto work_text (response.get<std::string> ("work"));
+	uint64_t work;
+	ASSERT_FALSE (nano::from_string_hex (work_text, work));
+	ASSERT_GE (nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash, work), nano::dev::network_params.work.threshold_base (nano::work_version::work_1));
+}
+
 TEST (rpc, work_generate_difficulty)
 {
 	nano::test::system system;
