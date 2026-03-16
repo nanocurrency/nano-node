@@ -619,16 +619,20 @@ public:
 	{
 		auto tx = backend->tx_begin_write ();
 
-		// Set successor in sideband before serializing
-		auto sideband = block.sideband ();
-		sideband.successor = successor_hash;
-		block.sideband_set (sideband);
+		nano::block_sideband_v25 sideband_v25;
+		sideband_v25.successor = successor_hash;
+		sideband_v25.account = block.sideband ().account;
+		sideband_v25.balance = block.sideband ().balance;
+		sideband_v25.height = block.sideband ().height;
+		sideband_v25.timestamp = block.sideband ().timestamp;
+		sideband_v25.details = block.sideband ().details;
+		sideband_v25.source_epoch = block.sideband ().source_epoch;
 
 		std::vector<uint8_t> data;
 		{
 			nano::vectorstream stream{ data };
 			nano::serialize_block (stream, block);
-			block.sideband ().serialize_v25 (stream, block.type ());
+			sideband_v25.serialize (stream, block.type ());
 		}
 
 		nano::store::db_val value{ data.size (), data.data () };
@@ -742,16 +746,20 @@ public:
 	{
 		auto tx = backend->tx_begin_write ();
 
-		// Set successor in sideband before serializing
-		auto sideband = block.sideband ();
-		sideband.successor = successor_hash;
-		block.sideband_set (sideband);
+		nano::block_sideband_v25 sideband_v25;
+		sideband_v25.successor = successor_hash;
+		sideband_v25.account = block.sideband ().account;
+		sideband_v25.balance = block.sideband ().balance;
+		sideband_v25.height = block.sideband ().height;
+		sideband_v25.timestamp = block.sideband ().timestamp;
+		sideband_v25.details = block.sideband ().details;
+		sideband_v25.source_epoch = block.sideband ().source_epoch;
 
 		std::vector<uint8_t> data;
 		{
 			nano::vectorstream stream{ data };
 			nano::serialize_block (stream, block);
-			block.sideband ().serialize_v25 (stream, block.type ());
+			sideband_v25.serialize (stream, block.type ());
 		}
 
 		nano::store::db_val value{ data.size (), data.data () };
@@ -772,7 +780,7 @@ public:
 }
 
 /*
- * Test v25 to v26 upgrade: removes successor from block sideband and compacts
+ * Test v25 to v26 upgrade: removes successor from block sideband
  */
 TEST (ledger_upgrades, upgrade_v25_to_v26)
 {
@@ -816,8 +824,8 @@ TEST (ledger_upgrades, upgrade_v25_to_v26)
 	true, false, false, nano::epoch::epoch_0 });
 
 	// Record old sideband sizes (v25 format, includes successor)
-	auto const old_size_open = nano::block_sideband::size_v25 (nano::block_type::open);
-	auto const old_size_state = nano::block_sideband::size_v25 (nano::block_type::state);
+	auto const old_size_open = nano::block_sideband_v25::size (nano::block_type::open);
+	auto const old_size_state = nano::block_sideband_v25::size (nano::block_type::state);
 
 	// Record new sideband sizes (v26 format, no successor)
 	auto const new_size_open = nano::block_sideband::size (nano::block_type::open);

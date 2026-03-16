@@ -48,4 +48,4 @@ public:
 	uint64_t block_count{ 0 };
 	nano::epoch epoch_m{ nano::epoch::epoch_0 };
 };
-} // namespace nano
+}

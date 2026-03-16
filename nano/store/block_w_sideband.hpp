@@ -4,10 +4,6 @@
 
 #include <memory>
 
-namespace nano
-{
-class block;
-}
 namespace nano::store
 {
 class block_w_sideband
@@ -17,11 +13,11 @@ public:
 	nano::block_sideband sideband;
 };
 
-// Legacy sideband format: includes successor field (used during migrations)
-class block_w_sideband_legacy
+// Snapshot of block + sideband at v25 format which needs to be read for the v25 to v26 upgrade
+class block_w_sideband_v25
 {
 public:
 	std::shared_ptr<nano::block> block;
-	nano::block_sideband sideband;
+	nano::block_sideband_v25 sideband;
 };
 }

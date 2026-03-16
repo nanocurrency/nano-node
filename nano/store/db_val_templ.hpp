@@ -244,28 +244,13 @@ inline db_val::operator nano::store::block_w_sideband () const
 	return block_w_sideband;
 }
 
-inline db_val::operator nano::store::block_w_sideband_legacy () const
+inline db_val::operator nano::store::block_w_sideband_v25 () const
 {
 	nano::bufferstream stream{ span_view.data (), span_view.size () };
-	nano::store::block_w_sideband_legacy block_w_sideband;
+	nano::store::block_w_sideband_v25 block_w_sideband;
 	block_w_sideband.block = (nano::deserialize_block (stream));
-	auto remaining = stream.in_avail ();
-	auto block_type = block_w_sideband.block->type ();
-	bool error;
-	if (remaining == nano::block_sideband::size_v25 (block_type))
-	{
-		error = block_w_sideband.sideband.deserialize_v25 (stream, block_type);
-	}
-	else if (remaining == nano::block_sideband::size (block_type))
-	{
-		error = block_w_sideband.sideband.deserialize (stream, block_type);
-	}
-	else
-	{
-		release_assert (false, "unexpected sideband size", std::to_string (remaining));
-	}
+	auto error = block_w_sideband.sideband.deserialize (stream, block_w_sideband.block->type ());
 	release_assert (!error);
-	block_w_sideband.block->sideband_set (block_w_sideband.sideband);
 	return block_w_sideband;
 }
 

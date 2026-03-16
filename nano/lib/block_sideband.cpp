@@ -159,36 +159,8 @@ size_t nano::block_sideband::size (nano::block_type type)
 	return result;
 }
 
-size_t nano::block_sideband::size_v25 (nano::block_type type)
-{
-	return size (type) + sizeof (successor);
-}
-
 void nano::block_sideband::serialize (nano::stream & stream_a, nano::block_type type) const
 {
-	if (includes_account (type))
-	{
-		nano::write (stream_a, account.bytes);
-	}
-	if (includes_height (type))
-	{
-		nano::write (stream_a, boost::endian::native_to_big (height));
-	}
-	if (includes_balance (type))
-	{
-		nano::write (stream_a, balance.bytes);
-	}
-	nano::write (stream_a, boost::endian::native_to_big (timestamp));
-	if (includes_details (type))
-	{
-		details.serialize (stream_a);
-		nano::write (stream_a, static_cast<uint8_t> (source_epoch));
-	}
-}
-
-void nano::block_sideband::serialize_v25 (nano::stream & stream_a, nano::block_type type) const
-{
-	nano::write (stream_a, successor.bytes);
 	if (includes_account (type))
 	{
 		nano::write (stream_a, account.bytes);
@@ -263,13 +235,56 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_typ
 	return result;
 }
 
-bool nano::block_sideband::deserialize_v25 (nano::stream & stream_a, nano::block_type type)
+void nano::block_sideband::operator() (nano::object_stream & obs) const
+{
+	obs.write ("successor", successor);
+	obs.write ("account", account);
+	obs.write ("balance", balance);
+	obs.write ("height", height);
+	obs.write ("timestamp", timestamp);
+	obs.write ("source_epoch", source_epoch);
+	obs.write ("details", details);
+}
+
+/*
+ * block_sideband_v25
+ */
+
+size_t nano::block_sideband_v25::size (nano::block_type type)
+{
+	return nano::block_sideband::size (type) + sizeof (nano::block_hash);
+}
+
+void nano::block_sideband_v25::serialize (nano::stream & stream_a, nano::block_type type) const
+{
+	nano::write (stream_a, successor.bytes);
+	if (nano::block_sideband::includes_account (type))
+	{
+		nano::write (stream_a, account.bytes);
+	}
+	if (nano::block_sideband::includes_height (type))
+	{
+		nano::write (stream_a, boost::endian::native_to_big (height));
+	}
+	if (nano::block_sideband::includes_balance (type))
+	{
+		nano::write (stream_a, balance.bytes);
+	}
+	nano::write (stream_a, boost::endian::native_to_big (timestamp));
+	if (nano::block_sideband::includes_details (type))
+	{
+		details.serialize (stream_a);
+		nano::write (stream_a, static_cast<uint8_t> (source_epoch));
+	}
+}
+
+bool nano::block_sideband_v25::deserialize (nano::stream & stream_a, nano::block_type type)
 {
 	bool result (false);
 	try
 	{
 		nano::read (stream_a, successor.bytes);
-		if (includes_account (type))
+		if (nano::block_sideband::includes_account (type))
 		{
 			nano::read (stream_a, account.bytes);
 		}
@@ -277,7 +292,7 @@ bool nano::block_sideband::deserialize_v25 (nano::stream & stream_a, nano::block
 		{
 			account.clear ();
 		}
-		if (includes_height (type))
+		if (nano::block_sideband::includes_height (type))
 		{
 			nano::read (stream_a, height);
 			boost::endian::big_to_native_inplace (height);
@@ -286,7 +301,7 @@ bool nano::block_sideband::deserialize_v25 (nano::stream & stream_a, nano::block
 		{
 			height = 1;
 		}
-		if (includes_balance (type))
+		if (nano::block_sideband::includes_balance (type))
 		{
 			nano::read (stream_a, balance.bytes);
 		}
@@ -296,7 +311,7 @@ bool nano::block_sideband::deserialize_v25 (nano::stream & stream_a, nano::block
 		}
 		nano::read (stream_a, timestamp);
 		boost::endian::big_to_native_inplace (timestamp);
-		if (includes_details (type))
+		if (nano::block_sideband::includes_details (type))
 		{
 			result = details.deserialize (stream_a);
 			uint8_t source_epoch_uint8_t{ 0 };
@@ -315,15 +330,4 @@ bool nano::block_sideband::deserialize_v25 (nano::stream & stream_a, nano::block
 	}
 
 	return result;
-}
-
-void nano::block_sideband::operator() (nano::object_stream & obs) const
-{
-	obs.write ("successor", successor);
-	obs.write ("account", account);
-	obs.write ("balance", balance);
-	obs.write ("height", height);
-	obs.write ("timestamp", timestamp);
-	obs.write ("source_epoch", source_epoch);
-	obs.write ("details", details);
 }

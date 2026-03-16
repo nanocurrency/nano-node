@@ -55,12 +55,7 @@ public:
 	void serialize (nano::stream &, nano::block_type) const;
 	bool deserialize (nano::stream &, nano::block_type);
 
-	// Legacy v25 format (includes successor field in sideband)
-	void serialize_v25 (nano::stream &, nano::block_type) const;
-	bool deserialize_v25 (nano::stream &, nano::block_type);
-
 	static size_t size (nano::block_type);
-	static size_t size_v25 (nano::block_type);
 
 	static bool includes_account (nano::block_type);
 	static bool includes_height (nano::block_type);
@@ -78,5 +73,28 @@ public:
 
 public: // Logging
 	void operator() (nano::object_stream &) const;
+};
+
+/**
+ * Snapshot of the block sideband format at v25 (includes successor field).
+ * Used during v24->v25 and v25->v26 database migrations.
+ */
+class block_sideband_v25 final
+{
+public:
+	block_sideband_v25 () = default;
+
+	void serialize (nano::stream &, nano::block_type) const;
+	bool deserialize (nano::stream &, nano::block_type);
+	static size_t size (nano::block_type);
+
+public:
+	nano::block_hash successor{ 0 };
+	nano::account account{};
+	nano::amount balance{ 0 };
+	uint64_t height{ 0 };
+	uint64_t timestamp{ 0 };
+	nano::block_details details;
+	nano::epoch source_epoch{ nano::epoch::epoch_0 };
 };
 }

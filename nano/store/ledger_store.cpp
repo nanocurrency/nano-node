@@ -417,11 +417,11 @@ void ledger_store::upgrade_v24_to_v25 ()
 		auto const total_blocks = backend.count (backend.tx_begin_read (), nano::store::table::blocks);
 
 		// Iterate all blocks using a separate read transaction
-		// Use block_w_sideband_legacy to read old format with successor in sideband
+		// Use block_w_sideband_v25 to read old format with successor in sideband
 		auto iterate_blocks = [this] (auto && func) {
 			auto read_txn = backend.tx_begin_read ();
-			auto it = nano::store::typed_iterator<nano::block_hash, nano::store::block_w_sideband_legacy>{ backend.begin (read_txn, nano::store::table::blocks) };
-			auto const end = nano::store::typed_iterator<nano::block_hash, nano::store::block_w_sideband_legacy>{ backend.end (read_txn, nano::store::table::blocks) };
+			auto it = nano::store::typed_iterator<nano::block_hash, nano::store::block_w_sideband_v25>{ backend.begin (read_txn, nano::store::table::blocks) };
+			auto const end = nano::store::typed_iterator<nano::block_hash, nano::store::block_w_sideband_v25>{ backend.end (read_txn, nano::store::table::blocks) };
 			for (; it != end; ++it)
 			{
 				auto const & [hash, block_w_sideband] = *it;
@@ -429,7 +429,7 @@ void ledger_store::upgrade_v24_to_v25 ()
 			}
 		};
 
-		iterate_blocks ([this, &transaction, &processed, batch_size, total_blocks] (nano::block_hash const & hash, nano::store::block_w_sideband_legacy const & block_w_sideband) {
+		iterate_blocks ([this, &transaction, &processed, batch_size, total_blocks] (nano::block_hash const & hash, nano::store::block_w_sideband_v25 const & block_w_sideband) {
 			// If successor is non-zero, write to successor table
 			if (!block_w_sideband.sideband.successor.is_zero ())
 			{
@@ -478,8 +478,8 @@ void ledger_store::upgrade_v25_to_v26 ()
 		{
 			auto read_txn = backend.tx_begin_read ();
 			auto it = cursor.is_zero ()
-			? nano::store::typed_iterator<nano::block_hash, nano::store::block_w_sideband_legacy>{ backend.begin (read_txn, nano::store::table::blocks) }
-			: nano::store::typed_iterator<nano::block_hash, nano::store::block_w_sideband_legacy>{ backend.begin (read_txn, nano::store::table::blocks, nano::store::db_val{ cursor }) };
+			? nano::store::typed_iterator<nano::block_hash, nano::store::block_w_sideband_v25>{ backend.begin (read_txn, nano::store::table::blocks) }
+			: nano::store::typed_iterator<nano::block_hash, nano::store::block_w_sideband_v25>{ backend.begin (read_txn, nano::store::table::blocks, nano::store::db_val{ cursor }) };
 
 			// Skip the cursor key itself (already processed in previous batch)
 			if (!cursor.is_zero () && !it.is_end () && (*it).first == cursor)
@@ -497,7 +497,16 @@ void ledger_store::upgrade_v25_to_v26 ()
 				{
 					nano::vectorstream stream{ data };
 					nano::serialize_block (stream, *block_w_sideband.block);
-					block_w_sideband.sideband.serialize (stream, block_w_sideband.block->type ());
+					nano::block_sideband current_sideband{
+						block_w_sideband.sideband.account,
+						nano::block_hash{ 0 },
+						block_w_sideband.sideband.balance,
+						block_w_sideband.sideband.height,
+						block_w_sideband.sideband.timestamp,
+						block_w_sideband.sideband.details,
+						block_w_sideband.sideband.source_epoch
+					};
+					current_sideband.serialize (stream, block_w_sideband.block->type ());
 				}
 
 				nano::store::db_val value{ data.size (), data.data () };
