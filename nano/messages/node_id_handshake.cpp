@@ -26,11 +26,24 @@ node_id_handshake::node_id_handshake (nano::network_constants const & constants,
 	{
 		header.flag_set (query_flag);
 		header.flag_set (v2_flag); // Always indicate support for V2 handshake when querying, old peers will just ignore it
+		header.flag_set (v3_flag); // Always indicate support for V3 handshake when querying, old peers will just ignore it
 	}
 	if (response)
 	{
 		header.flag_set (response_flag);
-		header.flag_set (v2_flag, response->v2.has_value ()); // We only use V2 handshake when replying to peers that indicated support for it
+		// Response version takes precedence over query version flags
+		header.flag_set (v2_flag, false);
+		header.flag_set (v3_flag, false);
+		std::visit (nano::overloaded{
+					[&] (response_payload::v3_payload const &) {
+						header.flag_set (v3_flag);
+					},
+					[&] (response_payload::v2_payload const &) {
+						header.flag_set (v2_flag);
+					},
+					[] (std::monostate) {},
+					},
+		response->ext);
 	}
 }
 
@@ -88,16 +101,23 @@ bool node_id_handshake::is_response (message_header const & header)
 	return result;
 }
 
-bool node_id_handshake::is_v2 (message_header const & header)
+handshake_version node_id_handshake::version (message_header const & header)
 {
 	debug_assert (header.type == message_type::node_id_handshake);
-	bool result = header.extensions.test (v2_flag);
-	return result;
+	if (header.extensions.test (v3_flag))
+	{
+		return handshake_version::v3;
+	}
+	if (header.extensions.test (v2_flag))
+	{
+		return handshake_version::v2;
+	}
+	return handshake_version::v1;
 }
 
-bool node_id_handshake::is_v2 () const
+handshake_version node_id_handshake::version () const
 {
-	return is_v2 (header);
+	return version (header);
 }
 
 void node_id_handshake::visit (message_visitor & visitor_a) const
@@ -157,42 +177,65 @@ void node_id_handshake::query_payload::operator() (nano::object_stream & obs) co
 
 void node_id_handshake::response_payload::serialize (nano::stream & stream) const
 {
-	if (v2)
-	{
-		nano::write (stream, node_id);
-		nano::write (stream, v2->salt);
-		nano::write (stream, v2->genesis);
-		nano::write (stream, signature);
-	}
-	// TODO: Remove legacy handshake
-	else
-	{
-		nano::write (stream, node_id);
-		nano::write (stream, signature);
-	}
+	nano::write (stream, node_id);
+	std::visit (nano::overloaded{
+				[&] (v3_payload const & p) {
+					nano::write (stream, p.salt);
+					nano::write (stream, p.genesis);
+					nano::write_big_endian (stream, p.flags.underlying ());
+					nano::write_big_endian (stream, p.reserved);
+				},
+				[&] (v2_payload const & p) {
+					nano::write (stream, p.salt);
+					nano::write (stream, p.genesis);
+				},
+				[] (std::monostate) {},
+				},
+	ext);
+	nano::write (stream, signature);
 }
 
 void node_id_handshake::response_payload::deserialize (nano::stream & stream, message_header const & header)
 {
-	if (is_v2 (header))
+	nano::read (stream, node_id);
+	switch (version (header))
 	{
-		nano::read (stream, node_id);
-		v2_payload pld{};
-		nano::read (stream, pld.salt);
-		nano::read (stream, pld.genesis);
-		v2 = pld;
-		nano::read (stream, signature);
+		case handshake_version::v3:
+		{
+			v3_payload pld{};
+			nano::read (stream, pld.salt);
+			nano::read (stream, pld.genesis);
+			nano::read_big_endian (stream, pld.flags.underlying ());
+			nano::read_big_endian (stream, pld.reserved);
+			ext = pld;
+		}
+		break;
+		case handshake_version::v2:
+		{
+			v2_payload pld{};
+			nano::read (stream, pld.salt);
+			nano::read (stream, pld.genesis);
+			ext = pld;
+		}
+		break;
+		case handshake_version::v1:
+			break;
 	}
-	else
-	{
-		nano::read (stream, node_id);
-		nano::read (stream, signature);
-	}
+	nano::read (stream, signature);
 }
 
 std::size_t node_id_handshake::response_payload::size (const message_header & header)
 {
-	return is_v2 (header) ? size_v2 : size_v1;
+	switch (node_id_handshake::version (header))
+	{
+		case handshake_version::v3:
+			return size_v3;
+		case handshake_version::v2:
+			return size_v2;
+		case handshake_version::v1:
+			return size_v1;
+	}
+	return size_v1;
 }
 
 std::vector<uint8_t> node_id_handshake::response_payload::data_to_sign (const nano::uint256_union & cookie) const
@@ -200,20 +243,43 @@ std::vector<uint8_t> node_id_handshake::response_payload::data_to_sign (const na
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream{ bytes };
+		nano::write (stream, cookie);
 
-		if (v2)
-		{
-			nano::write (stream, cookie);
-			nano::write (stream, v2->salt);
-			nano::write (stream, v2->genesis);
-		}
-		// TODO: Remove legacy handshake
-		else
-		{
-			nano::write (stream, cookie);
-		}
+		std::visit (nano::overloaded{
+					[&] (v3_payload const & p) {
+						nano::write (stream, p.salt);
+						nano::write (stream, p.genesis);
+						nano::write_big_endian (stream, p.flags.underlying ());
+						nano::write_big_endian (stream, p.reserved);
+					},
+					[&] (v2_payload const & p) {
+						nano::write (stream, p.salt);
+						nano::write (stream, p.genesis);
+					},
+					[] (std::monostate) {},
+					},
+		ext);
 	}
 	return bytes;
+}
+
+std::optional<nano::block_hash> node_id_handshake::response_payload::genesis () const
+{
+	return std::visit (nano::overloaded{
+					   [] (v3_payload const & p) -> std::optional<nano::block_hash> { return p.genesis; },
+					   [] (v2_payload const & p) -> std::optional<nano::block_hash> { return p.genesis; },
+					   [] (std::monostate) -> std::optional<nano::block_hash> { return std::nullopt; },
+					   },
+	ext);
+}
+
+nano::node_capabilities_flags node_id_handshake::response_payload::flags () const
+{
+	return std::visit (nano::overloaded{
+					   [] (v3_payload const & p) -> nano::node_capabilities_flags { return p.flags; },
+					   [] (auto const &) -> nano::node_capabilities_flags { return {}; },
+					   },
+	ext);
 }
 
 void node_id_handshake::response_payload::sign (const nano::uint256_union & cookie, nano::keypair const & key)
@@ -239,11 +305,22 @@ void node_id_handshake::response_payload::operator() (nano::object_stream & obs)
 	obs.write ("node_id", node_id);
 	obs.write ("signature", signature);
 
-	obs.write ("v2", v2.has_value ());
-	if (v2)
-	{
-		obs.write ("salt", v2->salt);
-		obs.write ("genesis", v2->genesis);
-	}
+	std::visit (nano::overloaded{
+				[&] (v3_payload const & p) {
+					obs.write ("version", 3);
+					obs.write ("salt", p.salt);
+					obs.write ("genesis", p.genesis);
+					obs.write ("capabilities", p.flags);
+				},
+				[&] (v2_payload const & p) {
+					obs.write ("version", 2);
+					obs.write ("salt", p.salt);
+					obs.write ("genesis", p.genesis);
+				},
+				[&] (std::monostate) {
+					obs.write ("version", 1);
+				},
+				},
+	ext);
 }
 }

@@ -335,14 +335,14 @@ auto nano::transport::tcp_server::process_handshake (nano::messages::node_id_han
 	if (message.query)
 	{
 		// Sends response + our own query
-		co_await send_handshake_response (*message.query, message.is_v2 ());
+		co_await send_handshake_response (*message.query, message.version ());
 		// Fall through and continue handshake
 	}
 	if (message.response)
 	{
 		if (node.network.verify_handshake_response (*message.response, get_remote_endpoint ()))
 		{
-			bool success = to_realtime_connection (message.response->node_id);
+			bool success = to_realtime_connection (message.response->node_id, message.response->flags ());
 			if (success)
 			{
 				co_return handshake_status::realtime; // Switched to realtime
@@ -392,9 +392,9 @@ auto nano::transport::tcp_server::send_handshake_request () -> asio::awaitable<v
 	}
 }
 
-auto nano::transport::tcp_server::send_handshake_response (nano::messages::node_id_handshake::query_payload const & query, bool v2) -> asio::awaitable<void>
+auto nano::transport::tcp_server::send_handshake_response (nano::messages::node_id_handshake::query_payload const & query, nano::messages::handshake_version version) -> asio::awaitable<void>
 {
-	auto response = node.network.prepare_handshake_response (query, v2);
+	auto response = node.network.prepare_handshake_response (query, version);
 	auto own_query = node.network.prepare_handshake_query (get_remote_endpoint ());
 	nano::messages::node_id_handshake handshake_response{ node.network_params.network, own_query, response };
 
@@ -493,7 +493,7 @@ bool nano::transport::tcp_server::to_bootstrap_connection ()
 	return true;
 }
 
-bool nano::transport::tcp_server::to_realtime_connection (nano::account const & node_id)
+bool nano::transport::tcp_server::to_realtime_connection (nano::account const & node_id, nano::node_capabilities_flags flags)
 {
 	if (node.flags.disable_tcp_realtime)
 	{
@@ -504,7 +504,7 @@ bool nano::transport::tcp_server::to_realtime_connection (nano::account const & 
 		return false;
 	}
 
-	auto channel_l = node.network.tcp_channels.create (socket, shared_from_this (), node_id);
+	auto channel_l = node.network.tcp_channels.create (socket, shared_from_this (), node_id, flags);
 	if (!channel_l)
 	{
 		return false;

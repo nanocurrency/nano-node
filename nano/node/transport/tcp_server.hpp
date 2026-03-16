@@ -57,7 +57,7 @@ private:
 	asio::awaitable<nano::buffer_view> read_socket (size_t size) const;
 
 	asio::awaitable<handshake_status> process_handshake (nano::messages::node_id_handshake const & message);
-	asio::awaitable<void> send_handshake_response (nano::messages::node_id_handshake::query_payload const & query, bool v2);
+	asio::awaitable<void> send_handshake_response (nano::messages::node_id_handshake::query_payload const & query, nano::messages::handshake_version version);
 	asio::awaitable<void> send_handshake_request ();
 
 private:
@@ -76,7 +76,7 @@ private:
 
 private:
 	bool to_bootstrap_connection ();
-	bool to_realtime_connection (nano::account const & node_id);
+	bool to_realtime_connection (nano::account const & node_id, nano::node_capabilities_flags flags);
 
 private: // Visitors
 	class realtime_message_visitor : public nano::messages::message_visitor

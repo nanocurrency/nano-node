@@ -644,7 +644,8 @@ bool nano::network::verify_handshake_response (const nano::messages::node_id_han
 	}
 
 	// Prevent mismatched genesis
-	if (response.v2 && response.v2->genesis != node.network_params.ledger.genesis->hash ())
+	auto genesis = response.genesis ();
+	if (genesis && *genesis != node.network_params.ledger.genesis->hash ())
 	{
 		node.stats.inc (nano::stat::type::handshake, nano::stat::detail::invalid_genesis);
 		return false; // Fail
@@ -677,16 +678,34 @@ std::optional<nano::messages::node_id_handshake::query_payload> nano::network::p
 	return std::nullopt;
 }
 
-nano::messages::node_id_handshake::response_payload nano::network::prepare_handshake_response (const nano::messages::node_id_handshake::query_payload & query, bool v2) const
+nano::messages::node_id_handshake::response_payload nano::network::prepare_handshake_response (const nano::messages::node_id_handshake::query_payload & query, nano::messages::handshake_version version) const
 {
-	nano::messages::node_id_handshake::response_payload response{};
+	using handshake_version = nano::messages::handshake_version;
+	using response_payload = nano::messages::node_id_handshake::response_payload;
+
+	response_payload response{};
 	response.node_id = node.node_id.pub;
-	if (v2)
+	switch (version)
 	{
-		nano::messages::node_id_handshake::response_payload::v2_payload response_v2{};
-		response_v2.salt = nano::random_pool::generate<uint256_union> ();
-		response_v2.genesis = node.network_params.ledger.genesis->hash ();
-		response.v2 = response_v2;
+		case handshake_version::v3:
+		{
+			response_payload::v3_payload v3{};
+			v3.salt = nano::random_pool::generate<uint256_union> ();
+			v3.genesis = node.network_params.ledger.genesis->hash ();
+			v3.flags = node.get_capabilities ();
+			response.ext = v3;
+			break;
+		}
+		case handshake_version::v2:
+		{
+			response_payload::v2_payload v2{};
+			v2.salt = nano::random_pool::generate<uint256_union> ();
+			v2.genesis = node.network_params.ledger.genesis->hash ();
+			response.ext = v2;
+			break;
+		}
+		case handshake_version::v1:
+			break;
 	}
 	response.sign (query.cookie, node.node_id);
 	return response;

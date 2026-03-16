@@ -86,7 +86,7 @@ bool nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, 
 	return true; // OK
 }
 
-std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::create (const std::shared_ptr<nano::transport::tcp_socket> & socket, const std::shared_ptr<nano::transport::tcp_server> & server, const nano::account & node_id)
+std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::create (const std::shared_ptr<nano::transport::tcp_socket> & socket, const std::shared_ptr<nano::transport::tcp_server> & server, const nano::account & node_id, nano::node_capabilities_flags flags)
 {
 	auto const endpoint = socket->get_remote_endpoint ();
 	debug_assert (endpoint.address ().is_v6 ());
@@ -116,6 +116,7 @@ std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::cre
 	// This should be the only place in node where channels are created
 	auto channel = std::make_shared<nano::transport::tcp_channel> (node, socket);
 	channel->set_node_id (node_id);
+	channel->set_flags (flags);
 
 	attempts.get<endpoint_tag> ().erase (endpoint);
 

@@ -1,14 +1,23 @@
 #pragma once
 
 #include <nano/lib/keypair.hpp>
+#include <nano/lib/node_capabilities.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/messages/message.hpp>
 
 #include <optional>
+#include <variant>
 #include <vector>
 
 namespace nano::messages
 {
+enum class handshake_version
+{
+	v1,
+	v2,
+	v3,
+};
+
 class node_id_handshake final : public message
 {
 public: // Payload definitions
@@ -46,14 +55,27 @@ public: // Payload definitions
 			nano::block_hash genesis;
 		};
 
+		struct v3_payload
+		{
+			nano::uint256_union salt;
+			nano::block_hash genesis;
+			nano::node_capabilities_flags flags;
+			uint64_t reserved{ 0 }; // Reserved for future use
+		};
+
 	public:
 		nano::account node_id;
 		nano::signature signature;
-		std::optional<v2_payload> v2;
+		std::variant<std::monostate, v2_payload, v3_payload> ext;
+
+	public: // Accessors
+		std::optional<nano::block_hash> genesis () const;
+		nano::node_capabilities_flags flags () const;
 
 	public:
 		static std::size_t constexpr size_v1 = sizeof (nano::account) + sizeof (nano::signature);
 		static std::size_t constexpr size_v2 = sizeof (nano::account) + sizeof (nano::signature) + sizeof (v2_payload);
+		static std::size_t constexpr size_v3 = sizeof (nano::account) + sizeof (nano::signature) + sizeof (v3_payload);
 		static std::size_t size (message_header const &);
 
 	public: // Logging
@@ -75,11 +97,12 @@ public: // Header
 	static uint8_t constexpr query_flag = 0;
 	static uint8_t constexpr response_flag = 1;
 	static uint8_t constexpr v2_flag = 2;
+	static uint8_t constexpr v3_flag = 3;
 
 	static bool is_query (message_header const &);
 	static bool is_response (message_header const &);
-	static bool is_v2 (message_header const &);
-	bool is_v2 () const;
+	static handshake_version version (message_header const &);
+	handshake_version version () const;
 
 public: // Payload
 	std::optional<query_payload> query;

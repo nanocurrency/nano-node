@@ -878,6 +878,17 @@ int nano::node::store_version ()
 	return store.version.get (transaction);
 }
 
+nano::node_capabilities_flags nano::node::get_capabilities () const
+{
+	if (flags.capabilities_override)
+	{
+		return *flags.capabilities_override;
+	}
+	// TODO: Set capabilities flags based on node configuration and state
+	nano::node_capabilities_flags caps;
+	return caps;
+}
+
 nano::bootstrap_weights nano::node::get_bootstrap_weights () const
 {
 	return nano::get_bootstrap_weights (network_params.network.current_network);

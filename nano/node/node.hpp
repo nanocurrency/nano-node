@@ -89,6 +89,7 @@ public:
 	void bootstrap_block (nano::block_hash const &);
 
 	nano::account get_node_id () const;
+	nano::node_capabilities_flags get_capabilities () const;
 	nano::messages::telemetry_data local_telemetry () const;
 	std::string identifier () const;
 

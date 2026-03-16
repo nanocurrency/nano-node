@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/node_capabilities.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp_server.hpp>
 #include <nano/node/transport/tcp_socket.hpp>
@@ -196,7 +197,7 @@ TEST (tcp_server, handshake_self_connection_rejected)
 
 	nano::messages::node_id_handshake::response_payload response;
 	response.node_id = node->node_id.pub; // Use our own node ID
-	response.v2 = nano::messages::node_id_handshake::response_payload::v2_payload{
+	response.ext = nano::messages::node_id_handshake::response_payload::v2_payload{
 		nano::random_pool::generate<nano::uint256_union> (), // salt
 		node->network_params.ledger.genesis->hash () // genesis
 	};
@@ -366,4 +367,40 @@ TEST (tcp_server, handshake_wrong_network_id)
 	// Verify the handshake was aborted
 	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort), 1);
 	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_server_message_error, nano::stat::detail::invalid_network), 1);
+}
+
+/*
+ * Verify that v3 handshake exchanges node capability flags between peers
+ */
+TEST (tcp_server, handshake_flags_exchanged)
+{
+	nano::test::system system;
+
+	nano::node_flags flags1;
+	flags1.capabilities_override = nano::node_capabilities_flags{ nano::node_capabilities::topo_index };
+	auto node1 = system.add_node (flags1);
+
+	nano::node_flags flags2;
+	flags2.capabilities_override = nano::node_capabilities_flags{ nano::node_capabilities::vote_storage };
+	auto node2 = system.add_node (flags2);
+
+	node1->network.merge_peer (node2->network.endpoint ());
+
+	ASSERT_TIMELY (10s, node1->network.find_node_id (node2->node_id.pub));
+	ASSERT_TIMELY (10s, node2->network.find_node_id (node1->node_id.pub));
+
+	// node1's channel to node2 should carry node2's capabilities (vote_storage)
+	auto chan1 = node1->network.find_node_id (node2->node_id.pub);
+	ASSERT_TRUE (chan1);
+	ASSERT_TRUE (chan1->get_flags ().test (nano::node_capabilities::vote_storage));
+	ASSERT_FALSE (chan1->get_flags ().test (nano::node_capabilities::topo_index));
+
+	// node2's channel to node1 should carry node1's capabilities (topo_index)
+	auto chan2 = node2->network.find_node_id (node1->node_id.pub);
+	ASSERT_TRUE (chan2);
+	ASSERT_TRUE (chan2->get_flags ().test (nano::node_capabilities::topo_index));
+	ASSERT_FALSE (chan2->get_flags ().test (nano::node_capabilities::vote_storage));
+
+	ASSERT_EQ (node1->stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort), 0);
+	ASSERT_EQ (node2->stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort), 0);
 }

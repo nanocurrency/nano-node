@@ -4,6 +4,7 @@
 #include <nano/lib/errors.hpp>
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/logging.hpp>
+#include <nano/lib/node_capabilities.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/stats.hpp>
@@ -204,5 +205,6 @@ public:
 	std::size_t block_processor_verification_size{ 0 };
 	std::size_t vote_processor_capacity{ 144 * 1024 };
 	std::size_t bootstrap_interval{ 0 }; // For testing only
+	std::optional<nano::node_capabilities_flags> capabilities_override; // For testing only
 };
 }

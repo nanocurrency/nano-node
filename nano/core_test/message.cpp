@@ -786,7 +786,7 @@ TEST (message, node_id_handshake_response_serialization)
 	ASSERT_FALSE (error);
 	ASSERT_FALSE (message.query);
 	ASSERT_TRUE (message.response);
-	ASSERT_FALSE (message.response->v2);
+	ASSERT_TRUE (std::holds_alternative<std::monostate> (message.response->ext));
 
 	ASSERT_EQ (original.response->node_id, message.response->node_id);
 	ASSERT_EQ (original.response->signature, message.response->signature);
@@ -802,7 +802,7 @@ TEST (message, node_id_handshake_response_v2_serialization)
 	nano::messages::node_id_handshake::response_payload::v2_payload v2_pld{};
 	v2_pld.salt = 17;
 	v2_pld.genesis = nano::block_hash{ 13 };
-	response.v2 = v2_pld;
+	response.ext = v2_pld;
 
 	nano::messages::node_id_handshake original{ nano::dev::network_params.network, std::nullopt, response };
 
@@ -825,12 +825,63 @@ TEST (message, node_id_handshake_response_v2_serialization)
 	ASSERT_FALSE (error);
 	ASSERT_FALSE (message.query);
 	ASSERT_TRUE (message.response);
-	ASSERT_TRUE (message.response->v2);
+
+	auto * v2_orig = std::get_if<nano::messages::node_id_handshake::response_payload::v2_payload> (&original.response->ext);
+	auto * v2_msg = std::get_if<nano::messages::node_id_handshake::response_payload::v2_payload> (&message.response->ext);
+	ASSERT_TRUE (v2_orig);
+	ASSERT_TRUE (v2_msg);
 
 	ASSERT_EQ (original.response->node_id, message.response->node_id);
 	ASSERT_EQ (original.response->signature, message.response->signature);
-	ASSERT_EQ (original.response->v2->salt, message.response->v2->salt);
-	ASSERT_EQ (original.response->v2->genesis, message.response->v2->genesis);
+	ASSERT_EQ (v2_orig->salt, v2_msg->salt);
+	ASSERT_EQ (v2_orig->genesis, v2_msg->genesis);
+
+	ASSERT_TRUE (nano::at_end (stream));
+}
+
+TEST (message, node_id_handshake_response_v3_serialization)
+{
+	nano::messages::node_id_handshake::response_payload response{};
+	response.node_id = nano::account{ 7 };
+	response.signature = nano::signature{ 11 };
+	nano::messages::node_id_handshake::response_payload::v3_payload v3_pld{};
+	v3_pld.salt = 17;
+	v3_pld.genesis = nano::block_hash{ 13 };
+	v3_pld.flags = nano::node_capabilities_flags{ nano::node_capabilities::topo_index } | nano::node_capabilities::vote_storage;
+	response.ext = v3_pld;
+
+	nano::messages::node_id_handshake original{ nano::dev::network_params.network, std::nullopt, response };
+
+	// Serialize
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream{ bytes };
+		original.serialize (stream);
+	}
+	nano::bufferstream stream{ bytes.data (), bytes.size () };
+
+	// Header
+	bool error = false;
+	nano::messages::message_header header (error, stream);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (nano::messages::message_type::node_id_handshake, header.type);
+
+	// Message
+	nano::messages::node_id_handshake message{ error, stream, header };
+	ASSERT_FALSE (error);
+	ASSERT_FALSE (message.query);
+	ASSERT_TRUE (message.response);
+
+	auto * v3_orig = std::get_if<nano::messages::node_id_handshake::response_payload::v3_payload> (&original.response->ext);
+	auto * v3_msg = std::get_if<nano::messages::node_id_handshake::response_payload::v3_payload> (&message.response->ext);
+	ASSERT_TRUE (v3_orig);
+	ASSERT_TRUE (v3_msg);
+
+	ASSERT_EQ (original.response->node_id, message.response->node_id);
+	ASSERT_EQ (original.response->signature, message.response->signature);
+	ASSERT_EQ (v3_orig->salt, v3_msg->salt);
+	ASSERT_EQ (v3_orig->genesis, v3_msg->genesis);
+	ASSERT_EQ (v3_orig->flags, v3_msg->flags);
 
 	ASSERT_TRUE (nano::at_end (stream));
 }
@@ -864,9 +915,10 @@ TEST (handshake, signature_v2)
 
 	nano::messages::node_id_handshake::response_payload original{};
 	original.node_id = node_id.pub;
-	original.v2 = nano::messages::node_id_handshake::response_payload::v2_payload{};
-	original.v2->genesis = nano::test::random_hash ();
-	original.v2->salt = nano::random_pool::generate<nano::uint256_union> ();
+	nano::messages::node_id_handshake::response_payload::v2_payload v2{};
+	v2.genesis = nano::test::random_hash ();
+	v2.salt = nano::random_pool::generate<nano::uint256_union> ();
+	original.ext = v2;
 	original.sign (cookie, node_id);
 	ASSERT_TRUE (original.validate (cookie));
 
@@ -885,7 +937,7 @@ TEST (handshake, signature_v2)
 	{
 		auto message = original;
 		ASSERT_TRUE (message.validate (cookie));
-		message.v2->genesis = nano::test::random_hash ();
+		std::get<nano::messages::node_id_handshake::response_payload::v2_payload> (message.ext).genesis = nano::test::random_hash ();
 		ASSERT_FALSE (message.validate (cookie));
 	}
 
@@ -893,7 +945,47 @@ TEST (handshake, signature_v2)
 	{
 		auto message = original;
 		ASSERT_TRUE (message.validate (cookie));
-		message.v2->salt = nano::random_pool::generate<nano::uint256_union> ();
+		std::get<nano::messages::node_id_handshake::response_payload::v2_payload> (message.ext).salt = nano::random_pool::generate<nano::uint256_union> ();
+		ASSERT_FALSE (message.validate (cookie));
+	}
+}
+
+TEST (handshake, signature_v3)
+{
+	nano::keypair node_id{};
+	auto cookie = nano::random_pool::generate<nano::uint256_union> ();
+
+	nano::messages::node_id_handshake::response_payload original{};
+	original.node_id = node_id.pub;
+	nano::messages::node_id_handshake::response_payload::v3_payload v3{};
+	v3.genesis = nano::test::random_hash ();
+	v3.salt = nano::random_pool::generate<nano::uint256_union> ();
+	v3.flags = nano::node_capabilities::topo_index;
+	original.ext = v3;
+	original.sign (cookie, node_id);
+	ASSERT_TRUE (original.validate (cookie));
+
+	// Mutate flags -> signature should fail
+	{
+		auto message = original;
+		ASSERT_TRUE (message.validate (cookie));
+		std::get<nano::messages::node_id_handshake::response_payload::v3_payload> (message.ext).flags = {};
+		ASSERT_FALSE (message.validate (cookie));
+	}
+
+	// Mutate genesis -> signature should fail
+	{
+		auto message = original;
+		ASSERT_TRUE (message.validate (cookie));
+		std::get<nano::messages::node_id_handshake::response_payload::v3_payload> (message.ext).genesis = nano::test::random_hash ();
+		ASSERT_FALSE (message.validate (cookie));
+	}
+
+	// Mutate reserved -> signature should fail
+	{
+		auto message = original;
+		ASSERT_TRUE (message.validate (cookie));
+		std::get<nano::messages::node_id_handshake::response_payload::v3_payload> (message.ext).reserved = 42;
 		ASSERT_FALSE (message.validate (cookie));
 	}
 }

@@ -93,6 +93,8 @@ add_library(
   network_filter.cpp
   networks.hpp
   networks.cpp
+  node_capabilities.hpp
+  node_capabilities.cpp
   numbers.hpp
   numbers.cpp
   numbers_templ.hpp
