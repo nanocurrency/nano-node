@@ -110,6 +110,7 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
 		("disable_ongoing_bootstrap", "Disable ongoing bootstrap")
 		("disable_reachout", "Disable peer reachout")
+		("disable_reachout_preconfigured", "Disable preconfigured peer reachout")
 		("disable_rep_crawler", "Disable rep crawler")
 		("disable_request_loop", "Disable request loop")
 		("disable_bootstrap_listener", "Disables bootstrap processing for TCP listener (not including realtime network TCP connections)")
@@ -148,6 +149,7 @@ void nano::update_flags (nano::node_flags & flags_a, boost::program_options::var
 	flags_a.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 	flags_a.disable_ongoing_bootstrap = (vm.count ("disable_ongoing_bootstrap") > 0);
 	flags_a.disable_reachout = (vm.count ("disable_reachout") > 0);
+	flags_a.disable_reachout_preconfigured = (vm.count ("disable_reachout_preconfigured") > 0);
 	flags_a.disable_rep_crawler = (vm.count ("disable_rep_crawler") > 0);
 	flags_a.disable_request_loop = (vm.count ("disable_request_loop") > 0);
 	flags_a.disable_bootstrap_bulk_pull_server = (vm.count ("disable_bootstrap_bulk_pull_server") > 0);

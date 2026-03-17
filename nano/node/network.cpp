@@ -80,7 +80,7 @@ void nano::network::start ()
 		node.logger.warn (nano::log::type::network, "Cached peer reachout is disabled");
 	}
 
-	if (!node.flags.disable_reachout)
+	if (!node.flags.disable_reachout_preconfigured)
 	{
 		reachout_preconfigured_thread = std::thread ([this] () {
 			nano::thread_role::set (nano::thread_role::name::network_reachout);

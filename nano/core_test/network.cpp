@@ -1123,6 +1123,7 @@ TEST (network, disable_reachout)
 	nano::test::system system;
 	nano::node_flags flags;
 	flags.disable_reachout = true;
+	flags.disable_reachout_preconfigured = true;
 	auto & node = *system.add_node (flags);
 
 	// Wait a bit for any background activity
@@ -1132,5 +1133,4 @@ TEST (network, disable_reachout)
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::reachout_live));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::reachout_cached));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::reachout_preconfigured));
-}
 }
