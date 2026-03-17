@@ -52,6 +52,9 @@ add_library(
   constants.cpp
   container_info.hpp
   container_info.cpp
+  enum_flags.hpp
+  enum_flags_templ.hpp
+  enum_util.hpp
   env.hpp
   env.cpp
   epoch.hpp
