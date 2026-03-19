@@ -40,7 +40,7 @@ public:
 class request_aggregator final
 {
 public:
-	request_aggregator (request_aggregator_config const &, nano::node &, nano::vote_generator &, nano::vote_generator &, nano::local_vote_history &, nano::ledger &, nano::wallets &, nano::vote_router &);
+	request_aggregator (request_aggregator_config const &, nano::node &, nano::voting_policy &, nano::vote_generator &, nano::vote_generator &, nano::local_vote_history &, nano::ledger &, nano::wallets &, nano::vote_router &);
 	~request_aggregator ();
 
 	void start ();
@@ -80,6 +80,7 @@ private: // Dependencies
 	request_aggregator_config const & config;
 	nano::node_config const & node_config;
 	nano::network_constants const & network_constants;
+	nano::voting_policy & policy;
 	nano::local_vote_history & local_votes;
 	nano::ledger & ledger;
 	nano::wallets & wallets;

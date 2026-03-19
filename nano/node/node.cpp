@@ -53,6 +53,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
+#include <nano/secure/voting_policy.hpp>
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
@@ -174,13 +175,15 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	vote_processor{ *vote_processor_impl },
 	vote_cache_processor_impl{ std::make_unique<nano::vote_cache_processor> (config.vote_processor, vote_router, vote_cache, stats, logger) },
 	vote_cache_processor{ *vote_cache_processor_impl },
-	generator_impl{ std::make_unique<nano::vote_generator> (config.vote_generator, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* non-final */ false, loopback_channel) },
+	voting_policy_impl{ std::make_unique<nano::voting_policy> (ledger) },
+	voting_policy{ *voting_policy_impl },
+	generator_impl{ std::make_unique<nano::vote_generator> (config.vote_generator, *this, voting_policy, ledger, wallets, vote_processor, history, network, stats, logger, /* non-final */ false, loopback_channel) },
 	generator{ *generator_impl },
-	final_generator_impl{ std::make_unique<nano::vote_generator> (config.vote_generator, *this, ledger, wallets, vote_processor, history, network, stats, logger, /* final */ true, loopback_channel) },
+	final_generator_impl{ std::make_unique<nano::vote_generator> (config.vote_generator, *this, voting_policy, ledger, wallets, vote_processor, history, network, stats, logger, /* final */ true, loopback_channel) },
 	final_generator{ *final_generator_impl },
 	scheduler_impl{ std::make_unique<nano::scheduler::component> (config, *this, ledger, ledger_notifications, bucketing, active, online_reps, vote_cache, cementing_set, stats, logger) },
 	scheduler{ *scheduler_impl },
-	aggregator_impl{ std::make_unique<nano::request_aggregator> (config.request_aggregator, *this, generator, final_generator, history, ledger, wallets, vote_router) },
+	aggregator_impl{ std::make_unique<nano::request_aggregator> (config.request_aggregator, *this, voting_policy, generator, final_generator, history, ledger, wallets, vote_router) },
 	aggregator{ *aggregator_impl },
 	backlog_scan_impl{ std::make_unique<nano::backlog_scan> (config.backlog_scan, ledger, stats) },
 	backlog_scan{ *backlog_scan_impl },

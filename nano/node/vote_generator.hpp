@@ -8,6 +8,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/voting_policy.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -18,7 +19,6 @@
 #include <condition_variable>
 #include <deque>
 #include <thread>
-#include <variant>
 
 namespace mi = boost::multi_index;
 
@@ -39,13 +39,12 @@ public:
 class vote_generator final
 {
 private:
-	using candidate_t = std::pair<nano::root, nano::block_hash>;
-	using request_t = std::pair<std::vector<candidate_t>, std::shared_ptr<nano::transport::channel>>;
+	using request_t = std::pair<std::vector<nano::vote_permit>, std::shared_ptr<nano::transport::channel>>;
 	using queue_entry_t = std::pair<nano::root, nano::block_hash>;
 	std::chrono::steady_clock::time_point next_broadcast = { std::chrono::steady_clock::now () };
 
 public:
-	vote_generator (vote_generator_config const &, nano::node &, nano::ledger &, nano::wallets &, nano::vote_processor &, nano::local_vote_history &, nano::network &, nano::stats &, nano::logger &, bool is_final, std::shared_ptr<nano::transport::channel> inproc_channel);
+	vote_generator (vote_generator_config const &, nano::node &, nano::voting_policy &, nano::ledger &, nano::wallets &, nano::vote_processor &, nano::local_vote_history &, nano::network &, nano::stats &, nano::logger &, bool is_final, std::shared_ptr<nano::transport::channel> inproc_channel);
 	~vote_generator ();
 
 	/** Queue items for vote generation, or broadcast votes already in cache */
@@ -59,15 +58,11 @@ public:
 	nano::container_info container_info () const;
 
 private:
-	using transaction_variant_t = std::variant<nano::secure::read_transaction, nano::secure::write_transaction>;
-
 	void run ();
 	void broadcast (nano::unique_lock<nano::mutex> &);
 	void reply (nano::unique_lock<nano::mutex> &, request_t &&);
-	void vote (std::vector<nano::block_hash> const &, std::vector<nano::root> const &, std::function<void (std::shared_ptr<nano::vote> const &)> const &);
 	void broadcast_action (std::shared_ptr<nano::vote> const &) const;
 	void process_batch (std::deque<queue_entry_t> & batch);
-	bool should_vote (transaction_variant_t const &, nano::root const &, nano::block_hash const &) const;
 	bool broadcast_predicate () const;
 
 	nano::stat::type stat_type () const;
@@ -76,6 +71,7 @@ private:
 private: // Dependencies
 	vote_generator_config const & config;
 	nano::node & node;
+	nano::voting_policy & policy;
 	nano::ledger & ledger;
 	nano::wallets & wallets;
 	nano::vote_processor & vote_processor;
@@ -92,7 +88,7 @@ private:
 	nano::condition_variable condition;
 	static std::size_t constexpr max_requests{ 2048 };
 	std::deque<request_t> requests;
-	std::deque<candidate_t> candidates;
+	std::deque<nano::vote_permit> candidates;
 	std::atomic<bool> stopped{ false };
 	std::thread thread;
 	std::shared_ptr<nano::transport::channel> inproc_channel;

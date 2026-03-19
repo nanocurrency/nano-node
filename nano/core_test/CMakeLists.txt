@@ -82,6 +82,7 @@ add_executable(
   unchecked_map.cpp
   utility.cpp
   vote_cache.cpp
+  voting_policy.cpp
   vote_processor.cpp
   vote_rebroadcaster.cpp
   voting.cpp
