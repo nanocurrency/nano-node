@@ -6342,3 +6342,329 @@ TEST (bootstrap_weights, bootstrap_weights)
 		ASSERT_TRUE (weights.representatives.empty ());
 	}
 }
+
+TEST (ledger, block_find_by_hash)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::block_builder builder;
+	nano::keypair key1;
+
+	// send1 to key1, open1 opens key1's account
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto open1 = builder.state ()
+				 .account (key1.pub)
+				 .previous (0)
+				 .representative (key1.pub)
+				 .balance (100)
+				 .link (send1->hash ())
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (key1.pub))
+				 .build ();
+
+	auto txn = ledger.tx_begin_write ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, open1));
+
+	// Hash finds send1, root would find open1 via account lookup — hash must win
+	auto result = ledger.block_find (txn, send1->hash (), nano::root (key1.pub));
+	ASSERT_NE (nullptr, result);
+	ASSERT_EQ (*result, *send1);
+}
+
+TEST (ledger, block_find_by_successor)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::block_builder builder;
+
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+
+	auto txn = ledger.tx_begin_write ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send1));
+
+	// Wrong hash but root is the predecessor — finds successor (send1)
+	auto result = ledger.block_find (txn, nano::block_hash (1), nano::root (nano::dev::genesis->hash ()));
+	ASSERT_NE (nullptr, result);
+	ASSERT_EQ (*result, *send1);
+}
+
+TEST (ledger, block_find_by_account)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::block_builder builder;
+	nano::keypair key1;
+
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+
+	auto open1 = builder.state ()
+				 .account (key1.pub)
+				 .previous (0)
+				 .representative (key1.pub)
+				 .balance (100)
+				 .link (send1->hash ())
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (key1.pub))
+				 .build ();
+
+	auto txn = ledger.tx_begin_write ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, open1));
+
+	// Wrong hash but root matches account — finds the open block
+	auto result = ledger.block_find (txn, nano::block_hash (1), nano::root (key1.pub));
+	ASSERT_NE (nullptr, result);
+	ASSERT_EQ (*result, *open1);
+}
+
+TEST (ledger, block_find_not_found)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::block_builder builder;
+	nano::keypair key1;
+
+	// Add blocks to the ledger that could confuse the search
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto open1 = builder.state ()
+				 .account (key1.pub)
+				 .previous (0)
+				 .representative (key1.pub)
+				 .balance (100)
+				 .link (send1->hash ())
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (key1.pub))
+				 .build ();
+
+	auto txn = ledger.tx_begin_write ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, open1));
+
+	// Unknown hash and zero root
+	ASSERT_EQ (nullptr, ledger.block_find (txn, nano::block_hash (1), nano::root (0)));
+
+	// Unknown hash and root that doesn't match any account or predecessor
+	nano::keypair key2;
+	ASSERT_EQ (nullptr, ledger.block_find (txn, nano::block_hash (1), nano::root (key2.pub)));
+
+	// Existing root but wrong hash — root has no successor (open1 is the head)
+	ASSERT_EQ (nullptr, ledger.block_find (txn, nano::block_hash (1), nano::root (open1->hash ())));
+}
+
+// Epoch open blocks can be created without the account's private key.
+// block_find should return the epoch open when searching by root-as-account.
+TEST (ledger, block_find_epoch_open)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::block_builder builder;
+	nano::keypair key1;
+
+	// Send to key1 so there's a pending entry (required for epoch open)
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+
+	// Epoch open for key1 — signed by epoch signer, not by key1
+	auto epoch_open = builder.state ()
+					  .account (key1.pub)
+					  .previous (0)
+					  .representative (0)
+					  .balance (0)
+					  .link (ledger.epoch_link (nano::epoch::epoch_1))
+					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					  .work (*pool.generate (key1.pub))
+					  .build ();
+
+	auto txn = ledger.tx_begin_write ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, epoch_open));
+
+	// Direct hash lookup finds the epoch open
+	auto result1 = ledger.block_find (txn, epoch_open->hash (), nano::root (0));
+	ASSERT_NE (nullptr, result1);
+	ASSERT_EQ (*result1, *epoch_open);
+
+	// Root-as-account lookup finds the epoch open (unknown hash)
+	auto result2 = ledger.block_find (txn, nano::block_hash (1), nano::root (key1.pub));
+	ASSERT_NE (nullptr, result2);
+	ASSERT_EQ (*result2, *epoch_open);
+}
+
+// When both a regular open and a subsequent block exist for an account that was epoch-opened,
+// block_find should return the correct block based on the search criteria.
+TEST (ledger, block_find_epoch_open_then_receive)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::block_builder builder;
+	nano::keypair key1;
+
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+
+	// Epoch open for key1
+	auto epoch_open = builder.state ()
+					  .account (key1.pub)
+					  .previous (0)
+					  .representative (0)
+					  .balance (0)
+					  .link (ledger.epoch_link (nano::epoch::epoch_1))
+					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					  .work (*pool.generate (key1.pub))
+					  .build ();
+
+	// Receive on key1 after epoch open
+	auto receive1 = builder.state ()
+					.account (key1.pub)
+					.previous (epoch_open->hash ())
+					.representative (key1.pub)
+					.balance (100)
+					.link (send1->hash ())
+					.sign (key1.prv, key1.pub)
+					.work (*pool.generate (epoch_open->hash ()))
+					.build ();
+
+	auto txn = ledger.tx_begin_write ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, epoch_open));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, receive1));
+
+	// Direct hash lookup for epoch_open
+	auto result1 = ledger.block_find (txn, epoch_open->hash (), nano::root (0));
+	ASSERT_NE (nullptr, result1);
+	ASSERT_EQ (*result1, *epoch_open);
+
+	// Direct hash lookup for receive1
+	auto result2 = ledger.block_find (txn, receive1->hash (), nano::root (0));
+	ASSERT_NE (nullptr, result2);
+	ASSERT_EQ (*result2, *receive1);
+
+	// Root-as-account lookup returns the open block (epoch_open)
+	auto result3 = ledger.block_find (txn, nano::block_hash (1), nano::root (key1.pub));
+	ASSERT_NE (nullptr, result3);
+	ASSERT_EQ (*result3, *epoch_open);
+
+	// Root as predecessor (epoch_open hash) returns successor (receive1)
+	auto result4 = ledger.block_find (txn, nano::block_hash (1), nano::root (epoch_open->hash ()));
+	ASSERT_NE (nullptr, result4);
+	ASSERT_EQ (*result4, *receive1);
+}
+
+// A block hash can collide with an account public key.
+// When root matches both a block hash (successor path) and an account (open block path), the successor lookup takes priority.
+TEST (ledger, block_find_root_hash_account_collision)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::block_builder builder;
+
+	// Create send1 from genesis — its hash will also be used as an "account" public key
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+
+	// send1->hash() is now a valid block hash in the ledger
+	// Use it as an account public key: send funds to "account" send1->hash()
+	auto send2 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 200)
+				 .link (send1->hash ()) // send to "account" whose pub key == send1's hash
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+
+	// Epoch open the account whose public key == send1->hash()
+	// This doesn't require the private key
+	nano::account colliding_account{ send1->hash () };
+	auto epoch_open = builder.state ()
+					  .account (colliding_account)
+					  .previous (0)
+					  .representative (0)
+					  .balance (0)
+					  .link (ledger.epoch_link (nano::epoch::epoch_1))
+					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					  .work (*pool.generate (send1->hash ()))
+					  .build ();
+
+	auto txn = ledger.tx_begin_write ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send2));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, epoch_open));
+
+	// Now send1->hash() is both:
+	// - A block hash (send1) whose successor is send2
+	// - An account public key whose open block is epoch_open
+
+	// Root = send1->hash(), unknown hash:
+	// Successor path finds send2 (successor of send1)
+	auto result = ledger.block_find (txn, nano::block_hash (1), nano::root (send1->hash ()));
+	ASSERT_NE (nullptr, result);
+	ASSERT_EQ (*result, *send2); // successor wins over account lookup
+
+	// But providing the correct hash for epoch_open finds it directly
+	auto result2 = ledger.block_find (txn, epoch_open->hash (), nano::root (send1->hash ()));
+	ASSERT_NE (nullptr, result2);
+	ASSERT_EQ (*result2, *epoch_open);
+}

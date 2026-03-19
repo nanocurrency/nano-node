@@ -630,6 +630,30 @@ std::shared_ptr<nano::block> nano::ledger::find_receive_block_by_send_hash (secu
 	return result;
 }
 
+std::shared_ptr<nano::block> nano::ledger::block_find (secure::transaction const & transaction, nano::block_hash const & hash, nano::root const & root) const
+{
+	// First try lookup by hash
+	if (auto block = any.block_get (transaction, hash))
+	{
+		return block;
+	}
+	// If hash is not found, try lookup by root
+	if (!root.is_zero ())
+	{
+		// Search for successor of root
+		if (auto successor = any.block_successor (transaction, root.as_block_hash ()))
+		{
+			return any.block_get (transaction, successor.value ());
+		}
+		// If that fails treat root as account
+		if (auto info = any.account_get (transaction, root.as_account ()))
+		{
+			return any.block_get (transaction, info->open_block);
+		}
+	}
+	return nullptr;
+}
+
 std::optional<nano::account> nano::ledger::linked_account (secure::transaction const & transaction, nano::block const & block)
 {
 	if (block.is_send ())

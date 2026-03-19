@@ -82,6 +82,12 @@ public:
 	nano::epoch version (secure::transaction const &, nano::block_hash const & hash) const;
 
 	/**
+	 * Finds a block by hash, falling back to root-based lookups
+	 * Searches: (1) direct hash lookup, (2) successor of root, (3) open block of root-as-account
+	 */
+	std::shared_ptr<nano::block> block_find (secure::transaction const &, nano::block_hash const &, nano::root const &) const;
+
+	/**
 	 * Checks if a block exists in the ledger but has not yet been cemented
 	 */
 	bool block_uncemented (secure::transaction const &, nano::block_hash const &) const;
@@ -117,6 +123,7 @@ public:
 	nano::stats & stats;
 	nano::logger & logger;
 
+public:
 	nano::ledger_cache cache;
 	nano::rep_weights rep_weights;
 
