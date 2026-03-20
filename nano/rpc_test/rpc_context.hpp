@@ -8,8 +8,8 @@ class ipc_rpc_processor;
 class node;
 class node_rpc_config;
 class public_key;
+class account;
 class rpc;
-using account = public_key;
 
 namespace ipc
 {

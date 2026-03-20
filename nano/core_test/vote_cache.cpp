@@ -21,7 +21,7 @@ std::function<nano::uint128_t (nano::account const & rep)> rep_weight_query ()
 	return [] (nano::account const & rep) { return rep_to_weight_map ()[rep]; };
 }
 
-void register_rep (nano::account & rep, nano::uint128_t weight)
+void register_rep (nano::account const & rep, nano::uint128_t weight)
 {
 	auto & map = rep_to_weight_map ();
 	map[rep] = weight;

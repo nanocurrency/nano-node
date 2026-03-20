@@ -25,7 +25,7 @@ class root;
 class raw_key;
 class signature;
 class qualified_root;
-using account = public_key;
+class account;
 
 class block;
 class block_details;

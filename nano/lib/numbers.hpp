@@ -229,7 +229,7 @@ public: // Keep operators inlined
 	}
 };
 
-class public_key final : public uint256_union
+class public_key : public uint256_union
 {
 public:
 	using uint256_union::uint256_union;
@@ -278,13 +278,20 @@ public: // Keep operators inlined
 	}
 };
 
-class wallet_id : public uint256_union
+class wallet_id final : public uint256_union
 {
 	using uint256_union::uint256_union;
 };
 
-// These are synonymous
-using account = public_key;
+class account final : public public_key
+{
+public:
+	using public_key::public_key;
+
+	account () = default;
+	account (nano::public_key const & key) :
+		public_key{ key } {};
+};
 
 class hash_or_account
 {

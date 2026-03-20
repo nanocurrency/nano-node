@@ -218,6 +218,11 @@ inline db_val::operator nano::public_key () const
 	return read_as_bytes<nano::public_key> ();
 }
 
+inline db_val::operator nano::account () const
+{
+	return read_as_bytes<nano::account> ();
+}
+
 inline db_val::operator std::array<char, 64> () const
 {
 	nano::bufferstream stream{ span_view.data (), span_view.size () };

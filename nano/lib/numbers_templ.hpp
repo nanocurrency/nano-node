@@ -31,6 +31,14 @@ struct hash<::nano::public_key>
 	}
 };
 template <>
+struct hash<::nano::account>
+{
+	size_t operator() (::nano::account const & value) const noexcept
+	{
+		return hash<::nano::uint256_union>{}(value);
+	}
+};
+template <>
 struct hash<::nano::block_hash>
 {
 	size_t operator() (::nano::block_hash const & value) const noexcept
@@ -128,6 +136,14 @@ struct hash<::nano::public_key>
 	size_t operator() (::nano::public_key const & value) const noexcept
 	{
 		return std::hash<::nano::public_key> () (value);
+	}
+};
+template <>
+struct hash<::nano::account>
+{
+	size_t operator() (::nano::account const & value) const noexcept
+	{
+		return std::hash<::nano::account> () (value);
 	}
 };
 template <>

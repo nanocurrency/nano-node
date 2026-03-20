@@ -73,8 +73,8 @@ public:
 	bool is_epoch_link (nano::link const &) const;
 	std::shared_ptr<nano::block> find_receive_block_by_send_hash (secure::transaction const &, nano::account const & destination, nano::block_hash const & send_block_hash);
 	std::optional<nano::account> linked_account (secure::transaction const &, nano::block const &);
-	nano::account const & epoch_signer (nano::link const &) const;
-	nano::link const & epoch_link (nano::epoch) const;
+	nano::account epoch_signer (nano::link const &) const;
+	nano::link epoch_link (nano::epoch) const;
 	bool bootstrap_height_reached () const;
 	std::unordered_map<nano::account, nano::uint128_t> rep_weights_snapshot () const;
 

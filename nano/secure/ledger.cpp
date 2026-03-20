@@ -636,21 +636,21 @@ std::optional<nano::account> nano::ledger::linked_account (secure::transaction c
 	{
 		return block.destination ();
 	}
-	else if (block.is_receive ())
+	if (block.is_receive ())
 	{
 		return any.block_account (transaction, block.source ());
 	}
 	return std::nullopt;
 }
 
-nano::account const & nano::ledger::epoch_signer (nano::link const & link_a) const
+nano::account nano::ledger::epoch_signer (nano::link const & link) const
 {
-	return constants.epochs.signer (constants.epochs.epoch (link_a));
+	return constants.epochs.signer (constants.epochs.epoch (link));
 }
 
-nano::link const & nano::ledger::epoch_link (nano::epoch epoch_a) const
+nano::link nano::ledger::epoch_link (nano::epoch epoch) const
 {
-	return constants.epochs.link (epoch_a);
+	return constants.epochs.link (epoch);
 }
 
 void nano::ledger::update_account (secure::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & old_a, nano::account_info const & new_a)

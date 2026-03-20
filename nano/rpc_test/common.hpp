@@ -8,7 +8,7 @@ class node;
 class node_config;
 class node_flags;
 class public_key;
-using account = public_key;
+class account;
 
 namespace store
 {

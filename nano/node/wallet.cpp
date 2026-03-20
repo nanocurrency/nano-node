@@ -372,7 +372,7 @@ bool nano::wallet_store::valid_public_key (nano::public_key const & pub) const
 	return pub.number () >= special_count;
 }
 
-bool nano::wallet_store::exists (nano::store::transaction const & transaction_a, nano::public_key const & pub) const
+bool nano::wallet_store::exists (nano::store::transaction const & transaction_a, nano::account const & pub) const
 {
 	return valid_public_key (pub) && find (transaction_a, pub) != end (transaction_a);
 }

@@ -74,6 +74,7 @@ public:
 	explicit operator nano::amount () const;
 	explicit operator nano::block_hash () const;
 	explicit operator nano::public_key () const;
+	explicit operator nano::account () const;
 	explicit operator std::array<char, 64> () const;
 	explicit operator block_w_sideband () const;
 	explicit operator std::shared_ptr<nano::vote> () const;

@@ -72,6 +72,10 @@ struct fmt::formatter<nano::public_key> : fmt::formatter<nano::uint256_union>
 {
 };
 template <>
+struct fmt::formatter<nano::account> : fmt::ostream_formatter
+{
+};
+template <>
 struct fmt::formatter<nano::qualified_root> : fmt::formatter<nano::uint512_union>
 {
 };
