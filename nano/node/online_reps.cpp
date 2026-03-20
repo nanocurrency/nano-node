@@ -1,4 +1,5 @@
 #include <nano/lib/config.hpp>
+#include <nano/lib/formatting.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/node.hpp>
@@ -72,7 +73,7 @@ void nano::online_reps::observe (nano::account const & rep)
 
 		if (new_insert)
 		{
-			logger.debug (nano::log::type::online_reps, "Observed new representative: {}", rep.to_account ());
+			logger.debug (nano::log::type::online_reps, "Observed new representative: {}", nano::log::as_account{ rep });
 			update_online ();
 		}
 	}
@@ -92,7 +93,7 @@ void nano::online_reps::trim ()
 		{
 			stats.inc (nano::stat::type::online_reps, nano::stat::detail::rep_trim);
 			logger.debug (nano::log::type::online_reps, "Removing representative: {}, last observed: {}s ago",
-			oldest->account.to_account (),
+			nano::log::as_account{ oldest->account },
 			nano::log::seconds_delta (oldest->time, now));
 
 			reps.get<tag_time> ().erase (oldest);

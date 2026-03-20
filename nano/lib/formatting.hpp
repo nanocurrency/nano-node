@@ -92,3 +92,38 @@ struct fmt::formatter<boost::system::error_code> : fmt::formatter<std::string>
 		return fmt::format_to (ctx.out (), "{} {}:{}", ec.message (), ec.value (), ec.category ().name ());
 	}
 };
+
+// Lazy formatting wrappers for public_key alternative representations
+namespace nano::log
+{
+struct as_account
+{
+	nano::public_key const & key;
+
+	friend std::ostream & operator<< (std::ostream & os, as_account const & wrapper)
+	{
+		wrapper.key.encode_account (os);
+		return os;
+	}
+};
+
+struct as_node_id
+{
+	nano::public_key const & key;
+
+	friend std::ostream & operator<< (std::ostream & os, as_node_id const & wrapper)
+	{
+		wrapper.key.encode_node_id (os);
+		return os;
+	}
+};
+}
+
+template <>
+struct fmt::formatter<nano::log::as_account> : fmt::ostream_formatter
+{
+};
+template <>
+struct fmt::formatter<nano::log::as_node_id> : fmt::ostream_formatter
+{
+};

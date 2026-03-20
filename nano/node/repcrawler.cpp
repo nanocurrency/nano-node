@@ -1,3 +1,4 @@
+#include <nano/lib/formatting.hpp>
 #include <nano/lib/vote.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/node.hpp>
@@ -130,13 +131,13 @@ void nano::rep_crawler::validate_and_process (nano::unique_lock<nano::mutex> & l
 		if (inserted)
 		{
 			logger.info (nano::log::type::rep_crawler, "Found representative: {} at: {}",
-			vote->account.to_account (),
+			nano::log::as_account{ vote->account },
 			channel);
 		}
 		if (updated)
 		{
 			logger.warn (nano::log::type::rep_crawler, "Updated representative: {} at: {} (was at: {})",
-			vote->account.to_account (),
+			nano::log::as_account{ vote->account },
 			channel,
 			prev_channel);
 		}

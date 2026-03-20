@@ -1,3 +1,4 @@
+#include <nano/lib/formatting.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/formatting.hpp>
 #include <nano/node/transport/tcp_channels.hpp>
@@ -79,7 +80,7 @@ bool nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, 
 	if (has_duplicate)
 	{
 		node.stats.inc (nano::stat::type::tcp_channels_rejected, nano::stat::detail::channel_duplicate);
-		node.logger.debug (nano::log::type::tcp_channels, "Rejected duplicate channel: {} ({})", endpoint, node_id.to_node_id ());
+		node.logger.debug (nano::log::type::tcp_channels, "Rejected duplicate channel: {} ({})", endpoint, nano::log::as_node_id{ node_id });
 
 		return false; // Reject
 	}
@@ -102,7 +103,7 @@ std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::cre
 	if (!check (endpoint, node_id))
 	{
 		node.stats.inc (nano::stat::type::tcp_channels, nano::stat::detail::channel_rejected);
-		node.logger.debug (nano::log::type::tcp_channels, "Rejected channel: {} ({})", endpoint, node_id.to_node_id ());
+		node.logger.debug (nano::log::type::tcp_channels, "Rejected channel: {} ({})", endpoint, nano::log::as_node_id{ node_id });
 		// Rejection reason should be logged earlier
 
 		return nullptr;
@@ -112,7 +113,7 @@ std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::cre
 	node.logger.debug (nano::log::type::tcp_channels, "Accepted channel: {} ({}) ({})",
 	socket->get_remote_endpoint (),
 	socket->get_endpoint_type (),
-	node_id.to_node_id ());
+	nano::log::as_node_id{ node_id });
 
 	// This should be the only place in node where channels are created
 	auto channel = std::make_shared<nano::transport::tcp_channel> (node, socket);

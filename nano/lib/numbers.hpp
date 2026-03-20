@@ -241,6 +241,7 @@ public:
 
 	bool decode_node_id (std::string const &);
 	void encode_account (std::ostream &) const;
+	void encode_node_id (std::ostream &) const;
 	bool decode_account (std::string const &);
 
 	std::string to_node_id () const;

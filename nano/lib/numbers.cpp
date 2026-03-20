@@ -97,7 +97,35 @@ nano::public_key const & nano::public_key::null ()
 
 std::string nano::public_key::to_node_id () const
 {
-	return to_account ().replace (0, 4, "node");
+	std::stringstream stream;
+	encode_node_id (stream);
+	return stream.str ();
+}
+
+void nano::public_key::encode_node_id (std::ostream & os) const
+{
+	// Same encoding as account but with "node_" prefix instead of "nano_"
+	uint64_t check = 0;
+
+	blake2b_state hash;
+	blake2b_init (&hash, 5);
+	blake2b_update (&hash, bytes.data (), bytes.size ());
+	blake2b_final (&hash, reinterpret_cast<uint8_t *> (&check), 5);
+
+	nano::uint512_t number_l{ number () };
+	number_l <<= 40;
+	number_l |= nano::uint512_t{ check };
+
+	std::array<char, 60> encoded{};
+	for (auto i (0); i < 60; ++i)
+	{
+		uint8_t r{ number_l & static_cast<uint8_t> (0x1f) };
+		number_l >>= 5;
+		encoded[59 - i] = account_encode (r);
+	}
+
+	os << "node_";
+	os.write (encoded.data (), encoded.size ());
 }
 
 bool nano::public_key::decode_node_id (std::string const & source_a)
