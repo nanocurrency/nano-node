@@ -73,7 +73,7 @@ void nano::online_reps::observe (nano::account const & rep)
 
 		if (new_insert)
 		{
-			logger.debug (nano::log::type::online_reps, "Observed new representative: {}", nano::log::as_account{ rep });
+			logger.debug (nano::log::type::online_reps, "Observed new representative: {}", rep);
 			update_online ();
 		}
 	}
@@ -93,7 +93,7 @@ void nano::online_reps::trim ()
 		{
 			stats.inc (nano::stat::type::online_reps, nano::stat::detail::rep_trim);
 			logger.debug (nano::log::type::online_reps, "Removing representative: {}, last observed: {}s ago",
-			nano::log::as_account{ oldest->account },
+			oldest->account,
 			nano::log::seconds_delta (oldest->time, now));
 
 			reps.get<tag_time> ().erase (oldest);

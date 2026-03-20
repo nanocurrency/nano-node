@@ -131,13 +131,13 @@ void nano::rep_crawler::validate_and_process (nano::unique_lock<nano::mutex> & l
 		if (inserted)
 		{
 			logger.info (nano::log::type::rep_crawler, "Found representative: {} at: {}",
-			nano::log::as_account{ vote->account },
+			vote->account,
 			channel);
 		}
 		if (updated)
 		{
 			logger.warn (nano::log::type::rep_crawler, "Updated representative: {} at: {} (was at: {})",
-			nano::log::as_account{ vote->account },
+			vote->account,
 			channel,
 			prev_channel);
 		}
