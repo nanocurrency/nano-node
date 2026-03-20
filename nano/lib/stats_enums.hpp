@@ -762,18 +762,12 @@ enum class sample
 };
 }
 
-namespace nano
-{
-std::string_view to_string (stat::type);
-std::string_view to_string (stat::detail);
-std::string_view to_string (stat::dir);
-std::string_view to_string (stat::sample);
-}
-
-// Make to_string overloads ADL-findable for stat enums
 namespace nano::stat
 {
-using nano::to_string;
+std::string_view to_string (type);
+std::string_view to_string (detail);
+std::string_view to_string (dir);
+std::string_view to_string (sample);
 }
 
 // Ensure that the enum_range is large enough to hold all values (including future ones)

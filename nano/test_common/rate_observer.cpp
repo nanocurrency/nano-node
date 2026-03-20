@@ -98,7 +98,7 @@ void nano::test::rate_observer::observe (std::string name, std::function<int64_t
 
 void nano::test::rate_observer::observe (nano::node & node, nano::stat::type type, nano::stat::detail detail, nano::stat::dir dir)
 {
-	auto name = std::string{ nano::to_string (type) } + "::" + std::string{ nano::to_string (detail) } + "::" + std::string{ nano::to_string (dir) };
+	auto name = std::string{ to_string (type) } + "::" + std::string{ to_string (detail) } + "::" + std::string{ to_string (dir) };
 	observe (name, [&node, type, detail, dir] () {
 		return node.stats.count (type, detail, dir);
 	});
