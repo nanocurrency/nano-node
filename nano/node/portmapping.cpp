@@ -95,7 +95,7 @@ void nano::port_mapping::shutdown ()
 			{
 				node.logger.info (nano::log::type::upnp, "UPnP shutdown {} port mapping successful: {}:{}",
 				protocol.name,
-				protocol.external_address.to_string (),
+				protocol.external_address,
 				protocol.external_port);
 			}
 		}
@@ -192,7 +192,7 @@ void nano::port_mapping::refresh_mapping ()
 
 			node.logger.info (nano::log::type::upnp, "UPnP {} {}:{} mapped to: {}",
 			protocol.name,
-			protocol.external_address.to_string (),
+			protocol.external_address,
 			config_port_l,
 			node_port_l);
 		}
@@ -202,7 +202,7 @@ void nano::port_mapping::refresh_mapping ()
 
 			node.logger.warn (nano::log::type::upnp, "UPnP {} {}:{} failed: {} ({})",
 			protocol.name,
-			protocol.external_address.to_string (),
+			protocol.external_address,
 			config_port_l,
 			add_port_mapping_error_l,
 			strupnperror (add_port_mapping_error_l));
