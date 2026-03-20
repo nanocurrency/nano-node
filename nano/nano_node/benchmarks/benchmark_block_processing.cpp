@@ -76,9 +76,9 @@ void run_block_processing_benchmark (boost::program_options::variables_map const
 
 	std::cout << "=== BENCHMARK: Block Processing ===\n";
 	std::cout << "Configuration:\n";
-	std::cout << fmt::format ("  Accounts: {}\n", config.num_accounts);
-	std::cout << fmt::format ("  Iterations: {}\n", config.num_iterations);
-	std::cout << fmt::format ("  Batch size: {}\n", config.batch_size);
+	fmt::print ("  Accounts: {}\n", config.num_accounts);
+	fmt::print ("  Iterations: {}\n", config.num_iterations);
+	fmt::print ("  Batch size: {}\n", config.batch_size);
 
 	// Setup node directly in run method
 	nano::set_active_network (nano::network_type::nano_dev_network);
@@ -104,9 +104,9 @@ void run_block_processing_benchmark (boost::program_options::variables_map const
 	nano::thread_runner runner (io_ctx, nano::default_logger (), node->config.io_threads);
 
 	std::cout << "\nSystem Info:\n";
-	std::cout << fmt::format ("  Backend: {}\n", node->store.vendor_get ());
-	std::cout << fmt::format ("  Block processor threads: {}\n", 1); // TODO: Log number of block processor threads when upstreamed
-	std::cout << fmt::format ("  Block processor batch size: {}\n", node->config.block_processor.batch_size);
+	fmt::print ("  Backend: {}\n", node->store.vendor_get ());
+	fmt::print ("  Block processor threads: {}\n", 1); // TODO: Log number of block processor threads when upstreamed
+	fmt::print ("  Block processor batch size: {}\n", node->config.block_processor.batch_size);
 	std::cout << "\n";
 
 	// Wait for node to be ready
@@ -149,7 +149,7 @@ block_processing_benchmark::block_processing_benchmark (std::shared_ptr<nano::no
 						gap_source_count++;
 						break;
 					default:
-						std::cout << fmt::format ("Block processing failed: {} for block {}\n", to_string (status), context.block->hash ().to_string ());
+						fmt::print ("Block processing failed: {} for block {}\n", to_string (status), context.block->hash ().to_string ());
 						failed_blocks_count++;
 						break;
 				}
@@ -161,7 +161,7 @@ block_processing_benchmark::block_processing_benchmark (std::shared_ptr<nano::no
 void block_processing_benchmark::run ()
 {
 	// Create account pool and distribute genesis funds to a random account
-	std::cout << fmt::format ("Generating {} accounts...\n", config.num_accounts);
+	fmt::print ("Generating {} accounts...\n", config.num_accounts);
 	pool.generate_accounts (config.num_accounts);
 
 	setup_genesis_distribution ();
@@ -169,11 +169,11 @@ void block_processing_benchmark::run ()
 	// Run multiple iterations to measure consistent performance
 	for (size_t iteration = 0; iteration < config.num_iterations; ++iteration)
 	{
-		std::cout << fmt::format ("\n--- Iteration {}/{} --------------------------------------------------------------\n", iteration + 1, config.num_iterations);
-		std::cout << fmt::format ("Generating {} random transfers...\n", config.batch_size / 2);
+		fmt::print ("\n--- Iteration {}/{} --------------------------------------------------------------\n", iteration + 1, config.num_iterations);
+		fmt::print ("Generating {} random transfers...\n", config.batch_size / 2);
 		auto blocks = generate_random_transfers ();
 
-		std::cout << fmt::format ("Processing {} blocks...\n", blocks.size ());
+		fmt::print ("Processing {} blocks...\n", blocks.size ());
 		run_iteration (blocks);
 	}
 
@@ -213,7 +213,7 @@ void block_processing_benchmark::run_iteration (std::deque<std::shared_ptr<nano:
 			auto current_l = current_blocks.lock ();
 			if (current_l->empty () || progress_interval.elapse (3s))
 			{
-				std::cout << fmt::format ("Blocks remaining: {:>9} (block processor: {:>9} | unchecked: {:>5})\n",
+				fmt::print ("Blocks remaining: {:>9} (block processor: {:>9} | unchecked: {:>5})\n",
 				current_l->size (),
 				node->block_processor.size (),
 				node->unchecked.count ());
@@ -230,7 +230,7 @@ void block_processing_benchmark::run_iteration (std::deque<std::shared_ptr<nano:
 	auto const time_end = std::chrono::high_resolution_clock::now ();
 	auto const time_us = std::chrono::duration_cast<std::chrono::microseconds> (time_end - time_begin).count ();
 
-	std::cout << fmt::format ("\nPerformance: {} blocks/sec [{:.2f}s] {} blocks processed\n",
+	fmt::print ("\nPerformance: {} blocks/sec [{:.2f}s] {} blocks processed\n",
 	total_blocks * 1000000 / time_us, time_us / 1000000.0, total_blocks);
 	std::cout << "─────────────────────────────────────────────────────────────────\n";
 
@@ -240,14 +240,14 @@ void block_processing_benchmark::run_iteration (std::deque<std::shared_ptr<nano:
 void block_processing_benchmark::print_statistics ()
 {
 	std::cout << "\n--- SUMMARY ---------------------------------------------------------------------\n\n";
-	std::cout << fmt::format ("Blocks processed:        {:>10}\n", processed_blocks_count.load ());
-	std::cout << fmt::format ("Blocks failed:           {:>10}\n", failed_blocks_count.load ());
-	std::cout << fmt::format ("Blocks old:              {:>10}\n", old_blocks_count.load ());
-	std::cout << fmt::format ("Blocks gap_previous:     {:>10}\n", gap_previous_count.load ());
-	std::cout << fmt::format ("Blocks gap_source:       {:>10}\n", gap_source_count.load ());
-	std::cout << fmt::format ("\n");
-	std::cout << fmt::format ("Accounts total:          {:>10}\n", pool.total_accounts ());
-	std::cout << fmt::format ("Accounts with balance:   {:>10} ({:.1f}%)\n",
+	fmt::print ("Blocks processed:        {:>10}\n", processed_blocks_count.load ());
+	fmt::print ("Blocks failed:           {:>10}\n", failed_blocks_count.load ());
+	fmt::print ("Blocks old:              {:>10}\n", old_blocks_count.load ());
+	fmt::print ("Blocks gap_previous:     {:>10}\n", gap_previous_count.load ());
+	fmt::print ("Blocks gap_source:       {:>10}\n", gap_source_count.load ());
+	fmt::print ("\n");
+	fmt::print ("Accounts total:          {:>10}\n", pool.total_accounts ());
+	fmt::print ("Accounts with balance:   {:>10} ({:.1f}%)\n",
 	pool.accounts_with_balance_count (),
 	100.0 * pool.accounts_with_balance_count () / pool.total_accounts ());
 }

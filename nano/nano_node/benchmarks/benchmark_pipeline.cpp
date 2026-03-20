@@ -15,7 +15,6 @@
 #include <boost/asio/io_context.hpp>
 
 #include <chrono>
-#include <iostream>
 #include <limits>
 #include <thread>
 
@@ -91,11 +90,11 @@ void run_pipeline_benchmark (boost::program_options::variables_map const & vm, s
 {
 	auto config = benchmark_config::parse (vm);
 
-	std::cout << "=== BENCHMARK: Full Pipeline ===\n";
-	std::cout << "Configuration:\n";
-	std::cout << fmt::format ("  Accounts: {}\n", config.num_accounts);
-	std::cout << fmt::format ("  Iterations: {}\n", config.num_iterations);
-	std::cout << fmt::format ("  Batch size: {}\n", config.batch_size);
+	fmt::print ("=== BENCHMARK: Full Pipeline ===\n");
+	fmt::print ("Configuration:\n");
+	fmt::print ("  Accounts: {}\n", config.num_accounts);
+	fmt::print ("  Iterations: {}\n", config.num_iterations);
+	fmt::print ("  Batch size: {}\n", config.batch_size);
 
 	// Setup node directly in run method
 	nano::set_active_network (nano::network_type::nano_dev_network);
@@ -126,18 +125,18 @@ void run_pipeline_benchmark (boost::program_options::variables_map const & vm, s
 	node->start ();
 	nano::thread_runner runner (io_ctx, nano::default_logger (), node->config.io_threads);
 
-	std::cout << "\nSystem Info:\n";
-	std::cout << fmt::format ("  Backend: {}\n", node->store.vendor_get ());
-	std::cout << fmt::format ("  Block processor threads: {}\n", 1); // TODO: Log number of block processor threads when upstreamed
-	std::cout << fmt::format ("  Vote processor threads: {}\n", node->config.vote_processor.threads);
-	std::cout << fmt::format ("  Active elections limit: {}\n", node->config.active_elections.size);
-	std::cout << fmt::format ("  Priority pool max blocks: {}\n", node->config.priority_scheduler.max_blocks);
-	std::cout << fmt::format ("  Priority bucket max elections: {}\n", node->config.priority_scheduler.max_elections);
-	std::cout << fmt::format ("  Block processor max peer queue: {}\n", node->config.block_processor.max_peer_queue);
-	std::cout << fmt::format ("  Block processor max system queue: {}\n", node->config.block_processor.max_system_queue);
-	std::cout << fmt::format ("  Vote processor max pr queue: {}\n", node->config.vote_processor.max_pr_queue);
-	std::cout << fmt::format ("  Max unchecked blocks: {}\n", node->config.max_unchecked_blocks);
-	std::cout << "\n";
+	fmt::print ("\nSystem Info:\n");
+	fmt::print ("  Backend: {}\n", node->store.vendor_get ());
+	fmt::print ("  Block processor threads: {}\n", 1); // TODO: Log number of block processor threads when upstreamed
+	fmt::print ("  Vote processor threads: {}\n", node->config.vote_processor.threads);
+	fmt::print ("  Active elections limit: {}\n", node->config.active_elections.size);
+	fmt::print ("  Priority pool max blocks: {}\n", node->config.priority_scheduler.max_blocks);
+	fmt::print ("  Priority bucket max elections: {}\n", node->config.priority_scheduler.max_elections);
+	fmt::print ("  Block processor max peer queue: {}\n", node->config.block_processor.max_peer_queue);
+	fmt::print ("  Block processor max system queue: {}\n", node->config.block_processor.max_system_queue);
+	fmt::print ("  Vote processor max pr queue: {}\n", node->config.vote_processor.max_pr_queue);
+	fmt::print ("  Max unchecked blocks: {}\n", node->config.max_unchecked_blocks);
+	fmt::print ("\n");
 
 	// Insert dev genesis representative key for voting
 	auto wallet = node->wallets.create (nano::random_wallet_id ());
@@ -226,18 +225,18 @@ pipeline_benchmark::pipeline_benchmark (std::shared_ptr<nano::node> node_a, benc
 
 void pipeline_benchmark::run ()
 {
-	std::cout << fmt::format ("Generating {} accounts...\n", config.num_accounts);
+	fmt::print ("Generating {} accounts...\n", config.num_accounts);
 	pool.generate_accounts (config.num_accounts);
 
 	setup_genesis_distribution (0.1); // Only distribute 10%, keep 90% for voting weight
 
 	for (size_t iteration = 0; iteration < config.num_iterations; ++iteration)
 	{
-		std::cout << fmt::format ("\n--- Iteration {}/{} --------------------------------------------------------------\n", iteration + 1, config.num_iterations);
-		std::cout << fmt::format ("Generating {} random transfers...\n", config.batch_size / 2);
+		fmt::print ("\n--- Iteration {}/{} --------------------------------------------------------------\n", iteration + 1, config.num_iterations);
+		fmt::print ("Generating {} random transfers...\n", config.batch_size / 2);
 		auto blocks = generate_random_transfers ();
 
-		std::cout << fmt::format ("Measuring full confirmation pipeline for {} blocks...\n", blocks.size ());
+		fmt::print ("Measuring full confirmation pipeline for {} blocks...\n", blocks.size ());
 		run_iteration (blocks);
 	}
 
@@ -280,7 +279,7 @@ void pipeline_benchmark::run_iteration (std::deque<std::shared_ptr<nano::block>>
 			auto pending_l = pending_cementing.lock ();
 			if (pending_l->empty () || progress_interval.elapse (3s))
 			{
-				std::cout << fmt::format ("Blocks remaining: {:>9} (block processor: {:>9} | active: {:>5} | cementing: {:>5} | pool: {:>5})\n",
+				fmt::print ("Blocks remaining: {:>9} (block processor: {:>9} | active: {:>5} | cementing: {:>5} | pool: {:>5})\n",
 				pending_l->size (),
 				node->block_processor.size (),
 				node->active.size (),
@@ -299,23 +298,23 @@ void pipeline_benchmark::run_iteration (std::deque<std::shared_ptr<nano::block>>
 	auto const time_end = std::chrono::high_resolution_clock::now ();
 	auto const time_us = std::chrono::duration_cast<std::chrono::microseconds> (time_end - time_begin).count ();
 
-	std::cout << fmt::format ("\nPerformance: {} blocks/sec [{:.2f}s] {} blocks processed\n",
+	fmt::print ("\nPerformance: {} blocks/sec [{:.2f}s] {} blocks processed\n",
 	total_blocks * 1000000 / time_us, time_us / 1000000.0, total_blocks);
-	std::cout << "─────────────────────────────────────────────────────────────────\n";
+	fmt::print ("─────────────────────────────────────────────────────────────────\n");
 
 	node->stats.clear ();
 }
 
 void pipeline_benchmark::print_statistics ()
 {
-	std::cout << "\n--- SUMMARY ---------------------------------------------------------------------\n\n";
-	std::cout << fmt::format ("Blocks processed:        {:>10}\n", processed_blocks_count.load ());
-	std::cout << fmt::format ("Elections started:       {:>10}\n", elections_started.load ());
-	std::cout << fmt::format ("Elections stopped:       {:>10}\n", elections_stopped.load ());
-	std::cout << fmt::format ("Elections confirmed:     {:>10}\n", elections_confirmed.load ());
-	std::cout << fmt::format ("\n");
-	std::cout << fmt::format ("Accounts total:          {:>10}\n", pool.total_accounts ());
-	std::cout << fmt::format ("Accounts with balance:   {:>10} ({:.1f}%)\n",
+	fmt::print ("\n--- SUMMARY ---------------------------------------------------------------------\n\n");
+	fmt::print ("Blocks processed:        {:>10}\n", processed_blocks_count.load ());
+	fmt::print ("Elections started:       {:>10}\n", elections_started.load ());
+	fmt::print ("Elections stopped:       {:>10}\n", elections_stopped.load ());
+	fmt::print ("Elections confirmed:     {:>10}\n", elections_confirmed.load ());
+	fmt::print ("\n");
+	fmt::print ("Accounts total:          {:>10}\n", pool.total_accounts ());
+	fmt::print ("Accounts with balance:   {:>10} ({:.1f}%)\n",
 	pool.accounts_with_balance_count (),
 	100.0 * pool.accounts_with_balance_count () / pool.total_accounts ());
 
@@ -351,10 +350,10 @@ void pipeline_benchmark::print_statistics ()
 		cemented_count++;
 	}
 
-	std::cout << "\n";
-	std::cout << fmt::format ("Block processing (submitted > processed):    {:>8.2f} ms/block avg\n", total_processing_time / (processed_count * 1000.0));
-	std::cout << fmt::format ("Election activation (processed > activated): {:>8.2f} ms/block avg\n", total_activation_time / (activation_count * 1000.0));
-	std::cout << fmt::format ("Election time (activated > confirmed):       {:>8.2f} ms/block avg\n", total_election_time / (election_count * 1000.0));
-	std::cout << fmt::format ("Total pipeline (submitted > cemented):       {:>8.2f} ms/block avg\n", total_cementing_time / (cemented_count * 1000.0));
+	fmt::print ("\n");
+	fmt::print ("Block processing (submitted > processed):    {:>8.2f} ms/block avg\n", total_processing_time / (processed_count * 1000.0));
+	fmt::print ("Election activation (processed > activated): {:>8.2f} ms/block avg\n", total_activation_time / (activation_count * 1000.0));
+	fmt::print ("Election time (activated > confirmed):       {:>8.2f} ms/block avg\n", total_election_time / (election_count * 1000.0));
+	fmt::print ("Total pipeline (submitted > cemented):       {:>8.2f} ms/block avg\n", total_cementing_time / (cemented_count * 1000.0));
 }
 }

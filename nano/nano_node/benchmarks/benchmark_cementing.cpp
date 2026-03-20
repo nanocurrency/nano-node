@@ -14,7 +14,6 @@
 
 #include <atomic>
 #include <chrono>
-#include <iostream>
 #include <limits>
 #include <memory>
 #include <thread>
@@ -74,12 +73,12 @@ void run_cementing_benchmark (boost::program_options::variables_map const & vm, 
 {
 	auto config = benchmark_config::parse (vm);
 
-	std::cout << "=== BENCHMARK: Cementing ===\n";
-	std::cout << "Configuration:\n";
-	std::cout << fmt::format ("  Mode: {}\n", config.cementing_mode == cementing_mode::root ? "root" : "sequential");
-	std::cout << fmt::format ("  Accounts: {}\n", config.num_accounts);
-	std::cout << fmt::format ("  Iterations: {}\n", config.num_iterations);
-	std::cout << fmt::format ("  Batch size: {}\n", config.batch_size);
+	fmt::print ("=== BENCHMARK: Cementing ===\n");
+	fmt::print ("Configuration:\n");
+	fmt::print ("  Mode: {}\n", config.cementing_mode == cementing_mode::root ? "root" : "sequential");
+	fmt::print ("  Accounts: {}\n", config.num_accounts);
+	fmt::print ("  Iterations: {}\n", config.num_iterations);
+	fmt::print ("  Batch size: {}\n", config.batch_size);
 
 	// Setup node directly in run method
 	nano::set_active_network (nano::network_type::nano_dev_network);
@@ -104,9 +103,9 @@ void run_cementing_benchmark (boost::program_options::variables_map const & vm, 
 	node->start ();
 	nano::thread_runner runner (io_ctx, nano::default_logger (), node->config.io_threads);
 
-	std::cout << "\nSystem Info:\n";
-	std::cout << fmt::format ("  Backend: {}\n", node->store.vendor_get ());
-	std::cout << "\n";
+	fmt::print ("\nSystem Info:\n");
+	fmt::print ("  Backend: {}\n", node->store.vendor_get ());
+	fmt::print ("\n");
 
 	// Wait for node to be ready
 	std::this_thread::sleep_for (500ms);
@@ -145,30 +144,30 @@ cementing_benchmark::cementing_benchmark (std::shared_ptr<nano::node> node_a, be
 
 void cementing_benchmark::run ()
 {
-	std::cout << fmt::format ("Generating {} accounts...\n", config.num_accounts);
+	fmt::print ("Generating {} accounts...\n", config.num_accounts);
 	pool.generate_accounts (config.num_accounts);
 
 	setup_genesis_distribution ();
 
-	std::cout << fmt::format ("Cementing mode: {}\n", config.cementing_mode == cementing_mode::root ? "root" : "sequential");
+	fmt::print ("Cementing mode: {}\n", config.cementing_mode == cementing_mode::root ? "root" : "sequential");
 
 	for (size_t iteration = 0; iteration < config.num_iterations; ++iteration)
 	{
-		std::cout << fmt::format ("\n--- Iteration {}/{} --------------------------------------------------------------\n", iteration + 1, config.num_iterations);
+		fmt::print ("\n--- Iteration {}/{} --------------------------------------------------------------\n", iteration + 1, config.num_iterations);
 
 		std::deque<std::shared_ptr<nano::block>> blocks;
 		if (config.cementing_mode == cementing_mode::root)
 		{
-			std::cout << fmt::format ("Generating dependent chain topology...\n");
+			fmt::print ("Generating dependent chain topology...\n");
 			blocks = generate_dependent_chain ();
 		}
 		else
 		{
-			std::cout << fmt::format ("Generating {} random transfers...\n", config.batch_size / 2);
+			fmt::print ("Generating {} random transfers...\n", config.batch_size / 2);
 			blocks = generate_random_transfers ();
 		}
 
-		std::cout << fmt::format ("Cementing {} blocks...\n", blocks.size ());
+		fmt::print ("Cementing {} blocks...\n", blocks.size ());
 		run_iteration (blocks);
 	}
 
@@ -189,7 +188,7 @@ void cementing_benchmark::run_iteration (std::deque<std::shared_ptr<nano::block>
 		}
 	}
 
-	std::cout << fmt::format ("Processing {} blocks directly into the ledger...\n", blocks.size ());
+	fmt::print ("Processing {} blocks directly into the ledger...\n", blocks.size ());
 
 	// Process all blocks directly into the ledger
 	{
@@ -201,7 +200,7 @@ void cementing_benchmark::run_iteration (std::deque<std::shared_ptr<nano::block>
 		}
 	}
 
-	std::cout << "All blocks processed, starting cementing...\n";
+	fmt::print ("All blocks processed, starting cementing...\n");
 
 	auto const time_begin = std::chrono::high_resolution_clock::now ();
 
@@ -217,7 +216,7 @@ void cementing_benchmark::run_iteration (std::deque<std::shared_ptr<nano::block>
 			release_assert (added, "failed to add final block to cementing set");
 			blocks_submitted = 1;
 
-			std::cout << fmt::format ("Submitted 1 root block to cement {} dependent blocks\n",
+			fmt::print ("Submitted 1 root block to cement {} dependent blocks\n",
 			total_blocks);
 		}
 	}
@@ -234,7 +233,7 @@ void cementing_benchmark::run_iteration (std::deque<std::shared_ptr<nano::block>
 			blocks_submitted++;
 		}
 
-		std::cout << fmt::format ("Submitted {} blocks to cementing set\n",
+		fmt::print ("Submitted {} blocks to cementing set\n",
 		blocks_submitted);
 	}
 
@@ -246,7 +245,7 @@ void cementing_benchmark::run_iteration (std::deque<std::shared_ptr<nano::block>
 			auto pending_l = pending_cementing.lock ();
 			if (pending_l->empty () || progress_interval.elapse (3s))
 			{
-				std::cout << fmt::format ("Blocks remaining: {:>9} (cementing set: {:>5} | deferred: {:>5})\n",
+				fmt::print ("Blocks remaining: {:>9} (cementing set: {:>5} | deferred: {:>5})\n",
 				pending_l->size (),
 				node->cementing_set.size (),
 				node->cementing_set.deferred_size ());
@@ -263,22 +262,22 @@ void cementing_benchmark::run_iteration (std::deque<std::shared_ptr<nano::block>
 	auto const time_end = std::chrono::high_resolution_clock::now ();
 	auto const time_us = std::chrono::duration_cast<std::chrono::microseconds> (time_end - time_begin).count ();
 
-	std::cout << fmt::format ("\nPerformance: {} blocks/sec [{:.2f}s] {} blocks processed\n",
+	fmt::print ("\nPerformance: {} blocks/sec [{:.2f}s] {} blocks processed\n",
 	total_blocks * 1000000 / time_us, time_us / 1000000.0, total_blocks);
-	std::cout << "─────────────────────────────────────────────────────────────────\n";
+	fmt::print ("─────────────────────────────────────────────────────────────────\n");
 
 	node->stats.clear ();
 }
 
 void cementing_benchmark::print_statistics ()
 {
-	std::cout << "\n--- SUMMARY ---------------------------------------------------------------------\n\n";
-	std::cout << fmt::format ("Mode:                    {:>10}\n", config.cementing_mode == cementing_mode::root ? "root" : "sequential");
-	std::cout << fmt::format ("Blocks processed:        {:>10}\n", processed_blocks_count.load ());
-	std::cout << fmt::format ("Blocks cemented:         {:>10}\n", cemented_blocks_count.load ());
-	std::cout << fmt::format ("\n");
-	std::cout << fmt::format ("Accounts total:          {:>10}\n", pool.total_accounts ());
-	std::cout << fmt::format ("Accounts with balance:   {:>10} ({:.1f}%)\n",
+	fmt::print ("\n--- SUMMARY ---------------------------------------------------------------------\n\n");
+	fmt::print ("Mode:                    {:>10}\n", config.cementing_mode == cementing_mode::root ? "root" : "sequential");
+	fmt::print ("Blocks processed:        {:>10}\n", processed_blocks_count.load ());
+	fmt::print ("Blocks cemented:         {:>10}\n", cemented_blocks_count.load ());
+	fmt::print ("\n");
+	fmt::print ("Accounts total:          {:>10}\n", pool.total_accounts ());
+	fmt::print ("Accounts with balance:   {:>10} ({:.1f}%)\n",
 	pool.accounts_with_balance_count (),
 	100.0 * pool.accounts_with_balance_count () / pool.total_accounts ());
 }

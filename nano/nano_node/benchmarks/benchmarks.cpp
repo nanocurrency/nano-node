@@ -250,7 +250,7 @@ void benchmark_base::setup_genesis_distribution (double distribution_percentage)
 	// Initialize frontier for target account
 	pool.set_frontier (target_account, open->hash ());
 
-	std::cout << fmt::format ("Genesis distribution complete: {:.1f}% distributed, {:.1f}% retained for voting\n",
+	fmt::print ("Genesis distribution complete: {:.1f}% distributed, {:.1f}% retained for voting\n",
 	distribution_percentage * 100.0, (1.0 - distribution_percentage) * 100.0);
 }
 
@@ -367,7 +367,7 @@ std::deque<std::shared_ptr<nano::block>> benchmark_base::generate_random_transfe
 		transfers_generated++;
 	}
 
-	std::cout << fmt::format ("Generated {} blocks\n", blocks.size ());
+	fmt::print ("Generated {} blocks\n", blocks.size ());
 
 	return blocks;
 }
@@ -399,7 +399,7 @@ std::deque<std::shared_ptr<nano::block>> benchmark_base::generate_dependent_chai
 	size_t random_transfer_blocks = config.batch_size * 0.8;
 	size_t transfers_to_generate = random_transfer_blocks / 2; // Each transfer creates 2 blocks
 
-	std::cout << fmt::format ("Generating dependent chain: {} random transfers, then convergence\n",
+	fmt::print ("Generating dependent chain: {} random transfers, then convergence\n",
 	transfers_to_generate);
 
 	// Phase 1: Generate random transfers (same logic as generate_random_transfers)
@@ -464,7 +464,7 @@ std::deque<std::shared_ptr<nano::block>> benchmark_base::generate_dependent_chai
 	}
 
 	// Phase 2: Convergence - all accounts with balance send to a collector
-	std::cout << fmt::format ("Converging {} accounts to collector account\n",
+	fmt::print ("Converging {} accounts to collector account\n",
 	pool.accounts_with_balance_count ());
 
 	// Select a collector account (can be new or existing)
@@ -535,7 +535,7 @@ std::deque<std::shared_ptr<nano::block>> benchmark_base::generate_dependent_chai
 	pool.set_frontier (collector, collector_frontier);
 	pool.update_balance (collector, collector_balance);
 
-	std::cout << fmt::format ("Generated {} blocks in dependent chain topology\n", blocks.size ());
+	fmt::print ("Generated {} blocks in dependent chain topology\n", blocks.size ());
 
 	return blocks;
 }
@@ -609,7 +609,7 @@ std::pair<std::deque<std::shared_ptr<nano::block>>, std::deque<std::shared_ptr<n
 		pool.update_balance (sender, new_sender_balance);
 	}
 
-	std::cout << fmt::format ("Generated {} sends and {} opens\n", sends.size (), opens.size ());
+	fmt::print ("Generated {} sends and {} opens\n", sends.size (), opens.size ());
 
 	return { sends, opens };
 }

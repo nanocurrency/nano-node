@@ -16,7 +16,6 @@
 #include <boost/asio/io_context.hpp>
 
 #include <chrono>
-#include <iostream>
 #include <limits>
 #include <thread>
 
@@ -86,11 +85,11 @@ void run_elections_benchmark (boost::program_options::variables_map const & vm, 
 {
 	auto config = benchmark_config::parse (vm);
 
-	std::cout << "=== BENCHMARK: Elections ===\n";
-	std::cout << "Configuration:\n";
-	std::cout << fmt::format ("  Accounts: {}\n", config.num_accounts);
-	std::cout << fmt::format ("  Iterations: {}\n", config.num_iterations);
-	std::cout << fmt::format ("  Batch size: {}\n", config.batch_size);
+	fmt::print ("=== BENCHMARK: Elections ===\n");
+	fmt::print ("Configuration:\n");
+	fmt::print ("  Accounts: {}\n", config.num_accounts);
+	fmt::print ("  Iterations: {}\n", config.num_iterations);
+	fmt::print ("  Batch size: {}\n", config.batch_size);
 
 	// Setup node directly in run method
 	nano::set_active_network (nano::network_type::nano_dev_network);
@@ -124,9 +123,9 @@ void run_elections_benchmark (boost::program_options::variables_map const & vm, 
 	node->start ();
 	nano::thread_runner runner (io_ctx, nano::default_logger (), node->config.io_threads);
 
-	std::cout << "\nSystem Info:\n";
-	std::cout << fmt::format ("  Backend: {}\n", node->store.vendor_get ());
-	std::cout << "\n";
+	fmt::print ("\nSystem Info:\n");
+	fmt::print ("  Backend: {}\n", node->store.vendor_get ());
+	fmt::print ("\n");
 
 	// Insert dev genesis representative key for voting
 	auto wallet = node->wallets.create (nano::random_wallet_id ());
@@ -199,18 +198,18 @@ elections_benchmark::elections_benchmark (std::shared_ptr<nano::node> node_a, be
 
 void elections_benchmark::run ()
 {
-	std::cout << fmt::format ("Generating {} accounts...\n", config.num_accounts);
+	fmt::print ("Generating {} accounts...\n", config.num_accounts);
 	pool.generate_accounts (config.num_accounts);
 
 	setup_genesis_distribution (0.1); // Only distribute 10%, keep 90% for voting weight
 
 	for (size_t iteration = 0; iteration < config.num_iterations; ++iteration)
 	{
-		std::cout << fmt::format ("\n--- Iteration {}/{} --------------------------------------------------------------\n", iteration + 1, config.num_iterations);
-		std::cout << fmt::format ("Generating independent blocks...\n");
+		fmt::print ("\n--- Iteration {}/{} --------------------------------------------------------------\n", iteration + 1, config.num_iterations);
+		fmt::print ("Generating independent blocks...\n");
 		auto [sends, opens] = generate_independent_blocks ();
 
-		std::cout << fmt::format ("Measuring elections performance for {} opens...\n", opens.size ());
+		fmt::print ("Measuring elections performance for {} opens...\n", opens.size ());
 		run_iteration (sends, opens);
 	}
 
@@ -222,7 +221,7 @@ void elections_benchmark::run_iteration (std::deque<std::shared_ptr<nano::block>
 	auto const total_opens = opens.size ();
 
 	// Process and cement all send blocks directly
-	std::cout << fmt::format ("Processing and cementing {} send blocks...\n", sends.size ());
+	fmt::print ("Processing and cementing {} send blocks...\n", sends.size ());
 	{
 		auto transaction = node->ledger.tx_begin_write ();
 		for (auto const & send : sends)
@@ -237,7 +236,7 @@ void elections_benchmark::run_iteration (std::deque<std::shared_ptr<nano::block>
 	}
 
 	// Process open blocks into ledger without confirming
-	std::cout << fmt::format ("Processing {} open blocks into ledger...\n", opens.size ());
+	fmt::print ("Processing {} open blocks into ledger...\n", opens.size ());
 	{
 		auto transaction = node->ledger.tx_begin_write ();
 		for (auto const & open : opens)
@@ -264,7 +263,7 @@ void elections_benchmark::run_iteration (std::deque<std::shared_ptr<nano::block>
 	auto const time_begin = std::chrono::high_resolution_clock::now ();
 
 	// Manually start elections for open blocks only
-	std::cout << fmt::format ("Starting elections manually for {} open blocks...\n", opens.size ());
+	fmt::print ("Starting elections manually for {} open blocks...\n", opens.size ());
 	for (auto const & open : opens)
 	{
 		// Use manual scheduler to start election
@@ -281,7 +280,7 @@ void elections_benchmark::run_iteration (std::deque<std::shared_ptr<nano::block>
 
 			if ((pending_cementing_l->empty () && pending_confirmation_l->empty ()) || progress_interval.elapse (3s))
 			{
-				std::cout << fmt::format ("Confirming elections: {:>9} remaining | cementing: {:>9} remaining (active: {:>5} | cementing: {:>5} | deferred: {:>5})\n",
+				fmt::print ("Confirming elections: {:>9} remaining | cementing: {:>9} remaining (active: {:>5} | cementing: {:>5} | deferred: {:>5})\n",
 				pending_confirmation_l->size (),
 				pending_cementing_l->size (),
 				node->active.size (),
@@ -300,20 +299,20 @@ void elections_benchmark::run_iteration (std::deque<std::shared_ptr<nano::block>
 	auto const time_end = std::chrono::high_resolution_clock::now ();
 	auto const time_us = std::chrono::duration_cast<std::chrono::microseconds> (time_end - time_begin).count ();
 
-	std::cout << fmt::format ("\nPerformance: {} blocks/sec [{:.2f}s] {} blocks processed\n",
+	fmt::print ("\nPerformance: {} blocks/sec [{:.2f}s] {} blocks processed\n",
 	total_opens * 1000000 / time_us, time_us / 1000000.0, total_opens);
-	std::cout << "─────────────────────────────────────────────────────────────────\n";
+	fmt::print ("─────────────────────────────────────────────────────────────────\n");
 
 	node->stats.clear ();
 }
 
 void elections_benchmark::print_statistics ()
 {
-	std::cout << "\n--- SUMMARY ---------------------------------------------------------------------\n\n";
-	std::cout << fmt::format ("Elections started:       {:>10}\n", elections_started.load ());
-	std::cout << fmt::format ("Elections stopped:       {:>10}\n", elections_stopped.load ());
-	std::cout << fmt::format ("Elections confirmed:     {:>10}\n", elections_confirmed.load ());
-	std::cout << fmt::format ("\n");
+	fmt::print ("\n--- SUMMARY ---------------------------------------------------------------------\n\n");
+	fmt::print ("Elections started:       {:>10}\n", elections_started.load ());
+	fmt::print ("Elections stopped:       {:>10}\n", elections_stopped.load ());
+	fmt::print ("Elections confirmed:     {:>10}\n", elections_confirmed.load ());
+	fmt::print ("\n");
 
 	// Calculate timing statistics from raw data
 	auto timings_l = block_timings.lock ();
@@ -336,9 +335,9 @@ void elections_benchmark::print_statistics ()
 		confirmed_count++;
 	}
 
-	std::cout << "\n";
+	fmt::print ("\n");
 
-	std::cout << fmt::format ("Election time (activated > confirmed): {:>8.2f} ms/block avg\n", total_election_time / (election_count * 1000.0));
-	std::cout << fmt::format ("Total time (activated > cemented):     {:>8.2f} ms/block avg\n", total_confirmation_time / (confirmed_count * 1000.0));
+	fmt::print ("Election time (activated > confirmed): {:>8.2f} ms/block avg\n", total_election_time / (election_count * 1000.0));
+	fmt::print ("Total time (activated > cemented):     {:>8.2f} ms/block avg\n", total_confirmation_time / (confirmed_count * 1000.0));
 }
 }
