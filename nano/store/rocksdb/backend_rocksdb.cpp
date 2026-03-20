@@ -185,6 +185,29 @@ void backend_rocksdb::open_db (std::filesystem::path const & path, nano::store::
 	db_options.IncreaseParallelism (config.io_threads);
 	db_options.compression = ::rocksdb::kNoCompression;
 
+	db_options.keep_log_file_num = config.max_log_files;
+
+	if (config.log_level == "debug")
+	{
+		db_options.info_log_level = ::rocksdb::InfoLogLevel::DEBUG_LEVEL;
+	}
+	else if (config.log_level == "info")
+	{
+		db_options.info_log_level = ::rocksdb::InfoLogLevel::INFO_LEVEL;
+	}
+	else if (config.log_level == "warn")
+	{
+		db_options.info_log_level = ::rocksdb::InfoLogLevel::WARN_LEVEL;
+	}
+	else if (config.log_level == "error")
+	{
+		db_options.info_log_level = ::rocksdb::InfoLogLevel::ERROR_LEVEL;
+	}
+	else if (config.log_level == "fatal")
+	{
+		db_options.info_log_level = ::rocksdb::InfoLogLevel::FATAL_LEVEL;
+	}
+
 	auto event_listener_l = new event_listener ([this] (::rocksdb::FlushJobInfo const & flush_job_info) {
 		this->on_flush (flush_job_info);
 	});
