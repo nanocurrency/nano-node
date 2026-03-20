@@ -915,10 +915,10 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 				nano::raw_key prv;
 				if (!store.fetch (transaction, account_a, prv))
 				{
-					logger.info (nano::log::type::wallet, "Receiving block: {} from account: {}, amount: {}",
+					logger.info (nano::log::type::wallet, "Receiving block: {} from account: {}, amount: {} raw",
 					send_hash_a,
 					account_a,
-					pending_info->amount.number ().convert_to<std::string> ());
+					nano::log::as_raw_nano{ pending_info->amount.number () });
 
 					if (work_a == 0)
 					{
@@ -1077,10 +1077,10 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 					auto balance (wallets.ledger.any.account_balance (ledger_txn, source_a));
 					if (balance && balance.value ().number () >= amount_a)
 					{
-						logger.info (nano::log::type::wallet, "Sending from account: {} to: {}, amount: {}",
+						logger.info (nano::log::type::wallet, "Sending from account: {} to: {}, amount: {} raw",
 						source_a,
 						account_a,
-						amount_a.convert_to<std::string> ());
+						nano::log::as_raw_nano{ amount_a });
 
 						auto info = wallets.ledger.any.account_get (ledger_txn, source_a);
 						release_assert (info, "could not find account info for account in wallet send_action", source_a.to_account ());
@@ -1108,10 +1108,19 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 					}
 					else
 					{
-						logger.warn (nano::log::type::wallet, "Insufficient balance for send from: {}, required: {} but available: {}",
-						account_a,
-						amount_a.convert_to<std::string> (),
-						balance ? balance.value ().number ().convert_to<std::string> () : "unknown");
+						if (balance)
+						{
+							logger.warn (nano::log::type::wallet, "Insufficient balance for send from: {}, required: {} raw, available: {} raw",
+							account_a,
+							nano::log::as_raw_nano{ amount_a },
+							nano::log::as_raw_nano{ balance.value ().number () });
+						}
+						else
+						{
+							logger.warn (nano::log::type::wallet, "Insufficient balance for send from: {}, required: {} raw, available: unknown",
+							account_a,
+							nano::log::as_raw_nano{ amount_a });
+						}
 					}
 				}
 			}

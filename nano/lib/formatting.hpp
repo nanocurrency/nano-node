@@ -121,6 +121,34 @@ struct as_node_id
 		return os;
 	}
 };
+
+struct as_nano
+{
+	nano::uint128_t const value;
+	int precision;
+
+	as_nano (nano::uint128_t value_a, int precision_a = 0) :
+		value{ value_a },
+		precision{ precision_a }
+	{
+	}
+
+	friend std::ostream & operator<< (std::ostream & os, as_nano const & wrapper)
+	{
+		return os << nano::uint128_union{ wrapper.value }.format_balance (nano::nano_ratio, wrapper.precision, true);
+	}
+};
+
+struct as_raw_nano
+{
+	nano::uint128_t const value;
+
+	friend std::ostream & operator<< (std::ostream & os, as_raw_nano const & wrapper)
+	{
+		nano::uint128_union{ wrapper.value }.encode_dec (os);
+		return os;
+	}
+};
 }
 
 template <>
@@ -129,5 +157,13 @@ struct fmt::formatter<nano::log::as_account> : fmt::ostream_formatter
 };
 template <>
 struct fmt::formatter<nano::log::as_node_id> : fmt::ostream_formatter
+{
+};
+template <>
+struct fmt::formatter<nano::log::as_nano> : fmt::ostream_formatter
+{
+};
+template <>
+struct fmt::formatter<nano::log::as_raw_nano> : fmt::ostream_formatter
 {
 };

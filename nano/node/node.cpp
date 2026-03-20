@@ -408,7 +408,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			{
 				logger.info (nano::log::type::node, "Using bootstrap rep weight: {} -> {}",
 				rep.first,
-				nano::uint128_union (rep.second).format_balance (nano_ratio, 0, true));
+				nano::log::as_nano{ rep.second });
 			}
 
 			logger.info (nano::log::type::node, "******************************************** ================= ********************************************");

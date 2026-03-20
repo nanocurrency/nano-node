@@ -1,3 +1,4 @@
+#include <nano/lib/formatting.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/monitor.hpp>
@@ -97,9 +98,9 @@ void nano::monitor::run_one ()
 	auto const stake_peered = node.rep_crawler.total_weight ();
 
 	logger.info (nano::log::type::monitor, "Quorum: {} (stake peered: {} | stake online: {})",
-	nano::uint128_union{ quorum }.format_balance (nano_ratio, 1, true),
-	nano::uint128_union{ stake_peered }.format_balance (nano_ratio, 1, true),
-	nano::uint128_union{ stake_online }.format_balance (nano_ratio, 1, true));
+	nano::log::as_nano{ quorum, 1 },
+	nano::log::as_nano{ stake_peered, 1 },
+	nano::log::as_nano{ stake_online, 1 });
 
 	logger.info (nano::log::type::monitor, "Elections active: {} (priority: {} | hinted: {} | optimistic: {}) of which stale: {}",
 	node.active.size (),
@@ -113,8 +114,8 @@ void nano::monitor::run_one ()
 	if (!sufficient_stake && node.warmed_up ())
 	{
 		logger.warn (nano::log::type::monitor, "Peered stake ({}) is below quorum threshold ({}). The node may not be able to confirm transactions. This is usually caused by NAT, firewall rules, or internet connectivity issues.",
-		nano::uint128_union{ stake_peered }.format_balance (nano_ratio, 1, true),
-		nano::uint128_union{ quorum }.format_balance (nano_ratio, 1, true));
+		nano::log::as_nano{ stake_peered, 1 },
+		nano::log::as_nano{ quorum, 1 });
 	}
 
 	last_time = now;
