@@ -129,13 +129,7 @@ struct as_node_id
 struct as_nano
 {
 	nano::uint128_t const value;
-	int precision;
-
-	as_nano (nano::uint128_t value_a, int precision_a = 0) :
-		value{ value_a },
-		precision{ precision_a }
-	{
-	}
+	int precision{ 1 };
 
 	friend std::ostream & operator<< (std::ostream & os, as_nano const & wrapper)
 	{

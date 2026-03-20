@@ -36,7 +36,7 @@ void nano::online_reps::start ()
 		cached_trended = trended_result.trended;
 
 		logger.info (nano::log::type::online_reps, "Initial trended weight: {} (samples: {})",
-		nano::log::as_nano{ trended_result.trended, 1 },
+		nano::log::as_nano{ trended_result.trended },
 		trended_result.samples);
 	}
 
@@ -160,8 +160,8 @@ bool nano::online_reps::sample ()
 		if (node.warmed_up () && low_weight_warning_interval.elapse (1min))
 		{
 			logger.warn (nano::log::type::online_reps, "Current online weight {} is below minimum threshold {}. This often occurs when the node cannot reach enough peers; check network connectivity and peer count.",
-			nano::log::as_nano{ current_online, 1 },
-			nano::log::as_nano{ config.online_weight_minimum.number (), 1 });
+			nano::log::as_nano{ current_online },
+			nano::log::as_nano{ config.online_weight_minimum.number () });
 		}
 
 		return false; // Skipped
@@ -185,7 +185,7 @@ bool nano::online_reps::sample ()
 	}
 
 	logger.info (nano::log::type::online_reps, "Updated trended weight: {} (samples: {})",
-	nano::log::as_nano{ trended_result.trended, 1 },
+	nano::log::as_nano{ trended_result.trended },
 	trended_result.samples);
 
 	return true; // Sampled
