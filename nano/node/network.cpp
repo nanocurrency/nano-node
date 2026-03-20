@@ -7,6 +7,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/telemetry.hpp>
+#include <nano/node/transport/formatting.hpp>
 
 using namespace std::chrono_literals;
 
@@ -30,7 +31,7 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 {
 	node.observers.channel_connected.add ([this] (std::shared_ptr<nano::transport::channel> const & channel) {
 		node.stats.inc (nano::stat::type::network, nano::stat::detail::connected);
-		node.logger.debug (nano::log::type::network, "Connected to: {}", channel->to_string ());
+		node.logger.debug (nano::log::type::network, "Connected to: {}", channel);
 	});
 }
 

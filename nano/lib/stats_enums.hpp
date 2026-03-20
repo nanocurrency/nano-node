@@ -770,6 +770,12 @@ std::string_view to_string (stat::dir);
 std::string_view to_string (stat::sample);
 }
 
+// Make to_string overloads ADL-findable for stat enums
+namespace nano::stat
+{
+using nano::to_string;
+}
+
 // Ensure that the enum_range is large enough to hold all values (including future ones)
 template <>
 struct magic_enum::customize::enum_range<nano::stat::type>

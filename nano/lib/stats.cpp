@@ -172,7 +172,7 @@ void nano::stats::sample (stat::sample sample, nano::stats::sampler_value_t valu
 
 	if (enable_logging)
 	{
-		logger.debug (nano::log::type::stats, "Sample: {} -> {}", to_string (sample), value);
+		logger.debug (nano::log::type::stats, "Sample: {} -> {}", sample, value);
 	}
 
 	// Updates need to happen while holding the mutex

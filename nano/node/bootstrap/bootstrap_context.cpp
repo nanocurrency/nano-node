@@ -13,6 +13,7 @@
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/transport/formatting.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
@@ -294,7 +295,7 @@ bool bootstrap_context::request (nano::account account, size_t count, std::share
 				account,
 				payload.start,
 				optimistic_request,
-				channel->to_string ());
+				channel);
 			}
 			else // Pessimistic (safe) request case
 			{
@@ -310,7 +311,7 @@ bool bootstrap_context::request (nano::account account, size_t count, std::share
 					account,
 					payload.start,
 					optimistic_request,
-					channel->to_string ());
+					channel);
 				}
 				else
 				{
@@ -320,7 +321,7 @@ bool bootstrap_context::request (nano::account account, size_t count, std::share
 					logger.debug (nano::log::type::bootstrap, "Requesting blocks for {} starting from account root (optimistic: {}) from: {}",
 					account,
 					optimistic_request,
-					channel->to_string ());
+					channel);
 				}
 			}
 		}
@@ -331,7 +332,7 @@ bool bootstrap_context::request (nano::account account, size_t count, std::share
 			tag.type = query_type::blocks_by_account;
 			payload.start = account;
 
-			logger.debug (nano::log::type::bootstrap, "Requesting blocks for {} from: {}", account, channel->to_string ());
+			logger.debug (nano::log::type::bootstrap, "Requesting blocks for {} from: {}", account, channel);
 		}
 	}
 

@@ -2,6 +2,7 @@
 #include <nano/lib/thread_roles.hpp>
 #include <nano/node/bootstrap/dependency_strategy.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/transport/formatting.hpp>
 
 using namespace std::chrono_literals;
 
@@ -112,7 +113,7 @@ bool dependency_strategy::request_info (nano::block_hash hash, std::shared_ptr<n
 	message.payload = msg_pld;
 	message.update_header ();
 
-	ctx.logger.debug (nano::log::type::bootstrap, "Requesting account info for: {} from: {}", hash, channel->to_string ());
+	ctx.logger.debug (nano::log::type::bootstrap, "Requesting account info for: {} from: {}", hash, channel);
 
 	return ctx.send (channel, std::move (message), tag);
 }

@@ -26,7 +26,7 @@ nano::thread_runner::~thread_runner ()
 
 void nano::thread_runner::start ()
 {
-	logger.debug (nano::log::type::thread_runner, "Starting threads: {} ({})", num_threads, to_string (role));
+	logger.debug (nano::log::type::thread_runner, "Starting threads: {} ({})", num_threads, role);
 
 	for (auto i = 0; i < num_threads; ++i)
 	{
@@ -71,7 +71,7 @@ void nano::thread_runner::join ()
 
 	threads.clear ();
 
-	logger.debug (nano::log::type::thread_runner, "Stopped all threads ({})", to_string (role));
+	logger.debug (nano::log::type::thread_runner, "Stopped all threads ({})", role);
 
 	io_ctx.reset (); // Release shared_ptr to io_context
 }

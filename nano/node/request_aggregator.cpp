@@ -7,6 +7,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/request_aggregator.hpp>
+#include <nano/node/transport/formatting.hpp>
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/node/wallet.hpp>
@@ -278,14 +279,14 @@ auto nano::request_aggregator::aggregate (nano::secure::transaction const & tran
 				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_final);
 
 				logger.debug (nano::log::type::request_aggregator, "Replying with final vote for: {} to: {}",
-				block->hash (), channel_a->to_string ()); // TODO: Lazy eval
+				block->hash (), channel_a);
 			}
 			else
 			{
 				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_non_final);
 
 				logger.debug (nano::log::type::request_aggregator, "Skipping reply with normal vote for: {} (requested by: {})",
-				block->hash (), channel_a->to_string ()); // TODO: Lazy eval
+				block->hash (), channel_a);
 			}
 		}
 		else
@@ -293,7 +294,7 @@ auto nano::request_aggregator::aggregate (nano::secure::transaction const & tran
 			stats.inc (nano::stat::type::requests, nano::stat::detail::requests_unknown);
 
 			logger.debug (nano::log::type::request_aggregator, "Cannot reply, block not found: {} with root: {} (requested by: {})",
-			hash, root, channel_a->to_string ()); // TODO: Lazy eval
+			hash, root, channel_a);
 		}
 	}
 

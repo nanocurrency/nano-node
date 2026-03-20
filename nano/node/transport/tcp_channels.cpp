@@ -1,4 +1,5 @@
 #include <nano/node/node.hpp>
+#include <nano/node/transport/formatting.hpp>
 #include <nano/node/transport/tcp_channels.hpp>
 
 #include <ranges>
@@ -110,7 +111,7 @@ std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::cre
 	node.stats.inc (nano::stat::type::tcp_channels, nano::stat::detail::channel_accepted);
 	node.logger.debug (nano::log::type::tcp_channels, "Accepted channel: {} ({}) ({})",
 	socket->get_remote_endpoint (),
-	to_string (socket->get_endpoint_type ()),
+	socket->get_endpoint_type (),
 	node_id.to_node_id ());
 
 	// This should be the only place in node where channels are created
@@ -319,7 +320,7 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 		{
 			node.stats.inc (nano::stat::type::tcp_channels_purge, nano::stat::detail::idle);
 			node.logger.debug (nano::log::type::tcp_channels, "Closing idle channel: {} (idle for {}s)",
-			channel->to_string (),
+			channel,
 			nano::log::seconds_delta (last));
 
 			return true; // Close
@@ -328,7 +329,7 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 		if (channel->get_network_version () < node.network_params.network.protocol_version_min)
 		{
 			node.stats.inc (nano::stat::type::tcp_channels_purge, nano::stat::detail::outdated);
-			node.logger.debug (nano::log::type::tcp_channels, "Closing channel with old protocol version: {}", channel->to_string ());
+			node.logger.debug (nano::log::type::tcp_channels, "Closing channel with old protocol version: {}", channel);
 
 			return true; // Close
 		}
@@ -360,7 +361,7 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 	for (auto const & connection : erased_connections)
 	{
 		node.stats.inc (nano::stat::type::tcp_channels, nano::stat::detail::erase_dead);
-		node.logger.debug (nano::log::type::tcp_channels, "Removing dead channel: {}", connection.channel->to_string ());
+		node.logger.debug (nano::log::type::tcp_channels, "Removing dead channel: {}", connection.channel);
 
 		connection.channel->close ();
 	}

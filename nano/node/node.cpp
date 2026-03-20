@@ -322,7 +322,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	logger.info (nano::log::type::node, "Work peers: {}", config.work_peers.size ());
 	logger.info (nano::log::type::node, "Node ID: {}", node_id.pub.to_node_id ());
 	logger.info (nano::log::type::node, "Number of buckets: {}", bucketing.size ());
-	logger.info (nano::log::type::node, "Genesis block: {}", config.network_params.ledger.genesis->hash ().to_string ());
+	logger.info (nano::log::type::node, "Genesis block: {}", config.network_params.ledger.genesis->hash ());
 	logger.info (nano::log::type::node, "Genesis account: {}", config.network_params.ledger.genesis->account ().to_account ());
 
 	if (!work_generation_enabled ())
@@ -474,7 +474,7 @@ void nano::node::process_active (std::shared_ptr<nano::vote> const & vote)
 [[nodiscard]] nano::block_status nano::node::process (secure::write_transaction const & transaction, std::shared_ptr<nano::block> block)
 {
 	auto status = ledger.process (transaction, block);
-	logger.debug (nano::log::type::node, "Directly processed block: {} (status: {})", block->hash (), to_string (status));
+	logger.debug (nano::log::type::node, "Directly processed block: {} (status: {})", block->hash (), status);
 	return status;
 }
 

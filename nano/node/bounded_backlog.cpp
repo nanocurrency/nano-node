@@ -319,12 +319,12 @@ std::deque<nano::block_hash> nano::bounded_backlog::perform_rollbacks (std::dequ
 			if (error)
 			{
 				stats.inc (nano::stat::type::bounded_backlog, nano::stat::detail::rollback_failed);
-				logger.warn (nano::log::type::bounded_backlog, "Failed to roll back: {} (succeeded with {} dependents)", hash.to_string (), rollback_list.size ());
+				logger.warn (nano::log::type::bounded_backlog, "Failed to roll back: {} (succeeded with {} dependents)", hash, rollback_list.size ());
 			}
 			else
 			{
 				stats.inc (nano::stat::type::bounded_backlog, nano::stat::detail::rollback);
-				logger.debug (nano::log::type::bounded_backlog, "Rolled back {} with {} dependents", hash.to_string (), rollback_list.size ());
+				logger.debug (nano::log::type::bounded_backlog, "Rolled back {} with {} dependents", hash, rollback_list.size ());
 			}
 
 			for (auto const & rollback : rollback_list)

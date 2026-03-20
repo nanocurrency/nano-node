@@ -9,6 +9,7 @@
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/transport/formatting.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
@@ -116,10 +117,7 @@ bool nano::block_processor::add (std::shared_ptr<nano::block> const & block, blo
 	}
 
 	stats.inc (nano::stat::type::block_processor, nano::stat::detail::process);
-	logger.debug (nano::log::type::block_processor, "Processing block (async): {} (source: {} {})",
-	block->hash ().to_string (),
-	to_string (source),
-	channel ? channel->to_string () : "<unknown>"); // TODO: Lazy eval
+	logger.debug (nano::log::type::block_processor, "Processing block (async): {} (source: {} {})", block->hash (), source, channel);
 
 	return add_impl ({ block, source, std::move (callback) }, channel);
 }
@@ -127,7 +125,7 @@ bool nano::block_processor::add (std::shared_ptr<nano::block> const & block, blo
 std::optional<nano::block_status> nano::block_processor::add_blocking (std::shared_ptr<nano::block> const & block, block_source const source)
 {
 	stats.inc (nano::stat::type::block_processor, nano::stat::detail::process_blocking);
-	logger.debug (nano::log::type::block_processor, "Processing block (blocking): {} (source: {})", block->hash ().to_string (), to_string (source));
+	logger.debug (nano::log::type::block_processor, "Processing block (blocking): {} (source: {})", block->hash (), source);
 
 	nano::block_context ctx{ block, source };
 	auto future = ctx.get_future ();
@@ -141,7 +139,7 @@ std::optional<nano::block_status> nano::block_processor::add_blocking (std::shar
 	catch (std::future_error const &)
 	{
 		stats.inc (nano::stat::type::block_processor, nano::stat::detail::process_blocking_timeout);
-		logger.error (nano::log::type::block_processor, "Block dropped when processing: {}", block->hash ().to_string ());
+		logger.error (nano::log::type::block_processor, "Block dropped when processing: {}", block->hash ());
 	}
 
 	return std::nullopt;
@@ -150,7 +148,7 @@ std::optional<nano::block_status> nano::block_processor::add_blocking (std::shar
 void nano::block_processor::force (std::shared_ptr<nano::block> const & block_a)
 {
 	stats.inc (nano::stat::type::block_processor, nano::stat::detail::force);
-	logger.debug (nano::log::type::block_processor, "Forcing block: {}", block_a->hash ().to_string ());
+	logger.debug (nano::log::type::block_processor, "Forcing block: {}", block_a->hash ());
 
 	add_impl ({ block_a, block_source::forced });
 }
@@ -183,19 +181,19 @@ void nano::block_processor::rollback_competitor (secure::write_transaction & tra
 	if (successor != nullptr && successor->hash () != hash)
 	{
 		// Replace our block with the winner and roll back any dependent blocks
-		logger.debug (nano::log::type::block_processor, "Rolling back: {} and replacing with: {}", successor->hash ().to_string (), hash.to_string ());
+		logger.debug (nano::log::type::block_processor, "Rolling back: {} and replacing with: {}", successor->hash (), hash);
 
 		std::deque<std::shared_ptr<nano::block>> rollback_list;
 		bool error = ledger.rollback (transaction, successor->hash (), rollback_list);
 		if (error)
 		{
 			stats.inc (nano::stat::type::ledger, nano::stat::detail::rollback_failed);
-			logger.warn (nano::log::type::block_processor, "Failed to roll back: {} (succeeded with {} dependents)", successor->hash ().to_string (), rollback_list.size ());
+			logger.warn (nano::log::type::block_processor, "Failed to roll back: {} (succeeded with {} dependents)", successor->hash (), rollback_list.size ());
 		}
 		else
 		{
 			stats.inc (nano::stat::type::ledger, nano::stat::detail::rollback);
-			logger.debug (nano::log::type::block_processor, "Rolled back {} with {} dependents", successor->hash ().to_string (), rollback_list.size ());
+			logger.debug (nano::log::type::block_processor, "Rolled back {} with {} dependents", successor->hash (), rollback_list.size ());
 		}
 
 		if (!rollback_list.empty ())
@@ -376,7 +374,10 @@ void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 
 	if (number_of_blocks_processed != 0 && timer.stop () > std::chrono::milliseconds (100))
 	{
-		logger.debug (nano::log::type::block_processor, "Processed {} blocks ({} forced) in {} {}", number_of_blocks_processed, number_of_forced_processed, timer.value ().count (), timer.unit ());
+		logger.debug (nano::log::type::block_processor, "Processed {} blocks ({} forced) in {} {}",
+		number_of_blocks_processed,
+		number_of_forced_processed,
+		timer.value ().count (), timer.unit ());
 	}
 
 	// Queue notifications to be dispatched in the background

@@ -3,6 +3,7 @@
 #include <nano/node/bootstrap/frontier_strategy.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/transport/formatting.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
@@ -106,7 +107,7 @@ bool frontier_strategy::request_frontiers (nano::account start, std::shared_ptr<
 	message.payload = msg_pld;
 	message.update_header ();
 
-	ctx.logger.debug (nano::log::type::bootstrap, "Requesting frontiers starting from: {} from: {}", start, channel->to_string ());
+	ctx.logger.debug (nano::log::type::bootstrap, "Requesting frontiers starting from: {} from: {}", start, channel);
 
 	return ctx.send (channel, std::move (message), tag);
 }
