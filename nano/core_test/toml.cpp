@@ -604,6 +604,8 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	io_threads = 99
 	read_cache = 99
 	write_cache = 99
+	max_log_files = 99
+	log_level = "debug"
 
 	[node.experimental]
 	secondary_work_peers = ["dev.org:998"]
@@ -797,6 +799,8 @@ TEST (toml_config, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.rocksdb_config.io_threads, defaults.node.rocksdb_config.io_threads);
 	ASSERT_NE (conf.node.rocksdb_config.read_cache, defaults.node.rocksdb_config.read_cache);
 	ASSERT_NE (conf.node.rocksdb_config.write_cache, defaults.node.rocksdb_config.write_cache);
+	ASSERT_NE (conf.node.rocksdb_config.max_log_files, defaults.node.rocksdb_config.max_log_files);
+	ASSERT_NE (conf.node.rocksdb_config.log_level, defaults.node.rocksdb_config.log_level);
 
 	ASSERT_NE (conf.node.optimistic_scheduler.enable, defaults.node.optimistic_scheduler.enable);
 	ASSERT_NE (conf.node.optimistic_scheduler.gap_threshold, defaults.node.optimistic_scheduler.gap_threshold);
