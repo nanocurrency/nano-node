@@ -19,7 +19,7 @@ template <typename T>
 	})
 struct fmt::formatter<T> : fmt::formatter<std::string_view>
 {
-	auto format (T const & value, format_context & ctx) const
+	auto format (T const & value, fmt::format_context & ctx) const
 	{
 		return fmt::formatter<std::string_view>::format (to_string (value), ctx);
 	}
@@ -95,7 +95,7 @@ struct fmt::formatter<nano::wallet_id> : fmt::formatter<nano::uint256_union>
 template <>
 struct fmt::formatter<boost::system::error_code> : fmt::formatter<std::string>
 {
-	auto format (const boost::system::error_code & ec, format_context & ctx)
+	auto format (const boost::system::error_code & ec, fmt::format_context & ctx)
 	{
 		return fmt::format_to (ctx.out (), "{} {}:{}", ec.message (), ec.value (), ec.category ().name ());
 	}

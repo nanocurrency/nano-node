@@ -143,7 +143,7 @@ std::string to_json (Value const & value)
 template <nano::object_or_array_streamable Streamable>
 struct fmt::formatter<Streamable> : fmt::ostream_formatter
 {
-	auto format (Streamable const & value, format_context & ctx)
+	auto format (Streamable const & value, fmt::format_context & ctx)
 	{
 		return fmt::ostream_formatter::format (nano::streamed (value), ctx);
 	}

@@ -10,7 +10,7 @@
 template <>
 struct fmt::formatter<nano::transport::channel> : fmt::formatter<std::string>
 {
-	auto format (nano::transport::channel const & channel, format_context & ctx) const
+	auto format (nano::transport::channel const & channel, fmt::format_context & ctx) const
 	{
 		return fmt::formatter<std::string>::format (channel.to_string (), ctx);
 	}
@@ -20,7 +20,7 @@ template <typename T>
 	requires std::derived_from<T, nano::transport::channel>
 struct fmt::formatter<std::shared_ptr<T>> : fmt::formatter<std::string>
 {
-	auto format (std::shared_ptr<T> const & channel, format_context & ctx) const
+	auto format (std::shared_ptr<T> const & channel, fmt::format_context & ctx) const
 	{
 		if (channel)
 		{
