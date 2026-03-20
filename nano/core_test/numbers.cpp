@@ -1,3 +1,4 @@
+#include <nano/lib/balance_formatting.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/numbers_templ.hpp>
 #include <nano/secure/common.hpp>
@@ -254,7 +255,7 @@ struct test_punct : std::moneypunct<char>
 	}
 };
 
-TEST (uint128_union, balance_format)
+TEST (uint128_union, format_balance)
 {
 	ASSERT_EQ ("0", nano::amount (nano::uint128_t ("0")).format_balance (nano::nano_ratio, 0, false));
 	ASSERT_EQ ("0", nano::amount (nano::uint128_t ("0")).format_balance (nano::nano_ratio, 2, true));
@@ -274,6 +275,32 @@ TEST (uint128_union, balance_format)
 	ASSERT_EQ ("1", nano::amount (nano::uint128_t ("1230000000000000000000000000000")).format_balance (nano::nano_ratio, 0, true));
 	ASSERT_EQ ("123456789", nano::amount (nano::nano_ratio * 123456789).format_balance (nano::nano_ratio, 2, false));
 	ASSERT_EQ ("123,456,789", nano::amount (nano::nano_ratio * 123456789).format_balance (nano::nano_ratio, 2, true));
+	ASSERT_EQ ("0.5", nano::amount (nano::nano_ratio / 2).format_balance (nano::nano_ratio, 1, true));
+	ASSERT_EQ ("< 0.01", nano::amount (1).format_balance (nano::nano_ratio, 2, true));
+}
+
+TEST (uint128_union, encode_balance)
+{
+	auto encode = [] (nano::uint128_t value, nano::uint128_t scale, int precision, bool group_digits) {
+		std::ostringstream stream;
+		nano::uint128_union{ value }.encode_balance (stream, scale, precision, group_digits);
+		return stream.str ();
+	};
+	ASSERT_EQ ("0", encode (0, nano::nano_ratio, 0, false));
+	ASSERT_EQ ("0", encode (0, nano::nano_ratio, 2, true));
+	ASSERT_EQ ("340,282,366", encode (nano::uint128_t ("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"), nano::nano_ratio, 0, true));
+	ASSERT_EQ ("1", encode (nano::uint128_t ("1000000000000000000000000000000"), nano::nano_ratio, 2, true));
+	ASSERT_EQ ("1.2", encode (nano::uint128_t ("1200000000000000000000000000000"), nano::nano_ratio, 2, true));
+	ASSERT_EQ ("1.23", encode (nano::uint128_t ("1230000000000000000000000000000"), nano::nano_ratio, 2, true));
+	ASSERT_EQ ("1.2", encode (nano::uint128_t ("1230000000000000000000000000000"), nano::nano_ratio, 1, true));
+	ASSERT_EQ ("1", encode (nano::uint128_t ("1230000000000000000000000000000"), nano::nano_ratio, 0, true));
+	ASSERT_EQ ("123,456,789", encode (nano::nano_ratio * 123456789, nano::nano_ratio, 2, true));
+	ASSERT_EQ ("123456789", encode (nano::nano_ratio * 123456789, nano::nano_ratio, 2, false));
+	ASSERT_EQ ("< 0.01", encode (nano::nano_ratio / 1000, nano::nano_ratio, 2, true));
+	ASSERT_EQ ("< 0.1", encode (nano::nano_ratio / 1000, nano::nano_ratio, 1, true));
+	ASSERT_EQ ("< 1", encode (nano::nano_ratio / 1000, nano::nano_ratio, 0, true));
+	ASSERT_EQ ("0.5", encode (nano::nano_ratio / 2, nano::nano_ratio, 1, true));
+	ASSERT_EQ ("< 0.01", encode (1, nano::nano_ratio, 2, true));
 }
 
 TEST (uint128_union, decode_decimal)
@@ -862,4 +889,20 @@ TEST (account, known_addresses)
 
 	nano::account account5{ "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF" };
 	ASSERT_EQ (account5.to_account (), "nano_3zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzc3yoon41");
+}
+
+TEST (balance_formatting, encode_balance)
+{
+	auto encode = [] (nano::uint128_t value, nano::uint128_t scale, int precision) {
+		std::ostringstream stream;
+		std::string grouping = "\3";
+		nano::encode_balance (stream, value, scale, precision, true, ',', '.', grouping);
+		return stream.str ();
+	};
+	ASSERT_EQ ("0", encode (0, nano::nano_ratio, 0));
+	ASSERT_EQ ("1", encode (nano::nano_ratio, nano::nano_ratio, 0));
+	ASSERT_EQ ("1.5", encode (nano::nano_ratio + nano::nano_ratio / 2, nano::nano_ratio, 1));
+	ASSERT_EQ ("1,000", encode (nano::nano_ratio * 1000, nano::nano_ratio, 0));
+	ASSERT_EQ ("< 0.01", encode (nano::nano_ratio / 1000, nano::nano_ratio, 2));
+	ASSERT_EQ ("< 0.000001", encode (1, nano::nano_ratio, 6));
 }

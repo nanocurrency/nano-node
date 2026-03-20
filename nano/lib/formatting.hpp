@@ -139,7 +139,8 @@ struct as_nano
 
 	friend std::ostream & operator<< (std::ostream & os, as_nano const & wrapper)
 	{
-		return os << nano::uint128_union{ wrapper.value }.format_balance (nano::nano_ratio, wrapper.precision, true);
+		nano::uint128_union{ wrapper.value }.encode_balance (os, nano::nano_ratio, wrapper.precision, true);
+		return os;
 	}
 };
 

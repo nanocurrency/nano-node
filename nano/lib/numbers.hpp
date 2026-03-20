@@ -58,6 +58,7 @@ public:
 	bool decode_dec (std::string const &, bool = false);
 	bool decode_dec (std::string const &, nano::uint128_t);
 
+	void encode_balance (std::ostream &, nano::uint128_t scale, int precision, bool group_digits) const;
 	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits) const;
 	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits, std::locale const & locale) const;
 
