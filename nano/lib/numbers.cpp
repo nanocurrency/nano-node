@@ -598,16 +598,6 @@ std::string nano::uint128_union::format_balance (nano::uint128_t scale, int prec
 	return stream.str ();
 }
 
-std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits, std::locale const & locale) const
-{
-	auto thousands_sep = std::use_facet<std::moneypunct<char>> (locale).thousands_sep ();
-	auto decimal_point = std::use_facet<std::moneypunct<char>> (locale).decimal_point ();
-	std::string grouping = std::use_facet<std::moneypunct<char>> (locale).grouping ();
-	std::ostringstream stream;
-	nano::encode_balance (stream, number (), scale, precision, group_digits, thousands_sep, decimal_point, grouping);
-	return stream.str ();
-}
-
 bool nano::hash_or_account::decode_hex (std::string const & text_a)
 {
 	return raw.decode_hex (text_a);

@@ -60,7 +60,6 @@ public:
 
 	void encode_balance (std::ostream &, nano::uint128_t scale, int precision, bool group_digits) const;
 	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits) const;
-	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits, std::locale const & locale) const;
 
 	void clear ()
 	{
