@@ -104,65 +104,82 @@ struct fmt::formatter<boost::system::error_code> : fmt::formatter<std::string>
 // Lazy formatting wrappers for public_key alternative representations
 namespace nano::log
 {
-struct as_account
+struct as_account_formatter
 {
 	nano::public_key const & key;
 
-	friend std::ostream & operator<< (std::ostream & os, as_account const & wrapper)
+	friend std::ostream & operator<< (std::ostream & os, as_account_formatter const & wrapper)
 	{
 		wrapper.key.encode_account (os);
 		return os;
 	}
 };
 
-struct as_node_id
+struct as_node_id_formatter
 {
 	nano::public_key const & key;
 
-	friend std::ostream & operator<< (std::ostream & os, as_node_id const & wrapper)
+	friend std::ostream & operator<< (std::ostream & os, as_node_id_formatter const & wrapper)
 	{
 		wrapper.key.encode_node_id (os);
 		return os;
 	}
 };
 
-struct as_nano
+struct as_nano_formatter
 {
 	nano::uint128_t const value;
 	int precision{ 1 };
 
-	friend std::ostream & operator<< (std::ostream & os, as_nano const & wrapper)
+	friend std::ostream & operator<< (std::ostream & os, as_nano_formatter const & wrapper)
 	{
 		nano::uint128_union{ wrapper.value }.encode_balance (os, nano::nano_ratio, wrapper.precision, true);
 		return os;
 	}
 };
 
-struct as_raw_nano
+struct as_raw_nano_formatter
 {
 	nano::uint128_t const value;
 
-	friend std::ostream & operator<< (std::ostream & os, as_raw_nano const & wrapper)
+	friend std::ostream & operator<< (std::ostream & os, as_raw_nano_formatter const & wrapper)
 	{
 		nano::uint128_union{ wrapper.value }.encode_dec (os);
 		return os;
 	}
 };
+
+inline auto as_account (nano::public_key const & key)
+{
+	return as_account_formatter{ key };
+}
+inline auto as_node_id (nano::public_key const & key)
+{
+	return as_node_id_formatter{ key };
+}
+inline auto as_nano (nano::uint128_t value, int precision = 1)
+{
+	return as_nano_formatter{ value, precision };
+}
+inline auto as_raw_nano (nano::uint128_t value)
+{
+	return as_raw_nano_formatter{ value };
+}
 }
 
 template <>
-struct fmt::formatter<nano::log::as_account> : fmt::ostream_formatter
+struct fmt::formatter<nano::log::as_account_formatter> : fmt::ostream_formatter
 {
 };
 template <>
-struct fmt::formatter<nano::log::as_node_id> : fmt::ostream_formatter
+struct fmt::formatter<nano::log::as_node_id_formatter> : fmt::ostream_formatter
 {
 };
 template <>
-struct fmt::formatter<nano::log::as_nano> : fmt::ostream_formatter
+struct fmt::formatter<nano::log::as_nano_formatter> : fmt::ostream_formatter
 {
 };
 template <>
-struct fmt::formatter<nano::log::as_raw_nano> : fmt::ostream_formatter
+struct fmt::formatter<nano::log::as_raw_nano_formatter> : fmt::ostream_formatter
 {
 };

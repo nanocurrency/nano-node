@@ -777,7 +777,7 @@ nano::public_key nano::wallet::deterministic_insert_impl (nano::store::write_tra
 	{
 		key = store.deterministic_insert (transaction_a);
 
-		logger.info (nano::log::type::wallet, "Deterministically inserted new account: {}", nano::log::as_account{ key });
+		logger.info (nano::log::type::wallet, "Deterministically inserted new account: {}", nano::log::as_account (key));
 
 		if (generate_work_a)
 		{
@@ -786,7 +786,7 @@ nano::public_key nano::wallet::deterministic_insert_impl (nano::store::write_tra
 
 		if (wallets.check_rep (key))
 		{
-			logger.info (nano::log::type::wallet, "New account qualified as a representative: {}", nano::log::as_account{ key });
+			logger.info (nano::log::type::wallet, "New account qualified as a representative: {}", nano::log::as_account (key));
 			representatives.lock ()->insert (key);
 		}
 	}
@@ -801,7 +801,7 @@ nano::public_key nano::wallet::deterministic_insert (uint32_t const index, bool 
 	{
 		key = store.deterministic_insert (transaction, index);
 
-		logger.info (nano::log::type::wallet, "Deterministically inserted new account: {}", nano::log::as_account{ key });
+		logger.info (nano::log::type::wallet, "Deterministically inserted new account: {}", nano::log::as_account (key));
 
 		if (generate_work_a)
 		{
@@ -826,7 +826,7 @@ nano::public_key nano::wallet::insert_adhoc (nano::raw_key const & key_a, bool g
 	{
 		key = store.insert_adhoc (transaction, key_a);
 
-		logger.info (nano::log::type::wallet, "Ad-hoc inserted new account: {}", nano::log::as_account{ key });
+		logger.info (nano::log::type::wallet, "Ad-hoc inserted new account: {}", nano::log::as_account (key));
 
 		auto ledger_txn = wallets.ledger.tx_begin_read ();
 		if (generate_work_a)
@@ -840,7 +840,7 @@ nano::public_key nano::wallet::insert_adhoc (nano::raw_key const & key_a, bool g
 
 		if (wallets.check_rep (key))
 		{
-			logger.info (nano::log::type::wallet, "New account qualified as a representative: {}", nano::log::as_account{ key });
+			logger.info (nano::log::type::wallet, "New account qualified as a representative: {}", nano::log::as_account (key));
 			representatives.lock ()->insert (key);
 		}
 	}
@@ -918,7 +918,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 					logger.info (nano::log::type::wallet, "Receiving block: {} from account: {}, amount: {} raw",
 					send_hash_a,
 					account_a,
-					nano::log::as_raw_nano{ pending_info->amount.number () });
+					nano::log::as_raw_nano (pending_info->amount.number ()));
 
 					if (work_a == 0)
 					{
@@ -1080,7 +1080,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 						logger.info (nano::log::type::wallet, "Sending from account: {} to: {}, amount: {} raw",
 						source_a,
 						account_a,
-						nano::log::as_raw_nano{ amount_a });
+						nano::log::as_raw_nano (amount_a));
 
 						auto info = wallets.ledger.any.account_get (ledger_txn, source_a);
 						release_assert (info, "could not find account info for account in wallet send_action", source_a.to_account ());
@@ -1112,14 +1112,14 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 						{
 							logger.warn (nano::log::type::wallet, "Insufficient balance for send from: {}, required: {} raw, available: {} raw",
 							account_a,
-							nano::log::as_raw_nano{ amount_a },
-							nano::log::as_raw_nano{ balance.value ().number () });
+							nano::log::as_raw_nano (amount_a),
+							nano::log::as_raw_nano (balance.value ().number ()));
 						}
 						else
 						{
 							logger.warn (nano::log::type::wallet, "Insufficient balance for send from: {}, required: {} raw, available: unknown",
 							account_a,
-							nano::log::as_raw_nano{ amount_a });
+							nano::log::as_raw_nano (amount_a));
 						}
 					}
 				}

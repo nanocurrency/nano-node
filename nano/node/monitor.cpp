@@ -98,9 +98,9 @@ void nano::monitor::run_one ()
 	auto const stake_peered = node.rep_crawler.total_weight ();
 
 	logger.info (nano::log::type::monitor, "Quorum: {} (stake peered: {} | stake online: {})",
-	nano::log::as_nano{ quorum },
-	nano::log::as_nano{ stake_peered },
-	nano::log::as_nano{ stake_online });
+	nano::log::as_nano (quorum),
+	nano::log::as_nano (stake_peered),
+	nano::log::as_nano (stake_online));
 
 	logger.info (nano::log::type::monitor, "Elections active: {} (priority: {} | hinted: {} | optimistic: {}) of which stale: {}",
 	node.active.size (),
@@ -114,8 +114,8 @@ void nano::monitor::run_one ()
 	if (!sufficient_stake && node.warmed_up ())
 	{
 		logger.warn (nano::log::type::monitor, "Peered stake ({}) is below quorum threshold ({}). The node may not be able to confirm transactions. This is usually caused by NAT, firewall rules, or internet connectivity issues.",
-		nano::log::as_nano{ stake_peered },
-		nano::log::as_nano{ quorum });
+		nano::log::as_nano (stake_peered),
+		nano::log::as_nano (quorum));
 	}
 
 	last_time = now;

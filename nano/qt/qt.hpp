@@ -219,7 +219,7 @@ public:
 	QLabel * tx_label;
 	QSpinBox * tx_count;
 	nano::ledger & ledger;
-	nano::account const & account;
+	nano::account account;
 	nano_qt::wallet & wallet;
 };
 class block_viewer

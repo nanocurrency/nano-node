@@ -245,12 +245,12 @@ void nano::ledger::initialize (nano::generate_cache_flags const & generate_cache
 	logger.info (nano::log::type::ledger, "Pruned count:   {:>11}", cache.pruned_count.load ());
 	logger.info (nano::log::type::ledger, "Representative count: {:>5}", rep_weights.size ());
 	logger.info (nano::log::type::ledger, "Active balance: {} | pending: {} | burned: {}",
-	nano::log::as_nano{ static_cast<nano::uint128_t> (active_balance) },
-	nano::log::as_nano{ static_cast<nano::uint128_t> (pending_balance) },
-	nano::log::as_nano{ static_cast<nano::uint128_t> (burned_balance) });
+	nano::log::as_nano (static_cast<nano::uint128_t> (active_balance)),
+	nano::log::as_nano (static_cast<nano::uint128_t> (pending_balance)),
+	nano::log::as_nano (static_cast<nano::uint128_t> (burned_balance)));
 	logger.info (nano::log::type::ledger, "Weight committed: {} | unused: {}",
-	nano::log::as_nano{ rep_weights.get_weight_committed () },
-	nano::log::as_nano{ rep_weights.get_weight_unused () });
+	nano::log::as_nano (rep_weights.get_weight_committed ()),
+	nano::log::as_nano (rep_weights.get_weight_unused ()));
 }
 
 void nano::ledger::verify_consistency (secure::transaction const & transaction) const

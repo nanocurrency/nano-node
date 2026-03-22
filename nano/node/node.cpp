@@ -321,7 +321,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	logger.info (nano::log::type::node, "Ledger path: {}", store.get_database_path ().string ());
 	logger.info (nano::log::type::node, "Work pool threads: {} ({})", work.threads.size (), (work.opencl ? "OpenCL" : "CPU"));
 	logger.info (nano::log::type::node, "Work peers: {}", config.work_peers.size ());
-	logger.info (nano::log::type::node, "Node ID: {}", nano::log::as_node_id{ node_id.pub });
+	logger.info (nano::log::type::node, "Node ID: {}", nano::log::as_node_id (node_id.pub));
 	logger.info (nano::log::type::node, "Number of buckets: {}", bucketing.size ());
 	logger.info (nano::log::type::node, "Genesis block: {}", config.network_params.ledger.genesis->hash ());
 	logger.info (nano::log::type::node, "Genesis account: {}", config.network_params.ledger.genesis->account ());
@@ -408,7 +408,7 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 			{
 				logger.info (nano::log::type::node, "Using bootstrap rep weight: {} -> {}",
 				rep.first,
-				nano::log::as_nano{ rep.second });
+				nano::log::as_nano (rep.second));
 			}
 
 			logger.info (nano::log::type::node, "******************************************** ================= ********************************************");
