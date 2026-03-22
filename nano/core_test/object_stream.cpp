@@ -513,8 +513,7 @@ TEST (object_stream, ostream_adapter)
 TEST (object_stream, fmt_adapter)
 {
 	streamable_object test_object;
-	auto str1 = fmt::format ("{}", test_object); // Using automatic fmt adapter
-	auto str2 = fmt::format ("{}", nano::streamed (test_object)); // Using explicit fmt adapter
+	auto str = fmt::format ("{}", nano::streamed (test_object)); // Using explicit fmt adapter
 
 	auto expected = trim (R"(
 {
@@ -523,8 +522,7 @@ TEST (object_stream, fmt_adapter)
 }
 )");
 
-	ASSERT_EQ (str1, expected);
-	ASSERT_EQ (str2, expected);
+	ASSERT_EQ (str, expected);
 }
 
 TEST (object_stream, to_string)

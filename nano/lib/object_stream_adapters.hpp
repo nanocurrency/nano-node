@@ -136,15 +136,3 @@ std::string to_json (Value const & value)
 	return ss.str ();
 }
 }
-
-/*
- * Adapter that allows for printing using fmt library for all classes that implement object streaming
- */
-template <nano::object_or_array_streamable Streamable>
-struct fmt::formatter<Streamable> : fmt::ostream_formatter
-{
-	auto format (Streamable const & value, fmt::format_context & ctx)
-	{
-		return fmt::ostream_formatter::format (nano::streamed (value), ctx);
-	}
-};
