@@ -92,9 +92,15 @@ struct fmt::formatter<nano::wallet_id> : fmt::formatter<nano::uint256_union>
 {
 };
 
+// Custom formatter for boost::system::error_code for more informative logging
 template <>
-struct fmt::formatter<boost::system::error_code> : fmt::formatter<std::string>
+struct fmt::formatter<boost::system::error_code>
 {
+	auto parse (fmt::format_parse_context & ctx)
+	{
+		return ctx.begin ();
+	}
+
 	auto format (const boost::system::error_code & ec, fmt::format_context & ctx)
 	{
 		return fmt::format_to (ctx.out (), "{} {}:{}", ec.message (), ec.value (), ec.category ().name ());
