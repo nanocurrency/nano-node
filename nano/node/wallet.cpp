@@ -918,7 +918,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 					logger.info (nano::log::type::wallet, "Receiving block: {} from account: {}, amount: {} raw",
 					send_hash_a,
 					account_a,
-					nano::log::as_raw_nano (pending_info->amount.number ()));
+					nano::log::as_raw_nano (pending_info->amount));
 
 					if (work_a == 0)
 					{
@@ -1113,7 +1113,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 							logger.warn (nano::log::type::wallet, "Insufficient balance for send from: {}, required: {} raw, available: {} raw",
 							source_a,
 							nano::log::as_raw_nano (amount_a),
-							nano::log::as_raw_nano (balance.value ().number ()));
+							nano::log::as_raw_nano (balance.value ()));
 						}
 						else
 						{

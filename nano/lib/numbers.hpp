@@ -534,11 +534,13 @@ std::ostream & operator<< (std::ostream &, const uint512_union &);
 std::ostream & operator<< (std::ostream &, const hash_or_account &);
 std::ostream & operator<< (std::ostream &, const account &);
 
+void encode_balance (std::ostream &, nano::uint128_t value, nano::uint128_t scale, int precision, bool group_digits);
+
 /**
  * Convert a double to string in fixed format
- * @param precision_a (optional) use a specific precision (default is the maximum)
+ * @param precision (optional) use a specific precision (default is the maximum)
  */
-std::string to_string (double const, int const precision_a = std::numeric_limits<double>::digits10);
+std::string to_string (double const, int const precision = std::numeric_limits<double>::digits10);
 
 namespace difficulty
 {

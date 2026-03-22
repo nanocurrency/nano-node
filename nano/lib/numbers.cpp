@@ -586,16 +586,9 @@ std::string nano::uint128_union::to_string_dec () const
 	return stream.str ();
 }
 
-/*
- *
- */
-
 void nano::uint128_union::encode_balance (std::ostream & os, nano::uint128_t scale, int precision, bool group_digits) const
 {
-	auto thousands_sep = std::use_facet<std::numpunct<char>> (std::locale ()).thousands_sep ();
-	auto decimal_point = std::use_facet<std::numpunct<char>> (std::locale ()).decimal_point ();
-	std::string grouping = "\3";
-	nano::encode_balance (os, number (), scale, precision, group_digits, thousands_sep, decimal_point, grouping);
+	nano::encode_balance (os, number (), scale, precision, group_digits);
 }
 
 std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits) const
@@ -638,6 +631,14 @@ std::string nano::hash_or_account::to_account () const
 /*
  *
  */
+
+void nano::encode_balance (std::ostream & os, nano::uint128_t value, nano::uint128_t scale, int precision, bool group_digits)
+{
+	auto thousands_sep = std::use_facet<std::numpunct<char>> (std::locale ()).thousands_sep ();
+	auto decimal_point = std::use_facet<std::numpunct<char>> (std::locale ()).decimal_point ();
+	std::string grouping = "\3";
+	nano::encode_balance (os, value, scale, precision, group_digits, thousands_sep, decimal_point, grouping);
+}
 
 std::string nano::to_string_hex (uint64_t const value_a)
 {

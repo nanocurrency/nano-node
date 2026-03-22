@@ -134,23 +134,23 @@ struct as_node_id_formatter
 
 struct as_nano_formatter
 {
-	nano::uint128_t const value;
+	nano::uint128_t const & value;
 	int precision{ 1 };
 
 	friend std::ostream & operator<< (std::ostream & os, as_nano_formatter const & wrapper)
 	{
-		nano::uint128_union{ wrapper.value }.encode_balance (os, nano::nano_ratio, wrapper.precision, true);
+		nano::encode_balance (os, wrapper.value, nano::nano_ratio, wrapper.precision, true);
 		return os;
 	}
 };
 
 struct as_raw_nano_formatter
 {
-	nano::uint128_t const value;
+	nano::uint128_t const & value;
 
 	friend std::ostream & operator<< (std::ostream & os, as_raw_nano_formatter const & wrapper)
 	{
-		nano::uint128_union{ wrapper.value }.encode_dec (os);
+		os << wrapper.value;
 		return os;
 	}
 };
@@ -163,11 +163,11 @@ inline auto as_node_id (nano::public_key const & key)
 {
 	return as_node_id_formatter{ key };
 }
-inline auto as_nano (nano::uint128_t value, int precision = 1)
+inline auto as_nano (nano::uint128_t const & value, int precision = 1)
 {
 	return as_nano_formatter{ value, precision };
 }
-inline auto as_raw_nano (nano::uint128_t value)
+inline auto as_raw_nano (nano::uint128_t const & value)
 {
 	return as_raw_nano_formatter{ value };
 }

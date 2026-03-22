@@ -161,7 +161,7 @@ bool nano::online_reps::sample ()
 		{
 			logger.warn (nano::log::type::online_reps, "Current online weight {} is below minimum threshold {}. This often occurs when the node cannot reach enough peers; check network connectivity and peer count.",
 			nano::log::as_nano (current_online),
-			nano::log::as_nano (config.online_weight_minimum.number ()));
+			nano::log::as_nano (config.online_weight_minimum));
 		}
 
 		return false; // Skipped
