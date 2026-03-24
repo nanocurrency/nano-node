@@ -124,13 +124,6 @@ bool nano::bootstrap_server::request (nano::messages::asc_pull_req const & messa
 		return false;
 	}
 
-	// If channel is full our response will be dropped anyway, so filter that early
-	if (channel->max (nano::transport::traffic_type::bootstrap_server))
-	{
-		stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::channel_full, nano::stat::dir::in);
-		return false;
-	}
-
 	bool added = false;
 	{
 		std::lock_guard guard{ mutex };
