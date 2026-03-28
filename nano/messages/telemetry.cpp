@@ -423,6 +423,10 @@ std::string to_string (telemetry_maker maker)
 			return "nf_node";
 		case telemetry_maker::nf_pruned_node:
 			return "nf_pruned_node";
+		case telemetry_maker::nano_node_light:
+			return "nano_node_light";
+		case telemetry_maker::rs_nano:
+			return "rs_nano";
 	}
 	return "invalid";
 }
@@ -461,6 +465,10 @@ telemetry_maker telemetry_maker_from_string (std::string const & str)
 		return telemetry_maker::nf_node;
 	if (str == "nf_pruned_node")
 		return telemetry_maker::nf_pruned_node;
+	if (str == "nano_node_light")
+		return telemetry_maker::nano_node_light;
+	if (str == "rs_nano")
+		return telemetry_maker::rs_nano;
 	return telemetry_maker::nf_node;
 }
 
