@@ -148,7 +148,7 @@ void nano::port_mapping::refresh_devices ()
 	if (igd_error_l == 1 || igd_error_l == 2)
 	{
 		boost::system::error_code ec;
-		address = boost::asio::ip::address_v4::from_string (local_address_l.data (), ec);
+		address = boost::asio::ip::make_address_v4 (local_address_l.data (), ec);
 	}
 }
 
@@ -250,7 +250,7 @@ bool nano::port_mapping::check_lost_or_old_mapping ()
 		if (external_ip_error_l == UPNPCOMMAND_SUCCESS)
 		{
 			boost::system::error_code ec;
-			protocol.external_address = boost::asio::ip::address_v4::from_string (external_address_l.data (), ec);
+			protocol.external_address = boost::asio::ip::make_address_v4 (external_address_l.data (), ec);
 			protocol.external_port = static_cast<uint16_t> (std::atoi (config_port_l.data ()));
 		}
 		else

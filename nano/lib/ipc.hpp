@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/boost/asio/deadline_timer.hpp>
+#include <nano/boost/asio/steady_timer.hpp>
 
 #include <memory>
 #include <string>
@@ -55,7 +55,7 @@ namespace ipc
 		/** Prevent io_context destruction while this socket is alive */
 		std::shared_ptr<boost::asio::io_context> io_ctx_shared;
 		/** IO operation timer */
-		boost::asio::deadline_timer io_timer;
+		boost::asio::steady_timer io_timer;
 	};
 
 	/**

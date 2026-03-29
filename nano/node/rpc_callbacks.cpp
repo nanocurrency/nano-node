@@ -109,12 +109,12 @@ void nano::http_callbacks::setup_callbacks ()
 
 				// Resolve the callback address
 				// Safe to capture 'this' as io_context is stopped before node destruction
-				resolver->async_resolve (boost::asio::ip::tcp::resolver::query{ address, std::to_string (port) },
+				resolver->async_resolve (address, std::to_string (port),
 				[this, address, port, target, body, resolver] (boost::system::error_code const & ec,
-				boost::asio::ip::tcp::resolver::iterator i_a) {
+				boost::asio::ip::tcp::resolver::results_type results) {
 					if (!ec)
 					{
-						do_rpc_callback (i_a, address, port, target, body, resolver);
+						do_rpc_callback (results.begin (), results.end (), address, port, target, body, resolver);
 					}
 					else
 					{
@@ -134,7 +134,8 @@ void nano::http_callbacks::setup_callbacks ()
  * Handles connection establishment, request sending, and response processing
  * Includes retry logic for failed connection attempts
  */
-void nano::http_callbacks::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a,
+void nano::http_callbacks::do_rpc_callback (boost::asio::ip::tcp::resolver::results_type::iterator i_a,
+boost::asio::ip::tcp::resolver::results_type::iterator end_a,
 std::string const & address,
 uint16_t port,
 std::shared_ptr<std::string> const & target,
@@ -142,14 +143,14 @@ std::shared_ptr<std::string> const & body,
 std::shared_ptr<boost::asio::ip::tcp::resolver> const & resolver)
 {
 	// Check if we have more endpoints to try
-	if (i_a != boost::asio::ip::tcp::resolver::iterator{})
+	if (i_a != end_a)
 	{
 		stats.inc (nano::stat::type::http_callbacks, nano::stat::detail::initiate);
 
 		// Create socket and attempt connection
 		auto sock = std::make_shared<boost::asio::ip::tcp::socket> (node.io_ctx);
 		sock->async_connect (i_a->endpoint (),
-		[this, target, body, sock, address, port, i_a, resolver] (boost::system::error_code const & ec) mutable {
+		[this, target, body, sock, address, port, i_a, end_a, resolver] (boost::system::error_code const & ec) mutable {
 			if (!ec)
 			{
 				// Connection successful, prepare and send HTTP request
@@ -164,7 +165,7 @@ std::shared_ptr<boost::asio::ip::tcp::resolver> const & resolver)
 
 				// Send the HTTP request
 				boost::beast::http::async_write (*sock, *req,
-				[this, sock, address, port, req, i_a, target, body, resolver] (
+				[this, sock, address, port, req, i_a, end_a, target, body, resolver] (
 				boost::system::error_code const & ec, std::size_t bytes_transferred) mutable {
 					if (!ec)
 					{
@@ -174,7 +175,7 @@ std::shared_ptr<boost::asio::ip::tcp::resolver> const & resolver)
 
 						// Read the HTTP response
 						boost::beast::http::async_read (*sock, *sb, *resp,
-						[this, sb, resp, sock, address, port, i_a, target, body, resolver] (
+						[this, sb, resp, sock, address, port, i_a, end_a, target, body, resolver] (
 						boost::system::error_code const & ec, std::size_t bytes_transferred) mutable {
 							if (!ec)
 							{
@@ -219,7 +220,7 @@ std::shared_ptr<boost::asio::ip::tcp::resolver> const & resolver)
 				address, i_a->endpoint ().address ().to_string (), port, ec.message ());
 
 				++i_a;
-				do_rpc_callback (i_a, address, port, target, body, resolver);
+				do_rpc_callback (i_a, end_a, address, port, target, body, resolver);
 			}
 		});
 	}

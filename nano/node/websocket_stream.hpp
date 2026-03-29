@@ -7,14 +7,8 @@
 
 #include <memory>
 
-/* Boost v1.70 introduced breaking changes; the conditional compilation allows 1.6x to be supported as well. */
-#if BOOST_VERSION < 107000
-using socket_type = boost::asio::ip::tcp::socket;
-#define beast_buffers boost::beast::buffers
-#else
 using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost::asio::io_context::executor_type>;
 #define beast_buffers boost::beast::make_printable
-#endif
 using ws_type = boost::beast::websocket::stream<socket_type>;
 
 #ifdef NANO_SECURE_RPC

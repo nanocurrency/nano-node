@@ -20,7 +20,7 @@ bool nano::transport::fake::channel::send_impl (nano::messages::message const & 
 	auto size = buffer.size ();
 	if (callback)
 	{
-		node.io_ctx.post ([callback, size] () {
+		boost::asio::post (node.io_ctx, [callback, size] () {
 			callback (boost::system::errc::make_error_code (boost::system::errc::success), size);
 		});
 	}

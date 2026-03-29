@@ -108,7 +108,7 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 	boost::beast::http::async_read (stream, buffer, *body_parser, boost::asio::bind_executor (strand, [this_l, body_parser, header_field_credentials_l, header_corr_id_l, path_l, &stream] (boost::system::error_code const & ec, size_t bytes_transferred) {
 		if (!ec)
 		{
-			this_l->io_ctx.post ([this_l, body_parser, header_field_credentials_l, header_corr_id_l, path_l, &stream] () {
+			boost::asio::post (this_l->io_ctx, [this_l, body_parser, header_field_credentials_l, header_corr_id_l, path_l, &stream] () {
 				auto & req (body_parser->get ());
 				auto start (std::chrono::steady_clock::now ());
 				auto version (req.version ());

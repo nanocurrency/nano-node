@@ -1,5 +1,4 @@
 #pragma once
-#include <nano/boost/asio/deadline_timer.hpp>
 #include <nano/boost/asio/executor_work_guard.hpp>
 #include <nano/boost/asio/io_context.hpp>
 #include <nano/lib/logging.hpp>

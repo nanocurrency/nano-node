@@ -281,12 +281,12 @@ void nano::network::trigger_reachout ()
 void nano::network::reachout (std::string const & address_a, uint16_t port_a)
 {
 	auto node_l (node.shared_from_this ());
-	resolver.async_resolve (boost::asio::ip::tcp::resolver::query (address_a, std::to_string (port_a)), [this, node_l, address_a, port_a] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
+	resolver.async_resolve (address_a, std::to_string (port_a), [this, node_l, address_a, port_a] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::results_type results) {
 		if (!ec)
 		{
-			for (auto i (i_a), n (boost::asio::ip::tcp::resolver::iterator{}); i != n; ++i)
+			for (auto const & i : results)
 			{
-				auto endpoint (nano::transport::map_endpoint_to_v6 (i->endpoint ()));
+				auto endpoint (nano::transport::map_endpoint_to_v6 (i.endpoint ()));
 				auto channel (find_channel (endpoint));
 				if (!channel)
 				{

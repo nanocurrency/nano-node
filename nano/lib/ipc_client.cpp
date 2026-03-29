@@ -33,12 +33,7 @@ public:
 	virtual void async_read_message (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::chrono::seconds timeout_a, std::function<void (boost::system::error_code const &, size_t)> callback_a) = 0;
 };
 
-/* Boost v1.70 introduced breaking changes; the conditional compilation allows 1.6x to be supported as well. */
-#if BOOST_VERSION < 107000
-using socket_type = boost::asio::ip::tcp::socket;
-#else
 using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost::asio::io_context::executor_type>;
-#endif
 
 /** Domain and TCP client socket */
 template <typename SOCKET_TYPE, typename ENDPOINT_TYPE>
@@ -58,13 +53,12 @@ public:
 	{
 		auto this_l (this->shared_from_this ());
 		this_l->timer_start (io_timeout);
-		resolver.async_resolve (boost::asio::ip::tcp::resolver::query (host_a, std::to_string (port_a)), [this_l, callback = std::move (callback_a)] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator endpoint_iterator_a) {
+		resolver.async_resolve (host_a, std::to_string (port_a), [this_l, callback = std::move (callback_a)] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::results_type results) {
 			this_l->timer_cancel ();
-			boost::asio::ip::tcp::resolver::iterator end;
-			if (!ec && endpoint_iterator_a != end)
+			if (!ec && !results.empty ())
 			{
-				this_l->endpoint = *endpoint_iterator_a;
-				callback (ec, *endpoint_iterator_a);
+				this_l->endpoint = *results.begin ();
+				callback (ec, *results.begin ());
 			}
 			else
 			{

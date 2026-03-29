@@ -11,7 +11,7 @@ nano::endpoint nano::transport::map_endpoint_to_v6 (nano::endpoint const & endpo
 	auto endpoint_l (endpoint_a);
 	if (endpoint_l.address ().is_v4 ())
 	{
-		endpoint_l = nano::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
+		endpoint_l = nano::endpoint (boost::asio::ip::make_address_v6 (boost::asio::ip::v4_mapped, endpoint_l.address ().to_v4 ()), endpoint_l.port ());
 	}
 	return endpoint_l;
 }
@@ -54,12 +54,12 @@ bool nano::transport::is_same_subnetwork (boost::asio::ip::address const & addre
 
 boost::asio::ip::address_v6 nano::transport::mapped_from_v4_bytes (unsigned long address_a)
 {
-	return boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (address_a));
+	return boost::asio::ip::make_address_v6 (boost::asio::ip::v4_mapped, boost::asio::ip::address_v4 (address_a));
 }
 
 boost::asio::ip::address_v6 nano::transport::mapped_from_v4_or_v6 (boost::asio::ip::address const & address_a)
 {
-	return address_a.is_v4 () ? boost::asio::ip::address_v6::v4_mapped (address_a.to_v4 ()) : address_a.to_v6 ();
+	return address_a.is_v4 () ? boost::asio::ip::make_address_v6 (boost::asio::ip::v4_mapped, address_a.to_v4 ()) : address_a.to_v6 ();
 }
 
 bool nano::transport::is_ipv4_or_v4_mapped_address (boost::asio::ip::address const & address_a)

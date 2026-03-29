@@ -52,7 +52,7 @@ bool nano::transport::inproc::channel::send_impl (nano::messages::message const 
 
 	if (callback)
 	{
-		node.io_ctx.post ([callback_l = std::move (callback), buffer_size = buffer.size ()] () {
+		boost::asio::post (node.io_ctx, [callback_l = std::move (callback), buffer_size = buffer.size ()] () {
 			callback_l (boost::system::errc::make_error_code (boost::system::errc::success), buffer_size);
 		});
 	}
