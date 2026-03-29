@@ -61,7 +61,7 @@ private:
 	http::response<http::dynamic_body> response;
 	std::function<void (bool const)> on_generation;
 	std::function<void ()> on_cancel;
-	asio::deadline_timer timer;
+	asio::steady_timer timer;
 
 	void read_request ()
 	{
@@ -155,7 +155,7 @@ private:
 				ptree::write_json (ostream, message_l);
 				beast::ostream (this_l->response.body ()) << ostream.str ();
 				// Delay response by 500ms as a slow peer, immediate async call for a good peer
-				this_l->timer.expires_from_now (boost::posix_time::milliseconds (this_l->type == fake_work_peer_type::slow ? 500 : 0));
+				this_l->timer.expires_after (std::chrono::milliseconds (this_l->type == fake_work_peer_type::slow ? 500 : 0));
 				this_l->timer.async_wait ([this_l, result] (boost::system::error_code const & ec) {
 					if (this_l->on_generation)
 					{

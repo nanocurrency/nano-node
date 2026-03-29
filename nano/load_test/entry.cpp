@@ -24,12 +24,7 @@
 #include <memory>
 #include <random>
 
-/* Boost v1.70 introduced breaking changes; the conditional compilation allows 1.6x to be supported as well. */
-#if BOOST_VERSION < 107000
-using socket_type = boost::asio::ip::tcp::socket;
-#else
 using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost::asio::io_context::executor_type>;
-#endif
 
 namespace nano
 {
@@ -143,7 +138,7 @@ private:
 	void async_connect ()
 	{
 		boost::asio::async_connect (socket, results.cbegin (), results.cend (),
-		[this_l = shared_from_this ()] (boost::system::error_code const & ec, tcp::resolver::iterator iterator) {
+		[this_l = shared_from_this ()] (boost::system::error_code const & ec, tcp::resolver::results_type::const_iterator iterator) {
 			this_l->request_receive ();
 		});
 	}
@@ -243,7 +238,7 @@ private:
 	void async_connect ()
 	{
 		boost::asio::async_connect (socket, results.cbegin (), results.cend (),
-		[this_l = shared_from_this ()] (boost::system::error_code const & ec, tcp::resolver::iterator iterator) {
+		[this_l = shared_from_this ()] (boost::system::error_code const & ec, tcp::resolver::results_type::const_iterator iterator) {
 			this_l->request_send ();
 		});
 	}
@@ -358,7 +353,7 @@ private:
 	void async_connect ()
 	{
 		boost::asio::async_connect (socket, results.cbegin (), results.cend (),
-		[this_l = shared_from_this ()] (boost::system::error_code const & ec, tcp::resolver::iterator iterator) {
+		[this_l = shared_from_this ()] (boost::system::error_code const & ec, tcp::resolver::results_type::const_iterator iterator) {
 			this_l->request_do ();
 		});
 	}

@@ -488,7 +488,7 @@ TEST (network, ipv6_from_ipv4)
 {
 	nano::endpoint endpoint1 (boost::asio::ip::address_v4::loopback (), 16000);
 	ASSERT_TRUE (endpoint1.address ().is_v4 ());
-	nano::endpoint endpoint2 (boost::asio::ip::address_v6::v4_mapped (endpoint1.address ().to_v4 ()), 16000);
+	nano::endpoint endpoint2 (boost::asio::ip::make_address_v6 (boost::asio::ip::v4_mapped, endpoint1.address ().to_v4 ()), 16000);
 	ASSERT_TRUE (endpoint2.address ().is_v6 ());
 }
 
@@ -540,7 +540,7 @@ TEST (network, peer_max_tcp_attempts_subnetwork)
 
 	for (auto i (0); i < node->config.network.max_peers_per_subnetwork; ++i)
 	{
-		auto address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x7f000001 + i))); // 127.0.0.1 hex
+		auto address (boost::asio::ip::make_address_v6 (boost::asio::ip::v4_mapped, boost::asio::ip::address_v4 (0x7f000001 + i))); // 127.0.0.1 hex
 		nano::endpoint endpoint (address, system.get_available_port ());
 		ASSERT_TRUE (node->network.tcp_channels.track_reachout (endpoint));
 	}
@@ -782,7 +782,7 @@ TEST (peer_exclusion, validate)
 
 	for (auto i = 0; i < max_size + 1; ++i)
 	{
-		nano::tcp_endpoint endpoint{ boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (i)), 0 };
+		nano::tcp_endpoint endpoint{ boost::asio::ip::make_address_v6 (boost::asio::ip::v4_mapped, boost::asio::ip::address_v4 (i)), 0 };
 		ASSERT_FALSE (excluded_peers.check (endpoint));
 		ASSERT_EQ (1, excluded_peers.add (endpoint));
 		ASSERT_FALSE (excluded_peers.check (endpoint));
@@ -790,7 +790,7 @@ TEST (peer_exclusion, validate)
 
 	// The oldest entry must have been removed, because we just overfilled the container
 	ASSERT_EQ (max_size, excluded_peers.size ());
-	nano::tcp_endpoint oldest{ boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x0)), 0 };
+	nano::tcp_endpoint oldest{ boost::asio::ip::make_address_v6 (boost::asio::ip::v4_mapped, boost::asio::ip::address_v4 (0x0)), 0 };
 	ASSERT_EQ (excluded_peers.score (oldest), 0);
 
 	auto to_seconds = [] (std::chrono::steady_clock::time_point const & timepoint) {
@@ -798,10 +798,10 @@ TEST (peer_exclusion, validate)
 	};
 
 	// However, the rest of the entries should be present
-	nano::tcp_endpoint first{ boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x1)), 0 };
+	nano::tcp_endpoint first{ boost::asio::ip::make_address_v6 (boost::asio::ip::v4_mapped, boost::asio::ip::address_v4 (0x1)), 0 };
 	ASSERT_NE (excluded_peers.score (first), 0);
 
-	nano::tcp_endpoint second{ boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x2)), 0 };
+	nano::tcp_endpoint second{ boost::asio::ip::make_address_v6 (boost::asio::ip::v4_mapped, boost::asio::ip::address_v4 (0x2)), 0 };
 	ASSERT_NE (excluded_peers.score (second), 0);
 
 	// Check exclusion times
