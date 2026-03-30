@@ -196,7 +196,7 @@ TEST (block_rebroadcaster, basic_operation)
 	ASSERT_TIMELY (5s, node.active.active (*send));
 
 	// Verify it was queued for rebroadcast
-	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::queued), 1);
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::block_rebroadcaster, nano::stat::detail::queued) >= 1);
 }
 
 TEST (block_rebroadcaster, duplicate_block)

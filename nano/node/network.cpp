@@ -336,7 +336,7 @@ void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channe
 
 bool nano::network::check_capacity (nano::transport::traffic_type type, size_t target_count) const
 {
-	if (target_count == 0)
+	if (target_count == 0 || size () == 0)
 	{
 		return true;
 	}

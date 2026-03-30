@@ -302,10 +302,10 @@ void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a
 			status.voter_count,
 			status.block_count,
 			duration ().count ());
-		}
 
-		// Random flood for block propagation
-		node.block_rebroadcaster.push (status.winner);
+			// Random flood for block propagation
+			node.block_rebroadcaster.push (status.winner);
+		}
 	}
 }
 
