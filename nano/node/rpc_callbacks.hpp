@@ -25,7 +25,7 @@ private: // Dependencies
 
 private:
 	void setup_callbacks ();
-	void do_rpc_callback (boost::asio::ip::tcp::resolver::results_type::iterator i_a, boost::asio::ip::tcp::resolver::results_type::iterator end_a, std::string const &, uint16_t, std::shared_ptr<std::string> const &, std::shared_ptr<std::string> const &, std::shared_ptr<boost::asio::ip::tcp::resolver> const &);
+	void do_rpc_callback (boost::asio::ip::tcp::resolver::results_type::iterator i_a, boost::asio::ip::tcp::resolver::results_type::iterator end_a, std::string const &, uint16_t, std::shared_ptr<std::string> const &, std::shared_ptr<std::string> const &, std::shared_ptr<boost::asio::ip::tcp::resolver> const &, std::shared_ptr<boost::asio::ip::tcp::resolver::results_type> const & results);
 
 	nano::thread_pool workers;
 	nano::interval_mt warning_interval;
