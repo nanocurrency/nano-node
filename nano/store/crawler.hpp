@@ -74,7 +74,7 @@ public:
 	/**
 	 * Construct a crawler starting at the given seek key.
 	 */
-	crawler (View const & view, Transaction & transaction, seek_key_type const & start) :
+	crawler (View const & view, Transaction & transaction, seek_key_type start = {}) :
 		view_{ view },
 		transaction_{ transaction },
 		it_{ view_.end (transaction_) },

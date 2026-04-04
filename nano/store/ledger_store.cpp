@@ -467,100 +467,98 @@ void ledger_store::upgrade_v25_to_v26 ()
 		auto transaction = backend.tx_begin_write ();
 
 		// Smaller batch size for dev runs to potentially trigger edge cases
-		const size_t batch_size = nano::is_dev_run () ? 2 : 250000;
-		size_t processed = 0;
-		size_t skipped = 0;
+		size_t const batch_size = nano::is_dev_run () ? 2 : 250000;
+
 		auto const total_blocks = backend.count (backend.tx_begin_read (), nano::store::table::blocks);
 
-		// Use cursor-based iteration with short-lived read transactions
-		// This allows LMDB to reuse old pages between batches, preventing database bloat during migration
-		// Raw iterators are used instead of typed_iterator to avoid eager deserialization at the cursor position,
-		// since blocks at the cursor have already been rewritten in v26 format
-		nano::block_hash cursor{ 0 };
-		while (true)
+		size_t processed = 0;
+		size_t skipped = 0;
+
+		// View for raw block table iteration (preserves raw bytes for mixed v25/v26 format detection)
+		struct raw_blocks_view
 		{
-			auto read_txn = backend.tx_begin_read ();
-			auto it = cursor.is_zero ()
-			? backend.begin (read_txn, nano::store::table::blocks)
-			: backend.begin (read_txn, nano::store::table::blocks, nano::store::db_val{ cursor });
+			using iterator = nano::store::typed_iterator<nano::block_hash, nano::store::db_val>;
 
-			// Skip the cursor key itself (already processed in previous batch)
-			if (!cursor.is_zero () && !it.is_end ())
+			nano::store::backend & backend;
+
+			iterator begin (nano::store::transaction const & txn, nano::block_hash const & key) const
 			{
-				auto const & [key_span, value_span] = *it;
-				nano::block_hash key{ nano::store::db_val{ key_span } };
-				if (key == cursor)
-				{
-					++it;
-				}
+				return iterator{ backend.begin (txn, nano::store::table::blocks, nano::store::db_val{ key }) };
 			}
-
-			size_t batch_count = 0;
-			for (; !it.is_end () && batch_count < batch_size; ++it, ++batch_count)
+			iterator end (nano::store::transaction const & txn) const
 			{
-				auto const & [key_span, value_span] = *it;
+				return iterator{ backend.end (txn, nano::store::table::blocks) };
+			}
+		} raw_view{ backend };
 
-				nano::block_hash hash{ nano::store::db_val{ key_span } };
+		nano::store::crawler crawler{ raw_view, transaction };
 
-				// Deserialize the block to determine its type and data size
-				nano::bufferstream stream{ value_span.data (), value_span.size () };
-				auto block = nano::deserialize_block (stream);
-				release_assert (block != nullptr, "failed to deserialize block during v25->v26 upgrade");
+		size_t batch_count = 0;
+		for (; crawler; ++crawler)
+		{
+			auto const & [hash, raw_val] = *crawler;
 
-				auto const remaining = static_cast<size_t> (stream.in_avail ());
-				auto const expected_v25_size = nano::block_sideband_v25::size (block->type ());
-				auto const expected_v26_size = nano::block_sideband::size (block->type ());
+			// Deserialize the block to determine its type and detect sideband format by remaining size
+			nano::bufferstream stream{ raw_val.span_view.data (), raw_val.span_view.size () };
+			auto block = nano::deserialize_block (stream);
+			release_assert (block, "failed to deserialize block during v25->v26 upgrade");
 
-				if (remaining == expected_v26_size)
+			auto const remaining = static_cast<size_t> (stream.in_avail ());
+			auto const expected_v25_size = nano::block_sideband_v25::size (block->type ());
+			auto const expected_v26_size = nano::block_sideband::size (block->type ());
+
+			if (remaining == expected_v26_size)
+			{
+				// Block already in v26 format (from a previous interrupted upgrade), skip
+				skipped++;
+			}
+			else
+			{
+				release_assert (remaining == expected_v25_size, "unexpected sideband size during v25->v26 upgrade", std::to_string (remaining));
+
+				// Deserialize v25 sideband
+				nano::block_sideband_v25 sideband_v25;
+				auto error = sideband_v25.deserialize (stream, block->type ());
+				release_assert (!error, "failed to deserialize v25 sideband during upgrade");
+
+				// Rewrite block with new sideband format (no successor)
+				std::vector<uint8_t> data;
 				{
-					// Block already in v26 format (from a previous interrupted upgrade), skip
-					skipped++;
-				}
-				else
-				{
-					release_assert (remaining == expected_v25_size, "unexpected sideband size during v25->v26 upgrade");
-
-					// Deserialize v25 sideband
-					nano::block_sideband_v25 sideband_v25;
-					auto error = sideband_v25.deserialize (stream, block->type ());
-					release_assert (!error, "failed to deserialize v25 sideband during upgrade");
-
-					// Rewrite block with new sideband format (no successor)
-					std::vector<uint8_t> data;
-					{
-						nano::vectorstream out_stream{ data };
-						nano::serialize_block (out_stream, *block);
-						nano::block_sideband current_sideband{
-							sideband_v25.account,
-							nano::block_hash{ 0 },
-							sideband_v25.balance,
-							sideband_v25.height,
-							sideband_v25.timestamp,
-							sideband_v25.details,
-							sideband_v25.source_epoch
-						};
-						current_sideband.serialize (out_stream, block->type ());
-					}
-
-					nano::store::db_val value{ data.size (), data.data () };
-					auto status = backend.put (transaction, nano::store::table::blocks, hash, value);
-					backend.release_assert_success (status);
-
-					processed++;
+					nano::vectorstream out_stream{ data };
+					nano::serialize_block (out_stream, *block);
+					nano::block_sideband current_sideband{
+						sideband_v25.account,
+						nano::block_hash{ 0 },
+						sideband_v25.balance,
+						sideband_v25.height,
+						sideband_v25.timestamp,
+						sideband_v25.details,
+						sideband_v25.source_epoch
+					};
+					current_sideband.serialize (out_stream, block->type ());
 				}
 
-				cursor = hash;
+				nano::store::db_val value{ data.size (), data.data () };
+				auto status = backend.put (transaction, nano::store::table::blocks, hash, value);
+				backend.release_assert_success (status);
+
+				processed++;
 			}
 
-			if (batch_count == 0)
+			batch_count++;
+			if (batch_count >= batch_size)
 			{
-				break;
-			}
+				double const percentage = total_blocks > 0 ? (static_cast<double> (processed + skipped) / total_blocks * 100.0) : 0.0;
+				logger.info (nano::log::type::ledger_upgrade, "Processed {} blocks ({:.1f}%)", processed + skipped, percentage);
 
-			double const percentage = total_blocks > 0 ? (static_cast<double> (processed + skipped) / total_blocks * 100.0) : 0.0;
-			logger.info (nano::log::type::ledger_upgrade, "Processed {} blocks ({:.1f}%)", processed + skipped, percentage);
-			transaction.refresh ();
+				// Refresh transaction to commit changes
+				crawler.refresh ();
+
+				batch_count = 0;
+			}
 		}
+
+		crawler.refresh ();
 
 		logger.info (nano::log::type::ledger_upgrade, "Done processing {} blocks ({} converted, {} already upgraded)", processed + skipped, processed, skipped);
 		version.put (transaction, 26);
