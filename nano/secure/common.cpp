@@ -136,7 +136,6 @@ nano::ledger_constants::ledger_constants (nano::network_type network_type) :
 {
 	nano_beta_genesis->sideband_set (nano::block_sideband{
 	/* account */ nano_beta_genesis->account_field ().value (),
-	/* successor (block_hash) */ nano::block_hash{ 0 },
 	/* balance (amount) */ nano::amount{ std::numeric_limits<nano::uint128_t>::max () },
 	/* height */ uint64_t{ 1 },
 	/* local_timestamp */ 0,
@@ -148,7 +147,6 @@ nano::ledger_constants::ledger_constants (nano::network_type network_type) :
 
 	nano_dev_genesis->sideband_set (nano::block_sideband{
 	/* account */ nano_dev_genesis->account_field ().value (),
-	/* successor (block_hash) */ nano::block_hash{ 0 },
 	/* balance (amount) */ nano::amount{ std::numeric_limits<nano::uint128_t>::max () },
 	/* height */ uint64_t{ 1 },
 	/* local_timestamp */ 0,
@@ -160,7 +158,6 @@ nano::ledger_constants::ledger_constants (nano::network_type network_type) :
 
 	nano_live_genesis->sideband_set (nano::block_sideband{
 	/* account */ nano_live_genesis->account_field ().value (),
-	/* successor (block_hash) */ nano::block_hash{ 0 },
 	/* balance (amount) */ nano::amount{ std::numeric_limits<nano::uint128_t>::max () },
 	/* height */ uint64_t{ 1 },
 	/* local_timestamp */ 0,
@@ -172,7 +169,6 @@ nano::ledger_constants::ledger_constants (nano::network_type network_type) :
 
 	nano_test_genesis->sideband_set (nano::block_sideband{
 	/* account */ nano_test_genesis->account_field ().value (),
-	/* successor (block_hash) */ nano::block_hash{ 0 },
 	/* balance (amount) */ nano::amount{ std::numeric_limits<nano::uint128_t>::max () },
 	/* height */ uint64_t{ 1 },
 	/* local_timestamp */ 0,

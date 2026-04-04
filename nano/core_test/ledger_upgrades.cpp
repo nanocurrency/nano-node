@@ -666,7 +666,6 @@ TEST (ledger_upgrades, upgrade_v24_to_v25)
 				  .build ();
 	block1->sideband_set (nano::block_sideband{
 	key1.pub,
-	nano::block_hash{ 0 },
 	nano::amount{ 1000 },
 	1, 0, nano::epoch::epoch_0,
 	false, false, false, nano::epoch::epoch_0 });
@@ -684,7 +683,6 @@ TEST (ledger_upgrades, upgrade_v24_to_v25)
 				  .build ();
 	block2->sideband_set (nano::block_sideband{
 	key1.pub,
-	nano::block_hash{ 0 },
 	nano::amount{ 500 },
 	2, 0, nano::epoch::epoch_0,
 	true, false, false, nano::epoch::epoch_0 });
@@ -724,8 +722,6 @@ TEST (ledger_upgrades, upgrade_v24_to_v25)
 	auto stored_block2 = store.block.get (tx, block2->hash ());
 	ASSERT_NE (nullptr, stored_block2);
 	ASSERT_EQ (stored_block2->sideband ().height, 2);
-	// After v26 migration, successor is no longer stored in sideband (always zero on disk)
-	ASSERT_EQ (stored_block2->sideband ().successor, nano::block_hash{ 0 });
 }
 
 namespace
@@ -823,7 +819,6 @@ TEST (ledger_upgrades, upgrade_v25_to_v26)
 				  .build ();
 	block1->sideband_set (nano::block_sideband{
 	key1.pub,
-	nano::block_hash{ 0 },
 	nano::amount{ 1000 },
 	1, 0, nano::epoch::epoch_0,
 	false, false, false, nano::epoch::epoch_0 });
@@ -841,7 +836,6 @@ TEST (ledger_upgrades, upgrade_v25_to_v26)
 				  .build ();
 	block2->sideband_set (nano::block_sideband{
 	key1.pub,
-	nano::block_hash{ 0 },
 	nano::amount{ 500 },
 	2, 0, nano::epoch::epoch_0,
 	true, false, false, nano::epoch::epoch_0 });
@@ -906,10 +900,6 @@ TEST (ledger_upgrades, upgrade_v25_to_v26)
 
 	auto no_successor = store.successor.get (tx, block2->hash ());
 	ASSERT_FALSE (no_successor.has_value ());
-
-	// Verify successor is no longer in sideband (always zero from disk)
-	ASSERT_EQ (stored_block1->sideband ().successor, nano::block_hash{ 0 });
-	ASSERT_EQ (stored_block2->sideband ().successor, nano::block_hash{ 0 });
 }
 
 /*
@@ -933,7 +923,6 @@ TEST (ledger_upgrades, upgrade_v25_to_v26_interrupted)
 				  .build ();
 	block1->sideband_set (nano::block_sideband{
 	key1.pub,
-	nano::block_hash{ 0 },
 	nano::amount{ 1000 },
 	1, 0, nano::epoch::epoch_0,
 	false, false, false, nano::epoch::epoch_0 });
@@ -950,7 +939,6 @@ TEST (ledger_upgrades, upgrade_v25_to_v26_interrupted)
 				  .build ();
 	block2->sideband_set (nano::block_sideband{
 	key1.pub,
-	nano::block_hash{ 0 },
 	nano::amount{ 500 },
 	2, 0, nano::epoch::epoch_0,
 	true, false, false, nano::epoch::epoch_0 });

@@ -528,7 +528,6 @@ void ledger_store::upgrade_v25_to_v26 ()
 					nano::serialize_block (out_stream, *block);
 					nano::block_sideband current_sideband{
 						sideband_v25.account,
-						nano::block_hash{ 0 },
 						sideband_v25.balance,
 						sideband_v25.height,
 						sideband_v25.timestamp,

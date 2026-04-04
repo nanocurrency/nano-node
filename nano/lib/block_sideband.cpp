@@ -93,8 +93,7 @@ std::string nano::state_subtype (nano::block_details const details_a)
  * block_sideband
  */
 
-nano::block_sideband::block_sideband (nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t const height_a, nano::seconds_t const timestamp_a, nano::block_details const & details_a, nano::epoch const source_epoch_a) :
-	successor (successor_a),
+nano::block_sideband::block_sideband (nano::account const & account_a, nano::amount const & balance_a, uint64_t const height_a, nano::seconds_t const timestamp_a, nano::block_details const & details_a, nano::epoch const source_epoch_a) :
 	account (account_a),
 	balance (balance_a),
 	height (height_a),
@@ -104,8 +103,7 @@ nano::block_sideband::block_sideband (nano::account const & account_a, nano::blo
 {
 }
 
-nano::block_sideband::block_sideband (nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t const height_a, nano::seconds_t const timestamp_a, nano::epoch const epoch_a, bool const is_send, bool const is_receive, bool const is_epoch, nano::epoch const source_epoch_a) :
-	successor (successor_a),
+nano::block_sideband::block_sideband (nano::account const & account_a, nano::amount const & balance_a, uint64_t const height_a, nano::seconds_t const timestamp_a, nano::epoch const epoch_a, bool const is_send, bool const is_receive, bool const is_epoch, nano::epoch const source_epoch_a) :
 	account (account_a),
 	balance (balance_a),
 	height (height_a),
@@ -186,7 +184,6 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_typ
 	bool result (false);
 	try
 	{
-		successor.clear ();
 		if (includes_account (type))
 		{
 			nano::read (stream_a, account.bytes);
@@ -237,7 +234,6 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_typ
 
 void nano::block_sideband::operator() (nano::object_stream & obs) const
 {
-	obs.write ("successor", successor);
 	obs.write ("account", account);
 	obs.write ("balance", balance);
 	obs.write ("height", height);

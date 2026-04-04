@@ -134,7 +134,7 @@ migration_test_data populate_ledger_for_migration (nano::store::ledger_store & s
 		for (size_t i = 0; i < data.blocks.size (); ++i)
 		{
 			data.blocks[i]->sideband_set (nano::block_sideband{
-			nano::dev::genesis_key.pub, 0,
+			nano::dev::genesis_key.pub,
 			nano::dev::constants.genesis_amount - (i + 1) * 1000,
 			i + 2, nano::seconds_since_epoch (), nano::epoch::epoch_0,
 			false, false, false, nano::epoch::epoch_0 });
