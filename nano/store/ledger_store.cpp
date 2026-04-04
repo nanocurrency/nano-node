@@ -469,52 +469,87 @@ void ledger_store::upgrade_v25_to_v26 ()
 		// Smaller batch size for dev runs to potentially trigger edge cases
 		const size_t batch_size = nano::is_dev_run () ? 2 : 250000;
 		size_t processed = 0;
+		size_t skipped = 0;
 		auto const total_blocks = backend.count (backend.tx_begin_read (), nano::store::table::blocks);
 
 		// Use cursor-based iteration with short-lived read transactions
 		// This allows LMDB to reuse old pages between batches, preventing database bloat during migration
+		// Raw iterators are used instead of typed_iterator to avoid eager deserialization at the cursor position,
+		// since blocks at the cursor have already been rewritten in v26 format
 		nano::block_hash cursor{ 0 };
 		while (true)
 		{
 			auto read_txn = backend.tx_begin_read ();
 			auto it = cursor.is_zero ()
-			? nano::store::typed_iterator<nano::block_hash, nano::store::block_w_sideband_v25>{ backend.begin (read_txn, nano::store::table::blocks) }
-			: nano::store::typed_iterator<nano::block_hash, nano::store::block_w_sideband_v25>{ backend.begin (read_txn, nano::store::table::blocks, nano::store::db_val{ cursor }) };
+			? backend.begin (read_txn, nano::store::table::blocks)
+			: backend.begin (read_txn, nano::store::table::blocks, nano::store::db_val{ cursor });
 
 			// Skip the cursor key itself (already processed in previous batch)
-			if (!cursor.is_zero () && !it.is_end () && (*it).first == cursor)
+			if (!cursor.is_zero () && !it.is_end ())
 			{
-				++it;
+				auto const & [key_span, value_span] = *it;
+				nano::block_hash key{ nano::store::db_val{ key_span } };
+				if (key == cursor)
+				{
+					++it;
+				}
 			}
 
 			size_t batch_count = 0;
 			for (; !it.is_end () && batch_count < batch_size; ++it, ++batch_count)
 			{
-				auto const & [hash, block_w_sideband] = *it;
+				auto const & [key_span, value_span] = *it;
 
-				// Rewrite block with new sideband format (no successor)
-				std::vector<uint8_t> data;
+				nano::block_hash hash{ nano::store::db_val{ key_span } };
+
+				// Deserialize the block to determine its type and data size
+				nano::bufferstream stream{ value_span.data (), value_span.size () };
+				auto block = nano::deserialize_block (stream);
+				release_assert (block != nullptr, "failed to deserialize block during v25->v26 upgrade");
+
+				auto const remaining = static_cast<size_t> (stream.in_avail ());
+				auto const expected_v25_size = nano::block_sideband_v25::size (block->type ());
+				auto const expected_v26_size = nano::block_sideband::size (block->type ());
+
+				if (remaining == expected_v26_size)
 				{
-					nano::vectorstream stream{ data };
-					nano::serialize_block (stream, *block_w_sideband.block);
-					nano::block_sideband current_sideband{
-						block_w_sideband.sideband.account,
-						nano::block_hash{ 0 },
-						block_w_sideband.sideband.balance,
-						block_w_sideband.sideband.height,
-						block_w_sideband.sideband.timestamp,
-						block_w_sideband.sideband.details,
-						block_w_sideband.sideband.source_epoch
-					};
-					current_sideband.serialize (stream, block_w_sideband.block->type ());
+					// Block already in v26 format (from a previous interrupted upgrade), skip
+					skipped++;
+				}
+				else
+				{
+					release_assert (remaining == expected_v25_size, "unexpected sideband size during v25->v26 upgrade");
+
+					// Deserialize v25 sideband
+					nano::block_sideband_v25 sideband_v25;
+					auto error = sideband_v25.deserialize (stream, block->type ());
+					release_assert (!error, "failed to deserialize v25 sideband during upgrade");
+
+					// Rewrite block with new sideband format (no successor)
+					std::vector<uint8_t> data;
+					{
+						nano::vectorstream out_stream{ data };
+						nano::serialize_block (out_stream, *block);
+						nano::block_sideband current_sideband{
+							sideband_v25.account,
+							nano::block_hash{ 0 },
+							sideband_v25.balance,
+							sideband_v25.height,
+							sideband_v25.timestamp,
+							sideband_v25.details,
+							sideband_v25.source_epoch
+						};
+						current_sideband.serialize (out_stream, block->type ());
+					}
+
+					nano::store::db_val value{ data.size (), data.data () };
+					auto status = backend.put (transaction, nano::store::table::blocks, hash, value);
+					backend.release_assert_success (status);
+
+					processed++;
 				}
 
-				nano::store::db_val value{ data.size (), data.data () };
-				auto status = backend.put (transaction, nano::store::table::blocks, hash, value);
-				backend.release_assert_success (status);
-
 				cursor = hash;
-				processed++;
 			}
 
 			if (batch_count == 0)
@@ -522,12 +557,12 @@ void ledger_store::upgrade_v25_to_v26 ()
 				break;
 			}
 
-			double const percentage = total_blocks > 0 ? (static_cast<double> (processed) / total_blocks * 100.0) : 0.0;
-			logger.info (nano::log::type::ledger_upgrade, "Processed {} blocks ({:.1f}%)", processed, percentage);
+			double const percentage = total_blocks > 0 ? (static_cast<double> (processed + skipped) / total_blocks * 100.0) : 0.0;
+			logger.info (nano::log::type::ledger_upgrade, "Processed {} blocks ({:.1f}%)", processed + skipped, percentage);
 			transaction.refresh ();
 		}
 
-		logger.info (nano::log::type::ledger_upgrade, "Done processing {} blocks", processed);
+		logger.info (nano::log::type::ledger_upgrade, "Done processing {} blocks ({} converted, {} already upgraded)", processed + skipped, processed, skipped);
 		version.put (transaction, 26);
 	}
 
