@@ -248,7 +248,25 @@ void nano::block_sideband::operator() (nano::object_stream & obs) const
 
 size_t nano::block_sideband_v25::size (nano::block_type type)
 {
-	return nano::block_sideband::size (type) + sizeof (nano::block_hash);
+	size_t result = sizeof (nano::block_hash); // successor
+	if (nano::block_sideband::includes_account (type))
+	{
+		result += sizeof (nano::account);
+	}
+	if (nano::block_sideband::includes_height (type))
+	{
+		result += sizeof (uint64_t);
+	}
+	if (nano::block_sideband::includes_balance (type))
+	{
+		result += sizeof (nano::amount);
+	}
+	result += sizeof (uint64_t); // timestamp
+	if (nano::block_sideband::includes_details (type))
+	{
+		result += nano::block_details::size () + sizeof (uint8_t); // details + source_epoch
+	}
+	return result;
 }
 
 void nano::block_sideband_v25::serialize (nano::stream & stream_a, nano::block_type type) const
