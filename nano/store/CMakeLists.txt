@@ -2,6 +2,7 @@ add_library(
   nano_store
   ledger_store.hpp
   ledger_store.cpp
+  ledger_upgrades.cpp
   backend.hpp
   backend.cpp
   ledger/account.hpp
