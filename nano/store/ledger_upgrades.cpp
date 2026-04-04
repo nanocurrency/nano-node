@@ -93,7 +93,8 @@ void ledger_store::upgrade_v21_to_v22 ()
 	{
 		release_assert (backend.get_version (backend.tx_begin_read ()) == 21, "unexpected version during upgrade", std::to_string (backend.get_version (backend.tx_begin_read ())));
 
-		backend.drop_table ("unchecked");
+		bool dropped = backend.drop_table ("unchecked");
+		release_assert (dropped, "failed to drop unchecked table during upgrade");
 
 		auto transaction = backend.tx_begin_write ();
 		backend.set_version (transaction, 22);
@@ -109,12 +110,12 @@ void ledger_store::upgrade_v22_to_v23 ()
 	logger.info (nano::log::type::ledger_upgrade, "Upgrading database from v22 to v23...");
 
 	// Open with schema_v23 so we can access rep_weights table
-	// This allows us to drop it if a previous upgrade attempt failed halfway
+	// This allows us to clear it if a previous upgrade attempt failed halfway
 	backend.open (schema_v23, nano::store::open_mode::read_write);
 	{
 		release_assert (backend.get_version (backend.tx_begin_read ()) == 22, "unexpected version during upgrade", std::to_string (backend.get_version (backend.tx_begin_read ())));
 
-		// Always drop rep_weights table to ensure it's empty before populating
+		// Always clear rep_weights table entries to ensure it's empty before populating
 		// This can happen if an upgrade was attempted but failed halfway through
 		auto clear_status = backend.clear (nano::store::table::rep_weights);
 		release_assert (backend.success (clear_status), "failed to clear rep_weights table during upgrade", backend.error_string (clear_status));
@@ -183,7 +184,8 @@ void ledger_store::upgrade_v23_to_v24 ()
 	{
 		release_assert (backend.get_version (backend.tx_begin_read ()) == 23, "unexpected version during upgrade", std::to_string (backend.get_version (backend.tx_begin_read ())));
 
-		backend.drop_table ("frontiers");
+		bool dropped = backend.drop_table ("frontiers");
+		release_assert (dropped, "failed to drop frontiers table during upgrade");
 
 		auto transaction = backend.tx_begin_write ();
 		version.put (transaction, 24);
