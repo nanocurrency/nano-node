@@ -848,9 +848,9 @@ TEST (ledger_upgrades, upgrade_v25_to_v26)
 	auto const new_size_open = nano::block_sideband::size (nano::block_type::open);
 	auto const new_size_state = nano::block_sideband::size (nano::block_type::state);
 
-	// Verify the new format is 32 bytes smaller (sizeof block_hash)
-	ASSERT_EQ (old_size_open - new_size_open, 32);
-	ASSERT_EQ (old_size_state - new_size_state, 32);
+	// Verify the new format is 24 bytes smaller (removed 32-byte successor, added 8-byte topo_index)
+	ASSERT_EQ (old_size_open - new_size_open, 24);
+	ASSERT_EQ (old_size_state - new_size_state, 24);
 
 	auto const path = nano::unique_path ();
 	{

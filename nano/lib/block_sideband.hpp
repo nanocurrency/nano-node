@@ -66,6 +66,7 @@ public:
 	nano::account account{}; // Not serialized for state/open blocks
 	nano::amount balance{ 0 }; // Serialized only for receive/change/open blocks
 	uint64_t height{ 0 }; // Not serialized for open blocks (deserialized as 1)
+	uint64_t topo_height{ 0 };
 	uint64_t timestamp{ 0 };
 	nano::block_details details; // Serialized only for state blocks
 	nano::epoch source_epoch{ nano::epoch::epoch_0 }; // Serialized only for state blocks

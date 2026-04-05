@@ -97,6 +97,7 @@ TEST (block_store, sideband_serialization)
 	sideband1.balance = 2;
 	sideband1.height = 3;
 	sideband1.timestamp = 5;
+	sideband1.topo_height = 42;
 	std::vector<uint8_t> vector;
 	{
 		nano::vectorstream stream1 (vector);
@@ -109,6 +110,7 @@ TEST (block_store, sideband_serialization)
 	ASSERT_EQ (sideband1.balance, sideband2.balance);
 	ASSERT_EQ (sideband1.height, sideband2.height);
 	ASSERT_EQ (sideband1.timestamp, sideband2.timestamp);
+	ASSERT_EQ (sideband1.topo_height, sideband2.topo_height);
 }
 
 TEST (block_store, add_item)

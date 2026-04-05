@@ -148,6 +148,7 @@ size_t nano::block_sideband::size (nano::block_type type)
 	{
 		result += sizeof (balance);
 	}
+	result += sizeof (topo_height);
 	result += sizeof (timestamp);
 	if (includes_details (type))
 	{
@@ -171,6 +172,7 @@ void nano::block_sideband::serialize (nano::stream & stream_a, nano::block_type 
 	{
 		nano::write (stream_a, balance.bytes);
 	}
+	nano::write (stream_a, boost::endian::native_to_big (topo_height));
 	nano::write (stream_a, boost::endian::native_to_big (timestamp));
 	if (includes_details (type))
 	{
@@ -209,6 +211,8 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_typ
 		{
 			balance.clear ();
 		}
+		nano::read (stream_a, topo_height);
+		boost::endian::big_to_native_inplace (topo_height);
 		nano::read (stream_a, timestamp);
 		boost::endian::big_to_native_inplace (timestamp);
 		if (includes_details (type))
@@ -238,6 +242,7 @@ void nano::block_sideband::operator() (nano::object_stream & obs) const
 	obs.write ("balance", balance);
 	obs.write ("height", height);
 	obs.write ("timestamp", timestamp);
+	obs.write ("topo_height", topo_height);
 	obs.write ("source_epoch", source_epoch);
 	obs.write ("details", details);
 }
