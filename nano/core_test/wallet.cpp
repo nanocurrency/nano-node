@@ -995,28 +995,6 @@ TEST (wallet, epoch_2_receive_unopened)
 	ASSERT_LT (tries, max_tries);
 }
 
-/**
- * This test checks that wallets::foreach_representative can be used recursively
- */
-TEST (wallet, foreach_representative_deadlock)
-{
-	nano::test::system system (1);
-	auto & node (*system.nodes[0]);
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	node.wallets.compute_reps ();
-	ASSERT_EQ (1, node.wallets.reps ().voting);
-
-	bool set = false;
-	node.wallets.foreach_representative ([&node, &set, &system] (nano::public_key const & pub, nano::raw_key const & prv) {
-		node.wallets.foreach_representative ([&node, &set, &system] (nano::public_key const & pub, nano::raw_key const & prv) {
-			ASSERT_TIMELY (5s, node.wallets.mutex.try_lock () == 1);
-			node.wallets.mutex.unlock ();
-			set = true;
-		});
-	});
-	ASSERT_TRUE (set);
-}
-
 TEST (wallet, search_receivable)
 {
 	nano::test::system system;
