@@ -196,14 +196,9 @@ void block_processing_benchmark::run_iteration (std::deque<std::shared_ptr<nano:
 	auto const time_begin = std::chrono::high_resolution_clock::now ();
 
 	// Process all blocks
-	while (!blocks.empty ())
-	{
-		auto block = blocks.front ();
-		blocks.pop_front ();
-
-		bool added = node->block_processor.add (block, nano::block_source::test);
-		release_assert (added, "failed to add block to processor");
-	}
+	auto added = node->block_processor.add_many (blocks, nano::block_source::test);
+	release_assert (added == blocks.size (), "failed to add all blocks to processor");
+	blocks.clear ();
 
 	// Wait for processing to complete
 	nano::interval progress_interval;

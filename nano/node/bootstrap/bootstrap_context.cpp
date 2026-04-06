@@ -561,25 +561,15 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload co
 				blocks.pop_front ();
 			}
 
-			for (auto const & block : blocks)
-			{
-				if (block == blocks.back ())
+			block_processor.add_many (blocks, nano::block_source::bootstrap, nullptr, [this, account = tag.account] (auto result) {
+				// It's the last block submitted for this account chain, reset timestamp to allow more requests
+				stats.inc (nano::stat::type::bootstrap, nano::stat::detail::timestamp_reset);
 				{
-					// It's the last block submitted for this account chain, reset timestamp to allow more requests
-					block_processor.add (block, nano::block_source::bootstrap, nullptr, [this, account = tag.account] (auto result) {
-						stats.inc (nano::stat::type::bootstrap, nano::stat::detail::timestamp_reset);
-						{
-							nano::lock_guard<nano::mutex> guard{ mutex };
-							accounts.timestamp_reset (account);
-						}
-						condition.notify_all ();
-					});
+					nano::lock_guard<nano::mutex> guard{ mutex };
+					accounts.timestamp_reset (account);
 				}
-				else
-				{
-					block_processor.add (block, nano::block_source::bootstrap);
-				}
-			}
+				condition.notify_all ();
+			});
 
 			if (tag.source == query_source::database)
 			{

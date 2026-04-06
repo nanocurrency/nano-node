@@ -122,6 +122,80 @@ bool nano::block_processor::add (std::shared_ptr<nano::block> const & block, blo
 	return add_impl ({ block, source, std::move (callback) }, channel);
 }
 
+std::size_t nano::block_processor::add_many (std::deque<std::shared_ptr<nano::block>> const & blocks, block_source const source, std::shared_ptr<nano::transport::channel> const & channel, std::function<void (nano::block_status)> last_callback)
+{
+	if (blocks.empty ())
+	{
+		return 0;
+	}
+
+	// Validate work outside the lock, build context objects
+	std::deque<nano::block_context> contexts;
+	std::size_t insufficient_work_count = 0;
+
+	for (auto const & block : blocks)
+	{
+		if (network_params.work.validate_entry (*block)) // true => error
+		{
+			++insufficient_work_count;
+		}
+		else
+		{
+			contexts.emplace_back (block, source);
+		}
+	}
+
+	if (insufficient_work_count > 0)
+	{
+		stats.add (nano::stat::type::block_processor, nano::stat::detail::insufficient_work, insufficient_work_count);
+	}
+
+	if (contexts.empty ())
+	{
+		return 0;
+	}
+
+	// Attach callback to last valid block
+	if (last_callback)
+	{
+		contexts.back ().callback = std::move (last_callback);
+	}
+
+	// Push all contexts under a single lock
+	std::size_t added = 0;
+	std::size_t overfill = 0;
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		for (auto & ctx : contexts)
+		{
+			if (queue.push (std::move (ctx), { source, channel }))
+			{
+				++added;
+			}
+			else
+			{
+				++overfill;
+			}
+		}
+	}
+
+	if (added > 0)
+	{
+		stats.add (nano::stat::type::block_processor, nano::stat::detail::process, added);
+		condition.notify_all ();
+	}
+	if (overfill > 0)
+	{
+		stats.add (nano::stat::type::block_processor, nano::stat::detail::overfill, overfill);
+		stats.add (nano::stat::type::block_processor_overfill, to_stat_detail (source), overfill);
+	}
+
+	logger.debug (nano::log::type::block_processor, "Processing blocks (async batch): total={}, added={}, overfill={}, invalid_work={} (source: {} {})",
+	blocks.size (), added, overfill, insufficient_work_count, source, channel);
+
+	return added;
+}
+
 std::optional<nano::block_status> nano::block_processor::add_blocking (std::shared_ptr<nano::block> const & block, block_source const source)
 {
 	stats.inc (nano::stat::type::block_processor, nano::stat::detail::process_blocking);
