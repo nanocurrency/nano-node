@@ -4210,7 +4210,7 @@ TEST (ledger, epoch_open_pending)
 					  .build ();
 	auto process_result = node1.ledger.process (node1.ledger.tx_begin_write (), epoch_open);
 	ASSERT_EQ (nano::block_status::gap_epoch_open_pending, process_result);
-	node1.block_processor.add (epoch_open);
+	node1.block_processor.add (epoch_open, nano::block_source::test);
 	// Waits for the block to get saved in the database
 	ASSERT_TIMELY_EQ (10s, 1, node1.unchecked.count ());
 	ASSERT_FALSE (node1.block_or_pruned_exists (epoch_open->hash ()));
@@ -4228,7 +4228,7 @@ TEST (ledger, epoch_open_pending)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*pool.generate (nano::dev::genesis->hash ()))
 				 .build ();
-	node1.block_processor.add (send1);
+	node1.block_processor.add (send1, nano::block_source::test);
 	ASSERT_TIMELY (10s, node1.block_or_pruned_exists (epoch_open->hash ()));
 }
 
@@ -4361,15 +4361,15 @@ TEST (ledger, unchecked_epoch)
 				  .work (0)
 				  .build ();
 	node1.work_generate_blocking (*epoch1);
-	node1.block_processor.add (epoch1);
+	node1.block_processor.add (epoch1, nano::block_source::test);
 	{
 		// Waits for the epoch1 block to pass through block_processor and unchecked.put queues
 		ASSERT_TIMELY_EQ (10s, 1, node1.unchecked.count ());
 		auto blocks = node1.unchecked.get (epoch1->previous ());
 		ASSERT_EQ (blocks.size (), 1);
 	}
-	node1.block_processor.add (send1);
-	node1.block_processor.add (open1);
+	node1.block_processor.add (send1, nano::block_source::test);
+	node1.block_processor.add (open1, nano::block_source::test);
 	ASSERT_TIMELY (5s, node1.ledger.any.block_exists (node1.ledger.tx_begin_read (), epoch1->hash ()));
 	{
 		// Waits for the last blocks to pass through block_processor and unchecked.put queues
@@ -4434,16 +4434,16 @@ TEST (ledger, unchecked_epoch_invalid)
 				  .work (0)
 				  .build ();
 	node1.work_generate_blocking (*epoch2);
-	node1.block_processor.add (epoch1);
-	node1.block_processor.add (epoch2);
+	node1.block_processor.add (epoch1, nano::block_source::test);
+	node1.block_processor.add (epoch2, nano::block_source::test);
 	{
 		// Waits for the last blocks to pass through block_processor and unchecked.put queues
 		ASSERT_TIMELY_EQ (10s, 2, node1.unchecked.count ());
 		auto blocks = node1.unchecked.get (epoch1->previous ());
 		ASSERT_EQ (blocks.size (), 2);
 	}
-	node1.block_processor.add (send1);
-	node1.block_processor.add (open1);
+	node1.block_processor.add (send1, nano::block_source::test);
+	node1.block_processor.add (open1, nano::block_source::test);
 	// Waits for the last blocks to pass through block_processor and unchecked.put queues
 	ASSERT_TIMELY (10s, node1.ledger.any.block_exists (node1.ledger.tx_begin_read (), epoch2->hash ()));
 	{
@@ -4501,8 +4501,8 @@ TEST (ledger, unchecked_open)
 				 .build ();
 	node1.work_generate_blocking (*open2);
 	open2->signature.bytes[0] ^= 1;
-	node1.block_processor.add (open2); // Insert open2 in to the queue before open1
-	node1.block_processor.add (open1);
+	node1.block_processor.add (open2, nano::block_source::test); // Insert open2 in to the queue before open1
+	node1.block_processor.add (open1, nano::block_source::test);
 	{
 		// Waits for the last blocks to pass through block_processor and unchecked.put queues
 		ASSERT_TIMELY_EQ (10s, 1, node1.unchecked.count ());
@@ -4510,7 +4510,7 @@ TEST (ledger, unchecked_open)
 		auto blocks = node1.unchecked.get (open1->source_field ().value ());
 		ASSERT_EQ (blocks.size (), 1);
 	}
-	node1.block_processor.add (send1);
+	node1.block_processor.add (send1, nano::block_source::test);
 	// Waits for the send1 block to pass through block_processor and unchecked.put queues
 	ASSERT_TIMELY (5s, node1.ledger.any.block_exists (node1.ledger.tx_begin_read (), open1->hash ()));
 	ASSERT_EQ (0, node1.unchecked.count ());
@@ -4561,8 +4561,8 @@ TEST (ledger, unchecked_receive)
 					.work (0)
 					.build ();
 	node1.work_generate_blocking (*receive1);
-	node1.block_processor.add (send1);
-	node1.block_processor.add (receive1);
+	node1.block_processor.add (send1, nano::block_source::test);
+	node1.block_processor.add (receive1, nano::block_source::test);
 	auto check_block_is_listed = [&] (nano::store::transaction const & transaction_a, nano::block_hash const & block_hash_a) {
 		return !node1.unchecked.get (block_hash_a).empty ();
 	};
@@ -4574,7 +4574,7 @@ TEST (ledger, unchecked_receive)
 		ASSERT_EQ (blocks.size (), 1);
 	}
 	// Waits for the open1 block to pass through block_processor and unchecked.put queues
-	node1.block_processor.add (open1);
+	node1.block_processor.add (open1, nano::block_source::test);
 	ASSERT_TIMELY (15s, check_block_is_listed (node1.store.tx_begin_read (), receive1->source_field ().value ()));
 	// Previous block for receive1 is known, signature was validated
 	{
@@ -4582,7 +4582,7 @@ TEST (ledger, unchecked_receive)
 		auto blocks (node1.unchecked.get (receive1->source_field ().value ()));
 		ASSERT_EQ (blocks.size (), 1);
 	}
-	node1.block_processor.add (send2);
+	node1.block_processor.add (send2, nano::block_source::test);
 	ASSERT_TIMELY (10s, node1.ledger.any.block_exists (node1.ledger.tx_begin_read (), receive1->hash ()));
 	ASSERT_EQ (0, node1.unchecked.count ());
 }

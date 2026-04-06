@@ -635,7 +635,7 @@ TEST (node, mass_vote_by_hash)
 	}
 	for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
 	{
-		system.nodes[0]->block_processor.add (*i);
+		system.nodes[0]->block_processor.add (*i, nano::block_source::test);
 	}
 }
 

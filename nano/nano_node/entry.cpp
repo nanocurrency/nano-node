@@ -1240,7 +1240,7 @@ int main (int argc, char * const * argv)
 			nano::thread_runner runner1 (io_ctx1, nano::default_logger (), node1->config.io_threads);
 
 			std::cout << boost::str (boost::format ("Processing %1% blocks\n") % (count * 2));
-			node1->block_processor.add_many (blocks, nano::block_source::live);
+			node1->block_processor.add_many (blocks, nano::block_source::test);
 			auto iteration (0);
 			while (node1->ledger.block_count () != count * 2 + 1)
 			{
@@ -1282,7 +1282,7 @@ int main (int argc, char * const * argv)
 			node2->start ();
 			nano::thread_runner runner2 (io_ctx2, nano::default_logger (), node2->config.io_threads);
 			std::cout << boost::str (boost::format ("Processing %1% blocks (test node)\n") % (count * 2));
-			node2->block_processor.add_many (blocks, nano::block_source::live);
+			node2->block_processor.add_many (blocks, nano::block_source::test);
 			blocks.clear ();
 			while (node2->ledger.block_count () != count * 2 + 1)
 			{
@@ -1845,7 +1845,7 @@ int main (int argc, char * const * argv)
 							{
 								std::cout << boost::str (boost::format ("%1% blocks retrieved") % count) << std::endl;
 							}
-							node.node->block_processor.add (block);
+							node.node->block_processor.add (block, nano::block_source::test);
 							if (block->type () == nano::block_type::state && block->previous ().is_zero () && source_node->ledger.is_epoch_link (block->link_field ().value ()))
 							{
 								// Epoch open blocks can be rejected without processed pending blocks to account, push it later again
@@ -1864,7 +1864,7 @@ int main (int argc, char * const * argv)
 				// Add epoch open blocks again if required
 				if (node.node->block_processor.size () == 0)
 				{
-					node.node->block_processor.add_many (epoch_open_blocks, nano::block_source::live);
+					node.node->block_processor.add_many (epoch_open_blocks, nano::block_source::test);
 				}
 				// Message each 60 seconds
 				if (timer_l.after_deadline (std::chrono::seconds (60)))

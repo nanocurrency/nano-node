@@ -465,7 +465,7 @@ void nano::node::inbound (const nano::messages::message & message, const std::sh
 
 void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 {
-	block_processor.add (incoming);
+	block_processor.add (incoming, nano::block_source::live);
 }
 
 void nano::node::process_active (std::shared_ptr<nano::vote> const & vote)

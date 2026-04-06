@@ -1716,8 +1716,8 @@ TEST (node, block_confirm)
 					  .build ();
 	auto hash1 = send1->hash ();
 	auto hash2 = send1_copy->hash ();
-	node1.block_processor.add (send1);
-	node2.block_processor.add (send1_copy);
+	node1.block_processor.add (send1, nano::block_source::test);
+	node2.block_processor.add (send1_copy, nano::block_source::test);
 	ASSERT_TIMELY (5s, node1.block_or_pruned_exists (send1->hash ()) && node2.block_or_pruned_exists (send1_copy->hash ()));
 	ASSERT_TRUE (node1.block_or_pruned_exists (send1->hash ()));
 	ASSERT_TRUE (node2.block_or_pruned_exists (send1_copy->hash ()));

@@ -61,7 +61,7 @@ public:
 
 	bool add (
 	std::shared_ptr<nano::block> const & block,
-	nano::block_source source = nano::block_source::live,
+	nano::block_source source,
 	std::shared_ptr<nano::transport::channel> const & channel = nullptr,
 	std::function<void (nano::block_status)> callback = {});
 

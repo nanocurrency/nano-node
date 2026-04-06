@@ -82,7 +82,7 @@ TEST (conflicts, add_existing)
 
 	// the block processor will notice that the block is a fork and it will try to publish it
 	// which will update the election object
-	node1.block_processor.add (send2);
+	node1.block_processor.add (send2, nano::block_source::test);
 
 	ASSERT_TRUE (node1.active.active (*send1));
 	ASSERT_TIMELY (5s, node1.active.active (*send2));
