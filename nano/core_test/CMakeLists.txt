@@ -54,7 +54,6 @@ add_executable(
   online_reps.cpp
   optimistic_scheduler.cpp
   processing_queue.cpp
-  processor_service.cpp
   random.cpp
   random_pool.cpp
   rate_limiting.cpp
