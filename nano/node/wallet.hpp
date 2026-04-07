@@ -326,7 +326,7 @@ public:
 	// Representatives
 	void foreach_representative (std::function<void (nano::public_key const &, nano::raw_key const &)> const & action);
 	bool check_rep (nano::account const &);
-	void compute_reps ();
+	void refresh_reps ();
 	nano::wallet_representatives reps () const;
 
 	/// Returns a signer that iterates over all representatives in the wallet

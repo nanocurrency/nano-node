@@ -117,7 +117,7 @@ TEST (vote_replier, single_hash_reply)
 	config.enable_voting = true;
 	auto & node = *system.add_node (config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	node.wallets.compute_reps ();
+	node.wallets.refresh_reps ();
 
 	auto blocks = nano::test::setup_chain (system, node, 1);
 
@@ -145,7 +145,7 @@ TEST (vote_replier, multiple_hashes_reply)
 	config.enable_voting = true;
 	auto & node = *system.add_node (config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	node.wallets.compute_reps ();
+	node.wallets.refresh_reps ();
 
 	auto blocks = nano::test::setup_chain (system, node, 3);
 
@@ -182,7 +182,7 @@ TEST (vote_replier, mixed_known_unknown)
 	config.enable_voting = true;
 	auto & node = *system.add_node (config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	node.wallets.compute_reps ();
+	node.wallets.refresh_reps ();
 
 	auto blocks = nano::test::setup_chain (system, node, 1);
 
@@ -248,7 +248,7 @@ TEST (vote_replier, per_channel_fairness)
 	config.vote_replier.channel_limit = 1;
 	auto & node = *system.add_node (config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	node.wallets.compute_reps ();
+	node.wallets.refresh_reps ();
 
 	auto blocks = nano::test::setup_chain (system, node, 1);
 
@@ -281,7 +281,7 @@ TEST (vote_replier, integration_confirm_req)
 	config.optimistic_scheduler.enable = false;
 	auto & node = *system.add_node (config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	node.wallets.compute_reps ();
+	node.wallets.refresh_reps ();
 
 	// Create and confirm a block
 	nano::keypair key;
@@ -528,7 +528,7 @@ TEST (vote_replier, multiple_representatives)
 	ASSERT_TIMELY (5s, node.balance (rep2.pub) == amount);
 	wallet.change_sync (rep2.pub, rep2.pub);
 	ASSERT_EQ (node.weight (rep2.pub), amount);
-	node.wallets.compute_reps ();
+	node.wallets.refresh_reps ();
 	ASSERT_EQ (2, node.wallets.reps ().voting);
 
 	auto blocks = nano::test::setup_chain (system, node, 1);

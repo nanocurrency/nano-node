@@ -193,7 +193,7 @@ TEST (wallets, vote_minimum)
 	wallet->insert_adhoc (nano::dev::genesis_key.prv);
 	wallet->insert_adhoc (key1.prv);
 	wallet->insert_adhoc (key2.prv);
-	node1.wallets.compute_reps ();
+	node1.wallets.refresh_reps ();
 	ASSERT_EQ (2, wallet->reps ().size ());
 }
 
@@ -417,7 +417,7 @@ TEST (wallets, signer_multiple)
 	system.wallet (0)->send_sync (nano::dev::genesis_key.pub, rep2.pub, amount);
 	ASSERT_TIMELY (5s, node.balance (rep2.pub) == amount);
 	system.wallet (0)->change_sync (rep2.pub, rep2.pub);
-	node.wallets.compute_reps ();
+	node.wallets.refresh_reps ();
 	ASSERT_EQ (2, node.wallets.reps ().voting);
 
 	auto sign = node.wallets.signer ();
@@ -458,7 +458,7 @@ TEST (wallets, signer_below_weight)
 	ASSERT_TRUE (node.weight (below_minimum.pub) > 0);
 	ASSERT_TRUE (node.weight (below_minimum.pub) < config.vote_minimum.number ());
 
-	node.wallets.compute_reps ();
+	node.wallets.refresh_reps ();
 	ASSERT_EQ (1, node.wallets.reps ().voting);
 
 	auto sign = node.wallets.signer ();

@@ -1962,7 +1962,7 @@ bool nano::wallets::check_rep_impl (wallet_representatives & reps, nano::account
 	return true;
 }
 
-void nano::wallets::compute_reps ()
+void nano::wallets::refresh_reps ()
 {
 	refresh_rep_index ();
 	refresh_rep_keys_cache ();
@@ -2074,7 +2074,7 @@ void nano::wallets::run_reps_scan ()
 		stats.inc (nano::stat::type::wallet, nano::stat::detail::loop_reps);
 
 		// Recompute local wallet representatives and refresh cached keys
-		compute_reps ();
+		refresh_reps ();
 
 		lock.lock ();
 

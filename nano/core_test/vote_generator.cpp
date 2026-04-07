@@ -681,7 +681,7 @@ TEST (vote_generator, multiple_representatives)
 	wallet.insert_adhoc (rep1.prv);
 	wallet.insert_adhoc (rep2.prv);
 	wallet.insert_adhoc (rep3.prv);
-	node.wallets.compute_reps ();
+	node.wallets.refresh_reps ();
 	ASSERT_EQ (4, node.wallets.reps ().voting);
 
 	nano::shared_locked<std::vector<std::shared_ptr<nano::vote>>> votes;
