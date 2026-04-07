@@ -474,3 +474,443 @@ TEST (wallets, signer_below_weight)
 	ASSERT_FALSE (accounts.count (zero_weight.pub));
 	ASSERT_FALSE (accounts.count (below_minimum.pub));
 }
+
+/*
+ * rep_keys_cache tests
+ */
+
+/*
+ * Locking a wallet should clear its reps from the cache
+ */
+TEST (wallets, rep_keys_cache_lock_clears)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	node.wallets.refresh_reps ();
+
+	// Pre-condition: genesis key is in cache
+	{
+		auto sign = node.wallets.signer ();
+		int called = 0;
+		sign ([&] (nano::public_key const &, nano::raw_key const &) {
+			++called;
+		});
+		ASSERT_EQ (1, called);
+	}
+
+	// Lock the wallet
+	system.wallet (0)->rekey ("pass");
+	system.wallet (0)->lock ();
+	ASSERT_TRUE (system.wallet (0)->is_locked ());
+
+	// Cache should be empty
+	auto sign = node.wallets.signer ();
+	int called = 0;
+	sign ([&] (nano::public_key const &, nano::raw_key const &) {
+		++called;
+	});
+	ASSERT_EQ (0, called);
+}
+
+/*
+ * Unlocking a wallet should repopulate the cache
+ */
+TEST (wallets, rep_keys_cache_unlock_repopulates)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	node.wallets.refresh_reps ();
+
+	// Lock the wallet
+	system.wallet (0)->rekey ("pass");
+	system.wallet (0)->lock ();
+
+	// Pre-condition: cache is empty
+	{
+		auto sign = node.wallets.signer ();
+		int called = 0;
+		sign ([&] (nano::public_key const &, nano::raw_key const &) {
+			++called;
+		});
+		ASSERT_EQ (0, called);
+	}
+
+	// Unlock the wallet
+	ASSERT_FALSE (system.wallet (0)->enter_password ("pass"));
+	ASSERT_FALSE (system.wallet (0)->is_locked ());
+
+	// Cache should be repopulated
+	auto sign = node.wallets.signer ();
+	std::set<nano::account> accounts;
+	sign ([&] (nano::public_key const & pub, nano::raw_key const &) {
+		accounts.insert (pub);
+	});
+	ASSERT_EQ (1, accounts.size ());
+	ASSERT_TRUE (accounts.count (nano::dev::genesis_key.pub));
+}
+
+/*
+ * Rekeying a wallet should preserve cached keys (wallet stays unlocked)
+ */
+TEST (wallets, rep_keys_cache_rekey_preserves)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	node.wallets.refresh_reps ();
+
+	// Capture key pair before rekey
+	nano::public_key pub_before;
+	nano::raw_key prv_before;
+	{
+		auto sign = node.wallets.signer ();
+		sign ([&] (nano::public_key const & pub, nano::raw_key const & prv) {
+			pub_before = pub;
+			prv_before = prv;
+		});
+	}
+	ASSERT_EQ (nano::dev::genesis_key.pub, pub_before);
+
+	// Rekey
+	ASSERT_FALSE (system.wallet (0)->rekey ("newpass"));
+	ASSERT_FALSE (system.wallet (0)->is_locked ());
+
+	// Capture key pair after rekey — should be identical
+	nano::public_key pub_after;
+	nano::raw_key prv_after;
+	{
+		auto sign = node.wallets.signer ();
+		sign ([&] (nano::public_key const & pub, nano::raw_key const & prv) {
+			pub_after = pub;
+			prv_after = prv;
+		});
+	}
+	ASSERT_EQ (pub_before, pub_after);
+	ASSERT_EQ (prv_before, prv_after);
+	ASSERT_EQ (nano::dev::genesis_key.prv, prv_after);
+}
+
+/*
+ * insert_adhoc of a key with rep-level weight should immediately update the cache
+ * without needing an explicit refresh_reps() call
+ */
+TEST (wallets, rep_keys_cache_insert_adhoc_qualifying)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	// Create a second account with vote_minimum weight
+	nano::keypair rep2;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - node.config.vote_minimum.number ())
+				.link (rep2.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+
+	auto open = builder
+				.state ()
+				.account (rep2.pub)
+				.previous (0)
+				.representative (rep2.pub)
+				.balance (node.config.vote_minimum.number ())
+				.link (send->hash ())
+				.sign (rep2.prv, rep2.pub)
+				.work (*system.work.generate (rep2.pub))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (open));
+
+	node.wallets.refresh_reps ();
+
+	// Pre-condition: only genesis in cache
+	{
+		auto sign = node.wallets.signer ();
+		std::set<nano::account> accounts;
+		sign ([&] (nano::public_key const & pub, nano::raw_key const &) {
+			accounts.insert (pub);
+		});
+		ASSERT_EQ (1, accounts.size ());
+		ASSERT_TRUE (accounts.count (nano::dev::genesis_key.pub));
+	}
+
+	// Insert rep2 — should immediately appear in cache (no refresh_reps needed)
+	system.wallet (0)->insert_adhoc (rep2.prv);
+
+	auto sign = node.wallets.signer ();
+	std::set<nano::account> accounts;
+	sign ([&] (nano::public_key const & pub, nano::raw_key const &) {
+		accounts.insert (pub);
+	});
+	ASSERT_EQ (2, accounts.size ());
+	ASSERT_TRUE (accounts.count (nano::dev::genesis_key.pub));
+	ASSERT_TRUE (accounts.count (rep2.pub));
+}
+
+/*
+ * insert_adhoc of a zero-weight key should not modify the cache
+ */
+TEST (wallets, rep_keys_cache_insert_adhoc_nonqualifying)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	node.wallets.refresh_reps ();
+
+	// Insert a key with no weight
+	nano::keypair nobody;
+	system.wallet (0)->insert_adhoc (nobody.prv);
+
+	// Cache should still contain only genesis
+	auto sign = node.wallets.signer ();
+	std::set<nano::account> accounts;
+	sign ([&] (nano::public_key const & pub, nano::raw_key const &) {
+		accounts.insert (pub);
+	});
+	ASSERT_EQ (1, accounts.size ());
+	ASSERT_TRUE (accounts.count (nano::dev::genesis_key.pub));
+	ASSERT_FALSE (accounts.count (nobody.pub));
+}
+
+/*
+ * With two wallets, locking one should only remove that wallet's reps from cache
+ */
+TEST (wallets, rep_keys_cache_multiple_wallets_partial_lock)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	// Wallet 1: genesis key
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	// Create rep2 with voting weight
+	nano::keypair rep2;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - node.config.vote_minimum.number ())
+				.link (rep2.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+
+	auto open = builder
+				.state ()
+				.account (rep2.pub)
+				.previous (0)
+				.representative (rep2.pub)
+				.balance (node.config.vote_minimum.number ())
+				.link (send->hash ())
+				.sign (rep2.prv, rep2.pub)
+				.work (*system.work.generate (rep2.pub))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (open));
+
+	// Wallet 2: rep2 key
+	auto wallet2 = node.wallets.create (nano::random_wallet_id ());
+	wallet2->insert_adhoc (rep2.prv);
+
+	node.wallets.refresh_reps ();
+
+	// Pre-condition: both reps in cache
+	{
+		auto sign = node.wallets.signer ();
+		std::set<nano::account> accounts;
+		sign ([&] (nano::public_key const & pub, nano::raw_key const &) {
+			accounts.insert (pub);
+		});
+		ASSERT_EQ (2, accounts.size ());
+		ASSERT_TRUE (accounts.count (nano::dev::genesis_key.pub));
+		ASSERT_TRUE (accounts.count (rep2.pub));
+	}
+
+	// Lock wallet2 only
+	wallet2->rekey ("pass");
+	wallet2->lock ();
+
+	// Only wallet1's rep should remain
+	auto sign = node.wallets.signer ();
+	std::set<nano::account> accounts;
+	sign ([&] (nano::public_key const & pub, nano::raw_key const &) {
+		accounts.insert (pub);
+	});
+	ASSERT_EQ (1, accounts.size ());
+	ASSERT_TRUE (accounts.count (nano::dev::genesis_key.pub));
+	ASSERT_FALSE (accounts.count (rep2.pub));
+}
+
+/*
+ * Private keys reconstructed from fan objects should derive to the correct public keys
+ */
+TEST (wallets, rep_keys_cache_key_correctness)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	node.wallets.refresh_reps ();
+
+	auto sign = node.wallets.signer ();
+	std::map<nano::public_key, nano::raw_key> key_pairs;
+	sign ([&] (nano::public_key const & pub, nano::raw_key const & prv) {
+		key_pairs[pub] = prv;
+	});
+
+	ASSERT_EQ (1, key_pairs.size ());
+	ASSERT_TRUE (key_pairs.count (nano::dev::genesis_key.pub));
+
+	// Verify the cached private key matches the original
+	ASSERT_EQ (nano::dev::genesis_key.prv, key_pairs[nano::dev::genesis_key.pub]);
+
+	// Verify the private key derives back to the correct public key
+	ASSERT_EQ (nano::dev::genesis_key.pub, nano::pub_key (key_pairs[nano::dev::genesis_key.pub]));
+}
+
+/*
+ * With voting disabled, foreach_representative should never invoke the callback
+ */
+TEST (wallets, rep_keys_cache_voting_disabled)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.enable_voting = false;
+	auto & node = *system.add_node (config);
+
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	node.wallets.refresh_reps ();
+
+	auto sign = node.wallets.signer ();
+	int called = 0;
+	sign ([&] (nano::public_key const &, nano::raw_key const &) {
+		++called;
+	});
+	ASSERT_EQ (0, called);
+}
+
+/*
+ * After removing an account from a wallet, refresh_reps should exclude it from the cache
+ */
+TEST (wallets, rep_keys_cache_account_removed)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	node.wallets.refresh_reps ();
+
+	// Pre-condition: genesis in cache
+	{
+		auto sign = node.wallets.signer ();
+		int called = 0;
+		sign ([&] (nano::public_key const &, nano::raw_key const &) {
+			++called;
+		});
+		ASSERT_EQ (1, called);
+	}
+
+	// Remove account and refresh
+	system.wallet (0)->remove_account (nano::dev::genesis_key.pub);
+	node.wallets.refresh_reps ();
+
+	// Cache should be empty
+	auto sign = node.wallets.signer ();
+	int called = 0;
+	sign ([&] (nano::public_key const &, nano::raw_key const &) {
+		++called;
+	});
+	ASSERT_EQ (0, called);
+}
+
+/*
+ * A rep that loses all weight should be excluded from the cache on next refresh
+ */
+TEST (wallets, rep_keys_cache_weight_lost)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	// Create rep2 with vote_minimum weight
+	nano::keypair rep2;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - node.config.vote_minimum.number ())
+				.link (rep2.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send));
+
+	auto open = builder
+				.state ()
+				.account (rep2.pub)
+				.previous (0)
+				.representative (rep2.pub)
+				.balance (node.config.vote_minimum.number ())
+				.link (send->hash ())
+				.sign (rep2.prv, rep2.pub)
+				.work (*system.work.generate (rep2.pub))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (open));
+
+	system.wallet (0)->insert_adhoc (rep2.prv);
+	node.wallets.refresh_reps ();
+
+	// Pre-condition: both reps in cache
+	{
+		auto sign = node.wallets.signer ();
+		std::set<nano::account> accounts;
+		sign ([&] (nano::public_key const & pub, nano::raw_key const &) {
+			accounts.insert (pub);
+		});
+		ASSERT_EQ (2, accounts.size ());
+	}
+
+	// rep2 sends all balance back to genesis (weight drops to zero)
+	auto send_back = builder
+					 .state ()
+					 .account (rep2.pub)
+					 .previous (open->hash ())
+					 .representative (rep2.pub)
+					 .balance (0)
+					 .link (nano::dev::genesis_key.pub)
+					 .sign (rep2.prv, rep2.pub)
+					 .work (*system.work.generate (open->hash ()))
+					 .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (send_back));
+	ASSERT_EQ (0, node.weight (rep2.pub));
+
+	node.wallets.refresh_reps ();
+
+	// Only genesis should remain
+	auto sign = node.wallets.signer ();
+	std::set<nano::account> accounts;
+	sign ([&] (nano::public_key const & pub, nano::raw_key const &) {
+		accounts.insert (pub);
+	});
+	ASSERT_EQ (1, accounts.size ());
+	ASSERT_TRUE (accounts.count (nano::dev::genesis_key.pub));
+	ASSERT_FALSE (accounts.count (rep2.pub));
+}
