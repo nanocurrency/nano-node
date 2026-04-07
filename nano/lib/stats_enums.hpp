@@ -241,6 +241,7 @@ enum class detail
 	process_blocking,
 	process_blocking_timeout,
 	force,
+	force_overfill,
 	cooldown_backlog,
 
 	// block source

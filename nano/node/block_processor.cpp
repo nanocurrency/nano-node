@@ -116,10 +116,14 @@ bool nano::block_processor::add (std::shared_ptr<nano::block> const & block, blo
 		return false; // Not added
 	}
 
-	stats.inc (nano::stat::type::block_processor, nano::stat::detail::process);
 	logger.debug (nano::log::type::block_processor, "Processing block (async): {} (source: {} {})", block->hash (), source, channel);
 
-	return add_impl ({ block, source, std::move (callback) }, channel);
+	bool added = add_impl ({ block, source, std::move (callback) }, channel);
+	if (added)
+	{
+		stats.inc (nano::stat::type::block_processor, nano::stat::detail::process);
+	}
+	return added;
 }
 
 std::size_t nano::block_processor::add_many (std::deque<std::shared_ptr<nano::block>> const & blocks, block_source const source, std::shared_ptr<nano::transport::channel> const & channel, std::function<void (nano::block_status)> last_callback)
@@ -198,12 +202,15 @@ std::size_t nano::block_processor::add_many (std::deque<std::shared_ptr<nano::bl
 
 std::optional<nano::block_status> nano::block_processor::add_blocking (std::shared_ptr<nano::block> const & block, block_source const source)
 {
-	stats.inc (nano::stat::type::block_processor, nano::stat::detail::process_blocking);
 	logger.debug (nano::log::type::block_processor, "Processing block (blocking): {} (source: {})", block->hash (), source);
 
 	nano::block_context ctx{ block, source };
 	auto future = ctx.get_future ();
-	add_impl (std::move (ctx));
+	bool added = add_impl (std::move (ctx));
+	if (added)
+	{
+		stats.inc (nano::stat::type::block_processor, nano::stat::detail::process_blocking);
+	}
 
 	try
 	{
@@ -219,12 +226,20 @@ std::optional<nano::block_status> nano::block_processor::add_blocking (std::shar
 	return std::nullopt;
 }
 
-void nano::block_processor::force (std::shared_ptr<nano::block> const & block_a)
+void nano::block_processor::force (std::shared_ptr<nano::block> const & block)
 {
-	stats.inc (nano::stat::type::block_processor, nano::stat::detail::force);
-	logger.debug (nano::log::type::block_processor, "Forcing block: {}", block_a->hash ());
+	logger.debug (nano::log::type::block_processor, "Forcing block: {}", block->hash ());
 
-	add_impl ({ block_a, block_source::forced });
+	bool added = add_impl ({ block, block_source::forced });
+	if (added)
+	{
+		stats.inc (nano::stat::type::block_processor, nano::stat::detail::force);
+	}
+	else
+	{
+		stats.inc (nano::stat::type::block_processor, nano::stat::detail::force_overfill);
+		logger.debug (nano::log::type::block_processor, "Failed to force block (queue full): {}", block->hash ());
+	}
 }
 
 bool nano::block_processor::add_impl (nano::block_context ctx, std::shared_ptr<nano::transport::channel> const & channel)
