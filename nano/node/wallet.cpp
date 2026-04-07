@@ -745,8 +745,16 @@ void nano::wallet::enter_initial_password ()
 
 bool nano::wallet::enter_password (std::string const & password_a)
 {
-	auto transaction = wallets.tx_begin_write ();
-	return enter_password_impl (transaction, password_a);
+	bool result;
+	{
+		auto transaction = wallets.tx_begin_write ();
+		result = enter_password_impl (transaction, password_a);
+	}
+	if (!result)
+	{
+		wallets.refresh_rep_keys_cache ();
+	}
+	return result;
 }
 
 bool nano::wallet::enter_password_impl (nano::store::transaction const & transaction_a, std::string const & password_a)
@@ -755,8 +763,6 @@ bool nano::wallet::enter_password_impl (nano::store::transaction const & transac
 	if (!result)
 	{
 		logger.info (nano::log::type::wallet, "Wallet unlocked");
-
-		wallets.refresh_rep_keys_cache ();
 
 		auto this_l = shared_from_this ();
 		wallets.queue_wallet_action (nano::wallets::high_priority, this_l, [this_l] (nano::wallet & wallet) {
@@ -790,7 +796,6 @@ nano::public_key nano::wallet::deterministic_insert_impl (nano::store::write_tra
 		{
 			logger.info (nano::log::type::wallet, "New account qualified as a representative: {}", nano::log::as_account (key));
 			representatives.lock ()->insert (key);
-			wallets.refresh_rep_keys_cache ();
 		}
 	}
 	return key;
@@ -816,8 +821,15 @@ nano::public_key nano::wallet::deterministic_insert (uint32_t const index, bool 
 
 nano::public_key nano::wallet::deterministic_insert (bool generate_work_a)
 {
-	auto transaction (wallets.tx_begin_write ());
-	auto result (deterministic_insert_impl (transaction, generate_work_a));
+	nano::public_key result;
+	{
+		auto transaction (wallets.tx_begin_write ());
+		result = deterministic_insert_impl (transaction, generate_work_a);
+	}
+	if (!result.is_zero ())
+	{
+		wallets.refresh_rep_keys_cache ();
+	}
 	return result;
 }
 
@@ -1409,8 +1421,13 @@ uint32_t nano::wallet::deterministic_check_impl (nano::store::transaction const 
 
 nano::public_key nano::wallet::change_seed (nano::raw_key const & prv_a, uint32_t count)
 {
-	auto transaction = wallets.tx_begin_write ();
-	return change_seed_impl (transaction, prv_a, count);
+	nano::public_key result;
+	{
+		auto transaction = wallets.tx_begin_write ();
+		result = change_seed_impl (transaction, prv_a, count);
+	}
+	wallets.refresh_rep_keys_cache ();
+	return result;
 }
 
 nano::public_key nano::wallet::change_seed_impl (nano::store::write_transaction const & transaction_a, nano::raw_key const & prv_a, uint32_t count)
@@ -1437,8 +1454,11 @@ nano::public_key nano::wallet::change_seed_impl (nano::store::write_transaction 
 
 void nano::wallet::deterministic_restore ()
 {
-	auto transaction = wallets.tx_begin_write ();
-	deterministic_restore_impl (transaction);
+	{
+		auto transaction = wallets.tx_begin_write ();
+		deterministic_restore_impl (transaction);
+	}
+	wallets.refresh_rep_keys_cache ();
 }
 
 void nano::wallet::deterministic_restore_impl (nano::store::write_transaction const & transaction_a)
@@ -1454,8 +1474,11 @@ void nano::wallet::deterministic_restore_impl (nano::store::write_transaction co
 
 bool nano::wallet::rekey (std::string const & password_a)
 {
-	auto transaction = wallets.tx_begin_write ();
-	auto result = store.rekey (transaction, password_a);
+	bool result;
+	{
+		auto transaction = wallets.tx_begin_write ();
+		result = store.rekey (transaction, password_a);
+	}
 	if (!result)
 	{
 		wallets.refresh_rep_keys_cache ();
@@ -1480,8 +1503,11 @@ void nano::wallet::lock ()
 
 void nano::wallet::remove_account (nano::account const & account_a)
 {
-	auto transaction = wallets.tx_begin_write ();
-	store.erase (transaction, account_a);
+	{
+		auto transaction = wallets.tx_begin_write ();
+		store.erase (transaction, account_a);
+	}
+	wallets.refresh_rep_keys_cache ();
 }
 
 std::vector<nano::account> nano::wallet::accounts () const
@@ -1492,8 +1518,13 @@ std::vector<nano::account> nano::wallet::accounts () const
 
 bool nano::wallet::move_accounts (wallet & source, std::vector<nano::public_key> const & accounts_a)
 {
-	auto transaction = wallets.tx_begin_write ();
-	return store.move (transaction, source.store, accounts_a);
+	bool error;
+	{
+		auto transaction = wallets.tx_begin_write ();
+		error = store.move (transaction, source.store, accounts_a);
+	}
+	wallets.refresh_rep_keys_cache ();
+	return error;
 }
 
 nano::key_type nano::wallet::key_type (nano::account const & account_a) const
