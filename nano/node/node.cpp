@@ -106,10 +106,8 @@ nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesy
 	runner{ *runner_impl },
 	observers_impl{ std::make_unique<nano::node_observers> () },
 	observers{ *observers_impl },
-	workers_impl{ std::make_unique<nano::thread_pool> (config.background_threads, nano::thread_role::name::worker, /* start immediately */ true) },
+	workers_impl{ std::make_unique<nano::timed_thread_pool> (config.background_threads, nano::thread_role::name::worker, /* start immediately */ true) },
 	workers{ *workers_impl },
-	bootstrap_workers_impl{ std::make_unique<nano::thread_pool> (config.bootstrap_serving_threads, nano::thread_role::name::bootstrap_worker, /* start immediately */ true) },
-	bootstrap_workers{ *bootstrap_workers_impl },
 	wallet_workers_impl{ std::make_unique<nano::thread_pool> (1, nano::thread_role::name::wallet_worker, /* start immediately */ true) },
 	wallet_workers{ *wallet_workers_impl },
 	election_workers_impl{ std::make_unique<nano::thread_pool> (1, nano::thread_role::name::election_worker, /* start immediately */ true) },
@@ -613,7 +611,6 @@ void nano::node::stop ()
 	vote_rebroadcaster.stop ();
 	block_rebroadcaster.stop ();
 
-	bootstrap_workers.stop ();
 	wallet_workers.stop ();
 	election_workers.stop ();
 	workers.stop ();
@@ -944,7 +941,6 @@ nano::container_info nano::node::container_info () const
 	info.add ("network", network.container_info ());
 	info.add ("telemetry", telemetry.container_info ());
 	info.add ("workers", workers.container_info ());
-	info.add ("bootstrap_workers", bootstrap_workers.container_info ());
 	info.add ("wallet_workers", wallet_workers.container_info ());
 	info.add ("election_workers", election_workers.container_info ());
 	info.add ("observers", observers.container_info ());
