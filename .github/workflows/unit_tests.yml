@@ -38,7 +38,7 @@ jobs:
         id: build
         run: ci/build-tests.sh
 
-      - name: sccache stats
+      - name: Build cache stats
         if: always()
         run: sccache --show-stats
 
@@ -99,7 +99,7 @@ jobs:
         id: build
         run: ci/build-tests.sh
 
-      - name: sccache stats
+      - name: Build cache stats
         if: always()
         run: sccache --show-stats
 
