@@ -1,6 +1,7 @@
 #include <nano/lib/cli.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/node/cli.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -67,6 +68,22 @@ TEST (cli, config_override_parsing)
 	config_overrides = nano::config_overrides (key_value_pairs);
 	ASSERT_EQ (config_overrides[3], "node.work_peers=[\"127.0.0.1:7000\",\"128.0.0.1:50000\"]");
 	ASSERT_EQ (config_overrides.size (), 4);
+}
+
+TEST (cli, enable_rpc_flag)
+{
+	boost::program_options::options_description description;
+	nano::add_node_flag_options (description);
+
+	char const * argv[] = { "nano_node", "--enable_rpc" };
+	boost::program_options::variables_map vm;
+	boost::program_options::store (boost::program_options::parse_command_line (2, argv, description), vm);
+	boost::program_options::notify (vm);
+
+	nano::node_flags flags;
+	nano::update_flags (flags, vm);
+
+	ASSERT_TRUE (flags.enable_rpc);
 }
 
 namespace

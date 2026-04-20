@@ -128,6 +128,7 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_tcp_realtime", "Disables TCP realtime connections")
 		("disable_search_pending", "Disables the periodic search for pending transactions")
 		("enable_pruning", "Enable experimental ledger pruning")
+		("enable_rpc", "Enable RPC")
 		("enable_voting", "Enable voting")
 		("super_rebroadcaster", "Broadcast all blocks and votes to all peers (high bandwidth usage)")
 		("allow_bootstrap_peers_duplicates", "Allow multiple connections to same peer in bootstrap attempts")
@@ -168,6 +169,7 @@ void nano::update_flags (nano::node_flags & flags_a, boost::program_options::var
 	flags_a.disable_providing_telemetry_metrics = (vm.count ("disable_providing_telemetry_metrics") > 0);
 	flags_a.disable_block_processor_unchecked_deletion = (vm.count ("disable_block_processor_unchecked_deletion") > 0);
 	flags_a.enable_pruning = (vm.count ("enable_pruning") > 0);
+	flags_a.enable_rpc = (vm.count ("enable_rpc") > 0);
 	flags_a.enable_voting = (vm.count ("enable_voting") > 0);
 	flags_a.super_rebroadcaster = (vm.count ("super_rebroadcaster") > 0);
 	flags_a.allow_bootstrap_peers_duplicates = (vm.count ("allow_bootstrap_peers_duplicates") > 0);

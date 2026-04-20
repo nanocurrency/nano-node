@@ -157,6 +157,7 @@ public:
 	bool disable_max_peers_per_subnetwork{ false };
 	bool disable_search_pending{ false };
 	bool enable_pruning{ false };
+	bool enable_rpc{ false };
 	bool enable_voting{ false };
 	bool super_rebroadcaster{ false };
 	bool fast_bootstrap{ false };

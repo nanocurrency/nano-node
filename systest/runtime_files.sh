@@ -16,10 +16,10 @@ trap cleanup EXIT
 
 # Start the node with both --pid_file and --runtime_info_file using ephemeral ports
 $NANO_NODE_EXE --daemon --network dev --data_path "$DATADIR" \
+    --enable_rpc \
     --pid_file "$PID_FILE" \
     --runtime_info_file "$RUNTIME_INFO" \
     --config node.peering_port=0 \
-    --config rpc.enable=true \
     --rpcconfig port=0 \
     --rpcconfig enable_control=true &
 NODE_PID=$!

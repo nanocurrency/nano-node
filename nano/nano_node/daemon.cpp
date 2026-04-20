@@ -141,7 +141,8 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 		std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 		std::shared_ptr<nano::rpc> rpc;
 
-		if (config.rpc_enable)
+		bool const rpc_enabled = config.rpc_enable || flags.enable_rpc;
+		if (rpc_enabled)
 		{
 			// In process RPC
 			if (!config.rpc.child_process.enable)
@@ -160,6 +161,8 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 					std::exit (1);
 				}
 
+				logger.debug (nano::log::type::daemon, "Starting in-process RPC server on port {}", rpc_config.port);
+
 				rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, *ipc_server, config.rpc, stop_callback);
 				rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
 				rpc->start ();
@@ -173,6 +176,8 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 				}
 
 				logger.warn (nano::log::type::daemon, "RPC is configured to run in a separate process, this is experimental and is not recommended for production use. Please consider using the in-process RPC instead.");
+
+				logger.debug (nano::log::type::daemon, "Spawning RPC process with command: {}", config.rpc.child_process.rpc_path);
 
 				std::string network{ node->network_params.network.get_current_network_as_string () };
 				rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path.string (), "--network", network);

@@ -177,7 +177,8 @@ public:
 				std::unique_ptr<boost::process::child> rpc_process;
 				std::shared_ptr<nano::rpc> rpc;
 				std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
-				if (config.rpc_enable)
+				bool const rpc_enabled = config.rpc_enable || flags.enable_rpc;
+				if (rpc_enabled)
 				{
 					if (!config.rpc.child_process.enable)
 					{
@@ -186,10 +187,14 @@ public:
 						error = nano::read_rpc_config_toml (data_path, rpc_config, flags.rpc_config_overrides);
 						if (error)
 						{
+							logger.critical (nano::log::type::daemon, "Error deserializing RPC config: {}", error.get_message ());
 							splash->hide ();
 							show_error (error.get_message ());
 							std::exit (1);
 						}
+
+						logger.debug (nano::log::type::daemon, "Starting in-process RPC server on port {}", rpc_config.port);
+
 						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc, config.rpc);
 						rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
 						rpc->start ();
@@ -201,6 +206,10 @@ public:
 						{
 							throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.child_process.rpc_path);
 						}
+
+						logger.warn (nano::log::type::daemon, "RPC is configured to run in a separate process, this is experimental and is not recommended for production use. Please consider using the in-process RPC instead.");
+
+						logger.debug (nano::log::type::daemon, "Spawning RPC process with command: {}", config.rpc.child_process.rpc_path);
 
 						std::string network{ node->network_params.network.get_current_network_as_string () };
 						rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path.string (), "--network", network);
