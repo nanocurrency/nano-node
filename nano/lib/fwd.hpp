@@ -56,6 +56,12 @@ struct bootstrap_weights;
 template <typename Key, typename Value>
 class uniquer;
 
+template <typename E>
+class enum_flags;
+
+enum class node_capabilities : uint64_t;
+using node_capabilities_flags = nano::enum_flags<nano::node_capabilities>;
+
 using stream = std::basic_streambuf<uint8_t, uint8_char_traits>;
 
 using seconds_t = uint64_t;

@@ -3,16 +3,12 @@
 #include <nano/boost/asio/fwd.hpp>
 #include <nano/lib/fwd.hpp>
 #include <nano/lib/keypair.hpp>
-#include <nano/lib/node_capabilities.hpp>
 #include <nano/messages/fwd.hpp>
 #include <nano/node/fwd.hpp>
-#include <nano/node/transport/fwd.hpp>
-#include <nano/secure/fwd.hpp>
-#include <nano/store/fwd.hpp>
-
-#include <boost/thread/latch.hpp>
 
 #include <atomic>
+#include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -89,7 +85,6 @@ public:
 public:
 	const std::filesystem::path application_path; // aka: data_path
 	const nano::keypair node_id;
-	boost::latch node_initialized_latch;
 	std::unique_ptr<nano::node_config> config_impl;
 	nano::node_config & config;
 	std::unique_ptr<nano::node_flags> flags_impl;
