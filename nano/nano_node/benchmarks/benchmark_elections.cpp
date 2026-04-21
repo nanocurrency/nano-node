@@ -131,7 +131,7 @@ void run_elections_benchmark (boost::program_options::variables_map const & vm, 
 	node_config.max_unchecked_blocks = 1024 * 1024; // Large unchecked blocks cache to avoid dropping blocks
 	node_config.vote_processor->max_pr_queue = std::numeric_limits<size_t>::max (); // Unlimited vote processing queue
 
-	auto node = std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config, work_pool, node_flags);
+	auto node = std::make_shared<nano::node> (nano::unique_path (), node_config, work_pool, node_flags);
 	node->start ();
 	nano::thread_runner runner (io_ctx, nano::default_logger (), node->config.io_threads);
 

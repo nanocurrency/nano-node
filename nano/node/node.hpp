@@ -21,8 +21,8 @@ namespace nano
 class node final : public std::enable_shared_from_this<node>
 {
 public:
-	node (std::shared_ptr<boost::asio::io_context>, uint16_t peering_port, std::filesystem::path const & application_path, nano::work_pool &, nano::node_flags, unsigned seq = 0);
-	node (std::shared_ptr<boost::asio::io_context>, std::filesystem::path const & application_path, nano::node_config const &, nano::work_pool &, nano::node_flags, unsigned seq = 0);
+	node (uint16_t peering_port, std::filesystem::path const & application_path, nano::work_pool &, nano::node_flags, unsigned seq = 0);
+	node (std::filesystem::path const & application_path, nano::node_config const &, nano::work_pool &, nano::node_flags, unsigned seq = 0);
 	~node ();
 
 public:

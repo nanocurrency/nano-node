@@ -4,9 +4,8 @@
 #include <nano/secure/common.hpp>
 #include <nano/secure/network_params.hpp>
 
-#include <boost/asio/io_context.hpp>
-
 #include <filesystem>
+#include <memory>
 
 namespace nano
 {
@@ -21,7 +20,6 @@ public:
 	~node_wrapper ();
 
 	nano::network_params network_params;
-	std::shared_ptr<boost::asio::io_context> io_context;
 	nano::work_pool work;
 	std::shared_ptr<nano::node> node;
 };

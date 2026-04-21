@@ -87,7 +87,7 @@ TEST (bootstrap, profile)
 	flags_server.disable_ongoing_bootstrap = true;
 	auto data_path_server = nano::working_path (network);
 	// auto data_path_server = "";
-	auto server = std::make_shared<nano::node> (system.io_ctx, data_path_server, config_server, system.work, flags_server);
+	auto server = std::make_shared<nano::node> (data_path_server, config_server, system.work, flags_server);
 	system.nodes.push_back (server);
 	server->start ();
 
@@ -107,7 +107,7 @@ TEST (bootstrap, profile)
 	// macos 16GB RAM disk:  diskutil erasevolume HFS+ "RAMDisk" `hdiutil attach -nomount ram://33554432`
 	// auto data_path_client = "/Volumes/RAMDisk";
 	auto data_path_client = nano::unique_path ();
-	auto client = std::make_shared<nano::node> (system.io_ctx, data_path_client, config_client, system.work, flags_client);
+	auto client = std::make_shared<nano::node> (data_path_client, config_client, system.work, flags_client);
 	system.nodes.push_back (client);
 	client->start ();
 

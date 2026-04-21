@@ -224,7 +224,7 @@ TEST (rep_crawler, rep_remove)
 
 	// Start a node for Rep2 and wait until it is connected
 	auto node_rep2 (std::make_shared<nano::node> (
-	system.io_ctx, nano::unique_path (), [&] { nano::node_config c; c.peering_port = system.get_available_port (); return c; }(), system.work, nano::node_flags{}));
+	nano::unique_path (), [&] { nano::node_config c; c.peering_port = system.get_available_port (); return c; }(), system.work, nano::node_flags{}));
 	node_rep2->start ();
 	searching_node.network.tcp_channels.start_tcp (node_rep2->network.endpoint ());
 	std::shared_ptr<nano::transport::channel> channel_rep2;

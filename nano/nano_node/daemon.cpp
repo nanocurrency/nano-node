@@ -127,7 +127,7 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 		}
 
 		// Use a scope guard to ensure node->stop() is called while we still hold a shared_ptr (even in case of exceptions)
-		nano::node_scope_guard node{ std::make_shared<nano::node> (io_ctx, data_path, config.node, opencl_work, flags) };
+		nano::node_scope_guard node{ std::make_shared<nano::node> (data_path, config.node, opencl_work, flags) };
 
 		// IO context runner should be started first and stopped last to allow asio handlers to execute during node start/stop
 		runner = std::make_unique<nano::thread_runner> (io_ctx, logger, node->config.io_threads, nano::thread_role::name::io_daemon);

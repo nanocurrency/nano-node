@@ -130,7 +130,7 @@ void run_pipeline_benchmark (boost::program_options::variables_map const & vm, s
 	node_config.priority_scheduler->max_elections = std::numeric_limits<size_t>::max (); // Unlimited bucket elections
 	node_config.priority_scheduler->reserved_elections = std::numeric_limits<size_t>::max (); // Unlimited bucket elections
 
-	auto node = std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config, work_pool, node_flags);
+	auto node = std::make_shared<nano::node> (nano::unique_path (), node_config, work_pool, node_flags);
 	node->start ();
 	nano::thread_runner runner (io_ctx, nano::default_logger (), node->config.io_threads);
 

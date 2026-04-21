@@ -134,7 +134,7 @@ public:
 					};
 				}
 				nano::work_pool work{ config.node.network_params.network, config.node.work_threads, config.node.pow_sleep_interval, opencl_work_func };
-				nano::node_scope_guard node{ std::make_shared<nano::node> (io_ctx, data_path, config.node, work, flags) };
+				nano::node_scope_guard node{ std::make_shared<nano::node> (data_path, config.node, work, flags) };
 				auto wallet (node->wallets.open (wallet_config.wallet));
 				if (wallet == nullptr)
 				{

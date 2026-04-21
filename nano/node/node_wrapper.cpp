@@ -5,7 +5,6 @@
 
 nano::node_wrapper::node_wrapper (std::filesystem::path const & path_a, std::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
 	network_params{ nano::get_active_network () },
-	io_context (std::make_shared<boost::asio::io_context> ()),
 	work{ network_params.network, 1 }
 {
 	/*
@@ -33,7 +32,7 @@ nano::node_wrapper::node_wrapper (std::filesystem::path const & path_a, std::fil
 	auto & node_config = daemon_config.node;
 	node_config.peering_port = 24000;
 
-	node = std::make_shared<nano::node> (io_context, path_a, node_config, work, node_flags_a);
+	node = std::make_shared<nano::node> (path_a, node_config, work, node_flags_a);
 }
 
 nano::node_wrapper::~node_wrapper ()

@@ -1760,7 +1760,7 @@ TEST (rpc, keepalive)
 {
 	nano::test::system system;
 	auto node0 = add_ipc_enabled_node (system);
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, system.get_available_port (), nano::unique_path (), system.work, nano::node_flags{}));
+	auto node1 (std::make_shared<nano::node> (system.get_available_port (), nano::unique_path (), system.work, nano::node_flags{}));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto const rpc_ctx = add_rpc (system, node0);

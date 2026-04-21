@@ -107,7 +107,7 @@ void run_block_processing_benchmark (boost::program_options::variables_map const
 	node_config.block_processor->max_system_queue = std::numeric_limits<size_t>::max (); // Unlimited queue size
 	node_config.max_unchecked_blocks = 1024 * 1024; // Large unchecked blocks cache to avoid dropping blocks
 
-	auto node = std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config, work_pool, node_flags);
+	auto node = std::make_shared<nano::node> (nano::unique_path (), node_config, work_pool, node_flags);
 	node->start ();
 	nano::thread_runner runner (io_ctx, nano::default_logger (), node->config.io_threads);
 

@@ -144,7 +144,7 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 /** Returns the node added. */
 std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config const & node_config_a, nano::node_flags const & node_flags_a, nano::transport::transport_type type_a, std::optional<nano::keypair> const & rep)
 {
-	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config_a, work, node_flags_a, node_sequence++));
+	auto node (std::make_shared<nano::node> (nano::unique_path (), node_config_a, work, node_flags_a, node_sequence++));
 	setup_node (*node);
 	auto wallet = node->wallets.create (nano::random_wallet_id ());
 	if (rep)
@@ -193,7 +193,7 @@ std::shared_ptr<nano::node> nano::test::system::make_disconnected_node ()
 // TODO: Merge with add_node
 std::shared_ptr<nano::node> nano::test::system::make_disconnected_node (nano::node_config const & node_config, nano::node_flags const & flags)
 {
-	auto node = std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config, work, flags);
+	auto node = std::make_shared<nano::node> (nano::unique_path (), node_config, work, flags);
 	setup_node (*node);
 	node->start ();
 

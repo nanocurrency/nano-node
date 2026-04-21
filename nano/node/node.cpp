@@ -94,13 +94,13 @@
 #include <future>
 #include <sstream>
 
-nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, uint16_t peering_port_a, std::filesystem::path const & application_path_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
+nano::node::node (uint16_t peering_port_a, std::filesystem::path const & application_path_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
 	node (
-	io_ctx_a, application_path_a, [&] { nano::node_config c; c.peering_port = peering_port_a; return c; }(), work_a, flags_a, seq)
+	application_path_a, [&] { nano::node_config c; c.peering_port = peering_port_a; return c; }(), work_a, flags_a, seq)
 {
 }
 
-nano::node::node (std::shared_ptr<boost::asio::io_context> io_ctx_a, std::filesystem::path const & application_path_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
+nano::node::node (std::filesystem::path const & application_path_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
 	application_path{ application_path_a },
 	node_id{ load_or_create_node_id (application_path_a) },
 	config_impl{ std::make_unique<nano::node_config> (config_a) },
