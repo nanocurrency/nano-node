@@ -72,9 +72,11 @@ public:
 	// Attempts to bootstrap block. This is the best effort, there is no guarantee that the block will be bootstrapped.
 	void bootstrap_block (nano::block_hash const &);
 
+	nano::messages::telemetry_data local_telemetry () const;
+
+	std::filesystem::path const & get_data_path () const;
 	nano::account get_node_id () const;
 	nano::node_capabilities_flags get_capabilities () const;
-	nano::messages::telemetry_data local_telemetry () const;
 	std::string identifier () const;
 
 	nano::container_info container_info () const;
@@ -85,6 +87,7 @@ public:
 public:
 	const std::filesystem::path application_path; // aka: data_path
 	const nano::keypair node_id;
+
 	std::unique_ptr<nano::node_config> config_impl;
 	nano::node_config & config;
 	std::unique_ptr<nano::node_flags> flags_impl;

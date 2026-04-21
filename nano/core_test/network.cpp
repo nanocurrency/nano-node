@@ -140,7 +140,7 @@ TEST (network, last_contacted)
 	ASSERT_TIMELY_EQ (3s, node0->network.size (), 1);
 
 	// channel0 is the other side of channel1, same connection different endpoint
-	auto channel0 = node0->network.tcp_channels.find_node_id (node1->node_id.pub);
+	auto channel0 = node0->network.tcp_channels.find_node_id (node1->get_node_id ());
 	ASSERT_NE (nullptr, channel0);
 
 	{
@@ -903,8 +903,8 @@ TEST (network, loopback_channel)
 	ASSERT_EQ (channel1.get_type (), nano::transport::transport_type::loopback);
 	ASSERT_EQ (channel1.get_remote_endpoint (), node1.network.endpoint ());
 	ASSERT_EQ (channel1.get_network_version (), node1.network_params.network.protocol_version);
-	ASSERT_EQ (channel1.get_node_id (), node1.node_id.pub);
-	ASSERT_EQ (channel1.get_node_id_optional ().value_or (0), node1.node_id.pub);
+	ASSERT_EQ (channel1.get_node_id (), node1.get_node_id ());
+	ASSERT_EQ (channel1.get_node_id_optional ().value_or (0), node1.get_node_id ());
 	nano::transport::inproc::channel channel2 (node2, node2);
 	++node1.network.port;
 	ASSERT_NE (channel1.get_remote_endpoint (), node1.network.endpoint ());
@@ -1008,8 +1008,8 @@ TEST (network, reconnect_cached)
 	// Peers should reconnect after a while
 	ASSERT_TIMELY_EQ (5s, node1.network.size (), 1);
 	ASSERT_TIMELY_EQ (5s, node2.network.size (), 1);
-	ASSERT_TRUE (node1.network.find_node_id (node2.node_id.pub));
-	ASSERT_TRUE (node2.network.find_node_id (node1.node_id.pub));
+	ASSERT_TRUE (node1.network.find_node_id (node2.get_node_id ()));
+	ASSERT_TRUE (node2.network.find_node_id (node1.get_node_id ()));
 }
 
 /*

@@ -99,9 +99,9 @@ TEST (rep_crawler, rep_weight)
 	ASSERT_TRUE (node.rep_crawler.representatives (1).empty ());
 
 	ASSERT_TIMELY (5s, node.network.size () == 3);
-	auto channel1 = node.network.find_node_id (node1.node_id.pub);
-	auto channel2 = node.network.find_node_id (node2.node_id.pub);
-	auto channel3 = node.network.find_node_id (node3.node_id.pub);
+	auto channel1 = node.network.find_node_id (node1.get_node_id ());
+	auto channel2 = node.network.find_node_id (node2.get_node_id ());
+	auto channel3 = node.network.find_node_id (node3.get_node_id ());
 	ASSERT_NE (nullptr, channel1);
 	ASSERT_NE (nullptr, channel2);
 	ASSERT_NE (nullptr, channel3);
@@ -322,7 +322,7 @@ TEST (rep_crawler, ignore_rebroadcasted)
 	auto & node1 = *system.add_node ();
 	auto & node2 = *system.add_node ();
 
-	auto channel1to2 = node1.network.find_node_id (node2.node_id.pub);
+	auto channel1to2 = node1.network.find_node_id (node2.get_node_id ());
 	ASSERT_NE (nullptr, channel1to2);
 
 	node1.rep_crawler.force_query (nano::dev::genesis->hash (), channel1to2);
@@ -331,7 +331,7 @@ TEST (rep_crawler, ignore_rebroadcasted)
 	// Now we spam the vote for genesis, so it appears as a rebroadcasted vote
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis->hash () }, 0);
 
-	auto channel2to1 = node2.network.find_node_id (node1.node_id.pub);
+	auto channel2to1 = node2.network.find_node_id (node1.get_node_id ());
 	ASSERT_NE (nullptr, channel2to1);
 
 	node1.rep_crawler.force_query (nano::dev::genesis->hash (), channel1to2);

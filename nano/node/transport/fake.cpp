@@ -10,7 +10,7 @@ nano::transport::fake::channel::channel (nano::node & node) :
 	transport::channel{ node },
 	endpoint{ node.network.endpoint () }
 {
-	set_node_id (node.node_id.pub);
+	set_node_id (node.get_node_id ());
 	set_network_version (node.network_params.network.protocol_version);
 }
 

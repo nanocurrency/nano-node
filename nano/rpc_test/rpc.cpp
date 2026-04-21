@@ -1819,7 +1819,7 @@ TEST (rpc, peers_node_id)
 
 	auto tree1 = peer->second;
 	ASSERT_EQ (std::to_string (node->network_params.network.protocol_version), tree1.get<std::string> ("protocol_version"));
-	ASSERT_EQ (node2->node_id.pub.to_node_id (), tree1.get<std::string> ("node_id"));
+	ASSERT_EQ (node2->get_node_id ().to_node_id (), tree1.get<std::string> ("node_id"));
 	// The previous version of this test had an UDP connection to an arbitrary IP address, so it could check for two peers. This doesn't work with TCP.
 }
 
@@ -5430,8 +5430,8 @@ TEST (rpc, node_id)
 	boost::property_tree::ptree request;
 	request.put ("action", "node_id");
 	auto response (wait_response (system, rpc_ctx, request));
-	ASSERT_EQ (node->node_id.pub.to_account (), response.get<std::string> ("as_account"));
-	ASSERT_EQ (node->node_id.pub.to_node_id (), response.get<std::string> ("node_id"));
+	ASSERT_EQ (node->get_node_id ().to_account (), response.get<std::string> ("as_account"));
+	ASSERT_EQ (node->get_node_id ().to_node_id (), response.get<std::string> ("node_id"));
 }
 
 TEST (rpc, stats_clear)

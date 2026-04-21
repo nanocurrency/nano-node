@@ -30,8 +30,8 @@ TEST (tcp_server, handshake_success)
 	node1->network.merge_peer (node2->network.endpoint ());
 
 	// Wait for handshake to complete successfully
-	ASSERT_TIMELY (10s, node1->network.find_node_id (node2->node_id.pub));
-	ASSERT_TIMELY (10s, node2->network.find_node_id (node1->node_id.pub));
+	ASSERT_TIMELY (10s, node1->network.find_node_id (node2->get_node_id ()));
+	ASSERT_TIMELY (10s, node2->network.find_node_id (node1->get_node_id ()));
 
 	// Verify no handshake aborts occurred
 	ASSERT_EQ (node1->stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort), 0);
@@ -392,17 +392,17 @@ TEST (tcp_server, handshake_flags_exchanged)
 
 	node1->network.merge_peer (node2->network.endpoint ());
 
-	ASSERT_TIMELY (10s, node1->network.find_node_id (node2->node_id.pub));
-	ASSERT_TIMELY (10s, node2->network.find_node_id (node1->node_id.pub));
+	ASSERT_TIMELY (10s, node1->network.find_node_id (node2->get_node_id ()));
+	ASSERT_TIMELY (10s, node2->network.find_node_id (node1->get_node_id ()));
 
 	// node1's channel to node2 should carry node2's capabilities (vote_storage)
-	auto chan1 = node1->network.find_node_id (node2->node_id.pub);
+	auto chan1 = node1->network.find_node_id (node2->get_node_id ());
 	ASSERT_TRUE (chan1);
 	ASSERT_TRUE (chan1->get_flags ().test (nano::node_capabilities::vote_storage));
 	ASSERT_FALSE (chan1->get_flags ().test (nano::node_capabilities::topo_index));
 
 	// node2's channel to node1 should carry node1's capabilities (topo_index)
-	auto chan2 = node2->network.find_node_id (node1->node_id.pub);
+	auto chan2 = node2->network.find_node_id (node1->get_node_id ());
 	ASSERT_TRUE (chan2);
 	ASSERT_TRUE (chan2->get_flags ().test (nano::node_capabilities::topo_index));
 	ASSERT_FALSE (chan2->get_flags ().test (nano::node_capabilities::vote_storage));

@@ -1125,7 +1125,7 @@ TEST (node, fork_no_vote_quorum)
 	ASSERT_TRUE (key3_result);
 	auto vote = std::make_shared<nano::vote> (key1, key3_result.value (), 0, 0, std::vector<nano::block_hash>{ send2->hash () });
 	nano::messages::confirm_ack confirm{ nano::dev::network_params.network, vote };
-	auto channel = node2.network.find_node_id (node3.node_id.pub);
+	auto channel = node2.network.find_node_id (node3.get_node_id ());
 	ASSERT_NE (nullptr, channel);
 	channel->send (confirm, nano::transport::traffic_type::test);
 	ASSERT_TIMELY (10s, node3.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in) >= 3);
@@ -2782,11 +2782,11 @@ TEST (node, bidirectional_tcp)
 	auto list1 (node1->network.list (1));
 	ASSERT_EQ (nano::transport::transport_type::tcp, list1[0]->get_type ());
 	ASSERT_NE (node2->network.endpoint (), list1[0]->get_remote_endpoint ()); // Ephemeral port
-	ASSERT_EQ (node2->node_id.pub, list1[0]->get_node_id ());
+	ASSERT_EQ (node2->get_node_id (), list1[0]->get_node_id ());
 	auto list2 (node2->network.list (1));
 	ASSERT_EQ (nano::transport::transport_type::tcp, list2[0]->get_type ());
 	ASSERT_EQ (node1->network.endpoint (), list2[0]->get_remote_endpoint ());
-	ASSERT_EQ (node1->node_id.pub, list2[0]->get_node_id ());
+	ASSERT_EQ (node1->get_node_id (), list2[0]->get_node_id ());
 	// Test block propagation from node 1
 	nano::keypair key;
 	nano::state_block_builder builder;

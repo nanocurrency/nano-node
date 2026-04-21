@@ -894,7 +894,12 @@ uint64_t nano::node::cemented_count () const
 nano::account nano::node::get_node_id () const
 {
 	return node_id.pub;
-};
+}
+
+std::filesystem::path const & nano::node::get_data_path () const
+{
+	return application_path;
+}
 
 nano::messages::telemetry_data nano::node::local_telemetry () const
 {

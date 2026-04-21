@@ -2952,9 +2952,10 @@ void nano::json_handler::node_id ()
 {
 	if (!ec)
 	{
-		response_l.put ("public", node.node_id.pub.to_string ());
-		response_l.put ("as_account", node.node_id.pub.to_account ());
-		response_l.put ("node_id", node.node_id.pub.to_node_id ());
+		auto const node_id = node.get_node_id ();
+		response_l.put ("public", node_id.to_string ());
+		response_l.put ("as_account", node_id.to_account ());
+		response_l.put ("node_id", node_id.to_node_id ());
 	}
 	response_errors ();
 }
