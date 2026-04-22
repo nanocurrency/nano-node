@@ -3,7 +3,6 @@
 #include <nano/lib/files.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/logging.hpp>
-#include <nano/lib/thread_runner.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/nano_node/benchmarks/benchmarks.hpp>
@@ -24,8 +23,6 @@
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
-
-#include <boost/asio/io_context.hpp>
 
 #include <chrono>
 #include <limits>
@@ -110,7 +107,6 @@ void run_elections_benchmark (boost::program_options::variables_map const & vm, 
 	nano::node_flags node_flags;
 	nano::update_flags (node_flags, vm);
 
-	auto io_ctx = std::make_shared<boost::asio::io_context> ();
 	nano::work_pool work_pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 
 	// Load configuration from current working directory (if exists) and cli config overrides
@@ -133,7 +129,6 @@ void run_elections_benchmark (boost::program_options::variables_map const & vm, 
 
 	auto node = std::make_shared<nano::node> (nano::unique_path (), node_config, work_pool, node_flags);
 	node->start ();
-	nano::thread_runner runner (io_ctx, nano::default_logger (), node->config.io_threads);
 
 	fmt::print ("\nSystem Info:\n");
 	fmt::print ("  Backend: {}\n", node->store.vendor_get ());
