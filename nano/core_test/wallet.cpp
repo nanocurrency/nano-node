@@ -154,10 +154,9 @@ TEST (wallet_store, one_item_iteration)
 	for (auto i (wallet.begin (transaction)), j (wallet.end (transaction)); i != j; ++i)
 	{
 		ASSERT_EQ (key1.pub, nano::uint256_union (i->first));
-		nano::raw_key password;
-		wallet.wallet_key (password, transaction);
-		nano::raw_key key;
-		key.decrypt (nano::wallet::wallet_value (i->second).key, password, (nano::uint256_union (i->first)).owords[0].number ());
+		auto cipher = wallet.unlock (transaction);
+		ASSERT_TRUE (cipher);
+		auto key = cipher.value ().decrypt (nano::wallet::wallet_value (i->second).key, (nano::uint256_union (i->first)).owords[0]);
 		ASSERT_EQ (key1.prv, key);
 	}
 }
@@ -179,10 +178,9 @@ TEST (wallet_store, two_item_iteration)
 		for (auto i (wallet.begin (transaction)), j (wallet.end (transaction)); i != j; ++i)
 		{
 			pubs.insert (i->first);
-			nano::raw_key password;
-			wallet.wallet_key (password, transaction);
-			nano::raw_key key;
-			key.decrypt (nano::wallet::wallet_value (i->second).key, password, (i->first).owords[0].number ());
+			auto cipher = wallet.unlock (transaction);
+			ASSERT_TRUE (cipher);
+			auto key = cipher.value ().decrypt (nano::wallet::wallet_value (i->second).key, (i->first).owords[0]);
 			prvs.insert (key);
 		}
 	}
@@ -321,11 +319,14 @@ TEST (wallet_store, serialize_json_empty)
 	std::string serialized;
 	wallet1.serialize_json (transaction, serialized);
 	nano::wallet::wallet_store wallet2 (kdf, transaction, backend, 1, "1", serialized);
-	nano::raw_key password1;
-	nano::raw_key password2;
-	wallet1.wallet_key (password1, transaction);
-	wallet2.wallet_key (password2, transaction);
-	ASSERT_EQ (password1, password2);
+	auto cipher1 = wallet1.unlock (transaction);
+	auto cipher2 = wallet2.unlock (transaction);
+	ASSERT_TRUE (cipher1);
+	ASSERT_TRUE (cipher2);
+	nano::raw_key zero;
+	zero.clear ();
+	nano::uint128_union iv{ 0 };
+	ASSERT_EQ (cipher1.value ().encrypt (zero, iv), cipher2.value ().encrypt (zero, iv));
 	ASSERT_EQ (wallet1.salt (transaction), wallet2.salt (transaction));
 	ASSERT_EQ (wallet1.check (transaction), wallet2.check (transaction));
 	ASSERT_EQ (wallet1.representative (transaction), wallet2.representative (transaction));
@@ -344,11 +345,14 @@ TEST (wallet_store, serialize_json_one)
 	std::string serialized;
 	wallet1.serialize_json (transaction, serialized);
 	nano::wallet::wallet_store wallet2 (kdf, transaction, backend, 1, "1", serialized);
-	nano::raw_key password1;
-	nano::raw_key password2;
-	wallet1.wallet_key (password1, transaction);
-	wallet2.wallet_key (password2, transaction);
-	ASSERT_EQ (password1, password2);
+	auto cipher1 = wallet1.unlock (transaction);
+	auto cipher2 = wallet2.unlock (transaction);
+	ASSERT_TRUE (cipher1);
+	ASSERT_TRUE (cipher2);
+	nano::raw_key zero;
+	zero.clear ();
+	nano::uint128_union iv{ 0 };
+	ASSERT_EQ (cipher1.value ().encrypt (zero, iv), cipher2.value ().encrypt (zero, iv));
 	ASSERT_EQ (wallet1.salt (transaction), wallet2.salt (transaction));
 	ASSERT_EQ (wallet1.check (transaction), wallet2.check (transaction));
 	ASSERT_EQ (wallet1.representative (transaction), wallet2.representative (transaction));
@@ -373,11 +377,14 @@ TEST (wallet_store, serialize_json_password)
 	ASSERT_FALSE (wallet2.valid_password (transaction));
 	ASSERT_FALSE (wallet2.attempt_password (transaction, "password"));
 	ASSERT_TRUE (wallet2.valid_password (transaction));
-	nano::raw_key password1;
-	nano::raw_key password2;
-	wallet1.wallet_key (password1, transaction);
-	wallet2.wallet_key (password2, transaction);
-	ASSERT_EQ (password1, password2);
+	auto cipher1 = wallet1.unlock (transaction);
+	auto cipher2 = wallet2.unlock (transaction);
+	ASSERT_TRUE (cipher1);
+	ASSERT_TRUE (cipher2);
+	nano::raw_key zero;
+	zero.clear ();
+	nano::uint128_union iv{ 0 };
+	ASSERT_EQ (cipher1.value ().encrypt (zero, iv), cipher2.value ().encrypt (zero, iv));
 	ASSERT_EQ (wallet1.salt (transaction), wallet2.salt (transaction));
 	ASSERT_EQ (wallet1.check (transaction), wallet2.check (transaction));
 	ASSERT_EQ (wallet1.representative (transaction), wallet2.representative (transaction));

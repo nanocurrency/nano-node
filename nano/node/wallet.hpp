@@ -30,6 +30,28 @@ enum class key_type
 	deterministic
 };
 
+class wallet_store;
+
+/**
+ * Validated handle for wallet-key crypto. The only way to obtain one is via wallet_store::unlock(), which has therefore already validated the password.
+ * The cipher exposes encrypt/decrypt but never the underlying wallet key, so it is impossible to encrypt or decrypt with an unvalidated key.
+ */
+class wallet_cipher final
+{
+public:
+	nano::raw_key encrypt (nano::raw_key const & plaintext, nano::uint128_union const & iv) const;
+	nano::raw_key decrypt (nano::uint256_union const & ciphertext, nano::uint128_union const & iv) const;
+
+	// Re-encrypt the wallet key under a new password key. Used by rekey.
+	nano::raw_key reseal (nano::raw_key const & new_password_key, nano::uint128_union const & iv) const;
+
+private:
+	friend class wallet_store;
+	explicit wallet_cipher (nano::raw_key wallet_key);
+
+	nano::raw_key wallet_key;
+};
+
 class wallet_store final
 {
 public:
@@ -39,13 +61,16 @@ public:
 	wallet_store (nano::kdf &, nano::store::write_transaction &, nano::wallet::wallets_backend &, nano::account representative, unsigned fanout, std::string const & wallet_path);
 	wallet_store (nano::kdf &, nano::store::write_transaction &, nano::wallet::wallets_backend &, unsigned fanout, std::string const & wallet_path, std::string const & json);
 
+	// Returns a cipher if the password decrypts the wallet key correctly.
+	// The cipher is the only way to encrypt/decrypt account data.
+	nano::result<nano::wallet::wallet_cipher> unlock (nano::store::transaction const &) const;
+
 	std::vector<nano::account> accounts (nano::store::transaction const &) const;
 	nano::uint256_union check (nano::store::transaction const &) const;
 	bool rekey (nano::store::write_transaction const &, std::string const & password);
 	bool valid_password (nano::store::transaction const &) const;
 	bool valid_public_key (nano::public_key const &) const;
 	bool attempt_password (nano::store::transaction const &, std::string const & password);
-	void wallet_key (nano::raw_key & result, nano::store::transaction const &) const;
 	nano::raw_key seed (nano::store::transaction const &) const;
 	void seed_set (nano::store::write_transaction const &, nano::raw_key const & seed);
 	nano::wallet::key_type key_type (nano::wallet::wallet_value const &) const;
@@ -87,6 +112,12 @@ public:
 	nano::kdf & kdf;
 	nano::locked<nano::wallet::wallet_handle> handle;
 	mutable std::recursive_mutex mutex;
+
+private:
+	// Decrypts the wallet key using whatever the live password fan currently is.
+	// Used only by unlock() and during construction; callers outside wallet_store
+	// must go through unlock() so that the password is validated first.
+	void wallet_key (nano::raw_key & result, nano::store::transaction const &) const;
 
 private:
 	nano::wallet::wallets_backend & backend;
