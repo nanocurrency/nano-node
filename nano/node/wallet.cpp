@@ -162,8 +162,7 @@ wallet_store::wallet_store (nano::kdf & kdf_a, nano::store::write_transaction & 
 			// Wallet key is a fixed random key that encrypts all entries
 			nano::raw_key wallet_key;
 			random_pool::generate_block (wallet_key.bytes.data (), sizeof (wallet_key.bytes));
-			nano::raw_key password_l;
-			derive_key (password_l, transaction_a, default_password);
+			auto password_l = derive_key (transaction_a, default_password);
 			password.value_set (password_l);
 			// Wallet key is encrypted by the user's password
 			nano::raw_key encrypted;
@@ -611,8 +610,7 @@ bool wallet_store::attempt_password (nano::store::transaction const & transactio
 	bool result = false;
 	{
 		nano::lock_guard<std::recursive_mutex> lock{ mutex };
-		nano::raw_key password_l;
-		derive_key (password_l, transaction_a, password_a);
+		auto password_l = derive_key (transaction_a, password_a);
 		password.value_set (password_l);
 		result = !valid_password (transaction_a);
 	}
@@ -637,8 +635,7 @@ bool wallet_store::rekey (nano::store::write_transaction const & transaction_a, 
 	{
 		return true;
 	}
-	nano::raw_key password_new;
-	derive_key (password_new, transaction_a, password_a);
+	auto password_new = derive_key (transaction_a, password_a);
 	auto encrypted = cipher.value ().reseal (password_new, salt_get (transaction_a).owords[0]);
 	password.value_set (password_new);
 	wallet_key_mem.value_set (encrypted);
@@ -646,10 +643,12 @@ bool wallet_store::rekey (nano::store::write_transaction const & transaction_a, 
 	return false;
 }
 
-void wallet_store::derive_key (nano::raw_key & prv_a, nano::store::transaction const & transaction_a, std::string const & password_a) const
+nano::raw_key wallet_store::derive_key (nano::store::transaction const & transaction_a, std::string const & password_a) const
 {
-	auto salt_l (salt_get (transaction_a));
-	kdf.phs (prv_a, password_a, salt_l);
+	auto const salt_l = salt_get (transaction_a);
+	nano::raw_key result;
+	kdf.phs (result, password_a, salt_l);
+	return result;
 }
 
 auto wallet_store::begin (nano::store::transaction const & txn) const -> iterator

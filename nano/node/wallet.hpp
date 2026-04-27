@@ -96,7 +96,7 @@ public:
 	iterator begin (nano::store::transaction const &, nano::account const & key) const;
 	iterator begin (nano::store::transaction const &) const;
 	iterator end (nano::store::transaction const &) const;
-	void derive_key (nano::raw_key & result, nano::store::transaction const &, std::string const & password) const;
+	nano::raw_key derive_key (nano::store::transaction const &, std::string const & password) const;
 	void serialize_json (nano::store::transaction const &, std::string & json) const;
 	void write_backup (nano::store::transaction const &, std::filesystem::path const & path) const;
 	nano::result<bool> move (nano::store::write_transaction const &, wallet_store & source, std::vector<nano::public_key> const & keys);

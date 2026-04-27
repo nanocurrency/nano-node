@@ -226,8 +226,7 @@ TEST (wallet_store, rekey)
 	nano::wallet::wallet_store wallet (kdf, transaction, backend, nano::dev::genesis_key.pub, 1, "0");
 	nano::raw_key password;
 	wallet.password.value (password);
-	nano::raw_key default_password_key;
-	wallet.derive_key (default_password_key, transaction, nano::wallet::wallet_store::default_password);
+	auto default_password_key = wallet.derive_key (transaction, nano::wallet::wallet_store::default_password);
 	ASSERT_EQ (default_password_key, password);
 	nano::keypair key1;
 	wallet.insert_adhoc (transaction, key1.prv);
@@ -236,8 +235,7 @@ TEST (wallet_store, rekey)
 	ASSERT_EQ (key1.prv, result1.value ());
 	ASSERT_FALSE (wallet.rekey (transaction, "1"));
 	wallet.password.value (password);
-	nano::raw_key password1;
-	wallet.derive_key (password1, transaction, "1");
+	auto password1 = wallet.derive_key (transaction, "1");
 	ASSERT_EQ (password1, password);
 	auto result2 = wallet.fetch (transaction, key1.pub);
 	ASSERT_TRUE (result2);
@@ -252,13 +250,10 @@ TEST (wallet_store, hash_password)
 	auto transaction (backend.tx_begin_write ());
 	nano::kdf kdf{ nano::dev::network_params.kdf_work };
 	nano::wallet::wallet_store wallet (kdf, transaction, backend, nano::dev::genesis_key.pub, 1, "0");
-	nano::raw_key hash1;
-	wallet.derive_key (hash1, transaction, "");
-	nano::raw_key hash2;
-	wallet.derive_key (hash2, transaction, "");
+	auto hash1 = wallet.derive_key (transaction, "");
+	auto hash2 = wallet.derive_key (transaction, "");
 	ASSERT_EQ (hash1, hash2);
-	nano::raw_key hash3;
-	wallet.derive_key (hash3, transaction, "a");
+	auto hash3 = wallet.derive_key (transaction, "a");
 	ASSERT_NE (hash1, hash3);
 }
 
