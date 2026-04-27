@@ -132,6 +132,53 @@ TEST (wallet_store, retrieval)
 	ASSERT_FALSE (wallet.valid_password (transaction));
 }
 
+TEST (wallet_store, unlock_locked)
+{
+	nano::wallet::lmdb::wallets_backend_lmdb backend (nano::unique_path () / "wallet.ldb");
+	auto transaction (backend.tx_begin_write ());
+	nano::kdf kdf{ nano::dev::network_params.kdf_work };
+	nano::wallet::wallet_store wallet (kdf, transaction, backend, nano::dev::genesis_key.pub, 1, "0");
+	// Fresh wallet unlocks under the default password
+	auto cipher_unlocked = wallet.unlock (transaction);
+	ASSERT_TRUE (cipher_unlocked);
+	// Corrupt the live password fan to simulate a locked / wrong-password state
+	nano::raw_key garbage;
+	garbage = 1;
+	wallet.password.value_set (garbage);
+	auto cipher_locked = wallet.unlock (transaction);
+	ASSERT_FALSE (cipher_locked);
+	ASSERT_EQ (cipher_locked.error (), nano::error_common::wallet_locked);
+}
+
+TEST (wallet_store, cipher_round_trip)
+{
+	nano::wallet::lmdb::wallets_backend_lmdb backend (nano::unique_path () / "wallet.ldb");
+	auto transaction (backend.tx_begin_write ());
+	nano::kdf kdf{ nano::dev::network_params.kdf_work };
+	nano::wallet::wallet_store wallet (kdf, transaction, backend, nano::dev::genesis_key.pub, 1, "0");
+	auto cipher = wallet.unlock (transaction);
+	ASSERT_TRUE (cipher);
+	// Random non-zero plaintext: covers the non-zero encrypt case
+	nano::raw_key plaintext;
+	nano::random_pool::generate_block (plaintext.bytes.data (), plaintext.bytes.size ());
+	ASSERT_FALSE (plaintext.is_zero ());
+	nano::uint128_union iv{ 42 };
+	auto ciphertext = cipher.value ().encrypt (plaintext, iv);
+	// Encryption should actually transform the data
+	ASSERT_NE (plaintext, ciphertext);
+	// Round-trip: decrypt with the same IV recovers the plaintext
+	auto recovered = cipher.value ().decrypt (ciphertext, iv);
+	ASSERT_EQ (plaintext, recovered);
+	// Sanity: a different IV does not recover the plaintext
+	nano::uint128_union iv_other{ 43 };
+	ASSERT_NE (plaintext, cipher.value ().decrypt (ciphertext, iv_other));
+	// Encrypting different plaintexts under the same IV produces different ciphertexts
+	nano::raw_key plaintext_other;
+	nano::random_pool::generate_block (plaintext_other.bytes.data (), plaintext_other.bytes.size ());
+	auto ciphertext_other = cipher.value ().encrypt (plaintext_other, iv);
+	ASSERT_NE (ciphertext, ciphertext_other);
+}
+
 TEST (wallet_store, empty_iteration)
 {
 	nano::wallet::lmdb::wallets_backend_lmdb backend (nano::unique_path () / "wallet.ldb");
