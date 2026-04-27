@@ -66,7 +66,6 @@ public:
 	nano::result<nano::wallet::wallet_cipher> unlock (nano::store::transaction const &) const;
 
 	std::vector<nano::account> accounts (nano::store::transaction const &) const;
-	nano::uint256_union check (nano::store::transaction const &) const;
 	bool rekey (nano::store::write_transaction const &, std::string const & password);
 	bool valid_password (nano::store::transaction const &) const;
 	bool valid_public_key (nano::public_key const &) const;
@@ -80,7 +79,8 @@ public:
 	uint32_t deterministic_index_get (nano::store::transaction const &) const;
 	void deterministic_index_set (nano::store::write_transaction const &, uint32_t index);
 	void deterministic_clear (nano::store::write_transaction const &);
-	nano::uint256_union salt (nano::store::transaction const &) const;
+	nano::uint256_union salt_get (nano::store::transaction const &) const;
+	nano::uint256_union check_value_get (nano::store::transaction const &) const;
 	bool is_representative (nano::store::transaction const &) const;
 	nano::account representative (nano::store::transaction const &) const;
 	void representative_set (nano::store::write_transaction const &, nano::account const & rep);

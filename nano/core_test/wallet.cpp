@@ -327,8 +327,8 @@ TEST (wallet_store, serialize_json_empty)
 	zero.clear ();
 	nano::uint128_union iv{ 0 };
 	ASSERT_EQ (cipher1.value ().encrypt (zero, iv), cipher2.value ().encrypt (zero, iv));
-	ASSERT_EQ (wallet1.salt (transaction), wallet2.salt (transaction));
-	ASSERT_EQ (wallet1.check (transaction), wallet2.check (transaction));
+	ASSERT_EQ (wallet1.salt_get (transaction), wallet2.salt_get (transaction));
+	ASSERT_EQ (wallet1.check_value_get (transaction), wallet2.check_value_get (transaction));
 	ASSERT_EQ (wallet1.representative (transaction), wallet2.representative (transaction));
 	ASSERT_EQ (wallet1.end (transaction), wallet1.begin (transaction));
 	ASSERT_EQ (wallet2.end (transaction), wallet2.begin (transaction));
@@ -353,8 +353,8 @@ TEST (wallet_store, serialize_json_one)
 	zero.clear ();
 	nano::uint128_union iv{ 0 };
 	ASSERT_EQ (cipher1.value ().encrypt (zero, iv), cipher2.value ().encrypt (zero, iv));
-	ASSERT_EQ (wallet1.salt (transaction), wallet2.salt (transaction));
-	ASSERT_EQ (wallet1.check (transaction), wallet2.check (transaction));
+	ASSERT_EQ (wallet1.salt_get (transaction), wallet2.salt_get (transaction));
+	ASSERT_EQ (wallet1.check_value_get (transaction), wallet2.check_value_get (transaction));
 	ASSERT_EQ (wallet1.representative (transaction), wallet2.representative (transaction));
 	ASSERT_TRUE (wallet2.exists (transaction, key.pub));
 	auto prv_result = wallet2.fetch (transaction, key.pub);
@@ -385,8 +385,8 @@ TEST (wallet_store, serialize_json_password)
 	zero.clear ();
 	nano::uint128_union iv{ 0 };
 	ASSERT_EQ (cipher1.value ().encrypt (zero, iv), cipher2.value ().encrypt (zero, iv));
-	ASSERT_EQ (wallet1.salt (transaction), wallet2.salt (transaction));
-	ASSERT_EQ (wallet1.check (transaction), wallet2.check (transaction));
+	ASSERT_EQ (wallet1.salt_get (transaction), wallet2.salt_get (transaction));
+	ASSERT_EQ (wallet1.check_value_get (transaction), wallet2.check_value_get (transaction));
 	ASSERT_EQ (wallet1.representative (transaction), wallet2.representative (transaction));
 	ASSERT_TRUE (wallet2.exists (transaction, key.pub));
 	auto prv_result = wallet2.fetch (transaction, key.pub);
