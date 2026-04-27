@@ -483,8 +483,7 @@ nano::uint256_union wallet_store::salt_get (nano::store::transaction const & tra
 
 nano::result<wallet_cipher> wallet_store::unlock (nano::store::transaction const & transaction_a) const
 {
-	nano::raw_key wallet_key_l;
-	wallet_key (wallet_key_l, transaction_a);
+	auto const wallet_key_l = wallet_key_decrypt (transaction_a);
 	nano::raw_key zero{};
 	zero.clear ();
 	nano::uint256_union check_l{};
@@ -496,14 +495,16 @@ nano::result<wallet_cipher> wallet_store::unlock (nano::store::transaction const
 	return wallet_cipher{ wallet_key_l };
 }
 
-void wallet_store::wallet_key (nano::raw_key & prv_a, nano::store::transaction const & transaction_a) const
+nano::raw_key wallet_store::wallet_key_decrypt (nano::store::transaction const & transaction_a) const
 {
 	nano::lock_guard<std::recursive_mutex> lock{ mutex };
 	nano::raw_key wallet_l;
 	wallet_key_mem.value (wallet_l);
 	nano::raw_key password_l;
 	password.value (password_l);
-	prv_a.decrypt (wallet_l, password_l, salt_get (transaction_a).owords[0]);
+	nano::raw_key result;
+	result.decrypt (wallet_l, password_l, salt_get (transaction_a).owords[0]);
+	return result;
 }
 
 nano::raw_key wallet_store::seed (nano::store::transaction const & transaction) const

@@ -117,7 +117,7 @@ private:
 	// Decrypts the wallet key using whatever the live password fan currently is.
 	// Used only by unlock() and during construction; callers outside wallet_store
 	// must go through unlock() so that the password is validated first.
-	void wallet_key (nano::raw_key & result, nano::store::transaction const &) const;
+	nano::raw_key wallet_key_decrypt (nano::store::transaction const &) const;
 
 private:
 	nano::wallet::wallets_backend & backend;
