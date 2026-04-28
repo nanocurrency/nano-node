@@ -480,7 +480,7 @@ nano::uint256_union wallet_store::salt_get (nano::store::transaction const & tra
 	return value.key;
 }
 
-nano::result<wallet_cipher> wallet_store::unlock (nano::store::transaction const & transaction_a) const
+std::optional<wallet_cipher> wallet_store::unlock (nano::store::transaction const & transaction_a) const
 {
 	auto const wallet_key_l = wallet_key_decrypt (transaction_a);
 	nano::raw_key zero{};
@@ -489,7 +489,7 @@ nano::result<wallet_cipher> wallet_store::unlock (nano::store::transaction const
 	check_l.encrypt (zero, wallet_key_l, salt_get (transaction_a).owords[check_iv_index]);
 	if (check_value_get (transaction_a) != check_l)
 	{
-		return nano::error (nano::error_common::wallet_locked);
+		return std::nullopt;
 	}
 	return wallet_cipher{ wallet_key_l };
 }

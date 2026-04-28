@@ -63,7 +63,7 @@ public:
 
 	// Returns a cipher if the password decrypts the wallet key correctly.
 	// The cipher is the only way to encrypt/decrypt account data.
-	nano::result<nano::wallet::wallet_cipher> unlock (nano::store::transaction const &) const;
+	std::optional<nano::wallet::wallet_cipher> unlock (nano::store::transaction const &) const;
 
 	std::vector<nano::account> accounts (nano::store::transaction const &) const;
 	bool rekey (nano::store::write_transaction const &, std::string const & password);

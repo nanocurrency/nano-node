@@ -147,7 +147,6 @@ TEST (wallet_store, unlock_locked)
 	wallet.password.value_set (garbage);
 	auto cipher_locked = wallet.unlock (transaction);
 	ASSERT_FALSE (cipher_locked);
-	ASSERT_EQ (cipher_locked.error (), nano::error_common::wallet_locked);
 }
 
 TEST (wallet_store, cipher_round_trip)
