@@ -315,8 +315,7 @@ nano::result<nano::raw_key> wallet_store::fetch (nano::store::transaction const 
 	{
 		case key_type::deterministic:
 		{
-			auto encrypted_seed = entry_get_raw (transaction, wallet_store::seed_special).key;
-			auto seed_l = cipher.value ().decrypt (encrypted_seed, salt_get (transaction).owords[seed_iv_index]);
+			auto seed_l = seed_decrypt (transaction, cipher.value ());
 			auto index = static_cast<uint32_t> (value.key.number () & static_cast<uint32_t> (-1));
 			prv = nano::deterministic_key (seed_l, index);
 			break;
@@ -510,8 +509,13 @@ nano::raw_key wallet_store::seed (nano::store::transaction const & transaction) 
 {
 	auto cipher = unlock (transaction);
 	release_assert (cipher, "wallet is locked or password is invalid");
-	nano::wallet::wallet_value value (entry_get_raw (transaction, wallet_store::seed_special));
-	return cipher.value ().decrypt (value.key, salt_get (transaction).owords[seed_iv_index]);
+	return seed_decrypt (transaction, cipher.value ());
+}
+
+nano::raw_key wallet_store::seed_decrypt (nano::store::transaction const & transaction, nano::wallet::wallet_cipher const & cipher) const
+{
+	auto encrypted_seed = entry_get_raw (transaction, wallet_store::seed_special).key;
+	return cipher.decrypt (encrypted_seed, salt_get (transaction).owords[seed_iv_index]);
 }
 
 void wallet_store::seed_set (nano::store::write_transaction const & transaction_a, nano::raw_key const & prv_a)
@@ -558,8 +562,7 @@ nano::raw_key wallet_store::deterministic_key (nano::store::transaction const & 
 {
 	auto cipher = unlock (transaction);
 	release_assert (cipher, "wallet is locked or password is invalid");
-	auto encrypted_seed = entry_get_raw (transaction, wallet_store::seed_special).key;
-	auto wallet_seed = cipher.value ().decrypt (encrypted_seed, salt_get (transaction).owords[seed_iv_index]);
+	auto wallet_seed = seed_decrypt (transaction, cipher.value ());
 	return nano::deterministic_key (wallet_seed, index);
 }
 

@@ -119,6 +119,10 @@ private:
 	// must go through unlock() so that the password is validated first.
 	nano::raw_key wallet_key_decrypt (nano::store::transaction const &) const;
 
+	// Decrypts the wallet seed using an already-unlocked cipher.
+	// Centralises the seed_special / seed_iv_index plumbing so callers can't drift.
+	nano::raw_key seed_decrypt (nano::store::transaction const &, nano::wallet::wallet_cipher const &) const;
+
 private:
 	nano::wallet::wallets_backend & backend;
 
