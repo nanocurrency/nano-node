@@ -105,7 +105,7 @@ void run_cementing_benchmark (boost::program_options::variables_map const & vm, 
 	node->start ();
 
 	fmt::print ("\nSystem Info:\n");
-	fmt::print ("  Backend: {}\n", node->store.vendor_get ());
+	fmt::print ("  Backend: {}\n", node->store.get_vendor ());
 	fmt::print ("\n");
 
 	// Wait for node to be ready

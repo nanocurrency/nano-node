@@ -552,6 +552,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				nano::stats stats{ logger };
 				auto store = nano::make_store (logger, stats, data_path, network_params.ledger, false, true, daemon_config.node);
 				std::cout << "Database upgrade completed successfully" << std::endl;
+				std::cout << "Database version: " << store->get_version () << " (" << store->get_vendor () << ")" << std::endl;
 			}
 			catch (std::exception const & e)
 			{

@@ -1328,7 +1328,7 @@ TEST (block_store, default_database_backend)
 
 	auto store = nano::test::make_store ();
 
-	auto vendor = store->vendor_get ();
+	auto vendor = store->get_vendor ();
 	if (backend == nano::database_backend::rocksdb)
 	{
 		ASSERT_TRUE (vendor.find ("RocksDB") != std::string::npos);

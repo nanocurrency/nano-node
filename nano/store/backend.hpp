@@ -123,7 +123,7 @@ public:
 	// Helper methods
 	void release_assert_success (int status) const;
 
-	virtual std::string vendor_get () const = 0;
+	virtual std::string get_vendor () const = 0;
 	virtual std::string get_database_path () const = 0;
 
 	std::optional<nano::store::open_mode> get_mode () const;

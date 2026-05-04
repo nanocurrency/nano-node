@@ -131,7 +131,7 @@ void run_elections_benchmark (boost::program_options::variables_map const & vm, 
 	node->start ();
 
 	fmt::print ("\nSystem Info:\n");
-	fmt::print ("  Backend: {}\n", node->store.vendor_get ());
+	fmt::print ("  Backend: {}\n", node->store.get_vendor ());
 	fmt::print ("\n");
 
 	// Insert dev genesis representative key for voting

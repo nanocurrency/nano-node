@@ -107,7 +107,7 @@ void run_block_processing_benchmark (boost::program_options::variables_map const
 	node->start ();
 
 	std::cout << "\nSystem Info:\n";
-	fmt::print ("  Backend: {}\n", node->store.vendor_get ());
+	fmt::print ("  Backend: {}\n", node->store.get_vendor ());
 	fmt::print ("  Block processor threads: {}\n", 1); // TODO: Log number of block processor threads when upstreamed
 	fmt::print ("  Block processor batch size: {}\n", node->config.block_processor->batch_size);
 	std::cout << "\n";

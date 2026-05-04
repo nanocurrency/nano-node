@@ -247,7 +247,7 @@ void backend_lmdb::copy_with_compaction (std::filesystem::path const & destinati
 	}
 }
 
-std::string backend_lmdb::vendor_get () const
+std::string backend_lmdb::get_vendor () const
 {
 	return boost::str (boost::format ("LMDB %1%.%2%.%3%") % MDB_VERSION_MAJOR % MDB_VERSION_MINOR % MDB_VERSION_PATCH);
 }

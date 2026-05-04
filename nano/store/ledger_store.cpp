@@ -215,9 +215,14 @@ void ledger_store::perform_upgrades (nano::store::backend_meta meta)
 	}
 }
 
-std::string ledger_store::vendor_get () const
+uint64_t ledger_store::get_version () const
 {
-	return backend.vendor_get ();
+	return version.get (backend.tx_begin_read ());
+}
+
+std::string ledger_store::get_vendor () const
+{
+	return backend.get_vendor ();
 }
 
 std::filesystem::path ledger_store::get_database_path () const

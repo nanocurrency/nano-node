@@ -32,7 +32,8 @@ public:
 
 	uint64_t count (nano::store::transaction const &, nano::store::table) const;
 
-	std::string vendor_get () const;
+	uint64_t get_version () const;
+	std::string get_vendor () const;
 	std::filesystem::path get_database_path () const;
 	nano::store::open_mode get_mode () const;
 

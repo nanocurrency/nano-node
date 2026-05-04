@@ -130,7 +130,7 @@ void run_pipeline_benchmark (boost::program_options::variables_map const & vm, s
 	node->start ();
 
 	fmt::print ("\nSystem Info:\n");
-	fmt::print ("  Backend: {}\n", node->store.vendor_get ());
+	fmt::print ("  Backend: {}\n", node->store.get_vendor ());
 	fmt::print ("  Block processor threads: {}\n", 1); // TODO: Log number of block processor threads when upstreamed
 	fmt::print ("  Vote processor threads: {}\n", node->config.vote_processor->threads);
 	fmt::print ("  Active elections limit: {}\n", node->config.active_elections->size);

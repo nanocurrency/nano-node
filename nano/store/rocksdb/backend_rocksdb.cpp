@@ -609,7 +609,7 @@ void backend_rocksdb::copy_with_compaction (std::filesystem::path const & destin
 	// Opening a database causes WAL to be flushed
 }
 
-std::string backend_rocksdb::vendor_get () const
+std::string backend_rocksdb::get_vendor () const
 {
 	return boost::str (boost::format ("RocksDB %1%.%2%.%3%") % ROCKSDB_MAJOR % ROCKSDB_MINOR % ROCKSDB_PATCH);
 }

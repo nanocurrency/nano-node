@@ -53,7 +53,7 @@ public:
 
 	void collect_memory_stats (boost::property_tree::ptree &) const override;
 
-	std::string vendor_get () const override;
+	std::string get_vendor () const override;
 	std::string get_database_path () const override;
 
 protected:

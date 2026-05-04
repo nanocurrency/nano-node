@@ -335,7 +335,7 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	logger.info (nano::log::type::node, "Version: {}", NANO_VERSION_STRING);
 	logger.info (nano::log::type::node, "Build information: {}", BUILD_INFO);
 	logger.info (nano::log::type::node, "Active network: {}", network_label);
-	logger.info (nano::log::type::node, "Database backend: {}", store.vendor_get ());
+	logger.info (nano::log::type::node, "Database backend: {}", store.get_vendor ());
 	logger.info (nano::log::type::node, "Data path: {}", application_path.string ());
 	logger.info (nano::log::type::node, "Ledger path: {}", store.get_database_path ().string ());
 	logger.info (nano::log::type::node, "Work pool threads: {} ({})", work.threads.size (), (work.opencl ? "OpenCL" : "CPU"));
