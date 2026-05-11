@@ -69,12 +69,12 @@ void nano::ledger::populate_topo_index ()
 			uint64_t topo = 1;
 			for (auto const & dep : deps)
 			{
-				if (!dep)
+				// Empty dep means no dependency
+				if (dep)
 				{
-					continue; // Empty slot
+					release_assert (dep->sideband ().topo_height != 0, "dependency must be resolved before dependent", dep->hash ().to_string ());
+					topo = std::max (topo, dep->sideband ().topo_height + 1);
 				}
-				release_assert (dep->sideband ().topo_height != 0, "dependency must be resolved before dependent", dep->hash ().to_string ());
-				topo = std::max (topo, dep->sideband ().topo_height + 1);
 			}
 			return topo;
 		};
@@ -94,6 +94,10 @@ void nano::ledger::populate_topo_index ()
 			}
 		};
 
+		// The resolved counter counts resolve calls, not unique blocks: diamond deps (e.g. A→X, A→Y→X) yield
+		// distinct in-memory shared_ptr copies of X, and is_resolved checks per-instance state,
+		// so the same block can be resolved (and overwritten with the same value) more than once.
+		// Final progress can therefore exceed total_blocks by a few %.
 		auto resolve = [&] (std::shared_ptr<nano::block> const & blk) -> bool {
 			// Re-fetch deps to read the updated sidebands
 			auto const deps = get_dependencies (blk);
