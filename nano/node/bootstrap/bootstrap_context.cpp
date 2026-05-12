@@ -64,8 +64,7 @@ nano::ledger_notifications & ledger_notifications_a, nano::block_processor & blo
 			auto transaction = ledger.tx_begin_read ();
 			for (auto const & [result, block_context] : batch)
 			{
-				debug_assert (block_context.block != nullptr);
-				inspect (transaction, result, *block_context.block, block_context.source);
+				inspect (transaction, result, block_context);
 			}
 		}
 		condition.notify_all ();
@@ -282,11 +281,14 @@ size_t bootstrap_context::count_tags (nano::block_hash const & hash, query_sourc
  * - Marks an account as blocked if the result code is gap source as there is no reason request additional blocks for this account until the dependency is resolved
  * - Marks an account as forwarded if it has been recently referenced by a block that has been inserted
  */
-void bootstrap_context::inspect (secure::transaction const & tx, nano::block_status const & result, nano::block const & block, nano::block_source source)
+void bootstrap_context::inspect (secure::transaction const & tx, nano::block_status const & result, nano::block_context const & context)
 {
 	debug_assert (!mutex.try_lock ());
+	debug_assert (context.block != nullptr);
 
-	auto const hash = block.hash ();
+	auto const & block = *context.block;
+	auto const & source = context.source;
+	auto const & hash = block.hash ();
 
 	switch (result)
 	{

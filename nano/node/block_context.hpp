@@ -4,6 +4,7 @@
 #include <nano/node/block_source.hpp>
 #include <nano/secure/common.hpp>
 
+#include <any>
 #include <future>
 
 namespace nano
@@ -19,12 +20,14 @@ public: // Keep fields public for simplicity
 	nano::block_source source;
 	callback_t callback;
 	std::chrono::steady_clock::time_point arrival{ std::chrono::steady_clock::now () };
+	std::any tag; // Opaque per-block tag from the submitter
 
 public:
-	block_context (std::shared_ptr<nano::block> block, nano::block_source source, callback_t callback = nullptr) :
+	block_context (std::shared_ptr<nano::block> block, nano::block_source source, callback_t callback = nullptr, std::any tag = {}) :
 		block{ std::move (block) },
 		source{ source },
-		callback{ std::move (callback) }
+		callback{ std::move (callback) },
+		tag{ std::move (tag) }
 	{
 		debug_assert (source != nano::block_source::unknown);
 	}

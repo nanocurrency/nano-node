@@ -14,6 +14,7 @@ class active_elections_config;
 class backlog_scan;
 class backlog_scan_config;
 class bandwidth_limiter;
+class block_context;
 class block_processor;
 class block_processor_config;
 class block_rebroadcaster;

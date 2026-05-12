@@ -9,6 +9,7 @@
 
 #include <boost/thread.hpp>
 
+#include <any>
 #include <chrono>
 #include <deque>
 #include <future>
@@ -65,17 +66,20 @@ public:
 	std::shared_ptr<nano::block> const & block,
 	nano::block_source source,
 	std::shared_ptr<nano::transport::channel> const & channel = nullptr,
-	std::function<void (nano::block_status)> callback = {});
+	std::function<void (nano::block_status)> callback = nullptr,
+	std::any tag = {});
 
 	std::size_t add_many (
 	std::deque<std::shared_ptr<nano::block>> const & blocks,
 	nano::block_source source,
 	std::shared_ptr<nano::transport::channel> const & channel = nullptr,
-	std::function<void (nano::block_status)> last_callback = {});
+	std::function<void (nano::block_status)> last_callback = nullptr,
+	std::any tag = {});
 
 	std::optional<nano::block_status> add_blocking (
 	std::shared_ptr<nano::block> const & block,
-	nano::block_source source);
+	nano::block_source source,
+	std::any tag = {});
 
 	void force (std::shared_ptr<nano::block> const & block);
 

@@ -110,7 +110,7 @@ std::size_t nano::block_processor::size (nano::block_source source) const
 	return queue.size ({ source });
 }
 
-bool nano::block_processor::add (std::shared_ptr<nano::block> const & block, block_source const source, std::shared_ptr<nano::transport::channel> const & channel, std::function<void (nano::block_status)> callback)
+bool nano::block_processor::add (std::shared_ptr<nano::block> const & block, block_source const source, std::shared_ptr<nano::transport::channel> const & channel, std::function<void (nano::block_status)> callback, std::any tag)
 {
 	if (network_params.work.validate_entry (*block)) // true => error
 	{
@@ -120,7 +120,7 @@ bool nano::block_processor::add (std::shared_ptr<nano::block> const & block, blo
 
 	logger.debug (nano::log::type::block_processor, "Processing block (async): {} (source: {} {})", block->hash (), source, channel);
 
-	bool added = add_impl ({ block, source, std::move (callback) }, channel);
+	bool added = add_impl ({ block, source, std::move (callback), std::move (tag) }, channel);
 	if (added)
 	{
 		stats.inc (nano::stat::type::block_processor, nano::stat::detail::process);
@@ -128,7 +128,7 @@ bool nano::block_processor::add (std::shared_ptr<nano::block> const & block, blo
 	return added;
 }
 
-std::size_t nano::block_processor::add_many (std::deque<std::shared_ptr<nano::block>> const & blocks, block_source const source, std::shared_ptr<nano::transport::channel> const & channel, std::function<void (nano::block_status)> last_callback)
+std::size_t nano::block_processor::add_many (std::deque<std::shared_ptr<nano::block>> const & blocks, block_source const source, std::shared_ptr<nano::transport::channel> const & channel, std::function<void (nano::block_status)> last_callback, std::any tag)
 {
 	if (blocks.empty ())
 	{
@@ -147,7 +147,7 @@ std::size_t nano::block_processor::add_many (std::deque<std::shared_ptr<nano::bl
 		}
 		else
 		{
-			contexts.emplace_back (block, source);
+			contexts.emplace_back (block, source, nullptr, tag);
 		}
 	}
 
@@ -202,11 +202,11 @@ std::size_t nano::block_processor::add_many (std::deque<std::shared_ptr<nano::bl
 	return added;
 }
 
-std::optional<nano::block_status> nano::block_processor::add_blocking (std::shared_ptr<nano::block> const & block, block_source const source)
+std::optional<nano::block_status> nano::block_processor::add_blocking (std::shared_ptr<nano::block> const & block, block_source const source, std::any tag)
 {
 	logger.debug (nano::log::type::block_processor, "Processing block (blocking): {} (source: {})", block->hash (), source);
 
-	nano::block_context ctx{ block, source };
+	nano::block_context ctx{ block, source, nullptr, std::move (tag) };
 	auto future = ctx.get_future ();
 	bool added = add_impl (std::move (ctx));
 	if (added)
