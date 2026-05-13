@@ -151,6 +151,11 @@ add_library(
   work.cpp
   work_version.hpp)
 
+if(APPLE)
+  set_source_files_properties(plat/darwin/working.mm
+                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+endif()
+
 include_directories(${CMAKE_SOURCE_DIR}/submodules)
 include_directories(
   ${CMAKE_SOURCE_DIR}/submodules/nano-pow-server/deps/cpptoml/include)

@@ -360,6 +360,34 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # set(CMAKE_CXX_EXTENSIONS OFF)
 
+option(NANO_PRECOMPILED_HEADERS
+       "Enable precompiled headers for first-party C++ targets" OFF)
+
+if(NANO_PRECOMPILED_HEADERS AND NOT COMMAND target_precompile_headers)
+  message(STATUS "Precompiled headers require CMake 3.16 or newer; skipping")
+endif()
+
+function(nano_target_precompile_headers target)
+  if(NOT NANO_PRECOMPILED_HEADERS OR NOT COMMAND target_precompile_headers)
+    return()
+  endif()
+
+  if(ARGC GREATER 1)
+    set(header "${ARGV1}")
+  else()
+    set(header "nano/pch.hpp")
+  endif()
+
+  if(NOT TARGET ${target})
+    message(
+      FATAL_ERROR "Unknown nano target for precompiled headers: ${target}")
+  endif()
+
+  target_precompile_headers(
+    ${target} PRIVATE
+    "$<$<COMPILE_LANGUAGE:CXX>:${PROJECT_SOURCE_DIR}/${header}>")
+endfunction()
+
 if(WIN32)
   set(PLATFORM_LINK_FLAGS "")
   add_definitions(/bigobj)
@@ -671,6 +699,18 @@ add_subdirectory(nano/nano_node)
 add_subdirectory(nano/rpc)
 add_subdirectory(nano/nano_rpc)
 
+foreach(
+  nano_pch_target
+  nano_lib
+  secure
+  nano_store
+  nano_messages
+  rpc
+  node
+  nano_node)
+  nano_target_precompile_headers(${nano_pch_target})
+endforeach()
+
 add_custom_target(
   executables
   COMMAND echo "BATCH BUILDING node + rpc"
@@ -718,6 +758,12 @@ if(NANO_TEST OR RAIBLOCKS_TEST)
   add_subdirectory(nano/rpc_test)
   add_subdirectory(nano/slow_test)
   add_subdirectory(nano/benchmarks)
+
+  foreach(nano_test_pch_target test_common core_test rpc_test slow_test
+                               benchmarks)
+    nano_target_precompile_headers(${nano_test_pch_target}
+                                   nano/test_common/pch.hpp)
+  endforeach()
 
   add_custom_target(
     all_tests
