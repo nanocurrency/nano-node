@@ -12,7 +12,6 @@
 #include <boost/endian/conversion.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/property_tree/json_parser.hpp>
-#include <boost/variant/get.hpp>
 
 #include <limits>
 #include <queue>

@@ -6,10 +6,9 @@
 #include <nano/node/openclconfig.hpp>
 #include <nano/node/xorshift.hpp>
 
-#include <boost/optional.hpp>
-
 #include <atomic>
 #include <mutex>
+#include <optional>
 #include <vector>
 
 #ifdef __APPLE__
@@ -48,8 +47,8 @@ class opencl_work
 public:
 	opencl_work (bool &, nano::opencl_config const &, nano::opencl_environment &, nano::logger &, nano::work_thresholds & work);
 	~opencl_work ();
-	boost::optional<uint64_t> generate_work (nano::work_version const, nano::root const &, uint64_t const);
-	boost::optional<uint64_t> generate_work (nano::work_version const, nano::root const &, uint64_t const, std::atomic<int> &);
+	std::optional<uint64_t> generate_work (nano::work_version const, nano::root const &, uint64_t const);
+	std::optional<uint64_t> generate_work (nano::work_version const, nano::root const &, uint64_t const, std::atomic<int> &);
 	static std::unique_ptr<opencl_work> create (bool, nano::opencl_config const &, nano::logger &, nano::work_thresholds & work);
 	nano::opencl_config const & config;
 	nano::mutex mutex;

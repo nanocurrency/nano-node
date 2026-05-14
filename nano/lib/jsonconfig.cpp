@@ -108,9 +108,9 @@ bool nano::jsonconfig::empty () const
 	return tree.empty ();
 }
 
-boost::optional<nano::jsonconfig> nano::jsonconfig::get_optional_child (std::string const & key_a)
+std::optional<nano::jsonconfig> nano::jsonconfig::get_optional_child (std::string const & key_a)
 {
-	boost::optional<jsonconfig> child_config;
+	std::optional<jsonconfig> child_config;
 	auto child = tree.get_child_optional (key_a);
 	if (child)
 	{

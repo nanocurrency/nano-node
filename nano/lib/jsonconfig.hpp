@@ -9,6 +9,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <optional>
 
 namespace boost
 {
@@ -37,7 +38,7 @@ public:
 	void create_backup_file (std::filesystem::path const & filepath_a);
 	boost::property_tree::ptree const & get_tree ();
 	bool empty () const;
-	boost::optional<jsonconfig> get_optional_child (std::string const & key_a);
+	std::optional<jsonconfig> get_optional_child (std::string const & key_a);
 	jsonconfig get_required_child (std::string const & key_a);
 	jsonconfig & put_child (std::string const & key_a, nano::jsonconfig & conf_a);
 	jsonconfig & replace_child (std::string const & key_a, nano::jsonconfig & conf_a);
@@ -92,11 +93,11 @@ public:
 		return *this;
 	}
 
-	/** Return a boost::optional<T> for the given key */
+	/** Return a std::optional<T> for the given key */
 	template <typename T>
-	boost::optional<T> get_optional (std::string const & key)
+	std::optional<T> get_optional (std::string const & key)
 	{
-		boost::optional<T> res;
+		std::optional<T> res;
 		if (has_key (key))
 		{
 			T target{};

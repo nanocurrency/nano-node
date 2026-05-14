@@ -206,13 +206,13 @@ public:
 
 	void rpc_instance (nano::rpc & rpc_a) override
 	{
-		rpc = rpc_a;
+		rpc = &rpc_a;
 	}
 
 private:
 	nano::node & node;
 	nano::ipc::ipc_server & ipc_server;
-	boost::optional<nano::rpc &> rpc;
+	nano::rpc * rpc{ nullptr };
 	std::function<void ()> stop_callback;
 	nano::node_rpc_config const & node_rpc_config;
 };

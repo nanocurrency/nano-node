@@ -36,7 +36,7 @@ TEST (work, disabled)
 {
 	nano::work_pool pool{ nano::dev::network_params.network, 0 };
 	auto result (pool.generate (nano::block_hash ()));
-	ASSERT_FALSE (result.is_initialized ());
+	ASSERT_FALSE (result.has_value ());
 }
 
 // create a block with bad pow then fix it and check that it validates
@@ -66,7 +66,7 @@ TEST (work, cancel)
 	auto done = false;
 	while (!done)
 	{
-		pool.generate (nano::work_version::work_1, key, nano::dev::network_params.work.base, [&done] (boost::optional<uint64_t> work_a) {
+		pool.generate (nano::work_version::work_1, key, nano::dev::network_params.work.base, [&done] (std::optional<uint64_t> work_a) {
 			done = !work_a;
 		});
 		pool.cancel (key);
@@ -84,12 +84,12 @@ TEST (work, cancel_one_out_of_many)
 	nano::root key4 (1);
 	nano::root key5 (3);
 	nano::root key6 (1);
-	pool.generate (nano::work_version::work_1, key1, nano::dev::network_params.work.base, [] (boost::optional<uint64_t>) {});
-	pool.generate (nano::work_version::work_1, key2, nano::dev::network_params.work.base, [] (boost::optional<uint64_t>) {});
-	pool.generate (nano::work_version::work_1, key3, nano::dev::network_params.work.base, [] (boost::optional<uint64_t>) {});
-	pool.generate (nano::work_version::work_1, key4, nano::dev::network_params.work.base, [] (boost::optional<uint64_t>) {});
-	pool.generate (nano::work_version::work_1, key5, nano::dev::network_params.work.base, [] (boost::optional<uint64_t>) {});
-	pool.generate (nano::work_version::work_1, key6, nano::dev::network_params.work.base, [] (boost::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key1, nano::dev::network_params.work.base, [] (std::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key2, nano::dev::network_params.work.base, [] (std::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key3, nano::dev::network_params.work.base, [] (std::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key4, nano::dev::network_params.work.base, [] (std::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key5, nano::dev::network_params.work.base, [] (std::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key6, nano::dev::network_params.work.base, [] (std::optional<uint64_t>) {});
 	pool.cancel (key1);
 }
 
@@ -127,7 +127,7 @@ TEST (work, opencl)
 		nano::random_pool::generate_block (root.bytes.data (), root.bytes.size ());
 		auto nonce_opt = pool.generate (nano::work_version::work_1, root, difficulty);
 		ASSERT_TRUE (nonce_opt.has_value ());
-		auto nonce = nonce_opt.get ();
+		auto nonce = nonce_opt.value ();
 		ASSERT_GE (nano::dev::network_params.work.difficulty (nano::work_version::work_1, root, nonce), difficulty);
 		difficulty += difficulty_add;
 	}

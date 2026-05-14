@@ -82,9 +82,9 @@ TEST (rpc, receivable_threshold_sufficient)
 		amount.decode_dec (i->second.get<std::string> (""));
 		blocks[hash] = amount;
 		auto source = i->second.get_optional<std::string> ("source");
-		ASSERT_FALSE (source.is_initialized ());
+		ASSERT_FALSE (source.has_value ());
 		auto min_version = i->second.get_optional<uint8_t> ("min_version");
-		ASSERT_FALSE (min_version.is_initialized ());
+		ASSERT_FALSE (min_version.has_value ());
 	}
 	ASSERT_EQ (blocks[block1->hash ()], 1);
 }
@@ -489,8 +489,8 @@ TEST (rpc, accounts_receivable_threshold)
 			nano::uint128_union amount;
 			amount.decode_dec (i->second.get<std::string> (""));
 			blocks[hash] = amount;
-			boost::optional<std::string> source{ i->second.get_optional<std::string> ("source") };
-			ASSERT_FALSE (source.is_initialized ());
+			auto source = i->second.get_optional<std::string> ("source");
+			ASSERT_FALSE (source.has_value ());
 		}
 	}
 	ASSERT_EQ (blocks[block1->hash ()], 1);

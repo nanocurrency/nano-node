@@ -87,7 +87,7 @@ TEST (websocket, confirmation)
 		EXPECT_TRUE (response);
 		boost::property_tree::ptree event;
 		std::stringstream stream;
-		stream << response.get ();
+		stream << response.value ();
 		boost::property_tree::read_json (stream, event);
 		EXPECT_EQ (event.get<std::string> ("topic"), "confirmation");
 		client.send_message (R"json({"action": "unsubscribe", "topic": "confirmation", "ack": true})json");
@@ -185,7 +185,7 @@ TEST (websocket, started_election)
 	ASSERT_TRUE (response);
 	boost::property_tree::ptree event;
 	std::stringstream stream;
-	stream << response.get ();
+	stream << response.value ();
 	boost::property_tree::read_json (stream, event);
 	ASSERT_EQ (event.get<std::string> ("topic"), "started_election");
 }
@@ -235,7 +235,7 @@ TEST (websocket, stopped_election)
 	ASSERT_TRUE (response);
 	boost::property_tree::ptree event;
 	std::stringstream stream;
-	stream << response.get ();
+	stream << response.value ();
 	boost::property_tree::read_json (stream, event);
 	ASSERT_EQ (event.get<std::string> ("topic"), "stopped_election");
 }
@@ -325,7 +325,7 @@ TEST (websocket, confirmation_options)
 	ASSERT_TRUE (response2);
 	boost::property_tree::ptree event;
 	std::stringstream stream;
-	stream << response2.get ();
+	stream << response2.value ();
 	boost::property_tree::read_json (stream, event);
 	ASSERT_EQ (event.get<std::string> ("topic"), "confirmation");
 	try
@@ -343,7 +343,7 @@ TEST (websocket, confirmation_options)
 		ASSERT_NE ("0", tally);
 		ASSERT_NE ("0", time);
 		auto votes_l (election_info.get_child_optional ("votes"));
-		ASSERT_FALSE (votes_l.is_initialized ());
+		ASSERT_FALSE (votes_l.has_value ());
 	}
 	catch (std::runtime_error const & ex)
 	{
@@ -434,7 +434,7 @@ TEST (websocket, confirmation_options_votes)
 	ASSERT_TRUE (response1);
 	boost::property_tree::ptree event;
 	std::stringstream stream;
-	stream << response1.get ();
+	stream << response1.value ();
 	boost::property_tree::read_json (stream, event);
 	ASSERT_EQ (event.get<std::string> ("topic"), "confirmation");
 	try
@@ -451,9 +451,9 @@ TEST (websocket, confirmation_options_votes)
 		ASSERT_NE ("0", tally);
 		ASSERT_NE ("0", time);
 		auto votes_l (election_info.get_child_optional ("votes"));
-		ASSERT_TRUE (votes_l.is_initialized ());
-		ASSERT_EQ (1, votes_l.get ().size ());
-		for (auto & vote : votes_l.get ())
+		ASSERT_TRUE (votes_l.has_value ());
+		ASSERT_EQ (1, votes_l.value ().size ());
+		for (auto & vote : votes_l.value ())
 		{
 			std::string representative (vote.second.get<std::string> ("representative"));
 			ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), representative);
@@ -521,7 +521,7 @@ TEST (websocket, confirmation_options_linked_account)
 	ASSERT_TRUE (response1);
 	boost::property_tree::ptree event;
 	std::stringstream stream;
-	stream << response1.get ();
+	stream << response1.value ();
 	boost::property_tree::read_json (stream, event);
 	ASSERT_EQ (event.get<std::string> ("topic"), "confirmation");
 	try
@@ -574,7 +574,7 @@ TEST (websocket, confirmation_options_linked_account)
 	ASSERT_TRUE (response2);
 	boost::property_tree::ptree event2;
 	std::stringstream stream2;
-	stream2 << response2.get ();
+	stream2 << response2.value ();
 	boost::property_tree::read_json (stream2, event2);
 	ASSERT_EQ (event2.get<std::string> ("topic"), "confirmation");
 	try
@@ -625,7 +625,7 @@ TEST (websocket, confirmation_options_linked_account)
 	ASSERT_TRUE (response3);
 	boost::property_tree::ptree event3;
 	std::stringstream stream3;
-	stream3 << response3.get ();
+	stream3 << response3.value ();
 	boost::property_tree::read_json (stream3, event3);
 	ASSERT_EQ (event3.get<std::string> ("topic"), "confirmation");
 	try
@@ -692,7 +692,7 @@ TEST (websocket, confirmation_options_sideband)
 	ASSERT_TRUE (response1);
 	boost::property_tree::ptree event;
 	std::stringstream stream;
-	stream << response1.get ();
+	stream << response1.value ();
 	boost::property_tree::read_json (stream, event);
 	ASSERT_EQ (event.get<std::string> ("topic"), "confirmation");
 	try
@@ -831,7 +831,7 @@ TEST (websocket, vote)
 	ASSERT_TRUE (response);
 	boost::property_tree::ptree event;
 	std::stringstream stream;
-	stream << response;
+	stream << response.value ();
 	boost::property_tree::read_json (stream, event);
 	ASSERT_EQ (event.get<std::string> ("topic"), "vote");
 	auto message_contents = event.get_child ("message");
@@ -883,7 +883,7 @@ TEST (websocket, vote_options_type)
 	ASSERT_TRUE (response);
 	boost::property_tree::ptree event;
 	std::stringstream stream;
-	stream << response;
+	stream << response.value ();
 	boost::property_tree::read_json (stream, event);
 	auto message_contents = event.get_child ("message");
 	ASSERT_EQ (1, message_contents.count ("type"));
@@ -911,7 +911,7 @@ TEST (websocket, vote_options_representatives)
 		EXPECT_TRUE (response);
 		boost::property_tree::ptree event;
 		std::stringstream stream;
-		stream << response;
+		stream << response.value ();
 		boost::property_tree::read_json (stream, event);
 		EXPECT_EQ (event.get<std::string> ("topic"), "vote");
 	});
@@ -1004,7 +1004,7 @@ TEST (websocket, work)
 	auto response = future.get ();
 	ASSERT_TRUE (response);
 	std::stringstream stream;
-	stream << response;
+	stream << response.value ();
 	boost::property_tree::ptree event;
 	boost::property_tree::read_json (stream, event);
 	ASSERT_EQ (event.get<std::string> ("topic"), "work");
@@ -1092,7 +1092,7 @@ TEST (websocket, telemetry)
 	auto response = future.get ();
 
 	std::stringstream stream;
-	stream << response;
+	stream << response.value ();
 	boost::property_tree::ptree event;
 	boost::property_tree::read_json (stream, event);
 	ASSERT_EQ (event.get<std::string> ("topic"), "telemetry");
@@ -1152,10 +1152,10 @@ TEST (websocket, new_unconfirmed_block)
 	ASSERT_TIMELY_EQ (5s, future.wait_for (0s), std::future_status::ready);
 
 	// Check the response
-	boost::optional<std::string> response = future.get ();
+	std::optional<std::string> response = future.get ();
 	ASSERT_TRUE (response);
 	std::stringstream stream;
-	stream << response;
+	stream << response.value ();
 	boost::property_tree::ptree event;
 	boost::property_tree::read_json (stream, event);
 	ASSERT_EQ (event.get<std::string> ("topic"), "new_unconfirmed_block");
@@ -1198,8 +1198,8 @@ TEST (websocket, confirmation_options_independent)
 	// Set up two concurrent tasks to subscribe with different options and wait for responses
 	std::atomic<bool> client1_done{ false };
 	std::atomic<bool> client2_done{ false };
-	boost::optional<std::string> client1_response;
-	boost::optional<std::string> client2_response;
+	std::optional<std::string> client1_response;
+	std::optional<std::string> client2_response;
 
 	// Client 1: Subscribe with include_block = true but no sideband
 	auto client1_task = ([&client1_done, &client1_response, &node1] () {
@@ -1241,7 +1241,7 @@ TEST (websocket, confirmation_options_independent)
 	// Parse and check client1 response (should have block but no sideband)
 	boost::property_tree::ptree event1;
 	std::stringstream stream1;
-	stream1 << client1_response.get ();
+	stream1 << client1_response.value ();
 	boost::property_tree::read_json (stream1, event1);
 	ASSERT_EQ (event1.get<std::string> ("topic"), "confirmation");
 
@@ -1252,7 +1252,7 @@ TEST (websocket, confirmation_options_independent)
 	// Parse and check client2 response (should have both block AND sideband)
 	boost::property_tree::ptree event2;
 	std::stringstream stream2;
-	stream2 << client2_response.get ();
+	stream2 << client2_response.value ();
 	boost::property_tree::read_json (stream2, event2);
 	ASSERT_EQ (event2.get<std::string> ("topic"), "confirmation");
 

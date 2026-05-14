@@ -192,7 +192,7 @@ public:
 	// Block actions
 	std::shared_ptr<nano::block> change_action (nano::account const & source, nano::account const & representative, uint64_t work = 0, bool generate_work = true);
 	std::shared_ptr<nano::block> receive_action (nano::block_hash const & send_hash, nano::account const & representative, nano::uint128_union const & amount, nano::account const & account, uint64_t work = 0, bool generate_work = true);
-	std::shared_ptr<nano::block> send_action (nano::account const & source, nano::account const & destination, nano::uint128_t const & amount, uint64_t work = 0, bool generate_work = true, boost::optional<std::string> id = {});
+	std::shared_ptr<nano::block> send_action (nano::account const & source, nano::account const & destination, nano::uint128_t const & amount, uint64_t work = 0, bool generate_work = true, std::optional<std::string> id = {});
 	bool action_complete (std::shared_ptr<nano::block> const & block, nano::account const & account, bool generate_work, nano::block_details const & details);
 
 	// Sync/async block operations
@@ -201,7 +201,7 @@ public:
 	bool receive_sync (std::shared_ptr<nano::block> const & block, nano::account const & representative, nano::uint128_t const & amount);
 	void receive_async (nano::block_hash const & hash, nano::account const & representative, nano::uint128_t const & amount, nano::account const & account, std::function<void (std::shared_ptr<nano::block> const &)> const & action, uint64_t work = 0, bool generate_work = true);
 	nano::block_hash send_sync (nano::account const & source, nano::account const & destination, nano::uint128_t const & amount);
-	void send_async (nano::account const & source, nano::account const & destination, nano::uint128_t const & amount, std::function<void (std::shared_ptr<nano::block> const &)> const & action, uint64_t work = 0, bool generate_work = true, boost::optional<std::string> id = {});
+	void send_async (nano::account const & source, nano::account const & destination, nano::uint128_t const & amount, std::function<void (std::shared_ptr<nano::block> const &)> const & action, uint64_t work = 0, bool generate_work = true, std::optional<std::string> id = {});
 
 	// Work cache
 	void work_cache_blocking (nano::account const & account, nano::root const & root);

@@ -7,6 +7,7 @@
 #include <nano/node/websocket.hpp>
 
 #include <chrono>
+#include <optional>
 
 using namespace std::chrono_literals;
 
@@ -50,10 +51,10 @@ public:
 		socket->read (buffer);
 	}
 
-	boost::optional<std::string> get_response (std::chrono::seconds const deadline = 5s)
+	std::optional<std::string> get_response (std::chrono::seconds const deadline = 5s)
 	{
 		debug_assert (deadline > 0s);
-		boost::optional<std::string> result;
+		std::optional<std::string> result;
 		auto buffer (std::make_shared<boost::beast::flat_buffer> ());
 		socket->async_read (*buffer, [&result, &buffer, socket = this->socket] (boost::beast::error_code const & ec, std::size_t const /*n*/) {
 			if (!ec)

@@ -66,9 +66,9 @@ nano::websocket::confirmation_options::confirmation_options (boost::property_tre
 
 	// Account filtering options
 	auto all_local_accounts_l (options_a.get_optional<bool> ("all_local_accounts"));
-	if (all_local_accounts_l.is_initialized ())
+	if (all_local_accounts_l.has_value ())
 	{
-		all_local_accounts = all_local_accounts_l.get ();
+		all_local_accounts = all_local_accounts_l.value ();
 		has_account_filtering_options = true;
 
 		if (!include_block)
@@ -511,11 +511,11 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		std::unique_ptr<nano::websocket::options> options_l{ nullptr };
 		if (options_text_l && topic_l == nano::websocket::topic::confirmation)
 		{
-			options_l = std::make_unique<nano::websocket::confirmation_options> (options_text_l.get (), ws_listener.get_wallets (), logger);
+			options_l = std::make_unique<nano::websocket::confirmation_options> (options_text_l.value (), ws_listener.get_wallets (), logger);
 		}
 		else if (options_text_l && topic_l == nano::websocket::topic::vote)
 		{
-			options_l = std::make_unique<nano::websocket::vote_options> (options_text_l.get (), logger);
+			options_l = std::make_unique<nano::websocket::vote_options> (options_text_l.value (), logger);
 		}
 		else
 		{
@@ -544,7 +544,7 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		if (existing != subscriptions.end ())
 		{
 			auto options_text_l (message_a.get_child_optional ("options"));
-			if (options_text_l.is_initialized () && !existing->second->update (*options_text_l))
+			if (options_text_l.has_value () && !existing->second->update (*options_text_l))
 			{
 				action_succeeded = true;
 			}

@@ -7,11 +7,10 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/openclwork.hpp>
 
-#include <boost/optional.hpp>
-
 #include <atomic>
 #include <list>
 #include <memory>
+#include <optional>
 #include <thread>
 
 namespace nano
@@ -19,7 +18,7 @@ namespace nano
 std::string to_string (nano::work_version const version_a);
 
 // type of function that does the work generation with an optional return value
-using opencl_work_func_t = std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)>;
+using opencl_work_func_t = std::function<std::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)>;
 
 class block;
 class block_details;
@@ -29,14 +28,14 @@ class opencl_work;
 class work_item final
 {
 public:
-	work_item (nano::work_version const version_a, nano::root const & item_a, uint64_t difficulty_a, std::function<void (boost::optional<uint64_t> const &)> const & callback_a) :
+	work_item (nano::work_version const version_a, nano::root const & item_a, uint64_t difficulty_a, std::function<void (std::optional<uint64_t> const &)> const & callback_a) :
 		version (version_a), item (item_a), difficulty (difficulty_a), callback (callback_a)
 	{
 	}
 	nano::work_version const version;
 	nano::root const item;
 	uint64_t const difficulty;
-	std::function<void (boost::optional<uint64_t> const &)> const callback;
+	std::function<void (std::optional<uint64_t> const &)> const callback;
 };
 class work_pool final
 {
@@ -46,11 +45,11 @@ public:
 	void loop (uint64_t);
 	void stop ();
 	void cancel (nano::root const &);
-	void generate (nano::work_version const, nano::root const &, uint64_t, std::function<void (boost::optional<uint64_t> const &)>);
-	boost::optional<uint64_t> generate (nano::work_version const, nano::root const &, uint64_t);
+	void generate (nano::work_version const, nano::root const &, uint64_t, std::function<void (std::optional<uint64_t> const &)>);
+	std::optional<uint64_t> generate (nano::work_version const, nano::root const &, uint64_t);
 	// For tests only
-	boost::optional<uint64_t> generate (nano::root const &);
-	boost::optional<uint64_t> generate (nano::root const &, uint64_t);
+	std::optional<uint64_t> generate (nano::root const &);
+	std::optional<uint64_t> generate (nano::root const &, uint64_t);
 	size_t size ();
 	nano::network_constants & network_constants;
 	std::atomic<int> ticket;

@@ -4,8 +4,6 @@
 #include <nano/ipc_flatbuffers_lib/generated/flatbuffers/nanoapi_generated.h>
 #include <nano/node/ipc/ipc_access_config.hpp>
 
-#include <boost/optional.hpp>
-
 #include <functional>
 #include <memory>
 #include <unordered_map>

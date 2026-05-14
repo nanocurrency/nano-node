@@ -23,6 +23,7 @@
 #include <future>
 #include <iomanip>
 #include <memory>
+#include <optional>
 #include <random>
 
 using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost::asio::io_context::executor_type>;
@@ -318,7 +319,7 @@ private:
 	http::request<http::string_body> req;
 	http::response<http::string_body> res;
 
-	std::promise<boost::optional<boost::property_tree::ptree>> promise;
+	std::promise<std::optional<boost::property_tree::ptree>> promise;
 
 public:
 	rpc_request_impl (
@@ -346,8 +347,8 @@ public:
 			throw std::runtime_error ("RPC request timed out");
 		}
 		auto response = future.get ();
-		debug_assert (response.is_initialized ());
-		return response.value_or (decltype (response)::argument_type{});
+		debug_assert (response.has_value ());
+		return response.value_or (boost::property_tree::ptree{});
 	}
 
 private:

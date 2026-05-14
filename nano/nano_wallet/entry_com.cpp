@@ -5,7 +5,6 @@
 #include <nano/rpc/rpc.hpp>
 
 #include <boost/format.hpp>
-#include <boost/make_shared.hpp>
 #include <boost/program_options.hpp>
 
 int main (int argc, char * const * argv)

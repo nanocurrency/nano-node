@@ -101,9 +101,9 @@ bool nano::tomlconfig::empty () const
 	return tree->empty ();
 }
 
-boost::optional<nano::tomlconfig> nano::tomlconfig::get_optional_child (std::string const & key_a)
+std::optional<nano::tomlconfig> nano::tomlconfig::get_optional_child (std::string const & key_a)
 {
-	boost::optional<tomlconfig> child_config;
+	std::optional<tomlconfig> child_config;
 	if (tree->contains (key_a))
 	{
 		return tomlconfig (tree->get_table (key_a), error);
@@ -151,7 +151,7 @@ nano::tomlconfig & nano::tomlconfig::erase (std::string const & key_a)
 	return *this;
 }
 
-std::shared_ptr<cpptoml::array> nano::tomlconfig::create_array (std::string const & key, boost::optional<char const *> documentation_a)
+std::shared_ptr<cpptoml::array> nano::tomlconfig::create_array (std::string const & key, std::optional<char const *> documentation_a)
 {
 	if (!has_key (key))
 	{

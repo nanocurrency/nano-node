@@ -85,12 +85,12 @@ void nano::work_pool::loop (uint64_t thread)
 			int ticket_l (ticket);
 			lock.unlock ();
 			output = 0;
-			boost::optional<uint64_t> opt_work;
+			std::optional<uint64_t> opt_work;
 			if (thread == 0 && opencl)
 			{
 				opt_work = opencl (current_l.version, current_l.item, current_l.difficulty, ticket);
 			}
-			if (opt_work.is_initialized ())
+			if (opt_work.has_value ())
 			{
 				work = *opt_work;
 				output = network_constants.work.value (current_l.item, work);
@@ -165,7 +165,7 @@ void nano::work_pool::cancel (nano::root const & root_a)
 			{
 				if (item_a.callback)
 				{
-					item_a.callback (boost::none);
+					item_a.callback (std::nullopt);
 				}
 				result = true;
 			}
@@ -184,7 +184,7 @@ void nano::work_pool::stop ()
 	producer_condition.notify_all ();
 }
 
-void nano::work_pool::generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::function<void (boost::optional<uint64_t> const &)> callback_a)
+void nano::work_pool::generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::function<void (std::optional<uint64_t> const &)> callback_a)
 {
 	debug_assert (!root_a.is_zero ());
 	if (!threads.empty ())
@@ -197,30 +197,30 @@ void nano::work_pool::generate (nano::work_version const version_a, nano::root c
 	}
 	else if (callback_a)
 	{
-		callback_a (boost::none);
+		callback_a (std::nullopt);
 	}
 }
 
-boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a)
+std::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a)
 {
 	debug_assert (network_constants.is_dev_network ());
 	return generate (nano::work_version::work_1, root_a, network_constants.work.base);
 }
 
-boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a, uint64_t difficulty_a)
+std::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a, uint64_t difficulty_a)
 {
 	debug_assert (network_constants.is_dev_network ());
 	return generate (nano::work_version::work_1, root_a, difficulty_a);
 }
 
-boost::optional<uint64_t> nano::work_pool::generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a)
+std::optional<uint64_t> nano::work_pool::generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a)
 {
-	boost::optional<uint64_t> result;
+	std::optional<uint64_t> result;
 	if (!threads.empty ())
 	{
-		std::promise<boost::optional<uint64_t>> work;
-		std::future<boost::optional<uint64_t>> future = work.get_future ();
-		generate (version_a, root_a, difficulty_a, [&work] (boost::optional<uint64_t> work_a) {
+		std::promise<std::optional<uint64_t>> work;
+		std::future<std::optional<uint64_t>> future = work.get_future ();
+		generate (version_a, root_a, difficulty_a, [&work] (std::optional<uint64_t> work_a) {
 			work.set_value (work_a);
 		});
 		result = future.get ().value ();

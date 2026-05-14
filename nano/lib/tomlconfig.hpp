@@ -4,9 +4,9 @@
 #include <nano/lib/utility.hpp>
 
 #include <boost/lexical_cast.hpp>
-#include <boost/optional.hpp>
 
 #include <filesystem>
+#include <optional>
 
 #include <cpptoml.h>
 
@@ -42,20 +42,20 @@ public:
 	void open_or_create (std::fstream & stream_a, std::string const & path_a);
 	std::shared_ptr<cpptoml::table> get_tree ();
 	bool empty () const;
-	boost::optional<tomlconfig> get_optional_child (std::string const & key_a);
+	std::optional<tomlconfig> get_optional_child (std::string const & key_a);
 	tomlconfig get_required_child (std::string const & key_a);
 	tomlconfig & put_child (std::string const & key_a, nano::tomlconfig & conf_a);
 	tomlconfig & replace_child (std::string const & key_a, nano::tomlconfig & conf_a);
 	bool has_key (std::string const & key_a);
 	tomlconfig & erase (std::string const & key_a);
-	std::shared_ptr<cpptoml::array> create_array (std::string const & key, boost::optional<char const *> documentation_a);
+	std::shared_ptr<cpptoml::array> create_array (std::string const & key, std::optional<char const *> documentation_a);
 	void erase_default_values (tomlconfig & defaults_a);
 	std::string to_string (bool comment_values);
 	std::string merge_defaults (nano::tomlconfig & current_config, nano::tomlconfig & default_config);
 
 	/** Set value for the given key. Any existing value will be overwritten. */
 	template <typename T>
-	tomlconfig & put (std::string const & key, T const & value, boost::optional<char const *> documentation_a = boost::none)
+	tomlconfig & put (std::string const & key, T const & value, std::optional<char const *> documentation_a = std::nullopt)
 	{
 		tree->insert (key, value);
 		if (documentation_a)
@@ -123,11 +123,11 @@ public:
 		return *this;
 	}
 
-	/** Return a boost::optional<T> for the given key */
+	/** Return a std::optional<T> for the given key */
 	template <typename T>
-	boost::optional<T> get_optional (std::string const & key)
+	std::optional<T> get_optional (std::string const & key)
 	{
-		boost::optional<T> res;
+		std::optional<T> res;
 		if (has_key (key))
 		{
 			T target{};

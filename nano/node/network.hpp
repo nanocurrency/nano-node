@@ -31,7 +31,7 @@ public:
 	syn_cookies (std::size_t max_peers_per_ip, nano::logger &);
 
 	void purge (std::chrono::steady_clock::time_point const &);
-	// Returns boost::none if the IP is rate capped on syn cookie requests,
+	// Returns std::nullopt if the IP is rate capped on syn cookie requests,
 	// or if the endpoint already has a syn cookie query
 	std::optional<nano::uint256_union> assign (nano::endpoint const &);
 	// Returns false if valid, true if invalid (true on error convention)

@@ -118,8 +118,8 @@ void nano::distributed_work::start_local ()
 {
 	auto this_l (shared_from_this ());
 	local_generation_started = true;
-	node.work.generate (request.version, request.root, request.difficulty, [this_l] (boost::optional<uint64_t> const & work_a) {
-		if (work_a.is_initialized ())
+	node.work.generate (request.version, request.root, request.difficulty, [this_l] (std::optional<uint64_t> const & work_a) {
+		if (work_a.has_value ())
 		{
 			this_l->set_once (*work_a);
 		}

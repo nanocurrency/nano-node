@@ -423,7 +423,6 @@ set(BOOST_INCLUDE_LIBRARIES
     lexical_cast
     multi_index
     multiprecision
-    optional
     outcome
     pool
     process

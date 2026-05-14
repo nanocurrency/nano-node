@@ -1028,7 +1028,7 @@ std::shared_ptr<nano::block> wallet::change_action (nano::account const & source
 	return block;
 }
 
-std::shared_ptr<nano::block> wallet::send_action (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, uint64_t work_a, bool generate_work_a, boost::optional<std::string> id_a)
+std::shared_ptr<nano::block> wallet::send_action (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, uint64_t work_a, bool generate_work_a, std::optional<std::string> id_a)
 {
 	auto prepare_send = [this, &wallets = this->wallets, &store = this->store, &source_a, &amount_a, &work_a, &account_a, &id_a] (auto const & transaction) {
 		auto ledger_txn = wallets.ledger.tx_begin_read ();
@@ -1241,7 +1241,7 @@ nano::block_hash wallet::send_sync (nano::account const & source_a, nano::accoun
 	return future.get ();
 }
 
-void wallet::send_async (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, std::function<void (std::shared_ptr<nano::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a, boost::optional<std::string> id_a)
+void wallet::send_async (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, std::function<void (std::shared_ptr<nano::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a, std::optional<std::string> id_a)
 {
 	auto this_l (shared_from_this ());
 	wallets.queue_wallet_action (wallets::high_priority, this_l, [this_l, source_a, account_a, amount_a, action_a, work_a, generate_work_a, id_a] (wallet & wallet_a) {

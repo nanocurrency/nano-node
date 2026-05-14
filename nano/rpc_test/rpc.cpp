@@ -2007,7 +2007,7 @@ TEST (rpc, work_generate_multiplier)
 		request.put ("multiplier", multiplier);
 		auto response (wait_response (system, rpc_ctx, request, 10s));
 		auto work_text (response.get_optional<std::string> ("work"));
-		ASSERT_TRUE (work_text.is_initialized ());
+		ASSERT_TRUE (work_text.has_value ());
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (*work_text, work));
 		auto result_difficulty (nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash, work));
@@ -2098,7 +2098,7 @@ TEST (rpc, work_generate_block_low)
 	{
 		auto response (wait_response (system, rpc_ctx, request, 10s));
 		auto work_text (response.get_optional<std::string> ("work"));
-		ASSERT_TRUE (work_text.is_initialized ());
+		ASSERT_TRUE (work_text.has_value ());
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (*work_text, work));
 		ASSERT_NE (block->block_work (), work);
@@ -2183,7 +2183,7 @@ TEST (rpc, work_generate_block_ledger_epoch_2)
 	{
 		auto response (wait_response (system, rpc_ctx, request, 10s));
 		auto work_text (response.get_optional<std::string> ("work"));
-		ASSERT_TRUE (work_text.is_initialized ());
+		ASSERT_TRUE (work_text.has_value ());
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (*work_text, work));
 		auto result_difficulty (nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash, work));
@@ -2210,7 +2210,7 @@ TEST (rpc, work_cancel)
 	system.deadline_set (10s);
 	while (!done)
 	{
-		system.work.generate (nano::work_version::work_1, hash1, node1->network_params.work.base, [&done] (boost::optional<uint64_t> work_a) {
+		system.work.generate (nano::work_version::work_1, hash1, node1->network_params.work.base, [&done] (std::optional<uint64_t> work_a) {
 			done = !work_a;
 		});
 		auto response1 (wait_response (system, rpc_ctx, request1));
@@ -3425,10 +3425,10 @@ TEST (rpc, wallet_receivable)
 			nano::uint128_union amount;
 			amount.decode_dec (i->second.get<std::string> (""));
 			blocks[hash] = amount;
-			boost::optional<std::string> source (i->second.get_optional<std::string> ("source"));
-			ASSERT_FALSE (source.is_initialized ());
-			boost::optional<uint8_t> min_version (i->second.get_optional<uint8_t> ("min_version"));
-			ASSERT_FALSE (min_version.is_initialized ());
+			auto source (i->second.get_optional<std::string> ("source"));
+			ASSERT_FALSE (source.has_value ());
+			auto min_version (i->second.get_optional<uint8_t> ("min_version"));
+			ASSERT_FALSE (min_version.has_value ());
 		}
 	}
 	ASSERT_EQ (blocks[block1->hash ()], 100);
@@ -3765,8 +3765,8 @@ TEST (rpc, delegators_parameters)
 		delegators4.put ((i->first), (i->second.get<std::string> ("")));
 	}
 	ASSERT_EQ (1, delegators4.size ());
-	boost::optional<std::string> balance (delegators4.get_optional<std::string> (last_account.to_account ()));
-	ASSERT_TRUE (balance.is_initialized ());
+	auto balance (delegators4.get_optional<std::string> (last_account.to_account ()));
+	ASSERT_TRUE (balance.has_value ());
 
 	// Test with "start" equal to last account
 	request.put ("start", last_account.to_account ());
@@ -3833,7 +3833,7 @@ TEST (rpc, account_info)
 		auto response (wait_response (system, rpc_ctx, request));
 
 		auto error (response.get_optional<std::string> ("error"));
-		ASSERT_TRUE (error.is_initialized ());
+		ASSERT_TRUE (error.has_value ());
 		ASSERT_EQ (error.get (), std::error_code (nano::error_common::account_not_found).message ());
 	}
 
@@ -3872,12 +3872,12 @@ TEST (rpc, account_info)
 		std::string confirmation_height_frontier (response.get<std::string> ("confirmation_height_frontier"));
 		ASSERT_EQ (nano::dev::genesis->hash ().to_string (), confirmation_height_frontier);
 		ASSERT_EQ (0, response.get<uint8_t> ("account_version"));
-		boost::optional<std::string> weight (response.get_optional<std::string> ("weight"));
-		ASSERT_FALSE (weight.is_initialized ());
-		boost::optional<std::string> receivable (response.get_optional<std::string> ("receivable"));
-		ASSERT_FALSE (receivable.is_initialized ());
-		boost::optional<std::string> representative (response.get_optional<std::string> ("representative"));
-		ASSERT_FALSE (representative.is_initialized ());
+		auto weight (response.get_optional<std::string> ("weight"));
+		ASSERT_FALSE (weight.has_value ());
+		auto receivable (response.get_optional<std::string> ("receivable"));
+		ASSERT_FALSE (receivable.has_value ());
+		auto representative (response.get_optional<std::string> ("representative"));
+		ASSERT_FALSE (representative.has_value ());
 	}
 
 	// Test for optional values
@@ -3981,19 +3981,19 @@ TEST (rpc, account_info)
 
 		// These fields shouldn't exist
 		auto confirmed_balance (response.get_optional<std::string> ("confirmed_balance"));
-		ASSERT_FALSE (confirmed_balance.is_initialized ());
+		ASSERT_FALSE (confirmed_balance.has_value ());
 
 		auto confirmed_receivable (response.get_optional<std::string> ("confirmed_receivable"));
-		ASSERT_FALSE (confirmed_receivable.is_initialized ());
+		ASSERT_FALSE (confirmed_receivable.has_value ());
 
 		auto confirmed_representative (response.get_optional<std::string> ("confirmed_representative"));
-		ASSERT_FALSE (confirmed_representative.is_initialized ());
+		ASSERT_FALSE (confirmed_representative.has_value ());
 
 		auto confirmed_frontier (response.get_optional<std::string> ("confirmed_frontier"));
-		ASSERT_FALSE (confirmed_frontier.is_initialized ());
+		ASSERT_FALSE (confirmed_frontier.has_value ());
 
 		auto confirmed_height (response.get_optional<uint64_t> ("confirmed_height"));
-		ASSERT_FALSE (confirmed_height.is_initialized ());
+		ASSERT_FALSE (confirmed_height.has_value ());
 	}
 }
 
@@ -4078,18 +4078,18 @@ TEST (rpc, blocks_info)
 			ASSERT_EQ (node->latest (nano::dev::genesis_key.pub).to_string (), hash_text);
 			std::string account_text (blocks.second.get<std::string> ("block_account"));
 			ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), account_text);
-			boost::optional<std::string> linked_account (blocks.second.get_optional<std::string> ("linked_account"));
-			ASSERT_FALSE (linked_account.is_initialized ());
+			auto linked_account (blocks.second.get_optional<std::string> ("linked_account"));
+			ASSERT_FALSE (linked_account.has_value ());
 			std::string amount_text (blocks.second.get<std::string> ("amount"));
 			ASSERT_EQ (nano::dev::constants.genesis_amount.convert_to<std::string> (), amount_text);
 			std::string blocks_text (blocks.second.get<std::string> ("contents"));
 			ASSERT_FALSE (blocks_text.empty ());
-			boost::optional<std::string> receivable (blocks.second.get_optional<std::string> ("receivable"));
-			ASSERT_FALSE (receivable.is_initialized ());
-			boost::optional<std::string> receive_hash (blocks.second.get_optional<std::string> ("receive_hash"));
-			ASSERT_FALSE (receive_hash.is_initialized ());
-			boost::optional<std::string> source (blocks.second.get_optional<std::string> ("source_account"));
-			ASSERT_FALSE (source.is_initialized ());
+			auto receivable (blocks.second.get_optional<std::string> ("receivable"));
+			ASSERT_FALSE (receivable.has_value ());
+			auto receive_hash (blocks.second.get_optional<std::string> ("receive_hash"));
+			ASSERT_FALSE (receive_hash.has_value ());
+			auto source (blocks.second.get_optional<std::string> ("source_account"));
+			ASSERT_FALSE (source.has_value ());
 			std::string balance_text (blocks.second.get<std::string> ("balance"));
 			ASSERT_EQ (nano::dev::constants.genesis_amount.convert_to<std::string> (), balance_text);
 			ASSERT_TRUE (blocks.second.get<bool> ("confirmed")); // Genesis block is confirmed by default
@@ -4389,8 +4389,8 @@ TEST (rpc, block_info_pruning)
 	auto response2 (wait_response (system, rpc_ctx, request2));
 	std::string account_text (response2.get<std::string> ("block_account"));
 	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), account_text);
-	boost::optional<std::string> amount (response2.get_optional<std::string> ("amount"));
-	ASSERT_FALSE (amount.is_initialized ()); // Cannot calculate amount
+	auto amount (response2.get_optional<std::string> ("amount"));
+	ASSERT_FALSE (amount.has_value ()); // Cannot calculate amount
 	bool json_error{ false };
 	nano::receive_block receive_from_json (json_error, response2.get_child ("contents"));
 	ASSERT_FALSE (json_error);
@@ -4576,12 +4576,12 @@ TEST (rpc, ledger)
 			ASSERT_LT (std::abs ((long)time - stol (modified_timestamp)), 5);
 			std::string block_count (account.second.get<std::string> ("block_count"));
 			ASSERT_EQ ("1", block_count);
-			boost::optional<std::string> weight (account.second.get_optional<std::string> ("weight"));
-			ASSERT_FALSE (weight.is_initialized ());
-			boost::optional<std::string> pending (account.second.get_optional<std::string> ("pending"));
-			ASSERT_FALSE (pending.is_initialized ());
-			boost::optional<std::string> representative (account.second.get_optional<std::string> ("representative"));
-			ASSERT_FALSE (representative.is_initialized ());
+			auto weight (account.second.get_optional<std::string> ("weight"));
+			ASSERT_FALSE (weight.has_value ());
+			auto pending (account.second.get_optional<std::string> ("pending"));
+			ASSERT_FALSE (pending.has_value ());
+			auto representative (account.second.get_optional<std::string> ("representative"));
+			ASSERT_FALSE (representative.has_value ());
 		}
 	}
 	// Test for optional values
@@ -4592,15 +4592,15 @@ TEST (rpc, ledger)
 		auto response (wait_response (system, rpc_ctx, request));
 		for (auto & account : response.get_child ("accounts"))
 		{
-			boost::optional<std::string> weight (account.second.get_optional<std::string> ("weight"));
-			ASSERT_TRUE (weight.is_initialized ());
-			ASSERT_EQ ("0", weight.get ());
-			boost::optional<std::string> pending (account.second.get_optional<std::string> ("pending"));
-			ASSERT_TRUE (pending.is_initialized ());
-			ASSERT_EQ ("0", pending.get ());
-			boost::optional<std::string> representative (account.second.get_optional<std::string> ("representative"));
-			ASSERT_TRUE (representative.is_initialized ());
-			ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), representative.get ());
+			auto weight (account.second.get_optional<std::string> ("weight"));
+			ASSERT_TRUE (weight.has_value ());
+			ASSERT_EQ ("0", weight.value ());
+			auto pending (account.second.get_optional<std::string> ("pending"));
+			ASSERT_TRUE (pending.has_value ());
+			ASSERT_EQ ("0", pending.value ());
+			auto representative (account.second.get_optional<std::string> ("representative"));
+			ASSERT_TRUE (representative.has_value ());
+			ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), representative.value ());
 		}
 	}
 	// Test threshold
@@ -5179,12 +5179,12 @@ TEST (rpc, wallet_ledger)
 		ASSERT_LT (std::abs ((long)time - stol (modified_timestamp)), 5);
 		std::string block_count (accounts.second.get<std::string> ("block_count"));
 		ASSERT_EQ ("1", block_count);
-		boost::optional<std::string> weight (accounts.second.get_optional<std::string> ("weight"));
-		ASSERT_FALSE (weight.is_initialized ());
-		boost::optional<std::string> pending (accounts.second.get_optional<std::string> ("pending"));
-		ASSERT_FALSE (pending.is_initialized ());
-		boost::optional<std::string> representative (accounts.second.get_optional<std::string> ("representative"));
-		ASSERT_FALSE (representative.is_initialized ());
+		auto weight (accounts.second.get_optional<std::string> ("weight"));
+		ASSERT_FALSE (weight.has_value ());
+		auto pending (accounts.second.get_optional<std::string> ("pending"));
+		ASSERT_FALSE (pending.has_value ());
+		auto representative (accounts.second.get_optional<std::string> ("representative"));
+		ASSERT_FALSE (representative.has_value ());
 	}
 	// Test for optional values
 	request.put ("weight", "true");
@@ -5193,14 +5193,14 @@ TEST (rpc, wallet_ledger)
 	auto response2 (wait_response (system, rpc_ctx, request));
 	for (auto & accounts : response2.get_child ("accounts"))
 	{
-		boost::optional<std::string> weight (accounts.second.get_optional<std::string> ("weight"));
-		ASSERT_TRUE (weight.is_initialized ());
-		ASSERT_EQ ("0", weight.get ());
-		boost::optional<std::string> pending (accounts.second.get_optional<std::string> ("pending"));
-		ASSERT_TRUE (pending.is_initialized ());
-		ASSERT_EQ ("0", pending.get ());
-		boost::optional<std::string> representative (accounts.second.get_optional<std::string> ("representative"));
-		ASSERT_FALSE (representative.is_initialized ());
+		auto weight (accounts.second.get_optional<std::string> ("weight"));
+		ASSERT_TRUE (weight.has_value ());
+		ASSERT_EQ ("0", weight.value ());
+		auto pending (accounts.second.get_optional<std::string> ("pending"));
+		ASSERT_TRUE (pending.has_value ());
+		ASSERT_EQ ("0", pending.value ());
+		auto representative (accounts.second.get_optional<std::string> ("representative"));
+		ASSERT_FALSE (representative.has_value ());
 	}
 }
 
@@ -5255,8 +5255,8 @@ TEST (rpc, online_reps)
 	auto item (representatives.begin ());
 	ASSERT_NE (representatives.end (), item);
 	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), item->second.get<std::string> (""));
-	boost::optional<std::string> weight (item->second.get_optional<std::string> ("weight"));
-	ASSERT_FALSE (weight.is_initialized ());
+	auto weight (item->second.get_optional<std::string> ("weight"));
+	ASSERT_FALSE (weight.has_value ());
 	ASSERT_TIMELY (5s, node2->block (send_block->hash ()));
 	// Test weight option
 	request.put ("weight", "true");
@@ -6147,8 +6147,8 @@ TEST (rpc, active_difficulty)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		auto trend_opt (response.get_child_optional ("difficulty_trend"));
-		ASSERT_TRUE (trend_opt.is_initialized ());
-		auto & trend (trend_opt.get ());
+		ASSERT_TRUE (trend_opt.has_value ());
+		auto & trend (trend_opt.value ());
 		ASSERT_EQ (1, trend.size ());
 	}
 }
@@ -6233,16 +6233,16 @@ TEST (rpc, deprecated_account_format)
 	request.put ("action", "account_info");
 	request.put ("account", nano::dev::genesis_key.pub.to_account ());
 	auto response (wait_response (system, rpc_ctx, request));
-	boost::optional<std::string> deprecated_account_format (response.get_optional<std::string> ("deprecated_account_format"));
-	ASSERT_FALSE (deprecated_account_format.is_initialized ());
+	auto deprecated_account_format (response.get_optional<std::string> ("deprecated_account_format"));
+	ASSERT_FALSE (deprecated_account_format.has_value ());
 	std::string account_text (nano::dev::genesis_key.pub.to_account ());
 	account_text[4] = '-';
 	request.put ("account", account_text);
 	auto response2 (wait_response (system, rpc_ctx, request));
 	std::string frontier (response2.get<std::string> ("frontier"));
 	ASSERT_EQ (nano::dev::genesis->hash ().to_string (), frontier);
-	boost::optional<std::string> deprecated_account_format2 (response2.get_optional<std::string> ("deprecated_account_format"));
-	ASSERT_TRUE (deprecated_account_format2.is_initialized ());
+	auto deprecated_account_format2 (response2.get_optional<std::string> ("deprecated_account_format"));
+	ASSERT_TRUE (deprecated_account_format2.has_value ());
 }
 
 TEST (rpc, epoch_upgrade)
@@ -7068,7 +7068,7 @@ TEST (rpc, confirmation_info)
 		ASSERT_EQ ("1500000000000000000000000000000000000", representatives_final.get<std::string> (rep5.pub.to_account ()));
 
 		// Verify the contents field exists
-		ASSERT_TRUE (block_info->second.get_child_optional ("contents").is_initialized ());
+		ASSERT_TRUE (block_info->second.get_child_optional ("contents").has_value ());
 	}
 }
 

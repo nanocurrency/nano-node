@@ -13,8 +13,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/variant/get.hpp>
-
 using namespace std::chrono_literals;
 
 TEST (conflicts, start_stop)

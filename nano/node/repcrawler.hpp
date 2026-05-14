@@ -16,7 +16,6 @@
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
-#include <boost/optional.hpp>
 
 #include <chrono>
 #include <memory>

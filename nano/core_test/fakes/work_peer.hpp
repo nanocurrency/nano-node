@@ -143,7 +143,7 @@ private:
 		{
 			auto hash = hash_a;
 			auto request_difficulty = work_pool.network_constants.work.threshold_base (version);
-			work_pool.generate (version, hash, request_difficulty, [this_l = shared_from_this (), hash] (boost::optional<uint64_t> work_a) {
+			work_pool.generate (version, hash, request_difficulty, [this_l = shared_from_this (), hash] (std::optional<uint64_t> work_a) {
 				auto result = work_a.value_or (0);
 				auto result_difficulty (this_l->work_pool.network_constants.work.difficulty (this_l->version, hash, result));
 				ptree::ptree message_l;
