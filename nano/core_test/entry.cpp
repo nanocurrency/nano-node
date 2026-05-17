@@ -4,8 +4,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/filesystem/path.hpp>
-
 namespace nano
 {
 namespace test

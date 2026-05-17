@@ -417,7 +417,6 @@ set(BOOST_INCLUDE_LIBRARIES
     circular_buffer
     dll
     endian
-    filesystem
     format
     iostreams
     lexical_cast
