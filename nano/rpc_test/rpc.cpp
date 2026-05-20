@@ -3834,7 +3834,7 @@ TEST (rpc, account_info)
 
 		auto error (response.get_optional<std::string> ("error"));
 		ASSERT_TRUE (error.has_value ());
-		ASSERT_EQ (error.get (), std::error_code (nano::error_common::account_not_found).message ());
+		ASSERT_EQ (error.value (), std::error_code (nano::error_common::account_not_found).message ());
 	}
 
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);

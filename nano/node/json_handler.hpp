@@ -8,6 +8,7 @@
 #include <boost/property_tree/ptree.hpp>
 
 #include <functional>
+#include <optional>
 #include <string>
 
 namespace nano::secure
@@ -200,19 +201,19 @@ public:
 	{
 		if (rpc)
 		{
-			rpc->stop ();
+			rpc->get ().stop ();
 		}
 	}
 
 	void rpc_instance (nano::rpc & rpc_a) override
 	{
-		rpc = &rpc_a;
+		rpc = rpc_a;
 	}
 
 private:
 	nano::node & node;
 	nano::ipc::ipc_server & ipc_server;
-	nano::rpc * rpc{ nullptr };
+	std::optional<std::reference_wrapper<nano::rpc>> rpc;
 	std::function<void ()> stop_callback;
 	nano::node_rpc_config const & node_rpc_config;
 };
