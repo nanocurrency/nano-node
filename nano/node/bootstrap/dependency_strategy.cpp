@@ -52,7 +52,7 @@ void dependency_strategy::run ()
 void dependency_strategy::run_one ()
 {
 	// No need to wait for block_processor, as we are not processing blocks
-	auto channel = ctx.wait_channel ();
+	auto channel = ctx.wait_channel (strategy::dependency);
 	if (!channel)
 	{
 		return;

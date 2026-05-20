@@ -39,6 +39,15 @@ enum class verify_result
 	invalid,
 };
 
+enum class strategy
+{
+	priority,
+	database,
+	dependency,
+	frontier,
+};
+
 nano::stat::detail to_stat_detail (nano::bootstrap::query_type);
 nano::stat::detail to_stat_detail (nano::bootstrap::query_source);
+nano::stat::detail to_stat_detail (nano::bootstrap::strategy);
 }

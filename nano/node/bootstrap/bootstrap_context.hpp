@@ -71,8 +71,8 @@ public:
 	// Wait until there is enough space in block_processor for new blocks
 	void wait_block_processor (nano::bootstrap::query_source) const;
 
-	// Waits for a channel that is not full
-	std::shared_ptr<nano::transport::channel> wait_channel ();
+	// Waits for a channel that is not full. Applies the per-strategy rate limiter.
+	std::shared_ptr<nano::transport::channel> wait_channel (nano::bootstrap::strategy strategy);
 
 	bool send (std::shared_ptr<nano::transport::channel> const &, query_descriptor query, query_source source);
 
@@ -154,13 +154,11 @@ public: // Shared state
 
 	nano::random_generator_mt rng;
 
-	// Rate limiter for all types of requests
-	nano::rate_limiter limiter;
-	// Requests for accounts from database have much lower hitrate and could introduce strain on the network
-	// A separate (lower) limiter ensures that we always reserve resources for querying accounts from priority queue
+	// Per-strategy rate limiters
+	nano::rate_limiter priority_limiter;
 	nano::rate_limiter database_limiter;
-	// Rate limiter for frontier requests
-	nano::rate_limiter frontiers_limiter;
+	nano::rate_limiter dependency_limiter;
+	nano::rate_limiter frontier_limiter;
 
 	// Per-source placeholder channels. Tagging block_processor submissions with a distinct
 	// channel per source gives each its own fair-queue bucket, so the processor round-robins

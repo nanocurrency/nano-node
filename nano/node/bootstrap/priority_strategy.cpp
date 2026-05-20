@@ -61,7 +61,7 @@ void priority_strategy::run_one ()
 		refill (batch);
 	}
 
-	auto channel = ctx.wait_channel ();
+	auto channel = ctx.wait_channel (strategy::priority);
 	if (!channel)
 	{
 		return;

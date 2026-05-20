@@ -42,7 +42,7 @@ void database_strategy::run_one (bool should_throttle)
 {
 	ctx.wait_block_processor (query_source::database);
 
-	auto channel = ctx.wait_channel ();
+	auto channel = ctx.wait_channel (strategy::database);
 	if (!channel)
 	{
 		return;
@@ -65,8 +65,8 @@ std::optional<blocks_query> database_strategy::next_database (bool should_thrott
 	debug_assert (!ctx.mutex.try_lock ());
 	debug_assert (ctx.config.database_warmup_ratio > 0);
 
-	// Throttling increases the weight of database requests
-	if (!ctx.database_limiter.try_consume (should_throttle ? ctx.config.database_warmup_ratio : 1))
+	// wait_channel already consumes the first database limiter token
+	if (should_throttle && !ctx.database_limiter.try_consume (ctx.config.database_warmup_ratio - 1))
 	{
 		return std::nullopt;
 	}

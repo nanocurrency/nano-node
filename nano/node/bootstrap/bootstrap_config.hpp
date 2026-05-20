@@ -53,16 +53,21 @@ public:
 
 	// Maximum number of un-responded requests per channel, should be lower or equal to bootstrap server max queue size
 	std::size_t channel_limit{ 16 };
+	std::size_t max_requests{ 1000 };
+	std::chrono::milliseconds request_timeout{ 1000 * 15 };
+
+	// Global rate_limit is retained for back-compat config keys but is no longer applied; rate limiting is per-strategy
 	std::size_t rate_limit{ 500 };
+	std::size_t priority_rate_limit{ 500 };
 	std::size_t database_rate_limit{ 250 };
-	std::size_t frontier_rate_limit{ 8 };
+	std::size_t dependency_rate_limit{ 500 };
+	std::size_t frontier_rate_limit{ 15 };
+
 	std::size_t database_warmup_ratio{ 10 };
 	std::size_t max_pull_count{ nano::bootstrap_server::max_blocks };
-	std::chrono::milliseconds request_timeout{ 1000 * 15 };
-	std::size_t throttle_coefficient{ 8 * 1024 };
+	std::size_t throttle_coefficient{ 8000 };
 	std::chrono::milliseconds throttle_wait{ 100 };
 	std::size_t block_processor_threshold{ 1000 };
-	std::size_t max_requests{ 1024 };
 	unsigned optimistic_request_percentage{ 75 };
 
 	account_sets_config account_sets;
