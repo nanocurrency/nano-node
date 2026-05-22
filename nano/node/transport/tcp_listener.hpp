@@ -56,9 +56,10 @@ public:
 
 	/**
 	 * @param port is optional, if 0 then default peering port is used
+	 * @param callback is optional, invoked with the final outcome of the connection attempt
 	 * @return true if connection attempt was initiated
 	 */
-	bool connect (asio::ip::address ip, uint16_t port = 0);
+	bool connect (asio::ip::address ip, uint16_t port = 0, connect_callback callback = {});
 
 	nano::tcp_endpoint endpoint () const;
 
@@ -92,7 +93,7 @@ private:
 	void purge (nano::unique_lock<nano::mutex> &);
 	void timeout ();
 
-	asio::awaitable<void> connect_impl (asio::ip::tcp::endpoint);
+	asio::awaitable<void> connect_impl (asio::ip::tcp::endpoint, connect_callback callback);
 	asio::awaitable<asio::ip::tcp::socket> connect_socket (asio::ip::tcp::endpoint);
 
 	struct accept_return
@@ -162,4 +163,7 @@ private:
 
 std::string_view to_string (tcp_listener::connection_type);
 std::string_view to_string (tcp_listener::accept_result);
+
+// Maps a connection rejection result to the corresponding error code
+std::error_code to_error_code (tcp_listener::accept_result);
 }

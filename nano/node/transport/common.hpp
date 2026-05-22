@@ -1,9 +1,16 @@
 #pragma once
 
+#include <nano/lib/network_types.hpp>
+
+#include <functional>
 #include <string_view>
+#include <system_error>
 
 namespace nano::transport
 {
+/** Completion callback for an outbound connection attempt. An empty error code indicates success. */
+using connect_callback = std::function<void (nano::tcp_endpoint const & endpoint, std::error_code ec)>;
+
 /** Policy to affect at which stage a buffer can be dropped */
 enum class buffer_drop_policy
 {

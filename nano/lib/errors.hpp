@@ -185,6 +185,18 @@ enum class error_config
 	invalid_value,
 	missing_value
 };
+
+/** Peer connection related errors */
+enum class error_network
+{
+	generic = 1,
+	connection_rejected_locally,
+	peer_excluded,
+	max_connections_per_ip,
+	max_connections_per_subnetwork,
+	max_inbound_connections,
+	max_outbound_connections
+};
 } // nano errors
 
 REGISTER_ERROR_CODES (nano, error_common);
@@ -192,6 +204,7 @@ REGISTER_ERROR_CODES (nano, error_blocks);
 REGISTER_ERROR_CODES (nano, error_rpc);
 REGISTER_ERROR_CODES (nano, error_process);
 REGISTER_ERROR_CODES (nano, error_config);
+REGISTER_ERROR_CODES (nano, error_network);
 
 namespace nano
 {

@@ -519,12 +519,12 @@ bool nano::transport::tcp_server::to_realtime_connection (nano::account const & 
 		return false;
 	}
 
-	auto channel_l = node.network.tcp_channels.create (socket, shared_from_this (), node_id, flags);
-	if (!channel_l)
+	auto create_result = node.network.tcp_channels.create (socket, shared_from_this (), node_id, flags);
+	if (!create_result.channel)
 	{
 		return false;
 	}
-	channel = channel_l;
+	channel = create_result.channel;
 
 	socket->type_set (nano::transport::socket_type::realtime);
 

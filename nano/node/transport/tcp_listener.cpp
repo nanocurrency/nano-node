@@ -1,4 +1,5 @@
 #include <nano/lib/enum_util.hpp>
+#include <nano/lib/errors.hpp>
 #include <nano/lib/interval.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/network_formatting.hpp>
@@ -255,7 +256,7 @@ void nano::transport::tcp_listener::timeout ()
 	}
 }
 
-bool nano::transport::tcp_listener::connect (asio::ip::address ip, uint16_t port)
+bool nano::transport::tcp_listener::connect (asio::ip::address ip, uint16_t port, connect_callback callback)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
@@ -300,14 +301,14 @@ bool nano::transport::tcp_listener::connect (asio::ip::address ip, uint16_t port
 	stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::connect_initiate, nano::stat::dir::out);
 	logger.debug (nano::log::type::tcp_listener, "Initiating outgoing connection to: {}", endpoint);
 
-	auto task = nano::async::task (strand, connect_impl (endpoint));
+	auto task = nano::async::task (strand, connect_impl (endpoint, std::move (callback)));
 
 	attempts.emplace_back (attempt{ endpoint, std::move (task) });
 
 	return true; // Attempt started
 }
 
-auto nano::transport::tcp_listener::connect_impl (asio::ip::tcp::endpoint endpoint) -> asio::awaitable<void>
+auto nano::transport::tcp_listener::connect_impl (asio::ip::tcp::endpoint endpoint, connect_callback callback) -> asio::awaitable<void>
 {
 	debug_assert (strand.running_in_this_thread ());
 
@@ -321,11 +322,19 @@ auto nano::transport::tcp_listener::connect_impl (asio::ip::tcp::endpoint endpoi
 		{
 			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::connect_success, nano::stat::dir::out);
 			logger.debug (nano::log::type::tcp_listener, "Successfully connected to: {}", endpoint);
+			if (callback)
+			{
+				callback (endpoint, {}); // No error
+			}
 		}
 		else
 		{
 			stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::connect_failure, nano::stat::dir::out);
-			// Refusal reason should be logged earlier
+			// Report the specific local-rejection reason to the callback
+			if (callback)
+			{
+				callback (endpoint, to_error_code (result.result));
+			}
 		}
 	}
 	catch (boost::system::system_error const & ex)
@@ -333,6 +342,10 @@ auto nano::transport::tcp_listener::connect_impl (asio::ip::tcp::endpoint endpoi
 		stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::connect_error, nano::stat::dir::out);
 		stats.inc (nano::stat::type::tcp_listener_connect_ec, nano::to_stat_detail (ex.code ()));
 		logger.log (nano::log::level::debug, nano::log::type::tcp_listener, "Error connecting to: {} ({})", endpoint, ex.code ());
+		if (callback)
+		{
+			callback (endpoint, ex.code ());
+		}
 	}
 }
 
@@ -664,4 +677,28 @@ std::string_view nano::transport::to_string (nano::transport::tcp_listener::conn
 std::string_view nano::transport::to_string (nano::transport::tcp_listener::accept_result result)
 {
 	return nano::enum_to_string (result);
+}
+
+std::error_code nano::transport::to_error_code (nano::transport::tcp_listener::accept_result result)
+{
+	using accept_result = nano::transport::tcp_listener::accept_result;
+	switch (result)
+	{
+		case accept_result::rejected_excluded:
+			return nano::error_network::peer_excluded;
+		case accept_result::rejected_max_per_ip:
+			return nano::error_network::max_connections_per_ip;
+		case accept_result::rejected_max_per_subnetwork:
+			return nano::error_network::max_connections_per_subnetwork;
+		case accept_result::rejected_max_inbound:
+			return nano::error_network::max_inbound_connections;
+		case accept_result::rejected_max_outbound:
+			return nano::error_network::max_outbound_connections;
+		case accept_result::invalid:
+		case accept_result::accepted:
+		case accept_result::rejected:
+		case accept_result::error:
+			break;
+	}
+	return nano::error_network::connection_rejected_locally;
 }
