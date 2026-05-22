@@ -9,3 +9,4 @@ std::string_view nano::to_string (nano::node_capabilities value)
 
 template std::ostream & nano::operator<< <nano::node_capabilities> (std::ostream &, nano::node_capabilities_flags const &);
 template std::string nano::to_string<nano::node_capabilities> (nano::node_capabilities_flags const &);
+template std::vector<std::string> nano::to_string_list<nano::node_capabilities> (nano::node_capabilities_flags const &);

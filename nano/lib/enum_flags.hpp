@@ -3,6 +3,7 @@
 #include <iosfwd>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 namespace nano
 {
@@ -14,6 +15,9 @@ std::ostream & operator<< (std::ostream &, enum_flags<E> const &);
 
 template <typename E>
 std::string to_string (enum_flags<E> const &);
+
+template <typename E>
+std::vector<std::string> to_string_list (enum_flags<E> const &);
 
 /**
  * Type-safe wrapper for flag enums (bitfields)

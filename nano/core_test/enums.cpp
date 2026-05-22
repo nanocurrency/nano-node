@@ -267,3 +267,40 @@ TEST (enum_flags, to_string_all)
 	flags.set (test_flags::gamma);
 	ASSERT_EQ (to_string (flags), "alpha, beta, gamma");
 }
+
+TEST (enum_flags, to_string_list_none)
+{
+	nano::enum_flags<test_flags> flags;
+	ASSERT_TRUE (to_string_list (flags).empty ());
+}
+
+TEST (enum_flags, to_string_list_single)
+{
+	nano::enum_flags<test_flags> flags{ test_flags::beta };
+	ASSERT_EQ (to_string_list (flags), (std::vector<std::string>{ "beta" }));
+}
+
+TEST (enum_flags, to_string_list_multiple)
+{
+	nano::enum_flags<test_flags> flags;
+	flags.set (test_flags::alpha);
+	flags.set (test_flags::gamma);
+	ASSERT_EQ (to_string_list (flags), (std::vector<std::string>{ "alpha", "gamma" }));
+}
+
+TEST (enum_flags, to_string_list_unknown)
+{
+	// Bits not covered by known enum values are reported as unknown(0x..)
+	nano::node_capabilities_flags flags{ nano::node_capabilities::topo_index };
+	flags.underlying () |= (1ULL << 8); // simulate an unknown capability advertised by a newer peer
+	ASSERT_EQ (to_string_list (flags), (std::vector<std::string>{ "topo_index", "unknown(0x100)" }));
+}
+
+TEST (enum_flags, to_string_unknown_narrow_underlying)
+{
+	// Unknown bits of a narrow (uint8_t) underlying type must format as a hex number, not a char
+	nano::enum_flags<test_flags> flags{ test_flags::alpha };
+	flags.underlying () |= 0x48; // unknown bits 0x08 | 0x40; 0x48 is the ASCII code for 'H'
+	ASSERT_EQ (to_string (flags), "alpha, unknown(0x48)");
+	ASSERT_EQ (to_string_list (flags), (std::vector<std::string>{ "alpha", "unknown(0x48)" }));
+}
