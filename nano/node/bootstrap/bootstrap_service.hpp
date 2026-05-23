@@ -12,7 +12,7 @@ namespace nano
 class bootstrap_service
 {
 public:
-	bootstrap_service (nano::node_config const &, nano::ledger &, nano::ledger_notifications &, nano::block_processor &, nano::network &, nano::stats &, nano::logger &);
+	bootstrap_service (nano::node_config const &, nano::node &, nano::ledger &, nano::ledger_notifications &, nano::block_processor &, nano::network &, nano::stats &, nano::logger &);
 	~bootstrap_service ();
 
 	void start ();

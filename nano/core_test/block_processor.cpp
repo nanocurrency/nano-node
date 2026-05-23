@@ -7,6 +7,7 @@
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/transport/null_channel.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/test_common/chains.hpp>
@@ -395,6 +396,59 @@ TEST (block_processor, add_many_empty)
 	auto added = node.block_processor.add_many (empty, nano::block_source::live);
 	ASSERT_EQ (added, 0);
 	ASSERT_EQ (node.ledger.block_count (), 1);
+}
+
+/*
+ * Tests that blocks are queued in separate fair queue buckets per (source, channel) origin and
+ * that the size overloads read a single bucket, not an aggregate.
+ */
+TEST (block_processor, size_per_channel)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// Freeze processing so queued blocks stay in place for deterministic size checks
+	node.block_processor.stop ();
+
+	auto channel1 = std::make_shared<nano::transport::null_channel> (node);
+	auto channel2 = std::make_shared<nano::transport::null_channel> (node);
+
+	auto latest = nano::dev::genesis->hash ();
+	auto balance = nano::dev::constants.genesis_amount;
+	auto make_send = [&] () {
+		nano::keypair key;
+		nano::block_builder builder;
+		balance -= nano::Knano_ratio;
+		auto send = builder
+					.state ()
+					.account (nano::dev::genesis_key.pub)
+					.previous (latest)
+					.representative (nano::dev::genesis_key.pub)
+					.balance (balance)
+					.link (key.pub)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (latest))
+					.build ();
+		latest = send->hash ();
+		return send;
+	};
+
+	// Same source split across two channel keys plus the null channel: three distinct buckets
+	ASSERT_TRUE (node.block_processor.add (make_send (), nano::block_source::bootstrap, channel1));
+	ASSERT_TRUE (node.block_processor.add (make_send (), nano::block_source::bootstrap, channel1));
+	ASSERT_TRUE (node.block_processor.add (make_send (), nano::block_source::bootstrap, channel1));
+	ASSERT_TRUE (node.block_processor.add (make_send (), nano::block_source::bootstrap, channel2));
+	ASSERT_TRUE (node.block_processor.add (make_send (), nano::block_source::bootstrap, channel2));
+	ASSERT_TRUE (node.block_processor.add (make_send (), nano::block_source::bootstrap));
+
+	ASSERT_EQ (node.block_processor.size (nano::block_source::bootstrap, channel1), 3);
+	ASSERT_EQ (node.block_processor.size (nano::block_source::bootstrap, channel2), 2);
+	// The single argument overload reads the null channel bucket, not the sum across channels
+	ASSERT_EQ (node.block_processor.size (nano::block_source::bootstrap), 1);
+	ASSERT_EQ (node.block_processor.size (), 6);
+
+	// Same channel under a different source is yet another bucket
+	ASSERT_EQ (node.block_processor.size (nano::block_source::live, channel1), 0);
 }
 
 TEST (block_processor, backlog_throttling)

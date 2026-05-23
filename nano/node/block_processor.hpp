@@ -94,6 +94,8 @@ public:
 	std::size_t size () const;
 	/// Number of queued blocks from the given source
 	std::size_t size (nano::block_source) const;
+	/// Number of queued blocks in the fair queue bucket for the given source and channel
+	std::size_t size (nano::block_source, std::shared_ptr<nano::transport::channel> const & channel) const;
 
 	nano::container_info container_info () const;
 

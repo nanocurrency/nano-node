@@ -110,6 +110,12 @@ std::size_t nano::block_processor::size (nano::block_source source) const
 	return queue.size ({ source });
 }
 
+std::size_t nano::block_processor::size (nano::block_source source, std::shared_ptr<nano::transport::channel> const & channel) const
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	return queue.size ({ source, channel });
+}
+
 bool nano::block_processor::add (std::shared_ptr<nano::block> const & block, block_source const source, std::shared_ptr<nano::transport::channel> const & channel, std::function<void (nano::block_status)> callback, std::any tag)
 {
 	if (network_params.work.validate_entry (*block)) // true => error
@@ -147,6 +153,7 @@ std::size_t nano::block_processor::add_many (std::deque<std::shared_ptr<nano::bl
 		}
 		else
 		{
+			// Copy, not move: the same tag is applied to every block in the batch
 			contexts.emplace_back (block, source, nullptr, tag);
 		}
 	}

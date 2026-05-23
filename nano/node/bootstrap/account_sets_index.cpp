@@ -175,10 +175,11 @@ void account_sets_index::timestamp_set (const nano::account & account)
 {
 	debug_assert (!account.is_zero ());
 
-	auto iter = priorities.get<tag_account> ().find (account);
-	if (iter != priorities.get<tag_account> ().end ())
+	auto it = priorities.get<tag_account> ().find (account);
+	if (it != priorities.get<tag_account> ().end ())
 	{
-		priorities.get<tag_account> ().modify (iter, [] (auto & entry) {
+		stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::timestamp_set);
+		priorities.get<tag_account> ().modify (it, [] (auto & entry) {
 			entry.timestamp = std::chrono::steady_clock::now ();
 		});
 	}
@@ -188,10 +189,11 @@ void account_sets_index::timestamp_reset (const nano::account & account)
 {
 	debug_assert (!account.is_zero ());
 
-	auto iter = priorities.get<tag_account> ().find (account);
-	if (iter != priorities.get<tag_account> ().end ())
+	auto it = priorities.get<tag_account> ().find (account);
+	if (it != priorities.get<tag_account> ().end ())
 	{
-		priorities.get<tag_account> ().modify (iter, [] (auto & entry) {
+		stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::timestamp_reset);
+		priorities.get<tag_account> ().modify (it, [] (auto & entry) {
 			entry.timestamp = {};
 		});
 	}
@@ -209,7 +211,6 @@ void account_sets_index::dependency_update (nano::block_hash const & hash, nano:
 			if (it->dependency_account != dependency_account)
 			{
 				stats.inc (nano::stat::type::bootstrap_account_sets, nano::stat::detail::dependency_update);
-
 				blocking.get<tag_dependency> ().modify (it++, [dependency_account] (auto & entry) {
 					entry.dependency_account = dependency_account;
 				});

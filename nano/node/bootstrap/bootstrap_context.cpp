@@ -17,6 +17,7 @@
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/formatting.hpp>
+#include <nano/node/transport/null_channel.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
@@ -28,7 +29,7 @@ using namespace std::chrono_literals;
 
 namespace nano::bootstrap
 {
-bootstrap_context::bootstrap_context (nano::node_config const & node_config_a, nano::ledger & ledger_a,
+bootstrap_context::bootstrap_context (nano::node_config const & node_config_a, nano::node & node_a, nano::ledger & ledger_a,
 nano::ledger_notifications & ledger_notifications_a, nano::block_processor & block_processor_a, nano::network & network_a, nano::stats & stat_a, nano::logger & logger_a) :
 	config{ *node_config_a.bootstrap },
 	network_constants{ node_config_a.network_params.network },
@@ -54,6 +55,8 @@ nano::ledger_notifications & ledger_notifications_a, nano::block_processor & blo
 	limiter{ config.rate_limit },
 	database_limiter{ config.database_rate_limit },
 	frontiers_limiter{ config.frontier_rate_limit },
+	priority_channel{ std::make_shared<nano::transport::null_channel> (node_a) },
+	database_channel{ std::make_shared<nano::transport::null_channel> (node_a) },
 	workers{ 1, nano::thread_role::name::bootstrap_worker }
 {
 	// Inspect all processed blocks
@@ -234,11 +237,35 @@ void bootstrap_context::wait (std::function<bool ()> const & predicate) const
 	}
 }
 
-void bootstrap_context::wait_block_processor () const
+void bootstrap_context::wait_block_processor (nano::bootstrap::query_source source) const
 {
-	wait ([this] () {
-		return block_processor.size (nano::block_source::bootstrap) < config.block_processor_threshold;
+	auto const & channel = submission_channel (source);
+	wait ([&] () {
+		// Gate on this source's own fair-queue bucket, not the aggregate bootstrap backlog,
+		// so sources don't block each other on a shared gauge.
+		bool should_pass = block_processor.size (nano::block_source::bootstrap, channel) < config.block_processor_threshold;
+		if (!should_pass)
+		{
+			stats.inc (nano::stat::type::bootstrap_wait_block_processor, to_stat_detail (source));
+		}
+		return should_pass;
 	});
+}
+
+std::shared_ptr<nano::transport::channel> const & bootstrap_context::submission_channel (nano::bootstrap::query_source source) const
+{
+	switch (source)
+	{
+		case query_source::priority:
+			return priority_channel;
+		case query_source::database:
+			return database_channel;
+		case query_source::dependencies:
+		case query_source::frontiers:
+		case query_source::invalid:
+			break; // These sources do not submit blocks to the processor
+	}
+	release_assert (false);
 }
 
 std::shared_ptr<nano::transport::channel> bootstrap_context::wait_channel ()
@@ -547,10 +574,10 @@ void bootstrap_context::submit_blocks (std::deque<std::shared_ptr<nano::block>> 
 		return;
 	}
 
-	block_processor.add_many (blocks, nano::block_source::bootstrap, nullptr, [this, account = tag.account] (auto result) {
-		// It's the last block submitted for this account chain, reset timestamp to allow more requests
-		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::timestamp_reset);
+	block_processor.add_many (blocks, nano::block_source::bootstrap, submission_channel (tag.source), [this, account = tag.account] (auto result) {
+		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::submission_complete);
 		{
+			// It's the last block submitted for this account chain, reset timestamp to allow more requests
 			nano::lock_guard<nano::mutex> guard{ mutex };
 			accounts.timestamp_reset (account);
 		}

@@ -40,7 +40,7 @@ void database_strategy::run ()
 
 void database_strategy::run_one (bool should_throttle)
 {
-	ctx.wait_block_processor ();
+	ctx.wait_block_processor (query_source::database);
 
 	auto channel = ctx.wait_channel ();
 	if (!channel)
