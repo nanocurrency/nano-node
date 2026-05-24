@@ -22,6 +22,7 @@
 #include <boost/multi_index_container.hpp>
 
 #include <chrono>
+#include <deque>
 #include <memory>
 #include <thread>
 
@@ -94,6 +95,9 @@ private:
 
 	// Inserts the tag and transmits the message over the channel
 	bool transmit (std::shared_ptr<nano::transport::channel> const &, nano::messages::asc_pull_req && message, async_tag tag);
+
+	// Filters out blocks already present in the ledger and submits the rest to the block processor
+	void submit_blocks (std::deque<std::shared_ptr<nano::block>> blocks, async_tag const & tag);
 
 	void maintenance (nano::unique_lock<nano::mutex> & lock);
 	void run_maintenance ();

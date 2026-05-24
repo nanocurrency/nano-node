@@ -475,29 +475,9 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload co
 			stats.inc (nano::stat::type::bootstrap_verify_blocks, nano::stat::detail::ok);
 			stats.add (nano::stat::type::bootstrap, nano::stat::detail::blocks, nano::stat::dir::in, response.blocks.size ());
 
-			auto blocks = response.blocks;
-
-			// Avoid re-processing the block we already have
-			release_assert (blocks.size () >= 1);
-			if (blocks.front ()->hash () == query.start.as_block_hash ())
-			{
-				blocks.pop_front ();
-			}
-
-			block_processor.add_many (blocks, nano::block_source::bootstrap, nullptr, [this, account = tag.account] (auto result) {
-				// It's the last block submitted for this account chain, reset timestamp to allow more requests
-				stats.inc (nano::stat::type::bootstrap, nano::stat::detail::timestamp_reset);
-				{
-					nano::lock_guard<nano::mutex> guard{ mutex };
-					accounts.timestamp_reset (account);
-				}
-				condition.notify_all ();
+			workers.post ([this, blocks = response.blocks, tag] () mutable {
+				submit_blocks (std::move (blocks), tag);
 			});
-
-			if (tag.source == query_source::database)
-			{
-				throttle.add (true);
-			}
 		}
 		break;
 		case verify_result::nothing_new:
@@ -523,6 +503,65 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload co
 	}
 
 	return result != verify_result::invalid;
+}
+
+void bootstrap_context::submit_blocks (std::deque<std::shared_ptr<nano::block>> blocks, async_tag const & tag)
+{
+	release_assert (std::holds_alternative<blocks_query> (tag.query));
+	auto const & query = std::get<blocks_query> (tag.query);
+
+	// Avoid re-processing the block we already have (the echoed cursor)
+	release_assert (!blocks.empty ());
+	if (blocks.front ()->hash () == query.start.as_block_hash ())
+	{
+		blocks.pop_front ();
+	}
+
+	// Drop the leading run of blocks already in the ledger, otherwise they take a slot in the
+	// block processor's bounded queue only to come back as `old`. Common when priority and topology run together.
+	// The response is a contiguous chain, so present blocks form a prefix: stop at the first missing block, and the rest have their `previous` in the ledger.
+	size_t filtered = 0;
+	{
+		auto transaction = ledger.tx_begin_read ();
+		while (!blocks.empty () && ledger.any.block_exists_or_pruned (transaction, blocks.front ()->hash ()))
+		{
+			blocks.pop_front ();
+			++filtered;
+		}
+	}
+	stats.add (nano::stat::type::bootstrap, nano::stat::detail::filtered_blocks, filtered);
+
+	if (blocks.empty ())
+	{
+		// Whole response already in the ledger. Mirror an all-`old` submission: release the account
+		// cooldown for re-sampling without lowering priority, and count the database pull as unproductive so the throttle can back off.
+		{
+			nano::lock_guard<nano::mutex> guard{ mutex };
+			accounts.timestamp_reset (tag.account);
+			if (tag.source == query_source::database)
+			{
+				throttle.add (false);
+			}
+		}
+		condition.notify_all ();
+		return;
+	}
+
+	block_processor.add_many (blocks, nano::block_source::bootstrap, nullptr, [this, account = tag.account] (auto result) {
+		// It's the last block submitted for this account chain, reset timestamp to allow more requests
+		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::timestamp_reset);
+		{
+			nano::lock_guard<nano::mutex> guard{ mutex };
+			accounts.timestamp_reset (account);
+		}
+		condition.notify_all ();
+	});
+
+	if (tag.source == query_source::database)
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		throttle.add (true);
+	}
 }
 
 bool bootstrap_context::process (nano::messages::asc_pull_ack::account_info_payload const & response, async_tag const & tag)
