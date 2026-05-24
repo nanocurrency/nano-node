@@ -34,6 +34,8 @@ public:
 	nano::error serialize (nano::tomlconfig & toml) const;
 
 public:
+	// Enable or disable starting elections
+	bool enable{ true };
 	// Maximum number of simultaneous active elections (AEC size)
 	std::size_t size{ 5000 };
 	// Limit of hinted elections as percentage of `active_elections_size`

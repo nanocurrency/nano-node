@@ -137,6 +137,7 @@ public:
 	std::vector<std::string> rpc_config_overrides;
 	bool disable_add_initial_peers{ false };
 	bool disable_activate_successors{ false };
+	bool disable_elections{ false };
 	bool disable_backup{ false };
 	bool disable_lazy_bootstrap{ false };
 	bool disable_legacy_bootstrap{ false };
@@ -174,4 +175,7 @@ public:
 	std::size_t bootstrap_interval{ 0 };
 	std::optional<nano::node_capabilities_flags> capabilities_override;
 };
+
+// Returns a copy of `config` with flag overrides applied
+nano::node_config apply_flag_overrides (nano::node_config config, nano::node_flags const & flags);
 }

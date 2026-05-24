@@ -4063,3 +4063,43 @@ TEST (node, port_already_in_use)
 	// Exit gracefully
 	node2->stop ();
 }
+
+/*
+ * The --disable_elections node flag should prevent any elections from starting
+ */
+TEST (node, disable_elections)
+{
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_elections = true;
+	auto & node = *system.add_node (flags);
+
+	// Genesis representative present: with elections enabled blocks would normally start an election and confirm
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	auto send1 = nano::state_block_builder{}
+				 .account (nano::dev::genesis_key.pub)
+				 .representative (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .link (nano::public_key ())
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+
+	// Block flows through the block processor and lands in the ledger
+	node.process_active (send1);
+	ASSERT_TIMELY (5s, nano::test::exists (node, { send1 }));
+
+	// No election ever starts and the block is never confirmed
+	ASSERT_NEVER (1s, !node.active.empty ());
+	ASSERT_FALSE (nano::test::confirmed (node, { send1 }));
+
+	// Inserting an election directly is a no-op as well (master switch in active_elections::insert)
+	auto stored = node.block (send1->hash ());
+	ASSERT_NE (nullptr, stored);
+	auto result = node.active.insert (stored);
+	ASSERT_FALSE (result.inserted);
+	ASSERT_EQ (nullptr, result.election);
+	ASSERT_TRUE (node.active.empty ());
+}

@@ -103,7 +103,7 @@ nano::node::node (uint16_t peering_port_a, std::filesystem::path const & applica
 nano::node::node (std::filesystem::path const & application_path_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
 	application_path{ application_path_a },
 	node_id{ load_or_create_node_id (application_path_a) },
-	config_impl{ std::make_unique<nano::node_config> (config_a) },
+	config_impl{ std::make_unique<nano::node_config> (apply_flag_overrides (config_a, flags_a)) },
 	config{ *config_impl },
 	flags_impl{ std::make_unique<nano::node_flags> (flags_a) },
 	flags{ *flags_impl },
@@ -114,9 +114,9 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	logger{ *logger_impl },
 	stats_impl{ std::make_unique<nano::stats> (logger, config.stats_config) },
 	stats{ *stats_impl },
-	store_impl{ nano::make_store (logger, stats, application_path_a, network_params.ledger, flags.read_only, true, config_a) },
+	store_impl{ nano::make_store (logger, stats, application_path_a, network_params.ledger, flags.read_only, true, config) },
 	store{ *store_impl },
-	wallets_backend_impl{ std::make_unique<nano::wallet::lmdb::wallets_backend_lmdb> (application_path_a / "wallets.ldb", config_a.lmdb_config) },
+	wallets_backend_impl{ std::make_unique<nano::wallet::lmdb::wallets_backend_lmdb> (application_path_a / "wallets.ldb", config.lmdb_config) },
 	wallets_backend{ *wallets_backend_impl },
 	ledger_impl{ std::make_unique<nano::ledger> (store, network_params, stats, logger,
 	nano::ledger_options{
@@ -407,7 +407,12 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 
 	if (flags.super_rebroadcaster)
 	{
-		logger.warn (nano::log::type::node, "Super rebroadcaster mode enabled - broadcasting to all peers (expect high bandwidth usage)");
+		logger.warn (nano::log::type::node, "Super rebroadcaster mode enabled: broadcasting to all peers, expect high bandwidth usage");
+	}
+
+	if (flags.disable_elections)
+	{
+		logger.warn (nano::log::type::node, "Elections disabled: node will pull and process blocks, but will not actively confirm them");
 	}
 
 	if ((network_params.network.is_live_network () || network_params.network.is_beta_network ()) && !flags.inactive_node)
