@@ -1,7 +1,9 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
+#include <nano/store/ledger/extended/account_delegator_by_weight.hpp>
 #include <nano/store/ledger/extended/account_receivable_by_amount.hpp>
 #include <nano/store/ledger/extended/receive_block_by_send_block.hpp>
 #include <nano/store/ledger/pending.hpp>
@@ -14,9 +16,11 @@ void nano::ledger::initialize_extended_ledger_indices ()
 		{
 			logger.warn (nano::log::type::ledger, "Extended ledger index is disabled; existing extended ledger indices will be marked disabled and ignored");
 			auto txn = store.tx_begin_write ();
+			store.version.put_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled, false);
 			store.version.put_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled, false);
 			store.version.put_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled, false);
 		}
+		flags.account_delegator_by_weight_index = false;
 		flags.account_receivable_by_amount_index = false;
 		flags.receive_block_by_send_block_index = false;
 		return;
@@ -32,6 +36,10 @@ void nano::ledger::initialize_extended_ledger_indices ()
 
 void nano::ledger::populate_extended_ledger_indices ()
 {
+	if (!flags.account_delegator_by_weight_index)
+	{
+		populate_account_delegator_by_weight_index ();
+	}
 	if (!flags.account_receivable_by_amount_index)
 	{
 		populate_account_receivable_by_amount_index ();
@@ -48,13 +56,16 @@ void nano::ledger::drop_extended_ledger_indices ()
 
 	{
 		auto txn = store.tx_begin_write ();
+		store.version.put_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled, false);
 		store.version.put_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled, false);
 		store.version.put_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled, false);
 	}
 
+	store.account_delegator_by_weight.clear ();
 	store.account_receivable_by_amount.clear ();
 	store.receive_block_by_send_block.clear ();
 
+	flags.account_delegator_by_weight_index = false;
 	flags.account_receivable_by_amount_index = false;
 	flags.receive_block_by_send_block_index = false;
 }
@@ -83,6 +94,28 @@ void nano::ledger::populate_receive_block_by_send_block_index ()
 
 	flags.receive_block_by_send_block_index = true;
 	logger.info (nano::log::type::ledger_upgrade, "Done populating receive block by send block index with {} entries", indexed);
+}
+
+void nano::ledger::populate_account_delegator_by_weight_index ()
+{
+	release_assert (store.get_mode () != nano::store::open_mode::read_only, "extended ledger indices cannot be populated while the backend is opened in read-only mode");
+
+	logger.info (nano::log::type::ledger_upgrade, "Populating account delegators by weight index...");
+	store.account_delegator_by_weight.clear ();
+
+	uint64_t indexed{ 0 };
+	{
+		auto txn = store.tx_begin_write ();
+		for (auto i = store.account.begin (txn), n = store.account.end (txn); i != n; ++i)
+		{
+			store.account_delegator_by_weight.put (txn, { i->second.representative, i->second.balance, i->first });
+			++indexed;
+		}
+		store.version.put_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled, true);
+	}
+
+	flags.account_delegator_by_weight_index = true;
+	logger.info (nano::log::type::ledger_upgrade, "Done populating account delegators by weight index with {} entries", indexed);
 }
 
 void nano::ledger::populate_account_receivable_by_amount_index ()

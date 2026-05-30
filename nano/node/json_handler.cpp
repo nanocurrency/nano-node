@@ -39,6 +39,7 @@
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
+#include <nano/store/ledger/extended/account_delegator_by_weight.hpp>
 #include <nano/store/ledger/extended/account_receivable_by_amount.hpp>
 #include <nano/store/ledger/pending.hpp>
 #include <nano/store/ledger/pruned.hpp>
@@ -2307,16 +2308,46 @@ void nano::json_handler::delegators ()
 	{
 		auto transaction (node.ledger.tx_begin_read ());
 		boost::property_tree::ptree delegators;
-		for (auto i (node.store.account.begin (transaction, inc_sat (start_account.number ()))), n (node.store.account.end (transaction)); i != n && delegators.size () < count; ++i)
+		if (node.ledger.flags.account_delegator_by_weight_index)
 		{
-			nano::account_info const & info (i->second);
-			if (info.representative == representative)
+			std::vector<std::pair<nano::account, nano::amount>> entries;
+			for (auto i = node.store.account_delegator_by_weight.begin (transaction, { representative, threshold, 0 }), n = node.store.account_delegator_by_weight.end (transaction); i != n; ++i)
 			{
-				if (info.balance.number () >= threshold.number ())
+				auto const & key = i->first;
+				if (key.representative != representative)
 				{
-					std::string balance = nano::uint128_union (info.balance).to_string_dec ();
-					nano::account const & delegator (i->first);
-					delegators.put (delegator.to_account (), balance);
+					break;
+				}
+				if (key.delegator.number () > start_account.number ())
+				{
+					entries.emplace_back (key.delegator, key.weight);
+				}
+			}
+			std::sort (entries.begin (), entries.end (), [] (auto const & lhs, auto const & rhs) {
+				return lhs.first < rhs.first;
+			});
+			for (auto const & [delegator, balance] : entries)
+			{
+				if (delegators.size () >= count)
+				{
+					break;
+				}
+				delegators.put (delegator.to_account (), nano::uint128_union (balance).to_string_dec ());
+			}
+		}
+		else
+		{
+			for (auto i (node.store.account.begin (transaction, inc_sat (start_account.number ()))), n (node.store.account.end (transaction)); i != n && delegators.size () < count; ++i)
+			{
+				nano::account_info const & info (i->second);
+				if (info.representative == representative)
+				{
+					if (info.balance.number () >= threshold.number ())
+					{
+						std::string balance = nano::uint128_union (info.balance).to_string_dec ();
+						nano::account const & delegator (i->first);
+						delegators.put (delegator.to_account (), balance);
+					}
 				}
 			}
 		}
@@ -2332,12 +2363,26 @@ void nano::json_handler::delegators_count ()
 	{
 		uint64_t count (0);
 		auto transaction (node.ledger.tx_begin_read ());
-		for (auto i (node.store.account.begin (transaction)), n (node.store.account.end (transaction)); i != n; ++i)
+		if (node.ledger.flags.account_delegator_by_weight_index)
 		{
-			nano::account_info const & info (i->second);
-			if (info.representative == account)
+			for (auto i = node.store.account_delegator_by_weight.begin (transaction, { account, 0, 0 }), n = node.store.account_delegator_by_weight.end (transaction); i != n; ++i)
 			{
+				if (i->first.representative != account)
+				{
+					break;
+				}
 				++count;
+			}
+		}
+		else
+		{
+			for (auto i (node.store.account.begin (transaction)), n (node.store.account.end (transaction)); i != n; ++i)
+			{
+				nano::account_info const & info (i->second);
+				if (info.representative == account)
+				{
+					++count;
+				}
 			}
 		}
 		response_l.put ("count", std::to_string (count));

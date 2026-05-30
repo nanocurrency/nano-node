@@ -11,6 +11,7 @@
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
+#include <nano/store/ledger/extended/account_delegator_by_weight.hpp>
 #include <nano/store/ledger/extended/account_receivable_by_amount.hpp>
 #include <nano/store/ledger/extended/receive_block_by_send_block.hpp>
 #include <nano/store/ledger/final_vote.hpp>
@@ -27,6 +28,7 @@
 namespace nano::store
 {
 nano::store::column_schema const ledger_store::schema_current{
+	{ nano::store::table::account_delegator_by_weight, "account_delegator_by_weight" },
 	{ nano::store::table::account_receivable_by_amount, "account_receivable_by_amount" },
 	{ nano::store::table::blocks, "blocks" },
 	{ nano::store::table::accounts, "accounts" },
@@ -51,6 +53,7 @@ ledger_store::ledger_store (std::unique_ptr<nano::store::backend> backend_a, nan
 	logger{ logger_a },
 	backend_impl{ std::move (backend_a) },
 	successor_impl{ std::make_unique<nano::store::ledger::successor_view> (*backend_impl) },
+	account_delegator_by_weight_impl{ std::make_unique<nano::store::ledger::account_delegator_by_weight_view> (*backend_impl) },
 	account_receivable_by_amount_impl{ std::make_unique<nano::store::ledger::account_receivable_by_amount_view> (*backend_impl) },
 	block_impl{ std::make_unique<nano::store::ledger::block_view> (*backend_impl, *successor_impl) },
 	account_impl{ std::make_unique<nano::store::ledger::account_view> (*backend_impl) },
@@ -66,6 +69,7 @@ ledger_store::ledger_store (std::unique_ptr<nano::store::backend> backend_a, nan
 	version_impl{ std::make_unique<nano::store::ledger::version_view> (*backend_impl) },
 	backend{ *backend_impl },
 	successor{ *successor_impl },
+	account_delegator_by_weight{ *account_delegator_by_weight_impl },
 	account_receivable_by_amount{ *account_receivable_by_amount_impl },
 	block{ *block_impl },
 	account{ *account_impl },

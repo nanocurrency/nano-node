@@ -15,6 +15,8 @@ add_library(
   generate_cache_flags.hpp
   ledger.hpp
   ledger.cpp
+  extended/account_delegator_by_weight_key.hpp
+  extended/account_delegator_by_weight_key.cpp
   extended/account_receivable_by_amount_info.hpp
   extended/account_receivable_by_amount_info.cpp
   extended/account_receivable_by_amount_key.hpp

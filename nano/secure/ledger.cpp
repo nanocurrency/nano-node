@@ -21,6 +21,7 @@
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
+#include <nano/store/ledger/extended/account_delegator_by_weight.hpp>
 #include <nano/store/ledger/extended/account_receivable_by_amount.hpp>
 #include <nano/store/ledger/extended/receive_block_by_send_block.hpp>
 #include <nano/store/ledger/final_vote.hpp>
@@ -125,11 +126,13 @@ void nano::ledger::initialize ()
 	{
 		auto const transaction = store.tx_begin_read ();
 		flags.topo_index = store.version.get_flag (transaction, nano::store::meta_key::topo_index_enabled);
+		flags.account_delegator_by_weight_index = store.version.get_flag (transaction, nano::store::meta_key::account_delegator_by_weight_index_enabled);
 		flags.account_receivable_by_amount_index = store.version.get_flag (transaction, nano::store::meta_key::account_receivable_by_amount_index_enabled);
 		flags.receive_block_by_send_block_index = store.version.get_flag (transaction, nano::store::meta_key::receive_block_by_send_block_index_enabled);
 
-		logger.debug (nano::log::type::ledger, "Ledger flags loaded: topo_index={}, account_receivable_by_amount={}, receive_block_by_send_block={}",
+		logger.debug (nano::log::type::ledger, "Ledger flags loaded: topo_index={}, account_delegator_by_weight={}, account_receivable_by_amount={}, receive_block_by_send_block={}",
 		flags.topo_index,
+		flags.account_delegator_by_weight_index,
 		flags.account_receivable_by_amount_index,
 		flags.receive_block_by_send_block_index);
 	}
@@ -745,6 +748,10 @@ void nano::ledger::update_account (secure::write_transaction const & transaction
 {
 	if (!new_a.head.is_zero ())
 	{
+		if (flags.account_delegator_by_weight_index && !old_a.head.is_zero ())
+		{
+			store.account_delegator_by_weight.del (transaction_a, { old_a.representative, old_a.balance, account_a });
+		}
 		if (old_a.head.is_zero () && new_a.open_block == new_a.head)
 		{
 			++cache.account_count;
@@ -755,11 +762,19 @@ void nano::ledger::update_account (secure::write_transaction const & transaction
 			store.account.del (transaction_a, account_a);
 		}
 		store.account.put (transaction_a, account_a, new_a);
+		if (flags.account_delegator_by_weight_index)
+		{
+			store.account_delegator_by_weight.put (transaction_a, { new_a.representative, new_a.balance, account_a });
+		}
 	}
 	else
 	{
 		debug_assert (!store.confirmation_height.exists (transaction_a, account_a));
 		store.account.del (transaction_a, account_a);
+		if (flags.account_delegator_by_weight_index && !old_a.head.is_zero ())
+		{
+			store.account_delegator_by_weight.del (transaction_a, { old_a.representative, old_a.balance, account_a });
+		}
 		release_assert (cache.account_count > 0);
 		--cache.account_count;
 	}

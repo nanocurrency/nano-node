@@ -47,12 +47,13 @@ struct ledger_options
 struct ledger_flags
 {
 	bool topo_index{ false };
+	bool account_delegator_by_weight_index{ false };
 	bool account_receivable_by_amount_index{ false };
 	bool receive_block_by_send_block_index{ false };
 
 	bool any_extended_ledger_index_enabled () const
 	{
-		return account_receivable_by_amount_index || receive_block_by_send_block_index;
+		return account_delegator_by_weight_index || account_receivable_by_amount_index || receive_block_by_send_block_index;
 	}
 };
 
@@ -155,6 +156,12 @@ public:
 	 * Intended as a one-time offline upgrade for ledgers initialized before one or more extended indices existed.
 	 */
 	void populate_extended_ledger_indices ();
+
+	/**
+	 * Walk every account in the ledger, index delegators by representative, balance, and account, then enable the delegator weight index flag.
+	 * Intended as part of the extended ledger index upgrade for ledgers initialized before the delegator weight index existed.
+	 */
+	void populate_account_delegator_by_weight_index ();
 
 	/**
 	 * Walk every pending entry in the ledger, index receivables by destination account, amount, and block hash, then enable the receivable amount index flag.

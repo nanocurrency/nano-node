@@ -79,9 +79,11 @@ void nano::ledger_rollback::open_block (nano::open_block const & block_a)
 	auto amount = ledger.any.block_amount (transaction, hash).value ().number ();
 	auto destination_account = block_a.account ();
 	auto source_account = ledger.any.block_account (transaction, block_a.hashables.source);
+	auto old_info = ledger.any.account_get (transaction, destination_account);
+	release_assert (old_info);
 	ledger.rep_weights.sub (transaction, block_a.representative_field ().value (), amount);
 	nano::account_info new_info;
-	ledger.update_account (transaction, destination_account, new_info, new_info);
+	ledger.update_account (transaction, destination_account, *old_info, new_info);
 	ledger.del_block (transaction, hash);
 	ledger.put_pending (transaction, nano::pending_key (destination_account, block_a.hashables.source), { source_account.value_or (0), amount, nano::epoch::epoch_0 });
 	if (block_a.sideband ().topo_height != 0)

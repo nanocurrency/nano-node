@@ -16,6 +16,7 @@ namespace nano
 {
 class account_info;
 class account_info_v22;
+class account_delegator_by_weight_key;
 class account_receivable_by_amount_info;
 class account_receivable_by_amount_key;
 class block;
@@ -77,6 +78,7 @@ public:
 	db_val (nano::qualified_root const &);
 	db_val (nano::account_info const &);
 	db_val (nano::account_info_v22 const &);
+	db_val (nano::account_delegator_by_weight_key const &);
 	db_val (nano::account_receivable_by_amount_info const &);
 	db_val (nano::account_receivable_by_amount_key const &);
 	db_val (nano::pending_info const &);
@@ -94,6 +96,7 @@ public:
 	explicit operator nano::qualified_root () const;
 	explicit operator nano::account_info () const;
 	explicit operator nano::account_info_v22 () const;
+	explicit operator nano::account_delegator_by_weight_key () const;
 	explicit operator nano::account_receivable_by_amount_info () const;
 	explicit operator nano::account_receivable_by_amount_key () const;
 	explicit operator nano::pending_info () const;
