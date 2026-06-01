@@ -21,7 +21,7 @@ namespace nano::bootstrap
 class peer_scoring
 {
 public:
-	static nano::transport::traffic_type constexpr traffic_type = nano::transport::traffic_type::bootstrap_requests;
+	static nano::transport::traffic_type constexpr traffic_type = nano::transport::traffic_type::bootstrap;
 
 public:
 	peer_scoring (bootstrap_config const &, nano::network_constants const &);
