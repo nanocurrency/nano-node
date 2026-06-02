@@ -12,6 +12,7 @@ enum class meta_key : uint64_t
 {
 	version = 1,
 	topo_index_enabled = 8,
+	receive_block_by_send_block_index_enabled = 9,
 };
 
 class meta_view

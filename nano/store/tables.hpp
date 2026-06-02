@@ -18,6 +18,7 @@ enum class table
 	peers,
 	pending,
 	pruned,
+	receive_block_by_send_block,
 	successor,
 	topology,
 	vote,

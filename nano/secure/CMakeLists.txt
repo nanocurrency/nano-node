@@ -15,6 +15,7 @@ add_library(
   generate_cache_flags.hpp
   ledger.hpp
   ledger.cpp
+  ledger_extended_index.cpp
   ledger_topo_index.cpp
   ledger_processor.hpp
   ledger_processor.cpp

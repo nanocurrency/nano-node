@@ -126,7 +126,8 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	.max_backlog = config.max_backlog,
 	// Topo index is incompatible with pruning, so disable it on fresh ledgers when pruning is on
 	// For existing ledgers the persisted meta flag wins, so this only affects first-init
-	.enable_topo_index = !(flags_a.enable_pruning || flags_a.disable_topo_index) }) },
+	.enable_topo_index = !(flags_a.enable_pruning || flags_a.disable_topo_index),
+	.enable_extended_ledger_index = config.extended_ledger_index && !flags_a.enable_pruning && !flags_a.inactive_node }) },
 	ledger{ *ledger_impl },
 	runner_impl{ std::make_unique<nano::thread_runner> (io_ctx_shared, logger, config.io_threads) },
 	runner{ *runner_impl },
@@ -465,6 +466,11 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 		if (ledger.flags.topo_index && !flags.inactive_node)
 		{
 			logger.critical (nano::log::type::node, "Incompatibility detected between topological index and ledger pruning. To proceed, either disable pruning, or run the node with --drop_topo_index to remove the topology index.");
+			std::exit (1);
+		}
+		if (ledger.flags.any_extended_ledger_index_enabled () && !flags.inactive_node)
+		{
+			logger.critical (nano::log::type::node, "Incompatibility detected between extended ledger indices and ledger pruning. To proceed, either disable pruning, or run the node with --drop_extended_ledger_indices to remove the extended ledger indices.");
 			std::exit (1);
 		}
 

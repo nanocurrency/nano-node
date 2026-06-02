@@ -65,7 +65,7 @@ void nano::ledger_processor::send_block (nano::send_block & block_a)
 								/* details */ block_details,
 								/* source_epoch */ nano::epoch::epoch_0,
 								/* topo_height */ topo });
-								ledger.store.block.put (transaction, hash, block_a);
+								ledger.put_block (transaction, hash, block_a);
 								if (topo != 0)
 								{
 									ledger.store.topology.put (transaction, { topo, hash });
@@ -142,7 +142,7 @@ void nano::ledger_processor::receive_block (nano::receive_block & block_a)
 											/* details */ block_details,
 											/* source_epoch */ nano::epoch::epoch_0,
 											/* topo_height */ topo });
-											ledger.store.block.put (transaction, hash, block_a);
+											ledger.put_block (transaction, hash, block_a);
 											if (topo != 0)
 											{
 												ledger.store.topology.put (transaction, { topo, hash });
@@ -212,7 +212,7 @@ void nano::ledger_processor::open_block (nano::open_block & block_a)
 									/* details */ block_details,
 									/* source_epoch */ nano::epoch::epoch_0,
 									/* topo_height */ topo });
-									ledger.store.block.put (transaction, hash, block_a);
+									ledger.put_block (transaction, hash, block_a);
 									if (topo != 0)
 									{
 										ledger.store.topology.put (transaction, { topo, hash });
@@ -269,7 +269,7 @@ void nano::ledger_processor::change_block (nano::change_block & block_a)
 							/* details */ block_details,
 							/* source_epoch */ nano::epoch::epoch_0,
 							/* topo_height */ topo });
-							ledger.store.block.put (transaction, hash, block_a);
+							ledger.put_block (transaction, hash, block_a);
 							if (topo != 0)
 							{
 								ledger.store.topology.put (transaction, { topo, hash });
@@ -416,7 +416,7 @@ void nano::ledger_processor::state_block_impl (nano::state_block & block_a)
 						/* details */ block_details,
 						/* source_epoch */ source_epoch,
 						/* topo_height */ topo });
-						ledger.store.block.put (transaction, hash, block_a);
+						ledger.put_block (transaction, hash, block_a);
 						if (topo != 0)
 						{
 							ledger.store.topology.put (transaction, { topo, hash });
@@ -534,7 +534,7 @@ void nano::ledger_processor::epoch_block_impl (nano::state_block & block_a)
 								/* details */ block_details,
 								/* source_epoch */ nano::epoch::epoch_0,
 								/* topo_height */ topo });
-								ledger.store.block.put (transaction, hash, block_a);
+								ledger.put_block (transaction, hash, block_a);
 								if (topo != 0)
 								{
 									ledger.store.topology.put (transaction, { topo, hash });

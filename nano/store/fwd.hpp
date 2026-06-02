@@ -23,6 +23,7 @@ class online_weight_view;
 class peer_view;
 class pending_view;
 class pruned_view;
+class receive_block_by_send_block_view;
 class successor_view;
 class rep_weight_view;
 class topology_view;

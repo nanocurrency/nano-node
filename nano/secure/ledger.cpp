@@ -21,6 +21,7 @@
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
+#include <nano/store/ledger/extended/receive_block_by_send_block.hpp>
 #include <nano/store/ledger/final_vote.hpp>
 #include <nano/store/ledger/online_weight.hpp>
 #include <nano/store/ledger/peer.hpp>
@@ -123,8 +124,11 @@ void nano::ledger::initialize ()
 	{
 		auto const transaction = store.tx_begin_read ();
 		flags.topo_index = store.version.get_flag (transaction, nano::store::meta_key::topo_index_enabled);
+		flags.receive_block_by_send_block_index = store.version.get_flag (transaction, nano::store::meta_key::receive_block_by_send_block_index_enabled);
 
-		logger.debug (nano::log::type::ledger, "Ledger flags loaded: topo_index={}", flags.topo_index);
+		logger.debug (nano::log::type::ledger, "Ledger flags loaded: topo_index={}, receive_block_by_send_block={}",
+		flags.topo_index,
+		flags.receive_block_by_send_block_index);
 	}
 
 	auto const & generate_cache_flags = options.generate_cache;
@@ -296,6 +300,8 @@ void nano::ledger::initialize ()
 	logger.info (nano::log::type::ledger, "Weight committed: {} | unused: {}",
 	nano::log::as_nano (rep_weights.get_weight_committed ()),
 	nano::log::as_nano (rep_weights.get_weight_unused ()));
+
+	initialize_extended_ledger_indices ();
 }
 
 void nano::ledger::verify_consistency (secure::transaction const & transaction) const
@@ -652,6 +658,15 @@ std::shared_ptr<nano::block> nano::ledger::find_receive_block_by_send_hash (secu
 	std::shared_ptr<nano::block> result;
 	debug_assert (send_block_hash != 0);
 
+	if (flags.receive_block_by_send_block_index)
+	{
+		if (auto receive_block_hash = store.receive_block_by_send_block.get (transaction, send_block_hash))
+		{
+			return cemented.block_get (transaction, receive_block_hash.value ());
+		}
+		return nullptr;
+	}
+
 	// get the cemented frontier
 	nano::confirmation_height_info info;
 	if (store.confirmation_height.get (transaction, destination, info))
@@ -747,6 +762,29 @@ void nano::ledger::update_account (secure::write_transaction const & transaction
 	}
 }
 
+void nano::ledger::put_block (nano::store::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a)
+{
+	store.block.put (transaction_a, hash_a, block_a);
+	if (flags.receive_block_by_send_block_index && block_a.is_receive ())
+	{
+		store.receive_block_by_send_block.put (transaction_a, block_a.source (), hash_a);
+	}
+}
+
+void nano::ledger::del_block (nano::store::write_transaction const & transaction_a, nano::block_hash const & hash_a)
+{
+	if (flags.receive_block_by_send_block_index)
+	{
+		auto block = store.block.get (transaction_a, hash_a);
+		release_assert (block, "Block to be deleted was not found in the ledger");
+		if (block->is_receive ())
+		{
+			store.receive_block_by_send_block.del (transaction_a, block->source ());
+		}
+	}
+	store.block.del (transaction_a, hash_a);
+}
+
 std::shared_ptr<nano::block> nano::ledger::forked_block (secure::transaction const & transaction_a, nano::block const & block_a)
 {
 	debug_assert (!any.block_exists (transaction_a, block_a.hash ()));
@@ -779,7 +817,7 @@ uint64_t nano::ledger::pruning_action (secure::write_transaction & transaction_a
 		{
 			release_assert (cemented.block_exists (transaction_a, hash));
 
-			store.block.del (transaction_a, hash);
+			del_block (transaction_a, hash);
 			store.pruned.put (transaction_a, hash);
 			if (block_l->sideband ().topo_height != 0)
 			{

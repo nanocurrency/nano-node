@@ -11,6 +11,7 @@
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
+#include <nano/store/ledger/extended/receive_block_by_send_block.hpp>
 #include <nano/store/ledger/final_vote.hpp>
 #include <nano/store/ledger/online_weight.hpp>
 #include <nano/store/ledger/peer.hpp>
@@ -35,6 +36,7 @@ nano::store::column_schema const ledger_store::schema_current{
 	{ nano::store::table::peers, "peers" },
 	{ nano::store::table::confirmation_height, "confirmation_height" },
 	{ nano::store::table::final_votes, "final_votes" },
+	{ nano::store::table::receive_block_by_send_block, "receive_block_by_send_block" },
 	{ nano::store::table::topology, "topology" },
 	{ nano::store::table::meta, "meta" }
 };
@@ -57,6 +59,7 @@ ledger_store::ledger_store (std::unique_ptr<nano::store::backend> backend_a, nan
 	confirmation_height_impl{ std::make_unique<nano::store::ledger::confirmation_height_view> (*backend_impl) },
 	final_vote_impl{ std::make_unique<nano::store::ledger::final_vote_view> (*backend_impl) },
 	topology_impl{ std::make_unique<nano::store::ledger::topology_view> (*backend_impl) },
+	receive_block_by_send_block_impl{ std::make_unique<nano::store::ledger::receive_block_by_send_block_view> (*backend_impl) },
 	version_impl{ std::make_unique<nano::store::ledger::version_view> (*backend_impl) },
 	backend{ *backend_impl },
 	successor{ *successor_impl },
@@ -70,6 +73,7 @@ ledger_store::ledger_store (std::unique_ptr<nano::store::backend> backend_a, nan
 	confirmation_height{ *confirmation_height_impl },
 	final_vote{ *final_vote_impl },
 	topology{ *topology_impl },
+	receive_block_by_send_block{ *receive_block_by_send_block_impl },
 	version{ *version_impl }
 {
 	// Skip automatic open/upgrade when defer_open is set (used for testing individual upgrades)

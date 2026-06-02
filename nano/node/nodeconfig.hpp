@@ -89,6 +89,7 @@ public:
 	std::chrono::seconds max_pruning_age{ !network_params.network.is_beta_network () ? std::chrono::seconds (24 * 60 * 60) : std::chrono::seconds (5 * 60) }; // 1 day; 5 minutes for beta network
 	uint64_t max_pruning_depth{ 0 };
 	nano::database_backend database_backend{ nano::default_database_backend () };
+	bool extended_ledger_index{ false };
 	bool enable_upnp{ true };
 	std::size_t max_ledger_notifications{ 300 };
 

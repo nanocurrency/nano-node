@@ -405,6 +405,7 @@ bool backend_rocksdb::count_is_exact (nano::store::table table) const
 		case nano::store::table::online_weight:
 		case nano::store::table::peers:
 		case nano::store::table::pending:
+		case nano::store::table::receive_block_by_send_block:
 		case nano::store::table::vote:
 		case nano::store::table::rep_weights:
 		case nano::store::table::successor:
