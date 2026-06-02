@@ -30,7 +30,7 @@ public:
 class rpc_logging_config final
 {
 public:
-	bool log_rpc{ true };
+	bool log_rpc{ false };
 };
 
 class rpc_config final

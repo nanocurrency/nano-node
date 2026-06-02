@@ -943,7 +943,7 @@ TEST (toml_config, rpc_config_deserialize_no_defaults)
 	ipc_port = 999
 	num_ipc_connections = 999
 	[logging]
-	log_rpc = false
+	log_rpc = true
 	)toml";
 
 	nano::tomlconfig toml;
