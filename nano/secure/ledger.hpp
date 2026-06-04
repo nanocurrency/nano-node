@@ -55,6 +55,11 @@ struct ledger_flags
 	{
 		return account_delegator_by_weight_index || account_receivable_by_amount_index || receive_block_by_send_block_index;
 	}
+
+	bool any_extended_ledger_index_disabled () const
+	{
+		return !account_delegator_by_weight_index || !account_receivable_by_amount_index || !receive_block_by_send_block_index;
+	}
 };
 
 class ledger final
