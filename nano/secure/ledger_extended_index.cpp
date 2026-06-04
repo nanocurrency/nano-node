@@ -1,4 +1,5 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/ledger/account.hpp>
@@ -36,6 +37,13 @@ void nano::ledger::initialize_extended_ledger_indices ()
 
 void nano::ledger::populate_extended_ledger_indices ()
 {
+	if (!flags.any_extended_ledger_index_disabled ())
+	{
+		return;
+	}
+
+	logger.info (nano::log::type::ledger_upgrade, "Populating extended ledger indices...");
+
 	if (!flags.account_delegator_by_weight_index)
 	{
 		populate_account_delegator_by_weight_index ();
@@ -48,11 +56,15 @@ void nano::ledger::populate_extended_ledger_indices ()
 	{
 		populate_receive_block_by_send_block_index ();
 	}
+
+	logger.info (nano::log::type::ledger_upgrade, "Extended ledger indices populated");
 }
 
 void nano::ledger::drop_extended_ledger_indices ()
 {
 	release_assert (store.get_mode () != nano::store::open_mode::read_only, "extended ledger indices cannot be dropped while the backend is opened in read-only mode");
+
+	logger.info (nano::log::type::ledger_upgrade, "Dropping extended ledger indices...");
 
 	{
 		auto txn = store.tx_begin_write ();
@@ -61,27 +73,54 @@ void nano::ledger::drop_extended_ledger_indices ()
 		store.version.put_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled, false);
 	}
 
+	logger.info (nano::log::type::ledger_upgrade, "Dropping delegator weight index...");
 	store.account_delegator_by_weight.clear ();
+	logger.info (nano::log::type::ledger_upgrade, "Delegator weight index dropped");
+
+	logger.info (nano::log::type::ledger_upgrade, "Dropping receivable amount index...");
 	store.account_receivable_by_amount.clear ();
+	logger.info (nano::log::type::ledger_upgrade, "Receivable amount index dropped");
+
+	logger.info (nano::log::type::ledger_upgrade, "Dropping receive block lookup index...");
 	store.receive_block_by_send_block.clear ();
+	logger.info (nano::log::type::ledger_upgrade, "Receive block lookup index dropped");
 
 	flags.account_delegator_by_weight_index = false;
 	flags.account_receivable_by_amount_index = false;
 	flags.receive_block_by_send_block_index = false;
+
+	logger.info (nano::log::type::ledger_upgrade, "Extended ledger indices dropped");
 }
 
 void nano::ledger::populate_receive_block_by_send_block_index ()
 {
 	release_assert (store.get_mode () != nano::store::open_mode::read_only, "extended ledger indices cannot be populated while the backend is opened in read-only mode");
 
-	logger.info (nano::log::type::ledger_upgrade, "Populating receive block by send block index...");
+	logger.info (nano::log::type::ledger_upgrade, "Populating receive block lookup index...");
+
+	uint64_t total_blocks = 0;
+	{
+		auto txn = store.tx_begin_read ();
+		total_blocks = store.block.count (txn);
+	}
+
+	logger.info (nano::log::type::ledger_upgrade, "Clearing receive block lookup index...");
 	store.receive_block_by_send_block.clear ();
+	logger.info (nano::log::type::ledger_upgrade, "Receive block lookup index cleared");
+
+	size_t const batch_size_compute = nano::is_dev_run () ? 2 : 1024 * 1024;
 
 	uint64_t indexed{ 0 };
 	{
 		auto txn = store.tx_begin_write ();
-		for (auto i = store.block.begin (txn), n = store.block.end (txn); i != n; ++i)
+		size_t processed = 0;
+		for (auto i = store.block.begin (txn), n = store.block.end (txn); i != n; ++i, ++processed)
 		{
+			if (processed % batch_size_compute == 0)
+			{
+				logger.info (nano::log::type::ledger_upgrade, "Receive block lookup index progress: {} / {} blocks ({:.1f}%)", processed, total_blocks, nano::log::percentage (processed, total_blocks));
+			}
+
 			auto const & block = i->second.block;
 			if (block->is_receive ())
 			{
@@ -93,21 +132,38 @@ void nano::ledger::populate_receive_block_by_send_block_index ()
 	}
 
 	flags.receive_block_by_send_block_index = true;
-	logger.info (nano::log::type::ledger_upgrade, "Done populating receive block by send block index with {} entries", indexed);
+	logger.info (nano::log::type::ledger_upgrade, "Receive block lookup index populated with {} entries", indexed);
 }
 
 void nano::ledger::populate_account_delegator_by_weight_index ()
 {
 	release_assert (store.get_mode () != nano::store::open_mode::read_only, "extended ledger indices cannot be populated while the backend is opened in read-only mode");
 
-	logger.info (nano::log::type::ledger_upgrade, "Populating account delegators by weight index...");
+	logger.info (nano::log::type::ledger_upgrade, "Populating delegator weight index...");
+
+	size_t total_accounts = 0;
+	{
+		auto txn = store.tx_begin_read ();
+		total_accounts = store.account.count (txn);
+	}
+
+	logger.info (nano::log::type::ledger_upgrade, "Clearing delegator weight index...");
 	store.account_delegator_by_weight.clear ();
+	logger.info (nano::log::type::ledger_upgrade, "Delegator weight index cleared");
+
+	size_t const batch_size_compute = nano::is_dev_run () ? 2 : 1024 * 1024;
 
 	uint64_t indexed{ 0 };
 	{
 		auto txn = store.tx_begin_write ();
-		for (auto i = store.account.begin (txn), n = store.account.end (txn); i != n; ++i)
+		size_t processed = 0;
+		for (auto i = store.account.begin (txn), n = store.account.end (txn); i != n; ++i, ++processed)
 		{
+			if (processed % batch_size_compute == 0)
+			{
+				logger.info (nano::log::type::ledger_upgrade, "Delegator weight index progress: {} / {} accounts ({:.1f}%)", processed, total_accounts, nano::log::percentage (processed, total_accounts));
+			}
+
 			store.account_delegator_by_weight.put (txn, { i->second.representative, i->second.balance, i->first });
 			++indexed;
 		}
@@ -115,21 +171,38 @@ void nano::ledger::populate_account_delegator_by_weight_index ()
 	}
 
 	flags.account_delegator_by_weight_index = true;
-	logger.info (nano::log::type::ledger_upgrade, "Done populating account delegators by weight index with {} entries", indexed);
+	logger.info (nano::log::type::ledger_upgrade, "Delegator weight index populated with {} entries", indexed);
 }
 
 void nano::ledger::populate_account_receivable_by_amount_index ()
 {
 	release_assert (store.get_mode () != nano::store::open_mode::read_only, "extended ledger indices cannot be populated while the backend is opened in read-only mode");
 
-	logger.info (nano::log::type::ledger_upgrade, "Populating account receivables by amount index...");
+	logger.info (nano::log::type::ledger_upgrade, "Populating receivable amount index...");
+
+	uint64_t total_receivables = 0;
+	{
+		auto txn = store.tx_begin_read ();
+		total_receivables = store.pending.count (txn);
+	}
+
+	logger.info (nano::log::type::ledger_upgrade, "Clearing receivable amount index...");
 	store.account_receivable_by_amount.clear ();
+	logger.info (nano::log::type::ledger_upgrade, "Receivable amount index cleared");
+
+	size_t const batch_size_compute = nano::is_dev_run () ? 2 : 1024 * 1024;
 
 	uint64_t indexed{ 0 };
 	{
 		auto txn = store.tx_begin_write ();
-		for (auto i = store.pending.begin (txn), n = store.pending.end (txn); i != n; ++i)
+		size_t processed = 0;
+		for (auto i = store.pending.begin (txn), n = store.pending.end (txn); i != n; ++i, ++processed)
 		{
+			if (processed % batch_size_compute == 0)
+			{
+				logger.info (nano::log::type::ledger_upgrade, "Receivable amount index progress: {} / {} receivables ({:.1f}%)", processed, total_receivables, nano::log::percentage (processed, total_receivables));
+			}
+
 			store.account_receivable_by_amount.put (txn, { i->first.account, i->second.amount, i->first.hash }, { i->second.source, i->second.epoch });
 			++indexed;
 		}
@@ -137,5 +210,5 @@ void nano::ledger::populate_account_receivable_by_amount_index ()
 	}
 
 	flags.account_receivable_by_amount_index = true;
-	logger.info (nano::log::type::ledger_upgrade, "Done populating account receivables by amount index with {} entries", indexed);
+	logger.info (nano::log::type::ledger_upgrade, "Receivable amount index populated with {} entries", indexed);
 }

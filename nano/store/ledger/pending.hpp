@@ -24,6 +24,7 @@ public:
 	std::optional<nano::pending_info> get (nano::store::transaction const &, nano::pending_key const &) const;
 	bool exists (nano::store::transaction const &, nano::pending_key const &) const;
 	bool any (nano::store::transaction const &, nano::account const &) const;
+	uint64_t count (nano::store::transaction const &) const;
 	iterator begin (nano::store::transaction const &, nano::pending_key const &) const;
 	iterator begin (nano::store::transaction const &) const;
 	iterator end (nano::store::transaction const &) const;
