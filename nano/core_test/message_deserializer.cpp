@@ -1,7 +1,9 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers_templ.hpp>
+#include <nano/lib/stream.hpp>
 #include <nano/lib/vote.hpp>
+#include <nano/messages/deserialize_message.hpp>
 #include <nano/messages/messages.hpp>
 #include <nano/node/transport/message_deserializer.hpp>
 #include <nano/test_common/random.hpp>
@@ -185,6 +187,63 @@ TEST (message_deserializer, exact_asc_pull_req)
 	message.update_header ();
 
 	message_deserializer_success_checker<decltype (message)> (message);
+}
+
+// Regression test for a remotely-triggerable null-pointer dereference (DoS).
+TEST (deserialize_message, publish_not_a_block_does_not_crash)
+{
+	nano::network_filter filter{ 1 };
+	nano::block_uniquer block_uniquer;
+	nano::vote_uniquer vote_uniquer;
+
+	// Craft the malicious header: type = publish, block-type nibble = not_a_block.
+	nano::messages::message_header header{ nano::dev::network_params.network, nano::messages::message_type::publish };
+	header.block_type_set (nano::block_type::not_a_block);
+
+	std::vector<uint8_t> empty_payload;
+	nano::buffer_view payload{ empty_payload.data (), empty_payload.size () };
+
+	auto [message, status] = nano::deserialize_message (payload, header, nano::dev::network_params.network, &filter, &block_uniquer, &vote_uniquer);
+
+	ASSERT_EQ (message, nullptr);
+	ASSERT_EQ (status, nano::deserialize_message_status::invalid_publish_message);
+}
+
+TEST (deserialize_message, publish_valid_block)
+{
+	nano::test::system system{ 1 };
+	nano::block_builder builder;
+	auto block = builder
+				 .send ()
+				 .previous (1)
+				 .destination (1)
+				 .balance (2)
+				 .sign (nano::keypair ().prv, 4)
+				 .work (*system.work.generate (nano::root (1)))
+				 .build ();
+	nano::messages::publish message{ nano::dev::network_params.network, block };
+
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream{ bytes };
+		message.serialize (stream);
+	}
+
+	// Split the serialized message into header and payload, mirroring tcp_server's two-step read.
+	nano::bufferstream header_stream{ bytes.data (), nano::messages::message_header::size };
+	bool error = false;
+	nano::messages::message_header header{ error, header_stream };
+	ASSERT_FALSE (error);
+
+	nano::buffer_view payload{ bytes.data () + nano::messages::message_header::size, bytes.size () - nano::messages::message_header::size };
+
+	nano::network_filter filter{ 1 };
+	nano::block_uniquer block_uniquer;
+	nano::vote_uniquer vote_uniquer;
+	auto [result, status] = nano::deserialize_message (payload, header, nano::dev::network_params.network, &filter, &block_uniquer, &vote_uniquer);
+
+	ASSERT_EQ (status, nano::deserialize_message_status::success);
+	ASSERT_NE (result, nullptr);
 }
 
 TEST (message_deserializer, exact_asc_pull_ack)
