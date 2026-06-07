@@ -41,6 +41,7 @@ class keypair;
 class logger;
 class mutable_block_visitor;
 class network_constants;
+class network_filter;
 class object_stream;
 class rocksdb_config;
 class stats;

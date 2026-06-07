@@ -52,7 +52,7 @@ nano::vote_uniquer * vote_uniquer)
 
 			bool error = false;
 			auto message = std::make_unique<nano::messages::publish> (error, stream, header, digest, block_uniquer);
-			if (!error && at_end (stream) || !message->block)
+			if (!error && at_end (stream) && message->block)
 			{
 				if (!network_constants.work.validate_entry (*message->block))
 				{
