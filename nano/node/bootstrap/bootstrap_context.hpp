@@ -120,8 +120,8 @@ private:
 
 	verify_result verify (nano::messages::asc_pull_ack::blocks_payload const & response, async_tag const & tag) const;
 
-	void cleanup ();
-	void run_cleanup ();
+	void maintenance (nano::unique_lock<nano::mutex> & lock);
+	void run_maintenance ();
 
 public: // Dependencies
 	nano::bootstrap_config const & config;
@@ -181,7 +181,7 @@ public: // Shared state
 	mutable nano::mutex mutex;
 	mutable nano::condition_variable condition;
 
-	std::thread cleanup_thread;
+	std::thread maintenance_thread;
 
 	nano::thread_pool workers;
 	nano::random_generator_mt rng;

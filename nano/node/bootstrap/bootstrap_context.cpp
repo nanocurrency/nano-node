@@ -85,13 +85,13 @@ nano::ledger_notifications & ledger_notifications_a, nano::block_processor & blo
 bootstrap_context::~bootstrap_context ()
 {
 	// All threads must be stopped before destruction
-	debug_assert (!cleanup_thread.joinable ());
+	debug_assert (!maintenance_thread.joinable ());
 	debug_assert (!workers.alive ());
 }
 
 void bootstrap_context::start ()
 {
-	debug_assert (!cleanup_thread.joinable ());
+	debug_assert (!maintenance_thread.joinable ());
 
 	if (!config.enable)
 	{
@@ -121,9 +121,9 @@ void bootstrap_context::start ()
 		frontier_strat.start ();
 	}
 
-	cleanup_thread = std::thread ([this] () {
-		nano::thread_role::set (nano::thread_role::name::bootstrap_cleanup);
-		run_cleanup ();
+	maintenance_thread = std::thread ([this] () {
+		nano::thread_role::set (nano::thread_role::name::bootstrap_maintenance);
+		run_maintenance ();
 	});
 }
 
@@ -139,7 +139,7 @@ void bootstrap_context::stop ()
 	database_strat.stop ();
 	dependency_strat.stop ();
 	frontier_strat.stop ();
-	nano::join_or_pass (cleanup_thread);
+	nano::join_or_pass (maintenance_thread);
 
 	workers.stop ();
 }
@@ -430,11 +430,16 @@ void bootstrap_context::inspect (secure::transaction const & tx, nano::block_sta
 	}
 }
 
-void bootstrap_context::cleanup ()
+void bootstrap_context::maintenance (nano::unique_lock<nano::mutex> & lock)
 {
-	debug_assert (!mutex.try_lock ());
+	debug_assert (lock.owns_lock ());
 
-	scoring.sync (network.list (/* all */ 0, network_constants.bootstrap_protocol_version_min));
+	// Snapshot peers without the bootstrap mutex held, to avoid nesting the network mutex under it
+	lock.unlock ();
+	auto channels = network.list (/* all */ 0, network_constants.bootstrap_protocol_version_min);
+	lock.lock ();
+
+	scoring.sync (channels);
 	scoring.timeout ();
 
 	throttle.resize (compute_throttle_size ());
@@ -457,13 +462,13 @@ void bootstrap_context::cleanup ()
 	}
 }
 
-void bootstrap_context::run_cleanup ()
+void bootstrap_context::run_maintenance ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::loop_cleanup);
-		cleanup ();
+		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::loop_maintenance);
+		maintenance (lock);
 		condition.wait_for (lock, nano::is_dev_run () ? 500ms : 5s, [this] () { return stopped; });
 	}
 }
