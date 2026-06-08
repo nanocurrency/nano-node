@@ -88,9 +88,10 @@ enum class type
 	bootstrap_process,
 	bootstrap_request,
 	bootstrap_request_ec,
-	bootstrap_request_blocks,
 	bootstrap_reply,
 	bootstrap_next,
+	bootstrap_priority,
+	bootstrap_database,
 	bootstrap_frontiers,
 	bootstrap_account_sets,
 	bootstrap_frontier_scan,
@@ -198,6 +199,7 @@ enum class detail
 	close,
 	read,
 	oversize,
+	refill,
 
 	// processing queue
 	queue,
@@ -549,6 +551,7 @@ enum class detail
 	nothing_new,
 	account_info_empty,
 	frontiers_empty,
+	loop_priority,
 	loop_database,
 	loop_dependencies,
 	loop_frontiers,
@@ -603,8 +606,10 @@ enum class detail
 	request_blocks,
 	request_account_info,
 
-	safe,
-	base,
+	// bootstrap pull start point
+	from_frontier,
+	from_confirmed,
+	from_open,
 
 	// active
 	started_hinted,

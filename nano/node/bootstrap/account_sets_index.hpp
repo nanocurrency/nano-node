@@ -14,6 +14,7 @@
 #include <boost/multi_index_container.hpp>
 
 #include <chrono>
+#include <deque>
 #include <random>
 
 namespace mi = boost::multi_index;
@@ -72,7 +73,8 @@ public:
 	/**
 	 * Sampling
 	 */
-	priority_result next_priority (std::function<bool (nano::account const &)> const & filter);
+	// Returns up to max_count eligible priority entries, ordered by descending priority
+	std::deque<priority_result> next_priority_batch (std::function<bool (nano::account const &)> const & filter, std::size_t max_count);
 	nano::block_hash next_blocking (std::function<bool (nano::block_hash const &)> const & filter);
 
 	bool blocked (nano::account const & account) const;

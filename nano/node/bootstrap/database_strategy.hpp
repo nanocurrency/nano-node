@@ -2,6 +2,7 @@
 
 #include <nano/node/bootstrap/bootstrap_context.hpp>
 
+#include <optional>
 #include <thread>
 
 namespace nano::bootstrap
@@ -18,8 +19,8 @@ public:
 private:
 	void run ();
 
-	nano::account next_database (bool should_throttle);
-	nano::account wait_database (bool should_throttle);
+	std::optional<blocks_query> next_database (bool should_throttle);
+	std::optional<blocks_query> wait_database (bool should_throttle);
 
 	bootstrap_context & ctx;
 	std::thread thread;

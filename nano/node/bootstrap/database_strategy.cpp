@@ -21,7 +21,7 @@ void database_strategy::start ()
 
 void database_strategy::stop ()
 {
-	nano::join_or_pass (thread);
+	join_or_pass (thread);
 }
 
 void database_strategy::run ()
@@ -41,20 +41,26 @@ void database_strategy::run ()
 void database_strategy::run_one (bool should_throttle)
 {
 	ctx.wait_block_processor ();
+
 	auto channel = ctx.wait_channel ();
 	if (!channel)
 	{
 		return;
 	}
-	auto account = wait_database (should_throttle);
-	if (account.is_zero ())
+
+	auto query = wait_database (should_throttle);
+	if (!query)
 	{
 		return;
 	}
-	ctx.request (account, 2, channel, query_source::database);
+
+	// The database scan always issues safe requests; record the pull start point
+	ctx.stats.inc (nano::stat::type::bootstrap_database, query->type == query_type::blocks_by_hash ? nano::stat::detail::from_confirmed : nano::stat::detail::from_open);
+
+	ctx.send (channel, *query, query_source::database);
 }
 
-nano::account database_strategy::next_database (bool should_throttle)
+std::optional<blocks_query> database_strategy::next_database (bool should_throttle)
 {
 	debug_assert (!ctx.mutex.try_lock ());
 	debug_assert (ctx.config.database_warmup_ratio > 0);
@@ -62,30 +68,26 @@ nano::account database_strategy::next_database (bool should_throttle)
 	// Throttling increases the weight of database requests
 	if (!ctx.database_limiter.should_pass (should_throttle ? ctx.config.database_warmup_ratio : 1))
 	{
-		return { 0 };
+		return std::nullopt;
 	}
-	auto account = ctx.database_scan.next ([this] (nano::account const & account) {
+	auto query = ctx.database_scan.next ([this] (nano::account const & account) {
 		return ctx.count_tags (account, query_source::database) == 0;
 	});
-	if (account.is_zero ())
+	if (!query)
 	{
-		return { 0 };
+		return std::nullopt;
 	}
 	ctx.stats.inc (nano::stat::type::bootstrap_next, nano::stat::detail::next_database);
-	return account;
+	return query;
 }
 
-nano::account database_strategy::wait_database (bool should_throttle)
+std::optional<blocks_query> database_strategy::wait_database (bool should_throttle)
 {
-	nano::account result{ 0 };
+	std::optional<blocks_query> result;
 	ctx.wait ([this, &result, should_throttle] () {
 		debug_assert (!ctx.mutex.try_lock ());
 		result = next_database (should_throttle);
-		if (!result.is_zero ())
-		{
-			return true;
-		}
-		return false;
+		return result.has_value ();
 	});
 	return result;
 }

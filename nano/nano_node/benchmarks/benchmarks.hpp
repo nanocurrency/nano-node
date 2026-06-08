@@ -4,6 +4,7 @@
 #include <nano/node/node.hpp>
 #include <nano/secure/common.hpp>
 
+#include <boost/multiprecision/cpp_int.hpp>
 #include <boost/program_options.hpp>
 
 #include <atomic>

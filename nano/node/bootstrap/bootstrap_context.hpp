@@ -80,7 +80,6 @@ public:
 	// Waits for a channel that is not full
 	std::shared_ptr<nano::transport::channel> wait_channel ();
 
-	bool request (nano::account, size_t count, std::shared_ptr<nano::transport::channel> const &, query_source);
 	bool send (std::shared_ptr<nano::transport::channel> const &, query_descriptor query, query_source source);
 
 	size_t count_tags (nano::account const & account, query_source source) const;
