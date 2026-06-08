@@ -11,6 +11,7 @@
 #include <nano/node/bootstrap/dependency_strategy.hpp>
 #include <nano/node/bootstrap/frontier_strategy.hpp>
 #include <nano/node/bootstrap/priority_strategy.hpp>
+#include <nano/node/bootstrap/queries.hpp>
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -158,9 +159,26 @@ void bootstrap_context::reset ()
 	throttle.reset ();
 }
 
-bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & channel, nano::messages::asc_pull_req && message, async_tag tag)
+bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & channel, query_descriptor query, query_source source)
 {
-	debug_assert (tag.type != query_type::invalid);
+	async_tag tag{};
+	tag.source = source;
+	tag.query = std::move (query);
+
+	// Derive the index keys from the query descriptor
+	auto keys = index_keys (tag.query);
+	tag.account = keys.account;
+	tag.hash = keys.hash;
+
+	// Build the outgoing message from the query descriptor
+	auto message = build_message (tag.query, network_constants, tag.id);
+
+	return transmit (channel, std::move (message), std::move (tag));
+}
+
+bool bootstrap_context::transmit (std::shared_ptr<nano::transport::channel> const & channel, nano::messages::asc_pull_req && message, async_tag tag)
+{
+	debug_assert (tag.type () != query_type::invalid);
 	debug_assert (tag.source != query_source::invalid);
 
 	{
@@ -195,7 +213,7 @@ bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & 
 	if (sent)
 	{
 		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::request);
-		stats.inc (nano::stat::type::bootstrap_request, to_stat_detail (tag.type));
+		stats.inc (nano::stat::type::bootstrap_request, to_stat_detail (tag.type ()));
 	}
 	else
 	{
@@ -266,12 +284,9 @@ bool bootstrap_context::request (nano::account account, size_t count, std::share
 	// Limit the max number of blocks to pull
 	count = std::min (count, config.max_pull_count);
 
-	async_tag tag{};
-	tag.source = source;
-	tag.account = account;
-
-	blocks_tag_payload payload{};
-	payload.count = count;
+	blocks_query query{};
+	query.account = account;
+	query.count = count;
 
 	{
 		auto transaction = ledger.store.tx_begin_read ();
@@ -288,13 +303,12 @@ bool bootstrap_context::request (nano::account account, size_t count, std::share
 			{
 				stats.inc (nano::stat::type::bootstrap_request_blocks, nano::stat::detail::optimistic);
 
-				tag.type = query_type::blocks_by_hash;
-				payload.start = info->head;
-				tag.hash = info->head;
+				query.type = query_type::blocks_by_hash;
+				query.start = info->head;
 
 				logger.debug (nano::log::type::bootstrap, "Requesting blocks for {} starting from account frontier: {} (optimistic: {}) from: {}",
 				account,
-				payload.start,
+				query.start,
 				optimistic_request,
 				channel);
 			}
@@ -304,20 +318,19 @@ bool bootstrap_context::request (nano::account account, size_t count, std::share
 
 				if (auto conf_info = ledger.store.confirmation_height.get (transaction, account))
 				{
-					tag.type = query_type::blocks_by_hash;
-					payload.start = conf_info->frontier;
-					tag.hash = conf_info->frontier;
+					query.type = query_type::blocks_by_hash;
+					query.start = conf_info->frontier;
 
 					logger.debug (nano::log::type::bootstrap, "Requesting blocks for {} starting from confirmation frontier: {} (optimistic: {}) from: {}",
 					account,
-					payload.start,
+					query.start,
 					optimistic_request,
 					channel);
 				}
 				else
 				{
-					tag.type = query_type::blocks_by_account;
-					payload.start = account;
+					query.type = query_type::blocks_by_account;
+					query.start = account;
 
 					logger.debug (nano::log::type::bootstrap, "Requesting blocks for {} starting from account root (optimistic: {}) from: {}",
 					account,
@@ -330,28 +343,14 @@ bool bootstrap_context::request (nano::account account, size_t count, std::share
 		{
 			stats.inc (nano::stat::type::bootstrap_request_blocks, nano::stat::detail::base);
 
-			tag.type = query_type::blocks_by_account;
-			payload.start = account;
+			query.type = query_type::blocks_by_account;
+			query.start = account;
 
 			logger.debug (nano::log::type::bootstrap, "Requesting blocks for {} from: {}", account, channel);
 		}
 	}
 
-	tag.payload = payload;
-
-	// Build the message
-	nano::messages::asc_pull_req message{ network_constants };
-	message.id = tag.id;
-	message.type = nano::messages::asc_pull_type::blocks;
-
-	nano::messages::asc_pull_req::blocks_payload msg_pld;
-	msg_pld.start = payload.start;
-	msg_pld.count = payload.count;
-	msg_pld.start_type = tag.type == query_type::blocks_by_hash ? nano::messages::asc_pull_req::hash_type::block : nano::messages::asc_pull_req::hash_type::account;
-	message.payload = msg_pld;
-	message.update_header ();
-
-	return send (channel, std::move (message), tag);
+	return send (channel, query, source);
 }
 
 /**
@@ -457,7 +456,7 @@ void bootstrap_context::maintenance (nano::unique_lock<nano::mutex> & lock)
 	{
 		auto tag = tags_by_order.front ();
 		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::timeout);
-		stats.inc (nano::stat::type::bootstrap_timeout, to_stat_detail (tag.type));
+		stats.inc (nano::stat::type::bootstrap_timeout, to_stat_detail (tag.type ()));
 		tags_by_order.pop_front ();
 	}
 }
@@ -513,7 +512,7 @@ void bootstrap_context::process (nano::messages::asc_pull_ack const & message, s
 		}
 	};
 
-	bool valid = std::visit (payload_verifier{ tag.type }, message.payload);
+	bool valid = std::visit (payload_verifier{ tag.type () }, message.payload);
 	if (!valid)
 	{
 		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::invalid_response_type);
@@ -521,7 +520,7 @@ void bootstrap_context::process (nano::messages::asc_pull_ack const & message, s
 	}
 
 	// Track bootstrap request response time
-	stats.inc (nano::stat::type::bootstrap_reply, to_stat_detail (tag.type));
+	stats.inc (nano::stat::type::bootstrap_reply, to_stat_detail (tag.type ()));
 	stats.sample (nano::stat::sample::bootstrap_tag_duration, nano::log::milliseconds_delta (tag.timestamp), { 0, config.request_timeout.count () });
 
 	// Process the response payload while holding the lock to ensure atomic tag erasure + state updates
@@ -543,10 +542,10 @@ void bootstrap_context::process (nano::messages::asc_pull_ack const & message, s
 bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload const & response, async_tag const & tag)
 {
 	debug_assert (!mutex.try_lock ());
-	debug_assert (tag.type == query_type::blocks_by_hash || tag.type == query_type::blocks_by_account);
+	debug_assert (tag.type () == query_type::blocks_by_hash || tag.type () == query_type::blocks_by_account);
 
-	release_assert (std::holds_alternative<blocks_tag_payload> (tag.payload));
-	auto const & payload = std::get<blocks_tag_payload> (tag.payload);
+	release_assert (std::holds_alternative<blocks_query> (tag.query));
+	auto const & query = std::get<blocks_query> (tag.query);
 
 	stats.inc (nano::stat::type::bootstrap_process, nano::stat::detail::blocks);
 
@@ -562,7 +561,7 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload co
 
 			// Avoid re-processing the block we already have
 			release_assert (blocks.size () >= 1);
-			if (blocks.front ()->hash () == payload.start.as_block_hash ())
+			if (blocks.front ()->hash () == query.start.as_block_hash ())
 			{
 				blocks.pop_front ();
 			}
@@ -610,29 +609,29 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload co
 
 verify_result bootstrap_context::verify (nano::messages::asc_pull_ack::blocks_payload const & response, async_tag const & tag) const
 {
-	release_assert (std::holds_alternative<blocks_tag_payload> (tag.payload));
-	auto const & payload = std::get<blocks_tag_payload> (tag.payload);
+	release_assert (std::holds_alternative<blocks_query> (tag.query));
+	auto const & query = std::get<blocks_query> (tag.query);
 	auto const & blocks = response.blocks;
 
 	if (blocks.empty ())
 	{
 		return verify_result::nothing_new;
 	}
-	if (blocks.size () == 1 && blocks.front ()->hash () == payload.start.as_block_hash ())
+	if (blocks.size () == 1 && blocks.front ()->hash () == query.start.as_block_hash ())
 	{
 		return verify_result::nothing_new;
 	}
-	if (blocks.size () > payload.count)
+	if (blocks.size () > query.count)
 	{
 		return verify_result::invalid;
 	}
 
 	auto const & first = blocks.front ();
-	switch (tag.type)
+	switch (query.type)
 	{
 		case query_type::blocks_by_hash:
 		{
-			if (first->hash () != payload.start.as_block_hash ())
+			if (first->hash () != query.start.as_block_hash ())
 			{
 				// TODO: Stat & log
 				return verify_result::invalid;
@@ -642,7 +641,7 @@ verify_result bootstrap_context::verify (nano::messages::asc_pull_ack::blocks_pa
 		case query_type::blocks_by_account:
 		{
 			// Open & state blocks always contain account field
-			if (first->account_field ().value_or (0) != payload.start.as_account ())
+			if (first->account_field ().value_or (0) != query.start.as_account ())
 			{
 				// TODO: Stat & log
 				return verify_result::invalid;
@@ -717,5 +716,14 @@ nano::container_info bootstrap_context::container_info () const
 	info.add ("peers", scoring.container_info ());
 	info.add ("limiters", collect_limiters ());
 	return info;
+}
+
+/*
+ *
+ */
+
+query_type async_tag::type () const
+{
+	return to_query_type (query);
 }
 }

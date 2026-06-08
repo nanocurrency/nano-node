@@ -3,6 +3,7 @@
 #include <nano/lib/thread_roles.hpp>
 #include <nano/messages/asc_pull.hpp>
 #include <nano/node/bootstrap/frontier_strategy.hpp>
+#include <nano/node/bootstrap/queries.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/formatting.hpp>
@@ -90,38 +91,23 @@ nano::account frontier_strategy::wait_frontier ()
 
 bool frontier_strategy::request_frontiers (nano::account start, std::shared_ptr<nano::transport::channel> const & channel)
 {
-	async_tag tag{};
-	tag.type = query_type::frontiers;
-	tag.source = query_source::frontiers;
-
-	frontier_tag_payload payload{};
-	payload.start = start;
-	tag.payload = payload;
-
-	// Build the message
-	nano::messages::asc_pull_req message{ ctx.network_constants };
-	message.id = tag.id;
-	message.type = nano::messages::asc_pull_type::frontiers;
-
-	nano::messages::asc_pull_req::frontiers_payload msg_pld;
-	msg_pld.start = start;
-	msg_pld.count = nano::messages::asc_pull_ack::frontiers_payload::max_frontiers;
-	message.payload = msg_pld;
-	message.update_header ();
+	frontiers_query query{};
+	query.start = start;
+	query.count = nano::messages::asc_pull_ack::frontiers_payload::max_frontiers;
 
 	ctx.logger.debug (nano::log::type::bootstrap, "Requesting frontiers starting from: {} from: {}", start, channel);
 
-	return ctx.send (channel, std::move (message), tag);
+	return ctx.send (channel, query, query_source::frontiers);
 }
 
 bool frontier_strategy::process (nano::messages::asc_pull_ack::frontiers_payload const & response, async_tag const & tag)
 {
 	debug_assert (!ctx.mutex.try_lock ());
-	debug_assert (tag.type == query_type::frontiers);
+	debug_assert (tag.type () == query_type::frontiers);
 
-	release_assert (std::holds_alternative<frontier_tag_payload> (tag.payload));
-	auto const & payload = std::get<frontier_tag_payload> (tag.payload);
-	debug_assert (!payload.start.is_zero ());
+	release_assert (std::holds_alternative<frontiers_query> (tag.query));
+	auto const & query = std::get<frontiers_query> (tag.query);
+	debug_assert (!query.start.is_zero ());
 
 	if (response.frontiers.empty ())
 	{
@@ -139,7 +125,7 @@ bool frontier_strategy::process (nano::messages::asc_pull_ack::frontiers_payload
 			ctx.stats.inc (nano::stat::type::bootstrap_verify_frontiers, nano::stat::detail::ok);
 			ctx.stats.add (nano::stat::type::bootstrap, nano::stat::detail::frontiers, nano::stat::dir::in, response.frontiers.size ());
 
-			ctx.frontiers.process (payload.start, response.frontiers);
+			ctx.frontiers.process (query.start, response.frontiers);
 
 			// Allow some overfill to avoid unnecessarily dropping responses
 			if (ctx.workers.queued_tasks () < ctx.config.frontier_scan.max_pending * 4)
@@ -171,8 +157,8 @@ bool frontier_strategy::process (nano::messages::asc_pull_ack::frontiers_payload
 
 verify_result frontier_strategy::verify (nano::messages::asc_pull_ack::frontiers_payload const & response, async_tag const & tag) const
 {
-	release_assert (std::holds_alternative<frontier_tag_payload> (tag.payload));
-	auto const & payload = std::get<frontier_tag_payload> (tag.payload);
+	release_assert (std::holds_alternative<frontiers_query> (tag.query));
+	auto const & query = std::get<frontiers_query> (tag.query);
 	auto const & frontiers = response.frontiers;
 
 	if (frontiers.empty ())
@@ -192,7 +178,7 @@ verify_result frontier_strategy::verify (nano::messages::asc_pull_ack::frontiers
 	}
 
 	// Ensure the frontiers are larger or equal to the requested frontier
-	if (frontiers.front ().first.number () < payload.start.number ())
+	if (frontiers.front ().first.number () < query.start.number ())
 	{
 		return verify_result::invalid;
 	}
