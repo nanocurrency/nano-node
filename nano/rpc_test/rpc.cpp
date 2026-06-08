@@ -6,6 +6,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/node_capabilities.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/lib/threading.hpp>
@@ -1841,6 +1842,35 @@ TEST (rpc, peers_peering_endpoint)
 	auto peer = peers_node.begin ();
 	ASSERT_NE (peer->first, boost::lexical_cast<std::string> (node2->network.endpoint ()));
 	ASSERT_EQ (peer->second.get<std::string> ("peering"), boost::lexical_cast<std::string> (node2->network.endpoint ()));
+}
+
+TEST (rpc, peers_capabilities)
+{
+	nano::test::system system;
+	// Peer advertises the topo_index capability during the handshake
+	nano::node_flags node_flags;
+	node_flags.capabilities_override = nano::node_capabilities_flags{ nano::node_capabilities::topo_index };
+	auto const node2 = system.add_node (node_flags);
+	auto node = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "peers");
+	request.put ("peer_details", true);
+	auto response (wait_response (system, rpc_ctx, request));
+	auto & peers_node (response.get_child ("peers"));
+	ASSERT_EQ (1, peers_node.size ());
+
+	auto peer = peers_node.begin ();
+	ASSERT_EQ (peer->first, boost::lexical_cast<std::string> (node2->network.endpoint ()));
+
+	auto tree1 = peer->second;
+	std::vector<std::string> capabilities;
+	for (auto const & [key, value] : tree1.get_child ("capabilities"))
+	{
+		capabilities.push_back (value.get_value<std::string> ());
+	}
+	ASSERT_EQ (1, capabilities.size ());
+	ASSERT_EQ ("topo_index", capabilities.front ());
 }
 
 TEST (rpc, version)

@@ -5,6 +5,7 @@
 #include <nano/lib/json_error_response.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/logging.hpp>
+#include <nano/lib/node_capabilities.hpp>
 #include <nano/lib/saturate.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/stats_sinks.hpp>
@@ -3057,6 +3058,16 @@ void nano::json_handler::peers ()
 
 			auto peering_endpoint = channel->get_peering_endpoint ();
 			pending_tree.put ("peering", boost::lexical_cast<std::string> (peering_endpoint));
+
+			// Capabilities (extensions) the peer advertised during the node id handshake
+			boost::property_tree::ptree capabilities_l;
+			for (auto const & capability : nano::to_string_list (channel->get_flags ()))
+			{
+				boost::property_tree::ptree entry;
+				entry.put ("", capability);
+				capabilities_l.push_back (std::make_pair ("", entry));
+			}
+			pending_tree.add_child ("capabilities", capabilities_l);
 
 			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), pending_tree));
 		}
