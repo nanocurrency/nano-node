@@ -133,8 +133,8 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::bootstrap_frontier_scan:
 			thread_role_name_string = "Bootstrap front";
 			break;
-		case nano::thread_role::name::bootstrap_cleanup:
-			thread_role_name_string = "Bootstrap clean";
+		case nano::thread_role::name::bootstrap_maintenance:
+			thread_role_name_string = "Bootstrap maint";
 			break;
 		case nano::thread_role::name::bootstrap_worker:
 			thread_role_name_string = "Bootstrap work";

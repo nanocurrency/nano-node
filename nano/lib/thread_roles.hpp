@@ -50,7 +50,7 @@ enum class name
 	bootstrap_dependency_walker,
 	bootstrap_dependency_sync,
 	bootstrap_frontier_scan,
-	bootstrap_cleanup,
+	bootstrap_maintenance,
 	bootstrap_worker,
 	bootstrap_server,
 	scheduler_hinted,

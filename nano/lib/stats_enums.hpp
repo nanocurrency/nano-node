@@ -149,6 +149,7 @@ enum class detail
 	total,
 	loop,
 	loop_cleanup,
+	loop_maintenance,
 	loop_checkup,
 	loop_reps,
 	loop_receivable,

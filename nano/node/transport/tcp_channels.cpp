@@ -44,16 +44,19 @@ void nano::transport::tcp_channels::stop ()
 
 void nano::transport::tcp_channels::close ()
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	// Close outside the lock; close() blocks on an io_context join and can deadlock if held under the mutex
+	decltype (channels) channels_l;
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		channels_l.swap (channels);
+	}
 
-	for (auto const & entry : channels)
+	for (auto const & entry : channels_l)
 	{
 		entry.socket->close ();
 		entry.server->close ();
 		entry.channel->close ();
 	}
-
-	channels.clear ();
 }
 
 bool nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, const nano::account & node_id) const
