@@ -3,6 +3,7 @@
 #include <nano/lib/thread_roles.hpp>
 #include <nano/messages/asc_pull.hpp>
 #include <nano/node/bootstrap/dependency_strategy.hpp>
+#include <nano/node/bootstrap/queries.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/formatting.hpp>
 
@@ -95,35 +96,18 @@ nano::block_hash dependency_strategy::wait_blocking ()
 
 bool dependency_strategy::request_info (nano::block_hash hash, std::shared_ptr<nano::transport::channel> const & channel)
 {
-	async_tag tag{};
-	tag.type = query_type::account_info_by_hash;
-	tag.source = query_source::dependencies;
-	tag.hash = hash;
-
-	dependency_tag_payload payload{};
-	payload.start = hash;
-	tag.payload = payload;
-
-	// Build the message
-	nano::messages::asc_pull_req message{ ctx.network_constants };
-	message.id = tag.id;
-	message.type = nano::messages::asc_pull_type::account_info;
-
-	nano::messages::asc_pull_req::account_info_payload msg_pld;
-	msg_pld.target_type = nano::messages::asc_pull_req::hash_type::block; // Query account info by block hash
-	msg_pld.target = hash;
-	message.payload = msg_pld;
-	message.update_header ();
+	account_info_query query{};
+	query.target = hash;
 
 	ctx.logger.debug (nano::log::type::bootstrap, "Requesting account info for: {} from: {}", hash, channel);
 
-	return ctx.send (channel, std::move (message), tag);
+	return ctx.send (channel, query, query_source::dependencies);
 }
 
 bool dependency_strategy::process (nano::messages::asc_pull_ack::account_info_payload const & response, async_tag const & tag)
 {
 	debug_assert (!ctx.mutex.try_lock ());
-	debug_assert (tag.type == query_type::account_info_by_hash);
+	debug_assert (tag.type () == query_type::account_info_by_hash);
 	debug_assert (!tag.hash.is_zero ());
 
 	if (response.account.is_zero ())

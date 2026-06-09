@@ -7,6 +7,7 @@
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_service.hpp>
 #include <nano/node/bootstrap/database_scan_index.hpp>
+#include <nano/node/bootstrap/queries.hpp>
 #include <nano/node/make_store.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/scheduler/hinted.hpp>
@@ -20,6 +21,7 @@
 
 #include <gtest/gtest.h>
 
+#include <map>
 #include <sstream>
 
 using namespace std::chrono_literals;
@@ -452,4 +454,101 @@ TEST (bootstrap, reset)
 
 	// Bootstrap should automatically restart and eventually sync all blocks
 	ASSERT_TIMELY_EQ (30s, node_client.block_count (), total_blocks);
+}
+
+/*
+ * Tests that the database scan always produces safe pull queries:
+ * - for accounts with a confirmation height, the pull starts from the confirmed frontier (not the unconfirmed head)
+ * - for accounts without a confirmation height, the pull starts from the account root
+ */
+TEST (bootstrap, database_scan_safe_queries)
+{
+	nano::node_config config;
+	// Keep confirmation under manual control so the head can differ from the confirmed frontier
+	config.backlog_scan->enable = false;
+	config.priority_scheduler->enable = false;
+	config.optimistic_scheduler->enable = false;
+	config.hinted_scheduler->enable = false;
+
+	nano::test::system system;
+	auto & node = *system.add_node (config);
+
+	nano::keypair key;
+	nano::state_block_builder builder;
+
+	// Genesis chain: send1 -> send2 -> send3, where send3 funds a new account `key`
+	auto send1 = builder.make_block ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .link (0)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto send2 = builder.make_block ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .link (0)
+				 .balance (nano::dev::constants.genesis_amount - 2)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (send1->hash ()))
+				 .build ();
+	auto send3 = builder.make_block ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send2->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .link (key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 3)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (send2->hash ()))
+				 .build ();
+	auto open = builder.make_block ()
+				.account (key.pub)
+				.previous (0)
+				.representative (key.pub)
+				.link (send3->hash ())
+				.balance (1)
+				.sign (key.prv, key.pub)
+				.work (*system.work.generate (key.pub))
+				.build ();
+
+	ASSERT_EQ (nano::block_status::progress, node.process (send1));
+	ASSERT_EQ (nano::block_status::progress, node.process (send2));
+	ASSERT_EQ (nano::block_status::progress, node.process (send3));
+	ASSERT_EQ (nano::block_status::progress, node.process (open));
+
+	// Confirm the genesis chain only up to send1, leaving send2/send3 unconfirmed (head != confirmed frontier)
+	// The `key` account is left entirely unconfirmed (no confirmation height)
+	nano::test::confirm (node.ledger, send1);
+
+	nano::bootstrap::database_scan_index db_scan{ node.ledger };
+
+	// Sweep the ledger and collect one query per account
+	std::map<nano::account, nano::bootstrap::blocks_query> queries;
+	for (int i = 0; i < 100 && queries.size () < 2; ++i)
+	{
+		auto query = db_scan.next ([] (nano::account const &) { return true; });
+		if (!query)
+		{
+			break;
+		}
+		queries[query->account] = *query;
+	}
+
+	// Genesis: safe request starts from the confirmed frontier (send1), NOT the unconfirmed head (send3)
+	ASSERT_TRUE (queries.contains (nano::dev::genesis_key.pub));
+	auto const & genesis_query = queries.at (nano::dev::genesis_key.pub);
+	ASSERT_EQ (genesis_query.type, nano::bootstrap::query_type::blocks_by_hash);
+	ASSERT_EQ (genesis_query.start.as_block_hash (), send1->hash ());
+	ASSERT_NE (genesis_query.start.as_block_hash (), send3->hash ());
+	ASSERT_EQ (genesis_query.count, 2);
+
+	// Unconfirmed account: pull starts from the account root
+	ASSERT_TRUE (queries.contains (key.pub));
+	auto const & key_query = queries.at (key.pub);
+	ASSERT_EQ (key_query.type, nano::bootstrap::query_type::blocks_by_account);
+	ASSERT_EQ (key_query.start.as_account (), key.pub);
+	ASSERT_EQ (key_query.count, 2);
 }

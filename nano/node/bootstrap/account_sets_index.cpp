@@ -6,6 +6,7 @@
 #include <boost/range/iterator_range.hpp>
 
 #include <algorithm>
+#include <deque>
 #include <memory>
 #include <vector>
 
@@ -241,17 +242,22 @@ void account_sets_index::trim_overflow ()
 	}
 }
 
-auto account_sets_index::next_priority (std::function<bool (nano::account const &)> const & filter) -> priority_result
+auto account_sets_index::next_priority_batch (std::function<bool (nano::account const &)> const & filter, std::size_t max_count) -> std::deque<priority_result>
 {
-	if (priorities.empty ())
+	std::deque<priority_result> result;
+	if (priorities.empty () || max_count == 0)
 	{
-		return { 0 };
+		return result;
 	}
 
 	auto const cutoff = std::chrono::steady_clock::now () - config.cooldown;
 
 	for (auto const & entry : priorities.get<tag_priority> ())
 	{
+		if (result.size () >= max_count)
+		{
+			break;
+		}
 		if (entry.timestamp > cutoff)
 		{
 			continue;
@@ -260,14 +266,12 @@ auto account_sets_index::next_priority (std::function<bool (nano::account const 
 		{
 			continue;
 		}
-		return {
-			.account = entry.account,
-			.priority = entry.priority,
-			.fails = entry.fails
-		};
+		result.push_back ({ .account = entry.account,
+		.priority = entry.priority,
+		.fails = entry.fails });
 	}
 
-	return {};
+	return result;
 }
 
 nano::block_hash account_sets_index::next_blocking (std::function<bool (nano::block_hash const &)> const & filter)

@@ -12,6 +12,7 @@
 #include <nano/node/bootstrap/database_scan_index.hpp>
 #include <nano/node/bootstrap/frontier_scan_index.hpp>
 #include <nano/node/bootstrap/peer_scoring.hpp>
+#include <nano/node/bootstrap/queries.hpp>
 #include <nano/node/bootstrap/throttle.hpp>
 #include <nano/node/fwd.hpp>
 
@@ -23,7 +24,6 @@
 #include <chrono>
 #include <memory>
 #include <thread>
-#include <variant>
 
 namespace mi = boost::multi_index;
 
@@ -34,37 +34,20 @@ class database_strategy;
 class dependency_strategy;
 class frontier_strategy;
 
-struct blocks_tag_payload
-{
-	nano::hash_or_account start{ 0 };
-	size_t count{ 0 };
-};
-
-struct dependency_tag_payload
-{
-	nano::block_hash start{ 0 };
-};
-
-struct frontier_tag_payload
-{
-	nano::account start{ 0 };
-};
-
-using async_tag_payload = std::variant<blocks_tag_payload, dependency_tag_payload, frontier_tag_payload>;
-
 struct async_tag
 {
-	using id_t = nano::bootstrap::id_t;
-
-	query_type type{ query_type::invalid };
 	query_source source{ query_source::invalid };
+	query_descriptor query;
+
+	// Index keys, derived from the query descriptor when the tag is created
 	nano::account account{ 0 };
 	nano::block_hash hash{ 0 };
+
 	std::chrono::steady_clock::time_point cutoff{};
 	std::chrono::steady_clock::time_point timestamp{ std::chrono::steady_clock::now () };
 	id_t id{ generate_id () };
 
-	async_tag_payload payload;
+	query_type type () const;
 };
 
 enum class verify_result
@@ -85,26 +68,24 @@ public:
 
 	void reset ();
 
-	/**
-	 * Process bootstrap messages coming from the network
-	 */
+	// Process bootstrap messages coming from the network
 	void process (nano::messages::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> const &);
 
-	/* Waits for a condition to be satisfied with incremental backoff */
+	// Waits for a condition to be satisfied with incremental backoff
 	void wait (std::function<bool ()> const & predicate) const;
 
-	/* Ensure there is enough space in block_processor for queuing new blocks */
+	// Wait until there is enough space in block_processor for new blocks
 	void wait_block_processor () const;
-	/* Waits for a channel that is not full */
+
+	// Waits for a channel that is not full
 	std::shared_ptr<nano::transport::channel> wait_channel ();
 
-	bool request (nano::account, size_t count, std::shared_ptr<nano::transport::channel> const &, query_source);
-	bool send (std::shared_ptr<nano::transport::channel> const &, nano::messages::asc_pull_req && message, async_tag tag);
+	bool send (std::shared_ptr<nano::transport::channel> const &, query_descriptor query, query_source source);
 
 	size_t count_tags (nano::account const & account, query_source source) const;
 	size_t count_tags (nano::block_hash const & hash, query_source source) const;
 
-	/* Inspects a block that has been processed by the block processor */
+	// Inspects a block that has been processed by the block processor
 	void inspect (secure::transaction const &, nano::block_status const & result, nano::block const & block, nano::block_source);
 
 	// Calculates a lookback size based on the size of the ledger
@@ -119,6 +100,9 @@ private:
 	bool process (nano::messages::empty_payload const & response, async_tag const & tag);
 
 	verify_result verify (nano::messages::asc_pull_ack::blocks_payload const & response, async_tag const & tag) const;
+
+	// Inserts the tag and transmits the message over the channel
+	bool transmit (std::shared_ptr<nano::transport::channel> const &, nano::messages::asc_pull_req && message, async_tag tag);
 
 	void maintenance (nano::unique_lock<nano::mutex> & lock);
 	void run_maintenance ();

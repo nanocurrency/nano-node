@@ -4,6 +4,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/store/ledger/account.hpp>
+#include <nano/store/ledger/confirmation_height.hpp>
 #include <nano/store/ledger/pending.hpp>
 
 namespace nano::bootstrap
@@ -30,7 +31,7 @@ void database_scan_index::reset ()
 	pending_scanner.completed = 0;
 }
 
-nano::account database_scan_index::next (std::function<bool (nano::account const &)> const & filter)
+std::optional<blocks_query> database_scan_index::next (std::function<bool (nano::account const &)> const & filter)
 {
 	if (queue.empty ())
 	{
@@ -42,13 +43,13 @@ nano::account database_scan_index::next (std::function<bool (nano::account const
 		auto result = queue.front ();
 		queue.pop_front ();
 
-		if (filter (result))
+		if (filter (result.account))
 		{
 			return result;
 		}
 	}
 
-	return { 0 };
+	return std::nullopt;
 }
 
 void database_scan_index::fill ()
@@ -58,8 +59,34 @@ void database_scan_index::fill ()
 	auto set1 = account_scanner.next_batch (transaction, batch_size);
 	auto set2 = pending_scanner.next_batch (transaction, batch_size);
 
-	queue.insert (queue.end (), set1.begin (), set1.end ());
-	queue.insert (queue.end (), set2.begin (), set2.end ());
+	// Build the pull queries while the scan transaction is open, so no secondary lookup is needed on the request path
+	for (auto const & account : set1)
+	{
+		queue.push_back (prepare_query (transaction, account));
+	}
+	for (auto const & account : set2)
+	{
+		queue.push_back (prepare_query (transaction, account));
+	}
+}
+
+blocks_query database_scan_index::prepare_query (nano::store::transaction & transaction, nano::account const & account) const
+{
+	// The database scan always issues safe requests, starting from the confirmed frontier when available.
+	// Accounts without a confirmation height (new or pending-only accounts) are pulled from the account root.
+	blocks_query query{};
+	query.account = account;
+	query.count = pull_count;
+	query.type = query_type::blocks_by_account;
+	query.start = account;
+
+	if (auto conf_info = ledger.store.confirmation_height.get (transaction, account))
+	{
+		query.type = query_type::blocks_by_hash;
+		query.start = conf_info->frontier;
+	}
+
+	return query;
 }
 
 bool database_scan_index::warmed_up () const
