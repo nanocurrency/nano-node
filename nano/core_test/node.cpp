@@ -3756,12 +3756,11 @@ TEST (node, local_block_broadcast)
 	nano::test::system system;
 
 	// Disable active elections to prevent the block from being broadcasted by the election
+	nano::node_flags node_flags;
+	node_flags.disable_elections = true;
 	auto node_config = system.default_config ();
-	node_config.priority_scheduler->enable = false;
-	node_config.hinted_scheduler->enable = false;
-	node_config.optimistic_scheduler->enable = false;
 	node_config.local_block_broadcaster->rebroadcast_interval = 1s;
-	auto & node1 = *system.add_node (node_config);
+	auto & node1 = *system.add_node (node_config, node_flags);
 	auto & node2 = *system.make_disconnected_node ();
 
 	nano::keypair key1;
