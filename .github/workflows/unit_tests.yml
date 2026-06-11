@@ -136,7 +136,7 @@ jobs:
         BACKEND: [lmdb, rocksdb]
         RELEASE:
           - ${{ startsWith(github.ref, 'refs/tags/') }}
-    runs-on: windows-latest
+    runs-on: windows-2022
     env:
       NANO_BACKEND: ${{ matrix.BACKEND }}
       BUILD_TYPE: ${{ matrix.RELEASE && 'RelWithDebInfo' || 'Debug' }}
