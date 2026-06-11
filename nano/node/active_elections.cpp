@@ -151,7 +151,8 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 
 	insert_result result{ nullptr, false };
 
-	if (stopped)
+	// Short circuit if elections are disabled
+	if (stopped || !config.enable)
 	{
 		return result;
 	}
@@ -843,6 +844,7 @@ nano::active_elections_config::active_elections_config (const nano::network_cons
 
 nano::error nano::active_elections_config::serialize (nano::tomlconfig & toml) const
 {
+	toml.put ("enable", enable, "Enable or disable starting elections.\ntype:bool");
 	toml.put ("size", size, "Number of active elections. Elections beyond this limit have limited survival time.\nWarning: modifying this value may result in a lower confirmation rate. \ntype:uint64,[250..]");
 	toml.put ("hinted_limit_percentage", hinted_limit_percentage, "Limit of hinted elections as percentage of `active_elections_size` \ntype:uint64");
 	toml.put ("optimistic_limit_percentage", optimistic_limit_percentage, "Limit of optimistic elections as percentage of `active_elections_size`. \ntype:uint64");
@@ -854,6 +856,7 @@ nano::error nano::active_elections_config::serialize (nano::tomlconfig & toml) c
 
 nano::error nano::active_elections_config::deserialize (nano::tomlconfig & toml)
 {
+	toml.get ("enable", enable);
 	toml.get ("size", size);
 	toml.get ("hinted_limit_percentage", hinted_limit_percentage);
 	toml.get ("optimistic_limit_percentage", optimistic_limit_percentage);

@@ -131,15 +131,13 @@ TEST (bootstrap, frontier_scan)
 
 	nano::node_flags flags;
 	flags.disable_legacy_bootstrap = true;
+	flags.disable_elections = true; // Disable election schedulers
 	nano::node_config config;
 	// Disable other bootstrap strategies
 	config.bootstrap->enable_priorities = false;
 	config.bootstrap->enable_dependency_walker = false;
 	// Disable election activation
 	config.backlog_scan->enable = false;
-	config.priority_scheduler->enable = false;
-	config.optimistic_scheduler->enable = false;
-	config.hinted_scheduler->enable = false;
 
 	// Prepare blocks for frontier scan (genesis 10 sends -> 10 opens -> 10 updates)
 	std::vector<std::shared_ptr<nano::block>> sends;
@@ -227,15 +225,13 @@ TEST (bootstrap, frontier_scan_pending)
 
 	nano::node_flags flags;
 	flags.disable_legacy_bootstrap = true;
+	flags.disable_elections = true; // Disable election schedulers
 	nano::node_config config;
 	// Disable other bootstrap strategies
 	config.bootstrap->enable_priorities = false;
 	config.bootstrap->enable_dependency_walker = false;
 	// Disable election activation
 	config.backlog_scan->enable = false;
-	config.priority_scheduler->enable = false;
-	config.optimistic_scheduler->enable = false;
-	config.hinted_scheduler->enable = false;
 
 	// Prepare blocks for frontier scan (genesis 10 sends -> 10 opens)
 	std::vector<std::shared_ptr<nano::block>> sends;
@@ -309,15 +305,13 @@ TEST (bootstrap, frontier_scan_cannot_prioritize)
 
 	nano::node_flags flags;
 	flags.disable_legacy_bootstrap = true;
+	flags.disable_elections = true; // Disable election schedulers
 	nano::node_config config;
 	// Disable other bootstrap strategies
 	config.bootstrap->enable_priorities = false;
 	config.bootstrap->enable_dependency_walker = false;
 	// Disable election activation
 	config.backlog_scan->enable = false;
-	config.priority_scheduler->enable = false;
-	config.optimistic_scheduler->enable = false;
-	config.hinted_scheduler->enable = false;
 
 	// Prepare blocks for frontier scan (genesis 10 sends -> 10 opens -> 10 sends -> 10 opens)
 	std::vector<std::shared_ptr<nano::block>> sends;
@@ -422,17 +416,16 @@ TEST (bootstrap, reset)
 	int const chain_count = 10;
 	int const blocks_per_chain = 5;
 
+	nano::node_flags flags;
+	flags.disable_elections = true; // Disable election schedulers
 	nano::node_config config;
 	// Disable election activation
 	config.backlog_scan->enable = false;
-	config.priority_scheduler->enable = false;
-	config.optimistic_scheduler->enable = false;
-	config.hinted_scheduler->enable = false;
 	// Add request limits to slow down bootstrap
 	config.bootstrap->rate_limit = 30;
 
 	// Start server node
-	auto & node_server = *system.add_node (config);
+	auto & node_server = *system.add_node (config, flags);
 
 	// Create multiple chains of blocks
 	auto chains = nano::test::setup_chains (system, node_server, chain_count, blocks_per_chain);
@@ -441,7 +434,7 @@ TEST (bootstrap, reset)
 	int const halfway_blocks = total_blocks / 2;
 
 	// Start client node and begin bootstrap
-	auto & node_client = *system.add_node (config);
+	auto & node_client = *system.add_node (config, flags);
 	ASSERT_LE (node_client.block_count (), halfway_blocks); // Should not be synced yet
 
 	// Wait until bootstrap has started and processed some blocks but not all
@@ -463,15 +456,14 @@ TEST (bootstrap, reset)
  */
 TEST (bootstrap, database_scan_safe_queries)
 {
+	nano::node_flags flags;
+	flags.disable_elections = true; // Disable election schedulers
 	nano::node_config config;
 	// Keep confirmation under manual control so the head can differ from the confirmed frontier
 	config.backlog_scan->enable = false;
-	config.priority_scheduler->enable = false;
-	config.optimistic_scheduler->enable = false;
-	config.hinted_scheduler->enable = false;
 
 	nano::test::system system;
-	auto & node = *system.add_node (config);
+	auto & node = *system.add_node (config, flags);
 
 	nano::keypair key;
 	nano::state_block_builder builder;

@@ -52,6 +52,19 @@ std::string const default_beta_peer_network = nano::env::get ("NANO_DEFAULT_PEER
 std::string const default_test_peer_network = nano::env::get ("NANO_DEFAULT_PEER").value_or ("peering-test.nano.org");
 }
 
+nano::node_config nano::apply_flag_overrides (nano::node_config config, nano::node_flags const & flags)
+{
+	// Disabling elections turns off the automatic election schedulers (priority/hinted/optimistic) and the active elections container itself
+	if (flags.disable_elections)
+	{
+		config.priority_scheduler->enable = false;
+		config.hinted_scheduler->enable = false;
+		config.optimistic_scheduler->enable = false;
+		config.active_elections->enable = false;
+	}
+	return config;
+}
+
 nano::node_config::node_config (nano::network_params const & network_params) :
 	network_params{ network_params },
 	external_address{ boost::asio::ip::address_v6{}.to_string () },

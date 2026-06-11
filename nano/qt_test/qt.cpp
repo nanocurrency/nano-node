@@ -771,15 +771,14 @@ TEST (wallet, republish)
 	nano_qt::eventloop_processor processor;
 
 	// Configure nodes to disable bootstrap, election schedulers, and other background processes for test isolation
+	nano::node_flags node_flags;
+	node_flags.disable_elections = true;
 	nano::node_config node_config;
 	node_config.bootstrap->enable = false;
-	node_config.priority_scheduler->enable = false;
-	node_config.optimistic_scheduler->enable = false;
-	node_config.hinted_scheduler->enable = false;
 
 	nano::test::system system;
-	auto & node1 = *system.add_node (node_config);
-	auto & node2 = *system.add_node (node_config);
+	auto & node1 = *system.add_node (node_config, node_flags);
+	auto & node2 = *system.add_node (node_config, node_flags);
 
 	ASSERT_TRUE (system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv));
 	nano::keypair key;
