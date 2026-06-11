@@ -25,7 +25,6 @@ private:
 
 	nano::account wait_frontier ();
 	bool request_frontiers (nano::account start, std::shared_ptr<nano::transport::channel> const & channel);
-	verify_result verify (nano::messages::asc_pull_ack::frontiers_payload const & response, async_tag const & tag) const;
 	void process_frontiers (std::deque<std::pair<nano::account, nano::block_hash>> const & frontiers);
 
 	bootstrap_context & ctx;

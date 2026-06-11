@@ -4,6 +4,7 @@
 #include <nano/messages/asc_pull.hpp>
 #include <nano/node/bootstrap/frontier_strategy.hpp>
 #include <nano/node/bootstrap/queries.hpp>
+#include <nano/node/bootstrap/verify.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/formatting.hpp>
@@ -117,7 +118,7 @@ bool frontier_strategy::process (nano::messages::asc_pull_ack::frontiers_payload
 
 	ctx.stats.inc (nano::stat::type::bootstrap_process, nano::stat::detail::frontiers);
 
-	auto result = verify (response, tag);
+	auto result = verify (response, query);
 	switch (result)
 	{
 		case verify_result::ok:
@@ -153,37 +154,6 @@ bool frontier_strategy::process (nano::messages::asc_pull_ack::frontiers_payload
 	}
 
 	return result != verify_result::invalid;
-}
-
-verify_result frontier_strategy::verify (nano::messages::asc_pull_ack::frontiers_payload const & response, async_tag const & tag) const
-{
-	release_assert (std::holds_alternative<frontiers_query> (tag.query));
-	auto const & query = std::get<frontiers_query> (tag.query);
-	auto const & frontiers = response.frontiers;
-
-	if (frontiers.empty ())
-	{
-		return verify_result::nothing_new;
-	}
-
-	// Ensure frontiers accounts are in ascending order
-	nano::account previous{ 0 };
-	for (auto const & [account, _] : frontiers)
-	{
-		if (account.number () <= previous.number ())
-		{
-			return verify_result::invalid;
-		}
-		previous = account;
-	}
-
-	// Ensure the frontiers are larger or equal to the requested frontier
-	if (frontiers.front ().first.number () < query.start.number ())
-	{
-		return verify_result::invalid;
-	}
-
-	return verify_result::ok;
 }
 
 void frontier_strategy::process_frontiers (std::deque<std::pair<nano::account, nano::block_hash>> const & frontiers)
