@@ -226,7 +226,6 @@ public:
 		cancellation{ strand },
 		condition{ std::make_unique<nano::async::condition> (strand) }
 	{
-		auto awaitable_func = func (*condition);
 		auto fut = asio::co_spawn (
 		strand,
 		func (*condition),
