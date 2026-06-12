@@ -114,6 +114,7 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_max_peers_per_subnetwork", "Disables the limit on the number of peer connections allowed per subnetwork")
 		("disable_activate_successors", "Disables activate_successors in active_elections")
 		("disable_elections", "Disables starting elections and block confirmation; the node only processes and pulls blocks without confirming them")
+		("disable_bounded_backlog", "Disables the bounded backlog")
 		("disable_backup", "Disable wallet automatic backups")
 		("disable_lazy_bootstrap", "Disables lazy bootstrap")
 		("disable_legacy_bootstrap", "Disables legacy bootstrap")
@@ -169,6 +170,7 @@ void nano::update_flags (nano::node_flags & flags_a, boost::program_options::var
 	flags_a.disable_bootstrap_bulk_push_client = (vm.count ("disable_bootstrap_bulk_push_client") > 0);
 	flags_a.disable_tcp_realtime = (vm.count ("disable_tcp_realtime") > 0);
 	flags_a.disable_search_pending = (vm.count ("disable_search_pending") > 0);
+	flags_a.disable_bounded_backlog = (vm.count ("disable_bounded_backlog") > 0);
 	if (!flags_a.inactive_node)
 	{
 		flags_a.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);

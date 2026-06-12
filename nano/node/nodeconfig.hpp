@@ -157,6 +157,7 @@ public:
 	bool disable_max_peers_per_ip{ false };
 	bool disable_max_peers_per_subnetwork{ false };
 	bool disable_search_pending{ false };
+	bool disable_bounded_backlog{ false };
 	bool enable_pruning{ false };
 	bool disable_topo_index{ false };
 	bool enable_rpc{ false };
