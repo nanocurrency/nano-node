@@ -37,4 +37,13 @@ private:
 	// Dedicated pool for the frontier processing tasks (ledger reads)
 	nano::thread_pool workers;
 };
+
+struct frontier_classification
+{
+	std::deque<nano::account> prioritize;
+	size_t outdated{ 0 };
+	size_t pending{ 0 };
+};
+
+frontier_classification classify_frontiers (nano::secure::transaction const &, nano::ledger &, std::deque<std::pair<nano::account, nano::block_hash>> const & frontiers);
 }

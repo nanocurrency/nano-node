@@ -68,9 +68,9 @@ query_keys index_keys (query_descriptor const & query)
 		{
 			return { nano::account{ 0 }, query.target };
 		}
-		query_keys operator() (frontiers_query const &) const
+		query_keys operator() (frontiers_query const & query) const
 		{
-			return { nano::account{ 0 }, nano::block_hash{ 0 } };
+			return { query.start, nano::block_hash{ 0 } };
 		}
 	};
 	return std::visit (extractor{}, query);

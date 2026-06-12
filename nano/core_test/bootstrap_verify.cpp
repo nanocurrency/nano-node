@@ -2,6 +2,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/keypair.hpp>
 #include <nano/messages/asc_pull.hpp>
+#include <nano/node/bootstrap/queries.hpp>
 #include <nano/node/bootstrap/verify.hpp>
 
 #include <gtest/gtest.h>
@@ -62,6 +63,15 @@ TEST (bootstrap_verify, frontiers_below_start)
 	nano::messages::asc_pull_ack::frontiers_payload response;
 	response.frontiers = make_frontiers ({ 5, 11 });
 	ASSERT_EQ (verify (response, query), verify_result::invalid);
+}
+
+TEST (bootstrap_queries, frontiers_index_keys)
+{
+	frontiers_query query{ .start = nano::account{ 42 }, .count = 1000 };
+	auto keys = index_keys (query);
+
+	ASSERT_EQ (keys.account, query.start);
+	ASSERT_EQ (keys.hash, nano::block_hash{ 0 });
 }
 
 /*
