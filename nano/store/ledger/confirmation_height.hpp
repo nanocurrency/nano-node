@@ -3,6 +3,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/store/backend.hpp>
+#include <nano/store/crawler.hpp>
 #include <nano/store/typed_iterator.hpp>
 #include <nano/store/typed_iterator_templ.hpp>
 
@@ -30,6 +31,12 @@ public:
 	iterator begin (nano::store::transaction const &) const;
 	iterator end (nano::store::transaction const &) const;
 	void for_each_par (std::function<void (nano::store::read_transaction const &, iterator, iterator)> const & action) const;
+
+	template <typename Transaction>
+	auto crawl (Transaction & txn, nano::account const & start = { 0 }) const -> nano::store::crawler<confirmation_height_view, Transaction>
+	{
+		return nano::store::crawler<confirmation_height_view, Transaction>{ *this, txn, start };
+	}
 
 private:
 	nano::store::backend & backend;

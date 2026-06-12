@@ -109,16 +109,23 @@ void nano::backlog_scan::populate_backlog (nano::unique_lock<nano::mutex> & lock
 		{
 			auto transaction = ledger.tx_begin_read ();
 
-			auto it = ledger.store.account.begin (transaction, next);
-			auto const end = ledger.store.account.end (transaction);
+			// Both tables are keyed by account, crawl them in lockstep to avoid a random confirmation height lookup per account
+			auto account_crawler = ledger.store.account.crawl (transaction, next);
+			auto conf_crawler = ledger.store.confirmation_height.crawl (transaction, next);
 
-			for (size_t count = 0; it != end && count < config.batch_size; ++it, ++count, ++total)
+			for (size_t count = 0; account_crawler && count < config.batch_size; ++account_crawler, ++count, ++total)
 			{
 				stats.inc (nano::stat::type::backlog_scan, nano::stat::detail::total);
 
-				auto const [account, account_info] = *it;
-				auto const maybe_conf_info = ledger.store.confirmation_height.get (transaction, account);
-				auto const conf_info = maybe_conf_info.value_or (nano::confirmation_height_info{});
+				auto const & [account, account_info] = *account_crawler;
+
+				conf_crawler.skip_to (account);
+
+				nano::confirmation_height_info conf_info{};
+				if (conf_crawler && conf_crawler->first == account)
+				{
+					conf_info = conf_crawler->second;
+				}
 
 				activated_info info{ account, account_info, conf_info };
 
@@ -131,7 +138,7 @@ void nano::backlog_scan::populate_backlog (nano::unique_lock<nano::mutex> & lock
 				next = inc_sat (account.number ());
 			}
 
-			done = (it == end);
+			done = !account_crawler;
 		}
 
 		stats.add (nano::stat::type::backlog_scan, nano::stat::detail::scanned, scanned.size ());
