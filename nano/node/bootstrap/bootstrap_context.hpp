@@ -88,7 +88,15 @@ public:
 	// Waits for a channel that is not full. Applies the per-strategy rate limiter.
 	std::shared_ptr<nano::transport::channel> wait_channel (nano::bootstrap::strategy strategy);
 
+	enum class conclusion
+	{
+		timeout,
+		failure
+	};
+
 	bool send (std::shared_ptr<nano::transport::channel> const &, query_descriptor query, strategy source);
+	bool send (std::shared_ptr<nano::transport::channel> const &, query_descriptor query, strategy source, id_t id);
+	bool conclude_tag (id_t, conclusion);
 
 	size_t count_tags (nano::account const & account, strategy source) const;
 	size_t count_tags (nano::block_hash const & hash, strategy source) const;
@@ -110,6 +118,7 @@ private:
 
 	// Inserts the tag and transmits the message over the channel
 	bool transmit (std::shared_ptr<nano::transport::channel> const &, nano::messages::asc_pull_req && message, async_tag tag);
+	void conclude (async_tag const &, conclusion);
 
 	// Filters out blocks already present in the ledger and submits the rest to the block processor
 	void submit_blocks (std::deque<std::shared_ptr<nano::block>> blocks, async_tag const & tag);

@@ -156,6 +156,28 @@ bool frontier_strategy::process (nano::messages::asc_pull_ack::frontiers_payload
 	return result != verify_result::invalid;
 }
 
+void frontier_strategy::timeout (async_tag const & tag)
+{
+	debug_assert (!ctx.mutex.try_lock ());
+	debug_assert (tag.type () == query_type::frontiers);
+	(void)tag;
+}
+
+void frontier_strategy::failure (async_tag const & tag)
+{
+	debug_assert (!ctx.mutex.try_lock ());
+	debug_assert (tag.type () == query_type::frontiers);
+	(void)tag;
+}
+
+void frontier_strategy::confirm (async_tag const & tag, std::chrono::steady_clock::time_point deadline)
+{
+	debug_assert (!ctx.mutex.try_lock ());
+	debug_assert (tag.type () == query_type::frontiers);
+	(void)tag;
+	(void)deadline;
+}
+
 void frontier_strategy::process_frontiers (std::deque<std::pair<nano::account, nano::block_hash>> const & frontiers)
 {
 	release_assert (!frontiers.empty ());

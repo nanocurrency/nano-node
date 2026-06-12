@@ -168,9 +168,15 @@ void bootstrap_context::reset ()
 
 bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & channel, query_descriptor query, strategy source)
 {
+	return send (channel, std::move (query), source, generate_id ());
+}
+
+bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & channel, query_descriptor query, strategy source, id_t id)
+{
 	async_tag tag{};
 	tag.source = source;
 	tag.query = std::move (query);
+	tag.id = id;
 
 	// Derive the index keys from the query descriptor
 	auto keys = index_keys (tag.query);
@@ -183,6 +189,53 @@ bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & 
 	// Note: a failed send deliberately does not release the reserved capacity; the elevated outstanding count acts as
 	// an implicit penalty against an unresponsive peer until decay () heals it. Only a processed response releases.
 	return transmit (channel, std::move (message), std::move (tag));
+}
+
+void bootstrap_context::conclude (async_tag const & tag, conclusion result)
+{
+	switch (tag.source)
+	{
+		case strategy::frontier:
+		{
+			switch (result)
+			{
+				case conclusion::timeout:
+					frontier_strat.timeout (tag);
+					break;
+				case conclusion::failure:
+					frontier_strat.failure (tag);
+					break;
+			}
+		}
+		break;
+		case strategy::invalid:
+		case strategy::priority:
+		case strategy::database:
+		case strategy::dependency:
+			break;
+	}
+}
+
+bool bootstrap_context::conclude_tag (id_t id, conclusion result)
+{
+	debug_assert (!mutex.try_lock ());
+
+	auto & tags_by_id = tags.get<tag_id> ();
+	auto it = tags_by_id.find (id);
+	if (it == tags_by_id.end ())
+	{
+		return false;
+	}
+
+	auto tag = *it;
+	if (result == conclusion::timeout)
+	{
+		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::timeout);
+		stats.inc (nano::stat::type::bootstrap_timeout, to_stat_detail (tag.type ()));
+	}
+	conclude (tag, result);
+	tags_by_id.erase (it);
+	return true;
 }
 
 bool bootstrap_context::transmit (std::shared_ptr<nano::transport::channel> const & channel, nano::messages::asc_pull_req && message, async_tag tag)
@@ -200,23 +253,38 @@ bool bootstrap_context::transmit (std::shared_ptr<nano::transport::channel> cons
 
 	bool sent = channel->send (
 	message, nano::transport::traffic_type::bootstrap, [this, id = tag.id] (auto const & ec, auto size) {
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		if (auto it = tags.get<tag_id> ().find (id); it != tags.get<tag_id> ().end ())
+		bool notify = false;
 		{
-			stats.inc (nano::stat::type::bootstrap_request_ec, nano::to_stat_detail (ec), nano::stat::dir::out);
-			if (!ec)
+			nano::lock_guard<nano::mutex> lock{ mutex };
+			if (auto it = tags.get<tag_id> ().find (id); it != tags.get<tag_id> ().end ())
 			{
-				stats.inc (nano::stat::type::bootstrap, nano::stat::detail::request_success, nano::stat::dir::out);
-				tags.get<tag_id> ().modify (it, [&] (auto & tag) {
-					// After the request has been sent, the peer has a limited time to respond
-					tag.cutoff = std::chrono::steady_clock::now () + config.request_timeout;
-				});
+				stats.inc (nano::stat::type::bootstrap_request_ec, nano::to_stat_detail (ec), nano::stat::dir::out);
+				if (!ec)
+				{
+					stats.inc (nano::stat::type::bootstrap, nano::stat::detail::request_success, nano::stat::dir::out);
+					auto deadline = std::chrono::steady_clock::now () + config.request_timeout;
+					tags.get<tag_id> ().modify (it, [deadline] (auto & tag) {
+						// After the request has been sent, the peer has a limited time to respond
+						tag.cutoff = deadline;
+					});
+					if (it->source == strategy::frontier)
+					{
+						frontier_strat.confirm (*it, deadline);
+					}
+				}
+				else
+				{
+					stats.inc (nano::stat::type::bootstrap, nano::stat::detail::request_failed, nano::stat::dir::out);
+					auto tag = *it;
+					conclude (tag, conclusion::failure);
+					tags.get<tag_id> ().erase (it);
+					notify = true;
+				}
 			}
-			else
-			{
-				stats.inc (nano::stat::type::bootstrap, nano::stat::detail::request_failed, nano::stat::dir::out);
-				tags.get<tag_id> ().erase (it);
-			}
+		}
+		if (notify)
+		{
+			condition.notify_all ();
 		} });
 
 	if (sent)
@@ -227,6 +295,16 @@ bool bootstrap_context::transmit (std::shared_ptr<nano::transport::channel> cons
 	else
 	{
 		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::request_failed);
+		{
+			nano::lock_guard<nano::mutex> lock{ mutex };
+			if (auto it = tags.get<tag_id> ().find (tag.id); it != tags.get<tag_id> ().end ())
+			{
+				auto stored = *it;
+				conclude (stored, conclusion::failure);
+				tags.get<tag_id> ().erase (it);
+			}
+		}
+		condition.notify_all ();
 	}
 
 	return sent;
@@ -442,13 +520,23 @@ void bootstrap_context::maintenance (nano::unique_lock<nano::mutex> & lock)
 
 	// Erase timed out requests
 	auto & tags_by_order = tags.get<tag_sequenced> ();
-	while (!tags_by_order.empty () && should_timeout (tags_by_order.front ()))
+	for (auto it = tags_by_order.begin (); it != tags_by_order.end ();)
 	{
-		auto tag = tags_by_order.front ();
-		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::timeout);
-		stats.inc (nano::stat::type::bootstrap_timeout, to_stat_detail (tag.type ()));
-		tags_by_order.pop_front ();
+		if (should_timeout (*it))
+		{
+			auto tag = *it;
+			stats.inc (nano::stat::type::bootstrap, nano::stat::detail::timeout);
+			stats.inc (nano::stat::type::bootstrap_timeout, to_stat_detail (tag.type ()));
+			conclude (tag, conclusion::timeout);
+			it = tags_by_order.erase (it);
+		}
+		else
+		{
+			++it;
+		}
 	}
+
+	condition.notify_all ();
 }
 
 void bootstrap_context::run_maintenance ()
@@ -510,6 +598,9 @@ void bootstrap_context::process (nano::messages::asc_pull_ack const & message, s
 	if (!valid)
 	{
 		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::invalid_response_type);
+		conclude (tag, conclusion::failure);
+		lock.unlock ();
+		condition.notify_all ();
 		return;
 	}
 

@@ -20,6 +20,9 @@ public:
 	void run_one ();
 
 	bool process (nano::messages::asc_pull_ack::frontiers_payload const & response, async_tag const & tag);
+	void timeout (async_tag const & tag);
+	void failure (async_tag const & tag);
+	void confirm (async_tag const & tag, std::chrono::steady_clock::time_point deadline);
 
 private:
 	void run ();
