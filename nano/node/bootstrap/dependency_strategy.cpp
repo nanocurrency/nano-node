@@ -70,7 +70,7 @@ nano::block_hash dependency_strategy::next_blocking ()
 	debug_assert (!ctx.mutex.try_lock ());
 
 	auto blocking = ctx.accounts.next_blocking ([this] (nano::block_hash const & hash) {
-		return ctx.count_tags (hash, query_source::dependencies) == 0;
+		return ctx.count_tags (hash, strategy::dependency) == 0;
 	});
 	if (blocking.is_zero ())
 	{
@@ -101,7 +101,7 @@ bool dependency_strategy::request_info (nano::block_hash hash, std::shared_ptr<n
 
 	ctx.logger.debug (nano::log::type::bootstrap, "Requesting account info for: {} from: {}", hash, channel);
 
-	return ctx.send (channel, query, query_source::dependencies);
+	return ctx.send (channel, query, strategy::dependency);
 }
 
 bool dependency_strategy::process (nano::messages::asc_pull_ack::account_info_payload const & response, async_tag const & tag)

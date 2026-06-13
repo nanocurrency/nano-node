@@ -26,6 +26,8 @@
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
 
+#include <any>
+
 using namespace std::chrono_literals;
 
 namespace nano::bootstrap
@@ -164,7 +166,7 @@ void bootstrap_context::reset ()
 	throttle.reset ();
 }
 
-bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & channel, query_descriptor query, query_source source)
+bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & channel, query_descriptor query, strategy source)
 {
 	async_tag tag{};
 	tag.source = source;
@@ -186,7 +188,7 @@ bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & 
 bool bootstrap_context::transmit (std::shared_ptr<nano::transport::channel> const & channel, nano::messages::asc_pull_req && message, async_tag tag)
 {
 	debug_assert (tag.type () != query_type::invalid);
-	debug_assert (tag.source != query_source::invalid);
+	debug_assert (tag.source != strategy::invalid);
 
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
@@ -241,7 +243,7 @@ void bootstrap_context::wait (std::function<bool ()> const & predicate) const
 	}
 }
 
-void bootstrap_context::wait_block_processor (nano::bootstrap::query_source source) const
+void bootstrap_context::wait_block_processor (nano::bootstrap::strategy source) const
 {
 	auto const & channel = submission_channel (source);
 	wait ([&] () {
@@ -256,18 +258,18 @@ void bootstrap_context::wait_block_processor (nano::bootstrap::query_source sour
 	});
 }
 
-std::shared_ptr<nano::transport::channel> const & bootstrap_context::submission_channel (nano::bootstrap::query_source source) const
+std::shared_ptr<nano::transport::channel> const & bootstrap_context::submission_channel (nano::bootstrap::strategy source) const
 {
 	switch (source)
 	{
-		case query_source::priority:
+		case strategy::priority:
 			return priority_channel;
-		case query_source::database:
+		case strategy::database:
 			return database_channel;
-		case query_source::dependencies:
-		case query_source::frontiers:
-		case query_source::invalid:
-			break; // These sources do not submit blocks to the processor
+		case strategy::invalid:
+		case strategy::dependency:
+		case strategy::frontier:
+			break; // These strategies do not submit blocks to the processor
 	}
 	debug_assert (false);
 	return generic_channel; // Generic origin, doesn't alias either partition
@@ -286,6 +288,8 @@ std::shared_ptr<nano::transport::channel> bootstrap_context::wait_channel (nano:
 				return dependency_limiter;
 			case strategy::frontier:
 				return frontier_limiter;
+			case strategy::invalid:
+				break;
 		}
 		release_assert (false);
 	}();
@@ -314,14 +318,14 @@ std::shared_ptr<nano::transport::channel> bootstrap_context::wait_channel (nano:
 	return channel;
 }
 
-size_t bootstrap_context::count_tags (nano::account const & account, query_source source) const
+size_t bootstrap_context::count_tags (nano::account const & account, strategy source) const
 {
 	debug_assert (!mutex.try_lock ());
 	auto [begin, end] = tags.get<tag_account> ().equal_range (account);
 	return std::count_if (begin, end, [source] (auto const & tag) { return tag.source == source; });
 }
 
-size_t bootstrap_context::count_tags (nano::block_hash const & hash, query_source source) const
+size_t bootstrap_context::count_tags (nano::block_hash const & hash, strategy source) const
 {
 	debug_assert (!mutex.try_lock ());
 	auto [begin, end] = tags.get<tag_hash> ().equal_range (hash);
@@ -341,6 +345,14 @@ void bootstrap_context::inspect (secure::transaction const & tx, nano::block_sta
 	auto const & block = *context.block;
 	auto const & source = context.source;
 	auto const & hash = block.hash ();
+
+	auto const tag_source = [&context] {
+		if (auto const * tag_source = std::any_cast<strategy> (&context.tag))
+		{
+			return *tag_source;
+		}
+		return strategy::invalid;
+	}();
 
 	switch (result)
 	{
@@ -396,6 +408,13 @@ void bootstrap_context::inspect (secure::transaction const & tx, nano::block_sta
 		default: // No need to handle other cases
 			// TODO: If we receive blocks that are invalid (bad signature, fork, etc.), we should penalize the peer that sent them
 			break;
+	}
+
+	if (source == nano::block_source::bootstrap)
+	{
+		stats.inc (nano::stat::type::bootstrap_inspect, nano::to_stat_detail (result));
+		stats.inc (nano::stat::type::bootstrap_inspect_source, to_stat_detail (tag_source));
+		stats.inc (to_inspect_stat_type (tag_source), nano::to_stat_detail (result));
 	}
 }
 
@@ -547,7 +566,7 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload co
 				accounts.priority_down (tag.account);
 				accounts.timestamp_reset (tag.account);
 
-				if (tag.source == query_source::database)
+				if (tag.source == strategy::database)
 				{
 					throttle.add (false);
 				}
@@ -568,6 +587,7 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload co
 void bootstrap_context::submit_blocks (std::deque<std::shared_ptr<nano::block>> blocks, async_tag const & tag)
 {
 	release_assert (std::holds_alternative<blocks_query> (tag.query));
+	auto source = tag.source;
 	auto const & query = std::get<blocks_query> (tag.query);
 
 	// Avoid re-processing the block we already have (the echoed cursor)
@@ -598,7 +618,7 @@ void bootstrap_context::submit_blocks (std::deque<std::shared_ptr<nano::block>> 
 		{
 			nano::lock_guard<nano::mutex> guard{ mutex };
 			accounts.timestamp_reset (tag.account);
-			if (tag.source == query_source::database)
+			if (source == strategy::database)
 			{
 				throttle.add (false);
 			}
@@ -607,7 +627,7 @@ void bootstrap_context::submit_blocks (std::deque<std::shared_ptr<nano::block>> 
 		return;
 	}
 
-	auto result = block_processor.add_many (blocks, nano::block_source::bootstrap, submission_channel (tag.source), [this, account = tag.account] (auto result) {
+	auto result = block_processor.add_many (blocks, nano::block_source::bootstrap, submission_channel (source), [this, account = tag.account] (auto result) {
 		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::submission_complete);
 		{
 			// It's the last block submitted for this account chain, reset timestamp to allow more requests
@@ -615,7 +635,8 @@ void bootstrap_context::submit_blocks (std::deque<std::shared_ptr<nano::block>> 
 			accounts.timestamp_reset (account);
 		}
 		condition.notify_all ();
-	});
+	},
+	source);
 
 	// Drops should not happen, submissions are gated by wait_block_processor()
 	// A dropped tail loses the completion callback, leaving the account stuck on cooldown
@@ -625,7 +646,7 @@ void bootstrap_context::submit_blocks (std::deque<std::shared_ptr<nano::block>> 
 		debug_assert (false, "bootstrap block processor dropped submitted blocks");
 	}
 
-	if (tag.source == query_source::database)
+	if (source == strategy::database)
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		throttle.add (true);

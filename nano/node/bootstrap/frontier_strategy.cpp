@@ -98,7 +98,7 @@ bool frontier_strategy::request_frontiers (nano::account start, std::shared_ptr<
 
 	ctx.logger.debug (nano::log::type::bootstrap, "Requesting frontiers starting from: {} from: {}", start, channel);
 
-	return ctx.send (channel, query, query_source::frontiers);
+	return ctx.send (channel, query, strategy::frontier);
 }
 
 bool frontier_strategy::process (nano::messages::asc_pull_ack::frontiers_payload const & response, async_tag const & tag)

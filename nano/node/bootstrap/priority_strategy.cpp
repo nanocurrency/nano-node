@@ -46,7 +46,7 @@ void priority_strategy::run ()
 
 void priority_strategy::run_one ()
 {
-	ctx.wait_block_processor (query_source::priority);
+	ctx.wait_block_processor (strategy::priority);
 
 	// Refill the buffer with a fresh batch of pull queries once it runs dry
 	if (buffer.empty ())
@@ -72,7 +72,7 @@ void priority_strategy::run_one ()
 
 	ctx.stats.inc (nano::stat::type::bootstrap_next, nano::stat::detail::next_priority);
 
-	bool sent = ctx.send (channel, entry.query, query_source::priority);
+	bool sent = ctx.send (channel, entry.query, strategy::priority);
 
 	// Only cooldown accounts that are likely to have more blocks
 	// This is to avoid requesting blocks from the same frontier multiple times, before the block processor had a chance to process them
@@ -90,7 +90,7 @@ auto priority_strategy::wait_priority_batch () -> std::deque<priority_result>
 	std::deque<priority_result> batch;
 	ctx.wait ([this, &batch] () {
 		batch = ctx.accounts.next_priority_batch ([this] (nano::account const & account) {
-			return ctx.count_tags (account, query_source::priority) < 4;
+			return ctx.count_tags (account, strategy::priority) < 4;
 		},
 		batch_size);
 		return !batch.empty ();

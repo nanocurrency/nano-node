@@ -85,6 +85,14 @@ enum class type
 	bootstrap_verify,
 	bootstrap_verify_blocks,
 	bootstrap_verify_frontiers,
+	bootstrap_inspect,
+	bootstrap_inspect_source,
+	bootstrap_inspect_priority,
+	bootstrap_inspect_database,
+	bootstrap_inspect_dependency,
+	bootstrap_inspect_frontier,
+	bootstrap_inspect_topo,
+	bootstrap_inspect_other,
 	bootstrap_wait_block_processor,
 	bootstrap_wait_channel,
 	bootstrap_process,
@@ -690,7 +698,7 @@ enum class detail
 	blocks_random,
 	topo_index,
 
-	// query_source
+	// bootstrap strategy
 	database,
 	dependencies,
 
@@ -782,7 +790,7 @@ template <>
 struct magic_enum::customize::enum_range<nano::stat::type>
 {
 	static constexpr int min = 0;
-	static constexpr int max = 128;
+	static constexpr int max = 256;
 };
 
 // Ensure that the enum_range is large enough to hold all values (including future ones)

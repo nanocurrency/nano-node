@@ -19,15 +19,6 @@ enum class query_type
 	frontiers,
 };
 
-enum class query_source
-{
-	invalid = 0,
-	priority,
-	database,
-	dependencies,
-	frontiers,
-};
-
 enum class verify_result
 {
 	ok,
@@ -37,6 +28,7 @@ enum class verify_result
 
 enum class strategy
 {
+	invalid = 0,
 	priority,
 	database,
 	dependency,
@@ -44,6 +36,7 @@ enum class strategy
 };
 
 nano::stat::detail to_stat_detail (nano::bootstrap::query_type);
-nano::stat::detail to_stat_detail (nano::bootstrap::query_source);
 nano::stat::detail to_stat_detail (nano::bootstrap::strategy);
+
+nano::stat::type to_inspect_stat_type (strategy);
 }
