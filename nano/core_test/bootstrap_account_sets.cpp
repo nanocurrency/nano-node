@@ -1,3 +1,4 @@
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/bootstrap/account_sets_index.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
