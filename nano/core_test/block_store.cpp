@@ -1427,8 +1427,8 @@ TEST (block_store, topology_view_iteration_ordered_by_topo_height)
 	ASSERT_EQ (inserted.size (), seen.size ());
 	ASSERT_TRUE (std::is_sorted (seen.begin (), seen.end ()));
 
-	// `latest()` returns the highest topo_height (last entry by sort order).
-	ASSERT_EQ (3, store->topology.latest (txn));
+	// `latest()` returns the last entry by full topo key, preserving the hash for restart orientation.
+	ASSERT_EQ (nano::topo_key (3, nano::block_hash{ 50 }), store->topology.latest (txn));
 
 	// Seeking to an exact (topo_height, hash) yields that entry first.
 	auto seek = store->topology.begin (txn, nano::topo_key{ 2, nano::block_hash{ 30 } });

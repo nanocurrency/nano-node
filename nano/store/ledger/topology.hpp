@@ -20,7 +20,7 @@ public:
 	void put (nano::store::write_transaction const &, nano::topo_key const & key);
 	void del (nano::store::write_transaction const &, nano::topo_key const & key);
 	bool exists (nano::store::transaction const &, nano::topo_key const & key) const;
-	std::optional<uint64_t> latest (nano::store::transaction const &) const;
+	std::optional<nano::topo_key> latest (nano::store::transaction const &) const;
 	uint64_t count (nano::store::transaction const &) const;
 	void clear ();
 
