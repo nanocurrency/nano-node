@@ -5,7 +5,6 @@
 #include <nano/node/bootstrap/dependency_strategy.hpp>
 #include <nano/node/bootstrap/queries.hpp>
 #include <nano/node/nodeconfig.hpp>
-#include <nano/node/transport/formatting.hpp>
 
 #include <optional>
 
@@ -99,8 +98,6 @@ bool dependency_strategy::request_info (nano::block_hash hash, std::shared_ptr<n
 {
 	account_info_query query{};
 	query.target = hash;
-
-	ctx.logger.debug (nano::log::type::bootstrap, "Requesting account info for: {} from: {}", hash, channel);
 
 	return ctx.send (channel, query, strategy::dependency);
 }

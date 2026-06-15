@@ -186,6 +186,28 @@ bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & 
 	// Build the outgoing message from the query descriptor
 	auto message = build_message (tag.query, network_constants, tag.id);
 
+	// Log the request
+	struct log_visitor
+	{
+		nano::logger & logger;
+		std::shared_ptr<nano::transport::channel> const & channel;
+		std::string_view source;
+
+		void operator() (blocks_query const & query) const
+		{
+			logger.debug (nano::log::type::bootstrap, "Requesting blocks for: {} starting from: {} count: {} from: {} ({})", query.account, query.start, query.count, channel, source);
+		}
+		void operator() (account_info_query const & query) const
+		{
+			logger.debug (nano::log::type::bootstrap, "Requesting account info for: {} from: {} ({})", query.target, channel, source);
+		}
+		void operator() (frontiers_query const & query) const
+		{
+			logger.debug (nano::log::type::bootstrap, "Requesting frontiers starting from: {} count: {} from: {} ({})", query.start, query.count, channel, source);
+		}
+	};
+	std::visit (log_visitor{ logger, channel, to_string (source) }, tag.query);
+
 	// Note: a failed send deliberately does not release the reserved capacity; the elevated outstanding count acts as
 	// an implicit penalty against an unresponsive peer until decay () heals it. Only a processed response releases.
 	return transmit (channel, std::move (message), std::move (tag));
@@ -715,7 +737,8 @@ void bootstrap_context::submit_blocks (std::deque<std::shared_ptr<nano::block>> 
 		return;
 	}
 
-	auto result = block_processor.add_many (blocks, nano::block_source::bootstrap, submission_channel (source), [this, account = tag.account] (auto result) {
+	auto result = block_processor.add_many (
+	blocks, nano::block_source::bootstrap, submission_channel (source), [this, account = tag.account] (auto result) {
 		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::submission_complete);
 		{
 			// It's the last block submitted for this account chain, reset timestamp to allow more requests

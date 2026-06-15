@@ -7,7 +7,6 @@
 #include <nano/node/bootstrap/verify.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
-#include <nano/node/transport/formatting.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
@@ -95,8 +94,6 @@ bool frontier_strategy::request_frontiers (nano::account start, std::shared_ptr<
 	frontiers_query query{};
 	query.start = start;
 	query.count = nano::messages::asc_pull_ack::frontiers_payload::max_frontiers;
-
-	ctx.logger.debug (nano::log::type::bootstrap, "Requesting frontiers starting from: {} from: {}", start, channel);
 
 	return ctx.send (channel, query, strategy::frontier);
 }

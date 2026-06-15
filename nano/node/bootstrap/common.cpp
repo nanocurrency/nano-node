@@ -19,6 +19,12 @@ nano::stat::detail to_stat_detail (nano::bootstrap::strategy strat)
 {
 	return nano::enum_convert<nano::stat::detail> (strat);
 }
+
+std::string_view to_string (nano::bootstrap::strategy strat)
+{
+	return nano::enum_to_string (strat);
+}
+
 nano::stat::type to_inspect_stat_type (nano::bootstrap::strategy source)
 {
 	switch (source)
