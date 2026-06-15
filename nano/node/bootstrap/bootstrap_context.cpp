@@ -305,17 +305,14 @@ std::shared_ptr<nano::transport::channel> bootstrap_context::wait_channel (nano:
 	});
 
 	// Wait until a channel is available
-	std::shared_ptr<nano::transport::channel> channel;
-	wait ([this, &channel, strat] () {
+	return wait_result ([this, strat] () {
 		auto result = peers.acquire ();
-		channel = result.channel;
-		if (!channel)
+		if (!result.channel)
 		{
 			stats.inc (nano::stat::type::bootstrap_wait_channel, to_stat_detail (strat));
 		}
-		return channel != nullptr; // Wait until a channel is available
+		return result.channel;
 	});
-	return channel;
 }
 
 size_t bootstrap_context::count_tags (nano::account const & account, strategy source) const

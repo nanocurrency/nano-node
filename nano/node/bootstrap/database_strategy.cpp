@@ -83,12 +83,8 @@ std::optional<blocks_query> database_strategy::next_database (bool should_thrott
 
 std::optional<blocks_query> database_strategy::wait_database (bool should_throttle)
 {
-	std::optional<blocks_query> result;
-	ctx.wait ([this, &result, should_throttle] () {
-		debug_assert (!ctx.mutex.try_lock ());
-		result = next_database (should_throttle);
-		return result.has_value ();
+	return ctx.wait_result ([this, should_throttle] () {
+		return next_database (should_throttle);
 	});
-	return result;
 }
 }

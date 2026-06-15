@@ -7,6 +7,8 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/formatting.hpp>
 
+#include <optional>
+
 using namespace std::chrono_literals;
 
 namespace nano::bootstrap
@@ -82,16 +84,15 @@ nano::block_hash dependency_strategy::next_blocking ()
 
 nano::block_hash dependency_strategy::wait_blocking ()
 {
-	nano::block_hash result{ 0 };
-	ctx.wait ([this, &result] () {
-		result = next_blocking ();
-		if (!result.is_zero ())
+	auto result = ctx.wait_result ([this] () -> std::optional<nano::block_hash> {
+		auto blocking = next_blocking ();
+		if (blocking.is_zero ())
 		{
-			return true;
+			return std::nullopt;
 		}
-		return false;
+		return blocking;
 	});
-	return result;
+	return result.value_or (nano::block_hash{ 0 });
 }
 
 bool dependency_strategy::request_info (nano::block_hash hash, std::shared_ptr<nano::transport::channel> const & channel)
