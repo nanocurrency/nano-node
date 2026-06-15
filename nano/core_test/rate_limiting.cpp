@@ -80,6 +80,29 @@ TEST (rate, reset)
 	ASSERT_TRUE (bucket.try_consume (1000000));
 }
 
+TEST (rate, can_consume)
+{
+	nano::rate::token_bucket bucket (2, 1);
+
+	ASSERT_TRUE (bucket.can_consume (2));
+	ASSERT_TRUE (bucket.can_consume (2));
+	ASSERT_EQ (bucket.largest_burst (), 0);
+
+	bucket.consume_checked (2);
+	ASSERT_EQ (bucket.largest_burst (), 2);
+	ASSERT_FALSE (bucket.can_consume (1));
+}
+
+TEST (rate_limiter, can_consume)
+{
+	nano::rate_limiter limiter (2);
+
+	ASSERT_TRUE (limiter.can_consume (2));
+	ASSERT_TRUE (limiter.can_consume (2));
+	limiter.consume_checked (2);
+	ASSERT_FALSE (limiter.can_consume (1));
+}
+
 TEST (rate, unlimited)
 {
 	nano::rate::token_bucket bucket (0, 0);

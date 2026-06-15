@@ -159,7 +159,7 @@ asio::awaitable<boost::system::error_code> nano::transport::tcp_channel::send_on
 	while (allocated_bandwidth < size)
 	{
 		// TODO: Consider implementing a subsribe/notification mechanism for bandwidth allocation
-		if (node.outbound_limiter.should_pass (bandwidth_chunk, type)) // Allocate bandwidth in larger chunks
+		if (node.outbound_limiter.try_consume (bandwidth_chunk, type)) // Allocate bandwidth in larger chunks
 		{
 			allocated_bandwidth += bandwidth_chunk;
 		}

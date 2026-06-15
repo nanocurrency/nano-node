@@ -192,7 +192,7 @@ void nano::bootstrap_server::run ()
 		});
 
 		// Rate limit the processing
-		while (!stopped && !limiter.should_pass (config.batch_size))
+		while (!stopped && !limiter.try_consume (config.batch_size))
 		{
 			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::cooldown);
 			condition.wait_for (lock, 100ms);

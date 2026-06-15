@@ -250,7 +250,7 @@ std::shared_ptr<nano::transport::channel> bootstrap_context::wait_channel ()
 
 	// Wait until more requests can be sent
 	wait ([this] () {
-		return limiter.should_pass (1);
+		return limiter.try_consume (1);
 	});
 
 	// Wait until a channel is available

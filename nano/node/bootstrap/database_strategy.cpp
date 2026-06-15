@@ -66,7 +66,7 @@ std::optional<blocks_query> database_strategy::next_database (bool should_thrott
 	debug_assert (ctx.config.database_warmup_ratio > 0);
 
 	// Throttling increases the weight of database requests
-	if (!ctx.database_limiter.should_pass (should_throttle ? ctx.config.database_warmup_ratio : 1))
+	if (!ctx.database_limiter.try_consume (should_throttle ? ctx.config.database_warmup_ratio : 1))
 	{
 		return std::nullopt;
 	}

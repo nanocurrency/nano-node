@@ -13,6 +13,13 @@ nano::rate::token_bucket::token_bucket (std::size_t max_token_count_a, std::size
 	reset (max_token_count_a, refill_rate_a);
 }
 
+bool nano::rate::token_bucket::can_consume (unsigned tokens_required_a)
+{
+	debug_assert (tokens_required_a <= 1e9);
+	refill ();
+	return current_size >= tokens_required_a || refill_rate == unlimited_rate_sentinel;
+}
+
 bool nano::rate::token_bucket::try_consume (unsigned tokens_required_a)
 {
 	debug_assert (tokens_required_a <= 1e9);
@@ -31,6 +38,12 @@ bool nano::rate::token_bucket::try_consume (unsigned tokens_required_a)
 	smallest_size = std::min (smallest_size, current_size);
 
 	return possible || refill_rate == unlimited_rate_sentinel;
+}
+
+void nano::rate::token_bucket::consume_checked (unsigned tokens_required_a)
+{
+	auto const consumed = try_consume (tokens_required_a);
+	release_assert (consumed);
 }
 
 void nano::rate::token_bucket::refill ()
@@ -79,10 +92,22 @@ nano::rate_limiter::rate_limiter (std::size_t limit_a, double burst_ratio_a) :
 {
 }
 
-bool nano::rate_limiter::should_pass (std::size_t message_size_a)
+bool nano::rate_limiter::can_consume (std::size_t token_count_a)
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-	return bucket.try_consume (nano::narrow_cast<unsigned int> (message_size_a));
+	return bucket.can_consume (nano::narrow_cast<unsigned int> (token_count_a));
+}
+
+bool nano::rate_limiter::try_consume (std::size_t token_count_a)
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return bucket.try_consume (nano::narrow_cast<unsigned int> (token_count_a));
+}
+
+void nano::rate_limiter::consume_checked (std::size_t token_count_a)
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	bucket.consume_checked (nano::narrow_cast<unsigned int> (token_count_a));
 }
 
 void nano::rate_limiter::reset (std::size_t limit_a, double burst_ratio_a)

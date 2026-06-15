@@ -28,10 +28,10 @@ public:
 	bandwidth_limiter (nano::node_config const &, nano::node_flags const &);
 
 	/**
-	 * Check whether packet falls withing bandwidth limits and should be allowed
+	 * Consumes bandwidth tokens when packet falls within bandwidth limits
 	 * @return true if OK, false if needs to be dropped
 	 */
-	bool should_pass (std::size_t buffer_size, nano::transport::traffic_type type);
+	bool try_consume (std::size_t buffer_size, nano::transport::traffic_type type);
 	/**
 	 * Reset limits of selected limiter type to values passed in arguments
 	 */

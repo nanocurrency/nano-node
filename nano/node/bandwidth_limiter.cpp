@@ -36,10 +36,10 @@ nano::rate_limiter const & nano::bandwidth_limiter::select_limiter (nano::transp
 	}
 }
 
-bool nano::bandwidth_limiter::should_pass (std::size_t buffer_size, nano::transport::traffic_type type)
+bool nano::bandwidth_limiter::try_consume (std::size_t buffer_size, nano::transport::traffic_type type)
 {
 	auto & limiter = select_limiter (type);
-	return limiter.should_pass (buffer_size);
+	return limiter.try_consume (buffer_size);
 }
 
 void nano::bandwidth_limiter::reset (std::size_t limit, double burst_ratio, nano::transport::traffic_type type)

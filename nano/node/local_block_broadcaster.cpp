@@ -187,7 +187,7 @@ void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mute
 
 	for (auto const & entry : to_broadcast)
 	{
-		while (!limiter.should_pass (1))
+		while (!limiter.try_consume (1))
 		{
 			std::this_thread::sleep_for (std::chrono::milliseconds{ 100 });
 			if (stopped)
