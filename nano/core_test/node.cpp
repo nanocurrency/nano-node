@@ -562,10 +562,12 @@ TEST (node, fork_publish)
 	node1.work_generate_blocking (*send2);
 	node1.process_active (send1);
 	node1.process_active (send2);
-	// Ensure both forks have joined the same election before the genesis rep starts voting
-	ASSERT_TIMELY (5s, node1.active.active (*send1) && node1.active.active (*send2));
+	// Wait for the election to start before fetching it
+	ASSERT_TIMELY (5s, node1.active.active (*send1));
 	auto election (node1.active.election (send1->qualified_root ()));
 	ASSERT_NE (nullptr, election);
+	// Ensure both forks have actually joined the same election before the genesis rep starts voting
+	ASSERT_TIMELY_EQ (5s, election->blocks ().size (), 2);
 	// Insert the genesis key so voting only begins once both forks are in the election
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	// Wait until the genesis rep activated & makes vote
