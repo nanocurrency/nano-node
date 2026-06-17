@@ -19,6 +19,8 @@ add_executable(
   bootstrap_peer_pool.cpp
   bootstrap_verify.cpp
   bootstrap_server.cpp
+  bootstrap_topo_blocks.cpp
+  bootstrap_topo_scan.cpp
   bounded_dfs.cpp
   bucketing.cpp
   cli.cpp

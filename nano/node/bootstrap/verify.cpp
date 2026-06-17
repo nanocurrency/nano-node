@@ -3,6 +3,8 @@
 
 #include <boost/multiprecision/cpp_int.hpp>
 
+#include <set>
+
 namespace nano::bootstrap
 {
 verify_result verify (nano::messages::asc_pull_ack::blocks_payload const & response, blocks_query const & query)
@@ -85,6 +87,74 @@ verify_result verify (nano::messages::asc_pull_ack::frontiers_payload const & re
 	if (frontiers.front ().first.number () < query.start.number ())
 	{
 		return verify_result::invalid;
+	}
+
+	return verify_result::ok;
+}
+
+verify_result verify (nano::messages::asc_pull_ack::topo_index_payload const & response, topo_index_query const & query)
+{
+	auto const & entries = response.entries;
+
+	if (entries.empty ())
+	{
+		return verify_result::nothing_new;
+	}
+	if (entries.size () > query.count)
+	{
+		return verify_result::invalid;
+	}
+
+	// The server returns a contiguous ascending page starting at the first key >= start
+	if (entries.front () < query.start)
+	{
+		return verify_result::invalid;
+	}
+
+	// Topo keys are unique and must be strictly ascending. Heights are densely packed (a block at height h
+	// depends on one at h-1), so a contiguous page never skips a height: adjacent entries step up by at most one.
+	for (size_t n = 1; n < entries.size (); ++n)
+	{
+		if (!(entries[n - 1] < entries[n]))
+		{
+			return verify_result::invalid;
+		}
+		if (entries[n].topo_height - entries[n - 1].topo_height > 1)
+		{
+			return verify_result::invalid;
+		}
+	}
+
+	return verify_result::ok;
+}
+
+verify_result verify (nano::messages::asc_pull_ack::blocks_payload const & response, blocks_random_query const & query)
+{
+	auto const & blocks = response.blocks;
+
+	if (blocks.empty ())
+	{
+		return verify_result::nothing_new;
+	}
+	if (blocks.size () > query.hashes.size ())
+	{
+		return verify_result::invalid;
+	}
+
+	// Every returned block must have been requested; no duplicates (random fetch has no chain ordering)
+	std::set<nano::block_hash> requested{ query.hashes.begin (), query.hashes.end () };
+	std::set<nano::block_hash> seen;
+	for (auto const & block : blocks)
+	{
+		auto const hash = block->hash ();
+		if (requested.find (hash) == requested.end ())
+		{
+			return verify_result::invalid;
+		}
+		if (!seen.insert (hash).second)
+		{
+			return verify_result::invalid;
+		}
 	}
 
 	return verify_result::ok;

@@ -18,6 +18,8 @@ enum class query_type
 	blocks_by_account,
 	account_info_by_hash,
 	frontiers,
+	blocks_random,
+	topo_index,
 };
 
 enum class verify_result
@@ -34,6 +36,7 @@ enum class strategy
 	database,
 	dependency,
 	frontier,
+	topology,
 };
 
 nano::stat::detail to_stat_detail (nano::bootstrap::query_type);

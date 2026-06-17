@@ -15,10 +15,10 @@ peer_pool::peer_pool (nano::bootstrap_config const & config_a) :
 {
 }
 
-auto peer_pool::acquire (nano::node_capabilities_flags required, std::span<nano::account const> exclude, nano::transport::traffic_type traffic) -> peer_pool::acquire_result
+auto peer_pool::acquire (peer_requirements const & required, std::span<nano::account const> exclude, nano::transport::traffic_type traffic) -> peer_pool::acquire_result
 {
-	bool capable_present = false; // Some connected peer satisfies the capability requirement
-	bool candidate_present = false; // Some capable peer is not excluded, though it may be at capacity
+	bool matching_present = false; // Some connected peer satisfies the requirements
+	bool candidate_present = false; // Some matching peer is not excluded, though it may be at capacity
 
 	auto excluded = [&exclude] (entry const & entry) {
 		return std::find (exclude.begin (), exclude.end (), entry.node_id) != exclude.end ();
@@ -30,11 +30,11 @@ auto peer_pool::acquire (nano::node_capabilities_flags required, std::span<nano:
 	for (auto it = by_outstanding.begin (); it != available_end; ++it)
 	{
 		auto const & entry = *it;
-		if (!entry.capable (required))
+		if (!entry.matches (required))
 		{
 			continue;
 		}
-		capable_present = true;
+		matching_present = true;
 		if (excluded (entry))
 		{
 			continue; // Already used by the requesting round
@@ -60,11 +60,11 @@ auto peer_pool::acquire (nano::node_capabilities_flags required, std::span<nano:
 	for (auto it = available_end; it != by_outstanding.end (); ++it)
 	{
 		auto const & entry = *it;
-		if (!entry.capable (required))
+		if (!entry.matches (required))
 		{
 			continue;
 		}
-		capable_present = true;
+		matching_present = true;
 		if (excluded (entry))
 		{
 			continue;
@@ -77,7 +77,7 @@ auto peer_pool::acquire (nano::node_capabilities_flags required, std::span<nano:
 	{
 		return { nullptr, peer_acquire_status::busy };
 	}
-	if (capable_present)
+	if (matching_present)
 	{
 		return { nullptr, peer_acquire_status::exhausted };
 	}
@@ -96,15 +96,15 @@ void peer_pool::release (std::shared_ptr<nano::transport::channel> const & chann
 	}
 }
 
-bool peer_pool::has_candidate (nano::node_capabilities_flags required, std::span<nano::account const> exclude) const
+bool peer_pool::has_candidate (peer_requirements const & required, std::span<nano::account const> exclude) const
 {
 	return std::any_of (entries.begin (), entries.end (), [&] (auto const & item) {
 		auto const & entry = item;
-		return entry.capable (required) && std::find (exclude.begin (), exclude.end (), entry.node_id) == exclude.end ();
+		return entry.matches (required) && std::find (exclude.begin (), exclude.end (), entry.node_id) == exclude.end ();
 	});
 }
 
-peer_probe_status peer_pool::probe (nano::node_capabilities_flags required, std::span<nano::account const> exclude) const
+peer_probe_status peer_pool::probe (peer_requirements const & required, std::span<nano::account const> exclude) const
 {
 	auto excluded = [&exclude] (entry const & entry) {
 		return std::find (exclude.begin (), exclude.end (), entry.node_id) != exclude.end ();
@@ -116,7 +116,7 @@ peer_probe_status peer_pool::probe (nano::node_capabilities_flags required, std:
 	for (auto it = by_outstanding.begin (); it != available_end; ++it)
 	{
 		auto const & entry = *it;
-		if (entry.capable (required) && !excluded (entry))
+		if (entry.matches (required) && !excluded (entry))
 		{
 			return peer_probe_status::available;
 		}
@@ -125,7 +125,7 @@ peer_probe_status peer_pool::probe (nano::node_capabilities_flags required, std:
 	for (auto it = available_end; it != by_outstanding.end (); ++it)
 	{
 		auto const & entry = *it;
-		if (entry.capable (required) && !excluded (entry))
+		if (entry.matches (required) && !excluded (entry))
 		{
 			return peer_probe_status::busy;
 		}
@@ -223,7 +223,8 @@ nano::stat::detail to_stat_detail (peer_probe_status status)
 peer_pool::entry::entry (std::shared_ptr<nano::transport::channel> channel_a, nano::transport::peer_info const & peer) :
 	channel{ std::move (channel_a) },
 	node_id{ peer.node_id },
-	capabilities{ peer.capabilities }
+	capabilities{ peer.capabilities },
+	network_version{ peer.protocol_version }
 {
 }
 }

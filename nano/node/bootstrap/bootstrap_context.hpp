@@ -24,8 +24,10 @@
 #include <chrono>
 #include <deque>
 #include <memory>
+#include <span>
 #include <thread>
 #include <type_traits>
+#include <vector>
 
 namespace mi = boost::multi_index;
 
@@ -35,6 +37,7 @@ class priority_strategy;
 class database_strategy;
 class dependency_strategy;
 class frontier_strategy;
+class topo_strategy;
 
 struct async_tag
 {
@@ -88,8 +91,27 @@ public:
 	// Wait until there is enough space in block_processor for new blocks
 	void wait_block_processor (nano::bootstrap::strategy) const;
 
-	// Waits for a channel that is not full. Applies the per-strategy rate limiter.
-	std::shared_ptr<nano::transport::channel> wait_channel (nano::bootstrap::strategy strategy);
+	// Waits for a channel that is not full. Applies the per-strategy rate limiter and only returns a peer that meets the requirements.
+	std::shared_ptr<nano::transport::channel> wait_channel (nano::bootstrap::strategy strategy, peer_requirements const & required = {});
+
+	// One reserved peer of a fanout round
+	struct channel_lease
+	{
+		std::shared_ptr<nano::transport::channel> channel;
+		nano::account node_id{ 0 };
+	};
+
+	// Outcome of a fanout acquire: the leases obtained, and whether the distinct-peer pool ran out
+	struct fanout_result
+	{
+		std::vector<channel_lease> leases;
+		bool exhausted{ false };
+	};
+
+	// Reserves up to `max` distinct peers meeting the requirements (each excluded from the next pick, on top of `exclude`).
+	// Blocks for the first lease only on a fresh round (empty `exclude`); the rest are best-effort.
+	// `exhausted` is set when the matching pool runs dry before reaching `max`. Applies the per-strategy rate limiter.
+	fanout_result wait_channels (nano::bootstrap::strategy strategy, peer_requirements const & required, std::span<nano::account const> exclude, unsigned max);
 
 	enum class conclusion
 	{
@@ -109,6 +131,9 @@ public:
 
 	// Placeholder channel used as a fair-queue partition key so the block processor equalizes ingest across sources
 	std::shared_ptr<nano::transport::channel> const & submission_channel (nano::bootstrap::strategy) const;
+
+	// Handles a block that has been rolled back from the ledger
+	void rollback (nano::block const & block);
 
 	nano::container_info container_info () const;
 
@@ -151,6 +176,8 @@ public: // Strategies
 	nano::bootstrap::dependency_strategy & dependency_strat;
 	std::unique_ptr<nano::bootstrap::frontier_strategy> frontier_strat_impl;
 	nano::bootstrap::frontier_strategy & frontier_strat;
+	std::unique_ptr<nano::bootstrap::topo_strategy> topo_strat_impl;
+	nano::bootstrap::topo_strategy & topo_strat;
 
 public: // Shared state
 	nano::bootstrap::account_sets_index accounts;
@@ -185,6 +212,7 @@ public: // Shared state
 	nano::rate_limiter database_limiter;
 	nano::rate_limiter dependency_limiter;
 	nano::rate_limiter frontier_limiter;
+	nano::rate_limiter topo_limiter;
 
 	// Per-source placeholder channels. Tagging block_processor submissions with a distinct
 	// channel per source gives each its own fair-queue bucket, so the processor round-robins
@@ -192,6 +220,7 @@ public: // Shared state
 	std::shared_ptr<nano::transport::channel> generic_channel; // Null, used as generic fair queue origin
 	std::shared_ptr<nano::transport::channel> priority_channel;
 	std::shared_ptr<nano::transport::channel> database_channel;
+	std::shared_ptr<nano::transport::channel> topology_channel;
 
 	bool stopped{ false };
 	mutable nano::mutex mutex;

@@ -235,8 +235,8 @@ public: // Payload definitions
 
 	struct topo_index_payload
 	{
-		/* Header allows for 16 bit extensions; 65536 bytes / 40 bytes (topo_height + hash) ~ 1638, cap at 1000 */
-		constexpr static std::size_t max_entries = 1000;
+		/* Payload length is a 16-bit header field (<= 65535 bytes). At 40 bytes/entry (topo_height + hash) plus a 40-byte terminator: (65535 - 40) / 40 = 1637 max */
+		constexpr static std::size_t max_entries = 1637;
 
 		void serialize (nano::stream &) const;
 		void deserialize (nano::stream &);

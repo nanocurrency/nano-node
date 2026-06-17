@@ -138,6 +138,7 @@ TEST (bootstrap, priority_filters_known_blocks)
 	config.bootstrap->enable_database_scan = false;
 	config.bootstrap->enable_dependency_walker = false;
 	config.bootstrap->enable_frontier_scan = false;
+	config.bootstrap->enable_topo_scan = false;
 	// Force safe requests (start from the confirmed frontier) so responses include blocks we
 	// already hold above the confirmed frontier
 	config.bootstrap->optimistic_request_percentage = 0;
@@ -188,6 +189,7 @@ TEST (bootstrap, frontier_scan)
 	// Disable other bootstrap strategies
 	config.bootstrap->enable_priorities = false;
 	config.bootstrap->enable_dependency_walker = false;
+	config.bootstrap->enable_topo_scan = false;
 	// Disable election activation
 	config.backlog_scan->enable = false;
 
@@ -282,6 +284,7 @@ TEST (bootstrap, frontier_scan_pending)
 	// Disable other bootstrap strategies
 	config.bootstrap->enable_priorities = false;
 	config.bootstrap->enable_dependency_walker = false;
+	config.bootstrap->enable_topo_scan = false;
 	// Disable election activation
 	config.backlog_scan->enable = false;
 
@@ -362,6 +365,7 @@ TEST (bootstrap, frontier_scan_cannot_prioritize)
 	// Disable other bootstrap strategies
 	config.bootstrap->enable_priorities = false;
 	config.bootstrap->enable_dependency_walker = false;
+	config.bootstrap->enable_topo_scan = false;
 	// Disable election activation
 	config.backlog_scan->enable = false;
 
@@ -475,6 +479,8 @@ TEST (bootstrap, reset)
 	config.backlog_scan->enable = false;
 	// Add request limits to slow down bootstrap
 	config.bootstrap->priority_rate_limit = 30;
+	config.bootstrap->topo_rate_limit = 30;
+	config.bootstrap->topo_scan.fetch_batch = 1;
 
 	// Start server node
 	auto & node_server = *system.add_node (config, flags);

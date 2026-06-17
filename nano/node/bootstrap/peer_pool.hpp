@@ -38,14 +38,20 @@ enum class peer_probe_status
 nano::stat::detail to_stat_detail (peer_acquire_status);
 nano::stat::detail to_stat_detail (peer_probe_status);
 
+struct peer_requirements
+{
+	nano::node_capabilities_flags capabilities{};
+	uint8_t minimum_protocol_version{ 0 };
+};
+
 /*
  * Pool of peers usable for bootstrap requests, tracked together with their in-flight request load.
  * A peer is acquired for each outgoing request, reserving one slot of its capacity, and released when the
  * request concludes. The periodic update () tracks newly connected channels and drops closed ones; the
  * periodic decay () shrinks loads that drift upwards when responses are lost.
  *
- * Peer identity (node id) and capabilities are cached from the channel's immutable peer information for
- * efficient selection scans.
+ * Peer identity (node id), capabilities, and protocol version are cached from the channel's immutable peer
+ * information for efficient selection scans.
  * Channels are held by shared_ptr and liveness is checked only in update (), so a closed channel may be
  * offered for up to one update interval;
  *
@@ -65,19 +71,19 @@ public:
 		nano::account node_id{ 0 }; // Cached identity of the acquired peer
 	};
 
-	// Reserves the least-loaded peer that satisfies the capability requirement and is not excluded.
+	// Reserves the least-loaded peer that satisfies the requirements and is not excluded.
 	// The exclusion list lets a fanout round route each of its requests to a distinct peer.
-	acquire_result acquire (nano::node_capabilities_flags required = {}, std::span<nano::account const> exclude = {}, nano::transport::traffic_type traffic = default_traffic_type);
+	acquire_result acquire (peer_requirements const & required = {}, std::span<nano::account const> exclude = {}, nano::transport::traffic_type traffic = default_traffic_type);
 
 	// Returns one reserved capacity slot when a response arrives
 	void release (std::shared_ptr<nano::transport::channel> const &);
 
-	// Returns true if any peer satisfies the capability requirement and is not excluded, ignoring capacity
-	bool has_candidate (nano::node_capabilities_flags required = {}, std::span<nano::account const> exclude = {}) const;
+	// Returns true if any peer satisfies the requirements and is not excluded, ignoring capacity
+	bool has_candidate (peer_requirements const & required = {}, std::span<nano::account const> exclude = {}) const;
 
 	// Capacity-aware, non-reserving mirror of acquire (). This intentionally does not inspect the
 	// channel send queue; acquire () performs that final check on the selected candidate.
-	peer_probe_status probe (nano::node_capabilities_flags required = {}, std::span<nano::account const> exclude = {}) const;
+	peer_probe_status probe (peer_requirements const & required = {}, std::span<nano::account const> exclude = {}) const;
 
 	// Tracks newly connected channels and drops closed ones
 	void update (std::deque<std::shared_ptr<nano::transport::channel>> const & channels);
@@ -105,13 +111,14 @@ private:
 		// Cached from the channel's immutable peer information for selection scans
 		nano::account node_id;
 		nano::node_capabilities_flags capabilities;
+		uint8_t network_version;
 
 		// Number of requests sent to the peer and not yet concluded
 		uint64_t outstanding{ 0 };
 
-		bool capable (nano::node_capabilities_flags required) const
+		bool matches (peer_requirements const & required) const
 		{
-			return (capabilities & required) == required;
+			return (capabilities & required.capabilities) == required.capabilities && network_version >= required.minimum_protocol_version;
 		}
 
 		void decay ()

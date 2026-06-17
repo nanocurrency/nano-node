@@ -6,18 +6,19 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <optional>
 
 namespace
 {
 class bootstrap_peer_pool : public ::testing::Test
 {
 protected:
-	std::shared_ptr<nano::transport::channel> make_channel (nano::account node_id, nano::node_capabilities_flags capabilities = {})
+	std::shared_ptr<nano::transport::channel> make_channel (nano::account node_id, nano::node_capabilities_flags capabilities = {}, std::optional<uint8_t> protocol_version = std::nullopt)
 	{
 		auto & node = system.node (0);
 		nano::transport::peer_info const peer{
 			.node_id = node_id,
-			.protocol_version = node.network_params.network.protocol_version,
+			.protocol_version = protocol_version.value_or (node.network_params.network.protocol_version),
 			.capabilities = capabilities,
 		};
 		return std::make_shared<nano::transport::fake::channel> (node, peer);
@@ -85,20 +86,37 @@ TEST_F (bootstrap_peer_pool, capabilities_and_exclusions)
 	auto vote_channel = make_channel ({ 2 }, nano::node_capabilities::vote_storage);
 	pool.update ({ topo_channel, vote_channel });
 
-	auto topo = pool.acquire (nano::node_capabilities::topo_index);
+	nano::bootstrap::peer_requirements topo_requirements{ nano::node_capabilities::topo_index };
+	auto topo = pool.acquire (topo_requirements);
 	ASSERT_EQ (nano::bootstrap::peer_acquire_status::acquired, topo.status);
 	ASSERT_EQ (topo_channel, topo.channel);
 	ASSERT_EQ (nano::account{ 1 }, topo.node_id);
 
-	auto required = nano::node_capabilities_flags{ nano::node_capabilities::topo_index } | nano::node_capabilities::vote_storage;
+	nano::bootstrap::peer_requirements required;
+	required.capabilities = nano::node_capabilities_flags{ nano::node_capabilities::topo_index } | nano::node_capabilities::vote_storage;
 	ASSERT_EQ (nano::bootstrap::peer_acquire_status::no_peers, pool.acquire (required).status);
 	ASSERT_FALSE (pool.has_candidate (required));
 
 	std::array excluded{ nano::account{ 1 } };
-	auto exhausted = pool.acquire (nano::node_capabilities::topo_index, excluded);
+	auto exhausted = pool.acquire (topo_requirements, excluded);
 	ASSERT_EQ (nano::bootstrap::peer_acquire_status::exhausted, exhausted.status);
 	ASSERT_EQ (nullptr, exhausted.channel);
-	ASSERT_FALSE (pool.has_candidate (nano::node_capabilities::topo_index, excluded));
+	ASSERT_FALSE (pool.has_candidate (topo_requirements, excluded));
+}
+
+TEST_F (bootstrap_peer_pool, minimum_protocol_version)
+{
+	auto const minimum_version = system.node (0).network_params.network.topo_bootstrap_protocol_version_min;
+	auto older_channel = make_channel ({ 1 }, {}, minimum_version - 1);
+	auto compatible_channel = make_channel ({ 2 });
+	pool.update ({ older_channel, compatible_channel });
+
+	nano::bootstrap::peer_requirements requirements;
+	requirements.minimum_protocol_version = minimum_version;
+	auto result = pool.acquire (requirements);
+	ASSERT_EQ (nano::bootstrap::peer_acquire_status::acquired, result.status);
+	ASSERT_EQ (compatible_channel, result.channel);
+	ASSERT_TRUE (pool.has_candidate (requirements));
 }
 
 TEST_F (bootstrap_peer_pool, probe_release_and_decay)

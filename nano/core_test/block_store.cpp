@@ -1440,6 +1440,76 @@ TEST (block_store, topology_view_iteration_ordered_by_topo_height)
 	ASSERT_EQ (nano::block_hash{ 30 }, seek_height->first.hash);
 }
 
+// The topology crawler resolves skip_to by full (topo_height, hash) order, landing on the first key >= target,
+// so precheck can test exact membership via full_key (). Queries must be issued in ascending order (forward-only).
+TEST (block_store, topology_view_crawl_skip_to)
+{
+	auto store = nano::test::make_store ();
+	{
+		auto txn = store->tx_begin_write ();
+		store->topology.put (txn, { 1, nano::block_hash{ 100 } });
+		store->topology.put (txn, { 1, nano::block_hash{ 200 } }); // same height, larger hash
+		store->topology.put (txn, { 2, nano::block_hash{ 50 } });
+		store->topology.put (txn, { 5, nano::block_hash{ 10 } });
+	}
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->topology.crawl (txn);
+
+	// Exact match lands on the requested key
+	ASSERT_TRUE (crawler.skip_to ({ 1, nano::block_hash{ 100 } }));
+	ASSERT_EQ (nano::topo_key (1, nano::block_hash{ 100 }), crawler.full_key ());
+
+	// Same height, larger hash resolves by full-key order (not by topo_height alone)
+	ASSERT_TRUE (crawler.skip_to ({ 1, nano::block_hash{ 200 } }));
+	ASSERT_EQ (nano::topo_key (1, nano::block_hash{ 200 }), crawler.full_key ());
+
+	// A missing key lands on the next present key >= target
+	ASSERT_TRUE (crawler.skip_to ({ 1, nano::block_hash{ 250 } }));
+	ASSERT_EQ (nano::topo_key (2, nano::block_hash{ 50 }), crawler.full_key ());
+
+	// Skipping past the last key reports exhaustion
+	ASSERT_FALSE (crawler.skip_to ({ 9, nano::block_hash{ 0 } }));
+}
+
+// Mirrors precheck: a single forward crawl tests a sorted query list for membership, including a band
+// wider than the crawler's sequential window so the seek fallback (not just sequential advance) is exercised.
+TEST (block_store, topology_view_crawl_membership_scan)
+{
+	auto store = nano::test::make_store ();
+	constexpr uint64_t window = nano::store::crawler<nano::store::ledger::topology_view, nano::store::read_transaction>::sequential_attempts;
+
+	{
+		auto txn = store->tx_begin_write ();
+		store->topology.put (txn, { 1, nano::block_hash{ 1 } });
+		// Contiguous band at height 2, wider than the sequential window, so skipping across it must fall back to a seek
+		for (uint64_t h = 0; h < window * 2; ++h)
+		{
+			store->topology.put (txn, { 2, nano::block_hash{ h } });
+		}
+		store->topology.put (txn, { 3, nano::block_hash{ 7 } });
+	}
+
+	// Ascending query list, present and absent interleaved
+	std::vector<std::pair<nano::topo_key, bool>> queries{
+		{ { 1, nano::block_hash{ 1 } }, true },
+		{ { 1, nano::block_hash{ 2 } }, false }, // absent: nothing past hash 1 at height 1
+		{ { 2, nano::block_hash{ 0 } }, true },
+		{ { 2, nano::block_hash{ window * 2 - 1 } }, true }, // far side of the band -> seek fallback
+		{ { 2, nano::block_hash{ window * 2 } }, false }, // absent: just past the band
+		{ { 3, nano::block_hash{ 7 } }, true },
+		{ { 9, nano::block_hash{ 0 } }, false }, // absent: past the end
+	};
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->topology.crawl (txn, queries.front ().first);
+	for (auto const & [key, present] : queries)
+	{
+		bool const found = crawler.skip_to (key) && crawler.full_key () == key;
+		ASSERT_EQ (present, found) << "topo_height=" << key.topo_height << " hash=" << key.hash.to_string ();
+	}
+}
+
 TEST (block_store, topology_view_clear)
 {
 	auto store = nano::test::make_store ();

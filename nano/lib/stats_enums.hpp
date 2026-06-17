@@ -105,6 +105,12 @@ enum class type
 	bootstrap_frontiers,
 	bootstrap_account_sets,
 	bootstrap_frontier_scan,
+	bootstrap_topo,
+	bootstrap_topo_scan,
+	bootstrap_topo_fetch,
+	bootstrap_topo_submit,
+	bootstrap_topo_gaps,
+	bootstrap_verify_topo,
 	bootstrap_timeout,
 	bootstrap_server,
 	bootstrap_server_request,
@@ -210,6 +216,7 @@ enum class detail
 	read,
 	oversize,
 	refill,
+	dropped,
 
 	// processing queue
 	queue,
@@ -567,6 +574,9 @@ enum class detail
 	loop_dependencies,
 	loop_frontiers,
 	loop_frontiers_processing,
+	loop_topo_scan,
+	loop_topo_fetch,
+	loop_topo_submit,
 	duplicate_request,
 	invalid_response_type,
 	invalid_response,
@@ -578,6 +588,21 @@ enum class detail
 	topo_indexes,
 	dependency,
 	frontier,
+
+	// bootstrap topo engines
+	fetched,
+	submitted,
+	retire,
+	gap,
+	skip,
+	prechecked,
+	redundant,
+	rescanned,
+	missing,
+	tracked,
+	resolved,
+	rolled_back,
+	grow,
 
 	prioritize,
 	prioritize_failed,
@@ -599,6 +624,8 @@ enum class detail
 	next_by_timestamp,
 	advance,
 	advance_failed,
+	next_repair,
+	next_spearhead,
 
 	next_none,
 	next_priority,
@@ -701,6 +728,7 @@ enum class detail
 	// bootstrap strategy
 	database,
 	dependencies,
+	topology,
 
 	// bounded backlog,
 	gathered_targets,
@@ -769,6 +797,7 @@ enum class sample
 
 	active_election_duration,
 	bootstrap_tag_duration,
+	bootstrap_topo_redundancy,
 	rep_response_time,
 	vote_generator_final_hashes,
 	vote_generator_hashes,

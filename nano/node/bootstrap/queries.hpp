@@ -5,8 +5,10 @@
 #include <nano/lib/numbers_templ.hpp>
 #include <nano/messages/fwd.hpp>
 #include <nano/node/bootstrap/common.hpp>
+#include <nano/secure/common.hpp>
 
 #include <cstddef>
+#include <deque>
 #include <variant>
 
 namespace nano::bootstrap
@@ -33,8 +35,21 @@ struct frontiers_query
 	size_t count{ 0 };
 };
 
+// Describes a topology index scan query: walk the peer's topo index starting at `start`
+struct topo_index_query
+{
+	nano::topo_key start{};
+	size_t count{ 0 };
+};
+
+// Describes a random-blocks fetch: pull an arbitrary set of blocks by hash
+struct blocks_random_query
+{
+	std::deque<nano::block_hash> hashes;
+};
+
 // A query descriptor carries everything needed to build the request message and to verify/process the response
-using query_descriptor = std::variant<blocks_query, account_info_query, frontiers_query>;
+using query_descriptor = std::variant<blocks_query, account_info_query, frontiers_query, topo_index_query, blocks_random_query>;
 
 // Multi-index keys (account, hash) used to track an in-flight query
 struct query_keys
