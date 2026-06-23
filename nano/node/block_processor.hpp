@@ -36,7 +36,7 @@ public:
 	// Maximum number of blocks to queue from network peers
 	size_t max_peer_queue{ 128 };
 	// Maximum number of blocks to queue from system components (local RPC, bootstrap)
-	size_t max_system_queue{ 16 * 1024 };
+	size_t max_system_queue{ 128 * 1024 };
 
 	// Higher priority gets processed more frequently
 	size_t priority_live{ 1 };
