@@ -177,6 +177,7 @@ bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & 
 	tag.source = source;
 	tag.query = std::move (query);
 	tag.id = id;
+	tag.node_id = channel->get_node_id ();
 
 	// Derive the index keys from the query descriptor
 	auto keys = index_keys (tag.query);

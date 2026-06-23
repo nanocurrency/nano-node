@@ -45,6 +45,9 @@ struct async_tag
 	nano::account account{ 0 };
 	nano::block_hash hash{ 0 };
 
+	// Identity of the peer this request was sent to, for per-peer fetch tracking
+	nano::account node_id{ 0 };
+
 	std::chrono::steady_clock::time_point cutoff{};
 	std::chrono::steady_clock::time_point timestamp{ std::chrono::steady_clock::now () };
 	id_t id{ generate_id () };
