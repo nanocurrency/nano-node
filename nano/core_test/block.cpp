@@ -1,3 +1,4 @@
+#include <nano/lib/block_sideband.hpp>
 #include <nano/lib/block_uniquer.hpp>
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
@@ -476,6 +477,33 @@ TEST (block_uniquer, null)
 {
 	nano::block_uniquer uniquer;
 	ASSERT_EQ (nullptr, uniquer.unique (nullptr));
+}
+
+TEST (block_sideband, to_json)
+{
+	nano::block_sideband sideband1;
+	sideband1.account = 1;
+	sideband1.balance = 2;
+	sideband1.height = 3;
+	sideband1.timestamp = 5;
+	sideband1.topo_height = 42;
+	sideband1.source_epoch = nano::epoch::epoch_1;
+	sideband1.details = nano::block_details{ nano::epoch::epoch_1, false, true, false };
+
+	auto json (sideband1.to_json ());
+	ASSERT_NE (0, json.size ());
+
+	boost::property_tree::ptree tree;
+	std::stringstream istream (json);
+	boost::property_tree::read_json (istream, tree);
+
+	ASSERT_EQ (sideband1.account.to_account (), tree.get<std::string> ("account"));
+	ASSERT_EQ (sideband1.balance.to_string_dec (), tree.get<std::string> ("balance"));
+	ASSERT_EQ (std::to_string (sideband1.height), tree.get<std::string> ("height"));
+	ASSERT_EQ (std::to_string (sideband1.timestamp), tree.get<std::string> ("timestamp"));
+	ASSERT_EQ (std::to_string (sideband1.topo_height), tree.get<std::string> ("topo_height"));
+	ASSERT_EQ (std::to_string (static_cast<uint8_t> (sideband1.source_epoch)), tree.get<std::string> ("source_epoch"));
+	ASSERT_EQ (nano::state_subtype (sideband1.details), tree.get<std::string> ("details"));
 }
 
 TEST (block_uniquer, single)

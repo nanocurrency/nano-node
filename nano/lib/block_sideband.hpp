@@ -4,6 +4,8 @@
 #include <nano/lib/fwd.hpp>
 #include <nano/lib/numbers.hpp>
 
+#include <boost/property_tree/ptree_fwd.hpp>
+
 #include <cstdint>
 #include <memory>
 
@@ -72,6 +74,8 @@ public:
 
 public: // Logging
 	void operator() (nano::object_stream &) const;
+	void serialize_json (boost::property_tree::ptree &) const;
+	std::string to_json () const;
 };
 
 /**
