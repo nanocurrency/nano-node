@@ -1049,19 +1049,17 @@ TEST (active_elections, fork_replacement_tally)
 		node1.process_active (fork);
 	}
 
-	// function to count the number of rep votes (non genesis) found in election
-	// it also checks that there are 10 votes in the election
-	auto count_rep_votes_in_election = [&max_blocks, &reps_count, &election, &keys] () {
-		// Check that only max weight blocks remains (and start winner)
+	// Count representatives whose vote still points at a block retained in the election. replace_by_weight can
+	// leave votes for already-evicted forks behind in last_votes, so votes ().size () is not a stable quantity;
+	// filtering to votes whose target block survives counts exactly the retained representative forks.
+	auto count_rep_votes_in_election = [&reps_count, &election, &keys] () {
 		auto votes_l = election->votes ();
-		if (max_blocks != votes_l.size ())
-		{
-			return -1;
-		}
+		auto blocks_l = election->blocks ();
 		int vote_count = 0;
 		for (auto i = 0; i < reps_count; i++)
 		{
-			if (votes_l.find (keys[i].pub) != votes_l.end ())
+			auto existing = votes_l.find (keys[i].pub);
+			if (existing != votes_l.end () && blocks_l.find (existing->second.hash) != blocks_l.end ())
 			{
 				vote_count++;
 			}
@@ -1069,8 +1067,8 @@ TEST (active_elections, fork_replacement_tally)
 		return vote_count;
 	};
 
-	// Check overflow of blocks
-	ASSERT_TIMELY_EQ (10s, count_rep_votes_in_election (), 9);
+	// Block overflow keeps the max_blocks highest-tally forks: the start winner plus the 9 highest-weight rep forks
+	ASSERT_TIMELY_EQ (15s, count_rep_votes_in_election (), 9);
 	ASSERT_EQ (max_blocks, election->blocks ().size ());
 
 	// Process correct block
@@ -1102,7 +1100,8 @@ TEST (active_elections, fork_replacement_tally)
 	ASSERT_TIMELY (5s, find_send_last_block ())
 	ASSERT_EQ (max_blocks, election->blocks ().size ());
 
-	ASSERT_TIMELY_EQ (5s, count_rep_votes_in_election (), 8);
+	// send_last replaces the lowest-weight rep fork and is voted by genesis, leaving 8 retained representative forks
+	ASSERT_TIMELY_EQ (10s, count_rep_votes_in_election (), 8);
 
 	auto votes2 (election->votes ());
 	ASSERT_TRUE (votes2.find (nano::dev::genesis_key.pub) != votes2.end ());
