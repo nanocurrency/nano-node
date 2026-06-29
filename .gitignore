@@ -18,6 +18,9 @@
 # Doxygen built HTML
 /doc-build
 
+# CMake build directory (default location used by ci/build.sh)
+/build/
+
 # Executables
 *.exe
 *.out
