@@ -78,7 +78,9 @@ public:
 	std::optional<nano::messages::keepalive> sample_keepalive ();
 
 	// Connection start
-	bool start_tcp (nano::endpoint const &, nano::transport::connect_callback callback = {});
+	bool start_tcp (
+	nano::endpoint const & endpoint,
+	nano::transport::connect_callback callback = [] (nano::tcp_endpoint const &, std::error_code) {});
 
 	std::deque<std::shared_ptr<tcp_socket>> all_sockets () const;
 	std::deque<std::shared_ptr<tcp_server>> all_servers () const;

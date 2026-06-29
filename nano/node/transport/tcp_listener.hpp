@@ -59,7 +59,10 @@ public:
 	 * @param callback is optional, invoked with the final outcome of the connection attempt
 	 * @return true if connection attempt was initiated
 	 */
-	bool connect (asio::ip::address ip, uint16_t port = 0, connect_callback callback = {});
+	bool connect (
+	asio::ip::address ip,
+	uint16_t port = 0,
+	nano::transport::connect_callback callback = [] (nano::tcp_endpoint const &, std::error_code) {});
 
 	nano::tcp_endpoint endpoint () const;
 
@@ -93,7 +96,7 @@ private:
 	void purge (nano::unique_lock<nano::mutex> &);
 	void timeout ();
 
-	asio::awaitable<void> connect_impl (asio::ip::tcp::endpoint, connect_callback callback);
+	asio::awaitable<void> connect_impl (asio::ip::tcp::endpoint, nano::transport::connect_callback callback);
 	asio::awaitable<asio::ip::tcp::socket> connect_socket (asio::ip::tcp::endpoint);
 
 	struct accept_return

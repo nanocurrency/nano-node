@@ -134,7 +134,10 @@ public:
 
 	// Trigger immediate reachout to preconfigured peers
 	void trigger_reachout ();
-	void reachout (std::string const & address, uint16_t port, nano::transport::connect_callback callback = {});
+	void reachout (
+	std::string const & address,
+	uint16_t port,
+	nano::transport::connect_callback callback = [] (nano::tcp_endpoint const &, std::error_code) {});
 	void reachout_preconfigured ();
 
 	void merge_peers (std::array<nano::endpoint, 8> const & ips);
