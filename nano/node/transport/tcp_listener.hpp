@@ -62,7 +62,7 @@ public:
 	bool connect (
 	asio::ip::address ip,
 	uint16_t port = 0,
-	nano::transport::connect_callback callback = [] (nano::tcp_endpoint const &, std::error_code) {});
+	nano::transport::connect_callback callback = noop<nano::transport::connect_callback> ());
 
 	nano::tcp_endpoint endpoint () const;
 

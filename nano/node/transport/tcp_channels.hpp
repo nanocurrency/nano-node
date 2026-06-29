@@ -80,7 +80,7 @@ public:
 	// Connection start
 	bool start_tcp (
 	nano::endpoint const & endpoint,
-	nano::transport::connect_callback callback = [] (nano::tcp_endpoint const &, std::error_code) {});
+	nano::transport::connect_callback callback = noop<nano::transport::connect_callback> ());
 
 	std::deque<std::shared_ptr<tcp_socket>> all_sockets () const;
 	std::deque<std::shared_ptr<tcp_server>> all_servers () const;

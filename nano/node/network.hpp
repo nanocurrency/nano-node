@@ -137,7 +137,7 @@ public:
 	void reachout (
 	std::string const & address,
 	uint16_t port,
-	nano::transport::connect_callback callback = [] (nano::tcp_endpoint const &, std::error_code) {});
+	nano::transport::connect_callback callback = noop<nano::transport::connect_callback> ());
 	void reachout_preconfigured ();
 
 	void merge_peers (std::array<nano::endpoint, 8> const & ips);

@@ -256,7 +256,7 @@ void nano::transport::tcp_listener::timeout ()
 	}
 }
 
-bool nano::transport::tcp_listener::connect (asio::ip::address ip, uint16_t port, connect_callback callback)
+bool nano::transport::tcp_listener::connect (asio::ip::address ip, uint16_t port, nano::transport::connect_callback callback)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
@@ -308,7 +308,7 @@ bool nano::transport::tcp_listener::connect (asio::ip::address ip, uint16_t port
 	return true; // Attempt started
 }
 
-auto nano::transport::tcp_listener::connect_impl (asio::ip::tcp::endpoint endpoint, connect_callback callback) -> asio::awaitable<void>
+auto nano::transport::tcp_listener::connect_impl (asio::ip::tcp::endpoint endpoint, nano::transport::connect_callback callback) -> asio::awaitable<void>
 {
 	debug_assert (strand.running_in_this_thread ());
 	debug_assert (callback);
@@ -339,7 +339,7 @@ auto nano::transport::tcp_listener::connect_impl (asio::ip::tcp::endpoint endpoi
 		stats.inc (nano::stat::type::tcp_listener, nano::stat::detail::connect_error, nano::stat::dir::out);
 		stats.inc (nano::stat::type::tcp_listener_connect_ec, nano::to_stat_detail (ex.code ()));
 		logger.log (nano::log::level::debug, nano::log::type::tcp_listener, "Error connecting to: {} ({})", endpoint, ex.code ());
-		
+
 		callback (endpoint, ex.code ());
 	}
 }

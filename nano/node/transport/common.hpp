@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/function.hpp>
 #include <nano/lib/network_types.hpp>
 
 #include <functional>
