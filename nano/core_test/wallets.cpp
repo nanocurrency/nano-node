@@ -991,3 +991,30 @@ TEST (wallets, rep_keys_cache_weight_lost)
 	ASSERT_TRUE (accounts.count (nano::dev::genesis_key.pub));
 	ASSERT_FALSE (accounts.count (rep2.pub));
 }
+
+/*
+ * A watch-only account (public key only, no private key) can hold representative weight, e.g. via the
+ * wallet_add_watch RPC. The reps scan must not abort on such an account: it cannot vote, so it is simply
+ * excluded from the keys cache. Regression test for a release_assert in refresh_rep_keys_cache that
+ * aborted the node whenever a representative had no fetchable private key.
+ */
+TEST (wallets, rep_keys_cache_watch_only_representative)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	// Genesis holds the entire supply, so it qualifies as a representative by weight. Add it as a
+	// watch-only account (no private key), exactly as wallet_add_watch does.
+	ASSERT_FALSE (system.wallet (0)->insert_watch (nano::dev::genesis_key.pub));
+
+	// Must not abort even though a representative-weight account has no fetchable private key.
+	node.wallets.refresh_reps ();
+
+	// The watch-only representative contributes no votable key to the cache.
+	auto sign = node.wallets.signer ();
+	std::set<nano::account> accounts;
+	sign ([&] (nano::public_key const & pub, nano::raw_key const &) {
+		accounts.insert (pub);
+	});
+	ASSERT_TRUE (accounts.empty ());
+}
