@@ -1,7 +1,9 @@
 #include <nano/boost/asio/ip/address_v6.hpp>
 #include <nano/boost/asio/ip/network_v6.hpp>
+#include <nano/lib/stream.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/messages/keepalive.hpp>
+#include <nano/messages/message_header.hpp>
 #include <nano/messages/message_type.hpp>
 #include <nano/messages/node_id_handshake.hpp>
 #include <nano/node/network.hpp>
@@ -242,4 +244,36 @@ TEST (tcp_listener, timeout_node_id_handshake)
 	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_server, nano::stat::detail::node_id_handshake) != 0);
 	ASSERT_TIMELY_EQ (5s, node0->tcp_listener.connection_count (), 1);
 	ASSERT_TIMELY_EQ (10s, node0->tcp_listener.connection_count (), 0);
+}
+
+// A header declaring the maximum payload its length field can encode must not crash the node.
+TEST (tcp_listener, asc_pull_oversized_payload_no_crash)
+{
+	nano::test::system system;
+	nano::node_config config;
+	config.tcp->handshake_timeout = 2s;
+	auto node = system.add_node (config);
+
+	nano::messages::message_header header{ nano::dev::network_params.network, nano::messages::message_type::asc_pull_req };
+	header.extensions = nano::messages::message_header::extensions_bitset_t{ 0xffff };
+
+	auto bytes = std::make_shared<std::vector<uint8_t>> ();
+	{
+		nano::vectorstream stream{ *bytes };
+		header.serialize (stream);
+	}
+
+	auto socket = std::make_shared<nano::transport::tcp_socket> (*node);
+	std::atomic<bool> write_done{ false };
+	socket->async_connect (node->tcp_listener.endpoint (), [socket, bytes, &write_done] (boost::system::error_code const & ec) {
+		ASSERT_FALSE (ec);
+		socket->async_write (bytes, [&write_done] (boost::system::error_code const & ec, size_t size) {
+			ASSERT_FALSE (ec);
+			write_done = true;
+		});
+	});
+	ASSERT_TIMELY (5s, write_done);
+
+	// The header fits the buffer, so the node reads it and stalls on the absent body until timeout.
+	ASSERT_TIMELY_EQ (10s, node->tcp_listener.connection_count (), 0);
 }

@@ -11,6 +11,7 @@
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/transport/tcp_server.hpp>
 
+#include <limits>
 #include <memory>
 
 nano::transport::tcp_server::tcp_server (nano::node & node_a, std::shared_ptr<nano::transport::tcp_socket> socket_a) :
@@ -20,6 +21,7 @@ nano::transport::tcp_server::tcp_server (nano::node & node_a, std::shared_ptr<na
 	task{ strand },
 	buffer{ std::make_shared<nano::shared_buffer::element_type> (max_buffer_size) }
 {
+	static_assert (max_buffer_size >= nano::messages::asc_pull_req::partial_size + std::numeric_limits<uint16_t>::max (), "buffer must hold the largest payload a header length field can request");
 }
 
 nano::transport::tcp_server::~tcp_server ()
@@ -276,6 +278,12 @@ auto nano::transport::tcp_server::receive_message_impl () -> asio::awaitable<nan
 	}
 
 	auto const payload_size = header.payload_length_bytes ();
+
+	// Declared length is untrusted; never let it drive a read past the buffer.
+	if (payload_size > max_buffer_size)
+	{
+		co_return nano::deserialize_message_result{ nullptr, nano::deserialize_message_status::invalid_header };
+	}
 
 	node.stats.inc (nano::stat::type::tcp_server, nano::stat::detail::read_payload, nano::stat::dir::in);
 	node.stats.inc (nano::stat::type::tcp_server_read, to_stat_detail (header.type), nano::stat::dir::in);

@@ -70,7 +70,8 @@ private:
 	nano::async::task task;
 
 	nano::shared_buffer buffer;
-	static size_t constexpr max_buffer_size = 64 * 1024; // 64 KB
+	// Larger than any payload a header length field can request, so a read can never exceed it.
+	static size_t constexpr max_buffer_size = 65 * 1024;
 
 	std::atomic<bool> handshake_received{ false };
 
