@@ -17,12 +17,19 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
+#include <nano/store/ledger/account.hpp>
+#include <nano/store/ledger/block.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
 #include <nano/store/ledger/final_vote.hpp>
 #include <nano/store/ledger/online_weight.hpp>
 #include <nano/store/ledger/peer.hpp>
+#include <nano/store/ledger/pruned.hpp>
+#include <nano/store/ledger/topology.hpp>
+#include <nano/store/meta.hpp>
 
 #include <boost/format.hpp>
+
+#include <fmt/chrono.h>
 
 namespace
 {
@@ -73,6 +80,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("final_vote_clear", "Clear final votes")
 	("migrate_database_lmdb_to_rocksdb", "Migrates LMDB database to RocksDB")
 	("database_upgrade", "Upgrade the ledger database to the latest version without starting the node")
+	("database_info", "Print information about the ledger database")
 	("populate_topo_index", "Build the topology index for an existing ledger and enable the topo_index flag. One-off operation, may take a long time.")
 	("drop_topo_index", "Drop the topology index and disable the topo_index flag. Required before enabling pruning on a ledger that has topo_index enabled.")
 	("rollback", "Rolls back the specified block hash, effectively removing this block and all blocks following it")
@@ -565,6 +573,87 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			catch (std::exception const & e)
 			{
 				std::cerr << "Database upgrade failed: " << e.what () << std::endl;
+				ec = nano::error_cli::generic;
+			}
+		}
+	}
+	else if (vm.count ("database_info"))
+	{
+		nano::network_params network_params{ nano::get_active_network () };
+		nano::daemon_config daemon_config{ data_path, network_params };
+
+		auto config_arg (vm.find ("config"));
+		std::vector<std::string> config_overrides;
+		if (config_arg != vm.end ())
+		{
+			config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
+		}
+
+		if (auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides))
+		{
+			std::cerr << "Error reading config: " << error.get_message () << std::endl;
+			ec = nano::error_cli::reading_config;
+		}
+		else
+		{
+			try
+			{
+				auto & logger = nano::default_logger ();
+				nano::stats stats{ logger };
+
+				// Build the raw backend first and peek at the schema version.
+				// This avoids triggering ledger upgrade, so we can inspect outdated ledgers without modifying them.
+				auto backend = nano::make_backend (logger, data_path, /* add_db_postfix */ true, daemon_config.node);
+				auto meta = backend->fetch_meta ();
+
+				if (!meta)
+				{
+					std::cout << "Path:             " << backend->get_database_path () << std::endl;
+					std::cout << "Backend:          " << backend->get_vendor () << std::endl;
+					std::cout << "No ledger found" << std::endl;
+				}
+				else if (meta->version != nano::store::ledger_store::version_current)
+				{
+					std::cout << "Path:             " << backend->get_database_path () << std::endl;
+					std::cout << "Backend:          " << backend->get_vendor () << std::endl;
+					std::cout << "Version:          " << meta->version << std::endl;
+					std::cout << std::endl;
+					std::cout << "Note: ledger schema is outdated. Run --database_upgrade to upgrade. Flags and counts are not displayed for outdated schemas." << std::endl;
+				}
+				else
+				{
+					std::cout << "Loading ledger store for database info: " << backend->get_database_path () << " (" << backend->get_vendor () << ")" << std::endl;
+
+					// Schema is current; safe to wrap in ledger_store and read flags/counts
+					nano::store::ledger_store_params params;
+					nano::store::ledger_store store{ std::move (backend), nano::store::open_mode::read_only, stats, logger, params };
+
+					auto txn = store.tx_begin_read ();
+
+					bool const topo_index = store.version.get_flag (txn, nano::store::meta_key::topo_index_enabled);
+
+					std::cout << "Path:             " << store.get_database_path () << std::endl;
+					std::cout << "Backend:          " << store.get_vendor () << std::endl;
+					std::cout << "Version:          " << store.get_version () << std::endl;
+
+					// On a freshly initialized ledger this equals the ledger initialization time;
+					// On an existing ledger it advances each time a block on the genesis account is processed.
+					if (auto genesis_info = store.account.get (txn, network_params.ledger.genesis->account ()))
+					{
+						std::cout << "Genesis:          " << fmt::format ("{:%Y-%m-%d %H:%M:%S} UTC", fmt::gmtime (static_cast<std::time_t> (genesis_info->modified))) << " (" << genesis_info->modified << ")" << std::endl;
+					}
+
+					std::cout << "Flags:" << std::endl;
+					std::cout << "  topo_index:     " << (topo_index ? "enabled" : "disabled") << std::endl;
+					std::cout << "Counts:" << std::endl;
+					std::cout << "  blocks:         " << store.block.count (txn) << std::endl;
+					std::cout << "  accounts:       " << store.account.count (txn) << std::endl;
+					std::cout << "  pruned:         " << store.pruned.count (txn) << std::endl;
+				}
+			}
+			catch (std::exception const & e)
+			{
+				std::cerr << "Failed to read database info: " << e.what () << std::endl;
 				ec = nano::error_cli::generic;
 			}
 		}

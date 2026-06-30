@@ -18,7 +18,7 @@ std::filesystem::path nano::database_path_for_backend (std::filesystem::path con
 	release_assert (false, "unknown database backend");
 }
 
-std::unique_ptr<nano::store::ledger_store> nano::make_store (nano::logger & logger, nano::stats & stats, std::filesystem::path const & path, nano::ledger_constants & constants, bool read_only, bool add_db_postfix, nano::node_config const & node_config)
+std::unique_ptr<nano::store::backend> nano::make_backend (nano::logger & logger, std::filesystem::path const & path, bool add_db_postfix, nano::node_config const & node_config)
 {
 	auto decide_backend = [&] () -> nano::database_backend {
 		if (node_config.rocksdb_config->enable && node_config.database_backend == nano::database_backend::lmdb)
@@ -28,8 +28,6 @@ std::unique_ptr<nano::store::ledger_store> nano::make_store (nano::logger & logg
 		}
 		return node_config.database_backend;
 	};
-
-	nano::store::open_mode const mode = read_only ? nano::store::open_mode::read_only : nano::store::open_mode::read_write;
 
 	auto backend_type = decide_backend ();
 	std::unique_ptr<nano::store::backend> backend;
@@ -51,6 +49,15 @@ std::unique_ptr<nano::store::ledger_store> nano::make_store (nano::logger & logg
 	}
 
 	release_assert (backend != nullptr);
+
+	return backend;
+}
+
+std::unique_ptr<nano::store::ledger_store> nano::make_store (nano::logger & logger, nano::stats & stats, std::filesystem::path const & path, nano::ledger_constants & constants, bool read_only, bool add_db_postfix, nano::node_config const & node_config)
+{
+	auto backend = nano::make_backend (logger, path, add_db_postfix, node_config);
+
+	nano::store::open_mode const mode = read_only ? nano::store::open_mode::read_only : nano::store::open_mode::read_write;
 
 	nano::store::ledger_store_params params;
 	params.backup_before_upgrade = node_config.backup_before_upgrade;
