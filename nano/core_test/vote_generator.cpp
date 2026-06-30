@@ -695,18 +695,26 @@ TEST (vote_generator, multiple_representatives)
 
 	node.vote_generator.vote_normal (block->qualified_root (), block->hash (), 0);
 
-	// 4 representatives should each produce a vote
-	ASSERT_TIMELY_EQ (5s, votes->size (), 4);
-	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::broadcast), 4);
+	// The representatives that have voted for our block. Once these reps start voting the node also emits votes for
+	// the rest of the setup chain, so the total observed vote count is not a stable quantity; restricting to votes for
+	// this block bounds the set to the wallet representatives and ignores the unrelated background votes.
+	auto block_signers = [&votes, &block] () {
+		auto locked = votes.lock ();
+		std::set<nano::account> signers;
+		for (auto const & vote : locked.get ())
+		{
+			if (std::find (vote->hashes.begin (), vote->hashes.end (), block->hash ()) != vote->hashes.end ())
+			{
+				signers.insert (vote->account);
+			}
+		}
+		return signers;
+	};
 
-	auto locked = votes.lock ();
-	std::set<nano::account> signers;
-	for (auto const & vote : locked.get ())
-	{
-		ASSERT_TRUE (std::find (vote->hashes.begin (), vote->hashes.end (), block->hash ()) != vote->hashes.end ());
-		signers.insert (vote->account);
-	}
-	ASSERT_EQ (4, signers.size ());
+	// All 4 representatives should each produce their own vote for the block
+	ASSERT_TIMELY_EQ (5s, block_signers ().size (), 4);
+
+	auto signers = block_signers ();
 	ASSERT_TRUE (signers.count (nano::dev::genesis_key.pub));
 	ASSERT_TRUE (signers.count (rep1.pub));
 	ASSERT_TRUE (signers.count (rep2.pub));
