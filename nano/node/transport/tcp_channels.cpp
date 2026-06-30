@@ -59,13 +59,13 @@ void nano::transport::tcp_channels::close ()
 	}
 }
 
-bool nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, const nano::account & node_id) const
+auto nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, const nano::account & node_id) const -> channel_result
 {
 	debug_assert (!mutex.try_lock ());
 
 	if (stopped)
 	{
-		return false; // Reject
+		return channel_result::rejected;
 	}
 
 	if (node.network.not_a_peer (nano::transport::map_tcp_to_endpoint (endpoint), node.config.allow_local_peers))
@@ -73,7 +73,7 @@ bool nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, 
 		node.stats.inc (nano::stat::type::tcp_channels_rejected, nano::stat::detail::not_a_peer);
 		node.logger.debug (nano::log::type::tcp_channels, "Rejected invalid endpoint channel: {}", endpoint);
 
-		return false; // Reject
+		return channel_result::rejected;
 	}
 
 	bool has_duplicate = std::any_of (channels.begin (), channels.end (), [&endpoint, &node_id] (auto const & channel) {
@@ -93,13 +93,13 @@ bool nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, 
 		node.stats.inc (nano::stat::type::tcp_channels_rejected, nano::stat::detail::channel_duplicate);
 		node.logger.debug (nano::log::type::tcp_channels, "Rejected duplicate channel: {} ({})", endpoint, nano::log::as_node_id (node_id));
 
-		return false; // Reject
+		return channel_result::duplicate;
 	}
 
-	return true; // OK
+	return channel_result::accepted;
 }
 
-std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::create (const std::shared_ptr<nano::transport::tcp_socket> & socket, const std::shared_ptr<nano::transport::tcp_server> & server, const nano::account & node_id, nano::node_capabilities_flags flags)
+auto nano::transport::tcp_channels::create (const std::shared_ptr<nano::transport::tcp_socket> & socket, const std::shared_ptr<nano::transport::tcp_server> & server, const nano::account & node_id, nano::node_capabilities_flags flags) -> create_result
 {
 	auto const endpoint = socket->get_remote_endpoint ();
 	debug_assert (endpoint.address ().is_v6 ());
@@ -108,16 +108,17 @@ std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::cre
 
 	if (stopped)
 	{
-		return nullptr;
+		return { channel_result::rejected, nullptr };
 	}
 
-	if (!check (endpoint, node_id))
+	auto const check_result = check (endpoint, node_id);
+	if (check_result != channel_result::accepted)
 	{
 		node.stats.inc (nano::stat::type::tcp_channels, nano::stat::detail::channel_rejected);
 		node.logger.debug (nano::log::type::tcp_channels, "Rejected channel: {} ({})", endpoint, nano::log::as_node_id (node_id));
 		// Rejection reason should be logged earlier
 
-		return nullptr;
+		return { check_result, nullptr };
 	}
 
 	node.stats.inc (nano::stat::type::tcp_channels, nano::stat::detail::channel_accepted);
@@ -140,7 +141,7 @@ std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::cre
 
 	node.observers.channel_connected.notify (channel);
 
-	return channel;
+	return { channel_result::accepted, channel };
 }
 
 void nano::transport::tcp_channels::erase (nano::tcp_endpoint const & endpoint_a)
@@ -456,9 +457,9 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::transport::tcp_chann
 	return result;
 }
 
-bool nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint)
+bool nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint, nano::transport::connect_callback callback)
 {
-	return node.tcp_listener.connect (endpoint.address (), endpoint.port ());
+	return node.tcp_listener.connect (endpoint.address (), endpoint.port (), std::move (callback));
 }
 
 auto nano::transport::tcp_channels::all_sockets () const -> std::deque<std::shared_ptr<tcp_socket>>

@@ -19,6 +19,11 @@
 
 using namespace std::chrono_literals;
 
+namespace
+{
+auto constexpr reachout_preconfigured_log_interval = 1h;
+}
+
 // TODO: Return to static const and remove "disable_large_votes" when rolled out
 std::size_t nano::network::confirm_req_hashes_max{ 255 };
 std::size_t nano::network::confirm_ack_hashes_max{ 255 };
@@ -286,10 +291,10 @@ void nano::network::trigger_reachout ()
 	condition.notify_all ();
 }
 
-void nano::network::reachout (std::string const & address_a, uint16_t port_a)
+void nano::network::reachout (std::string const & address_a, uint16_t port_a, nano::transport::connect_callback callback_a)
 {
 	auto node_l (node.shared_from_this ());
-	resolver.async_resolve (address_a, std::to_string (port_a), [this, node_l, address_a, port_a] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::results_type results) {
+	resolver.async_resolve (address_a, std::to_string (port_a), [this, node_l, address_a, port_a, callback = std::move (callback_a)] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::results_type results) {
 		if (!ec)
 		{
 			for (auto const & i : results)
@@ -298,7 +303,7 @@ void nano::network::reachout (std::string const & address_a, uint16_t port_a)
 				auto channel (find_channel (endpoint));
 				if (!channel)
 				{
-					tcp_channels.start_tcp (endpoint);
+					tcp_channels.start_tcp (endpoint, callback);
 				}
 				else
 				{
@@ -324,8 +329,42 @@ void nano::network::reachout_preconfigured ()
 
 	for (auto const & peer : node.config.preconfigured_peers)
 	{
-		reachout (peer, node.network_params.network.default_node_port);
+		reachout (peer, node.network_params.network.default_node_port, [node_l = node.shared_from_this (), peer] (nano::tcp_endpoint const & endpoint, std::error_code ec) {
+			auto should_log = [node_l, &peer] (bool success) {
+				auto logs = node_l->network.reachout_preconfigured_logs.lock ();
+				return (*logs)[peer].should_log (success);
+			};
+
+			if (ec)
+			{
+				// Log connection failures to explicitly configured peers, so misconfiguration is visible
+				if (should_log (false))
+				{
+					node_l->logger.warn (nano::log::type::network, "Failed to connect to preconfigured peer '{}' ({}): {}", peer, endpoint, ec.message ());
+				}
+			}
+			else
+			{
+				if (should_log (true))
+				{
+					node_l->logger.info (nano::log::type::network, "Connected to preconfigured peer '{}' ({})", peer, endpoint);
+				}
+			}
+		});
 	}
+}
+
+bool nano::network::reachout_preconfigured_log::should_log (bool success)
+{
+	auto const now = std::chrono::steady_clock::now ();
+
+	auto & last_log = success ? last_success : last_failure;
+	if (now - last_log >= reachout_preconfigured_log_interval)
+	{
+		last_log = now;
+		return true;
+	}
+	return false;
 }
 
 void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> const & channel) const

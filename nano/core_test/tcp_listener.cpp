@@ -277,3 +277,57 @@ TEST (tcp_listener, asc_pull_oversized_payload_no_crash)
 	// The header fits the buffer, so the node reads it and stalls on the absent body until timeout.
 	ASSERT_TIMELY_EQ (10s, node->tcp_listener.connection_count (), 0);
 }
+
+// The connect callback reports the outcome of an outbound connection attempt; used to surface preconfigured peer failures
+TEST (tcp_listener, connect_callback_reports_success)
+{
+	nano::test::system system;
+	nano::node_flags node_flags;
+	// Disable per-ip/subnetwork limits so the self-connection is always accepted (no dependency on connection counts)
+	node_flags.disable_max_peers_per_ip = true;
+	node_flags.disable_max_peers_per_subnetwork = true;
+	auto node = system.add_node (node_flags);
+
+	auto target = node->tcp_listener.endpoint ();
+	std::atomic<bool> called{ false };
+	std::atomic<bool> reported_error{ true };
+
+	bool initiated = node->tcp_listener.connect (target.address (), target.port (), [&] (nano::tcp_endpoint const &, std::error_code ec) {
+		reported_error = static_cast<bool> (ec);
+		called = true;
+	});
+	ASSERT_TRUE (initiated);
+
+	ASSERT_TIMELY (5s, called.load ());
+	ASSERT_FALSE (reported_error.load ()); // Success => empty error code
+}
+
+TEST (tcp_listener, connect_callback_reports_failure)
+{
+	nano::test::system system{ 1 };
+	auto node = system.nodes[0];
+
+	// Reserve then immediately release a loopback port so nothing is listening on it
+	boost::asio::ip::tcp::endpoint dead_endpoint;
+	{
+		boost::asio::io_context io_ctx;
+		boost::asio::ip::tcp::acceptor acceptor{ io_ctx, boost::asio::ip::tcp::endpoint{ boost::asio::ip::address_v6::loopback (), 0 } };
+		dead_endpoint = acceptor.local_endpoint ();
+	}
+
+	std::atomic<bool> called{ false };
+	std::atomic<bool> reported_error{ false };
+	std::string reported_message;
+
+	bool initiated = node->tcp_listener.connect (dead_endpoint.address (), dead_endpoint.port (), [&] (nano::tcp_endpoint const &, std::error_code ec) {
+		// Written before the atomic flag, so it is visible once `called` is observed true
+		reported_message = ec.message ();
+		reported_error = static_cast<bool> (ec);
+		called = true;
+	});
+	ASSERT_TRUE (initiated);
+
+	ASSERT_TIMELY (5s, called.load ());
+	ASSERT_TRUE (reported_error.load ());
+	ASSERT_FALSE (reported_message.empty ());
+}

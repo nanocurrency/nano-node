@@ -3,6 +3,7 @@
 #include <nano/lib/constants.hpp>
 #include <nano/lib/fwd.hpp>
 #include <nano/lib/interval.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/lib/network_filter.hpp>
 #include <nano/messages/fwd.hpp>
 #include <nano/messages/node_id_handshake.hpp>
@@ -15,6 +16,8 @@
 #include <chrono>
 #include <deque>
 #include <memory>
+#include <string>
+#include <unordered_map>
 #include <unordered_set>
 
 using namespace std::chrono_literals;
@@ -131,7 +134,10 @@ public:
 
 	// Trigger immediate reachout to preconfigured peers
 	void trigger_reachout ();
-	void reachout (std::string const & address, uint16_t port);
+	void reachout (
+	std::string const & address,
+	uint16_t port,
+	nano::transport::connect_callback callback = noop<nano::transport::connect_callback> ());
 	void reachout_preconfigured ();
 
 	void merge_peers (std::array<nano::endpoint, 8> const & ips);
@@ -205,6 +211,16 @@ public: // Callbacks
 
 private:
 	nano::interval_mt reachout_preconfigured_interval;
+
+	// Rate limits per-peer logs from preconfigured reachout attempts
+	struct reachout_preconfigured_log
+	{
+		std::chrono::steady_clock::time_point last_success{};
+		std::chrono::steady_clock::time_point last_failure{};
+
+		bool should_log (bool success);
+	};
+	nano::locked<std::unordered_map<std::string, reachout_preconfigured_log>> reachout_preconfigured_logs;
 
 private:
 	std::atomic<bool> stopped{ false };

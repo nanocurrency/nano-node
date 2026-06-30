@@ -282,6 +282,29 @@ std::string nano::error_config_messages::message (int ev) const
 	return "Invalid error code";
 }
 
+std::string nano::error_network_messages::message (int ev) const
+{
+	switch (static_cast<nano::error_network> (ev))
+	{
+		case nano::error_network::generic:
+			return "Unknown error";
+		case nano::error_network::connection_rejected_locally:
+			return "Connection rejected by local node";
+		case nano::error_network::peer_excluded:
+			return "Peer is excluded";
+		case nano::error_network::max_connections_per_ip:
+			return "Maximum connections per IP reached";
+		case nano::error_network::max_connections_per_subnetwork:
+			return "Maximum connections per subnetwork reached";
+		case nano::error_network::max_inbound_connections:
+			return "Maximum inbound connections reached";
+		case nano::error_network::max_outbound_connections:
+			return "Maximum outbound connections reached";
+	}
+
+	return "Invalid error code";
+}
+
 /*
  *
  */

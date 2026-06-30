@@ -6,6 +6,7 @@
 #include <nano/node/endpoint.hpp>
 #include <nano/node/endpoint_templ.hpp>
 #include <nano/node/transport/channel.hpp>
+#include <nano/node/transport/common.hpp>
 #include <nano/node/transport/fwd.hpp>
 #include <nano/node/transport/tcp_channel.hpp>
 #include <nano/node/transport/transport.hpp>
@@ -32,13 +33,28 @@ class tcp_channels final
 	friend class network_peer_max_tcp_attempts_subnetwork_Test;
 
 public:
+	enum class channel_result
+	{
+		accepted,
+		rejected,
+		duplicate
+	};
+
+public:
 	explicit tcp_channels (nano::node &);
 	~tcp_channels ();
 
 	void start ();
 	void stop ();
 
-	std::shared_ptr<nano::transport::tcp_channel> create (std::shared_ptr<nano::transport::tcp_socket> const &, std::shared_ptr<nano::transport::tcp_server> const &, nano::account const & node_id, nano::node_capabilities_flags = {});
+	struct create_result
+	{
+		channel_result result;
+		std::shared_ptr<nano::transport::tcp_channel> channel;
+	};
+
+	create_result create (std::shared_ptr<nano::transport::tcp_socket> const &, std::shared_ptr<nano::transport::tcp_server> const &, nano::account const & node_id, nano::node_capabilities_flags = {});
+
 	void erase (nano::tcp_endpoint const &);
 	std::size_t size () const;
 	std::shared_ptr<nano::transport::tcp_channel> find_channel (nano::tcp_endpoint const &) const;
@@ -62,7 +78,9 @@ public:
 	std::optional<nano::messages::keepalive> sample_keepalive ();
 
 	// Connection start
-	bool start_tcp (nano::endpoint const &);
+	bool start_tcp (
+	nano::endpoint const & endpoint,
+	nano::transport::connect_callback callback = noop<nano::transport::connect_callback> ());
 
 	std::deque<std::shared_ptr<tcp_socket>> all_sockets () const;
 	std::deque<std::shared_ptr<tcp_server>> all_servers () const;
@@ -75,7 +93,7 @@ private: // Dependencies
 
 private:
 	void close ();
-	bool check (nano::tcp_endpoint const &, nano::account const & node_id) const;
+	channel_result check (nano::tcp_endpoint const &, nano::account const & node_id) const;
 
 private:
 	class channel_entry final
