@@ -48,7 +48,7 @@ verify_result verify (nano::messages::asc_pull_ack::blocks_payload const & respo
 
 	// Verify blocks make a valid chain
 	nano::block_hash previous_hash = blocks.front ()->hash ();
-	for (int n = 1; n < blocks.size (); ++n)
+	for (std::size_t n = 1; n < blocks.size (); ++n)
 	{
 		auto & block = blocks[n];
 		if (block->previous () != previous_hash)
