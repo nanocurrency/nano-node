@@ -50,13 +50,6 @@ struct async_tag
 	query_type type () const;
 };
 
-enum class verify_result
-{
-	ok,
-	nothing_new,
-	invalid,
-};
-
 class bootstrap_context
 {
 public:
@@ -98,8 +91,6 @@ private:
 	bool process (nano::messages::asc_pull_ack::account_info_payload const & response, async_tag const & tag);
 	bool process (nano::messages::asc_pull_ack::frontiers_payload const & response, async_tag const & tag);
 	bool process (nano::messages::empty_payload const & response, async_tag const & tag);
-
-	verify_result verify (nano::messages::asc_pull_ack::blocks_payload const & response, async_tag const & tag) const;
 
 	// Inserts the tag and transmits the message over the channel
 	bool transmit (std::shared_ptr<nano::transport::channel> const &, nano::messages::asc_pull_req && message, async_tag tag);

@@ -12,6 +12,7 @@
 #include <nano/node/bootstrap/frontier_strategy.hpp>
 #include <nano/node/bootstrap/priority_strategy.hpp>
 #include <nano/node/bootstrap/queries.hpp>
+#include <nano/node/bootstrap/verify.hpp>
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -472,7 +473,7 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload co
 
 	stats.inc (nano::stat::type::bootstrap_process, nano::stat::detail::blocks);
 
-	auto result = verify (response, tag);
+	auto result = verify (response, query);
 	switch (result)
 	{
 		case verify_result::ok:
@@ -528,67 +529,6 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload co
 	}
 
 	return result != verify_result::invalid;
-}
-
-verify_result bootstrap_context::verify (nano::messages::asc_pull_ack::blocks_payload const & response, async_tag const & tag) const
-{
-	release_assert (std::holds_alternative<blocks_query> (tag.query));
-	auto const & query = std::get<blocks_query> (tag.query);
-	auto const & blocks = response.blocks;
-
-	if (blocks.empty ())
-	{
-		return verify_result::nothing_new;
-	}
-	if (blocks.size () == 1 && blocks.front ()->hash () == query.start.as_block_hash ())
-	{
-		return verify_result::nothing_new;
-	}
-	if (blocks.size () > query.count)
-	{
-		return verify_result::invalid;
-	}
-
-	auto const & first = blocks.front ();
-	switch (query.type)
-	{
-		case query_type::blocks_by_hash:
-		{
-			if (first->hash () != query.start.as_block_hash ())
-			{
-				// TODO: Stat & log
-				return verify_result::invalid;
-			}
-		}
-		break;
-		case query_type::blocks_by_account:
-		{
-			// Open & state blocks always contain account field
-			if (first->account_field ().value_or (0) != query.start.as_account ())
-			{
-				// TODO: Stat & log
-				return verify_result::invalid;
-			}
-		}
-		break;
-		default:
-			return verify_result::invalid;
-	}
-
-	// Verify blocks make a valid chain
-	nano::block_hash previous_hash = blocks.front ()->hash ();
-	for (int n = 1; n < blocks.size (); ++n)
-	{
-		auto & block = blocks[n];
-		if (block->previous () != previous_hash)
-		{
-			// TODO: Stat & log
-			return verify_result::invalid; // Blocks do not make a chain
-		}
-		previous_hash = block->hash ();
-	}
-
-	return verify_result::ok;
 }
 
 bool bootstrap_context::process (nano::messages::asc_pull_ack::account_info_payload const & response, async_tag const & tag)

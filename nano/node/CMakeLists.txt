@@ -61,6 +61,8 @@ add_library(
   bootstrap/database_scan_index.cpp
   bootstrap/frontier_scan_index.hpp
   bootstrap/frontier_scan_index.cpp
+  bootstrap/verify.hpp
+  bootstrap/verify.cpp
   bootstrap/peer_scoring.hpp
   bootstrap/peer_scoring.cpp
   cli.hpp

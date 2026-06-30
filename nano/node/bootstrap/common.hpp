@@ -32,6 +32,13 @@ enum class query_source
 	frontiers,
 };
 
+enum class verify_result
+{
+	ok,
+	nothing_new,
+	invalid,
+};
+
 nano::stat::detail to_stat_detail (nano::bootstrap::query_type);
 nano::stat::detail to_stat_detail (nano::bootstrap::query_source);
 }
