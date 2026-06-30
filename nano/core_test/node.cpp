@@ -1772,10 +1772,10 @@ TEST (node, confirm_quorum)
 {
 	nano::test::system system (1);
 	auto & node1 = *system.nodes[0];
-	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	// Put greater than node.delta () in pending so quorum can't be reached
+	nano::state_block_builder builder;
+	// Move all genesis weight into pending so it drops below quorum and can never confirm an election
 	nano::amount new_balance = node1.online_reps.delta () - nano::Knano_ratio;
-	auto send1 = nano::state_block_builder ()
+	auto send1 = builder.make_block ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (nano::dev::genesis->hash ())
 				 .representative (nano::dev::genesis_key.pub)
@@ -1785,10 +1785,22 @@ TEST (node, confirm_quorum)
 				 .work (*node1.work_generate_blocking (nano::dev::genesis->hash ()))
 				 .build ();
 	ASSERT_EQ (nano::block_status::progress, node1.process (send1));
-	system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, new_balance.number ());
-	ASSERT_TIMELY (2s, node1.active.election (send1->qualified_root ()));
-	auto election = node1.active.election (send1->qualified_root ());
-	ASSERT_NE (nullptr, election);
+	auto send2 = builder.make_block ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (0)
+				 .link (nano::dev::genesis_key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*node1.work_generate_blocking (send1->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, node1.process (send2));
+	ASSERT_EQ (0, node1.weight (nano::dev::genesis_key.pub));
+	// Insert the voting key only after genesis is drained, so it can never vote on the election while it still holds weight
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	node1.start_election (send1);
+	std::shared_ptr<nano::election> election;
+	ASSERT_TIMELY (5s, election = node1.active.election (send1->qualified_root ()));
 	ASSERT_FALSE (election->confirmed ());
 	ASSERT_EQ (1, election->votes ().size ());
 	ASSERT_EQ (0, node1.balance (nano::dev::genesis_key.pub));
