@@ -17,6 +17,8 @@
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/formatting.hpp>
 
+#include <boost/asio/ip/address_v4.hpp>
+
 using namespace std::chrono_literals;
 
 // TODO: Return to static const and remove "disable_large_votes" when rolled out
@@ -541,7 +543,9 @@ bool nano::network::not_a_peer (nano::endpoint const & endpoint) const
 	{
 		return true;
 	}
-	if (node.flags.disable_non_loopback_peers && !endpoint.address ().to_v6 ().is_loopback ())
+	auto const address = endpoint.address ().to_v6 ();
+	auto const is_loopback = address.is_loopback () || (address.is_v4_mapped () && boost::asio::ip::make_address_v4 (boost::asio::ip::v4_mapped, address).is_loopback ());
+	if (node.flags.disable_non_loopback_peers && !is_loopback)
 	{
 		return true;
 	}
