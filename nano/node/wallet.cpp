@@ -2037,11 +2037,14 @@ void wallets::refresh_rep_keys_cache ()
 			{
 				if (wallet->store.valid_password (wallet_txn))
 				{
+					// A watch-only account can hold representative weight, so a representative here may have no
+					// private key to fetch. Such an account cannot vote and is simply left out of the keys cache.
 					auto prv_result = wallet->store.fetch (wallet_txn, account);
-					release_assert (prv_result, "failed to fetch private key for representative account", account.to_account ());
-
-					// Store private key spread across multiple heap allocations via fan to avoid plaintext keys in memory at rest
-					new_cache.emplace_back (account, std::make_unique<nano::fan> (prv_result.value (), config.password_fanout));
+					if (prv_result)
+					{
+						// Store private key spread across multiple heap allocations via fan to avoid plaintext keys in memory at rest
+						new_cache.emplace_back (account, std::make_unique<nano::fan> (prv_result.value (), config.password_fanout));
+					}
 				}
 				else
 				{
