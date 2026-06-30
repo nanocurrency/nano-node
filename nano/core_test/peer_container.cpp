@@ -41,7 +41,7 @@ TEST (peer_container, reserved_ip_is_not_a_peer)
 {
 	nano::test::system system{ 1 };
 	auto not_a_peer = [&node = system.nodes[0]] (nano::endpoint endpoint_a) -> bool {
-		return node->network.not_a_peer (endpoint_a, true);
+		return node->network.not_a_peer (endpoint_a);
 	};
 
 	// The return value as true means an error because the IP address is for reserved use
@@ -55,6 +55,30 @@ TEST (peer_container, reserved_ip_is_not_a_peer)
 
 	// Test with a valid IP address
 	ASSERT_FALSE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0x08080808)), 10000))));
+}
+
+// Verify loopback-only mode rejects public peers before any reachout is attempted.
+TEST (peer_container, disable_non_loopback_peers)
+{
+	nano::node_flags node_flags;
+	node_flags.disable_non_loopback_peers = true;
+
+	nano::test::system system;
+	auto & node = *system.add_node (node_flags);
+
+	// Use a concrete non-self loopback endpoint: port 0 is reserved, and self endpoints are rejected separately.
+	auto loopback_port = node.network.endpoint ().port () == 10000 ? 10001 : 10000;
+	auto loopback = nano::endpoint (boost::asio::ip::address_v6::loopback (), loopback_port);
+	auto v4_loopback = nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address_v4::loopback (), loopback_port));
+	auto public_peer = nano::endpoint (boost::asio::ip::make_address_v6 ("2001:4860:4860::8888"), 10000);
+
+	ASSERT_FALSE (node.network.not_a_peer (loopback));
+	ASSERT_FALSE (node.network.not_a_peer (v4_loopback));
+	ASSERT_TRUE (node.network.not_a_peer (public_peer));
+
+	ASSERT_FALSE (node.network.track_reachout (public_peer));
+	ASSERT_TRUE (node.network.track_reachout (loopback));
+	ASSERT_TRUE (node.network.track_reachout (v4_loopback));
 }
 
 // Test the TCP channel cleanup function works properly. It is used to remove peers that are not

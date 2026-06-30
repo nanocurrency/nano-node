@@ -156,6 +156,7 @@ public:
 	bool allow_bootstrap_peers_duplicates{ false };
 	bool disable_max_peers_per_ip{ false };
 	bool disable_max_peers_per_subnetwork{ false };
+	bool disable_non_loopback_peers{ false }; // Reject all non-loopback peer addresses
 	bool disable_search_pending{ false };
 	bool disable_bounded_backlog{ false };
 	bool enable_pruning{ false };
