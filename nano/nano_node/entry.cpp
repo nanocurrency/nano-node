@@ -1596,9 +1596,13 @@ int main (int argc, char * const * argv)
 						print_error_message (boost::str (boost::format ("Incorrect sideband block details for block %1%\n") % hash.to_string ()));
 					}
 					// Check link epoch version
+					// A receiving block's own epoch is max(account's prior epoch, source_epoch)
+					// (see ledger_processor.cpp), so source_epoch <= block epoch is expected and
+					// normal whenever the receiving account had already epoch-upgraded past the
+					// sender. Only a block epoch *below* its source_epoch is an actual inconsistency.
 					if (sideband.details.is_receive && (!node->ledger.pruning || !node->store.pruned.exists (transaction, block->source ())))
 					{
-						if (sideband.source_epoch != node->ledger.version (*block))
+						if (node->ledger.version (*block) < sideband.source_epoch)
 						{
 							print_error_message (boost::str (boost::format ("Incorrect source epoch for block %1%\n") % hash.to_string ()));
 						}
