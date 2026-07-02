@@ -1558,10 +1558,28 @@ int main (int argc, char * const * argv)
 					}
 					else
 					{
-						auto prev_balance = node->ledger.any.block_balance (transaction, block->previous ());
-						if (!node->ledger.pruning || prev_balance)
+						// An open block's previous is the zero hash by definition, so its
+						// previous balance is implicitly zero -- mirrors the same pattern
+						// already used for the epoch-link signature check above, rather than
+						// assuming the lookup below always succeeds (it never can for an
+						// open block, since there is no block at hash zero to look up).
+						nano::amount prev_balance{ 0 };
+						bool prev_balance_known = true;
+						if (!block->previous ().is_zero ())
 						{
-							if (block->balance () < prev_balance.value ())
+							auto prev_balance_opt = node->ledger.any.block_balance (transaction, block->previous ());
+							if (prev_balance_opt)
+							{
+								prev_balance = prev_balance_opt.value ();
+							}
+							else
+							{
+								prev_balance_known = false;
+							}
+						}
+						if (prev_balance_known)
+						{
+							if (block->balance () < prev_balance)
 							{
 								// State send
 								block_details_error = !sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
@@ -1573,7 +1591,7 @@ int main (int argc, char * const * argv)
 									// State change
 									block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
 								}
-								else if (block->balance () == prev_balance.value () && node->ledger.is_epoch_link (block->link_field ().value ()))
+								else if (block->balance () == prev_balance && node->ledger.is_epoch_link (block->link_field ().value ()))
 								{
 									// State epoch
 									block_details_error = !sideband.details.is_epoch || sideband.details.is_send || sideband.details.is_receive;
@@ -1586,9 +1604,16 @@ int main (int argc, char * const * argv)
 								}
 							}
 						}
-						else if (!node->store.pruned.exists (transaction, block->previous ()))
+						else if (node->ledger.pruning)
 						{
-							print_error_message (boost::str (boost::format ("Previous pruned block does not exist %1%\n") % block->previous ().to_string ()));
+							if (!node->store.pruned.exists (transaction, block->previous ()))
+							{
+								print_error_message (boost::str (boost::format ("Previous pruned block does not exist %1%\n") % block->previous ().to_string ()));
+							}
+						}
+						else
+						{
+							print_error_message (boost::str (boost::format ("Missing previous block balance for %1%\n") % hash.to_string ()));
 						}
 					}
 					if (block_details_error)
