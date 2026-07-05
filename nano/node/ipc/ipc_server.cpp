@@ -239,7 +239,7 @@ public:
 			this_l->timer_cancel ();
 			if (ec == boost::asio::error::broken_pipe || ec == boost::asio::error::connection_aborted || ec == boost::asio::error::connection_reset || ec == boost::asio::error::connection_refused)
 			{
-				this_l->node.logger.error (nano::log::type::ipc, "Error reading: ", ec.message ());
+				this_l->node.logger.error (nano::log::type::ipc, "Error reading: {}", ec.message ());
 			}
 			else if (bytes_transferred_a > 0)
 			{
@@ -277,7 +277,7 @@ public:
 				}
 				else
 				{
-					this_l->node.logger.error (nano::log::type::ipc, "Write failed: ", error_a.message ());
+					this_l->node.logger.error (nano::log::type::ipc, "Write failed: {}", error_a.message ());
 				}
 			});
 
