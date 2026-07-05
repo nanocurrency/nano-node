@@ -9,7 +9,6 @@
 #include <nano/store/ledger/extended/account_receivable_by_amount.hpp>
 #include <nano/store/ledger/extended/receive_block_by_send_block.hpp>
 #include <nano/store/ledger/pending.hpp>
-#include <nano/store/ledger/successor.hpp>
 
 void nano::ledger::initialize_extended_ledger_indices ()
 {
@@ -170,43 +169,22 @@ void nano::ledger::populate_account_block_by_height_index ()
 	uint64_t indexed{ 0 };
 	{
 		auto txn = store.tx_begin_write ();
-		for (auto i = store.account.begin (txn), n = store.account.end (txn); i != n; ++i)
+		size_t processed = 0;
+		for (auto i = store.block.begin (txn), n = store.block.end (txn); i != n; ++i, ++processed)
 		{
-			auto const & account = i->first;
-			auto const & info = i->second;
-			release_assert (!info.open_block.is_zero (), "Account open block must be non-zero for account block height indexing", account.to_string ());
-			release_assert (!info.head.is_zero (), "Account head block must be non-zero for account block height indexing", account.to_string ());
-			release_assert (info.block_count != 0, "Account block count must be non-zero for account block height indexing", account.to_string ());
-
-			auto hash = info.open_block;
-			for (uint64_t height = 1; height <= info.block_count; ++height)
+			if (processed % batch_size_compute == 0)
 			{
-				if (indexed % batch_size_compute == 0)
-				{
-					logger.info (nano::log::type::ledger_upgrade, "Account block height index progress: {} / {} blocks ({:.1f}%)", indexed, total_blocks, nano::log::percentage (indexed, total_blocks));
-				}
-
-				release_assert (!hash.is_zero (), "Account chain ended before account block count during account block height indexing", account.to_string ());
-				auto const block = store.block.get (txn, hash);
-				release_assert (block, "Missing account-chain block during account block height indexing", hash.to_string ());
-				release_assert (block->account () == account, "Account-chain block account mismatch during account block height indexing", hash.to_string ());
-				release_assert (block->sideband ().height == height, "Account-chain block height mismatch during account block height indexing", hash.to_string ());
-
-				store.account_block_by_height.put (txn, { account, height }, hash);
-				++indexed;
-
-				if (height == info.block_count)
-				{
-					release_assert (hash == info.head, "Account chain block count ended before account head during account block height indexing", account.to_string ());
-				}
-				else
-				{
-					release_assert (hash != info.head, "Account head reached before account block count during account block height indexing", account.to_string ());
-					auto successor = store.successor.get (txn, hash);
-					release_assert (successor.has_value (), "Missing account-chain successor during account block height indexing", hash.to_string ());
-					hash = successor.value ();
-				}
+				logger.info (nano::log::type::ledger_upgrade, "Account block height index progress: {} / {} blocks ({:.1f}%)", processed, total_blocks, nano::log::percentage (processed, total_blocks));
 			}
+
+			auto const & hash = i->first;
+			auto const & block = i->second.block;
+			auto const & sideband = i->second.sideband;
+			release_assert (block, "missing block during account block height indexing", hash.to_string ());
+			release_assert (sideband.height != 0, "block height must be non-zero for account block height indexing", hash.to_string ());
+
+			store.account_block_by_height.put (txn, { block->account (), sideband.height }, hash);
+			++indexed;
 		}
 		release_assert (indexed == total_blocks, "account block height index entry count mismatch");
 		store.version.put_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled, true);
