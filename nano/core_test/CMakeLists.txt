@@ -40,6 +40,7 @@ add_executable(
   ipc.cpp
   ledger.cpp
   ledger_cement.cpp
+  ledger_extended_index.cpp
   ledger_priority.cpp
   ledger_upgrades.cpp
   locks.cpp
