@@ -21,6 +21,7 @@
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
+#include <nano/store/ledger/extended/account_receivable_by_amount.hpp>
 #include <nano/store/ledger/extended/receive_block_by_send_block.hpp>
 #include <nano/store/ledger/final_vote.hpp>
 #include <nano/store/ledger/online_weight.hpp>
@@ -124,10 +125,12 @@ void nano::ledger::initialize ()
 	{
 		auto const transaction = store.tx_begin_read ();
 		flags.topo_index = store.version.get_flag (transaction, nano::store::meta_key::topo_index_enabled);
+		flags.account_receivable_by_amount_index = store.version.get_flag (transaction, nano::store::meta_key::account_receivable_by_amount_index_enabled);
 		flags.receive_block_by_send_block_index = store.version.get_flag (transaction, nano::store::meta_key::receive_block_by_send_block_index_enabled);
 
-		logger.debug (nano::log::type::ledger, "Ledger flags loaded: topo_index={}, receive_block_by_send_block={}",
+		logger.debug (nano::log::type::ledger, "Ledger flags loaded: topo_index={}, account_receivable_by_amount={}, receive_block_by_send_block={}",
 		flags.topo_index,
+		flags.account_receivable_by_amount_index,
 		flags.receive_block_by_send_block_index);
 	}
 
@@ -783,6 +786,33 @@ void nano::ledger::del_block (nano::store::write_transaction const & transaction
 		}
 	}
 	store.block.del (transaction_a, hash_a);
+}
+
+void nano::ledger::put_pending (nano::store::write_transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info const & info_a)
+{
+	if (flags.account_receivable_by_amount_index)
+	{
+		if (auto existing = store.pending.get (transaction_a, key_a))
+		{
+			store.account_receivable_by_amount.del (transaction_a, { key_a.account, existing->amount, key_a.hash });
+		}
+	}
+	store.pending.put (transaction_a, key_a, info_a);
+	if (flags.account_receivable_by_amount_index)
+	{
+		store.account_receivable_by_amount.put (transaction_a, { key_a.account, info_a.amount, key_a.hash }, { info_a.source, info_a.epoch });
+	}
+}
+
+void nano::ledger::del_pending (nano::store::write_transaction const & transaction_a, nano::pending_key const & key_a)
+{
+	if (flags.account_receivable_by_amount_index)
+	{
+		auto info = store.pending.get (transaction_a, key_a);
+		release_assert (info, "Receivable to be deleted was not found in the ledger");
+		store.account_receivable_by_amount.del (transaction_a, { key_a.account, info->amount, key_a.hash });
+	}
+	store.pending.del (transaction_a, key_a);
 }
 
 std::shared_ptr<nano::block> nano::ledger::forked_block (secure::transaction const & transaction_a, nano::block const & block_a)

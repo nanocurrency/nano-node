@@ -8,6 +8,7 @@ namespace nano::store
 // Keep this in alphabetical order
 enum class table
 {
+	account_receivable_by_amount,
 	accounts,
 	blocks,
 	confirmation_height,

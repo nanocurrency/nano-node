@@ -39,6 +39,7 @@
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
+#include <nano/store/ledger/extended/account_receivable_by_amount.hpp>
 #include <nano/store/ledger/pending.hpp>
 #include <nano/store/ledger/pruned.hpp>
 #include <nano/store/ledger/successor.hpp>
@@ -1054,6 +1055,7 @@ void nano::json_handler::accounts_receivable ()
 	bool const include_only_confirmed = request.get<bool> ("include_only_confirmed", true);
 	bool const sorting = request.get<bool> ("sorting", false);
 	auto simple (threshold.is_zero () && !source && !sorting); // if simple, response is a list of hashes for each account
+	bool const should_sort = sorting && !simple;
 	boost::property_tree::ptree pending;
 	auto transaction = node.ledger.tx_begin_read ();
 	for (auto & accounts : request.get_child ("accounts"))
@@ -1062,6 +1064,38 @@ void nano::json_handler::accounts_receivable ()
 		if (!ec)
 		{
 			boost::property_tree::ptree peers_l;
+			if (node.ledger.flags.account_receivable_by_amount_index && should_sort)
+			{
+				for (auto i = node.store.account_receivable_by_amount.rupper_bound (transaction, account), n = node.store.account_receivable_by_amount.rend (transaction); i != n && peers_l.size () < count; ++i)
+				{
+					auto const & key = i->first;
+					if (key.account != account || key.amount.number () < threshold.number ())
+					{
+						break;
+					}
+					if (!block_confirmed (node, transaction, key.send_block_hash, include_active, include_only_confirmed))
+					{
+						continue;
+					}
+					if (source)
+					{
+						auto const & info = i->second;
+						boost::property_tree::ptree pending_tree;
+						pending_tree.put ("amount", key.amount.number ().convert_to<std::string> ());
+						pending_tree.put ("source", info.source.to_account ());
+						peers_l.add_child (key.send_block_hash.to_string (), pending_tree);
+					}
+					else
+					{
+						peers_l.put (key.send_block_hash.to_string (), key.amount.number ().convert_to<std::string> ());
+					}
+				}
+				if (!peers_l.empty ())
+				{
+					pending.add_child (account.to_account (), peers_l);
+				}
+				continue;
+			}
 			for (auto i (node.store.pending.begin (transaction, nano::pending_key (account, 0))), n (node.store.pending.end (transaction)); i != n && nano::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 			{
 				nano::pending_key const & key (i->first);
@@ -1093,7 +1127,7 @@ void nano::json_handler::accounts_receivable ()
 					}
 				}
 			}
-			if (sorting && !simple)
+			if (should_sort)
 			{
 				if (source)
 				{
@@ -3104,6 +3138,50 @@ void nano::json_handler::receivable ()
 		auto offset_counter = offset;
 		boost::property_tree::ptree peers_l;
 		auto transaction = node.ledger.tx_begin_read ();
+		if (node.ledger.flags.account_receivable_by_amount_index && should_sort)
+		{
+			for (auto i = node.store.account_receivable_by_amount.rupper_bound (transaction, account), n = node.store.account_receivable_by_amount.rend (transaction); i != n && peers_l.size () < count; ++i)
+			{
+				auto const & key = i->first;
+				if (key.account != account || key.amount.number () < threshold.number ())
+				{
+					break;
+				}
+				if (!block_confirmed (node, transaction, key.send_block_hash, include_active, include_only_confirmed))
+				{
+					continue;
+				}
+
+				if (offset_counter > 0)
+				{
+					--offset_counter;
+					continue;
+				}
+
+				if (source || min_version)
+				{
+					auto const & info = i->second;
+					boost::property_tree::ptree pending_tree;
+					pending_tree.put ("amount", key.amount.number ().convert_to<std::string> ());
+					if (source)
+					{
+						pending_tree.put ("source", info.source.to_account ());
+					}
+					if (min_version)
+					{
+						pending_tree.put ("min_version", epoch_as_string (info.epoch));
+					}
+					peers_l.add_child (key.send_block_hash.to_string (), pending_tree);
+				}
+				else
+				{
+					peers_l.put (key.send_block_hash.to_string (), key.amount.number ().convert_to<std::string> ());
+				}
+			}
+			response_l.add_child ("blocks", peers_l);
+			response_errors ();
+			return;
+		}
 		// The ptree container is used if there are any children nodes (e.g source/min_version) otherwise the amount container is used.
 		std::vector<std::pair<std::string, boost::property_tree::ptree>> hash_ptree_pairs;
 		std::vector<std::pair<std::string, nano::uint128_t>> hash_amount_pairs;

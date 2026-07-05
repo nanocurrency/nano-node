@@ -37,7 +37,7 @@ void nano::ledger_rollback::send_block (nano::send_block const & block_a)
 	{
 		auto info = ledger.any.account_get (transaction, pending.value ().source);
 		release_assert (info);
-		ledger.store.pending.del (transaction, key);
+		ledger.del_pending (transaction, key);
 		ledger.rep_weights.add (transaction, info->representative, pending.value ().amount);
 		nano::account_info new_info (block_a.hashables.previous, info->representative, info->open_block, ledger.any.block_balance (transaction, block_a.hashables.previous).value (), nano::seconds_since_epoch (), info->block_count - 1, nano::epoch::epoch_0);
 		ledger.update_account (transaction, pending.value ().source, *info, new_info);
@@ -64,7 +64,7 @@ void nano::ledger_rollback::receive_block (nano::receive_block const & block_a)
 	nano::account_info new_info (block_a.hashables.previous, info->representative, info->open_block, ledger.any.block_balance (transaction, block_a.hashables.previous).value (), nano::seconds_since_epoch (), info->block_count - 1, nano::epoch::epoch_0);
 	ledger.update_account (transaction, destination_account, *info, new_info);
 	ledger.del_block (transaction, hash);
-	ledger.store.pending.put (transaction, nano::pending_key (destination_account, block_a.hashables.source), { source_account.value_or (0), amount, nano::epoch::epoch_0 });
+	ledger.put_pending (transaction, nano::pending_key (destination_account, block_a.hashables.source), { source_account.value_or (0), amount, nano::epoch::epoch_0 });
 	ledger.store.successor.del (transaction, block_a.hashables.previous);
 	if (block_a.sideband ().topo_height != 0)
 	{
@@ -83,7 +83,7 @@ void nano::ledger_rollback::open_block (nano::open_block const & block_a)
 	nano::account_info new_info;
 	ledger.update_account (transaction, destination_account, new_info, new_info);
 	ledger.del_block (transaction, hash);
-	ledger.store.pending.put (transaction, nano::pending_key (destination_account, block_a.hashables.source), { source_account.value_or (0), amount, nano::epoch::epoch_0 });
+	ledger.put_pending (transaction, nano::pending_key (destination_account, block_a.hashables.source), { source_account.value_or (0), amount, nano::epoch::epoch_0 });
 	if (block_a.sideband ().topo_height != 0)
 	{
 		ledger.store.topology.del (transaction, { block_a.sideband ().topo_height, hash });
@@ -134,7 +134,7 @@ void nano::ledger_rollback::state_block (nano::state_block const & block_a)
 		{
 			return;
 		}
-		ledger.store.pending.del (transaction, key);
+		ledger.del_pending (transaction, key);
 		ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::send);
 	}
 	else if (!block_a.hashables.link.is_zero () && !ledger.is_epoch_link (block_a.hashables.link))
@@ -142,7 +142,7 @@ void nano::ledger_rollback::state_block (nano::state_block const & block_a)
 		// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
 		auto source_account = ledger.any.block_account (transaction, block_a.hashables.link.as_block_hash ());
 		nano::pending_info pending_info (source_account.value_or (0), block_a.hashables.balance.number () - previous_balance, block_a.sideband ().source_epoch);
-		ledger.store.pending.put (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()), pending_info);
+		ledger.put_pending (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()), pending_info);
 		ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::receive);
 	}
 

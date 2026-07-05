@@ -5,6 +5,8 @@
 #include <nano/lib/stream.hpp>
 #include <nano/lib/vote.hpp>
 #include <nano/secure/account_info.hpp>
+#include <nano/secure/extended/account_receivable_by_amount_info.hpp>
+#include <nano/secure/extended/account_receivable_by_amount_key.hpp>
 #include <nano/secure/pending_info.hpp>
 #include <nano/store/db_val.hpp>
 
@@ -57,6 +59,26 @@ inline db_val::db_val (nano::account_info const & value) :
 inline db_val::db_val (nano::account_info_v22 const & value) :
 	span_view{ reinterpret_cast<uint8_t const *> (&value), value.db_size () }
 {
+}
+
+inline db_val::db_val (nano::account_receivable_by_amount_info const & value) :
+	buffer{ std::make_shared<std::vector<uint8_t>> () }
+{
+	{
+		nano::vectorstream stream{ *buffer };
+		value.serialize (stream);
+	}
+	convert_buffer_to_value ();
+}
+
+inline db_val::db_val (nano::account_receivable_by_amount_key const & value) :
+	buffer{ std::make_shared<std::vector<uint8_t>> () }
+{
+	{
+		nano::vectorstream stream{ *buffer };
+		value.serialize (stream);
+	}
+	convert_buffer_to_value ();
 }
 
 inline db_val::db_val (nano::pending_info const & value) :
@@ -159,6 +181,26 @@ inline db_val::operator nano::account_info_v22 () const
 	nano::account_info_v22 result;
 	debug_assert (span_view.size () == result.db_size ());
 	std::copy (span_view.begin (), span_view.end (), reinterpret_cast<uint8_t *> (&result));
+	return result;
+}
+
+inline db_val::operator nano::account_receivable_by_amount_info () const
+{
+	nano::bufferstream stream{ span_view.data (), span_view.size () };
+	nano::account_receivable_by_amount_info result;
+	bool error{ result.deserialize (stream) };
+	(void)error;
+	debug_assert (!error);
+	return result;
+}
+
+inline db_val::operator nano::account_receivable_by_amount_key () const
+{
+	nano::bufferstream stream{ span_view.data (), span_view.size () };
+	nano::account_receivable_by_amount_key result;
+	bool error{ result.deserialize (stream) };
+	(void)error;
+	debug_assert (!error);
 	return result;
 }
 

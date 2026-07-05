@@ -47,11 +47,12 @@ struct ledger_options
 struct ledger_flags
 {
 	bool topo_index{ false };
+	bool account_receivable_by_amount_index{ false };
 	bool receive_block_by_send_block_index{ false };
 
 	bool any_extended_ledger_index_enabled () const
 	{
-		return receive_block_by_send_block_index;
+		return account_receivable_by_amount_index || receive_block_by_send_block_index;
 	}
 };
 
@@ -92,6 +93,8 @@ public:
 	void update_account (secure::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
 	void put_block (nano::store::write_transaction const &, nano::block_hash const &, nano::block const &);
 	void del_block (nano::store::write_transaction const &, nano::block_hash const &);
+	void put_pending (nano::store::write_transaction const &, nano::pending_key const &, nano::pending_info const &);
+	void del_pending (nano::store::write_transaction const &, nano::pending_key const &);
 	uint64_t pruning_action (secure::write_transaction &, nano::block_hash const &, uint64_t const);
 	bool is_epoch_link (nano::link const &) const;
 	std::shared_ptr<nano::block> find_receive_block_by_send_hash (secure::transaction const &, nano::account const & destination, nano::block_hash const & send_block_hash);
@@ -152,6 +155,12 @@ public:
 	 * Intended as a one-time offline upgrade for ledgers initialized before one or more extended indices existed.
 	 */
 	void populate_extended_ledger_indices ();
+
+	/**
+	 * Walk every pending entry in the ledger, index receivables by destination account, amount, and block hash, then enable the receivable amount index flag.
+	 * Intended as part of the extended ledger index upgrade for ledgers initialized before the receivable amount index existed.
+	 */
+	void populate_account_receivable_by_amount_index ();
 
 	/**
 	 * Walk every receive block in the ledger, map its source send hash to the receive block hash, then enable the receive block lookup index flag.

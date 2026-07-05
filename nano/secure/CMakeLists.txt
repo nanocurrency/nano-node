@@ -15,6 +15,10 @@ add_library(
   generate_cache_flags.hpp
   ledger.hpp
   ledger.cpp
+  extended/account_receivable_by_amount_info.hpp
+  extended/account_receivable_by_amount_info.cpp
+  extended/account_receivable_by_amount_key.hpp
+  extended/account_receivable_by_amount_key.cpp
   ledger_extended_index.cpp
   ledger_topo_index.cpp
   ledger_processor.hpp
