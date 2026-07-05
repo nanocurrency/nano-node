@@ -641,6 +641,10 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					auto txn = store.tx_begin_read ();
 
 					bool const topo_index = store.version.get_flag (txn, nano::store::meta_key::topo_index_enabled);
+					bool const account_delegator_by_weight_index = store.version.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled);
+					bool const account_receivable_by_amount_index = store.version.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled);
+					bool const receive_block_by_send_block_index = store.version.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled);
+					bool const account_block_by_height_index = store.version.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled);
 
 					std::cout << "Path:             " << store.get_database_path () << std::endl;
 					std::cout << "Backend:          " << store.get_vendor () << std::endl;
@@ -654,7 +658,11 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					}
 
 					std::cout << "Flags:" << std::endl;
-					std::cout << "  topo_index:     " << (topo_index ? "enabled" : "disabled") << std::endl;
+					std::cout << "  topo_index:                          " << (topo_index ? "enabled" : "disabled") << std::endl;
+					std::cout << "  account_delegator_by_weight_index:  " << (account_delegator_by_weight_index ? "enabled" : "disabled") << std::endl;
+					std::cout << "  account_receivable_by_amount_index: " << (account_receivable_by_amount_index ? "enabled" : "disabled") << std::endl;
+					std::cout << "  receive_block_by_send_block_index:   " << (receive_block_by_send_block_index ? "enabled" : "disabled") << std::endl;
+					std::cout << "  account_block_by_height_index:  " << (account_block_by_height_index ? "enabled" : "disabled") << std::endl;
 					std::cout << "Counts:" << std::endl;
 					std::cout << "  blocks:         " << store.block.count (txn) << std::endl;
 					std::cout << "  accounts:       " << store.account.count (txn) << std::endl;
