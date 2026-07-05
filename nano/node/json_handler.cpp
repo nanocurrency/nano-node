@@ -2310,29 +2310,17 @@ void nano::json_handler::delegators ()
 		boost::property_tree::ptree delegators;
 		if (node.ledger.flags.account_delegator_by_weight_index)
 		{
-			std::vector<std::pair<nano::account, nano::amount>> entries;
-			for (auto i = node.store.account_delegator_by_weight.begin (transaction, { representative, threshold, 0 }), n = node.store.account_delegator_by_weight.end (transaction); i != n; ++i)
+			for (auto i = node.store.account_delegator_by_weight.rupper_bound (transaction, representative), n = node.store.account_delegator_by_weight.rend (transaction); i != n && delegators.size () < count; ++i)
 			{
 				auto const & key = i->first;
-				if (key.representative != representative)
+				if (key.representative != representative || key.weight.number () < threshold.number ())
 				{
 					break;
 				}
 				if (key.delegator.number () > start_account.number ())
 				{
-					entries.emplace_back (key.delegator, key.weight);
+					delegators.put (key.delegator.to_account (), nano::uint128_union (key.weight).to_string_dec ());
 				}
-			}
-			std::sort (entries.begin (), entries.end (), [] (auto const & lhs, auto const & rhs) {
-				return lhs.first < rhs.first;
-			});
-			for (auto const & [delegator, balance] : entries)
-			{
-				if (delegators.size () >= count)
-				{
-					break;
-				}
-				delegators.put (delegator.to_account (), nano::uint128_union (balance).to_string_dec ());
 			}
 		}
 		else
