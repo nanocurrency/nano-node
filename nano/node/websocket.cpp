@@ -90,7 +90,7 @@ nano::websocket::confirmation_options::confirmation_options (boost::property_tre
 			}
 			else
 			{
-				logger.warn (nano::log::type::websocket, "Invalid account provided for filtering blocks: ", account_l.second.data ());
+				logger.warn (nano::log::type::websocket, "Invalid account provided for filtering blocks: {}", account_l.second.data ());
 			}
 		}
 
@@ -178,7 +178,7 @@ bool nano::websocket::confirmation_options::update (boost::property_tree::ptree 
 			}
 			else
 			{
-				logger.warn (nano::log::type::websocket, "Invalid account provided for filtering blocks: ", account_l.second.data ());
+				logger.warn (nano::log::type::websocket, "Invalid account provided for filtering blocks: {}", account_l.second.data ());
 			}
 		}
 	};
@@ -227,7 +227,7 @@ nano::websocket::vote_options::vote_options (boost::property_tree::ptree const &
 			}
 			else
 			{
-				logger.warn (nano::log::type::websocket, "Invalid account provided for filtering votes: ", representative_l.second.data ());
+				logger.warn (nano::log::type::websocket, "Invalid account provided for filtering votes: {}", representative_l.second.data ());
 			}
 		}
 		// Warn the user if the option will be ignored

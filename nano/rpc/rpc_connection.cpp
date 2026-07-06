@@ -85,7 +85,7 @@ void nano::rpc_connection::read (STREAM_TYPE & stream)
 		}
 		else
 		{
-			this_l->logger.error (nano::log::type::rpc_connection, "RPC header error: ", ec.message ());
+			this_l->logger.error (nano::log::type::rpc_connection, "RPC header error: {}", ec.message ());
 
 			// Respond with the reason for the invalid header
 			auto response_handler ([this_l, &stream] (std::string const & tree_a) {
@@ -166,7 +166,7 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 		}
 		else
 		{
-			this_l->logger.error (nano::log::type::rpc_connection, "RPC read error: ", ec.message ());
+			this_l->logger.error (nano::log::type::rpc_connection, "RPC read error: {}", ec.message ());
 		}
 	}));
 }
