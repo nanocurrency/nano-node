@@ -55,6 +55,7 @@ private:
 	std::unique_ptr<nano::store::ledger::successor_view> successor_impl;
 	std::unique_ptr<nano::store::ledger::account_delegator_by_weight_view> account_delegator_by_weight_impl;
 	std::unique_ptr<nano::store::ledger::account_receivable_by_amount_view> account_receivable_by_amount_impl;
+	std::unique_ptr<nano::store::ledger::account_block_by_height_view> account_block_by_height_impl;
 	std::unique_ptr<nano::store::ledger::block_view> block_impl;
 	std::unique_ptr<nano::store::ledger::account_view> account_impl;
 	std::unique_ptr<nano::store::ledger::pending_view> pending_impl;
@@ -73,6 +74,7 @@ public:
 	nano::store::ledger::successor_view & successor;
 	nano::store::ledger::account_delegator_by_weight_view & account_delegator_by_weight;
 	nano::store::ledger::account_receivable_by_amount_view & account_receivable_by_amount;
+	nano::store::ledger::account_block_by_height_view & account_block_by_height;
 	nano::store::ledger::block_view & block;
 	nano::store::ledger::account_view & account;
 	nano::store::ledger::pending_view & pending;

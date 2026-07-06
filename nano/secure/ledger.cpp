@@ -21,6 +21,7 @@
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
+#include <nano/store/ledger/extended/account_block_by_height.hpp>
 #include <nano/store/ledger/extended/account_delegator_by_weight.hpp>
 #include <nano/store/ledger/extended/account_receivable_by_amount.hpp>
 #include <nano/store/ledger/extended/receive_block_by_send_block.hpp>
@@ -129,12 +130,14 @@ void nano::ledger::initialize ()
 		flags.account_delegator_by_weight_index = store.version.get_flag (transaction, nano::store::meta_key::account_delegator_by_weight_index_enabled);
 		flags.account_receivable_by_amount_index = store.version.get_flag (transaction, nano::store::meta_key::account_receivable_by_amount_index_enabled);
 		flags.receive_block_by_send_block_index = store.version.get_flag (transaction, nano::store::meta_key::receive_block_by_send_block_index_enabled);
+		flags.account_block_by_height_index = store.version.get_flag (transaction, nano::store::meta_key::account_block_by_height_index_enabled);
 
-		logger.debug (nano::log::type::ledger, "Ledger flags loaded: topo_index={}, account_delegator_by_weight={}, account_receivable_by_amount={}, receive_block_by_send_block={}",
+		logger.debug (nano::log::type::ledger, "Ledger flags loaded: topo_index={}, account_delegator_by_weight={}, account_receivable_by_amount={}, receive_block_by_send_block={}, account_block_by_height={}",
 		flags.topo_index,
 		flags.account_delegator_by_weight_index,
 		flags.account_receivable_by_amount_index,
-		flags.receive_block_by_send_block_index);
+		flags.receive_block_by_send_block_index,
+		flags.account_block_by_height_index);
 	}
 
 	auto const & generate_cache_flags = options.generate_cache;
@@ -655,6 +658,78 @@ bool nano::ledger::is_epoch_link (nano::link const & link_a) const
 	return constants.epochs.is_epoch_link (link_a);
 }
 
+std::optional<nano::block_hash> nano::ledger::find_block_hash_by_height (secure::transaction const & transaction, nano::account const & account, uint64_t height) const
+{
+	if (height == 0)
+	{
+		return std::nullopt;
+	}
+
+	if (flags.account_block_by_height_index)
+	{
+		if (auto indexed_hash = store.account_block_by_height.get (transaction, { account, height }))
+		{
+			return indexed_hash;
+		}
+		else
+		{
+			return std::nullopt;
+		}
+	}
+
+	auto info = any.account_get (transaction, account);
+	if (!info || height > info->block_count)
+	{
+		return std::nullopt;
+	}
+
+	if (height - 1 <= info->block_count - height)
+	{
+		auto hash = info->open_block;
+		while (!hash.is_zero ())
+		{
+			auto block = any.block_get (transaction, hash);
+			if (!block)
+			{
+				return std::nullopt;
+			}
+			auto const block_height = block->sideband ().height;
+			if (block_height == height)
+			{
+				return hash;
+			}
+			if (block_height > height)
+			{
+				break;
+			}
+			hash = any.block_successor (transaction, hash).value_or (0);
+		}
+	}
+	else
+	{
+		auto hash = info->head;
+		while (!hash.is_zero ())
+		{
+			auto block = any.block_get (transaction, hash);
+			if (!block)
+			{
+				return std::nullopt;
+			}
+			auto const block_height = block->sideband ().height;
+			if (block_height == height)
+			{
+				return hash;
+			}
+			if (block_height < height)
+			{
+				break;
+			}
+			hash = block->previous ();
+		}
+	}
+	return std::nullopt;
+}
+
 /** Given the block hash of a send block, find the associated receive block that receives that send.
  *  The send block hash is not checked in any way, it is assumed to be correct.
  * @return Return the receive block on success and null on failure
@@ -783,6 +858,10 @@ void nano::ledger::update_account (secure::write_transaction const & transaction
 void nano::ledger::put_block (nano::store::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a)
 {
 	store.block.put (transaction_a, hash_a, block_a);
+	if (flags.account_block_by_height_index)
+	{
+		store.account_block_by_height.put (transaction_a, { block_a.account (), block_a.sideband ().height }, hash_a);
+	}
 	if (flags.receive_block_by_send_block_index && block_a.is_receive ())
 	{
 		store.receive_block_by_send_block.put (transaction_a, block_a.source (), hash_a);
@@ -791,13 +870,20 @@ void nano::ledger::put_block (nano::store::write_transaction const & transaction
 
 void nano::ledger::del_block (nano::store::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	if (flags.receive_block_by_send_block_index)
+	if (flags.account_block_by_height_index || flags.receive_block_by_send_block_index)
 	{
 		auto block = store.block.get (transaction_a, hash_a);
 		release_assert (block, "Block to be deleted was not found in the ledger");
-		if (block->is_receive ())
+		if (flags.account_block_by_height_index)
 		{
-			store.receive_block_by_send_block.del (transaction_a, block->source ());
+			store.account_block_by_height.del (transaction_a, { block->account (), block->sideband ().height });
+		}
+		if (flags.receive_block_by_send_block_index)
+		{
+			if (block->is_receive ())
+			{
+				store.receive_block_by_send_block.del (transaction_a, block->source ());
+			}
 		}
 	}
 	store.block.del (transaction_a, hash_a);

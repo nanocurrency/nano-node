@@ -50,15 +50,16 @@ struct ledger_flags
 	bool account_delegator_by_weight_index{ false };
 	bool account_receivable_by_amount_index{ false };
 	bool receive_block_by_send_block_index{ false };
+	bool account_block_by_height_index{ false };
 
 	bool any_extended_ledger_index_enabled () const
 	{
-		return account_delegator_by_weight_index || account_receivable_by_amount_index || receive_block_by_send_block_index;
+		return account_delegator_by_weight_index || account_receivable_by_amount_index || receive_block_by_send_block_index || account_block_by_height_index;
 	}
 
 	bool any_extended_ledger_index_disabled () const
 	{
-		return !account_delegator_by_weight_index || !account_receivable_by_amount_index || !receive_block_by_send_block_index;
+		return !account_delegator_by_weight_index || !account_receivable_by_amount_index || !receive_block_by_send_block_index || !account_block_by_height_index;
 	}
 };
 
@@ -103,6 +104,7 @@ public:
 	void del_pending (nano::store::write_transaction const &, nano::pending_key const &);
 	uint64_t pruning_action (secure::write_transaction &, nano::block_hash const &, uint64_t const);
 	bool is_epoch_link (nano::link const &) const;
+	std::optional<nano::block_hash> find_block_hash_by_height (secure::transaction const &, nano::account const &, uint64_t height) const;
 	std::shared_ptr<nano::block> find_receive_block_by_send_hash (secure::transaction const &, nano::account const & destination, nano::block_hash const & send_block_hash);
 	std::optional<nano::account> linked_account (secure::transaction const &, nano::block const &);
 	nano::account epoch_signer (nano::link const &) const;
@@ -179,6 +181,12 @@ public:
 	 * Intended as part of the extended ledger index upgrade for ledgers initialized before the receive block lookup index existed.
 	 */
 	void populate_receive_block_by_send_block_index ();
+
+	/**
+	 * Walk every account chain in account and height order, map account and block height to block hash, then enable the account block height index flag.
+	 * Intended as part of the extended ledger index upgrade for ledgers initialized before the account block height index existed.
+	 */
+	void populate_account_block_by_height_index ();
 
 	/**
 	 * Drop all extended ledger index tables and disable their index flags.

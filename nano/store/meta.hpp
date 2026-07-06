@@ -15,6 +15,7 @@ enum class meta_key : uint64_t
 	receive_block_by_send_block_index_enabled = 9,
 	account_receivable_by_amount_index_enabled = 10,
 	account_delegator_by_weight_index_enabled = 11,
+	account_block_by_height_index_enabled = 12,
 };
 
 class meta_view

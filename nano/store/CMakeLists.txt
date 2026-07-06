@@ -11,6 +11,8 @@ add_library(
   ledger/block.cpp
   ledger/confirmation_height.hpp
   ledger/confirmation_height.cpp
+  ledger/extended/account_block_by_height.hpp
+  ledger/extended/account_block_by_height.cpp
   ledger/extended/account_delegator_by_weight.hpp
   ledger/extended/account_delegator_by_weight.cpp
   ledger/extended/account_receivable_by_amount.hpp

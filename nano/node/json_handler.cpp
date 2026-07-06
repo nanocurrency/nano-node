@@ -2756,18 +2756,53 @@ void nano::json_handler::account_history ()
 		account = account_impl ();
 		if (!ec)
 		{
-			if (reverse)
+			auto info (account_info_impl (transaction, account));
+			if (!ec)
 			{
-				auto info (account_info_impl (transaction, account));
-				if (!ec)
+				if (reverse)
 				{
 					hash = info.open_block;
 				}
+				else
+				{
+					hash = info.head;
+				}
+			}
+		}
+	}
+	if (!ec && offset > 0)
+	{
+		auto block = node.ledger.any.block_get (transaction, hash);
+		if (block)
+		{
+			uint64_t start_height;
+			if (reverse)
+			{
+				start_height = block->sideband ().height + offset;
 			}
 			else
 			{
-				hash = node.ledger.any.account_head (transaction, account);
+				if (block->sideband ().height > offset)
+				{
+					start_height = block->sideband ().height - offset;
+				}
+				else
+				{
+					start_height = 0;
+				}
 			}
+			if (auto start_hash = node.ledger.find_block_hash_by_height (transaction, account, start_height))
+			{
+				hash = start_hash.value ();
+			}
+			else
+			{
+				hash = nano::block_hash (0);
+			}
+		}
+		else
+		{
+			ec = nano::error_blocks::not_found;
 		}
 	}
 	if (!ec)
@@ -2779,11 +2814,6 @@ void nano::json_handler::account_history ()
 		auto block = node.ledger.any.block_get (transaction, hash);
 		while (block != nullptr && count > 0)
 		{
-			if (offset > 0)
-			{
-				--offset;
-			}
-			else
 			{
 				boost::property_tree::ptree entry;
 				history_visitor visitor (*this, output_raw, transaction, entry, hash, accounts_to_filter);

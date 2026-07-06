@@ -400,6 +400,7 @@ bool backend_rocksdb::count_is_exact (nano::store::table table) const
 		case nano::store::table::accounts:
 		case nano::store::table::account_delegator_by_weight:
 		case nano::store::table::account_receivable_by_amount:
+		case nano::store::table::account_block_by_height:
 		case nano::store::table::blocks:
 		case nano::store::table::confirmation_height:
 		case nano::store::table::default_unused:
