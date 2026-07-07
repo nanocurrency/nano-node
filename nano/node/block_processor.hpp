@@ -33,6 +33,9 @@ public:
 	// Maximum number of blocks processed in a single batch (under a single write transaction)
 	size_t batch_size{ 256 };
 
+	// Number of threads used to pre-validate block signatures in parallel before ledger processing, 0 to disable pre-validation
+	unsigned verification_threads;
+
 	// Maximum number of blocks to queue from network peers
 	size_t max_peer_queue{ 128 };
 	// Maximum number of blocks to queue from system components (local RPC, bootstrap)
@@ -114,6 +117,9 @@ private:
 	nano::block_status process_one (secure::write_transaction const &, nano::block_context const &, bool forced = false);
 	/// Processes the next batch of blocks under a single write transaction and queues result notifications
 	void process_batch (nano::unique_lock<nano::mutex> &);
+	/// Pre-validate signatures for the batch in parallel on the verification pool
+	void verify_batch (std::deque<nano::block_context> & batch);
+	nano::signature_verification verify (nano::block const &) const;
 	/// Pops up to max_count blocks from the queue
 	std::deque<nano::block_context> next_batch (size_t max_count);
 	/// Pops the next block from the queue
@@ -139,6 +145,7 @@ private:
 	nano::condition_variable condition;
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::block_processor) };
 	boost::thread thread;
+	std::unique_ptr<nano::thread_pool> verification_pool; // Only allocated when verification_threads > 0
 
 	nano::interval log_processing_interval;
 	nano::interval log_backlog_interval;

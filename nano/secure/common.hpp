@@ -119,6 +119,15 @@ enum class block_status
 std::string_view to_string (block_status);
 nano::stat::detail to_stat_detail (block_status);
 
+/** Result of pre-validating a block signature outside of ledger processing */
+enum class signature_verification
+{
+	unknown, // Not pre-validated, ledger processing must verify the signature (default value)
+	valid, // Signed correctly by the account owner
+	valid_epoch, // Signed correctly by the epoch signer instead of the account owner
+	invalid // Signed neither by the account owner nor, for epoch links, the epoch signer
+};
+
 enum class tally_result
 {
 	vote,

@@ -18,10 +18,39 @@
 
 #include <boost/multiprecision/cpp_int.hpp>
 
-nano::ledger_processor::ledger_processor (nano::secure::write_transaction const & transaction_a, nano::ledger & ledger_a) :
+nano::ledger_processor::ledger_processor (nano::secure::write_transaction const & transaction_a, nano::ledger & ledger_a, nano::signature_verification verification_a) :
 	transaction (transaction_a),
-	ledger (ledger_a)
+	ledger (ledger_a),
+	verification (verification_a)
 {
+}
+
+bool nano::ledger_processor::validate_signature (nano::account const & signer, nano::block_hash const & hash, nano::signature const & signature, bool epoch_signer) const
+{
+	switch (verification)
+	{
+		case nano::signature_verification::valid:
+			if (!epoch_signer)
+			{
+				debug_assert (!validate_message (signer, hash, signature));
+				return false;
+			}
+			break; // Pre-verified against the account owner, inconclusive for the epoch signer
+		case nano::signature_verification::valid_epoch:
+			if (epoch_signer)
+			{
+				debug_assert (!validate_message (signer, hash, signature));
+				return false;
+			}
+			break; // Pre-verified against the epoch signer, inconclusive for the account owner
+		case nano::signature_verification::invalid:
+			// Pre-verification checks the account owner and, for epoch links, the epoch signer, so a failure of both is conclusive here
+			debug_assert (validate_message (signer, hash, signature));
+			return true;
+		case nano::signature_verification::unknown:
+			break;
+	}
+	return validate_message (signer, hash, signature);
 }
 
 void nano::ledger_processor::send_block (nano::send_block & block_a)
@@ -172,7 +201,7 @@ void nano::ledger_processor::open_block (nano::open_block & block_a)
 	result = existing ? nano::block_status::old : nano::block_status::progress; // Have we seen this block already? (Harmless)
 	if (result == nano::block_status::progress)
 	{
-		result = validate_message (block_a.hashables.account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is the signature valid (Malformed)
+		result = validate_signature (block_a.hashables.account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is the signature valid (Malformed)
 		if (result == nano::block_status::progress)
 		{
 			debug_assert (!validate_message (block_a.hashables.account, hash, block_a.signature));
@@ -319,7 +348,7 @@ void nano::ledger_processor::state_block_impl (nano::state_block & block_a)
 	result = existing ? nano::block_status::old : nano::block_status::progress; // Have we seen this block before? (Unambiguous)
 	if (result == nano::block_status::progress)
 	{
-		result = validate_message (block_a.hashables.account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Unambiguous)
+		result = validate_signature (block_a.hashables.account, hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Unambiguous)
 		if (result == nano::block_status::progress)
 		{
 			debug_assert (!validate_message (block_a.hashables.account, hash, block_a.signature));
@@ -463,7 +492,7 @@ void nano::ledger_processor::epoch_block_impl (nano::state_block & block_a)
 	result = existing ? nano::block_status::old : nano::block_status::progress; // Have we seen this block before? (Unambiguous)
 	if (result == nano::block_status::progress)
 	{
-		result = validate_message (ledger.epoch_signer (block_a.hashables.link), hash, block_a.signature) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Unambiguous)
+		result = validate_signature (ledger.epoch_signer (block_a.hashables.link), hash, block_a.signature, /* epoch_signer */ true) ? nano::block_status::bad_signature : nano::block_status::progress; // Is this block signed correctly (Unambiguous)
 		if (result == nano::block_status::progress)
 		{
 			debug_assert (!validate_message (ledger.epoch_signer (block_a.hashables.link), hash, block_a.signature));
@@ -566,10 +595,10 @@ bool nano::ledger_processor::validate_epoch_block (nano::state_block const & blo
 		else
 		{
 			// Check for possible regular state blocks with epoch link (send subtype)
-			if (validate_message (block_a.hashables.account, block_a.hash (), block_a.signature))
+			if (validate_signature (block_a.hashables.account, block_a.hash (), block_a.signature))
 			{
 				// Is epoch block signed correctly
-				if (validate_message (ledger.epoch_signer (block_a.link_field ().value ()), block_a.hash (), block_a.signature))
+				if (validate_signature (ledger.epoch_signer (block_a.link_field ().value ()), block_a.hash (), block_a.signature, /* epoch_signer */ true))
 				{
 					result = nano::block_status::bad_signature;
 				}
