@@ -10,6 +10,8 @@
 #include <nano/store/ledger/extended/receive_block_by_send_block.hpp>
 #include <nano/store/ledger/pending.hpp>
 
+#include <chrono>
+
 void nano::ledger::initialize_extended_ledger_indices ()
 {
 	if (!options.enable_extended_ledger_index)
@@ -121,24 +123,34 @@ void nano::ledger::populate_receive_block_by_send_block_index ()
 	store.receive_block_by_send_block.clear ();
 	logger.info (nano::log::type::ledger_upgrade, "Receive block lookup index cleared");
 
-	size_t const batch_size_compute = nano::is_dev_run () ? 2 : 1024 * 1024;
+	size_t const batch_size_populate = nano::is_dev_run () ? 2 : 16 * 1024 * 1024;
 
 	uint64_t indexed{ 0 };
 	{
 		auto txn = store.tx_begin_write ();
+		auto crawler = store.block.crawl (txn);
+		auto last_log = std::chrono::steady_clock::now ();
 		size_t processed = 0;
-		for (auto i = store.block.begin (txn), n = store.block.end (txn); i != n; ++i, ++processed)
+		for (; crawler; ++crawler)
 		{
-			if (processed % batch_size_compute == 0)
+			auto now = std::chrono::steady_clock::now ();
+			if (now - last_log >= std::chrono::seconds (5))
 			{
 				logger.info (nano::log::type::ledger_upgrade, "Receive block lookup index progress: {} / {} blocks ({:.1f}%)", processed, total_blocks, nano::log::percentage (processed, total_blocks));
+				last_log = now;
 			}
 
-			auto const & block = i->second.block;
+			auto const & block = crawler->second.block;
 			if (block->is_receive ())
 			{
-				store.receive_block_by_send_block.put (txn, block->source (), i->first);
+				store.receive_block_by_send_block.put (txn, block->source (), crawler->first);
 				++indexed;
+			}
+
+			++processed;
+			if (processed % batch_size_populate == 0)
+			{
+				crawler.refresh ();
 			}
 		}
 		store.version.put_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled, true);
@@ -164,34 +176,41 @@ void nano::ledger::populate_account_block_by_height_index ()
 	store.account_block_by_height.clear ();
 	logger.info (nano::log::type::ledger_upgrade, "Account block height index cleared");
 
-	size_t const batch_size_compute = nano::is_dev_run () ? 2 : 1024 * 1024;
+	size_t const batch_size_populate = nano::is_dev_run () ? 2 : 16 * 1024 * 1024;
 
-	uint64_t indexed{ 0 };
+	uint64_t processed{ 0 };
 	{
 		auto txn = store.tx_begin_write ();
-		size_t processed = 0;
-		for (auto i = store.block.begin (txn), n = store.block.end (txn); i != n; ++i, ++processed)
+		auto crawler = store.block.crawl (txn);
+		auto last_log = std::chrono::steady_clock::now ();
+		for (; crawler; ++crawler)
 		{
-			if (processed % batch_size_compute == 0)
+			auto now = std::chrono::steady_clock::now ();
+			if (now - last_log >= std::chrono::seconds (5))
 			{
 				logger.info (nano::log::type::ledger_upgrade, "Account block height index progress: {} / {} blocks ({:.1f}%)", processed, total_blocks, nano::log::percentage (processed, total_blocks));
+				last_log = now;
 			}
 
-			auto const & hash = i->first;
-			auto const & block = i->second.block;
-			auto const & sideband = i->second.sideband;
+			auto const & hash = crawler->first;
+			auto const & block = crawler->second.block;
+			auto const & sideband = crawler->second.sideband;
 			release_assert (block, "missing block during account block height indexing", hash.to_string ());
 			release_assert (sideband.height != 0, "block height must be non-zero for account block height indexing", hash.to_string ());
 
 			store.account_block_by_height.put (txn, { block->account (), sideband.height }, hash);
-			++indexed;
+			++processed;
+			if (processed % batch_size_populate == 0)
+			{
+				crawler.refresh ();
+			}
 		}
-		release_assert (indexed == total_blocks, "account block height index entry count mismatch");
+		release_assert (processed == total_blocks, "account block height index entry count mismatch");
 		store.version.put_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled, true);
 	}
 
 	flags.account_block_by_height_index = true;
-	logger.info (nano::log::type::ledger_upgrade, "Account block height index populated with {} entries", indexed);
+	logger.info (nano::log::type::ledger_upgrade, "Account block height index populated with {} entries", processed);
 }
 
 void nano::ledger::populate_account_delegator_by_weight_index ()
@@ -210,27 +229,35 @@ void nano::ledger::populate_account_delegator_by_weight_index ()
 	store.account_delegator_by_weight.clear ();
 	logger.info (nano::log::type::ledger_upgrade, "Delegator weight index cleared");
 
-	size_t const batch_size_compute = nano::is_dev_run () ? 2 : 1024 * 1024;
+	size_t const batch_size_populate = nano::is_dev_run () ? 2 : 16 * 1024 * 1024;
 
-	uint64_t indexed{ 0 };
+	uint64_t processed{ 0 };
 	{
 		auto txn = store.tx_begin_write ();
-		size_t processed = 0;
-		for (auto i = store.account.begin (txn), n = store.account.end (txn); i != n; ++i, ++processed)
+		auto crawler = store.account.crawl (txn);
+		auto last_log = std::chrono::steady_clock::now ();
+		for (; crawler; ++crawler)
 		{
-			if (processed % batch_size_compute == 0)
+			auto now = std::chrono::steady_clock::now ();
+			if (now - last_log >= std::chrono::seconds (5))
 			{
 				logger.info (nano::log::type::ledger_upgrade, "Delegator weight index progress: {} / {} accounts ({:.1f}%)", processed, total_accounts, nano::log::percentage (processed, total_accounts));
+				last_log = now;
 			}
 
-			store.account_delegator_by_weight.put (txn, { i->second.representative, i->second.balance, i->first });
-			++indexed;
+			store.account_delegator_by_weight.put (txn, { crawler->second.representative, crawler->second.balance, crawler->first });
+
+			++processed;
+			if (processed % batch_size_populate == 0)
+			{
+				crawler.refresh ();
+			}
 		}
 		store.version.put_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled, true);
 	}
 
 	flags.account_delegator_by_weight_index = true;
-	logger.info (nano::log::type::ledger_upgrade, "Delegator weight index populated with {} entries", indexed);
+	logger.info (nano::log::type::ledger_upgrade, "Delegator weight index populated with {} entries", processed);
 }
 
 void nano::ledger::populate_account_receivable_by_amount_index ()
@@ -249,25 +276,33 @@ void nano::ledger::populate_account_receivable_by_amount_index ()
 	store.account_receivable_by_amount.clear ();
 	logger.info (nano::log::type::ledger_upgrade, "Receivable amount index cleared");
 
-	size_t const batch_size_compute = nano::is_dev_run () ? 2 : 1024 * 1024;
+	size_t const batch_size_populate = nano::is_dev_run () ? 2 : 16 * 1024 * 1024;
 
-	uint64_t indexed{ 0 };
+	uint64_t processed{ 0 };
 	{
 		auto txn = store.tx_begin_write ();
-		size_t processed = 0;
-		for (auto i = store.pending.begin (txn), n = store.pending.end (txn); i != n; ++i, ++processed)
+		auto crawler = store.pending.crawl (txn);
+		auto last_log = std::chrono::steady_clock::now ();
+		for (; crawler; ++crawler)
 		{
-			if (processed % batch_size_compute == 0)
+			auto now = std::chrono::steady_clock::now ();
+			if (now - last_log >= std::chrono::seconds (5))
 			{
 				logger.info (nano::log::type::ledger_upgrade, "Receivable amount index progress: {} / {} receivables ({:.1f}%)", processed, total_receivables, nano::log::percentage (processed, total_receivables));
+				last_log = now;
 			}
 
-			store.account_receivable_by_amount.put (txn, { i->first.account, i->second.amount, i->first.hash }, { i->second.source, i->second.epoch });
-			++indexed;
+			store.account_receivable_by_amount.put (txn, { crawler->first.account, crawler->second.amount, crawler->first.hash }, { crawler->second.source, crawler->second.epoch });
+
+			++processed;
+			if (processed % batch_size_populate == 0)
+			{
+				crawler.refresh ();
+			}
 		}
 		store.version.put_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled, true);
 	}
 
 	flags.account_receivable_by_amount_index = true;
-	logger.info (nano::log::type::ledger_upgrade, "Receivable amount index populated with {} entries", indexed);
+	logger.info (nano::log::type::ledger_upgrade, "Receivable amount index populated with {} entries", processed);
 }
