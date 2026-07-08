@@ -4,9 +4,6 @@ $env:S3_BUCKET_NAME = $env:S3_BUCKET_NAME ?? "repo.nano.org"
 if ( "${env:NETWORK}" -eq "BETA" ) {
     $network_cfg = "beta"
 }
-elseif ( "${env:NETWORK}" -eq "TEST" ) {
-    $network_cfg = "test"
-}
 else {
     $network_cfg = "live"
 }

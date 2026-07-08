@@ -28,10 +28,6 @@ elif [[ "$NETWORK" = "BETA" ]]; then
     echo "Beta"
     network_tag_suffix="-beta"
     network="beta"
-elif [[ "$NETWORK" = "TEST" ]]; then
-    echo "Test"
-    network_tag_suffix="-test"
-    network="test"
 fi
 
 docker_image_name="${DOCKER_REGISTRY}/nano${network_tag_suffix}"
