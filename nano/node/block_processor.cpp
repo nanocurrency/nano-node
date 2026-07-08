@@ -523,12 +523,6 @@ nano::block_status nano::block_processor::process_one (secure::write_transaction
 			stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
 		}
-		case nano::block_status::gap_epoch_open_pending:
-		{
-			unchecked.put (block->account_field ().value_or (0), block); // Specific unchecked key starting with epoch open block account public key
-			stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
-			break;
-		}
 		case nano::block_status::old:
 		{
 			stats.inc (nano::stat::type::ledger, nano::stat::detail::old);

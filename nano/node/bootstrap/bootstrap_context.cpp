@@ -338,14 +338,6 @@ void bootstrap_context::inspect (secure::transaction const & tx, nano::block_sta
 			}
 		}
 		break;
-		case nano::block_status::gap_epoch_open_pending:
-		{
-			// Epoch open blocks for accounts that don't have any pending blocks yet
-			debug_assert (block.type () == block_type::state); // Only state blocks can have epoch open pending status
-			const auto account = block.account_field ().value_or (0);
-			accounts.priority_erase (account);
-		}
-		break;
 		default: // No need to handle other cases
 			// TODO: If we receive blocks that are invalid (bad signature, fork, etc.), we should penalize the peer that sent them
 			break;
