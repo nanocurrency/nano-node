@@ -622,9 +622,9 @@ nano::container_info bootstrap_context::container_info () const
 
 	auto collect_limiters = [this] () {
 		nano::container_info info;
-		info.put ("total", limiter.size ());
-		info.put ("database", database_limiter.size ());
-		info.put ("frontiers", frontiers_limiter.size ());
+		info.put ("total", limiter.available ());
+		info.put ("database", database_limiter.available ());
+		info.put ("frontiers", frontiers_limiter.available ());
 		return info;
 	};
 

@@ -12,11 +12,8 @@ public:
 	explicit bandwidth_limiter_config (nano::node_config const &);
 
 public:
-	std::size_t generic_limit;
-	double generic_burst_ratio;
-
-	std::size_t bootstrap_limit;
-	double bootstrap_burst_ratio;
+	nano::rate_limit generic;
+	nano::rate_limit bootstrap;
 };
 
 /**
@@ -27,19 +24,17 @@ class bandwidth_limiter final
 public:
 	bandwidth_limiter (nano::node_config const &, nano::node_flags const &);
 
-	/**
-	 * Consumes bandwidth tokens when packet falls within bandwidth limits
-	 * @return true if OK, false if needs to be dropped
-	 */
+	// Attempts to consume bandwidth tokens; on failure includes how long until retry is worthwhile
+	nano::limiter_result consume (std::size_t buffer_size, nano::transport::traffic_type type);
+	// Convenience wrapper when the retry hint is not needed
 	bool try_consume (std::size_t buffer_size, nano::transport::traffic_type type);
-	/**
-	 * Reset limits of selected limiter type to values passed in arguments
-	 */
-	void reset (std::size_t limit, double burst_ratio, nano::transport::traffic_type type = nano::transport::traffic_type::generic);
+	// Resets limits of selected limiter type to values passed in arguments
+	void reset (nano::rate_limit limit, nano::transport::traffic_type type = nano::transport::traffic_type::generic);
 
 	nano::container_info container_info () const;
 
-	std::pair<std::size_t, double> get_limit (nano::transport::traffic_type type = nano::transport::traffic_type::generic) const;
+	// Returns rate and burst ratio of the selected limiter type
+	nano::rate_limit get_limit (nano::transport::traffic_type type = nano::transport::traffic_type::generic) const;
 
 private:
 	/**

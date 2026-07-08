@@ -1,131 +1,131 @@
-#include <nano/lib/locks.hpp>
+#include <nano/lib/assert.hpp>
 #include <nano/lib/rate_limiting.hpp>
-#include <nano/lib/utility.hpp>
 
+#include <algorithm>
 #include <limits>
 
 /*
  * token_bucket
  */
 
-nano::rate::token_bucket::token_bucket (std::size_t max_token_count_a, std::size_t refill_rate_a)
+namespace
 {
-	reset (max_token_count_a, refill_rate_a);
+// Tolerance for floating point comparisons, far below one token but above accumulated rounding error
+constexpr double epsilon = 1e-6;
+
+double compute_capacity (nano::rate_limit limit)
+{
+	// Even with tiny burst ratios the bucket must hold at least one token to remain usable
+	return std::max (1.0, static_cast<double> (limit.rate) * limit.burst_ratio);
+}
 }
 
-bool nano::rate::token_bucket::can_consume (unsigned tokens_required_a)
+nano::rate::token_bucket::token_bucket (std::size_t rate_a, double burst_ratio_a, clock::time_point now) :
+	token_bucket{ nano::rate_limit{ rate_a, burst_ratio_a }, now }
 {
-	debug_assert (tokens_required_a <= 1e9);
-	refill ();
-	return current_size >= tokens_required_a || refill_rate == unlimited_rate_sentinel;
 }
 
-bool nano::rate::token_bucket::try_consume (unsigned tokens_required_a)
+nano::rate::token_bucket::token_bucket (nano::rate_limit limit, clock::time_point now) :
+	limit_m{ limit },
+	capacity_m{ compute_capacity (limit) },
+	balance{ capacity_m }, // Start with a full bucket so startup is not throttled
+	last_refill{ now }
 {
-	debug_assert (tokens_required_a <= 1e9);
-	refill ();
-	bool possible = current_size >= tokens_required_a;
-	if (possible)
+	debug_assert (limit.burst_ratio > 0.0);
+}
+
+bool nano::rate::token_bucket::consume (std::size_t tokens, clock::time_point now)
+{
+	// Rate 0 means limiting is disabled; consuming nothing always succeeds
+	if (limit_m.rate == 0 || tokens == 0)
 	{
-		current_size -= tokens_required_a;
+		return true;
 	}
-	else if (tokens_required_a == 1e9)
+	balance = projected (now);
+	// Never rewind; `now` may be stale when default arguments are evaluated before the caller's lock
+	last_refill = std::max (last_refill, now);
+	bool const granted = balance >= required (tokens) - epsilon;
+	if (granted)
 	{
-		current_size = 0;
+		balance -= static_cast<double> (tokens); // May overdraw below zero for requests larger than the capacity
 	}
-
-	// Keep track of smallest observed bucket size so burst size can be computed (for tests and stats)
-	smallest_size = std::min (smallest_size, current_size);
-
-	return possible || refill_rate == unlimited_rate_sentinel;
+	return granted;
 }
 
-void nano::rate::token_bucket::consume_checked (unsigned tokens_required_a)
+bool nano::rate::token_bucket::can_consume (std::size_t tokens, clock::time_point now) const
 {
-	auto const consumed = try_consume (tokens_required_a);
-	release_assert (consumed);
-}
-
-void nano::rate::token_bucket::refill ()
-{
-	auto now (std::chrono::steady_clock::now ());
-	std::size_t tokens_to_add = static_cast<std::size_t> (std::chrono::duration_cast<std::chrono::nanoseconds> (now - last_refill).count () / 1e9 * refill_rate);
-	// Only update if there are any tokens to add
-	if (tokens_to_add > 0)
+	// Rate 0 means limiting is disabled; consuming nothing always succeeds
+	if (limit_m.rate == 0 || tokens == 0)
 	{
-		current_size = std::min (current_size + tokens_to_add, max_token_count);
-		last_refill = std::chrono::steady_clock::now ();
+		return true;
 	}
+	return projected (now) >= required (tokens) - epsilon;
 }
 
-void nano::rate::token_bucket::reset (std::size_t max_token_count_a, std::size_t refill_rate_a)
+std::chrono::milliseconds nano::rate::token_bucket::time_to_consume (std::size_t tokens, clock::time_point now) const
 {
-	// A token count of 0 indicates unlimited capacity. We use 1e9 as
-	// a sentinel, allowing largest burst to still be computed.
-	if (max_token_count_a == 0 || refill_rate_a == 0)
+	// Rate 0 means limiting is disabled; consuming nothing always succeeds
+	if (limit_m.rate == 0 || tokens == 0)
 	{
-		refill_rate_a = max_token_count_a = unlimited_rate_sentinel;
+		return {};
 	}
-	max_token_count = smallest_size = current_size = max_token_count_a;
-	refill_rate = refill_rate_a;
-	last_refill = std::chrono::steady_clock::now ();
+	// Already consumable, no wait needed
+	auto const deficit = required (tokens) - projected (now);
+	if (deficit <= epsilon)
+	{
+		return {};
+	}
+	// Round up so that waiting the returned duration is sufficient
+	return std::chrono::ceil<std::chrono::milliseconds> (std::chrono::duration<double> (deficit / static_cast<double> (limit_m.rate)));
 }
 
-std::size_t nano::rate::token_bucket::largest_burst () const
+void nano::rate::token_bucket::reset (std::size_t rate_a, double burst_ratio_a, clock::time_point now)
 {
-	return max_token_count - smallest_size;
+	reset (nano::rate_limit{ rate_a, burst_ratio_a }, now);
 }
 
-std::size_t nano::rate::token_bucket::size () const
+void nano::rate::token_bucket::reset (nano::rate_limit limit, clock::time_point now)
 {
-	return current_size;
+	debug_assert (limit.burst_ratio > 0.0);
+	// Start full when transitioning from unlimited, otherwise carry the balance over
+	auto const carried = limit_m.rate == 0 ? std::numeric_limits<double>::max () : projected (now);
+	limit_m = limit;
+	capacity_m = compute_capacity (limit);
+	balance = std::min (carried, capacity_m);
+	last_refill = std::max (last_refill, now);
 }
 
-/*
- * rate_limiter
- */
-
-nano::rate_limiter::rate_limiter (std::size_t limit_a, double burst_ratio_a) :
-	bucket (static_cast<std::size_t> (limit_a * burst_ratio_a), limit_a),
-	limit{ limit_a },
-	burst_ratio{ burst_ratio_a }
+nano::rate_limit nano::rate::token_bucket::limit () const
 {
+	return limit_m;
 }
 
-bool nano::rate_limiter::can_consume (std::size_t token_count_a)
+std::size_t nano::rate::token_bucket::capacity () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	return bucket.can_consume (nano::narrow_cast<unsigned int> (token_count_a));
+	// When limiting is disabled there is no meaningful capacity, report 0 rather than the internal placeholder
+	return limit_m.rate == 0 ? 0 : static_cast<std::size_t> (capacity_m);
 }
 
-bool nano::rate_limiter::try_consume (std::size_t token_count_a)
+std::size_t nano::rate::token_bucket::available (clock::time_point now) const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	return bucket.try_consume (nano::narrow_cast<unsigned int> (token_count_a));
+	// When limiting is disabled the balance is never updated, so it carries no meaningful information
+	if (limit_m.rate == 0)
+	{
+		return 0;
+	}
+	// An overdrawn (negative) balance is reported as 0 available tokens
+	return static_cast<std::size_t> (std::max (0.0, projected (now)));
 }
 
-void nano::rate_limiter::consume_checked (std::size_t token_count_a)
+double nano::rate::token_bucket::projected (clock::time_point now) const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	bucket.consume_checked (nano::narrow_cast<unsigned int> (token_count_a));
+	// Clamp to protect against timestamps older than the last refill
+	auto const elapsed = std::max (0.0, std::chrono::duration_cast<std::chrono::duration<double>> (now - last_refill).count ());
+	return std::min (balance + elapsed * static_cast<double> (limit_m.rate), capacity_m);
 }
 
-void nano::rate_limiter::reset (std::size_t limit_a, double burst_ratio_a)
+double nano::rate::token_bucket::required (std::size_t tokens) const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	bucket.reset (static_cast<std::size_t> (limit_a * burst_ratio_a), limit_a);
-	limit = limit_a;
-	burst_ratio = burst_ratio_a;
-}
-
-std::size_t nano::rate_limiter::size () const
-{
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	return bucket.size ();
-}
-
-std::pair<std::size_t, double> nano::rate_limiter::get_limit () const
-{
-	nano::lock_guard<nano::mutex> guard{ mutex };
-	return { limit, burst_ratio };
+	// Requests larger than the capacity can never accumulate fully; they are granted when the bucket is full
+	return std::min (static_cast<double> (tokens), capacity_m);
 }

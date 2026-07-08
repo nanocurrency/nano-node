@@ -187,9 +187,10 @@ void nano::local_block_broadcaster::run_broadcasts (nano::unique_lock<nano::mute
 
 	for (auto const & entry : to_broadcast)
 	{
-		while (!limiter.try_consume (1))
+		for (auto result = limiter.consume (); !result; result = limiter.consume ())
 		{
-			std::this_thread::sleep_for (std::chrono::milliseconds{ 100 });
+			// Cap the wait so stopping is not delayed by long refill times
+			std::this_thread::sleep_for (std::min (result.retry_after, std::chrono::milliseconds{ 100 }));
 			if (stopped)
 			{
 				return;
