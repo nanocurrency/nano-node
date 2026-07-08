@@ -11,9 +11,6 @@ case "${NETWORK}" in
   "BETA")
       BUILD="beta"
       ;;
-  "TEST")
-      BUILD="test"
-      ;;
   *)
       BUILD="live"
       ;;
