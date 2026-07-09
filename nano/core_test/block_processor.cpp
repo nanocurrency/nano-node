@@ -397,6 +397,141 @@ TEST (block_processor, add_many_empty)
 	ASSERT_EQ (node.ledger.block_count (), 1);
 }
 
+// Parallel signature pre-validation processes a valid block and increments the blocks_verified stat
+TEST (block_processor, verification)
+{
+	nano::test::system system;
+
+	nano::node_config node_config;
+	node_config.block_processor->verification_threads = 2;
+	auto & node = *system.add_node (node_config);
+
+	nano::keypair key;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+
+	auto result = node.block_processor.add_blocking (send, nano::block_source::local);
+	ASSERT_TRUE (result.has_value ());
+	ASSERT_EQ (result.value (), nano::block_status::progress);
+	ASSERT_TRUE (node.block_or_pruned_exists (send->hash ()));
+	ASSERT_EQ (node.stats.count (nano::stat::type::block_processor, nano::stat::detail::blocks_verified), 1);
+}
+
+// Epoch blocks signed by the epoch signer rather than the account owner are pre-validated as valid_epoch and still process correctly
+TEST (block_processor, verification_epoch)
+{
+	nano::test::system system;
+
+	nano::node_config node_config;
+	node_config.block_processor->verification_threads = 2;
+	auto & node = *system.add_node (node_config);
+
+	nano::keypair key;
+	nano::block_builder builder;
+
+	// Fund the account so it can be opened by an epoch block
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+
+	auto send_result = node.block_processor.add_blocking (send, nano::block_source::local);
+	ASSERT_TRUE (send_result.has_value ());
+	ASSERT_EQ (send_result.value (), nano::block_status::progress);
+
+	// Signed by the epoch signer (dev genesis), not the account owner, so pre-validation returns valid_epoch
+	auto epoch = builder
+				 .state ()
+				 .account (key.pub)
+				 .previous (0)
+				 .representative (0)
+				 .balance (0)
+				 .link (node.ledger.epoch_link (nano::epoch::epoch_1))
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (key.pub))
+				 .build ();
+
+	auto epoch_result = node.block_processor.add_blocking (epoch, nano::block_source::local);
+	ASSERT_TRUE (epoch_result.has_value ());
+	ASSERT_EQ (epoch_result.value (), nano::block_status::progress);
+	ASSERT_TRUE (node.block_or_pruned_exists (epoch->hash ()));
+	ASSERT_EQ (node.stats.count (nano::stat::type::block_processor, nano::stat::detail::blocks_verified), 2);
+}
+
+// Blocks pre-validated as invalid are rejected with bad_signature
+TEST (block_processor, verification_bad_signature)
+{
+	nano::test::system system;
+
+	nano::node_config node_config;
+	node_config.block_processor->verification_threads = 2;
+	auto & node = *system.add_node (node_config);
+
+	nano::keypair key;
+	nano::keypair wrong_key;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
+				.link (key.pub)
+				.sign (wrong_key.prv, wrong_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+
+	auto result = node.block_processor.add_blocking (send, nano::block_source::local);
+	ASSERT_TRUE (result.has_value ());
+	ASSERT_EQ (result.value (), nano::block_status::bad_signature);
+	ASSERT_FALSE (node.block_or_pruned_exists (send->hash ()));
+	ASSERT_EQ (node.stats.count (nano::stat::type::block_processor, nano::stat::detail::blocks_verified), 1);
+}
+
+// verification_threads = 0 disables the pre-validation pool, blocks are verified inline as before
+TEST (block_processor, verification_disabled)
+{
+	nano::test::system system;
+
+	nano::node_config node_config;
+	node_config.block_processor->verification_threads = 0;
+	auto & node = *system.add_node (node_config);
+
+	nano::keypair key;
+	nano::block_builder builder;
+	auto send = builder
+				.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - nano::Knano_ratio)
+				.link (key.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+
+	auto result = node.block_processor.add_blocking (send, nano::block_source::local);
+	ASSERT_TRUE (result.has_value ());
+	ASSERT_EQ (result.value (), nano::block_status::progress);
+	ASSERT_TRUE (node.block_or_pruned_exists (send->hash ()));
+	ASSERT_EQ (node.stats.count (nano::stat::type::block_processor, nano::stat::detail::blocks_verified), 0);
+}
+
 TEST (block_processor, backlog_throttling)
 {
 	nano::test::system system;
