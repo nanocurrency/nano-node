@@ -79,7 +79,7 @@ public:
 	size_t count_tags (nano::block_hash const & hash, query_source source) const;
 
 	// Inspects a block that has been processed by the block processor
-	void inspect (secure::transaction const &, nano::block_status const & result, nano::block const & block, nano::block_source);
+	void inspect (secure::transaction const &, nano::block_status const & result, nano::block_context const & context);
 
 	// Calculates a lookback size based on the size of the ledger
 	std::size_t compute_throttle_size () const;

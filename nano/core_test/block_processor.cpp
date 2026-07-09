@@ -4,6 +4,7 @@
 #include <nano/node/backlog_scan.hpp>
 #include <nano/node/block_processor.hpp>
 #include <nano/node/bounded_backlog.hpp>
+#include <nano/node/ledger_notifications.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/secure/common.hpp>
@@ -14,7 +15,12 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <any>
 #include <atomic>
+#include <mutex>
+#include <string>
+#include <vector>
 
 using namespace std::chrono_literals;
 
@@ -115,6 +121,86 @@ TEST (block_processor, add_blocking)
 	auto result2 = node.block_processor.add_blocking (send, nano::block_source::local);
 	ASSERT_TRUE (result2.has_value ());
 	ASSERT_EQ (result2.value (), nano::block_status::old);
+}
+
+TEST (block_processor, tags)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	std::mutex mutex;
+	std::vector<std::pair<nano::block_hash, std::string>> observed;
+	node.ledger_notifications.blocks_processed.add ([&] (auto const & batch) {
+		std::lock_guard<std::mutex> lock{ mutex };
+		for (auto const & entry : batch)
+		{
+			auto const & context = entry.second;
+			if (context.block != nullptr)
+			{
+				if (auto tag = std::any_cast<std::string> (&context.tag))
+				{
+					observed.emplace_back (context.block->hash (), *tag);
+				}
+			}
+		}
+	});
+
+	auto latest = nano::dev::genesis->hash ();
+	auto balance = nano::dev::constants.genesis_amount;
+	auto make_send = [&] (nano::account const & destination) {
+		nano::block_builder builder;
+		balance -= nano::Knano_ratio;
+		auto send = builder
+					.state ()
+					.account (nano::dev::genesis_key.pub)
+					.previous (latest)
+					.representative (nano::dev::genesis_key.pub)
+					.balance (balance)
+					.link (destination)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (latest))
+					.build ();
+		latest = send->hash ();
+		return send;
+	};
+
+	nano::keypair key1;
+	auto send1 = make_send (key1.pub);
+	ASSERT_TRUE (node.block_processor.add (send1, nano::block_source::live, nullptr, nullptr, std::string{ "single" }));
+	ASSERT_TIMELY (5s, node.block_or_pruned_exists (send1->hash ()));
+
+	nano::keypair key2;
+	auto send2 = make_send (key2.pub);
+	nano::keypair key3;
+	auto send3 = make_send (key3.pub);
+	nano::keypair key4;
+	auto send4 = make_send (key4.pub);
+	std::deque<std::shared_ptr<nano::block>> batch{ send2, send3, send4 };
+	ASSERT_EQ (node.block_processor.add_many (batch, nano::block_source::live, nullptr, nullptr, std::string{ "batch" }), batch.size ());
+	for (auto const & block : batch)
+	{
+		ASSERT_TIMELY (5s, node.block_or_pruned_exists (block->hash ()));
+	}
+
+	nano::keypair key5;
+	auto send5 = make_send (key5.pub);
+	auto result = node.block_processor.add_blocking (send5, nano::block_source::local, std::string{ "blocking" });
+	ASSERT_TRUE (result.has_value ());
+	ASSERT_EQ (result.value (), nano::block_status::progress);
+
+	auto has_observed = [&] (nano::block_hash const & hash, std::string const & tag) {
+		std::lock_guard<std::mutex> lock{ mutex };
+		return std::any_of (observed.begin (), observed.end (), [&] (auto const & entry) {
+			return entry.first == hash && entry.second == tag;
+		});
+	};
+
+	ASSERT_TIMELY (5s, has_observed (send1->hash (), "single"));
+	for (auto const & block : batch)
+	{
+		ASSERT_TIMELY (5s, has_observed (block->hash (), "batch"));
+	}
+	ASSERT_TIMELY (5s, has_observed (send5->hash (), "blocking"));
 }
 
 // When queue is full, add_blocking returns nullopt because the promise is destroyed unfulfilled
