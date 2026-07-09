@@ -42,7 +42,9 @@ bool nano::ledger_processor::validate_signature (nano::account const & signer, n
 				debug_assert (!validate_message (signer, hash, signature));
 				return false;
 			}
-			break; // Pre-verified against the epoch signer, inconclusive for the account owner
+			// Pre-verification only yields valid_epoch after the account owner check has failed, so a failure is conclusive here
+			debug_assert (validate_message (signer, hash, signature));
+			return true;
 		case nano::signature_verification::invalid:
 			// Pre-verification checks the account owner and, for epoch links, the epoch signer, so a failure of both is conclusive here
 			debug_assert (validate_message (signer, hash, signature));
