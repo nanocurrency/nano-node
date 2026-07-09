@@ -4206,6 +4206,7 @@ TEST (ledger, epoch_open_pending)
 	auto & node1 = *system.nodes[0];
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair key1{};
+	// Epoch open should succeed even without pending entries
 	auto epoch_open = builder.state ()
 					  .account (key1.pub)
 					  .previous (0)
@@ -4215,28 +4216,17 @@ TEST (ledger, epoch_open_pending)
 					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					  .work (*pool.generate (key1.pub))
 					  .build ();
-	auto process_result = node1.ledger.process (node1.ledger.tx_begin_write (), epoch_open);
-	ASSERT_EQ (nano::block_status::gap_epoch_open_pending, process_result);
-	node1.block_processor.add (epoch_open, nano::block_source::test);
-	// Waits for the block to get saved in the database
-	ASSERT_TIMELY_EQ (10s, 1, node1.unchecked.count ());
-	ASSERT_FALSE (node1.block_or_pruned_exists (epoch_open->hash ()));
-	// Open block should be inserted into unchecked
-	auto blocks = node1.unchecked.get (nano::hash_or_account (epoch_open->account_field ().value ()).hash);
-	ASSERT_EQ (blocks.size (), 1);
-	ASSERT_EQ (blocks[0].block->full_hash (), epoch_open->full_hash ());
-	// New block to process epoch open
-	auto send1 = builder.state ()
-				 .account (nano::dev::genesis_key.pub)
-				 .previous (nano::dev::genesis->hash ())
-				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::dev::constants.genesis_amount - 100)
-				 .link (key1.pub)
-				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				 .work (*pool.generate (nano::dev::genesis->hash ()))
-				 .build ();
-	node1.block_processor.add (send1, nano::block_source::test);
-	ASSERT_TIMELY (10s, node1.block_or_pruned_exists (epoch_open->hash ()));
+	auto transaction = node1.ledger.tx_begin_write ();
+	ASSERT_FALSE (node1.ledger.any.receivable_exists (transaction, key1.pub));
+	ASSERT_EQ (nano::block_status::progress, node1.ledger.process (transaction, epoch_open));
+	// Block should be stored and the account opened at epoch 1 with zero balance
+	ASSERT_TRUE (node1.ledger.any.block_exists (transaction, epoch_open->hash ()));
+	ASSERT_EQ (nano::epoch::epoch_1, epoch_open->sideband ().details.epoch);
+	auto info = node1.ledger.any.account_get (transaction, key1.pub);
+	ASSERT_TRUE (info);
+	ASSERT_EQ (nano::epoch::epoch_1, info->epoch ());
+	ASSERT_EQ (0, info->balance.number ());
+	ASSERT_EQ (epoch_open->hash (), info->head);
 }
 
 TEST (ledger, block_hash_account_conflict)

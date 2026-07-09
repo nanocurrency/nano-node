@@ -234,7 +234,6 @@ enum class detail
 	bad_signature,
 	negative_spend,
 	unreceivable,
-	gap_epoch_open_pending,
 	opened_burn_account,
 	balance_mismatch,
 	representative_mismatch,
