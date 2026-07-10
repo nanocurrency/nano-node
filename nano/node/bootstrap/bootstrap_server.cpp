@@ -19,7 +19,7 @@ nano::bootstrap_server::bootstrap_server (bootstrap_server_config const & config
 	ledger{ ledger_a },
 	network_constants{ network_constants_a },
 	stats{ stats_a },
-	limiter{ config.limiter, /* allow bursts */ 3.0 } // TODO: Limiter bucket capacity should be at least equal to the batch size, currently it's not configurable
+	limiter{ config.limiter, /* allow bursts */ 3.0 } // Batches larger than the bucket capacity are granted when the bucket is full
 {
 	queue.max_size_query = [this] (auto const & origin) {
 		return config.channel_limit;
@@ -192,10 +192,10 @@ void nano::bootstrap_server::run ()
 		});
 
 		// Rate limit the processing
-		while (!stopped && !limiter.should_pass (config.batch_size))
+		for (auto result = limiter.consume (config.batch_size); !stopped && !result; result = limiter.consume (config.batch_size))
 		{
 			stats.inc (nano::stat::type::bootstrap_server, nano::stat::detail::cooldown);
-			condition.wait_for (lock, 100ms);
+			condition.wait_for (lock, result.retry_after);
 		}
 
 		if (stopped)

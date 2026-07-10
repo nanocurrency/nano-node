@@ -152,21 +152,19 @@ asio::awaitable<boost::system::error_code> nano::transport::tcp_channel::send_on
 	auto const & [buffer, callback] = item;
 	auto const size = buffer.size ();
 
-	// Wait for bandwidth
-	// This is somewhat inefficient
-	// The performance impact *should* be mitigated by the fact that we allocate it in larger chunks, so this happens relatively infrequently
+	// Wait for bandwidth, allocated in larger chunks to reduce the number of limiter calls
 	const size_t bandwidth_chunk = 128 * 1024; // TODO: Make this configurable
 	while (allocated_bandwidth < size)
 	{
-		// TODO: Consider implementing a subsribe/notification mechanism for bandwidth allocation
-		if (node.outbound_limiter.should_pass (bandwidth_chunk, type)) // Allocate bandwidth in larger chunks
+		if (auto result = node.outbound_limiter.consume (bandwidth_chunk, type))
 		{
 			allocated_bandwidth += bandwidth_chunk;
 		}
 		else
 		{
 			node.stats.inc (nano::stat::type::tcp_channel_wait, nano::stat::detail::wait_bandwidth, nano::stat::dir::out);
-			co_await nano::async::sleep_for (100ms); // TODO: Exponential backoff
+			// Cap the wait so channel teardown is not delayed by long refill times
+			co_await nano::async::sleep_for (std::min (result.retry_after, std::chrono::milliseconds{ 100 }));
 		}
 	}
 	allocated_bandwidth -= size;

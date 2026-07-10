@@ -101,6 +101,22 @@ private:
 	std::mutex mutex_m;
 };
 
+/** No-op mutex for single-threaded contexts, satisfies the Lockable requirements */
+class null_mutex
+{
+public:
+	void lock ()
+	{
+	}
+	void unlock ()
+	{
+	}
+	bool try_lock ()
+	{
+		return true;
+	}
+};
+
 #if USING_NANO_TIMED_LOCKS
 template <typename Mutex>
 void output (char const * str, std::chrono::milliseconds time, Mutex & mutex);

@@ -92,10 +92,9 @@ void nano::backlog_scan::populate_backlog (nano::unique_lock<nano::mutex> & lock
 	while (!stopped && !done)
 	{
 		// Wait for the rate limiter
-		while (!limiter.should_pass (config.batch_size))
+		for (auto result = limiter.consume (config.batch_size); !result; result = limiter.consume (config.batch_size))
 		{
-			std::chrono::milliseconds const wait_time{ 1000 / std::max ((config.rate_limit / config.batch_size), size_t{ 1 }) / 2 };
-			condition.wait_for (lock, std::max (wait_time, 10ms));
+			condition.wait_for (lock, result.retry_after);
 			if (stopped)
 			{
 				return;
@@ -156,7 +155,7 @@ nano::container_info nano::backlog_scan::container_info () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	nano::container_info info;
-	info.put ("limiter", limiter.size ());
+	info.put ("limiter", limiter.available ());
 	return info;
 }
 

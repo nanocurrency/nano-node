@@ -400,9 +400,9 @@ void nano::bounded_backlog::run_scan ()
 	while (!stopped)
 	{
 		auto wait = [&] (auto count) {
-			while (!scan_limiter.should_pass (count))
+			for (auto result = scan_limiter.consume (count); !result; result = scan_limiter.consume (count))
 			{
-				condition.wait_for (lock, 100ms);
+				condition.wait_for (lock, result.retry_after);
 				if (stopped)
 				{
 					return;

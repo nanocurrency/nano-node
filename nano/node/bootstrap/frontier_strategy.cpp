@@ -56,7 +56,7 @@ void frontier_strategy::run_one ()
 		return !ctx.accounts.priority_half_full ();
 	});
 	ctx.wait ([this] () {
-		return ctx.frontiers_limiter.should_pass (1);
+		return ctx.frontiers_limiter.try_consume (1);
 	});
 	ctx.wait ([this] () {
 		return ctx.workers.queued_tasks () < ctx.config.frontier_scan.max_pending;

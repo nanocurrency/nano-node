@@ -40,6 +40,8 @@ class lmdb_config;
 class keypair;
 class logger;
 class mutable_block_visitor;
+class mutex;
+class null_mutex;
 class network_constants;
 class network_filter;
 class object_stream;
@@ -53,12 +55,19 @@ class vote;
 class work_pool;
 
 struct bootstrap_weights;
+struct limiter_result;
+struct rate_limit;
 
 template <typename Key, typename Value>
 class uniquer;
 
 template <typename E>
 class enum_flags;
+
+template <typename Mutex>
+class rate_limiter_impl;
+using rate_limiter = nano::rate_limiter_impl<nano::mutex>;
+using rate_limiter_st = nano::rate_limiter_impl<nano::null_mutex>;
 
 enum class node_capabilities : uint64_t;
 using node_capabilities_flags = nano::enum_flags<nano::node_capabilities>;
@@ -67,6 +76,11 @@ using stream = std::basic_streambuf<uint8_t, uint8_char_traits>;
 
 using seconds_t = uint64_t;
 using millis_t = uint64_t;
+}
+
+namespace nano::rate
+{
+class token_bucket;
 }
 
 namespace nano::stat
