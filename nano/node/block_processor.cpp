@@ -134,11 +134,11 @@ bool nano::block_processor::add (std::shared_ptr<nano::block> const & block, blo
 	return added;
 }
 
-std::size_t nano::block_processor::add_many (std::deque<std::shared_ptr<nano::block>> const & blocks, block_source const source, std::shared_ptr<nano::transport::channel> const & channel, std::function<void (nano::block_status)> last_callback, std::any tag)
+auto nano::block_processor::add_many (std::deque<std::shared_ptr<nano::block>> const & blocks, block_source const source, std::shared_ptr<nano::transport::channel> const & channel, std::function<void (nano::block_status)> last_callback, std::any tag) -> add_many_result
 {
 	if (blocks.empty ())
 	{
-		return 0;
+		return {};
 	}
 
 	// Validate work outside the lock, build context objects
@@ -165,7 +165,7 @@ std::size_t nano::block_processor::add_many (std::deque<std::shared_ptr<nano::bl
 
 	if (contexts.empty ())
 	{
-		return 0;
+		return { .added = 0, .dropped = insufficient_work_count };
 	}
 
 	// Attach callback to last valid block
@@ -206,7 +206,7 @@ std::size_t nano::block_processor::add_many (std::deque<std::shared_ptr<nano::bl
 	logger.debug (nano::log::type::block_processor, "Processing blocks (async batch): total={}, added={}, overfill={}, invalid_work={} (source: {} {})",
 	blocks.size (), added, overfill, insufficient_work_count, source, channel);
 
-	return added;
+	return { .added = added, .dropped = overfill + insufficient_work_count };
 }
 
 std::optional<nano::block_status> nano::block_processor::add_blocking (std::shared_ptr<nano::block> const & block, block_source const source, std::any tag)

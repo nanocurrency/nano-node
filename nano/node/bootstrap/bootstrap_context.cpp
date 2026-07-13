@@ -575,7 +575,7 @@ void bootstrap_context::submit_blocks (std::deque<std::shared_ptr<nano::block>> 
 		return;
 	}
 
-	block_processor.add_many (blocks, nano::block_source::bootstrap, submission_channel (tag.source), [this, account = tag.account] (auto result) {
+	auto result = block_processor.add_many (blocks, nano::block_source::bootstrap, submission_channel (tag.source), [this, account = tag.account] (auto result) {
 		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::submission_complete);
 		{
 			// It's the last block submitted for this account chain, reset timestamp to allow more requests
@@ -584,6 +584,14 @@ void bootstrap_context::submit_blocks (std::deque<std::shared_ptr<nano::block>> 
 		}
 		condition.notify_all ();
 	});
+
+	// Drops should not happen, submissions are gated by wait_block_processor()
+	// A dropped tail loses the completion callback, leaving the account stuck on cooldown
+	if (result.dropped > 0)
+	{
+		stats.add (nano::stat::type::bootstrap, nano::stat::detail::overfill, result.dropped);
+		debug_assert (false, "bootstrap block processor dropped submitted blocks");
+	}
 
 	if (tag.source == query_source::database)
 	{

@@ -73,8 +73,15 @@ public:
 	std::function<void (nano::block_status)> callback = nullptr,
 	std::any tag = {});
 
-	/// Queues multiple blocks under a single lock, attaching the callback to the last valid block; returns the number of blocks added
-	std::size_t add_many (
+	/// Result of a batch add operation
+	struct add_many_result
+	{
+		std::size_t added;
+		std::size_t dropped; /// Number of blocks that did not make it into the queue (queue overfill or invalid work)
+	};
+
+	/// Queues multiple blocks under a single lock, attaching the callback to the last valid block
+	add_many_result add_many (
 	std::deque<std::shared_ptr<nano::block>> const & blocks,
 	nano::block_source source,
 	std::shared_ptr<nano::transport::channel> const & channel = nullptr,
