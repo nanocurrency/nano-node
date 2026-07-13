@@ -56,6 +56,7 @@
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/loopback.hpp>
+#include <nano/node/transport/null_channel.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/vote_cache.hpp>
@@ -155,7 +156,7 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	//
 	network_impl{ std::make_unique<nano::network> (*this, config.peering_port.has_value () ? *config.peering_port : 0) },
 	network{ *network_impl },
-	loopback_channel{ std::make_shared<nano::transport::loopback_channel> (*this) },
+	loopback_channel{ create_loopback_channel () },
 	telemetry_impl{ std::make_unique<nano::telemetry> (flags, *this, network, observers, network_params, stats) },
 	telemetry{ *telemetry_impl },
 	// BEWARE: `bootstrap` takes `network.port` instead of `config.peering_port` because when the user doesn't specify
@@ -183,7 +184,7 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	online_reps{ *online_reps_impl },
 	wallets_impl{ std::make_unique<nano::wallet::wallets> (*this, wallets_backend, ledger, config, network_params, online_reps, network, stats, logger) },
 	wallets{ *wallets_impl },
-	rep_crawler_impl{ std::make_unique<nano::rep_crawler> (config.rep_crawler, *this) },
+	rep_crawler_impl{ std::make_unique<nano::rep_crawler> (config.rep_crawler, *this, create_loopback_channel ()) },
 	rep_crawler{ *rep_crawler_impl },
 	rep_tiers_impl{ std::make_unique<nano::rep_tiers> (ledger, network_params, online_reps, stats, logger) },
 	rep_tiers{ *rep_tiers_impl },
@@ -203,7 +204,7 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	vote_cache_processor{ *vote_cache_processor_impl },
 	voting_policy_impl{ std::make_unique<nano::voting_policy> (ledger) },
 	voting_policy{ *voting_policy_impl },
-	vote_generator_impl{ std::make_unique<nano::vote_generator> (config.vote_generator, voting_policy, ledger, wallets, vote_processor, network, stats, logger, loopback_channel) },
+	vote_generator_impl{ std::make_unique<nano::vote_generator> (config.vote_generator, voting_policy, ledger, wallets, vote_processor, network, stats, logger, create_loopback_channel ()) },
 	vote_generator{ *vote_generator_impl },
 	scheduler_impl{ std::make_unique<nano::scheduler::component> (config, *this, ledger, ledger_notifications, bucketing, active, online_reps, vote_cache, cementing_set, stats, logger) },
 	scheduler{ *scheduler_impl },
@@ -865,6 +866,16 @@ bool nano::node::warmed_up () const
 std::shared_ptr<nano::node> nano::node::shared ()
 {
 	return shared_from_this ();
+}
+
+std::shared_ptr<nano::transport::channel> nano::node::create_loopback_channel ()
+{
+	return std::make_shared<nano::transport::loopback_channel> (*this);
+}
+
+std::shared_ptr<nano::transport::channel> nano::node::create_null_channel ()
+{
+	return std::make_shared<nano::transport::null_channel> (*this);
 }
 
 uint64_t nano::node::store_version () const

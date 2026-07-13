@@ -164,6 +164,7 @@ public: // Shared state
 	// Per-source placeholder channels. Tagging block_processor submissions with a distinct
 	// channel per source gives each its own fair-queue bucket, so the processor round-robins
 	// ingest evenly across sources instead of letting one starve the other.
+	std::shared_ptr<nano::transport::channel> generic_channel; // Null, used as generic fair queue origin
 	std::shared_ptr<nano::transport::channel> priority_channel;
 	std::shared_ptr<nano::transport::channel> database_channel;
 

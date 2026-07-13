@@ -15,9 +15,9 @@
 #include <nano/node/bootstrap/verify.hpp>
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/network.hpp>
+#include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/formatting.hpp>
-#include <nano/node/transport/null_channel.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
@@ -55,8 +55,8 @@ nano::ledger_notifications & ledger_notifications_a, nano::block_processor & blo
 	limiter{ config.rate_limit },
 	database_limiter{ config.database_rate_limit },
 	frontiers_limiter{ config.frontier_rate_limit },
-	priority_channel{ std::make_shared<nano::transport::null_channel> (node_a) },
-	database_channel{ std::make_shared<nano::transport::null_channel> (node_a) },
+	priority_channel{ node_a.create_null_channel () },
+	database_channel{ node_a.create_null_channel () },
 	workers{ 1, nano::thread_role::name::bootstrap_worker }
 {
 	// Inspect all processed blocks
@@ -265,7 +265,8 @@ std::shared_ptr<nano::transport::channel> const & bootstrap_context::submission_
 		case query_source::invalid:
 			break; // These sources do not submit blocks to the processor
 	}
-	release_assert (false);
+	debug_assert (false);
+	return generic_channel; // Generic origin, doesn't alias either partition
 }
 
 std::shared_ptr<nano::transport::channel> bootstrap_context::wait_channel ()

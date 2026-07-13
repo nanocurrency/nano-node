@@ -7,7 +7,6 @@
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
-#include <nano/node/transport/null_channel.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/test_common/chains.hpp>
@@ -410,8 +409,8 @@ TEST (block_processor, size_per_channel)
 	// Freeze processing so queued blocks stay in place for deterministic size checks
 	node.block_processor.stop ();
 
-	auto channel1 = std::make_shared<nano::transport::null_channel> (node);
-	auto channel2 = std::make_shared<nano::transport::null_channel> (node);
+	auto channel1 = node.create_null_channel ();
+	auto channel2 = node.create_null_channel ();
 
 	auto latest = nano::dev::genesis->hash ();
 	auto balance = nano::dev::constants.genesis_amount;

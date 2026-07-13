@@ -53,7 +53,7 @@ public:
 class rep_crawler final
 {
 public:
-	rep_crawler (rep_crawler_config const &, nano::node &);
+	rep_crawler (rep_crawler_config const &, nano::node &, std::shared_ptr<nano::transport::channel> loopback);
 	~rep_crawler ();
 
 	void start ();
@@ -95,6 +95,9 @@ private: // Dependencies
 	nano::logger & logger;
 	nano::network_constants & network_constants;
 	nano::active_elections & active;
+
+	// Loopback channel for querying the local representative
+	std::shared_ptr<nano::transport::channel> loopback_channel;
 
 private:
 	void run ();
