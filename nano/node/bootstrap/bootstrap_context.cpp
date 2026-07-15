@@ -15,6 +15,7 @@
 #include <nano/node/bootstrap/verify.hpp>
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/network.hpp>
+#include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/formatting.hpp>
@@ -29,7 +30,7 @@ using namespace std::chrono_literals;
 
 namespace nano::bootstrap
 {
-bootstrap_context::bootstrap_context (nano::node_config const & node_config_a, nano::ledger & ledger_a,
+bootstrap_context::bootstrap_context (nano::node_config const & node_config_a, nano::node & node_a, nano::ledger & ledger_a,
 nano::ledger_notifications & ledger_notifications_a, nano::block_processor & block_processor_a, nano::network & network_a, nano::stats & stat_a, nano::logger & logger_a) :
 	config{ *node_config_a.bootstrap },
 	network_constants{ node_config_a.network_params.network },
@@ -55,6 +56,8 @@ nano::ledger_notifications & ledger_notifications_a, nano::block_processor & blo
 	limiter{ config.rate_limit },
 	database_limiter{ config.database_rate_limit },
 	frontiers_limiter{ config.frontier_rate_limit },
+	priority_channel{ node_a.create_null_channel () },
+	database_channel{ node_a.create_null_channel () },
 	workers{ 1, nano::thread_role::name::bootstrap_worker }
 {
 	// Inspect all processed blocks
@@ -235,11 +238,36 @@ void bootstrap_context::wait (std::function<bool ()> const & predicate) const
 	}
 }
 
-void bootstrap_context::wait_block_processor () const
+void bootstrap_context::wait_block_processor (nano::bootstrap::query_source source) const
 {
-	wait ([this] () {
-		return block_processor.size (nano::block_source::bootstrap) < config.block_processor_threshold;
+	auto const & channel = submission_channel (source);
+	wait ([&] () {
+		// Gate on this source's own fair-queue bucket, not the aggregate bootstrap backlog,
+		// so sources don't block each other on a shared gauge.
+		bool should_pass = block_processor.size (nano::block_source::bootstrap, channel) < config.block_processor_threshold;
+		if (!should_pass)
+		{
+			stats.inc (nano::stat::type::bootstrap_wait_block_processor, to_stat_detail (source));
+		}
+		return should_pass;
 	});
+}
+
+std::shared_ptr<nano::transport::channel> const & bootstrap_context::submission_channel (nano::bootstrap::query_source source) const
+{
+	switch (source)
+	{
+		case query_source::priority:
+			return priority_channel;
+		case query_source::database:
+			return database_channel;
+		case query_source::dependencies:
+		case query_source::frontiers:
+		case query_source::invalid:
+			break; // These sources do not submit blocks to the processor
+	}
+	debug_assert (false);
+	return generic_channel; // Generic origin, doesn't alias either partition
 }
 
 std::shared_ptr<nano::transport::channel> bootstrap_context::wait_channel ()
@@ -480,29 +508,9 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload co
 			stats.inc (nano::stat::type::bootstrap_verify_blocks, nano::stat::detail::ok);
 			stats.add (nano::stat::type::bootstrap, nano::stat::detail::blocks, nano::stat::dir::in, response.blocks.size ());
 
-			auto blocks = response.blocks;
-
-			// Avoid re-processing the block we already have
-			release_assert (blocks.size () >= 1);
-			if (blocks.front ()->hash () == query.start.as_block_hash ())
-			{
-				blocks.pop_front ();
-			}
-
-			block_processor.add_many (blocks, nano::block_source::bootstrap, nullptr, [this, account = tag.account] (auto result) {
-				// It's the last block submitted for this account chain, reset timestamp to allow more requests
-				stats.inc (nano::stat::type::bootstrap, nano::stat::detail::timestamp_reset);
-				{
-					nano::lock_guard<nano::mutex> guard{ mutex };
-					accounts.timestamp_reset (account);
-				}
-				condition.notify_all ();
+			workers.post ([this, blocks = response.blocks, tag] () mutable {
+				submit_blocks (std::move (blocks), tag);
 			});
-
-			if (tag.source == query_source::database)
-			{
-				throttle.add (true);
-			}
 		}
 		break;
 		case verify_result::nothing_new:
@@ -528,6 +536,73 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload co
 	}
 
 	return result != verify_result::invalid;
+}
+
+void bootstrap_context::submit_blocks (std::deque<std::shared_ptr<nano::block>> blocks, async_tag const & tag)
+{
+	release_assert (std::holds_alternative<blocks_query> (tag.query));
+	auto const & query = std::get<blocks_query> (tag.query);
+
+	// Avoid re-processing the block we already have (the echoed cursor)
+	release_assert (!blocks.empty ());
+	if (blocks.front ()->hash () == query.start.as_block_hash ())
+	{
+		blocks.pop_front ();
+	}
+
+	// Drop the leading run of blocks already in the ledger, otherwise they take a slot in the
+	// block processor's bounded queue only to come back as `old`. Common when priority and topology run together.
+	// The response is a contiguous chain, so present blocks form a prefix: stop at the first missing block, and the rest have their `previous` in the ledger.
+	size_t filtered = 0;
+	{
+		auto transaction = ledger.tx_begin_read ();
+		while (!blocks.empty () && ledger.any.block_exists_or_pruned (transaction, blocks.front ()->hash ()))
+		{
+			blocks.pop_front ();
+			++filtered;
+		}
+	}
+	stats.add (nano::stat::type::bootstrap, nano::stat::detail::filtered_blocks, filtered);
+
+	if (blocks.empty ())
+	{
+		// Whole response already in the ledger. Mirror an all-`old` submission: release the account
+		// cooldown for re-sampling without lowering priority, and count the database pull as unproductive so the throttle can back off.
+		{
+			nano::lock_guard<nano::mutex> guard{ mutex };
+			accounts.timestamp_reset (tag.account);
+			if (tag.source == query_source::database)
+			{
+				throttle.add (false);
+			}
+		}
+		condition.notify_all ();
+		return;
+	}
+
+	auto result = block_processor.add_many (blocks, nano::block_source::bootstrap, submission_channel (tag.source), [this, account = tag.account] (auto result) {
+		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::submission_complete);
+		{
+			// It's the last block submitted for this account chain, reset timestamp to allow more requests
+			nano::lock_guard<nano::mutex> guard{ mutex };
+			accounts.timestamp_reset (account);
+		}
+		condition.notify_all ();
+	});
+
+	// Drops should not happen, submissions are gated by wait_block_processor()
+	// A dropped tail loses the completion callback, leaving the account stuck on cooldown
+	if (result.dropped > 0)
+	{
+		stats.add (nano::stat::type::bootstrap, nano::stat::detail::overfill, result.dropped);
+		debug_assert (false, "bootstrap block processor dropped submitted blocks");
+	}
+
+	if (tag.source == query_source::database)
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		throttle.add (true);
+	}
 }
 
 bool bootstrap_context::process (nano::messages::asc_pull_ack::account_info_payload const & response, async_tag const & tag)

@@ -205,7 +205,7 @@ private:
 class vote_generator final
 {
 public:
-	vote_generator (vote_generator_config const &, nano::voting_policy &, nano::ledger &, nano::wallet::wallets &, nano::vote_processor &, nano::network &, nano::stats &, nano::logger &, std::shared_ptr<nano::transport::channel>);
+	vote_generator (vote_generator_config const &, nano::voting_policy &, nano::ledger &, nano::wallet::wallets &, nano::vote_processor &, nano::network &, nano::stats &, nano::logger &, std::shared_ptr<nano::transport::channel> loopback);
 	~vote_generator ();
 
 	void start ();

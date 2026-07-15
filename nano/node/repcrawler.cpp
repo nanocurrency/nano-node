@@ -16,13 +16,14 @@
 
 #include <ranges>
 
-nano::rep_crawler::rep_crawler (nano::rep_crawler_config const & config_a, nano::node & node_a) :
+nano::rep_crawler::rep_crawler (nano::rep_crawler_config const & config_a, nano::node & node_a, std::shared_ptr<nano::transport::channel> loopback_channel_a) :
 	config{ config_a },
 	node{ node_a },
 	stats{ node_a.stats },
 	logger{ node_a.logger },
 	network_constants{ node_a.network_params.network },
-	active{ node_a.active }
+	active{ node_a.active },
+	loopback_channel{ loopback_channel_a }
 {
 	node.observers.channel_connected.add ([this] (std::shared_ptr<nano::transport::channel> const & channel) {
 		if (!node.flags.disable_rep_crawler)
@@ -217,7 +218,7 @@ void nano::rep_crawler::run ()
 
 			lock.unlock ();
 			query (targets);
-			query (node.loopback_channel); // Query local representative
+			query (loopback_channel); // Query local representative
 			lock.lock ();
 		}
 

@@ -74,6 +74,11 @@ public:
 
 	nano::messages::telemetry_data local_telemetry () const;
 
+	// Creates a channel that delivers sent messages back to this node
+	std::shared_ptr<nano::transport::channel> create_loopback_channel ();
+	// Creates a placeholder channel that drops everything sent through it, each instance is a distinct fair-queue origin
+	std::shared_ptr<nano::transport::channel> create_null_channel ();
+
 	std::filesystem::path const & get_data_path () const;
 	nano::account get_node_id () const;
 	nano::node_capabilities_flags get_capabilities () const;

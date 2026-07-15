@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/thread_pool.hpp>
 #include <nano/node/bootstrap/bootstrap_context.hpp>
 
 #include <deque>
@@ -29,5 +30,8 @@ private:
 
 	bootstrap_context & ctx;
 	std::thread thread;
+
+	// Dedicated pool for the frontier processing tasks (ledger reads)
+	nano::thread_pool workers;
 };
 }

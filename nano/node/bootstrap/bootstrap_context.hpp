@@ -22,6 +22,7 @@
 #include <boost/multi_index_container.hpp>
 
 #include <chrono>
+#include <deque>
 #include <memory>
 #include <thread>
 
@@ -53,7 +54,7 @@ struct async_tag
 class bootstrap_context
 {
 public:
-	bootstrap_context (nano::node_config const &, nano::ledger &, nano::ledger_notifications &, nano::block_processor &, nano::network &, nano::stats &, nano::logger &);
+	bootstrap_context (nano::node_config const &, nano::node &, nano::ledger &, nano::ledger_notifications &, nano::block_processor &, nano::network &, nano::stats &, nano::logger &);
 	~bootstrap_context ();
 
 	void start ();
@@ -68,7 +69,7 @@ public:
 	void wait (std::function<bool ()> const & predicate) const;
 
 	// Wait until there is enough space in block_processor for new blocks
-	void wait_block_processor () const;
+	void wait_block_processor (nano::bootstrap::query_source) const;
 
 	// Waits for a channel that is not full
 	std::shared_ptr<nano::transport::channel> wait_channel ();
@@ -81,8 +82,8 @@ public:
 	// Inspects a block that has been processed by the block processor
 	void inspect (secure::transaction const &, nano::block_status const & result, nano::block_context const & context);
 
-	// Calculates a lookback size based on the size of the ledger
-	std::size_t compute_throttle_size () const;
+	// Placeholder channel used as a fair-queue partition key so the block processor equalizes ingest across sources
+	std::shared_ptr<nano::transport::channel> const & submission_channel (nano::bootstrap::query_source) const;
 
 	nano::container_info container_info () const;
 
@@ -95,8 +96,14 @@ private:
 	// Inserts the tag and transmits the message over the channel
 	bool transmit (std::shared_ptr<nano::transport::channel> const &, nano::messages::asc_pull_req && message, async_tag tag);
 
+	// Filters out blocks already present in the ledger and submits the rest to the block processor
+	void submit_blocks (std::deque<std::shared_ptr<nano::block>> blocks, async_tag const & tag);
+
 	void maintenance (nano::unique_lock<nano::mutex> & lock);
 	void run_maintenance ();
+
+	// Calculates a lookback size based on the size of the ledger
+	std::size_t compute_throttle_size () const;
 
 public: // Dependencies
 	nano::bootstrap_config const & config;
@@ -144,6 +151,8 @@ public: // Shared state
 	// clang-format on
 	ordered_tags tags;
 
+	nano::random_generator_mt rng;
+
 	// Rate limiter for all types of requests
 	nano::rate_limiter limiter;
 	// Requests for accounts from database have much lower hitrate and could introduce strain on the network
@@ -152,13 +161,20 @@ public: // Shared state
 	// Rate limiter for frontier requests
 	nano::rate_limiter frontiers_limiter;
 
+	// Per-source placeholder channels. Tagging block_processor submissions with a distinct
+	// channel per source gives each its own fair-queue bucket, so the processor round-robins
+	// ingest evenly across sources instead of letting one starve the other.
+	std::shared_ptr<nano::transport::channel> generic_channel; // Null, used as generic fair queue origin
+	std::shared_ptr<nano::transport::channel> priority_channel;
+	std::shared_ptr<nano::transport::channel> database_channel;
+
 	bool stopped{ false };
 	mutable nano::mutex mutex;
 	mutable nano::condition_variable condition;
 
 	std::thread maintenance_thread;
 
+	// Must stay single-threaded: block submissions rely on FIFO execution to keep same-account chains in order
 	nano::thread_pool workers;
-	nano::random_generator_mt rng;
 };
 }

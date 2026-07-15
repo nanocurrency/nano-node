@@ -123,6 +123,58 @@ TEST (bootstrap, trace_base)
 }
 
 /*
+ * Tests that the priority strategy drops blocks already present in the ledger with a read
+ * transaction before submitting them to the (more expensive) block processor.
+ */
+TEST (bootstrap, priority_filters_known_blocks)
+{
+	nano::test::system system;
+
+	nano::node_flags flags;
+	flags.disable_legacy_bootstrap = true;
+
+	nano::node_config config;
+	// Isolate the priority strategy from the other block-producing strategies
+	config.bootstrap->enable_database_scan = false;
+	config.bootstrap->enable_dependency_walker = false;
+	config.bootstrap->enable_frontier_scan = false;
+	// Force safe requests (start from the confirmed frontier) so responses include blocks we
+	// already hold above the confirmed frontier
+	config.bootstrap->optimistic_request_percentage = 0;
+	// Re-sample the account without cooldown, so the test's pace doesn't depend on the
+	// (worker-deferred) post-response timestamp reset
+	config.bootstrap->account_sets.cooldown = std::chrono::milliseconds{ 0 };
+	// No elections, so the seeded block stays present-but-unconfirmed
+	config.backlog_scan->enable = false;
+	config.priority_scheduler->enable = false;
+	config.optimistic_scheduler->enable = false;
+	config.hinted_scheduler->enable = false;
+
+	nano::state_block_builder builder;
+	auto send1 = builder.make_block ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .link (0)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+
+	// Seed both nodes with send1 (present but unconfirmed) before they start. node1's confirmed
+	// frontier therefore stays at genesis while its head advances to send1.
+	system.set_initialization_blocks ({ send1 });
+
+	auto & node0 = *system.add_node (config, flags);
+	auto & node1 = *system.add_node (config, flags);
+
+	// The priority strategy repeatedly safe-requests the genesis account from its confirmed
+	// frontier. The response is [genesis, send1]: genesis is the echoed cursor and send1 is
+	// already in node1's ledger, so the early filter drops it instead of submitting it.
+	ASSERT_TIMELY (10s, node1.stats.count (nano::stat::type::bootstrap, nano::stat::detail::filtered_blocks) >= 3);
+}
+
+/*
  * Tests that bootstrap will prioritize existing accounts with outdated frontiers
  */
 TEST (bootstrap, frontier_scan)
