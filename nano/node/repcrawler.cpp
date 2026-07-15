@@ -279,6 +279,11 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::prepare
 	auto random_peers = node.network.random_set (required_peer_count);
 
 	auto should_query = [&, this] (std::shared_ptr<nano::transport::channel> const & channel) {
+		// Only crawl peers that serve a ledger; others cannot represent
+		if (!channel->serves_ledger ())
+		{
+			return false;
+		}
 		if (auto rep = reps.get<tag_channel> ().find (channel); rep != reps.get<tag_channel> ().end ())
 		{
 			// Throttle queries to active reps

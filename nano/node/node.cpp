@@ -878,8 +878,11 @@ nano::node_capabilities_flags nano::node::get_capabilities () const
 	{
 		return *flags.capabilities_override;
 	}
-	// TODO: Set capabilities flags based on node configuration and state
 	nano::node_capabilities_flags caps;
+	if (flags.peering_only)
+	{
+		caps.set (nano::node_capabilities::no_ledger);
+	}
 	return caps;
 }
 
@@ -935,7 +938,9 @@ nano::messages::telemetry_data nano::node::local_telemetry () const
 	telemetry_data.minor_version = nano::get_minor_node_version ();
 	telemetry_data.patch_version = nano::get_patch_node_version ();
 	telemetry_data.pre_release_version = nano::get_pre_release_node_version ();
-	telemetry_data.maker = ledger.pruning ? nano::messages::telemetry_maker::nf_pruned_node : nano::messages::telemetry_maker::nf_node;
+	telemetry_data.maker = flags.peering_only
+	? nano::messages::telemetry_maker::nf_peering_node
+	: (ledger.pruning ? nano::messages::telemetry_maker::nf_pruned_node : nano::messages::telemetry_maker::nf_node);
 	telemetry_data.timestamp = std::chrono::system_clock::now ();
 	telemetry_data.active_difficulty = default_difficulty (nano::work_version::work_1);
 	telemetry_data.database_backend = nano::messages::to_telemetry_database_backend (config.database_backend);

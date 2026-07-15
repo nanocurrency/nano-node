@@ -55,6 +55,8 @@ std::string nano::error_cli_messages::message (int ev) const
 			return "Config file read error";
 		case nano::error_cli::ambiguous_pruning_voting_options:
 			return "Flag --enable_pruning and --enable_voting in node config cannot be used together";
+		case nano::error_cli::ambiguous_peering_only_options:
+			return "Flag --peering_only cannot be used together with --enable_voting or --enable_pruning";
 	}
 
 	return "Invalid error code";
@@ -143,6 +145,7 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_search_pending", "Disables the periodic search for pending transactions")
 		("disable_topo_index", "Initialize a fresh ledger without the topology index. Required for pruning. Has no effect on an existing ledger; use --drop_topo_index to disable on an existing ledger.")
 		("enable_pruning", "Enable experimental ledger pruning")
+		("peering_only", "Run as a peering-only node: keep a genesis-only ledger, run no ledger subsystems, and participate only in the peer-to-peer network (peer discovery/bootstrap)")
 		("enable_rpc", "Enable RPC")
 		("enable_voting", "Enable voting")
 		("super_rebroadcaster", "Broadcast all blocks and votes to all peers (high bandwidth usage)")
@@ -187,6 +190,7 @@ void nano::update_flags (nano::node_flags & flags_a, boost::program_options::var
 	flags_a.disable_block_processor_unchecked_deletion = (vm.count ("disable_block_processor_unchecked_deletion") > 0);
 	flags_a.disable_topo_index = (vm.count ("disable_topo_index") > 0);
 	flags_a.enable_pruning = (vm.count ("enable_pruning") > 0);
+	flags_a.peering_only = (vm.count ("peering_only") > 0);
 	flags_a.enable_rpc = (vm.count ("enable_rpc") > 0);
 	flags_a.enable_voting = (vm.count ("enable_voting") > 0);
 	flags_a.super_rebroadcaster = (vm.count ("super_rebroadcaster") > 0);
@@ -252,6 +256,10 @@ std::error_code nano::flags_config_conflicts (nano::node_flags const & flags_a, 
 	if (flags_a.enable_pruning && (config_a.enable_voting || flags_a.enable_voting))
 	{
 		ec = nano::error_cli::ambiguous_pruning_voting_options;
+	}
+	if (flags_a.peering_only && (config_a.enable_voting || flags_a.enable_voting || flags_a.enable_pruning))
+	{
+		ec = nano::error_cli::ambiguous_peering_only_options;
 	}
 	return ec;
 }

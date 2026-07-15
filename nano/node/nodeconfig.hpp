@@ -160,6 +160,7 @@ public:
 	bool disable_search_pending{ false };
 	bool disable_bounded_backlog{ false };
 	bool enable_pruning{ false };
+	bool peering_only{ false };
 	bool disable_topo_index{ false };
 	bool enable_rpc{ false };
 	bool enable_voting{ false };

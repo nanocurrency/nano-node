@@ -1,3 +1,4 @@
+#include <nano/lib/node_capabilities.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/messages/telemetry.hpp>
 #include <nano/node/network.hpp>
@@ -391,6 +392,18 @@ TEST (telemetry, maker_pruning)
 
 	// Ensure telemetry response indicates pruned node
 	ASSERT_EQ (nano::messages::telemetry_maker::nf_pruned_node, telemetry_data->maker);
+}
+
+TEST (telemetry, maker_peering)
+{
+	nano::test::system system;
+	nano::node_flags node_flags;
+	node_flags.peering_only = true;
+	auto & node = *system.add_node (node_flags);
+
+	// A peering-only node advertises the peering maker and the no_ledger capability
+	ASSERT_EQ (nano::messages::telemetry_maker::nf_peering_node, node.local_telemetry ().maker);
+	ASSERT_TRUE (node.get_capabilities ().test (nano::node_capabilities::no_ledger));
 }
 
 TEST (telemetry, invalid_signature)

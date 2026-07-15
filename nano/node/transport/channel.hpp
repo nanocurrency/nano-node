@@ -121,6 +121,11 @@ public:
 		flags = value;
 	}
 
+	bool serves_ledger () const
+	{
+		return !get_flags ().test (nano::node_capabilities::no_ledger);
+	}
+
 	nano::endpoint get_peering_endpoint () const;
 	void set_peering_endpoint (nano::endpoint endpoint);
 

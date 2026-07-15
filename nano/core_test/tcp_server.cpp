@@ -410,3 +410,34 @@ TEST (tcp_server, handshake_flags_exchanged)
 	ASSERT_EQ (node1->stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort), 0);
 	ASSERT_EQ (node2->stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort), 0);
 }
+
+/*
+ * A peering-only node advertises the no_ledger capability; a full peer sees it as not serving a ledger
+ */
+TEST (tcp_server, handshake_peering_only_flag)
+{
+	nano::test::system system;
+
+	auto node1 = system.add_node ();
+
+	nano::node_flags peering_flags;
+	peering_flags.peering_only = true;
+	auto node2 = system.add_node (peering_flags);
+
+	node1->network.merge_peer (node2->network.endpoint ());
+
+	ASSERT_TIMELY (10s, node1->network.find_node_id (node2->get_node_id ()));
+	ASSERT_TIMELY (10s, node2->network.find_node_id (node1->get_node_id ()));
+
+	// node1's channel to the peering-only node2 reports it as not serving a ledger
+	auto chan1 = node1->network.find_node_id (node2->get_node_id ());
+	ASSERT_TRUE (chan1);
+	ASSERT_TRUE (chan1->get_flags ().test (nano::node_capabilities::no_ledger));
+	ASSERT_FALSE (chan1->serves_ledger ());
+
+	// node2's channel to the full node1 reports it as serving a ledger
+	auto chan2 = node2->network.find_node_id (node1->get_node_id ());
+	ASSERT_TRUE (chan2);
+	ASSERT_FALSE (chan2->get_flags ().test (nano::node_capabilities::no_ledger));
+	ASSERT_TRUE (chan2->serves_ledger ());
+}

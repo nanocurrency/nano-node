@@ -16,6 +16,7 @@
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/transport/channel.hpp>
 #include <nano/node/transport/formatting.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/common.hpp>
@@ -353,7 +354,11 @@ void bootstrap_context::maintenance (nano::unique_lock<nano::mutex> & lock)
 
 	// Snapshot peers without the bootstrap mutex held, to avoid nesting the network mutex under it
 	lock.unlock ();
-	auto channels = network.list (/* all */ 0, network_constants.bootstrap_protocol_version_min);
+	// Only request ledger data from peers that both meet the bootstrap protocol version and serve a ledger
+	auto const min_version = network_constants.bootstrap_protocol_version_min;
+	auto channels = network.list (/* all */ 0, [min_version] (auto const & channel) {
+		return channel->get_network_version () >= min_version && channel->serves_ledger ();
+	});
 	lock.lock ();
 
 	scoring.sync (channels);

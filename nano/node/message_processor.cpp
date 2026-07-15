@@ -200,6 +200,12 @@ public:
 
 	void publish (nano::messages::publish const & message) override
 	{
+		// A peering-only node keeps no ledger and does no block processing
+		if (node.flags.peering_only)
+		{
+			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::publish, nano::stat::dir::in);
+			return;
+		}
 		// Put blocks that are being initially broadcasted in a separate queue, so that they won't have to compete with rebroadcasted blocks
 		// Both queues have the same priority and size, so the potential for exploiting this is limited
 		debug_assert (message.digest != 0 || channel->get_type () != nano::transport::transport_type::tcp); // Messages received from the network should have their digest set
@@ -226,6 +232,12 @@ public:
 
 	void confirm_ack (nano::messages::confirm_ack const & message) override
 	{
+		// A peering-only node keeps no ledger and does no vote processing
+		if (node.flags.peering_only)
+		{
+			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
+			return;
+		}
 		// Ignore zero account votes
 		if (message.vote->account.is_zero ())
 		{

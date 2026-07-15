@@ -1146,3 +1146,35 @@ TEST (network, disable_reachout)
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::reachout_cached));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::reachout_preconfigured));
 }
+
+/*
+ * Two nodes that know nothing of each other discover one another purely by connecting to a
+ * peering-only node. Keeping no ledger does not stop it gossiping peers, which is what a
+ * DNS-attached peering-only node exists to do.
+ */
+TEST (network, peer_discovery_via_peering_only_node)
+{
+	nano::test::system system;
+
+	nano::node_flags peering_flags;
+	peering_flags.peering_only = true;
+	auto node_c = system.make_disconnected_node (system.default_config (), peering_flags);
+
+	auto node_a = system.make_disconnected_node ();
+	auto node_b = system.make_disconnected_node ();
+
+	node_a->network.merge_peer (node_c->network.endpoint ());
+	node_b->network.merge_peer (node_c->network.endpoint ());
+
+	ASSERT_TIMELY (10s, node_a->network.find_node_id (node_c->get_node_id ()));
+	ASSERT_TIMELY (10s, node_b->network.find_node_id (node_c->get_node_id ()));
+
+	ASSERT_EQ (nullptr, node_a->network.find_node_id (node_b->get_node_id ()));
+	ASSERT_EQ (nullptr, node_b->network.find_node_id (node_a->get_node_id ()));
+
+	ASSERT_TIMELY (30s, node_a->network.find_node_id (node_b->get_node_id ()));
+	ASSERT_TIMELY (30s, node_b->network.find_node_id (node_a->get_node_id ()));
+
+	// C brokered the introduction without ever holding a ledger
+	ASSERT_EQ (1, node_c->ledger.block_count ());
+}

@@ -66,6 +66,24 @@ nano::node_config nano::apply_flag_overrides (nano::node_config config, nano::no
 	{
 		config.bounded_backlog->enable = false;
 	}
+	// A peering-only node participates only in the peer-to-peer network; it keeps a genesis-only ledger and runs no ledger subsystems
+	if (flags.peering_only)
+	{
+		config.enable_voting = false;
+		config.priority_scheduler->enable = false;
+		config.hinted_scheduler->enable = false;
+		config.optimistic_scheduler->enable = false;
+		config.active_elections->enable = false;
+		config.bounded_backlog->enable = false;
+		config.backlog_scan->enable = false;
+		config.cementing_set->enable = false;
+		config.vote_processor->enable = false;
+		config.vote_rebroadcaster->enable = false;
+		config.block_rebroadcaster->enable = false;
+		config.local_block_broadcaster->enable = false;
+		config.bootstrap->enable = false;
+		config.bootstrap_server->enable = false;
+	}
 	return config;
 }
 
