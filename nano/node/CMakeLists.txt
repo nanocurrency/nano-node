@@ -63,8 +63,8 @@ add_library(
   bootstrap/frontier_scan_index.cpp
   bootstrap/verify.hpp
   bootstrap/verify.cpp
-  bootstrap/peer_scoring.hpp
-  bootstrap/peer_scoring.cpp
+  bootstrap/peer_pool.hpp
+  bootstrap/peer_pool.cpp
   cli.hpp
   cli.cpp
   cementing_set.hpp

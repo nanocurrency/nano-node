@@ -60,12 +60,6 @@ std::size_t nano::bootstrap_service::blocked_size () const
 	return ctx.accounts.blocked_size ();
 }
 
-std::size_t nano::bootstrap_service::score_size () const
-{
-	nano::lock_guard<nano::mutex> lock{ ctx.mutex };
-	return ctx.scoring.size ();
-}
-
 bool nano::bootstrap_service::prioritized (nano::account const & account) const
 {
 	nano::lock_guard<nano::mutex> lock{ ctx.mutex };

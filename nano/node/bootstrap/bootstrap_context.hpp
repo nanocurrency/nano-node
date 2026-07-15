@@ -11,7 +11,7 @@
 #include <nano/node/bootstrap/common.hpp>
 #include <nano/node/bootstrap/database_scan_index.hpp>
 #include <nano/node/bootstrap/frontier_scan_index.hpp>
-#include <nano/node/bootstrap/peer_scoring.hpp>
+#include <nano/node/bootstrap/peer_pool.hpp>
 #include <nano/node/bootstrap/queries.hpp>
 #include <nano/node/bootstrap/throttle.hpp>
 #include <nano/node/fwd.hpp>
@@ -130,7 +130,7 @@ public: // Shared state
 	nano::bootstrap::database_scan_index database_scan;
 	nano::bootstrap::frontier_scan_index frontiers;
 	nano::bootstrap::throttle throttle;
-	nano::bootstrap::peer_scoring scoring;
+	nano::bootstrap::peer_pool peers;
 
 	// clang-format off
 	class tag_sequenced {};
