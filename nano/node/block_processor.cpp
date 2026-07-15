@@ -3,6 +3,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/logging.hpp>
+#include <nano/lib/thread_pool.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/active_elections.hpp>
@@ -16,6 +17,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 
+#include <latch>
 #include <utility>
 
 /*
@@ -63,6 +65,11 @@ nano::block_processor::block_processor (nano::node_config const & node_config_a,
 	unchecked.satisfied.add ([this] (nano::unchecked_info const & info) {
 		add (info.block, nano::block_source::unchecked);
 	});
+
+	if (config.verification_threads > 0)
+	{
+		verification_pool = std::make_unique<nano::thread_pool> (config.verification_threads, nano::thread_role::name::signature_checking);
+	}
 }
 
 nano::block_processor::~block_processor ()
@@ -74,6 +81,11 @@ nano::block_processor::~block_processor ()
 void nano::block_processor::start ()
 {
 	debug_assert (!thread.joinable ());
+
+	if (verification_pool)
+	{
+		verification_pool->start ();
+	}
 
 	boost::thread::attributes attrs;
 	attrs.set_stack_size (nano::ledger_thread_stack_size ());
@@ -94,6 +106,11 @@ void nano::block_processor::stop ()
 	if (thread.joinable ())
 	{
 		thread.join ();
+	}
+	// The pool must be stopped after joining the processing thread, verify_batch () relies on posted tasks always completing
+	if (verification_pool)
+	{
+		verification_pool->stop ();
 	}
 }
 
@@ -420,6 +437,64 @@ auto nano::block_processor::next_batch (size_t max_count) -> std::deque<nano::bl
 	return results;
 }
 
+nano::signature_verification nano::block_processor::verify (nano::block const & block) const
+{
+	switch (block.type ())
+	{
+		case nano::block_type::state:
+		{
+			auto const & hash = block.hash ();
+			auto const account = block.account_field ().value ();
+			// Check the signers in the same order as ledger processing (account owner first, epoch signer second)
+			if (!nano::validate_message (account, hash, block.block_signature ()))
+			{
+				return nano::signature_verification::valid;
+			}
+			auto const link = block.link_field ().value ();
+			if (ledger.is_epoch_link (link) && !nano::validate_message (ledger.epoch_signer (link), hash, block.block_signature ()))
+			{
+				return nano::signature_verification::valid_epoch;
+			}
+			return nano::signature_verification::invalid;
+		}
+		case nano::block_type::open:
+		{
+			return nano::validate_message (block.account_field ().value (), block.hash (), block.block_signature ()) ? nano::signature_verification::invalid : nano::signature_verification::valid;
+		}
+		default:
+		{
+			// Legacy send/receive/change blocks require a ledger lookup to determine the signer
+			return nano::signature_verification::unknown;
+		}
+	}
+}
+
+void nano::block_processor::verify_batch (std::deque<nano::block_context> & batch)
+{
+	debug_assert (verification_pool);
+	debug_assert (!batch.empty ());
+
+	// Waiting on the latch is only safe because the pool outlives the processing thread, see stop ()
+	size_t const num_chunks = std::min (static_cast<size_t> (config.verification_threads), batch.size ());
+	std::latch latch (num_chunks);
+
+	for (size_t chunk = 0; chunk < num_chunks; ++chunk)
+	{
+		auto const begin = batch.begin () + chunk * batch.size () / num_chunks;
+		auto const end = batch.begin () + (chunk + 1) * batch.size () / num_chunks;
+		verification_pool->post ([this, begin, end, &latch] {
+			for (auto it = begin; it != end; ++it)
+			{
+				it->verified = verify (*it->block);
+			}
+			latch.count_down ();
+		});
+	}
+	latch.wait ();
+
+	stats.add (nano::stat::type::block_processor, nano::stat::detail::blocks_verified, batch.size ());
+}
+
 void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock)
 {
 	debug_assert (lock.owns_lock ());
@@ -429,6 +504,12 @@ void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 	auto batch = next_batch (config.batch_size);
 
 	lock.unlock ();
+
+	// Pre-validate signatures in parallel before opening the write transaction
+	if (verification_pool)
+	{
+		verify_batch (batch);
+	}
 
 	auto transaction = ledger.tx_begin_write (nano::store::writer::block_processor);
 
@@ -481,7 +562,7 @@ nano::block_status nano::block_processor::process_one (secure::write_transaction
 {
 	auto block = context.block;
 	auto const hash = block->hash ();
-	nano::block_status result = ledger.process (transaction_a, block);
+	nano::block_status result = ledger.process (transaction_a, block, context.verified);
 
 	stats.inc (nano::stat::type::block_processor_result, to_stat_detail (result));
 	stats.inc (nano::stat::type::block_processor_source, to_stat_detail (context.source));
@@ -599,12 +680,14 @@ nano::container_info nano::block_processor::container_info () const
  * block_processor_config
  */
 
-nano::block_processor_config::block_processor_config (const nano::network_constants & network_constants)
+nano::block_processor_config::block_processor_config (const nano::network_constants & network_constants) :
+	verification_threads{ std::min (nano::hardware_concurrency (), 4u) }
 {
 }
 
 nano::error nano::block_processor_config::serialize (nano::tomlconfig & toml) const
 {
+	toml.put ("verification_threads", verification_threads, "Number of threads used to pre-validate block signatures in parallel before ledger processing, 0 to disable pre-validation. \ntype:uint32");
 	toml.put ("max_peer_queue", max_peer_queue, "Maximum number of blocks to queue from network peers. \ntype:uint64");
 	toml.put ("max_system_queue", max_system_queue, "Maximum number of blocks to queue from system components (local RPC, bootstrap). \ntype:uint64");
 	toml.put ("priority_live", priority_live, "Priority for live network blocks. Higher priority gets processed more frequently. \ntype:uint64");
@@ -620,6 +703,7 @@ nano::error nano::block_processor_config::serialize (nano::tomlconfig & toml) co
 
 nano::error nano::block_processor_config::deserialize (nano::tomlconfig & toml)
 {
+	toml.get ("verification_threads", verification_threads);
 	toml.get ("max_peer_queue", max_peer_queue);
 	toml.get ("max_system_queue", max_system_queue);
 	toml.get ("priority_live", priority_live);

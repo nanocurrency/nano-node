@@ -420,11 +420,11 @@ void nano::ledger::cement_one (secure::write_transaction & transaction, nano::bl
 	stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::blocks_cemented);
 }
 
-nano::block_status nano::ledger::process (secure::write_transaction const & transaction, std::shared_ptr<nano::block> block)
+nano::block_status nano::ledger::process (secure::write_transaction const & transaction, std::shared_ptr<nano::block> block, nano::signature_verification verification)
 {
 	debug_assert (!work.validate_entry (*block) || constants.genesis == nano::dev::genesis);
 
-	ledger_processor processor (transaction, *this);
+	ledger_processor processor (transaction, *this, verification);
 	block->visit (processor);
 	if (processor.result == nano::block_status::progress)
 	{
