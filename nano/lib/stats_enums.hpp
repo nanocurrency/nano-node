@@ -578,6 +578,11 @@ enum class detail
 
 	done_range,
 	done_empty,
+	busy,
+	acquired,
+	exhausted,
+	no_peers,
+	available,
 	next_by_requests,
 	next_by_timestamp,
 	advance,

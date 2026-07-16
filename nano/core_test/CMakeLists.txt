@@ -16,6 +16,7 @@ add_executable(
   bootstrap.cpp
   bootstrap_account_sets.cpp
   bootstrap_frontier_scan.cpp
+  bootstrap_peer_pool.cpp
   bootstrap_verify.cpp
   bootstrap_server.cpp
   bounded_dfs.cpp

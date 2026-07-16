@@ -35,7 +35,6 @@ public:
 
 	std::size_t blocked_size () const;
 	std::size_t priority_size () const;
-	std::size_t score_size () const;
 
 	bool prioritized (nano::account const &) const;
 	bool blocked (nano::account const &) const;

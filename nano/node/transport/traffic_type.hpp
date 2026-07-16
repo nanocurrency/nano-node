@@ -10,8 +10,8 @@ namespace nano::transport
 enum class traffic_type
 {
 	generic,
+	bootstrap,
 	bootstrap_server,
-	bootstrap_requests,
 	block_broadcast,
 	block_broadcast_initial,
 	block_broadcast_rpc,
@@ -29,6 +29,7 @@ enum class traffic_type
 };
 
 std::string_view to_string (traffic_type);
-std::vector<traffic_type> all_traffic_types ();
 nano::stat::detail to_stat_detail (traffic_type);
+
+std::vector<traffic_type> const & all_traffic_types ();
 }
