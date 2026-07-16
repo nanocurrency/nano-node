@@ -33,4 +33,4 @@ add_library(
   telemetry.cpp
   uniquers.hpp)
 
-target_link_libraries(nano_messages nano_lib Boost::endian)
+target_link_libraries(nano_messages nano_lib secure Boost::endian)

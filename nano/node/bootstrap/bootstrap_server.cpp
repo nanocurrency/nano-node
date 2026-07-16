@@ -11,6 +11,7 @@
 #include <nano/store/ledger/block.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
 #include <nano/store/ledger/successor.hpp>
+#include <nano/store/ledger/topology.hpp>
 #include <nano/store/ledger_store.hpp>
 
 nano::bootstrap_server::bootstrap_server (bootstrap_server_config const & config_a, nano::store::ledger_store & store_a, nano::ledger & ledger_a, nano::network_constants const & network_constants_a, nano::stats & stats_a) :
@@ -77,6 +78,8 @@ bool nano::bootstrap_server::verify_request_type (nano::messages::asc_pull_type 
 		case nano::messages::asc_pull_type::blocks:
 		case nano::messages::asc_pull_type::account_info:
 		case nano::messages::asc_pull_type::frontiers:
+		case nano::messages::asc_pull_type::blocks_random:
+		case nano::messages::asc_pull_type::topo_index:
 			return true;
 	}
 	return false;
@@ -106,6 +109,14 @@ bool nano::bootstrap_server::verify (const nano::messages::asc_pull_req & messag
 		bool operator() (nano::messages::asc_pull_req::frontiers_payload const & pld) const
 		{
 			return pld.count > 0 && pld.count <= max_frontiers;
+		}
+		bool operator() (nano::messages::asc_pull_req::blocks_random_payload const & pld) const
+		{
+			return !pld.hashes.empty () && pld.hashes.size () <= max_random_hashes;
+		}
+		bool operator() (nano::messages::asc_pull_req::topo_index_payload const & pld) const
+		{
+			return pld.count > 0 && pld.count <= max_topo_entries;
 		}
 	};
 
@@ -170,6 +181,10 @@ void nano::bootstrap_server::respond (nano::messages::asc_pull_ack & response, s
 		void operator() (nano::messages::asc_pull_ack::frontiers_payload const & pld)
 		{
 			stats.add (nano::stat::type::bootstrap_server, nano::stat::detail::frontiers, nano::stat::dir::out, pld.frontiers.size ());
+		}
+		void operator() (nano::messages::asc_pull_ack::topo_index_payload const & pld)
+		{
+			stats.add (nano::stat::type::bootstrap_server, nano::stat::detail::topo_indexes, nano::stat::dir::out, pld.entries.size ());
 		}
 	};
 	std::visit (stat_visitor{ stats }, response.payload);
@@ -420,6 +435,61 @@ nano::messages::asc_pull_ack nano::bootstrap_server::process (secure::transactio
 }
 
 /*
+ * Blocks random request
+ */
+
+nano::messages::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & transaction, nano::messages::asc_pull_req::id_t id, nano::messages::asc_pull_req::blocks_random_payload const & request) const
+{
+	nano::messages::asc_pull_ack response{ network_constants };
+	response.id = id;
+	response.type = nano::messages::asc_pull_type::blocks_random;
+
+	nano::messages::asc_pull_ack::blocks_payload response_payload{};
+	for (auto const & hash : request.hashes)
+	{
+		auto block = ledger.any.block_get (transaction, hash);
+		if (block)
+		{
+			response_payload.blocks.push_back (block);
+		}
+	}
+
+	response.payload = response_payload;
+	response.update_header ();
+	return response;
+}
+
+/*
+ * Topo index request
+ */
+
+nano::messages::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & transaction, nano::messages::asc_pull_req::id_t id, nano::messages::asc_pull_req::topo_index_payload const & request) const
+{
+	debug_assert (request.count <= max_topo_entries); // Should be filtered out earlier
+
+	nano::messages::asc_pull_ack response{ network_constants };
+	response.id = id;
+	response.type = nano::messages::asc_pull_type::topo_index;
+
+	nano::messages::asc_pull_ack::topo_index_payload response_payload{};
+
+	auto begin = (request.start == nano::topo_key{})
+	? store.topology.begin (transaction)
+	: store.topology.begin (transaction, request.start);
+
+	auto end = store.topology.end (transaction);
+
+	for (auto it = std::move (begin); it != end && response_payload.entries.size () < request.count; ++it)
+	{
+		response_payload.entries.push_back (it->first);
+	}
+
+	response.payload = response_payload;
+	response.update_header ();
+	return response;
+}
+
+/*
  *
  */
 
@@ -433,6 +503,10 @@ nano::stat::detail nano::to_stat_detail (nano::messages::asc_pull_type type)
 			return nano::stat::detail::account_info;
 		case messages::asc_pull_type::frontiers:
 			return nano::stat::detail::frontiers;
+		case messages::asc_pull_type::blocks_random:
+			return nano::stat::detail::blocks_random;
+		case messages::asc_pull_type::topo_index:
+			return nano::stat::detail::topo_index;
 		default:
 			return nano::stat::detail::invalid;
 	}

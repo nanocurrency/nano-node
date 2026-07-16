@@ -1,7 +1,11 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/messages/asc_pull.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <nano/node/node.hpp>
 #include <nano/node/transport/fake.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/store/ledger/topology.hpp>
+#include <nano/store/ledger_store.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/random.hpp>
 #include <nano/test_common/system.hpp>
@@ -549,5 +553,256 @@ TEST (bootstrap_server, serve_frontiers_invalid_count)
 	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 3);
 
 	// Ensure we don't get any unexpected responses
+	ASSERT_ALWAYS (1s, responses.size () == 0);
+}
+
+TEST (bootstrap_server, serve_blocks_random)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 16);
+	auto [account, blocks] = chains.front ();
+
+	// Mix of existing and non-existing hashes
+	std::deque<nano::block_hash> requested;
+	requested.push_back (blocks[0]->hash ());
+	requested.push_back (nano::test::random_hash ()); // missing
+	requested.push_back (blocks[5]->hash ());
+	requested.push_back (blocks[10]->hash ());
+	requested.push_back (nano::test::random_hash ()); // missing
+
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::blocks_random;
+
+	nano::messages::asc_pull_req::blocks_random_payload payload{};
+	payload.hashes = requested;
+	request.payload = payload;
+	request.update_header ();
+
+	node.inbound (request, nano::test::fake_channel (node));
+
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
+
+	auto response = responses.get ().front ();
+	ASSERT_EQ (response.id, 7);
+	ASSERT_EQ (response.type, nano::messages::asc_pull_type::blocks_random);
+
+	auto response_payload = std::get<nano::messages::asc_pull_ack::blocks_payload> (response.payload);
+	ASSERT_EQ (response_payload.blocks.size (), 3);
+
+	std::set<nano::block_hash> returned;
+	for (auto const & b : response_payload.blocks)
+	{
+		returned.insert (b->hash ());
+	}
+	ASSERT_TRUE (returned.count (blocks[0]->hash ()));
+	ASSERT_TRUE (returned.count (blocks[5]->hash ()));
+	ASSERT_TRUE (returned.count (blocks[10]->hash ()));
+}
+
+TEST (bootstrap_server, serve_blocks_random_empty)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	nano::test::setup_chains (system, node, 1, 8);
+
+	std::deque<nano::block_hash> requested;
+	requested.push_back (nano::test::random_hash ());
+	requested.push_back (nano::test::random_hash ());
+
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::blocks_random;
+
+	nano::messages::asc_pull_req::blocks_random_payload payload{};
+	payload.hashes = requested;
+	request.payload = payload;
+	request.update_header ();
+
+	node.inbound (request, nano::test::fake_channel (node));
+
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
+
+	auto response_payload = std::get<nano::messages::asc_pull_ack::blocks_payload> (responses.get ().front ().payload);
+	ASSERT_TRUE (response_payload.blocks.empty ());
+}
+
+TEST (bootstrap_server, serve_blocks_random_invalid)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	// Empty hash list - rejected by verify
+	{
+		nano::messages::asc_pull_req request{ node.network_params.network };
+		request.id = 7;
+		request.type = nano::messages::asc_pull_type::blocks_random;
+
+		nano::messages::asc_pull_req::blocks_random_payload payload{}; // empty
+		request.payload = payload;
+		request.update_header ();
+
+		node.inbound (request, nano::test::fake_channel (node));
+	}
+
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 1);
+	ASSERT_ALWAYS (1s, responses.size () == 0);
+}
+
+TEST (bootstrap_server, serve_topo_index)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	nano::test::setup_chains (system, node, /* chain count */ 4, /* block count */ 4);
+
+	auto entry_count = [&] () {
+		auto txn = node.ledger.tx_begin_read ();
+		return node.ledger.store.topology.count (txn);
+	};
+	ASSERT_GT (entry_count (), 0u);
+
+	// Request from beginning
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::topo_index;
+
+	nano::messages::asc_pull_req::topo_index_payload payload{};
+	payload.start = nano::topo_key{};
+	payload.count = 1000;
+	request.payload = payload;
+	request.update_header ();
+
+	node.inbound (request, nano::test::fake_channel (node));
+
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
+
+	auto response = responses.get ().front ();
+	ASSERT_EQ (response.id, 7);
+	ASSERT_EQ (response.type, nano::messages::asc_pull_type::topo_index);
+
+	auto response_payload = std::get<nano::messages::asc_pull_ack::topo_index_payload> (response.payload);
+	ASSERT_FALSE (response_payload.entries.empty ());
+
+	// Verify entries are in topo-ascending order AND dense: topo heights are
+	// contiguous, so consecutive entries are at most one height apart.
+	for (std::size_t n = 1; n < response_payload.entries.size (); ++n)
+	{
+		ASSERT_LT (response_payload.entries[n - 1], response_payload.entries[n]);
+		ASSERT_LE (response_payload.entries[n].topo_height - response_payload.entries[n - 1].topo_height, 1u);
+	}
+
+	// Continuation request from last returned entry
+	auto last = response_payload.entries.back ();
+
+	nano::messages::asc_pull_req request2{ node.network_params.network };
+	request2.id = 8;
+	request2.type = nano::messages::asc_pull_type::topo_index;
+
+	nano::messages::asc_pull_req::topo_index_payload payload2{};
+	payload2.start = last;
+	payload2.count = 1000;
+	request2.payload = payload2;
+	request2.update_header ();
+
+	node.inbound (request2, nano::test::fake_channel (node));
+
+	ASSERT_TIMELY_EQ (5s, responses.size (), 2);
+
+	auto response2 = responses.get ().back ();
+	auto response2_payload = std::get<nano::messages::asc_pull_ack::topo_index_payload> (response2.payload);
+
+	// Continuation should include `last` at the start (lower_bound semantics)
+	if (!response2_payload.entries.empty ())
+	{
+		ASSERT_GE (response2_payload.entries.front (), last);
+	}
+}
+
+TEST (bootstrap_server, serve_topo_index_empty)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	nano::test::setup_chains (system, node, 1, 4);
+
+	// Request from a position past the end
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::topo_index;
+
+	nano::messages::asc_pull_req::topo_index_payload payload{};
+	payload.start = nano::topo_key{ std::numeric_limits<uint64_t>::max () - 1, nano::block_hash{} };
+	payload.count = 100;
+	request.payload = payload;
+	request.update_header ();
+
+	node.inbound (request, nano::test::fake_channel (node));
+
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
+
+	auto response_payload = std::get<nano::messages::asc_pull_ack::topo_index_payload> (responses.get ().front ().payload);
+	ASSERT_TRUE (response_payload.entries.empty ());
+}
+
+TEST (bootstrap_server, serve_topo_index_invalid_count)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	nano::test::setup_chains (system, node, 1, 4);
+
+	// Zero count
+	{
+		nano::messages::asc_pull_req request{ node.network_params.network };
+		request.id = 7;
+		request.type = nano::messages::asc_pull_type::topo_index;
+
+		nano::messages::asc_pull_req::topo_index_payload payload{};
+		payload.count = 0;
+		request.payload = payload;
+		request.update_header ();
+
+		node.inbound (request, nano::test::fake_channel (node));
+	}
+
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 1);
+
+	// Count over max
+	{
+		nano::messages::asc_pull_req request{ node.network_params.network };
+		request.id = 7;
+		request.type = nano::messages::asc_pull_type::topo_index;
+
+		nano::messages::asc_pull_req::topo_index_payload payload{};
+		payload.count = nano::bootstrap_server::max_topo_entries + 1;
+		request.payload = payload;
+		request.update_header ();
+
+		node.inbound (request, nano::test::fake_channel (node));
+	}
+
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 2);
 	ASSERT_ALWAYS (1s, responses.size () == 0);
 }

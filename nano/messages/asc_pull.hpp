@@ -2,6 +2,7 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/messages/message.hpp>
+#include <nano/secure/common.hpp>
 
 #include <cstdint>
 #include <deque>
@@ -20,6 +21,8 @@ enum class asc_pull_type : uint8_t
 	blocks = 0x1,
 	account_info = 0x2,
 	frontiers = 0x3,
+	blocks_random = 0x4,
+	topo_index = 0x5,
 };
 
 /**
@@ -101,12 +104,41 @@ public: // Payload definitions
 		void operator() (nano::object_stream &) const;
 	};
 
+	struct blocks_random_payload
+	{
+		constexpr static std::size_t max_hashes = 128;
+
+		void serialize (nano::stream &) const;
+		void deserialize (nano::stream &);
+
+	public: // Payload
+		std::deque<nano::block_hash> hashes;
+
+	public: // Logging
+		void operator() (nano::object_stream &) const;
+	};
+
+	struct topo_index_payload
+	{
+		void serialize (nano::stream &) const;
+		void deserialize (nano::stream &);
+
+	public: // Payload
+		nano::topo_key start{};
+		uint16_t count{ 0 };
+
+	public: // Logging
+		void operator() (nano::object_stream &) const;
+	};
+
+	using payload_variant = std::variant<empty_payload, blocks_payload, account_info_payload, frontiers_payload, blocks_random_payload, topo_index_payload>;
+
 public: // Payload
 	asc_pull_type type{ asc_pull_type::invalid };
 	id_t id{ 0 };
 
 	/** Payload depends on `asc_pull_type` */
-	std::variant<empty_payload, blocks_payload, account_info_payload, frontiers_payload> payload;
+	payload_variant payload;
 
 public:
 	/** Size of message without payload */
@@ -201,12 +233,31 @@ public: // Payload definitions
 		void operator() (nano::object_stream &) const;
 	};
 
+	struct topo_index_payload
+	{
+		/* Header allows for 16 bit extensions; 65536 bytes / 40 bytes (topo_height + hash) ~ 1638, cap at 1000 */
+		constexpr static std::size_t max_entries = 1000;
+
+		void serialize (nano::stream &) const;
+		void deserialize (nano::stream &);
+
+	public: // Payload
+		std::deque<nano::topo_key> entries;
+
+	public: // Logging
+		void operator() (nano::object_stream &) const;
+	};
+
+	// Note: blocks_random response reuses blocks_payload
+
+	using payload_variant = std::variant<empty_payload, blocks_payload, account_info_payload, frontiers_payload, topo_index_payload>;
+
 public: // Payload
 	asc_pull_type type{ asc_pull_type::invalid };
 	id_t id{ 0 };
 
 	/** Payload depends on `asc_pull_type` */
-	std::variant<empty_payload, blocks_payload, account_info_payload, frontiers_payload> payload;
+	payload_variant payload;
 
 public:
 	/** Size of message without payload */

@@ -91,6 +91,7 @@ private:
 	bool process (nano::messages::asc_pull_ack::blocks_payload const & response, async_tag const & tag);
 	bool process (nano::messages::asc_pull_ack::account_info_payload const & response, async_tag const & tag);
 	bool process (nano::messages::asc_pull_ack::frontiers_payload const & response, async_tag const & tag);
+	bool process (nano::messages::asc_pull_ack::topo_index_payload const & response, async_tag const & tag);
 	bool process (nano::messages::empty_payload const & response, async_tag const & tag);
 
 	// Inserts the tag and transmits the message over the channel

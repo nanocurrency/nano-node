@@ -80,6 +80,16 @@ private:
 	nano::messages::asc_pull_ack process (secure::transaction const &, nano::messages::asc_pull_req::id_t id, nano::messages::asc_pull_req::frontiers_payload const & request) const;
 
 	/*
+	 * Blocks random request
+	 */
+	nano::messages::asc_pull_ack process (secure::transaction const &, nano::messages::asc_pull_req::id_t id, nano::messages::asc_pull_req::blocks_random_payload const & request) const;
+
+	/*
+	 * Topo index request
+	 */
+	nano::messages::asc_pull_ack process (secure::transaction const &, nano::messages::asc_pull_req::id_t id, nano::messages::asc_pull_req::topo_index_payload const & request) const;
+
+	/*
 	 * Checks if the request should be dropped early on
 	 */
 	bool verify (nano::messages::asc_pull_req const & message) const;
@@ -105,6 +115,8 @@ public: // Config
 	/** Maximum number of blocks to send in a single response, cannot be higher than capacity of a single `asc_pull_ack` message */
 	constexpr static std::size_t max_blocks = nano::messages::asc_pull_ack::blocks_payload::max_blocks;
 	constexpr static std::size_t max_frontiers = nano::messages::asc_pull_ack::frontiers_payload::max_frontiers;
+	constexpr static std::size_t max_topo_entries = nano::messages::asc_pull_ack::topo_index_payload::max_entries;
+	constexpr static std::size_t max_random_hashes = nano::messages::asc_pull_req::blocks_random_payload::max_hashes;
 };
 
 nano::stat::detail to_stat_detail (nano::messages::asc_pull_type);

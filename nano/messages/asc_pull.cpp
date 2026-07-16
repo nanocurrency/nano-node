@@ -86,6 +86,20 @@ void asc_pull_req::deserialize_payload (nano::stream & stream)
 			payload = pld;
 			break;
 		}
+		case asc_pull_type::blocks_random:
+		{
+			blocks_random_payload pld{};
+			pld.deserialize (stream);
+			payload = pld;
+			break;
+		}
+		case asc_pull_type::topo_index:
+		{
+			topo_index_payload pld{};
+			pld.deserialize (stream);
+			payload = pld;
+			break;
+		}
 		default:
 			throw std::runtime_error ("Unknown asc_pull_type");
 	}
@@ -131,6 +145,14 @@ bool asc_pull_req::verify_consistency () const
 		void operator() (frontiers_payload) const
 		{
 			debug_assert (type == asc_pull_type::frontiers);
+		}
+		void operator() (blocks_random_payload) const
+		{
+			debug_assert (type == asc_pull_type::blocks_random);
+		}
+		void operator() (topo_index_payload) const
+		{
+			debug_assert (type == asc_pull_type::topo_index);
 		}
 	};
 	std::visit (consistency_visitor{ type }, payload);
@@ -217,6 +239,64 @@ void asc_pull_req::frontiers_payload::operator() (nano::object_stream & obs) con
 }
 
 /*
+ * asc_pull_req::blocks_random_payload
+ */
+
+void asc_pull_req::blocks_random_payload::serialize (nano::stream & stream) const
+{
+	debug_assert (hashes.size () <= max_hashes);
+
+	for (auto const & hash : hashes)
+	{
+		nano::write (stream, hash);
+	}
+	// Terminator: zero hash
+	nano::write (stream, nano::block_hash{ 0 });
+}
+
+void asc_pull_req::blocks_random_payload::deserialize (nano::stream & stream)
+{
+	nano::block_hash hash;
+	nano::read (stream, hash);
+	while (!hash.is_zero () && hashes.size () < max_hashes)
+	{
+		hashes.push_back (hash);
+		nano::read (stream, hash);
+	}
+}
+
+void asc_pull_req::blocks_random_payload::operator() (nano::object_stream & obs) const
+{
+	obs.write_range ("hashes", hashes);
+}
+
+/*
+ * asc_pull_req::topo_index_payload
+ */
+
+void asc_pull_req::topo_index_payload::serialize (nano::stream & stream) const
+{
+	start.serialize (stream);
+	nano::write_big_endian (stream, count);
+}
+
+void asc_pull_req::topo_index_payload::deserialize (nano::stream & stream)
+{
+	if (start.deserialize (stream))
+	{
+		throw std::runtime_error ("Failed to deserialize topo_key");
+	}
+	nano::read_big_endian (stream, count);
+}
+
+void asc_pull_req::topo_index_payload::operator() (nano::object_stream & obs) const
+{
+	obs.write ("start_height", start.topo_height);
+	obs.write ("start_hash", start.hash);
+	obs.write ("count", count);
+}
+
+/*
  * asc_pull_ack
  */
 
@@ -296,6 +376,21 @@ void asc_pull_ack::deserialize_payload (nano::stream & stream)
 			payload = pld;
 			break;
 		}
+		case asc_pull_type::blocks_random:
+		{
+			// Response reuses blocks_payload format
+			blocks_payload pld{};
+			pld.deserialize (stream);
+			payload = pld;
+			break;
+		}
+		case asc_pull_type::topo_index:
+		{
+			topo_index_payload pld{};
+			pld.deserialize (stream);
+			payload = pld;
+			break;
+		}
 		default:
 			throw std::runtime_error ("Unknown asc_pull_type");
 	}
@@ -332,7 +427,7 @@ bool asc_pull_ack::verify_consistency () const
 		}
 		void operator() (blocks_payload) const
 		{
-			debug_assert (type == asc_pull_type::blocks);
+			debug_assert (type == asc_pull_type::blocks || type == asc_pull_type::blocks_random);
 		}
 		void operator() (account_info_payload) const
 		{
@@ -341,6 +436,10 @@ bool asc_pull_ack::verify_consistency () const
 		void operator() (frontiers_payload) const
 		{
 			debug_assert (type == asc_pull_type::frontiers);
+		}
+		void operator() (topo_index_payload) const
+		{
+			debug_assert (type == asc_pull_type::topo_index);
 		}
 	};
 	std::visit (consistency_visitor{ type }, payload);
@@ -470,6 +569,47 @@ void asc_pull_ack::frontiers_payload::operator() (nano::object_stream & obs) con
 		auto & [account, hash] = entry;
 		obs.write ("account", account);
 		obs.write ("hash", hash);
+	});
+}
+
+/*
+ * asc_pull_ack::topo_index_payload
+ */
+
+void asc_pull_ack::topo_index_payload::serialize (nano::stream & stream) const
+{
+	debug_assert (entries.size () <= max_entries);
+
+	for (auto const & entry : entries)
+	{
+		entry.serialize (stream);
+	}
+	// Terminator: zero topo_key (topo_height=0, hash=0)
+	nano::topo_key{}.serialize (stream);
+}
+
+void asc_pull_ack::topo_index_payload::deserialize (nano::stream & stream)
+{
+	nano::topo_key current;
+	if (current.deserialize (stream))
+	{
+		throw std::runtime_error ("Failed to deserialize topo_key");
+	}
+	while ((current.topo_height != 0 || !current.hash.is_zero ()) && entries.size () < max_entries)
+	{
+		entries.push_back (current);
+		if (current.deserialize (stream))
+		{
+			throw std::runtime_error ("Failed to deserialize topo_key");
+		}
+	}
+}
+
+void asc_pull_ack::topo_index_payload::operator() (nano::object_stream & obs) const
+{
+	obs.write_range ("entries", entries, [] (auto const & entry, nano::object_stream & obs) {
+		obs.write ("topo_height", entry.topo_height);
+		obs.write ("hash", entry.hash);
 	});
 }
 }
