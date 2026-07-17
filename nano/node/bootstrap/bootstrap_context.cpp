@@ -460,6 +460,10 @@ void bootstrap_context::process (nano::messages::asc_pull_ack const & message, s
 		{
 			return type == query_type::frontiers;
 		}
+		bool operator() (const nano::messages::asc_pull_ack::topo_index_payload & response) const
+		{
+			return false; // Topology strategy not implemented yet, we never request topo indexes
+		}
 		bool operator() (const nano::messages::empty_payload & response) const
 		{
 			return false; // Should not happen
@@ -616,6 +620,12 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::account_info_payl
 bool bootstrap_context::process (nano::messages::asc_pull_ack::frontiers_payload const & response, async_tag const & tag)
 {
 	return frontier_strat.process (response, tag);
+}
+
+bool bootstrap_context::process (nano::messages::asc_pull_ack::topo_index_payload const & response, async_tag const & tag)
+{
+	debug_assert (false, "topo_index payload"); // Topology strategy not implemented yet; verifier rejects these before we get here
+	return false; // Invalid
 }
 
 bool bootstrap_context::process (nano::messages::empty_payload const & response, async_tag const & tag)

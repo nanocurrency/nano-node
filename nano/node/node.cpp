@@ -889,10 +889,15 @@ nano::node_capabilities_flags nano::node::get_capabilities () const
 	{
 		return *flags.capabilities_override;
 	}
+
 	nano::node_capabilities_flags caps;
 	if (flags.peering_only)
 	{
 		caps.set (nano::node_capabilities::no_ledger);
+	}
+	if (ledger.flags.topo_index)
+	{
+		caps.set (nano::node_capabilities::topo_index);
 	}
 	return caps;
 }

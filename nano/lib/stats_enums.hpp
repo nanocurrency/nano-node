@@ -566,6 +566,7 @@ enum class detail
 	processing_frontiers,
 	frontiers_dropped,
 	sync_accounts,
+	topo_indexes,
 
 	prioritize,
 	prioritize_failed,
@@ -683,6 +684,8 @@ enum class detail
 	blocks_by_hash,
 	blocks_by_account,
 	account_info_by_hash,
+	blocks_random,
+	topo_index,
 
 	// query_source
 	database,

@@ -211,11 +211,14 @@ public:
 	}
 
 	/** Current protocol version */
-	uint8_t const protocol_version = 0x15;
+	uint8_t const protocol_version = 0x16;
 	/** Minimum accepted protocol version */
 	uint8_t const protocol_version_min = 0x14;
 
 	/** Minimum accepted protocol version used when bootstrapping */
 	uint8_t const bootstrap_protocol_version_min = 0x14;
+
+	/** Minimum protocol version that understands the topology bootstrap message types (topo_index, blocks_random) */
+	uint8_t const topo_bootstrap_protocol_version_min = 0x16;
 };
 }
