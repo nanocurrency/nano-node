@@ -37,6 +37,7 @@ topo_strategy::topo_strategy (bootstrap_context & ctx_a) :
 	scan{ ctx.config.topo_scan, ctx.stats },
 	blocks{ ctx.config.topo_scan, ctx.stats, ctx.logger },
 	gaps{ ctx.config.topo_scan, ctx.stats },
+	skip_policy{ ctx.config.topo_scan },
 	spearhead_workers{ 1, nano::thread_role::name::bootstrap_topo_processing },
 	repair_workers{ 1, nano::thread_role::name::bootstrap_topo_processing }
 {
@@ -77,30 +78,12 @@ void topo_strategy::stop ()
 	repair_workers.stop ();
 }
 
-void topo_strategy::orient ()
-{
-	std::optional<nano::topo_key> latest;
-	{
-		auto transaction = ctx.ledger.tx_begin_read ();
-		latest = ctx.ledger.store.topology.latest (transaction);
-	}
-
-	// Genesis sits at topo_height 1, so only anchor the spearhead to our tip when the ledger holds more than genesis.
-	// On a fresh (genesis-only) ledger there is nothing to skip, but epoch open blocks can also sit at
-	// topo_height 1 and sort before genesis by hash, so we leave the spearhead at true zero to discover them.
-	if (latest && latest->topo_height > 1)
-	{
-		nano::lock_guard<nano::mutex> lock{ ctx.mutex };
-		scan.orient (latest.value_or (nano::topo_key{}));
-	}
-}
-
 void topo_strategy::reset ()
 {
 	scan.reset ();
 	blocks.reset ();
 	gaps.reset ();
-	consecutive_redundant_spearhead_pages = 0;
+	skip_policy.reset ();
 }
 
 void topo_strategy::maintenance ()
@@ -463,8 +446,8 @@ void topo_strategy::precheck (head_index head, std::deque<nano::topo_key> entrie
 			nano::lock_guard<nano::mutex> lock{ ctx.mutex };
 			if (head == 0)
 			{
-				// A missing spearhead page breaks the redundant-page streak
-				consecutive_redundant_spearhead_pages = 0;
+				// A need-fetch spearhead page raises recent pressure and breaks the redundant-page streak
+				skip_policy.observe (true);
 			}
 			blocks.add (missing);
 		}
@@ -472,26 +455,30 @@ void topo_strategy::precheck (head_index head, std::deque<nano::topo_key> entrie
 	}
 	else if (head == 0) // Only the spearhead is eligible for fast-forwarding
 	{
-		bool skipped = false;
+		bool fast_forwarded = false;
 		{
 			nano::lock_guard<nano::mutex> lock{ ctx.mutex };
 
-			// Consecutive fully redundant spearhead pages indicate a resumed scan can fast-forward
-			++consecutive_redundant_spearhead_pages;
-
-			if (ctx.config.topo_scan.redundant_skip_threshold > 0 && ctx.config.topo_scan.redundant_skip_stride > 0 && consecutive_redundant_spearhead_pages >= ctx.config.topo_scan.redundant_skip_threshold)
+			// Recent pages that needed fetching raise the number of fully redundant pages required before a skip.
+			if (skip_policy.observe (false) && ctx.config.topo_scan.redundant_skip_stride > 0)
 			{
 				auto const target_height = nano::add_sat (entries.back ().topo_height, ctx.config.topo_scan.redundant_skip_stride);
-				scan.orient (nano::topo_key{ target_height, nano::block_hash{} });
+				auto const target = nano::topo_key{ target_height, nano::block_hash{} };
 
-				consecutive_redundant_spearhead_pages = 0;
-
-				ctx.stats.inc (nano::stat::type::bootstrap_topo, nano::stat::detail::skip);
-
-				skipped = true;
+				// Precheck can trail the scan queue. Do not restart all heads when this page's target is already stale.
+				if (scan.fast_forward (target))
+				{
+					ctx.stats.inc (nano::stat::type::bootstrap_topo, nano::stat::detail::skip);
+					ctx.logger.debug (nano::log::type::bootstrap, "Topology bootstrap fast-forwarded to height {} with redundant-page threshold {}", target_height, skip_policy.threshold ());
+					fast_forwarded = true;
+				}
+				else
+				{
+					ctx.stats.inc (nano::stat::type::bootstrap_topo, nano::stat::detail::skip_stale);
+				}
 			}
 		}
-		if (skipped)
+		if (fast_forwarded)
 		{
 			ctx.condition.notify_all (); // Wake the scan loop
 		}
@@ -557,7 +544,7 @@ nano::container_info topo_strategy::container_info () const
 	info.add ("scan", scan.container_info ());
 	info.add ("blocks", blocks.container_info ());
 	info.add ("gaps", gaps.container_info ());
-	info.put ("spearhead_redundant_pages", consecutive_redundant_spearhead_pages);
+	info.add ("skip_policy", skip_policy.container_info ());
 	info.add ("spearhead_workers", spearhead_workers.container_info ());
 	info.add ("repair_workers", repair_workers.container_info ());
 	return info;

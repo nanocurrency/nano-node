@@ -80,6 +80,10 @@ public:
 	// Re-anchor the spearhead and frontier to at least this topology position
 	void orient (nano::topo_key latest);
 
+	// Advance to `target` only when it lies beyond the current frontier. Returns false without disturbing
+	// in-flight scans when a delayed precheck produced a stale fast-forward target.
+	bool fast_forward (nano::topo_key target);
+
 	// Grow the repair head count to match the current frontier (frontier is monotonic, so heads are only added)
 	void reconcile_heads ();
 

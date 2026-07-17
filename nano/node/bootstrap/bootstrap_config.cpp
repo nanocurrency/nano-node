@@ -66,6 +66,7 @@ nano::error nano::topo_scan_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("repair_consideration", repair_consideration);
 	toml.get ("candidates", candidates);
 	toml.get ("redundant_skip_threshold", redundant_skip_threshold);
+	toml.get ("redundant_skip_history_size", redundant_skip_history_size);
 	toml.get ("redundant_skip_stride", redundant_skip_stride);
 	toml.get_duration ("cooldown", cooldown);
 	toml.get ("max_buffered", max_buffered);
@@ -87,6 +88,7 @@ nano::error nano::topo_scan_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("repair_consideration", repair_consideration, "Number of distinct peers a repair head samples before advancing its band cursor.\ntype:uint64");
 	toml.put ("candidates", candidates, "Maximum number of new aggregated entries (the smallest) retained per advance. Topo index requests always use the protocol maximum page size.\ntype:uint64");
 	toml.put ("redundant_skip_threshold", redundant_skip_threshold, "Number of consecutive fully redundant spearhead pages required before fast-forwarding. Use 0 to disable.\ntype:uint64");
+	toml.put ("redundant_skip_history_size", redundant_skip_history_size, "Number of recent spearhead pages considered by the adaptive skip policy. Each page that needed fetching raises the next redundant-page threshold by one. Use 0 for a fixed threshold.\ntype:uint64");
 	toml.put ("redundant_skip_stride", redundant_skip_stride, "Topo-height stride used when fast-forwarding after redundant spearhead pages. Use 0 to disable.\ntype:uint64");
 	toml.put ("cooldown", cooldown.count (), "Cooldown period between requests for a single scan head.\ntype:milliseconds");
 	toml.put ("max_buffered", max_buffered, "Scan back-pressure: pause all discovery while the fetch/submit buffer holds this many entries.\ntype:uint64");

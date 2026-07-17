@@ -7,6 +7,7 @@
 #include <nano/node/bootstrap/topo_blocks.hpp>
 #include <nano/node/bootstrap/topo_gaps.hpp>
 #include <nano/node/bootstrap/topo_scan.hpp>
+#include <nano/node/bootstrap/topo_skip_policy.hpp>
 #include <nano/secure/fwd.hpp>
 
 #include <cstddef>
@@ -58,9 +59,6 @@ private:
 	void fetch_one ();
 	void submit_one ();
 
-	// Re-anchor the spearhead to our local topology tip
-	void orient ();
-
 	// Route a retired page to its head class's pre-check pool (spearhead vs repair)
 	void post_precheck (topo_scan::page page);
 
@@ -73,8 +71,7 @@ private:
 	topo_scan scan;
 	topo_blocks blocks;
 	topo_gaps gaps;
-
-	std::size_t consecutive_redundant_spearhead_pages{ 0 };
+	topo_skip_policy skip_policy;
 
 	std::thread scan_thread;
 	std::thread fetch_thread;

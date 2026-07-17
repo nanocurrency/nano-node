@@ -595,6 +595,7 @@ enum class detail
 	retire,
 	gap,
 	skip,
+	skip_stale,
 	prechecked,
 	redundant,
 	rescanned,

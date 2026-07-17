@@ -56,6 +56,16 @@ void topo_scan::orient (nano::topo_key latest)
 	reconcile_heads (); // a node starting from a large local ledger should come up at the right head count
 }
 
+bool topo_scan::fast_forward (nano::topo_key target)
+{
+	if (target > frontier)
+	{
+		orient (target);
+		return true;
+	}
+	return false;
+}
+
 unsigned topo_scan::desired_repair_heads () const
 {
 	uint64_t const band = config.repair_band_height > 0 ? config.repair_band_height : 1;

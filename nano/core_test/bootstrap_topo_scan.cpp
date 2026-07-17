@@ -2,15 +2,19 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/messages/asc_pull.hpp>
 #include <nano/node/bootstrap/topo_scan.hpp>
+#include <nano/node/bootstrap/topo_skip_policy.hpp>
 #include <nano/secure/common.hpp>
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
 #include <deque>
+#include <limits>
 #include <optional>
+#include <sstream>
 #include <utility>
 
 using namespace std::chrono_literals;
@@ -689,6 +693,71 @@ TEST (bootstrap_topo_scan, orient_same_cursor_discards_inflight_reservations)
 }
 
 /*
+ * A delayed precheck may propose a fast-forward target which the scan has already passed. Rejecting that target
+ * must leave the current round intact rather than applying orient () and clearing its in-flight reservation.
+ */
+TEST (bootstrap_topo_scan, stale_fast_forward_preserves_inflight_round)
+{
+	nano::topo_scan_config config;
+	config.consideration_count = 1;
+	test_context ctx{ config };
+	auto & scan = ctx.scan;
+
+	std::deque<nano::bootstrap::topo_scan::page> pages;
+	scan.sink = [&pages] (nano::bootstrap::topo_scan::page page) {
+		pages.push_back (std::move (page));
+	};
+
+	auto const cursor = make_topo_key (100, 10);
+	auto const candidate = make_topo_key (100, 20);
+	scan.orient (cursor);
+
+	auto req = scan.next ({ .include_spearhead = true, .include_repair = false });
+	ASSERT_TRUE (req);
+	ASSERT_TRUE (scan.dispatch (req->head, req->start, 1, nano::account{ 1 }));
+
+	ASSERT_FALSE (scan.fast_forward (make_topo_key (99, 0)));
+	scan.process (1, { cursor, candidate });
+
+	ASSERT_EQ (pages.size (), 1);
+	ASSERT_EQ (pages.front ().entries.front (), candidate);
+}
+
+/*
+ * A target beyond the frontier is a real fast-forward: it invalidates the old round and restarts the spearhead
+ * exactly at the requested topology position.
+ */
+TEST (bootstrap_topo_scan, fast_forward_advances_and_discards_old_round)
+{
+	nano::topo_scan_config config;
+	config.consideration_count = 1;
+	test_context ctx{ config };
+	auto & scan = ctx.scan;
+
+	std::deque<nano::bootstrap::topo_scan::page> pages;
+	scan.sink = [&pages] (nano::bootstrap::topo_scan::page page) {
+		pages.push_back (std::move (page));
+	};
+
+	auto const cursor = make_topo_key (100, 10);
+	auto const stale_candidate = make_topo_key (100, 20);
+	auto const target = make_topo_key (200, 0);
+	scan.orient (cursor);
+
+	auto req = scan.next ({ .include_spearhead = true, .include_repair = false });
+	ASSERT_TRUE (req);
+	ASSERT_TRUE (scan.dispatch (req->head, req->start, 1, nano::account{ 1 }));
+
+	ASSERT_TRUE (scan.fast_forward (target));
+	scan.process (1, { cursor, stale_candidate });
+	ASSERT_TRUE (pages.empty ());
+
+	req = scan.next ({ .include_spearhead = true, .include_repair = false });
+	ASSERT_TRUE (req);
+	ASSERT_EQ (req->start, target);
+}
+
+/*
  * dispatch () rejects duplicate peer samples for the same cursor.
  */
 TEST (bootstrap_topo_scan, duplicate_peer_dispatch_is_rejected)
@@ -779,4 +848,90 @@ TEST (bootstrap_topo_scan, repair_heads_start_on_expected_bands)
 	ASSERT_EQ (trailing->start, make_topo_key (80, 0));
 	ASSERT_EQ (broad0->start, make_topo_key (1, 0));
 	ASSERT_EQ (broad1->start, make_topo_key (51, 0));
+}
+
+/*
+ * Adaptive skip policy
+ */
+
+TEST (bootstrap_topo_skip_policy, engages_until_page_needs_fetching)
+{
+	nano::topo_scan_config config;
+	config.redundant_skip_threshold = 10;
+	config.redundant_skip_history_size = 16;
+	nano::bootstrap::topo_skip_policy policy{ config };
+
+	// Initial history assumes pages need fetching and makes startup skipping conservative
+	ASSERT_EQ (policy.threshold (), 26);
+	for (auto i = 0; i < 25; ++i)
+	{
+		ASSERT_FALSE (policy.observe (false));
+	}
+	ASSERT_TRUE (policy.observe (false));
+	ASSERT_EQ (policy.threshold (), 26);
+
+	// Once engaged, every redundant page can trigger another skip
+	for (auto i = 0; i < 5; ++i)
+	{
+		ASSERT_TRUE (policy.observe (false));
+	}
+
+	// A page which needs fetching disengages skipping and raises the next threshold
+	ASSERT_FALSE (policy.observe (true));
+	ASSERT_EQ (policy.threshold (), 11);
+	for (auto i = 0; i < 10; ++i)
+	{
+		ASSERT_FALSE (policy.observe (false));
+	}
+	ASSERT_TRUE (policy.observe (false));
+	ASSERT_TRUE (policy.observe (false));
+}
+
+TEST (bootstrap_topo_skip_policy, resets_and_disables)
+{
+	nano::topo_scan_config config;
+	config.redundant_skip_threshold = 3;
+	config.redundant_skip_history_size = 2;
+	nano::bootstrap::topo_skip_policy policy{ config };
+
+	// A need-fetch page resets an in-progress streak and raises the next threshold
+	ASSERT_FALSE (policy.observe (false));
+	ASSERT_FALSE (policy.observe (false));
+	ASSERT_FALSE (policy.observe (true));
+	ASSERT_EQ (policy.threshold (), 4);
+	for (auto i = 0; i < 3; ++i)
+	{
+		ASSERT_FALSE (policy.observe (false));
+	}
+	ASSERT_TRUE (policy.observe (false));
+
+	policy.reset ();
+	ASSERT_EQ (policy.threshold (), 5);
+
+	// A zero history size preserves the original fixed threshold regardless of prior need-fetch pages
+	config.redundant_skip_history_size = 0;
+	nano::bootstrap::topo_skip_policy fixed{ config };
+	for (auto i = 0; i < 10; ++i)
+	{
+		ASSERT_FALSE (fixed.observe (true));
+	}
+	ASSERT_EQ (fixed.threshold (), 3);
+	ASSERT_FALSE (fixed.observe (false));
+	ASSERT_FALSE (fixed.observe (false));
+	ASSERT_TRUE (fixed.observe (false));
+
+	// A zero base threshold disables decisions, and threshold arithmetic saturates at size_t max
+	config.redundant_skip_threshold = 0;
+	nano::bootstrap::topo_skip_policy disabled{ config };
+	for (auto i = 0; i < 100; ++i)
+	{
+		ASSERT_FALSE (disabled.observe (false));
+	}
+	ASSERT_EQ (disabled.threshold (), 0);
+
+	config.redundant_skip_threshold = std::numeric_limits<std::size_t>::max ();
+	config.redundant_skip_history_size = 1;
+	nano::bootstrap::topo_skip_policy saturated{ config };
+	ASSERT_FALSE (saturated.observe (true));
+	ASSERT_EQ (saturated.threshold (), std::numeric_limits<std::size_t>::max ());
 }

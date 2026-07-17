@@ -63,6 +63,8 @@ add_library(
   bootstrap/frontier_scan_index.cpp
   bootstrap/topo_strategy.hpp
   bootstrap/topo_strategy.cpp
+  bootstrap/topo_skip_policy.hpp
+  bootstrap/topo_skip_policy.cpp
   bootstrap/topo_scan.hpp
   bootstrap/topo_scan.cpp
   bootstrap/topo_blocks.hpp
