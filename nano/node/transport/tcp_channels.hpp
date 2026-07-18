@@ -53,7 +53,7 @@ public:
 		std::shared_ptr<nano::transport::tcp_channel> channel;
 	};
 
-	create_result create (std::shared_ptr<nano::transport::tcp_socket> const &, std::shared_ptr<nano::transport::tcp_server> const &, nano::account const & node_id, nano::node_capabilities_flags = {});
+	create_result create (std::shared_ptr<nano::transport::tcp_socket> const &, std::shared_ptr<nano::transport::tcp_server> const &, nano::transport::peer_info const &);
 
 	void erase (nano::tcp_endpoint const &);
 	std::size_t size () const;

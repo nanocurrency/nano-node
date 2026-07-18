@@ -39,6 +39,84 @@ TEST (tcp_server, handshake_success)
 }
 
 /*
+ * A TCP channel records the remote protocol version from the handshake
+ */
+TEST (tcp_server, handshake_records_remote_protocol_version)
+{
+	nano::test::system system;
+	auto node = system.add_node ();
+	auto client_socket = std::make_shared<nano::transport::tcp_socket> (*node);
+
+	auto ec = client_socket->blocking_connect (node->network.endpoint ());
+	ASSERT_FALSE (ec);
+	ASSERT_TIMELY_EQ (5s, node->tcp_listener.all_sockets ().size (), 1);
+
+	auto const remote_protocol_version = node->network_params.network.protocol_version_min;
+	ASSERT_LT (remote_protocol_version, node->network_params.network.protocol_version);
+
+	// Begin a normal two-step handshake while advertising an older, still-supported protocol version.
+	nano::messages::node_id_handshake::query_payload initial_query{ nano::random_pool::generate<nano::uint256_union> () };
+	nano::messages::node_id_handshake initial_handshake{ node->network_params.network, initial_query };
+	initial_handshake.header.version_max = remote_protocol_version;
+	initial_handshake.header.version_using = remote_protocol_version;
+	initial_handshake.header.version_min = remote_protocol_version;
+
+	auto initial_buffer = initial_handshake.to_shared_const_buffer ();
+	auto [initial_write_ec, initial_bytes_written] = client_socket->blocking_write (initial_buffer, initial_buffer.size ());
+	ASSERT_FALSE (initial_write_ec);
+	ASSERT_EQ (initial_bytes_written, initial_buffer.size ());
+
+	// Read the node's response and extract its query, which the simulated remote peer must sign.
+	auto response_header_buffer = std::make_shared<std::vector<uint8_t>> (nano::messages::message_header::size);
+	auto [header_read_ec, header_bytes_read] = client_socket->blocking_read (response_header_buffer, response_header_buffer->size ());
+	ASSERT_FALSE (header_read_ec);
+	ASSERT_EQ (header_bytes_read, response_header_buffer->size ());
+
+	bool header_error = false;
+	nano::bufferstream response_header_stream{ response_header_buffer->data (), response_header_buffer->size () };
+	nano::messages::message_header response_header{ header_error, response_header_stream };
+	ASSERT_FALSE (header_error);
+	ASSERT_EQ (response_header.type, nano::messages::message_type::node_id_handshake);
+
+	auto response_payload_buffer = std::make_shared<std::vector<uint8_t>> (response_header.payload_length_bytes ());
+	auto [payload_read_ec, payload_bytes_read] = client_socket->blocking_read (response_payload_buffer, response_payload_buffer->size ());
+	ASSERT_FALSE (payload_read_ec);
+	ASSERT_EQ (payload_bytes_read, response_payload_buffer->size ());
+
+	bool response_error = false;
+	nano::bufferstream response_payload_stream{ response_payload_buffer->data (), response_payload_buffer->size () };
+	nano::messages::node_id_handshake node_handshake{ response_error, response_payload_stream, response_header };
+	ASSERT_FALSE (response_error);
+	ASSERT_TRUE (node_handshake.query);
+
+	nano::keypair remote_node_id;
+	nano::messages::node_id_handshake::response_payload response;
+	response.node_id = remote_node_id.pub;
+	nano::messages::node_id_handshake::response_payload::v3_payload response_v3;
+	response_v3.salt = nano::random_pool::generate<nano::uint256_union> ();
+	response_v3.genesis = node->network_params.ledger.genesis->hash ();
+	response.ext = response_v3;
+	response.sign (node_handshake.query->cookie, remote_node_id);
+
+	nano::messages::node_id_handshake final_handshake{ node->network_params.network, std::nullopt, response };
+	final_handshake.header.version_max = remote_protocol_version;
+	final_handshake.header.version_using = remote_protocol_version;
+	final_handshake.header.version_min = remote_protocol_version;
+
+	auto final_buffer = final_handshake.to_shared_const_buffer ();
+	auto [final_write_ec, final_bytes_written] = client_socket->blocking_write (final_buffer, final_buffer.size ());
+	ASSERT_FALSE (final_write_ec);
+	ASSERT_EQ (final_bytes_written, final_buffer.size ());
+
+	ASSERT_TIMELY (5s, node->network.find_node_id (remote_node_id.pub));
+	auto channel = node->network.find_node_id (remote_node_id.pub);
+	ASSERT_TRUE (channel);
+	ASSERT_EQ (channel->get_network_version (), remote_protocol_version);
+	ASSERT_EQ (node->network.tcp_channels.list (remote_protocol_version).size (), 1);
+	ASSERT_TRUE (node->network.tcp_channels.list (remote_protocol_version + 1).empty ());
+}
+
+/*
  * This test verifies that when a tcp_server receives a malformed handshake message
  * that fails deserialization, it properly aborts the connection instead of continuing
  * processing with an invalid message.

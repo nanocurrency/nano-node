@@ -22,6 +22,13 @@ enum class transport_type : uint8_t
 	fake = 3
 };
 
+struct peer_info final
+{
+	nano::account node_id;
+	uint8_t protocol_version{ 0 };
+	nano::node_capabilities_flags capabilities;
+};
+
 class channel
 {
 public:
