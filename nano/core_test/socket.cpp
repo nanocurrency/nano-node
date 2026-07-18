@@ -51,7 +51,7 @@ TEST (socket_functions, count_subnetwork_connections)
 	auto node = system.add_node ();
 
 	auto address0 = boost::asio::ip::make_address ("a41d:b7b1:ffff:ffff:ffff:ffff:ffff:ffff"); // out of network prefix
-	auto address1 = boost::asio::ip::make_address ("a41d:b7b2:8298:cf45:672e:bd1a:e7fb:f713"); // referece address
+	auto address1 = boost::asio::ip::make_address ("a41d:b7b2:8298:cf45:672e:bd1a:e7fb:f713"); // reference address
 	auto address2 = boost::asio::ip::make_address ("a41d:b7b2::"); // start of the network range
 	auto address3 = boost::asio::ip::make_address ("a41d:b7b2::1");
 	auto address4 = boost::asio::ip::make_address ("a41d:b7b2:ffff:ffff:ffff:ffff:ffff:ffff"); // end of the network range
@@ -303,7 +303,7 @@ TEST (socket, DISABLED_concurrent_writes)
  *
  *   NOTE: it is possible that the O/S has tried to access the IP address 10.255.254.253 before
  *   and has it marked in the routing table as unroutable. In that case this test case will fail.
- *   If this test is run repeadetly the tests fails for this reason because the connection fails
+ *   If this test is run repeatedly the tests fails for this reason because the connection fails
  *   with "No route to host" error instead of a timeout.
  */
 TEST (socket_timeout, connect)
@@ -318,7 +318,7 @@ TEST (socket_timeout, connect)
 	// I use the un-routable IP address 10.255.254.253, which is likely to not exist
 	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::make_address_v6 ("::ffff:10.255.254.253"), 1234);
 
-	// create a client socket and try to connect to the IP address that wil not respond
+	// create a client socket and try to connect to the IP address that will not respond
 	auto socket = std::make_shared<nano::transport::tcp_socket> (*node);
 	std::atomic<bool> done = false;
 	boost::system::error_code ec;

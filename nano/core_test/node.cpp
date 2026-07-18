@@ -2875,7 +2875,7 @@ TEST (node, node_sequence)
 
 /**
  * This test checks that a node can generate a self generated vote to rollback an election.
- * It also checks that the vote aggregrator replies with the election winner at the time.
+ * It also checks that the vote aggregator replies with the election winner at the time.
  */
 TEST (node, rollback_vote_self)
 {

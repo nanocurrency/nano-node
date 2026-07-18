@@ -337,27 +337,27 @@ void nano::ledger_processor::state_block_impl (nano::state_block & block_a)
 				{
 					// Account already exists
 					epoch = info.epoch ();
-					result = block_a.hashables.previous.is_zero () ? nano::block_status::fork : nano::block_status::progress; // Has this account already been opened? (Ambigious)
+					result = block_a.hashables.previous.is_zero () ? nano::block_status::fork : nano::block_status::progress; // Has this account already been opened? (Ambiguous)
 					if (result == nano::block_status::progress)
 					{
-						result = ledger.store.block.exists (transaction, block_a.hashables.previous) ? nano::block_status::progress : nano::block_status::gap_previous; // Does the previous block exist in the ledger? (Unambigious)
+						result = ledger.store.block.exists (transaction, block_a.hashables.previous) ? nano::block_status::progress : nano::block_status::gap_previous; // Does the previous block exist in the ledger? (Unambiguous)
 						if (result == nano::block_status::progress)
 						{
 							is_send = block_a.hashables.balance < info.balance;
 							is_receive = !is_send && !block_a.hashables.link.is_zero ();
 							amount = is_send ? (info.balance.number () - amount.number ()) : (amount.number () - info.balance.number ());
-							result = block_a.hashables.previous == info.head ? nano::block_status::progress : nano::block_status::fork; // Is the previous block the account's head block? (Ambigious)
+							result = block_a.hashables.previous == info.head ? nano::block_status::progress : nano::block_status::fork; // Is the previous block the account's head block? (Ambiguous)
 						}
 					}
 				}
 				else
 				{
 					// Account does not yet exists
-					result = block_a.previous ().is_zero () ? nano::block_status::progress : nano::block_status::gap_previous; // Does the first block in an account yield 0 for previous() ? (Unambigious)
+					result = block_a.previous ().is_zero () ? nano::block_status::progress : nano::block_status::gap_previous; // Does the first block in an account yield 0 for previous() ? (Unambiguous)
 					if (result == nano::block_status::progress)
 					{
 						is_receive = true;
-						result = !block_a.hashables.link.is_zero () ? nano::block_status::progress : nano::block_status::gap_source; // Is the first block receiving from a send ? (Unambigious)
+						result = !block_a.hashables.link.is_zero () ? nano::block_status::progress : nano::block_status::gap_source; // Is the first block receiving from a send ? (Unambiguous)
 					}
 				}
 				if (result == nano::block_status::progress)
@@ -475,10 +475,10 @@ void nano::ledger_processor::epoch_block_impl (nano::state_block & block_a)
 				if (!account_error)
 				{
 					// Account already exists
-					result = block_a.hashables.previous.is_zero () ? nano::block_status::fork : nano::block_status::progress; // Has this account already been opened? (Ambigious)
+					result = block_a.hashables.previous.is_zero () ? nano::block_status::fork : nano::block_status::progress; // Has this account already been opened? (Ambiguous)
 					if (result == nano::block_status::progress)
 					{
-						result = block_a.hashables.previous == info.head ? nano::block_status::progress : nano::block_status::fork; // Is the previous block the account's head block? (Ambigious)
+						result = block_a.hashables.previous == info.head ? nano::block_status::progress : nano::block_status::fork; // Is the previous block the account's head block? (Ambiguous)
 						if (result == nano::block_status::progress)
 						{
 							result = block_a.hashables.representative == info.representative ? nano::block_status::progress : nano::block_status::representative_mismatch;

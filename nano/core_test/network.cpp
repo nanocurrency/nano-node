@@ -130,7 +130,7 @@ TEST (network, last_contacted)
 	ASSERT_EQ (0, node0->network.size ());
 
 	nano::node_config node1_config = system.default_config ();
-	node1_config.tcp->max_inbound_connections = 0; // Prevent ephemeral node1->node0 channel repacement with incoming connection
+	node1_config.tcp->max_inbound_connections = 0; // Prevent ephemeral node1->node0 channel replacement with incoming connection
 	auto node1 (std::make_shared<nano::node> (nano::unique_path (), node1_config, system.work, nano::node_flags{}));
 	node1->start ();
 	system.nodes.push_back (node1);
@@ -987,7 +987,7 @@ TEST (network, reconnect_cached)
 	auto channel1 = channels1.front ();
 	auto channel2 = channels2.front ();
 
-	// Enusre current peers are cached
+	// Ensure current peers are cached
 	node1.peer_history.trigger ();
 	node2.peer_history.trigger ();
 	ASSERT_TIMELY_EQ (5s, node1.peer_history.size (), 1);

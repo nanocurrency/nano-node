@@ -48,7 +48,7 @@ private:
 };
 
 /**
- * Allocates database write access in a fair maner rather than directly waiting for mutex aquisition
+ * Allocates database write access in a fair maner rather than directly waiting for mutex acquisition
  * Users should wait() for access to database write transaction and hold the write_guard until complete
  */
 class write_queue final

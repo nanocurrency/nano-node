@@ -4090,7 +4090,7 @@ TEST (rpc, json_block_output)
 	request.put ("hash", send->hash ().to_string ());
 	auto response (wait_response (system, rpc_ctx, request));
 
-	// Make sure contents contains a valid JSON subtree instread of stringified json
+	// Make sure contents contains a valid JSON subtree instead of stringified json
 	bool json_error{ false };
 	nano::send_block send_from_json (json_error, response.get_child ("contents"));
 	ASSERT_FALSE (json_error);
@@ -6185,7 +6185,7 @@ TEST (rpc, active_difficulty)
 // TODO: Use multiple threads to run io context
 TEST (rpc, simultaneous_calls)
 {
-	// This tests simulatenous calls to the same node in different threads
+	// This tests simultaneous calls to the same node in different threads
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
 

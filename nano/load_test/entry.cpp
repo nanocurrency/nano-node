@@ -487,7 +487,7 @@ account_info account_info_rpc (boost::asio::io_context & ioc, tcp::resolver::res
 	return account_info;
 }
 
-/** This launches a node and fires a lot of send/recieve RPC requests at it (configurable), then other nodes are tested to make sure they observe these blocks as well. */
+/** This launches a node and fires a lot of send/receive RPC requests at it (configurable), then other nodes are tested to make sure they observe these blocks as well. */
 int main (int argc, char * const * argv)
 {
 	nano::logger::initialize_for_tests (nano::log_config::tests_default ());

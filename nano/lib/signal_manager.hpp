@@ -66,7 +66,7 @@ private:
 	/** work object to make the thread run function live as long as a signal manager */
 	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work;
 
-	/** a list of descriptors to hold data contexts needed by the asyncronous handlers */
+	/** a list of descriptors to hold data contexts needed by the asynchronous handlers */
 	std::vector<signal_descriptor> descriptor_list;
 
 	/** thread to service the signal manager io context */

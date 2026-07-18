@@ -277,7 +277,7 @@ namespace test
 	bool process (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
 	/*
 	 * Convenience function to process multiple blocks as if they were live blocks arriving from the network
-	 * It is not guaranted that those blocks will be inserted into ledger (there might be forks, missing links etc)
+	 * It is not guaranteed that those blocks will be inserted into ledger (there might be forks, missing links etc)
 	 * @return true if all blocks were successfully processed
 	 */
 	bool process_live (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
@@ -342,12 +342,12 @@ namespace test
 	bool activate (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
 	/*
 	 * Convenience function that checks whether all hashes from list have currently active elections
-	 * @return true if all blocks have currently active elections, false othersie
+	 * @return true if all blocks have currently active elections, false otherwise
 	 */
 	bool active (nano::node & node, std::vector<nano::block_hash> hashes);
 	/*
 	 * Convenience function that checks whether all hashes from list have currently active elections
-	 * @return true if all blocks have currently active elections, false othersie
+	 * @return true if all blocks have currently active elections, false otherwise
 	 */
 	bool active (nano::node & node, std::vector<std::shared_ptr<nano::block>> blocks);
 	/*

@@ -43,7 +43,7 @@ TEST (network_filter, unit)
 		bool duplicate (filter.apply (bytes->data (), bytes->size () - header.size));
 		ASSERT_EQ (expect_duplicate_a, duplicate);
 
-		// Make sure the stream was rewinded correctly
+		// Make sure the stream was rewound correctly
 		auto block (nano::deserialize_block (stream, header.block_type ()));
 		ASSERT_NE (nullptr, block);
 		ASSERT_EQ (*block, *block_a);
@@ -111,7 +111,7 @@ TEST (network_filter, many)
 		ASSERT_TRUE (filter.check (bytes->data (), block->size));
 		ASSERT_FALSE (error);
 
-		// Make sure the stream was rewinded correctly
+		// Make sure the stream was rewound correctly
 		auto deserialized_block (nano::deserialize_block (stream, header.block_type ()));
 		ASSERT_NE (nullptr, deserialized_block);
 		ASSERT_EQ (*block, *deserialized_block);

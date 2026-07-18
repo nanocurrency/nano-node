@@ -681,7 +681,7 @@ TEST (history, pruned_source)
 	nano_qt::history history3 (ledger, key2.pub, *wallet);
 	history3.refresh ();
 	ASSERT_EQ (1, history3.model->rowCount ());
-	// Type is "Recieve" for open block because source block (send4) isn't removed
+	// Type is "Receive" for open block because source block (send4) isn't removed
 	auto type11 (history3.model->item (0, 0));
 	ASSERT_EQ ("Receive", type11->text ().toStdString ());
 	auto account11 (history3.model->item (0, 1));

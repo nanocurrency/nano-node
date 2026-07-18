@@ -272,7 +272,7 @@ TEST (rep_crawler, rep_local)
 
 // This test checks that if a block is in the recently_confirmed list then the repcrawler will not send a request for it.
 // The behaviour of this test previously was the opposite, that the repcrawler eventually send out such a block and deleted the block
-// from the recently confirmed list to try to make ammends for sending it, which is bad behaviour.
+// from the recently confirmed list to try to make amends for sending it, which is bad behaviour.
 // In the long term, we should have a better way to check for reps and this test should become redundant
 // DISABLED as behaviour changed, and we now only query confirmed blocks
 TEST (rep_crawler, DISABLED_recently_confirmed)

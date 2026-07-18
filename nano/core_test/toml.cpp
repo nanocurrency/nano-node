@@ -1076,21 +1076,21 @@ TEST (toml_config, log_config_defaults)
 
 	nano::tomlconfig toml;
 	toml.read (ss);
-	nano::log_config confg{};
+	nano::log_config config{};
 	nano::log_config defaults{};
-	confg.deserialize_toml (toml);
+	config.deserialize_toml (toml);
 
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
 
-	ASSERT_EQ (confg.default_level, defaults.default_level);
-	ASSERT_EQ (confg.flush_level, defaults.flush_level);
-	ASSERT_EQ (confg.levels, defaults.levels);
-	ASSERT_EQ (confg.console.enable, defaults.console.enable);
-	ASSERT_EQ (confg.console.colors, defaults.console.colors);
-	ASSERT_EQ (confg.console.to_cerr, defaults.console.to_cerr);
-	ASSERT_EQ (confg.file.enable, defaults.file.enable);
-	ASSERT_EQ (confg.file.max_size, defaults.file.max_size);
-	ASSERT_EQ (confg.file.rotation_count, defaults.file.rotation_count);
+	ASSERT_EQ (config.default_level, defaults.default_level);
+	ASSERT_EQ (config.flush_level, defaults.flush_level);
+	ASSERT_EQ (config.levels, defaults.levels);
+	ASSERT_EQ (config.console.enable, defaults.console.enable);
+	ASSERT_EQ (config.console.colors, defaults.console.colors);
+	ASSERT_EQ (config.console.to_cerr, defaults.console.to_cerr);
+	ASSERT_EQ (config.file.enable, defaults.file.enable);
+	ASSERT_EQ (config.file.max_size, defaults.file.max_size);
+	ASSERT_EQ (config.file.rotation_count, defaults.file.rotation_count);
 }
 
 TEST (toml_config, log_config_no_defaults)
@@ -1119,20 +1119,20 @@ TEST (toml_config, log_config_no_defaults)
 
 	nano::tomlconfig toml;
 	toml.read (ss);
-	nano::log_config confg{};
+	nano::log_config config{};
 	nano::log_config defaults{};
-	confg.deserialize_toml (toml);
+	config.deserialize_toml (toml);
 
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
 
-	ASSERT_NE (confg.default_level, defaults.default_level);
-	ASSERT_NE (confg.levels, defaults.levels);
-	ASSERT_NE (confg.console.enable, defaults.console.enable);
-	ASSERT_NE (confg.console.colors, defaults.console.colors);
-	ASSERT_NE (confg.console.to_cerr, defaults.console.to_cerr);
-	ASSERT_NE (confg.file.enable, defaults.file.enable);
-	ASSERT_NE (confg.file.max_size, defaults.file.max_size);
-	ASSERT_NE (confg.file.rotation_count, defaults.file.rotation_count);
+	ASSERT_NE (config.default_level, defaults.default_level);
+	ASSERT_NE (config.levels, defaults.levels);
+	ASSERT_NE (config.console.enable, defaults.console.enable);
+	ASSERT_NE (config.console.colors, defaults.console.colors);
+	ASSERT_NE (config.console.to_cerr, defaults.console.to_cerr);
+	ASSERT_NE (config.file.enable, defaults.file.enable);
+	ASSERT_NE (config.file.max_size, defaults.file.max_size);
+	ASSERT_NE (config.file.rotation_count, defaults.file.rotation_count);
 }
 
 TEST (toml_config, log_config_no_required)
@@ -1149,9 +1149,9 @@ TEST (toml_config, log_config_no_required)
 
 	nano::tomlconfig toml;
 	toml.read (ss);
-	nano::log_config confg{};
+	nano::log_config config{};
 	nano::log_config defaults{};
-	confg.deserialize_toml (toml);
+	config.deserialize_toml (toml);
 
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
 }
