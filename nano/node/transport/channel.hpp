@@ -36,6 +36,7 @@ public:
 
 public:
 	explicit channel (nano::node &);
+	channel (nano::node &, nano::transport::peer_info const &);
 	virtual ~channel () = default;
 
 	/// @returns true if the message was sent (or queued to be sent), false if it was immediately dropped

@@ -45,7 +45,7 @@ private:
 class tcp_channel final : public nano::transport::channel, public std::enable_shared_from_this<tcp_channel>
 {
 public:
-	tcp_channel (nano::node &, std::shared_ptr<nano::transport::tcp_socket>);
+	tcp_channel (nano::node &, std::shared_ptr<nano::transport::tcp_socket>, nano::transport::peer_info const &);
 	~tcp_channel () override;
 
 	void close () override;

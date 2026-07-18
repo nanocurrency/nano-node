@@ -128,10 +128,7 @@ auto nano::transport::tcp_channels::create (const std::shared_ptr<nano::transpor
 	nano::log::as_node_id (peer.node_id));
 
 	// This should be the only place in node where channels are created
-	auto channel = std::make_shared<nano::transport::tcp_channel> (node, socket);
-	channel->set_node_id (peer.node_id);
-	channel->set_network_version (peer.protocol_version);
-	channel->set_flags (peer.capabilities);
+	auto channel = std::make_shared<nano::transport::tcp_channel> (node, socket, peer);
 
 	attempts.get<endpoint_tag> ().erase (endpoint);
 
