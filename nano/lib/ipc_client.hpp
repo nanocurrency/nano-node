@@ -72,7 +72,7 @@ namespace ipc
 	std::vector<uint8_t> get_preamble (nano::ipc::payload_encoding encoding_a);
 
 	/**
-	 * Returns a buffer with an IPC preamble, followed by 32-bit BE lenght, followed by payload
+	 * Returns a buffer with an IPC preamble, followed by 32-bit BE length, followed by payload
 	 */
 	nano::shared_const_buffer prepare_flatbuffers_request (std::shared_ptr<flatbuffers::FlatBufferBuilder> const & flatbuffer_a);
 

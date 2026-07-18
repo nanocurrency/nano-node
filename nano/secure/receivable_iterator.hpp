@@ -7,7 +7,7 @@
 
 namespace nano
 {
-// This class iterates receivable enttries for an account
+// This class iterates receivable entries for an account
 template <typename Set>
 class receivable_iterator
 {

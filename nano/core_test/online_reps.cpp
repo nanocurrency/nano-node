@@ -85,7 +85,7 @@ TEST (online_reps, observe)
 	auto & node = *system.add_node ();
 	ASSERT_EQ (0, node.online_reps.online ());
 
-	// Addd genesis representative
+	// Add genesis representative
 	auto & node_rep = *system.add_node ();
 	system.wallet (1)->insert_adhoc (nano::dev::genesis_key.prv);
 

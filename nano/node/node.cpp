@@ -250,7 +250,7 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 		bootstrap.prioritize (election->account);
 	});
 
-	// TODO: Hook this direclty in the schedulers
+	// TODO: Hook this directly in the schedulers
 	backlog_scan.batch_activated.add ([this] (auto const & batch) {
 		auto transaction = ledger.tx_begin_read ();
 		for (auto const & info : batch)
@@ -472,7 +472,7 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	}
 
 	cementing_set.cemented_observers.add ([this] (auto const & block) {
-		// TODO: Is it neccessary to call this for all blocks?
+		// TODO: Is it necessary to call this for all blocks?
 		if (block->is_send ())
 		{
 			wallet_workers.post ([this, hash = block->hash (), destination = block->destination ()] () {
@@ -913,7 +913,7 @@ void nano::node::bootstrap_block (const nano::block_hash & hash)
 	if (!ledger.pruning || !store.pruned.exists (store.tx_begin_read (), hash))
 	{
 		// We don't have the block, try to bootstrap it
-		// TODO: Use ascending bootstraper to bootstrap block hash
+		// TODO: Use ascending bootstrapper to bootstrap block hash
 	}
 }
 

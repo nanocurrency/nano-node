@@ -90,7 +90,7 @@ TEST (ipc, synchronous)
 
 TEST (ipc, permissions_default_user)
 {
-	// Test empty/nonexistant access config. The default user still exists with default permissions.
+	// Test empty/nonexistent access config. The default user still exists with default permissions.
 	std::stringstream ss;
 	ss << R"toml(
 	)toml";

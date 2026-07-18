@@ -248,7 +248,7 @@ TEST (unchecked, multiple_get)
 	{
 		unchecked1.push_back (i.block->hash ());
 	}
-	// Asserts the payloads where correclty saved
+	// Asserts the payloads where correctly saved
 	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block1->hash ()) != unchecked1.end ());
 	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block2->hash ()) != unchecked1.end ());
 	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block3->hash ()) != unchecked1.end ());

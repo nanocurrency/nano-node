@@ -341,7 +341,7 @@ public:
 	// Account# / public key that operates this account
 	// Uses:
 	// Bulk signature validation in advance of further ledger processing
-	// Arranging uncomitted transactions by account
+	// Arranging uncommitted transactions by account
 	nano::account account;
 	// Previous transaction in this chain
 	nano::block_hash previous;

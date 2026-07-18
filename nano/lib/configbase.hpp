@@ -30,7 +30,7 @@ template <> inline std::string type_desc<uint32_t> (void) { return "a 32-bit uns
 template <> inline std::string type_desc<int64_t> (void) { return "a 64-bit signed integer"; }
 template <> inline std::string type_desc<uint64_t> (void) { return "a 64-bit unsigned integer"; }
 template <> inline std::string type_desc<float> (void) { return "a single precision floating point number"; }
-template <> inline std::string type_desc<double> (void) { return "a double precison floating point number"; }
+template <> inline std::string type_desc<double> (void) { return "a double precision floating point number"; }
 template <> inline std::string type_desc<char> (void) { return "a character"; }
 template <> inline std::string type_desc<std::string> (void) { return "a string"; }
 template <> inline std::string type_desc<bool> (void) { return "a boolean"; }

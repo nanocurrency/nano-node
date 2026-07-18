@@ -242,9 +242,9 @@ void nano::ipc::broker::service_register (std::string const & service_name_a, st
 void nano::ipc::broker::service_stop (std::string const & service_name_a)
 {
 	auto subscribers = service_stop_subscribers.lock ();
-	for (auto & subcription : subscribers.get ())
+	for (auto & subscription : subscribers.get ())
 	{
-		if (auto subscriber_l = subcription.subscriber.lock ())
+		if (auto subscriber_l = subscription.subscriber.lock ())
 		{
 			if (subscriber_l->get_service_name () == service_name_a)
 			{

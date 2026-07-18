@@ -55,7 +55,7 @@ private:
 	void run ();
 
 private:
-	using entry = std::pair<std::shared_future<void>, std::function<void ()>>; // <transaction commited future, notification callback>
+	using entry = std::pair<std::shared_future<void>, std::function<void ()>>; // <transaction committed future, notification callback>
 	std::deque<entry> notifications;
 
 	std::thread thread;

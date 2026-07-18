@@ -31,7 +31,7 @@ void bulk_pull::serialize (nano::stream & stream_a) const
 {
 	/*
 	 * Ensure the "count_present" flag is set if there
-	 * is a limit specifed.  Additionally, do not allow
+	 * is a limit specified.  Additionally, do not allow
 	 * the "count_present" flag with a value of 0, since
 	 * that is a sentinel which we use to mean "all blocks"
 	 * and that is the behavior of not having the flag set

@@ -80,7 +80,7 @@ void nano::ipc::access::clear ()
 	// Create default user. The node operator can add additional roles
 	// and permissions to the default user by adding a toml [[user]] entry
 	// without an id (or set it to the empty string).
-	// The default permissions can be overriden by marking the default user
+	// The default permissions can be overridden by marking the default user
 	// as bare, and then set specific permissions.
 	default_user.clear ();
 	default_user.id = "";

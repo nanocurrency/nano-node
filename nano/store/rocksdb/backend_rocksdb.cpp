@@ -225,7 +225,7 @@ void backend_rocksdb::open_db (std::filesystem::path const & path, nano::store::
 	table_options.data_block_index_type = ::rocksdb::BlockBasedTableOptions::DataBlockIndexType::kDataBlockBinaryAndHash;
 
 	// Using storage format_version 5
-	// Version 5 offers improved read spead, caching and better compression (if enabled)
+	// Version 5 offers improved read speed, caching and better compression (if enabled)
 	// Any existing ledger data in version 4 will not be migrated. New data will be written in version 5
 	table_options.format_version = 5;
 

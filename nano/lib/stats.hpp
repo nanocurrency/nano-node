@@ -170,7 +170,7 @@ private:
 	};
 
 	// Flat array for direct-indexed counter access
-	// Allocate on the heap to avoid stack overflows when intantiating the stats class in tests
+	// Allocate on the heap to avoid stack overflows when instantiating the stats class in tests
 	using counters_array_t = std::array<std::atomic<counter_value_t>, types_count * details_count * dirs_count>;
 	std::unique_ptr<counters_array_t> counters_impl;
 	counters_array_t & counters;
@@ -234,7 +234,7 @@ public:
 	{
 	}
 
-	/** Write a header enrty to the log */
+	/** Write a header entry to the log */
 	virtual void write_header (std::string const & header, std::chrono::system_clock::time_point & walltime)
 	{
 	}
