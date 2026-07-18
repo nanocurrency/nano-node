@@ -53,7 +53,7 @@ public:
 
 	// Maximum number of un-responded requests per channel, should be lower or equal to bootstrap server max queue size
 	std::size_t channel_limit{ 16 };
-	std::size_t rate_limit{ 500 };
+	std::size_t rate_limit{ 0 };
 	std::size_t database_rate_limit{ 250 };
 	std::size_t frontier_rate_limit{ 8 };
 	std::size_t database_warmup_ratio{ 10 };
