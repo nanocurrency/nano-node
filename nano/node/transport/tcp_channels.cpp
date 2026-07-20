@@ -99,7 +99,7 @@ auto nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, 
 	return channel_result::accepted;
 }
 
-auto nano::transport::tcp_channels::create (const std::shared_ptr<nano::transport::tcp_socket> & socket, const std::shared_ptr<nano::transport::tcp_server> & server, const nano::account & node_id, nano::node_capabilities_flags flags) -> create_result
+auto nano::transport::tcp_channels::create (const std::shared_ptr<nano::transport::tcp_socket> & socket, const std::shared_ptr<nano::transport::tcp_server> & server, const nano::transport::peer_info & peer) -> create_result
 {
 	auto const endpoint = socket->get_remote_endpoint ();
 	debug_assert (endpoint.address ().is_v6 ());
@@ -111,11 +111,11 @@ auto nano::transport::tcp_channels::create (const std::shared_ptr<nano::transpor
 		return { channel_result::rejected, nullptr };
 	}
 
-	auto const check_result = check (endpoint, node_id);
+	auto const check_result = check (endpoint, peer.node_id);
 	if (check_result != channel_result::accepted)
 	{
 		node.stats.inc (nano::stat::type::tcp_channels, nano::stat::detail::channel_rejected);
-		node.logger.debug (nano::log::type::tcp_channels, "Rejected channel: {} ({})", endpoint, nano::log::as_node_id (node_id));
+		node.logger.debug (nano::log::type::tcp_channels, "Rejected channel: {} ({})", endpoint, nano::log::as_node_id (peer.node_id));
 		// Rejection reason should be logged earlier
 
 		return { check_result, nullptr };
@@ -125,12 +125,10 @@ auto nano::transport::tcp_channels::create (const std::shared_ptr<nano::transpor
 	node.logger.debug (nano::log::type::tcp_channels, "Accepted channel: {} ({}) ({})",
 	socket->get_remote_endpoint (),
 	socket->get_endpoint_type (),
-	nano::log::as_node_id (node_id));
+	nano::log::as_node_id (peer.node_id));
 
 	// This should be the only place in node where channels are created
-	auto channel = std::make_shared<nano::transport::tcp_channel> (node, socket);
-	channel->set_node_id (node_id);
-	channel->set_flags (flags);
+	auto channel = std::make_shared<nano::transport::tcp_channel> (node, socket, peer);
 
 	attempts.get<endpoint_tag> ().erase (endpoint);
 

@@ -8,7 +8,7 @@ namespace nano
 namespace transport
 {
 	/**
-	 * Fake channel that connects to nothing and allows its attributes to be manipulated. Mostly useful for unit tests.
+	 * Fake channel that connects to nothing. Mostly useful for unit tests.
 	 **/
 	namespace fake
 	{
@@ -16,6 +16,7 @@ namespace transport
 		{
 		public:
 			explicit channel (nano::node &);
+			channel (nano::node &, nano::transport::peer_info const &);
 
 			std::string to_string () const override;
 

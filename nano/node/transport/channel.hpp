@@ -22,6 +22,13 @@ enum class transport_type : uint8_t
 	fake = 3
 };
 
+struct peer_info final
+{
+	nano::account node_id{};
+	uint8_t protocol_version{ 0 };
+	nano::node_capabilities_flags capabilities{};
+};
+
 class channel
 {
 public:
@@ -29,6 +36,7 @@ public:
 
 public:
 	explicit channel (nano::node &);
+	channel (nano::node &, nano::transport::peer_info const &);
 	virtual ~channel () = default;
 
 	/// @returns true if the message was sent (or queued to be sent), false if it was immediately dropped
@@ -87,38 +95,30 @@ public:
 
 	std::optional<nano::account> get_node_id_optional () const
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		return node_id;
+		if (peer.node_id.is_zero ())
+		{
+			return std::nullopt;
+		}
+		return peer.node_id;
 	}
 	nano::account get_node_id () const
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		return node_id.value_or (0);
-	}
-	void set_node_id (nano::account node_id_a)
-	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		node_id = node_id_a;
+		return peer.node_id;
 	}
 
 	uint8_t get_network_version () const
 	{
-		return network_version;
-	}
-	void set_network_version (uint8_t network_version_a)
-	{
-		network_version = network_version_a;
+		return peer.protocol_version;
 	}
 
 	nano::node_capabilities_flags get_flags () const
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		return flags;
+		return peer.capabilities;
 	}
-	void set_flags (nano::node_capabilities_flags value)
+
+	nano::transport::peer_info const & get_peer_info () const noexcept
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		flags = value;
+		return peer;
 	}
 
 	bool serves_ledger () const
@@ -145,9 +145,7 @@ private:
 	std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
 	std::chrono::steady_clock::time_point last_packet_received{ std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point last_packet_sent{ std::chrono::steady_clock::now () };
-	std::optional<nano::account> node_id{};
-	std::atomic<uint8_t> network_version{ 0 };
-	nano::node_capabilities_flags flags;
+	nano::transport::peer_info const peer;
 	std::optional<nano::endpoint> peering_endpoint{};
 	std::optional<nano::messages::keepalive> last_keepalive{};
 

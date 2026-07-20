@@ -357,7 +357,12 @@ auto nano::transport::tcp_server::process_handshake (nano::messages::node_id_han
 	{
 		if (node.network.verify_handshake_response (*message.response, get_remote_endpoint ()))
 		{
-			bool success = to_realtime_connection (message.response->node_id, message.response->flags ());
+			nano::transport::peer_info const peer{
+				.node_id = message.response->node_id,
+				.protocol_version = message.header.version_using,
+				.capabilities = message.response->flags (),
+			};
+			bool success = to_realtime_connection (peer);
 			if (success)
 			{
 				co_return handshake_status::realtime; // Switched to realtime
@@ -508,7 +513,7 @@ bool nano::transport::tcp_server::to_bootstrap_connection ()
 	return true;
 }
 
-bool nano::transport::tcp_server::to_realtime_connection (nano::account const & node_id, nano::node_capabilities_flags flags)
+bool nano::transport::tcp_server::to_realtime_connection (nano::transport::peer_info const & peer)
 {
 	if (node.flags.disable_tcp_realtime)
 	{
@@ -519,7 +524,7 @@ bool nano::transport::tcp_server::to_realtime_connection (nano::account const & 
 		return false;
 	}
 
-	auto create_result = node.network.tcp_channels.create (socket, shared_from_this (), node_id, flags);
+	auto create_result = node.network.tcp_channels.create (socket, shared_from_this (), peer);
 	if (!create_result.channel)
 	{
 		return false;

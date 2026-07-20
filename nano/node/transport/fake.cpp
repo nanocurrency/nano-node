@@ -7,11 +7,17 @@
 #include <boost/format.hpp>
 
 nano::transport::fake::channel::channel (nano::node & node) :
-	transport::channel{ node },
+	channel{ node, nano::transport::peer_info{
+				   .node_id = node.get_node_id (),
+				   .protocol_version = node.network_params.network.protocol_version,
+				   } }
+{
+}
+
+nano::transport::fake::channel::channel (nano::node & node, nano::transport::peer_info const & peer) :
+	transport::channel{ node, peer },
 	endpoint{ node.network.endpoint () }
 {
-	set_node_id (node.get_node_id ());
-	set_network_version (node.network_params.network.protocol_version);
 }
 
 /**

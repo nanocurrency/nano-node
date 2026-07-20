@@ -236,22 +236,20 @@ std::vector<std::shared_ptr<nano::block>> nano::test::clone (std::vector<std::sh
 
 std::shared_ptr<nano::transport::channel> nano::test::fake_channel (nano::node & node, nano::account node_id)
 {
-	auto channel = std::make_shared<nano::transport::fake::channel> (node);
-	if (!node_id.is_zero ())
-	{
-		channel->set_node_id (node_id);
-	}
-	return channel;
+	nano::transport::peer_info const peer{
+		.node_id = node_id.is_zero () ? node.get_node_id () : node_id,
+		.protocol_version = node.network_params.network.protocol_version,
+	};
+	return std::make_shared<nano::transport::fake::channel> (node, peer);
 }
 
 std::shared_ptr<nano::transport::test_channel> nano::test::test_channel (nano::node & node, nano::account node_id)
 {
-	auto channel = std::make_shared<nano::transport::test_channel> (node);
-	if (!node_id.is_zero ())
-	{
-		channel->set_node_id (node_id);
-	}
-	return channel;
+	nano::transport::peer_info const peer{
+		.node_id = node_id,
+		.protocol_version = node.network_params.network.protocol_version,
+	};
+	return std::make_shared<nano::transport::test_channel> (node, peer);
 }
 
 std::shared_ptr<nano::election> nano::test::start_election (nano::test::system & system, nano::node & node, const nano::block_hash & hash)

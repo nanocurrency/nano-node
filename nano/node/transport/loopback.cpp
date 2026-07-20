@@ -8,11 +8,12 @@
 #include <boost/format.hpp>
 
 nano::transport::loopback_channel::loopback_channel (nano::node & node) :
-	transport::channel{ node },
+	transport::channel{ node, nano::transport::peer_info{
+							  .node_id = node.get_node_id (),
+							  .protocol_version = node.network_params.network.protocol_version,
+							  } },
 	endpoint{ node.network.endpoint () }
 {
-	set_node_id (node.get_node_id ());
-	set_network_version (node.network_params.network.protocol_version);
 }
 
 bool nano::transport::loopback_channel::send_impl (nano::messages::message const & message, nano::transport::traffic_type traffic_type, nano::transport::channel::callback_t callback)

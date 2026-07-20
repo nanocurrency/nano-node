@@ -8,12 +8,12 @@
 #include <boost/format.hpp>
 
 nano::transport::inproc::channel::channel (nano::node & node, nano::node & destination) :
-	transport::channel{ node },
-	destination{ destination },
-	endpoint{ node.network.endpoint () }
+	transport::channel{ node, nano::transport::peer_info{
+							  .node_id = node.get_node_id (),
+							  .protocol_version = node.network_params.network.protocol_version,
+							  } },
+	destination{ destination }, endpoint{ node.network.endpoint () }
 {
-	set_node_id (node.get_node_id ());
-	set_network_version (node.network_params.network.protocol_version);
 }
 
 /**

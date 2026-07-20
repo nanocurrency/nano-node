@@ -44,7 +44,8 @@ nano::stat::detail to_stat_detail (peer_probe_status);
  * request concludes. The periodic update () tracks newly connected channels and drops closed ones; the
  * periodic decay () shrinks loads that drift upwards when responses are lost.
  *
- * Peer identity (node id) and capabilities are cached per entry so selection scans avoid locking each channel.
+ * Peer identity (node id) and capabilities are cached from the channel's immutable peer information for
+ * efficient selection scans.
  * Channels are held by shared_ptr and liveness is checked only in update (), so a closed channel may be
  * offered for up to one update interval;
  *
@@ -97,11 +98,11 @@ private: // Dependencies
 private:
 	struct entry
 	{
-		entry (std::shared_ptr<nano::transport::channel>, nano::account, nano::node_capabilities_flags);
+		entry (std::shared_ptr<nano::transport::channel>, nano::transport::peer_info const &);
 
 		std::shared_ptr<nano::transport::channel> channel;
 
-		// Cached so selection scans do not need to lock the channel
+		// Cached from the channel's immutable peer information for selection scans
 		nano::account node_id;
 		nano::node_capabilities_flags capabilities;
 
