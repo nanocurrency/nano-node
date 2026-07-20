@@ -3039,15 +3039,15 @@ void nano::json_handler::peers ()
 	{
 		std::stringstream text;
 		auto channel (*i);
+		auto const & peer = channel->get_peer_info ();
 		text << channel->to_string ();
 		if (peer_details)
 		{
 			boost::property_tree::ptree pending_tree;
-			pending_tree.put ("protocol_version", std::to_string (channel->get_network_version ()));
-			auto node_id_l (channel->get_node_id_optional ());
-			if (node_id_l.has_value ())
+			pending_tree.put ("protocol_version", std::to_string (peer.protocol_version));
+			if (!peer.node_id.is_zero ())
 			{
-				pending_tree.put ("node_id", node_id_l.value ().to_node_id ());
+				pending_tree.put ("node_id", peer.node_id.to_node_id ());
 			}
 			else
 			{
@@ -3061,7 +3061,7 @@ void nano::json_handler::peers ()
 
 			// Capabilities (extensions) the peer advertised during the node id handshake
 			boost::property_tree::ptree capabilities_l;
-			for (auto const & capability : nano::to_string_list (channel->get_flags ()))
+			for (auto const & capability : nano::to_string_list (peer.capabilities))
 			{
 				boost::property_tree::ptree entry;
 				entry.put ("", capability);
@@ -3073,7 +3073,7 @@ void nano::json_handler::peers ()
 		}
 		else
 		{
-			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), boost::property_tree::ptree (std::to_string (channel->get_network_version ()))));
+			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), boost::property_tree::ptree (std::to_string (peer.protocol_version))));
 		}
 	}
 	response_l.add_child ("peers", peers_l);

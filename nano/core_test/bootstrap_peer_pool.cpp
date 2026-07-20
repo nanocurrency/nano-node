@@ -1,8 +1,7 @@
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/peer_pool.hpp>
-#include <nano/node/transport/channel.hpp>
+#include <nano/node/transport/fake.hpp>
 #include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -15,9 +14,13 @@ class bootstrap_peer_pool : public ::testing::Test
 protected:
 	std::shared_ptr<nano::transport::channel> make_channel (nano::account node_id, nano::node_capabilities_flags capabilities = {})
 	{
-		auto channel = nano::test::fake_channel (system.node (0), node_id);
-		channel->set_flags (capabilities);
-		return channel;
+		auto & node = system.node (0);
+		nano::transport::peer_info const peer{
+			.node_id = node_id,
+			.protocol_version = node.network_params.network.protocol_version,
+			.capabilities = capabilities,
+		};
+		return std::make_shared<nano::transport::fake::channel> (node, peer);
 	}
 
 	nano::test::system system{ 1 };
@@ -113,20 +116,4 @@ TEST_F (bootstrap_peer_pool, probe_release_and_decay)
 	ASSERT_EQ (nano::bootstrap::peer_acquire_status::acquired, pool.acquire ().status);
 	pool.decay ();
 	ASSERT_EQ (nano::bootstrap::peer_probe_status::available, pool.probe ());
-}
-
-TEST_F (bootstrap_peer_pool, update_refreshes_cached_metadata)
-{
-	auto channel = make_channel ({ 1 }, nano::node_capabilities::topo_index);
-	pool.update ({ channel });
-	ASSERT_TRUE (pool.has_candidate (nano::node_capabilities::topo_index));
-
-	channel->set_node_id ({ 2 });
-	channel->set_flags (nano::node_capabilities::vote_storage);
-	pool.update ({ channel });
-
-	ASSERT_FALSE (pool.has_candidate (nano::node_capabilities::topo_index));
-	ASSERT_TRUE (pool.has_candidate (nano::node_capabilities::vote_storage));
-	auto result = pool.acquire (nano::node_capabilities::vote_storage);
-	ASSERT_EQ (nano::account{ 2 }, result.node_id);
 }

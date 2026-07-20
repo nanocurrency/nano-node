@@ -7,16 +7,15 @@
 #include <nano/secure/network_params.hpp>
 
 nano::transport::channel::channel (nano::node & node_a) :
-	node{ node_a },
-	network_version{ node_a.network_params.network.protocol_version }
+	channel{ node_a, nano::transport::peer_info{
+					 .protocol_version = node_a.network_params.network.protocol_version,
+					 } }
 {
 }
 
-nano::transport::channel::channel (nano::node & node_a, nano::transport::peer_info const & peer) :
+nano::transport::channel::channel (nano::node & node_a, nano::transport::peer_info const & peer_a) :
 	node{ node_a },
-	node_id{ peer.node_id },
-	network_version{ peer.protocol_version },
-	flags{ peer.capabilities }
+	peer{ peer_a }
 {
 }
 

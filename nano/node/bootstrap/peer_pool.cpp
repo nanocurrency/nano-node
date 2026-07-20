@@ -138,21 +138,12 @@ void peer_pool::update (std::deque<std::shared_ptr<nano::transport::channel>> co
 {
 	auto & by_channel = entries.get<tag_channel> ();
 
-	// Track new channels and refresh the cached identity of known ones
+	// Track new channels
 	for (auto const & channel : channels)
 	{
-		if (auto it = by_channel.find (channel); it != by_channel.end ())
+		if (by_channel.find (channel) == by_channel.end ())
 		{
-			[[maybe_unused]] auto success = by_channel.modify (it, [&channel] (auto & entry) {
-				entry.channel = channel;
-				entry.node_id = channel->get_node_id ();
-				entry.capabilities = channel->get_flags ();
-			});
-			debug_assert (success);
-		}
-		else
-		{
-			by_channel.emplace (channel, channel->get_node_id (), channel->get_flags ());
+			by_channel.emplace (channel, channel->get_peer_info ());
 		}
 	}
 
@@ -229,10 +220,10 @@ nano::stat::detail to_stat_detail (peer_probe_status status)
  * peer_pool::entry
  */
 
-peer_pool::entry::entry (std::shared_ptr<nano::transport::channel> channel_a, nano::account node_id_a, nano::node_capabilities_flags capabilities_a) :
+peer_pool::entry::entry (std::shared_ptr<nano::transport::channel> channel_a, nano::transport::peer_info const & peer) :
 	channel{ std::move (channel_a) },
-	node_id{ node_id_a },
-	capabilities{ capabilities_a }
+	node_id{ peer.node_id },
+	capabilities{ peer.capabilities }
 {
 }
 }
