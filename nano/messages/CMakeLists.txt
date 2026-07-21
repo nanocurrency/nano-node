@@ -31,6 +31,8 @@ add_library(
   publish.cpp
   telemetry.hpp
   telemetry.cpp
-  uniquers.hpp)
+  uniquers.hpp
+  vote_relay.hpp
+  vote_relay.cpp)
 
 target_link_libraries(nano_messages nano_lib secure Boost::endian)

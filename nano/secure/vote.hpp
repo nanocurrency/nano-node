@@ -8,10 +8,20 @@
 #include <boost/property_tree/ptree_fwd.hpp>
 
 #include <deque>
+#include <string_view>
 #include <vector>
 
 namespace nano
 {
+// Which votes satisfy a request: only final ones, or any vote
+enum class vote_finality : uint8_t
+{
+	final, // Only final votes
+	any, // Any vote, final or not
+};
+
+std::string_view to_string (vote_finality);
+
 /**
  * A representative's signed statement for a batch of block hashes.
  * The signature covers hash (): a fixed prefix, the hashes and the packed timestamp, so the same content signed by two representatives shares a hash () and differs only in full_hash ().
@@ -24,6 +34,8 @@ public:
 	vote () = default;
 	// Deserialize from stream, sets error on failure
 	vote (bool & error, nano::stream &);
+	// Deserialize a vote with a known number of hashes, leaving the rest of the stream unread
+	vote (bool & error, nano::stream &, uint8_t count);
 	// Sign the hashes with the representative's key; the timestamp is packed with the duration exponent and the hashes must fit max_hashes
 	vote (nano::account const &, nano::raw_key const &, nano::millis_t timestamp, uint8_t duration, std::vector<nano::block_hash> const & hashes);
 
@@ -55,6 +67,8 @@ public:
 	std::chrono::milliseconds duration () const;
 	// Whether the vote is final
 	bool is_final () const;
+	// Whether the vote meets the finality requirement
+	bool satisfies (nano::vote_finality) const;
 
 public:
 	// The vote timestamp packs the timestamp itself into the upper 60 bits and the duration exponent into the low 4 bits; the all-ones value marks a final vote
