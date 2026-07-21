@@ -169,6 +169,8 @@ enum class detail
 	telemetry_ack,
 	asc_pull_req,
 	asc_pull_ack,
+	vote_relay_req,
+	vote_relay_ack,
 	bulk_pull,
 	bulk_push,
 	frontier_req,
