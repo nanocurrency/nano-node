@@ -71,19 +71,19 @@ void nano::ledger::drop_extended_ledger_indices ()
 	}
 
 	logger.info (nano::log::type::ledger_upgrade, "Dropping delegator weight index...");
-	store.account_delegator_by_weight.clear ();
+	store.extended.account_delegator_by_weight.clear ();
 	logger.info (nano::log::type::ledger_upgrade, "Delegator weight index dropped");
 
 	logger.info (nano::log::type::ledger_upgrade, "Dropping receivable amount index...");
-	store.account_receivable_by_amount.clear ();
+	store.extended.account_receivable_by_amount.clear ();
 	logger.info (nano::log::type::ledger_upgrade, "Receivable amount index dropped");
 
 	logger.info (nano::log::type::ledger_upgrade, "Dropping receive block lookup index...");
-	store.receive_block_by_send_block.clear ();
+	store.extended.receive_block_by_send_block.clear ();
 	logger.info (nano::log::type::ledger_upgrade, "Receive block lookup index dropped");
 
 	logger.info (nano::log::type::ledger_upgrade, "Dropping account block height index...");
-	store.account_block_by_height.clear ();
+	store.extended.account_block_by_height.clear ();
 	logger.info (nano::log::type::ledger_upgrade, "Account block height index dropped");
 
 	flags.account_delegator_by_weight_index = false;
@@ -107,7 +107,7 @@ void nano::ledger::populate_receive_block_by_send_block_index ()
 	}
 
 	// Clear any partially populated index remains
-	store.receive_block_by_send_block.clear ();
+	store.extended.receive_block_by_send_block.clear ();
 
 	size_t const batch_size_populate = nano::is_dev_run () ? 2 : 16 * 1024 * 1024;
 
@@ -129,7 +129,7 @@ void nano::ledger::populate_receive_block_by_send_block_index ()
 			auto const & block = crawler->second.block;
 			if (block->is_receive ())
 			{
-				store.receive_block_by_send_block.put (txn, block->source (), crawler->first);
+				store.extended.receive_block_by_send_block.put (txn, block->source (), crawler->first);
 				++indexed;
 			}
 
@@ -160,7 +160,7 @@ void nano::ledger::populate_account_block_by_height_index ()
 	}
 
 	// Clear any partially populated index remains
-	store.account_block_by_height.clear ();
+	store.extended.account_block_by_height.clear ();
 
 	size_t const batch_size_populate = nano::is_dev_run () ? 2 : 16 * 1024 * 1024;
 
@@ -184,7 +184,7 @@ void nano::ledger::populate_account_block_by_height_index ()
 			release_assert (block, "missing block during account block height indexing", hash.to_string ());
 			release_assert (sideband.height != 0, "block height must be non-zero for account block height indexing", hash.to_string ());
 
-			store.account_block_by_height.put (txn, { block->account (), sideband.height }, hash);
+			store.extended.account_block_by_height.put (txn, { block->account (), sideband.height }, hash);
 			++processed;
 			if (processed % batch_size_populate == 0)
 			{
@@ -213,7 +213,7 @@ void nano::ledger::populate_account_delegator_by_weight_index ()
 	}
 
 	// Clear any partially populated index remains
-	store.account_delegator_by_weight.clear ();
+	store.extended.account_delegator_by_weight.clear ();
 
 	size_t const batch_size_populate = nano::is_dev_run () ? 2 : 16 * 1024 * 1024;
 
@@ -231,7 +231,7 @@ void nano::ledger::populate_account_delegator_by_weight_index ()
 				last_log = now;
 			}
 
-			store.account_delegator_by_weight.put (txn, { crawler->second.representative, crawler->second.balance, crawler->first });
+			store.extended.account_delegator_by_weight.put (txn, { crawler->second.representative, crawler->second.balance, crawler->first });
 
 			++processed;
 			if (processed % batch_size_populate == 0)
@@ -260,7 +260,7 @@ void nano::ledger::populate_account_receivable_by_amount_index ()
 	}
 
 	// Clear any partially populated index remains
-	store.account_receivable_by_amount.clear ();
+	store.extended.account_receivable_by_amount.clear ();
 
 	size_t const batch_size_populate = nano::is_dev_run () ? 2 : 16 * 1024 * 1024;
 
@@ -278,7 +278,7 @@ void nano::ledger::populate_account_receivable_by_amount_index ()
 				last_log = now;
 			}
 
-			store.account_receivable_by_amount.put (txn, { crawler->first.account, crawler->second.amount, crawler->first.hash }, { crawler->second.source, crawler->second.epoch });
+			store.extended.account_receivable_by_amount.put (txn, { crawler->first.account, crawler->second.amount, crawler->first.hash }, { crawler->second.source, crawler->second.epoch });
 
 			++processed;
 			if (processed % batch_size_populate == 0)

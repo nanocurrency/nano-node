@@ -48,22 +48,22 @@ nano::ledger_options extended_ledger_options ()
 
 void expect_receive_block_by_send_block_entry (nano::store::ledger_store & store, nano::store::transaction const & txn, nano::block_hash const & send_hash, nano::block_hash const & receive_hash)
 {
-	auto entry = store.receive_block_by_send_block.get (txn, send_hash);
+	auto entry = store.extended.receive_block_by_send_block.get (txn, send_hash);
 	ASSERT_TRUE (entry.has_value ());
 	ASSERT_EQ (receive_hash, entry.value ());
 }
 
 void expect_account_block_by_height_entry (nano::store::ledger_store & store, nano::store::transaction const & txn, nano::account const & account, uint64_t height, nano::block_hash const & hash)
 {
-	auto entry = store.account_block_by_height.get (txn, { account, height });
+	auto entry = store.extended.account_block_by_height.get (txn, { account, height });
 	ASSERT_TRUE (entry.has_value ());
 	ASSERT_EQ (hash, entry.value ());
 }
 
 void expect_account_receivable_by_amount_entry (nano::store::ledger_store & store, nano::store::transaction const & txn, nano::account const & account, nano::amount const & amount, nano::block_hash const & send_hash, nano::account const & source, nano::epoch epoch)
 {
-	auto it = store.account_receivable_by_amount.begin (txn, { account, amount, send_hash });
-	ASSERT_NE (store.account_receivable_by_amount.end (txn), it);
+	auto it = store.extended.account_receivable_by_amount.begin (txn, { account, amount, send_hash });
+	ASSERT_NE (store.extended.account_receivable_by_amount.end (txn), it);
 	ASSERT_EQ (account, it->first.account);
 	ASSERT_EQ (amount, it->first.amount);
 	ASSERT_EQ (send_hash, it->first.send_block_hash);
@@ -74,15 +74,15 @@ void expect_account_receivable_by_amount_entry (nano::store::ledger_store & stor
 void expect_no_account_receivable_by_amount_entry (nano::store::ledger_store & store, nano::store::transaction const & txn, nano::account const & account, nano::amount const & amount, nano::block_hash const & send_hash)
 {
 	auto const key = nano::account_receivable_by_amount_key{ account, amount, send_hash };
-	auto const end = store.account_receivable_by_amount.end (txn);
-	auto it = store.account_receivable_by_amount.begin (txn, key);
+	auto const end = store.extended.account_receivable_by_amount.end (txn);
+	auto it = store.extended.account_receivable_by_amount.begin (txn, key);
 	ASSERT_TRUE (it == end || it->first != key);
 }
 
 void expect_account_delegator_by_weight_entry (nano::store::ledger_store & store, nano::store::transaction const & txn, nano::account const & representative, nano::amount const & weight, nano::account const & delegator)
 {
-	auto it = store.account_delegator_by_weight.begin (txn, { representative, weight, delegator });
-	ASSERT_NE (store.account_delegator_by_weight.end (txn), it);
+	auto it = store.extended.account_delegator_by_weight.begin (txn, { representative, weight, delegator });
+	ASSERT_NE (store.extended.account_delegator_by_weight.end (txn), it);
 	ASSERT_EQ (representative, it->first.representative);
 	ASSERT_EQ (weight, it->first.weight);
 	ASSERT_EQ (delegator, it->first.delegator);
@@ -91,8 +91,8 @@ void expect_account_delegator_by_weight_entry (nano::store::ledger_store & store
 void expect_no_account_delegator_by_weight_entry (nano::store::ledger_store & store, nano::store::transaction const & txn, nano::account const & representative, nano::amount const & weight, nano::account const & delegator)
 {
 	auto const key = nano::account_delegator_by_weight_key{ representative, weight, delegator };
-	auto const end = store.account_delegator_by_weight.end (txn);
-	auto it = store.account_delegator_by_weight.begin (txn, key);
+	auto const end = store.extended.account_delegator_by_weight.end (txn);
+	auto it = store.extended.account_delegator_by_weight.begin (txn, key);
 	ASSERT_TRUE (it == end || it->first != key);
 }
 
@@ -271,11 +271,11 @@ TEST (ledger_extended_index, receive_block_by_send_block_populate)
 
 	{
 		auto txn = store->tx_begin_read ();
-		ASSERT_FALSE (store->receive_block_by_send_block.get (txn, chain.send1->hash ()).has_value ());
-		ASSERT_FALSE (store->receive_block_by_send_block.get (txn, chain.send2->hash ()).has_value ());
-		ASSERT_FALSE (store->receive_block_by_send_block.get (txn, chain.state_send1->hash ()).has_value ());
-		ASSERT_FALSE (store->receive_block_by_send_block.get (txn, chain.state_send2->hash ()).has_value ());
-		ASSERT_FALSE (store->receive_block_by_send_block.get (txn, unreceived_send->hash ()).has_value ());
+		ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, chain.send1->hash ()).has_value ());
+		ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, chain.send2->hash ()).has_value ());
+		ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, chain.state_send1->hash ()).has_value ());
+		ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, chain.state_send2->hash ()).has_value ());
+		ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, unreceived_send->hash ()).has_value ());
 	}
 
 	{
@@ -290,9 +290,9 @@ TEST (ledger_extended_index, receive_block_by_send_block_populate)
 	expect_receive_block_by_send_block_entry (*store, txn, chain.send2->hash (), chain.receive1->hash ());
 	expect_receive_block_by_send_block_entry (*store, txn, chain.state_send1->hash (), chain.state_open1->hash ());
 	expect_receive_block_by_send_block_entry (*store, txn, chain.state_send2->hash (), chain.state_receive1->hash ());
-	ASSERT_FALSE (store->receive_block_by_send_block.get (txn, unreceived_send->hash ()).has_value ());
-	ASSERT_FALSE (store->receive_block_by_send_block.get (txn, chain.change1->hash ()).has_value ());
-	ASSERT_FALSE (store->receive_block_by_send_block.get (txn, chain.state_change1->hash ()).has_value ());
+	ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, unreceived_send->hash ()).has_value ());
+	ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, chain.change1->hash ()).has_value ());
+	ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, chain.state_change1->hash ()).has_value ());
 	ASSERT_TRUE (store->version.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled));
 }
 
@@ -318,7 +318,7 @@ TEST (ledger_extended_index, receive_block_by_send_block_runtime)
 	process_genesis_legacy_send (ledger, pool, nano::dev::genesis->hash (), key.pub, nano::dev::constants.genesis_amount - 10, send);
 	{
 		auto txn = ledger.tx_begin_read ();
-		ASSERT_FALSE (store->receive_block_by_send_block.get (txn, send->hash ()).has_value ());
+		ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, send->hash ()).has_value ());
 	}
 
 	std::shared_ptr<nano::block> open;
@@ -335,7 +335,7 @@ TEST (ledger_extended_index, receive_block_by_send_block_runtime)
 		expect_receive_block_by_send_block_entry (*store, txn, send->hash (), open->hash ());
 
 		ASSERT_FALSE (ledger.rollback (txn, open->hash ()));
-		ASSERT_FALSE (store->receive_block_by_send_block.get (txn, send->hash ()).has_value ());
+		ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, send->hash ()).has_value ());
 	}
 }
 
@@ -368,7 +368,7 @@ TEST (ledger_extended_index, account_receivable_by_amount_populate)
 
 	{
 		auto txn = store->tx_begin_read ();
-		ASSERT_EQ (0, store->account_receivable_by_amount.count (txn));
+		ASSERT_EQ (0, store->extended.account_receivable_by_amount.count (txn));
 		ASSERT_EQ (4, store->pending.count (txn));
 	}
 
@@ -380,7 +380,7 @@ TEST (ledger_extended_index, account_receivable_by_amount_populate)
 	}
 
 	auto txn = store->tx_begin_read ();
-	ASSERT_EQ (store->pending.count (txn), store->account_receivable_by_amount.count (txn));
+	ASSERT_EQ (store->pending.count (txn), store->extended.account_receivable_by_amount.count (txn));
 	expect_account_receivable_by_amount_entry (*store, txn, key.pub, 10, send1->hash (), nano::dev::genesis_key.pub, nano::epoch::epoch_0);
 	expect_account_receivable_by_amount_entry (*store, txn, key.pub, 20, send2->hash (), nano::dev::genesis_key.pub, nano::epoch::epoch_0);
 	expect_account_receivable_by_amount_entry (*store, txn, key.pub, 20, send3->hash (), nano::dev::genesis_key.pub, nano::epoch::epoch_0);
@@ -457,7 +457,7 @@ TEST (ledger_extended_index, account_delegator_by_weight_populate)
 
 	{
 		auto txn = store->tx_begin_read ();
-		ASSERT_EQ (0, store->account_delegator_by_weight.count (txn));
+		ASSERT_EQ (0, store->extended.account_delegator_by_weight.count (txn));
 	}
 	{
 		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
@@ -467,7 +467,7 @@ TEST (ledger_extended_index, account_delegator_by_weight_populate)
 	}
 
 	auto txn = store->tx_begin_read ();
-	ASSERT_EQ (store->account.count (txn), store->account_delegator_by_weight.count (txn));
+	ASSERT_EQ (store->account.count (txn), store->extended.account_delegator_by_weight.count (txn));
 	expect_account_delegator_by_weight_entry (*store, txn, nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 60, nano::dev::genesis_key.pub);
 	expect_account_delegator_by_weight_entry (*store, txn, chain.representative.pub, 30, chain.key1.pub);
 	expect_account_delegator_by_weight_entry (*store, txn, chain.state_representative.pub, 30, chain.state_key.pub);
@@ -596,7 +596,7 @@ TEST (ledger_extended_index, account_block_by_height_populate)
 	}
 
 	auto txn = store->tx_begin_read ();
-	ASSERT_EQ (store->block.count (txn), store->account_block_by_height.count (txn));
+	ASSERT_EQ (store->block.count (txn), store->extended.account_block_by_height.count (txn));
 	expect_account_block_by_height_entry (*store, txn, nano::dev::genesis_key.pub, 1, nano::dev::genesis->hash ());
 	expect_account_block_by_height_entry (*store, txn, nano::dev::genesis_key.pub, 2, chain.send1->hash ());
 	expect_account_block_by_height_entry (*store, txn, nano::dev::genesis_key.pub, 3, chain.send2->hash ());
@@ -641,19 +641,19 @@ TEST (ledger_extended_index, account_block_by_height_runtime)
 	expect_account_block_by_height_entry (*store, txn, chain.state_key.pub, 3, chain.state_change1->hash ());
 
 	ASSERT_FALSE (ledger.rollback (txn, chain.state_change1->hash ()));
-	ASSERT_FALSE (store->account_block_by_height.get (txn, { chain.state_key.pub, 3 }).has_value ());
+	ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { chain.state_key.pub, 3 }).has_value ());
 	expect_account_block_by_height_entry (*store, txn, chain.state_key.pub, 2, chain.state_receive1->hash ());
 
 	ASSERT_FALSE (ledger.rollback (txn, chain.state_receive1->hash ()));
-	ASSERT_FALSE (store->account_block_by_height.get (txn, { chain.state_key.pub, 2 }).has_value ());
+	ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { chain.state_key.pub, 2 }).has_value ());
 	expect_account_block_by_height_entry (*store, txn, chain.state_key.pub, 1, chain.state_open1->hash ());
 
 	ASSERT_FALSE (ledger.rollback (txn, chain.change1->hash ()));
-	ASSERT_FALSE (store->account_block_by_height.get (txn, { chain.key1.pub, 3 }).has_value ());
+	ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { chain.key1.pub, 3 }).has_value ());
 	expect_account_block_by_height_entry (*store, txn, chain.key1.pub, 2, chain.receive1->hash ());
 
 	ASSERT_FALSE (ledger.rollback (txn, chain.receive1->hash ()));
-	ASSERT_FALSE (store->account_block_by_height.get (txn, { chain.key1.pub, 2 }).has_value ());
+	ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { chain.key1.pub, 2 }).has_value ());
 	expect_account_block_by_height_entry (*store, txn, chain.key1.pub, 1, chain.open1->hash ());
 }
 
@@ -761,19 +761,19 @@ TEST (ledger_extended_index, extended_ledger_indices_populate)
 		uint64_t account_block_count;
 		{
 			auto txn = ledger.tx_begin_read ();
-			ASSERT_EQ (store->block.count (txn), store->account_block_by_height.count (txn));
-			receive_block_count = store->receive_block_by_send_block.count (txn);
-			receivable_amount_count = store->account_receivable_by_amount.count (txn);
-			delegator_count = store->account_delegator_by_weight.count (txn);
-			account_block_count = store->account_block_by_height.count (txn);
+			ASSERT_EQ (store->block.count (txn), store->extended.account_block_by_height.count (txn));
+			receive_block_count = store->extended.receive_block_by_send_block.count (txn);
+			receivable_amount_count = store->extended.account_receivable_by_amount.count (txn);
+			delegator_count = store->extended.account_delegator_by_weight.count (txn);
+			account_block_count = store->extended.account_block_by_height.count (txn);
 		}
 		ledger.populate_extended_ledger_indices ();
 		{
 			auto txn = ledger.tx_begin_read ();
-			ASSERT_EQ (receive_block_count, store->receive_block_by_send_block.count (txn));
-			ASSERT_EQ (receivable_amount_count, store->account_receivable_by_amount.count (txn));
-			ASSERT_EQ (delegator_count, store->account_delegator_by_weight.count (txn));
-			ASSERT_EQ (account_block_count, store->account_block_by_height.count (txn));
+			ASSERT_EQ (receive_block_count, store->extended.receive_block_by_send_block.count (txn));
+			ASSERT_EQ (receivable_amount_count, store->extended.account_receivable_by_amount.count (txn));
+			ASSERT_EQ (delegator_count, store->extended.account_delegator_by_weight.count (txn));
+			ASSERT_EQ (account_block_count, store->extended.account_block_by_height.count (txn));
 		}
 	}
 
@@ -808,10 +808,10 @@ TEST (ledger_extended_index, extended_ledger_indices_drop)
 		process_legacy_and_state_chains (ledger, pool, chain);
 		process_genesis_state_send (ledger, pool, chain.state_send2->hash (), receivable_key.pub, nano::dev::constants.genesis_amount - 70, unreceived_send);
 		auto txn = ledger.tx_begin_read ();
-		ASSERT_FALSE (store->receive_block_by_send_block.empty (txn));
-		ASSERT_FALSE (store->account_receivable_by_amount.empty (txn));
-		ASSERT_FALSE (store->account_delegator_by_weight.empty (txn));
-		ASSERT_FALSE (store->account_block_by_height.empty (txn));
+		ASSERT_FALSE (store->extended.receive_block_by_send_block.empty (txn));
+		ASSERT_FALSE (store->extended.account_receivable_by_amount.empty (txn));
+		ASSERT_FALSE (store->extended.account_delegator_by_weight.empty (txn));
+		ASSERT_FALSE (store->extended.account_block_by_height.empty (txn));
 	}
 
 	{
@@ -838,10 +838,10 @@ TEST (ledger_extended_index, extended_ledger_indices_drop)
 	}
 
 	auto txn = store->tx_begin_read ();
-	ASSERT_TRUE (store->receive_block_by_send_block.empty (txn));
-	ASSERT_TRUE (store->account_receivable_by_amount.empty (txn));
-	ASSERT_TRUE (store->account_delegator_by_weight.empty (txn));
-	ASSERT_TRUE (store->account_block_by_height.empty (txn));
+	ASSERT_TRUE (store->extended.receive_block_by_send_block.empty (txn));
+	ASSERT_TRUE (store->extended.account_receivable_by_amount.empty (txn));
+	ASSERT_TRUE (store->extended.account_delegator_by_weight.empty (txn));
+	ASSERT_TRUE (store->extended.account_block_by_height.empty (txn));
 }
 
 /*

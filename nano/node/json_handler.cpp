@@ -1067,7 +1067,7 @@ void nano::json_handler::accounts_receivable ()
 			boost::property_tree::ptree peers_l;
 			if (node.ledger.flags.account_receivable_by_amount_index && should_sort)
 			{
-				for (auto i = node.store.account_receivable_by_amount.rupper_bound (transaction, account), n = node.store.account_receivable_by_amount.rend (transaction); i != n && peers_l.size () < count; ++i)
+				for (auto i = node.store.extended.account_receivable_by_amount.rupper_bound (transaction, account), n = node.store.extended.account_receivable_by_amount.rend (transaction); i != n && peers_l.size () < count; ++i)
 				{
 					auto const & key = i->first;
 					if (key.account != account || key.amount.number () < threshold.number ())
@@ -2310,7 +2310,7 @@ void nano::json_handler::delegators ()
 		boost::property_tree::ptree delegators;
 		if (node.ledger.flags.account_delegator_by_weight_index)
 		{
-			for (auto i = node.store.account_delegator_by_weight.rupper_bound (transaction, representative), n = node.store.account_delegator_by_weight.rend (transaction); i != n && delegators.size () < count; ++i)
+			for (auto i = node.store.extended.account_delegator_by_weight.rupper_bound (transaction, representative), n = node.store.extended.account_delegator_by_weight.rend (transaction); i != n && delegators.size () < count; ++i)
 			{
 				auto const & key = i->first;
 				if (key.representative != representative || key.weight.number () < threshold.number ())
@@ -2353,7 +2353,7 @@ void nano::json_handler::delegators_count ()
 		auto transaction (node.ledger.tx_begin_read ());
 		if (node.ledger.flags.account_delegator_by_weight_index)
 		{
-			for (auto i = node.store.account_delegator_by_weight.begin (transaction, { account, 0, 0 }), n = node.store.account_delegator_by_weight.end (transaction); i != n; ++i)
+			for (auto i = node.store.extended.account_delegator_by_weight.begin (transaction, { account, 0, 0 }), n = node.store.extended.account_delegator_by_weight.end (transaction); i != n; ++i)
 			{
 				if (i->first.representative != account)
 				{
@@ -3203,7 +3203,7 @@ void nano::json_handler::receivable ()
 		auto transaction = node.ledger.tx_begin_read ();
 		if (node.ledger.flags.account_receivable_by_amount_index && should_sort)
 		{
-			for (auto i = node.store.account_receivable_by_amount.rupper_bound (transaction, account), n = node.store.account_receivable_by_amount.rend (transaction); i != n && peers_l.size () < count; ++i)
+			for (auto i = node.store.extended.account_receivable_by_amount.rupper_bound (transaction, account), n = node.store.extended.account_receivable_by_amount.rend (transaction); i != n && peers_l.size () < count; ++i)
 			{
 				auto const & key = i->first;
 				if (key.account != account || key.amount.number () < threshold.number ())

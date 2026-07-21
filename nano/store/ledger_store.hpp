@@ -53,9 +53,6 @@ public:
 private:
 	std::unique_ptr<nano::store::backend> backend_impl;
 	std::unique_ptr<nano::store::ledger::successor_view> successor_impl;
-	std::unique_ptr<nano::store::ledger::account_delegator_by_weight_view> account_delegator_by_weight_impl;
-	std::unique_ptr<nano::store::ledger::account_receivable_by_amount_view> account_receivable_by_amount_impl;
-	std::unique_ptr<nano::store::ledger::account_block_by_height_view> account_block_by_height_impl;
 	std::unique_ptr<nano::store::ledger::block_view> block_impl;
 	std::unique_ptr<nano::store::ledger::account_view> account_impl;
 	std::unique_ptr<nano::store::ledger::pending_view> pending_impl;
@@ -66,15 +63,17 @@ private:
 	std::unique_ptr<nano::store::ledger::confirmation_height_view> confirmation_height_impl;
 	std::unique_ptr<nano::store::ledger::final_vote_view> final_vote_impl;
 	std::unique_ptr<nano::store::ledger::topology_view> topology_impl;
-	std::unique_ptr<nano::store::ledger::receive_block_by_send_block_view> receive_block_by_send_block_impl;
 	std::unique_ptr<nano::store::ledger::version_view> version_impl;
+
+	// Extended ledger tables
+	std::unique_ptr<nano::store::ledger::account_block_by_height_view> account_block_by_height_impl;
+	std::unique_ptr<nano::store::ledger::account_delegator_by_weight_view> account_delegator_by_weight_impl;
+	std::unique_ptr<nano::store::ledger::account_receivable_by_amount_view> account_receivable_by_amount_impl;
+	std::unique_ptr<nano::store::ledger::receive_block_by_send_block_view> receive_block_by_send_block_impl;
 
 public:
 	nano::store::backend & backend;
 	nano::store::ledger::successor_view & successor;
-	nano::store::ledger::account_delegator_by_weight_view & account_delegator_by_weight;
-	nano::store::ledger::account_receivable_by_amount_view & account_receivable_by_amount;
-	nano::store::ledger::account_block_by_height_view & account_block_by_height;
 	nano::store::ledger::block_view & block;
 	nano::store::ledger::account_view & account;
 	nano::store::ledger::pending_view & pending;
@@ -85,8 +84,16 @@ public:
 	nano::store::ledger::confirmation_height_view & confirmation_height;
 	nano::store::ledger::final_vote_view & final_vote;
 	nano::store::ledger::topology_view & topology;
-	nano::store::ledger::receive_block_by_send_block_view & receive_block_by_send_block;
 	nano::store::ledger::version_view & version;
+
+	// Extended ledger tables
+	struct
+	{
+		nano::store::ledger::account_block_by_height_view & account_block_by_height;
+		nano::store::ledger::account_delegator_by_weight_view & account_delegator_by_weight;
+		nano::store::ledger::account_receivable_by_amount_view & account_receivable_by_amount;
+		nano::store::ledger::receive_block_by_send_block_view & receive_block_by_send_block;
+	} extended;
 
 public:
 	static nano::store::backend_version_t constexpr version_minimum{ 21 };

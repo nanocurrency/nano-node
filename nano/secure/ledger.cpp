@@ -667,7 +667,7 @@ std::optional<nano::block_hash> nano::ledger::find_block_hash_by_height (secure:
 
 	if (flags.account_block_by_height_index)
 	{
-		if (auto indexed_hash = store.account_block_by_height.get (transaction, { account, height }))
+		if (auto indexed_hash = store.extended.account_block_by_height.get (transaction, { account, height }))
 		{
 			return indexed_hash;
 		}
@@ -741,7 +741,7 @@ std::shared_ptr<nano::block> nano::ledger::find_receive_block_by_send_hash (secu
 
 	if (flags.receive_block_by_send_block_index)
 	{
-		if (auto receive_block_hash = store.receive_block_by_send_block.get (transaction, send_block_hash))
+		if (auto receive_block_hash = store.extended.receive_block_by_send_block.get (transaction, send_block_hash))
 		{
 			return cemented.block_get (transaction, receive_block_hash.value ());
 		}
@@ -825,7 +825,7 @@ void nano::ledger::update_account (secure::write_transaction const & transaction
 	{
 		if (flags.account_delegator_by_weight_index && !old_a.head.is_zero ())
 		{
-			store.account_delegator_by_weight.del (transaction_a, { old_a.representative, old_a.balance, account_a });
+			store.extended.account_delegator_by_weight.del (transaction_a, { old_a.representative, old_a.balance, account_a });
 		}
 		if (old_a.head.is_zero () && new_a.open_block == new_a.head)
 		{
@@ -839,7 +839,7 @@ void nano::ledger::update_account (secure::write_transaction const & transaction
 		store.account.put (transaction_a, account_a, new_a);
 		if (flags.account_delegator_by_weight_index)
 		{
-			store.account_delegator_by_weight.put (transaction_a, { new_a.representative, new_a.balance, account_a });
+			store.extended.account_delegator_by_weight.put (transaction_a, { new_a.representative, new_a.balance, account_a });
 		}
 	}
 	else
@@ -848,7 +848,7 @@ void nano::ledger::update_account (secure::write_transaction const & transaction
 		store.account.del (transaction_a, account_a);
 		if (flags.account_delegator_by_weight_index && !old_a.head.is_zero ())
 		{
-			store.account_delegator_by_weight.del (transaction_a, { old_a.representative, old_a.balance, account_a });
+			store.extended.account_delegator_by_weight.del (transaction_a, { old_a.representative, old_a.balance, account_a });
 		}
 		release_assert (cache.account_count > 0);
 		--cache.account_count;
@@ -860,11 +860,11 @@ void nano::ledger::put_block (nano::store::write_transaction const & transaction
 	store.block.put (transaction_a, hash_a, block_a);
 	if (flags.account_block_by_height_index)
 	{
-		store.account_block_by_height.put (transaction_a, { block_a.account (), block_a.sideband ().height }, hash_a);
+		store.extended.account_block_by_height.put (transaction_a, { block_a.account (), block_a.sideband ().height }, hash_a);
 	}
 	if (flags.receive_block_by_send_block_index && block_a.is_receive ())
 	{
-		store.receive_block_by_send_block.put (transaction_a, block_a.source (), hash_a);
+		store.extended.receive_block_by_send_block.put (transaction_a, block_a.source (), hash_a);
 	}
 }
 
@@ -876,13 +876,13 @@ void nano::ledger::del_block (nano::store::write_transaction const & transaction
 		release_assert (block, "Block to be deleted was not found in the ledger");
 		if (flags.account_block_by_height_index)
 		{
-			store.account_block_by_height.del (transaction_a, { block->account (), block->sideband ().height });
+			store.extended.account_block_by_height.del (transaction_a, { block->account (), block->sideband ().height });
 		}
 		if (flags.receive_block_by_send_block_index)
 		{
 			if (block->is_receive ())
 			{
-				store.receive_block_by_send_block.del (transaction_a, block->source ());
+				store.extended.receive_block_by_send_block.del (transaction_a, block->source ());
 			}
 		}
 	}
@@ -895,13 +895,13 @@ void nano::ledger::put_pending (nano::store::write_transaction const & transacti
 	{
 		if (auto existing = store.pending.get (transaction_a, key_a))
 		{
-			store.account_receivable_by_amount.del (transaction_a, { key_a.account, existing->amount, key_a.hash });
+			store.extended.account_receivable_by_amount.del (transaction_a, { key_a.account, existing->amount, key_a.hash });
 		}
 	}
 	store.pending.put (transaction_a, key_a, info_a);
 	if (flags.account_receivable_by_amount_index)
 	{
-		store.account_receivable_by_amount.put (transaction_a, { key_a.account, info_a.amount, key_a.hash }, { info_a.source, info_a.epoch });
+		store.extended.account_receivable_by_amount.put (transaction_a, { key_a.account, info_a.amount, key_a.hash }, { info_a.source, info_a.epoch });
 	}
 }
 
@@ -911,7 +911,7 @@ void nano::ledger::del_pending (nano::store::write_transaction const & transacti
 	{
 		auto info = store.pending.get (transaction_a, key_a);
 		release_assert (info, "Receivable to be deleted was not found in the ledger");
-		store.account_receivable_by_amount.del (transaction_a, { key_a.account, info->amount, key_a.hash });
+		store.extended.account_receivable_by_amount.del (transaction_a, { key_a.account, info->amount, key_a.hash });
 	}
 	store.pending.del (transaction_a, key_a);
 }

@@ -29,9 +29,6 @@
 namespace nano::store
 {
 nano::store::column_schema const ledger_store::schema_current{
-	{ nano::store::table::account_block_by_height, "account_block_by_height" },
-	{ nano::store::table::account_delegator_by_weight, "account_delegator_by_weight" },
-	{ nano::store::table::account_receivable_by_amount, "account_receivable_by_amount" },
 	{ nano::store::table::blocks, "blocks" },
 	{ nano::store::table::accounts, "accounts" },
 	{ nano::store::table::pending, "pending" },
@@ -42,9 +39,13 @@ nano::store::column_schema const ledger_store::schema_current{
 	{ nano::store::table::peers, "peers" },
 	{ nano::store::table::confirmation_height, "confirmation_height" },
 	{ nano::store::table::final_votes, "final_votes" },
-	{ nano::store::table::receive_block_by_send_block, "receive_block_by_send_block" },
 	{ nano::store::table::topology, "topology" },
-	{ nano::store::table::meta, "meta" }
+	{ nano::store::table::meta, "meta" },
+	// Extended ledger tables
+	{ nano::store::table::account_block_by_height, "account_block_by_height" },
+	{ nano::store::table::account_delegator_by_weight, "account_delegator_by_weight" },
+	{ nano::store::table::account_receivable_by_amount, "account_receivable_by_amount" },
+	{ nano::store::table::receive_block_by_send_block, "receive_block_by_send_block" }
 };
 }
 
@@ -55,9 +56,6 @@ ledger_store::ledger_store (std::unique_ptr<nano::store::backend> backend_a, nan
 	logger{ logger_a },
 	backend_impl{ std::move (backend_a) },
 	successor_impl{ std::make_unique<nano::store::ledger::successor_view> (*backend_impl) },
-	account_delegator_by_weight_impl{ std::make_unique<nano::store::ledger::account_delegator_by_weight_view> (*backend_impl) },
-	account_receivable_by_amount_impl{ std::make_unique<nano::store::ledger::account_receivable_by_amount_view> (*backend_impl) },
-	account_block_by_height_impl{ std::make_unique<nano::store::ledger::account_block_by_height_view> (*backend_impl) },
 	block_impl{ std::make_unique<nano::store::ledger::block_view> (*backend_impl, *successor_impl) },
 	account_impl{ std::make_unique<nano::store::ledger::account_view> (*backend_impl) },
 	pending_impl{ std::make_unique<nano::store::ledger::pending_view> (*backend_impl) },
@@ -68,13 +66,13 @@ ledger_store::ledger_store (std::unique_ptr<nano::store::backend> backend_a, nan
 	confirmation_height_impl{ std::make_unique<nano::store::ledger::confirmation_height_view> (*backend_impl) },
 	final_vote_impl{ std::make_unique<nano::store::ledger::final_vote_view> (*backend_impl) },
 	topology_impl{ std::make_unique<nano::store::ledger::topology_view> (*backend_impl) },
-	receive_block_by_send_block_impl{ std::make_unique<nano::store::ledger::receive_block_by_send_block_view> (*backend_impl) },
 	version_impl{ std::make_unique<nano::store::ledger::version_view> (*backend_impl) },
+	account_block_by_height_impl{ std::make_unique<nano::store::ledger::account_block_by_height_view> (*backend_impl) },
+	account_delegator_by_weight_impl{ std::make_unique<nano::store::ledger::account_delegator_by_weight_view> (*backend_impl) },
+	account_receivable_by_amount_impl{ std::make_unique<nano::store::ledger::account_receivable_by_amount_view> (*backend_impl) },
+	receive_block_by_send_block_impl{ std::make_unique<nano::store::ledger::receive_block_by_send_block_view> (*backend_impl) },
 	backend{ *backend_impl },
 	successor{ *successor_impl },
-	account_delegator_by_weight{ *account_delegator_by_weight_impl },
-	account_receivable_by_amount{ *account_receivable_by_amount_impl },
-	account_block_by_height{ *account_block_by_height_impl },
 	block{ *block_impl },
 	account{ *account_impl },
 	pending{ *pending_impl },
@@ -85,8 +83,13 @@ ledger_store::ledger_store (std::unique_ptr<nano::store::backend> backend_a, nan
 	confirmation_height{ *confirmation_height_impl },
 	final_vote{ *final_vote_impl },
 	topology{ *topology_impl },
-	receive_block_by_send_block{ *receive_block_by_send_block_impl },
-	version{ *version_impl }
+	version{ *version_impl },
+	extended{
+		.account_block_by_height = *account_block_by_height_impl,
+		.account_delegator_by_weight = *account_delegator_by_weight_impl,
+		.account_receivable_by_amount = *account_receivable_by_amount_impl,
+		.receive_block_by_send_block = *receive_block_by_send_block_impl,
+	}
 {
 	// Skip automatic open/upgrade when defer_open is set (used for testing individual upgrades)
 	if (params.defer_open)
