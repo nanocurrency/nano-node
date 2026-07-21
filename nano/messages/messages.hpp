@@ -19,3 +19,4 @@
 #include <nano/messages/node_id_handshake.hpp>
 #include <nano/messages/publish.hpp>
 #include <nano/messages/telemetry.hpp>
+#include <nano/messages/vote_relay.hpp>
