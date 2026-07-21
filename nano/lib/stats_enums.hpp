@@ -286,6 +286,8 @@ enum class detail
 	telemetry_ack,
 	asc_pull_req,
 	asc_pull_ack,
+	vote_relay_req,
+	vote_relay_ack,
 
 	// dropped messages
 	confirm_ack_zero_account,
@@ -371,6 +373,8 @@ enum class detail
 	invalid_frontier_req_message,
 	invalid_asc_pull_req_message,
 	invalid_asc_pull_ack_message,
+	invalid_vote_relay_req_message,
+	invalid_vote_relay_ack_message,
 	outdated_version,
 
 	// network

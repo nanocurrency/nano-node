@@ -511,3 +511,20 @@ TEST (vote, full_hash_covers_account_and_signature)
 		ASSERT_NE (full_hash, changed.full_hash ()) << "signature byte " << index;
 	}
 }
+
+// A final vote satisfies either finality requirement, a non-final vote only the request for any vote
+TEST (vote, satisfies_finality)
+{
+	nano::keypair key;
+	auto const hashes = std::vector<nano::block_hash>{ nano::dev::genesis->hash () };
+	auto const vote_normal = nano::test::make_vote (key, hashes, nano::vote::timestamp_min, 0);
+	auto const vote_final = nano::test::make_final_vote (key, hashes);
+	ASSERT_FALSE (vote_normal->is_final ());
+	ASSERT_TRUE (vote_final->is_final ());
+
+	// Only the final vote passes a request for final votes, both pass a request for any vote
+	ASSERT_FALSE (vote_normal->satisfies (nano::vote_finality::final));
+	ASSERT_TRUE (vote_normal->satisfies (nano::vote_finality::any));
+	ASSERT_TRUE (vote_final->satisfies (nano::vote_finality::final));
+	ASSERT_TRUE (vote_final->satisfies (nano::vote_finality::any));
+}

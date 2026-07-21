@@ -12,6 +12,7 @@ enum class epoch : uint8_t;
 enum class network_type : uint16_t;
 enum class database_backend;
 enum class work_version;
+enum class vote_finality : uint8_t;
 
 class uint128_union;
 class uint256_union;

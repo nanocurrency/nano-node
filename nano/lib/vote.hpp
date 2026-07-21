@@ -8,16 +8,28 @@
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
 
+#include <string_view>
 #include <vector>
 
 namespace nano
 {
+// Which votes satisfy a request: only final ones, or any vote
+enum class vote_finality : uint8_t
+{
+	final, // Only final votes
+	any, // Any vote, final or not
+};
+
+std::string_view to_string (vote_finality);
+
 class vote final
 {
 public:
 	vote () = default;
 	vote (nano::vote const &) = default;
 	vote (bool & error, nano::stream &);
+	// Deserializes a vote with a known number of hashes, does not consume the rest of the stream
+	vote (bool & error, nano::stream &, uint8_t count);
 	vote (nano::account const &, nano::raw_key const &, nano::millis_t timestamp, uint8_t duration, std::vector<nano::block_hash> const & hashes);
 
 	void serialize (nano::stream &) const;
@@ -43,6 +55,8 @@ public:
 	uint8_t duration_bits () const;
 	std::chrono::milliseconds duration () const;
 	bool is_final () const;
+	// Whether the vote meets the finality requirement
+	bool satisfies (nano::vote_finality) const;
 
 public:
 	// The vote timestamp packs the timestamp itself into the upper 60 bits and the duration exponent into the low 4 bits; the all-ones value marks a final vote
