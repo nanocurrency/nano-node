@@ -10,6 +10,7 @@
 #include <nano/messages/node_id_handshake.hpp>
 #include <nano/messages/publish.hpp>
 #include <nano/messages/telemetry.hpp>
+#include <nano/messages/vote_relay.hpp>
 
 namespace nano::messages
 {
@@ -67,6 +68,14 @@ public:
 		default_handler (message);
 	}
 	virtual void asc_pull_ack (asc_pull_ack const & message)
+	{
+		default_handler (message);
+	}
+	virtual void vote_relay_req (vote_relay_req const & message)
+	{
+		default_handler (message);
+	}
+	virtual void vote_relay_ack (vote_relay_ack const & message)
 	{
 		default_handler (message);
 	}

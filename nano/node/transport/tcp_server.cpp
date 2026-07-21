@@ -487,6 +487,16 @@ void nano::transport::tcp_server::realtime_message_visitor::asc_pull_ack (const 
 	process = true;
 }
 
+void nano::transport::tcp_server::realtime_message_visitor::vote_relay_req (const nano::messages::vote_relay_req & message)
+{
+	process = true;
+}
+
+void nano::transport::tcp_server::realtime_message_visitor::vote_relay_ack (const nano::messages::vote_relay_ack & message)
+{
+	process = true;
+}
+
 /*
  *
  */

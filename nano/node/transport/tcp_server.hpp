@@ -94,6 +94,8 @@ private: // Visitors
 		void telemetry_ack (nano::messages::telemetry_ack const &) override;
 		void asc_pull_req (nano::messages::asc_pull_req const &) override;
 		void asc_pull_ack (nano::messages::asc_pull_ack const &) override;
+		void vote_relay_req (nano::messages::vote_relay_req const &) override;
+		void vote_relay_ack (nano::messages::vote_relay_ack const &) override;
 	};
 };
 }

@@ -28,6 +28,8 @@ enum class deserialize_message_status
 	invalid_frontier_req_message,
 	invalid_asc_pull_req_message,
 	invalid_asc_pull_ack_message,
+	invalid_vote_relay_req_message,
+	invalid_vote_relay_ack_message,
 	invalid_network,
 	outdated_version,
 	duplicate_publish_message,
