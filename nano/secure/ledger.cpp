@@ -873,7 +873,7 @@ void nano::ledger::del_block (nano::store::write_transaction const & transaction
 	if (flags.account_block_by_height_index || flags.receive_block_by_send_block_index)
 	{
 		auto block = store.block.get (transaction_a, hash_a);
-		release_assert (block, "Block to be deleted was not found in the ledger");
+		release_assert (block, "block to be deleted was not found in the ledger");
 		if (flags.account_block_by_height_index)
 		{
 			store.extended.account_block_by_height.del (transaction_a, { block->account (), block->sideband ().height });
@@ -891,13 +891,8 @@ void nano::ledger::del_block (nano::store::write_transaction const & transaction
 
 void nano::ledger::put_pending (nano::store::write_transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info const & info_a)
 {
-	if (flags.account_receivable_by_amount_index)
-	{
-		if (auto existing = store.pending.get (transaction_a, key_a))
-		{
-			store.extended.account_receivable_by_amount.del (transaction_a, { key_a.account, existing->amount, key_a.hash });
-		}
-	}
+	// A pending entry must never be overwritten, each send block creates its pending entry exactly once
+	debug_assert (!store.pending.exists (transaction_a, key_a), "pending entry already exists", key_a.hash.to_string ());
 	store.pending.put (transaction_a, key_a, info_a);
 	if (flags.account_receivable_by_amount_index)
 	{
@@ -910,7 +905,7 @@ void nano::ledger::del_pending (nano::store::write_transaction const & transacti
 	if (flags.account_receivable_by_amount_index)
 	{
 		auto info = store.pending.get (transaction_a, key_a);
-		release_assert (info, "Receivable to be deleted was not found in the ledger");
+		release_assert (info, "receivable to be deleted was not found in the ledger");
 		store.extended.account_receivable_by_amount.del (transaction_a, { key_a.account, info->amount, key_a.hash });
 	}
 	store.pending.del (transaction_a, key_a);
