@@ -1140,3 +1140,286 @@ TEST (handshake, signature_v3)
 		ASSERT_FALSE (message.validate (cookie));
 	}
 }
+
+TEST (message, vote_relay_req_serialization)
+{
+	std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes;
+	for (uint64_t i = 1; i <= 7; ++i)
+	{
+		roots_hashes.emplace_back (nano::block_hash{ i }, nano::root{ i + 100 });
+	}
+	std::vector<nano::account> reps;
+	for (uint64_t i = 1; i <= 3; ++i)
+	{
+		reps.emplace_back (i * 1000);
+	}
+	nano::messages::vote_relay_req req{ nano::dev::network_params.network, 12345, roots_hashes, reps, /* include_non_final */ true };
+
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		req.serialize (stream);
+	}
+
+	bool error = false;
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	nano::messages::message_header header (error, stream2);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (nano::messages::message_type::vote_relay_req, header.type);
+	ASSERT_EQ (bytes.size () - nano::messages::message_header::size, header.payload_length_bytes ());
+
+	nano::messages::vote_relay_req req2 (error, stream2, header);
+	ASSERT_FALSE (error);
+	ASSERT_TRUE (nano::at_end (stream2));
+
+	ASSERT_EQ (req.id, req2.id);
+	ASSERT_TRUE (req2.include_non_final ());
+	ASSERT_EQ (req.roots_hashes, req2.roots_hashes);
+	ASSERT_EQ (req.reps, req2.reps);
+}
+
+TEST (message, vote_relay_req_serialization_defaults)
+{
+	// A default request wants final votes only, from any representative
+	nano::messages::vote_relay_req req{ nano::dev::network_params.network, 1, { { nano::block_hash{ 42 }, nano::root{ 42 } } } };
+
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		req.serialize (stream);
+	}
+
+	bool error = false;
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	nano::messages::message_header header (error, stream2);
+	ASSERT_FALSE (error);
+
+	nano::messages::vote_relay_req req2 (error, stream2, header);
+	ASSERT_FALSE (error);
+	ASSERT_TRUE (nano::at_end (stream2));
+
+	ASSERT_EQ (req.id, req2.id);
+	ASSERT_FALSE (req2.include_non_final ());
+	ASSERT_EQ (req.roots_hashes, req2.roots_hashes);
+	ASSERT_TRUE (req2.reps.empty ());
+}
+
+TEST (message, vote_relay_req_invalid)
+{
+	// An empty request is a deserialization error
+	{
+		nano::messages::vote_relay_req req{ nano::dev::network_params.network };
+		req.id = 1;
+		req.update_header ();
+
+		std::vector<uint8_t> bytes;
+		{
+			nano::vectorstream stream (bytes);
+			req.serialize (stream);
+		}
+
+		bool error = false;
+		nano::bufferstream stream2 (bytes.data (), bytes.size ());
+		nano::messages::message_header header (error, stream2);
+		ASSERT_FALSE (error);
+
+		nano::messages::vote_relay_req req2 (error, stream2, header);
+		ASSERT_TRUE (error);
+	}
+	// A truncated payload is a deserialization error
+	{
+		nano::messages::vote_relay_req req{ nano::dev::network_params.network, 1, { { nano::block_hash{ 42 }, nano::root{ 42 } } } };
+
+		std::vector<uint8_t> bytes;
+		{
+			nano::vectorstream stream (bytes);
+			req.serialize (stream);
+		}
+		bytes.resize (bytes.size () - 10);
+
+		bool error = false;
+		nano::bufferstream stream2 (bytes.data (), bytes.size ());
+		nano::messages::message_header header (error, stream2);
+		ASSERT_FALSE (error);
+
+		nano::messages::vote_relay_req req2 (error, stream2, header);
+		ASSERT_TRUE (error);
+	}
+}
+
+TEST (message, vote_relay_ack_oversize)
+{
+	// A vote count exceeding max_votes is a deserialization error
+	nano::messages::vote_relay_ack ack{ nano::dev::network_params.network };
+	ack.id = 1;
+	ack.update_header ();
+
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		ack.header.serialize (stream);
+		nano::write_big_endian (stream, uint64_t{ 1 });
+		nano::write (stream, nano::narrow_cast<uint8_t> (nano::messages::vote_relay_ack::max_votes + 1));
+	}
+
+	bool error = false;
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	nano::messages::message_header header (error, stream2);
+	ASSERT_FALSE (error);
+
+	nano::messages::vote_relay_ack ack2 (error, stream2, header);
+	ASSERT_TRUE (error);
+}
+
+TEST (message, vote_relay_ack_serialization)
+{
+	// Votes with different hash counts to exercise the per vote framing
+	std::vector<std::shared_ptr<nano::vote>> votes;
+	for (uint64_t i = 1; i <= 3; ++i)
+	{
+		nano::keypair key;
+		std::vector<nano::block_hash> hashes;
+		for (uint64_t j = 0; j < i; ++j)
+		{
+			hashes.emplace_back (i * 10 + j);
+		}
+		votes.push_back (std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_max, nano::vote::duration_max, hashes));
+	}
+	nano::messages::vote_relay_ack ack{ nano::dev::network_params.network, 98765, votes };
+
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		ack.serialize (stream);
+	}
+
+	bool error = false;
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	nano::messages::message_header header (error, stream2);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (nano::messages::message_type::vote_relay_ack, header.type);
+	ASSERT_EQ (bytes.size () - nano::messages::message_header::size, header.payload_length_bytes ());
+
+	nano::messages::vote_relay_ack ack2 (error, stream2, header);
+	ASSERT_FALSE (error);
+	ASSERT_TRUE (nano::at_end (stream2));
+
+	ASSERT_EQ (ack.id, ack2.id);
+	ASSERT_EQ (votes.size (), ack2.votes.size ());
+	for (std::size_t i = 0; i < votes.size (); ++i)
+	{
+		ASSERT_EQ (*votes[i], *ack2.votes[i]);
+		ASSERT_FALSE (ack2.votes[i]->validate ()); // false => valid signature
+	}
+}
+
+TEST (message, vote_relay_req_serialization_max)
+{
+	// Request at maximum capacity: 255 (hash, root) pairs and 255 requested representatives
+	std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes;
+	for (uint64_t i = 1; i <= nano::messages::vote_relay_req::max_hashes; ++i)
+	{
+		roots_hashes.emplace_back (nano::block_hash{ i }, nano::root{ i });
+	}
+	std::vector<nano::account> reps;
+	for (uint64_t i = 1; i <= nano::messages::vote_relay_req::max_reps; ++i)
+	{
+		reps.emplace_back (i);
+	}
+	nano::messages::vote_relay_req req{ nano::dev::network_params.network, 12345, roots_hashes, reps, /* include_non_final */ true };
+
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		req.serialize (stream);
+	}
+
+	bool error = false;
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	nano::messages::message_header header (error, stream2);
+	ASSERT_FALSE (error);
+	// The maximum payload must fit the 16 bit length field in the header extensions
+	ASSERT_EQ (bytes.size () - nano::messages::message_header::size, header.payload_length_bytes ());
+
+	nano::messages::vote_relay_req req2 (error, stream2, header);
+	ASSERT_FALSE (error);
+	ASSERT_TRUE (nano::at_end (stream2));
+
+	ASSERT_EQ (req.id, req2.id);
+	ASSERT_EQ (req.roots_hashes, req2.roots_hashes);
+	ASSERT_EQ (req.reps, req2.reps);
+}
+
+TEST (message, vote_relay_ack_serialization_max_votes)
+{
+	// Ack at the maximum vote count
+	std::vector<std::shared_ptr<nano::vote>> votes;
+	for (uint64_t i = 0; i < nano::messages::vote_relay_ack::max_votes; ++i)
+	{
+		nano::keypair key;
+		votes.push_back (std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_max, nano::vote::duration_max, std::vector<nano::block_hash>{ nano::block_hash{ i + 1 } }));
+	}
+	nano::messages::vote_relay_ack ack{ nano::dev::network_params.network, 98765, votes };
+
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		ack.serialize (stream);
+	}
+
+	bool error = false;
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	nano::messages::message_header header (error, stream2);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (bytes.size () - nano::messages::message_header::size, header.payload_length_bytes ());
+
+	nano::messages::vote_relay_ack ack2 (error, stream2, header);
+	ASSERT_FALSE (error);
+	ASSERT_TRUE (nano::at_end (stream2));
+
+	ASSERT_EQ (votes.size (), ack2.votes.size ());
+	for (std::size_t i = 0; i < votes.size (); ++i)
+	{
+		ASSERT_EQ (*votes[i], *ack2.votes[i]);
+	}
+}
+
+TEST (message, vote_relay_ack_serialization_max_size)
+{
+	// Ack with the largest votes that still fit the 16 bit payload length: 7 votes with 255 hashes each
+	std::vector<std::shared_ptr<nano::vote>> votes;
+	for (uint64_t i = 0; i < 7; ++i)
+	{
+		nano::keypair key;
+		std::vector<nano::block_hash> hashes;
+		for (uint64_t j = 0; j < nano::vote::max_hashes; ++j)
+		{
+			hashes.emplace_back (i * 1000 + j + 1);
+		}
+		votes.push_back (std::make_shared<nano::vote> (key.pub, key.prv, nano::vote::timestamp_max, nano::vote::duration_max, hashes));
+	}
+	nano::messages::vote_relay_ack ack{ nano::dev::network_params.network, 98765, votes };
+
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		ack.serialize (stream);
+	}
+
+	bool error = false;
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	nano::messages::message_header header (error, stream2);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (bytes.size () - nano::messages::message_header::size, header.payload_length_bytes ());
+	ASSERT_LE (header.payload_length_bytes (), nano::messages::vote_relay_ack::max_payload);
+
+	nano::messages::vote_relay_ack ack2 (error, stream2, header);
+	ASSERT_FALSE (error);
+	ASSERT_TRUE (nano::at_end (stream2));
+
+	ASSERT_EQ (votes.size (), ack2.votes.size ());
+	for (std::size_t i = 0; i < votes.size (); ++i)
+	{
+		ASSERT_EQ (*votes[i], *ack2.votes[i]);
+	}
+}
