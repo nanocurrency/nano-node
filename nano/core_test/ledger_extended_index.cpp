@@ -46,32 +46,6 @@ nano::ledger_options extended_ledger_options ()
 	return nano::ledger_options{ .enable_extended_ledger_index = true };
 }
 
-void disable_extended_index_flags (nano::store::ledger_store & store)
-{
-	auto txn = store.tx_begin_write ();
-	store.version.put_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled, false);
-	store.version.put_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled, false);
-	store.version.put_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled, false);
-	store.version.put_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled, false);
-}
-
-void expect_extended_flags (nano::ledger const & ledger, bool expected)
-{
-	ASSERT_EQ (expected, ledger.flags.receive_block_by_send_block_index);
-	ASSERT_EQ (expected, ledger.flags.account_receivable_by_amount_index);
-	ASSERT_EQ (expected, ledger.flags.account_delegator_by_weight_index);
-	ASSERT_EQ (expected, ledger.flags.account_block_by_height_index);
-}
-
-void expect_persisted_extended_flags (nano::store::ledger_store & store, bool expected)
-{
-	auto txn = store.tx_begin_read ();
-	ASSERT_EQ (expected, store.version.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled));
-	ASSERT_EQ (expected, store.version.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled));
-	ASSERT_EQ (expected, store.version.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled));
-	ASSERT_EQ (expected, store.version.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled));
-}
-
 void expect_receive_block_by_send_block_entry (nano::store::ledger_store & store, nano::store::transaction const & txn, nano::block_hash const & send_hash, nano::block_hash const & receive_hash)
 {
 	auto entry = store.receive_block_by_send_block.get (txn, send_hash);
@@ -772,9 +746,15 @@ TEST (ledger_extended_index, extended_ledger_indices_populate)
 
 	{
 		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
-		expect_extended_flags (ledger, false);
+		ASSERT_FALSE (ledger.flags.receive_block_by_send_block_index);
+		ASSERT_FALSE (ledger.flags.account_receivable_by_amount_index);
+		ASSERT_FALSE (ledger.flags.account_delegator_by_weight_index);
+		ASSERT_FALSE (ledger.flags.account_block_by_height_index);
 		ledger.populate_extended_ledger_indices ();
-		expect_extended_flags (ledger, true);
+		ASSERT_TRUE (ledger.flags.receive_block_by_send_block_index);
+		ASSERT_TRUE (ledger.flags.account_receivable_by_amount_index);
+		ASSERT_TRUE (ledger.flags.account_delegator_by_weight_index);
+		ASSERT_TRUE (ledger.flags.account_block_by_height_index);
 		uint64_t receive_block_count;
 		uint64_t receivable_amount_count;
 		uint64_t delegator_count;
@@ -805,15 +785,13 @@ TEST (ledger_extended_index, extended_ledger_indices_populate)
 	expect_account_delegator_by_weight_entry (*store, txn, chain.state_representative.pub, 30, chain.state_key.pub);
 	expect_account_block_by_height_entry (*store, txn, chain.key1.pub, 3, chain.change1->hash ());
 	expect_account_block_by_height_entry (*store, txn, chain.state_key.pub, 3, chain.state_change1->hash ());
-	expect_persisted_extended_flags (*store, true);
 }
 
 /*
- * Verifies the shared drop path for extended indices. After building a ledger
- * with all extended tables populated, including mixed legacy/state chains and
- * one unreceived state send for the receivable amount table,
- * drop_extended_ledger_indices must clear all four tables and set both
- * in-memory and persisted flags to false.
+ * Verifies the shared drop path for extended indices, mirroring the
+ * --drop_extended_ledger_indices CLI which reopens the ledger without the
+ * extended index option. drop_extended_ledger_indices must clear all four
+ * tables and persistently disable the index flags.
  */
 TEST (ledger_extended_index, extended_ledger_indices_drop)
 {
@@ -837,10 +815,26 @@ TEST (ledger_extended_index, extended_ledger_indices_drop)
 	}
 
 	{
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger, extended_ledger_options () };
-		expect_extended_flags (ledger, true);
+		// Reopen without the extended index option, exactly like the drop CLI does
+		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
+		ASSERT_TRUE (ledger.flags.receive_block_by_send_block_index);
+		ASSERT_TRUE (ledger.flags.account_receivable_by_amount_index);
+		ASSERT_TRUE (ledger.flags.account_delegator_by_weight_index);
+		ASSERT_TRUE (ledger.flags.account_block_by_height_index);
 		ledger.drop_extended_ledger_indices ();
-		expect_extended_flags (ledger, false);
+		ASSERT_FALSE (ledger.flags.receive_block_by_send_block_index);
+		ASSERT_FALSE (ledger.flags.account_receivable_by_amount_index);
+		ASSERT_FALSE (ledger.flags.account_delegator_by_weight_index);
+		ASSERT_FALSE (ledger.flags.account_block_by_height_index);
+	}
+
+	{
+		// Reopen to check the disabled flags were persisted
+		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
+		ASSERT_FALSE (ledger.flags.receive_block_by_send_block_index);
+		ASSERT_FALSE (ledger.flags.account_receivable_by_amount_index);
+		ASSERT_FALSE (ledger.flags.account_delegator_by_weight_index);
+		ASSERT_FALSE (ledger.flags.account_block_by_height_index);
 	}
 
 	auto txn = store->tx_begin_read ();
@@ -848,16 +842,16 @@ TEST (ledger_extended_index, extended_ledger_indices_drop)
 	ASSERT_TRUE (store->account_receivable_by_amount.empty (txn));
 	ASSERT_TRUE (store->account_delegator_by_weight.empty (txn));
 	ASSERT_TRUE (store->account_block_by_height.empty (txn));
-	expect_persisted_extended_flags (*store, false);
 }
 
 /*
- * Verifies disabling behavior on reopen. The test first creates persisted
- * extended index data, reopens the ledger without the extended option so flags
- * are marked disabled, then processes another send and checks that disabled
- * runtime hooks do not append new extended-index rows.
+ * Verifies that persisted index flags remain authoritative on reopen. The test
+ * first creates persisted extended index data, then reopens the ledger without
+ * the extended index option and checks that the flags stay enabled, both in
+ * memory and in the store, and that processing another send keeps maintaining
+ * the extended index tables.
  */
-TEST (ledger_extended_index, extended_ledger_indices_disabled_on_reopen)
+TEST (ledger_extended_index, extended_ledger_indices_maintained_on_reopen)
 {
 	nano::logger logger;
 	nano::stats stats{ logger };
@@ -865,23 +859,35 @@ TEST (ledger_extended_index, extended_ledger_indices_disabled_on_reopen)
 	nano::work_pool pool{ nano::dev::network_params.network, 1 };
 	nano::keypair key;
 
+	std::shared_ptr<nano::block> send1;
 	{
 		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger, extended_ledger_options () };
-		std::shared_ptr<nano::block> send;
-		process_genesis_legacy_send (ledger, pool, nano::dev::genesis->hash (), key.pub, nano::dev::constants.genesis_amount - 10, send);
+		process_genesis_legacy_send (ledger, pool, nano::dev::genesis->hash (), key.pub, nano::dev::constants.genesis_amount - 10, send1);
 		auto txn = ledger.tx_begin_read ();
-		expect_account_receivable_by_amount_entry (*store, txn, key.pub, 10, send->hash (), nano::dev::genesis_key.pub, nano::epoch::epoch_0);
+		expect_account_receivable_by_amount_entry (*store, txn, key.pub, 10, send1->hash (), nano::dev::genesis_key.pub, nano::epoch::epoch_0);
 	}
 	{
+		// Reopen without the extended index option; the persisted flags win
 		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
-		expect_extended_flags (ledger, false);
-		expect_persisted_extended_flags (*store, false);
+		ASSERT_TRUE (ledger.flags.receive_block_by_send_block_index);
+		ASSERT_TRUE (ledger.flags.account_receivable_by_amount_index);
+		ASSERT_TRUE (ledger.flags.account_delegator_by_weight_index);
+		ASSERT_TRUE (ledger.flags.account_block_by_height_index);
 
-		auto latest = ledger.any.account_head (ledger.tx_begin_read (), nano::dev::genesis_key.pub);
-		std::shared_ptr<nano::block> send;
-		process_genesis_legacy_send (ledger, pool, latest, key.pub, nano::dev::constants.genesis_amount - 20, send);
+		std::shared_ptr<nano::block> send2;
+		process_genesis_legacy_send (ledger, pool, send1->hash (), key.pub, nano::dev::constants.genesis_amount - 20, send2);
 		auto txn = ledger.tx_begin_read ();
-		expect_no_account_receivable_by_amount_entry (*store, txn, key.pub, 10, send->hash ());
-		ASSERT_FALSE (store->account_block_by_height.get (txn, { nano::dev::genesis_key.pub, 3 }).has_value ());
+		expect_account_receivable_by_amount_entry (*store, txn, key.pub, 10, send2->hash (), nano::dev::genesis_key.pub, nano::epoch::epoch_0);
+		expect_account_block_by_height_entry (*store, txn, nano::dev::genesis_key.pub, 3, send2->hash ());
+		expect_account_delegator_by_weight_entry (*store, txn, nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 20, nano::dev::genesis_key.pub);
+		expect_no_account_delegator_by_weight_entry (*store, txn, nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 10, nano::dev::genesis_key.pub);
+	}
+	{
+		// Reopen once more to check the flags survived the reopen without the option
+		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
+		ASSERT_TRUE (ledger.flags.receive_block_by_send_block_index);
+		ASSERT_TRUE (ledger.flags.account_receivable_by_amount_index);
+		ASSERT_TRUE (ledger.flags.account_delegator_by_weight_index);
+		ASSERT_TRUE (ledger.flags.account_block_by_height_index);
 	}
 }

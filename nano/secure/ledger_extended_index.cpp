@@ -12,41 +12,28 @@
 
 #include <chrono>
 
+// Populate missing extended ledger indices when requested by options; persisted index flags remain authoritative otherwise
 void nano::ledger::initialize_extended_ledger_indices ()
 {
-	if (!options.enable_extended_ledger_index)
+	if (options.enable_extended_ledger_index && !flags.all_extended_ledger_indices_enabled ())
 	{
-		if (flags.any_extended_ledger_index_enabled () && store.get_mode () != nano::store::open_mode::read_only)
+		if (store.get_mode () == nano::store::open_mode::read_only)
 		{
-			logger.warn (nano::log::type::ledger, "Extended ledger index is disabled; existing extended ledger indices will be marked disabled and ignored");
-			auto txn = store.tx_begin_write ();
-			store.version.put_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled, false);
-			store.version.put_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled, false);
-			store.version.put_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled, false);
-			store.version.put_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled, false);
+			logger.warn (nano::log::type::ledger, "Extended ledger index is enabled but the ledger store is read-only; missing extended ledger indices cannot be populated");
 		}
-		flags.account_delegator_by_weight_index = false;
-		flags.account_receivable_by_amount_index = false;
-		flags.receive_block_by_send_block_index = false;
-		flags.account_block_by_height_index = false;
-		return;
+		else
+		{
+			populate_extended_ledger_indices ();
+		}
 	}
-
-	if (store.get_mode () == nano::store::open_mode::read_only)
+	else if (!options.enable_extended_ledger_index && flags.any_extended_ledger_index_enabled ())
 	{
-		return;
+		logger.info (nano::log::type::ledger, "Extended ledger index is not enabled, but existing extended ledger indices will continue to be maintained. To remove them, run the node with --drop_extended_ledger_indices");
 	}
-
-	populate_extended_ledger_indices ();
 }
 
 void nano::ledger::populate_extended_ledger_indices ()
 {
-	if (!flags.any_extended_ledger_index_disabled ())
-	{
-		return;
-	}
-
 	logger.info (nano::log::type::ledger_upgrade, "Populating extended ledger indices...");
 
 	if (!flags.account_delegator_by_weight_index)
@@ -119,9 +106,8 @@ void nano::ledger::populate_receive_block_by_send_block_index ()
 		total_blocks = store.block.count (txn);
 	}
 
-	logger.info (nano::log::type::ledger_upgrade, "Clearing receive block lookup index...");
+	// Clear any partially populated index remains
 	store.receive_block_by_send_block.clear ();
-	logger.info (nano::log::type::ledger_upgrade, "Receive block lookup index cleared");
 
 	size_t const batch_size_populate = nano::is_dev_run () ? 2 : 16 * 1024 * 1024;
 
@@ -157,6 +143,7 @@ void nano::ledger::populate_receive_block_by_send_block_index ()
 	}
 
 	flags.receive_block_by_send_block_index = true;
+
 	logger.info (nano::log::type::ledger_upgrade, "Receive block lookup index populated with {} entries", indexed);
 }
 
@@ -172,9 +159,8 @@ void nano::ledger::populate_account_block_by_height_index ()
 		total_blocks = store.block.count (txn);
 	}
 
-	logger.info (nano::log::type::ledger_upgrade, "Clearing account block height index...");
+	// Clear any partially populated index remains
 	store.account_block_by_height.clear ();
-	logger.info (nano::log::type::ledger_upgrade, "Account block height index cleared");
 
 	size_t const batch_size_populate = nano::is_dev_run () ? 2 : 16 * 1024 * 1024;
 
@@ -210,6 +196,7 @@ void nano::ledger::populate_account_block_by_height_index ()
 	}
 
 	flags.account_block_by_height_index = true;
+
 	logger.info (nano::log::type::ledger_upgrade, "Account block height index populated with {} entries", processed);
 }
 
@@ -225,9 +212,8 @@ void nano::ledger::populate_account_delegator_by_weight_index ()
 		total_accounts = store.account.count (txn);
 	}
 
-	logger.info (nano::log::type::ledger_upgrade, "Clearing delegator weight index...");
+	// Clear any partially populated index remains
 	store.account_delegator_by_weight.clear ();
-	logger.info (nano::log::type::ledger_upgrade, "Delegator weight index cleared");
 
 	size_t const batch_size_populate = nano::is_dev_run () ? 2 : 16 * 1024 * 1024;
 
@@ -257,6 +243,7 @@ void nano::ledger::populate_account_delegator_by_weight_index ()
 	}
 
 	flags.account_delegator_by_weight_index = true;
+
 	logger.info (nano::log::type::ledger_upgrade, "Delegator weight index populated with {} entries", processed);
 }
 
@@ -272,9 +259,8 @@ void nano::ledger::populate_account_receivable_by_amount_index ()
 		total_receivables = store.pending.count (txn);
 	}
 
-	logger.info (nano::log::type::ledger_upgrade, "Clearing receivable amount index...");
+	// Clear any partially populated index remains
 	store.account_receivable_by_amount.clear ();
-	logger.info (nano::log::type::ledger_upgrade, "Receivable amount index cleared");
 
 	size_t const batch_size_populate = nano::is_dev_run () ? 2 : 16 * 1024 * 1024;
 
@@ -304,5 +290,6 @@ void nano::ledger::populate_account_receivable_by_amount_index ()
 	}
 
 	flags.account_receivable_by_amount_index = true;
+
 	logger.info (nano::log::type::ledger_upgrade, "Receivable amount index populated with {} entries", processed);
 }

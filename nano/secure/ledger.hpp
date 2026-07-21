@@ -57,9 +57,9 @@ struct ledger_flags
 		return account_delegator_by_weight_index || account_receivable_by_amount_index || receive_block_by_send_block_index || account_block_by_height_index;
 	}
 
-	bool any_extended_ledger_index_disabled () const
+	bool all_extended_ledger_indices_enabled () const
 	{
-		return !account_delegator_by_weight_index || !account_receivable_by_amount_index || !receive_block_by_send_block_index || !account_block_by_height_index;
+		return account_delegator_by_weight_index && account_receivable_by_amount_index && receive_block_by_send_block_index && account_block_by_height_index;
 	}
 };
 
@@ -137,6 +137,8 @@ public:
 	using block_priority_result = std::pair<nano::amount, nano::priority_timestamp>;
 	block_priority_result block_priority (secure::transaction const &, nano::block const &) const;
 
+	void verify_consistency (secure::transaction const &) const;
+
 	uint64_t cemented_count () const;
 	uint64_t block_count () const;
 	uint64_t account_count () const;
@@ -144,8 +146,9 @@ public:
 	uint64_t backlog_size () const;
 	uint64_t max_backlog () const;
 
-	void verify_consistency (secure::transaction const &) const;
+	nano::container_info container_info () const;
 
+public: // Index management
 	/**
 	 * Walk every block in the ledger, compute and persist its topology height, then enable the topology index flag
 	 * Intended as a one-time offline upgrade for ledgers initialized before the topology index existed
@@ -194,8 +197,6 @@ public:
 	 */
 	void drop_extended_ledger_indices ();
 
-	nano::container_info container_info () const;
-
 public:
 	static nano::uint128_t const unit;
 
@@ -226,6 +227,7 @@ public:
 private:
 	void initialize ();
 	void initialize_extended_ledger_indices ();
+
 	void cement_one (secure::write_transaction &, nano::block const & block);
 
 	std::unique_ptr<ledger_set_any> any_impl;

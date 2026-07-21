@@ -792,9 +792,9 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				auto & logger = nano::default_logger ();
 				nano::stats stats{ logger };
 				auto store = nano::make_store (logger, stats, data_path, network_params.ledger, false, true, daemon_config.node);
-				nano::ledger ledger{ *store, network_params, stats, logger, nano::ledger_options{ .enable_extended_ledger_index = true } };
+				nano::ledger ledger{ *store, network_params, stats, logger };
 
-				if (ledger.flags.any_extended_ledger_index_disabled ())
+				if (!ledger.flags.all_extended_ledger_indices_enabled ())
 				{
 					ledger.populate_extended_ledger_indices ();
 					std::cout << "Extended ledger indices populated" << std::endl;
@@ -837,7 +837,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				auto & logger = nano::default_logger ();
 				nano::stats stats{ logger };
 				auto store = nano::make_store (logger, stats, data_path, network_params.ledger, false, true, daemon_config.node);
-				nano::ledger ledger{ *store, network_params, stats, logger, nano::ledger_options{ .enable_extended_ledger_index = false } };
+				nano::ledger ledger{ *store, network_params, stats, logger };
 
 				if (ledger.flags.any_extended_ledger_index_enabled ())
 				{
