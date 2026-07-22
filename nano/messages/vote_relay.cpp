@@ -159,7 +159,7 @@ vote_relay_ack::vote_relay_ack (nano::network_constants const & constants, id_t 
 	id{ id_a },
 	votes{ votes_a }
 {
-	debug_assert (votes.size () > 0);
+	// An empty ack is valid, it signals that no more votes will be sent for the request
 	debug_assert (votes.size () <= max_votes);
 
 	update_header ();
