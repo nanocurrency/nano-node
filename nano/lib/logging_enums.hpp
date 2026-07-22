@@ -94,6 +94,7 @@ enum class type
 	cementing_set,
 	bounded_backlog,
 	vote_replier,
+	vote_relay,
 	vote_rebroadcaster,
 	block_rebroadcaster,
 	migration,

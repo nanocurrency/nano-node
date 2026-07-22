@@ -73,6 +73,9 @@ public:
 	/** Whether the channel belongs to a known representative with principal weight */
 	bool is_pr (std::shared_ptr<nano::transport::channel> const &) const;
 
+	/** Find the channel for a representative account, returns nullptr if the rep is not known */
+	std::shared_ptr<nano::transport::channel> find (nano::account const &) const;
+
 	/** Total weight of the known representatives whose channels are alive */
 	nano::uint128_t total_weight () const;
 
