@@ -23,6 +23,7 @@ enum class traffic_type
 	vote_final,
 	vote_rebroadcast,
 	vote_reply,
+	vote_relay,
 	rep_crawler,
 	telemetry,
 	test,

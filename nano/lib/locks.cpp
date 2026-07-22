@@ -265,6 +265,8 @@ char const * nano::mutex_identifier (mutexes mutex)
 			return "network_filter";
 		case mutexes::vote_replier:
 			return "vote_replier";
+		case mutexes::vote_relay:
+			return "vote_relay";
 		case mutexes::state_block_signature_verification:
 			return "state_block_signature_verification";
 		case mutexes::telemetry:

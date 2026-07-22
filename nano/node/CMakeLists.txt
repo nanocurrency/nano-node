@@ -173,6 +173,10 @@ add_library(
   repcrawler.cpp
   rep_tiers.hpp
   rep_tiers.cpp
+  vote_relay.hpp
+  vote_relay.cpp
+  vote_relay_index.hpp
+  vote_relay_index.cpp
   vote_replier.hpp
   vote_replier.cpp
   rpc_callbacks.hpp

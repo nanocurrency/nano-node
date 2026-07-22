@@ -436,6 +436,17 @@ bool nano::rep_crawler::process (std::shared_ptr<nano::vote> const & vote, std::
 	return false;
 }
 
+std::shared_ptr<nano::transport::channel> nano::rep_crawler::find (nano::account const & account) const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	auto & by_account = reps.get<tag_account> ();
+	if (auto existing = by_account.find (account); existing != by_account.end ())
+	{
+		return existing->channel;
+	}
+	return nullptr;
+}
+
 nano::uint128_t nano::rep_crawler::total_weight () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
