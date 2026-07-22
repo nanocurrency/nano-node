@@ -10,6 +10,7 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/vote_processor.hpp>
+#include <nano/node/vote_relay.hpp>
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/wallet.hpp>
 
@@ -119,6 +120,15 @@ public:
 	void asc_pull_ack (nano::messages::asc_pull_ack const & message) override
 	{
 		node.bootstrap.process (message, channel);
+	}
+
+	void vote_relay_req (nano::messages::vote_relay_req const & message) override
+	{
+		// The relay counts the reason it did not take the request
+		if (!node.vote_relay.request (message, channel))
+		{
+			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::vote_relay_req, nano::stat::dir::in);
+		}
 	}
 
 	// Every other type is dropped, telemetry requests among them since telemetry has been broadcast since V25
