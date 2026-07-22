@@ -1,12 +1,7 @@
 #pragma once
 
-// clang-format off
-// <memory> must precede fwd.hpp: boost bug — fwd.hpp uses std::allocator without including <memory>
-#include <memory>
-#include <boost/multiprecision/fwd.hpp>
-// clang-format on
-
 #include <boost/functional/hash_fwd.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
 
 #include <array>
 #include <compare>

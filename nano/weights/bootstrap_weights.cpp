@@ -4,8 +4,6 @@
 #include <nano/weights/bootstrap_weights_beta.hpp>
 #include <nano/weights/bootstrap_weights_live.hpp>
 
-#include <boost/multiprecision/cpp_int.hpp>
-
 nano::bootstrap_weights nano::get_bootstrap_weights (nano::network_type type)
 {
 	std::vector<std::pair<std::string, std::string>> preconfigured;

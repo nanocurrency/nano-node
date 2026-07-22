@@ -3,8 +3,6 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/node/fwd.hpp>
 
-#include <boost/multiprecision/cpp_int.hpp>
-
 #include <vector>
 
 namespace nano

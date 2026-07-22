@@ -3,8 +3,6 @@
 #include <nano/store/db_val_templ.hpp>
 #include <nano/store/meta.hpp>
 
-#include <boost/multiprecision/cpp_int.hpp>
-
 namespace nano::store
 {
 meta_view::meta_view (nano::store::backend & backend_a) :

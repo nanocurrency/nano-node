@@ -1,7 +1,6 @@
 #include <nano/node/bootstrap/frontier_scan_index.hpp>
 
 #include <boost/multiprecision/cpp_dec_float.hpp>
-#include <boost/multiprecision/cpp_int.hpp>
 
 namespace nano::bootstrap
 {

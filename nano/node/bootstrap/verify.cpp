@@ -1,8 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/node/bootstrap/verify.hpp>
 
-#include <boost/multiprecision/cpp_int.hpp>
-
 #include <set>
 
 namespace nano::bootstrap

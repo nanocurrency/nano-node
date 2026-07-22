@@ -12,7 +12,6 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index_container.hpp>
-#include <boost/multiprecision/cpp_int.hpp>
 
 #include <memory>
 #include <thread>

@@ -6,8 +6,6 @@
 #include <nano/lib/keypair.hpp>
 #include <nano/lib/numbers.hpp>
 
-#include <boost/multiprecision/cpp_int.hpp>
-
 #include <chrono>
 #include <memory>
 

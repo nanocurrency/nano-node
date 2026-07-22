@@ -14,8 +14,6 @@
 #include <nano/store/typed_iterator.hpp>
 #include <nano/store/typed_iterator_templ.hpp>
 
-#include <boost/multiprecision/cpp_int.hpp>
-
 namespace nano::store
 {
 nano::store::column_schema const ledger_store::schema_v21{

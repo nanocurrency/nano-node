@@ -2,8 +2,6 @@
 #include <nano/secure/pending_info.hpp>
 #include <nano/secure/receivable_iterator.hpp>
 
-#include <boost/multiprecision/cpp_int.hpp>
-
 template <typename Set>
 nano::receivable_iterator<Set>::receivable_iterator ()
 {

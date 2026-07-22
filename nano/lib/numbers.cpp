@@ -9,7 +9,6 @@
 #include <nano/secure/network_params.hpp>
 
 #include <boost/io/ios_state.hpp>
-#include <boost/multiprecision/cpp_int.hpp>
 
 #include <algorithm>
 #include <ostream>

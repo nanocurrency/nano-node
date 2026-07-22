@@ -1,8 +1,6 @@
 #include <nano/secure/parallel_traversal.hpp>
 #include <nano/store/ledger/pending.hpp>
 
-#include <boost/multiprecision/cpp_int.hpp>
-
 namespace nano::store::ledger
 {
 pending_view::pending_view (nano::store::backend & backend_a) :

@@ -4,8 +4,6 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/numbers_templ.hpp>
 
-#include <boost/multiprecision/cpp_int.hpp>
-
 #include <unordered_map>
 
 /*
