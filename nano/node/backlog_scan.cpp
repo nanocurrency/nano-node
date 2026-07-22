@@ -118,12 +118,10 @@ void nano::backlog_scan::populate_backlog (nano::unique_lock<nano::mutex> & lock
 
 				auto const & [account, account_info] = *account_crawler;
 
-				conf_crawler.skip_to (account);
-
 				nano::confirmation_height_info conf_info{};
-				if (conf_crawler && conf_crawler->first == account)
+				if (auto const * found = conf_crawler.find (account))
 				{
-					conf_info = conf_crawler->second;
+					conf_info = found->second;
 				}
 
 				activated_info info{ account, account_info, conf_info };

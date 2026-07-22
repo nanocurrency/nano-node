@@ -10,52 +10,58 @@
 
 namespace nano::store
 {
+// Smallest key greater than current, or nullopt if current is the maximum value
+template <typename Key>
+	requires requires (Key const & key) { key.number (); }
+std::optional<Key> next_key (Key const & current)
+{
+	auto const next = inc_sat (current.number ());
+	if (next == current.number ())
+	{
+		return std::nullopt; // Saturated at the maximum value
+	}
+	return Key{ next };
+}
+
 /**
- * Traits to customize key handling for crawler iteration.
- * The default implementation assumes the iterator key is directly seekable.
- * Specialize this template for compound keys where seeking uses a subset of the key.
+ * Traits to customize group key handling for crawler iteration.
+ * The default implementation treats every entry as its own group.
+ * Specialize this template for compound keys where entries are grouped by a key prefix.
+ * Group keys must compare (==, <=>) consistently with the database byte order.
  */
 template <typename Key, typename Value>
 struct crawler_traits
 {
-	using seek_key_type = Key;
+	using group_key_type = Key;
 
-	// Create an iterator key from a seek key (for begin() calls)
-	static Key make_iterator_key (seek_key_type const & seek_key)
+	// Smallest full iterator key belonging to a group (for seeks)
+	static Key lower_bound_key (group_key_type const & group)
 	{
-		return seek_key;
+		return group;
 	}
 
-	// Extract the group key from an iterator key
-	static seek_key_type group_key (Key const & key)
+	// Extract the group key from a full iterator key
+	static group_key_type group_key (Key const & key)
 	{
 		return key;
 	}
 
-	// Compute the next group key
-	static seek_key_type next_group (seek_key_type const & current)
+	// Smallest key of the next group, nullopt when no further group is possible
+	static std::optional<group_key_type> next_group_key (group_key_type const & current)
 	{
-		return inc_sat (comparable (current));
-	}
-
-	// Get comparable value from key (for skip_to ordering)
-	static auto comparable (seek_key_type const & val)
-	{
-		return val.number ();
+		return next_key (current);
 	}
 };
 
 /**
  * Database cursor optimized for sequential scans with occasional random access.
  *
- * When processing sorted data (e.g., frontier lists from peers), consecutive keys are
- * often close together in the database. The crawler exploits this locality: both next()
- * and skip_to() first try a small number of sequential iterator increments. If the target
- * isn't found within that window, they fall back to an expensive database seek operation.
+ * When processing sorted data (e.g., frontier lists from peers), consecutive keys are often close together in the database.
+ * The crawler exploits this locality: group advancement and probing first try a small number of sequential iterator increments and only fall back to an expensive database seek when the target isn't found within that window.
  *
- * For compound keys (e.g., pending table's account+hash), entries can be grouped by
- * a key prefix via crawler_traits specialization. The next() method then advances to
- * the next distinct group rather than the next individual entry.
+ * For compound keys (e.g., pending table's account+hash), entries are grouped by a key prefix via crawler_traits specialization.
+ * operator++/next_entry() and find() operate on raw entries; next_group() and find_group() operate on whole groups.
+ * For simple keys every entry is its own group, so both levels coincide.
  */
 template <typename View, typename Transaction>
 class crawler
@@ -66,16 +72,16 @@ public:
 	using key_type = typename value_type::first_type;
 	using mapped_type = typename value_type::second_type;
 	using traits = crawler_traits<key_type, mapped_type>;
-	using seek_key_type = typename traits::seek_key_type;
+	using group_key_type = typename traits::group_key_type;
 
 	// Number of sequential iterations to try before falling back to seek
 	static constexpr size_t sequential_attempts = 10;
 
 public:
 	/**
-	 * Construct a crawler starting at the given seek key.
+	 * Construct a crawler positioned at the first entry with group key >= start.
 	 */
-	crawler (View const & view, Transaction & transaction, seek_key_type start = {}) :
+	crawler (View const & view, Transaction & transaction, group_key_type start = {}) :
 		view_{ view },
 		transaction_{ transaction },
 		it_{ view_.end (transaction_) },
@@ -84,13 +90,17 @@ public:
 		seek (start);
 	}
 
-	// Validity check
+	/**
+	 * @return true if the crawler is positioned at a valid entry
+	 */
 	explicit operator bool () const noexcept
 	{
 		return it_ != end_;
 	}
 
-	// Access current entry (precondition: valid)
+	/**
+	 * Access the current entry (precondition: valid).
+	 */
 	value_type const & operator* () const
 	{
 		release_assert (it_ != end_);
@@ -103,40 +113,52 @@ public:
 		return &(*it_);
 	}
 
-	crawler & operator++ ()
-	{
-		next ();
-		return *this;
-	}
-
-	// Get current group key (precondition: valid)
-	seek_key_type key () const
-	{
-		release_assert (it_ != end_);
-		return traits::group_key (it_->first);
-	}
-
-	// Get current full iterator key (precondition: valid)
-	key_type const & full_key () const
+	/**
+	 * @return full key of the current entry (precondition: valid)
+	 */
+	key_type const & key () const
 	{
 		release_assert (it_ != end_);
 		return it_->first;
 	}
 
 	/**
-	 * Seek to first entry >= target.
+	 * @return group key of the current entry (precondition: valid)
 	 */
-	void seek (seek_key_type const & target)
+	group_key_type group_key () const
 	{
-		it_ = view_.begin (transaction_, traits::make_iterator_key (target));
+		release_assert (it_ != end_);
+		return traits::group_key (it_->first);
 	}
 
 	/**
-	 * Move to the next logical entry (as defined by traits::group_key)
-	 * Tries sequential iteration before falling back to seek
+	 * Advance one raw entry, equivalent to next_entry ().
+	 */
+	crawler & operator++ ()
+	{
+		next_entry ();
+		return *this;
+	}
+
+	/**
+	 * Move to the next raw iterator entry, without group skipping.
 	 * @return true if still valid after advancing
 	 */
-	bool next ()
+	bool next_entry ()
+	{
+		if (it_ != end_)
+		{
+			++it_;
+		}
+		return it_ != end_;
+	}
+
+	/**
+	 * Move to the first entry of the next group, skipping the remaining entries of the current one.
+	 * Tries sequential iteration before falling back to seek.
+	 * @return true if still valid after advancing
+	 */
+	bool next_group ()
 	{
 		if (it_ == end_)
 		{
@@ -148,7 +170,7 @@ public:
 		// Try sequential iteration first
 		for (size_t count = 0; count < sequential_attempts && it_ != end_; ++count, ++it_)
 		{
-			if (traits::comparable (traits::group_key (it_->first)) != traits::comparable (starting_key))
+			if (traits::group_key (it_->first) != starting_key)
 			{
 				return true;
 			}
@@ -156,16 +178,14 @@ public:
 
 		if (it_ != end_)
 		{
-			// Sequential didn't reach next group, do a fresh seek
-			auto const next_key = traits::next_group (starting_key);
-
-			if (traits::comparable (next_key) > traits::comparable (starting_key))
+			// Sequential didn't reach the next group, do a fresh seek
+			if (auto const next = traits::next_group_key (starting_key))
 			{
-				seek (next_key);
+				seek (*next);
 			}
 			else
 			{
-				// Saturation: no more groups possible, move to end
+				// No group can exist past the maximum group key, move to end
 				it_ = view_.end (transaction_);
 			}
 		}
@@ -174,46 +194,90 @@ public:
 	}
 
 	/**
-	 * Skip to first entry with group key >= target (optimized seek)
-	 * Tries sequential iteration before falling back to seek
-	 * @return true if valid after skipping
+	 * Forward-only probe: advance to the first entry with key >= target.
+	 * A target behind the current position never matches and does not move the crawler.
+	 * @return pointer to the current entry if its key equals target, nullptr otherwise
 	 */
-	bool skip_to (seek_key_type const & target)
+	value_type const * find (key_type const & target)
 	{
 		if (it_ == end_)
 		{
-			return false;
+			return nullptr;
 		}
-
-		auto const target_val = traits::comparable (target);
 
 		// Try sequential iteration first
-		for (size_t count = 0; count < sequential_attempts && it_ != end_; ++count, ++it_)
+		for (size_t count = 0; it_ != end_; ++it_)
 		{
-			if (traits::comparable (traits::group_key (it_->first)) >= target_val)
+			// Never searches backwards, a target before the current position returns nullptr even if it exists
+			if (it_->first >= target)
 			{
-				return true;
+				return match_key (target);
+			}
+			if (++count >= sequential_attempts)
+			{
+				break;
 			}
 		}
+
+		// Sequential iteration ran off the end of the table, every entry was before the target
+		if (it_ == end_)
+		{
+			return nullptr;
+		}
+
+		// The window only saw entries before the target, the fallback seek must never move backwards
+		debug_assert (it_->first < target);
+
+		// Fall back to direct seek
+		it_ = view_.begin (transaction_, target);
+
+		return match_key (target);
+	}
+
+	/**
+	 * Forward-only probe: advance to the first entry with group key >= target.
+	 * A target behind the current group never matches and does not move the crawler.
+	 * @return pointer to the current entry if its group key equals target, nullptr otherwise
+	 */
+	value_type const * find_group (group_key_type const & target)
+	{
+		if (it_ == end_)
+		{
+			return nullptr;
+		}
+
+		// Try sequential iteration first
+		for (size_t count = 0; it_ != end_; ++it_)
+		{
+			// Never searches backwards, a target before the current position returns nullptr even if it exists
+			if (traits::group_key (it_->first) >= target)
+			{
+				return match_group (target);
+			}
+			if (++count >= sequential_attempts)
+			{
+				break;
+			}
+		}
+
+		// Sequential iteration ran off the end of the table, every group was before the target
+		if (it_ == end_)
+		{
+			return nullptr;
+		}
+
+		// The window only saw groups before the target, the fallback seek must never move backwards
+		debug_assert (traits::group_key (it_->first) < target);
 
 		// Fall back to direct seek
 		seek (target);
 
-		return it_ != end_;
-	}
-
-	/**
-	 * Seek back to the beginning of the range.
-	 */
-	void rewind ()
-	{
-		seek (seek_key_type{ 0 });
+		return match_group (target);
 	}
 
 	/**
 	 * Refresh the stored transaction and re-establish the iterator position.
-	 * After refresh, the crawler points to the same entry it was at before,
-	 * or the next valid entry if the original was deleted.
+	 * After refresh, the crawler points to the same entry it was at before, or the next valid entry if the original was deleted.
 	 */
 	void refresh ()
 	{
@@ -259,6 +323,33 @@ public:
 			return true;
 		}
 		return false;
+	}
+
+private:
+	// Seek to the first entry with group key >= target
+	void seek (group_key_type const & target)
+	{
+		it_ = view_.begin (transaction_, traits::lower_bound_key (target));
+	}
+
+	// Current entry if its key equals target, nullptr otherwise
+	value_type const * match_key (key_type const & target) const
+	{
+		if (it_ != end_ && it_->first == target)
+		{
+			return &(*it_);
+		}
+		return nullptr;
+	}
+
+	// Current entry if its group key equals target, nullptr otherwise
+	value_type const * match_group (group_key_type const & target) const
+	{
+		if (it_ != end_ && traits::group_key (it_->first) == target)
+		{
+			return &(*it_);
+		}
+		return nullptr;
 	}
 
 private:

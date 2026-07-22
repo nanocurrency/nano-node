@@ -42,18 +42,25 @@ private:
 
 /**
  * Specialization for pending table which has a compound key (account + hash).
- * Groups entries by account, so seek_key_type is nano::account.
+ * Groups entries by account, so group_key_type is nano::account.
  */
 template <>
-struct nano::store::crawler_traits<nano::pending_key, nano::pending_info> : nano::store::crawler_traits<nano::account, nano::pending_info>
+struct nano::store::crawler_traits<nano::pending_key, nano::pending_info>
 {
-	static nano::pending_key make_iterator_key (seek_key_type const & account)
+	using group_key_type = nano::account;
+
+	static nano::pending_key lower_bound_key (group_key_type const & account)
 	{
 		return nano::pending_key{ account, 0 };
 	}
 
-	static seek_key_type group_key (nano::pending_key const & key)
+	static group_key_type group_key (nano::pending_key const & key)
 	{
 		return key.account;
+	}
+
+	static std::optional<group_key_type> next_group_key (group_key_type const & current)
+	{
+		return next_key (current);
 	}
 };

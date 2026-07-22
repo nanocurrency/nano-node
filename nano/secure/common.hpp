@@ -4,6 +4,7 @@
 #include <nano/lib/numbers.hpp>
 
 #include <memory>
+#include <optional>
 
 namespace nano
 {
@@ -46,6 +47,9 @@ public:
 	uint64_t topo_height{ 0 };
 	nano::block_hash hash{ 0 };
 };
+
+// Smallest topology key greater than current, or nullopt if current is the maximum value
+std::optional<topo_key> next_key (topo_key const & current);
 
 /**
  * Information on an unchecked block

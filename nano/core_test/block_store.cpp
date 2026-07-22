@@ -1440,9 +1440,9 @@ TEST (block_store, topology_view_iteration_ordered_by_topo_height)
 	ASSERT_EQ (nano::block_hash{ 30 }, seek_height->first.hash);
 }
 
-// The topology crawler resolves skip_to by full (topo_height, hash) order, landing on the first key >= target,
-// so precheck can test exact membership via full_key (). Queries must be issued in ascending order (forward-only).
-TEST (block_store, topology_view_crawl_skip_to)
+// The topology crawler resolves find () by full (topo_height, hash) order, matching only an exact key
+// and parking on the first key >= target, so precheck can test exact membership. Queries must be issued in ascending order (forward-only).
+TEST (block_store, topology_view_crawl_find)
 {
 	auto store = nano::test::make_store ();
 	{
@@ -1456,20 +1456,23 @@ TEST (block_store, topology_view_crawl_skip_to)
 	auto txn = store->tx_begin_read ();
 	auto crawler = store->topology.crawl (txn);
 
-	// Exact match lands on the requested key
-	ASSERT_TRUE (crawler.skip_to ({ 1, nano::block_hash{ 100 } }));
-	ASSERT_EQ (nano::topo_key (1, nano::block_hash{ 100 }), crawler.full_key ());
+	// Exact match returns the requested key
+	auto const * found = crawler.find ({ 1, nano::block_hash{ 100 } });
+	ASSERT_NE (found, nullptr);
+	ASSERT_EQ (nano::topo_key (1, nano::block_hash{ 100 }), found->first);
 
 	// Same height, larger hash resolves by full-key order (not by topo_height alone)
-	ASSERT_TRUE (crawler.skip_to ({ 1, nano::block_hash{ 200 } }));
-	ASSERT_EQ (nano::topo_key (1, nano::block_hash{ 200 }), crawler.full_key ());
+	found = crawler.find ({ 1, nano::block_hash{ 200 } });
+	ASSERT_NE (found, nullptr);
+	ASSERT_EQ (nano::topo_key (1, nano::block_hash{ 200 }), found->first);
 
-	// A missing key lands on the next present key >= target
-	ASSERT_TRUE (crawler.skip_to ({ 1, nano::block_hash{ 250 } }));
-	ASSERT_EQ (nano::topo_key (2, nano::block_hash{ 50 }), crawler.full_key ());
+	// A missing key is not found, and parks the crawler on the next present key >= target
+	ASSERT_EQ (crawler.find ({ 1, nano::block_hash{ 250 } }), nullptr);
+	ASSERT_EQ (nano::topo_key (2, nano::block_hash{ 50 }), crawler.key ());
 
-	// Skipping past the last key reports exhaustion
-	ASSERT_FALSE (crawler.skip_to ({ 9, nano::block_hash{ 0 } }));
+	// A key past the last present one is not found and exhausts the crawler
+	ASSERT_EQ (crawler.find ({ 9, nano::block_hash{ 0 } }), nullptr);
+	ASSERT_FALSE (crawler);
 }
 
 // Mirrors precheck: a single forward crawl tests a sorted query list for membership, including a band
@@ -1505,7 +1508,7 @@ TEST (block_store, topology_view_crawl_membership_scan)
 	auto crawler = store->topology.crawl (txn, queries.front ().first);
 	for (auto const & [key, present] : queries)
 	{
-		bool const found = crawler.skip_to (key) && crawler.full_key () == key;
+		bool const found = crawler.find (key) != nullptr;
 		ASSERT_EQ (present, found) << "topo_height=" << key.topo_height << " hash=" << key.hash.to_string ();
 	}
 }
