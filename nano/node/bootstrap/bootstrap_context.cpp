@@ -12,6 +12,7 @@
 #include <nano/node/bootstrap/frontier_strategy.hpp>
 #include <nano/node/bootstrap/priority_strategy.hpp>
 #include <nano/node/bootstrap/queries.hpp>
+#include <nano/node/bootstrap/topo_strategy.hpp>
 #include <nano/node/bootstrap/verify.hpp>
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/network.hpp>
@@ -25,6 +26,8 @@
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
+
+#include <any>
 
 using namespace std::chrono_literals;
 
@@ -48,16 +51,21 @@ nano::ledger_notifications & ledger_notifications_a, nano::block_processor & blo
 	dependency_strat{ *dependency_strat_impl },
 	frontier_strat_impl{ std::make_unique<frontier_strategy> (*this) },
 	frontier_strat{ *frontier_strat_impl },
+	topo_strat_impl{ std::make_unique<topo_strategy> (*this) },
+	topo_strat{ *topo_strat_impl },
 	accounts{ config.account_sets, stats },
 	database_scan{ ledger },
 	frontiers{ config.frontier_scan, stats },
 	throttle{ compute_throttle_size () },
 	peers{ config },
-	limiter{ config.rate_limit },
+	priority_limiter{ config.priority_rate_limit },
 	database_limiter{ config.database_rate_limit },
-	frontiers_limiter{ config.frontier_rate_limit },
+	dependency_limiter{ config.dependency_rate_limit },
+	frontier_limiter{ config.frontier_rate_limit },
+	topo_limiter{ config.topo_rate_limit },
 	priority_channel{ node_a.create_null_channel () },
 	database_channel{ node_a.create_null_channel () },
+	topology_channel{ node_a.create_null_channel () },
 	workers{ 1, nano::thread_role::name::bootstrap_worker }
 {
 	// Inspect all processed blocks
@@ -74,14 +82,17 @@ nano::ledger_notifications & ledger_notifications_a, nano::block_processor & blo
 		condition.notify_all ();
 	});
 
-	// Unblock rolled back accounts as the dependency is no longer valid
+	// Handle all rolled back blocks
 	ledger_notifications.blocks_rolled_back.add ([this] (auto const & blocks, auto const & rollback_root) {
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		for (auto const & block : blocks)
 		{
-			debug_assert (block != nullptr);
-			accounts.unblock (block->account ());
+			nano::lock_guard<nano::mutex> lock{ mutex };
+			for (auto const & block : blocks)
+			{
+				debug_assert (block != nullptr);
+				rollback (*block);
+			}
 		}
+		condition.notify_all ();
 	});
 
 	accounts.priority_set (node_config_a.network_params.ledger.genesis->account_field ().value ());
@@ -126,6 +137,11 @@ void bootstrap_context::start ()
 		frontier_strat.start ();
 	}
 
+	if (config.enable_topo_scan)
+	{
+		topo_strat.start ();
+	}
+
 	maintenance_thread = std::thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::bootstrap_maintenance);
 		run_maintenance ();
@@ -144,6 +160,7 @@ void bootstrap_context::stop ()
 	database_strat.stop ();
 	dependency_strat.stop ();
 	frontier_strat.stop ();
+	topo_strat.stop ();
 	nano::join_or_pass (maintenance_thread);
 
 	workers.stop ();
@@ -161,13 +178,21 @@ void bootstrap_context::reset ()
 	frontiers.reset ();
 	peers.reset ();
 	throttle.reset ();
+	topo_strat.reset ();
 }
 
-bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & channel, query_descriptor query, query_source source)
+bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & channel, query_descriptor query, strategy source)
+{
+	return send (channel, std::move (query), source, generate_id ());
+}
+
+bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & channel, query_descriptor query, strategy source, id_t id)
 {
 	async_tag tag{};
 	tag.source = source;
 	tag.query = std::move (query);
+	tag.id = id;
+	tag.node_id = channel->get_node_id ();
 
 	// Derive the index keys from the query descriptor
 	auto keys = index_keys (tag.query);
@@ -177,15 +202,105 @@ bool bootstrap_context::send (std::shared_ptr<nano::transport::channel> const & 
 	// Build the outgoing message from the query descriptor
 	auto message = build_message (tag.query, network_constants, tag.id);
 
+	// Log the request
+	struct log_visitor
+	{
+		nano::logger & logger;
+		std::shared_ptr<nano::transport::channel> const & channel;
+		std::string_view source;
+
+		void operator() (blocks_query const & query) const
+		{
+			logger.debug (nano::log::type::bootstrap, "Requesting blocks for: {} starting from: {} count: {} from: {} ({})", query.account, query.start, query.count, channel, source);
+		}
+		void operator() (account_info_query const & query) const
+		{
+			logger.debug (nano::log::type::bootstrap, "Requesting account info for: {} from: {} ({})", query.target, channel, source);
+		}
+		void operator() (frontiers_query const & query) const
+		{
+			logger.debug (nano::log::type::bootstrap, "Requesting frontiers starting from: {} count: {} from: {} ({})", query.start, query.count, channel, source);
+		}
+		void operator() (topo_index_query const & query) const
+		{
+			logger.debug (nano::log::type::bootstrap, "Requesting topo index from height: {} hash: {} count: {} from: {} ({})", query.start.topo_height, query.start.hash, query.count, channel, source);
+		}
+		void operator() (blocks_random_query const & query) const
+		{
+			logger.debug (nano::log::type::bootstrap, "Requesting {} random blocks from: {} ({})", query.hashes.size (), channel, source);
+		}
+	};
+	std::visit (log_visitor{ logger, channel, to_string (source) }, tag.query);
+
 	// Note: a failed send deliberately does not release the reserved capacity; the elevated outstanding count acts as
 	// an implicit penalty against an unresponsive peer until decay () heals it. Only a processed response releases.
 	return transmit (channel, std::move (message), std::move (tag));
 }
 
+void bootstrap_context::conclude (async_tag const & tag, conclusion result)
+{
+	switch (tag.source)
+	{
+		case strategy::frontier:
+		{
+			switch (result)
+			{
+				case conclusion::timeout:
+					frontier_strat.timeout (tag);
+					break;
+				case conclusion::failure:
+					frontier_strat.failure (tag);
+					break;
+			}
+		}
+		break;
+		case strategy::topology:
+		{
+			switch (result)
+			{
+				case conclusion::timeout:
+					topo_strat.timeout (tag);
+					break;
+				case conclusion::failure:
+					topo_strat.failure (tag);
+					break;
+			}
+		}
+		break;
+		case strategy::invalid:
+		case strategy::priority:
+		case strategy::database:
+		case strategy::dependency:
+			break;
+	}
+}
+
+bool bootstrap_context::conclude_tag (id_t id, conclusion result)
+{
+	debug_assert (!mutex.try_lock ());
+
+	auto & tags_by_id = tags.get<tag_id> ();
+	auto it = tags_by_id.find (id);
+	if (it == tags_by_id.end ())
+	{
+		return false;
+	}
+
+	auto tag = *it;
+	if (result == conclusion::timeout)
+	{
+		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::timeout);
+		stats.inc (nano::stat::type::bootstrap_timeout, to_stat_detail (tag.type ()));
+	}
+	conclude (tag, result);
+	tags_by_id.erase (it);
+	return true;
+}
+
 bool bootstrap_context::transmit (std::shared_ptr<nano::transport::channel> const & channel, nano::messages::asc_pull_req && message, async_tag tag)
 {
 	debug_assert (tag.type () != query_type::invalid);
-	debug_assert (tag.source != query_source::invalid);
+	debug_assert (tag.source != strategy::invalid);
 
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
@@ -197,23 +312,38 @@ bool bootstrap_context::transmit (std::shared_ptr<nano::transport::channel> cons
 
 	bool sent = channel->send (
 	message, nano::transport::traffic_type::bootstrap, [this, id = tag.id] (auto const & ec, auto size) {
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		if (auto it = tags.get<tag_id> ().find (id); it != tags.get<tag_id> ().end ())
+		bool notify = false;
 		{
-			stats.inc (nano::stat::type::bootstrap_request_ec, nano::to_stat_detail (ec), nano::stat::dir::out);
-			if (!ec)
+			nano::lock_guard<nano::mutex> lock{ mutex };
+			if (auto it = tags.get<tag_id> ().find (id); it != tags.get<tag_id> ().end ())
 			{
-				stats.inc (nano::stat::type::bootstrap, nano::stat::detail::request_success, nano::stat::dir::out);
-				tags.get<tag_id> ().modify (it, [&] (auto & tag) {
-					// After the request has been sent, the peer has a limited time to respond
-					tag.cutoff = std::chrono::steady_clock::now () + config.request_timeout;
-				});
+				stats.inc (nano::stat::type::bootstrap_request_ec, nano::to_stat_detail (ec), nano::stat::dir::out);
+				if (!ec)
+				{
+					stats.inc (nano::stat::type::bootstrap, nano::stat::detail::request_success, nano::stat::dir::out);
+					auto deadline = std::chrono::steady_clock::now () + config.request_timeout;
+					tags.get<tag_id> ().modify (it, [deadline] (auto & tag) {
+						// After the request has been sent, the peer has a limited time to respond
+						tag.cutoff = deadline;
+					});
+					if (it->source == strategy::frontier)
+					{
+						frontier_strat.confirm (*it, deadline);
+					}
+				}
+				else
+				{
+					stats.inc (nano::stat::type::bootstrap, nano::stat::detail::request_failed, nano::stat::dir::out);
+					auto tag = *it;
+					conclude (tag, conclusion::failure);
+					tags.get<tag_id> ().erase (it);
+					notify = true;
+				}
 			}
-			else
-			{
-				stats.inc (nano::stat::type::bootstrap, nano::stat::detail::request_failed, nano::stat::dir::out);
-				tags.get<tag_id> ().erase (it);
-			}
+		}
+		if (notify)
+		{
+			condition.notify_all ();
 		} });
 
 	if (sent)
@@ -224,6 +354,16 @@ bool bootstrap_context::transmit (std::shared_ptr<nano::transport::channel> cons
 	else
 	{
 		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::request_failed);
+		{
+			nano::lock_guard<nano::mutex> lock{ mutex };
+			if (auto it = tags.get<tag_id> ().find (tag.id); it != tags.get<tag_id> ().end ())
+			{
+				auto stored = *it;
+				conclude (stored, conclusion::failure);
+				tags.get<tag_id> ().erase (it);
+			}
+		}
+		condition.notify_all ();
 	}
 
 	return sent;
@@ -240,7 +380,7 @@ void bootstrap_context::wait (std::function<bool ()> const & predicate) const
 	}
 }
 
-void bootstrap_context::wait_block_processor (nano::bootstrap::query_source source) const
+void bootstrap_context::wait_block_processor (nano::bootstrap::strategy source) const
 {
 	auto const & channel = submission_channel (source);
 	wait ([&] () {
@@ -255,53 +395,160 @@ void bootstrap_context::wait_block_processor (nano::bootstrap::query_source sour
 	});
 }
 
-std::shared_ptr<nano::transport::channel> const & bootstrap_context::submission_channel (nano::bootstrap::query_source source) const
+std::shared_ptr<nano::transport::channel> const & bootstrap_context::submission_channel (nano::bootstrap::strategy source) const
 {
 	switch (source)
 	{
-		case query_source::priority:
+		case strategy::priority:
 			return priority_channel;
-		case query_source::database:
+		case strategy::database:
 			return database_channel;
-		case query_source::dependencies:
-		case query_source::frontiers:
-		case query_source::invalid:
-			break; // These sources do not submit blocks to the processor
+		case strategy::topology:
+			return topology_channel;
+		case strategy::invalid:
+		case strategy::dependency:
+		case strategy::frontier:
+			break; // These strategies do not submit blocks to the processor
 	}
 	debug_assert (false);
 	return generic_channel; // Generic origin, doesn't alias either partition
 }
 
-std::shared_ptr<nano::transport::channel> bootstrap_context::wait_channel ()
+std::shared_ptr<nano::transport::channel> bootstrap_context::wait_channel (nano::bootstrap::strategy strat, peer_requirements const & required)
 {
+	auto & strategy_limiter = [this, strat] () -> nano::rate_limiter & {
+		switch (strat)
+		{
+			case strategy::priority:
+				return priority_limiter;
+			case strategy::database:
+				return database_limiter;
+			case strategy::dependency:
+				return dependency_limiter;
+			case strategy::frontier:
+				return frontier_limiter;
+			case strategy::topology:
+				return topo_limiter;
+			case strategy::invalid:
+				break;
+		}
+		release_assert (false);
+	}();
+
 	// Limit the number of in-flight requests
 	wait ([this] () {
 		return tags.size () < config.max_requests;
 	});
 
-	// Wait until more requests can be sent
-	wait ([this] () {
-		return limiter.try_consume (1);
+	// Wait until more requests can be sent (per-strategy rate limit)
+	wait ([&strategy_limiter] () {
+		return strategy_limiter.try_consume (1);
 	});
 
 	// Wait until a channel is available
-	std::shared_ptr<nano::transport::channel> channel;
-	wait ([this, &channel] () {
-		auto result = peers.acquire ();
-		channel = result.channel;
-		return channel != nullptr; // Wait until a channel is available
+	return wait_result ([this, strat, required] () {
+		auto result = peers.acquire (required);
+		if (!result.channel)
+		{
+			stats.inc (nano::stat::type::bootstrap_wait_channel, to_stat_detail (strat));
+		}
+		return result.channel;
 	});
-	return channel;
 }
 
-size_t bootstrap_context::count_tags (nano::account const & account, query_source source) const
+bootstrap_context::fanout_result bootstrap_context::wait_channels (nano::bootstrap::strategy strat, peer_requirements const & required, std::span<nano::account const> exclude, unsigned max)
+{
+	auto & strategy_limiter = [this, strat] () -> nano::rate_limiter & {
+		switch (strat)
+		{
+			case strategy::priority:
+				return priority_limiter;
+			case strategy::database:
+				return database_limiter;
+			case strategy::dependency:
+				return dependency_limiter;
+			case strategy::frontier:
+				return frontier_limiter;
+			case strategy::topology:
+				return topo_limiter;
+			case strategy::invalid:
+				break;
+		}
+		release_assert (false);
+	}();
+
+	fanout_result result;
+
+	// Working exclusion: the caller's set plus every peer we pick, so each lease is a distinct peer
+	std::vector<nano::account> used (exclude.begin (), exclude.end ());
+
+	for (unsigned i = 0; i < max; ++i)
+	{
+		if (i == 0)
+		{
+			// Block for the first lease so every round (fresh or top-up) makes progress: wait out transient
+			// busyness and a momentarily empty peer set, but bail the instant the distinct-peer pool is
+			// exhausted so the caller can advance with however many it has.
+			wait ([this] () {
+				return tags.size () < config.max_requests;
+			});
+			// Wait until more requests can be sent (per-strategy rate limit)
+			wait ([&strategy_limiter] () {
+				return strategy_limiter.try_consume (1);
+			});
+			// Wait until a non-excluded channel is available, or the matching pool is exhausted
+			peer_pool::acquire_result acq;
+			wait ([this, &acq, strat, &required, &used] () {
+				acq = peers.acquire (required, used);
+				if (!acq.channel && acq.status != peer_acquire_status::exhausted)
+				{
+					stats.inc (nano::stat::type::bootstrap_wait_channel, to_stat_detail (strat));
+				}
+				return acq.channel != nullptr || acq.status == peer_acquire_status::exhausted;
+			});
+			if (!acq.channel)
+			{
+				result.exhausted = (acq.status == peer_acquire_status::exhausted);
+				break; // exhausted (advance with fewer) or stopped
+			}
+			result.leases.push_back ({ acq.channel, acq.node_id });
+			used.push_back (acq.node_id);
+		}
+		else
+		{
+			// Best-effort: take an immediately-available distinct peer, otherwise stop the round
+			nano::lock_guard<nano::mutex> lock{ mutex };
+			if (stopped || tags.size () >= config.max_requests)
+			{
+				break;
+			}
+			auto acq = peers.acquire (required, used);
+			if (!acq.channel)
+			{
+				result.exhausted = (acq.status == peer_acquire_status::exhausted);
+				break;
+			}
+			if (!strategy_limiter.try_consume (1))
+			{
+				peers.release (acq.channel); // rate limited: give the reservation back
+				break;
+			}
+			result.leases.push_back ({ acq.channel, acq.node_id });
+			used.push_back (acq.node_id);
+		}
+	}
+
+	return result;
+}
+
+size_t bootstrap_context::count_tags (nano::account const & account, strategy source) const
 {
 	debug_assert (!mutex.try_lock ());
 	auto [begin, end] = tags.get<tag_account> ().equal_range (account);
 	return std::count_if (begin, end, [source] (auto const & tag) { return tag.source == source; });
 }
 
-size_t bootstrap_context::count_tags (nano::block_hash const & hash, query_source source) const
+size_t bootstrap_context::count_tags (nano::block_hash const & hash, strategy source) const
 {
 	debug_assert (!mutex.try_lock ());
 	auto [begin, end] = tags.get<tag_hash> ().equal_range (hash);
@@ -321,6 +568,14 @@ void bootstrap_context::inspect (secure::transaction const & tx, nano::block_sta
 	auto const & block = *context.block;
 	auto const & source = context.source;
 	auto const & hash = block.hash ();
+
+	auto const tag_source = [&context] {
+		if (auto const * tag_source = std::any_cast<strategy> (&context.tag))
+		{
+			return *tag_source;
+		}
+		return strategy::invalid;
+	}();
 
 	switch (result)
 	{
@@ -377,6 +632,29 @@ void bootstrap_context::inspect (secure::transaction const & tx, nano::block_sta
 			// TODO: If we receive blocks that are invalid (bad signature, fork, etc.), we should penalize the peer that sent them
 			break;
 	}
+
+	if (source == nano::block_source::bootstrap)
+	{
+		stats.inc (nano::stat::type::bootstrap_inspect, nano::to_stat_detail (result));
+		stats.inc (nano::stat::type::bootstrap_inspect_source, to_stat_detail (tag_source));
+		stats.inc (to_inspect_stat_type (tag_source), nano::to_stat_detail (result));
+	}
+
+	// Topo strategy tracks its own submitted blocks that came back as gaps
+	topo_strat.inspect (result, block, tag_source);
+}
+
+void bootstrap_context::rollback (nano::block const & block)
+{
+	debug_assert (!mutex.try_lock ());
+
+	auto const account = block.account ();
+
+	// The dependency this account was blocked on is no longer valid, so reopen it for re-evaluation
+	accounts.unblock (account);
+
+	// Drop any gaps the topo strategy was tracking for this account; its ancestors changed under us
+	topo_strat.rollback (account);
 }
 
 void bootstrap_context::maintenance (nano::unique_lock<nano::mutex> & lock)
@@ -399,6 +677,8 @@ void bootstrap_context::maintenance (nano::unique_lock<nano::mutex> & lock)
 
 	accounts.decay_blocking ();
 
+	topo_strat.maintenance ();
+
 	auto const now = std::chrono::steady_clock::now ();
 	auto should_timeout = [&] (async_tag const & tag) {
 		return tag.cutoff < now;
@@ -406,13 +686,23 @@ void bootstrap_context::maintenance (nano::unique_lock<nano::mutex> & lock)
 
 	// Erase timed out requests
 	auto & tags_by_order = tags.get<tag_sequenced> ();
-	while (!tags_by_order.empty () && should_timeout (tags_by_order.front ()))
+	for (auto it = tags_by_order.begin (); it != tags_by_order.end ();)
 	{
-		auto tag = tags_by_order.front ();
-		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::timeout);
-		stats.inc (nano::stat::type::bootstrap_timeout, to_stat_detail (tag.type ()));
-		tags_by_order.pop_front ();
+		if (should_timeout (*it))
+		{
+			auto tag = *it;
+			stats.inc (nano::stat::type::bootstrap, nano::stat::detail::timeout);
+			stats.inc (nano::stat::type::bootstrap_timeout, to_stat_detail (tag.type ()));
+			conclude (tag, conclusion::timeout);
+			it = tags_by_order.erase (it);
+		}
+		else
+		{
+			++it;
+		}
 	}
+
+	condition.notify_all ();
 }
 
 void bootstrap_context::run_maintenance ()
@@ -450,7 +740,8 @@ void bootstrap_context::process (nano::messages::asc_pull_ack const & message, s
 
 		bool operator() (const nano::messages::asc_pull_ack::blocks_payload & response) const
 		{
-			return type == query_type::blocks_by_hash || type == query_type::blocks_by_account;
+			// A blocks_random response reuses the blocks_payload format
+			return type == query_type::blocks_by_hash || type == query_type::blocks_by_account || type == query_type::blocks_random;
 		}
 		bool operator() (const nano::messages::asc_pull_ack::account_info_payload & response) const
 		{
@@ -462,7 +753,7 @@ void bootstrap_context::process (nano::messages::asc_pull_ack const & message, s
 		}
 		bool operator() (const nano::messages::asc_pull_ack::topo_index_payload & response) const
 		{
-			return false; // Topology strategy not implemented yet, we never request topo indexes
+			return type == query_type::topo_index;
 		}
 		bool operator() (const nano::messages::empty_payload & response) const
 		{
@@ -474,6 +765,9 @@ void bootstrap_context::process (nano::messages::asc_pull_ack const & message, s
 	if (!valid)
 	{
 		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::invalid_response_type);
+		conclude (tag, conclusion::failure);
+		lock.unlock ();
+		condition.notify_all ();
 		return;
 	}
 
@@ -500,6 +794,13 @@ void bootstrap_context::process (nano::messages::asc_pull_ack const & message, s
 bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload const & response, async_tag const & tag)
 {
 	debug_assert (!mutex.try_lock ());
+
+	// A blocks_random response reuses the blocks_payload format but belongs to the topology strategy
+	if (tag.type () == query_type::blocks_random)
+	{
+		return topo_strat.process (response, tag);
+	}
+
 	debug_assert (tag.type () == query_type::blocks_by_hash || tag.type () == query_type::blocks_by_account);
 
 	release_assert (std::holds_alternative<blocks_query> (tag.query));
@@ -527,7 +828,7 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload co
 				accounts.priority_down (tag.account);
 				accounts.timestamp_reset (tag.account);
 
-				if (tag.source == query_source::database)
+				if (tag.source == strategy::database)
 				{
 					throttle.add (false);
 				}
@@ -548,6 +849,7 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::blocks_payload co
 void bootstrap_context::submit_blocks (std::deque<std::shared_ptr<nano::block>> blocks, async_tag const & tag)
 {
 	release_assert (std::holds_alternative<blocks_query> (tag.query));
+	auto source = tag.source;
 	auto const & query = std::get<blocks_query> (tag.query);
 
 	// Avoid re-processing the block we already have (the echoed cursor)
@@ -578,7 +880,7 @@ void bootstrap_context::submit_blocks (std::deque<std::shared_ptr<nano::block>> 
 		{
 			nano::lock_guard<nano::mutex> guard{ mutex };
 			accounts.timestamp_reset (tag.account);
-			if (tag.source == query_source::database)
+			if (source == strategy::database)
 			{
 				throttle.add (false);
 			}
@@ -587,7 +889,8 @@ void bootstrap_context::submit_blocks (std::deque<std::shared_ptr<nano::block>> 
 		return;
 	}
 
-	auto result = block_processor.add_many (blocks, nano::block_source::bootstrap, submission_channel (tag.source), [this, account = tag.account] (auto result) {
+	auto result = block_processor.add_many (
+	blocks, nano::block_source::bootstrap, submission_channel (source), [this, account = tag.account] (auto result) {
 		stats.inc (nano::stat::type::bootstrap, nano::stat::detail::submission_complete);
 		{
 			// It's the last block submitted for this account chain, reset timestamp to allow more requests
@@ -595,7 +898,8 @@ void bootstrap_context::submit_blocks (std::deque<std::shared_ptr<nano::block>> 
 			accounts.timestamp_reset (account);
 		}
 		condition.notify_all ();
-	});
+	},
+	source);
 
 	// Drops should not happen, submissions are gated by wait_block_processor()
 	// A dropped tail loses the completion callback, leaving the account stuck on cooldown
@@ -605,7 +909,7 @@ void bootstrap_context::submit_blocks (std::deque<std::shared_ptr<nano::block>> 
 		debug_assert (false, "bootstrap block processor dropped submitted blocks");
 	}
 
-	if (tag.source == query_source::database)
+	if (source == strategy::database)
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		throttle.add (true);
@@ -624,8 +928,7 @@ bool bootstrap_context::process (nano::messages::asc_pull_ack::frontiers_payload
 
 bool bootstrap_context::process (nano::messages::asc_pull_ack::topo_index_payload const & response, async_tag const & tag)
 {
-	debug_assert (false, "topo_index payload"); // Topology strategy not implemented yet; verifier rejects these before we get here
-	return false; // Invalid
+	return topo_strat.process (response, tag);
 }
 
 bool bootstrap_context::process (nano::messages::empty_payload const & response, async_tag const & tag)
@@ -649,9 +952,11 @@ nano::container_info bootstrap_context::container_info () const
 
 	auto collect_limiters = [this] () {
 		nano::container_info info;
-		info.put ("total", limiter.available ());
+		info.put ("priority", priority_limiter.available ());
 		info.put ("database", database_limiter.available ());
-		info.put ("frontiers", frontiers_limiter.available ());
+		info.put ("dependency", dependency_limiter.available ());
+		info.put ("frontier", frontier_limiter.available ());
+		info.put ("topo", topo_limiter.available ());
 		return info;
 	};
 
@@ -662,6 +967,7 @@ nano::container_info bootstrap_context::container_info () const
 	info.add ("accounts", accounts.container_info ());
 	info.add ("database_scan", database_scan.container_info ());
 	info.add ("frontiers", frontiers.container_info ());
+	info.add ("topo", topo_strat.container_info ());
 	info.add ("workers", workers.container_info ());
 	info.add ("peers", peers.container_info ());
 	info.add ("limiters", collect_limiters ());

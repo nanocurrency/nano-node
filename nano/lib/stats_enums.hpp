@@ -85,7 +85,16 @@ enum class type
 	bootstrap_verify,
 	bootstrap_verify_blocks,
 	bootstrap_verify_frontiers,
+	bootstrap_inspect,
+	bootstrap_inspect_source,
+	bootstrap_inspect_priority,
+	bootstrap_inspect_database,
+	bootstrap_inspect_dependency,
+	bootstrap_inspect_frontier,
+	bootstrap_inspect_topo,
+	bootstrap_inspect_other,
 	bootstrap_wait_block_processor,
+	bootstrap_wait_channel,
 	bootstrap_process,
 	bootstrap_request,
 	bootstrap_request_ec,
@@ -96,6 +105,12 @@ enum class type
 	bootstrap_frontiers,
 	bootstrap_account_sets,
 	bootstrap_frontier_scan,
+	bootstrap_topo,
+	bootstrap_topo_scan,
+	bootstrap_topo_fetch,
+	bootstrap_topo_submit,
+	bootstrap_topo_gaps,
+	bootstrap_verify_topo,
 	bootstrap_timeout,
 	bootstrap_server,
 	bootstrap_server_request,
@@ -201,6 +216,7 @@ enum class detail
 	read,
 	oversize,
 	refill,
+	dropped,
 
 	// processing queue
 	queue,
@@ -558,6 +574,9 @@ enum class detail
 	loop_dependencies,
 	loop_frontiers,
 	loop_frontiers_processing,
+	loop_topo_scan,
+	loop_topo_fetch,
+	loop_topo_submit,
 	duplicate_request,
 	invalid_response_type,
 	invalid_response,
@@ -567,6 +586,24 @@ enum class detail
 	frontiers_dropped,
 	sync_accounts,
 	topo_indexes,
+	dependency,
+	frontier,
+
+	// bootstrap topo engines
+	fetched,
+	submitted,
+	retire,
+	gap,
+	skip,
+	skip_stale,
+	prechecked,
+	redundant,
+	rescanned,
+	missing,
+	tracked,
+	resolved,
+	rolled_back,
+	grow,
 
 	prioritize,
 	prioritize_failed,
@@ -588,6 +625,8 @@ enum class detail
 	next_by_timestamp,
 	advance,
 	advance_failed,
+	next_repair,
+	next_spearhead,
 
 	next_none,
 	next_priority,
@@ -687,9 +726,10 @@ enum class detail
 	blocks_random,
 	topo_index,
 
-	// query_source
+	// bootstrap strategy
 	database,
 	dependencies,
+	topology,
 
 	// bounded backlog,
 	gathered_targets,
@@ -758,6 +798,7 @@ enum class sample
 
 	active_election_duration,
 	bootstrap_tag_duration,
+	bootstrap_topo_redundancy,
 	rep_response_time,
 	vote_generator_final_hashes,
 	vote_generator_hashes,
@@ -779,7 +820,7 @@ template <>
 struct magic_enum::customize::enum_range<nano::stat::type>
 {
 	static constexpr int min = 0;
-	static constexpr int max = 128;
+	static constexpr int max = 256;
 };
 
 // Ensure that the enum_range is large enough to hold all values (including future ones)

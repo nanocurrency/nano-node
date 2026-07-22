@@ -40,9 +40,9 @@ void database_strategy::run ()
 
 void database_strategy::run_one (bool should_throttle)
 {
-	ctx.wait_block_processor (query_source::database);
+	ctx.wait_block_processor (strategy::database);
 
-	auto channel = ctx.wait_channel ();
+	auto channel = ctx.wait_channel (strategy::database);
 	if (!channel)
 	{
 		return;
@@ -57,7 +57,7 @@ void database_strategy::run_one (bool should_throttle)
 	// The database scan always issues safe requests; record the pull start point
 	ctx.stats.inc (nano::stat::type::bootstrap_database, query->type == query_type::blocks_by_hash ? nano::stat::detail::from_confirmed : nano::stat::detail::from_open);
 
-	ctx.send (channel, *query, query_source::database);
+	ctx.send (channel, *query, strategy::database);
 }
 
 std::optional<blocks_query> database_strategy::next_database (bool should_throttle)
@@ -65,13 +65,13 @@ std::optional<blocks_query> database_strategy::next_database (bool should_thrott
 	debug_assert (!ctx.mutex.try_lock ());
 	debug_assert (ctx.config.database_warmup_ratio > 0);
 
-	// Throttling increases the weight of database requests
-	if (!ctx.database_limiter.try_consume (should_throttle ? ctx.config.database_warmup_ratio : 1))
+	// wait_channel already consumes the first database limiter token
+	if (should_throttle && !ctx.database_limiter.try_consume (ctx.config.database_warmup_ratio - 1))
 	{
 		return std::nullopt;
 	}
 	auto query = ctx.database_scan.next ([this] (nano::account const & account) {
-		return ctx.count_tags (account, query_source::database) == 0;
+		return ctx.count_tags (account, strategy::database) == 0;
 	});
 	if (!query)
 	{
@@ -83,12 +83,8 @@ std::optional<blocks_query> database_strategy::next_database (bool should_thrott
 
 std::optional<blocks_query> database_strategy::wait_database (bool should_throttle)
 {
-	std::optional<blocks_query> result;
-	ctx.wait ([this, &result, should_throttle] () {
-		debug_assert (!ctx.mutex.try_lock ());
-		result = next_database (should_throttle);
-		return result.has_value ();
+	return ctx.wait_result ([this, should_throttle] () {
+		return next_database (should_throttle);
 	});
-	return result;
 }
 }

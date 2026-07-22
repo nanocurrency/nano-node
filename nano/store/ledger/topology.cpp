@@ -25,7 +25,7 @@ bool topology_view::exists (nano::store::transaction const & txn, nano::topo_key
 	return backend.exists (txn, nano::store::table::topology, key);
 }
 
-std::optional<uint64_t> topology_view::latest (nano::store::transaction const & txn) const
+std::optional<nano::topo_key> topology_view::latest (nano::store::transaction const & txn) const
 {
 	auto first = begin (txn);
 	auto i = end (txn);
@@ -34,7 +34,7 @@ std::optional<uint64_t> topology_view::latest (nano::store::transaction const & 
 		return std::nullopt;
 	}
 	--i;
-	return i->first.topo_height;
+	return i->first;
 }
 
 uint64_t topology_view::count (nano::store::transaction const & txn) const

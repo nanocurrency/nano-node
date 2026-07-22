@@ -136,6 +136,18 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::bootstrap_frontier_processing:
 			thread_role_name_string = "Front process";
 			break;
+		case nano::thread_role::name::bootstrap_topo_scan:
+			thread_role_name_string = "Topo scan";
+			break;
+		case nano::thread_role::name::bootstrap_topo_fetch:
+			thread_role_name_string = "Topo fetch";
+			break;
+		case nano::thread_role::name::bootstrap_topo_submit:
+			thread_role_name_string = "Topo submit";
+			break;
+		case nano::thread_role::name::bootstrap_topo_processing:
+			thread_role_name_string = "Topo process";
+			break;
 		case nano::thread_role::name::bootstrap_maintenance:
 			thread_role_name_string = "Bootstrap maint";
 			break;

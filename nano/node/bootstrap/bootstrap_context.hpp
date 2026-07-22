@@ -24,7 +24,10 @@
 #include <chrono>
 #include <deque>
 #include <memory>
+#include <span>
 #include <thread>
+#include <type_traits>
+#include <vector>
 
 namespace mi = boost::multi_index;
 
@@ -34,15 +37,19 @@ class priority_strategy;
 class database_strategy;
 class dependency_strategy;
 class frontier_strategy;
+class topo_strategy;
 
 struct async_tag
 {
-	query_source source{ query_source::invalid };
+	strategy source{ strategy::invalid };
 	query_descriptor query;
 
 	// Index keys, derived from the query descriptor when the tag is created
 	nano::account account{ 0 };
 	nano::block_hash hash{ 0 };
+
+	// Identity of the peer this request was sent to, for per-peer fetch tracking
+	nano::account node_id{ 0 };
 
 	std::chrono::steady_clock::time_point cutoff{};
 	std::chrono::steady_clock::time_point timestamp{ std::chrono::steady_clock::now () };
@@ -68,22 +75,65 @@ public:
 	// Waits for a condition to be satisfied with incremental backoff
 	void wait (std::function<bool ()> const & predicate) const;
 
+	template <typename ResultProvider>
+	auto wait_result (ResultProvider && provider) const -> std::invoke_result_t<ResultProvider &>
+	{
+		using result_type = std::invoke_result_t<ResultProvider &>;
+
+		result_type result{};
+		wait ([&] () {
+			result = provider ();
+			return static_cast<bool> (result);
+		});
+		return result;
+	}
+
 	// Wait until there is enough space in block_processor for new blocks
-	void wait_block_processor (nano::bootstrap::query_source) const;
+	void wait_block_processor (nano::bootstrap::strategy) const;
 
-	// Waits for a channel that is not full
-	std::shared_ptr<nano::transport::channel> wait_channel ();
+	// Waits for a channel that is not full. Applies the per-strategy rate limiter and only returns a peer that meets the requirements.
+	std::shared_ptr<nano::transport::channel> wait_channel (nano::bootstrap::strategy strategy, peer_requirements const & required = {});
 
-	bool send (std::shared_ptr<nano::transport::channel> const &, query_descriptor query, query_source source);
+	// One reserved peer of a fanout round
+	struct channel_lease
+	{
+		std::shared_ptr<nano::transport::channel> channel;
+		nano::account node_id{ 0 };
+	};
 
-	size_t count_tags (nano::account const & account, query_source source) const;
-	size_t count_tags (nano::block_hash const & hash, query_source source) const;
+	// Outcome of a fanout acquire: the leases obtained, and whether the distinct-peer pool ran out
+	struct fanout_result
+	{
+		std::vector<channel_lease> leases;
+		bool exhausted{ false };
+	};
+
+	// Reserves up to `max` distinct peers meeting the requirements (each excluded from the next pick, on top of `exclude`).
+	// Blocks for the first lease only on a fresh round (empty `exclude`); the rest are best-effort.
+	// `exhausted` is set when the matching pool runs dry before reaching `max`. Applies the per-strategy rate limiter.
+	fanout_result wait_channels (nano::bootstrap::strategy strategy, peer_requirements const & required, std::span<nano::account const> exclude, unsigned max);
+
+	enum class conclusion
+	{
+		timeout,
+		failure
+	};
+
+	bool send (std::shared_ptr<nano::transport::channel> const &, query_descriptor query, strategy source);
+	bool send (std::shared_ptr<nano::transport::channel> const &, query_descriptor query, strategy source, id_t id);
+	bool conclude_tag (id_t, conclusion);
+
+	size_t count_tags (nano::account const & account, strategy source) const;
+	size_t count_tags (nano::block_hash const & hash, strategy source) const;
 
 	// Inspects a block that has been processed by the block processor
 	void inspect (secure::transaction const &, nano::block_status const & result, nano::block_context const & context);
 
 	// Placeholder channel used as a fair-queue partition key so the block processor equalizes ingest across sources
-	std::shared_ptr<nano::transport::channel> const & submission_channel (nano::bootstrap::query_source) const;
+	std::shared_ptr<nano::transport::channel> const & submission_channel (nano::bootstrap::strategy) const;
+
+	// Handles a block that has been rolled back from the ledger
+	void rollback (nano::block const & block);
 
 	nano::container_info container_info () const;
 
@@ -96,6 +146,7 @@ private:
 
 	// Inserts the tag and transmits the message over the channel
 	bool transmit (std::shared_ptr<nano::transport::channel> const &, nano::messages::asc_pull_req && message, async_tag tag);
+	void conclude (async_tag const &, conclusion);
 
 	// Filters out blocks already present in the ledger and submits the rest to the block processor
 	void submit_blocks (std::deque<std::shared_ptr<nano::block>> blocks, async_tag const & tag);
@@ -125,6 +176,8 @@ public: // Strategies
 	nano::bootstrap::dependency_strategy & dependency_strat;
 	std::unique_ptr<nano::bootstrap::frontier_strategy> frontier_strat_impl;
 	nano::bootstrap::frontier_strategy & frontier_strat;
+	std::unique_ptr<nano::bootstrap::topo_strategy> topo_strat_impl;
+	nano::bootstrap::topo_strategy & topo_strat;
 
 public: // Shared state
 	nano::bootstrap::account_sets_index accounts;
@@ -154,13 +207,12 @@ public: // Shared state
 
 	nano::random_generator_mt rng;
 
-	// Rate limiter for all types of requests
-	nano::rate_limiter limiter;
-	// Requests for accounts from database have much lower hitrate and could introduce strain on the network
-	// A separate (lower) limiter ensures that we always reserve resources for querying accounts from priority queue
+	// Per-strategy rate limiters
+	nano::rate_limiter priority_limiter;
 	nano::rate_limiter database_limiter;
-	// Rate limiter for frontier requests
-	nano::rate_limiter frontiers_limiter;
+	nano::rate_limiter dependency_limiter;
+	nano::rate_limiter frontier_limiter;
+	nano::rate_limiter topo_limiter;
 
 	// Per-source placeholder channels. Tagging block_processor submissions with a distinct
 	// channel per source gives each its own fair-queue bucket, so the processor round-robins
@@ -168,6 +220,7 @@ public: // Shared state
 	std::shared_ptr<nano::transport::channel> generic_channel; // Null, used as generic fair queue origin
 	std::shared_ptr<nano::transport::channel> priority_channel;
 	std::shared_ptr<nano::transport::channel> database_channel;
+	std::shared_ptr<nano::transport::channel> topology_channel;
 
 	bool stopped{ false };
 	mutable nano::mutex mutex;

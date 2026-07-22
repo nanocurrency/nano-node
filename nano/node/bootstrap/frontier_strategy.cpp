@@ -7,7 +7,6 @@
 #include <nano/node/bootstrap/verify.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
-#include <nano/node/transport/formatting.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
@@ -59,12 +58,9 @@ void frontier_strategy::run_one ()
 		return !ctx.accounts.priority_half_full ();
 	});
 	ctx.wait ([this] () {
-		return ctx.frontiers_limiter.try_consume (1);
+		return ctx.workers.queued_tasks () < ctx.config.frontier_scan.max_pending;
 	});
-	ctx.wait ([this] () {
-		return workers.queued_tasks () < ctx.config.frontier_scan.max_pending;
-	});
-	auto channel = ctx.wait_channel ();
+	auto channel = ctx.wait_channel (strategy::frontier);
 	if (!channel)
 	{
 		return;
@@ -99,9 +95,7 @@ bool frontier_strategy::request_frontiers (nano::account start, std::shared_ptr<
 	query.start = start;
 	query.count = nano::messages::asc_pull_ack::frontiers_payload::max_frontiers;
 
-	ctx.logger.debug (nano::log::type::bootstrap, "Requesting frontiers starting from: {} from: {}", start, channel);
-
-	return ctx.send (channel, query, query_source::frontiers);
+	return ctx.send (channel, query, strategy::frontier);
 }
 
 bool frontier_strategy::process (nano::messages::asc_pull_ack::frontiers_payload const & response, async_tag const & tag)
@@ -159,6 +153,28 @@ bool frontier_strategy::process (nano::messages::asc_pull_ack::frontiers_payload
 	return result != verify_result::invalid;
 }
 
+void frontier_strategy::timeout (async_tag const & tag)
+{
+	debug_assert (!ctx.mutex.try_lock ());
+	debug_assert (tag.type () == query_type::frontiers);
+	(void)tag;
+}
+
+void frontier_strategy::failure (async_tag const & tag)
+{
+	debug_assert (!ctx.mutex.try_lock ());
+	debug_assert (tag.type () == query_type::frontiers);
+	(void)tag;
+}
+
+void frontier_strategy::confirm (async_tag const & tag, std::chrono::steady_clock::time_point deadline)
+{
+	debug_assert (!ctx.mutex.try_lock ());
+	debug_assert (tag.type () == query_type::frontiers);
+	(void)tag;
+	(void)deadline;
+}
+
 void frontier_strategy::process_frontiers (std::deque<std::pair<nano::account, nano::block_hash>> const & frontiers)
 {
 	release_assert (!frontiers.empty ());
@@ -171,71 +187,22 @@ void frontier_strategy::process_frontiers (std::deque<std::pair<nano::account, n
 
 	ctx.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::processing_frontiers);
 
-	size_t outdated = 0;
-	size_t pending = 0;
-
-	// Accounts with outdated frontiers to sync
-	std::deque<nano::account> result;
+	frontier_classification result;
 	{
 		auto transaction = ctx.ledger.tx_begin_read ();
-
-		auto const start = frontiers.front ().first;
-		auto account_crawler = ctx.ledger.store.account.crawl (transaction, start);
-		auto pending_crawler = ctx.ledger.store.pending.crawl (transaction, start);
-
-		auto block_exists = [&] (nano::block_hash const & hash) {
-			return ctx.ledger.any.block_exists_or_pruned (transaction, hash);
-		};
-
-		auto should_prioritize = [&] (nano::account const & account, nano::block_hash const & frontier) {
-			account_crawler.skip_to (account);
-			pending_crawler.skip_to (account);
-
-			// Check if account exists in our ledger
-			if (account_crawler && account_crawler->first == account)
-			{
-				// Check for frontier mismatch
-				if (account_crawler->second.head != frontier)
-				{
-					// Check if frontier block exists in our ledger
-					if (!block_exists (frontier))
-					{
-						outdated++;
-						return true; // Frontier is outdated
-					}
-				}
-				return false; // Account exists and frontier is up-to-date
-			}
-
-			// Check if account has pending blocks in our ledger
-			if (pending_crawler && pending_crawler->first.account == account)
-			{
-				pending++;
-				return true; // Account doesn't exist but has pending blocks in the ledger
-			}
-
-			return false; // Account doesn't exist in the ledger and has no pending blocks, can't be prioritized right now
-		};
-
-		for (auto const & [account, frontier] : frontiers)
-		{
-			if (should_prioritize (account, frontier))
-			{
-				result.push_back (account);
-			}
-		}
+		result = classify_frontiers (transaction, ctx.ledger, frontiers);
 	}
 
 	ctx.stats.add (nano::stat::type::bootstrap_frontiers, nano::stat::detail::processed, frontiers.size ());
-	ctx.stats.add (nano::stat::type::bootstrap_frontiers, nano::stat::detail::prioritized, result.size ());
-	ctx.stats.add (nano::stat::type::bootstrap_frontiers, nano::stat::detail::outdated, outdated);
-	ctx.stats.add (nano::stat::type::bootstrap_frontiers, nano::stat::detail::pending, pending);
+	ctx.stats.add (nano::stat::type::bootstrap_frontiers, nano::stat::detail::prioritized, result.prioritize.size ());
+	ctx.stats.add (nano::stat::type::bootstrap_frontiers, nano::stat::detail::outdated, result.outdated);
+	ctx.stats.add (nano::stat::type::bootstrap_frontiers, nano::stat::detail::pending, result.pending);
 
-	ctx.logger.debug (nano::log::type::bootstrap, "Processed {} frontiers of which outdated: {}, pending: {}", frontiers.size (), outdated, pending);
+	ctx.logger.debug (nano::log::type::bootstrap, "Processed {} frontiers of which outdated: {}, pending: {}", frontiers.size (), result.outdated, result.pending);
 
 	nano::unique_lock<nano::mutex> lock{ ctx.mutex };
 
-	for (auto const & account : result)
+	for (auto const & account : result.prioritize)
 	{
 		// Use the lowest possible priority here
 		ctx.accounts.priority_set (account, account_sets_index::priority_cutoff);
@@ -243,9 +210,70 @@ void frontier_strategy::process_frontiers (std::deque<std::pair<nano::account, n
 
 	lock.unlock ();
 
-	if (!result.empty ())
+	if (!result.prioritize.empty ())
 	{
 		ctx.condition.notify_all ();
 	}
+}
+
+/*
+ *
+ */
+
+frontier_classification classify_frontiers (nano::secure::transaction const & transaction, nano::ledger & ledger, std::deque<std::pair<nano::account, nano::block_hash>> const & frontiers)
+{
+	// Accounts must be in ascending order
+	debug_assert (std::adjacent_find (frontiers.begin (), frontiers.end (), [] (auto const & lhs, auto const & rhs) {
+		return lhs.first.number () >= rhs.first.number ();
+	})
+	== frontiers.end ());
+
+	frontier_classification result;
+
+	if (frontiers.empty ())
+	{
+		return result;
+	}
+
+	auto const start = frontiers.front ().first;
+	auto account_crawler = ledger.store.account.crawl (transaction, start);
+	auto pending_crawler = ledger.store.pending.crawl (transaction, start);
+
+	auto block_exists = [&ledger, &transaction] (nano::block_hash const & hash) {
+		return ledger.any.block_exists_or_pruned (transaction, hash);
+	};
+
+	auto should_prioritize = [&] (nano::account const & account, nano::block_hash const & frontier) {
+		account_crawler.skip_to (account);
+		pending_crawler.skip_to (account);
+
+		if (account_crawler && account_crawler->first == account)
+		{
+			if (account_crawler->second.head != frontier && !block_exists (frontier))
+			{
+				++result.outdated;
+				return true;
+			}
+			return false;
+		}
+
+		if (pending_crawler && pending_crawler->first.account == account)
+		{
+			++result.pending;
+			return true;
+		}
+
+		return false;
+	};
+
+	for (auto const & [account, frontier] : frontiers)
+	{
+		if (should_prioritize (account, frontier))
+		{
+			result.prioritize.push_back (account);
+		}
+	}
+
+	return result;
 }
 }
