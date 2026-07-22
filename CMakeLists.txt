@@ -495,6 +495,19 @@ else()
 endif()
 add_subdirectory(submodules/rocksdb EXCLUDE_FROM_ALL)
 
+# Precompiled headers derived from a vcperf /jsonAnalysis trace of a clean
+# nano_node build. Enabled with -DNANO_PCH=ON. RocksDB's own backbone headers
+# (rocksdb/options.h, rocksdb/listener.h, port/win/port_win.h) are the hottest
+# included files in the whole build, and the bundled RocksDB static library
+# (~700 translation units) ships with no PCH -- so precompiling that backbone
+# once is the single largest build-time win.
+option(NANO_PCH "Enable precompiled headers derived from vcperf analysis" OFF)
+if(NANO_PCH AND COMMAND target_precompile_headers AND TARGET rocksdb)
+  target_precompile_headers(
+    rocksdb PRIVATE
+    "$<$<COMPILE_LANGUAGE:CXX>:${PROJECT_SOURCE_DIR}/nano/rocksdb_pch.hpp>")
+endif()
+
 # cpptoml
 include_directories(submodules/cpptoml/include)
 
@@ -670,6 +683,21 @@ add_subdirectory(nano/node)
 add_subdirectory(nano/nano_node)
 add_subdirectory(nano/rpc)
 add_subdirectory(nano/nano_rpc)
+
+# Shared PCH of stable STL / third-party leaves for nano's first-party libs,
+# derived from the same vcperf analysis (<chrono> was the #3 hottest header;
+# logging.hpp -- the most-included nano header -- wraps spdlog/fmt). Gated by
+# the same -DNANO_PCH=ON switch as the RocksDB PCH above.
+if(NANO_PCH AND COMMAND target_precompile_headers)
+  foreach(_nano_pch_target nano_lib secure node nano_store nano_messages rpc
+                           nano_node)
+    if(TARGET ${_nano_pch_target})
+      target_precompile_headers(
+        ${_nano_pch_target} PRIVATE
+        "$<$<COMPILE_LANGUAGE:CXX>:${PROJECT_SOURCE_DIR}/nano/nano_pch.hpp>")
+    endif()
+  endforeach()
+endif()
 
 add_custom_target(
   executables
