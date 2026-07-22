@@ -12,13 +12,14 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <chrono>
 #include <limits>
 #include <unordered_set>
 #include <vector>
 
 namespace
 {
-// Get sequential_attempts threshold from crawler traits
+// Get sequential_attempts threshold from crawler
 constexpr size_t sequential_threshold = nano::store::crawler<nano::store::ledger::account_view, nano::store::read_transaction>::sequential_attempts;
 
 // Helper to populate accounts with given keys
@@ -45,6 +46,10 @@ void populate_pending (nano::store::ledger_store & store, std::vector<std::pair<
 }
 }
 
+/*
+ * Construction & validity
+ */
+
 TEST (crawler, construct_with_data)
 {
 	auto store = nano::test::make_store ();
@@ -69,7 +74,6 @@ TEST (crawler, construct_at_exact_key)
 
 	ASSERT_TRUE (crawler);
 	ASSERT_EQ (crawler.key (), nano::account{ 20 });
-	ASSERT_EQ (crawler->first, nano::account{ 20 });
 }
 
 TEST (crawler, construct_between_keys)
@@ -86,6 +90,18 @@ TEST (crawler, construct_between_keys)
 	ASSERT_EQ (crawler.key (), nano::account{ 30 });
 }
 
+TEST (crawler, construct_beyond_range)
+{
+	auto store = nano::test::make_store ();
+
+	populate_accounts (*store, { 10, 20 });
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->account.crawl (txn, nano::account{ std::numeric_limits<nano::uint256_t>::max () });
+
+	ASSERT_FALSE (crawler);
+}
+
 TEST (crawler, empty_db)
 {
 	auto store = nano::test::make_store ();
@@ -97,14 +113,16 @@ TEST (crawler, empty_db)
 	ASSERT_FALSE (crawler);
 
 	// Operations on invalid crawler should be safe
-	ASSERT_FALSE (crawler.next ());
-	ASSERT_FALSE (crawler.skip_to (nano::account{ 100 }));
-	ASSERT_FALSE (crawler);
-
-	// Seek should keep it invalid (no data to find)
-	crawler.seek (nano::account{ 50 });
+	ASSERT_FALSE (crawler.next_entry ());
+	ASSERT_FALSE (crawler.next_group ());
+	ASSERT_EQ (crawler.find (nano::account{ 100 }), nullptr);
+	ASSERT_EQ (crawler.find_group (nano::account{ 100 }), nullptr);
 	ASSERT_FALSE (crawler);
 }
+
+/*
+ * Access
+ */
 
 TEST (crawler, dereference_operators)
 {
@@ -137,69 +155,38 @@ TEST (crawler, dereference_operators)
 	ASSERT_EQ (crawler->second.balance, nano::amount{ 1000 });
 }
 
+TEST (crawler, key_simple)
+{
+	auto store = nano::test::make_store ();
+
+	populate_accounts (*store, { 42 });
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->account.crawl (txn);
+
+	// For simple keys the full key and the group key coincide
+	ASSERT_EQ (crawler.key (), nano::account{ 42 });
+	ASSERT_EQ (crawler.group_key (), nano::account{ 42 });
+}
+
+TEST (crawler, key_compound)
+{
+	auto store = nano::test::make_store ();
+
+	populate_pending (*store, { { 5, { 7 } } });
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->pending.crawl (txn);
+
+	// key() returns the full compound key, group_key() only the account prefix
+	ASSERT_EQ (crawler.key ().account, nano::account{ 5 });
+	ASSERT_EQ (crawler.key ().hash, nano::block_hash{ 7 });
+	ASSERT_EQ (crawler.group_key (), nano::account{ 5 });
+}
+
 /*
- * Navigation Operations - seek, next, skip_to, reset
+ * Entry advancement
  */
-
-TEST (crawler, seek_forward)
-{
-	auto store = nano::test::make_store ();
-
-	populate_accounts (*store, { 10, 20, 30, 40, 50 });
-
-	auto txn = store->tx_begin_read ();
-	auto crawler = store->account.crawl (txn, nano::account{ 10 });
-
-	ASSERT_EQ (crawler.key (), nano::account{ 10 });
-
-	crawler.seek (nano::account{ 30 });
-	ASSERT_TRUE (crawler);
-	ASSERT_EQ (crawler.key (), nano::account{ 30 });
-
-	// Seek to non-existing key should find next
-	crawler.seek (nano::account{ 35 });
-	ASSERT_TRUE (crawler);
-	ASSERT_EQ (crawler.key (), nano::account{ 40 });
-}
-
-TEST (crawler, seek_backward)
-{
-	auto store = nano::test::make_store ();
-
-	populate_accounts (*store, { 10, 20, 30 });
-
-	auto txn = store->tx_begin_read ();
-	auto crawler = store->account.crawl (txn, nano::account{ 30 });
-
-	ASSERT_EQ (crawler.key (), nano::account{ 30 });
-
-	crawler.seek (nano::account{ 10 });
-	ASSERT_TRUE (crawler);
-	ASSERT_EQ (crawler.key (), nano::account{ 10 });
-}
-
-TEST (crawler, beyond_range)
-{
-	auto store = nano::test::make_store ();
-
-	populate_accounts (*store, { 10, 20 });
-
-	auto txn = store->tx_begin_read ();
-
-	// Construct beyond all keys
-	auto crawler1 = store->account.crawl (txn, nano::account{ std::numeric_limits<nano::uint256_t>::max () });
-	ASSERT_FALSE (crawler1);
-
-	// Seek beyond range
-	auto crawler2 = store->account.crawl (txn);
-	crawler2.seek (nano::account{ 100 });
-	ASSERT_FALSE (crawler2);
-
-	// skip_to beyond range
-	auto crawler3 = store->account.crawl (txn);
-	ASSERT_FALSE (crawler3.skip_to (nano::account{ 100 }));
-	ASSERT_FALSE (crawler3);
-}
 
 TEST (crawler, operator_increment)
 {
@@ -218,35 +205,257 @@ TEST (crawler, operator_increment)
 
 	++crawler;
 	ASSERT_EQ (crawler.key (), nano::account{ 30 });
+
+	++crawler;
+	ASSERT_FALSE (crawler);
 }
 
-TEST (crawler, skip_to_exact_match)
+TEST (crawler, next_entry_returns_validity)
+{
+	auto store = nano::test::make_store ();
+
+	populate_accounts (*store, { 10, 20 });
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->account.crawl (txn);
+
+	ASSERT_TRUE (crawler.next_entry ());
+	ASSERT_EQ (crawler.key (), nano::account{ 20 });
+
+	ASSERT_FALSE (crawler.next_entry ());
+	ASSERT_FALSE (crawler);
+}
+
+TEST (crawler, entry_iteration_within_group)
+{
+	auto store = nano::test::make_store ();
+
+	populate_pending (*store, {
+							  { 1, { 10, 20 } },
+							  { 2, { 30 } },
+							  });
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->pending.crawl (txn);
+
+	// operator++ advances one raw entry, visiting every entry of a group
+	ASSERT_EQ (crawler.key ().account, nano::account{ 1 });
+	ASSERT_EQ (crawler.key ().hash, nano::block_hash{ 10 });
+
+	++crawler;
+	ASSERT_EQ (crawler.key ().account, nano::account{ 1 });
+	ASSERT_EQ (crawler.key ().hash, nano::block_hash{ 20 });
+
+	++crawler;
+	ASSERT_EQ (crawler.key ().account, nano::account{ 2 });
+	ASSERT_EQ (crawler.key ().hash, nano::block_hash{ 30 });
+
+	++crawler;
+	ASSERT_FALSE (crawler);
+}
+
+TEST (crawler, iteration_order_ascending)
+{
+	auto store = nano::test::make_store ();
+
+	// Insert in non-sorted order
+	populate_accounts (*store, { 50, 10, 30, 20, 40 });
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->account.crawl (txn);
+
+	std::vector<nano::uint256_t> order;
+	for (; crawler; ++crawler)
+	{
+		order.push_back (crawler.key ().number ());
+	}
+
+	ASSERT_EQ (order, (std::vector<nano::uint256_t>{ 10, 20, 30, 40, 50 }));
+}
+
+/*
+ * Group advancement
+ */
+
+TEST (crawler, next_group_simple)
 {
 	auto store = nano::test::make_store ();
 
 	populate_accounts (*store, { 10, 20, 30 });
 
 	auto txn = store->tx_begin_read ();
-	auto crawler = store->account.crawl (txn, nano::account{ 10 });
+	auto crawler = store->account.crawl (txn);
 
-	ASSERT_TRUE (crawler.skip_to (nano::account{ 20 }));
+	// For simple keys every entry is its own group
+	ASSERT_TRUE (crawler.next_group ());
 	ASSERT_EQ (crawler.key (), nano::account{ 20 });
+
+	ASSERT_TRUE (crawler.next_group ());
+	ASSERT_EQ (crawler.key (), nano::account{ 30 });
+
+	ASSERT_FALSE (crawler.next_group ());
+	ASSERT_FALSE (crawler);
 }
 
-TEST (crawler, skip_to_next_available)
+TEST (crawler, next_group_compound)
 {
 	auto store = nano::test::make_store ();
 
-	populate_accounts (*store, { 10, 30 });
+	// Account 1: 3 pending entries
+	// Account 2: 2 pending entries
+	// Account 3: 1 pending entry
+	populate_pending (*store, {
+							  { 1, { 10, 20, 30 } },
+							  { 2, { 10, 20 } },
+							  { 3, { 10 } },
+							  });
 
 	auto txn = store->tx_begin_read ();
-	auto crawler = store->account.crawl (txn, nano::account{ 10 });
+	auto crawler = store->pending.crawl (txn);
 
-	ASSERT_TRUE (crawler.skip_to (nano::account{ 15 }));
-	ASSERT_EQ (crawler.key (), nano::account{ 30 });
+	ASSERT_EQ (crawler.group_key (), nano::account{ 1 });
+
+	// next_group() should skip to account 2, not to the next entry of account 1
+	ASSERT_TRUE (crawler.next_group ());
+	ASSERT_EQ (crawler.group_key (), nano::account{ 2 });
+
+	ASSERT_TRUE (crawler.next_group ());
+	ASSERT_EQ (crawler.group_key (), nano::account{ 3 });
+
+	ASSERT_FALSE (crawler.next_group ());
+	ASSERT_FALSE (crawler);
 }
 
-TEST (crawler, rewind_to_beginning)
+TEST (crawler, next_group_seek_fallback)
+{
+	auto store = nano::test::make_store ();
+
+	// Account 1 with more entries than sequential_threshold to trigger seek fallback
+	std::vector<nano::uint256_t> hashes;
+	for (size_t i = 1; i <= sequential_threshold + 1; ++i)
+	{
+		hashes.push_back (i);
+	}
+	populate_pending (*store, {
+							  { 1, hashes },
+							  { 2, { 1 } },
+							  });
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->pending.crawl (txn);
+
+	ASSERT_EQ (crawler.group_key (), nano::account{ 1 });
+
+	// next_group() exhausts the sequential window and falls back to seek
+	ASSERT_TRUE (crawler.next_group ());
+	ASSERT_EQ (crawler.group_key (), nano::account{ 2 });
+
+	ASSERT_FALSE (crawler.next_group ());
+}
+
+TEST (crawler, next_group_saturation)
+{
+	auto store = nano::test::make_store ();
+
+	auto max_val = std::numeric_limits<nano::uint256_t>::max ();
+
+	// More entries than sequential_threshold at the max account
+	// This forces next_group() to exhaust sequential iteration and hit the saturation check
+	{
+		auto txn = store->tx_begin_write ();
+		for (size_t i = 1; i <= sequential_threshold + 1; ++i)
+		{
+			store->pending.put (txn,
+			nano::pending_key{ nano::account{ max_val }, nano::block_hash{ i } },
+			nano::pending_info{});
+		}
+	}
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->pending.crawl (txn, nano::account{ max_val });
+
+	ASSERT_TRUE (crawler);
+	ASSERT_EQ (crawler.group_key ().number (), max_val);
+
+	// No group past the max account is possible, saturation must move to end
+	ASSERT_FALSE (crawler.next_group ());
+	ASSERT_FALSE (crawler);
+}
+
+/*
+ * find & find_group - forward-only probing
+ */
+
+TEST (crawler, find_exact)
+{
+	auto store = nano::test::make_store ();
+
+	populate_accounts (*store, { 10, 20, 30 });
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->account.crawl (txn);
+
+	auto const * found = crawler.find (nano::account{ 20 });
+	ASSERT_NE (found, nullptr);
+	ASSERT_EQ (found->first, nano::account{ 20 });
+	ASSERT_EQ (crawler.key (), nano::account{ 20 }); // Crawler parked on the match
+}
+
+TEST (crawler, find_current)
+{
+	auto store = nano::test::make_store ();
+
+	populate_accounts (*store, { 10, 20 });
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->account.crawl (txn);
+
+	// Probing the current entry matches without moving
+	auto const * found = crawler.find (nano::account{ 10 });
+	ASSERT_NE (found, nullptr);
+	ASSERT_EQ (found->first, nano::account{ 10 });
+}
+
+TEST (crawler, find_miss_parks_ahead)
+{
+	auto store = nano::test::make_store ();
+
+	// Large gaps between keys
+	populate_accounts (*store, { 1, 1000, 1000000 });
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->account.crawl (txn);
+
+	// A miss leaves the crawler at the first entry past the target
+	ASSERT_EQ (crawler.find (nano::account{ 500 }), nullptr);
+	ASSERT_TRUE (crawler);
+	ASSERT_EQ (crawler.key (), nano::account{ 1000 });
+
+	// The parked entry is still findable
+	ASSERT_NE (crawler.find (nano::account{ 1000 }), nullptr);
+
+	ASSERT_EQ (crawler.find (nano::account{ 500000 }), nullptr);
+	ASSERT_EQ (crawler.key (), nano::account{ 1000000 });
+}
+
+TEST (crawler, find_miss_past_end)
+{
+	auto store = nano::test::make_store ();
+
+	populate_accounts (*store, { 10, 20 });
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->account.crawl (txn);
+
+	ASSERT_EQ (crawler.find (nano::account{ 100 }), nullptr);
+	ASSERT_FALSE (crawler);
+
+	// Probing an exhausted crawler stays safe
+	ASSERT_EQ (crawler.find (nano::account{ 200 }), nullptr);
+	ASSERT_FALSE (crawler);
+}
+
+TEST (crawler, find_backward_target)
 {
 	auto store = nano::test::make_store ();
 
@@ -255,43 +464,174 @@ TEST (crawler, rewind_to_beginning)
 	auto txn = store->tx_begin_read ();
 	auto crawler = store->account.crawl (txn, nano::account{ 30 });
 
-	ASSERT_EQ (crawler.key (), nano::account{ 30 });
+	// Probes are forward-only: entries behind the crawler are never found
+	ASSERT_EQ (crawler.find (nano::account{ 10 }), nullptr);
+	ASSERT_EQ (crawler.key (), nano::account{ 30 }); // Crawler did not move
 
-	crawler.rewind ();
-	ASSERT_TRUE (crawler);
-	ASSERT_EQ (crawler.key (), nano::account{ 10 });
+	ASSERT_NE (crawler.find (nano::account{ 30 }), nullptr);
 }
 
-/*
- * Edge Cases
- */
-
-TEST (crawler, single_element)
+TEST (crawler, find_compound)
 {
 	auto store = nano::test::make_store ();
 
-	populate_accounts (*store, { 42 });
+	populate_pending (*store, {
+							  { 10, { 1, 2, 3 } },
+							  { 20, { 1 } },
+							  });
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->pending.crawl (txn);
+
+	// Full-key probe can target an entry in the middle of a group
+	auto const * found = crawler.find (nano::pending_key{ nano::account{ 10 }, nano::block_hash{ 2 } });
+	ASSERT_NE (found, nullptr);
+	ASSERT_EQ (found->first.account, nano::account{ 10 });
+	ASSERT_EQ (found->first.hash, nano::block_hash{ 2 });
+
+	// A miss parks at the first entry past the target, here the next group
+	ASSERT_EQ (crawler.find (nano::pending_key{ nano::account{ 10 }, nano::block_hash{ 4 } }), nullptr);
+	ASSERT_EQ (crawler.key ().account, nano::account{ 20 });
+	ASSERT_EQ (crawler.key ().hash, nano::block_hash{ 1 });
+}
+
+TEST (crawler, find_group_compound)
+{
+	auto store = nano::test::make_store ();
+
+	populate_pending (*store, {
+							  { 10, { 1, 2, 3 } },
+							  { 20, { 1 } },
+							  { 30, { 1 } },
+							  });
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->pending.crawl (txn);
+
+	// A group hit returns the first entry of the group
+	auto const * found = crawler.find_group (nano::account{ 20 });
+	ASSERT_NE (found, nullptr);
+	ASSERT_EQ (found->first.account, nano::account{ 20 });
+	ASSERT_EQ (found->first.hash, nano::block_hash{ 1 });
+
+	// A miss parks at the next group
+	ASSERT_EQ (crawler.find_group (nano::account{ 25 }), nullptr);
+	ASSERT_EQ (crawler.group_key (), nano::account{ 30 });
+}
+
+TEST (crawler, find_group_simple)
+{
+	auto store = nano::test::make_store ();
+
+	populate_accounts (*store, { 10, 20 });
 
 	auto txn = store->tx_begin_read ();
 	auto crawler = store->account.crawl (txn);
 
-	ASSERT_TRUE (crawler);
-	ASSERT_EQ (crawler.key (), nano::account{ 42 });
-
-	// skip_to same key should stay
-	ASSERT_TRUE (crawler.skip_to (nano::account{ 42 }));
-	ASSERT_EQ (crawler.key (), nano::account{ 42 });
-
-	// next() at end should fail and invalidate crawler
-	ASSERT_FALSE (crawler.next ());
-	ASSERT_FALSE (crawler);
-
-	// Rewind and test skip_to past end
-	crawler.rewind ();
-	ASSERT_TRUE (crawler);
-	ASSERT_FALSE (crawler.skip_to (nano::account{ 43 }));
-	ASSERT_FALSE (crawler);
+	// For simple keys a group probe is equivalent to an entry probe
+	auto const * found = crawler.find_group (nano::account{ 20 });
+	ASSERT_NE (found, nullptr);
+	ASSERT_EQ (found->first, nano::account{ 20 });
 }
+
+TEST (crawler, find_within_sequential_window)
+{
+	auto store = nano::test::make_store ();
+
+	// Entries equal to sequential_threshold
+	std::vector<nano::uint256_t> keys;
+	for (size_t i = 1; i <= sequential_threshold; ++i)
+	{
+		keys.push_back (i);
+	}
+	populate_accounts (*store, keys);
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->account.crawl (txn, nano::account{ 1 });
+
+	// find() should reach the target via sequential iteration (within threshold)
+	auto const * found = crawler.find (nano::account{ sequential_threshold / 2 });
+	ASSERT_NE (found, nullptr);
+	ASSERT_EQ (found->first, nano::account{ sequential_threshold / 2 });
+}
+
+TEST (crawler, find_seek_fallback)
+{
+	auto store = nano::test::make_store ();
+
+	// More elements than threshold between start and target forces seek fallback
+	std::vector<nano::uint256_t> keys;
+	for (size_t i = 1; i <= sequential_threshold + 2; ++i)
+	{
+		keys.push_back (i);
+	}
+	keys.push_back (100); // Target far from sequential range
+	populate_accounts (*store, keys);
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->account.crawl (txn, nano::account{ 1 });
+
+	// find(100) needs to traverse more than threshold elements, triggering seek fallback
+	auto const * found = crawler.find (nano::account{ 100 });
+	ASSERT_NE (found, nullptr);
+	ASSERT_EQ (found->first, nano::account{ 100 });
+}
+
+TEST (crawler, find_target_at_window_edge)
+{
+	auto store = nano::test::make_store ();
+
+	// Dense consecutive keys so the target sits exactly one entry past the sequential window
+	std::vector<nano::uint256_t> keys;
+	for (size_t i = 1; i <= sequential_threshold + 2; ++i)
+	{
+		keys.push_back (i);
+	}
+	populate_accounts (*store, keys);
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->account.crawl (txn, nano::account{ 1 });
+
+	// The window checks entries 1..threshold, the target is found by the fallback seek
+	auto const * found = crawler.find (nano::account{ 1 + sequential_threshold });
+	ASSERT_NE (found, nullptr);
+	ASSERT_EQ (found->first, nano::account{ 1 + sequential_threshold });
+}
+
+TEST (crawler, find_large_scale)
+{
+	auto store = nano::test::make_store ();
+
+	std::vector<nano::account> sorted_accounts;
+	{
+		auto txn = store->tx_begin_write ();
+		for (int i = 0; i < 1000; ++i)
+		{
+			nano::account account;
+			nano::random_pool::generate_block (account.bytes.data (), account.bytes.size ());
+			sorted_accounts.push_back (account);
+			store->account.put (txn, account, nano::account_info{});
+		}
+	}
+	std::sort (sorted_accounts.begin (), sorted_accounts.end (), [] (auto const & a, auto const & b) {
+		return a.number () < b.number ();
+	});
+
+	auto txn = store->tx_begin_read ();
+	auto crawler = store->account.crawl (txn);
+
+	// Probe ascending positions, mixing short hops and long jumps
+	for (size_t i : { 100, 250, 500, 750, 999 })
+	{
+		auto const * found = crawler.find (sorted_accounts[i]);
+		ASSERT_NE (found, nullptr);
+		ASSERT_EQ (found->first, sorted_accounts[i]);
+	}
+}
+
+/*
+ * Saturation & boundaries
+ */
 
 TEST (crawler, key_saturation_max_value)
 {
@@ -310,203 +650,33 @@ TEST (crawler, key_saturation_max_value)
 	ASSERT_EQ (crawler.key ().number (), max_minus_one);
 
 	// Should be able to advance to max
-	ASSERT_TRUE (crawler.next ());
+	ASSERT_TRUE (crawler.next_entry ());
 	ASSERT_EQ (crawler.key ().number (), max_val);
 
-	// Attempting to go past max should fail due to saturation
-	ASSERT_FALSE (crawler.next ());
+	// Attempting to go past max ends iteration
+	ASSERT_FALSE (crawler.next_entry ());
 	ASSERT_FALSE (crawler);
 }
 
-/*
- * Simple Keys
- */
-
-TEST (crawler, simple_key_basic_iteration)
+TEST (crawler, boundary_first_key)
 {
 	auto store = nano::test::make_store ();
 
-	populate_accounts (*store, { 1, 2, 3, 4, 5 });
+	populate_accounts (*store, { 10, 20, 30 });
 
 	auto txn = store->tx_begin_read ();
-	auto crawler = store->account.crawl (txn);
 
-	std::vector<nano::uint256_t> visited;
-	ASSERT_TRUE (crawler);
-	while (crawler)
-	{
-		visited.push_back (crawler.key ().number ());
-		ASSERT_EQ (crawler.key (), crawler.full_key ()); // key() == full_key() for simple keys
-		ASSERT_EQ (crawler.key (), nano::account{ visited.back () }); // key() returns correct value
-		bool has_more = crawler.next ();
-		ASSERT_EQ (has_more, static_cast<bool> (crawler));
-	}
+	// Construct with start=0 should position at first key
+	auto crawler1 = store->account.crawl (txn, nano::account{ 0 });
+	ASSERT_EQ (crawler1.key (), nano::account{ 10 });
 
-	ASSERT_EQ (visited, (std::vector<nano::uint256_t>{ 1, 2, 3, 4, 5 }));
+	// Construct with start=first key should position at first key
+	auto crawler2 = store->account.crawl (txn, nano::account{ 10 });
+	ASSERT_EQ (crawler2.key (), nano::account{ 10 });
 }
 
 /*
- * Compound Keys with Grouping
- */
-
-TEST (crawler, compound_key_group_iteration)
-{
-	auto store = nano::test::make_store ();
-
-	// Account 1: 3 pending entries
-	// Account 2: 2 pending entries
-	// Account 3: 1 pending entry
-	populate_pending (*store, {
-							  { 1, { 10, 20, 30 } },
-							  { 2, { 10, 20 } },
-							  { 3, { 10 } },
-							  });
-
-	auto txn = store->tx_begin_read ();
-	auto crawler = store->pending.crawl (txn);
-
-	// First group: account 1
-	ASSERT_TRUE (crawler);
-	ASSERT_EQ (crawler.key (), nano::account{ 1 });
-	ASSERT_EQ (crawler.full_key ().account, nano::account{ 1 });
-	ASSERT_EQ (crawler.full_key ().hash, nano::block_hash{ 10 }); // First entry in group
-
-	// next() should skip to account 2, not to next entry in account 1
-	ASSERT_TRUE (crawler.next ());
-	ASSERT_EQ (crawler.key (), nano::account{ 2 });
-
-	// next() should skip to account 3
-	ASSERT_TRUE (crawler.next ());
-	ASSERT_EQ (crawler.key (), nano::account{ 3 });
-
-	// next() should end iteration
-	ASSERT_FALSE (crawler.next ());
-	ASSERT_FALSE (crawler);
-}
-
-TEST (crawler, compound_key_skip_to)
-{
-	auto store = nano::test::make_store ();
-
-	populate_pending (*store, {
-							  { 10, { 1, 2, 3 } },
-							  { 20, { 1 } },
-							  { 30, { 1 } },
-							  });
-
-	auto txn = store->tx_begin_read ();
-	auto crawler = store->pending.crawl (txn);
-
-	ASSERT_EQ (crawler.key (), nano::account{ 10 });
-
-	// skip_to same account should stay at current group
-	ASSERT_TRUE (crawler.skip_to (nano::account{ 10 }));
-	ASSERT_EQ (crawler.key (), nano::account{ 10 });
-
-	// skip_to mid-value should land on next group
-	ASSERT_TRUE (crawler.skip_to (nano::account{ 25 }));
-	ASSERT_EQ (crawler.key (), nano::account{ 30 });
-}
-
-TEST (crawler, compound_key_many_entries_per_group)
-{
-	auto store = nano::test::make_store ();
-
-	// Account 1 with more entries than sequential_threshold to trigger seek fallback
-	std::vector<nano::uint256_t> hashes;
-	for (size_t i = 1; i <= sequential_threshold + 1; ++i)
-	{
-		hashes.push_back (i);
-	}
-	populate_pending (*store, {
-							  { 1, hashes },
-							  { 2, { 1 } },
-							  });
-
-	auto txn = store->tx_begin_read ();
-	auto crawler = store->pending.crawl (txn);
-
-	ASSERT_EQ (crawler.key (), nano::account{ 1 });
-
-	// next() should skip past all entries to account 2
-	// This triggers the seek fallback after sequential attempts exhausted
-	ASSERT_TRUE (crawler.next ());
-	ASSERT_EQ (crawler.key (), nano::account{ 2 });
-
-	ASSERT_FALSE (crawler.next ());
-}
-
-/*
- * Sequential Optimization - Hybrid Seek Strategy
- */
-
-TEST (crawler, sequential_optimization_within_threshold)
-{
-	auto store = nano::test::make_store ();
-
-	// Entries equal to sequential_threshold
-	std::vector<nano::uint256_t> keys;
-	for (size_t i = 1; i <= sequential_threshold; ++i)
-	{
-		keys.push_back (i);
-	}
-	populate_accounts (*store, keys);
-
-	auto txn = store->tx_begin_read ();
-	auto crawler = store->account.crawl (txn, nano::account{ 1 });
-
-	// skip_to should find target via sequential iteration (within threshold)
-	ASSERT_TRUE (crawler.skip_to (nano::account{ sequential_threshold / 2 }));
-	ASSERT_EQ (crawler.key (), nano::account{ sequential_threshold / 2 });
-}
-
-TEST (crawler, sequential_optimization_exceeds_threshold)
-{
-	auto store = nano::test::make_store ();
-
-	// More elements than threshold between start and target forces seek fallback
-	std::vector<nano::uint256_t> keys;
-	for (size_t i = 1; i <= sequential_threshold + 2; ++i)
-	{
-		keys.push_back (i);
-	}
-	keys.push_back (100); // Target far from sequential range
-	populate_accounts (*store, keys);
-
-	auto txn = store->tx_begin_read ();
-	auto crawler = store->account.crawl (txn, nano::account{ 1 });
-
-	// skip_to(100) needs to traverse more than threshold elements, triggering seek fallback
-	ASSERT_TRUE (crawler.skip_to (nano::account{ 100 }));
-	ASSERT_EQ (crawler.key (), nano::account{ 100 });
-}
-
-/*
- * Ordering Verification
- */
-
-TEST (crawler, iteration_order_ascending)
-{
-	auto store = nano::test::make_store ();
-
-	// Insert in non-sorted order
-	populate_accounts (*store, { 50, 10, 30, 20, 40 });
-
-	auto txn = store->tx_begin_read ();
-	auto crawler = store->account.crawl (txn);
-
-	std::vector<nano::uint256_t> order;
-	while (crawler)
-	{
-		order.push_back (crawler.key ().number ());
-		++crawler;
-	}
-
-	ASSERT_EQ (order, (std::vector<nano::uint256_t>{ 10, 20, 30, 40, 50 }));
-}
-
-/*
- * Large Scale Iteration
+ * Large scale iteration
  */
 
 TEST (crawler, large_scale_iteration)
@@ -530,50 +700,19 @@ TEST (crawler, large_scale_iteration)
 
 	std::unordered_set<nano::account> visited;
 	nano::account previous{};
-	while (crawler)
+	for (; crawler; ++crawler)
 	{
 		auto current = crawler.key ();
 		ASSERT_GT (current.number (), previous.number ());
 		visited.insert (current);
 		previous = current;
-		++crawler;
 	}
 
 	ASSERT_EQ (visited.size (), accounts.size ());
 	ASSERT_EQ (visited, accounts);
 }
 
-TEST (crawler, large_scale_skip_to)
-{
-	auto store = nano::test::make_store ();
-
-	std::vector<nano::account> sorted_accounts;
-	{
-		auto txn = store->tx_begin_write ();
-		for (int i = 0; i < 1000; ++i)
-		{
-			nano::account account;
-			nano::random_pool::generate_block (account.bytes.data (), account.bytes.size ());
-			sorted_accounts.push_back (account);
-			store->account.put (txn, account, nano::account_info{});
-		}
-	}
-	std::sort (sorted_accounts.begin (), sorted_accounts.end (), [] (auto const & a, auto const & b) {
-		return a.number () < b.number ();
-	});
-
-	auto txn = store->tx_begin_read ();
-	auto crawler = store->account.crawl (txn);
-
-	// Skip to various positions
-	for (size_t i : { 100, 250, 500, 750, 999 })
-	{
-		ASSERT_TRUE (crawler.skip_to (sorted_accounts[i]));
-		ASSERT_EQ (crawler.key (), sorted_accounts[i]);
-	}
-}
-
-TEST (crawler, large_scale_compound_key_groups)
+TEST (crawler, large_scale_groups)
 {
 	auto store = nano::test::make_store ();
 
@@ -595,13 +734,12 @@ TEST (crawler, large_scale_compound_key_groups)
 
 	size_t group_count = 0;
 	nano::uint256_t previous = 0;
-	while (crawler)
+	for (; crawler; crawler.next_group ())
 	{
-		auto current = crawler.key ().number ();
+		auto current = crawler.group_key ().number ();
 		ASSERT_GT (current, previous);
 		previous = current;
 		++group_count;
-		++crawler;
 	}
 
 	// Should have visited exactly 100 groups
@@ -609,137 +747,30 @@ TEST (crawler, large_scale_compound_key_groups)
 }
 
 /*
- * Skip_to Patterns - Sparse and Dense Data
+ * Refresh - transaction refresh with iterator re-establishment
  */
 
-TEST (crawler, skip_to_sparse_data)
+TEST (crawler, refresh_keeps_position)
 {
 	auto store = nano::test::make_store ();
 
-	// Large gaps between keys
-	populate_accounts (*store, { 1, 1000, 1000000 });
-
-	auto txn = store->tx_begin_read ();
-	auto crawler = store->account.crawl (txn, nano::account{ 1 });
-
-	ASSERT_TRUE (crawler.skip_to (nano::account{ 500 }));
-	ASSERT_EQ (crawler.key (), nano::account{ 1000 });
-
-	ASSERT_TRUE (crawler.skip_to (nano::account{ 500000 }));
-	ASSERT_EQ (crawler.key (), nano::account{ 1000000 });
-
-	ASSERT_FALSE (crawler.skip_to (nano::account{ 2000000 }));
-	ASSERT_FALSE (crawler);
-}
-
-TEST (crawler, skip_to_dense_data)
-{
-	auto store = nano::test::make_store ();
-
-	// Consecutive keys
-	populate_accounts (*store, { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
-
-	auto txn = store->tx_begin_read ();
-	auto crawler = store->account.crawl (txn, nano::account{ 1 });
-
-	ASSERT_TRUE (crawler.skip_to (nano::account{ 5 }));
-	ASSERT_EQ (crawler.key (), nano::account{ 5 });
-}
-
-TEST (crawler, skip_to_backward_target)
-{
-	auto store = nano::test::make_store ();
-
-	populate_accounts (*store, { 10, 20, 30, 40, 50 });
-
-	auto txn = store->tx_begin_read ();
-	auto crawler = store->account.crawl (txn, nano::account{ 30 });
-
-	ASSERT_EQ (crawler.key (), nano::account{ 30 });
-
-	// skip_to with target less than current position returns true and stays at current
-	ASSERT_TRUE (crawler.skip_to (nano::account{ 10 }));
-	ASSERT_EQ (crawler.key (), nano::account{ 30 });
-
-	// Can still skip forward normally
-	ASSERT_TRUE (crawler.skip_to (nano::account{ 50 }));
-	ASSERT_EQ (crawler.key (), nano::account{ 50 });
-}
-
-/*
- * Boundary Conditions
- */
-
-TEST (crawler, boundary_first_key)
-{
-	auto store = nano::test::make_store ();
-
-	populate_accounts (*store, { 10, 20, 30 });
-
-	auto txn = store->tx_begin_read ();
-
-	// Construct with start=0 should position at first key
-	auto crawler1 = store->account.crawl (txn, nano::account{ 0 });
-	ASSERT_EQ (crawler1.key (), nano::account{ 10 });
-
-	// Construct with start=first key should position at first key
-	auto crawler2 = store->account.crawl (txn, nano::account{ 10 });
-	ASSERT_EQ (crawler2.key (), nano::account{ 10 });
-}
-
-TEST (crawler, boundary_last_key_skip_to_same)
-{
-	auto store = nano::test::make_store ();
-
-	populate_accounts (*store, { 10, 20, 30 });
-
-	auto txn = store->tx_begin_read ();
-	auto crawler = store->account.crawl (txn, nano::account{ 30 });
-
-	// skip_to same key should succeed and stay at same position
-	ASSERT_TRUE (crawler.skip_to (nano::account{ 30 }));
-	ASSERT_EQ (crawler.key (), nano::account{ 30 });
-
-	// skip_to beyond should fail
-	ASSERT_FALSE (crawler.skip_to (nano::account{ 31 }));
-	ASSERT_FALSE (crawler);
-}
-
-TEST (crawler, boundary_max_is_end)
-{
-	auto store = nano::test::make_store ();
-
-	auto max_val = std::numeric_limits<nano::uint256_t>::max ();
-
-	// Add more than sequential_threshold entries at max account
-	// This forces next() to exhaust sequential iteration and hit the saturation check
+	auto txn = store->tx_begin_write ();
+	for (nano::uint256_t i = 1; i <= 5; ++i)
 	{
-		auto txn = store->tx_begin_write ();
-		for (size_t i = 1; i <= sequential_threshold + 1; ++i)
-		{
-			store->pending.put (txn,
-			nano::pending_key{ nano::account{ max_val }, nano::block_hash{ i } },
-			nano::pending_info{});
-		}
+		store->account.put (txn, nano::account{ i }, nano::account_info{});
 	}
 
-	auto txn = store->tx_begin_read ();
-	auto crawler = store->pending.crawl (txn, nano::account{ max_val });
+	auto crawler = store->account.crawl (txn);
+	++crawler;
+	++crawler;
+	ASSERT_EQ (crawler.key (), nano::account{ 3 });
 
+	crawler.refresh ();
 	ASSERT_TRUE (crawler);
-	ASSERT_EQ (crawler.key ().number (), max_val);
-
-	// next() exhausts sequential attempts, then tries next_group(max) which saturates to max
-	// The saturation check should detect this and move to end
-	ASSERT_FALSE (crawler.next ());
-	ASSERT_FALSE (crawler);
+	ASSERT_EQ (crawler.key (), nano::account{ 3 });
 }
 
-/*
- * Refresh - Transaction refresh with iterator re-establishment
- */
-
-TEST (crawler, refresh)
+TEST (crawler, refresh_during_iteration)
 {
 	auto store = nano::test::make_store ();
 
@@ -750,12 +781,6 @@ TEST (crawler, refresh)
 	}
 
 	auto crawler = store->account.crawl (txn);
-	ASSERT_EQ (crawler.key (), nano::account{ 1 });
-
-	// Refresh maintains position
-	crawler.refresh ();
-	ASSERT_TRUE (crawler);
-	ASSERT_EQ (crawler.key (), nano::account{ 1 });
 
 	// Iterate with periodic refresh (simulates batch processing)
 	std::vector<nano::uint256_t> visited;
@@ -771,29 +796,86 @@ TEST (crawler, refresh)
 		}
 	}
 	ASSERT_EQ (visited, (std::vector<nano::uint256_t>{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }));
+}
 
-	// Refresh at end stays at end
+TEST (crawler, refresh_at_end)
+{
+	auto store = nano::test::make_store ();
+
+	auto txn = store->tx_begin_write ();
+	store->account.put (txn, nano::account{ 1 }, nano::account_info{});
+
+	auto crawler = store->account.crawl (txn);
+	++crawler;
 	ASSERT_FALSE (crawler);
+
 	crawler.refresh ();
 	ASSERT_FALSE (crawler);
+}
+
+TEST (crawler, refresh_after_delete)
+{
+	auto store = nano::test::make_store ();
+
+	auto txn = store->tx_begin_write ();
+	for (nano::uint256_t i = 1; i <= 5; ++i)
+	{
+		store->account.put (txn, nano::account{ i }, nano::account_info{});
+	}
+
+	auto crawler = store->account.crawl (txn, nano::account{ 3 });
+	ASSERT_EQ (crawler.key (), nano::account{ 3 });
 
 	// Refresh when current entry was deleted lands on next valid entry
-	crawler.rewind ();
-	++crawler; // at 2
-	++crawler; // at 3
-	ASSERT_EQ (crawler.key (), nano::account{ 3 });
 	store->account.del (txn, nano::account{ 3 });
 	crawler.refresh ();
 	ASSERT_TRUE (crawler);
 	ASSERT_EQ (crawler.key (), nano::account{ 4 });
+}
+
+TEST (crawler, refresh_after_delete_last)
+{
+	auto store = nano::test::make_store ();
+
+	auto txn = store->tx_begin_write ();
+	for (nano::uint256_t i = 1; i <= 3; ++i)
+	{
+		store->account.put (txn, nano::account{ i }, nano::account_info{});
+	}
+
+	auto crawler = store->account.crawl (txn, nano::account{ 3 });
+	ASSERT_EQ (crawler.key (), nano::account{ 3 });
 
 	// Refresh when current entry was the last one and deleted → end
-	crawler.seek (nano::account{ 10 });
-	ASSERT_EQ (crawler.key (), nano::account{ 10 });
-	store->account.del (txn, nano::account{ 10 });
+	store->account.del (txn, nano::account{ 3 });
 	crawler.refresh ();
 	ASSERT_FALSE (crawler);
 }
+
+TEST (crawler, refresh_if_needed)
+{
+	auto store = nano::test::make_store ();
+
+	auto txn = store->tx_begin_write ();
+	for (nano::uint256_t i = 1; i <= 3; ++i)
+	{
+		store->account.put (txn, nano::account{ i }, nano::account_info{});
+	}
+
+	auto crawler = store->account.crawl (txn);
+
+	// Zero max age forces a refresh, position is preserved
+	ASSERT_TRUE (crawler.refresh_if_needed (std::chrono::milliseconds{ 0 }));
+	ASSERT_EQ (crawler.key (), nano::account{ 1 });
+
+	// Freshly refreshed transaction should not refresh again
+	ASSERT_FALSE (crawler.refresh_if_needed ());
+	ASSERT_EQ (crawler.key (), nano::account{ 1 });
+}
+
+/*
+ * Misc
+ */
 
 TEST (crawler, const_transaction)
 {
@@ -815,10 +897,9 @@ TEST (crawler, const_transaction)
 	ASSERT_EQ (crawler.key (), nano::account{ 1 });
 
 	std::vector<nano::uint256_t> visited;
-	while (crawler)
+	for (; crawler; ++crawler)
 	{
 		visited.push_back (crawler.key ().number ());
-		++crawler;
 	}
 	ASSERT_EQ (visited, (std::vector<nano::uint256_t>{ 1, 2, 3, 4, 5 }));
 }

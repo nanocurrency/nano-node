@@ -10,7 +10,6 @@
 #include <nano/secure/network_params.hpp>
 
 #include <boost/endian/conversion.hpp>
-#include <boost/multiprecision/cpp_int.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <limits>
@@ -180,6 +179,19 @@ bool nano::topo_key::deserialize (nano::stream & stream_a)
 		error = true;
 	}
 	return error;
+}
+
+std::optional<nano::topo_key> nano::next_key (nano::topo_key const & current)
+{
+	if (current.hash.number () < std::numeric_limits<nano::uint256_t>::max ())
+	{
+		return nano::topo_key{ current.topo_height, nano::block_hash{ current.hash.number () + 1 } };
+	}
+	if (current.topo_height < std::numeric_limits<uint64_t>::max ())
+	{
+		return nano::topo_key{ current.topo_height + 1, nano::block_hash{ 0 } };
+	}
+	return std::nullopt;
 }
 
 /*

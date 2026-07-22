@@ -4,8 +4,6 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 
-#include <boost/multiprecision/cpp_int.hpp>
-
 #include <cryptopp/seckey.h>
 #include <cryptopp/siphash.h>
 

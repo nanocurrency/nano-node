@@ -415,7 +415,7 @@ void topo_strategy::precheck (head_index head, std::deque<nano::topo_key> entrie
 			auto crawler = ctx.ledger.store.topology.crawl (transaction, entries.front ());
 			for (auto const & key : entries)
 			{
-				if (!crawler.skip_to (key) || crawler.full_key () != key)
+				if (!crawler.find (key))
 				{
 					missing.push_back (key);
 				}

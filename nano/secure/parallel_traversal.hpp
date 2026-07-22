@@ -3,6 +3,9 @@
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/threading.hpp>
 
+#include <algorithm>
+#include <functional>
+#include <limits>
 #include <thread>
 #include <vector>
 

@@ -16,8 +16,6 @@
 #include <nano/store/ledger/topology.hpp>
 #include <nano/store/ledger_store.hpp>
 
-#include <boost/multiprecision/cpp_int.hpp>
-
 nano::ledger_processor::ledger_processor (nano::secure::write_transaction const & transaction_a, nano::ledger & ledger_a) :
 	transaction (transaction_a),
 	ledger (ledger_a)

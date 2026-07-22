@@ -127,7 +127,7 @@ std::deque<nano::account> account_database_scanner::next_batch (nano::store::tra
 	}
 	else
 	{
-		next = crawler.key ();
+		next = crawler.group_key ();
 	}
 
 	return result;
@@ -143,7 +143,8 @@ std::deque<nano::account> pending_database_scanner::next_batch (nano::store::tra
 
 	auto crawler = ledger.store.pending.crawl (transaction, next);
 
-	for (; crawler && result.size () < batch_size; ++crawler)
+	// Advance group-wise to visit each account once, regardless of its number of pending entries
+	for (; crawler && result.size () < batch_size; crawler.next_group ())
 	{
 		auto const & [key, info] = *crawler;
 		result.push_back (key.account);
@@ -158,7 +159,7 @@ std::deque<nano::account> pending_database_scanner::next_batch (nano::store::tra
 	}
 	else
 	{
-		next = crawler.key ();
+		next = crawler.group_key ();
 	}
 
 	return result;

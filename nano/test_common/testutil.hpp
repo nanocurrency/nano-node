@@ -11,7 +11,6 @@
 #include <gtest/gtest.h>
 
 #include <boost/iostreams/concepts.hpp>
-#include <boost/multiprecision/cpp_int.hpp>
 
 #include <atomic>
 #include <chrono>

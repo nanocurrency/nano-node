@@ -244,12 +244,9 @@ frontier_classification classify_frontiers (nano::secure::transaction const & tr
 	};
 
 	auto should_prioritize = [&] (nano::account const & account, nano::block_hash const & frontier) {
-		account_crawler.skip_to (account);
-		pending_crawler.skip_to (account);
-
-		if (account_crawler && account_crawler->first == account)
+		if (auto const * existing = account_crawler.find (account))
 		{
-			if (account_crawler->second.head != frontier && !block_exists (frontier))
+			if (existing->second.head != frontier && !block_exists (frontier))
 			{
 				++result.outdated;
 				return true;
@@ -257,7 +254,7 @@ frontier_classification classify_frontiers (nano::secure::transaction const & tr
 			return false;
 		}
 
-		if (pending_crawler && pending_crawler->first.account == account)
+		if (pending_crawler.find_group (account))
 		{
 			++result.pending;
 			return true;

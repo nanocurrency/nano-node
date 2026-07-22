@@ -2,8 +2,6 @@
 #include <nano/secure/account_info.hpp>
 #include <nano/secure/account_iterator.hpp>
 
-#include <boost/multiprecision/cpp_int.hpp>
-
 template <typename Set>
 nano::account_iterator<Set>::account_iterator ()
 {
