@@ -1313,6 +1313,32 @@ TEST (message, vote_relay_ack_serialization)
 	}
 }
 
+TEST (message, vote_relay_ack_serialization_empty)
+{
+	// An empty ack is valid, it signals that no more votes will be sent for the request
+	nano::messages::vote_relay_ack ack{ nano::dev::network_params.network, 555, {} };
+
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		ack.serialize (stream);
+	}
+
+	bool error = false;
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	nano::messages::message_header header (error, stream2);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (nano::messages::message_type::vote_relay_ack, header.type);
+	ASSERT_EQ (bytes.size () - nano::messages::message_header::size, header.payload_length_bytes ());
+
+	nano::messages::vote_relay_ack ack2 (error, stream2, header);
+	ASSERT_FALSE (error);
+	ASSERT_TRUE (nano::at_end (stream2));
+
+	ASSERT_EQ (ack.id, ack2.id);
+	ASSERT_TRUE (ack2.votes.empty ());
+}
+
 TEST (message, vote_relay_req_serialization_max)
 {
 	// Request at maximum capacity: 255 (hash, root) pairs and 255 requested representatives

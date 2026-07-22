@@ -70,6 +70,7 @@ enum class type
 	cementing_set,
 	vote_replier,
 	vote_replier_ec,
+	vote_relay,
 	filter,
 	telemetry,
 	vote_generator,
@@ -288,6 +289,7 @@ enum class detail
 	asc_pull_ack,
 	vote_relay_req,
 	vote_relay_ack,
+	vote_relay,
 
 	// dropped messages
 	confirm_ack_zero_account,
@@ -485,6 +487,12 @@ enum class detail
 	reply_skip,
 	reply_unknown,
 	reply_hashes,
+
+	// vote_relay
+	unsupported,
+	rep_unknown,
+	reply_empty,
+	query,
 
 	// duplicate
 	duplicate_publish_message,
