@@ -1,11 +1,12 @@
 #include <nano/lib/blockbuilders.hpp>
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
-#include <nano/secure/network_params.hpp>
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
 #include <nano/store/ledger/extended/account_block_by_height.hpp>
@@ -13,881 +14,1286 @@
 #include <nano/store/ledger/extended/account_receivable_by_amount.hpp>
 #include <nano/store/ledger/extended/receive_block_by_send_block.hpp>
 #include <nano/store/ledger/pending.hpp>
-#include <nano/store/ledger_store.hpp>
+#include <nano/store/ledger/version.hpp>
+#include <nano/store/meta.hpp>
 #include <nano/test_common/make_store.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
-#include <cstdint>
-#include <memory>
+#include <limits>
 
 namespace
 {
-struct ledger_chain
+// True when the delegator index holds exactly this key
+bool delegator_exists (nano::store::ledger_store & store, nano::store::transaction const & txn, nano::account_delegator_by_weight_key const & key)
 {
-	nano::keypair key1;
-	nano::keypair representative;
-	nano::keypair state_key;
-	nano::keypair state_representative;
-	std::shared_ptr<nano::block> send1;
-	std::shared_ptr<nano::block> open1;
-	std::shared_ptr<nano::block> send2;
-	std::shared_ptr<nano::block> receive1;
-	std::shared_ptr<nano::block> change1;
-	std::shared_ptr<nano::block> state_send1;
-	std::shared_ptr<nano::block> state_open1;
-	std::shared_ptr<nano::block> state_send2;
-	std::shared_ptr<nano::block> state_receive1;
-	std::shared_ptr<nano::block> state_change1;
-};
-
-nano::ledger_options extended_ledger_options ()
-{
-	return nano::ledger_options{ .enable_extended_ledger_index = true };
-}
-
-void expect_receive_block_by_send_block_entry (nano::store::ledger_store & store, nano::store::transaction const & txn, nano::block_hash const & send_hash, nano::block_hash const & receive_hash)
-{
-	auto entry = store.extended.receive_block_by_send_block.get (txn, send_hash);
-	ASSERT_TRUE (entry.has_value ());
-	ASSERT_EQ (receive_hash, entry.value ());
-}
-
-void expect_account_block_by_height_entry (nano::store::ledger_store & store, nano::store::transaction const & txn, nano::account const & account, uint64_t height, nano::block_hash const & hash)
-{
-	auto entry = store.extended.account_block_by_height.get (txn, { account, height });
-	ASSERT_TRUE (entry.has_value ());
-	ASSERT_EQ (hash, entry.value ());
-}
-
-void expect_account_receivable_by_amount_entry (nano::store::ledger_store & store, nano::store::transaction const & txn, nano::account const & account, nano::amount const & amount, nano::block_hash const & send_hash, nano::account const & source, nano::epoch epoch)
-{
-	auto it = store.extended.account_receivable_by_amount.begin (txn, { account, amount, send_hash });
-	ASSERT_NE (store.extended.account_receivable_by_amount.end (txn), it);
-	ASSERT_EQ (account, it->first.account);
-	ASSERT_EQ (amount, it->first.amount);
-	ASSERT_EQ (send_hash, it->first.send_block_hash);
-	ASSERT_EQ (source, it->second.source);
-	ASSERT_EQ (epoch, it->second.epoch);
-}
-
-void expect_no_account_receivable_by_amount_entry (nano::store::ledger_store & store, nano::store::transaction const & txn, nano::account const & account, nano::amount const & amount, nano::block_hash const & send_hash)
-{
-	auto const key = nano::account_receivable_by_amount_key{ account, amount, send_hash };
-	auto const end = store.extended.account_receivable_by_amount.end (txn);
-	auto it = store.extended.account_receivable_by_amount.begin (txn, key);
-	ASSERT_TRUE (it == end || it->first != key);
-}
-
-void expect_account_delegator_by_weight_entry (nano::store::ledger_store & store, nano::store::transaction const & txn, nano::account const & representative, nano::amount const & weight, nano::account const & delegator)
-{
-	auto it = store.extended.account_delegator_by_weight.begin (txn, { representative, weight, delegator });
-	ASSERT_NE (store.extended.account_delegator_by_weight.end (txn), it);
-	ASSERT_EQ (representative, it->first.representative);
-	ASSERT_EQ (weight, it->first.weight);
-	ASSERT_EQ (delegator, it->first.delegator);
-}
-
-void expect_no_account_delegator_by_weight_entry (nano::store::ledger_store & store, nano::store::transaction const & txn, nano::account const & representative, nano::amount const & weight, nano::account const & delegator)
-{
-	auto const key = nano::account_delegator_by_weight_key{ representative, weight, delegator };
-	auto const end = store.extended.account_delegator_by_weight.end (txn);
 	auto it = store.extended.account_delegator_by_weight.begin (txn, key);
-	ASSERT_TRUE (it == end || it->first != key);
+	return it != store.extended.account_delegator_by_weight.end (txn) && it->first == key;
 }
 
-void process_legacy_chain (nano::ledger & ledger, nano::work_pool & pool, ledger_chain & chain)
+// Exact-match lookup in the receivable index
+std::optional<nano::account_receivable_by_amount_info> receivable_get (nano::store::ledger_store & store, nano::store::transaction const & txn, nano::account_receivable_by_amount_key const & key)
 {
-	nano::block_builder builder;
-	auto txn = ledger.tx_begin_write ();
-	auto genesis_info = ledger.any.account_get (txn, nano::dev::genesis_key.pub);
-	ASSERT_TRUE (genesis_info);
-
-	chain.send1 = builder.send ()
-				  .previous (genesis_info->head)
-				  .destination (chain.key1.pub)
-				  .balance (nano::dev::constants.genesis_amount - 10)
-				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				  .work (*pool.generate (genesis_info->head))
-				  .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, chain.send1));
-
-	chain.open1 = builder.open ()
-				  .source (chain.send1->hash ())
-				  .representative (chain.key1.pub)
-				  .account (chain.key1.pub)
-				  .sign (chain.key1.prv, chain.key1.pub)
-				  .work (*pool.generate (chain.key1.pub))
-				  .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, chain.open1));
-
-	chain.send2 = builder.send ()
-				  .previous (chain.send1->hash ())
-				  .destination (chain.key1.pub)
-				  .balance (nano::dev::constants.genesis_amount - 30)
-				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				  .work (*pool.generate (chain.send1->hash ()))
-				  .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, chain.send2));
-
-	chain.receive1 = builder.receive ()
-					 .previous (chain.open1->hash ())
-					 .source (chain.send2->hash ())
-					 .sign (chain.key1.prv, chain.key1.pub)
-					 .work (*pool.generate (chain.open1->hash ()))
-					 .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, chain.receive1));
-
-	chain.change1 = builder.change ()
-					.previous (chain.receive1->hash ())
-					.representative (chain.representative.pub)
-					.sign (chain.key1.prv, chain.key1.pub)
-					.work (*pool.generate (chain.receive1->hash ()))
-					.build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, chain.change1));
+	auto it = store.extended.account_receivable_by_amount.begin (txn, key);
+	if (it != store.extended.account_receivable_by_amount.end (txn) && it->first == key)
+	{
+		return it->second;
+	}
+	return std::nullopt;
 }
 
-void process_state_chain (nano::ledger & ledger, nano::work_pool & pool, ledger_chain & chain)
+/*
+ * Cross-check every extended index against its primary table: each primary row must have exactly
+ * one matching index row (forward containment + count equality covers both directions)
+ */
+void assert_extended_indices_consistent (nano::ledger & ledger, nano::secure::transaction const & txn)
 {
-	nano::block_builder builder;
-	auto txn = ledger.tx_begin_write ();
+	auto & store = ledger.store;
 
-	chain.state_send1 = builder.state ()
-						.account (nano::dev::genesis_key.pub)
-						.previous (chain.send2->hash ())
-						.representative (nano::dev::genesis_key.pub)
-						.balance (nano::dev::constants.genesis_amount - 40)
-						.link (chain.state_key.pub)
-						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-						.work (*pool.generate (chain.send2->hash ()))
-						.build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, chain.state_send1));
+	// Delegator index <-> account table
+	uint64_t account_count{ 0 };
+	for (auto i = store.account.begin (txn), n = store.account.end (txn); i != n; ++i)
+	{
+		nano::account_delegator_by_weight_key key{ i->second.representative, i->second.balance, i->first };
+		ASSERT_TRUE (delegator_exists (store, txn, key)) << "missing delegator entry for account " << i->first.to_account ();
+		++account_count;
+	}
+	ASSERT_EQ (account_count, store.extended.account_delegator_by_weight.count (txn));
 
-	chain.state_open1 = builder.state ()
-						.account (chain.state_key.pub)
-						.previous (0)
-						.representative (chain.state_key.pub)
-						.balance (10)
-						.link (chain.state_send1->hash ())
-						.sign (chain.state_key.prv, chain.state_key.pub)
-						.work (*pool.generate (chain.state_key.pub))
-						.build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, chain.state_open1));
+	// Receivable index <-> pending table
+	uint64_t pending_count{ 0 };
+	for (auto i = store.pending.begin (txn), n = store.pending.end (txn); i != n; ++i)
+	{
+		nano::account_receivable_by_amount_key key{ i->first.account, i->second.amount, i->first.hash };
+		auto info = receivable_get (store, txn, key);
+		ASSERT_TRUE (info.has_value ()) << "missing receivable entry for send " << i->first.hash.to_string ();
+		ASSERT_EQ (i->second.source, info->source);
+		ASSERT_EQ (i->second.epoch, info->epoch);
+		++pending_count;
+	}
+	ASSERT_EQ (pending_count, store.extended.account_receivable_by_amount.count (txn));
 
-	chain.state_send2 = builder.state ()
-						.account (nano::dev::genesis_key.pub)
-						.previous (chain.state_send1->hash ())
-						.representative (nano::dev::genesis_key.pub)
-						.balance (nano::dev::constants.genesis_amount - 60)
-						.link (chain.state_key.pub)
-						.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-						.work (*pool.generate (chain.state_send1->hash ()))
-						.build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, chain.state_send2));
-
-	chain.state_receive1 = builder.state ()
-						   .account (chain.state_key.pub)
-						   .previous (chain.state_open1->hash ())
-						   .representative (chain.state_key.pub)
-						   .balance (30)
-						   .link (chain.state_send2->hash ())
-						   .sign (chain.state_key.prv, chain.state_key.pub)
-						   .work (*pool.generate (chain.state_open1->hash ()))
-						   .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, chain.state_receive1));
-
-	chain.state_change1 = builder.state ()
-						  .account (chain.state_key.pub)
-						  .previous (chain.state_receive1->hash ())
-						  .representative (chain.state_representative.pub)
-						  .balance (30)
-						  .link (0)
-						  .sign (chain.state_key.prv, chain.state_key.pub)
-						  .work (*pool.generate (chain.state_receive1->hash ()))
-						  .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, chain.state_change1));
-}
-
-void process_legacy_and_state_chains (nano::ledger & ledger, nano::work_pool & pool, ledger_chain & chain)
-{
-	process_legacy_chain (ledger, pool, chain);
-	process_state_chain (ledger, pool, chain);
-}
-
-void process_genesis_legacy_send (nano::ledger & ledger, nano::work_pool & pool, nano::block_hash const & previous, nano::account const & destination, nano::amount const & balance, std::shared_ptr<nano::block> & send)
-{
-	nano::block_builder builder;
-	auto txn = ledger.tx_begin_write ();
-	send = builder.send ()
-		   .previous (previous)
-		   .destination (destination)
-		   .balance (balance)
-		   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-		   .work (*pool.generate (previous))
-		   .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send));
-}
-
-void process_genesis_state_send (nano::ledger & ledger, nano::work_pool & pool, nano::block_hash const & previous, nano::account const & destination, nano::amount const & balance, std::shared_ptr<nano::block> & send)
-{
-	nano::block_builder builder;
-	auto txn = ledger.tx_begin_write ();
-	send = builder.state ()
-		   .account (nano::dev::genesis_key.pub)
-		   .previous (previous)
-		   .representative (nano::dev::genesis_key.pub)
-		   .balance (balance)
-		   .link (destination)
-		   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-		   .work (*pool.generate (previous))
-		   .build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send));
+	// Height index and receive lookup index <-> block table
+	uint64_t block_count{ 0 };
+	uint64_t receive_count{ 0 };
+	for (auto i = store.block.begin (txn), n = store.block.end (txn); i != n; ++i)
+	{
+		auto const & block = i->second.block;
+		auto indexed = store.extended.account_block_by_height.get (txn, { block->account (), i->second.sideband.height });
+		ASSERT_TRUE (indexed.has_value ()) << "missing height entry for block " << i->first.to_string ();
+		ASSERT_EQ (i->first, indexed.value ());
+		if (block->is_receive ())
+		{
+			auto receive = store.extended.receive_block_by_send_block.get (txn, block->source ());
+			ASSERT_TRUE (receive.has_value ()) << "missing receive entry for block " << i->first.to_string ();
+			ASSERT_EQ (i->first, receive.value ());
+			++receive_count;
+		}
+		++block_count;
+	}
+	ASSERT_EQ (block_count, store.extended.account_block_by_height.count (txn));
+	ASSERT_EQ (receive_count, store.extended.receive_block_by_send_block.count (txn));
 }
 }
 
 /*
- * Populates the receive-block lookup index for an existing ledger whose
- * extended index flags are disabled. The test first builds legacy and state
- * receive/open blocks without index entries, then runs the single-index
- * populate method and checks that received sends map to their receive blocks
- * while an unreceived send does not get an entry.
+ * Exact-match round-trip on the account block height table, including a height beyond 32 bits
  */
-TEST (ledger_extended_index, receive_block_by_send_block_populate)
+TEST (ledger_extended_index, account_block_by_height_roundtrip)
 {
-	nano::logger logger;
-	nano::stats stats{ logger };
-	auto store = nano::test::make_store (logger, stats);
-	nano::work_pool pool{ nano::dev::network_params.network, 1 };
-
-	ledger_chain chain;
-	nano::keypair key2;
-	std::shared_ptr<nano::block> unreceived_send;
-	{
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
-		ASSERT_FALSE (ledger.flags.receive_block_by_send_block_index);
-		process_legacy_and_state_chains (ledger, pool, chain);
-		process_genesis_state_send (ledger, pool, chain.state_send2->hash (), key2.pub, nano::dev::constants.genesis_amount - 70, unreceived_send);
-	}
-
-	{
-		auto txn = store->tx_begin_read ();
-		ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, chain.send1->hash ()).has_value ());
-		ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, chain.send2->hash ()).has_value ());
-		ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, chain.state_send1->hash ()).has_value ());
-		ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, chain.state_send2->hash ()).has_value ());
-		ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, unreceived_send->hash ()).has_value ());
-	}
-
-	{
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
-		ASSERT_FALSE (ledger.flags.receive_block_by_send_block_index);
-		ledger.populate_receive_block_by_send_block_index ();
-		ASSERT_TRUE (ledger.flags.receive_block_by_send_block_index);
-	}
-
-	auto txn = store->tx_begin_read ();
-	expect_receive_block_by_send_block_entry (*store, txn, chain.send1->hash (), chain.open1->hash ());
-	expect_receive_block_by_send_block_entry (*store, txn, chain.send2->hash (), chain.receive1->hash ());
-	expect_receive_block_by_send_block_entry (*store, txn, chain.state_send1->hash (), chain.state_open1->hash ());
-	expect_receive_block_by_send_block_entry (*store, txn, chain.state_send2->hash (), chain.state_receive1->hash ());
-	ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, unreceived_send->hash ()).has_value ());
-	ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, chain.change1->hash ()).has_value ());
-	ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, chain.state_change1->hash ()).has_value ());
-	ASSERT_TRUE (store->version.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled));
-}
-
-/*
- * Verifies runtime maintenance of the receive-block lookup index. With
- * extended indices enabled, a send alone must not create a lookup entry, a
- * following open block must add the send->open mapping, and rolling the open
- * back must remove that mapping through the normal ledger delete hook.
- */
-TEST (ledger_extended_index, receive_block_by_send_block_runtime)
-{
-	nano::logger logger;
-	nano::stats stats{ logger };
-	auto store = nano::test::make_store (logger, stats);
-	nano::work_pool pool{ nano::dev::network_params.network, 1 };
-
-	nano::ledger ledger{ *store, nano::dev::network_params, stats, logger, extended_ledger_options () };
-	ASSERT_TRUE (ledger.flags.receive_block_by_send_block_index);
-	nano::keypair key;
-	nano::block_builder builder;
-
-	std::shared_ptr<nano::block> send;
-	process_genesis_legacy_send (ledger, pool, nano::dev::genesis->hash (), key.pub, nano::dev::constants.genesis_amount - 10, send);
-	{
-		auto txn = ledger.tx_begin_read ();
-		ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, send->hash ()).has_value ());
-	}
-
-	std::shared_ptr<nano::block> open;
-	{
-		auto txn = ledger.tx_begin_write ();
-		open = builder.open ()
-			   .source (send->hash ())
-			   .representative (key.pub)
-			   .account (key.pub)
-			   .sign (key.prv, key.pub)
-			   .work (*pool.generate (key.pub))
-			   .build ();
-		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, open));
-		expect_receive_block_by_send_block_entry (*store, txn, send->hash (), open->hash ());
-
-		ASSERT_FALSE (ledger.rollback (txn, open->hash ()));
-		ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, send->hash ()).has_value ());
-	}
-}
-
-/*
- * Populates the receivable amount index from pending entries that already
- * exist in the ledger. The setup creates multiple legacy sends plus a state
- * send while the index flag is disabled; populate then backfills keys by
- * destination account, amount, and send hash and stores source/epoch metadata.
- */
-TEST (ledger_extended_index, account_receivable_by_amount_populate)
-{
-	nano::logger logger;
-	nano::stats stats{ logger };
-	auto store = nano::test::make_store (logger, stats);
-	nano::work_pool pool{ nano::dev::network_params.network, 1 };
-
-	nano::keypair key;
-	nano::keypair state_key;
-	std::shared_ptr<nano::block> send1;
-	std::shared_ptr<nano::block> send2;
-	std::shared_ptr<nano::block> send3;
-	std::shared_ptr<nano::block> state_send;
-	{
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
-		process_genesis_legacy_send (ledger, pool, nano::dev::genesis->hash (), key.pub, nano::dev::constants.genesis_amount - 10, send1);
-		process_genesis_legacy_send (ledger, pool, send1->hash (), key.pub, nano::dev::constants.genesis_amount - 30, send2);
-		process_genesis_legacy_send (ledger, pool, send2->hash (), key.pub, nano::dev::constants.genesis_amount - 50, send3);
-		process_genesis_state_send (ledger, pool, send3->hash (), state_key.pub, nano::dev::constants.genesis_amount - 80, state_send);
-	}
-
-	{
-		auto txn = store->tx_begin_read ();
-		ASSERT_EQ (0, store->extended.account_receivable_by_amount.count (txn));
-		ASSERT_EQ (4, store->pending.count (txn));
-	}
-
-	{
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
-		ASSERT_FALSE (ledger.flags.account_receivable_by_amount_index);
-		ledger.populate_account_receivable_by_amount_index ();
-		ASSERT_TRUE (ledger.flags.account_receivable_by_amount_index);
-	}
-
-	auto txn = store->tx_begin_read ();
-	ASSERT_EQ (store->pending.count (txn), store->extended.account_receivable_by_amount.count (txn));
-	expect_account_receivable_by_amount_entry (*store, txn, key.pub, 10, send1->hash (), nano::dev::genesis_key.pub, nano::epoch::epoch_0);
-	expect_account_receivable_by_amount_entry (*store, txn, key.pub, 20, send2->hash (), nano::dev::genesis_key.pub, nano::epoch::epoch_0);
-	expect_account_receivable_by_amount_entry (*store, txn, key.pub, 20, send3->hash (), nano::dev::genesis_key.pub, nano::epoch::epoch_0);
-	expect_account_receivable_by_amount_entry (*store, txn, state_key.pub, 30, state_send->hash (), nano::dev::genesis_key.pub, nano::epoch::epoch_0);
-	ASSERT_TRUE (store->version.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled));
-}
-
-/*
- * Verifies runtime maintenance of the receivable amount index through normal
- * ledger processing. A send adds both pending and amount-index entries, an open
- * consumes and removes them, rolling the open back restores them, and rolling
- * the send back removes them again.
- */
-TEST (ledger_extended_index, account_receivable_by_amount_runtime)
-{
-	nano::logger logger;
-	nano::stats stats{ logger };
-	auto store = nano::test::make_store (logger, stats);
-	nano::work_pool pool{ nano::dev::network_params.network, 1 };
-	nano::ledger ledger{ *store, nano::dev::network_params, stats, logger, extended_ledger_options () };
-	nano::keypair key;
-	nano::block_builder builder;
-
-	std::shared_ptr<nano::block> send;
-	process_genesis_legacy_send (ledger, pool, nano::dev::genesis->hash (), key.pub, nano::dev::constants.genesis_amount - 10, send);
-	{
-		auto txn = ledger.tx_begin_read ();
-		expect_account_receivable_by_amount_entry (*store, txn, key.pub, 10, send->hash (), nano::dev::genesis_key.pub, nano::epoch::epoch_0);
-		ASSERT_TRUE (store->pending.exists (txn, { key.pub, send->hash () }));
-	}
-
-	std::shared_ptr<nano::block> open;
-	{
-		auto txn = ledger.tx_begin_write ();
-		open = builder.open ()
-			   .source (send->hash ())
-			   .representative (key.pub)
-			   .account (key.pub)
-			   .sign (key.prv, key.pub)
-			   .work (*pool.generate (key.pub))
-			   .build ();
-		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, open));
-		expect_no_account_receivable_by_amount_entry (*store, txn, key.pub, 10, send->hash ());
-		ASSERT_FALSE (store->pending.exists (txn, { key.pub, send->hash () }));
-
-		ASSERT_FALSE (ledger.rollback (txn, open->hash ()));
-		expect_account_receivable_by_amount_entry (*store, txn, key.pub, 10, send->hash (), nano::dev::genesis_key.pub, nano::epoch::epoch_0);
-		ASSERT_TRUE (store->pending.exists (txn, { key.pub, send->hash () }));
-
-		ASSERT_FALSE (ledger.rollback (txn, send->hash ()));
-		expect_no_account_receivable_by_amount_entry (*store, txn, key.pub, 10, send->hash ());
-		ASSERT_FALSE (store->pending.exists (txn, { key.pub, send->hash () }));
-	}
-}
-
-/*
- * Populates the delegator-by-weight index from existing account records. The
- * mixed legacy/state chain is processed while the index flag is disabled, then
- * populate backfills one row per account keyed by representative, balance, and
- * delegator account.
- */
-TEST (ledger_extended_index, account_delegator_by_weight_populate)
-{
-	nano::logger logger;
-	nano::stats stats{ logger };
-	auto store = nano::test::make_store (logger, stats);
-	nano::work_pool pool{ nano::dev::network_params.network, 1 };
-
-	ledger_chain chain;
-	{
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
-		process_legacy_and_state_chains (ledger, pool, chain);
-	}
-
-	{
-		auto txn = store->tx_begin_read ();
-		ASSERT_EQ (0, store->extended.account_delegator_by_weight.count (txn));
-	}
-	{
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
-		ASSERT_FALSE (ledger.flags.account_delegator_by_weight_index);
-		ledger.populate_account_delegator_by_weight_index ();
-		ASSERT_TRUE (ledger.flags.account_delegator_by_weight_index);
-	}
-
-	auto txn = store->tx_begin_read ();
-	ASSERT_EQ (store->account.count (txn), store->extended.account_delegator_by_weight.count (txn));
-	expect_account_delegator_by_weight_entry (*store, txn, nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 60, nano::dev::genesis_key.pub);
-	expect_account_delegator_by_weight_entry (*store, txn, chain.representative.pub, 30, chain.key1.pub);
-	expect_account_delegator_by_weight_entry (*store, txn, chain.state_representative.pub, 30, chain.state_key.pub);
-	ASSERT_TRUE (store->version.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled));
-}
-
-/*
- * Verifies runtime updates of the delegator-by-weight index. Opening an account
- * inserts its initial representative/weight row, receiving more funds replaces
- * the old balance row, and changing representatives removes the old
- * representative row and inserts the new one.
- */
-TEST (ledger_extended_index, account_delegator_by_weight_runtime)
-{
-	nano::logger logger;
-	nano::stats stats{ logger };
-	auto store = nano::test::make_store (logger, stats);
-	nano::work_pool pool{ nano::dev::network_params.network, 1 };
-	nano::ledger ledger{ *store, nano::dev::network_params, stats, logger, extended_ledger_options () };
-	nano::keypair key;
-	nano::keypair new_rep;
-	nano::block_builder builder;
-
-	std::shared_ptr<nano::block> send1;
-	process_genesis_legacy_send (ledger, pool, nano::dev::genesis->hash (), key.pub, nano::dev::constants.genesis_amount - 10, send1);
-	std::shared_ptr<nano::block> open;
-	{
-		auto txn = ledger.tx_begin_write ();
-		open = builder.open ()
-			   .source (send1->hash ())
-			   .representative (key.pub)
-			   .account (key.pub)
-			   .sign (key.prv, key.pub)
-			   .work (*pool.generate (key.pub))
-			   .build ();
-		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, open));
-		expect_account_delegator_by_weight_entry (*store, txn, key.pub, 10, key.pub);
-	}
-
-	std::shared_ptr<nano::block> send2;
-	process_genesis_legacy_send (ledger, pool, send1->hash (), key.pub, nano::dev::constants.genesis_amount - 30, send2);
-	std::shared_ptr<nano::block> receive;
-	std::shared_ptr<nano::block> change;
-	{
-		auto txn = ledger.tx_begin_write ();
-		receive = builder.receive ()
-				  .previous (open->hash ())
-				  .source (send2->hash ())
-				  .sign (key.prv, key.pub)
-				  .work (*pool.generate (open->hash ()))
-				  .build ();
-		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, receive));
-		expect_no_account_delegator_by_weight_entry (*store, txn, key.pub, 10, key.pub);
-		expect_account_delegator_by_weight_entry (*store, txn, key.pub, 30, key.pub);
-
-		change = builder.change ()
-				 .previous (receive->hash ())
-				 .representative (new_rep.pub)
-				 .sign (key.prv, key.pub)
-				 .work (*pool.generate (receive->hash ()))
-				 .build ();
-		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, change));
-		expect_no_account_delegator_by_weight_entry (*store, txn, key.pub, 30, key.pub);
-		expect_account_delegator_by_weight_entry (*store, txn, new_rep.pub, 30, key.pub);
-	}
-}
-
-/*
- * Verifies that rolling back an account open removes the account's delegator
- * index entry. The test opens an account with extended indices enabled, checks
- * the index row, rolls back the open, and confirms both the account table and
- * delegator index no longer contain that account.
- */
-TEST (ledger_extended_index, account_delegator_by_weight_rollback)
-{
-	nano::logger logger;
-	nano::stats stats{ logger };
-	auto store = nano::test::make_store (logger, stats);
-	nano::work_pool pool{ nano::dev::network_params.network, 1 };
-	nano::ledger ledger{ *store, nano::dev::network_params, stats, logger, extended_ledger_options () };
-	nano::keypair key;
-	nano::block_builder builder;
-
-	std::shared_ptr<nano::block> send;
-	process_genesis_legacy_send (ledger, pool, nano::dev::genesis->hash (), key.pub, nano::dev::constants.genesis_amount - 10, send);
-	auto txn = ledger.tx_begin_write ();
-	auto open = builder.open ()
-				.source (send->hash ())
-				.representative (key.pub)
-				.account (key.pub)
-				.sign (key.prv, key.pub)
-				.work (*pool.generate (key.pub))
-				.build ();
-	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, open));
-	expect_account_delegator_by_weight_entry (*store, txn, key.pub, 10, key.pub);
-
-	ASSERT_FALSE (ledger.rollback (txn, open->hash ()));
-	ASSERT_FALSE (store->account.exists (txn, key.pub));
-	expect_no_account_delegator_by_weight_entry (*store, txn, key.pub, 10, key.pub);
-}
-
-/*
- * Populates the account block height index for existing account chains.
- * The mixed legacy/state chain is built while the index flag is disabled, then
- * populate walks the account chains and backfills { account, height } -> block
- * hash entries for genesis and both non-genesis accounts.
- */
-TEST (ledger_extended_index, account_block_by_height_populate)
-{
-	nano::logger logger;
-	nano::stats stats{ logger };
-	auto store = nano::test::make_store (logger, stats);
-	nano::work_pool pool{ nano::dev::network_params.network, 1 };
-
-	ledger_chain chain;
-	{
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
-		process_legacy_and_state_chains (ledger, pool, chain);
-	}
-
-	{
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
-		ASSERT_FALSE (ledger.flags.account_block_by_height_index);
-		ledger.populate_account_block_by_height_index ();
-		ASSERT_TRUE (ledger.flags.account_block_by_height_index);
-	}
-
-	auto txn = store->tx_begin_read ();
-	ASSERT_EQ (store->block.count (txn), store->extended.account_block_by_height.count (txn));
-	expect_account_block_by_height_entry (*store, txn, nano::dev::genesis_key.pub, 1, nano::dev::genesis->hash ());
-	expect_account_block_by_height_entry (*store, txn, nano::dev::genesis_key.pub, 2, chain.send1->hash ());
-	expect_account_block_by_height_entry (*store, txn, nano::dev::genesis_key.pub, 3, chain.send2->hash ());
-	expect_account_block_by_height_entry (*store, txn, nano::dev::genesis_key.pub, 4, chain.state_send1->hash ());
-	expect_account_block_by_height_entry (*store, txn, nano::dev::genesis_key.pub, 5, chain.state_send2->hash ());
-	expect_account_block_by_height_entry (*store, txn, chain.key1.pub, 1, chain.open1->hash ());
-	expect_account_block_by_height_entry (*store, txn, chain.key1.pub, 2, chain.receive1->hash ());
-	expect_account_block_by_height_entry (*store, txn, chain.key1.pub, 3, chain.change1->hash ());
-	expect_account_block_by_height_entry (*store, txn, chain.state_key.pub, 1, chain.state_open1->hash ());
-	expect_account_block_by_height_entry (*store, txn, chain.state_key.pub, 2, chain.state_receive1->hash ());
-	expect_account_block_by_height_entry (*store, txn, chain.state_key.pub, 3, chain.state_change1->hash ());
-	ASSERT_TRUE (store->version.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled));
-}
-
-/*
- * Verifies runtime maintenance of the account block height index. With
- * extended indices enabled, processing blocks writes the expected height rows;
- * rolling back tip blocks removes only those rows and leaves lower account
- * heights intact.
- */
-TEST (ledger_extended_index, account_block_by_height_runtime)
-{
-	nano::logger logger;
-	nano::stats stats{ logger };
-	auto store = nano::test::make_store (logger, stats);
-	nano::work_pool pool{ nano::dev::network_params.network, 1 };
-	nano::ledger ledger{ *store, nano::dev::network_params, stats, logger, extended_ledger_options () };
-	ledger_chain chain;
-	process_legacy_and_state_chains (ledger, pool, chain);
-
-	auto txn = ledger.tx_begin_write ();
-	expect_account_block_by_height_entry (*store, txn, nano::dev::genesis_key.pub, 1, nano::dev::genesis->hash ());
-	expect_account_block_by_height_entry (*store, txn, nano::dev::genesis_key.pub, 2, chain.send1->hash ());
-	expect_account_block_by_height_entry (*store, txn, nano::dev::genesis_key.pub, 3, chain.send2->hash ());
-	expect_account_block_by_height_entry (*store, txn, nano::dev::genesis_key.pub, 4, chain.state_send1->hash ());
-	expect_account_block_by_height_entry (*store, txn, nano::dev::genesis_key.pub, 5, chain.state_send2->hash ());
-	expect_account_block_by_height_entry (*store, txn, chain.key1.pub, 1, chain.open1->hash ());
-	expect_account_block_by_height_entry (*store, txn, chain.key1.pub, 2, chain.receive1->hash ());
-	expect_account_block_by_height_entry (*store, txn, chain.key1.pub, 3, chain.change1->hash ());
-	expect_account_block_by_height_entry (*store, txn, chain.state_key.pub, 1, chain.state_open1->hash ());
-	expect_account_block_by_height_entry (*store, txn, chain.state_key.pub, 2, chain.state_receive1->hash ());
-	expect_account_block_by_height_entry (*store, txn, chain.state_key.pub, 3, chain.state_change1->hash ());
-
-	ASSERT_FALSE (ledger.rollback (txn, chain.state_change1->hash ()));
-	ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { chain.state_key.pub, 3 }).has_value ());
-	expect_account_block_by_height_entry (*store, txn, chain.state_key.pub, 2, chain.state_receive1->hash ());
-
-	ASSERT_FALSE (ledger.rollback (txn, chain.state_receive1->hash ()));
-	ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { chain.state_key.pub, 2 }).has_value ());
-	expect_account_block_by_height_entry (*store, txn, chain.state_key.pub, 1, chain.state_open1->hash ());
-
-	ASSERT_FALSE (ledger.rollback (txn, chain.change1->hash ()));
-	ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { chain.key1.pub, 3 }).has_value ());
-	expect_account_block_by_height_entry (*store, txn, chain.key1.pub, 2, chain.receive1->hash ());
-
-	ASSERT_FALSE (ledger.rollback (txn, chain.receive1->hash ()));
-	ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { chain.key1.pub, 2 }).has_value ());
-	expect_account_block_by_height_entry (*store, txn, chain.key1.pub, 1, chain.open1->hash ());
-}
-
-/*
- * Exercises account block height lookup bounds while keeping index verification
- * direct. With the index enabled, the test checks backing table entries for
- * both legacy and state account chains and verifies lookup results; after
- * disabling only the account block height flag, it verifies that the fallback
- * traversal returns the same valid hashes.
- */
-TEST (ledger_extended_index, account_block_by_height_find)
-{
-	nano::logger logger;
-	nano::stats stats{ logger };
-	auto store = nano::test::make_store (logger, stats);
-	nano::work_pool pool{ nano::dev::network_params.network, 1 };
-	ledger_chain chain;
-	{
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger, extended_ledger_options () };
-		process_legacy_and_state_chains (ledger, pool, chain);
-		auto txn = ledger.tx_begin_read ();
-		ASSERT_FALSE (ledger.find_block_hash_by_height (txn, chain.key1.pub, 0).has_value ());
-		expect_account_block_by_height_entry (*store, txn, chain.key1.pub, 2, chain.receive1->hash ());
-		expect_account_block_by_height_entry (*store, txn, chain.key1.pub, 3, chain.change1->hash ());
-		expect_account_block_by_height_entry (*store, txn, chain.state_key.pub, 2, chain.state_receive1->hash ());
-		expect_account_block_by_height_entry (*store, txn, chain.state_key.pub, 3, chain.state_change1->hash ());
-
-		auto indexed_middle = ledger.find_block_hash_by_height (txn, chain.key1.pub, 2);
-		ASSERT_TRUE (indexed_middle.has_value ());
-		ASSERT_EQ (chain.receive1->hash (), indexed_middle.value ());
-		auto indexed_head = ledger.find_block_hash_by_height (txn, chain.key1.pub, 3);
-		ASSERT_TRUE (indexed_head.has_value ());
-		ASSERT_EQ (chain.change1->hash (), indexed_head.value ());
-		auto indexed_state_middle = ledger.find_block_hash_by_height (txn, chain.state_key.pub, 2);
-		ASSERT_TRUE (indexed_state_middle.has_value ());
-		ASSERT_EQ (chain.state_receive1->hash (), indexed_state_middle.value ());
-		auto indexed_state_head = ledger.find_block_hash_by_height (txn, chain.state_key.pub, 3);
-		ASSERT_TRUE (indexed_state_head.has_value ());
-		ASSERT_EQ (chain.state_change1->hash (), indexed_state_head.value ());
-		ASSERT_FALSE (ledger.find_block_hash_by_height (txn, chain.key1.pub, 4).has_value ());
-		ASSERT_FALSE (ledger.find_block_hash_by_height (txn, chain.state_key.pub, 4).has_value ());
-	}
+	auto store = nano::test::make_store ();
+	nano::account account{ 9 };
+	nano::block_hash hash1{ 101 };
+	nano::block_hash hash2{ 102 };
 	{
 		auto txn = store->tx_begin_write ();
-		store->version.put_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled, false);
+		ASSERT_TRUE (store->extended.account_block_by_height.empty (txn));
+		store->extended.account_block_by_height.put (txn, { account, 1 }, hash1);
+		store->extended.account_block_by_height.put (txn, { account, uint64_t{ 1 } << 40 }, hash2);
+		ASSERT_EQ (2, store->extended.account_block_by_height.count (txn));
+		ASSERT_EQ (hash1, store->extended.account_block_by_height.get (txn, { account, 1 }).value ());
+		ASSERT_EQ (hash2, store->extended.account_block_by_height.get (txn, { account, uint64_t{ 1 } << 40 }).value ());
+		ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { account, 2 }).has_value ());
+		ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { nano::account{ 10 }, 1 }).has_value ());
+		store->extended.account_block_by_height.del (txn, { account, 1 });
+		ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { account, 1 }).has_value ());
+		ASSERT_EQ (1, store->extended.account_block_by_height.count (txn));
 	}
-	{
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
-		ASSERT_FALSE (ledger.flags.account_block_by_height_index);
-		auto txn = ledger.tx_begin_read ();
-		auto fallback_middle = ledger.find_block_hash_by_height (txn, chain.key1.pub, 2);
-		ASSERT_TRUE (fallback_middle.has_value ());
-		ASSERT_EQ (chain.receive1->hash (), fallback_middle.value ());
-		auto fallback_head = ledger.find_block_hash_by_height (txn, chain.key1.pub, 3);
-		ASSERT_TRUE (fallback_head.has_value ());
-		ASSERT_EQ (chain.change1->hash (), fallback_head.value ());
-		auto fallback_state_middle = ledger.find_block_hash_by_height (txn, chain.state_key.pub, 2);
-		ASSERT_TRUE (fallback_state_middle.has_value ());
-		ASSERT_EQ (chain.state_receive1->hash (), fallback_state_middle.value ());
-		auto fallback_state_head = ledger.find_block_hash_by_height (txn, chain.state_key.pub, 3);
-		ASSERT_TRUE (fallback_state_head.has_value ());
-		ASSERT_EQ (chain.state_change1->hash (), fallback_state_head.value ());
-		ASSERT_FALSE (ledger.find_block_hash_by_height (txn, chain.key1.pub, 4).has_value ());
-		ASSERT_FALSE (ledger.find_block_hash_by_height (txn, chain.state_key.pub, 4).has_value ());
-	}
-}
-
-/*
- * Verifies the aggregate extended-index populate path. The ledger is built with
- * all extended index flags disabled, including received legacy and state chains
- * plus an extra unreceived state send so every extended table has source data.
- * The aggregate populate call must fill all four tables, set all flags, and
- * remain idempotent when called again.
- */
-TEST (ledger_extended_index, extended_ledger_indices_populate)
-{
-	nano::logger logger;
-	nano::stats stats{ logger };
-	auto store = nano::test::make_store (logger, stats);
-	nano::work_pool pool{ nano::dev::network_params.network, 1 };
-
-	ledger_chain chain;
-	nano::keypair receivable_key;
-	std::shared_ptr<nano::block> unreceived_send;
-	{
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
-		process_legacy_and_state_chains (ledger, pool, chain);
-		process_genesis_state_send (ledger, pool, chain.state_send2->hash (), receivable_key.pub, nano::dev::constants.genesis_amount - 70, unreceived_send);
-	}
-
-	{
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
-		ASSERT_FALSE (ledger.flags.receive_block_by_send_block_index);
-		ASSERT_FALSE (ledger.flags.account_receivable_by_amount_index);
-		ASSERT_FALSE (ledger.flags.account_delegator_by_weight_index);
-		ASSERT_FALSE (ledger.flags.account_block_by_height_index);
-		ledger.populate_extended_ledger_indices ();
-		ASSERT_TRUE (ledger.flags.receive_block_by_send_block_index);
-		ASSERT_TRUE (ledger.flags.account_receivable_by_amount_index);
-		ASSERT_TRUE (ledger.flags.account_delegator_by_weight_index);
-		ASSERT_TRUE (ledger.flags.account_block_by_height_index);
-		uint64_t receive_block_count;
-		uint64_t receivable_amount_count;
-		uint64_t delegator_count;
-		uint64_t account_block_count;
-		{
-			auto txn = ledger.tx_begin_read ();
-			ASSERT_EQ (store->block.count (txn), store->extended.account_block_by_height.count (txn));
-			receive_block_count = store->extended.receive_block_by_send_block.count (txn);
-			receivable_amount_count = store->extended.account_receivable_by_amount.count (txn);
-			delegator_count = store->extended.account_delegator_by_weight.count (txn);
-			account_block_count = store->extended.account_block_by_height.count (txn);
-		}
-		ledger.populate_extended_ledger_indices ();
-		{
-			auto txn = ledger.tx_begin_read ();
-			ASSERT_EQ (receive_block_count, store->extended.receive_block_by_send_block.count (txn));
-			ASSERT_EQ (receivable_amount_count, store->extended.account_receivable_by_amount.count (txn));
-			ASSERT_EQ (delegator_count, store->extended.account_delegator_by_weight.count (txn));
-			ASSERT_EQ (account_block_count, store->extended.account_block_by_height.count (txn));
-		}
-	}
-
+	store->extended.account_block_by_height.clear ();
 	auto txn = store->tx_begin_read ();
-	expect_receive_block_by_send_block_entry (*store, txn, chain.send1->hash (), chain.open1->hash ());
-	expect_receive_block_by_send_block_entry (*store, txn, chain.state_send1->hash (), chain.state_open1->hash ());
-	expect_account_receivable_by_amount_entry (*store, txn, receivable_key.pub, 10, unreceived_send->hash (), nano::dev::genesis_key.pub, nano::epoch::epoch_0);
-	expect_account_delegator_by_weight_entry (*store, txn, chain.representative.pub, 30, chain.key1.pub);
-	expect_account_delegator_by_weight_entry (*store, txn, chain.state_representative.pub, 30, chain.state_key.pub);
-	expect_account_block_by_height_entry (*store, txn, chain.key1.pub, 3, chain.change1->hash ());
-	expect_account_block_by_height_entry (*store, txn, chain.state_key.pub, 3, chain.state_change1->hash ());
-}
-
-/*
- * Verifies the shared drop path for extended indices, mirroring the
- * --drop_extended_ledger_indices CLI which reopens the ledger without the
- * extended index option. drop_extended_ledger_indices must clear all four
- * tables and persistently disable the index flags.
- */
-TEST (ledger_extended_index, extended_ledger_indices_drop)
-{
-	nano::logger logger;
-	nano::stats stats{ logger };
-	auto store = nano::test::make_store (logger, stats);
-	nano::work_pool pool{ nano::dev::network_params.network, 1 };
-
-	{
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger, extended_ledger_options () };
-		ledger_chain chain;
-		nano::keypair receivable_key;
-		std::shared_ptr<nano::block> unreceived_send;
-		process_legacy_and_state_chains (ledger, pool, chain);
-		process_genesis_state_send (ledger, pool, chain.state_send2->hash (), receivable_key.pub, nano::dev::constants.genesis_amount - 70, unreceived_send);
-		auto txn = ledger.tx_begin_read ();
-		ASSERT_FALSE (store->extended.receive_block_by_send_block.empty (txn));
-		ASSERT_FALSE (store->extended.account_receivable_by_amount.empty (txn));
-		ASSERT_FALSE (store->extended.account_delegator_by_weight.empty (txn));
-		ASSERT_FALSE (store->extended.account_block_by_height.empty (txn));
-	}
-
-	{
-		// Reopen without the extended index option, exactly like the drop CLI does
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
-		ASSERT_TRUE (ledger.flags.receive_block_by_send_block_index);
-		ASSERT_TRUE (ledger.flags.account_receivable_by_amount_index);
-		ASSERT_TRUE (ledger.flags.account_delegator_by_weight_index);
-		ASSERT_TRUE (ledger.flags.account_block_by_height_index);
-		ledger.drop_extended_ledger_indices ();
-		ASSERT_FALSE (ledger.flags.receive_block_by_send_block_index);
-		ASSERT_FALSE (ledger.flags.account_receivable_by_amount_index);
-		ASSERT_FALSE (ledger.flags.account_delegator_by_weight_index);
-		ASSERT_FALSE (ledger.flags.account_block_by_height_index);
-	}
-
-	{
-		// Reopen to check the disabled flags were persisted
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
-		ASSERT_FALSE (ledger.flags.receive_block_by_send_block_index);
-		ASSERT_FALSE (ledger.flags.account_receivable_by_amount_index);
-		ASSERT_FALSE (ledger.flags.account_delegator_by_weight_index);
-		ASSERT_FALSE (ledger.flags.account_block_by_height_index);
-	}
-
-	auto txn = store->tx_begin_read ();
-	ASSERT_TRUE (store->extended.receive_block_by_send_block.empty (txn));
-	ASSERT_TRUE (store->extended.account_receivable_by_amount.empty (txn));
-	ASSERT_TRUE (store->extended.account_delegator_by_weight.empty (txn));
 	ASSERT_TRUE (store->extended.account_block_by_height.empty (txn));
 }
 
 /*
- * Verifies that persisted index flags remain authoritative on reopen. The test
- * first creates persisted extended index data, then reopens the ledger without
- * the extended index option and checks that the flags stay enabled, both in
- * memory and in the store, and that processing another send keeps maintaining
- * the extended index tables.
+ * Exact-match round-trip on the receive block lookup table
  */
-TEST (ledger_extended_index, extended_ledger_indices_maintained_on_reopen)
+TEST (ledger_extended_index, receive_block_by_send_block_roundtrip)
+{
+	auto store = nano::test::make_store ();
+	nano::block_hash send1{ 1 };
+	nano::block_hash send2{ 2 };
+	nano::block_hash receive1{ 11 };
+	nano::block_hash receive2{ 12 };
+	{
+		auto txn = store->tx_begin_write ();
+		ASSERT_TRUE (store->extended.receive_block_by_send_block.empty (txn));
+		store->extended.receive_block_by_send_block.put (txn, send1, receive1);
+		store->extended.receive_block_by_send_block.put (txn, send2, receive2);
+		ASSERT_EQ (2, store->extended.receive_block_by_send_block.count (txn));
+		ASSERT_EQ (receive1, store->extended.receive_block_by_send_block.get (txn, send1).value ());
+		ASSERT_EQ (receive2, store->extended.receive_block_by_send_block.get (txn, send2).value ());
+		ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, nano::block_hash{ 3 }).has_value ());
+		store->extended.receive_block_by_send_block.del (txn, send1);
+		ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, send1).has_value ());
+		ASSERT_EQ (1, store->extended.receive_block_by_send_block.count (txn));
+	}
+	store->extended.receive_block_by_send_block.clear ();
+	auto txn = store->tx_begin_read ();
+	ASSERT_TRUE (store->extended.receive_block_by_send_block.empty (txn));
+}
+
+/*
+ * Delegator index iteration must order entries by (representative, weight, delegator) numerically.
+ * Weights crossing byte boundaries (1 vs 256 vs 2^64 vs 2^100) catch endianness mistakes in key serialization.
+ */
+TEST (ledger_extended_index, delegator_by_weight_ordering)
+{
+	auto store = nano::test::make_store ();
+	auto txn = store->tx_begin_write ();
+
+	std::vector<nano::account_delegator_by_weight_key> expected{
+		{ nano::account{ 5 }, nano::amount{ 1 }, nano::account{ 10 } },
+		{ nano::account{ 5 }, nano::amount{ 1 }, nano::account{ 11 } },
+		{ nano::account{ 5 }, nano::amount{ 256 }, nano::account{ 3 } },
+		{ nano::account{ 5 }, nano::amount{ nano::uint128_t{ 1 } << 64 }, nano::account{ 2 } },
+		{ nano::account{ 5 }, nano::amount{ nano::uint128_t{ 1 } << 100 }, nano::account{ 1 } },
+		{ nano::account{ 7 }, nano::amount{ 0 }, nano::account{ 9 } },
+	};
+
+	// Insert in shuffled order
+	store->extended.account_delegator_by_weight.put (txn, expected[3]);
+	store->extended.account_delegator_by_weight.put (txn, expected[0]);
+	store->extended.account_delegator_by_weight.put (txn, expected[5]);
+	store->extended.account_delegator_by_weight.put (txn, expected[2]);
+	store->extended.account_delegator_by_weight.put (txn, expected[4]);
+	store->extended.account_delegator_by_weight.put (txn, expected[1]);
+
+	std::vector<nano::account_delegator_by_weight_key> actual;
+	for (auto i = store->extended.account_delegator_by_weight.begin (txn), n = store->extended.account_delegator_by_weight.end (txn); i != n; ++i)
+	{
+		actual.push_back (i->first);
+	}
+	ASSERT_EQ (expected, actual);
+
+	store->extended.account_delegator_by_weight.del (txn, expected[0]);
+	ASSERT_EQ (5, store->extended.account_delegator_by_weight.count (txn));
+}
+
+/*
+ * upper_bound must return the highest-weight entry of the given representative and end () otherwise.
+ * rupper_bound must walk that representative's entries in descending weight order and terminate at rend ()
+ * when iteration passes the first entry of the table.
+ */
+TEST (ledger_extended_index, delegator_by_weight_upper_bound)
+{
+	auto store = nano::test::make_store ();
+	auto txn = store->tx_begin_write ();
+	auto & view = store->extended.account_delegator_by_weight;
+
+	// Empty table
+	ASSERT_TRUE (view.upper_bound (txn, nano::account{ 5 }) == view.end (txn));
+	ASSERT_TRUE (view.rupper_bound (txn, nano::account{ 5 }) == view.rend (txn));
+
+	nano::account_delegator_by_weight_key low{ nano::account{ 5 }, nano::amount{ 1 }, nano::account{ 10 } };
+	nano::account_delegator_by_weight_key mid{ nano::account{ 5 }, nano::amount{ 256 }, nano::account{ 3 } };
+	nano::account_delegator_by_weight_key high{ nano::account{ 5 }, nano::amount{ nano::uint128_t{ 1 } << 100 }, nano::account{ 1 } };
+	nano::account_delegator_by_weight_key other{ nano::account{ 7 }, nano::amount{ 0 }, nano::account{ 9 } };
+	view.put (txn, low);
+	view.put (txn, mid);
+	view.put (txn, high);
+	view.put (txn, other);
+
+	// Representative below the first entry, present, absent between entries, present again, absent above all entries
+	ASSERT_TRUE (view.upper_bound (txn, nano::account{ 4 }) == view.end (txn));
+	ASSERT_EQ (high, view.upper_bound (txn, nano::account{ 5 })->first);
+	ASSERT_TRUE (view.upper_bound (txn, nano::account{ 6 }) == view.end (txn));
+	ASSERT_EQ (other, view.upper_bound (txn, nano::account{ 7 })->first);
+	ASSERT_TRUE (view.upper_bound (txn, nano::account{ 8 }) == view.end (txn));
+
+	// Maximum representative value exercises the saturation branch
+	nano::account max_rep{ std::numeric_limits<nano::uint256_t>::max () };
+	ASSERT_TRUE (view.upper_bound (txn, max_rep) == view.end (txn));
+	nano::account_delegator_by_weight_key max_key{ max_rep, nano::amount{ 5 }, nano::account{ 1 } };
+	view.put (txn, max_key);
+	ASSERT_EQ (max_key, view.upper_bound (txn, max_rep)->first);
+
+	// Reverse iteration yields rep 5 entries in descending weight order, then wraps past the table start to rend
+	std::vector<nano::account_delegator_by_weight_key> reverse;
+	for (auto i = view.rupper_bound (txn, nano::account{ 5 }), n = view.rend (txn); i != n; ++i)
+	{
+		reverse.push_back (i->first);
+	}
+	std::vector<nano::account_delegator_by_weight_key> reverse_expected{ high, mid, low };
+	ASSERT_EQ (reverse_expected, reverse);
+}
+
+/*
+ * Receivable index: value round-trip, numeric amount ordering and upper_bound behavior
+ */
+TEST (ledger_extended_index, receivable_by_amount_roundtrip_and_bounds)
+{
+	auto store = nano::test::make_store ();
+	auto txn = store->tx_begin_write ();
+	auto & view = store->extended.account_receivable_by_amount;
+
+	nano::account_receivable_by_amount_key small{ nano::account{ 5 }, nano::amount{ 1 }, nano::block_hash{ 21 } };
+	nano::account_receivable_by_amount_key medium{ nano::account{ 5 }, nano::amount{ 256 }, nano::block_hash{ 22 } };
+	nano::account_receivable_by_amount_key large{ nano::account{ 5 }, nano::amount{ nano::uint128_t{ 1 } << 64 }, nano::block_hash{ 23 } };
+	nano::account_receivable_by_amount_key other{ nano::account{ 7 }, nano::amount{ 3 }, nano::block_hash{ 24 } };
+	nano::account_receivable_by_amount_info info{ nano::account{ 42 }, nano::epoch::epoch_2 };
+
+	view.put (txn, medium, info);
+	view.put (txn, small, info);
+	view.put (txn, other, info);
+	view.put (txn, large, info);
+	ASSERT_EQ (4, view.count (txn));
+
+	// Value round-trip
+	auto it = view.begin (txn, small);
+	ASSERT_TRUE (it != view.end (txn));
+	ASSERT_EQ (small, it->first);
+	ASSERT_EQ (info, it->second);
+
+	// Forward iteration in ascending amount order within the account
+	std::vector<nano::account_receivable_by_amount_key> actual;
+	for (auto i = view.begin (txn), n = view.end (txn); i != n; ++i)
+	{
+		actual.push_back (i->first);
+	}
+	std::vector<nano::account_receivable_by_amount_key> expected{ small, medium, large, other };
+	ASSERT_EQ (expected, actual);
+
+	// upper_bound points at the largest amount of the account
+	ASSERT_EQ (large, view.upper_bound (txn, nano::account{ 5 })->first);
+	ASSERT_TRUE (view.upper_bound (txn, nano::account{ 6 }) == view.end (txn));
+
+	// Descending walk over account 5 terminates when reaching the table start
+	std::vector<nano::account_receivable_by_amount_key> reverse;
+	for (auto i = view.rupper_bound (txn, nano::account{ 5 }), n = view.rend (txn); i != n; ++i)
+	{
+		reverse.push_back (i->first);
+	}
+	std::vector<nano::account_receivable_by_amount_key> reverse_expected{ large, medium, small };
+	ASSERT_EQ (reverse_expected, reverse);
+
+	view.del (txn, small);
+	ASSERT_EQ (3, view.count (txn));
+	ASSERT_TRUE (view.begin (txn, small) == view.end (txn) || view.begin (txn, small)->first != small);
+}
+
+/*
+ * A fresh ledger created with the option enabled must enable and persist all four index flags
+ * and index the genesis state. The genesis open block is indexed in the receive lookup table
+ * under its source field, which is the genesis public key rather than a real send hash.
+ */
+TEST (ledger_extended_index, fresh_ledger_enables_flags)
 {
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	nano::work_pool pool{ nano::dev::network_params.network, 1 };
-	nano::keypair key;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_extended_ledger_index = true });
 
-	std::shared_ptr<nano::block> send1;
+	ASSERT_TRUE (ledger.flags.account_delegator_by_weight_index);
+	ASSERT_TRUE (ledger.flags.account_receivable_by_amount_index);
+	ASSERT_TRUE (ledger.flags.receive_block_by_send_block_index);
+	ASSERT_TRUE (ledger.flags.account_block_by_height_index);
+	ASSERT_TRUE (ledger.flags.all_extended_ledger_indices_enabled ());
+
+	auto txn = ledger.tx_begin_read ();
+	ASSERT_TRUE (store->version.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled));
+	ASSERT_TRUE (store->version.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled));
+	ASSERT_TRUE (store->version.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled));
+	ASSERT_TRUE (store->version.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled));
+
+	ASSERT_EQ (1, store->extended.account_delegator_by_weight.count (txn));
+	ASSERT_TRUE (delegator_exists (*store, txn, { nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, nano::dev::genesis_key.pub }));
+	ASSERT_EQ (1, store->extended.account_block_by_height.count (txn));
+	ASSERT_EQ (nano::dev::genesis->hash (), store->extended.account_block_by_height.get (txn, { nano::dev::genesis_key.pub, 1 }).value ());
+	ASSERT_TRUE (store->extended.account_receivable_by_amount.empty (txn));
+	ASSERT_EQ (1, store->extended.receive_block_by_send_block.count (txn));
+	ASSERT_EQ (nano::dev::genesis->hash (), store->extended.receive_block_by_send_block.get (txn, nano::dev::genesis->source_field ().value ()).value ());
+
+	ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+}
+
+/*
+ * Without the option the indices must stay disabled and their tables empty
+ */
+TEST (ledger_extended_index, disabled_by_default)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	auto store = nano::test::make_store (logger, stats);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
+
+	ASSERT_FALSE (ledger.flags.any_extended_ledger_index_enabled ());
+
+	auto txn = ledger.tx_begin_read ();
+	ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled));
+	ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled));
+	ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled));
+	ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled));
+	ASSERT_TRUE (store->extended.account_delegator_by_weight.empty (txn));
+	ASSERT_TRUE (store->extended.account_receivable_by_amount.empty (txn));
+	ASSERT_TRUE (store->extended.receive_block_by_send_block.empty (txn));
+	ASSERT_TRUE (store->extended.account_block_by_height.empty (txn));
+}
+
+/*
+ * Once enabled, the persisted flags remain authoritative: reopening without the option must keep
+ * the flags set and keep maintaining the indices for newly processed blocks
+ */
+TEST (ledger_extended_index, flags_persist_and_maintain_without_option)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	auto const path = nano::unique_path ();
 	{
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger, extended_ledger_options () };
-		process_genesis_legacy_send (ledger, pool, nano::dev::genesis->hash (), key.pub, nano::dev::constants.genesis_amount - 10, send1);
-		auto txn = ledger.tx_begin_read ();
-		expect_account_receivable_by_amount_entry (*store, txn, key.pub, 10, send1->hash (), nano::dev::genesis_key.pub, nano::epoch::epoch_0);
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_extended_ledger_index = true });
+		ASSERT_TRUE (ledger.flags.all_extended_ledger_indices_enabled ());
 	}
 	{
-		// Reopen without the extended index option; the persisted flags win
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
-		ASSERT_TRUE (ledger.flags.receive_block_by_send_block_index);
-		ASSERT_TRUE (ledger.flags.account_receivable_by_amount_index);
-		ASSERT_TRUE (ledger.flags.account_delegator_by_weight_index);
-		ASSERT_TRUE (ledger.flags.account_block_by_height_index);
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
+		ASSERT_TRUE (ledger.flags.all_extended_ledger_indices_enabled ());
 
-		std::shared_ptr<nano::block> send2;
-		process_genesis_legacy_send (ledger, pool, send1->hash (), key.pub, nano::dev::constants.genesis_amount - 20, send2);
+		nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+		nano::block_builder builder;
+		nano::keypair key1;
+		auto send1 = builder.state ()
+					 .account (nano::dev::genesis_key.pub)
+					 .previous (nano::dev::genesis->hash ())
+					 .representative (nano::dev::genesis_key.pub)
+					 .balance (nano::dev::constants.genesis_amount - 100)
+					 .link (key1.pub)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*pool.generate (nano::dev::genesis->hash ()))
+					 .build ();
+		auto txn = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send1));
+		ASSERT_TRUE (receivable_get (*store, txn, { key1.pub, 100, send1->hash () }).has_value ());
+		ASSERT_EQ (send1->hash (), store->extended.account_block_by_height.get (txn, { nano::dev::genesis_key.pub, 2 }).value ());
+		ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+	}
+	// A third open confirms nothing rewrote the persisted flags
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
+		ASSERT_TRUE (ledger.flags.all_extended_ledger_indices_enabled ());
+	}
+}
+
+/*
+ * Population of an existing ledger: build a mixed legacy/state/epoch ledger without the option,
+ * then reopen with the option and verify every index matches the primary tables. A further reopen
+ * must not disturb the indices.
+ */
+TEST (ledger_extended_index, populate_existing_ledger)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	auto const path = nano::unique_path ();
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::block_builder builder;
+	nano::keypair key1, key2, key3, key4, key5;
+
+	// Legacy chain on genesis: self send/receive plus a send opening key1, which then changes its representative
+	auto lsend1 = builder.send ()
+				  .previous (nano::dev::genesis->hash ())
+				  .destination (key1.pub)
+				  .balance (nano::dev::constants.genesis_amount - 100)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (nano::dev::genesis->hash ()))
+				  .build ();
+	auto lsend2 = builder.send ()
+				  .previous (lsend1->hash ())
+				  .destination (nano::dev::genesis_key.pub)
+				  .balance (nano::dev::constants.genesis_amount - 150)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (lsend1->hash ()))
+				  .build ();
+	auto lreceive1 = builder.receive ()
+					 .previous (lsend2->hash ())
+					 .source (lsend2->hash ())
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*pool.generate (lsend2->hash ()))
+					 .build ();
+	auto lopen1 = builder.open ()
+				  .source (lsend1->hash ())
+				  .representative (key2.pub)
+				  .account (key1.pub)
+				  .sign (key1.prv, key1.pub)
+				  .work (*pool.generate (key1.pub))
+				  .build ();
+	auto lchange1 = builder.change ()
+					.previous (lopen1->hash ())
+					.representative (key3.pub)
+					.sign (key1.prv, key1.pub)
+					.work (*pool.generate (lopen1->hash ()))
+					.build ();
+	// State blocks: open key4, upgrade it to epoch 1, leave a send to key5 pending
+	auto ssend1 = builder.state ()
+				  .account (nano::dev::genesis_key.pub)
+				  .previous (lreceive1->hash ())
+				  .representative (nano::dev::genesis_key.pub)
+				  .balance (nano::dev::constants.genesis_amount - 125)
+				  .link (key4.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (lreceive1->hash ()))
+				  .build ();
+	auto sopen4 = builder.state ()
+				  .account (key4.pub)
+				  .previous (0)
+				  .representative (key4.pub)
+				  .balance (25)
+				  .link (ssend1->hash ())
+				  .sign (key4.prv, key4.pub)
+				  .work (*pool.generate (key4.pub))
+				  .build ();
+	auto ssend2 = builder.state ()
+				  .account (nano::dev::genesis_key.pub)
+				  .previous (ssend1->hash ())
+				  .representative (nano::dev::genesis_key.pub)
+				  .balance (nano::dev::constants.genesis_amount - 135)
+				  .link (key5.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (ssend1->hash ()))
+				  .build ();
+	// Two more sends left pending so the pending crawl spans multiple populate batches
+	auto ssend3 = builder.state ()
+				  .account (nano::dev::genesis_key.pub)
+				  .previous (ssend2->hash ())
+				  .representative (nano::dev::genesis_key.pub)
+				  .balance (nano::dev::constants.genesis_amount - 140)
+				  .link (key2.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (ssend2->hash ()))
+				  .build ();
+	auto ssend4 = builder.state ()
+				  .account (nano::dev::genesis_key.pub)
+				  .previous (ssend3->hash ())
+				  .representative (nano::dev::genesis_key.pub)
+				  .balance (nano::dev::constants.genesis_amount - 142)
+				  .link (key5.pub)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (ssend3->hash ()))
+				  .build ();
+
+	// Build the ledger without the option; indices must remain empty
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
+		auto txn = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, lsend1));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, lsend2));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, lreceive1));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, lopen1));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, lchange1));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, ssend1));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, sopen4));
+		auto epoch4 = builder.state ()
+					  .account (key4.pub)
+					  .previous (sopen4->hash ())
+					  .representative (key4.pub)
+					  .balance (25)
+					  .link (ledger.epoch_link (nano::epoch::epoch_1))
+					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					  .work (*pool.generate (sopen4->hash ()))
+					  .build ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, epoch4));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, ssend2));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, ssend3));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, ssend4));
+		ASSERT_TRUE (store->extended.account_delegator_by_weight.empty (txn));
+		ASSERT_TRUE (store->extended.account_receivable_by_amount.empty (txn));
+		ASSERT_TRUE (store->extended.receive_block_by_send_block.empty (txn));
+		ASSERT_TRUE (store->extended.account_block_by_height.empty (txn));
+	}
+	// Reopen with the option; missing indices must be populated in full
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_extended_ledger_index = true });
+		ASSERT_TRUE (ledger.flags.all_extended_ledger_indices_enabled ());
 		auto txn = ledger.tx_begin_read ();
-		expect_account_receivable_by_amount_entry (*store, txn, key.pub, 10, send2->hash (), nano::dev::genesis_key.pub, nano::epoch::epoch_0);
-		expect_account_block_by_height_entry (*store, txn, nano::dev::genesis_key.pub, 3, send2->hash ());
-		expect_account_delegator_by_weight_entry (*store, txn, nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 20, nano::dev::genesis_key.pub);
-		expect_no_account_delegator_by_weight_entry (*store, txn, nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 10, nano::dev::genesis_key.pub);
+		ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+		ASSERT_EQ (3, store->extended.account_delegator_by_weight.count (txn));
+		ASSERT_TRUE (delegator_exists (*store, txn, { nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 142, nano::dev::genesis_key.pub }));
+		ASSERT_TRUE (delegator_exists (*store, txn, { key3.pub, 100, key1.pub }));
+		ASSERT_TRUE (delegator_exists (*store, txn, { key4.pub, 25, key4.pub }));
+		ASSERT_EQ (3, store->extended.account_receivable_by_amount.count (txn));
+		auto receivable = receivable_get (*store, txn, { key5.pub, 10, ssend2->hash () });
+		ASSERT_TRUE (receivable.has_value ());
+		ASSERT_EQ (nano::dev::genesis_key.pub, receivable->source);
+		ASSERT_EQ (nano::epoch::epoch_0, receivable->epoch);
+		ASSERT_TRUE (receivable_get (*store, txn, { key2.pub, 5, ssend3->hash () }).has_value ());
+		ASSERT_TRUE (receivable_get (*store, txn, { key5.pub, 2, ssend4->hash () }).has_value ());
+		ASSERT_EQ (12, store->extended.account_block_by_height.count (txn));
+		ASSERT_EQ (4, store->extended.receive_block_by_send_block.count (txn));
+		ASSERT_EQ (lopen1->hash (), store->extended.receive_block_by_send_block.get (txn, lsend1->hash ()).value ());
+		ASSERT_EQ (lreceive1->hash (), store->extended.receive_block_by_send_block.get (txn, lsend2->hash ()).value ());
+		ASSERT_EQ (sopen4->hash (), store->extended.receive_block_by_send_block.get (txn, ssend1->hash ()).value ());
+	}
+	// Reopening again with the option must not re-populate or disturb anything
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_extended_ledger_index = true });
+		auto txn = ledger.tx_begin_read ();
+		ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+		ASSERT_EQ (12, store->extended.account_block_by_height.count (txn));
+		ASSERT_EQ (4, store->extended.receive_block_by_send_block.count (txn));
+	}
+}
+
+/*
+ * A single index can be populated in isolation; the remaining indices stay disabled and are not
+ * maintained for new blocks until the aggregate populate enables them. A second aggregate populate
+ * call is a no-op.
+ */
+TEST (ledger_extended_index, single_index_populate_and_mixed_flags)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	auto store = nano::test::make_store (logger, stats);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::block_builder builder;
+	nano::keypair key1, key2;
+
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto open1 = builder.state ()
+				 .account (key1.pub)
+				 .previous (0)
+				 .representative (key1.pub)
+				 .balance (100)
+				 .link (send1->hash ())
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (key1.pub))
+				 .build ();
+	{
+		auto txn = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send1));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, open1));
+	}
+
+	// Populate only the receive lookup index
+	ledger.populate_receive_block_by_send_block_index ();
+	ASSERT_TRUE (ledger.flags.receive_block_by_send_block_index);
+	ASSERT_FALSE (ledger.flags.account_block_by_height_index);
+	ASSERT_FALSE (ledger.flags.account_delegator_by_weight_index);
+	ASSERT_FALSE (ledger.flags.account_receivable_by_amount_index);
+	ASSERT_TRUE (ledger.flags.any_extended_ledger_index_enabled ());
+	ASSERT_FALSE (ledger.flags.all_extended_ledger_indices_enabled ());
+	{
+		auto txn = ledger.tx_begin_read ();
+		ASSERT_TRUE (store->version.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled));
+		ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled));
+		ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled));
+		ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled));
+		ASSERT_EQ (2, store->extended.receive_block_by_send_block.count (txn));
+		ASSERT_EQ (open1->hash (), store->extended.receive_block_by_send_block.get (txn, send1->hash ()).value ());
+		ASSERT_TRUE (store->extended.account_block_by_height.empty (txn));
+		ASSERT_TRUE (store->extended.account_delegator_by_weight.empty (txn));
+		ASSERT_TRUE (store->extended.account_receivable_by_amount.empty (txn));
+	}
+
+	// With mixed flags only the enabled index is maintained for new blocks
+	auto send2 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 150)
+				 .link (key2.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	auto open2 = builder.state ()
+				 .account (key2.pub)
+				 .previous (0)
+				 .representative (key2.pub)
+				 .balance (50)
+				 .link (send2->hash ())
+				 .sign (key2.prv, key2.pub)
+				 .work (*pool.generate (key2.pub))
+				 .build ();
+	auto send3 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send2->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 175)
+				 .link (key2.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send2->hash ()))
+				 .build ();
+	{
+		auto txn = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send2));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, open2));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send3));
+		ASSERT_EQ (open2->hash (), store->extended.receive_block_by_send_block.get (txn, send2->hash ()).value ());
+		ASSERT_TRUE (store->extended.account_block_by_height.empty (txn));
+		ASSERT_TRUE (store->extended.account_delegator_by_weight.empty (txn));
+		ASSERT_TRUE (store->extended.account_receivable_by_amount.empty (txn));
+	}
+
+	// The aggregate populate skips the already-enabled index and fills the rest
+	ledger.populate_extended_ledger_indices ();
+	ASSERT_TRUE (ledger.flags.all_extended_ledger_indices_enabled ());
+	{
+		auto txn = ledger.tx_begin_read ();
+		ASSERT_EQ (6, store->extended.account_block_by_height.count (txn));
+		ASSERT_EQ (3, store->extended.account_delegator_by_weight.count (txn));
+		ASSERT_EQ (1, store->extended.account_receivable_by_amount.count (txn));
+		ASSERT_EQ (3, store->extended.receive_block_by_send_block.count (txn));
+		ASSERT_TRUE (receivable_get (*store, txn, { key2.pub, 25, send3->hash () }).has_value ());
+		ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+	}
+
+	// A second aggregate populate must be a no-op
+	ledger.populate_extended_ledger_indices ();
+	{
+		auto txn = ledger.tx_begin_read ();
+		ASSERT_EQ (6, store->extended.account_block_by_height.count (txn));
+		ASSERT_EQ (3, store->extended.account_delegator_by_weight.count (txn));
+		ASSERT_EQ (1, store->extended.account_receivable_by_amount.count (txn));
+		ASSERT_EQ (3, store->extended.receive_block_by_send_block.count (txn));
+		ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+	}
+}
+
+/*
+ * Incremental maintenance for state blocks: send creates a receivable entry, open consumes it and
+ * registers the receive lookup, a representative change moves the delegator entry
+ */
+TEST (ledger_extended_index, incremental_state_blocks)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	auto store = nano::test::make_store (logger, stats);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_extended_ledger_index = true });
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::block_builder builder;
+	nano::keypair key1;
+	auto txn = ledger.tx_begin_write ();
+
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send1));
+	auto receivable = receivable_get (*store, txn, { key1.pub, 100, send1->hash () });
+	ASSERT_TRUE (receivable.has_value ());
+	ASSERT_EQ (nano::dev::genesis_key.pub, receivable->source);
+	ASSERT_EQ (nano::epoch::epoch_0, receivable->epoch);
+	ASSERT_EQ (send1->hash (), store->extended.account_block_by_height.get (txn, { nano::dev::genesis_key.pub, 2 }).value ());
+	ASSERT_EQ (1, store->extended.account_delegator_by_weight.count (txn));
+	ASSERT_TRUE (delegator_exists (*store, txn, { nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.pub }));
+	ASSERT_FALSE (delegator_exists (*store, txn, { nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, nano::dev::genesis_key.pub }));
+	ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+
+	auto open1 = builder.state ()
+				 .account (key1.pub)
+				 .previous (0)
+				 .representative (key1.pub)
+				 .balance (100)
+				 .link (send1->hash ())
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (key1.pub))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, open1));
+	ASSERT_TRUE (store->extended.account_receivable_by_amount.empty (txn));
+	ASSERT_EQ (open1->hash (), store->extended.receive_block_by_send_block.get (txn, send1->hash ()).value ());
+	ASSERT_EQ (open1->hash (), store->extended.account_block_by_height.get (txn, { key1.pub, 1 }).value ());
+	ASSERT_EQ (2, store->extended.account_delegator_by_weight.count (txn));
+	ASSERT_TRUE (delegator_exists (*store, txn, { key1.pub, 100, key1.pub }));
+	ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+
+	auto change1 = builder.state ()
+				   .account (key1.pub)
+				   .previous (open1->hash ())
+				   .representative (nano::dev::genesis_key.pub)
+				   .balance (100)
+				   .link (0)
+				   .sign (key1.prv, key1.pub)
+				   .work (*pool.generate (open1->hash ()))
+				   .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, change1));
+	ASSERT_TRUE (delegator_exists (*store, txn, { nano::dev::genesis_key.pub, 100, key1.pub }));
+	ASSERT_FALSE (delegator_exists (*store, txn, { key1.pub, 100, key1.pub }));
+	ASSERT_EQ (change1->hash (), store->extended.account_block_by_height.get (txn, { key1.pub, 2 }).value ());
+	ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+
+	// A state receive on an existing account must consume the receivable, register the receive
+	// lookup and replace the balance-keyed delegator row
+	auto send2 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 150)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	auto receive2 = builder.state ()
+					.account (key1.pub)
+					.previous (change1->hash ())
+					.representative (nano::dev::genesis_key.pub)
+					.balance (150)
+					.link (send2->hash ())
+					.sign (key1.prv, key1.pub)
+					.work (*pool.generate (change1->hash ()))
+					.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send2));
+	ASSERT_TRUE (receivable_get (*store, txn, { key1.pub, 50, send2->hash () }).has_value ());
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, receive2));
+	ASSERT_TRUE (store->extended.account_receivable_by_amount.empty (txn));
+	ASSERT_EQ (receive2->hash (), store->extended.receive_block_by_send_block.get (txn, send2->hash ()).value ());
+	ASSERT_EQ (receive2->hash (), store->extended.account_block_by_height.get (txn, { key1.pub, 3 }).value ());
+	ASSERT_TRUE (delegator_exists (*store, txn, { nano::dev::genesis_key.pub, 150, key1.pub }));
+	ASSERT_FALSE (delegator_exists (*store, txn, { nano::dev::genesis_key.pub, 100, key1.pub }));
+	ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+}
+
+/*
+ * Incremental maintenance for legacy blocks. Legacy open and receive blocks must both register in
+ * the receive lookup index.
+ */
+TEST (ledger_extended_index, incremental_legacy_blocks)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	auto store = nano::test::make_store (logger, stats);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_extended_ledger_index = true });
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::block_builder builder;
+	nano::keypair key1, key2, key3;
+	auto txn = ledger.tx_begin_write ();
+
+	auto send1 = builder.send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key1.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send1));
+	auto receivable = receivable_get (*store, txn, { key1.pub, 100, send1->hash () });
+	ASSERT_TRUE (receivable.has_value ());
+	ASSERT_EQ (nano::dev::genesis_key.pub, receivable->source);
+	ASSERT_EQ (send1->hash (), store->extended.account_block_by_height.get (txn, { nano::dev::genesis_key.pub, 2 }).value ());
+
+	auto open1 = builder.open ()
+				 .source (send1->hash ())
+				 .representative (key2.pub)
+				 .account (key1.pub)
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (key1.pub))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, open1));
+	ASSERT_TRUE (store->extended.account_receivable_by_amount.empty (txn));
+	ASSERT_EQ (open1->hash (), store->extended.receive_block_by_send_block.get (txn, send1->hash ()).value ());
+	ASSERT_EQ (open1->hash (), store->extended.account_block_by_height.get (txn, { key1.pub, 1 }).value ());
+	ASSERT_TRUE (delegator_exists (*store, txn, { key2.pub, 100, key1.pub }));
+
+	auto change1 = builder.change ()
+				   .previous (open1->hash ())
+				   .representative (key3.pub)
+				   .sign (key1.prv, key1.pub)
+				   .work (*pool.generate (open1->hash ()))
+				   .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, change1));
+	ASSERT_TRUE (delegator_exists (*store, txn, { key3.pub, 100, key1.pub }));
+	ASSERT_FALSE (delegator_exists (*store, txn, { key2.pub, 100, key1.pub }));
+
+	auto send2 = builder.send ()
+				 .previous (send1->hash ())
+				 .destination (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 150)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send2));
+	auto receive1 = builder.receive ()
+					.previous (send2->hash ())
+					.source (send2->hash ())
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*pool.generate (send2->hash ()))
+					.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, receive1));
+	ASSERT_EQ (receive1->hash (), store->extended.receive_block_by_send_block.get (txn, send2->hash ()).value ());
+	ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+}
+
+/*
+ * Epoch blocks only touch the height index. An epoch open on an unopened account creates a
+ * zero-weight delegator entry under the zero representative and must not consume the receivable.
+ */
+TEST (ledger_extended_index, epoch_blocks)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	auto store = nano::test::make_store (logger, stats);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_extended_ledger_index = true });
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::block_builder builder;
+	nano::keypair key1;
+	auto txn = ledger.tx_begin_write ();
+
+	auto epoch1 = builder.state ()
+				  .account (nano::dev::genesis_key.pub)
+				  .previous (nano::dev::genesis->hash ())
+				  .representative (nano::dev::genesis_key.pub)
+				  .balance (nano::dev::constants.genesis_amount)
+				  .link (ledger.epoch_link (nano::epoch::epoch_1))
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (*pool.generate (nano::dev::genesis->hash ()))
+				  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, epoch1));
+	ASSERT_EQ (epoch1->hash (), store->extended.account_block_by_height.get (txn, { nano::dev::genesis_key.pub, 2 }).value ());
+	ASSERT_EQ (1, store->extended.account_delegator_by_weight.count (txn));
+	ASSERT_TRUE (delegator_exists (*store, txn, { nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, nano::dev::genesis_key.pub }));
+	ASSERT_EQ (1, store->extended.receive_block_by_send_block.count (txn));
+	ASSERT_TRUE (store->extended.account_receivable_by_amount.empty (txn));
+
+	// Send from the epoch 1 account, the receivable entry must record the source epoch
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (epoch1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (epoch1->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send1));
+	auto receivable = receivable_get (*store, txn, { key1.pub, 100, send1->hash () });
+	ASSERT_TRUE (receivable.has_value ());
+	ASSERT_EQ (nano::epoch::epoch_1, receivable->epoch);
+
+	// Epoch open on the unopened destination: zero representative, zero weight, receivable untouched
+	auto epoch_open = builder.state ()
+					  .account (key1.pub)
+					  .previous (0)
+					  .representative (0)
+					  .balance (0)
+					  .link (ledger.epoch_link (nano::epoch::epoch_1))
+					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					  .work (*pool.generate (key1.pub))
+					  .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, epoch_open));
+	ASSERT_EQ (epoch_open->hash (), store->extended.account_block_by_height.get (txn, { key1.pub, 1 }).value ());
+	ASSERT_TRUE (delegator_exists (*store, txn, { nano::account{ 0 }, nano::amount{ 0 }, key1.pub }));
+	ASSERT_EQ (1, store->extended.receive_block_by_send_block.count (txn));
+	ASSERT_EQ (1, store->extended.account_receivable_by_amount.count (txn));
+	ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+
+	// Rolling the epoch open back must remove the account's index entries and keep the receivable
+	ASSERT_FALSE (ledger.rollback (txn, epoch_open->hash ()));
+	ASSERT_FALSE (delegator_exists (*store, txn, { nano::account{ 0 }, nano::amount{ 0 }, key1.pub }));
+	ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { key1.pub, 1 }).has_value ());
+	ASSERT_EQ (1, store->extended.account_receivable_by_amount.count (txn));
+	ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+}
+
+/*
+ * Rolling back a receive must restore the receivable entry and remove the receive lookup entry;
+ * rolling back the send must then remove the receivable entry again. Stepping twice down each
+ * chain must only ever remove the tip's height row, leaving lower heights intact.
+ */
+TEST (ledger_extended_index, rollback_state_send_receive)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	auto store = nano::test::make_store (logger, stats);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_extended_ledger_index = true });
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::block_builder builder;
+	nano::keypair key1;
+	auto txn = ledger.tx_begin_write ();
+
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto open1 = builder.state ()
+				 .account (key1.pub)
+				 .previous (0)
+				 .representative (key1.pub)
+				 .balance (100)
+				 .link (send1->hash ())
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (key1.pub))
+				 .build ();
+	auto send2 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 150)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	auto receive2 = builder.state ()
+					.account (key1.pub)
+					.previous (open1->hash ())
+					.representative (key1.pub)
+					.balance (150)
+					.link (send2->hash ())
+					.sign (key1.prv, key1.pub)
+					.work (*pool.generate (open1->hash ()))
+					.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, open1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send2));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, receive2));
+
+	// Roll back the receive tip: its receivable is restored, other entries stay intact
+	ASSERT_FALSE (ledger.rollback (txn, receive2->hash ()));
+	ASSERT_TRUE (receivable_get (*store, txn, { key1.pub, 50, send2->hash () }).has_value ());
+	ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, send2->hash ()).has_value ());
+	ASSERT_EQ (open1->hash (), store->extended.receive_block_by_send_block.get (txn, send1->hash ()).value ());
+	ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { key1.pub, 2 }).has_value ());
+	ASSERT_EQ (open1->hash (), store->extended.account_block_by_height.get (txn, { key1.pub, 1 }).value ());
+	ASSERT_TRUE (delegator_exists (*store, txn, { key1.pub, 100, key1.pub }));
+	ASSERT_FALSE (delegator_exists (*store, txn, { key1.pub, 150, key1.pub }));
+	ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+
+	// Roll back the second send: its receivable disappears, lower genesis heights stay intact
+	ASSERT_FALSE (ledger.rollback (txn, send2->hash ()));
+	ASSERT_FALSE (receivable_get (*store, txn, { key1.pub, 50, send2->hash () }).has_value ());
+	ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { nano::dev::genesis_key.pub, 3 }).has_value ());
+	ASSERT_EQ (send1->hash (), store->extended.account_block_by_height.get (txn, { nano::dev::genesis_key.pub, 2 }).value ());
+	ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+
+	ASSERT_FALSE (ledger.rollback (txn, open1->hash ()));
+	auto receivable = receivable_get (*store, txn, { key1.pub, 100, send1->hash () });
+	ASSERT_TRUE (receivable.has_value ());
+	ASSERT_EQ (nano::dev::genesis_key.pub, receivable->source);
+	ASSERT_EQ (nano::epoch::epoch_0, receivable->epoch);
+	ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, send1->hash ()).has_value ());
+	ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { key1.pub, 1 }).has_value ());
+	ASSERT_FALSE (delegator_exists (*store, txn, { key1.pub, 100, key1.pub }));
+	ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+
+	ASSERT_FALSE (ledger.rollback (txn, send1->hash ()));
+	ASSERT_TRUE (store->extended.account_receivable_by_amount.empty (txn));
+	ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { nano::dev::genesis_key.pub, 2 }).has_value ());
+	ASSERT_EQ (1, store->extended.account_delegator_by_weight.count (txn));
+	ASSERT_TRUE (delegator_exists (*store, txn, { nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, nano::dev::genesis_key.pub }));
+	ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+}
+
+/*
+ * Rolling back a legacy send cascades through the dependent open block; all index entries of both
+ * blocks must be reverted
+ */
+TEST (ledger_extended_index, rollback_legacy_cascade)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	auto store = nano::test::make_store (logger, stats);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_extended_ledger_index = true });
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::block_builder builder;
+	nano::keypair key1, key2;
+	auto txn = ledger.tx_begin_write ();
+
+	auto send1 = builder.send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key1.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto open1 = builder.open ()
+				 .source (send1->hash ())
+				 .representative (key2.pub)
+				 .account (key1.pub)
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (key1.pub))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, open1));
+
+	// Rolling back the send rolls back the dependent open first
+	ASSERT_FALSE (ledger.rollback (txn, send1->hash ()));
+	ASSERT_TRUE (store->extended.account_receivable_by_amount.empty (txn));
+	ASSERT_EQ (1, store->extended.account_block_by_height.count (txn));
+	ASSERT_EQ (1, store->extended.receive_block_by_send_block.count (txn));
+	ASSERT_EQ (1, store->extended.account_delegator_by_weight.count (txn));
+	ASSERT_TRUE (delegator_exists (*store, txn, { nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, nano::dev::genesis_key.pub }));
+	ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+}
+
+/*
+ * The indexed and chain-walking implementations of find_block_hash_by_height must agree for every
+ * height, including out-of-range heights and unknown accounts
+ */
+TEST (ledger_extended_index, find_block_hash_by_height_parity)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	auto store = nano::test::make_store (logger, stats);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_extended_ledger_index = true });
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::block_builder builder;
+	nano::keypair key1;
+	auto txn = ledger.tx_begin_write ();
+
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto send2 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 150)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	auto open1 = builder.state ()
+				 .account (key1.pub)
+				 .previous (0)
+				 .representative (key1.pub)
+				 .balance (100)
+				 .link (send1->hash ())
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (key1.pub))
+				 .build ();
+	auto receive1 = builder.state ()
+					.account (key1.pub)
+					.previous (open1->hash ())
+					.representative (key1.pub)
+					.balance (150)
+					.link (send2->hash ())
+					.sign (key1.prv, key1.pub)
+					.work (*pool.generate (open1->hash ()))
+					.build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send2));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, open1));
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, receive1));
+
+	ASSERT_EQ (send1->hash (), ledger.find_block_hash_by_height (txn, nano::dev::genesis_key.pub, 2).value ());
+	ASSERT_EQ (receive1->hash (), ledger.find_block_hash_by_height (txn, key1.pub, 2).value ());
+
+	nano::keypair unknown;
+	for (auto const & account : { nano::dev::genesis_key.pub, key1.pub, unknown.pub })
+	{
+		for (uint64_t height = 0; height <= 4; ++height)
+		{
+			auto indexed = ledger.find_block_hash_by_height (txn, account, height);
+			ledger.flags.account_block_by_height_index = false;
+			auto walked = ledger.find_block_hash_by_height (txn, account, height);
+			ledger.flags.account_block_by_height_index = true;
+			ASSERT_EQ (walked, indexed) << "height " << height << " account " << account.to_account ();
+		}
+	}
+}
+
+/*
+ * The indexed and chain-walking implementations of find_receive_block_by_send_hash must agree:
+ * null for unreceived sends, null while the receive is uncemented, the receive block once cemented
+ */
+TEST (ledger_extended_index, find_receive_block_by_send_hash_parity)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	auto store = nano::test::make_store (logger, stats);
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_extended_ledger_index = true });
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::block_builder builder;
+	nano::keypair key1;
+	auto txn = ledger.tx_begin_write ();
+
+	auto find_both = [&] (nano::account const & destination, nano::block_hash const & send_hash) {
+		auto indexed = ledger.find_receive_block_by_send_hash (txn, destination, send_hash);
+		ledger.flags.receive_block_by_send_block_index = false;
+		auto walked = ledger.find_receive_block_by_send_hash (txn, destination, send_hash);
+		ledger.flags.receive_block_by_send_block_index = true;
+		EXPECT_TRUE ((indexed == nullptr && walked == nullptr) || (indexed && walked && indexed->hash () == walked->hash ()));
+		return indexed;
+	};
+
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send1));
+
+	// Unreceived send
+	ASSERT_EQ (nullptr, find_both (key1.pub, send1->hash ()));
+
+	// Received but not yet cemented
+	auto open1 = builder.state ()
+				 .account (key1.pub)
+				 .previous (0)
+				 .representative (key1.pub)
+				 .balance (100)
+				 .link (send1->hash ())
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (key1.pub))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, ledger.process (txn, open1));
+	ASSERT_EQ (nullptr, find_both (key1.pub, send1->hash ()));
+
+	// Cementing the receive makes it visible through both implementations
+	ledger.cement (txn, open1->hash ());
+	auto found = find_both (key1.pub, send1->hash ());
+	ASSERT_NE (nullptr, found);
+	ASSERT_EQ (open1->hash (), found->hash ());
+}
+
+/*
+ * Dropping the indices must clear the flags, the persisted flags and the tables; reopening with the
+ * option afterwards must rebuild everything from scratch
+ */
+TEST (ledger_extended_index, drop_and_repopulate)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	auto const path = nano::unique_path ();
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	nano::block_builder builder;
+	nano::keypair key1;
+
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - 100)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto open1 = builder.state ()
+				 .account (key1.pub)
+				 .previous (0)
+				 .representative (key1.pub)
+				 .balance (100)
+				 .link (send1->hash ())
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (key1.pub))
+				 .build ();
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_extended_ledger_index = true });
+		auto txn = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, send1));
+		ASSERT_EQ (nano::block_status::progress, ledger.process (txn, open1));
+	}
+	// Mirror the CLI: the drop runs on a ledger opened without the option
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
+		ASSERT_TRUE (ledger.flags.all_extended_ledger_indices_enabled ());
+		ledger.drop_extended_ledger_indices ();
+		ASSERT_FALSE (ledger.flags.any_extended_ledger_index_enabled ());
+		auto txn = ledger.tx_begin_read ();
+		ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled));
+		ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled));
+		ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled));
+		ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled));
+		ASSERT_TRUE (store->extended.account_delegator_by_weight.empty (txn));
+		ASSERT_TRUE (store->extended.account_receivable_by_amount.empty (txn));
+		ASSERT_TRUE (store->extended.receive_block_by_send_block.empty (txn));
+		ASSERT_TRUE (store->extended.account_block_by_height.empty (txn));
+	}
+	// Reopening without the option must keep the indices dropped
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
+		ASSERT_FALSE (ledger.flags.any_extended_ledger_index_enabled ());
+		auto txn = ledger.tx_begin_read ();
+		ASSERT_TRUE (store->extended.account_block_by_height.empty (txn));
+	}
+	// Reopening with the option must repopulate from the ledger contents
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_extended_ledger_index = true });
+		ASSERT_TRUE (ledger.flags.all_extended_ledger_indices_enabled ());
+		auto txn = ledger.tx_begin_read ();
+		ASSERT_EQ (3, store->extended.account_block_by_height.count (txn));
+		ASSERT_EQ (2, store->extended.receive_block_by_send_block.count (txn));
+		ASSERT_EQ (2, store->extended.account_delegator_by_weight.count (txn));
+		ASSERT_TRUE (store->extended.account_receivable_by_amount.empty (txn));
+		ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+	}
+}
+
+/*
+ * Population must clear any stale rows left in the index tables from a previous partial population
+ */
+TEST (ledger_extended_index, populate_clears_stale_rows)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	auto const path = nano::unique_path ();
+	nano::account_delegator_by_weight_key stale_delegator{ nano::account{ 1 }, nano::amount{ 2 }, nano::account{ 3 } };
+	nano::account_receivable_by_amount_key stale_receivable{ nano::account{ 4 }, nano::amount{ 5 }, nano::block_hash{ 6 } };
+	nano::account_block_by_height_key stale_height{ nano::account{ 8 }, 9 };
+	nano::block_hash stale_send{ 11 };
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
+		ASSERT_FALSE (ledger.flags.any_extended_ledger_index_enabled ());
+		// Simulate partially populated leftovers while the index flags are still disabled
+		auto txn = store->tx_begin_write ();
+		store->extended.account_delegator_by_weight.put (txn, stale_delegator);
+		store->extended.account_receivable_by_amount.put (txn, stale_receivable, { nano::account{ 7 }, nano::epoch::epoch_0 });
+		store->extended.account_block_by_height.put (txn, stale_height, nano::block_hash{ 10 });
+		store->extended.receive_block_by_send_block.put (txn, stale_send, nano::block_hash{ 12 });
 	}
 	{
-		// Reopen once more to check the flags survived the reopen without the option
-		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
-		ASSERT_TRUE (ledger.flags.receive_block_by_send_block_index);
-		ASSERT_TRUE (ledger.flags.account_receivable_by_amount_index);
-		ASSERT_TRUE (ledger.flags.account_delegator_by_weight_index);
-		ASSERT_TRUE (ledger.flags.account_block_by_height_index);
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_extended_ledger_index = true });
+		ASSERT_TRUE (ledger.flags.all_extended_ledger_indices_enabled ());
+		auto txn = ledger.tx_begin_read ();
+		ASSERT_FALSE (delegator_exists (*store, txn, stale_delegator));
+		ASSERT_FALSE (receivable_get (*store, txn, stale_receivable).has_value ());
+		ASSERT_FALSE (store->extended.account_block_by_height.get (txn, stale_height).has_value ());
+		ASSERT_FALSE (store->extended.receive_block_by_send_block.get (txn, stale_send).has_value ());
+		ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
 	}
 }
