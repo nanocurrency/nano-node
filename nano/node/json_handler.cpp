@@ -2343,78 +2343,199 @@ void nano::json_handler::database_txn_tracker ()
 	response_errors ();
 }
 
+namespace
+{
+// Query options shared by both delegators APIs
+struct delegators_options
+{
+	uint64_t count;
+	nano::amount threshold{ 0 };
+};
+
+// One page of the indexed delegators API
+struct delegators_page
+{
+	boost::property_tree::ptree delegators;
+	std::optional<std::string> next; // cursor of the last emitted entry, present while more entries remain
+};
+
+// Parsed "start" parameter of the indexed delegators API
+struct delegators_start
+{
+	std::optional<nano::amount> weight; // absent when the position must be resolved from the account's current weight
+	nano::account account{ 0 };
+};
+
+/*
+ * Parses "start" as either a plain account or a "<weight>:<account>" cursor position, nullopt when malformed.
+ * Either cursor side may be omitted: a weight-only "<weight>:" bound is inclusive of the weight's whole tie group,
+ * an account-only ":<account>" behaves exactly like the plain account form.
+ */
+std::optional<delegators_start> parse_delegators_start (std::string const & text)
+{
+	delegators_start result;
+	auto const separator = text.find (':');
+	if (separator == std::string::npos)
+	{
+		// Plain account form
+		if (result.account.decode_account (text))
+		{
+			return std::nullopt;
+		}
+		return result;
+	}
+	auto const weight_text = text.substr (0, separator);
+	auto const account_text = text.substr (separator + 1);
+	if (weight_text.empty () && account_text.empty ())
+	{
+		return std::nullopt;
+	}
+	if (!weight_text.empty ())
+	{
+		nano::amount weight;
+		if (weight.decode_dec (weight_text))
+		{
+			return std::nullopt;
+		}
+		result.weight = weight;
+	}
+	if (account_text.empty ())
+	{
+		// Weight-only bound: a virtual maximum account puts the position just above the tie group, making the weight itself inclusive
+		result.account = nano::account{ std::numeric_limits<nano::uint256_t>::max () };
+	}
+	else if (result.account.decode_account (account_text))
+	{
+		return std::nullopt;
+	}
+	return result;
+}
+
+/*
+ * Resolves the indexed "start" parameter into an index position under the given representative,
+ * looking up the account's current weight when the cursor does not carry one.
+ * Sets ec and returns nullopt on malformed input or an unknown account.
+ */
+std::optional<nano::account_delegator_by_weight_key> resolve_delegators_start (nano::node & node, nano::secure::transaction & transaction, nano::account const & representative, std::string const & text, std::error_code & ec)
+{
+	auto parsed = parse_delegators_start (text);
+	if (!parsed)
+	{
+		ec = nano::error_common::bad_account_number;
+		return std::nullopt;
+	}
+	if (parsed->weight.has_value ())
+	{
+		return nano::account_delegator_by_weight_key{ representative, parsed->weight.value (), parsed->account };
+	}
+	if (auto info = node.ledger.any.account_get (transaction, parsed->account))
+	{
+		return nano::account_delegator_by_weight_key{ representative, info->balance, parsed->account };
+	}
+	ec = nano::error_common::account_not_found;
+	return std::nullopt;
+}
+
+/*
+ * Indexed delegators API: enumerates a representative's delegators in descending (weight, account) order,
+ * resuming strictly below the start position when one is given.
+ * The page carries a "next" cursor equal to its last entry while more entries remain.
+ */
+delegators_page collect_delegators_indexed (nano::node & node, nano::secure::transaction & transaction, nano::account const & representative, delegators_options const & options, std::optional<nano::account_delegator_by_weight_key> const & start)
+{
+	delegators_page page;
+	auto & view = node.store.extended.account_delegator_by_weight;
+	auto i = start.has_value ()
+	? view.rlower_bound (transaction, start.value ())
+	: view.rupper_bound (transaction, representative);
+	nano::account_delegator_by_weight_key last_emitted{};
+	bool has_more = false;
+	for (auto n = view.rend (transaction); i != n; ++i)
+	{
+		auto const & key = i->first;
+		// Stop at the end of this representative's slice or once weights drop below the threshold
+		if (key.representative != representative || key.weight.number () < options.threshold.number ())
+		{
+			break;
+		}
+		// One entry past the page proves more remain and turns the last emitted entry into the "next" cursor
+		if (page.delegators.size () >= options.count)
+		{
+			has_more = true;
+			break;
+		}
+		page.delegators.put (key.delegator.to_account (), nano::uint128_union (key.weight).to_string_dec ());
+		last_emitted = key;
+	}
+	if (has_more && !page.delegators.empty ())
+	{
+		page.next = nano::uint128_union (last_emitted.weight).to_string_dec () + ":" + last_emitted.delegator.to_account ();
+	}
+	return page;
+}
+
+/*
+ * Legacy delegators API: account-ascending scan bounded by count, starting strictly after the given account.
+ */
+boost::property_tree::ptree collect_delegators_legacy (nano::node & node, nano::secure::transaction & transaction, nano::account const & representative, delegators_options const & options, nano::account const & start)
+{
+	boost::property_tree::ptree delegators;
+	for (auto i (node.store.account.begin (transaction, nano::inc_sat (start.number ()))), n (node.store.account.end (transaction)); i != n && delegators.size () < options.count; ++i)
+	{
+		nano::account_info const & info (i->second);
+		if (info.representative == representative && info.balance.number () >= options.threshold.number ())
+		{
+			delegators.put (i->first.to_account (), nano::uint128_union (info.balance).to_string_dec ());
+		}
+	}
+	return delegators;
+}
+}
+
 void nano::json_handler::delegators ()
 {
 	auto representative (account_impl ());
 	auto count (count_optional_impl (1024));
 	auto threshold (threshold_optional_impl ());
-	auto start_account_text (request.get_optional<std::string> ("start"));
-
-	nano::account start_account{};
-	if (!ec && start_account_text.has_value ())
-	{
-		start_account = account_impl (start_account_text.value ());
-	}
+	auto start_text (request.get_optional<std::string> ("start"));
 
 	if (!ec)
 	{
+		delegators_options const options{
+			.count = count,
+			.threshold = threshold,
+		};
 		auto transaction (node.ledger.tx_begin_read ());
-		boost::property_tree::ptree delegators;
 		if (node.ledger.flags.account_delegator_by_weight_index)
 		{
-			// Indexed API: weight-descending order, "start" is a pagination cursor resuming strictly below that account's weight position
-			// The cursor account's current balance is its position in the index; an unknown account cannot be positioned
-			std::optional<nano::amount> start_weight;
-			if (!start_account.is_zero ())
+			// Indexed API: weight-descending order with cursor pagination; see parse_delegators_start for the accepted "start" forms
+			std::optional<nano::account_delegator_by_weight_key> start;
+			if (start_text.has_value ())
 			{
-				if (auto info = node.ledger.any.account_get (transaction, start_account))
-				{
-					start_weight = info->balance;
-				}
-				else
-				{
-					ec = nano::error_common::account_not_found;
-				}
+				start = resolve_delegators_start (node, transaction, representative, start_text.value (), ec);
 			}
 			if (!ec)
 			{
-				// Resume strictly below the cursor, or at the representative's heaviest delegator when no cursor is given
-				auto & view = node.store.extended.account_delegator_by_weight;
-				auto i = start_weight.has_value ()
-				? view.rlower_bound (transaction, { representative, start_weight.value (), start_account })
-				: view.rupper_bound (transaction, representative);
-				for (auto n = view.rend (transaction); i != n && delegators.size () < count; ++i)
+				auto page = collect_delegators_indexed (node, transaction, representative, options, start);
+				response_l.add_child ("delegators", page.delegators);
+				if (page.next.has_value ())
 				{
-					auto const & key = i->first;
-					// Stop at the end of this representative's slice or once weights drop below the threshold
-					if (key.representative != representative || key.weight.number () < threshold.number ())
-					{
-						break;
-					}
-					delegators.put (key.delegator.to_account (), nano::uint128_union (key.weight).to_string_dec ());
+					response_l.put ("next", page.next.value ());
 				}
 			}
 		}
 		else
 		{
-			// Legacy API: account-ascending scan bounded by count, "start" is an account iteration point
-			for (auto i (node.store.account.begin (transaction, inc_sat (start_account.number ()))), n (node.store.account.end (transaction)); i != n && delegators.size () < count; ++i)
+			// Legacy API: account-ascending order, "start" is an account iteration point
+			nano::account start{};
+			if (start_text.has_value ())
 			{
-				nano::account_info const & info (i->second);
-				if (info.representative == representative)
-				{
-					if (info.balance.number () >= threshold.number ())
-					{
-						std::string balance = nano::uint128_union (info.balance).to_string_dec ();
-						nano::account const & delegator (i->first);
-						delegators.put (delegator.to_account (), balance);
-					}
-				}
+				start = account_impl (start_text.value ());
 			}
-		}
-		if (!ec)
-		{
-			response_l.add_child ("delegators", delegators);
+			if (!ec)
+			{
+				response_l.add_child ("delegators", collect_delegators_legacy (node, transaction, representative, options, start));
+			}
 		}
 	}
 	response_errors ();

@@ -3848,8 +3848,8 @@ TEST (rpc, delegators_count)
 
 namespace
 {
-// Opens one account per (key, amount) target, each delegating to rep, funded by sends from genesis
-void setup_delegators (std::shared_ptr<nano::node> const & node, nano::account const & rep, std::vector<std::pair<nano::keypair const *, nano::uint128_t>> const & targets)
+// Opens one account per (key, amount) target, each delegating to rep, funded by sends from genesis; open blocks are returned through opens when given
+void setup_delegators (std::shared_ptr<nano::node> const & node, nano::account const & rep, std::vector<std::pair<nano::keypair const *, nano::uint128_t>> const & targets, std::vector<std::shared_ptr<nano::block>> * opens = nullptr)
 {
 	nano::block_builder builder;
 	auto latest = nano::dev::genesis->hash ();
@@ -3878,6 +3878,10 @@ void setup_delegators (std::shared_ptr<nano::node> const & node, nano::account c
 					.work (*node->work_generate_blocking (key->pub))
 					.build ();
 		ASSERT_EQ (nano::block_status::progress, node->process (open));
+		if (opens != nullptr)
+		{
+			opens->push_back (open);
+		}
 	}
 }
 
@@ -3969,6 +3973,15 @@ TEST (rpc, delegators_legacy_order)
 		}
 		ASSERT_EQ (heavy, delegators_of (wait_response (system, rpc_ctx, request)));
 	}
+	// Cursor forms belong to the indexed API and are rejected here
+	{
+		boost::property_tree::ptree request;
+		request.put ("action", "delegators");
+		request.put ("account", rep.pub.to_account ());
+		request.put ("start", "300:" + expected[0].first);
+		auto response = wait_response (system, rpc_ctx, request);
+		ASSERT_EQ (std::error_code (nano::error_common::bad_account_number).message (), response.get<std::string> ("error"));
+	}
 }
 
 /*
@@ -3976,7 +3989,7 @@ TEST (rpc, delegators_legacy_order)
  * "start" is a pagination cursor resuming strictly below that account's weight position;
  * a cursor referencing an unknown account is an error
  */
-TEST (rpc, delegators_weight_order)
+TEST (rpc, delegators_indexed_weight_order)
 {
 	nano::test::system system;
 	nano::node_config config = system.default_config ();
@@ -4049,6 +4062,128 @@ TEST (rpc, delegators_weight_order)
 		request.put ("start", nano::keypair ().pub.to_account ());
 		auto response = wait_response (system, rpc_ctx, request);
 		ASSERT_EQ (std::error_code (nano::error_common::account_not_found).message (), response.get<std::string> ("error"));
+	}
+}
+
+/*
+ * Indexed delegators cursor forms: full "<weight>:<account>" positions and plain accounts resume exclusively,
+ * a weight-only "<weight>:" bound includes its tie group, an account-only ":<account>" equals the plain account form,
+ * responses carry a "next" cursor while more entries remain,
+ * and an explicit cursor stays fixed when delegator weights change between pages
+ */
+TEST (rpc, delegators_indexed_cursor)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.extended_ledger_index = true;
+	auto node = add_ipc_enabled_node (system, config);
+	ASSERT_TRUE (node->ledger.flags.account_delegator_by_weight_index);
+
+	nano::keypair rep, key1, key2, key3, key4;
+	std::vector<std::pair<nano::keypair const *, nano::uint128_t>> targets{ { &key1, 100 }, { &key2, 300 }, { &key3, 300 }, { &key4, 200 } };
+	std::vector<std::shared_ptr<nano::block>> opens;
+	ASSERT_NO_FATAL_FAILURE (setup_delegators (node, rep.pub, targets, &opens));
+
+	auto & tie_high_key = key2.pub.number () > key3.pub.number () ? key2 : key3;
+	auto & tie_low_key = key2.pub.number () > key3.pub.number () ? key3 : key2;
+	auto const tie_high = tie_high_key.pub.to_account ();
+	auto const tie_low = tie_low_key.pub.to_account ();
+
+	auto const rpc_ctx = add_rpc (system, node);
+	auto query = [&] (std::optional<std::string> const & start, uint64_t count = 2) {
+		boost::property_tree::ptree request;
+		request.put ("action", "delegators");
+		request.put ("account", rep.pub.to_account ());
+		request.put ("count", count);
+		if (start.has_value ())
+		{
+			request.put ("start", start.value ());
+		}
+		return wait_response (system, rpc_ctx, request);
+	};
+
+	std::string next;
+	// The first page carries a "next" cursor equal to its last row
+	{
+		auto response = query (std::nullopt);
+		std::vector<std::pair<std::string, std::string>> page1{ { tie_high, "300" }, { tie_low, "300" } };
+		ASSERT_EQ (page1, delegators_of (response));
+		next = response.get<std::string> ("next");
+		ASSERT_EQ ("300:" + tie_low, next);
+	}
+	// The final page has no "next"
+	{
+		auto response = query (next);
+		std::vector<std::pair<std::string, std::string>> page2{ { key4.pub.to_account (), "200" }, { key1.pub.to_account (), "100" } };
+		ASSERT_EQ (page2, delegators_of (response));
+		ASSERT_FALSE (response.get_optional<std::string> ("next").has_value ());
+	}
+	// A full cursor is exclusive, resuming mid-tie strictly below the given position
+	{
+		std::vector<std::pair<std::string, std::string>> expected{ { tie_low, "300" }, { key4.pub.to_account (), "200" } };
+		ASSERT_EQ (expected, delegators_of (query ("300:" + tie_high)));
+	}
+	// A weight-only bound includes its whole tie group
+	{
+		std::vector<std::pair<std::string, std::string>> all{ { tie_high, "300" }, { tie_low, "300" }, { key4.pub.to_account (), "200" }, { key1.pub.to_account (), "100" } };
+		ASSERT_EQ (all, delegators_of (query ("300:", 1024)));
+	}
+	// A weight-only bound between tie groups acts as a plain upper bound
+	{
+		std::vector<std::pair<std::string, std::string>> expected{ { key4.pub.to_account (), "200" }, { key1.pub.to_account (), "100" } };
+		ASSERT_EQ (expected, delegators_of (query ("250:")));
+	}
+	// An account-only cursor behaves exactly like the plain account form
+	{
+		auto with_colon = delegators_of (query (":" + tie_high));
+		auto plain = delegators_of (query (tie_high));
+		ASSERT_EQ (plain, with_colon);
+		std::vector<std::pair<std::string, std::string>> expected{ { tie_low, "300" }, { key4.pub.to_account (), "200" } };
+		ASSERT_EQ (expected, with_colon);
+	}
+	// count = 0 yields an empty page without a "next" cursor
+	{
+		auto response = query (std::nullopt, 0);
+		ASSERT_TRUE (response.get_child ("delegators").empty ());
+		ASSERT_FALSE (response.get_optional<std::string> ("next").has_value ());
+	}
+	// Malformed cursors are rejected
+	for (auto const & bad : std::vector<std::string>{ ":", "x:" + tie_high, "300:300", "1:2:3" })
+	{
+		auto response = query (bad);
+		ASSERT_EQ (std::error_code (nano::error_common::bad_account_number).message (), response.get<std::string> ("error")) << bad;
+	}
+	// An explicit cursor is a fixed position: raising a delegator's weight after a page neither repeats nor skips entries, while the account form drifts to the new weight
+	{
+		nano::block_builder builder;
+		auto send = builder.state ()
+					.account (nano::dev::genesis_key.pub)
+					.previous (node->latest (nano::dev::genesis_key.pub))
+					.representative (nano::dev::genesis_key.pub)
+					.balance (nano::dev::constants.genesis_amount - 1000)
+					.link (tie_low_key.pub)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*node->work_generate_blocking (node->latest (nano::dev::genesis_key.pub)))
+					.build ();
+		ASSERT_EQ (nano::block_status::progress, node->process (send));
+		auto const & tie_low_open = (&tie_low_key == &key2) ? opens[1] : opens[2];
+		auto receive = builder.state ()
+					   .account (tie_low_key.pub)
+					   .previous (tie_low_open->hash ())
+					   .representative (rep.pub)
+					   .balance (400)
+					   .link (send->hash ())
+					   .sign (tie_low_key.prv, tie_low_key.pub)
+					   .work (*node->work_generate_blocking (tie_low_open->hash ()))
+					   .build ();
+		ASSERT_EQ (nano::block_status::progress, node->process (receive));
+
+		// The explicit cursor continues exactly where the first page ended
+		std::vector<std::pair<std::string, std::string>> continued{ { key4.pub.to_account (), "200" }, { key1.pub.to_account (), "100" } };
+		ASSERT_EQ (continued, delegators_of (query ("300:" + tie_low)));
+		// The account form re-reads the account's new weight and repeats the other tie entry
+		std::vector<std::pair<std::string, std::string>> drifted{ { tie_high, "300" }, { key4.pub.to_account (), "200" } };
+		ASSERT_EQ (drifted, delegators_of (query (tie_low)));
 	}
 }
 
