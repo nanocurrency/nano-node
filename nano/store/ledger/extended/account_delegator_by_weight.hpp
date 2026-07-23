@@ -23,11 +23,16 @@ public:
 	uint64_t count (nano::store::transaction const &) const;
 	void clear ();
 
+	// Iterator at the first entry ordered at or after the given key, end () when none
 	iterator begin (nano::store::transaction const &, nano::account_delegator_by_weight_key const &) const;
 	iterator begin (nano::store::transaction const &) const;
 	iterator end (nano::store::transaction const &) const;
+	// Iterator at the representative's last entry, i.e. its highest (weight, delegator), end () when it has none
 	iterator upper_bound (nano::store::transaction const &, nano::account const &) const;
+	// Reverse iterator over the representative's entries in descending (weight, delegator) order, rend () when it has none
 	reverse_iterator rupper_bound (nano::store::transaction const &, nano::account const &) const;
+	// Reverse iterator at the last entry ordered strictly before the given key, rend () when none; may point at a different representative
+	reverse_iterator rlower_bound (nano::store::transaction const &, nano::account_delegator_by_weight_key const &) const;
 	reverse_iterator rend (nano::store::transaction const &) const;
 
 private:

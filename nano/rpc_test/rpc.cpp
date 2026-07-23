@@ -3846,6 +3846,202 @@ TEST (rpc, delegators_count)
 	ASSERT_EQ ("2", count);
 }
 
+namespace
+{
+// Opens one account per (key, amount) target, each delegating to rep, funded by sends from genesis
+void setup_delegators (std::shared_ptr<nano::node> const & node, nano::account const & rep, std::vector<std::pair<nano::keypair const *, nano::uint128_t>> const & targets)
+{
+	nano::block_builder builder;
+	auto latest = nano::dev::genesis->hash ();
+	auto balance = nano::dev::constants.genesis_amount;
+	for (auto const & [key, amount] : targets)
+	{
+		balance = balance - amount;
+		auto send = builder.state ()
+					.account (nano::dev::genesis_key.pub)
+					.previous (latest)
+					.representative (nano::dev::genesis_key.pub)
+					.balance (balance)
+					.link (key->pub)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*node->work_generate_blocking (latest))
+					.build ();
+		ASSERT_EQ (nano::block_status::progress, node->process (send));
+		latest = send->hash ();
+		auto open = builder.state ()
+					.account (key->pub)
+					.previous (0)
+					.representative (rep)
+					.balance (amount)
+					.link (send->hash ())
+					.sign (key->prv, key->pub)
+					.work (*node->work_generate_blocking (key->pub))
+					.build ();
+		ASSERT_EQ (nano::block_status::progress, node->process (open));
+	}
+}
+
+// Reads a delegators response into (account, weight) pairs preserving response order
+std::vector<std::pair<std::string, std::string>> delegators_of (boost::property_tree::ptree const & response)
+{
+	std::vector<std::pair<std::string, std::string>> result;
+	for (auto const & entry : response.get_child ("delegators"))
+	{
+		result.emplace_back (entry.first, entry.second.get<std::string> (""));
+	}
+	return result;
+}
+}
+
+/*
+ * Legacy delegators behaviour without the extended index:
+ * account-ascending enumeration bounded by count, "start" is an account iteration point which does not need to exist
+ */
+TEST (rpc, delegators_legacy_order)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	ASSERT_FALSE (node->ledger.flags.account_delegator_by_weight_index);
+
+	nano::keypair rep, key1, key2, key3, key4;
+	std::vector<std::pair<nano::keypair const *, nano::uint128_t>> targets{ { &key1, 100 }, { &key2, 300 }, { &key3, 300 }, { &key4, 200 } };
+	ASSERT_NO_FATAL_FAILURE (setup_delegators (node, rep.pub, targets));
+
+	// Expected enumeration is by ascending account number
+	std::vector<std::pair<std::string, std::string>> expected;
+	{
+		auto sorted = targets;
+		std::sort (sorted.begin (), sorted.end (), [] (auto const & lhs, auto const & rhs) {
+			return lhs.first->pub.number () < rhs.first->pub.number ();
+		});
+		for (auto const & [key, amount] : sorted)
+		{
+			expected.emplace_back (key->pub.to_account (), nano::amount{ amount }.to_string_dec ());
+		}
+	}
+
+	auto const rpc_ctx = add_rpc (system, node);
+
+	// Full enumeration in account order
+	{
+		boost::property_tree::ptree request;
+		request.put ("action", "delegators");
+		request.put ("account", rep.pub.to_account ());
+		ASSERT_EQ (expected, delegators_of (wait_response (system, rpc_ctx, request)));
+	}
+	// count bounds the scan in account order
+	{
+		boost::property_tree::ptree request;
+		request.put ("action", "delegators");
+		request.put ("account", rep.pub.to_account ());
+		request.put ("count", 2);
+		std::vector<std::pair<std::string, std::string>> head{ expected[0], expected[1] };
+		ASSERT_EQ (head, delegators_of (wait_response (system, rpc_ctx, request)));
+	}
+	// start resumes after the given account; the account does not need to exist
+	{
+		boost::property_tree::ptree request;
+		request.put ("action", "delegators");
+		request.put ("account", rep.pub.to_account ());
+		request.put ("start", expected[1].first);
+		std::vector<std::pair<std::string, std::string>> tail{ expected[2], expected[3] };
+		ASSERT_EQ (tail, delegators_of (wait_response (system, rpc_ctx, request)));
+
+		nano::account second;
+		ASSERT_FALSE (second.decode_account (expected[1].first));
+		request.put ("start", nano::account (second.number () - 1).to_account ());
+		std::vector<std::pair<std::string, std::string>> from_second{ expected[1], expected[2], expected[3] };
+		ASSERT_EQ (from_second, delegators_of (wait_response (system, rpc_ctx, request)));
+	}
+	// threshold filters by weight while keeping account order
+	{
+		boost::property_tree::ptree request;
+		request.put ("action", "delegators");
+		request.put ("account", rep.pub.to_account ());
+		request.put ("threshold", 200);
+		std::vector<std::pair<std::string, std::string>> heavy;
+		for (auto const & entry : expected)
+		{
+			if (entry.second != "100")
+			{
+				heavy.push_back (entry);
+			}
+		}
+		ASSERT_EQ (heavy, delegators_of (wait_response (system, rpc_ctx, request)));
+	}
+}
+
+/*
+ * Indexed delegators behaviour: weight-descending, account-descending on ties;
+ * "start" is a pagination cursor resuming strictly below that account's weight position;
+ * a cursor referencing an unknown account is an error
+ */
+TEST (rpc, delegators_weight_order)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.extended_ledger_index = true;
+	auto node = add_ipc_enabled_node (system, config);
+	ASSERT_TRUE (node->ledger.flags.account_delegator_by_weight_index);
+
+	nano::keypair rep, key1, key2, key3, key4;
+	std::vector<std::pair<nano::keypair const *, nano::uint128_t>> targets{ { &key1, 100 }, { &key2, 300 }, { &key3, 300 }, { &key4, 200 } };
+	ASSERT_NO_FATAL_FAILURE (setup_delegators (node, rep.pub, targets));
+
+	auto const tie_high = (key2.pub.number () > key3.pub.number () ? key2.pub : key3.pub).to_account ();
+	auto const tie_low = (key2.pub.number () > key3.pub.number () ? key3.pub : key2.pub).to_account ();
+
+	auto const rpc_ctx = add_rpc (system, node);
+
+	// Cursor pagination enumerates the full set exactly once in weight-descending order
+	{
+		std::vector<std::vector<std::pair<std::string, std::string>>> pages;
+		std::string cursor;
+		while (true)
+		{
+			boost::property_tree::ptree request;
+			request.put ("action", "delegators");
+			request.put ("account", rep.pub.to_account ());
+			request.put ("count", 2);
+			if (!cursor.empty ())
+			{
+				request.put ("start", cursor);
+			}
+			auto page = delegators_of (wait_response (system, rpc_ctx, request));
+			if (page.empty ())
+			{
+				break;
+			}
+			cursor = page.back ().first;
+			pages.push_back (std::move (page));
+		}
+		ASSERT_EQ (2, pages.size ());
+		std::vector<std::pair<std::string, std::string>> page1{ { tie_high, "300" }, { tie_low, "300" } };
+		std::vector<std::pair<std::string, std::string>> page2{ { key4.pub.to_account (), "200" }, { key1.pub.to_account (), "100" } };
+		ASSERT_EQ (page1, pages[0]);
+		ASSERT_EQ (page2, pages[1]);
+	}
+	// Threshold composes with the cursor
+	{
+		boost::property_tree::ptree request;
+		request.put ("action", "delegators");
+		request.put ("account", rep.pub.to_account ());
+		request.put ("threshold", 200);
+		request.put ("start", tie_high);
+		std::vector<std::pair<std::string, std::string>> filtered{ { tie_low, "300" }, { key4.pub.to_account (), "200" } };
+		ASSERT_EQ (filtered, delegators_of (wait_response (system, rpc_ctx, request)));
+	}
+	// A cursor referencing an unknown account is an error
+	{
+		boost::property_tree::ptree request;
+		request.put ("action", "delegators");
+		request.put ("account", rep.pub.to_account ());
+		request.put ("start", nano::keypair ().pub.to_account ());
+		auto response = wait_response (system, rpc_ctx, request);
+		ASSERT_EQ (std::error_code (nano::error_common::account_not_found).message (), response.get<std::string> ("error"));
+	}
+}
+
 TEST (rpc, account_info)
 {
 	nano::test::system system;

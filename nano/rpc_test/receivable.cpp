@@ -17,6 +17,9 @@
 
 #include <boost/property_tree/json_parser.hpp>
 
+#include <algorithm>
+#include <functional>
+
 using namespace nano::test;
 
 TEST (rpc, receivable)
@@ -457,6 +460,147 @@ TEST (rpc, accounts_receivable_sorting)
 		std::string amount{ blocks.second.begin ()->second.get<std::string> ("") };
 		ASSERT_EQ ("1", amount);
 	}
+}
+
+namespace
+{
+// Sends four state sends from genesis to the destination: three tied at amount 100 and one of 200; hashes exclude work, so every test node builds identical sends
+void setup_tied_receivables (nano::node & node, nano::account const & destination, std::vector<nano::block_hash> & sends)
+{
+	nano::block_builder builder;
+	auto latest = nano::dev::genesis->hash ();
+	auto balance = nano::dev::constants.genesis_amount;
+	for (auto const amount : { 100, 100, 100, 200 })
+	{
+		balance = balance - amount;
+		auto send = builder.state ()
+					.account (nano::dev::genesis_key.pub)
+					.previous (latest)
+					.representative (nano::dev::genesis_key.pub)
+					.balance (balance)
+					.link (destination)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*node.work_generate_blocking (latest))
+					.build ();
+		ASSERT_EQ (nano::block_status::progress, node.process (send));
+		sends.push_back (send->hash ());
+		latest = send->hash ();
+	}
+}
+
+// Reads a blocks subtree into (hash, amount) pairs preserving response order
+std::vector<std::pair<std::string, std::string>> blocks_of (boost::property_tree::ptree const & blocks)
+{
+	std::vector<std::pair<std::string, std::string>> result;
+	for (auto const & entry : blocks)
+	{
+		result.emplace_back (entry.first, entry.second.get<std::string> (""));
+	}
+	return result;
+}
+}
+
+/*
+ * With sorting the response must contain the top-count receivables by amount, hash descending on ties,
+ * identically with and without the extended receivable index
+ */
+TEST (rpc, receivable_sorting_tie_parity)
+{
+	nano::keypair key1;
+
+	// Runs the sorted queries on a fresh node and returns the responses along with the send hashes
+	auto run = [&key1] (bool extended_index, std::vector<nano::block_hash> & sends, std::vector<std::vector<std::pair<std::string, std::string>>> & results) {
+		nano::test::system system;
+		nano::node_config config = system.default_config ();
+		config.extended_ledger_index = extended_index;
+		// Disable the backlog scan so no elections start; blocks with active elections are filtered from unconfirmed receivable responses
+		config.backlog_scan->enable = false;
+		auto node = add_ipc_enabled_node (system, config);
+		ASSERT_EQ (extended_index, node->ledger.flags.account_receivable_by_amount_index);
+		ASSERT_NO_FATAL_FAILURE (setup_tied_receivables (*node, key1.pub, sends));
+
+		auto const rpc_ctx = add_rpc (system, node);
+		for (auto const offset : { 0, 1 })
+		{
+			boost::property_tree::ptree request;
+			request.put ("action", "receivable");
+			request.put ("account", key1.pub.to_account ());
+			// The sends deliberately stay unconfirmed, so the queries must accept unconfirmed receivables
+			request.put ("include_only_confirmed", "false");
+			request.put ("sorting", "true");
+			request.put ("count", 2);
+			request.put ("offset", offset);
+			auto response = wait_response (system, rpc_ctx, request);
+			results.push_back (blocks_of (response.get_child ("blocks")));
+		}
+	};
+
+	std::vector<nano::block_hash> sends_legacy, sends_indexed;
+	std::vector<std::vector<std::pair<std::string, std::string>>> legacy, indexed;
+	ASSERT_NO_FATAL_FAILURE (run (false, sends_legacy, legacy));
+	ASSERT_NO_FATAL_FAILURE (run (true, sends_indexed, indexed));
+	ASSERT_EQ (sends_legacy, sends_indexed);
+	ASSERT_EQ (legacy, indexed);
+
+	// Tied amounts are ordered by hash descending
+	std::vector<std::string> tied{ sends_legacy[0].to_string (), sends_legacy[1].to_string (), sends_legacy[2].to_string () };
+	std::sort (tied.begin (), tied.end (), std::greater<> ());
+
+	// count = 2: the 200 send first, then the highest tied hash
+	std::vector<std::pair<std::string, std::string>> expected0{ { sends_legacy[3].to_string (), "200" }, { tied[0], "100" } };
+	ASSERT_EQ (expected0, legacy[0]);
+	// offset = 1 skips the 200 send
+	std::vector<std::pair<std::string, std::string>> expected1{ { tied[0], "100" }, { tied[1], "100" } };
+	ASSERT_EQ (expected1, legacy[1]);
+}
+
+/*
+ * With sorting each account's response must contain the top-count receivables by amount rather than the first-count in hash order,
+ * identically with and without the extended receivable index
+ */
+TEST (rpc, accounts_receivable_sorting_top_parity)
+{
+	nano::keypair key1;
+
+	// Runs the sorted query on a fresh node and returns the response along with the send hashes
+	auto run = [&key1] (bool extended_index, std::vector<nano::block_hash> & sends, std::vector<std::pair<std::string, std::string>> & result) {
+		nano::test::system system;
+		nano::node_config config = system.default_config ();
+		config.extended_ledger_index = extended_index;
+		// Disable the backlog scan so no elections start; blocks with active elections are filtered from unconfirmed receivable responses
+		config.backlog_scan->enable = false;
+		auto node = add_ipc_enabled_node (system, config);
+		ASSERT_EQ (extended_index, node->ledger.flags.account_receivable_by_amount_index);
+		ASSERT_NO_FATAL_FAILURE (setup_tied_receivables (*node, key1.pub, sends));
+
+		auto const rpc_ctx = add_rpc (system, node);
+		boost::property_tree::ptree request;
+		request.put ("action", "accounts_receivable");
+		boost::property_tree::ptree entry;
+		boost::property_tree::ptree accounts_l;
+		entry.put ("", key1.pub.to_account ());
+		accounts_l.push_back (std::make_pair ("", entry));
+		request.add_child ("accounts", accounts_l);
+		// The sends deliberately stay unconfirmed, so the query must accept unconfirmed receivables
+		request.put ("include_only_confirmed", "false");
+		request.put ("sorting", "true");
+		request.put ("count", 2);
+		auto response = wait_response (system, rpc_ctx, request);
+		result = blocks_of (response.get_child ("blocks").get_child (key1.pub.to_account ()));
+	};
+
+	std::vector<nano::block_hash> sends_legacy, sends_indexed;
+	std::vector<std::pair<std::string, std::string>> legacy, indexed;
+	ASSERT_NO_FATAL_FAILURE (run (false, sends_legacy, legacy));
+	ASSERT_NO_FATAL_FAILURE (run (true, sends_indexed, indexed));
+	ASSERT_EQ (sends_legacy, sends_indexed);
+	ASSERT_EQ (legacy, indexed);
+
+	// The top two by amount: the 200 send, then the highest tied 100 hash
+	std::vector<std::string> tied{ sends_legacy[0].to_string (), sends_legacy[1].to_string (), sends_legacy[2].to_string () };
+	std::sort (tied.begin (), tied.end (), std::greater<> ());
+	std::vector<std::pair<std::string, std::string>> expected{ { sends_legacy[3].to_string (), "200" }, { tied[0], "100" } };
+	ASSERT_EQ (expected, legacy);
 }
 
 TEST (rpc, accounts_receivable_threshold)

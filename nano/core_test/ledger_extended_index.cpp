@@ -44,8 +44,8 @@ std::optional<nano::account_receivable_by_amount_info> receivable_get (nano::sto
 }
 
 /*
- * Cross-check every extended index against its primary table: each primary row must have exactly
- * one matching index row (forward containment + count equality covers both directions)
+ * Cross-check every extended index against its primary table:
+ * each primary row must have exactly one matching index row (forward containment + count equality covers both directions)
  */
 void assert_extended_indices_consistent (nano::ledger & ledger, nano::secure::transaction const & txn)
 {
@@ -160,7 +160,7 @@ TEST (ledger_extended_index, receive_block_by_send_block_roundtrip)
 TEST (ledger_extended_index, delegator_by_weight_ordering)
 {
 	auto store = nano::test::make_store ();
-	auto txn = store->tx_begin_write ();
+	auto & view = store->extended.account_delegator_by_weight;
 
 	std::vector<nano::account_delegator_by_weight_key> expected{
 		{ nano::account{ 5 }, nano::amount{ 1 }, nano::account{ 10 } },
@@ -171,29 +171,44 @@ TEST (ledger_extended_index, delegator_by_weight_ordering)
 		{ nano::account{ 7 }, nano::amount{ 0 }, nano::account{ 9 } },
 	};
 
-	// Insert in shuffled order
-	store->extended.account_delegator_by_weight.put (txn, expected[3]);
-	store->extended.account_delegator_by_weight.put (txn, expected[0]);
-	store->extended.account_delegator_by_weight.put (txn, expected[5]);
-	store->extended.account_delegator_by_weight.put (txn, expected[2]);
-	store->extended.account_delegator_by_weight.put (txn, expected[4]);
-	store->extended.account_delegator_by_weight.put (txn, expected[1]);
-
-	std::vector<nano::account_delegator_by_weight_key> actual;
-	for (auto i = store->extended.account_delegator_by_weight.begin (txn), n = store->extended.account_delegator_by_weight.end (txn); i != n; ++i)
 	{
-		actual.push_back (i->first);
-	}
-	ASSERT_EQ (expected, actual);
+		auto txn = store->tx_begin_write ();
+		ASSERT_TRUE (view.empty (txn));
 
-	store->extended.account_delegator_by_weight.del (txn, expected[0]);
-	ASSERT_EQ (5, store->extended.account_delegator_by_weight.count (txn));
+		// Insert in shuffled order
+		view.put (txn, expected[3]);
+		view.put (txn, expected[0]);
+		view.put (txn, expected[5]);
+		view.put (txn, expected[2]);
+		view.put (txn, expected[4]);
+		view.put (txn, expected[1]);
+		ASSERT_FALSE (view.empty (txn));
+
+		std::vector<nano::account_delegator_by_weight_key> actual;
+		for (auto i = view.begin (txn), n = view.end (txn); i != n; ++i)
+		{
+			actual.push_back (i->first);
+		}
+		ASSERT_EQ (expected, actual);
+
+		// Seeking begin: exact key, between keys, past the last key
+		ASSERT_EQ (expected[2], view.begin (txn, expected[2])->first);
+		ASSERT_EQ (expected[2], view.begin (txn, { nano::account{ 5 }, nano::amount{ 2 }, nano::account{ 0 } })->first);
+		ASSERT_TRUE (view.begin (txn, { nano::account{ 8 }, nano::amount{ 0 }, nano::account{ 0 } }) == view.end (txn));
+
+		view.del (txn, expected[0]);
+		ASSERT_EQ (5, view.count (txn));
+	}
+
+	view.clear ();
+	auto txn = store->tx_begin_read ();
+	ASSERT_TRUE (view.empty (txn));
+	ASSERT_EQ (0, view.count (txn));
 }
 
 /*
  * upper_bound must return the highest-weight entry of the given representative and end () otherwise.
- * rupper_bound must walk that representative's entries in descending weight order and terminate at rend ()
- * when iteration passes the first entry of the table.
+ * rupper_bound must walk that representative's entries in descending weight order and terminate at rend () when iteration passes the first entry of the table.
  */
 TEST (ledger_extended_index, delegator_by_weight_upper_bound)
 {
@@ -235,6 +250,49 @@ TEST (ledger_extended_index, delegator_by_weight_upper_bound)
 		reverse.push_back (i->first);
 	}
 	std::vector<nano::account_delegator_by_weight_key> reverse_expected{ high, mid, low };
+	ASSERT_EQ (reverse_expected, reverse);
+}
+
+/*
+ * rlower_bound must position the reverse iterator at the last entry ordered strictly before the given key,
+ * crossing representative boundaries, and rend when nothing precedes the key
+ */
+TEST (ledger_extended_index, delegator_by_weight_rlower_bound)
+{
+	auto store = nano::test::make_store ();
+	auto txn = store->tx_begin_write ();
+	auto & view = store->extended.account_delegator_by_weight;
+
+	// Empty table
+	ASSERT_TRUE (view.rlower_bound (txn, { nano::account{ 5 }, nano::amount{ 1 }, nano::account{ 1 } }) == view.rend (txn));
+
+	nano::account_delegator_by_weight_key low{ nano::account{ 5 }, nano::amount{ 1 }, nano::account{ 10 } };
+	nano::account_delegator_by_weight_key mid{ nano::account{ 5 }, nano::amount{ 256 }, nano::account{ 3 } };
+	nano::account_delegator_by_weight_key high{ nano::account{ 5 }, nano::amount{ nano::uint128_t{ 1 } << 100 }, nano::account{ 1 } };
+	nano::account_delegator_by_weight_key other{ nano::account{ 7 }, nano::amount{ 0 }, nano::account{ 9 } };
+	view.put (txn, low);
+	view.put (txn, mid);
+	view.put (txn, high);
+	view.put (txn, other);
+
+	// Nothing precedes the first entry
+	ASSERT_TRUE (view.rlower_bound (txn, low) == view.rend (txn));
+	// Strictly-below positioning within a representative
+	ASSERT_EQ (low, view.rlower_bound (txn, mid)->first);
+	ASSERT_EQ (mid, view.rlower_bound (txn, high)->first);
+	// A key between entries resolves to the nearest predecessor
+	ASSERT_EQ (mid, view.rlower_bound (txn, { nano::account{ 5 }, nano::amount{ 256 }, nano::account{ 4 } })->first);
+	// Crossing into the previous representative is the caller's concern
+	ASSERT_EQ (high, view.rlower_bound (txn, other)->first);
+	ASSERT_EQ (other, view.rlower_bound (txn, { nano::account{ 8 }, nano::amount{ 0 }, nano::account{ 0 } })->first);
+
+	// Reverse walk from a cursor visits every preceding entry and terminates at rend
+	std::vector<nano::account_delegator_by_weight_key> reverse;
+	for (auto i = view.rlower_bound (txn, high), n = view.rend (txn); i != n; ++i)
+	{
+		reverse.push_back (i->first);
+	}
+	std::vector<nano::account_delegator_by_weight_key> reverse_expected{ mid, low };
 	ASSERT_EQ (reverse_expected, reverse);
 }
 
@@ -293,9 +351,8 @@ TEST (ledger_extended_index, receivable_by_amount_roundtrip_and_bounds)
 }
 
 /*
- * A fresh ledger created with the option enabled must enable and persist all four index flags
- * and index the genesis state. The genesis open block is indexed in the receive lookup table
- * under its source field, which is the genesis public key rather than a real send hash.
+ * A fresh ledger created with the option enabled must enable and persist all four index flags and index the genesis state.
+ * The genesis open block is indexed in the receive lookup table under its source field, which is the genesis public key rather than a real send hash.
  */
 TEST (ledger_extended_index, fresh_ledger_enables_flags)
 {
@@ -351,8 +408,8 @@ TEST (ledger_extended_index, disabled_by_default)
 }
 
 /*
- * Once enabled, the persisted flags remain authoritative: reopening without the option must keep
- * the flags set and keep maintaining the indices for newly processed blocks
+ * Once enabled, the persisted flags remain authoritative:
+ * reopening without the option must keep the flags set and keep maintaining the indices for newly processed blocks
  */
 TEST (ledger_extended_index, flags_persist_and_maintain_without_option)
 {
@@ -397,8 +454,8 @@ TEST (ledger_extended_index, flags_persist_and_maintain_without_option)
 
 /*
  * Population of an existing ledger: build a mixed legacy/state/epoch ledger without the option,
- * then reopen with the option and verify every index matches the primary tables. A further reopen
- * must not disturb the indices.
+ * then reopen with the option and verify every index matches the primary tables.
+ * A further reopen must not disturb the indices.
  */
 TEST (ledger_extended_index, populate_existing_ledger)
 {
@@ -557,9 +614,9 @@ TEST (ledger_extended_index, populate_existing_ledger)
 }
 
 /*
- * A single index can be populated in isolation; the remaining indices stay disabled and are not
- * maintained for new blocks until the aggregate populate enables them. A second aggregate populate
- * call is a no-op.
+ * A single index can be populated in isolation;
+ * the remaining indices stay disabled and are not maintained for new blocks until the aggregate populate enables them.
+ * A second aggregate populate call is a no-op.
  */
 TEST (ledger_extended_index, single_index_populate_and_mixed_flags)
 {
@@ -681,8 +738,8 @@ TEST (ledger_extended_index, single_index_populate_and_mixed_flags)
 }
 
 /*
- * Incremental maintenance for state blocks: send creates a receivable entry, open consumes it and
- * registers the receive lookup, a representative change moves the delegator entry
+ * Incremental maintenance for state blocks: send creates a receivable entry,
+ * open consumes it and registers the receive lookup, a representative change moves the delegator entry
  */
 TEST (ledger_extended_index, incremental_state_blocks)
 {
@@ -747,8 +804,7 @@ TEST (ledger_extended_index, incremental_state_blocks)
 	ASSERT_EQ (change1->hash (), store->extended.account_block_by_height.get (txn, { key1.pub, 2 }).value ());
 	ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
 
-	// A state receive on an existing account must consume the receivable, register the receive
-	// lookup and replace the balance-keyed delegator row
+	// A state receive on an existing account must consume the receivable, register the receive lookup and replace the balance-keyed delegator row
 	auto send2 = builder.state ()
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (send1->hash ())
@@ -779,8 +835,8 @@ TEST (ledger_extended_index, incremental_state_blocks)
 }
 
 /*
- * Incremental maintenance for legacy blocks. Legacy open and receive blocks must both register in
- * the receive lookup index.
+ * Incremental maintenance for legacy blocks.
+ * Legacy open and receive blocks must both register in the receive lookup index.
  */
 TEST (ledger_extended_index, incremental_legacy_blocks)
 {
@@ -849,8 +905,8 @@ TEST (ledger_extended_index, incremental_legacy_blocks)
 }
 
 /*
- * Epoch blocks only touch the height index. An epoch open on an unopened account creates a
- * zero-weight delegator entry under the zero representative and must not consume the receivable.
+ * Epoch blocks only touch the height index.
+ * An epoch open on an unopened account creates a zero-weight delegator entry under the zero representative and must not consume the receivable.
  */
 TEST (ledger_extended_index, epoch_blocks)
 {
@@ -921,8 +977,8 @@ TEST (ledger_extended_index, epoch_blocks)
 
 /*
  * Rolling back a receive must restore the receivable entry and remove the receive lookup entry;
- * rolling back the send must then remove the receivable entry again. Stepping twice down each
- * chain must only ever remove the tip's height row, leaving lower heights intact.
+ * rolling back the send must then remove the receivable entry again.
+ * Stepping twice down each chain must only ever remove the tip's height row, leaving lower heights intact.
  */
 TEST (ledger_extended_index, rollback_state_send_receive)
 {
@@ -1013,8 +1069,8 @@ TEST (ledger_extended_index, rollback_state_send_receive)
 }
 
 /*
- * Rolling back a legacy send cascades through the dependent open block; all index entries of both
- * blocks must be reverted
+ * Rolling back a legacy send cascades through the dependent open block;
+ * all index entries of both blocks must be reverted
  */
 TEST (ledger_extended_index, rollback_legacy_cascade)
 {
@@ -1055,8 +1111,8 @@ TEST (ledger_extended_index, rollback_legacy_cascade)
 }
 
 /*
- * The indexed and chain-walking implementations of find_block_hash_by_height must agree for every
- * height, including out-of-range heights and unknown accounts
+ * The indexed and chain-walking implementations of find_block_hash_by_height must agree for every height,
+ * including out-of-range heights and unknown accounts
  */
 TEST (ledger_extended_index, find_block_hash_by_height_parity)
 {
@@ -1186,8 +1242,8 @@ TEST (ledger_extended_index, find_receive_block_by_send_hash_parity)
 }
 
 /*
- * Dropping the indices must clear the flags, the persisted flags and the tables; reopening with the
- * option afterwards must rebuild everything from scratch
+ * Dropping the indices must clear the flags, the persisted flags and the tables;
+ * reopening with the option afterwards must rebuild everything from scratch
  */
 TEST (ledger_extended_index, drop_and_repopulate)
 {

@@ -69,6 +69,17 @@ auto account_delegator_by_weight_view::rupper_bound (nano::store::transaction co
 	return reverse_iterator{ upper_bound (txn, representative) };
 }
 
+auto account_delegator_by_weight_view::rlower_bound (nano::store::transaction const & txn, nano::account_delegator_by_weight_key const & key) const -> reverse_iterator
+{
+	auto it = begin (txn, key);
+	if (it == begin (txn))
+	{
+		return rend (txn);
+	}
+	--it;
+	return reverse_iterator{ std::move (it) };
+}
+
 auto account_delegator_by_weight_view::rend (nano::store::transaction const & txn) const -> reverse_iterator
 {
 	return reverse_iterator{ end (txn) };
