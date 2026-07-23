@@ -533,6 +533,29 @@ TEST (rpc, receivable_sorting_tie_parity)
 			auto response = wait_response (system, rpc_ctx, request);
 			results.push_back (blocks_of (response.get_child ("blocks")));
 		}
+		// Offset with the default unbounded count
+		{
+			boost::property_tree::ptree request;
+			request.put ("action", "receivable");
+			request.put ("account", key1.pub.to_account ());
+			request.put ("include_only_confirmed", "false");
+			request.put ("sorting", "true");
+			request.put ("offset", 1);
+			auto response = wait_response (system, rpc_ctx, request);
+			results.push_back (blocks_of (response.get_child ("blocks")));
+		}
+		// Offset past the end of the result set
+		{
+			boost::property_tree::ptree request;
+			request.put ("action", "receivable");
+			request.put ("account", key1.pub.to_account ());
+			request.put ("include_only_confirmed", "false");
+			request.put ("sorting", "true");
+			request.put ("count", 2);
+			request.put ("offset", 10);
+			auto response = wait_response (system, rpc_ctx, request);
+			results.push_back (blocks_of (response.get_child ("blocks")));
+		}
 	};
 
 	std::vector<nano::block_hash> sends_legacy, sends_indexed;
@@ -552,6 +575,111 @@ TEST (rpc, receivable_sorting_tie_parity)
 	// offset = 1 skips the 200 send
 	std::vector<std::pair<std::string, std::string>> expected1{ { tied[0], "100" }, { tied[1], "100" } };
 	ASSERT_EQ (expected1, legacy[1]);
+	// offset without an explicit count returns the whole tail after the skipped entry
+	std::vector<std::pair<std::string, std::string>> expected2{ { tied[0], "100" }, { tied[1], "100" }, { tied[2], "100" } };
+	ASSERT_EQ (expected2, legacy[2]);
+	// offset past the end yields nothing
+	ASSERT_TRUE (legacy[3].empty ());
+}
+
+/*
+ * Sorted queries apply confirmation filtering before offset and count,
+ * so unconfirmed receivables never consume the offset, identically with and without the extended receivable index
+ */
+TEST (rpc, receivable_sorting_confirmed_offset_parity)
+{
+	nano::keypair key1;
+
+	// Runs the sorted offset query with only the first two sends cemented
+	auto run = [&key1] (bool extended_index, std::vector<nano::block_hash> & sends, std::vector<std::pair<std::string, std::string>> & result) {
+		nano::test::system system;
+		nano::node_config config = system.default_config ();
+		config.extended_ledger_index = extended_index;
+		auto node = add_ipc_enabled_node (system, config);
+		ASSERT_NO_FATAL_FAILURE (setup_tied_receivables (*node, key1.pub, sends));
+		{
+			auto transaction = node->ledger.tx_begin_write ();
+			node->ledger.cement (transaction, sends[1]);
+		}
+
+		auto const rpc_ctx = add_rpc (system, node);
+		boost::property_tree::ptree request;
+		request.put ("action", "receivable");
+		request.put ("account", key1.pub.to_account ());
+		request.put ("sorting", "true");
+		request.put ("offset", 1);
+		auto response = wait_response (system, rpc_ctx, request);
+		result = blocks_of (response.get_child ("blocks"));
+	};
+
+	std::vector<nano::block_hash> sends_legacy, sends_indexed;
+	std::vector<std::pair<std::string, std::string>> legacy, indexed;
+	ASSERT_NO_FATAL_FAILURE (run (false, sends_legacy, legacy));
+	ASSERT_NO_FATAL_FAILURE (run (true, sends_indexed, indexed));
+	ASSERT_EQ (sends_legacy, sends_indexed);
+	ASSERT_EQ (legacy, indexed);
+
+	// Only the two cemented tied sends qualify; the unconfirmed 200 send neither appears nor consumes the offset
+	std::vector<std::string> confirmed{ sends_legacy[0].to_string (), sends_legacy[1].to_string () };
+	std::sort (confirmed.begin (), confirmed.end (), std::greater<> ());
+	std::vector<std::pair<std::string, std::string>> expected{ { confirmed[1], "100" } };
+	ASSERT_EQ (expected, legacy);
+}
+
+/*
+ * Unsorted queries apply the offset to confirmed entries in send hash order before the threshold filter,
+ * so a confirmed entry below the threshold still consumes the offset
+ */
+TEST (rpc, receivable_unsorted_offset_before_threshold)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	// Disable the backlog scan so no elections start; blocks with active elections are filtered from unconfirmed receivable responses
+	config.backlog_scan->enable = false;
+	auto node = add_ipc_enabled_node (system, config);
+	nano::block_builder builder;
+
+	// Pick a destination for which the below-threshold send sorts first in hash order, making the quirk observable
+	nano::keypair key1;
+	std::shared_ptr<nano::block> send_low, send_high;
+	do
+	{
+		key1 = nano::keypair{};
+		send_low = builder.state ()
+				   .account (nano::dev::genesis_key.pub)
+				   .previous (nano::dev::genesis->hash ())
+				   .representative (nano::dev::genesis_key.pub)
+				   .balance (nano::dev::constants.genesis_amount - 1)
+				   .link (key1.pub)
+				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				   .work (*node->work_generate_blocking (nano::dev::genesis->hash ()))
+				   .build ();
+		send_high = builder.state ()
+					.account (nano::dev::genesis_key.pub)
+					.previous (send_low->hash ())
+					.representative (nano::dev::genesis_key.pub)
+					.balance (nano::dev::constants.genesis_amount - 101)
+					.link (key1.pub)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*node->work_generate_blocking (send_low->hash ()))
+					.build ();
+	} while (send_low->hash ().number () > send_high->hash ().number ());
+	ASSERT_EQ (nano::block_status::progress, node->process (send_low));
+	ASSERT_EQ (nano::block_status::progress, node->process (send_high));
+
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "receivable");
+	request.put ("account", key1.pub.to_account ());
+	// The sends deliberately stay unconfirmed, so the query must accept unconfirmed receivables
+	request.put ("include_only_confirmed", "false");
+	request.put ("threshold", 50);
+	request.put ("offset", 1);
+	auto response = wait_response (system, rpc_ctx, request);
+
+	// The offset consumes the below-threshold 1 raw send, leaving the 100 raw send in the response
+	std::vector<std::pair<std::string, std::string>> expected{ { send_high->hash ().to_string (), "100" } };
+	ASSERT_EQ (expected, blocks_of (response.get_child ("blocks")));
 }
 
 /*
@@ -561,9 +689,10 @@ TEST (rpc, receivable_sorting_tie_parity)
 TEST (rpc, accounts_receivable_sorting_top_parity)
 {
 	nano::keypair key1;
+	nano::keypair key2;
 
 	// Runs the sorted query on a fresh node and returns the response along with the send hashes
-	auto run = [&key1] (bool extended_index, std::vector<nano::block_hash> & sends, std::vector<std::pair<std::string, std::string>> & result) {
+	auto run = [&key1, &key2] (bool extended_index, std::vector<nano::block_hash> & sends, std::vector<std::pair<std::string, std::string>> & result) {
 		nano::test::system system;
 		nano::node_config config = system.default_config ();
 		config.extended_ledger_index = extended_index;
@@ -577,15 +706,20 @@ TEST (rpc, accounts_receivable_sorting_top_parity)
 		boost::property_tree::ptree request;
 		request.put ("action", "accounts_receivable");
 		boost::property_tree::ptree entry;
+		boost::property_tree::ptree entry2;
 		boost::property_tree::ptree accounts_l;
 		entry.put ("", key1.pub.to_account ());
 		accounts_l.push_back (std::make_pair ("", entry));
+		entry2.put ("", key2.pub.to_account ());
+		accounts_l.push_back (std::make_pair ("", entry2));
 		request.add_child ("accounts", accounts_l);
 		// The sends deliberately stay unconfirmed, so the query must accept unconfirmed receivables
 		request.put ("include_only_confirmed", "false");
 		request.put ("sorting", "true");
 		request.put ("count", 2);
 		auto response = wait_response (system, rpc_ctx, request);
+		// The account without receivables is omitted from the response entirely
+		ASSERT_EQ (1, response.get_child ("blocks").size ());
 		result = blocks_of (response.get_child ("blocks").get_child (key1.pub.to_account ()));
 	};
 

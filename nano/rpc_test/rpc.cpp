@@ -4031,6 +4031,16 @@ TEST (rpc, delegators_weight_order)
 		std::vector<std::pair<std::string, std::string>> filtered{ { tie_low, "300" }, { key4.pub.to_account (), "200" } };
 		ASSERT_EQ (filtered, delegators_of (wait_response (system, rpc_ctx, request)));
 	}
+	// A cursor account delegating to a different representative is still a valid position; genesis outweighs every delegator, so everything follows
+	{
+		boost::property_tree::ptree request;
+		request.put ("action", "delegators");
+		request.put ("account", rep.pub.to_account ());
+		request.put ("start", nano::dev::genesis_key.pub.to_account ());
+		auto delegators = delegators_of (wait_response (system, rpc_ctx, request));
+		std::vector<std::pair<std::string, std::string>> all{ { tie_high, "300" }, { tie_low, "300" }, { key4.pub.to_account (), "200" }, { key1.pub.to_account (), "100" } };
+		ASSERT_EQ (all, delegators);
+	}
 	// A cursor referencing an unknown account is an error
 	{
 		boost::property_tree::ptree request;
