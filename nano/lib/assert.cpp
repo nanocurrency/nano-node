@@ -11,13 +11,17 @@
 /*
  * Backing code for "release_assert" & "debug_assert", which are macros
  */
-void assert_internal (char const * check_expr, char const * func, char const * file, unsigned int line, bool is_release_assert, std::string_view error_msg)
+void assert_internal (char const * check_expr, char const * func, char const * file, unsigned int line, bool is_release_assert, std::string_view error_msg, std::string_view error_extra)
 {
 	std::stringstream ss;
 	ss << "Assertion `" << check_expr << "` failed";
 	if (!error_msg.empty ())
 	{
 		ss << ": " << error_msg;
+	}
+	if (!error_extra.empty ())
+	{
+		ss << " (" << error_extra << ")";
 	}
 	ss << "\n";
 	ss << file << ":" << line << " [" << func << "]"

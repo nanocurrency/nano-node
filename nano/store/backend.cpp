@@ -2,6 +2,7 @@
 #include <nano/lib/threading.hpp>
 #include <nano/store/backend.hpp>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <future>
@@ -26,6 +27,13 @@ void backend::open (column_schema schema, nano::store::open_mode mode)
 	{
 		throw std::runtime_error ("Backend is already open: " + get_database_path ());
 	}
+
+	// Ensure schema is valid: no two tables may share the same name
+	debug_assert (std::find_if (schema.begin (), schema.end (), [&schema] (auto const & definition) {
+		return std::count_if (schema.begin (), schema.end (), [&definition] (auto const & other) { return other.name == definition.name; }) > 1;
+	})
+	== schema.end (),
+	"distinct schema tables must not share a table name");
 
 	open_impl (schema, mode);
 
@@ -113,6 +121,34 @@ auto backend::get_schema () const -> column_schema
 	return current_schema;
 }
 
+auto backend::schema_definition (nano::store::table table) const -> column_definition const &
+{
+	release_assert (is_open, "backend is not open");
+	auto it = std::find_if (current_schema.begin (), current_schema.end (), [table] (auto const & definition) {
+		return definition.table == table;
+	});
+	release_assert (it != current_schema.end (), "table is not part of the open schema");
+	return *it;
+}
+
+void backend::create_table (nano::store::table table)
+{
+	if (table_open (table))
+	{
+		return;
+	}
+	release_assert (current_mode != nano::store::open_mode::read_only, "tables cannot be created while the backend is opened in read-only mode");
+	auto const & definition = schema_definition (table);
+	release_assert (definition.kind == table_kind::optional, "only optional tables may be created on demand");
+	create_table_impl (table, definition.name);
+}
+
+bool backend::drop_table (nano::store::table table)
+{
+	release_assert (current_mode != nano::store::open_mode::read_only, "tables cannot be dropped while the backend is opened in read-only mode");
+	return drop_table_by_name (schema_definition (table).name);
+}
+
 auto backend::get_mode () const -> std::optional<nano::store::open_mode>
 {
 	return is_open ? std::optional{ current_mode } : std::nullopt;
@@ -136,9 +172,13 @@ bool backend::empty (nano::store::transaction const & txn, nano::store::table ta
 bool backend::empty (nano::store::transaction const & txn) const
 {
 	release_assert (is_open, "backend is not open");
-	for (auto const & [table, name] : get_schema ())
+	for (auto const & definition : get_schema ())
 	{
-		if (!empty (txn, table))
+		if (!table_open (definition.table))
+		{
+			continue; // Absent optional tables are empty
+		}
+		if (!empty (txn, definition.table))
 		{
 			return false;
 		}
@@ -208,8 +248,20 @@ void backend::copy_to (backend & destination, copy_progress_callback callback, s
 	size_t const total_tables = schema.size ();
 	size_t table_index = 0;
 
-	for (auto const & [table, table_name] : schema)
+	for (auto const & definition : schema)
 	{
+		auto const table = definition.table;
+		auto const & table_name = definition.name;
+		// Absent optional tables have nothing to copy; present ones must be created on the destination first
+		if (!table_open (table))
+		{
+			++table_index;
+			continue;
+		}
+		if (definition.kind == table_kind::optional && !destination.table_open (table))
+		{
+			destination.create_table (table);
+		}
 		auto src_txn = tx_begin_read ();
 		uint64_t const total = count (src_txn, table);
 		std::atomic<uint64_t> copied{ 0 };

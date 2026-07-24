@@ -16,7 +16,6 @@
 #include <chrono>
 #include <filesystem>
 #include <functional>
-#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -42,7 +41,26 @@ struct backend_meta
 	backend_version_t version;
 };
 
-using column_definition = std::pair<nano::store::table, std::string>;
+// Whether a table is created together with the schema or only on demand
+enum class table_kind
+{
+	required,
+	optional,
+};
+
+// A table declared by a schema; optional tables may be absent and are created on demand instead of at open
+struct column_definition
+{
+	nano::store::table table;
+	std::string name;
+	nano::store::table_kind kind{ table_kind::required };
+
+	// A schema holds exactly one definition per table
+	bool operator< (column_definition const & other) const
+	{
+		return table < other.table;
+	}
+};
 using column_schema = std::set<column_definition>;
 
 struct copy_progress
@@ -74,21 +92,28 @@ public:
 	void create (column_schema, nano::store::backend_version_t version);
 	void close ();
 
-	// Basic CRUD operations
+	// Basic CRUD operations, the table must be open, accessing an absent table crashes
 	virtual int get (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val & value) const = 0;
 	virtual int put (nano::store::write_transaction const &, nano::store::table, nano::store::db_val const & key, nano::store::db_val const & value) = 0;
 	virtual int del (nano::store::write_transaction const &, nano::store::table, nano::store::db_val const & key) = 0;
 	virtual bool exists (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key) const = 0;
 
-	// Table operations
+	// Table operations, the table must be open, accessing an absent table crashes
 	bool empty (nano::store::transaction const &) const; // Checks if all tables are empty
 	bool empty (nano::store::transaction const &, nano::store::table) const;
 	virtual uint64_t count (nano::store::transaction const &, nano::store::table) const = 0;
 	virtual bool count_is_exact (nano::store::table) const = 0; // Returns true if count() returns exact value, false if estimate
 	uint64_t count_exact (nano::store::transaction const &, nano::store::table) const; // Exact count via iteration (always accurate)
 	virtual int clear (nano::store::table) = 0; // Empties the table but keeps it
-	virtual bool drop_table (std::string const & name) = 0; // Deletes the table entirely
-	virtual bool table_exists (std::string const & name) const = 0;
+
+	// Optional table management, lifecycle calls must not run concurrently with any other backend access
+	virtual bool table_open (nano::store::table) const = 0; // True when the table was present at open or created since
+	void create_table (nano::store::table); // Creates a missing optional table so it becomes usable, no-op when already open
+	bool drop_table (nano::store::table); // Deletes the schema table entirely, false when absent; a dropped required table is unusable until reopen
+
+	// Legacy table management for tables outside the current schema, used when upgrades remove them
+	virtual bool drop_table_by_name (std::string const & name) = 0; // Deletes the named table entirely, false when absent
+	virtual bool table_exists (std::string const & name) const = 0; // Physical presence probe by name
 
 	// Iterator operations
 	virtual nano::store::iterator begin (nano::store::transaction const &, nano::store::table) const = 0;
@@ -136,9 +161,13 @@ public:
 protected:
 	virtual void open_impl (column_schema, nano::store::open_mode) = 0;
 	virtual void close_impl () = 0;
+	virtual void create_table_impl (nano::store::table, std::string const & name) = 0;
 
 private:
 	void load_meta ();
+
+	// Schema entry for the given table, release_asserts membership
+	column_definition const & schema_definition (nano::store::table) const;
 
 protected: // Transaction tracking
 	mutable std::unique_ptr<nano::store::txn_tracker> tracker;

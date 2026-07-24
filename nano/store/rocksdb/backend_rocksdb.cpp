@@ -112,12 +112,17 @@ void backend_rocksdb::open_impl (column_schema schema, nano::store::open_mode mo
 
 	// Build column family descriptors - merge existing with schema-required column families
 	// RocksDB with create_missing_column_families=true will auto-create any missing ones
-	std::set<std::string> cf_names_set (existing_cf_names.begin (), existing_cf_names.end ());
+	std::set<std::string> const existing_cf_set (existing_cf_names.begin (), existing_cf_names.end ());
+	std::set<std::string> cf_names_set (existing_cf_set);
 
-	// Add schema column families to the set
-	for (auto const & [table, name] : schema)
+	// Add schema column families to the set; missing optional ones are never created and stay absent
+	for (auto const & definition : schema)
 	{
-		cf_names_set.insert (name);
+		bool const should_open = definition.kind == table_kind::required || existing_cf_set.contains (definition.name);
+		if (should_open)
+		{
+			cf_names_set.insert (definition.name);
+		}
 	}
 
 	// Ensure default column family is always present
@@ -132,12 +137,30 @@ void backend_rocksdb::open_impl (column_schema schema, nano::store::open_mode mo
 
 	open_db (database_path, mode, options, column_families);
 
-	// Build table_handles and name_to_table from schema
-	for (auto const & [table, name] : schema)
+	// Build table_handles and name_to_table from schema, skipping absent optional tables
+	for (auto const & definition : schema)
 	{
-		table_handles[table] = get_column_family (name);
-		name_to_table[name] = table;
+		if (cf_names_set.contains (definition.name))
+		{
+			table_handles[definition.table] = get_column_family (definition.name);
+			name_to_table[definition.name] = definition.table;
+		}
 	}
+}
+
+bool backend_rocksdb::table_open (nano::store::table table) const
+{
+	return table_handles.contains (table);
+}
+
+void backend_rocksdb::create_table_impl (nano::store::table table, std::string const & name)
+{
+	::rocksdb::ColumnFamilyHandle * handle{ nullptr };
+	auto status = db->CreateColumnFamily (get_cf_options (name), name, &handle);
+	release_assert (status.ok (), "failed to create column family", status.ToString ());
+	handles.emplace_back (handle);
+	table_handles[table] = handle;
+	name_to_table[name] = table;
 }
 
 void backend_rocksdb::open_db (std::filesystem::path const & path, nano::store::open_mode mode, ::rocksdb::Options const & options, std::vector<::rocksdb::ColumnFamilyDescriptor> column_families)
@@ -254,7 +277,7 @@ void backend_rocksdb::open_db (std::filesystem::path const & path, nano::store::
 ::rocksdb::ColumnFamilyHandle * backend_rocksdb::table_to_column_family (nano::store::table table) const
 {
 	auto it = table_handles.find (table);
-	release_assert (it != table_handles.end (), "table not found");
+	release_assert (it != table_handles.end (), "table not found", to_string (table));
 	return it->second;
 }
 
@@ -434,7 +457,7 @@ int backend_rocksdb::clear (nano::store::table table)
 	return ::rocksdb::Status::kOk;
 }
 
-bool backend_rocksdb::drop_table (std::string const & name)
+bool backend_rocksdb::drop_table_by_name (std::string const & name)
 {
 	if (!column_family_exists (name))
 	{
@@ -460,10 +483,11 @@ bool backend_rocksdb::drop_table (std::string const & name)
 		return false;
 	});
 
-	// Remove from table_handles if it was tracked
+	// Remove from table_handles and name_to_table if they were tracked
 	std::erase_if (table_handles, [handle] (auto const & pair) {
 		return pair.second == handle;
 	});
+	name_to_table.erase (name);
 
 	return true;
 }
