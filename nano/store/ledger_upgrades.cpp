@@ -141,7 +141,7 @@ void ledger_store::upgrade_v22_to_v23 ()
 		};
 
 		// Smaller batch size for dev runs to potentially trigger edge cases
-		const size_t batch_size = nano::is_dev_run () ? 2 : 250000;
+		const size_t batch_size = nano::ledger_upgrade_batch_size ();
 
 		size_t processed = 0;
 		iterate_accounts ([this, &transaction, &processed, batch_size] (nano::account const & account, nano::account_info_v22 const & account_info) {
@@ -212,7 +212,7 @@ void ledger_store::upgrade_v24_to_v25 ()
 		auto transaction = backend.tx_begin_write ();
 
 		// Smaller batch size for dev runs to potentially trigger edge cases
-		const size_t batch_size = nano::is_dev_run () ? 2 : 250000;
+		const size_t batch_size = nano::ledger_upgrade_batch_size ();
 		size_t processed = 0;
 		auto const total_blocks = backend.count (backend.tx_begin_read (), nano::store::table::blocks);
 
@@ -266,7 +266,7 @@ void ledger_store::upgrade_v25_to_v26 ()
 		auto transaction = backend.tx_begin_write ();
 
 		// Smaller batch size for dev runs to potentially trigger edge cases
-		size_t const batch_size = nano::is_dev_run () ? 2 : 250000;
+		size_t const batch_size = nano::ledger_upgrade_batch_size ();
 
 		auto const total_blocks = backend.count (backend.tx_begin_read (), nano::store::table::blocks);
 

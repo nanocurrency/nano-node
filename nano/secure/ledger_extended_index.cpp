@@ -109,7 +109,7 @@ void nano::ledger::populate_receive_block_by_send_block_index ()
 	// Clear any partially populated index remains
 	store.extended.receive_block_by_send_block.clear ();
 
-	size_t const batch_size_populate = nano::is_dev_run () ? 2 : 16 * 1024 * 1024;
+	size_t const batch_size_populate = nano::ledger_upgrade_batch_size ();
 
 	uint64_t indexed{ 0 };
 	{
@@ -162,7 +162,7 @@ void nano::ledger::populate_account_block_by_height_index ()
 	// Clear any partially populated index remains
 	store.extended.account_block_by_height.clear ();
 
-	size_t const batch_size_populate = nano::is_dev_run () ? 2 : 16 * 1024 * 1024;
+	size_t const batch_size_populate = nano::ledger_upgrade_batch_size ();
 
 	uint64_t processed{ 0 };
 	{
@@ -215,7 +215,7 @@ void nano::ledger::populate_account_delegator_by_weight_index ()
 	// Clear any partially populated index remains
 	store.extended.account_delegator_by_weight.clear ();
 
-	size_t const batch_size_populate = nano::is_dev_run () ? 2 : 16 * 1024 * 1024;
+	size_t const batch_size_populate = nano::ledger_upgrade_batch_size ();
 
 	uint64_t processed{ 0 };
 	{
@@ -262,7 +262,7 @@ void nano::ledger::populate_account_receivable_by_amount_index ()
 	// Clear any partially populated index remains
 	store.extended.account_receivable_by_amount.clear ();
 
-	size_t const batch_size_populate = nano::is_dev_run () ? 2 : 16 * 1024 * 1024;
+	size_t const batch_size_populate = nano::ledger_upgrade_batch_size ();
 
 	uint64_t processed{ 0 };
 	{
