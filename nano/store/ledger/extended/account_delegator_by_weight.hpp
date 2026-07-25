@@ -21,7 +21,11 @@ public:
 	void del (nano::store::write_transaction const &, nano::account_delegator_by_weight_key const &);
 	bool empty (nano::store::transaction const &) const;
 	uint64_t count (nano::store::transaction const &) const;
-	void clear ();
+
+	bool present () const; // True when the backing table exists
+	void create (); // Creates the backing table when absent, making the view writable
+	void clear (); // Empties the backing table but keeps it, no-op when absent
+	void drop (); // Deletes the backing table entirely, no-op when absent
 
 	// Iterator at the first entry ordered at or after the given key, end () when none
 	iterator begin (nano::store::transaction const &, nano::account_delegator_by_weight_key const &) const;

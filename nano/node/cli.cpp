@@ -747,7 +747,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				auto & logger = nano::default_logger ();
 				nano::stats stats{ logger };
 				auto store = nano::make_store (logger, stats, data_path, network_params.ledger, false, true, daemon_config.node);
-				nano::ledger ledger{ *store, network_params, stats, logger };
+				// Skip cache generation and load-time consistency checks so a corrupted store can still be recovered
+				nano::ledger ledger{ *store, network_params, stats, logger, nano::ledger_options{ .generate_cache = nano::generate_cache_flags::all_disabled () } };
 
 				if (!ledger.flags.topo_index)
 				{
@@ -837,7 +838,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				auto & logger = nano::default_logger ();
 				nano::stats stats{ logger };
 				auto store = nano::make_store (logger, stats, data_path, network_params.ledger, false, true, daemon_config.node);
-				nano::ledger ledger{ *store, network_params, stats, logger };
+				// Skip cache generation and load-time consistency checks so corrupted index state can still be dropped
+				nano::ledger ledger{ *store, network_params, stats, logger, nano::ledger_options{ .generate_cache = nano::generate_cache_flags::all_disabled () } };
 
 				if (ledger.flags.any_extended_ledger_index_enabled ())
 				{

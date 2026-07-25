@@ -41,9 +41,30 @@ uint64_t account_block_by_height_view::count (nano::store::transaction const & t
 	return backend.count (txn, nano::store::table::account_block_by_height);
 }
 
+bool account_block_by_height_view::present () const
+{
+	return backend.table_open (nano::store::table::account_block_by_height);
+}
+
+void account_block_by_height_view::create ()
+{
+	backend.create_table (nano::store::table::account_block_by_height);
+}
+
 void account_block_by_height_view::clear ()
 {
-	auto status = backend.clear (nano::store::table::account_block_by_height);
-	backend.release_assert_success (status);
+	if (present ())
+	{
+		auto status = backend.clear (nano::store::table::account_block_by_height);
+		backend.release_assert_success (status);
+	}
+}
+
+void account_block_by_height_view::drop ()
+{
+	if (present ())
+	{
+		backend.drop_table (nano::store::table::account_block_by_height);
+	}
 }
 }

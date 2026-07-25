@@ -138,6 +138,16 @@ void nano::ledger::initialize ()
 		flags.account_receivable_by_amount_index,
 		flags.receive_block_by_send_block_index,
 		flags.account_block_by_height_index);
+
+		// A persisted index flag must never be set without its backing table
+		// Skipped without the consistency check so --drop_extended_ledger_indices can still recover such a store
+		if (options.generate_cache.consistency_check)
+		{
+			release_assert (!flags.account_delegator_by_weight_index || store.extended.account_delegator_by_weight.present (), "delegator weight index flag is set but its table is absent, run --drop_extended_ledger_indices to recover");
+			release_assert (!flags.account_receivable_by_amount_index || store.extended.account_receivable_by_amount.present (), "receivable amount index flag is set but its table is absent, run --drop_extended_ledger_indices to recover");
+			release_assert (!flags.receive_block_by_send_block_index || store.extended.receive_block_by_send_block.present (), "receive block lookup index flag is set but its table is absent, run --drop_extended_ledger_indices to recover");
+			release_assert (!flags.account_block_by_height_index || store.extended.account_block_by_height.present (), "account block height index flag is set but its table is absent, run --drop_extended_ledger_indices to recover");
+		}
 	}
 
 	auto const & generate_cache_flags = options.generate_cache;

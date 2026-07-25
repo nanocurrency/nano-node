@@ -32,10 +32,31 @@ uint64_t account_receivable_by_amount_view::count (nano::store::transaction cons
 	return backend.count (txn, nano::store::table::account_receivable_by_amount);
 }
 
+bool account_receivable_by_amount_view::present () const
+{
+	return backend.table_open (nano::store::table::account_receivable_by_amount);
+}
+
+void account_receivable_by_amount_view::create ()
+{
+	backend.create_table (nano::store::table::account_receivable_by_amount);
+}
+
 void account_receivable_by_amount_view::clear ()
 {
-	auto status = backend.clear (nano::store::table::account_receivable_by_amount);
-	backend.release_assert_success (status);
+	if (present ())
+	{
+		auto status = backend.clear (nano::store::table::account_receivable_by_amount);
+		backend.release_assert_success (status);
+	}
+}
+
+void account_receivable_by_amount_view::drop ()
+{
+	if (present ())
+	{
+		backend.drop_table (nano::store::table::account_receivable_by_amount);
+	}
 }
 
 auto account_receivable_by_amount_view::begin (nano::store::transaction const & txn, nano::account_receivable_by_amount_key const & key) const -> iterator

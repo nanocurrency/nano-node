@@ -71,19 +71,19 @@ void nano::ledger::drop_extended_ledger_indices ()
 	}
 
 	logger.info (nano::log::type::ledger_upgrade, "Dropping delegator weight index...");
-	store.extended.account_delegator_by_weight.clear ();
+	store.extended.account_delegator_by_weight.drop ();
 	logger.info (nano::log::type::ledger_upgrade, "Delegator weight index dropped");
 
 	logger.info (nano::log::type::ledger_upgrade, "Dropping receivable amount index...");
-	store.extended.account_receivable_by_amount.clear ();
+	store.extended.account_receivable_by_amount.drop ();
 	logger.info (nano::log::type::ledger_upgrade, "Receivable amount index dropped");
 
 	logger.info (nano::log::type::ledger_upgrade, "Dropping receive block lookup index...");
-	store.extended.receive_block_by_send_block.clear ();
+	store.extended.receive_block_by_send_block.drop ();
 	logger.info (nano::log::type::ledger_upgrade, "Receive block lookup index dropped");
 
 	logger.info (nano::log::type::ledger_upgrade, "Dropping account block height index...");
-	store.extended.account_block_by_height.clear ();
+	store.extended.account_block_by_height.drop ();
 	logger.info (nano::log::type::ledger_upgrade, "Account block height index dropped");
 
 	flags.account_delegator_by_weight_index = false;
@@ -106,7 +106,8 @@ void nano::ledger::populate_receive_block_by_send_block_index ()
 		total_blocks = store.block.count (txn);
 	}
 
-	// Clear any partially populated index remains
+	// Create the backing table and clear any partially populated remains
+	store.extended.receive_block_by_send_block.create ();
 	store.extended.receive_block_by_send_block.clear ();
 
 	size_t const batch_size_populate = nano::ledger_upgrade_batch_size ();
@@ -159,7 +160,8 @@ void nano::ledger::populate_account_block_by_height_index ()
 		total_blocks = store.block.count (txn);
 	}
 
-	// Clear any partially populated index remains
+	// Create the backing table and clear any partially populated remains
+	store.extended.account_block_by_height.create ();
 	store.extended.account_block_by_height.clear ();
 
 	size_t const batch_size_populate = nano::ledger_upgrade_batch_size ();
@@ -212,7 +214,8 @@ void nano::ledger::populate_account_delegator_by_weight_index ()
 		total_accounts = store.account.count (txn);
 	}
 
-	// Clear any partially populated index remains
+	// Create the backing table and clear any partially populated remains
+	store.extended.account_delegator_by_weight.create ();
 	store.extended.account_delegator_by_weight.clear ();
 
 	size_t const batch_size_populate = nano::ledger_upgrade_batch_size ();
@@ -259,7 +262,8 @@ void nano::ledger::populate_account_receivable_by_amount_index ()
 		total_receivables = store.pending.count (txn);
 	}
 
-	// Clear any partially populated index remains
+	// Create the backing table and clear any partially populated remains
+	store.extended.account_receivable_by_amount.create ();
 	store.extended.account_receivable_by_amount.clear ();
 
 	size_t const batch_size_populate = nano::ledger_upgrade_batch_size ();

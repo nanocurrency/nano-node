@@ -41,11 +41,11 @@ nano::store::column_schema const ledger_store::schema_current{
 	{ nano::store::table::final_votes, "final_votes" },
 	{ nano::store::table::topology, "topology" },
 	{ nano::store::table::meta, "meta" },
-	// Extended ledger tables
-	{ nano::store::table::account_block_by_height, "account_block_by_height" },
-	{ nano::store::table::account_delegator_by_weight, "account_delegator_by_weight" },
-	{ nano::store::table::account_receivable_by_amount, "account_receivable_by_amount" },
-	{ nano::store::table::receive_block_by_send_block, "receive_block_by_send_block" }
+	// Extended ledger tables, created on demand when the corresponding index gets populated
+	{ nano::store::table::account_block_by_height, "account_block_by_height", nano::store::table_kind::optional },
+	{ nano::store::table::account_delegator_by_weight, "account_delegator_by_weight", nano::store::table_kind::optional },
+	{ nano::store::table::account_receivable_by_amount, "account_receivable_by_amount", nano::store::table_kind::optional },
+	{ nano::store::table::receive_block_by_send_block, "receive_block_by_send_block", nano::store::table_kind::optional }
 };
 }
 
