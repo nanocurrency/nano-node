@@ -56,31 +56,63 @@ void backend_lmdb::open_impl (column_schema schema, nano::store::open_mode mode)
 	MDB_txn * mdb_txn{ nullptr };
 	auto status = mdb_txn_begin (*env, nullptr, read_only ? MDB_RDONLY : 0, &mdb_txn);
 	release_assert (success (status), error_string (status));
+	// Abort unless committed, aborting also closes any table handles opened within the transaction
+	std::unique_ptr<MDB_txn, decltype (&mdb_txn_abort)> txn_guard{ mdb_txn, mdb_txn_abort };
 
-	for (auto const & [table, name] : schema)
+	decltype (table_handles) opened;
+	for (auto const & definition : schema)
 	{
-		open_table (mdb_txn, table, name, read_only ? 0 : MDB_CREATE);
+		// Optional tables are never created at open; a missing one is recorded as absent by leaving its handle out
+		bool const optional = definition.kind == table_kind::optional;
+		bool const should_create = !optional && !read_only;
+		if (auto handle = open_table (mdb_txn, definition.name, should_create ? MDB_CREATE : 0, optional))
+		{
+			opened[definition.table] = *handle;
+		}
 	}
 
-	status = mdb_txn_commit (mdb_txn);
+	status = mdb_txn_commit (txn_guard.release ());
 	release_assert (success (status), "failed to commit lmdb opening transaction", error_string (status));
+
+	// Handles become valid for other transactions once the opening transaction commits
+	table_handles = std::move (opened);
 }
 
-void backend_lmdb::open_table (MDB_txn * mdb_txn, nano::store::table table, std::string const & name, unsigned flags)
+auto backend_lmdb::open_table (MDB_txn * mdb_txn, std::string const & name, unsigned flags, bool tolerate_missing) -> std::optional<nano::store::lmdb::env::table_handle>
 {
 	MDB_dbi handle{};
 	auto status = mdb_dbi_open (mdb_txn, name.c_str (), flags, &handle);
+	if (not_found (status) && tolerate_missing)
+	{
+		return std::nullopt;
+	}
 	if (!success (status))
 	{
-		throw std::runtime_error ("Failed to open " + std::string (name) + " database: " + error_string (status));
+		throw std::runtime_error ("Failed to open " + name + " database: " + error_string (status));
 	}
+	return handle;
+}
+
+bool backend_lmdb::table_open (nano::store::table table) const
+{
+	return table_handles.contains (table);
+}
+
+void backend_lmdb::create_table_impl (nano::store::table table, std::string const & name)
+{
+	auto txn = tx_begin_write ();
+	MDB_dbi handle{};
+	auto status = mdb_dbi_open (env->tx (txn), name.c_str (), MDB_CREATE, &handle);
+	release_assert (success (status), "failed to create table", error_string (status));
+	// The new handle is private to the creating transaction, publish only after commit
+	txn.commit ();
 	table_handles[table] = handle;
 }
 
 auto backend_lmdb::table_to_dbi (nano::store::table table) const -> nano::store::lmdb::env::table_handle
 {
 	auto it = table_handles.find (table);
-	release_assert (it != table_handles.end (), "table not found");
+	release_assert (it != table_handles.end (), "table not found", to_string (table));
 	return it->second;
 }
 
@@ -145,7 +177,7 @@ int backend_lmdb::clear (nano::store::table table)
 	return status;
 }
 
-bool backend_lmdb::drop_table (std::string const & name)
+bool backend_lmdb::drop_table_by_name (std::string const & name)
 {
 	auto txn = tx_begin_write ();
 

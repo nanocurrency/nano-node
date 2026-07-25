@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <string_view>
 
 namespace nano::store
 {
@@ -24,6 +25,8 @@ enum class table
 	unchecked, // dropped in v22
 	frontiers, // dropped in v24
 };
+
+std::string_view to_string (table);
 }
 
 namespace std

@@ -163,17 +163,21 @@ ledger_store::~ledger_store () = default;
 
 bool ledger_store::empty (nano::store::transaction const & txn) const
 {
-	for (auto const & [table, table_name] : schema_current)
+	for (auto const & definition : schema_current)
 	{
-		if (table == nano::store::table::meta)
+		if (definition.table == nano::store::table::meta)
 		{
 			continue; // Ignore meta table
 		}
-		if (backend.begin (txn, table) != backend.end (txn, table))
+		if (!backend.table_open (definition.table))
+		{
+			continue; // Absent optional tables are empty
+		}
+		if (!backend.empty (txn, definition.table))
 		{
 			return false;
 		}
-		debug_assert (backend.count (txn, table) == 0);
+		debug_assert (backend.count (txn, definition.table) == 0);
 	}
 	return true;
 }

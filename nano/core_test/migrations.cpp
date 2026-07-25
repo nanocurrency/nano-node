@@ -200,11 +200,14 @@ TEST (migrations, lmdb_to_rocksdb)
 		// Populate ledger and get expected data
 		expected = populate_ledger_for_migration (*store);
 
-		// Record source counts
+		// Record source counts, absent optional tables have no count
 		auto txn = store->tx_begin_read ();
-		for (auto const & [table, name] : store->backend.get_schema ())
+		for (auto const & definition : store->backend.get_schema ())
 		{
-			src_counts[table] = store->backend.count_exact (txn, table);
+			if (store->backend.table_open (definition.table))
+			{
+				src_counts[definition.table] = store->backend.count_exact (txn, definition.table);
+			}
 		}
 	}
 
@@ -218,11 +221,16 @@ TEST (migrations, lmdb_to_rocksdb)
 
 	auto txn = rocksdb_store.tx_begin_read ();
 
-	// Verify exact counts match for all tables
-	for (auto const & [table, name] : rocksdb_store.backend.get_schema ())
+	// Verify table presence and exact counts match the source
+	for (auto const & definition : rocksdb_store.backend.get_schema ())
 	{
-		auto dst_count = rocksdb_store.backend.count_exact (txn, table);
-		ASSERT_EQ (dst_count, src_counts[table]) << "Count mismatch for table: " << name;
+		bool const src_present = src_counts.contains (definition.table);
+		ASSERT_EQ (src_present, rocksdb_store.backend.table_open (definition.table)) << "Presence mismatch for table: " << definition.name;
+		if (src_present)
+		{
+			auto dst_count = rocksdb_store.backend.count_exact (txn, definition.table);
+			ASSERT_EQ (dst_count, src_counts[definition.table]) << "Count mismatch for table: " << definition.name;
+		}
 	}
 
 	// Verify blocks data

@@ -5,6 +5,7 @@
 #include <nano/store/lmdb/lmdb_env.hpp>
 #include <nano/store/lmdb/transaction_lmdb.hpp>
 
+#include <optional>
 #include <unordered_map>
 
 namespace nano::store::lmdb
@@ -27,8 +28,9 @@ public:
 	uint64_t count (nano::store::transaction const &, nano::store::table) const override;
 	bool count_is_exact (nano::store::table) const override;
 	int clear (nano::store::table) override;
-	bool drop_table (std::string const & name) override;
+	bool drop_table_by_name (std::string const & name) override;
 	bool table_exists (std::string const & name) const override;
+	bool table_open (nano::store::table) const override;
 
 	nano::store::iterator begin (nano::store::transaction const &, nano::store::table) const override;
 	nano::store::iterator begin (nano::store::transaction const &, nano::store::table, nano::store::db_val const & key) const override;
@@ -52,6 +54,7 @@ public:
 protected:
 	void open_impl (column_schema schema, nano::store::open_mode mode) override;
 	void close_impl () override;
+	void create_table_impl (nano::store::table, std::string const & name) override;
 
 private:
 	std::filesystem::path const database_path;
@@ -60,7 +63,10 @@ private:
 	std::unique_ptr<nano::store::lmdb::env> env;
 	std::unordered_map<nano::store::table, nano::store::lmdb::env::table_handle> table_handles;
 
+	// Resolves the table to its LMDB handle, release_asserts when the table is not open
 	nano::store::lmdb::env::table_handle table_to_dbi (nano::store::table) const;
-	void open_table (MDB_txn *, nano::store::table, std::string const & name, unsigned flags);
+
+	// Opens the named table within the transaction, nullopt when the table is missing and tolerated
+	std::optional<nano::store::lmdb::env::table_handle> open_table (MDB_txn *, std::string const & name, unsigned flags, bool tolerate_missing);
 };
 }

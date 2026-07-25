@@ -59,6 +59,7 @@ add_library(
   rocksdb/utility.cpp
   common.hpp
   tables.hpp
+  tables.cpp
   transaction.hpp
   transaction.cpp
   txn_tracking.hpp

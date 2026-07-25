@@ -93,7 +93,7 @@ void ledger_store::upgrade_v21_to_v22 ()
 	{
 		release_assert (backend.get_version (backend.tx_begin_read ()) == 21, "unexpected version during upgrade", std::to_string (backend.get_version (backend.tx_begin_read ())));
 
-		bool dropped = backend.drop_table ("unchecked");
+		bool dropped = backend.drop_table (nano::store::table::unchecked);
 		release_assert (dropped, "failed to drop unchecked table during upgrade");
 
 		auto transaction = backend.tx_begin_write ();
@@ -184,7 +184,7 @@ void ledger_store::upgrade_v23_to_v24 ()
 	{
 		release_assert (backend.get_version (backend.tx_begin_read ()) == 23, "unexpected version during upgrade", std::to_string (backend.get_version (backend.tx_begin_read ())));
 
-		bool dropped = backend.drop_table ("frontiers");
+		bool dropped = backend.drop_table (nano::store::table::frontiers);
 		release_assert (dropped, "failed to drop frontiers table during upgrade");
 
 		auto transaction = backend.tx_begin_write ();

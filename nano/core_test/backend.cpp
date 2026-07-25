@@ -1145,12 +1145,12 @@ TEST (backend, drop_table)
 
 	EXPECT_TRUE (backend->table_exists ("accounts"));
 
-	EXPECT_TRUE (backend->drop_table ("accounts"));
+	EXPECT_TRUE (backend->drop_table (nano::store::table::accounts));
 
 	EXPECT_FALSE (backend->table_exists ("accounts"));
 
 	// Drop non-existent table should return false
-	EXPECT_FALSE (backend->drop_table ("nonexistent_table"));
+	EXPECT_FALSE (backend->drop_table_by_name ("nonexistent_table"));
 }
 
 // Test dropping a table that exists in the database but not in the current schema
@@ -1180,7 +1180,7 @@ TEST (backend, drop_table_not_in_schema)
 	// Reopen with new schema (without frontiers) and drop the old table
 	backend->open (test_schema, nano::store::open_mode::read_write);
 	EXPECT_TRUE (backend->table_exists ("frontiers"));
-	EXPECT_TRUE (backend->drop_table ("frontiers"));
+	EXPECT_TRUE (backend->drop_table_by_name ("frontiers"));
 	EXPECT_FALSE (backend->table_exists ("frontiers"));
 }
 
@@ -1448,4 +1448,176 @@ TEST (backend_DeathTest, iterator_epoch_check_write_refresh)
 		// Iterator destructor fires here with mismatched epoch
 	},
 	"invalid iterator-transaction lifetime detected");
+}
+
+/*
+ * Optional tables
+ */
+
+namespace
+{
+// Test schema with an optional pending table alongside required ones
+nano::store::column_schema const optional_schema{
+	{ nano::store::table::meta, "meta" },
+	{ nano::store::table::accounts, "accounts" },
+	{ nano::store::table::pending, "pending", nano::store::table_kind::optional },
+};
+}
+
+/*
+ * An optional table is not created at open; table_open reports its presence
+ */
+TEST (backend, optional_table_absent)
+{
+	auto backend = nano::test::make_backend ();
+	backend->create (optional_schema, 1);
+	backend->open (optional_schema, nano::store::open_mode::read_write);
+
+	ASSERT_TRUE (backend->table_open (nano::store::table::accounts));
+	ASSERT_FALSE (backend->table_open (nano::store::table::pending));
+}
+
+/*
+ * Any access to an absent optional table is a caller bug and must crash
+ */
+TEST (backend_DeathTest, optional_table_absent_access)
+{
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+	auto backend = nano::test::make_backend ();
+	backend->create (optional_schema, 1);
+	backend->open (optional_schema, nano::store::open_mode::read_write);
+
+	ASSERT_DEATH ({
+		auto read_tx = backend->tx_begin_read ();
+		nano::store::db_val result;
+		backend->get (read_tx, nano::store::table::pending, nano::store::db_val{ make_key (1) }, result);
+	},
+	"table not found \\(pending\\)");
+
+	ASSERT_DEATH ({
+		auto read_tx = backend->tx_begin_read ();
+		backend->exists (read_tx, nano::store::table::pending, nano::store::db_val{ make_key (1) });
+	},
+	"table not found \\(pending\\)");
+
+	ASSERT_DEATH ({
+		auto read_tx = backend->tx_begin_read ();
+		backend->count (read_tx, nano::store::table::pending);
+	},
+	"table not found \\(pending\\)");
+}
+
+/*
+ * Creating an optional table on demand makes it usable and its data persists across reopen,
+ * including read-only reopen
+ */
+TEST (backend, optional_table_create_on_demand)
+{
+	auto const path = nano::unique_path ();
+	{
+		auto backend = nano::test::make_backend (path);
+		backend->create (optional_schema, 1);
+		backend->open (optional_schema, nano::store::open_mode::read_write);
+		backend->create_table (nano::store::table::pending);
+		ASSERT_TRUE (backend->table_open (nano::store::table::pending));
+
+		auto write_tx = backend->tx_begin_write ();
+		ASSERT_TRUE (backend->success (backend->put (write_tx, nano::store::table::pending, nano::store::db_val{ make_key (1) }, nano::store::db_val{ make_value (42) })));
+		write_tx.commit ();
+
+		// Creating an already open table is a no-op
+		backend->create_table (nano::store::table::pending);
+		ASSERT_EQ (1, backend->count (backend->tx_begin_read (), nano::store::table::pending));
+	}
+	{
+		auto backend = nano::test::make_backend (path);
+		backend->open (optional_schema, nano::store::open_mode::read_only);
+		ASSERT_TRUE (backend->table_open (nano::store::table::pending));
+
+		auto read_tx = backend->tx_begin_read ();
+		nano::store::db_val result;
+		ASSERT_TRUE (backend->success (backend->get (read_tx, nano::store::table::pending, nano::store::db_val{ make_key (1) }, result)));
+		ASSERT_EQ (make_value (42), result.convert_to<nano::uint256_union> ());
+	}
+}
+
+/*
+ * Dropping an optional table removes it entirely; it can be recreated empty afterwards
+ */
+TEST (backend, optional_table_drop)
+{
+	auto backend = nano::test::make_backend ();
+	backend->create (optional_schema, 1);
+	backend->open (optional_schema, nano::store::open_mode::read_write);
+
+	backend->create_table (nano::store::table::pending);
+	{
+		auto write_tx = backend->tx_begin_write ();
+		ASSERT_TRUE (backend->success (backend->put (write_tx, nano::store::table::pending, nano::store::db_val{ make_key (1) }, nano::store::db_val{ make_value (42) })));
+	}
+
+	ASSERT_TRUE (backend->drop_table (nano::store::table::pending));
+	ASSERT_FALSE (backend->table_open (nano::store::table::pending));
+
+	// Dropping an absent table reports false
+	ASSERT_FALSE (backend->drop_table (nano::store::table::pending));
+
+	// Recreating yields an empty table
+	backend->create_table (nano::store::table::pending);
+	ASSERT_TRUE (backend->table_open (nano::store::table::pending));
+	ASSERT_EQ (0, backend->count (backend->tx_begin_read (), nano::store::table::pending));
+}
+
+/*
+ * A missing required table still fails a read-only open
+ */
+TEST (backend, required_table_missing_read_only)
+{
+	auto const path = nano::unique_path ();
+	{
+		auto backend = nano::test::make_backend (path);
+		backend->create (nano::store::backend::schema_meta, 1);
+	}
+	auto backend = nano::test::make_backend (path);
+	ASSERT_ANY_THROW (backend->open (optional_schema, nano::store::open_mode::read_only));
+}
+
+/*
+ * copy_to skips absent optional tables and creates present ones on the destination
+ */
+TEST (backend, copy_to_optional_tables)
+{
+	// Absent on the source: the destination table stays absent
+	{
+		auto source = nano::test::make_backend ();
+		source->create (optional_schema, 1);
+		source->open (optional_schema, nano::store::open_mode::read_write);
+
+		auto destination = nano::test::make_backend ();
+		destination->open (optional_schema, nano::store::open_mode::read_write);
+		source->copy_to (*destination);
+		ASSERT_FALSE (destination->table_open (nano::store::table::pending));
+	}
+	// Present on the source: the destination table is created and receives the data
+	{
+		auto source = nano::test::make_backend ();
+		source->create (optional_schema, 1);
+		source->open (optional_schema, nano::store::open_mode::read_write);
+		source->create_table (nano::store::table::pending);
+		{
+			auto write_tx = source->tx_begin_write ();
+			ASSERT_TRUE (source->success (source->put (write_tx, nano::store::table::pending, nano::store::db_val{ make_key (1) }, nano::store::db_val{ make_value (42) })));
+		}
+
+		auto destination = nano::test::make_backend ();
+		destination->open (optional_schema, nano::store::open_mode::read_write);
+		source->copy_to (*destination);
+		ASSERT_TRUE (destination->table_open (nano::store::table::pending));
+
+		auto read_tx = destination->tx_begin_read ();
+		nano::store::db_val result;
+		ASSERT_TRUE (destination->success (destination->get (read_tx, nano::store::table::pending, nano::store::db_val{ make_key (1) }, result)));
+		ASSERT_EQ (make_value (42), result.convert_to<nano::uint256_union> ());
+	}
 }

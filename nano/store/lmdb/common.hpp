@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 namespace nano::store::lmdb
 {
 bool success (int status);
