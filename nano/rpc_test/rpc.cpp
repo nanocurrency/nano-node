@@ -1150,6 +1150,26 @@ TEST (rpc, account_history)
 		ASSERT_EQ ("1", history_node.begin ()->second.get<std::string> ("height"));
 		ASSERT_EQ (change->hash ().to_string (), response.get<std::string> ("next"));
 	}
+	// Overflowing offsets saturate and yield an empty history instead of wrapping to a valid height
+	{
+		boost::property_tree::ptree request;
+		request.put ("action", "account_history");
+		request.put ("account", nano::dev::genesis_key.pub.to_account ());
+		request.put ("reverse", true);
+		request.put ("count", 100);
+		request.put ("offset", "18446744073709551615");
+		auto response (wait_response (system, rpc_ctx, request, 10s));
+		ASSERT_EQ (0, response.get_child ("history").size ());
+	}
+	{
+		boost::property_tree::ptree request;
+		request.put ("action", "account_history");
+		request.put ("account", nano::dev::genesis_key.pub.to_account ());
+		request.put ("count", 100);
+		request.put ("offset", "18446744073709551615");
+		auto response (wait_response (system, rpc_ctx, request, 10s));
+		ASSERT_EQ (0, response.get_child ("history").size ());
+	}
 	// Test include_linked_account
 	{
 		boost::property_tree::ptree request;

@@ -2960,21 +2960,15 @@ void nano::json_handler::account_history ()
 		auto block = node.ledger.any.block_get (transaction, hash);
 		if (block)
 		{
+			// Saturate on client-supplied offsets; height 0 and heights past the frontier resolve to no block, yielding an empty history
 			uint64_t start_height;
 			if (reverse)
 			{
-				start_height = block->sideband ().height + offset;
+				start_height = nano::add_sat (block->sideband ().height, offset);
 			}
 			else
 			{
-				if (block->sideband ().height > offset)
-				{
-					start_height = block->sideband ().height - offset;
-				}
-				else
-				{
-					start_height = 0;
-				}
+				start_height = nano::sub_sat (block->sideband ().height, offset);
 			}
 			if (auto start_hash = node.ledger.find_block_hash_by_height (transaction, account, start_height))
 			{
