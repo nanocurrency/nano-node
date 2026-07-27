@@ -126,7 +126,7 @@ void nano::ledger_processor::receive_block (nano::receive_block & block_a)
 										if (result == nano::block_status::progress)
 										{
 											auto new_balance (info->balance.number () + pending.value ().amount.number ());
-											ledger.del_pending (transaction, key);
+											ledger.del_pending (transaction, key, pending.value ());
 											std::shared_ptr<nano::block> source;
 											if (ledger.flags.topo_index)
 											{
@@ -196,7 +196,7 @@ void nano::ledger_processor::open_block (nano::open_block & block_a)
 								result = ledger.work.difficulty (block_a) >= ledger.work.threshold (block_a.work_version (), block_details) ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
 								if (result == nano::block_status::progress)
 								{
-									ledger.del_pending (transaction, key);
+									ledger.del_pending (transaction, key, pending.value ());
 									std::shared_ptr<nano::block> source;
 									if (ledger.flags.topo_index)
 									{
@@ -330,6 +330,7 @@ void nano::ledger_processor::state_block_impl (nano::state_block & block_a)
 				nano::amount amount (block_a.hashables.balance);
 				auto is_send (false);
 				auto is_receive (false);
+				std::optional<nano::pending_info> pending;
 				auto account_error (ledger.store.account.get (transaction, block_a.hashables.account, info));
 				if (!account_error)
 				{
@@ -368,7 +369,7 @@ void nano::ledger_processor::state_block_impl (nano::state_block & block_a)
 							if (result == nano::block_status::progress)
 							{
 								nano::pending_key key (block_a.hashables.account, block_a.hashables.link.as_block_hash ());
-								auto pending = ledger.store.pending.get (transaction, key);
+								pending = ledger.store.pending.get (transaction, key);
 								result = !pending ? nano::block_status::unreceivable : nano::block_status::progress; // Has this source already been received (Malformed)
 								if (result == nano::block_status::progress)
 								{
@@ -442,7 +443,7 @@ void nano::ledger_processor::state_block_impl (nano::state_block & block_a)
 						}
 						else if (!block_a.hashables.link.is_zero ())
 						{
-							ledger.del_pending (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()));
+							ledger.del_pending (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()), pending.value ());
 						}
 
 						nano::account_info new_info (hash, block_a.hashables.representative, info.open_block.is_zero () ? hash : info.open_block, block_a.hashables.balance, nano::seconds_since_epoch (), info.block_count + 1, epoch);

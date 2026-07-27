@@ -99,9 +99,9 @@ public:
 	bool rollback (secure::write_transaction const &, nano::block_hash const &);
 	void update_account (secure::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
 	void put_block (nano::store::write_transaction const &, nano::block_hash const &, nano::block const &);
-	void del_block (nano::store::write_transaction const &, nano::block_hash const &);
+	void del_block (nano::store::write_transaction const &, nano::block_hash const &, nano::block const &);
 	void put_pending (nano::store::write_transaction const &, nano::pending_key const &, nano::pending_info const &);
-	void del_pending (nano::store::write_transaction const &, nano::pending_key const &);
+	void del_pending (nano::store::write_transaction const &, nano::pending_key const &, nano::pending_info const &);
 	uint64_t pruning_action (secure::write_transaction &, nano::block_hash const &, uint64_t const);
 	bool is_epoch_link (nano::link const &) const;
 	std::optional<nano::block_hash> find_block_hash_by_height (secure::transaction const &, nano::account const &, uint64_t height) const;

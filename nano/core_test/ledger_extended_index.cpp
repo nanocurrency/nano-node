@@ -1039,6 +1039,14 @@ TEST (ledger_extended_index, epoch_blocks)
 	ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { key1.pub, 1 }).has_value ());
 	ASSERT_EQ (1, store->extended.account_receivable_by_amount.count (txn));
 	ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
+
+	// Rolling back to before the epoch block cascades through the send; the delegator entry is untouched by the epoch in either direction
+	ASSERT_FALSE (ledger.rollback (txn, epoch1->hash ()));
+	ASSERT_EQ (1, store->extended.account_delegator_by_weight.count (txn));
+	ASSERT_TRUE (delegator_exists (*store, txn, { nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, nano::dev::genesis_key.pub }));
+	ASSERT_TRUE (store->extended.account_receivable_by_amount.empty (txn));
+	ASSERT_FALSE (store->extended.account_block_by_height.get (txn, { nano::dev::genesis_key.pub, 2 }).has_value ());
+	ASSERT_NO_FATAL_FAILURE (assert_extended_indices_consistent (ledger, txn));
 }
 
 /*

@@ -833,7 +833,9 @@ void nano::ledger::update_account (secure::write_transaction const & transaction
 {
 	if (!new_a.head.is_zero ())
 	{
-		if (flags.account_delegator_by_weight_index && !old_a.head.is_zero ())
+		// Blocks that change neither representative nor balance, e.g. epoch blocks, keep the existing delegator index entry valid
+		bool const delegator_key_changed = old_a.head.is_zero () || old_a.representative != new_a.representative || old_a.balance != new_a.balance;
+		if (flags.account_delegator_by_weight_index && delegator_key_changed && !old_a.head.is_zero ())
 		{
 			store.extended.account_delegator_by_weight.del (transaction_a, { old_a.representative, old_a.balance, account_a });
 		}
@@ -847,7 +849,7 @@ void nano::ledger::update_account (secure::write_transaction const & transaction
 			store.account.del (transaction_a, account_a);
 		}
 		store.account.put (transaction_a, account_a, new_a);
-		if (flags.account_delegator_by_weight_index)
+		if (flags.account_delegator_by_weight_index && delegator_key_changed)
 		{
 			store.extended.account_delegator_by_weight.put (transaction_a, { new_a.representative, new_a.balance, account_a });
 		}
@@ -867,6 +869,7 @@ void nano::ledger::update_account (secure::write_transaction const & transaction
 
 void nano::ledger::put_block (nano::store::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a)
 {
+	release_assert (block_a.hash () == hash_a);
 	store.block.put (transaction_a, hash_a, block_a);
 	if (flags.account_block_by_height_index)
 	{
@@ -878,23 +881,16 @@ void nano::ledger::put_block (nano::store::write_transaction const & transaction
 	}
 }
 
-void nano::ledger::del_block (nano::store::write_transaction const & transaction_a, nano::block_hash const & hash_a)
+void nano::ledger::del_block (nano::store::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a)
 {
-	if (flags.account_block_by_height_index || flags.receive_block_by_send_block_index)
+	release_assert (block_a.hash () == hash_a);
+	if (flags.account_block_by_height_index)
 	{
-		auto block = store.block.get (transaction_a, hash_a);
-		release_assert (block, "block to be deleted was not found in the ledger");
-		if (flags.account_block_by_height_index)
-		{
-			store.extended.account_block_by_height.del (transaction_a, { block->account (), block->sideband ().height });
-		}
-		if (flags.receive_block_by_send_block_index)
-		{
-			if (block->is_receive ())
-			{
-				store.extended.receive_block_by_send_block.del (transaction_a, block->source ());
-			}
-		}
+		store.extended.account_block_by_height.del (transaction_a, { block_a.account (), block_a.sideband ().height });
+	}
+	if (flags.receive_block_by_send_block_index && block_a.is_receive ())
+	{
+		store.extended.receive_block_by_send_block.del (transaction_a, block_a.source ());
 	}
 	store.block.del (transaction_a, hash_a);
 }
@@ -910,13 +906,13 @@ void nano::ledger::put_pending (nano::store::write_transaction const & transacti
 	}
 }
 
-void nano::ledger::del_pending (nano::store::write_transaction const & transaction_a, nano::pending_key const & key_a)
+void nano::ledger::del_pending (nano::store::write_transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info const & info_a)
 {
+	// The receivable index key is derived from the stored amount, so info_a must be the ledger's own entry
+	debug_assert (store.pending.get (transaction_a, key_a) == info_a, "pending entry to be deleted differs from the ledger", key_a.hash.to_string ());
 	if (flags.account_receivable_by_amount_index)
 	{
-		auto info = store.pending.get (transaction_a, key_a);
-		release_assert (info, "receivable to be deleted was not found in the ledger");
-		store.extended.account_receivable_by_amount.del (transaction_a, { key_a.account, info->amount, key_a.hash });
+		store.extended.account_receivable_by_amount.del (transaction_a, { key_a.account, info_a.amount, key_a.hash });
 	}
 	store.pending.del (transaction_a, key_a);
 }
@@ -953,7 +949,7 @@ uint64_t nano::ledger::pruning_action (secure::write_transaction & transaction_a
 		{
 			release_assert (cemented.block_exists (transaction_a, hash));
 
-			del_block (transaction_a, hash);
+			del_block (transaction_a, hash, *block_l);
 			store.pruned.put (transaction_a, hash);
 			if (block_l->sideband ().topo_height != 0)
 			{

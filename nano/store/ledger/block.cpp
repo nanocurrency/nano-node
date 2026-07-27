@@ -13,6 +13,7 @@ block_view::block_view (nano::store::backend & backend_a, nano::store::ledger::s
 
 void block_view::put (nano::store::write_transaction const & txn, nano::block_hash const & hash, nano::block const & block)
 {
+	release_assert (block.hash () == hash);
 	std::vector<uint8_t> vector;
 	{
 		nano::vectorstream stream{ vector };

@@ -37,11 +37,11 @@ void nano::ledger_rollback::send_block (nano::send_block const & block_a)
 	{
 		auto info = ledger.any.account_get (transaction, pending.value ().source);
 		release_assert (info);
-		ledger.del_pending (transaction, key);
+		ledger.del_pending (transaction, key, pending.value ());
 		ledger.rep_weights.add (transaction, info->representative, pending.value ().amount);
 		nano::account_info new_info (block_a.hashables.previous, info->representative, info->open_block, ledger.any.block_balance (transaction, block_a.hashables.previous).value (), nano::seconds_since_epoch (), info->block_count - 1, nano::epoch::epoch_0);
 		ledger.update_account (transaction, pending.value ().source, *info, new_info);
-		ledger.del_block (transaction, hash);
+		ledger.del_block (transaction, hash, block_a);
 		ledger.store.successor.del (transaction, block_a.hashables.previous);
 		if (block_a.sideband ().topo_height != 0)
 		{
@@ -63,7 +63,7 @@ void nano::ledger_rollback::receive_block (nano::receive_block const & block_a)
 	ledger.rep_weights.sub (transaction, info->representative, amount);
 	nano::account_info new_info (block_a.hashables.previous, info->representative, info->open_block, ledger.any.block_balance (transaction, block_a.hashables.previous).value (), nano::seconds_since_epoch (), info->block_count - 1, nano::epoch::epoch_0);
 	ledger.update_account (transaction, destination_account, *info, new_info);
-	ledger.del_block (transaction, hash);
+	ledger.del_block (transaction, hash, block_a);
 	ledger.put_pending (transaction, nano::pending_key (destination_account, block_a.hashables.source), { source_account.value_or (0), amount, nano::epoch::epoch_0 });
 	ledger.store.successor.del (transaction, block_a.hashables.previous);
 	if (block_a.sideband ().topo_height != 0)
@@ -84,7 +84,7 @@ void nano::ledger_rollback::open_block (nano::open_block const & block_a)
 	ledger.rep_weights.sub (transaction, block_a.representative_field ().value (), amount);
 	nano::account_info new_info;
 	ledger.update_account (transaction, destination_account, *old_info, new_info);
-	ledger.del_block (transaction, hash);
+	ledger.del_block (transaction, hash, block_a);
 	ledger.put_pending (transaction, nano::pending_key (destination_account, block_a.hashables.source), { source_account.value_or (0), amount, nano::epoch::epoch_0 });
 	if (block_a.sideband ().topo_height != 0)
 	{
@@ -105,7 +105,7 @@ void nano::ledger_rollback::change_block (nano::change_block const & block_a)
 	release_assert (rep_block != nullptr);
 	auto representative = rep_block->representative_field ().value ();
 	ledger.rep_weights.move (transaction, block_a.hashables.representative, representative, balance);
-	ledger.del_block (transaction, hash);
+	ledger.del_block (transaction, hash, block_a);
 	nano::account_info new_info (block_a.hashables.previous, representative, info->open_block, info->balance, nano::seconds_since_epoch (), info->block_count - 1, nano::epoch::epoch_0);
 	ledger.update_account (transaction, account, *info, new_info);
 	ledger.store.successor.del (transaction, block_a.hashables.previous);
@@ -128,15 +128,17 @@ void nano::ledger_rollback::state_block (nano::state_block const & block_a)
 	if (is_send)
 	{
 		nano::pending_key key (block_a.hashables.link.as_account (), hash);
-		while (!error && !ledger.any.pending_get (transaction, key))
+		auto pending = ledger.any.pending_get (transaction, key);
+		while (!error && !pending)
 		{
 			error = ledger.rollback (transaction, ledger.any.account_head (transaction, block_a.hashables.link.as_account ()), list, depth + 1, max_depth);
+			pending = ledger.any.pending_get (transaction, key);
 		}
 		if (error)
 		{
 			return;
 		}
-		ledger.del_pending (transaction, key);
+		ledger.del_pending (transaction, key, pending.value ());
 		ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::send);
 	}
 	else if (!block_a.hashables.link.is_zero () && !ledger.is_epoch_link (block_a.hashables.link))
@@ -186,7 +188,7 @@ void nano::ledger_rollback::state_block (nano::state_block const & block_a)
 		ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::open);
 	}
 
-	ledger.del_block (transaction, hash);
+	ledger.del_block (transaction, hash, block_a);
 
 	if (block_a.sideband ().topo_height != 0)
 	{
