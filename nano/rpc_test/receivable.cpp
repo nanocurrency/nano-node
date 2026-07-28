@@ -143,6 +143,7 @@ TEST (rpc, receivable_unconfirmed)
 {
 	nano::test::system system;
 	nano::node_config config;
+	// Disable the backlog scan so the test controls election activity
 	config.backlog_scan->enable = false;
 	auto node = add_ipc_enabled_node (system, config);
 	auto chain = nano::test::setup_chain (system, *node, 1, nano::dev::genesis_key, false);
@@ -157,9 +158,51 @@ TEST (rpc, receivable_unconfirmed)
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 0));
 	request.put ("include_only_confirmed", "false");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
+	// Unconfirmed queries include blocks in active elections by default
+	ASSERT_NE (nullptr, nano::test::start_election (system, *node, block1->hash ()));
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
+	// Explicitly excluding active blocks drops the entry while its election is running
+	request.put ("include_active", "false");
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 0));
+	request.put ("include_active", "true");
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 	nano::test::confirm (node->ledger, block1);
 	request.put ("include_only_confirmed", "true");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
+}
+
+/*
+ * Unconfirmed existence queries include blocks in active elections by default, explicit include_active=false excludes them
+ */
+TEST (rpc, receivable_exists_include_active)
+{
+	nano::test::system system;
+	nano::node_config config;
+	// Disable the backlog scan so the test controls election activity
+	config.backlog_scan->enable = false;
+	auto node = add_ipc_enabled_node (system, config);
+	auto chain = nano::test::setup_chain (system, *node, 1, nano::dev::genesis_key, false);
+	auto block1 = chain[0];
+	ASSERT_NE (nullptr, nano::test::start_election (system, *node, block1->hash ()));
+
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "receivable_exists");
+	request.put ("hash", block1->hash ().to_string ());
+	{
+		auto response = wait_response (system, rpc_ctx, request);
+		ASSERT_EQ ("0", response.get<std::string> ("exists"));
+	}
+	request.put ("include_only_confirmed", "false");
+	{
+		auto response = wait_response (system, rpc_ctx, request);
+		ASSERT_EQ ("1", response.get<std::string> ("exists"));
+	}
+	request.put ("include_active", "false");
+	{
+		auto response = wait_response (system, rpc_ctx, request);
+		ASSERT_EQ ("0", response.get<std::string> ("exists"));
+	}
 }
 
 /*TEST (rpc, amounts)
@@ -513,8 +556,6 @@ TEST (rpc, receivable_sorting_tie_parity)
 		nano::test::system system;
 		nano::node_config config = system.default_config ();
 		config.extended_ledger_index = extended_index;
-		// Disable the backlog scan so no elections start; blocks with active elections are filtered from unconfirmed receivable responses
-		config.backlog_scan->enable = false;
 		auto node = add_ipc_enabled_node (system, config);
 		ASSERT_EQ (extended_index, node->ledger.flags.account_receivable_by_amount_index);
 		ASSERT_NO_FATAL_FAILURE (setup_tied_receivables (*node, key1.pub, sends));
@@ -633,10 +674,7 @@ TEST (rpc, receivable_sorting_confirmed_offset_parity)
 TEST (rpc, receivable_unsorted_offset_after_threshold)
 {
 	nano::test::system system;
-	nano::node_config config = system.default_config ();
-	// Disable the backlog scan so no elections start; blocks with active elections are filtered from unconfirmed receivable responses
-	config.backlog_scan->enable = false;
-	auto node = add_ipc_enabled_node (system, config);
+	auto node = add_ipc_enabled_node (system);
 	nano::block_builder builder;
 
 	// Pick a destination for which the below-threshold send sorts first in hash order, so it would consume the offset if it were not filtered first
@@ -716,8 +754,6 @@ TEST (rpc, accounts_receivable_sorting_top_parity)
 		nano::test::system system;
 		nano::node_config config = system.default_config ();
 		config.extended_ledger_index = extended_index;
-		// Disable the backlog scan so no elections start; blocks with active elections are filtered from unconfirmed receivable responses
-		config.backlog_scan->enable = false;
 		auto node = add_ipc_enabled_node (system, config);
 		ASSERT_EQ (extended_index, node->ledger.flags.account_receivable_by_amount_index);
 		ASSERT_NO_FATAL_FAILURE (setup_tied_receivables (*node, key1.pub, sends));
@@ -835,6 +871,7 @@ TEST (rpc, accounts_receivable_confirmed)
 {
 	nano::test::system system;
 	nano::node_config config;
+	// Disable the backlog scan so the test controls election activity
 	config.backlog_scan->enable = false;
 	auto node = add_ipc_enabled_node (system, config);
 	auto chain = nano::test::setup_chain (system, *node, 1, nano::dev::genesis_key, false);
@@ -853,6 +890,14 @@ TEST (rpc, accounts_receivable_confirmed)
 	request.put ("include_only_confirmed", "true");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 0));
 	request.put ("include_only_confirmed", "false");
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
+	// Unconfirmed queries include blocks in active elections by default
+	ASSERT_NE (nullptr, nano::test::start_election (system, *node, block1->hash ()));
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
+	// Explicitly excluding active blocks drops the entry while its election is running
+	request.put ("include_active", "false");
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 0));
+	request.put ("include_active", "true");
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 	nano::test::confirm (node->ledger, block1);
 	request.put ("include_only_confirmed", "true");

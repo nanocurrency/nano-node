@@ -1177,8 +1177,9 @@ void nano::json_handler::accounts_receivable ()
 	auto count (count_optional_impl ());
 	auto threshold (threshold_optional_impl ());
 	bool const source = request.get<bool> ("source", false);
-	bool const include_active = request.get<bool> ("include_active", false);
 	bool const include_only_confirmed = request.get<bool> ("include_only_confirmed", true);
+	// Unconfirmed queries include blocks in active elections unless include_active explicitly excludes them
+	bool const include_active = request.get<bool> ("include_active", !include_only_confirmed);
 	bool const sorting = request.get<bool> ("sorting", false);
 	auto simple (threshold.is_zero () && !source && !sorting); // if simple, response is a list of hashes for each account
 	receivable_options const options{
@@ -3385,8 +3386,9 @@ void nano::json_handler::receivable ()
 	auto threshold (threshold_optional_impl ());
 	bool const source = request.get<bool> ("source", false);
 	bool const min_version = request.get<bool> ("min_version", false);
-	bool const include_active = request.get<bool> ("include_active", false);
 	bool const include_only_confirmed = request.get<bool> ("include_only_confirmed", true);
+	// Unconfirmed queries include blocks in active elections unless include_active explicitly excludes them
+	bool const include_active = request.get<bool> ("include_active", !include_only_confirmed);
 	bool const sorting = request.get<bool> ("sorting", false);
 	auto simple (threshold.is_zero () && !source && !min_version && !sorting); // if simple, response is a list of hashes
 	if (!ec)
@@ -3417,8 +3419,9 @@ void nano::json_handler::pending_exists ()
 void nano::json_handler::receivable_exists ()
 {
 	auto hash (hash_impl ());
-	bool const include_active = request.get<bool> ("include_active", false);
 	bool const include_only_confirmed = request.get<bool> ("include_only_confirmed", true);
+	// Unconfirmed queries include blocks in active elections unless include_active explicitly excludes them
+	bool const include_active = request.get<bool> ("include_active", !include_only_confirmed);
 	if (!ec)
 	{
 		auto transaction = node.ledger.tx_begin_read ();
@@ -5020,8 +5023,9 @@ void nano::json_handler::wallet_receivable ()
 	auto threshold (threshold_optional_impl ());
 	bool const source = request.get<bool> ("source", false);
 	bool const min_version = request.get<bool> ("min_version", false);
-	bool const include_active = request.get<bool> ("include_active", false);
 	bool const include_only_confirmed = request.get<bool> ("include_only_confirmed", true);
+	// Unconfirmed queries include blocks in active elections unless include_active explicitly excludes them
+	bool const include_active = request.get<bool> ("include_active", !include_only_confirmed);
 	if (!ec)
 	{
 		boost::property_tree::ptree pending;

@@ -3516,6 +3516,51 @@ TEST (rpc, wallet_receivable)
 	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
 }
 
+/*
+ * Unconfirmed wallet queries include blocks in active elections by default, explicit include_active=false excludes them
+ */
+TEST (rpc, wallet_receivable_include_active)
+{
+	nano::test::system system;
+	nano::node_config config;
+	// Disable the backlog scan so the test controls election activity
+	config.backlog_scan->enable = false;
+	auto node = add_ipc_enabled_node (system, config);
+	nano::keypair key1;
+	// Only the destination key joins the wallet, so the node holds no voting weight and the election stays active
+	system.wallet (0)->insert_adhoc (key1.prv);
+	nano::block_builder builder;
+	auto send = builder.state ()
+				.account (nano::dev::genesis_key.pub)
+				.previous (nano::dev::genesis->hash ())
+				.representative (nano::dev::genesis_key.pub)
+				.balance (nano::dev::constants.genesis_amount - 100)
+				.link (key1.pub)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*node->work_generate_blocking (nano::dev::genesis->hash ()))
+				.build ();
+	ASSERT_EQ (nano::block_status::progress, node->process (send));
+	ASSERT_NE (nullptr, nano::test::start_election (system, *node, send->hash ()));
+
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_receivable");
+	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 0));
+	request.put ("include_only_confirmed", "false");
+	{
+		auto response = wait_response (system, rpc_ctx, request);
+		ASSERT_EQ (1, response.get_child ("blocks").size ());
+		auto entry = response.get_child ("blocks").front ();
+		ASSERT_EQ (key1.pub.to_account (), entry.first);
+		ASSERT_EQ (send->hash ().to_string (), entry.second.begin ()->second.get<std::string> (""));
+	}
+	request.put ("include_active", "false");
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 0));
+	request.put ("include_active", "true");
+	ASSERT_TRUE (check_block_response_count (system, rpc_ctx, request, 1));
+}
+
 TEST (rpc, receive_minimum)
 {
 	nano::test::system system;
