@@ -193,6 +193,23 @@ size_t nano::ledger_max_rollback_depth ()
 	return env_override.value_or (100000);
 }
 
+size_t nano::ledger_upgrade_batch_size ()
+{
+	static auto const env_override = [] () -> std::optional<size_t> {
+		if (auto value = nano::env::get<size_t> ("NANO_LEDGER_UPGRADE_BATCH_SIZE"))
+		{
+			if (*value > 0)
+			{
+				std::cerr << "Ledger upgrade batch size overridden by NANO_LEDGER_UPGRADE_BATCH_SIZE environment variable: " << *value << std::endl;
+				return *value;
+			}
+			std::cerr << "Ignoring invalid NANO_LEDGER_UPGRADE_BATCH_SIZE environment variable value: " << *value << std::endl;
+		}
+		return std::nullopt;
+	}();
+	return env_override.value_or (nano::is_dev_run () ? 2 : 250000);
+}
+
 nano::database_backend nano::default_database_backend ()
 {
 	static auto const env_override = [] () -> std::optional<nano::database_backend> {

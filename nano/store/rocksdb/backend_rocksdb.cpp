@@ -398,6 +398,9 @@ bool backend_rocksdb::count_is_exact (nano::store::table table) const
 			// These tables use rocksdb.estimate-num-keys which may be inaccurate
 			return false;
 		case nano::store::table::accounts:
+		case nano::store::table::account_delegator_by_weight:
+		case nano::store::table::account_receivable_by_amount:
+		case nano::store::table::account_block_by_height:
 		case nano::store::table::blocks:
 		case nano::store::table::confirmation_height:
 		case nano::store::table::default_unused:
@@ -405,6 +408,7 @@ bool backend_rocksdb::count_is_exact (nano::store::table table) const
 		case nano::store::table::online_weight:
 		case nano::store::table::peers:
 		case nano::store::table::pending:
+		case nano::store::table::receive_block_by_send_block:
 		case nano::store::table::vote:
 		case nano::store::table::rep_weights:
 		case nano::store::table::successor:

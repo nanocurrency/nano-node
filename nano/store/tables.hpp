@@ -5,7 +5,6 @@
 
 namespace nano::store
 {
-// Keep this in alphabetical order
 enum class table
 {
 	accounts,
@@ -24,6 +23,12 @@ enum class table
 	rep_weights,
 	unchecked, // dropped in v22
 	frontiers, // dropped in v24
+
+	// Extended ledger tables
+	account_block_by_height,
+	account_delegator_by_weight,
+	account_receivable_by_amount,
+	receive_block_by_send_block,
 };
 
 std::string_view to_string (table);

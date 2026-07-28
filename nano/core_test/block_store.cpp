@@ -741,10 +741,12 @@ TEST (block_store, block_replace)
 				 .work (2)
 				 .build ();
 	send2->sideband_set ({});
+	// Work and signature are not part of the block hash, so both blocks share one and the second put replaces the first
+	ASSERT_EQ (send1->hash (), send2->hash ());
 	auto transaction (store->tx_begin_write ());
-	store->block.put (transaction, 0, *send1);
-	store->block.put (transaction, 0, *send2);
-	auto block3 (store->block.get (transaction, 0));
+	store->block.put (transaction, send1->hash (), *send1);
+	store->block.put (transaction, send1->hash (), *send2);
+	auto block3 (store->block.get (transaction, send1->hash ()));
 	ASSERT_NE (nullptr, block3);
 	ASSERT_EQ (2, block3->block_work ());
 }

@@ -28,8 +28,8 @@ void nano::ledger::populate_topo_index ()
 		total_blocks = store.block.count (txn);
 	}
 
-	size_t const batch_size_compute = nano::is_dev_run () ? 2 : 1024 * 1024;
-	size_t const batch_size_populate = nano::is_dev_run () ? 2 : 16 * 1024 * 1024;
+	size_t const batch_size_compute = nano::ledger_upgrade_batch_size ();
+	size_t const batch_size_populate = nano::ledger_upgrade_batch_size ();
 	size_t const max_depth = nano::is_dev_run () ? 16 : 16 * 1024 * 1024;
 
 	// Phase 1: compute topo_height for every block via bounded DFS, write to sideband only

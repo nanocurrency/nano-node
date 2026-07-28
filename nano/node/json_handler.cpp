@@ -39,6 +39,8 @@
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
 #include <nano/store/ledger/confirmation_height.hpp>
+#include <nano/store/ledger/extended/account_delegator_by_weight.hpp>
+#include <nano/store/ledger/extended/account_receivable_by_amount.hpp>
 #include <nano/store/ledger/pending.hpp>
 #include <nano/store/ledger/pruned.hpp>
 #include <nano/store/ledger/successor.hpp>
@@ -1039,6 +1041,128 @@ void nano::json_handler::accounts_frontiers ()
 	response_errors ();
 }
 
+namespace
+{
+// Query options shared by the receivable and accounts_receivable RPCs
+struct receivable_options
+{
+	uint64_t count;
+	uint64_t offset{ 0 };
+	nano::amount threshold{ 0 };
+	bool source{ false };
+	bool min_version{ false };
+	bool include_active{ false };
+	bool include_only_confirmed{ true };
+	bool simple{ false };
+	bool sorted{ false };
+};
+
+/*
+ * Collects one account's receivable entries into a response subtree.
+ * Sorted queries return entries by descending amount (hash descending on ties), applying offset and count in that order;
+ * unsorted queries emit in send hash order while scanning, bounded by count.
+ * The extended receivable index accelerates sorted queries when enabled, the fallback sort produces identical responses.
+ */
+boost::property_tree::ptree collect_receivables (nano::node & node, nano::secure::transaction & transaction, nano::account const & account, receivable_options const & options)
+{
+	boost::property_tree::ptree receivables;
+
+	// Emits one entry: a bare hash for simple queries, otherwise the amount or a subtree with amount, source and version
+	auto emit = [&receivables, &options] (nano::block_hash const & hash, nano::pending_info const & info) {
+		if (options.simple)
+		{
+			boost::property_tree::ptree entry;
+			entry.put ("", hash.to_string ());
+			receivables.push_back (std::make_pair ("", entry));
+		}
+		else if (options.source || options.min_version)
+		{
+			boost::property_tree::ptree pending_tree;
+			pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
+			if (options.source)
+			{
+				pending_tree.put ("source", info.source.to_account ());
+			}
+			if (options.min_version)
+			{
+				pending_tree.put ("min_version", epoch_as_string (info.epoch));
+			}
+			receivables.add_child (hash.to_string (), pending_tree);
+		}
+		else
+		{
+			receivables.put (hash.to_string (), info.amount.number ().convert_to<std::string> ());
+		}
+	};
+
+	auto offset_counter = options.offset;
+	if (options.sorted && node.ledger.flags.account_receivable_by_amount_index)
+	{
+		// Indexed path: walk this account's receivables in descending amount order, so threshold, offset and count apply during the walk
+		for (auto i = node.store.extended.account_receivable_by_amount.rupper_bound (transaction, account), n = node.store.extended.account_receivable_by_amount.rend (transaction); i != n && receivables.size () < options.count; ++i)
+		{
+			auto const & key = i->first;
+			// Stop at the end of this account's slice or once amounts drop below the threshold
+			if (key.account != account || key.amount.number () < options.threshold.number ())
+			{
+				break;
+			}
+			// Confirmation requirements filter entries without consuming offset or count
+			if (!block_confirmed (node, transaction, key.send_block_hash, options.include_active, options.include_only_confirmed))
+			{
+				continue;
+			}
+			if (offset_counter > 0)
+			{
+				--offset_counter;
+				continue;
+			}
+			emit (key.send_block_hash, { i->second.source, key.amount, i->second.epoch });
+		}
+	}
+	else if (options.sorted)
+	{
+		// Fallback sorted path: unbounded scan with confirmation and threshold filters, then sort and cut
+		std::vector<std::pair<nano::block_hash, nano::pending_info>> matches;
+		for (auto i (node.store.pending.begin (transaction, nano::pending_key (account, 0))), n (node.store.pending.end (transaction)); i != n && i->first.account == account; ++i)
+		{
+			if (block_confirmed (node, transaction, i->first.hash, options.include_active, options.include_only_confirmed) && i->second.amount.number () >= options.threshold.number ())
+			{
+				matches.emplace_back (i->first.hash, i->second);
+			}
+		}
+		// Amount descending, hash descending on ties, matching the indexed path
+		std::sort (matches.begin (), matches.end (), [] (auto const & lhs, auto const & rhs) {
+			return lhs.second.amount == rhs.second.amount ? lhs.first.number () > rhs.first.number () : lhs.second.amount.number () > rhs.second.amount.number ();
+		});
+		for (auto i = options.offset; i < matches.size () && receivables.size () < options.count; ++i)
+		{
+			emit (matches[i].first, matches[i].second);
+		}
+	}
+	else
+	{
+		// Unsorted path: emit in send hash order while scanning, bounded by count; offset skips confirmed entries before the threshold filter
+		for (auto i (node.store.pending.begin (transaction, nano::pending_key (account, 0))), n (node.store.pending.end (transaction)); i != n && i->first.account == account && receivables.size () < options.count; ++i)
+		{
+			if (block_confirmed (node, transaction, i->first.hash, options.include_active, options.include_only_confirmed))
+			{
+				if (offset_counter > 0)
+				{
+					--offset_counter;
+					continue;
+				}
+				if (options.simple || i->second.amount.number () >= options.threshold.number ())
+				{
+					emit (i->first.hash, i->second);
+				}
+			}
+		}
+	}
+	return receivables;
+}
+}
+
 void nano::json_handler::accounts_pending ()
 {
 	response_l.put ("deprecated", "1");
@@ -1054,6 +1178,15 @@ void nano::json_handler::accounts_receivable ()
 	bool const include_only_confirmed = request.get<bool> ("include_only_confirmed", true);
 	bool const sorting = request.get<bool> ("sorting", false);
 	auto simple (threshold.is_zero () && !source && !sorting); // if simple, response is a list of hashes for each account
+	receivable_options const options{
+		.count = count,
+		.threshold = threshold,
+		.source = source,
+		.include_active = include_active,
+		.include_only_confirmed = include_only_confirmed,
+		.simple = simple,
+		.sorted = sorting && !simple,
+	};
 	boost::property_tree::ptree pending;
 	auto transaction = node.ledger.tx_begin_read ();
 	for (auto & accounts : request.get_child ("accounts"))
@@ -1061,56 +1194,10 @@ void nano::json_handler::accounts_receivable ()
 		auto account (account_impl (accounts.second.data ()));
 		if (!ec)
 		{
-			boost::property_tree::ptree peers_l;
-			for (auto i (node.store.pending.begin (transaction, nano::pending_key (account, 0))), n (node.store.pending.end (transaction)); i != n && nano::pending_key (i->first).account == account && peers_l.size () < count; ++i)
+			auto receivables = collect_receivables (node, transaction, account, options);
+			if (!receivables.empty ())
 			{
-				nano::pending_key const & key (i->first);
-				if (block_confirmed (node, transaction, key.hash, include_active, include_only_confirmed))
-				{
-					if (simple)
-					{
-						boost::property_tree::ptree entry;
-						entry.put ("", key.hash.to_string ());
-						peers_l.push_back (std::make_pair ("", entry));
-					}
-					else
-					{
-						nano::pending_info const & info (i->second);
-						if (info.amount.number () >= threshold.number ())
-						{
-							if (source)
-							{
-								boost::property_tree::ptree pending_tree;
-								pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-								pending_tree.put ("source", info.source.to_account ());
-								peers_l.add_child (key.hash.to_string (), pending_tree);
-							}
-							else
-							{
-								peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
-							}
-						}
-					}
-				}
-			}
-			if (sorting && !simple)
-			{
-				if (source)
-				{
-					peers_l.sort ([] (auto const & child1, auto const & child2) -> bool {
-						return child1.second.template get<nano::uint128_t> ("amount") > child2.second.template get<nano::uint128_t> ("amount");
-					});
-				}
-				else
-				{
-					peers_l.sort ([] (auto const & child1, auto const & child2) -> bool {
-						return child1.second.template get<nano::uint128_t> ("") > child2.second.template get<nano::uint128_t> ("");
-					});
-				}
-			}
-			if (!peers_l.empty ())
-			{
-				pending.add_child (account.to_account (), peers_l);
+				pending.add_child (account.to_account (), receivables);
 			}
 		}
 	}
@@ -2256,37 +2343,200 @@ void nano::json_handler::database_txn_tracker ()
 	response_errors ();
 }
 
+namespace
+{
+// Query options shared by both delegators APIs
+struct delegators_options
+{
+	uint64_t count;
+	nano::amount threshold{ 0 };
+};
+
+// One page of the indexed delegators API
+struct delegators_page
+{
+	boost::property_tree::ptree delegators;
+	std::optional<std::string> next; // cursor of the last emitted entry, present while more entries remain
+};
+
+// Parsed "start" parameter of the indexed delegators API
+struct delegators_start
+{
+	std::optional<nano::amount> weight; // absent when the position must be resolved from the account's current weight
+	nano::account account{ 0 };
+};
+
+/*
+ * Parses "start" as either a plain account or a "<weight>:<account>" cursor position, nullopt when malformed.
+ * Either cursor side may be omitted: a weight-only "<weight>:" bound is inclusive of the weight's whole tie group,
+ * an account-only ":<account>" behaves exactly like the plain account form.
+ */
+std::optional<delegators_start> parse_delegators_start (std::string const & text)
+{
+	delegators_start result;
+	auto const separator = text.find (':');
+	if (separator == std::string::npos)
+	{
+		// Plain account form
+		if (result.account.decode_account (text))
+		{
+			return std::nullopt;
+		}
+		return result;
+	}
+	auto const weight_text = text.substr (0, separator);
+	auto const account_text = text.substr (separator + 1);
+	if (weight_text.empty () && account_text.empty ())
+	{
+		return std::nullopt;
+	}
+	if (!weight_text.empty ())
+	{
+		nano::amount weight;
+		if (weight.decode_dec (weight_text))
+		{
+			return std::nullopt;
+		}
+		result.weight = weight;
+	}
+	if (account_text.empty ())
+	{
+		// Weight-only bound: a virtual maximum account puts the position just above the tie group, making the weight itself inclusive
+		result.account = nano::account{ std::numeric_limits<nano::uint256_t>::max () };
+	}
+	else if (result.account.decode_account (account_text))
+	{
+		return std::nullopt;
+	}
+	return result;
+}
+
+/*
+ * Resolves the indexed "start" parameter into an index position under the given representative,
+ * looking up the account's current weight when the cursor does not carry one.
+ * Sets ec and returns nullopt on malformed input or an unknown account.
+ */
+std::optional<nano::account_delegator_by_weight_key> resolve_delegators_start (nano::node & node, nano::secure::transaction & transaction, nano::account const & representative, std::string const & text, std::error_code & ec)
+{
+	auto parsed = parse_delegators_start (text);
+	if (!parsed)
+	{
+		ec = nano::error_common::bad_account_number;
+		return std::nullopt;
+	}
+	if (parsed->weight.has_value ())
+	{
+		return nano::account_delegator_by_weight_key{ representative, parsed->weight.value (), parsed->account };
+	}
+	if (auto info = node.ledger.any.account_get (transaction, parsed->account))
+	{
+		return nano::account_delegator_by_weight_key{ representative, info->balance, parsed->account };
+	}
+	ec = nano::error_common::account_not_found;
+	return std::nullopt;
+}
+
+/*
+ * Indexed delegators API: enumerates a representative's delegators in descending (weight, account) order,
+ * resuming strictly below the start position when one is given.
+ * The page carries a "next" cursor equal to its last entry while more entries remain.
+ */
+delegators_page collect_delegators_indexed (nano::node & node, nano::secure::transaction & transaction, nano::account const & representative, delegators_options const & options, std::optional<nano::account_delegator_by_weight_key> const & start)
+{
+	delegators_page page;
+	auto & view = node.store.extended.account_delegator_by_weight;
+	auto i = start.has_value ()
+	? view.rlower_bound (transaction, start.value ())
+	: view.rupper_bound (transaction, representative);
+	nano::account_delegator_by_weight_key last_emitted{};
+	bool has_more = false;
+	for (auto n = view.rend (transaction); i != n; ++i)
+	{
+		auto const & key = i->first;
+		// Stop at the end of this representative's slice or once weights drop below the threshold
+		if (key.representative != representative || key.weight.number () < options.threshold.number ())
+		{
+			break;
+		}
+		// One entry past the page proves more remain and turns the last emitted entry into the "next" cursor
+		if (page.delegators.size () >= options.count)
+		{
+			has_more = true;
+			break;
+		}
+		page.delegators.put (key.delegator.to_account (), nano::uint128_union (key.weight).to_string_dec ());
+		last_emitted = key;
+	}
+	if (has_more && !page.delegators.empty ())
+	{
+		page.next = nano::uint128_union (last_emitted.weight).to_string_dec () + ":" + last_emitted.delegator.to_account ();
+	}
+	return page;
+}
+
+/*
+ * Legacy delegators API: account-ascending scan bounded by count, starting strictly after the given account.
+ */
+boost::property_tree::ptree collect_delegators_legacy (nano::node & node, nano::secure::transaction & transaction, nano::account const & representative, delegators_options const & options, nano::account const & start)
+{
+	boost::property_tree::ptree delegators;
+	for (auto i (node.store.account.begin (transaction, nano::inc_sat (start.number ()))), n (node.store.account.end (transaction)); i != n && delegators.size () < options.count; ++i)
+	{
+		nano::account_info const & info (i->second);
+		if (info.representative == representative && info.balance.number () >= options.threshold.number ())
+		{
+			delegators.put (i->first.to_account (), nano::uint128_union (info.balance).to_string_dec ());
+		}
+	}
+	return delegators;
+}
+}
+
 void nano::json_handler::delegators ()
 {
 	auto representative (account_impl ());
 	auto count (count_optional_impl (1024));
 	auto threshold (threshold_optional_impl ());
-	auto start_account_text (request.get_optional<std::string> ("start"));
-
-	nano::account start_account{};
-	if (!ec && start_account_text.has_value ())
-	{
-		start_account = account_impl (start_account_text.value ());
-	}
+	auto start_text (request.get_optional<std::string> ("start"));
 
 	if (!ec)
 	{
+		delegators_options const options{
+			.count = count,
+			.threshold = threshold,
+		};
 		auto transaction (node.ledger.tx_begin_read ());
-		boost::property_tree::ptree delegators;
-		for (auto i (node.store.account.begin (transaction, inc_sat (start_account.number ()))), n (node.store.account.end (transaction)); i != n && delegators.size () < count; ++i)
+		if (node.ledger.flags.account_delegator_by_weight_index)
 		{
-			nano::account_info const & info (i->second);
-			if (info.representative == representative)
+			// Indexed API: weight-descending order with cursor pagination; see parse_delegators_start for the accepted "start" forms
+			std::optional<nano::account_delegator_by_weight_key> start;
+			if (start_text.has_value ())
 			{
-				if (info.balance.number () >= threshold.number ())
+				start = resolve_delegators_start (node, transaction, representative, start_text.value (), ec);
+			}
+			if (!ec)
+			{
+				auto page = collect_delegators_indexed (node, transaction, representative, options, start);
+				response_l.add_child ("delegators", page.delegators);
+				if (page.next.has_value ())
 				{
-					std::string balance = nano::uint128_union (info.balance).to_string_dec ();
-					nano::account const & delegator (i->first);
-					delegators.put (delegator.to_account (), balance);
+					response_l.put ("next", page.next.value ());
 				}
 			}
 		}
-		response_l.add_child ("delegators", delegators);
+		else
+		{
+			// Legacy API: account-ascending order, "start" is an account iteration point
+			nano::account start{};
+			if (start_text.has_value ())
+			{
+				start = account_impl (start_text.value ());
+			}
+			if (!ec)
+			{
+				response_l.add_child ("delegators", collect_delegators_legacy (node, transaction, representative, options, start));
+			}
+		}
 	}
 	response_errors ();
 }
@@ -2298,12 +2548,26 @@ void nano::json_handler::delegators_count ()
 	{
 		uint64_t count (0);
 		auto transaction (node.ledger.tx_begin_read ());
-		for (auto i (node.store.account.begin (transaction)), n (node.store.account.end (transaction)); i != n; ++i)
+		if (node.ledger.flags.account_delegator_by_weight_index)
 		{
-			nano::account_info const & info (i->second);
-			if (info.representative == account)
+			for (auto i = node.store.extended.account_delegator_by_weight.begin (transaction, { account, 0, 0 }), n = node.store.extended.account_delegator_by_weight.end (transaction); i != n; ++i)
 			{
+				if (i->first.representative != account)
+				{
+					break;
+				}
 				++count;
+			}
+		}
+		else
+		{
+			for (auto i (node.store.account.begin (transaction)), n (node.store.account.end (transaction)); i != n; ++i)
+			{
+				nano::account_info const & info (i->second);
+				if (info.representative == account)
+				{
+					++count;
+				}
 			}
 		}
 		response_l.put ("count", std::to_string (count));
@@ -2677,18 +2941,47 @@ void nano::json_handler::account_history ()
 		account = account_impl ();
 		if (!ec)
 		{
-			if (reverse)
+			auto info (account_info_impl (transaction, account));
+			if (!ec)
 			{
-				auto info (account_info_impl (transaction, account));
-				if (!ec)
+				if (reverse)
 				{
 					hash = info.open_block;
 				}
+				else
+				{
+					hash = info.head;
+				}
+			}
+		}
+	}
+	if (!ec && offset > 0)
+	{
+		auto block = node.ledger.any.block_get (transaction, hash);
+		if (block)
+		{
+			// Saturate on client-supplied offsets; height 0 and heights past the frontier resolve to no block, yielding an empty history
+			uint64_t start_height;
+			if (reverse)
+			{
+				start_height = nano::add_sat (block->sideband ().height, offset);
 			}
 			else
 			{
-				hash = node.ledger.any.account_head (transaction, account);
+				start_height = nano::sub_sat (block->sideband ().height, offset);
 			}
+			if (auto start_hash = node.ledger.find_block_hash_by_height (transaction, account, start_height))
+			{
+				hash = start_hash.value ();
+			}
+			else
+			{
+				hash = nano::block_hash (0);
+			}
+		}
+		else
+		{
+			ec = nano::error_blocks::not_found;
 		}
 	}
 	if (!ec)
@@ -2700,11 +2993,6 @@ void nano::json_handler::account_history ()
 		auto block = node.ledger.any.block_get (transaction, hash);
 		while (block != nullptr && count > 0)
 		{
-			if (offset > 0)
-			{
-				--offset;
-			}
-			else
 			{
 				boost::property_tree::ptree entry;
 				history_visitor visitor (*this, output_raw, transaction, entry, hash, accounts_to_filter);
@@ -3098,99 +3386,21 @@ void nano::json_handler::receivable ()
 	bool const include_only_confirmed = request.get<bool> ("include_only_confirmed", true);
 	bool const sorting = request.get<bool> ("sorting", false);
 	auto simple (threshold.is_zero () && !source && !min_version && !sorting); // if simple, response is a list of hashes
-	bool const should_sort = sorting && !simple;
 	if (!ec)
 	{
-		auto offset_counter = offset;
-		boost::property_tree::ptree peers_l;
+		receivable_options const options{
+			.count = count,
+			.offset = offset,
+			.threshold = threshold,
+			.source = source,
+			.min_version = min_version,
+			.include_active = include_active,
+			.include_only_confirmed = include_only_confirmed,
+			.simple = simple,
+			.sorted = sorting && !simple,
+		};
 		auto transaction = node.ledger.tx_begin_read ();
-		// The ptree container is used if there are any children nodes (e.g source/min_version) otherwise the amount container is used.
-		std::vector<std::pair<std::string, boost::property_tree::ptree>> hash_ptree_pairs;
-		std::vector<std::pair<std::string, nano::uint128_t>> hash_amount_pairs;
-		for (auto i (node.store.pending.begin (transaction, nano::pending_key (account, 0))), n (node.store.pending.end (transaction)); i != n && nano::pending_key (i->first).account == account && (should_sort || peers_l.size () < count); ++i)
-		{
-			nano::pending_key const & key (i->first);
-			if (block_confirmed (node, transaction, key.hash, include_active, include_only_confirmed))
-			{
-				if (!should_sort && offset_counter > 0)
-				{
-					--offset_counter;
-					continue;
-				}
-
-				if (simple)
-				{
-					boost::property_tree::ptree entry;
-					entry.put ("", key.hash.to_string ());
-					peers_l.push_back (std::make_pair ("", entry));
-				}
-				else
-				{
-					nano::pending_info const & info (i->second);
-					if (info.amount.number () >= threshold.number ())
-					{
-						if (source || min_version)
-						{
-							boost::property_tree::ptree pending_tree;
-							pending_tree.put ("amount", info.amount.number ().convert_to<std::string> ());
-							if (source)
-							{
-								pending_tree.put ("source", info.source.to_account ());
-							}
-							if (min_version)
-							{
-								pending_tree.put ("min_version", epoch_as_string (info.epoch));
-							}
-
-							if (should_sort)
-							{
-								hash_ptree_pairs.emplace_back (key.hash.to_string (), pending_tree);
-							}
-							else
-							{
-								peers_l.add_child (key.hash.to_string (), pending_tree);
-							}
-						}
-						else
-						{
-							if (should_sort)
-							{
-								hash_amount_pairs.emplace_back (key.hash.to_string (), info.amount.number ());
-							}
-							else
-							{
-								peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
-							}
-						}
-					}
-				}
-			}
-		}
-		if (should_sort)
-		{
-			if (source || min_version)
-			{
-				std::stable_sort (hash_ptree_pairs.begin (), hash_ptree_pairs.end (), [] (auto const & lhs, auto const & rhs) {
-					return lhs.second.template get<nano::uint128_t> ("amount") > rhs.second.template get<nano::uint128_t> ("amount");
-				});
-				for (auto i = offset, j = offset + count; i < hash_ptree_pairs.size () && i < j; ++i)
-				{
-					peers_l.add_child (hash_ptree_pairs[i].first, hash_ptree_pairs[i].second);
-				}
-			}
-			else
-			{
-				std::stable_sort (hash_amount_pairs.begin (), hash_amount_pairs.end (), [] (auto const & lhs, auto const & rhs) {
-					return lhs.second > rhs.second;
-				});
-
-				for (auto i = offset, j = offset + count; i < hash_amount_pairs.size () && i < j; ++i)
-				{
-					peers_l.put (hash_amount_pairs[i].first, hash_amount_pairs[i].second.convert_to<std::string> ());
-				}
-			}
-		}
-		response_l.add_child ("blocks", peers_l);
+		response_l.add_child ("blocks", collect_receivables (node, transaction, account, options));
 	}
 	response_errors ();
 }

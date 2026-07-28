@@ -1,0 +1,29 @@
+#pragma once
+
+#include <nano/lib/numbers.hpp>
+#include <nano/store/backend.hpp>
+
+#include <optional>
+
+namespace nano::store::ledger
+{
+class receive_block_by_send_block_view
+{
+public:
+	explicit receive_block_by_send_block_view (nano::store::backend &);
+
+	void put (nano::store::write_transaction const &, nano::block_hash const &, nano::block_hash const &);
+	std::optional<nano::block_hash> get (nano::store::transaction const &, nano::block_hash const &) const;
+	void del (nano::store::write_transaction const &, nano::block_hash const &);
+	bool empty (nano::store::transaction const &) const;
+	uint64_t count (nano::store::transaction const &) const;
+
+	bool present () const; // True when the backing table exists
+	void create (); // Creates the backing table when absent, making the view writable
+	void clear (); // Empties the backing table but keeps it, no-op when absent
+	void drop (); // Deletes the backing table entirely, no-op when absent
+
+private:
+	nano::store::backend & backend;
+};
+}

@@ -101,9 +101,32 @@ void force_nano_dev_network ();
 /** Checks that we are running in test mode */
 bool is_dev_run ();
 
+/**
+ * Queue backlog size above which processing components log a periodic warning;
+ * NANO_QUEUE_WARNING_THRESHOLD overrides
+ */
 size_t queue_warning_threshold ();
+
+/**
+ * Stack size for threads executing ledger operations, sized for deep rollback recursion;
+ * NANO_LEDGER_THREAD_STACK_SIZE overrides
+ */
 size_t ledger_thread_stack_size ();
+/**
+ * Default cap on cascading rollback depth before the rollback is aborted as an error;
+ * NANO_MAX_ROLLBACK_DEPTH overrides
+ */
 size_t ledger_max_rollback_depth ();
+/**
+ * Entries per transaction for bulk ledger upgrade walks (schema upgrades, index population);
+ * NANO_LEDGER_UPGRADE_BATCH_SIZE overrides, small under dev runs to exercise refresh paths
+ */
+size_t ledger_upgrade_batch_size ();
+
+/**
+ * Database backend used when the node configuration does not specify one;
+ * NANO_BACKEND overrides
+ */
 nano::database_backend default_database_backend ();
 }
 

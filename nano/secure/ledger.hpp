@@ -41,11 +41,26 @@ struct ledger_options
 	nano::uint128_t min_rep_weight{ 0 };
 	uint64_t max_backlog{ 0 };
 	bool enable_topo_index{ true };
+	bool enable_extended_ledger_index{ false };
 };
 
 struct ledger_flags
 {
 	bool topo_index{ false };
+	bool account_delegator_by_weight_index{ false };
+	bool account_receivable_by_amount_index{ false };
+	bool receive_block_by_send_block_index{ false };
+	bool account_block_by_height_index{ false };
+
+	bool any_extended_ledger_index_enabled () const
+	{
+		return account_delegator_by_weight_index || account_receivable_by_amount_index || receive_block_by_send_block_index || account_block_by_height_index;
+	}
+
+	bool all_extended_ledger_indices_enabled () const
+	{
+		return account_delegator_by_weight_index && account_receivable_by_amount_index && receive_block_by_send_block_index && account_block_by_height_index;
+	}
 };
 
 class ledger final
@@ -83,8 +98,13 @@ public:
 	bool rollback (secure::write_transaction const &, nano::block_hash const &, std::deque<std::shared_ptr<nano::block>> & rollback_list, size_t depth = 0, size_t max_depth = nano::ledger_max_rollback_depth ());
 	bool rollback (secure::write_transaction const &, nano::block_hash const &);
 	void update_account (secure::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
+	void put_block (nano::store::write_transaction const &, nano::block_hash const &, nano::block const &);
+	void del_block (nano::store::write_transaction const &, nano::block_hash const &, nano::block const &);
+	void put_pending (nano::store::write_transaction const &, nano::pending_key const &, nano::pending_info const &);
+	void del_pending (nano::store::write_transaction const &, nano::pending_key const &, nano::pending_info const &);
 	uint64_t pruning_action (secure::write_transaction &, nano::block_hash const &, uint64_t const);
 	bool is_epoch_link (nano::link const &) const;
+	std::optional<nano::block_hash> find_block_hash_by_height (secure::transaction const &, nano::account const &, uint64_t height) const;
 	std::shared_ptr<nano::block> find_receive_block_by_send_hash (secure::transaction const &, nano::account const & destination, nano::block_hash const & send_block_hash);
 	std::optional<nano::account> linked_account (secure::transaction const &, nano::block const &);
 	nano::account epoch_signer (nano::link const &) const;
@@ -117,6 +137,8 @@ public:
 	using block_priority_result = std::pair<nano::amount, nano::priority_timestamp>;
 	block_priority_result block_priority (secure::transaction const &, nano::block const &) const;
 
+	void verify_consistency (secure::transaction const &) const;
+
 	uint64_t cemented_count () const;
 	uint64_t block_count () const;
 	uint64_t account_count () const;
@@ -124,8 +146,9 @@ public:
 	uint64_t backlog_size () const;
 	uint64_t max_backlog () const;
 
-	void verify_consistency (secure::transaction const &) const;
+	nano::container_info container_info () const;
 
+public: // Index management
 	/**
 	 * Walk every block in the ledger, compute and persist its topology height, then enable the topology index flag
 	 * Intended as a one-time offline upgrade for ledgers initialized before the topology index existed
@@ -138,7 +161,41 @@ public:
 	 */
 	void drop_topo_index ();
 
-	nano::container_info container_info () const;
+	/**
+	 * Populate any missing extended ledger index tables, then enable each rebuilt index flag.
+	 * Intended as a one-time offline upgrade for ledgers initialized before one or more extended indices existed.
+	 */
+	void populate_extended_ledger_indices ();
+
+	/**
+	 * Walk every account in the ledger, index delegators by representative, balance, and account, then enable the delegator weight index flag.
+	 * Intended as part of the extended ledger index upgrade for ledgers initialized before the delegator weight index existed.
+	 */
+	void populate_account_delegator_by_weight_index ();
+
+	/**
+	 * Walk every pending entry in the ledger, index receivables by destination account, amount, and block hash, then enable the receivable amount index flag.
+	 * Intended as part of the extended ledger index upgrade for ledgers initialized before the receivable amount index existed.
+	 */
+	void populate_account_receivable_by_amount_index ();
+
+	/**
+	 * Walk every receive block in the ledger, map its source send hash to the receive block hash, then enable the receive block lookup index flag.
+	 * Intended as part of the extended ledger index upgrade for ledgers initialized before the receive block lookup index existed.
+	 */
+	void populate_receive_block_by_send_block_index ();
+
+	/**
+	 * Walk every account chain in account and height order, map account and block height to block hash, then enable the account block height index flag.
+	 * Intended as part of the extended ledger index upgrade for ledgers initialized before the account block height index existed.
+	 */
+	void populate_account_block_by_height_index ();
+
+	/**
+	 * Drop all extended ledger index tables and disable their index flags.
+	 * Intended for users who need to enable pruning, which is incompatible with extended ledger indices.
+	 */
+	void drop_extended_ledger_indices ();
 
 public:
 	static nano::uint128_t const unit;
@@ -169,6 +226,8 @@ public:
 
 private:
 	void initialize ();
+	void initialize_extended_ledger_indices ();
+
 	void cement_one (secure::write_transaction &, nano::block const & block);
 
 	std::unique_ptr<ledger_set_any> any_impl;

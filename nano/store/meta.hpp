@@ -12,6 +12,12 @@ enum class meta_key : uint64_t
 {
 	version = 1,
 	topo_index_enabled = 8,
+
+	// Extended ledger indices
+	receive_block_by_send_block_index_enabled = 16,
+	account_receivable_by_amount_index_enabled = 17,
+	account_delegator_by_weight_index_enabled = 18,
+	account_block_by_height_index_enabled = 19,
 };
 
 class meta_view

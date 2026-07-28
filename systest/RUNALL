@@ -1,12 +1,33 @@
-#!/bin/sh
+#!/bin/bash
+set -u
 
-set -e
+# Runs every systest, continuing on failure and reporting a summary
+# Usage: NANO_NODE_EXE=/path/to/nano_node ./RUNALL
 
-failed=0
+: "${NANO_NODE_EXE:?NANO_NODE_EXE must point to the nano_node executable}"
 
+# Absolutize the executable path before changing directory
+NANO_NODE_EXE="$(cd "$(dirname "$NANO_NODE_EXE")" && pwd)/$(basename "$NANO_NODE_EXE")"
+export NANO_NODE_EXE
+[ -x "$NANO_NODE_EXE" ] || { echo "NANO_NODE_EXE is not executable: $NANO_NODE_EXE" >&2; exit 1; }
+
+cd "$(dirname "$0")"
+
+shopt -s nullglob
+
+failed=""
 for script in *.sh; do
-    echo Running script: $script
-    ./$script;
+    echo "Running script: $script"
+    if ./"$script"; then
+        echo "PASS: $script"
+    else
+        echo "FAIL: $script"
+        failed="$failed $script"
+    fi
 done
 
-echo All systests passed.
+if [ -n "$failed" ]; then
+    echo "Failed systests:$failed"
+    exit 1
+fi
+echo "All systests passed."

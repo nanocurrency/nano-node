@@ -48,6 +48,11 @@ bool pending_view::any (nano::store::transaction const & txn, nano::account cons
 	return iterator != end (txn) && nano::pending_key (iterator->first).account == account;
 }
 
+uint64_t pending_view::count (nano::store::transaction const & txn) const
+{
+	return backend.count (txn, nano::store::table::pending);
+}
+
 auto pending_view::begin (nano::store::transaction const & txn, nano::pending_key const & key) const -> iterator
 {
 	return iterator{ backend.begin (txn, nano::store::table::pending, key) };

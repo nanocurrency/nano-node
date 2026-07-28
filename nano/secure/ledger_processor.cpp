@@ -65,14 +65,14 @@ void nano::ledger_processor::send_block (nano::send_block & block_a)
 								/* details */ block_details,
 								/* source_epoch */ nano::epoch::epoch_0,
 								/* topo_height */ topo });
-								ledger.store.block.put (transaction, hash, block_a);
+								ledger.put_block (transaction, hash, block_a);
 								if (topo != 0)
 								{
 									ledger.store.topology.put (transaction, { topo, hash });
 								}
 								nano::account_info new_info (hash, info->representative, info->open_block, block_a.hashables.balance, nano::seconds_since_epoch (), info->block_count + 1, nano::epoch::epoch_0);
 								ledger.update_account (transaction, account, *info, new_info);
-								ledger.store.pending.put (transaction, nano::pending_key (block_a.hashables.destination, hash), { account, amount, nano::epoch::epoch_0 });
+								ledger.put_pending (transaction, nano::pending_key (block_a.hashables.destination, hash), { account, amount, nano::epoch::epoch_0 });
 								ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::send);
 							}
 						}
@@ -126,7 +126,7 @@ void nano::ledger_processor::receive_block (nano::receive_block & block_a)
 										if (result == nano::block_status::progress)
 										{
 											auto new_balance (info->balance.number () + pending.value ().amount.number ());
-											ledger.store.pending.del (transaction, key);
+											ledger.del_pending (transaction, key, pending.value ());
 											std::shared_ptr<nano::block> source;
 											if (ledger.flags.topo_index)
 											{
@@ -142,7 +142,7 @@ void nano::ledger_processor::receive_block (nano::receive_block & block_a)
 											/* details */ block_details,
 											/* source_epoch */ nano::epoch::epoch_0,
 											/* topo_height */ topo });
-											ledger.store.block.put (transaction, hash, block_a);
+											ledger.put_block (transaction, hash, block_a);
 											if (topo != 0)
 											{
 												ledger.store.topology.put (transaction, { topo, hash });
@@ -196,7 +196,7 @@ void nano::ledger_processor::open_block (nano::open_block & block_a)
 								result = ledger.work.difficulty (block_a) >= ledger.work.threshold (block_a.work_version (), block_details) ? nano::block_status::progress : nano::block_status::insufficient_work; // Does this block have sufficient work? (Malformed)
 								if (result == nano::block_status::progress)
 								{
-									ledger.store.pending.del (transaction, key);
+									ledger.del_pending (transaction, key, pending.value ());
 									std::shared_ptr<nano::block> source;
 									if (ledger.flags.topo_index)
 									{
@@ -212,7 +212,7 @@ void nano::ledger_processor::open_block (nano::open_block & block_a)
 									/* details */ block_details,
 									/* source_epoch */ nano::epoch::epoch_0,
 									/* topo_height */ topo });
-									ledger.store.block.put (transaction, hash, block_a);
+									ledger.put_block (transaction, hash, block_a);
 									if (topo != 0)
 									{
 										ledger.store.topology.put (transaction, { topo, hash });
@@ -269,7 +269,7 @@ void nano::ledger_processor::change_block (nano::change_block & block_a)
 							/* details */ block_details,
 							/* source_epoch */ nano::epoch::epoch_0,
 							/* topo_height */ topo });
-							ledger.store.block.put (transaction, hash, block_a);
+							ledger.put_block (transaction, hash, block_a);
 							if (topo != 0)
 							{
 								ledger.store.topology.put (transaction, { topo, hash });
@@ -330,6 +330,7 @@ void nano::ledger_processor::state_block_impl (nano::state_block & block_a)
 				nano::amount amount (block_a.hashables.balance);
 				auto is_send (false);
 				auto is_receive (false);
+				std::optional<nano::pending_info> pending;
 				auto account_error (ledger.store.account.get (transaction, block_a.hashables.account, info));
 				if (!account_error)
 				{
@@ -368,7 +369,7 @@ void nano::ledger_processor::state_block_impl (nano::state_block & block_a)
 							if (result == nano::block_status::progress)
 							{
 								nano::pending_key key (block_a.hashables.account, block_a.hashables.link.as_block_hash ());
-								auto pending = ledger.store.pending.get (transaction, key);
+								pending = ledger.store.pending.get (transaction, key);
 								result = !pending ? nano::block_status::unreceivable : nano::block_status::progress; // Has this source already been received (Malformed)
 								if (result == nano::block_status::progress)
 								{
@@ -416,7 +417,7 @@ void nano::ledger_processor::state_block_impl (nano::state_block & block_a)
 						/* details */ block_details,
 						/* source_epoch */ source_epoch,
 						/* topo_height */ topo });
-						ledger.store.block.put (transaction, hash, block_a);
+						ledger.put_block (transaction, hash, block_a);
 						if (topo != 0)
 						{
 							ledger.store.topology.put (transaction, { topo, hash });
@@ -438,11 +439,11 @@ void nano::ledger_processor::state_block_impl (nano::state_block & block_a)
 						{
 							nano::pending_key key (block_a.hashables.link.as_account (), hash);
 							nano::pending_info info (block_a.hashables.account, amount.number (), epoch);
-							ledger.store.pending.put (transaction, key, info);
+							ledger.put_pending (transaction, key, info);
 						}
 						else if (!block_a.hashables.link.is_zero ())
 						{
-							ledger.store.pending.del (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()));
+							ledger.del_pending (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()), pending.value ());
 						}
 
 						nano::account_info new_info (hash, block_a.hashables.representative, info.open_block.is_zero () ? hash : info.open_block, block_a.hashables.balance, nano::seconds_since_epoch (), info.block_count + 1, epoch);
@@ -534,7 +535,7 @@ void nano::ledger_processor::epoch_block_impl (nano::state_block & block_a)
 								/* details */ block_details,
 								/* source_epoch */ nano::epoch::epoch_0,
 								/* topo_height */ topo });
-								ledger.store.block.put (transaction, hash, block_a);
+								ledger.put_block (transaction, hash, block_a);
 								if (topo != 0)
 								{
 									ledger.store.topology.put (transaction, { topo, hash });

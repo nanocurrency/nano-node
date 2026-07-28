@@ -11,6 +11,14 @@ add_library(
   ledger/block.cpp
   ledger/confirmation_height.hpp
   ledger/confirmation_height.cpp
+  ledger/extended/account_block_by_height.hpp
+  ledger/extended/account_block_by_height.cpp
+  ledger/extended/account_delegator_by_weight.hpp
+  ledger/extended/account_delegator_by_weight.cpp
+  ledger/extended/account_receivable_by_amount.hpp
+  ledger/extended/account_receivable_by_amount.cpp
+  ledger/extended/receive_block_by_send_block.hpp
+  ledger/extended/receive_block_by_send_block.cpp
   ledger/final_vote.hpp
   ledger/final_vote.cpp
   ledger/online_weight.hpp
