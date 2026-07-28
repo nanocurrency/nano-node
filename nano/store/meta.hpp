@@ -15,6 +15,7 @@ enum class meta_key : uint64_t
 
 	// Ledger feature flags
 	topo_index_enabled = 8,
+	pruning_enabled = 9,
 
 	// Extended ledger index flags
 	receive_block_by_send_block_index_enabled = 16,

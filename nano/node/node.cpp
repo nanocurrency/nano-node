@@ -124,10 +124,10 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	.generate_cache = flags_a.generate_cache,
 	.min_rep_weight = config.representative_vote_weight_minimum.number (),
 	.max_backlog = config.max_backlog,
-	// Topo index is incompatible with pruning, so disable it on fresh ledgers when pruning is on
-	// For existing ledgers the persisted meta flag wins, so this only affects first-init
-	.enable_topo_index = !(flags_a.enable_pruning || flags_a.disable_topo_index),
-	.enable_extended_ledger_index = config.extended_ledger_index && !flags_a.enable_pruning && !flags_a.inactive_node }) },
+	// Pruning takes precedence over the index options inside the ledger; persisted flags win on existing ledgers
+	.enable_pruning = flags_a.enable_pruning,
+	.enable_topo_index = !flags_a.disable_topo_index,
+	.enable_extended_ledger_index = config.extended_ledger_index && !flags_a.inactive_node }) },
 	ledger{ *ledger_impl },
 	runner_impl{ std::make_unique<nano::thread_runner> (io_ctx_shared, logger, config.io_threads) },
 	runner{ *runner_impl },
@@ -448,32 +448,38 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 		}
 	}
 
-	ledger.pruning = flags.enable_pruning || store.pruned.count (store.tx_begin_read ()) > 0;
-
-	if (ledger.pruning)
+	// The persisted ledger pruning flag is authoritative; --enable_pruning only requests the one-way transition
+	// Gated on !flags.inactive_node so CLI utilities can still open the ledger without transitioning it
+	if ((flags.enable_pruning || ledger.flags.pruning) && !flags.inactive_node)
 	{
-		// Gated on !flags.inactive_node so CLI utilities can still open the ledger
-		if (config.enable_voting && !flags.inactive_node)
+		if (config.enable_voting)
 		{
-			logger.critical (nano::log::type::node, "Incompatibility detected between config node.enable_voting and existing pruned blocks");
+			logger.critical (nano::log::type::node, "Config node.enable_voting is incompatible with ledger pruning");
 			std::exit (1);
 		}
-		if (!flags.enable_pruning && !flags.inactive_node)
+		if (config.extended_ledger_index)
 		{
-			logger.critical (nano::log::type::node, "To start node with existing pruned blocks use launch flag --enable_pruning");
+			logger.critical (nano::log::type::node, "Config node.extended_ledger_index is incompatible with ledger pruning");
 			std::exit (1);
 		}
-		if (ledger.flags.topo_index && !flags.inactive_node)
+	}
+	if (flags.enable_pruning && !ledger.flags.pruning && !flags.inactive_node)
+	{
+		if (ledger.flags.topo_index)
 		{
-			logger.critical (nano::log::type::node, "Incompatibility detected between topological index and ledger pruning. To proceed, either disable pruning, or run the node with --drop_topo_index to remove the topology index.");
+			logger.critical (nano::log::type::node, "Ledger pruning is incompatible with the topology index. To proceed, run the node with --drop_topo_index to remove the topology index.");
 			std::exit (1);
 		}
-		if (ledger.flags.any_extended_ledger_index_enabled () && !flags.inactive_node)
+		if (ledger.flags.any_extended_ledger_index_enabled ())
 		{
-			logger.critical (nano::log::type::node, "Incompatibility detected between extended ledger indices and ledger pruning. To proceed, either disable pruning, or run the node with --drop_extended_ledger_indices to remove the extended ledger indices.");
+			logger.critical (nano::log::type::node, "Ledger pruning is incompatible with extended ledger indices. To proceed, run the node with --drop_extended_ledger_indices to remove the extended ledger indices.");
 			std::exit (1);
 		}
 
+		ledger.enable_pruning ();
+	}
+	if (ledger.flags.pruning)
+	{
 		logger.warn (nano::log::type::node, "WARNING: Ledger pruning is enabled. This feature is experimental and may result in node instability! Please see release notes for more information.");
 	}
 
@@ -916,7 +922,7 @@ nano::bootstrap_weights nano::node::get_bootstrap_weights () const
 void nano::node::bootstrap_block (const nano::block_hash & hash)
 {
 	// If we are running pruning node check if block was not already pruned
-	if (!ledger.pruning || !store.pruned.exists (store.tx_begin_read (), hash))
+	if (!ledger.flags.pruning || !store.pruned.exists (store.tx_begin_read (), hash))
 	{
 		// We don't have the block, try to bootstrap it
 		// TODO: Use ascending bootstrapper to bootstrap block hash
@@ -962,7 +968,7 @@ nano::messages::telemetry_data nano::node::local_telemetry () const
 	telemetry_data.pre_release_version = nano::get_pre_release_node_version ();
 	telemetry_data.maker = flags.peering_only
 	? nano::messages::telemetry_maker::nf_peering_node
-	: (ledger.pruning ? nano::messages::telemetry_maker::nf_pruned_node : nano::messages::telemetry_maker::nf_node);
+	: (ledger.flags.pruning ? nano::messages::telemetry_maker::nf_pruned_node : nano::messages::telemetry_maker::nf_node);
 	telemetry_data.timestamp = std::chrono::system_clock::now ();
 	telemetry_data.active_difficulty = default_difficulty (nano::work_version::work_1);
 	telemetry_data.database_backend = nano::messages::to_telemetry_database_backend (config.database_backend);

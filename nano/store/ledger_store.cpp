@@ -224,6 +224,9 @@ void ledger_store::perform_upgrades (nano::store::backend_meta db_meta)
 			upgrade_v25_to_v26 ();
 			[[fallthrough]];
 		case 26:
+			upgrade_v26_to_v27 ();
+			[[fallthrough]];
+		case 27:
 			break;
 		default:
 			release_assert (false, "invalid ledger database version for upgrade", std::to_string (db_meta.version));

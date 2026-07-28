@@ -35,17 +35,26 @@ private:
 	std::atomic<uint64_t> account_count{ 0 };
 };
 
+/**
+ * Ledger behavior requested by the caller at construction
+ */
 struct ledger_options
 {
 	nano::generate_cache_flags generate_cache{};
 	nano::uint128_t min_rep_weight{ 0 };
 	uint64_t max_backlog{ 0 };
+	// Seeds fresh ledgers as pruned and blocks index population; takes precedence over the index options below
+	bool enable_pruning{ false };
 	bool enable_topo_index{ true };
 	bool enable_extended_ledger_index{ false };
 };
 
+/**
+ * Persisted properties of the ledger data, loaded from the store and authoritative
+ */
 struct ledger_flags
 {
+	bool pruning{ false };
 	bool topo_index{ false };
 	bool account_delegator_by_weight_index{ false };
 	bool account_receivable_by_amount_index{ false };
@@ -150,6 +159,12 @@ public:
 
 public: // Index management
 	/**
+	 * Permanently mark the ledger as pruned; one-way, idempotent.
+	 * Requires the topology index and all extended ledger indices to be disabled.
+	 */
+	void enable_pruning ();
+
+	/**
 	 * Walk every block in the ledger, compute and persist its topology height, then enable the topology index flag
 	 * Intended as a one-time offline upgrade for ledgers initialized before the topology index existed
 	 */
@@ -214,7 +229,6 @@ public:
 
 public:
 	uint64_t const max_backlog_size{ 0 };
-	bool pruning{ false };
 
 	nano::bootstrap_weights bootstrap_weights{};
 

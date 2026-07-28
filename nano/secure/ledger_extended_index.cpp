@@ -15,6 +15,16 @@
 // Populate missing extended ledger indices when requested by options; persisted index flags remain authoritative otherwise
 void nano::ledger::initialize_extended_ledger_indices ()
 {
+	// Extended ledger indices are incompatible with pruning, never populate on a (to-be-)pruned ledger
+	if (flags.pruning || options.enable_pruning)
+	{
+		if (options.enable_extended_ledger_index)
+		{
+			logger.error (nano::log::type::ledger, "Extended ledger index is enabled in config but is incompatible with ledger pruning; indices will not be populated");
+		}
+		return;
+	}
+
 	if (options.enable_extended_ledger_index && !flags.all_extended_ledger_indices_enabled ())
 	{
 		if (store.get_mode () == nano::store::open_mode::read_only)
@@ -34,6 +44,8 @@ void nano::ledger::initialize_extended_ledger_indices ()
 
 void nano::ledger::populate_extended_ledger_indices ()
 {
+	release_assert (!flags.pruning, "extended ledger indices cannot be populated on a pruned ledger");
+
 	logger.info (nano::log::type::ledger_upgrade, "Populating extended ledger indices...");
 
 	if (!flags.account_delegator_by_weight_index)

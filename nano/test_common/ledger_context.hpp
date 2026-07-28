@@ -14,7 +14,7 @@ class ledger_context
 public:
 	/** 'blocks' initialises the ledger with each block in-order
 		Blocks must all return process_result::progress when processed */
-	ledger_context (std::deque<std::shared_ptr<nano::block>> && blocks = std::deque<std::shared_ptr<nano::block>>{});
+	ledger_context (std::deque<std::shared_ptr<nano::block>> && blocks = std::deque<std::shared_ptr<nano::block>>{}, nano::ledger_options options = {});
 
 	nano::ledger & ledger ();
 	nano::store::ledger_store & store ();
@@ -33,7 +33,7 @@ private:
 };
 
 /** Only a genesis block */
-ledger_context ledger_empty ();
+ledger_context ledger_empty (nano::ledger_options options = {});
 /** Send/receive pair of state blocks on the genesis account */
 ledger_context ledger_send_receive ();
 /** Send/receive pair of legacy blocks on the genesis account */

@@ -19,6 +19,7 @@
 void nano::ledger::populate_topo_index ()
 {
 	release_assert (!flags.topo_index, "populate_topo_index called when topo_index is already enabled");
+	release_assert (!flags.pruning, "the topology index cannot be populated on a pruned ledger");
 
 	logger.info (nano::log::type::ledger_upgrade, "Populating topology index...");
 

@@ -5078,9 +5078,7 @@ TEST (ledger, dependencies_cemented_pruning)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	// Topo index is incompatible with pruning
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
-	ledger.pruning = true;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true });
 	auto transaction = ledger.tx_begin_write ();
 	nano::block_builder builder;
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -5150,7 +5148,8 @@ TEST (ledger, block_confirmed)
 
 TEST (ledger, cache)
 {
-	auto ctx = nano::test::ledger_empty ();
+	// Pruning-enabled so the pruned count cache can be exercised as well
+	auto ctx = nano::test::ledger_empty (nano::ledger_options{ .enable_pruning = true });
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto & stats = ctx.stats ();
@@ -5255,9 +5254,7 @@ TEST (ledger, pruning_action)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	// Topo index is incompatible with pruning
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
-	ledger.pruning = true;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true });
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::block_builder builder;
@@ -5296,10 +5293,6 @@ TEST (ledger, pruning_action)
 	ASSERT_TRUE (ledger.any.pending_get (transaction, nano::pending_key{ nano::dev::genesis_key.pub, send1->hash () }));
 	ASSERT_FALSE (ledger.any.block_exists (transaction, send1->hash ()));
 	ASSERT_TRUE (ledger.any.block_exists_or_pruned (transaction, send1->hash ()));
-	// Pruned ledger start without proper flags emulation
-	ledger.pruning = false;
-	ASSERT_TRUE (ledger.any.block_exists_or_pruned (transaction, send1->hash ()));
-	ledger.pruning = true;
 	ASSERT_TRUE (store->pruned.exists (transaction, send1->hash ()));
 	ASSERT_TRUE (ledger.any.block_exists (transaction, nano::dev::genesis->hash ()));
 	ASSERT_TRUE (ledger.any.block_exists (transaction, send2->hash ()));
@@ -5340,9 +5333,7 @@ TEST (ledger, pruning_large_chain)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	// Topo index is incompatible with pruning
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
-	ledger.pruning = true;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true });
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	size_t send_receive_pairs (20);
@@ -5395,9 +5386,7 @@ TEST (ledger, pruning_source_rollback)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	// Topo index is incompatible with pruning
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
-	ledger.pruning = true;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true });
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::block_builder builder;
@@ -5483,9 +5472,7 @@ TEST (ledger, pruning_source_rollback_legacy)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	// Topo index is incompatible with pruning
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
-	ledger.pruning = true;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true });
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::block_builder builder;
@@ -5596,9 +5583,7 @@ TEST (ledger, pruning_legacy_blocks)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	// Topo index is incompatible with pruning
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
-	ledger.pruning = true;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true });
 	nano::keypair key1;
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -5682,9 +5667,7 @@ TEST (ledger, pruning_safe_functions)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	// Topo index is incompatible with pruning
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
-	ledger.pruning = true;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true });
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::block_builder builder;
@@ -5733,9 +5716,7 @@ TEST (ledger, random_blocks)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	// Topo index is incompatible with pruning
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
-	ledger.pruning = true;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true });
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::block_builder builder;

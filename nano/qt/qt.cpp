@@ -1032,7 +1032,7 @@ std::string nano_qt::status::text ()
 	count_string += ", Unchecked: " + std::to_string (unchecked);
 	count_string += ", Cemented: " + std::to_string (cemented);
 
-	if (wallet.node.flags.enable_pruning)
+	if (wallet.node.ledger.flags.pruning)
 	{
 		count_string += ", Full: " + std::to_string (wallet.wallet_m->wallets.node.ledger.block_count () - wallet.wallet_m->wallets.node.ledger.pruned_count ());
 		count_string += ", Pruned: " + std::to_string (wallet.wallet_m->wallets.node.ledger.pruned_count ());
