@@ -428,10 +428,10 @@ TEST (ledger_extended_index, fresh_ledger_enables_flags)
 	ASSERT_TRUE (ledger.flags.all_extended_ledger_indices_enabled ());
 
 	auto txn = ledger.tx_begin_read ();
-	ASSERT_TRUE (store->version.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled));
-	ASSERT_TRUE (store->version.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled));
-	ASSERT_TRUE (store->version.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled));
-	ASSERT_TRUE (store->version.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled));
+	ASSERT_TRUE (store->meta.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled));
+	ASSERT_TRUE (store->meta.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled));
+	ASSERT_TRUE (store->meta.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled));
+	ASSERT_TRUE (store->meta.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled));
 
 	ASSERT_TRUE (store->extended.account_delegator_by_weight.present ());
 	ASSERT_TRUE (store->extended.account_receivable_by_amount.present ());
@@ -462,10 +462,10 @@ TEST (ledger_extended_index, disabled_by_default)
 	ASSERT_FALSE (ledger.flags.any_extended_ledger_index_enabled ());
 
 	auto txn = ledger.tx_begin_read ();
-	ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled));
-	ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled));
-	ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled));
-	ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled));
+	ASSERT_FALSE (store->meta.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled));
+	ASSERT_FALSE (store->meta.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled));
+	ASSERT_FALSE (store->meta.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled));
+	ASSERT_FALSE (store->meta.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled));
 	ASSERT_FALSE (store->extended.account_delegator_by_weight.present ());
 	ASSERT_FALSE (store->extended.account_receivable_by_amount.present ());
 	ASSERT_FALSE (store->extended.receive_block_by_send_block.present ());
@@ -727,10 +727,10 @@ TEST (ledger_extended_index, single_index_populate_and_mixed_flags)
 	ASSERT_FALSE (ledger.flags.all_extended_ledger_indices_enabled ());
 	{
 		auto txn = ledger.tx_begin_read ();
-		ASSERT_TRUE (store->version.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled));
-		ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled));
-		ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled));
-		ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled));
+		ASSERT_TRUE (store->meta.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled));
+		ASSERT_FALSE (store->meta.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled));
+		ASSERT_FALSE (store->meta.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled));
+		ASSERT_FALSE (store->meta.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled));
 		ASSERT_EQ (2, store->extended.receive_block_by_send_block.count (txn));
 		ASSERT_EQ (open1->hash (), store->extended.receive_block_by_send_block.get (txn, send1->hash ()).value ());
 		ASSERT_TRUE (store->extended.receive_block_by_send_block.present ());
@@ -1361,10 +1361,10 @@ TEST (ledger_extended_index, drop_and_repopulate)
 		ledger.drop_extended_ledger_indices ();
 		ASSERT_FALSE (ledger.flags.any_extended_ledger_index_enabled ());
 		auto txn = ledger.tx_begin_read ();
-		ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled));
-		ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled));
-		ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled));
-		ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled));
+		ASSERT_FALSE (store->meta.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled));
+		ASSERT_FALSE (store->meta.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled));
+		ASSERT_FALSE (store->meta.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled));
+		ASSERT_FALSE (store->meta.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled));
 		ASSERT_FALSE (store->extended.account_delegator_by_weight.present ());
 		ASSERT_FALSE (store->extended.account_receivable_by_amount.present ());
 		ASSERT_FALSE (store->extended.receive_block_by_send_block.present ());
@@ -1450,7 +1450,7 @@ TEST (ledger_extended_index, drop_recovers_from_missing_table)
 	{
 		auto store = nano::test::make_store (logger, stats, path);
 		store->extended.account_delegator_by_weight.drop ();
-		ASSERT_TRUE (store->version.get_flag (store->tx_begin_read (), nano::store::meta_key::account_delegator_by_weight_index_enabled));
+		ASSERT_TRUE (store->meta.get_flag (store->tx_begin_read (), nano::store::meta_key::account_delegator_by_weight_index_enabled));
 
 		// Without the consistency check the ledger opens on the corrupted store and can drop the indices
 		nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .generate_cache = nano::generate_cache_flags::all_disabled () });
@@ -1490,7 +1490,7 @@ TEST (ledger_extended_index, read_only_open_without_extended_tables)
 		auto backend = nano::test::make_backend (path);
 		nano::store::ledger_store store{ std::move (backend), nano::store::open_mode::read_only, stats, logger };
 		auto txn = store.tx_begin_read ();
-		ASSERT_FALSE (store.version.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled));
+		ASSERT_FALSE (store.meta.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled));
 		ASSERT_FALSE (store.extended.account_delegator_by_weight.present ());
 		ASSERT_FALSE (store.extended.account_receivable_by_amount.present ());
 		ASSERT_FALSE (store.extended.receive_block_by_send_block.present ());

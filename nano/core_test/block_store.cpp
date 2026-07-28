@@ -1672,22 +1672,22 @@ TEST (block_store, meta_flags)
 	auto const key = static_cast<nano::store::meta_key> (99);
 	{
 		auto txn = store->tx_begin_read ();
-		ASSERT_FALSE (store->version.get_flag (txn, key));
+		ASSERT_FALSE (store->meta.get_flag (txn, key));
 	}
 	{
 		auto txn = store->tx_begin_write ();
-		store->version.put_flag (txn, key, true);
+		store->meta.put_flag (txn, key, true);
 	}
 	{
 		auto txn = store->tx_begin_read ();
-		ASSERT_TRUE (store->version.get_flag (txn, key));
+		ASSERT_TRUE (store->meta.get_flag (txn, key));
 	}
 	{
 		auto txn = store->tx_begin_write ();
-		store->version.put_flag (txn, key, false);
+		store->meta.put_flag (txn, key, false);
 	}
 	{
 		auto txn = store->tx_begin_read ();
-		ASSERT_FALSE (store->version.get_flag (txn, key));
+		ASSERT_FALSE (store->meta.get_flag (txn, key));
 	}
 }

@@ -63,7 +63,7 @@ private:
 	std::unique_ptr<nano::store::ledger::confirmation_height_view> confirmation_height_impl;
 	std::unique_ptr<nano::store::ledger::final_vote_view> final_vote_impl;
 	std::unique_ptr<nano::store::ledger::topology_view> topology_impl;
-	std::unique_ptr<nano::store::ledger::version_view> version_impl;
+	std::unique_ptr<nano::store::ledger::meta_view> meta_impl;
 
 	// Extended ledger tables
 	std::unique_ptr<nano::store::ledger::account_block_by_height_view> account_block_by_height_impl;
@@ -84,7 +84,7 @@ public:
 	nano::store::ledger::confirmation_height_view & confirmation_height;
 	nano::store::ledger::final_vote_view & final_vote;
 	nano::store::ledger::topology_view & topology;
-	nano::store::ledger::version_view & version;
+	nano::store::ledger::meta_view & meta;
 
 	// Extended ledger tables
 	struct

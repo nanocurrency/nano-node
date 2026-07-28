@@ -64,10 +64,10 @@ void nano::ledger::drop_extended_ledger_indices ()
 
 	{
 		auto txn = store.tx_begin_write ();
-		store.version.put_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled, false);
-		store.version.put_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled, false);
-		store.version.put_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled, false);
-		store.version.put_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled, false);
+		store.meta.put_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled, false);
+		store.meta.put_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled, false);
+		store.meta.put_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled, false);
+		store.meta.put_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled, false);
 	}
 
 	logger.info (nano::log::type::ledger_upgrade, "Dropping delegator weight index...");
@@ -140,7 +140,7 @@ void nano::ledger::populate_receive_block_by_send_block_index ()
 				crawler.refresh ();
 			}
 		}
-		store.version.put_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled, true);
+		store.meta.put_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled, true);
 	}
 
 	flags.receive_block_by_send_block_index = true;
@@ -194,7 +194,7 @@ void nano::ledger::populate_account_block_by_height_index ()
 			}
 		}
 		release_assert (processed == total_blocks, "account block height index entry count mismatch");
-		store.version.put_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled, true);
+		store.meta.put_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled, true);
 	}
 
 	flags.account_block_by_height_index = true;
@@ -242,7 +242,7 @@ void nano::ledger::populate_account_delegator_by_weight_index ()
 				crawler.refresh ();
 			}
 		}
-		store.version.put_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled, true);
+		store.meta.put_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled, true);
 	}
 
 	flags.account_delegator_by_weight_index = true;
@@ -290,7 +290,7 @@ void nano::ledger::populate_account_receivable_by_amount_index ()
 				crawler.refresh ();
 			}
 		}
-		store.version.put_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled, true);
+		store.meta.put_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled, true);
 	}
 
 	flags.account_receivable_by_amount_index = true;

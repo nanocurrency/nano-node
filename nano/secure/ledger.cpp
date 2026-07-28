@@ -97,10 +97,10 @@ void nano::ledger::seed_genesis (nano::store::ledger_store & store, nano::store:
 	if (options.enable_topo_index)
 	{
 		store.topology.put (txn, { /* topo_height */ 1, /* hash */ constants.genesis->hash () });
-		store.version.put_flag (txn, nano::store::meta_key::topo_index_enabled, true);
+		store.meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, true);
 	}
 
-	store.version.put_version (txn, nano::store::ledger_store::version_current);
+	store.meta.put_version (txn, nano::store::ledger_store::version_current);
 }
 
 void nano::ledger::initialize ()
@@ -126,11 +126,11 @@ void nano::ledger::initialize ()
 	// Load ledger flags
 	{
 		auto const transaction = store.tx_begin_read ();
-		flags.topo_index = store.version.get_flag (transaction, nano::store::meta_key::topo_index_enabled);
-		flags.account_delegator_by_weight_index = store.version.get_flag (transaction, nano::store::meta_key::account_delegator_by_weight_index_enabled);
-		flags.account_receivable_by_amount_index = store.version.get_flag (transaction, nano::store::meta_key::account_receivable_by_amount_index_enabled);
-		flags.receive_block_by_send_block_index = store.version.get_flag (transaction, nano::store::meta_key::receive_block_by_send_block_index_enabled);
-		flags.account_block_by_height_index = store.version.get_flag (transaction, nano::store::meta_key::account_block_by_height_index_enabled);
+		flags.topo_index = store.meta.get_flag (transaction, nano::store::meta_key::topo_index_enabled);
+		flags.account_delegator_by_weight_index = store.meta.get_flag (transaction, nano::store::meta_key::account_delegator_by_weight_index_enabled);
+		flags.account_receivable_by_amount_index = store.meta.get_flag (transaction, nano::store::meta_key::account_receivable_by_amount_index_enabled);
+		flags.receive_block_by_send_block_index = store.meta.get_flag (transaction, nano::store::meta_key::receive_block_by_send_block_index_enabled);
+		flags.account_block_by_height_index = store.meta.get_flag (transaction, nano::store::meta_key::account_block_by_height_index_enabled);
 
 		logger.debug (nano::log::type::ledger, "Ledger flags loaded: topo_index={}, account_delegator_by_weight={}, account_receivable_by_amount={}, receive_block_by_send_block={}, account_block_by_height={}",
 		flags.topo_index,

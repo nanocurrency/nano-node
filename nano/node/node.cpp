@@ -886,7 +886,7 @@ std::shared_ptr<nano::transport::channel> nano::node::create_null_channel ()
 
 uint64_t nano::node::store_version () const
 {
-	return store.version.get_version (store.tx_begin_read ());
+	return store.meta.get_version (store.tx_begin_read ());
 }
 
 nano::node_capabilities_flags nano::node::get_capabilities () const

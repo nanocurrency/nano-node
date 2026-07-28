@@ -10,10 +10,13 @@ namespace nano::store
 {
 enum class meta_key : uint64_t
 {
+	// Database schema
 	version = 1,
+
+	// Ledger feature flags
 	topo_index_enabled = 8,
 
-	// Extended ledger indices
+	// Extended ledger index flags
 	receive_block_by_send_block_index_enabled = 16,
 	account_receivable_by_amount_index_enabled = 17,
 	account_delegator_by_weight_index_enabled = 18,

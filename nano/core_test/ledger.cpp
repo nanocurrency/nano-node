@@ -5885,7 +5885,7 @@ TEST (ledger, copy_to_rocksdb)
 		store->peer.put (transaction, endpoint_key, 37);
 		store->pending.put (transaction, nano::pending_key (nano::dev::genesis_key.pub, send->hash ()), nano::pending_info (nano::dev::genesis_key.pub, 100, nano::epoch::epoch_0));
 		store->pruned.put (transaction, send->hash ());
-		store->version.put_version (transaction, version);
+		store->meta.put_version (transaction, version);
 		send->sideband_set ({});
 		store->block.put (transaction, send->hash (), *send);
 		store->final_vote.put (transaction, send->qualified_root (), nano::block_hash (2));
@@ -5922,7 +5922,7 @@ TEST (ledger, copy_to_rocksdb)
 		ASSERT_EQ (*send, *block1);
 
 		ASSERT_TRUE (rocksdb_store->peer.exists (rocksdb_transaction, endpoint_key));
-		ASSERT_EQ (rocksdb_store->version.get_version (rocksdb_transaction), version);
+		ASSERT_EQ (rocksdb_store->meta.get_version (rocksdb_transaction), version);
 
 		nano::confirmation_height_info confirmation_height_info;
 		ASSERT_FALSE (rocksdb_store->confirmation_height.get (rocksdb_transaction, nano::dev::genesis_key.pub, confirmation_height_info));
@@ -7073,7 +7073,7 @@ TEST (ledger, topo_height_unindexed_dependency_propagates_zero)
 	}
 	{
 		auto txn = store->tx_begin_write ();
-		store->version.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
+		store->meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
 	}
 
 	std::shared_ptr<nano::block> send;
@@ -7098,7 +7098,7 @@ TEST (ledger, topo_height_unindexed_dependency_propagates_zero)
 
 	{
 		auto txn = store->tx_begin_write ();
-		store->version.put_flag (txn, nano::store::meta_key::topo_index_enabled, true);
+		store->meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, true);
 	}
 	{
 		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
@@ -7135,7 +7135,7 @@ TEST (ledger, topo_height_disabled_flag_skips_indexing)
 	}
 	{
 		auto txn = store->tx_begin_write ();
-		store->version.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
+		store->meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
 	}
 
 	nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
@@ -7189,7 +7189,7 @@ TEST (ledger, populate_topo_index_legacy_chain)
 	}
 	{
 		auto txn = store->tx_begin_write ();
-		store->version.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
+		store->meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
 	}
 
 	// Build the chain with the flag disabled so every block lands with topo_height = 0
@@ -7301,7 +7301,7 @@ TEST (ledger, populate_topo_index_state_blocks)
 	}
 	{
 		auto txn = store->tx_begin_write ();
-		store->version.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
+		store->meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
 	}
 
 	std::shared_ptr<nano::block> send;
@@ -7411,7 +7411,7 @@ TEST (ledger, populate_topo_index_with_epoch_blocks)
 	}
 	{
 		auto txn = store->tx_begin_write ();
-		store->version.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
+		store->meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
 	}
 
 	std::shared_ptr<nano::block> send;
@@ -7551,7 +7551,7 @@ TEST (ledger, populate_topo_index_mixed_indexed_and_unindexed)
 	// Flip the flag off so the next batch lands unindexed
 	{
 		auto txn = store->tx_begin_write ();
-		store->version.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
+		store->meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
 	}
 
 	// Phase B: process more blocks with the flag off -- topo_height must stay 0
@@ -7690,7 +7690,7 @@ TEST (ledger, drop_topo_index)
 		ASSERT_FALSE (store->topology.exists (txn, { 1, nano::dev::genesis->hash () }));
 		ASSERT_FALSE (store->topology.exists (txn, { 2, send->hash () }));
 		ASSERT_FALSE (store->topology.exists (txn, { 3, open->hash () }));
-		ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::topo_index_enabled));
+		ASSERT_FALSE (store->meta.get_flag (txn, nano::store::meta_key::topo_index_enabled));
 		ASSERT_TRUE (store->block.exists (txn, send->hash ()));
 		ASSERT_TRUE (store->block.exists (txn, open->hash ()));
 	}

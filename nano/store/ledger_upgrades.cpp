@@ -168,7 +168,7 @@ void ledger_store::upgrade_v22_to_v23 ()
 		});
 
 		logger.info (nano::log::type::ledger_upgrade, "Done processing {} accounts", processed);
-		version.put_version (transaction, 23);
+		meta.put_version (transaction, 23);
 	}
 	backend.close ();
 
@@ -188,7 +188,7 @@ void ledger_store::upgrade_v23_to_v24 ()
 		release_assert (dropped, "failed to drop frontiers table during upgrade");
 
 		auto transaction = backend.tx_begin_write ();
-		version.put_version (transaction, 24);
+		meta.put_version (transaction, 24);
 	}
 	backend.close ();
 
@@ -246,7 +246,7 @@ void ledger_store::upgrade_v24_to_v25 ()
 		});
 
 		logger.info (nano::log::type::ledger_upgrade, "Done processing {} blocks", processed);
-		version.put_version (transaction, 25);
+		meta.put_version (transaction, 25);
 	}
 	backend.close ();
 
@@ -358,7 +358,7 @@ void ledger_store::upgrade_v25_to_v26 ()
 		crawler.refresh ();
 
 		logger.info (nano::log::type::ledger_upgrade, "Done processing {} blocks ({} converted, {} already upgraded)", processed + skipped, processed, skipped);
-		version.put_version (transaction, 26);
+		meta.put_version (transaction, 26);
 	}
 
 	backend.close ();
