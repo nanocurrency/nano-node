@@ -124,7 +124,7 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	.generate_cache = flags_a.generate_cache,
 	.min_rep_weight = config.representative_vote_weight_minimum.number (),
 	.max_backlog = config.max_backlog,
-	// Pruning takes precedence over the index options inside the ledger; persisted flags win on existing ledgers
+	// Auto-populating extended indices is a live node behavior, hence the inactive_node gate
 	.enable_pruning = flags_a.enable_pruning,
 	.enable_topo_index = !flags_a.disable_topo_index,
 	.enable_extended_ledger_index = config.extended_ledger_index && !flags_a.inactive_node }) },
@@ -448,38 +448,16 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 		}
 	}
 
-	// The persisted ledger pruning flag is authoritative; --enable_pruning only requests the one-way transition
-	// Gated on !flags.inactive_node so CLI utilities can still open the ledger without transitioning it
-	if ((flags.enable_pruning || ledger.flags.pruning) && !flags.inactive_node)
+	// The pruning transition is applied by the ledger itself, only the operational conflicts are checked here
+	if (ledger.flags.pruning)
 	{
-		if (config.enable_voting)
+		// Gated on !flags.inactive_node so CLI utilities can still open the ledger
+		if (config.enable_voting && !flags.inactive_node)
 		{
 			logger.critical (nano::log::type::node, "Config node.enable_voting is incompatible with ledger pruning");
 			std::exit (1);
 		}
-		if (config.extended_ledger_index)
-		{
-			logger.critical (nano::log::type::node, "Config node.extended_ledger_index is incompatible with ledger pruning");
-			std::exit (1);
-		}
-	}
-	if (flags.enable_pruning && !ledger.flags.pruning && !flags.inactive_node)
-	{
-		if (ledger.flags.topo_index)
-		{
-			logger.critical (nano::log::type::node, "Ledger pruning is incompatible with the topology index. To proceed, run the node with --drop_topo_index to remove the topology index.");
-			std::exit (1);
-		}
-		if (ledger.flags.any_extended_ledger_index_enabled ())
-		{
-			logger.critical (nano::log::type::node, "Ledger pruning is incompatible with extended ledger indices. To proceed, run the node with --drop_extended_ledger_indices to remove the extended ledger indices.");
-			std::exit (1);
-		}
 
-		ledger.enable_pruning ();
-	}
-	if (ledger.flags.pruning)
-	{
 		logger.warn (nano::log::type::node, "WARNING: Ledger pruning is enabled. This feature is experimental and may result in node instability! Please see release notes for more information.");
 	}
 

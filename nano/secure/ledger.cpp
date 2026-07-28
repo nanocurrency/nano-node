@@ -76,6 +76,7 @@ void nano::ledger::seed_genesis (nano::store::ledger_store & store, nano::store:
 {
 	release_assert (store.empty (txn), "attempt to seed a non-empty ledger store");
 	release_assert (constants.genesis->has_sideband ());
+	release_assert (!(options.enable_pruning && options.enable_topo_index), "pruning is incompatible with the topo index, initialize a pruned ledger with --disable_topo_index");
 
 	store.block.put (txn, constants.genesis->hash (), *constants.genesis);
 
@@ -96,10 +97,9 @@ void nano::ledger::seed_genesis (nano::store::ledger_store & store, nano::store:
 
 	if (options.enable_pruning)
 	{
-		// Pruning is incompatible with the topo index, so a pruned ledger is seeded without one
 		store.meta.put_flag (txn, nano::store::meta_key::pruning_enabled, true);
 	}
-	else if (options.enable_topo_index)
+	if (options.enable_topo_index)
 	{
 		store.topology.put (txn, { /* topo_height */ 1, /* hash */ constants.genesis->hash () });
 		store.meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, true);
@@ -157,6 +157,12 @@ void nano::ledger::initialize ()
 			release_assert (!flags.receive_block_by_send_block_index || store.extended.receive_block_by_send_block.present (), "receive block lookup index flag is set but its table is absent, run --drop_extended_ledger_indices to recover");
 			release_assert (!flags.account_block_by_height_index || store.extended.account_block_by_height.present (), "account block height index flag is set but its table is absent, run --drop_extended_ledger_indices to recover");
 		}
+	}
+
+	// Apply the requested one-way pruning transition, making the pruning flag authoritative from here on
+	if (options.enable_pruning)
+	{
+		enable_pruning ();
 	}
 
 	auto const & generate_cache_flags = options.generate_cache;
@@ -955,14 +961,14 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (secure::transaction con
 
 void nano::ledger::enable_pruning ()
 {
-	release_assert (store.get_mode () != nano::store::open_mode::read_only, "pruning cannot be enabled while the backend is opened in read-only mode");
-	release_assert (!flags.topo_index, "pruning is incompatible with the topology index, drop it first");
-	release_assert (!flags.any_extended_ledger_index_enabled (), "pruning is incompatible with extended ledger indices, drop them first");
-
 	if (flags.pruning)
 	{
 		return;
 	}
+
+	release_assert (store.get_mode () != nano::store::open_mode::read_only, "pruning cannot be enabled while the backend is opened in read-only mode");
+	release_assert (!flags.topo_index, "pruning is incompatible with the topology index, run --drop_topo_index first");
+	release_assert (!flags.any_extended_ledger_index_enabled (), "pruning is incompatible with extended ledger indices, run --drop_extended_ledger_indices first");
 
 	{
 		auto txn = tx_begin_write ();

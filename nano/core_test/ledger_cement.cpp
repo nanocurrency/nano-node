@@ -767,7 +767,7 @@ TEST (ledger_cement, pruned_source)
 	auto path (nano::unique_path ());
 	auto store = nano::test::make_store (system.logger, system.stats, path);
 
-	nano::ledger ledger (*store, nano::dev::network_params, system.stats, system.logger, nano::ledger_options{ .enable_pruning = true });
+	nano::ledger ledger (*store, nano::dev::network_params, system.stats, system.logger, nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
 	nano::store::write_queue write_queue;
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair key1, key2;

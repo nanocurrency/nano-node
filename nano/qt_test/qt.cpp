@@ -508,7 +508,7 @@ TEST (history, pruned_source)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true });
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
 	nano::block_hash next_pruning;
 	// Basic pruning for legacy blocks. Previous block is pruned, source is pruned
 	{

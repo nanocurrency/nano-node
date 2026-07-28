@@ -43,7 +43,6 @@ struct ledger_options
 	nano::generate_cache_flags generate_cache{};
 	nano::uint128_t min_rep_weight{ 0 };
 	uint64_t max_backlog{ 0 };
-	// Seeds fresh ledgers as pruned and blocks index population; takes precedence over the index options below
 	bool enable_pruning{ false };
 	bool enable_topo_index{ true };
 	bool enable_extended_ledger_index{ false };
