@@ -627,10 +627,10 @@ TEST (rpc, receivable_sorting_confirmed_offset_parity)
 }
 
 /*
- * Unsorted queries apply the offset to confirmed entries in send hash order before the threshold filter,
- * so a confirmed entry below the threshold still consumes the offset
+ * Unsorted queries apply the threshold filter before the offset,
+ * so a below-threshold entry neither appears in the response nor consumes the offset
  */
-TEST (rpc, receivable_unsorted_offset_before_threshold)
+TEST (rpc, receivable_unsorted_offset_after_threshold)
 {
 	nano::test::system system;
 	nano::node_config config = system.default_config ();
@@ -639,9 +639,9 @@ TEST (rpc, receivable_unsorted_offset_before_threshold)
 	auto node = add_ipc_enabled_node (system, config);
 	nano::block_builder builder;
 
-	// Pick a destination for which the below-threshold send sorts first in hash order, making the quirk observable
+	// Pick a destination for which the below-threshold send sorts first in hash order, so it would consume the offset if it were not filtered first
 	nano::keypair key1;
-	std::shared_ptr<nano::block> send_low, send_high;
+	std::shared_ptr<nano::block> send_low, send_high1, send_high2;
 	do
 	{
 		key1 = nano::keypair{};
@@ -654,32 +654,52 @@ TEST (rpc, receivable_unsorted_offset_before_threshold)
 				   .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				   .work (*node->work_generate_blocking (nano::dev::genesis->hash ()))
 				   .build ();
-		send_high = builder.state ()
-					.account (nano::dev::genesis_key.pub)
-					.previous (send_low->hash ())
-					.representative (nano::dev::genesis_key.pub)
-					.balance (nano::dev::constants.genesis_amount - 101)
-					.link (key1.pub)
-					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-					.work (*node->work_generate_blocking (send_low->hash ()))
-					.build ();
-	} while (send_low->hash ().number () > send_high->hash ().number ());
+		send_high1 = builder.state ()
+					 .account (nano::dev::genesis_key.pub)
+					 .previous (send_low->hash ())
+					 .representative (nano::dev::genesis_key.pub)
+					 .balance (nano::dev::constants.genesis_amount - 101)
+					 .link (key1.pub)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*node->work_generate_blocking (send_low->hash ()))
+					 .build ();
+		send_high2 = builder.state ()
+					 .account (nano::dev::genesis_key.pub)
+					 .previous (send_high1->hash ())
+					 .representative (nano::dev::genesis_key.pub)
+					 .balance (nano::dev::constants.genesis_amount - 301)
+					 .link (key1.pub)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*node->work_generate_blocking (send_high1->hash ()))
+					 .build ();
+	} while (send_low->hash ().number () > send_high1->hash ().number () || send_low->hash ().number () > send_high2->hash ().number ());
 	ASSERT_EQ (nano::block_status::progress, node->process (send_low));
-	ASSERT_EQ (nano::block_status::progress, node->process (send_high));
+	ASSERT_EQ (nano::block_status::progress, node->process (send_high1));
+	ASSERT_EQ (nano::block_status::progress, node->process (send_high2));
+
+	// The above-threshold sends in hash ascending order, matching the unsorted scan; fixed-width hex compares like the numeric hash
+	std::vector<std::pair<std::string, std::string>> qualifying{ { send_high1->hash ().to_string (), "100" }, { send_high2->hash ().to_string (), "200" } };
+	std::sort (qualifying.begin (), qualifying.end ());
 
 	auto const rpc_ctx = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "receivable");
 	request.put ("account", key1.pub.to_account ());
-	// The sends deliberately stay unconfirmed, so the query must accept unconfirmed receivables
+	// The sends deliberately stay unconfirmed, so the queries must accept unconfirmed receivables
 	request.put ("include_only_confirmed", "false");
 	request.put ("threshold", 50);
+	{
+		auto response = wait_response (system, rpc_ctx, request);
+		// The threshold alone drops the 1 raw send
+		ASSERT_EQ (qualifying, blocks_of (response.get_child ("blocks")));
+	}
 	request.put ("offset", 1);
-	auto response = wait_response (system, rpc_ctx, request);
-
-	// The offset consumes the below-threshold 1 raw send, leaving the 100 raw send in the response
-	std::vector<std::pair<std::string, std::string>> expected{ { send_high->hash ().to_string (), "100" } };
-	ASSERT_EQ (expected, blocks_of (response.get_child ("blocks")));
+	{
+		auto response = wait_response (system, rpc_ctx, request);
+		// The offset skips the first above-threshold send; the below-threshold send does not consume it
+		std::vector<std::pair<std::string, std::string>> expected{ qualifying[1] };
+		ASSERT_EQ (expected, blocks_of (response.get_child ("blocks")));
+	}
 }
 
 /*
