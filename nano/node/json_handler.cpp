@@ -1059,8 +1059,8 @@ struct receivable_options
 
 /*
  * Collects one account's receivable entries into a response subtree.
- * Sorted queries return entries by descending amount (hash descending on ties), applying offset and count in that order;
- * unsorted queries emit in send hash order while scanning, bounded by count.
+ * Sorted queries return entries by descending amount (hash descending on ties), unsorted queries emit in send hash order while scanning.
+ * In both modes offset and count apply, in that order, to the entries passing the confirmation and threshold filters.
  * The extended receivable index accelerates sorted queries when enabled, the fallback sort produces identical responses.
  */
 boost::property_tree::ptree collect_receivables (nano::node & node, nano::secure::transaction & transaction, nano::account const & account, receivable_options const & options)
@@ -1142,21 +1142,24 @@ boost::property_tree::ptree collect_receivables (nano::node & node, nano::secure
 	}
 	else
 	{
-		// Unsorted path: emit in send hash order while scanning, bounded by count; offset skips confirmed entries before the threshold filter
+		// Unsorted path: emit in send hash order while scanning, bounded by count
 		for (auto i (node.store.pending.begin (transaction, nano::pending_key (account, 0))), n (node.store.pending.end (transaction)); i != n && i->first.account == account && receivables.size () < options.count; ++i)
 		{
-			if (block_confirmed (node, transaction, i->first.hash, options.include_active, options.include_only_confirmed))
+			// Confirmation requirements and threshold filter entries without consuming offset or count
+			if (!block_confirmed (node, transaction, i->first.hash, options.include_active, options.include_only_confirmed))
 			{
-				if (offset_counter > 0)
-				{
-					--offset_counter;
-					continue;
-				}
-				if (options.simple || i->second.amount.number () >= options.threshold.number ())
-				{
-					emit (i->first.hash, i->second);
-				}
+				continue;
 			}
+			if (!options.simple && i->second.amount.number () < options.threshold.number ())
+			{
+				continue;
+			}
+			if (offset_counter > 0)
+			{
+				--offset_counter;
+				continue;
+			}
+			emit (i->first.hash, i->second);
 		}
 	}
 	return receivables;
