@@ -4742,19 +4742,28 @@ void nano::json_handler::wallet_change_seed ()
 			nano::raw_key seed;
 			if (!seed.decode_hex (seed_text))
 			{
-				auto count (static_cast<uint32_t> (rpc_l->count_optional_impl (0)));
-				if (!wallet->is_locked ())
+				// Count is the number of accounts added beyond the first, and is restored as a 32 bit index
+				auto count (rpc_l->count_optional_impl (0));
+				if (!rpc_l->ec && count > static_cast<uint64_t> (std::numeric_limits<uint32_t>::max ()))
 				{
-					nano::public_key account (wallet->change_seed (seed, count));
-					rpc_l->response_l.put ("success", "");
-					rpc_l->response_l.put ("last_restored_account", account.to_account ());
-					auto index (wallet->get_deterministic_index ());
-					debug_assert (index > 0);
-					rpc_l->response_l.put ("restored_count", std::to_string (index));
+					rpc_l->ec = nano::error_common::invalid_count;
 				}
-				else
+				// Validate before touching the wallet, a rejected count must leave the existing seed in place
+				if (!rpc_l->ec)
 				{
-					rpc_l->ec = nano::error_common::wallet_locked;
+					if (!wallet->is_locked ())
+					{
+						nano::public_key account (wallet->change_seed (seed, static_cast<uint32_t> (count)));
+						rpc_l->response_l.put ("success", "");
+						rpc_l->response_l.put ("last_restored_account", account.to_account ());
+						auto index (wallet->get_deterministic_index ());
+						debug_assert (index > 0);
+						rpc_l->response_l.put ("restored_count", std::to_string (index));
+					}
+					else
+					{
+						rpc_l->ec = nano::error_common::wallet_locked;
+					}
 				}
 			}
 			else

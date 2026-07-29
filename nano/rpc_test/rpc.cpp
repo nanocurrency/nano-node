@@ -2707,6 +2707,39 @@ TEST (rpc, wallet_change_seed)
 	ASSERT_EQ ("1", response.get<std::string> ("restored_count"));
 }
 
+/*
+ * Counts that do not fit a 32 bit index and counts that do not parse are rejected.
+ * A rejected request must leave the existing seed in place
+ */
+TEST (rpc, wallet_change_seed_count_rejected)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node);
+	auto seed_before = system.wallet (0)->get_seed ();
+	ASSERT_TRUE (seed_before);
+
+	nano::raw_key seed;
+	nano::random_pool::generate_block (seed.bytes.data (), seed.bytes.size ());
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_change_seed");
+	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("seed", seed.to_string ());
+	// 2^32 truncated to zero and silently restored by ledger scan; the trailing garbage parses as 12 before failing, which restored 12 accounts
+	for (auto const * count : { "4294967296", "12abc" })
+	{
+		request.put ("count", count);
+		auto response = wait_response (system, rpc_ctx, request);
+		auto error = response.get_optional<std::string> ("error");
+		ASSERT_TRUE (error) << "count " << count << " was accepted";
+		ASSERT_EQ (std::error_code (nano::error_common::invalid_count).message (), error.value ());
+	}
+
+	auto seed_after = system.wallet (0)->get_seed ();
+	ASSERT_TRUE (seed_after);
+	ASSERT_EQ (seed_before.value (), seed_after.value ());
+}
+
 TEST (rpc, wallet_frontiers)
 {
 	nano::test::system system0;
