@@ -84,6 +84,26 @@ nano::store::column_schema const ledger_store::schema_v25{
 	{ nano::store::table::meta, "meta" }
 };
 
+nano::store::column_schema const ledger_store::schema_v26{
+	{ nano::store::table::blocks, "blocks" },
+	{ nano::store::table::accounts, "accounts" },
+	{ nano::store::table::pending, "pending" },
+	{ nano::store::table::rep_weights, "rep_weights" },
+	{ nano::store::table::online_weight, "online_weight" },
+	{ nano::store::table::pruned, "pruned" },
+	{ nano::store::table::successor, "successor" },
+	{ nano::store::table::peers, "peers" },
+	{ nano::store::table::confirmation_height, "confirmation_height" },
+	{ nano::store::table::final_votes, "final_votes" },
+	{ nano::store::table::topology, "topology" },
+	{ nano::store::table::meta, "meta" },
+	// Extended ledger tables, created on demand when the corresponding index gets populated
+	{ nano::store::table::account_block_by_height, "account_block_by_height", nano::store::table_kind::optional },
+	{ nano::store::table::account_delegator_by_weight, "account_delegator_by_weight", nano::store::table_kind::optional },
+	{ nano::store::table::account_receivable_by_amount, "account_receivable_by_amount", nano::store::table_kind::optional },
+	{ nano::store::table::receive_block_by_send_block, "receive_block_by_send_block", nano::store::table_kind::optional }
+};
+
 // Drop unchecked table
 void ledger_store::upgrade_v21_to_v22 ()
 {
@@ -168,7 +188,7 @@ void ledger_store::upgrade_v22_to_v23 ()
 		});
 
 		logger.info (nano::log::type::ledger_upgrade, "Done processing {} accounts", processed);
-		version.put_version (transaction, 23);
+		meta.put_version (transaction, 23);
 	}
 	backend.close ();
 
@@ -188,7 +208,7 @@ void ledger_store::upgrade_v23_to_v24 ()
 		release_assert (dropped, "failed to drop frontiers table during upgrade");
 
 		auto transaction = backend.tx_begin_write ();
-		version.put_version (transaction, 24);
+		meta.put_version (transaction, 24);
 	}
 	backend.close ();
 
@@ -246,7 +266,7 @@ void ledger_store::upgrade_v24_to_v25 ()
 		});
 
 		logger.info (nano::log::type::ledger_upgrade, "Done processing {} blocks", processed);
-		version.put_version (transaction, 25);
+		meta.put_version (transaction, 25);
 	}
 	backend.close ();
 
@@ -358,11 +378,39 @@ void ledger_store::upgrade_v25_to_v26 ()
 		crawler.refresh ();
 
 		logger.info (nano::log::type::ledger_upgrade, "Done processing {} blocks ({} converted, {} already upgraded)", processed + skipped, processed, skipped);
-		version.put_version (transaction, 26);
+		meta.put_version (transaction, 26);
 	}
 
 	backend.close ();
 
 	logger.info (nano::log::type::ledger_upgrade, "Upgrading database from v25 to v26 completed");
+}
+
+// Record the ledger pruning state in a persisted meta flag, derived from the presence of pruned block entries
+void ledger_store::upgrade_v26_to_v27 ()
+{
+	logger.info (nano::log::type::ledger_upgrade, "Upgrading database from v26 to v27...");
+
+	backend.open (schema_v26, nano::store::open_mode::read_write);
+	{
+		release_assert (backend.get_version (backend.tx_begin_read ()) == 26, "unexpected version during upgrade", std::to_string (backend.get_version (backend.tx_begin_read ())));
+
+		bool is_pruned = false;
+		{
+			auto read_txn = backend.tx_begin_read ();
+			is_pruned = backend.begin (read_txn, nano::store::table::pruned) != backend.end (read_txn, nano::store::table::pruned);
+		}
+
+		auto transaction = backend.tx_begin_write ();
+		if (is_pruned)
+		{
+			logger.info (nano::log::type::ledger_upgrade, "Ledger contains pruned blocks, marking it as pruned");
+			meta.put_flag (transaction, nano::store::meta_key::pruning_enabled, true);
+		}
+		meta.put_version (transaction, 27);
+	}
+	backend.close ();
+
+	logger.info (nano::log::type::ledger_upgrade, "Upgrading database from v26 to v27 completed");
 }
 }

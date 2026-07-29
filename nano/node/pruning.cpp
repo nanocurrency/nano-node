@@ -29,7 +29,8 @@ void nano::pruning::start ()
 {
 	debug_assert (!thread.joinable ());
 
-	if (!flags.enable_pruning)
+	// The persisted ledger flag is authoritative, a pruned ledger is always actively pruning
+	if (!ledger.flags.pruning)
 	{
 		return;
 	}

@@ -76,6 +76,7 @@ void nano::ledger::seed_genesis (nano::store::ledger_store & store, nano::store:
 {
 	release_assert (store.empty (txn), "attempt to seed a non-empty ledger store");
 	release_assert (constants.genesis->has_sideband ());
+	release_assert (!(options.enable_pruning && options.enable_topo_index), "pruning is incompatible with the topo index, initialize a pruned ledger with --disable_topo_index");
 
 	store.block.put (txn, constants.genesis->hash (), *constants.genesis);
 
@@ -94,13 +95,17 @@ void nano::ledger::seed_genesis (nano::store::ledger_store & store, nano::store:
 
 	store.rep_weight.put (txn, constants.genesis->account (), std::numeric_limits<nano::uint128_t>::max ());
 
+	if (options.enable_pruning)
+	{
+		store.meta.put_flag (txn, nano::store::meta_key::pruning_enabled, true);
+	}
 	if (options.enable_topo_index)
 	{
 		store.topology.put (txn, { /* topo_height */ 1, /* hash */ constants.genesis->hash () });
-		store.version.put_flag (txn, nano::store::meta_key::topo_index_enabled, true);
+		store.meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, true);
 	}
 
-	store.version.put_version (txn, nano::store::ledger_store::version_current);
+	store.meta.put_version (txn, nano::store::ledger_store::version_current);
 }
 
 void nano::ledger::initialize ()
@@ -126,28 +131,38 @@ void nano::ledger::initialize ()
 	// Load ledger flags
 	{
 		auto const transaction = store.tx_begin_read ();
-		flags.topo_index = store.version.get_flag (transaction, nano::store::meta_key::topo_index_enabled);
-		flags.account_delegator_by_weight_index = store.version.get_flag (transaction, nano::store::meta_key::account_delegator_by_weight_index_enabled);
-		flags.account_receivable_by_amount_index = store.version.get_flag (transaction, nano::store::meta_key::account_receivable_by_amount_index_enabled);
-		flags.receive_block_by_send_block_index = store.version.get_flag (transaction, nano::store::meta_key::receive_block_by_send_block_index_enabled);
-		flags.account_block_by_height_index = store.version.get_flag (transaction, nano::store::meta_key::account_block_by_height_index_enabled);
+		flags.pruning = store.meta.get_flag (transaction, nano::store::meta_key::pruning_enabled);
+		flags.topo_index = store.meta.get_flag (transaction, nano::store::meta_key::topo_index_enabled);
+		flags.account_delegator_by_weight_index = store.meta.get_flag (transaction, nano::store::meta_key::account_delegator_by_weight_index_enabled);
+		flags.account_receivable_by_amount_index = store.meta.get_flag (transaction, nano::store::meta_key::account_receivable_by_amount_index_enabled);
+		flags.receive_block_by_send_block_index = store.meta.get_flag (transaction, nano::store::meta_key::receive_block_by_send_block_index_enabled);
+		flags.account_block_by_height_index = store.meta.get_flag (transaction, nano::store::meta_key::account_block_by_height_index_enabled);
 
-		logger.debug (nano::log::type::ledger, "Ledger flags loaded: topo_index={}, account_delegator_by_weight={}, account_receivable_by_amount={}, receive_block_by_send_block={}, account_block_by_height={}",
+		logger.debug (nano::log::type::ledger, "Ledger flags loaded: pruning={}, topo_index={}, account_delegator_by_weight={}, account_receivable_by_amount={}, receive_block_by_send_block={}, account_block_by_height={}",
+		flags.pruning,
 		flags.topo_index,
 		flags.account_delegator_by_weight_index,
 		flags.account_receivable_by_amount_index,
 		flags.receive_block_by_send_block_index,
 		flags.account_block_by_height_index);
 
-		// A persisted index flag must never be set without its backing table
-		// Skipped without the consistency check so --drop_extended_ledger_indices can still recover such a store
+		// Persisted flags must form a valid combination and every index flag needs its backing table
+		// Skipped without the consistency check so the --drop_* recovery commands can still open such a store
 		if (options.generate_cache.consistency_check)
 		{
+			release_assert (!(flags.pruning && flags.topo_index), "ledger has both pruning and the topology index enabled, run --drop_topo_index to recover");
+			release_assert (!(flags.pruning && flags.any_extended_ledger_index_enabled ()), "ledger has both pruning and extended ledger indices enabled, run --drop_extended_ledger_indices to recover");
 			release_assert (!flags.account_delegator_by_weight_index || store.extended.account_delegator_by_weight.present (), "delegator weight index flag is set but its table is absent, run --drop_extended_ledger_indices to recover");
 			release_assert (!flags.account_receivable_by_amount_index || store.extended.account_receivable_by_amount.present (), "receivable amount index flag is set but its table is absent, run --drop_extended_ledger_indices to recover");
 			release_assert (!flags.receive_block_by_send_block_index || store.extended.receive_block_by_send_block.present (), "receive block lookup index flag is set but its table is absent, run --drop_extended_ledger_indices to recover");
 			release_assert (!flags.account_block_by_height_index || store.extended.account_block_by_height.present (), "account block height index flag is set but its table is absent, run --drop_extended_ledger_indices to recover");
 		}
+	}
+
+	// Apply the requested one-way pruning transition, making the pruning flag authoritative from here on
+	if (options.enable_pruning)
+	{
+		enable_pruning ();
 	}
 
 	auto const & generate_cache_flags = options.generate_cache;
@@ -197,6 +212,12 @@ void nano::ledger::initialize ()
 		cache.pruned_count = store.pruned.count (transaction);
 
 		logger.debug (nano::log::type::ledger, "Pruned count cache generated");
+
+		// The persisted pruning flag is authoritative, pruned entries must never exist without it
+		if (options.generate_cache.consistency_check)
+		{
+			release_assert (flags.pruning || cache.pruned_count == 0, "ledger contains pruned blocks but is not marked as pruned", std::to_string (cache.pruned_count));
+		}
 	}
 
 	if (generate_cache_flags.reps)
@@ -938,8 +959,30 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (secure::transaction con
 	return result;
 }
 
+void nano::ledger::enable_pruning ()
+{
+	if (flags.pruning)
+	{
+		return;
+	}
+
+	release_assert (store.get_mode () != nano::store::open_mode::read_only, "pruning cannot be enabled while the backend is opened in read-only mode");
+	release_assert (!flags.topo_index, "pruning is incompatible with the topology index, run --drop_topo_index first");
+	release_assert (!flags.any_extended_ledger_index_enabled (), "pruning is incompatible with extended ledger indices, run --drop_extended_ledger_indices first");
+
+	{
+		auto txn = tx_begin_write ();
+		store.meta.put_flag (txn, nano::store::meta_key::pruning_enabled, true);
+	}
+	flags.pruning = true;
+
+	logger.info (nano::log::type::ledger, "Ledger permanently marked as pruned");
+}
+
 uint64_t nano::ledger::pruning_action (secure::write_transaction & transaction_a, nano::block_hash const & hash_a, uint64_t const batch_size_a)
 {
+	debug_assert (flags.pruning);
+
 	uint64_t pruned_count (0);
 	nano::block_hash hash (hash_a);
 	while (!hash.is_zero () && hash != constants.genesis->hash ())
@@ -951,10 +994,6 @@ uint64_t nano::ledger::pruning_action (secure::write_transaction & transaction_a
 
 			del_block (transaction_a, hash, *block_l);
 			store.pruned.put (transaction_a, hash);
-			if (block_l->sideband ().topo_height != 0)
-			{
-				store.topology.del (transaction_a, { block_l->sideband ().topo_height, hash });
-			}
 
 			hash = block_l->previous ();
 			++pruned_count;

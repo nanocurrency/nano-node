@@ -15,6 +15,7 @@
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
 #include <nano/store/ledger/pending.hpp>
+#include <nano/store/ledger/pruned.hpp>
 #include <nano/store/ledger/rep_weight.hpp>
 #include <nano/store/ledger/successor.hpp>
 #include <nano/store/ledger/version.hpp>
@@ -184,7 +185,7 @@ TEST (ledger_upgrades, current_version_read_only)
 	nano::test::default_logger ());
 
 	auto tx = store.tx_begin_read ();
-	ASSERT_EQ (store.version.get_version (tx), nano::store::ledger_store::version_current);
+	ASSERT_EQ (store.meta.get_version (tx), nano::store::ledger_store::version_current);
 
 	// Verify we can read genesis account
 	nano::account_info info;
@@ -217,7 +218,7 @@ TEST (ledger_upgrades, current_version_no_upgrade)
 	nano::test::default_logger ());
 
 	auto tx = store.tx_begin_read ();
-	ASSERT_EQ (store.version.get_version (tx), nano::store::ledger_store::version_current);
+	ASSERT_EQ (store.meta.get_version (tx), nano::store::ledger_store::version_current);
 }
 
 namespace
@@ -367,7 +368,7 @@ TEST (ledger_upgrades, upgrade_v22_to_v23_rep_weights)
 
 	// Verify rep weights were correctly calculated
 	auto tx = store.tx_begin_read ();
-	ASSERT_EQ (store.version.get_version (tx), nano::store::ledger_store::version_current);
+	ASSERT_EQ (store.meta.get_version (tx), nano::store::ledger_store::version_current);
 
 	// rep_a should have weight from account_1 + account_2 = 1000 + 500 = 1500
 	ASSERT_EQ (store.rep_weight.get (tx, rep_a), 1500);
@@ -521,7 +522,7 @@ TEST (ledger_upgrades, upgrade_v22_to_v23_stale_rep_weights)
 
 	// Verify rep weights are correct (not corrupted by stale data)
 	auto tx = store.tx_begin_read ();
-	ASSERT_EQ (store.version.get_version (tx), nano::store::ledger_store::version_current);
+	ASSERT_EQ (store.meta.get_version (tx), nano::store::ledger_store::version_current);
 
 	// rep_a should have correct weight from account_1 = 1000 (not stale 999999)
 	ASSERT_EQ (store.rep_weight.get (tx, rep_a), 1000);
@@ -711,7 +712,7 @@ TEST (ledger_upgrades, upgrade_v24_to_v25)
 	auto tx = store.tx_begin_read ();
 
 	// Verify version
-	ASSERT_EQ (store.version.get_version (tx), nano::store::ledger_store::version_current);
+	ASSERT_EQ (store.meta.get_version (tx), nano::store::ledger_store::version_current);
 
 	// Verify successor table has the correct entry for block1 -> block2
 	auto successor_result = store.successor.get (tx, block1->hash ());
@@ -799,6 +800,28 @@ public:
 	std::filesystem::path path;
 	std::unique_ptr<nano::store::backend> backend;
 };
+
+class legacy_database_v26
+{
+public:
+	legacy_database_v26 (std::filesystem::path const & path_a) :
+		path{ path_a },
+		backend{ nano::test::make_backend (path_a) }
+	{
+		backend->create (nano::store::ledger_store::schema_v26, 26);
+		backend->open (nano::store::ledger_store::schema_v26, nano::store::open_mode::read_write);
+	}
+
+	void add_pruned (nano::block_hash const & hash)
+	{
+		auto tx = backend->tx_begin_write ();
+		auto status = backend->put (tx, nano::store::table::pruned, hash, nullptr);
+		backend->release_assert_success (status);
+	}
+
+	std::filesystem::path path;
+	std::unique_ptr<nano::store::backend> backend;
+};
 }
 
 /*
@@ -881,9 +904,8 @@ TEST (ledger_upgrades, upgrade_v25_to_v26)
 
 	auto tx = store.tx_begin_read ();
 
-	// Verify version is now 26
-	ASSERT_EQ (store.version.get_version (tx), nano::store::ledger_store::version_current);
-	ASSERT_EQ (store.version.get_version (tx), 26);
+	// Upgrade chain continues past v26 up to the current version
+	ASSERT_EQ (store.meta.get_version (tx), nano::store::ledger_store::version_current);
 
 	// Verify blocks are readable with new format
 	auto stored_block1 = store.block.get (tx, block1->hash ());
@@ -970,7 +992,7 @@ TEST (ledger_upgrades, upgrade_v25_to_v26_interrupted)
 
 	auto tx = store.tx_begin_read ();
 
-	ASSERT_EQ (store.version.get_version (tx), 26);
+	ASSERT_EQ (store.meta.get_version (tx), nano::store::ledger_store::version_current);
 
 	// Both blocks should be readable
 	auto stored_block1 = store.block.get (tx, block1->hash ());
@@ -987,6 +1009,54 @@ TEST (ledger_upgrades, upgrade_v25_to_v26_interrupted)
 	auto successor_result = store.successor.get (tx, block1->hash ());
 	ASSERT_TRUE (successor_result.has_value ());
 	ASSERT_EQ (*successor_result, block2->hash ());
+}
+
+/*
+ * Test v26 to v27 upgrade: a ledger with pruned entries gets the persisted pruning flag
+ */
+TEST (ledger_upgrades, upgrade_v26_to_v27_pruned)
+{
+	auto const path = nano::unique_path ();
+	{
+		legacy_database_v26 legacy_db{ path };
+		legacy_db.add_pruned (nano::block_hash{ 42 });
+	}
+
+	// Open through ledger_store which should trigger upgrade
+	nano::store::ledger_store store (
+	nano::test::make_backend (path),
+	nano::store::open_mode::read_write,
+	nano::test::default_stats (),
+	nano::test::default_logger ());
+
+	auto tx = store.tx_begin_read ();
+	ASSERT_EQ (store.meta.get_version (tx), nano::store::ledger_store::version_current);
+	ASSERT_TRUE (store.meta.get_flag (tx, nano::store::meta_key::pruning_enabled));
+
+	// Pruned entries survive the upgrade
+	ASSERT_TRUE (store.pruned.exists (tx, nano::block_hash{ 42 }));
+}
+
+/*
+ * Test v26 to v27 upgrade: a ledger without pruned entries stays unmarked
+ */
+TEST (ledger_upgrades, upgrade_v26_to_v27_unpruned)
+{
+	auto const path = nano::unique_path ();
+	{
+		legacy_database_v26 legacy_db{ path };
+	}
+
+	// Open through ledger_store which should trigger upgrade
+	nano::store::ledger_store store (
+	nano::test::make_backend (path),
+	nano::store::open_mode::read_write,
+	nano::test::default_stats (),
+	nano::test::default_logger ());
+
+	auto tx = store.tx_begin_read ();
+	ASSERT_EQ (store.meta.get_version (tx), nano::store::ledger_store::version_current);
+	ASSERT_FALSE (store.meta.get_flag (tx, nano::store::meta_key::pruning_enabled));
 }
 
 /*
@@ -1017,7 +1087,7 @@ TEST (ledger_upgrades, full_upgrade_v21_to_current)
 
 	// Verify final version
 	auto tx = store.tx_begin_read ();
-	ASSERT_EQ (store.version.get_version (tx), nano::store::ledger_store::version_current);
+	ASSERT_EQ (store.meta.get_version (tx), nano::store::ledger_store::version_current);
 
 	// Verify account still exists
 	nano::account_info account_info;
@@ -1079,7 +1149,7 @@ TEST (ledger_upgrades, upgrade_backup)
 
 	// Verify version was upgraded
 	auto tx = store.tx_begin_read ();
-	ASSERT_EQ (store.version.get_version (tx), nano::store::ledger_store::version_current);
+	ASSERT_EQ (store.meta.get_version (tx), nano::store::ledger_store::version_current);
 
 	// Verify backup was created
 	ASSERT_TRUE (backup_exists ());

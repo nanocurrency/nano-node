@@ -31,5 +31,5 @@ class successor_view;
 class rep_weight_view;
 class topology_view;
 
-using version_view = nano::store::meta_view;
+using meta_view = nano::store::meta_view;
 }

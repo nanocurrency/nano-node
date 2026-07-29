@@ -15,6 +15,8 @@
 // Populate missing extended ledger indices when requested by options; persisted index flags remain authoritative otherwise
 void nano::ledger::initialize_extended_ledger_indices ()
 {
+	release_assert (!(options.enable_extended_ledger_index && flags.pruning), "extended ledger index is incompatible with ledger pruning, remove extended_ledger_index from node config");
+
 	if (options.enable_extended_ledger_index && !flags.all_extended_ledger_indices_enabled ())
 	{
 		if (store.get_mode () == nano::store::open_mode::read_only)
@@ -34,6 +36,8 @@ void nano::ledger::initialize_extended_ledger_indices ()
 
 void nano::ledger::populate_extended_ledger_indices ()
 {
+	release_assert (!flags.pruning, "extended ledger indices cannot be populated on a pruned ledger");
+
 	logger.info (nano::log::type::ledger_upgrade, "Populating extended ledger indices...");
 
 	if (!flags.account_delegator_by_weight_index)
@@ -64,10 +68,10 @@ void nano::ledger::drop_extended_ledger_indices ()
 
 	{
 		auto txn = store.tx_begin_write ();
-		store.version.put_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled, false);
-		store.version.put_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled, false);
-		store.version.put_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled, false);
-		store.version.put_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled, false);
+		store.meta.put_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled, false);
+		store.meta.put_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled, false);
+		store.meta.put_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled, false);
+		store.meta.put_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled, false);
 	}
 
 	logger.info (nano::log::type::ledger_upgrade, "Dropping delegator weight index...");
@@ -140,7 +144,7 @@ void nano::ledger::populate_receive_block_by_send_block_index ()
 				crawler.refresh ();
 			}
 		}
-		store.version.put_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled, true);
+		store.meta.put_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled, true);
 	}
 
 	flags.receive_block_by_send_block_index = true;
@@ -194,7 +198,7 @@ void nano::ledger::populate_account_block_by_height_index ()
 			}
 		}
 		release_assert (processed == total_blocks, "account block height index entry count mismatch");
-		store.version.put_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled, true);
+		store.meta.put_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled, true);
 	}
 
 	flags.account_block_by_height_index = true;
@@ -242,7 +246,7 @@ void nano::ledger::populate_account_delegator_by_weight_index ()
 				crawler.refresh ();
 			}
 		}
-		store.version.put_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled, true);
+		store.meta.put_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled, true);
 	}
 
 	flags.account_delegator_by_weight_index = true;
@@ -290,7 +294,7 @@ void nano::ledger::populate_account_receivable_by_amount_index ()
 				crawler.refresh ();
 			}
 		}
-		store.version.put_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled, true);
+		store.meta.put_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled, true);
 	}
 
 	flags.account_receivable_by_amount_index = true;

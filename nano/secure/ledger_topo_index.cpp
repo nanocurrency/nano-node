@@ -19,6 +19,7 @@
 void nano::ledger::populate_topo_index ()
 {
 	release_assert (!flags.topo_index, "populate_topo_index called when topo_index is already enabled");
+	release_assert (!flags.pruning, "the topology index cannot be populated on a pruned ledger");
 
 	logger.info (nano::log::type::ledger_upgrade, "Populating topology index...");
 
@@ -249,7 +250,7 @@ void nano::ledger::populate_topo_index ()
 	// Flip the flag only after both phases commit
 	{
 		auto txn = tx_begin_write ();
-		store.version.put_flag (txn, nano::store::meta_key::topo_index_enabled, true);
+		store.meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, true);
 	}
 	flags.topo_index = true;
 
@@ -265,7 +266,7 @@ void nano::ledger::drop_topo_index ()
 	// Disable the persisted flag first so a crash cannot leave the index marked as enabled after the topology table has been cleared
 	{
 		auto txn = tx_begin_write ();
-		store.version.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
+		store.meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
 	}
 	store.topology.clear ();
 

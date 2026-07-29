@@ -146,7 +146,7 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_tcp_realtime", "Disables TCP realtime connections")
 		("disable_search_pending", "Disables the periodic search for pending transactions")
 		("disable_topo_index", "Initialize a fresh ledger without the topology index. Required for pruning. Has no effect on an existing ledger; use --drop_topo_index to disable on an existing ledger.")
-		("enable_pruning", "Enable experimental ledger pruning")
+		("enable_pruning", "Enable experimental ledger pruning. Permanently marks the ledger as pruned on first use; subsequent launches keep pruning even without this flag")
 		("peering_only", "Run as a peering-only node: keep a genesis-only ledger, run no ledger subsystems, and participate only in the peer-to-peer network (peer discovery/bootstrap)")
 		("enable_rpc", "Enable RPC")
 		("enable_voting", "Enable voting")
@@ -640,11 +640,12 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 
 					auto txn = store.tx_begin_read ();
 
-					bool const topo_index = store.version.get_flag (txn, nano::store::meta_key::topo_index_enabled);
-					bool const account_delegator_by_weight_index = store.version.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled);
-					bool const account_receivable_by_amount_index = store.version.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled);
-					bool const receive_block_by_send_block_index = store.version.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled);
-					bool const account_block_by_height_index = store.version.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled);
+					bool const pruning = store.meta.get_flag (txn, nano::store::meta_key::pruning_enabled);
+					bool const topo_index = store.meta.get_flag (txn, nano::store::meta_key::topo_index_enabled);
+					bool const account_delegator_by_weight_index = store.meta.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled);
+					bool const account_receivable_by_amount_index = store.meta.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled);
+					bool const receive_block_by_send_block_index = store.meta.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled);
+					bool const account_block_by_height_index = store.meta.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled);
 
 					std::cout << "Path:             " << store.get_database_path () << std::endl;
 					std::cout << "Backend:          " << store.get_vendor () << std::endl;
@@ -658,11 +659,12 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					}
 
 					std::cout << "Flags:" << std::endl;
-					std::cout << "  topo_index:                          " << (topo_index ? "enabled" : "disabled") << std::endl;
+					std::cout << "  pruning:                            " << (pruning ? "enabled" : "disabled") << std::endl;
+					std::cout << "  topo_index:                         " << (topo_index ? "enabled" : "disabled") << std::endl;
 					std::cout << "  account_delegator_by_weight_index:  " << (account_delegator_by_weight_index ? "enabled" : "disabled") << std::endl;
 					std::cout << "  account_receivable_by_amount_index: " << (account_receivable_by_amount_index ? "enabled" : "disabled") << std::endl;
-					std::cout << "  receive_block_by_send_block_index:   " << (receive_block_by_send_block_index ? "enabled" : "disabled") << std::endl;
-					std::cout << "  account_block_by_height_index:  " << (account_block_by_height_index ? "enabled" : "disabled") << std::endl;
+					std::cout << "  receive_block_by_send_block_index:  " << (receive_block_by_send_block_index ? "enabled" : "disabled") << std::endl;
+					std::cout << "  account_block_by_height_index:      " << (account_block_by_height_index ? "enabled" : "disabled") << std::endl;
 					std::cout << "Counts:" << std::endl;
 					std::cout << "  blocks:         " << store.block.count (txn) << std::endl;
 					std::cout << "  accounts:       " << store.account.count (txn) << std::endl;

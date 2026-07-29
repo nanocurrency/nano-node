@@ -66,7 +66,7 @@ ledger_store::ledger_store (std::unique_ptr<nano::store::backend> backend_a, nan
 	confirmation_height_impl{ std::make_unique<nano::store::ledger::confirmation_height_view> (*backend_impl) },
 	final_vote_impl{ std::make_unique<nano::store::ledger::final_vote_view> (*backend_impl) },
 	topology_impl{ std::make_unique<nano::store::ledger::topology_view> (*backend_impl) },
-	version_impl{ std::make_unique<nano::store::ledger::version_view> (*backend_impl) },
+	meta_impl{ std::make_unique<nano::store::ledger::meta_view> (*backend_impl) },
 	account_block_by_height_impl{ std::make_unique<nano::store::ledger::account_block_by_height_view> (*backend_impl) },
 	account_delegator_by_weight_impl{ std::make_unique<nano::store::ledger::account_delegator_by_weight_view> (*backend_impl) },
 	account_receivable_by_amount_impl{ std::make_unique<nano::store::ledger::account_receivable_by_amount_view> (*backend_impl) },
@@ -83,7 +83,7 @@ ledger_store::ledger_store (std::unique_ptr<nano::store::backend> backend_a, nan
 	confirmation_height{ *confirmation_height_impl },
 	final_vote{ *final_vote_impl },
 	topology{ *topology_impl },
-	version{ *version_impl },
+	meta{ *meta_impl },
 	extended{
 		.account_block_by_height = *account_block_by_height_impl,
 		.account_delegator_by_weight = *account_delegator_by_weight_impl,
@@ -101,36 +101,36 @@ ledger_store::ledger_store (std::unique_ptr<nano::store::backend> backend_a, nan
 
 	bool needs_upgrade = false;
 	bool fresh_db = false;
-	backend_meta meta{};
+	backend_meta db_meta{};
 
 	if (auto meta_opt = backend.fetch_meta ())
 	{
-		meta = *meta_opt;
+		db_meta = *meta_opt;
 
-		logger.debug (nano::log::type::ledger_store, "Ledger database version: {}", meta.version);
+		logger.debug (nano::log::type::ledger_store, "Ledger database version: {}", db_meta.version);
 
 		// Prevent opening future database versions
-		if (meta.version > version_current)
+		if (db_meta.version > version_current)
 		{
-			logger.error (nano::log::type::ledger_store, "The version of the ledger database ({}) is higher than the current ({}) which is supported. Either upgrade your node software or use a different database.", meta.version, version_current);
+			logger.error (nano::log::type::ledger_store, "The version of the ledger database ({}) is higher than the current ({}) which is supported. Either upgrade your node software or use a different database.", db_meta.version, version_current);
 
-			throw std::runtime_error ("Ledger version " + std::to_string (meta.version) + " is higher than current version " + std::to_string (version_current));
+			throw std::runtime_error ("Ledger version " + std::to_string (db_meta.version) + " is higher than current version " + std::to_string (version_current));
 		}
 
 		// Minimum supported upgrade version check
-		if (meta.version < version_minimum)
+		if (db_meta.version < version_minimum)
 		{
-			logger.error (nano::log::type::ledger_store, "The version of the ledger database ({}) is lower than the minimum ({}) which is supported for upgrades. Perform an intermediate upgrade with an older node version or perform a fresh bootstrap.", meta.version, version_minimum);
+			logger.error (nano::log::type::ledger_store, "The version of the ledger database ({}) is lower than the minimum ({}) which is supported for upgrades. Perform an intermediate upgrade with an older node version or perform a fresh bootstrap.", db_meta.version, version_minimum);
 
-			throw std::runtime_error ("Ledger version " + std::to_string (meta.version) + " is lower than minimum supported version " + std::to_string (version_minimum));
+			throw std::runtime_error ("Ledger version " + std::to_string (db_meta.version) + " is lower than minimum supported version " + std::to_string (version_minimum));
 		}
 
 		// Check if upgrade is needed
-		if (meta.version < version_current)
+		if (db_meta.version < version_current)
 		{
 			needs_upgrade = true;
 
-			logger.info (nano::log::type::ledger_store, "The ledger database needs to be upgraded from version {} to {}", meta.version, version_current);
+			logger.info (nano::log::type::ledger_store, "The ledger database needs to be upgraded from version {} to {}", db_meta.version, version_current);
 		}
 	}
 	else
@@ -139,7 +139,7 @@ ledger_store::ledger_store (std::unique_ptr<nano::store::backend> backend_a, nan
 
 		logger.info (nano::log::type::ledger_store, "No existing ledger found, a new database will be created.");
 	}
-	release_assert (meta.version > 0 || fresh_db);
+	release_assert (db_meta.version > 0 || fresh_db);
 
 	if (needs_upgrade || fresh_db)
 	{
@@ -162,7 +162,7 @@ ledger_store::ledger_store (std::unique_ptr<nano::store::backend> backend_a, nan
 			logger.info (nano::log::type::ledger_store, "Ledger backup completed, continuing with upgrade...");
 		}
 
-		perform_upgrades (meta);
+		perform_upgrades (db_meta);
 	}
 
 	if (fresh_db)
@@ -201,12 +201,12 @@ bool ledger_store::empty (nano::store::transaction const & txn) const
 	return true;
 }
 
-void ledger_store::perform_upgrades (nano::store::backend_meta meta)
+void ledger_store::perform_upgrades (nano::store::backend_meta db_meta)
 {
-	debug_assert (meta.version < version_current, "perform_upgrades called but no upgrade is necessary");
-	release_assert (meta.version >= version_minimum, "perform_upgrades called but version is below minimum supported version", std::to_string (meta.version));
+	debug_assert (db_meta.version < version_current, "perform_upgrades called but no upgrade is necessary");
+	release_assert (db_meta.version >= version_minimum, "perform_upgrades called but version is below minimum supported version", std::to_string (db_meta.version));
 
-	switch (meta.version)
+	switch (db_meta.version)
 	{
 		case 21:
 			upgrade_v21_to_v22 ();
@@ -224,15 +224,18 @@ void ledger_store::perform_upgrades (nano::store::backend_meta meta)
 			upgrade_v25_to_v26 ();
 			[[fallthrough]];
 		case 26:
+			upgrade_v26_to_v27 ();
+			[[fallthrough]];
+		case 27:
 			break;
 		default:
-			release_assert (false, "invalid ledger database version for upgrade", std::to_string (meta.version));
+			release_assert (false, "invalid ledger database version for upgrade", std::to_string (db_meta.version));
 	}
 }
 
 uint64_t ledger_store::get_version () const
 {
-	return version.get_version (backend.tx_begin_read ());
+	return meta.get_version (backend.tx_begin_read ());
 }
 
 std::string ledger_store::get_vendor () const

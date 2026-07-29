@@ -5078,9 +5078,7 @@ TEST (ledger, dependencies_cemented_pruning)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	// Topo index is incompatible with pruning
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
-	ledger.pruning = true;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
 	auto transaction = ledger.tx_begin_write ();
 	nano::block_builder builder;
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -5150,7 +5148,8 @@ TEST (ledger, block_confirmed)
 
 TEST (ledger, cache)
 {
-	auto ctx = nano::test::ledger_empty ();
+	// Pruning-enabled so the pruned count cache can be exercised as well
+	auto ctx = nano::test::ledger_empty (nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
 	auto & ledger = ctx.ledger ();
 	auto & store = ctx.store ();
 	auto & stats = ctx.stats ();
@@ -5250,14 +5249,136 @@ TEST (ledger, cache)
 	}
 }
 
+// Test that seeding a fresh ledger as pruned persists the pruning flag across reopens
+TEST (ledger, pruning_flag_persists)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	auto path (nano::unique_path ());
+
+	// Fresh ledger seeded as pruned, without the topo index
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
+		ASSERT_TRUE (ledger.flags.pruning);
+		ASSERT_FALSE (ledger.flags.topo_index);
+	}
+
+	// Reopening without any options keeps the ledger pruned, the persisted flag is authoritative
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
+		ASSERT_TRUE (ledger.flags.pruning);
+		ASSERT_FALSE (ledger.flags.topo_index);
+	}
+}
+
+// Test that requesting pruning on an existing compatible ledger performs a persistent one-way transition
+TEST (ledger, pruning_flag_transition)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	auto path (nano::unique_path ());
+
+	// Seed a fresh ledger without the topo index and without pruning
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
+		ASSERT_FALSE (ledger.flags.pruning);
+	}
+
+	// Reopening with pruning requested permanently marks the ledger as pruned
+	// The topo option is irrelevant here, it only matters when seeding a fresh ledger
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true });
+		ASSERT_TRUE (ledger.flags.pruning);
+	}
+
+	// The transition must be persisted, not just reflected in the in-memory flags
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
+		ASSERT_TRUE (ledger.flags.pruning);
+	}
+}
+
+// Test that a ledger with conflicting pruning and topo index flags can be recovered with drop_topo_index
+TEST (ledger, pruning_flag_recovery_topo)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	auto path (nano::unique_path ());
+
+	// Seed a normal ledger with the topo index, then fabricate the invalid state by marking it as pruned directly
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
+		ASSERT_TRUE (ledger.flags.topo_index);
+
+		auto txn = store->tx_begin_write ();
+		store->meta.put_flag (txn, nano::store::meta_key::pruning_enabled, true);
+	}
+
+	// Recovery tooling opens without load-time checks and drops the offending index
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .generate_cache = nano::generate_cache_flags::all_disabled () });
+		ASSERT_TRUE (ledger.flags.pruning);
+		ASSERT_TRUE (ledger.flags.topo_index);
+		ledger.drop_topo_index ();
+	}
+
+	// A regular checked open now succeeds with only pruning enabled
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
+		ASSERT_TRUE (ledger.flags.pruning);
+		ASSERT_FALSE (ledger.flags.topo_index);
+	}
+}
+
+// Test that a ledger with conflicting pruning and extended index flags can be recovered with drop_extended_ledger_indices
+TEST (ledger, pruning_flag_recovery_extended)
+{
+	nano::logger logger;
+	nano::stats stats{ logger };
+	auto path (nano::unique_path ());
+
+	// Seed a ledger with extended indices, then fabricate the invalid state by marking it as pruned directly
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false, .enable_extended_ledger_index = true });
+		ASSERT_TRUE (ledger.flags.all_extended_ledger_indices_enabled ());
+
+		auto txn = store->tx_begin_write ();
+		store->meta.put_flag (txn, nano::store::meta_key::pruning_enabled, true);
+	}
+
+	// Recovery tooling opens without load-time checks and drops the offending indices
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .generate_cache = nano::generate_cache_flags::all_disabled () });
+		ASSERT_TRUE (ledger.flags.pruning);
+		ASSERT_TRUE (ledger.flags.any_extended_ledger_index_enabled ());
+		ledger.drop_extended_ledger_indices ();
+	}
+
+	// A regular checked open now succeeds with only pruning enabled
+	{
+		auto store = nano::test::make_store (logger, stats, path);
+		nano::ledger ledger (*store, nano::dev::network_params, stats, logger);
+		ASSERT_TRUE (ledger.flags.pruning);
+		ASSERT_FALSE (ledger.flags.any_extended_ledger_index_enabled ());
+	}
+}
+
 TEST (ledger, pruning_action)
 {
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	// Topo index is incompatible with pruning
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
-	ledger.pruning = true;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::block_builder builder;
@@ -5296,10 +5417,6 @@ TEST (ledger, pruning_action)
 	ASSERT_TRUE (ledger.any.pending_get (transaction, nano::pending_key{ nano::dev::genesis_key.pub, send1->hash () }));
 	ASSERT_FALSE (ledger.any.block_exists (transaction, send1->hash ()));
 	ASSERT_TRUE (ledger.any.block_exists_or_pruned (transaction, send1->hash ()));
-	// Pruned ledger start without proper flags emulation
-	ledger.pruning = false;
-	ASSERT_TRUE (ledger.any.block_exists_or_pruned (transaction, send1->hash ()));
-	ledger.pruning = true;
 	ASSERT_TRUE (store->pruned.exists (transaction, send1->hash ()));
 	ASSERT_TRUE (ledger.any.block_exists (transaction, nano::dev::genesis->hash ()));
 	ASSERT_TRUE (ledger.any.block_exists (transaction, send2->hash ()));
@@ -5340,9 +5457,7 @@ TEST (ledger, pruning_large_chain)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	// Topo index is incompatible with pruning
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
-	ledger.pruning = true;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	size_t send_receive_pairs (20);
@@ -5395,9 +5510,7 @@ TEST (ledger, pruning_source_rollback)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	// Topo index is incompatible with pruning
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
-	ledger.pruning = true;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::block_builder builder;
@@ -5483,9 +5596,7 @@ TEST (ledger, pruning_source_rollback_legacy)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	// Topo index is incompatible with pruning
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
-	ledger.pruning = true;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::block_builder builder;
@@ -5596,9 +5707,7 @@ TEST (ledger, pruning_legacy_blocks)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	// Topo index is incompatible with pruning
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
-	ledger.pruning = true;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
 	nano::keypair key1;
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
@@ -5682,9 +5791,7 @@ TEST (ledger, pruning_safe_functions)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	// Topo index is incompatible with pruning
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
-	ledger.pruning = true;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::block_builder builder;
@@ -5733,9 +5840,7 @@ TEST (ledger, random_blocks)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	// Topo index is incompatible with pruning
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
-	ledger.pruning = true;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
 	auto transaction = ledger.tx_begin_write ();
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::block_builder builder;
@@ -5885,7 +5990,7 @@ TEST (ledger, copy_to_rocksdb)
 		store->peer.put (transaction, endpoint_key, 37);
 		store->pending.put (transaction, nano::pending_key (nano::dev::genesis_key.pub, send->hash ()), nano::pending_info (nano::dev::genesis_key.pub, 100, nano::epoch::epoch_0));
 		store->pruned.put (transaction, send->hash ());
-		store->version.put_version (transaction, version);
+		store->meta.put_version (transaction, version);
 		send->sideband_set ({});
 		store->block.put (transaction, send->hash (), *send);
 		store->final_vote.put (transaction, send->qualified_root (), nano::block_hash (2));
@@ -5922,7 +6027,7 @@ TEST (ledger, copy_to_rocksdb)
 		ASSERT_EQ (*send, *block1);
 
 		ASSERT_TRUE (rocksdb_store->peer.exists (rocksdb_transaction, endpoint_key));
-		ASSERT_EQ (rocksdb_store->version.get_version (rocksdb_transaction), version);
+		ASSERT_EQ (rocksdb_store->meta.get_version (rocksdb_transaction), version);
 
 		nano::confirmation_height_info confirmation_height_info;
 		ASSERT_FALSE (rocksdb_store->confirmation_height.get (rocksdb_transaction, nano::dev::genesis_key.pub, confirmation_height_info));
@@ -7073,7 +7178,7 @@ TEST (ledger, topo_height_unindexed_dependency_propagates_zero)
 	}
 	{
 		auto txn = store->tx_begin_write ();
-		store->version.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
+		store->meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
 	}
 
 	std::shared_ptr<nano::block> send;
@@ -7098,7 +7203,7 @@ TEST (ledger, topo_height_unindexed_dependency_propagates_zero)
 
 	{
 		auto txn = store->tx_begin_write ();
-		store->version.put_flag (txn, nano::store::meta_key::topo_index_enabled, true);
+		store->meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, true);
 	}
 	{
 		nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
@@ -7135,7 +7240,7 @@ TEST (ledger, topo_height_disabled_flag_skips_indexing)
 	}
 	{
 		auto txn = store->tx_begin_write ();
-		store->version.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
+		store->meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
 	}
 
 	nano::ledger ledger{ *store, nano::dev::network_params, stats, logger };
@@ -7189,7 +7294,7 @@ TEST (ledger, populate_topo_index_legacy_chain)
 	}
 	{
 		auto txn = store->tx_begin_write ();
-		store->version.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
+		store->meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
 	}
 
 	// Build the chain with the flag disabled so every block lands with topo_height = 0
@@ -7301,7 +7406,7 @@ TEST (ledger, populate_topo_index_state_blocks)
 	}
 	{
 		auto txn = store->tx_begin_write ();
-		store->version.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
+		store->meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
 	}
 
 	std::shared_ptr<nano::block> send;
@@ -7411,7 +7516,7 @@ TEST (ledger, populate_topo_index_with_epoch_blocks)
 	}
 	{
 		auto txn = store->tx_begin_write ();
-		store->version.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
+		store->meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
 	}
 
 	std::shared_ptr<nano::block> send;
@@ -7551,7 +7656,7 @@ TEST (ledger, populate_topo_index_mixed_indexed_and_unindexed)
 	// Flip the flag off so the next batch lands unindexed
 	{
 		auto txn = store->tx_begin_write ();
-		store->version.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
+		store->meta.put_flag (txn, nano::store::meta_key::topo_index_enabled, false);
 	}
 
 	// Phase B: process more blocks with the flag off -- topo_height must stay 0
@@ -7690,7 +7795,7 @@ TEST (ledger, drop_topo_index)
 		ASSERT_FALSE (store->topology.exists (txn, { 1, nano::dev::genesis->hash () }));
 		ASSERT_FALSE (store->topology.exists (txn, { 2, send->hash () }));
 		ASSERT_FALSE (store->topology.exists (txn, { 3, open->hash () }));
-		ASSERT_FALSE (store->version.get_flag (txn, nano::store::meta_key::topo_index_enabled));
+		ASSERT_FALSE (store->meta.get_flag (txn, nano::store::meta_key::topo_index_enabled));
 		ASSERT_TRUE (store->block.exists (txn, send->hash ()));
 		ASSERT_TRUE (store->block.exists (txn, open->hash ()));
 	}

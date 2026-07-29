@@ -1427,9 +1427,7 @@ TEST (voting_policy, pruned_dependency)
 	nano::logger logger;
 	nano::stats stats{ logger };
 	auto store = nano::test::make_store (logger, stats);
-	// Topo index is incompatible with pruning
-	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_topo_index = false });
-	ledger.pruning = true;
+	nano::ledger ledger (*store, nano::dev::network_params, stats, logger, nano::ledger_options{ .enable_pruning = true, .enable_topo_index = false });
 	nano::voting_policy policy{ ledger };
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair key1;

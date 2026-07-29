@@ -1577,7 +1577,7 @@ void nano::json_handler::block_count ()
 	response_l.put ("count", std::to_string (node.ledger.block_count ()));
 	response_l.put ("unchecked", std::to_string (node.unchecked.count ()));
 	response_l.put ("cemented", std::to_string (node.ledger.cemented_count ()));
-	if (node.flags.enable_pruning)
+	if (node.ledger.flags.pruning)
 	{
 		response_l.put ("full", std::to_string (node.ledger.block_count () - node.ledger.pruned_count ()));
 		response_l.put ("pruned", std::to_string (node.ledger.pruned_count ()));
@@ -3632,7 +3632,7 @@ void nano::json_handler::pruned_exists ()
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
-		if (node.ledger.pruning)
+		if (node.ledger.flags.pruning)
 		{
 			auto exists (node.store.pruned.exists (transaction, hash));
 			response_l.put ("exists", exists ? "1" : "0");

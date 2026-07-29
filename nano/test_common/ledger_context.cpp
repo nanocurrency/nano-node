@@ -5,9 +5,9 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/test_common/ledger_context.hpp>
 
-nano::test::ledger_context::ledger_context (std::deque<std::shared_ptr<nano::block>> && blocks) :
+nano::test::ledger_context::ledger_context (std::deque<std::shared_ptr<nano::block>> && blocks, nano::ledger_options options) :
 	store_m{ nano::make_store (logger_m, stats_m, nano::unique_path (), nano::dev::constants, false, true, nano::node_config{}) },
-	ledger_m{ *store_m, nano::dev::network_params, stats_m, logger_m },
+	ledger_m{ *store_m, nano::dev::network_params, stats_m, logger_m, options },
 	blocks_m{ blocks },
 	pool_m{ nano::dev::network_params.network, 1 }
 {
@@ -53,9 +53,9 @@ nano::work_pool & nano::test::ledger_context::pool ()
  * Ledger facotries
  */
 
-auto nano::test::ledger_empty () -> ledger_context
+auto nano::test::ledger_empty (nano::ledger_options options) -> ledger_context
 {
-	return ledger_context{};
+	return ledger_context{ {}, options };
 }
 
 auto nano::test::ledger_send_receive () -> ledger_context
