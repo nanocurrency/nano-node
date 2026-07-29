@@ -175,8 +175,10 @@ public:
 	// Seed management
 	nano::result<nano::raw_key> get_seed () const;
 	nano::public_key change_seed (nano::raw_key const & seed, uint32_t count = 0);
+	// Inserts accounts up to the highest one with ledger activity
 	void deterministic_restore ();
-	uint32_t deterministic_check (uint32_t index);
+	// Scans accounts from index, returns the highest index with ledger activity, if any
+	std::optional<uint32_t> deterministic_check (uint32_t index);
 	uint32_t get_deterministic_index () const;
 
 	// Representative management
@@ -236,12 +238,16 @@ private:
 	void work_update_impl (nano::store::write_transaction const &, nano::account const & account, nano::root const & root, uint64_t work);
 	bool search_receivable_impl (nano::store::transaction const &);
 	void init_free_accounts_impl (nano::store::transaction const &);
-	uint32_t deterministic_check_impl (nano::store::transaction const &, uint32_t index);
+	std::optional<uint32_t> deterministic_check_impl (nano::store::transaction const &, uint32_t index);
 	nano::public_key change_seed_impl (nano::store::write_transaction const &, nano::raw_key const & seed, uint32_t count = 0);
 	void deterministic_restore_impl (nano::store::write_transaction const &);
 
 private:
 	nano::locked<std::unordered_set<nano::account>> representatives;
+
+public:
+	// Consecutive unused accounts scanned past the last used one before a seed scan gives up
+	static uint32_t constexpr deterministic_check_gap{ 64 };
 
 	friend class wallets;
 };

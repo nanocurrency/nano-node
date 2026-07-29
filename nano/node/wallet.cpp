@@ -1365,16 +1365,17 @@ void wallet::init_free_accounts_impl (nano::store::transaction const & transacti
 	}
 }
 
-uint32_t wallet::deterministic_check (uint32_t index)
+std::optional<uint32_t> wallet::deterministic_check (uint32_t index)
 {
 	auto transaction = wallets.tx_begin_read ();
 	return deterministic_check_impl (transaction, index);
 }
 
-uint32_t wallet::deterministic_check_impl (nano::store::transaction const & transaction_a, uint32_t index)
+std::optional<uint32_t> wallet::deterministic_check_impl (nano::store::transaction const & transaction_a, uint32_t index)
 {
 	auto ledger_txn = wallets.ledger.tx_begin_read ();
-	for (uint32_t i (index + 1), n (index + 64); i < n; ++i)
+	std::optional<uint32_t> result;
+	for (uint32_t i (index), n (index + deterministic_check_gap); i < n; ++i)
 	{
 		auto prv = store.deterministic_key (transaction_a, i);
 		nano::keypair pair (prv.to_string ());
@@ -1382,10 +1383,9 @@ uint32_t wallet::deterministic_check_impl (nano::store::transaction const & tran
 		auto latest (wallets.ledger.any.account_head (ledger_txn, pair.pub));
 		if (!latest.is_zero ())
 		{
-			index = i;
-			// i + 64 - Check additional 64 accounts
-			// i/64 - Check additional accounts for large wallets. I.e. 64000/64 = 1000 accounts to check
-			n = i + 64 + (i / 64);
+			result = i;
+			// Scan a full gap beyond the hit, plus i/gap extra for large wallets
+			n = i + 1 + deterministic_check_gap + (i / deterministic_check_gap);
 		}
 		else
 		{
@@ -1393,12 +1393,12 @@ uint32_t wallet::deterministic_check_impl (nano::store::transaction const & tran
 			auto current = wallets.ledger.any.receivable_upper_bound (ledger_txn, pair.pub, 0);
 			if (current != wallets.ledger.any.receivable_end ())
 			{
-				index = i;
-				n = i + 64 + (i / 64);
+				result = i;
+				n = i + 1 + deterministic_check_gap + (i / deterministic_check_gap);
 			}
 		}
 	}
-	return index;
+	return result;
 }
 
 nano::public_key wallet::change_seed (nano::raw_key const & prv_a, uint32_t count)
@@ -1417,16 +1417,29 @@ nano::public_key wallet::change_seed_impl (nano::store::write_transaction const 
 	logger.info (nano::log::type::wallet, "Changing wallet seed");
 
 	store.seed_set (transaction_a, prv_a);
+	// The wallet contains at least the first seed account
 	auto account = deterministic_insert_impl (transaction_a);
+	// An explicit count requests accounts 0..count inclusive, otherwise the ledger scan finds the highest account in use
+	std::optional<uint32_t> last;
 	if (count == 0)
 	{
-		count = deterministic_check_impl (transaction_a, 0);
-		logger.info (nano::log::type::wallet, "Auto-detected {} accounts to generate from seed", count);
+		last = deterministic_check_impl (transaction_a, store.deterministic_index_get (transaction_a));
+		if (last)
+		{
+			logger.info (nano::log::type::wallet, "Auto-detected used accounts up to index {} to restore from seed", *last);
+		}
 	}
-	for (uint32_t i (0); i < count; ++i)
+	else
 	{
-		// Disable work generation to prevent weak CPU nodes stuck
-		account = deterministic_insert_impl (transaction_a, false);
+		last = count;
+	}
+	if (last)
+	{
+		while (store.deterministic_index_get (transaction_a) <= *last)
+		{
+			// Disable work generation to prevent weak CPU nodes stuck
+			account = deterministic_insert_impl (transaction_a, false);
+		}
 	}
 
 	logger.info (nano::log::type::wallet, "Completed changing wallet seed and generating accounts");
@@ -1445,12 +1458,14 @@ void wallet::deterministic_restore ()
 
 void wallet::deterministic_restore_impl (nano::store::write_transaction const & transaction_a)
 {
-	auto index (store.deterministic_index_get (transaction_a));
-	auto new_index (deterministic_check_impl (transaction_a, index));
-	for (uint32_t i (index); i <= new_index && index != new_index; ++i)
+	// Scan the ledger for used accounts beyond those already inserted
+	if (auto last = deterministic_check_impl (transaction_a, store.deterministic_index_get (transaction_a)))
 	{
-		// Disable work generation to prevent weak CPU nodes stuck
-		deterministic_insert_impl (transaction_a, false);
+		while (store.deterministic_index_get (transaction_a) <= *last)
+		{
+			// Disable work generation to prevent weak CPU nodes stuck
+			deterministic_insert_impl (transaction_a, false);
+		}
 	}
 }
 

@@ -1057,6 +1057,33 @@ TEST (wallet, deterministic_restore)
 	ASSERT_TRUE (wallet->exists (pub));
 }
 
+/*
+ * A restore must pick up a payment to the account at the wallet's stored deterministic index, i.e. the next account to be handed out.
+ * A scan that starts past the stored index misses exactly this account, leaving received funds invisible after a seed restore
+ */
+TEST (wallet, deterministic_restore_next)
+{
+	nano::test::system system (1);
+	auto wallet (system.wallet (0));
+	nano::raw_key seed1;
+	seed1 = 1;
+	wallet->change_seed (seed1);
+	ASSERT_EQ (1, wallet->get_deterministic_index ());
+	// The next deterministic account receives a block before it exists in the wallet
+	auto prv = nano::deterministic_key (seed1, 1);
+	auto pub = nano::pub_key (prv);
+	wallet->insert_adhoc (nano::dev::genesis_key.prv, false);
+	auto block (wallet->send_action (nano::dev::genesis_key.pub, pub, 100));
+	ASSERT_NE (nullptr, block);
+	ASSERT_TIMELY (5s, nano::test::exists (*system.nodes[0], { block }));
+	wallet->deterministic_restore ();
+	ASSERT_EQ (2, wallet->get_deterministic_index ());
+	ASSERT_TRUE (wallet->exists (pub));
+	// A repeated restore finds nothing further and leaves the index unchanged
+	wallet->deterministic_restore ();
+	ASSERT_EQ (2, wallet->get_deterministic_index ());
+}
+
 TEST (wallet, epoch_2_validation)
 {
 	nano::test::system system (1);
