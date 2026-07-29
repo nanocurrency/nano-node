@@ -2708,10 +2708,10 @@ TEST (rpc, wallet_change_seed)
 }
 
 /*
- * Counts above the per-request account limit are rejected, including one past the 32 bit range that used to be truncated into a ledger scan.
+ * Counts above the per-request account limit are rejected, as are counts past the 32 bit range and counts that do not parse.
  * A rejected request must leave the existing seed in place
  */
-TEST (rpc, wallet_change_seed_count_limit)
+TEST (rpc, wallet_change_seed_count_rejected)
 {
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
@@ -2725,8 +2725,8 @@ TEST (rpc, wallet_change_seed_count_limit)
 	request.put ("action", "wallet_change_seed");
 	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
 	request.put ("seed", seed.to_string ());
-	// The last value is 2^32, which truncated to zero and silently restored by ledger scan instead
-	for (auto const * count : { "100001", "4294967295", "4294967296" })
+	// 2^32 used to truncate to zero and silently restore by ledger scan; the trailing garbage parses as 12 before failing, which used to restore 12 accounts
+	for (auto const * count : { "100001", "4294967295", "4294967296", "12abc" })
 	{
 		request.put ("count", count);
 		auto response = wait_response (system, rpc_ctx, request);
