@@ -532,12 +532,14 @@ nano::public_key wallet_store::deterministic_insert (nano::store::write_transact
 	auto index (deterministic_index_get (transaction_a));
 	auto prv = deterministic_key (transaction_a, index);
 	nano::public_key result (nano::pub_key (prv));
+	// The indexed overload inserts without moving the cursor, so accounts may already exist at or above it; skip them rather than hand back an existing account
 	while (exists (transaction_a, result))
 	{
 		++index;
 		prv = deterministic_key (transaction_a, index);
 		result = nano::pub_key (prv);
 	}
+	// A deterministic entry is tagged by a marker carrying its account index in the low 32 bits
 	uint64_t marker (1);
 	marker <<= 32;
 	marker |= index;
@@ -547,6 +549,7 @@ nano::public_key wallet_store::deterministic_insert (nano::store::write_transact
 	return result;
 }
 
+// Random access counterpart of the allocating overload above: the cursor stays put, otherwise inserting a high index would strand every account below it
 nano::public_key wallet_store::deterministic_insert (nano::store::write_transaction const & transaction_a, uint32_t const index)
 {
 	auto prv = deterministic_key (transaction_a, index);
@@ -1412,6 +1415,25 @@ nano::public_key wallet::change_seed (nano::raw_key const & prv_a, uint32_t coun
 	return result;
 }
 
+std::optional<nano::public_key> wallet::deterministic_insert_up_to_impl (nano::store::write_transaction const & transaction_a, uint32_t last)
+{
+	std::optional<nano::public_key> account;
+	// The stored index is re-read each round because an insert skips over indexes whose accounts already exist
+	for (uint64_t index = store.deterministic_index_get (transaction_a); index <= last;)
+	{
+		// Disable work generation to prevent weak CPU nodes stuck
+		account = deterministic_insert_impl (transaction_a, false);
+		uint64_t next = store.deterministic_index_get (transaction_a);
+		// The index wraps at the end of its range, stop instead of inserting forever
+		if (next <= index)
+		{
+			break;
+		}
+		index = next;
+	}
+	return account;
+}
+
 nano::public_key wallet::change_seed_impl (nano::store::write_transaction const & transaction_a, nano::raw_key const & prv_a, uint32_t count)
 {
 	logger.info (nano::log::type::wallet, "Changing wallet seed");
@@ -1435,10 +1457,9 @@ nano::public_key wallet::change_seed_impl (nano::store::write_transaction const 
 	}
 	if (last)
 	{
-		while (store.deterministic_index_get (transaction_a) <= *last)
+		if (auto inserted = deterministic_insert_up_to_impl (transaction_a, *last))
 		{
-			// Disable work generation to prevent weak CPU nodes stuck
-			account = deterministic_insert_impl (transaction_a, false);
+			account = *inserted;
 		}
 	}
 
@@ -1461,11 +1482,7 @@ void wallet::deterministic_restore_impl (nano::store::write_transaction const & 
 	// Scan the ledger for used accounts beyond those already inserted
 	if (auto last = deterministic_check_impl (transaction_a, store.deterministic_index_get (transaction_a)))
 	{
-		while (store.deterministic_index_get (transaction_a) <= *last)
-		{
-			// Disable work generation to prevent weak CPU nodes stuck
-			deterministic_insert_impl (transaction_a, false);
-		}
+		deterministic_insert_up_to_impl (transaction_a, *last);
 	}
 }
 
