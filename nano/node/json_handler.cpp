@@ -55,8 +55,8 @@
 
 namespace
 {
-// Maximum accounts one RPC call may create
-uint64_t constexpr max_accounts_per_request = 100000;
+// Maximum count accepted by account creating RPC commands
+uint64_t constexpr max_account_count_per_request = 100000;
 }
 
 namespace
@@ -988,7 +988,7 @@ void nano::json_handler::accounts_create ()
 	node.workers.post (create_worker_task ([] (std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet = rpc_l->wallet_impl ();
 		auto count = rpc_l->count_impl ();
-		if (!rpc_l->ec && count > max_accounts_per_request)
+		if (!rpc_l->ec && count > max_account_count_per_request)
 		{
 			rpc_l->ec = nano::error_common::invalid_count;
 		}
@@ -4752,9 +4752,9 @@ void nano::json_handler::wallet_change_seed ()
 			nano::raw_key seed;
 			if (!seed.decode_hex (seed_text))
 			{
-				// Count is the highest index to restore, so the seed yields one more account than its value
+				// Count is the number of accounts added beyond the first, so the seed yields one more account than its value
 				auto count (rpc_l->count_optional_impl (0));
-				if (!rpc_l->ec && count > max_accounts_per_request)
+				if (!rpc_l->ec && count > max_account_count_per_request)
 				{
 					rpc_l->ec = nano::error_common::invalid_count;
 				}
