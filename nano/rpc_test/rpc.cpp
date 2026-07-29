@@ -2707,6 +2707,37 @@ TEST (rpc, wallet_change_seed)
 	ASSERT_EQ ("1", response.get<std::string> ("restored_count"));
 }
 
+/*
+ * Counts above the per-request account limit are rejected, including one past the 32 bit range that used to be truncated into a ledger scan.
+ * A rejected request must leave the existing seed in place
+ */
+TEST (rpc, wallet_change_seed_count_limit)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node);
+	auto seed_before = system.wallet (0)->get_seed ();
+	ASSERT_TRUE (seed_before);
+
+	nano::raw_key seed;
+	nano::random_pool::generate_block (seed.bytes.data (), seed.bytes.size ());
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_change_seed");
+	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("seed", seed.to_string ());
+	// The last value is 2^32, which truncated to zero and silently restored by ledger scan instead
+	for (auto const * count : { "100001", "4294967295", "4294967296" })
+	{
+		request.put ("count", count);
+		auto response = wait_response (system, rpc_ctx, request);
+		ASSERT_EQ (std::error_code (nano::error_common::invalid_count).message (), response.get<std::string> ("error"));
+	}
+
+	auto seed_after = system.wallet (0)->get_seed ();
+	ASSERT_TRUE (seed_after);
+	ASSERT_EQ (seed_before.value (), seed_after.value ());
+}
+
 TEST (rpc, wallet_frontiers)
 {
 	nano::test::system system0;
@@ -5098,6 +5129,24 @@ TEST (rpc, accounts_create)
 		ASSERT_TRUE (system.wallet (0)->exists (account));
 	}
 	ASSERT_EQ (8, accounts.size ());
+}
+
+// A count above the per-request account limit is rejected before any account is created
+TEST (rpc, accounts_create_count_limit)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node);
+	auto accounts_before = system.wallet (0)->accounts ().size ();
+
+	boost::property_tree::ptree request;
+	request.put ("action", "accounts_create");
+	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("count", "100001");
+	auto response = wait_response (system, rpc_ctx, request);
+
+	ASSERT_EQ (std::error_code (nano::error_common::invalid_count).message (), response.get<std::string> ("error"));
+	ASSERT_EQ (accounts_before, system.wallet (0)->accounts ().size ());
 }
 
 TEST (rpc, accounts_create_locked)

@@ -55,6 +55,12 @@
 
 namespace
 {
+// Maximum accounts one RPC call may create
+uint64_t constexpr max_accounts_per_request = 100000;
+}
+
+namespace
+{
 void construct_json (nano::container_info_component * component, boost::property_tree::ptree & parent);
 using ipc_json_handler_no_arg_func_map = std::unordered_map<std::string, std::function<void (nano::json_handler *)>>;
 ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ();
@@ -982,6 +988,10 @@ void nano::json_handler::accounts_create ()
 	node.workers.post (create_worker_task ([] (std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet = rpc_l->wallet_impl ();
 		auto count = rpc_l->count_impl ();
+		if (!rpc_l->ec && count > max_accounts_per_request)
+		{
+			rpc_l->ec = nano::error_common::invalid_count;
+		}
 		if (!rpc_l->ec)
 		{
 			bool const generate_work = rpc_l->request.get<bool> ("work", false);
@@ -4742,19 +4752,28 @@ void nano::json_handler::wallet_change_seed ()
 			nano::raw_key seed;
 			if (!seed.decode_hex (seed_text))
 			{
-				auto count (static_cast<uint32_t> (rpc_l->count_optional_impl (0)));
-				if (!wallet->is_locked ())
+				// Count is the highest index to restore, so the seed yields one more account than its value
+				auto count (rpc_l->count_optional_impl (0));
+				if (!rpc_l->ec && count > max_accounts_per_request)
 				{
-					nano::public_key account (wallet->change_seed (seed, count));
-					rpc_l->response_l.put ("success", "");
-					rpc_l->response_l.put ("last_restored_account", account.to_account ());
-					auto index (wallet->get_deterministic_index ());
-					debug_assert (index > 0);
-					rpc_l->response_l.put ("restored_count", std::to_string (index));
+					rpc_l->ec = nano::error_common::invalid_count;
 				}
-				else
+				// Validate before touching the wallet, a rejected count must leave the existing seed in place
+				if (!rpc_l->ec)
 				{
-					rpc_l->ec = nano::error_common::wallet_locked;
+					if (!wallet->is_locked ())
+					{
+						nano::public_key account (wallet->change_seed (seed, static_cast<uint32_t> (count)));
+						rpc_l->response_l.put ("success", "");
+						rpc_l->response_l.put ("last_restored_account", account.to_account ());
+						auto index (wallet->get_deterministic_index ());
+						debug_assert (index > 0);
+						rpc_l->response_l.put ("restored_count", std::to_string (index));
+					}
+					else
+					{
+						rpc_l->ec = nano::error_common::wallet_locked;
+					}
 				}
 			}
 			else
