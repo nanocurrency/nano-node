@@ -73,7 +73,9 @@ public:
 	nano::raw_key seed (nano::store::transaction const &) const;
 	void seed_set (nano::store::write_transaction const &, nano::raw_key const & seed);
 	nano::wallet::key_type key_type (nano::wallet::wallet_value const &) const;
+	// Allocates the next account: inserts at the stored index and advances it, skipping indexes whose accounts already exist
 	nano::public_key deterministic_insert (nano::store::write_transaction const &);
+	// Materializes one account at an explicit index, leaving the stored index alone so sequential allocation still fills the indexes below it
 	nano::public_key deterministic_insert (nano::store::write_transaction const &, uint32_t index);
 	nano::raw_key deterministic_key (nano::store::transaction const &, uint32_t index) const;
 	uint32_t deterministic_index_get (nano::store::transaction const &) const;
@@ -175,8 +177,10 @@ public:
 	// Seed management
 	nano::result<nano::raw_key> get_seed () const;
 	nano::public_key change_seed (nano::raw_key const & seed, uint32_t count = 0);
+	// Inserts accounts up to the highest one with ledger activity
 	void deterministic_restore ();
-	uint32_t deterministic_check (uint32_t index);
+	// Scans accounts from index, returns the highest index with ledger activity, if any
+	std::optional<uint32_t> deterministic_check (uint32_t index);
 	uint32_t get_deterministic_index () const;
 
 	// Representative management
@@ -227,21 +231,36 @@ public:
 	nano::wallet::wallets & wallets;
 	nano::logger & logger;
 
-private:
-	// Internal implementation methods (accept transactions for batching scenarios)
+private: // Internal implementation methods (accept transactions for batching scenarios)
+	// Attempts to unlock with the password and queues a receivable search on success, returns true if the password was wrong
 	bool enter_password_impl (nano::store::transaction const &, std::string const & password);
+	// Adds a watch-only account, returns true if the key is not a valid public key
 	bool insert_watch_impl (nano::store::write_transaction const &, nano::public_key const & pub);
+	// Inserts the account at the stored deterministic index and advances it
 	nano::public_key deterministic_insert_impl (nano::store::write_transaction const &, bool generate_work = true);
+	// Inserts the account at an explicit index, leaving the stored index untouched
 	nano::public_key deterministic_insert_impl (nano::store::write_transaction const &, uint32_t index, bool generate_work = true);
+	// Caches work for an account, discarding it if the root is no longer the account frontier
 	void work_update_impl (nano::store::write_transaction const &, nano::account const & account, nano::root const & root, uint64_t work);
+	// Receives confirmed receivables above the receive minimum and starts elections for unconfirmed ones, returns true if the wallet is locked
 	bool search_receivable_impl (nano::store::transaction const &);
+	// Rebuilds the set of accounts available for spending from the wallet store
 	void init_free_accounts_impl (nano::store::transaction const &);
-	uint32_t deterministic_check_impl (nano::store::transaction const &, uint32_t index);
+	// Scans accounts from index, returns the highest index with ledger activity, if any
+	std::optional<uint32_t> deterministic_check_impl (nano::store::transaction const &, uint32_t index);
+	// Inserts accounts until every index up to and including last exists, returns the last account inserted
+	std::optional<nano::public_key> deterministic_insert_up_to_impl (nano::store::write_transaction const &, uint32_t last);
+	// Replaces the seed and inserts accounts 0..count, or up to the highest account in use when count is 0
 	nano::public_key change_seed_impl (nano::store::write_transaction const &, nano::raw_key const & seed, uint32_t count = 0);
+	// Inserts accounts up to the highest one with ledger activity
 	void deterministic_restore_impl (nano::store::write_transaction const &);
 
 private:
 	nano::locked<std::unordered_set<nano::account>> representatives;
+
+public:
+	// Consecutive unused accounts scanned past the last used one before a seed scan gives up
+	static uint32_t constexpr deterministic_check_gap{ 64 };
 
 	friend class wallets;
 };
