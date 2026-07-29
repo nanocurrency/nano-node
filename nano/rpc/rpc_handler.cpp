@@ -149,7 +149,6 @@ std::unordered_set<std::string> create_rpc_control_impls ()
 	set.emplace ("account_remove");
 	set.emplace ("account_representative_set");
 	set.emplace ("accounts_create");
-	set.emplace ("backoff_info");
 	set.emplace ("block_create");
 	set.emplace ("bootstrap_lazy");
 	set.emplace ("bootstrap_reset");
@@ -160,6 +159,7 @@ std::unordered_set<std::string> create_rpc_control_impls ()
 	set.emplace ("ledger");
 	set.emplace ("node_id");
 	set.emplace ("password_change");
+	set.emplace ("password_enter");
 	set.emplace ("populate_backlog");
 	set.emplace ("receive");
 	set.emplace ("receive_minimum");
@@ -169,6 +169,7 @@ std::unordered_set<std::string> create_rpc_control_impls ()
 	set.emplace ("search_pending_all");
 	set.emplace ("search_receivable_all");
 	set.emplace ("send");
+	set.emplace ("stats_clear");
 	set.emplace ("stop");
 	set.emplace ("unchecked_clear");
 	set.emplace ("unopened");
@@ -177,9 +178,11 @@ std::unordered_set<std::string> create_rpc_control_impls ()
 	set.emplace ("wallet_change_seed");
 	set.emplace ("wallet_create");
 	set.emplace ("wallet_destroy");
+	set.emplace ("wallet_export");
 	set.emplace ("wallet_lock");
 	set.emplace ("wallet_representative_set");
 	set.emplace ("wallet_republish");
+	set.emplace ("wallet_unlock");
 	set.emplace ("wallet_work_get");
 	set.emplace ("work_generate");
 	set.emplace ("work_cancel");
