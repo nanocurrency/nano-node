@@ -6,6 +6,7 @@ add_executable(
   rpc_context.cpp
   test_response.cpp
   common.cpp
+  enable_control.cpp
   entry.cpp
   receivable.cpp
   rpc.cpp)

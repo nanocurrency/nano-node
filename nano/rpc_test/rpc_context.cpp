@@ -41,11 +41,11 @@ bool nano::test::check_block_response_count (nano::test::system & system, rpc_co
 	return size_count == blocks.size ();
 }
 
-nano::test::rpc_context nano::test::add_rpc (nano::test::system & system, std::shared_ptr<nano::node> const & node_a)
+nano::test::rpc_context nano::test::add_rpc (nano::test::system & system, std::shared_ptr<nano::node> const & node_a, rpc_options const & options)
 {
 	auto node_rpc_config (std::make_unique<nano::node_rpc_config> ());
 	auto ipc_server (std::make_shared<nano::ipc::ipc_server> (*node_a, *node_rpc_config));
-	nano::rpc_config rpc_config (node_a->network_params.network, system.get_available_port (), true);
+	nano::rpc_config rpc_config (node_a->network_params.network, system.get_available_port (), options.enable_control);
 	const auto ipc_tcp_port = ipc_server->listening_tcp_port ();
 	debug_assert (ipc_tcp_port.has_value ());
 	auto ipc_rpc_processor (std::make_unique<nano::ipc_rpc_processor> (system.io_ctx, rpc_config, ipc_tcp_port.value ()));
