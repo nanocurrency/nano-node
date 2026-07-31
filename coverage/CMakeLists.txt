@@ -3,7 +3,7 @@ add_custom_target(
   COMMAND echo "CLEANING COUNTERS"
   COMMAND ${LCOV_PATH} --directory . --zerocounter -q
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-  DEPENDS build_tests)
+  DEPENDS all_tests)
 
 add_custom_target(
   coverage_tests
