@@ -3763,6 +3763,8 @@ void nano::json_handler::receive_minimum_set ()
 void nano::json_handler::representatives ()
 {
 	auto count (count_optional_impl ());
+	auto threshold (threshold_optional_impl ());
+
 	if (!ec)
 	{
 		bool const sorting = request.get<bool> ("sorting", false);
@@ -3770,13 +3772,15 @@ void nano::json_handler::representatives ()
 		auto rep_amounts = node.ledger.rep_weights.get_rep_amounts ();
 		if (!sorting) // Simple
 		{
-			std::map<nano::account, nano::uint128_t> ordered (rep_amounts.begin (), rep_amounts.end ());
 			for (auto & rep_amount : rep_amounts)
 			{
 				auto const & account (rep_amount.first);
 				auto const & amount (rep_amount.second);
+				if (amount < threshold.number ())
+				{
+					continue;
+				}
 				representatives.put (account.to_account (), amount.convert_to<std::string> ());
-
 				if (representatives.size () > count)
 				{
 					break;
@@ -3786,11 +3790,14 @@ void nano::json_handler::representatives ()
 		else // Sorting
 		{
 			std::vector<std::pair<nano::uint128_t, std::string>> representation;
-
 			for (auto & rep_amount : rep_amounts)
 			{
 				auto const & account (rep_amount.first);
 				auto const & amount (rep_amount.second);
+				if (amount < threshold.number ())
+				{
+					continue;
+				}
 				representation.emplace_back (amount, account.to_account ());
 			}
 			std::sort (representation.begin (), representation.end ());
@@ -3801,6 +3808,15 @@ void nano::json_handler::representatives ()
 			}
 		}
 		response_l.add_child ("representatives", representatives);
+	}
+	response_errors ();
+}
+
+void nano::json_handler::representative_count ()
+{
+	if (!ec)
+	{
+		response_l.put ("count", std::to_string (node.ledger.rep_weights.get_rep_amounts ().size ()));
 	}
 	response_errors ();
 }
@@ -5591,6 +5607,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("receive_minimum", &nano::json_handler::receive_minimum);
 	no_arg_funcs.emplace ("receive_minimum_set", &nano::json_handler::receive_minimum_set);
 	no_arg_funcs.emplace ("representatives", &nano::json_handler::representatives);
+	no_arg_funcs.emplace ("representative_count", &nano::json_handler::representative_count);
 	no_arg_funcs.emplace ("representatives_online", &nano::json_handler::representatives_online);
 	no_arg_funcs.emplace ("republish", &nano::json_handler::republish);
 	no_arg_funcs.emplace ("search_pending", &nano::json_handler::search_pending);
