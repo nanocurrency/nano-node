@@ -2740,6 +2740,54 @@ TEST (rpc, representative_count)
 	ASSERT_EQ ("3", response.get<std::string> ("count"));
 }
 
+TEST (rpc, representative_count_threshold)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	auto & wallet = *system.wallet (0);
+	wallet.insert_adhoc (nano::dev::genesis_key.prv);
+	nano::keypair rep2;
+	nano::keypair rep3;
+	wallet.insert_adhoc (rep2.prv);
+	wallet.insert_adhoc (rep3.prv);
+	wallet.send_sync (nano::dev::genesis_key.pub, rep2.pub, 100 * nano::Knano_ratio);
+	wallet.send_sync (nano::dev::genesis_key.pub, rep3.pub, 200 * nano::Knano_ratio);
+	ASSERT_TIMELY (5s, node->balance (rep2.pub) == 100 * nano::Knano_ratio);
+	ASSERT_TIMELY (5s, node->balance (rep3.pub) == 200 * nano::Knano_ratio);
+	wallet.change_sync (rep2.pub, rep2.pub);
+	wallet.change_sync (rep3.pub, rep3.pub);
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "representative_count");
+	request.put ("threshold", (150 * nano::Knano_ratio).convert_to<std::string> ());
+	auto response (wait_response (system, rpc_ctx, request));
+	ASSERT_EQ ("2", response.get<std::string> ("count"));
+}
+
+TEST (rpc, representative_count_bad_threshold)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	auto & wallet = *system.wallet (0);
+	wallet.insert_adhoc (nano::dev::genesis_key.prv);
+	nano::keypair rep2;
+	nano::keypair rep3;
+	wallet.insert_adhoc (rep2.prv);
+	wallet.insert_adhoc (rep3.prv);
+	wallet.send_sync (nano::dev::genesis_key.pub, rep2.pub, 100 * nano::Knano_ratio);
+	wallet.send_sync (nano::dev::genesis_key.pub, rep3.pub, 200 * nano::Knano_ratio);
+	ASSERT_TIMELY (5s, node->balance (rep2.pub) == 100 * nano::Knano_ratio);
+	ASSERT_TIMELY (5s, node->balance (rep3.pub) == 200 * nano::Knano_ratio);
+	wallet.change_sync (rep2.pub, rep2.pub);
+	wallet.change_sync (rep3.pub, rep3.pub);
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "representative_count");
+	request.put ("threshold", "not_a_number");
+	auto response (wait_response (system, rpc_ctx, request));
+	ASSERT_EQ (std::error_code (nano::error_common::bad_threshold).message (), response.get<std::string> ("error"));
+}
+
 // wallet_seed is only available over IPC's unsafe encoding, and when running on test network
 TEST (rpc, wallet_seed)
 {

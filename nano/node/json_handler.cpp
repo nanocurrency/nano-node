@@ -3814,9 +3814,19 @@ void nano::json_handler::representatives ()
 
 void nano::json_handler::representative_count ()
 {
+	auto threshold (threshold_optional_impl ());
 	if (!ec)
 	{
-		response_l.put ("count", std::to_string (node.ledger.rep_weights.get_rep_amounts ().size ()));
+		std::size_t count = 0;
+		for (auto & rep_amount : node.ledger.rep_weights.get_rep_amounts ())
+		{
+			if (rep_amount.second < threshold.number ())
+			{
+				continue;
+			}
+			++count;
+		}
+		response_l.put ("count", std::to_string (count));
 	}
 	response_errors ();
 }
