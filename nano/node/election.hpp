@@ -7,6 +7,7 @@
 #include <nano/lib/stats_enums.hpp>
 #include <nano/node/election_pacing.hpp>
 #include <nano/node/election_status.hpp>
+#include <nano/node/fwd.hpp>
 #include <nano/node/vote_with_weight_info.hpp>
 #include <nano/secure/common.hpp>
 
@@ -14,20 +15,12 @@
 #include <chrono>
 #include <map>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 
 namespace nano
 {
-class block;
-class channel;
-class confirmation_solicitor;
-enum class election_behavior;
-class inactive_cache_information;
-class node;
-enum class vote_code;
-enum class vote_source;
-
 class vote_info final
 {
 public:
@@ -46,6 +39,19 @@ struct election_snapshot final
 	std::shared_ptr<nano::block> winner;
 	bool quorum; // Vote quorum was reached, only final votes are of interest
 	std::unordered_map<nano::account, nano::vote_info> votes;
+};
+
+/** Outbound actions requested by an election when ticked, performed by the active elections loop */
+struct election_actions final
+{
+	// Snapshot of the election state, present whenever a broadcast or request is due
+	std::optional<nano::election_snapshot> snapshot;
+	// Broadcast the current winner block
+	bool broadcast{ false };
+	// Solicit votes from representatives
+	bool request{ false };
+	// Election is finished and should be erased from the active set
+	bool cleanup{ false };
 };
 
 struct election_extended_status final
@@ -86,7 +92,6 @@ private:
 
 private: // State management
 	static unsigned constexpr passive_duration_factor = 5;
-	static unsigned constexpr active_request_count_min = 2;
 	nano::election_state state_m{ election_state::passive };
 
 	std::chrono::steady_clock::time_point state_start{ std::chrono::steady_clock::now () };
@@ -95,8 +100,16 @@ private: // State management
 	bool state_change (nano::election_state, nano::election_state);
 
 public: // State transitions
-	// Returns true if the election should be cleaned up
-	bool tick (nano::confirmation_solicitor &);
+	// Advance the election state machine and return the outbound actions that are due
+	nano::election_actions tick (std::chrono::steady_clock::time_point now);
+
+	// Broadcast a vote for the current winner via the vote generator, if one is due
+	void broadcast_vote ();
+
+	// Record a successful confirmation request round
+	void request_sent ();
+	// Record a successful broadcast of the given winner block
+	void broadcast_sent (nano::block_hash const & winner);
 
 	bool transition_active ();
 	bool transition_priority ();
@@ -139,11 +152,6 @@ public: // Interface
 	void confirm_if_quorum (nano::unique_lock<nano::mutex> &);
 	void try_confirm (nano::block_hash const & hash);
 
-	/**
-	 * Broadcasts vote for the current winner of this election
-	 * Checks if sufficient amount of time (`vote_generation_interval`) passed since the last vote generation
-	 */
-	void broadcast_vote ();
 	nano::vote_info get_last_vote (nano::account const & account);
 	void set_last_vote (nano::account const & account, nano::vote_info vote_info);
 	nano::election_status get_status () const;
@@ -191,13 +199,8 @@ private:
 	nano::election_extended_status current_status_locked () const;
 	// lock_a does not own the mutex on return
 	void confirm_once (nano::unique_lock<nano::mutex> & lock_a);
-	void broadcast_block (nano::confirmation_solicitor &);
-	void send_confirm_req (nano::confirmation_solicitor &);
-	/**
-	 * Broadcast vote for current election winner. Generates final vote if reached quorum or already confirmed
-	 * Requires mutex lock
-	 */
-	void broadcast_vote_locked (nano::unique_lock<nano::mutex> & lock);
+	// Broadcast a vote for the current winner if due, final if reached quorum or already confirmed
+	void broadcast_vote_locked (std::chrono::steady_clock::time_point now);
 	void remove_votes (nano::block_hash const &);
 	void remove_block (nano::block_hash const &);
 	bool replace_by_weight (nano::unique_lock<nano::mutex> & lock_a, nano::block_hash const &);
@@ -224,8 +227,6 @@ public: // Logging
 
 private: // Constants
 	static std::size_t constexpr max_blocks{ 10 };
-
-	friend class active_elections;
 
 public: // Only used in tests
 	void force_confirm ();

@@ -5,6 +5,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/active_elections.hpp>
+#include <nano/node/block_rebroadcaster.hpp>
 #include <nano/node/cementing_set.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
@@ -526,8 +527,23 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 
 	for (auto const & election : election_list)
 	{
-		bool tick_result = election->tick (solicitor);
-		if (tick_result)
+		auto const actions = election->tick (now);
+
+		if (auto const & snapshot = actions.snapshot)
+		{
+			if (actions.broadcast && solicitor.broadcast (*snapshot))
+			{
+				election->broadcast_sent (snapshot->winner->hash ());
+
+				// Random flood for block propagation
+				node.block_rebroadcaster.push (snapshot->winner);
+			}
+			if (actions.request && solicitor.add (*snapshot))
+			{
+				election->request_sent ();
+			}
+		}
+		if (actions.cleanup)
 		{
 			erase (election->qualified_root);
 		}
