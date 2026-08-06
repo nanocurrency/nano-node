@@ -1904,7 +1904,7 @@ void wallets::reload ()
 	}
 	for (auto & i : deleted_items)
 	{
-		debug_assert (items.find (i) == items.end ());
+		debug_assert (items.find (i) != items.end ());
 		items.erase (i);
 	}
 }
