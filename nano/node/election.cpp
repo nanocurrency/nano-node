@@ -187,7 +187,7 @@ void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_
 
 	if (pacing.due_request (behavior_m, std::chrono::steady_clock::now ()))
 	{
-		if (!solicitor_a.add (*this))
+		if (solicitor_a.add (snapshot_locked ()))
 		{
 			pacing.request_sent (std::chrono::steady_clock::now ());
 			++confirmation_request_count;
@@ -268,7 +268,7 @@ void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a
 
 	if (pacing.due_block (status.winner->hash (), std::chrono::steady_clock::now ()))
 	{
-		if (!solicitor_a.broadcast (*this))
+		if (solicitor_a.broadcast (snapshot_locked ()))
 		{
 			bool const initial = pacing.is_first_block ();
 			pacing.block_sent (status.winner->hash (), std::chrono::steady_clock::now ());
@@ -637,6 +637,12 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 	3) given block in already in election & election contains less than 10 blocks (replacing block content with new)
 	*/
 	return result;
+}
+
+nano::election_snapshot nano::election::snapshot_locked () const
+{
+	debug_assert (!mutex.try_lock ());
+	return { qualified_root, status.winner, is_quorum.load (), last_votes };
 }
 
 nano::election_extended_status nano::election::current_status () const

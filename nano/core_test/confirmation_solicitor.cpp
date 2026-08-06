@@ -1,7 +1,6 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/jsonconfig.hpp>
-#include <nano/node/active_elections.hpp>
 #include <nano/node/block_rebroadcaster.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
@@ -14,6 +13,29 @@
 #include <gtest/gtest.h>
 
 using namespace std::chrono_literals;
+
+namespace
+{
+std::shared_ptr<nano::block> test_block (nano::test::system & system)
+{
+	nano::block_builder builder;
+	auto send = builder
+				.send ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (nano::keypair ().pub)
+				.balance (nano::dev::constants.genesis_amount - 100)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	send->sideband_set ({});
+	return send;
+}
+
+nano::election_snapshot test_snapshot (std::shared_ptr<nano::block> const & winner, std::unordered_map<nano::account, nano::vote_info> votes = {}, bool quorum = false)
+{
+	return { winner->qualified_root (), winner, quorum, std::move (votes) };
+}
+}
 
 TEST (confirmation_solicitor, batches)
 {
@@ -38,34 +60,20 @@ TEST (confirmation_solicitor, batches)
 	ASSERT_EQ (channel1, representatives.front ().channel);
 	ASSERT_EQ (nano::dev::genesis_key.pub, representatives.front ().account);
 	ASSERT_TIMELY_EQ (3s, node2.network.size (), 1);
-	nano::block_builder builder;
-	auto send = builder
-				.send ()
-				.previous (nano::dev::genesis->hash ())
-				.destination (nano::keypair ().pub)
-				.balance (nano::dev::constants.genesis_amount - 100)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*system.work.generate (nano::dev::genesis->hash ()))
-				.build ();
-	send->sideband_set ({});
+	auto send = test_block (system);
 	for (size_t i (0); i < nano::network::confirm_req_hashes_max; ++i)
 	{
-		auto election (std::make_shared<nano::election> (node2, send, nano::election_behavior::priority));
-		ASSERT_FALSE (solicitor.add (*election));
+		ASSERT_TRUE (solicitor.add (test_snapshot (send)));
 	}
-	// Reached the maximum amount of requests for the channel
-	auto election (std::make_shared<nano::election> (node2, send, nano::election_behavior::priority));
 	// Broadcasting should be immediate
 	ASSERT_EQ (0, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
-	ASSERT_FALSE (solicitor.broadcast (*election));
+	ASSERT_TRUE (solicitor.broadcast (test_snapshot (send)));
 	// One publish through directed broadcasting (random flooding moved to block_rebroadcaster)
 	ASSERT_EQ (1, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
 	solicitor.flush ();
 	ASSERT_EQ (1, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out));
 }
 
-namespace nano
-{
 TEST (confirmation_solicitor, different_hash)
 {
 	nano::test::system system;
@@ -89,22 +97,14 @@ TEST (confirmation_solicitor, different_hash)
 	ASSERT_EQ (channel1, representatives.front ().channel);
 	ASSERT_EQ (nano::dev::genesis_key.pub, representatives.front ().account);
 	ASSERT_TIMELY_EQ (3s, node2.network.size (), 1);
-	nano::block_builder builder;
-	auto send = builder
-				.send ()
-				.previous (nano::dev::genesis->hash ())
-				.destination (nano::keypair ().pub)
-				.balance (nano::dev::constants.genesis_amount - 100)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*system.work.generate (nano::dev::genesis->hash ()))
-				.build ();
-	send->sideband_set ({});
-	auto election (std::make_shared<nano::election> (node2, send, nano::election_behavior::priority));
-	// Add a vote for something else, not the winner
-	election->last_votes[representative.account] = { std::chrono::steady_clock::now (), 1, 1 };
+	auto send = test_block (system);
+	// The representative voted for something else, not the winner
+	std::unordered_map<nano::account, nano::vote_info> votes;
+	votes[representative.account] = { std::chrono::steady_clock::now (), 1, 1 };
+	auto snapshot = test_snapshot (send, votes);
 	// Ensure the request and broadcast goes through
-	ASSERT_FALSE (solicitor.add (*election));
-	ASSERT_FALSE (solicitor.broadcast (*election));
+	ASSERT_TRUE (solicitor.add (snapshot));
+	ASSERT_TRUE (solicitor.broadcast (snapshot));
 	// One publish through directed broadcasting (random flooding moved to block_rebroadcaster)
 	ASSERT_EQ (1, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
 	solicitor.flush ();
@@ -133,36 +133,25 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 	ASSERT_EQ (max_representatives + 1, representatives.size ());
 	solicitor.prepare (representatives);
 	ASSERT_TIMELY_EQ (3s, node2.network.size (), 1);
-	nano::block_builder builder;
-	auto send = builder
-				.send ()
-				.previous (nano::dev::genesis->hash ())
-				.destination (nano::keypair ().pub)
-				.balance (nano::dev::constants.genesis_amount - 100)
-				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				.work (*system.work.generate (nano::dev::genesis->hash ()))
-				.build ();
-	send->sideband_set ({});
-	auto election (std::make_shared<nano::election> (node2, send, nano::election_behavior::priority));
-	// Add a vote for something else, not the winner
+	auto send = test_block (system);
+	// Every representative voted for something else, not the winner
+	std::unordered_map<nano::account, nano::vote_info> votes;
 	for (auto const & rep : representatives)
 	{
-		election->set_last_vote (rep.account, { std::chrono::steady_clock::now (), 1, 1 });
+		votes[rep.account] = { std::chrono::steady_clock::now (), 1, 1 };
 	}
-	ASSERT_FALSE (solicitor.add (*election));
-	ASSERT_FALSE (solicitor.broadcast (*election));
+	ASSERT_TRUE (solicitor.add (test_snapshot (send, votes)));
+	ASSERT_TRUE (solicitor.broadcast (test_snapshot (send, votes)));
 	solicitor.flush ();
 	// All requests went through, the last one would normally not go through due to the cap but a vote for a different hash does not count towards the cap
 	ASSERT_TIMELY_EQ (6s, max_representatives + 1, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out));
 
 	solicitor.prepare (representatives);
-	auto election2 (std::make_shared<nano::election> (node2, send, nano::election_behavior::priority));
-	ASSERT_FALSE (solicitor.add (*election2));
-	ASSERT_FALSE (solicitor.broadcast (*election2));
+	ASSERT_TRUE (solicitor.add (test_snapshot (send)));
+	ASSERT_TRUE (solicitor.broadcast (test_snapshot (send)));
 
 	solicitor.flush ();
 
 	// All requests but one went through, due to the cap
 	ASSERT_EQ (2 * max_representatives + 1, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out));
-}
 }

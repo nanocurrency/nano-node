@@ -39,6 +39,15 @@ public:
 // map of vote weight per block, ordered greater first
 using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::greater<nano::uint128_t>>;
 
+/** Point-in-time view of election state needed to solicit votes and broadcast the winner */
+struct election_snapshot final
+{
+	nano::qualified_root qualified_root;
+	std::shared_ptr<nano::block> winner;
+	bool quorum; // Vote quorum was reached, only final votes are of interest
+	std::unordered_map<nano::account, nano::vote_info> votes;
+};
+
 struct election_extended_status final
 {
 	nano::election_status status;
@@ -177,6 +186,7 @@ public: // Information
 
 private:
 	nano::tally_t tally_impl () const;
+	nano::election_snapshot snapshot_locked () const;
 	bool confirmed_locked () const;
 	nano::election_extended_status current_status_locked () const;
 	// lock_a does not own the mutex on return
@@ -216,13 +226,10 @@ private: // Constants
 	static std::size_t constexpr max_blocks{ 10 };
 
 	friend class active_elections;
-	friend class confirmation_solicitor;
 
 public: // Only used in tests
 	void force_confirm ();
 
-	friend class confirmation_solicitor_different_hash_Test;
-	friend class confirmation_solicitor_bypass_max_requests_cap_Test;
 	friend class votes_add_existing_Test;
 	friend class votes_add_old_Test;
 };
