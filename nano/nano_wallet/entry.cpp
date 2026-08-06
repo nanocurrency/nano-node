@@ -137,11 +137,11 @@ public:
 				auto wallet (node->wallets.open (wallet_config.wallet));
 				if (wallet == nullptr)
 				{
-					auto existing (node->wallets.items.begin ());
-					if (existing != node->wallets.items.end ())
+					auto existing (node->wallets.all_wallets ());
+					if (!existing.empty ())
 					{
-						wallet = existing->second;
-						wallet_config.wallet = existing->first;
+						wallet = existing.begin ()->second;
+						wallet_config.wallet = existing.begin ()->first;
 					}
 					else
 					{

@@ -2177,10 +2177,28 @@ void wallets::receive_confirmed (nano::block_hash const & hash_a, nano::account 
 	}
 }
 
-std::unordered_map<nano::wallet_id, std::shared_ptr<wallet>> wallets::all_wallets ()
+std::unordered_map<nano::wallet_id, std::shared_ptr<wallet>> wallets::all_wallets () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	return items;
+}
+
+std::vector<nano::wallet_id> wallets::wallet_ids () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	std::vector<nano::wallet_id> result;
+	result.reserve (items.size ());
+	for (auto const & [id, wallet] : items)
+	{
+		result.push_back (id);
+	}
+	return result;
+}
+
+std::size_t wallets::wallet_count () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return items.size ();
 }
 
 void wallets::do_wallet_actions ()

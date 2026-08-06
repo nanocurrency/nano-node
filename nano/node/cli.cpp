@@ -1423,18 +1423,18 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			{
 				auto inactive_node = nano::default_inactive_node (data_path, vm);
 				auto node = inactive_node->node;
-				auto existing (inactive_node->node->wallets.items.find (wallet_id));
-				if (existing != inactive_node->node->wallets.items.end ())
+				auto existing (node->wallets.open (wallet_id));
+				if (existing != nullptr)
 				{
-					if (!existing->second->enter_password (password))
+					if (!existing->enter_password (password))
 					{
-						auto seed_result = existing->second->get_seed ();
+						auto seed_result = existing->get_seed ();
 						if (seed_result)
 						{
 							std::cout << boost::str (boost::format ("Seed: %1%\n") % seed_result.value ().to_string ());
-							for (auto const & account : existing->second->accounts ())
+							for (auto const & account : existing->accounts ())
 							{
-								auto key_result = existing->second->fetch_prv (account);
+								auto key_result = existing->fetch_prv (account);
 								debug_assert (key_result);
 								if (key_result)
 								{
@@ -1489,7 +1489,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			{
 				auto inactive_node = nano::default_inactive_node (data_path, vm);
 				auto node = inactive_node->node;
-				if (node->wallets.items.find (wallet_id) != node->wallets.items.end ())
+				if (node->wallets.open (wallet_id) != nullptr)
 				{
 					node->wallets.destroy (wallet_id);
 				}
@@ -1539,17 +1539,17 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					{
 						auto inactive_node = nano::default_inactive_node (data_path, vm);
 						auto node = inactive_node->node;
-						auto existing (node->wallets.items.find (wallet_id));
-						if (existing != node->wallets.items.end ())
+						auto existing (node->wallets.open (wallet_id));
+						if (existing != nullptr)
 						{
-							bool valid (!existing->second->is_locked ());
+							bool valid (!existing->is_locked ());
 							if (!valid)
 							{
-								valid = !existing->second->enter_password (password);
+								valid = !existing->enter_password (password);
 							}
 							if (valid)
 							{
-								if (existing->second->import (contents.str (), password))
+								if (existing->import (contents.str (), password))
 								{
 									std::cerr << "Unable to import wallet\n";
 									ec = nano::error_cli::invalid_arguments;
@@ -1633,15 +1633,15 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			nano::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
-				auto wallet (node->wallets.items.find (wallet_id));
-				if (wallet != node->wallets.items.end ())
+				auto wallet (node->wallets.open (wallet_id));
+				if (wallet != nullptr)
 				{
 					nano::account account_id;
 					if (!account_id.decode_account (vm["account"].as<std::string> ()))
 					{
-						if (wallet->second->exists (account_id))
+						if (wallet->exists (account_id))
 						{
-							wallet->second->remove_account (account_id);
+							wallet->remove_account (account_id);
 						}
 						else
 						{
@@ -1682,10 +1682,10 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			{
 				auto inactive_node = nano::default_inactive_node (data_path, vm);
 				auto node = inactive_node->node;
-				auto wallet (node->wallets.items.find (wallet_id));
-				if (wallet != node->wallets.items.end ())
+				auto wallet (node->wallets.open (wallet_id));
+				if (wallet != nullptr)
 				{
-					auto representative (wallet->second->get_representative ());
+					auto representative (wallet->get_representative ());
 					std::cout << boost::str (boost::format ("Representative: %1%\n") % representative.to_account ());
 				}
 				else
@@ -1720,10 +1720,10 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					{
 						auto inactive_node = nano::default_inactive_node (data_path, vm);
 						auto node = inactive_node->node;
-						auto wallet (node->wallets.items.find (wallet_id));
-						if (wallet != node->wallets.items.end ())
+						auto wallet (node->wallets.open (wallet_id));
+						if (wallet != nullptr)
 						{
-							wallet->second->set_representative (account);
+							wallet->set_representative (account);
 						}
 						else
 						{

@@ -318,8 +318,12 @@ public:
 	void reload ();
 	void clear_send_ids ();
 
+	// Wallet queries, each returns a consistent snapshot
+	std::unordered_map<nano::wallet_id, std::shared_ptr<wallet>> all_wallets () const;
+	std::vector<nano::wallet_id> wallet_ids () const;
+	std::size_t wallet_count () const;
+
 	// Account lookup
-	std::unordered_map<nano::wallet_id, std::shared_ptr<wallet>> all_wallets ();
 	bool exists (nano::account const &);
 	bool exists_any (nano::account const &, nano::account const &);
 
@@ -362,7 +366,6 @@ public: // Dependencies
 public:
 	std::function<void (bool)> observer;
 
-	std::unordered_map<nano::wallet_id, std::shared_ptr<wallet>> items;
 	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<wallet>, std::function<void (wallet &)>>, std::greater<nano::uint128_t>> actions;
 	nano::locked<std::unordered_map<nano::account, nano::root>> delayed_work;
 
@@ -392,6 +395,9 @@ private:
 	void refresh_rep_keys_cache ();
 
 private:
+	// All open wallets, protected by mutex
+	std::unordered_map<nano::wallet_id, std::shared_ptr<wallet>> items;
+
 	mutable nano::locked<wallet_representatives> representatives;
 	nano::locked<std::vector<std::pair<nano::public_key, std::unique_ptr<nano::fan>>>> rep_keys_cache;
 
