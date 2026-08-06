@@ -35,6 +35,11 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 	vote_action (std::move (vote_action_a)),
 	update_action (std::move (update_action_a)),
 	node (node_a),
+	pacing ({
+	.base_latency = base_latency (),
+	.vote_interval = node_a.config.network_params.network.vote_broadcast_interval,
+	.block_interval = node_a.config.network_params.network.block_broadcast_interval,
+	}),
 	behavior_m (election_behavior_a),
 	status (block_a),
 	height (block_a->sideband ().height),
@@ -176,30 +181,15 @@ bool nano::election::state_change (nano::election_state expected_a, nano::electi
 	return result;
 }
 
-std::chrono::milliseconds nano::election::confirm_req_time () const
-{
-	switch (behavior_m)
-	{
-		case election_behavior::manual:
-		case election_behavior::priority:
-		case election_behavior::hinted:
-			return base_latency () * 5;
-		case election_behavior::optimistic:
-			return base_latency () * 2;
-	}
-	debug_assert (false);
-	return {};
-}
-
 void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_a)
 {
 	debug_assert (!mutex.try_lock ());
 
-	if (confirm_req_time () < (std::chrono::steady_clock::now () - last_req))
+	if (pacing.due_request (behavior_m, std::chrono::steady_clock::now ()))
 	{
 		if (!solicitor_a.add (*this))
 		{
-			last_req = std::chrono::steady_clock::now ();
+			pacing.request_sent (std::chrono::steady_clock::now ());
 			++confirmation_request_count;
 
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::confirmation_request);
@@ -225,7 +215,7 @@ bool nano::election::transition_priority ()
 	}
 
 	behavior_m = nano::election_behavior::priority;
-	last_vote = std::chrono::steady_clock::time_point{}; // allow new outgoing votes immediately
+	pacing.reset_vote (); // Allow new outgoing votes immediately
 
 	node.logger.debug (nano::log::type::election, "Transitioned election behavior to priority from {} for root: {} (duration: {}ms)",
 	to_string (behavior_m),
@@ -272,35 +262,18 @@ bool nano::election::failed () const
 	return state_m == nano::election_state::expired_unconfirmed;
 }
 
-bool nano::election::broadcast_block_predicate () const
-{
-	debug_assert (!mutex.try_lock ());
-
-	// Broadcast the block if enough time has passed since the last broadcast (or it's the first broadcast)
-	if (last_block + node.config.network_params.network.block_broadcast_interval < std::chrono::steady_clock::now ())
-	{
-		return true;
-	}
-	// Or the current election winner has changed
-	if (status.winner->hash () != last_block_hash)
-	{
-		return true;
-	}
-	return false;
-}
-
 void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a)
 {
 	debug_assert (!mutex.try_lock ());
 
-	if (broadcast_block_predicate ())
+	if (pacing.due_block (status.winner->hash (), std::chrono::steady_clock::now ()))
 	{
 		if (!solicitor_a.broadcast (*this))
 		{
-			last_block = std::chrono::steady_clock::now ();
-			last_block_hash = status.winner->hash ();
+			bool const initial = pacing.is_first_block ();
+			pacing.block_sent (status.winner->hash (), std::chrono::steady_clock::now ());
 
-			node.stats.inc (nano::stat::type::election, last_block_hash.is_zero () ? nano::stat::detail::broadcast_block_initial : nano::stat::detail::broadcast_block_repeat);
+			node.stats.inc (nano::stat::type::election, initial ? nano::stat::detail::broadcast_block_initial : nano::stat::detail::broadcast_block_repeat);
 
 			node.logger.debug (nano::log::type::election, "Broadcasted current winner: {} for root: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
 			status.winner->hash (),
@@ -699,11 +672,12 @@ void nano::election::broadcast_vote_locked (nano::unique_lock<nano::mutex> & loc
 {
 	debug_assert (lock.owns_lock ());
 
-	if (std::chrono::steady_clock::now () < last_vote + node.config.network_params.network.vote_broadcast_interval)
+	auto const now = std::chrono::steady_clock::now ();
+	if (!pacing.due_vote (now))
 	{
 		return;
 	}
-	last_vote = std::chrono::steady_clock::now ();
+	pacing.vote_sent (now);
 
 	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 	{

@@ -5,6 +5,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/numbers_templ.hpp>
 #include <nano/lib/stats_enums.hpp>
+#include <nano/node/election_pacing.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/vote_with_weight_info.hpp>
 #include <nano/secure/common.hpp>
@@ -81,13 +82,6 @@ private: // State management
 
 	std::chrono::steady_clock::time_point state_start{ std::chrono::steady_clock::now () };
 
-	// These are modified while not holding the mutex from transition_time only
-	std::chrono::steady_clock::time_point last_block{};
-	nano::block_hash last_block_hash{ 0 };
-	std::chrono::steady_clock::time_point last_req{};
-	/** The last time vote for this election was generated */
-	std::chrono::steady_clock::time_point last_vote{};
-
 	bool valid_change (nano::election_state, nano::election_state) const;
 	bool state_change (nano::election_state, nano::election_state);
 
@@ -158,6 +152,10 @@ public: // Interface
 private: // Dependencies
 	nano::node & node;
 
+private:
+	// Paces outbound votes, winner block broadcasts and confirmation requests
+	nano::election_pacing pacing;
+
 public: // Information
 	uint64_t const height;
 	nano::root const root;
@@ -183,7 +181,6 @@ private:
 	nano::election_extended_status current_status_locked () const;
 	// lock_a does not own the mutex on return
 	void confirm_once (nano::unique_lock<nano::mutex> & lock_a);
-	bool broadcast_block_predicate () const;
 	void broadcast_block (nano::confirmation_solicitor &);
 	void send_confirm_req (nano::confirmation_solicitor &);
 	/**
@@ -199,10 +196,6 @@ private:
 	 * Calculates minimum time delay between subsequent votes when processing non-final votes
 	 */
 	std::chrono::seconds cooldown_time (nano::uint128_t weight) const;
-	/**
-	 * Calculates time delay between broadcasting confirmation requests
-	 */
-	std::chrono::milliseconds confirm_req_time () const;
 
 private:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> last_blocks;
