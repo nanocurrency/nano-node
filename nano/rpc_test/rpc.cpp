@@ -723,6 +723,43 @@ TEST (rpc, account_move)
 	ASSERT_TRUE (source->accounts ().empty ());
 }
 
+/*
+ * An unparseable account in the list rejects the whole request.
+ * The move is not atomic, so validating late would relocate the valid keys and erase them from the source wallet
+ */
+TEST (rpc, account_move_invalid_account)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	auto wallet_id (node->wallets.items.begin ()->first);
+	auto destination (system.wallet (0));
+	nano::keypair key;
+	auto source_id = nano::random_wallet_id ();
+	auto source (node->wallets.create (source_id));
+	source->insert_adhoc (key.prv);
+
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "account_move");
+	request.put ("wallet", wallet_id.to_string ());
+	request.put ("source", source_id.to_string ());
+	boost::property_tree::ptree keys;
+	boost::property_tree::ptree entry, bad_entry;
+	entry.put ("", key.pub.to_account ());
+	keys.push_back (std::make_pair ("", entry));
+	bad_entry.put ("", "not_an_account");
+	keys.push_back (std::make_pair ("", bad_entry));
+	request.add_child ("accounts", keys);
+	auto response = wait_response (system, rpc_ctx, request);
+
+	auto error = response.get_optional<std::string> ("error");
+	ASSERT_TRUE (error);
+	ASSERT_EQ (std::error_code (nano::error_common::bad_account_number).message (), error.value ());
+	// The valid key must stay where it was
+	ASSERT_TRUE (source->exists (key.pub));
+	ASSERT_FALSE (destination->exists (key.pub));
+}
+
 TEST (rpc, account_move_locked)
 {
 	nano::test::system system;
@@ -6710,6 +6747,32 @@ TEST (rpc, deprecated_account_format)
 	ASSERT_EQ (nano::dev::genesis->hash ().to_string (), frontier);
 	auto deprecated_account_format2 (response2.get_optional<std::string> ("deprecated_account_format"));
 	ASSERT_TRUE (deprecated_account_format2.has_value ());
+}
+
+/*
+ * A count that does not parse rejects the request instead of starting the upgrade.
+ * The response cannot distinguish the two, an error discards the response body either way, so the ledger is the only observable
+ */
+TEST (rpc, epoch_upgrade_invalid_count)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	nano::keypair epoch_signer (nano::dev::genesis_key);
+	auto block_count = node->ledger.block_count ();
+
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "epoch_upgrade");
+	request.put ("epoch", 1);
+	request.put ("key", epoch_signer.prv.to_string ());
+	request.put ("count", "12abc");
+	auto response = wait_response (system, rpc_ctx, request);
+
+	auto error = response.get_optional<std::string> ("error");
+	ASSERT_TRUE (error);
+	ASSERT_EQ (std::error_code (nano::error_common::invalid_count).message (), error.value ());
+	// No epoch block may appear, a started upgrade would produce one for the genesis account
+	ASSERT_NEVER (1s, node->ledger.block_count () != block_count);
 }
 
 TEST (rpc, epoch_upgrade)
