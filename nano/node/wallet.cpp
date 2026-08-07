@@ -2066,18 +2066,15 @@ void wallets::refresh_rep_keys_cache ()
 		{
 			if (wallet->store.exists (wallet_txn, account))
 			{
-				if (wallet->store.valid_password (wallet_txn))
+				// A single fetch reports the locked state too, so the password check and the fetch cannot disagree under a concurrent rekey
+				// A watch-only account can hold representative weight but has no private key to fetch; it cannot vote and is left out of the cache
+				auto prv_result = wallet->store.fetch (wallet_txn, account);
+				if (prv_result)
 				{
-					// A watch-only account can hold representative weight, so a representative here may have no
-					// private key to fetch. Such an account cannot vote and is simply left out of the keys cache.
-					auto prv_result = wallet->store.fetch (wallet_txn, account);
-					if (prv_result)
-					{
-						// Store private key spread across multiple heap allocations via fan to avoid plaintext keys in memory at rest
-						new_cache.emplace_back (account, std::make_unique<nano::fan> (prv_result.value (), config.password_fanout));
-					}
+					// Store private key spread across multiple heap allocations via fan to avoid plaintext keys in memory at rest
+					new_cache.emplace_back (account, std::make_unique<nano::fan> (prv_result.value (), config.password_fanout));
 				}
-				else
+				else if (prv_result.error () == nano::error_common::wallet_locked)
 				{
 					static auto last_log = std::chrono::steady_clock::time_point ();
 					if (last_log < std::chrono::steady_clock::now () - std::chrono::seconds (60))
