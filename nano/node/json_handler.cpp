@@ -3818,13 +3818,20 @@ void nano::json_handler::representative_count ()
 	if (!ec)
 	{
 		std::size_t count = 0;
-		for (auto & rep_amount : node.ledger.rep_weights.get_rep_amounts ())
+		if (threshold.is_zero ())
 		{
-			if (rep_amount.second < threshold.number ())
+			count = node.ledger.rep_weights.size ();
+		}
+		else
+		{
+			for (auto & rep_amount : node.ledger.rep_weights.get_rep_amounts ())
 			{
-				continue;
+				if (rep_amount.second < threshold.number ())
+				{
+					continue;
+				}
+				++count;
 			}
-			++count;
 		}
 		response_l.put ("count", std::to_string (count));
 	}
