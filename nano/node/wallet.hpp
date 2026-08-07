@@ -113,6 +113,9 @@ public:
 	nano::fan wallet_key_mem;
 	nano::kdf & kdf;
 	nano::locked<nano::wallet::wallet_handle> handle;
+
+private:
+	// Serializes compound password/wallet-key operations; the fans are individually synchronized already
 	mutable std::recursive_mutex mutex;
 
 private:

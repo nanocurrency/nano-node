@@ -710,10 +710,7 @@ wallet::wallet (nano::store::write_transaction & transaction_a, nano::wallet::wa
 void wallet::enter_initial_password ()
 {
 	nano::raw_key password_l;
-	{
-		nano::lock_guard<std::recursive_mutex> lock{ store.mutex };
-		store.password.value (password_l);
-	}
+	store.password.value (password_l);
 	if (password_l.is_zero ())
 	{
 		auto transaction (wallets.tx_begin_read ());
@@ -2064,8 +2061,6 @@ void wallets::refresh_rep_keys_cache ()
 
 	for (auto const & [id, wallet] : items)
 	{
-		nano::lock_guard<std::recursive_mutex> store_lock{ wallet->store.mutex };
-
 		auto reps_locked = wallet->representatives.lock ();
 		for (auto const & account : *reps_locked)
 		{

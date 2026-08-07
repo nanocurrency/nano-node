@@ -145,7 +145,7 @@ TEST (node, send_unkeyed)
 	nano::test::system system (1);
 	nano::keypair key2;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	system.wallet (0)->store.password.value_set (nano::keypair ().prv);
+	system.wallet (0)->lock ();
 	ASSERT_EQ (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
 }
 
@@ -461,10 +461,7 @@ TEST (node, unlock_search)
 	ASSERT_TIMELY (10s, node->balance (nano::dev::genesis_key.pub) != balance);
 	ASSERT_TIMELY (10s, node->active.empty ());
 	system.wallet (0)->insert_adhoc (key2.prv);
-	{
-		nano::lock_guard<std::recursive_mutex> lock{ system.wallet (0)->store.mutex };
-		system.wallet (0)->store.password.value_set (nano::keypair ().prv);
-	}
+	system.wallet (0)->lock ();
 	{
 		ASSERT_FALSE (system.wallet (0)->enter_password (""));
 	}
