@@ -9,7 +9,8 @@ add_executable(
   enable_control.cpp
   entry.cpp
   receivable.cpp
-  rpc.cpp)
+  rpc.cpp
+  wallet_rpc.cpp)
 
 target_link_libraries(rpc_test test_common)
 

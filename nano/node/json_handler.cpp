@@ -4826,12 +4826,9 @@ void nano::json_handler::wallet_destroy ()
 		nano::wallet_id wallet;
 		if (!wallet.decode_hex (wallet_text))
 		{
-			auto existing (rpc_l->node.wallets.open (wallet));
-			if (existing != nullptr)
+			if (rpc_l->node.wallets.destroy (wallet))
 			{
-				rpc_l->node.wallets.destroy (wallet);
-				bool destroyed (rpc_l->node.wallets.open (wallet) == nullptr);
-				rpc_l->response_l.put ("destroyed", destroyed ? "1" : "0");
+				rpc_l->response_l.put ("destroyed", "1");
 			}
 			else
 			{

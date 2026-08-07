@@ -1489,11 +1489,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			{
 				auto inactive_node = nano::default_inactive_node (data_path, vm);
 				auto node = inactive_node->node;
-				if (node->wallets.open (wallet_id) != nullptr)
-				{
-					node->wallets.destroy (wallet_id);
-				}
-				else
+				if (!node->wallets.destroy (wallet_id))
 				{
 					std::cerr << "Wallet doesn't exist\n";
 					ec = nano::error_cli::invalid_arguments;

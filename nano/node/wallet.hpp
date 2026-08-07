@@ -314,7 +314,8 @@ public:
 	std::shared_ptr<wallet> open (nano::wallet_id const &);
 	std::shared_ptr<wallet> create (nano::wallet_id const &);
 	std::shared_ptr<wallet> create_from_json (nano::wallet_id const &, std::string const & json);
-	void destroy (nano::wallet_id const &);
+	// Returns true if the wallet existed and was destroyed
+	bool destroy (nano::wallet_id const &);
 	void reload ();
 	void clear_send_ids ();
 

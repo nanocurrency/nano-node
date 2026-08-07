@@ -1849,17 +1849,21 @@ void wallets::search_receivable_all ()
 	}
 }
 
-void wallets::destroy (nano::wallet_id const & id_a)
+bool wallets::destroy (nano::wallet_id const & id_a)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto transaction (tx_begin_write ());
 	// action_mutex should be after transactions to prevent deadlocks in deterministic_insert () & insert_adhoc ()
 	nano::lock_guard<nano::mutex> action_lock{ action_mutex };
 	auto existing (items.find (id_a));
-	release_assert (existing != items.end ());
+	if (existing == items.end ())
+	{
+		return false;
+	}
 	auto wallet (existing->second);
 	items.erase (existing);
 	wallet->store.destroy (transaction);
+	return true;
 }
 
 void wallets::reload ()

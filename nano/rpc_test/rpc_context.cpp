@@ -34,6 +34,30 @@ boost::property_tree::ptree nano::test::wait_response (nano::test::system & syst
 	return response_json;
 }
 
+void nano::test::wait_responses_impl (nano::test::system & system, rpc_context const & rpc_ctx, std::vector<boost::property_tree::ptree> & requests, std::chrono::duration<double, std::nano> const & time, std::vector<boost::property_tree::ptree> & responses)
+{
+	// Start every request before waiting so they are in flight simultaneously
+	std::vector<std::unique_ptr<test_response>> in_flight;
+	in_flight.reserve (requests.size ());
+	for (auto & request : requests)
+	{
+		in_flight.push_back (std::make_unique<test_response> (request, rpc_ctx.rpc->listening_port (), *system.io_ctx));
+	}
+	ASSERT_TIMELY (time, std::all_of (in_flight.begin (), in_flight.end (), [] (auto const & response) { return response->status != 0; }));
+	for (auto const & response : in_flight)
+	{
+		ASSERT_EQ (200, response->status);
+		responses.push_back (response->json);
+	}
+}
+
+std::vector<boost::property_tree::ptree> nano::test::wait_responses (nano::test::system & system, rpc_context const & rpc_ctx, std::vector<boost::property_tree::ptree> & requests, std::chrono::duration<double, std::nano> const & time)
+{
+	std::vector<boost::property_tree::ptree> responses;
+	wait_responses_impl (system, rpc_ctx, requests, time, responses);
+	return responses;
+}
+
 bool nano::test::check_block_response_count (nano::test::system & system, rpc_context const & rpc_ctx, boost::property_tree::ptree & request, uint64_t size_count)
 {
 	auto response (wait_response (system, rpc_ctx, request));
@@ -46,6 +70,10 @@ nano::test::rpc_context nano::test::add_rpc (nano::test::system & system, std::s
 	auto node_rpc_config (std::make_unique<nano::node_rpc_config> ());
 	auto ipc_server (std::make_shared<nano::ipc::ipc_server> (*node_a, *node_rpc_config));
 	nano::rpc_config rpc_config (node_a->network_params.network, system.get_available_port (), options.enable_control);
+	if (options.num_ipc_connections)
+	{
+		rpc_config.rpc_process.num_ipc_connections = *options.num_ipc_connections;
+	}
 	const auto ipc_tcp_port = ipc_server->listening_tcp_port ();
 	debug_assert (ipc_tcp_port.has_value ());
 	auto ipc_rpc_processor (std::make_unique<nano::ipc_rpc_processor> (system.io_ctx, rpc_config, ipc_tcp_port.value ()));
