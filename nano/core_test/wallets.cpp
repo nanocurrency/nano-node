@@ -3,7 +3,6 @@
 #include <nano/node/active_elections.hpp>
 #include <nano/node/backlog_scan.hpp>
 #include <nano/node/election.hpp>
-#include <nano/node/inactive_node.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
@@ -122,24 +121,29 @@ TEST (wallets, create_from_json)
 	}
 }
 
-// Opening multiple environments using the same file within the same process is not supported.
-// http://www.lmdb.tech/doc/starting.html
-TEST (wallets, DISABLED_reload)
+// Reload must pick up wallets created through another wallets instance sharing the same backend and drop wallets destroyed through it.
+TEST (wallets, reload)
 {
 	nano::test::system system (1);
-	auto & node1 (*system.nodes[0]);
-	nano::wallet_id one (1);
-	bool error (false);
-	ASSERT_FALSE (error);
-	ASSERT_EQ (1, node1.wallets.wallet_count ());
-	{
-		nano::lock_guard<nano::mutex> lock_wallet (node1.wallets.mutex);
-		nano::inactive_node node (node1.get_data_path (), nano::inactive_node_flag_defaults ());
-		auto wallet (node.node->wallets.create (one));
-		ASSERT_NE (wallet, nullptr);
-	}
-	ASSERT_TIMELY (5s, node1.wallets.open (one) != nullptr);
-	ASSERT_EQ (2, node1.wallets.wallet_count ());
+	auto & node = *system.nodes[0];
+	node.wallets.stop (); // Stop node wallets to avoid race condition with local wallets sharing same LMDB environment
+	auto wallets1 = make_wallets (node);
+	auto wallets2 = make_wallets (node);
+	ASSERT_EQ (1, wallets1.wallet_count ()); // it starts out with a default wallet
+	ASSERT_EQ (1, wallets2.wallet_count ());
+	nano::wallet_id id (1);
+	// A wallet created through wallets1 appears in wallets2 after reload
+	ASSERT_NE (nullptr, wallets1.create (id));
+	ASSERT_EQ (nullptr, wallets2.open (id));
+	wallets2.reload ();
+	ASSERT_NE (nullptr, wallets2.open (id));
+	ASSERT_EQ (2, wallets2.wallet_count ());
+	// A wallet destroyed through wallets1 disappears from wallets2 after reload
+	ASSERT_TRUE (wallets1.destroy (id));
+	ASSERT_NE (nullptr, wallets2.open (id));
+	wallets2.reload ();
+	ASSERT_EQ (nullptr, wallets2.open (id));
+	ASSERT_EQ (1, wallets2.wallet_count ());
 }
 
 TEST (wallets, vote_minimum)
