@@ -776,14 +776,18 @@ void nano::json_handler::account_move ()
 						auto account (rpc_l->account_impl (i->second.get<std::string> ("")));
 						accounts.push_back (account);
 					}
-					auto result = wallet->move_accounts (*source_wallet, accounts);
-					if (result)
+					// Validate every account before moving any, the move is not atomic
+					if (!rpc_l->ec)
 					{
-						rpc_l->response_l.put ("moved", result.value () ? "0" : "1");
-					}
-					else
-					{
-						rpc_l->ec = result.error ();
+						auto result = wallet->move_accounts (*source_wallet, accounts);
+						if (result)
+						{
+							rpc_l->response_l.put ("moved", result.value () ? "0" : "1");
+						}
+						else
+						{
+							rpc_l->ec = result.error ();
+						}
 					}
 				}
 				else
@@ -2642,13 +2646,17 @@ void nano::json_handler::epoch_upgrade ()
 		{
 			if (nano::pub_key (prv) == node.ledger.epoch_signer (node.ledger.epoch_link (epoch)))
 			{
-				if (!node.epoch_upgrader.start (prv, epoch, count_limit, threads))
+				// Validate before starting, a rejected count or thread count must not upgrade the ledger
+				if (!ec)
 				{
-					response_l.put ("started", "1");
-				}
-				else
-				{
-					response_l.put ("started", "0");
+					if (!node.epoch_upgrader.start (prv, epoch, count_limit, threads))
+					{
+						response_l.put ("started", "1");
+					}
+					else
+					{
+						response_l.put ("started", "0");
+					}
 				}
 			}
 			else
