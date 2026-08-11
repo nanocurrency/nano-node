@@ -102,6 +102,7 @@ public:
 	void receive_minimum ();
 	void receive_minimum_set ();
 	void representatives ();
+	void representative_count ();
 	void representatives_online ();
 	void republish ();
 	void search_pending ();
