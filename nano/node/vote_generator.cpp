@@ -570,10 +570,12 @@ bool nano::vote_generator_index::push (nano::qualified_root const & root, nano::
 		}
 		else
 		{
-			// Different hash for same root
-			// Update dedup (old becomes stale)
-			existing->second = hash;
+			// Different hash for same root, replace only once the queue accepts the new entry (old becomes stale)
 			bool added = queue.push ({ root, hash }, { bucket });
+			if (added)
+			{
+				existing->second = hash;
+			}
 			return added;
 		}
 	}
@@ -591,6 +593,8 @@ bool nano::vote_generator_index::push (nano::qualified_root const & root, nano::
 
 auto nano::vote_generator_index::next_batch (size_t count) -> std::deque<entry>
 {
+	debug_assert (dedup.size () <= queue.size ()); // Every dedup entry must have a matching queue entry
+
 	queue.periodic_update ();
 
 	std::deque<entry> result;
@@ -618,5 +622,5 @@ size_t nano::vote_generator_index::size () const
 
 bool nano::vote_generator_index::empty () const
 {
-	return dedup.empty ();
+	return queue.empty ();
 }

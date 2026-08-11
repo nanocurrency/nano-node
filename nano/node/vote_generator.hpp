@@ -59,7 +59,9 @@ public:
 	/// Remove and return up to `count` valid entries (stale entries from replacements are skipped)
 	std::deque<entry> next_batch (size_t count);
 
+	/// Number of pending roots
 	size_t size () const;
+	/// True when the underlying queue holds no entries, stale or valid
 	bool empty () const;
 
 private:
