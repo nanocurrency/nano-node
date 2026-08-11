@@ -733,7 +733,7 @@ TEST (rpc, account_move_invalid_account)
 {
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
-	auto wallet_id (node->wallets.items.begin ()->first);
+	auto wallet_id (node->wallets.wallet_ids ().front ());
 	auto destination (system.wallet (0));
 	nano::keypair key;
 	auto source_id = nano::random_wallet_id ();
