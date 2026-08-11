@@ -5927,6 +5927,28 @@ TEST (rpc, online_reps)
 	ASSERT_EQ (representatives3.size (), 1);
 }
 
+// A node hosting a representative should report it as online in its own `representatives_online` output, even while completely idle
+TEST (rpc, representatives_online_local)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	ASSERT_TRUE (node->online_reps.list ().empty ());
+
+	// Make this node a representative for the genesis account
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	// The local representative is observed through the loopback rep crawler query, no block activity involved
+	ASSERT_TIMELY_EQ (10s, node->online_reps.list ().size (), 1);
+
+	auto const rpc_ctx = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "representatives_online");
+	auto response (wait_response (system, rpc_ctx, request));
+	auto representatives (response.get_child ("representatives"));
+	ASSERT_EQ (1, representatives.size ());
+	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), representatives.begin ()->second.get<std::string> (""));
+}
+
 TEST (rpc, confirmation_history)
 {
 	nano::test::system system;
