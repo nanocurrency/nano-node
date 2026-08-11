@@ -3787,11 +3787,11 @@ void nano::json_handler::representatives ()
 				{
 					continue;
 				}
-				representatives.put (account.to_account (), amount.convert_to<std::string> ());
-				if (representatives.size () > count)
+				if (representatives.size () >= count)
 				{
 					break;
 				}
+				representatives.put (account.to_account (), amount.convert_to<std::string> ());
 			}
 		}
 		else // Sorting
