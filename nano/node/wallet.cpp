@@ -710,10 +710,7 @@ wallet::wallet (nano::store::write_transaction & transaction_a, nano::wallet::wa
 void wallet::enter_initial_password ()
 {
 	nano::raw_key password_l;
-	{
-		nano::lock_guard<std::recursive_mutex> lock{ store.mutex };
-		store.password.value (password_l);
-	}
+	store.password.value (password_l);
 	if (password_l.is_zero ())
 	{
 		auto transaction (wallets.tx_begin_read ());
@@ -1849,17 +1846,21 @@ void wallets::search_receivable_all ()
 	}
 }
 
-void wallets::destroy (nano::wallet_id const & id_a)
+bool wallets::destroy (nano::wallet_id const & id_a)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto transaction (tx_begin_write ());
 	// action_mutex should be after transactions to prevent deadlocks in deterministic_insert () & insert_adhoc ()
 	nano::lock_guard<nano::mutex> action_lock{ action_mutex };
 	auto existing (items.find (id_a));
-	release_assert (existing != items.end ());
+	if (existing == items.end ())
+	{
+		return false;
+	}
 	auto wallet (existing->second);
 	items.erase (existing);
 	wallet->store.destroy (transaction);
+	return true;
 }
 
 void wallets::reload ()
@@ -2060,25 +2061,20 @@ void wallets::refresh_rep_keys_cache ()
 
 	for (auto const & [id, wallet] : items)
 	{
-		nano::lock_guard<std::recursive_mutex> store_lock{ wallet->store.mutex };
-
 		auto reps_locked = wallet->representatives.lock ();
 		for (auto const & account : *reps_locked)
 		{
 			if (wallet->store.exists (wallet_txn, account))
 			{
-				if (wallet->store.valid_password (wallet_txn))
+				// A single fetch reports the locked state too, so the password check and the fetch cannot disagree under a concurrent rekey
+				// A watch-only account can hold representative weight but has no private key to fetch; it cannot vote and is left out of the cache
+				auto prv_result = wallet->store.fetch (wallet_txn, account);
+				if (prv_result)
 				{
-					// A watch-only account can hold representative weight, so a representative here may have no
-					// private key to fetch. Such an account cannot vote and is simply left out of the keys cache.
-					auto prv_result = wallet->store.fetch (wallet_txn, account);
-					if (prv_result)
-					{
-						// Store private key spread across multiple heap allocations via fan to avoid plaintext keys in memory at rest
-						new_cache.emplace_back (account, std::make_unique<nano::fan> (prv_result.value (), config.password_fanout));
-					}
+					// Store private key spread across multiple heap allocations via fan to avoid plaintext keys in memory at rest
+					new_cache.emplace_back (account, std::make_unique<nano::fan> (prv_result.value (), config.password_fanout));
 				}
-				else
+				else if (prv_result.error () == nano::error_common::wallet_locked)
 				{
 					static auto last_log = std::chrono::steady_clock::time_point ();
 					if (last_log < std::chrono::steady_clock::now () - std::chrono::seconds (60))
@@ -2177,10 +2173,28 @@ void wallets::receive_confirmed (nano::block_hash const & hash_a, nano::account 
 	}
 }
 
-std::unordered_map<nano::wallet_id, std::shared_ptr<wallet>> wallets::all_wallets ()
+std::unordered_map<nano::wallet_id, std::shared_ptr<wallet>> wallets::all_wallets () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	return items;
+}
+
+std::vector<nano::wallet_id> wallets::wallet_ids () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	std::vector<nano::wallet_id> result;
+	result.reserve (items.size ());
+	for (auto const & [id, wallet] : items)
+	{
+		result.push_back (id);
+	}
+	return result;
+}
+
+std::size_t wallets::wallet_count () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return items.size ();
 }
 
 void wallets::do_wallet_actions ()

@@ -74,7 +74,7 @@ TEST (node, null_account)
 TEST (node, stop)
 {
 	nano::test::system system (1);
-	ASSERT_NE (system.nodes[0]->wallets.items.end (), system.nodes[0]->wallets.items.begin ());
+	ASSERT_NE (0, system.nodes[0]->wallets.wallet_count ());
 	system.stop_node (*system.nodes[0]);
 	ASSERT_TRUE (true);
 }
@@ -111,7 +111,7 @@ TEST (node, block_store_path_failure)
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	auto node (std::make_shared<nano::node> (system.get_available_port (), path, pool, nano::node_flags{}));
 	system.register_node (node);
-	ASSERT_TRUE (node->wallets.items.empty ());
+	ASSERT_EQ (0, node->wallets.wallet_count ());
 }
 
 TEST (node_DeathTest, readonly_block_store_not_exist)
@@ -145,7 +145,7 @@ TEST (node, send_unkeyed)
 	nano::test::system system (1);
 	nano::keypair key2;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	system.wallet (0)->store.password.value_set (nano::keypair ().prv);
+	system.wallet (0)->lock ();
 	ASSERT_EQ (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
 }
 
@@ -461,10 +461,7 @@ TEST (node, unlock_search)
 	ASSERT_TIMELY (10s, node->balance (nano::dev::genesis_key.pub) != balance);
 	ASSERT_TIMELY (10s, node->active.empty ());
 	system.wallet (0)->insert_adhoc (key2.prv);
-	{
-		nano::lock_guard<std::recursive_mutex> lock{ system.wallet (0)->store.mutex };
-		system.wallet (0)->store.password.value_set (nano::keypair ().prv);
-	}
+	system.wallet (0)->lock ();
 	{
 		ASSERT_FALSE (system.wallet (0)->enter_password (""));
 	}

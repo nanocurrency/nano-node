@@ -1671,12 +1671,9 @@ nano_qt::settings::settings (nano_qt::wallet & wallet_a) :
 		if (!this->wallet.wallet_m->is_locked ())
 		{
 			// lock wallet
-			nano::raw_key empty;
-			empty.clear ();
-			this->wallet.wallet_m->store.password.value_set (empty);
+			this->wallet.wallet_m->lock ();
 			update_locked (true, true);
 			lock_toggle->setText ("Unlock");
-			this->wallet.node.logger.warn (nano::log::type::qt, "Wallet locked");
 			password->setEnabled (1);
 		}
 		else

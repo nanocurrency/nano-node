@@ -411,7 +411,7 @@ TEST (rpc, search_receivable)
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto wallet (node->wallets.items.begin ()->first.to_string ());
+	auto wallet (node->wallets.wallet_ids ().front ().to_string ());
 	auto latest (node->latest (nano::dev::genesis_key.pub));
 	nano::block_builder builder;
 	auto block = builder

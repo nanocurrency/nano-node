@@ -2113,7 +2113,7 @@ TEST (system, block_sequence)
 	flags.disable_max_peers_per_ip = true;
 	flags.disable_ongoing_bootstrap = true;
 	auto root = system.add_node (config, flags);
-	auto wallet = root->wallets.items.begin ()->second;
+	auto wallet = system.wallet (0);
 	wallet->insert_adhoc (nano::dev::genesis_key.prv);
 	for (auto rep : reps)
 	{
@@ -2125,7 +2125,7 @@ TEST (system, block_sequence)
 			config.peering_port = system.get_available_port ();
 			system.add_node (config, flags);
 		}
-		std::cerr << rep.pub.to_account () << ' ' << pr->wallets.items.begin ()->second->exists (rep.pub) << pr->weight (rep.pub) << ' ' << '\n';
+		std::cerr << rep.pub.to_account () << ' ' << pr->wallets.all_wallets ().begin ()->second->exists (rep.pub) << pr->weight (rep.pub) << ' ' << '\n';
 	}
 	while (std::any_of (system.nodes.begin (), system.nodes.end (), [] (std::shared_ptr<nano::node> const & node) {
 		// std::cerr << node->rep_crawler.representative_count () << ' ';
