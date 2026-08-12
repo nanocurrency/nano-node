@@ -70,6 +70,8 @@ public:
 	bool valid_password (nano::store::transaction const &) const;
 	bool valid_public_key (nano::public_key const &) const;
 	bool attempt_password (nano::store::transaction const &, std::string const & password);
+	// Atomically clears the password, locking the wallet; serialized against rekey and attempt_password
+	void password_clear ();
 	nano::raw_key seed (nano::store::transaction const &) const;
 	void seed_set (nano::store::write_transaction const &, nano::raw_key const & seed);
 	nano::wallet::key_type key_type (nano::wallet::wallet_value const &) const;

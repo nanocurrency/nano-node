@@ -633,6 +633,15 @@ bool wallet_store::attempt_password (nano::store::transaction const & transactio
 	return result;
 }
 
+void wallet_store::password_clear ()
+{
+	// Take the store mutex so the clear cannot be overwritten by an in-flight rekey or attempt_password
+	nano::lock_guard<std::recursive_mutex> lock{ mutex };
+	nano::raw_key empty;
+	empty.clear ();
+	password.value_set (empty);
+}
+
 bool wallet_store::rekey (nano::store::write_transaction const & transaction_a, std::string const & password_a)
 {
 	nano::lock_guard<std::recursive_mutex> lock{ mutex };
@@ -1506,9 +1515,7 @@ bool wallet::is_locked () const
 void wallet::lock ()
 {
 	logger.info (nano::log::type::wallet, "Wallet locked");
-	nano::raw_key empty;
-	empty.clear ();
-	store.password.value_set (empty);
+	store.password_clear ();
 	wallets.refresh_rep_keys_cache ();
 }
 
