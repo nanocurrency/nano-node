@@ -737,10 +737,8 @@ bool wallet::enter_password (std::string const & password_a)
 		auto transaction = wallets.tx_begin_write ();
 		result = enter_password_impl (transaction, password_a);
 	}
-	if (!result)
-	{
-		wallets.refresh_rep_keys_cache ();
-	}
+	// Refresh even on failure: a failed attempt overwrites the password and locks the wallet, so cached rep keys must not outlive it
+	wallets.refresh_rep_keys_cache ();
 	return result;
 }
 
