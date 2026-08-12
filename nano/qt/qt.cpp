@@ -409,9 +409,9 @@ nano_qt::import::import (nano_qt::wallet & wallet_a) :
 			{
 				bool successful (false);
 				{
-					if (!this->wallet.wallet_m->is_locked ())
+					if (auto account_result = this->wallet.wallet_m->change_seed (seed_l))
 					{
-						this->wallet.account = this->wallet.wallet_m->change_seed (seed_l);
+						this->wallet.account = account_result.value ();
 						successful = true;
 					}
 					else

@@ -1,3 +1,4 @@
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
@@ -66,6 +67,41 @@ boost::property_tree::ptree account_move_request (nano::wallet_id const & wallet
 	entry.put ("", account.to_account ());
 	accounts.push_back (std::make_pair ("", entry));
 	request.add_child ("accounts", accounts);
+	return request;
+}
+
+boost::property_tree::ptree account_create_request (nano::wallet_id const & wallet)
+{
+	boost::property_tree::ptree request;
+	request.put ("action", "account_create");
+	request.put ("wallet", wallet.to_string ());
+	request.put ("work", "false");
+	return request;
+}
+
+boost::property_tree::ptree wallet_lock_request (nano::wallet_id const & wallet)
+{
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_lock");
+	request.put ("wallet", wallet.to_string ());
+	return request;
+}
+
+boost::property_tree::ptree password_enter_request (nano::wallet_id const & wallet, std::string const & password)
+{
+	boost::property_tree::ptree request;
+	request.put ("action", "password_enter");
+	request.put ("wallet", wallet.to_string ());
+	request.put ("password", password);
+	return request;
+}
+
+boost::property_tree::ptree wallet_change_seed_request (nano::wallet_id const & wallet, nano::raw_key const & seed)
+{
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_change_seed");
+	request.put ("wallet", wallet.to_string ());
+	request.put ("seed", seed.to_string ());
 	return request;
 }
 }
@@ -239,4 +275,53 @@ TEST (rpc, wallet_concurrent_create_destroy_read)
 	ASSERT_EQ (initial_count, node->wallets.wallet_count ());
 	// The stable wallet holds the genesis account plus one moved account per round
 	ASSERT_EQ (1 + rounds, stable_wallet->accounts ().size ());
+}
+
+// Hammers account creation and seed changes concurrently with wallet locking and unlocking.
+// Each key operation must either complete or report a locked wallet; the node must never crash
+// on a lock that lands between a handler's password check and its use of the wallet key.
+TEST (rpc, wallet_concurrent_lock_create)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node, { .num_ipc_connections = ipc_connections });
+
+	auto wallet_id (nano::random_wallet_id ());
+	auto wallet = node->wallets.create (wallet_id);
+	ASSERT_NE (nullptr, wallet);
+
+	auto const rounds = 5;
+	for (auto round = 0; round < rounds; ++round)
+	{
+		nano::raw_key seed;
+		nano::random_pool::generate_block (seed.bytes.data (), seed.bytes.size ());
+
+		std::vector<boost::property_tree::ptree> requests;
+		requests.push_back (account_create_request (wallet_id));
+		requests.push_back (wallet_lock_request (wallet_id));
+		requests.push_back (account_create_request (wallet_id));
+		requests.push_back (wallet_change_seed_request (wallet_id, seed));
+		requests.push_back (password_enter_request (wallet_id, ""));
+		requests.push_back (account_create_request (wallet_id));
+
+		auto responses = wait_responses (system, rpc_ctx, requests, 10s);
+		ASSERT_EQ (requests.size (), responses.size ());
+
+		// Key operations either succeed or report an error, never a torn result
+		for (auto const index : { 0, 2, 5 })
+		{
+			auto account_text (responses[index].get_optional<std::string> ("account"));
+			auto error_text (responses[index].get_optional<std::string> ("error"));
+			ASSERT_TRUE (account_text.has_value () != error_text.has_value ());
+		}
+		ASSERT_EQ ("1", responses[1].get<std::string> ("locked", ""));
+		auto seed_success (responses[3].get_optional<std::string> ("success"));
+		auto seed_error (responses[3].get_optional<std::string> ("error"));
+		ASSERT_TRUE (seed_success.has_value () != seed_error.has_value ());
+		ASSERT_EQ ("1", responses[4].get<std::string> ("valid", ""));
+
+		// The wallet must be functional again once unlocked
+		ASSERT_FALSE (wallet->enter_password (""));
+		ASSERT_TRUE (wallet->deterministic_insert (false));
+	}
 }
