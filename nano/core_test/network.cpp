@@ -1163,14 +1163,14 @@ TEST (network, peer_discovery_via_peering_only_node)
 	auto node_a = system.make_disconnected_node ();
 	auto node_b = system.make_disconnected_node ();
 
+	ASSERT_EQ (nullptr, node_a->network.find_node_id (node_b->get_node_id ()));
+	ASSERT_EQ (nullptr, node_b->network.find_node_id (node_a->get_node_id ()));
+
 	node_a->network.merge_peer (node_c->network.endpoint ());
 	node_b->network.merge_peer (node_c->network.endpoint ());
 
 	ASSERT_TIMELY (10s, node_a->network.find_node_id (node_c->get_node_id ()));
 	ASSERT_TIMELY (10s, node_b->network.find_node_id (node_c->get_node_id ()));
-
-	ASSERT_EQ (nullptr, node_a->network.find_node_id (node_b->get_node_id ()));
-	ASSERT_EQ (nullptr, node_b->network.find_node_id (node_a->get_node_id ()));
 
 	ASSERT_TIMELY (30s, node_a->network.find_node_id (node_b->get_node_id ()));
 	ASSERT_TIMELY (30s, node_b->network.find_node_id (node_a->get_node_id ()));
