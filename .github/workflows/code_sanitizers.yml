@@ -2,6 +2,10 @@ name: Code Sanitizers
 
 on: [ push, pull_request, workflow_dispatch ]
 
+env:
+  # Only the develop branch populates the cache.
+  SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/develop' && 'READ_WRITE' || 'READ_ONLY' }}
+
 jobs:
   linux_sanitizers:
     name: Linux [${{ matrix.SANITIZER.name }}] [${{ matrix.BACKEND }} | ${{ matrix.COMPILER }}] ${{ matrix.SANITIZER.ignore_errors && ' (Errors Ignored)' || '' }}
@@ -35,7 +39,8 @@ jobs:
       CMAKE_C_COMPILER_LAUNCHER: sccache
       CMAKE_CXX_COMPILER_LAUNCHER: sccache
       SCCACHE_GHA_ENABLED: "true"
-      SCCACHE_GHA_VERSION: linux-sanitizers-${{ matrix.SANITIZER.name }}-${{ matrix.COMPILER }}
+      # LEAK compiles identically to ASAN, so they share namespace.
+      SCCACHE_GHA_VERSION: linux-sanitizers-${{ matrix.SANITIZER.name == 'LEAK' && 'ASAN' || matrix.SANITIZER.name }}-${{ matrix.COMPILER }}
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout
