@@ -861,6 +861,39 @@ TEST (wallet, insert_lock_race)
 	locker.join ();
 }
 
+/*
+ * Hammers rekeying while another thread locks the wallet.
+ * Once lock() returns the wallet must stay locked: a rekey serialized before the
+ * clear is cleared with it, and one serialized after fails on the empty password
+ */
+TEST (wallet, lock_rekey_race)
+{
+	nano::test::system system (1);
+	auto wallet (system.wallet (0));
+	std::atomic<bool> done{ false };
+	std::thread rekeyer ([&] () {
+		while (!done)
+		{
+			// Rekey to the current password, succeeds only while the wallet is unlocked
+			wallet->rekey ("");
+		}
+	});
+	bool unlocked = true;
+	bool stayed_locked = true;
+	for (int i = 0; i < 100 && stayed_locked; ++i)
+	{
+		unlocked = !wallet->enter_password ("") && unlocked;
+		// Vary the timing so the lock samples every phase of the rekey cycle instead of phase-locking on the transaction handoff
+		std::this_thread::sleep_for (std::chrono::microseconds ((i * 37) % 1009));
+		wallet->lock ();
+		stayed_locked = wallet->is_locked ();
+	}
+	done = true;
+	rekeyer.join ();
+	ASSERT_TRUE (unlocked);
+	ASSERT_TRUE (stayed_locked);
+}
+
 TEST (wallet, move_accounts)
 {
 	nano::test::system system (1);

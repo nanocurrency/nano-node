@@ -307,17 +307,26 @@ TEST (rpc, wallet_concurrent_lock_create)
 		auto responses = wait_responses (system, rpc_ctx, requests, 10s);
 		ASSERT_EQ (requests.size (), responses.size ());
 
-		// Key operations either succeed or report an error, never a torn result
+		// Key operations either succeed or report a locked wallet, never a torn result or another error
+		auto const locked_message = std::error_code (nano::error_common::wallet_locked).message ();
 		for (auto const index : { 0, 2, 5 })
 		{
 			auto account_text (responses[index].get_optional<std::string> ("account"));
 			auto error_text (responses[index].get_optional<std::string> ("error"));
 			ASSERT_TRUE (account_text.has_value () != error_text.has_value ());
+			if (error_text)
+			{
+				ASSERT_EQ (locked_message, *error_text);
+			}
 		}
 		ASSERT_EQ ("1", responses[1].get<std::string> ("locked", ""));
 		auto seed_success (responses[3].get_optional<std::string> ("success"));
 		auto seed_error (responses[3].get_optional<std::string> ("error"));
 		ASSERT_TRUE (seed_success.has_value () != seed_error.has_value ());
+		if (seed_error)
+		{
+			ASSERT_EQ (locked_message, *seed_error);
+		}
 		ASSERT_EQ ("1", responses[4].get<std::string> ("valid", ""));
 
 		// The wallet must be functional again once unlocked
