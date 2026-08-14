@@ -12,13 +12,8 @@ add_custom_target(
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   DEPENDS clean_coverage)
 
-add_custom_target(
-  coveralls_upload
-  COMMAND echo "UPLOADING COVERALLS COVERAGE REPORT"
-  COMMAND coveralls -i nano -b build -r . --gcov-options '\\-lp'
-  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-  DEPENDS coverage_tests)
-
+# Submodules and the build tree dilute the numbers and are absent from the
+# report job.
 add_custom_target(
   generate_coverage
   COMMAND echo "CAPTURING COVERAGE DATA"
@@ -26,11 +21,9 @@ add_custom_target(
   COMMAND echo "REMOVING FLUFF FROM REPORT"
   COMMAND
     ${LCOV_PATH} --remove lcov.info.raw '/usr/*' '/tmp/*'
-    '${PROJECT_SOURCE_DIR}/submodules/cpptoml/*'
-    '${PROJECT_SOURCE_DIR}/crypto/*'
-    '${PROJECT_SOURCE_DIR}/submodules/flatbuffers/*'
-    '${PROJECT_SOURCE_DIR}/gtest/*' '${PROJECT_SOURCE_DIR}/submodules/rocksdb/*'
-    '${PROJECT_SOURCE_DIR}/valgrind/*' '${PROJECT_SOURCE_DIR}/nano/core_test/*'
+    '${CMAKE_BINARY_DIR}/*' '${PROJECT_SOURCE_DIR}/submodules/*'
+    '${PROJECT_SOURCE_DIR}/crypto/*' '${PROJECT_SOURCE_DIR}/valgrind/*'
+    '${PROJECT_SOURCE_DIR}/nano/core_test/*'
     '${PROJECT_SOURCE_DIR}/nano/load_test/*'
     '${PROJECT_SOURCE_DIR}/nano/ipc_flatbuffers_test/*'
     '${PROJECT_SOURCE_DIR}/nano/ipc_flatbuffers_lib/*'
@@ -47,6 +40,7 @@ add_custom_target(
 add_custom_target(
   generate_html
   COMMAND echo "GENERATING HTML COVERAGE REPORT"
-  COMMAND ${GENHTML_PATH} -o coverage ${PROJECT_SOURCE_DIR}/coverage/lcov.info
+  COMMAND ${GENHTML_PATH} -o ${PROJECT_SOURCE_DIR}/coverage/html
+          ${PROJECT_SOURCE_DIR}/coverage/lcov.info
   WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
   DEPENDS generate_coverage)

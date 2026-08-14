@@ -5,7 +5,6 @@
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/nanocurrency/nano-node)](https://github.com/nanocurrency/nano-node/releases/latest)
 [![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/nanocurrency/nano-node?color=darkblue&label=beta)](https://github.com/nanocurrency/nano-node/tags)
 [![Nano CT Status](https://raw.githubusercontent.com/gr0vity-dev/nano-node-builder/main/status_latest.svg)](https://ct.bnano.info)
-[![Coverage Status](https://coveralls.io/repos/github/nanocurrency/nano-node/badge.svg?branch=develop)](https://coveralls.io/github/nanocurrency/nano-node?branch=develop)
 [![Discord](https://img.shields.io/badge/discord-join%20chat-orange.svg)](https://chat.nano.org)
 
 ---

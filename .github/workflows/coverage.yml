@@ -9,20 +9,24 @@ on:
         required: true
   schedule:
     - cron: "0 1 * * 0"
+permissions:
+  contents: read
 jobs:
   coverage_test:
-    name: Coverage Test [TEST_USE_ROCKSDB=${{ matrix.TEST_USE_ROCKSDB }}]
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    name: Coverage Test [${{ matrix.BACKEND }}]
     env:
       LCOV: 1
       COMPILER: gcc
+      NANO_BACKEND: ${{ matrix.BACKEND }}
+      TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
+      DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        TEST_USE_ROCKSDB: [0, 1]
+        BACKEND: [lmdb, rocksdb]
       fail-fast: false
     continue-on-error: true
-    timeout-minutes: 60
+    timeout-minutes: 220
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,19 +39,99 @@ jobs:
           valgrind xorg xvfb xauth xfonts-100dpi xfonts-75dpi xfonts-scalable xfonts-cyrillic ocl-icd-opencl-dev \
           git lcov python3-pip
       - name: Build and Test
-        env:
-          TEST_USE_ROCKSDB: ${{ matrix.TEST_USE_ROCKSDB }}
+        # Under the job timeout so the uploads below still run.
+        timeout-minutes: 210
         run: ./ci/build-ci.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5
-      - uses: coverallsapp/github-action@8cbef1dea373ebce56de0a14c68d6267baa10b44
+      - name: Upload Tracefile
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
         with:
-          github-token: ${{ secrets.github_token }}
-          flag-name: rocksdb-${{ matrix.TEST_USE_ROCKSDB }},${{ github.event.inputs.label }}
-          parallel: true
-  finish:
+          name: lcov-backend-${{ matrix.BACKEND }}
+          path: coverage/lcov.info
+      - name: Summarize Coverage
+        if: ${{ !cancelled() }}
+        # Free-form input: never interpolate.
+        env:
+          LABEL: ${{ inputs.label || 'Scheduled' }}
+        run: |
+          heading="### Coverage [${{ matrix.BACKEND }}] $LABEL"
+          if [[ ! -f coverage/lcov.info ]]; then
+            {
+              echo "$heading"
+              echo "No coverage data was produced."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "$heading"
+            echo '```'
+            lcov --summary coverage/lcov.info 2>&1
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload HTML Report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html-${{ matrix.BACKEND }}
+          path: coverage/html
+  combined_report:
+    name: Combined Coverage Report
     needs: coverage_test
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-22.04
     steps:
-      - uses: coverallsapp/github-action@8cbef1dea373ebce56de0a14c68d6267baa10b44
+      # Must precede download-artifact: checkout cleans the workspace.
+      - uses: actions/checkout@v4
+      - name: Fetch Deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -yqq lcov
+      - uses: actions/download-artifact@v4
+        # Zero matches is an error.
+        continue-on-error: true
         with:
-          github-token: ${{ secrets.github_token }}
-          parallel-finished: true
+          pattern: lcov-backend-*
+          path: tracefiles
+      - name: Merge Tracefiles
+        env:
+          LABEL: ${{ inputs.label || 'Scheduled' }}
+        run: |
+          mapfile -t tracefiles < <(find tracefiles -name lcov.info 2>/dev/null)
+          if [[ ${#tracefiles[@]} -eq 0 ]]; then
+            {
+              echo "### Combined Coverage $LABEL"
+              echo "No tracefiles were produced, nothing to merge."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          args=()
+          for tracefile in "${tracefiles[@]}"; do
+            args+=(-a "$tracefile")
+          done
+          lcov "${args[@]}" -o lcov.info
+          {
+            echo "### Combined Coverage $LABEL"
+            echo '```'
+            lcov --summary lcov.info 2>&1
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload Combined Tracefile
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lcov-combined
+          path: lcov.info
+          if-no-files-found: warn
+      - name: Render Combined Report
+        if: ${{ !cancelled() }}
+        run: |
+          [[ -f lcov.info ]] || exit 0
+          # Only a source checkout here, so tolerate anything the filters miss.
+          genhtml --ignore-errors source -o html lcov.info
+      - name: Upload Combined Report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html-combined
+          path: html
+          if-no-files-found: warn
