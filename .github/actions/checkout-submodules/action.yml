@@ -1,0 +1,38 @@
+name: "checkout-submodules"
+description: "Initialize submodules, restoring them from cache when possible"
+runs:
+  using: "composite"
+  steps:
+    # The gitlink SHAs recorded in the tree fully determine the recursive
+    # submodule state, so they make a precise cache key. .gitmodules is
+    # included to catch url/path changes that leave the SHAs untouched.
+    - name: Submodule cache key
+      id: key
+      shell: bash
+      run: |
+        hash=$({ git ls-tree HEAD submodules/; cat .gitmodules; } | git hash-object --stdin)
+        echo "hash=$hash" >> "$GITHUB_OUTPUT"
+
+    - name: Restore submodules
+      uses: actions/cache@v4
+      with:
+        path: |
+          submodules
+          .git/modules
+        key: submodules-${{ runner.os }}-${{ steps.key.outputs.hash }}
+        # An outdated cache is still worth restoring: the update below only
+        # has to fetch whichever submodules actually moved.
+        restore-keys: |
+          submodules-${{ runner.os }}-
+
+    # Always run, so a missing, partial or outdated cache is repaired rather
+    # than trusted. On an exact hit this is a local no-op.
+    #
+    # A restored cache carries its own remote urls in .git/modules, which
+    # `update` fetches from, so sync them back from .gitmodules first. --force
+    # discards any modifications a previous job left in a cached worktree.
+    - name: Update submodules
+      shell: bash
+      run: |
+        git submodule sync --recursive
+        git submodule update --init --force --recursive --depth=1 --jobs 8

@@ -48,8 +48,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: "recursive"
+
+      - name: Checkout Submodules
+        uses: ./.github/actions/checkout-submodules
 
       - name: Prepare
         run: sudo -E ci/prepare/linux/prepare.sh
@@ -115,8 +116,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: "recursive"
+
+      - name: Checkout Submodules
+        uses: ./.github/actions/checkout-submodules
 
       - name: Prepare
         run: ci/prepare/macos/prepare.sh
