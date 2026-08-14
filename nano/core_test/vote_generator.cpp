@@ -234,24 +234,61 @@ TEST (vote_generator_index, replacement_when_bucket_full)
 	ASSERT_TRUE (index.push (root1, hash_a, 0));
 	ASSERT_TRUE (index.push (root2, hash_b, 0));
 
-	// Replace root1: dedup updates to hash_c, but queue.push fails (bucket full with stale + valid entries)
+	// Replacement of root1 is rejected while the bucket is full
+	ASSERT_FALSE (index.push (root1, hash_c, 0));
+	ASSERT_EQ (index.size (), 2);
+	ASSERT_FALSE (index.empty ());
+
+	// The old hash remains the active mapping, so pushing it again is a duplicate
+	ASSERT_FALSE (index.push (root1, hash_a, 0));
+
+	// Both original entries remain valid and extractable
+	auto batch = index.next_batch (10);
+	ASSERT_EQ (batch.size (), 2);
+	ASSERT_EQ (batch[0].first, root1);
+	ASSERT_EQ (batch[0].second, hash_a);
+	ASSERT_EQ (batch[1].first, root2);
+	ASSERT_EQ (batch[1].second, hash_b);
+
+	// No orphaned dedup entries: size and emptiness agree with the drained queue
+	ASSERT_EQ (index.size (), 0);
+	ASSERT_TRUE (index.empty ());
+	ASSERT_TRUE (index.next_batch (10).empty ());
+}
+
+TEST (vote_generator_index, replacement_retry_after_drain)
+{
+	nano::vote_generator_index index{ 2 }; // max 2 per bucket
+
+	auto root1 = nano::qualified_root{ nano::root{ 1 }, nano::block_hash{ 1 } };
+	auto root2 = nano::qualified_root{ nano::root{ 2 }, nano::block_hash{ 2 } };
+	auto hash_a = nano::block_hash{ 10 };
+	auto hash_b = nano::block_hash{ 20 };
+	auto hash_c = nano::block_hash{ 30 };
+
+	// Fill bucket 0 with root2 in front so draining frees space while root1 stays queued
+	ASSERT_TRUE (index.push (root2, hash_b, 0));
+	ASSERT_TRUE (index.push (root1, hash_a, 0));
+
+	// Replacement rejected while the bucket is full
 	ASSERT_FALSE (index.push (root1, hash_c, 0));
 
-	// Dedup was updated despite push failure: root1 now maps to hash_c
-	// Queue still has: root1/hash_a(stale), root2/hash_b(valid)
-	ASSERT_EQ (index.size (), 2);
-
-	// Extract: root1/hash_a is stale (dedup says hash_c) → skipped; root2/hash_b → valid
-	auto batch = index.next_batch (10);
+	// Drain one entry to free space, root1/hash_a stays queued
+	auto batch = index.next_batch (1);
 	ASSERT_EQ (batch.size (), 1);
 	ASSERT_EQ (batch[0].first, root2);
-	ASSERT_EQ (batch[0].second, hash_b);
 
-	// root1 is a zombie: exists in dedup but not in queue
+	// Retrying the replacement now succeeds and the old entry becomes stale
+	ASSERT_TRUE (index.push (root1, hash_c, 0));
 	ASSERT_EQ (index.size (), 1);
-	ASSERT_FALSE (index.empty ());
-	auto empty_batch = index.next_batch (10);
-	ASSERT_TRUE (empty_batch.empty ());
+
+	// Only the replacement is extracted, the stale hash_a entry is skipped
+	auto rest = index.next_batch (10);
+	ASSERT_EQ (rest.size (), 1);
+	ASSERT_EQ (rest[0].first, root1);
+	ASSERT_EQ (rest[0].second, hash_c);
+	ASSERT_TRUE (index.empty ());
+	ASSERT_EQ (index.size (), 0);
 }
 
 /*
