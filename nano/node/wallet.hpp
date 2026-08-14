@@ -47,8 +47,10 @@ public:
 
 private:
 	friend class wallet_store;
-	explicit wallet_cipher (nano::raw_key wallet_key);
+	wallet_cipher (wallet_store const & issuer, nano::raw_key wallet_key);
 
+	// Issuing store, a cipher must never be used with a different wallet
+	wallet_store const * issuer;
 	nano::raw_key wallet_key;
 };
 

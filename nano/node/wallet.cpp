@@ -37,8 +37,9 @@ namespace nano::wallet
  * wallet_cipher
  */
 
-wallet_cipher::wallet_cipher (nano::raw_key wallet_key_a) :
-	wallet_key{ wallet_key_a }
+wallet_cipher::wallet_cipher (wallet_store const & issuer, nano::raw_key wallet_key) :
+	issuer{ &issuer },
+	wallet_key{ wallet_key }
 {
 }
 
@@ -182,7 +183,7 @@ wallet_store::wallet_store (nano::kdf & kdf_a, nano::store::write_transaction & 
 			nano::raw_key seed;
 			random_pool::generate_block (seed.bytes.data (), seed.bytes.size ());
 			// The freshly generated wallet key needs no unlock to be known valid
-			seed_set (transaction_a, nano::wallet::wallet_cipher{ wallet_key }, seed);
+			seed_set (transaction_a, nano::wallet::wallet_cipher{ *this, wallet_key }, seed);
 			entry_put_raw (transaction_a, wallet_store::deterministic_index_special, nano::wallet::wallet_value (0, 0));
 		}
 		nano::raw_key key;
@@ -233,6 +234,7 @@ nano::account wallet_store::representative (nano::store::transaction const & tra
 
 nano::public_key wallet_store::insert_adhoc (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher, nano::raw_key const & prv)
 {
+	release_assert (cipher.issuer == this);
 	nano::public_key pub (nano::pub_key (prv));
 	auto ciphertext = cipher.encrypt (prv, pub.owords[0]);
 	entry_put_raw (transaction, pub, nano::wallet::wallet_value (ciphertext, 0));
@@ -307,6 +309,7 @@ nano::result<nano::raw_key> wallet_store::fetch (nano::store::transaction const 
 
 nano::result<nano::raw_key> wallet_store::fetch (nano::store::transaction const & transaction, nano::wallet::wallet_cipher const & cipher, nano::account const & pub) const
 {
+	release_assert (cipher.issuer == this);
 	auto value = entry_get_raw (transaction, pub);
 	if (value.key.is_zero ())
 	{
@@ -499,7 +502,7 @@ std::optional<wallet_cipher> wallet_store::unlock (nano::store::transaction cons
 	{
 		return std::nullopt;
 	}
-	return wallet_cipher{ wallet_key_l };
+	return wallet_cipher{ *this, wallet_key_l };
 }
 
 nano::raw_key wallet_store::wallet_key_decrypt (nano::store::transaction const & transaction_a) const
@@ -516,6 +519,7 @@ nano::raw_key wallet_store::wallet_key_decrypt (nano::store::transaction const &
 
 nano::raw_key wallet_store::seed (nano::store::transaction const & transaction, nano::wallet::wallet_cipher const & cipher) const
 {
+	release_assert (cipher.issuer == this);
 	return seed_decrypt (transaction, cipher);
 }
 
@@ -527,6 +531,7 @@ nano::raw_key wallet_store::seed_decrypt (nano::store::transaction const & trans
 
 void wallet_store::seed_set (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher, nano::raw_key const & seed)
 {
+	release_assert (cipher.issuer == this);
 	auto ciphertext = cipher.encrypt (seed, salt_get (transaction).owords[seed_iv_index]);
 	entry_put_raw (transaction, wallet_store::seed_special, nano::wallet::wallet_value (ciphertext, 0));
 	deterministic_clear (transaction);
@@ -534,6 +539,7 @@ void wallet_store::seed_set (nano::store::write_transaction const & transaction,
 
 nano::public_key wallet_store::deterministic_insert (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher)
 {
+	release_assert (cipher.issuer == this);
 	auto index (deterministic_index_get (transaction));
 	auto prv = deterministic_key (transaction, cipher, index);
 	nano::public_key result (nano::pub_key (prv));
@@ -557,6 +563,7 @@ nano::public_key wallet_store::deterministic_insert (nano::store::write_transact
 // Random access counterpart of the allocating overload above: the cursor stays put, otherwise inserting a high index would strand every account below it
 nano::public_key wallet_store::deterministic_insert (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher, uint32_t const index)
 {
+	release_assert (cipher.issuer == this);
 	auto prv = deterministic_key (transaction, cipher, index);
 	nano::public_key result (nano::pub_key (prv));
 	uint64_t marker (1);
@@ -568,6 +575,7 @@ nano::public_key wallet_store::deterministic_insert (nano::store::write_transact
 
 nano::raw_key wallet_store::deterministic_key (nano::store::transaction const & transaction, nano::wallet::wallet_cipher const & cipher, uint32_t index) const
 {
+	release_assert (cipher.issuer == this);
 	auto wallet_seed = seed_decrypt (transaction, cipher);
 	return nano::deterministic_key (wallet_seed, index);
 }
