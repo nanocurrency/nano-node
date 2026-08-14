@@ -11,6 +11,10 @@ on:
     - cron: "0 1 * * 0"
 permissions:
   contents: read
+env:
+  GIT_CONFIG_COUNT: 1
+  GIT_CONFIG_KEY_0: submodule.fetchJobs
+  GIT_CONFIG_VALUE_0: 8
 jobs:
   coverage_test:
     name: Coverage Test [${{ matrix.BACKEND }}]

@@ -11,6 +11,9 @@ on:
 
 env:
   artifact: 1
+  GIT_CONFIG_COUNT: 1
+  GIT_CONFIG_KEY_0: submodule.fetchJobs
+  GIT_CONFIG_VALUE_0: 8
 
 jobs:
   prepare_build:

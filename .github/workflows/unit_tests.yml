@@ -2,6 +2,11 @@ name: Unit Tests
 
 on: [push, pull_request]
 
+env:
+  GIT_CONFIG_COUNT: 1
+  GIT_CONFIG_KEY_0: submodule.fetchJobs
+  GIT_CONFIG_VALUE_0: 8
+
 jobs:
   macos_test:
     name: macOS [${{ matrix.BACKEND }}]
