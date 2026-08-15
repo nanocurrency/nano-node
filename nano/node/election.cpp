@@ -206,11 +206,12 @@ bool nano::election::transition_priority ()
 		return false;
 	}
 
+	auto const previous_behavior = behavior_m;
 	behavior_m = nano::election_behavior::priority;
 	pacing.reset_vote (); // Allow new outgoing votes immediately
 
 	node.logger.debug (nano::log::type::election, "Transitioned election behavior to priority from {} for root: {} (duration: {}ms)",
-	to_string (behavior_m),
+	to_string (previous_behavior),
 	qualified_root,
 	duration ().count ());
 
