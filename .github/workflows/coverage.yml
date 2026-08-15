@@ -1,14 +1,14 @@
 name: Coverage Reports
 
 on:
+  push:
+    branches: [develop]
   workflow_dispatch:
     inputs:
       label:
         description: "label to append to run"
-        default: "Scheduled"
+        default: "Manual"
         required: true
-  schedule:
-    - cron: "0 1 * * 0"
 permissions:
   contents: read
 jobs:
@@ -52,7 +52,7 @@ jobs:
         if: ${{ !cancelled() }}
         # Free-form input: never interpolate.
         env:
-          LABEL: ${{ inputs.label || 'Scheduled' }}
+          LABEL: ${{ inputs.label || github.ref_name }}
         run: |
           heading="### Coverage [${{ matrix.BACKEND }}] $LABEL"
           if [[ ! -f coverage/lcov.info ]]; then
@@ -94,7 +94,7 @@ jobs:
           path: tracefiles
       - name: Merge Tracefiles
         env:
-          LABEL: ${{ inputs.label || 'Scheduled' }}
+          LABEL: ${{ inputs.label || github.ref_name }}
         run: |
           mapfile -t tracefiles < <(find tracefiles -name lcov.info 2>/dev/null)
           if [[ ${#tracefiles[@]} -eq 0 ]]; then
