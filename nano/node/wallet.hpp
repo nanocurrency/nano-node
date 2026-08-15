@@ -47,8 +47,10 @@ public:
 
 private:
 	friend class wallet_store;
-	explicit wallet_cipher (nano::raw_key wallet_key);
+	wallet_cipher (wallet_store const & issuer, nano::raw_key wallet_key);
 
+	// Issuing store, a cipher must never be used with a different wallet
+	wallet_store const * issuer;
 	nano::raw_key wallet_key;
 };
 
@@ -70,14 +72,16 @@ public:
 	bool valid_password (nano::store::transaction const &) const;
 	bool valid_public_key (nano::public_key const &) const;
 	bool attempt_password (nano::store::transaction const &, std::string const & password);
-	nano::raw_key seed (nano::store::transaction const &) const;
-	void seed_set (nano::store::write_transaction const &, nano::raw_key const & seed);
+	// Atomically clears the password, locking the wallet; serialized against rekey and attempt_password
+	void password_clear ();
+	nano::raw_key seed (nano::store::transaction const &, nano::wallet::wallet_cipher const &) const;
+	void seed_set (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &, nano::raw_key const & seed);
 	nano::wallet::key_type key_type (nano::wallet::wallet_value const &) const;
 	// Allocates the next account: inserts at the stored index and advances it, skipping indexes whose accounts already exist
-	nano::public_key deterministic_insert (nano::store::write_transaction const &);
+	nano::public_key deterministic_insert (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &);
 	// Materializes one account at an explicit index, leaving the stored index alone so sequential allocation still fills the indexes below it
-	nano::public_key deterministic_insert (nano::store::write_transaction const &, uint32_t index);
-	nano::raw_key deterministic_key (nano::store::transaction const &, uint32_t index) const;
+	nano::public_key deterministic_insert (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &, uint32_t index);
+	nano::raw_key deterministic_key (nano::store::transaction const &, nano::wallet::wallet_cipher const &, uint32_t index) const;
 	uint32_t deterministic_index_get (nano::store::transaction const &) const;
 	void deterministic_index_set (nano::store::write_transaction const &, uint32_t index);
 	void deterministic_clear (nano::store::write_transaction const &);
@@ -86,12 +90,13 @@ public:
 	bool is_representative (nano::store::transaction const &) const;
 	nano::account representative (nano::store::transaction const &) const;
 	void representative_set (nano::store::write_transaction const &, nano::account const & rep);
-	nano::public_key insert_adhoc (nano::store::write_transaction const &, nano::raw_key const & prv);
+	nano::public_key insert_adhoc (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &, nano::raw_key const & prv);
 	bool insert_watch (nano::store::write_transaction const &, nano::account const & pub);
 	void erase (nano::store::write_transaction const &, nano::account const & pub);
 	nano::wallet::wallet_value entry_get_raw (nano::store::transaction const &, nano::account const & pub) const;
 	void entry_put_raw (nano::store::write_transaction const &, nano::account const & pub, nano::wallet::wallet_value const & entry);
 	nano::result<nano::raw_key> fetch (nano::store::transaction const &, nano::account const & pub) const;
+	nano::result<nano::raw_key> fetch (nano::store::transaction const &, nano::wallet::wallet_cipher const &, nano::account const & pub) const;
 	bool exists (nano::store::transaction const &, nano::account const & pub) const;
 	void destroy (nano::store::write_transaction const &);
 	iterator find (nano::store::transaction const &, nano::account const & key) const;
@@ -179,8 +184,8 @@ public:
 
 	// Seed management
 	nano::result<nano::raw_key> get_seed () const;
-	nano::public_key change_seed (nano::raw_key const & seed, uint32_t count = 0);
-	// Inserts accounts up to the highest one with ledger activity
+	nano::result<nano::public_key> change_seed (nano::raw_key const & seed, uint32_t count = 0);
+	// Inserts accounts up to the highest one with ledger activity, does nothing when the wallet is locked
 	void deterministic_restore ();
 	// Scans accounts from index, returns the highest index with ledger activity, if any
 	std::optional<uint32_t> deterministic_check (uint32_t index);
@@ -240,9 +245,9 @@ private: // Internal implementation methods (accept transactions for batching sc
 	// Adds a watch-only account, returns true if the key is not a valid public key
 	bool insert_watch_impl (nano::store::write_transaction const &, nano::public_key const & pub);
 	// Inserts the account at the stored deterministic index and advances it
-	nano::public_key deterministic_insert_impl (nano::store::write_transaction const &, bool generate_work = true);
+	nano::public_key deterministic_insert_impl (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &, bool generate_work = true);
 	// Inserts the account at an explicit index, leaving the stored index untouched
-	nano::public_key deterministic_insert_impl (nano::store::write_transaction const &, uint32_t index, bool generate_work = true);
+	nano::public_key deterministic_insert_impl (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &, uint32_t index, bool generate_work = true);
 	// Caches work for an account, discarding it if the root is no longer the account frontier
 	void work_update_impl (nano::store::write_transaction const &, nano::account const & account, nano::root const & root, uint64_t work);
 	// Receives confirmed receivables above the receive minimum and starts elections for unconfirmed ones, returns true if the wallet is locked
@@ -250,13 +255,13 @@ private: // Internal implementation methods (accept transactions for batching sc
 	// Rebuilds the set of accounts available for spending from the wallet store
 	void init_free_accounts_impl (nano::store::transaction const &);
 	// Scans accounts from index, returns the highest index with ledger activity, if any
-	std::optional<uint32_t> deterministic_check_impl (nano::store::transaction const &, uint32_t index);
+	std::optional<uint32_t> deterministic_check_impl (nano::store::transaction const &, nano::wallet::wallet_cipher const &, uint32_t index);
 	// Inserts accounts until every index up to and including last exists, returns the last account inserted
-	std::optional<nano::public_key> deterministic_insert_up_to_impl (nano::store::write_transaction const &, uint32_t last);
+	std::optional<nano::public_key> deterministic_insert_up_to_impl (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &, uint32_t last);
 	// Replaces the seed and inserts accounts 0..count, or up to the highest account in use when count is 0
-	nano::public_key change_seed_impl (nano::store::write_transaction const &, nano::raw_key const & seed, uint32_t count = 0);
+	nano::public_key change_seed_impl (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &, nano::raw_key const & seed, uint32_t count = 0);
 	// Inserts accounts up to the highest one with ledger activity
-	void deterministic_restore_impl (nano::store::write_transaction const &);
+	void deterministic_restore_impl (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &);
 
 private:
 	nano::locked<std::unordered_set<nano::account>> representatives;

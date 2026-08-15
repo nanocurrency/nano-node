@@ -37,8 +37,9 @@ namespace nano::wallet
  * wallet_cipher
  */
 
-wallet_cipher::wallet_cipher (nano::raw_key wallet_key_a) :
-	wallet_key{ wallet_key_a }
+wallet_cipher::wallet_cipher (wallet_store const & issuer, nano::raw_key wallet_key) :
+	issuer{ &issuer },
+	wallet_key{ wallet_key }
 {
 }
 
@@ -181,7 +182,8 @@ wallet_store::wallet_store (nano::kdf & kdf_a, nano::store::write_transaction & 
 			entry_put_raw (transaction_a, wallet_store::representative_special, nano::wallet::wallet_value (rep, 0));
 			nano::raw_key seed;
 			random_pool::generate_block (seed.bytes.data (), seed.bytes.size ());
-			seed_set (transaction_a, seed);
+			// The freshly generated wallet key needs no unlock to be known valid
+			seed_set (transaction_a, nano::wallet::wallet_cipher{ *this, wallet_key }, seed);
 			entry_put_raw (transaction_a, wallet_store::deterministic_index_special, nano::wallet::wallet_value (0, 0));
 		}
 		nano::raw_key key;
@@ -230,13 +232,12 @@ nano::account wallet_store::representative (nano::store::transaction const & tra
 	return reinterpret_cast<nano::account const &> (value.key);
 }
 
-nano::public_key wallet_store::insert_adhoc (nano::store::write_transaction const & transaction_a, nano::raw_key const & prv)
+nano::public_key wallet_store::insert_adhoc (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher, nano::raw_key const & prv)
 {
-	auto cipher = unlock (transaction_a);
-	release_assert (cipher, "wallet is locked or password is invalid");
+	release_assert (cipher.issuer == this);
 	nano::public_key pub (nano::pub_key (prv));
-	auto ciphertext = cipher.value ().encrypt (prv, pub.owords[0]);
-	entry_put_raw (transaction_a, pub, nano::wallet::wallet_value (ciphertext, 0));
+	auto ciphertext = cipher.encrypt (prv, pub.owords[0]);
+	entry_put_raw (transaction, pub, nano::wallet::wallet_value (ciphertext, 0));
 	return pub;
 }
 
@@ -303,7 +304,12 @@ nano::result<nano::raw_key> wallet_store::fetch (nano::store::transaction const 
 	{
 		return nano::error (nano::error_common::wallet_locked);
 	}
+	return fetch (transaction, cipher.value (), pub);
+}
 
+nano::result<nano::raw_key> wallet_store::fetch (nano::store::transaction const & transaction, nano::wallet::wallet_cipher const & cipher, nano::account const & pub) const
+{
+	release_assert (cipher.issuer == this);
 	auto value = entry_get_raw (transaction, pub);
 	if (value.key.is_zero ())
 	{
@@ -315,14 +321,14 @@ nano::result<nano::raw_key> wallet_store::fetch (nano::store::transaction const 
 	{
 		case key_type::deterministic:
 		{
-			auto seed_l = seed_decrypt (transaction, cipher.value ());
+			auto seed_l = seed_decrypt (transaction, cipher);
 			auto index = static_cast<uint32_t> (value.key.number () & static_cast<uint32_t> (-1));
 			prv = nano::deterministic_key (seed_l, index);
 			break;
 		}
 		case key_type::adhoc:
 		{
-			prv = cipher.value ().decrypt (value.key, pub.owords[0]);
+			prv = cipher.decrypt (value.key, pub.owords[0]);
 			break;
 		}
 		default:
@@ -380,9 +386,12 @@ void wallet_store::write_backup (nano::store::transaction const & transaction_a,
 	}
 }
 
-nano::result<bool> wallet_store::move (nano::store::write_transaction const & transaction_a, wallet_store & other_a, std::vector<nano::public_key> const & keys)
+nano::result<bool> wallet_store::move (nano::store::write_transaction const & transaction, wallet_store & other, std::vector<nano::public_key> const & keys)
 {
-	if (!valid_password (transaction_a) || !other_a.valid_password (transaction_a))
+	// Unlock both stores once so a concurrent password change cannot interrupt the transfer midway
+	auto cipher = unlock (transaction);
+	auto other_cipher = other.unlock (transaction);
+	if (!cipher || !other_cipher)
 	{
 		return nano::error (nano::error_common::wallet_locked);
 	}
@@ -390,11 +399,11 @@ nano::result<bool> wallet_store::move (nano::store::write_transaction const & tr
 	bool error = false;
 	for (auto i (keys.begin ()), n (keys.end ()); i != n; ++i)
 	{
-		auto prv_result = other_a.fetch (transaction_a, *i);
+		auto prv_result = other.fetch (transaction, other_cipher.value (), *i);
 		if (prv_result)
 		{
-			insert_adhoc (transaction_a, prv_result.value ());
-			other_a.erase (transaction_a, *i);
+			insert_adhoc (transaction, cipher.value (), prv_result.value ());
+			other.erase (transaction, *i);
 		}
 		else
 		{
@@ -404,28 +413,31 @@ nano::result<bool> wallet_store::move (nano::store::write_transaction const & tr
 	return error;
 }
 
-nano::result<bool> wallet_store::import (nano::store::write_transaction const & transaction_a, wallet_store & other_a)
+nano::result<bool> wallet_store::import (nano::store::write_transaction const & transaction, wallet_store & other)
 {
-	if (!valid_password (transaction_a) || !other_a.valid_password (transaction_a))
+	// Unlock both stores once so a concurrent password change cannot interrupt the transfer midway
+	auto cipher = unlock (transaction);
+	auto other_cipher = other.unlock (transaction);
+	if (!cipher || !other_cipher)
 	{
 		return nano::error (nano::error_common::wallet_locked);
 	}
 
 	bool error = false;
-	for (auto i (other_a.begin (transaction_a)), n (other_a.end (transaction_a)); i != n; ++i)
+	for (auto i (other.begin (transaction)), n (other.end (transaction)); i != n; ++i)
 	{
-		auto prv_result = other_a.fetch (transaction_a, i->first);
+		auto prv_result = other.fetch (transaction, other_cipher.value (), i->first);
 		if (prv_result)
 		{
 			if (!prv_result.value ().is_zero ())
 			{
-				insert_adhoc (transaction_a, prv_result.value ());
+				insert_adhoc (transaction, cipher.value (), prv_result.value ());
 			}
 			else
 			{
-				insert_watch (transaction_a, i->first);
+				insert_watch (transaction, i->first);
 			}
-			other_a.erase (transaction_a, i->first);
+			other.erase (transaction, i->first);
 		}
 		else
 		{
@@ -490,7 +502,7 @@ std::optional<wallet_cipher> wallet_store::unlock (nano::store::transaction cons
 	{
 		return std::nullopt;
 	}
-	return wallet_cipher{ wallet_key_l };
+	return wallet_cipher{ *this, wallet_key_l };
 }
 
 nano::raw_key wallet_store::wallet_key_decrypt (nano::store::transaction const & transaction_a) const
@@ -505,11 +517,10 @@ nano::raw_key wallet_store::wallet_key_decrypt (nano::store::transaction const &
 	return result;
 }
 
-nano::raw_key wallet_store::seed (nano::store::transaction const & transaction) const
+nano::raw_key wallet_store::seed (nano::store::transaction const & transaction, nano::wallet::wallet_cipher const & cipher) const
 {
-	auto cipher = unlock (transaction);
-	release_assert (cipher, "wallet is locked or password is invalid");
-	return seed_decrypt (transaction, cipher.value ());
+	release_assert (cipher.issuer == this);
+	return seed_decrypt (transaction, cipher);
 }
 
 nano::raw_key wallet_store::seed_decrypt (nano::store::transaction const & transaction, nano::wallet::wallet_cipher const & cipher) const
@@ -518,54 +529,54 @@ nano::raw_key wallet_store::seed_decrypt (nano::store::transaction const & trans
 	return cipher.decrypt (encrypted_seed, salt_get (transaction).owords[seed_iv_index]);
 }
 
-void wallet_store::seed_set (nano::store::write_transaction const & transaction_a, nano::raw_key const & prv_a)
+void wallet_store::seed_set (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher, nano::raw_key const & seed)
 {
-	auto cipher = unlock (transaction_a);
-	release_assert (cipher, "wallet is locked or password is invalid");
-	auto ciphertext = cipher.value ().encrypt (prv_a, salt_get (transaction_a).owords[seed_iv_index]);
-	entry_put_raw (transaction_a, wallet_store::seed_special, nano::wallet::wallet_value (ciphertext, 0));
-	deterministic_clear (transaction_a);
+	release_assert (cipher.issuer == this);
+	auto ciphertext = cipher.encrypt (seed, salt_get (transaction).owords[seed_iv_index]);
+	entry_put_raw (transaction, wallet_store::seed_special, nano::wallet::wallet_value (ciphertext, 0));
+	deterministic_clear (transaction);
 }
 
-nano::public_key wallet_store::deterministic_insert (nano::store::write_transaction const & transaction_a)
+nano::public_key wallet_store::deterministic_insert (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher)
 {
-	auto index (deterministic_index_get (transaction_a));
-	auto prv = deterministic_key (transaction_a, index);
+	release_assert (cipher.issuer == this);
+	auto index (deterministic_index_get (transaction));
+	auto prv = deterministic_key (transaction, cipher, index);
 	nano::public_key result (nano::pub_key (prv));
 	// The indexed overload inserts without moving the cursor, so accounts may already exist at or above it; skip them rather than hand back an existing account
-	while (exists (transaction_a, result))
+	while (exists (transaction, result))
 	{
 		++index;
-		prv = deterministic_key (transaction_a, index);
+		prv = deterministic_key (transaction, cipher, index);
 		result = nano::pub_key (prv);
 	}
 	// A deterministic entry is tagged by a marker carrying its account index in the low 32 bits
 	uint64_t marker (1);
 	marker <<= 32;
 	marker |= index;
-	entry_put_raw (transaction_a, result, nano::wallet::wallet_value (marker, 0));
+	entry_put_raw (transaction, result, nano::wallet::wallet_value (marker, 0));
 	++index;
-	deterministic_index_set (transaction_a, index);
+	deterministic_index_set (transaction, index);
 	return result;
 }
 
 // Random access counterpart of the allocating overload above: the cursor stays put, otherwise inserting a high index would strand every account below it
-nano::public_key wallet_store::deterministic_insert (nano::store::write_transaction const & transaction_a, uint32_t const index)
+nano::public_key wallet_store::deterministic_insert (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher, uint32_t const index)
 {
-	auto prv = deterministic_key (transaction_a, index);
+	release_assert (cipher.issuer == this);
+	auto prv = deterministic_key (transaction, cipher, index);
 	nano::public_key result (nano::pub_key (prv));
 	uint64_t marker (1);
 	marker <<= 32;
 	marker |= index;
-	entry_put_raw (transaction_a, result, nano::wallet::wallet_value (marker, 0));
+	entry_put_raw (transaction, result, nano::wallet::wallet_value (marker, 0));
 	return result;
 }
 
-nano::raw_key wallet_store::deterministic_key (nano::store::transaction const & transaction, uint32_t index) const
+nano::raw_key wallet_store::deterministic_key (nano::store::transaction const & transaction, nano::wallet::wallet_cipher const & cipher, uint32_t index) const
 {
-	auto cipher = unlock (transaction);
-	release_assert (cipher, "wallet is locked or password is invalid");
-	auto wallet_seed = seed_decrypt (transaction, cipher.value ());
+	release_assert (cipher.issuer == this);
+	auto wallet_seed = seed_decrypt (transaction, cipher);
 	return nano::deterministic_key (wallet_seed, index);
 }
 
@@ -631,6 +642,15 @@ bool wallet_store::attempt_password (nano::store::transaction const & transactio
 		}
 	}
 	return result;
+}
+
+void wallet_store::password_clear ()
+{
+	// Take the store mutex so the clear cannot be overwritten by an in-flight rekey or attempt_password
+	nano::lock_guard<std::recursive_mutex> lock{ mutex };
+	nano::raw_key empty;
+	empty.clear ();
+	password.value_set (empty);
 }
 
 bool wallet_store::rekey (nano::store::write_transaction const & transaction_a, std::string const & password_a)
@@ -725,10 +745,8 @@ bool wallet::enter_password (std::string const & password_a)
 		auto transaction = wallets.tx_begin_write ();
 		result = enter_password_impl (transaction, password_a);
 	}
-	if (!result)
-	{
-		wallets.refresh_rep_keys_cache ();
-	}
+	// Refresh even on failure: a failed attempt overwrites the password and locks the wallet, so cached rep keys must not outlive it
+	wallets.refresh_rep_keys_cache ();
 	return result;
 }
 
@@ -753,9 +771,9 @@ bool wallet::enter_password_impl (nano::store::transaction const & transaction_a
 	return result;
 }
 
-nano::public_key wallet::deterministic_insert_impl (nano::store::write_transaction const & transaction, bool generate_work)
+nano::public_key wallet::deterministic_insert_impl (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher, bool generate_work)
 {
-	auto key = store.deterministic_insert (transaction);
+	auto key = store.deterministic_insert (transaction, cipher);
 
 	logger.info (nano::log::type::wallet, "Deterministically inserted new account: {}", key.to_account ());
 
@@ -773,9 +791,9 @@ nano::public_key wallet::deterministic_insert_impl (nano::store::write_transacti
 	return key;
 }
 
-nano::public_key wallet::deterministic_insert_impl (nano::store::write_transaction const & transaction, uint32_t index, bool generate_work)
+nano::public_key wallet::deterministic_insert_impl (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher, uint32_t index, bool generate_work)
 {
-	auto key = store.deterministic_insert (transaction, index);
+	auto key = store.deterministic_insert (transaction, cipher, index);
 
 	logger.info (nano::log::type::wallet, "Deterministically inserted new account: {} with index: {}", key.to_account (), index);
 
@@ -797,12 +815,13 @@ nano::result<nano::public_key> wallet::deterministic_insert (uint32_t index, boo
 {
 	auto transaction = wallets.tx_begin_write ();
 
-	if (!store.valid_password (transaction))
+	auto cipher = store.unlock (transaction);
+	if (!cipher)
 	{
 		return nano::error (nano::error_common::wallet_locked);
 	}
 
-	auto result = deterministic_insert_impl (transaction, index, generate_work);
+	auto result = deterministic_insert_impl (transaction, cipher.value (), index, generate_work);
 	transaction.commit ();
 	wallets.refresh_rep_keys_cache ();
 	return result;
@@ -812,12 +831,13 @@ nano::result<nano::public_key> wallet::deterministic_insert (bool generate_work)
 {
 	auto transaction = wallets.tx_begin_write ();
 
-	if (!store.valid_password (transaction))
+	auto cipher = store.unlock (transaction);
+	if (!cipher)
 	{
 		return nano::error (nano::error_common::wallet_locked);
 	}
 
-	auto result = deterministic_insert_impl (transaction, generate_work);
+	auto result = deterministic_insert_impl (transaction, cipher.value (), generate_work);
 	transaction.commit ();
 	wallets.refresh_rep_keys_cache ();
 	return result;
@@ -827,12 +847,13 @@ nano::result<nano::public_key> wallet::insert_adhoc (nano::raw_key const & prv, 
 {
 	auto transaction = wallets.tx_begin_write ();
 
-	if (!store.valid_password (transaction))
+	auto cipher = store.unlock (transaction);
+	if (!cipher)
 	{
 		return nano::error (nano::error_common::wallet_locked);
 	}
 
-	auto key = store.insert_adhoc (transaction, prv);
+	auto key = store.insert_adhoc (transaction, cipher.value (), prv);
 
 	logger.info (nano::log::type::wallet, "Ad-hoc inserted new account: {}", key.to_account ());
 
@@ -1368,16 +1389,21 @@ void wallet::init_free_accounts_impl (nano::store::transaction const & transacti
 std::optional<uint32_t> wallet::deterministic_check (uint32_t index)
 {
 	auto transaction = wallets.tx_begin_read ();
-	return deterministic_check_impl (transaction, index);
+	auto cipher = store.unlock (transaction);
+	if (!cipher)
+	{
+		return std::nullopt;
+	}
+	return deterministic_check_impl (transaction, cipher.value (), index);
 }
 
-std::optional<uint32_t> wallet::deterministic_check_impl (nano::store::transaction const & transaction_a, uint32_t index)
+std::optional<uint32_t> wallet::deterministic_check_impl (nano::store::transaction const & transaction, nano::wallet::wallet_cipher const & cipher, uint32_t index)
 {
 	auto ledger_txn = wallets.ledger.tx_begin_read ();
 	std::optional<uint32_t> result;
 	for (uint32_t i (index), n (index + deterministic_check_gap); i < n; ++i)
 	{
-		auto prv = store.deterministic_key (transaction_a, i);
+		auto prv = store.deterministic_key (transaction, cipher, i);
 		nano::keypair pair (prv.to_string ());
 		// Check if account received at least 1 block
 		auto latest (wallets.ledger.any.account_head (ledger_txn, pair.pub));
@@ -1401,26 +1427,31 @@ std::optional<uint32_t> wallet::deterministic_check_impl (nano::store::transacti
 	return result;
 }
 
-nano::public_key wallet::change_seed (nano::raw_key const & prv_a, uint32_t count)
+nano::result<nano::public_key> wallet::change_seed (nano::raw_key const & seed, uint32_t count)
 {
 	nano::public_key result;
 	{
 		auto transaction = wallets.tx_begin_write ();
-		result = change_seed_impl (transaction, prv_a, count);
+		auto cipher = store.unlock (transaction);
+		if (!cipher)
+		{
+			return nano::error (nano::error_common::wallet_locked);
+		}
+		result = change_seed_impl (transaction, cipher.value (), seed, count);
 	}
 	wallets.refresh_rep_keys_cache ();
 	return result;
 }
 
-std::optional<nano::public_key> wallet::deterministic_insert_up_to_impl (nano::store::write_transaction const & transaction_a, uint32_t last)
+std::optional<nano::public_key> wallet::deterministic_insert_up_to_impl (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher, uint32_t last)
 {
 	std::optional<nano::public_key> account;
 	// The stored index is re-read each round because an insert skips over indexes whose accounts already exist
-	for (uint64_t index = store.deterministic_index_get (transaction_a); index <= last;)
+	for (uint64_t index = store.deterministic_index_get (transaction); index <= last;)
 	{
 		// Disable work generation to prevent weak CPU nodes stuck
-		account = deterministic_insert_impl (transaction_a, false);
-		uint64_t next = store.deterministic_index_get (transaction_a);
+		account = deterministic_insert_impl (transaction, cipher, false);
+		uint64_t next = store.deterministic_index_get (transaction);
 		// The index wraps at the end of its range, stop instead of inserting forever
 		if (next <= index)
 		{
@@ -1431,18 +1462,18 @@ std::optional<nano::public_key> wallet::deterministic_insert_up_to_impl (nano::s
 	return account;
 }
 
-nano::public_key wallet::change_seed_impl (nano::store::write_transaction const & transaction_a, nano::raw_key const & prv_a, uint32_t count)
+nano::public_key wallet::change_seed_impl (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher, nano::raw_key const & seed, uint32_t count)
 {
 	logger.info (nano::log::type::wallet, "Changing wallet seed");
 
-	store.seed_set (transaction_a, prv_a);
+	store.seed_set (transaction, cipher, seed);
 	// The wallet contains at least the first seed account
-	auto account = deterministic_insert_impl (transaction_a);
+	auto account = deterministic_insert_impl (transaction, cipher);
 	// An explicit count requests accounts 0..count inclusive, otherwise the ledger scan finds the highest account in use
 	std::optional<uint32_t> last;
 	if (count == 0)
 	{
-		last = deterministic_check_impl (transaction_a, store.deterministic_index_get (transaction_a));
+		last = deterministic_check_impl (transaction, cipher, store.deterministic_index_get (transaction));
 		if (last)
 		{
 			logger.info (nano::log::type::wallet, "Auto-detected used accounts up to index {} to restore from seed", *last);
@@ -1454,7 +1485,7 @@ nano::public_key wallet::change_seed_impl (nano::store::write_transaction const 
 	}
 	if (last)
 	{
-		if (auto inserted = deterministic_insert_up_to_impl (transaction_a, *last))
+		if (auto inserted = deterministic_insert_up_to_impl (transaction, cipher, *last))
 		{
 			account = *inserted;
 		}
@@ -1469,17 +1500,22 @@ void wallet::deterministic_restore ()
 {
 	{
 		auto transaction = wallets.tx_begin_write ();
-		deterministic_restore_impl (transaction);
+		auto cipher = store.unlock (transaction);
+		if (!cipher)
+		{
+			return;
+		}
+		deterministic_restore_impl (transaction, cipher.value ());
 	}
 	wallets.refresh_rep_keys_cache ();
 }
 
-void wallet::deterministic_restore_impl (nano::store::write_transaction const & transaction_a)
+void wallet::deterministic_restore_impl (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher)
 {
 	// Scan the ledger for used accounts beyond those already inserted
-	if (auto last = deterministic_check_impl (transaction_a, store.deterministic_index_get (transaction_a)))
+	if (auto last = deterministic_check_impl (transaction, cipher, store.deterministic_index_get (transaction)))
 	{
-		deterministic_insert_up_to_impl (transaction_a, *last);
+		deterministic_insert_up_to_impl (transaction, cipher, *last);
 	}
 }
 
@@ -1506,9 +1542,7 @@ bool wallet::is_locked () const
 void wallet::lock ()
 {
 	logger.info (nano::log::type::wallet, "Wallet locked");
-	nano::raw_key empty;
-	empty.clear ();
-	store.password.value_set (empty);
+	store.password_clear ();
 	wallets.refresh_rep_keys_cache ();
 }
 
@@ -1560,11 +1594,12 @@ nano::account wallet::get_representative () const
 nano::result<nano::raw_key> wallet::get_seed () const
 {
 	auto transaction = wallets.tx_begin_read ();
-	if (!store.valid_password (transaction))
+	auto cipher = store.unlock (transaction);
+	if (!cipher)
 	{
 		return nano::error (nano::error_common::wallet_locked);
 	}
-	return store.seed (transaction);
+	return store.seed (transaction, cipher.value ());
 }
 
 uint32_t wallet::get_deterministic_index () const

@@ -4791,11 +4791,10 @@ void nano::json_handler::wallet_change_seed ()
 				// Validate before touching the wallet, a rejected count must leave the existing seed in place
 				if (!rpc_l->ec)
 				{
-					if (!wallet->is_locked ())
+					if (auto account_result = wallet->change_seed (seed, static_cast<uint32_t> (count)))
 					{
-						nano::public_key account (wallet->change_seed (seed, static_cast<uint32_t> (count)));
 						rpc_l->response_l.put ("success", "");
-						rpc_l->response_l.put ("last_restored_account", account.to_account ());
+						rpc_l->response_l.put ("last_restored_account", account_result.value ().to_account ());
 						auto index (wallet->get_deterministic_index ());
 						debug_assert (index > 0);
 						rpc_l->response_l.put ("restored_count", std::to_string (index));
@@ -4849,11 +4848,18 @@ void nano::json_handler::wallet_create ()
 			}
 			if (!rpc_l->ec && seed_text.has_value ())
 			{
-				nano::public_key account (wallet->change_seed (seed));
-				rpc_l->response_l.put ("last_restored_account", account.to_account ());
-				auto index (wallet->get_deterministic_index ());
-				debug_assert (index > 0);
-				rpc_l->response_l.put ("restored_count", std::to_string (index));
+				// A freshly created wallet is unlocked, but guard against a concurrent wallet_lock anyway
+				if (auto account_result = wallet->change_seed (seed))
+				{
+					rpc_l->response_l.put ("last_restored_account", account_result.value ().to_account ());
+					auto index (wallet->get_deterministic_index ());
+					debug_assert (index > 0);
+					rpc_l->response_l.put ("restored_count", std::to_string (index));
+				}
+				else
+				{
+					rpc_l->ec = nano::error_common::wallet_locked;
+				}
 			}
 		}
 		rpc_l->response_errors ();

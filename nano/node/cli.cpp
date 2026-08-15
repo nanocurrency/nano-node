@@ -1323,7 +1323,11 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						if (!ec)
 						{
 							std::cout << "Changing seed and caching work. Please wait..." << std::endl;
-							wallet->change_seed (seed);
+							if (!wallet->change_seed (seed))
+							{
+								std::cerr << "Wallet is locked\n";
+								ec = nano::error_cli::invalid_arguments;
+							}
 						}
 					}
 					else
@@ -1398,7 +1402,11 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				}
 				if (vm.count ("seed") || vm.count ("key"))
 				{
-					wallet->change_seed (seed_key);
+					if (!wallet->change_seed (seed_key))
+					{
+						std::cerr << "Wallet is locked\n";
+						ec = nano::error_cli::invalid_arguments;
+					}
 				}
 				std::cout << wallet_key.to_string () << std::endl;
 			}

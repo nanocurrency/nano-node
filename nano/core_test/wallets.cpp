@@ -1022,3 +1022,38 @@ TEST (wallets, rep_keys_cache_watch_only_representative)
 	});
 	ASSERT_TRUE (accounts.empty ());
 }
+
+/*
+ * A failed password attempt overwrites the live password and locks the wallet,
+ * so cached representative keys must be cleared instead of surviving the failure
+ */
+TEST (wallets, rep_keys_cache_failed_password_attempt)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	node.wallets.refresh_reps ();
+
+	// Pre-condition: genesis rep key cached
+	{
+		auto sign = node.wallets.signer ();
+		int called = 0;
+		sign ([&] (nano::public_key const &, nano::raw_key const &) {
+			++called;
+		});
+		ASSERT_EQ (1, called);
+	}
+
+	// A wrong password locks the wallet as a side effect
+	ASSERT_TRUE (system.wallet (0)->enter_password ("wrong"));
+	ASSERT_TRUE (system.wallet (0)->is_locked ());
+
+	// The locked wallet must no longer serve its rep key from the cache
+	auto sign = node.wallets.signer ();
+	int called = 0;
+	sign ([&] (nano::public_key const &, nano::raw_key const &) {
+		++called;
+	});
+	ASSERT_EQ (0, called);
+}
