@@ -5,6 +5,9 @@ on: [ push, pull_request, workflow_dispatch ]
 env:
   # Only the develop branch populates the cache.
   SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/develop' && 'READ_WRITE' || 'READ_ONLY' }}
+  GIT_CONFIG_COUNT: 1
+  GIT_CONFIG_KEY_0: submodule.fetchJobs
+  GIT_CONFIG_VALUE_0: 8
 
 jobs:
   linux_sanitizers:
