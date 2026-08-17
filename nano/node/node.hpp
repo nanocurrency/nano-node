@@ -67,6 +67,9 @@ public:
 
 	bool online () const;
 
+	// Whether this node generates its own votes: voting enabled in config and wallets hold a voting-capable representative
+	bool is_voting () const;
+
 	nano::bootstrap_weights get_bootstrap_weights () const;
 
 	// Attempts to bootstrap block. This is the best effort, there is no guarantee that the block will be bootstrapped.

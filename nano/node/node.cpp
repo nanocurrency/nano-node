@@ -848,6 +848,11 @@ bool nano::node::online () const
 	return rep_crawler.total_weight () > online_reps.delta ();
 }
 
+bool nano::node::is_voting () const
+{
+	return config.enable_voting && wallets.have_voting_reps ();
+}
+
 bool nano::node::warmed_up () const
 {
 	return std::chrono::steady_clock::now () - startup_time >= warmup_time;

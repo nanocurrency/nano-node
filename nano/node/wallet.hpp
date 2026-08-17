@@ -15,6 +15,7 @@
 #include <nano/wallet/wallet_value.hpp>
 #include <nano/wallet/wallets_backend.hpp>
 
+#include <atomic>
 #include <mutex>
 #include <optional>
 #include <thread>
@@ -337,6 +338,8 @@ public:
 	bool check_rep (nano::account const &);
 	void refresh_reps ();
 	wallet_representatives reps () const;
+	// Cached check whether any local wallet representative has voting weight
+	bool have_voting_reps () const;
 
 	/// Returns a signer that iterates over all representatives in the wallet
 	using signer_t = std::function<void (std::function<void (nano::public_key const &, nano::raw_key const &)> const &)>;
@@ -393,6 +396,7 @@ private:
 
 private:
 	mutable nano::locked<wallet_representatives> representatives;
+	std::atomic<bool> have_voting_reps_m{ false }; // True if any local representative has voting weight
 	nano::locked<std::vector<std::pair<nano::public_key, std::unique_ptr<nano::fan>>>> rep_keys_cache;
 
 	friend class wallet;
