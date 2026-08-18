@@ -1998,6 +1998,11 @@ wallet_representatives wallets::reps () const
 	return *representatives.lock ();
 }
 
+bool wallets::have_voting_reps () const
+{
+	return have_voting_reps_m.load (std::memory_order_relaxed);
+}
+
 auto wallets::signer () -> signer_t
 {
 	return [this] (auto const & callback) { foreach_representative (callback); };
@@ -2007,7 +2012,9 @@ bool wallets::check_rep (nano::account const & account)
 {
 	auto half_principal_weight = node.minimum_principal_weight () / 2;
 	auto representatives_locked = representatives.lock ();
-	return check_rep_impl (*representatives_locked, account, half_principal_weight);
+	auto result = check_rep_impl (*representatives_locked, account, half_principal_weight);
+	have_voting_reps_m.store (representatives_locked->voting > 0, std::memory_order_relaxed);
+	return result;
 }
 
 bool wallets::check_rep_impl (wallet_representatives & reps, nano::account const & account, nano::uint128_t const & half_principal_weight)
@@ -2064,6 +2071,8 @@ void wallets::refresh_rep_index ()
 		}
 		wallet->representatives.lock ()->swap (new_representatives);
 	}
+
+	have_voting_reps_m.store (reps_locked->voting > 0, std::memory_order_relaxed);
 }
 
 void wallets::foreach_representative (std::function<void (nano::public_key const & pub, nano::raw_key const & prv)> const & action)

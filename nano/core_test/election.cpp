@@ -28,6 +28,35 @@ TEST (election, construction)
 	node, nano::dev::genesis, nano::election_behavior::priority, 0, [] (auto const &) {}, [] (auto const &) {}, [] (auto const &) {});
 }
 
+// Ticking an active election broadcasts a vote for the current winner via the vote generator
+TEST (election, tick_broadcast_vote)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv); // Local representative that can vote
+	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 42);
+	ASSERT_TRUE (election->transition_active ());
+	auto const now = std::chrono::steady_clock::now ();
+	election->tick (now);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_vote_normal));
+	// Vote broadcasts are paced, an immediate second tick does not vote again
+	election->tick (now);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_vote_normal));
+}
+
+// A confirmed election broadcasts a final vote
+TEST (election, broadcast_vote_final)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv); // Local representative that can vote
+	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 42);
+	ASSERT_TRUE (election->transition_active ());
+	election->force_confirm ();
+	election->broadcast_vote ();
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_vote_final));
+}
+
 TEST (election, behavior)
 {
 	nano::test::system system (1);

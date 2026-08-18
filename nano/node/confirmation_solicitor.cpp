@@ -29,54 +29,53 @@ void nano::confirmation_solicitor::prepare (std::vector<nano::representative> co
 	prepared = true;
 }
 
-bool nano::confirmation_solicitor::broadcast (nano::election const & election_a)
+bool nano::confirmation_solicitor::broadcast (nano::election_snapshot const & election_a)
 {
 	debug_assert (prepared);
-	bool error (true);
-	if (rebroadcasted++ < max_block_broadcasts)
+	if (rebroadcasted++ >= max_block_broadcasts)
 	{
-		auto const & hash (election_a.status.winner->hash ());
-		nano::messages::publish winner{ config.network_params.network, election_a.status.winner };
-		unsigned count = 0;
-		// Directed broadcasting to principal representatives
-		for (auto i (representatives_broadcasts.begin ()), n (representatives_broadcasts.end ()); i != n && count < max_election_broadcasts; ++i)
-		{
-			auto existing (election_a.last_votes.find (i->account));
-			bool const exists (existing != election_a.last_votes.end ());
-			bool const different (exists && existing->second.hash != hash);
-			if (!exists || different)
-			{
-				i->channel->send (winner, nano::transport::traffic_type::block_broadcast);
-				count += different ? 0 : 1;
-			}
-		}
-		error = false;
+		return false;
 	}
-	return error;
+	auto const & hash (election_a.winner->hash ());
+	nano::messages::publish winner{ config.network_params.network, election_a.winner };
+	unsigned count = 0;
+	// Directed broadcasting to principal representatives
+	for (auto i (representatives_broadcasts.begin ()), n (representatives_broadcasts.end ()); i != n && count < max_election_broadcasts; ++i)
+	{
+		auto existing (election_a.votes.find (i->account));
+		bool const exists (existing != election_a.votes.end ());
+		bool const different (exists && existing->second.hash != hash);
+		if (!exists || different)
+		{
+			i->channel->send (winner, nano::transport::traffic_type::block_broadcast);
+			count += different ? 0 : 1;
+		}
+	}
+	return true;
 }
 
-bool nano::confirmation_solicitor::add (nano::election const & election_a)
+bool nano::confirmation_solicitor::add (nano::election_snapshot const & election_a)
 {
 	debug_assert (prepared);
-	bool error (true);
+	bool added (false);
 	unsigned count = 0;
-	auto const & hash (election_a.status.winner->hash ());
+	auto const & hash (election_a.winner->hash ());
 	for (auto i (representatives_requests.begin ()); i != representatives_requests.end () && count < max_election_requests;)
 	{
 		bool full_queue (false);
 		auto rep (*i);
-		auto existing (election_a.last_votes.find (rep.account));
-		bool const exists (existing != election_a.last_votes.end ());
-		bool const is_final (exists && (!election_a.is_quorum.load () || existing->second.timestamp == std::numeric_limits<uint64_t>::max ()));
+		auto existing (election_a.votes.find (rep.account));
+		bool const exists (existing != election_a.votes.end ());
+		bool const is_final (exists && (!election_a.quorum || existing->second.timestamp == std::numeric_limits<uint64_t>::max ()));
 		bool const different (exists && existing->second.hash != hash);
 		if (!exists || !is_final || different)
 		{
 			if (!rep.channel->max (nano::transport::traffic_type::confirmation_requests))
 			{
 				auto & request_queue (requests[rep.channel]);
-				request_queue.emplace_back (election_a.status.winner->hash (), election_a.status.winner->root ());
+				request_queue.emplace_back (hash, election_a.qualified_root.root ());
 				count += different ? 0 : 1;
-				error = false;
+				added = true;
 			}
 			else
 			{
@@ -85,7 +84,7 @@ bool nano::confirmation_solicitor::add (nano::election const & election_a)
 		}
 		i = !full_queue ? i + 1 : representatives_requests.erase (i);
 	}
-	return error;
+	return added;
 }
 
 void nano::confirmation_solicitor::flush ()

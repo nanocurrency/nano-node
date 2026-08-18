@@ -220,8 +220,7 @@ public:
 	void confirm_req (nano::messages::confirm_req const & message) override
 	{
 		// Don't load nodes with disabled voting
-		// TODO: This check should be cached somewhere
-		if (node.config.enable_voting && node.wallets.reps ().voting > 0)
+		if (node.is_voting ())
 		{
 			if (!message.roots_hashes.empty ())
 			{

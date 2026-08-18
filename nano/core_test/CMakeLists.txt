@@ -31,6 +31,7 @@ add_executable(
   difficulty.cpp
   distributed_work.cpp
   election.cpp
+  election_pacing.cpp
   election_scheduler.cpp
   priority_scheduler.cpp
   enums.cpp

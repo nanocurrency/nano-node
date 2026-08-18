@@ -30,6 +30,7 @@ class cementing_set;
 class cementing_set_config;
 class distributed_work_factory;
 class election;
+class election_pacing;
 class election_status;
 class epoch_upgrader;
 class fork_cache;
