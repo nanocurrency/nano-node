@@ -44,6 +44,7 @@ jobs:
       SCCACHE_GHA_ENABLED: "true"
       # LEAK compiles identically to ASAN, so they share namespace.
       SCCACHE_GHA_VERSION: linux-sanitizers-${{ matrix.SANITIZER.name == 'LEAK' && 'ASAN' || matrix.SANITIZER.name }}-${{ matrix.COMPILER }}
+      SCCACHE_IDLE_TIMEOUT: "0"
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout
@@ -111,6 +112,7 @@ jobs:
       CMAKE_CXX_COMPILER_LAUNCHER: sccache
       SCCACHE_GHA_ENABLED: "true"
       SCCACHE_GHA_VERSION: macos-sanitizers-${{ matrix.SANITIZER.name }}-${{ matrix.COMPILER }}
+      SCCACHE_IDLE_TIMEOUT: "0"
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout
