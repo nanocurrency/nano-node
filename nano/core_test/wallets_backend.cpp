@@ -562,7 +562,7 @@ std::vector<std::filesystem::path> backup_files (std::filesystem::path const & d
 	std::vector<std::filesystem::path> result;
 	for (auto const & entry : std::filesystem::directory_iterator{ dir })
 	{
-		if (entry.path ().filename ().string ().starts_with ("wallet_backup_"))
+		if (entry.is_regular_file () && entry.path ().extension () == ".ldb" && entry.path ().filename ().string ().starts_with ("wallet_backup_"))
 		{
 			result.push_back (entry.path ());
 		}
