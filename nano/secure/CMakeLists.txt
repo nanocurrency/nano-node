@@ -7,6 +7,8 @@ add_library(
   account_iterator_impl.hpp
   common.hpp
   common.cpp
+  election_ballot.hpp
+  election_ballot.cpp
   endpoint_key.hpp
   endpoint_key.cpp
   fwd.hpp

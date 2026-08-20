@@ -345,9 +345,9 @@ TEST (receivable_processor, confirm_insufficient_pos)
 	auto vote = nano::test::make_final_vote (key1, { block1 });
 	nano::messages::confirm_ack con1{ nano::dev::network_params.network, vote };
 	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
-	ASSERT_EQ (1, election->votes ().size ());
+	ASSERT_EQ (0, election->votes ().size ());
 	node1.inbound (con1, channel1);
-	ASSERT_TIMELY_EQ (5s, 2, election->votes ().size ())
+	ASSERT_TIMELY_EQ (5s, 1, election->votes ().size ())
 	ASSERT_FALSE (election->confirmed ());
 }
 
@@ -370,9 +370,9 @@ TEST (receivable_processor, confirm_sufficient_pos)
 	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { block1 });
 	nano::messages::confirm_ack con1{ nano::dev::network_params.network, vote };
 	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
-	ASSERT_EQ (1, election->votes ().size ());
+	ASSERT_EQ (0, election->votes ().size ());
 	node1.inbound (con1, channel1);
-	ASSERT_TIMELY_EQ (5s, 2, election->votes ().size ())
+	ASSERT_TIMELY_EQ (5s, 1, election->votes ().size ())
 	ASSERT_TRUE (election->confirmed ());
 }
 

@@ -64,6 +64,7 @@ TEST (election, behavior)
 	auto election = nano::test::start_election (system, *system.nodes[0], chain[0]->hash ());
 	ASSERT_NE (nullptr, election);
 	ASSERT_EQ (nano::election_behavior::manual, election->behavior ());
+	ASSERT_EQ (nano::election_behavior::manual, election->get_extended_status ().behavior);
 }
 
 TEST (election, quorum_minimum_flip_success)

@@ -5,12 +5,12 @@
 #include <nano/lib/interval.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/secure/election_ballot.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/rpc_callbacks.hpp>
-#include <nano/node/vote_with_weight_info.hpp>
 #include <nano/secure/ledger.hpp>
 
 #include <boost/property_tree/json_parser.hpp>

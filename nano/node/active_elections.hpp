@@ -6,13 +6,13 @@
 #include <nano/lib/observer_set.hpp>
 #include <nano/lib/thread_pool.hpp>
 #include <nano/node/active_elections_index.hpp>
+#include <nano/secure/election_ballot.hpp>
 #include <nano/node/election_behavior.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/node/recently_cemented_cache.hpp>
 #include <nano/node/recently_confirmed_cache.hpp>
 #include <nano/node/vote_router.hpp>
-#include <nano/node/vote_with_weight_info.hpp>
 #include <nano/secure/common.hpp>
 
 #include <chrono>
