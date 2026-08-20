@@ -184,7 +184,7 @@ TEST (election_scheduler, transition_optimistic_to_priority)
 	ASSERT_TIMELY (5s, node.vote_router.active (block->hash ()));
 	auto election = node.active.election (block->qualified_root ());
 	ASSERT_EQ (election->behavior (), nano::election_behavior::optimistic);
-	ASSERT_TIMELY_EQ (1s, 1, election->current_status ().status.vote_broadcast_count);
+	ASSERT_TIMELY_EQ (1s, 1, election->get_extended_status ().status.vote_broadcast_count);
 
 	// Confirm first block to allow upgrading second block's election
 	nano::test::confirm (node.ledger, blocks.at (howmany_blocks - 1));
@@ -196,7 +196,7 @@ TEST (election_scheduler, transition_optimistic_to_priority)
 	ASSERT_EQ (election->behavior (), nano::election_behavior::priority);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::active_elections, nano::stat::detail::transition_priority));
 	// Verify vote broadcast after transitioning
-	ASSERT_TIMELY_EQ (1s, 2, election->current_status ().status.vote_broadcast_count);
+	ASSERT_TIMELY_EQ (1s, 2, election->get_extended_status ().status.vote_broadcast_count);
 	ASSERT_TRUE (node.active.active (*block));
 }
 

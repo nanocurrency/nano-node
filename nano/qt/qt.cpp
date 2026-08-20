@@ -5,13 +5,13 @@
 #include <nano/lib/stats_sinks.hpp>
 #include <nano/lib/thread_pool.hpp>
 #include <nano/lib/version.hpp>
+#include <nano/secure/election_ballot.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/traffic_type.hpp>
 #include <nano/node/unchecked_map.hpp>
-#include <nano/node/vote_with_weight_info.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/qt/qt.hpp>
 #include <nano/secure/ledger.hpp>

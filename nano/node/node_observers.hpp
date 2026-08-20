@@ -3,9 +3,9 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/messages/fwd.hpp>
+#include <nano/secure/election_ballot.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/node/transport/transport.hpp>
-#include <nano/node/vote_with_weight_info.hpp>
 
 namespace nano
 {

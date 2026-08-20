@@ -226,7 +226,7 @@ TEST (active_elections, confirm_fork)
 
 	// The election should confirm and choose fork2 as the winner
 	ASSERT_TIMELY (5s, election->confirmed ());
-	ASSERT_EQ (fork2->hash (), election->status.winner->hash ());
+	ASSERT_EQ (fork2->hash (), election->winner ()->hash ());
 
 	// Ledger view: fork2 cemented, fork1 not
 	ASSERT_TIMELY (3s, node.block_confirmed (fork2->hash ()));
@@ -270,7 +270,7 @@ TEST (active_elections, confirm_fork_cache)
 
 	// The election should confirm
 	ASSERT_TIMELY (5s, election->confirmed ());
-	ASSERT_EQ (fork1->hash (), election->status.winner->hash ());
+	ASSERT_EQ (fork1->hash (), election->winner ()->hash ());
 
 	ASSERT_TIMELY (3s, node.block_confirmed (fork1->hash ()));
 }
@@ -397,7 +397,7 @@ TEST (active_elections, cached_vote_non_final)
 	std::shared_ptr<nano::election> election;
 	ASSERT_TIMELY (5s, election = node.active.election (send->qualified_root ()));
 	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::election_vote, nano::stat::detail::cache), 1);
-	ASSERT_TIMELY_EQ (5s, nano::dev::constants.genesis_amount - 100, election->tally ().begin ()->first);
+	ASSERT_TIMELY_EQ (5s, nano::dev::constants.genesis_amount - 100, election->tally ().begin ()->first.weight);
 	ASSERT_FALSE (election->confirmed ());
 }
 
@@ -473,7 +473,7 @@ TEST (active_elections, cached_vote_existing)
 	// Insert vote
 	auto vote1 = nano::test::make_vote (key, { send }, nano::vote::timestamp_min * 1, 0);
 	node.vote_processor.vote (vote1, std::make_shared<nano::transport::inproc::channel> (node, node));
-	ASSERT_TIMELY_EQ (5s, election->votes ().size (), 2);
+	ASSERT_TIMELY_EQ (5s, election->votes ().size (), 1);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote));
 	auto last_vote1 (election->votes ()[key.pub]);
 	ASSERT_EQ (send->hash (), last_vote1.hash);
@@ -487,11 +487,11 @@ TEST (active_elections, cached_vote_existing)
 		node.vote_router.vote (cached_vote);
 	}
 	// Check that election data is not changed
-	ASSERT_EQ (2, election->votes ().size ());
+	ASSERT_EQ (1, election->votes ().size ());
 	auto last_vote2 (election->votes ()[key.pub]);
 	ASSERT_EQ (last_vote1.hash, last_vote2.hash);
 	ASSERT_EQ (last_vote1.timestamp, last_vote2.timestamp);
-	ASSERT_EQ (last_vote1.time, last_vote2.time);
+	ASSERT_EQ (last_vote1.arrival, last_vote2.arrival);
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::election_vote, nano::stat::detail::cache));
 }
 
@@ -544,7 +544,7 @@ TEST (active_elections, cached_vote_multiple)
 	ASSERT_TIMELY_EQ (5s, node.vote_cache.find (send1->hash ()).size (), 2);
 	ASSERT_EQ (1, node.vote_cache.size ());
 	auto election = nano::test::start_election (system, node, send1->hash ());
-	ASSERT_TIMELY_EQ (5s, 3, election->votes ().size ()); // 2 votes and 1 default not_an_acount
+	ASSERT_TIMELY_EQ (5s, 2, election->votes ().size ()); // 2 cached votes
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::election_vote, nano::stat::detail::cache));
 }
 
@@ -865,7 +865,7 @@ TEST (active_elections, republish_winner)
 	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { fork });
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::inproc::channel> (node1, node1));
 	ASSERT_TIMELY (5s, election->confirmed ());
-	ASSERT_EQ (fork->hash (), election->status.winner->hash ());
+	ASSERT_EQ (fork->hash (), election->winner ()->hash ());
 	ASSERT_TIMELY (5s, node2.block_confirmed (fork->hash ()));
 }
 
@@ -1049,8 +1049,8 @@ TEST (active_elections, fork_replacement_tally)
 		node1.process_active (fork);
 	}
 
-	// Count representatives whose vote still points at a block retained in the election. replace_by_weight can
-	// leave votes for already-evicted forks behind in last_votes, so votes ().size () is not a stable quantity;
+	// Count representatives whose vote still points at a block retained in the election. Votes for
+	// already-evicted forks are deliberately retained, so votes ().size () is not a stable quantity;
 	// filtering to votes whose target block survives counts exactly the retained representative forks.
 	auto count_rep_votes_in_election = [&reps_count, &election, &keys] () {
 		auto votes_l = election->votes ();

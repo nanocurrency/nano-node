@@ -2,8 +2,8 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/work.hpp>
+#include <nano/secure/election_ballot.hpp>
 #include <nano/node/endpoint.hpp>
-#include <nano/node/vote_with_weight_info.hpp>
 #include <nano/node/wallet/fwd.hpp>
 #include <nano/node/websocket_stream.hpp>
 #include <nano/node/websocketconfig.hpp>

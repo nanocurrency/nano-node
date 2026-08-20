@@ -7747,8 +7747,7 @@ TEST (rpc, confirmation_info)
 		auto response (wait_response (system, rpc_ctx, request));
 
 		ASSERT_EQ (0, response.get<unsigned> ("announcements"));
-		// FIXME: The voters and representatives list always contains a "ghost" representative with zero weight, investigate why
-		ASSERT_EQ (6, response.get<unsigned> ("voters"));
+		ASSERT_EQ (5, response.get<unsigned> ("voters"));
 		ASSERT_EQ (send->hash ().to_string (), response.get<std::string> ("last_winner"));
 		ASSERT_EQ ("4600000000000000000000000000000000000", response.get<std::string> ("total_tally"));
 		ASSERT_EQ ("3500000000000000000000000000000000000", response.get<std::string> ("final_tally"));
@@ -7762,7 +7761,7 @@ TEST (rpc, confirmation_info)
 		ASSERT_EQ ("4600000000000000000000000000000000000", block_info->second.get<std::string> ("tally"));
 
 		auto & representatives = block_info->second.get_child ("representatives");
-		ASSERT_EQ (6, representatives.size ());
+		ASSERT_EQ (5, representatives.size ());
 		ASSERT_EQ ("100000000000000000000000000000000000", representatives.get<std::string> (rep1.pub.to_account ()));
 		ASSERT_EQ ("1000000000000000000000000000000000000", representatives.get<std::string> (rep2.pub.to_account ()));
 		ASSERT_EQ ("2000000000000000000000000000000000000", representatives.get<std::string> (rep3.pub.to_account ()));
@@ -7805,13 +7804,12 @@ TEST (rpc, confirmation_info_empty)
 	{
 		auto response (wait_response (system, rpc_ctx, request));
 		ASSERT_EQ (1, response.count ("announcements"));
-		// FIXME: The voters and representatives list always contains a "ghost" representative with zero weight, investigate why
-		ASSERT_EQ (1, response.get<unsigned> ("voters"));
+		ASSERT_EQ (0, response.get<unsigned> ("voters"));
 		ASSERT_EQ (send->hash ().to_string (), response.get<std::string> ("last_winner"));
 		auto & blocks (response.get_child ("blocks"));
 		ASSERT_EQ (1, blocks.size ());
 		auto & representatives (blocks.front ().second.get_child ("representatives"));
-		ASSERT_EQ (1, representatives.size ());
+		ASSERT_EQ (0, representatives.size ());
 		auto & representatives_final (blocks.front ().second.get_child ("representatives_final"));
 		ASSERT_EQ (0, representatives_final.size ());
 		ASSERT_EQ (0, response.get<unsigned> ("total_tally"));
