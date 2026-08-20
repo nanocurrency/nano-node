@@ -52,9 +52,6 @@ public:
  */
 class cementing_set final
 {
-	friend class confirmation_heightDeathTest_missing_block_Test;
-	friend class confirmation_height_pruned_source_Test;
-
 public:
 	cementing_set (cementing_set_config const &, nano::ledger &, nano::ledger_notifications &, nano::stats &, nano::logger &);
 	~cementing_set ();
