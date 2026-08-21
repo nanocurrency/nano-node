@@ -1,4 +1,5 @@
 #include <nano/lib/files.hpp>
+#include <nano/lib/logging.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/store/db_val_templ.hpp>
@@ -13,6 +14,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <filesystem>
 #include <memory>
 #include <set>
 #include <string>
@@ -550,4 +552,59 @@ TEST (wallets_backend, database_path_returns_constructed_path)
 	auto path = nano::unique_path () / "wallet.ldb";
 	auto backend = make_wallets_backend (path);
 	ASSERT_EQ (backend->database_path (), path);
+}
+
+namespace
+{
+// Backups are written next to the database as `wallet_backup_<timestamp>.ldb`
+std::vector<std::filesystem::path> backup_files (std::filesystem::path const & dir)
+{
+	std::vector<std::filesystem::path> result;
+	for (auto const & entry : std::filesystem::directory_iterator{ dir })
+	{
+		if (entry.is_regular_file () && entry.path ().extension () == ".ldb" && entry.path ().filename ().string ().starts_with ("wallet_backup_"))
+		{
+			result.push_back (entry.path ());
+		}
+	}
+	return result;
+}
+}
+
+TEST (wallets_backend, backup_creates_file_alongside_database)
+{
+	auto path = nano::unique_path () / "wallet.ldb";
+	auto backend = make_wallets_backend (path);
+	ASSERT_TRUE (backup_files (path.parent_path ()).empty ());
+
+	nano::logger logger;
+	backend->backup (logger);
+
+	ASSERT_EQ (backup_files (path.parent_path ()).size (), 1);
+}
+
+TEST (wallets_backend, backup_is_openable_copy_of_database)
+{
+	auto path = nano::unique_path () / "wallet.ldb";
+	auto id = nano::random_wallet_id ().to_string ();
+	auto backend = make_wallets_backend (path);
+	{
+		auto wallet_txn = backend->tx_begin_write ();
+		auto handle = backend->wallet_open_or_create (wallet_txn, id);
+		backend->entry_put (wallet_txn, handle, nano::account{ 42 }, make_value (777));
+	}
+
+	nano::logger logger;
+	backend->backup (logger);
+
+	auto backups = backup_files (path.parent_path ());
+	ASSERT_EQ (backups.size (), 1);
+
+	// The backup must be a self-contained database holding the same data.
+	auto restored = make_wallets_backend (backups.front ());
+	auto wallet_txn = restored->tx_begin_write ();
+	auto handle = restored->wallet_open_or_create (wallet_txn, id);
+	auto entry = restored->entry_get (wallet_txn, handle, nano::account{ 42 });
+	ASSERT_TRUE (entry.has_value ());
+	ASSERT_EQ (nano::wallet::wallet_value{ *entry }.work, 777);
 }
