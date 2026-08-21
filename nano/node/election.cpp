@@ -461,10 +461,14 @@ nano::vote_code nano::election::vote (nano::account const & representative, uint
 		return vote_code::indeterminate;
 	}
 
-	// Only live votes are throttled, cached votes have already waited in the vote cache
-	auto const cooldown = source != nano::vote_source::cache ? nano::calculate_vote_cooldown (weight, node.online_reps.trended ()) : 0s;
-
 	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	// Only live votes from reps with a prior recorded vote can be throttled, cached votes have already waited in the vote cache
+	std::chrono::seconds cooldown{ 0s };
+	if (source != nano::vote_source::cache && ballot.find_vote (representative))
+	{
+		cooldown = nano::calculate_vote_cooldown (weight, node.online_reps.trended ());
+	}
 
 	switch (ballot.vote (representative, timestamp, block_hash, cooldown, std::chrono::steady_clock::now ()))
 	{
