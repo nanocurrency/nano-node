@@ -272,6 +272,28 @@ void build_mmr_proof (std::vector<nano::block_hash> const & leaves, uint64_t tar
 	}
 	peak_index = mountains.size () - 1 - target_desc_index;
 }
+
+// Reconstruct the MMR root from a leaf and its inclusion path/peaks. Returns nullopt if
+// the leaf does not climb to the claimed peak. Shared by the overall-root verifier and
+// the cold-subtree verifier so the two can never diverge.
+std::optional<nano::block_hash> reconstruct_mmr_root (nano::block_hash const & leaf, std::vector<nano::state_proof_step> const & path, std::vector<nano::block_hash> const & peaks, uint64_t peak_index)
+{
+	nano::block_hash node = leaf;
+	for (auto const & step : path)
+	{
+		node = step.sibling_on_right ? hash_internal_node (node, step.hash) : hash_internal_node (step.hash, node);
+	}
+	if (peak_index >= peaks.size () || !(peaks[peak_index] == node))
+	{
+		return std::nullopt;
+	}
+	std::optional<nano::block_hash> accumulator;
+	for (auto const & peak : peaks)
+	{
+		accumulator = accumulator.has_value () ? hash_internal_node (peak, accumulator.value ()) : peak;
+	}
+	return accumulator.has_value () ? accumulator.value () : empty_root ();
+}
 }
 
 nano::state_commitment_result nano::compute_state_commitment (nano::ledger const & ledger, nano::secure::transaction const & transaction)
@@ -378,27 +400,15 @@ bool nano::verify_state_proof (nano::state_proof const & proof)
 		leaf = pending_leaf (key, info);
 	}
 
-	// Climb to the mountain peak.
-	nano::block_hash node = leaf;
-	for (auto const & step : proof.path)
-	{
-		node = step.sibling_on_right ? hash_internal_node (node, step.hash) : hash_internal_node (step.hash, node);
-	}
-	if (proof.peak_index >= proof.peaks.size () || !(proof.peaks[proof.peak_index] == node))
+	// Climb to the mountain peak and rebag the peaks into the sub-tree root.
+	auto sub = reconstruct_mmr_root (leaf, proof.path, proof.peaks, proof.peak_index);
+	if (!sub.has_value ())
 	{
 		return false;
 	}
 
-	// Rebag the peaks exactly as mmr_root does.
-	std::optional<nano::block_hash> accumulator;
-	for (auto const & peak : proof.peaks)
-	{
-		accumulator = accumulator.has_value () ? hash_internal_node (peak, accumulator.value ()) : peak;
-	}
-	nano::block_hash const sub = accumulator.has_value () ? accumulator.value () : empty_root ();
-
-	nano::block_hash const accounts_root = is_account ? sub : proof.other_root;
-	nano::block_hash const pending_root = is_account ? proof.other_root : sub;
+	nano::block_hash const accounts_root = is_account ? sub.value () : proof.other_root;
+	nano::block_hash const pending_root = is_account ? proof.other_root : sub.value ();
 	return overall_root (accounts_root, pending_root, proof.account_count, proof.pending_count) == proof.root;
 }
 
@@ -463,4 +473,136 @@ nano::capped_retention_plan nano::plan_capped_retention (nano::ledger const & le
 	}
 	plan.all_proven = plan.accounts_proven == plan.accounts_checked;
 	return plan;
+}
+
+namespace
+{
+// Classify the cemented pending set into cold (aged AND sub-threshold) vs hot. Returns
+// the cold entries' keys and leaves in canonical order, plus the hot count. A pending
+// entry whose send block is unavailable (pruned) is conservatively kept hot, since its
+// age cannot be read.
+struct cold_classification final
+{
+	std::vector<nano::pending_key> cold_keys;
+	std::vector<nano::block_hash> cold_leaves;
+	uint64_t hot_count{ 0 };
+};
+
+cold_classification classify_cold (nano::ledger const & ledger, nano::secure::transaction const & transaction, uint64_t reference_timestamp, uint64_t min_age_seconds, nano::amount const & amount_threshold)
+{
+	cold_classification out;
+	for (auto i = ledger.store.pending.begin (transaction), n = ledger.store.pending.end (transaction); i != n; ++i)
+	{
+		nano::pending_key const & key = i->first;
+		nano::pending_info const & info = i->second;
+		if (!ledger.cemented.block_exists_or_pruned (transaction, key.hash))
+		{
+			continue;
+		}
+		bool cold = false;
+		if (info.amount.number () <= amount_threshold.number ())
+		{
+			auto block = ledger.cemented.block_get (transaction, key.hash);
+			if (block != nullptr && block->has_sideband ())
+			{
+				uint64_t const timestamp = block->sideband ().timestamp;
+				// Guard against clock skew / future timestamps: only age forward.
+				if (reference_timestamp > timestamp && (reference_timestamp - timestamp) >= min_age_seconds)
+				{
+					cold = true;
+				}
+			}
+		}
+		if (cold)
+		{
+			out.cold_keys.push_back (key);
+			out.cold_leaves.push_back (pending_leaf (key, info));
+		}
+		else
+		{
+			++out.hot_count;
+		}
+	}
+	return out;
+}
+}
+
+nano::pending_sweep_plan nano::plan_pending_sweep (nano::ledger const & ledger, nano::secure::transaction const & transaction, uint64_t reference_timestamp, uint64_t min_age_seconds, nano::amount const & amount_threshold, uint64_t max_to_prove)
+{
+	nano::pending_sweep_plan plan;
+	plan.checkpoint = nano::capture_state_checkpoint (ledger, transaction);
+	plan.reference_timestamp = reference_timestamp;
+	plan.min_age_seconds = min_age_seconds;
+	plan.amount_threshold = amount_threshold;
+
+	auto classified = classify_cold (ledger, transaction, reference_timestamp, min_age_seconds, amount_threshold);
+	plan.hot_count = classified.hot_count;
+	plan.cold_count = classified.cold_leaves.size ();
+	plan.cold_root = mmr_root (classified.cold_leaves);
+
+	// Approximate on-disk cost of one pending record: key (account + hash) + info
+	// (source + amount + epoch). Index / page overhead is not modelled.
+	uint64_t const approx_pending_bytes = 64 + 49;
+	plan.reclaimable_pending_bytes = plan.cold_count * approx_pending_bytes;
+
+	// Safety gate: each cold entry must remain claimable, i.e. provable against cold_root.
+	for (uint64_t idx = 0; idx < classified.cold_leaves.size (); ++idx)
+	{
+		if (max_to_prove != 0 && plan.cold_checked >= max_to_prove)
+		{
+			break;
+		}
+		std::vector<nano::state_proof_step> path;
+		std::vector<nano::block_hash> peaks;
+		uint64_t peak_index = 0;
+		build_mmr_proof (classified.cold_leaves, idx, path, peaks, peak_index);
+		++plan.cold_checked;
+		auto reconstructed = reconstruct_mmr_root (classified.cold_leaves[idx], path, peaks, peak_index);
+		if (reconstructed.has_value () && reconstructed.value () == plan.cold_root)
+		{
+			++plan.cold_proven;
+		}
+	}
+	plan.all_proven = plan.cold_proven == plan.cold_checked;
+	return plan;
+}
+
+std::optional<nano::cold_pending_proof> nano::generate_cold_pending_proof (nano::ledger const & ledger, nano::secure::transaction const & transaction, uint64_t reference_timestamp, uint64_t min_age_seconds, nano::amount const & amount_threshold, nano::pending_key const & key)
+{
+	auto classified = classify_cold (ledger, transaction, reference_timestamp, min_age_seconds, amount_threshold);
+	uint64_t target = 0;
+	bool found = false;
+	for (uint64_t i = 0; i < classified.cold_keys.size (); ++i)
+	{
+		if (classified.cold_keys[i].account == key.account && classified.cold_keys[i].hash == key.hash)
+		{
+			target = i;
+			found = true;
+			break;
+		}
+	}
+	if (!found)
+	{
+		return std::nullopt;
+	}
+	auto info = ledger.store.pending.get (transaction, key);
+	if (!info.has_value ())
+	{
+		return std::nullopt;
+	}
+
+	nano::cold_pending_proof proof;
+	proof.claim = nano::state_proof_pending_claim{ key.account, key.hash, info->source, info->amount, info->epoch };
+	build_mmr_proof (classified.cold_leaves, target, proof.path, proof.peaks, proof.peak_index);
+	proof.cold_root = mmr_root (classified.cold_leaves);
+	return proof;
+}
+
+bool nano::verify_cold_pending_proof (nano::cold_pending_proof const & proof)
+{
+	nano::pending_key key{ proof.claim.account, proof.claim.hash };
+	nano::pending_info info{ proof.claim.source, proof.claim.amount, proof.claim.epoch };
+	nano::block_hash const leaf = pending_leaf (key, info);
+	auto reconstructed = reconstruct_mmr_root (leaf, proof.path, proof.peaks, proof.peak_index);
+	return reconstructed.has_value () && reconstructed.value () == proof.cold_root;
 }

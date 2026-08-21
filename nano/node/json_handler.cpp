@@ -1755,6 +1755,61 @@ void nano::json_handler::state_retention_plan ()
 	}));
 }
 
+void nano::json_handler::state_pending_sweep ()
+{
+	// Plan the cold-pending sweep (Block 4): identify aged, sub-threshold pending entries
+	// that can be offloaded to the committed cold subtree, quantify reclaimable bytes, and
+	// prove each offloaded entry stays claimable against cold_root. Read-only, no deletion.
+	auto age_text (request.get_optional<std::string> ("age"));
+	auto threshold_text (request.get_optional<std::string> ("threshold"));
+	auto reference_text (request.get_optional<std::string> ("reference_timestamp"));
+	auto count_text (request.get_optional<std::string> ("count"));
+
+	uint64_t min_age_seconds = 30 * 24 * 60 * 60; // default 30 days
+	nano::amount amount_threshold{ 1 }; // default: 1 raw (the dust vector)
+	uint64_t reference_timestamp = nano::seconds_since_epoch ();
+	uint64_t max_prove = 128;
+
+	if (age_text.has_value () && decode_unsigned (age_text.value (), min_age_seconds))
+	{
+		ec = nano::error_common::invalid_count;
+	}
+	if (!ec && threshold_text.has_value () && amount_threshold.decode_dec (threshold_text.value ()))
+	{
+		ec = nano::error_common::bad_threshold;
+	}
+	if (!ec && reference_text.has_value () && decode_unsigned (reference_text.value (), reference_timestamp))
+	{
+		ec = nano::error_common::invalid_count;
+	}
+	if (!ec && count_text.has_value () && decode_unsigned (count_text.value (), max_prove))
+	{
+		ec = nano::error_common::invalid_count;
+	}
+	if (ec)
+	{
+		response_errors ();
+		return;
+	}
+
+	node.workers.post (create_worker_task ([min_age_seconds, amount_threshold, reference_timestamp, max_prove] (std::shared_ptr<nano::json_handler> const & rpc_l) {
+		auto transaction (rpc_l->node.ledger.tx_begin_read ());
+		auto plan (nano::plan_pending_sweep (rpc_l->node.ledger, transaction, reference_timestamp, min_age_seconds, amount_threshold, max_prove));
+		rpc_l->response_l.put ("root", plan.checkpoint.root.to_string ());
+		rpc_l->response_l.put ("reference_timestamp", std::to_string (plan.reference_timestamp));
+		rpc_l->response_l.put ("min_age_seconds", std::to_string (plan.min_age_seconds));
+		rpc_l->response_l.put ("amount_threshold", plan.amount_threshold.number ().convert_to<std::string> ());
+		rpc_l->response_l.put ("hot_count", std::to_string (plan.hot_count));
+		rpc_l->response_l.put ("cold_count", std::to_string (plan.cold_count));
+		rpc_l->response_l.put ("cold_root", plan.cold_root.to_string ());
+		rpc_l->response_l.put ("reclaimable_pending_bytes", std::to_string (plan.reclaimable_pending_bytes));
+		rpc_l->response_l.put ("cold_checked", std::to_string (plan.cold_checked));
+		rpc_l->response_l.put ("cold_proven", std::to_string (plan.cold_proven));
+		rpc_l->response_l.put ("all_proven", plan.all_proven ? "true" : "false");
+		rpc_l->response_errors ();
+	}));
+}
+
 void nano::json_handler::block_create ()
 {
 	std::string type (request.get<std::string> ("type"));
@@ -5762,6 +5817,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("state_proof", &nano::json_handler::state_proof);
 	no_arg_funcs.emplace ("state_checkpoint", &nano::json_handler::state_checkpoint);
 	no_arg_funcs.emplace ("state_retention_plan", &nano::json_handler::state_retention_plan);
+	no_arg_funcs.emplace ("state_pending_sweep", &nano::json_handler::state_pending_sweep);
 	no_arg_funcs.emplace ("block_create", &nano::json_handler::block_create);
 	no_arg_funcs.emplace ("block_hash", &nano::json_handler::block_hash);
 	no_arg_funcs.emplace ("bootstrap", &nano::json_handler::bootstrap);
