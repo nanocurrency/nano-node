@@ -121,4 +121,50 @@ std::optional<nano::state_proof> generate_pending_proof (nano::ledger const &, n
 
 // Verify a proof reconstructs its stated root from its claim. Pure; no store access.
 bool verify_state_proof (nano::state_proof const &);
+
+/*
+ * Block 3 of the ledger-bloat mitigation work: the retention planner. A storage-capped
+ * node keeps, per account, only its cemented frontier plus a bounded window of recent
+ * history, and discards everything cemented below that - the discarded content stays
+ * committed under the checkpoint root and can be re-fetched with a proof if ever needed.
+ *
+ * This layer computes the SAFE-TO-DROP set and proves it is safe (every retained account
+ * still verifies against the checkpoint root) and quantifies the reclaimable storage. It
+ * does NOT delete anything - destructive pruning + on-demand backfill is a follow-on that
+ * builds on this planner as its safety gate.
+ */
+
+// An anchor a storage-capped node (and light clients) prove against: the commitment root
+// at a given cemented height, with the leaf counts it binds.
+struct state_checkpoint final
+{
+	uint64_t cemented_height{ 0 }; // ledger.cemented_count() at capture time
+	nano::block_hash root{ 0 };
+	uint64_t account_count{ 0 };
+	uint64_t pending_count{ 0 };
+};
+
+// Capture the current cemented commitment as a checkpoint.
+nano::state_checkpoint capture_state_checkpoint (nano::ledger const &, nano::secure::transaction const &);
+
+// The result of planning capped retention against a freshly captured checkpoint.
+struct capped_retention_plan final
+{
+	nano::state_checkpoint checkpoint;
+	uint64_t history_window{ 0 }; // blocks kept per account, counting the frontier
+	uint64_t kept_blocks{ 0 }; // blocks a capped node would retain (frontier + window)
+	uint64_t droppable_blocks{ 0 }; // cemented blocks below the window, safe to drop
+	uint64_t retained_pending{ 0 }; // cemented pending entries (kept until Block 4)
+	uint64_t reclaimable_bytes{ 0 }; // droppable_blocks * approximate stored block size
+	uint64_t accounts_checked{ 0 }; // accounts whose frontier proof was verified
+	uint64_t accounts_proven{ 0 }; // of those, how many verified against checkpoint.root
+	bool all_proven{ false }; // accounts_proven == accounts_checked (no failures)
+};
+
+// Plan capped retention: classify cemented blocks as kept vs droppable for the given
+// per-account history window, quantify reclaimable bytes, and verify frontier proofs for
+// up to `max_accounts_to_prove` accounts against the checkpoint root (0 = prove all).
+// Proving is O(accounts_checked * total accounts), so callers off a bound it for large
+// ledgers; accounts_checked vs checkpoint.account_count reports any sampling.
+nano::capped_retention_plan plan_capped_retention (nano::ledger const &, nano::secure::transaction const &, uint64_t history_window, uint64_t max_accounts_to_prove);
 }

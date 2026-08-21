@@ -149,3 +149,41 @@ TEST (state_commitment, pending_proof_roundtrip)
 	ASSERT_TRUE (proof->pending_claim.has_value ());
 	ASSERT_EQ (destination.pub, proof->pending_claim->account);
 }
+
+// The retention planner classifies droppable vs kept blocks for a per-account window,
+// proves every retained account against the checkpoint root, and quantifies reclaim.
+TEST (state_commitment, retention_plan)
+{
+	auto ctx = nano::test::ledger_single_chain (16); // 16 blocks on genesis account
+	auto & ledger = ctx.ledger ();
+	{
+		auto write = ledger.tx_begin_write ();
+		ledger.cement (write, ctx.blocks ().back ()->hash ());
+	}
+	auto transaction = ledger.tx_begin_read ();
+	auto commitment = nano::compute_state_commitment (ledger, transaction);
+
+	// Genesis account cemented frontier height = 1 (genesis) + 16 built blocks.
+	uint64_t const total_height = ledger.cemented.account_height (transaction, nano::dev::genesis_key.pub);
+	ASSERT_EQ (17, total_height);
+
+	auto plan = nano::plan_capped_retention (ledger, transaction, 5, 0);
+	// Checkpoint anchors to the same root the commitment computes.
+	ASSERT_EQ (commitment.root, plan.checkpoint.root);
+	ASSERT_EQ (1, plan.checkpoint.account_count);
+	// Keep the top 5, drop the rest; kept + droppable accounts for the whole chain.
+	ASSERT_EQ (5, plan.kept_blocks);
+	ASSERT_EQ (total_height - 5, plan.droppable_blocks);
+	ASSERT_EQ (total_height, plan.kept_blocks + plan.droppable_blocks);
+	ASSERT_GT (plan.reclaimable_bytes, 0);
+	// Every retained account frontier proves against the checkpoint root.
+	ASSERT_EQ (1, plan.accounts_checked);
+	ASSERT_EQ (1, plan.accounts_proven);
+	ASSERT_TRUE (plan.all_proven);
+
+	// A window taller than the chain drops nothing.
+	auto plan_full = nano::plan_capped_retention (ledger, transaction, 1000, 0);
+	ASSERT_EQ (0, plan_full.droppable_blocks);
+	ASSERT_EQ (total_height, plan_full.kept_blocks);
+	ASSERT_EQ (0, plan_full.reclaimable_bytes);
+}

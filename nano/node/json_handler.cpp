@@ -1702,6 +1702,59 @@ void nano::json_handler::state_proof ()
 	}));
 }
 
+void nano::json_handler::state_checkpoint ()
+{
+	// Capture the current cemented commitment as a checkpoint anchor (Block 3).
+	node.workers.post (create_worker_task ([] (std::shared_ptr<nano::json_handler> const & rpc_l) {
+		auto transaction (rpc_l->node.ledger.tx_begin_read ());
+		auto checkpoint (nano::capture_state_checkpoint (rpc_l->node.ledger, transaction));
+		rpc_l->response_l.put ("cemented_height", std::to_string (checkpoint.cemented_height));
+		rpc_l->response_l.put ("root", checkpoint.root.to_string ());
+		rpc_l->response_l.put ("account_count", std::to_string (checkpoint.account_count));
+		rpc_l->response_l.put ("pending_count", std::to_string (checkpoint.pending_count));
+		rpc_l->response_errors ();
+	}));
+}
+
+void nano::json_handler::state_retention_plan ()
+{
+	// Plan capped retention (Block 3): report the safe-to-drop set, reclaimable bytes,
+	// and a frontier-proof safety check against the checkpoint root. Read-only.
+	auto window_text (request.get_optional<std::string> ("window"));
+	auto count_text (request.get_optional<std::string> ("count"));
+	uint64_t window = 128;
+	uint64_t max_prove = 128;
+	if (window_text.has_value () && decode_unsigned (window_text.value (), window))
+	{
+		ec = nano::error_common::invalid_count;
+	}
+	if (!ec && count_text.has_value () && decode_unsigned (count_text.value (), max_prove))
+	{
+		ec = nano::error_common::invalid_count;
+	}
+	if (ec)
+	{
+		response_errors ();
+		return;
+	}
+	node.workers.post (create_worker_task ([window, max_prove] (std::shared_ptr<nano::json_handler> const & rpc_l) {
+		auto transaction (rpc_l->node.ledger.tx_begin_read ());
+		auto plan (nano::plan_capped_retention (rpc_l->node.ledger, transaction, window, max_prove));
+		rpc_l->response_l.put ("root", plan.checkpoint.root.to_string ());
+		rpc_l->response_l.put ("cemented_height", std::to_string (plan.checkpoint.cemented_height));
+		rpc_l->response_l.put ("account_count", std::to_string (plan.checkpoint.account_count));
+		rpc_l->response_l.put ("history_window", std::to_string (plan.history_window));
+		rpc_l->response_l.put ("kept_blocks", std::to_string (plan.kept_blocks));
+		rpc_l->response_l.put ("droppable_blocks", std::to_string (plan.droppable_blocks));
+		rpc_l->response_l.put ("retained_pending", std::to_string (plan.retained_pending));
+		rpc_l->response_l.put ("reclaimable_bytes", std::to_string (plan.reclaimable_bytes));
+		rpc_l->response_l.put ("accounts_checked", std::to_string (plan.accounts_checked));
+		rpc_l->response_l.put ("accounts_proven", std::to_string (plan.accounts_proven));
+		rpc_l->response_l.put ("all_proven", plan.all_proven ? "true" : "false");
+		rpc_l->response_errors ();
+	}));
+}
+
 void nano::json_handler::block_create ()
 {
 	std::string type (request.get<std::string> ("type"));
@@ -5707,6 +5760,8 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("block_count", &nano::json_handler::block_count);
 	no_arg_funcs.emplace ("state_commitment", &nano::json_handler::state_commitment);
 	no_arg_funcs.emplace ("state_proof", &nano::json_handler::state_proof);
+	no_arg_funcs.emplace ("state_checkpoint", &nano::json_handler::state_checkpoint);
+	no_arg_funcs.emplace ("state_retention_plan", &nano::json_handler::state_retention_plan);
 	no_arg_funcs.emplace ("block_create", &nano::json_handler::block_create);
 	no_arg_funcs.emplace ("block_hash", &nano::json_handler::block_hash);
 	no_arg_funcs.emplace ("bootstrap", &nano::json_handler::bootstrap);

@@ -1,4 +1,7 @@
 #include <nano/crypto/blake2/blake2.h>
+#include <nano/lib/block_sideband.hpp>
+#include <nano/lib/block_type.hpp>
+#include <nano/lib/blocks.hpp>
 #include <nano/secure/account_info.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
@@ -397,4 +400,67 @@ bool nano::verify_state_proof (nano::state_proof const & proof)
 	nano::block_hash const accounts_root = is_account ? sub : proof.other_root;
 	nano::block_hash const pending_root = is_account ? proof.other_root : sub;
 	return overall_root (accounts_root, pending_root, proof.account_count, proof.pending_count) == proof.root;
+}
+
+nano::state_checkpoint nano::capture_state_checkpoint (nano::ledger const & ledger, nano::secure::transaction const & transaction)
+{
+	auto commitment = nano::compute_state_commitment (ledger, transaction);
+	nano::state_checkpoint checkpoint;
+	checkpoint.cemented_height = ledger.cemented_count ();
+	checkpoint.root = commitment.root;
+	checkpoint.account_count = commitment.account_count;
+	checkpoint.pending_count = commitment.pending_count;
+	return checkpoint;
+}
+
+nano::capped_retention_plan nano::plan_capped_retention (nano::ledger const & ledger, nano::secure::transaction const & transaction, uint64_t history_window, uint64_t max_accounts_to_prove)
+{
+	nano::capped_retention_plan plan;
+	plan.checkpoint = nano::capture_state_checkpoint (ledger, transaction);
+	plan.history_window = history_window;
+	plan.retained_pending = plan.checkpoint.pending_count;
+
+	// Approximate on-disk cost of one cemented state block: the serialized block plus
+	// its sideband. This is an estimate for reporting reclaimable storage, not an exact
+	// per-record figure (index / page overhead is not modelled).
+	uint64_t const approx_stored_block_bytes = nano::state_block::size + nano::block_sideband::size (nano::block_type::state);
+
+	// Classify cemented blocks per account: keep the top `history_window` (frontier
+	// included), drop the rest. Content below the window stays committed under the root.
+	for (auto i = ledger.store.confirmation_height.begin (transaction), n = ledger.store.confirmation_height.end (transaction); i != n; ++i)
+	{
+		nano::confirmation_height_info const & info = i->second;
+		uint64_t const height = info.height;
+		if (height == 0)
+		{
+			continue;
+		}
+		uint64_t const kept = history_window == 0 ? height : std::min (height, history_window);
+		plan.kept_blocks += kept;
+		plan.droppable_blocks += height - kept;
+	}
+	plan.reclaimable_bytes = plan.droppable_blocks * approx_stored_block_bytes;
+
+	// Safety gate: every retained account frontier must remain provable against the
+	// checkpoint root. Prove up to `max_accounts_to_prove` accounts (0 = all).
+	for (auto i = ledger.store.confirmation_height.begin (transaction), n = ledger.store.confirmation_height.end (transaction); i != n; ++i)
+	{
+		if (max_accounts_to_prove != 0 && plan.accounts_checked >= max_accounts_to_prove)
+		{
+			break;
+		}
+		nano::account const & account = i->first;
+		if (i->second.height == 0)
+		{
+			continue;
+		}
+		auto proof = nano::generate_account_proof (ledger, transaction, account);
+		++plan.accounts_checked;
+		if (proof.has_value () && proof->root == plan.checkpoint.root && nano::verify_state_proof (proof.value ()))
+		{
+			++plan.accounts_proven;
+		}
+	}
+	plan.all_proven = plan.accounts_proven == plan.accounts_checked;
+	return plan;
 }
