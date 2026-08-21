@@ -99,21 +99,20 @@ void nano::rep_tiers::calculate_tiers ()
 
 		// Using ledger weight here because it takes preconfigured bootstrap weights into account
 		auto weight = ledger.weight (representative);
-		if (weight > stake / 1000) // 0.1% or above (level 1)
+		switch (nano::calculate_rep_tier (weight, stake))
 		{
-			representatives_1_l.insert (representative);
-			if (weight > stake / 100) // 1% or above (level 2)
-			{
+			case nano::rep_tier::tier_3:
+				representatives_3_l.insert (representative);
+				[[fallthrough]];
+			case nano::rep_tier::tier_2:
 				representatives_2_l.insert (representative);
-				if (weight > stake / 20) // 5% or above (level 3)
-				{
-					representatives_3_l.insert (representative);
-				}
-			}
-		}
-		else
-		{
-			++ignored;
+				[[fallthrough]];
+			case nano::rep_tier::tier_1:
+				representatives_1_l.insert (representative);
+				break;
+			case nano::rep_tier::none:
+				++ignored;
+				break;
 		}
 	}
 

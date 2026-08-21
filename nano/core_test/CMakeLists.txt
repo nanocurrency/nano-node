@@ -70,6 +70,7 @@ add_executable(
   peer_history.cpp
   priority_pool.cpp
   peer_container.cpp
+  rep_tiers.cpp
   rep_weight_store.cpp
   scheduler_buckets.cpp
   stats.cpp

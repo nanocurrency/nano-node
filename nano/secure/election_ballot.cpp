@@ -2,6 +2,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/vote.hpp>
 #include <nano/secure/election_ballot.hpp>
+#include <nano/secure/rep_tiers.hpp>
 
 #include <algorithm>
 
@@ -33,15 +34,19 @@ bool nano::tally_key_greater::operator() (nano::tally_key const & lhs, nano::tal
 
 std::chrono::seconds nano::calculate_vote_cooldown (nano::uint128_t weight, nano::uint128_t online_stake)
 {
-	if (weight > online_stake / 20) // Reps with more than 5% weight
+	// The throttling levels follow the shared rep tier boundaries
+	auto tier = nano::calculate_rep_tier (weight, online_stake);
+	switch (tier)
 	{
-		return std::chrono::seconds{ 1 };
+		case nano::rep_tier::tier_3:
+			return std::chrono::seconds{ 1 };
+		case nano::rep_tier::tier_2:
+			return std::chrono::seconds{ 5 };
+		case nano::rep_tier::tier_1:
+		case nano::rep_tier::none:
+			return std::chrono::seconds{ 15 };
 	}
-	if (weight > online_stake / 100) // Reps with more than 1% weight
-	{
-		return std::chrono::seconds{ 5 };
-	}
-	// The rest of smaller reps
+	debug_assert (false);
 	return std::chrono::seconds{ 15 };
 }
 
