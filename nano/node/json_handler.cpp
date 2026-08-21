@@ -35,6 +35,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
+#include <nano/secure/state_commitment.hpp>
 #include <nano/secure/transaction.hpp>
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
@@ -1590,6 +1591,23 @@ void nano::json_handler::block_count ()
 		response_l.put ("pruned", std::to_string (node.ledger.pruned_count ()));
 	}
 	response_errors ();
+}
+
+void nano::json_handler::state_commitment ()
+{
+	// Read-only measurement (Block 1): compute the deterministic Merkle commitment
+	// over cemented state. Runs on the worker pool since it walks the whole cemented
+	// account frontier and pending set.
+	node.workers.post (create_worker_task ([] (std::shared_ptr<nano::json_handler> const & rpc_l) {
+		auto transaction (rpc_l->node.ledger.tx_begin_read ());
+		auto commitment (nano::compute_state_commitment (rpc_l->node.ledger, transaction));
+		rpc_l->response_l.put ("root", commitment.root.to_string ());
+		rpc_l->response_l.put ("accounts_root", commitment.accounts_root.to_string ());
+		rpc_l->response_l.put ("pending_root", commitment.pending_root.to_string ());
+		rpc_l->response_l.put ("account_count", std::to_string (commitment.account_count));
+		rpc_l->response_l.put ("pending_count", std::to_string (commitment.pending_count));
+		rpc_l->response_errors ();
+	}));
 }
 
 void nano::json_handler::block_create ()
@@ -5595,6 +5613,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("blocks_info", &nano::json_handler::blocks_info);
 	no_arg_funcs.emplace ("block_account", &nano::json_handler::block_account);
 	no_arg_funcs.emplace ("block_count", &nano::json_handler::block_count);
+	no_arg_funcs.emplace ("state_commitment", &nano::json_handler::state_commitment);
 	no_arg_funcs.emplace ("block_create", &nano::json_handler::block_create);
 	no_arg_funcs.emplace ("block_hash", &nano::json_handler::block_hash);
 	no_arg_funcs.emplace ("bootstrap", &nano::json_handler::bootstrap);
