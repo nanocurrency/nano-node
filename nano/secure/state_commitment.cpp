@@ -11,8 +11,11 @@
 #include <nano/store/ledger/pending.hpp>
 #include <nano/store/ledger_store.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cstring>
+#include <iterator>
+#include <optional>
 #include <vector>
 
 namespace
@@ -79,79 +82,16 @@ nano::block_hash hash_internal_node (nano::block_hash const & left, nano::block_
 	return h.finalize ();
 }
 
-/*
- * Streaming Merkle Mountain Range accumulator. Leaves are folded in one at a time
- * in canonical order; only the current peaks (at most log2(n) of them) are held in
- * memory. bag() collapses the peaks into a single root deterministically, folding
- * from the smallest peak up into the largest so that a fixed leaf sequence always
- * yields the same root.
- */
-class merkle_mountain_range final
+// Fixed empty-tree value (domain-separated node hash of two zero hashes).
+nano::block_hash empty_root ()
 {
-public:
-	void add_leaf (nano::block_hash const & leaf)
-	{
-		nano::block_hash carry = leaf;
-		size_t height = 0;
-		while (height < peaks.size () && peaks[height].has_value ())
-		{
-			carry = hash_internal_node (peaks[height].value (), carry);
-			peaks[height].reset ();
-			++height;
-		}
-		if (height == peaks.size ())
-		{
-			peaks.emplace_back (carry);
-		}
-		else
-		{
-			peaks[height] = carry;
-		}
-		++leaf_count;
-	}
-
-	uint64_t count () const
-	{
-		return leaf_count;
-	}
-
-	// Deterministic root over all leaves added so far. Empty accumulator hashes to
-	// a fixed sentinel (node hash of the empty peak set) so callers get a stable value.
-	nano::block_hash bag () const
-	{
-		std::optional<nano::block_hash> accumulator;
-		for (auto const & peak : peaks)
-		{
-			if (!peak.has_value ())
-			{
-				continue;
-			}
-			if (!accumulator.has_value ())
-			{
-				accumulator = peak.value ();
-			}
-			else
-			{
-				accumulator = hash_internal_node (peak.value (), accumulator.value ());
-			}
-		}
-		if (!accumulator.has_value ())
-		{
-			// No leaves: return a fixed, domain-separated empty root.
-			hasher h;
-			h.update (node_prefix);
-			nano::block_hash zero{ 0 };
-			h.update_union (zero);
-			h.update_union (zero);
-			return h.finalize ();
-		}
-		return accumulator.value ();
-	}
-
-private:
-	std::vector<std::optional<nano::block_hash>> peaks;
-	uint64_t leaf_count{ 0 };
-};
+	hasher h;
+	h.update (node_prefix);
+	nano::block_hash zero{ 0 };
+	h.update_union (zero);
+	h.update_union (zero);
+	return h.finalize ();
+}
 
 nano::block_hash account_leaf (nano::account const & account, nano::block_hash const & frontier, nano::amount const & balance, uint64_t height)
 {
@@ -179,15 +119,70 @@ nano::block_hash pending_leaf (nano::pending_key const & key, nano::pending_info
 	h.update (static_cast<uint8_t> (info.epoch));
 	return h.finalize ();
 }
+
+// Merkle Mountain Range root over an ordered leaf list. bag() folds the peaks from
+// the smallest (height 0) upward, each peak on the left of the running accumulator,
+// exactly as the streaming accumulator does, so a fixed leaf sequence yields a fixed
+// root. This is the single source of truth for sub-tree roots.
+nano::block_hash mmr_root (std::vector<nano::block_hash> const & leaves)
+{
+	std::vector<std::optional<nano::block_hash>> peaks;
+	for (auto const & leaf : leaves)
+	{
+		nano::block_hash carry = leaf;
+		size_t height = 0;
+		while (height < peaks.size () && peaks[height].has_value ())
+		{
+			carry = hash_internal_node (peaks[height].value (), carry);
+			peaks[height].reset ();
+			++height;
+		}
+		if (height == peaks.size ())
+		{
+			peaks.emplace_back (carry);
+		}
+		else
+		{
+			peaks[height] = carry;
+		}
+	}
+	std::optional<nano::block_hash> accumulator;
+	for (auto const & peak : peaks)
+	{
+		if (!peak.has_value ())
+		{
+			continue;
+		}
+		accumulator = accumulator.has_value () ? hash_internal_node (peak.value (), accumulator.value ()) : peak.value ();
+	}
+	return accumulator.has_value () ? accumulator.value () : empty_root ();
 }
 
-nano::state_commitment_result nano::compute_state_commitment (nano::ledger const & ledger, nano::secure::transaction const & transaction)
+// Overall root binding both sub-roots plus their counts under a versioned tag.
+nano::block_hash overall_root (nano::block_hash const & accounts_root, nano::block_hash const & pending_root, uint64_t account_count, uint64_t pending_count)
 {
-	nano::state_commitment_result result;
+	hasher h;
+	static constexpr std::array<uint8_t, 25> tag{ 'n', 'a', 'n', 'o', '-', 's', 't', 'a', 't', 'e', '-', 'c', 'o', 'm', 'm', 'i', 't', 'm', 'e', 'n', 't', '-', 'v', '1', '\0' };
+	h.update (tag.data (), tag.size ());
+	h.update_union (accounts_root);
+	h.update_union (pending_root);
+	h.update_u64 (account_count);
+	h.update_u64 (pending_count);
+	return h.finalize ();
+}
 
-	// Accounts: iterate the cemented frontier table in key order. Each account
-	// contributes its cemented frontier hash, balance and height.
-	merkle_mountain_range accounts_mmr;
+// The ordered cemented leaves plus their keys, so callers can find a target index.
+struct collected_leaves final
+{
+	std::vector<nano::account> account_keys;
+	std::vector<nano::block_hash> account_leaves;
+	std::vector<nano::pending_key> pending_keys;
+	std::vector<nano::block_hash> pending_leaves;
+};
+
+collected_leaves collect (nano::ledger const & ledger, nano::secure::transaction const & transaction)
+{
+	collected_leaves out;
 	for (auto i = ledger.store.confirmation_height.begin (transaction), n = ledger.store.confirmation_height.end (transaction); i != n; ++i)
 	{
 		nano::account const & account = i->first;
@@ -199,17 +194,11 @@ nano::state_commitment_result nano::compute_state_commitment (nano::ledger const
 		auto balance = ledger.cemented.block_balance (transaction, info.frontier);
 		if (!balance.has_value ())
 		{
-			// Frontier block not resolvable (e.g. pruned): skip rather than commit to a guess.
 			continue;
 		}
-		accounts_mmr.add_leaf (account_leaf (account, info.frontier, balance.value (), info.height));
+		out.account_keys.push_back (account);
+		out.account_leaves.push_back (account_leaf (account, info.frontier, balance.value (), info.height));
 	}
-	result.accounts_root = accounts_mmr.bag ();
-	result.account_count = accounts_mmr.count ();
-
-	// Pending: iterate the pending table in key order, including only entries whose
-	// send block has been cemented, so the commitment reflects cemented state only.
-	merkle_mountain_range pending_mmr;
 	for (auto i = ledger.store.pending.begin (transaction), n = ledger.store.pending.end (transaction); i != n; ++i)
 	{
 		nano::pending_key const & key = i->first;
@@ -218,20 +207,194 @@ nano::state_commitment_result nano::compute_state_commitment (nano::ledger const
 		{
 			continue;
 		}
-		pending_mmr.add_leaf (pending_leaf (key, info));
+		out.pending_keys.push_back (key);
+		out.pending_leaves.push_back (pending_leaf (key, info));
 	}
-	result.pending_root = pending_mmr.bag ();
-	result.pending_count = pending_mmr.count ();
+	return out;
+}
 
-	// Overall root binds both sub-roots plus their counts under a versioned tag.
-	hasher h;
-	static constexpr std::array<uint8_t, 25> tag{ 'n', 'a', 'n', 'o', '-', 's', 't', 'a', 't', 'e', '-', 'c', 'o', 'm', 'm', 'i', 't', 'm', 'e', 'n', 't', '-', 'v', '1', '\0' };
-	h.update (tag.data (), tag.size ());
-	h.update_union (result.accounts_root);
-	h.update_union (result.pending_root);
-	h.update_u64 (result.account_count);
-	h.update_u64 (result.pending_count);
-	result.root = h.finalize ();
+// Build the MMR inclusion path + peaks for leaf `target` within an ordered list.
+// `peaks` are returned in ascending-height (bag consumption) order; `peak_index` is
+// the position in that list of the mountain the target belongs to.
+void build_mmr_proof (std::vector<nano::block_hash> const & leaves, uint64_t target, std::vector<nano::state_proof_step> & path, std::vector<nano::block_hash> & peaks, uint64_t & peak_index)
+{
+	uint64_t n = leaves.size ();
+	// Perfect subtrees (mountains), largest height first, covering earliest leaves.
+	struct mountain
+	{
+		uint64_t start;
+		uint64_t size;
+	};
+	std::vector<mountain> mountains;
+	uint64_t cursor = 0;
+	for (int height = 62; height >= 0; --height)
+	{
+		uint64_t const bit = uint64_t{ 1 } << height;
+		if (n & bit)
+		{
+			mountains.push_back ({ cursor, bit });
+			cursor += bit;
+		}
+	}
+	peaks.assign (mountains.size (), nano::block_hash{ 0 });
+	size_t target_desc_index = 0;
+	for (size_t m = 0; m < mountains.size (); ++m)
+	{
+		auto const & mount = mountains[m];
+		bool const holds = target >= mount.start && target < mount.start + mount.size;
+		std::vector<nano::block_hash> level (leaves.begin () + mount.start, leaves.begin () + mount.start + mount.size);
+		uint64_t pos = holds ? target - mount.start : 0;
+		while (level.size () > 1)
+		{
+			if (holds)
+			{
+				uint64_t const sibling = pos ^ 1;
+				path.push_back ({ level[sibling], sibling == pos + 1 });
+			}
+			std::vector<nano::block_hash> next (level.size () / 2);
+			for (size_t j = 0; j < next.size (); ++j)
+			{
+				next[j] = hash_internal_node (level[2 * j], level[2 * j + 1]);
+			}
+			level = std::move (next);
+			pos /= 2;
+		}
+		// bag() consumes peaks ascending-height => reverse of the descending mountain order.
+		size_t const ascending = mountains.size () - 1 - m;
+		peaks[ascending] = level[0];
+		if (holds)
+		{
+			target_desc_index = m;
+		}
+	}
+	peak_index = mountains.size () - 1 - target_desc_index;
+}
+}
 
+nano::state_commitment_result nano::compute_state_commitment (nano::ledger const & ledger, nano::secure::transaction const & transaction)
+{
+	auto leaves = collect (ledger, transaction);
+	nano::state_commitment_result result;
+	result.account_count = leaves.account_leaves.size ();
+	result.pending_count = leaves.pending_leaves.size ();
+	result.accounts_root = mmr_root (leaves.account_leaves);
+	result.pending_root = mmr_root (leaves.pending_leaves);
+	result.root = overall_root (result.accounts_root, result.pending_root, result.account_count, result.pending_count);
 	return result;
+}
+
+std::optional<nano::state_proof> nano::generate_account_proof (nano::ledger const & ledger, nano::secure::transaction const & transaction, nano::account const & account)
+{
+	auto leaves = collect (ledger, transaction);
+	auto it = std::find (leaves.account_keys.begin (), leaves.account_keys.end (), account);
+	if (it == leaves.account_keys.end ())
+	{
+		return std::nullopt;
+	}
+	uint64_t const target = static_cast<uint64_t> (std::distance (leaves.account_keys.begin (), it));
+
+	// Recover the claim fields from the cemented frontier for the target account.
+	auto ch = ledger.store.confirmation_height.get (transaction, account);
+	if (!ch.has_value () || ch->height == 0)
+	{
+		return std::nullopt;
+	}
+	auto balance = ledger.cemented.block_balance (transaction, ch->frontier);
+	if (!balance.has_value ())
+	{
+		return std::nullopt;
+	}
+
+	nano::state_proof proof;
+	proof.account_claim = nano::state_proof_account_claim{ account, ch->frontier, balance.value (), ch->height };
+	build_mmr_proof (leaves.account_leaves, target, proof.path, proof.peaks, proof.peak_index);
+	proof.other_root = mmr_root (leaves.pending_leaves);
+	proof.account_count = leaves.account_leaves.size ();
+	proof.pending_count = leaves.pending_leaves.size ();
+	auto accounts_root = mmr_root (leaves.account_leaves);
+	proof.root = overall_root (accounts_root, proof.other_root, proof.account_count, proof.pending_count);
+	return proof;
+}
+
+std::optional<nano::state_proof> nano::generate_pending_proof (nano::ledger const & ledger, nano::secure::transaction const & transaction, nano::pending_key const & key)
+{
+	auto leaves = collect (ledger, transaction);
+	uint64_t target = 0;
+	bool found = false;
+	for (uint64_t i = 0; i < leaves.pending_keys.size (); ++i)
+	{
+		if (leaves.pending_keys[i].account == key.account && leaves.pending_keys[i].hash == key.hash)
+		{
+			target = i;
+			found = true;
+			break;
+		}
+	}
+	if (!found)
+	{
+		return std::nullopt;
+	}
+	auto info = ledger.store.pending.get (transaction, key);
+	if (!info.has_value ())
+	{
+		return std::nullopt;
+	}
+
+	nano::state_proof proof;
+	proof.pending_claim = nano::state_proof_pending_claim{ key.account, key.hash, info->source, info->amount, info->epoch };
+	build_mmr_proof (leaves.pending_leaves, target, proof.path, proof.peaks, proof.peak_index);
+	proof.other_root = mmr_root (leaves.account_leaves);
+	proof.account_count = leaves.account_leaves.size ();
+	proof.pending_count = leaves.pending_leaves.size ();
+	auto pending_root = mmr_root (leaves.pending_leaves);
+	proof.root = overall_root (proof.other_root, pending_root, proof.account_count, proof.pending_count);
+	return proof;
+}
+
+bool nano::verify_state_proof (nano::state_proof const & proof)
+{
+	// Exactly one claim must be present.
+	if (proof.account_claim.has_value () == proof.pending_claim.has_value ())
+	{
+		return false;
+	}
+	bool const is_account = proof.account_claim.has_value ();
+
+	// Recompute the leaf from the claim, binding the claim to the proof.
+	nano::block_hash leaf;
+	if (is_account)
+	{
+		auto const & c = proof.account_claim.value ();
+		leaf = account_leaf (c.account, c.frontier, c.balance, c.height);
+	}
+	else
+	{
+		auto const & c = proof.pending_claim.value ();
+		nano::pending_key key{ c.account, c.hash };
+		nano::pending_info info{ c.source, c.amount, c.epoch };
+		leaf = pending_leaf (key, info);
+	}
+
+	// Climb to the mountain peak.
+	nano::block_hash node = leaf;
+	for (auto const & step : proof.path)
+	{
+		node = step.sibling_on_right ? hash_internal_node (node, step.hash) : hash_internal_node (step.hash, node);
+	}
+	if (proof.peak_index >= proof.peaks.size () || !(proof.peaks[proof.peak_index] == node))
+	{
+		return false;
+	}
+
+	// Rebag the peaks exactly as mmr_root does.
+	std::optional<nano::block_hash> accumulator;
+	for (auto const & peak : proof.peaks)
+	{
+		accumulator = accumulator.has_value () ? hash_internal_node (peak, accumulator.value ()) : peak;
+	}
+	nano::block_hash const sub = accumulator.has_value () ? accumulator.value () : empty_root ();
+
+	nano::block_hash const accounts_root = is_account ? sub : proof.other_root;
+	nano::block_hash const pending_root = is_account ? proof.other_root : sub;
+	return overall_root (accounts_root, pending_root, proof.account_count, proof.pending_count) == proof.root;
 }

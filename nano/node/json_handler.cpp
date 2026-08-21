@@ -1610,6 +1610,98 @@ void nano::json_handler::state_commitment ()
 	}));
 }
 
+void nano::json_handler::state_proof ()
+{
+	// Build a succinct inclusion proof (Block 2) against the state commitment root.
+	// With just "account", proves that account's cemented frontier + balance.
+	// With "account" + "hash", proves the pending entry (account, send hash).
+	node.workers.post (create_worker_task ([] (std::shared_ptr<nano::json_handler> const & rpc_l) {
+		auto account (rpc_l->account_impl ());
+		auto hash_text (rpc_l->request.get_optional<std::string> ("hash"));
+		if (rpc_l->ec)
+		{
+			rpc_l->response_errors ();
+			return;
+		}
+		auto transaction (rpc_l->node.ledger.tx_begin_read ());
+		std::optional<nano::state_proof> proof;
+		if (hash_text.has_value ())
+		{
+			nano::block_hash hash{ 0 };
+			if (hash.decode_hex (hash_text.value ()))
+			{
+				rpc_l->ec = nano::error_blocks::invalid_block_hash;
+				rpc_l->response_errors ();
+				return;
+			}
+			proof = nano::generate_pending_proof (rpc_l->node.ledger, transaction, nano::pending_key{ account, hash });
+		}
+		else
+		{
+			proof = nano::generate_account_proof (rpc_l->node.ledger, transaction, account);
+		}
+		if (!proof.has_value ())
+		{
+			rpc_l->ec = nano::error_common::account_not_found;
+			rpc_l->response_errors ();
+			return;
+		}
+
+		auto const & p = proof.value ();
+		if (p.account_claim.has_value ())
+		{
+			auto const & c = p.account_claim.value ();
+			boost::property_tree::ptree claim;
+			claim.put ("type", "account");
+			claim.put ("account", c.account.to_account ());
+			claim.put ("frontier", c.frontier.to_string ());
+			claim.put ("balance", c.balance.number ().convert_to<std::string> ());
+			claim.put ("height", std::to_string (c.height));
+			rpc_l->response_l.add_child ("claim", claim);
+		}
+		else
+		{
+			auto const & c = p.pending_claim.value ();
+			boost::property_tree::ptree claim;
+			claim.put ("type", "pending");
+			claim.put ("account", c.account.to_account ());
+			claim.put ("hash", c.hash.to_string ());
+			claim.put ("source", c.source.to_account ());
+			claim.put ("amount", c.amount.number ().convert_to<std::string> ());
+			claim.put ("epoch", std::to_string (static_cast<unsigned> (c.epoch)));
+			rpc_l->response_l.add_child ("claim", claim);
+		}
+
+		boost::property_tree::ptree path;
+		for (auto const & step : p.path)
+		{
+			boost::property_tree::ptree node;
+			node.put ("hash", step.hash.to_string ());
+			node.put ("sibling_on_right", step.sibling_on_right ? "true" : "false");
+			path.push_back (std::make_pair ("", node));
+		}
+		rpc_l->response_l.add_child ("path", path);
+
+		boost::property_tree::ptree peaks;
+		for (auto const & peak : p.peaks)
+		{
+			boost::property_tree::ptree entry;
+			entry.put ("", peak.to_string ());
+			peaks.push_back (std::make_pair ("", entry));
+		}
+		rpc_l->response_l.add_child ("peaks", peaks);
+
+		rpc_l->response_l.put ("peak_index", std::to_string (p.peak_index));
+		rpc_l->response_l.put ("other_root", p.other_root.to_string ());
+		rpc_l->response_l.put ("account_count", std::to_string (p.account_count));
+		rpc_l->response_l.put ("pending_count", std::to_string (p.pending_count));
+		rpc_l->response_l.put ("root", p.root.to_string ());
+		// Self-check so a caller can trust the node computed a consistent proof.
+		rpc_l->response_l.put ("verified", nano::verify_state_proof (p) ? "true" : "false");
+		rpc_l->response_errors ();
+	}));
+}
+
 void nano::json_handler::block_create ()
 {
 	std::string type (request.get<std::string> ("type"));
@@ -5614,6 +5706,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("block_account", &nano::json_handler::block_account);
 	no_arg_funcs.emplace ("block_count", &nano::json_handler::block_count);
 	no_arg_funcs.emplace ("state_commitment", &nano::json_handler::state_commitment);
+	no_arg_funcs.emplace ("state_proof", &nano::json_handler::state_proof);
 	no_arg_funcs.emplace ("block_create", &nano::json_handler::block_create);
 	no_arg_funcs.emplace ("block_hash", &nano::json_handler::block_hash);
 	no_arg_funcs.emplace ("bootstrap", &nano::json_handler::bootstrap);
