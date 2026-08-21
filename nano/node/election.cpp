@@ -521,34 +521,37 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block)
 	{
 		return true;
 	}
-	if (ballot.contains_block (block->hash ()))
-	{
-		auto const result = ballot.insert (block);
-		debug_assert (result.outcome == nano::election_ballot::insert_outcome::updated);
-		return true; // Block was already present, only its contents were refreshed
-	}
 
-	// Look up the vote cache weight backing the new fork without holding the election mutex
-	lock.unlock ();
-	nano::uint128_t cached_tally{ 0 };
-	for (auto const & vote : node.vote_cache.find (block->hash ()))
-	{
-		cached_tally += node.ledger.weight (vote->account);
-	}
-	lock.lock ();
+	auto result = ballot.insert (block);
 
-	if (confirmed_locked ())
+	// Only a full ballot consults the cached tally, so try the plain insert first and pay the vote cache scan and weight lookups only on rejection
+	if (result.outcome == nano::election_ballot::insert_outcome::rejected)
 	{
-		return true;
+		// The ballot is full: look up the vote cache weight backing the new fork without holding the election mutex, then retry
+		lock.unlock ();
+
+		nano::uint128_t cached_tally{ 0 };
+		for (auto const & vote : node.vote_cache.find (block->hash ()))
+		{
+			cached_tally += node.ledger.weight (vote->account);
+		}
+
+		lock.lock ();
+
+		if (confirmed_locked ())
+		{
+			return true;
+		}
+
+		result = ballot.insert (block, cached_tally);
 	}
-	auto const result = ballot.insert (block, cached_tally);
 
 	switch (result.outcome)
 	{
 		case nano::election_ballot::insert_outcome::inserted:
 			return false;
 		case nano::election_ballot::insert_outcome::updated:
-			return true; // Another insert of the same block won the race
+			return true; // Block was already present, only its contents were refreshed
 		case nano::election_ballot::insert_outcome::replaced:
 		{
 			// The evicted block no longer participates: stop routing votes to it and allow receiving it again
