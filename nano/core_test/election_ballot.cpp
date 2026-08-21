@@ -170,11 +170,12 @@ TEST (vote_with_weight_info, defaults)
  */
 TEST (calculate_vote_cooldown, tiers)
 {
-	// With an online stake of 100 the tier boundaries sit at weight 5 (5%) and weight 1 (1%), both exclusive
+	// With an online stake of 100 the upper tier boundaries sit at weight 5 (5%) and weight 1 (1%), both exclusive
 	nano::uint128_t const online_stake{ 100 };
 	ASSERT_EQ (1s, nano::calculate_vote_cooldown (6, online_stake)); // More than 5%
 	ASSERT_EQ (5s, nano::calculate_vote_cooldown (2, online_stake)); // More than 1%
-	ASSERT_EQ (15s, nano::calculate_vote_cooldown (1, online_stake)); // The rest
+	ASSERT_EQ (15s, nano::calculate_vote_cooldown (1, online_stake)); // Tier 1
+	ASSERT_EQ (15s, nano::calculate_vote_cooldown (0, online_stake)); // No tier
 }
 
 /*

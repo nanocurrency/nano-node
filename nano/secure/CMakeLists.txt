@@ -40,6 +40,8 @@ add_library(
   receivable_iterator.cpp
   receivable_iterator.hpp
   receivable_iterator_impl.hpp
+  rep_tiers.hpp
+  rep_tiers.cpp
   rep_weights.hpp
   rep_weights.cpp
   transaction.hpp
