@@ -42,6 +42,8 @@ add_library(
   rep_weights.cpp
   state_commitment.hpp
   state_commitment.cpp
+  storage_weighted_work.hpp
+  storage_weighted_work.cpp
   transaction.hpp
   voting_policy.hpp
   voting_policy.cpp)

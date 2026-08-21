@@ -36,6 +36,7 @@
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
 #include <nano/secure/state_commitment.hpp>
+#include <nano/secure/storage_weighted_work.hpp>
 #include <nano/secure/transaction.hpp>
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
@@ -52,6 +53,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <vector>
 
 namespace
@@ -1806,6 +1808,53 @@ void nano::json_handler::state_pending_sweep ()
 		rpc_l->response_l.put ("cold_checked", std::to_string (plan.cold_checked));
 		rpc_l->response_l.put ("cold_proven", std::to_string (plan.cold_proven));
 		rpc_l->response_l.put ("all_proven", plan.all_proven ? "true" : "false");
+		rpc_l->response_errors ();
+	}));
+}
+
+void nano::json_handler::work_storage_weight ()
+{
+	// Advisory (Block 5): evaluate a block against the storage-weighted PoW requirement.
+	// A state send to a not-yet-opened account must carry `multiplier`x the base work.
+	auto hash (hash_impl ());
+	double multiplier = 8.0; // default: state-creating sends must work 8x harder
+	auto multiplier_text (request.get_optional<std::string> ("multiplier"));
+	if (!ec && multiplier_text.has_value ())
+	{
+		try
+		{
+			multiplier = std::stod (multiplier_text.value ());
+		}
+		catch (...)
+		{
+			ec = nano::error_rpc::bad_multiplier_format;
+		}
+		if (!ec && (multiplier < 1.0 || !std::isfinite (multiplier)))
+		{
+			ec = nano::error_rpc::bad_multiplier_format;
+		}
+	}
+	if (ec)
+	{
+		response_errors ();
+		return;
+	}
+	node.workers.post (create_worker_task ([hash, multiplier] (std::shared_ptr<nano::json_handler> const & rpc_l) {
+		auto transaction (rpc_l->node.ledger.tx_begin_read ());
+		auto block (rpc_l->node.ledger.any.block_get (transaction, hash));
+		if (block == nullptr)
+		{
+			rpc_l->ec = nano::error_blocks::not_found;
+			rpc_l->response_errors ();
+			return;
+		}
+		auto result (nano::evaluate_storage_weighted_work (rpc_l->node.ledger, transaction, *block, multiplier));
+		rpc_l->response_l.put ("creates_new_account", result.creates_new_account ? "true" : "false");
+		rpc_l->response_l.put ("weight_multiplier", nano::to_string (result.weight_multiplier));
+		rpc_l->response_l.put ("base_threshold", nano::to_string_hex (result.base_threshold));
+		rpc_l->response_l.put ("required_threshold", nano::to_string_hex (result.required_threshold));
+		rpc_l->response_l.put ("achieved_difficulty", nano::to_string_hex (result.achieved_difficulty));
+		rpc_l->response_l.put ("satisfies", result.satisfies ? "true" : "false");
 		rpc_l->response_errors ();
 	}));
 }
@@ -5818,6 +5867,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("state_checkpoint", &nano::json_handler::state_checkpoint);
 	no_arg_funcs.emplace ("state_retention_plan", &nano::json_handler::state_retention_plan);
 	no_arg_funcs.emplace ("state_pending_sweep", &nano::json_handler::state_pending_sweep);
+	no_arg_funcs.emplace ("work_storage_weight", &nano::json_handler::work_storage_weight);
 	no_arg_funcs.emplace ("block_create", &nano::json_handler::block_create);
 	no_arg_funcs.emplace ("block_hash", &nano::json_handler::block_hash);
 	no_arg_funcs.emplace ("bootstrap", &nano::json_handler::bootstrap);
