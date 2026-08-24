@@ -58,7 +58,7 @@ void frontier_strategy::run_one ()
 		return !ctx.accounts.priority_half_full ();
 	});
 	ctx.wait ([this] () {
-		return ctx.workers.queued_tasks () < ctx.config.frontier_scan.max_pending;
+		return workers.queued_tasks () < ctx.config.frontier_scan.max_pending;
 	});
 	auto channel = ctx.wait_channel (strategy::frontier);
 	if (!channel)
