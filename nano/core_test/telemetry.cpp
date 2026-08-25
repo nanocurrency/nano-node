@@ -216,6 +216,49 @@ TEST (telemetry, forward_compat_new_to_old)
 	ASSERT_FALSE (nano::validate_message (old_received.node_id, verify_bytes.data (), verify_bytes.size (), old_received.signature));
 }
 
+// Extension bits above the telemetry size mask must not inflate the parsed payload length
+TEST (telemetry, deserialize_ignores_extension_bits_above_size_mask)
+{
+	nano::keypair node_id;
+	nano::messages::telemetry_data data;
+	data.node_id = node_id.pub;
+	data.major_version = 20;
+	data.minor_version = 1;
+	data.patch_version = 5;
+	data.pre_release_version = 2;
+	data.maker = nano::messages::telemetry_maker::nf_pruned_node;
+	data.database_backend = nano::messages::telemetry_database_backend::lmdb;
+	data.confirmation_latency_ms_p50 = 250;
+	data.confirmation_latency_ms_p90 = 500;
+	data.confirmation_latency_ms_p99 = 750;
+	data.timestamp = std::chrono::system_clock::time_point (100ms);
+	data.sign (node_id);
+
+	nano::messages::telemetry_ack ack{ nano::dev::network_params.network, data };
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		ack.serialize (stream);
+	}
+	ASSERT_GT (bytes.size (), nano::messages::message_header::size);
+
+	// Set every extension bit above the size mask; the masked payload length must stay unchanged
+	bool error = false;
+	nano::bufferstream header_stream{ bytes.data (), nano::messages::message_header::size };
+	nano::messages::message_header header{ error, header_stream };
+	ASSERT_FALSE (error);
+	auto const masked_size = nano::messages::telemetry_ack::size (header);
+	header.extensions |= ~nano::messages::message_header::telemetry_size_mask;
+	ASSERT_EQ (nano::messages::telemetry_ack::size (header), masked_size);
+
+	nano::bufferstream payload_stream{ bytes.data () + nano::messages::message_header::size, bytes.size () - nano::messages::message_header::size };
+	nano::messages::telemetry_ack received{ error, payload_stream, header };
+	ASSERT_FALSE (error);
+	ASSERT_EQ (received.data, data);
+	ASSERT_TRUE (received.data.unknown_data.empty ());
+	ASSERT_FALSE (received.data.validate_signature ());
+}
+
 TEST (telemetry, no_peers)
 {
 	nano::test::system system (1);
