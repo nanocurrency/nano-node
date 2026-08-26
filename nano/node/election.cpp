@@ -733,39 +733,6 @@ void nano::election::operator() (nano::object_stream & obs) const
 	obs.write ("status", get_extended_status ());
 }
 
-void nano::election_extended_status::operator() (nano::object_stream & obs) const
-{
-	obs.write ("behavior", behavior);
-	obs.write ("winner", status.winner->hash ());
-	obs.write ("tally_amount", status.tally.to_string_dec ());
-	obs.write ("final_tally_amount", status.final_tally.to_string_dec ());
-	obs.write ("confirmation_request_count", status.confirmation_request_count);
-	obs.write ("vote_broadcast_count", status.vote_broadcast_count);
-	obs.write ("block_count", status.block_count);
-	obs.write ("voter_count", status.voter_count);
-	obs.write ("type", status.type);
-
-	obs.write_range ("votes", votes, [] (auto const & entry, nano::object_stream & obs) {
-		auto & [account, info] = entry;
-		obs.write ("account", account);
-		obs.write ("hash", info.hash);
-		obs.write ("final", info.final ());
-		obs.write ("timestamp", info.timestamp);
-		obs.write ("arrival", info.arrival.time_since_epoch ().count ());
-	});
-
-	obs.write_range ("blocks", blocks, [] (auto const & entry) {
-		auto [hash, block] = entry;
-		return block;
-	});
-
-	obs.write_range ("tally", tally, [] (auto const & entry, nano::object_stream & obs) {
-		auto & [key, block] = entry;
-		obs.write ("hash", key.hash);
-		obs.write ("amount", key.weight);
-	});
-}
-
 /*
  *
  */

@@ -1,15 +1,14 @@
 #pragma once
 
+#include <nano/lib/fwd.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/stats_enums.hpp>
+#include <nano/node/fwd.hpp>
+#include <nano/secure/election_ballot.hpp>
 
 #include <chrono>
 #include <memory>
-
-namespace nano
-{
-class block;
-}
+#include <unordered_map>
 
 namespace nano
 {
@@ -39,5 +38,19 @@ struct election_status final
 	unsigned block_count{ 0 }; // Held fork blocks
 	unsigned voter_count{ 0 }; // Representatives with a recorded vote
 	election_status_type type{ nano::election_status_type::inactive_confirmation_height };
+
+	void operator() (nano::object_stream &) const;
+};
+
+/** Status extended with copies of the ballot state, all taken as one consistent snapshot */
+struct election_extended_status final
+{
+	nano::election_behavior behavior; // Scheduling behavior at the time of the snapshot
+	nano::election_status status; // The status summary
+	std::unordered_map<nano::account, nano::vote_info> votes; // All recorded votes by representative
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks; // All held blocks by hash
+	nano::tally_map tally; // Held blocks by tally position, zero-vote blocks absent
+
+	void operator() (nano::object_stream &) const;
 };
 }
