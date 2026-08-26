@@ -1335,7 +1335,7 @@ void nano::json_handler::block_confirm ()
 			else
 			{
 				// Add record in confirmation history for confirmed block
-				nano::election_status status{ block_l, nano::election_status_type::active_confirmation_height };
+				nano::election_status status{ .winner = block_l, .block_count = 1, .type = nano::election_status_type::active_confirmation_height };
 				node.active.recently_cemented.put (status);
 				// Trigger callback for confirmed block
 				auto account = block_l->account ();

@@ -201,8 +201,21 @@ private:
 private:
 	std::atomic<bool> is_quorum{ false };
 	nano::election_behavior behavior_m;
-	nano::election_status status;
 	std::chrono::steady_clock::time_point const election_start{ std::chrono::steady_clock::now () };
+
+	// Result of the last ballot evaluation; the winner anchors switch detection, the tallies keep status reads cheap
+	struct
+	{
+		nano::block_hash winner{ 0 }; // Ballot winner as of the last evaluation
+		nano::amount tally{ 0 }; // Winner tally, normal + final votes
+		nano::amount final_tally{ 0 }; // Winner tally, final votes only
+	} last_round;
+
+	// Wall-clock time the election reached confirmation, unset while unconfirmed
+	std::chrono::system_clock::time_point election_end{};
+
+	// Time from election start to confirmation, unset while unconfirmed
+	std::chrono::milliseconds election_duration{};
 
 	mutable nano::mutex mutex;
 

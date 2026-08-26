@@ -21,7 +21,7 @@
 namespace nano
 {
 class block;
-class election_status;
+struct election_status;
 enum class election_status_type : uint8_t;
 class ledger;
 class logger;
