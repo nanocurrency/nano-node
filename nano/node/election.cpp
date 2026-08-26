@@ -38,7 +38,7 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 	}),
 	ballot (block_a, [this] (nano::account const & account) { return node.ledger.weight (account); }),
 	behavior_m (election_behavior_a),
-	status (block_a),
+	last_round{ .winner = block_a->hash () },
 	height (block_a->sideband ().height),
 	root (block_a->root ()),
 	qualified_root (block_a->qualified_root ()),
@@ -58,10 +58,10 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock)
 
 	if (just_confirmed)
 	{
-		status = status_locked ();
-		status.election_end = std::chrono::system_clock::now (); // Timestamp as system time
-		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
-		auto const status_l = status;
+		election_end = std::chrono::system_clock::now (); // Timestamp as system time
+		election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
+
+		auto const status_l = status_locked ();
 
 		node.active.recently_confirmed.put (qualified_root, status_l.winner->hash (), status_l);
 
@@ -272,13 +272,18 @@ void nano::election::broadcast_sent (nano::block_hash const & winner)
 nano::election_status nano::election::status_locked () const
 {
 	debug_assert (!mutex.try_lock ());
-	auto result = status;
-	result.winner = ballot.winner ();
-	result.confirmation_request_count = confirmation_request_count;
-	result.vote_broadcast_count = vote_broadcast_count;
-	result.block_count = nano::narrow_cast<decltype (result.block_count)> (ballot.block_count ());
-	result.voter_count = nano::narrow_cast<decltype (result.voter_count)> (ballot.voter_count ());
-	return result;
+	return {
+		.winner = ballot.winner (),
+		.tally = last_round.tally,
+		.final_tally = last_round.final_tally,
+		.election_end = election_end,
+		.election_duration = election_duration,
+		.confirmation_request_count = confirmation_request_count,
+		.vote_broadcast_count = vote_broadcast_count,
+		.block_count = nano::narrow_cast<unsigned> (ballot.block_count ()),
+		.voter_count = nano::narrow_cast<unsigned> (ballot.voter_count ()),
+		.type = nano::election_status_type::ongoing, // A live election is always ongoing, the cementing path stamps the meaningful types
+	};
 }
 
 nano::election_status nano::election::get_status () const
@@ -348,7 +353,6 @@ nano::election_actions nano::election::tick (std::chrono::steady_clock::time_poi
 			nano::log::arg{ "status", extended_status_locked () });
 
 			actions.cleanup = true; // Election expired and should be cleaned up
-			status.type = nano::election_status_type::stopped;
 		}
 	}
 
@@ -380,22 +384,17 @@ nano::election_ballot::round nano::election::evaluate_locked ()
 {
 	debug_assert (!mutex.try_lock ());
 
-	// The switch detection below relies on status.winner mirroring the ballot winner between evaluations
-	release_assert (status.winner != nullptr);
-	release_assert (status.winner->hash () == ballot.winner ()->hash ());
+	// The switch detection below relies on last_round.winner mirroring the ballot winner between evaluations
+	release_assert (last_round.winner == ballot.winner ()->hash ());
 
 	auto const round = ballot.evaluate (node.online_reps.delta ());
 
-	status.tally = round.winner_weight;
-	status.final_tally = round.final_winner_weight;
-
-	if (round.winner->hash () != status.winner->hash ())
+	if (round.winner->hash () != last_round.winner)
 	{
-		auto const previous_winner = status.winner;
-		status.winner = round.winner;
+		auto const previous_winner = last_round.winner;
 
 		node.logger.debug (nano::log::type::election, "Winning fork changed from {} to {} for root: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
-		previous_winner->hash (),
+		previous_winner,
 		round.winner->hash (),
 		qualified_root,
 		to_string (behavior_m),
@@ -407,6 +406,12 @@ nano::election_ballot::round nano::election::evaluate_locked ()
 		// The new winner might be missing from the ledger if its fork was processed first, force reprocessing
 		node.block_processor.force (round.winner);
 	}
+
+	last_round = {
+		.winner = round.winner->hash (),
+		.tally = round.winner_weight,
+		.final_tally = round.final_winner_weight
+	};
 
 	return round;
 }

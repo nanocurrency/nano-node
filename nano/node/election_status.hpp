@@ -26,28 +26,18 @@ enum class election_status_type : uint8_t
 std::string_view to_string (election_status_type);
 nano::stat::detail to_stat_detail (election_status_type);
 
-/* Holds a summary of an election */
-class election_status final
+/** Summary of an election */
+struct election_status final
 {
-public:
-	std::shared_ptr<nano::block> winner;
-	nano::amount tally{ 0 };
-	nano::amount final_tally{ 0 };
-	std::chrono::system_clock::time_point election_end{};
-	std::chrono::milliseconds election_duration{};
-	unsigned confirmation_request_count{ 0 };
-	unsigned vote_broadcast_count{ 0 };
-	unsigned block_count{ 0 };
-	unsigned voter_count{ 0 };
+	std::shared_ptr<nano::block> winner{}; // The winning block
+	nano::amount tally{ 0 }; // Vote weight behind the winner, normal + final votes
+	nano::amount final_tally{ 0 }; // Vote weight behind the winner, final votes only
+	std::chrono::system_clock::time_point election_end{}; // When the election confirmed, as system time
+	std::chrono::milliseconds election_duration{}; // Time from election start to confirmation
+	unsigned confirmation_request_count{ 0 }; // Confirmation requests sent
+	unsigned vote_broadcast_count{ 0 }; // Votes broadcast for the winner
+	unsigned block_count{ 0 }; // Held fork blocks
+	unsigned voter_count{ 0 }; // Representatives with a recorded vote
 	election_status_type type{ nano::election_status_type::inactive_confirmation_height };
-
-	election_status () = default;
-
-	election_status (std::shared_ptr<nano::block> block_a, election_status_type type_a = nano::election_status_type::ongoing) :
-		winner (block_a),
-		type (type_a)
-	{
-		block_count = 1;
-	}
 };
 }
