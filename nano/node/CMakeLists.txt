@@ -94,6 +94,7 @@ add_library(
   election_pacing.hpp
   election_pacing.cpp
   election_status.hpp
+  election_status.cpp
   endpoint.cpp
   endpoint.hpp
   endpoint_templ.hpp
