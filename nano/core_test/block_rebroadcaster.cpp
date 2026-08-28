@@ -213,6 +213,9 @@ TEST (block_rebroadcaster, duplicate_block)
 	nano::test::system system;
 	auto & node = *system.add_node ();
 
+	// Deduplication covers only blocks waiting in the queue, so stop the processing thread to keep the first push queued
+	node.block_rebroadcaster.stop ();
+
 	// Create a block
 	nano::keypair key;
 	auto send = nano::state_block_builder ()
