@@ -260,7 +260,7 @@ TEST (online_reps, observe_slow)
 	// Wait for election for the block to be activated
 	std::shared_ptr<nano::election> election;
 	ASSERT_TIMELY (5s, election = node.active.election (send_dummy->qualified_root ()));
-	ASSERT_TRUE (election->contains (send_dummy->hash ()));
+	ASSERT_TRUE (election->contains_block (send_dummy->hash ()));
 
 	// Issue vote from a fast rep
 	auto vote_fast = nano::test::make_final_vote (key1, { send_dummy });

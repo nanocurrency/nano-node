@@ -824,7 +824,7 @@ TEST (node, fork_multi_flip)
 
 	auto election = nano::test::start_election (system, node2, send2->hash ());
 	ASSERT_NE (nullptr, election);
-	ASSERT_TIMELY (10s, election->contains (send1->hash ()));
+	ASSERT_TIMELY (10s, election->contains_block (send1->hash ()));
 	nano::test::confirm (node1.ledger, send1);
 	ASSERT_TIMELY (10s, node2.block_or_pruned_exists (send1->hash ()));
 	ASSERT_TRUE (nano::test::block_or_pruned_none_exists (node2, { send2, send3 }));

@@ -187,7 +187,7 @@ public: // Information
 	std::unordered_map<nano::account, nano::vote_info> votes () const;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
 	std::unordered_set<nano::block_hash> blocks_hashes () const;
-	bool contains (nano::block_hash const &) const;
+	bool contains_block (nano::block_hash const &) const;
 
 	size_t voter_count () const;
 	size_t block_count () const;
