@@ -56,7 +56,7 @@ std::chrono::seconds calculate_vote_cooldown (nano::uint128_t weight, nano::uint
 
 /**
  * Consensus bookkeeping for a single election: records one vote per representative, holds the competing blocks (forks of a single root) and owns the current winner, advancing it by the quorum rule.
- * The entire state is { votes, blocks, winner }, each mutator writes exactly one of them and every tally is computed fresh from the recorded votes.
+ * The entire state is { votes, blocks, winner }; vote () writes the votes, insert () the blocks, evaluate () the winner, and every tally is computed fresh from the recorded votes.
  * Representative weight and time are supplied by the caller, making the class deterministic and self-contained; locking is the responsibility of the owning election.
  *
  * Invariants:
@@ -91,6 +91,9 @@ public: // Votes
 	// The representative's recorded vote, if any
 	std::optional<nano::vote_info> find_vote (nano::account const &) const;
 
+	// Whether any representative's current vote references the hash
+	bool has_vote_for (nano::block_hash const &) const;
+
 public: // Blocks
 	enum class insert_outcome
 	{
@@ -103,7 +106,7 @@ public: // Blocks
 	struct insert_result final
 	{
 		insert_outcome outcome;
-		std::shared_ptr<nano::block> evicted{}; // Set when replaced, so the caller can undo routing and filters
+		std::shared_ptr<nano::block> evicted{}; // The evicted block, set when replaced
 	};
 
 	// The only way blocks enter or leave, keeping the ballot within its block limit
@@ -177,7 +180,7 @@ private: // Dependencies
 	weight_fn const weight_query;
 	size_t const max_blocks;
 
-private: // The entire mutable state, one field per mutator
+private: // The entire mutable state
 	std::unordered_map<nano::account, nano::vote_info> votes_m; // vote (): latest vote per rep, may reference unheld hashes
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks_m; // insert (): competing blocks, always includes the winner
 	nano::block_hash winner_m; // evaluate (): current winner, always one of the held blocks

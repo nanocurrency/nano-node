@@ -297,7 +297,7 @@ bool nano::active_elections::publish (std::shared_ptr<nano::block> const & block
 		bool result = election->publish (block); // false => new block was added
 		if (!result)
 		{
-			node.vote_router.connect (block->hash (), election);
+			// Process votes cached before the block joined the election
 			node.vote_cache_processor.trigger (block->hash ());
 
 			node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::fork);
