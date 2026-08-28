@@ -41,6 +41,22 @@ if(MSVC)
   add_definitions(/MP)
   add_definitions(
     -D_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING) # Suppress iterator warning
+
+  # RocksDB's generic ASM language would otherwise claim .asm ahead of MASM,
+  # breaking Boost.Context. Nothing here needs .asm as generic ASM.
+  set(CMAKE_ASM_SOURCE_FILE_EXTENSIONS s;S)
+
+  # /Zi shares one PDB across a target's TUs, which compiler caches can't
+  # handle. /Z7 embeds debug info per object file instead.
+  if(CMAKE_C_COMPILER_LAUNCHER OR CMAKE_CXX_COMPILER_LAUNCHER)
+    message(STATUS "Compiler launcher in use - embedding MSVC debug info (/Z7)")
+    foreach(flags_var
+            CMAKE_C_FLAGS_DEBUG CMAKE_CXX_FLAGS_DEBUG
+            CMAKE_C_FLAGS_RELWITHDEBINFO CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+      string(REPLACE "/ZI" "/Z7" ${flags_var} "${${flags_var}}")
+      string(REPLACE "/Zi" "/Z7" ${flags_var} "${${flags_var}}")
+    endforeach()
+  endif()
 endif()
 
 set(CPACK_PACKAGE_VENDOR "Nano Currency")
@@ -519,6 +535,9 @@ else()
       1
       CACHE BOOL "" FORCE)
 endif()
+# Runs inside RocksDB's scope to drop MSVC flags that defeat compiler caching
+set(CMAKE_PROJECT_rocksdb_INCLUDE
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/RocksDBMsvcCache.cmake)
 add_subdirectory(submodules/rocksdb EXCLUDE_FROM_ALL)
 
 # cpptoml
