@@ -67,7 +67,7 @@ std::vector<std::shared_ptr<nano::block>> create_blocks_hash_ordered (size_t cou
 	return blocks;
 }
 
-// Sum of the tallied weight over held blocks, the participation measure evaluate gates the winner on
+// Sum of the tallied weight over held blocks
 nano::uint128_t total_weight (nano::election_ballot const & ballot)
 {
 	nano::uint128_t result{ 0 };
@@ -381,7 +381,7 @@ TEST (election_ballot, vote_final_replacing_final_respects_cooldown)
 }
 
 /*
- * A vote for a hash the ballot does not hold is still recorded: it occupies the rep's single vote slot and anchors replay protection, but contributes nothing to the tally or to the participation weight, since it expresses no preference between the held blocks.
+ * A vote for a hash the ballot does not hold is still recorded: it occupies the rep's single vote slot, anchors replay protection and counts towards the total recorded vote weight that controls winner and leader updates, but it never enters the tally, so it cannot make a block win.
  * Recording it means a replayed older vote cannot sneak in just because the rep's preferred block is unknown here.
  */
 TEST (election_ballot, vote_unheld_hash_recorded_not_tallied)
@@ -397,9 +397,16 @@ TEST (election_ballot, vote_unheld_hash_recorded_not_tallied)
 	ASSERT_EQ (1, ballot.voter_count ());
 	ASSERT_TRUE (ballot.tally ().empty ());
 
+	// Total recorded vote weight 10 is below threshold 15, so neither slot moves
+	auto round_gated = ballot.evaluate (15);
+	ASSERT_EQ (initial, round_gated.winner);
+	ASSERT_EQ (initial->hash (), ballot.leader ());
+
+	// Lowering the threshold to 5 lets the unheld weight take the leader slot, while the winner has no held rival to move to
 	auto round = ballot.evaluate (5);
 	ASSERT_EQ (0, total_weight (ballot));
 	ASSERT_EQ (initial, round.winner);
+	ASSERT_EQ (unheld, ballot.leader ());
 
 	// A replayed older vote is still rejected, the unheld vote anchors the rep's ordering
 	ASSERT_EQ (nano::election_ballot::vote_result::replay, ballot.vote (rep, nano::vote::timestamp_min * 1, initial->hash (), 0s, epoch));
@@ -702,6 +709,41 @@ TEST (election_ballot, insert_backing_sources_do_not_add)
 }
 
 /*
+ * The stored leader selected by the preceding evaluation bypasses the strictly-more-weight admission check, so its block can replace the weakest non-winner when it becomes available.
+ * Other blocks must still outweigh the weakest non-winner.
+ */
+TEST (election_ballot, insert_leader_admitted_on_equal_weight)
+{
+	test_reps reps;
+	auto blocks = create_blocks_hash_ordered (3);
+	auto & low = blocks[0];
+	auto & mid = blocks[1];
+	auto & high = blocks[2];
+	nano::election_ballot ballot{ low, reps.query (), 2 };
+
+	// The highest-hash fork gathers 5 weight and is evicted by a 6-backed newcomer
+	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (high).outcome);
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (5), nano::vote::timestamp_min, high->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::insert_outcome::replaced, ballot.insert (mid, 6).outcome);
+
+	// Every candidate carries 5: the evicted fork leads by the hash tie-break, mid takes the winner slot among the held
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (5), nano::vote::timestamp_min, mid->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (5), nano::vote::timestamp_min, low->hash (), 0s, epoch));
+	auto round = ballot.evaluate (15);
+	ASSERT_EQ (high->hash (), ballot.leader ());
+	ASSERT_EQ (mid, round.winner);
+
+	// A non-leader with equal backing cannot displace the equally backed incumbent
+	ASSERT_EQ (nano::election_ballot::insert_outcome::rejected, ballot.insert (create_block (), 5).outcome);
+
+	// The hash selected as leader in the preceding evaluation is admitted despite the equal weights
+	auto result = ballot.insert (high);
+	ASSERT_EQ (nano::election_ballot::insert_outcome::replaced, result.outcome);
+	ASSERT_EQ (low, result.evicted);
+	ASSERT_TRUE (ballot.contains_block (high->hash ()));
+}
+
+/*
  * has_vote_for checks each representative's current vote rather than their vote history.
  * Moving one of two representatives preserves the old hash; moving the other clears it.
  * Only votes count: an unheld hash is referenced once voted for, while a held block without a vote is not.
@@ -738,9 +780,9 @@ TEST (election_ballot, has_vote_for)
 }
 
 /*
- * The winner only follows the tally leader once the total tallied weight reaches the quorum threshold.
+ * The winner only follows the tally leader once the total recorded vote weight reaches the quorum threshold.
  * A fork may lead the tally, but with too little overall participation the winner does not move: this keeps the winner stable while only a few early votes are in, instead of flapping after every vote.
- * Once participation is sufficient the leader takes over and the winner stays with it.
+ * Once participation is sufficient the tally leader becomes both the stored leader and the winner.
  */
 TEST (election_ballot, evaluate_winner_gate)
 {
@@ -750,7 +792,7 @@ TEST (election_ballot, evaluate_winner_gate)
 	nano::election_ballot ballot{ initial, reps.query () };
 	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (fork).outcome);
 
-	// Threshold 15: a single 10-weight vote stays below the gate, two such votes pass it
+	// At threshold 15 one 10-weight vote cannot update either slot, while two such votes can
 	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (10), nano::vote::timestamp_min, fork->hash (), 0s, epoch));
 
 	// The fork leads the tally, but with too little participation the winner does not move
@@ -761,24 +803,23 @@ TEST (election_ballot, evaluate_winner_gate)
 	ASSERT_EQ (10, total_weight (ballot));
 	ASSERT_FALSE (round1.quorum);
 
-	// Enough participation lets the leader take over
+	// Enough participation lets the tally leader take over as winner
 	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (10), nano::vote::timestamp_min, fork->hash (), 0s, epoch));
 	auto round2 = ballot.evaluate (15);
 	ASSERT_EQ (fork, round2.winner);
 	ASSERT_EQ (fork, ballot.winner ());
 	ASSERT_EQ (20, round2.winner_weight);
 
-	// The winner stays with the leader on subsequent evaluations
+	// The winner stays with the tally leader on subsequent evaluations
 	auto round3 = ballot.evaluate (15);
 	ASSERT_EQ (fork, round3.winner);
 }
 
 /*
- * Only weight behind held blocks counts towards the participation gate.
- * Weight parked on unheld hashes expresses no preference between the actual candidates, so counting it would let the winner move on the strength of votes that back nothing in this election.
- * Here the combined weight would pass the gate, but the held-block weight alone does not, and the winner stays.
+ * Weight parked on unheld hashes counts towards the total recorded vote weight used to decide whether the winner and leader may update.
+ * Here the held fork alone is below the threshold, but together with the unheld weight it reaches the threshold and the fork takes the winner slot.
  */
-TEST (election_ballot, evaluate_gate_counts_only_held_blocks)
+TEST (election_ballot, evaluate_gate_counts_all_votes)
 {
 	test_reps reps;
 	auto initial = create_block ();
@@ -786,19 +827,19 @@ TEST (election_ballot, evaluate_gate_counts_only_held_blocks)
 	nano::election_ballot ballot{ initial, reps.query () };
 	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (fork).outcome);
 
-	// 10 weight backs the held fork and another 10 backs an unknown hash, only the former participates
+	// 10 weight backs the held fork and another 10 backs an unknown hash, both participate
 	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (10), nano::vote::timestamp_min, fork->hash (), 0s, epoch));
 	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (10), nano::vote::timestamp_min, nano::test::random_hash (), 0s, epoch));
 
-	// Held-block participation is 10, below the threshold of 15, so the winner may not move yet
+	// The combined participation of 20 passes the threshold of 15 and the held fork takes over as winner
 	auto round = ballot.evaluate (15);
-	ASSERT_EQ (10, total_weight (ballot));
-	ASSERT_EQ (initial, round.winner);
+	ASSERT_EQ (10, total_weight (ballot)); // Only the held weight is tallied
+	ASSERT_EQ (fork, round.winner);
 }
 
 /*
  * Quorum requires the winner to lead the runner-up by at least the quorum threshold.
- * The margin formulation is the safety argument: with a lead of a full threshold, even if all online weight that has not been tallied yet piled onto the runner-up, it could no longer overtake the winner.
+ * The runner-up is the heaviest rival across every voted-for hash, held or not, so quorum reflects the full known opposition.
  * An unopposed winner above the threshold has quorum; a close race does not.
  */
 TEST (election_ballot, evaluate_quorum_margin)
@@ -809,7 +850,7 @@ TEST (election_ballot, evaluate_quorum_margin)
 	nano::election_ballot ballot{ initial, reps.query () };
 	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (fork).outcome);
 
-	// A single 30-weight vote passes the gate (30 >= 10) and leads unopposed by its full weight
+	// A single 30-weight vote reaches the threshold of 10 and leads unopposed by its full weight
 	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (30), nano::vote::timestamp_min, fork->hash (), 0s, epoch));
 	auto round1 = ballot.evaluate (10);
 	ASSERT_EQ (fork, round1.winner);
@@ -824,6 +865,61 @@ TEST (election_ballot, evaluate_quorum_margin)
 }
 
 /*
+ * Weight behind an unheld hash counts against quorum like any held rival: reps known to back something else make the race undecided whether or not this ballot holds their block.
+ * The held winner leads the held tally outright here, yet the unheld rival's weight erases the margin and quorum must not be declared.
+ */
+TEST (election_ballot, evaluate_quorum_blocked_by_unheld_rival)
+{
+	test_reps reps;
+	auto initial = create_block ();
+	nano::election_ballot ballot{ initial, reps.query () };
+
+	// 30 weight backs the held winner, 25 backs a hash this ballot does not hold
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (30), nano::vote::timestamp_min, initial->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (25), nano::vote::timestamp_min, nano::test::random_hash (), 0s, epoch));
+
+	// The winner's lead over the unheld rival is 5, below the threshold of 10
+	auto round = ballot.evaluate (10);
+	ASSERT_EQ (initial, round.winner);
+	ASSERT_EQ (30, round.winner_weight);
+	ASSERT_FALSE (round.quorum);
+}
+
+/*
+ * Once total recorded vote weight reaches the evaluation threshold, the leader records the heaviest voted-for hash regardless of holding: when an unheld hash outweighs every held block the leader diverges from the winner, and it converges back after the leading block is held and evaluated again.
+ * The winner never follows the leader onto an unheld hash, so everything the election broadcasts or votes for stays backed by a block it can produce.
+ */
+TEST (election_ballot, evaluate_leader_follows_unheld_weight)
+{
+	test_reps reps;
+	auto initial = create_block ();
+	auto fork = create_block ();
+	nano::election_ballot ballot{ initial, reps.query (), 2 };
+	ASSERT_EQ (initial->hash (), ballot.leader ()); // Seeded with the initial block, like the winner
+
+	// The fork gathers 5 weight, is evicted by a 6-backed newcomer, then gathers 20 more on top of its retained 5
+	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (fork).outcome);
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (5), nano::vote::timestamp_min, fork->hash (), 0s, epoch));
+	auto newcomer = create_block ();
+	ASSERT_EQ (nano::election_ballot::insert_outcome::replaced, ballot.insert (newcomer, 6).outcome);
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (20), nano::vote::timestamp_min, fork->hash (), 0s, epoch));
+
+	// The evicted fork's 25 leads everything held: the leader diverges to it while the winner stays held
+	auto round1 = ballot.evaluate (10);
+	ASSERT_EQ (fork->hash (), ballot.leader ());
+	ASSERT_NE (fork->hash (), round1.winner->hash ());
+	ASSERT_FALSE (round1.quorum); // The unheld leader is the heaviest rival, so the held winner cannot have quorum
+
+	// Readmitting the leading block converges winner and leader on it
+	ASSERT_EQ (nano::election_ballot::insert_outcome::replaced, ballot.insert (fork).outcome);
+	auto round2 = ballot.evaluate (10);
+	ASSERT_EQ (fork, round2.winner);
+	ASSERT_EQ (fork->hash (), ballot.leader ());
+	ASSERT_EQ (25, round2.winner_weight);
+	ASSERT_TRUE (round2.quorum); // The lead over the now-empty field passes the threshold
+}
+
+/*
  * Two forks with exactly equal weight remain distinct tally entries and their tie permanently blocks quorum, since neither leads the other.
  * The winner slot still resolves deterministically to the higher hash, mirroring the vote tie-break rule, so all nodes agree on which fork they are backing while the tie lasts.
  */
@@ -835,7 +931,7 @@ TEST (election_ballot, evaluate_equal_forks_block_quorum)
 	nano::election_ballot ballot{ initial, reps.query () };
 	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (fork).outcome);
 
-	// 20 vs 20: the total of 40 passes the gate, but the lead between the forks is zero
+	// 20 vs 20: the total of 40 reaches the threshold, but the lead between the forks is zero
 	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (20), nano::vote::timestamp_min, initial->hash (), 0s, epoch));
 	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (20), nano::vote::timestamp_min, fork->hash (), 0s, epoch));
 

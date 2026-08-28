@@ -661,7 +661,7 @@ void nano::election::broadcast_vote_locked (std::chrono::steady_clock::time_poin
 	}
 	pacing.vote_sent (now);
 
-	// The evaluation deliberately re-tallies and may switch the winner, so the outgoing vote always references the current leader even when no new vote has arrived
+	// The evaluation deliberately re-tallies and may switch the winner, so the outgoing vote always references the current winner even when no new vote has arrived
 	auto const round = evaluate_locked ();
 
 	// Broadcast a final vote if reached quorum or already confirmed
