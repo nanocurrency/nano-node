@@ -20,6 +20,9 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET
 
 project(nano-node)
 
+# Group targets into folders in IDEs
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
 # Get the latest abbreviated commit hash of the working branch
 execute_process(
   COMMAND git log -1 --format=%h
@@ -462,7 +465,9 @@ set(BOOST_INCLUDE_LIBRARIES
     variant)
 
 add_definitions(-DBOOST_ALL_NO_LIB) # Disable automatic boost linking
+set(CMAKE_FOLDER "external/boost")
 add_subdirectory(submodules/boost EXCLUDE_FROM_ALL)
+unset(CMAKE_FOLDER)
 include_directories(${BOOST_LIBRARY_INCLUDES})
 
 # Configure stacktrace with appropriate backend
@@ -519,7 +524,9 @@ else()
       1
       CACHE BOOL "" FORCE)
 endif()
+set(CMAKE_FOLDER "external/rocksdb")
 add_subdirectory(submodules/rocksdb EXCLUDE_FROM_ALL)
+unset(CMAKE_FOLDER)
 
 # cpptoml
 include_directories(submodules/cpptoml/include)
@@ -527,25 +534,33 @@ include_directories(submodules/cpptoml/include)
 # magic_enum
 include_directories(submodules/magic_enum/include/magic_enum)
 
+set(CMAKE_FOLDER "external/ed25519-donna")
 add_subdirectory(crypto/ed25519-donna)
+unset(CMAKE_FOLDER)
 
 add_subdirectory(nano/ipc_flatbuffers_lib)
 add_subdirectory(nano/ipc_flatbuffers_test)
 
 # fmt
+set(CMAKE_FOLDER "external/fmt")
 add_subdirectory(submodules/fmt EXCLUDE_FROM_ALL)
+unset(CMAKE_FOLDER)
 include_directories(submodules/fmt/include)
 
 # spdlog
 add_definitions(-DSPDLOG_FMT_EXTERNAL)
+set(CMAKE_FOLDER "external/spdlog")
 add_subdirectory(submodules/spdlog EXCLUDE_FROM_ALL)
+unset(CMAKE_FOLDER)
 include_directories(submodules/spdlog/include)
 
 # miniupnp
 set(UPNPC_BUILD_SHARED
     OFF
     CACHE BOOL "")
+set(CMAKE_FOLDER "external/miniupnp")
 add_subdirectory(submodules/miniupnp/miniupnpc EXCLUDE_FROM_ALL)
+unset(CMAKE_FOLDER)
 
 set(BUILD_SHARED
     OFF
@@ -584,6 +599,7 @@ add_definitions(-DCRYPTOPP_DISABLE_SHANI)
 add_definitions(-DCRYPTOPP_DISABLE_CLMUL)
 
 set(CRYPTOPP_LIBRARY cryptopp)
+set(CMAKE_FOLDER "external/cryptopp")
 add_library(
   cryptopp
   submodules/cryptopp/aes.h
@@ -635,6 +651,7 @@ add_library(
   ${CRYPTOPP_EXTRA})
 
 target_include_directories(cryptopp PUBLIC submodules)
+unset(CMAKE_FOLDER)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
   set(ARGON_CORE submodules/phc-winner-argon2/src/opt.c)
@@ -642,6 +659,7 @@ else()
   set(ARGON_CORE submodules/phc-winner-argon2/src/ref.c)
 endif()
 
+set(CMAKE_FOLDER "external/argon2")
 add_library(
   argon2
   submodules/phc-winner-argon2/src/argon2.c
@@ -654,8 +672,10 @@ add_library(
 target_include_directories(argon2 PUBLIC submodules/phc-winner-argon2/include)
 target_include_directories(argon2 PUBLIC submodules/phc-winner-argon2/src)
 target_include_directories(argon2 PUBLIC crypto/blake2)
+unset(CMAKE_FOLDER)
 
 # LMDB
+set(CMAKE_FOLDER "external/lmdb")
 add_library(
   lmdb
   submodules/lmdb/libraries/liblmdb/lmdb.h
@@ -671,6 +691,7 @@ endif()
 if(APPLE AND CMAKE_BUILD_TYPE STREQUAL "Debug")
   target_compile_definitions(lmdb PRIVATE MDB_USE_POSIX_SEM=1)
 endif()
+unset(CMAKE_FOLDER)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
   set(BLAKE2_IMPLEMENTATION "crypto/blake2/blake2b.c")
@@ -678,10 +699,12 @@ else()
   set(BLAKE2_IMPLEMENTATION "crypto/blake2/blake2b-ref.c")
 endif()
 
+set(CMAKE_FOLDER "external/blake2")
 add_library(blake2 crypto/blake2/blake2-config.h crypto/blake2/blake2-impl.h
                    crypto/blake2/blake2.h ${BLAKE2_IMPLEMENTATION})
 
 target_compile_definitions(blake2 PRIVATE -D__SSE2__)
+unset(CMAKE_FOLDER)
 
 add_subdirectory(nano/crypto_lib)
 add_subdirectory(nano/secure)
@@ -740,7 +763,9 @@ if(NANO_TEST OR RAIBLOCKS_TEST)
 
   # FIXME: This fixes googletest GOOGLETEST_VERSION requirement
   set(GOOGLETEST_VERSION 1.11.0)
+  set(CMAKE_FOLDER "external/gtest")
   add_subdirectory(submodules/gtest/googletest)
+  unset(CMAKE_FOLDER)
   # FIXME: This fixes gtest include directories without modifying gtest's
   # CMakeLists.txt. Ideally we should use GTest::GTest and GTest::Main as
   # dependencies but it requires building gtest differently
@@ -749,7 +774,9 @@ if(NANO_TEST OR RAIBLOCKS_TEST)
                      "${CMAKE_SOURCE_DIR}/submodules/gtest/googletest/include")
 
   set(BENCHMARK_ENABLE_TESTING OFF)
+  set(CMAKE_FOLDER "external/benchmark")
   add_subdirectory(submodules/benchmark)
+  unset(CMAKE_FOLDER)
 
   add_subdirectory(nano/test_common)
   add_subdirectory(nano/core_test)
