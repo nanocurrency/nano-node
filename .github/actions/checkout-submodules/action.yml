@@ -3,14 +3,14 @@ description: "Initialize submodules, restoring them from cache when possible"
 runs:
   using: "composite"
   steps:
-    # The gitlink SHAs recorded in the tree fully determine the recursive
-    # submodule state, so they make a precise cache key. .gitmodules is
-    # included to catch url/path changes that leave the SHAs untouched.
+    # Gitlink SHAs fully determine the recursive submodule state, so they
+    # make a precise cache key. .gitmodules catches url/path changes that
+    # leave the SHAs untouched.
     - name: Submodule cache key
       id: key
       shell: bash
       run: |
-        hash=$({ git ls-tree HEAD submodules/; cat .gitmodules; } | git hash-object --stdin)
+        hash=$({ git ls-tree -r HEAD | grep '^160000 '; cat .gitmodules; } | git hash-object --stdin)
         echo "hash=$hash" >> "$GITHUB_OUTPUT"
 
     - name: Restore submodules
