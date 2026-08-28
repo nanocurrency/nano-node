@@ -158,9 +158,13 @@ public: // Information
 	nano::election_behavior behavior () const;
 	nano::election_state state () const;
 
+	// All recorded votes by representative
 	std::unordered_map<nano::account, nano::vote_info> votes () const;
+	// All held blocks by hash
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
+	// Hashes of the held blocks
 	std::unordered_set<nano::block_hash> blocks_hashes () const;
+	// Whether a block with the given hash is held
 	bool contains_block (nano::block_hash const &) const;
 
 	size_t voter_count () const;

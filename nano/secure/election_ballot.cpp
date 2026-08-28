@@ -112,6 +112,13 @@ std::optional<nano::vote_info> nano::election_ballot::find_vote (nano::account c
 	return std::nullopt;
 }
 
+bool nano::election_ballot::has_vote_for (nano::block_hash const & hash) const
+{
+	return std::any_of (votes_m.begin (), votes_m.end (), [&hash] (auto const & entry) {
+		return entry.second.hash == hash;
+	});
+}
+
 /*
  * Blocks
  */

@@ -468,9 +468,11 @@ nano::vote_code nano::election::vote (nano::account const & representative, uint
 
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
+	auto const previous_vote = ballot.find_vote (representative);
+
 	// Only live votes from reps with a prior recorded vote can be throttled, cached votes have already waited in the vote cache
 	std::chrono::seconds cooldown{ 0s };
-	if (source != nano::vote_source::cache && ballot.find_vote (representative))
+	if (source != nano::vote_source::cache && previous_vote)
 	{
 		cooldown = nano::calculate_vote_cooldown (weight, node.online_reps.trended ());
 	}
@@ -483,6 +485,12 @@ nano::vote_code nano::election::vote (nano::account const & representative, uint
 			return vote_code::ignored;
 		case nano::election_ballot::vote_result::accepted:
 			break;
+	}
+
+	// Stop routing an unheld hash once no current vote references it
+	if (previous_vote && previous_vote->hash != block_hash && !ballot.contains_block (previous_vote->hash) && !ballot.has_vote_for (previous_vote->hash))
+	{
+		node.vote_router.disconnect (previous_vote->hash);
 	}
 
 	node.stats.inc (nano::stat::type::election, nano::stat::detail::vote);
@@ -558,17 +566,27 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block)
 	switch (result.outcome)
 	{
 		case nano::election_ballot::insert_outcome::inserted:
-			return false;
+		{
+			node.vote_router.connect (block->hash (), shared_from_this ());
+		}
+		break;
 		case nano::election_ballot::insert_outcome::updated:
 			return true; // Block was already present, only its contents were refreshed
 		case nano::election_ballot::insert_outcome::replaced:
 		{
-			// The evicted block no longer participates: stop routing votes to it and allow receiving it again
-			// Disconnect while still holding the mutex, so a concurrent republish of the evicted block cannot reconnect it first and have its fresh route erased here
-			node.vote_router.disconnect (result.evicted->hash ());
+			// Keep routing an evicted hash only while a current vote still references it
+			if (!ballot.has_vote_for (result.evicted->hash ()))
+			{
+				node.vote_router.disconnect (result.evicted->hash ());
+			}
+
+			// Route votes for the admitted replacement
+			node.vote_router.connect (block->hash (), shared_from_this ());
+
+			// Clear the network filter so the evicted block can be received again
 			node.network.filter.clear (result.evicted);
-			return false;
 		}
+		break;
 		case nano::election_ballot::insert_outcome::rejected:
 		{
 			// Not backed by enough weight to take part, allow receiving it again
@@ -576,8 +594,11 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block)
 			return true;
 		}
 	}
-	debug_assert (false);
-	return true;
+
+	// The block may be admitted with retained weight already behind it, enough to decide the election, so re-evaluate immediately
+	confirm_if_quorum (lock);
+
+	return false;
 }
 
 nano::election_snapshot nano::election::snapshot_locked () const

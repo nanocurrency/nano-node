@@ -619,6 +619,7 @@ TEST (election_ballot, eviction_keeps_votes)
 	// The vote for the evicted fork is retained: it keeps its replay protection and stays out of the tally
 	ASSERT_EQ (1, ballot.voter_count ());
 	ASSERT_EQ (fork->hash (), ballot.find_vote (rep)->hash);
+	ASSERT_TRUE (ballot.has_vote_for (fork->hash ()));
 	ASSERT_EQ (nano::election_ballot::vote_result::replay, ballot.vote (rep, nano::vote::timestamp_min * 1, initial->hash (), 0s, epoch));
 	ASSERT_EQ (0, total_weight (ballot));
 
@@ -698,6 +699,42 @@ TEST (election_ballot, insert_backing_sources_do_not_add)
 
 	// Cached 5 plus retained 5 would sum past the 9, but the stronger single source is 5 and the readmission is rejected
 	ASSERT_EQ (nano::election_ballot::insert_outcome::rejected, ballot.insert (fork, 5).outcome);
+}
+
+/*
+ * has_vote_for checks each representative's current vote rather than their vote history.
+ * Moving one of two representatives preserves the old hash; moving the other clears it.
+ * Only votes count: an unheld hash is referenced once voted for, while a held block without a vote is not.
+ */
+TEST (election_ballot, has_vote_for)
+{
+	test_reps reps;
+	auto initial = create_block ();
+	auto hash1 = create_block ()->hash ();
+	auto hash2 = create_block ()->hash ();
+	auto rep1 = reps.rep (5);
+	auto rep2 = reps.rep (3);
+	nano::election_ballot ballot{ initial, reps.query () };
+
+	ASSERT_FALSE (ballot.has_vote_for (hash1));
+
+	// Both representatives make hash1 a current vote target
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (rep1, nano::vote::timestamp_min, hash1, 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (rep2, nano::vote::timestamp_min, hash1, 0s, epoch));
+	ASSERT_TRUE (ballot.has_vote_for (hash1));
+
+	// Holding a block is not a vote for it
+	ASSERT_FALSE (ballot.has_vote_for (initial->hash ()));
+
+	// Moving one representative leaves both hashes referenced
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (rep1, nano::vote::timestamp_min + 1, hash2, 0s, epoch));
+	ASSERT_TRUE (ballot.has_vote_for (hash1));
+	ASSERT_TRUE (ballot.has_vote_for (hash2));
+
+	// Moving the last representative away clears hash1
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (rep2, nano::vote::timestamp_min + 1, hash2, 0s, epoch));
+	ASSERT_FALSE (ballot.has_vote_for (hash1));
+	ASSERT_TRUE (ballot.has_vote_for (hash2));
 }
 
 /*
