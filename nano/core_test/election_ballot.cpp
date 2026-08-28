@@ -628,6 +628,79 @@ TEST (election_ballot, eviction_keeps_votes)
 }
 
 /*
+ * A returning evicted fork is backed by the votes retained for it, with no externally observed weight supplied at all.
+ * The admission check measures the incoming block by the stronger of the caller-supplied weight and its retained tallied weight, so eviction is reversible even when every vote for the fork already lives in this ballot.
+ */
+TEST (election_ballot, insert_readmission_backed_by_retained_votes)
+{
+	test_reps reps;
+	auto initial = create_block ();
+	auto fork = create_block ();
+	nano::election_ballot ballot{ initial, reps.query (), 2 };
+
+	// The rep backs the only non-winner fork with weight 5
+	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (fork).outcome);
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (5), nano::vote::timestamp_min, fork->hash (), 0s, epoch));
+
+	// Cached weight 6 evicts the fork; the eviction leaves the newcomer held without a single recorded vote
+	auto newcomer = create_block ();
+	auto evicted_result = ballot.insert (newcomer, 6);
+	ASSERT_EQ (nano::election_ballot::insert_outcome::replaced, evicted_result.outcome);
+	ASSERT_EQ (fork, evicted_result.evicted);
+
+	// The fork returns with no cached weight at all: its retained 5 outweighs the unvoted newcomer
+	auto result = ballot.insert (fork);
+	ASSERT_EQ (nano::election_ballot::insert_outcome::replaced, result.outcome);
+	ASSERT_EQ (newcomer, result.evicted);
+	ASSERT_EQ (5, total_weight (ballot));
+}
+
+/*
+ * Retained weight follows the same admission rule as externally observed weight: equal backing does not evict, the incumbent wins the tie.
+ * Two equally backed forks therefore cannot swap places through eviction and readmission.
+ */
+TEST (election_ballot, insert_readmission_requires_strictly_more_weight)
+{
+	test_reps reps;
+	auto initial = create_block ();
+	auto fork = create_block ();
+	nano::election_ballot ballot{ initial, reps.query (), 2 };
+	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (fork).outcome);
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (5), nano::vote::timestamp_min, fork->hash (), 0s, epoch));
+
+	// The newcomer evicts the fork, then gathers the same 5 tallied weight the fork retains
+	auto newcomer = create_block ();
+	ASSERT_EQ (nano::election_ballot::insert_outcome::replaced, ballot.insert (newcomer, 6).outcome);
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (5), nano::vote::timestamp_min, newcomer->hash (), 0s, epoch));
+
+	// Retained 5 against held 5: equal weight favors the incumbent
+	ASSERT_EQ (nano::election_ballot::insert_outcome::rejected, ballot.insert (fork).outcome);
+	ASSERT_FALSE (ballot.contains_block (fork->hash ()));
+}
+
+/*
+ * The caller-supplied weight and the retained weight may describe the same votes, e.g. a rep whose vote was both cached externally and recorded here before the eviction.
+ * The admission check therefore takes the stronger source instead of their sum, accepting a weaker measure of the block over double-counting a rep.
+ */
+TEST (election_ballot, insert_backing_sources_do_not_add)
+{
+	test_reps reps;
+	auto initial = create_block ();
+	auto fork = create_block ();
+	nano::election_ballot ballot{ initial, reps.query (), 2 };
+	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (fork).outcome);
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (5), nano::vote::timestamp_min, fork->hash (), 0s, epoch));
+
+	// The newcomer evicts the fork and then gathers 9 tallied weight of its own
+	auto newcomer = create_block ();
+	ASSERT_EQ (nano::election_ballot::insert_outcome::replaced, ballot.insert (newcomer, 6).outcome);
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (9), nano::vote::timestamp_min, newcomer->hash (), 0s, epoch));
+
+	// Cached 5 plus retained 5 would sum past the 9, but the stronger single source is 5 and the readmission is rejected
+	ASSERT_EQ (nano::election_ballot::insert_outcome::rejected, ballot.insert (fork, 5).outcome);
+}
+
+/*
  * The winner only follows the tally leader once the total tallied weight reaches the quorum threshold.
  * A fork may lead the tally, but with too little overall participation the winner does not move: this keeps the winner stable while only a few early votes are in, instead of flapping after every vote.
  * Once participation is sufficient the leader takes over and the winner stays with it.

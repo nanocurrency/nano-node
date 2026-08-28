@@ -97,7 +97,7 @@ public: // Blocks
 		inserted, // Newly added
 		updated, // Hash already present, the stored block was refreshed (e.g. with higher work)
 		replaced, // Ballot was full, the weakest non-winner block was evicted to make room
-		rejected, // Ballot is full and cached_tally does not outweigh any non-winner block
+		rejected, // Ballot is full and the block's backing weight does not outweigh any non-winner block
 	};
 
 	struct insert_result final
@@ -107,8 +107,8 @@ public: // Blocks
 	};
 
 	// The only way blocks enter or leave, keeping the ballot within its block limit
-	// `cached_tally` is externally observed weight backing the incoming block (e.g. from the vote cache); when the ballot is full it must exceed the weakest non-winner's tallied weight to evict it
-	// Eviction does not touch recorded votes: votes for an evicted block keep anchoring their reps and count again if the block is ever re-inserted
+	// `cached_tally` is externally observed weight backing the incoming block (e.g. from the vote cache); when the ballot is full, the stronger of it and the block's retained tallied weight must exceed the weakest non-winner's tallied weight to evict it
+	// Eviction does not touch recorded votes: votes for an evicted block keep anchoring their reps, back its readmission and count again once it is re-inserted
 	insert_result insert (std::shared_ptr<nano::block> const &, nano::uint128_t cached_tally = 0);
 
 public: // Tally

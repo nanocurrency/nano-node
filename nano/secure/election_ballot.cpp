@@ -158,8 +158,11 @@ auto nano::election_ballot::insert (std::shared_ptr<nano::block> const & block, 
 			weakest = entry;
 		}
 	}
+	// The incoming block is also backed by any votes retained for it here; a rep may be counted by both sources, so they must not add
+	auto const incoming_weight = std::max (cached_tally, block_weights.weight (hash));
+
 	// Evict only if the incoming block is backed by strictly more weight than the weakest, equal weight favors the incumbent
-	if (!weakest || cached_tally <= weakest->first)
+	if (!weakest || incoming_weight <= weakest->first)
 	{
 		return { insert_outcome::rejected };
 	}
