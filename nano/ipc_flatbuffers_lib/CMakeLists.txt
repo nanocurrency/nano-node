@@ -21,8 +21,10 @@ mark_as_advanced(
   FLATBUFFERS_PACKAGE_DEBIAN
   FLATBUFFERS_PACKAGE_REDHAT
   FLATBUFFERS_STATIC_FLATC)
+set(CMAKE_FOLDER "external/flatbuffers")
 add_subdirectory(../../submodules/flatbuffers
                  ${CMAKE_CURRENT_BINARY_DIR}/flatbuffers-build EXCLUDE_FROM_ALL)
+unset(CMAKE_FOLDER)
 
 # Generate Flatbuffers files into the ipc_flatbuffers_lib library, which will be
 # rebuilt whenever any of the fbs files change. Note that while this supports
