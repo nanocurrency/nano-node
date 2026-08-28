@@ -21,7 +21,6 @@
 #include <nano/node/cli.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/inactive_node.hpp>
-#include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
@@ -1365,7 +1364,6 @@ int main (int argc, char * const * argv)
 			nano::inactive_node inactive_node_l (data_path, node_flags);
 
 			nano::node_rpc_config config;
-			nano::ipc::ipc_server server (*inactive_node_l.node, config);
 			auto handler_l (std::make_shared<nano::json_handler> (*inactive_node_l.node, config, command_l.str (), response_handler_l));
 			handler_l->process_request ();
 		}
