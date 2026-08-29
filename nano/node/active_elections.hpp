@@ -81,7 +81,7 @@ public:
 	nano::priority_timestamp priority = 0,
 	erased_callback_t = nullptr);
 
-	// Notify this container about a new block (potential fork)
+	// Submit a potential fork block to the election for its root, if any; returns whether it was newly admitted
 	bool publish (std::shared_ptr<nano::block> const &);
 
 	// Trigger an immediate election update (e.g. after it is confirmed)

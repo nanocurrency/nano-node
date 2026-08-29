@@ -1052,7 +1052,7 @@ TEST (votes, add_existing)
 	auto vote1 = nano::test::make_vote (nano::dev::genesis_key, { send1 }, nano::vote::timestamp_min * 1, 0);
 	ASSERT_EQ (nano::vote_code::vote, node1.vote_router.vote (vote1).at (send1->hash ()));
 	// Block is already processed from vote
-	ASSERT_TRUE (node1.active.publish (send1));
+	ASSERT_FALSE (node1.active.publish (send1));
 	ASSERT_EQ (nano::vote::timestamp_min * 1, election1->votes ()[nano::dev::genesis_key.pub].timestamp);
 	nano::keypair key2;
 	std::shared_ptr<nano::block> send2 = builder.state ()
@@ -1065,7 +1065,7 @@ TEST (votes, add_existing)
 										 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 										 .build ();
 	node1.work_generate_blocking (*send2);
-	ASSERT_FALSE (node1.active.publish (send2));
+	ASSERT_TRUE (node1.active.publish (send2));
 	ASSERT_TIMELY (5s, node1.active.active (*send2));
 	auto vote2 = nano::test::make_vote (nano::dev::genesis_key, { send2 }, nano::vote::timestamp_min * 2, 0);
 	// The higher-timestamp vote is recorded once the vote cooldown has passed, resend until then

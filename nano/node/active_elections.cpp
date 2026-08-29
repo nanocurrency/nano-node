@@ -294,8 +294,7 @@ bool nano::active_elections::publish (std::shared_ptr<nano::block> const & block
 	{
 		lock.unlock ();
 
-		bool result = election->publish (block); // false => new block was added
-		if (!result)
+		if (election->publish (block))
 		{
 			// Process votes cached before the block joined the election
 			node.vote_cache_processor.trigger (block->hash ());
@@ -311,11 +310,11 @@ bool nano::active_elections::publish (std::shared_ptr<nano::block> const & block
 			election->block_count (),
 			election->duration ().count ());
 
-			return false; // Added
+			return true;
 		}
 	}
 
-	return true; // Not added
+	return false;
 }
 
 void nano::active_elections::erase_election (nano::unique_lock<nano::mutex> & lock, std::shared_ptr<nano::election> election)

@@ -61,6 +61,102 @@ TEST (election, broadcast_vote_final)
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_vote_final));
 }
 
+// Confirmation seals the record: a later vote is answered as late and leaves the ballot untouched
+TEST (election, sealed_after_confirmation)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 42);
+	election->force_confirm ();
+	ASSERT_TRUE (election->confirmed ());
+	ASSERT_EQ (nano::vote_code::late, election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_final, nano::dev::genesis->hash (), nano::vote_source::live));
+	ASSERT_EQ (0, election->voter_count ());
+	// A repeated confirmation attempt is a no-op
+	election->force_confirm ();
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::confirm_once));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::confirm_once_failed));
+}
+
+// Cancellation seals the record: even a final vote carrying quorum weight is answered as indeterminate and cannot resurrect the election
+TEST (election, sealed_after_cancellation)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 42);
+	ASSERT_TRUE (election->cancel ());
+	ASSERT_EQ (nano::vote_code::indeterminate, election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_final, nano::dev::genesis->hash (), nano::vote_source::live));
+	ASSERT_FALSE (election->confirmed ());
+	ASSERT_EQ (nano::election_state::cancelled, election->state ());
+	ASSERT_EQ (0, election->voter_count ());
+	// Even a direct confirmation attempt cannot resurrect the sealed record
+	election->force_confirm ();
+	ASSERT_FALSE (election->confirmed ());
+	ASSERT_EQ (nano::election_state::cancelled, election->state ());
+}
+
+// Expiry seals the record like cancellation: late votes are answered as indeterminate and cannot resurrect the election
+TEST (election, sealed_after_expiry)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 42);
+	// Tick past the time to live so the election expires
+	auto const actions = election->tick (std::chrono::steady_clock::now () + 10min);
+	ASSERT_TRUE (actions.cleanup);
+	ASSERT_TRUE (election->failed ());
+	ASSERT_EQ (nano::vote_code::indeterminate, election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_final, nano::dev::genesis->hash (), nano::vote_source::live));
+	ASSERT_FALSE (election->confirmed ());
+	ASSERT_TRUE (election->failed ());
+	ASSERT_EQ (0, election->voter_count ());
+}
+
+// A sealed election admits no further blocks
+TEST (election, sealed_no_publish)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 42);
+	ASSERT_TRUE (election->cancel ());
+	nano::keypair key;
+	auto fork = nano::send_block_builder{}.make_block ().previous (nano::dev::genesis->hash ()).destination (key.pub).balance (0).sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub).work (0).build ();
+	ASSERT_FALSE (election->publish (fork));
+	ASSERT_FALSE (election->contains_block (fork->hash ()));
+}
+
+// Confirmation freezes the reported round: the status keeps the confirming tally while later votes bounce off the sealed record
+TEST (election, sealed_round_frozen)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 42);
+	// A final vote carrying the full genesis weight reaches final quorum and confirms on the spot
+	ASSERT_EQ (nano::vote_code::vote, election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_final, nano::dev::genesis->hash (), nano::vote_source::live));
+	ASSERT_TRUE (election->confirmed ());
+	auto const status = election->get_status ();
+	ASSERT_EQ (nano::dev::genesis->hash (), status.winner->hash ());
+	ASSERT_EQ (nano::dev::constants.genesis_amount, status.tally.number ());
+	ASSERT_EQ (nano::dev::constants.genesis_amount, status.final_tally.number ());
+	ASSERT_EQ (1, election->voter_count ());
+	// A later vote bounces off and the frozen record does not change
+	nano::keypair other;
+	ASSERT_EQ (nano::vote_code::late, election->vote (other.pub, nano::vote::timestamp_final, nano::dev::genesis->hash (), nano::vote_source::live));
+	ASSERT_EQ (1, election->voter_count ());
+	ASSERT_EQ (nano::dev::constants.genesis_amount, election->get_status ().tally.number ());
+}
+
+// Only a confirmed election keeps voting after sealing, a cancelled one must not vote
+TEST (election, sealed_no_broadcast_vote)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv); // Local representative that can vote
+	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 42);
+	ASSERT_TRUE (election->transition_active ());
+	ASSERT_TRUE (election->cancel ());
+	election->broadcast_vote ();
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_vote));
+}
+
 TEST (election, behavior)
 {
 	nano::test::system system (1);
