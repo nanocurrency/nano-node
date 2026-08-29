@@ -46,7 +46,7 @@ enum class election_state
 {
 	passive, // only listening for incoming votes
 	active, // actively request confirmations
-	confirmed, // confirmed but still listening for votes
+	confirmed, // decided; the record is sealed, the winner block may still be re-broadcast
 	expired_confirmed,
 	expired_unconfirmed,
 	cancelled,
@@ -120,13 +120,15 @@ public: // Interface
 	std::function<void (nano::qualified_root const &)> update_action = nullptr);
 
 	std::shared_ptr<nano::block> find (nano::block_hash const &) const;
+
 	/*
 	 * Process vote. Internally uses cooldown to throttle non-final votes
 	 * If the election reaches consensus, it will be confirmed
 	 */
 	nano::vote_code vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash, nano::vote_source source);
+
+	// Submit a competing fork block; returns whether it was newly admitted to the ballot
 	bool publish (std::shared_ptr<nano::block> const & block);
-	void try_confirm (nano::block_hash const & hash);
 
 	std::chrono::steady_clock::time_point get_election_start () const
 	{
@@ -179,6 +181,8 @@ private:
 	nano::election_snapshot snapshot_locked () const;
 	// Whether the election reached confirmation, including the expired-confirmed end state
 	bool confirmed_locked () const;
+	// Whether the election reached a terminal state: the record is sealed and the ballot no longer changes
+	bool sealed_locked () const;
 	// Compose the current status from the ballot, the single place where the public status copy is derived
 	nano::election_status status_locked () const;
 	// Extend the composed status with copies of the ballot's votes, blocks and tally
@@ -195,13 +199,8 @@ private:
 	nano::election_behavior behavior_m;
 	std::chrono::steady_clock::time_point const election_start{ std::chrono::steady_clock::now () };
 
-	// Result of the last ballot evaluation; the winner anchors switch detection, the tallies keep status reads cheap
-	struct
-	{
-		nano::block_hash winner{ 0 }; // Ballot winner as of the last evaluation
-		nano::amount tally{ 0 }; // Winner tally, normal + final votes
-		nano::amount final_tally{ 0 }; // Winner tally, final votes only
-	} last_round;
+	// Result of the last ballot evaluation; the winner anchors switch detection, the tallies keep status reads cheap, and it becomes the frozen round of a sealed election
+	nano::election_ballot::round last_round;
 
 	// Wall-clock time the election reached confirmation, unset while unconfirmed
 	std::chrono::system_clock::time_point election_end{};

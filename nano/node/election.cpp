@@ -38,7 +38,7 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 	}),
 	ballot (block_a, [this] (nano::account const & account) { return node.ledger.weight (account); }),
 	behavior_m (election_behavior_a),
-	last_round{ .winner = block_a->hash () },
+	last_round{ .winner = block_a },
 	height (block_a->sideband ().height),
 	root (block_a->root ()),
 	qualified_root (block_a->qualified_root ()),
@@ -52,58 +52,57 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock)
 	debug_assert (lock.owns_lock ());
 	debug_assert (!mutex.try_lock ());
 
-	bool just_confirmed = state_m != nano::election_state::confirmed;
-	state_m = nano::election_state::confirmed;
-	state_start = std::chrono::steady_clock::now ();
-
-	if (just_confirmed)
-	{
-		election_end = std::chrono::system_clock::now (); // Timestamp as system time
-		election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
-
-		auto const status_l = status_locked ();
-
-		node.active.recently_confirmed.put (qualified_root, status_l.winner->hash (), status_l);
-
-		auto const extended_status = extended_status_locked ();
-
-		node.stats.inc (nano::stat::type::election, nano::stat::detail::confirm_once);
-		node.logger.trace (nano::log::type::election, nano::log::detail::election_confirmed,
-		nano::log::arg{ "id", id },
-		nano::log::arg{ "qualified_root", qualified_root },
-		nano::log::arg{ "status", extended_status });
-
-		node.logger.debug (nano::log::type::election, "Election confirmed with winner: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms, confirmation requests: {})",
-		status_l.winner->hash (),
-		to_string (behavior_m),
-		to_string (state_m),
-		extended_status.status.voter_count,
-		extended_status.status.block_count,
-		extended_status.status.election_duration.count (),
-		extended_status.status.confirmation_request_count);
-
-		node.cementing_set.add (status_l.winner->hash (), shared_from_this ());
-
-		lock.unlock ();
-
-		if (update_action)
-		{
-			node.election_workers.post ([qualified_root_l = qualified_root, update_action_l = update_action] () {
-				update_action_l (qualified_root_l);
-			});
-		}
-
-		if (confirmation_action)
-		{
-			node.election_workers.post ([status_l, confirmation_action_l = confirmation_action] () {
-				confirmation_action_l (status_l.winner);
-			});
-		}
-	}
-	else
+	// The record of a sealed election is final, a repeated or late confirmation attempt is a no-op
+	if (sealed_locked ())
 	{
 		node.stats.inc (nano::stat::type::election, nano::stat::detail::confirm_once_failed);
 		lock.unlock ();
+		return;
+	}
+
+	state_m = nano::election_state::confirmed;
+	state_start = std::chrono::steady_clock::now ();
+
+	election_end = std::chrono::system_clock::now (); // Timestamp as system time
+	election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
+
+	auto const status_l = status_locked ();
+
+	node.active.recently_confirmed.put (qualified_root, status_l.winner->hash (), status_l);
+
+	auto const extended_status = extended_status_locked ();
+
+	node.stats.inc (nano::stat::type::election, nano::stat::detail::confirm_once);
+	node.logger.trace (nano::log::type::election, nano::log::detail::election_confirmed,
+	nano::log::arg{ "id", id },
+	nano::log::arg{ "qualified_root", qualified_root },
+	nano::log::arg{ "status", extended_status });
+
+	node.logger.debug (nano::log::type::election, "Election confirmed with winner: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms, confirmation requests: {})",
+	status_l.winner->hash (),
+	to_string (behavior_m),
+	to_string (state_m),
+	extended_status.status.voter_count,
+	extended_status.status.block_count,
+	extended_status.status.election_duration.count (),
+	extended_status.status.confirmation_request_count);
+
+	node.cementing_set.add (status_l.winner->hash (), shared_from_this ());
+
+	lock.unlock ();
+
+	if (update_action)
+	{
+		node.election_workers.post ([qualified_root_l = qualified_root, update_action_l = update_action] () {
+			update_action_l (qualified_root_l);
+		});
+	}
+
+	if (confirmation_action)
+	{
+		node.election_workers.post ([status_l, confirmation_action_l = confirmation_action] () {
+			confirmation_action_l (status_l.winner);
+		});
 	}
 }
 
@@ -244,6 +243,12 @@ bool nano::election::confirmed () const
 	return confirmed_locked ();
 }
 
+bool nano::election::sealed_locked () const
+{
+	debug_assert (!mutex.try_lock ());
+	return state_m != nano::election_state::passive && state_m != nano::election_state::active;
+}
+
 bool nano::election::failed () const
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
@@ -274,8 +279,8 @@ nano::election_status nano::election::status_locked () const
 	debug_assert (!mutex.try_lock ());
 	return {
 		.winner = ballot.winner (),
-		.tally = last_round.tally,
-		.final_tally = last_round.final_tally,
+		.tally = last_round.winner_weight,
+		.final_tally = last_round.final_winner_weight,
 		.election_end = election_end,
 		.election_duration = election_duration,
 		.confirmation_request_count = confirmation_request_count,
@@ -384,14 +389,21 @@ nano::election_ballot::round nano::election::evaluate_locked ()
 {
 	debug_assert (!mutex.try_lock ());
 
+	// The record of a sealed election is final: report the last evaluated round without re-tallying, the winner never moves once sealed
+	if (sealed_locked ())
+	{
+		return last_round;
+	}
+
 	// The switch detection below relies on last_round.winner mirroring the ballot winner between evaluations
-	release_assert (last_round.winner == ballot.winner ()->hash ());
+	release_assert (last_round.winner != nullptr);
+	release_assert (last_round.winner->hash () == ballot.winner ()->hash ());
 
 	auto const round = ballot.evaluate (node.online_reps.delta ());
 
-	if (round.winner->hash () != last_round.winner)
+	if (round.winner->hash () != last_round.winner->hash ())
 	{
-		auto const previous_winner = last_round.winner;
+		auto const previous_winner = last_round.winner->hash ();
 
 		node.logger.debug (nano::log::type::election, "Winning fork changed from {} to {} for root: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
 		previous_winner,
@@ -407,11 +419,7 @@ nano::election_ballot::round nano::election::evaluate_locked ()
 		node.block_processor.force (round.winner);
 	}
 
-	last_round = {
-		.winner = round.winner->hash (),
-		.tally = round.winner_weight,
-		.final_tally = round.final_winner_weight
-	};
+	last_round = round;
 
 	return round;
 }
@@ -438,19 +446,6 @@ void nano::election::confirm_if_quorum (nano::unique_lock<nano::mutex> & lock_a)
 	}
 }
 
-void nano::election::try_confirm (nano::block_hash const & hash)
-{
-	nano::unique_lock<nano::mutex> election_lock{ mutex };
-	if (ballot.winner ()->hash () == hash)
-	{
-		if (!confirmed_locked ())
-		{
-			confirm_once (election_lock);
-			debug_assert (!election_lock.owns_lock ());
-		}
-	}
-}
-
 std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash_a) const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
@@ -467,6 +462,12 @@ nano::vote_code nano::election::vote (nano::account const & representative, uint
 	}
 
 	nano::unique_lock<nano::mutex> lock{ mutex };
+
+	// A sealed election no longer records votes; answer as the vote router does once the election is erased
+	if (sealed_locked ())
+	{
+		return confirmed_locked () ? vote_code::late : vote_code::indeterminate;
+	}
 
 	auto const previous_vote = ballot.find_vote (representative);
 
@@ -520,11 +521,8 @@ nano::vote_code nano::election::vote (nano::account const & representative, uint
 		vote_action (representative);
 	}
 
-	if (!confirmed_locked ())
-	{
-		// Re-evaluate quorum with the newly recorded vote
-		confirm_if_quorum (lock);
-	}
+	// Re-evaluate quorum with the newly recorded vote
+	confirm_if_quorum (lock);
 
 	return vote_code::vote;
 }
@@ -533,10 +531,10 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block)
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 
-	// Do not insert new blocks if already confirmed
-	if (confirmed_locked ())
+	// A sealed election no longer admits blocks
+	if (sealed_locked ())
 	{
-		return true;
+		return false;
 	}
 
 	auto result = ballot.insert (block);
@@ -555,9 +553,9 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block)
 
 		lock.lock ();
 
-		if (confirmed_locked ())
+		if (sealed_locked ())
 		{
-			return true;
+			return false;
 		}
 
 		result = ballot.insert (block, cached_tally);
@@ -571,7 +569,9 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block)
 		}
 		break;
 		case nano::election_ballot::insert_outcome::updated:
-			return true; // Block was already present, only its contents were refreshed
+		{
+			return false; // Block was already present, only its contents were refreshed
+		}
 		case nano::election_ballot::insert_outcome::replaced:
 		{
 			// Keep routing an evicted hash only while a current vote still references it
@@ -591,14 +591,14 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block)
 		{
 			// Not backed by enough weight to take part, allow receiving it again
 			node.network.filter.clear (block);
-			return true;
+			return false;
 		}
 	}
 
 	// The block may be admitted with retained weight already behind it, enough to decide the election, so re-evaluate immediately
 	confirm_if_quorum (lock);
 
-	return false;
+	return true;
 }
 
 nano::election_snapshot nano::election::snapshot_locked () const
@@ -655,13 +655,18 @@ void nano::election::broadcast_vote_locked (std::chrono::steady_clock::time_poin
 	{
 		return;
 	}
+	// A cancelled or expired election is sealed without a decision and must not vote
+	if (sealed_locked () && !confirmed_locked ())
+	{
+		return;
+	}
 	if (!pacing.due_vote (now))
 	{
 		return;
 	}
 	pacing.vote_sent (now);
 
-	// The evaluation deliberately re-tallies and may switch the winner, so the outgoing vote always references the current winner even when no new vote has arrived
+	// Re-tally a live election so the outgoing vote references the current winner
 	auto const round = evaluate_locked ();
 
 	// Broadcast a final vote if reached quorum or already confirmed
