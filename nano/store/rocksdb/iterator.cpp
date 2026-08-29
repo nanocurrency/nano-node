@@ -68,8 +68,9 @@ auto iterator::make_iterator (::rocksdb::DB * db, std::variant<::rocksdb::Transa
 		}
 		else if constexpr (std::is_same_v<V, ::rocksdb::ReadOptions *>)
 		{
-			ptr->fill_cache = false;
-			return db->NewIterator (*ptr, table);
+			::rocksdb::ReadOptions ropts = *ptr;
+			ropts.fill_cache = false;
+			return db->NewIterator (ropts, table);
 		}
 		else
 		{
