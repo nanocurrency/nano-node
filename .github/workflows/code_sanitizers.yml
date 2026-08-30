@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       COMPILER: ${{ matrix.COMPILER }}
-      BACKEND: ${{ matrix.BACKEND }}
+      NANO_BACKEND: ${{ matrix.BACKEND }}
       SANITIZER: ${{ matrix.SANITIZER.name }}
       IGNORE_ERRORS: ${{ matrix.SANITIZER.ignore_errors }}
       TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
@@ -100,7 +100,7 @@ jobs:
     runs-on: macos-14
     env:
       COMPILER: ${{ matrix.COMPILER }}
-      BACKEND: ${{ matrix.BACKEND }}
+      NANO_BACKEND: ${{ matrix.BACKEND }}
       SANITIZER: ${{ matrix.SANITIZER.name }}
       IGNORE_ERRORS: ${{ matrix.SANITIZER.ignore_errors }}
       TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}

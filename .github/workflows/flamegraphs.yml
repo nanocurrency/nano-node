@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       TEST_NAME: ${{ matrix.TEST_NAME }}
-      BACKEND: lmdb
+      NANO_BACKEND: lmdb
       COMPILER: gcc
       TEST_USE_ROCKSDB: "0"
       DEADLINE_SCALE_FACTOR: "1"
