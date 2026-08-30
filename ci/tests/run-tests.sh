@@ -16,10 +16,11 @@ if [ -n "${COREDUMP_DIR-}" ]; then
     ulimit -c unlimited
 fi
 
-# Run the test
 shift
 executable=./${target}$(get_exec_extension)
-"${executable}" "$@"
+
+# Run the test using gtest-parallel helper
+"$(dirname "$BASH_SOURCE")/run-gtest-parallel.sh" "${executable}" "$@"
 status=$?
 
 if [ $status -ne 0 ]; then

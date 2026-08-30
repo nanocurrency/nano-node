@@ -58,6 +58,9 @@ jobs:
         if: steps.build.outcome == 'success' && (success() || failure())
         run: ../ci/tests/run-core-tests.sh
         working-directory: build
+        env:
+          NANO_LOG_STATS: 1
+          NANO_LOG: debug
 
       - name: RPC Tests
         if: steps.build.outcome == 'success' && (success() || failure())
@@ -121,6 +124,9 @@ jobs:
         if: steps.build.outcome == 'success' && (success() || failure())
         run: ../ci/tests/run-core-tests.sh
         working-directory: build
+        env:
+          NANO_LOG_STATS: 1
+          NANO_LOG: debug
 
       - name: RPC Tests
         if: steps.build.outcome == 'success' && (success() || failure())
@@ -177,6 +183,9 @@ jobs:
         run: ../ci/tests/run-core-tests.sh
         working-directory: build
         shell: bash
+        env:
+          NANO_LOG_STATS: 1
+          NANO_LOG: debug
 
       - name: RPC Tests
         if: steps.build.outcome == 'success' && (success() || failure())
