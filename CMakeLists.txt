@@ -359,7 +359,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 # set(CMAKE_C_EXTENSIONS OFF)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -527,6 +527,13 @@ endif()
 set(CMAKE_FOLDER "external/rocksdb")
 add_subdirectory(submodules/rocksdb EXCLUDE_FROM_ALL)
 unset(CMAKE_FOLDER)
+
+# RocksDB does not support C++23 at this time
+set_target_properties(
+  rocksdb
+  PROPERTIES CXX_STANDARD 20
+             CXX_STANDARD_REQUIRED ON
+             CXX_EXTENSIONS OFF)
 
 # cpptoml
 include_directories(submodules/cpptoml/include)
