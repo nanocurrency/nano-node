@@ -478,12 +478,18 @@ void nano::active_elections::notify_observers (nano::secure::transaction const &
 			break;
 	}
 
-	if (!node.observers.blocks.empty ())
+	if (!node.observers.block_confirmed.empty ())
 	{
-		auto amount = node.ledger.any.block_amount (transaction, block).value_or (0).number ();
-		auto is_state_send = block->type () == block_type::state && block->is_send ();
-		auto is_state_epoch = block->type () == block_type::state && block->is_epoch ();
-		node.observers.blocks.notify (status, type, votes, account, amount, is_state_send, is_state_epoch);
+		nano::block_confirmation_info confirmation{
+			.status = status,
+			.type = type,
+			.votes = votes,
+			.account = account,
+			.amount = node.ledger.any.block_amount (transaction, block).value_or (0),
+			.is_state_send = block->type () == block_type::state && block->is_send (),
+			.is_state_epoch = block->type () == block_type::state && block->is_epoch (),
+		};
+		node.observers.block_confirmed.notify (confirmation);
 	}
 
 	node.observers.account_balance.notify (account, false);

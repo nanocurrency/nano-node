@@ -1338,7 +1338,6 @@ void nano::json_handler::block_confirm ()
 				nano::election_status status{ .winner = block_l, .block_count = 1 };
 				node.active.recently_cemented.put (status);
 				// Trigger callback for confirmed block
-				auto account = block_l->account ();
 				auto amount = node.ledger.any.block_amount (transaction, hash);
 				bool is_state_send (false);
 				bool is_state_epoch (false);
@@ -1350,7 +1349,15 @@ void nano::json_handler::block_confirm ()
 						is_state_epoch = amount.value () == 0 && node.ledger.is_epoch_link (state->link_field ().value ());
 					}
 				}
-				node.observers.blocks.notify (status, nano::confirmation_type::active_confirmation_height, {}, account, amount ? amount.value ().number () : 0, is_state_send, is_state_epoch);
+				nano::block_confirmation_info confirmation{
+					.status = status,
+					.type = nano::confirmation_type::active_confirmation_height,
+					.account = block_l->account (),
+					.amount = amount.value_or (0),
+					.is_state_send = is_state_send,
+					.is_state_epoch = is_state_epoch,
+				};
+				node.observers.block_confirmed.notify (confirmation);
 			}
 			response_l.put ("started", "1");
 		}

@@ -27,18 +27,20 @@ std::shared_ptr<flatbuffers::Parser> nano::ipc::subscriber::get_parser (nano::ip
 
 void nano::ipc::broker::start ()
 {
-	node.observers.blocks.add ([this_l = shared_from_this ()] (nano::election_status const & status_a, nano::confirmation_type type_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
+	node.observers.block_confirmed.add ([this_l = shared_from_this ()] (nano::block_confirmation_info const & confirmation_a) {
 		try
 		{
 			// The subscriber(s) may be gone after the count check, but the only consequence
 			// is that broadcast is called only to not find any live sessions.
 			if (this_l->confirmation_subscriber_count () > 0)
 			{
+				auto const & status = confirmation_a.status;
+
 				auto confirmation (std::make_shared<nanoapi::EventConfirmationT> ());
 
-				confirmation->account = account_a.to_account ();
-				confirmation->amount = amount_a.to_string_dec ();
-				switch (type_a)
+				confirmation->account = confirmation_a.account.to_account ();
+				confirmation->amount = confirmation_a.amount.to_string_dec ();
+				switch (confirmation_a.type)
 				{
 					case nano::confirmation_type::active_confirmed_quorum:
 						confirmation->confirmation_type = nanoapi::TopicConfirmationType::TopicConfirmationType_active_quorum;
@@ -50,14 +52,14 @@ void nano::ipc::broker::start ()
 						confirmation->confirmation_type = nanoapi::TopicConfirmationType::TopicConfirmationType_inactive;
 						break;
 				}
-				confirmation->block = nano::ipc::flatbuffers_builder::block_to_union (*status_a.winner, amount_a, is_state_send_a, is_state_epoch_a);
+				confirmation->block = nano::ipc::flatbuffers_builder::block_to_union (*status.winner, confirmation_a.amount, confirmation_a.is_state_send, confirmation_a.is_state_epoch);
 				confirmation->election_info = std::make_unique<nanoapi::ElectionInfoT> ();
-				confirmation->election_info->duration = status_a.election_duration.count ();
-				confirmation->election_info->time = milliseconds_since_epoch (status_a.election_end);
-				confirmation->election_info->tally = status_a.tally.to_string_dec ();
-				confirmation->election_info->block_count = status_a.block_count;
-				confirmation->election_info->voter_count = status_a.voter_count;
-				confirmation->election_info->request_count = status_a.confirmation_request_count;
+				confirmation->election_info->duration = status.election_duration.count ();
+				confirmation->election_info->time = milliseconds_since_epoch (status.election_end);
+				confirmation->election_info->tally = status.tally.to_string_dec ();
+				confirmation->election_info->block_count = status.block_count;
+				confirmation->election_info->voter_count = status.voter_count;
+				confirmation->election_info->request_count = status.confirmation_request_count;
 
 				this_l->broadcast (confirmation);
 			}

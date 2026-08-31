@@ -9,6 +9,7 @@
 #include <chrono>
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 namespace nano
 {
@@ -49,5 +50,17 @@ struct election_extended_status final
 	nano::tally_map tally; // Held blocks by tally position, zero-vote blocks absent
 
 	void operator() (nano::object_stream &) const;
+};
+
+/** Notification payload for a confirmed block */
+struct block_confirmation_info final
+{
+	nano::election_status status; // Election summary for the confirmed block
+	nano::confirmation_type type; // How the block came to be confirmed
+	std::vector<nano::vote_with_weight_info> votes; // Recorded votes with representative weights
+	nano::account account; // Account of the confirmed block
+	nano::amount amount; // Amount transferred by the block
+	bool is_state_send{ false }; // The block is a state send
+	bool is_state_epoch{ false }; // The block is a state epoch
 };
 }
