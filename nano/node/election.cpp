@@ -306,19 +306,14 @@ nano::election_actions nano::election::tick (std::chrono::steady_clock::time_poi
 			break;
 		case nano::election_state::active:
 			broadcast_vote_locked (now);
-			actions.broadcast = pacing.due_block (status.winner->hash (), now);
-			actions.request = pacing.due_request (behavior_m, now);
-			if (actions.broadcast || actions.request)
-			{
-				actions.snapshot = snapshot_locked ();
-			}
+			actions.broadcast_block = pacing.due_block (status.winner->hash (), now);
+			actions.request_votes = pacing.due_request (behavior_m, now);
 			break;
 		case nano::election_state::confirmed:
 			actions.cleanup = true; // Election is done and should be cleaned up
 			if (pacing.due_block (status.winner->hash (), now))
 			{
-				actions.broadcast = true; // Ensure election winner is broadcasted
-				actions.snapshot = snapshot_locked ();
+				actions.broadcast_block = true; // Ensure election winner is broadcasted
 			}
 			state_change (nano::election_state::confirmed, nano::election_state::expired_confirmed);
 			break;
@@ -329,6 +324,10 @@ nano::election_actions nano::election::tick (std::chrono::steady_clock::time_poi
 		case nano::election_state::cancelled:
 			actions.cleanup = true; // Clean up cancelled elections immediately
 			return actions;
+	}
+	if (actions.broadcast_block || actions.request_votes)
+	{
+		actions.snapshot = snapshot_locked ();
 	}
 
 	if (!confirmed_locked () && time_to_live () < now - election_start)

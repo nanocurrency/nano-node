@@ -531,14 +531,14 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 
 		if (auto const & snapshot = actions.snapshot)
 		{
-			if (actions.broadcast && solicitor.broadcast (*snapshot))
+			if (actions.broadcast_block && solicitor.broadcast (*snapshot))
 			{
 				election->broadcast_sent (snapshot->winner->hash ());
 
 				// Random flood for block propagation
 				node.block_rebroadcaster.push (snapshot->winner);
 			}
-			if (actions.request && solicitor.add (*snapshot))
+			if (actions.request_votes && solicitor.add (*snapshot))
 			{
 				election->request_sent ();
 			}

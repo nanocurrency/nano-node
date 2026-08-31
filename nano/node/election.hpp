@@ -44,12 +44,12 @@ struct election_snapshot final
 /** Outbound actions requested by an election when ticked, performed by the active elections loop */
 struct election_actions final
 {
-	// Snapshot of the election state, present whenever a broadcast or request is due
+	// Snapshot of the election state, present whenever a block broadcast or vote request is due
 	std::optional<nano::election_snapshot> snapshot;
 	// Broadcast the current winner block
-	bool broadcast{ false };
+	bool broadcast_block{ false };
 	// Solicit votes from representatives
-	bool request{ false };
+	bool request_votes{ false };
 	// Election is finished and should be erased from the active set
 	bool cleanup{ false };
 };
