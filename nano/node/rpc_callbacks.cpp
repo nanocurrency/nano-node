@@ -50,17 +50,9 @@ nano::container_info nano::http_callbacks::container_info () const
 void nano::http_callbacks::setup_callbacks ()
 {
 	// Add observer for block confirmations
-	observers.blocks.add ([this] (nano::election_status const & status_a,
-						  nano::confirmation_type type_a,
-						  std::vector<nano::vote_with_weight_info> const & votes_a,
-						  nano::account const & account_a,
-						  nano::amount const & amount_a,
-						  bool is_state_send_a,
-						  bool is_state_epoch_a) {
-		auto block_a = status_a.winner;
-
+	observers.block_confirmed.add ([this] (nano::block_confirmation_info const & confirmation) {
 		// Only process blocks that have achieved quorum or confirmation height
-		if ((type_a == nano::confirmation_type::active_confirmed_quorum || type_a == nano::confirmation_type::active_confirmation_height))
+		if ((confirmation.type == nano::confirmation_type::active_confirmed_quorum || confirmation.type == nano::confirmation_type::active_confirmation_height))
 		{
 			stats.inc (nano::stat::type::http_callbacks_notified, nano::stat::detail::block_confirmed);
 
@@ -72,33 +64,33 @@ void nano::http_callbacks::setup_callbacks ()
 
 			// Post callback processing to worker thread
 			// Safe to capture 'this' by reference as workers are stopped before this component destruction
-			workers.post ([this, block_a, account_a, amount_a, is_state_send_a, is_state_epoch_a] () {
+			workers.post ([this, block = confirmation.status.winner, account = confirmation.account, amount = confirmation.amount, is_state_send = confirmation.is_state_send, is_state_epoch = confirmation.is_state_epoch] () {
 				// Construct the callback payload as a property tree
 				boost::property_tree::ptree event;
-				event.add ("account", account_a.to_account ());
-				event.add ("hash", block_a->hash ().to_string ());
+				event.add ("account", account.to_account ());
+				event.add ("hash", block->hash ().to_string ());
 				std::string block_text;
-				block_a->serialize_json (block_text);
+				block->serialize_json (block_text);
 				event.add ("block", block_text);
-				event.add ("amount", amount_a.to_string_dec ());
+				event.add ("amount", amount.to_string_dec ());
 
 				// Add transaction type information
-				if (is_state_send_a)
+				if (is_state_send)
 				{
-					event.add ("is_send", is_state_send_a);
+					event.add ("is_send", is_state_send);
 					event.add ("subtype", "send");
 				}
 
 				// Handle different state block subtypes
-				else if (block_a->type () == nano::block_type::state)
+				else if (block->type () == nano::block_type::state)
 				{
-					if (block_a->is_change ())
+					if (block->is_change ())
 					{
 						event.add ("subtype", "change");
 					}
-					else if (is_state_epoch_a)
+					else if (is_state_epoch)
 					{
-						debug_assert (amount_a == 0 && ledger.is_epoch_link (block_a->link_field ().value ()));
+						debug_assert (amount == 0 && ledger.is_epoch_link (block->link_field ().value ()));
 						event.add ("subtype", "epoch");
 					}
 					else
