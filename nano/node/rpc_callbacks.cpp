@@ -5,12 +5,12 @@
 #include <nano/lib/interval.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/secure/election_ballot.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/rpc_callbacks.hpp>
+#include <nano/secure/election_ballot.hpp>
 #include <nano/secure/ledger.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
@@ -51,6 +51,7 @@ void nano::http_callbacks::setup_callbacks ()
 {
 	// Add observer for block confirmations
 	observers.blocks.add ([this] (nano::election_status const & status_a,
+						  nano::confirmation_type type_a,
 						  std::vector<nano::vote_with_weight_info> const & votes_a,
 						  nano::account const & account_a,
 						  nano::amount const & amount_a,
@@ -59,7 +60,7 @@ void nano::http_callbacks::setup_callbacks ()
 		auto block_a = status_a.winner;
 
 		// Only process blocks that have achieved quorum or confirmation height
-		if ((status_a.type == nano::election_status_type::active_confirmed_quorum || status_a.type == nano::election_status_type::active_confirmation_height))
+		if ((type_a == nano::confirmation_type::active_confirmed_quorum || type_a == nano::confirmation_type::active_confirmation_height))
 		{
 			stats.inc (nano::stat::type::http_callbacks_notified, nano::stat::detail::block_confirmed);
 

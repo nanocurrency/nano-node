@@ -287,7 +287,6 @@ nano::election_status nano::election::status_locked () const
 		.vote_broadcast_count = vote_broadcast_count,
 		.block_count = nano::narrow_cast<unsigned> (ballot.block_count ()),
 		.voter_count = nano::narrow_cast<unsigned> (ballot.voter_count ()),
-		.type = nano::election_status_type::ongoing, // A live election is always ongoing, the cementing path stamps the meaningful types
 	};
 }
 

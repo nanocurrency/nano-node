@@ -6,15 +6,15 @@
 #include <nano/node/election_status.hpp>
 
 /*
- * election_status_type
+ * confirmation_type
  */
 
-std::string_view nano::to_string (nano::election_status_type type)
+std::string_view nano::to_string (nano::confirmation_type type)
 {
 	return nano::enum_to_string (type);
 }
 
-nano::stat::detail nano::to_stat_detail (nano::election_status_type type)
+nano::stat::detail nano::to_stat_detail (nano::confirmation_type type)
 {
 	return nano::enum_convert<nano::stat::detail> (type);
 }
@@ -34,7 +34,6 @@ void nano::election_status::operator() (nano::object_stream & obs) const
 	obs.write ("vote_broadcast_count", vote_broadcast_count);
 	obs.write ("block_count", block_count);
 	obs.write ("voter_count", voter_count);
-	obs.write ("type", type);
 }
 
 /*

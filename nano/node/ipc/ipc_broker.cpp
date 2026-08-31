@@ -27,9 +27,7 @@ std::shared_ptr<flatbuffers::Parser> nano::ipc::subscriber::get_parser (nano::ip
 
 void nano::ipc::broker::start ()
 {
-	node.observers.blocks.add ([this_l = shared_from_this ()] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
-		debug_assert (status_a.type != nano::election_status_type::ongoing);
-
+	node.observers.blocks.add ([this_l = shared_from_this ()] (nano::election_status const & status_a, nano::confirmation_type type_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
 		try
 		{
 			// The subscriber(s) may be gone after the count check, but the only consequence
@@ -40,22 +38,18 @@ void nano::ipc::broker::start ()
 
 				confirmation->account = account_a.to_account ();
 				confirmation->amount = amount_a.to_string_dec ();
-				switch (status_a.type)
+				switch (type_a)
 				{
-					case nano::election_status_type::active_confirmed_quorum:
+					case nano::confirmation_type::active_confirmed_quorum:
 						confirmation->confirmation_type = nanoapi::TopicConfirmationType::TopicConfirmationType_active_quorum;
 						break;
-					case nano::election_status_type::active_confirmation_height:
+					case nano::confirmation_type::active_confirmation_height:
 						confirmation->confirmation_type = nanoapi::TopicConfirmationType::TopicConfirmationType_active_confirmation_height;
 						break;
-					case nano::election_status_type::inactive_confirmation_height:
+					case nano::confirmation_type::inactive_confirmation_height:
 						confirmation->confirmation_type = nanoapi::TopicConfirmationType::TopicConfirmationType_inactive;
 						break;
-					default:
-						debug_assert (false);
-						break;
-				};
-				confirmation->confirmation_type = nanoapi::TopicConfirmationType::TopicConfirmationType_active_quorum;
+				}
 				confirmation->block = nano::ipc::flatbuffers_builder::block_to_union (*status_a.winner, amount_a, is_state_send_a, is_state_epoch_a);
 				confirmation->election_info = std::make_unique<nanoapi::ElectionInfoT> ();
 				confirmation->election_info->duration = status_a.election_duration.count ();

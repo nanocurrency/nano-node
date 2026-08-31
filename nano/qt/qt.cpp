@@ -5,7 +5,6 @@
 #include <nano/lib/stats_sinks.hpp>
 #include <nano/lib/thread_pool.hpp>
 #include <nano/lib/version.hpp>
-#include <nano/secure/election_ballot.hpp>
 #include <nano/node/election_status.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
@@ -14,6 +13,7 @@
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/qt/qt.hpp>
+#include <nano/secure/election_ballot.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/store/ledger/account.hpp>
@@ -1367,7 +1367,7 @@ void nano_qt::wallet::start ()
 			this_l->push_main_stack (this_l->send_blocks_window);
 		}
 	});
-	node.observers.blocks.add ([this_w] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::uint128_t const & amount_a, bool, bool) {
+	node.observers.blocks.add ([this_w] (nano::election_status const & status_a, nano::confirmation_type, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::uint128_t const & amount_a, bool, bool) {
 		if (auto this_l = this_w.lock ())
 		{
 			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, status_a, account_a] () {
