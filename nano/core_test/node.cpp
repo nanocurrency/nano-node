@@ -514,7 +514,7 @@ TEST (node, coherent_observer)
 {
 	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
-	node1.observers.blocks.add ([&node1] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const &, nano::account const &, nano::uint128_t const &, bool, bool) {
+	node1.observers.blocks.add ([&node1] (nano::election_status const & status_a, nano::confirmation_type, std::vector<nano::vote_with_weight_info> const &, nano::account const &, nano::uint128_t const &, bool, bool) {
 		ASSERT_TRUE (node1.ledger.any.block_exists (node1.ledger.tx_begin_read (), status_a.winner->hash ()));
 	});
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);

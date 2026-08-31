@@ -12,18 +12,16 @@
 
 namespace nano
 {
-/* Defines the possible states for an election to stop in */
-enum class election_status_type : uint8_t
+/* Classifies how a cemented block came to be confirmed */
+enum class confirmation_type
 {
-	ongoing = 0,
-	active_confirmed_quorum = 1,
-	active_confirmation_height = 2,
-	inactive_confirmation_height = 3,
-	stopped = 5
+	active_confirmed_quorum, // Winner of its own election reaching final quorum
+	active_confirmation_height, // Cemented under a dependent election while its own election was still live
+	inactive_confirmation_height, // Cemented without a live election
 };
 
-std::string_view to_string (election_status_type);
-nano::stat::detail to_stat_detail (election_status_type);
+std::string_view to_string (confirmation_type);
+nano::stat::detail to_stat_detail (confirmation_type);
 
 /** Summary of an election */
 struct election_status final
@@ -37,7 +35,6 @@ struct election_status final
 	unsigned vote_broadcast_count{ 0 }; // Votes broadcast for the winner
 	unsigned block_count{ 0 }; // Held fork blocks
 	unsigned voter_count{ 0 }; // Representatives with a recorded vote
-	election_status_type type{ nano::election_status_type::inactive_confirmation_height };
 
 	void operator() (nano::object_stream &) const;
 };

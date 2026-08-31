@@ -709,8 +709,7 @@ enum class detail
 	expired_unconfirmed,
 	cancelled,
 
-	// election_status_type
-	ongoing,
+	// confirmation_type
 	active_confirmed_quorum,
 	active_confirmation_height,
 	inactive_confirmation_height,

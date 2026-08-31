@@ -82,6 +82,7 @@ class voting_policy;
 class websocket_server;
 
 enum class block_source;
+enum class confirmation_type;
 enum class election_behavior;
 enum class election_state;
 enum class vote_code;

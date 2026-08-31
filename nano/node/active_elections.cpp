@@ -59,7 +59,7 @@ nano::active_elections::active_elections (nano::node & node_a, nano::ledger_noti
 		// Notify observers about cemented blocks on a background thread
 		workers.post ([this, results = std::move (results)] () {
 			auto transaction = node.ledger.tx_begin_read ();
-			for (auto const & [election, status, votes] : results)
+			for (auto const & [election, status, type, votes] : results)
 			{
 				transaction.refresh_if_needed ();
 
@@ -73,7 +73,7 @@ nano::active_elections::active_elections (nano::node & node_a, nano::ledger_noti
 					}
 				}
 
-				notify_observers (transaction, status, votes);
+				notify_observers (transaction, status, type, votes);
 			}
 		});
 	});
@@ -419,6 +419,7 @@ auto nano::active_elections::block_cemented (std::shared_ptr<nano::block> const 
 	auto election = election_impl (block->qualified_root ());
 
 	nano::election_status status;
+	nano::confirmation_type type;
 	std::vector<nano::vote_with_weight_info> votes;
 	status.winner = block;
 
@@ -428,54 +429,52 @@ auto nano::active_elections::block_cemented (std::shared_ptr<nano::block> const 
 		status = source_election->get_status ();
 		debug_assert (status.winner->hash () == block->hash ());
 		votes = source_election->votes_with_weight ();
-		status.type = nano::election_status_type::active_confirmed_quorum;
+		type = nano::confirmation_type::active_confirmed_quorum;
 	}
 	else if (election)
 	{
-		status.type = nano::election_status_type::active_confirmation_height;
+		type = nano::confirmation_type::active_confirmation_height;
 	}
 	else
 	{
-		status.type = nano::election_status_type::inactive_confirmation_height;
+		type = nano::confirmation_type::inactive_confirmation_height;
 	}
 
 	recently_cemented.put (status);
 
 	node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::cemented);
-	node.stats.inc (nano::stat::type::active_elections_cemented, to_stat_detail (status.type));
+	node.stats.inc (nano::stat::type::active_elections_cemented, to_stat_detail (type));
 
-	node.logger.debug (nano::log::type::active_elections, "Cemented root: {} with block: {} (status: {})",
+	node.logger.debug (nano::log::type::active_elections, "Cemented root: {} with block: {} (type: {})",
 	block->qualified_root (),
 	block->hash (),
-	to_string (status.type));
+	to_string (type));
 
 	node.logger.trace (nano::log::type::active_elections, nano::log::detail::active_cemented,
 	nano::log::arg{ "block", block },
 	nano::log::arg{ "confirmation_root", confirmation_root },
 	nano::log::arg{ "source_election", source_election });
 
-	return { election, status, votes };
+	return { election, status, type, votes };
 }
 
-void nano::active_elections::notify_observers (nano::secure::transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes) const
+void nano::active_elections::notify_observers (nano::secure::transaction const & transaction, nano::election_status const & status, nano::confirmation_type type, std::vector<nano::vote_with_weight_info> const & votes) const
 {
 	// Get block from ledger to ensure sideband is set (forked blocks may not have sideband)
 	auto const block = node.ledger.any.block_get (transaction, status.winner->hash ());
 	release_assert (block != nullptr); // Block must exist in the ledger since it was cemented
 	auto const account = block->account ();
 
-	switch (status.type)
+	switch (type)
 	{
-		case nano::election_status_type::active_confirmed_quorum:
+		case nano::confirmation_type::active_confirmed_quorum:
 			node.stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out);
 			break;
-		case nano::election_status_type::active_confirmation_height:
+		case nano::confirmation_type::active_confirmation_height:
 			node.stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::active_conf_height, nano::stat::dir::out);
 			break;
-		case nano::election_status_type::inactive_confirmation_height:
+		case nano::confirmation_type::inactive_confirmation_height:
 			node.stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out);
-			break;
-		default:
 			break;
 	}
 
@@ -484,7 +483,7 @@ void nano::active_elections::notify_observers (nano::secure::transaction const &
 		auto amount = node.ledger.any.block_amount (transaction, block).value_or (0).number ();
 		auto is_state_send = block->type () == block_type::state && block->is_send ();
 		auto is_state_epoch = block->type () == block_type::state && block->is_epoch ();
-		node.observers.blocks.notify (status, votes, account, amount, is_state_send, is_state_epoch);
+		node.observers.blocks.notify (status, type, votes, account, amount, is_state_send, is_state_epoch);
 	}
 
 	node.observers.account_balance.notify (account, false);

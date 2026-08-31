@@ -659,7 +659,7 @@ void nano::websocket::listener::on_accept (boost::system::error_code ec)
 	}
 }
 
-void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::block> const & block, nano::account const & account, nano::amount const & amount, std::string const & subtype, nano::election_status const & election_status, std::vector<nano::vote_with_weight_info> const & election_votes)
+void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::block> const & block, nano::account const & account, nano::amount const & amount, std::string const & subtype, nano::election_status const & election_status, nano::confirmation_type confirmation_type, std::vector<nano::vote_with_weight_info> const & election_votes)
 {
 	nano::websocket::message_builder builder{ node.ledger };
 
@@ -679,7 +679,7 @@ void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::bl
 					conf_options = &default_options;
 				}
 
-				auto message = builder.block_confirmed (block, account, amount, subtype, election_status, election_votes, *conf_options);
+				auto message = builder.block_confirmed (block, account, amount, subtype, election_status, confirmation_type, election_votes, *conf_options);
 				session_ptr->write (message);
 			}
 		}
@@ -740,7 +740,7 @@ nano::websocket::message nano::websocket::message_builder::stopped_election (nan
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> const & block, nano::account const & account, nano::amount const & amount, std::string subtype, nano::election_status const & election_status, std::vector<nano::vote_with_weight_info> const & election_votes, nano::websocket::confirmation_options const & options)
+nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> const & block, nano::account const & account, nano::amount const & amount, std::string subtype, nano::election_status const & election_status, nano::confirmation_type confirmation_type, std::vector<nano::vote_with_weight_info> const & election_votes, nano::websocket::confirmation_options const & options)
 {
 	nano::websocket::message message_l (nano::websocket::topic::confirmation);
 	set_common_fields (message_l);
@@ -751,22 +751,20 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 	message_node_l.add ("amount", amount.to_string_dec ());
 	message_node_l.add ("hash", block->hash ().to_string ());
 
-	std::string confirmation_type = "unknown";
-	switch (election_status.type)
+	std::string confirmation_text = "unknown";
+	switch (confirmation_type)
 	{
-		case nano::election_status_type::active_confirmed_quorum:
-			confirmation_type = "active_quorum";
+		case nano::confirmation_type::active_confirmed_quorum:
+			confirmation_text = "active_quorum";
 			break;
-		case nano::election_status_type::active_confirmation_height:
-			confirmation_type = "active_confirmation_height";
+		case nano::confirmation_type::active_confirmation_height:
+			confirmation_text = "active_confirmation_height";
 			break;
-		case nano::election_status_type::inactive_confirmation_height:
-			confirmation_type = "inactive";
+		case nano::confirmation_type::inactive_confirmation_height:
+			confirmation_text = "inactive";
 			break;
-		default:
-			break;
-	};
-	message_node_l.add ("confirmation_type", confirmation_type);
+	}
+	message_node_l.add ("confirmation_type", confirmation_text);
 
 	if (options.get_include_election_info () || options.get_include_election_info_with_votes ())
 	{
@@ -1021,9 +1019,7 @@ nano::websocket_server::websocket_server (nano::websocket::config & config_a, na
 	auto endpoint = nano::tcp_endpoint{ boost::asio::ip::make_address_v6 (config.address), config.port };
 	server = std::make_shared<nano::websocket::listener> (logger, node_a, wallets, io_ctx, endpoint);
 
-	observers.blocks.add ([this] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
-		debug_assert (status_a.type != nano::election_status_type::ongoing);
-
+	observers.blocks.add ([this] (nano::election_status const & status_a, nano::confirmation_type type_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
 		if (server->any_subscriber (nano::websocket::topic::confirmation))
 		{
 			auto block_a = status_a.winner;
@@ -1049,7 +1045,7 @@ nano::websocket_server::websocket_server (nano::websocket::config & config_a, na
 				}
 			}
 
-			server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a, votes_a);
+			server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a, type_a, votes_a);
 		}
 	});
 
