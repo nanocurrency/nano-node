@@ -91,7 +91,16 @@ public: // State transitions
 
 	bool transition_active ();
 	bool transition_priority ();
-	bool cancel ();
+
+	// Outcome of a requested state change
+	struct transition_result final
+	{
+		nano::election_state previous; // State observed before the request
+		nano::election_state current; // State after the request, equal to previous when nothing changed
+	};
+
+	// Cancel a live election and report the states observed under the lock; a sealed election is left as it is
+	transition_result cancel ();
 
 public: // Status
 	bool confirmed () const;
