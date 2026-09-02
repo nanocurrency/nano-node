@@ -225,10 +225,12 @@ bool nano::election::transition_active ()
 	return !state_change (nano::election_state::passive, nano::election_state::active); // Invert since false => success
 }
 
-bool nano::election::cancel ()
+nano::election::transition_result nano::election::cancel ()
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-	return !state_change (state_m, nano::election_state::cancelled); // Invert since false => success
+	auto const previous = state_m;
+	state_change (state_m, nano::election_state::cancelled);
+	return { .previous = previous, .current = state_m };
 }
 
 bool nano::election::confirmed_locked () const
@@ -485,6 +487,12 @@ nano::vote_code nano::election::vote (nano::account const & representative, uint
 			return vote_code::ignored;
 		case nano::election_ballot::vote_result::accepted:
 			break;
+	}
+
+	// The vote may have been dispatched before an earlier update released the route of its unheld target, so route the target again
+	if (!ballot.contains_block (block_hash))
+	{
+		node.vote_router.connect (block_hash, shared_from_this ());
 	}
 
 	// Stop routing an unheld hash once no current vote references it

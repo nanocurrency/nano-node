@@ -83,7 +83,7 @@ TEST (election, sealed_after_cancellation)
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
 	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 42);
-	ASSERT_TRUE (election->cancel ());
+	ASSERT_EQ (nano::election_state::cancelled, election->cancel ().current);
 	ASSERT_EQ (nano::vote_code::indeterminate, election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_final, nano::dev::genesis->hash (), nano::vote_source::live));
 	ASSERT_FALSE (election->confirmed ());
 	ASSERT_EQ (nano::election_state::cancelled, election->state ());
@@ -110,13 +110,64 @@ TEST (election, sealed_after_expiry)
 	ASSERT_EQ (0, election->voter_count ());
 }
 
+// A sealed election only ever moves from confirmed to expired confirmed: cancellation, activation and confirmation leave every sealed state as it is
+TEST (election, sealed_state_transitions)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	auto make_election = [&node] () {
+		return std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 42);
+	};
+
+	// Confirmed only expires on its next tick
+	auto confirmed = make_election ();
+	confirmed->force_confirm ();
+	ASSERT_EQ (nano::election_state::confirmed, confirmed->state ());
+	auto transition = confirmed->cancel ();
+	ASSERT_EQ (nano::election_state::confirmed, transition.previous);
+	ASSERT_EQ (nano::election_state::confirmed, transition.current);
+	ASSERT_FALSE (confirmed->transition_active ());
+	ASSERT_EQ (nano::election_state::confirmed, confirmed->state ());
+	ASSERT_TRUE (confirmed->tick (std::chrono::steady_clock::now ()).cleanup);
+	ASSERT_EQ (nano::election_state::expired_confirmed, confirmed->state ());
+	transition = confirmed->cancel ();
+	ASSERT_EQ (nano::election_state::expired_confirmed, transition.previous);
+	ASSERT_EQ (nano::election_state::expired_confirmed, transition.current);
+	ASSERT_FALSE (confirmed->transition_active ());
+	ASSERT_EQ (nano::election_state::expired_confirmed, confirmed->state ());
+	ASSERT_TRUE (confirmed->confirmed ());
+
+	// Expired unconfirmed stays expired
+	auto expired = make_election ();
+	ASSERT_TRUE (expired->tick (std::chrono::steady_clock::now () + 10min).cleanup);
+	ASSERT_EQ (nano::election_state::expired_unconfirmed, expired->state ());
+	transition = expired->cancel ();
+	ASSERT_EQ (nano::election_state::expired_unconfirmed, transition.previous);
+	ASSERT_EQ (nano::election_state::expired_unconfirmed, transition.current);
+	ASSERT_FALSE (expired->transition_active ());
+	expired->force_confirm ();
+	ASSERT_EQ (nano::election_state::expired_unconfirmed, expired->state ());
+
+	// Cancelled stays cancelled
+	auto cancelled = make_election ();
+	transition = cancelled->cancel ();
+	ASSERT_EQ (nano::election_state::passive, transition.previous);
+	ASSERT_EQ (nano::election_state::cancelled, transition.current);
+	transition = cancelled->cancel ();
+	ASSERT_EQ (nano::election_state::cancelled, transition.previous);
+	ASSERT_EQ (nano::election_state::cancelled, transition.current);
+	ASSERT_FALSE (cancelled->transition_active ());
+	cancelled->force_confirm ();
+	ASSERT_EQ (nano::election_state::cancelled, cancelled->state ());
+}
+
 // A sealed election admits no further blocks
 TEST (election, sealed_no_publish)
 {
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
 	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 42);
-	ASSERT_TRUE (election->cancel ());
+	ASSERT_EQ (nano::election_state::cancelled, election->cancel ().current);
 	nano::keypair key;
 	auto fork = nano::send_block_builder{}.make_block ().previous (nano::dev::genesis->hash ()).destination (key.pub).balance (0).sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub).work (0).build ();
 	ASSERT_FALSE (election->publish (fork));
@@ -152,7 +203,7 @@ TEST (election, sealed_no_broadcast_vote)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv); // Local representative that can vote
 	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 42);
 	ASSERT_TRUE (election->transition_active ());
-	ASSERT_TRUE (election->cancel ());
+	ASSERT_EQ (nano::election_state::cancelled, election->cancel ().current);
 	election->broadcast_vote ();
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::election, nano::stat::detail::broadcast_vote));
 }
@@ -593,6 +644,96 @@ TEST (election, evicted_route_released_after_last_vote_moves)
 	ASSERT_EQ (nano::vote_code::vote, fixture.election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_min + 2, fixture.forks[0]->hash (), nano::vote_source::cache));
 	ASSERT_EQ (nano::vote_code::vote, fixture.election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_min + 3, fixture.fork_new->hash (), nano::vote_source::cache));
 	ASSERT_TRUE (node.vote_router.contains (fixture.forks[0]->hash ()));
+}
+
+/*
+ * The router looks a route up under its own lock and releases it before delivering the vote, so a vote for an evicted fork can be dispatched while the route exists and arrive after the last supporting vote moved away and released it.
+ * The delivered vote makes the evicted hash current again and the election must route it again, otherwise later votes for it no longer reach this election.
+ * The late delivery is modelled by calling the election directly once the route is gone.
+ */
+TEST (election, in_flight_vote_restores_released_route)
+{
+	nano::test::system system;
+	nano::node_config node_config = system.default_config ();
+	node_config.backlog_scan->enable = false;
+	auto & node = *system.add_node (node_config);
+	nano::keypair rep_key;
+	auto fixture = setup_evicted_fork (system, node, rep_key);
+
+	// The sole supporting vote moves away and releases the route
+	ASSERT_TRUE (node.vote_router.contains (fixture.evicted->hash ()));
+	ASSERT_EQ (nano::vote_code::vote, fixture.election->vote (fixture.evicted_voter, nano::vote::timestamp_min + 1, fixture.fork_new->hash (), nano::vote_source::cache));
+	ASSERT_FALSE (node.vote_router.contains (fixture.evicted->hash ()));
+
+	// A vote dispatched before the release arrives and is recorded for the evicted hash
+	nano::keypair late_voter;
+	ASSERT_EQ (nano::vote_code::vote, fixture.election->vote (late_voter.pub, nano::vote::timestamp_min, fixture.evicted->hash (), nano::vote_source::live));
+	ASSERT_EQ (fixture.evicted->hash (), fixture.election->votes ().at (late_voter.pub).hash);
+
+	// A current vote names the evicted hash again, so it is routed and later votes for it reach the election
+	ASSERT_TRUE (node.vote_router.contains (fixture.evicted->hash ()));
+	nano::keypair next_voter;
+	auto vote = nano::test::make_vote (next_voter, { fixture.evicted }, 0, 0);
+	ASSERT_EQ (nano::vote_code::vote, node.vote_router.vote (vote).at (fixture.evicted->hash ()));
+	ASSERT_EQ (fixture.evicted->hash (), fixture.election->votes ().at (next_voter.pub).hash);
+}
+
+/*
+ * A vote for a held block can be dispatched by the router while its route exists and arrive after a publish evicted the block and released its unsupported route.
+ * The delivered vote names an unheld hash, so the election must route it again for later votes to reach this election.
+ * The late delivery is modelled by calling the election directly once the block is evicted.
+ */
+TEST (election, in_flight_vote_restores_evicted_route)
+{
+	nano::test::system system;
+	nano::node_config node_config = system.default_config ();
+	node_config.backlog_scan->enable = false;
+	auto & node = *system.add_node (node_config);
+	nano::keypair rep_key;
+	auto fixture = setup_evicted_fork (system, node, rep_key);
+	auto reference = std::dynamic_pointer_cast<nano::state_block> (fixture.fork_new);
+	ASSERT_NE (nullptr, reference);
+
+	// Wait for the rep's replayed vote to back the admitted fork, so the next eviction picks a fork nobody voted for
+	ASSERT_TIMELY (5s, fixture.election->votes ().contains (rep_key.pub));
+
+	// Another fork backed by cached rep weight evicts a held block without votes, releasing its route with it
+	auto const held_before = fixture.election->blocks ();
+	nano::state_block_builder builder;
+	auto fork = builder.make_block ()
+				.account (reference->account_field ().value ())
+				.previous (reference->previous ())
+				.representative (reference->representative_field ().value ())
+				.balance (reference->balance_field ().value ().number () - 1)
+				.link (reference->link_field ().value ())
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (0)
+				.build ();
+	node.vote_cache.insert (nano::test::make_vote (rep_key, { fork }, 1, 0));
+	ASSERT_TRUE (fixture.election->publish (fork));
+	std::shared_ptr<nano::block> evicted;
+	for (auto const & [hash, block] : held_before)
+	{
+		if (!fixture.election->contains_block (hash))
+		{
+			ASSERT_EQ (nullptr, evicted);
+			evicted = block;
+		}
+	}
+	ASSERT_NE (nullptr, evicted);
+	ASSERT_FALSE (node.vote_router.contains (evicted->hash ()));
+
+	// A vote dispatched before the eviction arrives and is recorded for the now unheld hash
+	nano::keypair late_voter;
+	ASSERT_EQ (nano::vote_code::vote, fixture.election->vote (late_voter.pub, nano::vote::timestamp_min, evicted->hash (), nano::vote_source::live));
+	ASSERT_EQ (evicted->hash (), fixture.election->votes ().at (late_voter.pub).hash);
+
+	// A current vote names the evicted hash, so it is routed and later votes for it reach the election
+	ASSERT_TRUE (node.vote_router.contains (evicted->hash ()));
+	nano::keypair next_voter;
+	auto vote = nano::test::make_vote (next_voter, { evicted }, 0, 0);
+	ASSERT_EQ (nano::vote_code::vote, node.vote_router.vote (vote).at (evicted->hash ()));
+	ASSERT_EQ (evicted->hash (), fixture.election->votes ().at (next_voter.pub).hash);
 }
 
 /*

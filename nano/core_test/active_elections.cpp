@@ -804,6 +804,48 @@ TEST (active_elections, dropped_cleanup)
 	ASSERT_FALSE (node.vote_router.active (hash));
 }
 
+// Erasing a live election seals it, so a block or vote still on its way to the election registers no route after the erase
+TEST (active_elections, erase_seals_live_election)
+{
+	nano::test::system system;
+	nano::node_config node_config = system.default_config ();
+	node_config.backlog_scan->enable = false;
+	auto & node = *system.add_node (node_config);
+	nano::keypair key;
+	nano::send_block_builder builder;
+	auto send = builder.make_block ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (key.pub)
+				.balance (nano::dev::constants.genesis_amount - 1)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	auto fork = builder.make_block ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (key.pub)
+				.balance (nano::dev::constants.genesis_amount - 2)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	node.process_active (send);
+	std::shared_ptr<nano::election> election;
+	ASSERT_TIMELY (5s, (election = node.active.election (send->qualified_root ())) != nullptr);
+	ASSERT_TRUE (node.vote_router.contains (send->hash ()));
+
+	// The erase seals the election and removes its routes
+	ASSERT_TRUE (node.active.erase (send->qualified_root ()));
+	ASSERT_EQ (nano::election_state::cancelled, election->state ());
+	ASSERT_FALSE (node.vote_router.contains (send->hash ()));
+
+	// A fork already on its way to the election is refused and registers no route
+	ASSERT_FALSE (election->publish (fork));
+	ASSERT_FALSE (node.vote_router.contains (fork->hash ()));
+
+	// A vote already dispatched to the election is answered as unknown and registers no route
+	ASSERT_EQ (nano::vote_code::indeterminate, election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_min, send->hash (), nano::vote_source::live));
+	ASSERT_FALSE (node.vote_router.contains (send->hash ()));
+}
+
 TEST (active_elections, republish_winner)
 {
 	nano::test::system system;

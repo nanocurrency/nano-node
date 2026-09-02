@@ -60,7 +60,7 @@ public:
 	/**
 	 * Add a route for 'hash' to 'election'.
 	 * Existing routes will be replaced.
-	 * Election must hold the block for the hash being passed in.
+	 * The hash must belong to the election's root, which the router cannot verify.
 	 */
 	void connect (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election);
 	/**

@@ -66,8 +66,8 @@ nano::active_elections::active_elections (nano::node & node_a, nano::ledger_noti
 				// Dependent elections are cancelled when their block is cemented
 				if (election)
 				{
-					bool cancelled = election->cancel ();
-					if (cancelled)
+					auto const transition = election->cancel ();
+					if (transition.previous != transition.current)
 					{
 						node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::cancel_dependent);
 					}
@@ -323,12 +323,16 @@ void nano::active_elections::erase_election (nano::unique_lock<nano::mutex> & lo
 	debug_assert (lock.owns_lock ());
 	debug_assert (!election->confirmed () || recently_confirmed.contains (election->qualified_root));
 
+	// Seal a live election first so nothing already dispatched to it can register a route after the disconnect, a confirmed or expired election is already sealed and keeps its state
+	// The state observed by the seal is the state the election was erased in, reported by the stats and logs below
+	auto const transition = election->cancel ();
+
 	// Disconnect routes for both held and previously evicted blocks
 	node.vote_router.disconnect (election);
 
 	// Erase from index
 	bool erased = index.erase (election);
-	release_assert (erased);
+	debug_assert (erased);
 
 	// Get and remove the erased callback
 	auto callback_it = erased_callbacks.find (election->qualified_root);
@@ -341,8 +345,8 @@ void nano::active_elections::erase_election (nano::unique_lock<nano::mutex> & lo
 
 	node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::stopped);
 	node.stats.inc (nano::stat::type::active_elections, election->confirmed () ? nano::stat::detail::confirmed : nano::stat::detail::unconfirmed);
-	node.stats.inc (nano::stat::type::active_elections_stopped, to_stat_detail (election->state ()));
-	node.stats.inc (to_stat_type (election->state ()), to_stat_detail (election->behavior ()));
+	node.stats.inc (nano::stat::type::active_elections_stopped, to_stat_detail (transition.previous));
+	node.stats.inc (to_stat_type (transition.previous), to_stat_detail (election->behavior ()));
 
 	node.logger.trace (nano::log::type::active_elections, nano::log::detail::active_stopped, nano::log::arg{ "election", election });
 
@@ -350,7 +354,7 @@ void nano::active_elections::erase_election (nano::unique_lock<nano::mutex> & lo
 	election->qualified_root,
 	fmt::join (election->blocks_hashes (), ", "), // TODO: Lazy eval
 	to_string (election->behavior ()),
-	to_string (election->state ()),
+	to_string (transition.previous),
 	election->voter_count (),
 	election->block_count (),
 	election->duration ().count ());
@@ -621,8 +625,8 @@ void nano::active_elections::checkup_elections (nano::unique_lock<nano::mutex> &
 		// Usually the normal cemented callback will handle the cleanup
 		if ((now - election->get_state_start ()) > min_duration && should_cancel (election))
 		{
-			bool cancelled = election->cancel ();
-			if (cancelled)
+			auto const transition = election->cancel ();
+			if (transition.previous != transition.current)
 			{
 				node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::cancel_checkup);
 				node.logger.debug (nano::log::type::active_elections, "Checkup cancelled election for root: {} with blocks: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
