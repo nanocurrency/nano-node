@@ -91,6 +91,7 @@ add_executable(
   vote_processor.cpp
   vote_rebroadcaster.cpp
   vote_replier.cpp
+  vote_router.cpp
   voting.cpp
   wallet.cpp
   wallets.cpp

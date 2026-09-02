@@ -12,7 +12,6 @@
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_processor.hpp>
-#include <nano/node/vote_router.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/test_common/chains.hpp>

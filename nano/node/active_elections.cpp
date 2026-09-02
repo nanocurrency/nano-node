@@ -324,8 +324,8 @@ void nano::active_elections::erase_election (nano::unique_lock<nano::mutex> & lo
 	debug_assert (lock.owns_lock ());
 	debug_assert (!election->confirmed () || recently_confirmed.contains (election->qualified_root));
 
-	auto blocks_l = election->blocks ();
-	node.vote_router.disconnect (*election);
+	// Disconnect routes for both held and previously evicted blocks
+	node.vote_router.disconnect (election);
 
 	// Erase from index
 	bool erased = index.erase (election);
@@ -355,6 +355,8 @@ void nano::active_elections::erase_election (nano::unique_lock<nano::mutex> & lo
 	election->voter_count (),
 	election->block_count (),
 	election->duration ().count ());
+
+	auto blocks_l = election->blocks ();
 
 	lock.unlock ();
 

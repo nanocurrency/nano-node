@@ -5,11 +5,18 @@
 #include <nano/lib/observer_set.hpp>
 #include <nano/node/fwd.hpp>
 
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index_container.hpp>
+
 #include <condition_variable>
 #include <memory>
 #include <shared_mutex>
 #include <thread>
 #include <unordered_map>
+
+namespace mi = boost::multi_index;
 
 namespace nano
 {
@@ -55,12 +62,11 @@ public:
 	 * Existing routes will be replaced.
 	 * Election must hold the block for the hash being passed in.
 	 */
-	void connect (nano::block_hash const & hash, std::weak_ptr<nano::election> election);
+	void connect (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election);
 	/**
 	 * Remove all routes to this election.
-	 * @return number of routes removed
 	 */
-	std::size_t disconnect (nano::election const & election);
+	void disconnect (std::shared_ptr<nano::election> const & election);
 	/**
 	 * Remove route for hash.
 	 * @return true if route existed and was removed
@@ -92,8 +98,27 @@ private: // Dependencies
 private:
 	void run ();
 
-	// Mapping of block hashes to elections
-	std::unordered_map<nano::block_hash, std::weak_ptr<nano::election>> elections;
+	struct route
+	{
+		nano::block_hash hash;
+		std::weak_ptr<nano::election> election;
+	};
+
+	// clang-format off
+	class tag_hash {};
+	class tag_election {};
+
+	using route_index = mi::multi_index_container<route,
+	mi::indexed_by<
+		mi::hashed_unique<mi::tag<tag_hash>,
+			mi::member<route, nano::block_hash, &route::hash>>,
+		mi::ordered_non_unique<mi::tag<tag_election>,
+			mi::member<route, std::weak_ptr<nano::election>, &route::election>,
+			std::owner_less<std::weak_ptr<nano::election>>>>
+	>;
+	// clang-format on
+	// Routes indexed by both block hash and election ownership
+	route_index routes;
 
 	bool stopped{ false };
 	mutable std::shared_mutex mutex;
