@@ -362,7 +362,9 @@ bool backend_rocksdb::exists (nano::store::transaction const & txn, nano::store:
 		}
 		else if constexpr (std::is_same_v<V, ::rocksdb::ReadOptions *>)
 		{
-			return db->Get (*ptr, table_to_column_family (table), key_slice, &slice);
+			::rocksdb::ReadOptions options = *ptr;
+			options.fill_cache = false;
+			return db->Get (options, table_to_column_family (table), key_slice, &slice);
 		}
 		else
 		{
