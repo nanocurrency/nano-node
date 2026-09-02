@@ -2707,13 +2707,13 @@ TEST (node, peer_history_restart)
 			store.peer.put (transaction, endpoint_key, 37);
 		}
 		node2->start ();
-		ASSERT_TIMELY (10s, !node2->network.empty ());
-		// Confirm that the peers match with the endpoints we are expecting
-		auto list (node2->network.list (2));
-		ASSERT_EQ (node1->network.endpoint (), list[0]->get_remote_endpoint ());
+		// Confirm that the node connected to the peer loaded from the cache
+		ASSERT_TIMELY (10s, node2->network.find_channel (node1->network.endpoint ()));
 		ASSERT_EQ (1, node2->network.size ());
 		system.stop_node (*node2);
 	}
+	// The restarted node reuses the same node id, so wait for node1 to purge the stale channel, otherwise the reconnect is rejected as a duplicate
+	ASSERT_TIMELY (10s, node1->network.empty ());
 	// Restart node
 	{
 		nano::node_flags node_flags;
@@ -2730,10 +2730,8 @@ TEST (node, peer_history_restart)
 			ASSERT_EQ (store.peer.count (transaction), 1);
 			ASSERT_TRUE (store.peer.exists (transaction, endpoint_key));
 		}
-		ASSERT_TIMELY (10s, !node3->network.empty ());
-		// Confirm that the peers match with the endpoints we are expecting
-		auto list (node3->network.list (2));
-		ASSERT_EQ (node1->network.endpoint (), list[0]->get_remote_endpoint ());
+		// Confirm that the node reconnected to the peer loaded from the cache
+		ASSERT_TIMELY (10s, node3->network.find_channel (node1->network.endpoint ()));
 		ASSERT_EQ (1, node3->network.size ());
 		system.stop_node (*node3);
 	}
