@@ -52,6 +52,7 @@ public:
 	unsigned max_repair_heads{ 6 }; // Cap on repair heads; beyond it bands grow rather than the head count
 	unsigned consideration_count{ 3 }; // Spearhead: distinct peers sampled before the frontier advances
 	unsigned repair_consideration{ 1 }; // Repair: distinct peers sampled before a band cursor advances
+	std::size_t repair_rate_limit{ 20 }; // Topo index requests per second across all repair heads; every page re-verifies up to max_entries keys against the ledger, so this bounds the sweep's disk load
 	std::size_t candidates{ nano::bootstrap_server::max_topo_entries - 1 }; // Cap on new aggregated entries kept (the smallest) per advance; topo_index responses include the cursor
 	std::size_t redundant_skip_threshold{ 100 }; // Consecutive fully-redundant spearhead pages before fast-forwarding
 	std::size_t redundant_skip_history_size{ 200 }; // Recent spearhead pages remembered; each page that needed fetching raises the next skip threshold by one

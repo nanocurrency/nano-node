@@ -39,7 +39,8 @@ topo_strategy::topo_strategy (bootstrap_context & ctx_a) :
 	gaps{ ctx.config.topo_scan, ctx.stats },
 	skip_policy{ ctx.config.topo_scan },
 	spearhead_workers{ 1, nano::thread_role::name::bootstrap_topo_processing },
-	repair_workers{ 1, nano::thread_role::name::bootstrap_topo_processing }
+	repair_workers{ 1, nano::thread_role::name::bootstrap_topo_processing },
+	repair_limiter{ ctx.config.topo_scan.repair_rate_limit }
 {
 	// Retire completed pages straight into the pre-check pipeline
 	scan.sink = [this] (topo_scan::page page) {
@@ -125,11 +126,13 @@ void topo_strategy::scan_one ()
 
 	// Back-pressure each head class on its own pre-check pool (spearhead also on the gap backlog) so a saturated
 	// pool gates only its class; next () never drops a page, which would strand its blocks out of the buffer.
+	// Repair heads are additionally paced by their own rate limiter, and only run at all with the topo index: without
+	// it the pre-check has to probe every entry by hash, and a perpetual sweep in that mode is a random-read storm.
 	std::optional<topo_scan::request> req;
 	ctx.wait ([this, &req] () {
 		topo_scan::head_gates gates{
 			.include_spearhead = gaps.count () < ctx.config.topo_scan.max_gaps && spearhead_workers.queued_tasks () < max_precheck_tasks,
-			.include_repair = repair_workers.queued_tasks () < max_precheck_tasks,
+			.include_repair = ctx.ledger.flags.topo_index && repair_workers.queued_tasks () < max_precheck_tasks && repair_limiter.can_consume (),
 		};
 		req = scan.next (gates);
 		return req.has_value ();
@@ -137,6 +140,12 @@ void topo_strategy::scan_one ()
 	if (!req)
 	{
 		return;
+	}
+
+	// Charge the round now that a repair head has been reserved; the scan thread is the only consumer so the gate above guarantees a token
+	if (req->head != 0)
+	{
+		repair_limiter.try_consume (req->fanout);
 	}
 
 	// Acquire up to `fanout` distinct peers (topo index requests need the capability); the cross-round
