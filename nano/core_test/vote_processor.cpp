@@ -12,7 +12,6 @@
 #include <nano/node/transport/inproc.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_processor.hpp>
-#include <nano/node/vote_router.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/test_common/chains.hpp>
@@ -78,12 +77,12 @@ TEST (vote_processor, invalid_signature)
 
 	auto election = nano::test::start_election (system, node, chain[0]->hash ());
 	ASSERT_NE (election, nullptr);
-	ASSERT_EQ (1, election->votes ().size ());
+	ASSERT_EQ (0, election->votes ().size ());
 
 	node.vote_processor.vote (vote_invalid, channel);
-	ASSERT_TIMELY_EQ (5s, 1, election->votes ().size ());
+	ASSERT_TIMELY_EQ (5s, 0, election->votes ().size ());
 	node.vote_processor.vote (vote, channel);
-	ASSERT_TIMELY_EQ (5s, 2, election->votes ().size ());
+	ASSERT_TIMELY_EQ (5s, 1, election->votes ().size ());
 }
 
 TEST (vote_processor, overflow)
@@ -170,7 +169,7 @@ TEST (vote_processor, election)
 
 	auto election = nano::test::start_election (system, node, block->hash ());
 	ASSERT_NE (nullptr, election);
-	ASSERT_EQ (1, election->votes ().size ()); // Just the initial vote
+	ASSERT_EQ (0, election->votes ().size ());
 
 	// Create votes from multiple accounts
 	nano::keypair key1, key2, key3;
@@ -186,7 +185,7 @@ TEST (vote_processor, election)
 	node.vote_processor.vote (vote3, channel);
 
 	// Verify all votes are inserted into the election
-	ASSERT_TIMELY_EQ (5s, election->votes ().size (), 4); // Initial + 3 votes
+	ASSERT_TIMELY_EQ (5s, election->votes ().size (), 3);
 
 	auto votes = election->votes ();
 	ASSERT_TRUE (votes.contains (key1.pub));
@@ -233,10 +232,10 @@ TEST (vote_processor, multiple_elections)
 	node.vote_processor.vote (vote, channel);
 
 	// Verify the vote appears in each election
-	ASSERT_TIMELY_EQ (5s, election1->votes ().size (), 2); // Initial + our vote
-	ASSERT_TIMELY_EQ (5s, election2->votes ().size (), 2);
-	ASSERT_TIMELY_EQ (5s, election3->votes ().size (), 2);
-	ASSERT_TIMELY_EQ (5s, election4->votes ().size (), 2);
+	ASSERT_TIMELY_EQ (5s, election1->votes ().size (), 1);
+	ASSERT_TIMELY_EQ (5s, election2->votes ().size (), 1);
+	ASSERT_TIMELY_EQ (5s, election3->votes ().size (), 1);
+	ASSERT_TIMELY_EQ (5s, election4->votes ().size (), 1);
 
 	ASSERT_TRUE (election1->votes ().contains (key.pub));
 	ASSERT_TRUE (election2->votes ().contains (key.pub));

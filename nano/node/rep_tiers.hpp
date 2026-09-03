@@ -1,9 +1,11 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/numbers_templ.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/rep_tiers.hpp>
 
 #include <memory>
 #include <thread>
@@ -17,15 +19,6 @@ class stats;
 class logger;
 class container_info_component;
 class online_reps;
-
-// Higher number means higher priority
-enum class rep_tier
-{
-	none, // Not a principal representatives
-	tier_1, // (0.1-1%) of online stake
-	tier_2, // (1-5%) of online stake
-	tier_3, // (> 5%) of online stake
-};
 
 nano::stat::detail to_stat_detail (rep_tier);
 

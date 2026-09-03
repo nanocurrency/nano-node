@@ -1,4 +1,5 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/vote.hpp>
 #include <nano/messages/confirm.hpp>
 #include <nano/messages/publish.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
@@ -66,7 +67,7 @@ bool nano::confirmation_solicitor::add (nano::election_snapshot const & election
 		auto rep (*i);
 		auto existing (election_a.votes.find (rep.account));
 		bool const exists (existing != election_a.votes.end ());
-		bool const is_final (exists && (!election_a.quorum || existing->second.timestamp == std::numeric_limits<uint64_t>::max ()));
+		bool const is_final (exists && (!election_a.quorum || nano::vote::is_final_timestamp (existing->second.timestamp)));
 		bool const different (exists && existing->second.hash != hash);
 		if (!exists || !is_final || different)
 		{

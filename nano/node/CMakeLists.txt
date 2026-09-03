@@ -94,6 +94,7 @@ add_library(
   election_pacing.hpp
   election_pacing.cpp
   election_status.hpp
+  election_status.cpp
   endpoint.cpp
   endpoint.hpp
   endpoint_templ.hpp
@@ -235,7 +236,6 @@ add_library(
   vote_router.cpp
   vote_spacing.hpp
   vote_spacing.cpp
-  vote_with_weight_info.hpp
   wallet.hpp
   wallet.cpp
   websocket.hpp

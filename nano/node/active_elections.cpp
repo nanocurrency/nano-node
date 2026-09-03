@@ -59,21 +59,21 @@ nano::active_elections::active_elections (nano::node & node_a, nano::ledger_noti
 		// Notify observers about cemented blocks on a background thread
 		workers.post ([this, results = std::move (results)] () {
 			auto transaction = node.ledger.tx_begin_read ();
-			for (auto const & [election, status, votes] : results)
+			for (auto const & [election, status, type, votes] : results)
 			{
 				transaction.refresh_if_needed ();
 
 				// Dependent elections are cancelled when their block is cemented
 				if (election)
 				{
-					bool cancelled = election->cancel ();
-					if (cancelled)
+					auto const transition = election->cancel ();
+					if (transition.previous != transition.current)
 					{
 						node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::cancel_dependent);
 					}
 				}
 
-				notify_observers (transaction, status, votes);
+				notify_observers (transaction, status, type, votes);
 			}
 		});
 	});
@@ -216,7 +216,7 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 		result.election = index.election (root);
 
 		// The existing election should already contain this block
-		debug_assert (result.election->contains (hash));
+		debug_assert (result.election->contains_block (hash));
 
 		// Upgrade to priority election to enable immediate vote broadcasting.
 		auto previous_behavior = result.election->behavior ();
@@ -294,10 +294,9 @@ bool nano::active_elections::publish (std::shared_ptr<nano::block> const & block
 	{
 		lock.unlock ();
 
-		bool result = election->publish (block); // false => new block was added
-		if (!result)
+		if (election->publish (block))
 		{
-			node.vote_router.connect (block->hash (), election);
+			// Process votes cached before the block joined the election
 			node.vote_cache_processor.trigger (block->hash ());
 
 			node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::fork);
@@ -311,11 +310,11 @@ bool nano::active_elections::publish (std::shared_ptr<nano::block> const & block
 			election->block_count (),
 			election->duration ().count ());
 
-			return false; // Added
+			return true;
 		}
 	}
 
-	return true; // Not added
+	return false;
 }
 
 void nano::active_elections::erase_election (nano::unique_lock<nano::mutex> & lock, std::shared_ptr<nano::election> election)
@@ -324,12 +323,16 @@ void nano::active_elections::erase_election (nano::unique_lock<nano::mutex> & lo
 	debug_assert (lock.owns_lock ());
 	debug_assert (!election->confirmed () || recently_confirmed.contains (election->qualified_root));
 
-	auto blocks_l = election->blocks ();
-	node.vote_router.disconnect (*election);
+	// Seal a live election first so nothing already dispatched to it can register a route after the disconnect, a confirmed or expired election is already sealed and keeps its state
+	// The state observed by the seal is the state the election was erased in, reported by the stats and logs below
+	auto const transition = election->cancel ();
+
+	// Disconnect routes for both held and previously evicted blocks
+	node.vote_router.disconnect (election);
 
 	// Erase from index
 	bool erased = index.erase (election);
-	release_assert (erased);
+	debug_assert (erased);
 
 	// Get and remove the erased callback
 	auto callback_it = erased_callbacks.find (election->qualified_root);
@@ -342,8 +345,8 @@ void nano::active_elections::erase_election (nano::unique_lock<nano::mutex> & lo
 
 	node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::stopped);
 	node.stats.inc (nano::stat::type::active_elections, election->confirmed () ? nano::stat::detail::confirmed : nano::stat::detail::unconfirmed);
-	node.stats.inc (nano::stat::type::active_elections_stopped, to_stat_detail (election->state ()));
-	node.stats.inc (to_stat_type (election->state ()), to_stat_detail (election->behavior ()));
+	node.stats.inc (nano::stat::type::active_elections_stopped, to_stat_detail (transition.previous));
+	node.stats.inc (to_stat_type (transition.previous), to_stat_detail (election->behavior ()));
 
 	node.logger.trace (nano::log::type::active_elections, nano::log::detail::active_stopped, nano::log::arg{ "election", election });
 
@@ -351,10 +354,12 @@ void nano::active_elections::erase_election (nano::unique_lock<nano::mutex> & lo
 	election->qualified_root,
 	fmt::join (election->blocks_hashes (), ", "), // TODO: Lazy eval
 	to_string (election->behavior ()),
-	to_string (election->state ()),
+	to_string (transition.previous),
 	election->voter_count (),
 	election->block_count (),
 	election->duration ().count ());
+
+	auto blocks_l = election->blocks ();
 
 	lock.unlock ();
 
@@ -418,6 +423,7 @@ auto nano::active_elections::block_cemented (std::shared_ptr<nano::block> const 
 	auto election = election_impl (block->qualified_root ());
 
 	nano::election_status status;
+	nano::confirmation_type type;
 	std::vector<nano::vote_with_weight_info> votes;
 	status.winner = block;
 
@@ -427,63 +433,67 @@ auto nano::active_elections::block_cemented (std::shared_ptr<nano::block> const 
 		status = source_election->get_status ();
 		debug_assert (status.winner->hash () == block->hash ());
 		votes = source_election->votes_with_weight ();
-		status.type = nano::election_status_type::active_confirmed_quorum;
+		type = nano::confirmation_type::active_confirmed_quorum;
 	}
 	else if (election)
 	{
-		status.type = nano::election_status_type::active_confirmation_height;
+		type = nano::confirmation_type::active_confirmation_height;
 	}
 	else
 	{
-		status.type = nano::election_status_type::inactive_confirmation_height;
+		type = nano::confirmation_type::inactive_confirmation_height;
 	}
 
 	recently_cemented.put (status);
 
 	node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::cemented);
-	node.stats.inc (nano::stat::type::active_elections_cemented, to_stat_detail (status.type));
+	node.stats.inc (nano::stat::type::active_elections_cemented, to_stat_detail (type));
 
-	node.logger.debug (nano::log::type::active_elections, "Cemented root: {} with block: {} (status: {})",
+	node.logger.debug (nano::log::type::active_elections, "Cemented root: {} with block: {} (type: {})",
 	block->qualified_root (),
 	block->hash (),
-	to_string (status.type));
+	to_string (type));
 
 	node.logger.trace (nano::log::type::active_elections, nano::log::detail::active_cemented,
 	nano::log::arg{ "block", block },
 	nano::log::arg{ "confirmation_root", confirmation_root },
 	nano::log::arg{ "source_election", source_election });
 
-	return { election, status, votes };
+	return { election, status, type, votes };
 }
 
-void nano::active_elections::notify_observers (nano::secure::transaction const & transaction, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes) const
+void nano::active_elections::notify_observers (nano::secure::transaction const & transaction, nano::election_status const & status, nano::confirmation_type type, std::vector<nano::vote_with_weight_info> const & votes) const
 {
 	// Get block from ledger to ensure sideband is set (forked blocks may not have sideband)
 	auto const block = node.ledger.any.block_get (transaction, status.winner->hash ());
 	release_assert (block != nullptr); // Block must exist in the ledger since it was cemented
 	auto const account = block->account ();
 
-	switch (status.type)
+	switch (type)
 	{
-		case nano::election_status_type::active_confirmed_quorum:
+		case nano::confirmation_type::active_confirmed_quorum:
 			node.stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out);
 			break;
-		case nano::election_status_type::active_confirmation_height:
+		case nano::confirmation_type::active_confirmation_height:
 			node.stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::active_conf_height, nano::stat::dir::out);
 			break;
-		case nano::election_status_type::inactive_confirmation_height:
+		case nano::confirmation_type::inactive_confirmation_height:
 			node.stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out);
-			break;
-		default:
 			break;
 	}
 
-	if (!node.observers.blocks.empty ())
+	if (!node.observers.block_confirmed.empty ())
 	{
-		auto amount = node.ledger.any.block_amount (transaction, block).value_or (0).number ();
-		auto is_state_send = block->type () == block_type::state && block->is_send ();
-		auto is_state_epoch = block->type () == block_type::state && block->is_epoch ();
-		node.observers.blocks.notify (status, votes, account, amount, is_state_send, is_state_epoch);
+		nano::block_confirmation_info confirmation{
+			.status = status,
+			.type = type,
+			.votes = votes,
+			.account = account,
+			.amount = node.ledger.any.block_amount (transaction, block).value_or (0),
+			.is_state_send = block->type () == block_type::state && block->is_send (),
+			.is_state_epoch = block->type () == block_type::state && block->is_epoch (),
+		};
+		node.observers.block_confirmed.notify (confirmation);
 	}
 
 	node.observers.account_balance.notify (account, false);
@@ -531,14 +541,14 @@ void nano::active_elections::tick_elections (nano::unique_lock<nano::mutex> & lo
 
 		if (auto const & snapshot = actions.snapshot)
 		{
-			if (actions.broadcast && solicitor.broadcast (*snapshot))
+			if (actions.broadcast_block && solicitor.broadcast (*snapshot))
 			{
 				election->broadcast_sent (snapshot->winner->hash ());
 
 				// Random flood for block propagation
 				node.block_rebroadcaster.push (snapshot->winner);
 			}
-			if (actions.request && solicitor.add (*snapshot))
+			if (actions.request_votes && solicitor.add (*snapshot))
 			{
 				election->request_sent ();
 			}
@@ -615,8 +625,8 @@ void nano::active_elections::checkup_elections (nano::unique_lock<nano::mutex> &
 		// Usually the normal cemented callback will handle the cleanup
 		if ((now - election->get_state_start ()) > min_duration && should_cancel (election))
 		{
-			bool cancelled = election->cancel ();
-			if (cancelled)
+			auto const transition = election->cancel ();
+			if (transition.previous != transition.current)
 			{
 				node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::cancel_checkup);
 				node.logger.debug (nano::log::type::active_elections, "Checkup cancelled election for root: {} with blocks: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
@@ -908,14 +918,4 @@ nano::stat::type nano::to_stat_type (nano::election_state state)
 	}
 	debug_assert (false);
 	return {};
-}
-
-std::string_view nano::to_string (nano::election_status_type type)
-{
-	return nano::enum_to_string (type);
-}
-
-nano::stat::detail nano::to_stat_detail (nano::election_status_type type)
-{
-	return nano::enum_convert<nano::stat::detail> (type);
 }

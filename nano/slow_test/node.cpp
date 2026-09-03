@@ -344,7 +344,7 @@ TEST (node, fork_storm)
 			{
 				auto active_list = node_a->active.list_active ();
 				auto election = *active_list.begin ();
-				if (election->votes ().size () == 1)
+				if (election->votes ().empty ())
 				{
 					++single;
 				}

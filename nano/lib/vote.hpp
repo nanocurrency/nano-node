@@ -44,14 +44,17 @@ public:
 	std::chrono::milliseconds duration () const;
 	bool is_final () const;
 
-	static uint64_t constexpr timestamp_mask = { 0xffff'ffff'ffff'fff0ULL };
-	static nano::seconds_t constexpr timestamp_max = { 0xffff'ffff'ffff'fff0ULL };
-	static uint64_t constexpr timestamp_min = { 0x0000'0000'0000'0010ULL };
-	static uint8_t constexpr duration_max = { 0x0fu };
+public:
+	// The vote timestamp packs the timestamp itself into the upper 60 bits and the duration exponent into the low 4 bits; the all-ones value marks a final vote
+	static uint64_t constexpr timestamp_mask = { 0xffff'ffff'ffff'fff0ULL }; // Masks off the duration bits to extract the timestamp
+	static uint64_t constexpr timestamp_final = { 0xffff'ffff'ffff'ffffULL }; // Timestamp of a final vote, the reserved all-ones value
+	static uint64_t constexpr timestamp_max = { 0xffff'ffff'ffff'fff0ULL }; // Highest timestamp, packable only together with duration_max, which forms timestamp_final; not itself the final marker
+	static uint64_t constexpr timestamp_min = { 0x0000'0000'0000'0010ULL }; // Lowest nonzero timestamp, a single timestamp step
+	static uint8_t constexpr duration_max = { 0x0fu }; // Highest duration exponent, fills the low 4 bits
 
 	static std::size_t constexpr max_hashes = 255;
 
-	/* Check if timestamp represents a final vote */
+	// Whether the given timestamp is the final vote marker
 	static bool is_final_timestamp (uint64_t timestamp);
 
 public: // Payload

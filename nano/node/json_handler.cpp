@@ -1335,10 +1335,9 @@ void nano::json_handler::block_confirm ()
 			else
 			{
 				// Add record in confirmation history for confirmed block
-				nano::election_status status{ block_l, nano::election_status_type::active_confirmation_height };
+				nano::election_status status{ .winner = block_l, .block_count = 1 };
 				node.active.recently_cemented.put (status);
 				// Trigger callback for confirmed block
-				auto account = block_l->account ();
 				auto amount = node.ledger.any.block_amount (transaction, hash);
 				bool is_state_send (false);
 				bool is_state_epoch (false);
@@ -1350,7 +1349,15 @@ void nano::json_handler::block_confirm ()
 						is_state_epoch = amount.value () == 0 && node.ledger.is_epoch_link (state->link_field ().value ());
 					}
 				}
-				node.observers.blocks.notify (status, {}, account, amount ? amount.value ().number () : 0, is_state_send, is_state_epoch);
+				nano::block_confirmation_info confirmation{
+					.status = status,
+					.type = nano::confirmation_type::active_confirmation_height,
+					.account = block_l->account (),
+					.amount = amount.value_or (0),
+					.is_state_send = is_state_send,
+					.is_state_epoch = is_state_epoch,
+				};
+				node.observers.block_confirmed.notify (confirmation);
 			}
 			response_l.put ("started", "1");
 		}
@@ -2206,17 +2213,25 @@ void nano::json_handler::confirmation_info ()
 		auto election (node.active.election (root));
 		if (election != nullptr && !election->confirmed ())
 		{
-			auto info = election->current_status ();
+			auto info = election->get_extended_status ();
 			response_l.put ("announcements", std::to_string (info.status.confirmation_request_count));
 			response_l.put ("voters", std::to_string (info.votes.size ()));
 			response_l.put ("last_winner", info.status.winner->hash ().to_string ());
+			std::unordered_map<nano::block_hash, nano::uint128_t> tally_by_hash;
+			for (auto const & [key, block] : info.tally)
+			{
+				tally_by_hash[key.hash] = key.weight;
+			}
 			nano::uint128_t total (0);
 			boost::property_tree::ptree blocks;
-			for (auto const & [tally, block] : info.tally)
+			// List every competing block, including ones without any vote weight yet
+			for (auto const & [hash, block] : info.blocks)
 			{
+				auto const tallied = tally_by_hash.find (hash);
+				nano::uint128_t const weight = tallied != tally_by_hash.end () ? tallied->second : 0;
 				boost::property_tree::ptree entry;
-				entry.put ("tally", tally.convert_to<std::string> ());
-				total += tally;
+				entry.put ("tally", weight.convert_to<std::string> ());
+				total += weight;
 				if (contents)
 				{
 					if (json_block_l)
@@ -2242,7 +2257,7 @@ void nano::json_handler::confirmation_info ()
 						{
 							auto amount (node.ledger.weight (representative));
 							representatives.emplace (amount, representative);
-							if (vote.timestamp == std::numeric_limits<uint64_t>::max ())
+							if (vote.final ())
 							{
 								representatives_final.emplace (amount, representative);
 							}

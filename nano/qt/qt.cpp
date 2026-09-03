@@ -11,9 +11,9 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/traffic_type.hpp>
 #include <nano/node/unchecked_map.hpp>
-#include <nano/node/vote_with_weight_info.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/qt/qt.hpp>
+#include <nano/secure/election_ballot.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/store/ledger/account.hpp>
@@ -1367,10 +1367,10 @@ void nano_qt::wallet::start ()
 			this_l->push_main_stack (this_l->send_blocks_window);
 		}
 	});
-	node.observers.blocks.add ([this_w] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::uint128_t const & amount_a, bool, bool) {
+	node.observers.block_confirmed.add ([this_w] (nano::block_confirmation_info const & confirmation_a) {
 		if (auto this_l = this_w.lock ())
 		{
-			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, status_a, account_a] () {
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, account_a = confirmation_a.account] () {
 				if (auto this_l = this_w.lock ())
 				{
 					if (this_l->wallet_m->exists (account_a))
