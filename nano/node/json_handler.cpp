@@ -35,6 +35,8 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
+#include <nano/secure/state_commitment.hpp>
+#include <nano/secure/storage_weighted_work.hpp>
 #include <nano/secure/transaction.hpp>
 #include <nano/store/ledger/account.hpp>
 #include <nano/store/ledger/block.hpp>
@@ -51,6 +53,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <vector>
 
 namespace
@@ -1590,6 +1593,270 @@ void nano::json_handler::block_count ()
 		response_l.put ("pruned", std::to_string (node.ledger.pruned_count ()));
 	}
 	response_errors ();
+}
+
+void nano::json_handler::state_commitment ()
+{
+	// Read-only measurement (Block 1): compute the deterministic Merkle commitment
+	// over cemented state. Runs on the worker pool since it walks the whole cemented
+	// account frontier and pending set.
+	node.workers.post (create_worker_task ([] (std::shared_ptr<nano::json_handler> const & rpc_l) {
+		auto transaction (rpc_l->node.ledger.tx_begin_read ());
+		auto commitment (nano::compute_state_commitment (rpc_l->node.ledger, transaction));
+		rpc_l->response_l.put ("root", commitment.root.to_string ());
+		rpc_l->response_l.put ("accounts_root", commitment.accounts_root.to_string ());
+		rpc_l->response_l.put ("pending_root", commitment.pending_root.to_string ());
+		rpc_l->response_l.put ("account_count", std::to_string (commitment.account_count));
+		rpc_l->response_l.put ("pending_count", std::to_string (commitment.pending_count));
+		rpc_l->response_errors ();
+	}));
+}
+
+void nano::json_handler::state_proof ()
+{
+	// Build a succinct inclusion proof (Block 2) against the state commitment root.
+	// With just "account", proves that account's cemented frontier + balance.
+	// With "account" + "hash", proves the pending entry (account, send hash).
+	node.workers.post (create_worker_task ([] (std::shared_ptr<nano::json_handler> const & rpc_l) {
+		auto account (rpc_l->account_impl ());
+		auto hash_text (rpc_l->request.get_optional<std::string> ("hash"));
+		if (rpc_l->ec)
+		{
+			rpc_l->response_errors ();
+			return;
+		}
+		auto transaction (rpc_l->node.ledger.tx_begin_read ());
+		std::optional<nano::state_proof> proof;
+		if (hash_text.has_value ())
+		{
+			nano::block_hash hash{ 0 };
+			if (hash.decode_hex (hash_text.value ()))
+			{
+				rpc_l->ec = nano::error_blocks::invalid_block_hash;
+				rpc_l->response_errors ();
+				return;
+			}
+			proof = nano::generate_pending_proof (rpc_l->node.ledger, transaction, nano::pending_key{ account, hash });
+		}
+		else
+		{
+			proof = nano::generate_account_proof (rpc_l->node.ledger, transaction, account);
+		}
+		if (!proof.has_value ())
+		{
+			rpc_l->ec = nano::error_common::account_not_found;
+			rpc_l->response_errors ();
+			return;
+		}
+
+		auto const & p = proof.value ();
+		if (p.account_claim.has_value ())
+		{
+			auto const & c = p.account_claim.value ();
+			boost::property_tree::ptree claim;
+			claim.put ("type", "account");
+			claim.put ("account", c.account.to_account ());
+			claim.put ("frontier", c.frontier.to_string ());
+			claim.put ("balance", c.balance.number ().convert_to<std::string> ());
+			claim.put ("height", std::to_string (c.height));
+			rpc_l->response_l.add_child ("claim", claim);
+		}
+		else
+		{
+			auto const & c = p.pending_claim.value ();
+			boost::property_tree::ptree claim;
+			claim.put ("type", "pending");
+			claim.put ("account", c.account.to_account ());
+			claim.put ("hash", c.hash.to_string ());
+			claim.put ("source", c.source.to_account ());
+			claim.put ("amount", c.amount.number ().convert_to<std::string> ());
+			claim.put ("epoch", std::to_string (static_cast<unsigned> (c.epoch)));
+			rpc_l->response_l.add_child ("claim", claim);
+		}
+
+		boost::property_tree::ptree path;
+		for (auto const & step : p.path)
+		{
+			boost::property_tree::ptree node;
+			node.put ("hash", step.hash.to_string ());
+			node.put ("sibling_on_right", step.sibling_on_right ? "true" : "false");
+			path.push_back (std::make_pair ("", node));
+		}
+		rpc_l->response_l.add_child ("path", path);
+
+		boost::property_tree::ptree peaks;
+		for (auto const & peak : p.peaks)
+		{
+			boost::property_tree::ptree entry;
+			entry.put ("", peak.to_string ());
+			peaks.push_back (std::make_pair ("", entry));
+		}
+		rpc_l->response_l.add_child ("peaks", peaks);
+
+		rpc_l->response_l.put ("peak_index", std::to_string (p.peak_index));
+		rpc_l->response_l.put ("other_root", p.other_root.to_string ());
+		rpc_l->response_l.put ("account_count", std::to_string (p.account_count));
+		rpc_l->response_l.put ("pending_count", std::to_string (p.pending_count));
+		rpc_l->response_l.put ("root", p.root.to_string ());
+		// Self-check so a caller can trust the node computed a consistent proof.
+		rpc_l->response_l.put ("verified", nano::verify_state_proof (p) ? "true" : "false");
+		rpc_l->response_errors ();
+	}));
+}
+
+void nano::json_handler::state_checkpoint ()
+{
+	// Capture the current cemented commitment as a checkpoint anchor (Block 3).
+	node.workers.post (create_worker_task ([] (std::shared_ptr<nano::json_handler> const & rpc_l) {
+		auto transaction (rpc_l->node.ledger.tx_begin_read ());
+		auto checkpoint (nano::capture_state_checkpoint (rpc_l->node.ledger, transaction));
+		rpc_l->response_l.put ("cemented_height", std::to_string (checkpoint.cemented_height));
+		rpc_l->response_l.put ("root", checkpoint.root.to_string ());
+		rpc_l->response_l.put ("account_count", std::to_string (checkpoint.account_count));
+		rpc_l->response_l.put ("pending_count", std::to_string (checkpoint.pending_count));
+		rpc_l->response_errors ();
+	}));
+}
+
+void nano::json_handler::state_retention_plan ()
+{
+	// Plan capped retention (Block 3): report the safe-to-drop set, reclaimable bytes,
+	// and a frontier-proof safety check against the checkpoint root. Read-only.
+	auto window_text (request.get_optional<std::string> ("window"));
+	auto count_text (request.get_optional<std::string> ("count"));
+	uint64_t window = 128;
+	uint64_t max_prove = 128;
+	if (window_text.has_value () && decode_unsigned (window_text.value (), window))
+	{
+		ec = nano::error_common::invalid_count;
+	}
+	if (!ec && count_text.has_value () && decode_unsigned (count_text.value (), max_prove))
+	{
+		ec = nano::error_common::invalid_count;
+	}
+	if (ec)
+	{
+		response_errors ();
+		return;
+	}
+	node.workers.post (create_worker_task ([window, max_prove] (std::shared_ptr<nano::json_handler> const & rpc_l) {
+		auto transaction (rpc_l->node.ledger.tx_begin_read ());
+		auto plan (nano::plan_capped_retention (rpc_l->node.ledger, transaction, window, max_prove));
+		rpc_l->response_l.put ("root", plan.checkpoint.root.to_string ());
+		rpc_l->response_l.put ("cemented_height", std::to_string (plan.checkpoint.cemented_height));
+		rpc_l->response_l.put ("account_count", std::to_string (plan.checkpoint.account_count));
+		rpc_l->response_l.put ("history_window", std::to_string (plan.history_window));
+		rpc_l->response_l.put ("kept_blocks", std::to_string (plan.kept_blocks));
+		rpc_l->response_l.put ("droppable_blocks", std::to_string (plan.droppable_blocks));
+		rpc_l->response_l.put ("retained_pending", std::to_string (plan.retained_pending));
+		rpc_l->response_l.put ("reclaimable_bytes", std::to_string (plan.reclaimable_bytes));
+		rpc_l->response_l.put ("accounts_checked", std::to_string (plan.accounts_checked));
+		rpc_l->response_l.put ("accounts_proven", std::to_string (plan.accounts_proven));
+		rpc_l->response_l.put ("all_proven", plan.all_proven ? "true" : "false");
+		rpc_l->response_errors ();
+	}));
+}
+
+void nano::json_handler::state_pending_sweep ()
+{
+	// Plan the cold-pending sweep (Block 4): identify aged, sub-threshold pending entries
+	// that can be offloaded to the committed cold subtree, quantify reclaimable bytes, and
+	// prove each offloaded entry stays claimable against cold_root. Read-only, no deletion.
+	auto age_text (request.get_optional<std::string> ("age"));
+	auto threshold_text (request.get_optional<std::string> ("threshold"));
+	auto reference_text (request.get_optional<std::string> ("reference_timestamp"));
+	auto count_text (request.get_optional<std::string> ("count"));
+
+	uint64_t min_age_seconds = 30 * 24 * 60 * 60; // default 30 days
+	nano::amount amount_threshold{ 1 }; // default: 1 raw (the dust vector)
+	uint64_t reference_timestamp = nano::seconds_since_epoch ();
+	uint64_t max_prove = 128;
+
+	if (age_text.has_value () && decode_unsigned (age_text.value (), min_age_seconds))
+	{
+		ec = nano::error_common::invalid_count;
+	}
+	if (!ec && threshold_text.has_value () && amount_threshold.decode_dec (threshold_text.value ()))
+	{
+		ec = nano::error_common::bad_threshold;
+	}
+	if (!ec && reference_text.has_value () && decode_unsigned (reference_text.value (), reference_timestamp))
+	{
+		ec = nano::error_common::invalid_count;
+	}
+	if (!ec && count_text.has_value () && decode_unsigned (count_text.value (), max_prove))
+	{
+		ec = nano::error_common::invalid_count;
+	}
+	if (ec)
+	{
+		response_errors ();
+		return;
+	}
+
+	node.workers.post (create_worker_task ([min_age_seconds, amount_threshold, reference_timestamp, max_prove] (std::shared_ptr<nano::json_handler> const & rpc_l) {
+		auto transaction (rpc_l->node.ledger.tx_begin_read ());
+		auto plan (nano::plan_pending_sweep (rpc_l->node.ledger, transaction, reference_timestamp, min_age_seconds, amount_threshold, max_prove));
+		rpc_l->response_l.put ("root", plan.checkpoint.root.to_string ());
+		rpc_l->response_l.put ("reference_timestamp", std::to_string (plan.reference_timestamp));
+		rpc_l->response_l.put ("min_age_seconds", std::to_string (plan.min_age_seconds));
+		rpc_l->response_l.put ("amount_threshold", plan.amount_threshold.number ().convert_to<std::string> ());
+		rpc_l->response_l.put ("hot_count", std::to_string (plan.hot_count));
+		rpc_l->response_l.put ("cold_count", std::to_string (plan.cold_count));
+		rpc_l->response_l.put ("cold_root", plan.cold_root.to_string ());
+		rpc_l->response_l.put ("reclaimable_pending_bytes", std::to_string (plan.reclaimable_pending_bytes));
+		rpc_l->response_l.put ("cold_checked", std::to_string (plan.cold_checked));
+		rpc_l->response_l.put ("cold_proven", std::to_string (plan.cold_proven));
+		rpc_l->response_l.put ("all_proven", plan.all_proven ? "true" : "false");
+		rpc_l->response_errors ();
+	}));
+}
+
+void nano::json_handler::work_storage_weight ()
+{
+	// Advisory (Block 5): evaluate a block against the storage-weighted PoW requirement.
+	// A state send to a not-yet-opened account must carry `multiplier`x the base work.
+	auto hash (hash_impl ());
+	double multiplier = 8.0; // default: state-creating sends must work 8x harder
+	auto multiplier_text (request.get_optional<std::string> ("multiplier"));
+	if (!ec && multiplier_text.has_value ())
+	{
+		try
+		{
+			multiplier = std::stod (multiplier_text.value ());
+		}
+		catch (...)
+		{
+			ec = nano::error_rpc::bad_multiplier_format;
+		}
+		if (!ec && (multiplier < 1.0 || !std::isfinite (multiplier)))
+		{
+			ec = nano::error_rpc::bad_multiplier_format;
+		}
+	}
+	if (ec)
+	{
+		response_errors ();
+		return;
+	}
+	node.workers.post (create_worker_task ([hash, multiplier] (std::shared_ptr<nano::json_handler> const & rpc_l) {
+		auto transaction (rpc_l->node.ledger.tx_begin_read ());
+		auto block (rpc_l->node.ledger.any.block_get (transaction, hash));
+		if (block == nullptr)
+		{
+			rpc_l->ec = nano::error_blocks::not_found;
+			rpc_l->response_errors ();
+			return;
+		}
+		auto result (nano::evaluate_storage_weighted_work (rpc_l->node.ledger, transaction, *block, multiplier));
+		rpc_l->response_l.put ("creates_new_account", result.creates_new_account ? "true" : "false");
+		rpc_l->response_l.put ("weight_multiplier", nano::to_string (result.weight_multiplier));
+		rpc_l->response_l.put ("base_threshold", nano::to_string_hex (result.base_threshold));
+		rpc_l->response_l.put ("required_threshold", nano::to_string_hex (result.required_threshold));
+		rpc_l->response_l.put ("achieved_difficulty", nano::to_string_hex (result.achieved_difficulty));
+		rpc_l->response_l.put ("satisfies", result.satisfies ? "true" : "false");
+		rpc_l->response_errors ();
+	}));
 }
 
 void nano::json_handler::block_create ()
@@ -5595,6 +5862,12 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("blocks_info", &nano::json_handler::blocks_info);
 	no_arg_funcs.emplace ("block_account", &nano::json_handler::block_account);
 	no_arg_funcs.emplace ("block_count", &nano::json_handler::block_count);
+	no_arg_funcs.emplace ("state_commitment", &nano::json_handler::state_commitment);
+	no_arg_funcs.emplace ("state_proof", &nano::json_handler::state_proof);
+	no_arg_funcs.emplace ("state_checkpoint", &nano::json_handler::state_checkpoint);
+	no_arg_funcs.emplace ("state_retention_plan", &nano::json_handler::state_retention_plan);
+	no_arg_funcs.emplace ("state_pending_sweep", &nano::json_handler::state_pending_sweep);
+	no_arg_funcs.emplace ("work_storage_weight", &nano::json_handler::work_storage_weight);
 	no_arg_funcs.emplace ("block_create", &nano::json_handler::block_create);
 	no_arg_funcs.emplace ("block_hash", &nano::json_handler::block_hash);
 	no_arg_funcs.emplace ("bootstrap", &nano::json_handler::bootstrap);
