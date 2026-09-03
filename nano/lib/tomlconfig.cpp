@@ -2,6 +2,9 @@
 #include <nano/lib/files.hpp>
 #include <nano/lib/tomlconfig.hpp>
 
+#include <sstream>
+#include <unordered_map>
+
 nano::tomlconfig::tomlconfig () :
 	tree (cpptoml::make_table ())
 {
@@ -187,33 +190,111 @@ void nano::tomlconfig::erase_default_values (tomlconfig & defaults_a)
 	erase_defaults (defaults_l.get_tree (), self.get_tree (), get_tree ());
 }
 
-// Merges two TOML configurations and commenting values that are identical
+namespace
+{
+/**
+ * Tracks the current TOML section while iterating over a serialized config and, for value
+ * lines, returns the fully qualified key. Headers (e.g. "[node.bootstrap]") update the
+ * tracked section; description and blank lines return std::nullopt.
+ */
+std::optional<std::string> qualified_key_for_line (std::string const & line, std::string & section)
+{
+	auto first = line.find_first_not_of (" \t");
+	if (first == std::string::npos)
+	{
+		return std::nullopt;
+	}
+
+	// Section header, e.g. [node] or [node.bootstrap]
+	if (line[first] == '[')
+	{
+		auto close = line.find (']', first);
+		if (close != std::string::npos)
+		{
+			section = line.substr (first + 1, close - first - 1);
+		}
+		return std::nullopt;
+	}
+
+	// Only commented lines can be value lines at this stage
+	auto hash = line.find ('#', first);
+	if (hash == std::string::npos)
+	{
+		return std::nullopt;
+	}
+
+	auto rest_start = line.find_first_not_of (" \t", hash + 1);
+	if (rest_start == std::string::npos)
+	{
+		return std::nullopt;
+	}
+
+	auto eq = line.find (" = ", rest_start);
+	if (eq == std::string::npos)
+	{
+		return std::nullopt;
+	}
+
+	std::string key = line.substr (rest_start, eq - rest_start);
+	// A real key is a bare identifier; description text contains spaces and never matches this.
+	if (key.empty () || key.find_first_of (" \t") != std::string::npos)
+	{
+		return std::nullopt;
+	}
+
+	return section.empty () ? key : section + "." + key;
+}
+
+/** Remove the comment marker from a value line produced by to_string (true). */
+std::string uncomment_line (std::string const & line)
+{
+	auto hash = line.find ('#');
+	debug_assert (hash != std::string::npos);
+	return line.substr (0, hash) + line.substr (hash + 1);
+}
+}
+
+// Merges two TOML configurations, commenting values that are identical to their default and
+// leaving user supplied (non default) values uncommented.
 std::string nano::tomlconfig::merge_defaults (nano::tomlconfig & current_config, nano::tomlconfig & default_config)
 {
 	// Serialize both configs to commented strings
 	std::string defaults_str = default_config.to_string (true);
 	std::string current_str = current_config.to_string (true);
 
-	// Read both configs line by line
-	std::istringstream stream_defaults (defaults_str);
-	std::istringstream stream_current (current_str);
-	std::string line_defaults, line_current, result;
-
-	while (std::getline (stream_defaults, line_defaults) && std::getline (stream_current, line_current))
+	// Index every default value line by its fully qualified key so we can compare against the
+	// current config without relying on the two serializations being on the same line
+	std::unordered_map<std::string, std::string> default_values;
 	{
-		if (line_defaults == line_current)
+		std::istringstream stream_defaults (defaults_str);
+		std::string line, section;
+		while (std::getline (stream_defaults, line))
 		{
-			// Use default value
-			result += line_defaults + "\n";
+			if (auto key = qualified_key_for_line (line, section))
+			{
+				default_values[*key] = uncomment_line (line);
+			}
 		}
-		else
+	}
+
+	// Walk the current config, which already contains all valid keys
+	std::istringstream stream_current (current_str);
+	std::string line, section, result;
+	while (std::getline (stream_current, line))
+	{
+		if (auto key = qualified_key_for_line (line, section))
 		{
-			// Non default value. Removing the # to uncomment
-			size_t pos = line_current.find ('#');
-			debug_assert (pos != std::string::npos);
-			debug_assert (pos < line_current.length ());
-			result += line_current.substr (0, pos) + line_current.substr (pos + 1) + "\n";
+			std::string uncommented = uncomment_line (line);
+			auto it = default_values.find (*key);
+			// Uncomment when the value differs from the default, or when the key is absent from the defaults
+			if (it == default_values.end () || it->second != uncommented)
+			{
+				result += uncommented + "\n";
+				continue;
+			}
 		}
+
+		result += line + "\n";
 	}
 
 	return result;
