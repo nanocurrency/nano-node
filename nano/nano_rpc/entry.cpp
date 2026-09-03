@@ -9,7 +9,6 @@
 #include <nano/lib/utility.hpp>
 #include <nano/lib/version.hpp>
 #include <nano/node/cli.hpp>
-#include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
