@@ -44,20 +44,32 @@ void nano::vote_router::stop ()
 	}
 }
 
-void nano::vote_router::connect (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election)
+bool nano::vote_router::connect (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election)
 {
 	std::unique_lock lock{ mutex };
 	auto & by_hash = routes.get<tag_hash> ();
-	if (auto existing = by_hash.find (hash); existing != by_hash.end ())
-	{
-		by_hash.modify (existing, [&election] (auto & route) {
-			route.election = election;
-		});
-	}
-	else
+	auto existing = by_hash.find (hash);
+	if (existing == by_hash.end ())
 	{
 		by_hash.insert ({ hash, election });
+		return true;
 	}
+	if (auto current = existing->election.lock ())
+	{
+		if (current == election)
+		{
+			return true;
+		}
+		// Two elections claiming one hash should not happen, the one started later is the current one and keeps the route
+		if (current->get_election_start () > election->get_election_start ())
+		{
+			return false;
+		}
+	}
+	by_hash.modify (existing, [&election] (auto & route) {
+		route.election = election;
+	});
+	return true;
 }
 
 void nano::vote_router::disconnect (std::shared_ptr<nano::election> const & election)
@@ -66,11 +78,22 @@ void nano::vote_router::disconnect (std::shared_ptr<nano::election> const & elec
 	routes.get<tag_election> ().erase (std::weak_ptr<nano::election>{ election });
 }
 
-bool nano::vote_router::disconnect (nano::block_hash const & hash)
+bool nano::vote_router::disconnect (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election)
 {
 	std::unique_lock lock{ mutex };
-	auto erased = routes.get<tag_hash> ().erase (hash);
-	return erased > 0;
+	auto & by_hash = routes.get<tag_hash> ();
+	auto existing = by_hash.find (hash);
+	if (existing == by_hash.end ())
+	{
+		return false;
+	}
+	// Only the election the route points to may remove it
+	if (existing->election.owner_before (election) || election.owner_before (existing->election))
+	{
+		return false;
+	}
+	by_hash.erase (existing);
+	return true;
 }
 
 std::unordered_map<nano::block_hash, nano::vote_code> nano::vote_router::vote (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, nano::block_hash filter)

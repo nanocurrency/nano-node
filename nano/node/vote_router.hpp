@@ -59,19 +59,20 @@ public:
 
 	/**
 	 * Add a route for 'hash' to 'election'.
-	 * Existing routes will be replaced.
+	 * A hash belongs to a single election, so an existing route to another election is replaced unless that election started later.
 	 * The hash must belong to the election's root, which the router cannot verify.
+	 * @return true if the route points to 'election' afterwards
 	 */
-	void connect (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election);
+	bool connect (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election);
 	/**
 	 * Remove all routes to this election.
 	 */
 	void disconnect (std::shared_ptr<nano::election> const & election);
 	/**
-	 * Remove route for hash.
-	 * @return true if route existed and was removed
+	 * Remove the route for 'hash' if it points to 'election'.
+	 * @return true if the route was removed
 	 */
-	bool disconnect (nano::block_hash const & hash);
+	bool disconnect (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election);
 
 	/**
 	 * Route vote to associated elections.

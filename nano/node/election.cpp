@@ -498,7 +498,7 @@ nano::vote_code nano::election::vote (nano::account const & representative, uint
 	// Stop routing an unheld hash once no current vote references it
 	if (previous_vote && previous_vote->hash != block_hash && !ballot.contains_block (previous_vote->hash) && !ballot.has_vote_for (previous_vote->hash))
 	{
-		node.vote_router.disconnect (previous_vote->hash);
+		node.vote_router.disconnect (previous_vote->hash, shared_from_this ());
 	}
 
 	node.stats.inc (nano::stat::type::election, nano::stat::detail::vote);
@@ -584,7 +584,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block)
 			// Keep routing an evicted hash only while a current vote still references it
 			if (!ballot.has_vote_for (result.evicted->hash ()))
 			{
-				node.vote_router.disconnect (result.evicted->hash ());
+				node.vote_router.disconnect (result.evicted->hash (), shared_from_this ());
 			}
 
 			// Route votes for the admitted replacement
