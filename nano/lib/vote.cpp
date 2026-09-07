@@ -119,7 +119,7 @@ bool nano::vote::operator!= (nano::vote const & other_a) const
  */
 uint64_t nano::vote::timestamp () const
 {
-	return (timestamp_m == std::numeric_limits<uint64_t>::max ())
+	return (timestamp_m == nano::vote::timestamp_final)
 	? timestamp_m // final vote
 	: (timestamp_m & timestamp_mask);
 }
@@ -186,7 +186,7 @@ uint64_t nano::vote::packed_timestamp (uint64_t timestamp, uint8_t duration)
 
 bool nano::vote::is_final_timestamp (uint64_t timestamp)
 {
-	return timestamp == std::numeric_limits<uint64_t>::max ();
+	return timestamp == nano::vote::timestamp_final;
 }
 
 void nano::vote::operator() (nano::object_stream & obs) const

@@ -3,7 +3,7 @@
 nano::container_info nano::node_observers::container_info () const
 {
 	nano::container_info info;
-	info.put ("blocks", blocks.size ());
+	info.put ("block_confirmed", block_confirmed.size ());
 	info.put ("wallet", wallet.size ());
 	info.put ("vote", vote.size ());
 	info.put ("active_started", active_started.size ());

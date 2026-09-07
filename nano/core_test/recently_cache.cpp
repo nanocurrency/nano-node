@@ -30,7 +30,6 @@ nano::election_status make_test_election_status (std::chrono::milliseconds durat
 	auto block = make_test_block ();
 	nano::election_status status;
 	status.winner = block;
-	status.type = nano::election_status_type::active_confirmed_quorum;
 	status.election_end = std::chrono::system_clock::now ();
 	status.election_duration = duration;
 	return status;

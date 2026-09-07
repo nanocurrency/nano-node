@@ -77,7 +77,7 @@ std::vector<std::shared_ptr<nano::vote>> nano::local_vote_history::votes (nano::
 	auto range (history.get<tag_root> ().equal_range (root_a));
 	// clang-format off
 	nano::transform_if (range.first, range.second, std::back_inserter (result),
-		[&hash_a, is_final_a](auto const & entry) { return entry.hash == hash_a && (!is_final_a || entry.vote->timestamp () == std::numeric_limits<uint64_t>::max ()); },
+		[&hash_a, is_final_a](auto const & entry) { return entry.hash == hash_a && (!is_final_a || entry.vote->is_final ()); },
 		[](auto const & entry) { return entry.vote; });
 	// clang-format on
 	return result;

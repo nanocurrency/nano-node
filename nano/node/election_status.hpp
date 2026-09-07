@@ -1,53 +1,66 @@
 #pragma once
 
+#include <nano/lib/fwd.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/stats_enums.hpp>
+#include <nano/node/fwd.hpp>
+#include <nano/secure/election_ballot.hpp>
 
 #include <chrono>
 #include <memory>
+#include <unordered_map>
+#include <vector>
 
 namespace nano
 {
-class block;
-}
-
-namespace nano
+/* Classifies how a cemented block came to be confirmed */
+enum class confirmation_type
 {
-/* Defines the possible states for an election to stop in */
-enum class election_status_type : uint8_t
-{
-	ongoing = 0,
-	active_confirmed_quorum = 1,
-	active_confirmation_height = 2,
-	inactive_confirmation_height = 3,
-	stopped = 5
+	active_confirmed_quorum, // Winner of its own election reaching final quorum
+	active_confirmation_height, // Cemented under a dependent election while its own election was still live
+	inactive_confirmation_height, // Cemented without a live election
 };
 
-std::string_view to_string (election_status_type);
-nano::stat::detail to_stat_detail (election_status_type);
+std::string_view to_string (confirmation_type);
+nano::stat::detail to_stat_detail (confirmation_type);
 
-/* Holds a summary of an election */
-class election_status final
+/** Summary of an election */
+struct election_status final
 {
-public:
-	std::shared_ptr<nano::block> winner;
-	nano::amount tally{ 0 };
-	nano::amount final_tally{ 0 };
-	std::chrono::system_clock::time_point election_end{};
-	std::chrono::milliseconds election_duration{};
-	unsigned confirmation_request_count{ 0 };
-	unsigned vote_broadcast_count{ 0 };
-	unsigned block_count{ 0 };
-	unsigned voter_count{ 0 };
-	election_status_type type{ nano::election_status_type::inactive_confirmation_height };
+	std::shared_ptr<nano::block> winner{}; // The winning block
+	nano::amount tally{ 0 }; // Vote weight behind the winner, normal + final votes
+	nano::amount final_tally{ 0 }; // Vote weight behind the winner, final votes only
+	std::chrono::system_clock::time_point election_end{}; // When the election confirmed, as system time
+	std::chrono::milliseconds election_duration{}; // Time from election start to confirmation
+	unsigned confirmation_request_count{ 0 }; // Confirmation requests sent
+	unsigned vote_broadcast_count{ 0 }; // Votes broadcast for the winner
+	unsigned block_count{ 0 }; // Held fork blocks
+	unsigned voter_count{ 0 }; // Representatives with a recorded vote
 
-	election_status () = default;
+	void operator() (nano::object_stream &) const;
+};
 
-	election_status (std::shared_ptr<nano::block> block_a, election_status_type type_a = nano::election_status_type::ongoing) :
-		winner (block_a),
-		type (type_a)
-	{
-		block_count = 1;
-	}
+/** Status extended with copies of the ballot state, all taken as one consistent snapshot */
+struct election_extended_status final
+{
+	nano::election_behavior behavior; // Scheduling behavior at the time of the snapshot
+	nano::election_status status; // The status summary
+	std::unordered_map<nano::account, nano::vote_info> votes; // All recorded votes by representative
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks; // All held blocks by hash
+	nano::tally_map tally; // Held blocks by tally position, zero-vote blocks absent
+
+	void operator() (nano::object_stream &) const;
+};
+
+/** Notification payload for a confirmed block */
+struct block_confirmation_info final
+{
+	nano::election_status status; // Election summary for the confirmed block
+	nano::confirmation_type type; // How the block came to be confirmed
+	std::vector<nano::vote_with_weight_info> votes; // Recorded votes with representative weights
+	nano::account account; // Account of the confirmed block
+	nano::amount amount; // Amount transferred by the block
+	bool is_state_send{ false }; // The block is a state send
+	bool is_state_epoch{ false }; // The block is a state epoch
 };
 }

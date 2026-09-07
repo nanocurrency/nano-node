@@ -12,8 +12,8 @@
 #include <nano/node/recently_cemented_cache.hpp>
 #include <nano/node/recently_confirmed_cache.hpp>
 #include <nano/node/vote_router.hpp>
-#include <nano/node/vote_with_weight_info.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/election_ballot.hpp>
 
 #include <chrono>
 #include <condition_variable>
@@ -81,7 +81,7 @@ public:
 	nano::priority_timestamp priority = 0,
 	erased_callback_t = nullptr);
 
-	// Notify this container about a new block (potential fork)
+	// Submit a potential fork block to the election for its root, if any; returns whether it was newly admitted
 	bool publish (std::shared_ptr<nano::block> const &);
 
 	// Trigger an immediate election update (e.g. after it is confirmed)
@@ -135,11 +135,12 @@ private:
 	{
 		std::shared_ptr<nano::election> election;
 		nano::election_status status;
+		nano::confirmation_type type;
 		std::vector<nano::vote_with_weight_info> votes;
 	};
 
 	block_cemented_result block_cemented (std::shared_ptr<nano::block> const & block, nano::block_hash const & confirmation_root, std::shared_ptr<nano::election> const & source_election);
-	void notify_observers (nano::secure::transaction const &, nano::election_status const & status, std::vector<nano::vote_with_weight_info> const & votes) const;
+	void notify_observers (nano::secure::transaction const &, nano::election_status const & status, nano::confirmation_type type, std::vector<nano::vote_with_weight_info> const & votes) const;
 
 	std::shared_ptr<nano::election> election_impl (nano::qualified_root const &) const;
 	std::vector<std::shared_ptr<nano::election>> list_active_impl (std::size_t max_count = std::numeric_limits<std::size_t>::max ()) const;

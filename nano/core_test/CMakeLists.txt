@@ -31,6 +31,7 @@ add_executable(
   difficulty.cpp
   distributed_work.cpp
   election.cpp
+  election_ballot.cpp
   election_pacing.cpp
   election_scheduler.cpp
   priority_scheduler.cpp
@@ -69,6 +70,7 @@ add_executable(
   peer_history.cpp
   priority_pool.cpp
   peer_container.cpp
+  rep_tiers.cpp
   rep_weight_store.cpp
   scheduler_buckets.cpp
   stats.cpp
@@ -91,6 +93,7 @@ add_executable(
   vote_processor.cpp
   vote_rebroadcaster.cpp
   vote_replier.cpp
+  vote_router.cpp
   voting.cpp
   wallet.cpp
   wallets.cpp

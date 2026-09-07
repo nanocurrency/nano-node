@@ -35,7 +35,7 @@ TEST (conflicts, start_stop)
 	auto election1 = nano::test::start_election (system, node1, send1->hash ());
 	ASSERT_EQ (1, node1.active.size ());
 	ASSERT_NE (nullptr, election1);
-	ASSERT_EQ (1, election1->votes ().size ());
+	ASSERT_EQ (0, election1->votes ().size ());
 }
 
 TEST (conflicts, add_existing)

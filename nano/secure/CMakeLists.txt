@@ -7,6 +7,8 @@ add_library(
   account_iterator_impl.hpp
   common.hpp
   common.cpp
+  election_ballot.hpp
+  election_ballot.cpp
   endpoint_key.hpp
   endpoint_key.cpp
   fwd.hpp
@@ -38,6 +40,8 @@ add_library(
   receivable_iterator.cpp
   receivable_iterator.hpp
   receivable_iterator_impl.hpp
+  rep_tiers.hpp
+  rep_tiers.cpp
   rep_weights.hpp
   rep_weights.cpp
   transaction.hpp
