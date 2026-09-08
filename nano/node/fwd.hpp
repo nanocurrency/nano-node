@@ -53,6 +53,7 @@ class node_config;
 class node_flags;
 class node_observers;
 class online_reps;
+class peer_blacklist;
 class peer_history;
 class peer_history_config;
 class port_mapping;

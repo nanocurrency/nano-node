@@ -2,6 +2,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/messages/messages.hpp>
 #include <nano/node/block_processor.hpp>
 #include <nano/node/bootstrap/bootstrap_service.hpp>
@@ -31,6 +32,8 @@
 #include <boost/iostreams/stream_buffer.hpp>
 #include <boost/range/join.hpp>
 #include <boost/thread.hpp>
+
+#include <sstream>
 
 using namespace std::chrono_literals;
 
@@ -1177,4 +1180,111 @@ TEST (network, peer_discovery_via_peering_only_node)
 
 	// C brokered the introduction without ever holding a ledger
 	ASSERT_EQ (1, node_c->ledger.block_count ());
+}
+
+/*
+ * A blacklisted node id should never get a channel, whichever side connects, until the entry is removed
+ */
+TEST (network, blacklist_node_id)
+{
+	nano::test::system system;
+	auto node0 = system.make_disconnected_node ();
+	auto node1 = system.make_disconnected_node ();
+	node0->network.blacklist.add (node1->get_node_id ());
+
+	// The blacklisted node connects in
+	node1->network.merge_peer (node0->network.endpoint ());
+	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_channels_rejected, nano::stat::detail::blacklisted) >= 1);
+	ASSERT_ALWAYS (500ms, node0->network.find_node_id (node1->get_node_id ()) == nullptr);
+	ASSERT_TIMELY (5s, node1->network.find_node_id (node0->get_node_id ()) == nullptr);
+
+	// This node connects out, the node id is only known after the handshake
+	node0->network.merge_peer (node1->network.endpoint ());
+	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_channels_rejected, nano::stat::detail::blacklisted) >= 2);
+	ASSERT_ALWAYS (500ms, node0->network.find_node_id (node1->get_node_id ()) == nullptr);
+
+	// Removing the entry lets the peer connect, the failed attempt is forgotten first so it is contacted again
+	node0->network.blacklist.remove (node1->get_node_id ());
+	node1->network.cleanup (std::chrono::steady_clock::now ());
+	node1->network.syn_cookies.purge (std::chrono::steady_clock::now ());
+	node1->network.merge_peer (node0->network.endpoint ());
+	ASSERT_TIMELY (5s, node0->network.find_node_id (node1->get_node_id ()) != nullptr);
+}
+
+/*
+ * A blacklisted address should be refused by the listener and never reached out to
+ */
+TEST (network, blacklist_address)
+{
+	nano::test::system system;
+	auto node0 = system.make_disconnected_node ();
+	auto node1 = system.make_disconnected_node ();
+	node0->network.blacklist.add (node1->network.endpoint ().address ());
+
+	ASSERT_FALSE (node0->network.track_reachout (node1->network.endpoint ()));
+
+	node1->network.merge_peer (node0->network.endpoint ());
+	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_listener_rejected, nano::stat::detail::blacklisted) >= 1);
+	ASSERT_ALWAYS (500ms, node0->network.find_node_id (node1->get_node_id ()) == nullptr);
+}
+
+/*
+ * Blacklist entries are parsed as node ids or addresses, anything else is a config error, and configured entries are applied on startup
+ */
+TEST (network, blacklist_config)
+{
+	auto parse = [] (std::string const & entries) {
+		std::stringstream ss;
+		ss << "blacklist = [" << entries << "]\n";
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::network_config config{ nano::dev::network_params.network };
+		auto const error = config.deserialize (toml);
+		return std::make_pair (error, config);
+	};
+
+	nano::keypair peer;
+	auto const [error, config] = parse ("\"" + peer.pub.to_node_id () + "\", \"192.168.1.1\", \"::1\"");
+	ASSERT_FALSE (error);
+	ASSERT_EQ (3, config.blacklist.size ());
+
+	auto const [error_invalid, config_invalid] = parse ("\"not-a-peer\"");
+	ASSERT_TRUE (error_invalid);
+
+	// Entries given in the config are loaded when the node starts, a v4 address matches its v4 mapped v6 form
+	nano::test::system system;
+	auto node_config = system.default_config ();
+	node_config.network->blacklist = { peer.pub.to_node_id (), "192.168.1.1" };
+	auto & node = *system.add_node (node_config);
+	ASSERT_EQ (2, node.network.blacklist.size ());
+	ASSERT_TRUE (node.network.blacklist.blocked (peer.pub));
+	ASSERT_TRUE (node.network.blacklist.blocked (boost::asio::ip::make_address ("::ffff:192.168.1.1")));
+	ASSERT_FALSE (node.network.blacklist.blocked (boost::asio::ip::make_address ("192.168.1.2")));
+}
+
+/*
+ * Entries are node ids or addresses in either spelling, anything else is rejected, and removal works for both kinds
+ */
+TEST (peer_blacklist, entries)
+{
+	nano::peer_blacklist blacklist;
+	nano::keypair peer;
+
+	ASSERT_TRUE (blacklist.add (peer.pub.to_node_id ()));
+	ASSERT_TRUE (blacklist.add ("10.0.0.1"));
+	ASSERT_FALSE (blacklist.add ("not-a-peer"));
+	ASSERT_FALSE (blacklist.add (""));
+	ASSERT_EQ (2, blacklist.size ());
+
+	ASSERT_TRUE (blacklist.blocked (peer.pub));
+	ASSERT_FALSE (blacklist.blocked (nano::keypair{}.pub));
+	ASSERT_TRUE (blacklist.blocked (boost::asio::ip::make_address ("10.0.0.1")));
+	ASSERT_TRUE (blacklist.blocked (boost::asio::ip::make_address ("::ffff:10.0.0.1")));
+	ASSERT_FALSE (blacklist.blocked (boost::asio::ip::make_address ("10.0.0.2")));
+
+	blacklist.remove (peer.pub);
+	blacklist.remove (boost::asio::ip::make_address ("::ffff:10.0.0.1"));
+	ASSERT_EQ (0, blacklist.size ());
+	ASSERT_FALSE (blacklist.blocked (peer.pub));
+	ASSERT_FALSE (blacklist.blocked (boost::asio::ip::make_address ("10.0.0.1")));
 }

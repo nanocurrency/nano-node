@@ -8,6 +8,7 @@
 #include <nano/messages/fwd.hpp>
 #include <nano/messages/node_id_handshake.hpp>
 #include <nano/node/endpoint.hpp>
+#include <nano/node/peer_blacklist.hpp>
 #include <nano/node/peer_exclusion.hpp>
 #include <nano/node/transport/common.hpp>
 #include <nano/node/transport/fwd.hpp>
@@ -90,6 +91,9 @@ public:
 	uint64_t duplicate_filter_cutoff{ 60 };
 
 	size_t minimum_fanout{ 2 };
+
+	// Node ids and IP addresses this node refuses to peer with
+	std::vector<std::string> blacklist;
 };
 
 class network final
@@ -202,6 +206,7 @@ public:
 	nano::syn_cookies syn_cookies;
 	boost::asio::ip::tcp::resolver resolver;
 	nano::peer_exclusion excluded_peers;
+	nano::peer_blacklist blacklist;
 	nano::network_filter filter;
 	nano::transport::tcp_channels tcp_channels;
 	std::atomic<uint16_t> port{ 0 };

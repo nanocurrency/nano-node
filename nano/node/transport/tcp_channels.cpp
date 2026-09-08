@@ -76,6 +76,14 @@ auto nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, 
 		return channel_result::rejected;
 	}
 
+	if (node.network.blacklist.blocked (node_id) || node.network.blacklist.blocked (endpoint.address ()))
+	{
+		node.stats.inc (nano::stat::type::tcp_channels_rejected, nano::stat::detail::blacklisted);
+		node.logger.debug (nano::log::type::tcp_channels, "Rejected blacklisted channel: {} ({})", endpoint, nano::log::as_node_id (node_id));
+
+		return channel_result::rejected;
+	}
+
 	bool has_duplicate = std::any_of (channels.begin (), channels.end (), [&endpoint, &node_id] (auto const & channel) {
 		if (nano::transport::is_same_ip (channel.endpoint ().address (), endpoint.address ()))
 		{
@@ -302,6 +310,10 @@ bool nano::transport::tcp_channels::track_reachout (nano::endpoint const & endpo
 		return false;
 	}
 	if (node.network.excluded_peers.check (tcp_endpoint))
+	{
+		return false;
+	}
+	if (node.network.blacklist.blocked (tcp_endpoint.address ()))
 	{
 		return false;
 	}

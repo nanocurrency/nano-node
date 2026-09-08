@@ -483,6 +483,14 @@ auto nano::transport::tcp_listener::check_limits (asio::ip::address const & ip, 
 		return accept_result::rejected_excluded;
 	}
 
+	if (node.network.blacklist.blocked (ip))
+	{
+		stats.inc (nano::stat::type::tcp_listener_rejected, nano::stat::detail::blacklisted, to_stat_dir (type));
+		logger.debug (nano::log::type::tcp_listener, "Rejected connection from blacklisted peer: {} ({})", ip, type);
+
+		return accept_result::rejected_blacklisted;
+	}
+
 	if (!node.flags.disable_max_peers_per_ip)
 	{
 		if (auto count = count_per_ip (ip); count >= node.config.network->max_peers_per_ip)
@@ -681,6 +689,8 @@ std::error_code nano::transport::to_error_code (nano::transport::tcp_listener::a
 	{
 		case accept_result::rejected_excluded:
 			return nano::error_network::peer_excluded;
+		case accept_result::rejected_blacklisted:
+			return nano::error_network::peer_blacklisted;
 		case accept_result::rejected_max_per_ip:
 			return nano::error_network::max_connections_per_ip;
 		case accept_result::rejected_max_per_subnetwork:

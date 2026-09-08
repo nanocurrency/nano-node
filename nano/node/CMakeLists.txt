@@ -159,6 +159,8 @@ add_library(
   peer_history.cpp
   peer_exclusion.hpp
   peer_exclusion.cpp
+  peer_blacklist.hpp
+  peer_blacklist.cpp
   portmapping.hpp
   portmapping.cpp
   pruning.hpp

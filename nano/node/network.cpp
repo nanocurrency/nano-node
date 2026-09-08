@@ -48,6 +48,14 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 		node.stats.inc (nano::stat::type::network, nano::stat::detail::connected);
 		node.logger.debug (nano::log::type::network, "Connected to: {}", channel);
 	});
+
+	for (auto const & entry : config.blacklist)
+	{
+		if (!blacklist.add (entry))
+		{
+			node.logger.warn (nano::log::type::network, "Ignoring invalid blacklist entry: {}", entry);
+		}
+	}
 }
 
 nano::network::~network ()
@@ -854,6 +862,7 @@ nano::container_info nano::network::container_info () const
 	info.add ("tcp_channels", tcp_channels.container_info ());
 	info.add ("syn_cookies", syn_cookies.container_info ());
 	info.add ("excluded_peers", excluded_peers.container_info ());
+	info.add ("blacklist", blacklist.container_info ());
 	return info;
 }
 
@@ -994,6 +1003,12 @@ nano::error nano::network_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("duplicate_filter_cutoff", duplicate_filter_cutoff, "Time in seconds before a duplicate entry expires. \ntype:uint64");
 	toml.put ("minimum_fanout", minimum_fanout, "Minimum number of peers to fan out messages to. \ntype:size_t");
 
+	auto blacklist_l = toml.create_array ("blacklist", "A list of node ids (node_...) and IP addresses this node refuses to peer with.\ntype:array");
+	for (auto const & entry : blacklist)
+	{
+		blacklist_l->push_back (entry);
+	}
+
 	return toml.get_error ();
 }
 
@@ -1006,6 +1021,18 @@ nano::error nano::network_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("duplicate_filter_size", duplicate_filter_size);
 	toml.get ("duplicate_filter_cutoff", duplicate_filter_cutoff);
 	toml.get ("minimum_fanout", minimum_fanout);
+
+	if (toml.has_key ("blacklist"))
+	{
+		blacklist.clear ();
+		toml.array_entries_required<std::string> ("blacklist", [this, &toml] (std::string entry) {
+			if (!nano::peer_blacklist::valid (entry))
+			{
+				toml.get_error ().set ("Invalid blacklist entry, expected a node id or an IP address: " + entry);
+			}
+			blacklist.push_back (entry);
+		});
+	}
 
 	return toml.get_error ();
 }

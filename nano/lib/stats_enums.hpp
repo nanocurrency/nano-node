@@ -429,6 +429,7 @@ enum class detail
 	max_attempts,
 	max_attempts_per_ip,
 	excluded,
+	blacklisted,
 	erase_dead,
 	connect_initiate,
 	connect_failure,

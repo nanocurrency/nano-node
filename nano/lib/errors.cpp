@@ -290,6 +290,8 @@ std::string nano::error_network_messages::message (int ev) const
 			return "Connection rejected by local node";
 		case nano::error_network::peer_excluded:
 			return "Peer is excluded";
+		case nano::error_network::peer_blacklisted:
+			return "Peer is blacklisted";
 		case nano::error_network::max_connections_per_ip:
 			return "Maximum connections per IP reached";
 		case nano::error_network::max_connections_per_subnetwork:
