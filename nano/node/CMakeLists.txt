@@ -179,6 +179,8 @@ add_library(
   rep_tiers.cpp
   vote_relay.hpp
   vote_relay.cpp
+  vote_relay_client.hpp
+  vote_relay_client.cpp
   vote_relay_index.hpp
   vote_relay_index.cpp
   vote_replier.hpp

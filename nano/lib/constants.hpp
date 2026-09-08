@@ -109,6 +109,7 @@ public:
 			block_flood_interval = 500ms;
 			block_broadcast_interval = 500ms;
 			block_broadcast_delay = 125ms;
+			relay_request_interval = 250ms;
 			telemetry_request_cooldown = 500ms;
 			telemetry_cache_cutoff = 2000ms;
 			telemetry_request_interval = 500ms;
@@ -166,6 +167,8 @@ public:
 	std::chrono::milliseconds block_broadcast_interval{ 30s };
 	/** Time after an election's first winner flood before the winner goes to the reps that still need it */
 	std::chrono::milliseconds block_broadcast_delay{ 5s };
+	/** Time between relay requests for an election, relays are asked far less often than reachable representatives */
+	std::chrono::milliseconds relay_request_interval{ 30s };
 
 	/** We do not reply to telemetry requests made within cooldown period */
 	std::chrono::milliseconds telemetry_request_cooldown{ 1000 * 15 };
