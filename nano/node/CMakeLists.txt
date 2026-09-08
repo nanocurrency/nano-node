@@ -79,8 +79,6 @@ add_library(
   cli.cpp
   cementing_set.hpp
   cementing_set.cpp
-  confirmation_solicitor.hpp
-  confirmation_solicitor.cpp
   daemonconfig.hpp
   daemonconfig.cpp
   distributed_work.hpp
@@ -175,6 +173,8 @@ add_library(
   rep_tiers.cpp
   vote_relay.hpp
   vote_relay.cpp
+  vote_relay_client.hpp
+  vote_relay_client.cpp
   vote_relay_index.hpp
   vote_relay_index.cpp
   vote_replier.hpp
@@ -242,6 +242,8 @@ add_library(
   vote_rebroadcaster.cpp
   vote_router.hpp
   vote_router.cpp
+  vote_solicitor.hpp
+  vote_solicitor.cpp
   vote_spacing.hpp
   vote_spacing.cpp
   wallet.hpp

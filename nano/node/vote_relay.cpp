@@ -90,6 +90,13 @@ bool nano::vote_relay::request (nano::messages::vote_relay_req const & message, 
 		return false;
 	}
 
+	// Bound the upstream work a single request can cause
+	if (message.reps.size () > config.max_reps)
+	{
+		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::oversize);
+		return false;
+	}
+
 	bool added = false;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
@@ -421,6 +428,7 @@ nano::error nano::vote_relay_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("max_requests", max_requests, "Maximum number of requests waiting for representative votes. \ntype:uint64");
 	toml.put ("channel_limit", channel_limit, "Maximum number of queued requests per channel. \ntype:uint64");
 	toml.put ("batch_size", batch_size, "Number of requests to process in a single batch. \ntype:uint64");
+	toml.put ("max_reps", max_reps, "Maximum number of representatives per request, larger requests are dropped. \ntype:uint64");
 
 	return toml.get_error ();
 }
@@ -432,6 +440,7 @@ nano::error nano::vote_relay_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("max_requests", max_requests);
 	toml.get ("channel_limit", channel_limit);
 	toml.get ("batch_size", batch_size);
+	toml.get ("max_reps", max_reps);
 
 	return toml.get_error ();
 }

@@ -65,8 +65,10 @@
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_rebroadcaster.hpp>
 #include <nano/node/vote_relay.hpp>
+#include <nano/node/vote_relay_client.hpp>
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/vote_router.hpp>
+#include <nano/node/vote_solicitor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
@@ -215,6 +217,10 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	vote_replier{ *vote_replier_impl },
 	vote_relay_impl{ std::make_unique<nano::vote_relay> (config.vote_relay, vote_cache, vote_router, rep_crawler, network_params.network, stats, logger) },
 	vote_relay{ *vote_relay_impl },
+	vote_relay_client_impl{ std::make_unique<nano::vote_relay_client> (config.vote_relay_client, vote_processor, network, network_params.network, stats, logger) },
+	vote_relay_client{ *vote_relay_client_impl },
+	vote_solicitor_impl{ std::make_unique<nano::vote_solicitor> (config.vote_solicitor, network, rep_crawler, rep_tiers, online_reps, ledger, vote_relay_client, network_params.network, stats, logger) },
+	vote_solicitor{ *vote_solicitor_impl },
 	backlog_scan_impl{ std::make_unique<nano::backlog_scan> (config.backlog_scan, ledger, stats) },
 	backlog_scan{ *backlog_scan_impl },
 	backlog_impl{ std::make_unique<nano::bounded_backlog> (config, *this, ledger, ledger_notifications, bucketing, backlog_scan, block_processor, cementing_set, stats, logger) },
@@ -628,6 +634,7 @@ void nano::node::stop ()
 	unchecked.stop ();
 	block_processor.stop ();
 	vote_relay.stop ();
+	vote_relay_client.stop ();
 	vote_replier.stop ();
 	vote_cache_processor.stop ();
 	vote_processor.stop ();
@@ -1035,6 +1042,7 @@ nano::container_info nano::node::container_info () const
 	info.add ("distributed_work", distributed_work.container_info ());
 	info.add ("vote_replier", vote_replier.container_info ());
 	info.add ("vote_relay", vote_relay.container_info ());
+	info.add ("vote_relay_client", vote_relay_client.container_info ());
 	info.add ("scheduler", scheduler.container_info ());
 	info.add ("vote_cache", vote_cache.container_info ());
 	info.add ("vote_router", vote_router.container_info ());
