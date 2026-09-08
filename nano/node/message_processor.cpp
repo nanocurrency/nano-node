@@ -14,6 +14,7 @@
 #include <nano/node/telemetry.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_relay.hpp>
+#include <nano/node/vote_relay_client.hpp>
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/wallet.hpp>
 
@@ -311,8 +312,11 @@ public:
 
 	void vote_relay_ack (nano::messages::vote_relay_ack const & message) override
 	{
-		// TODO: Requester side (vote relay client) is not implemented yet
-		node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::vote_relay_ack, nano::stat::dir::in);
+		bool processed = node.vote_relay_client.process (message, channel);
+		if (!processed)
+		{
+			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::vote_relay_ack, nano::stat::dir::in);
+		}
 	}
 
 private:

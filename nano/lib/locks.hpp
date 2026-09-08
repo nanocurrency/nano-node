@@ -29,6 +29,7 @@ enum class mutexes
 	network_filter,
 	vote_replier,
 	vote_relay,
+	vote_relay_client,
 	state_block_signature_verification,
 	telemetry,
 	vote_generator,

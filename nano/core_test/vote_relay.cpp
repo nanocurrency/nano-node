@@ -575,3 +575,21 @@ TEST (vote_relay, two_nodes)
 	ASSERT_TRUE (votes[0]->is_final ());
 	ASSERT_TRUE (std::find (votes[0]->hashes.begin (), votes[0]->hashes.end (), blocks[0]->hash ()) != votes[0]->hashes.end ());
 }
+
+/*
+ * Requests asking for more representatives than the relay accepts should be dropped
+ */
+TEST (vote_relay, max_reps)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.vote_relay->enable = true;
+	config.vote_relay->max_reps = 2;
+	auto & node = *system.add_node (config);
+
+	auto channel = nano::test::fake_channel (node);
+	nano::messages::vote_relay_req req{ nano::dev::network_params.network, 1, { { nano::block_hash{ 1 }, nano::root{ 1 } } }, { nano::account{ 1 }, nano::account{ 2 }, nano::account{ 3 } } };
+	ASSERT_FALSE (node.vote_relay.request (req, channel));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::oversize));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::request));
+}
