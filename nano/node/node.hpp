@@ -187,6 +187,10 @@ public:
 	nano::vote_replier & vote_replier;
 	std::unique_ptr<nano::vote_relay> vote_relay_impl;
 	nano::vote_relay & vote_relay;
+	std::unique_ptr<nano::vote_relay_client> vote_relay_client_impl;
+	nano::vote_relay_client & vote_relay_client;
+	std::unique_ptr<nano::vote_solicitor> vote_solicitor_impl;
+	nano::vote_solicitor & vote_solicitor;
 	std::unique_ptr<nano::backlog_scan> backlog_scan_impl;
 	nano::backlog_scan & backlog_scan;
 	std::unique_ptr<nano::bounded_backlog> backlog_impl;
