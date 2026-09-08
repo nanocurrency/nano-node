@@ -1,3 +1,4 @@
+#include <nano/lib/config.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/secure/network_params.hpp>
@@ -1620,4 +1621,47 @@ TEST (backend, copy_to_optional_tables)
 		ASSERT_TRUE (destination->success (destination->get (read_tx, nano::store::table::pending, nano::store::db_val{ make_key (1) }, result)));
 		ASSERT_EQ (make_value (42), result.convert_to<nano::uint256_union> ());
 	}
+}
+
+/*
+ * RocksDB-specific tests
+ */
+
+// A failed database open must remain safe to destroy during exception unwinding
+TEST (backend, rocksdb_open_failure_cleanup)
+{
+	if (nano::default_database_backend () != nano::database_backend::rocksdb)
+	{
+		GTEST_SKIP ();
+	}
+
+	auto const path = nano::unique_path ();
+	ASSERT_TRUE (std::filesystem::create_directories (path / "rocksdb" / "LOCK"));
+
+	EXPECT_THROW (
+	{
+		auto backend = nano::test::make_backend (path);
+		backend->open (test_schema, nano::store::open_mode::read_write);
+	},
+	std::runtime_error);
+}
+
+// Once the open error is removed, the same backend must support creation and reopening
+TEST (backend, rocksdb_open_failure_retry)
+{
+	if (nano::default_database_backend () != nano::database_backend::rocksdb)
+	{
+		GTEST_SKIP ();
+	}
+
+	auto const path = nano::unique_path ();
+	auto const lock_path = path / "rocksdb" / "LOCK";
+	ASSERT_TRUE (std::filesystem::create_directories (lock_path));
+	auto backend = nano::test::make_backend (path);
+	EXPECT_THROW (backend->open (test_schema, nano::store::open_mode::read_write), std::runtime_error);
+
+	ASSERT_TRUE (std::filesystem::remove (lock_path));
+	ASSERT_NO_THROW (backend->create (test_schema, 1));
+	ASSERT_NO_THROW (backend->open (test_schema, nano::store::open_mode::read_write));
+	EXPECT_EQ (1, backend->get_meta ().version);
 }

@@ -167,27 +167,20 @@ void backend_rocksdb::open_db (std::filesystem::path const & path, nano::store::
 {
 	::rocksdb::Status s;
 
+	::rocksdb::DB * db_l{ nullptr };
+	::rocksdb::TransactionDB * transaction_db_l{ nullptr };
 	std::vector<::rocksdb::ColumnFamilyHandle *> handles_l;
 	if (mode == nano::store::open_mode::read_only)
 	{
-		::rocksdb::DB * db_l;
 		s = ::rocksdb::DB::OpenForReadOnly (options, path.string (), column_families, &handles_l, &db_l);
-		db.reset (db_l);
 	}
 	else
 	{
-		::rocksdb::TransactionDB * transaction_db_l;
 		s = ::rocksdb::TransactionDB::Open (options, ::rocksdb::TransactionDBOptions{}, path.string (), column_families, &handles_l, &transaction_db_l);
-		db.reset (transaction_db_l);
-		transaction_db = transaction_db_l;
+		db_l = transaction_db_l;
 	}
 
-	handles.resize (handles_l.size ());
-	for (size_t i = 0; i < handles_l.size (); ++i)
-	{
-		handles[i].reset (handles_l[i]);
-	}
-
+	// A failed open can leave output pointers untouched or column family handles already deleted
 	if (!s.ok ())
 	{
 		if (is_not_found (s))
@@ -195,6 +188,14 @@ void backend_rocksdb::open_db (std::filesystem::path const & path, nano::store::
 			throw nano::error (nano::error_backend::db_not_found);
 		}
 		throw std::runtime_error ("Failed to open RocksDB database: " + s.ToString ());
+	}
+
+	db.reset (db_l);
+	transaction_db = transaction_db_l;
+	handles.resize (handles_l.size ());
+	for (size_t i = 0; i < handles_l.size (); ++i)
+	{
+		handles[i].reset (handles_l[i]);
 	}
 }
 
