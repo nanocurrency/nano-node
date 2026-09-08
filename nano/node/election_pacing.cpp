@@ -70,3 +70,13 @@ std::chrono::milliseconds nano::election_pacing::request_interval (nano::electio
 	debug_assert (false);
 	return {};
 }
+
+bool nano::election_pacing::due_relay_request (std::chrono::steady_clock::time_point now) const
+{
+	return !last_relay_request || now >= *last_relay_request + params.relay_interval;
+}
+
+void nano::election_pacing::relay_request_sent (std::chrono::steady_clock::time_point now)
+{
+	last_relay_request = now;
+}
