@@ -97,9 +97,23 @@ TEST (vote_relay_client_index, insert_find)
 	index.received (1, 2);
 	index.received (1, 3);
 	ASSERT_EQ (5, index.find (1, nullptr)->votes);
+	ASSERT_EQ (1, index.outstanding ());
 
-	ASSERT_TRUE (index.erase (1));
-	ASSERT_FALSE (index.erase (1));
+	// Completion keeps the entry around until its new deadline, a repeated completion changes nothing
+	ASSERT_TRUE (index.complete (1, deadline + 1s));
+	ASSERT_FALSE (index.complete (1, deadline + 1s));
+	ASSERT_FALSE (index.complete (2, deadline + 1s));
+	ASSERT_EQ (0, index.outstanding ());
+	ASSERT_EQ (1, index.size ());
+	ASSERT_TRUE (index.find (1, nullptr)->done);
+	ASSERT_TRUE (index.evict (deadline).empty ());
+	ASSERT_EQ (1, index.evict (deadline + 1s).size ());
+	ASSERT_TRUE (index.empty ());
+
+	ASSERT_TRUE (index.insert ({ 2, nullptr, deadline }));
+	ASSERT_TRUE (index.erase (2));
+	ASSERT_FALSE (index.erase (2));
+	ASSERT_EQ (0, index.outstanding ());
 	ASSERT_TRUE (index.empty ());
 }
 
@@ -149,13 +163,20 @@ TEST (vote_relay_client_index, outstanding)
 	ASSERT_EQ (2, index.outstanding (channel1));
 	ASSERT_EQ (1, index.outstanding (channel2));
 	ASSERT_EQ (0, index.outstanding (nullptr));
+	ASSERT_EQ (3, index.outstanding ());
+
+	// A completed request no longer counts against its channel
+	ASSERT_TRUE (index.complete (2, deadline));
+	ASSERT_EQ (1, index.outstanding (channel1));
+	ASSERT_EQ (2, index.outstanding ());
 
 	// A request is only matched from the channel it was sent to
 	ASSERT_TRUE (index.find (1, channel1).has_value ());
 	ASSERT_FALSE (index.find (1, channel2).has_value ());
 
 	ASSERT_TRUE (index.erase (1));
-	ASSERT_EQ (1, index.outstanding (channel1));
+	ASSERT_EQ (0, index.outstanding (channel1));
+	ASSERT_EQ (1, index.outstanding ());
 }
 
 /*
@@ -185,8 +206,9 @@ TEST (vote_relay_client, request)
 	// The terminating empty ack completes the request
 	nano::messages::vote_relay_ack ack{ nano::dev::network_params.network, message.id, {} };
 	ASSERT_TRUE (node.vote_relay_client.process (ack, channel));
-	ASSERT_TRUE (node.vote_relay_client.empty ());
+	ASSERT_EQ (0, node.vote_relay_client.outstanding ());
 	ASSERT_EQ (0, node.vote_relay_client.outstanding (channel));
+	ASSERT_EQ (1, node.vote_relay_client.size ()); // Lingers for late acks
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::reply));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::done));
 }
@@ -219,10 +241,10 @@ TEST (vote_relay_client, ack_votes)
 	ASSERT_TRUE (election->votes ().contains (nano::dev::genesis_key.pub));
 
 	// The request stays open until the terminator, votes are counted on it
-	ASSERT_EQ (1, node.vote_relay_client.size ());
+	ASSERT_EQ (1, node.vote_relay_client.outstanding ());
 	nano::messages::vote_relay_ack terminator{ nano::dev::network_params.network, id, {} };
 	ASSERT_TRUE (node.vote_relay_client.process (terminator, channel));
-	ASSERT_TRUE (node.vote_relay_client.empty ());
+	ASSERT_EQ (0, node.vote_relay_client.outstanding ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::done));
 }
 
@@ -359,7 +381,7 @@ TEST (vote_relay_client, integration_inbound)
 	nano::messages::vote_relay_ack ack{ nano::dev::network_params.network, id, {} };
 	node.inbound (ack, channel);
 	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::done), 1);
-	ASSERT_TRUE (node.vote_relay_client.empty ());
+	ASSERT_EQ (0, node.vote_relay_client.outstanding ());
 
 	nano::messages::vote_relay_ack unknown{ nano::dev::network_params.network, 42, {} };
 	node.inbound (unknown, channel);
@@ -450,4 +472,44 @@ TEST (vote_relay_client, zero_account_vote)
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::drop));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::vote));
 	ASSERT_EQ (1, node.vote_relay_client.size ());
+}
+
+/*
+ * Messages on a channel are processed in parallel, so a vote ack can arrive after the terminator: it is still accepted while the request lingers, and dropped once the grace period passed
+ */
+TEST (vote_relay_client, late_ack)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.vote_relay_client->linger_timeout = 200ms;
+	auto & node = *system.add_node (config);
+
+	auto channel = nano::test::test_channel (node);
+	auto future = channel->observe<nano::messages::vote_relay_req> ();
+	ASSERT_TRUE (node.vote_relay_client.request (channel, { nano::dev::genesis_key.pub }, roots_hashes, false));
+	auto const id = future.get ().id;
+
+	nano::messages::vote_relay_ack terminator{ nano::dev::network_params.network, id, {} };
+	ASSERT_TRUE (node.vote_relay_client.process (terminator, channel));
+	ASSERT_EQ (0, node.vote_relay_client.outstanding ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::done));
+
+	// A repeated terminator changes nothing
+	ASSERT_TRUE (node.vote_relay_client.process (terminator, channel));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::done));
+
+	// Votes overtaken by the terminator are still processed
+	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ nano::block_hash{ 100 } });
+	nano::messages::vote_relay_ack late{ nano::dev::network_params.network, id, { vote } };
+	ASSERT_TRUE (node.vote_relay_client.process (late, channel));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::vote));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::unsolicited));
+
+	// Once the grace period passed the request is forgotten without counting as a timeout
+	WAIT (300ms);
+	ASSERT_TRUE (node.vote_relay_client.request (channel, reps, roots_hashes, false));
+	ASSERT_EQ (1, node.vote_relay_client.size ());
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::timeout));
+	ASSERT_FALSE (node.vote_relay_client.process (late, channel));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::unsolicited));
 }
