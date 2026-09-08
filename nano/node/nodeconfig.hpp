@@ -118,6 +118,8 @@ public: // Subsystem configs
 	nano::indirect<nano::transport::tcp_config> tcp;
 	nano::indirect<nano::vote_replier_config> vote_replier;
 	nano::indirect<nano::vote_relay_config> vote_relay;
+	nano::indirect<nano::vote_relay_client_config> vote_relay_client;
+	nano::indirect<nano::vote_solicitor_config> vote_solicitor;
 	nano::indirect<nano::message_processor_config> message_processor;
 	nano::indirect<nano::network_config> network;
 	nano::indirect<nano::local_block_broadcaster_config> local_block_broadcaster;

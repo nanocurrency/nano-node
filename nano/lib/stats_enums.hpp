@@ -71,6 +71,8 @@ enum class type
 	vote_replier,
 	vote_replier_ec,
 	vote_relay,
+	vote_relay_client,
+	vote_solicitor,
 	filter,
 	telemetry,
 	vote_generator,
@@ -273,6 +275,9 @@ enum class detail
 	local,
 	forced,
 	election,
+
+	// vote source
+	relay,
 
 	// message types
 	not_a_type,
@@ -493,6 +498,13 @@ enum class detail
 	rep_unknown,
 	reply_empty,
 	query,
+
+	// vote_relay_client
+	unsolicited,
+	relay_full,
+
+	// vote_solicitor
+	relay_request,
 
 	// duplicate
 	duplicate_publish_message,

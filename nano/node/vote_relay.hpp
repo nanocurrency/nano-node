@@ -27,6 +27,8 @@ public:
 	std::size_t max_requests{ 1024 * 4 };
 	std::size_t channel_limit{ 32 };
 	std::size_t batch_size{ 64 };
+	// Maximum representatives per request, larger requests are dropped
+	std::size_t max_reps{ 64 };
 };
 
 /**
