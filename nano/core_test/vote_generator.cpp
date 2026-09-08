@@ -1,7 +1,9 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/ratios.hpp>
 #include <nano/lib/vote.hpp>
+#include <nano/node/backlog_scan.hpp>
 #include <nano/node/node_observers.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/voting_policy.hpp>
@@ -677,7 +679,9 @@ TEST (vote_generator_broadcaster, check_capacity_backpressure)
 TEST (vote_generator, basic_broadcast)
 {
 	nano::test::system system;
-	auto & node = *system.add_node ();
+	auto config = system.default_config ();
+	config.backlog_scan->enable = false; // Keep setup from starting elections and recording final votes
+	auto & node = *system.add_node (config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
 	auto blocks = nano::test::setup_chain (system, node, 1);
