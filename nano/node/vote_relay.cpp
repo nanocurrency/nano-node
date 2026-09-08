@@ -275,31 +275,36 @@ void nano::vote_relay::process (nano::messages::vote_relay_req const & message, 
 		return want.reps.empty ();
 	});
 
+	// Nothing left to wait for, the cached votes and the terminator finish the request
+	if (wants.empty ())
+	{
+		send_reply (channel, message.id, found);
+		return;
+	}
+
+	// Cached votes go out before the request is registered, a completion right after registration must not overtake them with its terminator
+	send_votes (channel, message.id, found);
+
 	// Register the pending request, insert returns the upstream queries to send with already in-flight (hash, rep) pairs filtered out
 	// A vote arriving between the cache lookup above and this registration is missed, the request then relies on the timeout
 	std::vector<nano::vote_relay_index::query> queries;
 	bool tracked = false;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
-		if (!wants.empty () && !stopped && index.size () < config.max_requests)
+		if (!stopped && index.size () < config.max_requests)
 		{
 			queries = index.insert (channel, message.id, wants, include_non_final, std::chrono::steady_clock::now () + config.request_timeout);
 			tracked = true;
 		}
 	}
 
-	// Untracked means there is nothing to wait for (fully served from cache, only unreachable reps missing, or the index is full)
+	// The index is full, the request ends with what the cache had
 	if (!tracked)
 	{
-		if (!wants.empty ())
-		{
-			stats.inc (nano::stat::type::vote_relay, nano::stat::detail::queue_overflow);
-		}
-		send_reply (channel, message.id, found); // Cached votes + terminating empty ack, the request is finished
+		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::queue_overflow);
+		send_reply (channel, message.id, {});
 		return;
 	}
-
-	send_votes (channel, message.id, found); // Cached votes only, the terminator follows once the request completes or times out
 
 	// Deduplicated (hash, rep) pairs ride on queries sent for earlier requests, the vote is shared with all waiters when it arrives
 	auto const total = std::accumulate (wants.begin (), wants.end (), std::size_t{ 0 }, [] (auto acc, auto const & want) {
