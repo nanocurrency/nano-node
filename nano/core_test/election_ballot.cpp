@@ -1040,7 +1040,7 @@ TEST (election_ballot, evaluate_final_weight_resets_on_winner_switch)
 	auto round3 = ballot.evaluate (10);
 	ASSERT_EQ (fork, round3.winner);
 	ASSERT_EQ (5, round3.final_winner_weight);
-	ASSERT_FALSE (round3.final_quorum); // 5 alone is below the threshold, 5 + 7 would not be
+	ASSERT_FALSE (round3.final_quorum); // 5 alone is below the threshold, while 5 + 7 would reach it
 
 	// Only the fork's own final weight reaching the threshold confirms it
 	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (6), nano::vote::timestamp_final, fork->hash (), 0s, epoch));
