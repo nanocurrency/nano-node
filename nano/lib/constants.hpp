@@ -105,6 +105,7 @@ public:
 			peer_dump_interval = std::chrono::seconds (1);
 			vote_broadcast_interval = 500ms;
 			block_broadcast_interval = 500ms;
+			relay_request_interval = 250ms;
 			telemetry_request_cooldown = 500ms;
 			telemetry_cache_cutoff = 2000ms;
 			telemetry_request_interval = 500ms;
@@ -152,6 +153,8 @@ public:
 	/** Time to wait before rebroadcasts for active elections */
 	std::chrono::milliseconds vote_broadcast_interval{ 15s };
 	std::chrono::milliseconds block_broadcast_interval{ 150s };
+	/** Time between relay requests for an election, relays are asked far less often than reachable representatives */
+	std::chrono::milliseconds relay_request_interval{ 30s };
 
 	/** We do not reply to telemetry requests made within cooldown period */
 	std::chrono::milliseconds telemetry_request_cooldown{ 1000 * 15 };

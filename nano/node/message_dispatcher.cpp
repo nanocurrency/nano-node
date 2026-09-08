@@ -11,6 +11,7 @@
 #include <nano/node/telemetry.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_relay.hpp>
+#include <nano/node/vote_relay_client.hpp>
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/wallet.hpp>
 
@@ -128,6 +129,15 @@ public:
 		if (!node.vote_relay.request (message, channel))
 		{
 			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::vote_relay_req, nano::stat::dir::in);
+		}
+	}
+
+	void vote_relay_ack (nano::messages::vote_relay_ack const & message) override
+	{
+		// An ack that matches no request this node made is dropped
+		if (!node.vote_relay_client.process (message, channel))
+		{
+			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::vote_relay_ack, nano::stat::dir::in);
 		}
 	}
 

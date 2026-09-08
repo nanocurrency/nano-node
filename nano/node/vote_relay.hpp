@@ -32,6 +32,7 @@ public:
 	std::size_t max_requests{ 1024 * 4 }; // Requests waiting for representative votes at once
 	std::size_t channel_limit{ default_max_outstanding }; // Requests per channel, queued or waiting for votes
 	std::size_t batch_size{ 64 }; // Requests served per batch
+	std::size_t max_reps{ 64 }; // Maximum representatives per request, larger requests are dropped
 };
 
 /**
