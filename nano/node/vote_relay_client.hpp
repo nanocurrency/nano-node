@@ -31,6 +31,8 @@ public:
 public:
 	// Time to wait for the terminating ack before a request is considered lost, a safety net above the relay's own timeout
 	std::chrono::milliseconds request_timeout{ std::chrono::seconds{ 60 } };
+	// How long a completed request keeps accepting acks, messages on a channel are processed in parallel and may overtake each other
+	std::chrono::milliseconds linger_timeout{ std::chrono::seconds{ 5 } };
 	// Maximum number of requests waiting for their terminating ack across all relays
 	std::size_t max_requests{ 1024 * 4 };
 	// Maximum outstanding requests per relay before it stops receiving new ones
@@ -39,6 +41,7 @@ public:
 
 /**
  * Tracks vote relay requests issued by this node until their terminating ack or deadline.
+ * A completed request lingers until a later deadline so vote acks that were overtaken by the terminator still find it.
  * Pure state, thread safety and time are the responsibility of the caller.
  */
 class vote_relay_client_index
@@ -52,9 +55,10 @@ public:
 	{
 		id_t id; // Unique among tracked requests, the relay echoes it in every ack
 		std::shared_ptr<nano::transport::channel> channel; // Relay the request was sent to
-		std::chrono::steady_clock::time_point deadline;
+		std::chrono::steady_clock::time_point deadline; // Expiry of the request, or of its grace period once completed
 		std::size_t hashes{ 0 }; // Hashes requested
 		std::size_t votes{ 0 }; // Votes received so far
+		bool done{ false }; // The terminating ack arrived
 	};
 
 	// Track a request
@@ -64,18 +68,23 @@ public:
 	std::optional<entry> find (id_t, std::shared_ptr<nano::transport::channel> const &) const;
 	// Record votes received for a request
 	void received (id_t, std::size_t votes);
-	// Stop tracking a request
+	// Mark a request completed and keep it until the given deadline
+	// @return false if the id is unknown or the request was already completed
+	bool complete (id_t, std::chrono::steady_clock::time_point deadline);
+	// Stop tracking a request whatever its state
 	// @return false if the id is unknown
 	bool erase (id_t);
-	// Remove and return requests past their deadline
+	// Remove and return requests past their deadline, completed ones included
 	std::vector<entry> evict (std::chrono::steady_clock::time_point now);
 	// Drop all requests
 	void clear ();
 
-	// Number of unanswered requests sent to the channel
+	// Number of requests sent to the channel still waiting for their terminating ack
 	std::size_t outstanding (std::shared_ptr<nano::transport::channel> const &) const;
+	// Number of requests still waiting for their terminating ack
+	std::size_t outstanding () const;
 
-	// Number of tracked requests
+	// Number of tracked requests, completed ones included
 	std::size_t size () const;
 	// Whether no request is tracked
 	bool empty () const;
@@ -97,13 +106,16 @@ private:
 	>>;
 	// clang-format on
 
-	ordered_entries entries; // Tracked requests
+	ordered_entries entries; // Tracked requests, outstanding and completed
+
+	std::size_t outstanding_count{ 0 }; // Entries not yet completed
 };
 
 /**
  * Requester side of the vote relay protocol.
  * Sends vote_relay_req messages to relay peers and queues the votes from their acks for processing as relay-sourced.
  * Requests are tracked until their terminating empty ack or the request timeout, acks matching no request are dropped.
+ * A completed request lingers for a while, as acks on a channel are processed in parallel and votes can arrive after the terminator.
  * A relay with too many outstanding requests stops receiving new ones until it answers them or they expire.
  */
 class vote_relay_client final
@@ -131,12 +143,14 @@ public:
 	// @return false if the client is stopped or the ack matches no tracked request from that relay
 	bool process (nano::messages::vote_relay_ack const &, std::shared_ptr<nano::transport::channel> const &);
 
-	// Number of unanswered requests sent to the relay
+	// Number of requests sent to the relay still waiting for their terminating ack
 	std::size_t outstanding (std::shared_ptr<nano::transport::channel> const &) const;
+	// Number of requests still waiting for their terminating ack
+	std::size_t outstanding () const;
 
-	// Number of tracked requests
+	// Number of tracked requests, completed ones linger until their grace period ends
 	std::size_t size () const;
-	// Whether no request is tracked
+	// Whether no request is tracked, a lingering one still counts as tracked
 	bool empty () const;
 
 	// Sizes of the tracked state, for diagnostics

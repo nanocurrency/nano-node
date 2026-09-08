@@ -14,6 +14,7 @@
 #include <nano/node/vote_relay_client.hpp>
 #include <nano/node/vote_router.hpp>
 
+#include <algorithm>
 #include <limits>
 
 /*
@@ -22,7 +23,12 @@
 
 bool nano::vote_relay_client_index::insert (entry const & entry_a)
 {
+	debug_assert (!entry_a.done);
 	auto [it, inserted] = entries.insert (entry_a);
+	if (inserted)
+	{
+		++outstanding_count;
+	}
 	return inserted;
 }
 
@@ -47,9 +53,36 @@ void nano::vote_relay_client_index::received (id_t id, std::size_t votes)
 	}
 }
 
+bool nano::vote_relay_client_index::complete (id_t id, std::chrono::steady_clock::time_point deadline)
+{
+	auto & by_id = entries.get<tag_id> ();
+	auto existing = by_id.find (id);
+	if (existing == by_id.end () || existing->done)
+	{
+		return false;
+	}
+	by_id.modify (existing, [deadline] (entry & e) {
+		e.done = true;
+		e.deadline = deadline;
+	});
+	--outstanding_count;
+	return true;
+}
+
 bool nano::vote_relay_client_index::erase (id_t id)
 {
-	return entries.get<tag_id> ().erase (id) > 0;
+	auto & by_id = entries.get<tag_id> ();
+	auto existing = by_id.find (id);
+	if (existing == by_id.end ())
+	{
+		return false;
+	}
+	if (!existing->done)
+	{
+		--outstanding_count;
+	}
+	by_id.erase (existing);
+	return true;
 }
 
 std::vector<nano::vote_relay_client_index::entry> nano::vote_relay_client_index::evict (std::chrono::steady_clock::time_point now)
@@ -57,6 +90,13 @@ std::vector<nano::vote_relay_client_index::entry> nano::vote_relay_client_index:
 	auto & by_deadline = entries.get<tag_deadline> ();
 	auto const end = by_deadline.upper_bound (now);
 	std::vector<entry> result{ by_deadline.begin (), end };
+	for (auto const & expired : result)
+	{
+		if (!expired.done)
+		{
+			--outstanding_count;
+		}
+	}
 	by_deadline.erase (by_deadline.begin (), end);
 	return result;
 }
@@ -64,11 +104,20 @@ std::vector<nano::vote_relay_client_index::entry> nano::vote_relay_client_index:
 void nano::vote_relay_client_index::clear ()
 {
 	entries.clear ();
+	outstanding_count = 0;
 }
 
 std::size_t nano::vote_relay_client_index::outstanding (std::shared_ptr<nano::transport::channel> const & channel) const
 {
-	return entries.get<tag_channel> ().count (channel);
+	auto [begin, end] = entries.get<tag_channel> ().equal_range (channel);
+	return std::count_if (begin, end, [] (entry const & e) {
+		return !e.done;
+	});
+}
+
+std::size_t nano::vote_relay_client_index::outstanding () const
+{
+	return outstanding_count;
 }
 
 std::size_t nano::vote_relay_client_index::size () const
@@ -155,7 +204,7 @@ bool nano::vote_relay_client::request (std::shared_ptr<nano::transport::channel>
 		// Expire lost requests first so they do not hold slots against the caps
 		expired = index.evict (now);
 
-		if (index.size () >= config.max_requests)
+		if (index.outstanding () >= config.max_requests)
 		{
 			refused = nano::stat::detail::overfill;
 		}
@@ -173,10 +222,14 @@ bool nano::vote_relay_client::request (std::shared_ptr<nano::transport::channel>
 		}
 	}
 
+	// Completed requests expire silently at the end of their grace period
 	for (auto const & entry : expired)
 	{
-		stats.inc (nano::stat::type::vote_relay_client, nano::stat::detail::timeout);
-		logger.debug (nano::log::type::vote_relay_client, "Request: {} timed out with {} votes received from relay: {}", entry.id, entry.votes, entry.channel);
+		if (!entry.done)
+		{
+			stats.inc (nano::stat::type::vote_relay_client, nano::stat::detail::timeout);
+			logger.debug (nano::log::type::vote_relay_client, "Request: {} timed out with {} votes received from relay: {}", entry.id, entry.votes, entry.channel);
+		}
 	}
 
 	if (refused)
@@ -214,6 +267,7 @@ bool nano::vote_relay_client::process (nano::messages::vote_relay_ack const & ac
 	release_assert (channel != nullptr);
 
 	std::optional<nano::vote_relay_client_index::entry> entry;
+	bool completed = false;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		if (stopped)
@@ -223,10 +277,10 @@ bool nano::vote_relay_client::process (nano::messages::vote_relay_ack const & ac
 		entry = index.find (ack.id, channel);
 		if (entry)
 		{
-			// An empty ack terminates the request, anything else accumulates
+			// An empty ack terminates the request, the entry lingers so vote acks it overtook still match
 			if (ack.votes.empty ())
 			{
-				index.erase (ack.id);
+				completed = index.complete (ack.id, std::chrono::steady_clock::now () + config.linger_timeout);
 			}
 			else
 			{
@@ -239,6 +293,7 @@ bool nano::vote_relay_client::process (nano::messages::vote_relay_ack const & ac
 	if (!entry)
 	{
 		stats.inc (nano::stat::type::vote_relay_client, nano::stat::detail::unsolicited);
+		logger.debug (nano::log::type::vote_relay_client, "Unsolicited ack: {} with {} votes from: {}", ack.id, ack.votes.size (), channel);
 		return false;
 	}
 
@@ -246,8 +301,12 @@ bool nano::vote_relay_client::process (nano::messages::vote_relay_ack const & ac
 
 	if (ack.votes.empty ())
 	{
-		stats.inc (nano::stat::type::vote_relay_client, nano::stat::detail::done);
-		logger.debug (nano::log::type::vote_relay_client, "Request: {} completed with {} votes received from relay: {}", ack.id, entry->votes, channel);
+		// A repeated terminator changes nothing
+		if (completed)
+		{
+			stats.inc (nano::stat::type::vote_relay_client, nano::stat::detail::done);
+			logger.debug (nano::log::type::vote_relay_client, "Request: {} completed with {} votes received from relay: {}", ack.id, entry->votes, channel);
+		}
 		return true;
 	}
 
@@ -279,6 +338,12 @@ std::size_t nano::vote_relay_client::outstanding (std::shared_ptr<nano::transpor
 	return index.outstanding (channel);
 }
 
+std::size_t nano::vote_relay_client::outstanding () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return index.outstanding ();
+}
+
 std::size_t nano::vote_relay_client::size () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
@@ -302,6 +367,7 @@ nano::container_info nano::vote_relay_client::container_info () const
 
 	nano::container_info info;
 	info.put ("requests", index.size ());
+	info.put ("outstanding", index.outstanding ());
 	return info;
 }
 
@@ -312,6 +378,7 @@ nano::container_info nano::vote_relay_client::container_info () const
 nano::error nano::vote_relay_client_config::serialize (nano::tomlconfig & toml) const
 {
 	toml.put ("request_timeout", request_timeout.count (), "Time to wait for a relay to finish a request before considering it lost. \ntype:milliseconds");
+	toml.put ("linger_timeout", linger_timeout.count (), "Time a completed request keeps accepting late acks. \ntype:milliseconds");
 	toml.put ("max_requests", max_requests, "Maximum number of relay requests waiting for their terminating ack. \ntype:uint64");
 	toml.put ("max_outstanding", max_outstanding, "Maximum number of outstanding requests per relay before it stops receiving new ones. \ntype:uint64");
 
@@ -321,6 +388,7 @@ nano::error nano::vote_relay_client_config::serialize (nano::tomlconfig & toml) 
 nano::error nano::vote_relay_client_config::deserialize (nano::tomlconfig & toml)
 {
 	toml.get_duration ("request_timeout", request_timeout);
+	toml.get_duration ("linger_timeout", linger_timeout);
 	toml.get ("max_requests", max_requests);
 	toml.get ("max_outstanding", max_outstanding);
 
