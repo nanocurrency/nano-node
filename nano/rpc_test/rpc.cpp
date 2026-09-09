@@ -6865,16 +6865,16 @@ TEST (rpc, simultaneous_calls)
 
 	std::promise<void> promise;
 	std::atomic<int> count{ num };
+	nano::test::join_guard threads;
 	for (int i = 0; i < num; ++i)
 	{
-		std::thread ([&test_responses, &promise, &count, i, port = rpc->listening_port ()] () {
+		threads.spawn ([&test_responses, &promise, &count, i, port = rpc->listening_port ()] () {
 			test_responses[i]->run (port);
 			if (--count == 0)
 			{
 				promise.set_value ();
 			}
-		})
-		.detach ();
+		});
 	}
 
 	auto future = promise.get_future ();

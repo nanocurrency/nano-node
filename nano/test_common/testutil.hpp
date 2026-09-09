@@ -15,8 +15,10 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <deque>
 #include <mutex>
 #include <string>
+#include <thread>
 
 #define GTEST_TEST_ERROR_CODE(expression, text, actual, expected, fail)                       \
 	GTEST_AMBIGUOUS_ELSE_BLOCKER_                                                             \
@@ -141,6 +143,38 @@ public:
 
 private:
 	std::tuple<Ts &...> refs;
+};
+
+/**
+ * Owns a set of worker threads and joins them all on destruction
+ * Declare it after everything the threads reference, so they are joined before those objects go out of scope
+ */
+class join_guard
+{
+public:
+	join_guard () = default;
+	join_guard (join_guard const &) = delete;
+	join_guard & operator= (join_guard const &) = delete;
+
+	~join_guard ()
+	{
+		for (auto & thread : threads)
+		{
+			if (thread.joinable ())
+			{
+				thread.join ();
+			}
+		}
+	}
+
+	template <class T>
+	void spawn (T && func)
+	{
+		threads.emplace_back (std::forward<T> (func));
+	}
+
+private:
+	std::deque<std::thread> threads;
 };
 
 template <class... Ts>
