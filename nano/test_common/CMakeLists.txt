@@ -23,7 +23,9 @@ add_library(
   test_response.hpp
   test_response.cpp
   testutil.hpp
-  testutil.cpp)
+  testutil.cpp
+  topology.hpp
+  topology.cpp)
 
 target_link_libraries(test_common node gtest)
 
