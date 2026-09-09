@@ -11,14 +11,16 @@ fi
 
 echo "Running tests for target: ${target}"
 
-# Enable core dumps for this process
-if [ -n "${COREDUMP_DIR-}" ]; then
+# Enable core dumps for this process, unless the caller expects crashes
+if [ -n "${NANO_DISABLE_CORE_DUMPS-}" ]; then
+    ulimit -c 0
+elif [ -n "${COREDUMP_DIR-}" ]; then
     ulimit -c unlimited
 fi
 
 # Run the test
 shift
-executable=./${target}$(get_exec_extension)
+executable=$(get_test_executable "${target}")
 "${executable}" "$@"
 status=$?
 

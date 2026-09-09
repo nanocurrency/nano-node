@@ -14,3 +14,7 @@ get_exec_extension() {
             ;;
     esac
 }
+
+get_test_executable() {
+    echo "./${1}$(get_exec_extension)"
+}
