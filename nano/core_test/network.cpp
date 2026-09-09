@@ -26,6 +26,7 @@
 #include <nano/test_common/peer.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
+#include <nano/test_common/topology.hpp>
 
 #include <gtest/gtest.h>
 
@@ -1160,4 +1161,27 @@ TEST (network, wrap_duplicate_filter)
 
 	// The loop takes the epoch over the wrap and clears the filter
 	ASSERT_TIMELY (10s, !filter.contains (digest));
+}
+
+/*
+ * Hidden nodes reach public nodes but never each other, even once keepalives introduce them
+ */
+TEST (network, topology_hidden_nodes)
+{
+	nano::test::system system;
+	nano::test::topology topo{ system };
+	auto relay = topo.add_public (system.default_config ());
+	auto hidden1 = topo.add_hidden (system.default_config ());
+	auto hidden2 = topo.add_hidden (system.default_config ());
+
+	ASSERT_NO_ERROR (topo.connect (*hidden1, *relay));
+	ASSERT_NO_ERROR (topo.connect (*hidden2, *relay));
+	ASSERT_TRUE (nano::test::topology::connected (*hidden1, *relay));
+	ASSERT_TRUE (nano::test::topology::connected (*hidden2, *relay));
+
+	// The relay's keepalives introduce the hidden nodes to each other, their attempts are refused
+	ASSERT_TIMELY (15s, hidden1->stats.count (nano::stat::type::tcp_channels_rejected, nano::stat::detail::blocklisted) + hidden2->stats.count (nano::stat::type::tcp_channels_rejected, nano::stat::detail::blocklisted) >= 1);
+	ASSERT_FALSE (nano::test::topology::connected (*hidden1, *hidden2));
+	ASSERT_EQ (nullptr, hidden1->network.find_node_id (hidden2->get_node_id ()));
+	ASSERT_EQ (nullptr, hidden2->network.find_node_id (hidden1->get_node_id ()));
 }
