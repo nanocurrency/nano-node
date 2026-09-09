@@ -580,7 +580,7 @@ bool nano::ledger::bootstrap_height_reached () const
 	return cache.block_count >= bootstrap_weights.max_blocks;
 }
 
-std::unordered_map<nano::account, nano::uint128_t> nano::ledger::rep_weights_snapshot () const
+nano::rep_weight_map nano::ledger::rep_weights_snapshot () const
 {
 	if (!bootstrap_height_reached ())
 	{
@@ -588,7 +588,7 @@ std::unordered_map<nano::account, nano::uint128_t> nano::ledger::rep_weights_sna
 	}
 	else
 	{
-		return rep_weights.get_rep_amounts ();
+		return rep_weights.get_all ();
 	}
 }
 
@@ -606,6 +606,25 @@ nano::uint128_t nano::ledger::weight (nano::account const & account) const
 	else
 	{
 		return rep_weights.get (account);
+	}
+}
+
+nano::rep_weight_map nano::ledger::weights (std::span<nano::account const> reps) const
+{
+	if (!bootstrap_height_reached ())
+	{
+		nano::rep_weight_map result;
+		result.reserve (reps.size ());
+		for (auto const & rep : reps)
+		{
+			auto weight = bootstrap_weights.representatives.find (rep);
+			result[rep] = weight != bootstrap_weights.representatives.end () ? weight->second : 0;
+		}
+		return result;
+	}
+	else
+	{
+		return rep_weights.get (reps);
 	}
 }
 

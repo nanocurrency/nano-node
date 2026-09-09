@@ -205,7 +205,7 @@ int main (int argc, char * const * argv)
 				auto const bootstrap_weights = node->get_bootstrap_weights ();
 				auto const & hardcoded = bootstrap_weights.representatives;
 				auto const hardcoded_height = bootstrap_weights.max_blocks;
-				auto const ledger_unfiltered = node->ledger.rep_weights.get_rep_amounts ();
+				auto const ledger_unfiltered = node->ledger.rep_weights.get_all ();
 				auto const ledger_height = node->ledger.block_count ();
 
 				auto get_total = [] (decltype (bootstrap_weights.representatives) const & reps) -> nano::uint128_union {
@@ -447,7 +447,7 @@ int main (int argc, char * const * argv)
 			auto node = inactive_node.node;
 			auto transaction (node->store.tx_begin_read ());
 			nano::uint128_t total;
-			auto rep_amounts = node->ledger.rep_weights.get_rep_amounts ();
+			auto rep_amounts = node->ledger.rep_weights.get_all ();
 			std::map<nano::account, nano::uint128_t> ordered_reps (rep_amounts.begin (), rep_amounts.end ());
 			for (auto const & rep : ordered_reps)
 			{

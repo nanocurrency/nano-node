@@ -10,6 +10,8 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/store/ledger/online_weight.hpp>
 
+#include <vector>
+
 nano::online_reps::online_reps (nano::node_config const & config_a, nano::node & node_a, nano::ledger & ledger_a, nano::stats & stats_a, nano::logger & logger_a) :
 	config{ config_a },
 	node{ node_a },
@@ -196,8 +198,18 @@ bool nano::online_reps::sample ()
 nano::uint128_t nano::online_reps::calculate_online () const
 {
 	debug_assert (!mutex.try_lock ());
-	return std::accumulate (reps.begin (), reps.end (), nano::uint128_t{ 0 }, [this] (nano::uint128_t current, rep_info const & info) {
-		return current + ledger.weight (info.account);
+
+	std::vector<nano::account> accounts;
+	accounts.reserve (reps.size ());
+	for (auto const & info : reps)
+	{
+		accounts.push_back (info.account);
+	}
+
+	// One consistent snapshot of all online reps: a weight moving between two of them is never counted twice or dropped, which would skew the quorum threshold derived from this total
+	auto const weights = ledger.weights (accounts);
+	return std::accumulate (weights.begin (), weights.end (), nano::uint128_t{ 0 }, [] (nano::uint128_t current, auto const & entry) {
+		return current + entry.second;
 	});
 }
 

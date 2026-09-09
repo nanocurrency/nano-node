@@ -36,7 +36,7 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 	.vote_interval = node_a.config.network_params.network.vote_broadcast_interval,
 	.block_interval = node_a.config.network_params.network.block_broadcast_interval,
 	}),
-	ballot (block_a, [this] (nano::account const & account) { return node.ledger.weight (account); }),
+	ballot (block_a, [this] (std::span<nano::account const> reps) { return node.ledger.weights (reps); }),
 	behavior_m (election_behavior_a),
 	last_round{ .winner = block_a },
 	height (block_a->sideband ().height),

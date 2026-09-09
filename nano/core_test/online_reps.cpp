@@ -9,10 +9,15 @@
 #include <nano/node/transport/fake.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
+
+#include <atomic>
+#include <latch>
+#include <thread>
 
 TEST (online_reps, basic)
 {
@@ -343,4 +348,71 @@ TEST (online_reps, weight_change_recalculation)
 	// The bug was that online weight would not recalculate for existing representatives
 	// With the fix, it should now reflect the updated weight
 	ASSERT_TIMELY_EQ (5s, node.online_reps.online (), initial_weight + additional_weight);
+}
+
+/*
+ * The online weight is one consistent snapshot of the observed reps: a weight moving between two of them is never counted twice or dropped.
+ * Since the quorum threshold is derived from this total, a torn read would skew it for a whole sampling period.
+ * A writer shuffles weight between two reps while a reader keeps re-observing both and checking the total.
+ */
+TEST (online_reps, weight_snapshot)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	nano::keypair rep1, rep2;
+	auto const weight1 = nano::nano_ratio * 1000;
+	auto const weight2 = nano::nano_ratio * 500;
+	auto const amount = nano::nano_ratio * 100; // Both reps stay above the vote weight minimum throughout
+	auto const total = weight1 + weight2;
+
+	{
+		auto transaction = node.ledger.tx_begin_write ();
+		node.ledger.rep_weights.add (transaction, rep1.pub, weight1);
+		node.ledger.rep_weights.add (transaction, rep2.pub, weight2);
+	}
+
+	std::atomic<bool> done{ false };
+	std::atomic<size_t> reads{ 0 };
+	std::atomic<size_t> inconsistent{ 0 };
+	std::latch first_read{ 1 };
+
+	// The write transaction is opened on the writer thread, as the store requires
+	std::thread writer ([&] {
+		first_read.wait (); // Hold the writer until the reader has taken its first snapshot, so the run cannot end unobserved
+		auto transaction = node.ledger.tx_begin_write ();
+		for (size_t i = 0; i < 2000; ++i)
+		{
+			node.ledger.rep_weights.move (transaction, rep1.pub, rep2.pub, amount);
+			node.ledger.rep_weights.move (transaction, rep2.pub, rep1.pub, amount);
+		}
+		done = true;
+	});
+
+	// Observing a new rep recalculates the online total, so clearing and re-observing both reps recomputes it from scratch each time
+	std::thread reader ([&] {
+		auto read = [&] {
+			node.online_reps.clear ();
+			node.online_reps.observe (rep1.pub);
+			node.online_reps.observe (rep2.pub);
+			++reads;
+			if (node.online_reps.online () != total)
+			{
+				++inconsistent;
+			}
+		};
+		read ();
+		first_read.count_down ();
+		while (!done)
+		{
+			read ();
+		}
+	});
+
+	writer.join ();
+	reader.join ();
+
+	ASSERT_EQ (0, inconsistent.load ());
+	ASSERT_GT (reads.load (), 0);
+	ASSERT_EQ (total, node.online_reps.online ());
 }

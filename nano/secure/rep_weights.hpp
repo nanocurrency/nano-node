@@ -7,10 +7,14 @@
 
 #include <memory>
 #include <shared_mutex>
+#include <span>
 #include <unordered_map>
 
 namespace nano
 {
+// Vote weight per representative
+using rep_weight_map = std::unordered_map<nano::account, nano::uint128_t>;
+
 class rep_weights
 {
 public:
@@ -31,8 +35,14 @@ public:
 	void put_unused (nano::uint128_t const & weight);
 	void append_from (rep_weights const & other);
 
+	/* Cached weight of the representative, zero when it has no cached weight (unknown, below the cache minimum, or the zero account) */
 	nano::uint128_t get (nano::account const & rep) const;
-	std::unordered_map<nano::account, nano::uint128_t> get_rep_amounts () const;
+
+	/* Weights of all given representatives read under a single lock, so the result is one consistent snapshot; every requested rep has an entry, zero when it has no cached weight */
+	nano::rep_weight_map get (std::span<nano::account const> reps) const;
+
+	/* Copy of the whole cache read under a single lock: every representative with a cached weight, i.e. at or above the cache minimum */
+	nano::rep_weight_map get_all () const;
 
 	size_t size () const;
 	nano::container_info container_info () const;
@@ -48,7 +58,7 @@ private:
 	nano::uint128_t const min_weight;
 
 	mutable std::shared_mutex mutex;
-	std::unordered_map<nano::account, nano::uint128_t> rep_amounts;
+	nano::rep_weight_map rep_amounts;
 
 	// Used for consistency checking, use higher precision types to detect overflows
 	nano::uint256_t weight_committed{ 0 };

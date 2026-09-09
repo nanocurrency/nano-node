@@ -17,6 +17,7 @@
 #include <deque>
 #include <map>
 #include <memory>
+#include <span>
 
 namespace nano
 {
@@ -85,15 +86,29 @@ public:
 	/** Start read-only transaction */
 	secure::read_transaction tx_begin_read () const;
 
-	nano::uint128_t account_receivable (secure::transaction const &, nano::account const &, bool = false) const;
 	/**
-	 * Returns the cached vote weight for the given representative.
-	 * If the weight is below the cache limit it returns 0.
-	 * During bootstrap it returns the preconfigured bootstrap weights.
+	 * Returns the vote weight of the given representative from the in-memory cache, without a database lookup.
+	 * Returns 0 when the weight is below the cache minimum.
+	 * Returns the preconfigured bootstrap weight until the bootstrap height is reached.
 	 */
 	nano::uint128_t weight (nano::account const &) const;
-	/* Returns the exact vote weight for the given representative by doing a database lookup */
+	/**
+	 * Returns the vote weights of all given representatives from the in-memory cache as one consistent snapshot, without a database lookup.
+	 * Every requested representative has an entry, 0 when its weight is below the cache minimum.
+	 * Returns the preconfigured bootstrap weights until the bootstrap height is reached.
+	 */
+	nano::rep_weight_map weights (std::span<nano::account const>) const;
+	/**
+	 * Returns the vote weights of all representatives with a cached weight as one consistent snapshot, without a database lookup.
+	 * Returns the preconfigured bootstrap weights until the bootstrap height is reached.
+	 */
+	nano::rep_weight_map rep_weights_snapshot () const;
+	/**
+	 * Returns the vote weight of the given representative from the database, exact and unaffected by the cache minimum or bootstrap weights.
+	 */
 	nano::uint128_t weight_exact (secure::transaction const &, nano::account const &) const;
+
+	nano::uint128_t account_receivable (secure::transaction const &, nano::account const &, bool = false) const;
 	std::shared_ptr<nano::block> forked_block (secure::transaction const &, nano::block const &);
 	nano::root latest_root (secure::transaction const &, nano::account const &);
 	nano::block_hash representative_block (secure::transaction const &, nano::block_hash const &);
@@ -118,7 +133,6 @@ public:
 	nano::account epoch_signer (nano::link const &) const;
 	nano::link epoch_link (nano::epoch) const;
 	bool bootstrap_height_reached () const;
-	std::unordered_map<nano::account, nano::uint128_t> rep_weights_snapshot () const;
 
 	static nano::epoch version (nano::block const & block);
 	nano::epoch version (secure::transaction const &, nano::block_hash const & hash) const;

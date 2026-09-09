@@ -3,12 +3,14 @@
 #include <nano/lib/fwd.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/numbers_templ.hpp>
+#include <nano/secure/rep_weights.hpp>
 
 #include <chrono>
 #include <functional>
 #include <map>
 #include <memory>
 #include <optional>
+#include <span>
 #include <unordered_map>
 #include <vector>
 
@@ -58,6 +60,7 @@ std::chrono::seconds calculate_vote_cooldown (nano::uint128_t weight, nano::uint
  * Consensus bookkeeping for a single election: records one vote per representative, holds the competing blocks (forks of a single root) and selects a winner and leader from those votes.
  * The entire state is { votes, blocks, winner, leader }; vote () writes the votes, insert () the blocks, evaluate () the winner and the leader, and every tally is computed fresh from the recorded votes.
  * Representative weight and time are supplied by the caller, making the class deterministic and self-contained; locking is the responsibility of the owning election.
+ * Every tally reads the weights of all voting reps with a single weight query, so one tally never mixes weights from before and after a concurrent ledger update.
  *
  * Invariants:
  * - One vote per representative, so a rep can never back two blocks at once.
@@ -72,7 +75,8 @@ class election_ballot final
 public:
 	static size_t constexpr default_max_blocks{ 10 };
 
-	using weight_fn = std::function<nano::uint128_t (nano::account const &)>;
+	// Weights of the given representatives, expected as one consistent snapshot; a rep missing from the result counts as zero
+	using weight_fn = std::function<nano::rep_weight_map (std::span<nano::account const>)>;
 
 	// The initial block becomes both the first winner and the first leader
 	election_ballot (std::shared_ptr<nano::block> const & initial, weight_fn weight_query, size_t max_blocks = default_max_blocks);
@@ -176,6 +180,9 @@ private:
 		// Weight behind the hash from final votes only, zero when nothing is tallied for it
 		nano::uint128_t final_weight (nano::block_hash const &) const;
 	};
+
+	// Weights of every rep with a recorded vote, fetched with a single weight query
+	nano::rep_weight_map rep_weights () const;
 
 	block_weights compute_weights () const;
 

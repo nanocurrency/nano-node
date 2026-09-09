@@ -10,7 +10,9 @@
 
 #include <algorithm>
 #include <chrono>
+#include <span>
 #include <unordered_map>
+#include <vector>
 
 using namespace std::chrono_literals;
 
@@ -19,15 +21,28 @@ namespace
 std::chrono::steady_clock::time_point constexpr epoch{};
 
 // Representative weights for one test, injected into the ballot as its weight query
+// Records every query so tests can check that a tally reads all its reps with a single call
 struct test_reps
 {
-	std::unordered_map<nano::account, nano::uint128_t> weights;
+	nano::rep_weight_map weights;
+	size_t queries{ 0 }; // Number of weight queries made so far
+	std::vector<nano::account> last_query; // Reps requested by the latest query
 
+	// Reps without a registered weight are left out of the result, exercising the ballot's missing-rep handling
 	nano::election_ballot::weight_fn query ()
 	{
-		return [this] (nano::account const & rep) {
-			auto existing = weights.find (rep);
-			return existing != weights.end () ? existing->second : nano::uint128_t{ 0 };
+		return [this] (std::span<nano::account const> reps) {
+			++queries;
+			last_query.assign (reps.begin (), reps.end ());
+			nano::rep_weight_map result;
+			for (auto const & rep : reps)
+			{
+				if (auto existing = weights.find (rep); existing != weights.end ())
+				{
+					result[rep] = existing->second;
+				}
+			}
+			return result;
 		};
 	}
 
@@ -1067,6 +1082,142 @@ TEST (election_ballot, votes_with_weight_ordering)
 	ASSERT_EQ (std::max (rep_medium, rep_equal1), votes[2].representative);
 	ASSERT_EQ (rep_small, votes[3].representative);
 	ASSERT_EQ (initial->hash (), votes[0].hash);
+}
+
+/*
+ * Every tally reads the weights of all voting reps with exactly one weight query, so a tally is one consistent snapshot of the rep weights.
+ * Vote recording and insertion into a ballot with room do not consult weights at all; only a full ballot's eviction decision needs a tally.
+ */
+TEST (election_ballot, weight_query_single_call_per_tally)
+{
+	test_reps reps;
+	auto blocks = create_blocks_hash_ordered (2);
+	auto initial = blocks[0];
+	auto fork = blocks[1];
+	nano::election_ballot ballot{ initial, reps.query (), 1 };
+
+	auto rep1 = reps.rep (1);
+	auto rep2 = reps.rep (2);
+	auto rep3 = reps.rep (3);
+
+	// Recording votes never queries weights
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (rep1, nano::vote::timestamp_min, initial->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (rep2, nano::vote::timestamp_min, fork->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (rep3, nano::vote::timestamp_min, fork->hash (), 0s, epoch));
+	ASSERT_EQ (0, reps.queries);
+
+	// One evaluation is one query naming every voting rep exactly once
+	auto round = ballot.evaluate (100);
+	ASSERT_EQ (1, reps.queries);
+	ASSERT_EQ (3, reps.last_query.size ());
+	std::vector<nano::account> expected{ rep1, rep2, rep3 };
+	std::sort (expected.begin (), expected.end ());
+	std::sort (reps.last_query.begin (), reps.last_query.end ());
+	ASSERT_EQ (expected, reps.last_query);
+	ASSERT_EQ (1, round.winner_weight);
+
+	// The other tally entry points behave the same
+	ASSERT_EQ (1, ballot.tally ().size ());
+	ASSERT_EQ (2, reps.queries);
+	ASSERT_EQ (3, ballot.votes_with_weight ().size ());
+	ASSERT_EQ (3, reps.queries);
+
+	// A full ballot tallies once to pick the eviction candidate and compare the incoming block against it
+	ASSERT_EQ (nano::election_ballot::insert_outcome::rejected, ballot.insert (fork).outcome);
+	ASSERT_EQ (4, reps.queries);
+
+	// Inserting into a ballot with room does not tally
+	nano::election_ballot roomy{ initial, reps.query () };
+	reps.queries = 0;
+	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, roomy.insert (fork).outcome);
+	ASSERT_EQ (0, reps.queries);
+}
+
+/*
+ * A tally is a snapshot: weights read for one tally all come from the same query, so a concurrent weight change is seen fully or not at all.
+ * The query below moves the whole weight from one rep to another after every call, simulating a change of representative racing with the tally.
+ * Whichever side of the change a tally lands on, the total weight it sees is the same, whereas reading each rep separately could count the moved weight twice or not at all.
+ */
+TEST (election_ballot, weight_query_snapshot)
+{
+	nano::keypair rep_source;
+	nano::keypair rep_destination;
+	nano::uint128_t const amount{ 100 };
+
+	bool moved{ false };
+	size_t queries{ 0 };
+	auto query = [&] (std::span<nano::account const> reps) {
+		++queries;
+		nano::rep_weight_map result;
+		result[rep_source.pub] = moved ? 0 : amount;
+		result[rep_destination.pub] = moved ? amount : 0;
+		moved = !moved;
+		return result;
+	};
+
+	auto blocks = create_blocks_hash_ordered (2);
+	auto initial = blocks[0];
+	auto fork = blocks[1];
+	nano::election_ballot ballot{ initial, query };
+	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (fork).outcome);
+
+	// The two reps back different forks, so a mixed read would show up as a change in the total or in the winner margin
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (rep_source.pub, nano::vote::timestamp_min, initial->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (rep_destination.pub, nano::vote::timestamp_min, fork->hash (), 0s, epoch));
+
+	// Every tally sees the whole weight exactly once, on one side of the move or the other, and the backed fork alternates with it
+	for (size_t i = 0; i < 4; ++i)
+	{
+		auto tally = ballot.tally ();
+		ASSERT_EQ (2, tally.size ());
+		ASSERT_EQ (amount, tally.begin ()->first.weight);
+		ASSERT_EQ (0, std::next (tally.begin ())->first.weight);
+		auto const expected_hash = i % 2 == 0 ? initial->hash () : fork->hash ();
+		ASSERT_EQ (expected_hash, tally.begin ()->first.hash);
+	}
+
+	// The quorum margin reflects one side of the move, never both: the leading fork has the full weight and its rival none
+	auto round = ballot.evaluate (amount);
+	ASSERT_EQ (initial->hash (), round.winner->hash ());
+	ASSERT_EQ (amount, round.winner_weight);
+	ASSERT_TRUE (round.quorum);
+
+	// A per-rep read would have taken two queries per tally; the ballot issued exactly one per tally and one for the evaluation
+	ASSERT_EQ (5, queries);
+}
+
+/*
+ * A rep missing from the weight query result counts as zero weight, the same as a rep the ledger does not know.
+ * Its vote is still recorded and still anchors replay and cooldown checks; it just carries no tally weight.
+ */
+TEST (election_ballot, weight_query_missing_rep_is_zero)
+{
+	test_reps reps;
+	auto initial = create_block ();
+	nano::election_ballot ballot{ initial, reps.query () };
+
+	nano::keypair unknown;
+	auto known = reps.rep (5);
+
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (unknown.pub, nano::vote::timestamp_min, initial->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (known, nano::vote::timestamp_min, initial->hash (), 0s, epoch));
+
+	// The unknown rep was asked for but not answered, and contributes nothing
+	auto round = ballot.evaluate (0);
+	ASSERT_EQ (2, reps.last_query.size ());
+	ASSERT_EQ (5, round.winner_weight);
+	ASSERT_EQ (5, total_weight (ballot));
+
+	auto votes = ballot.votes_with_weight ();
+	ASSERT_EQ (2, votes.size ());
+	ASSERT_EQ (known, votes[0].representative);
+	ASSERT_EQ (5, votes[0].weight);
+	ASSERT_EQ (unknown.pub, votes[1].representative);
+	ASSERT_EQ (0, votes[1].weight);
+
+	// The vote is recorded despite carrying no weight
+	ASSERT_TRUE (ballot.find_vote (unknown.pub));
+	ASSERT_EQ (nano::election_ballot::vote_result::replay, ballot.vote (unknown.pub, nano::vote::timestamp_min, initial->hash (), 0s, epoch));
 }
 
 /*

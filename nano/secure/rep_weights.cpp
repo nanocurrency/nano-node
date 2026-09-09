@@ -103,7 +103,21 @@ nano::uint128_t nano::rep_weights::get (nano::account const & rep) const
 	return get_impl (rep);
 }
 
-std::unordered_map<nano::account, nano::uint128_t> nano::rep_weights::get_rep_amounts () const
+nano::rep_weight_map nano::rep_weights::get (std::span<nano::account const> reps) const
+{
+	nano::rep_weight_map result;
+	result.reserve (reps.size ());
+
+	// One lock acquisition for the whole batch: a concurrent move between two reps is seen either fully or not at all
+	std::shared_lock guard{ mutex };
+	for (auto const & rep : reps)
+	{
+		result[rep] = get_impl (rep);
+	}
+	return result;
+}
+
+nano::rep_weight_map nano::rep_weights::get_all () const
 {
 	std::shared_lock guard{ mutex };
 	return rep_amounts;
