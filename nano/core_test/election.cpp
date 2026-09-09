@@ -195,6 +195,76 @@ TEST (election, sealed_round_frozen)
 	ASSERT_EQ (nano::dev::constants.genesis_amount, election->get_status ().tally.number ());
 }
 
+// The reported final tally follows the winner across a fork switch: final votes behind the displaced block are neither carried over to the new winner nor pooled into its final tally once it confirms
+TEST (election, final_tally_follows_winner_switch)
+{
+	nano::test::system system;
+	nano::node_config node_config = system.default_config ();
+	node_config.online_weight_minimum = nano::dev::constants.genesis_amount;
+	node_config.backlog_scan->enable = false;
+	auto & node = *system.add_node (node_config);
+
+	// Split the weight so that only genesis can reach the quorum of two thirds: a minor rep holds a tenth of the supply and genesis keeps the rest
+	auto const minor = nano::test::setup_rep (system, node, nano::dev::constants.genesis_amount / 10);
+	auto const genesis_weight = node.ledger.weight (nano::dev::genesis_key.pub);
+	ASSERT_LT (node.ledger.weight (minor.pub), node.online_reps.delta ());
+	ASSERT_GE (genesis_weight, node.online_reps.delta ());
+
+	// Fork the minor rep's chain so that reprocessing the winning fork never moves genesis weight; send1 enters the ledger, send2 only the election
+	auto const latest = node.latest (minor.pub);
+	auto const balance = node.balance (minor.pub);
+	nano::state_block_builder builder;
+	auto send1 = builder.make_block ()
+				 .account (minor.pub)
+				 .previous (latest)
+				 .representative (minor.pub)
+				 .balance (balance - 1)
+				 .link (nano::keypair{}.pub)
+				 .sign (minor.prv, minor.pub)
+				 .work (*system.work.generate (latest))
+				 .build ();
+	auto send2 = builder.make_block ()
+				 .account (minor.pub)
+				 .previous (latest)
+				 .representative (minor.pub)
+				 .balance (balance - 1)
+				 .link (nano::keypair{}.pub)
+				 .sign (minor.prv, minor.pub)
+				 .work (*system.work.generate (latest))
+				 .build ();
+	ASSERT_NE (send1->hash (), send2->hash ());
+	ASSERT_TRUE (nano::test::process (node, { send1 }));
+	auto const minor_weight = node.ledger.weight (minor.pub);
+
+	auto election = std::make_shared<nano::election> (node, send1, nano::election_behavior::priority, 42);
+	ASSERT_TRUE (election->publish (send2));
+	ASSERT_EQ (2, election->blocks ().size ());
+
+	// The minor rep commits to send1 with a final vote: send1 stays the winner with that final weight behind it, short of final quorum
+	ASSERT_EQ (nano::vote_code::vote, election->vote (minor.pub, nano::vote::timestamp_final, send1->hash (), nano::vote_source::live));
+	auto status = election->get_status ();
+	ASSERT_EQ (send1->hash (), status.winner->hash ());
+	ASSERT_EQ (minor_weight, status.tally.number ());
+	ASSERT_EQ (minor_weight, status.final_tally.number ());
+	ASSERT_FALSE (election->confirmed ());
+
+	// A normal vote from genesis moves the winner to send2, which has no final votes: the final tally must not keep the minor rep's weight
+	ASSERT_EQ (nano::vote_code::vote, election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_min, send2->hash (), nano::vote_source::live));
+	status = election->get_status ();
+	ASSERT_EQ (send2->hash (), status.winner->hash ());
+	ASSERT_EQ (genesis_weight, status.tally.number ());
+	ASSERT_EQ (0, status.final_tally.number ());
+	ASSERT_FALSE (election->confirmed ());
+
+	// Genesis finalizes send2: the election confirms on genesis weight alone and the frozen record reports only that, not the minor rep's final vote for send1
+	ASSERT_EQ (nano::vote_code::vote, election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_final, send2->hash (), nano::vote_source::live));
+	ASSERT_TRUE (election->confirmed ());
+	status = election->get_status ();
+	ASSERT_EQ (send2->hash (), status.winner->hash ());
+	ASSERT_EQ (genesis_weight, status.tally.number ());
+	ASSERT_EQ (genesis_weight, status.final_tally.number ());
+}
+
 // Only a confirmed election keeps voting after sealing, a cancelled one must not vote
 TEST (election, sealed_no_broadcast_vote)
 {

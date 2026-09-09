@@ -1009,6 +1009,84 @@ TEST (election_ballot, evaluate_final_weight_follows_winner)
 }
 
 /*
+ * The final weight is re-read for whichever block holds the winner slot after each evaluation, it is never carried over from a previous winner.
+ * When the winner moves to a fork without final votes the final weight must drop to zero rather than keep the old winner's total, and final votes the new winner then collects must not be pooled with the old winner's: a stale or pooled value would misreport confirmation progress and, at the threshold, confirm a block its finalizing reps never voted for.
+ */
+TEST (election_ballot, evaluate_final_weight_resets_on_winner_switch)
+{
+	test_reps reps;
+	auto initial = create_block ();
+	auto fork = create_block ();
+	nano::election_ballot ballot{ initial, reps.query () };
+	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (fork).outcome);
+
+	// 7 final weight backs the initial winner, short of the threshold of 10
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (7), nano::vote::timestamp_final, initial->hash (), 0s, epoch));
+	auto round1 = ballot.evaluate (10);
+	ASSERT_EQ (initial, round1.winner);
+	ASSERT_EQ (7, round1.final_winner_weight);
+	ASSERT_FALSE (round1.final_quorum);
+
+	// 20 normal weight moves the winner to the fork, which has no final votes of its own
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (20), nano::vote::timestamp_min, fork->hash (), 0s, epoch));
+	auto round2 = ballot.evaluate (10);
+	ASSERT_EQ (fork, round2.winner);
+	ASSERT_EQ (20, round2.winner_weight);
+	ASSERT_EQ (0, round2.final_winner_weight); // Not the 7 left behind on the initial block
+	ASSERT_FALSE (round2.final_quorum);
+
+	// Final weight the fork collects is counted on its own, not pooled with the 7 behind the initial block
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (5), nano::vote::timestamp_final, fork->hash (), 0s, epoch));
+	auto round3 = ballot.evaluate (10);
+	ASSERT_EQ (fork, round3.winner);
+	ASSERT_EQ (5, round3.final_winner_weight);
+	ASSERT_FALSE (round3.final_quorum); // 5 alone is below the threshold, while 5 + 7 would reach it
+
+	// Only the fork's own final weight reaching the threshold confirms it
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (6), nano::vote::timestamp_final, fork->hash (), 0s, epoch));
+	auto round4 = ballot.evaluate (10);
+	ASSERT_EQ (fork, round4.winner);
+	ASSERT_EQ (11, round4.final_winner_weight);
+	ASSERT_TRUE (round4.final_quorum);
+}
+
+/*
+ * Final quorum is a property of the current winner and is re-derived on every evaluation, so a winner switch revokes it until the new winner earns it with final votes of its own, and restores it if the old winner regains the slot with its retained final votes.
+ * Election confirmation is gated on this flag: were it to survive a switch, an election could confirm the new winner on the strength of final votes cast for the block it displaced.
+ */
+TEST (election_ballot, evaluate_final_quorum_follows_winner_switch)
+{
+	test_reps reps;
+	auto initial = create_block ();
+	auto fork = create_block ();
+	nano::election_ballot ballot{ initial, reps.query () };
+	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (fork).outcome);
+
+	// 12 final weight gives the initial block final quorum at a threshold of 10
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (12), nano::vote::timestamp_final, initial->hash (), 0s, epoch));
+	auto round1 = ballot.evaluate (10);
+	ASSERT_EQ (initial, round1.winner);
+	ASSERT_EQ (12, round1.final_winner_weight);
+	ASSERT_TRUE (round1.final_quorum);
+
+	// 20 normal weight moves the winner to the fork; final quorum stays with the displaced block, not with the slot
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (20), nano::vote::timestamp_min, fork->hash (), 0s, epoch));
+	auto round2 = ballot.evaluate (10);
+	ASSERT_EQ (fork, round2.winner);
+	ASSERT_EQ (20, round2.winner_weight);
+	ASSERT_EQ (0, round2.final_winner_weight);
+	ASSERT_FALSE (round2.final_quorum);
+
+	// 10 more normal weight brings the initial block to 22 and the winner slot back with it, so its retained final votes count again
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (10), nano::vote::timestamp_min, initial->hash (), 0s, epoch));
+	auto round3 = ballot.evaluate (10);
+	ASSERT_EQ (initial, round3.winner);
+	ASSERT_EQ (22, round3.winner_weight);
+	ASSERT_EQ (12, round3.final_winner_weight);
+	ASSERT_TRUE (round3.final_quorum);
+}
+
+/*
  * The tally query is a pure report: it shows the current standings without advancing the winner.
  * Only evaluate may move the winner, so status displays and RPC endpoints can inspect the tally freely without side effects on consensus state.
  */
