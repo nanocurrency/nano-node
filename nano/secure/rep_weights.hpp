@@ -27,7 +27,7 @@ public:
 	/* Move weight from one representative to another */
 	void move (store::write_transaction const &, nano::account const & source_rep, nano::account const & dest_rep, nano::uint128_t const & amount);
 
-	/* Move weight from one representative to another while adding or subtracting the weight */
+	/* Take amount_source from the source rep and give amount_dest to the destination rep in one cache update, as a block changing representative and balance at once requires */
 	void move_add_sub (store::write_transaction const &, nano::account const & source_rep, nano::uint128_t const & amount_source, nano::account const & dest_rep, nano::uint128_t const & amount_dest);
 
 	/* Only use this method when loading rep weights from the database table */

@@ -40,48 +40,44 @@ void nano::rep_weights::sub (store::write_transaction const & txn, nano::account
 
 void nano::rep_weights::move (store::write_transaction const & txn, nano::account const & source_rep, nano::account const & dest_rep, nano::uint128_t const & amount)
 {
-	if (source_rep == dest_rep) // Nothing to move if reps are the same
+	move_add_sub (txn, source_rep, amount, dest_rep, amount);
+}
+
+void nano::rep_weights::move_add_sub (store::write_transaction const & txn, nano::account const & source_rep, nano::uint128_t const & amount_source, nano::account const & dest_rep, nano::uint128_t const & amount_dest)
+{
+	if (source_rep == dest_rep) // The same rep on both sides only sees the balance difference
 	{
+		if (amount_dest > amount_source)
+		{
+			add (txn, dest_rep, amount_dest - amount_source);
+		}
+		else if (amount_source > amount_dest)
+		{
+			sub (txn, source_rep, amount_source - amount_dest);
+		}
 		return;
 	}
 
 	auto const previous_weight_source = rep_weight_store.get (txn, source_rep);
 	auto const previous_weight_dest = rep_weight_store.get (txn, dest_rep);
-	release_assert (previous_weight_source >= amount, "source representative must have enough weight to move");
+	release_assert (previous_weight_source >= amount_source, "source representative must have enough weight to move");
 
-	auto const new_weight_source = previous_weight_source - amount;
-	auto const new_weight_dest = previous_weight_dest + amount;
+	auto const new_weight_source = previous_weight_source - amount_source;
+	auto const new_weight_dest = previous_weight_dest + amount_dest;
 	release_assert (new_weight_dest >= previous_weight_dest, "new weight for destination representative must be greater than or equal to previous weight");
-	release_assert (new_weight_source <= previous_weight_source, "new weight for source representative must be less than or equal to previous weight");
 
 	put_store (txn, source_rep, previous_weight_source, new_weight_source);
 	put_store (txn, dest_rep, previous_weight_dest, new_weight_dest);
 
+	// Both reps and the totals change under one lock, so a batch read sees the whole update or none of it
 	std::lock_guard guard{ mutex };
 	put_cache (source_rep, new_weight_source);
 	put_cache (dest_rep, new_weight_dest);
-}
 
-void nano::rep_weights::move_add_sub (store::write_transaction const & txn, nano::account const & source_rep, nano::uint128_t const & amount_source, nano::account const & dest_rep, nano::uint128_t const & amount_dest)
-{
-	if (amount_source == amount_dest)
-	{
-		move (txn, source_rep, dest_rep, amount_source);
-	}
-	else if (amount_dest > amount_source)
-	{
-		move (txn, source_rep, dest_rep, amount_source);
-		add (txn, dest_rep, amount_dest - amount_source);
-	}
-	else if (amount_source > amount_dest)
-	{
-		move (txn, source_rep, dest_rep, amount_dest);
-		sub (txn, source_rep, amount_source - amount_dest);
-	}
-	else
-	{
-		release_assert (false);
-	}
+	weight_committed += amount_dest;
+	weight_committed -= amount_source;
+	weight_unused += amount_source;
+	weight_unused -= amount_dest;
 }
 
 void nano::rep_weights::put (nano::account const & rep, nano::uint128_t const & weight)
