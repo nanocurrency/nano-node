@@ -152,6 +152,9 @@ void nano::vote_generator::process_final (std::deque<vote_generator_verifier::en
 		}
 	}
 
+	// Commit final vote records before publishing permits
+	transaction.commit ();
+
 	for (auto const & permit : verified)
 	{
 		debug_assert (permit.type () == nano::vote_type::final);

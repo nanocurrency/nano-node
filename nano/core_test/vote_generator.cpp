@@ -1,10 +1,14 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/ratios.hpp>
 #include <nano/lib/vote.hpp>
+#include <nano/node/backlog_scan.hpp>
 #include <nano/node/node_observers.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/wallet.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/secure/voting_policy.hpp>
+#include <nano/store/ledger/final_vote.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/random.hpp>
 #include <nano/test_common/system.hpp>
@@ -12,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include <map>
 #include <set>
 
 using namespace std::chrono_literals;
@@ -677,7 +682,9 @@ TEST (vote_generator_broadcaster, check_capacity_backpressure)
 TEST (vote_generator, basic_broadcast)
 {
 	nano::test::system system;
-	auto & node = *system.add_node ();
+	auto config = system.default_config ();
+	config.backlog_scan->enable = false; // Keep setup from starting elections and recording final votes
+	auto & node = *system.add_node (config);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 
 	auto blocks = nano::test::setup_chain (system, node, 1);
@@ -756,6 +763,60 @@ TEST (vote_generator, multiple_representatives)
 	ASSERT_TRUE (signers.count (rep1.pub));
 	ASSERT_TRUE (signers.count (rep2.pub));
 	ASSERT_TRUE (signers.count (rep3.pub));
+}
+
+// Final vote records must be visible in a fresh ledger snapshot when their votes are observed
+TEST (vote_generator, final_vote_record_visible_at_broadcast)
+{
+	int constexpr block_count = 1024;
+	nano::test::system system;
+	auto config = system.default_config ();
+	config.backlog_scan->enable = false;
+	config.vote_generator->batch_size = block_count; // Allow broadcasting while a large batch is still being published
+	config.vote_generator->delay = 1ms;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true; // Final replies for cemented blocks do not require vote records
+	auto & node = *system.add_node (config, flags);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	auto blocks = nano::test::setup_chain (system, node, block_count);
+	ASSERT_TRUE (node.ledger.store.final_vote.empty (node.ledger.tx_begin_read ()));
+
+	std::map<nano::block_hash, nano::qualified_root> roots;
+	for (auto const & block : blocks)
+	{
+		roots.emplace (block->hash (), block->qualified_root ());
+	}
+
+	nano::shared_locked<std::map<nano::block_hash, std::optional<nano::block_hash>>> records;
+	node.observers.vote.add ([&node, roots, records] (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const &, nano::vote_source, nano::vote_code) {
+		if (vote->is_final ())
+		{
+			// Capture visibility at observation time without waiting for the record to appear
+			auto transaction = node.ledger.tx_begin_read ();
+			for (auto const & hash : vote->hashes)
+			{
+				if (auto it = roots.find (hash); it != roots.end ())
+				{
+					auto record = node.ledger.store.final_vote.get (transaction, it->second);
+					records->emplace (hash, record);
+				}
+			}
+		}
+	});
+
+	for (auto const & block : blocks)
+	{
+		node.vote_generator.vote_final (block->qualified_root (), block->hash (), 0);
+	}
+	ASSERT_TIMELY_EQ (5s, records->size (), blocks.size ());
+
+	auto locked = records.lock ();
+	for (auto const & [hash, record] : locked.get ())
+	{
+		ASSERT_TRUE (record) << "Missing final vote record for " << hash.to_string ();
+		ASSERT_EQ (hash, *record);
+	}
 }
 
 // Normal vote for a root with an existing final vote record is upgraded and routed to final broadcaster
