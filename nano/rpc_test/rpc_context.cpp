@@ -1,23 +1,29 @@
+#include <nano/lib/thread_runner.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
 #include <nano/rpc/rpc_server.hpp>
 #include <nano/rpc_test/common.hpp>
 #include <nano/rpc_test/rpc_context.hpp>
-#include <nano/test_common/test_response.hpp>
 #include <nano/test_common/system.hpp>
+#include <nano/test_common/test_response.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
 #include <boost/property_tree/json_parser.hpp>
 
-nano::test::rpc_context::rpc_context (std::shared_ptr<nano::rpc_server> & rpc_a, std::shared_ptr<nano::ipc::ipc_server> & ipc_server_a, std::unique_ptr<nano::ipc_rpc_processor> & ipc_rpc_processor_a, std::unique_ptr<nano::node_rpc_config> & node_rpc_config_a)
+nano::test::rpc_context::~rpc_context ()
 {
-	rpc = std::move (rpc_a);
-	ipc_server = std::move (ipc_server_a);
-	ipc_rpc_processor = std::move (ipc_rpc_processor_a);
-	node_rpc_config = std::move (node_rpc_config_a);
+	// Same order as the owners use: stop accepting, then drop whatever is still queued on the IO threads
+	if (rpc)
+	{
+		rpc->stop ();
+	}
+	if (runner)
+	{
+		runner->abort ();
+	}
 }
 
 void nano::test::wait_response_impl (nano::test::system & system, rpc_context const & rpc_ctx, boost::property_tree::ptree & request, std::chrono::duration<double, std::nano> const & time, boost::property_tree::ptree & response_json)
@@ -68,18 +74,22 @@ bool nano::test::check_block_response_count (nano::test::system & system, rpc_co
 
 nano::test::rpc_context nano::test::add_rpc (nano::test::system & system, std::shared_ptr<nano::node> const & node_a, rpc_options const & options)
 {
-	auto node_rpc_config (std::make_unique<nano::node_rpc_config> ());
-	auto ipc_server (std::make_shared<nano::ipc::ipc_server> (*node_a, *node_rpc_config, options.stop_callback));
+	rpc_context ctx;
+	ctx.io_ctx = std::make_shared<boost::asio::io_context> ();
+	ctx.node_rpc_config = std::make_unique<nano::node_rpc_config> ();
+	ctx.ipc_server = std::make_shared<nano::ipc::ipc_server> (*node_a, *ctx.node_rpc_config, options.stop_callback);
+
 	nano::rpc_config rpc_config (node_a->network_params.network, system.get_available_port (), options.enable_control);
 	if (options.num_ipc_connections)
 	{
 		rpc_config.rpc_process.num_ipc_connections = *options.num_ipc_connections;
 	}
-	const auto ipc_tcp_port = ipc_server->listening_tcp_port ();
-	debug_assert (ipc_tcp_port.has_value ());
-	auto ipc_rpc_processor (std::make_unique<nano::ipc_rpc_processor> (system.io_ctx, rpc_config, ipc_tcp_port.value (), options.stop_callback));
-	auto rpc (std::make_shared<nano::rpc_server> (system.io_ctx, rpc_config, *ipc_rpc_processor));
-	rpc->start ();
 
-	return rpc_context{ rpc, ipc_server, ipc_rpc_processor, node_rpc_config };
+	auto const ipc_tcp_port = ctx.ipc_server->listening_tcp_port ();
+	debug_assert (ipc_tcp_port.has_value ());
+	ctx.ipc_rpc_processor = std::make_unique<nano::ipc_rpc_processor> (ctx.io_ctx, rpc_config, ipc_tcp_port.value (), options.stop_callback);
+	ctx.rpc = std::make_shared<nano::rpc_server> (ctx.io_ctx, rpc_config, *ctx.ipc_rpc_processor);
+	ctx.runner = std::make_unique<nano::thread_runner> (ctx.io_ctx, system.logger, 2);
+	ctx.rpc->start ();
+	return ctx;
 }

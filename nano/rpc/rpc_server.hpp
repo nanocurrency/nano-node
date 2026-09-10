@@ -1,48 +1,50 @@
 #pragma once
 
-#include <nano/boost/asio/ip/tcp.hpp>
+#include <nano/lib/async.hpp>
 #include <nano/lib/logging.hpp>
-#include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
 
-namespace boost
-{
-namespace asio
-{
-	class io_context;
-}
-}
+#include <atomic>
+#include <cstdint>
+#include <memory>
 
 namespace nano
 {
 class rpc_handler_interface;
 
-class rpc_server : public std::enable_shared_from_this<rpc_server>
+/**
+ * Accepts HTTP connections for the RPC API and hands every request to a `rpc_handler_interface`.
+ *
+ * The accept loop is a task running on a strand owned by this object, so the acceptor is only
+ * touched from that strand while the loop runs. `stop` cancels and joins the loop before closing
+ * the acceptor; it is idempotent and may be called from any thread that is not running this
+ * server's `io_context`, since joining from such a thread could deadlock. Connections that were
+ * already accepted are not interrupted, they finish their request on their own.
+ */
+class rpc_server final
 {
 public:
-	rpc_server (std::shared_ptr<boost::asio::io_context>, nano::rpc_config config_a, nano::rpc_handler_interface & rpc_handler_interface_a);
-	virtual ~rpc_server ();
+	rpc_server (std::shared_ptr<boost::asio::io_context>, nano::rpc_config, nano::rpc_handler_interface &);
+	~rpc_server ();
 
 	void start ();
 	void stop ();
 
-	virtual void accept ();
+	// Port the acceptor is bound to, only meaningful after `start`
+	std::uint16_t listening_port () const;
 
-	std::uint16_t listening_port () const
-	{
-		return acceptor.local_endpoint ().port ();
-	}
+	nano::rpc_config const config;
 
-public:
+private:
+	asio::awaitable<void> run ();
+
 	nano::logger logger{ "rpc" };
-	nano::rpc_config config;
-	std::shared_ptr<boost::asio::io_context> io_ctx_shared;
-	boost::asio::io_context & io_ctx;
+	nano::rpc_handler_interface & handler;
+	std::shared_ptr<boost::asio::io_context> io_ctx;
+	nano::async::strand strand;
 	boost::asio::ip::tcp::acceptor acceptor;
-	nano::rpc_handler_interface & rpc_handler_interface;
-	bool stopped{ false };
+	nano::async::task task;
+	std::atomic<bool> stopped{ false };
+	std::uint16_t port{ 0 };
 };
-
-/** Returns the correct RPC implementation based on TLS configuration */
-std::shared_ptr<nano::rpc_server> get_rpc (std::shared_ptr<boost::asio::io_context>, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a);
 }

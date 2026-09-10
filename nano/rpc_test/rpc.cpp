@@ -38,7 +38,6 @@
 #include <nano/rpc/rpc_server.hpp>
 #include <nano/rpc_test/common.hpp>
 #include <nano/rpc_test/rpc_context.hpp>
-#include <nano/test_common/test_response.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
 #include <nano/secure/ledger_set_cemented.hpp>
@@ -51,6 +50,7 @@
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/telemetry.hpp>
+#include <nano/test_common/test_response.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -6840,22 +6840,12 @@ TEST (rpc, active_difficulty)
 }
 
 // This is mainly to check for threading issues with TSAN
-// TODO: Use multiple threads to run io context
 TEST (rpc, simultaneous_calls)
 {
 	// This tests simultaneous calls to the same node in different threads
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
-
-	nano::node_rpc_config node_rpc_config;
-	nano::ipc::ipc_server ipc_server (*node, node_rpc_config, [] () {});
-	nano::rpc_config rpc_config{ nano::dev::network_params.network, system.get_available_port (), true };
-	const auto ipc_tcp_port = ipc_server.listening_tcp_port ();
-	ASSERT_TRUE (ipc_tcp_port.has_value ());
-	rpc_config.rpc_process.num_ipc_connections = 8;
-	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config, ipc_tcp_port.value (), [] () {});
-	auto rpc = std::make_shared<nano::rpc_server> (system.io_ctx, rpc_config, ipc_rpc_processor);
-	nano::test::start_stop_guard stop_guard{ *rpc };
+	auto const rpc_ctx = add_rpc (system, node, { .num_ipc_connections = 8 });
 
 	boost::property_tree::ptree request;
 	request.put ("action", "account_block_count");
@@ -6873,7 +6863,7 @@ TEST (rpc, simultaneous_calls)
 	nano::test::join_guard threads;
 	for (int i = 0; i < num; ++i)
 	{
-		threads.spawn ([&test_responses, &promise, &count, i, port = rpc->listening_port ()] () {
+		threads.spawn ([&test_responses, &promise, &count, i, port = rpc_ctx.rpc->listening_port ()] () {
 			test_responses[i]->run (port);
 			if (--count == 0)
 			{

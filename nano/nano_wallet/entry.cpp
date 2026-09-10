@@ -200,7 +200,7 @@ public:
 						logger.debug (nano::log::type::daemon, "Starting in-process RPC server on port {}", rpc_config.port);
 
 						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc, config.rpc, stop_callback);
-						rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
+						rpc = std::make_shared<nano::rpc_server> (io_ctx, rpc_config, *rpc_handler);
 						rpc->start ();
 					}
 					else

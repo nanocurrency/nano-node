@@ -55,7 +55,7 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 			};
 
 			nano::ipc_rpc_processor ipc_rpc_processor (io_ctx, rpc_config, stop_callback);
-			auto rpc = nano::get_rpc (io_ctx, rpc_config, ipc_rpc_processor);
+			auto rpc = std::make_shared<nano::rpc_server> (io_ctx, rpc_config, ipc_rpc_processor);
 			rpc->start ();
 
 			auto signal_handler = [&stopped, &logger] (int signum) {
