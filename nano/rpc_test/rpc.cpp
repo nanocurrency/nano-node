@@ -438,14 +438,14 @@ TEST (rpc, stop)
 {
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
-	std::atomic<bool> stop_requested{ false };
-	auto const rpc_ctx = add_rpc (system, node, { .stop_callback = [&stop_requested] () { stop_requested = true; } });
+	std::atomic<int> stop_requests{ 0 };
+	auto const rpc_ctx = add_rpc (system, node, { .stop_callback = [&stop_requests] () { ++stop_requests; } });
 	boost::property_tree::ptree request;
 	request.put ("action", "stop");
 	auto response (wait_response (system, rpc_ctx, request));
 	ASSERT_EQ ("", response.get<std::string> ("success"));
-	// The request is only reported to the owner, nothing is torn down by the handler chain
-	ASSERT_TIMELY (5s, stop_requested);
+	// The request is only reported to the owner, once by the node's IPC server and once by the RPC side, nothing is torn down by the handler chain
+	ASSERT_TIMELY_EQ (5s, stop_requests, 2);
 	ASSERT_FALSE (node->stopped);
 }
 
@@ -6848,7 +6848,7 @@ TEST (rpc, simultaneous_calls)
 	auto node = add_ipc_enabled_node (system);
 
 	nano::node_rpc_config node_rpc_config;
-	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config, [] () {});
 	nano::rpc_config rpc_config{ nano::dev::network_params.network, system.get_available_port (), true };
 	const auto ipc_tcp_port = ipc_server.listening_tcp_port ();
 	ASSERT_TRUE (ipc_tcp_port.has_value ());

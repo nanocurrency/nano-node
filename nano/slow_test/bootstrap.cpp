@@ -41,7 +41,7 @@ public:
 	rpc_wrapper (nano::test::system & system, nano::node & node, uint16_t port) :
 		node_rpc_config{},
 		rpc_config{ node.network_params.network, port, true },
-		ipc{ node, node_rpc_config },
+		ipc{ node, node_rpc_config, [] () {} },
 		ipc_rpc_processor{ system.io_ctx, rpc_config, [] () {} },
 		rpc{ system.io_ctx, rpc_config, ipc_rpc_processor }
 	{

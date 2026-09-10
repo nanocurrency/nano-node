@@ -171,7 +171,12 @@ public:
 				debug_assert (wallet->exists (wallet_config.account));
 				write_wallet_config (wallet_config, data_path);
 				node->start ();
-				nano::ipc::ipc_server ipc (*node, config.rpc);
+
+				// Invoked from an IO thread when a stop request arrives over RPC or IPC, hands the shutdown over to the Qt event loop
+				auto stop_callback = [&application] () {
+					QMetaObject::invokeMethod (&application, "quit", Qt::QueuedConnection);
+				};
+				nano::ipc::ipc_server ipc (*node, config.rpc, stop_callback);
 
 				std::unique_ptr<boost::process::child> rpc_process;
 				std::shared_ptr<nano::rpc_server> rpc;
@@ -194,10 +199,6 @@ public:
 
 						logger.debug (nano::log::type::daemon, "Starting in-process RPC server on port {}", rpc_config.port);
 
-						auto stop_callback = [&application] () {
-							// Runs on an IO thread, hand the shutdown over to the Qt event loop
-							QMetaObject::invokeMethod (&application, "quit", Qt::QueuedConnection);
-						};
 						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc, config.rpc, stop_callback);
 						rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
 						rpc->start ();

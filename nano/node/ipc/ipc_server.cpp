@@ -288,19 +288,7 @@ public:
 		auto body (std::string (reinterpret_cast<char *> (buffer.data ()), buffer.size ()));
 
 		// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
-		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, [server_w = server.weak_from_this ()] () {
-			// TODO: Previously this was stopping node.io_ctx, which was wrong. Investigate what's going on here. Why isn't it using stop_callback passed externally?
-			// This is running on the IO thread, so attempting to directly stop the server will cause it to try joining itself.
-			// This RPC/IPC system is really badly designed...
-			std::thread ([server_w] () {
-				std::this_thread::sleep_for (std::chrono::seconds (1));
-				if (auto server = server_w.lock ())
-				{
-					server->stop ();
-				}
-			})
-			.detach ();
-		}));
+		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, server.stop_callback));
 		// For unsafe actions to be allowed, the unsafe encoding must be used AND the transport config must allow it
 		handler->process_request (allow_unsafe && config_transport.allow_unsafe);
 	}
@@ -591,11 +579,13 @@ std::optional<std::uint16_t> socket_transport<ACCEPTOR_TYPE, SOCKET_TYPE, ENDPOI
 
 }
 
-nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a) :
+nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a, std::function<void ()> stop_callback_a) :
 	node (node_a),
 	node_rpc_config (node_rpc_config_a),
+	stop_callback (std::move (stop_callback_a)),
 	broker (std::make_shared<nano::ipc::broker> (node_a))
 {
+	debug_assert (stop_callback);
 	try
 	{
 		nano::error access_config_error (reload_access_config ());
@@ -646,10 +636,6 @@ void nano::ipc::ipc_server::stop ()
 	for (auto & transport : transports)
 	{
 		transport->stop ();
-	}
-	if (signals)
-	{
-		signals->cancel ();
 	}
 }
 

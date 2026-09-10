@@ -136,7 +136,14 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 
 		std::atomic stopped{ false };
 
-		std::unique_ptr<nano::ipc::ipc_server> ipc_server = std::make_unique<nano::ipc::ipc_server> (*node, config.rpc);
+		// Invoked from an IO thread when a stop request arrives over RPC or IPC, only wakes the main thread
+		auto stop_callback = [this, &stopped] () {
+			logger.warn (nano::log::type::daemon, "Stop request received, stopping...");
+			stopped = true;
+			stopped.notify_all ();
+		};
+
+		std::unique_ptr<nano::ipc::ipc_server> ipc_server = std::make_unique<nano::ipc::ipc_server> (*node, config.rpc, stop_callback);
 		std::unique_ptr<boost::process::child> rpc_process;
 		std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 		std::shared_ptr<nano::rpc_server> rpc;
@@ -147,12 +154,6 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 			// In process RPC
 			if (!config.rpc.child_process.enable)
 			{
-				auto stop_callback = [this, &stopped] () {
-					logger.warn (nano::log::type::daemon, "RPC stop request received, stopping...");
-					stopped = true;
-					stopped.notify_all ();
-				};
-
 				// Launch rpc in-process
 				nano::rpc_config rpc_config{ config.node.network_params.network };
 				if (auto error = nano::read_rpc_config_toml (data_path, rpc_config, flags.rpc_config_overrides))

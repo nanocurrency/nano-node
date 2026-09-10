@@ -52,7 +52,7 @@ namespace test
 		bool enable_control{ true };
 		// Overrides the RPC → IPC connection count; the dev network default of 1 processes requests one at a time
 		std::optional<unsigned> num_ipc_connections{};
-		// Invoked when the node acknowledges a `stop` request, the harness never stops anything on its own
+		// Invoked when a `stop` request reaches the node over IPC and again when the RPC side sees the acknowledgement, the harness never stops anything on its own
 		std::function<void ()> stop_callback{ [] () {} };
 	};
 
