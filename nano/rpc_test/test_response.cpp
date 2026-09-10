@@ -8,22 +8,27 @@
 
 #include <boost/property_tree/json_parser.hpp>
 
-nano::test::test_response::test_response (boost::property_tree::ptree const & request_a, boost::asio::io_context & io_ctx_a) :
-	request (request_a),
-	sock (io_ctx_a)
+std::shared_ptr<nano::test::test_response> nano::test::test_response::prepare (boost::property_tree::ptree const & request, boost::asio::io_context & io_ctx)
+{
+	return std::make_shared<test_response> (private_tag{}, request, io_ctx);
+}
+
+std::shared_ptr<nano::test::test_response> nano::test::test_response::send (boost::property_tree::ptree const & request, uint16_t port, boost::asio::io_context & io_ctx)
+{
+	auto result = prepare (request, io_ctx);
+	result->run (port);
+	return result;
+}
+
+nano::test::test_response::test_response (private_tag, boost::property_tree::ptree const & request, boost::asio::io_context & io_ctx) :
+	request{ request },
+	sock{ io_ctx }
 {
 }
 
-nano::test::test_response::test_response (boost::property_tree::ptree const & request_a, uint16_t port_a, boost::asio::io_context & io_ctx_a) :
-	request (request_a),
-	sock (io_ctx_a)
+void nano::test::test_response::run (uint16_t port)
 {
-	run (port_a);
-}
-
-void nano::test::test_response::run (uint16_t port_a)
-{
-	sock.async_connect (nano::tcp_endpoint (boost::asio::ip::address_v6::loopback (), port_a), [this] (boost::system::error_code const & ec) {
+	sock.async_connect (nano::tcp_endpoint (boost::asio::ip::address_v6::loopback (), port), [this, /* lifetime guard */ this_s = shared_from_this ()] (boost::system::error_code const & ec) {
 		if (!ec)
 		{
 			std::stringstream ostream;
@@ -34,10 +39,10 @@ void nano::test::test_response::run (uint16_t port_a)
 			ostream.flush ();
 			req.body () = ostream.str ();
 			req.prepare_payload ();
-			boost::beast::http::async_write (sock, req, [this] (boost::system::error_code const & ec, size_t bytes_transferred) {
+			boost::beast::http::async_write (sock, req, [this, /* lifetime guard */ this_s = shared_from_this ()] (boost::system::error_code const & ec, size_t bytes_transferred) {
 				if (!ec)
 				{
-					boost::beast::http::async_read (sock, sb, resp, [this] (boost::system::error_code const & ec, size_t bytes_transferred) {
+					boost::beast::http::async_read (sock, sb, resp, [this, /* lifetime guard */ this_s = shared_from_this ()] (boost::system::error_code const & ec, size_t bytes_transferred) {
 						if (!ec)
 						{
 							std::stringstream body (resp.body ());
