@@ -4,6 +4,8 @@ add_library(
   chains.cpp
   common.hpp
   common.cpp
+  hooked_backend.hpp
+  hooked_backend.cpp
   ledger_context.hpp
   ledger_context.cpp
   make_store.hpp

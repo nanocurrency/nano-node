@@ -6,6 +6,16 @@
 
 #include <algorithm>
 
+namespace
+{
+// Weight of a rep in a queried snapshot, zero when the snapshot has no entry for it
+nano::uint128_t weight_of (nano::rep_weight_map const & weights, nano::account const & rep)
+{
+	auto existing = weights.find (rep);
+	return existing != weights.end () ? existing->second : nano::uint128_t{ 0 };
+}
+}
+
 /*
  * vote_info
  */
@@ -210,13 +220,26 @@ nano::uint128_t nano::election_ballot::block_weights::final_weight (nano::block_
 	return existing != final_weights.end () ? existing->second : 0;
 }
 
+nano::rep_weight_map nano::election_ballot::rep_weights () const
+{
+	std::vector<nano::account> reps;
+	reps.reserve (votes_m.size ());
+	for (auto const & [rep, info] : votes_m)
+	{
+		reps.push_back (rep);
+	}
+	return weight_query (reps);
+}
+
 auto nano::election_ballot::compute_weights () const -> block_weights
 {
+	auto const weights = rep_weights ();
+
 	// Accumulate the weight behind every voted-for hash, including hashes not held; make_tally filters those out
 	block_weights result;
 	for (auto const & [rep, info] : votes_m)
 	{
-		auto const rep_weight = weight_query (rep);
+		auto const rep_weight = weight_of (weights, rep);
 		result.weights[info.hash] += rep_weight;
 		// A final vote counts into both totals, so the final weight is always a subset of the block weight
 		if (info.final ())
@@ -352,11 +375,14 @@ std::unordered_map<nano::account, nano::vote_info> nano::election_ballot::votes 
 
 std::vector<nano::vote_with_weight_info> nano::election_ballot::votes_with_weight () const
 {
+	auto const weights = rep_weights ();
+
 	std::vector<nano::vote_with_weight_info> result;
 	result.reserve (votes_m.size ());
 	for (auto const & [rep, info] : votes_m)
 	{
-		result.push_back ({ rep, info.arrival, info.timestamp, info.hash, weight_query (rep) });
+		auto const rep_weight = weight_of (weights, rep);
+		result.push_back ({ rep, info.arrival, info.timestamp, info.hash, rep_weight });
 	}
 
 	// Heaviest reps first, ties ordered by account so the report is deterministic

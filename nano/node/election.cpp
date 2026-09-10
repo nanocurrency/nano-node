@@ -36,7 +36,7 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 	.vote_interval = node_a.config.network_params.network.vote_broadcast_interval,
 	.block_interval = node_a.config.network_params.network.block_broadcast_interval,
 	}),
-	ballot (block_a, [this] (nano::account const & account) { return node.ledger.weight (account); }),
+	ballot (block_a, [this] (std::span<nano::account const> reps) { return node.ledger.weights (reps); }),
 	behavior_m (election_behavior_a),
 	last_round{ .winner = block_a },
 	height (block_a->sideband ().height),
@@ -552,10 +552,17 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block)
 		// The ballot is full: look up the vote cache weight backing the new fork without holding the election mutex, then retry
 		lock.unlock ();
 
-		nano::uint128_t cached_tally{ 0 };
+		std::vector<nano::account> reps;
 		for (auto const & vote : node.vote_cache.find (block->hash ()))
 		{
-			cached_tally += node.ledger.weight (vote->account);
+			reps.push_back (vote->account);
+		}
+
+		// One batched read, so a weight moving between two of these reps while they are summed is counted once
+		nano::uint128_t cached_tally{ 0 };
+		for (auto const & [rep, weight] : node.ledger.weights (reps))
+		{
+			cached_tally += weight;
 		}
 
 		lock.lock ();

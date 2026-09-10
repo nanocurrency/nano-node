@@ -32,6 +32,7 @@
 #include <nano/store/ledger/version.hpp>
 #include <nano/store/lmdb/backend_lmdb.hpp>
 #include <nano/store/rocksdb/backend_rocksdb.hpp>
+#include <nano/test_common/hooked_backend.hpp>
 #include <nano/test_common/ledger_context.hpp>
 #include <nano/test_common/make_store.hpp>
 #include <nano/test_common/system.hpp>
@@ -40,7 +41,12 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <latch>
 #include <limits>
+#include <map>
+#include <thread>
+#include <vector>
 
 using namespace std::chrono_literals;
 
@@ -520,6 +526,710 @@ TEST (ledger, weight)
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (nano::dev::genesis_key.pub));
 }
 
+/*
+ * The batch read answers every requested representative from the same source as the single read.
+ * With the bootstrap height reached it reads the cache: delegated weights come back exactly, unknown reps and the zero account come back as zero.
+ * Before that it reads the preconfigured bootstrap weights and ignores the cache entirely, and it switches back to the cache once the height is reached.
+ */
+TEST (ledger, weights)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::keypair key1, key2, rep1, rep2, unknown;
+	nano::uint128_t const amount1{ 1000 };
+	nano::uint128_t const amount2{ 500 };
+
+	// Delegate part of the genesis balance to two representatives
+	nano::block_builder builder;
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - amount1)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto open1 = builder.state ()
+				 .account (key1.pub)
+				 .previous (0)
+				 .representative (rep1.pub)
+				 .balance (amount1)
+				 .link (send1->hash ())
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (key1.pub))
+				 .build ();
+	auto send2 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - amount1 - amount2)
+				 .link (key2.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	auto open2 = builder.state ()
+				 .account (key2.pub)
+				 .previous (0)
+				 .representative (rep2.pub)
+				 .balance (amount2)
+				 .link (send2->hash ())
+				 .sign (key2.prv, key2.pub)
+				 .work (*pool.generate (key2.pub))
+				 .build ();
+	{
+		auto transaction = ledger.tx_begin_write ();
+		for (auto const & block : { send1, open1, send2, open2 })
+		{
+			ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block));
+		}
+	}
+
+	std::vector<nano::account> const reps{ nano::dev::genesis_key.pub, rep1.pub, rep2.pub, unknown.pub, 0 };
+
+	// Cached weights agree with the single read and with the database for every requested rep
+	ASSERT_TRUE (ledger.bootstrap_height_reached ());
+	{
+		auto weights = ledger.weights (reps);
+		ASSERT_EQ (reps.size (), weights.size ());
+		ASSERT_EQ (nano::dev::constants.genesis_amount - amount1 - amount2, weights.at (nano::dev::genesis_key.pub));
+		ASSERT_EQ (amount1, weights.at (rep1.pub));
+		ASSERT_EQ (amount2, weights.at (rep2.pub));
+		ASSERT_EQ (0, weights.at (unknown.pub));
+		ASSERT_EQ (0, weights.at (0));
+
+		auto transaction = ledger.tx_begin_read ();
+		for (auto const & rep : reps)
+		{
+			ASSERT_EQ (ledger.weight (rep), weights.at (rep));
+			ASSERT_EQ (ledger.weight_exact (transaction, rep), weights.at (rep));
+		}
+	}
+
+	// Duplicates collapse, an empty request yields an empty result
+	ASSERT_EQ (1, ledger.weights (std::vector<nano::account>{ rep1.pub, rep1.pub }).size ());
+	ASSERT_TRUE (ledger.weights (std::vector<nano::account>{}).empty ());
+
+	// Bootstrap weights replace the cache entirely: a preconfigured rep is answered from the table even where the ledger disagrees, and a rep known only to the ledger reads zero
+	nano::keypair rep_bootstrap;
+	ledger.bootstrap_weights.max_blocks = ledger.block_count () + 1;
+	ledger.bootstrap_weights.representatives[rep1.pub] = 42;
+	ledger.bootstrap_weights.representatives[rep_bootstrap.pub] = 7;
+	ASSERT_FALSE (ledger.bootstrap_height_reached ());
+	{
+		std::vector<nano::account> const bootstrap_reps{ nano::dev::genesis_key.pub, rep1.pub, rep2.pub, rep_bootstrap.pub, unknown.pub };
+		auto weights = ledger.weights (bootstrap_reps);
+		ASSERT_EQ (bootstrap_reps.size (), weights.size ());
+		ASSERT_EQ (0, weights.at (nano::dev::genesis_key.pub));
+		ASSERT_EQ (42, weights.at (rep1.pub));
+		ASSERT_EQ (0, weights.at (rep2.pub));
+		ASSERT_EQ (7, weights.at (rep_bootstrap.pub));
+		ASSERT_EQ (0, weights.at (unknown.pub));
+		for (auto const & rep : bootstrap_reps)
+		{
+			ASSERT_EQ (ledger.weight (rep), weights.at (rep));
+		}
+
+		// The exact database weights are untouched by the bootstrap table
+		auto transaction = ledger.tx_begin_read ();
+		ASSERT_EQ (amount1, ledger.weight_exact (transaction, rep1.pub));
+		ASSERT_EQ (amount2, ledger.weight_exact (transaction, rep2.pub));
+		ASSERT_EQ (0, ledger.weight_exact (transaction, rep_bootstrap.pub));
+	}
+
+	// Reaching the bootstrap height switches the batch read back to the cache
+	auto send3 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send2->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - amount1 - amount2 - 1)
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send2->hash ()))
+				 .build ();
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, send3));
+	}
+	ASSERT_TRUE (ledger.bootstrap_height_reached ());
+	{
+		auto weights = ledger.weights (reps);
+		ASSERT_EQ (nano::dev::constants.genesis_amount - amount1 - amount2 - 1, weights.at (nano::dev::genesis_key.pub));
+		ASSERT_EQ (amount1, weights.at (rep1.pub));
+		ASSERT_EQ (amount2, weights.at (rep2.pub));
+		ASSERT_EQ (0, weights.at (unknown.pub));
+	}
+}
+
+/*
+ * The cache minimum applies to the batch read exactly as to the single read: a representative below it reads zero from the cache while the database still holds its exact weight.
+ */
+TEST (ledger, weights_min_rep_weight)
+{
+	nano::uint128_t const min_weight{ 100 };
+	auto ctx = nano::test::ledger_empty ({ .min_rep_weight = min_weight });
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::keypair key1, key2, rep_below, rep_at;
+
+	// One representative lands just below the minimum, the other exactly on it
+	nano::block_builder builder;
+	auto send1 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - (min_weight - 1))
+				 .link (key1.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto open1 = builder.state ()
+				 .account (key1.pub)
+				 .previous (0)
+				 .representative (rep_below.pub)
+				 .balance (min_weight - 1)
+				 .link (send1->hash ())
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (key1.pub))
+				 .build ();
+	auto send2 = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (send1->hash ())
+				 .representative (nano::dev::genesis_key.pub)
+				 .balance (nano::dev::constants.genesis_amount - (min_weight - 1) - min_weight)
+				 .link (key2.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	auto open2 = builder.state ()
+				 .account (key2.pub)
+				 .previous (0)
+				 .representative (rep_at.pub)
+				 .balance (min_weight)
+				 .link (send2->hash ())
+				 .sign (key2.prv, key2.pub)
+				 .work (*pool.generate (key2.pub))
+				 .build ();
+	{
+		auto transaction = ledger.tx_begin_write ();
+		for (auto const & block : { send1, open1, send2, open2 })
+		{
+			ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, block));
+		}
+	}
+
+	std::vector<nano::account> const reps{ nano::dev::genesis_key.pub, rep_below.pub, rep_at.pub };
+	auto weights = ledger.weights (reps);
+	ASSERT_EQ (reps.size (), weights.size ());
+	ASSERT_EQ (0, weights.at (rep_below.pub));
+	ASSERT_EQ (min_weight, weights.at (rep_at.pub));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - (min_weight - 1) - min_weight, weights.at (nano::dev::genesis_key.pub));
+	for (auto const & rep : reps)
+	{
+		ASSERT_EQ (ledger.weight (rep), weights.at (rep));
+	}
+
+	// The database keeps the exact weight of the rep the cache drops
+	auto transaction = ledger.tx_begin_read ();
+	ASSERT_EQ (min_weight - 1, ledger.weight_exact (transaction, rep_below.pub));
+	ASSERT_EQ (min_weight, ledger.weight_exact (transaction, rep_at.pub));
+}
+
+/*
+ * A representative change moves the account's whole balance from one rep to the other in a single ledger step, and the batch read never observes it half way.
+ * The genesis account flips its representative back and forth while a reader keeps batch-reading both reps; the two weights must always add up to the genesis balance.
+ * Two single reads could see the old rep before the move and the new rep after it, counting the balance twice or not at all.
+ */
+TEST (ledger, weights_snapshot)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::keypair rep1, rep2;
+
+	// Change blocks alternating the genesis representative between the two reps, prepared up front so the writer runs back to back
+	nano::block_builder builder;
+	std::deque<std::shared_ptr<nano::block>> changes;
+	nano::block_hash previous = nano::dev::genesis->hash ();
+	for (size_t i = 0; i < 100; ++i)
+	{
+		auto const & rep = i % 2 == 0 ? rep1 : rep2;
+		auto change = builder.state ()
+					  .account (nano::dev::genesis_key.pub)
+					  .previous (previous)
+					  .representative (rep.pub)
+					  .balance (nano::dev::constants.genesis_amount)
+					  .link (0)
+					  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					  .work (*pool.generate (previous))
+					  .build ();
+		previous = change->hash ();
+		changes.push_back (change);
+	}
+
+	// The first change brings the whole balance under one of the two reps, so from here on their weights always sum to it
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, changes.front ()));
+	}
+	changes.pop_front ();
+
+	std::vector<nano::account> const reps{ rep1.pub, rep2.pub };
+	std::atomic<bool> done{ false };
+	std::atomic<bool> processed{ true };
+	std::atomic<size_t> reads{ 0 };
+	std::atomic<size_t> inconsistent{ 0 };
+
+	// Each update is followed by at least one snapshot before the next, so the reader keeps pace with the writer and cannot miss the run
+	auto await_read = [&] {
+		auto const target = reads.load () + 1;
+		while (reads.load () < target)
+		{
+			std::this_thread::yield ();
+		}
+	};
+
+	// The write transaction is opened on the writer thread, as the store requires
+	std::thread writer ([&] {
+		auto transaction = ledger.tx_begin_write ();
+		for (auto const & change : changes)
+		{
+			if (ledger.process (transaction, change) != nano::block_status::progress)
+			{
+				processed = false;
+				break;
+			}
+			await_read ();
+		}
+		done = true;
+	});
+
+	std::thread reader ([&] {
+		while (!done)
+		{
+			auto weights = ledger.weights (reps);
+			++reads;
+			if (weights.at (rep1.pub) + weights.at (rep2.pub) != nano::dev::constants.genesis_amount)
+			{
+				++inconsistent;
+			}
+		}
+	});
+
+	writer.join ();
+	reader.join ();
+
+	ASSERT_TRUE (processed);
+	ASSERT_EQ (0, inconsistent.load ());
+	ASSERT_GE (reads.load (), changes.size ());
+
+	// The last change leaves the whole balance with the second rep
+	ASSERT_EQ (0, ledger.weight (rep1.pub));
+	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (rep2.pub));
+}
+
+/*
+ * A block that switches representative and sends in one step takes the old balance from one rep and gives the new balance to the other, and the batch read never observes it half applied.
+ * The genesis account alternates its representative while sending one raw per block, then the chain is rolled back to its first block, so the update runs in both directions under a reader.
+ * Every observed state must be the exact state after some block: the weight held says how many blocks are applied, and the rep chosen by the last of them must hold all of it.
+ */
+TEST (ledger, weights_snapshot_send_change)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & pool = ctx.pool ();
+	nano::keypair rep1, rep2, destination;
+	size_t const count = 100;
+
+	// Block j sends one raw and delegates the rest to rep1 when j is odd and to rep2 when j is even
+	nano::block_builder builder;
+	std::deque<std::shared_ptr<nano::block>> blocks;
+	nano::block_hash previous = nano::dev::genesis->hash ();
+	for (size_t j = 1; j <= count; ++j)
+	{
+		auto const & rep = j % 2 == 1 ? rep1 : rep2;
+		auto block = builder.state ()
+					 .account (nano::dev::genesis_key.pub)
+					 .previous (previous)
+					 .representative (rep.pub)
+					 .balance (nano::dev::constants.genesis_amount - j)
+					 .link (destination.pub)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*pool.generate (previous))
+					 .build ();
+		previous = block->hash ();
+		blocks.push_back (block);
+	}
+
+	// The first block brings the balance under one of the two reps, from here on exactly one of them holds all of it
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, blocks.front ()));
+	}
+	auto const committed_before = ledger.rep_weights.get_weight_committed ();
+	auto const unused_before = ledger.rep_weights.get_weight_unused ();
+
+	std::vector<nano::account> const reps{ rep1.pub, rep2.pub };
+	std::atomic<bool> done{ false };
+	std::atomic<bool> processed{ true };
+	std::atomic<bool> rolled_back{ false };
+	std::atomic<size_t> reads{ 0 };
+	std::atomic<size_t> inconsistent{ 0 };
+
+	// Each update is followed by at least one snapshot before the next, so the reader keeps pace with the writer and cannot miss the run
+	auto await_read = [&] {
+		auto const target = reads.load () + 1;
+		while (reads.load () < target)
+		{
+			std::this_thread::yield ();
+		}
+	};
+
+	// The remaining blocks are applied to the end and then rolled back to the first block, all on the writer's transaction
+	std::thread writer ([&] {
+		auto transaction = ledger.tx_begin_write ();
+		for (auto it = std::next (blocks.begin ()); it != blocks.end () && processed; ++it)
+		{
+			processed = ledger.process (transaction, *it) == nano::block_status::progress;
+			await_read ();
+		}
+		if (processed)
+		{
+			rolled_back = !ledger.rollback (transaction, blocks[1]->hash ());
+			await_read ();
+		}
+		done = true;
+	});
+
+	std::thread reader ([&] {
+		while (!done)
+		{
+			auto weights = ledger.weights (reps);
+			++reads;
+			auto const held = weights.at (rep1.pub) + weights.at (rep2.pub);
+			auto const applied = nano::dev::constants.genesis_amount - held;
+			auto const & holder = applied % 2 == 1 ? rep1.pub : rep2.pub;
+			if (applied < 1 || applied > count || weights.at (holder) != held)
+			{
+				++inconsistent;
+			}
+		}
+	});
+
+	writer.join ();
+	reader.join ();
+
+	ASSERT_TRUE (processed);
+	ASSERT_TRUE (rolled_back);
+	ASSERT_EQ (0, inconsistent.load ());
+	ASSERT_GE (reads.load (), count);
+
+	// Only the first block remains, and the totals are back where they started
+	ASSERT_EQ (nano::dev::constants.genesis_amount - 1, ledger.weight (rep1.pub));
+	ASSERT_EQ (0, ledger.weight (rep2.pub));
+	ASSERT_EQ (committed_before, ledger.rep_weights.get_weight_committed ());
+	ASSERT_EQ (unused_before, ledger.rep_weights.get_weight_unused ());
+	ledger.rep_weights.verify_consistency (0);
+}
+
+/*
+ * Deterministic counterpart of the send and change snapshot test: the store is hooked so that every table access while a block is processed or rolled back also batch-reads both reps, as a reader interleaving at exactly that point would.
+ * The chain and the invariant are the same, so at every access exactly one rep must hold the balance and it must be the rep chosen by the last applied block.
+ */
+TEST (ledger, weights_snapshot_mid_update)
+{
+	auto hooked = nano::test::make_hooked_store ();
+	nano::logger logger;
+	nano::stats stats{ logger };
+	nano::ledger ledger (*hooked.store, nano::dev::network_params, stats, logger);
+	nano::work_pool pool{ nano::dev::network_params.network, 1 };
+	nano::keypair rep1, rep2, destination;
+	size_t const count = 20;
+
+	// Block j sends one raw and delegates the rest to rep1 when j is odd and to rep2 when j is even
+	nano::block_builder builder;
+	std::deque<std::shared_ptr<nano::block>> blocks;
+	nano::block_hash previous = nano::dev::genesis->hash ();
+	for (size_t j = 1; j <= count; ++j)
+	{
+		auto const & rep = j % 2 == 1 ? rep1 : rep2;
+		auto block = builder.state ()
+					 .account (nano::dev::genesis_key.pub)
+					 .previous (previous)
+					 .representative (rep.pub)
+					 .balance (nano::dev::constants.genesis_amount - j)
+					 .link (destination.pub)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*pool.generate (previous))
+					 .build ();
+		previous = block->hash ();
+		blocks.push_back (block);
+	}
+
+	// The first block brings the balance under one of the two reps, from here on exactly one of them holds all of it
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, blocks.front ()));
+	}
+
+	std::vector<nano::account> const reps{ rep1.pub, rep2.pub };
+	size_t observations{ 0 };
+	size_t inconsistent{ 0 };
+	hooked.backend.before_access = [&] (nano::store::table) {
+		auto weights = ledger.weights (reps);
+		++observations;
+		auto const held = weights.at (rep1.pub) + weights.at (rep2.pub);
+		auto const applied = nano::dev::constants.genesis_amount - held;
+		auto const & holder = applied % 2 == 1 ? rep1.pub : rep2.pub;
+		if (applied < 1 || applied > count || weights.at (holder) != held)
+		{
+			++inconsistent;
+		}
+	};
+
+	{
+		auto transaction = ledger.tx_begin_write ();
+		for (auto it = std::next (blocks.begin ()); it != blocks.end (); ++it)
+		{
+			ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *it));
+		}
+		ASSERT_FALSE (ledger.rollback (transaction, blocks[1]->hash ()));
+	}
+	hooked.backend.before_access = nullptr;
+
+	// Every block and every rollback reads and writes both reps in the store, and every access saw a whole state
+	ASSERT_GE (observations, 8 * (count - 1));
+	ASSERT_EQ (0, inconsistent);
+	ASSERT_EQ (nano::dev::constants.genesis_amount - 1, ledger.weight (rep1.pub));
+	ASSERT_EQ (0, ledger.weight (rep2.pub));
+}
+
+/*
+ * Every block type feeds the same few rep weight operations, so this drives all of them through the ledger against a model of who holds what.
+ * The model records each account's representative and balance; after every block and every rollback the cache and the store must show the weights it implies,
+ * the committed total must equal the sum of balances, the unused total must have grown by exactly what became pending, and a ledger rebuilt from the store must agree with the live one.
+ * The chain covers legacy send, open, receive and change, state send, open, receive with a rep change, send with a rep change and a plain rep change,
+ * an epoch upgrade, an epoch open and a receive into it, whose previous representative is the zero account.
+ */
+TEST (ledger, weights_all_block_types)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	auto & store = ctx.store ();
+	auto & pool = ctx.pool ();
+	nano::block_builder builder;
+	nano::keypair key1, key2, key3, rep1, rep2, rep3, rep4;
+	auto const & genesis = nano::dev::genesis_key;
+	auto const total = nano::dev::constants.genesis_amount;
+	auto const unit = nano::Knano_ratio;
+	std::vector<nano::account> const reps{ genesis.pub, rep1.pub, rep2.pub, rep3.pub, rep4.pub };
+
+	// Who holds what: each account's balance sits with its representative
+	struct holding
+	{
+		nano::account representative;
+		nano::uint128_t balance;
+	};
+	using model_t = std::map<nano::account, holding>;
+	model_t model{ { genesis.pub, { genesis.pub, total } } };
+	auto const unused_initial = ledger.rep_weights.get_weight_unused ();
+
+	auto check = [&] (nano::ledger const & ledger_l, nano::secure::transaction const & transaction) {
+		nano::rep_weight_map expected;
+		nano::uint128_t balances{ 0 };
+		for (auto const & [account, held] : model)
+		{
+			expected[held.representative] += held.balance;
+			balances += held.balance;
+		}
+		auto const weights = ledger_l.weights (reps);
+		for (auto const & rep : reps)
+		{
+			ASSERT_EQ (expected[rep], weights.at (rep));
+			ASSERT_EQ (expected[rep], ledger_l.weight_exact (transaction, rep));
+		}
+		// Whatever no account holds is pending, and pending weight is unused
+		ASSERT_EQ (balances, ledger_l.rep_weights.get_weight_committed ());
+		ASSERT_EQ (unused_initial + (total - balances), ledger_l.rep_weights.get_weight_unused ());
+		ledger_l.rep_weights.verify_consistency (0);
+	};
+
+	auto send1 = builder.send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (key1.pub)
+				 .balance (total - unit)
+				 .sign (genesis.prv, genesis.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto open1 = builder.open ()
+				 .source (send1->hash ())
+				 .representative (rep1.pub)
+				 .account (key1.pub)
+				 .sign (key1.prv, key1.pub)
+				 .work (*pool.generate (key1.pub))
+				 .build ();
+	auto send2 = builder.send ()
+				 .previous (send1->hash ())
+				 .destination (key1.pub)
+				 .balance (total - 3 * unit)
+				 .sign (genesis.prv, genesis.pub)
+				 .work (*pool.generate (send1->hash ()))
+				 .build ();
+	auto receive1 = builder.receive ()
+					.previous (open1->hash ())
+					.source (send2->hash ())
+					.sign (key1.prv, key1.pub)
+					.work (*pool.generate (open1->hash ()))
+					.build ();
+	auto change1 = builder.change ()
+				   .previous (receive1->hash ())
+				   .representative (rep2.pub)
+				   .sign (key1.prv, key1.pub)
+				   .work (*pool.generate (receive1->hash ()))
+				   .build ();
+	auto send3 = builder.state ()
+				 .account (genesis.pub)
+				 .previous (send2->hash ())
+				 .representative (genesis.pub)
+				 .balance (total - 7 * unit)
+				 .link (key2.pub)
+				 .sign (genesis.prv, genesis.pub)
+				 .work (*pool.generate (send2->hash ()))
+				 .build ();
+	auto open2 = builder.state ()
+				 .account (key2.pub)
+				 .previous (0)
+				 .representative (rep3.pub)
+				 .balance (4 * unit)
+				 .link (send3->hash ())
+				 .sign (key2.prv, key2.pub)
+				 .work (*pool.generate (key2.pub))
+				 .build ();
+	auto send4 = builder.state ()
+				 .account (genesis.pub)
+				 .previous (send3->hash ())
+				 .representative (genesis.pub)
+				 .balance (total - 12 * unit)
+				 .link (key2.pub)
+				 .sign (genesis.prv, genesis.pub)
+				 .work (*pool.generate (send3->hash ()))
+				 .build ();
+	auto receive2 = builder.state () // Receive and change representative at once
+					.account (key2.pub)
+					.previous (open2->hash ())
+					.representative (rep4.pub)
+					.balance (9 * unit)
+					.link (send4->hash ())
+					.sign (key2.prv, key2.pub)
+					.work (*pool.generate (open2->hash ()))
+					.build ();
+	auto send5 = builder.state () // Send and change representative at once
+				 .account (key2.pub)
+				 .previous (receive2->hash ())
+				 .representative (rep3.pub)
+				 .balance (3 * unit)
+				 .link (key3.pub)
+				 .sign (key2.prv, key2.pub)
+				 .work (*pool.generate (receive2->hash ()))
+				 .build ();
+	auto change2 = builder.state ()
+				   .account (key2.pub)
+				   .previous (send5->hash ())
+				   .representative (rep4.pub)
+				   .balance (3 * unit)
+				   .link (0)
+				   .sign (key2.prv, key2.pub)
+				   .work (*pool.generate (send5->hash ()))
+				   .build ();
+	auto epoch1 = builder.state ()
+				  .account (key2.pub)
+				  .previous (change2->hash ())
+				  .representative (rep4.pub)
+				  .balance (3 * unit)
+				  .link (ledger.epoch_link (nano::epoch::epoch_1))
+				  .sign (genesis.prv, genesis.pub)
+				  .work (*pool.generate (change2->hash ()))
+				  .build ();
+	auto epoch_open = builder.state ()
+					  .account (key3.pub)
+					  .previous (0)
+					  .representative (0)
+					  .balance (0)
+					  .link (ledger.epoch_link (nano::epoch::epoch_1))
+					  .sign (genesis.prv, genesis.pub)
+					  .work (*pool.generate (key3.pub))
+					  .build ();
+	auto receive3 = builder.state () // The previous representative is the zero account of the epoch open
+					.account (key3.pub)
+					.previous (epoch_open->hash ())
+					.representative (rep1.pub)
+					.balance (6 * unit)
+					.link (send5->hash ())
+					.sign (key3.prv, key3.pub)
+					.work (*pool.generate (epoch_open->hash ()))
+					.build ();
+
+	// Each block with the holding it leaves its account in
+	struct step
+	{
+		std::shared_ptr<nano::block> block;
+		nano::account account;
+		holding after;
+	};
+	std::vector<step> const steps{
+		{ send1, genesis.pub, { genesis.pub, total - unit } },
+		{ open1, key1.pub, { rep1.pub, unit } },
+		{ send2, genesis.pub, { genesis.pub, total - 3 * unit } },
+		{ receive1, key1.pub, { rep1.pub, 3 * unit } },
+		{ change1, key1.pub, { rep2.pub, 3 * unit } },
+		{ send3, genesis.pub, { genesis.pub, total - 7 * unit } },
+		{ open2, key2.pub, { rep3.pub, 4 * unit } },
+		{ send4, genesis.pub, { genesis.pub, total - 12 * unit } },
+		{ receive2, key2.pub, { rep4.pub, 9 * unit } },
+		{ send5, key2.pub, { rep3.pub, 3 * unit } },
+		{ change2, key2.pub, { rep4.pub, 3 * unit } },
+		{ epoch1, key2.pub, { rep4.pub, 3 * unit } },
+		{ epoch_open, key3.pub, { 0, 0 } },
+		{ receive3, key3.pub, { rep1.pub, 6 * unit } },
+	};
+
+	// The model after each step, so a rollback can be checked against the state before the block
+	std::vector<model_t> snapshots{ model };
+	{
+		auto transaction = ledger.tx_begin_write ();
+		check (ledger, transaction);
+		for (size_t i = 0; i < steps.size (); ++i)
+		{
+			SCOPED_TRACE ("block " + std::to_string (i + 1));
+			ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, steps[i].block));
+			model[steps[i].account] = steps[i].after;
+			snapshots.push_back (model);
+			check (ledger, transaction);
+		}
+	}
+	{
+		SCOPED_TRACE ("reload after processing");
+		nano::ledger reloaded (store, nano::dev::network_params, ctx.stats (), ctx.logger ());
+		check (reloaded, reloaded.tx_begin_read ());
+	}
+	{
+		auto transaction = ledger.tx_begin_write ();
+		for (size_t i = steps.size (); i > 0; --i)
+		{
+			SCOPED_TRACE ("rollback of block " + std::to_string (i));
+			ASSERT_FALSE (ledger.rollback (transaction, steps[i - 1].block->hash ()));
+			model = snapshots[i - 1];
+			check (ledger, transaction);
+		}
+	}
+	{
+		SCOPED_TRACE ("reload after rollback");
+		nano::ledger reloaded (store, nano::dev::network_params, ctx.stats (), ctx.logger ());
+		check (reloaded, reloaded.tx_begin_read ());
+	}
+}
+
 TEST (ledger, representative_change)
 {
 	auto ctx = nano::test::ledger_empty ();
@@ -687,70 +1397,460 @@ TEST (ledger, open_fork)
 	ASSERT_EQ (nano::block_status::fork, ledger.process (transaction, block3));
 }
 
-TEST (ledger, representation_changes)
+/*
+ * put loads a weight straight into the cache without touching the store, which is how the cache is filled from the database table at startup, and a later put for the same rep overwrites the earlier value.
+ */
+TEST (ledger, rep_weights_put)
 {
 	auto store{ nano::test::make_store () };
-	nano::keypair key1;
 	nano::rep_weights rep_weights{ store->rep_weight };
-	ASSERT_EQ (0, rep_weights.get (key1.pub));
-	rep_weights.put (key1.pub, 1);
-	ASSERT_EQ (1, rep_weights.get (key1.pub));
-	rep_weights.put (key1.pub, 2);
-	ASSERT_EQ (2, rep_weights.get (key1.pub));
+	nano::account const rep{ 1 };
+	ASSERT_EQ (0, rep_weights.get (rep));
+
+	rep_weights.put (rep, 1);
+	ASSERT_EQ (1, rep_weights.get (rep));
+	ASSERT_EQ (1, rep_weights.size ());
+
+	rep_weights.put (rep, 2);
+	ASSERT_EQ (2, rep_weights.get (rep));
+	ASSERT_EQ (1, rep_weights.size ());
+
+	// The store is not written
+	auto txn{ store->tx_begin_read () };
+	ASSERT_EQ (0, store->rep_weight.count (txn));
 }
 
-TEST (ledger, delete_rep_weight_of_zero)
+/*
+ * append_from folds a cache built from one slice of the store table into another, which is how the cache is assembled in parallel at startup: weights are summed per rep and both totals are carried over.
+ */
+TEST (ledger, rep_weights_append_from)
+{
+	auto store{ nano::test::make_store () };
+	nano::rep_weights target{ store->rep_weight };
+	nano::rep_weights slice{ store->rep_weight };
+	nano::account const rep1{ 1 };
+	nano::account const rep2{ 2 };
+
+	target.put (rep1, 100);
+	target.put_unused (5);
+	slice.put (rep1, 50);
+	slice.put (rep2, 200);
+	slice.put_unused (7);
+
+	target.append_from (slice);
+	ASSERT_EQ (150, target.get (rep1));
+	ASSERT_EQ (200, target.get (rep2));
+	ASSERT_EQ (2, target.size ());
+	ASSERT_EQ (350, target.get_weight_committed ());
+	ASSERT_EQ (12, target.get_weight_unused ());
+
+	// The appended cache is left as it was
+	ASSERT_EQ (50, slice.get (rep1));
+	ASSERT_EQ (200, slice.get (rep2));
+	ASSERT_EQ (250, slice.get_weight_committed ());
+	ASSERT_EQ (7, slice.get_weight_unused ());
+}
+
+/*
+ * A rep whose weight drops to zero is removed from both the cache and the store, whether it gets there through sub or through move_add_sub, and a rep receiving weight for the first time is created in both.
+ * An update carrying no weight, as an account without balance changing its representative produces, leaves both untouched.
+ */
+TEST (ledger, rep_weights_zero_weight)
 {
 	auto store{ nano::test::make_store () };
 	nano::rep_weights rep_weights{ store->rep_weight };
+	nano::account const rep1{ 1 };
+	nano::account const rep2{ 2 };
+	nano::account const rep3{ 3 };
 	auto txn{ store->tx_begin_write () };
-	rep_weights.add (txn, 1, 100);
-	rep_weights.add (txn, 2, 200);
-	ASSERT_EQ (2, rep_weights.size ());
-	rep_weights.move_add_sub (txn, 2, 100, 3, 120);
-	ASSERT_EQ (3, rep_weights.size ());
-	ASSERT_EQ (3, store->rep_weight.count (txn));
 
-	// Reduce rep weights to 0
-	rep_weights.sub (txn, 1, 100);
+	rep_weights.add (txn, rep1, 100);
+	rep_weights.add (txn, rep2, 200);
 	ASSERT_EQ (2, rep_weights.size ());
 	ASSERT_EQ (2, store->rep_weight.count (txn));
 
-	rep_weights.move_add_sub (txn, 3, 120, 2, 100);
+	// Moving weight into a rep that has none creates it
+	rep_weights.move_add_sub (txn, rep2, 100, rep3, 120);
+	ASSERT_EQ (120, rep_weights.get (rep3));
+	ASSERT_EQ (120, store->rep_weight.get (txn, rep3));
+	ASSERT_EQ (3, rep_weights.size ());
+	ASSERT_EQ (3, store->rep_weight.count (txn));
+
+	// Subtracting all of a rep's weight removes it
+	rep_weights.sub (txn, rep1, 100);
+	ASSERT_EQ (0, rep_weights.get (rep1));
+	ASSERT_EQ (0, store->rep_weight.get (txn, rep1));
+	ASSERT_EQ (2, rep_weights.size ());
+	ASSERT_EQ (2, store->rep_weight.count (txn));
+
+	// Moving all of a rep's weight away removes it
+	rep_weights.move_add_sub (txn, rep3, 120, rep2, 100);
+	ASSERT_EQ (0, rep_weights.get (rep3));
+	ASSERT_EQ (0, store->rep_weight.get (txn, rep3));
+	ASSERT_EQ (200, rep_weights.get (rep2));
 	ASSERT_EQ (1, rep_weights.size ());
 	ASSERT_EQ (1, store->rep_weight.count (txn));
 
-	rep_weights.sub (txn, 2, 200);
+	rep_weights.sub (txn, rep2, 200);
+	ASSERT_EQ (0, rep_weights.size ());
+	ASSERT_EQ (0, store->rep_weight.count (txn));
+
+	// An account without balance changing its representative touches neither rep
+	rep_weights.move_add_sub (txn, rep1, 0, rep3, 0);
 	ASSERT_EQ (0, rep_weights.size ());
 	ASSERT_EQ (0, store->rep_weight.count (txn));
 }
 
-TEST (ledger, rep_cache_min_weight)
+/*
+ * The cache only holds reps at or above the minimum weight while the store always keeps the exact weight, so a rep enters the cache when it reaches the minimum and leaves it when it falls below.
+ */
+TEST (ledger, rep_weights_cache_min_weight)
+{
+	auto store{ nano::test::make_store () };
+	nano::uint128_t const min_weight{ 10 };
+	nano::rep_weights rep_weights{ store->rep_weight, min_weight };
+	nano::account const rep{ 1 };
+	auto txn{ store->tx_begin_write () };
+
+	// Below the minimum: stored but not cached
+	rep_weights.add (txn, rep, 9);
+	ASSERT_EQ (0, rep_weights.get (rep));
+	ASSERT_EQ (9, store->rep_weight.get (txn, rep));
+	ASSERT_EQ (0, rep_weights.size ());
+	ASSERT_EQ (1, store->rep_weight.count (txn));
+
+	// Exactly the minimum enters the cache
+	rep_weights.add (txn, rep, 1);
+	ASSERT_EQ (10, rep_weights.get (rep));
+	ASSERT_EQ (10, store->rep_weight.get (txn, rep));
+	ASSERT_EQ (1, rep_weights.size ());
+
+	// Above the minimum stays cached
+	rep_weights.add (txn, rep, 1);
+	ASSERT_EQ (11, rep_weights.get (rep));
+	ASSERT_EQ (1, rep_weights.size ());
+
+	// Falling below the minimum leaves the cache but not the store
+	rep_weights.sub (txn, rep, 5);
+	ASSERT_EQ (0, rep_weights.get (rep));
+	ASSERT_EQ (6, store->rep_weight.get (txn, rep));
+	ASSERT_EQ (0, rep_weights.size ());
+	ASSERT_EQ (1, store->rep_weight.count (txn));
+}
+
+/*
+ * move_add_sub takes the old balance from the old representative and gives the new balance to the new one, which is how a block changing both is applied and rolled back.
+ * Store and cache agree after every step, reps dropping to zero disappear from both, and the committed and unused totals shift by the balance difference.
+ * Equal amounts are a plain move, and a rep shared by both sides only sees the balance difference.
+ */
+TEST (ledger, rep_weights_move_add_sub)
+{
+	auto store{ nano::test::make_store () };
+	nano::rep_weights rep_weights{ store->rep_weight };
+	nano::account const rep1{ 1 };
+	nano::account const rep2{ 2 };
+	auto txn{ store->tx_begin_write () };
+
+	// Account for the whole supply up front so the totals can be verified after every step
+	auto const supply = std::numeric_limits<nano::uint128_t>::max ();
+	rep_weights.put_unused (supply);
+	rep_weights.add (txn, rep1, 100);
+	rep_weights.add (txn, rep2, 50);
+
+	auto expect = [&] (nano::uint128_t const & weight1, nano::uint128_t const & weight2) {
+		ASSERT_EQ (weight1, rep_weights.get (rep1));
+		ASSERT_EQ (weight2, rep_weights.get (rep2));
+		ASSERT_EQ (weight1, store->rep_weight.get (txn, rep1));
+		ASSERT_EQ (weight2, store->rep_weight.get (txn, rep2));
+		size_t const held = (weight1 != 0) + (weight2 != 0);
+		ASSERT_EQ (held, rep_weights.size ());
+		ASSERT_EQ (held, store->rep_weight.count (txn));
+		ASSERT_EQ (weight1 + weight2, rep_weights.get_weight_committed ());
+		ASSERT_EQ (supply - weight1 - weight2, rep_weights.get_weight_unused ());
+		rep_weights.verify_consistency (0);
+	};
+	expect (100, 50);
+
+	// Receive with a representative change: the destination gains more than the source loses
+	rep_weights.move_add_sub (txn, rep1, 100, rep2, 120);
+	expect (0, 170);
+
+	// Send with a representative change: the destination gains less than the source loses
+	rep_weights.move_add_sub (txn, rep2, 120, rep1, 100);
+	expect (100, 50);
+
+	// Equal amounts are a plain move
+	rep_weights.move_add_sub (txn, rep1, 100, rep2, 100);
+	expect (0, 150);
+
+	// The same rep on both sides only sees the balance difference, and nothing when the balance is unchanged
+	rep_weights.move_add_sub (txn, rep2, 150, rep2, 180);
+	expect (0, 180);
+	rep_weights.move_add_sub (txn, rep2, 180, rep2, 130);
+	expect (0, 130);
+	rep_weights.move_add_sub (txn, rep2, 130, rep2, 130);
+	expect (0, 130);
+}
+
+/*
+ * With a cache minimum, move_add_sub keeps the exact weights in the store while the cache only follows reps at or above the minimum.
+ */
+TEST (ledger, rep_weights_move_add_sub_min_weight)
+{
+	auto store{ nano::test::make_store () };
+	nano::uint128_t const min_weight{ 10 };
+	nano::rep_weights rep_weights{ store->rep_weight, min_weight };
+	nano::account const rep1{ 1 };
+	nano::account const rep2{ 2 };
+	auto txn{ store->tx_begin_write () };
+
+	rep_weights.add (txn, rep1, 15);
+	rep_weights.add (txn, rep2, 5); // Below the minimum: stored but not cached
+	ASSERT_EQ (1, rep_weights.size ());
+	ASSERT_EQ (2, store->rep_weight.count (txn));
+
+	// The destination crosses the minimum and enters the cache while the source drops out of both
+	rep_weights.move_add_sub (txn, rep1, 15, rep2, 12);
+	ASSERT_EQ (0, rep_weights.get (rep1));
+	ASSERT_EQ (17, rep_weights.get (rep2));
+	ASSERT_EQ (0, store->rep_weight.get (txn, rep1));
+	ASSERT_EQ (17, store->rep_weight.get (txn, rep2));
+	ASSERT_EQ (1, rep_weights.size ());
+	ASSERT_EQ (1, store->rep_weight.count (txn));
+
+	// The source falls below the minimum: dropped from the cache but kept in the store
+	rep_weights.move_add_sub (txn, rep2, 10, rep1, 12);
+	ASSERT_EQ (12, rep_weights.get (rep1));
+	ASSERT_EQ (0, rep_weights.get (rep2));
+	ASSERT_EQ (12, store->rep_weight.get (txn, rep1));
+	ASSERT_EQ (7, store->rep_weight.get (txn, rep2));
+	ASSERT_EQ (1, rep_weights.size ());
+	ASSERT_EQ (2, store->rep_weight.count (txn));
+}
+
+/*
+ * The batch read answers every requested rep, mirroring the single read: unknown reps, the zero account and reps below the cache minimum all come back as zero.
+ */
+TEST (ledger, rep_weights_batch)
 {
 	auto store{ nano::test::make_store () };
 	nano::uint128_t min_weight{ 10 };
 	nano::rep_weights rep_weights{ store->rep_weight, min_weight };
 	auto txn{ store->tx_begin_write () };
 
-	// one below min weight
-	rep_weights.add (txn, 1, 9);
-	ASSERT_EQ (0, rep_weights.size ());
-	ASSERT_EQ (1, store->rep_weight.count (txn));
+	rep_weights.add (txn, 1, 100);
+	rep_weights.add (txn, 2, 200);
+	rep_weights.add (txn, 3, 9); // Below the cache minimum
 
-	// exactly min weight
-	rep_weights.add (txn, 1, 1);
-	ASSERT_EQ (1, rep_weights.size ());
-	ASSERT_EQ (1, store->rep_weight.count (txn));
+	std::vector<nano::account> reps{ 1, 2, 3, 4, 0 };
+	auto weights = rep_weights.get (reps);
+	ASSERT_EQ (5, weights.size ());
+	ASSERT_EQ (100, weights.at (1));
+	ASSERT_EQ (200, weights.at (2));
+	ASSERT_EQ (0, weights.at (3));
+	ASSERT_EQ (0, weights.at (4));
+	ASSERT_EQ (0, weights.at (0));
 
-	// above min weight
-	rep_weights.add (txn, 1, 1);
-	ASSERT_EQ (1, rep_weights.size ());
-	ASSERT_EQ (1, store->rep_weight.count (txn));
+	// Every entry matches the single read
+	for (auto const & rep : reps)
+	{
+		ASSERT_EQ (rep_weights.get (rep), weights.at (rep));
+	}
 
-	// fall blow min weight
-	rep_weights.sub (txn, 1, 5);
-	ASSERT_EQ (0, rep_weights.size ());
-	ASSERT_EQ (1, store->rep_weight.count (txn));
+	// Duplicates collapse, an empty request yields an empty result
+	std::vector<nano::account> duplicates{ 1, 1 };
+	ASSERT_EQ (1, rep_weights.get (duplicates).size ());
+	ASSERT_TRUE (rep_weights.get (std::vector<nano::account>{}).empty ());
+}
+
+/*
+ * A batch read is one consistent snapshot: a move between two reps, which updates both under one lock, is either fully visible or not at all.
+ * A writer shuffles weight back and forth between two reps while a reader keeps reading both; the sum must never drift.
+ * Reading the reps one at a time could observe the source before the move and the destination after it, double counting the moved amount or losing it.
+ */
+TEST (ledger, rep_weights_batch_snapshot)
+{
+	auto store{ nano::test::make_store () };
+	nano::rep_weights rep_weights{ store->rep_weight };
+	nano::account const rep1{ 1 };
+	nano::account const rep2{ 2 };
+	nano::uint128_t const total{ 150 };
+	nano::uint128_t const amount{ 50 };
+	std::vector<nano::account> const reps{ rep1, rep2 };
+
+	{
+		auto txn{ store->tx_begin_write () };
+		rep_weights.add (txn, rep1, 100);
+		rep_weights.add (txn, rep2, 50);
+	}
+
+	size_t const rounds{ 100 };
+	std::atomic<bool> done{ false };
+	std::atomic<size_t> reads{ 0 };
+	std::atomic<size_t> inconsistent{ 0 };
+
+	// Each update is followed by at least one snapshot before the next, so the reader keeps pace with the writer and cannot miss the run
+	auto await_read = [&] {
+		auto const target = reads.load () + 1;
+		while (reads.load () < target)
+		{
+			std::this_thread::yield ();
+		}
+	};
+
+	// The write transaction is opened on the writer thread, as the store requires
+	std::thread writer ([&] {
+		auto txn{ store->tx_begin_write () };
+		for (size_t i = 0; i < rounds; ++i)
+		{
+			rep_weights.move (txn, rep1, rep2, amount);
+			await_read ();
+			rep_weights.move (txn, rep2, rep1, amount);
+			await_read ();
+		}
+		done = true;
+	});
+
+	std::thread reader ([&] {
+		while (!done)
+		{
+			auto weights = rep_weights.get (reps);
+			++reads;
+			if (weights.at (rep1) + weights.at (rep2) != total)
+			{
+				++inconsistent;
+			}
+		}
+	});
+
+	writer.join ();
+	reader.join ();
+
+	ASSERT_EQ (0, inconsistent.load ());
+	ASSERT_GE (reads.load (), 2 * rounds);
+	ASSERT_EQ (100, rep_weights.get (rep1));
+	ASSERT_EQ (50, rep_weights.get (rep2));
+}
+
+/*
+ * A block that changes representative and balance at once updates two reps and the totals as one cache update: a batch read sees the old state or the new state, never a hybrid.
+ * A writer applies such an update back and forth between two reps while a reader keeps batch-reading both; every observed pair must be one of the two legitimate states.
+ * Applying it as a move followed by a separate add or sub would expose the state between the two steps, where the balance difference is missing from or left behind on one rep.
+ */
+TEST (ledger, rep_weights_move_add_sub_snapshot)
+{
+	auto store{ nano::test::make_store () };
+	nano::rep_weights rep_weights{ store->rep_weight };
+	nano::account const rep1{ 1 };
+	nano::account const rep2{ 2 };
+	std::vector<nano::account> const reps{ rep1, rep2 };
+
+	{
+		auto txn{ store->tx_begin_write () };
+		rep_weights.add (txn, rep1, 100);
+		rep_weights.add (txn, rep2, 50);
+	}
+
+	// The update moves everything from rep1 to rep2 and adds 20 on the way, the reverse takes the 20 away again, so exactly two states are legitimate
+	auto legitimate = [] (nano::uint128_t const & weight1, nano::uint128_t const & weight2) {
+		return (weight1 == 100 && weight2 == 50) || (weight1 == 0 && weight2 == 170);
+	};
+
+	size_t const rounds{ 100 };
+	std::atomic<bool> done{ false };
+	std::atomic<size_t> reads{ 0 };
+	std::atomic<size_t> inconsistent{ 0 };
+
+	// Each update is followed by at least one snapshot before the next, so the reader keeps pace with the writer and cannot miss the run
+	auto await_read = [&] {
+		auto const target = reads.load () + 1;
+		while (reads.load () < target)
+		{
+			std::this_thread::yield ();
+		}
+	};
+
+	// The write transaction is opened on the writer thread, as the store requires
+	std::thread writer ([&] {
+		auto txn{ store->tx_begin_write () };
+		for (size_t i = 0; i < rounds; ++i)
+		{
+			rep_weights.move_add_sub (txn, rep1, 100, rep2, 120);
+			await_read ();
+			rep_weights.move_add_sub (txn, rep2, 120, rep1, 100);
+			await_read ();
+		}
+		done = true;
+	});
+
+	std::thread reader ([&] {
+		while (!done)
+		{
+			auto weights = rep_weights.get (reps);
+			++reads;
+			if (!legitimate (weights.at (rep1), weights.at (rep2)))
+			{
+				++inconsistent;
+			}
+		}
+	});
+
+	writer.join ();
+	reader.join ();
+
+	ASSERT_EQ (0, inconsistent.load ());
+	ASSERT_GE (reads.load (), 2 * rounds);
+	ASSERT_EQ (100, rep_weights.get (rep1));
+	ASSERT_EQ (50, rep_weights.get (rep2));
+}
+
+/*
+ * Deterministic counterpart of the snapshot test above: the store is hooked so that every access to the rep weights table during an update also batch-reads the cache, as a reader interleaving at exactly that point would.
+ * Those accesses all happen before the cache lock is taken, so each read must show the state before the update or the state after it, never anything in between.
+ * The former implementation applied an unequal update as a move followed by a separate add or sub, and the store accesses of the second step ran with the cache half updated.
+ */
+TEST (ledger, rep_weights_move_add_sub_mid_update)
+{
+	auto hooked = nano::test::make_hooked_store ();
+	auto & store = *hooked.store;
+	nano::rep_weights rep_weights{ store.rep_weight };
+	nano::account const rep1{ 1 };
+	nano::account const rep2{ 2 };
+	std::vector<nano::account> const reps{ rep1, rep2 };
+	auto txn{ store.tx_begin_write () };
+	rep_weights.add (txn, rep1, 100);
+	rep_weights.add (txn, rep2, 50);
+
+	// The same two legitimate states as in the snapshot test
+	auto legitimate = [] (nano::uint128_t const & weight1, nano::uint128_t const & weight2) {
+		return (weight1 == 100 && weight2 == 50) || (weight1 == 0 && weight2 == 170);
+	};
+
+	size_t observations{ 0 };
+	size_t inconsistent{ 0 };
+	hooked.backend.before_access = [&] (nano::store::table table) {
+		if (table == nano::store::table::rep_weights)
+		{
+			auto weights = rep_weights.get (reps);
+			++observations;
+			if (!legitimate (weights.at (rep1), weights.at (rep2)))
+			{
+				++inconsistent;
+			}
+		}
+	};
+
+	rep_weights.move_add_sub (txn, rep1, 100, rep2, 120);
+	ASSERT_EQ (0, rep_weights.get (rep1));
+	ASSERT_EQ (170, rep_weights.get (rep2));
+	rep_weights.move_add_sub (txn, rep2, 120, rep1, 100);
+	ASSERT_EQ (100, rep_weights.get (rep1));
+	ASSERT_EQ (50, rep_weights.get (rep2));
+	hooked.backend.before_access = nullptr;
+
+	// Each update reads and writes both reps in the store, and every one of those accesses saw a whole state
+	ASSERT_GE (observations, 8);
+	ASSERT_EQ (0, inconsistent);
 }
 
 TEST (ledger, representation)

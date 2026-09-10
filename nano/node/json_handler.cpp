@@ -3791,7 +3791,7 @@ void nano::json_handler::representatives ()
 	{
 		bool const sorting = request.get<bool> ("sorting", false);
 		boost::property_tree::ptree representatives;
-		auto rep_amounts = node.ledger.rep_weights.get_rep_amounts ();
+		auto rep_amounts = node.ledger.rep_weights.get_all ();
 		if (!sorting) // Simple
 		{
 			for (auto & rep_amount : rep_amounts)
@@ -3846,7 +3846,7 @@ void nano::json_handler::representative_count ()
 		}
 		else
 		{
-			for (auto & rep_amount : node.ledger.rep_weights.get_rep_amounts ())
+			for (auto & rep_amount : node.ledger.rep_weights.get_all ())
 			{
 				if (rep_amount.second < threshold.number ())
 				{
