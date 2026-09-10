@@ -72,6 +72,7 @@ add_executable(
   peer_container.cpp
   rep_tiers.cpp
   rep_weight_store.cpp
+  rpc_server.cpp
   scheduler_buckets.cpp
   stats.cpp
   signal_manager.cpp

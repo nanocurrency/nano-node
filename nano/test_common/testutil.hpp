@@ -19,6 +19,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <type_traits>
 
 #define GTEST_TEST_ERROR_CODE(expression, text, actual, expected, fail)                       \
 	GTEST_AMBIGUOUS_ELSE_BLOCKER_                                                             \
@@ -145,8 +146,28 @@ private:
 	std::tuple<Ts &...> refs;
 };
 
+/** Lets a worker spawned by `join_guard` see that its guard is winding down */
+class stop_token
+{
+public:
+	explicit stop_token (std::atomic<bool> const & requested_a) :
+		requested{ requested_a }
+	{
+	}
+
+	bool stop_requested () const
+	{
+		return requested;
+	}
+
+private:
+	std::atomic<bool> const & requested;
+};
+
 /**
- * Owns a set of worker threads and joins them all on destruction
+ * Owns a set of worker threads and joins them all on destruction, the way `std::jthread` does.
+ * A worker that takes a `stop_token` is asked to stop before the join, so a looping worker winds
+ * down even when a test returns early from a failed assertion.
  * Declare it after everything the threads reference, so they are joined before those objects go out of scope
  */
 class join_guard
@@ -158,6 +179,7 @@ public:
 
 	~join_guard ()
 	{
+		request_stop ();
 		for (auto & thread : threads)
 		{
 			if (thread.joinable ())
@@ -170,10 +192,25 @@ public:
 	template <class T>
 	void spawn (T && func)
 	{
-		threads.emplace_back (std::forward<T> (func));
+		if constexpr (std::is_invocable_v<T, stop_token const &>)
+		{
+			threads.emplace_back ([func = std::forward<T> (func), token = stop_token{ stop }] () mutable {
+				func (token);
+			});
+		}
+		else
+		{
+			threads.emplace_back (std::forward<T> (func));
+		}
+	}
+
+	void request_stop ()
+	{
+		stop = true;
 	}
 
 private:
+	std::atomic<bool> stop{ false };
 	std::deque<std::thread> threads;
 };
 
