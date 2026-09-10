@@ -4,7 +4,7 @@
 #include <nano/rpc/rpc_server.hpp>
 #include <nano/rpc_test/common.hpp>
 #include <nano/rpc_test/rpc_context.hpp>
-#include <nano/rpc_test/test_response.hpp>
+#include <nano/test_common/test_response.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 

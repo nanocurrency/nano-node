@@ -18,6 +18,8 @@ add_library(
   system.cpp
   telemetry.hpp
   telemetry.cpp
+  test_response.hpp
+  test_response.cpp
   testutil.hpp
   testutil.cpp)
 

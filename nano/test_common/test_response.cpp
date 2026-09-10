@@ -1,12 +1,8 @@
-#include <nano/node/ipc/ipc_server.hpp>
-#include <nano/rpc/rpc_request_processor.hpp>
-#include <nano/rpc_test/test_response.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
-
-#include <gtest/gtest.h>
+#include <nano/test_common/test_response.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
+
+#include <sstream>
 
 std::shared_ptr<nano::test::test_response> nano::test::test_response::prepare (boost::property_tree::ptree const & request, boost::asio::io_context & io_ctx)
 {
@@ -28,7 +24,7 @@ nano::test::test_response::test_response (private_tag, boost::property_tree::ptr
 
 void nano::test::test_response::run (uint16_t port)
 {
-	sock.async_connect (nano::tcp_endpoint (boost::asio::ip::address_v6::loopback (), port), [this, /* lifetime guard */ this_s = shared_from_this ()] (boost::system::error_code const & ec) {
+	sock.async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), port), [this, /* lifetime guard */ this_s = shared_from_this ()] (boost::system::error_code const & ec) {
 		if (!ec)
 		{
 			std::stringstream ostream;
