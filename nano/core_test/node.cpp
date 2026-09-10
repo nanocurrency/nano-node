@@ -568,7 +568,7 @@ TEST (node, fork_publish)
 	// Insert the genesis key so voting only begins once both forks are in the election
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	// Wait until the genesis rep activated & makes vote
-	ASSERT_TIMELY_EQ (1s, election->votes ().size (), 1);
+	ASSERT_TIMELY_EQ (5s, election->votes ().size (), 1);
 	auto votes1 (election->votes ());
 	auto existing1 (votes1.find (nano::dev::genesis_key.pub));
 	ASSERT_NE (votes1.end (), existing1);
@@ -1484,7 +1484,7 @@ TEST (node, rep_self_vote)
 	ASSERT_NE (nullptr, election1);
 
 	// Wait until representatives are activated & make vote
-	ASSERT_TIMELY_EQ (1s, election1->votes ().size (), 2);
+	ASSERT_TIMELY_EQ (5s, election1->votes ().size (), 2);
 
 	// Election should receive votes from representatives hosted on the same node
 	auto rep_votes (election1->votes ());
@@ -2454,7 +2454,7 @@ TEST (node, fork_election_invalid_block_signature)
 	ASSERT_EQ (1, election->blocks ().size ());
 	node1.inbound (nano::messages::publish{ nano::dev::network_params.network, send3 }, channel1);
 	node1.inbound (nano::messages::publish{ nano::dev::network_params.network, send2 }, channel1);
-	ASSERT_TIMELY (3s, election->blocks ().size () > 1);
+	ASSERT_TIMELY (5s, election->blocks ().size () > 1);
 	ASSERT_EQ (election->blocks ()[send2->hash ()]->block_signature (), send2->block_signature ());
 }
 

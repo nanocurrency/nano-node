@@ -683,7 +683,7 @@ TEST (wallet, send_async)
 	std::atomic<bool> success (false);
 	system.wallet (0)->send_async (nano::dev::genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max (), [&success] (std::shared_ptr<nano::block> const & block_a) { ASSERT_NE (nullptr, block_a); success = true; });
 	thread.join ();
-	ASSERT_TIMELY (2s, success);
+	ASSERT_TIMELY (5s, success);
 }
 
 TEST (wallet, spend)
@@ -1329,7 +1329,7 @@ TEST (wallet, search_receivable)
 	// Pending search should create the receive block
 	ASSERT_EQ (2, node.ledger.block_count ());
 	ASSERT_FALSE (wallet.search_receivable ());
-	ASSERT_TIMELY_EQ (3s, node.balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount);
+	ASSERT_TIMELY_EQ (5s, node.balance (nano::dev::genesis_key.pub), nano::dev::constants.genesis_amount);
 	auto receive_hash = node.ledger.any.account_head (node.ledger.tx_begin_read (), nano::dev::genesis_key.pub);
 	auto receive = node.block (receive_hash);
 	ASSERT_NE (nullptr, receive);

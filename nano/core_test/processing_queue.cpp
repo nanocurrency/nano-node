@@ -114,6 +114,6 @@ TEST (processing_queue, parallel)
 
 	// There are 16 threads and 16 items, each thread is waiting 1 second inside processing callback
 	// If processing is done in parallel it should take ~2 seconds to process every item, but keep some margin for slow machines
-	ASSERT_TIMELY_EQ (3s, processed, count);
+	ASSERT_TIMELY_EQ (5s, processed, count);
 	ASSERT_EQ (queue.size (), 0);
 }
