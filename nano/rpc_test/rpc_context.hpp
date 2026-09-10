@@ -2,6 +2,7 @@
 
 #include <boost/property_tree/ptree.hpp>
 
+#include <functional>
 #include <optional>
 #include <vector>
 
@@ -51,6 +52,8 @@ namespace test
 		bool enable_control{ true };
 		// Overrides the RPC → IPC connection count; the dev network default of 1 processes requests one at a time
 		std::optional<unsigned> num_ipc_connections{};
+		// Invoked when the node acknowledges a `stop` request, the harness never stops anything on its own
+		std::function<void ()> stop_callback{ [] () {} };
 	};
 
 	rpc_context add_rpc (nano::test::system &, std::shared_ptr<nano::node> const &, rpc_options const & options = {});

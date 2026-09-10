@@ -13,8 +13,8 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/node/unchecked_map.hpp>
-#include <nano/rpc/rpc_server.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/rpc/rpc_server.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/rate_observer.hpp>
@@ -42,7 +42,7 @@ public:
 		node_rpc_config{},
 		rpc_config{ node.network_params.network, port, true },
 		ipc{ node, node_rpc_config },
-		ipc_rpc_processor{ system.io_ctx, rpc_config },
+		ipc_rpc_processor{ system.io_ctx, rpc_config, [] () {} },
 		rpc{ system.io_ctx, rpc_config, ipc_rpc_processor }
 	{
 	}

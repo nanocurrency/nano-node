@@ -1,6 +1,7 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/rpc/rpc_server.hpp>
 #include <nano/rpc_test/common.hpp>
 #include <nano/rpc_test/rpc_context.hpp>
 #include <nano/rpc_test/test_response.hpp>
@@ -76,7 +77,7 @@ nano::test::rpc_context nano::test::add_rpc (nano::test::system & system, std::s
 	}
 	const auto ipc_tcp_port = ipc_server->listening_tcp_port ();
 	debug_assert (ipc_tcp_port.has_value ());
-	auto ipc_rpc_processor (std::make_unique<nano::ipc_rpc_processor> (system.io_ctx, rpc_config, ipc_tcp_port.value ()));
+	auto ipc_rpc_processor (std::make_unique<nano::ipc_rpc_processor> (system.io_ctx, rpc_config, ipc_tcp_port.value (), options.stop_callback));
 	auto rpc (std::make_shared<nano::rpc_server> (system.io_ctx, rpc_config, *ipc_rpc_processor));
 	rpc->start ();
 

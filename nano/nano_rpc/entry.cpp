@@ -11,8 +11,8 @@
 #include <nano/node/cli.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/nodeconfig.hpp>
-#include <nano/rpc/rpc_server.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/rpc/rpc_server.hpp>
 
 #include <boost/program_options.hpp>
 
@@ -46,11 +46,17 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 
 		try
 		{
-			nano::ipc_rpc_processor ipc_rpc_processor (io_ctx, rpc_config);
+			std::atomic stopped{ false };
+
+			auto stop_callback = [&stopped, &logger] () {
+				logger.warn (nano::log::type::daemon_rpc, "Stop request acknowledged by node, stopping...");
+				stopped = true;
+				stopped.notify_all ();
+			};
+
+			nano::ipc_rpc_processor ipc_rpc_processor (io_ctx, rpc_config, stop_callback);
 			auto rpc = nano::get_rpc (io_ctx, rpc_config, ipc_rpc_processor);
 			rpc->start ();
-
-			std::atomic stopped{ false };
 
 			auto signal_handler = [&stopped, &logger] (int signum) {
 				logger.warn (nano::log::type::daemon_rpc, "Interrupt signal received ({}), stopping...", nano::to_signal_name (signum));

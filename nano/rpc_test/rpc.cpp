@@ -34,8 +34,8 @@
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
-#include <nano/rpc/rpc_server.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/rpc/rpc_server.hpp>
 #include <nano/rpc_test/common.hpp>
 #include <nano/rpc_test/rpc_context.hpp>
 #include <nano/rpc_test/test_response.hpp>
@@ -438,10 +438,15 @@ TEST (rpc, stop)
 {
 	nano::test::system system;
 	auto node = add_ipc_enabled_node (system);
-	auto const rpc_ctx = add_rpc (system, node);
+	std::atomic<bool> stop_requested{ false };
+	auto const rpc_ctx = add_rpc (system, node, { .stop_callback = [&stop_requested] () { stop_requested = true; } });
 	boost::property_tree::ptree request;
 	request.put ("action", "stop");
 	auto response (wait_response (system, rpc_ctx, request));
+	ASSERT_EQ ("", response.get<std::string> ("success"));
+	// The request is only reported to the owner, nothing is torn down by the handler chain
+	ASSERT_TIMELY (5s, stop_requested);
+	ASSERT_FALSE (node->stopped);
 }
 
 TEST (rpc, wallet_add)
@@ -6848,7 +6853,7 @@ TEST (rpc, simultaneous_calls)
 	const auto ipc_tcp_port = ipc_server.listening_tcp_port ();
 	ASSERT_TRUE (ipc_tcp_port.has_value ());
 	rpc_config.rpc_process.num_ipc_connections = 8;
-	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config, ipc_tcp_port.value ());
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config, ipc_tcp_port.value (), [] () {});
 	auto rpc = std::make_shared<nano::rpc_server> (system.io_ctx, rpc_config, ipc_rpc_processor);
 	nano::test::start_stop_guard stop_guard{ *rpc };
 

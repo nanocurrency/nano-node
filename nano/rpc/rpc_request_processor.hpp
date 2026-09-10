@@ -4,7 +4,6 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/rpc/rpc_server.hpp>
 
 #include <atomic>
 #include <deque>
@@ -45,15 +44,19 @@ struct rpc_request
 	std::function<void (std::string const &)> response;
 };
 
+/**
+ * Forwards RPC requests to a node over IPC.
+ * When the node acknowledges a `stop` request, `stop_callback` is invoked so the owner can shut
+ * this process down; the processor never stops itself or the RPC server.
+ */
 class rpc_request_processor
 {
 public:
-	rpc_request_processor (std::shared_ptr<boost::asio::io_context> io_ctx, nano::rpc_config & rpc_config);
-	rpc_request_processor (std::shared_ptr<boost::asio::io_context> io_ctx, nano::rpc_config & rpc_config, std::uint16_t ipc_port_a);
+	rpc_request_processor (std::shared_ptr<boost::asio::io_context> io_ctx, nano::rpc_config & rpc_config, std::function<void ()> stop_callback);
+	rpc_request_processor (std::shared_ptr<boost::asio::io_context> io_ctx, nano::rpc_config & rpc_config, std::uint16_t ipc_port_a, std::function<void ()> stop_callback);
 	~rpc_request_processor ();
 	void stop ();
 	void add (std::shared_ptr<rpc_request> const & request);
-	std::function<void ()> stop_callback;
 
 private:
 	void run ();
@@ -69,18 +72,19 @@ private:
 	nano::condition_variable condition;
 	std::string const ipc_address;
 	uint16_t const ipc_port;
+	std::function<void ()> const stop_callback;
 	std::thread thread;
 };
 
 class ipc_rpc_processor final : public nano::rpc_handler_interface
 {
 public:
-	ipc_rpc_processor (std::shared_ptr<boost::asio::io_context> io_ctx, nano::rpc_config & rpc_config) :
-		rpc_request_processor (std::move (io_ctx), rpc_config)
+	ipc_rpc_processor (std::shared_ptr<boost::asio::io_context> io_ctx, nano::rpc_config & rpc_config, std::function<void ()> stop_callback) :
+		rpc_request_processor (std::move (io_ctx), rpc_config, std::move (stop_callback))
 	{
 	}
-	ipc_rpc_processor (std::shared_ptr<boost::asio::io_context> io_ctx, nano::rpc_config & rpc_config, std::uint16_t ipc_port_a) :
-		rpc_request_processor (std::move (io_ctx), rpc_config, ipc_port_a)
+	ipc_rpc_processor (std::shared_ptr<boost::asio::io_context> io_ctx, nano::rpc_config & rpc_config, std::uint16_t ipc_port_a, std::function<void ()> stop_callback) :
+		rpc_request_processor (std::move (io_ctx), rpc_config, ipc_port_a, std::move (stop_callback))
 	{
 	}
 
@@ -96,18 +100,6 @@ public:
 			auto resp_l (std::make_shared<std::string> (resp));
 			response_a (resp_l);
 		}));
-	}
-
-	void stop () override
-	{
-		rpc_request_processor.stop ();
-	}
-
-	void rpc_instance (nano::rpc_server & rpc) override
-	{
-		rpc_request_processor.stop_callback = [&rpc] () {
-			rpc.stop ();
-		};
 	}
 
 private:

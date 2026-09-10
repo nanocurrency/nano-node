@@ -2,8 +2,8 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/network_formatting.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
-#include <nano/rpc/rpc_server.hpp>
 #include <nano/rpc/rpc_connection.hpp>
+#include <nano/rpc/rpc_server.hpp>
 
 #include <boost/format.hpp>
 
@@ -16,7 +16,6 @@ nano::rpc_server::rpc_server (std::shared_ptr<boost::asio::io_context> io_ctx_a,
 	acceptor (io_ctx),
 	rpc_handler_interface (rpc_handler_interface_a)
 {
-	rpc_handler_interface.rpc_instance (*this);
 }
 
 nano::rpc_server::~rpc_server ()
