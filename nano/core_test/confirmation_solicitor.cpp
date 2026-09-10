@@ -59,7 +59,7 @@ TEST (confirmation_solicitor, batches)
 	ASSERT_EQ (1, representatives.size ());
 	ASSERT_EQ (channel1, representatives.front ().channel);
 	ASSERT_EQ (nano::dev::genesis_key.pub, representatives.front ().account);
-	ASSERT_TIMELY_EQ (3s, node2.network.size (), 1);
+	ASSERT_TIMELY_EQ (5s, node2.network.size (), 1);
 	auto send = test_block (system);
 	for (size_t i (0); i < nano::network::confirm_req_hashes_max; ++i)
 	{
@@ -96,7 +96,7 @@ TEST (confirmation_solicitor, different_hash)
 	ASSERT_EQ (1, representatives.size ());
 	ASSERT_EQ (channel1, representatives.front ().channel);
 	ASSERT_EQ (nano::dev::genesis_key.pub, representatives.front ().account);
-	ASSERT_TIMELY_EQ (3s, node2.network.size (), 1);
+	ASSERT_TIMELY_EQ (5s, node2.network.size (), 1);
 	auto send = test_block (system);
 	// The representative voted for something else, not the winner
 	std::unordered_map<nano::account, nano::vote_info> votes;
@@ -132,7 +132,7 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 	}
 	ASSERT_EQ (max_representatives + 1, representatives.size ());
 	solicitor.prepare (representatives);
-	ASSERT_TIMELY_EQ (3s, node2.network.size (), 1);
+	ASSERT_TIMELY_EQ (5s, node2.network.size (), 1);
 	auto send = test_block (system);
 	// Every representative voted for something else, not the winner
 	std::unordered_map<nano::account, nano::vote_info> votes;

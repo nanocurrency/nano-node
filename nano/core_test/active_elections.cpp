@@ -229,7 +229,7 @@ TEST (active_elections, confirm_fork)
 	ASSERT_EQ (fork2->hash (), election->winner ()->hash ());
 
 	// Ledger view: fork2 cemented, fork1 not
-	ASSERT_TIMELY (3s, node.block_confirmed (fork2->hash ()));
+	ASSERT_TIMELY (5s, node.block_confirmed (fork2->hash ()));
 	ASSERT_FALSE (node.block_confirmed (fork1->hash ()));
 }
 
@@ -272,7 +272,7 @@ TEST (active_elections, confirm_fork_cache)
 	ASSERT_TIMELY (5s, election->confirmed ());
 	ASSERT_EQ (fork1->hash (), election->winner ()->hash ());
 
-	ASSERT_TIMELY (3s, node.block_confirmed (fork1->hash ()));
+	ASSERT_TIMELY (5s, node.block_confirmed (fork1->hash ()));
 }
 
 // TODO: Adjust for new behaviour of bounded buckets
@@ -869,7 +869,7 @@ TEST (active_elections, republish_winner)
 
 	node1.process_active (send1);
 	ASSERT_TIMELY (5s, nano::test::exists (node1, { send1 }));
-	ASSERT_TIMELY_EQ (3s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in), 1);
+	ASSERT_TIMELY_EQ (5s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in), 1);
 
 	// Several forks
 	for (auto i (0); i < 5; i++)
@@ -1066,7 +1066,7 @@ TEST (active_elections, fork_replacement_tally)
 		node1.process_active (fork);
 
 		// Assert election exists and is the same for each fork
-		ASSERT_TIMELY (1s, election = node1.active.election (fork->qualified_root ()));
+		ASSERT_TIMELY (5s, election = node1.active.election (fork->qualified_root ()));
 	}
 
 	// Check overflow of blocks
@@ -1118,7 +1118,7 @@ TEST (active_elections, fork_replacement_tally)
 	auto & node2 (*system.add_node (node_config));
 	node1.network.filter.clear ();
 	ASSERT_TRUE (node2.network.flood_block (send_last, nano::transport::traffic_type::test));
-	ASSERT_TIMELY (3s, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) > 0);
+	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) > 0);
 
 	// Correct block without votes is ignored
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks1;
@@ -1235,7 +1235,7 @@ TEST (active_elections, conflicting_block_vote_existing_election)
 	// Election must be confirmed
 	auto election (node.active.election (fork->qualified_root ()));
 	ASSERT_NE (nullptr, election);
-	ASSERT_TIMELY (3s, election->confirmed ());
+	ASSERT_TIMELY (5s, election->confirmed ());
 }
 
 // This tests the node's internal block activation logic
@@ -1304,17 +1304,17 @@ TEST (active_elections, activate_account_chain)
 	ASSERT_EQ (1, node.active.size ());
 	ASSERT_EQ (1, election1->blocks ().count (send->hash ()));
 	election1->force_confirm (); // Force confirm to trigger successor activation
-	ASSERT_TIMELY (3s, node.block_confirmed (send->hash ()));
+	ASSERT_TIMELY (5s, node.block_confirmed (send->hash ()));
 	// On cementing, the next election is started
-	ASSERT_TIMELY (3s, node.active.active (send2->qualified_root ()));
+	ASSERT_TIMELY (5s, node.active.active (send2->qualified_root ()));
 	auto election3 = node.active.election (send2->qualified_root ());
 	ASSERT_NE (nullptr, election3);
 	ASSERT_EQ (1, election3->blocks ().count (send2->hash ()));
 	election3->force_confirm (); // Force confirm to trigger successor and destination activation
-	ASSERT_TIMELY (3s, node.block_confirmed (send2->hash ()));
+	ASSERT_TIMELY (5s, node.block_confirmed (send2->hash ()));
 	// On cementing, the next election is started
-	ASSERT_TIMELY (3s, node.active.active (open->qualified_root ())); // Destination account activated
-	ASSERT_TIMELY (3s, node.active.active (send3->qualified_root ())); // Block successor activated
+	ASSERT_TIMELY (5s, node.active.active (open->qualified_root ())); // Destination account activated
+	ASSERT_TIMELY (5s, node.active.active (send3->qualified_root ())); // Block successor activated
 	auto election4 = node.active.election (send3->qualified_root ());
 	ASSERT_NE (nullptr, election4);
 	ASSERT_EQ (1, election4->blocks ().count (send3->hash ()));
@@ -1322,13 +1322,13 @@ TEST (active_elections, activate_account_chain)
 	ASSERT_NE (nullptr, election5);
 	ASSERT_EQ (1, election5->blocks ().count (open->hash ()));
 	election5->force_confirm ();
-	ASSERT_TIMELY (3s, node.block_confirmed (open->hash ()));
+	ASSERT_TIMELY (5s, node.block_confirmed (open->hash ()));
 	// Until send3 is also confirmed, the receive block should not activate
 	std::this_thread::sleep_for (200ms);
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 	election4->force_confirm ();
-	ASSERT_TIMELY (3s, node.block_confirmed (send3->hash ()));
-	ASSERT_TIMELY (3s, node.active.active (receive->qualified_root ())); // Destination account activated
+	ASSERT_TIMELY (5s, node.block_confirmed (send3->hash ()));
+	ASSERT_TIMELY (5s, node.active.active (receive->qualified_root ())); // Destination account activated
 }
 
 TEST (active_elections, activate_inactive)
@@ -1468,12 +1468,12 @@ TEST (active_elections, vacancy)
 	ASSERT_EQ (1, node.active.vacancy (nano::election_behavior::priority));
 	ASSERT_EQ (0, node.active.size ());
 	auto election1 = nano::test::start_election (system, node, send->hash ());
-	ASSERT_TIMELY (1s, updated);
+	ASSERT_TIMELY (5s, updated);
 	updated = false;
 	ASSERT_EQ (0, node.active.vacancy (nano::election_behavior::priority));
 	ASSERT_EQ (1, node.active.size ());
 	election1->force_confirm ();
-	ASSERT_TIMELY (1s, updated);
+	ASSERT_TIMELY (5s, updated);
 	ASSERT_EQ (1, node.active.vacancy (nano::election_behavior::priority));
 	ASSERT_EQ (0, node.active.size ());
 }

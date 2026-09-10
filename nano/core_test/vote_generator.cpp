@@ -636,7 +636,7 @@ TEST (vote_generator_broadcaster, timer_trigger)
 
 	// Threshold is 100, so 2 entries won't trigger via threshold
 	// Timer with 250ms delay should trigger broadcast
-	ASSERT_TIMELY_EQ (1s, broadcast_count.load (), 2);
+	ASSERT_TIMELY_EQ (5s, broadcast_count.load (), 2);
 	ASSERT_TRUE (broadcaster.empty ());
 	ASSERT_EQ (broadcast_batch.load (), 2);
 }

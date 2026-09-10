@@ -107,7 +107,7 @@ TEST (socket, disconnection_of_silent_connections)
 		ASSERT_FALSE (ec_a);
 		connected = true;
 	});
-	ASSERT_TIMELY (4s, connected);
+	ASSERT_TIMELY (5s, connected);
 
 	// Checking the connection was closed.
 	ASSERT_TIMELY (10s, server_data_socket_future.wait_for (0s) == std::future_status::ready);

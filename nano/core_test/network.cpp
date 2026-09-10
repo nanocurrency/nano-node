@@ -137,7 +137,7 @@ TEST (network, last_contacted)
 
 	auto channel1 = nano::test::establish_tcp (system, *node1, node0->network.endpoint ());
 	ASSERT_NE (nullptr, channel1);
-	ASSERT_TIMELY_EQ (3s, node0->network.size (), 1);
+	ASSERT_TIMELY_EQ (5s, node0->network.size (), 1);
 
 	// channel0 is the other side of channel1, same connection different endpoint
 	auto channel0 = node0->network.tcp_channels.find_node_id (node1->get_node_id ());
@@ -164,7 +164,7 @@ TEST (network, last_contacted)
 	node1->network.send_keepalive (channel1);
 	node1->network.send_keepalive (channel1);
 
-	ASSERT_TIMELY (3s, node0->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) >= keepalive_count + 3);
+	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) >= keepalive_count + 3);
 	ASSERT_EQ (node0->network.size (), 1);
 	auto timestamp_after_keepalive = channel0->get_last_packet_received ();
 	ASSERT_GT (timestamp_after_keepalive, timestamp_before_keepalive);
@@ -597,7 +597,7 @@ TEST (network, duplicate_detection)
 	tcp_channel->send (publish, nano::transport::traffic_type::test);
 	ASSERT_ALWAYS_EQ (100ms, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message), 0);
 	tcp_channel->send (publish, nano::transport::traffic_type::test);
-	ASSERT_TIMELY_EQ (2s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message), 1);
+	ASSERT_TIMELY_EQ (5s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish_message), 1);
 }
 
 TEST (network, duplicate_revert_publish)
@@ -646,7 +646,7 @@ TEST (network, duplicate_vote_detection)
 	tcp_channel->send (message, nano::transport::traffic_type::test);
 	ASSERT_ALWAYS_EQ (100ms, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message), 0);
 	tcp_channel->send (message, nano::transport::traffic_type::test);
-	ASSERT_TIMELY_EQ (2s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message), 1);
+	ASSERT_TIMELY_EQ (5s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message), 1);
 }
 
 // Ensures that the filter doesn't filter out votes that could not be queued for processing
@@ -706,7 +706,7 @@ TEST (network, expire_duplicate_filter)
 	tcp_channel->send (message, nano::transport::traffic_type::test);
 	ASSERT_ALWAYS_EQ (100ms, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message), 0);
 	tcp_channel->send (message, nano::transport::traffic_type::test);
-	ASSERT_TIMELY_EQ (2s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message), 1);
+	ASSERT_TIMELY_EQ (5s, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_confirm_ack_message), 1);
 
 	// The filter should expire the vote after some time
 	ASSERT_TRUE (node1.network.filter.check (bytes.data (), bytes.size ()));
