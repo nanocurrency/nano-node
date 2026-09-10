@@ -32,6 +32,7 @@
 #include <nano/store/ledger/version.hpp>
 #include <nano/store/lmdb/backend_lmdb.hpp>
 #include <nano/store/rocksdb/backend_rocksdb.hpp>
+#include <nano/test_common/hooked_backend.hpp>
 #include <nano/test_common/ledger_context.hpp>
 #include <nano/test_common/make_store.hpp>
 #include <nano/test_common/system.hpp>
@@ -751,7 +752,7 @@ TEST (ledger, weights_snapshot)
 	nano::block_builder builder;
 	std::deque<std::shared_ptr<nano::block>> changes;
 	nano::block_hash previous = nano::dev::genesis->hash ();
-	for (size_t i = 0; i < 200; ++i)
+	for (size_t i = 0; i < 100; ++i)
 	{
 		auto const & rep = i % 2 == 0 ? rep1 : rep2;
 		auto change = builder.state ()
@@ -779,11 +780,18 @@ TEST (ledger, weights_snapshot)
 	std::atomic<bool> processed{ true };
 	std::atomic<size_t> reads{ 0 };
 	std::atomic<size_t> inconsistent{ 0 };
-	std::latch first_read{ 1 };
+
+	// Each update is followed by at least one snapshot before the next, so the reader keeps pace with the writer and cannot miss the run
+	auto await_read = [&] {
+		auto const target = reads.load () + 1;
+		while (reads.load () < target)
+		{
+			std::this_thread::yield ();
+		}
+	};
 
 	// The write transaction is opened on the writer thread, as the store requires
 	std::thread writer ([&] {
-		first_read.wait (); // Hold the writer until the reader has taken its first snapshot, so the run cannot end unobserved
 		auto transaction = ledger.tx_begin_write ();
 		for (auto const & change : changes)
 		{
@@ -792,24 +800,20 @@ TEST (ledger, weights_snapshot)
 				processed = false;
 				break;
 			}
+			await_read ();
 		}
 		done = true;
 	});
 
 	std::thread reader ([&] {
-		auto read = [&] {
+		while (!done)
+		{
 			auto weights = ledger.weights (reps);
 			++reads;
 			if (weights.at (rep1.pub) + weights.at (rep2.pub) != nano::dev::constants.genesis_amount)
 			{
 				++inconsistent;
 			}
-		};
-		read ();
-		first_read.count_down ();
-		while (!done)
-		{
-			read ();
 		}
 	});
 
@@ -818,7 +822,7 @@ TEST (ledger, weights_snapshot)
 
 	ASSERT_TRUE (processed);
 	ASSERT_EQ (0, inconsistent.load ());
-	ASSERT_GT (reads.load (), 0);
+	ASSERT_GE (reads.load (), changes.size ());
 
 	// The last change leaves the whole balance with the second rep
 	ASSERT_EQ (0, ledger.weight (rep1.pub));
@@ -836,7 +840,7 @@ TEST (ledger, weights_snapshot_send_change)
 	auto & ledger = ctx.ledger ();
 	auto & pool = ctx.pool ();
 	nano::keypair rep1, rep2, destination;
-	size_t const count = 200;
+	size_t const count = 100;
 
 	// Block j sends one raw and delegates the rest to rep1 when j is odd and to rep2 when j is even
 	nano::block_builder builder;
@@ -872,25 +876,35 @@ TEST (ledger, weights_snapshot_send_change)
 	std::atomic<bool> rolled_back{ false };
 	std::atomic<size_t> reads{ 0 };
 	std::atomic<size_t> inconsistent{ 0 };
-	std::latch first_read{ 1 };
+
+	// Each update is followed by at least one snapshot before the next, so the reader keeps pace with the writer and cannot miss the run
+	auto await_read = [&] {
+		auto const target = reads.load () + 1;
+		while (reads.load () < target)
+		{
+			std::this_thread::yield ();
+		}
+	};
 
 	// The remaining blocks are applied to the end and then rolled back to the first block, all on the writer's transaction
 	std::thread writer ([&] {
-		first_read.wait (); // Hold the writer until the reader has taken its first snapshot, so the run cannot end unobserved
 		auto transaction = ledger.tx_begin_write ();
 		for (auto it = std::next (blocks.begin ()); it != blocks.end () && processed; ++it)
 		{
 			processed = ledger.process (transaction, *it) == nano::block_status::progress;
+			await_read ();
 		}
 		if (processed)
 		{
 			rolled_back = !ledger.rollback (transaction, blocks[1]->hash ());
+			await_read ();
 		}
 		done = true;
 	});
 
 	std::thread reader ([&] {
-		auto read = [&] {
+		while (!done)
+		{
 			auto weights = ledger.weights (reps);
 			++reads;
 			auto const held = weights.at (rep1.pub) + weights.at (rep2.pub);
@@ -900,12 +914,6 @@ TEST (ledger, weights_snapshot_send_change)
 			{
 				++inconsistent;
 			}
-		};
-		read ();
-		first_read.count_down ();
-		while (!done)
-		{
-			read ();
 		}
 	});
 
@@ -915,7 +923,7 @@ TEST (ledger, weights_snapshot_send_change)
 	ASSERT_TRUE (processed);
 	ASSERT_TRUE (rolled_back);
 	ASSERT_EQ (0, inconsistent.load ());
-	ASSERT_GT (reads.load (), 0);
+	ASSERT_GE (reads.load (), count);
 
 	// Only the first block remains, and the totals are back where they started
 	ASSERT_EQ (nano::dev::constants.genesis_amount - 1, ledger.weight (rep1.pub));
@@ -923,6 +931,78 @@ TEST (ledger, weights_snapshot_send_change)
 	ASSERT_EQ (committed_before, ledger.rep_weights.get_weight_committed ());
 	ASSERT_EQ (unused_before, ledger.rep_weights.get_weight_unused ());
 	ledger.rep_weights.verify_consistency (0);
+}
+
+/*
+ * Deterministic counterpart of the send and change snapshot test: the store is hooked so that every table access while a block is processed or rolled back also batch-reads both reps, as a reader interleaving at exactly that point would.
+ * The chain and the invariant are the same, so at every access exactly one rep must hold the balance and it must be the rep chosen by the last applied block.
+ */
+TEST (ledger, weights_snapshot_mid_update)
+{
+	auto hooked = nano::test::make_hooked_store ();
+	nano::logger logger;
+	nano::stats stats{ logger };
+	nano::ledger ledger (*hooked.store, nano::dev::network_params, stats, logger);
+	nano::work_pool pool{ nano::dev::network_params.network, 1 };
+	nano::keypair rep1, rep2, destination;
+	size_t const count = 20;
+
+	// Block j sends one raw and delegates the rest to rep1 when j is odd and to rep2 when j is even
+	nano::block_builder builder;
+	std::deque<std::shared_ptr<nano::block>> blocks;
+	nano::block_hash previous = nano::dev::genesis->hash ();
+	for (size_t j = 1; j <= count; ++j)
+	{
+		auto const & rep = j % 2 == 1 ? rep1 : rep2;
+		auto block = builder.state ()
+					 .account (nano::dev::genesis_key.pub)
+					 .previous (previous)
+					 .representative (rep.pub)
+					 .balance (nano::dev::constants.genesis_amount - j)
+					 .link (destination.pub)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					 .work (*pool.generate (previous))
+					 .build ();
+		previous = block->hash ();
+		blocks.push_back (block);
+	}
+
+	// The first block brings the balance under one of the two reps, from here on exactly one of them holds all of it
+	{
+		auto transaction = ledger.tx_begin_write ();
+		ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, blocks.front ()));
+	}
+
+	std::vector<nano::account> const reps{ rep1.pub, rep2.pub };
+	size_t observations{ 0 };
+	size_t inconsistent{ 0 };
+	hooked.backend.before_access = [&] (nano::store::table) {
+		auto weights = ledger.weights (reps);
+		++observations;
+		auto const held = weights.at (rep1.pub) + weights.at (rep2.pub);
+		auto const applied = nano::dev::constants.genesis_amount - held;
+		auto const & holder = applied % 2 == 1 ? rep1.pub : rep2.pub;
+		if (applied < 1 || applied > count || weights.at (holder) != held)
+		{
+			++inconsistent;
+		}
+	};
+
+	{
+		auto transaction = ledger.tx_begin_write ();
+		for (auto it = std::next (blocks.begin ()); it != blocks.end (); ++it)
+		{
+			ASSERT_EQ (nano::block_status::progress, ledger.process (transaction, *it));
+		}
+		ASSERT_FALSE (ledger.rollback (transaction, blocks[1]->hash ()));
+	}
+	hooked.backend.before_access = nullptr;
+
+	// Every block and every rollback reads and writes both reps in the store, and every access saw a whole state
+	ASSERT_GE (observations, 8 * (count - 1));
+	ASSERT_EQ (0, inconsistent);
+	ASSERT_EQ (nano::dev::constants.genesis_amount - 1, ledger.weight (rep1.pub));
+	ASSERT_EQ (0, ledger.weight (rep2.pub));
 }
 
 /*
@@ -1604,37 +1684,42 @@ TEST (ledger, rep_weights_batch_snapshot)
 		rep_weights.add (txn, rep2, 50);
 	}
 
+	size_t const rounds{ 100 };
 	std::atomic<bool> done{ false };
 	std::atomic<size_t> reads{ 0 };
 	std::atomic<size_t> inconsistent{ 0 };
-	std::latch first_read{ 1 };
+
+	// Each update is followed by at least one snapshot before the next, so the reader keeps pace with the writer and cannot miss the run
+	auto await_read = [&] {
+		auto const target = reads.load () + 1;
+		while (reads.load () < target)
+		{
+			std::this_thread::yield ();
+		}
+	};
 
 	// The write transaction is opened on the writer thread, as the store requires
 	std::thread writer ([&] {
-		first_read.wait (); // Hold the writer until the reader has taken its first snapshot, so the run cannot end unobserved
 		auto txn{ store->tx_begin_write () };
-		for (size_t i = 0; i < 2000; ++i)
+		for (size_t i = 0; i < rounds; ++i)
 		{
 			rep_weights.move (txn, rep1, rep2, amount);
+			await_read ();
 			rep_weights.move (txn, rep2, rep1, amount);
+			await_read ();
 		}
 		done = true;
 	});
 
 	std::thread reader ([&] {
-		auto read = [&] {
+		while (!done)
+		{
 			auto weights = rep_weights.get (reps);
 			++reads;
 			if (weights.at (rep1) + weights.at (rep2) != total)
 			{
 				++inconsistent;
 			}
-		};
-		read ();
-		first_read.count_down ();
-		while (!done)
-		{
-			read ();
 		}
 	});
 
@@ -1642,7 +1727,7 @@ TEST (ledger, rep_weights_batch_snapshot)
 	reader.join ();
 
 	ASSERT_EQ (0, inconsistent.load ());
-	ASSERT_GT (reads.load (), 0);
+	ASSERT_GE (reads.load (), 2 * rounds);
 	ASSERT_EQ (100, rep_weights.get (rep1));
 	ASSERT_EQ (50, rep_weights.get (rep2));
 }
@@ -1671,37 +1756,42 @@ TEST (ledger, rep_weights_move_add_sub_snapshot)
 		return (weight1 == 100 && weight2 == 50) || (weight1 == 0 && weight2 == 170);
 	};
 
+	size_t const rounds{ 100 };
 	std::atomic<bool> done{ false };
 	std::atomic<size_t> reads{ 0 };
 	std::atomic<size_t> inconsistent{ 0 };
-	std::latch first_read{ 1 };
+
+	// Each update is followed by at least one snapshot before the next, so the reader keeps pace with the writer and cannot miss the run
+	auto await_read = [&] {
+		auto const target = reads.load () + 1;
+		while (reads.load () < target)
+		{
+			std::this_thread::yield ();
+		}
+	};
 
 	// The write transaction is opened on the writer thread, as the store requires
 	std::thread writer ([&] {
-		first_read.wait (); // Hold the writer until the reader has taken its first snapshot, so the run cannot end unobserved
 		auto txn{ store->tx_begin_write () };
-		for (size_t i = 0; i < 2000; ++i)
+		for (size_t i = 0; i < rounds; ++i)
 		{
 			rep_weights.move_add_sub (txn, rep1, 100, rep2, 120);
+			await_read ();
 			rep_weights.move_add_sub (txn, rep2, 120, rep1, 100);
+			await_read ();
 		}
 		done = true;
 	});
 
 	std::thread reader ([&] {
-		auto read = [&] {
+		while (!done)
+		{
 			auto weights = rep_weights.get (reps);
 			++reads;
 			if (!legitimate (weights.at (rep1), weights.at (rep2)))
 			{
 				++inconsistent;
 			}
-		};
-		read ();
-		first_read.count_down ();
-		while (!done)
-		{
-			read ();
 		}
 	});
 
@@ -1709,9 +1799,58 @@ TEST (ledger, rep_weights_move_add_sub_snapshot)
 	reader.join ();
 
 	ASSERT_EQ (0, inconsistent.load ());
-	ASSERT_GT (reads.load (), 0);
+	ASSERT_GE (reads.load (), 2 * rounds);
 	ASSERT_EQ (100, rep_weights.get (rep1));
 	ASSERT_EQ (50, rep_weights.get (rep2));
+}
+
+/*
+ * Deterministic counterpart of the snapshot test above: the store is hooked so that every access to the rep weights table during an update also batch-reads the cache, as a reader interleaving at exactly that point would.
+ * Those accesses all happen before the cache lock is taken, so each read must show the state before the update or the state after it, never anything in between.
+ * The former implementation applied an unequal update as a move followed by a separate add or sub, and the store accesses of the second step ran with the cache half updated.
+ */
+TEST (ledger, rep_weights_move_add_sub_mid_update)
+{
+	auto hooked = nano::test::make_hooked_store ();
+	auto & store = *hooked.store;
+	nano::rep_weights rep_weights{ store.rep_weight };
+	nano::account const rep1{ 1 };
+	nano::account const rep2{ 2 };
+	std::vector<nano::account> const reps{ rep1, rep2 };
+	auto txn{ store.tx_begin_write () };
+	rep_weights.add (txn, rep1, 100);
+	rep_weights.add (txn, rep2, 50);
+
+	// The same two legitimate states as in the snapshot test
+	auto legitimate = [] (nano::uint128_t const & weight1, nano::uint128_t const & weight2) {
+		return (weight1 == 100 && weight2 == 50) || (weight1 == 0 && weight2 == 170);
+	};
+
+	size_t observations{ 0 };
+	size_t inconsistent{ 0 };
+	hooked.backend.before_access = [&] (nano::store::table table) {
+		if (table == nano::store::table::rep_weights)
+		{
+			auto weights = rep_weights.get (reps);
+			++observations;
+			if (!legitimate (weights.at (rep1), weights.at (rep2)))
+			{
+				++inconsistent;
+			}
+		}
+	};
+
+	rep_weights.move_add_sub (txn, rep1, 100, rep2, 120);
+	ASSERT_EQ (0, rep_weights.get (rep1));
+	ASSERT_EQ (170, rep_weights.get (rep2));
+	rep_weights.move_add_sub (txn, rep2, 120, rep1, 100);
+	ASSERT_EQ (100, rep_weights.get (rep1));
+	ASSERT_EQ (50, rep_weights.get (rep2));
+	hooked.backend.before_access = nullptr;
+
+	// Each update reads and writes both reps in the store, and every one of those accesses saw a whole state
+	ASSERT_GE (observations, 8);
+	ASSERT_EQ (0, inconsistent);
 }
 
 TEST (ledger, representation)

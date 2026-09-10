@@ -16,7 +16,6 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
-#include <latch>
 #include <thread>
 
 TEST (online_reps, basic)
@@ -372,26 +371,37 @@ TEST (online_reps, weight_snapshot)
 		node.ledger.rep_weights.add (transaction, rep2.pub, weight2);
 	}
 
+	size_t const rounds{ 100 };
 	std::atomic<bool> done{ false };
 	std::atomic<size_t> reads{ 0 };
 	std::atomic<size_t> inconsistent{ 0 };
-	std::latch first_read{ 1 };
+
+	// Each update is followed by at least one snapshot before the next, so the reader keeps pace with the writer and cannot miss the run
+	auto await_read = [&] {
+		auto const target = reads.load () + 1;
+		while (reads.load () < target)
+		{
+			std::this_thread::yield ();
+		}
+	};
 
 	// The write transaction is opened on the writer thread, as the store requires
 	std::thread writer ([&] {
-		first_read.wait (); // Hold the writer until the reader has taken its first snapshot, so the run cannot end unobserved
 		auto transaction = node.ledger.tx_begin_write ();
-		for (size_t i = 0; i < 2000; ++i)
+		for (size_t i = 0; i < rounds; ++i)
 		{
 			node.ledger.rep_weights.move (transaction, rep1.pub, rep2.pub, amount);
+			await_read ();
 			node.ledger.rep_weights.move (transaction, rep2.pub, rep1.pub, amount);
+			await_read ();
 		}
 		done = true;
 	});
 
 	// Observing a new rep recalculates the online total, so clearing and re-observing both reps recomputes it from scratch each time
 	std::thread reader ([&] {
-		auto read = [&] {
+		while (!done)
+		{
 			node.online_reps.clear ();
 			node.online_reps.observe (rep1.pub);
 			node.online_reps.observe (rep2.pub);
@@ -400,12 +410,6 @@ TEST (online_reps, weight_snapshot)
 			{
 				++inconsistent;
 			}
-		};
-		read ();
-		first_read.count_down ();
-		while (!done)
-		{
-			read ();
 		}
 	});
 
@@ -413,6 +417,6 @@ TEST (online_reps, weight_snapshot)
 	reader.join ();
 
 	ASSERT_EQ (0, inconsistent.load ());
-	ASSERT_GT (reads.load (), 0);
+	ASSERT_GE (reads.load (), 2 * rounds);
 	ASSERT_EQ (total, node.online_reps.online ());
 }
