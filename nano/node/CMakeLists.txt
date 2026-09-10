@@ -175,6 +175,8 @@ add_library(
   vote_replier.cpp
   rpc_callbacks.hpp
   rpc_callbacks.cpp
+  rpc_process.hpp
+  rpc_process.cpp
   scheduler/bucket.cpp
   scheduler/bucket.hpp
   scheduler/component.hpp
@@ -265,7 +267,8 @@ target_link_libraries(
   Boost::thread
   rocksdb
   ${CMAKE_DL_LIBS}
-  ${psapi_lib})
+  ${psapi_lib}
+  Boost::process)
 
 target_compile_definitions(
   node PRIVATE -DTAG_VERSION_STRING=${TAG_VERSION_STRING}

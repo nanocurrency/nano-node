@@ -1,4 +1,3 @@
-#include <nano/boost/process/child.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/memory.hpp>
@@ -19,6 +18,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/node_scope_guard.hpp>
 #include <nano/node/openclwork.hpp>
+#include <nano/node/rpc_process.hpp>
 #include <nano/rpc/rpc_server.hpp>
 
 #include <csignal>
@@ -144,7 +144,7 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 		};
 
 		std::unique_ptr<nano::ipc::ipc_server> ipc_server = std::make_unique<nano::ipc::ipc_server> (*node, config.rpc, stop_callback);
-		std::unique_ptr<boost::process::child> rpc_process;
+		std::unique_ptr<nano::rpc_process> rpc_process;
 		std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 		std::shared_ptr<nano::rpc_server> rpc;
 
@@ -170,18 +170,11 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 			}
 			else
 			{
-				// Spawn a child rpc process
-				if (!std::filesystem::exists (config.rpc.child_process.rpc_path))
-				{
-					throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.child_process.rpc_path);
-				}
-
 				logger.warn (nano::log::type::daemon, "RPC is configured to run in a separate process, this is experimental and is not recommended for production use. Please consider using the in-process RPC instead.");
 
 				logger.debug (nano::log::type::daemon, "Spawning RPC process with command: {}", config.rpc.child_process.rpc_path);
 
-				std::string network{ node->network_params.network.get_current_network_as_string () };
-				rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path.string (), "--network", network);
+				rpc_process = std::make_unique<nano::rpc_process> (config.rpc, data_path, node->network_params.network.get_current_network_as_string (), logger);
 			}
 			debug_assert (rpc || rpc_process);
 		}
@@ -218,19 +211,19 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 
 		logger.info (nano::log::type::daemon, "Stopping...");
 
+		// Stop accepting requests, then the node, then drop whatever is still queued on the IO threads
 		if (rpc)
 		{
 			rpc->stop ();
 		}
 		ipc_server->stop ();
 		node->stop ();
-		io_ctx->stop ();
-		runner->join ();
-
 		if (rpc_process)
 		{
-			rpc_process->wait ();
+			rpc_process->stop ();
 		}
+		io_ctx->stop ();
+		runner->join ();
 	}
 	catch (std::exception const & ex)
 	{
