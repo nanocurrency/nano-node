@@ -1,7 +1,7 @@
 add_library(
   rpc
-  rpc.hpp
-  rpc.cpp
+  rpc_server.hpp
+  rpc_server.cpp
   rpc_connection.hpp
   rpc_connection.cpp
   rpc_handler.hpp

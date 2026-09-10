@@ -2,14 +2,14 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/network_formatting.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
-#include <nano/rpc/rpc.hpp>
+#include <nano/rpc/rpc_server.hpp>
 #include <nano/rpc/rpc_connection.hpp>
 
 #include <boost/format.hpp>
 
 #include <iostream>
 
-nano::rpc::rpc (std::shared_ptr<boost::asio::io_context> io_ctx_a, nano::rpc_config config_a, nano::rpc_handler_interface & rpc_handler_interface_a) :
+nano::rpc_server::rpc_server (std::shared_ptr<boost::asio::io_context> io_ctx_a, nano::rpc_config config_a, nano::rpc_handler_interface & rpc_handler_interface_a) :
 	config (std::move (config_a)),
 	io_ctx_shared (io_ctx_a),
 	io_ctx (*io_ctx_shared),
@@ -19,7 +19,7 @@ nano::rpc::rpc (std::shared_ptr<boost::asio::io_context> io_ctx_a, nano::rpc_con
 	rpc_handler_interface.rpc_instance (*this);
 }
 
-nano::rpc::~rpc ()
+nano::rpc_server::~rpc_server ()
 {
 	if (!stopped)
 	{
@@ -27,7 +27,7 @@ nano::rpc::~rpc ()
 	}
 }
 
-void nano::rpc::start ()
+void nano::rpc_server::start ()
 {
 	auto endpoint (boost::asio::ip::tcp::endpoint (boost::asio::ip::make_address_v6 (config.address), config.port));
 
@@ -52,7 +52,7 @@ void nano::rpc::start ()
 	accept ();
 }
 
-void nano::rpc::accept ()
+void nano::rpc_server::accept ()
 {
 	auto connection (std::make_shared<nano::rpc_connection> (config, io_ctx, logger, rpc_handler_interface));
 	acceptor.async_accept (connection->socket,
@@ -77,7 +77,7 @@ void nano::rpc::accept ()
 	}));
 }
 
-void nano::rpc::stop ()
+void nano::rpc_server::stop ()
 {
 	stopped = true;
 	boost::system::error_code ec;
@@ -88,7 +88,7 @@ void nano::rpc::stop ()
 	}
 }
 
-std::shared_ptr<nano::rpc> nano::get_rpc (std::shared_ptr<boost::asio::io_context> io_ctx_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a)
+std::shared_ptr<nano::rpc_server> nano::get_rpc (std::shared_ptr<boost::asio::io_context> io_ctx_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a)
 {
-	return std::make_shared<nano::rpc> (io_ctx_a, config_a, rpc_handler_interface_a);
+	return std::make_shared<nano::rpc_server> (io_ctx_a, config_a, rpc_handler_interface_a);
 }

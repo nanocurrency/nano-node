@@ -17,11 +17,11 @@ namespace nano
 {
 class rpc_handler_interface;
 
-class rpc : public std::enable_shared_from_this<rpc>
+class rpc_server : public std::enable_shared_from_this<rpc_server>
 {
 public:
-	rpc (std::shared_ptr<boost::asio::io_context>, nano::rpc_config config_a, nano::rpc_handler_interface & rpc_handler_interface_a);
-	virtual ~rpc ();
+	rpc_server (std::shared_ptr<boost::asio::io_context>, nano::rpc_config config_a, nano::rpc_handler_interface & rpc_handler_interface_a);
+	virtual ~rpc_server ();
 
 	void start ();
 	void stop ();
@@ -44,5 +44,5 @@ public:
 };
 
 /** Returns the correct RPC implementation based on TLS configuration */
-std::shared_ptr<nano::rpc> get_rpc (std::shared_ptr<boost::asio::io_context>, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a);
+std::shared_ptr<nano::rpc_server> get_rpc (std::shared_ptr<boost::asio::io_context>, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a);
 }
