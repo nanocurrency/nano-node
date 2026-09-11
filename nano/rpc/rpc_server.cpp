@@ -77,6 +77,13 @@ void nano::rpc_server::stop ()
 		logger.error (nano::log::type::rpc, "Error while closing RPC acceptor: {}", ec.message ());
 	}
 
+	connections->close_idle ();
+	if (!connections->wait_drained (drain_timeout))
+	{
+		logger.warn (nano::log::type::rpc, "Closing {} connection(s) still serving a request after waiting {}ms", connections->in_flight (), drain_timeout.count ());
+		connections->close_all ();
+	}
+
 	logger.debug (nano::log::type::rpc, "Stopped");
 }
 
@@ -91,7 +98,7 @@ asio::awaitable<void> nano::rpc_server::run ()
 
 	while (!stopped)
 	{
-		auto connection = std::make_shared<nano::rpc_connection> (config, *io_ctx, logger, handler);
+		auto connection = std::make_shared<nano::rpc_connection> (config, *io_ctx, logger, handler, connections);
 
 		boost::system::error_code ec;
 		co_await acceptor.async_accept (connection->socket, asio::redirect_error (asio::use_awaitable, ec));
@@ -108,6 +115,78 @@ asio::awaitable<void> nano::rpc_server::run ()
 			continue;
 		}
 
+		connections->add (connection);
 		connection->parse_connection ();
 	}
+}
+
+/*
+ * rpc_connection_tracker
+ */
+
+void nano::rpc_connection_tracker::add (std::shared_ptr<nano::rpc_connection> const & connection)
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	purge ();
+	connections.push_back (connection);
+}
+
+void nano::rpc_connection_tracker::request_begin ()
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	++in_flight_m;
+}
+
+void nano::rpc_connection_tracker::request_end ()
+{
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		debug_assert (in_flight_m > 0);
+		--in_flight_m;
+	}
+	condition.notify_all ();
+}
+
+std::size_t nano::rpc_connection_tracker::in_flight () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return in_flight_m;
+}
+
+void nano::rpc_connection_tracker::close_idle ()
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	purge ();
+	for (auto const & weak : connections)
+	{
+		if (auto connection = weak.lock (); connection && !connection->serving ())
+		{
+			connection->close ();
+		}
+	}
+}
+
+void nano::rpc_connection_tracker::close_all ()
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	purge ();
+	for (auto const & weak : connections)
+	{
+		if (auto connection = weak.lock ())
+		{
+			connection->close ();
+		}
+	}
+}
+
+bool nano::rpc_connection_tracker::wait_drained (std::chrono::milliseconds timeout)
+{
+	nano::unique_lock<nano::mutex> lock{ mutex };
+	return condition.wait_for (lock, timeout, [this] () { return in_flight_m == 0; });
+}
+
+void nano::rpc_connection_tracker::purge ()
+{
+	debug_assert (!mutex.try_lock ());
+	connections.remove_if ([] (auto const & weak) { return weak.expired (); });
 }

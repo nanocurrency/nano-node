@@ -11,6 +11,8 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/property_tree/ptree.hpp>
 
+#include <algorithm>
+#include <array>
 #include <atomic>
 #include <deque>
 #include <stdexcept>
@@ -87,11 +89,16 @@ private:
 	std::deque<std::function<void (std::string const &)>> pending;
 };
 
-/** An RPC server on its own IO threads, torn down in the same order the owners use */
+/**
+ * An RPC server with its handler on its own IO threads, torn down in the same order the owners use.
+ * Members are declared so that the runner's threads are joined first and the io_context dies last,
+ * after the handler has released any response it still holds and the connections behind it.
+ */
+template <class handler_type>
 class server_context
 {
 public:
-	server_context (nano::test::system & system, nano::rpc_handler_interface & handler, uint16_t port) :
+	server_context (nano::test::system & system, uint16_t port) :
 		config{ nano::dev::network_params.network, port, true },
 		server{ io_ctx, config, handler },
 		runner{ io_ctx, system.logger, 2 }
@@ -102,10 +109,10 @@ public:
 	{
 		server.stop ();
 		runner.abort ();
-		// The runner is declared last so its threads are joined before the server they may still be using is destroyed
 	}
 
 	std::shared_ptr<boost::asio::io_context> io_ctx{ std::make_shared<boost::asio::io_context> () };
+	handler_type handler;
 	nano::rpc_config config;
 	nano::rpc_server server;
 	nano::thread_runner runner;
@@ -120,6 +127,16 @@ public:
 		boost::system::error_code ec;
 		socket.connect (boost::asio::ip::tcp::endpoint{ boost::asio::ip::address_v6::loopback (), port }, ec);
 		connected = !ec;
+	}
+
+	// True once the server has closed its end
+	bool closed_by_peer ()
+	{
+		boost::system::error_code ec;
+		socket.non_blocking (true, ec);
+		std::array<char, 1> byte{};
+		socket.read_some (boost::asio::buffer (byte), ec);
+		return ec == boost::asio::error::eof || ec == boost::asio::error::connection_reset;
 	}
 
 	boost::asio::io_context io_ctx;
@@ -146,8 +163,7 @@ boost::property_tree::ptree echo_request ()
 TEST (rpc_server, start_stop)
 {
 	nano::test::system system;
-	echo_handler handler;
-	server_context ctx{ system, handler, system.get_available_port () };
+	server_context<echo_handler> ctx{ system, system.get_available_port () };
 
 	ctx.server.start ();
 	ASSERT_NE (0, ctx.server.listening_port ());
@@ -157,7 +173,7 @@ TEST (rpc_server, start_stop)
 	auto response = nano::test::test_response::send (request, ctx.server.listening_port (), *system.io_ctx);
 	ASSERT_TIMELY_EQ (5s, response->status, 200);
 	ASSERT_EQ ("echo", response->json.get<std::string> ("action"));
-	ASSERT_EQ (1, handler.requests);
+	ASSERT_EQ (1, ctx.handler.requests);
 
 	ctx.server.stop ();
 	ASSERT_FALSE (accepts_connections (ctx.server.listening_port ()));
@@ -169,18 +185,17 @@ TEST (rpc_server, start_stop)
 TEST (rpc_server, stop_idempotent)
 {
 	nano::test::system system;
-	echo_handler handler;
 	{
-		server_context ctx{ system, handler, system.get_available_port () };
+		server_context<echo_handler> ctx{ system, system.get_available_port () };
 		// Never started
 	}
 	{
-		server_context ctx{ system, handler, system.get_available_port () };
+		server_context<echo_handler> ctx{ system, system.get_available_port () };
 		ctx.server.stop ();
 		ctx.server.stop ();
 	}
 	{
-		server_context ctx{ system, handler, system.get_available_port () };
+		server_context<echo_handler> ctx{ system, system.get_available_port () };
 		ctx.server.start ();
 		auto const port = ctx.server.listening_port ();
 		ctx.server.stop ();
@@ -195,15 +210,14 @@ TEST (rpc_server, stop_idempotent)
 TEST (rpc_server, stop_releases_port)
 {
 	nano::test::system system;
-	echo_handler handler;
 	uint16_t port{ 0 };
 	{
-		server_context ctx{ system, handler, system.get_available_port () };
+		server_context<echo_handler> ctx{ system, system.get_available_port () };
 		ctx.server.start ();
 		port = ctx.server.listening_port ();
 	}
 
-	server_context ctx{ system, handler, port };
+	server_context<echo_handler> ctx{ system, port };
 	ASSERT_NO_THROW (ctx.server.start ());
 	ASSERT_EQ (port, ctx.server.listening_port ());
 
@@ -218,11 +232,10 @@ TEST (rpc_server, stop_releases_port)
 TEST (rpc_server, bind_failure)
 {
 	nano::test::system system;
-	echo_handler handler;
-	server_context first{ system, handler, system.get_available_port () };
+	server_context<echo_handler> first{ system, system.get_available_port () };
 	first.server.start ();
 
-	server_context second{ system, handler, first.server.listening_port () };
+	server_context<echo_handler> second{ system, first.server.listening_port () };
 	ASSERT_THROW (second.server.start (), std::runtime_error);
 }
 
@@ -232,8 +245,7 @@ TEST (rpc_server, bind_failure)
 TEST (rpc_server, concurrent_requests)
 {
 	nano::test::system system;
-	echo_handler handler;
-	server_context ctx{ system, handler, system.get_available_port () };
+	server_context<echo_handler> ctx{ system, system.get_available_port () };
 	ctx.server.start ();
 
 	constexpr int count = 64;
@@ -258,17 +270,16 @@ TEST (rpc_server, concurrent_requests)
 		ASSERT_EQ (200, response->status);
 		ASSERT_EQ ("echo", response->json.get<std::string> ("action"));
 	}
-	ASSERT_EQ (count, handler.requests);
+	ASSERT_EQ (count, ctx.handler.requests);
 }
 
 /**
- * Connections that were accepted but never sent a request do not keep `stop` from returning
+ * Connections that were accepted but never sent a request are closed by `stop` and do not delay it
  */
-TEST (rpc_server, stop_with_idle_connections)
+TEST (rpc_server, stop_closes_idle_connections)
 {
 	nano::test::system system;
-	echo_handler handler;
-	server_context ctx{ system, handler, system.get_available_port () };
+	server_context<echo_handler> ctx{ system, system.get_available_port () };
 	ctx.server.start ();
 
 	std::vector<std::unique_ptr<idle_connection>> connections;
@@ -280,29 +291,61 @@ TEST (rpc_server, stop_with_idle_connections)
 
 	ctx.server.stop ();
 	ASSERT_FALSE (accepts_connections (ctx.server.listening_port ()));
+	ASSERT_TIMELY (5s, std::all_of (connections.begin (), connections.end (), [] (auto const & connection) { return connection->closed_by_peer (); }));
 }
 
 /**
- * A request that is in flight when the server stops still receives its response
+ * `stop` waits for a request in flight, so its response is written before `stop` returns
  */
-TEST (rpc_server, stop_with_pending_requests)
+TEST (rpc_server, stop_drains_pending_request)
 {
 	nano::test::system system;
-	deferred_handler handler;
-	server_context ctx{ system, handler, system.get_available_port () };
+	server_context<deferred_handler> ctx{ system, system.get_available_port () };
 	ctx.server.start ();
 
 	auto request = echo_request ();
 	auto response = nano::test::test_response::send (request, ctx.server.listening_port (), *system.io_ctx);
-	ASSERT_TIMELY_EQ (5s, handler.pending_count (), 1);
+	ASSERT_TIMELY_EQ (5s, ctx.handler.pending_count (), 1);
+
+	// Release the response only once the owner is already waiting inside `stop`
+	std::atomic<bool> released{ false };
+	nano::test::join_guard releaser;
+	releaser.spawn ([&] () {
+		std::this_thread::sleep_for (500ms);
+		released = true;
+		ctx.handler.respond_all (R"({ "released": "1" })");
+	});
 
 	ctx.server.stop ();
+	ASSERT_TRUE (released);
 	ASSERT_FALSE (accepts_connections (ctx.server.listening_port ()));
-	ASSERT_EQ (0, response->status);
 
-	handler.respond_all (R"({ "released": "1" })");
 	ASSERT_TIMELY_EQ (5s, response->status, 200);
 	ASSERT_EQ ("1", response->json.get<std::string> ("released"));
+}
+
+/**
+ * A request that never completes only delays `stop` by the drain timeout, then its connection is closed
+ */
+TEST (rpc_server, stop_drain_timeout)
+{
+	nano::test::system system;
+	server_context<deferred_handler> ctx{ system, system.get_available_port () };
+	ctx.server.drain_timeout = 500ms;
+	ctx.server.start ();
+
+	auto request = echo_request ();
+	auto response = nano::test::test_response::send (request, ctx.server.listening_port (), *system.io_ctx);
+	ASSERT_TIMELY_EQ (5s, ctx.handler.pending_count (), 1);
+
+	auto const start = std::chrono::steady_clock::now ();
+	ctx.server.stop ();
+	ASSERT_GE (std::chrono::steady_clock::now () - start, 500ms);
+	ASSERT_FALSE (accepts_connections (ctx.server.listening_port ()));
+
+	// The client sees its connection dropped without a response
+	ASSERT_TIMELY (5s, response->status != 0);
+	ASSERT_NE (200, response->status);
 }
 
 /**
@@ -311,8 +354,7 @@ TEST (rpc_server, stop_with_pending_requests)
 TEST (rpc_server, stop_during_connects)
 {
 	nano::test::system system;
-	echo_handler handler;
-	server_context ctx{ system, handler, system.get_available_port () };
+	server_context<echo_handler> ctx{ system, system.get_available_port () };
 	ctx.server.start ();
 	auto const port = ctx.server.listening_port ();
 
@@ -343,8 +385,7 @@ TEST (rpc_server, stop_during_connects)
 TEST (rpc_server, stop_concurrent)
 {
 	nano::test::system system;
-	echo_handler handler;
-	server_context ctx{ system, handler, system.get_available_port () };
+	server_context<echo_handler> ctx{ system, system.get_available_port () };
 	ctx.server.start ();
 	auto const port = ctx.server.listening_port ();
 

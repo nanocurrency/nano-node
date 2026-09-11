@@ -1,4 +1,5 @@
 #include <nano/boost/asio/bind_executor.hpp>
+#include <nano/boost/asio/dispatch.hpp>
 #include <nano/boost/asio/post.hpp>
 #include <nano/lib/json_error_response.hpp>
 #include <nano/lib/logging.hpp>
@@ -7,6 +8,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/rpc/rpc_connection.hpp>
 #include <nano/rpc/rpc_dispatcher.hpp>
+#include <nano/rpc/rpc_server.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -15,15 +17,46 @@
 #endif
 #include <boost/format.hpp>
 
-nano::rpc_connection::rpc_connection (nano::rpc_config const & rpc_config, boost::asio::io_context & io_ctx, nano::logger & logger, nano::rpc_handler_interface & rpc_handler_interface) :
+nano::rpc_connection::rpc_connection (nano::rpc_config const & rpc_config, boost::asio::io_context & io_ctx, nano::logger & logger, nano::rpc_handler_interface & rpc_handler_interface, std::shared_ptr<nano::rpc_connection_tracker> tracker_a) :
 	socket (io_ctx),
 	strand (io_ctx.get_executor ()),
 	io_ctx (io_ctx),
 	logger (logger),
 	rpc_config (rpc_config),
-	rpc_handler_interface (rpc_handler_interface)
+	rpc_handler_interface (rpc_handler_interface),
+	tracker (std::move (tracker_a))
 {
 	responded.clear ();
+}
+
+void nano::rpc_connection::close ()
+{
+	boost::asio::dispatch (strand, [this_l = shared_from_this ()] () {
+		boost::system::error_code ec;
+		this_l->socket.shutdown (boost::asio::ip::tcp::socket::shutdown_both, ec);
+		this_l->socket.close (ec);
+	});
+}
+
+bool nano::rpc_connection::serving () const
+{
+	return serving_m;
+}
+
+void nano::rpc_connection::request_begin ()
+{
+	if (!serving_m.exchange (true))
+	{
+		tracker->request_begin ();
+	}
+}
+
+void nano::rpc_connection::request_end ()
+{
+	if (serving_m.exchange (false))
+	{
+		tracker->request_end ();
+	}
 }
 
 void nano::rpc_connection::parse_connection ()
@@ -59,7 +92,7 @@ void nano::rpc_connection::write_result (std::string body, unsigned version, boo
 
 void nano::rpc_connection::write_completion_handler (std::shared_ptr<nano::rpc_connection> const & rpc_connection)
 {
-	// Intentional no-op
+	request_end ();
 }
 
 template <typename STREAM_TYPE>
@@ -83,11 +116,16 @@ void nano::rpc_connection::read (STREAM_TYPE & stream)
 
 			this_l->parse_request (stream, header_parser);
 		}
+		else if (ec == boost::asio::error::operation_aborted)
+		{
+			// Closed while idle, nothing to respond to
+		}
 		else
 		{
 			this_l->logger.error (nano::log::type::rpc_connection, "RPC header error: {}", ec.message ());
 
 			// Respond with the reason for the invalid header
+			this_l->request_begin ();
 			auto response_handler ([this_l, &stream] (std::string const & tree_a) {
 				this_l->write_result (tree_a, 11);
 				boost::beast::http::async_write (stream, this_l->res, boost::asio::bind_executor (this_l->strand, [this_l] (boost::system::error_code const & ec, size_t bytes_transferred) {
@@ -110,6 +148,7 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 	boost::beast::http::async_read (stream, buffer, *body_parser, boost::asio::bind_executor (strand, [this_l, body_parser, header_field_credentials_l, header_corr_id_l, path_l, &stream] (boost::system::error_code const & ec, size_t bytes_transferred) {
 		if (!ec)
 		{
+			this_l->request_begin ();
 			boost::asio::post (this_l->io_ctx, [this_l, body_parser, header_field_credentials_l, header_corr_id_l, path_l, &stream] () {
 				auto & req (body_parser->get ());
 				auto start (std::chrono::steady_clock::now ());
@@ -164,7 +203,7 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 				}
 			});
 		}
-		else
+		else if (ec != boost::asio::error::operation_aborted)
 		{
 			this_l->logger.error (nano::log::type::rpc_connection, "RPC read error: {}", ec.message ());
 		}
