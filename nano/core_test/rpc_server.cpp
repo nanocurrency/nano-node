@@ -1,5 +1,4 @@
-#include <nano/lib/locks.hpp>
-#include <nano/lib/rpc_handler_interface.hpp>
+#include <nano/core_test/fakes/rpc_handler.hpp>
 #include <nano/lib/thread_runner.hpp>
 #include <nano/rpc/rpc_server.hpp>
 #include <nano/test_common/system.hpp>
@@ -14,7 +13,6 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
-#include <deque>
 #include <stdexcept>
 #include <thread>
 
@@ -28,67 +26,6 @@ using namespace std::chrono_literals;
 
 namespace
 {
-/** Echoes every request body back */
-class echo_handler final : public nano::rpc_handler_interface
-{
-public:
-	void process_request (std::string const &, std::string const & body, std::function<void (std::string const &)> response) override
-	{
-		++requests;
-		response (body);
-	}
-
-	void process_request_v2 (nano::rpc_handler_request_params const &, std::string const & body, std::function<void (std::shared_ptr<std::string> const &)> response) override
-	{
-		++requests;
-		response (std::make_shared<std::string> (body));
-	}
-
-	std::atomic<int> requests{ 0 };
-};
-
-/** Holds every request until the test releases it, to keep connections in flight */
-class deferred_handler final : public nano::rpc_handler_interface
-{
-public:
-	void process_request (std::string const &, std::string const &, std::function<void (std::string const &)> response) override
-	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		pending.push_back (std::move (response));
-	}
-
-	void process_request_v2 (nano::rpc_handler_request_params const &, std::string const &, std::function<void (std::shared_ptr<std::string> const &)> response) override
-	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		pending.push_back ([response = std::move (response)] (std::string const & body) {
-			response (std::make_shared<std::string> (body));
-		});
-	}
-
-	std::size_t pending_count ()
-	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		return pending.size ();
-	}
-
-	void respond_all (std::string const & body)
-	{
-		decltype (pending) released;
-		{
-			nano::lock_guard<nano::mutex> lock{ mutex };
-			released.swap (pending);
-		}
-		for (auto & response : released)
-		{
-			response (body);
-		}
-	}
-
-private:
-	nano::mutex mutex;
-	std::deque<std::function<void (std::string const &)>> pending;
-};
-
 /**
  * An RPC server with its handler on its own IO threads, torn down in the same order the owners use.
  * Members are declared so that the runner's threads are joined first and the io_context dies last,
@@ -163,7 +100,7 @@ boost::property_tree::ptree echo_request ()
 TEST (rpc_server, start_stop)
 {
 	nano::test::system system;
-	server_context<echo_handler> ctx{ system, system.get_available_port () };
+	server_context<nano::test::echo_rpc_handler> ctx{ system, system.get_available_port () };
 
 	ctx.server.start ();
 	ASSERT_NE (0, ctx.server.listening_port ());
@@ -186,16 +123,16 @@ TEST (rpc_server, stop_idempotent)
 {
 	nano::test::system system;
 	{
-		server_context<echo_handler> ctx{ system, system.get_available_port () };
+		server_context<nano::test::echo_rpc_handler> ctx{ system, system.get_available_port () };
 		// Never started
 	}
 	{
-		server_context<echo_handler> ctx{ system, system.get_available_port () };
+		server_context<nano::test::echo_rpc_handler> ctx{ system, system.get_available_port () };
 		ctx.server.stop ();
 		ctx.server.stop ();
 	}
 	{
-		server_context<echo_handler> ctx{ system, system.get_available_port () };
+		server_context<nano::test::echo_rpc_handler> ctx{ system, system.get_available_port () };
 		ctx.server.start ();
 		auto const port = ctx.server.listening_port ();
 		ctx.server.stop ();
@@ -212,12 +149,12 @@ TEST (rpc_server, stop_releases_port)
 	nano::test::system system;
 	uint16_t port{ 0 };
 	{
-		server_context<echo_handler> ctx{ system, system.get_available_port () };
+		server_context<nano::test::echo_rpc_handler> ctx{ system, system.get_available_port () };
 		ctx.server.start ();
 		port = ctx.server.listening_port ();
 	}
 
-	server_context<echo_handler> ctx{ system, port };
+	server_context<nano::test::echo_rpc_handler> ctx{ system, port };
 	ASSERT_NO_THROW (ctx.server.start ());
 	ASSERT_EQ (port, ctx.server.listening_port ());
 
@@ -232,10 +169,10 @@ TEST (rpc_server, stop_releases_port)
 TEST (rpc_server, bind_failure)
 {
 	nano::test::system system;
-	server_context<echo_handler> first{ system, system.get_available_port () };
+	server_context<nano::test::echo_rpc_handler> first{ system, system.get_available_port () };
 	first.server.start ();
 
-	server_context<echo_handler> second{ system, first.server.listening_port () };
+	server_context<nano::test::echo_rpc_handler> second{ system, first.server.listening_port () };
 	ASSERT_THROW (second.server.start (), std::runtime_error);
 }
 
@@ -245,7 +182,7 @@ TEST (rpc_server, bind_failure)
 TEST (rpc_server, concurrent_requests)
 {
 	nano::test::system system;
-	server_context<echo_handler> ctx{ system, system.get_available_port () };
+	server_context<nano::test::echo_rpc_handler> ctx{ system, system.get_available_port () };
 	ctx.server.start ();
 
 	constexpr int count = 64;
@@ -279,7 +216,7 @@ TEST (rpc_server, concurrent_requests)
 TEST (rpc_server, stop_closes_idle_connections)
 {
 	nano::test::system system;
-	server_context<echo_handler> ctx{ system, system.get_available_port () };
+	server_context<nano::test::echo_rpc_handler> ctx{ system, system.get_available_port () };
 	ctx.server.start ();
 
 	std::vector<std::unique_ptr<idle_connection>> connections;
@@ -300,7 +237,7 @@ TEST (rpc_server, stop_closes_idle_connections)
 TEST (rpc_server, stop_drains_pending_request)
 {
 	nano::test::system system;
-	server_context<deferred_handler> ctx{ system, system.get_available_port () };
+	server_context<nano::test::deferred_rpc_handler> ctx{ system, system.get_available_port () };
 	ctx.server.start ();
 
 	auto request = echo_request ();
@@ -330,7 +267,7 @@ TEST (rpc_server, stop_drains_pending_request)
 TEST (rpc_server, stop_drain_timeout)
 {
 	nano::test::system system;
-	server_context<deferred_handler> ctx{ system, system.get_available_port () };
+	server_context<nano::test::deferred_rpc_handler> ctx{ system, system.get_available_port () };
 	ctx.server.drain_timeout = 500ms;
 	ctx.server.start ();
 
@@ -354,7 +291,7 @@ TEST (rpc_server, stop_drain_timeout)
 TEST (rpc_server, stop_during_connects)
 {
 	nano::test::system system;
-	server_context<echo_handler> ctx{ system, system.get_available_port () };
+	server_context<nano::test::echo_rpc_handler> ctx{ system, system.get_available_port () };
 	ctx.server.start ();
 	auto const port = ctx.server.listening_port ();
 
@@ -385,7 +322,7 @@ TEST (rpc_server, stop_during_connects)
 TEST (rpc_server, stop_concurrent)
 {
 	nano::test::system system;
-	server_context<echo_handler> ctx{ system, system.get_available_port () };
+	server_context<nano::test::echo_rpc_handler> ctx{ system, system.get_available_port () };
 	ctx.server.start ();
 	auto const port = ctx.server.listening_port ();
 
