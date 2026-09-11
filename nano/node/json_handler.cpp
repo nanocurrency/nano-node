@@ -5536,10 +5536,7 @@ void nano::json_handler::populate_backlog ()
 void nano::inprocess_rpc_handler::process_request (std::string const &, std::string const & body_a, std::function<void (std::string const &)> response_a)
 {
 	// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
-	auto handler (std::make_shared<nano::json_handler> (node, node_rpc_config, body_a, response_a, [this] () {
-		this->stop_callback ();
-		this->stop ();
-	}));
+	auto handler (std::make_shared<nano::json_handler> (node, node_rpc_config, body_a, response_a, stop_callback));
 	handler->process_request ();
 }
 

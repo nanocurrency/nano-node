@@ -5,14 +5,16 @@
 
 #include <boost/endian/conversion.hpp>
 
-nano::rpc_request_processor::rpc_request_processor (std::shared_ptr<boost::asio::io_context> io_ctx, nano::rpc_config & rpc_config, std::uint16_t ipc_port_a) :
+nano::rpc_request_processor::rpc_request_processor (std::shared_ptr<boost::asio::io_context> io_ctx, nano::rpc_config & rpc_config, std::uint16_t ipc_port_a, std::function<void ()> stop_callback_a) :
 	ipc_address{ rpc_config.rpc_process.ipc_address },
 	ipc_port{ ipc_port_a },
+	stop_callback{ std::move (stop_callback_a) },
 	thread{ [this] () {
 		nano::thread_role::set (nano::thread_role::name::rpc_request_processor);
 		this->run ();
 	} }
 {
+	debug_assert (stop_callback);
 	nano::lock_guard<nano::mutex> lk{ this->request_mutex };
 	this->connections.reserve (rpc_config.rpc_process.num_ipc_connections);
 	for (auto i = 0u; i < rpc_config.rpc_process.num_ipc_connections; ++i)
@@ -27,8 +29,8 @@ nano::rpc_request_processor::rpc_request_processor (std::shared_ptr<boost::asio:
 	}
 }
 
-nano::rpc_request_processor::rpc_request_processor (std::shared_ptr<boost::asio::io_context> io_ctx, nano::rpc_config & rpc_config) :
-	rpc_request_processor (std::move (io_ctx), rpc_config, rpc_config.rpc_process.ipc_port)
+nano::rpc_request_processor::rpc_request_processor (std::shared_ptr<boost::asio::io_context> io_ctx, nano::rpc_config & rpc_config, std::function<void ()> stop_callback_a) :
+	rpc_request_processor (std::move (io_ctx), rpc_config, rpc_config.rpc_process.ipc_port, std::move (stop_callback_a))
 {
 }
 
@@ -73,7 +75,8 @@ void nano::rpc_request_processor::read_payload (std::shared_ptr<nano::ipc_connec
 			rpc_request->response (std::string (res->begin (), res->end ()));
 			if (rpc_request->action == "stop")
 			{
-				this->stop_callback ();
+				// The node has acknowledged the stop request, let the owner shut this process down
+				stop_callback ();
 			}
 		}
 		else

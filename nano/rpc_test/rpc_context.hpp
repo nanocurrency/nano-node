@@ -2,17 +2,18 @@
 
 #include <boost/property_tree/ptree.hpp>
 
+#include <functional>
+#include <memory>
 #include <optional>
 #include <vector>
 
 namespace nano
 {
-class ipc_rpc_processor;
 class node;
 class node_rpc_config;
 class public_key;
 class account;
-class rpc;
+class rpc_host;
 
 namespace ipc
 {
@@ -22,15 +23,22 @@ namespace ipc
 namespace test
 {
 	class system;
+
+	/**
+	 * An RPC host wired to a node over IPC, built the same way the standalone `nano_rpc` process
+	 * builds it, so the tests run the production composition. Only the test client side is driven
+	 * by the polled `system` io_context.
+	 */
 	class rpc_context
 	{
 	public:
-		rpc_context (std::shared_ptr<nano::rpc> & rpc_a, std::shared_ptr<nano::ipc::ipc_server> & ipc_server_a, std::unique_ptr<nano::ipc_rpc_processor> & ipc_rpc_processor_a, std::unique_ptr<nano::node_rpc_config> & node_rpc_config_a);
+		rpc_context () = default;
+		rpc_context (rpc_context &&) = default;
+		~rpc_context ();
 
-		std::shared_ptr<nano::rpc> rpc;
-		std::shared_ptr<nano::ipc::ipc_server> ipc_server;
-		std::unique_ptr<nano::ipc_rpc_processor> ipc_rpc_processor;
 		std::unique_ptr<nano::node_rpc_config> node_rpc_config;
+		std::shared_ptr<nano::ipc::ipc_server> ipc_server;
+		std::unique_ptr<nano::rpc_host> host;
 	};
 
 	void wait_response_impl (nano::test::system & system, rpc_context const & rpc_ctx, boost::property_tree::ptree & request, std::chrono::duration<double, std::nano> const & time, boost::property_tree::ptree & response_json);
@@ -51,6 +59,8 @@ namespace test
 		bool enable_control{ true };
 		// Overrides the RPC → IPC connection count; the dev network default of 1 processes requests one at a time
 		std::optional<unsigned> num_ipc_connections{};
+		// Invoked when a `stop` request reaches the node over IPC and again when the RPC side sees the acknowledgement, the harness never stops anything on its own
+		std::function<void ()> stop_callback{ [] () {} };
 	};
 
 	rpc_context add_rpc (nano::test::system &, std::shared_ptr<nano::node> const &, rpc_options const & options = {});

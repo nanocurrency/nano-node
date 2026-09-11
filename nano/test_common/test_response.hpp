@@ -12,7 +12,8 @@
 namespace nano::test
 {
 /**
- * Performs a single HTTP request against an RPC server and captures the response.
+ * Performs a single HTTP POST of a JSON document against a local port and captures the JSON response.
+ * It knows nothing about the RPC API, so it serves both the `rpc_server` unit tests and the RPC API tests.
  *
  * The in-flight async operations hold a reference to this object, so it stays alive until the
  * request either completes or the io_context is destroyed. Callers are free to drop their handle

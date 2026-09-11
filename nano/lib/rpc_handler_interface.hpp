@@ -7,8 +7,6 @@
 
 namespace nano
 {
-class rpc;
-
 /** Keeps information about http requests, and for v2+ includes path and header values of interest */
 class rpc_handler_request_params final
 {
@@ -60,7 +58,5 @@ public:
 	virtual void process_request (std::string const & action, std::string const & body, std::function<void (std::string const &)> response) = 0;
 	/** Process RPC 2.0 request. This is called via the IPC API */
 	virtual void process_request_v2 (rpc_handler_request_params const & params_a, std::string const & body, std::function<void (std::shared_ptr<std::string> const &)> response) = 0;
-	virtual void stop () = 0;
-	virtual void rpc_instance (nano::rpc & rpc) = 0;
 };
 }

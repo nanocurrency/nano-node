@@ -1365,7 +1365,7 @@ int main (int argc, char * const * argv)
 			nano::inactive_node inactive_node_l (data_path, node_flags);
 
 			nano::node_rpc_config config;
-			nano::ipc::ipc_server server (*inactive_node_l.node, config);
+			nano::ipc::ipc_server server (*inactive_node_l.node, config, [] () {}); // The command exits as soon as the response is printed
 			auto handler_l (std::make_shared<nano::json_handler> (*inactive_node_l.node, config, command_l.str (), response_handler_l));
 			handler_l->process_request ();
 		}

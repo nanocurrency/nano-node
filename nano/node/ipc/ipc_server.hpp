@@ -7,9 +7,8 @@
 #include <nano/node/ipc/ipc_broker.hpp>
 #include <nano/node/node_rpc_config.hpp>
 
-#include <boost/asio/signal_set.hpp>
-
 #include <atomic>
+#include <functional>
 #include <memory>
 
 namespace nano
@@ -19,11 +18,15 @@ class error;
 namespace ipc
 {
 	class access;
-	/** The IPC server accepts connections on one or more configured transports */
+	/**
+	 * The IPC server accepts connections on one or more configured transports.
+	 * A `stop` request received over IPC is only reported through `stop_callback`; shutting the
+	 * node and this server down is the owner's responsibility and must not happen on an IO thread.
+	 */
 	class ipc_server final : public std::enable_shared_from_this<ipc_server>
 	{
 	public:
-		ipc_server (nano::node & node, nano::node_rpc_config const & node_rpc_config);
+		ipc_server (nano::node & node, nano::node_rpc_config const & node_rpc_config, std::function<void ()> stop_callback);
 		~ipc_server ();
 		void stop ();
 
@@ -31,6 +34,7 @@ namespace ipc
 
 		nano::node & node;
 		nano::node_rpc_config const & node_rpc_config;
+		std::function<void ()> const stop_callback;
 
 		/** Unique counter/id shared across sessions */
 		std::atomic<uint64_t> id_dispenser{ 1 };
@@ -47,7 +51,6 @@ namespace ipc
 		nano::ipc::access access;
 		std::unique_ptr<dsock_file_remover> file_remover;
 		std::vector<std::shared_ptr<nano::ipc::transport>> transports;
-		std::shared_ptr<boost::asio::signal_set> signals;
 	};
 }
 }

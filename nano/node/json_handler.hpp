@@ -1,9 +1,9 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/node/ipc/flatbuffers_handler.hpp>
-#include <nano/rpc/rpc.hpp>
 
 #include <boost/property_tree/ptree.hpp>
 
@@ -183,38 +183,30 @@ public:
 	std::function<void ()> create_worker_task (std::function<void (std::shared_ptr<nano::json_handler> const &)> const &);
 };
 
+/**
+ * Serves RPC requests inside the node process.
+ * A `stop` request is only reported through `stop_callback`; shutting the node and the
+ * RPC server down is the owner's responsibility and must not happen on the IO thread
+ * that handles the request.
+ */
 class inprocess_rpc_handler final : public nano::rpc_handler_interface
 {
 public:
-	inprocess_rpc_handler (
-	nano::node & node_a, nano::ipc::ipc_server & ipc_server_a, nano::node_rpc_config const & node_rpc_config_a, std::function<void ()> stop_callback_a = [] () {}) :
+	inprocess_rpc_handler (nano::node & node_a, nano::ipc::ipc_server & ipc_server_a, nano::node_rpc_config const & node_rpc_config_a, std::function<void ()> stop_callback_a) :
 		node (node_a),
 		ipc_server (ipc_server_a),
-		stop_callback (stop_callback_a),
+		stop_callback (std::move (stop_callback_a)),
 		node_rpc_config (node_rpc_config_a)
 	{
+		debug_assert (stop_callback);
 	}
 
 	void process_request (std::string const &, std::string const & body_a, std::function<void (std::string const &)> response_a) override;
 	void process_request_v2 (rpc_handler_request_params const & params_a, std::string const & body_a, std::function<void (std::shared_ptr<std::string> const &)> response_a) override;
 
-	void stop () override
-	{
-		if (rpc)
-		{
-			rpc->get ().stop ();
-		}
-	}
-
-	void rpc_instance (nano::rpc & rpc_a) override
-	{
-		rpc = rpc_a;
-	}
-
 private:
 	nano::node & node;
 	nano::ipc::ipc_server & ipc_server;
-	std::optional<std::reference_wrapper<nano::rpc>> rpc;
 	std::function<void ()> stop_callback;
 	nano::node_rpc_config const & node_rpc_config;
 };

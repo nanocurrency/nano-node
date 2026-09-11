@@ -254,7 +254,7 @@ public:
 		session_timer.restart ();
 		auto request_id_l (std::to_string (server.id_dispenser.fetch_add (1)));
 
-		// This is called when nano::rpc_handler#process_request is done. We convert to
+		// This is called when nano::json_handler::process_request is done. We convert to
 		// json and write the response to the ipc socket with a length prefix.
 		auto this_l (this->shared_from_this ());
 		auto response_handler_l ([this_l, request_id_l] (std::string const & body) {
@@ -279,6 +279,11 @@ public:
 				{
 					this_l->node.logger.error (nano::log::type::ipc, "Write failed: {}", error_a.message ());
 				}
+				// Only report a stop request once its acknowledgement has been written, the owner may tear this session down in response
+				if (this_l->stop_requested.exchange (false))
+				{
+					this_l->server.stop_callback ();
+				}
 			});
 
 			// Do not call any member variables here (like session_timer) as it's possible that the next request may already be underway.
@@ -288,18 +293,8 @@ public:
 		auto body (std::string (reinterpret_cast<char *> (buffer.data ()), buffer.size ()));
 
 		// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
-		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, [server_w = server.weak_from_this ()] () {
-			// TODO: Previously this was stopping node.io_ctx, which was wrong. Investigate what's going on here. Why isn't it using stop_callback passed externally?
-			// This is running on the IO thread, so attempting to directly stop the server will cause it to try joining itself.
-			// This RPC/IPC system is really badly designed...
-			std::thread ([server_w] () {
-				std::this_thread::sleep_for (std::chrono::seconds (1));
-				if (auto server = server_w.lock ())
-				{
-					server->stop ();
-				}
-			})
-			.detach ();
+		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, [this_l] () {
+			this_l->stop_requested = true;
 		}));
 		// For unsafe actions to be allowed, the unsafe encoding must be used AND the transport config must allow it
 		handler->process_request (allow_unsafe && config_transport.allow_unsafe);
@@ -417,6 +412,9 @@ public:
 	}
 
 private:
+	/** Set by a `stop` request, reported to the owner once the acknowledgement has been written */
+	std::atomic<bool> stop_requested{ false };
+
 	/** Holds the buffer and callback for queued writes */
 	class queue_item
 	{
@@ -591,11 +589,13 @@ std::optional<std::uint16_t> socket_transport<ACCEPTOR_TYPE, SOCKET_TYPE, ENDPOI
 
 }
 
-nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a) :
+nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a, std::function<void ()> stop_callback_a) :
 	node (node_a),
 	node_rpc_config (node_rpc_config_a),
+	stop_callback (std::move (stop_callback_a)),
 	broker (std::make_shared<nano::ipc::broker> (node_a))
 {
+	debug_assert (stop_callback);
 	try
 	{
 		nano::error access_config_error (reload_access_config ());
@@ -646,10 +646,6 @@ void nano::ipc::ipc_server::stop ()
 	for (auto & transport : transports)
 	{
 		transport->stop ();
-	}
-	if (signals)
-	{
-		signals->cancel ();
 	}
 }
 
