@@ -19,7 +19,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/node_scope_guard.hpp>
 #include <nano/node/openclwork.hpp>
-#include <nano/rpc/rpc.hpp>
+#include <nano/rpc/rpc_server.hpp>
 
 #include <csignal>
 #include <iostream>
@@ -139,7 +139,7 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 		std::unique_ptr<nano::ipc::ipc_server> ipc_server = std::make_unique<nano::ipc::ipc_server> (*node, config.rpc);
 		std::unique_ptr<boost::process::child> rpc_process;
 		std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
-		std::shared_ptr<nano::rpc> rpc;
+		std::shared_ptr<nano::rpc_server> rpc;
 
 		bool const rpc_enabled = config.rpc_enable || flags.enable_rpc;
 		if (rpc_enabled)

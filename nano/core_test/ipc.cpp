@@ -4,7 +4,7 @@
 #include <nano/node/ipc/ipc_config.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/nodeconfig.hpp>
-#include <nano/rpc/rpc.hpp>
+#include <nano/rpc/rpc_server.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 

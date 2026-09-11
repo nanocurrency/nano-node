@@ -34,8 +34,8 @@
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
-#include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/rpc/rpc_server.hpp>
 #include <nano/rpc_test/common.hpp>
 #include <nano/rpc_test/rpc_context.hpp>
 #include <nano/rpc_test/test_response.hpp>
@@ -6849,7 +6849,7 @@ TEST (rpc, simultaneous_calls)
 	ASSERT_TRUE (ipc_tcp_port.has_value ());
 	rpc_config.rpc_process.num_ipc_connections = 8;
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config, ipc_tcp_port.value ());
-	auto rpc = std::make_shared<nano::rpc> (system.io_ctx, rpc_config, ipc_rpc_processor);
+	auto rpc = std::make_shared<nano::rpc_server> (system.io_ctx, rpc_config, ipc_rpc_processor);
 	nano::test::start_stop_guard stop_guard{ *rpc };
 
 	boost::property_tree::ptree request;
