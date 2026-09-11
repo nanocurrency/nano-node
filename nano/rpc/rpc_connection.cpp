@@ -6,7 +6,7 @@
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/rpc/rpc_connection.hpp>
-#include <nano/rpc/rpc_handler.hpp>
+#include <nano/rpc/rpc_dispatcher.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -137,14 +137,14 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 				{
 					case boost::beast::http::verb::post:
 					{
-						auto handler (std::make_shared<nano::rpc_handler> (this_l->rpc_config, req.body (), request_id, response_handler, this_l->rpc_handler_interface, this_l->logger));
+						auto dispatcher (std::make_shared<nano::rpc_dispatcher> (this_l->rpc_config, req.body (), request_id, response_handler, this_l->rpc_handler_interface, this_l->logger));
 						nano::rpc_handler_request_params request_params;
 						request_params.rpc_version = rpc_version_l;
 						request_params.credentials = header_field_credentials_l;
 						request_params.correlation_id = header_corr_id_l;
 						request_params.path = boost::algorithm::erase_first_copy (path_l, api_path_l);
 						request_params.path = boost::algorithm::erase_first_copy (request_params.path, "/");
-						handler->process_request (request_params);
+						dispatcher->process_request (request_params);
 						break;
 					}
 					case boost::beast::http::verb::options:

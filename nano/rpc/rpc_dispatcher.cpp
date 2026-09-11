@@ -5,7 +5,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/rpc/rpc_handler.hpp>
+#include <nano/rpc/rpc_dispatcher.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
@@ -18,7 +18,7 @@ std::unordered_set<std::string> rpc_control_impl_set = create_rpc_control_impls 
 std::string filter_request (boost::property_tree::ptree tree_a);
 }
 
-nano::rpc_handler::rpc_handler (nano::rpc_config const & rpc_config, std::string const & body_a, std::string const & request_id_a, std::function<void (std::string const &)> const & response_a, nano::rpc_handler_interface & rpc_handler_interface_a, nano::logger & logger) :
+nano::rpc_dispatcher::rpc_dispatcher (nano::rpc_config const & rpc_config, std::string const & body_a, std::string const & request_id_a, std::function<void (std::string const &)> const & response_a, nano::rpc_handler_interface & rpc_handler_interface_a, nano::logger & logger) :
 	body (body_a),
 	request_id (request_id_a),
 	response (response_a),
@@ -28,7 +28,7 @@ nano::rpc_handler::rpc_handler (nano::rpc_config const & rpc_config, std::string
 {
 }
 
-void nano::rpc_handler::process_request (nano::rpc_handler_request_params const & request_params)
+void nano::rpc_dispatcher::process_request (nano::rpc_handler_request_params const & request_params)
 {
 	try
 	{

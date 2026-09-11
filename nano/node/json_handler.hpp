@@ -3,7 +3,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/node/ipc/flatbuffers_handler.hpp>
-#include <nano/rpc/rpc.hpp>
+#include <nano/rpc/rpc_server.hpp>
 
 #include <boost/property_tree/ptree.hpp>
 
@@ -206,7 +206,7 @@ public:
 		}
 	}
 
-	void rpc_instance (nano::rpc & rpc_a) override
+	void rpc_instance (nano::rpc_server & rpc_a) override
 	{
 		rpc = rpc_a;
 	}
@@ -214,7 +214,7 @@ public:
 private:
 	nano::node & node;
 	nano::ipc::ipc_server & ipc_server;
-	std::optional<std::reference_wrapper<nano::rpc>> rpc;
+	std::optional<std::reference_wrapper<nano::rpc_server>> rpc;
 	std::function<void ()> stop_callback;
 	nano::node_rpc_config const & node_rpc_config;
 };

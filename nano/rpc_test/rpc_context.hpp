@@ -12,7 +12,7 @@ class node;
 class node_rpc_config;
 class public_key;
 class account;
-class rpc;
+class rpc_server;
 
 namespace ipc
 {
@@ -25,9 +25,9 @@ namespace test
 	class rpc_context
 	{
 	public:
-		rpc_context (std::shared_ptr<nano::rpc> & rpc_a, std::shared_ptr<nano::ipc::ipc_server> & ipc_server_a, std::unique_ptr<nano::ipc_rpc_processor> & ipc_rpc_processor_a, std::unique_ptr<nano::node_rpc_config> & node_rpc_config_a);
+		rpc_context (std::shared_ptr<nano::rpc_server> & rpc_a, std::shared_ptr<nano::ipc::ipc_server> & ipc_server_a, std::unique_ptr<nano::ipc_rpc_processor> & ipc_rpc_processor_a, std::unique_ptr<nano::node_rpc_config> & node_rpc_config_a);
 
-		std::shared_ptr<nano::rpc> rpc;
+		std::shared_ptr<nano::rpc_server> rpc;
 		std::shared_ptr<nano::ipc::ipc_server> ipc_server;
 		std::unique_ptr<nano::ipc_rpc_processor> ipc_rpc_processor;
 		std::unique_ptr<nano::node_rpc_config> node_rpc_config;

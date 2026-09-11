@@ -22,7 +22,7 @@
 #include <nano/node/openclwork.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/qt/qt.hpp>
-#include <nano/rpc/rpc.hpp>
+#include <nano/rpc/rpc_server.hpp>
 
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
@@ -174,7 +174,7 @@ public:
 				nano::ipc::ipc_server ipc (*node, config.rpc);
 
 				std::unique_ptr<boost::process::child> rpc_process;
-				std::shared_ptr<nano::rpc> rpc;
+				std::shared_ptr<nano::rpc_server> rpc;
 				std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 				bool const rpc_enabled = config.rpc_enable || flags.enable_rpc;
 				if (rpc_enabled)

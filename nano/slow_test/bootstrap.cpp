@@ -13,8 +13,8 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/node/unchecked_map.hpp>
-#include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/rpc/rpc_server.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/rate_observer.hpp>
@@ -57,7 +57,7 @@ public:
 	nano::rpc_config rpc_config;
 	nano::ipc::ipc_server ipc;
 	nano::ipc_rpc_processor ipc_rpc_processor;
-	nano::rpc rpc;
+	nano::rpc_server rpc;
 };
 
 std::unique_ptr<rpc_wrapper> start_rpc (nano::test::system & system, nano::node & node, uint16_t port)

@@ -4,7 +4,7 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/rpc/rpc.hpp>
+#include <nano/rpc/rpc_server.hpp>
 
 #include <atomic>
 #include <deque>
@@ -103,7 +103,7 @@ public:
 		rpc_request_processor.stop ();
 	}
 
-	void rpc_instance (nano::rpc & rpc) override
+	void rpc_instance (nano::rpc_server & rpc) override
 	{
 		rpc_request_processor.stop_callback = [&rpc] () {
 			rpc.stop ();
