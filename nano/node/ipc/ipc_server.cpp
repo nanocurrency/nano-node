@@ -279,6 +279,11 @@ public:
 				{
 					this_l->node.logger.error (nano::log::type::ipc, "Write failed: {}", error_a.message ());
 				}
+				// Only report a stop request once its acknowledgement has been written, the owner may tear this session down in response
+				if (this_l->stop_requested.exchange (false))
+				{
+					this_l->server.stop_callback ();
+				}
 			});
 
 			// Do not call any member variables here (like session_timer) as it's possible that the next request may already be underway.
@@ -288,7 +293,9 @@ public:
 		auto body (std::string (reinterpret_cast<char *> (buffer.data ()), buffer.size ()));
 
 		// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
-		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, server.stop_callback));
+		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, [this_l] () {
+			this_l->stop_requested = true;
+		}));
 		// For unsafe actions to be allowed, the unsafe encoding must be used AND the transport config must allow it
 		handler->process_request (allow_unsafe && config_transport.allow_unsafe);
 	}
@@ -405,6 +412,9 @@ public:
 	}
 
 private:
+	/** Set by a `stop` request, reported to the owner once the acknowledgement has been written */
+	std::atomic<bool> stop_requested{ false };
+
 	/** Holds the buffer and callback for queued writes */
 	class queue_item
 	{

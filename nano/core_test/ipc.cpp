@@ -59,6 +59,45 @@ TEST (ipc, asynchronous)
 	ipc.stop ();
 }
 
+/**
+ * A `stop` request is only reported to the owner once its acknowledgement has been written, so an
+ * owner that tears the IPC server down as soon as it is told does not cut the acknowledgement off
+ */
+TEST (ipc, stop_acknowledged_before_reported)
+{
+	nano::test::system system (1);
+	system.nodes[0]->config.ipc_config->transport_tcp.enabled = true;
+	system.nodes[0]->config.ipc_config->transport_tcp.port = system.get_available_port ();
+	nano::node_rpc_config node_rpc_config;
+	std::atomic<bool> stop_requested{ false };
+	nano::ipc::ipc_server ipc (*system.nodes[0], node_rpc_config, [&stop_requested] () { stop_requested = true; });
+	nano::ipc::ipc_client client (system.nodes[0]->io_ctx_shared);
+
+	auto req (nano::ipc::prepare_request (nano::ipc::payload_encoding::json_v1, std::string (R"({"action": "stop"})")));
+	auto res (std::make_shared<std::vector<uint8_t>> ());
+	std::atomic<bool> acknowledged{ false };
+	client.async_connect ("::1", ipc.listening_tcp_port ().value (), [&client, &req, &res, &acknowledged] (nano::error err) {
+		client.async_write (req, [&client, &res, &acknowledged] (nano::error err_a, size_t size_a) {
+			client.async_read (res, sizeof (uint32_t), [&client, &res, &acknowledged] (nano::error err_read_a, size_t size_read_a) {
+				uint32_t payload_size_l = boost::endian::big_to_native (*reinterpret_cast<uint32_t *> (res->data ()));
+				client.async_read (res, payload_size_l, [&res, &acknowledged] (nano::error err_read_a, size_t size_read_a) {
+					std::stringstream ss;
+					ss << std::string (res->begin (), res->end ());
+					boost::property_tree::ptree response;
+					boost::property_tree::read_json (ss, response);
+					acknowledged = response.count ("success") == 1;
+				});
+			});
+		});
+	});
+
+	// Behave like the owners do: stop the IPC server the moment the request is reported
+	ASSERT_TIMELY (5s, stop_requested);
+	ipc.stop ();
+	ASSERT_TIMELY (5s, acknowledged);
+	ASSERT_FALSE (system.nodes[0]->stopped);
+}
+
 TEST (ipc, synchronous)
 {
 	nano::test::system system (1);
