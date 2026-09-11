@@ -5,6 +5,7 @@
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/active_elections.hpp>
+#include <nano/node/common.hpp>
 #include <nano/node/election_behavior.hpp>
 #include <nano/node/monitor.hpp>
 #include <nano/node/network.hpp>
@@ -112,13 +113,14 @@ void nano::monitor::run_one ()
 	node.tcp_listener.connection_count (nano::transport::tcp_listener::connection_type::outbound));
 
 	auto const quorum = node.online_reps.delta ();
-	auto const stake_online = node.online_reps.online ();
-	auto const stake_peered = node.rep_crawler.total_weight ();
+	auto const stake = node.stake ();
 
-	logger.info (nano::log::type::monitor, "Quorum: {} (stake peered: {} | stake online: {})",
+	logger.info (nano::log::type::monitor, "Quorum: {} (stake peered: {} | relayed: {} | reachable: {} | online: {})",
 	nano::log::as_nano (quorum),
-	nano::log::as_nano (stake_peered),
-	nano::log::as_nano (stake_online));
+	nano::log::as_nano (stake.peered),
+	nano::log::as_nano (stake.relayed),
+	nano::log::as_nano (stake.reachable),
+	nano::log::as_nano (stake.online));
 
 	logger.info (nano::log::type::monitor, "Elections active: {} (priority: {} | hinted: {} | optimistic: {}) of which stale: {}",
 	node.active.size (),
@@ -127,12 +129,12 @@ void nano::monitor::run_one ()
 	node.active.size (nano::election_behavior::optimistic),
 	node.active.stale_count ());
 
-	bool const sufficient_stake = stake_peered >= quorum;
+	bool const sufficient_stake = stake.peered >= quorum;
 
 	if (!sufficient_stake && node.warmed_up ())
 	{
 		logger.warn (nano::log::type::monitor, "Peered stake ({}) is below quorum threshold ({}). The node may not be able to confirm transactions. This is usually caused by NAT, firewall rules, or internet connectivity issues.",
-		nano::log::as_nano (stake_peered),
+		nano::log::as_nano (stake.peered),
 		nano::log::as_nano (quorum));
 	}
 

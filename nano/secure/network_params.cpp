@@ -241,6 +241,7 @@ nano::node_constants::node_constants (nano::network_constants const & network_co
 	search_pending_interval = network_constants.is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
 	unchecked_cleaning_interval = std::chrono::minutes (30);
 	weight_interval = network_constants.is_dev_network () ? std::chrono::seconds (1) : std::chrono::minutes (5);
+	online_rep_cutoff = weight_interval * 2;
 	weight_cutoff = (network_constants.is_live_network () || network_constants.is_test_network ()) ? std::chrono::weeks (2) : std::chrono::days (1);
 }
 

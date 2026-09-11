@@ -94,7 +94,7 @@ void nano::online_reps::trim ()
 	debug_assert (!mutex.try_lock ());
 
 	auto const now = std::chrono::steady_clock::now ();
-	auto const cutoff = now - config.network_params.node.weight_interval * 2;
+	auto const cutoff = now - config.network_params.node.online_rep_cutoff;
 
 	while (reps.get<tag_time> ().begin () != reps.get<tag_time> ().end ())
 	{
