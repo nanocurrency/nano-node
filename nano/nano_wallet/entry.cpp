@@ -22,7 +22,7 @@
 #include <nano/node/rpc_process.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/qt/qt.hpp>
-#include <nano/rpc/rpc_server.hpp>
+#include <nano/rpc/rpc_host.hpp>
 
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
@@ -179,8 +179,7 @@ public:
 				nano::ipc::ipc_server ipc (*node, config.rpc, stop_callback);
 
 				std::unique_ptr<nano::rpc_process> rpc_process;
-				std::shared_ptr<nano::rpc_server> rpc;
-				std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
+				std::unique_ptr<nano::rpc_host> rpc;
 				bool const rpc_enabled = config.rpc_enable || flags.enable_rpc;
 				if (rpc_enabled)
 				{
@@ -199,9 +198,8 @@ public:
 
 						logger.debug (nano::log::type::daemon, "Starting in-process RPC server on port {}", rpc_config.port);
 
-						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc, config.rpc, stop_callback);
-						rpc = std::make_shared<nano::rpc_server> (io_ctx, rpc_config, *rpc_handler);
-						rpc->start ();
+						rpc = std::make_unique<nano::rpc_host> (rpc_config);
+						rpc->start (std::make_unique<nano::inprocess_rpc_handler> (*node, ipc, config.rpc, stop_callback));
 					}
 					else
 					{
