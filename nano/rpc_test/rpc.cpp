@@ -34,8 +34,8 @@
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
+#include <nano/rpc/rpc_host.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
-#include <nano/rpc/rpc_server.hpp>
 #include <nano/rpc_test/common.hpp>
 #include <nano/rpc_test/rpc_context.hpp>
 #include <nano/secure/ledger.hpp>
@@ -442,11 +442,14 @@ TEST (rpc, stop)
 	auto const rpc_ctx = add_rpc (system, node, { .stop_callback = [&stop_requests] () { ++stop_requests; } });
 	boost::property_tree::ptree request;
 	request.put ("action", "stop");
-	auto response (wait_response (system, rpc_ctx, request));
-	ASSERT_EQ ("", response.get<std::string> ("success"));
-	// The request is only reported to the owner, once by the node's IPC server and once by the RPC side, nothing is torn down by the handler chain
+	auto response = test_response::send (request, rpc_ctx.host->listening_port (), *system.io_ctx);
+	// The request is only reported to the owner, once by the node's IPC server and once by the RPC side after the node acknowledged it; nothing is torn down by the handler chain
 	ASSERT_TIMELY_EQ (5s, stop_requests, 2);
 	ASSERT_FALSE (node->stopped);
+	// React the way `nano_rpc` does, stopping the host at once; the acknowledgement must still reach the client
+	rpc_ctx.host->stop ();
+	ASSERT_TIMELY_EQ (5s, response->status, 200);
+	ASSERT_EQ ("", response->json.get<std::string> ("success"));
 }
 
 TEST (rpc, wallet_add)
@@ -1944,7 +1947,7 @@ TEST (rpc, version)
 	auto const rpc_ctx = add_rpc (system, node1);
 	boost::property_tree::ptree request1;
 	request1.put ("action", "version");
-	auto response1 = test_response::send (request1, rpc_ctx.rpc->listening_port (), *system.io_ctx);
+	auto response1 = test_response::send (request1, rpc_ctx.host->listening_port (), *system.io_ctx);
 	ASSERT_TIMELY (5s, response1->status != 0);
 	ASSERT_EQ (200, response1->status);
 	ASSERT_EQ ("1", response1->json.get<std::string> ("rpc_version"));
@@ -2015,7 +2018,7 @@ TEST (rpc, work_generate_with_peers_defaults_distributed)
 	// Set up requesting node (node2) with local work generation disabled and work_peers pointing to node1's RPC
 	nano::node_config config2 = system.default_config ();
 	config2.work_threads = 0;
-	config2.work_peers.emplace_back ("::1", rpc_ctx_peer.rpc->listening_port ());
+	config2.work_peers.emplace_back ("::1", rpc_ctx_peer.host->listening_port ());
 	auto node2 = add_ipc_enabled_node (system, config2);
 	auto const rpc_ctx = add_rpc (system, node2);
 	ASSERT_FALSE (node2->local_work_generation_enabled ());
@@ -2340,7 +2343,7 @@ TEST (rpc, DISABLED_work_peer_one)
 	auto node1 = add_ipc_enabled_node (system);
 	auto & node2 = *system.add_node ();
 	auto const rpc_ctx = add_rpc (system, node1);
-	node2.config.work_peers.emplace_back (node1->network.endpoint ().address ().to_string (), rpc_ctx.rpc->listening_port ());
+	node2.config.work_peers.emplace_back (node1->network.endpoint ().address ().to_string (), rpc_ctx.host->listening_port ());
 	nano::keypair key1;
 	std::atomic<uint64_t> work (0);
 	node2.work_generate (nano::work_version::work_1, key1.pub, node1->network_params.work.base, [&work] (std::optional<uint64_t> work_a) {
@@ -2366,9 +2369,9 @@ TEST (rpc, DISABLED_work_peer_many)
 	const auto rpc_ctx_2 = add_rpc (system2, node2);
 	const auto rpc_ctx_3 = add_rpc (system3, node3);
 	const auto rpc_ctx_4 = add_rpc (system4, node4);
-	node1.config.work_peers.emplace_back (node2->network.endpoint ().address ().to_string (), rpc_ctx_2.rpc->listening_port ());
-	node1.config.work_peers.emplace_back (node3->network.endpoint ().address ().to_string (), rpc_ctx_3.rpc->listening_port ());
-	node1.config.work_peers.emplace_back (node4->network.endpoint ().address ().to_string (), rpc_ctx_4.rpc->listening_port ());
+	node1.config.work_peers.emplace_back (node2->network.endpoint ().address ().to_string (), rpc_ctx_2.host->listening_port ());
+	node1.config.work_peers.emplace_back (node3->network.endpoint ().address ().to_string (), rpc_ctx_3.host->listening_port ());
+	node1.config.work_peers.emplace_back (node4->network.endpoint ().address ().to_string (), rpc_ctx_4.host->listening_port ());
 
 	std::array<std::atomic<uint64_t>, 10> works{};
 	for (auto & work : works)
@@ -6863,7 +6866,7 @@ TEST (rpc, simultaneous_calls)
 	nano::test::join_guard threads;
 	for (int i = 0; i < num; ++i)
 	{
-		threads.spawn ([&test_responses, &promise, &count, i, port = rpc_ctx.rpc->listening_port ()] () {
+		threads.spawn ([&test_responses, &promise, &count, i, port = rpc_ctx.host->listening_port ()] () {
 			test_responses[i]->run (port);
 			if (--count == 0)
 			{

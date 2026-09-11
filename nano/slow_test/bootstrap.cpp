@@ -13,8 +13,8 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/node/unchecked_map.hpp>
+#include <nano/rpc/rpc_host.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
-#include <nano/rpc/rpc_server.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/rate_observer.hpp>
@@ -42,22 +42,20 @@ public:
 		node_rpc_config{},
 		rpc_config{ node.network_params.network, port, true },
 		ipc{ node, node_rpc_config, [] () {} },
-		ipc_rpc_processor{ system.io_ctx, rpc_config, [] () {} },
-		rpc{ system.io_ctx, rpc_config, ipc_rpc_processor }
+		rpc{ rpc_config }
 	{
 	}
 
 	void start ()
 	{
-		rpc.start ();
+		rpc.start (std::make_unique<nano::ipc_rpc_processor> (rpc.io_context (), rpc_config, [] () {}));
 	}
 
 public:
 	nano::node_rpc_config node_rpc_config;
 	nano::rpc_config rpc_config;
 	nano::ipc::ipc_server ipc;
-	nano::ipc_rpc_processor ipc_rpc_processor;
-	nano::rpc_server rpc;
+	nano::rpc_host rpc;
 };
 
 std::unique_ptr<rpc_wrapper> start_rpc (nano::test::system & system, nano::node & node, uint16_t port)
