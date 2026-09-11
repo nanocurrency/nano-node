@@ -77,6 +77,7 @@ add_library(
   bootstrap/peer_pool.cpp
   cli.hpp
   cli.cpp
+  common.hpp
   cementing_set.hpp
   cementing_set.cpp
   daemonconfig.hpp
