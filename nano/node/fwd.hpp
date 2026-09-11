@@ -51,6 +51,7 @@ class network_params;
 class node;
 class node_config;
 class node_flags;
+class node_rpc_config;
 class node_observers;
 class online_reps;
 class peer_history;
