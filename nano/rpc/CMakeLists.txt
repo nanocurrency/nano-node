@@ -6,6 +6,8 @@ add_library(
   rpc_connection.cpp
   rpc_dispatcher.hpp
   rpc_dispatcher.cpp
+  rpc_host.hpp
+  rpc_host.cpp
   rpc_request_processor.hpp
   rpc_request_processor.cpp)
 
