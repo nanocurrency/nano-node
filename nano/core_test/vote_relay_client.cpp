@@ -2,6 +2,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/vote.hpp>
 #include <nano/messages/vote_relay.hpp>
+#include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -10,6 +11,7 @@
 #include <nano/node/transport/test_channel.hpp>
 #include <nano/node/vote_relay.hpp>
 #include <nano/node/vote_relay_client.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -512,4 +514,92 @@ TEST (vote_relay_client, late_ack)
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::timeout));
 	ASSERT_FALSE (node.vote_relay_client.process (late, channel));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::unsolicited));
+}
+
+/*
+ * Relayed representatives are remembered with their latest relay and forgotten once no vote arrived since the cutoff
+ */
+TEST (vote_relay_client_index, relayed_reps)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	auto relay1 = nano::test::fake_channel (node);
+	auto relay2 = nano::test::fake_channel (node);
+	nano::account rep1{ 1 };
+	nano::account rep2{ 2 };
+
+	nano::vote_relay_client_index index;
+	auto const now = std::chrono::steady_clock::now ();
+	ASSERT_TRUE (index.relayed (now).empty ());
+
+	index.observe (rep1, relay1, now);
+	index.observe (rep2, relay1, now + 1s);
+	ASSERT_EQ (2, index.relayed_size ());
+	ASSERT_EQ ((std::deque<nano::account>{ rep1, rep2 }), index.relayed (now));
+	// Only the representatives seen since the cutoff are listed
+	ASSERT_EQ (std::deque<nano::account>{ rep2 }, index.relayed (now + 1s));
+
+	// A later vote refreshes the representative in place, possibly through another relay
+	index.observe (rep1, relay2, now + 2s);
+	ASSERT_EQ (2, index.relayed_size ());
+	ASSERT_EQ ((std::deque<nano::account>{ rep2, rep1 }), index.relayed (now));
+
+	// Trimming drops everything older than the cutoff
+	index.trim (now + 2s);
+	ASSERT_EQ (1, index.relayed_size ());
+	ASSERT_EQ (std::deque<nano::account>{ rep1 }, index.relayed (now));
+}
+
+/*
+ * Votes delivered through a relay put their representative's weight in the relayed and reachable stake, without counting a peered representative twice
+ */
+TEST (vote_relay_client, reachable_stake)
+{
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (flags);
+
+	auto stake = node.stake ();
+	ASSERT_EQ (0, stake.peered);
+	ASSERT_EQ (0, stake.relayed);
+	ASSERT_EQ (0, stake.reachable);
+
+	auto blocks = nano::test::setup_chain (system, node, 1, nano::dev::genesis_key, false /* don't confirm */);
+	auto election = nano::test::start_election (system, node, blocks[0]->hash ());
+	ASSERT_NE (nullptr, election);
+
+	// The send above spent from genesis, so read its weight after it
+	auto const weight = node.ledger.weight (nano::dev::genesis_key.pub);
+	ASSERT_GT (weight, 0);
+
+	auto relay = nano::test::test_channel (node);
+	auto future = relay->observe<nano::messages::vote_relay_req> ();
+	ASSERT_TRUE (node.vote_relay_client.request (relay, { nano::dev::genesis_key.pub }, { { blocks[0]->hash (), blocks[0]->root () } }, false));
+	auto const id = future.get ().id;
+
+	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ blocks[0]->hash () });
+	nano::messages::vote_relay_ack ack{ nano::dev::network_params.network, id, { vote } };
+	ASSERT_TRUE (node.vote_relay_client.process (ack, relay));
+
+	// The representative is reachable through the relay only
+	ASSERT_TIMELY (5s, node.stake ().relayed == weight);
+	ASSERT_EQ (std::deque<nano::account>{ nano::dev::genesis_key.pub }, node.vote_relay_client.relayed ());
+	stake = node.stake ();
+	ASSERT_EQ (0, stake.peered);
+	ASSERT_EQ (weight, stake.reachable);
+	ASSERT_TIMELY_EQ (5s, node.stake ().online, weight);
+
+	// A direct channel to the same representative adds to the peered stake but not to the reachable one
+	node.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, nano::test::test_channel (node));
+	stake = node.stake ();
+	ASSERT_EQ (weight, stake.peered);
+	ASSERT_EQ (weight, stake.relayed);
+	ASSERT_EQ (weight, stake.reachable);
+
+	// Without further relayed votes the representative drops out after the online window
+	ASSERT_TIMELY (10s, node.vote_relay_client.relayed ().empty ());
+	ASSERT_EQ (0, node.stake ().relayed);
+	ASSERT_EQ (weight, node.stake ().reachable);
 }

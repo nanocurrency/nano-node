@@ -25,6 +25,7 @@
 #include <nano/node/bounded_backlog.hpp>
 #include <nano/node/bucketing.hpp>
 #include <nano/node/cementing_set.hpp>
+#include <nano/node/common.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/election.hpp>
@@ -217,7 +218,7 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	vote_replier{ *vote_replier_impl },
 	vote_relay_impl{ std::make_unique<nano::vote_relay> (config.vote_relay, vote_cache, vote_router, rep_crawler, network_params.network, stats, logger) },
 	vote_relay{ *vote_relay_impl },
-	vote_relay_client_impl{ std::make_unique<nano::vote_relay_client> (config.vote_relay_client, vote_processor, network, network_params.network, stats, logger) },
+	vote_relay_client_impl{ std::make_unique<nano::vote_relay_client> (config.vote_relay_client, vote_processor, network, network_params, stats, logger) },
 	vote_relay_client{ *vote_relay_client_impl },
 	vote_solicitor_impl{ std::make_unique<nano::vote_solicitor> (config.vote_solicitor, network, rep_crawler, rep_tiers, online_reps, ledger, vote_relay_client, network_params.network, stats, logger) },
 	vote_solicitor{ *vote_solicitor_impl },
@@ -323,6 +324,12 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 		if (source == nano::vote_source::live)
 		{
 			should_observe |= rep_crawler.process (vote, channel);
+		}
+
+		// A vote delivered by a relay attests that the relay can reach the representative
+		if (source == nano::vote_source::relay && ledger.weight (vote->account) > config.representative_vote_weight_minimum)
+		{
+			vote_relay_client.observe (vote->account, channel);
 		}
 
 		if (should_observe)
@@ -868,6 +875,39 @@ bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & ha
 bool nano::node::online () const
 {
 	return rep_crawler.total_weight () > online_reps.delta ();
+}
+
+nano::stake_totals nano::node::stake () const
+{
+	nano::stake_totals result;
+	std::unordered_set<nano::account> reachable;
+
+	for (auto const & rep : rep_crawler.representatives (std::numeric_limits<std::size_t>::max (), 0, 0))
+	{
+		if (!rep.channel->alive ())
+		{
+			continue;
+		}
+		auto const weight = ledger.weight (rep.account);
+		result.peered += weight;
+		if (reachable.insert (rep.account).second)
+		{
+			result.reachable += weight;
+		}
+	}
+
+	for (auto const & rep : vote_relay_client.relayed ())
+	{
+		auto const weight = ledger.weight (rep);
+		result.relayed += weight;
+		if (reachable.insert (rep).second)
+		{
+			result.reachable += weight;
+		}
+	}
+
+	result.online = online_reps.online ();
+	return result;
 }
 
 bool nano::node::is_voting () const

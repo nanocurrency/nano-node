@@ -18,6 +18,7 @@ struct block_confirmation_info;
 struct relay_rep_limits;
 struct solicitation_limits;
 struct solicitation_targets;
+struct stake_totals;
 class block_context;
 class block_processor;
 class block_processor_config;
