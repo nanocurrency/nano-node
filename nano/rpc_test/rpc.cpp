@@ -27,12 +27,14 @@
 #include <nano/node/node_rpc_config.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
+#include <nano/node/repcrawler.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/manual.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/vote_processor.hpp>
+#include <nano/node/vote_relay_client.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/rpc/rpc_host.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
@@ -5971,6 +5973,46 @@ TEST (rpc, representatives_online_local)
 	auto representatives (response.get_child ("representatives"));
 	ASSERT_EQ (1, representatives.size ());
 	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), representatives.begin ()->second.get<std::string> (""));
+}
+
+TEST (rpc, confirmation_quorum)
+{
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto config = system.default_config ();
+	auto node = add_ipc_enabled_node (system, config, flags);
+	auto const rpc_ctx = add_rpc (system, node);
+
+	// The representative is reachable through a relay only
+	auto relay = nano::test::test_channel (*node);
+	node->vote_relay_client.observe (nano::dev::genesis_key.pub, relay);
+	auto const weight = node->ledger.weight (nano::dev::genesis_key.pub);
+
+	boost::property_tree::ptree request;
+	request.put ("action", "confirmation_quorum");
+	auto response (wait_response (system, rpc_ctx, request));
+	ASSERT_EQ (node->online_reps.delta ().convert_to<std::string> (), response.get<std::string> ("quorum_delta"));
+	ASSERT_EQ (std::to_string (node->online_reps.online_weight_quorum), response.get<std::string> ("online_weight_quorum_percent"));
+	ASSERT_EQ (node->config.online_weight_minimum.to_string_dec (), response.get<std::string> ("online_weight_minimum"));
+	ASSERT_EQ (node->online_reps.online ().convert_to<std::string> (), response.get<std::string> ("online_stake_total"));
+	ASSERT_EQ (node->online_reps.trended ().convert_to<std::string> (), response.get<std::string> ("trended_stake_total"));
+	ASSERT_EQ ("0", response.get<std::string> ("peers_stake_total"));
+	ASSERT_EQ (weight.convert_to<std::string> (), response.get<std::string> ("relayed_stake_total"));
+	ASSERT_EQ (weight.convert_to<std::string> (), response.get<std::string> ("reachable_stake_total"));
+	ASSERT_FALSE (response.get_child_optional ("peers"));
+
+	// Now also peered, the reachable stake does not double
+	node->rep_crawler.force_add_rep (nano::dev::genesis_key.pub, nano::test::test_channel (*node));
+	request.put ("peer_details", "true");
+	auto response2 (wait_response (system, rpc_ctx, request));
+	ASSERT_EQ (weight.convert_to<std::string> (), response2.get<std::string> ("peers_stake_total"));
+	ASSERT_EQ (weight.convert_to<std::string> (), response2.get<std::string> ("relayed_stake_total"));
+	ASSERT_EQ (weight.convert_to<std::string> (), response2.get<std::string> ("reachable_stake_total"));
+	auto peers (response2.get_child ("peers"));
+	ASSERT_EQ (1, peers.size ());
+	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), peers.begin ()->second.get<std::string> ("account"));
+	ASSERT_EQ (nano::amount{ weight }.to_string_dec (), peers.begin ()->second.get<std::string> ("weight"));
 }
 
 TEST (rpc, confirmation_history)
