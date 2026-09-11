@@ -128,12 +128,12 @@ void nano::monitor::run_one ()
 	node.active.size (nano::election_behavior::optimistic),
 	node.active.stale_count ());
 
-	bool const sufficient_stake = stake.peered >= quorum;
+	bool const sufficient_stake = stake.reachable >= quorum;
 
 	if (!sufficient_stake && node.warmed_up ())
 	{
-		logger.warn (nano::log::type::monitor, "Peered stake ({}) is below quorum threshold ({}). The node may not be able to confirm transactions. This is usually caused by NAT, firewall rules, or internet connectivity issues.",
-		nano::log::as_nano (stake.peered),
+		logger.warn (nano::log::type::monitor, "Reachable stake ({}) is below quorum threshold ({}). The node may not be able to confirm transactions. This is usually caused by NAT, firewall rules, or internet connectivity issues, a vote relay peer can help.",
+		nano::log::as_nano (stake.reachable),
 		nano::log::as_nano (quorum));
 	}
 
