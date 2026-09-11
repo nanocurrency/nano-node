@@ -3,6 +3,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/active_elections.hpp>
+#include <nano/node/common.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/repcrawler.hpp>
@@ -172,6 +173,19 @@ void report (relay_network const & net)
 				  << w << count (*node, type::vote_relay, detail::reply)
 				  << w << count (*node, type::vote_relay, detail::vote)
 				  << "\n";
+	}
+	// Weight by reachability as a percentage of all representative weight, hidden nodes should reach far more than they peer with
+	auto const total = nano::dev::constants.genesis_amount;
+	auto percent = [&total] (nano::uint128_t const & value) {
+		return (value / (total / 100)).convert_to<unsigned> ();
+	};
+	std::cout << std::left << std::setw (14) << "stake %" << std::right << w << "peered" << w << "relayed" << w << "reachable" << w << "online"
+			  << "\n";
+	for (auto const & [name, node] : net.all)
+	{
+		auto const stake = node->stake ();
+		std::cout << std::left << std::setw (14) << name << std::right
+				  << w << percent (stake.peered) << w << percent (stake.relayed) << w << percent (stake.reachable) << w << percent (stake.online) << "\n";
 	}
 	std::cout << std::flush;
 }

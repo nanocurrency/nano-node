@@ -17,6 +17,7 @@
 #include <nano/node/block_processor.hpp>
 #include <nano/node/bootstrap/bootstrap_service.hpp>
 #include <nano/node/cementing_set.hpp>
+#include <nano/node/common.hpp>
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/endpoint.hpp>
@@ -2304,6 +2305,9 @@ void nano::json_handler::confirmation_quorum ()
 	response_l.put ("online_stake_total", node.online_reps.online ().convert_to<std::string> ());
 	response_l.put ("trended_stake_total", node.online_reps.trended ().convert_to<std::string> ());
 	response_l.put ("peers_stake_total", node.rep_crawler.total_weight ().convert_to<std::string> ());
+	auto const stake = node.stake ();
+	response_l.put ("relayed_stake_total", stake.relayed.convert_to<std::string> ());
+	response_l.put ("reachable_stake_total", stake.reachable.convert_to<std::string> ());
 	if (request.get<bool> ("peer_details", false))
 	{
 		boost::property_tree::ptree peers;

@@ -67,6 +67,9 @@ public:
 
 	bool online () const;
 
+	// Weight this node can ask for votes, directly and through relays, next to the weight seen online
+	nano::stake_totals stake () const;
+
 	// Whether this node generates its own votes: voting enabled in config and wallets hold a voting-capable representative
 	bool is_voting () const;
 

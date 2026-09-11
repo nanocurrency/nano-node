@@ -5,6 +5,7 @@
 #include <nano/lib/numbers_templ.hpp>
 #include <nano/messages/vote_relay.hpp>
 #include <nano/node/fwd.hpp>
+#include <nano/secure/fwd.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -40,7 +41,7 @@ public:
 };
 
 /**
- * Tracks vote relay requests issued by this node until their terminating ack or deadline.
+ * Tracks vote relay requests issued by this node until their terminating ack or deadline, and the representatives whose votes relays delivered.
  * A completed request lingers until a later deadline so vote acks that were overtaken by the terminator still find it.
  * Pure state, thread safety and time are the responsibility of the caller.
  */
@@ -76,7 +77,7 @@ public:
 	bool erase (id_t);
 	// Remove and return requests past their deadline, completed ones included
 	std::vector<entry> evict (std::chrono::steady_clock::time_point now);
-	// Drop all requests
+	// Drop all requests, relayed representatives are kept
 	void clear ();
 
 	// Number of requests sent to the channel still waiting for their terminating ack
@@ -89,11 +90,30 @@ public:
 	// Whether no request is tracked
 	bool empty () const;
 
+	// A representative whose vote a relay delivered
+	struct relayed_rep
+	{
+		nano::account account; // Tracked once, however many relays deliver its votes
+		std::shared_ptr<nano::transport::channel> relay; // Relay that delivered the latest vote
+		std::chrono::steady_clock::time_point time; // When that vote arrived
+	};
+
+	// Record a vote of the representative delivered by the relay
+	void observe (nano::account const &, std::shared_ptr<nano::transport::channel> const & relay, std::chrono::steady_clock::time_point now);
+	// Forget representatives without a relayed vote since the cutoff
+	void trim (std::chrono::steady_clock::time_point cutoff);
+	// Representatives with a relayed vote since the cutoff
+	std::deque<nano::account> relayed (std::chrono::steady_clock::time_point cutoff) const;
+	// Number of representatives tracked, stale ones included until trimmed
+	std::size_t relayed_size () const;
+
 private:
 	// clang-format off
 	class tag_id {};
 	class tag_channel {};
 	class tag_deadline {};
+	class tag_account {};
+	class tag_time {};
 
 	using ordered_entries = boost::multi_index_container<entry,
 	mi::indexed_by<
@@ -104,9 +124,18 @@ private:
 		mi::ordered_non_unique<mi::tag<tag_deadline>,
 			mi::member<entry, std::chrono::steady_clock::time_point, &entry::deadline>>
 	>>;
+
+	using ordered_relayed = boost::multi_index_container<relayed_rep,
+	mi::indexed_by<
+		mi::hashed_unique<mi::tag<tag_account>,
+			mi::member<relayed_rep, nano::account, &relayed_rep::account>>,
+		mi::ordered_non_unique<mi::tag<tag_time>,
+			mi::member<relayed_rep, std::chrono::steady_clock::time_point, &relayed_rep::time>>
+	>>;
 	// clang-format on
 
 	ordered_entries entries; // Tracked requests, outstanding and completed
+	ordered_relayed relayed_reps; // Representatives seen through relays, stale ones stay until trimmed
 
 	std::size_t outstanding_count{ 0 }; // Entries not yet completed
 };
@@ -117,6 +146,7 @@ private:
  * Requests are tracked until their terminating empty ack or the request timeout, acks matching no request are dropped.
  * A completed request lingers for a while, as acks on a channel are processed in parallel and votes can arrive after the terminator.
  * A relay with too many outstanding requests stops receiving new ones until it answers them or they expire.
+ * Representatives whose votes arrived through a relay are remembered for as long as online representatives are, which puts a weight on what relays can reach.
  */
 class vote_relay_client final
 {
@@ -127,7 +157,7 @@ public:
 	using roots_hashes_t = std::vector<std::pair<nano::block_hash, nano::root>>;
 
 public:
-	vote_relay_client (vote_relay_client_config const &, nano::vote_processor &, nano::network &, nano::network_constants const &, nano::stats &, nano::logger &);
+	vote_relay_client (vote_relay_client_config const &, nano::vote_processor &, nano::network &, nano::network_params const &, nano::stats &, nano::logger &);
 
 	// Drop all tracked requests, further requests and acks are refused
 	void stop ();
@@ -148,6 +178,11 @@ public:
 	// Number of requests still waiting for their terminating ack
 	std::size_t outstanding () const;
 
+	// Record a validated vote of the representative that the relay delivered
+	void observe (nano::account const &, std::shared_ptr<nano::transport::channel> const & relay);
+	// Representatives whose votes a relay delivered within the online window
+	std::deque<nano::account> relayed () const;
+
 	// Number of tracked requests, completed ones linger until their grace period ends
 	std::size_t size () const;
 	// Whether no request is tracked, a lingering one still counts as tracked
@@ -160,7 +195,7 @@ private: // Dependencies
 	vote_relay_client_config const & config;
 	nano::vote_processor & vote_processor;
 	nano::network & network;
-	nano::network_constants const & network_constants;
+	nano::network_params const & network_params;
 	nano::stats & stats;
 	nano::logger & logger;
 
@@ -168,7 +203,10 @@ private:
 	// Random request id, never zero
 	static id_t next_id ();
 
-	vote_relay_client_index index; // Tracked requests
+	// Relayed representatives are kept as long as online representatives are
+	std::chrono::steady_clock::time_point relayed_cutoff (std::chrono::steady_clock::time_point now) const;
+
+	vote_relay_client_index index; // Requests and relayed representatives
 
 	bool stopped{ false }; // Once set, requests and acks are refused
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::vote_relay_client) }; // Guards the index

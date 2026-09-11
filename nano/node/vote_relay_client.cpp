@@ -13,6 +13,7 @@
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_relay_client.hpp>
 #include <nano/node/vote_router.hpp>
+#include <nano/secure/network_params.hpp>
 
 #include <algorithm>
 #include <limits>
@@ -130,15 +131,53 @@ bool nano::vote_relay_client_index::empty () const
 	return entries.empty ();
 }
 
+void nano::vote_relay_client_index::observe (nano::account const & account, std::shared_ptr<nano::transport::channel> const & relay, std::chrono::steady_clock::time_point now)
+{
+	auto & by_account = relayed_reps.get<tag_account> ();
+	if (auto existing = by_account.find (account); existing != by_account.end ())
+	{
+		by_account.modify (existing, [&relay, now] (relayed_rep & rep) {
+			rep.relay = relay;
+			rep.time = now;
+		});
+	}
+	else
+	{
+		relayed_reps.insert ({ account, relay, now });
+	}
+}
+
+void nano::vote_relay_client_index::trim (std::chrono::steady_clock::time_point cutoff)
+{
+	auto & by_time = relayed_reps.get<tag_time> ();
+	by_time.erase (by_time.begin (), by_time.lower_bound (cutoff));
+}
+
+std::deque<nano::account> nano::vote_relay_client_index::relayed (std::chrono::steady_clock::time_point cutoff) const
+{
+	std::deque<nano::account> result;
+	auto const & by_time = relayed_reps.get<tag_time> ();
+	for (auto it = by_time.lower_bound (cutoff); it != by_time.end (); ++it)
+	{
+		result.push_back (it->account);
+	}
+	return result;
+}
+
+std::size_t nano::vote_relay_client_index::relayed_size () const
+{
+	return relayed_reps.size ();
+}
+
 /*
  * vote_relay_client
  */
 
-nano::vote_relay_client::vote_relay_client (vote_relay_client_config const & config_a, nano::vote_processor & vote_processor_a, nano::network & network_a, nano::network_constants const & network_constants_a, nano::stats & stats_a, nano::logger & logger_a) :
+nano::vote_relay_client::vote_relay_client (vote_relay_client_config const & config_a, nano::vote_processor & vote_processor_a, nano::network & network_a, nano::network_params const & network_params_a, nano::stats & stats_a, nano::logger & logger_a) :
 	config{ config_a },
 	vote_processor{ vote_processor_a },
 	network{ network_a },
-	network_constants{ network_constants_a },
+	network_params{ network_params_a },
 	stats{ stats_a },
 	logger{ logger_a }
 {
@@ -240,7 +279,7 @@ bool nano::vote_relay_client::request (std::shared_ptr<nano::transport::channel>
 
 	// The wire message carries the reps as a vector, sized once from the list
 	std::vector<nano::account> const reps_l (reps.begin (), reps.end ());
-	nano::messages::vote_relay_req message{ network_constants, id, roots_hashes, reps_l, include_non_final };
+	nano::messages::vote_relay_req message{ network_params.network, id, roots_hashes, reps_l, include_non_final };
 	if (!relay->send (message, nano::transport::traffic_type::vote_relay))
 	{
 		{
@@ -344,6 +383,26 @@ std::size_t nano::vote_relay_client::outstanding () const
 	return index.outstanding ();
 }
 
+void nano::vote_relay_client::observe (nano::account const & account, std::shared_ptr<nano::transport::channel> const & relay)
+{
+	auto const now = std::chrono::steady_clock::now ();
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	index.trim (relayed_cutoff (now));
+	index.observe (account, relay, now);
+}
+
+std::deque<nano::account> nano::vote_relay_client::relayed () const
+{
+	auto const now = std::chrono::steady_clock::now ();
+	nano::lock_guard<nano::mutex> guard{ mutex };
+	return index.relayed (relayed_cutoff (now));
+}
+
+std::chrono::steady_clock::time_point nano::vote_relay_client::relayed_cutoff (std::chrono::steady_clock::time_point now) const
+{
+	return now - network_params.node.weight_interval * 2;
+}
+
 std::size_t nano::vote_relay_client::size () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
@@ -368,6 +427,7 @@ nano::container_info nano::vote_relay_client::container_info () const
 	nano::container_info info;
 	info.put ("requests", index.size ());
 	info.put ("outstanding", index.outstanding ());
+	info.put ("relayed", index.relayed_size ());
 	return info;
 }
 

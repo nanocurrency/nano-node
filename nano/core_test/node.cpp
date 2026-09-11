@@ -12,6 +12,7 @@
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_service.hpp>
 #include <nano/node/cementing_set.hpp>
+#include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/inactive_node.hpp>
 #include <nano/node/local_block_broadcaster.hpp>
@@ -38,6 +39,7 @@
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_rebroadcaster.hpp>
+#include <nano/node/vote_relay_client.hpp>
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/node/wallet.hpp>
@@ -4112,4 +4114,94 @@ TEST (node, disable_elections)
 	ASSERT_FALSE (result.inserted);
 	ASSERT_EQ (nullptr, result.election);
 	ASSERT_TRUE (node.active.empty ());
+}
+/*
+ * The peered stake is the weight of the representatives behind a live direct channel
+ */
+TEST (node, stake_peered)
+{
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (flags);
+
+	auto const weight = node.ledger.weight (nano::dev::genesis_key.pub);
+	ASSERT_GT (weight, 0);
+	ASSERT_EQ (0, node.stake ().peered);
+
+	auto channel = nano::test::fake_channel (node);
+	node.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, channel);
+	auto const stake = node.stake ();
+	ASSERT_EQ (weight, stake.peered);
+	ASSERT_EQ (0, stake.relayed);
+	ASSERT_EQ (weight, stake.reachable);
+
+	// The online stake follows the representatives seen voting, whether or not they can be reached
+	ASSERT_EQ (0, stake.online);
+	node.online_reps.observe (nano::dev::genesis_key.pub);
+	ASSERT_EQ (weight, node.stake ().online);
+
+	// A representative behind a dead channel is not peered
+	channel->close ();
+	ASSERT_EQ (0, node.stake ().peered);
+	ASSERT_EQ (0, node.stake ().reachable);
+}
+
+/*
+ * The relayed stake is the weight of the representatives whose votes a relay delivered, reachable without being peered
+ */
+TEST (node, stake_relayed)
+{
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (flags);
+
+	auto const weight = node.ledger.weight (nano::dev::genesis_key.pub);
+	auto relay = nano::test::test_channel (node);
+	node.vote_relay_client.observe (nano::dev::genesis_key.pub, relay);
+
+	auto stake = node.stake ();
+	ASSERT_EQ (0, stake.peered);
+	ASSERT_EQ (weight, stake.relayed);
+	ASSERT_EQ (weight, stake.reachable);
+
+	// A relayed account without weight adds nothing
+	node.vote_relay_client.observe (nano::keypair{}.pub, relay);
+	stake = node.stake ();
+	ASSERT_EQ (weight, stake.relayed);
+	ASSERT_EQ (weight, stake.reachable);
+}
+
+/*
+ * The reachable stake counts every representative once, whether it is peered, relayed or both
+ */
+TEST (node, stake_reachable)
+{
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (flags);
+
+	// A second representative, so that every figure takes a different value
+	auto const rep = nano::test::setup_rep (system, node, nano::Knano_ratio);
+	auto const weight_genesis = node.ledger.weight (nano::dev::genesis_key.pub);
+	auto const weight_rep = node.ledger.weight (rep.pub);
+	ASSERT_EQ (nano::Knano_ratio, weight_rep);
+	ASSERT_GT (weight_genesis, weight_rep);
+
+	// One representative is peered, the other only comes through a relay
+	node.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, nano::test::fake_channel (node));
+	node.vote_relay_client.observe (rep.pub, nano::test::test_channel (node));
+	auto stake = node.stake ();
+	ASSERT_EQ (weight_genesis, stake.peered);
+	ASSERT_EQ (weight_rep, stake.relayed);
+	ASSERT_EQ (weight_genesis + weight_rep, stake.reachable);
+
+	// Peering with the relayed representative as well does not count its weight twice
+	node.rep_crawler.force_add_rep (rep.pub, nano::test::fake_channel (node));
+	stake = node.stake ();
+	ASSERT_EQ (weight_genesis + weight_rep, stake.peered);
+	ASSERT_EQ (weight_rep, stake.relayed);
+	ASSERT_EQ (weight_genesis + weight_rep, stake.reachable);
 }
