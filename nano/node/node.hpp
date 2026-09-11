@@ -65,6 +65,7 @@ public:
 	uint64_t block_count () const;
 	uint64_t cemented_count () const;
 
+	// Whether the weight this node can ask for votes, directly and through relays, exceeds the quorum
 	bool online () const;
 
 	// Weight this node can ask for votes, directly and through relays, next to the weight seen online
