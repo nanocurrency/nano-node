@@ -4116,6 +4116,30 @@ TEST (node, disable_elections)
 	ASSERT_TRUE (node.active.empty ());
 }
 /*
+ * The node is online once the weight it can ask for votes exceeds the quorum, whether it peers with that weight or reaches it through relays
+ */
+TEST (node, online)
+{
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (flags);
+	ASSERT_FALSE (node.online ());
+
+	// The only representative with weight becomes reachable through a relay
+	node.vote_relay_client.observe (nano::dev::genesis_key.pub, nano::test::test_channel (node));
+	ASSERT_GT (node.stake ().reachable, node.online_reps.delta ());
+	ASSERT_TRUE (node.online ());
+
+	// Once the relayed vote ages out the node is back below quorum
+	ASSERT_TIMELY (10s, !node.online ());
+
+	// A direct channel to the representative counts the same way
+	node.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, nano::test::test_channel (node));
+	ASSERT_TRUE (node.online ());
+}
+
+/*
  * The peered stake is the weight of the representatives behind a live direct channel
  */
 TEST (node, stake_peered)

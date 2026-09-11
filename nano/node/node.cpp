@@ -874,7 +874,7 @@ bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & ha
 
 bool nano::node::online () const
 {
-	return rep_crawler.total_weight () > online_reps.delta ();
+	return stake ().reachable > online_reps.delta ();
 }
 
 nano::stake_totals nano::node::stake () const
