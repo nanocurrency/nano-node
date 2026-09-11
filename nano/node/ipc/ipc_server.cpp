@@ -254,7 +254,7 @@ public:
 		session_timer.restart ();
 		auto request_id_l (std::to_string (server.id_dispenser.fetch_add (1)));
 
-		// This is called when nano::rpc_handler#process_request is done. We convert to
+		// This is called when nano::json_handler::process_request is done. We convert to
 		// json and write the response to the ipc socket with a length prefix.
 		auto this_l (this->shared_from_this ());
 		auto response_handler_l ([this_l, request_id_l] (std::string const & body) {

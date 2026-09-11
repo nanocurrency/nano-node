@@ -17,7 +17,7 @@ std::string const control_disabled_message{ "RPC control is disabled" };
 
 /*
  * Every action the RPC layer gates behind enable_control.
- * Kept in sync by hand with create_rpc_control_impls() in nano/rpc/rpc_handler.cpp; the tests below fail if the two drift apart.
+ * Kept in sync by hand with create_rpc_control_impls() in nano/rpc/rpc_dispatcher.cpp; the tests below fail if the two drift apart.
  */
 std::vector<std::string> const control_actions{
 	"account_create",
