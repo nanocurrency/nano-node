@@ -33,8 +33,8 @@ jobs:
     timeout-minutes: 220
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: "recursive"
+      - name: Checkout Submodules
+        uses: ./.github/actions/checkout-submodules
       - name: Fetch Deps
         run: |
           sudo apt-get update -qq

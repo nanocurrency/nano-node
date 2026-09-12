@@ -53,9 +53,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.ci_tag }}
           repository: ${{ github.repository }}
+
+      - name: Checkout Submodules
+        uses: ./.github/actions/checkout-submodules
 
       - name: Prepare
         run: ci/prepare/macos/prepare.sh
@@ -90,9 +92,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.ci_tag }}
           repository: ${{ github.repository }}
+
+      - name: Checkout Submodules
+        uses: ./.github/actions/checkout-submodules
 
       - name: Prepare
         run: sudo -E ci/prepare/linux/prepare.sh
@@ -133,9 +137,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.ci_tag }}
           repository: ${{ github.repository }}
+
+      - name: Checkout Submodules
+        uses: ./.github/actions/checkout-submodules
 
       - name: Free Disk Space
         uses: ./.github/actions/free-disk-space
@@ -173,9 +179,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.ci_tag }}
           repository: ${{ github.repository }}
+
+      - name: Checkout Submodules
+        uses: ./.github/actions/checkout-submodules
 
       - name: Prepare
         run: ci/prepare/windows/prepare.ps1
