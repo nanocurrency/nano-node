@@ -1,3 +1,4 @@
+#include <nano/lib/block_sideband.hpp>
 #include <nano/lib/block_uniquer.hpp>
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
@@ -476,6 +477,53 @@ TEST (block_uniquer, null)
 {
 	nano::block_uniquer uniquer;
 	ASSERT_EQ (nullptr, uniquer.unique (nullptr));
+}
+
+TEST (block_sideband, to_json)
+{
+	nano::block_sideband sideband1;
+	sideband1.account = 1;
+	sideband1.balance = 2;
+	sideband1.height = 3;
+	sideband1.timestamp = 5;
+	sideband1.topo_height = 42;
+	sideband1.source_epoch = nano::epoch::epoch_1;
+	sideband1.details = nano::block_details{ nano::epoch::epoch_1, false, true, false };
+
+	auto json (sideband1.to_json ());
+	ASSERT_FALSE (json.empty ());
+
+	boost::property_tree::ptree tree;
+	std::stringstream istream (json);
+	boost::property_tree::read_json (istream, tree);
+
+	ASSERT_EQ ("nano_1111111111111111111111111111111111111111111111111113b8661hfk", tree.get<std::string> ("account"));
+	ASSERT_EQ ("2", tree.get<std::string> ("balance"));
+	ASSERT_EQ ("3", tree.get<std::string> ("height"));
+	ASSERT_EQ ("5", tree.get<std::string> ("timestamp"));
+	ASSERT_EQ ("42", tree.get<std::string> ("topo_height"));
+	ASSERT_EQ ("3", tree.get<std::string> ("source_epoch"));
+	ASSERT_EQ ("receive", tree.get<std::string> ("details"));
+}
+
+// Exercises the remaining state_subtype branches (send / epoch / change)
+// independently of to_json's internal conversions.
+TEST (block_sideband, to_json_details_subtype)
+{
+	nano::block_sideband sideband;
+	sideband.source_epoch = nano::epoch::epoch_1;
+
+	auto assert_subtype = [&sideband] (nano::block_details const & details, std::string const & expected) {
+		sideband.details = details;
+		boost::property_tree::ptree tree;
+		std::stringstream istream (sideband.to_json ());
+		boost::property_tree::read_json (istream, tree);
+		ASSERT_EQ (expected, tree.get<std::string> ("details"));
+	};
+
+	assert_subtype ({ nano::epoch::epoch_1, true, false, false }, "send");
+	assert_subtype ({ nano::epoch::epoch_2, false, false, true }, "epoch");
+	assert_subtype ({ nano::epoch::epoch_1, false, false, false }, "change");
 }
 
 TEST (block_uniquer, single)
