@@ -113,8 +113,6 @@ public:
 	nano::wallet::wallets_backend & wallets_backend;
 	std::unique_ptr<nano::ledger> ledger_impl;
 	nano::ledger & ledger;
-	std::unique_ptr<nano::thread_runner> runner_impl;
-	nano::thread_runner & runner;
 	std::unique_ptr<nano::node_observers> observers_impl;
 	nano::node_observers & observers;
 	std::unique_ptr<nano::thread_pool> workers_impl;
@@ -211,6 +209,9 @@ public:
 	nano::vote_rebroadcaster & vote_rebroadcaster;
 	std::unique_ptr<nano::block_rebroadcaster> block_rebroadcaster_impl;
 	nano::block_rebroadcaster & block_rebroadcaster;
+	// Last, so the IO threads start after and are joined before every component that uses them
+	std::unique_ptr<nano::thread_runner> runner_impl;
+	nano::thread_runner & runner;
 
 public:
 	std::chrono::steady_clock::time_point const startup_time;
