@@ -95,7 +95,6 @@ void nano::test::system::stop ()
 {
 	logger.debug (nano::log::type::system, "Stopping...");
 
-	// Keep io_context running while stopping nodes
 	for (auto & node : nodes)
 	{
 		stop_node (*node);
@@ -234,14 +233,7 @@ void nano::test::system::register_node (std::shared_ptr<nano::node> const & node
 
 void nano::test::system::stop_node (nano::node & node)
 {
-	auto stopped = std::async (std::launch::async, [&node] () {
-		node.stop ();
-	});
-	auto ec = poll_until_true (5s, [&] () {
-		auto status = stopped.wait_for (0s);
-		return status == std::future_status::ready;
-	});
-	debug_assert (!ec);
+	node.stop ();
 }
 
 void nano::test::system::ledger_initialization_set (std::deque<nano::keypair> const & reps, nano::amount const & reserve)
