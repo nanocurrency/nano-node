@@ -1,4 +1,3 @@
-#include <nano/boost/process/child.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/cli.hpp>
 #include <nano/lib/errors.hpp>
@@ -20,6 +19,7 @@
 #include <nano/node/node_rpc_config.hpp>
 #include <nano/node/node_scope_guard.hpp>
 #include <nano/node/openclwork.hpp>
+#include <nano/node/rpc_process.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/qt/qt.hpp>
 #include <nano/rpc/rpc_server.hpp>
@@ -173,7 +173,7 @@ public:
 				node->start ();
 				nano::ipc::ipc_server ipc (*node, config.rpc);
 
-				std::unique_ptr<boost::process::child> rpc_process;
+				std::unique_ptr<nano::rpc_process> rpc_process;
 				std::shared_ptr<nano::rpc_server> rpc;
 				std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 				bool const rpc_enabled = config.rpc_enable || flags.enable_rpc;
@@ -200,18 +200,11 @@ public:
 					}
 					else
 					{
-						// Spawn a child rpc process
-						if (!std::filesystem::exists (config.rpc.child_process.rpc_path))
-						{
-							throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.child_process.rpc_path);
-						}
-
 						logger.warn (nano::log::type::daemon, "RPC is configured to run in a separate process, this is experimental and is not recommended for production use. Please consider using the in-process RPC instead.");
 
 						logger.debug (nano::log::type::daemon, "Spawning RPC process with command: {}", config.rpc.child_process.rpc_path);
 
-						std::string network{ node->network_params.network.get_current_network_as_string () };
-						rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path.string (), "--network", network);
+						rpc_process = std::make_unique<nano::rpc_process> (config.rpc, data_path, node->network_params.network.get_current_network_as_string (), logger);
 					}
 				}
 				QObject::connect (&application, &QApplication::aboutToQuit, [&] () {
@@ -221,12 +214,10 @@ public:
 					{
 						rpc->stop ();
 					}
-#if USE_BOOST_PROCESS
 					if (rpc_process)
 					{
-						rpc_process->terminate ();
+						rpc_process->stop ();
 					}
-#endif
 					runner.abort ();
 				});
 				QApplication::postEvent (&processor, new nano_qt::eventloop_event ([&] () {

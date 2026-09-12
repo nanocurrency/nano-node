@@ -43,6 +43,7 @@ enum class type
 	rpc_connection,
 	http_callbacks,
 	rpc_request,
+	rpc_process,
 	ipc,
 	ipc_server,
 	websocket,
