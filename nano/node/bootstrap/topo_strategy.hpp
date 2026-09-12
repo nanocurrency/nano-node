@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/interval.hpp>
+#include <nano/lib/rate_limiting.hpp>
 #include <nano/lib/thread_pool.hpp>
 #include <nano/messages/fwd.hpp>
 #include <nano/node/bootstrap/bootstrap_context.hpp>
@@ -80,6 +81,10 @@ private:
 	// Pre-check ledger reads run here, off the message thread
 	nano::thread_pool spearhead_workers;
 	nano::thread_pool repair_workers;
+
+	// Paces repair-head requests: the repair sweep re-verifies the discovered range indefinitely, and each page is a
+	// ledger read, so it must not run at line rate like the spearhead does
+	nano::rate_limiter repair_limiter;
 
 	// Rate-limits the "not enough peers" warning while discovery is starved
 	nano::interval starvation_warning_interval;
