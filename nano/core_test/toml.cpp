@@ -1199,3 +1199,65 @@ TEST (toml_config, merge_config_files)
 	ASSERT_EQ (merged_config.node.bootstrap->block_processor_threshold, 33333);
 	ASSERT_TRUE (merged_config_string.find ("old_entry") == std::string::npos);
 }
+
+// Regression test: the default and current configs do not have to share a line-by-line
+// structure. `[node.ipc.tcp] io_threads` is only serialized when explicitly set, so it is
+// present in the current config but absent from the defaults.
+// The key-based merge must keep both the conditional field and the user values intact.
+TEST (toml_config, merge_config_files_misaligned)
+{
+	nano::network_params network_params{ nano::get_active_network () };
+	nano::tomlconfig default_toml;
+	nano::tomlconfig current_toml;
+	nano::tomlconfig merged_toml;
+	nano::daemon_config default_config{ ".", network_params };
+	nano::daemon_config current_config{ ".", network_params };
+	nano::daemon_config merged_config{ ".", network_params };
+
+	std::stringstream ss;
+
+	// io_threads is a conditionally-serialized field
+	ss << R"toml(
+	[node]
+	 active_elections.size = 999
+	[node.ipc.tcp]
+	 io_threads = 7
+	[node.bootstrap]
+	 block_processor_threshold = 33333
+	)toml";
+
+	current_toml.read (ss);
+	current_config.deserialize_toml (current_toml);
+
+	current_config.serialize_toml (current_toml);
+	default_config.serialize_toml (default_toml);
+
+	// Check the conditional tcp io_threads line is only present in the current serialization.
+	// `io_threads` also appears unconditionally in other sections (e.g. rpc), so count the
+	// occurrences instead of searching for the bare substring: current must have exactly one more.
+	auto count_occurrences = [] (std::string const & haystack, std::string const & needle) {
+		std::size_t count = 0;
+		for (auto pos = haystack.find (needle); pos != std::string::npos; pos = haystack.find (needle, pos + needle.size ()))
+		{
+			++count;
+		}
+		return count;
+	};
+	ASSERT_EQ (count_occurrences (current_toml.to_string (true), "io_threads"), count_occurrences (default_toml.to_string (true), "io_threads") + 1);
+
+	auto merged_config_string = current_toml.merge_defaults (current_toml, default_toml);
+
+	std::stringstream ss2;
+	ss2 << merged_config_string;
+
+	merged_toml.read (ss2);
+	merged_config.deserialize_toml (merged_toml);
+
+	// The conditional field is preserved and left uncommented
+	ASSERT_EQ (merged_config.node.ipc_config->transport_tcp.io_threads, 7);
+	ASSERT_NE (merged_config_string.find ("io_threads = 7"), std::string::npos);
+
+	// User values both before and after the conditional field survive the merge
+	ASSERT_EQ (merged_config.node.active_elections->size, 999);
+	ASSERT_EQ (merged_config.node.bootstrap->block_processor_threshold, 33333);
+}
