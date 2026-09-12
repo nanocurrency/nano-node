@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/boost/asio/ip/tcp.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
@@ -32,6 +33,7 @@ public:
 	boost::asio::io_context & io_ctx;
 	boost::asio::ip::tcp::acceptor acceptor;
 	nano::rpc_handler_interface & rpc_handler_interface;
+	nano::mutex mutex; // Guards the acceptor
 	std::atomic<bool> stopped{ false };
 	std::uint16_t port{ 0 };
 };

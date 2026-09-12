@@ -60,9 +60,14 @@ void nano::rpc_server::accept ()
 		{
 			return;
 		}
-		if (ec != boost::asio::error::operation_aborted && this_l->acceptor.is_open ())
+		if (ec != boost::asio::error::operation_aborted)
 		{
-			this_l->accept ();
+			// Re-arming runs on an IO thread while the owner may be closing the acceptor on its own
+			nano::lock_guard<nano::mutex> lock{ this_l->mutex };
+			if (!this_l->stopped)
+			{
+				this_l->accept ();
+			}
 		}
 		if (!ec)
 		{
@@ -81,6 +86,7 @@ void nano::rpc_server::stop ()
 	{
 		return;
 	}
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	boost::system::error_code ec;
 	acceptor.close (ec);
 	if (ec)
