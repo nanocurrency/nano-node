@@ -1,17 +1,12 @@
 #pragma once
 
 #include <nano/boost/asio/ip/tcp.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
 
-namespace boost
-{
-namespace asio
-{
-	class io_context;
-}
-}
+#include <atomic>
 
 namespace nano
 {
@@ -28,10 +23,8 @@ public:
 
 	virtual void accept ();
 
-	std::uint16_t listening_port () const
-	{
-		return acceptor.local_endpoint ().port ();
-	}
+	// Port the acceptor was bound to, only meaningful after `start`
+	std::uint16_t listening_port () const;
 
 public:
 	nano::logger logger{ "rpc" };
@@ -40,7 +33,9 @@ public:
 	boost::asio::io_context & io_ctx;
 	boost::asio::ip::tcp::acceptor acceptor;
 	nano::rpc_handler_interface & rpc_handler_interface;
-	bool stopped{ false };
+	nano::mutex mutex; // Guards the acceptor
+	std::atomic<bool> stopped{ false };
+	std::uint16_t port{ 0 };
 };
 
 /** Returns the correct RPC implementation based on TLS configuration */

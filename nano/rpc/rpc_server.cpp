@@ -21,10 +21,7 @@ nano::rpc_server::rpc_server (std::shared_ptr<boost::asio::io_context> io_ctx_a,
 
 nano::rpc_server::~rpc_server ()
 {
-	if (!stopped)
-	{
-		stop ();
-	}
+	stop ();
 }
 
 void nano::rpc_server::start ()
@@ -47,6 +44,7 @@ void nano::rpc_server::start ()
 		logger.critical (nano::log::type::rpc, "Error while binding for RPC on port: {} ({})", endpoint.port (), ec.message ());
 		throw std::runtime_error (ec.message ());
 	}
+	port = acceptor.local_endpoint ().port ();
 	logger.info (nano::log::type::rpc, "RPC listening address: {}", acceptor.local_endpoint ());
 	acceptor.listen ();
 	accept ();
@@ -62,15 +60,20 @@ void nano::rpc_server::accept ()
 		{
 			return;
 		}
-		if (ec != boost::asio::error::operation_aborted && this_l->acceptor.is_open ())
+		if (ec != boost::asio::error::operation_aborted)
 		{
-			this_l->accept ();
+			// Re-arming runs on an IO thread while the owner may be closing the acceptor on its own
+			nano::lock_guard<nano::mutex> lock{ this_l->mutex };
+			if (!this_l->stopped)
+			{
+				this_l->accept ();
+			}
 		}
 		if (!ec)
 		{
 			connection->parse_connection ();
 		}
-		else
+		else if (ec != boost::asio::error::operation_aborted)
 		{
 			this_l->logger.error (nano::log::type::rpc, "Error accepting RPC connection: {}", ec.message ());
 		}
@@ -79,13 +82,22 @@ void nano::rpc_server::accept ()
 
 void nano::rpc_server::stop ()
 {
-	stopped = true;
+	if (stopped.exchange (true))
+	{
+		return;
+	}
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	boost::system::error_code ec;
 	acceptor.close (ec);
 	if (ec)
 	{
 		logger.error (nano::log::type::rpc, "Error while closing RPC acceptor during shutdown: {}", ec.message ());
 	}
+}
+
+std::uint16_t nano::rpc_server::listening_port () const
+{
+	return port;
 }
 
 std::shared_ptr<nano::rpc_server> nano::get_rpc (std::shared_ptr<boost::asio::io_context> io_ctx_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a)

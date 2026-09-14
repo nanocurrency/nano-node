@@ -28,7 +28,7 @@ nano::error nano::rpc_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("max_request_size", max_request_size, "Maximum number of bytes allowed in request bodies.\ntype:uint64");
 
 	nano::tomlconfig rpc_process_l;
-	rpc_process_l.put ("io_threads", rpc_process.io_threads, "Number of threads used to serve IO.\ntype:uint32");
+	rpc_process_l.put ("io_threads", rpc_process.io_threads, "Number of threads used to serve RPC IO, whether the RPC runs in-process or in a separate process.\ntype:uint32");
 	rpc_process_l.put ("ipc_address", rpc_process.ipc_address, "Address of IPC server.\ntype:string,ip");
 	rpc_process_l.put ("ipc_port", rpc_process.ipc_port, "Listening port of IPC server.\ntype:uint16");
 	rpc_process_l.put ("num_ipc_connections", rpc_process.num_ipc_connections, "Number of IPC connections to establish.\ntype:uint32");

@@ -4,15 +4,14 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/networks.hpp>
 #include <nano/lib/signal_manager.hpp>
-#include <nano/lib/thread_runner.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/version.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/rpc/rpc_host.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
-#include <nano/rpc/rpc_server.hpp>
 
 #include <boost/program_options.hpp>
 
@@ -33,22 +32,15 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path, error_chmod);
 
-	std::unique_ptr<nano::thread_runner> runner;
-
 	nano::network_params network_params{ nano::get_active_network () };
 	nano::rpc_config rpc_config{ network_params.network };
 	auto error = nano::read_rpc_config_toml (data_path, rpc_config, config_overrides);
 	if (!error)
 	{
-		std::shared_ptr<boost::asio::io_context> io_ctx = std::make_shared<boost::asio::io_context> ();
-
-		runner = std::make_unique<nano::thread_runner> (io_ctx, logger, rpc_config.rpc_process.io_threads, nano::thread_role::name::io_daemon);
-
 		try
 		{
-			nano::ipc_rpc_processor ipc_rpc_processor (io_ctx, rpc_config);
-			auto rpc = nano::get_rpc (io_ctx, rpc_config, ipc_rpc_processor);
-			rpc->start ();
+			auto rpc = std::make_unique<nano::rpc_host> (rpc_config);
+			rpc->start (std::make_unique<nano::ipc_rpc_processor> (rpc->io_context (), rpc_config));
 
 			std::atomic stopped{ false };
 
@@ -68,8 +60,6 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 			logger.info (nano::log::type::daemon_rpc, "Stopping...");
 
 			rpc->stop ();
-			io_ctx->stop ();
-			runner->join ();
 		}
 		catch (std::runtime_error const & e)
 		{

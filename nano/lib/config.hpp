@@ -61,6 +61,39 @@ consteval bool is_sanitizer_build ()
 }
 }
 
+/*
+ * Platform info
+ */
+namespace nano
+{
+consteval bool is_windows_build ()
+{
+#ifdef _WIN32
+	return true;
+#else
+	return false;
+#endif
+}
+
+consteval bool is_macos_build ()
+{
+#ifdef __APPLE__
+	return true;
+#else
+	return false;
+#endif
+}
+
+consteval bool is_linux_build ()
+{
+#ifdef __linux__
+	return true;
+#else
+	return false;
+#endif
+}
+}
+
 namespace nano
 {
 uint16_t test_node_port ();

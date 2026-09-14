@@ -13,6 +13,7 @@ enum class name
 	io,
 	io_daemon,
 	io_ipc,
+	io_rpc,
 	work,
 	message_processing,
 	vote_processing,

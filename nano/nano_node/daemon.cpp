@@ -19,7 +19,7 @@
 #include <nano/node/node_scope_guard.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/node/rpc_process.hpp>
-#include <nano/rpc/rpc_server.hpp>
+#include <nano/rpc/rpc_host.hpp>
 
 #include <csignal>
 #include <iostream>
@@ -138,8 +138,7 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 
 		std::unique_ptr<nano::ipc::ipc_server> ipc_server = std::make_unique<nano::ipc::ipc_server> (*node, config.rpc);
 		std::unique_ptr<nano::rpc_process> rpc_process;
-		std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
-		std::shared_ptr<nano::rpc_server> rpc;
+		std::unique_ptr<nano::rpc_host> rpc;
 
 		bool const rpc_enabled = config.rpc_enable || flags.enable_rpc;
 		if (rpc_enabled)
@@ -163,9 +162,8 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 
 				logger.debug (nano::log::type::daemon, "Starting in-process RPC server on port {}", rpc_config.port);
 
-				rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, *ipc_server, config.rpc, stop_callback);
-				rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
-				rpc->start ();
+				rpc = std::make_unique<nano::rpc_host> (rpc_config);
+				rpc->start (std::make_unique<nano::inprocess_rpc_handler> (*node, *ipc_server, config.rpc, stop_callback));
 			}
 			else
 			{
