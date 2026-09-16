@@ -101,7 +101,7 @@ public:
 
 		if (!error)
 		{
-			error = nano::flags_config_conflicts (flags, config.node);
+			error = config.node.validate (flags);
 		}
 
 		if (!error)

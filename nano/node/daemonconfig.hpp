@@ -17,6 +17,7 @@ public:
 	daemon_config (std::filesystem::path const & data_path, nano::network_params & network_params);
 	nano::error deserialize_toml (nano::tomlconfig &);
 	nano::error serialize_toml (nano::tomlconfig &);
+	nano::error validate () const;
 	bool rpc_enable{ false };
 	nano::node_rpc_config rpc;
 	nano::node_config node;

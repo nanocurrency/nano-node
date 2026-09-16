@@ -60,29 +60,33 @@ public:
 
 protected:
 	template <typename T>
-	void construct_error_message (bool optional, std::string const & key)
+	std::string error_message (bool optional, std::string const & key) const
 	{
-		if (auto_error_message && *error)
+		if (optional)
 		{
-			if (optional)
-			{
-				error->set_message (key + " is not " + type_desc<T> ());
-			}
-			else
-			{
-				error->set_message (key + " is required and must be " + type_desc<T> ());
-			}
+			return key + " is not " + type_desc<T> ();
 		}
+		return key + " is required and must be " + type_desc<T> ();
 	}
 
-	/** Set error if not already set. That is, first error remains until get_error().clear() is called. */
+	/**
+	 * Records an error for \p key. The first error determines the error code; the messages of every further error are
+	 * appended so that all problems in a document are reported at once.
+	 */
 	template <typename T, typename V>
 	void conditionally_set_error (V error_a, bool optional, std::string const & key)
 	{
+		nano::error incoming;
+		incoming = error_a;
+		auto message = auto_error_message ? error_message<T> (optional, key) : incoming.get_message ();
 		if (!*error)
 		{
-			*error = error_a;
-			construct_error_message<T> (optional, key);
+			*error = incoming;
+			error->set_message (message);
+		}
+		else
+		{
+			error->set_message (error->get_message () + "; " + message);
 		}
 	}
 

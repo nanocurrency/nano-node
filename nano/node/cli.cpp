@@ -53,10 +53,6 @@ std::string nano::error_cli_messages::message (int ev) const
 			return "Database write error";
 		case nano::error_cli::reading_config:
 			return "Config file read error";
-		case nano::error_cli::ambiguous_pruning_voting_options:
-			return "Flag --enable_pruning and --enable_voting in node config cannot be used together";
-		case nano::error_cli::ambiguous_peering_only_options:
-			return "Flag --peering_only cannot be used together with --enable_voting or --enable_pruning";
 	}
 
 	return "Invalid error code";
@@ -241,20 +237,6 @@ void nano::update_flags (nano::node_flags & flags_a, boost::program_options::var
 	{
 		flags_a.runtime_info_file = it->second.as<std::string> ();
 	}
-}
-
-std::error_code nano::flags_config_conflicts (nano::node_flags const & flags_a, nano::node_config const & config_a)
-{
-	std::error_code ec;
-	if (flags_a.enable_pruning && (config_a.enable_voting || flags_a.enable_voting))
-	{
-		ec = nano::error_cli::ambiguous_pruning_voting_options;
-	}
-	if (flags_a.peering_only && (config_a.enable_voting || flags_a.enable_voting || flags_a.enable_pruning))
-	{
-		ec = nano::error_cli::ambiguous_peering_only_options;
-	}
-	return ec;
 }
 
 namespace

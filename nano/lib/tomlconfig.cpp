@@ -327,7 +327,7 @@ nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string cons
 		{
 			target = false;
 		}
-		else if (!*error)
+		else
 		{
 			conditionally_set_error<bool> (nano::error_config::invalid_value, optional, key);
 		}
