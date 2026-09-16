@@ -893,7 +893,7 @@ TEST (toml_config, rpc_config_deserialize_no_defaults)
 	port = 999
 	[process]
 	io_threads = 999
-	ipc_address = "0:0:0:0:0:ffff:7f01:101"
+	ipc_address = "0:0:0:0:0:ffff:7f01:0102"
 	ipc_port = 999
 	num_ipc_connections = 999
 	[logging]
@@ -916,6 +916,7 @@ TEST (toml_config, rpc_config_deserialize_no_defaults)
 
 	ASSERT_NE (conf.rpc_process.io_threads, defaults.rpc_process.io_threads);
 	ASSERT_NE (conf.rpc_process.ipc_address, defaults.rpc_process.ipc_address);
+	ASSERT_EQ (conf.rpc_process.ipc_address, "::ffff:127.1.1.2");
 	ASSERT_NE (conf.rpc_process.ipc_port, defaults.rpc_process.ipc_port);
 	ASSERT_NE (conf.rpc_process.num_ipc_connections, defaults.rpc_process.num_ipc_connections);
 

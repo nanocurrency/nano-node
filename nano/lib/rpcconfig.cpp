@@ -65,7 +65,7 @@ nano::error nano::rpc_config::deserialize_toml (nano::tomlconfig & toml)
 			rpc_process_l->get_optional<uint16_t> ("ipc_port", rpc_process.ipc_port);
 			boost::asio::ip::address_v6 ipc_address_l;
 			rpc_process_l->get_optional<boost::asio::ip::address_v6> ("ipc_address", ipc_address_l, boost::asio::ip::address_v6::loopback ());
-			rpc_process.ipc_address = address_l.to_string ();
+			rpc_process.ipc_address = ipc_address_l.to_string ();
 			rpc_process_l->get_optional<unsigned> ("num_ipc_connections", rpc_process.num_ipc_connections);
 		}
 	}
