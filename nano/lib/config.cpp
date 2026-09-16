@@ -241,25 +241,20 @@ nano::database_backend nano::default_database_backend ()
 // Using std::cerr here, since logging may not be initialized yet
 nano::error nano::read_config_file (nano::tomlconfig & toml, std::string_view filename, std::filesystem::path const & data_path, std::vector<std::string> const & overrides)
 {
-	std::stringstream overrides_stream;
-	for (auto const & entry : overrides)
-	{
-		overrides_stream << entry << std::endl;
-	}
-	overrides_stream << std::endl;
-
 	auto const path = data_path / filename;
-	if (!std::filesystem::exists (path))
+	if (std::filesystem::exists (path))
 	{
-		std::cerr << "Config file `" << filename << "` not found, using default configuration" << std::endl;
-		return prefix_config_error (toml.read (overrides_stream), filename);
-	}
-	auto & error = toml.read (overrides_stream, path);
-	if (!error)
-	{
+		if (auto error = toml.read (path))
+		{
+			return prefix_config_error (error, filename);
+		}
 		std::cerr << "Config file `" << filename << "` loaded from node data directory: " << path.string () << std::endl;
 	}
-	return prefix_config_error (error, filename);
+	else
+	{
+		std::cerr << "Config file `" << filename << "` not found, using default configuration" << std::endl;
+	}
+	return prefix_config_error (toml.apply_overrides (overrides), filename);
 }
 
 nano::error nano::prefix_config_error (nano::error error, std::string_view filename)
