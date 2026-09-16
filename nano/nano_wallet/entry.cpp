@@ -6,7 +6,6 @@
 #include <nano/lib/memory.hpp>
 #include <nano/lib/networks.hpp>
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/lib/thread_runner.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/walletconfig.hpp>
@@ -116,10 +115,6 @@ public:
 		{
 			nano::set_use_memory_pools (config.node.use_memory_pools);
 
-			std::shared_ptr<boost::asio::io_context> io_ctx = std::make_shared<boost::asio::io_context> ();
-
-			nano::thread_runner runner (io_ctx, logger, config.node.io_threads, nano::thread_role::name::io_daemon);
-
 			try
 			{
 				std::shared_ptr<nano_qt::wallet> gui;
@@ -216,7 +211,6 @@ public:
 					{
 						rpc_process->stop ();
 					}
-					runner.abort ();
 				});
 				QApplication::postEvent (&processor, new nano_qt::eventloop_event ([&] () {
 					gui = std::make_shared<nano_qt::wallet> (application, processor, *node, wallet, wallet_config.account);
@@ -225,7 +219,6 @@ public:
 					gui->client_window->show ();
 				}));
 				result = QApplication::exec ();
-				runner.join ();
 			}
 			catch (std::exception const & e)
 			{

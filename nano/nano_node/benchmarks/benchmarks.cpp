@@ -1,13 +1,10 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
-#include <nano/lib/thread_runner.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/nano_node/benchmarks/benchmarks.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/daemonconfig.hpp>
-
-#include <boost/asio/io_context.hpp>
 
 #include <chrono>
 #include <iostream>

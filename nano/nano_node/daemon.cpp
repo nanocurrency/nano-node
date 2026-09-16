@@ -4,7 +4,6 @@
 #include <nano/lib/runtime_files.hpp>
 #include <nano/lib/signal_manager.hpp>
 #include <nano/lib/stacktrace.hpp>
-#include <nano/lib/thread_runner.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/version.hpp>
@@ -80,8 +79,6 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path, error_chmod);
 
-	std::unique_ptr<nano::thread_runner> runner;
-
 	nano::network_params network_params{ nano::get_active_network () };
 	nano::daemon_config config{ data_path, network_params };
 	if (auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides))
@@ -96,8 +93,6 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 	}
 
 	nano::set_use_memory_pools (config.node.use_memory_pools);
-
-	std::shared_ptr<boost::asio::io_context> io_ctx = std::make_shared<boost::asio::io_context> ();
 
 	auto opencl = nano::opencl_work::create (config.opencl_enable, config.opencl, logger, config.node.network_params.work);
 	nano::opencl_work_func_t opencl_work_func;
@@ -128,9 +123,6 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 
 		// Use a scope guard to ensure node->stop() is called while we still hold a shared_ptr (even in case of exceptions)
 		nano::node_scope_guard node{ std::make_shared<nano::node> (data_path, config.node, opencl_work, flags) };
-
-		// IO context runner should be started first and stopped last to allow asio handlers to execute during node start/stop
-		runner = std::make_unique<nano::thread_runner> (io_ctx, logger, node->config.io_threads, nano::thread_role::name::io_daemon);
 
 		node->start ();
 
@@ -214,8 +206,6 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 		}
 		ipc_server->stop ();
 		node->stop ();
-		io_ctx->stop ();
-		runner->join ();
 
 		if (rpc_process)
 		{
