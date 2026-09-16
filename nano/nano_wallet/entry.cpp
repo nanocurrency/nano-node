@@ -286,13 +286,6 @@ int main (int argc, char * const * argv)
 			nano::set_active_network (parsed.value ());
 		}
 
-		std::vector<std::string> config_overrides;
-		const auto configItr = vm.find ("config");
-		if (configItr != vm.cend ())
-		{
-			config_overrides = nano::config_overrides (configItr->second.as<std::vector<nano::config_key_value_pair>> ());
-		}
-
 		auto ec = nano::handle_node_options (vm);
 		if (ec == nano::error_cli::unknown_command)
 		{
