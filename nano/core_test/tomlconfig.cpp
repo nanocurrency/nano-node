@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -247,6 +248,58 @@ TEST (tomlconfig, errors_accumulate)
 	ASSERT_NE (message.find ("b is not"), std::string::npos) << message;
 }
 
+/** Entries no getter asked for are listed; a wholly unread table is listed once, a partially read one by entry */
+TEST (tomlconfig, unknown_keys)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		read = 1
+		unread = 2
+		[partial]
+		read = 3
+		unread = 4
+		[partial.child]
+		unread = 5
+		[whole]
+		a = 6
+		b = 7
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	int value = 0;
+	t.get ("read", value);
+	t.get_required_child ("partial").get ("read", value);
+
+	auto unknown = t.unknown_keys ();
+	std::sort (unknown.begin (), unknown.end ());
+	ASSERT_EQ (unknown, (std::vector<std::string>{ "partial.child", "partial.unread", "unread", "whole" }));
+
+	// Raw access to the table may inspect anything, so everything counts as read from then on
+	t.get_tree ();
+	ASSERT_TRUE (t.unknown_keys ().empty ());
+}
+
+/** has_key alone does not count as reading, dotted getters mark only the leaf */
+TEST (tomlconfig, unknown_keys_dotted)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		[node]
+		a = 1
+		b = 2
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	ASSERT_TRUE (t.has_key ("node"));
+	ASSERT_EQ (t.unknown_keys (), (std::vector<std::string>{ "node" }));
+
+	int value = 0;
+	t.get ("node.a", value);
+	ASSERT_EQ (t.unknown_keys (), (std::vector<std::string>{ "node.b" }));
+}
+
 TEST (tomlconfig, put)
 {
 	nano::tomlconfig config;
@@ -348,6 +401,27 @@ TEST (config_file, overrides_over_file)
 	toml.get_required<uint16_t> ("node.threads", threads);
 	ASSERT_EQ (port, 3);
 	ASSERT_EQ (threads, 2);
+}
+
+/** Unknown keys do not fail the load; they are left for the caller to report */
+TEST (config_file, unknown_keys)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream file{ path / "config-test.toml" };
+		file << "[node]\nport = 1\n[node.typo]\nenable = true\n";
+	}
+
+	nano::tomlconfig toml;
+	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path, { "node.other=2" }));
+	uint16_t port{ 0 };
+	toml.get_required<uint16_t> ("node.port", port);
+	ASSERT_EQ (port, 1);
+
+	auto unknown = toml.unknown_keys ();
+	std::sort (unknown.begin (), unknown.end ());
+	ASSERT_EQ (unknown, (std::vector<std::string>{ "node.other", "node.typo" }));
 }
 
 /** A file with invalid syntax is reported with its own line number, regardless of any overrides */

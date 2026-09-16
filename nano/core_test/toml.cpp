@@ -821,6 +821,59 @@ TEST (toml_config, rpc_config_no_required)
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
 }
 
+/** Every key the default node config writes is read back, so the two halves agree */
+TEST (toml_config, daemon_config_known_keys)
+{
+	nano::network_params network_params{ nano::get_active_network () };
+	nano::daemon_config defaults{ ".", network_params };
+	defaults.node.peering_port = network_params.network.default_node_port;
+
+	nano::tomlconfig written;
+	defaults.serialize_toml (written);
+	std::stringstream ss;
+	written.write (ss);
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::daemon_config config{ ".", network_params };
+	ASSERT_FALSE (config.deserialize_toml (toml)) << toml.get_error ().get_message ();
+	ASSERT_EQ (toml.unknown_keys (), std::vector<std::string>{});
+}
+
+/** Every key the default RPC config writes is read back */
+TEST (toml_config, rpc_config_known_keys)
+{
+	nano::rpc_config defaults{ nano::dev::network_params.network };
+
+	nano::tomlconfig written;
+	defaults.serialize_toml (written);
+	std::stringstream ss;
+	written.write (ss);
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::rpc_config config{ nano::dev::network_params.network };
+	ASSERT_FALSE (config.deserialize_toml (toml)) << toml.get_error ().get_message ();
+	ASSERT_EQ (toml.unknown_keys (), std::vector<std::string>{});
+}
+
+/** Every key the sample log config writes is read back */
+TEST (toml_config, log_config_known_keys)
+{
+	auto defaults = nano::log_config::sample_config ();
+
+	nano::tomlconfig written;
+	defaults.serialize_toml (written);
+	std::stringstream ss;
+	written.write (ss);
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::log_config config;
+	ASSERT_FALSE (config.deserialize_toml (toml)) << toml.get_error ().get_message ();
+	ASSERT_EQ (toml.unknown_keys (), std::vector<std::string>{});
+}
+
 /** Out of range values are accepted by the parser and rejected by validation */
 TEST (toml_config, daemon_config_validate)
 {

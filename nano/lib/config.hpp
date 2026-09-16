@@ -173,6 +173,9 @@ namespace nano
  */
 nano::error read_config_file (nano::tomlconfig & toml, std::string_view filename, std::filesystem::path const & data_path, std::vector<std::string> const & overrides = {});
 
+/** Prints a warning for every entry of \p toml that deserialization did not read, see tomlconfig::unknown_keys */
+void warn_unknown_keys (nano::tomlconfig const & toml, std::string_view filename);
+
 /**
  * Reads the configuration file as `read_config_file` and deserializes it into `config`, which keeps its current
  * values for every key the file does not mention. Config types that provide `validate ()` are validated afterwards.
@@ -189,6 +192,7 @@ nano::error load_config_file (T & config, std::string_view filename, std::filesy
 	{
 		return error;
 	}
+	warn_unknown_keys (toml, filename);
 	if constexpr (requires { { config.validate () } -> std::convertible_to<nano::error>; })
 	{
 		return config.validate ();
