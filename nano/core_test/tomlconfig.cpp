@@ -1,9 +1,13 @@
 #include <nano/boost/asio/ip/address_v6.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/config_template.hpp>
+#include <nano/lib/files.hpp>
 #include <nano/lib/tomlconfig.hpp>
 
 #include <gtest/gtest.h>
 
+#include <filesystem>
+#include <fstream>
 #include <sstream>
 #include <string>
 
@@ -260,4 +264,147 @@ TEST (config_template, update)
 	ASSERT_NE (updated.find ("\tpeering_port = 7075\n"), std::string::npos) << updated;
 	ASSERT_NE (updated.find ("\tthreshold = 33333\n"), std::string::npos) << updated;
 	ASSERT_EQ (updated.find ("\tio_threads = "), std::string::npos) << updated;
+}
+
+/** Reading a path that does not exist reports an error and does not create the file */
+TEST (tomlconfig, read_missing_file)
+{
+	auto path = nano::unique_path () / "missing.toml";
+	nano::tomlconfig toml;
+	ASSERT_TRUE (toml.read (path));
+	ASSERT_FALSE (std::filesystem::exists (path));
+}
+
+/** Writing creates the file and replaces any previous content */
+TEST (tomlconfig, write_replaces_content)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	auto file = path / "config.toml";
+
+	nano::tomlconfig longer;
+	longer.put ("a_long_key_name", "a long value that takes up space");
+	longer.put ("another_key", "more");
+	longer.write (file);
+
+	nano::tomlconfig shorter;
+	shorter.put ("a", "b");
+	shorter.write (file);
+
+	nano::tomlconfig read;
+	ASSERT_FALSE (read.read (file));
+	ASSERT_TRUE (read.has_key ("a"));
+	ASSERT_FALSE (read.has_key ("another_key"));
+}
+
+/** A missing config file yields an empty document and is not created */
+TEST (config_file, missing_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+
+	nano::tomlconfig toml;
+	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path));
+	ASSERT_TRUE (toml.empty ());
+	ASSERT_FALSE (std::filesystem::exists (path / "config-test.toml"));
+}
+
+/** Overrides apply even when there is no config file */
+TEST (config_file, overrides_without_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+
+	nano::tomlconfig toml;
+	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path, { "node.port=7075" }));
+	uint16_t port{ 0 };
+	toml.get_required<uint16_t> ("node.port", port);
+	ASSERT_EQ (port, 7075);
+}
+
+/** Overrides take precedence over the file and untouched keys keep the file's values */
+TEST (config_file, overrides_over_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream file{ path / "config-test.toml" };
+		file << "[node]\nport = 1\nthreads = 2\n";
+	}
+
+	nano::tomlconfig toml;
+	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path, { "node.port=3" }));
+	uint16_t port{ 0 }, threads{ 0 };
+	toml.get_required<uint16_t> ("node.port", port);
+	toml.get_required<uint16_t> ("node.threads", threads);
+	ASSERT_EQ (port, 3);
+	ASSERT_EQ (threads, 2);
+}
+
+/** A file with invalid syntax is reported as an error */
+TEST (config_file, invalid_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream file{ path / "config-test.toml" };
+		file << "[node]\nport = \n";
+	}
+
+	nano::tomlconfig toml;
+	ASSERT_TRUE (nano::read_config_file (toml, "config-test.toml", path));
+}
+
+namespace
+{
+/** Minimal config type for the deserializing loaders */
+struct sample_config
+{
+	uint16_t port{ 1 };
+	uint16_t threads{ 2 };
+
+	nano::error deserialize_toml (nano::tomlconfig & toml)
+	{
+		toml.get ("port", port);
+		toml.get ("threads", threads);
+		return toml.get_error ();
+	}
+};
+}
+
+/** Deserializing on top of a config applies the keys the file has and keeps the current values for the rest */
+TEST (config_file, deserialize_keeps_defaults)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream file{ path / "config-test.toml" };
+		file << "port = 3\n";
+	}
+
+	sample_config config;
+	ASSERT_FALSE (nano::read_config_file (config, "config-test.toml", path));
+	ASSERT_EQ (config.port, 3);
+	ASSERT_EQ (config.threads, 2);
+}
+
+/** The throwing loader returns the config read on top of the given one and throws when reading fails */
+TEST (config_file, load_or_throw)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream file{ path / "config-test.toml" };
+		file << "port = 3\n";
+	}
+
+	sample_config fallback;
+	fallback.threads = 5;
+	auto config = nano::load_config_file (fallback, "config-test.toml", path);
+	ASSERT_EQ (config.port, 3);
+	ASSERT_EQ (config.threads, 5);
+	ASSERT_EQ (fallback.port, 1);
+	ASSERT_EQ (nano::load_config_file<sample_config> ("config-test.toml", path).threads, 2);
+
+	ASSERT_THROW (nano::load_config_file (fallback, "config-test.toml", path, { "port" }), std::runtime_error);
 }

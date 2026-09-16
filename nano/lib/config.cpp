@@ -11,6 +11,9 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/numeric/conversion/cast.hpp>
 
+#include <iostream>
+#include <sstream>
+
 #include <valgrind/valgrind.h>
 
 namespace nano
@@ -236,38 +239,25 @@ nano::database_backend nano::default_database_backend ()
  */
 
 // Using std::cerr here, since logging may not be initialized yet
-nano::tomlconfig nano::load_toml_file (const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides)
+nano::error nano::read_config_file (nano::tomlconfig & toml, std::string_view filename, std::filesystem::path const & data_path, std::vector<std::string> const & overrides)
 {
-	std::stringstream config_overrides_stream;
-	for (auto const & entry : config_overrides)
+	std::stringstream overrides_stream;
+	for (auto const & entry : overrides)
 	{
-		config_overrides_stream << entry << std::endl;
+		overrides_stream << entry << std::endl;
 	}
-	config_overrides_stream << std::endl;
+	overrides_stream << std::endl;
 
-	// Make sure we don't create an empty toml file if it doesn't exist. Running without a toml file is the default.
-	auto toml_config_path = data_path / config_filename;
-	if (std::filesystem::exists (toml_config_path))
+	auto const path = data_path / filename;
+	if (!std::filesystem::exists (path))
 	{
-		nano::tomlconfig toml;
-		auto error = toml.read (config_overrides_stream, toml_config_path);
-		if (error)
-		{
-			throw std::runtime_error (error.get_message ());
-		}
-		std::cerr << "Config file `" << config_filename.string () << "` loaded from node data directory: " << toml_config_path.string () << std::endl;
-		return toml;
+		std::cerr << "Config file `" << filename << "` not found, using default configuration" << std::endl;
+		return toml.read (overrides_stream);
 	}
-	else
+	auto & error = toml.read (overrides_stream, path);
+	if (!error)
 	{
-		// If no config was found, return an empty config with overrides applied
-		nano::tomlconfig toml;
-		auto error = toml.read (config_overrides_stream);
-		if (error)
-		{
-			throw std::runtime_error (error.get_message ());
-		}
-		std::cerr << "Config file `" << config_filename.string () << "` not found, using default configuration" << std::endl;
-		return toml;
+		std::cerr << "Config file `" << filename << "` loaded from node data directory: " << path.string () << std::endl;
 	}
+	return error;
 }
