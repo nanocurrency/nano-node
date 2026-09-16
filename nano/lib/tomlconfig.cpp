@@ -103,12 +103,18 @@ bool nano::tomlconfig::empty () const
 
 std::optional<nano::tomlconfig> nano::tomlconfig::get_optional_child (std::string const & key_a)
 {
-	std::optional<tomlconfig> child_config;
-	if (tree->contains (key_a))
+	if (!tree->contains (key_a))
 	{
-		return tomlconfig (tree->get_table (key_a), error);
+		return std::nullopt;
 	}
-	return child_config;
+	auto child = tree->get_table (key_a);
+	if (!child)
+	{
+		*error = nano::error_config::invalid_value;
+		error->set_message ("Configuration node is not a table: " + key_a);
+		return std::nullopt;
+	}
+	return tomlconfig (child, error);
 }
 
 nano::tomlconfig nano::tomlconfig::get_required_child (std::string const & key_a)
@@ -117,12 +123,16 @@ nano::tomlconfig nano::tomlconfig::get_required_child (std::string const & key_a
 	{
 		*error = nano::error_config::missing_value;
 		error->set_message ("Missing configuration node: " + key_a);
-		return *this;
+		return tomlconfig (cpptoml::make_table (), error);
 	}
-	else
+	auto child = tree->get_table (key_a);
+	if (!child)
 	{
-		return tomlconfig (tree->get_table (key_a), error);
+		*error = nano::error_config::invalid_value;
+		error->set_message ("Configuration node is not a table: " + key_a);
+		return tomlconfig (cpptoml::make_table (), error);
 	}
+	return tomlconfig (child, error);
 }
 
 nano::tomlconfig & nano::tomlconfig::put_child (std::string const & key_a, nano::tomlconfig & conf_a)
