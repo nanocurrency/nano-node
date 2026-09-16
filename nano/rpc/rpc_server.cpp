@@ -3,6 +3,7 @@
 #include <nano/lib/network_formatting.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/rpc/rpc_connection.hpp>
+#include <nano/rpc/rpc_connection_tracker.hpp>
 #include <nano/rpc/rpc_server.hpp>
 
 #include <boost/format.hpp>
@@ -14,7 +15,8 @@ nano::rpc_server::rpc_server (std::shared_ptr<boost::asio::io_context> io_ctx_a,
 	io_ctx_shared (io_ctx_a),
 	io_ctx (*io_ctx_shared),
 	acceptor (io_ctx),
-	rpc_handler_interface (rpc_handler_interface_a)
+	rpc_handler_interface (rpc_handler_interface_a),
+	connections (std::make_shared<nano::rpc_connection_tracker> ())
 {
 	rpc_handler_interface.rpc_instance (*this);
 }
@@ -52,7 +54,7 @@ void nano::rpc_server::start ()
 
 void nano::rpc_server::accept ()
 {
-	auto connection (std::make_shared<nano::rpc_connection> (config, io_ctx, logger, rpc_handler_interface));
+	auto connection (std::make_shared<nano::rpc_connection> (config, io_ctx, logger, rpc_handler_interface, connections));
 	acceptor.async_accept (connection->socket,
 	boost::asio::bind_executor (connection->strand, [this_w = std::weak_ptr{ shared_from_this () }, connection] (boost::system::error_code const & ec) {
 		auto this_l = this_w.lock ();
@@ -71,6 +73,7 @@ void nano::rpc_server::accept ()
 		}
 		if (!ec)
 		{
+			this_l->connections->add (connection);
 			connection->parse_connection ();
 		}
 		else if (ec != boost::asio::error::operation_aborted)
@@ -92,6 +95,17 @@ void nano::rpc_server::stop ()
 	if (ec)
 	{
 		logger.error (nano::log::type::rpc, "Error while closing RPC acceptor during shutdown: {}", ec.message ());
+	}
+}
+
+void nano::rpc_server::drain (std::chrono::milliseconds timeout)
+{
+	debug_assert (stopped);
+	connections->close_idle ();
+	if (!connections->wait_drained (timeout))
+	{
+		logger.warn (nano::log::type::rpc, "Closing {} connection(s) still serving a request after waiting {}ms", connections->in_flight (), timeout.count ());
+		connections->close_all ();
 	}
 }
 

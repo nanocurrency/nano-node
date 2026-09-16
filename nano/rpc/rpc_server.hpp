@@ -7,9 +7,11 @@
 #include <nano/lib/rpcconfig.hpp>
 
 #include <atomic>
+#include <chrono>
 
 namespace nano
 {
+class rpc_connection_tracker;
 class rpc_handler_interface;
 
 class rpc_server : public std::enable_shared_from_this<rpc_server>
@@ -20,6 +22,9 @@ public:
 
 	void start ();
 	void stop ();
+
+	// Closes idle connections, waits up to `timeout` for the requests in flight to finish and closes the rest; for the owner's thread, after `stop`
+	void drain (std::chrono::milliseconds timeout);
 
 	virtual void accept ();
 
@@ -33,6 +38,7 @@ public:
 	boost::asio::io_context & io_ctx;
 	boost::asio::ip::tcp::acceptor acceptor;
 	nano::rpc_handler_interface & rpc_handler_interface;
+	std::shared_ptr<nano::rpc_connection_tracker> connections;
 	nano::mutex mutex; // Guards the acceptor
 	std::atomic<bool> stopped{ false };
 	std::uint16_t port{ 0 };
