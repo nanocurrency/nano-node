@@ -35,9 +35,13 @@ public:
 	void doc (std::string const & key, std::string const & doc);
 	/** Parses the file at \p path_a, which must exist; the file is never created */
 	nano::error & read (std::filesystem::path const & path_a);
-	nano::error & read (std::istream & stream_overrides, std::filesystem::path const & path_a);
 	nano::error & read (std::istream & stream_a);
-	nano::error & read (std::istream & stream_first_a, std::istream & stream_second_a);
+	/**
+	 * Applies a `key=value` override on top of the document. Dotted keys address nested tables, which are created
+	 * as needed, and an existing value at the key is replaced. Arrays are written as `key=[a,b]`.
+	 */
+	nano::error & apply_override (std::string const & override_a);
+	nano::error & apply_overrides (std::vector<std::string> const & overrides_a);
 	/** Writes the document to \p path_a, replacing any previous content; a new file gets restricted permissions */
 	void write (std::filesystem::path const & path_a);
 	void write (std::ostream & stream_a) const;
