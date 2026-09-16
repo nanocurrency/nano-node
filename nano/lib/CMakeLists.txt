@@ -45,6 +45,8 @@ add_library(
   common.cpp
   config.hpp
   config.cpp
+  config_template.hpp
+  config_template.cpp
   configbase.hpp
   version.hpp
   version.cpp

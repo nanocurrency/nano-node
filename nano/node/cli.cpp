@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/cli.hpp>
+#include <nano/lib/config_template.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
@@ -1083,21 +1084,12 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					  << "# It is not recommended to uncomment every field, as the default value for important fields may change in the future. Only change what you need.\n"
 					  << "# Additional information for notable configuration options is available in https://docs.nano.org/running-a-node/configuration/#notable-configuration-options\n";
 
-			if (vm.count ("use_defaults"))
-			{
-				std::cout << toml.to_string (false) << std::endl;
-			}
-			else
-			{
-				std::cout << toml.to_string (true) << std::endl;
-			}
+			std::cout << nano::render_config_template (toml, /* comment_values */ vm.count ("use_defaults") == 0) << std::endl;
 		}
 	}
 	else if (vm.count ("update_config"))
 	{
 		nano::network_params network_params{ nano::get_active_network () };
-		nano::tomlconfig default_toml;
-		nano::tomlconfig current_toml;
 		nano::daemon_config default_config{ data_path, network_params };
 		nano::daemon_config current_config{ data_path, network_params };
 
@@ -1105,17 +1097,17 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		auto error = nano::read_node_config_toml (data_path, current_config);
 		if (error)
 		{
-			std::cerr << "Could not read existing config file\n";
+			std::cerr << "Could not read existing config file: " << error.get_message () << std::endl;
 			ec = nano::error_cli::reading_config;
 		}
 		else
 		{
+			nano::tomlconfig current_toml;
+			nano::tomlconfig default_toml;
 			current_config.serialize_toml (current_toml);
 			default_config.serialize_toml (default_toml);
 
-			auto output = current_toml.merge_defaults (current_toml, default_toml);
-
-			std::cout << output;
+			std::cout << nano::render_config_update (current_toml, default_toml);
 		}
 	}
 	else if (vm.count ("diagnostics"))
