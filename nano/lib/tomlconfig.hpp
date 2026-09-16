@@ -33,13 +33,14 @@ public:
 	tomlconfig (std::shared_ptr<cpptoml::table> const & tree_a, std::shared_ptr<nano::error> const & error_a = nullptr);
 
 	void doc (std::string const & key, std::string const & doc);
+	/** Parses the file at \p path_a, which must exist; the file is never created */
 	nano::error & read (std::filesystem::path const & path_a);
 	nano::error & read (std::istream & stream_overrides, std::filesystem::path const & path_a);
 	nano::error & read (std::istream & stream_a);
 	nano::error & read (std::istream & stream_first_a, std::istream & stream_second_a);
+	/** Writes the document to \p path_a, replacing any previous content; a new file gets restricted permissions */
 	void write (std::filesystem::path const & path_a);
 	void write (std::ostream & stream_a) const;
-	void open_or_create (std::fstream & stream_a, std::string const & path_a);
 	std::shared_ptr<cpptoml::table> get_tree ();
 	bool empty () const;
 	std::optional<tomlconfig> get_optional_child (std::string const & key_a);

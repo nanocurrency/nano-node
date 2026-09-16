@@ -2,6 +2,8 @@
 #include <nano/lib/files.hpp>
 #include <nano/lib/tomlconfig.hpp>
 
+#include <fstream>
+
 nano::tomlconfig::tomlconfig () :
 	tree (cpptoml::make_table ())
 {
@@ -31,13 +33,13 @@ nano::error & nano::tomlconfig::read (std::filesystem::path const & path_a)
 
 nano::error & nano::tomlconfig::read (std::istream & stream_overrides, std::filesystem::path const & path_a)
 {
-	std::fstream stream;
-	open_or_create (stream, path_a.string ());
-	if (!stream.fail ())
+	std::ifstream stream{ path_a };
+	if (!stream)
 	{
-		read (stream_overrides, stream);
+		error->set ("Could not open config file: " + path_a.string ());
+		return *error;
 	}
-	return *error;
+	return read (stream_overrides, stream);
 }
 
 nano::error & nano::tomlconfig::read (std::istream & stream_a)
@@ -63,8 +65,15 @@ nano::error & nano::tomlconfig::read (std::istream & stream_first_a, std::istrea
 
 void nano::tomlconfig::write (std::filesystem::path const & path_a)
 {
-	std::fstream stream;
-	open_or_create (stream, path_a.string ());
+	if (!std::filesystem::exists (path_a))
+	{
+		// Create the file first and restrict its permissions before writing, otherwise Windows only grants read permissions
+		{
+			std::ofstream create{ path_a };
+		}
+		nano::set_secure_perm_file (path_a);
+	}
+	std::ofstream stream{ path_a };
 	write (stream);
 }
 
@@ -72,21 +81,6 @@ void nano::tomlconfig::write (std::ostream & stream_a) const
 {
 	cpptoml::toml_writer writer{ stream_a, "" };
 	tree->accept (writer);
-}
-
-/** Open configuration file, create if necessary */
-void nano::tomlconfig::open_or_create (std::fstream & stream_a, std::string const & path_a)
-{
-	if (!std::filesystem::exists (path_a))
-	{
-		// Create temp stream to first create the file
-		std::ofstream stream (path_a);
-
-		// Set permissions before opening otherwise Windows only has read permissions
-		nano::set_secure_perm_file (path_a);
-	}
-
-	stream_a.open (path_a);
 }
 
 /** Returns the table managed by this instance */

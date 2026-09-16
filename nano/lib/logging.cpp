@@ -476,7 +476,19 @@ nano::log_config nano::load_log_config (nano::log_config fallback, const std::fi
 {
 	try
 	{
-		auto config = nano::load_config_file<nano::log_config> (fallback, log_config_filename, data_path, config_overrides);
+		auto config = fallback;
+		if (auto error = nano::load_config_file (config, log_config_filename, data_path, config_overrides))
+		{
+			throw std::runtime_error (error.get_message ());
+		}
+		if (std::filesystem::exists (data_path / log_config_filename))
+		{
+			std::cerr << "Config file `" << log_config_filename << "` loaded from node data directory: " << (data_path / log_config_filename).string () << std::endl;
+		}
+		else
+		{
+			std::cerr << "Config file `" << log_config_filename << "` not found, using default configuration" << std::endl;
+		}
 
 		// Parse default log level from environment variable, e.g. "NANO_LOG=debug"
 		auto env_level = nano::env::get ("NANO_LOG");
