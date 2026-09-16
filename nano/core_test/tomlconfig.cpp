@@ -23,6 +23,44 @@ TEST (tomlconfig, optional_child)
 	ASSERT_FALSE (c2);
 }
 
+/** A missing required child sets an error and yields an empty table instead of aliasing the parent */
+TEST (tomlconfig, required_child_missing)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		val=1
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	auto child = t.get_required_child ("child");
+	ASSERT_TRUE (t.get_error ());
+	ASSERT_EQ (t.get_error (), nano::error_config::missing_value);
+	ASSERT_TRUE (child.empty ());
+	ASSERT_FALSE (child.has_key ("val"));
+}
+
+/** A key holding a plain value cannot be opened as a child table */
+TEST (tomlconfig, child_not_table)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		child=1
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	ASSERT_FALSE (t.get_optional_child ("child"));
+	ASSERT_TRUE (t.get_error ());
+	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
+	t.get_error ().clear ();
+
+	auto child = t.get_required_child ("child");
+	ASSERT_TRUE (t.get_error ());
+	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
+	ASSERT_TRUE (child.empty ());
+}
+
 TEST (tomlconfig, put)
 {
 	nano::tomlconfig config;
