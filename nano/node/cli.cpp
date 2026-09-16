@@ -1111,7 +1111,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		else if (type == "rpc")
 		{
 			valid_type = true;
-			nano::rpc_config config{ nano::dev::network_params.network };
+			nano::network_params network_params{ nano::get_active_network () };
+			nano::rpc_config config{ network_params.network };
 			config.serialize_toml (toml);
 		}
 		else if (type == "log")
