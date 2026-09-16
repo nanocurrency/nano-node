@@ -86,9 +86,9 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 		logger.critical (nano::log::type::daemon, "Error deserializing node config: {}", error.get_message ());
 		std::exit (1);
 	}
-	if (auto error = nano::flags_config_conflicts (flags, config.node))
+	if (auto error = config.node.validate (flags))
 	{
-		logger.critical (nano::log::type::daemon, "Error parsing command line options: {}", error.message ());
+		logger.critical (nano::log::type::daemon, "Invalid node config: {}", error.get_message ());
 		std::exit (1);
 	}
 

@@ -54,6 +54,11 @@ nano::error nano::daemon_config::deserialize_toml (nano::tomlconfig & toml)
 	return toml.get_error ();
 }
 
+nano::error nano::daemon_config::validate () const
+{
+	return node.validate ();
+}
+
 nano::error nano::read_node_config_toml (std::filesystem::path const & data_path_a, nano::daemon_config & config_a, std::vector<std::string> const & config_overrides)
 {
 	return nano::load_config_file (config_a, nano::node_config_filename, data_path_a, config_overrides);

@@ -10,6 +10,7 @@
 
 #include <array>
 #include <chrono>
+#include <concepts>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -174,7 +175,7 @@ nano::error read_config_file (nano::tomlconfig & toml, std::string_view filename
 
 /**
  * Reads the configuration file as `read_config_file` and deserializes it into `config`, which keeps its current
- * values for every key the file does not mention.
+ * values for every key the file does not mention. Config types that provide `validate ()` are validated afterwards.
  */
 template <typename T>
 nano::error load_config_file (T & config, std::string_view filename, std::filesystem::path const & data_path, std::vector<std::string> const & overrides = {})
@@ -184,6 +185,14 @@ nano::error load_config_file (T & config, std::string_view filename, std::filesy
 	{
 		return error;
 	}
-	return config.deserialize_toml (toml);
+	if (auto error = config.deserialize_toml (toml))
+	{
+		return error;
+	}
+	if constexpr (requires { { config.validate () } -> std::convertible_to<nano::error>; })
+	{
+		return config.validate ();
+	}
+	return {};
 }
 }

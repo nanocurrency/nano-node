@@ -821,8 +821,8 @@ TEST (toml_config, rpc_config_no_required)
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
 }
 
-/** Deserialize a node config with incorrect values */
-TEST (toml_config, daemon_config_deserialize_errors)
+/** Out of range values are accepted by the parser and rejected by validation */
+TEST (toml_config, daemon_config_validate)
 {
 	{
 		std::stringstream ss;
@@ -834,9 +834,9 @@ TEST (toml_config, daemon_config_deserialize_errors)
 		nano::tomlconfig toml;
 		toml.read (ss);
 		nano::daemon_config conf;
-		conf.deserialize_toml (toml);
+		ASSERT_FALSE (conf.deserialize_toml (toml));
 
-		ASSERT_EQ (toml.get_error ().get_message (), "max_work_generate_multiplier must be greater than or equal to 1");
+		ASSERT_EQ (conf.validate ().get_message (), "max_work_generate_multiplier must be greater than or equal to 1");
 	}
 	{
 		std::stringstream ss;
@@ -848,17 +848,65 @@ TEST (toml_config, daemon_config_deserialize_errors)
 		nano::tomlconfig toml;
 		toml.read (ss);
 		nano::daemon_config conf;
-		conf.deserialize_toml (toml);
+		ASSERT_FALSE (conf.deserialize_toml (toml));
 
-		ASSERT_EQ (toml.get_error ().get_message (), "bootstrap_frontier_request_count must be greater than or equal to 1024");
+		ASSERT_EQ (conf.validate ().get_message (), "bootstrap_frontier_request_count must be greater than or equal to 1024");
 	}
+}
+
+/** Every violation is reported at once, not just the first one */
+TEST (toml_config, daemon_config_validate_all)
+{
+	std::stringstream ss;
+	ss << R"toml(
+	[node]
+	io_threads = 0
+	password_fanout = 1
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::daemon_config conf;
+	ASSERT_FALSE (conf.deserialize_toml (toml));
+
+	auto message = conf.validate ().get_message ();
+	ASSERT_NE (message.find ("io_threads must be non-zero"), std::string::npos) << message;
+	ASSERT_NE (message.find ("password_fanout must be a number between 16 and 1048576"), std::string::npos) << message;
+}
+
+/** Flags that contradict the config are reported alongside value violations */
+TEST (toml_config, node_config_validate_flags)
+{
+	nano::node_config config{ nano::dev::network_params };
+	nano::node_flags flags;
+	ASSERT_FALSE (config.validate (flags));
+
+	// Pruning cannot be combined with voting, whether voting comes from the config or a flag
+	config.enable_voting = true;
+	flags.enable_pruning = true;
+	ASSERT_TRUE (config.validate (flags));
+	config.enable_voting = false;
+	ASSERT_FALSE (config.validate (flags));
+	flags.enable_voting = true;
+	ASSERT_TRUE (config.validate (flags));
+
+	// A peering only node runs no ledger subsystems
+	flags = {};
+	flags.peering_only = true;
+	flags.enable_voting = true;
+	ASSERT_TRUE (config.validate (flags));
+
+	// Value violations and flag conflicts end up in the same message
+	config.io_threads = 0;
+	auto message = config.validate (flags).get_message ();
+	ASSERT_NE (message.find ("io_threads must be non-zero"), std::string::npos) << message;
+	ASSERT_NE (message.find ("--peering_only"), std::string::npos) << message;
 }
 
 TEST (toml_config, daemon_read_config)
 {
 	auto path (nano::unique_path ());
 	std::filesystem::create_directories (path);
-	nano::daemon_config config;
 	std::vector<std::string> invalid_overrides1{ "node.max_work_generate_multiplier=0" };
 	std::string expected_message1{ "max_work_generate_multiplier must be greater than or equal to 1" };
 
@@ -867,13 +915,18 @@ TEST (toml_config, daemon_read_config)
 
 	// Reading when there is no config file
 	ASSERT_FALSE (std::filesystem::exists (nano::get_node_toml_config_path (path)));
-	ASSERT_FALSE (nano::read_node_config_toml (path, config));
 	{
+		nano::daemon_config config;
+		ASSERT_FALSE (nano::read_node_config_toml (path, config));
+	}
+	{
+		nano::daemon_config config;
 		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);
 		ASSERT_TRUE (error);
 		ASSERT_EQ (error.get_message (), expected_message1);
 	}
 	{
+		nano::daemon_config config;
 		auto error = nano::read_node_config_toml (path, config, invalid_overrides2);
 		ASSERT_TRUE (error);
 		ASSERT_EQ (error.get_message (), expected_message2);
@@ -885,13 +938,18 @@ TEST (toml_config, daemon_read_config)
 
 	// Reading when there is a config file
 	ASSERT_TRUE (std::filesystem::exists (nano::get_node_toml_config_path (path)));
-	ASSERT_FALSE (nano::read_node_config_toml (path, config));
 	{
+		nano::daemon_config config;
+		ASSERT_FALSE (nano::read_node_config_toml (path, config));
+	}
+	{
+		nano::daemon_config config;
 		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);
 		ASSERT_TRUE (error);
 		ASSERT_EQ (error.get_message (), expected_message1);
 	}
 	{
+		nano::daemon_config config;
 		auto error = nano::read_node_config_toml (path, config, invalid_overrides2);
 		ASSERT_TRUE (error);
 		ASSERT_EQ (error.get_message (), expected_message2);

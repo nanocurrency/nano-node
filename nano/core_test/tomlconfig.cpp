@@ -224,6 +224,29 @@ TEST (tomlconfig, override_type_error)
 	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
 }
 
+/** A failing getter does not stop the ones after it and every failure ends up in the message */
+TEST (tomlconfig, errors_accumulate)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		a = 70000
+		b = "text"
+		c = 7
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	uint16_t a{ 0 }, b{ 0 }, c{ 0 };
+	t.get<uint16_t> ("a", a);
+	t.get<uint16_t> ("b", b);
+	t.get<uint16_t> ("c", c);
+	ASSERT_EQ (c, 7);
+	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
+	auto message = t.get_error ().get_message ();
+	ASSERT_NE (message.find ("a is not"), std::string::npos) << message;
+	ASSERT_NE (message.find ("b is not"), std::string::npos) << message;
+}
+
 TEST (tomlconfig, put)
 {
 	nano::tomlconfig config;
