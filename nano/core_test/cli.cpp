@@ -70,6 +70,26 @@ TEST (cli, config_override_parsing)
 	ASSERT_EQ (config_overrides.size (), 4);
 }
 
+/** Overrides are read from the named command line option and are empty when it is absent */
+TEST (cli, config_overrides_from_options)
+{
+	boost::program_options::options_description description;
+	// clang-format off
+	description.add_options ()
+		("config", boost::program_options::value<std::vector<nano::config_key_value_pair>> ()->multitoken ())
+		("rpcconfig", boost::program_options::value<std::vector<nano::config_key_value_pair>> ()->multitoken ());
+	// clang-format on
+
+	char const * argv[] = { "nano_node", "--config", "node.peering_port=7075", "--config", "node.work_peers=[a:1,b:2]" };
+	boost::program_options::variables_map vm;
+	boost::program_options::store (boost::program_options::parse_command_line (5, argv, description), vm);
+	boost::program_options::notify (vm);
+
+	auto overrides = nano::config_overrides (vm);
+	ASSERT_EQ (overrides, (std::vector<std::string>{ "node.peering_port=\"7075\"", "node.work_peers=[\"a:1\",\"b:2\"]" }));
+	ASSERT_TRUE (nano::config_overrides (vm, "rpcconfig").empty ());
+}
+
 TEST (cli, enable_rpc_flag)
 {
 	boost::program_options::options_description description;
