@@ -237,17 +237,13 @@ nano::database_backend nano::default_database_backend ()
 
 nano::error nano::read_config_file (nano::tomlconfig & toml, std::string_view filename, std::filesystem::path const & data_path, std::vector<std::string> const & overrides)
 {
-	std::stringstream overrides_stream;
-	for (auto const & entry : overrides)
-	{
-		overrides_stream << entry << std::endl;
-	}
-	overrides_stream << std::endl;
-
 	auto const path = data_path / filename;
 	if (std::filesystem::exists (path))
 	{
-		return toml.read (overrides_stream, path);
+		if (auto error = toml.read (path))
+		{
+			return error;
+		}
 	}
-	return toml.read (overrides_stream);
+	return toml.apply_overrides (overrides);
 }

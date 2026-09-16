@@ -117,16 +117,9 @@ TEST (tomlconfig, child_not_table)
 	ASSERT_TRUE (child.empty ());
 }
 
-/** Config settings passed via CLI overrides the config file settings. This is solved
-using an override stream. */
-TEST (tomlconfig, dot_child_syntax)
+/** Overrides with dotted keys land in the addressed table and keep its other keys */
+TEST (tomlconfig, override_dotted_keys)
 {
-	std::stringstream ss_override;
-	ss_override << R"toml(
-		node.a = 1
-		node.b = 2
-	)toml";
-
 	std::stringstream ss;
 	ss << R"toml(
 		[node]
@@ -135,7 +128,8 @@ TEST (tomlconfig, dot_child_syntax)
 	)toml";
 
 	nano::tomlconfig t;
-	t.read (ss_override, ss);
+	t.read (ss);
+	ASSERT_FALSE (t.apply_overrides ({ "node.a = 1", "node.b = 2" }));
 
 	auto node = t.get_required_child ("node");
 	uint16_t a, b, c;
@@ -147,45 +141,86 @@ TEST (tomlconfig, dot_child_syntax)
 	ASSERT_EQ (c, 3);
 }
 
-TEST (tomlconfig, base_override)
+/** An override replaces the file's value and later overrides win over earlier ones */
+TEST (tomlconfig, override_precedence)
 {
-	std::stringstream ss_base;
-	ss_base << R"toml(
-	        node.peering_port=7075
-	)toml";
-
-	std::stringstream ss_override;
-	ss_override << R"toml(
-	        node.peering_port=8075
-			node.too_big=70000
+	std::stringstream ss;
+	ss << R"toml(
+		node.peering_port=7075
 	)toml";
 
 	nano::tomlconfig t;
-	t.read (ss_override, ss_base);
+	t.read (ss);
+	ASSERT_FALSE (t.apply_overrides ({ "node.peering_port=8075", "node.peering_port=9075" }));
 
-	// Query optional existent value
 	uint16_t port = 0;
 	t.get_optional<uint16_t> ("node.peering_port", port);
-	ASSERT_EQ (port, 8075);
+	ASSERT_EQ (port, 9075);
 	ASSERT_FALSE (t.get_error ());
+}
 
-	// Query optional non-existent value, make sure we get default and no errors
-	port = 65535;
-	t.get_optional<uint16_t> ("node.peering_port_non_existent", port);
-	ASSERT_EQ (port, 65535);
-	ASSERT_FALSE (t.get_error ());
+/** Overrides create missing tables and arrays replace the whole array */
+TEST (tomlconfig, override_creates_tables)
+{
+	nano::tomlconfig t;
+	std::stringstream ss;
+	ss << R"toml(
+		[node]
+		items = ["old"]
+	)toml";
+	t.read (ss);
+	ASSERT_FALSE (t.apply_overrides ({ "node.child.value=1", "node.items=[\"a\",\"b\"]" }));
+
+	uint16_t value = 0;
+	t.get_required<uint16_t> ("node.child.value", value);
+	ASSERT_EQ (value, 1);
+
+	std::vector<std::string> items;
+	t.get_required_child ("node").array_entries_required<std::string> ("items", [&items] (std::string item) {
+		items.push_back (item);
+	});
+	ASSERT_EQ (items, (std::vector<std::string>{ "a", "b" }));
+}
+
+/** A malformed override is reported with the offending entry and leaves the document untouched */
+TEST (tomlconfig, override_invalid)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		[node]
+		a=1
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	ASSERT_TRUE (t.apply_overrides ({ "node.b=2", "node.foo" }));
+	ASSERT_NE (t.get_error ().get_message ().find ("node.foo"), std::string::npos);
+
+	// The valid override before the malformed one was applied, the document itself is intact
 	t.get_error ().clear ();
+	uint16_t a = 0, b = 0;
+	t.get_required<uint16_t> ("node.a", a);
+	t.get_required<uint16_t> ("node.b", b);
+	ASSERT_EQ (a, 1);
+	ASSERT_EQ (b, 2);
+}
 
-	// Query required non-existent value, make sure it errors
-	t.get_required<uint16_t> ("node.peering_port_not_existent", port);
+/** Type errors on overridden values are reported like any other value */
+TEST (tomlconfig, override_type_error)
+{
+	nano::tomlconfig t;
+	ASSERT_FALSE (t.apply_overrides ({ "node.too_big=70000" }));
+
+	uint16_t port = 65535;
+	t.get_optional<uint16_t> ("node.missing", port);
 	ASSERT_EQ (port, 65535);
-	ASSERT_TRUE (t.get_error ());
+	ASSERT_FALSE (t.get_error ());
+
+	t.get_required<uint16_t> ("node.missing", port);
 	ASSERT_EQ (t.get_error (), nano::error_config::missing_value);
 	t.get_error ().clear ();
 
-	// Query uint16 that's too big, make sure we have an error
 	t.get_required<uint16_t> ("node.too_big", port);
-	ASSERT_TRUE (t.get_error ());
 	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
 }
 
@@ -292,16 +327,18 @@ TEST (config_file, overrides_over_file)
 	ASSERT_EQ (threads, 2);
 }
 
-/** A file with invalid syntax is reported as an error */
+/** A file with invalid syntax is reported with its own line number, regardless of any overrides */
 TEST (config_file, invalid_file)
 {
 	auto path = nano::unique_path ();
 	std::filesystem::create_directories (path);
 	{
 		std::ofstream file{ path / "config-test.toml" };
-		file << "[node]\nport = \n";
+		file << "[node]\nport = 1\nthreads = \n";
 	}
 
 	nano::tomlconfig toml;
-	ASSERT_TRUE (nano::read_config_file (toml, "config-test.toml", path));
+	auto error = nano::read_config_file (toml, "config-test.toml", path, { "node.a=1", "node.b=2" });
+	ASSERT_TRUE (error);
+	ASSERT_NE (error.get_message ().find ("line 3"), std::string::npos) << error.get_message ();
 }

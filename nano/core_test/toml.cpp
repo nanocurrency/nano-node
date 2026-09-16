@@ -863,7 +863,7 @@ TEST (toml_config, daemon_read_config)
 	std::string expected_message1{ "max_work_generate_multiplier must be greater than or equal to 1" };
 
 	std::vector<std::string> invalid_overrides2{ "node.websocket.enable=true", "node.foo" };
-	std::string expected_message2{ "Value must follow after a '=' at line 2" };
+	std::string expected_message2{ "Invalid config override \"node.foo\": Value must follow after a '=' at line 1" };
 
 	// Reading when there is no config file
 	ASSERT_FALSE (std::filesystem::exists (nano::get_node_toml_config_path (path)));
