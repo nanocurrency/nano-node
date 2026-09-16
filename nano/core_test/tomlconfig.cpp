@@ -1,4 +1,5 @@
 #include <nano/lib/config.hpp>
+#include <nano/lib/config_template.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/tomlconfig.hpp>
 
@@ -9,58 +10,6 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-
-/** Ensure only different values survive a toml diff */
-TEST (tomlconfig, diff)
-{
-	nano::tomlconfig defaults, other;
-
-	// Defaults
-	std::stringstream ss;
-	ss << R"toml(
-	a = false
-	b = false
-	)toml";
-
-	defaults.read (ss);
-
-	// User file. The rpc section is the same and doesn't need to be emitted
-	std::stringstream ss_override;
-	ss_override << R"toml(
-	a = true
-	b = false
-	)toml";
-
-	other.read (ss_override);
-	other.erase_default_values (defaults);
-
-	ASSERT_TRUE (other.has_key ("a"));
-	ASSERT_FALSE (other.has_key ("b"));
-}
-
-/** Diff on equal toml files leads to an empty result */
-TEST (tomlconfig, diff_equal)
-{
-	nano::tomlconfig defaults, other;
-
-	std::stringstream ss;
-	ss << R"toml(
-	[node]
-	allow_local_peers = false
-	)toml";
-
-	defaults.read (ss);
-
-	std::stringstream ss_override;
-	ss_override << R"toml(
-	[node]
-	allow_local_peers = false
-	)toml";
-
-	other.read (ss_override);
-	other.erase_default_values (defaults);
-	ASSERT_TRUE (other.empty ());
-}
 
 TEST (tomlconfig, optional_child)
 {
@@ -438,4 +387,62 @@ TEST (config_file, invalid_file)
 	auto error = nano::read_config_file (toml, "config-test.toml", path, { "node.a=1", "node.b=2" });
 	ASSERT_TRUE (error);
 	ASSERT_NE (error.get_message ().find ("line 3"), std::string::npos) << error.get_message ();
+}
+
+/** Each value is preceded by its documentation and tables are introduced by a header of their own */
+TEST (config_template, annotates_values)
+{
+	nano::tomlconfig doc;
+	nano::tomlconfig child;
+	child.put ("io_threads", 4u, "Threads the process uses.\ntype:uint32");
+	doc.put ("port", 7076u, "Listening port");
+	doc.put_child ("process", child);
+
+	auto rendered = nano::render_config_template (doc, /* comment_values */ false);
+	ASSERT_NE (rendered.find ("\t# Listening port\n\tport = 7076\n"), std::string::npos) << rendered;
+	ASSERT_NE (rendered.find ("\n[process]\n"), std::string::npos) << rendered;
+	ASSERT_NE (rendered.find ("\t# Threads the process uses.\n\t# type:uint32\n\tio_threads = 4\n"), std::string::npos) << rendered;
+}
+
+/** With every value commented out the template parses into a document holding only empty tables */
+TEST (config_template, commented_is_empty)
+{
+	nano::tomlconfig doc;
+	nano::tomlconfig child;
+	child.put ("io_threads", 4u);
+	doc.put ("port", 7076u, "Listening port");
+	doc.put_child ("process", child);
+
+	auto rendered = nano::render_config_template (doc, /* comment_values */ true);
+	ASSERT_NE (rendered.find ("\t# port = 7076\n"), std::string::npos) << rendered;
+
+	std::stringstream ss{ rendered };
+	nano::tomlconfig parsed;
+	ASSERT_FALSE (parsed.read (ss)) << parsed.get_error ().get_message ();
+	ASSERT_FALSE (parsed.has_key ("port"));
+	ASSERT_TRUE (parsed.get_required_child ("process").empty ());
+}
+
+/** An update comments out values that still match the defaults and leaves every other value active */
+TEST (config_template, update)
+{
+	nano::tomlconfig defaults;
+	nano::tomlconfig defaults_child;
+	defaults_child.put ("threshold", 10u);
+	defaults.put ("io_threads", 4u);
+	defaults.put_child ("bootstrap", defaults_child);
+
+	nano::tomlconfig current;
+	nano::tomlconfig current_child;
+	current_child.put ("threshold", 33333u);
+	current.put ("io_threads", 4u);
+	// The defaults write no peering port at all
+	current.put ("peering_port", 7075u);
+	current.put_child ("bootstrap", current_child);
+
+	auto updated = nano::render_config_update (current, defaults);
+	ASSERT_NE (updated.find ("\t# io_threads = 4\n"), std::string::npos) << updated;
+	ASSERT_NE (updated.find ("\tpeering_port = 7075\n"), std::string::npos) << updated;
+	ASSERT_NE (updated.find ("\tthreshold = 33333\n"), std::string::npos) << updated;
+	ASSERT_EQ (updated.find ("\tio_threads = "), std::string::npos) << updated;
 }
