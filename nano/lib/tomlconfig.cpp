@@ -5,17 +5,24 @@
 #include <fstream>
 
 nano::tomlconfig::tomlconfig () :
-	tree (cpptoml::make_table ())
+	tree (cpptoml::make_table ()),
+	consumed (std::make_shared<consumed_set> ())
 {
 	error = std::make_shared<nano::error> ();
 }
 
-nano::tomlconfig::tomlconfig (std::shared_ptr<cpptoml::table> const & tree_a, std::shared_ptr<nano::error> const & error_a) :
-	nano::configbase (error_a), tree (tree_a)
+nano::tomlconfig::tomlconfig (std::shared_ptr<cpptoml::table> const & tree_a, std::shared_ptr<nano::error> const & error_a, std::shared_ptr<consumed_set> const & consumed_a) :
+	nano::configbase (error_a),
+	tree (tree_a),
+	consumed (consumed_a)
 {
 	if (!error)
 	{
 		error = std::make_shared<nano::error> ();
+	}
+	if (!consumed)
+	{
+		consumed = std::make_shared<consumed_set> ();
 	}
 }
 
@@ -117,10 +124,95 @@ void nano::tomlconfig::write (std::ostream & stream_a) const
 	tree->accept (writer);
 }
 
-/** Returns the table managed by this instance */
+namespace
+{
+void mark_subtree (nano::tomlconfig::consumed_set & consumed, cpptoml::table const & table)
+{
+	for (auto const & [key, value] : table)
+	{
+		consumed.insert (value.get ());
+		if (value->is_table ())
+		{
+			mark_subtree (consumed, *value->as_table ());
+		}
+	}
+}
+
+bool any_read (nano::tomlconfig::consumed_set const & consumed, cpptoml::table const & table)
+{
+	for (auto const & [key, value] : table)
+	{
+		if (consumed.contains (value.get ()))
+		{
+			return true;
+		}
+		if (value->is_table () && any_read (consumed, *value->as_table ()))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void collect_unknown (nano::tomlconfig::consumed_set const & consumed, cpptoml::table const & table, std::string const & prefix, std::vector<std::string> & result)
+{
+	for (auto const & [key, value] : table)
+	{
+		auto const path = prefix + key;
+		if (value->is_table ())
+		{
+			// A table that was handed out or partially read is inspected entry by entry, an untouched one is reported as a whole
+			if (consumed.contains (value.get ()) || any_read (consumed, *value->as_table ()))
+			{
+				collect_unknown (consumed, *value->as_table (), path + ".", result);
+			}
+			else
+			{
+				result.push_back (path);
+			}
+		}
+		else if (!consumed.contains (value.get ()))
+		{
+			result.push_back (path);
+		}
+	}
+}
+}
+
 std::shared_ptr<cpptoml::table> nano::tomlconfig::get_tree ()
 {
+	mark_subtree (*consumed, *tree);
 	return tree;
+}
+
+std::vector<std::string> nano::tomlconfig::unknown_keys () const
+{
+	std::vector<std::string> result;
+	collect_unknown (*consumed, *tree, "", result);
+	return result;
+}
+
+void nano::tomlconfig::mark_read (std::string const & key)
+{
+	if (auto node = tree->get_qualified (key))
+	{
+		consumed->insert (node.get ());
+	}
+}
+
+std::optional<std::string> nano::tomlconfig::get_value (std::string const & key)
+{
+	auto node = tree->get_qualified (key);
+	if (!node)
+	{
+		return std::nullopt;
+	}
+	consumed->insert (node.get ());
+	if (auto value = node->as<std::string> ())
+	{
+		return value->get ();
+	}
+	return std::nullopt;
 }
 
 /** Returns true if the toml table is empty */
@@ -142,7 +234,8 @@ std::optional<nano::tomlconfig> nano::tomlconfig::get_optional_child (std::strin
 		error->set_message ("Configuration node is not a table: " + key_a);
 		return std::nullopt;
 	}
-	return tomlconfig (child, error);
+	consumed->insert (child.get ());
+	return tomlconfig (child, error, consumed);
 }
 
 nano::tomlconfig nano::tomlconfig::get_required_child (std::string const & key_a)
@@ -160,7 +253,8 @@ nano::tomlconfig nano::tomlconfig::get_required_child (std::string const & key_a
 		error->set_message ("Configuration node is not a table: " + key_a);
 		return tomlconfig (cpptoml::make_table (), error);
 	}
-	return tomlconfig (child, error);
+	consumed->insert (child.get ());
+	return tomlconfig (child, error, consumed);
 }
 
 nano::tomlconfig & nano::tomlconfig::put_child (std::string const & key_a, nano::tomlconfig & conf_a)
@@ -289,8 +383,8 @@ nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string cons
 		if (tree->contains_qualified (key))
 		{
 			int64_t tmp;
-			auto val (tree->get_qualified_as<std::string> (key));
-			if (!boost::conversion::try_lexical_convert<int64_t> (*val, tmp) || tmp < 0 || tmp > 255)
+			auto val = get_value (key);
+			if (!val || !boost::conversion::try_lexical_convert<int64_t> (*val, tmp) || tmp < 0 || tmp > 255)
 			{
 				conditionally_set_error<uint8_t> (nano::error_config::invalid_value, optional, key);
 			}
@@ -336,8 +430,7 @@ nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string cons
 	{
 		if (tree->contains_qualified (key))
 		{
-			auto val (tree->get_qualified_as<std::string> (key));
-			bool_conv (*val);
+			bool_conv (get_value (key).value_or (""));
 		}
 		else if (!optional)
 		{
@@ -419,7 +512,7 @@ nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string key,
 	{
 		if (tree->contains_qualified (key))
 		{
-			auto address_l (tree->get_qualified_as<std::string> (key));
+			auto address_l = get_value (key);
 			boost::system::error_code bec;
 			target = boost::asio::ip::make_address_v6 (address_l.value_or (""), bec);
 			if (bec)

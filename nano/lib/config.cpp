@@ -235,6 +235,15 @@ nano::database_backend nano::default_database_backend ()
  *
  */
 
+// Using std::cerr here, since logging may not be initialized yet
+void nano::warn_unknown_keys (nano::tomlconfig const & toml, std::string_view filename)
+{
+	for (auto const & key : toml.unknown_keys ())
+	{
+		std::cerr << "Warning: unknown key `" << key << "` in " << filename << " is ignored" << std::endl;
+	}
+}
+
 nano::error nano::read_config_file (nano::tomlconfig & toml, std::string_view filename, std::filesystem::path const & data_path, std::vector<std::string> const & overrides)
 {
 	auto const path = data_path / filename;

@@ -37,6 +37,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <numeric>
 #include <sstream>
 #include <string>
@@ -279,6 +280,58 @@ TEST (toml, errors_accumulate)
 	auto message = t.get_error ().get_message ();
 	ASSERT_NE (message.find ("a is not"), std::string::npos) << message;
 	ASSERT_NE (message.find ("b is not"), std::string::npos) << message;
+}
+
+/** Entries no getter asked for are listed; a wholly unread table is listed once, a partially read one by entry */
+TEST (toml, unknown_keys)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		read = 1
+		unread = 2
+		[partial]
+		read = 3
+		unread = 4
+		[partial.child]
+		unread = 5
+		[whole]
+		a = 6
+		b = 7
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	int value = 0;
+	t.get ("read", value);
+	t.get_required_child ("partial").get ("read", value);
+
+	auto unknown = t.unknown_keys ();
+	std::sort (unknown.begin (), unknown.end ());
+	ASSERT_EQ (unknown, (std::vector<std::string>{ "partial.child", "partial.unread", "unread", "whole" }));
+
+	// Raw access to the table may inspect anything, so everything counts as read from then on
+	t.get_tree ();
+	ASSERT_TRUE (t.unknown_keys ().empty ());
+}
+
+/** has_key alone does not count as reading, dotted getters mark only the leaf */
+TEST (toml, unknown_keys_dotted)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		[node]
+		a = 1
+		b = 2
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	ASSERT_TRUE (t.has_key ("node"));
+	ASSERT_EQ (t.unknown_keys (), (std::vector<std::string>{ "node" }));
+
+	int value = 0;
+	t.get ("node.a", value);
+	ASSERT_EQ (t.unknown_keys (), (std::vector<std::string>{ "node.b" }));
 }
 
 TEST (toml, put)
@@ -1162,6 +1215,27 @@ TEST (config_file, overrides_over_file)
 	ASSERT_EQ (threads, 2);
 }
 
+/** Unknown keys do not fail the load; they are left for the caller to report */
+TEST (config_file, unknown_keys)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream file{ path / "config-test.toml" };
+		file << "[node]\nport = 1\n[node.typo]\nenable = true\n";
+	}
+
+	nano::tomlconfig toml;
+	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path, { "node.other=2" }));
+	uint16_t port{ 0 };
+	toml.get_required<uint16_t> ("node.port", port);
+	ASSERT_EQ (port, 1);
+
+	auto unknown = toml.unknown_keys ();
+	std::sort (unknown.begin (), unknown.end ());
+	ASSERT_EQ (unknown, (std::vector<std::string>{ "node.other", "node.typo" }));
+}
+
 /** A file with invalid syntax is reported with its own line number, regardless of any overrides */
 TEST (config_file, invalid_file)
 {
@@ -1176,6 +1250,59 @@ TEST (config_file, invalid_file)
 	auto error = nano::read_config_file (toml, "config-test.toml", path, { "node.a=1", "node.b=2" });
 	ASSERT_TRUE (error);
 	ASSERT_NE (error.get_message ().find ("line 3"), std::string::npos) << error.get_message ();
+}
+
+/** Every key the default node config writes is read back, so the two halves agree */
+TEST (toml_config, daemon_config_known_keys)
+{
+	nano::network_params network_params{ nano::get_active_network () };
+	nano::daemon_config defaults{ ".", network_params };
+	defaults.node.peering_port = network_params.network.default_node_port;
+
+	nano::tomlconfig written;
+	defaults.serialize_toml (written);
+	std::stringstream ss;
+	written.write (ss);
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::daemon_config config{ ".", network_params };
+	ASSERT_FALSE (config.deserialize_toml (toml)) << toml.get_error ().get_message ();
+	ASSERT_EQ (toml.unknown_keys (), std::vector<std::string>{});
+}
+
+/** Every key the default RPC config writes is read back */
+TEST (toml_config, rpc_config_known_keys)
+{
+	nano::rpc_config defaults{ nano::dev::network_params.network };
+
+	nano::tomlconfig written;
+	defaults.serialize_toml (written);
+	std::stringstream ss;
+	written.write (ss);
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::rpc_config config{ nano::dev::network_params.network };
+	ASSERT_FALSE (config.deserialize_toml (toml)) << toml.get_error ().get_message ();
+	ASSERT_EQ (toml.unknown_keys (), std::vector<std::string>{});
+}
+
+/** Every key the sample log config writes is read back */
+TEST (toml_config, log_config_known_keys)
+{
+	auto defaults = nano::log_config::sample_config ();
+
+	nano::tomlconfig written;
+	defaults.serialize_toml (written);
+	std::stringstream ss;
+	written.write (ss);
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::log_config config;
+	ASSERT_FALSE (config.deserialize_toml (toml)) << toml.get_error ().get_message ();
+	ASSERT_EQ (toml.unknown_keys (), std::vector<std::string>{});
 }
 
 /** Out of range values are accepted by the parser and rejected by validation */
