@@ -1186,14 +1186,8 @@ int main (int argc, char * const * argv)
 			nano::work_pool work{ network_params.network, std::numeric_limits<unsigned>::max () };
 			auto path1 (nano::unique_path ());
 			auto path2 (nano::unique_path ());
-			std::vector<std::string> config_overrides;
-			auto config (vm.find ("config"));
-			if (config != vm.end ())
-			{
-				config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
-			}
 			nano::daemon_config daemon_config{ data_path, network_params };
-			auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides);
+			auto error = nano::read_node_config_toml (data_path, daemon_config, nano::config_overrides (vm));
 
 			nano::node_config config1 = daemon_config.node;
 			config1.peering_port = 24000;

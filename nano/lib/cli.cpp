@@ -2,6 +2,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
+#include <boost/program_options.hpp>
 
 #include <sstream>
 
@@ -53,6 +54,16 @@ std::vector<std::string> nano::config_overrides (std::vector<config_key_value_pa
 		overrides.push_back (((!already_escaped ? format_add_escaped_quotes : format) % pair.key % value).str ());
 	}
 	return overrides;
+}
+
+std::vector<std::string> nano::config_overrides (boost::program_options::variables_map const & vm, std::string const & option_name)
+{
+	auto option = vm.find (option_name);
+	if (option == vm.end ())
+	{
+		return {};
+	}
+	return config_overrides (option->second.as<std::vector<nano::config_key_value_pair>> ());
 }
 
 std::istream & nano::operator>> (std::istream & is, nano::config_key_value_pair & into)
