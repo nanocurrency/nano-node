@@ -2,7 +2,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/env.hpp>
-#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
