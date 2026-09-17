@@ -1,3 +1,4 @@
+#include <nano/lib/files.hpp>
 #include <nano/lib/formatting.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/thread_roles.hpp>
@@ -11,6 +12,15 @@
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/store/ledger_store.hpp>
+
+namespace
+{
+// Free space below which the operator is told to act, chosen to leave room for the ledger to keep growing for a while
+constexpr std::uintmax_t disk_space_low_threshold = 10ULL * 1024 * 1024 * 1024; // 10 GiB
+// Free space below which writes are expected to start failing
+constexpr std::uintmax_t disk_space_critical_threshold = 1ULL * 1024 * 1024 * 1024; // 1 GiB
+}
 
 nano::monitor::monitor (nano::monitor_config const & config_a, nano::node & node_a) :
 	config{ config_a },
@@ -123,6 +133,26 @@ void nano::monitor::run_one ()
 		logger.warn (nano::log::type::monitor, "Peered stake ({}) is below quorum threshold ({}). The node may not be able to confirm transactions. This is usually caused by NAT, firewall rules, or internet connectivity issues.",
 		nano::log::as_nano (stake_peered),
 		nano::log::as_nano (quorum));
+	}
+
+	if (auto const disk_space = nano::get_disk_space (node.store.get_database_path ()))
+	{
+		logger.info (nano::log::type::monitor, "Ledger disk space: {}", nano::log::as_disk_space (*disk_space));
+
+		if (disk_space->available < disk_space_critical_threshold)
+		{
+			logger.critical (nano::log::type::monitor, "Disk space for the ledger database is critically low ({} available). The node is likely to fail once the disk fills up, free up space immediately.",
+			nano::log::as_size (disk_space->available));
+		}
+		else if (disk_space->available < disk_space_low_threshold)
+		{
+			logger.warn (nano::log::type::monitor, "Disk space for the ledger database is running low ({} available). The ledger keeps growing, free up space to avoid the node failing.",
+			nano::log::as_size (disk_space->available));
+		}
+	}
+	else
+	{
+		logger.warn (nano::log::type::monitor, "Unable to determine available disk space for the ledger database");
 	}
 
 	last_time = now;

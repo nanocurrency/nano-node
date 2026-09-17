@@ -90,6 +90,19 @@ TEST (filesystem, move_all_files)
 	ASSERT_FALSE (std::filesystem::exists (dummy_file2));
 }
 
+TEST (filesystem, disk_space)
+{
+	auto path = nano::unique_path ();
+
+	auto info = nano::get_disk_space (path);
+	ASSERT_TRUE (info);
+	ASSERT_GT (info->capacity, 0);
+	ASSERT_LE (info->available, info->capacity);
+
+	// A path that does not exist cannot be attributed to a filesystem
+	ASSERT_FALSE (nano::get_disk_space (path / "nonexistent"));
+}
+
 TEST (relaxed_atomic_integral, basic)
 {
 	nano::relaxed_atomic_integral<uint32_t> atomic{ 0 };

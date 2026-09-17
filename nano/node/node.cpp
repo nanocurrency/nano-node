@@ -347,6 +347,14 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	logger.info (nano::log::type::node, "Database backend: {}", store.get_vendor ());
 	logger.info (nano::log::type::node, "Data path: {}", application_path.string ());
 	logger.info (nano::log::type::node, "Ledger path: {}", store.get_database_path ().string ());
+	if (auto const disk_space = nano::get_disk_space (store.get_database_path ()))
+	{
+		logger.info (nano::log::type::node, "Ledger disk space: {}", nano::log::as_disk_space (*disk_space));
+	}
+	else
+	{
+		logger.warn (nano::log::type::node, "Unable to determine available disk space for the ledger database");
+	}
 	logger.info (nano::log::type::node, "Work pool threads: {} ({})", work.threads.size (), (work.opencl ? "OpenCL" : "CPU"));
 	logger.info (nano::log::type::node, "Work peers: {}", config.work_peers.size ());
 	logger.info (nano::log::type::node, "Node ID: {}", nano::log::as_node_id (node_id.pub));

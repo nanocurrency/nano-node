@@ -1,10 +1,12 @@
 #pragma once
 
+#include <nano/lib/fwd.hpp>
 #include <nano/lib/numbers.hpp>
 
 #include <boost/system/error_code.hpp>
 
 #include <concepts>
+#include <cstdint>
 #include <ostream>
 
 #include <fmt/format.h>
@@ -134,6 +136,22 @@ struct as_raw_nano_formatter
 	friend std::ostream & operator<< (std::ostream & os, as_raw_nano_formatter const & wrapper);
 };
 
+// Byte count rendered with the largest fitting binary unit, e.g. `123.45 GiB`
+struct as_size_formatter
+{
+	std::uintmax_t value;
+
+	friend std::ostream & operator<< (std::ostream & os, as_size_formatter const & wrapper);
+};
+
+// Filesystem capacity rendered as e.g. `123.45 GiB available of 1.81 TiB (6.7% free)`
+struct as_disk_space_formatter
+{
+	nano::disk_space_info const & info;
+
+	friend std::ostream & operator<< (std::ostream & os, as_disk_space_formatter const & wrapper);
+};
+
 inline auto as_account (nano::public_key const & key)
 {
 	return as_account_formatter{ key };
@@ -149,6 +167,14 @@ inline auto as_nano (nano::uint128_t const & value, int precision = 1)
 inline auto as_raw_nano (nano::uint128_t const & value)
 {
 	return as_raw_nano_formatter{ value };
+}
+inline auto as_size (std::uintmax_t value)
+{
+	return as_size_formatter{ value };
+}
+inline auto as_disk_space (nano::disk_space_info const & info)
+{
+	return as_disk_space_formatter{ info };
 }
 }
 
@@ -166,5 +192,13 @@ struct fmt::formatter<nano::log::as_nano_formatter> : fmt::ostream_formatter
 };
 template <>
 struct fmt::formatter<nano::log::as_raw_nano_formatter> : fmt::ostream_formatter
+{
+};
+template <>
+struct fmt::formatter<nano::log::as_size_formatter> : fmt::ostream_formatter
+{
+};
+template <>
+struct fmt::formatter<nano::log::as_disk_space_formatter> : fmt::ostream_formatter
 {
 };

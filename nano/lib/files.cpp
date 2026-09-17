@@ -83,6 +83,27 @@ void nano::initialize_file_descriptor_limit ()
  *
  */
 
+std::optional<nano::disk_space_info> nano::get_disk_space (std::filesystem::path const & path)
+{
+	std::error_code ec;
+	auto const space = std::filesystem::space (path, ec);
+	if (ec)
+	{
+		return std::nullopt;
+	}
+	// `space` reports -1 for values the platform could not determine
+	constexpr auto unknown = static_cast<std::uintmax_t> (-1);
+	if (space.capacity == unknown || space.available == unknown)
+	{
+		return std::nullopt;
+	}
+	return nano::disk_space_info{ .capacity = space.capacity, .available = space.available };
+}
+
+/*
+ *
+ */
+
 void nano::remove_all_files_in_dir (std::filesystem::path const & dir)
 {
 	for (auto & p : std::filesystem::directory_iterator (dir))
