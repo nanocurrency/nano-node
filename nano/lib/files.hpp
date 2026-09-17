@@ -2,7 +2,9 @@
 
 #include <nano/lib/networks.hpp>
 
+#include <cstdint>
 #include <filesystem>
+#include <optional>
 
 namespace nano
 {
@@ -48,6 +50,18 @@ void create_load_memory_address_files ();
 
 void remove_all_files_in_dir (std::filesystem::path const & dir);
 void move_all_files_to_dir (std::filesystem::path const & from, std::filesystem::path const & to);
+
+/*
+ * Functions for querying filesystem capacity
+ */
+struct disk_space_info
+{
+	std::uintmax_t capacity;
+	std::uintmax_t available;
+};
+
+// Capacity and free space of the filesystem holding `path`, nullopt if it cannot be determined
+std::optional<disk_space_info> get_disk_space (std::filesystem::path const & path);
 }
 
 /**

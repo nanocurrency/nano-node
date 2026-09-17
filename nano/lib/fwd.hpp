@@ -55,6 +55,7 @@ class vote;
 class work_pool;
 
 struct bootstrap_weights;
+struct disk_space_info;
 struct limiter_result;
 struct rate_limit;
 

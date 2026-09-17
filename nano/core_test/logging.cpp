@@ -1,3 +1,5 @@
+#include <nano/lib/files.hpp>
+#include <nano/lib/formatting.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -57,6 +59,34 @@ TEST (tracing, no_move)
 
 	nano::logger logger;
 	logger.trace (nano::log::type::test, nano::log::detail::test, nano::log::arg{ "non_moveable", nm });
+}
+
+TEST (log_format, as_size)
+{
+	auto format = [] (std::uintmax_t value) {
+		return fmt::format ("{}", nano::log::as_size (value));
+	};
+
+	ASSERT_EQ (format (0), "0 B");
+	ASSERT_EQ (format (1023), "1023 B");
+	ASSERT_EQ (format (1024), "1.00 KiB");
+	ASSERT_EQ (format (1024 * 1024), "1.00 MiB");
+	ASSERT_EQ (format (3ULL * 1024 * 1024 * 1024 / 2), "1.50 GiB");
+	ASSERT_EQ (format (1024ULL * 1024 * 1024 * 1024), "1.00 TiB");
+	// Largest unit is used even when the value overflows it
+	ASSERT_EQ (format (2048ULL * 1024 * 1024 * 1024 * 1024), "2048.00 TiB");
+}
+
+TEST (log_format, as_disk_space)
+{
+	auto format = [] (std::uintmax_t capacity, std::uintmax_t available) {
+		return fmt::format ("{}", nano::log::as_disk_space (nano::disk_space_info{ .capacity = capacity, .available = available }));
+	};
+
+	ASSERT_EQ (format (1024ULL * 1024 * 1024 * 1024, 512ULL * 1024 * 1024 * 1024), "512.00 GiB available of 1.00 TiB (50.0% free)");
+	ASSERT_EQ (format (1024 * 1024, 0), "0 B available of 1.00 MiB (0.0% free)");
+	// An unknown capacity must not divide by zero
+	ASSERT_EQ (format (0, 0), "0 B available of 0 B (0.0% free)");
 }
 
 TEST (log_parse, parse_level)
