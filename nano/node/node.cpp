@@ -129,8 +129,6 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	.enable_topo_index = !flags_a.disable_topo_index,
 	.enable_extended_ledger_index = config.extended_ledger_index && !flags_a.inactive_node }) },
 	ledger{ *ledger_impl },
-	runner_impl{ std::make_unique<nano::thread_runner> (io_ctx_shared, logger, config.io_threads) },
-	runner{ *runner_impl },
 	observers_impl{ std::make_unique<nano::node_observers> () },
 	observers{ *observers_impl },
 	workers_impl{ std::make_unique<nano::thread_pool> (config.background_threads, nano::thread_role::name::worker, /* start immediately */ true) },
@@ -237,6 +235,8 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	vote_rebroadcaster{ *vote_rebroadcaster_impl },
 	block_rebroadcaster_impl{ std::make_unique<nano::block_rebroadcaster> (config.block_rebroadcaster, flags, active, network, stats, logger) },
 	block_rebroadcaster{ *block_rebroadcaster_impl },
+	runner_impl{ std::make_unique<nano::thread_runner> (io_ctx_shared, logger, config.io_threads) },
+	runner{ *runner_impl },
 	startup_time{ std::chrono::steady_clock::now () },
 	node_seq{ seq }
 {

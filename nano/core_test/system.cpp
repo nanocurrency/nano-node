@@ -1,6 +1,5 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
-#include <nano/lib/thread_runner.hpp>
 #include <nano/lib/work_version.hpp>
 #include <nano/messages/keepalive.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -47,7 +46,6 @@ TEST (system, DISABLED_generate_send_existing)
 {
 	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
-	nano::thread_runner runner (system.io_ctx, system.logger, node1.config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair stake_preserver;
 	auto send_block (system.wallet (0)->send_action (nano::dev::genesis_key.pub, stake_preserver.pub, nano::dev::constants.genesis_amount / 3 * 2, true));
@@ -89,14 +87,12 @@ TEST (system, DISABLED_generate_send_existing)
 		ASSERT_NE (node1.ledger.any.block_amount (node1.ledger.tx_begin_read (), info2->head), 0);
 	}
 	system.stop ();
-	runner.join ();
 }
 
 TEST (system, DISABLED_generate_send_new)
 {
 	nano::test::system system (1);
 	auto & node1 (*system.nodes[0]);
-	nano::thread_runner runner (system.io_ctx, system.logger, node1.config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	{
 		auto transaction (node1.store.tx_begin_read ());
@@ -142,7 +138,6 @@ TEST (system, DISABLED_generate_send_new)
 	}
 	ASSERT_TIMELY (10s, node1.balance (new_account) != 0);
 	system.stop ();
-	runner.join ();
 }
 
 TEST (system, rep_initialize_one)

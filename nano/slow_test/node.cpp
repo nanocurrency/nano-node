@@ -3,7 +3,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
-#include <nano/lib/thread_runner.hpp>
 #include <nano/lib/version.hpp>
 #include <nano/lib/vote.hpp>
 #include <nano/lib/work_version.hpp>
@@ -87,7 +86,6 @@ TEST (system, generate_mass_activity_long)
 	nano::node_config node_config = system.default_config ();
 	node_config.enable_voting = false; // Prevent blocks cementing
 	auto node = system.add_node (node_config);
-	nano::thread_runner runner (system.io_ctx, system.logger, system.nodes[0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	uint32_t count (1000000);
 	auto count_env_var = std::getenv ("SLOW_TEST_SYSTEM_GENERATE_MASS_ACTIVITY_LONG_COUNT");
@@ -102,7 +100,6 @@ TEST (system, generate_mass_activity_long)
 	{
 	}
 	system.stop ();
-	runner.join ();
 }
 
 TEST (system, receive_while_synchronizing)
@@ -113,7 +110,6 @@ TEST (system, receive_while_synchronizing)
 		nano::node_config node_config = system.default_config ();
 		node_config.enable_voting = false; // Prevent blocks cementing
 		auto node = system.add_node (node_config);
-		nano::thread_runner runner (system.io_ctx, system.logger, system.nodes[0]->config.io_threads);
 		system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 		uint32_t count (1000);
 		system.generate_mass_activity (count, *system.nodes[0]);
@@ -137,7 +133,6 @@ TEST (system, receive_while_synchronizing)
 		ASSERT_TIMELY (10s, !node1->balance (key.pub).is_zero ());
 		node1->stop ();
 		system.stop ();
-		runner.join ();
 	}
 	for (auto i (threads.begin ()), n (threads.end ()); i != n; ++i)
 	{

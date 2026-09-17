@@ -1,7 +1,6 @@
 #include <nano/lib/files.hpp>
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/lib/thread_runner.hpp>
 #include <nano/node/block_processor.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
@@ -69,7 +68,6 @@ std::unique_ptr<rpc_wrapper> start_rpc (nano::test::system & system, nano::node 
 TEST (bootstrap, profile)
 {
 	nano::test::system system;
-	nano::thread_runner runner{ system.io_ctx, system.logger, 2 };
 	nano::network_type network = nano::network_type::nano_beta_network;
 	nano::network_params network_params{ network };
 
