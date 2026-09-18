@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/cli.hpp>
+#include <nano/lib/config_template.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
@@ -53,10 +54,6 @@ std::string nano::error_cli_messages::message (int ev) const
 			return "Database write error";
 		case nano::error_cli::reading_config:
 			return "Config file read error";
-		case nano::error_cli::ambiguous_pruning_voting_options:
-			return "Flag --enable_pruning and --enable_voting in node config cannot be used together";
-		case nano::error_cli::ambiguous_peering_only_options:
-			return "Flag --peering_only cannot be used together with --enable_voting or --enable_pruning";
 	}
 
 	return "Invalid error code";
@@ -235,35 +232,12 @@ void nano::update_flags (nano::node_flags & flags_a, boost::program_options::var
 	{
 		flags_a.generate_cache.consistency_check = false;
 	}
-	// Config overriding
-	auto config (vm.find ("config"));
-	if (config != vm.end ())
-	{
-		flags_a.config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
-	}
-	auto rpcconfig (vm.find ("rpcconfig"));
-	if (rpcconfig != vm.end ())
-	{
-		flags_a.rpc_config_overrides = nano::config_overrides (rpcconfig->second.as<std::vector<nano::config_key_value_pair>> ());
-	}
+	flags_a.config_overrides = nano::config_overrides (vm);
+	flags_a.rpc_config_overrides = nano::config_overrides (vm, "rpcconfig");
 	if (auto it = vm.find ("runtime_info_file"); it != vm.end ())
 	{
 		flags_a.runtime_info_file = it->second.as<std::string> ();
 	}
-}
-
-std::error_code nano::flags_config_conflicts (nano::node_flags const & flags_a, nano::node_config const & config_a)
-{
-	std::error_code ec;
-	if (flags_a.enable_pruning && (config_a.enable_voting || flags_a.enable_voting))
-	{
-		ec = nano::error_cli::ambiguous_pruning_voting_options;
-	}
-	if (flags_a.peering_only && (config_a.enable_voting || flags_a.enable_voting || flags_a.enable_pruning))
-	{
-		ec = nano::error_cli::ambiguous_peering_only_options;
-	}
-	return ec;
 }
 
 namespace
@@ -321,7 +295,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 
 	if (vm.count ("initialize"))
 	{
-		// TODO: --config flag overrides are not taken into account here
 		nano::logger::initialize (nano::log_config::daemon_default (), data_path);
 
 		auto node_flags = nano::inactive_node_flag_defaults ();
@@ -534,7 +507,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		{
 			nano::network_params network_params{ nano::get_active_network () };
 			nano::daemon_config daemon_config{ data_path, network_params };
-			if (!nano::read_node_config_toml (data_path, daemon_config))
+			if (!nano::read_node_config_toml (data_path, daemon_config, nano::config_overrides (vm)))
 			{
 				lmdb_config = daemon_config.node.lmdb_config;
 				rocksdb_config = daemon_config.node.rocksdb_config;
@@ -558,14 +531,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::network_params network_params{ nano::get_active_network () };
 		nano::daemon_config daemon_config{ data_path, network_params };
 
-		auto config_arg (vm.find ("config"));
-		std::vector<std::string> config_overrides;
-		if (config_arg != vm.end ())
-		{
-			config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
-		}
-
-		if (auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides))
+		if (auto error = nano::read_node_config_toml (data_path, daemon_config, nano::config_overrides (vm)))
 		{
 			std::cerr << "Error reading config: " << error.get_message () << std::endl;
 			ec = nano::error_cli::reading_config;
@@ -592,14 +558,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::network_params network_params{ nano::get_active_network () };
 		nano::daemon_config daemon_config{ data_path, network_params };
 
-		auto config_arg (vm.find ("config"));
-		std::vector<std::string> config_overrides;
-		if (config_arg != vm.end ())
-		{
-			config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
-		}
-
-		if (auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides))
+		if (auto error = nano::read_node_config_toml (data_path, daemon_config, nano::config_overrides (vm)))
 		{
 			std::cerr << "Error reading config: " << error.get_message () << std::endl;
 			ec = nano::error_cli::reading_config;
@@ -685,14 +644,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::network_params network_params{ nano::get_active_network () };
 		nano::daemon_config daemon_config{ data_path, network_params };
 
-		auto config_arg (vm.find ("config"));
-		std::vector<std::string> config_overrides;
-		if (config_arg != vm.end ())
-		{
-			config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
-		}
-
-		if (auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides))
+		if (auto error = nano::read_node_config_toml (data_path, daemon_config, nano::config_overrides (vm)))
 		{
 			std::cerr << "Error reading config: " << error.get_message () << std::endl;
 			ec = nano::error_cli::reading_config;
@@ -730,14 +682,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::network_params network_params{ nano::get_active_network () };
 		nano::daemon_config daemon_config{ data_path, network_params };
 
-		auto config_arg (vm.find ("config"));
-		std::vector<std::string> config_overrides;
-		if (config_arg != vm.end ())
-		{
-			config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
-		}
-
-		if (auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides))
+		if (auto error = nano::read_node_config_toml (data_path, daemon_config, nano::config_overrides (vm)))
 		{
 			std::cerr << "Error reading config: " << error.get_message () << std::endl;
 			ec = nano::error_cli::reading_config;
@@ -776,14 +721,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::network_params network_params{ nano::get_active_network () };
 		nano::daemon_config daemon_config{ data_path, network_params };
 
-		auto config_arg (vm.find ("config"));
-		std::vector<std::string> config_overrides;
-		if (config_arg != vm.end ())
-		{
-			config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
-		}
-
-		if (auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides))
+		if (auto error = nano::read_node_config_toml (data_path, daemon_config, nano::config_overrides (vm)))
 		{
 			std::cerr << "Error reading config: " << error.get_message () << std::endl;
 			ec = nano::error_cli::reading_config;
@@ -821,14 +759,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::network_params network_params{ nano::get_active_network () };
 		nano::daemon_config daemon_config{ data_path, network_params };
 
-		auto config_arg (vm.find ("config"));
-		std::vector<std::string> config_overrides;
-		if (config_arg != vm.end ())
-		{
-			config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
-		}
-
-		if (auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides))
+		if (auto error = nano::read_node_config_toml (data_path, daemon_config, nano::config_overrides (vm)))
 		{
 			std::cerr << "Error reading config: " << error.get_message () << std::endl;
 			ec = nano::error_cli::reading_config;
@@ -1111,7 +1042,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		else if (type == "rpc")
 		{
 			valid_type = true;
-			nano::rpc_config config{ nano::dev::network_params.network };
+			nano::network_params network_params{ nano::get_active_network () };
+			nano::rpc_config config{ network_params.network };
 			config.serialize_toml (toml);
 		}
 		else if (type == "log")
@@ -1134,39 +1066,40 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					  << "# It is not recommended to uncomment every field, as the default value for important fields may change in the future. Only change what you need.\n"
 					  << "# Additional information for notable configuration options is available in https://docs.nano.org/running-a-node/configuration/#notable-configuration-options\n";
 
-			if (vm.count ("use_defaults"))
-			{
-				std::cout << toml.to_string (false) << std::endl;
-			}
-			else
-			{
-				std::cout << toml.to_string (true) << std::endl;
-			}
+			std::cout << nano::render_config_template (toml, /* comment_values */ vm.count ("use_defaults") == 0) << std::endl;
 		}
 	}
 	else if (vm.count ("update_config"))
 	{
 		nano::network_params network_params{ nano::get_active_network () };
-		nano::tomlconfig default_toml;
-		nano::tomlconfig current_toml;
 		nano::daemon_config default_config{ data_path, network_params };
 		nano::daemon_config current_config{ data_path, network_params };
 
-		std::vector<std::string> config_overrides;
-		auto error = nano::read_node_config_toml (data_path, current_config, config_overrides);
+		// Command line overrides are deliberately left out so that the printed config reflects the file only
+		nano::tomlconfig file_toml;
+		auto error = nano::read_config_file (file_toml, nano::node_config_filename, data_path);
+		if (!error)
+		{
+			error = current_config.deserialize_toml (file_toml);
+		}
 		if (error)
 		{
-			std::cerr << "Could not read existing config file\n";
+			std::cerr << "Could not read existing config file: " << error.get_message () << std::endl;
 			ec = nano::error_cli::reading_config;
 		}
 		else
 		{
+			for (auto const & key : file_toml.unknown_keys ())
+			{
+				std::cerr << "Dropping unknown key `" << key << "`" << std::endl;
+			}
+
+			nano::tomlconfig current_toml;
+			nano::tomlconfig default_toml;
 			current_config.serialize_toml (current_toml);
 			default_config.serialize_toml (default_toml);
 
-			auto output = current_toml.merge_defaults (current_toml, default_toml);
-
-			std::cout << output;
+			std::cout << nano::render_config_update (current_toml, default_toml);
 		}
 	}
 	else if (vm.count ("diagnostics"))
@@ -1791,16 +1724,7 @@ bool is_using_rocksdb (std::filesystem::path const & data_path, boost::program_o
 	nano::network_params network_params{ nano::get_active_network () };
 	nano::daemon_config config{ data_path, network_params };
 
-	// Config overriding
-	auto config_arg (vm.find ("config"));
-	std::vector<std::string> config_overrides;
-	if (config_arg != vm.end ())
-	{
-		config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
-	}
-
-	// config override...
-	auto error = nano::read_node_config_toml (data_path, config, config_overrides);
+	auto error = nano::read_node_config_toml (data_path, config, nano::config_overrides (vm));
 	if (!error)
 	{
 		return config.node.rocksdb_config->enable;

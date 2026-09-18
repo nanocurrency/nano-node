@@ -30,7 +30,12 @@ public:
 	~node_config ();
 
 	nano::error serialize_toml (nano::tomlconfig &) const;
+	/** Reads values from the document without range checking them, see validate */
 	nano::error deserialize_toml (nano::tomlconfig &);
+	/** Checks value ranges and cross-field constraints; the error message lists every violation */
+	nano::error validate () const;
+	/** As validate, plus conflicts between the config and command line flags */
+	nano::error validate (nano::node_flags const &) const;
 
 	nano::account random_representative () const;
 

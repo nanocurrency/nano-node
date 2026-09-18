@@ -24,7 +24,7 @@ nano::error nano::lmdb_config::serialize_toml (nano::tomlconfig & toml) const
 	}
 
 	toml.put ("sync", sync_string, "Sync strategy for flushing commits to the ledger database. This does not affect the wallet database.\ntype:string,{always, nosync_safe, nosync_unsafe, nosync_unsafe_large_memory}");
-	toml.put ("max_databases", max_databases, "Maximum open lmdb databases. Increase default if more than 100 wallets is required.\nNote: external management is recommended when a large amounts of wallets are required (see https://docs.nano.org/integration-guides/key-management/).\ntype:uin32");
+	toml.put ("max_databases", max_databases, "Maximum open lmdb databases. Increase default if more than 100 wallets is required.\nNote: external management is recommended when a large amounts of wallets are required (see https://docs.nano.org/integration-guides/key-management/).\ntype:uint32");
 	toml.put ("map_size", map_size, "Maximum ledger database map size in bytes.\ntype:uint64");
 	return toml.get_error ();
 }

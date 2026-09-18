@@ -1,4 +1,3 @@
-#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/node_rpc_config.hpp>
 
@@ -17,7 +16,6 @@ nano::error nano::node_rpc_config::serialize_toml (nano::tomlconfig & toml) cons
 
 nano::error nano::node_rpc_config::deserialize_toml (nano::tomlconfig & toml)
 {
-	toml.get_optional ("enable_sign_hash", enable_sign_hash);
 	toml.get_optional<bool> ("enable_sign_hash", enable_sign_hash);
 
 	auto child_process_l (toml.get_optional_child ("child_process"));

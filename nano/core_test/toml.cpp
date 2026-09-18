@@ -1,3 +1,4 @@
+#include <nano/lib/config_template.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/lmdbconfig.hpp>
@@ -37,63 +38,12 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <numeric>
 #include <sstream>
 #include <string>
 
 using namespace std::chrono_literals;
-
-/** Ensure only different values survive a toml diff */
-TEST (toml, diff)
-{
-	nano::tomlconfig defaults, other;
-
-	// Defaults
-	std::stringstream ss;
-	ss << R"toml(
-	a = false
-	b = false
-	)toml";
-
-	defaults.read (ss);
-
-	// User file. The rpc section is the same and doesn't need to be emitted
-	std::stringstream ss_override;
-	ss_override << R"toml(
-	a = true
-	b = false
-	)toml";
-
-	other.read (ss_override);
-	other.erase_default_values (defaults);
-
-	ASSERT_TRUE (other.has_key ("a"));
-	ASSERT_FALSE (other.has_key ("b"));
-}
-
-/** Diff on equal toml files leads to an empty result */
-TEST (toml, diff_equal)
-{
-	nano::tomlconfig defaults, other;
-
-	std::stringstream ss;
-	ss << R"toml(
-	[node]
-	allow_local_peers = false
-	)toml";
-
-	defaults.read (ss);
-
-	std::stringstream ss_override;
-	ss_override << R"toml(
-	[node]
-	allow_local_peers = false
-	)toml";
-
-	other.read (ss_override);
-	other.erase_default_values (defaults);
-	ASSERT_TRUE (other.empty ());
-}
 
 TEST (toml, optional_child)
 {
@@ -113,16 +63,47 @@ TEST (toml, optional_child)
 	ASSERT_FALSE (c2);
 }
 
-/** Config settings passed via CLI overrides the config file settings. This is solved
-using an override stream. */
-TEST (toml, dot_child_syntax)
+/** A missing required child sets an error and yields an empty table instead of aliasing the parent */
+TEST (toml, required_child_missing)
 {
-	std::stringstream ss_override;
-	ss_override << R"toml(
-		node.a = 1
-		node.b = 2
+	std::stringstream ss;
+	ss << R"toml(
+		val=1
 	)toml";
 
+	nano::tomlconfig t;
+	t.read (ss);
+	auto child = t.get_required_child ("child");
+	ASSERT_TRUE (t.get_error ());
+	ASSERT_EQ (t.get_error (), nano::error_config::missing_value);
+	ASSERT_TRUE (child.empty ());
+	ASSERT_FALSE (child.has_key ("val"));
+}
+
+/** A key holding a plain value cannot be opened as a child table */
+TEST (toml, child_not_table)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		child=1
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	ASSERT_FALSE (t.get_optional_child ("child"));
+	ASSERT_TRUE (t.get_error ());
+	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
+	t.get_error ().clear ();
+
+	auto child = t.get_required_child ("child");
+	ASSERT_TRUE (t.get_error ());
+	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
+	ASSERT_TRUE (child.empty ());
+}
+
+/** Overrides with dotted keys land in the addressed table and keep its other keys */
+TEST (toml, override_dotted_keys)
+{
 	std::stringstream ss;
 	ss << R"toml(
 		[node]
@@ -131,7 +112,8 @@ TEST (toml, dot_child_syntax)
 	)toml";
 
 	nano::tomlconfig t;
-	t.read (ss_override, ss);
+	t.read (ss);
+	ASSERT_FALSE (t.apply_overrides ({ "node.a = 1", "node.b = 2" }));
 
 	auto node = t.get_required_child ("node");
 	uint16_t a, b, c;
@@ -143,46 +125,162 @@ TEST (toml, dot_child_syntax)
 	ASSERT_EQ (c, 3);
 }
 
-TEST (toml, base_override)
+/** An override replaces the file's value and later overrides win over earlier ones */
+TEST (toml, override_precedence)
 {
-	std::stringstream ss_base;
-	ss_base << R"toml(
-	        node.peering_port=7075
-	)toml";
-
-	std::stringstream ss_override;
-	ss_override << R"toml(
-	        node.peering_port=8075
-			node.too_big=70000
+	std::stringstream ss;
+	ss << R"toml(
+		node.peering_port=7075
 	)toml";
 
 	nano::tomlconfig t;
-	t.read (ss_override, ss_base);
+	t.read (ss);
+	ASSERT_FALSE (t.apply_overrides ({ "node.peering_port=8075", "node.peering_port=9075" }));
 
-	// Query optional existent value
 	uint16_t port = 0;
 	t.get_optional<uint16_t> ("node.peering_port", port);
-	ASSERT_EQ (port, 8075);
+	ASSERT_EQ (port, 9075);
 	ASSERT_FALSE (t.get_error ());
+}
 
-	// Query optional non-existent value, make sure we get default and no errors
-	port = 65535;
-	t.get_optional<uint16_t> ("node.peering_port_non_existent", port);
-	ASSERT_EQ (port, 65535);
-	ASSERT_FALSE (t.get_error ());
+/** Overrides create missing tables and arrays replace the whole array */
+TEST (toml, override_creates_tables)
+{
+	nano::tomlconfig t;
+	std::stringstream ss;
+	ss << R"toml(
+		[node]
+		items = ["old"]
+	)toml";
+	t.read (ss);
+	ASSERT_FALSE (t.apply_overrides ({ "node.child.value=1", "node.items=[\"a\",\"b\"]" }));
+
+	uint16_t value = 0;
+	t.get_required<uint16_t> ("node.child.value", value);
+	ASSERT_EQ (value, 1);
+
+	std::vector<std::string> items;
+	t.get_required_child ("node").array_entries_required<std::string> ("items", [&items] (std::string item) {
+		items.push_back (item);
+	});
+	ASSERT_EQ (items, (std::vector<std::string>{ "a", "b" }));
+}
+
+/** A malformed override is reported with the offending entry and leaves the document untouched */
+TEST (toml, override_invalid)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		[node]
+		a=1
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	ASSERT_TRUE (t.apply_overrides ({ "node.b=2", "node.foo" }));
+	ASSERT_NE (t.get_error ().get_message ().find ("node.foo"), std::string::npos);
+
+	// The valid override before the malformed one was applied, the document itself is intact
 	t.get_error ().clear ();
+	uint16_t a = 0, b = 0;
+	t.get_required<uint16_t> ("node.a", a);
+	t.get_required<uint16_t> ("node.b", b);
+	ASSERT_EQ (a, 1);
+	ASSERT_EQ (b, 2);
+}
 
-	// Query required non-existent value, make sure it errors
-	t.get_required<uint16_t> ("node.peering_port_not_existent", port);
+/** Type errors on overridden values are reported like any other value */
+TEST (toml, override_type_error)
+{
+	nano::tomlconfig t;
+	ASSERT_FALSE (t.apply_overrides ({ "node.too_big=70000" }));
+
+	uint16_t port = 65535;
+	t.get_optional<uint16_t> ("node.missing", port);
 	ASSERT_EQ (port, 65535);
-	ASSERT_TRUE (t.get_error ());
+	ASSERT_FALSE (t.get_error ());
+
+	t.get_required<uint16_t> ("node.missing", port);
 	ASSERT_EQ (t.get_error (), nano::error_config::missing_value);
 	t.get_error ().clear ();
 
-	// Query uint16 that's too big, make sure we have an error
 	t.get_required<uint16_t> ("node.too_big", port);
-	ASSERT_TRUE (t.get_error ());
 	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
+}
+
+/** Every invalid value in a document is reported, with the first one deciding the error code */
+TEST (toml, errors_accumulate)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		a = 70000
+		b = "text"
+		c = 7
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	uint16_t a{ 0 }, b{ 0 }, c{ 0 };
+	t.get<uint16_t> ("a", a);
+	t.get<uint16_t> ("b", b);
+	t.get<uint16_t> ("c", c);
+	ASSERT_EQ (c, 7);
+	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
+	auto message = t.get_error ().get_message ();
+	ASSERT_NE (message.find ("a is not"), std::string::npos) << message;
+	ASSERT_NE (message.find ("b is not"), std::string::npos) << message;
+}
+
+/** Entries no getter asked for are listed; a wholly unread table is listed once, a partially read one by entry */
+TEST (toml, unknown_keys)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		read = 1
+		unread = 2
+		[partial]
+		read = 3
+		unread = 4
+		[partial.child]
+		unread = 5
+		[whole]
+		a = 6
+		b = 7
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	int value = 0;
+	t.get ("read", value);
+	t.get_required_child ("partial").get ("read", value);
+
+	auto unknown = t.unknown_keys ();
+	std::sort (unknown.begin (), unknown.end ());
+	ASSERT_EQ (unknown, (std::vector<std::string>{ "partial.child", "partial.unread", "unread", "whole" }));
+
+	// Raw access to the table may inspect anything, so everything counts as read from then on
+	t.get_tree ();
+	ASSERT_TRUE (t.unknown_keys ().empty ());
+}
+
+/** has_key alone does not count as reading, dotted getters mark only the leaf */
+TEST (toml, unknown_keys_dotted)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		[node]
+		a = 1
+		b = 2
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	ASSERT_TRUE (t.has_key ("node"));
+	ASSERT_EQ (t.unknown_keys (), (std::vector<std::string>{ "node" }));
+
+	int value = 0;
+	t.get ("node.a", value);
+	ASSERT_EQ (t.unknown_keys (), (std::vector<std::string>{ "node.b" }));
 }
 
 TEST (toml, put)
@@ -939,7 +1037,7 @@ TEST (toml_config, rpc_config_deserialize_no_defaults)
 	port = 999
 	[process]
 	io_threads = 999
-	ipc_address = "0:0:0:0:0:ffff:7f01:101"
+	ipc_address = "0:0:0:0:0:ffff:7f01:0102"
 	ipc_port = 999
 	num_ipc_connections = 999
 	[logging]
@@ -962,6 +1060,7 @@ TEST (toml_config, rpc_config_deserialize_no_defaults)
 
 	ASSERT_NE (conf.rpc_process.io_threads, defaults.rpc_process.io_threads);
 	ASSERT_NE (conf.rpc_process.ipc_address, defaults.rpc_process.ipc_address);
+	ASSERT_EQ (conf.rpc_process.ipc_address, "::ffff:127.1.1.2");
 	ASSERT_NE (conf.rpc_process.ipc_port, defaults.rpc_process.ipc_port);
 	ASSERT_NE (conf.rpc_process.num_ipc_connections, defaults.rpc_process.num_ipc_connections);
 
@@ -990,8 +1089,173 @@ TEST (toml_config, rpc_config_no_required)
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
 }
 
-/** Deserialize a node config with incorrect values */
-TEST (toml_config, daemon_config_deserialize_errors)
+/** Reading a path that does not exist reports an error and does not create the file */
+TEST (toml, read_missing_file)
+{
+	auto path = nano::unique_path () / "missing.toml";
+	nano::tomlconfig toml;
+	ASSERT_TRUE (toml.read (path));
+	ASSERT_FALSE (std::filesystem::exists (path));
+}
+
+/** Writing creates the file and replaces any previous content */
+TEST (toml, write_replaces_content)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	auto file = path / "config.toml";
+
+	nano::tomlconfig longer;
+	longer.put ("a_long_key_name", "a long value that takes up space");
+	longer.put ("another_key", "more");
+	longer.write (file);
+
+	nano::tomlconfig shorter;
+	shorter.put ("a", "b");
+	shorter.write (file);
+
+	nano::tomlconfig read;
+	ASSERT_FALSE (read.read (file));
+	ASSERT_TRUE (read.has_key ("a"));
+	ASSERT_FALSE (read.has_key ("another_key"));
+}
+
+/** A missing config file yields an empty document and is not created */
+TEST (config_file, missing_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+
+	nano::tomlconfig toml;
+	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path));
+	ASSERT_TRUE (toml.empty ());
+	ASSERT_FALSE (std::filesystem::exists (path / "config-test.toml"));
+}
+
+/** Overrides apply even when there is no config file */
+TEST (config_file, overrides_without_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+
+	nano::tomlconfig toml;
+	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path, { "node.port=7075" }));
+	uint16_t port{ 0 };
+	toml.get_required<uint16_t> ("node.port", port);
+	ASSERT_EQ (port, 7075);
+}
+
+/** Overrides take precedence over the file and untouched keys keep the file's values */
+TEST (config_file, overrides_over_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream file{ path / "config-test.toml" };
+		file << "[node]\nport = 1\nthreads = 2\n";
+	}
+
+	nano::tomlconfig toml;
+	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path, { "node.port=3" }));
+	uint16_t port{ 0 }, threads{ 0 };
+	toml.get_required<uint16_t> ("node.port", port);
+	toml.get_required<uint16_t> ("node.threads", threads);
+	ASSERT_EQ (port, 3);
+	ASSERT_EQ (threads, 2);
+}
+
+/** Unknown keys do not fail the load; they are left for the caller to report */
+TEST (config_file, unknown_keys)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream file{ path / "config-test.toml" };
+		file << "[node]\nport = 1\n[node.typo]\nenable = true\n";
+	}
+
+	nano::tomlconfig toml;
+	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path, { "node.other=2" }));
+	uint16_t port{ 0 };
+	toml.get_required<uint16_t> ("node.port", port);
+	ASSERT_EQ (port, 1);
+
+	auto unknown = toml.unknown_keys ();
+	std::sort (unknown.begin (), unknown.end ());
+	ASSERT_EQ (unknown, (std::vector<std::string>{ "node.other", "node.typo" }));
+}
+
+/** A file with invalid syntax is reported with its own line number, regardless of any overrides */
+TEST (config_file, invalid_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream file{ path / "config-test.toml" };
+		file << "[node]\nport = 1\nthreads = \n";
+	}
+
+	nano::tomlconfig toml;
+	auto error = nano::read_config_file (toml, "config-test.toml", path, { "node.a=1", "node.b=2" });
+	ASSERT_TRUE (error);
+	ASSERT_NE (error.get_message ().find ("line 3"), std::string::npos) << error.get_message ();
+}
+
+/** Every key the default node config writes is read back, so the two halves agree */
+TEST (toml_config, daemon_config_known_keys)
+{
+	nano::network_params network_params{ nano::get_active_network () };
+	nano::daemon_config defaults{ ".", network_params };
+	defaults.node.peering_port = network_params.network.default_node_port;
+
+	nano::tomlconfig written;
+	defaults.serialize_toml (written);
+	std::stringstream ss;
+	written.write (ss);
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::daemon_config config{ ".", network_params };
+	ASSERT_FALSE (config.deserialize_toml (toml)) << toml.get_error ().get_message ();
+	ASSERT_EQ (toml.unknown_keys (), std::vector<std::string>{});
+}
+
+/** Every key the default RPC config writes is read back */
+TEST (toml_config, rpc_config_known_keys)
+{
+	nano::rpc_config defaults{ nano::dev::network_params.network };
+
+	nano::tomlconfig written;
+	defaults.serialize_toml (written);
+	std::stringstream ss;
+	written.write (ss);
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::rpc_config config{ nano::dev::network_params.network };
+	ASSERT_FALSE (config.deserialize_toml (toml)) << toml.get_error ().get_message ();
+	ASSERT_EQ (toml.unknown_keys (), std::vector<std::string>{});
+}
+
+/** Every key the sample log config writes is read back */
+TEST (toml_config, log_config_known_keys)
+{
+	auto defaults = nano::log_config::sample_config ();
+
+	nano::tomlconfig written;
+	defaults.serialize_toml (written);
+	std::stringstream ss;
+	written.write (ss);
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::log_config config;
+	ASSERT_FALSE (config.deserialize_toml (toml)) << toml.get_error ().get_message ();
+	ASSERT_EQ (toml.unknown_keys (), std::vector<std::string>{});
+}
+
+/** Out of range values are accepted by the parser and rejected by validation */
+TEST (toml_config, daemon_config_validate)
 {
 	{
 		std::stringstream ss;
@@ -1003,9 +1267,9 @@ TEST (toml_config, daemon_config_deserialize_errors)
 		nano::tomlconfig toml;
 		toml.read (ss);
 		nano::daemon_config conf;
-		conf.deserialize_toml (toml);
+		ASSERT_FALSE (conf.deserialize_toml (toml));
 
-		ASSERT_EQ (toml.get_error ().get_message (), "max_work_generate_multiplier must be greater than or equal to 1");
+		ASSERT_EQ (conf.validate ().get_message (), "max_work_generate_multiplier must be greater than or equal to 1");
 	}
 	{
 		std::stringstream ss;
@@ -1017,32 +1281,85 @@ TEST (toml_config, daemon_config_deserialize_errors)
 		nano::tomlconfig toml;
 		toml.read (ss);
 		nano::daemon_config conf;
-		conf.deserialize_toml (toml);
+		ASSERT_FALSE (conf.deserialize_toml (toml));
 
-		ASSERT_EQ (toml.get_error ().get_message (), "bootstrap_frontier_request_count must be greater than or equal to 1024");
+		ASSERT_EQ (conf.validate ().get_message (), "bootstrap_frontier_request_count must be greater than or equal to 1024");
 	}
+}
+
+/** Every violation is reported at once, not just the first one */
+TEST (toml_config, daemon_config_validate_all)
+{
+	std::stringstream ss;
+	ss << R"toml(
+	[node]
+	io_threads = 0
+	password_fanout = 1
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::daemon_config conf;
+	ASSERT_FALSE (conf.deserialize_toml (toml));
+
+	auto message = conf.validate ().get_message ();
+	ASSERT_NE (message.find ("io_threads must be non-zero"), std::string::npos) << message;
+	ASSERT_NE (message.find ("password_fanout must be a number between 16 and 1048576"), std::string::npos) << message;
+}
+
+/** Flags that contradict the config are reported alongside value violations */
+TEST (toml_config, node_config_validate_flags)
+{
+	nano::node_config config{ nano::dev::network_params };
+	nano::node_flags flags;
+	ASSERT_FALSE (config.validate (flags));
+
+	// Pruning cannot be combined with voting, whether voting comes from the config or a flag
+	config.enable_voting = true;
+	flags.enable_pruning = true;
+	ASSERT_TRUE (config.validate (flags));
+	config.enable_voting = false;
+	ASSERT_FALSE (config.validate (flags));
+	flags.enable_voting = true;
+	ASSERT_TRUE (config.validate (flags));
+
+	// A peering only node runs no ledger subsystems
+	flags = {};
+	flags.peering_only = true;
+	flags.enable_voting = true;
+	ASSERT_TRUE (config.validate (flags));
+
+	// Value violations and flag conflicts end up in the same message
+	config.io_threads = 0;
+	auto message = config.validate (flags).get_message ();
+	ASSERT_NE (message.find ("io_threads must be non-zero"), std::string::npos) << message;
+	ASSERT_NE (message.find ("--peering_only"), std::string::npos) << message;
 }
 
 TEST (toml_config, daemon_read_config)
 {
 	auto path (nano::unique_path ());
 	std::filesystem::create_directories (path);
-	nano::daemon_config config;
 	std::vector<std::string> invalid_overrides1{ "node.max_work_generate_multiplier=0" };
 	std::string expected_message1{ "max_work_generate_multiplier must be greater than or equal to 1" };
 
 	std::vector<std::string> invalid_overrides2{ "node.websocket.enable=true", "node.foo" };
-	std::string expected_message2{ "Value must follow after a '=' at line 2" };
+	std::string expected_message2{ "Invalid config override \"node.foo\": Value must follow after a '=' at line 1" };
 
 	// Reading when there is no config file
 	ASSERT_FALSE (std::filesystem::exists (nano::get_node_toml_config_path (path)));
-	ASSERT_FALSE (nano::read_node_config_toml (path, config));
 	{
+		nano::daemon_config config;
+		ASSERT_FALSE (nano::read_node_config_toml (path, config));
+	}
+	{
+		nano::daemon_config config;
 		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);
 		ASSERT_TRUE (error);
 		ASSERT_EQ (error.get_message (), expected_message1);
 	}
 	{
+		nano::daemon_config config;
 		auto error = nano::read_node_config_toml (path, config, invalid_overrides2);
 		ASSERT_TRUE (error);
 		ASSERT_EQ (error.get_message (), expected_message2);
@@ -1054,13 +1371,18 @@ TEST (toml_config, daemon_read_config)
 
 	// Reading when there is a config file
 	ASSERT_TRUE (std::filesystem::exists (nano::get_node_toml_config_path (path)));
-	ASSERT_FALSE (nano::read_node_config_toml (path, config));
 	{
+		nano::daemon_config config;
+		ASSERT_FALSE (nano::read_node_config_toml (path, config));
+	}
+	{
+		nano::daemon_config config;
 		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);
 		ASSERT_TRUE (error);
 		ASSERT_EQ (error.get_message (), expected_message1);
 	}
 	{
+		nano::daemon_config config;
 		auto error = nano::read_node_config_toml (path, config, invalid_overrides2);
 		ASSERT_TRUE (error);
 		ASSERT_EQ (error.get_message (), expected_message2);
@@ -1156,18 +1478,58 @@ TEST (toml_config, log_config_no_required)
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
 }
 
-TEST (toml_config, merge_config_files)
+/** The annotated template with active values parses back into the very same document */
+TEST (config_template, defaults_round_trip)
 {
 	nano::network_params network_params{ nano::get_active_network () };
-	nano::tomlconfig default_toml;
-	nano::tomlconfig current_toml;
-	nano::tomlconfig merged_toml;
+	nano::daemon_config defaults{ ".", network_params };
+	defaults.node.peering_port = network_params.network.default_node_port;
+	nano::tomlconfig written;
+	defaults.serialize_toml (written);
+
+	auto rendered = nano::render_config_template (written, /* comment_values */ false);
+	ASSERT_NE (rendered.find ("\n[node]\n"), std::string::npos);
+	ASSERT_NE (rendered.find ("\n[node.active_elections]\n"), std::string::npos);
+	ASSERT_NE (rendered.find ("\t# Node peering port.\n\t# type:uint16\n\tpeering_port = "), std::string::npos);
+
+	std::stringstream ss{ rendered };
+	nano::tomlconfig parsed;
+	ASSERT_FALSE (parsed.read (ss)) << parsed.get_error ().get_message ();
+	nano::daemon_config config{ ".", network_params };
+	ASSERT_FALSE (config.deserialize_toml (parsed)) << parsed.get_error ().get_message ();
+	ASSERT_TRUE (parsed.unknown_keys ().empty ());
+
+	nano::tomlconfig rewritten;
+	config.serialize_toml (rewritten);
+	ASSERT_EQ (nano::render_config_template (rewritten, false), rendered);
+}
+
+/** With every value commented out the template parses into a document holding only empty tables */
+TEST (config_template, commented_is_empty)
+{
+	nano::rpc_config defaults{ nano::dev::network_params.network };
+	nano::tomlconfig written;
+	defaults.serialize_toml (written);
+
+	auto rendered = nano::render_config_template (written, /* comment_values */ true);
+	ASSERT_NE (rendered.find ("\t# port = "), std::string::npos);
+
+	std::stringstream ss{ rendered };
+	nano::tomlconfig parsed;
+	ASSERT_FALSE (parsed.read (ss)) << parsed.get_error ().get_message ();
+	ASSERT_FALSE (parsed.has_key ("port"));
+	ASSERT_TRUE (parsed.get_required_child ("process").empty ());
+	ASSERT_TRUE (parsed.get_required_child ("logging").empty ());
+}
+
+/** Updating keeps the operator's changes active, comments defaults out and loses unknown keys */
+TEST (config_template, update_keeps_changes)
+{
+	nano::network_params network_params{ nano::get_active_network () };
 	nano::daemon_config default_config{ ".", network_params };
 	nano::daemon_config current_config{ ".", network_params };
-	nano::daemon_config merged_config{ ".", network_params };
 
 	std::stringstream ss;
-
 	ss << R"toml(
 	[node]
 	 active_elections.size = 999
@@ -1177,25 +1539,47 @@ TEST (toml_config, merge_config_files)
 	 old_entry = 34
 	)toml";
 
-	current_toml.read (ss);
-	current_config.deserialize_toml (current_toml);
+	nano::tomlconfig file_toml;
+	file_toml.read (ss);
+	ASSERT_FALSE (current_config.deserialize_toml (file_toml));
+	ASSERT_EQ (file_toml.unknown_keys (), (std::vector<std::string>{ "node.bootstrap.old_entry" }));
 
+	nano::tomlconfig current_toml;
+	nano::tomlconfig default_toml;
 	current_config.serialize_toml (current_toml);
 	default_config.serialize_toml (default_toml);
+	auto updated = nano::render_config_update (current_toml, default_toml);
 
-	auto merged_config_string = current_toml.merge_defaults (current_toml, default_toml);
+	ASSERT_NE (updated.find ("\tsize = 999\n"), std::string::npos);
+	ASSERT_NE (updated.find ("\tblock_processor_threshold = 33333\n"), std::string::npos);
+	ASSERT_NE (updated.find ("\t# background_threads = "), std::string::npos);
+	ASSERT_EQ (updated.find ("old_entry"), std::string::npos);
 
-	// Configs have been merged. Let's read and parse the new config file and verify the values
-
-	std::stringstream ss2;
-	ss2 << merged_config_string;
-
-	merged_toml.read (ss2);
-	merged_config.deserialize_toml (merged_toml);
-
-	ASSERT_NE (merged_config.node.active_elections->size, default_config.node.active_elections->size);
+	std::stringstream ss2{ updated };
+	nano::tomlconfig merged_toml;
+	ASSERT_FALSE (merged_toml.read (ss2)) << merged_toml.get_error ().get_message ();
+	nano::daemon_config merged_config{ ".", network_params };
+	ASSERT_FALSE (merged_config.deserialize_toml (merged_toml));
 	ASSERT_EQ (merged_config.node.active_elections->size, 999);
-	ASSERT_NE (merged_config.node.background_threads, 7777);
+	ASSERT_EQ (merged_config.node.background_threads, default_config.node.background_threads);
 	ASSERT_EQ (merged_config.node.bootstrap->block_processor_threshold, 33333);
-	ASSERT_TRUE (merged_config_string.find ("old_entry") == std::string::npos);
+}
+
+/** A value the defaults do not write at all, such as the peering port, stays active and does not disturb the rest */
+TEST (config_template, update_extra_key)
+{
+	nano::network_params network_params{ nano::get_active_network () };
+	nano::daemon_config default_config{ ".", network_params };
+	nano::daemon_config current_config{ ".", network_params };
+	current_config.node.peering_port = 7075;
+
+	nano::tomlconfig current_toml;
+	nano::tomlconfig default_toml;
+	current_config.serialize_toml (current_toml);
+	default_config.serialize_toml (default_toml);
+	auto updated = nano::render_config_update (current_toml, default_toml);
+
+	ASSERT_NE (updated.find ("\tpeering_port = 7075\n"), std::string::npos);
+	ASSERT_NE (updated.find ("\t# io_threads = "), std::string::npos);
+	ASSERT_EQ (updated.find ("\tio_threads = "), std::string::npos);
 }

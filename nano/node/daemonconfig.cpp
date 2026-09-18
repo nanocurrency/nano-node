@@ -1,10 +1,6 @@
 #include <nano/lib/config.hpp>
-#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
-
-#include <sstream>
-#include <vector>
 
 nano::daemon_config::daemon_config (std::filesystem::path const & data_path_a, nano::network_params & network_params) :
 	node{ network_params },
@@ -22,8 +18,7 @@ nano::error nano::daemon_config::serialize_toml (nano::tomlconfig & toml)
 
 	nano::tomlconfig node_l;
 	node.serialize_toml (node_l);
-	nano::tomlconfig node (node_l);
-	toml.put_child ("node", node);
+	toml.put_child ("node", node_l);
 
 	nano::tomlconfig opencl_l;
 	opencl.serialize_toml (opencl_l);
@@ -59,39 +54,12 @@ nano::error nano::daemon_config::deserialize_toml (nano::tomlconfig & toml)
 	return toml.get_error ();
 }
 
+nano::error nano::daemon_config::validate () const
+{
+	return node.validate ();
+}
+
 nano::error nano::read_node_config_toml (std::filesystem::path const & data_path_a, nano::daemon_config & config_a, std::vector<std::string> const & config_overrides)
 {
-	nano::error error;
-	auto toml_config_path = nano::get_node_toml_config_path (data_path_a);
-	auto toml_qt_config_path = nano::get_qtwallet_toml_config_path (data_path_a);
-
-	// Parse and deserialize
-	nano::tomlconfig toml;
-
-	std::stringstream config_overrides_stream;
-	for (auto const & entry : config_overrides)
-	{
-		config_overrides_stream << entry << std::endl;
-	}
-	config_overrides_stream << std::endl;
-
-	// Make sure we don't create an empty toml file if it doesn't exist. Running without a toml file is the default.
-	if (!error)
-	{
-		if (std::filesystem::exists (toml_config_path))
-		{
-			error = toml.read (config_overrides_stream, toml_config_path);
-		}
-		else
-		{
-			error = toml.read (config_overrides_stream);
-		}
-	}
-
-	if (!error)
-	{
-		error = config_a.deserialize_toml (toml);
-	}
-
-	return error;
+	return nano::load_config_file (config_a, nano::node_config_filename, data_path_a, config_overrides);
 }

@@ -67,15 +67,7 @@ public:
 
 	nano::error read_wallet_config (nano::wallet_config & config_a, std::filesystem::path const & data_path_a)
 	{
-		nano::tomlconfig wallet_config_toml;
-		auto wallet_path (nano::get_qtwallet_toml_config_path (data_path_a));
-		if (!std::filesystem::exists (wallet_path))
-		{
-			write_wallet_config (config_a, data_path_a);
-		}
-		wallet_config_toml.read (wallet_path);
-		config_a.deserialize_toml (wallet_config_toml);
-		return wallet_config_toml.get_error ();
+		return nano::load_config_file (config_a, nano::qtwallet_config_filename, data_path_a);
 	}
 
 	int run_wallet (QApplication & application, int argc, char * const * argv, std::filesystem::path const & data_path, nano::node_flags const & flags)
@@ -108,7 +100,7 @@ public:
 
 		if (!error)
 		{
-			error = nano::flags_config_conflicts (flags, config.node);
+			error = config.node.validate (flags);
 		}
 
 		if (!error)
@@ -285,13 +277,6 @@ int main (int argc, char * const * argv)
 				std::exit (1);
 			}
 			nano::set_active_network (parsed.value ());
-		}
-
-		std::vector<std::string> config_overrides;
-		const auto configItr = vm.find ("config");
-		if (configItr != vm.cend ())
-		{
-			config_overrides = nano::config_overrides (configItr->second.as<std::vector<nano::config_key_value_pair>> ());
 		}
 
 		auto ec = nano::handle_node_options (vm);

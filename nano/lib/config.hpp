@@ -10,6 +10,7 @@
 
 #include <array>
 #include <chrono>
+#include <concepts>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -166,32 +167,36 @@ nano::database_backend default_database_backend ();
 namespace nano
 {
 /**
- * Attempt to read a configuration file from specified directory. Returns empty tomlconfig if nothing is found.
- * @throws std::runtime_error with error code if the file or overrides are not valid toml
+ * Reads the configuration file `filename` from `data_path` into `toml` and applies `overrides` on top of it.
+ * Overrides are `key=value` entries and take precedence over the file. A missing file is not an error and is
+ * never created; the result then holds only the overrides.
  */
-nano::tomlconfig load_toml_file (const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides);
+nano::error read_config_file (nano::tomlconfig & toml, std::string_view filename, std::filesystem::path const & data_path, std::vector<std::string> const & overrides = {});
+
+/** Prints a warning for every entry of \p toml that deserialization did not read, see tomlconfig::unknown_keys */
+void warn_unknown_keys (nano::tomlconfig const & toml, std::string_view filename);
 
 /**
- * Attempt to read a configuration file from specified directory. Returns fallback config if nothing is found.
- * @throws std::runtime_error with error code if the file or overrides are not valid toml or deserialization fails
+ * Reads the configuration file as `read_config_file` and deserializes it into `config`, which keeps its current
+ * values for every key the file does not mention. Config types that provide `validate ()` are validated afterwards.
  */
 template <typename T>
-T load_config_file (T fallback, const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides)
+nano::error load_config_file (T & config, std::string_view filename, std::filesystem::path const & data_path, std::vector<std::string> const & overrides = {})
 {
-	auto toml = load_toml_file (config_filename, data_path, config_overrides);
-
-	T config = fallback;
-	auto error = config.deserialize_toml (toml);
-	if (error)
+	nano::tomlconfig toml;
+	if (auto error = read_config_file (toml, filename, data_path, overrides))
 	{
-		throw std::runtime_error (error.get_message ());
+		return error;
 	}
-	return config;
-}
-
-template <typename T>
-T load_config_file (const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides)
-{
-	return load_config_file<T> (T{}, config_filename, data_path, config_overrides);
+	if (auto error = config.deserialize_toml (toml))
+	{
+		return error;
+	}
+	warn_unknown_keys (toml, filename);
+	if constexpr (requires { { config.validate () } -> std::convertible_to<nano::error>; })
+	{
+		return config.validate ();
+	}
+	return {};
 }
 }
