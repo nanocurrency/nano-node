@@ -961,30 +961,30 @@ TEST (toml_config, daemon_read_config)
 {
 	auto path (nano::unique_path ());
 	std::filesystem::create_directories (path);
+	nano::network_params network_params{ nano::get_active_network () };
 	std::vector<std::string> invalid_overrides1{ "node.max_work_generate_multiplier=0" };
-	std::string expected_message1{ "max_work_generate_multiplier must be greater than or equal to 1" };
-
 	std::vector<std::string> invalid_overrides2{ "node.websocket.enable=true", "node.foo" };
-	std::string expected_message2{ "Invalid config override \"node.foo\": Value must follow after a '=' at line 1" };
+
+	// Errors name the file and carry the message of the failing check or parse
+	auto expect_error = [&] (std::vector<std::string> const & overrides, std::string const & expected) {
+		try
+		{
+			nano::load_daemon_config (path, network_params, overrides);
+			FAIL () << "expected a config error";
+		}
+		catch (nano::config_error const & ex)
+		{
+			std::string message{ ex.what () };
+			EXPECT_EQ (message.find (std::string{ nano::node_config_filename } + ": "), 0) << message;
+			EXPECT_NE (message.find (expected), std::string::npos) << message;
+		}
+	};
 
 	// Reading when there is no config file
 	ASSERT_FALSE (std::filesystem::exists (nano::get_node_toml_config_path (path)));
-	{
-		nano::daemon_config config;
-		ASSERT_FALSE (nano::read_node_config_toml (path, config));
-	}
-	{
-		nano::daemon_config config;
-		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);
-		ASSERT_TRUE (error);
-		ASSERT_EQ (error.get_message (), expected_message1);
-	}
-	{
-		nano::daemon_config config;
-		auto error = nano::read_node_config_toml (path, config, invalid_overrides2);
-		ASSERT_TRUE (error);
-		ASSERT_EQ (error.get_message (), expected_message2);
-	}
+	ASSERT_NO_THROW (nano::load_daemon_config (path, network_params));
+	expect_error (invalid_overrides1, "max_work_generate_multiplier must be greater than or equal to 1");
+	expect_error (invalid_overrides2, "Invalid config override \"node.foo\": Value must follow after a '=' at line 1");
 
 	// Create an empty config
 	nano::tomlconfig toml;
@@ -992,22 +992,9 @@ TEST (toml_config, daemon_read_config)
 
 	// Reading when there is a config file
 	ASSERT_TRUE (std::filesystem::exists (nano::get_node_toml_config_path (path)));
-	{
-		nano::daemon_config config;
-		ASSERT_FALSE (nano::read_node_config_toml (path, config));
-	}
-	{
-		nano::daemon_config config;
-		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);
-		ASSERT_TRUE (error);
-		ASSERT_EQ (error.get_message (), expected_message1);
-	}
-	{
-		nano::daemon_config config;
-		auto error = nano::read_node_config_toml (path, config, invalid_overrides2);
-		ASSERT_TRUE (error);
-		ASSERT_EQ (error.get_message (), expected_message2);
-	}
+	ASSERT_NO_THROW (nano::load_daemon_config (path, network_params));
+	expect_error (invalid_overrides1, "max_work_generate_multiplier must be greater than or equal to 1");
+	expect_error (invalid_overrides2, "Invalid config override \"node.foo\": Value must follow after a '=' at line 1");
 }
 
 TEST (toml_config, log_config_defaults)

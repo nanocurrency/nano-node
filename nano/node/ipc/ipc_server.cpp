@@ -679,10 +679,14 @@ nano::ipc::access & nano::ipc::ipc_server::get_access ()
 
 nano::error nano::ipc::ipc_server::reload_access_config ()
 {
-	nano::error access_config_error (nano::ipc::read_access_config_toml (node.get_data_path (), access));
-	if (access_config_error)
+	try
 	{
-		node.logger.error (nano::log::type::ipc_server, "Invalid access configuration file: {}", access_config_error.get_message ());
+		nano::ipc::load_access_config (node.get_data_path (), access);
+		return {};
 	}
-	return access_config_error;
+	catch (nano::config_error const & ex)
+	{
+		node.logger.error (nano::log::type::ipc_server, "Invalid access configuration file: {}", ex.what ());
+		return nano::error{ ex };
+	}
 }

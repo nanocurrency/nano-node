@@ -314,8 +314,7 @@ TEST (config_file, missing_file)
 	auto path = nano::unique_path ();
 	std::filesystem::create_directories (path);
 
-	nano::tomlconfig toml;
-	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path));
+	auto toml = nano::read_config_file ("config-test.toml", path);
 	ASSERT_TRUE (toml.empty ());
 	ASSERT_FALSE (std::filesystem::exists (path / "config-test.toml"));
 }
@@ -326,8 +325,7 @@ TEST (config_file, overrides_without_file)
 	auto path = nano::unique_path ();
 	std::filesystem::create_directories (path);
 
-	nano::tomlconfig toml;
-	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path, { "node.port=7075" }));
+	auto toml = nano::read_config_file ("config-test.toml", path, { "node.port=7075" });
 	uint16_t port{ 0 };
 	toml.get_required<uint16_t> ("node.port", port);
 	ASSERT_EQ (port, 7075);
@@ -343,8 +341,7 @@ TEST (config_file, overrides_over_file)
 		file << "[node]\nport = 1\nthreads = 2\n";
 	}
 
-	nano::tomlconfig toml;
-	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path, { "node.port=3" }));
+	auto toml = nano::read_config_file ("config-test.toml", path, { "node.port=3" });
 	uint16_t port{ 0 }, threads{ 0 };
 	toml.get_required<uint16_t> ("node.port", port);
 	toml.get_required<uint16_t> ("node.threads", threads);
@@ -362,8 +359,7 @@ TEST (config_file, unknown_keys)
 		file << "[node]\nport = 1\n[node.typo]\nenable = true\n";
 	}
 
-	nano::tomlconfig toml;
-	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path, { "node.other=2" }));
+	auto toml = nano::read_config_file ("config-test.toml", path, { "node.other=2" });
 	uint16_t port{ 0 };
 	toml.get_required<uint16_t> ("node.port", port);
 	ASSERT_EQ (port, 1);
@@ -383,10 +379,17 @@ TEST (config_file, invalid_file)
 		file << "[node]\nport = 1\nthreads = \n";
 	}
 
-	nano::tomlconfig toml;
-	auto error = nano::read_config_file (toml, "config-test.toml", path, { "node.a=1", "node.b=2" });
-	ASSERT_TRUE (error);
-	ASSERT_NE (error.get_message ().find ("line 3"), std::string::npos) << error.get_message ();
+	try
+	{
+		nano::read_config_file ("config-test.toml", path, { "node.a=1", "node.b=2" });
+		FAIL () << "expected a config error";
+	}
+	catch (nano::config_error const & ex)
+	{
+		std::string message{ ex.what () };
+		ASSERT_EQ (message.find ("config-test.toml: "), 0) << message;
+		ASSERT_NE (message.find ("line 3"), std::string::npos) << message;
+	}
 }
 
 /** Each value is preceded by its documentation and tables are introduced by a header of their own */

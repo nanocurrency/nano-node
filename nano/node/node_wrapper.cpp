@@ -15,21 +15,7 @@ nano::node_wrapper::node_wrapper (std::filesystem::path const & path_a, std::fil
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (path_a, error_chmod);
 
-	nano::daemon_config daemon_config{ path_a, network_params };
-	auto error = nano::read_node_config_toml (config_path_a, daemon_config, node_flags_a.config_overrides);
-	if (error)
-	{
-		std::cerr << "Error deserializing config file";
-		if (!node_flags_a.config_overrides.empty ())
-		{
-			std::cerr << " or --config option";
-		}
-		std::cerr << "\n"
-				  << error.get_message () << std::endl;
-		std::exit (1);
-	}
-
-	auto & node_config = daemon_config.node;
+	auto node_config = nano::load_node_config (config_path_a, network_params, node_flags_a.config_overrides);
 	node_config.peering_port = 24000;
 
 	node = std::make_shared<nano::node> (path_a, node_config, work, node_flags_a);

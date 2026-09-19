@@ -120,6 +120,7 @@ namespace ipc
 		mutable nano::mutex mutex;
 	};
 
-	nano::error read_access_config_toml (std::filesystem::path const & data_path_a, nano::ipc::access & config_a);
+	/** Loads config-access.toml from \p data_path into \p access; throws nano::config_error */
+	void load_access_config (std::filesystem::path const & data_path, nano::ipc::access & access);
 }
 }

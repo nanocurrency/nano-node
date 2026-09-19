@@ -81,9 +81,9 @@ nano::rpc_process_config::rpc_process_config (nano::network_constants & network_
 
 namespace nano
 {
-nano::error read_rpc_config_toml (std::filesystem::path const & data_path_a, nano::rpc_config & config_a, std::vector<std::string> const & config_overrides)
+nano::rpc_config load_rpc_config (std::filesystem::path const & data_path, nano::network_constants & network_constants, std::vector<std::string> const & config_overrides)
 {
-	return nano::load_config_file (config_a, nano::rpc_config_filename, data_path_a, config_overrides);
+	return nano::load_config_file (nano::rpc_config{ network_constants }, nano::rpc_config_filename, data_path, config_overrides);
 }
 
 std::string get_default_rpc_filepath ()

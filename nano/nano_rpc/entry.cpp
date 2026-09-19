@@ -33,49 +33,44 @@ void run (std::filesystem::path const & data_path, std::vector<std::string> cons
 	nano::set_secure_perm_directory (data_path, error_chmod);
 
 	nano::network_params network_params{ nano::get_active_network () };
-	nano::rpc_config rpc_config{ network_params.network };
-	auto error = nano::read_rpc_config_toml (data_path, rpc_config, config_overrides);
-	if (!error)
+	try
 	{
-		try
-		{
-			auto rpc = std::make_unique<nano::rpc_host> (rpc_config);
-			rpc->start (std::make_unique<nano::ipc_rpc_processor> (rpc->io_context (), rpc_config));
+		auto rpc_config = nano::load_rpc_config (data_path, network_params.network, config_overrides);
+		auto rpc = std::make_unique<nano::rpc_host> (rpc_config);
+		rpc->start (std::make_unique<nano::ipc_rpc_processor> (rpc->io_context (), rpc_config));
 
-			std::atomic stopped{ false };
+		std::atomic stopped{ false };
 
-			auto signal_handler = [&stopped, &logger] (int signum) {
-				logger.warn (nano::log::type::daemon_rpc, "Interrupt signal received ({}), stopping...", nano::to_signal_name (signum));
-				stopped = true;
-				stopped.notify_all ();
-			};
+		auto signal_handler = [&stopped, &logger] (int signum) {
+			logger.warn (nano::log::type::daemon_rpc, "Interrupt signal received ({}), stopping...", nano::to_signal_name (signum));
+			stopped = true;
+			stopped.notify_all ();
+		};
 
-			nano::signal_manager sigman;
-			sigman.register_signal_handler (SIGINT, signal_handler, true);
-			sigman.register_signal_handler (SIGTERM, signal_handler, false);
+		nano::signal_manager sigman;
+		sigman.register_signal_handler (SIGINT, signal_handler, true);
+		sigman.register_signal_handler (SIGTERM, signal_handler, false);
 
-			// Keep running until stopped flag is set
-			stopped.wait (false);
+		// Keep running until stopped flag is set
+		stopped.wait (false);
 
-			logger.info (nano::log::type::daemon_rpc, "Stopping...");
+		logger.info (nano::log::type::daemon_rpc, "Stopping...");
 
-			rpc->stop ();
-		}
-		catch (std::runtime_error const & e)
-		{
-			logger.critical (nano::log::type::daemon_rpc, "Error while running RPC: {}", e.what ());
-		}
+		rpc->stop ();
 	}
-	else
+	catch (std::exception const & e)
 	{
-		logger.critical (nano::log::type::daemon_rpc, "Error deserializing config: {}", error.get_message ());
+		logger.critical (nano::log::type::daemon_rpc, "Error while running RPC: {}", e.what ());
 	}
 
 	logger.info (nano::log::type::daemon_rpc, "Stopped");
 }
 }
 
-int main (int argc, char * const * argv)
+namespace
+{
+/** Parses the command line and runs the selected command; errors surface as exceptions handled by main */
+int run_cli (int argc, char * const * argv)
 {
 	nano::set_umask (); // Make sure the process umask is set before any files are created
 	nano::initialize_file_descriptor_limit ();
@@ -138,4 +133,18 @@ int main (int argc, char * const * argv)
 	}
 
 	return 1;
+}
+}
+
+int main (int argc, char * const * argv)
+{
+	try
+	{
+		return run_cli (argc, argv);
+	}
+	catch (std::exception const & ex)
+	{
+		std::cerr << "Error: " << ex.what () << std::endl;
+		return 1;
+	}
 }

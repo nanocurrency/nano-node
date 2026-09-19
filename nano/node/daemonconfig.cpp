@@ -59,7 +59,22 @@ nano::error nano::daemon_config::validate () const
 	return node.validate ();
 }
 
-nano::error nano::read_node_config_toml (std::filesystem::path const & data_path_a, nano::daemon_config & config_a, std::vector<std::string> const & config_overrides)
+nano::daemon_config nano::load_daemon_config (std::filesystem::path const & data_path, nano::network_params & network_params, std::vector<std::string> const & config_overrides)
 {
-	return nano::load_config_file (config_a, nano::node_config_filename, data_path_a, config_overrides);
+	return nano::load_config_file (nano::daemon_config{ data_path, network_params }, nano::node_config_filename, data_path, config_overrides);
+}
+
+nano::daemon_config nano::load_daemon_config (std::filesystem::path const & data_path, nano::network_params & network_params, nano::node_flags const & flags)
+{
+	auto config = load_daemon_config (data_path, network_params, flags.config_overrides);
+	if (auto error = config.node.validate (flags))
+	{
+		throw std::runtime_error{ error.get_message () };
+	}
+	return config;
+}
+
+nano::node_config nano::load_node_config (std::filesystem::path const & data_path, nano::network_params & network_params, std::vector<std::string> const & config_overrides)
+{
+	return load_daemon_config (data_path, network_params, config_overrides).node;
 }

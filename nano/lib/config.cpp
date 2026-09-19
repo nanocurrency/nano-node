@@ -235,6 +235,11 @@ nano::database_backend nano::default_database_backend ()
  *
  */
 
+nano::config_error::config_error (std::string_view filename, std::string const & message) :
+	std::runtime_error{ std::string{ filename } + ": " + message }
+{
+}
+
 // Using std::cerr here, since logging may not be initialized yet
 void nano::warn_unknown_keys (nano::tomlconfig const & toml, std::string_view filename)
 {
@@ -244,15 +249,19 @@ void nano::warn_unknown_keys (nano::tomlconfig const & toml, std::string_view fi
 	}
 }
 
-nano::error nano::read_config_file (nano::tomlconfig & toml, std::string_view filename, std::filesystem::path const & data_path, std::vector<std::string> const & overrides)
+nano::tomlconfig nano::read_config_file (std::string_view filename, std::filesystem::path const & data_path, std::vector<std::string> const & overrides)
 {
-	auto const path = data_path / filename;
-	if (std::filesystem::exists (path))
+	nano::tomlconfig toml;
+	if (auto const path = data_path / filename; std::filesystem::exists (path))
 	{
 		if (auto error = toml.read (path))
 		{
-			return error;
+			throw config_error{ filename, error.get_message () };
 		}
 	}
-	return toml.apply_overrides (overrides);
+	if (auto error = toml.apply_overrides (overrides))
+	{
+		throw config_error{ filename, error.get_message () };
+	}
+	return toml;
 }

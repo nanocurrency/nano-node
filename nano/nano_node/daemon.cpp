@@ -80,31 +80,21 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 	nano::set_secure_perm_directory (data_path, error_chmod);
 
 	nano::network_params network_params{ nano::get_active_network () };
-	nano::daemon_config config{ data_path, network_params };
-	if (auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides))
-	{
-		logger.critical (nano::log::type::daemon, "Error deserializing node config: {}", error.get_message ());
-		std::exit (1);
-	}
-	if (auto error = config.node.validate (flags))
-	{
-		logger.critical (nano::log::type::daemon, "Invalid node config: {}", error.get_message ());
-		std::exit (1);
-	}
-
-	nano::set_use_memory_pools (config.node.use_memory_pools);
-
-	auto opencl = nano::opencl_work::create (config.opencl_enable, config.opencl, logger, config.node.network_params.work);
-	nano::opencl_work_func_t opencl_work_func;
-	if (opencl)
-	{
-		opencl_work_func = [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
-			return opencl->generate_work (version_a, root_a, difficulty_a, ticket_a);
-		};
-	}
-	nano::work_pool opencl_work (config.node.network_params.network, config.node.work_threads, config.node.pow_sleep_interval, opencl_work_func);
 	try
 	{
+		auto config = nano::load_daemon_config (data_path, network_params, flags);
+
+		nano::set_use_memory_pools (config.node.use_memory_pools);
+
+		auto opencl = nano::opencl_work::create (config.opencl_enable, config.opencl, logger, config.node.network_params.work);
+		nano::opencl_work_func_t opencl_work_func;
+		if (opencl)
+		{
+			opencl_work_func = [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
+				return opencl->generate_work (version_a, root_a, difficulty_a, ticket_a);
+			};
+		}
+		nano::work_pool opencl_work (config.node.network_params.network, config.node.work_threads, config.node.pow_sleep_interval, opencl_work_func);
 		// This avoids a blank prompt during any node initialization delays
 		logger.info (nano::log::type::daemon, "Starting up Nano node...");
 
@@ -145,12 +135,7 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 				};
 
 				// Launch rpc in-process
-				nano::rpc_config rpc_config{ config.node.network_params.network };
-				if (auto error = nano::read_rpc_config_toml (data_path, rpc_config, flags.rpc_config_overrides))
-				{
-					logger.critical (nano::log::type::daemon, "Error deserializing RPC config: {}", error.get_message ());
-					std::exit (1);
-				}
+				auto rpc_config = nano::load_rpc_config (data_path, config.node.network_params.network, flags.rpc_config_overrides);
 
 				logger.debug (nano::log::type::daemon, "Starting in-process RPC server on port {}", rpc_config.port);
 

@@ -26,5 +26,10 @@ public:
 	std::filesystem::path data_path;
 };
 
-nano::error read_node_config_toml (std::filesystem::path const &, nano::daemon_config & config_a, std::vector<std::string> const & config_overrides = std::vector<std::string> ());
+/** Loads config-node.toml from \p data_path on top of the defaults for \p network_params; throws nano::config_error */
+nano::daemon_config load_daemon_config (std::filesystem::path const & data_path, nano::network_params & network_params, std::vector<std::string> const & config_overrides = {});
+/** As above with the overrides taken from \p flags, and rejects flags that conflict with the config; throws std::runtime_error */
+nano::daemon_config load_daemon_config (std::filesystem::path const & data_path, nano::network_params & network_params, nano::node_flags const & flags);
+/** The node section of config-node.toml, loaded as by load_daemon_config; throws nano::config_error */
+nano::node_config load_node_config (std::filesystem::path const & data_path, nano::network_params & network_params, std::vector<std::string> const & config_overrides = {});
 }

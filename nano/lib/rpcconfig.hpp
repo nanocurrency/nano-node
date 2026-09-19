@@ -50,7 +50,8 @@ public:
 	nano::rpc_logging_config rpc_logging;
 };
 
-nano::error read_rpc_config_toml (std::filesystem::path const & data_path_a, nano::rpc_config & config_a, std::vector<std::string> const & config_overrides = std::vector<std::string> ());
+/** Loads config-rpc.toml from \p data_path on top of the defaults for \p network_constants; throws nano::config_error */
+nano::rpc_config load_rpc_config (std::filesystem::path const & data_path, nano::network_constants & network_constants, std::vector<std::string> const & config_overrides = {});
 
 std::string get_default_rpc_filepath ();
 }
