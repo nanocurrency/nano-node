@@ -14,10 +14,6 @@ target_link_libraries(nano_node node Boost::process ${PLATFORM_LIBS})
 
 include_directories(${CMAKE_SOURCE_DIR}/submodules)
 
-target_compile_definitions(
-  nano_node PRIVATE -DTAG_VERSION_STRING=${TAG_VERSION_STRING}
-                    -DGIT_COMMIT_HASH=${GIT_COMMIT_HASH})
-
 set_target_properties(
   nano_node PROPERTIES COMPILE_FLAGS
                        "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")

@@ -180,12 +180,14 @@ target_link_libraries(
   Boost::property_tree
   Boost::stacktrace)
 
-target_compile_definitions(
-  nano_lib
-  PRIVATE -DMAJOR_VERSION_STRING=${CPACK_PACKAGE_VERSION_MAJOR}
-          -DMINOR_VERSION_STRING=${CPACK_PACKAGE_VERSION_MINOR}
-          -DPATCH_VERSION_STRING=${CPACK_PACKAGE_VERSION_PATCH}
-          -DPRE_RELEASE_VERSION_STRING=${CPACK_PACKAGE_VERSION_PRE_RELEASE}
-          -DTAG_VERSION_STRING=${TAG_VERSION_STRING}
-          -DGIT_COMMIT_HASH=${GIT_COMMIT_HASH}
-  PUBLIC -DACTIVE_NETWORK=${ACTIVE_NETWORK})
+target_compile_definitions(nano_lib PUBLIC -DACTIVE_NETWORK=${ACTIVE_NETWORK})
+
+# Keep the version macros on the single translation unit that consumes them.
+# Applying them target-wide puts the commit hash on every compile command line,
+# which changes with every commit and defeats compiler caching (sccache/ccache).
+set_source_files_properties(
+  version.cpp
+  PROPERTIES
+    COMPILE_DEFINITIONS
+    "MAJOR_VERSION_STRING=${CPACK_PACKAGE_VERSION_MAJOR};MINOR_VERSION_STRING=${CPACK_PACKAGE_VERSION_MINOR};PATCH_VERSION_STRING=${CPACK_PACKAGE_VERSION_PATCH};PRE_RELEASE_VERSION_STRING=${CPACK_PACKAGE_VERSION_PRE_RELEASE};TAG_VERSION_STRING=${TAG_VERSION_STRING};GIT_COMMIT_HASH=${GIT_COMMIT_HASH}"
+)
