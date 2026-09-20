@@ -1,6 +1,7 @@
 #include <nano/lib/block_uniquer.hpp>
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/object_stream_adapters.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/work_version.hpp>
 #include <nano/messages/messages.hpp>
@@ -12,6 +13,7 @@
 
 #include <boost/property_tree/json_parser.hpp>
 
+#include <sstream>
 #include <thread>
 
 #include <crypto/ed25519-donna/ed25519.h>
@@ -811,4 +813,137 @@ TEST (block_builder, receive)
 	ASSERT_EQ (block->source_field ().value ().to_string (), "7B2B0A29C1B235FDF9B4DEF2984BB3573BD1A52D28246396FBB3E4C5FE662135");
 	ASSERT_FALSE (block->destination_field ());
 	ASSERT_FALSE (block->link_field ());
+}
+
+namespace
+{
+/*
+ * Round-trips a block through the serialization entry points that take an already
+ * constructed target: the standalone `deserialize` and `deserialize_json` methods, which
+ * the tests above only ever reach through the `(error, stream)` constructors. Also covers
+ * `clone`, `signature_set` and the object stream logging output.
+ */
+template <typename T>
+void assert_block_roundtrip (T const & block1)
+{
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		block1.serialize (stream);
+	}
+	ASSERT_EQ (T::size, bytes.size ());
+
+	T block2;
+	nano::bufferstream stream (bytes.data (), bytes.size ());
+	ASSERT_FALSE (block2.deserialize (stream));
+	ASSERT_EQ (block1, block2);
+
+	// A short buffer is reported as an error rather than throwing out of deserialize
+	T block3;
+	nano::bufferstream short_stream (bytes.data (), bytes.size () - 1);
+	ASSERT_TRUE (block3.deserialize (short_stream));
+
+	boost::property_tree::ptree tree;
+	block1.serialize_json (tree);
+	T block4;
+	ASSERT_FALSE (block4.deserialize_json (tree));
+	ASSERT_EQ (block1, block4);
+
+	// A tree holding nothing but the block type is reported the same way
+	boost::property_tree::ptree partial;
+	partial.put ("type", tree.get<std::string> ("type"));
+	T block5;
+	ASSERT_TRUE (block5.deserialize_json (partial));
+
+	// to_json carries the same representation as serialize_json
+	std::stringstream json (block1.to_json ());
+	boost::property_tree::ptree parsed;
+	boost::property_tree::read_json (json, parsed);
+	T block6;
+	ASSERT_FALSE (block6.deserialize_json (parsed));
+	ASSERT_EQ (block1, block6);
+
+	// A clone compares equal through the base class comparison operator
+	auto clone = block1.clone ();
+	ASSERT_NE (nullptr, clone);
+	ASSERT_EQ (block1, *clone);
+
+	// signature_set is observable through block_signature
+	T block7 = block1;
+	nano::signature const replacement{ 0xdeadbeef };
+	block7.signature_set (replacement);
+	ASSERT_EQ (replacement, block7.block_signature ());
+
+	// Logging output carries the common fields written by nano::block::operator()
+	auto printed = nano::object_stream_adapters::to_string (block1);
+	ASSERT_FALSE (printed.empty ());
+	ASSERT_NE (std::string::npos, printed.find ("type"));
+	ASSERT_NE (std::string::npos, printed.find ("hash"));
+}
+}
+
+TEST (block, send_roundtrip)
+{
+	nano::keypair key;
+	nano::send_block block (1, key.pub, 2, key.prv, key.pub, 5);
+	assert_block_roundtrip (block);
+}
+
+TEST (block, receive_roundtrip)
+{
+	nano::keypair key;
+	nano::receive_block block (1, 2, key.prv, key.pub, 5);
+	assert_block_roundtrip (block);
+}
+
+TEST (block, open_roundtrip)
+{
+	nano::keypair key;
+	nano::open_block block (1, key.pub, key.pub, key.prv, key.pub, 5);
+	assert_block_roundtrip (block);
+}
+
+TEST (block, change_roundtrip)
+{
+	nano::keypair key;
+	nano::change_block block (1, key.pub, key.prv, key.pub, 5);
+	assert_block_roundtrip (block);
+}
+
+TEST (block, state_roundtrip)
+{
+	nano::keypair key;
+	nano::state_block block (key.pub, 1, key.pub, 2, 3, key.prv, key.pub, 5);
+	assert_block_roundtrip (block);
+}
+
+TEST (block, valid_predecessor)
+{
+	nano::keypair key;
+	nano::send_block send (1, key.pub, 2, key.prv, key.pub, 5);
+	nano::open_block open (1, key.pub, key.pub, key.prv, key.pub, 5);
+	nano::state_block state (key.pub, 1, key.pub, 2, 3, key.prv, key.pub, 5);
+
+	// Legacy blocks may only follow other legacy blocks
+	ASSERT_TRUE (send.valid_predecessor (open));
+	ASSERT_FALSE (send.valid_predecessor (state));
+
+	// An open block can never have a predecessor, a state block always can
+	ASSERT_FALSE (open.valid_predecessor (send));
+	ASSERT_FALSE (open.valid_predecessor (state));
+	ASSERT_TRUE (state.valid_predecessor (send));
+	ASSERT_TRUE (state.valid_predecessor (state));
+}
+
+TEST (block, representative_field)
+{
+	nano::keypair key;
+	nano::send_block send (1, key.pub, 2, key.prv, key.pub, 5);
+	nano::receive_block receive (1, 2, key.prv, key.pub, 5);
+	nano::change_block change (1, key.pub, key.prv, key.pub, 5);
+
+	// Send and receive blocks fall through to the nano::block default
+	ASSERT_FALSE (send.representative_field ().has_value ());
+	ASSERT_FALSE (receive.representative_field ().has_value ());
+	ASSERT_EQ (key.pub, change.representative_field ().value ());
 }

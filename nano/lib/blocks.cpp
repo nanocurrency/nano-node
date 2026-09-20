@@ -870,10 +870,10 @@ bool nano::open_block::deserialize_json (boost::property_tree::ptree const & tre
 		error = hashables.source.decode_hex (source_l);
 		if (!error)
 		{
-			error = hashables.representative.decode_hex (representative_l);
+			error = hashables.representative.decode_account (representative_l);
 			if (!error)
 			{
-				error = hashables.account.decode_hex (account_l);
+				error = hashables.account.decode_account (account_l);
 				if (!error)
 				{
 					error = nano::from_string_hex (work_l, work);
@@ -1135,7 +1135,7 @@ bool nano::change_block::deserialize_json (boost::property_tree::ptree const & t
 		error = hashables.previous.decode_hex (previous_l);
 		if (!error)
 		{
-			error = hashables.representative.decode_hex (representative_l);
+			error = hashables.representative.decode_account (representative_l);
 			if (!error)
 			{
 				error = nano::from_string_hex (work_l, work);
