@@ -62,6 +62,31 @@ TEST (tomlconfig, child_not_table)
 	ASSERT_TRUE (child.empty ());
 }
 
+/** The first failure a document produces survives a later structural error */
+TEST (tomlconfig, first_error_wins)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		num = "not a number"
+		child = 1
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	uint16_t num = 0;
+	t.get<uint16_t> ("num", num);
+	std::string const expected = "num is not an integer between 0 and 65535";
+	ASSERT_EQ (t.get_error ().get_message (), expected);
+
+	// Both child lookups fail on `child`, neither may replace the error already recorded
+	t.get_required_child ("child");
+	ASSERT_EQ (t.get_error ().get_message (), expected);
+	ASSERT_FALSE (t.get_optional_child ("child"));
+	ASSERT_EQ (t.get_error ().get_message (), expected);
+	t.get_required_child ("missing");
+	ASSERT_EQ (t.get_error ().get_message (), expected);
+}
+
 /** Negative numbers are rejected for unsigned targets instead of wrapping around */
 TEST (tomlconfig, negative_unsigned)
 {

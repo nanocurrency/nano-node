@@ -101,6 +101,16 @@ bool nano::tomlconfig::empty () const
 	return tree->empty ();
 }
 
+void nano::tomlconfig::set_error_once (nano::error_config code_a, std::string const & message_a)
+{
+	// The first error is the one that explains the rest, see configbase::conditionally_set_error
+	if (!*error)
+	{
+		*error = code_a;
+		error->set_message (message_a);
+	}
+}
+
 std::optional<nano::tomlconfig> nano::tomlconfig::get_optional_child (std::string const & key_a)
 {
 	if (!tree->contains (key_a))
@@ -110,8 +120,7 @@ std::optional<nano::tomlconfig> nano::tomlconfig::get_optional_child (std::strin
 	auto child = tree->get_table (key_a);
 	if (!child)
 	{
-		*error = nano::error_config::invalid_value;
-		error->set_message ("Configuration node is not a table: " + key_a);
+		set_error_once (nano::error_config::invalid_value, "Configuration node is not a table: " + key_a);
 		return std::nullopt;
 	}
 	return tomlconfig (child, error);
@@ -121,15 +130,13 @@ nano::tomlconfig nano::tomlconfig::get_required_child (std::string const & key_a
 {
 	if (!tree->contains (key_a))
 	{
-		*error = nano::error_config::missing_value;
-		error->set_message ("Missing configuration node: " + key_a);
+		set_error_once (nano::error_config::missing_value, "Missing configuration node: " + key_a);
 		return tomlconfig (cpptoml::make_table (), error);
 	}
 	auto child = tree->get_table (key_a);
 	if (!child)
 	{
-		*error = nano::error_config::invalid_value;
-		error->set_message ("Configuration node is not a table: " + key_a);
+		set_error_once (nano::error_config::invalid_value, "Configuration node is not a table: " + key_a);
 		return tomlconfig (cpptoml::make_table (), error);
 	}
 	return tomlconfig (child, error);

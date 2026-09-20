@@ -239,6 +239,9 @@ protected:
 	tomlconfig & get_config (bool optional, std::string key, boost::asio::ip::address_v6 & target, boost::asio::ip::address_v6 const & default_value);
 
 private:
+	/** Records \p code_a and \p message_a unless an error is already set, keeping the first failure */
+	void set_error_once (nano::error_config code_a, std::string const & message_a);
+
 	/** The config node being managed */
 	std::shared_ptr<cpptoml::table> tree;
 
