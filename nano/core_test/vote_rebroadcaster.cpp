@@ -486,7 +486,9 @@ TEST (vote_rebroadcaster, duplicate_vote_ignored)
 	config.optimistic_scheduler->enable = false;
 
 	auto & node = *system.add_node (config);
-	// No peer node, vote rebroadcaster should not drain the queue
+
+	// Deduplication covers only votes waiting in the queue, so stop the processing thread to keep the first push queued
+	node.vote_rebroadcaster.stop ();
 
 	// Create a block and start election
 	auto block = nano::test::setup_chain (system, node, 1, nano::dev::genesis_key, false).front ();
