@@ -107,6 +107,46 @@ TEST (tomlconfig, negative_unsigned)
 	ASSERT_NE (t.get_error ().get_message ().find ("a is not a 64-bit unsigned integer"), std::string::npos) << t.get_error ().get_message ();
 }
 
+/** A table or an array where a scalar is expected is rejected and leaves the target alone */
+TEST (tomlconfig, non_scalar_value)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		arr = ["a", "b"]
+		[tbl]
+		x = 1
+	)toml";
+
+	nano::tomlconfig t;
+	ASSERT_FALSE (t.read (ss)) << t.get_error ().get_message ();
+
+	std::size_t from_array{ 42 };
+	t.get<std::size_t> ("arr", from_array);
+	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
+	ASSERT_EQ (t.get_error ().get_message (), "arr is not a 64-bit unsigned integer");
+	ASSERT_EQ (from_array, 42);
+	t.get_error ().clear ();
+
+	std::size_t from_table{ 42 };
+	t.get<std::size_t> ("tbl", from_table);
+	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
+	ASSERT_EQ (t.get_error ().get_message (), "tbl is not a 64-bit unsigned integer");
+	ASSERT_EQ (from_table, 42);
+	t.get_error ().clear ();
+
+	// An empty string converts successfully, so a string target needs the value to be present
+	std::string text{ "original" };
+	t.get<std::string> ("arr", text);
+	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
+	ASSERT_EQ (t.get_error ().get_message (), "arr is not a string");
+	ASSERT_EQ (text, "original");
+	t.get_error ().clear ();
+
+	t.get<std::string> ("tbl", text);
+	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
+	ASSERT_EQ (text, "original");
+}
+
 /** Type descriptions are derived from the type, so aliases such as size_t get a real one */
 TEST (tomlconfig, type_description)
 {
