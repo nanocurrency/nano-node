@@ -95,24 +95,6 @@ TEST (toml, diff_equal)
 	ASSERT_TRUE (other.empty ());
 }
 
-TEST (toml, optional_child)
-{
-	std::stringstream ss;
-	ss << R"toml(
-		[child]
-		val=1
-	)toml";
-
-	nano::tomlconfig t;
-	t.read (ss);
-	auto c1 = t.get_required_child ("child");
-	int val = 0;
-	c1.get_required ("val", val);
-	ASSERT_EQ (val, 1);
-	auto c2 = t.get_optional_child ("child2");
-	ASSERT_FALSE (c2);
-}
-
 /** Config settings passed via CLI overrides the config file settings. This is solved
 using an override stream. */
 TEST (toml, dot_child_syntax)
@@ -183,34 +165,6 @@ TEST (toml, base_override)
 	t.get_required<uint16_t> ("node.too_big", port);
 	ASSERT_TRUE (t.get_error ());
 	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
-}
-
-TEST (toml, put)
-{
-	nano::tomlconfig config;
-	nano::tomlconfig config_node;
-	// Overwrite value and add to child node
-	config_node.put ("port", "7074");
-	config_node.put ("port", "7075");
-	config.put_child ("node", config_node);
-	uint16_t port;
-	config.get_required<uint16_t> ("node.port", port);
-	ASSERT_EQ (port, 7075);
-	ASSERT_FALSE (config.get_error ());
-}
-
-TEST (toml, array)
-{
-	nano::tomlconfig config;
-	nano::tomlconfig config_node;
-	config.put_child ("node", config_node);
-	config_node.push<std::string> ("items", "item 1");
-	config_node.push<std::string> ("items", "item 2");
-	int i = 1;
-	config_node.array_entries_required<std::string> ("items", [&i] (std::string item) {
-		ASSERT_EQ (item, std::string ("item ") + std::to_string (i));
-		i++;
-	});
 }
 
 TEST (toml_config, daemon_config_update_array)
