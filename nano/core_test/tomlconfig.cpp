@@ -61,6 +61,26 @@ TEST (tomlconfig, child_not_table)
 	ASSERT_TRUE (child.empty ());
 }
 
+/** Negative numbers are rejected for unsigned targets instead of wrapping around */
+TEST (tomlconfig, negative_unsigned)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		a = -1
+		b = 5
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	uint64_t a{ 7 }, b{ 0 };
+	t.get ("a", a);
+	t.get ("b", b);
+	ASSERT_EQ (a, 7);
+	ASSERT_EQ (b, 5);
+	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
+	ASSERT_NE (t.get_error ().get_message ().find ("a is not a 64-bit unsigned integer"), std::string::npos) << t.get_error ().get_message ();
+}
+
 TEST (tomlconfig, put)
 {
 	nano::tomlconfig config;
