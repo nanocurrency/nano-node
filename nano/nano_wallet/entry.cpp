@@ -65,17 +65,9 @@ public:
 		return wallet_config_toml.get_error ();
 	}
 
-	nano::error read_wallet_config (nano::wallet_config & config_a, std::filesystem::path const & data_path_a)
+	nano::wallet_config read_wallet_config (std::filesystem::path const & data_path_a)
 	{
-		nano::tomlconfig wallet_config_toml;
-		auto wallet_path (nano::get_qtwallet_toml_config_path (data_path_a));
-		if (!std::filesystem::exists (wallet_path))
-		{
-			write_wallet_config (config_a, data_path_a);
-		}
-		wallet_config_toml.read (wallet_path);
-		config_a.deserialize_toml (wallet_config_toml);
-		return wallet_config_toml.get_error ();
+		return nano::load_config_file (nano::wallet_config{}, nano::qtwallet_config_filename, data_path_a);
 	}
 
 	int run_wallet (QApplication & application, int argc, char * const * argv, std::filesystem::path const & data_path, nano::node_flags const & flags)
@@ -97,22 +89,11 @@ public:
 		QApplication::processEvents ();
 
 		nano::network_params network_params{ nano::get_active_network () };
-		nano::daemon_config config{ data_path, network_params };
-		nano::wallet_config wallet_config;
-
-		auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
-		if (!error)
+		try
 		{
-			error = read_wallet_config (wallet_config, data_path);
-		}
+			auto config = nano::load_daemon_config (data_path, network_params, flags);
+			auto wallet_config = read_wallet_config (data_path);
 
-		if (!error)
-		{
-			error = nano::flags_config_conflicts (flags, config.node);
-		}
-
-		if (!error)
-		{
 			nano::set_use_memory_pools (config.node.use_memory_pools);
 
 			try
@@ -176,15 +157,7 @@ public:
 					if (!config.rpc.child_process.enable)
 					{
 						// Launch rpc in-process
-						nano::rpc_config rpc_config{ config.node.network_params.network };
-						error = nano::read_rpc_config_toml (data_path, rpc_config, flags.rpc_config_overrides);
-						if (error)
-						{
-							logger.critical (nano::log::type::daemon, "Error deserializing RPC config: {}", error.get_message ());
-							splash->hide ();
-							show_error (error.get_message ());
-							std::exit (1);
-						}
+						auto rpc_config = nano::load_rpc_config (data_path, config.node.network_params.network, flags.rpc_config_overrides);
 
 						logger.debug (nano::log::type::daemon, "Starting in-process RPC server on port {}", rpc_config.port);
 
@@ -227,10 +200,10 @@ public:
 			}
 			write_wallet_config (wallet_config, data_path);
 		}
-		else
+		catch (std::exception const & e)
 		{
 			splash->hide ();
-			show_error ("Error deserializing config: " + error.get_message ());
+			show_error ("Error loading config: " + std::string (e.what ()));
 		}
 
 		logger.info (nano::log::type::daemon_wallet, "Daemon exiting (wallet)");
@@ -285,13 +258,6 @@ int main (int argc, char * const * argv)
 				std::exit (1);
 			}
 			nano::set_active_network (parsed.value ());
-		}
-
-		std::vector<std::string> config_overrides;
-		const auto configItr = vm.find ("config");
-		if (configItr != vm.cend ())
-		{
-			config_overrides = nano::config_overrides (configItr->second.as<std::vector<nano::config_key_value_pair>> ());
 		}
 
 		auto ec = nano::handle_node_options (vm);

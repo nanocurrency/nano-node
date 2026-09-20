@@ -476,7 +476,7 @@ nano::log_config nano::load_log_config (nano::log_config fallback, const std::fi
 {
 	try
 	{
-		auto config = nano::load_config_file<nano::log_config> (fallback, log_config_filename, data_path, config_overrides);
+		auto config = nano::load_config_file (fallback, log_config_filename, data_path, config_overrides);
 
 		// Parse default log level from environment variable, e.g. "NANO_LOG=debug"
 		auto env_level = nano::env::get ("NANO_LOG");
@@ -570,7 +570,7 @@ nano::log_config nano::load_log_config (nano::log_config fallback, const std::fi
 
 		return config;
 	}
-	catch (std::runtime_error const & ex)
+	catch (nano::config_error const & ex)
 	{
 		std::cerr << "Unable to load log config. Using defaults. Error: " << ex.what () << std::endl;
 	}

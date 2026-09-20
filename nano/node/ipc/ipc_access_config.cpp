@@ -279,29 +279,13 @@ namespace nano
 {
 namespace ipc
 {
-	nano::error read_access_config_toml (std::filesystem::path const & data_path_a, nano::ipc::access & config_a)
+	void load_access_config (std::filesystem::path const & data_path, nano::ipc::access & access)
 	{
-		nano::error error;
-		auto toml_config_path = nano::get_access_toml_config_path (data_path_a);
-
-		nano::tomlconfig toml;
-		if (std::filesystem::exists (toml_config_path))
+		auto toml = nano::read_config_file (nano::access_config_filename, data_path);
+		if (auto error = access.deserialize_toml (toml))
 		{
-			error = toml.read (toml_config_path);
+			throw nano::config_error{ nano::access_config_filename, error.get_message () };
 		}
-		else
-		{
-			std::stringstream config_overrides_stream;
-			config_overrides_stream << std::endl;
-			toml.read (config_overrides_stream);
-		}
-
-		if (!error)
-		{
-			error = config_a.deserialize_toml (toml);
-		}
-
-		return error;
 	}
 }
 }

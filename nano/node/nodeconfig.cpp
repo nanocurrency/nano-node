@@ -2,7 +2,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/env.hpp>
-#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
@@ -38,6 +37,7 @@
 #include <nano/node/websocketconfig.hpp>
 #include <nano/store/txn_tracking.hpp>
 
+#include <boost/algorithm/string/join.hpp>
 #include <boost/format.hpp>
 
 #include <cryptopp/words.h>
@@ -580,11 +580,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			});
 		}
 
-		if (preconfigured_representatives.empty ())
-		{
-			toml.get_error ().set ("At least one representative account must be set");
-		}
-
 		auto receive_minimum_l (receive_minimum.to_string_dec ());
 		if (toml.has_key ("receive_minimum"))
 		{
@@ -728,35 +723,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			max_pruning_age = std::chrono::seconds (max_pruning_age_l);
 			experimental_config_l.get<uint64_t> ("max_pruning_depth", max_pruning_depth);
 		}
-
-		if (password_fanout < 16 || password_fanout > 1024 * 1024)
-		{
-			toml.get_error ().set ("password_fanout must be a number between 16 and 1048576");
-		}
-		if (io_threads == 0)
-		{
-			toml.get_error ().set ("io_threads must be non-zero");
-		}
-		if (active_elections->size <= 250 && !network_params.network.is_dev_network ())
-		{
-			toml.get_error ().set ("active_elections.size must be greater than 250");
-		}
-		if (bandwidth_limit > std::numeric_limits<std::size_t>::max ())
-		{
-			toml.get_error ().set ("bandwidth_limit unbounded = 0, default = 10485760, max = 18446744073709551615");
-		}
-		if (max_work_generate_multiplier < 1)
-		{
-			toml.get_error ().set ("max_work_generate_multiplier must be greater than or equal to 1");
-		}
-		if (max_pruning_age < std::chrono::seconds (5 * 60) && !network_params.network.is_dev_network ())
-		{
-			toml.get_error ().set ("max_pruning_age must be greater than or equal to 5 minutes");
-		}
-		if (bootstrap_frontier_request_count < 1024)
-		{
-			toml.get_error ().set ("bootstrap_frontier_request_count must be greater than or equal to 1024");
-		}
 	}
 	catch (std::runtime_error const & ex)
 	{
@@ -764,6 +730,70 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 	}
 
 	return toml.get_error ();
+}
+
+namespace
+{
+nano::error problems_to_error (std::vector<std::string> const & problems)
+{
+	if (problems.empty ())
+	{
+		return {};
+	}
+	return nano::error{ boost::algorithm::join (problems, "; ") };
+}
+}
+
+nano::error nano::node_config::validate () const
+{
+	std::vector<std::string> problems;
+	if (preconfigured_representatives.empty ())
+	{
+		problems.emplace_back ("At least one representative account must be set");
+	}
+	if (password_fanout < 16 || password_fanout > 1024 * 1024)
+	{
+		problems.emplace_back ("password_fanout must be a number between 16 and 1048576");
+	}
+	if (io_threads == 0)
+	{
+		problems.emplace_back ("io_threads must be non-zero");
+	}
+	if (active_elections->size <= 250 && !network_params.network.is_dev_network ())
+	{
+		problems.emplace_back ("active_elections.size must be greater than 250");
+	}
+	if (max_work_generate_multiplier < 1)
+	{
+		problems.emplace_back ("max_work_generate_multiplier must be greater than or equal to 1");
+	}
+	if (max_pruning_age < std::chrono::seconds (5 * 60) && !network_params.network.is_dev_network ())
+	{
+		problems.emplace_back ("max_pruning_age must be greater than or equal to 5 minutes");
+	}
+	if (bootstrap_frontier_request_count < 1024)
+	{
+		problems.emplace_back ("bootstrap_frontier_request_count must be greater than or equal to 1024");
+	}
+	return problems_to_error (problems);
+}
+
+nano::error nano::node_config::validate (nano::node_flags const & flags) const
+{
+	std::vector<std::string> problems;
+	if (auto error = validate ())
+	{
+		problems.emplace_back (error.get_message ());
+	}
+	if (flags.enable_pruning && (enable_voting || flags.enable_voting))
+	{
+		problems.emplace_back ("Flag --enable_pruning and --enable_voting in node config cannot be used together");
+	}
+	if (flags.peering_only && (enable_voting || flags.enable_voting || flags.enable_pruning))
+	{
+		problems.emplace_back ("Flag --peering_only cannot be used together with --enable_voting or --enable_pruning");
+	}
+	return problems_to_error (problems);
 }
 
 void nano::node_config::deserialize_address (std::string const & entry_a, std::vector<std::pair<std::string, uint16_t>> & container_a)

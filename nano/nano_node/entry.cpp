@@ -78,7 +78,10 @@ public:
 };
 }
 
-int main (int argc, char * const * argv)
+namespace
+{
+/** Parses the command line and runs the selected command; errors surface as exceptions handled by main */
+int run_cli (int argc, char * const * argv)
 {
 	nano::set_umask (); // Make sure the process umask is set before any files are created
 	nano::initialize_file_descriptor_limit ();
@@ -1186,14 +1189,7 @@ int main (int argc, char * const * argv)
 			nano::work_pool work{ network_params.network, std::numeric_limits<unsigned>::max () };
 			auto path1 (nano::unique_path ());
 			auto path2 (nano::unique_path ());
-			std::vector<std::string> config_overrides;
-			auto config (vm.find ("config"));
-			if (config != vm.end ())
-			{
-				config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
-			}
-			nano::daemon_config daemon_config{ data_path, network_params };
-			auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides);
+			auto daemon_config = nano::load_daemon_config (data_path, network_params, nano::config_overrides (vm));
 
 			nano::node_config config1 = daemon_config.node;
 			config1.peering_port = 24000;
@@ -1273,16 +1269,7 @@ int main (int argc, char * const * argv)
 			// Start new node
 			nano::node_config config2 = daemon_config.node;
 			config1.peering_port = 24001;
-			if (error)
-			{
-				std::cerr << "\n"
-						  << error.get_message () << std::endl;
-				std::exit (1);
-			}
-			else
-			{
-				config2.active_elections->size = daemon_config.node.active_elections->size;
-			}
+			config2.active_elections->size = daemon_config.node.active_elections->size;
 
 			auto node2 (std::make_shared<nano::node> (path2, config2, work, flags, 1));
 			node2->start ();
@@ -2040,6 +2027,20 @@ int main (int argc, char * const * argv)
 		}
 	}
 	return result;
+}
+}
+
+int main (int argc, char * const * argv)
+{
+	try
+	{
+		return run_cli (argc, argv);
+	}
+	catch (std::exception const & ex)
+	{
+		std::cerr << "Error: " << ex.what () << std::endl;
+		return 1;
+	}
 }
 
 namespace

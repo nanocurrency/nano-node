@@ -10,8 +10,10 @@
 
 #include <array>
 #include <chrono>
+#include <concepts>
 #include <filesystem>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 
@@ -165,33 +167,45 @@ nano::database_backend default_database_backend ();
 
 namespace nano
 {
-/**
- * Attempt to read a configuration file from specified directory. Returns empty tomlconfig if nothing is found.
- * @throws std::runtime_error with error code if the file or overrides are not valid toml
- */
-nano::tomlconfig load_toml_file (const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides);
+/** Thrown when a configuration file cannot be read or holds invalid values; the message names the file */
+class config_error : public std::runtime_error
+{
+public:
+	config_error (std::string_view filename, std::string const & message);
+};
 
 /**
- * Attempt to read a configuration file from specified directory. Returns fallback config if nothing is found.
- * @throws std::runtime_error with error code if the file or overrides are not valid toml or deserialization fails
+ * Parses the configuration file `filename` from `data_path` and applies `overrides` on top of it.
+ * Overrides are `key=value` entries and take precedence over the file. A missing file is never created; the result
+ * then holds only the overrides.
+ * @throws nano::config_error on invalid syntax
+ */
+nano::tomlconfig read_config_file (std::string_view filename, std::filesystem::path const & data_path, std::vector<std::string> const & overrides = {});
+
+/** Prints a warning for every entry of \p toml that deserialization did not read, see tomlconfig::unknown_keys */
+void warn_unknown_keys (nano::tomlconfig const & toml, std::string_view filename);
+
+/**
+ * Reads the configuration file as `read_config_file` and deserializes it on top of `config`, whose current values
+ * serve as defaults. Config types that provide `validate ()` are validated afterwards.
+ * @throws nano::config_error on invalid syntax, values or validation failure
  */
 template <typename T>
-T load_config_file (T fallback, const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides)
+T load_config_file (T config, std::string_view filename, std::filesystem::path const & data_path, std::vector<std::string> const & overrides = {})
 {
-	auto toml = load_toml_file (config_filename, data_path, config_overrides);
-
-	T config = fallback;
-	auto error = config.deserialize_toml (toml);
-	if (error)
+	auto toml = read_config_file (filename, data_path, overrides);
+	if (auto error = config.deserialize_toml (toml))
 	{
-		throw std::runtime_error (error.get_message ());
+		throw config_error{ filename, error.get_message () };
+	}
+	warn_unknown_keys (toml, filename);
+	if constexpr (requires { { config.validate () } -> std::convertible_to<nano::error>; })
+	{
+		if (auto error = config.validate ())
+		{
+			throw config_error{ filename, error.get_message () };
+		}
 	}
 	return config;
-}
-
-template <typename T>
-T load_config_file (const std::filesystem::path & config_filename, const std::filesystem::path & data_path, const std::vector<std::string> & config_overrides)
-{
-	return load_config_file<T> (T{}, config_filename, data_path, config_overrides);
 }
 }

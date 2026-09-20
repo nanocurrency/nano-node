@@ -6,8 +6,14 @@
 #include <boost/type_traits.hpp>
 
 #include <istream>
+#include <limits>
 #include <string>
 #include <type_traits>
+
+namespace boost::asio::ip
+{
+class address_v6;
+}
 
 namespace nano
 {
@@ -18,23 +24,50 @@ struct is_lexical_castable : std::integral_constant<bool,
 {
 };
 
-/* Type descriptions are used to automatically construct configuration error messages */
-// clang-format off
-template <typename T> inline std::string type_desc (void) { return "an unknown type"; }
-template <> inline std::string type_desc<int8_t> (void) { return "an integer between -128 and 127"; }
-template <> inline std::string type_desc<uint8_t> (void) { return "an integer between 0 and 255"; }
-template <> inline std::string type_desc<int16_t> (void) { return "an integer between -32768 and 32767"; }
-template <> inline std::string type_desc<uint16_t> (void) { return "an integer between 0 and 65535"; }
-template <> inline std::string type_desc<int32_t> (void) { return "a 32-bit signed integer"; }
-template <> inline std::string type_desc<uint32_t> (void) { return "a 32-bit unsigned integer"; }
-template <> inline std::string type_desc<int64_t> (void) { return "a 64-bit signed integer"; }
-template <> inline std::string type_desc<uint64_t> (void) { return "a 64-bit unsigned integer"; }
-template <> inline std::string type_desc<float> (void) { return "a single precision floating point number"; }
-template <> inline std::string type_desc<double> (void) { return "a double precision floating point number"; }
-template <> inline std::string type_desc<char> (void) { return "a character"; }
-template <> inline std::string type_desc<std::string> (void) { return "a string"; }
-template <> inline std::string type_desc<bool> (void) { return "a boolean"; }
-// clang-format on
+/** Describes the value type T expects, for configuration error messages */
+template <typename T>
+std::string type_desc ()
+{
+	if constexpr (std::is_same_v<T, bool>)
+	{
+		return "a boolean";
+	}
+	else if constexpr (std::is_same_v<T, char>)
+	{
+		return "a character";
+	}
+	else if constexpr (std::is_same_v<T, std::string>)
+	{
+		return "a string";
+	}
+	else if constexpr (std::is_same_v<T, boost::asio::ip::address_v6>)
+	{
+		return "an IPv6 address such as ::1 or ::ffff:127.0.0.1";
+	}
+	else if constexpr (std::is_integral_v<T>)
+	{
+		if constexpr (sizeof (T) <= 2)
+		{
+			return "an integer between " + std::to_string (std::numeric_limits<T>::min ()) + " and " + std::to_string (std::numeric_limits<T>::max ());
+		}
+		else
+		{
+			return std::string{ "a " } + std::to_string (sizeof (T) * 8) + "-bit " + (std::is_signed_v<T> ? "signed" : "unsigned") + " integer";
+		}
+	}
+	else if constexpr (std::is_same_v<T, float>)
+	{
+		return "a single precision floating point number";
+	}
+	else if constexpr (std::is_same_v<T, double>)
+	{
+		return "a double precision floating point number";
+	}
+	else
+	{
+		return "an unknown type";
+	}
+}
 
 /** Base type for configuration wrappers */
 class configbase : public nano::error_aware<>
@@ -60,29 +93,33 @@ public:
 
 protected:
 	template <typename T>
-	void construct_error_message (bool optional, std::string const & key)
+	std::string error_message (bool optional, std::string const & key) const
 	{
-		if (auto_error_message && *error)
+		if (optional)
 		{
-			if (optional)
-			{
-				error->set_message (key + " is not " + type_desc<T> ());
-			}
-			else
-			{
-				error->set_message (key + " is required and must be " + type_desc<T> ());
-			}
+			return key + " is not " + type_desc<T> ();
 		}
+		return key + " is required and must be " + type_desc<T> ();
 	}
 
-	/** Set error if not already set. That is, first error remains until get_error().clear() is called. */
+	/**
+	 * Records an error for \p key. The first error determines the error code; the messages of every further error are
+	 * appended so that all problems in a document are reported at once.
+	 */
 	template <typename T, typename V>
 	void conditionally_set_error (V error_a, bool optional, std::string const & key)
 	{
+		nano::error incoming;
+		incoming = error_a;
+		auto message = auto_error_message ? error_message<T> (optional, key) : incoming.get_message ();
 		if (!*error)
 		{
-			*error = error_a;
-			construct_error_message<T> (optional, key);
+			*error = incoming;
+			error->set_message (message);
+		}
+		else
+		{
+			error->set_message (error->get_message () + "; " + message);
 		}
 	}
 

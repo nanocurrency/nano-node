@@ -93,7 +93,7 @@ void run_cementing_benchmark (boost::program_options::variables_map const & vm, 
 	nano::work_pool work_pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 
 	// Load configuration from current working directory (if exists) and cli config overrides
-	auto daemon_config = nano::load_config_file<nano::daemon_config> (nano::node_config_filename, {}, node_flags.config_overrides);
+	auto daemon_config = nano::load_config_file (nano::daemon_config{}, nano::node_config_filename, {}, node_flags.config_overrides);
 	auto node_config = daemon_config.node;
 	node_config.network_params.work = nano::work_thresholds{ 0, 0, 0 };
 	node_config.peering_port = 0; // Use random available port

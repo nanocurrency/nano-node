@@ -86,6 +86,7 @@ add_executable(
   thread_pool.cpp
   throttle.cpp
   toml.cpp
+  tomlconfig.cpp
   timer.cpp
   unchecked_map.cpp
   utility.cpp

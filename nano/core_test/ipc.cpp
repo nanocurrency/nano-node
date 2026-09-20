@@ -1,3 +1,4 @@
+#include <nano/lib/files.hpp>
 #include <nano/lib/ipc_client.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/ipc/ipc_access_config.hpp>
@@ -190,6 +191,45 @@ TEST (ipc, permissions_default_user_order)
 
 	nano::ipc::access access;
 	ASSERT_TRUE (access.deserialize_toml (toml));
+}
+
+/** Semantic errors in the access config carry the file name too */
+TEST (ipc, access_config_load_invalid)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream file{ path / nano::access_config_filename };
+		file << "[[user]]\nid = \"alice\"\nroles = \"auditor\"\n";
+	}
+
+	nano::ipc::access access;
+	try
+	{
+		nano::ipc::load_access_config (path, access);
+		FAIL () << "expected a config error";
+	}
+	catch (nano::config_error const & ex)
+	{
+		ASSERT_STREQ (ex.what (), "config-access.toml: Unknown role: auditor");
+	}
+}
+
+/** Reloading a broken access config at runtime reports the problem instead of throwing into the server */
+TEST (ipc, access_config_invalid)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc (node, node_rpc_config);
+	{
+		std::ofstream file{ node.get_data_path () / nano::access_config_filename };
+		file << "[[user]]\nid = \"alice\"\nroles = \"auditor\"\n";
+	}
+
+	auto error = ipc.reload_access_config ();
+	ASSERT_TRUE (error);
+	ASSERT_EQ (error.get_message (), "config-access.toml: Unknown role: auditor");
 }
 
 TEST (ipc, invalid_endpoint)

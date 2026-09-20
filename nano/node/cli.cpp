@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/cli.hpp>
+#include <nano/lib/config_template.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
@@ -34,7 +35,7 @@
 namespace
 {
 void reset_confirmation_heights (nano::ledger_constants & constants, nano::store::ledger_store & store);
-bool is_using_rocksdb (std::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec);
+bool is_using_rocksdb (std::filesystem::path const & data_path, boost::program_options::variables_map const & vm);
 }
 
 std::string nano::error_cli_messages::message (int ev) const
@@ -53,10 +54,6 @@ std::string nano::error_cli_messages::message (int ev) const
 			return "Database write error";
 		case nano::error_cli::reading_config:
 			return "Config file read error";
-		case nano::error_cli::ambiguous_pruning_voting_options:
-			return "Flag --enable_pruning and --enable_voting in node config cannot be used together";
-		case nano::error_cli::ambiguous_peering_only_options:
-			return "Flag --peering_only cannot be used together with --enable_voting or --enable_pruning";
 	}
 
 	return "Invalid error code";
@@ -235,35 +232,12 @@ void nano::update_flags (nano::node_flags & flags_a, boost::program_options::var
 	{
 		flags_a.generate_cache.consistency_check = false;
 	}
-	// Config overriding
-	auto config (vm.find ("config"));
-	if (config != vm.end ())
-	{
-		flags_a.config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
-	}
-	auto rpcconfig (vm.find ("rpcconfig"));
-	if (rpcconfig != vm.end ())
-	{
-		flags_a.rpc_config_overrides = nano::config_overrides (rpcconfig->second.as<std::vector<nano::config_key_value_pair>> ());
-	}
+	flags_a.config_overrides = nano::config_overrides (vm);
+	flags_a.rpc_config_overrides = nano::config_overrides (vm, "rpcconfig");
 	if (auto it = vm.find ("runtime_info_file"); it != vm.end ())
 	{
 		flags_a.runtime_info_file = it->second.as<std::string> ();
 	}
-}
-
-std::error_code nano::flags_config_conflicts (nano::node_flags const & flags_a, nano::node_config const & config_a)
-{
-	std::error_code ec;
-	if (flags_a.enable_pruning && (config_a.enable_voting || flags_a.enable_voting))
-	{
-		ec = nano::error_cli::ambiguous_pruning_voting_options;
-	}
-	if (flags_a.peering_only && (config_a.enable_voting || flags_a.enable_voting || flags_a.enable_pruning))
-	{
-		ec = nano::error_cli::ambiguous_peering_only_options;
-	}
-	return ec;
 }
 
 namespace
@@ -321,7 +295,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 
 	if (vm.count ("initialize"))
 	{
-		// TODO: --config flag overrides are not taken into account here
 		nano::logger::initialize (nano::log_config::daemon_default (), data_path);
 
 		auto node_flags = nano::inactive_node_flag_defaults ();
@@ -414,57 +387,50 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		try
 		{
-			auto using_rocksdb = is_using_rocksdb (data_path, vm, ec);
-			if (!ec)
+			auto using_rocksdb = is_using_rocksdb (data_path, vm);
+			std::cout << "Vacuuming database copy in ";
+			std::filesystem::path source_path;
+			std::filesystem::path backup_path;
+			std::filesystem::path vacuum_path;
+			if (using_rocksdb)
 			{
-				std::cout << "Vacuuming database copy in ";
-				std::filesystem::path source_path;
-				std::filesystem::path backup_path;
-				std::filesystem::path vacuum_path;
-				if (using_rocksdb)
+				source_path = data_path / "rocksdb";
+				backup_path = source_path / "backup";
+				vacuum_path = backup_path / "vacuumed";
+				if (!std::filesystem::exists (vacuum_path))
 				{
-					source_path = data_path / "rocksdb";
-					backup_path = source_path / "backup";
-					vacuum_path = backup_path / "vacuumed";
-					if (!std::filesystem::exists (vacuum_path))
-					{
-						std::filesystem::create_directories (vacuum_path);
-					}
+					std::filesystem::create_directories (vacuum_path);
+				}
 
-					std::cout << source_path << "\n";
-				}
-				else
-				{
-					source_path = data_path / "data.ldb";
-					backup_path = data_path / "backup.vacuum.ldb";
-					vacuum_path = data_path / "vacuumed.ldb";
-					std::cout << data_path << "\n";
-				}
-				std::cout << "This may take a while..." << std::endl;
-
-				copy_database (data_path, vm, vacuum_path);
-
-				// Note that these throw on failure
-				std::cout << "Finalizing" << std::endl;
-				if (using_rocksdb)
-				{
-					nano::remove_all_files_in_dir (backup_path);
-					nano::move_all_files_to_dir (source_path, backup_path);
-					nano::move_all_files_to_dir (vacuum_path, source_path);
-					std::filesystem::remove_all (vacuum_path);
-				}
-				else
-				{
-					std::filesystem::remove (backup_path);
-					std::filesystem::rename (source_path, backup_path);
-					std::filesystem::rename (vacuum_path, source_path);
-				}
-				std::cout << "Vacuum completed" << std::endl;
+				std::cout << source_path << "\n";
 			}
 			else
 			{
-				std::cerr << "Vacuum failed. RocksDB is enabled but the node has not been built with RocksDB support" << std::endl;
+				source_path = data_path / "data.ldb";
+				backup_path = data_path / "backup.vacuum.ldb";
+				vacuum_path = data_path / "vacuumed.ldb";
+				std::cout << data_path << "\n";
 			}
+			std::cout << "This may take a while..." << std::endl;
+
+			copy_database (data_path, vm, vacuum_path);
+
+			// Note that these throw on failure
+			std::cout << "Finalizing" << std::endl;
+			if (using_rocksdb)
+			{
+				nano::remove_all_files_in_dir (backup_path);
+				nano::move_all_files_to_dir (source_path, backup_path);
+				nano::move_all_files_to_dir (vacuum_path, source_path);
+				std::filesystem::remove_all (vacuum_path);
+			}
+			else
+			{
+				std::filesystem::remove (backup_path);
+				std::filesystem::rename (source_path, backup_path);
+				std::filesystem::rename (vacuum_path, source_path);
+			}
+			std::cout << "Vacuum completed" << std::endl;
 		}
 		catch (std::filesystem::filesystem_error const & ex)
 		{
@@ -483,32 +449,25 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		try
 		{
-			auto using_rocksdb = is_using_rocksdb (data_path, vm, ec);
-			if (!ec)
+			auto using_rocksdb = is_using_rocksdb (data_path, vm);
+			std::filesystem::path source_path;
+			std::filesystem::path snapshot_path;
+			if (using_rocksdb)
 			{
-				std::filesystem::path source_path;
-				std::filesystem::path snapshot_path;
-				if (using_rocksdb)
-				{
-					source_path = data_path / "rocksdb";
-					snapshot_path = source_path / "backup";
-				}
-				else
-				{
-					source_path = data_path / "data.ldb";
-					snapshot_path = data_path / "snapshot.ldb";
-				}
-
-				std::cout << "Database snapshot of " << source_path << " to " << snapshot_path << " in progress" << std::endl;
-				std::cout << "This may take a while..." << std::endl;
-
-				copy_database (data_path, vm, snapshot_path);
-				std::cout << "Snapshot completed, This can be found at " << snapshot_path << std::endl;
+				source_path = data_path / "rocksdb";
+				snapshot_path = source_path / "backup";
 			}
 			else
 			{
-				std::cerr << "Snapshot failed. RocksDB is enabled but the node has not been built with RocksDB support" << std::endl;
+				source_path = data_path / "data.ldb";
+				snapshot_path = data_path / "snapshot.ldb";
 			}
+
+			std::cout << "Database snapshot of " << source_path << " to " << snapshot_path << " in progress" << std::endl;
+			std::cout << "This may take a while..." << std::endl;
+
+			copy_database (data_path, vm, snapshot_path);
+			std::cout << "Snapshot completed, This can be found at " << snapshot_path << std::endl;
 		}
 		catch (std::filesystem::filesystem_error const & ex)
 		{
@@ -531,14 +490,16 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 
 		nano::lmdb_config lmdb_config;
 		nano::rocksdb_config rocksdb_config;
+		try
 		{
 			nano::network_params network_params{ nano::get_active_network () };
-			nano::daemon_config daemon_config{ data_path, network_params };
-			if (!nano::read_node_config_toml (data_path, daemon_config))
-			{
-				lmdb_config = daemon_config.node.lmdb_config;
-				rocksdb_config = daemon_config.node.rocksdb_config;
-			}
+			auto daemon_config = nano::load_daemon_config (data_path, network_params, nano::config_overrides (vm));
+			lmdb_config = daemon_config.node.lmdb_config;
+			rocksdb_config = daemon_config.node.rocksdb_config;
+		}
+		catch (nano::config_error const & e)
+		{
+			std::cerr << "Ignoring node config: " << e.what () << std::endl;
 		}
 
 		try
@@ -556,126 +517,94 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::logger::initialize (nano::log_config::daemon_default (), data_path);
 
 		nano::network_params network_params{ nano::get_active_network () };
-		nano::daemon_config daemon_config{ data_path, network_params };
-
-		auto config_arg (vm.find ("config"));
-		std::vector<std::string> config_overrides;
-		if (config_arg != vm.end ())
+		try
 		{
-			config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
+			auto daemon_config = nano::load_daemon_config (data_path, network_params, nano::config_overrides (vm));
+			auto & logger = nano::default_logger ();
+			nano::stats stats{ logger };
+			auto store = nano::make_store (logger, stats, data_path, network_params.ledger, false, true, daemon_config.node);
+			std::cout << "Database upgrade completed successfully" << std::endl;
+			std::cout << "Database version: " << store->get_version () << " (" << store->get_vendor () << ")" << std::endl;
 		}
-
-		if (auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides))
+		catch (std::exception const & e)
 		{
-			std::cerr << "Error reading config: " << error.get_message () << std::endl;
-			ec = nano::error_cli::reading_config;
-		}
-		else
-		{
-			try
-			{
-				auto & logger = nano::default_logger ();
-				nano::stats stats{ logger };
-				auto store = nano::make_store (logger, stats, data_path, network_params.ledger, false, true, daemon_config.node);
-				std::cout << "Database upgrade completed successfully" << std::endl;
-				std::cout << "Database version: " << store->get_version () << " (" << store->get_vendor () << ")" << std::endl;
-			}
-			catch (std::exception const & e)
-			{
-				std::cerr << "Database upgrade failed: " << e.what () << std::endl;
-				ec = nano::error_cli::generic;
-			}
+			std::cerr << "Database upgrade failed: " << e.what () << std::endl;
+			ec = nano::error_cli::generic;
 		}
 	}
 	else if (vm.count ("database_info"))
 	{
 		nano::network_params network_params{ nano::get_active_network () };
-		nano::daemon_config daemon_config{ data_path, network_params };
+		try
+		{
+			auto daemon_config = nano::load_daemon_config (data_path, network_params, nano::config_overrides (vm));
+			auto & logger = nano::default_logger ();
+			nano::stats stats{ logger };
 
-		auto config_arg (vm.find ("config"));
-		std::vector<std::string> config_overrides;
-		if (config_arg != vm.end ())
-		{
-			config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
-		}
+			// Build the raw backend first and peek at the schema version.
+			// This avoids triggering ledger upgrade, so we can inspect outdated ledgers without modifying them.
+			auto backend = nano::make_backend (logger, data_path, /* add_db_postfix */ true, daemon_config.node);
+			auto meta = backend->fetch_meta ();
 
-		if (auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides))
-		{
-			std::cerr << "Error reading config: " << error.get_message () << std::endl;
-			ec = nano::error_cli::reading_config;
-		}
-		else
-		{
-			try
+			if (!meta)
 			{
-				auto & logger = nano::default_logger ();
-				nano::stats stats{ logger };
-
-				// Build the raw backend first and peek at the schema version.
-				// This avoids triggering ledger upgrade, so we can inspect outdated ledgers without modifying them.
-				auto backend = nano::make_backend (logger, data_path, /* add_db_postfix */ true, daemon_config.node);
-				auto meta = backend->fetch_meta ();
-
-				if (!meta)
-				{
-					std::cout << "Path:             " << backend->get_database_path () << std::endl;
-					std::cout << "Backend:          " << backend->get_vendor () << std::endl;
-					std::cout << "No ledger found" << std::endl;
-				}
-				else if (meta->version != nano::store::ledger_store::version_current)
-				{
-					std::cout << "Path:             " << backend->get_database_path () << std::endl;
-					std::cout << "Backend:          " << backend->get_vendor () << std::endl;
-					std::cout << "Version:          " << meta->version << std::endl;
-					std::cout << std::endl;
-					std::cout << "Note: ledger schema is outdated. Run --database_upgrade to upgrade. Flags and counts are not displayed for outdated schemas." << std::endl;
-				}
-				else
-				{
-					std::cout << "Loading ledger store for database info: " << backend->get_database_path () << " (" << backend->get_vendor () << ")" << std::endl;
-
-					// Schema is current; safe to wrap in ledger_store and read flags/counts
-					nano::store::ledger_store_params params;
-					nano::store::ledger_store store{ std::move (backend), nano::store::open_mode::read_only, stats, logger, params };
-
-					auto txn = store.tx_begin_read ();
-
-					bool const pruning = store.meta.get_flag (txn, nano::store::meta_key::pruning_enabled);
-					bool const topo_index = store.meta.get_flag (txn, nano::store::meta_key::topo_index_enabled);
-					bool const account_delegator_by_weight_index = store.meta.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled);
-					bool const account_receivable_by_amount_index = store.meta.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled);
-					bool const receive_block_by_send_block_index = store.meta.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled);
-					bool const account_block_by_height_index = store.meta.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled);
-
-					std::cout << "Path:             " << store.get_database_path () << std::endl;
-					std::cout << "Backend:          " << store.get_vendor () << std::endl;
-					std::cout << "Version:          " << store.get_version () << std::endl;
-
-					// On a freshly initialized ledger this equals the ledger initialization time;
-					// On an existing ledger it advances each time a block on the genesis account is processed.
-					if (auto genesis_info = store.account.get (txn, network_params.ledger.genesis->account ()))
-					{
-						std::cout << "Genesis:          " << fmt::format ("{:%Y-%m-%d %H:%M:%S} UTC", fmt::gmtime (static_cast<std::time_t> (genesis_info->modified))) << " (" << genesis_info->modified << ")" << std::endl;
-					}
-
-					std::cout << "Flags:" << std::endl;
-					std::cout << "  pruning:                            " << (pruning ? "enabled" : "disabled") << std::endl;
-					std::cout << "  topo_index:                         " << (topo_index ? "enabled" : "disabled") << std::endl;
-					std::cout << "  account_delegator_by_weight_index:  " << (account_delegator_by_weight_index ? "enabled" : "disabled") << std::endl;
-					std::cout << "  account_receivable_by_amount_index: " << (account_receivable_by_amount_index ? "enabled" : "disabled") << std::endl;
-					std::cout << "  receive_block_by_send_block_index:  " << (receive_block_by_send_block_index ? "enabled" : "disabled") << std::endl;
-					std::cout << "  account_block_by_height_index:      " << (account_block_by_height_index ? "enabled" : "disabled") << std::endl;
-					std::cout << "Counts:" << std::endl;
-					std::cout << "  blocks:         " << store.block.count (txn) << std::endl;
-					std::cout << "  accounts:       " << store.account.count (txn) << std::endl;
-					std::cout << "  pruned:         " << store.pruned.count (txn) << std::endl;
-				}
+				std::cout << "Path:             " << backend->get_database_path () << std::endl;
+				std::cout << "Backend:          " << backend->get_vendor () << std::endl;
+				std::cout << "No ledger found" << std::endl;
 			}
-			catch (std::exception const & e)
+			else if (meta->version != nano::store::ledger_store::version_current)
 			{
-				std::cerr << "Failed to read database info: " << e.what () << std::endl;
-				ec = nano::error_cli::generic;
+				std::cout << "Path:             " << backend->get_database_path () << std::endl;
+				std::cout << "Backend:          " << backend->get_vendor () << std::endl;
+				std::cout << "Version:          " << meta->version << std::endl;
+				std::cout << std::endl;
+				std::cout << "Note: ledger schema is outdated. Run --database_upgrade to upgrade. Flags and counts are not displayed for outdated schemas." << std::endl;
 			}
+			else
+			{
+				std::cout << "Loading ledger store for database info: " << backend->get_database_path () << " (" << backend->get_vendor () << ")" << std::endl;
+
+				// Schema is current; safe to wrap in ledger_store and read flags/counts
+				nano::store::ledger_store_params params;
+				nano::store::ledger_store store{ std::move (backend), nano::store::open_mode::read_only, stats, logger, params };
+
+				auto txn = store.tx_begin_read ();
+
+				bool const pruning = store.meta.get_flag (txn, nano::store::meta_key::pruning_enabled);
+				bool const topo_index = store.meta.get_flag (txn, nano::store::meta_key::topo_index_enabled);
+				bool const account_delegator_by_weight_index = store.meta.get_flag (txn, nano::store::meta_key::account_delegator_by_weight_index_enabled);
+				bool const account_receivable_by_amount_index = store.meta.get_flag (txn, nano::store::meta_key::account_receivable_by_amount_index_enabled);
+				bool const receive_block_by_send_block_index = store.meta.get_flag (txn, nano::store::meta_key::receive_block_by_send_block_index_enabled);
+				bool const account_block_by_height_index = store.meta.get_flag (txn, nano::store::meta_key::account_block_by_height_index_enabled);
+
+				std::cout << "Path:             " << store.get_database_path () << std::endl;
+				std::cout << "Backend:          " << store.get_vendor () << std::endl;
+				std::cout << "Version:          " << store.get_version () << std::endl;
+
+				// On a freshly initialized ledger this equals the ledger initialization time;
+				// On an existing ledger it advances each time a block on the genesis account is processed.
+				if (auto genesis_info = store.account.get (txn, network_params.ledger.genesis->account ()))
+				{
+					std::cout << "Genesis:          " << fmt::format ("{:%Y-%m-%d %H:%M:%S} UTC", fmt::gmtime (static_cast<std::time_t> (genesis_info->modified))) << " (" << genesis_info->modified << ")" << std::endl;
+				}
+
+				std::cout << "Flags:" << std::endl;
+				std::cout << "  pruning:                            " << (pruning ? "enabled" : "disabled") << std::endl;
+				std::cout << "  topo_index:                         " << (topo_index ? "enabled" : "disabled") << std::endl;
+				std::cout << "  account_delegator_by_weight_index:  " << (account_delegator_by_weight_index ? "enabled" : "disabled") << std::endl;
+				std::cout << "  account_receivable_by_amount_index: " << (account_receivable_by_amount_index ? "enabled" : "disabled") << std::endl;
+				std::cout << "  receive_block_by_send_block_index:  " << (receive_block_by_send_block_index ? "enabled" : "disabled") << std::endl;
+				std::cout << "  account_block_by_height_index:      " << (account_block_by_height_index ? "enabled" : "disabled") << std::endl;
+				std::cout << "Counts:" << std::endl;
+				std::cout << "  blocks:         " << store.block.count (txn) << std::endl;
+				std::cout << "  accounts:       " << store.account.count (txn) << std::endl;
+				std::cout << "  pruned:         " << store.pruned.count (txn) << std::endl;
+			}
+		}
+		catch (std::exception const & e)
+		{
+			std::cerr << "Failed to read database info: " << e.what () << std::endl;
+			ec = nano::error_cli::generic;
 		}
 	}
 	else if (vm.count ("populate_topo_index"))
@@ -683,44 +612,28 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::logger::initialize (nano::log_config::daemon_default (), data_path);
 
 		nano::network_params network_params{ nano::get_active_network () };
-		nano::daemon_config daemon_config{ data_path, network_params };
+		try
+		{
+			auto daemon_config = nano::load_daemon_config (data_path, network_params, nano::config_overrides (vm));
+			auto & logger = nano::default_logger ();
+			nano::stats stats{ logger };
+			auto store = nano::make_store (logger, stats, data_path, network_params.ledger, false, true, daemon_config.node);
+			nano::ledger ledger{ *store, network_params, stats, logger };
 
-		auto config_arg (vm.find ("config"));
-		std::vector<std::string> config_overrides;
-		if (config_arg != vm.end ())
-		{
-			config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
-		}
-
-		if (auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides))
-		{
-			std::cerr << "Error reading config: " << error.get_message () << std::endl;
-			ec = nano::error_cli::reading_config;
-		}
-		else
-		{
-			try
+			if (ledger.flags.topo_index)
 			{
-				auto & logger = nano::default_logger ();
-				nano::stats stats{ logger };
-				auto store = nano::make_store (logger, stats, data_path, network_params.ledger, false, true, daemon_config.node);
-				nano::ledger ledger{ *store, network_params, stats, logger };
-
-				if (ledger.flags.topo_index)
-				{
-					std::cout << "Topology index is already populated" << std::endl;
-				}
-				else
-				{
-					ledger.populate_topo_index ();
-					std::cout << "Topology index populated" << std::endl;
-				}
+				std::cout << "Topology index is already populated" << std::endl;
 			}
-			catch (std::exception const & e)
+			else
 			{
-				std::cerr << "Failed to populate topology index: " << e.what () << std::endl;
-				ec = nano::error_cli::generic;
+				ledger.populate_topo_index ();
+				std::cout << "Topology index populated" << std::endl;
 			}
+		}
+		catch (std::exception const & e)
+		{
+			std::cerr << "Failed to populate topology index: " << e.what () << std::endl;
+			ec = nano::error_cli::generic;
 		}
 	}
 	else if (vm.count ("drop_topo_index"))
@@ -728,45 +641,29 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::logger::initialize (nano::log_config::daemon_default (), data_path);
 
 		nano::network_params network_params{ nano::get_active_network () };
-		nano::daemon_config daemon_config{ data_path, network_params };
+		try
+		{
+			auto daemon_config = nano::load_daemon_config (data_path, network_params, nano::config_overrides (vm));
+			auto & logger = nano::default_logger ();
+			nano::stats stats{ logger };
+			auto store = nano::make_store (logger, stats, data_path, network_params.ledger, false, true, daemon_config.node);
+			// Skip cache generation and load-time consistency checks so a corrupted store can still be recovered
+			nano::ledger ledger{ *store, network_params, stats, logger, nano::ledger_options{ .generate_cache = nano::generate_cache_flags::all_disabled () } };
 
-		auto config_arg (vm.find ("config"));
-		std::vector<std::string> config_overrides;
-		if (config_arg != vm.end ())
-		{
-			config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
-		}
-
-		if (auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides))
-		{
-			std::cerr << "Error reading config: " << error.get_message () << std::endl;
-			ec = nano::error_cli::reading_config;
-		}
-		else
-		{
-			try
+			if (!ledger.flags.topo_index)
 			{
-				auto & logger = nano::default_logger ();
-				nano::stats stats{ logger };
-				auto store = nano::make_store (logger, stats, data_path, network_params.ledger, false, true, daemon_config.node);
-				// Skip cache generation and load-time consistency checks so a corrupted store can still be recovered
-				nano::ledger ledger{ *store, network_params, stats, logger, nano::ledger_options{ .generate_cache = nano::generate_cache_flags::all_disabled () } };
-
-				if (!ledger.flags.topo_index)
-				{
-					std::cout << "Topology index is not enabled" << std::endl;
-				}
-				else
-				{
-					ledger.drop_topo_index ();
-					std::cout << "Topology index dropped" << std::endl;
-				}
+				std::cout << "Topology index is not enabled" << std::endl;
 			}
-			catch (std::exception const & e)
+			else
 			{
-				std::cerr << "Failed to drop topology index: " << e.what () << std::endl;
-				ec = nano::error_cli::generic;
+				ledger.drop_topo_index ();
+				std::cout << "Topology index dropped" << std::endl;
 			}
+		}
+		catch (std::exception const & e)
+		{
+			std::cerr << "Failed to drop topology index: " << e.what () << std::endl;
+			ec = nano::error_cli::generic;
 		}
 	}
 	else if (vm.count ("populate_extended_ledger_indices"))
@@ -774,44 +671,28 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::logger::initialize (nano::log_config::daemon_default (), data_path);
 
 		nano::network_params network_params{ nano::get_active_network () };
-		nano::daemon_config daemon_config{ data_path, network_params };
+		try
+		{
+			auto daemon_config = nano::load_daemon_config (data_path, network_params, nano::config_overrides (vm));
+			auto & logger = nano::default_logger ();
+			nano::stats stats{ logger };
+			auto store = nano::make_store (logger, stats, data_path, network_params.ledger, false, true, daemon_config.node);
+			nano::ledger ledger{ *store, network_params, stats, logger };
 
-		auto config_arg (vm.find ("config"));
-		std::vector<std::string> config_overrides;
-		if (config_arg != vm.end ())
-		{
-			config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
-		}
-
-		if (auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides))
-		{
-			std::cerr << "Error reading config: " << error.get_message () << std::endl;
-			ec = nano::error_cli::reading_config;
-		}
-		else
-		{
-			try
+			if (!ledger.flags.all_extended_ledger_indices_enabled ())
 			{
-				auto & logger = nano::default_logger ();
-				nano::stats stats{ logger };
-				auto store = nano::make_store (logger, stats, data_path, network_params.ledger, false, true, daemon_config.node);
-				nano::ledger ledger{ *store, network_params, stats, logger };
-
-				if (!ledger.flags.all_extended_ledger_indices_enabled ())
-				{
-					ledger.populate_extended_ledger_indices ();
-					std::cout << "Extended ledger indices populated" << std::endl;
-				}
-				else
-				{
-					std::cout << "Extended ledger indices are already populated" << std::endl;
-				}
+				ledger.populate_extended_ledger_indices ();
+				std::cout << "Extended ledger indices populated" << std::endl;
 			}
-			catch (std::exception const & e)
+			else
 			{
-				std::cerr << "Failed to populate extended ledger indices: " << e.what () << std::endl;
-				ec = nano::error_cli::generic;
+				std::cout << "Extended ledger indices are already populated" << std::endl;
 			}
+		}
+		catch (std::exception const & e)
+		{
+			std::cerr << "Failed to populate extended ledger indices: " << e.what () << std::endl;
+			ec = nano::error_cli::generic;
 		}
 	}
 	else if (vm.count ("drop_extended_ledger_indices"))
@@ -819,45 +700,29 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::logger::initialize (nano::log_config::daemon_default (), data_path);
 
 		nano::network_params network_params{ nano::get_active_network () };
-		nano::daemon_config daemon_config{ data_path, network_params };
+		try
+		{
+			auto daemon_config = nano::load_daemon_config (data_path, network_params, nano::config_overrides (vm));
+			auto & logger = nano::default_logger ();
+			nano::stats stats{ logger };
+			auto store = nano::make_store (logger, stats, data_path, network_params.ledger, false, true, daemon_config.node);
+			// Skip cache generation and load-time consistency checks so corrupted index state can still be dropped
+			nano::ledger ledger{ *store, network_params, stats, logger, nano::ledger_options{ .generate_cache = nano::generate_cache_flags::all_disabled () } };
 
-		auto config_arg (vm.find ("config"));
-		std::vector<std::string> config_overrides;
-		if (config_arg != vm.end ())
-		{
-			config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
-		}
-
-		if (auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides))
-		{
-			std::cerr << "Error reading config: " << error.get_message () << std::endl;
-			ec = nano::error_cli::reading_config;
-		}
-		else
-		{
-			try
+			if (ledger.flags.any_extended_ledger_index_enabled ())
 			{
-				auto & logger = nano::default_logger ();
-				nano::stats stats{ logger };
-				auto store = nano::make_store (logger, stats, data_path, network_params.ledger, false, true, daemon_config.node);
-				// Skip cache generation and load-time consistency checks so corrupted index state can still be dropped
-				nano::ledger ledger{ *store, network_params, stats, logger, nano::ledger_options{ .generate_cache = nano::generate_cache_flags::all_disabled () } };
-
-				if (ledger.flags.any_extended_ledger_index_enabled ())
-				{
-					ledger.drop_extended_ledger_indices ();
-					std::cout << "Extended ledger indices dropped" << std::endl;
-				}
-				else
-				{
-					std::cout << "Extended ledger indices are not enabled" << std::endl;
-				}
+				ledger.drop_extended_ledger_indices ();
+				std::cout << "Extended ledger indices dropped" << std::endl;
 			}
-			catch (std::exception const & e)
+			else
 			{
-				std::cerr << "Failed to drop extended ledger indices: " << e.what () << std::endl;
-				ec = nano::error_cli::generic;
+				std::cout << "Extended ledger indices are not enabled" << std::endl;
 			}
+		}
+		catch (std::exception const & e)
+		{
+			std::cerr << "Failed to drop extended ledger indices: " << e.what () << std::endl;
+			ec = nano::error_cli::generic;
 		}
 	}
 	else if (vm.count ("rollback"))
@@ -1111,7 +976,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		else if (type == "rpc")
 		{
 			valid_type = true;
-			nano::rpc_config config{ nano::dev::network_params.network };
+			nano::network_params network_params{ nano::get_active_network () };
+			nano::rpc_config config{ network_params.network };
 			config.serialize_toml (toml);
 		}
 		else if (type == "log")
@@ -1134,40 +1000,32 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					  << "# It is not recommended to uncomment every field, as the default value for important fields may change in the future. Only change what you need.\n"
 					  << "# Additional information for notable configuration options is available in https://docs.nano.org/running-a-node/configuration/#notable-configuration-options\n";
 
-			if (vm.count ("use_defaults"))
-			{
-				std::cout << toml.to_string (false) << std::endl;
-			}
-			else
-			{
-				std::cout << toml.to_string (true) << std::endl;
-			}
+			std::cout << nano::render_config_template (toml, /* comment_values */ vm.count ("use_defaults") == 0) << std::endl;
 		}
 	}
 	else if (vm.count ("update_config"))
 	{
 		nano::network_params network_params{ nano::get_active_network () };
-		nano::tomlconfig default_toml;
-		nano::tomlconfig current_toml;
 		nano::daemon_config default_config{ data_path, network_params };
 		nano::daemon_config current_config{ data_path, network_params };
 
-		std::vector<std::string> config_overrides;
-		auto error = nano::read_node_config_toml (data_path, current_config, config_overrides);
-		if (error)
+		// Command line overrides are deliberately left out so that the printed config reflects the file only
+		auto file_toml = nano::read_config_file (nano::node_config_filename, data_path);
+		if (auto error = current_config.deserialize_toml (file_toml))
 		{
-			std::cerr << "Could not read existing config file\n";
-			ec = nano::error_cli::reading_config;
+			throw nano::config_error{ nano::node_config_filename, error.get_message () };
 		}
-		else
+		for (auto const & key : file_toml.unknown_keys ())
 		{
-			current_config.serialize_toml (current_toml);
-			default_config.serialize_toml (default_toml);
-
-			auto output = current_toml.merge_defaults (current_toml, default_toml);
-
-			std::cout << output;
+			std::cerr << "Dropping unknown key `" << key << "`" << std::endl;
 		}
+
+		nano::tomlconfig current_toml;
+		nano::tomlconfig default_toml;
+		current_config.serialize_toml (current_toml);
+		default_config.serialize_toml (default_toml);
+
+		std::cout << nano::render_config_update (current_toml, default_toml);
 	}
 	else if (vm.count ("diagnostics"))
 	{
@@ -1786,30 +1644,9 @@ void reset_confirmation_heights (nano::ledger_constants & constants, nano::store
 	store.confirmation_height.put (transaction, constants.genesis->account (), { 1, constants.genesis->hash () });
 }
 
-bool is_using_rocksdb (std::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec)
+bool is_using_rocksdb (std::filesystem::path const & data_path, boost::program_options::variables_map const & vm)
 {
 	nano::network_params network_params{ nano::get_active_network () };
-	nano::daemon_config config{ data_path, network_params };
-
-	// Config overriding
-	auto config_arg (vm.find ("config"));
-	std::vector<std::string> config_overrides;
-	if (config_arg != vm.end ())
-	{
-		config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
-	}
-
-	// config override...
-	auto error = nano::read_node_config_toml (data_path, config, config_overrides);
-	if (!error)
-	{
-		return config.node.rocksdb_config->enable;
-	}
-	else
-	{
-		ec = nano::error_cli::reading_config;
-	}
-
-	return false;
+	return nano::load_node_config (data_path, network_params, nano::config_overrides (vm)).rocksdb_config->enable;
 }
 }

@@ -220,6 +220,23 @@ namespace test
 		std::streambuf * old{ std::cout.rdbuf () };
 	};
 
+	class cerr_redirect
+	{
+	public:
+		cerr_redirect (std::streambuf * new_buffer)
+		{
+			std::cerr.rdbuf (new_buffer);
+		}
+
+		~cerr_redirect ()
+		{
+			std::cerr.rdbuf (old);
+		}
+
+	private:
+		std::streambuf * old{ std::cerr.rdbuf () };
+	};
+
 	/**
 	 * Helper to signal completion of async handlers in tests.
 	 * Subclasses implement specific conditions for completion.
