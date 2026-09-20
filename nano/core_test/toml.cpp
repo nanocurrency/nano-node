@@ -16,6 +16,7 @@
 #include <nano/node/cementing_set.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/fork_cache.hpp>
+#include <nano/node/ipc/ipc_access_config.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
 #include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/message_processor.hpp>
@@ -858,6 +859,29 @@ TEST (toml_config, rpc_config_known_keys)
 	ASSERT_EQ (toml.unknown_keys (), std::vector<std::string>{});
 }
 
+/** An RPC bind address that is not an address names the key and what an address looks like */
+TEST (toml_config, rpc_config_load_invalid_address)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream file{ path / nano::rpc_config_filename };
+		file << "address = \"localhost\"\n";
+	}
+	nano::network_params network_params{ nano::get_active_network () };
+
+	try
+	{
+		nano::load_rpc_config (path, network_params.network);
+		FAIL () << "expected a config error";
+	}
+	catch (nano::config_error const & ex)
+	{
+		std::string message{ ex.what () };
+		ASSERT_EQ (message.find ("config-rpc.toml: address is not an IPv6 address"), 0) << message;
+	}
+}
+
 /** Every key the sample log config writes is read back */
 TEST (toml_config, log_config_known_keys)
 {
@@ -997,6 +1021,77 @@ TEST (toml_config, daemon_read_config)
 	expect_error (invalid_overrides2, "Invalid config override \"node.foo\": Value must follow after a '=' at line 1");
 }
 
+/** Values of the wrong type are reported by key and expected type, all of them at once */
+TEST (toml_config, daemon_config_load_type_errors)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream file{ path / nano::node_config_filename };
+		file << "[node]\nio_threads = \"many\"\nenable_voting = \"yes\"\n[node.active_elections]\nsize = -1\n";
+	}
+	nano::network_params network_params{ nano::get_active_network () };
+
+	try
+	{
+		nano::load_daemon_config (path, network_params);
+		FAIL () << "expected a config error";
+	}
+	catch (nano::config_error const & ex)
+	{
+		std::string message{ ex.what () };
+		ASSERT_EQ (message.find ("config-node.toml: "), 0) << message;
+		ASSERT_NE (message.find ("io_threads is not a 32-bit unsigned integer"), std::string::npos) << message;
+		ASSERT_NE (message.find ("enable_voting is not a boolean"), std::string::npos) << message;
+		ASSERT_NE (message.find ("size is not a 64-bit unsigned integer"), std::string::npos) << message;
+	}
+}
+
+/** Flags that contradict the file are rejected when loading with flags */
+TEST (toml_config, daemon_config_load_flag_conflict)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream file{ path / nano::node_config_filename };
+		file << "[node]\nenable_voting = true\n";
+	}
+	nano::network_params network_params{ nano::get_active_network () };
+	nano::node_flags flags;
+	ASSERT_NO_THROW (nano::load_daemon_config (path, network_params, flags));
+
+	flags.enable_pruning = true;
+	try
+	{
+		nano::load_daemon_config (path, network_params, flags);
+		FAIL () << "expected an error";
+	}
+	catch (std::runtime_error const & ex)
+	{
+		ASSERT_NE (std::string{ ex.what () }.find ("--enable_pruning"), std::string::npos) << ex.what ();
+	}
+}
+
+/** Keys nothing reads are reported by dotted path and file, whether they come from the file or an override */
+TEST (toml_config, daemon_config_load_unknown_key_warning)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream file{ path / nano::node_config_filename };
+		file << "[node]\ntypo = 1\n";
+	}
+	nano::network_params network_params{ nano::get_active_network () };
+
+	std::stringstream captured;
+	{
+		nano::test::cerr_redirect redirect{ captured.rdbuf () };
+		ASSERT_NO_THROW (nano::load_daemon_config (path, network_params, { "node.active_elections.sise=100" }));
+	}
+	ASSERT_NE (captured.str ().find ("Warning: unknown key `node.typo` in config-node.toml"), std::string::npos) << captured.str ();
+	ASSERT_NE (captured.str ().find ("Warning: unknown key `node.active_elections.sise` in config-node.toml"), std::string::npos) << captured.str ();
+}
+
 TEST (toml_config, log_config_defaults)
 {
 	std::stringstream ss;
@@ -1084,6 +1179,27 @@ TEST (toml_config, log_config_no_required)
 	config.deserialize_toml (toml);
 
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
+}
+
+/** A broken log config falls back to the given defaults and says so, since logging cannot fail startup */
+TEST (toml_config, log_config_load_fallback)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream file{ path / nano::log_config_filename };
+		file << "[log]\ndefault_level = \"loud\"\n";
+	}
+
+	std::stringstream captured;
+	nano::log_config config;
+	{
+		nano::test::cerr_redirect redirect{ captured.rdbuf () };
+		config = nano::load_log_config (nano::log_config::cli_default (nano::log::level::error), path);
+	}
+	ASSERT_EQ (config.default_level, nano::log::level::error);
+	ASSERT_NE (captured.str ().find ("Unable to load log config"), std::string::npos) << captured.str ();
+	ASSERT_NE (captured.str ().find ("config-log.toml"), std::string::npos) << captured.str ();
 }
 
 /** The annotated template with active values parses back into the very same document */

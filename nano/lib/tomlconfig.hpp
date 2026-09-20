@@ -235,7 +235,13 @@ protected:
 			if (tree->contains_qualified (key))
 			{
 				auto val = get_value (key);
-				if (!val || !boost::conversion::try_lexical_convert<T> (*val, target))
+				bool valid = val.has_value ();
+				if constexpr (std::is_integral_v<T> && std::is_unsigned_v<T>)
+				{
+					// lexical_cast would wrap a negative number into an unsigned target
+					valid = valid && val->find ('-') == std::string::npos;
+				}
+				if (!valid || !boost::conversion::try_lexical_convert<T> (*val, target))
 				{
 					conditionally_set_error<T> (nano::error_config::invalid_value, optional, key);
 				}

@@ -1,4 +1,5 @@
 #include <nano/lib/cli.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -8,6 +9,7 @@
 
 #include <boost/program_options.hpp>
 
+#include <fstream>
 #include <regex>
 
 using namespace std::chrono_literals;
@@ -88,6 +90,38 @@ TEST (cli, config_overrides_from_options)
 	auto overrides = nano::config_overrides (vm);
 	ASSERT_EQ (overrides, (std::vector<std::string>{ "node.peering_port=\"7075\"", "node.work_peers=[\"a:1\",\"b:2\"]" }));
 	ASSERT_TRUE (nano::config_overrides (vm, "rpcconfig").empty ());
+}
+
+/** Commands that open the node let a broken config escape as nano::config_error for main to report */
+TEST (cli, config_error_propagates)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream file{ path / nano::node_config_filename };
+		file << "[node\n";
+	}
+
+	boost::program_options::options_description description;
+	nano::add_node_options (description);
+	nano::add_node_flag_options (description);
+	auto const path_string = path.string ();
+	char const * argv[] = { "nano_node", "--wallet_list", "--data_path", path_string.c_str () };
+	boost::program_options::variables_map vm;
+	boost::program_options::store (boost::program_options::parse_command_line (4, argv, description), vm);
+	boost::program_options::notify (vm);
+
+	try
+	{
+		nano::handle_node_options (vm);
+		FAIL () << "expected a config error";
+	}
+	catch (nano::config_error const & ex)
+	{
+		std::string message{ ex.what () };
+		ASSERT_EQ (message.find ("config-node.toml: "), 0) << message;
+		ASSERT_NE (message.find ("line 1"), std::string::npos) << message;
+	}
 }
 
 TEST (cli, enable_rpc_flag)

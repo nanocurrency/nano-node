@@ -34,7 +34,7 @@ void nano::tomlconfig::doc (std::string const & key, std::string const & doc)
 nano::error & nano::tomlconfig::read (std::filesystem::path const & path_a)
 {
 	std::ifstream stream{ path_a };
-	if (!stream)
+	if (!stream || !std::filesystem::is_regular_file (path_a))
 	{
 		error->set ("Could not open config file: " + path_a.string ());
 		return *error;

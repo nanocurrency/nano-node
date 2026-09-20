@@ -249,6 +249,26 @@ TEST (tomlconfig, unknown_keys_dotted)
 	ASSERT_EQ (t.unknown_keys (), (std::vector<std::string>{ "node.b" }));
 }
 
+/** Negative numbers are rejected for unsigned targets instead of wrapping around */
+TEST (tomlconfig, negative_unsigned)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		a = -1
+		b = 5
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	uint64_t a{ 7 }, b{ 0 };
+	t.get ("a", a);
+	t.get ("b", b);
+	ASSERT_EQ (a, 7);
+	ASSERT_EQ (b, 5);
+	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
+	ASSERT_NE (t.get_error ().get_message ().find ("a is not a 64-bit unsigned integer"), std::string::npos) << t.get_error ().get_message ();
+}
+
 TEST (tomlconfig, put)
 {
 	nano::tomlconfig config;
@@ -367,6 +387,24 @@ TEST (config_file, unknown_keys)
 	auto unknown = toml.unknown_keys ();
 	std::sort (unknown.begin (), unknown.end ());
 	ASSERT_EQ (unknown, (std::vector<std::string>{ "node.other", "node.typo" }));
+}
+
+/** A path that exists but cannot be read as a file is reported by name */
+TEST (config_file, unreadable_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path / "config-test.toml");
+
+	try
+	{
+		nano::read_config_file ("config-test.toml", path);
+		FAIL () << "expected a config error";
+	}
+	catch (nano::config_error const & ex)
+	{
+		std::string message{ ex.what () };
+		ASSERT_EQ (message.find ("config-test.toml: Could not open config file"), 0) << message;
+	}
 }
 
 /** A file with invalid syntax is reported with its own line number, regardless of any overrides */
