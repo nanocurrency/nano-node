@@ -837,10 +837,6 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     Qt5::Gui
     Qt5::Widgets)
 
-  target_compile_definitions(
-    qt PRIVATE -DTAG_VERSION_STRING=${TAG_VERSION_STRING}
-               -DGIT_COMMIT_HASH=${GIT_COMMIT_HASH})
-
   if(WIN32)
     set(PLATFORM_GUI_TARGET_PROPERTIES WIN32)
   else()
