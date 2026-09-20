@@ -61,6 +61,7 @@ public:
 	 * Add a route for 'hash' to 'election'.
 	 * A hash belongs to a single election, so an existing route to another election is replaced unless that election started later.
 	 * The hash must belong to the election's root, which the router cannot verify.
+	 * Connect before reading the vote cache for 'hash', votes that arrive in between are then delivered by the router.
 	 * @return true if the route points to 'election' afterwards
 	 */
 	bool connect (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election);
@@ -77,6 +78,7 @@ public:
 	/**
 	 * Route vote to associated elections.
 	 * Distinguishes replay votes, cannot be determined if the block is not in any election.
+	 * A vote for a hash without a route is cached, then the route is looked up once more in case an election connected meanwhile.
 	 * If 'filter' parameter is non-zero, only elections for the specified hash are notified.
 	 * This eliminates duplicate processing when triggering votes from the vote_cache as the result of a specific election being created.
 	 */

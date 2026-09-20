@@ -1,7 +1,10 @@
+#include <nano/lib/vote.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/election_behavior.hpp>
+#include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/test_common/system.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -109,4 +112,80 @@ TEST (vote_router, connect_replaces_expired_route)
 
 	ASSERT_TRUE (node.vote_router.connect (hash, older));
 	ASSERT_EQ (older, node.vote_router.election (hash));
+}
+
+/*
+ * A vote for a hash that no election claims is cached and reported as undetermined.
+ */
+TEST (vote_router, vote_unmatched_is_cached)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	nano::block_hash const hash{ 1 };
+
+	auto vote = nano::test::make_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ hash }, 1);
+	auto results = node.vote_router.vote (vote);
+	ASSERT_EQ (nano::vote_code::indeterminate, results.at (hash));
+	ASSERT_EQ (1, node.vote_cache.find (hash).size ());
+	ASSERT_FALSE (node.vote_router.contains (hash));
+}
+
+/*
+ * A vote reaches an election that starts while the vote is being routed.
+ * A starting election connects its route and then reads the vote cache, so a vote that found no route must not be cached too late for that read and then left there.
+ */
+TEST (vote_router, vote_during_election_start)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	nano::block_hash const routed{ 1 };
+	nano::block_hash const starting{ 2 };
+	auto started = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 0);
+
+	// Runs while the router votes on the routed hash, after it found no route for the other hash and before it caches the vote
+	auto start_election = [&] (nano::account const &) {
+		ASSERT_TRUE (node.vote_router.connect (starting, started));
+		ASSERT_TRUE (node.vote_cache.find (starting).empty ());
+	};
+	auto voting = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 0, nullptr, start_election);
+	ASSERT_TRUE (node.vote_router.connect (routed, voting));
+
+	auto vote = nano::test::make_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ routed, starting }, 1);
+	auto results = node.vote_router.vote (vote);
+	ASSERT_EQ (nano::vote_code::vote, results.at (routed));
+	ASSERT_EQ (nano::vote_code::vote, results.at (starting));
+
+	auto votes = started->votes ();
+	ASSERT_TRUE (votes.contains (nano::dev::genesis_key.pub));
+	ASSERT_EQ (starting, votes.at (nano::dev::genesis_key.pub).hash);
+
+	// The vote stays cached for an election that starts later
+	ASSERT_EQ (1, node.vote_cache.find (starting).size ());
+}
+
+/*
+ * An election that starts while a vote is being routed may have received that vote from the vote cache by the time the router looks again.
+ * The second delivery is not a replay by the representative, so the hash is still reported as unmatched.
+ */
+TEST (vote_router, vote_during_election_start_already_delivered)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	nano::block_hash const routed{ 1 };
+	nano::block_hash const starting{ 2 };
+	auto started = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 0);
+	auto vote = nano::test::make_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ routed, starting }, 1);
+
+	// Runs while the router votes on the routed hash, the starting election gets the vote the way a vote cache read delivers it
+	auto start_election = [&] (nano::account const &) {
+		ASSERT_TRUE (node.vote_router.connect (starting, started));
+		ASSERT_EQ (nano::vote_code::vote, started->vote (vote->account, vote->timestamp (), starting, nano::vote_source::cache));
+	};
+	auto voting = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 0, nullptr, start_election);
+	ASSERT_TRUE (node.vote_router.connect (routed, voting));
+
+	auto results = node.vote_router.vote (vote);
+	ASSERT_EQ (nano::vote_code::vote, results.at (routed));
+	ASSERT_EQ (nano::vote_code::indeterminate, results.at (starting));
+	ASSERT_EQ (1, started->votes ().count (nano::dev::genesis_key.pub));
 }

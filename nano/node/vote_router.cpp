@@ -8,6 +8,7 @@
 #include <nano/node/vote_router.hpp>
 
 #include <chrono>
+#include <deque>
 
 using namespace std::chrono_literals;
 
@@ -104,8 +105,18 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::vote_router::vote (s
 		return hash == filter;
 	}));
 
+	auto find_election = [this] (auto const & hash) -> std::shared_ptr<nano::election> {
+		auto const & by_hash = routes.get<tag_hash> ();
+		if (auto existing = by_hash.find (hash); existing != by_hash.end ())
+		{
+			return existing->election.lock ();
+		}
+		return {};
+	};
+
 	std::unordered_map<nano::block_hash, nano::vote_code> results;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> process;
+	std::deque<nano::block_hash> unmatched; // Hashes that get cached because no election claims them
 	{
 		std::shared_lock lock{ mutex };
 		for (auto const & hash : vote->hashes)
@@ -122,15 +133,6 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::vote_router::vote (s
 				continue;
 			}
 
-			auto find_election = [this] (auto const & hash) -> std::shared_ptr<nano::election> {
-				auto const & by_hash = routes.get<tag_hash> ();
-				if (auto existing = by_hash.find (hash); existing != by_hash.end ())
-				{
-					return existing->election.lock ();
-				}
-				return {};
-			};
-
 			if (auto election = find_election (hash))
 			{
 				process[hash] = election;
@@ -144,6 +146,7 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::vote_router::vote (s
 				else
 				{
 					results[hash] = nano::vote_code::indeterminate;
+					unmatched.push_back (hash);
 				}
 			}
 		}
@@ -170,6 +173,28 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::vote_router::vote (s
 	if (source != nano::vote_source::cache)
 	{
 		vote_cache.insert (vote, results);
+
+		// An election that started since the lookup may have read the cache before the insert, so look up the unmatched hashes once more
+		std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> started;
+		if (!unmatched.empty ())
+		{
+			std::shared_lock lock{ mutex };
+			for (auto const & hash : unmatched)
+			{
+				if (auto election = find_election (hash))
+				{
+					started[hash] = election;
+				}
+			}
+		}
+		for (auto const & [block_hash, election] : started)
+		{
+			// Any other result means the election got the vote from the cache or is over already
+			if (election->vote (vote->account, vote->timestamp (), block_hash, source) == nano::vote_code::vote)
+			{
+				results[block_hash] = nano::vote_code::vote;
+			}
+		}
 	}
 
 	vote_processed.notify (vote, source, results);
