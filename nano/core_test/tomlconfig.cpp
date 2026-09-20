@@ -1,3 +1,4 @@
+#include <nano/boost/asio/ip/address_v6.hpp>
 #include <nano/lib/tomlconfig.hpp>
 
 #include <gtest/gtest.h>
@@ -79,6 +80,34 @@ TEST (tomlconfig, negative_unsigned)
 	ASSERT_EQ (b, 5);
 	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
 	ASSERT_NE (t.get_error ().get_message ().find ("a is not a 64-bit unsigned integer"), std::string::npos) << t.get_error ().get_message ();
+}
+
+/** Type descriptions are derived from the type, so aliases such as size_t get a real one */
+TEST (tomlconfig, type_description)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		a = "not a number"
+		b = 70000
+		c = "not an address"
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+
+	std::size_t a{ 0 };
+	t.get ("a", a);
+	ASSERT_EQ (t.get_error ().get_message (), "a is not a 64-bit unsigned integer");
+	t.get_error ().clear ();
+
+	uint16_t b{ 0 };
+	t.get ("b", b);
+	ASSERT_EQ (t.get_error ().get_message (), "b is not an integer between 0 and 65535");
+	t.get_error ().clear ();
+
+	boost::asio::ip::address_v6 c;
+	t.get_optional<boost::asio::ip::address_v6> ("c", c, boost::asio::ip::address_v6::loopback ());
+	ASSERT_EQ (t.get_error ().get_message (), "c is not an IPv6 address such as ::1 or ::ffff:127.0.0.1");
 }
 
 TEST (tomlconfig, put)
