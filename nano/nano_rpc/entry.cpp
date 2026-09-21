@@ -121,13 +121,7 @@ int main (int argc, char * const * argv)
 	std::filesystem::path data_path ((data_path_it != vm.end ()) ? std::filesystem::path (data_path_it->second.as<std::string> ()) : nano::working_path ());
 	if (vm.count ("daemon") > 0)
 	{
-		std::vector<std::string> config_overrides;
-		auto config (vm.find ("config"));
-		if (config != vm.end ())
-		{
-			config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
-		}
-		run (data_path, config_overrides);
+		run (data_path, nano::config_overrides (vm));
 	}
 	else if (vm.count ("version"))
 	{
