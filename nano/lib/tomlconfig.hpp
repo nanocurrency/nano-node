@@ -49,9 +49,6 @@ public:
 	bool has_key (std::string const & key_a);
 	tomlconfig & erase (std::string const & key_a);
 	std::shared_ptr<cpptoml::array> create_array (std::string const & key, std::optional<char const *> documentation_a);
-	void erase_default_values (tomlconfig & defaults_a);
-	std::string to_string (bool comment_values);
-	std::string merge_defaults (nano::tomlconfig & current_config, nano::tomlconfig & default_config);
 
 	/** Set value for the given key. Any existing value will be overwritten. */
 	template <typename T>
@@ -244,8 +241,5 @@ private:
 
 	/** The config node being managed */
 	std::shared_ptr<cpptoml::table> tree;
-
-	/** Compare two stringified configs, remove keys where values are equal */
-	void erase_defaults (std::shared_ptr<cpptoml::table> const & base, std::shared_ptr<cpptoml::table> const & other, std::shared_ptr<cpptoml::table> const & update_target);
 };
 }

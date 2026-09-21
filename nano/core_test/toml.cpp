@@ -1,3 +1,4 @@
+#include <nano/lib/config_template.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/lmdbconfig.hpp>
@@ -42,58 +43,6 @@
 #include <string>
 
 using namespace std::chrono_literals;
-
-/** Ensure only different values survive a toml diff */
-TEST (toml, diff)
-{
-	nano::tomlconfig defaults, other;
-
-	// Defaults
-	std::stringstream ss;
-	ss << R"toml(
-	a = false
-	b = false
-	)toml";
-
-	defaults.read (ss);
-
-	// User file. The rpc section is the same and doesn't need to be emitted
-	std::stringstream ss_override;
-	ss_override << R"toml(
-	a = true
-	b = false
-	)toml";
-
-	other.read (ss_override);
-	other.erase_default_values (defaults);
-
-	ASSERT_TRUE (other.has_key ("a"));
-	ASSERT_FALSE (other.has_key ("b"));
-}
-
-/** Diff on equal toml files leads to an empty result */
-TEST (toml, diff_equal)
-{
-	nano::tomlconfig defaults, other;
-
-	std::stringstream ss;
-	ss << R"toml(
-	[node]
-	allow_local_peers = false
-	)toml";
-
-	defaults.read (ss);
-
-	std::stringstream ss_override;
-	ss_override << R"toml(
-	[node]
-	allow_local_peers = false
-	)toml";
-
-	other.read (ss_override);
-	other.erase_default_values (defaults);
-	ASSERT_TRUE (other.empty ());
-}
 
 /** Config settings passed via CLI overrides the config file settings. This is solved
 using an override stream. */
@@ -1111,20 +1060,43 @@ TEST (toml_config, log_config_no_required)
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
 }
 
-TEST (toml_config, merge_config_files)
+/** The annotated template with active values parses back into the very same document */
+TEST (toml_config, daemon_config_template_round_trip)
 {
 	nano::network_params network_params{ nano::get_active_network () };
-	nano::tomlconfig default_toml;
-	nano::tomlconfig current_toml;
-	nano::tomlconfig merged_toml;
+	nano::daemon_config defaults{ ".", network_params };
+	defaults.node.peering_port = network_params.network.default_node_port;
+	nano::tomlconfig written;
+	defaults.serialize_toml (written);
+
+	auto rendered = nano::render_config_template (written, /* comment_values */ false);
+	ASSERT_NE (rendered.find ("\n[node]\n"), std::string::npos);
+	ASSERT_NE (rendered.find ("\n[node.active_elections]\n"), std::string::npos);
+	ASSERT_NE (rendered.find ("\t# Node peering port.\n\t# type:uint16\n\tpeering_port = "), std::string::npos);
+
+	std::stringstream ss{ rendered };
+	nano::tomlconfig parsed;
+	ASSERT_FALSE (parsed.read (ss)) << parsed.get_error ().get_message ();
+	nano::daemon_config config{ ".", network_params };
+	ASSERT_FALSE (config.deserialize_toml (parsed)) << parsed.get_error ().get_message ();
+
+	nano::tomlconfig rewritten;
+	config.serialize_toml (rewritten);
+	ASSERT_EQ (nano::render_config_template (rewritten, false), rendered);
+}
+
+/** Updating an operator's file keeps their changes, restores the defaults and drops keys nothing reads */
+TEST (toml_config, daemon_config_template_update)
+{
+	nano::network_params network_params{ nano::get_active_network () };
 	nano::daemon_config default_config{ ".", network_params };
 	nano::daemon_config current_config{ ".", network_params };
-	nano::daemon_config merged_config{ ".", network_params };
 
 	std::stringstream ss;
-
+	// The defaults write no peering port at all, so setting one makes the two documents differ in shape
 	ss << R"toml(
 	[node]
+	 peering_port = 54000
 	 active_elections.size = 999
 	 # background_threads = 7777
 	[node.bootstrap]
@@ -1132,25 +1104,24 @@ TEST (toml_config, merge_config_files)
 	 old_entry = 34
 	)toml";
 
-	current_toml.read (ss);
-	current_config.deserialize_toml (current_toml);
+	nano::tomlconfig file_toml;
+	file_toml.read (ss);
+	ASSERT_FALSE (current_config.deserialize_toml (file_toml));
 
+	nano::tomlconfig current_toml;
+	nano::tomlconfig default_toml;
 	current_config.serialize_toml (current_toml);
 	default_config.serialize_toml (default_toml);
+	auto updated = nano::render_config_update (current_toml, default_toml);
+	ASSERT_EQ (updated.find ("old_entry"), std::string::npos);
 
-	auto merged_config_string = current_toml.merge_defaults (current_toml, default_toml);
-
-	// Configs have been merged. Let's read and parse the new config file and verify the values
-
-	std::stringstream ss2;
-	ss2 << merged_config_string;
-
-	merged_toml.read (ss2);
-	merged_config.deserialize_toml (merged_toml);
-
-	ASSERT_NE (merged_config.node.active_elections->size, default_config.node.active_elections->size);
+	std::stringstream ss2{ updated };
+	nano::tomlconfig merged_toml;
+	ASSERT_FALSE (merged_toml.read (ss2)) << merged_toml.get_error ().get_message ();
+	nano::daemon_config merged_config{ ".", network_params };
+	ASSERT_FALSE (merged_config.deserialize_toml (merged_toml));
+	ASSERT_EQ (merged_config.node.peering_port, 54000);
 	ASSERT_EQ (merged_config.node.active_elections->size, 999);
-	ASSERT_NE (merged_config.node.background_threads, 7777);
+	ASSERT_EQ (merged_config.node.background_threads, default_config.node.background_threads);
 	ASSERT_EQ (merged_config.node.bootstrap->block_processor_threshold, 33333);
-	ASSERT_TRUE (merged_config_string.find ("old_entry") == std::string::npos);
 }
