@@ -61,10 +61,10 @@ nano::vote_rebroadcaster::vote_rebroadcaster (nano::vote_rebroadcaster_config co
 		return size_t{ 0 };
 	};
 
-	vote_router.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, std::unordered_map<nano::block_hash, nano::vote_code> const & results) {
+	vote_router.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, nano::vote_results const & results) {
 		// We also want to allow late votes to be rebroadcasted to help with reaching quorum for other nodes
-		bool should_rebroadcast = std::any_of (results.begin (), results.end (), [&] (auto const & result) {
-			auto const code = result.second;
+		bool should_rebroadcast = std::ranges::any_of (results.entries (), [&] (auto const & entry) {
+			auto const code = entry.code;
 			if (code == nano::vote_code::vote)
 			{
 				return true; // Rebroadcast votes that were processed by active elections

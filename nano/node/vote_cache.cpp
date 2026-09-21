@@ -123,38 +123,31 @@ nano::vote_cache::vote_cache (vote_cache_config const & config_a, nano::stats & 
 {
 }
 
-void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, std::unordered_map<nano::block_hash, nano::vote_code> const & results)
+void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, nano::vote_results const & results)
 {
-	// Results map should be empty or have the same hashes as the vote
-	debug_assert (results.empty () || std::all_of (vote->hashes.begin (), vote->hashes.end (), [&results] (auto const & hash) { return results.find (hash) != results.end (); }));
-
-	auto const representative = vote->account;
-	auto const rep_weight = rep_weight_query (representative);
+	auto const rep_weight = rep_weight_query (vote->account);
 
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
-	// Cache votes with a corresponding active election (indicated by `vote_code::vote`) in case that election gets dropped
-	auto filter = [] (auto code) {
-		return code == nano::vote_code::vote || code == nano::vote_code::indeterminate;
-	};
-
-	// If results map is empty, insert all hashes (meant for testing)
-	if (results.empty ())
+	for (auto const & entry : results.entries ())
 	{
-		for (auto const & hash : vote->hashes)
+		// Cache votes with a corresponding active election (indicated by `vote_code::vote`) in case that election gets dropped
+		if (entry.code == nano::vote_code::vote || entry.code == nano::vote_code::indeterminate)
 		{
-			insert_impl (vote, hash, rep_weight);
+			insert_impl (vote, entry.hash, rep_weight);
 		}
 	}
-	else
+}
+
+void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote)
+{
+	auto const rep_weight = rep_weight_query (vote->account);
+
+	nano::lock_guard<nano::mutex> lock{ mutex };
+
+	for (auto const & hash : vote->hashes)
 	{
-		for (auto const & [hash, code] : results)
-		{
-			if (filter (code))
-			{
-				insert_impl (vote, hash, rep_weight);
-			}
-		}
+		insert_impl (vote, hash, rep_weight);
 	}
 }
 

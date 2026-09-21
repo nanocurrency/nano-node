@@ -111,11 +111,14 @@ public:
 	explicit vote_cache (vote_cache_config const &, nano::stats &);
 
 	/**
-	 * Adds a new vote to cache
+	 * Adds a routed vote to the cache, for the hashes that may still need it
 	 */
-	void insert (
-	std::shared_ptr<nano::vote> const & vote,
-	std::unordered_map<nano::block_hash, nano::vote_code> const & results = {});
+	void insert (std::shared_ptr<nano::vote> const & vote, nano::vote_results const & results);
+
+	/**
+	 * Adds a vote to the cache for all of its hashes (meant for testing)
+	 */
+	void insert (std::shared_ptr<nano::vote> const & vote);
 
 	/**
 	 * Tries to find an entry associated with block hash

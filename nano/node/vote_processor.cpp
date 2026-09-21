@@ -195,18 +195,18 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 	auto result = nano::vote_code::invalid;
 	if (!vote->validate ()) // false => valid vote
 	{
-		auto vote_results = vote_router.vote (vote, source);
+		auto const results = vote_router.vote (vote, source);
 
 		// Aggregate results for individual hashes
 		bool replay = false;
 		bool processed = false;
 		bool late = false;
 
-		for (auto const & [hash, hash_result] : vote_results)
+		for (auto const & entry : results.entries ())
 		{
-			replay |= (hash_result == nano::vote_code::replay);
-			processed |= (hash_result == nano::vote_code::vote);
-			late |= (hash_result == nano::vote_code::late);
+			replay |= (entry.code == nano::vote_code::replay);
+			processed |= (entry.code == nano::vote_code::vote);
+			late |= (entry.code == nano::vote_code::late);
 		}
 
 		auto decide_result = [&] () {

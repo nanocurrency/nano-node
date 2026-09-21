@@ -238,3 +238,76 @@ TEST (vote_router, vote_during_election_start_already_delivered)
 	ASSERT_EQ (nano::vote_code::indeterminate, results.at (starting));
 	ASSERT_EQ (1, started->votes ().count (nano::dev::genesis_key.pub));
 }
+
+/*
+ * A hash that repeats within a vote is routed once, the repeat must not reach the election as a replay.
+ */
+TEST (vote_router, vote_repeated_hash)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	nano::block_hash const routed{ 1 };
+	nano::block_hash const unmatched{ 2 };
+	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 0);
+	ASSERT_TRUE (node.vote_router.connect (routed, election));
+
+	auto vote = nano::test::make_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ routed, unmatched, routed, unmatched }, 1);
+	auto results = node.vote_router.vote (vote);
+	ASSERT_EQ (2, results.size ());
+	ASSERT_EQ (nano::vote_code::vote, results.at (routed));
+	ASSERT_EQ (nano::vote_code::indeterminate, results.at (unmatched));
+}
+
+/*
+ * With a filter only the named hash of a vote is routed.
+ */
+TEST (vote_router, vote_filter)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	nano::block_hash const first{ 1 };
+	nano::block_hash const second{ 2 };
+	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 0);
+	ASSERT_TRUE (node.vote_router.connect (first, election));
+	ASSERT_TRUE (node.vote_router.connect (second, election));
+
+	auto vote = nano::test::make_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ first, second }, 1);
+	auto results = node.vote_router.vote (vote, nano::vote_source::cache, second);
+	ASSERT_EQ (1, results.size ());
+	ASSERT_EQ (nano::vote_code::vote, results.at (second));
+	ASSERT_THROW (results.at (first), std::out_of_range);
+	ASSERT_EQ (second, election->votes ().at (nano::dev::genesis_key.pub).hash);
+}
+
+/*
+ * A vote with the maximum number of hashes is routed completely, with matched and unmatched hashes interleaved.
+ */
+TEST (vote_router, vote_max_hashes)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	std::vector<nano::block_hash> hashes;
+	std::vector<std::shared_ptr<nano::election>> elections;
+	for (uint64_t i = 1; i <= nano::vote::max_hashes; ++i)
+	{
+		hashes.emplace_back (i);
+		// Every other hash has an election of its own
+		if (i % 2 == 0)
+		{
+			elections.push_back (std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 0));
+			ASSERT_TRUE (node.vote_router.connect (hashes.back (), elections.back ()));
+		}
+	}
+
+	auto vote = nano::test::make_vote (nano::dev::genesis_key, hashes, 1);
+	auto results = node.vote_router.vote (vote);
+	ASSERT_EQ (nano::vote::max_hashes, results.size ());
+	for (uint64_t i = 1; i <= nano::vote::max_hashes; ++i)
+	{
+		ASSERT_EQ (i % 2 == 0 ? nano::vote_code::vote : nano::vote_code::indeterminate, results.at (nano::block_hash{ i }));
+	}
+	for (auto const & election : elections)
+	{
+		ASSERT_EQ (1, election->votes ().count (nano::dev::genesis_key.pub));
+	}
+}
