@@ -127,3 +127,69 @@ TEST (observer_set, copy_throw)
 	copy_throw value;
 	ASSERT_NO_THROW (set.notify (value));
 }
+
+namespace
+{
+// Observer that counts how often it gets copied, moving it is free
+struct copy_counting_observer
+{
+	explicit copy_counting_observer (int & copies) :
+		copies{ &copies }
+	{
+	}
+	copy_counting_observer (copy_counting_observer const & other) :
+		copies{ other.copies }
+	{
+		++*copies;
+	}
+	copy_counting_observer (copy_counting_observer && other) noexcept :
+		copies{ other.copies }
+	{
+	}
+	void operator() (int const &) const
+	{
+	}
+	int * copies;
+};
+}
+
+/*
+ * A notification calls the observers in place, only adding an observer may copy them.
+ */
+TEST (observer_set, notify_does_not_copy_observers)
+{
+	nano::observer_set<int> set;
+	int copies{ 0 };
+	set.add (copy_counting_observer{ copies });
+	set.add (copy_counting_observer{ copies });
+	auto const copies_after_add = copies;
+
+	set.notify (1);
+	set.notify (2);
+	ASSERT_EQ (copies_after_add, copies);
+}
+
+/*
+ * An observer added from inside a notification is first called by the next notification.
+ */
+TEST (observer_set, add_during_notify)
+{
+	nano::observer_set<int> set;
+	int late_calls{ 0 };
+	bool added{ false };
+	set.add ([&] (int) {
+		if (!added)
+		{
+			added = true;
+			set.add ([&late_calls] (int) {
+				++late_calls;
+			});
+		}
+	});
+
+	set.notify (1);
+	ASSERT_EQ (0, late_calls);
+	set.notify (1);
+	ASSERT_EQ (1, late_calls);
+	ASSERT_EQ (2, set.size ());
+}
