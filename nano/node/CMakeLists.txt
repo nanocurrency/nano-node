@@ -268,6 +268,7 @@ target_link_libraries(
   Boost::stacktrace
   Boost::system
   Boost::thread
+  Boost::unordered
   rocksdb
   ${CMAKE_DL_LIBS}
   ${psapi_lib}
