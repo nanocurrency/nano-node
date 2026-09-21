@@ -263,6 +263,7 @@ target_link_libraries(
   argon2
   lmdb
   Boost::beast
+  Boost::container
   Boost::program_options
   Boost::stacktrace
   Boost::system

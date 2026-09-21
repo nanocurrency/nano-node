@@ -1,3 +1,4 @@
+#include <nano/lib/vote.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/test_common/random.hpp>
@@ -7,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include <map>
+#include <set>
 
 namespace
 {
@@ -344,6 +346,86 @@ TEST (vote_cache, overfill_entry)
 		vote_cache.insert (vote1);
 	}
 	ASSERT_EQ (1, vote_cache.size ());
+}
+
+/*
+ * A full entry keeps its heaviest voters: every further voter pushes out the lightest one, which may be that voter itself.
+ * Reaching the limit already pushes one out, so an entry holds one voter less than the limit.
+ */
+TEST (vote_cache, entry_keeps_heaviest_voters)
+{
+	nano::test::system system;
+	nano::vote_cache_config cfg;
+	cfg.max_voters = 4;
+	nano::vote_cache vote_cache{ cfg, system.stats };
+	vote_cache.rep_weight_query = rep_weight_query ();
+	auto const hash = nano::test::random_hash ();
+
+	auto voters = [&] () {
+		std::set<nano::account> result;
+		for (auto const & vote : vote_cache.find (hash))
+		{
+			result.insert (vote->account);
+		}
+		return result;
+	};
+
+	auto const rep10 = create_rep (10);
+	auto const rep30 = create_rep (30);
+	auto const rep20 = create_rep (20);
+	auto const rep40 = create_rep (40);
+	for (auto const & rep : { rep10, rep30, rep20, rep40 })
+	{
+		vote_cache.insert (nano::test::make_vote (rep, { hash }, 1));
+	}
+	ASSERT_EQ ((std::set<nano::account>{ rep30.pub, rep20.pub, rep40.pub }), voters ());
+
+	// A voter lighter than all of them does not stay
+	auto const rep5 = create_rep (5);
+	vote_cache.insert (nano::test::make_vote (rep5, { hash }, 1));
+	ASSERT_EQ ((std::set<nano::account>{ rep30.pub, rep20.pub, rep40.pub }), voters ());
+
+	// A heavier voter takes the place of the lightest one
+	auto const rep25 = create_rep (25);
+	vote_cache.insert (nano::test::make_vote (rep25, { hash }, 1));
+	ASSERT_EQ ((std::set<nano::account>{ rep30.pub, rep40.pub, rep25.pub }), voters ());
+
+	// Among equally light voters the earliest one goes
+	auto const rep25_later = create_rep (25);
+	vote_cache.insert (nano::test::make_vote (rep25_later, { hash }, 1));
+	ASSERT_EQ ((std::set<nano::account>{ rep30.pub, rep40.pub, rep25_later.pub }), voters ());
+
+	// The tally follows the voters that stayed
+	auto const top = vote_cache.top (0);
+	ASSERT_EQ (1, top.size ());
+	ASSERT_EQ (30 + 40 + 25, top[0].tally);
+}
+
+/*
+ * A newer vote of a known voter replaces the old one, the tally only changes when the vote becomes final.
+ */
+TEST (vote_cache, entry_newer_vote_replaces_older)
+{
+	nano::test::system system;
+	nano::vote_cache_config cfg;
+	nano::vote_cache vote_cache{ cfg, system.stats };
+	vote_cache.rep_weight_query = rep_weight_query ();
+	auto const hash = nano::test::random_hash ();
+	auto const rep = create_rep (7);
+
+	vote_cache.insert (nano::test::make_vote (rep, { hash }, 1024 * 1024));
+	auto const newer = nano::test::make_vote (rep, { hash }, 2 * 1024 * 1024);
+	vote_cache.insert (newer);
+	ASSERT_EQ (1, vote_cache.find (hash).size ());
+	ASSERT_EQ (newer, vote_cache.find (hash)[0]);
+	ASSERT_EQ (7, vote_cache.top (0)[0].tally);
+	ASSERT_EQ (0, vote_cache.top (0)[0].final_tally);
+
+	auto const final_vote = nano::test::make_final_vote (rep, { hash });
+	vote_cache.insert (final_vote);
+	ASSERT_EQ (final_vote, vote_cache.find (hash)[0]);
+	ASSERT_EQ (7, vote_cache.top (0)[0].tally);
+	ASSERT_EQ (7, vote_cache.top (0)[0].final_tally);
 }
 
 TEST (vote_cache, age_cutoff)
