@@ -611,6 +611,14 @@ TEST (ledger, weights)
 	ASSERT_EQ (1, ledger.weights (std::vector<nano::account>{ rep1.pub, rep1.pub }).size ());
 	ASSERT_TRUE (ledger.weights (std::vector<nano::account>{}).empty ());
 
+	// The positional form answers slot by slot: a repeated rep is answered every time and whatever a slot held is overwritten
+	{
+		std::vector<nano::account> const positional_reps{ rep1.pub, unknown.pub, rep1.pub, rep2.pub, 0 };
+		std::vector<nano::uint128_t> positional (positional_reps.size (), 123);
+		ledger.weights (positional_reps, positional);
+		ASSERT_EQ ((std::vector<nano::uint128_t>{ amount1, 0, amount1, amount2, 0 }), positional);
+	}
+
 	// Bootstrap weights replace the cache entirely: a preconfigured rep is answered from the table even where the ledger disagrees, and a rep known only to the ledger reads zero
 	nano::keypair rep_bootstrap;
 	ledger.bootstrap_weights.max_blocks = ledger.block_count () + 1;
@@ -629,6 +637,14 @@ TEST (ledger, weights)
 		for (auto const & rep : bootstrap_reps)
 		{
 			ASSERT_EQ (ledger.weight (rep), weights.at (rep));
+		}
+
+		// The positional form reads the same table
+		std::vector<nano::uint128_t> positional (bootstrap_reps.size (), 123);
+		ledger.weights (bootstrap_reps, positional);
+		for (size_t index = 0; index < bootstrap_reps.size (); ++index)
+		{
+			ASSERT_EQ (weights.at (bootstrap_reps[index]), positional[index]);
 		}
 
 		// The exact database weights are untouched by the bootstrap table

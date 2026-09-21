@@ -6,16 +6,6 @@
 
 #include <algorithm>
 
-namespace
-{
-// Weight of a rep in a queried snapshot, zero when the snapshot has no entry for it
-nano::uint128_t weight_of (nano::rep_weight_map const & weights, nano::account const & rep)
-{
-	auto existing = weights.find (rep);
-	return existing != weights.end () ? existing->second : nano::uint128_t{ 0 };
-}
-}
-
 /*
  * vote_info
  */
@@ -211,54 +201,63 @@ auto nano::election_ballot::insert (std::shared_ptr<nano::block> const & block, 
 nano::uint128_t nano::election_ballot::block_weights::weight (nano::block_hash const & hash) const
 {
 	auto existing = weights.find (hash);
-	return existing != weights.end () ? existing->second : 0;
+	return existing != weights.end () ? existing->second.weight : 0;
 }
 
 nano::uint128_t nano::election_ballot::block_weights::final_weight (nano::block_hash const & hash) const
 {
-	auto existing = final_weights.find (hash);
-	return existing != final_weights.end () ? existing->second : 0;
+	auto existing = weights.find (hash);
+	return existing != weights.end () ? existing->second.final_weight : 0;
 }
 
-nano::rep_weight_map nano::election_ballot::rep_weights () const
+template <typename Visitor>
+void nano::election_ballot::for_each_weighted_vote (Visitor && visit) const
 {
-	std::vector<nano::account> reps;
+	// Reps and their weights side by side
+	boost::container::small_vector<nano::account, inline_reps> reps;
 	reps.reserve (votes_m.size ());
 	for (auto const & [rep, info] : votes_m)
 	{
 		reps.push_back (rep);
 	}
-	return weight_query (reps);
+
+	// A rep the query knows nothing about keeps its zero
+	boost::container::small_vector<nano::uint128_t, inline_reps> weights (reps.size (), nano::uint128_t{ 0 });
+	weight_query (reps, weights);
+
+	// The votes have not changed since the reps were collected, so they come in the same order
+	size_t index{ 0 };
+	for (auto const & [rep, info] : votes_m)
+	{
+		visit (rep, info, weights[index++]);
+	}
 }
 
 auto nano::election_ballot::compute_weights () const -> block_weights
 {
-	auto const weights = rep_weights ();
-
 	// Accumulate the weight behind every voted-for hash, including hashes not held; make_tally filters those out
 	block_weights result;
-	for (auto const & [rep, info] : votes_m)
-	{
-		auto const rep_weight = weight_of (weights, rep);
-		result.weights[info.hash] += rep_weight;
+	for_each_weighted_vote ([&result] (nano::account const &, nano::vote_info const & info, nano::uint128_t const & rep_weight) {
+		auto & entry = result.weights[info.hash];
+		entry.weight += rep_weight;
 		// A final vote counts into both totals, so the final weight is always a subset of the block weight
 		if (info.final ())
 		{
-			result.final_weights[info.hash] += rep_weight;
+			entry.final_weight += rep_weight;
 		}
-	}
+	});
 	return result;
 }
 
-nano::tally_map nano::election_ballot::make_tally (std::unordered_map<nano::block_hash, nano::uint128_t> const & weights) const
+nano::tally_map nano::election_ballot::make_tally (block_weights const & block_weights) const
 {
 	// Only held blocks enter the tally, weight behind unheld hashes is dropped here; the map comparator orders the entries
 	nano::tally_map result;
-	for (auto const & [hash, weight] : weights)
+	for (auto const & [hash, entry] : block_weights.weights)
 	{
 		if (auto held = blocks_m.find (hash); held != blocks_m.end ())
 		{
-			result.emplace (nano::tally_key{ weight, hash }, held->second);
+			result.emplace (nano::tally_key{ entry.weight, hash }, held->second);
 		}
 	}
 	return result;
@@ -267,35 +266,37 @@ nano::tally_map nano::election_ballot::make_tally (std::unordered_map<nano::bloc
 auto nano::election_ballot::evaluate (nano::uint128_t quorum_threshold) -> round
 {
 	auto const block_weights = compute_weights ();
-	auto const tally = make_tally (block_weights.weights);
 
 	// Participation is all recorded vote weight, held or unheld: it measures how much weight has spoken, not what it backs
 	nano::uint128_t total_weight{ 0 };
-	for (auto const & [hash, weight] : block_weights.weights)
+	for (auto const & [hash, entry] : block_weights.weights)
 	{
-		total_weight += weight;
+		total_weight += entry.weight;
 	}
 
 	// Both slots advance only once enough weight participates, so a lead among the first few votes cannot move them
 	if (total_weight >= quorum_threshold)
 	{
-		// The heaviest held block takes the winner slot
-		if (!tally.empty ())
-		{
-			winner_m = tally.begin ()->first.hash;
-		}
-
-		// The heaviest voted-for hash takes the leader slot, held or not; ties resolve to the higher hash, mirroring the tally order
+		// The heaviest voted-for hash takes the leader slot, held or not, and the heaviest held one the winner slot; ties resolve to the higher hash, which is the tally order
 		std::optional<std::pair<nano::uint128_t, nano::block_hash>> heaviest;
-		for (auto const & [hash, weight] : block_weights.weights)
+		std::optional<std::pair<nano::uint128_t, nano::block_hash>> heaviest_held;
+		for (auto const & [hash, entry] : block_weights.weights)
 		{
-			std::pair<nano::uint128_t, nano::block_hash> const entry{ weight, hash };
-			if (!heaviest || entry > *heaviest)
+			std::pair<nano::uint128_t, nano::block_hash> const candidate{ entry.weight, hash };
+			if (!heaviest || candidate > *heaviest)
 			{
-				heaviest = entry;
+				heaviest = candidate;
+			}
+			if (blocks_m.contains (hash) && (!heaviest_held || candidate > *heaviest_held))
+			{
+				heaviest_held = candidate;
 			}
 		}
 
+		if (heaviest_held)
+		{
+			winner_m = heaviest_held->second;
+		}
 		if (heaviest)
 		{
 			leader_m = heaviest->second;
@@ -311,11 +312,11 @@ auto nano::election_ballot::evaluate (nano::uint128_t quorum_threshold) -> round
 
 	// The runner-up is the heaviest rival across every voted-for hash
 	nano::uint128_t runner_up{ 0 };
-	for (auto const & [hash, weight] : block_weights.weights)
+	for (auto const & [hash, entry] : block_weights.weights)
 	{
 		if (hash != winner_m)
 		{
-			runner_up = std::max (runner_up, weight);
+			runner_up = std::max (runner_up, entry.weight);
 		}
 	}
 
@@ -360,7 +361,7 @@ bool nano::election_ballot::contains_block (nano::block_hash const & hash) const
 
 nano::tally_map nano::election_ballot::tally () const
 {
-	return make_tally (compute_weights ().weights);
+	return make_tally (compute_weights ());
 }
 
 std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election_ballot::blocks () const
@@ -370,20 +371,16 @@ std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::electio
 
 std::unordered_map<nano::account, nano::vote_info> nano::election_ballot::votes () const
 {
-	return votes_m;
+	return { votes_m.begin (), votes_m.end () };
 }
 
 std::vector<nano::vote_with_weight_info> nano::election_ballot::votes_with_weight () const
 {
-	auto const weights = rep_weights ();
-
 	std::vector<nano::vote_with_weight_info> result;
 	result.reserve (votes_m.size ());
-	for (auto const & [rep, info] : votes_m)
-	{
-		auto const rep_weight = weight_of (weights, rep);
+	for_each_weighted_vote ([&result] (nano::account const & rep, nano::vote_info const & info, nano::uint128_t const & rep_weight) {
 		result.push_back ({ rep, info.arrival, info.timestamp, info.hash, rep_weight });
-	}
+	});
 
 	// Heaviest reps first, ties ordered by account so the report is deterministic
 	std::sort (result.begin (), result.end (), [] (auto const & lhs, auto const & rhs) {

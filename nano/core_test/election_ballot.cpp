@@ -28,21 +28,19 @@ struct test_reps
 	size_t queries{ 0 }; // Number of weight queries made so far
 	std::vector<nano::account> last_query; // Reps requested by the latest query
 
-	// Reps without a registered weight are left out of the result, exercising the ballot's missing-rep handling
+	// Reps without a registered weight leave their slot alone, exercising the ballot's missing-rep handling
 	nano::election_ballot::weight_fn query ()
 	{
-		return [this] (std::span<nano::account const> reps) {
+		return [this] (std::span<nano::account const> reps, std::span<nano::uint128_t> result) {
 			++queries;
 			last_query.assign (reps.begin (), reps.end ());
-			nano::rep_weight_map result;
-			for (auto const & rep : reps)
+			for (size_t index = 0; index < reps.size (); ++index)
 			{
-				if (auto existing = weights.find (rep); existing != weights.end ())
+				if (auto existing = weights.find (reps[index]); existing != weights.end ())
 				{
-					result[rep] = existing->second;
+					result[index] = existing->second;
 				}
 			}
-			return result;
 		};
 	}
 
@@ -1212,6 +1210,51 @@ TEST (election_ballot, weight_query_single_call_per_tally)
 }
 
 /*
+ * A tally handles more voters and more voted-for hashes than its scratch space holds on the stack.
+ * Every rep votes on one of several forks, still with a single weight query and with every vote counted once.
+ */
+TEST (election_ballot, tally_many_voters_and_hashes)
+{
+	size_t const voter_count{ 300 };
+	size_t const fork_count{ 8 };
+
+	test_reps reps;
+	auto blocks = create_blocks_hash_ordered (fork_count);
+	nano::election_ballot ballot{ blocks[0], reps.query () };
+	for (size_t i = 1; i < fork_count; ++i)
+	{
+		ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (blocks[i]).outcome);
+	}
+
+	// Rep number n weighs n + 1 and votes for fork n % fork_count
+	std::vector<nano::uint128_t> expected (fork_count, 0);
+	for (size_t n = 0; n < voter_count; ++n)
+	{
+		auto const weight = nano::uint128_t{ n + 1 };
+		ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (weight), nano::vote::timestamp_min, blocks[n % fork_count]->hash (), 0s, epoch));
+		expected[n % fork_count] += weight;
+	}
+
+	reps.queries = 0;
+	auto const tally = ballot.tally ();
+	ASSERT_EQ (1, reps.queries);
+	ASSERT_EQ (voter_count, reps.last_query.size ());
+	ASSERT_EQ (fork_count, tally.size ());
+	for (auto const & [key, block] : tally)
+	{
+		auto const fork = std::find (blocks.begin (), blocks.end (), block) - blocks.begin ();
+		ASSERT_EQ (expected[fork], key.weight);
+	}
+
+	// The heaviest fork wins once enough weight took part
+	auto const heaviest = std::max_element (expected.begin (), expected.end ()) - expected.begin ();
+	auto const round = ballot.evaluate (1);
+	ASSERT_EQ (blocks[heaviest], round.winner);
+	ASSERT_EQ (expected[heaviest], round.winner_weight);
+	ASSERT_EQ (voter_count, ballot.votes ().size ());
+}
+
+/*
  * A tally is a snapshot: weights read for one tally all come from the same query, so a concurrent weight change is seen fully or not at all.
  * The query below moves the whole weight from one rep to another after every call, simulating a change of representative racing with the tally.
  * Whichever side of the change a tally lands on, the total weight it sees is the same, whereas reading each rep separately could count the moved weight twice or not at all.
@@ -1224,13 +1267,20 @@ TEST (election_ballot, weight_query_snapshot)
 
 	bool moved{ false };
 	size_t queries{ 0 };
-	auto query = [&] (std::span<nano::account const> reps) {
+	auto query = [&] (std::span<nano::account const> reps, std::span<nano::uint128_t> result) {
 		++queries;
-		nano::rep_weight_map result;
-		result[rep_source.pub] = moved ? 0 : amount;
-		result[rep_destination.pub] = moved ? amount : 0;
+		for (size_t index = 0; index < reps.size (); ++index)
+		{
+			if (reps[index] == rep_source.pub)
+			{
+				result[index] = moved ? 0 : amount;
+			}
+			if (reps[index] == rep_destination.pub)
+			{
+				result[index] = moved ? amount : 0;
+			}
+		}
 		moved = !moved;
-		return result;
 	};
 
 	auto blocks = create_blocks_hash_ordered (2);

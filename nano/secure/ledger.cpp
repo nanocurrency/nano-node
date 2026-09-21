@@ -628,6 +628,23 @@ nano::rep_weight_map nano::ledger::weights (std::span<nano::account const> reps)
 	}
 }
 
+void nano::ledger::weights (std::span<nano::account const> reps, std::span<nano::uint128_t> weights) const
+{
+	if (!bootstrap_height_reached ())
+	{
+		release_assert (reps.size () == weights.size ());
+		for (size_t index = 0; index < reps.size (); ++index)
+		{
+			auto const weight = bootstrap_weights.representatives.find (reps[index]);
+			weights[index] = weight != bootstrap_weights.representatives.end () ? weight->second : 0;
+		}
+	}
+	else
+	{
+		rep_weights.get (reps, weights);
+	}
+}
+
 nano::uint128_t nano::ledger::weight_exact (secure::transaction const & txn_a, nano::account const & representative_a) const
 {
 	return store.rep_weight.get (txn_a, representative_a);
