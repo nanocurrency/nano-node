@@ -205,8 +205,14 @@ protected:
 		{
 			if (tree->contains_qualified (key))
 			{
-				auto val (tree->get_qualified_as<std::string> (key));
-				if (!boost::conversion::try_lexical_convert<T> (*val, target))
+				auto val = tree->get_qualified_as<std::string> (key);
+				bool valid = static_cast<bool> (val);
+				if constexpr (std::is_integral_v<T> && std::is_unsigned_v<T>)
+				{
+					// lexical_cast would wrap a negative number into an unsigned target
+					valid = valid && val->find ('-') == std::string::npos;
+				}
+				if (!valid || !boost::conversion::try_lexical_convert<T> (*val, target))
 				{
 					conditionally_set_error<T> (nano::error_config::invalid_value, optional, key);
 				}
@@ -233,6 +239,9 @@ protected:
 	tomlconfig & get_config (bool optional, std::string key, boost::asio::ip::address_v6 & target, boost::asio::ip::address_v6 const & default_value);
 
 private:
+	/** Records \p code_a and \p message_a unless an error is already set, keeping the first failure */
+	void set_error_once (nano::error_config code_a, std::string const & message_a);
+
 	/** The config node being managed */
 	std::shared_ptr<cpptoml::table> tree;
 

@@ -1,5 +1,4 @@
 #include <nano/lib/constants.hpp>
-#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/ipc/ipc_config.hpp>
 

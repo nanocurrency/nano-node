@@ -1,5 +1,4 @@
 #include <nano/lib/config.hpp>
-#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
 
@@ -22,8 +21,7 @@ nano::error nano::daemon_config::serialize_toml (nano::tomlconfig & toml)
 
 	nano::tomlconfig node_l;
 	node.serialize_toml (node_l);
-	nano::tomlconfig node (node_l);
-	toml.put_child ("node", node);
+	toml.put_child ("node", node_l);
 
 	nano::tomlconfig opencl_l;
 	opencl.serialize_toml (opencl_l);
@@ -63,7 +61,6 @@ nano::error nano::read_node_config_toml (std::filesystem::path const & data_path
 {
 	nano::error error;
 	auto toml_config_path = nano::get_node_toml_config_path (data_path_a);
-	auto toml_qt_config_path = nano::get_qtwallet_toml_config_path (data_path_a);
 
 	// Parse and deserialize
 	nano::tomlconfig toml;
