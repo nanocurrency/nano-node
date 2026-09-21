@@ -4,6 +4,7 @@
 #include <nano/lib/vote.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/backlog_scan.hpp>
+#include <nano/node/block_processor.hpp>
 #include <nano/node/bootstrap/bootstrap_config.hpp>
 #include <nano/node/bootstrap/bootstrap_service.hpp>
 #include <nano/node/cementing_set.hpp>
@@ -273,6 +274,136 @@ TEST (active_elections, confirm_fork_cache)
 	ASSERT_EQ (fork1->hash (), election->winner ()->hash ());
 
 	ASSERT_TIMELY (5s, node.block_confirmed (fork1->hash ()));
+}
+
+/*
+ * A fork must be cached before elections are asked about it, since an election inserted after that can find it only in the cache
+ * The election started notification runs under the elections mutex, so blocking it holds back the fork's publish at a known point
+ */
+TEST (active_elections, fork_cached_before_publish)
+{
+	nano::test::system system;
+
+	nano::node_config config = system.default_config ();
+	// Only the test may start the election
+	config.backlog_scan->enable = false;
+	auto & node = *system.add_node (config);
+
+	nano::keypair key1, key2;
+	nano::block_builder builder;
+	auto make_send = [&] (nano::keypair const & destination) {
+		return builder.state ()
+		.account (nano::dev::genesis_key.pub)
+		.previous (nano::dev::genesis->hash ())
+		.representative (nano::dev::genesis_key.pub)
+		.balance (nano::dev::constants.genesis_amount - 1)
+		.link (destination.pub)
+		.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+		.work (*system.work.generate (nano::dev::genesis->hash ()))
+		.build ();
+	};
+	auto send = make_send (key1);
+	auto fork = make_send (key2);
+	auto const root = send->qualified_root ();
+
+	// Processed without notifications, so no scheduler starts an election for it
+	ASSERT_TRUE (nano::test::process (node, { send }));
+
+	// Declared before the promise so that a failed assertion releases the insertion first and joins it afterwards
+	std::future<void> insertion;
+	std::promise<void> release_promise;
+	auto released = release_promise.get_future ().share ();
+	std::atomic<bool> inserting{ false };
+	node.active.election_started.add ([&inserting, released] (auto const &...) {
+		inserting = true;
+		released.wait (); // Keep the election inserted but not yet past its read of the fork cache
+	});
+
+	insertion = std::async (std::launch::async, [&node, send] () {
+		node.active.insert (send);
+	});
+	ASSERT_TIMELY (5s, inserting);
+
+	// Elections cannot be asked about the fork while the insertion is held, the fork has to be in the cache regardless
+	node.process_active (fork);
+	ASSERT_TIMELY (5s, node.fork_cache.contains (root));
+
+	release_promise.set_value ();
+	insertion.wait ();
+
+	auto election = node.active.election (root);
+	ASSERT_NE (nullptr, election);
+	ASSERT_TIMELY_EQ (5s, election->blocks ().size (), 2);
+}
+
+/*
+ * Forks processed in the same batch as the block they compete with must all reach the elections that batch starts
+ * The elections start on the scheduler thread while the batch is still being handled, so a fork only offered to elections before it is cached would be missed
+ */
+TEST (active_elections, fork_during_election_start)
+{
+	nano::test::system system;
+
+	nano::node_config config = system.default_config ();
+	// Only the processed batch may start the elections
+	config.backlog_scan->enable = false;
+	auto & node = *system.add_node (config);
+
+	// Fund the accounts, the cemented sends let the priority scheduler activate each account as soon as it is opened
+	auto const count = 16;
+	std::vector<nano::keypair> keys (count);
+	std::vector<std::shared_ptr<nano::block>> sends;
+	nano::block_builder builder;
+	auto latest = node.latest (nano::dev::genesis_key.pub);
+	auto balance = node.balance (nano::dev::genesis_key.pub);
+	for (auto const & key : keys)
+	{
+		balance -= 1;
+		auto send = builder.state ()
+					.account (nano::dev::genesis_key.pub)
+					.previous (latest)
+					.representative (nano::dev::genesis_key.pub)
+					.balance (balance)
+					.link (key.pub)
+					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+					.work (*system.work.generate (latest))
+					.build ();
+		latest = send->hash ();
+		sends.push_back (send);
+	}
+	ASSERT_TRUE (nano::test::process (node, sends));
+	nano::test::confirm (node.ledger, sends);
+
+	// Every account is opened by two competing blocks
+	std::deque<std::shared_ptr<nano::block>> blocks;
+	std::vector<nano::qualified_root> roots;
+	for (size_t n = 0; n < keys.size (); ++n)
+	{
+		auto const & key = keys[n];
+		for (auto const & representative : { key.pub, nano::dev::genesis_key.pub })
+		{
+			blocks.push_back (builder.state ()
+							  .account (key.pub)
+							  .previous (0)
+							  .representative (representative)
+							  .balance (1)
+							  .link (sends[n]->hash ())
+							  .sign (key.prv, key.pub)
+							  .work (*system.work.generate (key.pub))
+							  .build ());
+		}
+		roots.push_back (blocks.back ()->qualified_root ());
+	}
+
+	// Queued under a single lock, so one batch holds every block together with its fork
+	ASSERT_EQ (blocks.size (), node.block_processor.add_many (blocks, nano::block_source::live).added);
+
+	for (auto const & root : roots)
+	{
+		std::shared_ptr<nano::election> election;
+		ASSERT_TIMELY (5s, (election = node.active.election (root)) != nullptr);
+		ASSERT_TIMELY_EQ (5s, election->blocks ().size (), 2);
+	}
 }
 
 // TODO: Adjust for new behaviour of bounded buckets

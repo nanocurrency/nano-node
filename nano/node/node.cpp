@@ -266,17 +266,6 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 		active.recently_confirmed.erase (hash);
 	});
 
-	// Cache forks
-	ledger_notifications.blocks_processed.add ([this] (auto const & batch) {
-		for (auto const & [result, context] : batch)
-		{
-			if (result == nano::block_status::fork)
-			{
-				fork_cache.put (context.block);
-			}
-		}
-	});
-
 	// Announce new blocks via websocket
 	ledger_notifications.blocks_processed.add ([this] (auto const & batch) {
 		auto const transaction = ledger.tx_begin_read ();
