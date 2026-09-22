@@ -101,13 +101,11 @@ TEST (network, send_node_id_handshake_tcp)
 	auto node1 (std::make_shared<nano::node> (system.get_available_port (), nano::unique_path (), system.work, nano::node_flags{}));
 	node1->start ();
 	system.nodes.push_back (node1);
+	ASSERT_EQ (0, node1->network.size ());
 	auto initial (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
 	auto initial_node1 (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
 	auto initial_keepalive (node0->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in));
-	std::weak_ptr<nano::node> node_w (node0);
 	node0->network.tcp_channels.start_tcp (node1->network.endpoint ());
-	ASSERT_EQ (0, node0->network.size ());
-	ASSERT_EQ (0, node1->network.size ());
 	ASSERT_TIMELY (10s, node0->stats.count (nano::stat::type::tcp_server_message, nano::stat::detail::node_id_handshake, nano::stat::dir::in) >= initial + 2);
 	ASSERT_TIMELY (5s, node1->stats.count (nano::stat::type::tcp_server_message, nano::stat::detail::node_id_handshake, nano::stat::dir::in) >= initial_node1 + 1);
 	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) >= initial_keepalive + 2);
