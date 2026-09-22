@@ -24,7 +24,7 @@ jobs:
       tag_created: ${{ steps.set_vars.outputs.tag_created }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set the tag and version
         id: tag_set
@@ -51,7 +51,7 @@ jobs:
         network: ["BETA", "LIVE"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.ci_tag }}
@@ -88,7 +88,7 @@ jobs:
         network: ["BETA", "LIVE"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.ci_tag }}
@@ -131,7 +131,7 @@ jobs:
       IS_RELEASE_BUILD: ${{ github.event.inputs.is_release_build || 'false' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.ci_tag }}
@@ -171,7 +171,7 @@ jobs:
         network: ["BETA", "LIVE"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: "recursive"
           ref: ${{ needs.prepare_build.outputs.ci_tag }}
