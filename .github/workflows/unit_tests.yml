@@ -33,8 +33,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: "recursive"
+
+      - name: Checkout Submodules
+        uses: ./.github/actions/checkout-submodules
 
       - name: Prepare
         run: ci/prepare/macos/prepare.sh
@@ -96,8 +97,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: "recursive"
+
+      - name: Checkout Submodules
+        uses: ./.github/actions/checkout-submodules
 
       - name: Prepare
         run: sudo -E ci/prepare/linux/prepare.sh
@@ -156,8 +158,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: "recursive"
+
+      - name: Checkout Submodules
+        uses: ./.github/actions/checkout-submodules
 
       - name: Prepare
         run: ci/prepare/windows/prepare.ps1
@@ -199,8 +202,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: "recursive"
+
+      - name: Checkout Submodules
+        uses: ./.github/actions/checkout-submodules
 
       - name: Free Disk Space
         uses: ./.github/actions/free-disk-space
@@ -228,8 +232,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: "recursive"
+
+      - name: Checkout Submodules
+        uses: ./.github/actions/checkout-submodules
 
       - name: Free Disk Space
         uses: ./.github/actions/free-disk-space
