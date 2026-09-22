@@ -110,7 +110,6 @@ set_property(
            election_winner_details
            gap_cache
            network_filter
-           observer_set
            request_aggregator
            state_block_signature_verification
            telemetry
