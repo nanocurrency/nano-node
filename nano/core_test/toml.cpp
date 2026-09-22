@@ -933,10 +933,10 @@ TEST (toml_config, daemon_read_config)
 	std::filesystem::create_directories (path);
 	nano::daemon_config config;
 	std::vector<std::string> invalid_overrides1{ "node.max_work_generate_multiplier=0" };
-	std::string expected_message1{ "max_work_generate_multiplier must be greater than or equal to 1" };
+	std::string expected_message1{ "config-node.toml: max_work_generate_multiplier must be greater than or equal to 1" };
 
 	std::vector<std::string> invalid_overrides2{ "node.websocket.enable=true", "node.foo" };
-	std::string expected_message2{ "Value must follow after a '=' at line 2" };
+	std::string expected_message2{ "config-node.toml: Value must follow after a '=' at line 2" };
 
 	// Reading when there is no config file
 	ASSERT_FALSE (std::filesystem::exists (nano::get_node_toml_config_path (path)));

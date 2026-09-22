@@ -252,12 +252,21 @@ nano::error nano::read_config_file (nano::tomlconfig & toml, std::string_view fi
 	if (!std::filesystem::exists (path))
 	{
 		std::cerr << "Config file `" << filename << "` not found, using default configuration" << std::endl;
-		return toml.read (overrides_stream);
+		return prefix_config_error (toml.read (overrides_stream), filename);
 	}
 	auto & error = toml.read (overrides_stream, path);
 	if (!error)
 	{
 		std::cerr << "Config file `" << filename << "` loaded from node data directory: " << path.string () << std::endl;
+	}
+	return prefix_config_error (error, filename);
+}
+
+nano::error nano::prefix_config_error (nano::error error, std::string_view filename)
+{
+	if (error)
+	{
+		error.set_message (std::string{ filename } + ": " + error.get_message ());
 	}
 	return error;
 }

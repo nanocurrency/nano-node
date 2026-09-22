@@ -341,7 +341,7 @@ TEST (config_file, overrides_over_file)
 	ASSERT_EQ (threads, 2);
 }
 
-/** A file with invalid syntax is reported as an error */
+/** A file with invalid syntax is reported as an error that names the file and the line */
 TEST (config_file, invalid_file)
 {
 	auto path = nano::unique_path ();
@@ -352,7 +352,10 @@ TEST (config_file, invalid_file)
 	}
 
 	nano::tomlconfig toml;
-	ASSERT_TRUE (nano::read_config_file (toml, "config-test.toml", path));
+	auto error = nano::read_config_file (toml, "config-test.toml", path);
+	ASSERT_TRUE (error);
+	ASSERT_EQ (error.get_message ().find ("config-test.toml: "), 0) << error.get_message ();
+	ASSERT_NE (error.get_message ().find ("at line 2"), std::string::npos) << error.get_message ();
 }
 
 namespace
@@ -386,6 +389,31 @@ TEST (config_file, deserialize_keeps_defaults)
 	ASSERT_FALSE (nano::read_config_file (config, "config-test.toml", path));
 	ASSERT_EQ (config.port, 3);
 	ASSERT_EQ (config.threads, 2);
+}
+
+/** An invalid value names the file it came from, in the returned error and in the exception of the throwing loader */
+TEST (config_file, value_error_names_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream file{ path / "config-test.toml" };
+		file << "port = \"not a number\"\n";
+	}
+
+	sample_config config;
+	auto error = nano::read_config_file (config, "config-test.toml", path);
+	ASSERT_EQ (error.get_message (), "config-test.toml: port is not an integer between 0 and 65535");
+
+	try
+	{
+		nano::load_config_file (config, "config-test.toml", path);
+		FAIL () << "expected the throwing loader to throw";
+	}
+	catch (std::runtime_error const & ex)
+	{
+		ASSERT_EQ (std::string{ ex.what () }, error.get_message ());
+	}
 }
 
 /** The throwing loader returns the config read on top of the given one and throws when reading fails */

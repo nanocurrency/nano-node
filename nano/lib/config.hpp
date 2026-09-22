@@ -171,8 +171,12 @@ namespace nano
  * Overrides are `key=value` entries and take precedence over the file.
  * A missing file is not an error and is never created; the result then holds only the overrides.
  * Reports on stderr whether the file was found.
+ * A returned error names `filename` in its message.
  */
 nano::error read_config_file (nano::tomlconfig & toml, std::string_view filename, std::filesystem::path const & data_path, std::vector<std::string> const & overrides = {});
+
+/** Prefixes the message of a failed \p error with \p filename, so that the report names the file it is about */
+nano::error prefix_config_error (nano::error error, std::string_view filename);
 
 /** Reads the configuration file as above and deserializes it into `config`, which keeps its current values for every key the file does not mention */
 template <typename T>
@@ -183,7 +187,7 @@ nano::error read_config_file (T & config, std::string_view filename, std::filesy
 	{
 		return error;
 	}
-	return config.deserialize_toml (toml);
+	return prefix_config_error (config.deserialize_toml (toml), filename);
 }
 
 /**
