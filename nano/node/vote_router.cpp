@@ -187,6 +187,10 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::vote_router::vote (s
 				}
 			}
 		}
+		if (process.empty () && !started.empty ())
+		{
+			vote_matched.notify (vote);
+		}
 		for (auto const & [block_hash, election] : started)
 		{
 			// Any other result means the election got the vote from the cache or is over already
