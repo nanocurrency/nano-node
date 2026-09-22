@@ -84,9 +84,7 @@ nano::active_elections::active_elections (nano::node & node_a, nano::ledger_noti
 		{
 			if (result == nano::block_status::fork)
 			{
-				// Cache first, so an election not found by publish still reads the fork from the cache when it starts
-				node.fork_cache.put (context.block);
-				publish (context.block);
+				handle_fork (context.block);
 			}
 		}
 	});
@@ -286,6 +284,13 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 	}
 
 	return result;
+}
+
+void nano::active_elections::handle_fork (std::shared_ptr<nano::block> const & block)
+{
+	// Cache first, so an election not found by publish still reads the fork from the cache when it starts
+	node.fork_cache.put (block);
+	publish (block);
 }
 
 bool nano::active_elections::publish (std::shared_ptr<nano::block> const & block)
