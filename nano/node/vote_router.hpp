@@ -89,6 +89,10 @@ public:
 	nano::container_info container_info () const;
 
 public: // Events
+	// Notified once for a vote with at least one hash held by a live election, before the vote reaches any of them
+	using vote_matched_event_t = nano::observer_set<std::shared_ptr<nano::vote> const &>;
+	vote_matched_event_t vote_matched;
+
 	using vote_processed_event_t = nano::observer_set<std::shared_ptr<nano::vote> const &, nano::vote_source, std::unordered_map<nano::block_hash, nano::vote_code> const &>;
 	vote_processed_event_t vote_processed;
 

@@ -149,6 +149,12 @@ std::unordered_map<nano::block_hash, nano::vote_code> nano::vote_router::vote (s
 		}
 	}
 
+	// Announced once, ahead of the first election that gets the vote
+	if (!process.empty ())
+	{
+		vote_matched.notify (vote);
+	}
+
 	for (auto const & [block_hash, election] : process)
 	{
 		auto const vote_result = election->vote (vote->account, vote->timestamp (), block_hash, source);

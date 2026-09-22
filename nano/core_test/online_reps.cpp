@@ -1,5 +1,6 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/lib/vote.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/election.hpp>
@@ -8,8 +9,10 @@
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/node/vote_processor.hpp>
+#include <nano/node/vote_router.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/test_common/chains.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -80,6 +83,46 @@ TEST (online_reps, election)
 	ASSERT_EQ (0, node1.online_reps.online ());
 	node1.vote_processor.vote_blocking (vote, std::make_shared<nano::transport::fake::channel> (node1));
 	ASSERT_EQ (nano::dev::constants.genesis_amount - nano::Knano_ratio, node1.online_reps.online ());
+}
+
+/*
+ * A vote is observed once whatever the number of its hashes an election holds, and not at all when none does.
+ * The representative is observed before the elections get the vote, so their quorum check already counts it.
+ */
+TEST (online_reps, vote_observed_once)
+{
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (flags);
+
+	auto blocks = nano::test::setup_independent_blocks (system, node, 3);
+	ASSERT_TRUE (nano::test::start_elections (system, node, blocks));
+	std::vector<nano::block_hash> hashes;
+	for (auto const & block : blocks)
+	{
+		hashes.push_back (block->hash ());
+	}
+
+	// A vote no election holds says nothing about its representative
+	auto unmatched = nano::test::make_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ nano::block_hash{ 1 } }, 1024 * 1024);
+	node.vote_router.vote (unmatched);
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::online_reps, nano::stat::detail::rep_new));
+	ASSERT_EQ (0, node.online_reps.online ());
+
+	std::atomic<bool> online_before_elections{ false };
+	node.vote_router.vote_matched.add ([&] (std::shared_ptr<nano::vote> const &) {
+		// Registered after the node's own observer
+		online_before_elections = node.online_reps.online () > 0;
+	});
+
+	auto vote = nano::test::make_vote (nano::dev::genesis_key, hashes, 2 * 1024 * 1024);
+	auto const results = node.vote_router.vote (vote);
+	ASSERT_EQ (3, results.size ());
+	ASSERT_TRUE (online_before_elections);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::online_reps, nano::stat::detail::rep_new));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::online_reps, nano::stat::detail::rep_update));
+	ASSERT_GT (node.online_reps.online (), 0);
 }
 
 // Online reps should be able to observe remote representative
