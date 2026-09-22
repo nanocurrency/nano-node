@@ -27,7 +27,7 @@ jobs:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: "recursive"
 
@@ -65,7 +65,7 @@ jobs:
 
       - name: Upload Flamegraph
         if: steps.build.outcome == 'success'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         with:
           name: flamegraph-${{ env.OUTPUT_FILE }}
           path: build/${{ env.OUTPUT_FILE }}

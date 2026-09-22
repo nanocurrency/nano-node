@@ -32,7 +32,7 @@ jobs:
     continue-on-error: true
     timeout-minutes: 220
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: "recursive"
       - name: Fetch Deps
@@ -48,7 +48,7 @@ jobs:
         run: ./ci/build-ci.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5
       - name: Upload Tracefile
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: lcov-backend-${{ matrix.BACKEND }}
           path: coverage/lcov.info
@@ -74,7 +74,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload HTML Report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-html-${{ matrix.BACKEND }}
           path: coverage/html
@@ -85,12 +85,12 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       # Must precede download-artifact: checkout cleans the workspace.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Fetch Deps
         run: |
           sudo apt-get update -qq
           sudo apt-get install -yqq lcov
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         # Zero matches is an error.
         continue-on-error: true
         with:
@@ -121,7 +121,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload Combined Tracefile
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: lcov-combined
           path: lcov.info
@@ -134,7 +134,7 @@ jobs:
           genhtml --ignore-errors source -o html lcov.info
       - name: Upload Combined Report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-html-combined
           path: html
