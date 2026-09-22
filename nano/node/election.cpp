@@ -522,7 +522,7 @@ nano::vote_code nano::election::vote (nano::account const & representative, uint
 	weight,
 	to_string (source));
 
-	// This must execute before calculating the vote tally to ensure accurate online weight and quorum numbers are used
+	// Runs for every counted vote, before the tally is evaluated
 	if (vote_action)
 	{
 		vote_action (representative);
