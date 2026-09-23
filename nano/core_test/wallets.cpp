@@ -1,5 +1,8 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/files.hpp>
+#include <nano/lib/walletconfig.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/backlog_scan.hpp>
 #include <nano/node/election.hpp>
@@ -1056,4 +1059,118 @@ TEST (wallets, rep_keys_cache_failed_password_attempt)
 		++called;
 	});
 	ASSERT_EQ (0, called);
+}
+
+namespace
+{
+/** Reads the wallet config in \p data_path, opens the wallet it points at and persists the result, as the wallet executable does on startup */
+nano::result<std::shared_ptr<nano::wallet::wallet>> open_wallet_from_config_file (nano::node & node, std::filesystem::path const & data_path, nano::wallet_config & config)
+{
+	if (auto error = nano::read_wallet_config (config, data_path))
+	{
+		return error;
+	}
+	auto opened = nano::wallet::open_configured_wallet (node.wallets, config);
+	if (opened)
+	{
+		nano::write_wallet_config (config, data_path);
+	}
+	return opened;
+}
+
+std::string read_file (std::filesystem::path const & path)
+{
+	std::ifstream stream{ path };
+	return { std::istreambuf_iterator<char>{ stream }, std::istreambuf_iterator<char>{} };
+}
+}
+
+/** A fresh install, with neither a wallet nor a wallet config, gets a new wallet and account and persists the pointer to them */
+TEST (configured_wallet, fresh_data_dir)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	for (auto const & [id, wallet] : node.wallets.all_wallets ())
+	{
+		node.wallets.destroy (id);
+	}
+	ASSERT_TRUE (node.wallets.all_wallets ().empty ());
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+
+	nano::wallet_config config;
+	auto opened = open_wallet_from_config_file (node, path, config);
+	ASSERT_TRUE (opened) << opened.error ().get_message ();
+	ASSERT_EQ (node.wallets.open (config.wallet), opened.value ());
+	ASSERT_TRUE (opened.value ()->exists (config.account));
+
+	nano::wallet_config persisted;
+	ASSERT_FALSE (nano::read_wallet_config (persisted, path));
+	ASSERT_EQ (persisted.wallet, config.wallet);
+	ASSERT_EQ (persisted.account, config.account);
+}
+
+/** A second start reads the persisted pointer, opens the same wallet and account and leaves the file unchanged */
+TEST (configured_wallet, restart)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+
+	nano::wallet_config first;
+	auto opened = open_wallet_from_config_file (node, path, first);
+	ASSERT_TRUE (opened) << opened.error ().get_message ();
+	auto const file = nano::get_qtwallet_toml_config_path (path);
+	auto const written = read_file (file);
+
+	nano::wallet_config second;
+	ASSERT_NE (second.wallet, first.wallet);
+	auto reopened = open_wallet_from_config_file (node, path, second);
+	ASSERT_TRUE (reopened) << reopened.error ().get_message ();
+	ASSERT_EQ (reopened.value (), opened.value ());
+	ASSERT_EQ (second.wallet, first.wallet);
+	ASSERT_EQ (second.account, first.account);
+	ASSERT_EQ (read_file (file), written);
+}
+
+/** A lost wallet config is recovered from the only wallet in the store and its account, and the pointer is persisted again */
+TEST (configured_wallet, lost_config)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	auto wallet = system.wallet (0);
+	auto inserted = wallet->deterministic_insert ();
+	ASSERT_TRUE (inserted);
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+
+	nano::wallet_config config;
+	auto opened = open_wallet_from_config_file (node, path, config);
+	ASSERT_TRUE (opened) << opened.error ().get_message ();
+	ASSERT_EQ (opened.value (), wallet);
+	ASSERT_EQ (config.account, inserted.value ());
+
+	nano::wallet_config persisted;
+	ASSERT_FALSE (nano::read_wallet_config (persisted, path));
+	ASSERT_EQ (persisted.account, inserted.value ());
+}
+
+/** A locked wallet without accounts cannot get one, the error is returned and nothing is persisted */
+TEST (configured_wallet, locked_wallet)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	auto wallet = system.wallet (0);
+	wallet->rekey ("password");
+	wallet->lock ();
+	ASSERT_TRUE (wallet->is_locked ());
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+
+	nano::wallet_config config;
+	auto opened = open_wallet_from_config_file (node, path, config);
+	ASSERT_FALSE (opened);
+	ASSERT_EQ (opened.error (), nano::error_common::wallet_locked);
+	ASSERT_FALSE (std::filesystem::exists (nano::get_qtwallet_toml_config_path (path)));
 }
