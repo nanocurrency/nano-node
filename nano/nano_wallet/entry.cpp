@@ -109,7 +109,7 @@ public:
 				if (!opened)
 				{
 					splash->hide ();
-					show_error ("Unable to create initial wallet account: " + opened.error ().get_message ());
+					show_error ("Unable to open wallet: " + opened.error ().get_message ());
 					std::exit (1);
 				}
 				auto wallet = opened.value ();

@@ -2301,6 +2301,11 @@ nano::result<std::shared_ptr<wallet>> open_configured_wallet (wallets & wallets,
 		else
 		{
 			wallet = wallets.create (config.wallet);
+			if (wallet == nullptr)
+			{
+				// create has logged the cause
+				return nano::error (nano::error_common::wallet_create_failed);
+			}
 		}
 	}
 	// A zero account means the config named none, one missing from the wallet is stale
