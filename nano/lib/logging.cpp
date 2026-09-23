@@ -389,6 +389,7 @@ nano::error nano::log_config::deserialize_toml (nano::tomlconfig & toml)
 void nano::log_config::serialize (nano::tomlconfig & toml) const
 {
 	toml.put ("default_level", std::string{ to_string (default_level) });
+	toml.put ("flush_level", std::string{ to_string (flush_level) });
 
 	nano::tomlconfig console_config;
 	console_config.put ("enable", console.enable);
@@ -417,6 +418,12 @@ void nano::log_config::deserialize (nano::tomlconfig & toml)
 	{
 		auto default_level_l = toml.get<std::string> ("default_level");
 		default_level = nano::log::parse_level (default_level_l);
+	}
+
+	if (toml.has_key ("flush_level"))
+	{
+		auto flush_level_l = toml.get<std::string> ("flush_level");
+		flush_level = nano::log::parse_level (flush_level_l);
 	}
 
 	if (toml.has_key ("console"))
