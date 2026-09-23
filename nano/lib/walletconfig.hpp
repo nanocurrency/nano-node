@@ -3,6 +3,7 @@
 #include <nano/lib/errors.hpp>
 #include <nano/lib/numbers.hpp>
 
+#include <filesystem>
 #include <string>
 
 namespace nano
@@ -21,4 +22,9 @@ public:
 	nano::wallet_id wallet;
 	nano::account account{};
 };
+
+/** Reads the Qt wallet config from \p data_path into \p config */
+nano::error read_wallet_config (nano::wallet_config & config, std::filesystem::path const & data_path);
+/** Writes \p config as the Qt wallet config in \p data_path, replacing any previous content */
+nano::error write_wallet_config (nano::wallet_config const & config, std::filesystem::path const & data_path);
 }
