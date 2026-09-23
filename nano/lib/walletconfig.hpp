@@ -18,12 +18,13 @@ public:
 	/** Update this instance by parsing the given wallet and account */
 	nano::error parse (std::string const & wallet_a, std::string const & account_a);
 	nano::error serialize_toml (nano::tomlconfig & toml_a) const;
+	/** Reads the wallet and account, which come together; a document with neither keeps the current values, one with only one of them is reported */
 	nano::error deserialize_toml (nano::tomlconfig & toml_a);
 	nano::wallet_id wallet;
 	nano::account account{};
 };
 
-/** Reads the Qt wallet config from \p data_path into \p config */
+/** Reads the Qt wallet config from \p data_path into \p config; a missing file keeps the current values and is not created */
 nano::error read_wallet_config (nano::wallet_config & config, std::filesystem::path const & data_path);
 /** Writes \p config as the Qt wallet config in \p data_path, replacing any previous content */
 nano::error write_wallet_config (nano::wallet_config const & config, std::filesystem::path const & data_path);

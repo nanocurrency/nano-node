@@ -32,6 +32,11 @@ nano::error nano::wallet_config::serialize_toml (nano::tomlconfig & toml) const
 
 nano::error nano::wallet_config::deserialize_toml (nano::tomlconfig & toml)
 {
+	if (!toml.has_key ("wallet") && !toml.has_key ("account"))
+	{
+		return toml.get_error ();
+	}
+
 	std::string wallet_l;
 	std::string account_l;
 

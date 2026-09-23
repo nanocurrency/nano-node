@@ -6,6 +6,7 @@
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
+#include <nano/lib/walletconfig.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/backlog_scan.hpp>
 #include <nano/node/block_processor.hpp>
@@ -969,6 +970,38 @@ TEST (toml_config, daemon_read_config)
 		ASSERT_TRUE (error);
 		ASSERT_EQ (error.get_message (), expected_message2);
 	}
+}
+
+/** A missing wallet config keeps the generated wallet id and an empty account and is not created, so a fresh data directory can start */
+TEST (toml_config, wallet_config_missing_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	nano::wallet_config config;
+	auto const generated = config.wallet;
+
+	auto error = nano::read_wallet_config (config, path);
+	ASSERT_FALSE (error) << error.get_message ();
+	ASSERT_EQ (config.wallet, generated);
+	ASSERT_TRUE (config.account.is_zero ());
+	ASSERT_FALSE (std::filesystem::exists (nano::get_qtwallet_toml_config_path (path)));
+}
+
+/** An existing but empty wallet config, as an interrupted write leaves behind, keeps the generated wallet id and an empty account */
+TEST (toml_config, wallet_config_empty_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream create{ nano::get_qtwallet_toml_config_path (path) };
+	}
+	nano::wallet_config config;
+	auto const generated = config.wallet;
+
+	auto error = nano::read_wallet_config (config, path);
+	ASSERT_FALSE (error) << error.get_message ();
+	ASSERT_EQ (config.wallet, generated);
+	ASSERT_TRUE (config.account.is_zero ());
 }
 
 TEST (toml_config, log_config_defaults)
