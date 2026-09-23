@@ -105,41 +105,14 @@ public:
 				}
 				nano::work_pool work{ config.node.network_params.network, config.node.work_threads, config.node.pow_sleep_interval, opencl_work_func };
 				nano::node_scope_guard node{ std::make_shared<nano::node> (data_path, config.node, work, flags) };
-				auto wallet (node->wallets.open (wallet_config.wallet));
-				if (wallet == nullptr)
+				auto opened = nano::wallet::open_configured_wallet (node->wallets, wallet_config);
+				if (!opened)
 				{
-					auto existing (node->wallets.all_wallets ());
-					if (!existing.empty ())
-					{
-						wallet = existing.begin ()->second;
-						wallet_config.wallet = existing.begin ()->first;
-					}
-					else
-					{
-						wallet = node->wallets.create (wallet_config.wallet);
-					}
+					splash->hide ();
+					show_error ("Unable to create initial wallet account: " + opened.error ().get_message ());
+					std::exit (1);
 				}
-				if (wallet_config.account.is_zero () || !wallet->exists (wallet_config.account))
-				{
-					auto wallet_accounts = wallet->accounts ();
-					if (!wallet_accounts.empty ())
-					{
-						wallet_config.account = wallet_accounts.front ();
-					}
-					else
-					{
-						auto insert_result = wallet->deterministic_insert ();
-						if (!insert_result)
-						{
-							splash->hide ();
-							show_error ("Unable to create initial wallet account: " + insert_result.error ().get_message ());
-							std::exit (1);
-						}
-						wallet_config.account = insert_result.value ();
-					}
-				}
-
-				debug_assert (wallet->exists (wallet_config.account));
+				auto wallet = opened.value ();
 				nano::write_wallet_config (wallet_config, data_path);
 				node->start ();
 				nano::ipc::ipc_server ipc (*node, config.rpc);
