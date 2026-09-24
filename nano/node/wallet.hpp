@@ -416,4 +416,7 @@ private:
 
 	friend class wallet;
 };
+
+/** Opens the wallet \p config points at and points \p config at one of its accounts, falling back to an existing wallet or account and creating one when there is none */
+nano::result<std::shared_ptr<wallet>> open_configured_wallet (wallets &, nano::wallet_config & config);
 }

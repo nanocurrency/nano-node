@@ -6,6 +6,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/lib/walletconfig.hpp>
 #include <nano/lib/work_version.hpp>
 #include <nano/node/cementing_set.hpp>
 #include <nano/node/election.hpp>
@@ -2282,5 +2283,51 @@ nano::container_info wallets::container_info () const
 	info.put ("actions", actions.size ());
 	info.put ("rep_keys_cache", rep_keys_cache.lock ()->size ());
 	return info;
+}
+
+nano::result<std::shared_ptr<wallet>> open_configured_wallet (wallets & wallets, nano::wallet_config & config)
+{
+	auto wallet = wallets.open (config.wallet);
+	if (wallet == nullptr)
+	{
+		// Unknown id, as on a fresh install or after the config was lost: prefer an existing wallet over creating one
+		auto existing = wallets.all_wallets ();
+		if (!existing.empty ())
+		{
+			// all_wallets is unordered, so with several wallets this is an arbitrary one
+			wallet = existing.begin ()->second;
+			config.wallet = existing.begin ()->first;
+		}
+		else
+		{
+			wallet = wallets.create (config.wallet);
+			if (wallet == nullptr)
+			{
+				// create has logged the cause
+				return nano::error (nano::error_common::wallet_create_failed);
+			}
+		}
+	}
+	// A zero account means the config named none, one missing from the wallet is stale
+	if (config.account.is_zero () || !wallet->exists (config.account))
+	{
+		auto accounts = wallet->accounts ();
+		if (!accounts.empty ())
+		{
+			config.account = accounts.front ();
+		}
+		else
+		{
+			// Creating an account needs the seed, so this fails on a locked wallet
+			auto inserted = wallet->deterministic_insert ();
+			if (!inserted)
+			{
+				return inserted.error ();
+			}
+			config.account = inserted.value ();
+		}
+	}
+	debug_assert (wallet->exists (config.account));
+	return wallet;
 }
 }

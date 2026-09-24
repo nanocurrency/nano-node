@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/walletconfig.hpp>
 
@@ -31,6 +32,11 @@ nano::error nano::wallet_config::serialize_toml (nano::tomlconfig & toml) const
 
 nano::error nano::wallet_config::deserialize_toml (nano::tomlconfig & toml)
 {
+	if (!toml.has_key ("wallet") && !toml.has_key ("account"))
+	{
+		return toml.get_error ();
+	}
+
 	std::string wallet_l;
 	std::string account_l;
 
@@ -46,5 +52,19 @@ nano::error nano::wallet_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get_error ().set ("Invalid account");
 	}
 
+	return toml.get_error ();
+}
+
+nano::error nano::read_wallet_config (nano::wallet_config & config, std::filesystem::path const & data_path)
+{
+	return nano::read_config_file (config, nano::qtwallet_config_filename, data_path);
+}
+
+nano::error nano::write_wallet_config (nano::wallet_config const & config, std::filesystem::path const & data_path)
+{
+	nano::tomlconfig toml;
+	config.serialize_toml (toml);
+	// If missing, the file is created and permissions are set
+	toml.write (nano::get_qtwallet_toml_config_path (data_path));
 	return toml.get_error ();
 }

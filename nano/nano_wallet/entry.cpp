@@ -54,30 +54,6 @@ public:
 		message.exec ();
 	}
 
-	nano::error write_wallet_config (nano::wallet_config & config_a, std::filesystem::path const & data_path_a)
-	{
-		nano::tomlconfig wallet_config_toml;
-		auto wallet_path (nano::get_qtwallet_toml_config_path (data_path_a));
-		config_a.serialize_toml (wallet_config_toml);
-
-		// Write wallet config. If missing, the file is created and permissions are set.
-		wallet_config_toml.write (wallet_path);
-		return wallet_config_toml.get_error ();
-	}
-
-	nano::error read_wallet_config (nano::wallet_config & config_a, std::filesystem::path const & data_path_a)
-	{
-		nano::tomlconfig wallet_config_toml;
-		auto wallet_path (nano::get_qtwallet_toml_config_path (data_path_a));
-		if (!std::filesystem::exists (wallet_path))
-		{
-			write_wallet_config (config_a, data_path_a);
-		}
-		wallet_config_toml.read (wallet_path);
-		config_a.deserialize_toml (wallet_config_toml);
-		return wallet_config_toml.get_error ();
-	}
-
 	int run_wallet (QApplication & application, int argc, char * const * argv, std::filesystem::path const & data_path, nano::node_flags const & flags)
 	{
 		nano::logger::initialize (nano::log_config::daemon_default (), data_path, flags.config_overrides);
@@ -103,7 +79,7 @@ public:
 		auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
 		if (!error)
 		{
-			error = read_wallet_config (wallet_config, data_path);
+			error = nano::read_wallet_config (wallet_config, data_path);
 		}
 
 		if (!error)
@@ -129,42 +105,15 @@ public:
 				}
 				nano::work_pool work{ config.node.network_params.network, config.node.work_threads, config.node.pow_sleep_interval, opencl_work_func };
 				nano::node_scope_guard node{ std::make_shared<nano::node> (data_path, config.node, work, flags) };
-				auto wallet (node->wallets.open (wallet_config.wallet));
-				if (wallet == nullptr)
+				auto opened = nano::wallet::open_configured_wallet (node->wallets, wallet_config);
+				if (!opened)
 				{
-					auto existing (node->wallets.all_wallets ());
-					if (!existing.empty ())
-					{
-						wallet = existing.begin ()->second;
-						wallet_config.wallet = existing.begin ()->first;
-					}
-					else
-					{
-						wallet = node->wallets.create (wallet_config.wallet);
-					}
+					splash->hide ();
+					show_error ("Unable to open wallet: " + opened.error ().get_message ());
+					std::exit (1);
 				}
-				if (wallet_config.account.is_zero () || !wallet->exists (wallet_config.account))
-				{
-					auto wallet_accounts = wallet->accounts ();
-					if (!wallet_accounts.empty ())
-					{
-						wallet_config.account = wallet_accounts.front ();
-					}
-					else
-					{
-						auto insert_result = wallet->deterministic_insert ();
-						if (!insert_result)
-						{
-							splash->hide ();
-							show_error ("Unable to create initial wallet account: " + insert_result.error ().get_message ());
-							std::exit (1);
-						}
-						wallet_config.account = insert_result.value ();
-					}
-				}
-
-				debug_assert (wallet->exists (wallet_config.account));
-				write_wallet_config (wallet_config, data_path);
+				auto wallet = opened.value ();
+				nano::write_wallet_config (wallet_config, data_path);
 				node->start ();
 				nano::ipc::ipc_server ipc (*node, config.rpc);
 
@@ -225,7 +174,7 @@ public:
 				splash->hide ();
 				show_error ("Error initializing node: " + std::string (e.what ()));
 			}
-			write_wallet_config (wallet_config, data_path);
+			nano::write_wallet_config (wallet_config, data_path);
 		}
 		else
 		{

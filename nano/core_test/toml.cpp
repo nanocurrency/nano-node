@@ -6,6 +6,7 @@
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
+#include <nano/lib/walletconfig.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/backlog_scan.hpp>
 #include <nano/node/block_processor.hpp>
@@ -933,10 +934,10 @@ TEST (toml_config, daemon_read_config)
 	std::filesystem::create_directories (path);
 	nano::daemon_config config;
 	std::vector<std::string> invalid_overrides1{ "node.max_work_generate_multiplier=0" };
-	std::string expected_message1{ "max_work_generate_multiplier must be greater than or equal to 1" };
+	std::string expected_message1{ "config-node.toml: max_work_generate_multiplier must be greater than or equal to 1" };
 
 	std::vector<std::string> invalid_overrides2{ "node.websocket.enable=true", "node.foo" };
-	std::string expected_message2{ "Value must follow after a '=' at line 2" };
+	std::string expected_message2{ "config-node.toml: Value must follow after a '=' at line 2" };
 
 	// Reading when there is no config file
 	ASSERT_FALSE (std::filesystem::exists (nano::get_node_toml_config_path (path)));
@@ -969,6 +970,103 @@ TEST (toml_config, daemon_read_config)
 		ASSERT_TRUE (error);
 		ASSERT_EQ (error.get_message (), expected_message2);
 	}
+}
+
+/** A missing wallet config keeps the generated wallet id and an empty account and is not created, so a fresh data directory can start */
+TEST (toml_config, wallet_config_missing_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	nano::wallet_config config;
+	auto const generated = config.wallet;
+
+	auto error = nano::read_wallet_config (config, path);
+	ASSERT_FALSE (error) << error.get_message ();
+	ASSERT_EQ (config.wallet, generated);
+	ASSERT_TRUE (config.account.is_zero ());
+	ASSERT_FALSE (std::filesystem::exists (nano::get_qtwallet_toml_config_path (path)));
+}
+
+/** An existing but empty wallet config, as an interrupted write leaves behind, keeps the generated wallet id and an empty account */
+TEST (toml_config, wallet_config_empty_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream create{ nano::get_qtwallet_toml_config_path (path) };
+	}
+	nano::wallet_config config;
+	auto const generated = config.wallet;
+
+	auto error = nano::read_wallet_config (config, path);
+	ASSERT_FALSE (error) << error.get_message ();
+	ASSERT_EQ (config.wallet, generated);
+	ASSERT_TRUE (config.account.is_zero ());
+}
+
+/** A written wallet config reads back into a fresh instance with the same wallet and account */
+TEST (toml_config, wallet_config_round_trip)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	nano::wallet_config written;
+	written.account = nano::dev::genesis_key.pub;
+	ASSERT_FALSE (nano::write_wallet_config (written, path));
+
+	nano::wallet_config read;
+	ASSERT_NE (read.wallet, written.wallet);
+	auto error = nano::read_wallet_config (read, path);
+	ASSERT_FALSE (error) << error.get_message ();
+	ASSERT_EQ (read.wallet, written.wallet);
+	ASSERT_EQ (read.account, written.account);
+}
+
+/** A wallet config that exists but lacks or garbles a key is reported with the file name instead of being replaced by defaults */
+TEST (toml_config, wallet_config_damaged_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	auto const file = nano::get_qtwallet_toml_config_path (path);
+	{
+		std::ofstream stream{ file };
+		stream << "account = \"" << nano::dev::genesis_key.pub.to_account () << "\"\n";
+	}
+	nano::wallet_config missing_wallet;
+	auto error = nano::read_wallet_config (missing_wallet, path);
+	ASSERT_NE (error.get_message ().find ("config-qtwallet.toml: Invalid wallet id"), std::string::npos) << error.get_message ();
+
+	{
+		std::ofstream stream{ file };
+		stream << "wallet = \"" << nano::wallet_config{}.wallet.to_string () << "\"\naccount = \"not an account\"\n";
+	}
+	nano::wallet_config invalid_account;
+	error = nano::read_wallet_config (invalid_account, path);
+	ASSERT_NE (error.get_message ().find ("config-qtwallet.toml: Invalid account"), std::string::npos) << error.get_message ();
+}
+
+/** Writing the wallet config replaces the whole file, so a shorter document leaves nothing of the previous one behind */
+TEST (toml_config, wallet_config_write_replaces)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	auto const file = nano::get_qtwallet_toml_config_path (path);
+	{
+		std::ofstream stream{ file };
+		stream << "# " << std::string (1000, 'x') << "\nstale = 1\n";
+	}
+	nano::wallet_config config;
+	config.account = nano::dev::genesis_key.pub;
+	ASSERT_FALSE (nano::write_wallet_config (config, path));
+
+	std::ifstream stream{ file };
+	std::string const content{ std::istreambuf_iterator<char>{ stream }, std::istreambuf_iterator<char>{} };
+	ASSERT_EQ (content.find ("stale"), std::string::npos) << content;
+	ASSERT_EQ (content.find ("xxxx"), std::string::npos) << content;
+
+	nano::wallet_config read;
+	ASSERT_FALSE (nano::read_wallet_config (read, path));
+	ASSERT_EQ (read.wallet, config.wallet);
+	ASSERT_EQ (read.account, config.account);
 }
 
 TEST (toml_config, log_config_defaults)

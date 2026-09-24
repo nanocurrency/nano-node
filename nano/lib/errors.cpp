@@ -89,6 +89,8 @@ std::string nano::error_common_messages::message (int ev) const
 			return "Numeric conversion error";
 		case nano::error_common::tracking_not_enabled:
 			return "Database transaction tracking is not enabled in the config";
+		case nano::error_common::wallet_create_failed:
+			return "Failed to create wallet";
 		case nano::error_common::wallet_lmdb_max_dbs:
 			return "Failed to create wallet. Increase lmdb_max_dbs in node config";
 		case nano::error_common::wallet_locked:

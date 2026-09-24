@@ -88,6 +88,7 @@ enum class error_common
 	is_not_state_block,
 	numeric_conversion,
 	tracking_not_enabled,
+	wallet_create_failed,
 	wallet_lmdb_max_dbs,
 	wallet_locked,
 	wallet_not_found

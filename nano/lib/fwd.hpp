@@ -21,6 +21,7 @@ class block_hash;
 class fan;
 class kdf;
 class public_key;
+class wallet_config;
 class wallet_id;
 class hash_or_account;
 class link;
