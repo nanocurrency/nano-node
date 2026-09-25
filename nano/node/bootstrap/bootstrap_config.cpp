@@ -64,6 +64,7 @@ nano::error nano::topo_scan_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("max_repair_heads", max_repair_heads);
 	toml.get ("consideration_count", consideration_count);
 	toml.get ("repair_consideration", repair_consideration);
+	toml.get ("repair_rate_limit", repair_rate_limit);
 	toml.get ("candidates", candidates);
 	toml.get ("redundant_skip_threshold", redundant_skip_threshold);
 	toml.get ("redundant_skip_history_size", redundant_skip_history_size);
@@ -86,6 +87,7 @@ nano::error nano::topo_scan_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("max_repair_heads", max_repair_heads, "Maximum number of repair heads; beyond this the per-head band grows instead of the head count.\ntype:uint64");
 	toml.put ("consideration_count", consideration_count, "Number of distinct peers the spearhead samples before advancing the discovery frontier.\ntype:uint64");
 	toml.put ("repair_consideration", repair_consideration, "Number of distinct peers a repair head samples before advancing its band cursor.\ntype:uint64");
+	toml.put ("repair_rate_limit", repair_rate_limit, "Rate limit on topology index requests issued by repair heads, shared across all of them. Repair heads re-scan the already-discovered range indefinitely and every page is verified against the local ledger, so this bounds the background disk load. Use 0 to disable (not recommended).\ntype:uint64");
 	toml.put ("candidates", candidates, "Maximum number of new aggregated entries (the smallest) retained per advance. Topo index requests always use the protocol maximum page size.\ntype:uint64");
 	toml.put ("redundant_skip_threshold", redundant_skip_threshold, "Number of consecutive fully redundant spearhead pages required before fast-forwarding. Use 0 to disable.\ntype:uint64");
 	toml.put ("redundant_skip_history_size", redundant_skip_history_size, "Number of recent spearhead pages considered by the adaptive skip policy. Each page that needed fetching raises the next redundant-page threshold by one. Use 0 for a fixed threshold.\ntype:uint64");
