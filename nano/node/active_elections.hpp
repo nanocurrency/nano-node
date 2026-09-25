@@ -128,6 +128,9 @@ private:
 	void tick_elections (nano::unique_lock<nano::mutex> &);
 	void checkup_elections (nano::unique_lock<nano::mutex> &);
 
+	// Cache a processed fork before offering it to the election for its root
+	void handle_fork (std::shared_ptr<nano::block> const &);
+
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void erase_election (nano::unique_lock<nano::mutex> & lock_a, std::shared_ptr<nano::election>);
 

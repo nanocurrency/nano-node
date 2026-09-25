@@ -78,13 +78,13 @@ nano::active_elections::active_elections (nano::node & node_a, nano::ledger_noti
 		});
 	});
 
-	// Notify elections about alternative (forked) blocks
+	// Cache alternative (forked) blocks and notify elections about them
 	ledger_notifications.blocks_processed.add ([this] (auto const & batch) {
 		for (auto const & [result, context] : batch)
 		{
 			if (result == nano::block_status::fork)
 			{
-				publish (context.block);
+				handle_fork (context.block);
 			}
 		}
 	});
@@ -262,7 +262,7 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 		// Let the election know about already observed votes
 		node.vote_cache_processor.trigger (hash);
 
-		// Let the election know about already observed forks
+		// Let the election know about already observed forks, the cache is read after the insertion so that a fork processed meanwhile is not missed
 		auto forks = node.fork_cache.get (root);
 		node.stats.add (nano::stat::type::active_elections, nano::stat::detail::forks_cached, forks.size ());
 		for (auto const & fork : forks)
@@ -278,6 +278,13 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 	}
 
 	return result;
+}
+
+void nano::active_elections::handle_fork (std::shared_ptr<nano::block> const & block)
+{
+	// Cache first, so an election not found by publish still reads the fork from the cache when it starts
+	node.fork_cache.put (block);
+	publish (block);
 }
 
 bool nano::active_elections::publish (std::shared_ptr<nano::block> const & block)
