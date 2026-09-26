@@ -4,6 +4,8 @@ add_library(
   rpc_server.cpp
   rpc_connection.hpp
   rpc_connection.cpp
+  rpc_connection_tracker.hpp
+  rpc_connection_tracker.cpp
   rpc_dispatcher.hpp
   rpc_dispatcher.cpp
   rpc_host.hpp

@@ -150,6 +150,7 @@ TEST (toml_config, rpc_config_deserialize_defaults)
 	ASSERT_EQ (conf.enable_control, defaults.enable_control);
 	ASSERT_EQ (conf.max_json_depth, defaults.max_json_depth);
 	ASSERT_EQ (conf.max_request_size, defaults.max_request_size);
+	ASSERT_EQ (conf.drain_timeout, defaults.drain_timeout);
 	ASSERT_EQ (conf.port, defaults.port);
 
 	ASSERT_EQ (conf.rpc_process.io_threads, defaults.rpc_process.io_threads);
@@ -840,6 +841,7 @@ TEST (toml_config, rpc_config_deserialize_no_defaults)
 	enable_control = true
 	max_json_depth = 9
 	max_request_size = 999
+	drain_timeout = 999
 	port = 999
 	[process]
 	io_threads = 999
@@ -862,6 +864,7 @@ TEST (toml_config, rpc_config_deserialize_no_defaults)
 	ASSERT_NE (conf.enable_control, defaults.enable_control);
 	ASSERT_NE (conf.max_json_depth, defaults.max_json_depth);
 	ASSERT_NE (conf.max_request_size, defaults.max_request_size);
+	ASSERT_NE (conf.drain_timeout, defaults.drain_timeout);
 	ASSERT_NE (conf.port, defaults.port);
 
 	ASSERT_NE (conf.rpc_process.io_threads, defaults.rpc_process.io_threads);
