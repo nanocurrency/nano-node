@@ -2295,6 +2295,7 @@ nano::result<std::shared_ptr<wallet>> open_configured_wallet (wallets & wallets,
 		if (!existing.empty ())
 		{
 			// all_wallets is unordered, so with several wallets this is an arbitrary one
+			wallets.logger.warn (nano::log::type::wallet, "Wallet {} not found, opening wallet {} instead", config.wallet, existing.begin ()->first);
 			wallet = existing.begin ()->second;
 			config.wallet = existing.begin ()->first;
 		}
@@ -2306,6 +2307,7 @@ nano::result<std::shared_ptr<wallet>> open_configured_wallet (wallets & wallets,
 				// create has logged the cause
 				return nano::error (nano::error_common::wallet_create_failed);
 			}
+			wallets.logger.info (nano::log::type::wallet, "Created wallet {}", config.wallet);
 		}
 	}
 	// A zero account means the config named none, one missing from the wallet is stale
@@ -2314,6 +2316,10 @@ nano::result<std::shared_ptr<wallet>> open_configured_wallet (wallets & wallets,
 		auto accounts = wallet->accounts ();
 		if (!accounts.empty ())
 		{
+			if (!config.account.is_zero ())
+			{
+				wallets.logger.warn (nano::log::type::wallet, "Account {} not found in wallet {}, opening account {} instead", config.account, config.wallet, accounts.front ());
+			}
 			config.account = accounts.front ();
 		}
 		else
@@ -2328,6 +2334,7 @@ nano::result<std::shared_ptr<wallet>> open_configured_wallet (wallets & wallets,
 		}
 	}
 	debug_assert (wallet->exists (config.account));
+	wallets.logger.info (nano::log::type::wallet, "Opened wallet {} with account {}", config.wallet, config.account);
 	return wallet;
 }
 }

@@ -17,6 +17,15 @@ echo "Running systests from: ${NANO_SYSTEST_DIR}"
 export NANO_NODE_EXE=./nano_node$(get_exec_extension)
 export NANO_RPC_EXE=./nano_rpc$(get_exec_extension)
 
+# The wallet is only built with the GUI, and on Windows its Qt libraries are copied next to it at install time, so it cannot run from the build directory there
+case "$(uname -s)" in
+    Linux*|Darwin*)
+        if [ -x ./nano_wallet ]; then
+            export NANO_WALLET_EXE=./nano_wallet
+        fi
+        ;;
+esac
+
 # Enable core dumps for this process
 if [ -n "${COREDUMP_DIR-}" ]; then
     ulimit -c unlimited

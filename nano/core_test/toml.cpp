@@ -1103,6 +1103,7 @@ TEST (toml_config, log_config_no_defaults)
 	ss << R"toml(
 	[log]
 	default_level = "trace"
+	flush_level = "info"
 
 	[log.console]
 	colors = false
@@ -1128,6 +1129,7 @@ TEST (toml_config, log_config_no_defaults)
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
 
 	ASSERT_NE (config.default_level, defaults.default_level);
+	ASSERT_NE (config.flush_level, defaults.flush_level);
 	ASSERT_NE (config.levels, defaults.levels);
 	ASSERT_NE (config.console.enable, defaults.console.enable);
 	ASSERT_NE (config.console.colors, defaults.console.colors);
