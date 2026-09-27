@@ -3,8 +3,6 @@ name: Code Sanitizers
 on: [ push, pull_request, workflow_dispatch ]
 
 env:
-  # Only the develop branch populates the cache.
-  SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/develop' && 'READ_WRITE' || 'READ_ONLY' }}
   GIT_CONFIG_COUNT: 1
   GIT_CONFIG_KEY_0: submodule.fetchJobs
   GIT_CONFIG_VALUE_0: 8
@@ -44,6 +42,8 @@ jobs:
       SCCACHE_GHA_ENABLED: "true"
       # LEAK compiles identically to ASAN, so they share namespace.
       SCCACHE_GHA_VERSION: linux-sanitizers-${{ matrix.SANITIZER.name == 'LEAK' && 'ASAN' || matrix.SANITIZER.name }}-${{ matrix.COMPILER }}
+      # LMDB and RocksDB compile identically; only one job per namespace writes, to avoid duplicate-write errors.
+      SCCACHE_GHA_RW_MODE: ${{ matrix.BACKEND == 'lmdb' && matrix.SANITIZER.name != 'LEAK' && 'READ_WRITE' || 'READ_ONLY' }}
       SCCACHE_IDLE_TIMEOUT: "0"
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
@@ -112,6 +112,8 @@ jobs:
       CMAKE_CXX_COMPILER_LAUNCHER: sccache
       SCCACHE_GHA_ENABLED: "true"
       SCCACHE_GHA_VERSION: macos-sanitizers-${{ matrix.SANITIZER.name }}-${{ matrix.COMPILER }}
+      # LMDB and RocksDB compile identically; only one job per namespace writes, to avoid duplicate-write errors.
+      SCCACHE_GHA_RW_MODE: ${{ matrix.BACKEND == 'lmdb' && 'READ_WRITE' || 'READ_ONLY' }}
       SCCACHE_IDLE_TIMEOUT: "0"
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
