@@ -110,16 +110,19 @@ TEST (online_reps, vote_observed_once)
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::online_reps, nano::stat::detail::rep_new));
 	ASSERT_EQ (0, node.online_reps.online ());
 
-	std::atomic<bool> online_before_elections{ false };
-	node.vote_router.vote_matched.add ([&] (std::shared_ptr<nano::vote> const &) {
+	nano::test::shared_flag online_before_elections;
+	node.vote_router.vote_matched.add ([&node, online_before_elections] (std::shared_ptr<nano::vote> const &) {
 		// Registered after the node's own observer
-		online_before_elections = node.online_reps.online () > 0;
+		if (node.online_reps.online () > 0)
+		{
+			online_before_elections.set ();
+		}
 	});
 
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, hashes, 2 * 1024 * 1024);
 	auto const results = node.vote_router.vote (vote);
 	ASSERT_EQ (3, results.size ());
-	ASSERT_TRUE (online_before_elections);
+	ASSERT_TRUE (online_before_elections.is_set ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::online_reps, nano::stat::detail::rep_new));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::online_reps, nano::stat::detail::rep_update));
 	ASSERT_GT (node.online_reps.online (), 0);
