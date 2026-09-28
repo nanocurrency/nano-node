@@ -92,9 +92,11 @@ TEST (online_reps, election)
 TEST (online_reps, vote_observed_once)
 {
 	nano::test::system system;
+	auto config = system.default_config ();
+	config.vote_cache_processor->enable = false; // Each election start queues a cache lookup that could deliver the cached vote a second time
 	nano::node_flags flags;
 	flags.disable_rep_crawler = true;
-	auto & node = *system.add_node (flags);
+	auto & node = *system.add_node (config, flags);
 
 	auto blocks = nano::test::setup_independent_blocks (system, node, 3);
 	ASSERT_TRUE (nano::test::start_elections (system, node, blocks));
