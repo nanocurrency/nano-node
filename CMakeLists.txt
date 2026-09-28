@@ -548,6 +548,10 @@ include_directories(submodules/fmt/include)
 
 # spdlog
 add_definitions(-DSPDLOG_FMT_EXTERNAL)
+# The console sinks share stdout and stderr with other writers
+set(SPDLOG_FWRITE_UNLOCKED
+    OFF
+    CACHE BOOL "")
 set(CMAKE_FOLDER "external/spdlog")
 add_subdirectory(submodules/spdlog EXCLUDE_FROM_ALL)
 unset(CMAKE_FOLDER)

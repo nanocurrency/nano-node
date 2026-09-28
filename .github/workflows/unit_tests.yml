@@ -28,7 +28,7 @@ jobs:
       # Only the develop branch populates the cache.
       SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/develop' && 'READ_WRITE' || 'READ_ONLY' }}
       SCCACHE_IDLE_TIMEOUT: "0"
-    runs-on: macos-14
+    runs-on: macos-26
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout

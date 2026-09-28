@@ -97,7 +97,7 @@ jobs:
           - { name: UBSAN, ignore_errors: false }
           - { name: ASAN, ignore_errors: false }
           - { name: TSAN, ignore_errors: false }
-    runs-on: macos-14
+    runs-on: macos-26
     env:
       COMPILER: ${{ matrix.COMPILER }}
       NANO_BACKEND: ${{ matrix.BACKEND }}
