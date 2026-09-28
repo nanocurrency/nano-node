@@ -111,6 +111,7 @@ public: // Subsystem configs
 	nano::indirect<nano::active_elections_config> active_elections;
 	nano::indirect<nano::vote_generator_config> vote_generator;
 	nano::indirect<nano::vote_processor_config> vote_processor;
+	nano::indirect<nano::vote_cache_processor_config> vote_cache_processor;
 	nano::indirect<nano::peer_history_config> peer_history;
 	nano::indirect<nano::transport::tcp_config> tcp;
 	nano::indirect<nano::vote_replier_config> vote_replier;

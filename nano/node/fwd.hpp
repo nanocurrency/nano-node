@@ -70,6 +70,7 @@ class stats;
 class vote_cache;
 class vote_cache_config;
 class vote_cache_processor;
+class vote_cache_processor_config;
 class vote_generator;
 class vote_generator_config;
 class vote_replier;

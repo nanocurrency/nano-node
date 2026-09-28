@@ -31,7 +31,6 @@ public:
 	size_t pr_priority{ 3 };
 	size_t threads{ std::clamp (nano::hardware_concurrency () / 2, 1u, 4u) };
 	size_t batch_size{ 1024 };
-	size_t max_triggered{ 16384 };
 };
 
 class vote_processor final
@@ -86,10 +85,17 @@ private:
 	nano::interval log_interval;
 };
 
+class vote_cache_processor_config final
+{
+public:
+	bool enable{ true }; // Not in the config file, elections rely on it for votes that arrived before they started
+	std::size_t max_triggered{ 16384 }; // Hashes waiting for a lookup, the oldest is dropped beyond this
+};
+
 class vote_cache_processor final
 {
 public:
-	vote_cache_processor (vote_processor_config const &, nano::vote_router &, nano::vote_cache &, nano::stats &, nano::logger &);
+	vote_cache_processor (vote_cache_processor_config const &, nano::vote_router &, nano::vote_cache &, nano::stats &, nano::logger &);
 	~vote_cache_processor ();
 
 	void start ();
@@ -108,7 +114,7 @@ private:
 	void run_batch (nano::unique_lock<nano::mutex> &);
 
 private: // Dependencies
-	vote_processor_config const & config;
+	vote_cache_processor_config const & config;
 	nano::vote_router & vote_router;
 	nano::vote_cache & vote_cache;
 	nano::stats & stats;

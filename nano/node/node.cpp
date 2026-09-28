@@ -199,7 +199,7 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	vote_router{ *vote_router_impl },
 	vote_processor_impl{ std::make_unique<nano::vote_processor> (config.vote_processor, vote_router, observers, stats, flags, logger, online_reps, rep_crawler, ledger, network_params, rep_tiers) },
 	vote_processor{ *vote_processor_impl },
-	vote_cache_processor_impl{ std::make_unique<nano::vote_cache_processor> (config.vote_processor, vote_router, vote_cache, stats, logger) },
+	vote_cache_processor_impl{ std::make_unique<nano::vote_cache_processor> (config.vote_cache_processor, vote_router, vote_cache, stats, logger) },
 	vote_cache_processor{ *vote_cache_processor_impl },
 	voting_policy_impl{ std::make_unique<nano::voting_policy> (ledger) },
 	voting_policy{ *voting_policy_impl },
