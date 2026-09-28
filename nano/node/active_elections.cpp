@@ -27,6 +27,8 @@
 
 #include <ranges>
 
+#include <fmt/ranges.h>
+
 using namespace std::chrono;
 
 nano::active_elections::active_elections (nano::node & node_a, nano::ledger_notifications & ledger_notifications_a, nano::cementing_set & cementing_set_a) :
