@@ -654,6 +654,10 @@ add_library(
   ${CRYPTOPP_EXTRA})
 
 target_include_directories(cryptopp PUBLIC submodules)
+if(MSVC)
+  target_compile_options(
+    cryptopp PRIVATE "/FI${CMAKE_SOURCE_DIR}/crypto/cryptopp_msvc_compat.hpp")
+endif()
 unset(CMAKE_FOLDER)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
