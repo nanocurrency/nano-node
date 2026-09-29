@@ -92,9 +92,11 @@ TEST (online_reps, election)
 TEST (online_reps, vote_observed_once)
 {
 	nano::test::system system;
+	auto config = system.default_config ();
+	config.vote_cache_processor->enable = false; // Each election start queues a cache lookup that could deliver the cached vote a second time
 	nano::node_flags flags;
 	flags.disable_rep_crawler = true;
-	auto & node = *system.add_node (flags);
+	auto & node = *system.add_node (config, flags);
 
 	auto blocks = nano::test::setup_independent_blocks (system, node, 3);
 	ASSERT_TRUE (nano::test::start_elections (system, node, blocks));
@@ -110,16 +112,19 @@ TEST (online_reps, vote_observed_once)
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::online_reps, nano::stat::detail::rep_new));
 	ASSERT_EQ (0, node.online_reps.online ());
 
-	std::atomic<bool> online_before_elections{ false };
-	node.vote_router.vote_matched.add ([&] (std::shared_ptr<nano::vote> const &) {
+	nano::test::shared_flag online_before_elections;
+	node.vote_router.vote_matched.add ([&node, online_before_elections] (std::shared_ptr<nano::vote> const &) {
 		// Registered after the node's own observer
-		online_before_elections = node.online_reps.online () > 0;
+		if (node.online_reps.online () > 0)
+		{
+			online_before_elections.set ();
+		}
 	});
 
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, hashes, 2 * 1024 * 1024);
 	auto const results = node.vote_router.vote (vote);
 	ASSERT_EQ (3, results.size ());
-	ASSERT_TRUE (online_before_elections);
+	ASSERT_TRUE (online_before_elections.is_set ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::online_reps, nano::stat::detail::rep_new));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::online_reps, nano::stat::detail::rep_update));
 	ASSERT_GT (node.online_reps.online (), 0);

@@ -16,6 +16,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <deque>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -193,6 +194,56 @@ public:
 
 private:
 	std::tuple<Ts &...> refs;
+};
+
+/**
+ * A flag shared by all its copies, for callbacks that can still run after the test body returns, such as observers of a node that only stops when `system` is destroyed.
+ * Capture it by value, a reference capture dangles like any other local variable.
+ */
+class shared_flag final
+{
+public:
+	shared_flag () = default;
+	shared_flag (shared_flag const &) = default; // Also serves moves, so a moved-from copy still holds the flag
+	shared_flag & operator= (shared_flag const &) = delete; // Would rebind a copy to another flag
+
+	void set () const
+	{
+		flag->store (true);
+	}
+
+	bool is_set () const
+	{
+		return flag->load ();
+	}
+
+private:
+	std::shared_ptr<std::atomic<bool>> flag{ std::make_shared<std::atomic<bool>> (false) }; // Never null
+};
+
+/**
+ * A counter shared by all its copies, for callbacks that can still run after the test body returns, such as observers of a node that only stops when `system` is destroyed.
+ * Capture it by value, a reference capture dangles like any other local variable.
+ */
+class shared_counter final
+{
+public:
+	shared_counter () = default;
+	shared_counter (shared_counter const &) = default; // Also serves moves, so a moved-from copy still holds the counter
+	shared_counter & operator= (shared_counter const &) = delete; // Would rebind a copy to another counter
+
+	void increment () const
+	{
+		counter->fetch_add (1);
+	}
+
+	std::size_t value () const
+	{
+		return counter->load ();
+	}
+
+private:
+	std::shared_ptr<std::atomic<std::size_t>> counter{ std::make_shared<std::atomic<std::size_t>> (0) }; // Never null
 };
 }
 

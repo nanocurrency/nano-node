@@ -1,3 +1,4 @@
+#include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/vote.hpp>
@@ -261,6 +262,61 @@ TEST (vote_processor, large_votes)
 	node.vote_processor.vote (vote, nano::test::fake_channel (node));
 
 	ASSERT_TIMELY (5s, nano::test::confirmed (node, blocks));
+}
+
+/*
+ * vote_cache_processor tests
+ */
+
+namespace
+{
+std::shared_ptr<nano::block> make_genesis_send (nano::test::system & system)
+{
+	nano::keypair key;
+	return nano::state_block_builder ()
+	.account (nano::dev::genesis_key.pub)
+	.previous (nano::dev::genesis->hash ())
+	.representative (nano::dev::genesis_key.pub)
+	.balance (nano::dev::constants.genesis_amount - 1)
+	.link (key.pub)
+	.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+	.work (*system.work.generate (nano::dev::genesis->hash ()))
+	.build ();
+}
+}
+
+// A vote cached before its election started reaches the election once it starts
+TEST (vote_cache_processor, delivers_cached_vote)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	auto send = make_genesis_send (system);
+
+	// Cached before the block reaches the ledger, so any election for it starts after the vote is cached
+	node.vote_cache.insert (nano::test::make_vote (nano::dev::genesis_key, { send }));
+	ASSERT_TRUE (nano::test::process (node, { send }));
+	auto election = nano::test::start_election (system, node, send->hash ());
+	ASSERT_NE (nullptr, election);
+	ASSERT_TIMELY (5s, election->votes ().contains (nano::dev::genesis_key.pub));
+}
+
+// A disabled processor never looks up the hashes elections queue when they start, so a cached vote never reaches its election
+TEST (vote_cache_processor, disabled)
+{
+	nano::test::system system;
+	auto config = system.default_config ();
+	config.vote_cache_processor->enable = false;
+	auto & node = *system.add_node (config);
+	auto send = make_genesis_send (system);
+
+	// Cached before the block reaches the ledger, so any election for it starts after the vote is cached
+	node.vote_cache.insert (nano::test::make_vote (nano::dev::genesis_key, { send }));
+	ASSERT_TRUE (nano::test::process (node, { send }));
+	auto election = nano::test::start_election (system, node, send->hash ());
+	ASSERT_NE (nullptr, election);
+	ASSERT_FALSE (node.vote_cache_processor.empty ());
+	ASSERT_ALWAYS_EQ (1s, node.stats.count (nano::stat::type::vote_cache_processor, nano::stat::detail::processed), 0);
+	ASSERT_FALSE (election->votes ().contains (nano::dev::genesis_key.pub));
 }
 
 /*

@@ -266,7 +266,7 @@ nano::container_info nano::vote_processor::container_info () const
  * vote_cache_processor
  */
 
-nano::vote_cache_processor::vote_cache_processor (vote_processor_config const & config_a, nano::vote_router & vote_router_a, nano::vote_cache & vote_cache_a, nano::stats & stats_a, nano::logger & logger_a) :
+nano::vote_cache_processor::vote_cache_processor (vote_cache_processor_config const & config_a, nano::vote_router & vote_router_a, nano::vote_cache & vote_cache_a, nano::stats & stats_a, nano::logger & logger_a) :
 	config{ config_a },
 	vote_router{ vote_router_a },
 	vote_cache{ vote_cache_a },
@@ -283,6 +283,11 @@ nano::vote_cache_processor::~vote_cache_processor ()
 void nano::vote_cache_processor::start ()
 {
 	debug_assert (!thread.joinable ());
+
+	if (!config.enable)
+	{
+		return;
+	}
 
 	thread = std::thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::vote_cache_processing);
