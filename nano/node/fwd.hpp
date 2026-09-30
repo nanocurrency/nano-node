@@ -54,6 +54,7 @@ class node_flags;
 class node_rpc_config;
 class node_observers;
 class online_reps;
+class peer_blocklist;
 class peer_history;
 class peer_history_config;
 class port_mapping;
