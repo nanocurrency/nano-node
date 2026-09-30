@@ -22,6 +22,7 @@
 #include <nano/node/monitor.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/peer_blocklist.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/scheduler/hinted.hpp>
