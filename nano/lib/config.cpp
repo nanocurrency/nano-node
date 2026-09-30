@@ -4,6 +4,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/constants.hpp>
 #include <nano/lib/env.hpp>
+#include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/version.hpp>
 
@@ -242,17 +243,22 @@ nano::database_backend nano::default_database_backend ()
 nano::error nano::read_config_file (nano::tomlconfig & toml, std::string_view filename, std::filesystem::path const & data_path, std::vector<std::string> const & overrides)
 {
 	auto const path = data_path / filename;
-	if (std::filesystem::exists (path))
+	auto file = nano::open_file (path);
+	if (file)
 	{
-		if (auto error = toml.read (path))
+		if (auto error = toml.read (file.value ()))
 		{
 			return prefix_config_error (error, filename);
 		}
 		std::cerr << "Config file `" << filename << "` loaded from node data directory: " << path.string () << std::endl;
 	}
-	else
+	else if (file.error () == std::make_error_code (std::errc::no_such_file_or_directory))
 	{
 		std::cerr << "Config file `" << filename << "` not found, using default configuration" << std::endl;
+	}
+	else
+	{
+		return prefix_config_error (file.error (), filename);
 	}
 	return prefix_config_error (toml.apply_overrides (overrides), filename);
 }

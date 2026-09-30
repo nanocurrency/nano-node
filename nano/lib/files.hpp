@@ -1,9 +1,11 @@
 #pragma once
 
 #include <nano/lib/networks.hpp>
+#include <nano/lib/result.hpp>
 
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <optional>
 
 namespace nano
@@ -50,6 +52,12 @@ void create_load_memory_address_files ();
 
 void remove_all_files_in_dir (std::filesystem::path const & dir);
 void move_all_files_to_dir (std::filesystem::path const & from, std::filesystem::path const & to);
+
+/**
+ * Opens \p path for reading.
+ * A missing file fails with std::errc::no_such_file_or_directory.
+ */
+nano::result<std::ifstream> open_file (std::filesystem::path const & path);
 
 /*
  * Functions for querying filesystem capacity

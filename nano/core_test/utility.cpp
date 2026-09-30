@@ -208,3 +208,30 @@ TEST (pending_key, sorting)
 	ASSERT_EQ (std::hash<nano::pending_key>{}(one), std::hash<nano::pending_key>{}(one_same));
 	ASSERT_NE (std::hash<nano::pending_key>{}(one), std::hash<nano::pending_key>{}(two));
 }
+
+/** Opening a path that does not exist reports a missing file and does not create it */
+TEST (filesystem, open_file_missing)
+{
+	auto path = nano::unique_path () / "missing.txt";
+	auto file = nano::open_file (path);
+	ASSERT_FALSE (file);
+	ASSERT_TRUE (file.error () == std::make_error_code (std::errc::no_such_file_or_directory)) << file.error ().get_message ();
+	ASSERT_NE (file.error ().get_message ().find (path.string ()), std::string::npos) << file.error ().get_message ();
+	ASSERT_FALSE (std::filesystem::exists (path));
+}
+
+/** An existing file opens for reading from its start */
+TEST (filesystem, open_file_reads)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	{
+		std::ofstream stream{ path / "file.txt" };
+		stream << "content";
+	}
+	auto file = nano::open_file (path / "file.txt");
+	ASSERT_TRUE (file);
+	std::string content;
+	file.value () >> content;
+	ASSERT_EQ (content, "content");
+}

@@ -34,8 +34,6 @@ public:
 
 	void doc (std::string const & key, std::string const & doc);
 
-	/** Parses the file at \p path, which must exist; the file is never created */
-	nano::error & read (std::filesystem::path const & path);
 	nano::error & read (std::istream & stream);
 
 	/**

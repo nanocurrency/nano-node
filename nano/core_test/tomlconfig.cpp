@@ -394,15 +394,6 @@ TEST (config_template, update)
 	ASSERT_EQ (updated.find ("\tio_threads = "), std::string::npos) << updated;
 }
 
-/** Reading a path that does not exist reports an error and does not create the file */
-TEST (tomlconfig, read_missing_file)
-{
-	auto path = nano::unique_path () / "missing.toml";
-	nano::tomlconfig toml;
-	ASSERT_TRUE (toml.read (path));
-	ASSERT_FALSE (std::filesystem::exists (path));
-}
-
 /** Writing creates the file and replaces any previous content */
 TEST (tomlconfig, write_replaces_content)
 {
@@ -419,8 +410,10 @@ TEST (tomlconfig, write_replaces_content)
 	shorter.put ("a", "b");
 	shorter.write (file);
 
+	auto stream = nano::open_file (file);
+	ASSERT_TRUE (stream);
 	nano::tomlconfig read;
-	ASSERT_FALSE (read.read (file));
+	ASSERT_FALSE (read.read (stream.value ()));
 	ASSERT_TRUE (read.has_key ("a"));
 	ASSERT_FALSE (read.has_key ("another_key"));
 }
@@ -435,6 +428,31 @@ TEST (config_file, missing_file)
 	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path));
 	ASSERT_TRUE (toml.empty ());
 	ASSERT_FALSE (std::filesystem::exists (path / "config-test.toml"));
+}
+
+/** A file that exists but cannot be opened is an error naming the file, not a missing file */
+TEST (config_file, unreadable_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	auto file = path / "config-test.toml";
+	{
+		std::ofstream stream{ file };
+		stream << "[node]\nport = 1\n";
+	}
+	std::filesystem::permissions (file, std::filesystem::perms::none);
+	if (std::ifstream{ file })
+	{
+		std::filesystem::permissions (file, std::filesystem::perms::all);
+		GTEST_SKIP () << "Permissions do not restrict reading here, as for root or on Windows";
+	}
+
+	nano::tomlconfig toml;
+	auto error = nano::read_config_file (toml, "config-test.toml", path);
+	std::filesystem::permissions (file, std::filesystem::perms::all); // Cleanup
+	ASSERT_TRUE (error);
+	ASSERT_EQ (error.get_message ().find ("config-test.toml: Could not open "), 0) << error.get_message ();
+	ASSERT_TRUE (toml.empty ());
 }
 
 /** Overrides apply even when there is no config file */

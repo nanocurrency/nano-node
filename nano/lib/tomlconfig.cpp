@@ -24,17 +24,6 @@ void nano::tomlconfig::doc (std::string const & key, std::string const & doc)
 	tree->document (key, doc);
 }
 
-nano::error & nano::tomlconfig::read (std::filesystem::path const & path)
-{
-	std::ifstream stream{ path };
-	if (!stream)
-	{
-		error->set ("Could not open config file: " + path.string ());
-		return *error;
-	}
-	return read (stream);
-}
-
 nano::error & nano::tomlconfig::read (std::istream & stream)
 {
 	try
