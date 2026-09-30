@@ -430,6 +430,31 @@ TEST (config_file, missing_file)
 	ASSERT_FALSE (std::filesystem::exists (path / "config-test.toml"));
 }
 
+/** A reused document keeps nothing from before, with or without a file */
+TEST (config_file, reused_document)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+
+	nano::tomlconfig toml;
+	toml.put ("stale", "value");
+	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path, { "node.port=2" }));
+	ASSERT_FALSE (toml.has_key ("stale"));
+	uint16_t port{ 0 };
+	toml.get_required<uint16_t> ("node.port", port);
+	ASSERT_EQ (port, 2);
+
+	{
+		std::ofstream file{ path / "config-test.toml" };
+		file << "[node]\nport = 1\n";
+	}
+	toml.put ("stale", "value");
+	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path));
+	ASSERT_FALSE (toml.has_key ("stale"));
+	toml.get_required<uint16_t> ("node.port", port);
+	ASSERT_EQ (port, 1);
+}
+
 /** A file that exists but cannot be opened is an error naming the file, not a missing file */
 TEST (config_file, unreadable_file)
 {

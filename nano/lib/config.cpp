@@ -254,6 +254,8 @@ nano::error nano::read_config_file (nano::tomlconfig & toml, std::string_view fi
 	}
 	else if (file.error () == std::make_error_code (std::errc::no_such_file_or_directory))
 	{
+		// Reading a file replaces the document, so a missing one starts from an empty document too
+		toml = nano::tomlconfig{};
 		std::cerr << "Config file `" << filename << "` not found, using default configuration" << std::endl;
 	}
 	else
