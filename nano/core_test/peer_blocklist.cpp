@@ -1,8 +1,12 @@
+#include <nano/lib/config.hpp>
 #include <nano/lib/container_info.hpp>
+#include <nano/lib/files.hpp>
 #include <nano/lib/keypair.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/peer_blocklist.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/test_common/network.hpp>
@@ -10,6 +14,8 @@
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
+
+#include <fstream>
 
 using namespace std::chrono_literals;
 
@@ -77,7 +83,7 @@ TEST (peer_blocklist, address_v6)
 }
 
 /*
- * Node ids and addresses are independent entries that are counted together and reported apart
+ * Node ids and IP addresses are independent entries that are counted together and reported apart
  */
 TEST (peer_blocklist, mixed)
 {
@@ -100,7 +106,7 @@ TEST (peer_blocklist, mixed)
 	ASSERT_EQ ("node_ids", entry->name);
 	ASSERT_EQ (0, entry->size);
 	++entry;
-	ASSERT_EQ ("addresses", entry->name);
+	ASSERT_EQ ("ip_addresses", entry->name);
 	ASSERT_EQ (1, entry->size);
 }
 
@@ -249,4 +255,196 @@ TEST (peer_blocklist, disconnect_address)
 	ASSERT_EQ (1, node0->stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::blocklisted));
 	ASSERT_TIMELY_EQ (5s, node0->network.size (), 0);
 	ASSERT_TIMELY_EQ (5s, node1->network.size (), 0);
+}
+
+/*
+ * The config serializes to the file format and reads back with the same entries
+ */
+TEST (peer_blocklist, config_round_trip)
+{
+	nano::peer_blocklist_config written;
+	written.node_ids.push_back (nano::keypair{}.pub);
+	written.node_ids.push_back (nano::keypair{}.pub);
+	written.ip_addresses.push_back (boost::asio::ip::make_address ("192.0.2.1"));
+	written.ip_addresses.push_back (boost::asio::ip::make_address ("2001:db8::1"));
+
+	nano::tomlconfig toml;
+	ASSERT_FALSE (written.serialize_toml (toml));
+
+	nano::peer_blocklist_config read;
+	ASSERT_FALSE (read.deserialize_toml (toml));
+	ASSERT_EQ (read.node_ids, written.node_ids);
+	ASSERT_EQ (read.ip_addresses, written.ip_addresses);
+}
+
+/*
+ * A file with both lists is read from the data directory, a file with one list leaves the other empty, and a missing file leaves the config empty without creating it
+ */
+TEST (peer_blocklist, config_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+
+	nano::peer_blocklist_config missing;
+	ASSERT_FALSE (nano::read_peer_blocklist_config (missing, path));
+	ASSERT_TRUE (missing.node_ids.empty ());
+	ASSERT_TRUE (missing.ip_addresses.empty ());
+	ASSERT_FALSE (std::filesystem::exists (path / nano::peer_blocklist_filename));
+
+	nano::keypair key;
+	{
+		std::ofstream file{ path / nano::peer_blocklist_filename };
+		file << "# Peers refused by this node\n"
+			 << "[blocklist]\n"
+			 << "node_ids = [\"" << key.pub.to_node_id () << "\"]\n"
+			 << "ip_addresses = [\"192.0.2.1\", \"::ffff:192.0.2.2\", \"2001:db8::1\"]\n";
+	}
+	nano::peer_blocklist_config config;
+	auto error = nano::read_peer_blocklist_config (config, path);
+	ASSERT_FALSE (error) << error.get_message ();
+	ASSERT_EQ (config.node_ids, std::deque<nano::account>{ key.pub });
+	std::deque<boost::asio::ip::address> const expected{ boost::asio::ip::make_address ("192.0.2.1"), boost::asio::ip::make_address ("::ffff:192.0.2.2"), boost::asio::ip::make_address ("2001:db8::1") };
+	ASSERT_EQ (config.ip_addresses, expected);
+
+	{
+		std::ofstream file{ path / nano::peer_blocklist_filename };
+		file << "[blocklist]\nnode_ids = [\"" << key.pub.to_node_id () << "\"]\n";
+	}
+	nano::peer_blocklist_config node_ids_only;
+	error = nano::read_peer_blocklist_config (node_ids_only, path);
+	ASSERT_FALSE (error) << error.get_message ();
+	ASSERT_EQ (node_ids_only.node_ids, std::deque<nano::account>{ key.pub });
+	ASSERT_TRUE (node_ids_only.ip_addresses.empty ());
+}
+
+/*
+ * An entry that is not a node id is reported with the file name and the entry, an account address included
+ */
+TEST (peer_blocklist, config_invalid_node_id)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	auto const file = path / nano::peer_blocklist_filename;
+
+	{
+		std::ofstream stream{ file };
+		stream << "[blocklist]\nnode_ids = [\"node_invalid\"]\n";
+	}
+	nano::peer_blocklist_config garbled;
+	auto error = nano::read_peer_blocklist_config (garbled, path);
+	ASSERT_EQ (error.get_message (), "peer-blocklist.toml: Invalid node id: node_invalid");
+
+	{
+		std::ofstream stream{ file };
+		stream << "[blocklist]\nnode_ids = [\"" << nano::keypair{}.pub.to_account () << "\"]\n";
+	}
+	nano::peer_blocklist_config account;
+	error = nano::read_peer_blocklist_config (account, path);
+	ASSERT_EQ (error.get_message ().find ("peer-blocklist.toml: Invalid node id: nano_"), 0) << error.get_message ();
+}
+
+/*
+ * An entry that is not an IP address is reported with the file name and the entry, host names included
+ */
+TEST (peer_blocklist, config_invalid_address)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	auto const file = path / nano::peer_blocklist_filename;
+
+	{
+		std::ofstream stream{ file };
+		stream << "[blocklist]\nip_addresses = [\"192.0.2.1\", \"192.0.2.256\"]\n";
+	}
+	nano::peer_blocklist_config out_of_range;
+	auto error = nano::read_peer_blocklist_config (out_of_range, path);
+	ASSERT_EQ (error.get_message (), "peer-blocklist.toml: Invalid IP address: 192.0.2.256");
+
+	{
+		std::ofstream stream{ file };
+		stream << "[blocklist]\nip_addresses = [\"peer.example.com\"]\n";
+	}
+	nano::peer_blocklist_config host_name;
+	error = nano::read_peer_blocklist_config (host_name, path);
+	ASSERT_EQ (error.get_message (), "peer-blocklist.toml: Invalid IP address: peer.example.com");
+}
+
+/*
+ * A list that is not an array of strings is an error rather than an empty list, so a mistyped file cannot silently block nothing
+ */
+TEST (peer_blocklist, config_wrong_type)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	auto const file = path / nano::peer_blocklist_filename;
+
+	{
+		std::ofstream stream{ file };
+		stream << "[blocklist]\nnode_ids = \"" << nano::keypair{}.pub.to_node_id () << "\"\n";
+	}
+	nano::peer_blocklist_config single_value;
+	auto error = nano::read_peer_blocklist_config (single_value, path);
+	ASSERT_EQ (error.get_message (), "peer-blocklist.toml: node_ids must be an array of strings");
+
+	{
+		std::ofstream stream{ file };
+		stream << "[blocklist]\nip_addresses = [[\"192.0.2.1\"]]\n";
+	}
+	nano::peer_blocklist_config nested;
+	error = nano::read_peer_blocklist_config (nested, path);
+	ASSERT_EQ (error.get_message (), "peer-blocklist.toml: ip_addresses must be an array of strings");
+}
+
+/*
+ * A list outside the [blocklist] table, a misspelled key inside it or a blocklist that is not a table is an error, never a silently ignored list
+ */
+TEST (peer_blocklist, config_unknown_key)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	auto const file = path / nano::peer_blocklist_filename;
+
+	{
+		std::ofstream stream{ file };
+		stream << "node_ids = [\"" << nano::keypair{}.pub.to_node_id () << "\"]\n";
+	}
+	nano::peer_blocklist_config top_level;
+	auto error = nano::read_peer_blocklist_config (top_level, path);
+	ASSERT_EQ (error.get_message (), "peer-blocklist.toml: Unexpected key node_ids, expected [blocklist] with node_ids and ip_addresses");
+	ASSERT_TRUE (top_level.node_ids.empty ());
+
+	{
+		std::ofstream stream{ file };
+		stream << "[blocklist]\nnode_id = [\"" << nano::keypair{}.pub.to_node_id () << "\"]\n";
+	}
+	nano::peer_blocklist_config misspelled;
+	error = nano::read_peer_blocklist_config (misspelled, path);
+	ASSERT_EQ (error.get_message (), "peer-blocklist.toml: Unexpected key blocklist.node_id, expected [blocklist] with node_ids and ip_addresses");
+
+	{
+		std::ofstream stream{ file };
+		stream << "blocklist = 1\n";
+	}
+	nano::peer_blocklist_config not_a_table;
+	error = nano::read_peer_blocklist_config (not_a_table, path);
+	ASSERT_EQ (error.get_message (), "peer-blocklist.toml: Configuration node is not a table: blocklist");
+}
+
+/*
+ * A node built from a config with entries refuses them from the start, duplicates counted once
+ */
+TEST (peer_blocklist, config_applied)
+{
+	nano::test::system system;
+	nano::keypair key;
+	auto const address = boost::asio::ip::make_address ("192.0.2.1");
+
+	auto config = system.default_config ();
+	config.peer_blocklist->node_ids = { key.pub, key.pub };
+	config.peer_blocklist->ip_addresses = { address, boost::asio::ip::make_address ("::ffff:192.0.2.1") };
+	auto node = system.add_node (config);
+
+	ASSERT_TRUE (node->peer_blocklist.contains (key.pub));
+	ASSERT_TRUE (node->peer_blocklist.contains (address));
+	ASSERT_EQ (2, node->peer_blocklist.size ());
 }
