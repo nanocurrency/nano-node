@@ -43,6 +43,7 @@
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
+#include <nano/node/peer_blocklist.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/pruning.hpp>
@@ -150,6 +151,8 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	outbound_limiter{ *outbound_limiter_impl },
 	message_processor_impl{ std::make_unique<nano::message_processor> (config.message_processor, *this) },
 	message_processor{ *message_processor_impl },
+	peer_blocklist_impl{ std::make_unique<nano::peer_blocklist> () },
+	peer_blocklist{ *peer_blocklist_impl },
 	// empty `config.peering_port` means the user made no port choice at all;
 	// otherwise, any value is considered, with `0` having the special meaning of 'let the OS pick a port instead'
 	//
@@ -1002,6 +1005,7 @@ nano::container_info nano::node::container_info () const
 	info.add ("active", active.container_info ());
 	info.add ("tcp_listener", tcp_listener.container_info ());
 	info.add ("network", network.container_info ());
+	info.add ("peer_blocklist", peer_blocklist.container_info ());
 	info.add ("telemetry", telemetry.container_info ());
 	info.add ("workers", workers.container_info ());
 	info.add ("bootstrap_workers", bootstrap_workers.container_info ());

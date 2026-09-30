@@ -9,6 +9,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/peer_blocklist.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/transport/tcp_server.hpp>
 #include <nano/node/transport/transport.hpp>
@@ -475,6 +476,14 @@ auto nano::transport::tcp_listener::check_limits (asio::ip::address const & ip, 
 		return accept_result::rejected;
 	}
 
+	if (node.peer_blocklist.contains (ip))
+	{
+		stats.inc (nano::stat::type::tcp_listener_rejected, nano::stat::detail::blocklisted, to_stat_dir (type));
+		logger.debug (nano::log::type::tcp_listener, "Rejected connection with blocklisted peer: {} ({})", ip, type);
+
+		return accept_result::rejected_blocklisted;
+	}
+
 	if (node.network.excluded_peers.check (ip)) // true => error
 	{
 		stats.inc (nano::stat::type::tcp_listener_rejected, nano::stat::detail::excluded, to_stat_dir (type));
@@ -681,6 +690,8 @@ std::error_code nano::transport::to_error_code (nano::transport::tcp_listener::a
 	{
 		case accept_result::rejected_excluded:
 			return nano::error_network::peer_excluded;
+		case accept_result::rejected_blocklisted:
+			return nano::error_network::peer_blocklisted;
 		case accept_result::rejected_max_per_ip:
 			return nano::error_network::max_connections_per_ip;
 		case accept_result::rejected_max_per_subnetwork:
