@@ -357,6 +357,14 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 
 			return true; // Close
 		}
+		// Close channels to peers that were blocklisted after connecting
+		if (node.peer_blocklist.contains (channel->get_node_id ()) || node.peer_blocklist.contains (channel->get_remote_endpoint ().address ()))
+		{
+			node.stats.inc (nano::stat::type::tcp_channels_purge, nano::stat::detail::blocklisted);
+			node.logger.debug (nano::log::type::tcp_channels, "Closing channel to blocklisted peer: {}", channel);
+
+			return true; // Close
+		}
 		return false;
 	};
 
