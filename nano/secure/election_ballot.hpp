@@ -83,6 +83,7 @@ public:
 	using weight_fn = std::function<void (std::span<nano::account const> reps, std::span<nano::uint128_t> weights)>;
 
 	// The initial block becomes both the first winner and the first leader
+	// Requires a non-null initial block, a callable weight query and room for at least one block
 	election_ballot (std::shared_ptr<nano::block> const & initial, weight_fn weight_query, size_t max_blocks = default_max_blocks);
 
 public: // Votes

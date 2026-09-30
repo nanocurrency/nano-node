@@ -59,7 +59,8 @@ nano::election_ballot::election_ballot (std::shared_ptr<nano::block> const & ini
 	max_blocks{ max_blocks_a }
 {
 	release_assert (initial != nullptr);
-	debug_assert (max_blocks > 0);
+	release_assert (weight_query != nullptr);
+	release_assert (max_blocks > 0);
 
 	// The initial block seeds both slots; the winner always exists and is always held
 	winner_m = initial->hash ();
@@ -126,7 +127,7 @@ bool nano::election_ballot::has_vote_for (nano::block_hash const & hash) const
 
 auto nano::election_ballot::insert (std::shared_ptr<nano::block> const & block, nano::uint128_t cached_tally) -> insert_result
 {
-	debug_assert (block != nullptr);
+	release_assert (block != nullptr);
 
 	auto const hash = block->hash ();
 
@@ -184,12 +185,17 @@ auto nano::election_ballot::insert (std::shared_ptr<nano::block> const & block, 
 		}
 	}
 
+	// The winner is what the election broadcasts and votes for, no eviction may ever take it
+	release_assert (weakest->second != winner_m);
+
 	// Only the block is removed, its recorded votes are deliberately retained
-	auto evicted = blocks_m.find (weakest->second)->second;
-	blocks_m.erase (weakest->second);
+	auto const victim = blocks_m.find (weakest->second);
+	release_assert (victim != blocks_m.end ());
+	auto evicted = victim->second;
+	blocks_m.erase (victim);
 	blocks_m.emplace (hash, block);
 
-	debug_assert (blocks_m.size () <= max_blocks);
+	release_assert (blocks_m.size () <= max_blocks);
 
 	return { insert_outcome::replaced, evicted };
 }
@@ -225,12 +231,15 @@ void nano::election_ballot::for_each_weighted_vote (Visitor && visit) const
 	boost::container::small_vector<nano::uint128_t, inline_reps> weights (reps.size (), nano::uint128_t{ 0 });
 	weight_query (reps, weights);
 
-	// The votes have not changed since the reps were collected, so they come in the same order
+	// Weights are matched to votes by position, so every vote must still be where it was when the reps were collected
 	size_t index{ 0 };
 	for (auto const & [rep, info] : votes_m)
 	{
-		visit (rep, info, weights[index++]);
+		release_assert (index < reps.size () && reps[index] == rep, "votes changed during the weight query");
+		visit (rep, info, weights[index]);
+		++index;
 	}
+	release_assert (index == reps.size (), "votes changed during the weight query");
 }
 
 auto nano::election_ballot::compute_weights () const -> block_weights
@@ -240,10 +249,13 @@ auto nano::election_ballot::compute_weights () const -> block_weights
 	for_each_weighted_vote ([&result] (nano::account const &, nano::vote_info const & info, nano::uint128_t const & rep_weight) {
 		auto & entry = result.weights[info.hash];
 		entry.weight += rep_weight;
+		// All weight in existence fits the type and every rep counts once, so a sum that wraps means the weights are not one snapshot
+		release_assert (entry.weight >= rep_weight, "vote weight behind a block overflowed");
 		// A final vote counts into both totals, so the final weight is always a subset of the block weight
 		if (info.final ())
 		{
 			entry.final_weight += rep_weight;
+			release_assert (entry.final_weight <= entry.weight);
 		}
 	});
 	return result;
@@ -272,6 +284,7 @@ auto nano::election_ballot::evaluate (nano::uint128_t quorum_threshold) -> round
 	for (auto const & [hash, entry] : block_weights.weights)
 	{
 		total_weight += entry.weight;
+		release_assert (total_weight >= entry.weight, "total vote weight overflowed");
 	}
 
 	// Both slots advance only once enough weight participates, so a lead among the first few votes cannot move them

@@ -195,10 +195,32 @@ TEST (calculate_vote_cooldown, tiers)
  * election_ballot
  */
 
+/*
+ * A ballot without an initial block, without a weight query or without room for its initial block could never name a winner or tally a vote.
+ * Construction rejects each of them on the spot, in release builds too, instead of failing at the first vote.
+ */
 TEST (election_ballot_DeathTest, construction_null_initial)
 {
 	test_reps reps;
 	ASSERT_DEATH_IF_SUPPORTED (nano::election_ballot (nullptr, reps.query ()), "initial != nullptr");
+}
+
+TEST (election_ballot_DeathTest, construction_empty_weight_query)
+{
+	ASSERT_DEATH_IF_SUPPORTED (nano::election_ballot (create_block (), nullptr), "weight_query != nullptr");
+}
+
+TEST (election_ballot_DeathTest, construction_zero_capacity)
+{
+	test_reps reps;
+	ASSERT_DEATH_IF_SUPPORTED (nano::election_ballot (create_block (), reps.query (), 0), "max_blocks > 0");
+}
+
+TEST (election_ballot_DeathTest, insert_null_block)
+{
+	test_reps reps;
+	nano::election_ballot ballot{ create_block (), reps.query () };
+	ASSERT_DEATH_IF_SUPPORTED (ballot.insert (nullptr), "block != nullptr");
 }
 
 /*
@@ -1346,6 +1368,67 @@ TEST (election_ballot, weight_query_missing_rep_is_zero)
 	// The vote is recorded despite carrying no weight
 	ASSERT_TRUE (ballot.find_vote (unknown.pub));
 	ASSERT_EQ (nano::election_ballot::vote_result::replay, ballot.vote (unknown.pub, nano::vote::timestamp_min, initial->hash (), 0s, epoch));
+}
+
+/*
+ * Weights are matched to votes by position, which is only sound while the recorded votes stay exactly as they were when the weight query was issued.
+ * A query that records a vote on the ballot it is answering breaks that, and the tally must abort rather than count a rep with another rep's weight or read past the weights it asked for.
+ */
+TEST (election_ballot_DeathTest, weight_query_records_vote)
+{
+	auto initial = create_block ();
+	nano::keypair voter;
+	nano::keypair intruder;
+
+	nano::election_ballot * target{ nullptr };
+	auto query = [&] (std::span<nano::account const>, std::span<nano::uint128_t>) {
+		target->vote (intruder.pub, nano::vote::timestamp_min, initial->hash (), 0s, epoch);
+	};
+
+	nano::election_ballot ballot{ initial, query };
+	target = &ballot;
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (voter.pub, nano::vote::timestamp_min, initial->hash (), 0s, epoch));
+
+	ASSERT_DEATH_IF_SUPPORTED (ballot.tally (), "votes changed during the weight query");
+}
+
+/*
+ * Tally sums are unsigned and would wrap silently, turning the heaviest block into a weightless one.
+ * All reps together can never weigh more than the supply, which fits the weight type, so a sum that wraps means the weights are not one snapshot and the ballot aborts instead of deciding on them.
+ */
+TEST (election_ballot_DeathTest, tally_block_weight_overflow)
+{
+	test_reps reps;
+	auto initial = create_block ();
+	nano::election_ballot ballot{ initial, reps.query () };
+
+	// Two reps of half the weight range each wrap the weight behind the block to exactly zero
+	auto const half = nano::uint128_t{ 1 } << 127;
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (half), nano::vote::timestamp_min, initial->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (half), nano::vote::timestamp_min, initial->hash (), 0s, epoch));
+
+	ASSERT_DEATH_IF_SUPPORTED (ballot.tally (), "vote weight behind a block overflowed");
+}
+
+/*
+ * The participation total spans every voted-for hash, so it can wrap while each block on its own stays in range.
+ * A wrapped total would hold the winner and the leader in place although all weight has voted, so it aborts like a wrapped block weight.
+ */
+TEST (election_ballot_DeathTest, evaluate_total_weight_overflow)
+{
+	test_reps reps;
+	auto initial = create_block ();
+	auto fork = create_block ();
+	nano::election_ballot ballot{ initial, reps.query () };
+	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (fork).outcome);
+
+	// Half the weight range behind each fork: both block weights are valid, only their sum wraps
+	auto const half = nano::uint128_t{ 1 } << 127;
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (half), nano::vote::timestamp_min, initial->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (half), nano::vote::timestamp_min, fork->hash (), 0s, epoch));
+	ASSERT_EQ (2, ballot.tally ().size ());
+
+	ASSERT_DEATH_IF_SUPPORTED ((void)ballot.evaluate (1), "total vote weight overflowed");
 }
 
 /*

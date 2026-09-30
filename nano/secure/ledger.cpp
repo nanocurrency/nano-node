@@ -630,9 +630,10 @@ nano::rep_weight_map nano::ledger::weights (std::span<nano::account const> reps)
 
 void nano::ledger::weights (std::span<nano::account const> reps, std::span<nano::uint128_t> weights) const
 {
+	release_assert (reps.size () == weights.size ());
+
 	if (!bootstrap_height_reached ())
 	{
-		release_assert (reps.size () == weights.size ());
 		for (size_t index = 0; index < reps.size (); ++index)
 		{
 			auto const weight = bootstrap_weights.representatives.find (reps[index]);
