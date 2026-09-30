@@ -339,6 +339,14 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 	auto channels_l = all_channels ();
 
 	auto should_close = [this, cutoff_deadline] (auto const & channel) {
+		// Close channels to peers that were blocklisted after connecting, checked first so the stat counts every channel dropped by the list
+		if (node.peer_blocklist.contains (channel->get_node_id ()) || node.peer_blocklist.contains (channel->get_remote_endpoint ().address ()))
+		{
+			node.stats.inc (nano::stat::type::tcp_channels_purge, nano::stat::detail::blocklisted);
+			node.logger.debug (nano::log::type::tcp_channels, "Closing channel to blocklisted peer: {}", channel);
+
+			return true; // Close
+		}
 		// Remove channels that haven't successfully sent a message within the cutoff time
 		if (auto last = channel->get_last_packet_sent (); last < cutoff_deadline)
 		{

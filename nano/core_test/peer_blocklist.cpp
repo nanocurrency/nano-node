@@ -200,3 +200,72 @@ TEST (peer_blocklist, node_id_outbound)
 	ASSERT_EQ (0, node0->stats.count (nano::stat::type::tcp_channels, nano::stat::detail::channel_accepted));
 	ASSERT_TIMELY (5s, node1->network.find_node_id (node0->get_node_id ()) == nullptr);
 }
+
+/*
+ * A peer that is blocklisted by node id while connected is dropped by the next connection cleanup and refused when it comes back
+ */
+TEST (peer_blocklist, disconnect_node_id)
+{
+	auto const test_start = std::chrono::steady_clock::now ();
+
+	nano::test::system system (2);
+	auto node0 = system.nodes[0];
+	auto node1 = system.nodes[1];
+	ASSERT_NE (nullptr, node0->network.find_node_id (node1->get_node_id ()));
+
+	ASSERT_TRUE (node0->peer_blocklist.add (node1->get_node_id ()));
+
+	// Nothing has been idle since the test started, so only the blocklisted channel closes
+	node0->network.cleanup (test_start);
+	ASSERT_EQ (1, node0->stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::blocklisted));
+	ASSERT_EQ (0, node0->stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::idle));
+	ASSERT_TIMELY (5s, node0->network.find_node_id (node1->get_node_id ()) == nullptr);
+	ASSERT_TIMELY (5s, node1->network.find_node_id (node0->get_node_id ()) == nullptr);
+
+	// The dropped peer is refused when it reconnects
+	node1->network.cleanup (std::chrono::steady_clock::now ());
+	node1->network.syn_cookies.purge (std::chrono::steady_clock::now ());
+	ASSERT_TRUE (node1->network.merge_peer (node0->network.endpoint ()));
+	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp_channels_rejected, nano::stat::detail::blocklisted) >= 1);
+	ASSERT_EQ (nullptr, node0->network.find_node_id (node1->get_node_id ()));
+	ASSERT_EQ (0, node0->network.size ());
+}
+
+/*
+ * A peer that is blocklisted by address while connected is dropped by the next connection cleanup
+ */
+TEST (peer_blocklist, disconnect_address)
+{
+	auto const test_start = std::chrono::steady_clock::now ();
+
+	nano::test::system system (2);
+	auto node0 = system.nodes[0];
+	auto node1 = system.nodes[1];
+	ASSERT_EQ (1, node0->network.size ());
+
+	ASSERT_TRUE (node0->peer_blocklist.add (boost::asio::ip::address_v6::loopback ()));
+
+	node0->network.cleanup (test_start);
+	ASSERT_EQ (1, node0->stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::blocklisted));
+	ASSERT_TIMELY_EQ (5s, node0->network.size (), 0);
+	ASSERT_TIMELY_EQ (5s, node1->network.size (), 0);
+}
+
+/*
+ * A blocklisted channel that is also idle is counted as dropped by the blocklist, not as idle
+ */
+TEST (peer_blocklist, disconnect_idle)
+{
+	nano::test::system system (2);
+	auto node0 = system.nodes[0];
+	auto node1 = system.nodes[1];
+	ASSERT_EQ (1, node0->network.size ());
+
+	ASSERT_TRUE (node0->peer_blocklist.add (node1->get_node_id ()));
+
+	// A cutoff in the future makes every channel idle
+	node0->network.cleanup (std::chrono::steady_clock::now () + 1h);
+	ASSERT_EQ (1, node0->stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::blocklisted));
+	ASSERT_EQ (0, node0->stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::idle));
+	ASSERT_TIMELY_EQ (5s, node0->network.size (), 0);
+}
