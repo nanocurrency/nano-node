@@ -180,6 +180,134 @@ TEST (tomlconfig, type_description)
 	ASSERT_EQ (t.get_error ().get_message (), "c is not an IPv6 address such as ::1 or ::ffff:127.0.0.1");
 }
 
+/** Overrides with dotted keys land in the addressed table and keep its other keys */
+TEST (tomlconfig, override_dotted_keys)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		[node]
+		b=5
+		c=3
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	ASSERT_FALSE (t.apply_overrides ({ "node.a = 1", "node.b = 2" }));
+
+	auto node = t.get_required_child ("node");
+	uint16_t a, b, c;
+	node.get<uint16_t> ("a", a);
+	ASSERT_EQ (a, 1);
+	node.get<uint16_t> ("b", b);
+	ASSERT_EQ (b, 2);
+	node.get<uint16_t> ("c", c);
+	ASSERT_EQ (c, 3);
+}
+
+/** An override replaces the file's value and later overrides win over earlier ones */
+TEST (tomlconfig, override_precedence)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		node.peering_port=7075
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	ASSERT_FALSE (t.apply_overrides ({ "node.peering_port=8075", "node.peering_port=9075" }));
+
+	uint16_t port = 0;
+	t.get_optional<uint16_t> ("node.peering_port", port);
+	ASSERT_EQ (port, 9075);
+	ASSERT_FALSE (t.get_error ());
+}
+
+/** Overrides create missing tables and arrays replace the whole array */
+TEST (tomlconfig, override_creates_tables)
+{
+	nano::tomlconfig t;
+	std::stringstream ss;
+	ss << R"toml(
+		[node]
+		items = ["old"]
+	)toml";
+	t.read (ss);
+	ASSERT_FALSE (t.apply_overrides ({ "node.child.value=1", "node.items=[\"a\",\"b\"]" }));
+
+	uint16_t value = 0;
+	t.get_required<uint16_t> ("node.child.value", value);
+	ASSERT_EQ (value, 1);
+
+	std::vector<std::string> items;
+	t.get_required_child ("node").array_entries_required<std::string> ("items", [&items] (std::string item) {
+		items.push_back (item);
+	});
+	ASSERT_EQ (items, (std::vector<std::string>{ "a", "b" }));
+}
+
+/** A malformed override is reported with the offending entry and leaves the document untouched */
+TEST (tomlconfig, override_invalid)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		[node]
+		a=1
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	ASSERT_TRUE (t.apply_overrides ({ "node.b=2", "node.foo" }));
+	ASSERT_NE (t.get_error ().get_message ().find ("node.foo"), std::string::npos);
+
+	// The valid override before the malformed one was applied, the document itself is intact
+	t.get_error ().clear ();
+	uint16_t a = 0, b = 0;
+	t.get_required<uint16_t> ("node.a", a);
+	t.get_required<uint16_t> ("node.b", b);
+	ASSERT_EQ (a, 1);
+	ASSERT_EQ (b, 2);
+}
+
+/** An override replaces a value whose shape differs, in either direction */
+TEST (tomlconfig, override_changes_shape)
+{
+	std::stringstream ss;
+	ss << R"toml(
+		scalar = 1
+		[table]
+		x = 1
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	ASSERT_FALSE (t.apply_overrides ({ "scalar.x = 5", "table = 7" }));
+
+	uint16_t x = 0, table = 0;
+	t.get_required<uint16_t> ("scalar.x", x);
+	ASSERT_EQ (x, 5);
+	t.get_required<uint16_t> ("table", table);
+	ASSERT_EQ (table, 7);
+}
+
+/** Type errors on overridden values are reported like any other value */
+TEST (tomlconfig, override_type_error)
+{
+	nano::tomlconfig t;
+	ASSERT_FALSE (t.apply_overrides ({ "node.too_big=70000" }));
+
+	uint16_t port = 65535;
+	t.get_optional<uint16_t> ("node.missing", port);
+	ASSERT_EQ (port, 65535);
+	ASSERT_FALSE (t.get_error ());
+
+	t.get_required<uint16_t> ("node.missing", port);
+	ASSERT_EQ (t.get_error (), nano::error_config::missing_value);
+	t.get_error ().clear ();
+
+	t.get_required<uint16_t> ("node.too_big", port);
+	ASSERT_EQ (t.get_error (), nano::error_config::invalid_value);
+}
+
 TEST (tomlconfig, put)
 {
 	nano::tomlconfig config;
@@ -266,15 +394,6 @@ TEST (config_template, update)
 	ASSERT_EQ (updated.find ("\tio_threads = "), std::string::npos) << updated;
 }
 
-/** Reading a path that does not exist reports an error and does not create the file */
-TEST (tomlconfig, read_missing_file)
-{
-	auto path = nano::unique_path () / "missing.toml";
-	nano::tomlconfig toml;
-	ASSERT_TRUE (toml.read (path));
-	ASSERT_FALSE (std::filesystem::exists (path));
-}
-
 /** Writing creates the file and replaces any previous content */
 TEST (tomlconfig, write_replaces_content)
 {
@@ -291,8 +410,10 @@ TEST (tomlconfig, write_replaces_content)
 	shorter.put ("a", "b");
 	shorter.write (file);
 
+	auto stream = nano::open_file (file);
+	ASSERT_TRUE (stream);
 	nano::tomlconfig read;
-	ASSERT_FALSE (read.read (file));
+	ASSERT_FALSE (read.read (stream.value ()));
 	ASSERT_TRUE (read.has_key ("a"));
 	ASSERT_FALSE (read.has_key ("another_key"));
 }
@@ -307,6 +428,56 @@ TEST (config_file, missing_file)
 	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path));
 	ASSERT_TRUE (toml.empty ());
 	ASSERT_FALSE (std::filesystem::exists (path / "config-test.toml"));
+}
+
+/** A reused document keeps nothing from before, with or without a file */
+TEST (config_file, reused_document)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+
+	nano::tomlconfig toml;
+	toml.put ("stale", "value");
+	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path, { "node.port=2" }));
+	ASSERT_FALSE (toml.has_key ("stale"));
+	uint16_t port{ 0 };
+	toml.get_required<uint16_t> ("node.port", port);
+	ASSERT_EQ (port, 2);
+
+	{
+		std::ofstream file{ path / "config-test.toml" };
+		file << "[node]\nport = 1\n";
+	}
+	toml.put ("stale", "value");
+	ASSERT_FALSE (nano::read_config_file (toml, "config-test.toml", path));
+	ASSERT_FALSE (toml.has_key ("stale"));
+	toml.get_required<uint16_t> ("node.port", port);
+	ASSERT_EQ (port, 1);
+}
+
+/** A file that exists but cannot be opened is an error naming the file, not a missing file */
+TEST (config_file, unreadable_file)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	auto file = path / "config-test.toml";
+	{
+		std::ofstream stream{ file };
+		stream << "[node]\nport = 1\n";
+	}
+	std::filesystem::permissions (file, std::filesystem::perms::none);
+	if (std::ifstream{ file })
+	{
+		std::filesystem::permissions (file, std::filesystem::perms::all);
+		GTEST_SKIP () << "Permissions do not restrict reading here, as for root or on Windows";
+	}
+
+	nano::tomlconfig toml;
+	auto error = nano::read_config_file (toml, "config-test.toml", path);
+	std::filesystem::permissions (file, std::filesystem::perms::all); // Cleanup
+	ASSERT_TRUE (error);
+	ASSERT_EQ (error.get_message ().find ("config-test.toml: Could not open "), 0) << error.get_message ();
+	ASSERT_TRUE (toml.empty ());
 }
 
 /** Overrides apply even when there is no config file */
@@ -339,6 +510,29 @@ TEST (config_file, overrides_over_file)
 	toml.get_required<uint16_t> ("node.threads", threads);
 	ASSERT_EQ (port, 3);
 	ASSERT_EQ (threads, 2);
+}
+
+/** A key given more than once takes the last value, with and without a file */
+TEST (config_file, repeated_override_last_wins)
+{
+	auto path = nano::unique_path ();
+	std::filesystem::create_directories (path);
+	std::vector<std::string> const overrides{ "node.port=2", "node.port=3" };
+
+	nano::tomlconfig without_file;
+	ASSERT_FALSE (nano::read_config_file (without_file, "config-test.toml", path, overrides));
+	uint16_t port{ 0 };
+	without_file.get_required<uint16_t> ("node.port", port);
+	ASSERT_EQ (port, 3);
+
+	{
+		std::ofstream file{ path / "config-test.toml" };
+		file << "[node]\nport = 1\n";
+	}
+	nano::tomlconfig with_file;
+	ASSERT_FALSE (nano::read_config_file (with_file, "config-test.toml", path, overrides));
+	with_file.get_required<uint16_t> ("node.port", port);
+	ASSERT_EQ (port, 3);
 }
 
 /** A file with invalid syntax is reported as an error that names the file and the line */

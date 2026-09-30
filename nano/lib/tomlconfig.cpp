@@ -24,37 +24,13 @@ void nano::tomlconfig::doc (std::string const & key, std::string const & doc)
 	tree->document (key, doc);
 }
 
-nano::error & nano::tomlconfig::read (std::filesystem::path const & path_a)
-{
-	std::stringstream stream_override_empty;
-	stream_override_empty << std::endl;
-	return read (stream_override_empty, path_a);
-}
-
-nano::error & nano::tomlconfig::read (std::istream & stream_overrides, std::filesystem::path const & path_a)
-{
-	std::ifstream stream{ path_a };
-	if (!stream)
-	{
-		error->set ("Could not open config file: " + path_a.string ());
-		return *error;
-	}
-	return read (stream_overrides, stream);
-}
-
-nano::error & nano::tomlconfig::read (std::istream & stream_a)
-{
-	std::stringstream stream_override_empty;
-	stream_override_empty << std::endl;
-	return read (stream_override_empty, stream_a);
-}
-
-/** Read from two streams where keys in the first will take precedence over those in the second stream. */
-nano::error & nano::tomlconfig::read (std::istream & stream_first_a, std::istream & stream_second_a)
+nano::error & nano::tomlconfig::read (std::istream & stream)
 {
 	try
 	{
-		tree = cpptoml::parse_base_and_override_files (stream_first_a, stream_second_a, cpptoml::parser::merge_type::ignore, true);
+		// Every value is parsed as a string and converted on access, see get_config
+		cpptoml::parser parser{ stream, cpptoml::parser::merge_type::none, /* stringify_values */ true };
+		tree = parser.parse ();
 	}
 	catch (std::runtime_error const & ex)
 	{
@@ -63,23 +39,70 @@ nano::error & nano::tomlconfig::read (std::istream & stream_first_a, std::istrea
 	return *error;
 }
 
-void nano::tomlconfig::write (std::filesystem::path const & path_a)
+namespace
 {
-	if (!std::filesystem::exists (path_a))
+/** Copies every entry of \p source into \p target, descending into tables both sides have and replacing anything else */
+void merge_into (cpptoml::table & target, cpptoml::table const & source)
+{
+	for (auto const & [key, value] : source)
+	{
+		if (value->is_table () && target.contains (key) && target.get (key)->is_table ())
+		{
+			merge_into (*target.get_table (key), *value->as_table ());
+		}
+		else
+		{
+			target.erase (key);
+			target.insert (key, value);
+		}
+	}
+}
+}
+
+nano::error & nano::tomlconfig::apply_override (std::string const & entry)
+{
+	try
+	{
+		std::stringstream stream{ entry };
+		cpptoml::parser parser{ stream, cpptoml::parser::merge_type::none, /* stringify_values */ true };
+		merge_into (*tree, *parser.parse ());
+	}
+	catch (std::runtime_error const & ex)
+	{
+		error->set ("Invalid config override \"" + entry + "\": " + ex.what ());
+	}
+	return *error;
+}
+
+nano::error & nano::tomlconfig::apply_overrides (std::vector<std::string> const & overrides)
+{
+	for (auto const & entry : overrides)
+	{
+		if (apply_override (entry))
+		{
+			break;
+		}
+	}
+	return *error;
+}
+
+void nano::tomlconfig::write (std::filesystem::path const & path)
+{
+	if (!std::filesystem::exists (path))
 	{
 		// Create the file first and restrict its permissions before writing, otherwise Windows only grants read permissions
 		{
-			std::ofstream create{ path_a };
+			std::ofstream create{ path };
 		}
-		nano::set_secure_perm_file (path_a);
+		nano::set_secure_perm_file (path);
 	}
-	std::ofstream stream{ path_a };
+	std::ofstream stream{ path };
 	write (stream);
 }
 
-void nano::tomlconfig::write (std::ostream & stream_a) const
+void nano::tomlconfig::write (std::ostream & stream) const
 {
-	cpptoml::toml_writer writer{ stream_a, "" };
+	cpptoml::toml_writer writer{ stream, "" };
 	tree->accept (writer);
 }
 
