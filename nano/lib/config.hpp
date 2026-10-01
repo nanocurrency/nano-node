@@ -111,6 +111,7 @@ constexpr std::string_view log_config_filename{ "config-log.toml" };
 constexpr std::string_view access_config_filename{ "config-access.toml" };
 constexpr std::string_view qtwallet_config_filename{ "config-qtwallet.toml" };
 constexpr std::string_view tls_config_filename{ "config-tls.toml" };
+constexpr std::string_view peer_blocklist_filename{ "peer-blocklist.toml" };
 
 std::string get_node_toml_config_path (std::filesystem::path const & data_path);
 std::string get_rpc_toml_config_path (std::filesystem::path const & data_path);

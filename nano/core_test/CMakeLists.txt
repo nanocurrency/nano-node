@@ -68,6 +68,7 @@ add_executable(
   recently_cache.cpp
   rep_crawler.cpp
   receivable.cpp
+  peer_blocklist.cpp
   peer_history.cpp
   priority_pool.cpp
   peer_container.cpp

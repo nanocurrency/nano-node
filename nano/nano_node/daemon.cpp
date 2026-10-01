@@ -17,6 +17,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/node_scope_guard.hpp>
 #include <nano/node/openclwork.hpp>
+#include <nano/node/peer_blocklist.hpp>
 #include <nano/node/rpc_process.hpp>
 #include <nano/rpc/rpc_host.hpp>
 
@@ -84,6 +85,11 @@ void nano::daemon::run (std::filesystem::path const & data_path, nano::node_flag
 	if (auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides))
 	{
 		logger.critical (nano::log::type::daemon, "Error deserializing node config: {}", error.get_message ());
+		std::exit (1);
+	}
+	if (auto error = nano::read_peer_blocklist_config (*config.node.peer_blocklist, data_path))
+	{
+		logger.critical (nano::log::type::daemon, "Error deserializing peer blocklist: {}", error.get_message ());
 		std::exit (1);
 	}
 	if (auto error = nano::flags_config_conflicts (flags, config.node))

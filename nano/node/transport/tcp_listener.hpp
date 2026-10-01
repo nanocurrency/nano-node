@@ -40,6 +40,7 @@ public:
 		accepted,
 		rejected,
 		rejected_excluded,
+		rejected_blocklisted,
 		rejected_max_per_ip,
 		rejected_max_per_subnetwork,
 		rejected_max_inbound,

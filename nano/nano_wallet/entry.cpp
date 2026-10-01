@@ -18,6 +18,7 @@
 #include <nano/node/node_rpc_config.hpp>
 #include <nano/node/node_scope_guard.hpp>
 #include <nano/node/openclwork.hpp>
+#include <nano/node/peer_blocklist.hpp>
 #include <nano/node/rpc_process.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/qt/qt.hpp>
@@ -80,6 +81,10 @@ public:
 		if (!error)
 		{
 			error = nano::read_wallet_config (wallet_config, data_path);
+		}
+		if (!error)
+		{
+			error = nano::read_peer_blocklist_config (*config.node.peer_blocklist, data_path);
 		}
 
 		if (!error)

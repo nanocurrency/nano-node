@@ -43,6 +43,7 @@
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
+#include <nano/node/peer_blocklist.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/pruning.hpp>
@@ -150,6 +151,8 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	outbound_limiter{ *outbound_limiter_impl },
 	message_processor_impl{ std::make_unique<nano::message_processor> (config.message_processor, *this) },
 	message_processor{ *message_processor_impl },
+	peer_blocklist_impl{ std::make_unique<nano::peer_blocklist> (*config.peer_blocklist) },
+	peer_blocklist{ *peer_blocklist_impl },
 	// empty `config.peering_port` means the user made no port choice at all;
 	// otherwise, any value is considered, with `0` having the special meaning of 'let the OS pick a port instead'
 	//
@@ -355,6 +358,7 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	}
 	logger.info (nano::log::type::node, "Work pool threads: {} ({})", work.threads.size (), (work.opencl ? "OpenCL" : "CPU"));
 	logger.info (nano::log::type::node, "Work peers: {}", config.work_peers.size ());
+	logger.info (nano::log::type::node, "Peer blocklist: {} node ids, {} IP addresses", config.peer_blocklist->node_ids.size (), config.peer_blocklist->ip_addresses.size ());
 	logger.info (nano::log::type::node, "Node ID: {}", nano::log::as_node_id (node_id.pub));
 	logger.info (nano::log::type::node, "Number of buckets: {}", bucketing.size ());
 	logger.info (nano::log::type::node, "Genesis block: {}", config.network_params.ledger.genesis->hash ());
@@ -1002,6 +1006,7 @@ nano::container_info nano::node::container_info () const
 	info.add ("active", active.container_info ());
 	info.add ("tcp_listener", tcp_listener.container_info ());
 	info.add ("network", network.container_info ());
+	info.add ("peer_blocklist", peer_blocklist.container_info ());
 	info.add ("telemetry", telemetry.container_info ());
 	info.add ("workers", workers.container_info ());
 	info.add ("bootstrap_workers", bootstrap_workers.container_info ());
