@@ -7,6 +7,7 @@
 #include <nano/secure/common.hpp>
 #include <nano/secure/rep_tiers.hpp>
 
+#include <deque>
 #include <memory>
 #include <thread>
 #include <unordered_set>
@@ -33,6 +34,9 @@ public:
 
 	/** Returns the representative tier for the account */
 	nano::rep_tier tier (nano::account const & representative) const;
+
+	/** Accounts of all principal representatives, tier 1 and above */
+	std::deque<nano::account> principal_representatives () const;
 
 	nano::container_info container_info () const;
 

@@ -14,6 +14,7 @@
 #include <nano/messages/publish.hpp>
 #include <nano/messages/telemetry.hpp>
 #include <nano/messages/uniquers.hpp>
+#include <nano/messages/vote_relay.hpp>
 
 auto nano::deserialize_message (
 nano::buffer_view buffer,
@@ -182,6 +183,28 @@ nano::vote_uniquer * vote_uniquer)
 				return { std::move (message), deserialize_message_status::success };
 			}
 			return { nullptr, deserialize_message_status::invalid_asc_pull_ack_message };
+		}
+		break;
+		case nano::messages::message_type::vote_relay_req:
+		{
+			bool error = false;
+			auto message = std::make_unique<nano::messages::vote_relay_req> (error, stream, header);
+			if (!error && at_end (stream))
+			{
+				return { std::move (message), deserialize_message_status::success };
+			}
+			return { nullptr, deserialize_message_status::invalid_vote_relay_req_message };
+		}
+		break;
+		case nano::messages::message_type::vote_relay_ack:
+		{
+			bool error = false;
+			auto message = std::make_unique<nano::messages::vote_relay_ack> (error, stream, header, vote_uniquer);
+			if (!error && at_end (stream))
+			{
+				return { std::move (message), deserialize_message_status::success };
+			}
+			return { nullptr, deserialize_message_status::invalid_vote_relay_ack_message };
 		}
 		break;
 		default:

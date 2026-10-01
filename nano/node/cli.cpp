@@ -13,6 +13,7 @@
 #include <nano/node/migrations.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/peer_blocklist.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
@@ -90,7 +91,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("drop_extended_ledger_indices", "Drop extended ledger index data and mark all extended ledger indices disabled.")
 	("rollback", "Rolls back the specified block hash, effectively removing this block and all blocks following it")
 	("diagnostics", "Run internal diagnostics")
-	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node, rpc or log. See also use_defaults.")
+	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node, rpc, log or blocklist. See also use_defaults.")
 	("update_config", "Reads the current node configuration and updates it with missing keys and values and delete keys that are no longer used. Updated configuration is written to stdout.")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
 	("key_expand", "Derive public key and account number from <key>")
@@ -1047,10 +1048,10 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		auto type = vm["generate_config"].as<std::string> ();
 		nano::tomlconfig toml;
-		bool valid_type = false;
+		std::string_view filename;
 		if (type == "node")
 		{
-			valid_type = true;
+			filename = nano::node_config_filename;
 			nano::network_params network_params{ nano::get_active_network () };
 			nano::daemon_config config{ data_path, network_params };
 			// set the peering port to the default value so that it is printed in the example toml file
@@ -1059,27 +1060,33 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		}
 		else if (type == "rpc")
 		{
-			valid_type = true;
+			filename = nano::rpc_config_filename;
 			nano::network_params network_params{ nano::get_active_network () };
 			nano::rpc_config config{ network_params.network };
 			config.serialize_toml (toml);
 		}
 		else if (type == "log")
 		{
-			valid_type = true;
+			filename = nano::log_config_filename;
 			nano::log_config config = nano::log_config::sample_config ();
+			config.serialize_toml (toml);
+		}
+		else if (type == "blocklist")
+		{
+			filename = nano::peer_blocklist_filename;
+			nano::peer_blocklist_config config;
 			config.serialize_toml (toml);
 		}
 		else
 		{
-			std::cerr << "Invalid configuration type " << type << ". Must be node or rpc." << std::endl;
+			std::cerr << "Invalid configuration type " << type << ". Must be node, rpc, log or blocklist." << std::endl;
 		}
 
-		if (valid_type)
+		if (!filename.empty ())
 		{
 			std::cout << "# This is an example configuration file for Nano. Visit https://docs.nano.org/running-a-node/configuration/ for more information.\n#\n"
 					  << "# Fields may need to be defined in the context of a [category] above them.\n"
-					  << "# The desired configuration changes should be placed in config-" << type << ".toml in the node data path.\n"
+					  << "# The desired configuration changes should be placed in " << filename << " in the node data path.\n"
 					  << "# To change a value from its default, uncomment (erasing #) the corresponding field.\n"
 					  << "# It is not recommended to uncomment every field, as the default value for important fields may change in the future. Only change what you need.\n"
 					  << "# Additional information for notable configuration options is available in https://docs.nano.org/running-a-node/configuration/#notable-configuration-options\n";

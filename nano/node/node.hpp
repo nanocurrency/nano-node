@@ -65,7 +65,11 @@ public:
 	uint64_t block_count () const;
 	uint64_t cemented_count () const;
 
+	// Whether the weight this node can ask for votes, directly and through relays, exceeds the quorum
 	bool online () const;
+
+	// Weight this node can ask for votes, directly and through relays, next to the weight seen online
+	nano::stake_totals stake () const;
 
 	// Whether this node generates its own votes: voting enabled in config and wallets hold a voting-capable representative
 	bool is_voting () const;
@@ -134,6 +138,8 @@ public:
 	nano::bandwidth_limiter & outbound_limiter;
 	std::unique_ptr<nano::message_processor> message_processor_impl;
 	nano::message_processor & message_processor;
+	std::unique_ptr<nano::peer_blocklist> peer_blocklist_impl;
+	nano::peer_blocklist & peer_blocklist;
 	std::unique_ptr<nano::network> network_impl;
 	nano::network & network;
 	std::shared_ptr<nano::transport::channel> loopback_channel;
@@ -183,6 +189,12 @@ public:
 	nano::scheduler::component & scheduler;
 	std::unique_ptr<nano::vote_replier> vote_replier_impl;
 	nano::vote_replier & vote_replier;
+	std::unique_ptr<nano::vote_relay> vote_relay_impl;
+	nano::vote_relay & vote_relay;
+	std::unique_ptr<nano::vote_relay_client> vote_relay_client_impl;
+	nano::vote_relay_client & vote_relay_client;
+	std::unique_ptr<nano::vote_solicitor> vote_solicitor_impl;
+	nano::vote_solicitor & vote_solicitor;
 	std::unique_ptr<nano::backlog_scan> backlog_scan_impl;
 	nano::backlog_scan & backlog_scan;
 	std::unique_ptr<nano::bounded_backlog> backlog_impl;

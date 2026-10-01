@@ -22,6 +22,7 @@
 #include <nano/node/monitor.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/peer_blocklist.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/scheduler/hinted.hpp>
@@ -33,7 +34,10 @@
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_rebroadcaster.hpp>
+#include <nano/node/vote_relay.hpp>
+#include <nano/node/vote_relay_client.hpp>
 #include <nano/node/vote_replier.hpp>
+#include <nano/node/vote_solicitor.hpp>
 #include <nano/node/websocketconfig.hpp>
 #include <nano/store/txn_tracking.hpp>
 
@@ -314,6 +318,18 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	vote_replier->serialize (vote_replier_l);
 	toml.put_child ("vote_replier", vote_replier_l);
 
+	nano::tomlconfig vote_relay_l;
+	vote_relay->serialize (vote_relay_l);
+	toml.put_child ("vote_relay", vote_relay_l);
+
+	nano::tomlconfig vote_relay_client_l;
+	vote_relay_client->serialize (vote_relay_client_l);
+	toml.put_child ("vote_relay_client", vote_relay_client_l);
+
+	nano::tomlconfig vote_solicitor_l;
+	vote_solicitor->serialize (vote_solicitor_l);
+	toml.put_child ("vote_solicitor", vote_solicitor_l);
+
 	nano::tomlconfig message_processor_l;
 	message_processor->serialize (message_processor_l);
 	toml.put_child ("message_processor", message_processor_l);
@@ -491,6 +507,24 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto config_l = toml.get_required_child ("vote_replier");
 			vote_replier->deserialize (config_l);
+		}
+
+		if (toml.has_key ("vote_relay"))
+		{
+			auto config_l = toml.get_required_child ("vote_relay");
+			vote_relay->deserialize (config_l);
+		}
+
+		if (toml.has_key ("vote_relay_client"))
+		{
+			auto config_l = toml.get_required_child ("vote_relay_client");
+			vote_relay_client->deserialize (config_l);
+		}
+
+		if (toml.has_key ("vote_solicitor"))
+		{
+			auto config_l = toml.get_required_child ("vote_solicitor");
+			vote_solicitor->deserialize (config_l);
 		}
 
 		if (toml.has_key ("message_processor"))

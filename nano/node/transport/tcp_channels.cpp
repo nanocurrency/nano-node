@@ -6,6 +6,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/peer_blocklist.hpp>
 #include <nano/node/transport/formatting.hpp>
 #include <nano/node/transport/tcp_channels.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
@@ -72,6 +73,14 @@ auto nano::transport::tcp_channels::check (const nano::tcp_endpoint & endpoint, 
 	{
 		node.stats.inc (nano::stat::type::tcp_channels_rejected, nano::stat::detail::not_a_peer);
 		node.logger.debug (nano::log::type::tcp_channels, "Rejected invalid endpoint channel: {}", endpoint);
+
+		return channel_result::rejected;
+	}
+
+	if (node.peer_blocklist.contains (node_id) || node.peer_blocklist.contains (endpoint.address ()))
+	{
+		node.stats.inc (nano::stat::type::tcp_channels_rejected, nano::stat::detail::blocklisted);
+		node.logger.debug (nano::log::type::tcp_channels, "Rejected blocklisted channel: {} ({})", endpoint, nano::log::as_node_id (node_id));
 
 		return channel_result::rejected;
 	}
@@ -296,6 +305,10 @@ bool nano::transport::tcp_channels::track_reachout (nano::endpoint const & endpo
 {
 	auto const tcp_endpoint = nano::transport::map_endpoint_to_tcp (endpoint_a);
 
+	if (node.peer_blocklist.contains (tcp_endpoint.address ()))
+	{
+		return false;
+	}
 	// Don't overload single IP
 	if (max_ip_or_subnetwork_connections (tcp_endpoint))
 	{
@@ -341,6 +354,14 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 		{
 			node.stats.inc (nano::stat::type::tcp_channels_purge, nano::stat::detail::outdated);
 			node.logger.debug (nano::log::type::tcp_channels, "Closing channel with old protocol version: {}", channel);
+
+			return true; // Close
+		}
+		// Close channels to peers that were blocklisted after connecting
+		if (node.peer_blocklist.contains (channel->get_node_id ()) || node.peer_blocklist.contains (channel->get_remote_endpoint ().address ()))
+		{
+			node.stats.inc (nano::stat::type::tcp_channels_purge, nano::stat::detail::blocklisted);
+			node.logger.debug (nano::log::type::tcp_channels, "Closing channel to blocklisted peer: {}", channel);
 
 			return true; // Close
 		}

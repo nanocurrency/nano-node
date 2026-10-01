@@ -74,6 +74,9 @@ public:
 	/** Query if a peer manages a principle representative */
 	bool is_pr (std::shared_ptr<nano::transport::channel> const &) const;
 
+	/** Find the channel for a representative account, returns nullptr if the rep is not known */
+	std::shared_ptr<nano::transport::channel> find (nano::account const &) const;
+
 	/** Get total available weight from representatives */
 	nano::uint128_t total_weight () const;
 

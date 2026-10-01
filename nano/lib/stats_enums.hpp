@@ -70,6 +70,9 @@ enum class type
 	cementing_set,
 	vote_replier,
 	vote_replier_ec,
+	vote_relay,
+	vote_relay_client,
+	vote_solicitor,
 	filter,
 	telemetry,
 	vote_generator,
@@ -273,6 +276,9 @@ enum class detail
 	forced,
 	election,
 
+	// vote source
+	relay,
+
 	// message types
 	not_a_type,
 	invalid,
@@ -286,6 +292,9 @@ enum class detail
 	telemetry_ack,
 	asc_pull_req,
 	asc_pull_ack,
+	vote_relay_req,
+	vote_relay_ack,
+	vote_relay,
 
 	// dropped messages
 	confirm_ack_zero_account,
@@ -370,6 +379,8 @@ enum class detail
 	invalid_frontier_req_message,
 	invalid_asc_pull_req_message,
 	invalid_asc_pull_ack_message,
+	invalid_vote_relay_req_message,
+	invalid_vote_relay_ack_message,
 	message_size_too_big,
 	outdated_version,
 
@@ -429,6 +440,7 @@ enum class detail
 	max_attempts,
 	max_attempts_per_ip,
 	excluded,
+	blocklisted,
 	erase_dead,
 	connect_initiate,
 	connect_failure,
@@ -480,6 +492,19 @@ enum class detail
 	reply_skip,
 	reply_unknown,
 	reply_hashes,
+
+	// vote_relay
+	unsupported,
+	rep_unknown,
+	reply_empty,
+	query,
+
+	// vote_relay_client
+	unsolicited,
+	relay_full,
+
+	// vote_solicitor
+	relay_request,
 
 	// duplicate
 	duplicate_publish_message,

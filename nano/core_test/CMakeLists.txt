@@ -25,7 +25,6 @@ add_executable(
   bounded_dfs.cpp
   bucketing.cpp
   cli.cpp
-  confirmation_solicitor.cpp
   crawler.cpp
   cementing_set.cpp
   conflicts.cpp
@@ -68,6 +67,7 @@ add_executable(
   recently_cache.cpp
   rep_crawler.cpp
   receivable.cpp
+  peer_blocklist.cpp
   peer_history.cpp
   priority_pool.cpp
   peer_container.cpp
@@ -95,8 +95,11 @@ add_executable(
   voting_policy.cpp
   vote_processor.cpp
   vote_rebroadcaster.cpp
+  vote_relay.cpp
+  vote_relay_client.cpp
   vote_replier.cpp
   vote_router.cpp
+  vote_solicitor.cpp
   voting.cpp
   wallet.cpp
   wallets.cpp

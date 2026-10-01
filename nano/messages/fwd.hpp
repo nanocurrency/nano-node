@@ -28,6 +28,8 @@ class bulk_push;
 class node_id_handshake;
 class asc_pull_req;
 class asc_pull_ack;
+class vote_relay_req;
+class vote_relay_ack;
 }
 
 namespace nano

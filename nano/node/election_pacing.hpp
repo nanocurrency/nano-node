@@ -13,10 +13,11 @@ struct election_pacing_params
 	std::chrono::milliseconds base_latency;
 	std::chrono::milliseconds vote_interval;
 	std::chrono::milliseconds block_interval;
+	std::chrono::milliseconds relay_interval;
 };
 
 /**
- * Paces outbound election activity: vote broadcasts, winner block broadcasts and confirmation requests.
+ * Paces outbound election activity: vote broadcasts, winner block broadcasts, confirmation requests and relay requests.
  * Pure logic with injected time, guarded externally by the owning election's mutex.
  */
 class election_pacing final
@@ -40,6 +41,10 @@ public:
 	bool due_request (nano::election_behavior, std::chrono::steady_clock::time_point now) const;
 	void request_sent (std::chrono::steady_clock::time_point now);
 
+	// Relay request is due when the relay interval elapsed since the last one (or none was sent yet)
+	bool due_relay_request (std::chrono::steady_clock::time_point now) const;
+	void relay_request_sent (std::chrono::steady_clock::time_point now);
+
 	// Time between confirmation requests for the given election behavior
 	std::chrono::milliseconds request_interval (nano::election_behavior) const;
 
@@ -49,6 +54,7 @@ private:
 	std::optional<std::chrono::steady_clock::time_point> last_vote;
 	std::optional<std::chrono::steady_clock::time_point> last_block;
 	std::optional<std::chrono::steady_clock::time_point> last_request;
+	std::optional<std::chrono::steady_clock::time_point> last_relay_request;
 	nano::block_hash last_block_hash{ 0 };
 };
 }

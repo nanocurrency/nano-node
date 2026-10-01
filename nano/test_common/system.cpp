@@ -140,18 +140,41 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 	return add_node (node_config_a, nano::node_flags{}, type_a);
 }
 
+std::shared_ptr<nano::node> nano::test::system::make_node (nano::node_config const & node_config_a, nano::node_flags const & node_flags_a, bool wallet, std::optional<nano::keypair> const & rep)
+{
+	auto node = std::make_shared<nano::node> (nano::unique_path (), node_config_a, work, node_flags_a, node_sequence++);
+	setup_node (*node);
+	if (wallet || rep)
+	{
+		auto wallet_l = node->wallets.create (nano::random_wallet_id ());
+		if (rep)
+		{
+			auto result = wallet_l->insert_adhoc (rep->prv);
+			debug_assert (result);
+		}
+	}
+	node->start ();
+	return node;
+}
+
+std::error_code nano::test::system::connect (nano::node & from, nano::node & to)
+{
+	logger.debug (nano::log::type::system, "Connecting nodes: {} and {}", from.identifier (), to.identifier ());
+
+	from.network.merge_peer (to.network.endpoint ());
+
+	return poll_until_true (5s, [&] () {
+		return from.network.find_node_id (to.get_node_id ()) != nullptr && to.network.find_node_id (from.get_node_id ()) != nullptr;
+	});
+}
+
 /** Returns the node added. */
 std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config const & node_config_a, nano::node_flags const & node_flags_a, nano::transport::transport_type type_a, std::optional<nano::keypair> const & rep)
 {
-	auto node (std::make_shared<nano::node> (nano::unique_path (), node_config_a, work, node_flags_a, node_sequence++));
-	setup_node (*node);
-	auto wallet = node->wallets.create (nano::random_wallet_id ());
-	if (rep)
-	{
-		auto result = wallet->insert_adhoc (rep->prv);
-		debug_assert (result);
-	}
-	node->start ();
+	// TCP is the only transport layer available
+	debug_assert (type_a == nano::transport::transport_type::tcp);
+
+	auto node = make_node (node_config_a, node_flags_a, true, rep);
 
 	// Check that we don't start more nodes than limit for single IP address
 	debug_assert (nodes.size () < node->config.network->max_peers_per_ip || node->flags.disable_max_peers_per_ip);
@@ -163,18 +186,7 @@ std::shared_ptr<nano::node> nano::test::system::add_node (nano::node_config cons
 		{
 			continue;
 		}
-
-		logger.debug (nano::log::type::system, "Connecting nodes: {} and {}", node->identifier (), other_node->identifier ());
-
-		// TCP is the only transport layer available.
-		debug_assert (type_a == nano::transport::transport_type::tcp);
-		node->network.merge_peer (other_node->network.endpoint ());
-
-		auto ec = poll_until_true (5s, [&] () {
-			bool result_1 = node->network.find_node_id (other_node->get_node_id ()) != nullptr;
-			bool result_2 = other_node->network.find_node_id (node->get_node_id ()) != nullptr;
-			return result_1 && result_2;
-		});
+		auto ec = connect (*node, *other_node);
 		debug_assert (!ec);
 	}
 
@@ -189,12 +201,9 @@ std::shared_ptr<nano::node> nano::test::system::make_disconnected_node ()
 	return make_disconnected_node (default_config (), nano::node_flags{});
 }
 
-// TODO: Merge with add_node
-std::shared_ptr<nano::node> nano::test::system::make_disconnected_node (nano::node_config const & node_config, nano::node_flags const & flags)
+std::shared_ptr<nano::node> nano::test::system::make_disconnected_node (nano::node_config const & node_config, nano::node_flags const & flags, std::optional<nano::keypair> const & rep)
 {
-	auto node = std::make_shared<nano::node> (nano::unique_path (), node_config, work, flags);
-	setup_node (*node);
-	node->start ();
+	auto node = make_node (node_config, flags, false, rep);
 
 	logger.debug (nano::log::type::system, "Node started (disconnected): {}", nano::log::as_node_id (node->get_node_id ()));
 

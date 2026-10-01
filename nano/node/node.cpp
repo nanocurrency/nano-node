@@ -25,6 +25,7 @@
 #include <nano/node/bounded_backlog.hpp>
 #include <nano/node/bucketing.hpp>
 #include <nano/node/cementing_set.hpp>
+#include <nano/node/common.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/election.hpp>
@@ -43,6 +44,7 @@
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
+#include <nano/node/peer_blocklist.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/pruning.hpp>
@@ -63,8 +65,11 @@
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_rebroadcaster.hpp>
+#include <nano/node/vote_relay.hpp>
+#include <nano/node/vote_relay_client.hpp>
 #include <nano/node/vote_replier.hpp>
 #include <nano/node/vote_router.hpp>
+#include <nano/node/vote_solicitor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
@@ -150,6 +155,8 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	outbound_limiter{ *outbound_limiter_impl },
 	message_processor_impl{ std::make_unique<nano::message_processor> (config.message_processor, *this) },
 	message_processor{ *message_processor_impl },
+	peer_blocklist_impl{ std::make_unique<nano::peer_blocklist> (*config.peer_blocklist) },
+	peer_blocklist{ *peer_blocklist_impl },
 	// empty `config.peering_port` means the user made no port choice at all;
 	// otherwise, any value is considered, with `0` having the special meaning of 'let the OS pick a port instead'
 	//
@@ -209,6 +216,12 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	scheduler{ *scheduler_impl },
 	vote_replier_impl{ std::make_unique<nano::vote_replier> (config.vote_replier, voting_policy, ledger, wallets, network_params.network, stats, logger, config.enable_voting) },
 	vote_replier{ *vote_replier_impl },
+	vote_relay_impl{ std::make_unique<nano::vote_relay> (config.vote_relay, vote_cache, vote_router, rep_crawler, network_params.network, stats, logger) },
+	vote_relay{ *vote_relay_impl },
+	vote_relay_client_impl{ std::make_unique<nano::vote_relay_client> (config.vote_relay_client, vote_processor, network, network_params, stats, logger) },
+	vote_relay_client{ *vote_relay_client_impl },
+	vote_solicitor_impl{ std::make_unique<nano::vote_solicitor> (config.vote_solicitor, network, rep_crawler, rep_tiers, online_reps, ledger, vote_relay_client, network_params.network, stats, logger) },
+	vote_solicitor{ *vote_solicitor_impl },
 	backlog_scan_impl{ std::make_unique<nano::backlog_scan> (config.backlog_scan, ledger, stats) },
 	backlog_scan{ *backlog_scan_impl },
 	backlog_impl{ std::make_unique<nano::bounded_backlog> (config, *this, ledger, ledger_notifications, bucketing, backlog_scan, block_processor, cementing_set, stats, logger) },
@@ -313,6 +326,12 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 			should_observe |= rep_crawler.process (vote, channel);
 		}
 
+		// A vote delivered by a relay attests that the relay can reach the representative
+		if (source == nano::vote_source::relay && ledger.weight (vote->account) > config.representative_vote_weight_minimum)
+		{
+			vote_relay_client.observe (vote->account, channel);
+		}
+
 		if (should_observe)
 		{
 			online_reps.observe (vote->account);
@@ -355,6 +374,7 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	}
 	logger.info (nano::log::type::node, "Work pool threads: {} ({})", work.threads.size (), (work.opencl ? "OpenCL" : "CPU"));
 	logger.info (nano::log::type::node, "Work peers: {}", config.work_peers.size ());
+	logger.info (nano::log::type::node, "Peer blocklist: {} node ids, {} IP addresses", config.peer_blocklist->node_ids.size (), config.peer_blocklist->ip_addresses.size ());
 	logger.info (nano::log::type::node, "Node ID: {}", nano::log::as_node_id (node_id.pub));
 	logger.info (nano::log::type::node, "Number of buckets: {}", bucketing.size ());
 	logger.info (nano::log::type::node, "Genesis block: {}", config.network_params.ledger.genesis->hash ());
@@ -576,6 +596,7 @@ void nano::node::start ()
 	cementing_set.start ();
 	scheduler.start ();
 	vote_replier.start ();
+	vote_relay.start ();
 	backlog_scan.start ();
 	backlog.start ();
 	bootstrap_server.start ();
@@ -619,6 +640,8 @@ void nano::node::stop ()
 	rep_crawler.stop ();
 	unchecked.stop ();
 	block_processor.stop ();
+	vote_relay.stop ();
+	vote_relay_client.stop ();
 	vote_replier.stop ();
 	vote_cache_processor.stop ();
 	vote_processor.stop ();
@@ -851,7 +874,40 @@ bool nano::node::block_confirmed_or_being_confirmed (nano::block_hash const & ha
 
 bool nano::node::online () const
 {
-	return rep_crawler.total_weight () > online_reps.delta ();
+	return stake ().reachable > online_reps.delta ();
+}
+
+nano::stake_totals nano::node::stake () const
+{
+	nano::stake_totals result;
+	std::unordered_set<nano::account> reachable;
+
+	for (auto const & rep : rep_crawler.representatives (std::numeric_limits<std::size_t>::max (), 0, 0))
+	{
+		if (!rep.channel->alive ())
+		{
+			continue;
+		}
+		auto const weight = ledger.weight (rep.account);
+		result.peered += weight;
+		if (reachable.insert (rep.account).second)
+		{
+			result.reachable += weight;
+		}
+	}
+
+	for (auto const & rep : vote_relay_client.relayed ())
+	{
+		auto const weight = ledger.weight (rep);
+		result.relayed += weight;
+		if (reachable.insert (rep).second)
+		{
+			result.reachable += weight;
+		}
+	}
+
+	result.online = online_reps.online ();
+	return result;
 }
 
 bool nano::node::is_voting () const
@@ -899,6 +955,10 @@ nano::node_capabilities_flags nano::node::get_capabilities () const
 	if (ledger.flags.topo_index)
 	{
 		caps.set (nano::node_capabilities::topo_index);
+	}
+	if (config.vote_relay->enable)
+	{
+		caps.set (nano::node_capabilities::vote_relay);
 	}
 	return caps;
 }
@@ -1002,6 +1062,7 @@ nano::container_info nano::node::container_info () const
 	info.add ("active", active.container_info ());
 	info.add ("tcp_listener", tcp_listener.container_info ());
 	info.add ("network", network.container_info ());
+	info.add ("peer_blocklist", peer_blocklist.container_info ());
 	info.add ("telemetry", telemetry.container_info ());
 	info.add ("workers", workers.container_info ());
 	info.add ("bootstrap_workers", bootstrap_workers.container_info ());
@@ -1020,6 +1081,8 @@ nano::container_info nano::node::container_info () const
 	info.add ("cementing_set", cementing_set.container_info ());
 	info.add ("distributed_work", distributed_work.container_info ());
 	info.add ("vote_replier", vote_replier.container_info ());
+	info.add ("vote_relay", vote_relay.container_info ());
+	info.add ("vote_relay_client", vote_relay_client.container_info ());
 	info.add ("scheduler", scheduler.container_info ());
 	info.add ("vote_cache", vote_cache.container_info ());
 	info.add ("vote_router", vote_router.container_info ());
