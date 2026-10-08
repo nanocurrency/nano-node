@@ -478,6 +478,37 @@ TEST (vote_relay_client, relays)
 }
 
 /*
+ * A relay at its outstanding cap should be offered again once its unanswered requests time out, without another request being made
+ */
+TEST (vote_relay_client, relays_expired)
+{
+	nano::test::system system;
+	nano::node_config relay_config = system.default_config ();
+	relay_config.vote_relay->enable = true;
+	relay_config.vote_relay->request_timeout = 10s;
+	auto & relay_node = *system.add_node (relay_config);
+
+	nano::node_config config = system.default_config ();
+	config.vote_relay_client->max_outstanding = 1;
+	config.vote_relay_client->request_timeout = 500ms;
+	auto & node = *system.add_node (config);
+
+	// The relay knows a rep that never answers, so a request to it stays unanswered
+	nano::account rep{ 1 };
+	relay_node.rep_crawler.force_add_rep (rep, nano::test::fake_channel (relay_node));
+
+	ASSERT_TIMELY_EQ (5s, node.vote_relay_client.relays (8).size (), 1);
+	auto relay = node.vote_relay_client.relays (1)[0];
+	ASSERT_TRUE (node.vote_relay_client.request (relay, { rep }, roots_hashes, false));
+	ASSERT_TRUE (node.vote_relay_client.relays (8).empty ());
+
+	// The request times out and the relay is offered again
+	ASSERT_TIMELY (5s, !node.vote_relay_client.relays (8).empty ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::timeout));
+	ASSERT_EQ (0, node.vote_relay_client.outstanding (relay));
+}
+
+/*
  * A stopped client neither sends nor accepts anything and forgets its outstanding requests
  */
 TEST (vote_relay_client, stopped)

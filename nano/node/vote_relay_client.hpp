@@ -176,7 +176,7 @@ public:
 	void stop ();
 
 	// Peers advertising the vote relay capability that can accept a request, in random order
-	std::deque<std::shared_ptr<nano::transport::channel>> relays (std::size_t max_count) const;
+	std::deque<std::shared_ptr<nano::transport::channel>> relays (std::size_t max_count);
 
 	// Ask a relay for votes from the given representatives on the given blocks, registers the request for ack matching
 	// @return false if the client is stopped, the relay channel is full, the relay or this node has too many outstanding requests, or the send failed
@@ -218,6 +218,9 @@ private:
 
 	// Relayed representatives are kept as long as online representatives are
 	std::chrono::steady_clock::time_point relayed_cutoff (std::chrono::steady_clock::time_point now) const;
+
+	// Drop requests past their deadline, lost ones are counted and logged
+	void expire ();
 
 	vote_relay_client_index index; // Requests and relayed representatives
 
