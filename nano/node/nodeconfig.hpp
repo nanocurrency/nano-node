@@ -113,6 +113,8 @@ public: // Subsystem configs
 	nano::indirect<nano::vote_processor_config> vote_processor;
 	nano::indirect<nano::vote_cache_processor_config> vote_cache_processor;
 	nano::indirect<nano::peer_history_config> peer_history;
+	// Read from the peer blocklist file, not part of the node config file
+	nano::indirect<nano::peer_blocklist_config> peer_blocklist;
 	nano::indirect<nano::transport::tcp_config> tcp;
 	nano::indirect<nano::vote_replier_config> vote_replier;
 	nano::indirect<nano::message_processor_config> message_processor;

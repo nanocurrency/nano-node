@@ -192,6 +192,7 @@ enum class error_network
 	generic = 1,
 	connection_rejected_locally,
 	peer_excluded,
+	peer_blocklisted,
 	max_connections_per_ip,
 	max_connections_per_subnetwork,
 	max_inbound_connections,

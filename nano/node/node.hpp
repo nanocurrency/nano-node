@@ -134,6 +134,8 @@ public:
 	nano::bandwidth_limiter & outbound_limiter;
 	std::unique_ptr<nano::message_processor> message_processor_impl;
 	nano::message_processor & message_processor;
+	std::unique_ptr<nano::peer_blocklist> peer_blocklist_impl;
+	nano::peer_blocklist & peer_blocklist;
 	std::unique_ptr<nano::network> network_impl;
 	nano::network & network;
 	std::shared_ptr<nano::transport::channel> loopback_channel;

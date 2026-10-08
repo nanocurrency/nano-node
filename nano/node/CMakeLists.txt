@@ -155,6 +155,8 @@ add_library(
   openclconfig.cpp
   openclwork.hpp
   openclwork.cpp
+  peer_blocklist.hpp
+  peer_blocklist.cpp
   peer_history.hpp
   peer_history.cpp
   peer_exclusion.hpp
