@@ -90,35 +90,37 @@ bool nano::vote_relay::request (nano::messages::vote_relay_req const & message, 
 		return false;
 	}
 
+	std::optional<nano::stat::detail> refused;
 	// TODO: Requests without a rep filter (votes from any representative) are reserved for the vote storage role
 	if (message.reps.empty ())
 	{
-		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::unsupported);
-		return false;
+		refused = nano::stat::detail::unsupported;
 	}
-
 	// Bound the upstream work a single request can cause
-	if (message.reps.size () > config.max_reps)
+	else if (message.reps.size () > config.max_reps)
 	{
-		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::oversize);
-		return false;
-	}
-
-	bool added = false;
-	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
-		added = queue.push (message, { nano::no_value{}, channel });
-	}
-	if (added)
-	{
-		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::request);
-		condition.notify_all ();
+		refused = nano::stat::detail::oversize;
 	}
 	else
 	{
-		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::overfill);
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		if (!queue.push (message, { nano::no_value{}, channel }))
+		{
+			refused = nano::stat::detail::overfill;
+		}
 	}
-	return added;
+
+	// A refused request is terminated right away, the requester then frees its slot instead of waiting out its own timeout
+	if (refused)
+	{
+		stats.inc (nano::stat::type::vote_relay, *refused);
+		send_reply (channel, message.id, {});
+		return false;
+	}
+
+	stats.inc (nano::stat::type::vote_relay, nano::stat::detail::request);
+	condition.notify_all ();
+	return true;
 }
 
 void nano::vote_relay::run ()

@@ -44,8 +44,8 @@ public:
 	void start ();
 	void stop ();
 
-	// Queue an incoming relay request for processing
-	// @return false if the request was dropped
+	// Queue an incoming relay request for processing, a refused request is answered with the terminating ack right away
+	// @return false if the request was dropped or refused
 	bool request (nano::messages::vote_relay_req const &, std::shared_ptr<nano::transport::channel> const &);
 
 	std::size_t size () const;

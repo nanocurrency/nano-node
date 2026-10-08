@@ -269,22 +269,26 @@ TEST (vote_relay_index, replace)
 }
 
 /*
- * Requests should be dropped when the relay is disabled
+ * Requests should be dropped without an answer when the relay is disabled
  */
 TEST (vote_relay, disabled)
 {
 	nano::test::system system;
 	auto & node = *system.add_node ();
 
-	auto channel = nano::test::fake_channel (node);
+	auto channel = nano::test::test_channel (node);
+	ack_collector acks;
+	acks.connect (channel);
+
 	nano::messages::vote_relay_req req{ nano::dev::network_params.network, 1, { { nano::block_hash{ 1 }, nano::root{ 1 } } }, { nano::account{ 1 } } };
 	ASSERT_FALSE (node.vote_relay.request (req, channel));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::drop));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::request));
+	ASSERT_FALSE (acks.terminated (1));
 }
 
 /*
- * Requests without a rep filter are reserved for the vote storage role and should be rejected
+ * Requests without a rep filter are reserved for the vote storage role and should be refused with the terminating ack
  */
 TEST (vote_relay, unsupported_any_rep)
 {
@@ -293,10 +297,17 @@ TEST (vote_relay, unsupported_any_rep)
 	config.vote_relay->enable = true;
 	auto & node = *system.add_node (config);
 
-	auto channel = nano::test::fake_channel (node);
+	auto channel = nano::test::test_channel (node);
+	ack_collector acks;
+	acks.connect (channel);
+
 	nano::messages::vote_relay_req req{ nano::dev::network_params.network, 1, { { nano::block_hash{ 1 }, nano::root{ 1 } } } };
 	ASSERT_FALSE (node.vote_relay.request (req, channel));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::unsupported));
+
+	// The requester learns right away that nothing will come
+	ASSERT_TRUE (acks.terminated (1));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::reply_empty));
 }
 
 /*
@@ -580,7 +591,7 @@ TEST (vote_relay, two_nodes)
 }
 
 /*
- * Requests asking for more representatives than the relay accepts should be dropped
+ * Requests asking for more representatives than the relay accepts should be refused with the terminating ack
  */
 TEST (vote_relay, max_reps)
 {
@@ -590,11 +601,43 @@ TEST (vote_relay, max_reps)
 	config.vote_relay->max_reps = 2;
 	auto & node = *system.add_node (config);
 
-	auto channel = nano::test::fake_channel (node);
+	auto channel = nano::test::test_channel (node);
+	ack_collector acks;
+	acks.connect (channel);
+
 	nano::messages::vote_relay_req req{ nano::dev::network_params.network, 1, { { nano::block_hash{ 1 }, nano::root{ 1 } } }, { nano::account{ 1 }, nano::account{ 2 }, nano::account{ 3 } } };
 	ASSERT_FALSE (node.vote_relay.request (req, channel));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::oversize));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::request));
+	ASSERT_TRUE (acks.terminated (1));
+}
+
+/*
+ * Requests over the queue limit of their channel should be refused with the terminating ack, the requester must not wait for a request that was never queued
+ */
+TEST (vote_relay, queue_full)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.vote_relay->enable = true;
+	config.vote_relay->channel_limit = 1;
+	auto & node = *system.add_node (config);
+
+	// With the relay thread stopped, queued requests stay queued
+	node.vote_relay.stop ();
+
+	auto channel = nano::test::test_channel (node);
+	ack_collector acks;
+	acks.connect (channel);
+
+	nano::messages::vote_relay_req req1{ nano::dev::network_params.network, 1, { { nano::block_hash{ 1 }, nano::root{ 1 } } }, { nano::account{ 1 } } };
+	ASSERT_TRUE (node.vote_relay.request (req1, channel));
+	nano::messages::vote_relay_req req2{ nano::dev::network_params.network, 2, { { nano::block_hash{ 2 }, nano::root{ 2 } } }, { nano::account{ 1 } } };
+	ASSERT_FALSE (node.vote_relay.request (req2, channel));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::overfill));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::request));
+	ASSERT_TRUE (acks.terminated (2));
+	ASSERT_FALSE (acks.terminated (1));
 }
 
 /*
