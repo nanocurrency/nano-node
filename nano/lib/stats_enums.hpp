@@ -504,6 +504,7 @@ enum class detail
 	// vote_relay_client
 	unsolicited,
 	relay_full,
+	mismatch,
 
 	// vote_solicitor
 	relay_request,
