@@ -30,6 +30,8 @@ namespace transport
 		invalid_frontier_req_message,
 		invalid_asc_pull_req_message,
 		invalid_asc_pull_ack_message,
+		invalid_vote_relay_req_message,
+		invalid_vote_relay_ack_message,
 		invalid_network,
 		outdated_version,
 		duplicate_publish_message,
@@ -79,6 +81,8 @@ namespace transport
 		std::unique_ptr<nano::messages::frontier_req> deserialize_frontier_req (nano::stream &, nano::messages::message_header const &);
 		std::unique_ptr<nano::messages::asc_pull_req> deserialize_asc_pull_req (nano::stream &, nano::messages::message_header const &);
 		std::unique_ptr<nano::messages::asc_pull_ack> deserialize_asc_pull_ack (nano::stream &, nano::messages::message_header const &);
+		std::unique_ptr<nano::messages::vote_relay_req> deserialize_vote_relay_req (nano::stream &, nano::messages::message_header const &);
+		std::unique_ptr<nano::messages::vote_relay_ack> deserialize_vote_relay_ack (nano::stream &, nano::messages::message_header const &);
 
 	private:
 		std::shared_ptr<std::vector<uint8_t>> read_buffer;
