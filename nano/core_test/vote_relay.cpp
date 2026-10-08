@@ -70,6 +70,48 @@ private:
 	mutable nano::mutex mutex;
 	std::vector<nano::messages::vote_relay_ack> acks;
 };
+
+/**
+ * Channel that reports every traffic type as full, nothing can be sent through it
+ */
+class full_channel final : public nano::transport::channel
+{
+public:
+	explicit full_channel (nano::node & node) :
+		channel{ node }
+	{
+	}
+
+	bool max (nano::transport::traffic_type) override
+	{
+		return true;
+	}
+	nano::endpoint get_remote_endpoint () const override
+	{
+		return {};
+	}
+	nano::endpoint get_local_endpoint () const override
+	{
+		return {};
+	}
+	nano::transport::transport_type get_type () const override
+	{
+		return nano::transport::transport_type::fake;
+	}
+	void close () override
+	{
+	}
+	std::string to_string () const override
+	{
+		return "full_channel";
+	}
+
+protected:
+	bool send_impl (nano::messages::message const &, nano::transport::traffic_type, callback_t) override
+	{
+		return false;
+	}
+};
 }
 
 /*
@@ -702,4 +744,35 @@ TEST (vote_relay, channel_limit)
 	ASSERT_TRUE (node.vote_relay.request (req3, channel2));
 	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::query), 2);
 	ASSERT_FALSE (acks2.terminated (3));
+}
+
+/*
+ * A representative behind a full channel cannot be queried, it is dropped from the request like an unknown one instead of idling until the timeout
+ */
+TEST (vote_relay, rep_channel_full)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.vote_relay->enable = true;
+	config.vote_relay->request_timeout = 10s;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (config, flags);
+
+	nano::account rep{ 1 };
+	node.rep_crawler.force_add_rep (rep, std::make_shared<full_channel> (node));
+
+	auto channel = nano::test::test_channel (node);
+	ack_collector acks;
+	acks.connect (channel);
+
+	nano::messages::vote_relay_req req{ nano::dev::network_params.network, 7, { { nano::block_hash{ 1 }, nano::root{ 1 } } }, { rep } };
+	ASSERT_TRUE (node.vote_relay.request (req, channel));
+
+	// Nothing to wait for, the request ends right away
+	ASSERT_TIMELY (5s, acks.terminated (7));
+	ASSERT_TRUE (acks.votes (7).empty ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::channel_full, nano::stat::dir::out));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::query));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::timeout));
 }
