@@ -197,8 +197,11 @@ void nano::vote_relay_client::stop ()
 	index.clear ();
 }
 
-std::deque<std::shared_ptr<nano::transport::channel>> nano::vote_relay_client::relays (std::size_t max_count) const
+std::deque<std::shared_ptr<nano::transport::channel>> nano::vote_relay_client::relays (std::size_t max_count)
 {
+	// Lost requests expire here as well, a relay that stopped answering would otherwise stay excluded for good
+	expire ();
+
 	// Capable peers with spare capacity for relay traffic, the network shuffles the list
 	auto const channels = network.list (0, [] (auto const & channel) {
 		return channel->get_flags ().test (nano::node_capabilities::vote_relay) && !channel->max (nano::transport::traffic_type::vote_relay);
@@ -235,6 +238,9 @@ bool nano::vote_relay_client::request (std::shared_ptr<nano::transport::channel>
 		return false;
 	}
 
+	// Expire lost requests first so they do not hold slots against the caps
+	expire ();
+
 	auto const now = std::chrono::steady_clock::now ();
 
 	// Acks are checked against what was asked for
@@ -247,16 +253,12 @@ bool nano::vote_relay_client::request (std::shared_ptr<nano::transport::channel>
 
 	id_t id{ 0 };
 	std::optional<nano::stat::detail> refused;
-	std::vector<nano::vote_relay_client_index::entry> expired;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		if (stopped)
 		{
 			return false;
 		}
-
-		// Expire lost requests first so they do not hold slots against the caps
-		expired = index.evict (now);
 
 		if (index.outstanding () >= config.max_requests)
 		{
@@ -273,16 +275,6 @@ bool nano::vote_relay_client::request (std::shared_ptr<nano::transport::channel>
 			{
 				id = next_id ();
 			} while (!index.insert ({ .id = id, .channel = relay, .deadline = now + config.request_timeout, .hashes = roots_hashes.size (), .filter = filter }));
-		}
-	}
-
-	// Completed requests expire silently at the end of their grace period
-	for (auto const & entry : expired)
-	{
-		if (!entry.done)
-		{
-			stats.inc (nano::stat::type::vote_relay_client, nano::stat::detail::timeout);
-			logger.debug (nano::log::type::vote_relay_client, "Request: {} timed out with {} votes received from relay: {}", entry.id, entry.votes, entry.channel);
 		}
 	}
 
@@ -424,6 +416,25 @@ std::deque<nano::account> nano::vote_relay_client::relayed () const
 std::chrono::steady_clock::time_point nano::vote_relay_client::relayed_cutoff (std::chrono::steady_clock::time_point now) const
 {
 	return now - network_params.node.weight_interval * 2;
+}
+
+void nano::vote_relay_client::expire ()
+{
+	std::vector<nano::vote_relay_client_index::entry> expired;
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		expired = index.evict (std::chrono::steady_clock::now ());
+	}
+
+	// Completed requests expire silently at the end of their grace period
+	for (auto const & entry : expired)
+	{
+		if (!entry.done)
+		{
+			stats.inc (nano::stat::type::vote_relay_client, nano::stat::detail::timeout);
+			logger.debug (nano::log::type::vote_relay_client, "Request: {} timed out with {} votes received from relay: {}", entry.id, entry.votes, entry.channel);
+		}
+	}
 }
 
 std::size_t nano::vote_relay_client::size () const
