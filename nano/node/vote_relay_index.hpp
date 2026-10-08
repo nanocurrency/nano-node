@@ -72,6 +72,8 @@ public:
 	std::optional<std::chrono::steady_clock::time_point> next_deadline () const;
 
 	std::size_t size () const;
+	// Number of tracked requests from the channel
+	std::size_t size (std::shared_ptr<nano::transport::channel> const &) const;
 	std::size_t pending_size () const;
 	bool empty () const;
 

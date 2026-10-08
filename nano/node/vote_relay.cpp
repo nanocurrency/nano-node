@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -294,20 +295,28 @@ void nano::vote_relay::process (nano::messages::vote_relay_req const & message, 
 	// Register the pending request, insert returns the upstream queries to send with already in-flight (hash, rep) pairs filtered out
 	// A vote arriving between the cache lookup above and this registration is missed, the request then relies on the timeout
 	std::vector<nano::vote_relay_index::query> queries;
-	bool tracked = false;
+	std::optional<nano::stat::detail> refused;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
-		if (!stopped && index.size () < config.max_requests)
+		if (stopped || index.size () >= config.max_requests)
+		{
+			refused = nano::stat::detail::queue_overflow;
+		}
+		// One peer must not take up every slot, the channel limit applies to waiting requests as it does to queued ones
+		else if (index.size (channel) >= config.channel_limit)
+		{
+			refused = nano::stat::detail::overfill;
+		}
+		else
 		{
 			queries = index.insert (channel, message.id, wants, include_non_final, std::chrono::steady_clock::now () + config.request_timeout);
-			tracked = true;
 		}
 	}
 
-	// The index is full, the request ends with what the cache had
-	if (!tracked)
+	// A request that cannot wait for votes ends with what the cache had
+	if (refused)
 	{
-		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::queue_overflow);
+		stats.inc (nano::stat::type::vote_relay, *refused);
 		send_reply (channel, message.id, {});
 		return;
 	}
@@ -437,7 +446,7 @@ nano::error nano::vote_relay_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("enable", enable, "Enable the vote relay service and advertise it to peers. \ntype:bool");
 	toml.put ("request_timeout", request_timeout.count (), "Time to wait for votes from representatives before finishing a request. \ntype:milliseconds");
 	toml.put ("max_requests", max_requests, "Maximum number of requests waiting for representative votes. \ntype:uint64");
-	toml.put ("channel_limit", channel_limit, "Maximum number of queued requests per channel. \ntype:uint64");
+	toml.put ("channel_limit", channel_limit, "Maximum number of requests per channel, queued or waiting for votes. \ntype:uint64");
 	toml.put ("batch_size", batch_size, "Number of requests to process in a single batch. \ntype:uint64");
 	toml.put ("max_reps", max_reps, "Maximum number of representatives per request, larger requests are dropped. \ntype:uint64");
 

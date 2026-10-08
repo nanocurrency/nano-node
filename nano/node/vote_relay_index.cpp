@@ -3,6 +3,7 @@
 #include <nano/node/vote_relay_index.hpp>
 
 #include <algorithm>
+#include <iterator>
 #include <map>
 
 std::vector<nano::vote_relay_index::query> nano::vote_relay_index::insert (std::shared_ptr<nano::transport::channel> const & channel, id_t id, std::vector<want> const & wants, bool include_non_final, std::chrono::steady_clock::time_point deadline)
@@ -175,6 +176,12 @@ std::optional<std::chrono::steady_clock::time_point> nano::vote_relay_index::nex
 std::size_t nano::vote_relay_index::size () const
 {
 	return requests.size ();
+}
+
+std::size_t nano::vote_relay_index::size (std::shared_ptr<nano::transport::channel> const & channel) const
+{
+	auto [begin, end] = requests.get<tag_request> ().equal_range (std::make_tuple (channel));
+	return std::distance (begin, end);
 }
 
 std::size_t nano::vote_relay_index::pending_size () const
