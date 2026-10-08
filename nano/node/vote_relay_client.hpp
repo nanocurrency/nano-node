@@ -16,6 +16,7 @@
 #include <deque>
 #include <memory>
 #include <optional>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -42,6 +43,7 @@ public:
 
 /**
  * Tracks vote relay requests issued by this node until their terminating ack or deadline, and the representatives whose votes relays delivered.
+ * Each request remembers what it asked for, so that acks can be checked against it.
  * A completed request lingers until a later deadline so vote acks that were overtaken by the terminator still find it.
  * Pure state, thread safety and time are the responsibility of the caller.
  */
@@ -50,6 +52,16 @@ class vote_relay_client_index
 public:
 	// Request id as carried by vote_relay_req and vote_relay_ack
 	using id_t = nano::messages::vote_relay_req::id_t;
+
+	// Representatives and blocks a request asked for
+	struct request_filter
+	{
+		std::unordered_set<nano::account> reps;
+		std::unordered_set<nano::block_hash> hashes;
+
+		// Whether the vote is from a requested representative and names a requested block
+		bool matches (nano::vote const &) const;
+	};
 
 	// A request sent to a relay
 	struct entry
@@ -60,6 +72,7 @@ public:
 		std::size_t hashes{ 0 }; // Hashes requested
 		std::size_t votes{ 0 }; // Votes received so far
 		bool done{ false }; // The terminating ack arrived
+		std::shared_ptr<request_filter const> filter; // What the request asked for
 	};
 
 	// Track a request
@@ -143,7 +156,7 @@ private:
 /**
  * Requester side of the vote relay protocol.
  * Sends vote_relay_req messages to relay peers and queues the votes from their acks for processing as relay-sourced.
- * Requests are tracked until their terminating empty ack or the request timeout, acks matching no request are dropped.
+ * Requests are tracked until their terminating empty ack or the request timeout, acks matching no request are dropped and so are votes a request did not ask for.
  * A completed request lingers for a while, as acks on a channel are processed in parallel and votes can arrive after the terminator.
  * A relay with too many outstanding requests stops receiving new ones until it answers them or they expire.
  * Representatives whose votes arrived through a relay are remembered for as long as online representatives are, which puts a weight on what relays can reach.
@@ -169,7 +182,7 @@ public:
 	// @return false if the client is stopped, the relay channel is full, the relay or this node has too many outstanding requests, or the send failed
 	bool request (std::shared_ptr<nano::transport::channel> const & relay, std::deque<nano::account> const & reps, roots_hashes_t const & roots_hashes, bool include_non_final);
 
-	// Consume an ack, its votes are queued for processing as relay-sourced
+	// Consume an ack, the votes its request asked for are queued for processing as relay-sourced
 	// @return false if the client is stopped or the ack matches no tracked request from that relay
 	bool process (nano::messages::vote_relay_ack const &, std::shared_ptr<nano::transport::channel> const &);
 

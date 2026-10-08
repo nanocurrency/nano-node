@@ -22,6 +22,13 @@
  * vote_relay_client_index
  */
 
+bool nano::vote_relay_client_index::request_filter::matches (nano::vote const & vote) const
+{
+	return reps.contains (vote.account) && std::any_of (vote.hashes.begin (), vote.hashes.end (), [this] (auto const & hash) {
+		return hashes.contains (hash);
+	});
+}
+
 bool nano::vote_relay_client_index::insert (entry const & entry_a)
 {
 	debug_assert (!entry_a.done);
@@ -230,6 +237,14 @@ bool nano::vote_relay_client::request (std::shared_ptr<nano::transport::channel>
 
 	auto const now = std::chrono::steady_clock::now ();
 
+	// Acks are checked against what was asked for
+	nano::vote_relay_client_index::request_filter filter_l{ { reps.begin (), reps.end () }, {} };
+	for (auto const & [hash, root] : roots_hashes)
+	{
+		filter_l.hashes.insert (hash);
+	}
+	auto const filter = std::make_shared<nano::vote_relay_client_index::request_filter const> (std::move (filter_l));
+
 	id_t id{ 0 };
 	std::optional<nano::stat::detail> refused;
 	std::vector<nano::vote_relay_client_index::entry> expired;
@@ -257,7 +272,7 @@ bool nano::vote_relay_client::request (std::shared_ptr<nano::transport::channel>
 			do
 			{
 				id = next_id ();
-			} while (!index.insert ({ id, relay, now + config.request_timeout, roots_hashes.size () }));
+			} while (!index.insert ({ .id = id, .channel = relay, .deadline = now + config.request_timeout, .hashes = roots_hashes.size (), .filter = filter }));
 		}
 	}
 
@@ -349,12 +364,20 @@ bool nano::vote_relay_client::process (nano::messages::vote_relay_ack const & ac
 		return true;
 	}
 
+	debug_assert (entry->filter != nullptr);
 	for (auto const & vote : ack.votes)
 	{
 		// Zero account votes are dropped as they are for confirm_ack
 		if (vote->account.is_zero ())
 		{
 			stats.inc (nano::stat::type::vote_relay_client, nano::stat::detail::drop);
+			continue;
+		}
+		// A vote the request did not ask for is dropped, otherwise a relay could pass off any vote it holds as proof that it reaches the representative
+		if (!entry->filter->matches (*vote))
+		{
+			stats.inc (nano::stat::type::vote_relay_client, nano::stat::detail::mismatch);
+			logger.debug (nano::log::type::vote_relay_client, "Unrequested vote from: {} in ack: {} from relay: {}", vote->account.to_account (), ack.id, channel);
 			continue;
 		}
 		// The relay source keeps the rep crawler from attributing the vote to the relay channel
