@@ -182,6 +182,21 @@ TEST (vote_relay_client_index, outstanding)
 }
 
 /*
+ * A vote matches a request when it comes from a requested representative and names at least one requested block
+ */
+TEST (vote_relay_client_index, request_filter)
+{
+	nano::keypair rep;
+	nano::vote_relay_client_index::request_filter const filter{ { rep.pub }, { nano::block_hash{ 1 }, nano::block_hash{ 2 } } };
+
+	ASSERT_TRUE (filter.matches (*nano::test::make_final_vote (rep, std::vector<nano::block_hash>{ nano::block_hash{ 2 } })));
+	// Other blocks alongside a requested one do not matter
+	ASSERT_TRUE (filter.matches (*nano::test::make_final_vote (rep, std::vector<nano::block_hash>{ nano::block_hash{ 3 }, nano::block_hash{ 1 } })));
+	ASSERT_FALSE (filter.matches (*nano::test::make_final_vote (rep, std::vector<nano::block_hash>{ nano::block_hash{ 3 } })));
+	ASSERT_FALSE (filter.matches (*nano::test::make_final_vote (nano::keypair{}, std::vector<nano::block_hash>{ nano::block_hash{ 1 } })));
+}
+
+/*
  * A request should be sent to the relay with the given reps and hashes and tracked until its terminating ack
  */
 TEST (vote_relay_client, request)
@@ -279,6 +294,38 @@ TEST (vote_relay_client, unsolicited)
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::unsolicited));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::vote));
 	ASSERT_EQ (1, node.vote_relay_client.size ()); // The request is still outstanding
+}
+
+/*
+ * Votes a request did not ask for should be dropped, a relay cannot pass off votes it holds as reaching representatives it was not asked about
+ */
+TEST (vote_relay_client, mismatch)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	auto channel = nano::test::test_channel (node);
+	auto future = channel->observe<nano::messages::vote_relay_req> ();
+	ASSERT_TRUE (node.vote_relay_client.request (channel, { nano::dev::genesis_key.pub }, roots_hashes, false));
+	auto const id = future.get ().id;
+
+	auto const hash = roots_hashes[0].first;
+	// Requested representative, unrequested block
+	auto vote1 = nano::test::make_final_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ nano::block_hash{ 200 } });
+	// Unrequested representative, requested block
+	auto vote2 = nano::test::make_final_vote (nano::keypair{}, std::vector<nano::block_hash>{ hash });
+	// Requested representative and block, among other blocks
+	auto vote3 = nano::test::make_final_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ nano::block_hash{ 300 }, hash });
+
+	nano::messages::vote_relay_ack ack{ nano::dev::network_params.network, id, { vote1, vote2, vote3 } };
+	ASSERT_TRUE (node.vote_relay_client.process (ack, channel));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::mismatch));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::vote));
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_processor_source, nano::stat::detail::relay), 1);
+
+	// Only the requested representative is credited to the relay
+	ASSERT_TIMELY_EQ (5s, node.vote_relay_client.relayed ().size (), 1);
+	ASSERT_EQ (nano::dev::genesis_key.pub, node.vote_relay_client.relayed ().front ());
 }
 
 /*
