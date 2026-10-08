@@ -615,3 +615,48 @@ TEST (vote_relay_config, validation)
 	ASSERT_TRUE (deserialize ("batch_size = 0\n"));
 	ASSERT_TRUE (deserialize ("max_reps = 0\n"));
 }
+
+/*
+ * One peer should not take up every slot: requests waiting for votes are capped per channel, other peers are still served
+ */
+TEST (vote_relay, channel_limit)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.vote_relay->enable = true;
+	config.vote_relay->channel_limit = 1;
+	config.vote_relay->request_timeout = 10s;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (config, flags);
+
+	// A rep that never answers keeps every request waiting
+	nano::account rep{ 1 };
+	node.rep_crawler.force_add_rep (rep, nano::test::fake_channel (node));
+
+	auto channel1 = nano::test::test_channel (node);
+	ack_collector acks1;
+	acks1.connect (channel1);
+	auto channel2 = nano::test::test_channel (node);
+	ack_collector acks2;
+	acks2.connect (channel2);
+
+	nano::messages::vote_relay_req req1{ nano::dev::network_params.network, 1, { { nano::block_hash{ 1 }, nano::root{ 1 } } }, { rep } };
+	ASSERT_TRUE (node.vote_relay.request (req1, channel1));
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::query), 1);
+
+	// The second request from the same peer is refused and terminated right away, the first one keeps waiting
+	nano::messages::vote_relay_req req2{ nano::dev::network_params.network, 2, { { nano::block_hash{ 2 }, nano::root{ 2 } } }, { rep } };
+	ASSERT_TRUE (node.vote_relay.request (req2, channel1));
+	ASSERT_TIMELY (5s, acks1.terminated (2));
+	ASSERT_TRUE (acks1.votes (2).empty ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::overfill));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::query));
+	ASSERT_FALSE (acks1.terminated (1));
+
+	// Another peer is still served
+	nano::messages::vote_relay_req req3{ nano::dev::network_params.network, 3, { { nano::block_hash{ 3 }, nano::root{ 3 } } }, { rep } };
+	ASSERT_TRUE (node.vote_relay.request (req3, channel2));
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::query), 2);
+	ASSERT_FALSE (acks2.terminated (3));
+}
