@@ -453,5 +453,14 @@ nano::error nano::vote_relay_config::deserialize (nano::tomlconfig & toml)
 	toml.get ("batch_size", batch_size);
 	toml.get ("max_reps", max_reps);
 
+	if (batch_size == 0)
+	{
+		toml.get_error ().set ("batch_size must be greater than 0");
+	}
+	if (max_reps == 0)
+	{
+		toml.get_error ().set ("max_reps must be greater than 0");
+	}
+
 	return toml.get_error ();
 }
