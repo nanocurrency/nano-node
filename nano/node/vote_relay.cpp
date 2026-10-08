@@ -94,35 +94,35 @@ bool nano::vote_relay::request (nano::messages::vote_relay_req const & message, 
 		return false;
 	}
 
-	// TODO: Requests without a rep filter (votes from any representative) are reserved for the vote storage role
-	if (message.reps.empty ())
-	{
-		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::unsupported);
-		return false;
-	}
-
-	// Bound the upstream work a single request can cause
-	if (message.reps.size () > config.max_reps)
-	{
-		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::oversize);
-		return false;
-	}
-
-	bool added = false;
+	bool added;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		added = queue.push (message, { nano::no_value{}, channel });
+		// A request the queue has no room for is still answered, the requester then frees its slot instead of waiting out its own timeout
+		if (!added)
+		{
+			refuse (channel, message.id);
+		}
 	}
-	if (added)
+	condition.notify_all ();
+
+	stats.inc (nano::stat::type::vote_relay, added ? nano::stat::detail::request : nano::stat::detail::overfill);
+	return added;
+}
+
+void nano::vote_relay::refuse (std::shared_ptr<nano::transport::channel> const & channel, vote_relay_index::id_t id)
+{
+	debug_assert (!mutex.try_lock ());
+
+	// Beyond the cap the terminator is dropped and the requester is left to its timeout
+	if (refused.size () < config.max_requests)
 	{
-		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::request);
-		condition.notify_all ();
+		refused.push_back ({ channel, id });
 	}
 	else
 	{
-		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::overfill);
+		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::drop);
 	}
-	return added;
 }
 
 void nano::vote_relay::run ()
@@ -132,10 +132,11 @@ void nano::vote_relay::run ()
 	{
 		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::loop);
 
-		// Answer the requests the processor threads completed and the ones past their deadline, this is the only thread that sends
+		// Answer the requests the processor threads completed and the ones past their deadline, then the refused ones, which matter least when bandwidth runs short; this is the only thread that sends
 		auto completed_l = std::exchange (completed, {});
+		auto refused_l = std::exchange (refused, {});
 		auto expired = index.evict (std::chrono::steady_clock::now ());
-		if (!completed_l.empty () || !expired.empty ())
+		if (!completed_l.empty () || !refused_l.empty () || !expired.empty ())
 		{
 			lock.unlock ();
 
@@ -150,6 +151,10 @@ void nano::vote_relay::run ()
 				stats.inc (nano::stat::type::vote_relay, nano::stat::detail::timeout);
 				logger.debug (nano::log::type::vote_relay, "Request: {} timed out with {} votes collected", entry.id, entry.votes.size ());
 				send_reply (entry.channel, entry.id, entry.votes);
+			}
+			for (auto const & entry : refused_l)
+			{
+				send_reply (entry.channel, entry.id, {});
 			}
 
 			lock.lock ();
@@ -174,12 +179,12 @@ void nano::vote_relay::run ()
 				auto const now = std::chrono::steady_clock::now ();
 				if (*deadline > now)
 				{
-					condition.wait_for (lock, *deadline - now, [this] { return stopped || !queue.empty () || !completed.empty (); });
+					condition.wait_for (lock, *deadline - now, [this] { return stopped || !queue.empty () || !completed.empty () || !refused.empty (); });
 				}
 			}
 			else
 			{
-				condition.wait (lock, [this] { return stopped || !queue.empty () || !completed.empty (); });
+				condition.wait (lock, [this] { return stopped || !queue.empty () || !completed.empty () || !refused.empty (); });
 			}
 		}
 	}
@@ -215,12 +220,26 @@ void nano::vote_relay::run_batch (nano::unique_lock<nano::mutex> & lock)
  * Serves a single relay request in two parts:
  * - votes already in the vote cache are acked to the requester immediately
  * - (hash, rep) pairs not answerable from the cache are registered in the index and the reps are queried with regular confirm_req
+ * A request without a rep filter or with more reps than the relay accepts is refused with the terminator alone.
  * If nothing remains to wait for, the request is finished here with the terminating empty ack.
  * Otherwise the terminator is sent later by run (), once all queried reps have answered or the request timed out.
  */
 void nano::vote_relay::process (nano::messages::vote_relay_req const & message, std::shared_ptr<nano::transport::channel> const & channel)
 {
-	debug_assert (!message.reps.empty ());
+	// TODO: Requests without a rep filter (votes from any representative) are reserved for the vote storage role
+	if (message.reps.empty ())
+	{
+		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::unsupported);
+		send_reply (channel, message.id, {});
+		return;
+	}
+	// Bound the upstream work a single request can cause
+	if (message.reps.size () > config.max_reps)
+	{
+		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::oversize);
+		send_reply (channel, message.id, {});
+		return;
+	}
 
 	stats.inc (nano::stat::type::vote_relay, nano::stat::detail::process);
 
@@ -451,6 +470,7 @@ nano::container_info nano::vote_relay::container_info () const
 	info.put ("requests", index.size ());
 	info.put ("pending", index.pending_size ());
 	info.put ("completed", completed.size ());
+	info.put ("refused", refused.size ());
 	return info;
 }
 

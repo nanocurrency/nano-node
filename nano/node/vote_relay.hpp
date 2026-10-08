@@ -50,8 +50,8 @@ public:
 	void start ();
 	void stop ();
 
-	// Queue an incoming relay request for processing
-	// @return false if the request was dropped
+	// Queue an incoming relay request for the thread, one the queue has no room for still gets its terminating ack from it
+	// @return false if the relay is disabled or the queue has no room
 	bool request (nano::messages::vote_relay_req const &, std::shared_ptr<nano::transport::channel> const &);
 
 	std::size_t size () const;
@@ -77,8 +77,10 @@ private:
 	void run ();
 	// Serve one batch of queued requests outside the lock
 	void run_batch (nano::unique_lock<nano::mutex> &);
+	// Queue the terminating ack for a request the queue had no room for, called under the lock
+	void refuse (std::shared_ptr<nano::transport::channel> const &, vote_relay_index::id_t);
 
-	// Serve a request from the vote cache and query reps for anything missing
+	// Serve a request from the vote cache and query reps for anything missing, or refuse one the relay does not accept
 	void process (nano::messages::vote_relay_req const &, std::shared_ptr<nano::transport::channel> const &);
 	// Match a batch of verified votes to pending requests, completed requests are queued for the thread to answer
 	void process_votes (nano::processed_votes_batch const &);
@@ -90,6 +92,14 @@ private:
 	void send_ack (std::shared_ptr<nano::transport::channel> const &, nano::messages::vote_relay_ack const &);
 
 private:
+	// A refused request and the channel its terminating ack goes to
+	struct refused_request
+	{
+		std::shared_ptr<nano::transport::channel> channel;
+		vote_relay_index::id_t id;
+	};
+
+private:
 	// Incoming requests keyed by channel, drained round robin
 	nano::fair_queue<nano::messages::vote_relay_req, nano::no_value, std::shared_ptr<nano::transport::channel>> queue;
 
@@ -99,6 +109,10 @@ private:
 	// Requests completed by a vote, waiting for the thread to answer them
 	// Bounded by the index capacity plus one batch: a request completes once, and only the thread inserts, after draining this
 	std::deque<vote_relay_index::reply> completed;
+
+	// Requests the queue had no room for, waiting for their terminating ack
+	// Nothing else bounds them, so they are capped at max_requests and dropped beyond it
+	std::deque<refused_request> refused;
 
 	bool stopped{ false };
 	nano::condition_variable condition;
