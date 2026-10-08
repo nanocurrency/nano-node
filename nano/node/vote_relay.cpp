@@ -264,6 +264,7 @@ void nano::vote_relay::process (nano::messages::vote_relay_req const & message, 
 	stats.add (nano::stat::type::vote_relay, nano::stat::detail::cache, found.size ());
 
 	// Reps without a channel in the rep crawler cannot be queried, drop them so the request does not idle waiting for votes that cannot arrive
+	// A rep behind a full channel is dropped the same way, the query would be lost
 	std::unordered_map<nano::account, std::shared_ptr<nano::transport::channel>> rep_channels;
 	for (auto & want : wants)
 	{
@@ -271,11 +272,17 @@ void nano::vote_relay::process (nano::messages::vote_relay_req const & message, 
 			auto it = rep_channels.find (rep);
 			if (it == rep_channels.end ())
 			{
-				it = rep_channels.emplace (rep, rep_crawler.find (rep)).first;
-				if (it->second == nullptr)
+				auto rep_channel = rep_crawler.find (rep);
+				if (rep_channel == nullptr)
 				{
 					stats.inc (nano::stat::type::vote_relay, nano::stat::detail::rep_unknown);
 				}
+				else if (rep_channel->max (nano::transport::traffic_type::confirmation_requests))
+				{
+					stats.inc (nano::stat::type::vote_relay, nano::stat::detail::channel_full, nano::stat::dir::out);
+					rep_channel = nullptr;
+				}
+				it = rep_channels.emplace (rep, rep_channel).first;
 			}
 			return it->second == nullptr;
 		});
