@@ -1,6 +1,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/node_capabilities.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/vote.hpp>
 #include <nano/messages/vote_relay.hpp>
 #include <nano/node/backlog_scan.hpp>
@@ -20,6 +21,8 @@
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
+
+#include <sstream>
 
 using namespace std::chrono_literals;
 
@@ -592,4 +595,23 @@ TEST (vote_relay, max_reps)
 	ASSERT_FALSE (node.vote_relay.request (req, channel));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::oversize));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::request));
+}
+
+/*
+ * A zero batch size would leave the relay thread spinning on empty batches and zero max_reps would refuse every request, both are rejected
+ */
+TEST (vote_relay_config, validation)
+{
+	auto deserialize = [] (std::string const & text) {
+		std::stringstream ss;
+		ss << text;
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::vote_relay_config config;
+		return config.deserialize (toml);
+	};
+
+	ASSERT_FALSE (deserialize ("batch_size = 64\nmax_reps = 64\n"));
+	ASSERT_TRUE (deserialize ("batch_size = 0\n"));
+	ASSERT_TRUE (deserialize ("max_reps = 0\n"));
 }
