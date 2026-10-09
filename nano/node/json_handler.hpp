@@ -62,6 +62,8 @@ public:
 	void block_count ();
 	void state_commitment ();
 	void state_proof ();
+	void state_checkpoint ();
+	void state_retention_plan ();
 	void block_create ();
 	void block_hash ();
 	void bootstrap ();
