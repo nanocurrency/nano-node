@@ -29,6 +29,7 @@
 #include <nano/node/election_status.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/rep_tiers.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
 #include <nano/node/scheduler/priority.hpp>
@@ -96,6 +97,8 @@ public:
 		{
 			reps.push_back (nano::test::setup_rep (system, *node, 100 * nano::Knano_ratio));
 		}
+		// The cache admits only tiered representatives, which the node classifies every half second on the dev network
+		release_assert (!system.poll_until_true (std::chrono::seconds{ 5 }, [&] { return node->rep_tiers.tier (reps.back ().pub) != nano::rep_tier::none; }));
 		blocks = nano::test::setup_independent_blocks (system, *node, election_count);
 
 		for (size_t i = 0; i < late_hashes; ++i)

@@ -232,7 +232,11 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 	// Cache the votes that didn't match any election
 	if (context.source != nano::vote_source::cache)
 	{
-		vote_cache.insert (vote, context.weight, results);
+		// Caching votes of untiered representatives would let anyone fill the cache
+		if (context.tier != nano::rep_tier::none)
+		{
+			vote_cache.insert (vote, context.weight, results);
+		}
 
 		// An election that started since the lookup may have read the cache before the insert, so look up the unmatched hashes once more
 		auto const unmatched = [] (auto const & entry) {

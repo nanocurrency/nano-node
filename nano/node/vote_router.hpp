@@ -123,7 +123,7 @@ public:
 	/**
 	 * Route vote to associated elections.
 	 * Distinguishes replay votes, cannot be determined if the block is not in any election.
-	 * A vote for a hash without a route is cached, then the route is looked up once more in case an election connected meanwhile.
+	 * A vote for a hash without a route is cached when its representative has a tier, then the route is looked up once more in case an election connected meanwhile.
 	 * If 'filter' parameter is non-zero, only elections for the specified hash are notified.
 	 * This eliminates duplicate processing when triggering votes from the vote_cache as the result of a specific election being created.
 	 * Only a principal representative's vote reaches elections, any other is answered per hash as unknown or late.

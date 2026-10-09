@@ -3,6 +3,7 @@
 #include <nano/node/election_behavior.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
+#include <nano/node/rep_tiers.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/test_common/system.hpp>
@@ -123,6 +124,7 @@ TEST (vote_router, vote_unmatched_is_cached)
 {
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
+	ASSERT_TIMELY (5s, node.rep_tiers.tier (nano::dev::genesis_key.pub) != nano::rep_tier::none);
 	nano::block_hash const hash{ 1 };
 
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ hash }, 1);
@@ -130,6 +132,25 @@ TEST (vote_router, vote_unmatched_is_cached)
 	ASSERT_EQ (nano::vote_code::indeterminate, results.at (hash));
 	ASSERT_EQ (1, node.vote_cache.find (hash).size ());
 	ASSERT_FALSE (node.vote_router.contains (hash));
+}
+
+/*
+ * A vote of a representative without a tier is never cached, the genesis representative's is.
+ */
+TEST (vote_router, untiered_vote_not_cached)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	ASSERT_TIMELY (5s, node.rep_tiers.tier (nano::dev::genesis_key.pub) != nano::rep_tier::none);
+	nano::block_hash const hash{ 1 };
+
+	nano::keypair untiered;
+	auto results = node.route_vote (nano::test::make_vote (untiered, std::vector<nano::block_hash>{ hash }, 1));
+	ASSERT_EQ (nano::vote_code::indeterminate, results.at (hash));
+	ASSERT_TRUE (node.vote_cache.find (hash).empty ());
+
+	node.route_vote (nano::test::make_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ hash }, 1));
+	ASSERT_EQ (1, node.vote_cache.find (hash).size ());
 }
 
 /*
@@ -169,6 +190,7 @@ TEST (vote_router, vote_during_election_start)
 {
 	nano::test::system system (1);
 	auto & node = *system.nodes[0];
+	ASSERT_TIMELY (5s, node.rep_tiers.tier (nano::dev::genesis_key.pub) != nano::rep_tier::none);
 	std::size_t matched{ 0 };
 	node.vote_router.vote_matched.add ([&] (auto const &) {
 		++matched;
@@ -208,6 +230,7 @@ TEST (vote_router, vote_during_election_start_observes_representative)
 	nano::node_flags flags;
 	flags.disable_rep_crawler = true;
 	auto & node = *system.add_node (flags);
+	ASSERT_TIMELY (5s, node.rep_tiers.tier (nano::dev::genesis_key.pub) != nano::rep_tier::none);
 	nano::block_hash const starting{ 1 };
 	std::size_t matched{ 0 };
 	std::size_t counted{ 0 };
