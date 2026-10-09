@@ -74,7 +74,8 @@ public:
 	struct head_gates
 	{
 		bool include_spearhead{ false };
-		bool include_repair{ false };
+		bool include_trailing_repair{ false }; // Repair head 1, which sweeps the trailing band behind the frontier
+		bool include_broad_repair{ false }; // Repair heads 2..N, which partition the broad discovered range
 	};
 
 	// Re-anchor the spearhead and frontier to at least this topology position
@@ -152,6 +153,12 @@ private:
 		bool is_spearhead () const
 		{
 			return type == head_type::spearhead;
+		}
+
+		// Repair head 1 sweeps the trailing band behind the frontier; the rest partition the broad discovered range
+		bool is_trailing () const
+		{
+			return type == head_type::repair && id == 1;
 		}
 
 		// Minimum distinct peer replies required to advance: ceil (consideration / 2)
