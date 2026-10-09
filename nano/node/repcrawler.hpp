@@ -19,6 +19,7 @@
 #include <boost/multi_index_container.hpp>
 
 #include <chrono>
+#include <deque>
 #include <memory>
 #include <thread>
 #include <unordered_set>
@@ -76,10 +77,10 @@ public:
 	nano::uint128_t total_weight () const;
 
 	/** Up to `count` known representatives with at least `minimum_weight`, heaviest first and optionally on at least `minimum_protocol_version` */
-	std::vector<representative> representatives (std::size_t count = std::numeric_limits<std::size_t>::max (), nano::uint128_t minimum_weight = 0, std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version = {}) const;
+	std::deque<representative> representatives (std::size_t count = std::numeric_limits<std::size_t>::max (), nano::uint128_t minimum_weight = 0, std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version = {}) const;
 
 	/** Up to `count` known principal representatives, heaviest first and optionally on at least `minimum_protocol_version` */
-	std::vector<representative> principal_representatives (std::size_t count = std::numeric_limits<std::size_t>::max (), std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version = {}) const;
+	std::deque<representative> principal_representatives (std::size_t count = std::numeric_limits<std::size_t>::max (), std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version = {}) const;
 
 	/** Channels of all known principal representatives, in no particular order */
 	nano::transport::channel_list principal_channels () const;
