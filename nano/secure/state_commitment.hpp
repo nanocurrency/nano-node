@@ -1,12 +1,16 @@
 #pragma once
 
+#include <nano/lib/epoch.hpp>
 #include <nano/lib/numbers.hpp>
 
 #include <cstdint>
+#include <optional>
+#include <vector>
 
 namespace nano
 {
 class ledger;
+class pending_key;
 namespace secure
 {
 	class transaction;
@@ -48,4 +52,73 @@ struct state_commitment_result final
  * Intended to be invoked off the hot path (e.g. via the state_commitment RPC).
  */
 nano::state_commitment_result compute_state_commitment (nano::ledger const &, nano::secure::transaction const &);
+
+/*
+ * Block 2 of the ledger-bloat mitigation work: a succinct inclusion proof against
+ * the commitment root produced by compute_state_commitment(). A holder of only the
+ * trusted root (a light / storage-capped node) can verify that a specific account
+ * frontier+balance, or a specific pending entry, is part of cemented state - without
+ * holding the ledger. Verification is a PURE function of the proof and touches no
+ * store, so it can run anywhere.
+ */
+
+// One authentication step from a leaf up to its Merkle Mountain Range peak.
+struct state_proof_step final
+{
+	nano::block_hash hash{ 0 };
+	// True if `hash` is the right-hand sibling (so the running value is on the left).
+	bool sibling_on_right{ false };
+};
+
+// The account-frontier claim an account proof attests to.
+struct state_proof_account_claim final
+{
+	nano::account account{};
+	nano::block_hash frontier{ 0 };
+	nano::amount balance{ 0 };
+	uint64_t height{ 0 };
+};
+
+// The pending-entry claim a pending proof attests to.
+struct state_proof_pending_claim final
+{
+	nano::account account{}; // receiving (destination) account
+	nano::block_hash hash{ 0 }; // send block hash
+	nano::account source{};
+	nano::amount amount{ 0 };
+	nano::epoch epoch{ nano::epoch::epoch_0 };
+};
+
+struct state_proof final
+{
+	// Exactly one of these is populated; it identifies the sub-tree and the claim.
+	std::optional<state_proof_account_claim> account_claim;
+	std::optional<state_proof_pending_claim> pending_claim;
+
+	// Authentication path from the claimed leaf up to its mountain peak.
+	std::vector<state_proof_step> path;
+	// All mountain peaks in ascending-height (bag consumption) order.
+	std::vector<nano::block_hash> peaks;
+	// Index into `peaks` of the peak this claim's mountain reaches.
+	uint64_t peak_index{ 0 };
+
+	// Root of the OTHER sub-tree (pending_root for an account proof, and vice versa),
+	// needed to rebuild the overall root.
+	nano::block_hash other_root{ 0 };
+	uint64_t account_count{ 0 };
+	uint64_t pending_count{ 0 };
+
+	// The overall commitment root this proof reconstructs to.
+	nano::block_hash root{ 0 };
+};
+
+// Build an inclusion proof for `account`'s cemented frontier. Returns nullopt if the
+// account is not in the cemented frontier (or its frontier block is unresolvable).
+std::optional<nano::state_proof> generate_account_proof (nano::ledger const &, nano::secure::transaction const &, nano::account const &);
+
+// Build an inclusion proof for a cemented pending entry keyed by (account, send hash).
+std::optional<nano::state_proof> generate_pending_proof (nano::ledger const &, nano::secure::transaction const &, nano::pending_key const &);
+
+// Verify a proof reconstructs its stated root from its claim. Pure; no store access.
+bool verify_state_proof (nano::state_proof const &);
 }
