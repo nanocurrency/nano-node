@@ -128,38 +128,39 @@ nano::vote_cache::vote_cache (vote_cache_config const & config_a, nano::stats & 
 {
 }
 
-void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, nano::vote_results const & results)
+void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, nano::uint128_t const & weight, nano::vote_results const & results)
 {
 	// Cache votes with a corresponding active election (indicated by `vote_code::vote`) in case that election gets dropped
 	auto const cacheable = [] (auto const & entry) {
 		return entry.code == nano::vote_code::vote || entry.code == nano::vote_code::indeterminate;
 	};
 
-	// A replay or a late vote caches nothing, so it is not worth the weight lookup or the lock
+	// A replay or a late vote caches nothing, so it is not worth the lock
 	if (std::ranges::none_of (results.entries (), cacheable))
 	{
 		return;
 	}
 
-	auto const rep_weight = rep_weight_query (vote->account);
+	if (insert_action)
+	{
+		insert_action ();
+	}
 
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
 	for (auto const & entry : results.entries () | std::views::filter (cacheable))
 	{
-		insert_impl (vote, entry.hash, rep_weight);
+		insert_impl (vote, entry.hash, weight);
 	}
 }
 
-void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote)
+void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, nano::uint128_t const & weight)
 {
-	auto const rep_weight = rep_weight_query (vote->account);
-
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
 	for (auto const & hash : vote->hashes)
 	{
-		insert_impl (vote, hash, rep_weight);
+		insert_impl (vote, hash, weight);
 	}
 }
 

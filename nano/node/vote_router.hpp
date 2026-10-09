@@ -36,7 +36,7 @@ enum class vote_code : uint8_t
 nano::stat::detail to_stat_detail (vote_code);
 std::string_view to_string (vote_code);
 
-enum class vote_source
+enum class vote_source : uint8_t
 {
 	live,
 	rebroadcast,
@@ -127,7 +127,7 @@ public:
 	 * If 'filter' parameter is non-zero, only elections for the specified hash are notified.
 	 * This eliminates duplicate processing when triggering votes from the vote_cache as the result of a specific election being created.
 	 */
-	nano::vote_results vote (std::shared_ptr<nano::vote> const &, nano::vote_source = nano::vote_source::live, nano::block_hash filter = { 0 });
+	nano::vote_results vote (nano::vote_context const &, nano::block_hash filter = { 0 });
 
 	bool active (nano::block_hash const & hash) const;
 	std::shared_ptr<nano::election> election (nano::block_hash const & hash) const;
@@ -137,10 +137,10 @@ public:
 
 public: // Events
 	// Notified once for a vote with at least one hash held by a live election, before the vote reaches any of them
-	using vote_matched_event_t = nano::observer_set<std::shared_ptr<nano::vote> const &>;
+	using vote_matched_event_t = nano::observer_set<nano::vote_context const &>;
 	vote_matched_event_t vote_matched;
 
-	using vote_processed_event_t = nano::observer_set<std::shared_ptr<nano::vote> const &, nano::vote_source, nano::vote_results const &>;
+	using vote_processed_event_t = nano::observer_set<nano::vote_context const &, nano::vote_results const &>;
 	vote_processed_event_t vote_processed;
 
 private: // Dependencies

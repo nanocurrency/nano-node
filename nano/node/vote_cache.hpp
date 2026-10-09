@@ -113,12 +113,12 @@ public:
 	/**
 	 * Adds a routed vote to the cache, for the hashes that may still need it
 	 */
-	void insert (std::shared_ptr<nano::vote> const & vote, nano::vote_results const & results);
+	void insert (std::shared_ptr<nano::vote> const &, nano::uint128_t const & weight, nano::vote_results const & results);
 
 	/**
 	 * Adds a vote to the cache for all of its hashes (meant for testing)
 	 */
-	void insert (std::shared_ptr<nano::vote> const & vote);
+	void insert (std::shared_ptr<nano::vote> const &, nano::uint128_t const & weight);
 
 	/**
 	 * Tries to find an entry associated with block hash
@@ -154,9 +154,9 @@ public:
 
 public:
 	/**
-	 * Function used to query rep weight for tally calculation
+	 * Called before a routed vote is stored
 	 */
-	std::function<nano::uint128_t (nano::account const &)> rep_weight_query{ [] (nano::account const & rep) { debug_assert (false); return 0; } };
+	std::function<void ()> insert_action;
 
 private: // Dependencies
 	vote_cache_config const & config;

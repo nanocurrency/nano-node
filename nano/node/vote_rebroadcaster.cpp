@@ -8,6 +8,7 @@
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/rep_tiers.hpp>
+#include <nano/node/vote_context.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_rebroadcaster.hpp>
 #include <nano/node/vote_router.hpp>
@@ -61,7 +62,8 @@ nano::vote_rebroadcaster::vote_rebroadcaster (nano::vote_rebroadcaster_config co
 		return size_t{ 0 };
 	};
 
-	vote_router.vote_processed.add ([this] (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, nano::vote_results const & results) {
+	vote_router.vote_processed.add ([this] (nano::vote_context const & context, nano::vote_results const & results) {
+		auto const & vote = context.vote;
 		// We also want to allow late votes to be rebroadcasted to help with reaching quorum for other nodes
 		bool should_rebroadcast = std::ranges::any_of (results.entries (), [&] (auto const & entry) {
 			auto const code = entry.code;
@@ -80,10 +82,9 @@ nano::vote_rebroadcaster::vote_rebroadcaster (nano::vote_rebroadcaster_config co
 		// Do not rebroadcast votes from non-principal representatives
 		if (should_rebroadcast && (!has_principal || flags.super_rebroadcaster))
 		{
-			auto tier = rep_tiers.tier (vote->account);
-			if (tier != nano::rep_tier::none)
+			if (context.tier != nano::rep_tier::none)
 			{
-				push (vote, tier);
+				push (vote, context.tier);
 			}
 		}
 	});

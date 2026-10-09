@@ -285,6 +285,60 @@ std::shared_ptr<nano::block> make_genesis_send (nano::test::system & system)
 }
 }
 
+// The context carries the vote together with the source and channel it arrived with
+TEST (vote_processor, context_carries_origin)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// Any vote and any peer channel will do, the lookup only passes them through
+	auto const vote = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis });
+	auto const channel = nano::test::fake_channel (node);
+
+	// A rebroadcast vote keeps its channel and its source
+	auto const context = node.vote_processor.context (vote, channel, nano::vote_source::rebroadcast);
+	ASSERT_EQ (vote, context.vote);
+	ASSERT_EQ (channel, context.channel);
+	ASSERT_EQ (nano::vote_source::rebroadcast, context.source);
+
+	// A vote replayed from the vote cache has no channel
+	auto const cached = node.vote_processor.context (vote, nullptr, nano::vote_source::cache);
+	ASSERT_EQ (vote, cached.vote);
+	ASSERT_EQ (nullptr, cached.channel);
+	ASSERT_EQ (nano::vote_source::cache, cached.source);
+}
+
+// The context holds the representative's ledger weight and its tier at the time of the lookup
+TEST (vote_processor, context_weight_and_tier)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// Twice the principal minimum puts a representative in the lowest tier, genesis keeps the rest of the supply
+	auto const amount = node.minimum_principal_weight () * 2;
+	auto const rep = nano::test::setup_rep (system, node, amount);
+
+	// Tiers are recalculated in the background, so wait until both representatives are classified
+	ASSERT_TIMELY_EQ (5s, node.rep_tiers.tier (rep.pub), nano::rep_tier::tier_1);
+	ASSERT_TIMELY_EQ (5s, node.rep_tiers.tier (nano::dev::genesis_key.pub), nano::rep_tier::tier_3);
+
+	// The funded representative gets exactly the amount delegated to it
+	auto const funded = node.vote_processor.context (nano::test::make_vote (rep, { nano::dev::genesis }), nullptr, nano::vote_source::live);
+	ASSERT_EQ (amount, funded.weight);
+	ASSERT_EQ (nano::rep_tier::tier_1, funded.tier);
+
+	// Genesis lost that amount to the funded representative
+	auto const genesis = node.vote_processor.context (nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis }), nullptr, nano::vote_source::live);
+	ASSERT_EQ (nano::dev::constants.genesis_amount - amount, genesis.weight);
+	ASSERT_EQ (nano::rep_tier::tier_3, genesis.tier);
+
+	// An account nobody delegated to has neither weight nor tier
+	nano::keypair unfunded;
+	auto const nobody = node.vote_processor.context (nano::test::make_vote (unfunded, { nano::dev::genesis }), nullptr, nano::vote_source::live);
+	ASSERT_EQ (0, nobody.weight);
+	ASSERT_EQ (nano::rep_tier::none, nobody.tier);
+}
+
 // A vote cached before its election started reaches the election once it starts
 TEST (vote_cache_processor, delivers_cached_vote)
 {
@@ -293,7 +347,7 @@ TEST (vote_cache_processor, delivers_cached_vote)
 	auto send = make_genesis_send (system);
 
 	// Cached before the block reaches the ledger, so any election for it starts after the vote is cached
-	node.vote_cache.insert (nano::test::make_vote (nano::dev::genesis_key, { send }));
+	node.vote_cache.insert (nano::test::make_vote (nano::dev::genesis_key, { send }), 0 /* any weight */);
 	ASSERT_TRUE (nano::test::process (node, { send }));
 	auto election = nano::test::start_election (system, node, send->hash ());
 	ASSERT_NE (nullptr, election);
@@ -310,7 +364,7 @@ TEST (vote_cache_processor, disabled)
 	auto send = make_genesis_send (system);
 
 	// Cached before the block reaches the ledger, so any election for it starts after the vote is cached
-	node.vote_cache.insert (nano::test::make_vote (nano::dev::genesis_key, { send }));
+	node.vote_cache.insert (nano::test::make_vote (nano::dev::genesis_key, { send }), 0 /* any weight */);
 	ASSERT_TRUE (nano::test::process (node, { send }));
 	auto election = nano::test::start_election (system, node, send->hash ());
 	ASSERT_NE (nullptr, election);
