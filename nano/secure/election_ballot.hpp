@@ -3,6 +3,7 @@
 #include <nano/lib/fwd.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/numbers_templ.hpp>
+#include <nano/secure/rep_tiers.hpp>
 #include <nano/secure/rep_weights.hpp>
 
 #include <boost/container/flat_map.hpp>
@@ -57,7 +58,10 @@ struct tally_key_greater final
 // Blocks ordered by tally position; hashes are unique, so equal-weight forks remain distinct entries
 using tally_map = std::map<nano::tally_key, std::shared_ptr<nano::block>, nano::tally_key_greater>;
 
-// Minimum time between subsequent non-final votes from a representative of the given weight
+// Minimum time between subsequent non-final votes from a representative of the given tier
+std::chrono::seconds calculate_vote_cooldown (nano::rep_tier tier);
+
+// The same cooldown for a representative of the given weight, classified against the online stake
 std::chrono::seconds calculate_vote_cooldown (nano::uint128_t weight, nano::uint128_t online_stake);
 
 /**

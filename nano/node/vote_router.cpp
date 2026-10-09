@@ -5,6 +5,7 @@
 #include <nano/node/active_elections.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/vote_cache.hpp>
+#include <nano/node/vote_context.hpp>
 #include <nano/node/vote_router.hpp>
 
 #include <boost/container/flat_set.hpp>
@@ -145,8 +146,9 @@ bool nano::vote_router::disconnect (nano::block_hash const & hash, std::shared_p
 	return true;
 }
 
-nano::vote_results nano::vote_router::vote (std::shared_ptr<nano::vote> const & vote, nano::vote_source source, nano::block_hash filter)
+nano::vote_results nano::vote_router::vote (nano::vote_context const & context, nano::block_hash filter)
 {
+	auto const & vote = context.vote;
 	debug_assert (!vote->validate ()); // false => valid vote
 	// If present, filter should be set to one of the hashes in the vote
 	debug_assert (filter.is_zero () || std::any_of (vote->hashes.begin (), vote->hashes.end (), [&filter] (auto const & hash) {
@@ -213,21 +215,21 @@ nano::vote_results nano::vote_router::vote (std::shared_ptr<nano::vote> const & 
 	bool const matched = !matches.empty ();
 	if (matched)
 	{
-		vote_matched.notify (vote);
+		vote_matched.notify (context);
 	}
 
 	for (auto const & [position, election] : matches)
 	{
-		results.set (position, election->vote (vote->account, vote->timestamp (), hashes[position], source));
+		results.set (position, election->vote (context, hashes[position]));
 	}
 
 	// All distinct hashes should have their result set
 	debug_assert (!filter.is_zero () || results.size () == seen.size ());
 
 	// Cache the votes that didn't match any election
-	if (source != nano::vote_source::cache)
+	if (context.source != nano::vote_source::cache)
 	{
-		vote_cache.insert (vote, results);
+		vote_cache.insert (context, results);
 
 		// An election that started since the lookup may have read the cache before the insert, so look up the unmatched hashes once more
 		auto const unmatched = [] (auto const & entry) {
@@ -248,19 +250,19 @@ nano::vote_results nano::vote_router::vote (std::shared_ptr<nano::vote> const & 
 		}
 		if (!matched && !matches.empty ())
 		{
-			vote_matched.notify (vote);
+			vote_matched.notify (context);
 		}
 		for (auto const & [position, election] : matches)
 		{
 			// Any other result means the election got the vote from the cache or is over already
-			if (election->vote (vote->account, vote->timestamp (), hashes[position], source) == nano::vote_code::vote)
+			if (election->vote (context, hashes[position]) == nano::vote_code::vote)
 			{
 				results.set (position, nano::vote_code::vote);
 			}
 		}
 	}
 
-	vote_processed.notify (vote, source, results);
+	vote_processed.notify (context, results);
 
 	return results;
 }

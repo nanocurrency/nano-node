@@ -35,7 +35,11 @@ bool nano::tally_key_greater::operator() (nano::tally_key const & lhs, nano::tal
 std::chrono::seconds nano::calculate_vote_cooldown (nano::uint128_t weight, nano::uint128_t online_stake)
 {
 	// The throttling levels follow the shared rep tier boundaries
-	auto tier = nano::calculate_rep_tier (weight, online_stake);
+	return calculate_vote_cooldown (nano::calculate_rep_tier (weight, online_stake));
+}
+
+std::chrono::seconds nano::calculate_vote_cooldown (nano::rep_tier tier)
+{
 	switch (tier)
 	{
 		case nano::rep_tier::tier_3:

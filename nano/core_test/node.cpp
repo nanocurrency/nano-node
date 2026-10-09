@@ -35,6 +35,7 @@
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/vote_cache.hpp>
+#include <nano/node/vote_context.hpp>
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_rebroadcaster.hpp>
@@ -2158,10 +2159,10 @@ TEST (node, vote_by_hash_bundle)
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (key1.prv);
 
-	system.nodes[0]->observers.vote.add ([&max_hashes] (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const &, nano::vote_source, nano::vote_code) {
-		if (vote_a->hashes.size () > max_hashes)
+	system.nodes[0]->observers.vote.add ([&max_hashes] (nano::vote_context const & context, nano::vote_code) {
+		if (context.vote->hashes.size () > max_hashes)
 		{
-			max_hashes = vote_a->hashes.size ();
+			max_hashes = context.vote->hashes.size ();
 		}
 	});
 
@@ -2940,7 +2941,7 @@ TEST (node, rollback_vote_self)
 
 		ASSERT_EQ (0, election->votes_with_weight ().size ());
 		// Vote with key to switch the winner
-		election->vote (key.pub, 0, fork->hash (), nano::vote_source::live);
+		nano::test::election_vote (node, *election, key, fork->hash (), 0, nano::vote_source::live);
 		ASSERT_EQ (1, election->votes_with_weight ().size ());
 		// The winner changed
 		ASSERT_EQ (election->winner ()->hash (), fork->hash ());

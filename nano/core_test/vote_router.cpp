@@ -4,6 +4,7 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
 #include <nano/node/vote_cache.hpp>
+#include <nano/node/vote_context.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -126,7 +127,7 @@ TEST (vote_router, vote_unmatched_is_cached)
 	nano::block_hash const hash{ 1 };
 
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ hash }, 1);
-	auto results = node.vote_router.vote (vote);
+	auto results = nano::test::route_vote (node, vote);
 	ASSERT_EQ (nano::vote_code::indeterminate, results.at (hash));
 	ASSERT_EQ (1, node.vote_cache.find (hash).size ());
 	ASSERT_FALSE (node.vote_router.contains (hash));
@@ -157,7 +158,7 @@ TEST (vote_router, vote_during_election_start)
 	ASSERT_TRUE (node.vote_router.connect (routed, voting));
 
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ routed, starting }, 1);
-	auto results = node.vote_router.vote (vote);
+	auto results = nano::test::route_vote (node, vote);
 	ASSERT_EQ (nano::vote_code::vote, results.at (routed));
 	ASSERT_EQ (nano::vote_code::vote, results.at (starting));
 	ASSERT_EQ (1, matched);
@@ -191,20 +192,18 @@ TEST (vote_router, vote_during_election_start_observes_representative)
 		EXPECT_GT (node.online_reps.online (), 0);
 	};
 	auto started = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 0, nullptr, check_observed);
-	auto weight_query = node.vote_cache.rep_weight_query;
 
-	// Cache insertion queries weight after the first lookup, before the vote is stored
-	node.vote_cache.rep_weight_query = [&] (nano::account const & representative) {
+	// The cache runs the action after the first lookup, before the vote is stored
+	node.vote_cache.insert_action = [&] (nano::vote_context const &) {
 		EXPECT_EQ (0, matched);
 		EXPECT_TRUE (node.vote_router.connect (starting, started));
 		EXPECT_TRUE (node.vote_cache.find (starting).empty ());
-		return weight_query (representative);
 	};
 	ASSERT_EQ (0, node.online_reps.online ());
 	ASSERT_FALSE (node.vote_router.contains (starting));
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ starting }, 1);
-	auto results = node.vote_router.vote (vote);
-	node.vote_cache.rep_weight_query = weight_query;
+	auto results = nano::test::route_vote (node, vote);
+	node.vote_cache.insert_action = nullptr;
 
 	ASSERT_EQ (nano::vote_code::vote, results.at (starting));
 	ASSERT_EQ (1, matched);
@@ -228,12 +227,12 @@ TEST (vote_router, vote_during_election_start_already_delivered)
 	// Runs while the router votes on the routed hash, the starting election gets the vote the way a vote cache read delivers it
 	auto start_election = [&] (nano::account const &) {
 		ASSERT_TRUE (node.vote_router.connect (starting, started));
-		ASSERT_EQ (nano::vote_code::vote, started->vote (vote->account, vote->timestamp (), starting, nano::vote_source::cache));
+		ASSERT_EQ (nano::vote_code::vote, started->vote (nano::test::make_vote_context (node, vote, nano::vote_source::cache), starting));
 	};
 	auto voting = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 0, nullptr, start_election);
 	ASSERT_TRUE (node.vote_router.connect (routed, voting));
 
-	auto results = node.vote_router.vote (vote);
+	auto results = nano::test::route_vote (node, vote);
 	ASSERT_EQ (nano::vote_code::vote, results.at (routed));
 	ASSERT_EQ (nano::vote_code::indeterminate, results.at (starting));
 	ASSERT_EQ (1, started->votes ().count (nano::dev::genesis_key.pub));
@@ -252,7 +251,7 @@ TEST (vote_router, vote_repeated_hash)
 	ASSERT_TRUE (node.vote_router.connect (routed, election));
 
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ routed, unmatched, routed, unmatched }, 1);
-	auto results = node.vote_router.vote (vote);
+	auto results = nano::test::route_vote (node, vote);
 	ASSERT_EQ (2, results.size ());
 	ASSERT_EQ (nano::vote_code::vote, results.at (routed));
 	ASSERT_EQ (nano::vote_code::indeterminate, results.at (unmatched));
@@ -272,7 +271,7 @@ TEST (vote_router, vote_filter)
 	ASSERT_TRUE (node.vote_router.connect (second, election));
 
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ first, second }, 1);
-	auto results = node.vote_router.vote (vote, nano::vote_source::cache, second);
+	auto results = nano::test::route_vote (node, vote, nano::vote_source::cache, second);
 	ASSERT_EQ (1, results.size ());
 	ASSERT_EQ (nano::vote_code::vote, results.at (second));
 	ASSERT_THROW (results.at (first), std::out_of_range);
@@ -300,7 +299,7 @@ TEST (vote_router, vote_max_hashes)
 	}
 
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, hashes, 1);
-	auto results = node.vote_router.vote (vote);
+	auto results = nano::test::route_vote (node, vote);
 	ASSERT_EQ (nano::vote::max_hashes, results.size ());
 	for (uint64_t i = 1; i <= nano::vote::max_hashes; ++i)
 	{

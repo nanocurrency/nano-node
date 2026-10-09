@@ -234,7 +234,7 @@ void deliver (vote_fixture & fixture, entry_point entry, std::shared_ptr<nano::v
 {
 	if (entry == entry_point::router)
 	{
-		benchmark::DoNotOptimize (fixture.node->vote_router.vote (vote));
+		benchmark::DoNotOptimize (fixture.node->vote_router.vote (fixture.node->vote_processor.context (vote, fixture.channel)));
 	}
 	else
 	{
@@ -307,7 +307,7 @@ static void BM_vote_replay (benchmark::State & state, entry_point entry)
 		fixture.restart_elections ();
 		for (auto const & vote : votes)
 		{
-			fixture.node->vote_router.vote (vote);
+			fixture.node->vote_router.vote (fixture.node->vote_processor.context (vote, fixture.channel));
 		}
 	}
 	allocation_counter allocations;

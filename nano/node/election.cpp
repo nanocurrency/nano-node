@@ -10,7 +10,9 @@
 #include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
+#include <nano/node/rep_tiers.hpp>
 #include <nano/node/vote_cache.hpp>
+#include <nano/node/vote_context.hpp>
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/secure/ledger.hpp>
@@ -453,11 +455,14 @@ std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash
 	return ballot.find_block (hash_a);
 }
 
-nano::vote_code nano::election::vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash, nano::vote_source source)
+nano::vote_code nano::election::vote (nano::vote_context const & context, nano::block_hash const & block_hash)
 {
-	auto const weight = node.ledger.weight (representative);
+	auto const & representative = context.vote->account;
+	auto const timestamp = context.vote->timestamp ();
+	auto const source = context.source;
 
-	if (!node.network_params.network.is_dev_network () && weight <= node.minimum_principal_weight ())
+	// The vote processor settled whether the representative is principal, with every representative principal on the dev network
+	if (!context.principal)
 	{
 		return vote_code::indeterminate;
 	}
@@ -476,7 +481,7 @@ nano::vote_code nano::election::vote (nano::account const & representative, uint
 	std::chrono::seconds cooldown{ 0s };
 	if (source != nano::vote_source::cache && previous_vote)
 	{
-		cooldown = nano::calculate_vote_cooldown (weight, node.online_reps.trended ());
+		cooldown = nano::calculate_vote_cooldown (context.tier);
 	}
 
 	switch (ballot.vote (representative, timestamp, block_hash, cooldown, std::chrono::steady_clock::now ()))
@@ -512,14 +517,14 @@ nano::vote_code nano::election::vote (nano::account const & representative, uint
 	nano::log::arg{ "final", nano::vote::is_final_timestamp (timestamp) },
 	nano::log::arg{ "timestamp", timestamp },
 	nano::log::arg{ "vote_source", source },
-	nano::log::arg{ "weight", weight });
+	nano::log::arg{ "tier", context.tier });
 
-	node.logger.debug (nano::log::type::election, "Vote received for hash: {} from: {} for root: {} (final: {}, weight: {}, source: {})",
+	node.logger.debug (nano::log::type::election, "Vote received for hash: {} from: {} for root: {} (final: {}, tier: {}, source: {})",
 	block_hash,
 	representative,
 	qualified_root,
 	nano::vote::is_final_timestamp (timestamp),
-	weight,
+	to_string (context.tier),
 	to_string (source));
 
 	// Runs for every counted vote, before the tally is evaluated

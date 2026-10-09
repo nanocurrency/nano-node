@@ -179,7 +179,7 @@ TEST (vote_cache, perf_singlethreaded)
 			auto vote = nano::test::make_vote (reps[rep_idx], hashes);
 
 			// Process the vote
-			node.vote_router.vote (vote);
+			nano::test::route_vote (node, vote);
 		}
 	}
 
@@ -244,7 +244,7 @@ TEST (vote_cache, perf_multithreaded)
 				auto vote = nano::test::make_vote (reps[rep_idx], hashes);
 
 				// Process the vote
-				node.vote_router.vote (vote);
+				nano::test::route_vote (node, vote);
 			}
 		}
 	});

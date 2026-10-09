@@ -75,6 +75,7 @@ class vote_cache;
 class vote_cache_config;
 class vote_cache_processor;
 class vote_cache_processor_config;
+struct vote_context;
 class vote_generator;
 class vote_generator_config;
 class vote_replier;
@@ -94,7 +95,7 @@ enum class confirmation_type;
 enum class election_behavior;
 enum class election_state;
 enum class vote_code : uint8_t;
-enum class vote_source;
+enum class vote_source : uint8_t;
 }
 
 namespace nano::bootstrap

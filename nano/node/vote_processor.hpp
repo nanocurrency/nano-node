@@ -7,6 +7,7 @@
 #include <nano/node/fair_queue_traits.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/node/rep_tiers.hpp>
+#include <nano/node/vote_context.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/secure/common.hpp>
 
@@ -45,6 +46,10 @@ public:
 	/** Queue vote for processing. @returns true if the vote was queued */
 	bool vote (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &, nano::vote_source = nano::vote_source::live);
 	nano::vote_code vote_blocking (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &, nano::vote_source = nano::vote_source::live);
+	nano::vote_code vote_blocking (nano::vote_context const &);
+
+	/** What the node establishes about a vote before processing it: the representative's tier and weight and whether elections count it */
+	nano::vote_context context (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &, nano::vote_source = nano::vote_source::live) const;
 
 	/** Queue hash for vote cache lookup and processing. */
 	void trigger (nano::block_hash const & hash);
@@ -73,7 +78,7 @@ private:
 	void run_batch (nano::unique_lock<nano::mutex> &);
 
 private:
-	using entry_t = std::pair<std::shared_ptr<nano::vote>, nano::vote_source>;
+	using entry_t = nano::vote_context;
 	nano::fair_queue<entry_t, nano::rep_tier, std::shared_ptr<nano::transport::channel>> queue;
 
 private:
@@ -95,7 +100,7 @@ public:
 class vote_cache_processor final
 {
 public:
-	vote_cache_processor (vote_cache_processor_config const &, nano::vote_router &, nano::vote_cache &, nano::stats &, nano::logger &);
+	vote_cache_processor (vote_cache_processor_config const &, nano::vote_router &, nano::vote_cache &, nano::vote_processor &, nano::stats &, nano::logger &);
 	~vote_cache_processor ();
 
 	void start ();
@@ -117,6 +122,7 @@ private: // Dependencies
 	vote_cache_processor_config const & config;
 	nano::vote_router & vote_router;
 	nano::vote_cache & vote_cache;
+	nano::vote_processor & vote_processor;
 	nano::stats & stats;
 	nano::logger & logger;
 

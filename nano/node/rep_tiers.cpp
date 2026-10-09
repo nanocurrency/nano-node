@@ -150,3 +150,8 @@ nano::stat::detail nano::to_stat_detail (nano::rep_tier tier)
 {
 	return nano::enum_convert<nano::stat::detail> (tier);
 }
+
+std::string_view nano::to_string (nano::rep_tier tier)
+{
+	return nano::enum_to_string (tier);
+}

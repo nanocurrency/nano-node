@@ -5,6 +5,7 @@
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/vote_cache.hpp>
+#include <nano/node/vote_context.hpp>
 #include <nano/node/vote_router.hpp>
 
 #include <algorithm>
@@ -128,38 +129,39 @@ nano::vote_cache::vote_cache (vote_cache_config const & config_a, nano::stats & 
 {
 }
 
-void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote, nano::vote_results const & results)
+void nano::vote_cache::insert (nano::vote_context const & context, nano::vote_results const & results)
 {
 	// Cache votes with a corresponding active election (indicated by `vote_code::vote`) in case that election gets dropped
 	auto const cacheable = [] (auto const & entry) {
 		return entry.code == nano::vote_code::vote || entry.code == nano::vote_code::indeterminate;
 	};
 
-	// A replay or a late vote caches nothing, so it is not worth the weight lookup or the lock
+	// A replay or a late vote caches nothing, so it is not worth the lock
 	if (std::ranges::none_of (results.entries (), cacheable))
 	{
 		return;
 	}
 
-	auto const rep_weight = rep_weight_query (vote->account);
+	if (insert_action)
+	{
+		insert_action (context);
+	}
 
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
 	for (auto const & entry : results.entries () | std::views::filter (cacheable))
 	{
-		insert_impl (vote, entry.hash, rep_weight);
+		insert_impl (context.vote, entry.hash, context.weight);
 	}
 }
 
-void nano::vote_cache::insert (std::shared_ptr<nano::vote> const & vote)
+void nano::vote_cache::insert (nano::vote_context const & context)
 {
-	auto const rep_weight = rep_weight_query (vote->account);
-
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
-	for (auto const & hash : vote->hashes)
+	for (auto const & hash : context.vote->hashes)
 	{
-		insert_impl (vote, hash, rep_weight);
+		insert_impl (context.vote, hash, context.weight);
 	}
 }
 

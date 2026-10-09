@@ -133,8 +133,9 @@ public: // Interface
 	/*
 	 * Process vote. Internally uses cooldown to throttle non-final votes
 	 * If the election reaches consensus, it will be confirmed
+	 * The context carries the representative's tier and whether it is principal, as the vote processor established them
 	 */
-	nano::vote_code vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash, nano::vote_source source);
+	nano::vote_code vote (nano::vote_context const &, nano::block_hash const & block_hash);
 
 	// Submit a competing fork block; returns whether it was newly admitted to the ballot
 	bool publish (std::shared_ptr<nano::block> const & block);

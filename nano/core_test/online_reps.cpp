@@ -8,6 +8,7 @@
 #include <nano/node/online_reps.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/transport/fake.hpp>
+#include <nano/node/vote_context.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/node/wallet.hpp>
@@ -108,12 +109,12 @@ TEST (online_reps, vote_observed_once)
 
 	// A vote no election holds says nothing about its representative
 	auto unmatched = nano::test::make_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ nano::block_hash{ 1 } }, 1024 * 1024);
-	node.vote_router.vote (unmatched);
+	nano::test::route_vote (node, unmatched);
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::online_reps, nano::stat::detail::rep_new));
 	ASSERT_EQ (0, node.online_reps.online ());
 
 	nano::test::shared_flag online_before_elections;
-	node.vote_router.vote_matched.add ([&node, online_before_elections] (std::shared_ptr<nano::vote> const &) {
+	node.vote_router.vote_matched.add ([&node, online_before_elections] (nano::vote_context const &) {
 		// Registered after the node's own observer
 		if (node.online_reps.online () > 0)
 		{
@@ -122,7 +123,7 @@ TEST (online_reps, vote_observed_once)
 	});
 
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, hashes, 2 * 1024 * 1024);
-	auto const results = node.vote_router.vote (vote);
+	auto const results = nano::test::route_vote (node, vote);
 	ASSERT_EQ (3, results.size ());
 	ASSERT_TRUE (online_before_elections.is_set ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::online_reps, nano::stat::detail::rep_new));

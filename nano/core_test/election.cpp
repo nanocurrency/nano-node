@@ -69,7 +69,7 @@ TEST (election, sealed_after_confirmation)
 	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 42);
 	election->force_confirm ();
 	ASSERT_TRUE (election->confirmed ());
-	ASSERT_EQ (nano::vote_code::late, election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_final, nano::dev::genesis->hash (), nano::vote_source::live));
+	ASSERT_EQ (nano::vote_code::late, nano::test::election_vote (node, *election, nano::dev::genesis_key, nano::dev::genesis->hash (), nano::vote::timestamp_final, nano::vote_source::live));
 	ASSERT_EQ (0, election->voter_count ());
 	// A repeated confirmation attempt is a no-op
 	election->force_confirm ();
@@ -84,7 +84,7 @@ TEST (election, sealed_after_cancellation)
 	auto & node = *system.nodes[0];
 	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 42);
 	ASSERT_EQ (nano::election_state::cancelled, election->cancel ().current);
-	ASSERT_EQ (nano::vote_code::indeterminate, election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_final, nano::dev::genesis->hash (), nano::vote_source::live));
+	ASSERT_EQ (nano::vote_code::indeterminate, nano::test::election_vote (node, *election, nano::dev::genesis_key, nano::dev::genesis->hash (), nano::vote::timestamp_final, nano::vote_source::live));
 	ASSERT_FALSE (election->confirmed ());
 	ASSERT_EQ (nano::election_state::cancelled, election->state ());
 	ASSERT_EQ (0, election->voter_count ());
@@ -104,7 +104,7 @@ TEST (election, sealed_after_expiry)
 	auto const actions = election->tick (std::chrono::steady_clock::now () + 10min);
 	ASSERT_TRUE (actions.cleanup);
 	ASSERT_TRUE (election->failed ());
-	ASSERT_EQ (nano::vote_code::indeterminate, election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_final, nano::dev::genesis->hash (), nano::vote_source::live));
+	ASSERT_EQ (nano::vote_code::indeterminate, nano::test::election_vote (node, *election, nano::dev::genesis_key, nano::dev::genesis->hash (), nano::vote::timestamp_final, nano::vote_source::live));
 	ASSERT_FALSE (election->confirmed ());
 	ASSERT_TRUE (election->failed ());
 	ASSERT_EQ (0, election->voter_count ());
@@ -181,7 +181,7 @@ TEST (election, sealed_round_frozen)
 	auto & node = *system.nodes[0];
 	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 42);
 	// A final vote carrying the full genesis weight reaches final quorum and confirms on the spot
-	ASSERT_EQ (nano::vote_code::vote, election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_final, nano::dev::genesis->hash (), nano::vote_source::live));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::election_vote (node, *election, nano::dev::genesis_key, nano::dev::genesis->hash (), nano::vote::timestamp_final, nano::vote_source::live));
 	ASSERT_TRUE (election->confirmed ());
 	auto const status = election->get_status ();
 	ASSERT_EQ (nano::dev::genesis->hash (), status.winner->hash ());
@@ -190,7 +190,7 @@ TEST (election, sealed_round_frozen)
 	ASSERT_EQ (1, election->voter_count ());
 	// A later vote bounces off and the frozen record does not change
 	nano::keypair other;
-	ASSERT_EQ (nano::vote_code::late, election->vote (other.pub, nano::vote::timestamp_final, nano::dev::genesis->hash (), nano::vote_source::live));
+	ASSERT_EQ (nano::vote_code::late, nano::test::election_vote (node, *election, other, nano::dev::genesis->hash (), nano::vote::timestamp_final, nano::vote_source::live));
 	ASSERT_EQ (1, election->voter_count ());
 	ASSERT_EQ (nano::dev::constants.genesis_amount, election->get_status ().tally.number ());
 }
@@ -241,7 +241,7 @@ TEST (election, final_tally_follows_winner_switch)
 	ASSERT_EQ (2, election->blocks ().size ());
 
 	// The minor rep commits to send1 with a final vote: send1 stays the winner with that final weight behind it, short of final quorum
-	ASSERT_EQ (nano::vote_code::vote, election->vote (minor.pub, nano::vote::timestamp_final, send1->hash (), nano::vote_source::live));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::election_vote (node, *election, minor, send1->hash (), nano::vote::timestamp_final, nano::vote_source::live));
 	auto status = election->get_status ();
 	ASSERT_EQ (send1->hash (), status.winner->hash ());
 	ASSERT_EQ (minor_weight, status.tally.number ());
@@ -249,7 +249,7 @@ TEST (election, final_tally_follows_winner_switch)
 	ASSERT_FALSE (election->confirmed ());
 
 	// A normal vote from genesis moves the winner to send2, which has no final votes: the final tally must not keep the minor rep's weight
-	ASSERT_EQ (nano::vote_code::vote, election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_min, send2->hash (), nano::vote_source::live));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::election_vote (node, *election, nano::dev::genesis_key, send2->hash (), nano::vote::timestamp_min, nano::vote_source::live));
 	status = election->get_status ();
 	ASSERT_EQ (send2->hash (), status.winner->hash ());
 	ASSERT_EQ (genesis_weight, status.tally.number ());
@@ -257,7 +257,7 @@ TEST (election, final_tally_follows_winner_switch)
 	ASSERT_FALSE (election->confirmed ());
 
 	// Genesis finalizes send2: the election confirms on genesis weight alone and the frozen record reports only that, not the minor rep's final vote for send1
-	ASSERT_EQ (nano::vote_code::vote, election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_final, send2->hash (), nano::vote_source::live));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::election_vote (node, *election, nano::dev::genesis_key, send2->hash (), nano::vote::timestamp_final, nano::vote_source::live));
 	ASSERT_TRUE (election->confirmed ());
 	status = election->get_status ();
 	ASSERT_EQ (send2->hash (), status.winner->hash ());
@@ -331,7 +331,7 @@ TEST (election, quorum_minimum_flip_success)
 	ASSERT_TIMELY_EQ (5s, election->blocks ().size (), 2);
 
 	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { send2->hash () });
-	ASSERT_EQ (nano::vote_code::vote, node1.vote_router.vote (vote).at (send2->hash ()));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::route_vote (node1, vote).at (send2->hash ()));
 
 	ASSERT_TIMELY (5s, election->confirmed ());
 	auto const winner = election->winner ();
@@ -380,7 +380,7 @@ TEST (election, quorum_minimum_flip_fail)
 
 	// genesis generates a final vote for send2 but it should not be enough to reach quorum due to the online_weight_minimum being so high
 	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { send2->hash () });
-	ASSERT_EQ (nano::vote_code::vote, node.vote_router.vote (vote).at (send2->hash ()));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::route_vote (node, vote).at (send2->hash ()));
 
 	// give the election some time before asserting it is not confirmed so that in case
 	// it would be wrongfully confirmed, have that immediately fail instead of race
@@ -416,7 +416,7 @@ TEST (election, quorum_minimum_confirm_success)
 	ASSERT_EQ (1, election->blocks ().size ());
 
 	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { send1->hash () });
-	ASSERT_EQ (nano::vote_code::vote, node1.vote_router.vote (vote).at (send1->hash ()));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::route_vote (node1, vote).at (send1->hash ()));
 	ASSERT_NE (nullptr, node1.block (send1->hash ()));
 	ASSERT_TIMELY (5s, election->confirmed ());
 }
@@ -447,7 +447,7 @@ TEST (election, quorum_minimum_confirm_fail)
 	ASSERT_EQ (1, election->blocks ().size ());
 
 	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { send1->hash () });
-	ASSERT_EQ (nano::vote_code::vote, node1.vote_router.vote (vote).at (send1->hash ()));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::route_vote (node1, vote).at (send1->hash ()));
 
 	// give the election a chance to confirm
 	WAIT (1s);
@@ -508,7 +508,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	ASSERT_EQ (1, election->blocks ().size ());
 
 	auto vote1 = nano::test::make_final_vote (nano::dev::genesis_key, { send1->hash () });
-	ASSERT_EQ (nano::vote_code::vote, node1.vote_router.vote (vote1).at (send1->hash ()));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::route_vote (node1, vote1).at (send1->hash ()));
 
 	auto channel = node1.network.find_node_id (node2.get_node_id ());
 	ASSERT_NE (channel, nullptr);
@@ -520,7 +520,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 
 	// Modify online_m for online_reps to more than is available, this checks that voting below updates it to current online reps.
 	node1.online_reps.force_online_weight (node_config.online_weight_minimum.number () + 20);
-	ASSERT_EQ (nano::vote_code::vote, node1.vote_router.vote (vote2).at (send1->hash ()));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::route_vote (node1, vote2).at (send1->hash ()));
 	ASSERT_TIMELY (5s, election->confirmed ());
 	ASSERT_NE (nullptr, node1.block (send1->hash ()));
 }
@@ -572,7 +572,7 @@ struct eviction_fixture
 	std::vector<std::shared_ptr<nano::block>> forks; // The ten original forks, election started on forks[0]
 	std::shared_ptr<nano::block> fork_new; // The incoming fork whose admission caused the eviction
 	std::shared_ptr<nano::block> evicted; // The fork evicted to make room
-	nano::account evicted_voter; // Zero-weight representative retaining the evicted fork's route
+	nano::keypair evicted_voter; // Zero-weight representative retaining the evicted fork's route
 };
 
 // Fill a fresh election with ten genesis-chain forks, then evict one by admitting an eleventh fork carrying cached vote weight from `rep_key`
@@ -639,13 +639,13 @@ eviction_fixture setup_evicted_fork (nano::test::system & system, nano::node & n
 		return lhs->hash () < rhs->hash ();
 	});
 	nano::keypair evicted_voter;
-	fixture.evicted_voter = evicted_voter.pub;
-	EXPECT_EQ (nano::vote_code::vote, fixture.election->vote (evicted_voter.pub, nano::vote::timestamp_min, expected_evicted->hash (), nano::vote_source::live));
+	fixture.evicted_voter = evicted_voter;
+	EXPECT_EQ (nano::vote_code::vote, nano::test::election_vote (node, *fixture.election, evicted_voter, expected_evicted->hash (), nano::vote::timestamp_min, nano::vote_source::live));
 
 	// An eleventh fork backed by cached rep weight evicts the lowest-hash zero-weight fork
 	fixture.fork_new = make_fork (100);
 	auto cached_vote = nano::test::make_vote (rep_key, { fixture.fork_new }, 0, 0);
-	node.vote_router.vote (cached_vote); // No election holds the hash yet, the vote parks in the vote cache
+	nano::test::route_vote (node, cached_vote); // No election holds the hash yet, the vote parks in the vote cache
 	node.process_active (fixture.fork_new);
 	EXPECT_TIMELY (5s, fixture.election->contains_block (fixture.fork_new->hash ()));
 
@@ -681,7 +681,7 @@ TEST (election, evicted_fork_keeps_receiving_votes)
 
 	// A vote for the evicted fork still reaches the election and is recorded against the rep
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, { fixture.evicted }, 0, 0);
-	ASSERT_EQ (nano::vote_code::vote, node.vote_router.vote (vote).at (fixture.evicted->hash ()));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::route_vote (node, vote).at (fixture.evicted->hash ()));
 	ASSERT_EQ (fixture.evicted->hash (), fixture.election->votes ().at (nano::dev::genesis_key.pub).hash);
 }
 
@@ -700,19 +700,19 @@ TEST (election, evicted_route_released_after_last_vote_moves)
 
 	ASSERT_TRUE (node.vote_router.contains (fixture.evicted->hash ()));
 	// Add a second current vote for the evicted hash
-	ASSERT_EQ (nano::vote_code::vote, fixture.election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_min, fixture.evicted->hash (), nano::vote_source::cache));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::election_vote (node, *fixture.election, nano::dev::genesis_key, fixture.evicted->hash (), nano::vote::timestamp_min, nano::vote_source::cache));
 
 	// Moving one representative away leaves the route supported by the other
-	ASSERT_EQ (nano::vote_code::vote, fixture.election->vote (fixture.evicted_voter, nano::vote::timestamp_min + 1, fixture.fork_new->hash (), nano::vote_source::cache));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::election_vote (node, *fixture.election, fixture.evicted_voter, fixture.fork_new->hash (), 2 * nano::vote::timestamp_min, nano::vote_source::cache));
 	ASSERT_TRUE (node.vote_router.contains (fixture.evicted->hash ()));
 
 	// Moving the last representative away releases the route
-	ASSERT_EQ (nano::vote_code::vote, fixture.election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_min + 1, fixture.fork_new->hash (), nano::vote_source::cache));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::election_vote (node, *fixture.election, nano::dev::genesis_key, fixture.fork_new->hash (), 2 * nano::vote::timestamp_min, nano::vote_source::cache));
 	ASSERT_FALSE (node.vote_router.contains (fixture.evicted->hash ()));
 
 	// Moving the sole vote away from a held block leaves its route intact
-	ASSERT_EQ (nano::vote_code::vote, fixture.election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_min + 2, fixture.forks[0]->hash (), nano::vote_source::cache));
-	ASSERT_EQ (nano::vote_code::vote, fixture.election->vote (nano::dev::genesis_key.pub, nano::vote::timestamp_min + 3, fixture.fork_new->hash (), nano::vote_source::cache));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::election_vote (node, *fixture.election, nano::dev::genesis_key, fixture.forks[0]->hash (), 3 * nano::vote::timestamp_min, nano::vote_source::cache));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::election_vote (node, *fixture.election, nano::dev::genesis_key, fixture.fork_new->hash (), 4 * nano::vote::timestamp_min, nano::vote_source::cache));
 	ASSERT_TRUE (node.vote_router.contains (fixture.forks[0]->hash ()));
 }
 
@@ -732,19 +732,19 @@ TEST (election, in_flight_vote_restores_released_route)
 
 	// The sole supporting vote moves away and releases the route
 	ASSERT_TRUE (node.vote_router.contains (fixture.evicted->hash ()));
-	ASSERT_EQ (nano::vote_code::vote, fixture.election->vote (fixture.evicted_voter, nano::vote::timestamp_min + 1, fixture.fork_new->hash (), nano::vote_source::cache));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::election_vote (node, *fixture.election, fixture.evicted_voter, fixture.fork_new->hash (), 2 * nano::vote::timestamp_min, nano::vote_source::cache));
 	ASSERT_FALSE (node.vote_router.contains (fixture.evicted->hash ()));
 
 	// A vote dispatched before the release arrives and is recorded for the evicted hash
 	nano::keypair late_voter;
-	ASSERT_EQ (nano::vote_code::vote, fixture.election->vote (late_voter.pub, nano::vote::timestamp_min, fixture.evicted->hash (), nano::vote_source::live));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::election_vote (node, *fixture.election, late_voter, fixture.evicted->hash (), nano::vote::timestamp_min, nano::vote_source::live));
 	ASSERT_EQ (fixture.evicted->hash (), fixture.election->votes ().at (late_voter.pub).hash);
 
 	// A current vote names the evicted hash again, so it is routed and later votes for it reach the election
 	ASSERT_TRUE (node.vote_router.contains (fixture.evicted->hash ()));
 	nano::keypair next_voter;
 	auto vote = nano::test::make_vote (next_voter, { fixture.evicted }, 0, 0);
-	ASSERT_EQ (nano::vote_code::vote, node.vote_router.vote (vote).at (fixture.evicted->hash ()));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::route_vote (node, vote).at (fixture.evicted->hash ()));
 	ASSERT_EQ (fixture.evicted->hash (), fixture.election->votes ().at (next_voter.pub).hash);
 }
 
@@ -779,7 +779,7 @@ TEST (election, in_flight_vote_restores_evicted_route)
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (0)
 				.build ();
-	node.vote_cache.insert (nano::test::make_vote (rep_key, { fork }, 1, 0));
+	node.vote_cache.insert (nano::test::make_vote_context (node, nano::test::make_vote (rep_key, { fork }, 1, 0)));
 	ASSERT_TRUE (fixture.election->publish (fork));
 	std::shared_ptr<nano::block> evicted;
 	for (auto const & [hash, block] : held_before)
@@ -795,14 +795,14 @@ TEST (election, in_flight_vote_restores_evicted_route)
 
 	// A vote dispatched before the eviction arrives and is recorded for the now unheld hash
 	nano::keypair late_voter;
-	ASSERT_EQ (nano::vote_code::vote, fixture.election->vote (late_voter.pub, nano::vote::timestamp_min, evicted->hash (), nano::vote_source::live));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::election_vote (node, *fixture.election, late_voter, evicted->hash (), nano::vote::timestamp_min, nano::vote_source::live));
 	ASSERT_EQ (evicted->hash (), fixture.election->votes ().at (late_voter.pub).hash);
 
 	// A current vote names the evicted hash, so it is routed and later votes for it reach the election
 	ASSERT_TRUE (node.vote_router.contains (evicted->hash ()));
 	nano::keypair next_voter;
 	auto vote = nano::test::make_vote (next_voter, { evicted }, 0, 0);
-	ASSERT_EQ (nano::vote_code::vote, node.vote_router.vote (vote).at (evicted->hash ()));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::route_vote (node, vote).at (evicted->hash ()));
 	ASSERT_EQ (evicted->hash (), fixture.election->votes ().at (next_voter.pub).hash);
 }
 
@@ -837,7 +837,7 @@ TEST (election, evicted_routes_do_not_accumulate)
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (0)
 					.build ();
-		node.vote_cache.insert (nano::test::make_vote (rep_key, { fork }, i + 1, 0));
+		node.vote_cache.insert (nano::test::make_vote_context (node, nano::test::make_vote (rep_key, { fork }, i + 1, 0)));
 		ASSERT_TRUE (fixture.election->publish (fork));
 		observed.push_back (fork);
 	}
@@ -887,7 +887,7 @@ TEST (election, evicted_fork_readmission_confirms)
 
 	// The rep finalizes the evicted fork; the vote is recorded, but nothing confirms while the block is unheld
 	auto final_vote = nano::test::make_final_vote (nano::dev::genesis_key, { fixture.evicted });
-	ASSERT_EQ (nano::vote_code::vote, node.vote_router.vote (final_vote).at (fixture.evicted->hash ()));
+	ASSERT_EQ (nano::vote_code::vote, nano::test::route_vote (node, final_vote).at (fixture.evicted->hash ()));
 	ASSERT_EQ (fixture.evicted->hash (), fixture.election->votes ().at (nano::dev::genesis_key.pub).hash);
 	WAIT (500ms);
 	ASSERT_FALSE (fixture.election->confirmed ());

@@ -293,7 +293,7 @@ TEST (vote_cache_processor, delivers_cached_vote)
 	auto send = make_genesis_send (system);
 
 	// Cached before the block reaches the ledger, so any election for it starts after the vote is cached
-	node.vote_cache.insert (nano::test::make_vote (nano::dev::genesis_key, { send }));
+	node.vote_cache.insert (nano::test::make_vote_context (node, nano::test::make_vote (nano::dev::genesis_key, { send })));
 	ASSERT_TRUE (nano::test::process (node, { send }));
 	auto election = nano::test::start_election (system, node, send->hash ());
 	ASSERT_NE (nullptr, election);
@@ -310,7 +310,7 @@ TEST (vote_cache_processor, disabled)
 	auto send = make_genesis_send (system);
 
 	// Cached before the block reaches the ledger, so any election for it starts after the vote is cached
-	node.vote_cache.insert (nano::test::make_vote (nano::dev::genesis_key, { send }));
+	node.vote_cache.insert (nano::test::make_vote_context (node, nano::test::make_vote (nano::dev::genesis_key, { send })));
 	ASSERT_TRUE (nano::test::process (node, { send }));
 	auto election = nano::test::start_election (system, node, send->hash ());
 	ASSERT_NE (nullptr, election);
