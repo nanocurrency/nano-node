@@ -167,4 +167,53 @@ struct capped_retention_plan final
 // Proving is O(accounts_checked * total accounts), so callers off a bound it for large
 // ledgers; accounts_checked vs checkpoint.account_count reports any sampling.
 nano::capped_retention_plan plan_capped_retention (nano::ledger const &, nano::secure::transaction const &, uint64_t history_window, uint64_t max_accounts_to_prove);
+
+/*
+ * Block 4 of the ledger-bloat mitigation work: the cold-pending sweep. The pending
+ * table is the un-prunable dust residue - a send to a never-opened account mints a
+ * receivable that lives forever on every node. We do NOT expire or return it (that
+ * would break the irreversible-send guarantee and is unsound without a global clock).
+ * Instead we identify AGED, SUB-THRESHOLD pending entries and move them out of the hot
+ * working set into a committed COLD subtree. A cold entry is never lost: its membership
+ * stays committed under `cold_root`, and its receiver can still claim it at any time by
+ * presenting an inclusion proof. This layer classifies and proves; it deletes nothing.
+ */
+
+// A pending entry qualifies as cold when it is at least `min_age_seconds` old (by the
+// send block's timestamp vs a caller-supplied reference time) AND its amount is at or
+// below `amount_threshold` (dust). The caller supplies the reference time so the library
+// stays deterministic and testable.
+struct pending_sweep_plan final
+{
+	nano::state_checkpoint checkpoint;
+	uint64_t reference_timestamp{ 0 };
+	uint64_t min_age_seconds{ 0 };
+	nano::amount amount_threshold{ 0 };
+
+	uint64_t hot_count{ 0 }; // pending entries a node keeps resident
+	uint64_t cold_count{ 0 }; // aged sub-threshold entries offloadable to the cold subtree
+	nano::block_hash cold_root{ 0 }; // MMR root committing exactly the cold entries
+	uint64_t reclaimable_pending_bytes{ 0 }; // cold_count * approximate pending record size
+
+	uint64_t cold_checked{ 0 }; // cold entries whose claimability proof was verified
+	uint64_t cold_proven{ 0 }; // of those, how many verified against cold_root
+	bool all_proven{ false };
+};
+
+nano::pending_sweep_plan plan_pending_sweep (nano::ledger const &, nano::secure::transaction const &, uint64_t reference_timestamp, uint64_t min_age_seconds, nano::amount const & amount_threshold, uint64_t max_to_prove);
+
+// A standalone proof that a cold pending entry is committed under `cold_root`, so its
+// receiver can claim it after it has been offloaded from the hot table. Verification is
+// pure (no store access).
+struct cold_pending_proof final
+{
+	nano::state_proof_pending_claim claim;
+	std::vector<nano::state_proof_step> path;
+	std::vector<nano::block_hash> peaks;
+	uint64_t peak_index{ 0 };
+	nano::block_hash cold_root{ 0 };
+};
+
+std::optional<nano::cold_pending_proof> generate_cold_pending_proof (nano::ledger const &, nano::secure::transaction const &, uint64_t reference_timestamp, uint64_t min_age_seconds, nano::amount const & amount_threshold, nano::pending_key const &);
+bool verify_cold_pending_proof (nano::cold_pending_proof const &);
 }
