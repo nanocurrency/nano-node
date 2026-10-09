@@ -86,3 +86,30 @@ TEST (storage_weighted_work, multiplier_floor)
 	ASSERT_EQ (result.base_threshold, result.required_threshold);
 	ASSERT_DOUBLE_EQ (1.0, result.weight_multiplier);
 }
+
+// An unprocessed state block that does not lower the balance is not a send, so it adds
+// no account even when its link names a never-opened account. Pricing it must not
+// require a sideband.
+TEST (storage_weighted_work, unprocessed_non_send_not_weighted)
+{
+	auto ctx = nano::test::ledger_empty ();
+	auto & ledger = ctx.ledger ();
+	nano::keypair fresh;
+	nano::block_builder builder;
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto block = builder.state ()
+				 .account (nano::dev::genesis_key.pub)
+				 .previous (nano::dev::genesis->hash ())
+				 .representative (fresh.pub)
+				 .balance (nano::dev::constants.genesis_amount)
+				 .link (0)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	auto transaction = ledger.tx_begin_read ();
+	ASSERT_FALSE (block->has_sideband ());
+	ASSERT_FALSE (nano::block_adds_new_account (ledger, transaction, *block));
+	auto weighted = nano::evaluate_storage_weighted_work (ledger, transaction, *block, 8.0);
+	ASSERT_FALSE (weighted.creates_new_account);
+	ASSERT_EQ (weighted.base_threshold, weighted.required_threshold);
+}

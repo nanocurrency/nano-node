@@ -1,3 +1,4 @@
+#include <nano/lib/block_type.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/constants.hpp>
 #include <nano/lib/numbers.hpp>
@@ -8,9 +9,43 @@
 
 #include <algorithm>
 
+namespace
+{
+/*
+ * Whether `block` is a send. A block that has not been processed yet (the usual case
+ * when pricing work for it) has no sideband, and block::is_send () asserts on that,
+ * so a state block's direction is read from its previous balance instead.
+ */
+bool is_send_unprocessed (nano::ledger const & ledger, nano::secure::transaction const & transaction, nano::block const & block)
+{
+	if (block.has_sideband ())
+	{
+		return block.is_send ();
+	}
+	switch (block.type ())
+	{
+		case nano::block_type::send:
+			return true;
+		case nano::block_type::state:
+		{
+			auto const previous = block.previous ();
+			if (previous.is_zero ())
+			{
+				return false; // An open block receives, it never sends.
+			}
+			auto const previous_balance = ledger.any.block_balance (transaction, previous);
+			// Unknown previous: the direction cannot be known, so add no weight.
+			return previous_balance.has_value () && block.balance_field ().value () < previous_balance.value ();
+		}
+		default:
+			return false;
+	}
+}
+}
+
 bool nano::block_adds_new_account (nano::ledger const & ledger, nano::secure::transaction const & transaction, nano::block const & block)
 {
-	if (!block.is_send ())
+	if (!is_send_unprocessed (ledger, transaction, block))
 	{
 		return false;
 	}
