@@ -53,6 +53,12 @@ constexpr size_t unmatched_hashes = 81920; // More than the vote cache holds, so
 constexpr size_t unmatched_voters = 4;
 constexpr size_t late_hashes = 32768;
 
+// Iterations per thread that deliver every counted vote of this many hashes exactly once
+constexpr size_t counted_iterations (size_t hashes, size_t threads)
+{
+	return rep_count * (election_count / hashes) / threads;
+}
+
 using vote_list = std::vector<std::shared_ptr<nano::vote>>;
 
 nano::block_hash random_hash ()
@@ -336,11 +342,13 @@ BENCHMARK (BM_vote_validate)->ArgName ("hashes")->Arg (1)->Arg (16)->Arg (255)->
 BENCHMARK_CAPTURE (BM_vote_unmatched, router, entry_point::router)->ArgName ("hashes")->Arg (1)->Arg (16)->Arg (255)->Threads (1)->Threads (4)->UseRealTime ();
 BENCHMARK_CAPTURE (BM_vote_unmatched, processor, entry_point::processor)->ArgName ("hashes")->Arg (16)->Threads (1)->Threads (4)->UseRealTime ();
 
-BENCHMARK_CAPTURE (BM_vote_counted, router, entry_point::router)->ArgName ("hashes")->Arg (1)->Iterations (rep_count * election_count)->Threads (1)->UseRealTime ();
-BENCHMARK_CAPTURE (BM_vote_counted, router, entry_point::router)->ArgName ("hashes")->Arg (1)->Iterations (rep_count * election_count / 4)->Threads (4)->UseRealTime ();
-BENCHMARK_CAPTURE (BM_vote_counted, router, entry_point::router)->ArgName ("hashes")->Arg (16)->Iterations (rep_count * election_count / 16)->Threads (1)->UseRealTime ();
-BENCHMARK_CAPTURE (BM_vote_counted, router, entry_point::router)->ArgName ("hashes")->Arg (16)->Iterations (rep_count * election_count / 16 / 4)->Threads (4)->UseRealTime ();
-BENCHMARK_CAPTURE (BM_vote_counted, processor, entry_point::processor)->ArgName ("hashes")->Arg (16)->Iterations (rep_count * election_count / 16)->Threads (1)->UseRealTime ();
+BENCHMARK_CAPTURE (BM_vote_counted, router, entry_point::router)->ArgName ("hashes")->Arg (1)->Iterations (counted_iterations (1, 1))->Threads (1)->UseRealTime ();
+BENCHMARK_CAPTURE (BM_vote_counted, router, entry_point::router)->ArgName ("hashes")->Arg (1)->Iterations (counted_iterations (1, 4))->Threads (4)->UseRealTime ();
+BENCHMARK_CAPTURE (BM_vote_counted, router, entry_point::router)->ArgName ("hashes")->Arg (16)->Iterations (counted_iterations (16, 1))->Threads (1)->UseRealTime ();
+BENCHMARK_CAPTURE (BM_vote_counted, router, entry_point::router)->ArgName ("hashes")->Arg (16)->Iterations (counted_iterations (16, 4))->Threads (4)->UseRealTime ();
+BENCHMARK_CAPTURE (BM_vote_counted, router, entry_point::router)->ArgName ("hashes")->Arg (255)->Iterations (counted_iterations (255, 1))->Threads (1)->UseRealTime ();
+BENCHMARK_CAPTURE (BM_vote_counted, router, entry_point::router)->ArgName ("hashes")->Arg (255)->Iterations (counted_iterations (255, 4))->Threads (4)->UseRealTime ();
+BENCHMARK_CAPTURE (BM_vote_counted, processor, entry_point::processor)->ArgName ("hashes")->Arg (16)->Iterations (counted_iterations (16, 1))->Threads (1)->UseRealTime ();
 
 BENCHMARK_CAPTURE (BM_vote_replay, router, entry_point::router)->ArgName ("hashes")->Arg (1)->Arg (16)->Threads (1)->Threads (4)->UseRealTime ();
 BENCHMARK_CAPTURE (BM_vote_late, router, entry_point::router)->ArgName ("hashes")->Arg (1)->Arg (16)->Threads (1)->Threads (4)->UseRealTime ();
