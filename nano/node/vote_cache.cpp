@@ -129,6 +129,17 @@ nano::vote_cache::vote_cache (vote_cache_config const & config_a, nano::stats & 
 {
 }
 
+bool nano::vote_cache::admit (nano::vote_context const & context)
+{
+	// Elections count only tiered representatives, and caching anyone else's votes would let anyone fill the cache
+	if (context.tier != nano::rep_tier::none)
+	{
+		return true;
+	}
+	stats.inc (nano::stat::type::vote_cache, nano::stat::detail::ignored);
+	return false;
+}
+
 void nano::vote_cache::insert (nano::vote_context const & context, nano::vote_results const & results)
 {
 	// Cache votes with a corresponding active election (indicated by `vote_code::vote`) in case that election gets dropped
@@ -138,6 +149,11 @@ void nano::vote_cache::insert (nano::vote_context const & context, nano::vote_re
 
 	// A replay or a late vote caches nothing, so it is not worth the lock
 	if (std::ranges::none_of (results.entries (), cacheable))
+	{
+		return;
+	}
+
+	if (!admit (context))
 	{
 		return;
 	}
@@ -157,6 +173,11 @@ void nano::vote_cache::insert (nano::vote_context const & context, nano::vote_re
 
 void nano::vote_cache::insert (nano::vote_context const & context)
 {
+	if (!admit (context))
+	{
+		return;
+	}
+
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
 	for (auto const & hash : context.vote->hashes)

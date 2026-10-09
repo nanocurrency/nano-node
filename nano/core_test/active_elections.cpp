@@ -13,6 +13,7 @@
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
+#include <nano/node/rep_tiers.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/hinted.hpp>
@@ -610,6 +611,7 @@ TEST (active_elections, cached_vote_existing)
 	ASSERT_EQ (send->hash (), last_vote1.hash);
 	ASSERT_EQ (nano::vote::timestamp_min * 1, last_vote1.timestamp);
 	// Attempt to change vote with inactive_votes_cache
+	ASSERT_TIMELY (5s, node.rep_tiers.tier (key.pub) != nano::rep_tier::none);
 	node.vote_cache.insert (nano::test::make_vote_context (node, vote1));
 	auto cached = node.vote_cache.find (send->hash ());
 	ASSERT_EQ (1, cached.size ());
@@ -664,6 +666,7 @@ TEST (active_elections, cached_vote_multiple)
 	// put the blocks in the ledger without triggering an election
 	ASSERT_TRUE (nano::test::process (node, { send1, send2, open }));
 	ASSERT_TIMELY (5s, nano::test::exists (node, { send1, send2, open }));
+	ASSERT_TIMELY (5s, node.rep_tiers.tier (key1.pub) != nano::rep_tier::none);
 
 	// Process votes
 	auto vote1 = nano::test::make_vote (key1, { send1 }, 0, 0);
@@ -747,6 +750,8 @@ TEST (active_elections, cached_vote_election_start)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (send3->hash ()))
 				 .build ();
+
+	ASSERT_TIMELY (5s, node.rep_tiers.tier (key1.pub) != nano::rep_tier::none && node.rep_tiers.tier (key2.pub) != nano::rep_tier::none);
 
 	// Inactive votes
 	auto vote1 = nano::test::make_vote (key1, { open1, open2, send4 });
@@ -1136,7 +1141,8 @@ TEST (active_elections, fork_replacement_tally)
 	std::vector<nano::keypair> keys (reps_count);
 	auto latest (nano::dev::genesis->hash ());
 	auto balance (nano::dev::constants.genesis_amount);
-	auto amount (node1.minimum_principal_weight ());
+	// Just above 0.1% of the supply, so every rep keeps a tier whatever online stake the node samples
+	auto amount (nano::dev::constants.genesis_amount / 1000 + 1);
 	nano::state_block_builder builder;
 
 	// Create 20 representatives & confirm blocks
@@ -1205,6 +1211,7 @@ TEST (active_elections, fork_replacement_tally)
 	ASSERT_TIMELY_EQ (5s, max_blocks, election->blocks ().size ());
 
 	// Generate forks with votes to prevent new block insertion to election
+	ASSERT_TIMELY (5s, node1.rep_tiers.tier (keys.back ().pub) != nano::rep_tier::none);
 	for (auto i (0); i < reps_count; i++)
 	{
 		auto fork = builder.make_block ()

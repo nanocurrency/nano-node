@@ -1,5 +1,6 @@
 #include <nano/lib/vote.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/rep_tiers.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_context.hpp>
 #include <nano/node/vote_router.hpp>
@@ -11,6 +12,8 @@
 
 #include <map>
 #include <set>
+
+using namespace std::chrono_literals;
 
 namespace
 {
@@ -321,6 +324,49 @@ TEST (vote_cache, overfill)
 	auto tops = vote_cache.top (0);
 	ASSERT_EQ (tops.size (), 1024);
 	ASSERT_EQ (tops[0].tally, 1024);
+}
+
+/*
+ * A vote from a representative without a tier is not cached, an election would not count it either, and the entry is left to tiered voters
+ */
+TEST (vote_cache, ignores_untiered_rep)
+{
+	nano::test::system system;
+	nano::vote_cache_config cfg;
+	nano::vote_cache vote_cache{ cfg, system.stats };
+	auto const hash = nano::test::random_hash ();
+
+	auto const untiered = create_rep (1000);
+	auto context = make_context (nano::test::make_vote (untiered, { hash }, nano::vote::timestamp_min));
+	context.tier = nano::rep_tier::none;
+	vote_cache.insert (context);
+	ASSERT_TRUE (vote_cache.empty ());
+	ASSERT_EQ (1, system.stats.count (nano::stat::type::vote_cache, nano::stat::detail::ignored));
+
+	auto const tiered = create_rep (7);
+	vote_cache.insert (make_context (nano::test::make_vote (tiered, { hash }, nano::vote::timestamp_min)));
+	ASSERT_EQ (1, vote_cache.find (hash).size ());
+	ASSERT_EQ (tiered.pub, vote_cache.find (hash)[0]->account);
+	ASSERT_EQ (7, vote_cache.top (0)[0].tally);
+}
+
+/*
+ * A node's vote processor settles the tier: a key without weight stays out of the cache while the genesis representative's vote goes in
+ */
+TEST (vote_cache, untiered_rep_on_node)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	ASSERT_TIMELY (5s, node.rep_tiers.tier (nano::dev::genesis_key.pub) != nano::rep_tier::none);
+	auto const hash = nano::test::random_hash ();
+
+	nano::keypair untiered;
+	nano::test::route_vote (node, nano::test::make_vote (untiered, { hash }, nano::vote::timestamp_min));
+	ASSERT_TRUE (node.vote_cache.find (hash).empty ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_cache, nano::stat::detail::ignored));
+
+	nano::test::route_vote (node, nano::test::make_vote (nano::dev::genesis_key, { hash }, nano::vote::timestamp_min));
+	ASSERT_EQ (1, node.vote_cache.find (hash).size ());
 }
 
 /*

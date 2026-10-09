@@ -6,6 +6,7 @@
 #include <nano/node/backlog_scan.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/rep_tiers.hpp>
 #include <nano/node/scheduler/hinted.hpp>
 #include <nano/node/scheduler/optimistic.hpp>
 #include <nano/node/scheduler/priority.hpp>
@@ -293,6 +294,7 @@ TEST (vote_cache_processor, delivers_cached_vote)
 	auto send = make_genesis_send (system);
 
 	// Cached before the block reaches the ledger, so any election for it starts after the vote is cached
+	ASSERT_TIMELY (5s, node.rep_tiers.tier (nano::dev::genesis_key.pub) != nano::rep_tier::none);
 	node.vote_cache.insert (nano::test::make_vote_context (node, nano::test::make_vote (nano::dev::genesis_key, { send })));
 	ASSERT_TRUE (nano::test::process (node, { send }));
 	auto election = nano::test::start_election (system, node, send->hash ());
@@ -310,6 +312,7 @@ TEST (vote_cache_processor, disabled)
 	auto send = make_genesis_send (system);
 
 	// Cached before the block reaches the ledger, so any election for it starts after the vote is cached
+	ASSERT_TIMELY (5s, node.rep_tiers.tier (nano::dev::genesis_key.pub) != nano::rep_tier::none);
 	node.vote_cache.insert (nano::test::make_vote_context (node, nano::test::make_vote (nano::dev::genesis_key, { send })));
 	ASSERT_TRUE (nano::test::process (node, { send }));
 	auto election = nano::test::start_election (system, node, send->hash ());

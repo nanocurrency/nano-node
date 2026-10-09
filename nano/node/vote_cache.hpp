@@ -164,6 +164,8 @@ private: // Dependencies
 	nano::stats & stats;
 
 private:
+	// Whether the vote's representative has a tier, counting an ignored vote
+	bool admit (nano::vote_context const &);
 	void insert_impl (std::shared_ptr<nano::vote> const &, nano::block_hash const & hash, nano::uint128_t const & rep_weight);
 	void cleanup ();
 
