@@ -4,10 +4,13 @@
 #include <nano/node/active_elections.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/network.hpp>
+#include <nano/node/node.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/manual.hpp>
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/fake.hpp>
+#include <nano/node/vote_context.hpp>
+#include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
@@ -213,6 +216,24 @@ std::shared_ptr<nano::vote> nano::test::make_vote (nano::keypair key, std::vecto
 std::shared_ptr<nano::vote> nano::test::make_final_vote (nano::keypair key, std::vector<nano::block_hash> hashes)
 {
 	return make_vote (key, hashes, nano::vote::timestamp_max, nano::vote::duration_max);
+}
+
+nano::vote_context nano::test::make_vote_context (nano::node & node, std::shared_ptr<nano::vote> const & vote, nano::vote_source source)
+{
+	return node.vote_processor.context (vote, nullptr, source);
+}
+
+nano::vote_results nano::test::route_vote (nano::node & node, std::shared_ptr<nano::vote> const & vote, nano::vote_source source, nano::block_hash filter)
+{
+	return node.vote_router.vote (make_vote_context (node, vote, source), filter);
+}
+
+nano::vote_code nano::test::election_vote (nano::node & node, nano::election & election, nano::keypair const & key, nano::block_hash const & hash, uint64_t timestamp, nano::vote_source source)
+{
+	// A vote packs its duration into the low bits of the timestamp, so a timestamp has to be a whole step or the final marker
+	release_assert (nano::vote::is_final_timestamp (timestamp) || (timestamp & nano::vote::timestamp_mask) == timestamp, "timestamp carries duration bits");
+	auto const vote = nano::vote::is_final_timestamp (timestamp) ? make_final_vote (key, std::vector<nano::block_hash>{ hash }) : make_vote (key, std::vector<nano::block_hash>{ hash }, timestamp);
+	return election.vote (make_vote_context (node, vote, source), hash);
 }
 
 std::shared_ptr<nano::vote> nano::test::make_final_vote (nano::keypair key, std::vector<std::shared_ptr<nano::block>> blocks)

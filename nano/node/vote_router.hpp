@@ -3,24 +3,27 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/numbers_templ.hpp>
 #include <nano/lib/observer_set.hpp>
+#include <nano/lib/vote.hpp>
 #include <nano/node/fwd.hpp>
 
+#include <boost/container/static_vector.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index_container.hpp>
 
+#include <bitset>
 #include <condition_variable>
 #include <memory>
+#include <ranges>
 #include <shared_mutex>
 #include <thread>
-#include <unordered_map>
 
 namespace mi = boost::multi_index;
 
 namespace nano
 {
-enum class vote_code
+enum class vote_code : uint8_t
 {
 	invalid, // Vote is not signed correctly
 	replay, // Vote does not have the highest timestamp, it's a replay
@@ -33,7 +36,7 @@ enum class vote_code
 nano::stat::detail to_stat_detail (vote_code);
 std::string_view to_string (vote_code);
 
-enum class vote_source
+enum class vote_source : uint8_t
 {
 	live,
 	rebroadcast,
@@ -42,6 +45,48 @@ enum class vote_source
 
 nano::stat::detail to_stat_detail (vote_source);
 std::string_view to_string (vote_source);
+
+/**
+ * What the vote router did with the hashes of one vote.
+ * Holds one code per position in the vote's list of hashes and no hashes of its own, so it lives on the stack whatever the size of the vote.
+ * Positions that were not routed have no code: hashes excluded by a filter and repeats of an earlier hash.
+ */
+class vote_results final
+{
+public:
+	// A routed hash of the vote
+	struct entry final
+	{
+		size_t position; // Index of the hash within the vote
+		nano::block_hash const & hash;
+		nano::vote_code code;
+	};
+
+	explicit vote_results (std::shared_ptr<nano::vote> const &);
+
+	// Records what happened to the hash at `position`, replacing an earlier code
+	void set (size_t position, nano::vote_code);
+
+	// Code of a routed hash, throws std::out_of_range for any other hash
+	nano::vote_code at (nano::block_hash const &) const;
+
+	// Number of routed hashes
+	size_t size () const;
+	bool empty () const;
+
+	// Routed hashes in the order of the vote
+	auto entries () const
+	{
+		return std::views::iota (size_t{ 0 }, codes.size ())
+		| std::views::filter ([this] (size_t position) { return routed.test (position); })
+		| std::views::transform ([this] (size_t position) { return entry{ position, vote->hashes[position], codes[position] }; });
+	}
+
+private:
+	std::shared_ptr<nano::vote> vote;
+	boost::container::static_vector<nano::vote_code, nano::vote::max_hashes> codes; // One slot per hash of the vote
+	std::bitset<nano::vote::max_hashes> routed; // Positions that hold a code
+};
 
 /**
  * Routes votes to their associated elections.
@@ -81,8 +126,9 @@ public:
 	 * A vote for a hash without a route is cached, then the route is looked up once more in case an election connected meanwhile.
 	 * If 'filter' parameter is non-zero, only elections for the specified hash are notified.
 	 * This eliminates duplicate processing when triggering votes from the vote_cache as the result of a specific election being created.
+	 * The context carries what the vote processor established about the vote, which the elections and the cache read instead of looking it up.
 	 */
-	std::unordered_map<nano::block_hash, nano::vote_code> vote (std::shared_ptr<nano::vote> const &, nano::vote_source = nano::vote_source::live, nano::block_hash filter = { 0 });
+	nano::vote_results vote (nano::vote_context const &, nano::block_hash filter = { 0 });
 
 	bool active (nano::block_hash const & hash) const;
 	std::shared_ptr<nano::election> election (nano::block_hash const & hash) const;
@@ -92,10 +138,10 @@ public:
 
 public: // Events
 	// Notified once for a vote with at least one hash held by a live election, before the vote reaches any of them
-	using vote_matched_event_t = nano::observer_set<std::shared_ptr<nano::vote> const &>;
+	using vote_matched_event_t = nano::observer_set<nano::vote_context const &>;
 	vote_matched_event_t vote_matched;
 
-	using vote_processed_event_t = nano::observer_set<std::shared_ptr<nano::vote> const &, nano::vote_source, std::unordered_map<nano::block_hash, nano::vote_code> const &>;
+	using vote_processed_event_t = nano::observer_set<nano::vote_context const &, nano::vote_results const &>;
 	vote_processed_event_t vote_processed;
 
 private: // Dependencies

@@ -5,6 +5,8 @@
 #include <nano/node/fwd.hpp>
 #include <nano/node/transport/fwd.hpp>
 #include <nano/node/transport/test_channel.hpp>
+#include <nano/node/vote_context.hpp>
+#include <nano/node/vote_router.hpp>
 #include <nano/secure/account_info.hpp>
 #include <nano/store/fwd.hpp>
 
@@ -450,6 +452,18 @@ namespace test
 	 * Convenience function to create a new final vote from list of block hashes
 	 */
 	std::shared_ptr<nano::vote> make_final_vote (nano::keypair key, std::vector<nano::block_hash> hashes);
+	/*
+	 * What the node's vote processor establishes about a vote, for handing it to the router, an election or the vote cache directly
+	 */
+	nano::vote_context make_vote_context (nano::node & node, std::shared_ptr<nano::vote> const & vote, nano::vote_source source = nano::vote_source::live);
+	/*
+	 * Routes a vote as the vote processor would, without queueing it
+	 */
+	nano::vote_results route_vote (nano::node & node, std::shared_ptr<nano::vote> const & vote, nano::vote_source source = nano::vote_source::live, nano::block_hash filter = { 0 });
+	/*
+	 * Delivers a vote from `key` for `hash` straight to the election, as the router would
+	 */
+	nano::vote_code election_vote (nano::node & node, nano::election & election, nano::keypair const & key, nano::block_hash const & hash, uint64_t timestamp, nano::vote_source source = nano::vote_source::live);
 	/*
 	 * Converts list of blocks to list of hashes
 	 */

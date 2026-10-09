@@ -9,6 +9,7 @@
 #include <nano/secure/common.hpp>
 #include <nano/secure/fwd.hpp>
 
+#include <boost/container/small_vector.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
@@ -86,21 +87,14 @@ private:
 	bool vote_impl (std::shared_ptr<nano::vote> const & vote, nano::uint128_t const & rep_weight, std::size_t max_voters);
 	std::pair<nano::uint128_t, nano::uint128_t> calculate_tally () const; // <tally, final_tally>
 
-	// clang-format off
-	class tag_representative {};
-	class tag_weight {};
-	// clang-format on
+	static std::size_t constexpr inline_voters{ 4 }; // Voters an entry holds without allocating
 
-	// clang-format off
-	using ordered_voters = boost::multi_index_container<voter_entry,
-	mi::indexed_by<
-		mi::hashed_unique<mi::tag<tag_representative>,
-			mi::member<voter_entry, nano::account, &voter_entry::representative>>,
-		mi::ordered_non_unique<mi::tag<tag_weight>,
-			mi::member<voter_entry, nano::uint128_t, &voter_entry::weight>>
-	>>;
-	// clang-format on
-	ordered_voters voters;
+	// At most `max_voters` small records: searching them linearly beats an index
+	using voter_list = boost::container::small_vector<voter_entry, inline_voters>;
+	voter_list voters;
+
+	// Lowest weight voter, the earliest one among equals
+	voter_list::iterator lowest_voter ();
 
 	nano::block_hash const hash_m;
 	std::chrono::steady_clock::time_point last_vote_m{};
@@ -117,11 +111,15 @@ public:
 	explicit vote_cache (vote_cache_config const &, nano::stats &);
 
 	/**
-	 * Adds a new vote to cache
+	 * Adds a routed vote to the cache, for the hashes that may still need it
+	 * The context carries the representative's weight, as the vote processor established it
 	 */
-	void insert (
-	std::shared_ptr<nano::vote> const & vote,
-	std::unordered_map<nano::block_hash, nano::vote_code> const & results = {});
+	void insert (nano::vote_context const &, nano::vote_results const & results);
+
+	/**
+	 * Adds a vote to the cache for all of its hashes (meant for testing)
+	 */
+	void insert (nano::vote_context const &);
 
 	/**
 	 * Tries to find an entry associated with block hash
@@ -157,15 +155,17 @@ public:
 
 public:
 	/**
-	 * Function used to query rep weight for tally calculation
+	 * Runs before a routed vote is stored, between the router's two lookups; a hook for tests
 	 */
-	std::function<nano::uint128_t (nano::account const &)> rep_weight_query{ [] (nano::account const & rep) { debug_assert (false); return 0; } };
+	std::function<void (nano::vote_context const &)> insert_action;
 
 private: // Dependencies
 	vote_cache_config const & config;
 	nano::stats & stats;
 
 private:
+	// Whether the vote's representative has a tier, counting an ignored vote
+	bool admit (nano::vote_context const &);
 	void insert_impl (std::shared_ptr<nano::vote> const &, nano::block_hash const & hash, nano::uint128_t const & rep_weight);
 	void cleanup ();
 

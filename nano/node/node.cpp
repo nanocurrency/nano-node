@@ -61,6 +61,7 @@
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/vote_cache.hpp>
+#include <nano/node/vote_context.hpp>
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_rebroadcaster.hpp>
@@ -202,7 +203,7 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	vote_router{ *vote_router_impl },
 	vote_processor_impl{ std::make_unique<nano::vote_processor> (config.vote_processor, vote_router, observers, stats, flags, logger, online_reps, rep_crawler, ledger, network_params, rep_tiers) },
 	vote_processor{ *vote_processor_impl },
-	vote_cache_processor_impl{ std::make_unique<nano::vote_cache_processor> (config.vote_cache_processor, vote_router, vote_cache, stats, logger) },
+	vote_cache_processor_impl{ std::make_unique<nano::vote_cache_processor> (config.vote_cache_processor, vote_router, vote_cache, vote_processor, stats, logger) },
 	vote_cache_processor{ *vote_cache_processor_impl },
 	voting_policy_impl{ std::make_unique<nano::voting_policy> (ledger) },
 	voting_policy{ *voting_policy_impl },
@@ -244,10 +245,6 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	node_seq{ seq }
 {
 	logger.debug (nano::log::type::node, "Constructing node...");
-
-	vote_cache.rep_weight_query = [this] (nano::account const & rep) {
-		return ledger.weight (rep);
-	};
 
 	// Prioritize bootstrapping accounts with stale elections to find alternative forks
 	active.election_stale.add ([this] (auto const & election) {
@@ -293,32 +290,32 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	});
 
 	// Track rep weight voting on live elections, once per vote and before any election checks its quorum
-	vote_router.vote_matched.add ([this] (std::shared_ptr<nano::vote> const & vote) {
+	vote_router.vote_matched.add ([this] (nano::vote_context const & context) {
 		// Elections only count votes of principal representatives
-		if (network_params.network.is_dev_network () || ledger.weight (vote->account) > minimum_principal_weight ())
+		if (context.principal)
 		{
-			online_reps.observe (vote->account);
+			online_reps.observe (context.vote->account);
 		}
 	});
 
 	// Representative is defined as online if replying to live votes or rep crawler queries
-	observers.vote.add ([this] (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_source source, nano::vote_code code) {
-		release_assert (vote != nullptr);
-		release_assert (channel != nullptr);
+	observers.vote.add ([this] (nano::vote_context const & context, nano::vote_code code) {
+		release_assert (context.vote != nullptr);
+		release_assert (context.channel != nullptr);
 		debug_assert (code != nano::vote_code::invalid);
 
 		// Votes that reached an election were observed above, this leaves the ones that came too late
 		bool should_observe = (code == nano::vote_code::late);
 
 		// Ignore republished votes when rep crawling
-		if (source == nano::vote_source::live)
+		if (context.source == nano::vote_source::live)
 		{
-			should_observe |= rep_crawler.process (vote, channel);
+			should_observe |= rep_crawler.process (context.vote, context.channel);
 		}
 
 		if (should_observe)
 		{
-			online_reps.observe (vote->account);
+			online_reps.observe (context.vote->account);
 		}
 	});
 

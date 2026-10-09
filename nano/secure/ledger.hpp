@@ -99,6 +99,10 @@ public:
 	 */
 	nano::rep_weight_map weights (std::span<nano::account const>) const;
 	/**
+	 * Same snapshot without a map: writes the vote weight of `reps[i]` to `weights[i]`, which allocates nothing.
+	 */
+	void weights (std::span<nano::account const> reps, std::span<nano::uint128_t> weights) const;
+	/**
 	 * Returns the vote weights of all representatives with a cached weight as one consistent snapshot, without a database lookup.
 	 * Returns the preconfigured bootstrap weights until the bootstrap height is reached.
 	 */

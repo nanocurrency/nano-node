@@ -41,6 +41,9 @@ public:
 	/* Weights of all given representatives read under a single lock, so the result is one consistent snapshot; every requested rep has an entry, zero when it has no cached weight */
 	nano::rep_weight_map get (std::span<nano::account const> reps) const;
 
+	/* Same snapshot without a map: writes the weight of `reps[i]` to `weights[i]`, which allocates nothing */
+	void get (std::span<nano::account const> reps, std::span<nano::uint128_t> weights) const;
+
 	/* Copy of the whole cache read under a single lock: every representative with a cached weight, i.e. at or above the cache minimum */
 	nano::rep_weight_map get_all () const;
 
