@@ -7,6 +7,7 @@
 
 #include <boost/unordered/unordered_flat_map.hpp>
 
+#include <deque>
 #include <unordered_map>
 
 namespace nano
@@ -17,7 +18,7 @@ class confirmation_solicitor final
 public:
 	confirmation_solicitor (nano::network &, nano::node_config const &);
 	/** Prepare object for batching election confirmation requests*/
-	void prepare (std::vector<nano::representative> const &);
+	void prepare (std::deque<nano::representative> const &);
 	/** Broadcast the winner of an election if the broadcast limit has not been reached. Returns true if the broadcast was performed */
 	bool broadcast (nano::election_snapshot const &);
 	/** Add an election that needs to be confirmed. Returns true if any confirmation request was queued */
@@ -36,8 +37,8 @@ private:
 	nano::node_config const & config;
 
 	unsigned rebroadcasted{ 0 };
-	std::vector<nano::representative> representatives_requests;
-	std::vector<nano::representative> representatives_broadcasts;
+	std::deque<nano::representative> representatives_requests;
+	std::deque<nano::representative> representatives_broadcasts;
 	using vector_root_hashes = std::vector<std::pair<nano::block_hash, nano::root>>;
 	boost::unordered_flat_map<std::shared_ptr<nano::transport::channel>, vector_root_hashes> requests;
 	bool prepared{ false };
