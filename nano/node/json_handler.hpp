@@ -65,6 +65,7 @@ public:
 	void state_checkpoint ();
 	void state_retention_plan ();
 	void state_pending_sweep ();
+	void work_storage_weight ();
 	void block_create ();
 	void block_hash ();
 	void bootstrap ();
