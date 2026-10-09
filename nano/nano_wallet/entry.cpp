@@ -105,7 +105,6 @@ public:
 			try
 			{
 				std::shared_ptr<nano_qt::wallet> gui;
-				nano::set_application_icon (application);
 				auto opencl = nano::opencl_work::create (config.opencl_enable, config.opencl, logger, config.node.network_params.work);
 				nano::opencl_work_func_t opencl_work_func;
 				if (opencl)
@@ -239,6 +238,7 @@ int main (int argc, char * const * argv)
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 
 	QApplication application (argc, const_cast<char **> (argv));
+	nano::set_application_icon (application);
 
 	nano::wallet_daemon daemon;
 
