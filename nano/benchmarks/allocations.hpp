@@ -6,7 +6,7 @@ namespace nano::benchmarks
 {
 /**
  * Heap allocations made through operator new, counted per thread.
- * Allocations made directly through malloc are not seen.
+ * Allocations made directly through malloc are not seen, and the counts stay at zero in sanitizer builds, where the sanitizer runtime owns operator new.
  */
 struct allocation_stats
 {

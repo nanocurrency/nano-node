@@ -3,6 +3,15 @@
 #include <cstdlib>
 #include <new>
 
+// A sanitizer runtime defines operator new itself and the linker rejects a second definition
+#if defined(__has_feature)
+#if __has_feature(thread_sanitizer) || __has_feature(address_sanitizer)
+#define NANO_BENCHMARKS_SANITIZED 1
+#endif
+#elif defined(__SANITIZE_THREAD__) || defined(__SANITIZE_ADDRESS__)
+#define NANO_BENCHMARKS_SANITIZED 1
+#endif
+
 namespace
 {
 // Constant initialized, so reading them never allocates
@@ -14,6 +23,8 @@ nano::benchmarks::allocation_stats nano::benchmarks::thread_allocations ()
 {
 	return { allocation_count, allocation_bytes };
 }
+
+#ifndef NANO_BENCHMARKS_SANITIZED
 
 /*
  * Replacing the plain forms is enough: the default array and nothrow forms forward to them.
@@ -39,3 +50,5 @@ void operator delete (void * pointer, std::size_t) noexcept
 {
 	std::free (pointer);
 }
+
+#endif
