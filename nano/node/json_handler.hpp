@@ -60,6 +60,7 @@ public:
 	void blocks_info ();
 	void block_account ();
 	void block_count ();
+	void state_commitment ();
 	void block_create ();
 	void block_hash ();
 	void bootstrap ();
