@@ -41,7 +41,6 @@
 
 #include <map>
 #include <mutex>
-#include <thread>
 
 #include <benchmark/benchmark.h>
 
@@ -88,6 +87,8 @@ public:
 		config.optimistic_scheduler->enable = false;
 		config.priority_scheduler->enable = false;
 		config.backlog_scan->enable = false;
+		// The cache is emptied before elections start, so no replay into them may overlap a measurement
+		config.vote_cache_processor->enable = false;
 		node = system.add_node (config);
 		channel = std::make_shared<nano::transport::inproc::channel> (*node, *node);
 
@@ -113,11 +114,6 @@ public:
 		{
 			auto const result = node->active.insert (block, nano::election_behavior::priority);
 			release_assert (result.inserted);
-		}
-		// A starting election reads the vote cache on another thread, that must not overlap a measurement
-		while (!node->vote_cache_processor.empty ())
-		{
-			std::this_thread::yield ();
 		}
 	}
 
