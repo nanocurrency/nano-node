@@ -8,7 +8,6 @@
 #include <nano/node/vote_router.hpp>
 
 #include <boost/container/flat_set.hpp>
-#include <boost/container/small_vector.hpp>
 #include <boost/container/static_vector.hpp>
 
 #include <algorithm>
@@ -157,13 +156,13 @@ nano::vote_results nano::vote_router::vote (std::shared_ptr<nano::vote> const & 
 	auto const & hashes = vote->hashes;
 	nano::vote_results results{ vote };
 
-	// An election together with the position of the hash it claims
+	// An election together with the position of the hash it claims, at most one per distinct hash
 	struct match
 	{
 		size_t position;
 		std::shared_ptr<nano::election> election;
 	};
-	boost::container::small_vector<match, inline_matches> matches;
+	boost::container::static_vector<match, nano::vote::max_hashes> matches;
 
 	// Positions ordered by their hash, so inserting a position fails if its hash occurred before
 	auto const hash_less = [&hashes] (uint8_t lhs, uint8_t rhs) {
@@ -200,6 +199,7 @@ nano::vote_results nano::vote_router::vote (std::shared_ptr<nano::vote> const & 
 
 			if (auto election = find_election (hash))
 			{
+				release_assert (matches.size () < matches.capacity ());
 				matches.push_back ({ position, std::move (election) });
 			}
 			else
@@ -241,6 +241,7 @@ nano::vote_results nano::vote_router::vote (std::shared_ptr<nano::vote> const & 
 			{
 				if (auto election = find_election (entry.hash))
 				{
+					release_assert (matches.size () < matches.capacity ());
 					matches.push_back ({ entry.position, std::move (election) });
 				}
 			}
