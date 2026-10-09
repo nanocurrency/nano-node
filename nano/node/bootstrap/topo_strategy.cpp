@@ -126,13 +126,16 @@ void topo_strategy::scan_one ()
 
 	// Back-pressure each head class on its own pre-check pool (spearhead also on the gap backlog) so a saturated
 	// pool gates only its class; next () never drops a page, which would strand its blocks out of the buffer.
-	// Repair heads are additionally paced by their own rate limiter, and only run at all with the topo index: without
-	// it the pre-check has to probe every entry by hash, and a perpetual sweep in that mode is a random-read storm.
+	// Repair heads are additionally paced by their own rate limiter. The broad sweep needs the topo index: without it
+	// the pre-check probes every entry by hash, a random-read storm when perpetual. The trailing band is a few pages
+	// per spearhead fast-forward and heals what the jump skipped, so it stays on either way.
 	std::optional<topo_scan::request> req;
 	ctx.wait ([this, &req] () {
+		bool const repair_open = repair_workers.queued_tasks () < max_precheck_tasks && repair_limiter.can_consume ();
 		topo_scan::head_gates gates{
 			.include_spearhead = gaps.count () < ctx.config.topo_scan.max_gaps && spearhead_workers.queued_tasks () < max_precheck_tasks,
-			.include_repair = ctx.ledger.flags.topo_index && repair_workers.queued_tasks () < max_precheck_tasks && repair_limiter.can_consume (),
+			.include_trailing_repair = repair_open,
+			.include_broad_repair = repair_open && ctx.ledger.flags.topo_index,
 		};
 		req = scan.next (gates);
 		if (req && req->head != 0)
