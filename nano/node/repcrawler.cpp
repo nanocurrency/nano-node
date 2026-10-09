@@ -450,7 +450,7 @@ nano::uint128_t nano::rep_crawler::total_weight () const
 	return result;
 }
 
-std::vector<nano::representative> nano::rep_crawler::representatives (std::size_t count, nano::uint128_t const minimum_weight, std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version) const
+std::deque<nano::representative> nano::rep_crawler::representatives (std::size_t count, nano::uint128_t const minimum_weight, std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version) const
 {
 	auto const version_min = minimum_protocol_version.value_or (node.network_params.network.protocol_version_min);
 
@@ -466,8 +466,7 @@ std::vector<nano::representative> nano::rep_crawler::representatives (std::size_
 		}
 	}
 
-	std::vector<nano::representative> result;
-	result.reserve (ordered.size ());
+	std::deque<nano::representative> result;
 	for (auto i = ordered.begin (), n = ordered.end (); i != n && result.size () < count; ++i)
 	{
 		auto const & [weight, rep] = *i;
@@ -476,7 +475,7 @@ std::vector<nano::representative> nano::rep_crawler::representatives (std::size_
 	return result;
 }
 
-std::vector<nano::representative> nano::rep_crawler::principal_representatives (std::size_t count, std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version) const
+std::deque<nano::representative> nano::rep_crawler::principal_representatives (std::size_t count, std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version) const
 {
 	return representatives (count, node.minimum_principal_weight (), minimum_protocol_version);
 }

@@ -52,7 +52,7 @@ TEST (confirmation_solicitor, batches)
 	auto channel1 = nano::test::establish_tcp (system, node2, node1.network.endpoint ());
 	// Solicitor will only solicit from this representative
 	nano::representative representative{ nano::dev::genesis_key.pub, channel1 };
-	std::vector<nano::representative> representatives{ representative };
+	std::deque<nano::representative> representatives{ representative };
 	nano::confirmation_solicitor solicitor (node2.network, node2.config);
 	solicitor.prepare (representatives);
 	// Ensure the representatives are correct
@@ -89,7 +89,7 @@ TEST (confirmation_solicitor, different_hash)
 	auto channel1 = nano::test::establish_tcp (system, node2, node1.network.endpoint ());
 	// Solicitor will only solicit from this representative
 	nano::representative representative{ nano::dev::genesis_key.pub, channel1 };
-	std::vector<nano::representative> representatives{ representative };
+	std::deque<nano::representative> representatives{ representative };
 	nano::confirmation_solicitor solicitor (node2.network, node2.config);
 	solicitor.prepare (representatives);
 	// Ensure the representatives are correct
@@ -120,9 +120,8 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 	auto & node1 = *system.add_node (node_flags);
 	auto & node2 = *system.add_node (node_flags);
 	nano::confirmation_solicitor solicitor (node2.network, node2.config);
-	std::vector<nano::representative> representatives;
+	std::deque<nano::representative> representatives;
 	auto max_representatives = std::max<size_t> (solicitor.max_election_requests, solicitor.max_election_broadcasts);
-	representatives.reserve (max_representatives + 1);
 	for (auto i (0); i < max_representatives + 1; ++i)
 	{
 		// Make a temporary channel associated with node2
