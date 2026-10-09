@@ -18,8 +18,15 @@ endif()
 
 qt5_add_resources(RES ${CMAKE_SOURCE_DIR}/resources.qrc)
 
-add_executable(nano_wallet ${PLATFORM_GUI_TARGET_PROPERTIES}
-                           ${PLATFORM_WALLET_SOURCE} entry.cpp icon.hpp ${RES})
+add_executable(
+  nano_wallet
+  ${PLATFORM_GUI_TARGET_PROPERTIES}
+  ${PLATFORM_WALLET_SOURCE}
+  entry.cpp
+  icon.hpp
+  splash_screen.cpp
+  splash_screen.hpp
+  ${RES})
 
 target_link_libraries(nano_wallet Boost::process rpc node qt)
 
