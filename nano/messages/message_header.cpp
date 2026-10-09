@@ -14,6 +14,7 @@
 #include <nano/messages/message_header.hpp>
 #include <nano/messages/node_id_handshake.hpp>
 #include <nano/messages/telemetry.hpp>
+#include <nano/messages/vote_relay.hpp>
 
 #include <boost/endian/conversion.hpp>
 
@@ -249,6 +250,14 @@ std::size_t message_header::payload_length_bytes () const
 		{
 			return asc_pull_ack::size (*this);
 		}
+		case message_type::vote_relay_req:
+		{
+			return vote_relay_req::size (*this);
+		}
+		case message_type::vote_relay_ack:
+		{
+			return vote_relay_ack::size (*this);
+		}
 		default:
 		{
 			debug_assert (false);
@@ -274,6 +283,8 @@ bool message_header::is_valid_message_type () const
 		case message_type::telemetry_ack:
 		case message_type::asc_pull_req:
 		case message_type::asc_pull_ack:
+		case message_type::vote_relay_req:
+		case message_type::vote_relay_ack:
 		{
 			return true;
 		}

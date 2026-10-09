@@ -267,3 +267,16 @@ TEST (message_deserializer, exact_asc_pull_ack)
 
 	message_deserializer_success_checker<decltype (message)> (message);
 }
+
+TEST (message_deserializer, exact_vote_relay_req)
+{
+	nano::messages::vote_relay_req message{ nano::dev::network_params.network, 7, { { nano::block_hash{ 1 }, nano::root{ 2 } } }, { nano::account{ 3 } }, true };
+	message_deserializer_success_checker<decltype (message)> (message);
+}
+
+TEST (message_deserializer, exact_vote_relay_ack)
+{
+	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ nano::block_hash{ 1 } });
+	nano::messages::vote_relay_ack message{ nano::dev::network_params.network, 11, { vote } };
+	message_deserializer_success_checker<decltype (message)> (message);
+}

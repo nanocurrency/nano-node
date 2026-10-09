@@ -100,6 +100,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::vote_replier:
 			thread_role_name_string = "Vote replier";
 			break;
+		case nano::thread_role::name::vote_relay:
+			thread_role_name_string = "Vote relay";
+			break;
 		case nano::thread_role::name::state_block_signature_verification:
 			thread_role_name_string = "State block sig";
 			break;

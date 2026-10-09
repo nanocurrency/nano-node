@@ -195,6 +195,14 @@ std::unique_ptr<nano::messages::message> nano::transport::message_deserializer::
 		{
 			return deserialize_asc_pull_ack (stream, header);
 		}
+		case nano::messages::message_type::vote_relay_req:
+		{
+			return deserialize_vote_relay_req (stream, header);
+		}
+		case nano::messages::message_type::vote_relay_ack:
+		{
+			return deserialize_vote_relay_ack (stream, header);
+		}
 		default:
 		{
 			status = parse_status::invalid_message_type;
@@ -388,6 +396,36 @@ std::unique_ptr<nano::messages::asc_pull_ack> nano::transport::message_deseriali
 	else
 	{
 		status = parse_status::invalid_asc_pull_ack_message;
+	}
+	return {};
+}
+
+std::unique_ptr<nano::messages::vote_relay_req> nano::transport::message_deserializer::deserialize_vote_relay_req (nano::stream & stream, nano::messages::message_header const & header)
+{
+	bool error = false;
+	auto incoming = std::make_unique<nano::messages::vote_relay_req> (error, stream, header);
+	if (!error && nano::at_end (stream))
+	{
+		return incoming;
+	}
+	else
+	{
+		status = parse_status::invalid_vote_relay_req_message;
+	}
+	return {};
+}
+
+std::unique_ptr<nano::messages::vote_relay_ack> nano::transport::message_deserializer::deserialize_vote_relay_ack (nano::stream & stream, nano::messages::message_header const & header)
+{
+	bool error = false;
+	auto incoming = std::make_unique<nano::messages::vote_relay_ack> (error, stream, header, &vote_uniquer_m);
+	if (!error && nano::at_end (stream))
+	{
+		return incoming;
+	}
+	else
+	{
+		status = parse_status::invalid_vote_relay_ack_message;
 	}
 	return {};
 }

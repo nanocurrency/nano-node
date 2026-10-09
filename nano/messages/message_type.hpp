@@ -30,6 +30,8 @@ enum class message_type : uint8_t
 	telemetry_ack = 0x0d,
 	asc_pull_req = 0x0e,
 	asc_pull_ack = 0x0f,
+	vote_relay_req = 0x10,
+	vote_relay_ack = 0x11,
 };
 
 std::string_view to_string (message_type);
