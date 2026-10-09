@@ -82,7 +82,7 @@ private:
 	nano::thread_pool spearhead_workers;
 	nano::thread_pool repair_workers;
 
-	// Paces repair-head requests: the repair sweep re-verifies the discovered range indefinitely, and each page is a
+	// Paces repair-head page scans: the repair sweep re-verifies the discovered range indefinitely, and each page is a
 	// ledger read, so it must not run at line rate like the spearhead does
 	nano::rate_limiter repair_limiter;
 

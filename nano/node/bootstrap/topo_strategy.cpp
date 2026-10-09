@@ -135,17 +135,18 @@ void topo_strategy::scan_one ()
 			.include_repair = ctx.ledger.flags.topo_index && repair_workers.queued_tasks () < max_precheck_tasks && repair_limiter.can_consume (),
 		};
 		req = scan.next (gates);
+		if (req && req->head != 0)
+		{
+			// Charge one page scan per repair round issued; a top-up of a partial round pays again, erring on the slow side
+			// This thread is the limiter's only consumer, so the token the gate above saw is still there
+			[[maybe_unused]] bool const charged = repair_limiter.try_consume ();
+			debug_assert (charged);
+		}
 		return req.has_value ();
 	});
 	if (!req)
 	{
 		return;
-	}
-
-	// Charge the round now that a repair head has been reserved; the scan thread is the only consumer so the gate above guarantees a token
-	if (req->head != 0)
-	{
-		repair_limiter.try_consume (req->fanout);
 	}
 
 	// Acquire up to `fanout` distinct peers (topo index requests need the capability); the cross-round
