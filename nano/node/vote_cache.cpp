@@ -76,6 +76,11 @@ bool nano::vote_cache_entry::vote_impl (std::shared_ptr<nano::vote> const & vote
 		// Vote from a new representative, add it to the list and update tally
 		if (should_add ())
 		{
+			// Most entries hear from every online representative, so the first voter past the inline ones makes room for all of them at once
+			if (voters.size () == voters.capacity ())
+			{
+				voters.reserve (max_voters);
+			}
 			voters.push_back ({ representative, rep_weight, vote });
 
 			// If we have reached the maximum number of voters, remove the lowest weight voter
