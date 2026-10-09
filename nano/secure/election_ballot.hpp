@@ -174,7 +174,7 @@ public: // Queries
 
 private:
 	static size_t constexpr inline_hashes{ 4 }; // Voted-for hashes weighed without allocating, an election rarely sees more
-	static size_t constexpr inline_reps{ 128 }; // Voters tallied without allocating
+	static size_t constexpr inline_reps{ 256 }; // Voters tallied without allocating, with room to spare over the live network's principal representatives
 
 	// Vote weight behind one voted-for block hash
 	struct block_weight final
