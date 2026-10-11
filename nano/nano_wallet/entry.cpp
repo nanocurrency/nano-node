@@ -11,6 +11,7 @@
 #include <nano/lib/walletconfig.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/nano_wallet/icon.hpp>
+#include <nano/nano_wallet/splash_screen.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
@@ -28,6 +29,11 @@
 #include <boost/program_options.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+
+#include <chrono>
+#include <future>
+
+using namespace std::chrono_literals;
 
 namespace nano
 {
@@ -67,10 +73,10 @@ public:
 		std::filesystem::create_directories (data_path);
 		nano::set_secure_perm_directory (data_path, error_chmod);
 		QPixmap pixmap (":/logo.png");
-		auto * splash = new QSplashScreen (pixmap);
+		auto * splash = new splash_screen (pixmap);
 		splash->show ();
 		QApplication::processEvents ();
-		splash->showMessage (QSplashScreen::tr ("Remember - Back Up Your Wallet Seed"), Qt::AlignBottom | Qt::AlignHCenter, Qt::darkGray);
+		splash->showMessage (QSplashScreen::tr ("Remember to back up your wallet seed"), Qt::AlignBottom | Qt::AlignHCenter, Qt::darkGray);
 		QApplication::processEvents ();
 
 		nano::network_params network_params{ nano::get_active_network () };
@@ -99,7 +105,6 @@ public:
 			try
 			{
 				std::shared_ptr<nano_qt::wallet> gui;
-				nano::set_application_icon (application);
 				auto opencl = nano::opencl_work::create (config.opencl_enable, config.opencl, logger, config.node.network_params.work);
 				nano::opencl_work_func_t opencl_work_func;
 				if (opencl)
@@ -109,7 +114,9 @@ public:
 					};
 				}
 				nano::work_pool work{ config.node.network_params.network, config.node.work_threads, config.node.pow_sleep_interval, opencl_work_func };
-				nano::node_scope_guard node{ std::make_shared<nano::node> (data_path, config.node, work, flags) };
+				// The ellipsis is appended as a code point since MSVC would decode it in the local code page inside the literal
+				splash->show_status (QSplashScreen::tr ("Loading ledger, this may take a while") + QChar (0x2026));
+				nano::node_scope_guard node{ construct_node (data_path, config.node, work, flags) };
 				auto opened = nano::wallet::open_configured_wallet (node->wallets, wallet_config);
 				if (!opened)
 				{
@@ -191,6 +198,34 @@ public:
 
 		return result;
 	}
+
+private:
+	// Constructs the node off the GUI thread so the splash screen keeps painting while the ledger loads
+	std::shared_ptr<nano::node> construct_node (std::filesystem::path const & data_path, nano::node_config const & config, nano::work_pool & work, nano::node_flags const & flags)
+	{
+		auto future = std::async (std::launch::async, [&] {
+			return std::make_shared<nano::node> (data_path, config, work, flags);
+		});
+		// A nested event loop rather than processEvents polling, so Qt hands a quit request from the OS to this loop instead of letting AppKit call exit ()
+		QEventLoop loop;
+		QTimer poll;
+		QObject::connect (&poll, &QTimer::timeout, [&] {
+			if (future.wait_for (0s) == std::future_status::ready)
+			{
+				loop.quit ();
+			}
+		});
+		poll.start (50ms);
+		loop.exec ();
+		if (future.wait_for (0s) != std::future_status::ready)
+		{
+			// The node cannot be cancelled mid-construction and the process cannot unwind under it, so it ends right here
+			logger.info (nano::log::type::daemon_wallet, "Quit requested while the node was loading, exiting");
+			nano::logger::flush ();
+			std::_Exit (0);
+		}
+		return future.get ();
+	}
 };
 }
 
@@ -203,6 +238,7 @@ int main (int argc, char * const * argv)
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 
 	QApplication application (argc, const_cast<char **> (argv));
+	nano::set_application_icon (application);
 
 	nano::wallet_daemon daemon;
 

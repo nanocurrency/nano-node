@@ -1,5 +1,9 @@
 #include <nano/nano_wallet/icon.hpp>
 
-void nano::set_application_icon (QApplication &)
+#include <QApplication>
+#include <QIcon>
+
+void nano::set_application_icon (QApplication & application)
 {
+	application.setWindowIcon (QIcon (":/icon.png"));
 }

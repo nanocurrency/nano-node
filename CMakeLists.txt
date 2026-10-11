@@ -832,69 +832,13 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
 
   find_package(Qt5 COMPONENTS Core Gui Widgets Test ${PLATFORM_QT_PACKAGES})
 
-  add_library(qt nano/qt/qt.cpp nano/qt/qt.hpp)
   include_directories(${CMAKE_SOURCE_DIR}/submodules)
 
-  target_link_libraries(
-    qt
-    node
-    secure
-    nano_lib
-    libminiupnpc-static
-    Qt5::Gui
-    Qt5::Widgets)
-
-  if(WIN32)
-    set(PLATFORM_GUI_TARGET_PROPERTIES WIN32)
-  else()
-    set(PLATFORM_GUI_TARGET_PROPERTIES "")
-  endif()
-
-  if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    set(PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/default/icon.cpp)
-  elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    set(PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/windows/icon.cpp Nano.rc)
-  elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set(PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/default/icon.cpp)
-  elseif(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-    set(PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/default/icon.cpp)
-  else()
-    error("Unknown platform: ${CMAKE_SYSTEM_NAME}")
-  endif()
-
-  qt5_add_resources(RES resources.qrc)
-
-  add_executable(
-    nano_wallet ${PLATFORM_GUI_TARGET_PROPERTIES} ${PLATFORM_WALLET_SOURCE}
-                nano/nano_wallet/entry.cpp nano/nano_wallet/icon.hpp ${RES})
-
-  target_link_libraries(nano_wallet Boost::process rpc node qt)
-
-  if(WIN32)
-    target_link_libraries(nano_wallet Qt5::WinExtras)
-  endif()
-
-  set_target_properties(
-    qt nano_wallet PROPERTIES COMPILE_FLAGS
-                              "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
+  add_subdirectory(nano/qt)
+  add_subdirectory(nano/nano_wallet)
 
   if(NANO_TEST OR RAIBLOCKS_TEST)
-    add_executable(qt_test nano/qt_test/entry.cpp nano/qt_test/qt.cpp)
-
-    target_link_libraries(
-      qt_test
-      node
-      secure
-      test_common
-      gtest
-      gtest_main
-      qt
-      Qt5::Test)
-
-    set_target_properties(
-      qt_test PROPERTIES COMPILE_FLAGS
-                         "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
-    add_dependencies(all_tests qt_test)
+    add_subdirectory(nano/qt_test)
   endif()
 
   if(APPLE)
