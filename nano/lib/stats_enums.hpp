@@ -831,5 +831,5 @@ template <>
 struct magic_enum::customize::enum_range<nano::stat::detail>
 {
 	static constexpr int min = 0;
-	static constexpr int max = 512;
+	static constexpr int max = 1024;
 };
