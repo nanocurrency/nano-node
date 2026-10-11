@@ -66,6 +66,7 @@ private: // Dependencies
 	nano::vote_router & vote_router;
 	nano::node_observers & observers;
 	nano::stats & stats;
+	nano::node_flags & flags;
 	nano::logger & logger;
 	nano::online_reps & online_reps;
 	nano::rep_crawler & rep_crawler;

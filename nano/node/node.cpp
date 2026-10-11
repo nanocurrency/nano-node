@@ -291,11 +291,8 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 
 	// Track rep weight voting on live elections, once per vote and before any election checks its quorum
 	vote_router.vote_matched.add ([this] (nano::vote_context const & context) {
-		// Elections only count votes of principal representatives
-		if (context.principal)
-		{
-			online_reps.observe (context.vote->account);
-		}
+		// The router matches only votes of principal representatives
+		online_reps.observe (context.vote->account);
 	});
 
 	// Representative is defined as online if replying to live votes or rep crawler queries

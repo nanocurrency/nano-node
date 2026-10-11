@@ -158,6 +158,9 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 	auto const & hashes = vote->hashes;
 	nano::vote_results results{ vote };
 
+	// Only votes of principal representatives reach elections
+	bool const principal = context.principal;
+
 	// An election together with the position of the hash it claims, at most one per distinct hash
 	struct match
 	{
@@ -199,7 +202,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 				continue;
 			}
 
-			if (auto election = find_election (hash))
+			if (auto election = principal ? find_election (hash) : nullptr)
 			{
 				release_assert (matches.size () < matches.capacity ());
 				matches.push_back ({ position, std::move (election) });
@@ -218,10 +221,9 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 		vote_matched.notify (context);
 	}
 
-	// Elections only count votes of principal representatives
 	for (auto const & [position, election] : matches)
 	{
-		results.set (position, context.principal ? election->vote (vote->account, vote->timestamp (), hashes[position], context.source, context.tier) : nano::vote_code::indeterminate);
+		results.set (position, election->vote (vote->account, vote->timestamp (), hashes[position], context.source, context.tier));
 	}
 
 	// All distinct hashes should have their result set
@@ -237,7 +239,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 			return entry.code == nano::vote_code::indeterminate;
 		};
 		matches.clear ();
-		if (std::ranges::any_of (results.entries (), unmatched))
+		if (principal && std::ranges::any_of (results.entries (), unmatched))
 		{
 			std::shared_lock lock{ mutex };
 			for (auto const & entry : results.entries () | std::views::filter (unmatched))
@@ -256,7 +258,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 		for (auto const & [position, election] : matches)
 		{
 			// Any other result means the election got the vote from the cache or is over already
-			if (context.principal && election->vote (vote->account, vote->timestamp (), hashes[position], context.source, context.tier) == nano::vote_code::vote)
+			if (election->vote (vote->account, vote->timestamp (), hashes[position], context.source, context.tier) == nano::vote_code::vote)
 			{
 				results.set (position, nano::vote_code::vote);
 			}

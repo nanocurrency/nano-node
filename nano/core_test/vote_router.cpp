@@ -133,6 +133,35 @@ TEST (vote_router, vote_unmatched_is_cached)
 }
 
 /*
+ * Only a principal representative's vote reaches an election, anyone else's is answered as unknown and never matched.
+ */
+TEST (vote_router, non_principal_vote_never_reaches_election)
+{
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.all_reps_principal = false;
+	auto & node = *system.add_node (flags);
+	nano::block_hash const hash{ 1 };
+	auto election = std::make_shared<nano::election> (node, nano::dev::genesis, nano::election_behavior::priority, 0);
+	ASSERT_TRUE (node.vote_router.connect (hash, election));
+	std::size_t matched{ 0 };
+	node.vote_router.vote_matched.add ([&] (auto const &) {
+		++matched;
+	});
+
+	nano::keypair unfunded;
+	auto results = node.route_vote (nano::test::make_vote (unfunded, std::vector<nano::block_hash>{ hash }, 1));
+	ASSERT_EQ (nano::vote_code::indeterminate, results.at (hash));
+	ASSERT_EQ (0, matched);
+	ASSERT_TRUE (election->votes ().empty ());
+
+	results = node.route_vote (nano::test::make_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ hash }, 1));
+	ASSERT_EQ (nano::vote_code::vote, results.at (hash));
+	ASSERT_EQ (1, matched);
+	ASSERT_TRUE (election->votes ().contains (nano::dev::genesis_key.pub));
+}
+
+/*
  * A vote reaches an election that starts while the vote is being routed.
  * A starting election connects its route and then reads the vote cache, so a vote that found no route must not be cached too late for that read and then left there.
  */

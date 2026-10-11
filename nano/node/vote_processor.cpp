@@ -27,6 +27,7 @@ nano::vote_processor::vote_processor (vote_processor_config const & config_a, na
 	vote_router{ vote_router },
 	observers{ observers_a },
 	stats{ stats_a },
+	flags{ flags_a },
 	logger{ logger_a },
 	online_reps{ online_reps_a },
 	rep_crawler{ rep_crawler_a },
@@ -107,7 +108,7 @@ nano::vote_context nano::vote_processor::context (std::shared_ptr<nano::vote> co
 {
 	auto const weight = ledger.weight (vote->account);
 	// Same minimum as node::minimum_principal_weight
-	bool const principal = network_params.network.is_dev_network () || weight > online_reps.trended () / network_params.network.principal_weight_factor;
+	bool const principal = flags.all_reps_principal || weight > online_reps.trended () / network_params.network.principal_weight_factor;
 	return { .vote = vote, .source = source, .channel = channel, .tier = rep_tiers.tier (vote->account), .weight = weight, .principal = principal };
 }
 
