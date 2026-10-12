@@ -323,6 +323,39 @@ TEST (deserialize_message_header, protocol_version)
 }
 
 /*
+ * A publish header must name an actual block type, since the payload length follows from it
+ */
+TEST (deserialize_message_header, publish_block_type)
+{
+	auto const & network = nano::dev::network_params.network;
+	auto parse_block_type = [&network] (nano::block_type block_type) {
+		nano::messages::message_header header{ network, nano::messages::message_type::publish };
+		header.block_type_set (block_type);
+		return nano::deserialize_message_header (serialize_header (header), network);
+	};
+	for (auto block_type : nano::enum_values<nano::block_type> ())
+	{
+		SCOPED_TRACE (nano::to_string (block_type));
+		auto [parsed, status] = parse_block_type (block_type);
+		if (block_type == nano::block_type::invalid || block_type == nano::block_type::not_a_block)
+		{
+			ASSERT_FALSE (parsed);
+			ASSERT_EQ (status, nano::deserialize_message_status::invalid_header);
+		}
+		else
+		{
+			ASSERT_TRUE (parsed);
+			ASSERT_EQ (status, nano::deserialize_message_status::success);
+		}
+	}
+
+	// The header field has room for values the enum does not define
+	auto [unknown, unknown_status] = parse_block_type (static_cast<nano::block_type> (0x0f));
+	ASSERT_FALSE (unknown);
+	ASSERT_EQ (unknown_status, nano::deserialize_message_status::invalid_header);
+}
+
+/*
  * A payload cut short of what its header declares is rejected with the status of its own message type
  */
 TEST (deserialize_message_payload, truncated)
@@ -647,4 +680,18 @@ TEST (deserialize_message, invalid_header)
 	auto [foreign_message, foreign_status] = nano::deserialize_message (bytes, network);
 	ASSERT_EQ (foreign_message, nullptr);
 	ASSERT_EQ (foreign_status, nano::deserialize_message_status::invalid_network);
+}
+
+/*
+ * A publish whose header names no block is rejected before its payload length, which comes from the block type, is computed
+ */
+TEST (deserialize_message, publish_not_a_block)
+{
+	auto const & network = nano::dev::network_params.network;
+	nano::messages::message_header header{ network, nano::messages::message_type::publish };
+	header.block_type_set (nano::block_type::not_a_block);
+
+	auto [message, status] = nano::deserialize_message (serialize_header (header), network);
+	ASSERT_EQ (message, nullptr);
+	ASSERT_EQ (status, nano::deserialize_message_status::invalid_header);
 }

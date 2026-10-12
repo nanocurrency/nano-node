@@ -1,3 +1,4 @@
+#include <nano/lib/block_type.hpp>
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/network_filter.hpp>
 #include <nano/lib/stream.hpp>
@@ -14,6 +15,27 @@
 #include <nano/messages/publish.hpp>
 #include <nano/messages/telemetry.hpp>
 #include <nano/messages/uniquers.hpp>
+
+namespace
+{
+// Whether the block type names an actual block rather than a placeholder
+bool is_block (nano::block_type type)
+{
+	switch (type)
+	{
+		case nano::block_type::send:
+		case nano::block_type::receive:
+		case nano::block_type::open:
+		case nano::block_type::change:
+		case nano::block_type::state:
+			return true;
+		case nano::block_type::invalid:
+		case nano::block_type::not_a_block:
+			break;
+	}
+	return false;
+}
+}
 
 auto nano::deserialize_message_header (nano::buffer_view buffer, nano::network_constants const & network_constants) -> deserialize_message_header_result
 {
@@ -36,6 +58,11 @@ auto nano::deserialize_message_header (nano::buffer_view buffer, nano::network_c
 	if (header.version_using < network_constants.protocol_version_min)
 	{
 		return { std::nullopt, deserialize_message_status::outdated_version };
+	}
+	// The payload length of a publish follows from its block type, so a type without a block leaves the length undefined
+	if (header.type == nano::messages::message_type::publish && !is_block (header.block_type ()))
+	{
+		return { std::nullopt, deserialize_message_status::invalid_header };
 	}
 	return { header, deserialize_message_status::success };
 }

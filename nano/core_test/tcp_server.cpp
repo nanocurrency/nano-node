@@ -454,6 +454,38 @@ TEST (tcp_server, handshake_wrong_network_id)
 }
 
 /*
+ * A publish header that names no block type is rejected before any payload is read and the connection is dropped
+ */
+TEST (tcp_server, rejects_publish_without_block_type)
+{
+	nano::test::system system;
+	auto node = system.add_node ();
+
+	auto client_socket = std::make_shared<nano::transport::tcp_socket> (*node);
+	auto ec = client_socket->blocking_connect (node->network.endpoint ());
+	ASSERT_FALSE (ec);
+	ASSERT_TIMELY_EQ (5s, node->tcp_listener.all_sockets ().size (), 1);
+
+	// The payload length of a publish follows from its block type, so this header declares no usable length
+	nano::messages::message_header header (nano::dev::network_params.network, nano::messages::message_type::publish);
+	header.block_type_set (nano::block_type::not_a_block);
+	std::vector<uint8_t> header_data;
+	{
+		nano::vectorstream stream (header_data);
+		header.serialize (stream);
+	}
+
+	auto buffer = std::make_shared<std::vector<uint8_t>> (header_data);
+	auto [write_ec, bytes_written] = client_socket->blocking_write (buffer, header_data.size ());
+	ASSERT_FALSE (write_ec);
+	ASSERT_EQ (bytes_written, header_data.size ());
+
+	ASSERT_TIMELY (5s, node->tcp_listener.all_sockets ().empty ());
+	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_server_message_error, nano::stat::detail::invalid_header), 1);
+	ASSERT_TIMELY_EQ (5s, node->stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort), 1);
+}
+
+/*
  * Verify that v3 handshake exchanges node capability flags between peers
  */
 TEST (tcp_server, handshake_flags_exchanged)
