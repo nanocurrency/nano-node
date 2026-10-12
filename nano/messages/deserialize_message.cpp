@@ -209,10 +209,12 @@ nano::vote_uniquer * vote_uniquer)
 			return { nullptr, deserialize_message_status::invalid_asc_pull_ack_message };
 		}
 		break;
-		default:
-			return { nullptr, deserialize_message_status::invalid_message_type };
+		case nano::messages::message_type::invalid:
+		case nano::messages::message_type::not_a_type:
+			break;
 	}
-	release_assert (false, "invalid message type");
+	// No default case, so the compiler flags a message type missing above; placeholders and values outside the enum end up here
+	return { nullptr, deserialize_message_status::invalid_message_type };
 }
 
 auto nano::deserialize_message (
