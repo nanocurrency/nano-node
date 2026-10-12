@@ -125,6 +125,8 @@ std::vector<sample> make_samples ()
 		add ("confirm_req " + std::to_string (count), std::make_unique<nano::messages::confirm_req> (network, random_roots_hashes (count)));
 		add ("confirm_ack " + std::to_string (count), std::make_unique<nano::messages::confirm_ack> (network, nano::test::make_vote (key, random_hashes (count))));
 	}
+	// A vote may carry no hashes at all, a request must name at least one
+	add ("confirm_ack 0", std::make_unique<nano::messages::confirm_ack> (network, nano::test::make_vote (key, random_hashes (0))));
 
 	add ("bulk_pull", std::make_unique<nano::messages::bulk_pull> (network));
 	{
@@ -601,6 +603,144 @@ TEST (deserialize_message_payload, publish_not_a_block_does_not_crash)
 
 	ASSERT_EQ (message, nullptr);
 	ASSERT_EQ (status, nano::deserialize_message_status::invalid_publish_message);
+}
+
+/*
+ * A confirmation request must name at least one root and hash, so a count of zero is rejected
+ */
+TEST (deserialize_message_payload, confirm_req_empty)
+{
+	auto const & network = nano::dev::network_params.network;
+	nano::messages::message_header header{ network, nano::messages::message_type::confirm_req };
+	header.block_type_set (nano::block_type::not_a_block);
+	header.count_set (0);
+	ASSERT_EQ (header.payload_length_bytes (), 0);
+	auto const bytes = serialize_header (header);
+
+	auto [message, status] = nano::deserialize_message_payload (payload_of (bytes), header, network);
+	ASSERT_EQ (message, nullptr);
+	ASSERT_EQ (status, nano::deserialize_message_status::invalid_confirm_req_message);
+}
+
+/*
+ * A zero root and hash pair is skipped, which leaves fewer pairs than the header counts, so the request is rejected
+ */
+TEST (deserialize_message_payload, confirm_req_zero_pair)
+{
+	auto const & network = nano::dev::network_params.network;
+	std::vector<std::pair<nano::block_hash, nano::root>> const roots_hashes{ { nano::test::random_hash (), nano::test::random_hash () }, { nano::block_hash (0), nano::root (0) } };
+	nano::messages::confirm_req const confirm_req{ network, roots_hashes };
+	auto const bytes = confirm_req.to_bytes ();
+
+	auto [message, status] = nano::deserialize_message_payload (payload_of (*bytes), confirm_req.header, network);
+	ASSERT_EQ (message, nullptr);
+	ASSERT_EQ (status, nano::deserialize_message_status::invalid_confirm_req_message);
+}
+
+/*
+ * An ascending bootstrap request or response naming a payload type the node does not know is rejected
+ */
+TEST (deserialize_message_payload, asc_pull_unknown_type)
+{
+	auto const & network = nano::dev::network_params.network;
+	nano::messages::asc_pull_req request{ network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::account_info;
+	request.payload = nano::messages::asc_pull_req::account_info_payload{ .target = nano::test::random_hash_or_account (), .target_type = nano::messages::asc_pull_req::hash_type::account };
+	request.update_header ();
+	nano::messages::asc_pull_ack response{ network };
+	response.id = 7;
+	response.type = nano::messages::asc_pull_type::account_info;
+	response.payload = nano::messages::asc_pull_ack::account_info_payload{ .account = nano::test::random_account () };
+	response.update_header ();
+
+	// The payload type is the first byte after the header
+	auto parse_as_type = [&network] (nano::messages::message const & message, uint8_t type) {
+		auto bytes = *message.to_bytes ();
+		bytes[nano::messages::message_header::size] = type;
+		return nano::deserialize_message_payload (payload_of (bytes), message.header, network);
+	};
+	for (uint8_t type : { static_cast<uint8_t> (nano::messages::asc_pull_type::invalid), uint8_t{ 0xff } })
+	{
+		SCOPED_TRACE (static_cast<int> (type));
+		auto [request_message, request_status] = parse_as_type (request, type);
+		ASSERT_EQ (request_message, nullptr);
+		ASSERT_EQ (request_status, nano::deserialize_message_status::invalid_asc_pull_req_message);
+
+		auto [response_message, response_status] = parse_as_type (response, type);
+		ASSERT_EQ (response_message, nullptr);
+		ASSERT_EQ (response_status, nano::deserialize_message_status::invalid_asc_pull_ack_message);
+	}
+}
+
+/*
+ * A telemetry payload shorter than the oldest layout is rejected, one between two layouts parses as the older one and keeps the rest as unknown data
+ */
+TEST (deserialize_message_payload, telemetry_ack_sizes)
+{
+	auto const & network = nano::dev::network_params.network;
+	auto parse_size = [&network] (std::size_t size) {
+		nano::messages::message_header header{ network, nano::messages::message_type::telemetry_ack };
+		header.extensions = size;
+		std::vector<uint8_t> const payload (size, 0);
+		return nano::deserialize_message_payload (payload, header, network);
+	};
+	auto const size_v1 = nano::messages::telemetry_data::size_v1;
+	auto const size_v2 = nano::messages::telemetry_data::size_v2;
+
+	auto [short_message, short_status] = parse_size (size_v1 - 1);
+	ASSERT_EQ (short_message, nullptr);
+	ASSERT_EQ (short_status, nano::deserialize_message_status::invalid_telemetry_ack_message);
+
+	auto [between_message, between_status] = parse_size (size_v2 - 1);
+	ASSERT_EQ (between_status, nano::deserialize_message_status::success);
+	ASSERT_NE (between_message, nullptr);
+	auto const & data = dynamic_cast<nano::messages::telemetry_ack const &> (*between_message).data;
+	ASSERT_EQ (data.version, nano::messages::telemetry_data_version::v1);
+	ASSERT_EQ (data.unknown_data.size (), size_v2 - 1 - size_v1);
+}
+
+/*
+ * A handshake that neither queries nor responds has no payload and parses as such, rejecting it is left to the server
+ */
+TEST (deserialize_message_payload, node_id_handshake_empty)
+{
+	auto const & network = nano::dev::network_params.network;
+	nano::messages::message_header const header{ network, nano::messages::message_type::node_id_handshake };
+	ASSERT_EQ (header.payload_length_bytes (), 0);
+	auto const bytes = serialize_header (header);
+
+	auto [message, status] = nano::deserialize_message_payload (payload_of (bytes), header, network);
+	ASSERT_EQ (status, nano::deserialize_message_status::success);
+	ASSERT_NE (message, nullptr);
+	auto const & handshake = dynamic_cast<nano::messages::node_id_handshake const &> (*message);
+	ASSERT_FALSE (handshake.query.has_value ());
+	ASSERT_FALSE (handshake.response.has_value ());
+}
+
+/*
+ * A block list cut inside a block keeps the blocks before the cut, since the list ends wherever the payload stops parsing as a block
+ */
+TEST (deserialize_message_payload, asc_pull_ack_blocks_cut)
+{
+	auto const & network = nano::dev::network_params.network;
+	auto const first = nano::test::random_block ();
+	nano::messages::asc_pull_ack response{ network };
+	response.id = 11;
+	response.type = nano::messages::asc_pull_type::blocks;
+	response.payload = nano::messages::asc_pull_ack::blocks_payload{ .blocks = { first, nano::test::random_block () } };
+	response.update_header ();
+	auto const bytes = response.to_bytes ();
+
+	// Each block is written as its type byte and its body, the cut leaves the second block its type byte and half of its body
+	auto const block_size = 1 + nano::block::size (first->type ());
+	auto const cut = nano::messages::asc_pull_ack::partial_size + block_size + block_size / 2;
+	auto [message, status] = nano::deserialize_message_payload (payload_of (*bytes).first (cut), response.header, network);
+	ASSERT_EQ (status, nano::deserialize_message_status::success);
+	ASSERT_NE (message, nullptr);
+	auto const & blocks = std::get<nano::messages::asc_pull_ack::blocks_payload> (dynamic_cast<nano::messages::asc_pull_ack const &> (*message).payload).blocks;
+	ASSERT_EQ (blocks.size (), 1);
+	ASSERT_EQ (blocks.front ()->hash (), first->hash ());
 }
 
 /*
