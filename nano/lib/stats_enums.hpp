@@ -371,7 +371,6 @@ enum class detail
 	invalid_frontier_req_message,
 	invalid_asc_pull_req_message,
 	invalid_asc_pull_ack_message,
-	message_size_too_big,
 	outdated_version,
 
 	// network

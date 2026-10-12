@@ -6,7 +6,6 @@
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
-#include <nano/node/transport/message_deserializer.hpp>
 #include <nano/node/transport/tcp_channels.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/transport/tcp_server.hpp>

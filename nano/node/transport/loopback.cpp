@@ -2,7 +2,6 @@
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/loopback.hpp>
-#include <nano/node/transport/message_deserializer.hpp>
 #include <nano/secure/network_params.hpp>
 
 #include <boost/format.hpp>
