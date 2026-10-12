@@ -3,8 +3,10 @@
 #include <nano/lib/asio.hpp>
 #include <nano/lib/stats_enums.hpp>
 #include <nano/messages/fwd.hpp>
+#include <nano/messages/message_header.hpp>
 
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <tuple>
 
@@ -37,7 +39,11 @@ enum class deserialize_message_status
 nano::stat::detail to_stat_detail (deserialize_message_status);
 std::string_view to_string (deserialize_message_status);
 
+using deserialize_message_header_result = std::tuple<std::optional<nano::messages::message_header>, nano::deserialize_message_status>;
 using deserialize_message_result = std::tuple<std::unique_ptr<nano::messages::message>, nano::deserialize_message_status>;
+
+// Parses the header at the start of the buffer and checks that this node can accept the message it announces
+deserialize_message_header_result deserialize_message_header (nano::buffer_view, nano::network_constants const &);
 
 deserialize_message_result deserialize_message (
 nano::buffer_view buffer,

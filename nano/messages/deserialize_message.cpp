@@ -15,6 +15,31 @@
 #include <nano/messages/telemetry.hpp>
 #include <nano/messages/uniquers.hpp>
 
+auto nano::deserialize_message_header (nano::buffer_view buffer, nano::network_constants const & network_constants) -> deserialize_message_header_result
+{
+	nano::bufferstream stream{ buffer.data (), buffer.size () };
+
+	bool error = false;
+	nano::messages::message_header header{ error, stream };
+	if (error)
+	{
+		return { std::nullopt, deserialize_message_status::invalid_header };
+	}
+	if (!header.is_valid_message_type ())
+	{
+		return { std::nullopt, deserialize_message_status::invalid_message_type };
+	}
+	if (header.network != network_constants.current_network)
+	{
+		return { std::nullopt, deserialize_message_status::invalid_network };
+	}
+	if (header.version_using < network_constants.protocol_version_min)
+	{
+		return { std::nullopt, deserialize_message_status::outdated_version };
+	}
+	return { header, deserialize_message_status::success };
+}
+
 auto nano::deserialize_message (
 nano::buffer_view buffer,
 nano::messages::message_header const & header,

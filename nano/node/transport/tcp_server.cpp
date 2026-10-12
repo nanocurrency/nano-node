@@ -255,29 +255,14 @@ auto nano::transport::tcp_server::receive_message_impl () -> asio::awaitable<nan
 	node.stats.inc (nano::stat::type::tcp_server_read, nano::stat::detail::header, nano::stat::dir::in);
 
 	auto header_payload = co_await read_socket (nano::messages::message_header::size);
-	auto header_stream = nano::bufferstream{ header_payload.data (), header_payload.size () };
 
-	bool error = false;
-	nano::messages::message_header header{ error, header_stream };
-
-	if (error)
+	auto [header, status] = nano::deserialize_message_header (header_payload, node.config.network_params.network);
+	if (!header)
 	{
-		co_return nano::deserialize_message_result{ nullptr, nano::deserialize_message_status::invalid_header };
-	}
-	if (!header.is_valid_message_type ())
-	{
-		co_return nano::deserialize_message_result{ nullptr, nano::deserialize_message_status::invalid_message_type };
-	}
-	if (header.network != node.config.network_params.network.current_network)
-	{
-		co_return nano::deserialize_message_result{ nullptr, nano::deserialize_message_status::invalid_network };
-	}
-	if (header.version_using < node.config.network_params.network.protocol_version_min)
-	{
-		co_return nano::deserialize_message_result{ nullptr, nano::deserialize_message_status::outdated_version };
+		co_return nano::deserialize_message_result{ nullptr, status };
 	}
 
-	auto const payload_size = header.payload_length_bytes ();
+	auto const payload_size = header->payload_length_bytes ();
 
 	// Declared length is untrusted; never let it drive a read past the buffer.
 	if (payload_size > max_buffer_size)
@@ -286,11 +271,11 @@ auto nano::transport::tcp_server::receive_message_impl () -> asio::awaitable<nan
 	}
 
 	node.stats.inc (nano::stat::type::tcp_server, nano::stat::detail::read_payload, nano::stat::dir::in);
-	node.stats.inc (nano::stat::type::tcp_server_read, to_stat_detail (header.type), nano::stat::dir::in);
+	node.stats.inc (nano::stat::type::tcp_server_read, to_stat_detail (header->type), nano::stat::dir::in);
 
 	auto payload_buffer = payload_size > 0 ? co_await read_socket (payload_size) : nano::buffer_view{ buffer->data (), 0 };
 
-	auto result = nano::deserialize_message (payload_buffer, header,
+	auto result = nano::deserialize_message (payload_buffer, *header,
 	node.network_params.network,
 	&node.network.filter,
 	&node.block_uniquer,

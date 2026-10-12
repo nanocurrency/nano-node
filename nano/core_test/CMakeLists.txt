@@ -29,6 +29,7 @@ add_executable(
   crawler.cpp
   cementing_set.cpp
   conflicts.cpp
+  deserialize_message.cpp
   difficulty.cpp
   distributed_work.cpp
   election.cpp
