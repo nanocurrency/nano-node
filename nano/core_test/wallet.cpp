@@ -996,6 +996,9 @@ TEST (wallet, password_race)
 
 TEST (wallet, password_race_corrupt_seed)
 {
+	// Each thread can hold a wallet read transaction, so the 3 * thread_groups threads must stay well below LMDB's default of 126 reader slots
+	auto const thread_groups = 10;
+
 	nano::test::system system (1);
 	auto wallet = system.wallet (0);
 	nano::raw_key seed;
@@ -1007,7 +1010,7 @@ TEST (wallet, password_race_corrupt_seed)
 		ASSERT_FALSE (wallet->enter_password ("4567"));
 	}
 	std::vector<std::thread> threads;
-	for (int i = 0; i < 100; i++)
+	for (int i = 0; i < thread_groups; i++)
 	{
 		threads.emplace_back ([&wallet] () {
 			for (int i = 0; i < 10; i++)
