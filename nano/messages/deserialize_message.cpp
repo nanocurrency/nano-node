@@ -40,7 +40,7 @@ auto nano::deserialize_message_header (nano::buffer_view buffer, nano::network_c
 	return { header, deserialize_message_status::success };
 }
 
-auto nano::deserialize_message (
+auto nano::deserialize_message_payload (
 nano::buffer_view buffer,
 nano::messages::message_header const & header,
 nano::network_constants const & network_constants,
@@ -213,6 +213,30 @@ nano::vote_uniquer * vote_uniquer)
 			return { nullptr, deserialize_message_status::invalid_message_type };
 	}
 	release_assert (false, "invalid message type");
+}
+
+auto nano::deserialize_message (
+nano::buffer_view buffer,
+nano::network_constants const & network_constants,
+nano::network_filter * network_filter,
+nano::block_uniquer * block_uniquer,
+nano::vote_uniquer * vote_uniquer)
+-> deserialize_message_result
+{
+	auto [header, status] = deserialize_message_header (buffer, network_constants);
+	if (!header)
+	{
+		return { nullptr, status };
+	}
+
+	// On a stream the declared length is what separates this message from the next, so a buffer holding one message must match it exactly
+	auto const payload = buffer.subspan (nano::messages::message_header::size);
+	if (payload.size () != header->payload_length_bytes ())
+	{
+		return { nullptr, deserialize_message_status::payload_length_mismatch };
+	}
+
+	return deserialize_message_payload (payload, *header, network_constants, network_filter, block_uniquer, vote_uniquer);
 }
 
 nano::stat::detail nano::to_stat_detail (nano::deserialize_message_status status)

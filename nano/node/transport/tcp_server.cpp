@@ -275,7 +275,7 @@ auto nano::transport::tcp_server::receive_message_impl () -> asio::awaitable<nan
 
 	auto payload_buffer = payload_size > 0 ? co_await read_socket (payload_size) : nano::buffer_view{ buffer->data (), 0 };
 
-	auto result = nano::deserialize_message (payload_buffer, *header,
+	auto result = nano::deserialize_message_payload (payload_buffer, *header,
 	node.network_params.network,
 	&node.network.filter,
 	&node.block_uniquer,

@@ -358,6 +358,7 @@ enum class detail
 	// received messages
 	invalid_header,
 	invalid_message_type,
+	payload_length_mismatch,
 	invalid_keepalive_message,
 	invalid_publish_message,
 	invalid_confirm_req_message,

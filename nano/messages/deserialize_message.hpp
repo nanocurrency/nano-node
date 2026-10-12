@@ -18,6 +18,7 @@ enum class deserialize_message_status
 	insufficient_work,
 	invalid_header,
 	invalid_message_type,
+	payload_length_mismatch,
 	invalid_keepalive_message,
 	invalid_publish_message,
 	invalid_confirm_req_message,
@@ -45,9 +46,18 @@ using deserialize_message_result = std::tuple<std::unique_ptr<nano::messages::me
 // Parses the header at the start of the buffer and checks that this node can accept the message it announces
 deserialize_message_header_result deserialize_message_header (nano::buffer_view, nano::network_constants const &);
 
-deserialize_message_result deserialize_message (
+// Parses the payload that follows a header accepted by `deserialize_message_header`
+deserialize_message_result deserialize_message_payload (
 nano::buffer_view buffer,
 nano::messages::message_header const & header,
+nano::network_constants const &,
+nano::network_filter * = nullptr,
+nano::block_uniquer * = nullptr,
+nano::vote_uniquer * = nullptr);
+
+// Parses one complete serialized message, header included
+deserialize_message_result deserialize_message (
+nano::buffer_view buffer,
 nano::network_constants const &,
 nano::network_filter * = nullptr,
 nano::block_uniquer * = nullptr,
