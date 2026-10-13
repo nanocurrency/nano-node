@@ -304,6 +304,10 @@ public:
 	wallet (QApplication &, nano_qt::eventloop_processor &, nano::node &, std::shared_ptr<nano::wallet::wallet> const &, nano::public_key const &);
 	void start ();
 	void refresh ();
+
+	// Shows an account of the shown wallet and reports it to selection_observer
+	void select_account (nano::account const &);
+
 	void update_connected ();
 	void empty_password ();
 	void change_rendering_ratio (nano::uint128_t const &);
@@ -356,5 +360,12 @@ public:
 	void ongoing_refresh ();
 	std::atomic<bool> needs_balance_refresh;
 	std::atomic<bool> needs_deterministic_restore;
+
+	// Called with the wallet id and account each time the user picks an account
+	std::function<void (nano::wallet_id const &, nano::account const &)> selection_observer{ [] (nano::wallet_id const &, nano::account const &) {} };
+
+private:
+	// Id of the shown wallet, none once the wallet is destroyed
+	std::optional<nano::wallet_id> find_wallet_id () const;
 };
 }

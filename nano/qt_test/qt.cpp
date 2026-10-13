@@ -43,6 +43,13 @@ void use_account (nano_qt::wallet & wallet, nano::account const & account)
 	}
 	QTest::mouseClick (wallet.accounts.use_account, Qt::LeftButton);
 }
+
+/** A wallet and account reported to selection_observer */
+struct selection
+{
+	nano::wallet_id wallet;
+	nano::account account;
+};
 }
 
 TEST (qt_wallet, construction)
@@ -1190,4 +1197,43 @@ TEST (qt_wallet, account_viewer_history)
 	QTest::keyClicks (wallet->account_viewer.account_line, key.to_account ().c_str ());
 	QTest::mouseClick (wallet->account_viewer.refresh, Qt::LeftButton);
 	ASSERT_EQ (0, wallet->account_viewer.history.model->rowCount ());
+}
+
+/*
+ * Picking an account reports it to the selection observer together with the id of its wallet.
+ * The wallet executable keeps the pick in its wallet config, so the wallet opens on it again after a restart.
+ */
+TEST (qt_wallet, select_account_observer)
+{
+	nano_qt::eventloop_processor processor;
+	nano::test::system system (1);
+	// A wallet with a known id and two accounts to pick from
+	auto const id = nano::random_wallet_id ();
+	auto wallet_l = system.nodes[0]->wallets.create (id);
+	auto key1 = wallet_l->deterministic_insert ().value ();
+	auto key2 = wallet_l->deterministic_insert ().value ();
+	auto wallet = std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key1);
+	wallet->start ();
+	// Records every pick the wallet reports
+	std::vector<selection> selections;
+	wallet->selection_observer = [&selections] (nano::wallet_id const & wallet_id, nano::account const & account) {
+		selections.push_back ({ wallet_id, account });
+	};
+
+	// Use account reports the account picked
+	use_account (*wallet, key2);
+	ASSERT_EQ (1, selections.size ());
+	ASSERT_EQ (id, selections.back ().wallet);
+	ASSERT_EQ (key2, selections.back ().account);
+
+	// Importing a seed replaces the accounts and reports the restored one, so the config never names a removed account
+	nano::raw_key seed;
+	seed.clear ();
+	QTest::keyClicks (wallet->import.seed, seed.to_string ().c_str ());
+	QTest::keyClicks (wallet->import.clear_line, "clear keys");
+	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
+	ASSERT_NE (key2, wallet->account);
+	ASSERT_EQ (2, selections.size ());
+	ASSERT_EQ (id, selections.back ().wallet);
+	ASSERT_EQ (wallet->account, selections.back ().account);
 }

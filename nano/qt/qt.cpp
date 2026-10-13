@@ -183,10 +183,11 @@ nano_qt::accounts::accounts (nano_qt::wallet & wallet_a) :
 		auto selection (view->selectionModel ()->selection ().indexes ());
 		if (selection.size () == 1)
 		{
-			auto error (this->wallet.account.decode_account (model->item (selection[0].row (), 1)->text ().toStdString ()));
+			nano::account account_l;
+			auto error (account_l.decode_account (model->item (selection[0].row (), 1)->text ().toStdString ()));
 			(void)error;
 			debug_assert (!error);
-			this->wallet.refresh ();
+			this->wallet.select_account (account_l);
 		}
 	});
 	QObject::connect (account_key_button, &QPushButton::released, [this] () {
@@ -414,7 +415,7 @@ nano_qt::import::import (nano_qt::wallet & wallet_a) :
 				{
 					if (auto account_result = this->wallet.wallet_m->change_seed (*seed_l))
 					{
-						this->wallet.account = account_result.value ();
+						this->wallet.select_account (account_result.value ());
 						successful = true;
 					}
 					else
@@ -438,7 +439,6 @@ nano_qt::import::import (nano_qt::wallet & wallet_a) :
 					show_line_ok (*seed);
 					show_button_success (*import_seed);
 					import_seed->setText ("Successful import of seed");
-					this->wallet.refresh ();
 					this->wallet.node.workers.post_delayed (std::chrono::seconds (5), [this] () {
 						this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this] () {
 							show_button_ok (*import_seed);
@@ -1478,6 +1478,29 @@ void nano_qt::wallet::refresh ()
 	history.refresh ();
 	account_viewer.history.refresh ();
 	settings.refresh_representative ();
+}
+
+void nano_qt::wallet::select_account (nano::account const & account_a)
+{
+	account = account_a;
+	refresh ();
+	// A wallet destroyed over RPC has no id left to report
+	if (auto id = find_wallet_id ())
+	{
+		selection_observer (*id, account);
+	}
+}
+
+std::optional<nano::wallet_id> nano_qt::wallet::find_wallet_id () const
+{
+	for (auto const & [id, wallet_l] : node.wallets.all_wallets ())
+	{
+		if (wallet_l == wallet_m)
+		{
+			return id;
+		}
+	}
+	return std::nullopt;
 }
 
 void nano_qt::wallet::update_connected ()
