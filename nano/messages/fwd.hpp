@@ -8,7 +8,6 @@ enum class message_type : uint8_t;
 enum class bulk_pull_account_flags : uint8_t;
 enum class asc_pull_type : uint8_t;
 enum class telemetry_maker : uint8_t;
-enum class deserialize_message_status;
 
 class message;
 class message_header;
@@ -32,6 +31,8 @@ class asc_pull_ack;
 
 namespace nano
 {
+enum class deserialize_message_status;
+
 using block_uniquer = nano::uniquer<nano::uint256_union, nano::block>;
 using vote_uniquer = nano::uniquer<nano::block_hash, nano::vote>;
 }

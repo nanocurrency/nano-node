@@ -208,8 +208,6 @@ add_library(
   transport/inproc.cpp
   transport/loopback.cpp
   transport/loopback.hpp
-  transport/message_deserializer.hpp
-  transport/message_deserializer.cpp
   transport/tcp_channels.hpp
   transport/tcp_channels.cpp
   transport/tcp_config.hpp

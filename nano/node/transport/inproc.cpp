@@ -1,8 +1,8 @@
 #include <nano/boost/asio/post.hpp>
+#include <nano/messages/deserialize_message.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/inproc.hpp>
-#include <nano/node/transport/message_deserializer.hpp>
 #include <nano/secure/network_params.hpp>
 
 #include <boost/format.hpp>
@@ -22,39 +22,25 @@ nano::transport::inproc::channel::channel (nano::node & node, nano::node & desti
  */
 bool nano::transport::inproc::channel::send_impl (nano::messages::message const & message, nano::transport::traffic_type traffic_type, nano::transport::channel::callback_t callback)
 {
-	auto buffer = message.to_shared_const_buffer ();
+	auto const bytes = message.to_bytes ();
 
-	std::size_t offset{ 0 };
-	auto const buffer_read_fn = [&offset, buffer_v = buffer.to_bytes ()] (std::shared_ptr<std::vector<uint8_t>> const & data_a, std::size_t size_a, std::function<void (boost::system::error_code const &, std::size_t)> callback_a) {
-		debug_assert (buffer_v.size () >= (offset + size_a));
-		data_a->resize (size_a);
-		auto const copy_start = buffer_v.begin () + offset;
-		std::copy (copy_start, copy_start + size_a, data_a->data ());
-		offset += size_a;
-		callback_a (boost::system::errc::make_error_code (boost::system::errc::success), size_a);
-	};
+	// Parsed like network input to the destination, minus the duplicate filter, which would drop repeats a caller sends on purpose
+	auto [incoming, status] = nano::deserialize_message (*bytes, destination.network_params.network, nullptr, &destination.block_uniquer, &destination.vote_uniquer);
 
-	auto const message_deserializer = std::make_shared<nano::transport::message_deserializer> (node.network_params.network, node.network.filter, node.block_uniquer, node.vote_uniquer, buffer_read_fn);
-	message_deserializer->read (
-	[this] (boost::system::error_code ec_a, std::unique_ptr<nano::messages::message> message_a) {
-		if (ec_a || !message_a)
-		{
-			return;
-		}
+	// A message serialized in this process can only fail on its content, any other failure means serializing and parsing disagree
+	debug_assert (incoming || status == nano::deserialize_message_status::insufficient_work, nano::to_string (status));
 
+	if (incoming)
+	{
 		// we create a temporary channel for the reply path, in case the receiver of the message wants to reply
 		auto remote_channel = std::make_shared<nano::transport::inproc::channel> (destination, node);
 
-		// process message
-		{
-			node.stats.inc (nano::stat::type::message, to_stat_detail (message_a->type ()), nano::stat::dir::in);
-			destination.inbound (*message_a, remote_channel);
-		}
-	});
+		destination.inbound (*incoming, remote_channel);
+	}
 
 	if (callback)
 	{
-		boost::asio::post (node.io_ctx, [callback_l = std::move (callback), buffer_size = buffer.size ()] () {
+		boost::asio::post (node.io_ctx, [callback_l = std::move (callback), buffer_size = bytes->size ()] () {
 			callback_l (boost::system::errc::make_error_code (boost::system::errc::success), buffer_size);
 		});
 	}

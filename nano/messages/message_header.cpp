@@ -249,12 +249,13 @@ std::size_t message_header::payload_length_bytes () const
 		{
 			return asc_pull_ack::size (*this);
 		}
-		default:
-		{
-			debug_assert (false);
-			return 0;
-		}
+		case message_type::invalid:
+		case message_type::not_a_type:
+			break;
 	}
+	// No default case, so the compiler flags a message type missing above; placeholders and values outside the enum end up here
+	debug_assert (false);
+	return 0;
 }
 
 bool message_header::is_valid_message_type () const
@@ -277,11 +278,12 @@ bool message_header::is_valid_message_type () const
 		{
 			return true;
 		}
-		default:
-		{
-			return false;
-		}
+		case message_type::invalid:
+		case message_type::not_a_type:
+			break;
 	}
+	// No default case, so the compiler flags a message type missing above; placeholders and values outside the enum end up here
+	return false;
 }
 
 void message_header::operator() (nano::object_stream & obs) const

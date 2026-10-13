@@ -3,8 +3,10 @@
 #include <nano/lib/asio.hpp>
 #include <nano/lib/stats_enums.hpp>
 #include <nano/messages/fwd.hpp>
+#include <nano/messages/message_header.hpp>
 
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <tuple>
 
@@ -16,6 +18,7 @@ enum class deserialize_message_status
 	insufficient_work,
 	invalid_header,
 	invalid_message_type,
+	payload_length_mismatch,
 	invalid_keepalive_message,
 	invalid_publish_message,
 	invalid_confirm_req_message,
@@ -37,11 +40,24 @@ enum class deserialize_message_status
 nano::stat::detail to_stat_detail (deserialize_message_status);
 std::string_view to_string (deserialize_message_status);
 
+using deserialize_message_header_result = std::tuple<std::optional<nano::messages::message_header>, nano::deserialize_message_status>;
 using deserialize_message_result = std::tuple<std::unique_ptr<nano::messages::message>, nano::deserialize_message_status>;
 
-deserialize_message_result deserialize_message (
+// Parses the header at the start of the buffer and checks that this node can accept the message it announces
+deserialize_message_header_result deserialize_message_header (nano::buffer_view, nano::network_constants const &);
+
+// Parses the payload that follows a header accepted by `deserialize_message_header`
+deserialize_message_result deserialize_message_payload (
 nano::buffer_view buffer,
 nano::messages::message_header const & header,
+nano::network_constants const &,
+nano::network_filter * = nullptr,
+nano::block_uniquer * = nullptr,
+nano::vote_uniquer * = nullptr);
+
+// Parses one complete serialized message, header included
+deserialize_message_result deserialize_message (
+nano::buffer_view buffer,
 nano::network_constants const &,
 nano::network_filter * = nullptr,
 nano::block_uniquer * = nullptr,
