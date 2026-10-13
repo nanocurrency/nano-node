@@ -44,6 +44,38 @@ void use_account (nano_qt::wallet & wallet, nano::account const & account)
 	QTest::mouseClick (wallet.accounts.use_account, Qt::LeftButton);
 }
 
+/** The row of the wallet with \p id on the wallets screen, -1 when it is not listed */
+int wallet_row (nano_qt::wallet & wallet, nano::wallet_id const & id)
+{
+	auto & model = *wallet.wallets_viewer.model;
+	for (auto row = 0; row < model.rowCount (); ++row)
+	{
+		if (model.item (row, 2)->text ().toStdString () == id.to_string ())
+		{
+			return row;
+		}
+	}
+	return -1;
+}
+
+/** Whether the wallet with \p id is listed in bold, which marks the shown wallet */
+bool listed_in_bold (nano_qt::wallet & wallet, nano::wallet_id const & id)
+{
+	auto row = wallet_row (wallet, id);
+	return row >= 0 && wallet.wallets_viewer.model->item (row, 2)->font ().bold ();
+}
+
+/** Selects the row of the wallet with \p id on the wallets screen and clicks Use wallet */
+void use_wallet (nano_qt::wallet & wallet, nano::wallet_id const & id)
+{
+	wallet.wallets_viewer.view->clearSelection ();
+	if (auto row = wallet_row (wallet, id); row >= 0)
+	{
+		wallet.wallets_viewer.view->selectRow (row);
+	}
+	QTest::mouseClick (wallet.wallets_viewer.use_wallet, Qt::LeftButton);
+}
+
 /** A wallet and account reported to selection_observer */
 struct selection
 {
@@ -1236,4 +1268,230 @@ TEST (qt_wallet, select_account_observer)
 	ASSERT_EQ (2, selections.size ());
 	ASSERT_EQ (id, selections.back ().wallet);
 	ASSERT_EQ (wallet->account, selections.back ().account);
+}
+
+/*
+ * The wallets screen lists every wallet in the store with its balance and number of accounts, the shown one in bold.
+ * Use wallet shows the selected wallet with its first account and reports the pick to the selection observer.
+ */
+TEST (qt_wallet, use_wallet)
+{
+	nano_qt::eventloop_processor processor;
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	// The wallet starts on a wallet with a fresh account, a second wallet holds genesis
+	auto const id1 = nano::random_wallet_id ();
+	auto wallet1 = node.wallets.create (id1);
+	auto key1 = wallet1->deterministic_insert ().value ();
+	auto const id2 = nano::random_wallet_id ();
+	auto wallet2 = node.wallets.create (id2);
+	ASSERT_TRUE (wallet2->insert_adhoc (nano::dev::genesis_key.prv));
+	auto wallet = std::make_shared<nano_qt::wallet> (*test_application, processor, node, wallet1, key1);
+	wallet->start ();
+	// Records every pick the wallet reports
+	std::vector<selection> selections;
+	wallet->selection_observer = [&selections] (nano::wallet_id const & wallet_id, nano::account const & account) {
+		selections.push_back ({ wallet_id, account });
+	};
+
+	// The screen also lists the test system's wallet, with the shown wallet in bold
+	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
+	QTest::mouseClick (wallet->accounts.show_wallets, Qt::LeftButton);
+	ASSERT_EQ (wallet->wallets_viewer.window, wallet->main_stack->currentWidget ());
+	ASSERT_EQ (node.wallets.wallet_count (), wallet->wallets_viewer.model->rowCount ());
+	ASSERT_TRUE (listed_in_bold (*wallet, id1));
+	ASSERT_FALSE (listed_in_bold (*wallet, id2));
+
+	// The row of the second wallet shows the whole supply in its single account
+	auto row2 = wallet_row (*wallet, id2);
+	ASSERT_GE (row2, 0);
+	ASSERT_EQ (wallet->format_balance (nano::dev::constants.genesis_amount), wallet->wallets_viewer.model->item (row2, 0)->text ().toStdString ());
+	ASSERT_EQ ("1", wallet->wallets_viewer.model->item (row2, 1)->text ().toStdString ());
+
+	// Using the second wallet shows genesis, its only account, with its history and the wallet balance
+	use_wallet (*wallet, id2);
+	ASSERT_EQ (wallet2, wallet->wallet_m);
+	ASSERT_EQ (nano::dev::genesis_key.pub, wallet->account);
+	ASSERT_EQ (1, wallet->accounts.model->rowCount ());
+	ASSERT_EQ (1, wallet->history.model->rowCount ());
+	ASSERT_EQ ("Balance: " + wallet->format_balance (nano::dev::constants.genesis_amount), wallet->accounts.wallet_balance_label->text ().toStdString ());
+
+	// The pick is reported and the bold row follows it
+	ASSERT_EQ (1, selections.size ());
+	ASSERT_EQ (id2, selections.back ().wallet);
+	ASSERT_EQ (nano::dev::genesis_key.pub, selections.back ().account);
+	ASSERT_TRUE (listed_in_bold (*wallet, id2));
+	ASSERT_FALSE (listed_in_bold (*wallet, id1));
+
+	// Using the shown wallet again keeps it and reports nothing
+	use_wallet (*wallet, id2);
+	ASSERT_EQ (1, selections.size ());
+}
+
+/*
+ * Using a wallet without accounts creates its first account, as the wallet always shows one
+ */
+TEST (qt_wallet, use_wallet_without_accounts)
+{
+	nano_qt::eventloop_processor processor;
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	// Taken first, system.wallet only works while the node has a single wallet
+	auto system_wallet = system.wallet (0);
+	auto key = system_wallet->deterministic_insert ().value ();
+	// A wallet without accounts, unlocked like every new wallet so it can create one
+	auto const id = nano::random_wallet_id ();
+	auto empty = node.wallets.create (id);
+	auto wallet = std::make_shared<nano_qt::wallet> (*test_application, processor, node, system_wallet, key);
+	wallet->start ();
+	// Fills the wallets screen, which use_wallet picks from
+	wallet->wallets_viewer.refresh ();
+
+	// Using it shows the account it gets
+	use_wallet (*wallet, id);
+	ASSERT_EQ (empty, wallet->wallet_m);
+	auto accounts = empty->accounts ();
+	ASSERT_EQ (1, accounts.size ());
+	ASSERT_EQ (accounts.front (), wallet->account);
+}
+
+/*
+ * A wallet destroyed after the list was shown, for example over RPC, cannot be used.
+ * The shown wallet stays, the button reports the wallet missing and the list drops it.
+ */
+TEST (qt_wallet, use_wallet_destroyed)
+{
+	nano_qt::eventloop_processor processor;
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	// Taken first, system.wallet only works while the node has a single wallet
+	auto system_wallet = system.wallet (0);
+	auto key = system_wallet->deterministic_insert ().value ();
+	// A second wallet, listed on the wallets screen
+	auto const id = nano::random_wallet_id ();
+	ASSERT_NE (nullptr, node.wallets.create (id));
+	auto wallet = std::make_shared<nano_qt::wallet> (*test_application, processor, node, system_wallet, key);
+	wallet->start ();
+	wallet->wallets_viewer.refresh ();
+	ASSERT_GE (wallet_row (*wallet, id), 0);
+
+	// Destroyed behind the screen's back, the wallet cannot be used and the shown one stays
+	ASSERT_TRUE (node.wallets.destroy (id));
+	use_wallet (*wallet, id);
+	ASSERT_EQ (system_wallet, wallet->wallet_m);
+	ASSERT_EQ (nano::error (nano::error_common::wallet_not_found).get_message (), wallet->wallets_viewer.use_wallet->text ().toStdString ());
+
+	// The failed pick refreshes the list without it
+	ASSERT_EQ (-1, wallet_row (*wallet, id));
+}
+
+/*
+ * The lock state on the status line and the settings screen follows the wallet switched to.
+ * A wallet switched away from keeps reporting its lock changes, which must no longer reach the status line.
+ * A locked wallet without accounts cannot get one, so it cannot be shown at all.
+ */
+TEST (qt_wallet, use_wallet_lock_state)
+{
+	nano_qt::eventloop_processor processor;
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	// A wallet without a password, the one shown first
+	auto const id_open = nano::random_wallet_id ();
+	auto open = node.wallets.create (id_open);
+	auto key = open->deterministic_insert ().value ();
+	// A locked wallet with an account
+	auto const id_locked = nano::random_wallet_id ();
+	auto locked = node.wallets.create (id_locked);
+	ASSERT_TRUE (locked->deterministic_insert ());
+	ASSERT_FALSE (locked->rekey ("password"));
+	locked->lock ();
+	// A locked wallet without accounts
+	auto const id_empty = nano::random_wallet_id ();
+	auto empty = node.wallets.create (id_empty);
+	ASSERT_FALSE (empty->rekey ("password"));
+	empty->lock ();
+	auto wallet = std::make_shared<nano_qt::wallet> (*test_application, processor, node, open, key);
+	wallet->start ();
+	// Whether the status line currently holds a status, shown or outranked by another
+	auto has_status = [&wallet] (nano_qt::status_types status) {
+		return wallet->active_status.active.contains (status);
+	};
+	// Fills the wallets screen, which use_wallet picks from
+	wallet->wallets_viewer.refresh ();
+
+	// The locked wallet shows as locked, with the settings screen ready to unlock it
+	use_wallet (*wallet, id_locked);
+	ASSERT_EQ (locked, wallet->wallet_m);
+	ASSERT_TRUE (has_status (nano_qt::status_types::locked));
+	ASSERT_EQ ("Unlock", wallet->settings.lock_toggle->text ().toStdString ());
+	ASSERT_TRUE (wallet->settings.password->isEnabled ());
+
+	// Entering the empty password of the wallet switched away from leaves the status alone
+	ASSERT_FALSE (open->enter_password (""));
+	test_application->processEvents ();
+	ASSERT_TRUE (has_status (nano_qt::status_types::locked));
+	ASSERT_FALSE (has_status (nano_qt::status_types::vulnerable));
+
+	// Unlocking the shown wallet still reaches the status line
+	ASSERT_FALSE (locked->enter_password ("password"));
+	test_application->processEvents ();
+	ASSERT_FALSE (has_status (nano_qt::status_types::locked));
+
+	// The wallet without a password shows as unlocked, with the empty password warning
+	use_wallet (*wallet, id_open);
+	ASSERT_EQ (open, wallet->wallet_m);
+	ASSERT_FALSE (has_status (nano_qt::status_types::locked));
+	ASSERT_TRUE (has_status (nano_qt::status_types::vulnerable));
+	ASSERT_EQ ("Lock", wallet->settings.lock_toggle->text ().toStdString ());
+	ASSERT_FALSE (wallet->settings.password->isEnabled ());
+
+	// The locked wallet without accounts cannot create one, so the shown wallet stays and the button says why
+	use_wallet (*wallet, id_empty);
+	ASSERT_EQ (open, wallet->wallet_m);
+	ASSERT_EQ (key, wallet->account);
+	ASSERT_TRUE (empty->accounts ().empty ());
+	ASSERT_EQ (nano::error (nano::error_common::wallet_locked).get_message (), wallet->wallets_viewer.use_wallet->text ().toStdString ());
+}
+
+/*
+ * Passwords and the seed import confirmation typed for the shown wallet are cleared when another wallet is shown.
+ * Left in place, an unlock, password change or seed import submitted after the switch would act on the new wallet.
+ */
+TEST (qt_wallet, use_wallet_clears_typed_input)
+{
+	nano_qt::eventloop_processor processor;
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	// The wallet shown first is locked, so its unlock field takes input
+	auto const id_locked = nano::random_wallet_id ();
+	auto locked = node.wallets.create (id_locked);
+	auto key = locked->deterministic_insert ().value ();
+	ASSERT_FALSE (locked->rekey ("password"));
+	locked->lock ();
+	// A second wallet to switch to
+	auto const id_other = nano::random_wallet_id ();
+	auto other = node.wallets.create (id_other);
+	ASSERT_TRUE (other->deterministic_insert ());
+	auto wallet = std::make_shared<nano_qt::wallet> (*test_application, processor, node, locked, key);
+	wallet->start ();
+	// Fills the wallets screen, which use_wallet picks from
+	wallet->wallets_viewer.refresh ();
+
+	// Typed for the locked wallet but not submitted
+	QTest::keyClicks (wallet->settings.password, "password");
+	QTest::keyClicks (wallet->settings.new_password, "new password");
+	QTest::keyClicks (wallet->settings.retype_password, "new password");
+	QTest::keyClicks (wallet->import.clear_line, "clear keys");
+	ASSERT_FALSE (wallet->settings.password->text ().isEmpty ());
+	ASSERT_FALSE (wallet->settings.new_password->text ().isEmpty ());
+	ASSERT_FALSE (wallet->settings.retype_password->text ().isEmpty ());
+	ASSERT_FALSE (wallet->import.clear_line->text ().isEmpty ());
+
+	// None of it is left for the other wallet
+	use_wallet (*wallet, id_other);
+	ASSERT_EQ (other, wallet->wallet_m);
+	ASSERT_TRUE (wallet->settings.password->text ().isEmpty ());
+	ASSERT_TRUE (wallet->settings.new_password->text ().isEmpty ());
+	ASSERT_TRUE (wallet->settings.retype_password->text ().isEmpty ());
+	ASSERT_TRUE (wallet->import.clear_line->text ().isEmpty ());
 }
