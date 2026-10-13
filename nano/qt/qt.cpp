@@ -823,7 +823,7 @@ nano_qt::account_viewer::account_viewer (nano_qt::wallet & wallet_a) :
 	balance_window (new QWidget),
 	balance_layout (new QHBoxLayout),
 	balance_label (new QLabel),
-	history (wallet_a.node.ledger, account, wallet_a),
+	history (wallet_a.node.ledger, wallet_a.account, wallet_a),
 	back (new QPushButton ("Back")),
 	account (wallet_a.account),
 	wallet (wallet_a)
@@ -847,6 +847,7 @@ nano_qt::account_viewer::account_viewer (nano_qt::wallet & wallet_a) :
 		if (!account.decode_account (account_line->text ().toStdString ()))
 		{
 			show_line_ok (*account_line);
+			this->history.account = account;
 			this->history.refresh ();
 			auto balance (this->wallet.node.balance_pending (account, false));
 			auto final_text (std::string ("Balance (NANO): ") + wallet.format_balance (balance.first));
@@ -1472,6 +1473,8 @@ void nano_qt::wallet::refresh ()
 	self.account_text->setText (QString (account.to_account ().c_str ()));
 	needs_balance_refresh = true;
 	accounts.refresh ();
+	// The history keeps its own copy of the account it shows
+	history.account = account;
 	history.refresh ();
 	account_viewer.history.refresh ();
 	settings.refresh_representative ();
