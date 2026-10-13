@@ -22,7 +22,7 @@ using namespace std::chrono_literals;
  * vote_processor
  */
 
-nano::vote_processor::vote_processor (vote_processor_config const & config_a, nano::vote_router & vote_router, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_flags & flags_a, nano::logger & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a, nano::rep_tiers & rep_tiers_a) :
+nano::vote_processor::vote_processor (vote_processor_config const & config_a, nano::vote_router & vote_router, nano::node_observers & observers_a, nano::stats & stats_a, nano::node_flags & flags_a, nano::logger & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a) :
 	config{ config_a },
 	vote_router{ vote_router },
 	observers{ observers_a },
@@ -31,9 +31,7 @@ nano::vote_processor::vote_processor (vote_processor_config const & config_a, na
 	logger{ logger_a },
 	online_reps{ online_reps_a },
 	rep_crawler{ rep_crawler_a },
-	ledger{ ledger_a },
-	network_params{ network_params_a },
-	rep_tiers{ rep_tiers_a }
+	ledger{ ledger_a }
 {
 	queue.max_size_query = [this] (auto const & origin) {
 		switch (origin.source)
@@ -107,9 +105,17 @@ void nano::vote_processor::stop ()
 nano::vote_context nano::vote_processor::context (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_source source) const
 {
 	auto const weight = ledger.weight (vote->account);
-	// Same minimum as node::minimum_principal_weight
-	bool const principal = flags.all_reps_principal || weight > online_reps.trended () / network_params.network.principal_weight_factor;
-	return { .vote = vote, .source = source, .channel = channel, .tier = rep_tiers.tier (vote->account), .weight = weight, .principal = principal };
+	// Tier and principal status come from one reading of the online stake, so they never disagree about the same weight
+	auto const stake = online_reps.online_stake ();
+	bool const principal = flags.all_reps_principal || stake.principal (weight);
+	return {
+		.vote = vote,
+		.source = source,
+		.channel = channel,
+		.tier = stake.tier (weight),
+		.weight = weight,
+		.principal = principal,
+	};
 }
 
 bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote, std::shared_ptr<nano::transport::channel> const & channel, nano::vote_source source)

@@ -469,3 +469,46 @@ TEST (online_reps, weight_snapshot)
 	ASSERT_GE (reads.load (), 2 * rounds);
 	ASSERT_EQ (total, node.online_reps.online ());
 }
+
+// The principal minimum is the trended online stake divided by the principal weight factor, both from the same reading
+TEST (online_reps, online_stake)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// Nothing votes, so the trended stake is the configured floor
+	auto const stake = node.online_reps.online_stake ();
+	ASSERT_EQ (node.config.online_weight_minimum.number (), stake.trended);
+
+	// The principal minimum is derived from that same trended stake
+	ASSERT_EQ (stake.trended / node.network_params.network.principal_weight_factor, stake.principal_minimum);
+
+	// The node reports the same principal minimum
+	ASSERT_EQ (stake.principal_minimum, node.minimum_principal_weight ());
+}
+
+// A weight is principal exactly when it earns a tier, and every tier is measured against the trended stake
+TEST (online_reps, online_stake_classifies_weight)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	auto const stake = node.online_reps.online_stake ();
+
+	// No weight is neither principal nor tiered
+	ASSERT_FALSE (stake.principal (0));
+	ASSERT_EQ (nano::rep_tier::none, stake.tier (0));
+
+	// Exactly the principal minimum is still below the line for both
+	ASSERT_FALSE (stake.principal (stake.principal_minimum));
+	ASSERT_EQ (nano::rep_tier::none, stake.tier (stake.principal_minimum));
+
+	// One raw above the minimum is principal and in the lowest tier at once
+	ASSERT_TRUE (stake.principal (stake.principal_minimum + 1));
+	ASSERT_EQ (nano::rep_tier::tier_1, stake.tier (stake.principal_minimum + 1));
+
+	// The higher tiers start just above 1% and just above 5% of the same trended stake
+	ASSERT_EQ (nano::rep_tier::tier_1, stake.tier (stake.trended / 100));
+	ASSERT_EQ (nano::rep_tier::tier_2, stake.tier (stake.trended / 100 + 1));
+	ASSERT_EQ (nano::rep_tier::tier_2, stake.tier (stake.trended / 20));
+	ASSERT_EQ (nano::rep_tier::tier_3, stake.tier (stake.trended / 20 + 1));
+}

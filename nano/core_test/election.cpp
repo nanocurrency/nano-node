@@ -7,7 +7,6 @@
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
-#include <nano/node/rep_tiers.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
@@ -646,8 +645,6 @@ eviction_fixture setup_evicted_fork (nano::test::system & system, nano::node & n
 	// An eleventh fork backed by cached rep weight evicts the lowest-hash zero-weight fork
 	fixture.fork_new = make_fork (100);
 	auto cached_vote = nano::test::make_vote (rep_key, { fixture.fork_new }, 0, 0);
-	// The cache admits only tiered representatives, which the node classifies every half second
-	EXPECT_TIMELY (5s, node.rep_tiers.tier (rep_key.pub) != nano::rep_tier::none);
 	node.route_vote (cached_vote); // No election holds the hash yet, the vote parks in the vote cache
 	node.process_active (fixture.fork_new);
 	EXPECT_TIMELY (5s, fixture.election->contains_block (fixture.fork_new->hash ()));

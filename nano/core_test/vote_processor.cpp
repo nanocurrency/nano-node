@@ -309,7 +309,7 @@ TEST (vote_processor, context_carries_origin)
 	ASSERT_EQ (nano::vote_source::cache, cached.source);
 }
 
-// The context holds the representative's ledger weight and its tier at the time of the lookup
+// The context holds the representative's ledger weight and the tier that weight earns against the trended online stake
 TEST (vote_processor, context_weight_and_tier)
 {
 	nano::test::system system;
@@ -319,11 +319,7 @@ TEST (vote_processor, context_weight_and_tier)
 	auto const amount = node.minimum_principal_weight () * 2;
 	auto const rep = nano::test::setup_rep (system, node, amount);
 
-	// Tiers are recalculated in the background, so wait until both representatives are classified
-	ASSERT_TIMELY_EQ (5s, node.rep_tiers.tier (rep.pub), nano::rep_tier::tier_1);
-	ASSERT_TIMELY_EQ (5s, node.rep_tiers.tier (nano::dev::genesis_key.pub), nano::rep_tier::tier_3);
-
-	// The funded representative gets exactly the amount delegated to it
+	// The funded representative gets exactly the amount delegated to it, and its tier right away without waiting for the background tier refresh
 	auto const funded = node.vote_processor.context (nano::test::make_vote (rep, { nano::dev::genesis }), nullptr, nano::vote_source::live);
 	ASSERT_EQ (amount, funded.weight);
 	ASSERT_EQ (nano::rep_tier::tier_1, funded.tier);
@@ -340,7 +336,7 @@ TEST (vote_processor, context_weight_and_tier)
 	ASSERT_EQ (nano::rep_tier::none, nobody.tier);
 }
 
-// A representative is principal only with weight strictly above the principal minimum
+// A representative is principal only with weight strictly above the principal minimum, which is exactly where it gains a tier
 TEST (vote_processor, context_principal_minimum)
 {
 	nano::test::system system;
@@ -363,13 +359,15 @@ TEST (vote_processor, context_principal_minimum)
 		return node.vote_processor.context (nano::test::make_vote (rep, { nano::dev::genesis }), nullptr, nano::vote_source::live);
 	};
 
-	// Exactly the minimum is not enough
+	// Exactly the minimum is not enough, for principal status or for a tier
 	ASSERT_EQ (minimum, context (at_minimum).weight);
 	ASSERT_FALSE (context (at_minimum).principal);
+	ASSERT_EQ (nano::rep_tier::none, context (at_minimum).tier);
 
-	// One raw above the minimum is
+	// One raw above the minimum earns both
 	ASSERT_EQ (minimum + 1, context (above_minimum).weight);
 	ASSERT_TRUE (context (above_minimum).principal);
+	ASSERT_EQ (nano::rep_tier::tier_1, context (above_minimum).tier);
 
 	// No weight is never principal, the whole remaining supply always is
 	ASSERT_FALSE (context (unfunded).principal);
@@ -398,7 +396,7 @@ TEST (vote_processor, context_all_reps_principal)
 	ASSERT_EQ (nano::rep_tier::none, context.tier);
 }
 
-// Below the bootstrap height the context takes a representative's preconfigured bootstrap weight, and judges it principal by that weight
+// Below the bootstrap height the context takes a representative's preconfigured bootstrap weight, and judges its principal status and tier by that weight
 TEST (vote_processor, context_bootstrap_weight)
 {
 	nano::test::system system;
@@ -417,15 +415,17 @@ TEST (vote_processor, context_bootstrap_weight)
 	node->ledger.bootstrap_weights.max_blocks = node->ledger.block_count () + 1;
 	node->ledger.bootstrap_weights.representatives[rep.pub] = weight;
 
-	// The preconfigured representative gets its bootstrap weight, which makes it principal
+	// The preconfigured representative gets its bootstrap weight, which makes it principal with the lowest tier
 	auto const bootstrapped = node->vote_processor.context (nano::test::make_vote (rep, { nano::dev::genesis }), nullptr, nano::vote_source::live);
 	ASSERT_EQ (weight, bootstrapped.weight);
 	ASSERT_TRUE (bootstrapped.principal);
+	ASSERT_EQ (nano::rep_tier::tier_1, bootstrapped.tier);
 
 	// The ledger's own weight does not count until the bootstrap height is reached, not even for genesis
 	auto const genesis = node->vote_processor.context (nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis }), nullptr, nano::vote_source::live);
 	ASSERT_EQ (0, genesis.weight);
 	ASSERT_FALSE (genesis.principal);
+	ASSERT_EQ (nano::rep_tier::none, genesis.tier);
 }
 
 // A vote cached before its election started reaches the election once it starts

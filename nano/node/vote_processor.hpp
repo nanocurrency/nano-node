@@ -37,7 +37,7 @@ public:
 class vote_processor final
 {
 public:
-	vote_processor (vote_processor_config const &, nano::vote_router &, nano::node_observers &, nano::stats &, nano::node_flags &, nano::logger &, nano::online_reps &, nano::rep_crawler &, nano::ledger &, nano::network_params &, nano::rep_tiers &);
+	vote_processor (vote_processor_config const &, nano::vote_router &, nano::node_observers &, nano::stats &, nano::node_flags &, nano::logger &, nano::online_reps &, nano::rep_crawler &, nano::ledger &);
 	~vote_processor ();
 
 	void start ();
@@ -48,7 +48,7 @@ public:
 	nano::vote_code vote_blocking (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &, nano::vote_source = nano::vote_source::live);
 	nano::vote_code vote_blocking (nano::vote_context const &);
 
-	/** Looks up a vote's context: its representative's current tier and weight and whether it is principal */
+	/** Looks up a vote's context: its representative's weight, and its tier and principal status against the trended online stake */
 	nano::vote_context context (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &, nano::vote_source = nano::vote_source::live) const;
 
 	/** Queue hash for vote cache lookup and processing. */
@@ -71,8 +71,6 @@ private: // Dependencies
 	nano::online_reps & online_reps;
 	nano::rep_crawler & rep_crawler;
 	nano::ledger & ledger;
-	nano::network_params & network_params;
-	nano::rep_tiers & rep_tiers;
 
 private:
 	void run ();

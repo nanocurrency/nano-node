@@ -201,7 +201,7 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	vote_cache{ *vote_cache_impl },
 	vote_router_impl{ std::make_unique<nano::vote_router> (vote_cache, active.recently_confirmed) },
 	vote_router{ *vote_router_impl },
-	vote_processor_impl{ std::make_unique<nano::vote_processor> (config.vote_processor, vote_router, observers, stats, flags, logger, online_reps, rep_crawler, ledger, network_params, rep_tiers) },
+	vote_processor_impl{ std::make_unique<nano::vote_processor> (config.vote_processor, vote_router, observers, stats, flags, logger, online_reps, rep_crawler, ledger) },
 	vote_processor{ *vote_processor_impl },
 	vote_cache_processor_impl{ std::make_unique<nano::vote_cache_processor> (config.vote_cache_processor, vote_router, vote_cache, vote_processor, stats, logger) },
 	vote_cache_processor{ *vote_cache_processor_impl },
@@ -702,7 +702,7 @@ nano::uint128_t nano::node::weight (nano::account const & account_a)
 
 nano::uint128_t nano::node::minimum_principal_weight ()
 {
-	return online_reps.trended () / network_params.network.principal_weight_factor;
+	return online_reps.online_stake ().principal_minimum;
 }
 
 void nano::node::backup_wallet ()
