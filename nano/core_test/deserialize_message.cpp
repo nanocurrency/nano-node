@@ -701,6 +701,30 @@ TEST (deserialize_message_payload, telemetry_ack_sizes)
 }
 
 /*
+ * A timestamp beyond what the clock can hold is rejected instead of overflowing on conversion, the latest one it holds parses
+ */
+TEST (deserialize_message_payload, telemetry_ack_timestamp_range)
+{
+	auto const & network = nano::dev::network_params.network;
+	nano::messages::telemetry_data data;
+	data.timestamp = std::chrono::system_clock::time_point::max ();
+	nano::messages::telemetry_ack const latest{ network, data };
+	auto const latest_bytes = latest.to_bytes ();
+
+	auto [latest_message, latest_status] = nano::deserialize_message_payload (payload_of (*latest_bytes), latest.header, network);
+	ASSERT_EQ (latest_status, nano::deserialize_message_status::success);
+	ASSERT_NE (latest_message, nullptr);
+
+	// The timestamp precedes the active difficulty that ends the v1 fields, with every bit set it lies past any clock
+	auto beyond_bytes = *latest_bytes;
+	auto const timestamp_offset = nano::messages::message_header::size + nano::messages::telemetry_data::size_v1 - 2 * sizeof (uint64_t);
+	std::fill_n (beyond_bytes.begin () + timestamp_offset, sizeof (uint64_t), 0xff);
+	auto [beyond_message, beyond_status] = nano::deserialize_message_payload (payload_of (beyond_bytes), latest.header, network);
+	ASSERT_EQ (beyond_message, nullptr);
+	ASSERT_EQ (beyond_status, nano::deserialize_message_status::invalid_telemetry_ack_message);
+}
+
+/*
  * A handshake that neither queries nor responds has no payload and parses as such, rejecting it is left to the server
  */
 TEST (deserialize_message_payload, node_id_handshake_empty)
