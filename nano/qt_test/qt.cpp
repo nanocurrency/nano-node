@@ -1098,3 +1098,26 @@ TEST (qt_wallet, import_malformed_adhoc_key)
 	// Neither became an account of the wallet
 	ASSERT_EQ (1, system.wallet (0)->accounts ().size ());
 }
+
+/*
+ * Refresh Wallet updates the wallet balance on the accounts screen right away.
+ * On its own the label only catches up with the wallet once a minute.
+ */
+TEST (qt_wallet, refresh_wallet_balance)
+{
+	nano_qt::eventloop_processor processor;
+	nano::test::system system (1);
+	// The wallet shows a fresh account without funds
+	auto key = system.wallet (0)->deterministic_insert ().value ();
+	auto wallet = std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key);
+	wallet->start ();
+	ASSERT_EQ ("Balance: " + wallet->format_balance (0), wallet->accounts.wallet_balance_label->text ().toStdString ());
+
+	// Adding genesis puts the whole supply in the wallet, which the label does not pick up by itself
+	ASSERT_TRUE (system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv));
+	ASSERT_EQ ("Balance: " + wallet->format_balance (0), wallet->accounts.wallet_balance_label->text ().toStdString ());
+
+	// The button refreshes the label right away
+	QTest::mouseClick (wallet->advanced.wallet_refresh, Qt::LeftButton);
+	ASSERT_EQ ("Balance: " + wallet->format_balance (nano::dev::constants.genesis_amount), wallet->accounts.wallet_balance_label->text ().toStdString ());
+}

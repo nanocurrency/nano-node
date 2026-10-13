@@ -277,7 +277,7 @@ nano_qt::accounts::accounts (nano_qt::wallet & wallet_a) :
 		account_key_line->setText (value.trimmed ());
 		account_key_line->setCursorPosition (pos);
 	});
-	refresh_wallet_balance ();
+	ongoing_refresh_wallet_balance ();
 }
 
 void nano_qt::accounts::refresh_wallet_balance ()
@@ -296,9 +296,14 @@ void nano_qt::accounts::refresh_wallet_balance ()
 		final_text += "\nReady to receive: " + wallet.format_balance (pending);
 	}
 	wallet_balance_label->setText (QString (final_text.c_str ()));
+}
+
+void nano_qt::accounts::ongoing_refresh_wallet_balance ()
+{
+	refresh_wallet_balance ();
 	this->wallet.node.workers.post_delayed (std::chrono::seconds (60), [this] () {
 		this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this] () {
-			refresh_wallet_balance ();
+			ongoing_refresh_wallet_balance ();
 		}));
 	});
 }

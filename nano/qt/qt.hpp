@@ -184,6 +184,10 @@ public:
 	QPushButton * account_key_button;
 	QPushButton * back;
 	nano_qt::wallet & wallet;
+
+private:
+	// Refreshes the wallet balance now and every minute after
+	void ongoing_refresh_wallet_balance ();
 };
 class import
 {
