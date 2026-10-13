@@ -73,6 +73,8 @@ public:
 	bool valid_password (nano::store::transaction const &) const;
 	bool valid_public_key (nano::public_key const &) const;
 	bool attempt_password (nano::store::transaction const &, std::string const & password);
+	// Whether the wallet is unlocked with password, without attempting it
+	bool unlocked_with (nano::store::transaction const &, std::string const & password) const;
 	// Atomically clears the password, locking the wallet; serialized against rekey and attempt_password
 	void password_clear ();
 	nano::raw_key seed (nano::store::transaction const &, nano::wallet::wallet_cipher const &) const;
@@ -171,6 +173,8 @@ public:
 	bool rekey (std::string const & password);
 	bool is_locked () const;
 	void lock ();
+	// Whether the wallet is unlocked with the empty password
+	bool unlocked_with_empty_password () const;
 
 	// Account management
 	nano::result<nano::public_key> insert_adhoc (nano::raw_key const & prv, bool generate_work = true);
