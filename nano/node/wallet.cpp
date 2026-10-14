@@ -1704,7 +1704,7 @@ nano::logger & logger_a) :
 		for (auto it = backend.index_begin (transaction), end = backend.index_end (transaction); it != end; ++it)
 		{
 			// The wallet index range may also include entries for non-wallet sub-tables (e.g. `send_action_ids` on LMDB);
-			// skip anything that doesn't parse as a 64-char hex wallet id.
+			// skip anything that doesn't parse as a hex wallet id.
 			auto id = try_parse_wallet_id (bytes_to_string (it->first));
 			if (!id)
 			{
@@ -1907,7 +1907,7 @@ void wallets::reload ()
 	for (auto it = backend.index_begin (transaction), end = backend.index_end (transaction); it != end; ++it)
 	{
 		// The wallet index range may also include entries for non-wallet sub-tables (e.g. `send_action_ids` on LMDB);
-		// skip anything that doesn't parse as a 64-char hex wallet id.
+		// skip anything that doesn't parse as a hex wallet id.
 		auto id = try_parse_wallet_id (bytes_to_string (it->first));
 		if (!id)
 		{
