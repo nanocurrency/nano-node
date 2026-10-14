@@ -192,10 +192,9 @@ nano_qt::accounts::accounts (nano_qt::wallet & wallet_a) :
 	QObject::connect (account_key_button, &QPushButton::released, [this] () {
 		QString key_text_wide (account_key_line->text ());
 		std::string key_text (key_text_wide.toLocal8Bit ());
-		nano::raw_key key;
-		if (!key.decode_hex (key_text))
+		if (auto key = nano::try_parse_raw_key (key_text))
 		{
-			auto result = this->wallet.wallet_m->insert_adhoc (key);
+			auto result = this->wallet.wallet_m->insert_adhoc (*key);
 			if (result)
 			{
 				show_line_ok (*account_key_line);
@@ -404,12 +403,11 @@ nano_qt::import::import (nano_qt::wallet & wallet_a) :
 		if (clear_line->text ().toStdString () == "clear keys")
 		{
 			show_line_ok (*clear_line);
-			nano::raw_key seed_l;
-			if (!seed_l.decode_hex (seed->text ().toStdString ()))
+			if (auto seed_l = nano::try_parse_raw_key (seed->text ().toStdString ()))
 			{
 				bool successful (false);
 				{
-					if (auto account_result = this->wallet.wallet_m->change_seed (seed_l))
+					if (auto account_result = this->wallet.wallet_m->change_seed (*seed_l))
 					{
 						this->wallet.account = account_result.value ();
 						successful = true;
