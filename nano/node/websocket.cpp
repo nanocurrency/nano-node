@@ -669,6 +669,7 @@ void nano::websocket::listener::broadcast_confirmation (nano::block_confirmation
 		auto session_ptr (weak_session.lock ());
 		if (session_ptr)
 		{
+			nano::unique_lock<nano::mutex> subscriptions_lock (session_ptr->subscriptions_mutex);
 			auto subscription (session_ptr->subscriptions.find (nano::websocket::topic::confirmation));
 			if (subscription != session_ptr->subscriptions.end ())
 			{
@@ -680,6 +681,8 @@ void nano::websocket::listener::broadcast_confirmation (nano::block_confirmation
 				}
 
 				auto message = builder.block_confirmed (confirmation, subtype, *conf_options);
+				// write () takes the subscriptions lock itself
+				subscriptions_lock.unlock ();
 				session_ptr->write (message);
 			}
 		}
