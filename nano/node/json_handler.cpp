@@ -614,10 +614,9 @@ void nano::json_handler::account_create ()
 void nano::json_handler::account_get ()
 {
 	std::string key_text (request.get<std::string> ("key"));
-	nano::public_key pub;
-	if (!pub.decode_hex (key_text))
+	if (auto pub = nano::try_parse_public_key (key_text))
 	{
-		response_l.put ("account", pub.to_account ());
+		response_l.put ("account", pub->to_account ());
 	}
 	else
 	{
@@ -1685,7 +1684,11 @@ void nano::json_handler::block_create ()
 	auto key_text (request.get_optional<std::string> ("key"));
 	if (!ec && key_text.has_value ())
 	{
-		if (prv.decode_hex (key_text.value ()))
+		if (auto key = nano::try_parse_raw_key (key_text.value ()))
+		{
+			prv = *key;
+		}
+		else
 		{
 			ec = nano::error_common::bad_private_key;
 		}
@@ -2601,13 +2604,12 @@ void nano::json_handler::deterministic_key ()
 {
 	std::string seed_text (request.get<std::string> ("seed"));
 	std::string index_text (request.get<std::string> ("index"));
-	nano::raw_key seed;
-	if (!seed.decode_hex (seed_text))
+	if (auto seed = nano::try_parse_raw_key (seed_text))
 	{
 		try
 		{
 			uint32_t index (std::stoul (index_text));
-			nano::raw_key prv = nano::deterministic_key (seed, index);
+			nano::raw_key prv = nano::deterministic_key (*seed, index);
 			nano::public_key pub (nano::pub_key (prv));
 			response_l.put ("private", prv.to_string ());
 			response_l.put ("public", pub.to_string ());
@@ -2656,15 +2658,14 @@ void nano::json_handler::epoch_upgrade ()
 			}
 		}
 		std::string key_text (request.get<std::string> ("key"));
-		nano::raw_key prv;
-		if (!prv.decode_hex (key_text))
+		if (auto prv = nano::try_parse_raw_key (key_text))
 		{
-			if (nano::pub_key (prv) == node.ledger.epoch_signer (node.ledger.epoch_link (epoch)))
+			if (nano::pub_key (*prv) == node.ledger.epoch_signer (node.ledger.epoch_link (epoch)))
 			{
 				// Validate before starting, a rejected count or thread count must not upgrade the ledger
 				if (!ec)
 				{
-					if (!node.epoch_upgrader.start (prv, epoch, count_limit, threads))
+					if (!node.epoch_upgrader.start (*prv, epoch, count_limit, threads))
 					{
 						response_l.put ("started", "1");
 					}
@@ -3095,11 +3096,10 @@ void nano::json_handler::key_create ()
 void nano::json_handler::key_expand ()
 {
 	std::string key_text (request.get<std::string> ("key"));
-	nano::raw_key prv;
-	if (!prv.decode_hex (key_text))
+	if (auto prv = nano::try_parse_raw_key (key_text))
 	{
-		nano::public_key pub (nano::pub_key (prv));
-		response_l.put ("private", prv.to_string ());
+		nano::public_key pub (nano::pub_key (*prv));
+		response_l.put ("private", prv->to_string ());
 		response_l.put ("public", pub.to_string ());
 		response_l.put ("account", pub.to_account ());
 	}
@@ -4179,7 +4179,11 @@ void nano::json_handler::sign ()
 		auto key_text (request.get_optional<std::string> ("key"));
 		if (key_text.has_value ())
 		{
-			if (prv.decode_hex (key_text.value ()))
+			if (auto key = nano::try_parse_raw_key (key_text.value ()))
+			{
+				prv = *key;
+			}
+			else
 			{
 				ec = nano::error_common::bad_private_key;
 			}
@@ -4231,7 +4235,7 @@ void nano::json_handler::sign ()
 				}
 			}
 		}
-		else
+		else if (!ec)
 		{
 			ec = nano::error_rpc::block_create_key_required;
 		}
@@ -4647,11 +4651,10 @@ void nano::json_handler::wallet_add ()
 		if (!rpc_l->ec)
 		{
 			std::string key_text = rpc_l->request.get<std::string> ("key");
-			nano::raw_key key;
-			if (!key.decode_hex (key_text))
+			if (auto key = nano::try_parse_raw_key (key_text))
 			{
 				bool const generate_work = rpc_l->request.get<bool> ("work", true);
-				auto pub_result = wallet->insert_adhoc (key, generate_work);
+				auto pub_result = wallet->insert_adhoc (*key, generate_work);
 				if (pub_result)
 				{
 					rpc_l->response_l.put ("account", pub_result.value ().to_account ());
@@ -4794,8 +4797,7 @@ void nano::json_handler::wallet_change_seed ()
 		if (!rpc_l->ec)
 		{
 			std::string seed_text (rpc_l->request.get<std::string> ("seed"));
-			nano::raw_key seed;
-			if (!seed.decode_hex (seed_text))
+			if (auto seed = nano::try_parse_raw_key (seed_text))
 			{
 				// Count is the number of accounts added beyond the first, and is restored as a 32 bit index
 				auto count (rpc_l->count_optional_impl (0));
@@ -4806,7 +4808,7 @@ void nano::json_handler::wallet_change_seed ()
 				// Validate before touching the wallet, a rejected count must leave the existing seed in place
 				if (!rpc_l->ec)
 				{
-					if (auto account_result = wallet->change_seed (seed, static_cast<uint32_t> (count)))
+					if (auto account_result = wallet->change_seed (*seed, static_cast<uint32_t> (count)))
 					{
 						rpc_l->response_l.put ("success", "");
 						rpc_l->response_l.put ("last_restored_account", account_result.value ().to_account ());
@@ -4843,9 +4845,9 @@ void nano::json_handler::wallet_contains ()
 void nano::json_handler::wallet_create ()
 {
 	node.workers.post (create_worker_task ([] (std::shared_ptr<nano::json_handler> const & rpc_l) {
-		nano::raw_key seed;
 		auto seed_text (rpc_l->request.get_optional<std::string> ("seed"));
-		if (seed_text.has_value () && seed.decode_hex (seed_text.value ()))
+		auto seed = seed_text.has_value () ? nano::try_parse_raw_key (seed_text.value ()) : std::nullopt;
+		if (seed_text.has_value () && !seed)
 		{
 			rpc_l->ec = nano::error_common::bad_seed;
 		}
@@ -4861,10 +4863,10 @@ void nano::json_handler::wallet_create ()
 			{
 				rpc_l->ec = nano::error_common::wallet_lmdb_max_dbs;
 			}
-			if (!rpc_l->ec && seed_text.has_value ())
+			if (!rpc_l->ec && seed)
 			{
 				// A freshly created wallet is unlocked, but guard against a concurrent wallet_lock anyway
-				if (auto account_result = wallet->change_seed (seed))
+				if (auto account_result = wallet->change_seed (*seed))
 				{
 					rpc_l->response_l.put ("last_restored_account", account_result.value ().to_account ());
 					auto index (wallet->get_deterministic_index ());
