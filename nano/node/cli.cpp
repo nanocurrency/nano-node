@@ -13,6 +13,7 @@
 #include <nano/node/migrations.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/openclwork.hpp>
 #include <nano/node/peer_blocklist.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/wallet.hpp>

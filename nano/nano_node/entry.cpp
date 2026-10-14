@@ -26,6 +26,7 @@
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/online_reps.hpp>
+#include <nano/node/openclwork.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/pruning.hpp>
 #include <nano/node/repcrawler.hpp>
