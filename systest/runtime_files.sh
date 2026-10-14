@@ -4,15 +4,11 @@ set -eux
 # Test runtime files: PID file and runtime info file
 # Both files should be created on startup and cleaned up on exit
 
-DATADIR=$(mktemp -d)
+source "$(dirname "$0")/lib/common.sh"
+
+DATADIR=$(new_datadir)
 PID_FILE="$DATADIR/node.pid"
 RUNTIME_INFO="$DATADIR/runtime_info.json"
-
-cleanup() {
-    kill $NODE_PID 2>/dev/null || true
-    rm -rf "$DATADIR"
-}
-trap cleanup EXIT
 
 # Start the node with both --pid_file and --runtime_info_file using ephemeral ports
 $NANO_NODE_EXE --daemon --network dev --data_path "$DATADIR" \
@@ -23,14 +19,10 @@ $NANO_NODE_EXE --daemon --network dev --data_path "$DATADIR" \
     --rpcconfig port=0 \
     --rpcconfig enable_control=true &
 NODE_PID=$!
+register_pid $NODE_PID
 
 # Wait for runtime_info.json to appear (indicates node is ready)
-for i in {1..30}; do
-    if [ -f "$RUNTIME_INFO" ]; then
-        break
-    fi
-    sleep 1
-done
+wait_for_file "$RUNTIME_INFO" $NODE_PID
 
 # Verify PID file exists and contains correct PID
 [ -f "$PID_FILE" ] || { echo "FAIL: PID file not created"; exit 1; }
