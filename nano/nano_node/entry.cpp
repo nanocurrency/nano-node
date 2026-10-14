@@ -371,10 +371,9 @@ int main (int argc, char * const * argv)
 			auto key_it = vm.find ("key");
 			if (key_it != vm.end ())
 			{
-				nano::uint256_union key;
-				if (!key.decode_hex (key_it->second.as<std::string> ()))
+				if (auto key = nano::try_parse_raw_key (key_it->second.as<std::string> ()))
 				{
-					nano::keypair genesis (key.to_string ());
+					nano::keypair genesis (key->to_string ());
 					nano::work_pool work{ network_params.network, std::numeric_limits<unsigned>::max () };
 					std::cout << "Genesis: " << genesis.prv.to_string () << "\n"
 							  << "Public: " << genesis.pub.to_string () << "\n"
