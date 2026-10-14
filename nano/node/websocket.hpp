@@ -255,10 +255,6 @@ namespace websocket
 		friend class listener;
 
 	public:
-#ifdef NANO_SECURE_RPC
-		/** Constructor that takes ownership over \p socket_a and creates an SSL stream */
-		explicit session (nano::websocket::listener & listener_a, socket_type socket_a, boost::asio::ssl::context & ctx_a);
-#endif
 		/** Constructor that takes ownership over \p socket_a */
 		explicit session (nano::websocket::listener & listener_a, socket_type socket_a, nano::logger &);
 

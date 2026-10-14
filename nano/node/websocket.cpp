@@ -253,15 +253,6 @@ bool nano::websocket::vote_options::should_filter (nano::websocket::message cons
 	return should_filter_l;
 }
 
-#ifdef NANO_SECURE_RPC
-
-nano::websocket::session::session (nano::websocket::listener & listener_a, socket_type socket_a, boost::asio::ssl::context & ctx_a) :
-	ws_listener (listener_a), ws (std::move (socket_a), ctx_a)
-{
-}
-
-#endif
-
 nano::websocket::session::session (nano::websocket::listener & listener_a, socket_type socket_a, nano::logger & logger_a) :
 	ws_listener (listener_a),
 	ws (std::move (socket_a)),
