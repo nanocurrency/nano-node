@@ -1,0 +1,120 @@
+name: Valgrind
+
+on:
+  push:
+    tags:
+      - V*
+  workflow_dispatch:
+    inputs:
+      runner_type:
+        type: choice
+        options:
+        - self-hosted-standard
+        - git-hub
+        description: "Linux Runner"
+        default: self-hosted-standard
+        required: true
+
+env:
+  RELEASE: 0
+  artifact: 0
+
+jobs:
+  test_build:
+    name: Test Build / ROCKSDB=${{ matrix.TEST_USE_ROCKSDB }} / ${{ matrix.COMPILER }}
+    strategy:
+      fail-fast: false
+      matrix:
+        TEST_USE_ROCKSDB: [0, 1]
+        COMPILER: [gcc, clang]
+    runs-on: ${{ github.event.inputs.runner_type == 'git-hub' && 'ubuntu-20.04' || 'self-hosted-standard' }}
+    outputs:
+      ref: ${{ steps.set_ref.outputs.ref }}
+    env:
+      COMPILER: ${{ matrix.COMPILER }}
+      TEST_USE_ROCKSDB: ${{ matrix.TEST_USE_ROCKSDB }}
+    steps:
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+        with:
+          submodules: "true"
+      - name: Set the Reference Variable
+        id: set_ref
+        run: echo "ref=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
+      - name: Git Submodule Update
+        run: git submodule update --init --recursive
+      - name: Install Dependencies
+        run: ci/actions/linux/install_deps.sh
+      - name: Build Tests
+        id: build_tests
+        run: |
+          docker run --rm -e TEST_USE_ROCKSDB -v ${PWD}:/workspace nanocurrency/nano-env:${COMPILER} /bin/bash -c \
+            "cd /workspace && RELEASE=true ./ci/build-ci.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 'core_test rpc_test'"
+          sudo chown -R "$(id -u):$(id -g)" ${PWD}/build
+      - name: Upload the Test Artifacts
+        uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb #v3.1.1
+        with:
+          name: built_workspace_rocksdb_${{ matrix.TEST_USE_ROCKSDB }}_${{ matrix.COMPILER }}_ref_${{ steps.set_ref.outputs.ref }}
+          path: |
+            ${{ github.workspace }}/build/core_test
+            ${{ github.workspace }}/build/rpc_test
+            ${{ github.workspace }}/valgrind.supp
+          retention-days: 2
+
+  valgrind_run:
+    name: ${{ matrix.TEST_TO_RUN }} / ROCKSDB=${{ matrix.TEST_USE_ROCKSDB }} / ${{ matrix.COMPILER }}
+    needs: test_build
+    strategy:
+      fail-fast: false
+      matrix:
+        TEST_USE_ROCKSDB: [0, 1]
+        COMPILER: [gcc, clang]
+        TEST_TO_RUN: [core_test, rpc_test]
+    runs-on: ${{ github.event.inputs.runner_type == 'git-hub' && 'ubuntu-20.04' || 'self-hosted-standard' }}
+    outputs:
+      issue_reported: ${{ steps.test_run.outputs.issue_reported }}
+    env:
+      COMPILER: ${{ matrix.COMPILER }}
+      TEST_USE_ROCKSDB: ${{ matrix.TEST_USE_ROCKSDB }}
+    steps:
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 #v3.1.0
+        with:
+          submodules: "true"
+      - name: Set the Reference Variable
+        id: set_ref
+        run: echo "ref=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
+      - name: Install Dependencies
+        run: ci/actions/linux/install_deps.sh
+      - name: Download the Test Artifacts
+        uses: actions/download-artifact@9782bd6a9848b53b110e712e20e42d89988822b7 #v3.0.1
+        with:
+          name: built_workspace_rocksdb_${{ matrix.TEST_USE_ROCKSDB }}_${{ matrix.COMPILER }}_ref_${{ steps.set_ref.outputs.ref }}
+      - name: Run ${{ matrix.TEST_TO_RUN }}
+        id: test_run
+        continue-on-error: true
+        run: |
+          sudo chmod +x ${PWD}/build/${{ matrix.TEST_TO_RUN }}
+          docker run --rm -v ${PWD}:/workspace nanocurrency/nano-env:${COMPILER} /bin/bash -c \
+            "cd /workspace/build && valgrind --leak-check=full --track-origins=yes --suppressions=../valgrind.supp --error-exitcode=1 --log-file=${{ matrix.TEST_TO_RUN }}_report ./${{ matrix.TEST_TO_RUN }}"
+          echo "issue_reported=$?" >> $GITHUB_OUTPUT
+          sudo chown -R "$(id -u):$(id -g)" ${PWD}/build
+      - name: Test Report
+        id: show_report
+        run: |
+          (
+            set -x
+            report_file="build/${{ matrix.TEST_TO_RUN }}_report"
+            if [[ -f "${report_file}" ]]; then
+              echo "Report Output:"
+              cat ${report_file}
+              echo
+            else
+              echo "No report has been generated."
+            fi
+          ) || exit 0
+      - name: Upload the Test Report
+        uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb #v3.1.1
+        with:
+          name: valgrind_test_report_rocksdb_${{ matrix.TEST_USE_ROCKSDB }}_${{ matrix.COMPILER }}_ref_${{ steps.set_ref.outputs.ref }}
+          path: |
+            ${{ github.workspace }}/build/${{ matrix.TEST_TO_RUN }}_report
+          retention-days: 30
