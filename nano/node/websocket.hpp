@@ -275,7 +275,7 @@ namespace websocket
 	private:
 		/** The owning listener */
 		nano::websocket::listener & ws_listener;
-		/** Websocket stream, supporting both plain and tls connections */
+		/** Websocket stream */
 		nano::websocket::stream ws;
 		nano::logger & logger;
 
