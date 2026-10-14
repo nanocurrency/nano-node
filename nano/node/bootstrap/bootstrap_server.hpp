@@ -47,6 +47,8 @@ public:
 	 */
 	bool request (nano::messages::asc_pull_req const & message, std::shared_ptr<nano::transport::channel> const & channel);
 
+	nano::container_info container_info () const;
+
 public: // Events
 	nano::observer_set<nano::messages::asc_pull_ack const &, std::shared_ptr<nano::transport::channel> const &> on_response;
 

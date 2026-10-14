@@ -493,6 +493,15 @@ nano::messages::asc_pull_ack nano::bootstrap_server::process (secure::transactio
  *
  */
 
+nano::container_info nano::bootstrap_server::container_info () const
+{
+	nano::lock_guard<nano::mutex> guard{ mutex };
+
+	nano::container_info info;
+	info.add ("queue", queue.container_info ());
+	return info;
+}
+
 nano::stat::detail nano::to_stat_detail (nano::messages::asc_pull_type type)
 {
 	switch (type)
