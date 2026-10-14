@@ -3,7 +3,11 @@
 #include <nano/lib/object_stream.hpp>
 #include <nano/lib/stream.hpp>
 
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+
 #include <bitset>
+#include <sstream>
 
 /*
  * block_details
@@ -247,6 +251,26 @@ void nano::block_sideband::operator() (nano::object_stream & obs) const
 	obs.write ("topo_height", topo_height);
 	obs.write ("source_epoch", source_epoch);
 	obs.write ("details", details);
+}
+
+void nano::block_sideband::serialize_json (boost::property_tree::ptree & tree) const
+{
+	tree.put ("account", account.to_account ());
+	tree.put ("balance", balance.to_string_dec ());
+	tree.put ("height", std::to_string (height));
+	tree.put ("timestamp", std::to_string (timestamp));
+	tree.put ("topo_height", std::to_string (topo_height));
+	tree.put ("source_epoch", std::to_string (static_cast<uint8_t> (source_epoch)));
+	tree.put ("details", state_subtype (details));
+}
+
+std::string nano::block_sideband::to_json () const
+{
+	std::stringstream stream;
+	boost::property_tree::ptree tree;
+	serialize_json (tree);
+	boost::property_tree::write_json (stream, tree);
+	return stream.str ();
 }
 
 /*
