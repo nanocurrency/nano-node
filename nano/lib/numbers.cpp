@@ -882,6 +882,38 @@ nano::wallet_id nano::parse_wallet_id (std::string const & text)
 }
 
 /*
+ * key parsing
+ */
+
+namespace
+{
+template <typename Key>
+std::optional<Key> try_parse_key (std::string const & text)
+{
+	// decode_hex alone would zero-pad missing digits and take a 0x prefix or a minus sign
+	auto const is_hex_digit = [] (char c) {
+		return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+	};
+	Key key;
+	if (text.size () != 64 || !std::all_of (text.begin (), text.end (), is_hex_digit) || key.decode_hex (text))
+	{
+		return std::nullopt;
+	}
+	return key;
+}
+}
+
+std::optional<nano::public_key> nano::try_parse_public_key (std::string const & text)
+{
+	return try_parse_key<nano::public_key> (text);
+}
+
+std::optional<nano::raw_key> nano::try_parse_raw_key (std::string const & text)
+{
+	return try_parse_key<nano::raw_key> (text);
+}
+
+/*
  *
  */
 

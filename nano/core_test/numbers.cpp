@@ -909,3 +909,56 @@ TEST (numbers, balance_formatting_encode_balance)
 	ASSERT_EQ ("< 0.01", encode (nano::nano_ratio / 1000, nano::nano_ratio, 2));
 	ASSERT_EQ ("< 0.000001", encode (1, nano::nano_ratio, 6));
 }
+
+/*
+ * Seeds and keys parse from exactly 64 hex digits in either letter case.
+ * Leading zeros count toward the 64 digits, so even zero is written out in full.
+ */
+TEST (numbers, try_parse_key)
+{
+	// Every hex digit in both letter cases parses to the key that prints as the same digits in uppercase
+	std::string const mixed = "0123456789abcdefABCDEF0123456789abcdefABCDEF0123456789abcdefABCD";
+	std::string const upper = "0123456789ABCDEFABCDEF0123456789ABCDEFABCDEF0123456789ABCDEFABCD";
+	auto const prv = nano::try_parse_raw_key (mixed);
+	ASSERT_TRUE (prv);
+	ASSERT_EQ (upper, prv->to_string ());
+
+	// Public keys follow the same rule
+	auto const pub = nano::try_parse_public_key (mixed);
+	ASSERT_TRUE (pub);
+	ASSERT_EQ (upper, pub->to_string ());
+
+	// Zero and the largest value, both written out in full
+	ASSERT_EQ (nano::raw_key{ 0 }, nano::try_parse_raw_key (std::string (64, '0')));
+	ASSERT_EQ (nano::raw_key{ std::numeric_limits<nano::uint256_t>::max () }, nano::try_parse_raw_key (std::string (64, 'F')));
+}
+
+/*
+ * Any text other than exactly 64 hex digits is refused, including text that decode_hex accepts.
+ * A seed missing a digit, or one with a 0x prefix or a sign, would otherwise decode as a different seed.
+ */
+TEST (numbers, try_parse_key_malformed)
+{
+	// Variations of a valid key, most of which decode_hex would still accept
+	std::string const digits = "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF";
+	std::vector<std::string> const malformed{
+		"",
+		digits.substr (0, 63), // A digit missing
+		"1", // A single digit
+		digits + "0", // A digit too many
+		"0x" + digits.substr (0, 62), // A 0x prefix, still 64 characters
+		"-" + digits.substr (0, 63), // A minus sign, still 64 characters
+		"+" + digits.substr (0, 63), // A plus sign, still 64 characters
+		digits.substr (0, 63) + "G", // A letter past F
+		" " + digits.substr (0, 63), // A leading space
+		digits.substr (0, 63) + "\n", // A trailing newline
+		digits.substr (0, 62) + "\xc3\xa9", // A non-ASCII letter, two bytes in UTF-8
+	};
+
+	// Neither parser takes any of them
+	for (auto const & text : malformed)
+	{
+		ASSERT_FALSE (nano::try_parse_raw_key (text)) << "\"" << text << "\"";
+		ASSERT_FALSE (nano::try_parse_public_key (text)) << "\"" << text << "\"";
+	}
+}
