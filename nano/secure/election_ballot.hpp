@@ -11,6 +11,7 @@
 #include <boost/unordered/unordered_flat_map.hpp>
 
 #include <chrono>
+#include <compare>
 #include <functional>
 #include <map>
 #include <memory>
@@ -21,12 +22,24 @@
 
 namespace nano
 {
+// Position of one vote in a representative's (timestamp, hash) order: equal timestamps resolve to the higher hash
+struct vote_key final
+{
+	uint64_t timestamp;
+	nano::block_hash hash;
+
+	std::strong_ordering operator<=> (nano::vote_key const &) const = default;
+};
+
 // A representative's most recent vote observed by one election
 struct vote_info final
 {
 	std::chrono::steady_clock::time_point arrival{}; // When this node received the vote, anchors the cooldown window
 	uint64_t timestamp{ 0 }; // Timestamp carried by the vote itself, higher supersedes lower
 	nano::block_hash hash{ 0 }; // Block the representative voted for
+
+	// Position in the representative's (timestamp, hash) order
+	nano::vote_key key () const;
 
 	// Whether the timestamp marks a final vote
 	bool final () const;
@@ -42,21 +55,17 @@ struct vote_with_weight_info final
 	nano::uint128_t weight{ 0 }; // Representative weight when the report was created
 };
 
-// Tally position of one block
+// Tally position of one block: weight first, then hash, so equal weights resolve to the higher hash
 struct tally_key final
 {
 	nano::uint128_t weight;
 	nano::block_hash hash;
-};
 
-// Orders tally entries heaviest first, equal weights by higher hash, mirroring the vote tie-break rule
-struct tally_key_greater final
-{
-	bool operator() (nano::tally_key const &, nano::tally_key const &) const;
+	std::strong_ordering operator<=> (nano::tally_key const &) const = default;
 };
 
 // Blocks ordered by tally position; hashes are unique, so equal-weight forks remain distinct entries
-using tally_map = std::map<nano::tally_key, std::shared_ptr<nano::block>, nano::tally_key_greater>;
+using tally_map = std::map<nano::tally_key, std::shared_ptr<nano::block>, std::greater<nano::tally_key>>;
 
 // Minimum time between subsequent non-final votes from a representative of the given tier
 std::chrono::seconds calculate_vote_cooldown (nano::rep_tier tier);
@@ -77,6 +86,7 @@ std::chrono::seconds calculate_vote_cooldown (nano::uint128_t weight, nano::uint
  * - The winner and leader start at the initial block and are updated together only when the total weight of all recorded votes reaches the threshold supplied to evaluate ().
  * - The winner is the heaviest held block at that evaluation; it is never evicted and is the only block the owning election broadcasts or votes for.
  * - The leader is the heaviest voted-for hash at that evaluation; it may be unheld and its block bypasses the normal admission weight check if received later.
+ * - Equal weights and equal vote timestamps both resolve to the higher hash, so a winner picked by a tie is a fork every rep may still move its final vote to.
  */
 class election_ballot final
 {
