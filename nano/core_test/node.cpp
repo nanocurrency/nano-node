@@ -35,6 +35,7 @@
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/unchecked_map.hpp>
 #include <nano/node/vote_cache.hpp>
+#include <nano/node/vote_context.hpp>
 #include <nano/node/vote_generator.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_rebroadcaster.hpp>
@@ -2158,10 +2159,10 @@ TEST (node, vote_by_hash_bundle)
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (key1.prv);
 
-	system.nodes[0]->observers.vote.add ([&max_hashes] (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const &, nano::vote_source, nano::vote_code) {
-		if (vote_a->hashes.size () > max_hashes)
+	system.nodes[0]->observers.vote.add ([&max_hashes] (nano::vote_context const & context, nano::vote_code) {
+		if (context.vote->hashes.size () > max_hashes)
 		{
-			max_hashes = vote_a->hashes.size ();
+			max_hashes = context.vote->hashes.size ();
 		}
 	});
 

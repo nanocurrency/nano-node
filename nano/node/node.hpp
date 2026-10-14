@@ -32,11 +32,24 @@ public:
 	std::shared_ptr<nano::node> shared ();
 
 	uint64_t store_version () const;
+
+	// Processes a message received on one of this node's channels
 	void inbound (nano::messages::message const &, std::shared_ptr<nano::transport::channel> const &);
+
+	// Queues a block for processing as if it arrived from the network
 	void process_active (std::shared_ptr<nano::block> const &);
-	void process_active (std::shared_ptr<nano::vote> const &);
+	// Processes a locally submitted block and waits for its status, empty if the block was dropped
 	std::optional<nano::block_status> process_local (std::shared_ptr<nano::block> const &);
+	// Queues a locally submitted block for processing
 	void process_local_async (std::shared_ptr<nano::block> const &);
+
+	// Queues a vote for full processing in the vote processor
+	void process_active (std::shared_ptr<nano::vote> const &);
+	// Routes a vote synchronously, skipping the vote processor's queue, signature check and observers (meant for testing)
+	nano::vote_results route_vote (std::shared_ptr<nano::vote> const &);
+	// Same with an explicit source, routing only the `filter` hash when it is set (meant for testing)
+	nano::vote_results route_vote (std::shared_ptr<nano::vote> const &, nano::vote_source, nano::block_hash filter = { 0 });
+
 	std::shared_ptr<nano::block> block (nano::block_hash const &);
 	bool block_or_pruned_exists (nano::block_hash const &) const;
 	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &, bool only_confirmed);

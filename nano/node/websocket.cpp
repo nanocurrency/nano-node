@@ -12,6 +12,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/transport/channel.hpp>
+#include <nano/node/vote_context.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
@@ -1077,12 +1078,12 @@ nano::websocket_server::websocket_server (nano::websocket::config & config_a, na
 		}
 	});
 
-	observers.vote.add ([this] (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, nano::vote_source source_a, nano::vote_code code_a) {
-		debug_assert (vote_a != nullptr);
+	observers.vote.add ([this] (nano::vote_context const & context, nano::vote_code code_a) {
+		debug_assert (context.vote != nullptr);
 		if (server->any_subscriber (nano::websocket::topic::vote))
 		{
 			nano::websocket::message_builder builder{ ledger };
-			auto msg{ builder.vote_received (vote_a, code_a) };
+			auto msg{ builder.vote_received (context.vote, code_a) };
 			server->broadcast (msg);
 		}
 	});

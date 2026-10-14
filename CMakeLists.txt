@@ -445,6 +445,7 @@ set(BOOST_INCLUDE_LIBRARIES
     asio
     beast
     circular_buffer
+    container
     dll
     endian
     format

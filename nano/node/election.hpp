@@ -131,10 +131,10 @@ public: // Interface
 	std::shared_ptr<nano::block> find (nano::block_hash const &) const;
 
 	/*
-	 * Process vote. Internally uses cooldown to throttle non-final votes
+	 * Process vote. Internally uses cooldown to throttle non-final votes, set by the representative's tier
 	 * If the election reaches consensus, it will be confirmed
 	 */
-	nano::vote_code vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash, nano::vote_source source);
+	nano::vote_code vote (nano::account const & representative, uint64_t timestamp, nano::block_hash const & block_hash, nano::vote_source, nano::rep_tier = nano::rep_tier::none);
 
 	// Submit a competing fork block; returns whether it was newly admitted to the ballot
 	bool publish (std::shared_ptr<nano::block> const & block);

@@ -6,6 +6,8 @@
 #include <nano/secure/fwd.hpp>
 #include <nano/store/fwd.hpp>
 
+#include <cstdint>
+
 namespace nano
 {
 class account_sets_config;
@@ -73,6 +75,7 @@ class vote_cache;
 class vote_cache_config;
 class vote_cache_processor;
 class vote_cache_processor_config;
+struct vote_context;
 class vote_generator;
 class vote_generator_config;
 class vote_replier;
@@ -81,6 +84,7 @@ class vote_processor;
 class vote_processor_config;
 class vote_rebroadcaster;
 class vote_rebroadcaster_config;
+class vote_results;
 class vote_router;
 class vote_spacing;
 class voting_policy;
@@ -90,8 +94,8 @@ enum class block_source;
 enum class confirmation_type;
 enum class election_behavior;
 enum class election_state;
-enum class vote_code;
-enum class vote_source;
+enum class vote_code : uint8_t;
+enum class vote_source : uint8_t;
 }
 
 namespace nano::bootstrap

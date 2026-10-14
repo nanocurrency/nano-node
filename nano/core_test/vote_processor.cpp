@@ -1,5 +1,6 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/files.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/vote.hpp>
 #include <nano/node/active_elections.hpp>
@@ -285,6 +286,148 @@ std::shared_ptr<nano::block> make_genesis_send (nano::test::system & system)
 }
 }
 
+// The context carries the vote together with the source and channel it arrived with
+TEST (vote_processor, context_carries_origin)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// Any vote and any peer channel will do, the lookup only passes them through
+	auto const vote = nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis });
+	auto const channel = nano::test::fake_channel (node);
+
+	// A rebroadcast vote keeps its channel and its source
+	auto const context = node.vote_processor.context (vote, channel, nano::vote_source::rebroadcast);
+	ASSERT_EQ (vote, context.vote);
+	ASSERT_EQ (channel, context.channel);
+	ASSERT_EQ (nano::vote_source::rebroadcast, context.source);
+
+	// A vote replayed from the vote cache has no channel
+	auto const cached = node.vote_processor.context (vote, nullptr, nano::vote_source::cache);
+	ASSERT_EQ (vote, cached.vote);
+	ASSERT_EQ (nullptr, cached.channel);
+	ASSERT_EQ (nano::vote_source::cache, cached.source);
+}
+
+// The context holds the representative's ledger weight and the tier that weight earns against the trended online stake
+TEST (vote_processor, context_weight_and_tier)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// Twice the principal minimum puts a representative in the lowest tier, genesis keeps the rest of the supply
+	auto const amount = node.minimum_principal_weight () * 2;
+	auto const rep = nano::test::setup_rep (system, node, amount);
+
+	// The funded representative gets exactly the amount delegated to it, and its tier right away without waiting for the background tier refresh
+	auto const funded = node.vote_processor.context (nano::test::make_vote (rep, { nano::dev::genesis }), nullptr, nano::vote_source::live);
+	ASSERT_EQ (amount, funded.weight);
+	ASSERT_EQ (nano::rep_tier::tier_1, funded.tier);
+
+	// Genesis lost that amount to the funded representative
+	auto const genesis = node.vote_processor.context (nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis }), nullptr, nano::vote_source::live);
+	ASSERT_EQ (nano::dev::constants.genesis_amount - amount, genesis.weight);
+	ASSERT_EQ (nano::rep_tier::tier_3, genesis.tier);
+
+	// An account nobody delegated to has neither weight nor tier
+	nano::keypair unfunded;
+	auto const nobody = node.vote_processor.context (nano::test::make_vote (unfunded, { nano::dev::genesis }), nullptr, nano::vote_source::live);
+	ASSERT_EQ (0, nobody.weight);
+	ASSERT_EQ (nano::rep_tier::none, nobody.tier);
+}
+
+// A representative is principal only with weight strictly above the principal minimum, which is exactly where it gains a tier
+TEST (vote_processor, context_principal_minimum)
+{
+	nano::test::system system;
+
+	// Apply the real principal rule instead of the dev default that counts every representative
+	nano::node_flags flags;
+	flags.all_reps_principal = false;
+	auto & node = *system.add_node (flags);
+
+	// One representative sits exactly at the minimum, another one raw above it
+	auto const minimum = node.minimum_principal_weight ();
+	auto const at_minimum = nano::test::setup_rep (system, node, minimum);
+	auto const above_minimum = nano::test::setup_rep (system, node, minimum + 1);
+	nano::keypair unfunded;
+
+	// Nothing votes, so the online stake the minimum derives from stays put
+	ASSERT_EQ (minimum, node.minimum_principal_weight ());
+
+	auto const context = [&node] (nano::keypair const & rep) {
+		return node.vote_processor.context (nano::test::make_vote (rep, { nano::dev::genesis }), nullptr, nano::vote_source::live);
+	};
+
+	// Exactly the minimum is not enough, for principal status or for a tier
+	ASSERT_EQ (minimum, context (at_minimum).weight);
+	ASSERT_FALSE (context (at_minimum).principal);
+	ASSERT_EQ (nano::rep_tier::none, context (at_minimum).tier);
+
+	// One raw above the minimum earns both
+	ASSERT_EQ (minimum + 1, context (above_minimum).weight);
+	ASSERT_TRUE (context (above_minimum).principal);
+	ASSERT_EQ (nano::rep_tier::tier_1, context (above_minimum).tier);
+
+	// No weight is never principal, the whole remaining supply always is
+	ASSERT_FALSE (context (unfunded).principal);
+	ASSERT_TRUE (context (nano::dev::genesis_key).principal);
+}
+
+// With every representative counted as principal, a representative without weight is principal too, its weight and tier untouched
+TEST (vote_processor, context_all_reps_principal)
+{
+	nano::test::system system;
+
+	// Set the flag explicitly rather than relying on the dev default
+	nano::node_flags flags;
+	flags.all_reps_principal = true;
+	auto & node = *system.add_node (flags);
+
+	// An account nobody delegated to
+	nano::keypair unfunded;
+	auto const context = node.vote_processor.context (nano::test::make_vote (unfunded, { nano::dev::genesis }), nullptr, nano::vote_source::live);
+
+	// The flag makes it principal
+	ASSERT_TRUE (context.principal);
+
+	// But it still reports the real weight and tier
+	ASSERT_EQ (0, context.weight);
+	ASSERT_EQ (nano::rep_tier::none, context.tier);
+}
+
+// Below the bootstrap height the context takes a representative's preconfigured bootstrap weight, and judges its principal status and tier by that weight
+TEST (vote_processor, context_bootstrap_weight)
+{
+	nano::test::system system;
+
+	// Apply the real principal rule, so the bootstrap weight has to earn the principal status
+	nano::node_flags flags;
+	flags.all_reps_principal = false;
+
+	// Never started, so no background thread reads the bootstrap table while the test fills it
+	auto node = std::make_shared<nano::node> (system.get_available_port (), nano::unique_path (), system.work, flags);
+	system.register_node (node);
+
+	// Keep the ledger below the bootstrap height and preconfigure a representative just above the principal minimum
+	nano::keypair rep;
+	auto const weight = node->minimum_principal_weight () + 1;
+	node->ledger.bootstrap_weights.max_blocks = node->ledger.block_count () + 1;
+	node->ledger.bootstrap_weights.representatives[rep.pub] = weight;
+
+	// The preconfigured representative gets its bootstrap weight, which makes it principal with the lowest tier
+	auto const bootstrapped = node->vote_processor.context (nano::test::make_vote (rep, { nano::dev::genesis }), nullptr, nano::vote_source::live);
+	ASSERT_EQ (weight, bootstrapped.weight);
+	ASSERT_TRUE (bootstrapped.principal);
+	ASSERT_EQ (nano::rep_tier::tier_1, bootstrapped.tier);
+
+	// The ledger's own weight does not count until the bootstrap height is reached, not even for genesis
+	auto const genesis = node->vote_processor.context (nano::test::make_vote (nano::dev::genesis_key, { nano::dev::genesis }), nullptr, nano::vote_source::live);
+	ASSERT_EQ (0, genesis.weight);
+	ASSERT_FALSE (genesis.principal);
+	ASSERT_EQ (nano::rep_tier::none, genesis.tier);
+}
+
 // A vote cached before its election started reaches the election once it starts
 TEST (vote_cache_processor, delivers_cached_vote)
 {
@@ -293,7 +436,7 @@ TEST (vote_cache_processor, delivers_cached_vote)
 	auto send = make_genesis_send (system);
 
 	// Cached before the block reaches the ledger, so any election for it starts after the vote is cached
-	node.vote_cache.insert (nano::test::make_vote (nano::dev::genesis_key, { send }));
+	node.vote_cache.insert (nano::test::make_vote (nano::dev::genesis_key, { send }), 0 /* any weight */);
 	ASSERT_TRUE (nano::test::process (node, { send }));
 	auto election = nano::test::start_election (system, node, send->hash ());
 	ASSERT_NE (nullptr, election);
@@ -310,7 +453,7 @@ TEST (vote_cache_processor, disabled)
 	auto send = make_genesis_send (system);
 
 	// Cached before the block reaches the ledger, so any election for it starts after the vote is cached
-	node.vote_cache.insert (nano::test::make_vote (nano::dev::genesis_key, { send }));
+	node.vote_cache.insert (nano::test::make_vote (nano::dev::genesis_key, { send }), 0 /* any weight */);
 	ASSERT_TRUE (nano::test::process (node, { send }));
 	auto election = nano::test::start_election (system, node, send->hash ());
 	ASSERT_NE (nullptr, election);

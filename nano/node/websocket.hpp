@@ -27,7 +27,7 @@ class logger;
 class node;
 class node_observers;
 class vote;
-enum class vote_code;
+enum class vote_code : uint8_t;
 }
 
 namespace nano::messages

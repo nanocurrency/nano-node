@@ -168,6 +168,7 @@ public:
 	bool disable_topo_index{ false };
 	bool enable_rpc{ false };
 	bool enable_voting{ false };
+	bool all_reps_principal{ nano::is_dev_run () }; // Every representative counts as principal whatever its weight, the default of a dev run
 	bool super_rebroadcaster{ false };
 	bool fast_bootstrap{ false };
 	std::optional<std::filesystem::path> runtime_info_file; // Write runtime_info.json with ports

@@ -8,6 +8,7 @@
 #include <nano/node/online_reps.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/transport/fake.hpp>
+#include <nano/node/vote_context.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/node/wallet.hpp>
@@ -108,12 +109,12 @@ TEST (online_reps, vote_observed_once)
 
 	// A vote no election holds says nothing about its representative
 	auto unmatched = nano::test::make_vote (nano::dev::genesis_key, std::vector<nano::block_hash>{ nano::block_hash{ 1 } }, 1024 * 1024);
-	node.vote_router.vote (unmatched);
+	node.route_vote (unmatched);
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::online_reps, nano::stat::detail::rep_new));
 	ASSERT_EQ (0, node.online_reps.online ());
 
 	nano::test::shared_flag online_before_elections;
-	node.vote_router.vote_matched.add ([&node, online_before_elections] (std::shared_ptr<nano::vote> const &) {
+	node.vote_router.vote_matched.add ([&node, online_before_elections] (nano::vote_context const &) {
 		// Registered after the node's own observer
 		if (node.online_reps.online () > 0)
 		{
@@ -122,7 +123,7 @@ TEST (online_reps, vote_observed_once)
 	});
 
 	auto vote = nano::test::make_vote (nano::dev::genesis_key, hashes, 2 * 1024 * 1024);
-	auto const results = node.vote_router.vote (vote);
+	auto const results = node.route_vote (vote);
 	ASSERT_EQ (3, results.size ());
 	ASSERT_TRUE (online_before_elections.is_set ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::online_reps, nano::stat::detail::rep_new));
@@ -467,4 +468,47 @@ TEST (online_reps, weight_snapshot)
 	ASSERT_EQ (0, inconsistent.load ());
 	ASSERT_GE (reads.load (), 2 * rounds);
 	ASSERT_EQ (total, node.online_reps.online ());
+}
+
+// The principal minimum is the trended online stake divided by the principal weight factor, both from the same reading
+TEST (online_reps, online_stake)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	// Nothing votes, so the trended stake is the configured floor
+	auto const stake = node.online_reps.online_stake ();
+	ASSERT_EQ (node.config.online_weight_minimum.number (), stake.trended);
+
+	// The principal minimum is derived from that same trended stake
+	ASSERT_EQ (stake.trended / node.network_params.network.principal_weight_factor, stake.principal_minimum);
+
+	// The node reports the same principal minimum
+	ASSERT_EQ (stake.principal_minimum, node.minimum_principal_weight ());
+}
+
+// A weight is principal exactly when it earns a tier, and every tier is measured against the trended stake
+TEST (online_reps, online_stake_classifies_weight)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+	auto const stake = node.online_reps.online_stake ();
+
+	// No weight is neither principal nor tiered
+	ASSERT_FALSE (stake.principal (0));
+	ASSERT_EQ (nano::rep_tier::none, stake.tier (0));
+
+	// Exactly the principal minimum is still below the line for both
+	ASSERT_FALSE (stake.principal (stake.principal_minimum));
+	ASSERT_EQ (nano::rep_tier::none, stake.tier (stake.principal_minimum));
+
+	// One raw above the minimum is principal and in the lowest tier at once
+	ASSERT_TRUE (stake.principal (stake.principal_minimum + 1));
+	ASSERT_EQ (nano::rep_tier::tier_1, stake.tier (stake.principal_minimum + 1));
+
+	// The higher tiers start just above 1% and just above 5% of the same trended stake
+	ASSERT_EQ (nano::rep_tier::tier_1, stake.tier (stake.trended / 100));
+	ASSERT_EQ (nano::rep_tier::tier_2, stake.tier (stake.trended / 100 + 1));
+	ASSERT_EQ (nano::rep_tier::tier_2, stake.tier (stake.trended / 20));
+	ASSERT_EQ (nano::rep_tier::tier_3, stake.tier (stake.trended / 20 + 1));
 }

@@ -1,4 +1,5 @@
-add_executable(benchmarks entry.cpp ledger.cpp stats.cpp)
+add_executable(benchmarks allocations.hpp allocations.cpp entry.cpp ledger.cpp
+                          stats.cpp vote_processing.cpp)
 
 target_link_libraries(benchmarks test_common benchmark::benchmark)
 
