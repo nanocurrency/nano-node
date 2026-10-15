@@ -456,22 +456,47 @@ std::vector<nano::representative> nano::rep_crawler::representatives (std::size_
 
 	nano::lock_guard<nano::mutex> lock{ mutex };
 
-	std::multimap<nano::amount, rep_entry, std::greater<>> ordered;
-	for (const auto & rep : reps.get<tag_account> ())
+	std::vector<std::pair<nano::uint128_t, nano::representative>> weighted;
+	weighted.reserve (reps.size ());
+	for (auto const & rep : reps.get<tag_account> ())
 	{
-		auto weight = node.ledger.weight (rep.account);
+		auto const weight = node.ledger.weight (rep.account);
 		if (weight >= minimum_weight && rep.channel->get_network_version () >= version_min)
 		{
-			ordered.insert ({ nano::amount{ weight }, rep });
+			weighted.emplace_back (weight, nano::representative{ rep.account, rep.channel });
 		}
 	}
+	// Heaviest first, equal weights keep the order they were found in
+	std::stable_sort (weighted.begin (), weighted.end (), [] (auto const & lhs, auto const & rhs) {
+		return lhs.first > rhs.first;
+	});
 
 	std::vector<nano::representative> result;
-	result.reserve (ordered.size ());
-	for (auto i = ordered.begin (), n = ordered.end (); i != n && result.size () < count; ++i)
+	result.reserve (std::min (count, weighted.size ()));
+	for (auto const & [weight, rep] : weighted)
 	{
-		auto const & [weight, rep] = *i;
-		result.push_back ({ rep.account, rep.channel });
+		if (result.size () == count)
+		{
+			break;
+		}
+		result.push_back (rep);
+	}
+	return result;
+}
+
+nano::transport::channel_list nano::rep_crawler::principal_channels () const
+{
+	auto const minimum_weight = node.minimum_principal_weight ();
+	auto const version_min = node.network_params.network.protocol_version_min;
+
+	nano::transport::channel_list result;
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	for (auto const & rep : reps.get<tag_account> ())
+	{
+		if (node.ledger.weight (rep.account) >= minimum_weight && rep.channel->get_network_version () >= version_min)
+		{
+			result.push_back (rep.channel);
+		}
 	}
 	return result;
 }

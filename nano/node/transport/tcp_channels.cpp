@@ -204,6 +204,31 @@ std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::t
 	return result;
 }
 
+auto nano::transport::tcp_channels::sample (std::size_t count, channel_filter const & filter) const -> nano::transport::channel_list
+{
+	nano::transport::channel_list result;
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	// Reservoir sampling: every channel passing the filter ends up in the result with the same probability, in one pass and without a copy of the list
+	std::size_t passed = 0;
+	for (auto const & entry : channels)
+	{
+		if (filter != nullptr && !filter (entry.channel))
+		{
+			continue;
+		}
+		++passed;
+		if (result.size () < count)
+		{
+			result.push_back (entry.channel);
+		}
+		else if (auto const slot = rng.random (passed); slot < count)
+		{
+			result[slot] = entry.channel;
+		}
+	}
+	return result;
+}
+
 void nano::transport::tcp_channels::random_fill (std::array<nano::endpoint, 8> & target_a) const
 {
 	auto peers (random_set (target_a.size ()));
