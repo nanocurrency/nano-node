@@ -28,7 +28,7 @@ using namespace std::chrono_literals;
 
 extern QApplication * test_application;
 
-TEST (wallet, construction)
+TEST (qt_wallet, construction)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (1);
@@ -47,7 +47,7 @@ TEST (wallet, construction)
 
 // Disabled because it does not work and it is not clearly defined what its behaviour should be:
 // https://github.com/nanocurrency/nano-node/issues/3235
-TEST (wallet, DISABLED_status)
+TEST (qt_wallet, DISABLED_status)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (1);
@@ -79,8 +79,8 @@ TEST (wallet, DISABLED_status)
 	ASSERT_TRUE (wallet_has (nano_qt::status_types::disconnected));
 }
 
-// this test is modelled on wallet.status but it introduces another node on the network
-TEST (wallet, status_with_peer)
+// this test is modelled on qt_wallet.status but it introduces another node on the network
+TEST (qt_wallet, status_with_peer)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (2);
@@ -104,7 +104,7 @@ TEST (wallet, status_with_peer)
 	ASSERT_TRUE (wallet_has (nano_qt::status_types::nominal));
 }
 
-TEST (wallet, startup_balance)
+TEST (qt_wallet, startup_balance)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (1);
@@ -118,7 +118,7 @@ TEST (wallet, startup_balance)
 	ASSERT_EQ ("Balance: 0 nano", wallet->self.balance_label->text ().toStdString ());
 }
 
-TEST (wallet, select_account)
+TEST (qt_wallet, select_account)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (1);
@@ -150,7 +150,7 @@ TEST (wallet, select_account)
 	}
 }
 
-TEST (wallet, main)
+TEST (qt_wallet, main)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (1);
@@ -181,7 +181,7 @@ TEST (wallet, main)
 	ASSERT_EQ (wallet->entry_window, wallet->main_stack->currentWidget ());
 }
 
-TEST (wallet, password_change)
+TEST (qt_wallet, password_change)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (1);
@@ -203,7 +203,7 @@ TEST (wallet, password_change)
 	ASSERT_EQ ("", wallet->settings.retype_password->text ());
 }
 
-TEST (client, password_nochange)
+TEST (qt_wallet, password_nochange)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (1);
@@ -226,7 +226,7 @@ TEST (client, password_nochange)
 	ASSERT_EQ ("", wallet->settings.retype_password->text ());
 }
 
-TEST (wallet, enter_password)
+TEST (qt_wallet, enter_password)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (2);
@@ -259,7 +259,7 @@ TEST (wallet, enter_password)
 	ASSERT_EQ ("", wallet->settings.password->text ());
 }
 
-TEST (wallet, send)
+TEST (qt_wallet, send)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (2);
@@ -292,7 +292,7 @@ TEST (wallet, send)
 	ASSERT_TRUE (("2" == item->text ()) || ("2" == other_item->text ()));
 }
 
-TEST (wallet, send_locked)
+TEST (qt_wallet, send_locked)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (1);
@@ -319,7 +319,7 @@ TEST (wallet, send_locked)
 // Test disabled because it's failing intermittently.
 // PR in which it got disabled: https://github.com/nanocurrency/nano-node/pull/3629
 // Issue for investigating it: https://github.com/nanocurrency/nano-node/issues/3642
-TEST (wallet, DISABLED_process_block)
+TEST (qt_wallet, DISABLED_process_block)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (1);
@@ -356,7 +356,7 @@ TEST (wallet, DISABLED_process_block)
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
 }
 
-TEST (wallet, create_send)
+TEST (qt_wallet, create_send)
 {
 	nano_qt::eventloop_processor processor;
 	nano::keypair key;
@@ -386,7 +386,7 @@ TEST (wallet, create_send)
 	ASSERT_EQ (nano::block_status::old, system.nodes[0]->process (send));
 }
 
-TEST (wallet, create_open_receive)
+TEST (qt_wallet, create_open_receive)
 {
 	nano_qt::eventloop_processor processor;
 	nano::keypair key;
@@ -435,7 +435,7 @@ TEST (wallet, create_open_receive)
 	ASSERT_EQ (nano::block_status::old, system.nodes[0]->process (receive));
 }
 
-TEST (wallet, create_change)
+TEST (qt_wallet, create_change)
 {
 	nano_qt::eventloop_processor processor;
 	nano::keypair key;
@@ -463,7 +463,7 @@ TEST (wallet, create_change)
 	ASSERT_EQ (nano::block_status::old, system.nodes[0]->process (change));
 }
 
-TEST (history, short_text)
+TEST (qt_wallet, history_short_text)
 {
 	nano_qt::eventloop_processor processor;
 	nano::keypair key;
@@ -491,7 +491,7 @@ TEST (history, short_text)
 	ASSERT_EQ (4, history.model->rowCount ());
 }
 
-TEST (history, pruned_source)
+TEST (qt_wallet, history_pruned_source)
 {
 	if (nano::default_database_backend () == nano::database_backend::rocksdb)
 	{
@@ -689,7 +689,7 @@ TEST (history, pruned_source)
 	ASSERT_EQ ("100 raw", amount11->text ().toStdString ());
 }
 
-TEST (wallet, startup_work)
+TEST (qt_wallet, startup_work)
 {
 	nano_qt::eventloop_processor processor;
 	nano::keypair key;
@@ -712,7 +712,7 @@ TEST (wallet, startup_work)
 	ASSERT_TIMELY (10s, has_work (nano::dev::genesis_key.pub));
 }
 
-TEST (wallet, block_viewer)
+TEST (qt_wallet, block_viewer)
 {
 	nano_qt::eventloop_processor processor;
 	nano::keypair key;
@@ -733,7 +733,7 @@ TEST (wallet, block_viewer)
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
 }
 
-TEST (wallet, import)
+TEST (qt_wallet, import)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (2);
@@ -764,7 +764,7 @@ TEST (wallet, import)
 	ASSERT_TRUE (system.wallet (1)->exists (key1.pub));
 }
 
-TEST (wallet, republish)
+TEST (qt_wallet, republish)
 {
 	nano_qt::eventloop_processor processor;
 
@@ -810,7 +810,7 @@ TEST (wallet, republish)
 	ASSERT_TIMELY (10s, node2.ledger.any.block_exists (node2.ledger.tx_begin_read (), hash));
 }
 
-TEST (wallet, ignore_empty_adhoc)
+TEST (qt_wallet, ignore_empty_adhoc)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (1);
@@ -837,7 +837,7 @@ TEST (wallet, ignore_empty_adhoc)
 	ASSERT_EQ (2, wallet->accounts.model->rowCount ());
 }
 
-TEST (wallet, change_seed)
+TEST (qt_wallet, change_seed)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (1);
@@ -883,7 +883,7 @@ TEST (wallet, change_seed)
 	ASSERT_TRUE (system.wallet (0)->exists (key1));
 }
 
-TEST (wallet, seed_work_generation)
+TEST (qt_wallet, seed_work_generation)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (1);
@@ -914,7 +914,7 @@ TEST (wallet, seed_work_generation)
 	ASSERT_GE (nano::dev::network_params.work.difficulty (nano::work_version::work_1, system.nodes[0]->ledger.latest_root (transaction, pub), work_result.value ()), system.nodes[0]->default_difficulty (nano::work_version::work_1));
 }
 
-TEST (wallet, backup_seed)
+TEST (qt_wallet, backup_seed)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (1);
@@ -931,7 +931,7 @@ TEST (wallet, backup_seed)
 	ASSERT_EQ (seed.value ().to_string (), test_application->clipboard ()->text ().toStdString ());
 }
 
-TEST (wallet, import_locked)
+TEST (qt_wallet, import_locked)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (1);
@@ -959,7 +959,7 @@ TEST (wallet, import_locked)
 	ASSERT_EQ (seed1, seed3.value ());
 }
 
-TEST (wallet, epoch_2_validation)
+TEST (qt_wallet, epoch_2_validation)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (1);
@@ -1041,7 +1041,7 @@ TEST (wallet, epoch_2_validation)
  * Import seed refuses a seed other than exactly 64 hex digits, which would decode as a different seed than the one meant.
  * Importing replaces the wallet's seed and clears its accounts, so a refused import must leave both untouched.
  */
-TEST (wallet, import_malformed_seed)
+TEST (qt_wallet, import_malformed_seed)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (1);
@@ -1076,7 +1076,7 @@ TEST (wallet, import_malformed_seed)
 /*
  * Import adhoc key refuses a private key other than exactly 64 hex digits, which would decode as a different key than the one meant.
  */
-TEST (wallet, import_malformed_adhoc_key)
+TEST (qt_wallet, import_malformed_adhoc_key)
 {
 	nano_qt::eventloop_processor processor;
 	nano::test::system system (1);
