@@ -255,10 +255,6 @@ namespace websocket
 		friend class listener;
 
 	public:
-#ifdef NANO_SECURE_RPC
-		/** Constructor that takes ownership over \p socket_a and creates an SSL stream */
-		explicit session (nano::websocket::listener & listener_a, socket_type socket_a, boost::asio::ssl::context & ctx_a);
-#endif
 		/** Constructor that takes ownership over \p socket_a */
 		explicit session (nano::websocket::listener & listener_a, socket_type socket_a, nano::logger &);
 
@@ -279,7 +275,7 @@ namespace websocket
 	private:
 		/** The owning listener */
 		nano::websocket::listener & ws_listener;
-		/** Websocket stream, supporting both plain and tls connections */
+		/** Websocket stream */
 		nano::websocket::stream ws;
 		nano::logger & logger;
 
@@ -309,6 +305,8 @@ namespace websocket
 		void handle_message (boost::property_tree::ptree const & message_a);
 		/** Acknowledge incoming message */
 		void send_ack (std::string action_a, std::string id_a);
+		/** Enqueue \p message_a if its topic is subscribed. The caller holds subscriptions_mutex */
+		void write_locked (nano::websocket::message const & message_a);
 		/** Send all queued messages. This must be called from the write strand. */
 		void write_queued_messages ();
 	};

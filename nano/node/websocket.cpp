@@ -254,15 +254,6 @@ bool nano::websocket::vote_options::should_filter (nano::websocket::message cons
 	return should_filter_l;
 }
 
-#ifdef NANO_SECURE_RPC
-
-nano::websocket::session::session (nano::websocket::listener & listener_a, socket_type socket_a, boost::asio::ssl::context & ctx_a) :
-	ws_listener (listener_a), ws (std::move (socket_a), ctx_a)
-{
-}
-
-#endif
-
 nano::websocket::session::session (nano::websocket::listener & listener_a, socket_type socket_a, nano::logger & logger_a) :
 	ws_listener (listener_a),
 	ws (std::move (socket_a)),
@@ -324,11 +315,16 @@ void nano::websocket::session::close ()
 
 void nano::websocket::session::write (nano::websocket::message message_a)
 {
-	nano::unique_lock<nano::mutex> lk (subscriptions_mutex);
+	nano::lock_guard<nano::mutex> lk (subscriptions_mutex);
+	write_locked (message_a);
+}
+
+void nano::websocket::session::write_locked (nano::websocket::message const & message_a)
+{
 	auto subscription (subscriptions.find (message_a.topic));
 	if (message_a.topic == nano::websocket::topic::ack || (subscription != subscriptions.end () && !subscription->second->should_filter (message_a)))
 	{
-		lk.unlock ();
+		// Posting under the lock keeps the message ahead of the ack of any later subscription change
 		auto this_l (shared_from_this ());
 		boost::asio::post (ws.get_strand (),
 		[message_a, this_l] () {
@@ -670,6 +666,7 @@ void nano::websocket::listener::broadcast_confirmation (nano::block_confirmation
 		auto session_ptr (weak_session.lock ());
 		if (session_ptr)
 		{
+			nano::lock_guard<nano::mutex> subscriptions_lock (session_ptr->subscriptions_mutex);
 			auto subscription (session_ptr->subscriptions.find (nano::websocket::topic::confirmation));
 			if (subscription != session_ptr->subscriptions.end ())
 			{
@@ -681,7 +678,7 @@ void nano::websocket::listener::broadcast_confirmation (nano::block_confirmation
 				}
 
 				auto message = builder.block_confirmed (confirmation, subtype, *conf_options);
-				session_ptr->write (message);
+				session_ptr->write_locked (message);
 			}
 		}
 	}
