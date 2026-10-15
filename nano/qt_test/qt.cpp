@@ -1495,3 +1495,96 @@ TEST (qt_wallet, use_wallet_clears_typed_input)
 	ASSERT_TRUE (wallet->settings.retype_password->text ().isEmpty ());
 	ASSERT_TRUE (wallet->import.clear_line->text ().isEmpty ());
 }
+
+/*
+ * Create wallet adds a wallet with a new seed and shows it with its first account, as Use wallet would.
+ * The new wallet has no password yet, so the status line warns about it.
+ */
+TEST (qt_wallet, create_wallet)
+{
+	nano_qt::eventloop_processor processor;
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	// The wallet starts on the test system's wallet
+	auto system_wallet = system.wallet (0);
+	auto key = system_wallet->deterministic_insert ().value ();
+	auto wallet = std::make_shared<nano_qt::wallet> (*test_application, processor, node, system_wallet, key);
+	wallet->start ();
+	// Records every pick the wallet reports
+	std::vector<selection> selections;
+	wallet->selection_observer = [&selections] (nano::wallet_id const & wallet_id, nano::account const & account) {
+		selections.push_back ({ wallet_id, account });
+	};
+	// Fills the wallets screen, which holds the button
+	wallet->wallets_viewer.refresh ();
+
+	// The button confirms the new wallet
+	QTest::mouseClick (wallet->wallets_viewer.create_wallet, Qt::LeftButton);
+	ASSERT_EQ ("New wallet was created", wallet->wallets_viewer.create_wallet->text ().toStdString ());
+
+	// The new wallet is shown with its only account
+	ASSERT_EQ (2, node.wallets.wallet_count ());
+	ASSERT_NE (system_wallet, wallet->wallet_m);
+	auto accounts = wallet->wallet_m->accounts ();
+	ASSERT_EQ (1, accounts.size ());
+	ASSERT_EQ (accounts.front (), wallet->account);
+
+	// It has a seed of its own and no password yet
+	ASSERT_NE (system_wallet->get_seed ().value (), wallet->wallet_m->get_seed ().value ());
+	ASSERT_TRUE (wallet->active_status.active.contains (nano_qt::status_types::vulnerable));
+
+	// It is reported and listed in bold
+	ASSERT_EQ (1, selections.size ());
+	ASSERT_EQ (wallet->wallet_m, node.wallets.open (selections.back ().wallet));
+	ASSERT_EQ (2, wallet->wallets_viewer.model->rowCount ());
+	ASSERT_TRUE (listed_in_bold (*wallet, selections.back ().wallet));
+}
+
+/*
+ * Restore wallet from seed adds a wallet with the given seed and the accounts it has used, and shows it.
+ * The wallet shown before keeps its seed and accounts, unlike with Import seed, which replaces them.
+ * A seed must be 64 hex digits, so a mistyped one is refused instead of restoring a different wallet.
+ */
+TEST (qt_wallet, restore_wallet)
+{
+	nano_qt::eventloop_processor processor;
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	// The wallet starts on the test system's wallet, whose seed must survive the restore
+	auto system_wallet = system.wallet (0);
+	auto key = system_wallet->deterministic_insert ().value ();
+	auto system_seed = system_wallet->get_seed ().value ();
+	auto wallet = std::make_shared<nano_qt::wallet> (*test_application, processor, node, system_wallet, key);
+	wallet->start ();
+	// Fills the wallets screen, which holds the seed field and the button
+	wallet->wallets_viewer.refresh ();
+
+	// A seed missing digits is refused
+	QTest::keyClicks (wallet->wallets_viewer.seed, "1234");
+	QTest::mouseClick (wallet->wallets_viewer.restore_wallet, Qt::LeftButton);
+	ASSERT_EQ ("Incorrect seed, length must be 64", wallet->wallets_viewer.restore_wallet->text ().toStdString ());
+
+	// So is one with characters that are not hex digits, and neither adds a wallet
+	wallet->wallets_viewer.seed->clear ();
+	QTest::keyClicks (wallet->wallets_viewer.seed, std::string (64, 'z').c_str ());
+	QTest::mouseClick (wallet->wallets_viewer.restore_wallet, Qt::LeftButton);
+	ASSERT_EQ ("Incorrect seed. Only HEX characters allowed", wallet->wallets_viewer.restore_wallet->text ().toStdString ());
+	ASSERT_EQ (1, node.wallets.wallet_count ());
+	ASSERT_EQ (system_wallet, wallet->wallet_m);
+
+	// A valid seed restores into a new wallet, shown with the first account of the seed
+	auto seed = nano::keypair ().prv;
+	wallet->wallets_viewer.seed->clear ();
+	QTest::keyClicks (wallet->wallets_viewer.seed, seed.to_string ().c_str ());
+	QTest::mouseClick (wallet->wallets_viewer.restore_wallet, Qt::LeftButton);
+	ASSERT_EQ ("Wallet was restored", wallet->wallets_viewer.restore_wallet->text ().toStdString ());
+	ASSERT_EQ (2, node.wallets.wallet_count ());
+	ASSERT_NE (system_wallet, wallet->wallet_m);
+	ASSERT_EQ (seed, wallet->wallet_m->get_seed ().value ());
+	ASSERT_EQ (nano::pub_key (nano::deterministic_key (seed, 0)), wallet->account);
+	ASSERT_TRUE (wallet->wallets_viewer.seed->text ().isEmpty ());
+
+	// The wallet shown before keeps its seed and accounts
+	ASSERT_EQ (system_seed, system_wallet->get_seed ().value ());
+	ASSERT_TRUE (system_wallet->exists (key));
+}

@@ -357,6 +357,10 @@ nano_qt::wallets_viewer::wallets_viewer (nano_qt::wallet & wallet_a) :
 	model (new QStandardItemModel),
 	view (new QTableView),
 	use_wallet (new QPushButton ("Use wallet")),
+	create_wallet (new QPushButton ("Create wallet")),
+	separator (new QFrame),
+	seed (new QLineEdit),
+	restore_wallet (new QPushButton ("Restore wallet from seed")),
 	back (new QPushButton ("Back")),
 	wallet (wallet_a)
 {
@@ -369,8 +373,15 @@ nano_qt::wallets_viewer::wallets_viewer (nano_qt::wallet & wallet_a) :
 	view->setModel (model);
 	view->verticalHeader ()->hide ();
 	view->horizontalHeader ()->setStretchLastSection (true);
+	separator->setFrameShape (QFrame::HLine);
+	separator->setFrameShadow (QFrame::Sunken);
+	seed->setPlaceholderText ("Seed");
 	layout->addWidget (view);
 	layout->addWidget (use_wallet);
+	layout->addWidget (create_wallet);
+	layout->addWidget (separator);
+	layout->addWidget (seed);
+	layout->addWidget (restore_wallet);
 	layout->addWidget (back);
 	window->setLayout (layout);
 	QObject::connect (use_wallet, &QPushButton::released, [this] () {
@@ -396,9 +407,87 @@ nano_qt::wallets_viewer::wallets_viewer (nano_qt::wallet & wallet_a) :
 			}
 		}
 	});
+	QObject::connect (create_wallet, &QPushButton::released, [this] () {
+		if (auto error = add_wallet (std::nullopt))
+		{
+			show_button_error (*create_wallet);
+			create_wallet->setText (error.get_message ().c_str ());
+		}
+		else
+		{
+			show_button_success (*create_wallet);
+			create_wallet->setText ("New wallet was created");
+		}
+		this->wallet.node.workers.post_delayed (std::chrono::seconds (5), [this] () {
+			this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this] () {
+				show_button_ok (*create_wallet);
+				create_wallet->setText ("Create wallet");
+			}));
+		});
+	});
+	QObject::connect (restore_wallet, &QPushButton::released, [this] () {
+		auto const text = seed->text ().toStdString ();
+		auto const seed_l = nano::try_parse_raw_key (text);
+		if (!seed_l)
+		{
+			show_line_error (*seed);
+			show_button_error (*restore_wallet);
+			restore_wallet->setText (text.size () != 64 ? "Incorrect seed, length must be 64" : "Incorrect seed. Only HEX characters allowed");
+		}
+		else if (auto error = add_wallet (*seed_l))
+		{
+			show_button_error (*restore_wallet);
+			restore_wallet->setText (error.get_message ().c_str ());
+		}
+		else
+		{
+			seed->clear ();
+			show_line_ok (*seed);
+			show_button_success (*restore_wallet);
+			restore_wallet->setText ("Wallet was restored");
+		}
+		this->wallet.node.workers.post_delayed (std::chrono::seconds (5), [this] () {
+			this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this] () {
+				show_line_ok (*seed);
+				show_button_ok (*restore_wallet);
+				restore_wallet->setText ("Restore wallet from seed");
+			}));
+		});
+	});
+	QObject::connect (seed, &QLineEdit::textChanged, [this] (const QString & value) {
+		auto pos = seed->cursorPosition ();
+		seed->setText (value.trimmed ());
+		seed->setCursorPosition (pos);
+	});
 	QObject::connect (back, &QPushButton::released, [this] () {
 		this->wallet.pop_main_stack ();
 	});
+}
+
+nano::error nano_qt::wallets_viewer::add_wallet (std::optional<nano::raw_key> const & seed_a)
+{
+	auto const id = nano::random_wallet_id ();
+	auto created = wallet.node.wallets.create (id);
+	if (created == nullptr)
+	{
+		// create has logged the cause
+		return nano::error (nano::error_common::wallet_create_failed);
+	}
+	if (seed_a)
+	{
+		// Fails only on a locked wallet, and nothing else knows the new wallet's id to lock it
+		if (auto restored = created->change_seed (*seed_a); !restored)
+		{
+			wallet.node.wallets.destroy (id);
+			return restored.error ();
+		}
+		wallet.node.logger.info (nano::log::type::qt, "Restored wallet {} from a seed", id);
+	}
+	else
+	{
+		wallet.node.logger.info (nano::log::type::qt, "Created wallet {}", id);
+	}
+	return wallet.select_wallet (id);
 }
 
 void nano_qt::wallets_viewer::refresh ()

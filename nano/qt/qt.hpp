@@ -194,7 +194,7 @@ private:
 	// Refreshes the wallet balance now and every minute after
 	void ongoing_refresh_wallet_balance ();
 };
-// Lists the wallets in the store and switches the shown one
+// Lists the wallets in the store, switches the shown one and adds new ones
 class wallets_viewer
 {
 public:
@@ -205,8 +205,16 @@ public:
 	QStandardItemModel * model;
 	QTableView * view;
 	QPushButton * use_wallet;
+	QPushButton * create_wallet;
+	QFrame * separator;
+	QLineEdit * seed;
+	QPushButton * restore_wallet;
 	QPushButton * back;
 	nano_qt::wallet & wallet;
+
+private:
+	// Adds a wallet to the store, restoring the accounts of seed when given, and shows it
+	nano::error add_wallet (std::optional<nano::raw_key> const & seed);
 };
 class import
 {
