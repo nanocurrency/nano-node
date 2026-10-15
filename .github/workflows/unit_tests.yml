@@ -25,8 +25,8 @@ jobs:
       CMAKE_CXX_COMPILER_LAUNCHER: sccache
       SCCACHE_GHA_ENABLED: "true"
       SCCACHE_GHA_VERSION: macos-${{ matrix.RELEASE }}
-      # Only the develop branch populates the cache.
-      SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/develop' && 'READ_WRITE' || 'READ_ONLY' }}
+      SCCACHE_GHA_RW_MODE: "READ_WRITE"
+      SCCACHE_LOG: "warn,sccache::server=debug,sccache::cache=debug"
       SCCACHE_IDLE_TIMEOUT: "0"
     runs-on: macos-26
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
@@ -39,6 +39,9 @@ jobs:
       - name: Prepare
         run: ci/prepare/macos/prepare.sh
 
+      - name: Configure sccache logging
+        run: echo "SCCACHE_ERROR_LOG=$RUNNER_TEMP/sccache.log" >> "$GITHUB_ENV"
+
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.11
 
@@ -49,6 +52,20 @@ jobs:
       - name: Build cache stats
         if: always()
         run: sccache --show-stats
+
+      - name: Print sccache debug log
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$SCCACHE_ERROR_LOG" ]]; then
+            stop_token="$(uuidgen)"
+            echo "::stop-commands::$stop_token"
+            sed -E 's#(https?://[^?[:space:]"<>]+)\?[^[:space:]"<>]*#\1?[REDACTED]#g' "$SCCACHE_ERROR_LOG"
+            echo
+            echo "::$stop_token::"
+          else
+            echo "No sccache debug log was created."
+          fi
 
       - name: Setup Core Dumps
         if: steps.build.outcome == 'success' && (success() || failure())
@@ -90,7 +107,8 @@ jobs:
       CMAKE_CXX_COMPILER_LAUNCHER: sccache
       SCCACHE_GHA_ENABLED: "true"
       SCCACHE_GHA_VERSION: linux-${{ matrix.COMPILER }}-${{ matrix.RELEASE }}
-      SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/develop' && 'READ_WRITE' || 'READ_ONLY' }}
+      SCCACHE_GHA_RW_MODE: "READ_WRITE"
+      SCCACHE_LOG: "warn,sccache::server=debug,sccache::cache=debug"
       SCCACHE_IDLE_TIMEOUT: "0"
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
@@ -102,6 +120,9 @@ jobs:
       - name: Prepare
         run: sudo -E ci/prepare/linux/prepare.sh
 
+      - name: Configure sccache logging
+        run: echo "SCCACHE_ERROR_LOG=$RUNNER_TEMP/sccache.log" >> "$GITHUB_ENV"
+
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.11
 
@@ -112,6 +133,20 @@ jobs:
       - name: Build cache stats
         if: always()
         run: sccache --show-stats
+
+      - name: Print sccache debug log
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$SCCACHE_ERROR_LOG" ]]; then
+            stop_token="$(uuidgen)"
+            echo "::stop-commands::$stop_token"
+            sed -E 's#(https?://[^?[:space:]"<>]+)\?[^[:space:]"<>]*#\1?[REDACTED]#g' "$SCCACHE_ERROR_LOG"
+            echo
+            echo "::$stop_token::"
+          else
+            echo "No sccache debug log was created."
+          fi
 
       - name: Setup Core Dumps
         if: steps.build.outcome == 'success' && (success() || failure())
