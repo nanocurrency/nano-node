@@ -461,14 +461,8 @@ size_t nano::network::flood_vote_non_pr (std::shared_ptr<nano::vote> const & vot
 size_t nano::network::flood_vote_pr (std::shared_ptr<nano::vote> const & vote, nano::transport::traffic_type type) const
 {
 	nano::messages::confirm_ack message{ node.network_params.network, vote };
-
-	size_t result = 0;
-	for (auto const & channel : node.rep_crawler.principal_representatives ())
-	{
-		bool sent = channel.channel->send (message, type);
-		result += sent;
-	}
-	return result;
+	auto const representatives = node.rep_crawler.principal_representatives ();
+	return send_to (message, type, representatives | std::views::transform (&nano::representative::channel));
 }
 
 size_t nano::network::flood_block (std::shared_ptr<nano::block> const & block, nano::transport::traffic_type type) const
@@ -480,14 +474,12 @@ size_t nano::network::flood_block (std::shared_ptr<nano::block> const & block, n
 size_t nano::network::flood_block_initial (std::shared_ptr<nano::block> const & block) const
 {
 	nano::messages::publish message{ node.network_params.network, block, /* is_originator */ true };
+	auto const buffer = message.to_shared_const_buffer ();
+	auto const type = nano::transport::traffic_type::block_broadcast_initial;
 
-	size_t result = 0;
-	for (auto const & rep : node.rep_crawler.principal_representatives ())
-	{
-		bool sent = rep.channel->send (message, nano::transport::traffic_type::block_broadcast_initial);
-		result += sent;
-	}
-	result += send_to (message, nano::transport::traffic_type::block_broadcast_initial, list_non_pr (fanout (1.0)));
+	auto const representatives = node.rep_crawler.principal_representatives ();
+	size_t result = send_to (buffer, message.type (), type, representatives | std::views::transform (&nano::representative::channel));
+	result += send_to (buffer, message.type (), type, list_non_pr (fanout (1.0)));
 	return result;
 }
 

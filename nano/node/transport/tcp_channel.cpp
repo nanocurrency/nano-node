@@ -87,10 +87,8 @@ bool nano::transport::tcp_channel::max (nano::transport::traffic_type traffic_ty
 	return queue.max (traffic_type);
 }
 
-bool nano::transport::tcp_channel::send_impl (nano::messages::message const & message, nano::transport::traffic_type type, nano::transport::channel::callback_t callback)
+bool nano::transport::tcp_channel::send_buffer_impl (nano::shared_const_buffer const & buffer, nano::transport::traffic_type type, nano::transport::channel::callback_t callback)
 {
-	auto buffer = message.to_shared_const_buffer ();
-
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	if (!queue.full (type))
 	{

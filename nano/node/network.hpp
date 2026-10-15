@@ -115,9 +115,12 @@ public:
 	size_t flood_message (nano::messages::message const &, nano::transport::traffic_type, float scale = 1.0f) const;
 	size_t flood_message_all (nano::messages::message const &, nano::transport::traffic_type) const;
 
-	// Sends one message to every channel of the range, which every flood comes down to
+	// Sends one message to every channel of the range, serialized once for all of them
 	template <std::ranges::input_range Channels>
 	size_t send_to (nano::messages::message const &, nano::transport::traffic_type, Channels const &) const;
+	// Sends an already serialized message of the given type to every channel of the range
+	template <std::ranges::input_range Channels>
+	size_t send_to (nano::shared_const_buffer const &, nano::messages::message_type, nano::transport::traffic_type, Channels const &) const;
 
 	size_t flood_keepalive (float scale = 1.0f) const;
 	size_t flood_keepalive_self (float scale = 0.5f) const;
@@ -248,10 +251,20 @@ public:
 template <std::ranges::input_range Channels>
 size_t nano::network::send_to (nano::messages::message const & message, nano::transport::traffic_type type, Channels const & channels) const
 {
+	if (std::ranges::empty (channels))
+	{
+		return 0;
+	}
+	return send_to (message.to_shared_const_buffer (), message.type (), type, channels);
+}
+
+template <std::ranges::input_range Channels>
+size_t nano::network::send_to (nano::shared_const_buffer const & buffer, nano::messages::message_type message_type, nano::transport::traffic_type type, Channels const & channels) const
+{
 	size_t result = 0;
 	for (auto const & channel : channels)
 	{
-		result += channel->send (message, type);
+		result += channel->send_buffer (buffer, message_type, type);
 	}
 	return result;
 }
