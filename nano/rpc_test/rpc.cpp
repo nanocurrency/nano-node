@@ -7951,3 +7951,105 @@ TEST (rpc, bootstrap_status)
 	ASSERT_GT (response.get<int> ("priorities"), 0);
 	ASSERT_GE (response.get<int> ("blocking"), 0);
 }
+
+/*
+ * account_get gives the account of a public key written as 64 hex digits.
+ */
+TEST (rpc, account_get)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node);
+
+	// The genesis public key names the genesis account
+	boost::property_tree::ptree request;
+	request.put ("action", "account_get");
+	request.put ("key", nano::dev::genesis_key.pub.to_string ());
+	auto response = wait_response (system, rpc_ctx, request);
+	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), response.get<std::string> ("account"));
+}
+
+/*
+ * key_expand gives the public key and account of a private key written as 64 hex digits.
+ */
+TEST (rpc, key_expand)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node);
+
+	// The genesis private key expands to the genesis public key and account
+	boost::property_tree::ptree request;
+	request.put ("action", "key_expand");
+	request.put ("key", nano::dev::genesis_key.prv.to_string ());
+	auto response = wait_response (system, rpc_ctx, request);
+	ASSERT_EQ (nano::dev::genesis_key.prv.to_string (), response.get<std::string> ("private"));
+	ASSERT_EQ (nano::dev::genesis_key.pub.to_string (), response.get<std::string> ("public"));
+	ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), response.get<std::string> ("account"));
+}
+
+/*
+ * Every action that takes a seed or a key refuses text other than exactly 64 hex digits.
+ * A seed missing a digit would otherwise decode as a different seed, so none of the refused requests may change the wallet.
+ */
+TEST (rpc, malformed_seed_or_key)
+{
+	nano::test::system system;
+	auto node = add_ipc_enabled_node (system);
+	auto const rpc_ctx = add_rpc (system, node);
+	// The wallet holds an account of its seed, which the wallet actions must leave alone
+	auto wallet = system.wallet (0);
+	auto account = wallet->deterministic_insert ().value ();
+	auto seed = wallet->get_seed ().value ();
+	auto const wallet_id = node->wallets.wallet_ids ().front ().to_string ();
+	// A block for sign, which reads the key only once it has something to sign
+	std::string block;
+	nano::dev::genesis->serialize_json (block);
+
+	// Each action, its field taking the seed or key, the other fields it requires and the error it reports
+	struct action_case
+	{
+		std::string action;
+		std::string field;
+		std::vector<std::pair<std::string, std::string>> other_fields;
+		std::error_code error;
+	};
+	std::vector<action_case> const cases{
+		{ "account_get", "key", {}, nano::error_common::bad_public_key },
+		{ "key_expand", "key", {}, nano::error_common::bad_private_key },
+		{ "deterministic_key", "seed", { { "index", "0" } }, nano::error_common::bad_seed },
+		{ "sign", "key", { { "block", block } }, nano::error_common::bad_private_key },
+		{ "block_create", "key", { { "type", "state" } }, nano::error_common::bad_private_key },
+		{ "epoch_upgrade", "key", { { "epoch", "1" } }, nano::error_common::bad_private_key },
+		{ "wallet_add", "key", { { "wallet", wallet_id } }, nano::error_common::bad_private_key },
+		{ "wallet_change_seed", "seed", { { "wallet", wallet_id } }, nano::error_common::bad_seed },
+		{ "wallet_create", "seed", {}, nano::error_common::bad_seed },
+	};
+
+	// A seed or key missing its last digit, and one with a 0x prefix in place of its first two digits
+	auto const digits = nano::keypair ().prv.to_string ();
+	for (auto const & text : { digits.substr (0, 63), "0x" + digits.substr (2) })
+	{
+		for (auto const & test_case : cases)
+		{
+			boost::property_tree::ptree request;
+			request.put ("action", test_case.action);
+			request.put (test_case.field, text);
+			for (auto const & field : test_case.other_fields)
+			{
+				request.put (field.first, field.second);
+			}
+			auto response = wait_response (system, rpc_ctx, request);
+			auto error = response.get_optional<std::string> ("error");
+			ASSERT_TRUE (error) << test_case.action << " accepted " << text;
+			ASSERT_EQ (test_case.error.message (), error.value ()) << test_case.action << " with " << text;
+		}
+	}
+
+	// The wallet keeps its seed and its only account, and no wallet was created
+	ASSERT_EQ (seed, wallet->get_seed ().value ());
+	auto const accounts = wallet->accounts ();
+	ASSERT_EQ (1, accounts.size ());
+	ASSERT_EQ (account, accounts.front ());
+	ASSERT_EQ (1, node->wallets.wallet_count ());
+}

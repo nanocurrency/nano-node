@@ -1036,3 +1036,65 @@ TEST (wallet, epoch_2_validation)
 		do_change (key.pub, nano::dev::genesis_key.pub);
 	}
 }
+
+/*
+ * Import seed refuses a seed other than exactly 64 hex digits, which would decode as a different seed than the one meant.
+ * Importing replaces the wallet's seed and clears its accounts, so a refused import must leave both untouched.
+ */
+TEST (wallet, import_malformed_seed)
+{
+	nano_qt::eventloop_processor processor;
+	nano::test::system system (1);
+	// The wallet holds two accounts of its seed, which an import would clear
+	auto key1 = system.wallet (0)->deterministic_insert ().value ();
+	auto key2 = system.wallet (0)->deterministic_insert ().value ();
+	auto seed = system.wallet (0)->get_seed ().value ();
+	auto wallet = std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1);
+	wallet->start ();
+
+	// A new seed typed without its last digit and confirmed with 'clear keys' is refused for its length, keeping the confirmation
+	auto const digits = nano::keypair ().prv.to_string ();
+	QTest::keyClicks (wallet->import.seed, digits.substr (0, 63).c_str ());
+	QTest::keyClicks (wallet->import.clear_line, "clear keys");
+	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
+	ASSERT_EQ ("Incorrect seed, length must be 64", wallet->import.import_seed->text ().toStdString ());
+	ASSERT_EQ ("clear keys", wallet->import.clear_line->text ().toStdString ());
+
+	// Retyped with a 0x prefix in place of its first two digits, the seed has the length but not only hex digits
+	wallet->import.seed->clear ();
+	QTest::keyClicks (wallet->import.seed, ("0x" + digits.substr (2)).c_str ());
+	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
+	ASSERT_EQ ("Incorrect seed. Only HEX characters allowed", wallet->import.import_seed->text ().toStdString ());
+
+	// The wallet keeps its seed and both accounts, and still shows the same account
+	ASSERT_EQ (seed, system.wallet (0)->get_seed ().value ());
+	ASSERT_TRUE (system.wallet (0)->exists (key1));
+	ASSERT_TRUE (system.wallet (0)->exists (key2));
+	ASSERT_EQ (key1, wallet->account);
+}
+
+/*
+ * Import adhoc key refuses a private key other than exactly 64 hex digits, which would decode as a different key than the one meant.
+ */
+TEST (wallet, import_malformed_adhoc_key)
+{
+	nano_qt::eventloop_processor processor;
+	nano::test::system system (1);
+	// The wallet holds a single account
+	auto key1 = system.wallet (0)->deterministic_insert ().value ();
+	auto wallet = std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), key1);
+	wallet->start ();
+
+	// A key missing its last digit, or with a 0x prefix in place of its first two digits, is refused and left in the field to correct
+	auto const digits = nano::keypair ().prv.to_string ();
+	for (auto const & text : { digits.substr (0, 63), "0x" + digits.substr (2) })
+	{
+		wallet->accounts.account_key_line->clear ();
+		QTest::keyClicks (wallet->accounts.account_key_line, text.c_str ());
+		QTest::mouseClick (wallet->accounts.account_key_button, Qt::LeftButton);
+		ASSERT_EQ (text, wallet->accounts.account_key_line->text ().toStdString ());
+	}
+
+	// Neither became an account of the wallet
+	ASSERT_EQ (1, system.wallet (0)->accounts ().size ());
+}

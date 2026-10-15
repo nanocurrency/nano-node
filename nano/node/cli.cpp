@@ -376,9 +376,15 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("key") == 1)
 		{
-			nano::account pub;
-			pub.decode_hex (vm["key"].as<std::string> ());
-			std::cout << "Account: " << pub.to_account () << std::endl;
+			if (auto pub = nano::try_parse_public_key (vm["key"].as<std::string> ()))
+			{
+				std::cout << "Account: " << pub->to_account () << std::endl;
+			}
+			else
+			{
+				std::cerr << "Invalid key\n";
+				ec = nano::error_cli::invalid_arguments;
+			}
 		}
 		else
 		{
@@ -1163,12 +1169,18 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("key") == 1)
 		{
-			nano::raw_key prv;
-			prv.decode_hex (vm["key"].as<std::string> ());
-			nano::public_key pub (nano::pub_key (prv));
-			std::cout << "Private: " << prv.to_string () << std::endl
-					  << "Public: " << pub.to_string () << std::endl
-					  << "Account: " << pub.to_account () << std::endl;
+			if (auto prv = nano::try_parse_raw_key (vm["key"].as<std::string> ()))
+			{
+				nano::public_key pub (nano::pub_key (*prv));
+				std::cout << "Private: " << prv->to_string () << std::endl
+						  << "Public: " << pub.to_string () << std::endl
+						  << "Account: " << pub.to_account () << std::endl;
+			}
+			else
+			{
+				std::cerr << "Invalid key\n";
+				ec = nano::error_cli::invalid_arguments;
+			}
 		}
 		else
 		{
@@ -1194,10 +1206,9 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				{
 					if (!wallet->enter_password (password))
 					{
-						nano::raw_key key;
-						if (!key.decode_hex (vm["key"].as<std::string> ()))
+						if (auto key = nano::try_parse_raw_key (vm["key"].as<std::string> ()))
 						{
-							auto result = wallet->insert_adhoc (key);
+							auto result = wallet->insert_adhoc (*key);
 							if (!result)
 							{
 								std::cerr << "Failed to add key\n";
@@ -1252,24 +1263,29 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				{
 					if (!wallet->enter_password (password))
 					{
-						nano::raw_key seed;
+						std::optional<nano::raw_key> seed;
 						if (vm.count ("seed"))
 						{
-							if (seed.decode_hex (vm["seed"].as<std::string> ()))
+							seed = nano::try_parse_raw_key (vm["seed"].as<std::string> ());
+							if (!seed)
 							{
 								std::cerr << "Invalid seed\n";
 								ec = nano::error_cli::invalid_arguments;
 							}
 						}
-						else if (seed.decode_hex (vm["key"].as<std::string> ()))
+						else
 						{
-							std::cerr << "Invalid key seed\n";
-							ec = nano::error_cli::invalid_arguments;
+							seed = nano::try_parse_raw_key (vm["key"].as<std::string> ());
+							if (!seed)
+							{
+								std::cerr << "Invalid key seed\n";
+								ec = nano::error_cli::invalid_arguments;
+							}
 						}
 						if (!ec)
 						{
 							std::cout << "Changing seed and caching work. Please wait..." << std::endl;
-							if (!wallet->change_seed (seed))
+							if (!wallet->change_seed (*seed))
 							{
 								std::cerr << "Wallet is locked\n";
 								ec = nano::error_cli::invalid_arguments;
@@ -1302,10 +1318,11 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("wallet_create"))
 	{
-		nano::raw_key seed_key;
+		std::optional<nano::raw_key> seed_key;
 		if (vm.count ("seed") == 1)
 		{
-			if (seed_key.decode_hex (vm["seed"].as<std::string> ()))
+			seed_key = nano::try_parse_raw_key (vm["seed"].as<std::string> ());
+			if (!seed_key)
 			{
 				std::cerr << "Invalid seed\n";
 				ec = nano::error_cli::invalid_arguments;
@@ -1318,7 +1335,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		}
 		else if (vm.count ("key") == 1)
 		{
-			if (seed_key.decode_hex (vm["key"].as<std::string> ()))
+			seed_key = nano::try_parse_raw_key (vm["key"].as<std::string> ());
+			if (!seed_key)
 			{
 				std::cerr << "Invalid seed key\n";
 				ec = nano::error_cli::invalid_arguments;
@@ -1346,9 +1364,9 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						ec = nano::error_cli::invalid_arguments;
 					}
 				}
-				if (vm.count ("seed") || vm.count ("key"))
+				if (seed_key)
 				{
-					if (!wallet->change_seed (seed_key))
+					if (!wallet->change_seed (*seed_key))
 					{
 						std::cerr << "Wallet is locked\n";
 						ec = nano::error_cli::invalid_arguments;
