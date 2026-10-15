@@ -383,6 +383,7 @@ public:
 
 	nano::kdf kdf;
 
+	// Guards items, taken after a wallet write transaction and before a wallet read transaction
 	mutable nano::mutex mutex;
 	mutable nano::mutex action_mutex;
 	nano::condition_variable condition;

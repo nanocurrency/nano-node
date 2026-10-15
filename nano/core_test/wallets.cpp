@@ -1231,3 +1231,34 @@ TEST (wallets, queued_callers_hold_no_reader_slot)
 	ASSERT_FALSE (node.wallets.exists (key.pub));
 	ASSERT_TRUE (wallet->is_locked ());
 }
+
+/*
+ * A reload waits for the wallet write transaction before taking wallets::mutex, so wallet lookups keep
+ * answering while a writer is busy instead of queueing behind it
+ */
+TEST (wallets, reload_waits_for_writer_outside_mutex)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	node.wallets.stop (); // Stop the scan threads so the reload under test is the only one running
+
+	// Hold the wallet write transaction so the reload has to wait for it
+	auto write_txn = node.wallets_backend.tx_begin_write ();
+	std::thread reloader ([&node] () {
+		node.wallets.reload ();
+	});
+
+	// Give the reload time to reach the write transaction wait
+	std::this_thread::sleep_for (250ms);
+
+	// A lookup needs only the mutex and must answer while the writer is held
+	auto lookup = std::async (std::launch::async, [&node] () {
+		return node.wallets.wallet_count ();
+	});
+	EXPECT_EQ (std::future_status::ready, lookup.wait_for (5s));
+
+	// Let the reload through, the lookup saw the one default wallet
+	write_txn.commit ();
+	reloader.join ();
+	ASSERT_EQ (1, lookup.get ());
+}

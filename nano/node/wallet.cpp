@@ -1698,9 +1698,9 @@ nano::logger & logger_a) :
 {
 	logger.info (nano::log::type::wallet, "Loading wallets from: {}", backend.database_path ().string ());
 
-	nano::unique_lock<nano::mutex> lock{ mutex };
 	{
 		auto transaction (tx_begin_write ());
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		for (auto it = backend.index_begin (transaction), end = backend.index_end (transaction); it != end; ++it)
 		{
 			// The wallet index range may also include entries for non-wallet sub-tables (e.g. `send_action_ids` on LMDB);
@@ -1824,41 +1824,41 @@ std::shared_ptr<wallet> wallets::open (nano::wallet_id const & id_a)
 
 std::shared_ptr<wallet> wallets::create (nano::wallet_id const & id_a)
 {
+	auto transaction (tx_begin_write ());
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	debug_assert (items.find (id_a) == items.end ());
+	try
 	{
-		auto transaction (tx_begin_write ());
-		try
-		{
-			auto result = std::make_shared<wallet> (transaction, *this, id_a.to_string ());
-			debug_assert (result->store.valid_password (transaction));
-			items[id_a] = result;
-			return result;
-		}
-		catch (std::exception const & ex)
-		{
-			logger.error (nano::log::type::wallet, "Failed to create wallet {}: {}", id_a, ex.what ());
-		}
+		auto result = std::make_shared<wallet> (transaction, *this, id_a.to_string ());
+		debug_assert (result->store.valid_password (transaction));
+		items[id_a] = result;
+		// Commit before the mutex is released, the wallet's table is private to this transaction until then
+		transaction.commit ();
+		return result;
+	}
+	catch (std::exception const & ex)
+	{
+		logger.error (nano::log::type::wallet, "Failed to create wallet {}: {}", id_a, ex.what ());
 	}
 	return nullptr;
 }
 
 std::shared_ptr<wallet> wallets::create_from_json (nano::wallet_id const & id_a, std::string const & json_a)
 {
+	auto transaction (tx_begin_write ());
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	debug_assert (items.find (id_a) == items.end ());
+	try
 	{
-		auto transaction (tx_begin_write ());
-		try
-		{
-			auto result = std::make_shared<wallet> (transaction, *this, id_a.to_string (), json_a);
-			items[id_a] = result;
-			return result;
-		}
-		catch (std::exception const & ex)
-		{
-			logger.error (nano::log::type::wallet, "Failed to create wallet {} from JSON: {}", id_a, ex.what ());
-		}
+		auto result = std::make_shared<wallet> (transaction, *this, id_a.to_string (), json_a);
+		items[id_a] = result;
+		// Commit before the mutex is released, the wallet's table is private to this transaction until then
+		transaction.commit ();
+		return result;
+	}
+	catch (std::exception const & ex)
+	{
+		logger.error (nano::log::type::wallet, "Failed to create wallet {} from JSON: {}", id_a, ex.what ());
 	}
 	return nullptr;
 }
@@ -1884,8 +1884,8 @@ void wallets::search_receivable_all ()
 
 bool wallets::destroy (nano::wallet_id const & id_a)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto transaction (tx_begin_write ());
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	// action_mutex should be after transactions to prevent deadlocks in deterministic_insert () & insert_adhoc ()
 	nano::lock_guard<nano::mutex> action_lock{ action_mutex };
 	auto existing (items.find (id_a));
@@ -1901,8 +1901,9 @@ bool wallets::destroy (nano::wallet_id const & id_a)
 
 void wallets::reload ()
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	// The transaction comes first, waiting for a busy writer while holding the mutex would stall every wallet lookup behind it
 	auto transaction (tx_begin_write ());
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	std::unordered_set<nano::uint256_union> stored_items;
 	for (auto it = backend.index_begin (transaction), end = backend.index_end (transaction); it != end; ++it)
 	{
@@ -1944,6 +1945,8 @@ void wallets::reload ()
 		debug_assert (items.find (i) != items.end ());
 		items.erase (i);
 	}
+	// Commit before the mutex is released, a new wallet's table is private to this transaction until then
+	transaction.commit ();
 }
 
 void wallets::queue_wallet_action (nano::uint128_t const & amount_a, std::shared_ptr<wallet> const & wallet_a, std::function<void (wallet &)> action_a)
