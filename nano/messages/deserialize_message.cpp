@@ -1,4 +1,5 @@
 #include <nano/lib/block_type.hpp>
+#include <nano/lib/constants.hpp>
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/network_filter.hpp>
 #include <nano/lib/stream.hpp>
