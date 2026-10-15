@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <ostream>
+#include <stdexcept>
 
 using namespace std::chrono_literals;
 

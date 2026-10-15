@@ -11,6 +11,7 @@
 #include <boost/io/ios_state.hpp>
 
 #include <algorithm>
+#include <iomanip>
 #include <ostream>
 #include <stdexcept>
 

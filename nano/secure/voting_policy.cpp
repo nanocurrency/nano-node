@@ -8,6 +8,8 @@
 #include <nano/secure/voting_policy.hpp>
 #include <nano/store/ledger/final_vote.hpp>
 
+#include <algorithm>
+
 /*
  * vote_permit
  */

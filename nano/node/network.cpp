@@ -4,6 +4,7 @@
 #include <nano/lib/network_formatting.hpp>
 #include <nano/lib/thread_pool.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/messages/messages.hpp>
 #include <nano/node/message_processor.hpp>

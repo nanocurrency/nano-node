@@ -1,4 +1,5 @@
 #include <nano/lib/config.hpp>
+#include <nano/lib/config_file.hpp>
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/env.hpp>
 #include <nano/lib/logging.hpp>

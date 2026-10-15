@@ -2,6 +2,7 @@
 #include <nano/lib/formatting.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/thread_roles.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/election_behavior.hpp>

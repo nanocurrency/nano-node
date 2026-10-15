@@ -2,6 +2,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/backlog_scan.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/scheduler/priority.hpp>

@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 
 #include <functional>
+#include <iostream>
 #include <thread>
 
 using namespace std::chrono_literals;

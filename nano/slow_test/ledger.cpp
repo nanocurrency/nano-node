@@ -12,6 +12,8 @@
 
 #include <boost/thread.hpp>
 
+#include <iostream>
+
 namespace
 {
 void rollback_degenerate_impl (nano::test::ledger_context & ctx, size_t num_accounts)

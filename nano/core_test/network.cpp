@@ -33,6 +33,7 @@
 #include <boost/thread.hpp>
 
 #include <algorithm>
+#include <iostream>
 #include <map>
 #include <set>
 

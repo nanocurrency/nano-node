@@ -1,6 +1,7 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/network_formatting.hpp>
 #include <nano/lib/thread_roles.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/peer_history.hpp>
 #include <nano/node/transport/channel.hpp>

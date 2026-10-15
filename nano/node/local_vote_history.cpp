@@ -3,6 +3,8 @@
 #include <nano/secure/common.hpp>
 #include <nano/secure/network_params.hpp>
 
+#include <algorithm>
+
 bool nano::local_vote_history::consistency_check (nano::root const & root_a) const
 {
 	auto & history_by_root (history.get<tag_root> ());

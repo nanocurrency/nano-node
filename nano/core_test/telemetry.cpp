@@ -14,6 +14,7 @@
 
 #include <boost/endian/conversion.hpp>
 
+#include <algorithm>
 #include <numeric>
 
 using namespace std::chrono_literals;

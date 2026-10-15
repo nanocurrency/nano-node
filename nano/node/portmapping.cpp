@@ -12,6 +12,8 @@
 
 #include <boost/range/adaptor/filtered.hpp>
 
+#include <iostream>
+
 #include <fmt/format.h>
 
 std::string nano::mapping_protocol::to_string ()
