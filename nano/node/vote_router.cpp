@@ -155,6 +155,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 		return hash == filter;
 	}));
 
+	// Working state for one vote, sized by the hash limit so none of it allocates
 	auto const & hashes = vote->hashes;
 	nano::vote_results results{ vote };
 
@@ -169,7 +170,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 	};
 	boost::container::static_vector<match, nano::vote::max_hashes> matches;
 
-	// Positions ordered by their hash, so inserting a position fails if its hash occurred before
+	// Hashes seen so far, held as positions into `hashes` and compared by hash: inserting a position whose hash occurred before fails, and 255 one-byte positions need no heap
 	auto const hash_less = [&hashes] (uint8_t lhs, uint8_t rhs) {
 		return hashes[lhs] < hashes[rhs];
 	};
@@ -184,6 +185,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 		return {};
 	};
 
+	// Under one lock, match each distinct hash to a live election or answer it right away as late or unknown
 	{
 		std::shared_lock lock{ mutex };
 		for (size_t position = 0; position < hashes.size (); ++position)
@@ -196,7 +198,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 				continue;
 			}
 
-			// Ignore duplicate hashes (should not happen with a well-behaved voting node)
+			// Ignore duplicate hashes, which fail to insert since the set compares positions by hash (should not happen with a well-behaved voting node)
 			if (!seen.insert (static_cast<uint8_t> (position)).second)
 			{
 				continue;
@@ -214,6 +216,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 		}
 	}
 
+	// Hand the vote to the matched elections
 	// Announced once, ahead of the first election that gets the vote
 	bool const matched = !matches.empty ();
 	if (matched)
@@ -221,6 +224,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 		vote_matched.notify (context);
 	}
 
+	// Each election answers for its hash: the vote is counted, a replay, ignored under cooldown, or late or unknown once the election is over
 	for (auto const & [position, election] : matches)
 	{
 		results.set (position, election->vote (vote->account, vote->timestamp (), hashes[position], context.source, context.tier));
@@ -229,7 +233,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 	// All distinct hashes should have their result set
 	debug_assert (!filter.is_zero () || results.size () == seen.size ());
 
-	// Cache the votes that didn't match any election
+	// Cache a vote that did not come from the cache itself, then route its unmatched hashes once more
 	if (context.source != nano::vote_source::cache)
 	{
 		// Caching votes of untiered representatives would let anyone fill the cache
@@ -255,6 +259,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 				}
 			}
 		}
+		// Announced now if the first lookup matched nothing
 		if (!matched && !matches.empty ())
 		{
 			vote_matched.notify (context);
@@ -269,6 +274,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 		}
 	}
 
+	// Report the vote with its code per hash to the observers, the rebroadcaster among them
 	vote_processed.notify (context, results);
 
 	return results;
