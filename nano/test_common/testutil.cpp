@@ -22,7 +22,9 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdlib>
+#include <iostream>
 #include <numeric>
 
 using namespace std::chrono_literals;

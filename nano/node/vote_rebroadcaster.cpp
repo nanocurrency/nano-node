@@ -4,6 +4,7 @@
 #include <nano/lib/numbers_templ.hpp>
 #include <nano/lib/saturate.hpp>
 #include <nano/lib/thread_roles.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/vote.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>

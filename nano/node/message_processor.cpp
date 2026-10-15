@@ -1,6 +1,7 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_roles.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/vote.hpp>
 #include <nano/messages/messages.hpp>
 #include <nano/node/block_processor.hpp>

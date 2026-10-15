@@ -5,6 +5,7 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/block_processor.hpp>
 #include <nano/node/ledger_notifications.hpp>

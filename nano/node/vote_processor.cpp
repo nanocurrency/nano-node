@@ -2,6 +2,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/vote.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>

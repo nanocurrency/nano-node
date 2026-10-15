@@ -16,6 +16,7 @@
 
 #include <atomic>
 #include <future>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <utility>

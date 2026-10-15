@@ -6,6 +6,8 @@
 #include <nano/node/election.hpp>
 #include <nano/node/nodeconfig.hpp>
 
+#include <algorithm>
+
 using namespace std::chrono_literals;
 
 nano::confirmation_solicitor::confirmation_solicitor (nano::network & network_a, nano::node_config const & config_a) :

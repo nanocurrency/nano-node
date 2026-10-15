@@ -4,6 +4,7 @@
 #include <nano/boost/asio/strand.hpp>
 #include <nano/boost/asio/write.hpp>
 
+#include <memory>
 #include <span>
 
 namespace nano

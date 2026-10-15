@@ -1,16 +1,20 @@
 #pragma once
 
 #include <nano/lib/formatting.hpp>
+#include <nano/lib/fwd.hpp>
 #include <nano/lib/logging_enums.hpp>
 #include <nano/lib/logging_utils.hpp>
 #include <nano/lib/object_stream.hpp>
 #include <nano/lib/object_stream_adapters.hpp>
-#include <nano/lib/tomlconfig.hpp>
 
+#include <filesystem>
 #include <initializer_list>
+#include <map>
 #include <memory>
+#include <optional>
 #include <shared_mutex>
 #include <sstream>
+#include <vector>
 
 #include <fmt/ostream.h>
 #include <spdlog/spdlog.h>

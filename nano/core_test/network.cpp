@@ -32,6 +32,8 @@
 #include <boost/range/join.hpp>
 #include <boost/thread.hpp>
 
+#include <iostream>
+
 using namespace std::chrono_literals;
 
 TEST (network, tcp_connection)

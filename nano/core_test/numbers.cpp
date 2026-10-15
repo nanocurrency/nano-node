@@ -10,8 +10,10 @@
 
 #include <boost/container_hash/hash.hpp>
 
+#include <sstream>
 #include <thread>
 #include <unordered_set>
+#include <vector>
 
 TEST (numbers, identity)
 {
