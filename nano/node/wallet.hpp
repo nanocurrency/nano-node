@@ -402,6 +402,7 @@ private:
 	void run_reps_scan ();
 	void run_receivable_scan ();
 	bool check_rep_impl (wallet_representatives &, nano::account const &, nano::uint128_t const & half_principal_weight);
+	// Caller holds mutex
 	bool exists_impl (nano::store::transaction const &, nano::account const &);
 	void refresh_rep_index ();
 	void refresh_rep_keys_cache ();

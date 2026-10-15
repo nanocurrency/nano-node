@@ -16,6 +16,10 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <future>
+#include <thread>
+
 using namespace std::chrono_literals;
 
 namespace
@@ -1173,4 +1177,57 @@ TEST (configured_wallet, locked_wallet)
 	ASSERT_FALSE (opened);
 	ASSERT_EQ (opened.error (), nano::error_common::wallet_locked);
 	ASSERT_FALSE (std::filesystem::exists (nano::get_qtwallet_toml_config_path (path)));
+}
+
+/*
+ * Callers queued on wallets::mutex must not sit on a wallet read transaction while they wait: every open
+ * transaction occupies one of LMDB's 126 default reader slots, so more waiters than slots would abort the node.
+ * Holds the mutex while far more threads than that queue up in the account lookup and in the rep keys refresh
+ */
+TEST (wallets, queued_callers_hold_no_reader_slot)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	auto wallet = system.wallet (0);
+	nano::keypair key;
+
+	// Well above the reader slots of the wallet environment
+	auto const threads_count = 200;
+	std::vector<std::thread> threads;
+	std::atomic<int> started{ 0 };
+	{
+		// Hold the mutex so every caller queues behind it, alternating the account lookup with the refresh that lock () runs
+		nano::lock_guard<nano::mutex> guard{ node.wallets.mutex };
+		for (auto i = 0; i < threads_count; ++i)
+		{
+			threads.emplace_back ([&, i] () {
+				++started;
+				if (i % 2 == 0)
+				{
+					node.wallets.exists (key.pub);
+				}
+				else
+				{
+					wallet->lock ();
+				}
+			});
+		}
+
+		// Wait until every thread is inside its call, then give the last ones a moment to reach the mutex
+		auto const deadline = std::chrono::steady_clock::now () + 10s;
+		while (started < threads_count && std::chrono::steady_clock::now () < deadline)
+		{
+			std::this_thread::sleep_for (1ms);
+		}
+		std::this_thread::sleep_for (250ms);
+	}
+
+	// A reader slot per waiter would have aborted the process by now, the calls complete once the mutex is free
+	for (auto & thread : threads)
+	{
+		thread.join ();
+	}
+	ASSERT_EQ (threads_count, started.load ());
+	ASSERT_FALSE (node.wallets.exists (key.pub));
+	ASSERT_TRUE (wallet->is_locked ());
 }

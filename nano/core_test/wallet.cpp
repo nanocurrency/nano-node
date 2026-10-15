@@ -996,7 +996,7 @@ TEST (wallet, password_race)
 
 TEST (wallet, password_race_corrupt_seed)
 {
-	// Each thread can hold a wallet read transaction, so the 3 * thread_groups threads must stay well below LMDB's default of 126 reader slots
+	// Rekeys and password attempts are serialized by the wallet write transaction, more threads than this only add waiting
 	auto const thread_groups = 10;
 
 	nano::test::system system (1);

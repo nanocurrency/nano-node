@@ -1957,7 +1957,7 @@ void wallets::queue_wallet_action (nano::uint128_t const & amount_a, std::shared
 
 bool wallets::exists_impl (nano::store::transaction const & transaction_a, nano::account const & account_a)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	debug_assert (!mutex.try_lock ());
 	auto result (false);
 	for (auto i (items.begin ()), n (items.end ()); !result && i != n; ++i)
 	{
@@ -1968,12 +1968,14 @@ bool wallets::exists_impl (nano::store::transaction const & transaction_a, nano:
 
 bool wallets::exists (nano::account const & account_a)
 {
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto transaction (tx_begin_read ());
 	return exists_impl (transaction, account_a);
 }
 
 bool wallets::exists_any (nano::account const & account1, nano::account const & account2)
 {
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto transaction (tx_begin_read ());
 	return exists_impl (transaction, account1) || exists_impl (transaction, account2);
 }
@@ -2100,9 +2102,10 @@ void wallets::refresh_rep_keys_cache ()
 
 	std::vector<std::pair<nano::public_key, std::unique_ptr<nano::fan>>> new_cache;
 
-	auto wallet_txn = tx_begin_read ();
-
 	nano::lock_guard<nano::mutex> lock{ mutex };
+
+	// Opened under the mutex, so a queued refresh holds no reader slot and never installs a snapshot older than the refresh before it
+	auto wallet_txn = tx_begin_read ();
 
 	for (auto const & [id, wallet] : items)
 	{
