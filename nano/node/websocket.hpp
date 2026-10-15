@@ -305,6 +305,8 @@ namespace websocket
 		void handle_message (boost::property_tree::ptree const & message_a);
 		/** Acknowledge incoming message */
 		void send_ack (std::string action_a, std::string id_a);
+		/** Enqueue \p message_a if its topic is subscribed. The caller holds subscriptions_mutex */
+		void write_locked (nano::websocket::message const & message_a);
 		/** Send all queued messages. This must be called from the write strand. */
 		void write_queued_messages ();
 	};

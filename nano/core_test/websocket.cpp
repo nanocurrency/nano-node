@@ -32,6 +32,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 using namespace std::chrono_literals;
@@ -1304,6 +1305,7 @@ TEST (websocket, confirmation_resubscribe_during_broadcast)
 	auto future = std::async (std::launch::async, task);
 
 	// Broadcast quorum confirmations of the genesis block while the client churns, none of them pass its options
+	// The pause between broadcasts leaves the session room to handle the client's messages
 	nano::block_confirmation_info confirmation{
 		.status = { .winner = nano::dev::genesis },
 		.type = nano::confirmation_type::active_confirmed_quorum,
@@ -1314,6 +1316,7 @@ TEST (websocket, confirmation_resubscribe_during_broadcast)
 	{
 		ASSERT_LT (std::chrono::steady_clock::now (), deadline);
 		node1->websocket.server->broadcast_confirmation (confirmation, "");
+		std::this_thread::sleep_for (100us);
 	}
 
 	// The churn left the subscriber count balanced, only the final subscription is counted

@@ -314,11 +314,16 @@ void nano::websocket::session::close ()
 
 void nano::websocket::session::write (nano::websocket::message message_a)
 {
-	nano::unique_lock<nano::mutex> lk (subscriptions_mutex);
+	nano::lock_guard<nano::mutex> lk (subscriptions_mutex);
+	write_locked (message_a);
+}
+
+void nano::websocket::session::write_locked (nano::websocket::message const & message_a)
+{
 	auto subscription (subscriptions.find (message_a.topic));
 	if (message_a.topic == nano::websocket::topic::ack || (subscription != subscriptions.end () && !subscription->second->should_filter (message_a)))
 	{
-		lk.unlock ();
+		// Posting under the lock keeps the message ahead of the ack of any later subscription change
 		auto this_l (shared_from_this ());
 		boost::asio::post (ws.get_strand (),
 		[message_a, this_l] () {
@@ -660,7 +665,7 @@ void nano::websocket::listener::broadcast_confirmation (nano::block_confirmation
 		auto session_ptr (weak_session.lock ());
 		if (session_ptr)
 		{
-			nano::unique_lock<nano::mutex> subscriptions_lock (session_ptr->subscriptions_mutex);
+			nano::lock_guard<nano::mutex> subscriptions_lock (session_ptr->subscriptions_mutex);
 			auto subscription (session_ptr->subscriptions.find (nano::websocket::topic::confirmation));
 			if (subscription != session_ptr->subscriptions.end ())
 			{
@@ -672,9 +677,7 @@ void nano::websocket::listener::broadcast_confirmation (nano::block_confirmation
 				}
 
 				auto message = builder.block_confirmed (confirmation, subtype, *conf_options);
-				// write () takes the subscriptions lock itself
-				subscriptions_lock.unlock ();
-				session_ptr->write (message);
+				session_ptr->write_locked (message);
 			}
 		}
 	}
