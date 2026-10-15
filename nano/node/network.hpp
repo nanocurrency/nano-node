@@ -167,6 +167,11 @@ public:
 	std::deque<std::shared_ptr<nano::transport::channel>> list (std::size_t max_count, uint8_t minimum_version) const;
 	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (std::size_t max_count, uint8_t minimum_version) const;
 
+	// Up to `count` channels picked uniformly at random among those passing the filter, in random order
+	nano::transport::channel_list sample (std::size_t count, channel_filter = nullptr) const;
+	// Up to `count` channels picked uniformly at random among those passing the filter, without principal representatives and possibly fewer even when more qualify
+	nano::transport::channel_list sample_non_pr (std::size_t count, channel_filter = nullptr) const;
+
 	// Desired fanout for a given scale
 	std::size_t fanout (float scale = 1.0f) const;
 

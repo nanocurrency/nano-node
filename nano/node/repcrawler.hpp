@@ -6,6 +6,7 @@
 #include <nano/lib/numbers_templ.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/node/transport/channel.hpp>
+#include <nano/node/transport/common.hpp>
 #include <nano/node/transport/transport.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -82,6 +83,9 @@ public:
 
 	/** Request a list of the top \p count known principal representatives in descending order of weight, optionally with a minimum version \p minimum_protocol_version */
 	std::vector<representative> principal_representatives (std::size_t count = std::numeric_limits<std::size_t>::max (), std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version = {}) const;
+
+	/** Channels of all known principal representatives, in no particular order */
+	nano::transport::channel_list principal_channels () const;
 
 	/** Total number of representatives */
 	std::size_t representative_count () const;

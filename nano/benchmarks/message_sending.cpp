@@ -203,7 +203,7 @@ static void BM_flood_targets (benchmark::State & state)
 	nano::benchmarks::allocation_counter allocations{ "flood" };
 	for (auto _ : state)
 	{
-		benchmark::DoNotOptimize (network.list (network.fanout (), [type] (auto const & channel) {
+		benchmark::DoNotOptimize (network.sample (network.fanout (), [type] (auto const & channel) {
 			return !channel->max (type);
 		}));
 	}

@@ -32,6 +32,10 @@
 #include <boost/range/join.hpp>
 #include <boost/thread.hpp>
 
+#include <algorithm>
+#include <map>
+#include <set>
+
 using namespace std::chrono_literals;
 
 TEST (network, tcp_connection)
@@ -1175,4 +1179,98 @@ TEST (network, peer_discovery_via_peering_only_node)
 
 	// C brokered the introduction without ever holding a ledger
 	ASSERT_EQ (1, node_c->ledger.block_count ());
+}
+
+/*
+ * A sample holds at most the requested number of channels, each one once and each one passing the filter, and every channel when fewer than that pass.
+ */
+TEST (network, sample)
+{
+	nano::test::system system (4);
+	auto & node = *system.nodes[0];
+	ASSERT_TIMELY_EQ (5s, node.network.size (), 3);
+
+	// Two of the three channels, no channel twice
+	auto const two = node.network.sample (2);
+	ASSERT_EQ (2, two.size ());
+	ASSERT_NE (two[0], two[1]);
+
+	// Asking for more than there are gives every channel once
+	auto const all = node.network.sample (10);
+	ASSERT_EQ (3, all.size ());
+	ASSERT_EQ (3, std::set (all.begin (), all.end ()).size ());
+
+	// A channel the filter rejects never comes back, whatever the count
+	auto const rejected = all[0];
+	auto const filtered = node.network.sample (10, [&rejected] (auto const & channel) { return channel != rejected; });
+	ASSERT_EQ (2, filtered.size ());
+	ASSERT_EQ (0, std::ranges::count (filtered, rejected));
+}
+
+/*
+ * Every channel is as likely as any other to come first in a sample, so a caller that keeps only the front of one still picks fairly.
+ * A sample left in the order the channels are walked puts the oldest channel first in two thirds of these rounds and the second oldest never.
+ */
+TEST (network, sample_order_uniform)
+{
+	nano::test::system system (4);
+	auto & node = *system.nodes[0];
+	ASSERT_TIMELY_EQ (5s, node.network.size (), 3);
+
+	// Count which channel comes first in many samples of two
+	std::map<std::shared_ptr<nano::transport::channel>, size_t> first;
+	size_t const rounds = 3000;
+	for (size_t round = 0; round < rounds; ++round)
+	{
+		auto const sample = node.network.sample (2);
+		ASSERT_EQ (2, sample.size ());
+		++first[sample.front ()];
+	}
+
+	// Each of the three comes first in about a third of the rounds, the bounds sit over seven standard deviations from a fair count
+	ASSERT_EQ (3, first.size ());
+	for (auto const & entry : first)
+	{
+		ASSERT_GT (entry.second, rounds / 3 * 8 / 10);
+		ASSERT_LT (entry.second, rounds / 3 * 12 / 10);
+	}
+}
+
+/*
+ * A sample that leaves principal representatives out never returns their channels and picks fairly among the rest.
+ * Keeping the first candidates that qualify from a sample left in walk order picks one of the two others twice as often as the other.
+ */
+TEST (network, sample_non_pr)
+{
+	nano::test::system system (4);
+	auto & node = *system.nodes[0];
+	ASSERT_TIMELY_EQ (5s, node.network.size (), 3);
+
+	// The genesis key holds all the weight, so the channel it is known by belongs to a principal representative
+	std::shared_ptr<nano::transport::channel> const principal = node.network.find_node_id (system.nodes[1]->get_node_id ());
+	ASSERT_NE (nullptr, principal);
+	node.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, principal);
+	ASSERT_TRUE (node.rep_crawler.is_pr (principal));
+
+	// Asking for more than there are gives the two other channels
+	auto const all = node.network.sample_non_pr (10);
+	ASSERT_EQ (2, all.size ());
+	ASSERT_EQ (0, std::ranges::count (all, principal));
+
+	// Each of the two is picked in about half of many single picks, the bounds sit over ten standard deviations from a fair count
+	std::map<std::shared_ptr<nano::transport::channel>, size_t> picks;
+	size_t const rounds = 3000;
+	for (size_t round = 0; round < rounds; ++round)
+	{
+		auto const sample = node.network.sample_non_pr (1);
+		ASSERT_EQ (1, sample.size ());
+		++picks[sample.front ()];
+	}
+	ASSERT_EQ (2, picks.size ());
+	ASSERT_EQ (0, picks.count (principal));
+	for (auto const & entry : picks)
+	{
+		ASSERT_GT (entry.second, rounds / 2 * 8 / 10);
+		ASSERT_LT (entry.second, rounds / 2 * 12 / 10);
+	}
 }
