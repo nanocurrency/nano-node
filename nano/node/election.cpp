@@ -720,7 +720,8 @@ std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::electio
 std::unordered_map<nano::account, nano::vote_info> nano::election::votes () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-	return ballot.votes ();
+	auto const votes = ballot.votes ();
+	return { votes.begin (), votes.end () };
 }
 
 std::vector<nano::vote_with_weight_info> nano::election::votes_with_weight () const

@@ -26,7 +26,7 @@ struct election_snapshot final
 	nano::qualified_root qualified_root;
 	std::shared_ptr<nano::block> winner;
 	bool quorum; // Vote quorum was reached, only final votes are of interest
-	std::unordered_map<nano::account, nano::vote_info> votes;
+	nano::election_ballot::vote_map votes;
 };
 
 /** Outbound actions requested by an election when ticked, performed by the active elections loop */

@@ -45,7 +45,7 @@ struct election_extended_status final
 {
 	nano::election_behavior behavior; // Scheduling behavior at the time of the snapshot
 	nano::election_status status; // The status summary
-	std::unordered_map<nano::account, nano::vote_info> votes; // All recorded votes by representative
+	nano::election_ballot::vote_map votes; // All recorded votes by representative
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks; // All held blocks by hash
 	nano::tally_map tally; // Held blocks by tally position, zero-vote blocks absent
 
