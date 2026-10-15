@@ -408,32 +408,18 @@ bool nano::network::check_capacity_ratio (nano::transport::traffic_type type, fl
 
 size_t nano::network::flood_message (nano::messages::message const & message, nano::transport::traffic_type type, float scale) const
 {
-	auto channels = list (fanout (scale), [type] (auto const & channel) {
+	auto const channels = list (fanout (scale), [type] (auto const & channel) {
 		return !channel->max (type); // Only use channels that are not full for this traffic type
 	});
-	size_t result = 0;
-	for (auto const & channel : channels)
-	{
-		// TODO: Serialize message only once
-		bool sent = channel->send (message, type);
-		result += sent;
-	}
-	return result;
+	return send_to (message, type, channels);
 }
 
 size_t nano::network::flood_message_all (nano::messages::message const & message, nano::transport::traffic_type type) const
 {
-	auto channels = list (); // Get all peers
-	size_t result = 0;
-	for (auto const & channel : channels)
-	{
-		if (!channel->max (type))
-		{
-			// TODO: Serialize message only once
-			result += channel->send (message, type);
-		}
-	}
-	return result;
+	auto const channels = list (0, [type] (auto const & channel) {
+		return !channel->max (type); // Only use channels that are not full for this traffic type
+	});
+	return send_to (message, type, channels);
 }
 
 size_t nano::network::flood_keepalive (float scale) const
@@ -466,17 +452,10 @@ size_t nano::network::flood_vote_non_pr (std::shared_ptr<nano::vote> const & vot
 {
 	nano::messages::confirm_ack message{ node.network_params.network, vote };
 
-	auto channels = list_non_pr (fanout (scale), [type] (auto const & channel) {
+	auto const channels = list_non_pr (fanout (scale), [type] (auto const & channel) {
 		return !channel->max (type); // Only use channels that are not full for this traffic type
 	});
-
-	size_t result = 0;
-	for (auto & channel : channels)
-	{
-		bool sent = channel->send (message, type);
-		result += sent;
-	}
-	return result;
+	return send_to (message, type, channels);
 }
 
 size_t nano::network::flood_vote_pr (std::shared_ptr<nano::vote> const & vote, nano::transport::traffic_type type) const
@@ -508,11 +487,7 @@ size_t nano::network::flood_block_initial (std::shared_ptr<nano::block> const & 
 		bool sent = rep.channel->send (message, nano::transport::traffic_type::block_broadcast_initial);
 		result += sent;
 	}
-	for (auto & peer : list_non_pr (fanout (1.0)))
-	{
-		bool sent = peer->send (message, nano::transport::traffic_type::block_broadcast_initial);
-		result += sent;
-	}
+	result += send_to (message, nano::transport::traffic_type::block_broadcast_initial, list_non_pr (fanout (1.0)));
 	return result;
 }
 

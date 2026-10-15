@@ -16,6 +16,7 @@
 #include <chrono>
 #include <deque>
 #include <memory>
+#include <ranges>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -113,6 +114,10 @@ public:
 
 	size_t flood_message (nano::messages::message const &, nano::transport::traffic_type, float scale = 1.0f) const;
 	size_t flood_message_all (nano::messages::message const &, nano::transport::traffic_type) const;
+
+	// Sends one message to every channel of the range, which every flood comes down to
+	template <std::ranges::input_range Channels>
+	size_t send_to (nano::messages::message const &, nano::transport::traffic_type, Channels const &) const;
 
 	size_t flood_keepalive (float scale = 1.0f) const;
 	size_t flood_keepalive_self (float scale = 0.5f) const;
@@ -238,4 +243,15 @@ public:
 	static std::size_t confirm_req_hashes_max;
 	static std::size_t confirm_ack_hashes_max;
 };
+}
+
+template <std::ranges::input_range Channels>
+size_t nano::network::send_to (nano::messages::message const & message, nano::transport::traffic_type type, Channels const & channels) const
+{
+	size_t result = 0;
+	for (auto const & channel : channels)
+	{
+		result += channel->send (message, type);
+	}
+	return result;
 }
