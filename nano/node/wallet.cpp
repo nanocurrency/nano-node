@@ -783,12 +783,6 @@ nano::public_key wallet::deterministic_insert_impl (nano::store::write_transacti
 		work_ensure (key, key);
 	}
 
-	if (wallets.check_rep (key))
-	{
-		logger.info (nano::log::type::wallet, "New account qualified as a representative: {}", key.to_account ());
-		representatives.lock ()->insert (key);
-	}
-
 	return key;
 }
 
@@ -803,13 +797,25 @@ nano::public_key wallet::deterministic_insert_impl (nano::store::write_transacti
 		work_ensure (key, key);
 	}
 
-	if (wallets.check_rep (key))
-	{
-		logger.info (nano::log::type::wallet, "New account qualified as a representative: {}", key.to_account ());
-		representatives.lock ()->insert (key);
-	}
-
 	return key;
+}
+
+bool wallet::register_representative (nano::account const & account)
+{
+	// Runs after the insert committed, a reps scan snapshot taken before the commit would otherwise rebuild the index without the account
+	if (wallets.check_rep (account))
+	{
+		logger.info (nano::log::type::wallet, "New account qualified as a representative: {}", account.to_account ());
+
+		// Adds the account to this wallet's representative set, which the key cache rebuild walks to fetch keys
+		representatives.lock ()->insert (account);
+
+		// The signer votes from the key cache, not the representatives set, so the refresh lets the account vote before the next reps scan
+		wallets.refresh_rep_keys_cache ();
+
+		return true; // New representative registered
+	}
+	return false; // Not a representative or already registered
 }
 
 nano::result<nano::public_key> wallet::deterministic_insert (uint32_t index, bool generate_work)
@@ -823,8 +829,13 @@ nano::result<nano::public_key> wallet::deterministic_insert (uint32_t index, boo
 	}
 
 	auto result = deterministic_insert_impl (transaction, cipher.value (), index, generate_work);
+
+	// Makes sure that the representatives container will be in sync with any added keys
 	transaction.commit ();
-	wallets.refresh_rep_keys_cache ();
+
+	// Registers the account as a local representative if it has voting weight
+	register_representative (result);
+
 	return result;
 }
 
@@ -839,8 +850,13 @@ nano::result<nano::public_key> wallet::deterministic_insert (bool generate_work)
 	}
 
 	auto result = deterministic_insert_impl (transaction, cipher.value (), generate_work);
+
+	// Makes sure that the representatives container will be in sync with any added keys
 	transaction.commit ();
-	wallets.refresh_rep_keys_cache ();
+
+	// Registers the account as a local representative if it has voting weight
+	register_representative (result);
+
 	return result;
 }
 
@@ -867,12 +883,8 @@ nano::result<nano::public_key> wallet::insert_adhoc (nano::raw_key const & prv, 
 	// Makes sure that the representatives container will be in sync with any added keys
 	transaction.commit ();
 
-	if (wallets.check_rep (key))
-	{
-		logger.info (nano::log::type::wallet, "New account qualified as a representative: {}", key.to_account ());
-		representatives.lock ()->insert (key);
-		wallets.refresh_rep_keys_cache ();
-	}
+	// Registers the account as a local representative if it has voting weight
+	register_representative (key);
 
 	return key;
 }
@@ -1440,7 +1452,8 @@ nano::result<nano::public_key> wallet::change_seed (nano::raw_key const & seed, 
 		}
 		result = change_seed_impl (transaction, cipher.value (), seed, count);
 	}
-	wallets.refresh_rep_keys_cache ();
+	// The accounts were inserted inside the transaction, a full refresh registers the representatives among them now that it has committed
+	wallets.refresh_reps ();
 	return result;
 }
 
@@ -1508,7 +1521,8 @@ void wallet::deterministic_restore ()
 		}
 		deterministic_restore_impl (transaction, cipher.value ());
 	}
-	wallets.refresh_rep_keys_cache ();
+	// The accounts were inserted inside the transaction, a full refresh registers the representatives among them now that it has committed
+	wallets.refresh_reps ();
 }
 
 void wallet::deterministic_restore_impl (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher)
