@@ -10,22 +10,14 @@
  * vote_info
  */
 
+nano::vote_key nano::vote_info::key () const
+{
+	return { timestamp, hash };
+}
+
 bool nano::vote_info::final () const
 {
 	return nano::vote::is_final_timestamp (timestamp);
-}
-
-/*
- * tally_key
- */
-
-bool nano::tally_key_greater::operator() (nano::tally_key const & lhs, nano::tally_key const & rhs) const
-{
-	if (lhs.weight != rhs.weight)
-	{
-		return lhs.weight > rhs.weight;
-	}
-	return lhs.hash > rhs.hash;
 }
 
 /*
@@ -84,13 +76,8 @@ nano::election_ballot::vote_result nano::election_ballot::vote (nano::account co
 		auto const & last_vote = existing->second;
 
 		// Replay checks come before throttling, so a stale vote is rejected even inside the cooldown window
-		if (last_vote.timestamp > timestamp)
-		{
-			return vote_result::replay;
-		}
-
-		// Equal timestamps only advance towards the higher hash, keeping the rep's vote sequence a strict total order
-		if (last_vote.timestamp == timestamp && !(last_vote.hash < hash))
+		// Equal timestamps only advance towards the higher hash, the direction tally position breaks ties too, so a rep's final vote can always follow a tie-broken winner
+		if (nano::vote_key{ timestamp, hash } <= last_vote.key ())
 		{
 			return vote_result::replay;
 		}
@@ -151,7 +138,7 @@ auto nano::election_ballot::insert (std::shared_ptr<nano::block> const & block, 
 
 	// Find the weakest non-winner using a fresh tally of the recorded votes
 	auto const block_weights = compute_weights ();
-	std::optional<std::pair<nano::uint128_t, nano::block_hash>> weakest;
+	std::optional<nano::tally_key> weakest;
 
 	for (auto const & [held_hash, held_block] : blocks_m)
 	{
@@ -163,7 +150,7 @@ auto nano::election_ballot::insert (std::shared_ptr<nano::block> const & block, 
 
 		// Blocks without votes have zero weight; prefer lower weight, then lower hash to keep eviction deterministic
 		nano::uint128_t const held_weight = block_weights.weight (held_hash);
-		std::pair<nano::uint128_t, nano::block_hash> const entry{ held_weight, held_hash };
+		nano::tally_key const entry{ held_weight, held_hash };
 
 		if (!weakest || entry < *weakest)
 		{
@@ -183,17 +170,17 @@ auto nano::election_ballot::insert (std::shared_ptr<nano::block> const & block, 
 		auto const incoming_weight = std::max (cached_tally, block_weights.weight (hash));
 
 		// Evict only if the incoming block is backed by strictly more weight than the weakest, equal weight favors the incumbent
-		if (incoming_weight <= weakest->first)
+		if (incoming_weight <= weakest->weight)
 		{
 			return { insert_outcome::rejected };
 		}
 	}
 
 	// The winner is what the election broadcasts and votes for, no eviction may ever take it
-	release_assert (weakest->second != winner_m);
+	release_assert (weakest->hash != winner_m);
 
 	// Only the block is removed, its recorded votes are deliberately retained
-	auto const victim = blocks_m.find (weakest->second);
+	auto const victim = blocks_m.find (weakest->hash);
 	release_assert (victim != blocks_m.end ());
 	auto evicted = victim->second;
 	blocks_m.erase (victim);
@@ -294,12 +281,12 @@ auto nano::election_ballot::evaluate (nano::uint128_t quorum_threshold) -> round
 	// Both slots advance only once enough weight participates, so a lead among the first few votes cannot move them
 	if (total_weight >= quorum_threshold)
 	{
-		// The heaviest voted-for hash takes the leader slot, held or not, and the heaviest held one the winner slot; ties resolve to the higher hash, which is the tally order
-		std::optional<std::pair<nano::uint128_t, nano::block_hash>> heaviest;
-		std::optional<std::pair<nano::uint128_t, nano::block_hash>> heaviest_held;
+		// The heaviest voted-for hash takes the leader slot, held or not, and the heaviest held one the winner slot; ties resolve to the higher hash
+		std::optional<nano::tally_key> heaviest;
+		std::optional<nano::tally_key> heaviest_held;
 		for (auto const & [hash, entry] : block_weights.weights)
 		{
-			std::pair<nano::uint128_t, nano::block_hash> const candidate{ entry.weight, hash };
+			nano::tally_key const candidate{ entry.weight, hash };
 			if (!heaviest || candidate > *heaviest)
 			{
 				heaviest = candidate;
@@ -312,11 +299,11 @@ auto nano::election_ballot::evaluate (nano::uint128_t quorum_threshold) -> round
 
 		if (heaviest_held)
 		{
-			winner_m = heaviest_held->second;
+			winner_m = heaviest_held->hash;
 		}
 		if (heaviest)
 		{
-			leader_m = heaviest->second;
+			leader_m = heaviest->hash;
 		}
 	}
 

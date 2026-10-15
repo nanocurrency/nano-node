@@ -98,7 +98,7 @@ nano::uint128_t total_weight (nano::election_ballot const & ballot)
 
 /*
  * The tally order is enforced by the container itself, not by whoever builds it: entries inserted in arbitrary order come out heaviest first, and equal weights come out higher hash first.
- * Every consumer of a tally (winner selection, quorum checks, RPC listings) inherits this order for free, so no code path can produce a differently ordered tally.
+ * The ballot selects the winner, the leader and the eviction victim by the same tally position, so a tally lists held blocks in the order an evaluation ranks them.
  */
 TEST (tally_map, order)
 {
@@ -822,9 +822,9 @@ TEST (election_ballot, has_vote_for)
 }
 
 /*
- * The winner only follows the tally leader once the total recorded vote weight reaches the quorum threshold.
+ * The winner only follows the front of the tally once the total recorded vote weight reaches the quorum threshold.
  * A fork may lead the tally, but with too little overall participation the winner does not move: this keeps the winner stable while only a few early votes are in, instead of flapping after every vote.
- * Once participation is sufficient the tally leader becomes both the stored leader and the winner.
+ * Once participation is sufficient the fork at the front of the tally becomes both the stored leader and the winner.
  */
 TEST (election_ballot, evaluate_winner_gate)
 {
@@ -845,14 +845,14 @@ TEST (election_ballot, evaluate_winner_gate)
 	ASSERT_EQ (10, total_weight (ballot));
 	ASSERT_FALSE (round1.quorum);
 
-	// Enough participation lets the tally leader take over as winner
+	// Enough participation lets the front of the tally take over as winner
 	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (reps.rep (10), nano::vote::timestamp_min, fork->hash (), 0s, epoch));
 	auto round2 = ballot.evaluate (15);
 	ASSERT_EQ (fork, round2.winner);
 	ASSERT_EQ (fork, ballot.winner ());
 	ASSERT_EQ (20, round2.winner_weight);
 
-	// The winner stays with the tally leader on subsequent evaluations
+	// The winner stays with the front of the tally on subsequent evaluations
 	auto round3 = ballot.evaluate (15);
 	ASSERT_EQ (fork, round3.winner);
 }
@@ -985,10 +985,10 @@ TEST (election_ballot, evaluate_equal_forks_block_quorum)
 	ASSERT_EQ (20, round.winner_weight);
 	ASSERT_FALSE (round.quorum);
 
-	// The heavier hash leads the tally on equal weights
-	auto const leader = std::max (initial->hash (), fork->hash ());
-	ASSERT_EQ (leader, tally.begin ()->first.hash);
-	ASSERT_EQ (leader, round.winner->hash ());
+	// The higher hash leads the tally on equal weights
+	auto const higher = std::max (initial->hash (), fork->hash ());
+	ASSERT_EQ (higher, tally.begin ()->first.hash);
+	ASSERT_EQ (higher, round.winner->hash ());
 }
 
 /*
@@ -1457,4 +1457,103 @@ TEST (election_ballot, block_queries)
 	auto votes = ballot.votes ();
 	ASSERT_EQ (1, votes.size ());
 	ASSERT_EQ (fork->hash (), votes.at (rep).hash);
+}
+
+/*
+ * Both orders break ties towards the higher hash, and the ballot depends on that agreement.
+ * Final votes all share one timestamp, so a rep can only ever move its final vote to a higher hash: the winner of a tie must be that higher hash, or it would be a fork that no rep already committed elsewhere could still follow.
+ */
+TEST (election_ballot, final_votes_follow_tie_broken_winner)
+{
+	test_reps reps;
+	auto blocks = create_blocks_hash_ordered (2);
+	auto & low = blocks[0];
+	auto & high = blocks[1];
+	nano::election_ballot ballot{ low, reps.query () };
+	ASSERT_EQ (nano::election_ballot::insert_outcome::inserted, ballot.insert (high).outcome);
+
+	// Two equal reps commit final votes to opposite forks
+	auto const on_low = reps.rep (20);
+	auto const on_high = reps.rep (20);
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (on_low, nano::vote::timestamp_final, low->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (on_high, nano::vote::timestamp_final, high->hash (), 0s, epoch));
+
+	// The tie resolves to the higher hash and neither quorum is reached
+	auto round1 = ballot.evaluate (30);
+	ASSERT_EQ (high, round1.winner);
+	ASSERT_FALSE (round1.quorum);
+	ASSERT_FALSE (round1.final_quorum);
+
+	// The rep on the losing fork can still follow the winner with a final vote, the rep on the winner cannot be pulled back
+	ASSERT_EQ (nano::election_ballot::vote_result::accepted, ballot.vote (on_low, nano::vote::timestamp_final, high->hash (), 0s, epoch));
+	ASSERT_EQ (nano::election_ballot::vote_result::replay, ballot.vote (on_high, nano::vote::timestamp_final, low->hash (), 0s, epoch));
+
+	// With both reps on the winner the election can confirm
+	auto round2 = ballot.evaluate (30);
+	ASSERT_EQ (high, round2.winner);
+	ASSERT_EQ (40, round2.final_winner_weight);
+	ASSERT_TRUE (round2.final_quorum);
+}
+
+/*
+ * tally_key
+ */
+
+/*
+ * Tally position is weight first, then hash: a heavier block ranks above whatever the hashes, and equal weights resolve to the higher hash.
+ * Only an identical (weight, hash) pair compares equal, so two forks never share a position.
+ */
+TEST (tally_key, order)
+{
+	nano::tally_key const heavy_low{ 7, nano::block_hash{ 1 } };
+	nano::tally_key const light_high{ 5, nano::block_hash{ 9 } };
+	nano::tally_key const light_low{ 5, nano::block_hash{ 1 } };
+	nano::tally_key const light_low_again{ 5, nano::block_hash{ 1 } };
+
+	// Weight decides first, whatever the hashes
+	ASSERT_GT (heavy_low, light_high);
+	ASSERT_LT (light_high, heavy_low);
+
+	// Equal weights resolve to the higher hash
+	ASSERT_GT (light_high, light_low);
+	ASSERT_LT (light_low, light_high);
+
+	// Only the identical pair compares equal
+	ASSERT_EQ (light_low, light_low_again);
+	ASSERT_NE (light_low, light_high);
+}
+
+/*
+ * vote_key
+ */
+
+/*
+ * A representative's vote order is timestamp first, then hash: a newer vote ranks above whatever the hashes, and equal timestamps resolve to the higher hash.
+ * The final marker is the highest timestamp, so a final vote ranks above every ordinary vote and can only be followed by a final vote for a higher hash.
+ */
+TEST (vote_key, order)
+{
+	nano::vote_key const newer_low{ 2 * nano::vote::timestamp_min, nano::block_hash{ 1 } };
+	nano::vote_key const older_high{ nano::vote::timestamp_min, nano::block_hash{ 9 } };
+	nano::vote_key const older_low{ nano::vote::timestamp_min, nano::block_hash{ 1 } };
+	nano::vote_key const older_low_again{ nano::vote::timestamp_min, nano::block_hash{ 1 } };
+
+	// Timestamp decides first, whatever the hashes
+	ASSERT_GT (newer_low, older_high);
+	ASSERT_LT (older_high, newer_low);
+
+	// Equal timestamps resolve to the higher hash
+	ASSERT_GT (older_high, older_low);
+	ASSERT_LT (older_low, older_high);
+
+	// Only the identical pair compares equal
+	ASSERT_EQ (older_low, older_low_again);
+	ASSERT_NE (older_low, older_high);
+
+	// The final marker ranks above the latest ordinary timestamp, and among finals only a higher hash ranks above
+	nano::vote_key const final_low{ nano::vote::timestamp_final, nano::block_hash{ 1 } };
+	nano::vote_key const final_high{ nano::vote::timestamp_final, nano::block_hash{ 9 } };
+	nano::vote_key const latest_ordinary{ nano::vote::timestamp_max, nano::block_hash{ 9 } };
+	ASSERT_GT (final_low, latest_ordinary);
+	ASSERT_GT (final_high, final_low);
 }
