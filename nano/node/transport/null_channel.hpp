@@ -47,5 +47,10 @@ protected:
 	{
 		return false; // Dropped, this channel is never meant to send
 	}
+
+	bool send_buffer_impl (nano::shared_const_buffer const &, nano::transport::traffic_type, nano::transport::channel::callback_t) override
+	{
+		return false;
+	}
 };
 }

@@ -20,9 +20,9 @@ nano::transport::inproc::channel::channel (nano::node & node, nano::node & desti
  * Send the buffer to the peer and call the callback function when done. The call never fails.
  * Note that the inbound message visitor will be called before the callback because it is called directly whereas the callback is spawned in the background.
  */
-bool nano::transport::inproc::channel::send_impl (nano::messages::message const & message, nano::transport::traffic_type traffic_type, nano::transport::channel::callback_t callback)
+bool nano::transport::inproc::channel::send_buffer_impl (nano::shared_const_buffer const & buffer, nano::transport::traffic_type traffic_type, nano::transport::channel::callback_t callback)
 {
-	auto const bytes = message.to_bytes ();
+	nano::shared_buffer const bytes = buffer;
 
 	// Parsed like network input to the destination, minus the duplicate filter, which would drop repeats a caller sends on purpose
 	auto [incoming, status] = nano::deserialize_message (*bytes, destination.network_params.network, nullptr, &destination.block_uniquer, &destination.vote_uniquer);
