@@ -197,10 +197,14 @@ private:
 		nano::uint128_t final_weight{ 0 }; // Final votes only
 	};
 
+	// A sorted vector of hash and weight pairs that keeps its first `inline_hashes` entries inside the object and moves to the heap only past that
+	// An election rarely weighs more than a few hashes, so the map fits inline and a lookup is a few comparisons
+	using weight_map = boost::container::small_flat_map<nano::block_hash, block_weight, inline_hashes>;
+
 	// Vote weight per voted-for block hash, including unheld hashes
 	struct block_weights final
 	{
-		boost::container::small_flat_map<nano::block_hash, block_weight, inline_hashes> weights;
+		weight_map weights;
 
 		// Weight behind the hash (normal + final votes), zero when nothing is tallied for it
 		nano::uint128_t weight (nano::block_hash const &) const;
