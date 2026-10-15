@@ -995,15 +995,6 @@ std::string nano::node::make_logger_identifier (const nano::keypair & node_id)
 
 nano::container_info nano::node::container_info () const
 {
-	/*
-	 * TODO: Add container infos for:
-	 * - bootstrap_server
-	 * - peer_history
-	 * - port_mapping
-	 * - epoch_upgrader
-	 * - websocket
-	 */
-
 	nano::container_info info;
 	info.add ("work", work.container_info ());
 	info.add ("ledger", ledger.container_info ());
@@ -1045,6 +1036,10 @@ nano::container_info nano::node::container_info () const
 	info.add ("pruning", pruning.container_info ());
 	info.add ("vote_rebroadcaster", vote_rebroadcaster.container_info ());
 	info.add ("fork_cache", fork_cache.container_info ());
+	info.add ("ledger_notifications", ledger_notifications.container_info ());
+	info.add ("block_rebroadcaster", block_rebroadcaster.container_info ());
+	info.add ("bootstrap_server", bootstrap_server.container_info ());
+	info.add ("websocket", websocket.container_info ());
 	return info;
 }
 

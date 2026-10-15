@@ -330,6 +330,7 @@ void nano::websocket::session::write_locked (nano::websocket::message const & me
 		[message_a, this_l] () {
 			bool write_in_progress = !this_l->send_queue.empty ();
 			this_l->send_queue.emplace_back (message_a);
+			this_l->send_queue_size = this_l->send_queue.size ();
 			if (!write_in_progress)
 			{
 				this_l->write_queued_messages ();
@@ -346,6 +347,7 @@ void nano::websocket::session::write_queued_messages ()
 	ws.async_write (nano::shared_const_buffer (msg),
 	[this_l] (boost::system::error_code ec, std::size_t bytes_transferred) {
 		this_l->send_queue.pop_front ();
+		this_l->send_queue_size = this_l->send_queue.size ();
 		if (!ec)
 		{
 			if (!this_l->send_queue.empty ())
@@ -707,6 +709,36 @@ void nano::websocket::listener::decrease_subscriber_count (nano::websocket::topi
 	auto & count (topic_subscriber_count[static_cast<std::size_t> (topic_a)]);
 	release_assert (count > 0);
 	count -= 1;
+}
+
+nano::container_info nano::websocket::listener::container_info () const
+{
+	nano::lock_guard<nano::mutex> lk (sessions_mutex);
+
+	std::size_t send_queue = 0;
+	std::size_t subscriptions = 0;
+	std::size_t filter_accounts = 0;
+	for (auto const & weak_session : sessions)
+	{
+		if (auto session_ptr = weak_session.lock ())
+		{
+			send_queue += session_ptr->send_queue_size;
+
+			nano::lock_guard<nano::mutex> subscriptions_lk (session_ptr->subscriptions_mutex);
+			subscriptions += session_ptr->subscriptions.size ();
+			for (auto const & subscription : session_ptr->subscriptions)
+			{
+				filter_accounts += subscription.second->filter_size ();
+			}
+		}
+	}
+
+	nano::container_info info;
+	info.put ("sessions", sessions.size ());
+	info.put ("send_queue", send_queue);
+	info.put ("subscriptions", subscriptions);
+	info.put ("filter_accounts", filter_accounts);
+	return info;
 }
 
 nano::websocket::message_builder::message_builder (nano::ledger & ledger) :
@@ -1100,4 +1132,13 @@ void nano::websocket_server::stop ()
 	{
 		server->stop ();
 	}
+}
+
+nano::container_info nano::websocket_server::container_info () const
+{
+	if (server)
+	{
+		return server->container_info ();
+	}
+	return {};
 }

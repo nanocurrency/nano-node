@@ -119,6 +119,12 @@ namespace websocket
 	public:
 		virtual ~options () = default;
 
+		/** Number of accounts in the subscription filter */
+		virtual std::size_t filter_size () const
+		{
+			return 0;
+		}
+
 	protected:
 		/**
 		 * Checks if a message should be filtered for default options (no options given).
@@ -172,6 +178,12 @@ namespace websocket
 		 * @return false
 		 */
 		bool update (boost::property_tree::ptree const & options_a) override;
+
+		/** Number of accounts in the filter */
+		std::size_t filter_size () const override
+		{
+			return accounts.size ();
+		}
 
 		/** Returns whether or not block contents should be included */
 		bool get_include_block () const
@@ -243,6 +255,12 @@ namespace websocket
 		 */
 		bool should_filter (message const & message_a) const override;
 
+		/** Number of representatives in the filter */
+		std::size_t filter_size () const override
+		{
+			return representatives.size ();
+		}
+
 	private:
 		std::unordered_set<std::string> representatives;
 		bool include_replays{ false };
@@ -283,6 +301,8 @@ namespace websocket
 		boost::beast::multi_buffer read_buffer;
 		/** Outgoing messages. The send queue is protected by accessing it only through the strand */
 		std::deque<message> send_queue;
+		/** Size of the send queue, readable outside the strand */
+		std::atomic<std::size_t> send_queue_size{ 0 };
 
 		/** Cache remote & local endpoints to make them available after the socket is closed */
 		socket_type::endpoint_type remote;
@@ -355,6 +375,8 @@ namespace websocket
 			return topic_subscriber_count[static_cast<std::size_t> (topic_a)];
 		}
 
+		nano::container_info container_info () const;
+
 	private:
 		/** A websocket session can increase and decrease subscription counts. */
 		friend nano::websocket::session;
@@ -369,7 +391,7 @@ namespace websocket
 		nano::wallet::wallets & wallets;
 		boost::asio::ip::tcp::acceptor acceptor;
 		socket_type socket;
-		nano::mutex sessions_mutex;
+		mutable nano::mutex sessions_mutex;
 		std::vector<std::weak_ptr<session>> sessions;
 		std::array<std::atomic<std::size_t>, number_topics> topic_subscriber_count;
 		std::atomic<bool> stopped{ false };
@@ -386,6 +408,8 @@ public:
 
 	void start ();
 	void stop ();
+
+	nano::container_info container_info () const;
 
 private: // Dependencies
 	nano::websocket::config const & config;
