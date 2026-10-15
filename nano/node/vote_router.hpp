@@ -7,10 +7,7 @@
 #include <nano/node/fwd.hpp>
 
 #include <boost/container/static_vector.hpp>
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/member.hpp>
-#include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index_container.hpp>
+#include <boost/unordered/unordered_flat_map.hpp>
 
 #include <bitset>
 #include <condition_variable>
@@ -18,8 +15,6 @@
 #include <ranges>
 #include <shared_mutex>
 #include <thread>
-
-namespace mi = boost::multi_index;
 
 namespace nano
 {
@@ -151,27 +146,8 @@ private: // Dependencies
 private:
 	void run ();
 
-	struct route
-	{
-		nano::block_hash hash;
-		std::weak_ptr<nano::election> election;
-	};
-
-	// clang-format off
-	class tag_hash {};
-	class tag_election {};
-
-	using route_index = mi::multi_index_container<route,
-	mi::indexed_by<
-		mi::hashed_unique<mi::tag<tag_hash>,
-			mi::member<route, nano::block_hash, &route::hash>>,
-		mi::ordered_non_unique<mi::tag<tag_election>,
-			mi::member<route, std::weak_ptr<nano::election>, &route::election>,
-			std::owner_less<std::weak_ptr<nano::election>>>>
-	>;
-	// clang-format on
-	// Routes indexed by both block hash and election ownership
-	route_index routes;
+	// The election claiming each hash; a claim of an election that ended is swept by the thread
+	boost::unordered_flat_map<nano::block_hash, std::weak_ptr<nano::election>, std::hash<nano::block_hash>> routes;
 
 	bool stopped{ false };
 	mutable std::shared_mutex mutex;

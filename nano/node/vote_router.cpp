@@ -97,14 +97,12 @@ void nano::vote_router::stop ()
 bool nano::vote_router::connect (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election)
 {
 	std::unique_lock lock{ mutex };
-	auto & by_hash = routes.get<tag_hash> ();
-	auto existing = by_hash.find (hash);
-	if (existing == by_hash.end ())
+	auto const [existing, inserted] = routes.try_emplace (hash, election);
+	if (inserted)
 	{
-		by_hash.insert ({ hash, election });
 		return true;
 	}
-	if (auto current = existing->election.lock ())
+	if (auto current = existing->second.lock ())
 	{
 		if (current == election)
 		{
@@ -116,33 +114,33 @@ bool nano::vote_router::connect (nano::block_hash const & hash, std::shared_ptr<
 			return false;
 		}
 	}
-	by_hash.modify (existing, [&election] (auto & route) {
-		route.election = election;
-	});
+	existing->second = election;
 	return true;
 }
 
 void nano::vote_router::disconnect (std::shared_ptr<nano::election> const & election)
 {
 	std::unique_lock lock{ mutex };
-	routes.get<tag_election> ().erase (std::weak_ptr<nano::election>{ election });
+	// A sweep of the whole table, once per election that ends, which stays cheap for a table the size of the active elections
+	erase_if (routes, [&election] (auto const & route) {
+		return !route.second.owner_before (election) && !election.owner_before (route.second);
+	});
 }
 
 bool nano::vote_router::disconnect (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election)
 {
 	std::unique_lock lock{ mutex };
-	auto & by_hash = routes.get<tag_hash> ();
-	auto existing = by_hash.find (hash);
-	if (existing == by_hash.end ())
+	auto existing = routes.find (hash);
+	if (existing == routes.end ())
 	{
 		return false;
 	}
 	// Only the election the route points to may remove it
-	if (existing->election.owner_before (election) || election.owner_before (existing->election))
+	if (existing->second.owner_before (election) || election.owner_before (existing->second))
 	{
 		return false;
 	}
-	by_hash.erase (existing);
+	routes.erase (existing);
 	return true;
 }
 
@@ -177,10 +175,9 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 	boost::container::flat_set<uint8_t, decltype (hash_less), boost::container::static_vector<uint8_t, nano::vote::max_hashes>> seen{ hash_less };
 
 	auto find_election = [this] (auto const & hash) -> std::shared_ptr<nano::election> {
-		auto const & by_hash = routes.get<tag_hash> ();
-		if (auto existing = by_hash.find (hash); existing != by_hash.end ())
+		if (auto existing = routes.find (hash); existing != routes.end ())
 		{
-			return existing->election.lock ();
+			return existing->second.lock ();
 		}
 		return {};
 	};
@@ -283,13 +280,9 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 bool nano::vote_router::active (nano::block_hash const & hash) const
 {
 	std::shared_lock lock{ mutex };
-	auto const & by_hash = routes.get<tag_hash> ();
-	if (auto existing = by_hash.find (hash); existing != by_hash.end ())
+	if (auto existing = routes.find (hash); existing != routes.end ())
 	{
-		if (auto election = existing->election.lock (); election != nullptr)
-		{
-			return true;
-		}
+		return !existing->second.expired ();
 	}
 	return false;
 }
@@ -297,13 +290,9 @@ bool nano::vote_router::active (nano::block_hash const & hash) const
 std::shared_ptr<nano::election> nano::vote_router::election (nano::block_hash const & hash) const
 {
 	std::shared_lock lock{ mutex };
-	auto const & by_hash = routes.get<tag_hash> ();
-	if (auto existing = by_hash.find (hash); existing != by_hash.end ())
+	if (auto existing = routes.find (hash); existing != routes.end ())
 	{
-		if (auto election = existing->election.lock (); election != nullptr)
-		{
-			return election;
-		}
+		return existing->second.lock ();
 	}
 	return nullptr;
 }
@@ -311,7 +300,7 @@ std::shared_ptr<nano::election> nano::vote_router::election (nano::block_hash co
 bool nano::vote_router::contains (nano::block_hash const & hash) const
 {
 	std::shared_lock lock{ mutex };
-	return routes.get<tag_hash> ().contains (hash);
+	return routes.contains (hash);
 }
 
 nano::container_info nano::vote_router::container_info () const
@@ -328,18 +317,9 @@ void nano::vote_router::run ()
 	std::unique_lock lock{ mutex };
 	while (!stopped)
 	{
-		auto & by_hash = routes.get<tag_hash> ();
-		for (auto it = by_hash.begin (); it != by_hash.end ();)
-		{
-			if (it->election.expired ())
-			{
-				it = by_hash.erase (it);
-			}
-			else
-			{
-				++it;
-			}
-		}
+		erase_if (routes, [] (auto const & route) {
+			return route.second.expired ();
+		});
 		condition.wait_for (lock, 15s, [&] () { return stopped; });
 	}
 }
