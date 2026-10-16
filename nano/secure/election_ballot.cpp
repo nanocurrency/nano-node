@@ -407,3 +407,13 @@ size_t nano::election_ballot::block_count () const
 {
 	return blocks_m.size ();
 }
+
+nano::election_ballot::hash_list nano::election_ballot::block_hashes () const
+{
+	hash_list result;
+	for (auto const & [hash, block] : blocks_m)
+	{
+		result.push_back (hash);
+	}
+	return result;
+}
