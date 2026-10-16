@@ -97,14 +97,12 @@ void nano::vote_router::stop ()
 bool nano::vote_router::connect (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election)
 {
 	std::unique_lock lock{ mutex };
-	auto & by_hash = routes.get<tag_hash> ();
-	auto existing = by_hash.find (hash);
-	if (existing == by_hash.end ())
+	auto const [existing, inserted] = routes.try_emplace (hash, election);
+	if (inserted)
 	{
-		by_hash.insert ({ hash, election });
 		return true;
 	}
-	if (auto current = existing->election.lock ())
+	if (auto current = existing->second.lock ())
 	{
 		if (current == election)
 		{
@@ -116,33 +114,33 @@ bool nano::vote_router::connect (nano::block_hash const & hash, std::shared_ptr<
 			return false;
 		}
 	}
-	by_hash.modify (existing, [&election] (auto & route) {
-		route.election = election;
-	});
+	existing->second = election;
 	return true;
 }
 
 void nano::vote_router::disconnect (std::shared_ptr<nano::election> const & election)
 {
 	std::unique_lock lock{ mutex };
-	routes.get<tag_election> ().erase (std::weak_ptr<nano::election>{ election });
+	// A sweep of the whole table, once per election that ends, which stays cheap for a table the size of the active elections
+	erase_if (routes, [&election] (auto const & route) {
+		return !route.second.owner_before (election) && !election.owner_before (route.second);
+	});
 }
 
 bool nano::vote_router::disconnect (nano::block_hash const & hash, std::shared_ptr<nano::election> const & election)
 {
 	std::unique_lock lock{ mutex };
-	auto & by_hash = routes.get<tag_hash> ();
-	auto existing = by_hash.find (hash);
-	if (existing == by_hash.end ())
+	auto existing = routes.find (hash);
+	if (existing == routes.end ())
 	{
 		return false;
 	}
 	// Only the election the route points to may remove it
-	if (existing->election.owner_before (election) || election.owner_before (existing->election))
+	if (existing->second.owner_before (election) || election.owner_before (existing->second))
 	{
 		return false;
 	}
-	by_hash.erase (existing);
+	routes.erase (existing);
 	return true;
 }
 
@@ -155,6 +153,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 		return hash == filter;
 	}));
 
+	// Working state for one vote, sized by the hash limit so none of it allocates
 	auto const & hashes = vote->hashes;
 	nano::vote_results results{ vote };
 
@@ -169,21 +168,21 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 	};
 	boost::container::static_vector<match, nano::vote::max_hashes> matches;
 
-	// Positions ordered by their hash, so inserting a position fails if its hash occurred before
+	// Hashes seen so far, held as positions into `hashes` and compared by hash: inserting a position whose hash occurred before fails, and 255 one-byte positions need no heap
 	auto const hash_less = [&hashes] (uint8_t lhs, uint8_t rhs) {
 		return hashes[lhs] < hashes[rhs];
 	};
 	boost::container::flat_set<uint8_t, decltype (hash_less), boost::container::static_vector<uint8_t, nano::vote::max_hashes>> seen{ hash_less };
 
 	auto find_election = [this] (auto const & hash) -> std::shared_ptr<nano::election> {
-		auto const & by_hash = routes.get<tag_hash> ();
-		if (auto existing = by_hash.find (hash); existing != by_hash.end ())
+		if (auto existing = routes.find (hash); existing != routes.end ())
 		{
-			return existing->election.lock ();
+			return existing->second.lock ();
 		}
 		return {};
 	};
 
+	// Under one lock, match each distinct hash to a live election or answer it right away as late or unknown
 	{
 		std::shared_lock lock{ mutex };
 		for (size_t position = 0; position < hashes.size (); ++position)
@@ -196,7 +195,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 				continue;
 			}
 
-			// Ignore duplicate hashes (should not happen with a well-behaved voting node)
+			// Ignore duplicate hashes, which fail to insert since the set compares positions by hash (should not happen with a well-behaved voting node)
 			if (!seen.insert (static_cast<uint8_t> (position)).second)
 			{
 				continue;
@@ -214,6 +213,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 		}
 	}
 
+	// Hand the vote to the matched elections
 	// Announced once, ahead of the first election that gets the vote
 	bool const matched = !matches.empty ();
 	if (matched)
@@ -221,6 +221,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 		vote_matched.notify (context);
 	}
 
+	// Each election answers for its hash: the vote is counted, a replay, ignored under cooldown, or late or unknown once the election is over
 	for (auto const & [position, election] : matches)
 	{
 		results.set (position, election->vote (vote->account, vote->timestamp (), hashes[position], context.source, context.tier));
@@ -229,7 +230,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 	// All distinct hashes should have their result set
 	debug_assert (!filter.is_zero () || results.size () == seen.size ());
 
-	// Cache the votes that didn't match any election
+	// Cache a vote that did not come from the cache itself, then route its unmatched hashes once more
 	if (context.source != nano::vote_source::cache)
 	{
 		// Caching votes of untiered representatives would let anyone fill the cache
@@ -255,6 +256,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 				}
 			}
 		}
+		// Announced now if the first lookup matched nothing
 		if (!matched && !matches.empty ())
 		{
 			vote_matched.notify (context);
@@ -269,6 +271,7 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 		}
 	}
 
+	// Report the vote with its code per hash to the observers, the rebroadcaster among them
 	vote_processed.notify (context, results);
 
 	return results;
@@ -277,13 +280,9 @@ nano::vote_results nano::vote_router::vote (nano::vote_context const & context, 
 bool nano::vote_router::active (nano::block_hash const & hash) const
 {
 	std::shared_lock lock{ mutex };
-	auto const & by_hash = routes.get<tag_hash> ();
-	if (auto existing = by_hash.find (hash); existing != by_hash.end ())
+	if (auto existing = routes.find (hash); existing != routes.end ())
 	{
-		if (auto election = existing->election.lock (); election != nullptr)
-		{
-			return true;
-		}
+		return !existing->second.expired ();
 	}
 	return false;
 }
@@ -291,13 +290,9 @@ bool nano::vote_router::active (nano::block_hash const & hash) const
 std::shared_ptr<nano::election> nano::vote_router::election (nano::block_hash const & hash) const
 {
 	std::shared_lock lock{ mutex };
-	auto const & by_hash = routes.get<tag_hash> ();
-	if (auto existing = by_hash.find (hash); existing != by_hash.end ())
+	if (auto existing = routes.find (hash); existing != routes.end ())
 	{
-		if (auto election = existing->election.lock (); election != nullptr)
-		{
-			return election;
-		}
+		return existing->second.lock ();
 	}
 	return nullptr;
 }
@@ -305,7 +300,7 @@ std::shared_ptr<nano::election> nano::vote_router::election (nano::block_hash co
 bool nano::vote_router::contains (nano::block_hash const & hash) const
 {
 	std::shared_lock lock{ mutex };
-	return routes.get<tag_hash> ().contains (hash);
+	return routes.contains (hash);
 }
 
 nano::container_info nano::vote_router::container_info () const
@@ -322,18 +317,9 @@ void nano::vote_router::run ()
 	std::unique_lock lock{ mutex };
 	while (!stopped)
 	{
-		auto & by_hash = routes.get<tag_hash> ();
-		for (auto it = by_hash.begin (); it != by_hash.end ();)
-		{
-			if (it->election.expired ())
-			{
-				it = by_hash.erase (it);
-			}
-			else
-			{
-				++it;
-			}
-		}
+		erase_if (routes, [] (auto const & route) {
+			return route.second.expired ();
+		});
 		condition.wait_for (lock, 15s, [&] () { return stopped; });
 	}
 }

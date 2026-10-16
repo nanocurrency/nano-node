@@ -17,6 +17,7 @@
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 
 #include <atomic>
@@ -73,45 +74,28 @@ public:
 private:
 	vote_rebroadcaster_config const & config;
 
+	// When a block hash was last rebroadcast for a representative
 	struct rebroadcast_entry
 	{
-		nano::block_hash block_hash;
 		nano::vote_timestamp vote_timestamp;
 		std::chrono::steady_clock::time_point timestamp;
 	};
-
-	// clang-format off
-	class tag_sequenced {};
-	class tag_vote_hash {};
-	class tag_block_hash {};
-
-	// Tracks rebroadcast history for individual block hashes
-	using ordered_rebroadcasts = boost::multi_index_container<rebroadcast_entry,
-	mi::indexed_by<
-		mi::sequenced<mi::tag<tag_sequenced>>,
-		mi::hashed_unique<mi::tag<tag_block_hash>,
-			mi::member<rebroadcast_entry, nano::block_hash, &rebroadcast_entry::block_hash>>
-	>>;
-
-	// Tracks rebroadcast history for full votes
-	using ordered_hashes = boost::multi_index_container<nano::block_hash,
-	mi::indexed_by<
-		mi::sequenced<mi::tag<tag_sequenced>>,
-		mi::hashed_unique<mi::tag<tag_vote_hash>,
-			mi::identity<nano::block_hash>>
-	>>;
-	// clang-format on
 
 	struct representative_entry
 	{
 		nano::account representative;
 		nano::uint128_t weight;
 
-		mutable ordered_rebroadcasts history;
-		mutable ordered_hashes hashes;
+		// Block hashes rebroadcast for the representative, with the order they first appeared in for eviction
+		mutable boost::unordered_flat_map<nano::block_hash, rebroadcast_entry, std::hash<nano::block_hash>> history;
+		mutable std::deque<nano::block_hash> history_order;
+		// Full hashes of the votes rebroadcast, in order for eviction
+		mutable boost::unordered_flat_set<nano::block_hash, std::hash<nano::block_hash>> hashes;
+		mutable std::deque<nano::block_hash> hashes_order;
 	};
 
 	// clang-format off
+	class tag_sequenced {};
 	class tag_account {};
 	class tag_weight {};
 

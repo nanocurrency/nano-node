@@ -369,29 +369,32 @@ nano::vote_rebroadcaster_index::result nano::vote_rebroadcaster_index::check_and
 	release_assert (it != index.get<tag_account> ().end ());
 
 	auto & history = it->history;
+	auto & history_order = it->history_order;
 	auto & hashes = it->hashes;
+	auto & hashes_order = it->hashes_order;
 
 	// Check if we already rebroadcasted this exact vote (fast lookup by hash)
-	if (hashes.get<tag_vote_hash> ().contains (vote_hash))
+	if (hashes.contains (vote_hash))
 	{
 		return result::already_rebroadcasted;
 	}
 
 	// Check if any of the hashes contained in the vote qualifies for rebroadcasting
 	auto check_hash = [&] (auto const & hash) {
-		if (auto existing = history.get<tag_block_hash> ().find (hash); existing != history.get<tag_block_hash> ().end ())
+		if (auto existing = history.find (hash); existing != history.end ())
 		{
+			auto const & entry = existing->second;
 			// Always rebroadcast vote if rep switched to a final vote
-			if (nano::vote::is_final_timestamp (vote_timestamp) && vote_timestamp > existing->vote_timestamp)
+			if (nano::vote::is_final_timestamp (vote_timestamp) && vote_timestamp > entry.vote_timestamp)
 			{
 				return true;
 			}
 			// Otherwise only rebroadcast if sufficient time has passed since the last rebroadcast
-			if (existing->timestamp + config.rebroadcast_threshold > now)
+			if (entry.timestamp + config.rebroadcast_threshold > now)
 			{
 				return false; // Not enough (as seen by local clock) time has passed
 			}
-			if (add_sat (existing->vote_timestamp, static_cast<nano::vote_timestamp> (config.rebroadcast_threshold.count ())) > vote_timestamp)
+			if (add_sat (entry.vote_timestamp, static_cast<nano::vote_timestamp> (config.rebroadcast_threshold.count ())) > vote_timestamp)
 			{
 				return false; // Not enough (as seen by vote timestamp) time has passed
 			}
@@ -409,33 +412,34 @@ nano::vote_rebroadcaster_index::result nano::vote_rebroadcaster_index::check_and
 		return result::rebroadcast_unnecessary;
 	}
 
-	// Update the history with the new vote info
+	// Update the history with the new vote info, a hash seen before keeps its place in the eviction order
 	for (auto const & hash : vote->hashes)
 	{
-		if (auto existing = history.get<tag_block_hash> ().find (hash); existing != history.get<tag_block_hash> ().end ())
+		auto const [existing, inserted] = history.try_emplace (hash, rebroadcast_entry{ vote_timestamp, now });
+		if (inserted)
 		{
-			history.get<tag_block_hash> ().modify (existing, [&] (auto & entry) {
-				entry.vote_timestamp = vote_timestamp;
-				entry.timestamp = now;
-			});
+			history_order.push_back (hash);
 		}
 		else
 		{
-			history.get<tag_block_hash> ().emplace (rebroadcast_entry{ hash, vote_timestamp, now });
+			existing->second = { vote_timestamp, now };
 		}
 	}
 
 	// Also keep track of the vote hash to quickly filter out duplicates
-	hashes.push_back (vote_hash);
+	hashes.insert (vote_hash);
+	hashes_order.push_back (vote_hash);
 
 	// Keep history and hashes sizes within limits, erase oldest entries
-	while (history.size () > config.max_history)
+	while (history_order.size () > config.max_history)
 	{
-		history.pop_front (); // Remove the oldest entry
+		history.erase (history_order.front ());
+		history_order.pop_front ();
 	}
-	while (hashes.size () > config.max_history)
+	while (hashes_order.size () > config.max_history)
 	{
-		hashes.pop_front (); // Remove the oldest entry
+		hashes.erase (hashes_order.front ());
+		hashes_order.pop_front ();
 	}
 
 	// Keep representatives index within limits, erase lowest weight entries
@@ -470,7 +474,7 @@ size_t nano::vote_rebroadcaster_index::cleanup (rep_query query)
 bool nano::vote_rebroadcaster_index::contains_vote (nano::block_hash const & vote_hash) const
 {
 	return std::any_of (index.begin (), index.end (), [&] (auto const & entry) {
-		return entry.hashes.template get<tag_vote_hash> ().contains (vote_hash);
+		return entry.hashes.contains (vote_hash);
 	});
 }
 
@@ -483,7 +487,7 @@ bool nano::vote_rebroadcaster_index::contains_block (nano::account const & repre
 {
 	if (auto it = index.get<tag_account> ().find (representative); it != index.get<tag_account> ().end ())
 	{
-		return it->history.get<tag_block_hash> ().find (block_hash) != it->history.get<tag_block_hash> ().end ();
+		return it->history.contains (block_hash);
 	}
 	return false;
 }
