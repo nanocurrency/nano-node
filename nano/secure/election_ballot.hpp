@@ -99,6 +99,9 @@ public:
 	// Latest vote per representative, kept flat so a copy is one allocation
 	using vote_map = boost::unordered_flat_map<nano::account, nano::vote_info>;
 
+	// Hashes of held blocks, with inline room for the default limit
+	using hash_list = boost::container::small_vector<nano::block_hash, default_max_blocks>;
+
 	// The initial block becomes both the first winner and the first leader
 	// Requires a non-null initial block, a callable weight query and room for at least one block
 	election_ballot (std::shared_ptr<nano::block> const & initial, weight_fn weight_query, size_t max_blocks = default_max_blocks);
@@ -188,6 +191,9 @@ public: // Queries
 
 	// Number of held blocks
 	size_t block_count () const;
+
+	// Hashes of the held blocks, winner included
+	hash_list block_hashes () const;
 
 private:
 	static size_t constexpr inline_hashes{ 4 }; // Voted-for hashes weighed without allocating, an election rarely sees more

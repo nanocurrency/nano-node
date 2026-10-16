@@ -700,15 +700,10 @@ void nano::election::force_confirm ()
 	confirm_once (lock);
 }
 
-std::unordered_set<nano::block_hash> nano::election::blocks_hashes () const
+nano::election_ballot::hash_list nano::election::blocks_hashes () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-	std::unordered_set<nano::block_hash> hashes;
-	for (auto const & [hash, block] : ballot.blocks ())
-	{
-		hashes.emplace (hash);
-	}
-	return hashes;
+	return ballot.block_hashes ();
 }
 
 std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election::blocks () const

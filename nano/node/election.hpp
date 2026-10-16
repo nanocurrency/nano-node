@@ -16,7 +16,6 @@
 #include <memory>
 #include <optional>
 #include <unordered_map>
-#include <unordered_set>
 
 namespace nano
 {
@@ -174,7 +173,7 @@ public: // Information
 	// All held blocks by hash
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
 	// Hashes of the held blocks
-	std::unordered_set<nano::block_hash> blocks_hashes () const;
+	nano::election_ballot::hash_list blocks_hashes () const;
 	// Whether a block with the given hash is held
 	bool contains_block (nano::block_hash const &) const;
 
