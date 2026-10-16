@@ -783,12 +783,6 @@ nano::public_key wallet::deterministic_insert_impl (nano::store::write_transacti
 		work_ensure (key, key);
 	}
 
-	if (wallets.check_rep (key))
-	{
-		logger.info (nano::log::type::wallet, "New account qualified as a representative: {}", key.to_account ());
-		representatives.lock ()->insert (key);
-	}
-
 	return key;
 }
 
@@ -803,13 +797,19 @@ nano::public_key wallet::deterministic_insert_impl (nano::store::write_transacti
 		work_ensure (key, key);
 	}
 
-	if (wallets.check_rep (key))
-	{
-		logger.info (nano::log::type::wallet, "New account qualified as a representative: {}", key.to_account ());
-		representatives.lock ()->insert (key);
-	}
-
 	return key;
+}
+
+bool wallet::register_representative (nano::account const & account)
+{
+	// Runs after the insert committed, a reps scan snapshot taken before the commit would otherwise rebuild the index without the account
+	if (!wallets.check_rep (account))
+	{
+		return false;
+	}
+	logger.info (nano::log::type::wallet, "New account qualified as a representative: {}", account.to_account ());
+	representatives.lock ()->insert (account);
+	return true;
 }
 
 nano::result<nano::public_key> wallet::deterministic_insert (uint32_t index, bool generate_work)
@@ -824,6 +824,7 @@ nano::result<nano::public_key> wallet::deterministic_insert (uint32_t index, boo
 
 	auto result = deterministic_insert_impl (transaction, cipher.value (), index, generate_work);
 	transaction.commit ();
+	register_representative (result);
 	wallets.refresh_rep_keys_cache ();
 	return result;
 }
@@ -840,6 +841,7 @@ nano::result<nano::public_key> wallet::deterministic_insert (bool generate_work)
 
 	auto result = deterministic_insert_impl (transaction, cipher.value (), generate_work);
 	transaction.commit ();
+	register_representative (result);
 	wallets.refresh_rep_keys_cache ();
 	return result;
 }
@@ -867,10 +869,8 @@ nano::result<nano::public_key> wallet::insert_adhoc (nano::raw_key const & prv, 
 	// Makes sure that the representatives container will be in sync with any added keys
 	transaction.commit ();
 
-	if (wallets.check_rep (key))
+	if (register_representative (key))
 	{
-		logger.info (nano::log::type::wallet, "New account qualified as a representative: {}", key.to_account ());
-		representatives.lock ()->insert (key);
 		wallets.refresh_rep_keys_cache ();
 	}
 
@@ -1440,7 +1440,8 @@ nano::result<nano::public_key> wallet::change_seed (nano::raw_key const & seed, 
 		}
 		result = change_seed_impl (transaction, cipher.value (), seed, count);
 	}
-	wallets.refresh_rep_keys_cache ();
+	// The accounts were inserted inside the transaction, a full refresh registers the representatives among them now that it has committed
+	wallets.refresh_reps ();
 	return result;
 }
 
@@ -1508,7 +1509,8 @@ void wallet::deterministic_restore ()
 		}
 		deterministic_restore_impl (transaction, cipher.value ());
 	}
-	wallets.refresh_rep_keys_cache ();
+	// The accounts were inserted inside the transaction, a full refresh registers the representatives among them now that it has committed
+	wallets.refresh_reps ();
 }
 
 void wallet::deterministic_restore_impl (nano::store::write_transaction const & transaction, nano::wallet::wallet_cipher const & cipher)
@@ -1698,9 +1700,9 @@ nano::logger & logger_a) :
 {
 	logger.info (nano::log::type::wallet, "Loading wallets from: {}", backend.database_path ().string ());
 
-	nano::unique_lock<nano::mutex> lock{ mutex };
 	{
 		auto transaction (tx_begin_write ());
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		for (auto it = backend.index_begin (transaction), end = backend.index_end (transaction); it != end; ++it)
 		{
 			// The wallet index range may also include entries for non-wallet sub-tables (e.g. `send_action_ids` on LMDB);
@@ -1824,41 +1826,41 @@ std::shared_ptr<wallet> wallets::open (nano::wallet_id const & id_a)
 
 std::shared_ptr<wallet> wallets::create (nano::wallet_id const & id_a)
 {
+	auto transaction (tx_begin_write ());
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	debug_assert (items.find (id_a) == items.end ());
+	try
 	{
-		auto transaction (tx_begin_write ());
-		try
-		{
-			auto result = std::make_shared<wallet> (transaction, *this, id_a.to_string ());
-			debug_assert (result->store.valid_password (transaction));
-			items[id_a] = result;
-			return result;
-		}
-		catch (std::exception const & ex)
-		{
-			logger.error (nano::log::type::wallet, "Failed to create wallet {}: {}", id_a, ex.what ());
-		}
+		auto result = std::make_shared<wallet> (transaction, *this, id_a.to_string ());
+		debug_assert (result->store.valid_password (transaction));
+		items[id_a] = result;
+		// Commit before the mutex is released, the wallet's table is private to this transaction until then
+		transaction.commit ();
+		return result;
+	}
+	catch (std::exception const & ex)
+	{
+		logger.error (nano::log::type::wallet, "Failed to create wallet {}: {}", id_a, ex.what ());
 	}
 	return nullptr;
 }
 
 std::shared_ptr<wallet> wallets::create_from_json (nano::wallet_id const & id_a, std::string const & json_a)
 {
+	auto transaction (tx_begin_write ());
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	debug_assert (items.find (id_a) == items.end ());
+	try
 	{
-		auto transaction (tx_begin_write ());
-		try
-		{
-			auto result = std::make_shared<wallet> (transaction, *this, id_a.to_string (), json_a);
-			items[id_a] = result;
-			return result;
-		}
-		catch (std::exception const & ex)
-		{
-			logger.error (nano::log::type::wallet, "Failed to create wallet {} from JSON: {}", id_a, ex.what ());
-		}
+		auto result = std::make_shared<wallet> (transaction, *this, id_a.to_string (), json_a);
+		items[id_a] = result;
+		// Commit before the mutex is released, the wallet's table is private to this transaction until then
+		transaction.commit ();
+		return result;
+	}
+	catch (std::exception const & ex)
+	{
+		logger.error (nano::log::type::wallet, "Failed to create wallet {} from JSON: {}", id_a, ex.what ());
 	}
 	return nullptr;
 }
@@ -1884,8 +1886,8 @@ void wallets::search_receivable_all ()
 
 bool wallets::destroy (nano::wallet_id const & id_a)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto transaction (tx_begin_write ());
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	// action_mutex should be after transactions to prevent deadlocks in deterministic_insert () & insert_adhoc ()
 	nano::lock_guard<nano::mutex> action_lock{ action_mutex };
 	auto existing (items.find (id_a));
@@ -1901,8 +1903,9 @@ bool wallets::destroy (nano::wallet_id const & id_a)
 
 void wallets::reload ()
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	// The transaction comes first, waiting for a busy writer while holding the mutex would stall every wallet lookup behind it
 	auto transaction (tx_begin_write ());
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	std::unordered_set<nano::uint256_union> stored_items;
 	for (auto it = backend.index_begin (transaction), end = backend.index_end (transaction); it != end; ++it)
 	{
@@ -1944,6 +1947,8 @@ void wallets::reload ()
 		debug_assert (items.find (i) != items.end ());
 		items.erase (i);
 	}
+	// Commit before the mutex is released, a new wallet's table is private to this transaction until then
+	transaction.commit ();
 }
 
 void wallets::queue_wallet_action (nano::uint128_t const & amount_a, std::shared_ptr<wallet> const & wallet_a, std::function<void (wallet &)> action_a)
@@ -1957,7 +1962,7 @@ void wallets::queue_wallet_action (nano::uint128_t const & amount_a, std::shared
 
 bool wallets::exists_impl (nano::store::transaction const & transaction_a, nano::account const & account_a)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
+	debug_assert (!mutex.try_lock ());
 	auto result (false);
 	for (auto i (items.begin ()), n (items.end ()); !result && i != n; ++i)
 	{
@@ -1968,12 +1973,14 @@ bool wallets::exists_impl (nano::store::transaction const & transaction_a, nano:
 
 bool wallets::exists (nano::account const & account_a)
 {
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto transaction (tx_begin_read ());
 	return exists_impl (transaction, account_a);
 }
 
 bool wallets::exists_any (nano::account const & account1, nano::account const & account2)
 {
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	auto transaction (tx_begin_read ());
 	return exists_impl (transaction, account1) || exists_impl (transaction, account2);
 }
@@ -2100,9 +2107,10 @@ void wallets::refresh_rep_keys_cache ()
 
 	std::vector<std::pair<nano::public_key, std::unique_ptr<nano::fan>>> new_cache;
 
-	auto wallet_txn = tx_begin_read ();
-
 	nano::lock_guard<nano::mutex> lock{ mutex };
+
+	// Opened under the mutex, so a queued refresh holds no reader slot and never installs a snapshot older than the refresh before it
+	auto wallet_txn = tx_begin_read ();
 
 	for (auto const & [id, wallet] : items)
 	{

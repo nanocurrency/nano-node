@@ -1665,3 +1665,23 @@ TEST (backend, rocksdb_open_failure_retry)
 	ASSERT_NO_THROW (backend->open (test_schema, nano::store::open_mode::read_write));
 	EXPECT_EQ (1, backend->get_meta ().version);
 }
+
+/*
+ * Every open LMDB read transaction occupies a reader slot and a full table aborts the node, so the
+ * environment must allow far more concurrent readers than LMDB's default of 126
+ */
+TEST (backend, tx_read_many_open)
+{
+	auto backend = nano::test::make_backend ();
+	backend->create (test_schema, 1);
+	backend->open (test_schema, nano::store::open_mode::read_write);
+
+	// Keep every transaction open until the end of the test
+	auto const count = 512;
+	std::vector<nano::store::read_transaction> transactions;
+	for (auto i = 0; i < count; ++i)
+	{
+		transactions.push_back (backend->tx_begin_read ());
+	}
+	ASSERT_EQ (count, transactions.size ());
+}
