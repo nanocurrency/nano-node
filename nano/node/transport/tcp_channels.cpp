@@ -12,6 +12,7 @@
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/transport/tcp_server.hpp>
 
+#include <algorithm>
 #include <ranges>
 
 /*

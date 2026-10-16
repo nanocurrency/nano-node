@@ -35,6 +35,7 @@
 #include <nano/store/ledger/version.hpp>
 #include <nano/store/ledger_store.hpp>
 
+#include <algorithm>
 #include <stack>
 
 #include <cryptopp/words.h>

@@ -45,6 +45,7 @@
 #include <boost/thread/latch.hpp>
 #include <boost/unordered_set.hpp>
 
+#include <iostream>
 #include <random>
 
 using namespace std::chrono_literals;

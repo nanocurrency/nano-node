@@ -7,6 +7,8 @@
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
 
+#include <iostream>
+
 int main (int argc, char * const * argv)
 {
 	nano::set_umask ();
