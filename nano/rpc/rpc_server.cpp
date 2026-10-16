@@ -3,6 +3,7 @@
 #include <nano/lib/network_formatting.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/rpc/rpc_connection.hpp>
+#include <nano/rpc/rpc_connection_tracker.hpp>
 #include <nano/rpc/rpc_server.hpp>
 
 #include <boost/format.hpp>
@@ -14,7 +15,8 @@ nano::rpc_server::rpc_server (std::shared_ptr<boost::asio::io_context> io_ctx_a,
 	io_ctx_shared (io_ctx_a),
 	io_ctx (*io_ctx_shared),
 	acceptor (io_ctx),
-	rpc_handler_interface (rpc_handler_interface_a)
+	rpc_handler_interface (rpc_handler_interface_a),
+	connections (std::make_shared<nano::rpc_connection_tracker> ())
 {
 	rpc_handler_interface.rpc_instance (*this);
 }
@@ -47,12 +49,15 @@ void nano::rpc_server::start ()
 	port = acceptor.local_endpoint ().port ();
 	logger.info (nano::log::type::rpc, "RPC listening address: {}", acceptor.local_endpoint ());
 	acceptor.listen ();
+
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	accept ();
 }
 
 void nano::rpc_server::accept ()
 {
-	auto connection (std::make_shared<nano::rpc_connection> (config, io_ctx, logger, rpc_handler_interface));
+	debug_assert (!mutex.try_lock ());
+	auto connection (std::make_shared<nano::rpc_connection> (config, io_ctx, logger, rpc_handler_interface, connections));
 	acceptor.async_accept (connection->socket,
 	boost::asio::bind_executor (connection->strand, [this_w = std::weak_ptr{ shared_from_this () }, connection] (boost::system::error_code const & ec) {
 		auto this_l = this_w.lock ();
@@ -60,14 +65,29 @@ void nano::rpc_server::accept ()
 		{
 			return;
 		}
-		if (ec != boost::asio::error::operation_aborted)
+		bool stopped_l;
 		{
-			// Re-arming runs on an IO thread while the owner may be closing the acceptor on its own
+			// Re-arming and registering run on an IO thread while the owner may be stopping the server, which waits for this accept to settle before it drains
 			nano::lock_guard<nano::mutex> lock{ this_l->mutex };
-			if (!this_l->stopped)
+			debug_assert (this_l->accepting > 0);
+			--this_l->accepting;
+			stopped_l = this_l->stopped;
+			if (!stopped_l)
 			{
-				this_l->accept ();
+				if (ec != boost::asio::error::operation_aborted)
+				{
+					this_l->accept ();
+				}
+				if (!ec)
+				{
+					this_l->connections->add (connection);
+				}
 			}
+		}
+		this_l->condition.notify_all ();
+		if (stopped_l)
+		{
+			return; // A connection accepted after the stop is dropped here, which closes it
 		}
 		if (!ec)
 		{
@@ -78,6 +98,7 @@ void nano::rpc_server::accept ()
 			this_l->logger.error (nano::log::type::rpc, "Error accepting RPC connection: {}", ec.message ());
 		}
 	}));
+	++accepting;
 }
 
 void nano::rpc_server::stop ()
@@ -92,6 +113,22 @@ void nano::rpc_server::stop ()
 	if (ec)
 	{
 		logger.error (nano::log::type::rpc, "Error while closing RPC acceptor during shutdown: {}", ec.message ());
+	}
+}
+
+void nano::rpc_server::drain (std::chrono::milliseconds timeout)
+{
+	debug_assert (stopped);
+	{
+		// The accept the closed acceptor had in flight may still complete with a live socket; its handler must have run, dropping that socket, before the IO threads are stopped
+		nano::unique_lock<nano::mutex> lock{ mutex };
+		condition.wait (lock, [this] () { return accepting == 0; });
+	}
+	connections->close_idle ();
+	if (!connections->wait_drained (timeout))
+	{
+		logger.warn (nano::log::type::rpc, "Closing {} connection(s) still serving a request after waiting {}ms", connections->in_flight (), timeout.count ());
+		connections->close_all ();
 	}
 }
 
