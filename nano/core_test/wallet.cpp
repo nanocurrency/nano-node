@@ -1376,3 +1376,39 @@ TEST (wallet, receive_pruned)
 	ASSERT_EQ (amount, node2.ledger.any.block_balance (node2.ledger.tx_begin_read (), open1->hash ()));
 	ASSERT_TIMELY_EQ (5s, node2.ledger.cemented_count (), 4);
 }
+
+/*
+ * Checking for the empty password reads the lock state instead of attempting the password:
+ * it neither unlocks a locked wallet nor locks one unlocked with its own password
+ */
+TEST (wallet, unlocked_with_empty_password)
+{
+	nano::test::system system (1);
+	auto wallet (system.wallet (0));
+
+	// A new wallet is unlocked with the empty password
+	ASSERT_TRUE (wallet->unlocked_with_empty_password ());
+
+	// A locked wallet fails the check and stays locked
+	wallet->lock ();
+	ASSERT_FALSE (wallet->unlocked_with_empty_password ());
+	ASSERT_TRUE (wallet->is_locked ());
+
+	// Entering the empty password passes it again
+	ASSERT_FALSE (wallet->enter_password (""));
+	ASSERT_TRUE (wallet->unlocked_with_empty_password ());
+
+	// A wallet unlocked with its own password fails the check
+	ASSERT_FALSE (wallet->rekey ("password"));
+	ASSERT_FALSE (wallet->unlocked_with_empty_password ());
+	ASSERT_FALSE (wallet->is_locked ());
+
+	// A failed attempt with the empty password leaves its key as the live password, yet the wallet is locked
+	ASSERT_TRUE (wallet->enter_password (""));
+	ASSERT_FALSE (wallet->unlocked_with_empty_password ());
+
+	// Unlocked with its own password again, the check leaves it unlocked
+	ASSERT_FALSE (wallet->enter_password ("password"));
+	ASSERT_FALSE (wallet->unlocked_with_empty_password ());
+	ASSERT_FALSE (wallet->is_locked ());
+}
