@@ -14,6 +14,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/unordered/unordered_flat_set.hpp>
 
 #include <chrono>
 #include <condition_variable>
@@ -122,7 +123,7 @@ private:
 	ordered_entries deferred;
 
 	// Blocks that are being cemented in the current batch
-	std::unordered_set<nano::block_hash> current;
+	boost::unordered_flat_set<nano::block_hash, std::hash<nano::block_hash>> current;
 
 	std::atomic<bool> stopped{ false };
 	mutable std::mutex mutex;
