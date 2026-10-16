@@ -17,7 +17,6 @@
 #include <memory>
 #include <optional>
 #include <span>
-#include <unordered_map>
 #include <vector>
 
 namespace nano
@@ -93,6 +92,11 @@ class election_ballot final
 public:
 	static size_t constexpr default_max_blocks{ 10 };
 
+private:
+	static size_t constexpr inline_hashes{ 4 }; // Voted-for hashes weighed and blocks held without allocating, an election rarely sees more
+	static size_t constexpr inline_reps{ 256 }; // Voters tallied without allocating, with room to spare over the live network's principal representatives
+
+public:
 	// Writes the weight of `reps[i]` to `weights[i]`, all read from one consistent snapshot; a slot that is left alone counts as zero
 	using weight_fn = std::function<void (std::span<nano::account const> reps, std::span<nano::uint128_t> weights)>;
 
@@ -101,6 +105,9 @@ public:
 
 	// Hashes of held blocks, with inline room for the default limit
 	using hash_list = boost::container::small_vector<nano::block_hash, default_max_blocks>;
+
+	// Held blocks by hash, sorted flat with inline room for the few blocks an election usually holds, so a copy is at most one allocation
+	using block_map = boost::container::small_flat_map<nano::block_hash, std::shared_ptr<nano::block>, inline_hashes>;
 
 	// The initial block becomes both the first winner and the first leader
 	// Requires a non-null initial block, a callable weight query and room for at least one block
@@ -178,7 +185,7 @@ public: // Queries
 	nano::tally_map tally () const;
 
 	// All held blocks by hash
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
+	block_map blocks () const;
 
 	// All recorded votes by representative
 	vote_map votes () const;
@@ -196,9 +203,6 @@ public: // Queries
 	hash_list block_hashes () const;
 
 private:
-	static size_t constexpr inline_hashes{ 4 }; // Voted-for hashes weighed without allocating, an election rarely sees more
-	static size_t constexpr inline_reps{ 256 }; // Voters tallied without allocating, with room to spare over the live network's principal representatives
-
 	// Vote weight behind one voted-for block hash
 	struct block_weight final
 	{
@@ -237,7 +241,7 @@ private: // Dependencies
 
 private: // The entire mutable state
 	vote_map votes_m; // vote (): latest vote per rep, may reference unheld hashes
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks_m; // insert (): competing blocks, always includes the winner
+	block_map blocks_m; // insert (): competing blocks, always includes the winner
 	nano::block_hash winner_m; // evaluate (): held winner, updated only when total recorded vote weight reaches the supplied threshold
 	nano::block_hash leader_m; // evaluate (): leader, updated only when total recorded vote weight reaches the supplied threshold and may be unheld
 };

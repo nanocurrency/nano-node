@@ -706,7 +706,7 @@ nano::election_ballot::hash_list nano::election::blocks_hashes () const
 	return ballot.block_hashes ();
 }
 
-std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election::blocks () const
+nano::election_ballot::block_map nano::election::blocks () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return ballot.blocks ();

@@ -1253,7 +1253,7 @@ TEST (active_elections, fork_replacement_tally)
 	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) > 0);
 
 	// Correct block without votes is ignored
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks1;
+	nano::election_ballot::block_map blocks1;
 	ASSERT_TIMELY_EQ (5s, max_blocks, (blocks1 = election->blocks (), blocks1.size ()));
 	ASSERT_FALSE (blocks1.find (send_last->hash ()) != blocks1.end ());
 

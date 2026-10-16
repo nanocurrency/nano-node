@@ -171,7 +171,7 @@ public: // Information
 	// All recorded votes by representative
 	std::unordered_map<nano::account, nano::vote_info> votes () const;
 	// All held blocks by hash
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
+	nano::election_ballot::block_map blocks () const;
 	// Hashes of the held blocks
 	nano::election_ballot::hash_list blocks_hashes () const;
 	// Whether a block with the given hash is held

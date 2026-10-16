@@ -368,7 +368,7 @@ nano::tally_map nano::election_ballot::tally () const
 	return make_tally (compute_weights ());
 }
 
-std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election_ballot::blocks () const
+nano::election_ballot::block_map nano::election_ballot::blocks () const
 {
 	return blocks_m;
 }

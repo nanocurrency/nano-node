@@ -8,7 +8,6 @@
 
 #include <chrono>
 #include <memory>
-#include <unordered_map>
 #include <vector>
 
 namespace nano
@@ -46,7 +45,7 @@ struct election_extended_status final
 	nano::election_behavior behavior; // Scheduling behavior at the time of the snapshot
 	nano::election_status status; // The status summary
 	nano::election_ballot::vote_map votes; // All recorded votes by representative
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks; // All held blocks by hash
+	nano::election_ballot::block_map blocks; // All held blocks by hash
 	nano::tally_map tally; // Held blocks by tally position, zero-vote blocks absent
 
 	void operator() (nano::object_stream &) const;
