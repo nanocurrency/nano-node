@@ -484,3 +484,30 @@ TEST (vote, empty_hashes)
 	nano::keypair key;
 	auto vote = std::make_shared<nano::vote> (key.pub, key.prv, 0, 0, std::vector<nano::block_hash>{} /* empty */);
 }
+
+// Test that the full hash of a vote changes with every byte of its account and of its signature
+TEST (vote, full_hash_covers_account_and_signature)
+{
+	nano::keypair key;
+	nano::vote const original{ key.pub, key.prv, 0, 0, std::vector<nano::block_hash>{ nano::dev::genesis->hash () } };
+	auto const full_hash = original.full_hash ();
+
+	// A copy hashes alike, so any difference below comes from the changed byte alone
+	ASSERT_EQ (full_hash, nano::vote{ original }.full_hash ());
+
+	// Changing any single byte of the account changes the full hash
+	for (size_t index = 0; index < original.account.bytes.size (); ++index)
+	{
+		nano::vote changed{ original };
+		changed.account.bytes[index] ^= 1;
+		ASSERT_NE (full_hash, changed.full_hash ()) << "account byte " << index;
+	}
+
+	// Changing any single byte of the signature changes the full hash
+	for (size_t index = 0; index < original.signature.bytes.size (); ++index)
+	{
+		nano::vote changed{ original };
+		changed.signature.bytes[index] ^= 1;
+		ASSERT_NE (full_hash, changed.full_hash ()) << "signature byte " << index;
+	}
+}
