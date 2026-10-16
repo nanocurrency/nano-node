@@ -156,12 +156,17 @@ public:
 	// Should we reach out to this endpoint with a keepalive message? If yes, register a new reachout attempt
 	bool track_reachout (nano::endpoint const &);
 
+	// Chooses the channels that a list or a sample may return
 	using channel_filter = std::function<bool (std::shared_ptr<nano::transport::channel> const &)>;
 
+	// All channels passing the filter in random order, cut to `max_count` unless it is 0
 	std::deque<std::shared_ptr<nano::transport::channel>> list (std::size_t max_count = 0, channel_filter = nullptr) const;
+	// All channels passing the filter in random order, without principal representatives and cut to `max_count`
 	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (std::size_t max_count = 0, channel_filter = nullptr) const;
 
+	// All channels on at least `minimum_version` of the protocol in random order, cut to `max_count` unless it is 0
 	std::deque<std::shared_ptr<nano::transport::channel>> list (std::size_t max_count, uint8_t minimum_version) const;
+	// All channels on at least `minimum_version` of the protocol in random order, without principal representatives and cut to `max_count`
 	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (std::size_t max_count, uint8_t minimum_version) const;
 
 	// Up to `count` channels picked uniformly at random among those passing the filter
