@@ -16,6 +16,7 @@
 #include <chrono>
 #include <deque>
 #include <memory>
+#include <ranges>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -114,6 +115,10 @@ public:
 	size_t flood_message (nano::messages::message const &, nano::transport::traffic_type, float scale = 1.0f) const;
 	size_t flood_message_all (nano::messages::message const &, nano::transport::traffic_type) const;
 
+	// Sends one message to every channel of the range, serialized once for all of them
+	template <std::ranges::input_range Channels>
+	size_t send_to (nano::messages::message const &, nano::transport::traffic_type, Channels const &) const;
+
 	size_t flood_keepalive (float scale = 1.0f) const;
 	size_t flood_keepalive_self (float scale = 0.5f) const;
 
@@ -151,13 +156,23 @@ public:
 	// Should we reach out to this endpoint with a keepalive message? If yes, register a new reachout attempt
 	bool track_reachout (nano::endpoint const &);
 
+	// Chooses the channels that a list or a sample may return
 	using channel_filter = std::function<bool (std::shared_ptr<nano::transport::channel> const &)>;
 
+	// All channels passing the filter in random order, cut to `max_count` unless it is 0
 	std::deque<std::shared_ptr<nano::transport::channel>> list (std::size_t max_count = 0, channel_filter = nullptr) const;
+	// All channels passing the filter in random order, without principal representatives and cut to `max_count`
 	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (std::size_t max_count = 0, channel_filter = nullptr) const;
 
+	// All channels on at least `minimum_version` of the protocol in random order, cut to `max_count` unless it is 0
 	std::deque<std::shared_ptr<nano::transport::channel>> list (std::size_t max_count, uint8_t minimum_version) const;
+	// All channels on at least `minimum_version` of the protocol in random order, without principal representatives and cut to `max_count`
 	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (std::size_t max_count, uint8_t minimum_version) const;
+
+	// Up to `count` channels picked uniformly at random among those passing the filter
+	nano::transport::channel_list sample (std::size_t count, channel_filter = nullptr) const;
+	// Up to `count` channels picked at random among those passing the filter, without principal representatives and possibly fewer even when more qualify
+	nano::transport::channel_list sample_non_pr (std::size_t count, channel_filter = nullptr) const;
 
 	// Desired fanout for a given scale
 	std::size_t fanout (float scale = 1.0f) const;
@@ -238,4 +253,20 @@ public:
 	static std::size_t confirm_req_hashes_max;
 	static std::size_t confirm_ack_hashes_max;
 };
+}
+
+template <std::ranges::input_range Channels>
+size_t nano::network::send_to (nano::messages::message const & message, nano::transport::traffic_type type, Channels const & channels) const
+{
+	if (std::ranges::empty (channels))
+	{
+		return 0;
+	}
+	auto const buffer = message.to_shared_const_buffer ();
+	size_t result = 0;
+	for (auto const & channel : channels)
+	{
+		result += channel->send_buffer (buffer, message.type (), type);
+	}
+	return result;
 }

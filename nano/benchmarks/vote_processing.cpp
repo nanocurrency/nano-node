@@ -199,24 +199,6 @@ vote_fixture & shared_fixture ()
 	return instance;
 }
 
-// Measures the allocations of the calling thread from construction until report
-class allocation_counter
-{
-public:
-	void report (benchmark::State & state) const
-	{
-		auto const used = nano::benchmarks::thread_allocations () - start;
-		auto const votes = static_cast<double> (state.iterations ());
-		state.counters["allocs/vote"] = benchmark::Counter (used.count / votes, benchmark::Counter::kAvgThreads);
-		state.counters["bytes/vote"] = benchmark::Counter (used.bytes / votes, benchmark::Counter::kAvgThreads);
-		// Rates are divided by the summed up time of all threads, scaling by the thread count turns that into the total throughput
-		state.counters["votes/s"] = benchmark::Counter (votes * state.threads (), benchmark::Counter::kIsRate);
-	}
-
-private:
-	nano::benchmarks::allocation_stats const start{ nano::benchmarks::thread_allocations () };
-};
-
 // Every thread walks its own part of the votes, so threads never share a hash
 std::shared_ptr<nano::vote> const & pick (vote_list const & votes, benchmark::State const & state, size_t index)
 {
@@ -247,7 +229,7 @@ void deliver (vote_fixture & fixture, entry_point entry, std::shared_ptr<nano::v
 static void BM_vote_validate (benchmark::State & state)
 {
 	auto const & votes = shared_fixture ().unmatched_votes (state.range (0));
-	allocation_counter allocations;
+	nano::benchmarks::allocation_counter allocations{ "vote" };
 	size_t index = 0;
 	for (auto _ : state)
 	{
@@ -264,7 +246,7 @@ static void BM_vote_unmatched (benchmark::State & state, entry_point entry)
 	{
 		fixture.node->vote_cache.clear ();
 	}
-	allocation_counter allocations;
+	nano::benchmarks::allocation_counter allocations{ "vote" };
 	size_t index = 0;
 	for (auto _ : state)
 	{
@@ -283,7 +265,7 @@ static void BM_vote_counted (benchmark::State & state, entry_point entry)
 		fixture.restart_elections ();
 	}
 	release_assert (state.max_iterations * state.threads () == votes.size ());
-	allocation_counter allocations;
+	nano::benchmarks::allocation_counter allocations{ "vote" };
 	// Representatives are dealt out to the threads in turn, so every thread sees elections fill up the same way
 	auto const groups = votes.size () / rep_count;
 	size_t index = 0;
@@ -310,7 +292,7 @@ static void BM_vote_replay (benchmark::State & state, entry_point entry)
 			fixture.node->vote_router.vote (fixture.node->vote_processor.context (vote, fixture.channel));
 		}
 	}
-	allocation_counter allocations;
+	nano::benchmarks::allocation_counter allocations{ "vote" };
 	size_t index = 0;
 	for (auto _ : state)
 	{
@@ -323,7 +305,7 @@ static void BM_vote_late (benchmark::State & state, entry_point entry)
 {
 	auto & fixture = shared_fixture ();
 	auto const & votes = fixture.late_votes (state.range (0));
-	allocation_counter allocations;
+	nano::benchmarks::allocation_counter allocations{ "vote" };
 	size_t index = 0;
 	for (auto _ : state)
 	{

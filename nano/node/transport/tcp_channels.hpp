@@ -74,6 +74,9 @@ public:
 	std::deque<std::shared_ptr<nano::transport::channel>> list (uint8_t minimum_version = 0) const;
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t max_count, uint8_t minimum_version = 0) const;
 
+	// Up to `count` channels picked uniformly at random among those passing the filter
+	nano::transport::channel_list sample (std::size_t count, channel_filter const & filter = nullptr) const;
+
 	void keepalive ();
 	std::optional<nano::messages::keepalive> sample_keepalive ();
 

@@ -6,6 +6,7 @@
 #include <nano/lib/numbers_templ.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/node/transport/channel.hpp>
+#include <nano/node/transport/common.hpp>
 #include <nano/node/transport/transport.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -59,31 +60,31 @@ public:
 	void start ();
 	void stop ();
 
-	/**
-	 * Called when a non-replay vote arrives that might be of interest to rep crawler.
-	 * @return true, if the vote was of interest and was processed, this indicates that the rep is likely online and voting
-	 */
+	/** Takes a non-replay vote that may answer a query sent to its channel, returns true when it does, a sign that the representative is online and voting */
 	bool process (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &);
 
-	/** Attempt to determine if the peer manages one or more representative accounts */
+	/** Sends a query to each of the channels to find out which representatives they host */
 	void query (std::deque<std::shared_ptr<nano::transport::channel>> const & target_channels);
 
-	/** Attempt to determine if the peer manages one or more representative accounts */
+	/** Sends a query to one channel to find out which representatives it hosts */
 	void query (std::shared_ptr<nano::transport::channel> const & target_channel);
 
-	/** Query if a peer manages a principle representative */
+	/** Whether the channel belongs to a known representative with principal weight */
 	bool is_pr (std::shared_ptr<nano::transport::channel> const &) const;
 
-	/** Get total available weight from representatives */
+	/** Total weight of the known representatives whose channels are alive */
 	nano::uint128_t total_weight () const;
 
-	/** Request a list of the top \p count known representatives in descending order of weight, with at least \p weight_a voting weight, and optionally with a minimum version \p minimum_protocol_version */
+	/** Up to `count` known representatives with at least `minimum_weight`, heaviest first and optionally on at least `minimum_protocol_version` */
 	std::vector<representative> representatives (std::size_t count = std::numeric_limits<std::size_t>::max (), nano::uint128_t minimum_weight = 0, std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version = {}) const;
 
-	/** Request a list of the top \p count known principal representatives in descending order of weight, optionally with a minimum version \p minimum_protocol_version */
+	/** Up to `count` known principal representatives, heaviest first and optionally on at least `minimum_protocol_version` */
 	std::vector<representative> principal_representatives (std::size_t count = std::numeric_limits<std::size_t>::max (), std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version = {}) const;
 
-	/** Total number of representatives */
+	/** Channels of all known principal representatives, in no particular order */
+	nano::transport::channel_list principal_channels () const;
+
+	/** Number of known representatives */
 	std::size_t representative_count () const;
 
 	nano::container_info container_info () const;
@@ -108,8 +109,7 @@ private:
 
 	using hash_root_t = std::pair<nano::block_hash, nano::root>;
 
-	/** Returns a list of endpoints to crawl. The total weight is passed in to avoid computing it twice. */
-
+	/** Random channels due for a query, allowing more attempts per unknown peer while the known representatives lack sufficient weight */
 	std::deque<std::shared_ptr<nano::transport::channel>> prepare_crawl_targets (bool sufficient_weight) const;
 	hash_root_t prepare_query_target () const;
 	bool track_rep_request (hash_root_t hash_root, std::shared_ptr<nano::transport::channel> const & channel);
@@ -144,7 +144,7 @@ private:
 		nano::block_hash hash;
 		std::shared_ptr<nano::transport::channel> channel;
 		std::chrono::steady_clock::time_point time{ std::chrono::steady_clock::now () };
-		unsigned int replies{ 0 }; // number of replies to the query
+		unsigned int replies{ 0 }; // Number of replies to the query
 
 		std::pair<std::shared_ptr<nano::transport::channel>, nano::block_hash> unique_key () const
 		{

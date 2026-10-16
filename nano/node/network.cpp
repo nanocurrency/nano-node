@@ -408,32 +408,18 @@ bool nano::network::check_capacity_ratio (nano::transport::traffic_type type, fl
 
 size_t nano::network::flood_message (nano::messages::message const & message, nano::transport::traffic_type type, float scale) const
 {
-	auto channels = list (fanout (scale), [type] (auto const & channel) {
+	auto const channels = sample (fanout (scale), [type] (auto const & channel) {
 		return !channel->max (type); // Only use channels that are not full for this traffic type
 	});
-	size_t result = 0;
-	for (auto const & channel : channels)
-	{
-		// TODO: Serialize message only once
-		bool sent = channel->send (message, type);
-		result += sent;
-	}
-	return result;
+	return send_to (message, type, channels);
 }
 
 size_t nano::network::flood_message_all (nano::messages::message const & message, nano::transport::traffic_type type) const
 {
-	auto channels = list (); // Get all peers
-	size_t result = 0;
-	for (auto const & channel : channels)
-	{
-		if (!channel->max (type))
-		{
-			// TODO: Serialize message only once
-			result += channel->send (message, type);
-		}
-	}
-	return result;
+	auto const channels = tcp_channels.list ([type] (auto const & channel) {
+		return !channel->max (type); // Only use channels that are not full for this traffic type
+	});
+	return send_to (message, type, channels);
 }
 
 size_t nano::network::flood_keepalive (float scale) const
@@ -466,30 +452,16 @@ size_t nano::network::flood_vote_non_pr (std::shared_ptr<nano::vote> const & vot
 {
 	nano::messages::confirm_ack message{ node.network_params.network, vote };
 
-	auto channels = list_non_pr (fanout (scale), [type] (auto const & channel) {
+	auto const channels = sample_non_pr (fanout (scale), [type] (auto const & channel) {
 		return !channel->max (type); // Only use channels that are not full for this traffic type
 	});
-
-	size_t result = 0;
-	for (auto & channel : channels)
-	{
-		bool sent = channel->send (message, type);
-		result += sent;
-	}
-	return result;
+	return send_to (message, type, channels);
 }
 
 size_t nano::network::flood_vote_pr (std::shared_ptr<nano::vote> const & vote, nano::transport::traffic_type type) const
 {
 	nano::messages::confirm_ack message{ node.network_params.network, vote };
-
-	size_t result = 0;
-	for (auto const & channel : node.rep_crawler.principal_representatives ())
-	{
-		bool sent = channel.channel->send (message, type);
-		result += sent;
-	}
-	return result;
+	return send_to (message, type, node.rep_crawler.principal_channels ());
 }
 
 size_t nano::network::flood_block (std::shared_ptr<nano::block> const & block, nano::transport::traffic_type type) const
@@ -502,17 +474,8 @@ size_t nano::network::flood_block_initial (std::shared_ptr<nano::block> const & 
 {
 	nano::messages::publish message{ node.network_params.network, block, /* is_originator */ true };
 
-	size_t result = 0;
-	for (auto const & rep : node.rep_crawler.principal_representatives ())
-	{
-		bool sent = rep.channel->send (message, nano::transport::traffic_type::block_broadcast_initial);
-		result += sent;
-	}
-	for (auto & peer : list_non_pr (fanout (1.0)))
-	{
-		bool sent = peer->send (message, nano::transport::traffic_type::block_broadcast_initial);
-		result += sent;
-	}
+	size_t result = send_to (message, nano::transport::traffic_type::block_broadcast_initial, node.rep_crawler.principal_channels ());
+	result += send_to (message, nano::transport::traffic_type::block_broadcast_initial, sample_non_pr (fanout (1.0)));
 	return result;
 }
 
@@ -635,6 +598,30 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list_non_pr
 	if (result.size () > max_count)
 	{
 		result.resize (max_count, nullptr);
+	}
+	return result;
+}
+
+nano::transport::channel_list nano::network::sample (std::size_t count, channel_filter filter) const
+{
+	return tcp_channels.sample (count, filter);
+}
+
+nano::transport::channel_list nano::network::sample_non_pr (std::size_t count, channel_filter filter) const
+{
+	// The crawler takes its own lock to tell a principal representative, and it calls into the channels under that lock, so the check runs outside the channel lock over twice the candidates
+	auto const candidates = tcp_channels.sample (2 * count, filter);
+	nano::transport::channel_list result;
+	for (auto const & channel : candidates)
+	{
+		if (result.size () == count)
+		{
+			break;
+		}
+		if (!node.rep_crawler.is_pr (channel))
+		{
+			result.push_back (channel);
+		}
 	}
 	return result;
 }

@@ -92,6 +92,11 @@ protected:
 		return true;
 	}
 
+	bool send_buffer_impl (nano::shared_const_buffer const & buffer, nano::transport::traffic_type traffic_type, callback_t callback) override
+	{
+		return send_buffer_as_message (buffer, traffic_type, std::move (callback));
+	}
+
 private:
 	nano::observer_set<nano::messages::message, nano::transport::traffic_type> observers;
 };

@@ -31,6 +31,11 @@ bool nano::transport::loopback_channel::send_impl (nano::messages::message const
 	return true;
 }
 
+bool nano::transport::loopback_channel::send_buffer_impl (nano::shared_const_buffer const & buffer, nano::transport::traffic_type traffic_type, nano::transport::channel::callback_t callback)
+{
+	return send_buffer_as_message (buffer, traffic_type, std::move (callback));
+}
+
 std::string nano::transport::loopback_channel::to_string () const
 {
 	return boost::str (boost::format ("%1%") % endpoint);
