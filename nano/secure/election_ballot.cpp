@@ -370,7 +370,7 @@ nano::tally_map nano::election_ballot::tally () const
 
 std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election_ballot::blocks () const
 {
-	return blocks_m;
+	return { blocks_m.begin (), blocks_m.end () };
 }
 
 nano::election_ballot::vote_map nano::election_ballot::votes () const
