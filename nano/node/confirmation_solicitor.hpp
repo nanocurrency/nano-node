@@ -5,6 +5,8 @@
 #include <nano/node/network.hpp>
 #include <nano/node/repcrawler.hpp>
 
+#include <boost/unordered/unordered_flat_map.hpp>
+
 #include <unordered_map>
 
 namespace nano
@@ -37,7 +39,7 @@ private:
 	std::vector<nano::representative> representatives_requests;
 	std::vector<nano::representative> representatives_broadcasts;
 	using vector_root_hashes = std::vector<std::pair<nano::block_hash, nano::root>>;
-	std::unordered_map<std::shared_ptr<nano::transport::channel>, vector_root_hashes> requests;
+	boost::unordered_flat_map<std::shared_ptr<nano::transport::channel>, vector_root_hashes> requests;
 	bool prepared{ false };
 };
 }
