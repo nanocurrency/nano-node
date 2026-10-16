@@ -5,6 +5,8 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/utility.hpp>
 
+#include <boost/unordered/unordered_flat_map.hpp>
+
 #include <memory>
 #include <unordered_map>
 
@@ -69,14 +71,14 @@ private:
 	{
 		debug_assert (!mutex.try_lock ());
 
-		std::erase_if (values, [] (auto const & item) {
+		erase_if (values, [] (auto const & item) {
 			return item.second.expired ();
 		});
 	}
 
 private:
 	mutable nano::mutex mutex;
-	std::unordered_map<Key, std::weak_ptr<Value>> values;
+	boost::unordered_flat_map<Key, std::weak_ptr<Value>, std::hash<Key>> values; // Flat, so recording a value allocates nothing once the table has grown
 	nano::interval cleanup_interval;
 };
 }

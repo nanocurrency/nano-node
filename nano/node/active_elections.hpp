@@ -15,6 +15,8 @@
 #include <nano/secure/common.hpp>
 #include <nano/secure/election_ballot.hpp>
 
+#include <boost/unordered/unordered_flat_map.hpp>
+
 #include <chrono>
 #include <condition_variable>
 #include <deque>
@@ -157,7 +159,7 @@ private: // Dependencies
 public:
 	nano::active_elections_index index;
 
-	std::unordered_map<nano::qualified_root, erased_callback_t> erased_callbacks;
+	boost::unordered_flat_map<nano::qualified_root, erased_callback_t, std::hash<nano::qualified_root>> erased_callbacks;
 
 	nano::recently_confirmed_cache recently_confirmed;
 	nano::recently_cemented_cache recently_cemented;

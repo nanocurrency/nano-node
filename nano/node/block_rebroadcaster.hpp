@@ -10,6 +10,7 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/unordered/unordered_flat_set.hpp>
 
 #include <atomic>
 #include <condition_variable>
@@ -108,7 +109,7 @@ private:
 private:
 	// Simple FIFO queue of blocks to rebroadcast
 	std::deque<std::shared_ptr<nano::block>> queue;
-	std::unordered_set<nano::block_hash> queue_dedup; // Avoid duplicates in the queue
+	boost::unordered_flat_set<nano::block_hash, std::hash<nano::block_hash>> queue_dedup; // Avoid duplicates in the queue
 
 	nano::locked<block_rebroadcaster_index> rebroadcasts;
 
