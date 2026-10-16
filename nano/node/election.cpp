@@ -700,15 +700,10 @@ void nano::election::force_confirm ()
 	confirm_once (lock);
 }
 
-std::unordered_set<nano::block_hash> nano::election::blocks_hashes () const
+nano::election_ballot::hash_list nano::election::blocks_hashes () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-	std::unordered_set<nano::block_hash> hashes;
-	for (auto const & [hash, block] : ballot.blocks ())
-	{
-		hashes.emplace (hash);
-	}
-	return hashes;
+	return ballot.block_hashes ();
 }
 
 std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election::blocks () const
@@ -720,7 +715,8 @@ std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::electio
 std::unordered_map<nano::account, nano::vote_info> nano::election::votes () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-	return ballot.votes ();
+	auto const votes = ballot.votes ();
+	return { votes.begin (), votes.end () };
 }
 
 std::vector<nano::vote_with_weight_info> nano::election::votes_with_weight () const

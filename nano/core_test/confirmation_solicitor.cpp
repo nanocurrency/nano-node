@@ -31,7 +31,7 @@ std::shared_ptr<nano::block> test_block (nano::test::system & system)
 	return send;
 }
 
-nano::election_snapshot test_snapshot (std::shared_ptr<nano::block> const & winner, std::unordered_map<nano::account, nano::vote_info> votes = {}, bool quorum = false)
+nano::election_snapshot test_snapshot (std::shared_ptr<nano::block> const & winner, nano::election_ballot::vote_map votes = {}, bool quorum = false)
 {
 	return { winner->qualified_root (), winner, quorum, std::move (votes) };
 }
@@ -99,7 +99,7 @@ TEST (confirmation_solicitor, different_hash)
 	ASSERT_TIMELY_EQ (5s, node2.network.size (), 1);
 	auto send = test_block (system);
 	// The representative voted for something else, not the winner
-	std::unordered_map<nano::account, nano::vote_info> votes;
+	nano::election_ballot::vote_map votes;
 	votes[representative.account] = { std::chrono::steady_clock::now (), 1, 1 };
 	auto snapshot = test_snapshot (send, votes);
 	// Ensure the request and broadcast goes through
@@ -135,7 +135,7 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 	ASSERT_TIMELY_EQ (5s, node2.network.size (), 1);
 	auto send = test_block (system);
 	// Every representative voted for something else, not the winner
-	std::unordered_map<nano::account, nano::vote_info> votes;
+	nano::election_ballot::vote_map votes;
 	for (auto const & rep : representatives)
 	{
 		votes[rep.account] = { std::chrono::steady_clock::now (), 1, 1 };

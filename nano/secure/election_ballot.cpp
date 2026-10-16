@@ -370,12 +370,12 @@ nano::tally_map nano::election_ballot::tally () const
 
 std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election_ballot::blocks () const
 {
-	return blocks_m;
+	return { blocks_m.begin (), blocks_m.end () };
 }
 
-std::unordered_map<nano::account, nano::vote_info> nano::election_ballot::votes () const
+nano::election_ballot::vote_map nano::election_ballot::votes () const
 {
-	return { votes_m.begin (), votes_m.end () };
+	return votes_m;
 }
 
 std::vector<nano::vote_with_weight_info> nano::election_ballot::votes_with_weight () const
@@ -406,4 +406,14 @@ size_t nano::election_ballot::voter_count () const
 size_t nano::election_ballot::block_count () const
 {
 	return blocks_m.size ();
+}
+
+nano::election_ballot::hash_list nano::election_ballot::block_hashes () const
+{
+	hash_list result;
+	for (auto const & [hash, block] : blocks_m)
+	{
+		result.push_back (hash);
+	}
+	return result;
 }
