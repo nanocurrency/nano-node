@@ -38,9 +38,10 @@ std::string_view to_string (vote_code);
 
 enum class vote_source : uint8_t
 {
-	live,
-	rebroadcast,
-	cache,
+	live, // Received directly from a representative or generated locally
+	rebroadcast, // Rebroadcast by another node
+	cache, // Replayed from the local vote cache
+	relay, // Delivered by a vote relay on behalf of a representative without a direct channel
 };
 
 nano::stat::detail to_stat_detail (vote_source);

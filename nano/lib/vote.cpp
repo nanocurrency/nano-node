@@ -11,6 +11,29 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a)
 	error_a = deserialize (stream_a);
 }
 
+nano::vote::vote (bool & error_a, nano::stream & stream_a, uint8_t count_a)
+{
+	debug_assert (count_a <= max_hashes);
+	try
+	{
+		nano::read (stream_a, account.bytes);
+		nano::read (stream_a, signature.bytes);
+		nano::read (stream_a, timestamp_m);
+
+		hashes.reserve (count_a);
+		for (uint8_t i = 0; i < count_a; ++i)
+		{
+			nano::block_hash block_hash;
+			nano::read (stream_a, block_hash);
+			hashes.push_back (block_hash);
+		}
+	}
+	catch (std::runtime_error const &)
+	{
+		error_a = true;
+	}
+}
+
 nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, uint8_t duration, std::vector<nano::block_hash> const & hashes) :
 	hashes{ hashes },
 	timestamp_m{ packed_timestamp (timestamp_a, duration) },

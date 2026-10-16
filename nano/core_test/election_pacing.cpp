@@ -12,6 +12,7 @@ namespace
 auto const base_latency = 100ms;
 auto const vote_interval = 500ms;
 auto const block_interval = 1000ms;
+auto const relay_interval = 2000ms;
 
 nano::election_pacing make_pacing ()
 {
@@ -19,6 +20,7 @@ nano::election_pacing make_pacing ()
 	.base_latency = base_latency,
 	.vote_interval = vote_interval,
 	.block_interval = block_interval,
+	.relay_interval = relay_interval,
 	} };
 }
 
@@ -130,4 +132,22 @@ TEST (election_pacing, request_interval_by_behavior)
 	auto between = now + base_latency * 3;
 	ASSERT_TRUE (pacing.due_request (nano::election_behavior::optimistic, between));
 	ASSERT_FALSE (pacing.due_request (nano::election_behavior::priority, between));
+}
+
+TEST (election_pacing, relay_request_due_initially)
+{
+	auto pacing = make_pacing ();
+	ASSERT_TRUE (pacing.due_relay_request (start_time ()));
+}
+
+TEST (election_pacing, relay_request_interval)
+{
+	auto pacing = make_pacing ();
+	auto now = start_time ();
+
+	pacing.relay_request_sent (now);
+	ASSERT_FALSE (pacing.due_relay_request (now));
+	ASSERT_FALSE (pacing.due_relay_request (now + relay_interval / 2));
+	ASSERT_TRUE (pacing.due_relay_request (now + relay_interval));
+	ASSERT_TRUE (pacing.due_relay_request (now + relay_interval * 2));
 }

@@ -18,6 +18,8 @@ public:
 	vote () = default;
 	vote (nano::vote const &) = default;
 	vote (bool & error, nano::stream &);
+	// Deserializes a vote with a known number of hashes, does not consume the rest of the stream
+	vote (bool & error, nano::stream &, uint8_t count);
 	vote (nano::account const &, nano::raw_key const &, nano::millis_t timestamp, uint8_t duration, std::vector<nano::block_hash> const & hashes);
 
 	void serialize (nano::stream &) const;

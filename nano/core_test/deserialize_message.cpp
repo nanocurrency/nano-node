@@ -215,6 +215,35 @@ std::vector<sample> make_samples ()
 	add_asc_pull_ack ("asc_pull_ack topo_index", nano::messages::asc_pull_type::topo_index, nano::messages::asc_pull_ack::topo_index_payload{ .entries = { nano::topo_key{ 1, nano::test::random_hash () }, nano::topo_key{ 2, nano::test::random_hash () } } });
 	add_asc_pull_ack ("asc_pull_ack topo_index empty", nano::messages::asc_pull_type::topo_index, nano::messages::asc_pull_ack::topo_index_payload{});
 
+	// Vote relay messages declare their payload length in the header, an empty representative list asks for votes from any representative
+	add ("vote_relay_req", std::make_unique<nano::messages::vote_relay_req> (network, 7, random_roots_hashes (1)));
+	add ("vote_relay_req non_final", std::make_unique<nano::messages::vote_relay_req> (network, 7, random_roots_hashes (1), std::vector<nano::account>{ key.pub }, true));
+	{
+		std::vector<nano::account> reps;
+		for (std::size_t n = 0; n < nano::messages::vote_relay_req::max_reps; ++n)
+		{
+			reps.push_back (nano::test::random_account ());
+		}
+		add ("vote_relay_req max", std::make_unique<nano::messages::vote_relay_req> (network, 7, random_roots_hashes (nano::messages::vote_relay_req::max_hashes), reps));
+	}
+
+	// An ack without votes terminates a relay request, each vote carries its own hash count
+	{
+		auto message = std::make_unique<nano::messages::vote_relay_ack> (network);
+		message->id = 11;
+		message->update_header ();
+		add ("vote_relay_ack empty", std::move (message));
+	}
+	add ("vote_relay_ack", std::make_unique<nano::messages::vote_relay_ack> (network, 11, std::vector<std::shared_ptr<nano::vote>>{ nano::test::make_final_vote (key, random_hashes (1)) }));
+	{
+		std::vector<std::shared_ptr<nano::vote>> votes;
+		for (std::size_t n = 0; n < nano::messages::vote_relay_ack::max_votes; ++n)
+		{
+			votes.push_back (nano::test::make_vote (key, random_hashes (n % 3)));
+		}
+		add ("vote_relay_ack max", std::make_unique<nano::messages::vote_relay_ack> (network, 11, votes));
+	}
+
 	return samples;
 }
 }
@@ -396,7 +425,7 @@ TEST (deserialize_message_payload, truncated)
 TEST (deserialize_message_payload, trailing_byte)
 {
 	auto const & network = nano::dev::network_params.network;
-	std::set<nano::messages::message_type> const extensible{ nano::messages::message_type::telemetry_ack, nano::messages::message_type::asc_pull_req, nano::messages::message_type::asc_pull_ack };
+	std::set<nano::messages::message_type> const extensible{ nano::messages::message_type::telemetry_ack, nano::messages::message_type::asc_pull_req, nano::messages::message_type::asc_pull_ack, nano::messages::message_type::vote_relay_req, nano::messages::message_type::vote_relay_ack };
 	for (auto const & sample : make_samples ())
 	{
 		auto bytes = *sample.message->to_bytes ();
