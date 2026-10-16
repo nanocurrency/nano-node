@@ -8,12 +8,14 @@
 #include <nano/lib/object_stream_adapters.hpp>
 
 #include <filesystem>
+#include <functional>
 #include <initializer_list>
 #include <map>
 #include <memory>
 #include <optional>
 #include <shared_mutex>
 #include <sstream>
+#include <string>
 #include <vector>
 
 #include <fmt/ostream.h>
