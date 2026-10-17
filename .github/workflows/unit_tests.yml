@@ -152,6 +152,15 @@ jobs:
       BUILD_TYPE: ${{ matrix.RELEASE && 'RelWithDebInfo' || 'Debug' }}
       TEST_USE_ROCKSDB: ${{ matrix.BACKEND == 'rocksdb' && '1' || '0' }}
       DEADLINE_SCALE_FACTOR: ${{ matrix.BACKEND == 'rocksdb' && '2' || '1' }}
+      # VS generator ignores compiler launchers; use Ninja to cache.
+      CMAKE_GENERATOR: Ninja
+      CMAKE_C_COMPILER_LAUNCHER: sccache
+      CMAKE_CXX_COMPILER_LAUNCHER: sccache
+      SCCACHE_GHA_ENABLED: "true"
+      # Backends compile identically; share a namespace.
+      SCCACHE_GHA_VERSION: windows-${{ matrix.RELEASE }}
+      SCCACHE_IDLE_TIMEOUT: "0"
+      SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/develop' && 'READ_WRITE' || 'READ_ONLY' }}
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout
@@ -162,10 +171,21 @@ jobs:
       - name: Prepare
         run: ci/prepare/windows/prepare.ps1
 
+      # Ninja needs cl.exe on PATH.
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
       - name: Build Tests
         id: build
         run: ci/build-tests.sh
         shell: bash
+
+      - name: Build cache stats
+        if: always()
+        run: sccache --show-stats
 
       - name: Setup Core Dumps
         if: steps.build.outcome == 'success' && (success() || failure())
