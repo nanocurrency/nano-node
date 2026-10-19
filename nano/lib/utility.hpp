@@ -62,13 +62,14 @@ void transform_if (InputIt first, InputIt last, OutputIt dest, Pred pred, Func t
 
 /**
  * Erase elements from container when predicate returns true
- * TODO: Use `std::erase_if` in c++20
+ * Generic replacement for `std::erase_if`, which has no overloads for Boost containers like multi_index or unordered_flat_map
  */
 template <class Container, class Pred>
 size_t erase_if (Container & container, Pred pred)
 {
 	size_t result = 0;
-	for (auto it = container.begin (), end = container.end (); it != end;)
+	// Re-read end () every pass, erase may invalidate a saved end iterator
+	for (auto it = container.begin (); it != container.end ();)
 	{
 		if (pred (*it))
 		{
@@ -84,12 +85,14 @@ size_t erase_if (Container & container, Pred pred)
 }
 
 /**
- * Erase elements from container when predicate returns true and return erased elements as a std::deque
+ * Erase elements from container when predicate returns true and return the erased elements as a std::deque
+ * Same container support as `erase_if`
  */
 template <class Container, class Pred>
 std::deque<typename Container::value_type> erase_if_and_collect (Container & container, Pred pred)
 {
 	std::deque<typename Container::value_type> removed_elements;
+	// Re-read end () every pass, erase may invalidate a saved end iterator
 	for (auto it = container.begin (); it != container.end ();)
 	{
 		if (pred (*it))

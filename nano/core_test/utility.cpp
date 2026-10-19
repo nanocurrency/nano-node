@@ -8,6 +8,9 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/unordered/unordered_flat_map.hpp>
+
+#include <deque>
 #include <fstream>
 #include <future>
 
@@ -234,4 +237,43 @@ TEST (filesystem, open_file_reads)
 	std::string content;
 	file.value () >> content;
 	ASSERT_EQ (content, "content");
+}
+
+/** Erasing from a sequence container moves its end, so the loop has to re-read it */
+TEST (erase_if, deque)
+{
+	std::deque<int> values{ 1, 2, 3, 4, 5, 6 };
+
+	// Remove the even values, the last one sits at the back where erasing shrinks the container
+	auto erased = nano::erase_if (values, [] (int value) {
+		return value % 2 == 0;
+	});
+
+	// Every even value is gone exactly once and the odd ones keep their order
+	ASSERT_EQ (erased, 3);
+	ASSERT_EQ (values, (std::deque<int>{ 1, 3, 5 }));
+}
+
+/** Matching entries of a flat map are removed and the remaining ones stay intact */
+TEST (erase_if, unordered_flat_map)
+{
+	boost::unordered_flat_map<int, int> values;
+	for (int key = 0; key < 100; ++key)
+	{
+		values.emplace (key, key * 10);
+	}
+
+	// Remove every odd key
+	auto erased = nano::erase_if (values, [] (auto const & item) {
+		return item.first % 2 == 1;
+	});
+
+	// Half the entries are gone and the survivors still map to their original values
+	ASSERT_EQ (erased, 50);
+	ASSERT_EQ (values.size (), 50);
+	for (auto const & item : values)
+	{
+		ASSERT_EQ (item.first % 2, 0);
+		ASSERT_EQ (item.second, item.first * 10);
+	}
 }
