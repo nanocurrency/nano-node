@@ -92,8 +92,8 @@ nano::block_hash nano::vote::full_hash () const
 	blake2b_state state;
 	blake2b_init (&state, sizeof (result.bytes));
 	blake2b_update (&state, hash ().bytes.data (), sizeof (hash ().bytes));
-	blake2b_update (&state, account.bytes.data (), sizeof (account.bytes.data ()));
-	blake2b_update (&state, signature.bytes.data (), sizeof (signature.bytes.data ()));
+	blake2b_update (&state, account.bytes.data (), sizeof (account.bytes));
+	blake2b_update (&state, signature.bytes.data (), sizeof (signature.bytes));
 	blake2b_final (&state, result.bytes.data (), sizeof (result.bytes));
 	return result;
 }
