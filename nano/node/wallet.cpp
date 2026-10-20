@@ -2300,11 +2300,15 @@ void wallets::do_wallet_actions ()
 
 nano::container_info wallets::container_info () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
-
 	nano::container_info info;
-	info.put ("items", items.size ());
-	info.put ("actions", actions.size ());
+	{
+		nano::lock_guard<nano::mutex> guard{ mutex };
+		info.put ("items", items.size ());
+	}
+	{
+		nano::lock_guard<nano::mutex> action_guard{ action_mutex };
+		info.put ("actions", actions.size ());
+	}
 	info.put ("rep_keys_cache", rep_keys_cache.lock ()->size ());
 	return info;
 }
