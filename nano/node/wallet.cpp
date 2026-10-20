@@ -1802,6 +1802,8 @@ void wallets::start ()
 void wallets::stop ()
 {
 	{
+		// The scan threads check stopped under mutex right before they wait, setting it under the same mutex keeps the notify below from being lost
+		nano::lock_guard<nano::mutex> lock{ mutex };
 		nano::lock_guard<nano::mutex> action_lock{ action_mutex };
 		stopped = true;
 		actions.clear ();
