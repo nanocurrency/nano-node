@@ -1736,6 +1736,8 @@ nano::logger & logger_a) :
 				logger.error (nano::log::type::wallet, "Failed to open wallet {}: {}", text, ex.what ());
 			}
 		}
+		// Commit before the mutex is released, the table handles opened here are private to this transaction until then
+		transaction.commit ();
 	}
 
 	logger.info (nano::log::type::wallet, "Found {} wallet(s)", items.size ());
