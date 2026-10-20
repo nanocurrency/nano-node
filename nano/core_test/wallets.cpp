@@ -10,6 +10,7 @@
 #include <nano/node/wallet.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/ledger_set_any.hpp>
+#include <nano/store/lmdb/lmdb_env.hpp>
 #include <nano/store/versioning.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
@@ -1181,8 +1182,9 @@ TEST (configured_wallet, locked_wallet)
 
 /*
  * Callers queued on wallets::mutex must not sit on a wallet read transaction while they wait: every open
- * transaction occupies one of LMDB's 126 default reader slots, so more waiters than slots would abort the node.
- * Holds the mutex while far more threads than that queue up in the account lookup and in the rep keys refresh
+ * transaction occupies a reader slot of the wallet environment, and a full table aborts the node. Fills the
+ * table until fewer slots are free than half the threads it then queues up behind the mutex, in the account
+ * lookup and in the rep keys refresh
  */
 TEST (wallets, queued_callers_hold_no_reader_slot)
 {
@@ -1191,8 +1193,14 @@ TEST (wallets, queued_callers_hold_no_reader_slot)
 	auto wallet = system.wallet (0);
 	nano::keypair key;
 
-	// Well above the reader slots of the wallet environment
+	// Fewer free slots than the threads of either call path, a slot per waiter overflows the table while one at a time fits
 	auto const threads_count = 200;
+	auto const filler_count = static_cast<int> (nano::store::lmdb::env::max_readers) - threads_count / 4;
+	std::vector<nano::store::read_transaction> filler;
+	for (auto i = 0; i < filler_count; ++i)
+	{
+		filler.push_back (node.wallets_backend.tx_begin_read ());
+	}
 	std::vector<std::thread> threads;
 	std::atomic<int> started{ 0 };
 	{
