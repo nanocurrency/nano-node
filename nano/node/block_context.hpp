@@ -6,6 +6,7 @@
 
 #include <any>
 #include <future>
+#include <memory>
 
 namespace nano
 {
@@ -32,17 +33,26 @@ public:
 		debug_assert (source != nano::block_source::unknown);
 	}
 
+	// Future of the result, which only a blocking submission waits for
+	// Call at most once, a second call would break the first future
 	std::future<result_t> get_future ()
 	{
-		return promise.get_future ();
+		debug_assert (promise == nullptr);
+		promise = std::make_unique<std::promise<result_t>> ();
+		return promise->get_future ();
 	}
 
+	// Completes the future, if one was asked for
 	void set_result (result_t result)
 	{
-		promise.set_value (result);
+		if (promise)
+		{
+			promise->set_value (result);
+		}
 	}
 
 private:
-	std::promise<result_t> promise;
+	// Made on demand, a promise allocates its shared state and most blocks never need one
+	std::unique_ptr<std::promise<result_t>> promise;
 };
 }

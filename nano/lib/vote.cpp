@@ -6,6 +6,8 @@
 
 #include <boost/property_tree/json_parser.hpp>
 
+#include <algorithm>
+
 nano::vote::vote (bool & error_a, nano::stream & stream_a)
 {
 	error_a = deserialize (stream_a);
@@ -42,6 +44,12 @@ bool nano::vote::deserialize (nano::stream & stream_a)
 		nano::read (stream_a, account.bytes);
 		nano::read (stream_a, signature.bytes);
 		nano::read (stream_a, timestamp_m);
+
+		// The rest of the stream is hashes, so the vector grows once instead of with every hash
+		if (auto const available = stream_a.in_avail (); available > 0)
+		{
+			hashes.reserve (std::min (static_cast<std::size_t> (available) / sizeof (nano::block_hash), max_hashes));
+		}
 
 		while (stream_a.in_avail () > 0 && hashes.size () < max_hashes)
 		{
