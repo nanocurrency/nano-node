@@ -223,7 +223,7 @@ private: // Dependencies
 	size_t const max_blocks;
 
 private: // The entire mutable state
-	boost::unordered_flat_map<nano::account, nano::vote_info, std::hash<nano::account>> votes_m; // vote (): latest vote per rep, may reference unheld hashes
+	boost::unordered_flat_map<nano::account, nano::vote_info> votes_m; // vote (): latest vote per rep, may reference unheld hashes
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks_m; // insert (): competing blocks, always includes the winner
 	nano::block_hash winner_m; // evaluate (): held winner, updated only when total recorded vote weight reaches the supplied threshold
 	nano::block_hash leader_m; // evaluate (): leader, updated only when total recorded vote weight reaches the supplied threshold and may be unheld

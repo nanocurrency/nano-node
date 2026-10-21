@@ -14,6 +14,8 @@
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 
+#include <boost/unordered/unordered_flat_set.hpp>
+
 #include <chrono>
 
 using namespace std::chrono_literals;
@@ -384,7 +386,7 @@ void nano::vote_cache_processor::run_batch (nano::unique_lock<nano::mutex> & loc
 
 	lock.unlock ();
 
-	std::unordered_set<nano::block_hash> hashes;
+	boost::unordered_flat_set<nano::block_hash> hashes;
 	hashes.reserve (triggered_l.size ());
 	hashes.insert (triggered_l.begin (), triggered_l.end ());
 

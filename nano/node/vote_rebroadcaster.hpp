@@ -165,7 +165,8 @@ private:
 private:
 	// Queue of recently processed votes to potentially rebroadcast
 	nano::fair_queue<std::shared_ptr<nano::vote>, nano::rep_tier> queue;
-	boost::unordered_flat_set<nano::signature, std::hash<nano::signature>> queue_hashes; // Avoids queuing the same vote multiple times, keeps its elements in the table so queuing a vote allocates nothing
+	// Avoids queuing the same vote multiple times, keeps its elements in the table so queuing a vote allocates nothing
+	boost::unordered_flat_set<nano::signature> queue_hashes;
 
 	nano::locked<vote_rebroadcaster_index> rebroadcasts;
 

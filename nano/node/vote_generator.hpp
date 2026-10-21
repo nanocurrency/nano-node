@@ -18,6 +18,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/unordered/unordered_flat_map.hpp>
 
 #include <condition_variable>
 #include <deque>
@@ -66,7 +67,7 @@ public:
 
 private:
 	nano::fair_queue<entry, nano::bucket_index> queue;
-	std::unordered_map<nano::qualified_root, nano::block_hash> dedup;
+	boost::unordered_flat_map<nano::qualified_root, nano::block_hash> dedup;
 };
 
 /**
