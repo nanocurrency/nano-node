@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/asio.hpp>
 #include <nano/lib/fwd.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/node_capabilities.hpp>
@@ -41,6 +42,8 @@ public:
 
 	/// @returns true if the message was sent (or queued to be sent), false if it was immediately dropped
 	bool send (nano::messages::message const &, nano::transport::traffic_type, callback_t = nullptr);
+	// Same for a message serialized ahead of time, counted as the given type, so one serialization can go to any number of channels
+	bool send_buffer (nano::shared_const_buffer const &, nano::messages::message_type, nano::transport::traffic_type, callback_t = nullptr);
 
 	virtual void close () = 0;
 
@@ -135,7 +138,11 @@ public:
 	std::shared_ptr<nano::node> owner () const;
 
 protected:
-	virtual bool send_impl (nano::messages::message const &, nano::transport::traffic_type, callback_t) = 0;
+	// Serializes the message and hands the buffer over, a channel that delivers message objects overrides it
+	virtual bool send_impl (nano::messages::message const &, nano::transport::traffic_type, callback_t);
+	virtual bool send_buffer_impl (nano::shared_const_buffer const &, nano::transport::traffic_type, callback_t) = 0;
+	// Parses the buffer back into a message object, for a channel that delivers those
+	bool send_buffer_as_message (nano::shared_const_buffer const &, nano::transport::traffic_type, callback_t);
 
 protected:
 	nano::node & node;

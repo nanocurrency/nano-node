@@ -16,6 +16,7 @@
 #include <chrono>
 #include <deque>
 #include <memory>
+#include <ranges>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -101,6 +102,7 @@ public:
 	void start ();
 	void stop ();
 
+	// This node's own endpoint, loopback with the listening port
 	nano::endpoint endpoint () const;
 
 	// Checks if we have enough channel capacity for the given traffic type
@@ -111,79 +113,118 @@ public:
 	// Computes target as ratio of all peers (e.g., 0.5 = 50%)
 	bool check_capacity_ratio (nano::transport::traffic_type, float ratio) const;
 
+	// Floods the message to a fanout of the channels with room for the traffic type, scaled by `scale`, and returns how many queued it
 	size_t flood_message (nano::messages::message const &, nano::transport::traffic_type, float scale = 1.0f) const;
+	// Floods the message to every channel with room for the traffic type and returns how many queued it
 	size_t flood_message_all (nano::messages::message const &, nano::transport::traffic_type) const;
 
+	// Sends one message to every channel of the range, serialized once for all of them
+	template <std::ranges::input_range Channels>
+	size_t send_to (nano::messages::message const &, nano::transport::traffic_type, Channels const &) const;
+	// Sends an already serialized message of the given type to every channel of the range
+	template <std::ranges::input_range Channels>
+	size_t send_to (nano::shared_const_buffer const &, nano::messages::message_type, nano::transport::traffic_type, Channels const &) const;
+
+	// Floods a keepalive carrying random peers to a scaled fanout
 	size_t flood_keepalive (float scale = 1.0f) const;
+	// Floods a keepalive carrying this node's own endpoints to a scaled fanout
 	size_t flood_keepalive_self (float scale = 0.5f) const;
 
+	// Floods a vote to a fanout, marked as a rebroadcast when it is one
 	size_t flood_vote (std::shared_ptr<nano::vote> const &, nano::transport::traffic_type, bool rebroadcasted = false) const;
+	// Floods a vote to every channel, marked as a rebroadcast when it is one
 	size_t flood_vote_all (std::shared_ptr<nano::vote> const &, nano::transport::traffic_type, bool rebroadcasted = false) const;
+	// Sends a vote to every principal representative, whether or not its channel has room
 	size_t flood_vote_pr (std::shared_ptr<nano::vote> const &, nano::transport::traffic_type = nano::transport::traffic_type::vote) const;
+	// Floods a vote to a scaled fanout of the channels that are not principal representatives
 	size_t flood_vote_non_pr (std::shared_ptr<nano::vote> const &, float scale, nano::transport::traffic_type = nano::transport::traffic_type::vote) const;
 
-	// Flood block to a random selection of peers
+	// Floods a block to a fanout
 	size_t flood_block (std::shared_ptr<nano::block> const &, nano::transport::traffic_type) const;
+	// Floods a block to every channel
 	size_t flood_block_all (std::shared_ptr<nano::block> const &, nano::transport::traffic_type) const;
-	// Flood block to all PRs and a random selection of non-PRs
+	// Sends a block this node made to every principal representative and floods it to a fanout of the others
 	size_t flood_block_initial (std::shared_ptr<nano::block> const &) const;
+	// Floods the blocks one at a time, `delay` apart, and calls `callback` after the last
 	void flood_block_many (std::deque<std::shared_ptr<nano::block>>, nano::transport::traffic_type, std::chrono::milliseconds delay = 10ms, std::function<void ()> callback = nullptr) const;
 
+	// Sends the channel a keepalive carrying random peers
 	void send_keepalive (std::shared_ptr<nano::transport::channel> const &) const;
+	// Sends the channel a keepalive carrying this node's own endpoints
 	void send_keepalive_self (std::shared_ptr<nano::transport::channel> const &) const;
 
-	// Trigger immediate reachout to preconfigured peers
-	void trigger_reachout ();
-	void reachout (
-	std::string const & address,
-	uint16_t port,
-	nano::transport::connect_callback callback = noop<nano::transport::connect_callback> ());
+	// Resolves the address and connects to each of its endpoints that has no channel yet
+	void reachout (std::string const & address, uint16_t port, nano::transport::connect_callback callback = noop<nano::transport::connect_callback> ());
+	// Reaches out to every preconfigured peer
 	void reachout_preconfigured ();
+	// Makes the run loop reach out to the preconfigured peers now instead of at the next interval
+	void trigger_reachout ();
 
+	// Connects to each endpoint of a keepalive that is worth reaching out to
 	void merge_peers (std::array<nano::endpoint, 8> const & ips);
+	// Connects to the endpoint if it is worth reaching out to, true when an attempt was started
 	bool merge_peer (nano::endpoint const & ip);
 
+	// The channel of the peer with this node id, if any
 	std::shared_ptr<nano::transport::channel> find_node_id (nano::account const &);
+	// The channel to this endpoint, if any
 	std::shared_ptr<nano::transport::channel> find_channel (nano::endpoint const &);
 
-	// Check if the endpoint address looks OK
+	// Whether the endpoint is one not to connect to: unspecified, reserved, this node itself, or off loopback when peers must be local
 	bool not_a_peer (nano::endpoint const &) const;
 	// Should we reach out to this endpoint with a keepalive message? If yes, register a new reachout attempt
 	bool track_reachout (nano::endpoint const &);
 
 	using channel_filter = std::function<bool (std::shared_ptr<nano::transport::channel> const &)>;
 
+	// All channels passing the filter in connection order, cut to `max_count` unless it is 0
 	std::deque<std::shared_ptr<nano::transport::channel>> list (std::size_t max_count = 0, channel_filter = nullptr) const;
-	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (std::size_t max_count = 0, channel_filter = nullptr) const;
+	// The channel of every principal representative the crawler knows
+	nano::transport::channel_list list_pr () const;
 
+	// All channels on at least `minimum_version` of the protocol in connection order, cut to `max_count` unless it is 0
 	std::deque<std::shared_ptr<nano::transport::channel>> list (std::size_t max_count, uint8_t minimum_version) const;
-	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (std::size_t max_count, uint8_t minimum_version) const;
+
+	// Up to `count` channels picked uniformly at random among those passing the filter, in random order
+	nano::transport::channel_list sample (std::size_t count, channel_filter = nullptr) const;
+	// Up to `count` channels picked uniformly at random among those passing the filter, without principal representatives and possibly fewer even when more qualify
+	nano::transport::channel_list sample_non_pr (std::size_t count, channel_filter = nullptr) const;
 
 	// Desired fanout for a given scale
 	std::size_t fanout (float scale = 1.0f) const;
 
+	// Fills the slots with the peering endpoints of random peers, unspecified where there are fewer
 	void random_fill (std::array<nano::endpoint, 8> &) const;
+	// Fills the slots like `random_fill`, then puts this node's own listening and external endpoints in the first two
 	void fill_keepalive_self (std::array<nano::endpoint, 8> &) const;
 
-	// Note: The minimum protocol version is used after the random selection, so number of peers can be less than expected.
+	// Up to `max_count` distinct channels drawn at random, keeping only those on at least `minimum_version`
+	// The draws are capped at twice the count and the version is checked after each draw, so the set can fall short even when enough channels qualify
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t max_count, uint8_t minimum_version = 0) const;
 
-	// Get the next peer for attempting a tcp bootstrap connection
+	// The next peer to try a bootstrap connection to
 	nano::tcp_endpoint bootstrap_peer ();
+	// Drops the channels idle since `cutoff` and fires the disconnect observer when none is left
 	void cleanup (std::chrono::steady_clock::time_point const & cutoff);
+	// The number of connected peers, one channel each
 	std::size_t size () const;
+	// Natural log of the peer count, the base of the fanout
 	float size_log () const;
+	// Whether no peer is connected
 	bool empty () const;
+	// Removes a TCP channel from the container by its remote endpoint
 	void erase (nano::transport::channel const &);
-	/** Disconnects and adds peer to exclusion list */
+	// Adds the channel's peer to the exclusion list and removes the channel
 	void exclude (std::shared_ptr<nano::transport::channel> const & channel);
 
 	nano::container_info container_info () const;
 
 public: // Handshake
-	/** Verifies that handshake response matches our query. @returns true if OK */
+	// Whether the response answers the cookie sent to the endpoint with a valid signature, and is not this node or another genesis
 	bool verify_handshake_response (nano::messages::node_id_handshake::response_payload const & response, nano::endpoint const & remote_endpoint);
+	// A handshake query with a fresh cookie for the endpoint, none when it already has one or its IP is at the cap
 	std::optional<nano::messages::node_id_handshake::query_payload> prepare_handshake_query (nano::endpoint const & remote_endpoint);
+	// A handshake response with this node's id and whatever the version carries of salt, genesis and capabilities
 	nano::messages::node_id_handshake::response_payload prepare_handshake_response (nano::messages::node_id_handshake::query_payload const & query, nano::messages::handshake_version version) const;
 
 private:
@@ -238,4 +279,25 @@ public:
 	static std::size_t confirm_req_hashes_max;
 	static std::size_t confirm_ack_hashes_max;
 };
+}
+
+template <std::ranges::input_range Channels>
+size_t nano::network::send_to (nano::messages::message const & message, nano::transport::traffic_type type, Channels const & channels) const
+{
+	if (std::ranges::empty (channels))
+	{
+		return 0;
+	}
+	return send_to (message.to_shared_const_buffer (), message.type (), type, channels);
+}
+
+template <std::ranges::input_range Channels>
+size_t nano::network::send_to (nano::shared_const_buffer const & buffer, nano::messages::message_type message_type, nano::transport::traffic_type type, Channels const & channels) const
+{
+	size_t result = 0;
+	for (auto const & channel : channels)
+	{
+		result += channel->send_buffer (buffer, message_type, type);
+	}
+	return result;
 }

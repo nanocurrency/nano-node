@@ -1,4 +1,5 @@
 #include <nano/lib/object_stream.hpp>
+#include <nano/messages/deserialize_message.hpp>
 #include <nano/messages/messages.hpp>
 #include <nano/node/endpoint.hpp>
 #include <nano/node/node.hpp>
@@ -24,6 +25,32 @@ bool nano::transport::channel::send (nano::messages::message const & message, na
 	bool sent = send_impl (message, traffic_type, std::move (callback));
 	node.stats.inc (sent ? nano::stat::type::message : nano::stat::type::message_drop, to_stat_detail (message.type ()), nano::stat::dir::out, /* aggregate all */ true);
 	return sent;
+}
+
+bool nano::transport::channel::send_buffer (nano::shared_const_buffer const & buffer, nano::messages::message_type type, nano::transport::traffic_type traffic_type, callback_t callback)
+{
+	bool sent = send_buffer_impl (buffer, traffic_type, std::move (callback));
+	node.stats.inc (sent ? nano::stat::type::message : nano::stat::type::message_drop, to_stat_detail (type), nano::stat::dir::out, /* aggregate all */ true);
+	return sent;
+}
+
+bool nano::transport::channel::send_impl (nano::messages::message const & message, nano::transport::traffic_type traffic_type, callback_t callback)
+{
+	return send_buffer_impl (message.to_shared_const_buffer (), traffic_type, std::move (callback));
+}
+
+bool nano::transport::channel::send_buffer_as_message (nano::shared_const_buffer const & buffer, nano::transport::traffic_type traffic_type, callback_t callback)
+{
+	nano::shared_buffer const bytes = buffer;
+	// Parsed like network input, minus the duplicate filter, which would drop repeats a caller sends on purpose
+	auto [message, status] = nano::deserialize_message (*bytes, node.network_params.network, nullptr, &node.block_uniquer, &node.vote_uniquer);
+	// A message serialized in this process can only fail on its content, any other failure means serializing and parsing disagree
+	debug_assert (message || status == nano::deserialize_message_status::insufficient_work, nano::to_string (status));
+	if (!message)
+	{
+		return false;
+	}
+	return send_impl (*message, traffic_type, std::move (callback));
 }
 
 void nano::transport::channel::set_peering_endpoint (nano::endpoint endpoint)
