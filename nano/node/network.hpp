@@ -177,15 +177,13 @@ public:
 
 	using channel_filter = std::function<bool (std::shared_ptr<nano::transport::channel> const &)>;
 
-	// All channels passing the filter in random order, cut to `max_count` unless it is 0
+	// All channels passing the filter in connection order, cut to `max_count` unless it is 0
 	std::deque<std::shared_ptr<nano::transport::channel>> list (std::size_t max_count = 0, channel_filter = nullptr) const;
-	// All channels passing the filter in random order, without principal representatives and cut to `max_count`
-	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (std::size_t max_count = 0, channel_filter = nullptr) const;
+	// The channel of every principal representative the crawler knows
+	nano::transport::channel_list list_pr () const;
 
-	// All channels on at least `minimum_version` of the protocol in random order, cut to `max_count` unless it is 0
+	// All channels on at least `minimum_version` of the protocol in connection order, cut to `max_count` unless it is 0
 	std::deque<std::shared_ptr<nano::transport::channel>> list (std::size_t max_count, uint8_t minimum_version) const;
-	// All channels on at least `minimum_version` of the protocol in random order, without principal representatives and cut to `max_count`
-	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (std::size_t max_count, uint8_t minimum_version) const;
 
 	// Up to `count` channels picked uniformly at random among those passing the filter, in random order
 	nano::transport::channel_list sample (std::size_t count, channel_filter = nullptr) const;
