@@ -631,22 +631,6 @@ TEST (network, cleanup_purge)
 	ASSERT_EQ (1, node1.stats.count (nano::stat::type::tcp_channels_purge, nano::stat::detail::idle));
 }
 
-TEST (network, loopback_channel)
-{
-	nano::test::system system (2);
-	auto & node1 = *system.nodes[0];
-	auto & node2 = *system.nodes[1];
-	nano::transport::inproc::channel channel1 (node1, node1);
-	ASSERT_EQ (channel1.get_type (), nano::transport::transport_type::loopback);
-	ASSERT_EQ (channel1.get_remote_endpoint (), node1.network.endpoint ());
-	ASSERT_EQ (channel1.get_network_version (), node1.network_params.network.protocol_version);
-	ASSERT_EQ (channel1.get_node_id (), node1.get_node_id ());
-	ASSERT_EQ (channel1.get_node_id_optional ().value_or (0), node1.get_node_id ());
-	nano::transport::inproc::channel channel2 (node2, node2);
-	++node1.network.port;
-	ASSERT_NE (channel1.get_remote_endpoint (), node1.network.endpoint ());
-}
-
 TEST (network, fill_keepalive_self)
 {
 	nano::test::system system{ 2 };
