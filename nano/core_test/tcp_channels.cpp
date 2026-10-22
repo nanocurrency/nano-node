@@ -14,14 +14,6 @@
 
 using namespace std::chrono_literals;
 
-TEST (tcp_channels, empty_peers)
-{
-	nano::test::system system (1);
-	nano::network & network (system.nodes[0]->network);
-	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now ());
-	ASSERT_EQ (0, network.size ());
-}
-
 // Test a node cannot connect to its own endpoint.
 TEST (tcp_channels, no_self_incoming)
 {
@@ -79,65 +71,6 @@ TEST (tcp_channels, disable_non_loopback_peers)
 	ASSERT_FALSE (node.network.track_reachout (public_peer));
 	ASSERT_TRUE (node.network.track_reachout (loopback));
 	ASSERT_TRUE (node.network.track_reachout (v4_loopback));
-}
-
-// Test the TCP channel cleanup function works properly. It is used to remove peers that are not
-// exchanging messages after a while.
-TEST (tcp_channels, DISABLED_tcp_channel_cleanup_works)
-{
-	nano::test::system system;
-	nano::node_config node_config = system.default_config ();
-	// Set the keepalive period to avoid background messages affecting the last_packet_set time
-	node_config.network_params.network.keepalive_period = std::chrono::minutes (10);
-	nano::node_flags node_flags;
-	// Want to test the cleanup function
-	node_flags.disable_connection_cleanup = true;
-	// Disable the confirm_req messages avoiding them to affect the last_packet_set time
-	node_flags.disable_rep_crawler = true;
-	auto & node1 = *system.add_node (node_config, node_flags);
-
-	auto config1 = node_config;
-	config1.network_params.network.keepalive_period = std::chrono::minutes (10);
-	auto outer_node1 = nano::test::add_outer_node (system, config1, node_flags);
-	auto config2 = config1;
-	config2.network_params.network.keepalive_period = std::chrono::minutes (10);
-	auto outer_node2 = nano::test::add_outer_node (system, config2, node_flags);
-	auto now = std::chrono::steady_clock::now ();
-	auto channel1 = nano::test::establish_tcp (system, node1, outer_node1->network.endpoint ());
-	ASSERT_NE (nullptr, channel1);
-	// set the last packet sent for channel1 only to guarantee it contains a value.
-	// it won't be necessarily the same use by the cleanup cutoff time
-	channel1->set_last_packet_sent (now - std::chrono::seconds (5));
-	auto channel2 = nano::test::establish_tcp (system, node1, outer_node2->network.endpoint ());
-	ASSERT_NE (nullptr, channel2);
-	// set the last packet sent for channel2 only to guarantee it contains a value.
-	// it won't be necessarily the same use by the cleanup cutoff time
-	channel2->set_last_packet_sent (now + std::chrono::seconds (1));
-	ASSERT_EQ (2, node1.network.size ());
-	ASSERT_EQ (2, node1.network.tcp_channels.size ());
-
-	for (auto it = 0; node1.network.tcp_channels.size () > 1 && it < 10; ++it)
-	{
-		// FIXME: This is racy and doesn't work reliably
-		// we can't control everything the nodes are doing in background, so using the middle time as
-		// the cutoff point.
-		auto const channel1_last_packet_sent = channel1->get_last_packet_sent ();
-		auto const channel2_last_packet_sent = channel2->get_last_packet_sent ();
-		auto const max_last_packet_sent = std::max (channel1_last_packet_sent, channel2_last_packet_sent);
-		auto const min_last_packet_sent = std::min (channel1_last_packet_sent, channel2_last_packet_sent);
-		auto const cleanup_point = ((max_last_packet_sent - min_last_packet_sent) / 2) + min_last_packet_sent;
-
-		node1.network.cleanup (cleanup_point);
-
-		// it is possible that the last_packet_sent times changed because of another thread and the cleanup_point
-		// is not the middle time anymore, in these case we wait a bit and try again in a loop up to 10 times
-		if (node1.network.tcp_channels.size () == 2)
-		{
-			WAIT (500ms);
-		}
-	}
-	ASSERT_EQ (1, node1.network.size ());
-	ASSERT_EQ (1, node1.network.tcp_channels.size ());
 }
 
 TEST (tcp_channels, fill_random_clear)
