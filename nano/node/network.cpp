@@ -291,15 +291,6 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 	}
 }
 
-// Send keepalives to all the peers we've been notified of
-void nano::network::merge_peers (std::array<nano::endpoint, 8> const & peers_a)
-{
-	for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i)
-	{
-		merge_peer (*i);
-	}
-}
-
 bool nano::network::merge_peer (nano::endpoint const & peer)
 {
 	if (track_reachout (peer))
@@ -431,7 +422,7 @@ void nano::network::fill_keepalive_self (std::array<nano::endpoint, 8> & target_
 	target_a[2] = target_a[0];
 	target_a[3] = target_a[1];
 	// Replace part of message with node external address or listening port
-	target_a[1] = nano::endpoint (boost::asio::ip::address_v6{}, 0); // For node v19 (response channels)
+	target_a[1] = nano::endpoint (boost::asio::ip::address_v6{}, 0); // Blank unless port mapping fills it below, peers skip an unspecified slot
 	if (node.config.external_address != boost::asio::ip::address_v6{}.to_string () && node.config.external_port != 0)
 	{
 		target_a[0] = nano::endpoint (boost::asio::ip::make_address_v6 (node.config.external_address), node.config.external_port);
@@ -451,11 +442,6 @@ void nano::network::fill_keepalive_self (std::array<nano::endpoint, 8> & target_
 			target_a[0] = nano::endpoint (boost::asio::ip::address_v6{}, port);
 		}
 	}
-}
-
-nano::tcp_endpoint nano::network::bootstrap_peer ()
-{
-	return tcp_channels.bootstrap_peer ();
 }
 
 std::shared_ptr<nano::transport::channel> nano::network::find_channel (nano::endpoint const & endpoint_a)
@@ -630,30 +616,6 @@ std::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint con
 			cookies[endpoint_a] = info;
 			++ip_cookies;
 			result = query;
-		}
-	}
-	return result;
-}
-
-bool nano::syn_cookies::validate (nano::endpoint const & endpoint_a, nano::account const & node_id, nano::signature const & sig)
-{
-	auto ip_addr (endpoint_a.address ());
-	debug_assert (ip_addr.is_v6 ());
-	nano::lock_guard<nano::mutex> lock{ syn_cookie_mutex };
-	auto result (true);
-	auto cookie_it (cookies.find (endpoint_a));
-	if (cookie_it != cookies.end () && !nano::validate_message (node_id, cookie_it->second.cookie, sig))
-	{
-		result = false;
-		cookies.erase (cookie_it);
-		unsigned & ip_cookies = cookies_per_ip[ip_addr];
-		if (ip_cookies > 0)
-		{
-			--ip_cookies;
-		}
-		else
-		{
-			debug_assert (false && "More SYN cookies deleted than created for IP");
 		}
 	}
 	return result;

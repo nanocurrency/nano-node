@@ -252,22 +252,6 @@ auto nano::transport::tcp_channels::sample (std::size_t count, channel_filter co
 	return result;
 }
 
-void nano::transport::tcp_channels::random_fill (std::array<nano::endpoint, 8> & target_a) const
-{
-	auto peers (random_set (target_a.size ()));
-	debug_assert (peers.size () <= target_a.size ());
-	auto endpoint (nano::endpoint (boost::asio::ip::address_v6{}, 0));
-	debug_assert (endpoint.address ().is_v6 ());
-	std::fill (target_a.begin (), target_a.end (), endpoint);
-	auto j (target_a.begin ());
-	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i, ++j)
-	{
-		debug_assert ((*i)->get_remote_endpoint ().address ().is_v6 ());
-		debug_assert (j < target_a.end ());
-		*j = (*i)->get_remote_endpoint ();
-	}
-}
-
 std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::find_node_id (nano::account const & node_id_a)
 {
 	std::shared_ptr<nano::transport::tcp_channel> result;
@@ -276,28 +260,6 @@ std::shared_ptr<nano::transport::tcp_channel> nano::transport::tcp_channels::fin
 	if (existing != channels.get<node_id_tag> ().end ())
 	{
 		result = existing->channel;
-	}
-	return result;
-}
-
-nano::tcp_endpoint nano::transport::tcp_channels::bootstrap_peer ()
-{
-	nano::tcp_endpoint result (boost::asio::ip::address_v6::any (), 0);
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	for (auto i (channels.get<last_bootstrap_attempt_tag> ().begin ()), n (channels.get<last_bootstrap_attempt_tag> ().end ()); i != n;)
-	{
-		if (i->channel->get_network_version () >= node.network_params.network.protocol_version_min)
-		{
-			result = nano::transport::map_endpoint_to_tcp (i->channel->get_peering_endpoint ());
-			channels.get<last_bootstrap_attempt_tag> ().modify (i, [] (channel_entry & wrapper_a) {
-				wrapper_a.channel->set_last_bootstrap_attempt (std::chrono::steady_clock::now ());
-			});
-			i = n;
-		}
-		else
-		{
-			++i;
-		}
 	}
 	return result;
 }
