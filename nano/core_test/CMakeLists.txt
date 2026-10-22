@@ -71,6 +71,7 @@ add_executable(
   rep_crawler.cpp
   receivable.cpp
   peer_blocklist.cpp
+  peer_exclusion.cpp
   peer_history.cpp
   priority_pool.cpp
   rep_tiers.cpp
