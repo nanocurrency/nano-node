@@ -1,6 +1,7 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/vote.hpp>
+#include <nano/messages/confirm.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/backlog_scan.hpp>
 #include <nano/node/election.hpp>
@@ -10,6 +11,7 @@
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
+#include <nano/node/transport/inproc.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/node/wallet.hpp>
@@ -896,4 +898,55 @@ TEST (election, evicted_fork_readmission_confirms)
 	node.process_active (fixture.evicted);
 	ASSERT_TIMELY (5s, fixture.election->confirmed ());
 	ASSERT_EQ (fixture.evicted->hash (), fixture.election->winner ()->hash ());
+}
+
+TEST (election, confirm_insufficient_pos)
+{
+	nano::test::system system (1);
+	auto & node1 (*system.nodes[0]);
+	nano::block_builder builder;
+	auto block1 = builder
+				  .send ()
+				  .previous (nano::dev::genesis->hash ())
+				  .destination (0)
+				  .balance (nano::dev::constants.genesis_amount - 1)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (0)
+				  .build ();
+	node1.work_generate_blocking (*block1);
+	ASSERT_EQ (nano::block_status::progress, node1.process (block1));
+	auto election = nano::test::start_election (system, node1, block1->hash ());
+	nano::keypair key1;
+	auto vote = nano::test::make_final_vote (key1, { block1 });
+	nano::messages::confirm_ack con1{ nano::dev::network_params.network, vote };
+	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
+	ASSERT_EQ (0, election->votes ().size ());
+	node1.inbound (con1, channel1);
+	ASSERT_TIMELY_EQ (5s, 1, election->votes ().size ())
+	ASSERT_FALSE (election->confirmed ());
+}
+
+TEST (election, confirm_sufficient_pos)
+{
+	nano::test::system system (1);
+	auto & node1 (*system.nodes[0]);
+	nano::block_builder builder;
+	auto block1 = builder
+				  .send ()
+				  .previous (nano::dev::genesis->hash ())
+				  .destination (0)
+				  .balance (nano::dev::constants.genesis_amount - 1)
+				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				  .work (0)
+				  .build ();
+	node1.work_generate_blocking (*block1);
+	ASSERT_EQ (nano::block_status::progress, node1.process (block1));
+	auto election = nano::test::start_election (system, node1, block1->hash ());
+	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { block1 });
+	nano::messages::confirm_ack con1{ nano::dev::network_params.network, vote };
+	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
+	ASSERT_EQ (0, election->votes ().size ());
+	node1.inbound (con1, channel1);
+	ASSERT_TIMELY_EQ (5s, 1, election->votes ().size ())
+	ASSERT_TRUE (election->confirmed ());
 }
