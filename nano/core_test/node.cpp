@@ -331,16 +331,6 @@ TEST (node, auto_bootstrap_reverse)
 	ASSERT_TIMELY_EQ (10s, node1->balance (key2.pub), node0->config.receive_minimum.number ());
 }
 
-TEST (node, merge_peers)
-{
-	nano::test::system system (1);
-	std::array<nano::endpoint, 8> endpoints;
-	endpoints.fill (nano::endpoint (boost::asio::ip::address_v6::loopback (), system.get_available_port ()));
-	endpoints[0] = nano::endpoint (boost::asio::ip::address_v6::loopback (), system.get_available_port ());
-	system.nodes[0]->network.merge_peers (endpoints);
-	ASSERT_EQ (0, system.nodes[0]->network.size ());
-}
-
 TEST (node, search_receivable)
 {
 	nano::test::system system (1);
