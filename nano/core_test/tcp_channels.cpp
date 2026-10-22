@@ -1,8 +1,6 @@
-#include <nano/messages/keepalive.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
-#include <nano/node/transport/tcp_server.hpp>
-#include <nano/node/transport/tcp_socket.hpp>
+#include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
@@ -10,25 +8,29 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <memory>
 
 using namespace std::chrono_literals;
 
-// Test a node cannot connect to its own endpoint.
+// A node never reaches out to its own endpoint, and a connection forced to it fails the handshake on its own node id
 TEST (tcp_channels, no_self_incoming)
 {
 	nano::test::system system{ 1 };
 	auto & node = *system.nodes[0];
-	node.network.tcp_channels.start_tcp (node.network.endpoint ());
-	auto error = system.poll_until_true (2s, [&node] {
-		auto result = node.network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node.network.endpoint ()));
-		return result != nullptr;
-	});
-	ASSERT_TRUE (error);
-	ASSERT_TRUE (system.nodes[0]->network.empty ());
+
+	// Its own endpoint is not a peer, so no reachout starts
+	ASSERT_TRUE (node.network.not_a_peer (node.network.endpoint ()));
+	ASSERT_FALSE (node.network.merge_peer (node.network.endpoint ()));
+
+	// A connection forced to its own endpoint is dropped once the handshake shows its own node id, leaving no channel
+	ASSERT_TRUE (node.network.tcp_channels.start_tcp (node.network.endpoint ()));
+	ASSERT_TIMELY (5s, node.stats.count (nano::stat::type::handshake, nano::stat::detail::invalid_node_id) >= 1);
+	ASSERT_TIMELY (5s, node.tcp_listener.all_sockets ().empty ());
+	ASSERT_TRUE (node.network.empty ());
 }
 
-// Tests the function network not_a_peer function used by the nano::transport::tcp_channels.insert ()
+// Reserved addresses are not peers, public ones are
 TEST (tcp_channels, reserved_ip_is_not_a_peer)
 {
 	nano::test::system system{ 1 };
@@ -58,7 +60,7 @@ TEST (tcp_channels, disable_non_loopback_peers)
 	nano::test::system system;
 	auto & node = *system.add_node (node_flags);
 
-	// Use a concrete non-self loopback endpoint: port 0 is reserved, and self endpoints are rejected separately.
+	// Use a concrete non-self loopback endpoint: port 0 is reserved, and self endpoints are rejected separately
 	auto loopback_port = node.network.endpoint ().port () == 10000 ? 10001 : 10000;
 	auto loopback = nano::endpoint (boost::asio::ip::address_v6::loopback (), loopback_port);
 	auto v4_loopback = nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address_v4::loopback (), loopback_port));
@@ -129,70 +131,65 @@ TEST (tcp_channels, fill_random_part)
 	ASSERT_TRUE (std::all_of (target.begin () + half, target.end (), [] (nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::any (), 0); }));
 }
 
-// TODO: remove node instantiation requirement for testing with bigger network size
-TEST (tcp_channels, DISABLED_list_fanout)
-{
-	nano::test::system system{ 1 };
-	auto node = system.nodes[0];
-	ASSERT_EQ (0, node->network.size ());
-	ASSERT_EQ (0.0f, node->network.size_log ());
-	ASSERT_EQ (1, node->network.fanout ());
-	ASSERT_TRUE (node->network.list (node->network.fanout ()).empty ());
-
-	auto add_peer = [&node, &system] () {
-		auto outer_node = nano::test::add_outer_node (system);
-		auto channel = nano::test::establish_tcp (system, *node, outer_node->network.endpoint ());
-	};
-
-	add_peer ();
-	ASSERT_TIMELY_EQ (5s, 1, node->network.size ());
-	ASSERT_EQ (0.0f, node->network.size_log ());
-	ASSERT_EQ (1, node->network.fanout ());
-	ASSERT_EQ (1, node->network.list (node->network.fanout ()).size ());
-
-	add_peer ();
-	add_peer ();
-	ASSERT_TIMELY_EQ (5s, 3, node->network.size ());
-	ASSERT_EQ (std::log (3.0f), node->network.size_log ());
-	ASSERT_EQ (2, node->network.fanout ());
-	ASSERT_EQ (2, node->network.list (node->network.fanout ()).size ());
-
-	unsigned number_of_peers = 10;
-	for (unsigned i = 3; i < number_of_peers; ++i)
-	{
-		add_peer ();
-	}
-
-	ASSERT_TIMELY_EQ (5s, number_of_peers, node->network.size ());
-	ASSERT_EQ (std::log (float (number_of_peers)), node->network.size_log ());
-	ASSERT_EQ (3, node->network.fanout ());
-	ASSERT_EQ (3, node->network.list (node->network.fanout ()).size ());
-}
-
-// Test to make sure we don't repeatedly send keepalive messages to nodes that aren't responding
-TEST (tcp_channels, reachout)
+// The fanout never drops below the configured minimum and follows the natural log of the peer count above it
+TEST (tcp_channels, fanout)
 {
 	nano::test::system system;
 	nano::node_config node_config = system.default_config ();
-	// Disable automatic reachout
-	node_config.network->cached_peer_reachout = 0s;
-	node_config.network->peer_reachout = 0s;
+	node_config.network->minimum_fanout = 1;
+	auto & node = *system.add_node (node_config);
+
+	// Alone, the size log is zero and the minimum holds
+	ASSERT_EQ (0, node.network.size ());
+	ASSERT_FLOAT_EQ (0.0f, node.network.size_log ());
+	ASSERT_EQ (1, node.network.fanout ());
+	ASSERT_TRUE (node.network.list (node.network.fanout ()).empty ());
+
+	// Three peers put the size log above the minimum, so the fanout is the log rounded up
+	for (auto i = 0; i < 3; ++i)
+	{
+		system.add_node ();
+	}
+	ASSERT_TIMELY_EQ (5s, 3, node.network.size ());
+	ASSERT_FLOAT_EQ (std::log (3.0f), node.network.size_log ());
+	ASSERT_EQ (2, node.network.fanout ());
+	ASSERT_EQ (2, node.network.list (node.network.fanout ()).size ());
+
+	// The scale multiplies the fanout before it is rounded up
+	ASSERT_EQ (1, node.network.fanout (0.5f));
+	ASSERT_EQ (3, node.network.fanout (2.0f));
+	ASSERT_EQ (3, node.network.list (node.network.fanout (2.0f)).size ());
+}
+
+// A reachout attempt is recorded once per endpoint, never for a connected peer, and again only once cleanup has purged the old attempt
+TEST (tcp_channels, reachout)
+{
+	nano::test::system system;
+	// Only the calls below may record attempts
 	nano::node_flags node_flags;
+	node_flags.disable_reachout = true;
 	auto & node1 = *system.add_node (node_flags);
+
+	// A connected peer is never reached out to
 	auto outer_node1 = nano::test::add_outer_node (system);
 	ASSERT_NE (nullptr, nano::test::establish_tcp (system, node1, outer_node1->network.endpoint ()));
-	// Make sure having been contacted by them already indicates we shouldn't reach out
 	ASSERT_FALSE (node1.network.track_reachout (outer_node1->network.endpoint ()));
+
+	// A new endpoint is reached out to once, the pending attempt blocks a second
 	auto outer_node2 = nano::test::add_outer_node (system);
 	auto outer_node2_endpoint = outer_node2->network.endpoint ();
-	ASSERT_TRUE (node1.network.track_reachout (outer_node2->network.endpoint ()));
-	ASSERT_NE (nullptr, nano::test::establish_tcp (system, node1, outer_node2->network.endpoint ()));
-	// Reaching out to them once should signal we shouldn't reach out again.
-	ASSERT_FALSE (node1.network.track_reachout (outer_node2->network.endpoint ()));
-	// Make sure we don't purge new items
+	ASSERT_TRUE (node1.network.track_reachout (outer_node2_endpoint));
+	ASSERT_FALSE (node1.network.track_reachout (outer_node2_endpoint));
+
+	// Once connected it is the channel that blocks a reachout
+	ASSERT_NE (nullptr, nano::test::establish_tcp (system, node1, outer_node2_endpoint));
+	ASSERT_FALSE (node1.network.track_reachout (outer_node2_endpoint));
+
+	// A cleanup with a cutoff in the past keeps the channel
 	node1.network.cleanup (std::chrono::steady_clock::now () - std::chrono::seconds (10));
-	ASSERT_FALSE (node1.network.track_reachout (outer_node2->network.endpoint ()));
-	// Make sure we purge old items
+	ASSERT_FALSE (node1.network.track_reachout (outer_node2_endpoint));
+
+	// A cleanup that purges everything frees the endpoint for a new attempt
 	outer_node1->stop ();
 	outer_node2->stop ();
 	node1.network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (10));
