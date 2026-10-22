@@ -196,3 +196,33 @@ TEST (tcp_channels, reachout)
 	ASSERT_TIMELY (5s, node1.network.empty ());
 	ASSERT_TRUE (node1.network.track_reachout (outer_node2_endpoint));
 }
+
+// The keepalive sweep wakes a channel idle for a keepalive period with a keepalive and leaves one that sent recently alone
+TEST (tcp_channels, keepalive_idle)
+{
+	nano::test::system system;
+	// A long keepalive period keeps the node's own sweep out of the way, with the rep crawler off since its reachout trigger wakes the keepalive loop too
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	nano::node_config node_config = system.default_config ();
+	node_config.network_params.network.keepalive_period = 10min;
+	auto & node = *system.add_node (node_config, flags);
+	nano::node_config peer_config = system.default_config ();
+	peer_config.network_params.network.keepalive_period = 10min;
+	auto & peer = *system.add_node (peer_config, flags);
+	auto const channel = node.network.find_node_id (peer.get_node_id ());
+	ASSERT_NE (nullptr, channel);
+	auto const received = [&peer] () {
+		return peer.stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in);
+	};
+
+	// The one keepalive sent on connect has arrived and a sweep now sends nothing
+	ASSERT_TIMELY_EQ (5s, 1, received ());
+	node.network.tcp_channels.keepalive ();
+	ASSERT_ALWAYS_EQ (100ms, 1, received ());
+
+	// Once the channel has been idle for longer than the period, a sweep wakes it
+	channel->set_last_packet_sent (std::chrono::steady_clock::now () - 11min);
+	node.network.tcp_channels.keepalive ();
+	ASSERT_TIMELY_EQ (5s, 2, received ());
+}
