@@ -139,7 +139,8 @@ void nano::network::run_keepalive ()
 		flood_keepalive (0.75f);
 		flood_keepalive_self (0.25f);
 
-		tcp_channels.keepalive ();
+		auto const keepalive_cutoff = std::chrono::steady_clock::now () - node.network_params.network.keepalive_period;
+		tcp_channels.keepalive (keepalive_cutoff);
 
 		lock.lock ();
 	}

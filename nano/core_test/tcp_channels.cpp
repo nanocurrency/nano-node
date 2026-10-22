@@ -197,3 +197,29 @@ TEST (tcp_channels, reachout)
 	ASSERT_TIMELY (5s, node1.network.empty ());
 	ASSERT_TRUE (node1.network.track_reachout (outer_node2_endpoint));
 }
+
+// The keepalive sweep wakes the channels that have sent nothing since its cutoff and leaves the others alone
+TEST (tcp_channels, keepalive_idle)
+{
+	nano::test::system system;
+	// A long keepalive period keeps the node's own sweep out of the way
+	nano::node_config node_config = system.default_config ();
+	node_config.network_params.network.keepalive_period = 10min;
+	auto & node = *system.add_node (node_config);
+	nano::node_config peer_config = system.default_config ();
+	peer_config.network_params.network.keepalive_period = 10min;
+	auto & peer = *system.add_node (peer_config);
+	ASSERT_NE (nullptr, node.network.find_node_id (peer.get_node_id ()));
+	auto const received = [&peer] () {
+		return peer.stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in);
+	};
+
+	// The one keepalive sent on connect has arrived and a sweep with the node's own cutoff sends nothing
+	ASSERT_TIMELY_EQ (5s, 1, received ());
+	node.network.tcp_channels.keepalive (std::chrono::steady_clock::now () - node_config.network_params.network.keepalive_period);
+	ASSERT_ALWAYS_EQ (100ms, 1, received ());
+
+	// A cutoff later than any send the channel can have made marks it idle, so the sweep wakes it
+	node.network.tcp_channels.keepalive (std::chrono::steady_clock::now () + 1h);
+	ASSERT_TIMELY_EQ (5s, 2, received ());
+}
