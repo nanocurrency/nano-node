@@ -71,22 +71,25 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock)
 
 	node.active.recently_confirmed.put (qualified_root, status_l.winner->hash (), status_l);
 
-	auto const extended_status = extended_status_locked ();
-
 	node.stats.inc (nano::stat::type::election, nano::stat::detail::confirm_once);
-	node.logger.trace (nano::log::type::election, nano::log::detail::election_confirmed,
-	nano::log::arg{ "id", id },
-	nano::log::arg{ "qualified_root", qualified_root },
-	nano::log::arg{ "status", extended_status });
+
+	// The extended status copies the votes and blocks and tallies them, so it is only built when tracing can emit it
+	if constexpr (nano::is_tracing_enabled ())
+	{
+		node.logger.trace (nano::log::type::election, nano::log::detail::election_confirmed,
+		nano::log::arg{ "id", id },
+		nano::log::arg{ "qualified_root", qualified_root },
+		nano::log::arg{ "status", extended_status_locked () });
+	}
 
 	node.logger.debug (nano::log::type::election, "Election confirmed with winner: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms, confirmation requests: {})",
 	status_l.winner->hash (),
 	to_string (behavior_m),
 	to_string (state_m),
-	extended_status.status.voter_count,
-	extended_status.status.block_count,
-	extended_status.status.election_duration.count (),
-	extended_status.status.confirmation_request_count);
+	status_l.voter_count,
+	status_l.block_count,
+	status_l.election_duration.count (),
+	status_l.confirmation_request_count);
 
 	node.cementing_set.add (status_l.winner->hash (), shared_from_this ());
 
@@ -354,10 +357,13 @@ nano::election_actions nano::election::tick (std::chrono::steady_clock::time_poi
 		// state_change returning true would indicate it
 		if (!state_change (state_m, nano::election_state::expired_unconfirmed))
 		{
-			node.logger.trace (nano::log::type::election, nano::log::detail::election_expired,
-			nano::log::arg{ "id", id },
-			nano::log::arg{ "qualified_root", qualified_root },
-			nano::log::arg{ "status", extended_status_locked () });
+			if constexpr (nano::is_tracing_enabled ())
+			{
+				node.logger.trace (nano::log::type::election, nano::log::detail::election_expired,
+				nano::log::arg{ "id", id },
+				nano::log::arg{ "qualified_root", qualified_root },
+				nano::log::arg{ "status", extended_status_locked () });
+			}
 
 			actions.cleanup = true; // Election expired and should be cleaned up
 		}
@@ -700,18 +706,13 @@ void nano::election::force_confirm ()
 	confirm_once (lock);
 }
 
-std::unordered_set<nano::block_hash> nano::election::blocks_hashes () const
+nano::election_ballot::hash_list nano::election::blocks_hashes () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-	std::unordered_set<nano::block_hash> hashes;
-	for (auto const & [hash, block] : ballot.blocks ())
-	{
-		hashes.emplace (hash);
-	}
-	return hashes;
+	return ballot.block_hashes ();
 }
 
-std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election::blocks () const
+nano::election_ballot::block_map nano::election::blocks () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	return ballot.blocks ();
@@ -720,7 +721,8 @@ std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::electio
 std::unordered_map<nano::account, nano::vote_info> nano::election::votes () const
 {
 	nano::lock_guard<nano::mutex> guard{ mutex };
-	return ballot.votes ();
+	auto const votes = ballot.votes ();
+	return { votes.begin (), votes.end () };
 }
 
 std::vector<nano::vote_with_weight_info> nano::election::votes_with_weight () const

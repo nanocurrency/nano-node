@@ -16,7 +16,6 @@
 #include <memory>
 #include <optional>
 #include <unordered_map>
-#include <unordered_set>
 
 namespace nano
 {
@@ -26,7 +25,7 @@ struct election_snapshot final
 	nano::qualified_root qualified_root;
 	std::shared_ptr<nano::block> winner;
 	bool quorum; // Vote quorum was reached, only final votes are of interest
-	std::unordered_map<nano::account, nano::vote_info> votes;
+	nano::election_ballot::vote_map votes;
 };
 
 /** Outbound actions requested by an election when ticked, performed by the active elections loop */
@@ -172,9 +171,9 @@ public: // Information
 	// All recorded votes by representative
 	std::unordered_map<nano::account, nano::vote_info> votes () const;
 	// All held blocks by hash
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
+	nano::election_ballot::block_map blocks () const;
 	// Hashes of the held blocks
-	std::unordered_set<nano::block_hash> blocks_hashes () const;
+	nano::election_ballot::hash_list blocks_hashes () const;
 	// Whether a block with the given hash is held
 	bool contains_block (nano::block_hash const &) const;
 

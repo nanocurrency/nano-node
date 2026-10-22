@@ -17,7 +17,6 @@
 #include <memory>
 #include <optional>
 #include <span>
-#include <unordered_map>
 #include <vector>
 
 namespace nano
@@ -93,8 +92,22 @@ class election_ballot final
 public:
 	static size_t constexpr default_max_blocks{ 10 };
 
+private:
+	static size_t constexpr inline_hashes{ 4 }; // Voted-for hashes weighed and blocks held without allocating, an election rarely sees more
+	static size_t constexpr inline_reps{ 256 }; // Voters tallied without allocating, with room to spare over the live network's principal representatives
+
+public:
 	// Writes the weight of `reps[i]` to `weights[i]`, all read from one consistent snapshot; a slot that is left alone counts as zero
 	using weight_fn = std::function<void (std::span<nano::account const> reps, std::span<nano::uint128_t> weights)>;
+
+	// Latest vote per representative, kept flat so a copy is one allocation
+	using vote_map = boost::unordered_flat_map<nano::account, nano::vote_info>;
+
+	// Hashes of held blocks, with inline room for the default limit
+	using hash_list = boost::container::small_vector<nano::block_hash, default_max_blocks>;
+
+	// Held blocks by hash, sorted flat with inline room for the few blocks an election usually holds, so a copy is at most one allocation
+	using block_map = boost::container::small_flat_map<nano::block_hash, std::shared_ptr<nano::block>, inline_hashes>;
 
 	// The initial block becomes both the first winner and the first leader
 	// Requires a non-null initial block, a callable weight query and room for at least one block
@@ -172,10 +185,10 @@ public: // Queries
 	nano::tally_map tally () const;
 
 	// All held blocks by hash
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
+	block_map blocks () const;
 
 	// All recorded votes by representative
-	std::unordered_map<nano::account, nano::vote_info> votes () const;
+	vote_map votes () const;
 
 	// All recorded votes with the reps' current weights, heaviest rep first
 	std::vector<nano::vote_with_weight_info> votes_with_weight () const;
@@ -186,10 +199,10 @@ public: // Queries
 	// Number of held blocks
 	size_t block_count () const;
 
-private:
-	static size_t constexpr inline_hashes{ 4 }; // Voted-for hashes weighed without allocating, an election rarely sees more
-	static size_t constexpr inline_reps{ 256 }; // Voters tallied without allocating, with room to spare over the live network's principal representatives
+	// Hashes of the held blocks, winner included
+	hash_list block_hashes () const;
 
+private:
 	// Vote weight behind one voted-for block hash
 	struct block_weight final
 	{
@@ -197,10 +210,14 @@ private:
 		nano::uint128_t final_weight{ 0 }; // Final votes only
 	};
 
+	// A sorted vector of hash and weight pairs that keeps its first `inline_hashes` entries inside the object and moves to the heap only past that
+	// An election rarely weighs more than a few hashes, so the map fits inline and a lookup is a few comparisons
+	using weight_map = boost::container::small_flat_map<nano::block_hash, block_weight, inline_hashes>;
+
 	// Vote weight per voted-for block hash, including unheld hashes
 	struct block_weights final
 	{
-		boost::container::small_flat_map<nano::block_hash, block_weight, inline_hashes> weights;
+		weight_map weights;
 
 		// Weight behind the hash (normal + final votes), zero when nothing is tallied for it
 		nano::uint128_t weight (nano::block_hash const &) const;
@@ -223,8 +240,8 @@ private: // Dependencies
 	size_t const max_blocks;
 
 private: // The entire mutable state
-	boost::unordered_flat_map<nano::account, nano::vote_info> votes_m; // vote (): latest vote per rep, may reference unheld hashes
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks_m; // insert (): competing blocks, always includes the winner
+	vote_map votes_m; // vote (): latest vote per rep, may reference unheld hashes
+	block_map blocks_m; // insert (): competing blocks, always includes the winner
 	nano::block_hash winner_m; // evaluate (): held winner, updated only when total recorded vote weight reaches the supplied threshold
 	nano::block_hash leader_m; // evaluate (): leader, updated only when total recorded vote weight reaches the supplied threshold and may be unheld
 };

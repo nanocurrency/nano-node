@@ -10,6 +10,7 @@
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/fork_cache.hpp>
+#include <nano/node/formatting.hpp>
 #include <nano/node/ledger_notifications.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
@@ -26,8 +27,6 @@
 #include <nano/secure/ledger_set_cemented.hpp>
 
 #include <ranges>
-
-#include <fmt/ranges.h>
 
 using namespace std::chrono;
 
@@ -196,7 +195,7 @@ auto nano::active_elections::insert (std::shared_ptr<nano::block> const & block,
 
 			node.logger.debug (nano::log::type::active_elections, "Started new election for root: {} with blocks: {} (behavior: {})",
 			root,
-			fmt::join (result.election->blocks_hashes (), ", "), // TODO: Lazy eval
+			nano::log::as_election_hashes (*result.election),
 			to_string (behavior));
 
 			// Notify observers that a new election started (while still holding the lock to avoid races)
@@ -355,7 +354,7 @@ void nano::active_elections::erase_election (nano::unique_lock<nano::mutex> & lo
 
 	node.logger.debug (nano::log::type::active_elections, "Erased election for root: {} with blocks: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
 	election->qualified_root,
-	fmt::join (election->blocks_hashes (), ", "), // TODO: Lazy eval
+	nano::log::as_election_hashes (*election),
 	to_string (election->behavior ()),
 	to_string (transition.previous),
 	election->voter_count (),
@@ -634,7 +633,7 @@ void nano::active_elections::checkup_elections (nano::unique_lock<nano::mutex> &
 				node.stats.inc (nano::stat::type::active_elections, nano::stat::detail::cancel_checkup);
 				node.logger.debug (nano::log::type::active_elections, "Checkup cancelled election for root: {} with blocks: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
 				election->qualified_root,
-				fmt::join (election->blocks_hashes (), ", "), // TODO: Lazy eval
+				nano::log::as_election_hashes (*election),
 				to_string (election->behavior ()),
 				to_string (election->state ()),
 				election->voter_count (),
@@ -660,7 +659,7 @@ void nano::active_elections::checkup_elections (nano::unique_lock<nano::mutex> &
 			node.logger.debug (nano::log::type::active_elections, "Stale election for account: {} with root: {} blocks: {} (behavior: {}, state: {}, voters: {}, blocks: {}, duration: {}ms)",
 			election->account,
 			election->qualified_root,
-			fmt::join (election->blocks_hashes (), ", "), // TODO: Lazy eval
+			nano::log::as_election_hashes (*election),
 			to_string (election->behavior ()),
 			to_string (election->state ()),
 			election->voter_count (),
