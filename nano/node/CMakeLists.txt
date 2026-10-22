@@ -103,6 +103,8 @@ add_library(
   fair_queue.hpp
   fork_cache.hpp
   fork_cache.cpp
+  formatting.hpp
+  formatting.cpp
   fwd.hpp
   ipc/action_handler.hpp
   ipc/action_handler.cpp
