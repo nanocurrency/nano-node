@@ -204,9 +204,9 @@ public:
 	float size_log () const;
 	// Whether no peer is connected
 	bool empty () const;
-	// Removes a TCP channel from the container by its remote endpoint
+	// Closes and removes a TCP channel by its remote endpoint
 	void erase (nano::transport::channel const &);
-	// Adds the channel's peer to the exclusion list and removes the channel
+	// Adds the channel's peer to the exclusion list and disconnects it
 	void exclude (std::shared_ptr<nano::transport::channel> const & channel);
 
 	nano::container_info container_info () const;

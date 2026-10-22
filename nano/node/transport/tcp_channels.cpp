@@ -154,8 +154,25 @@ auto nano::transport::tcp_channels::create (const std::shared_ptr<nano::transpor
 
 void nano::transport::tcp_channels::erase (nano::tcp_endpoint const & endpoint_a)
 {
-	nano::lock_guard<nano::mutex> lock{ mutex };
-	channels.get<endpoint_tag> ().erase (endpoint_a);
+	// Close outside the lock like `close ()` and `purge ()`: closing joins the entry's tasks, which must not happen under the mutex or on an io thread
+	std::optional<channel_entry> entry;
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		auto & index = channels.get<endpoint_tag> ();
+		if (auto it = index.find (endpoint_a); it != index.end ())
+		{
+			entry = *it;
+			index.erase (it);
+		}
+	}
+	if (entry)
+	{
+		node.logger.debug (nano::log::type::tcp_channels, "Removing channel: {}", entry->channel);
+
+		entry->socket->close ();
+		entry->server->close ();
+		entry->channel->close ();
+	}
 }
 
 std::size_t nano::transport::tcp_channels::size () const
