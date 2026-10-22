@@ -78,8 +78,6 @@ TEST (bootstrap, profile)
 	config_server.bandwidth_limit = 0; // Unlimited server bandwidth
 	config_server.bootstrap->enable = false;
 	nano::node_flags flags_server;
-	flags_server.disable_legacy_bootstrap = true;
-	flags_server.disable_wallet_bootstrap = true;
 	flags_server.disable_add_initial_peers = true;
 	flags_server.disable_ongoing_bootstrap = true;
 	auto data_path_server = nano::working_path (network);
@@ -92,8 +90,6 @@ TEST (bootstrap, profile)
 	config_client.preconfigured_peers.clear ();
 	config_client.bandwidth_limit = 0; // Unlimited server bandwidth
 	nano::node_flags flags_client;
-	flags_client.disable_legacy_bootstrap = true;
-	flags_client.disable_wallet_bootstrap = true;
 	flags_client.disable_add_initial_peers = true;
 	flags_client.disable_ongoing_bootstrap = true;
 	config_client.ipc_config->transport_tcp.enabled = true;
