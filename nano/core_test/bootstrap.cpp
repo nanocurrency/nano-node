@@ -90,7 +90,6 @@ TEST (bootstrap, account_inductive)
 TEST (bootstrap, trace_base)
 {
 	nano::node_flags flags;
-	flags.disable_legacy_bootstrap = true;
 	nano::test::system system{ 1, nano::transport::transport_type::tcp, flags };
 	auto & node0 = *system.nodes[0];
 	nano::keypair key;
@@ -131,7 +130,6 @@ TEST (bootstrap, priority_filters_known_blocks)
 	nano::test::system system;
 
 	nano::node_flags flags;
-	flags.disable_legacy_bootstrap = true;
 
 	nano::node_config config;
 	// Isolate the priority strategy from the other block-producing strategies
@@ -183,7 +181,6 @@ TEST (bootstrap, frontier_scan)
 	nano::test::system system;
 
 	nano::node_flags flags;
-	flags.disable_legacy_bootstrap = true;
 	flags.disable_elections = true; // Disable election schedulers
 	nano::node_config config;
 	// Disable other bootstrap strategies
@@ -278,7 +275,6 @@ TEST (bootstrap, frontier_scan_pending)
 	nano::test::system system;
 
 	nano::node_flags flags;
-	flags.disable_legacy_bootstrap = true;
 	flags.disable_elections = true; // Disable election schedulers
 	nano::node_config config;
 	// Disable other bootstrap strategies
@@ -359,7 +355,6 @@ TEST (bootstrap, frontier_scan_cannot_prioritize)
 	nano::test::system system;
 
 	nano::node_flags flags;
-	flags.disable_legacy_bootstrap = true;
 	flags.disable_elections = true; // Disable election schedulers
 	nano::node_config config;
 	// Disable other bootstrap strategies

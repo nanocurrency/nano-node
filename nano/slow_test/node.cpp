@@ -1902,12 +1902,7 @@ TEST (node, aggressive_flooding)
 	nano::test::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
-	node_flags.disable_bootstrap_bulk_push_client = true;
-	node_flags.disable_bootstrap_bulk_pull_server = true;
 	node_flags.disable_bootstrap_listener = true;
-	node_flags.disable_lazy_bootstrap = true;
-	node_flags.disable_legacy_bootstrap = true;
-	node_flags.disable_wallet_bootstrap = true;
 	nano::node_config node_config;
 	node_config.bootstrap->enable = false;
 	auto & node1 (*system.add_node (node_config, node_flags));

@@ -972,12 +972,7 @@ TEST (network, purge_dead_channel)
 
 	nano::node_flags flags;
 	// Disable non realtime sockets
-	flags.disable_bootstrap_bulk_push_client = true;
-	flags.disable_bootstrap_bulk_pull_server = true;
 	flags.disable_bootstrap_listener = true;
-	flags.disable_lazy_bootstrap = true;
-	flags.disable_legacy_bootstrap = true;
-	flags.disable_wallet_bootstrap = true;
 
 	auto & node1 = *system.add_node (flags);
 
@@ -1022,12 +1017,7 @@ TEST (network, purge_dead_channel_remote)
 
 	nano::node_flags flags;
 	// Disable non realtime sockets
-	flags.disable_bootstrap_bulk_push_client = true;
-	flags.disable_bootstrap_bulk_pull_server = true;
 	flags.disable_bootstrap_listener = true;
-	flags.disable_lazy_bootstrap = true;
-	flags.disable_legacy_bootstrap = true;
-	flags.disable_wallet_bootstrap = true;
 
 	auto & node1 = *system.add_node (flags);
 	auto & node2 = *system.add_node (flags);
