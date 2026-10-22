@@ -267,25 +267,3 @@ TEST (tcp_channels, reachout)
 	ASSERT_TIMELY (5s, node1.network.empty ());
 	ASSERT_TRUE (node1.network.track_reachout (outer_node2_endpoint));
 }
-
-// This test is similar to network.filter_invalid_version_using with the difference that
-// this one checks for the channel's connection to get stopped when an incoming message
-// is from an outdated node version.
-TEST (tcp_channels, depeer_on_outdated_version)
-{
-	nano::test::system system{ 2 };
-	auto & node1 = *system.nodes[0];
-	auto & node2 = *system.nodes[1];
-
-	// find the comms channel that goes from node2 to node1
-	auto channel = node2.network.find_node_id (node1.get_node_id ());
-	ASSERT_NE (nullptr, channel);
-
-	// send a keepalive, from node2 to node1, with the wrong version_using
-	nano::messages::keepalive keepalive{ nano::dev::network_params.network };
-	const_cast<uint8_t &> (keepalive.header.version_using) = nano::dev::network_params.network.protocol_version_min - 1;
-	ASSERT_TIMELY (5s, channel->alive ());
-	channel->send (keepalive, nano::transport::traffic_type::test);
-
-	ASSERT_TIMELY (5s, !channel->alive ());
-}
