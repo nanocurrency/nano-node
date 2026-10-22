@@ -10,6 +10,7 @@ add_executable(
   async.cpp
   backend.cpp
   backlog.cpp
+  bandwidth_limiter.cpp
   block.cpp
   block_store.cpp
   block_processor.cpp
