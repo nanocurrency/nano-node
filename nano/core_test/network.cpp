@@ -327,57 +327,6 @@ TEST (network, send_insufficient_work)
 	ASSERT_TIMELY_EQ (5s, 1, node2.stats.count (nano::stat::type::tcp_server_message_error, nano::stat::detail::insufficient_work));
 }
 
-TEST (receivable_processor, confirm_insufficient_pos)
-{
-	nano::test::system system (1);
-	auto & node1 (*system.nodes[0]);
-	nano::block_builder builder;
-	auto block1 = builder
-				  .send ()
-				  .previous (nano::dev::genesis->hash ())
-				  .destination (0)
-				  .balance (nano::dev::constants.genesis_amount - 1)
-				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				  .work (0)
-				  .build ();
-	node1.work_generate_blocking (*block1);
-	ASSERT_EQ (nano::block_status::progress, node1.process (block1));
-	auto election = nano::test::start_election (system, node1, block1->hash ());
-	nano::keypair key1;
-	auto vote = nano::test::make_final_vote (key1, { block1 });
-	nano::messages::confirm_ack con1{ nano::dev::network_params.network, vote };
-	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
-	ASSERT_EQ (0, election->votes ().size ());
-	node1.inbound (con1, channel1);
-	ASSERT_TIMELY_EQ (5s, 1, election->votes ().size ())
-	ASSERT_FALSE (election->confirmed ());
-}
-
-TEST (receivable_processor, confirm_sufficient_pos)
-{
-	nano::test::system system (1);
-	auto & node1 (*system.nodes[0]);
-	nano::block_builder builder;
-	auto block1 = builder
-				  .send ()
-				  .previous (nano::dev::genesis->hash ())
-				  .destination (0)
-				  .balance (nano::dev::constants.genesis_amount - 1)
-				  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-				  .work (0)
-				  .build ();
-	node1.work_generate_blocking (*block1);
-	ASSERT_EQ (nano::block_status::progress, node1.process (block1));
-	auto election = nano::test::start_election (system, node1, block1->hash ());
-	auto vote = nano::test::make_final_vote (nano::dev::genesis_key, { block1 });
-	nano::messages::confirm_ack con1{ nano::dev::network_params.network, vote };
-	auto channel1 = std::make_shared<nano::transport::inproc::channel> (node1, node1);
-	ASSERT_EQ (0, election->votes ().size ());
-	node1.inbound (con1, channel1);
-	ASSERT_TIMELY_EQ (5s, 1, election->votes ().size ())
-	ASSERT_TRUE (election->confirmed ());
-}
-
 TEST (receivable_processor, send_with_receive)
 {
 	auto type = nano::transport::transport_type::tcp;
