@@ -1,3 +1,5 @@
+#include <nano/lib/stream.hpp>
+#include <nano/node/endpoint.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -141,4 +143,73 @@ TEST (network_functions, map_ipv6_address_to_subnetwork)
 	auto subnetwork = nano::transport::map_address_to_subnetwork (addr);
 	// Assuming a /32 subnet mask for IPv6
 	ASSERT_EQ (subnetwork.to_string (), "2001:db8::");
+}
+
+TEST (parse_endpoint, valid)
+{
+	std::string string ("::1:24000");
+	nano::endpoint endpoint;
+	ASSERT_FALSE (nano::parse_endpoint (string, endpoint));
+	ASSERT_EQ (boost::asio::ip::address_v6::loopback (), endpoint.address ());
+	ASSERT_EQ (24000, endpoint.port ());
+}
+
+TEST (parse_endpoint, invalid_port)
+{
+	std::string string ("::1:24a00");
+	nano::endpoint endpoint;
+	ASSERT_TRUE (nano::parse_endpoint (string, endpoint));
+}
+
+TEST (parse_endpoint, invalid_address)
+{
+	std::string string ("::q:24000");
+	nano::endpoint endpoint;
+	ASSERT_TRUE (nano::parse_endpoint (string, endpoint));
+}
+
+TEST (parse_endpoint, no_address)
+{
+	std::string string (":24000");
+	nano::endpoint endpoint;
+	ASSERT_TRUE (nano::parse_endpoint (string, endpoint));
+}
+
+TEST (parse_endpoint, no_port)
+{
+	std::string string ("::1:");
+	nano::endpoint endpoint;
+	ASSERT_TRUE (nano::parse_endpoint (string, endpoint));
+}
+
+TEST (parse_endpoint, no_colon)
+{
+	std::string string ("::1");
+	nano::endpoint endpoint;
+	ASSERT_TRUE (nano::parse_endpoint (string, endpoint));
+}
+
+TEST (network_functions, ipv6)
+{
+	boost::asio::ip::address_v6 address (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"));
+	ASSERT_TRUE (address.is_v4_mapped ());
+	nano::endpoint endpoint1 (address, 16384);
+	std::vector<uint8_t> bytes1;
+	{
+		nano::vectorstream stream (bytes1);
+		nano::write (stream, address.to_bytes ());
+	}
+	ASSERT_EQ (16, bytes1.size ());
+	for (auto i (bytes1.begin ()), n (bytes1.begin () + 10); i != n; ++i)
+	{
+		ASSERT_EQ (0, *i);
+	}
+	ASSERT_EQ (0xff, bytes1[10]);
+	ASSERT_EQ (0xff, bytes1[11]);
+	std::array<uint8_t, 16> bytes2;
+	nano::bufferstream stream (bytes1.data (), bytes1.size ());
+	auto error (nano::try_read (stream, bytes2));
+	ASSERT_FALSE (error);
+	nano::endpoint endpoint2 (boost::asio::ip::address_v6 (bytes2), 16384);
+	ASSERT_EQ (endpoint1, endpoint2);
 }
