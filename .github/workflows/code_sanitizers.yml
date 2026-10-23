@@ -12,7 +12,7 @@ env:
 jobs:
   linux_sanitizers:
     name: Linux [${{ matrix.SANITIZER.name }}] [${{ matrix.BACKEND }} | ${{ matrix.COMPILER }}] ${{ matrix.SANITIZER.ignore_errors && ' (Errors Ignored)' || '' }}
-    timeout-minutes: 120
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -87,7 +87,7 @@ jobs:
 
   macos_sanitizers:
     name: macOS [${{ matrix.SANITIZER.name }}] [${{ matrix.BACKEND }} | ${{ matrix.COMPILER }}] ${{ matrix.SANITIZER.ignore_errors && ' (Errors Ignored)' || '' }}
-    timeout-minutes: 120
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:

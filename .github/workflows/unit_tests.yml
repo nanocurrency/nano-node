@@ -10,6 +10,7 @@ env:
 jobs:
   macos_test:
     name: macOS [${{ matrix.BACKEND }}]
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -71,7 +72,7 @@ jobs:
 
   linux_test:
     name: Linux [${{ matrix.BACKEND }} | ${{ matrix.COMPILER }}]
-    timeout-minutes: 90
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
