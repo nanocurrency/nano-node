@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/lib/asio.hpp>
 #include <nano/lib/fwd.hpp>
 #include <nano/messages/common.hpp>
 #include <nano/messages/fwd.hpp>

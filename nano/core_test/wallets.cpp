@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <fstream>
 #include <future>
 #include <thread>
 

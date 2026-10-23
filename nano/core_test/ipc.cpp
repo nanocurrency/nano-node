@@ -10,6 +10,7 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <chrono>

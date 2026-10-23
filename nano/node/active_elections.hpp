@@ -1,10 +1,10 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
+#include <nano/lib/fwd.hpp>
 #include <nano/lib/interval.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/observer_set.hpp>
-#include <nano/lib/thread_pool.hpp>
 #include <nano/node/active_elections_index.hpp>
 #include <nano/node/election_behavior.hpp>
 #include <nano/node/election_status.hpp>
@@ -171,7 +171,7 @@ private:
 	std::thread thread;
 	std::thread checkup_thread;
 
-	nano::thread_pool workers;
+	std::unique_ptr<nano::thread_pool> workers;
 
 	nano::interval stale_interval;
 	nano::interval warning_interval;

@@ -2,15 +2,14 @@
 
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/stream.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/endpoint_key.hpp>
 #include <nano/store/block_w_sideband.hpp>
 
 #include <cstddef>
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace nano
 {
@@ -21,6 +20,7 @@ class account_delegator_by_weight_key;
 class account_receivable_by_amount_info;
 class account_receivable_by_amount_key;
 class block;
+class endpoint_key;
 class pending_info;
 class pending_key;
 class topo_key;

@@ -1,3 +1,4 @@
+#include <nano/lib/stats.hpp>
 #include <nano/node/bootstrap/frontier_scan_index.hpp>
 
 #include <boost/multiprecision/cpp_dec_float.hpp>

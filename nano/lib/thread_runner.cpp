@@ -5,6 +5,16 @@
 #include <iostream>
 #include <thread>
 
+namespace
+{
+boost::thread::attributes default_thread_attributes ()
+{
+	boost::thread::attributes attrs;
+	attrs.set_stack_size (8000000); // 8MB
+	return attrs;
+}
+}
+
 /*
  * thread_runner
  */
@@ -31,7 +41,7 @@ void nano::thread_runner::start ()
 
 	for (auto i = 0; i < num_threads; ++i)
 	{
-		threads.emplace_back (nano::thread_attributes::get_default (), [this] () {
+		threads.emplace_back (default_thread_attributes (), [this] () {
 			nano::thread_role::set (role);
 			try
 			{

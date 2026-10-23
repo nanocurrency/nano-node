@@ -4,7 +4,6 @@
 #include <nano/lib/timer.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/node/transport/fwd.hpp>
-#include <nano/node/transport/test_channel.hpp>
 #include <nano/secure/account_info.hpp>
 #include <nano/store/fwd.hpp>
 
