@@ -3,7 +3,7 @@
 #include <nano/lib/enum_util.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/threading.hpp>
+#include <nano/lib/thread_pool.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/block_rebroadcaster.hpp>
@@ -38,7 +38,7 @@ nano::active_elections::active_elections (nano::node & node_a, nano::ledger_noti
 	cementing_set{ cementing_set_a },
 	recently_confirmed{ config.confirmation_cache },
 	recently_cemented{ config.confirmation_cache },
-	workers{ 1, nano::thread_role::name::aec_notifications }
+	workers{ std::make_unique<nano::thread_pool> (1, nano::thread_role::name::aec_notifications) }
 {
 	// Cementing blocks might implicitly confirm dependent elections
 	cementing_set.batch_cemented.add ([this] (auto const & cemented) {
@@ -53,13 +53,13 @@ nano::active_elections::active_elections (nano::node & node_a, nano::ledger_noti
 			}
 		}
 
-		if (workers.queued_tasks () >= nano::queue_warning_threshold () && warning_interval.elapse (15s))
+		if (workers->queued_tasks () >= nano::queue_warning_threshold () && warning_interval.elapse (15s))
 		{
-			node.logger.warn (nano::log::type::active_elections, "Notification queue has {} tasks", workers.queued_tasks ());
+			node.logger.warn (nano::log::type::active_elections, "Notification queue has {} tasks", workers->queued_tasks ());
 		}
 
 		// Notify observers about cemented blocks on a background thread
-		workers.post ([this, results = std::move (results)] () {
+		workers->post ([this, results = std::move (results)] () {
 			auto transaction = node.ledger.tx_begin_read ();
 			for (auto const & [election, status, type, votes] : results)
 			{
@@ -111,7 +111,7 @@ nano::active_elections::~active_elections ()
 
 void nano::active_elections::start ()
 {
-	workers.start ();
+	workers->start ();
 
 	if (node.flags.disable_request_loop)
 	{
@@ -140,7 +140,7 @@ void nano::active_elections::stop ()
 	condition.notify_all ();
 	join_or_pass (thread);
 	join_or_pass (checkup_thread);
-	workers.stop ();
+	workers->stop ();
 
 	clear ();
 }
@@ -858,7 +858,7 @@ nano::container_info nano::active_elections::container_info () const
 
 	info.add ("recently_confirmed", recently_confirmed.container_info ());
 	info.add ("recently_cemented", recently_cemented.container_info ());
-	info.add ("workers", workers.container_info ());
+	info.add ("workers", workers->container_info ());
 
 	return info;
 }

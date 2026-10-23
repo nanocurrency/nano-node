@@ -1,3 +1,4 @@
+#include <nano/lib/asio.hpp>
 #include <nano/lib/object_stream.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/messages/message.hpp>

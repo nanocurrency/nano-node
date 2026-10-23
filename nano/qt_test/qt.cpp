@@ -21,6 +21,7 @@
 #include <boost/property_tree/json_parser.hpp>
 
 #include <algorithm>
+#include <fstream>
 #include <nano/qt_test/QTest>
 #include <thread>
 

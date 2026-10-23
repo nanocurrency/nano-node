@@ -39,6 +39,7 @@
 
 #include <gtest/gtest.h>
 
+#include <fstream>
 #include <numeric>
 #include <sstream>
 #include <string>

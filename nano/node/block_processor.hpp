@@ -1,13 +1,14 @@
 #pragma once
 
 #include <nano/lib/interval.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/node/block_context.hpp>
 #include <nano/node/block_source.hpp>
-#include <nano/node/fair_queue_traits.hpp>
+#include <nano/node/fair_queue.hpp>
 #include <nano/node/fwd.hpp>
 #include <nano/secure/common.hpp>
 
-#include <boost/thread.hpp>
+#include <boost/thread/thread.hpp>
 
 #include <any>
 #include <chrono>
