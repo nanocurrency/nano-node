@@ -5,6 +5,10 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <array>
+#include <vector>
+
 TEST (network_functions, reserved_address)
 {
 	// 0 port test
@@ -145,71 +149,86 @@ TEST (network_functions, map_ipv6_address_to_subnetwork)
 	ASSERT_EQ (subnetwork.to_string (), "2001:db8::");
 }
 
+/*
+ * Address and port split at the last colon, and a false result means the parse succeeded
+ */
 TEST (parse_endpoint, valid)
 {
-	std::string string ("::1:24000");
 	nano::endpoint endpoint;
-	ASSERT_FALSE (nano::parse_endpoint (string, endpoint));
+	ASSERT_FALSE (nano::parse_endpoint ("::1:24000", endpoint));
 	ASSERT_EQ (boost::asio::ip::address_v6::loopback (), endpoint.address ());
 	ASSERT_EQ (24000, endpoint.port ());
 }
 
+/*
+ * A port that is not a number fails the parse
+ */
 TEST (parse_endpoint, invalid_port)
 {
-	std::string string ("::1:24a00");
 	nano::endpoint endpoint;
-	ASSERT_TRUE (nano::parse_endpoint (string, endpoint));
+	ASSERT_TRUE (nano::parse_endpoint ("::1:24a00", endpoint));
 }
 
+/*
+ * An address that is not an IPv6 address fails the parse
+ */
 TEST (parse_endpoint, invalid_address)
 {
-	std::string string ("::q:24000");
 	nano::endpoint endpoint;
-	ASSERT_TRUE (nano::parse_endpoint (string, endpoint));
+	ASSERT_TRUE (nano::parse_endpoint ("::q:24000", endpoint));
 }
 
+/*
+ * An empty address before the separator fails the parse
+ */
 TEST (parse_endpoint, no_address)
 {
-	std::string string (":24000");
 	nano::endpoint endpoint;
-	ASSERT_TRUE (nano::parse_endpoint (string, endpoint));
+	ASSERT_TRUE (nano::parse_endpoint (":24000", endpoint));
 }
 
+/*
+ * An empty port after the separator fails the parse
+ */
 TEST (parse_endpoint, no_port)
 {
-	std::string string ("::1:");
 	nano::endpoint endpoint;
-	ASSERT_TRUE (nano::parse_endpoint (string, endpoint));
+	ASSERT_TRUE (nano::parse_endpoint ("::1:", endpoint));
 }
 
+/*
+ * An address alone fails, since its last colon is taken for the separator
+ */
 TEST (parse_endpoint, no_colon)
 {
-	std::string string ("::1");
 	nano::endpoint endpoint;
-	ASSERT_TRUE (nano::parse_endpoint (string, endpoint));
+	ASSERT_TRUE (nano::parse_endpoint ("::1", endpoint));
 }
 
+/*
+ * A v4-mapped address serializes as the sixteen bytes of its IPv6 form, ten zeros, two 0xff and the four IPv4 bytes, and reads back into the same endpoint
+ */
 TEST (network_functions, ipv6)
 {
-	boost::asio::ip::address_v6 address (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"));
+	auto const address = boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1");
 	ASSERT_TRUE (address.is_v4_mapped ());
-	nano::endpoint endpoint1 (address, 16384);
-	std::vector<uint8_t> bytes1;
+	nano::endpoint const endpoint (address, 16384);
+
+	// The bytes written are the IPv6 layout of the mapped address
+	std::vector<uint8_t> bytes;
 	{
-		nano::vectorstream stream (bytes1);
+		nano::vectorstream stream (bytes);
 		nano::write (stream, address.to_bytes ());
 	}
-	ASSERT_EQ (16, bytes1.size ());
-	for (auto i (bytes1.begin ()), n (bytes1.begin () + 10); i != n; ++i)
-	{
-		ASSERT_EQ (0, *i);
-	}
-	ASSERT_EQ (0xff, bytes1[10]);
-	ASSERT_EQ (0xff, bytes1[11]);
-	std::array<uint8_t, 16> bytes2;
-	nano::bufferstream stream (bytes1.data (), bytes1.size ());
-	auto error (nano::try_read (stream, bytes2));
-	ASSERT_FALSE (error);
-	nano::endpoint endpoint2 (boost::asio::ip::address_v6 (bytes2), 16384);
-	ASSERT_EQ (endpoint1, endpoint2);
+	ASSERT_EQ (16, bytes.size ());
+	ASSERT_TRUE (std::all_of (bytes.begin (), bytes.begin () + 10, [] (uint8_t byte) { return byte == 0; }));
+	ASSERT_EQ (0xff, bytes[10]);
+	ASSERT_EQ (0xff, bytes[11]);
+	ASSERT_EQ ((std::vector<uint8_t>{ 127, 0, 0, 1 }), std::vector<uint8_t> (bytes.begin () + 12, bytes.end ()));
+
+	// Reading them back gives the endpoint that was written
+	std::array<uint8_t, 16> read;
+	nano::bufferstream stream (bytes.data (), bytes.size ());
+	ASSERT_FALSE (nano::try_read (stream, read));
+	ASSERT_EQ (endpoint, nano::endpoint (boost::asio::ip::address_v6 (read), 16384));
 }

@@ -104,18 +104,23 @@ TEST (inproc, send_callback)
 	ASSERT_EQ (size, keepalive.to_bytes ()->size ());
 }
 
+/*
+ * A channel from a node to itself is a loopback channel reporting the node's own endpoint, protocol version and node id, with the endpoint fixed when the channel is made
+ */
 TEST (inproc, loopback_channel)
 {
-	nano::test::system system (2);
-	auto & node1 = *system.nodes[0];
-	auto & node2 = *system.nodes[1];
-	nano::transport::inproc::channel channel1 (node1, node1);
-	ASSERT_EQ (channel1.get_type (), nano::transport::transport_type::loopback);
-	ASSERT_EQ (channel1.get_remote_endpoint (), node1.network.endpoint ());
-	ASSERT_EQ (channel1.get_network_version (), node1.network_params.network.protocol_version);
-	ASSERT_EQ (channel1.get_node_id (), node1.get_node_id ());
-	ASSERT_EQ (channel1.get_node_id_optional ().value_or (0), node1.get_node_id ());
-	nano::transport::inproc::channel channel2 (node2, node2);
-	++node1.network.port;
-	ASSERT_NE (channel1.get_remote_endpoint (), node1.network.endpoint ());
+	nano::test::system system{ 1 };
+	auto & node = *system.nodes[0];
+	nano::transport::inproc::channel channel{ node, node };
+
+	// Everything the channel reports is the node's own
+	ASSERT_EQ (nano::transport::transport_type::loopback, channel.get_type ());
+	ASSERT_EQ (node.network.endpoint (), channel.get_remote_endpoint ());
+	ASSERT_EQ (node.network_params.network.protocol_version, channel.get_network_version ());
+	ASSERT_EQ (node.get_node_id (), channel.get_node_id ());
+	ASSERT_EQ (node.get_node_id (), channel.get_node_id_optional ().value_or (0));
+
+	// The endpoint was taken when the channel was made, a port change on the node does not reach it
+	++node.network.port;
+	ASSERT_NE (node.network.endpoint (), channel.get_remote_endpoint ());
 }
