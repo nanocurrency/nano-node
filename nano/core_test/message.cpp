@@ -998,7 +998,7 @@ TEST (message, node_id_handshake_response_v3_serialization)
 	nano::messages::node_id_handshake::response_payload::v3_payload v3_pld{};
 	v3_pld.salt = 17;
 	v3_pld.genesis = nano::block_hash{ 13 };
-	v3_pld.flags = nano::node_capabilities_flags{ nano::node_capabilities::topo_index } | nano::node_capabilities::vote_storage;
+	v3_pld.flags = nano::node_capabilities_flags{ nano::node_capabilities::topo_index } | nano::node_capabilities::vote_relay;
 	response.ext = v3_pld;
 
 	nano::messages::node_id_handshake original{ nano::dev::network_params.network, std::nullopt, response };
