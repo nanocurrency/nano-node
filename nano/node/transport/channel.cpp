@@ -53,6 +53,11 @@ bool nano::transport::channel::send_buffer_as_message (nano::shared_const_buffer
 	return send_impl (*message, traffic_type, std::move (callback));
 }
 
+bool nano::transport::channel::has_capability (nano::node_capabilities capability) const
+{
+	return peer.capabilities.test (capability);
+}
+
 void nano::transport::channel::set_peering_endpoint (nano::endpoint endpoint)
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };

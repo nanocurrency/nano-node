@@ -9,10 +9,11 @@ namespace nano
 {
 enum class node_capabilities : uint64_t
 {
-	none = 0,
-	topo_index = 1ULL << 0,
-	vote_storage = 1ULL << 1,
-	no_ledger = 1ULL << 2, // Set when this node does not maintain a ledger
+	none = 0, // No capabilities advertised
+	topo_index = 1ULL << 0, // Serves topological bootstrap requests
+	// 1ULL << 1 is reserved
+	no_ledger = 1ULL << 2, // Does not maintain a ledger
+	vote_relay = 1ULL << 3, // Serves vote relay requests
 };
 
 std::string_view to_string (node_capabilities);

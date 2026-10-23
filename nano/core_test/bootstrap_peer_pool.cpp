@@ -83,7 +83,7 @@ TEST_F (bootstrap_peer_pool, acquire_balances_load_and_enforces_capacity)
 TEST_F (bootstrap_peer_pool, capabilities_and_exclusions)
 {
 	auto topo_channel = make_channel ({ 1 }, nano::node_capabilities::topo_index);
-	auto vote_channel = make_channel ({ 2 }, nano::node_capabilities::vote_storage);
+	auto vote_channel = make_channel ({ 2 }, nano::node_capabilities::vote_relay);
 	pool.update ({ topo_channel, vote_channel });
 
 	nano::bootstrap::peer_requirements topo_requirements{ nano::node_capabilities::topo_index };
@@ -93,7 +93,7 @@ TEST_F (bootstrap_peer_pool, capabilities_and_exclusions)
 	ASSERT_EQ (nano::account{ 1 }, topo.node_id);
 
 	nano::bootstrap::peer_requirements required;
-	required.capabilities = nano::node_capabilities_flags{ nano::node_capabilities::topo_index } | nano::node_capabilities::vote_storage;
+	required.capabilities = nano::node_capabilities_flags{ nano::node_capabilities::topo_index } | nano::node_capabilities::vote_relay;
 	ASSERT_EQ (nano::bootstrap::peer_acquire_status::no_peers, pool.acquire (required).status);
 	ASSERT_FALSE (pool.has_candidate (required));
 
