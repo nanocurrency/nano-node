@@ -6,7 +6,8 @@ add_executable(
   ledger.cpp
   message_sending.cpp
   stats.cpp
-  vote_processing.cpp)
+  vote_processing.cpp
+  vote_routing.cpp)
 
 target_link_libraries(benchmarks test_common benchmark::benchmark)
 
