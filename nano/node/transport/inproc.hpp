@@ -15,6 +15,7 @@ namespace transport
 		class channel final : public nano::transport::channel
 		{
 		public:
+			// Sends from `node` to `destination`, which it reports as its peer
 			explicit channel (nano::node & node, nano::node & destination);
 
 			std::string to_string () const override;
