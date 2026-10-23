@@ -964,53 +964,38 @@ TEST (network, fill_keepalive_self)
 	ASSERT_TIMELY_EQ (5s, get_keepalive (system.node (0))[2].port (), system.nodes[1]->network.port);
 }
 
+/*
+ * Peers whose channels died are reconnected from the peer history cache
+ */
 TEST (network, reconnect_cached)
 {
 	nano::test::system system;
-
-	nano::node_flags flags;
-	// Disable non realtime sockets
-	flags.disable_bootstrap_bulk_push_client = true;
-	flags.disable_bootstrap_bulk_pull_server = true;
-	flags.disable_bootstrap_listener = true;
-	flags.disable_lazy_bootstrap = true;
-	flags.disable_legacy_bootstrap = true;
-	flags.disable_wallet_bootstrap = true;
-
-	auto & node1 = *system.add_node (flags);
-	auto & node2 = *system.add_node (flags);
-
-	ASSERT_EQ (node1.network.size (), 1);
-	ASSERT_EQ (node2.network.size (), 1);
-
-	auto channels1 = node1.network.list ();
-	auto channels2 = node2.network.list ();
-	ASSERT_EQ (channels1.size (), 1);
-	ASSERT_EQ (channels2.size (), 1);
-	auto channel1 = channels1.front ();
-	auto channel2 = channels2.front ();
-
-	// Ensure current peers are cached
-	node1.peer_history.trigger ();
-	node2.peer_history.trigger ();
-	ASSERT_TIMELY_EQ (5s, node1.peer_history.size (), 1);
-	ASSERT_TIMELY_EQ (5s, node2.peer_history.size (), 1);
-
-	// Kill channels
-	channel1->close ();
-	channel2->close ();
-
-	auto channel_exists = [] (auto & node, auto & channel) {
-		auto channels = node.network.list ();
+	auto & node1 = *system.add_node ();
+	auto & node2 = *system.add_node ();
+	ASSERT_EQ (1, node1.network.size ());
+	ASSERT_EQ (1, node2.network.size ());
+	auto const channel1 = node1.network.list ().front ();
+	auto const channel2 = node2.network.list ().front ();
+	auto const has_channel = [] (nano::node & node, std::shared_ptr<nano::transport::channel> const & channel) {
+		auto const channels = node.network.list ();
 		return std::find (channels.begin (), channels.end (), channel) != channels.end ();
 	};
 
-	ASSERT_TIMELY (5s, !channel_exists (node1, channel1));
-	ASSERT_TIMELY (5s, !channel_exists (node2, channel2));
+	// Each node caches its one peer
+	node1.peer_history.trigger ();
+	node2.peer_history.trigger ();
+	ASSERT_TIMELY_EQ (5s, 1, node1.peer_history.size ());
+	ASSERT_TIMELY_EQ (5s, 1, node2.peer_history.size ());
 
-	// Peers should reconnect after a while
-	ASSERT_TIMELY_EQ (5s, node1.network.size (), 1);
-	ASSERT_TIMELY_EQ (5s, node2.network.size (), 1);
+	// Both channels are closed and drop out of the containers
+	channel1->close ();
+	channel2->close ();
+	ASSERT_TIMELY (5s, !has_channel (node1, channel1));
+	ASSERT_TIMELY (5s, !has_channel (node2, channel2));
+
+	// The cached reachout brings the two back together
+	ASSERT_TIMELY_EQ (5s, 1, node1.network.size ());
+	ASSERT_TIMELY_EQ (5s, 1, node2.network.size ());
 	ASSERT_TRUE (node1.network.find_node_id (node2.get_node_id ()));
 	ASSERT_TRUE (node2.network.find_node_id (node1.get_node_id ()));
 }
@@ -1132,7 +1117,9 @@ TEST (network, flood_vote)
 	ASSERT_EQ (1, node.network.flood_vote_pr (vote));
 }
 
-// Verify that disable_reachout flag prevents all reachout threads from starting
+/*
+ * The reachout flags keep every reachout loop from starting, while a node without them runs all three
+ */
 TEST (network, disable_reachout)
 {
 	nano::test::system system;
@@ -1140,14 +1127,17 @@ TEST (network, disable_reachout)
 	flags.disable_reachout = true;
 	flags.disable_reachout_preconfigured = true;
 	auto & node = *system.add_node (flags);
+	auto & control = *system.make_disconnected_node ();
 
-	// Wait a bit for any background activity
-	WAIT (1s);
+	// The control node, started second, has been round each loop at least once
+	ASSERT_TIMELY (5s, control.stats.count (nano::stat::type::network, nano::stat::detail::loop_reachout) >= 1);
+	ASSERT_TIMELY (5s, control.stats.count (nano::stat::type::network, nano::stat::detail::loop_reachout_cached) >= 1);
+	ASSERT_TIMELY (5s, control.stats.count (nano::stat::type::network, nano::stat::detail::loop_reachout_preconfigured) >= 1);
 
-	// No reachout should have occurred
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::reachout_live));
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::reachout_cached));
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::reachout_preconfigured));
+	// The flagged node, started first, has been round none
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::loop_reachout));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::loop_reachout_cached));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::loop_reachout_preconfigured));
 }
 
 /*
@@ -1274,4 +1264,45 @@ TEST (network, sample_non_pr)
 		ASSERT_GT (entry.second, rounds / 2 * 8 / 10);
 		ASSERT_LT (entry.second, rounds / 2 * 12 / 10);
 	}
+}
+
+/*
+ * A reachout resolves the address and connects to it, calling back with the endpoint, and a reachout to a peer already connected sends it a keepalive instead
+ */
+TEST (network, reachout)
+{
+	nano::test::system system;
+	// A long keepalive period leaves the keepalive sent on connect and the reachout's as the only ones, with the rep crawler off since its reachout trigger wakes the keepalive loop too
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	nano::node_config node_config = system.default_config ();
+	node_config.network_params.network.keepalive_period = 10min;
+	auto & node = *system.add_node (node_config, flags);
+	nano::node_config peer_config = system.default_config ();
+	peer_config.network_params.network.keepalive_period = 10min;
+	auto peer = system.make_disconnected_node (peer_config, flags);
+	auto const port = peer->network.port.load ();
+	auto const received = [&peer] () {
+		return peer->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in);
+	};
+
+	// The first reachout connects and reports the endpoint it reached
+	std::atomic<bool> called{ false };
+	nano::tcp_endpoint reached;
+	std::error_code error;
+	node.network.reachout ("::1", port, [&] (nano::tcp_endpoint const & endpoint, std::error_code ec) {
+		reached = endpoint;
+		error = ec;
+		called = true;
+	});
+	ASSERT_TIMELY (5s, called);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (port, reached.port ());
+	ASSERT_TIMELY (5s, node.network.find_node_id (peer->get_node_id ()));
+	ASSERT_TIMELY_EQ (5s, 1, received ());
+
+	// A reachout to the connected peer sends a keepalive down the existing channel and opens no second one
+	node.network.reachout ("::1", port);
+	ASSERT_TIMELY_EQ (5s, 2, received ());
+	ASSERT_EQ (1, node.network.size ());
 }
