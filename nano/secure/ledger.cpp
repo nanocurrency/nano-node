@@ -585,7 +585,10 @@ nano::rep_weight_map nano::ledger::rep_weights_snapshot () const
 {
 	if (!bootstrap_height_reached ())
 	{
-		return bootstrap_weights.representatives;
+		nano::rep_weight_map result;
+		result.reserve (bootstrap_weights.representatives.size ());
+		result.insert (bootstrap_weights.representatives.begin (), bootstrap_weights.representatives.end ());
+		return result;
 	}
 	else
 	{

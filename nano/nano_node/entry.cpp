@@ -207,7 +207,7 @@ int main (int argc, char * const * argv)
 				auto const ledger_unfiltered = node->ledger.rep_weights.get_all ();
 				auto const ledger_height = node->ledger.block_count ();
 
-				auto get_total = [] (decltype (bootstrap_weights.representatives) const & reps) -> nano::uint128_union {
+				auto get_total = [] (auto const & reps) -> nano::uint128_union {
 					return std::accumulate (reps.begin (), reps.end (), nano::uint128_t{ 0 }, [] (auto sum, auto const & rep) { return sum + rep.second; });
 				};
 
