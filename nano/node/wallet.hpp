@@ -250,6 +250,8 @@ private: // Internal implementation methods (accept transactions for batching sc
 	nano::public_key deterministic_insert_impl (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &, bool generate_work = true);
 	// Inserts the account at an explicit index, leaving the stored index untouched
 	nano::public_key deterministic_insert_impl (nano::store::write_transaction const &, nano::wallet::wallet_cipher const &, uint32_t index, bool generate_work = true);
+	// Adds a newly inserted account to the local representatives and refreshes the key cache when it has voting weight, returns true if it did
+	bool register_representative (nano::account const &);
 	// Caches work for an account, discarding it if the root is no longer the account frontier
 	void work_update_impl (nano::store::write_transaction const &, nano::account const & account, nano::root const & root, uint64_t work);
 	// Receives confirmed receivables above the receive minimum and starts elections for unconfirmed ones, returns true if the wallet is locked
@@ -384,6 +386,7 @@ public:
 
 	nano::kdf kdf;
 
+	// Guards items, taken after a wallet write transaction and before a wallet read transaction
 	mutable nano::mutex mutex;
 	mutable nano::mutex action_mutex;
 	nano::condition_variable condition;
@@ -403,6 +406,7 @@ private:
 	void run_reps_scan ();
 	void run_receivable_scan ();
 	bool check_rep_impl (wallet_representatives &, nano::account const &, nano::uint128_t const & half_principal_weight);
+	// Caller holds mutex
 	bool exists_impl (nano::store::transaction const &, nano::account const &);
 	void refresh_rep_index ();
 	void refresh_rep_keys_cache ();
