@@ -9,12 +9,15 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <memory>
 
 using namespace std::chrono_literals;
 
-// A node never reaches out to its own endpoint, and a connection forced to it fails the handshake on its own node id
+/*
+ * A node never reaches out to its own endpoint, and a connection forced to it fails the handshake on its own node id
+ */
 TEST (tcp_channels, no_self_incoming)
 {
 	nano::test::system system{ 1 };
@@ -31,108 +34,124 @@ TEST (tcp_channels, no_self_incoming)
 	ASSERT_TRUE (node.network.empty ());
 }
 
-// Reserved addresses are not peers, public ones are
+/*
+ * Addresses from the reserved ranges are not peers, a public one is
+ */
 TEST (tcp_channels, reserved_ip_is_not_a_peer)
 {
 	nano::test::system system{ 1 };
-	auto not_a_peer = [&node = system.nodes[0]] (nano::endpoint endpoint_a) -> bool {
-		return node->network.not_a_peer (endpoint_a);
+	auto & node = *system.nodes[0];
+	auto const not_a_peer = [&node] (uint32_t address) {
+		return node.network.not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (address)), 10000)));
 	};
 
-	// The return value as true means an error because the IP address is for reserved use
-	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0x00000001)), 10000))));
-	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xc0000201)), 10000))));
-	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xc6336401)), 10000))));
-	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xcb007101)), 10000))));
-	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xe9fc0001)), 10000))));
-	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xf0000001)), 10000))));
-	ASSERT_TRUE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0xffffffff)), 10000))));
+	// One address each from this network, the three documentation nets, multicast and the reserved 240/4 block up to broadcast
+	for (auto const address : { 0x00000001u, 0xc0000201u, 0xc6336401u, 0xcb007101u, 0xe9fc0001u, 0xf0000001u, 0xffffffffu })
+	{
+		ASSERT_TRUE (not_a_peer (address));
+	}
 
-	// Test with a valid IP address
-	ASSERT_FALSE (not_a_peer (nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address (boost::asio::ip::address_v4 (0x08080808)), 10000))));
+	// A public address is a peer
+	ASSERT_FALSE (not_a_peer (0x08080808u));
 }
 
-// Verify loopback-only mode rejects public peers before any reachout is attempted.
+/*
+ * With non loopback peers disabled, loopback endpoints are peers and a public one is refused before any reachout
+ */
 TEST (tcp_channels, disable_non_loopback_peers)
 {
+	nano::test::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_non_loopback_peers = true;
-
-	nano::test::system system;
 	auto & node = *system.add_node (node_flags);
+	// A loopback port other than the node's own, since port zero is reserved and the node's own endpoint is refused on its own account
+	auto const loopback_port = node.network.endpoint ().port () == 10000 ? 10001 : 10000;
+	auto const loopback = nano::endpoint (boost::asio::ip::address_v6::loopback (), loopback_port);
+	auto const v4_loopback = nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address_v4::loopback (), loopback_port));
+	auto const public_peer = nano::endpoint (boost::asio::ip::make_address_v6 ("2001:4860:4860::8888"), 10000);
 
-	// Use a concrete non-self loopback endpoint: port 0 is reserved, and self endpoints are rejected separately
-	auto loopback_port = node.network.endpoint ().port () == 10000 ? 10001 : 10000;
-	auto loopback = nano::endpoint (boost::asio::ip::address_v6::loopback (), loopback_port);
-	auto v4_loopback = nano::transport::map_endpoint_to_v6 (nano::endpoint (boost::asio::ip::address_v4::loopback (), loopback_port));
-	auto public_peer = nano::endpoint (boost::asio::ip::make_address_v6 ("2001:4860:4860::8888"), 10000);
-
+	// Both loopback forms are peers, the public address is not
 	ASSERT_FALSE (node.network.not_a_peer (loopback));
 	ASSERT_FALSE (node.network.not_a_peer (v4_loopback));
 	ASSERT_TRUE (node.network.not_a_peer (public_peer));
 
+	// Reachout tracking draws the same line
 	ASSERT_FALSE (node.network.track_reachout (public_peer));
 	ASSERT_TRUE (node.network.track_reachout (loopback));
 	ASSERT_TRUE (node.network.track_reachout (v4_loopback));
 }
 
+/*
+ * With no peers random_fill blanks every slot
+ */
 TEST (tcp_channels, fill_random_clear)
 {
 	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+	nano::endpoint const unspecified{ boost::asio::ip::address_v6::any (), 0 };
+
+	// Every slot comes back unspecified, the filler included
 	std::array<nano::endpoint, 8> target;
 	std::fill (target.begin (), target.end (), nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
-	system.nodes[0]->network.random_fill (target);
-	ASSERT_TRUE (std::all_of (target.begin (), target.end (), [] (nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::any (), 0); }));
+	node.network.random_fill (target);
+	ASSERT_TRUE (std::all_of (target.begin (), target.end (), [&unspecified] (auto const & slot) { return slot == unspecified; }));
 }
 
-// Test all targets get replaced by random_fill
+/*
+ * With at least as many peers as slots, random_fill overwrites every slot with a peer's endpoint
+ */
 TEST (tcp_channels, fill_random_full)
 {
 	nano::test::system system{ 1 };
+	auto & node = *system.nodes[0];
 
-	// create 8 peer nodes so that the random_fill is completely filled with real connection data
-	for (int i = 0; i < 8; ++i)
+	// Eight peers, one per slot
+	for (auto i = 0; i < 8; ++i)
 	{
-		auto outer_node = nano::test::add_outer_node (system);
-		ASSERT_NE (nullptr, nano::test::establish_tcp (system, *system.nodes[0], outer_node->network.endpoint ()));
+		auto const outer_node = nano::test::add_outer_node (system);
+		ASSERT_NE (nullptr, nano::test::establish_tcp (system, node, outer_node->network.endpoint ()));
 	}
-	ASSERT_TIMELY_EQ (5s, 8, system.nodes[0]->network.tcp_channels.size ());
+	ASSERT_TIMELY_EQ (5s, 8, node.network.size ());
 
-	// create an array of 8 endpoints with a known filler value
-	auto filler_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000);
+	// No slot keeps its filler
+	auto const filler = nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000);
 	std::array<nano::endpoint, 8> target;
-	std::fill (target.begin (), target.end (), filler_endpoint);
-
-	// random fill target array with endpoints taken from the network connections
-	system.nodes[0]->network.random_fill (target);
-
-	// check that all element in target got overwritten
-	auto is_filler = [&filler_endpoint] (nano::endpoint const & endpoint_a) {
-		return endpoint_a == filler_endpoint;
-	};
-	ASSERT_TRUE (std::none_of (target.begin (), target.end (), is_filler));
+	std::fill (target.begin (), target.end (), filler);
+	node.network.random_fill (target);
+	ASSERT_TRUE (std::none_of (target.begin (), target.end (), [&filler] (auto const & slot) { return slot == filler; }));
 }
 
-// Test only the known channels are filled
+/*
+ * With fewer peers than slots, random_fill puts the peers first and blanks the rest
+ */
 TEST (tcp_channels, fill_random_part)
 {
 	nano::test::system system{ 1 };
+	auto & node = *system.nodes[0];
 	std::array<nano::endpoint, 8> target;
-	std::size_t half = target.size () / 2;
+	auto const half = target.size () / 2;
+	auto const filler = nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000);
+	nano::endpoint const unspecified{ boost::asio::ip::address_v6::any (), 0 };
+
+	// Four peers for eight slots
 	for (std::size_t i = 0; i < half; ++i)
 	{
-		auto outer_node = nano::test::add_outer_node (system);
-		ASSERT_NE (nullptr, nano::test::establish_tcp (system, *system.nodes[0], outer_node->network.endpoint ()));
+		auto const outer_node = nano::test::add_outer_node (system);
+		ASSERT_NE (nullptr, nano::test::establish_tcp (system, node, outer_node->network.endpoint ()));
 	}
-	ASSERT_EQ (half, system.nodes[0]->network.tcp_channels.size ());
-	std::fill (target.begin (), target.end (), nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
-	system.nodes[0]->network.random_fill (target);
-	ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [] (nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000); }));
-	ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [] (nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::loopback (), 0); }));
-	ASSERT_TRUE (std::all_of (target.begin () + half, target.end (), [] (nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::any (), 0); }));
+	ASSERT_EQ (half, node.network.size ());
+
+	// The first four slots hold a peer each, with its real port, the last four are unspecified
+	std::fill (target.begin (), target.end (), filler);
+	node.network.random_fill (target);
+	ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [&filler] (auto const & slot) { return slot == filler; }));
+	ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [] (auto const & slot) { return slot == nano::endpoint (boost::asio::ip::address_v6::loopback (), 0); }));
+	ASSERT_TRUE (std::all_of (target.begin () + half, target.end (), [&unspecified] (auto const & slot) { return slot == unspecified; }));
 }
 
-// The fanout never drops below the configured minimum and follows the natural log of the peer count above it
+/*
+ * The fanout never drops below the configured minimum and follows the natural log of the peer count above it
+ */
 TEST (tcp_channels, fanout)
 {
 	nano::test::system system;
@@ -162,7 +181,9 @@ TEST (tcp_channels, fanout)
 	ASSERT_EQ (3, node.network.list (node.network.fanout (2.0f)).size ());
 }
 
-// A reachout attempt is recorded once per endpoint, never for a connected peer, and again only once cleanup has purged the old attempt
+/*
+ * A reachout attempt is recorded once per endpoint, never for a connected peer, and again only once cleanup has purged the old attempt
+ */
 TEST (tcp_channels, reachout)
 {
 	nano::test::system system;
@@ -198,7 +219,9 @@ TEST (tcp_channels, reachout)
 	ASSERT_TRUE (node1.network.track_reachout (outer_node2_endpoint));
 }
 
-// The keepalive sweep wakes a channel idle for a keepalive period with a keepalive and leaves one that sent recently alone
+/*
+ * The keepalive sweep wakes a channel idle for a keepalive period with a keepalive and leaves one that sent recently alone
+ */
 TEST (tcp_channels, keepalive_idle)
 {
 	nano::test::system system;
