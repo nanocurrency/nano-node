@@ -1,3 +1,4 @@
+#include <nano/lib/config_file.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/ipc/ipc_access_config.hpp>
 

@@ -16,6 +16,7 @@
 
 #include <boost/asio/use_future.hpp>
 
+#include <algorithm>
 #include <memory>
 #include <ranges>
 

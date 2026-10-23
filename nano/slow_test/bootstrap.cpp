@@ -22,6 +22,7 @@
 
 #include <gtest/gtest.h>
 
+#include <iostream>
 #include <thread>
 
 using namespace std::chrono_literals;

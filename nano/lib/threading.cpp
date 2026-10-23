@@ -3,6 +3,7 @@
 #include <nano/lib/thread_roles.hpp>
 #include <nano/lib/threading.hpp>
 
+#include <iostream>
 #include <thread>
 
 /*

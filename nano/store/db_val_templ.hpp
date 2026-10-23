@@ -12,6 +12,8 @@
 #include <nano/secure/pending_info.hpp>
 #include <nano/store/db_val.hpp>
 
+#include <algorithm>
+
 namespace nano::store
 {
 // Constructor implementations

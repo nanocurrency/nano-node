@@ -4,6 +4,7 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/block_rebroadcaster.hpp>
 #include <nano/node/cementing_set.hpp>

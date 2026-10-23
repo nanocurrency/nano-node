@@ -2,6 +2,7 @@
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_roles.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/block_processor.hpp>
 #include <nano/node/cementing_set.hpp>
 #include <nano/node/ledger_notifications.hpp>
