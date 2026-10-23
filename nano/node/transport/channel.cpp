@@ -133,9 +133,14 @@ nano::node_capabilities_flags nano::transport::channel::get_flags () const
 	return peer.capabilities;
 }
 
+bool nano::transport::channel::has_capability (nano::node_capabilities capability) const
+{
+	return peer.capabilities.test (capability);
+}
+
 bool nano::transport::channel::serves_ledger () const
 {
-	return !get_flags ().test (nano::node_capabilities::no_ledger);
+	return !has_capability (nano::node_capabilities::no_ledger);
 }
 
 std::chrono::steady_clock::time_point nano::transport::channel::get_last_packet_received () const
