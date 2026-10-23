@@ -500,7 +500,7 @@ TEST (tcp_server, handshake_flags_exchanged)
 	auto node1 = system.add_node (flags1);
 
 	nano::node_flags flags2;
-	flags2.capabilities_override = nano::node_capabilities_flags{ nano::node_capabilities::vote_storage };
+	flags2.capabilities_override = nano::node_capabilities_flags{ nano::node_capabilities::vote_relay };
 	auto node2 = system.add_node (flags2);
 
 	node1->network.merge_peer (node2->network.endpoint ());
@@ -508,17 +508,17 @@ TEST (tcp_server, handshake_flags_exchanged)
 	ASSERT_TIMELY (10s, node1->network.find_node_id (node2->get_node_id ()));
 	ASSERT_TIMELY (10s, node2->network.find_node_id (node1->get_node_id ()));
 
-	// node1's channel to node2 should carry node2's capabilities (vote_storage)
+	// node1's channel to node2 should carry node2's capabilities (vote_relay)
 	auto chan1 = node1->network.find_node_id (node2->get_node_id ());
 	ASSERT_TRUE (chan1);
-	ASSERT_TRUE (chan1->get_flags ().test (nano::node_capabilities::vote_storage));
-	ASSERT_FALSE (chan1->get_flags ().test (nano::node_capabilities::topo_index));
+	ASSERT_TRUE (chan1->has_capability (nano::node_capabilities::vote_relay));
+	ASSERT_FALSE (chan1->has_capability (nano::node_capabilities::topo_index));
 
 	// node2's channel to node1 should carry node1's capabilities (topo_index)
 	auto chan2 = node2->network.find_node_id (node1->get_node_id ());
 	ASSERT_TRUE (chan2);
-	ASSERT_TRUE (chan2->get_flags ().test (nano::node_capabilities::topo_index));
-	ASSERT_FALSE (chan2->get_flags ().test (nano::node_capabilities::vote_storage));
+	ASSERT_TRUE (chan2->has_capability (nano::node_capabilities::topo_index));
+	ASSERT_FALSE (chan2->has_capability (nano::node_capabilities::vote_relay));
 
 	ASSERT_EQ (node1->stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort), 0);
 	ASSERT_EQ (node2->stats.count (nano::stat::type::tcp_server, nano::stat::detail::handshake_abort), 0);
@@ -545,13 +545,13 @@ TEST (tcp_server, handshake_peering_only_flag)
 	// node1's channel to the peering-only node2 reports it as not serving a ledger
 	auto chan1 = node1->network.find_node_id (node2->get_node_id ());
 	ASSERT_TRUE (chan1);
-	ASSERT_TRUE (chan1->get_flags ().test (nano::node_capabilities::no_ledger));
+	ASSERT_TRUE (chan1->has_capability (nano::node_capabilities::no_ledger));
 	ASSERT_FALSE (chan1->serves_ledger ());
 
 	// node2's channel to the full node1 reports it as serving a ledger
 	auto chan2 = node2->network.find_node_id (node1->get_node_id ());
 	ASSERT_TRUE (chan2);
-	ASSERT_FALSE (chan2->get_flags ().test (nano::node_capabilities::no_ledger));
+	ASSERT_FALSE (chan2->has_capability (nano::node_capabilities::no_ledger));
 	ASSERT_TRUE (chan2->serves_ledger ());
 }
 
