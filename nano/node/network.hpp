@@ -2,7 +2,6 @@
 
 #include <nano/lib/constants.hpp>
 #include <nano/lib/fwd.hpp>
-#include <nano/lib/interval.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/network_filter.hpp>
 #include <nano/messages/fwd.hpp>
@@ -153,13 +152,6 @@ public:
 	// Sends the channel a keepalive carrying this node's own endpoints
 	void send_keepalive_self (std::shared_ptr<nano::transport::channel> const &) const;
 
-	// Resolves the address and connects to each of its endpoints that has no channel yet
-	void reachout (std::string const & address, uint16_t port, nano::transport::connect_callback callback = noop<nano::transport::connect_callback> ());
-	// Reaches out to every preconfigured peer
-	void reachout_preconfigured ();
-	// Makes the run loop reach out to the preconfigured peers now instead of at the next interval
-	void trigger_reachout ();
-
 	// Connects to each endpoint of a keepalive that is worth reaching out to
 	void merge_peers (std::array<nano::endpoint, 8> const & ips);
 	// Connects to the endpoint if it is worth reaching out to, true when an attempt was started
@@ -230,9 +222,6 @@ public: // Handshake
 private:
 	void run_cleanup ();
 	void run_keepalive ();
-	void run_reachout ();
-	void run_reachout_cached ();
-	void run_reachout_preconfigured ();
 
 private: // Dependencies
 	network_config const & config;
@@ -251,29 +240,11 @@ public: // Callbacks
 	std::function<void ()> disconnect_observer{ [] () {} };
 
 private:
-	nano::interval_mt reachout_preconfigured_interval;
-
-	// Rate limits per-peer logs from preconfigured reachout attempts
-	struct reachout_preconfigured_log
-	{
-		std::chrono::steady_clock::time_point last_success{};
-		std::chrono::steady_clock::time_point last_failure{};
-
-		bool should_log (bool success);
-	};
-	nano::locked<std::unordered_map<std::string, reachout_preconfigured_log>> reachout_preconfigured_logs;
-
-private:
 	std::atomic<bool> stopped{ false };
 	mutable nano::mutex mutex;
 	nano::condition_variable condition;
-	// Set by a reachout trigger and cleared by the preconfigured reachout loop, under mutex
-	bool reachout_preconfigured_triggered{ false };
 	std::thread cleanup_thread;
 	std::thread keepalive_thread;
-	std::thread reachout_thread;
-	std::thread reachout_cached_thread;
-	std::thread reachout_preconfigured_thread;
 
 public:
 	static std::size_t const buffer_size = 512;
