@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/assert.hpp>
 #include <nano/lib/fwd.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/relaxed_atomic.hpp>

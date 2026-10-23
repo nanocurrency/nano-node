@@ -10,7 +10,6 @@
 #include <nano/messages/keepalive.hpp>
 #include <nano/node/bandwidth_limiter.hpp>
 #include <nano/node/endpoint.hpp>
-#include <nano/node/transport/tcp_socket.hpp>
 #include <nano/node/transport/traffic_type.hpp>
 
 #include <boost/asio/ip/network_v6.hpp>
