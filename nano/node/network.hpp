@@ -267,6 +267,8 @@ private:
 	std::atomic<bool> stopped{ false };
 	mutable nano::mutex mutex;
 	nano::condition_variable condition;
+	// Set by a reachout trigger and cleared by the preconfigured reachout loop, under mutex
+	bool reachout_preconfigured_triggered{ false };
 	std::thread cleanup_thread;
 	std::thread keepalive_thread;
 	std::thread reachout_thread;

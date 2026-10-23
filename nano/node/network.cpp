@@ -142,7 +142,7 @@ void nano::network::run_cleanup ()
 	{
 		std::chrono::seconds const interval = node.network_params.network.is_dev_network () ? 1s : 5s;
 
-		condition.wait_for (lock, interval);
+		condition.wait_for (lock, interval, [this] { return stopped.load (); });
 		if (stopped)
 		{
 			return;
@@ -171,7 +171,7 @@ void nano::network::run_keepalive ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		condition.wait_for (lock, node.network_params.network.keepalive_period);
+		condition.wait_for (lock, node.network_params.network.keepalive_period, [this] { return stopped.load (); });
 		if (stopped)
 		{
 			return;
@@ -194,7 +194,7 @@ void nano::network::run_reachout ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		condition.wait_for (lock, node.network_params.network.merge_period);
+		condition.wait_for (lock, node.network_params.network.merge_period, [this] { return stopped.load (); });
 		if (stopped)
 		{
 			return;
@@ -231,7 +231,7 @@ void nano::network::run_reachout_cached ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		condition.wait_for (lock, node.network_params.network.merge_period);
+		condition.wait_for (lock, node.network_params.network.merge_period, [this] { return stopped.load (); });
 		if (stopped)
 		{
 			return;
@@ -265,11 +265,12 @@ void nano::network::run_reachout_preconfigured ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		condition.wait_for (lock, 1s);
+		condition.wait_for (lock, 1s, [this] { return stopped.load () || reachout_preconfigured_triggered; });
 		if (stopped)
 		{
 			return;
 		}
+		reachout_preconfigured_triggered = false;
 		lock.unlock ();
 
 		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_reachout_preconfigured);
@@ -291,6 +292,10 @@ void nano::network::trigger_reachout ()
 {
 	node.stats.inc (nano::stat::type::network, nano::stat::detail::trigger_reachout);
 	reachout_preconfigured_interval.reset ();
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		reachout_preconfigured_triggered = true;
+	}
 	condition.notify_all ();
 }
 
