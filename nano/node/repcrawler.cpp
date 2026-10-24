@@ -437,6 +437,17 @@ bool nano::rep_crawler::process (std::shared_ptr<nano::vote> const & vote, std::
 	return false;
 }
 
+std::shared_ptr<nano::transport::channel> nano::rep_crawler::find (nano::account const & account) const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	auto & by_account = reps.get<tag_account> ();
+	if (auto existing = by_account.find (account); existing != by_account.end ())
+	{
+		return existing->channel;
+	}
+	return nullptr;
+}
+
 nano::uint128_t nano::rep_crawler::total_weight () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
@@ -451,7 +462,7 @@ nano::uint128_t nano::rep_crawler::total_weight () const
 	return result;
 }
 
-std::vector<nano::representative> nano::rep_crawler::representatives (std::size_t count, nano::uint128_t const minimum_weight, std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version) const
+std::deque<nano::representative> nano::rep_crawler::representatives (std::size_t count, nano::uint128_t const minimum_weight, std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version) const
 {
 	auto const version_min = minimum_protocol_version.value_or (node.network_params.network.protocol_version_min);
 
@@ -472,8 +483,7 @@ std::vector<nano::representative> nano::rep_crawler::representatives (std::size_
 		return lhs.first > rhs.first;
 	});
 
-	std::vector<nano::representative> result;
-	result.reserve (std::min (count, weighted.size ()));
+	std::deque<nano::representative> result;
 	for (auto const & [weight, rep] : weighted)
 	{
 		if (result.size () == count)
@@ -502,7 +512,7 @@ nano::transport::channel_list nano::rep_crawler::principal_channels () const
 	return result;
 }
 
-std::vector<nano::representative> nano::rep_crawler::principal_representatives (std::size_t count, std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version) const
+std::deque<nano::representative> nano::rep_crawler::principal_representatives (std::size_t count, std::optional<decltype (nano::network_constants::protocol_version)> const & minimum_protocol_version) const
 {
 	return representatives (count, node.minimum_principal_weight (), minimum_protocol_version);
 }
