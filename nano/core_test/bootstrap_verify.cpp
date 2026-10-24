@@ -331,3 +331,30 @@ TEST (bootstrap_verify, blocks_random_duplicate)
 	response.blocks = { blocks.front (), blocks.front () }; // Same block returned twice
 	ASSERT_EQ (verify (response, query), verify_result::invalid);
 }
+
+/*
+ * A single block that is not an echo of the requested start is not mistaken for nothing new.
+ * One block answers a pull by a hash it does not carry; the echo rule only applies when that one block is the start itself, so this is a start mismatch and invalid.
+ */
+TEST (bootstrap_verify, blocks_single_mismatch)
+{
+	auto chain = make_chain (1);
+	blocks_query query{ .account = chain.front ()->account_field ().value (), .start = nano::block_hash{ 12345 }, .count = 128, .type = query_type::blocks_by_hash };
+	nano::messages::asc_pull_ack::blocks_payload response;
+	response.blocks = chain;
+	ASSERT_EQ (verify (response, query), verify_result::invalid);
+}
+
+/*
+ * A pull by account accepts a chain whose first block belongs to that account.
+ * The query names the chain's own account; the first block carries it in its account field and the rest links up, so the response is ok.
+ */
+TEST (bootstrap_verify, blocks_by_account_ok)
+{
+	auto chain = make_chain (3);
+	auto const account = chain.front ()->account_field ().value ();
+	blocks_query query{ .account = account, .start = account, .count = 128, .type = query_type::blocks_by_account };
+	nano::messages::asc_pull_ack::blocks_payload response;
+	response.blocks = chain;
+	ASSERT_EQ (verify (response, query), verify_result::ok);
+}

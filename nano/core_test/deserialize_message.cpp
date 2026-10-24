@@ -52,6 +52,25 @@ std::string invalid_status (nano::messages::message_type type)
 	return "invalid_" + std::string{ nano::messages::to_string (type) } + "_message";
 }
 
+// Serialized asc_pull_req of type blocks_random naming the given hashes, header included
+std::vector<uint8_t> serialize_blocks_random_request (std::deque<nano::block_hash> const & hashes)
+{
+	nano::messages::asc_pull_req request{ nano::dev::network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::blocks_random;
+	request.payload = nano::messages::asc_pull_req::blocks_random_payload{ .hashes = hashes };
+	request.update_header ();
+	return *request.to_bytes ();
+}
+
+// Parses `payload` as the body of an asc_pull_req whose header announces exactly that length
+nano::deserialize_message_result parse_asc_pull_req_payload (std::vector<uint8_t> const & payload)
+{
+	nano::messages::message_header header{ nano::dev::network_params.network, nano::messages::message_type::asc_pull_req };
+	header.extensions = std::bitset<16> (payload.size ());
+	return nano::deserialize_message_payload (nano::buffer_view{ payload }, header, nano::dev::network_params.network);
+}
+
 // State block with enough work to pass the work check
 std::shared_ptr<nano::block> make_block (nano::work_pool & pool)
 {
@@ -858,4 +877,80 @@ TEST (deserialize_message, publish_not_a_block)
 	auto [message, status] = nano::deserialize_message (serialize_header (header), network);
 	ASSERT_EQ (message, nullptr);
 	ASSERT_EQ (status, nano::deserialize_message_status::invalid_header);
+}
+
+/*
+ * A blocks random request carrying more hashes than the limit parses with the first max_hashes of them and the rest left unread.
+ * A full request gets two more hashes spliced in before its zero terminator; the parsed request holds exactly max_hashes hashes, the first ones in wire order.
+ */
+TEST (deserialize_message_payload, asc_pull_blocks_random_over_limit)
+{
+	auto const limit = nano::messages::asc_pull_req::blocks_random_payload::max_hashes;
+	std::deque<nano::block_hash> hashes;
+	while (hashes.size () < limit)
+	{
+		hashes.push_back (nano::test::random_hash ());
+	}
+	auto const bytes = serialize_blocks_random_request (hashes);
+	std::vector<uint8_t> payload (bytes.begin () + nano::messages::message_header::size, bytes.end ());
+
+	// Two more hashes go in front of the zero terminator, which is the last hash on the wire
+	for (int n = 0; n < 2; ++n)
+	{
+		auto const extra = nano::test::random_hash ();
+		payload.insert (payload.end () - sizeof (nano::block_hash), extra.bytes.begin (), extra.bytes.end ());
+	}
+
+	auto [message, status] = parse_asc_pull_req_payload (payload);
+	ASSERT_EQ (status, nano::deserialize_message_status::success);
+	ASSERT_NE (message, nullptr);
+
+	// Exactly the limit is kept, and it is the hashes that came first
+	auto const & request = dynamic_cast<nano::messages::asc_pull_req const &> (*message);
+	auto const & parsed = std::get<nano::messages::asc_pull_req::blocks_random_payload> (request.payload);
+	ASSERT_EQ (parsed.hashes.size (), limit);
+	ASSERT_EQ (parsed.hashes, hashes);
+}
+
+/*
+ * A blocks random request with exactly max_hashes hashes and no terminator is rejected.
+ * The parser reads one hash past the last accepted one to find the terminator, so a request cut right after the limit ends in a short read.
+ */
+TEST (deserialize_message_payload, asc_pull_blocks_random_missing_terminator)
+{
+	auto const limit = nano::messages::asc_pull_req::blocks_random_payload::max_hashes;
+	std::deque<nano::block_hash> hashes;
+	while (hashes.size () < limit)
+	{
+		hashes.push_back (nano::test::random_hash ());
+	}
+	auto const bytes = serialize_blocks_random_request (hashes);
+
+	// Drop the zero terminator, the last hash on the wire
+	std::vector<uint8_t> payload (bytes.begin () + nano::messages::message_header::size, bytes.end () - sizeof (nano::block_hash));
+
+	auto [message, status] = parse_asc_pull_req_payload (payload);
+	ASSERT_EQ (message, nullptr);
+	ASSERT_EQ (status, nano::deserialize_message_status::invalid_asc_pull_req_message);
+}
+
+/*
+ * A zero hash inside a blocks random request ends the list, as it is the terminator wherever it appears.
+ * Three hashes are sent with the second one zero; the parsed request holds only the first, and what follows counts as trailing data.
+ */
+TEST (deserialize_message_payload, asc_pull_blocks_random_embedded_terminator)
+{
+	std::deque<nano::block_hash> const hashes{ nano::test::random_hash (), nano::block_hash{ 0 }, nano::test::random_hash () };
+	auto const bytes = serialize_blocks_random_request (hashes);
+	std::vector<uint8_t> const payload (bytes.begin () + nano::messages::message_header::size, bytes.end ());
+
+	auto [message, status] = parse_asc_pull_req_payload (payload);
+	ASSERT_EQ (status, nano::deserialize_message_status::success);
+	ASSERT_NE (message, nullptr);
+
+	// Only the hash before the zero survives
+	auto const & request = dynamic_cast<nano::messages::asc_pull_req const &> (*message);
+	auto const & parsed = std::get<nano::messages::asc_pull_req::blocks_random_payload> (request.payload);
+	ASSERT_EQ (parsed.hashes.size (), 1);
+	ASSERT_EQ (parsed.hashes.front (), hashes.front ());
 }
