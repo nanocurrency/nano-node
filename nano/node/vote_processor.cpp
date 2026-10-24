@@ -191,12 +191,19 @@ void nano::vote_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
 
 	lock.unlock ();
 
+	nano::processed_votes_batch processed;
 	for (auto const & [entry, origin] : batch)
 	{
-		vote_blocking (entry);
+		auto const code = vote_blocking (entry);
+		if (code != nano::vote_code::invalid)
+		{
+			processed.push_back ({ entry, code });
+		}
 	}
 
 	total_processed += batch.size ();
+
+	batch_processed.notify (processed);
 
 	if (batch.size () == config.batch_size && timer.stop () > 100ms)
 	{
