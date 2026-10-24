@@ -10,6 +10,7 @@ add_executable(
   async.cpp
   backend.cpp
   backlog.cpp
+  bandwidth_limiter.cpp
   block.cpp
   block_store.cpp
   block_processor.cpp
@@ -71,9 +72,9 @@ add_executable(
   rep_crawler.cpp
   receivable.cpp
   peer_blocklist.cpp
+  peer_exclusion.cpp
   peer_history.cpp
   priority_pool.cpp
-  peer_container.cpp
   rep_tiers.cpp
   rep_weight_store.cpp
   rpc_host.cpp
@@ -83,6 +84,7 @@ add_executable(
   socket.cpp
   stacktrace.cpp
   system.cpp
+  tcp_channels.cpp
   tcp_listener.cpp
   tcp_server.cpp
   telemetry.cpp

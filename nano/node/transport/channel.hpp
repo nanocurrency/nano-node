@@ -63,17 +63,6 @@ public:
 		return true;
 	}
 
-	std::chrono::steady_clock::time_point get_last_bootstrap_attempt () const
-	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		return last_bootstrap_attempt;
-	}
-	void set_last_bootstrap_attempt (std::chrono::steady_clock::time_point const time_a)
-	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		last_bootstrap_attempt = time_a;
-	}
-
 	std::chrono::steady_clock::time_point get_last_packet_received () const
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
@@ -149,7 +138,6 @@ protected:
 	mutable nano::mutex mutex;
 
 private:
-	std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
 	std::chrono::steady_clock::time_point last_packet_received{ std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point last_packet_sent{ std::chrono::steady_clock::now () };
 	nano::transport::peer_info const peer;

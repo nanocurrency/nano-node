@@ -1376,3 +1376,68 @@ TEST (wallet, receive_pruned)
 	ASSERT_EQ (amount, node2.ledger.any.block_balance (node2.ledger.tx_begin_read (), open1->hash ()));
 	ASSERT_TIMELY_EQ (5s, node2.ledger.cemented_count (), 4);
 }
+
+/*
+ * Inserting a key whose account has a confirmed pending send into a wallet receives it, and both nodes end up with the same balances
+ */
+TEST (wallet, send_with_receive)
+{
+	nano::test::system system (2);
+	auto & node1 = *system.nodes[0];
+	auto & node2 = *system.nodes[1];
+	auto const amount = node1.config.receive_minimum.number ();
+	nano::keypair key;
+	// Genesis in the first wallet votes, which confirms the send so that it can be received
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	// A send of the receive minimum from genesis, processed on both nodes so neither waits for the other
+	nano::block_builder builder;
+	auto send = builder
+				.send ()
+				.previous (nano::dev::genesis->hash ())
+				.destination (key.pub)
+				.balance (nano::dev::constants.genesis_amount - amount)
+				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
+				.build ();
+	node1.process_active (send);
+	ASSERT_TIMELY (5s, nano::test::exists (node1, { send }));
+	// Its own copy, two block processors must not share one block object
+	node2.process_active (std::make_shared<nano::send_block> (*send));
+	ASSERT_TIMELY (5s, nano::test::exists (node2, { send }));
+
+	// Sent but not received, genesis is down by the amount and the destination still holds nothing
+	ASSERT_EQ (nano::dev::constants.genesis_amount - amount, node1.balance (nano::dev::genesis_key.pub));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - amount, node2.balance (nano::dev::genesis_key.pub));
+	ASSERT_EQ (0, node1.balance (key.pub));
+	ASSERT_EQ (0, node2.balance (key.pub));
+
+	// Inserting the key into the second node's wallet receives the send, and the receive reaches the first node
+	system.wallet (1)->insert_adhoc (key.prv);
+	ASSERT_TIMELY_EQ (10s, amount, node1.balance (key.pub));
+	ASSERT_TIMELY_EQ (10s, amount, node2.balance (key.pub));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - amount, node1.balance (nano::dev::genesis_key.pub));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - amount, node2.balance (nano::dev::genesis_key.pub));
+}
+
+/*
+ * An account received into a wallet opens with the wallet's representative, which gains the amount as voting weight on every node
+ */
+TEST (wallet, receive_weight_change)
+{
+	nano::test::system system (2);
+	auto & node1 = *system.nodes[0];
+	auto & node2 = *system.nodes[1];
+	auto const amount = node1.config.receive_minimum.number ();
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+
+	// The receiving wallet represents its accounts by the key itself
+	nano::keypair key;
+	system.wallet (1)->insert_adhoc (key.prv);
+	system.wallet (1)->set_representative (key.pub);
+
+	// Sending the receive minimum to the key opens its account and the weight lands on its representative
+	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, amount));
+	ASSERT_TIMELY_EQ (10s, amount, node1.weight (key.pub));
+	ASSERT_TIMELY_EQ (10s, amount, node2.weight (key.pub));
+}

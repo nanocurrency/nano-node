@@ -29,8 +29,6 @@ namespace nano::transport
 class tcp_channels final
 {
 	friend class tcp_channel;
-	friend class telemetry_simultaneous_requests_Test;
-	friend class network_peer_max_tcp_attempts_subnetwork_Test;
 
 public:
 	enum class channel_result
@@ -55,13 +53,11 @@ public:
 
 	create_result create (std::shared_ptr<nano::transport::tcp_socket> const &, std::shared_ptr<nano::transport::tcp_server> const &, nano::transport::peer_info const &);
 
+	// Closes and removes the channel at the endpoint, with its socket and server
 	void erase (nano::tcp_endpoint const &);
 	std::size_t size () const;
 	std::shared_ptr<nano::transport::tcp_channel> find_channel (nano::tcp_endpoint const &) const;
-	void random_fill (std::array<nano::endpoint, 8> &) const;
 	std::shared_ptr<nano::transport::tcp_channel> find_node_id (nano::account const &);
-	// Get the next peer for attempting a tcp connection
-	nano::tcp_endpoint bootstrap_peer ();
 	bool max_ip_connections (nano::tcp_endpoint const & endpoint);
 	bool max_subnetwork_connections (nano::tcp_endpoint const & endpoint);
 	bool max_ip_or_subnetwork_connections (nano::tcp_endpoint const & endpoint);
@@ -120,10 +116,6 @@ private:
 		{
 			return channel->get_remote_endpoint ();
 		}
-		std::chrono::steady_clock::time_point last_bootstrap_attempt () const
-		{
-			return channel->get_last_bootstrap_attempt ();
-		}
 		boost::asio::ip::address ip_address () const
 		{
 			return nano::transport::ipv4_address_or_ipv6_subnet (endpoint ().address ());
@@ -164,7 +156,6 @@ private:
 	class ip_address_tag {};
 	class subnetwork_tag {};
 	class random_access_tag {};
-	class last_bootstrap_attempt_tag {};
 	class last_attempt_tag {};
 	class node_id_tag {};
 	class version_tag {};
@@ -174,8 +165,6 @@ private:
 	boost::multi_index_container<channel_entry,
 	mi::indexed_by<
 		mi::random_access<mi::tag<random_access_tag>>,
-		mi::ordered_non_unique<mi::tag<last_bootstrap_attempt_tag>,
-			mi::const_mem_fun<channel_entry, std::chrono::steady_clock::time_point, &channel_entry::last_bootstrap_attempt>>,
 		mi::hashed_unique<mi::tag<endpoint_tag>,
 			mi::const_mem_fun<channel_entry, nano::tcp_endpoint, &channel_entry::endpoint>>,
 		mi::hashed_non_unique<mi::tag<node_id_tag>,

@@ -5,6 +5,7 @@
 #include <nano/messages/confirm.hpp>
 #include <nano/messages/keepalive.hpp>
 #include <nano/messages/publish.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/inproc.hpp>
 #include <nano/secure/network_params.hpp>
@@ -101,4 +102,39 @@ TEST (inproc, send_callback)
 	ASSERT_TIMELY (5s, called);
 	ASSERT_FALSE (result);
 	ASSERT_EQ (size, keepalive.to_bytes ()->size ());
+}
+
+/*
+ * A channel from a node to itself is a loopback channel reporting the node's own endpoint, protocol version and node id, with the endpoint fixed when the channel is made
+ */
+TEST (inproc, loopback_channel)
+{
+	nano::test::system system{ 1 };
+	auto & node = *system.nodes[0];
+	nano::transport::inproc::channel channel{ node, node };
+
+	// Everything the channel reports is the node's own
+	ASSERT_EQ (nano::transport::transport_type::loopback, channel.get_type ());
+	ASSERT_EQ (node.network.endpoint (), channel.get_remote_endpoint ());
+	ASSERT_EQ (node.network_params.network.protocol_version, channel.get_network_version ());
+	ASSERT_EQ (node.get_node_id (), channel.get_node_id ());
+	ASSERT_EQ (node.get_node_id (), channel.get_node_id_optional ().value_or (0));
+
+	// The endpoint was taken when the channel was made, a port change on the node does not reach it
+	++node.network.port;
+	ASSERT_NE (node.network.endpoint (), channel.get_remote_endpoint ());
+}
+
+/*
+ * A channel between two nodes reports the destination as its peer, not the node it sends from
+ */
+TEST (inproc, describes_destination)
+{
+	nano::test::system system{ 2 };
+	auto & node0 = *system.nodes[0];
+	auto & node1 = *system.nodes[1];
+	nano::transport::inproc::channel channel{ node0, node1 };
+
+	ASSERT_EQ (node1.get_node_id (), channel.get_node_id ());
+	ASSERT_NE (node0.get_node_id (), channel.get_node_id ());
 }

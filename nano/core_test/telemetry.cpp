@@ -489,3 +489,31 @@ TEST (telemetry, ongoing_broadcasts)
 	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::telemetry, nano::stat::detail::process) >= 3);
 	ASSERT_TIMELY (5s, node2.stats.count (nano::stat::type::telemetry, nano::stat::detail::process) >= 3)
 }
+
+// A well signed telemetry ack for another genesis strikes the peer off and disconnects it, on the thread that processes messages
+TEST (telemetry, genesis_mismatch_excludes_peer)
+{
+	nano::test::system system (2);
+	auto & node0 = *system.nodes[0];
+	auto & node1 = *system.nodes[1];
+	auto const channel0 = node0.network.find_node_id (node1.get_node_id ());
+	auto const channel1 = node1.network.find_node_id (node0.get_node_id ());
+	ASSERT_NE (nullptr, channel0);
+	ASSERT_NE (nullptr, channel1);
+	auto const endpoint = nano::transport::map_endpoint_to_tcp (channel0->get_remote_endpoint ());
+
+	// Signed by node1's node id, reporting another genesis
+	nano::messages::telemetry_data data;
+	data.node_id = node1.node_id.pub;
+	data.genesis_block = nano::block_hash{ 1 };
+	data.sign (node1.node_id);
+	nano::messages::telemetry_ack const ack{ nano::dev::network_params.network, data };
+	channel1->send (ack, nano::transport::traffic_type::telemetry);
+
+	// The exclusion runs before the mismatch is counted, so once it is counted the rest holds
+	ASSERT_TIMELY_EQ (5s, 1, node0.stats.count (nano::stat::type::telemetry, nano::stat::detail::genesis_mismatch));
+	ASSERT_EQ (1, node0.network.excluded_peers.score (endpoint));
+	ASSERT_FALSE (channel0->alive ());
+	auto const channels = node0.network.list ();
+	ASSERT_EQ (channels.end (), std::find (channels.begin (), channels.end (), channel0));
+}

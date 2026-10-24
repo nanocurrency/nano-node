@@ -1,6 +1,7 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/vote.hpp>
+#include <nano/messages/confirm.hpp>
 #include <nano/node/active_elections.hpp>
 #include <nano/node/backlog_scan.hpp>
 #include <nano/node/election.hpp>
@@ -10,6 +11,7 @@
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
+#include <nano/node/transport/inproc.hpp>
 #include <nano/node/vote_cache.hpp>
 #include <nano/node/vote_router.hpp>
 #include <nano/node/wallet.hpp>
@@ -896,4 +898,69 @@ TEST (election, evicted_fork_readmission_confirms)
 	node.process_active (fixture.evicted);
 	ASSERT_TIMELY (5s, fixture.election->confirmed ());
 	ASSERT_EQ (fixture.evicted->hash (), fixture.election->winner ()->hash ());
+}
+
+/*
+ * A final vote from a representative with no weight is recorded on the election but confirms nothing
+ */
+TEST (election, confirm_insufficient_pos)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	// A send from genesis with an election started for it
+	nano::block_builder builder;
+	auto block = builder
+				 .send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (0)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (block));
+	auto election = nano::test::start_election (system, node, block->hash ());
+	ASSERT_NE (nullptr, election);
+	ASSERT_EQ (0, election->votes ().size ());
+
+	// The vote arrives as a message over a loopback channel, from a key that holds nothing
+	nano::keypair weightless;
+	nano::messages::confirm_ack const message{ nano::dev::network_params.network, nano::test::make_final_vote (weightless, { block }) };
+	node.inbound (message, std::make_shared<nano::transport::inproc::channel> (node, node));
+
+	// Counted among the votes without confirming the election
+	ASSERT_TIMELY_EQ (5s, 1, election->votes ().size ());
+	ASSERT_FALSE (election->confirmed ());
+}
+
+/*
+ * A final vote from the representative holding the whole supply confirms the election by itself
+ */
+TEST (election, confirm_sufficient_pos)
+{
+	nano::test::system system (1);
+	auto & node = *system.nodes[0];
+
+	// A send from genesis with an election started for it
+	nano::block_builder builder;
+	auto block = builder
+				 .send ()
+				 .previous (nano::dev::genesis->hash ())
+				 .destination (0)
+				 .balance (nano::dev::constants.genesis_amount - 1)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
+				 .build ();
+	ASSERT_EQ (nano::block_status::progress, node.process (block));
+	auto election = nano::test::start_election (system, node, block->hash ());
+	ASSERT_NE (nullptr, election);
+	ASSERT_EQ (0, election->votes ().size ());
+
+	// The genesis key holds all the weight there is, so its final vote is quorum on its own
+	nano::messages::confirm_ack const message{ nano::dev::network_params.network, nano::test::make_final_vote (nano::dev::genesis_key, { block }) };
+	node.inbound (message, std::make_shared<nano::transport::inproc::channel> (node, node));
+
+	// Counted and enough to confirm
+	ASSERT_TIMELY_EQ (5s, 1, election->votes ().size ());
+	ASSERT_TRUE (election->confirmed ());
 }

@@ -1192,9 +1192,6 @@ int main (int argc, char * const * argv)
 
 			nano::node_flags flags;
 			nano::update_flags (flags, vm);
-			flags.disable_lazy_bootstrap = true;
-			flags.disable_legacy_bootstrap = true;
-			flags.disable_wallet_bootstrap = true;
 			flags.disable_bootstrap_listener = true;
 			auto node1 (std::make_shared<nano::node> (path1, config1, work, flags, 0));
 			nano::block_hash genesis_latest (node1->latest (nano::dev::genesis_key.pub));
