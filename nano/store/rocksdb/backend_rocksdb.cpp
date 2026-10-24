@@ -1,3 +1,5 @@
+#include <nano/lib/config.hpp>
+#include <nano/lib/env.hpp>
 #include <nano/lib/files.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/store/rocksdb/backend_rocksdb.hpp>
@@ -267,6 +269,8 @@ void backend_rocksdb::open_db (std::filesystem::path const & path, nano::store::
 ::rocksdb::ColumnFamilyOptions backend_rocksdb::get_cf_options (std::string const & cf_name) const
 {
 	::rocksdb::ColumnFamilyOptions cf_options;
+	// Speeds up opens in CI by skipping TransactionDB::Open's slow per-column-family SetOptions calls
+	cf_options.disable_auto_compactions = nano::is_dev_run () && nano::env::get<bool> ("NANO_ROCKSDB_DISABLE_AUTO_COMPACTION").value_or (false);
 	if (cf_name != ::rocksdb::kDefaultColumnFamilyName)
 	{
 		std::shared_ptr<::rocksdb::TableFactory> table_factory (::rocksdb::NewBlockBasedTableFactory (get_table_options ()));
