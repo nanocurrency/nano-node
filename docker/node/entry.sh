@@ -96,8 +96,13 @@ maybe_vacuum() {
 	if ((bytes > limit_bytes)); then
 		local size_gb=$((bytes / 1024 / 1024 / 1024))
 		log "Current ledger size: ${size_gb}GB (${bytes} bytes) is over threshold: ${limit_gb}GB. Vacuuming..."
-		nano_node --vacuum
-		log "Database vacuum completed"
+		if nano_node --vacuum; then
+			log "Database vacuum completed"
+		elif [[ -f "$db_file" ]]; then
+			log "Database vacuum failed, starting the node anyway"
+		else
+			die "Database vacuum failed and $db_file is missing. Restore it from backup.vacuum.ldb in the same directory before starting the node"
+		fi
 	fi
 }
 

@@ -2031,6 +2031,10 @@ int main (int argc, char * const * argv)
 			result = -1;
 		}
 	}
+	else if (ec)
+	{
+		result = 1;
+	}
 	return result;
 }
 
