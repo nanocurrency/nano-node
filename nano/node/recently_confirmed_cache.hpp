@@ -6,16 +6,16 @@
 #include <nano/node/election_status.hpp>
 #include <nano/secure/common.hpp>
 
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/member.hpp>
-#include <boost/multi_index/random_access_index.hpp>
-#include <boost/multi_index/sequenced_index.hpp>
-#include <boost/multi_index_container.hpp>
+#include <boost/unordered/unordered_flat_map.hpp>
 
-namespace mi = boost::multi_index;
+#include <vector>
 
 namespace nano
 {
+/**
+ * The most recently confirmed elections, found by root or by winner hash.
+ * Entries fill a ring of `max_size` slots, where a confirmation past the limit takes the oldest slot, and two flat maps lead from a root or a hash to its slot.
+ */
 class recently_confirmed_cache final
 {
 public:
@@ -24,8 +24,8 @@ public:
 	void put (nano::qualified_root const &, nano::block_hash const &, nano::election_status const &);
 	void erase (nano::block_hash const &);
 	void clear ();
-	std::size_t size () const;
 
+	std::size_t size () const;
 	bool contains (nano::qualified_root const &) const;
 	bool contains (nano::block_hash const &) const;
 
@@ -35,7 +35,6 @@ public:
 		uint32_t p90{ 0 };
 		uint32_t p99{ 0 };
 	};
-
 	latency_stats latency_percentiles () const;
 
 	nano::container_info container_info () const;
@@ -46,25 +45,19 @@ private:
 		nano::qualified_root root;
 		nano::block_hash hash;
 		nano::election_status status;
+		bool live{ false }; // Cleared by erase (), the slot stays taken until it is reused
 	};
 
-	// clang-format off
-	class tag_hash {};
-	class tag_root {};
-	class tag_sequenced {};
+	// Takes the entry in the slot out of both maps
+	void release (std::size_t slot);
 
-	using ordered_entries = boost::multi_index_container<entry,
-	mi::indexed_by<
-		mi::sequenced<mi::tag<tag_sequenced>>,
-		mi::hashed_unique<mi::tag<tag_root>,
-			mi::member<entry, nano::qualified_root, &entry::root>>,
-		mi::hashed_unique<mi::tag<tag_hash>,
-			mi::member<entry, nano::block_hash, &entry::hash>>>>;
-	// clang-format on
-	ordered_entries entries;
+	std::vector<entry> slots; // Grows to `max_size`, then the oldest slot is reused
+	std::size_t next{ 0 }; // Slot the next entry takes once the ring is full
+	std::size_t live{ 0 }; // Entries that were not erased
+	boost::unordered_flat_map<nano::qualified_root, std::size_t> by_root;
+	boost::unordered_flat_map<nano::block_hash, std::size_t> by_hash;
 
 	std::size_t const max_size;
-
 	mutable nano::mutex mutex;
 };
 }

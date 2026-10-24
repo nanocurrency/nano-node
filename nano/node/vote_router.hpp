@@ -6,11 +6,9 @@
 #include <nano/lib/vote.hpp>
 #include <nano/node/fwd.hpp>
 
+#include <boost/container/small_vector.hpp>
 #include <boost/container/static_vector.hpp>
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/member.hpp>
-#include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index_container.hpp>
+#include <boost/unordered/unordered_flat_map.hpp>
 
 #include <bitset>
 #include <condition_variable>
@@ -18,8 +16,6 @@
 #include <ranges>
 #include <shared_mutex>
 #include <thread>
-
-namespace mi = boost::multi_index;
 
 namespace nano
 {
@@ -151,27 +147,20 @@ private: // Dependencies
 private:
 	void run ();
 
+	// The election a hash is routed to, with the key of the election's claim
 	struct route
 	{
-		nano::block_hash hash;
 		std::weak_ptr<nano::election> election;
+		nano::election const * owner; // Key of the election's claim
 	};
 
-	// clang-format off
-	class tag_hash {};
-	class tag_election {};
+	// The election claiming each hash; a claim of an election that ended is swept by the thread
+	boost::unordered_flat_map<nano::block_hash, route> routes;
+	// The hashes routed to each election, so disconnecting an election visits its own routes only; inline room for a block and a fork of it
+	boost::unordered_flat_map<nano::election const *, boost::container::small_vector<nano::block_hash, 2>> claims;
 
-	using route_index = mi::multi_index_container<route,
-	mi::indexed_by<
-		mi::hashed_unique<mi::tag<tag_hash>,
-			mi::member<route, nano::block_hash, &route::hash>>,
-		mi::ordered_non_unique<mi::tag<tag_election>,
-			mi::member<route, std::weak_ptr<nano::election>, &route::election>,
-			std::owner_less<std::weak_ptr<nano::election>>>>
-	>;
-	// clang-format on
-	// Routes indexed by both block hash and election ownership
-	route_index routes;
+	// Takes `hash` out of the claim of `owner`, dropping the claim with its last hash
+	void release_claim (nano::election const * owner, nano::block_hash const & hash);
 
 	bool stopped{ false };
 	mutable std::shared_mutex mutex;

@@ -7,7 +7,8 @@ add_executable(
   message_sending.cpp
   rep_weights.cpp
   stats.cpp
-  vote_processing.cpp)
+  vote_processing.cpp
+  vote_routing.cpp)
 
 target_link_libraries(benchmarks test_common benchmark::benchmark)
 
