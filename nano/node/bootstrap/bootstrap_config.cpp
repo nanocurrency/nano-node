@@ -94,7 +94,7 @@ nano::error nano::topo_scan_config::serialize (nano::tomlconfig & toml) const
 	toml.put ("redundant_skip_stride", redundant_skip_stride, "Topo-height stride used when fast-forwarding after redundant spearhead pages. Use 0 to disable.\ntype:uint64");
 	toml.put ("cooldown", cooldown.count (), "Cooldown period between requests for a single scan head.\ntype:milliseconds");
 	toml.put ("max_buffered", max_buffered, "Scan back-pressure: pause all discovery while the fetch/submit buffer holds this many entries.\ntype:uint64");
-	toml.put ("fetch_batch", fetch_batch, "Number of block hashes requested per random blocks fetch (max 128).\ntype:uint64");
+	toml.put ("fetch_batch", fetch_batch, "Number of block hashes requested per random blocks fetch (max 128). A peer returns at most 100 blocks per fetch, skipping hashes it does not hold; each hash left out counts as a failed fetch round and is retried after fetch_cooldown. Values above 100 only pay off against peers that lack some of the requested blocks.\ntype:uint64");
 	toml.put ("max_fetch_attempts", max_fetch_attempts, "Demote a block to a tolerated gap after this many failed fetch rounds.\ntype:uint64");
 	toml.put ("fetch_cooldown", fetch_cooldown.count (), "Minimum time before retrying a block that was already requested.\ntype:milliseconds");
 	toml.put ("max_gaps", max_gaps, "Spearhead back-pressure: pause forward discovery while this many submitted blocks are stuck on missing dependencies.\ntype:uint64");

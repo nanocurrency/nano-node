@@ -59,7 +59,7 @@ public:
 	uint64_t redundant_skip_stride{ 10'000 }; // Topo-height stride to fast-forward after redundant_skip_threshold pages
 	std::chrono::milliseconds cooldown{ 1000 * 5 }; // Per-head cooldown between requests
 	std::size_t max_buffered{ 1000 * 40 }; // Scan back-pressure: pause all discovery while the buffer holds this many entries
-	std::size_t fetch_batch{ 128 }; // Hashes per blocks_random request (<= 128)
+	std::size_t fetch_batch{ nano::bootstrap_server::max_random_blocks }; // Hashes per blocks_random request (<= max_random_hashes); a peer returns at most max_random_blocks, leaving the rest for a retry
 	unsigned max_fetch_attempts{ 10 }; // Demote an entry to a tolerated gap after this many failed fetch rounds
 	std::chrono::milliseconds fetch_cooldown{ 1000 * 2 }; // Minimum time before retrying a requested entry
 	std::size_t max_gaps{ 1000 * 50 }; // Spearhead back-pressure: pause forward discovery while this many submitted blocks are stuck as gaps
