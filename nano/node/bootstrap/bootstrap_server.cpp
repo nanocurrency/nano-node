@@ -95,17 +95,29 @@ bool nano::bootstrap_server::verify (const nano::messages::asc_pull_req & messag
 
 	struct verify_visitor
 	{
+		// The hash type byte comes straight off the wire, so any value the enum does not name is rejected here
+		static bool valid (nano::messages::asc_pull_req::hash_type type)
+		{
+			switch (type)
+			{
+				case nano::messages::asc_pull_req::hash_type::account:
+				case nano::messages::asc_pull_req::hash_type::block:
+					return true;
+			}
+			return false;
+		}
+
 		bool operator() (nano::messages::empty_payload const &) const
 		{
 			return false;
 		}
 		bool operator() (nano::messages::asc_pull_req::blocks_payload const & pld) const
 		{
-			return pld.count > 0 && pld.count <= max_blocks;
+			return pld.count > 0 && pld.count <= max_blocks && valid (pld.start_type);
 		}
 		bool operator() (nano::messages::asc_pull_req::account_info_payload const & pld) const
 		{
-			return !pld.target.is_zero ();
+			return !pld.target.is_zero () && valid (pld.target_type);
 		}
 		bool operator() (nano::messages::asc_pull_req::frontiers_payload const & pld) const
 		{

@@ -358,3 +358,15 @@ TEST (bootstrap_verify, blocks_by_account_ok)
 	response.blocks = chain;
 	ASSERT_EQ (verify (response, query), verify_result::ok);
 }
+
+/*
+ * A frontiers response holding more entries than the query asked for is invalid, as it is for blocks and topo index pages.
+ * Three ascending frontiers answer a query for two; the extra entry alone is enough to reject the whole response.
+ */
+TEST (bootstrap_verify, frontiers_count_overflow)
+{
+	frontiers_query query{ .start = nano::account{ 1 }, .count = 2 };
+	nano::messages::asc_pull_ack::frontiers_payload response;
+	response.frontiers = make_frontiers ({ 2, 3, 5 });
+	ASSERT_EQ (verify (response, query), verify_result::invalid);
+}

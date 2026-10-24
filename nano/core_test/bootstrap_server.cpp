@@ -1336,3 +1336,70 @@ TEST (bootstrap_server, serve_frontiers_end)
 	ASSERT_TRUE (response_payload.frontiers.empty ());
 	ASSERT_EQ (node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 0);
 }
+
+/*
+ * A blocks request whose start type byte names neither an account nor a block is dropped before it reaches the ledger.
+ * The byte comes straight off the wire; the requested account exists and the count is valid, so the unknown type is the only reason for the drop, which counts as invalid and gets no response.
+ */
+TEST (bootstrap_server, serve_blocks_unknown_start_type)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 4);
+	auto [account, blocks] = chains.front ();
+
+	// A start type outside the enum, for an account the ledger holds
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::blocks;
+
+	nano::messages::asc_pull_req::blocks_payload request_payload{};
+	request_payload.start = account;
+	request_payload.count = nano::bootstrap_server::max_blocks;
+	request_payload.start_type = static_cast<nano::messages::asc_pull_req::hash_type> (2);
+	request.payload = request_payload;
+	request.update_header ();
+
+	node.inbound (request, nano::test::fake_channel (node));
+
+	// Rejected outright, nothing is sent back
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 1);
+	ASSERT_ALWAYS (1s, responses.size () == 0);
+}
+
+/*
+ * An account info request whose target type byte names neither an account nor a block is dropped before it reaches the ledger.
+ * The target names an account the ledger holds, so the unknown type is the only reason for the drop, which counts as invalid and gets no response.
+ */
+TEST (bootstrap_server, serve_account_info_unknown_target_type)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 4);
+	auto [account, blocks] = chains.front ();
+
+	// A target type outside the enum, for an account the ledger holds
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::account_info;
+
+	nano::messages::asc_pull_req::account_info_payload request_payload{};
+	request_payload.target = account;
+	request_payload.target_type = static_cast<nano::messages::asc_pull_req::hash_type> (2);
+	request.payload = request_payload;
+	request.update_header ();
+
+	node.inbound (request, nano::test::fake_channel (node));
+
+	// Rejected outright, nothing is sent back
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 1);
+	ASSERT_ALWAYS (1s, responses.size () == 0);
+}
