@@ -465,14 +465,17 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		catch (std::filesystem::filesystem_error const & ex)
 		{
 			std::cerr << "Vacuum failed during a file operation: " << ex.what () << std::endl;
+			ec = nano::error_cli::generic;
 		}
 		catch (std::exception const & ex)
 		{
 			std::cerr << "Vacuum failed: " << ex.what () << std::endl;
+			ec = nano::error_cli::generic;
 		}
 		catch (...)
 		{
 			std::cerr << "Vacuum failed (unknown reason)" << std::endl;
+			ec = nano::error_cli::generic;
 		}
 	}
 	else if (vm.count ("snapshot"))
@@ -509,14 +512,17 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		catch (std::filesystem::filesystem_error const & ex)
 		{
 			std::cerr << "Snapshot failed during a file operation: " << ex.what () << std::endl;
+			ec = nano::error_cli::generic;
 		}
 		catch (std::exception const & ex)
 		{
 			std::cerr << "Snapshot failed: " << ex.what () << std::endl;
+			ec = nano::error_cli::generic;
 		}
 		catch (...)
 		{
 			std::cerr << "Snapshot failed (unknown reason)" << std::endl;
+			ec = nano::error_cli::generic;
 		}
 	}
 	else if (vm.count ("migrate_database_lmdb_to_rocksdb"))
@@ -545,6 +551,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		{
 			nano::default_logger ().error (nano::log::type::migration, "Migration failed: {}", e.what ());
 			std::cerr << "Migration failed: " << e.what () << std::endl;
+			ec = nano::error_cli::generic;
 		}
 	}
 	else if (vm.count ("database_upgrade"))
@@ -1041,6 +1048,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			else
 			{
 				std::cerr << "Either specify a single --root to clear or --all to clear all final votes (not recommended)" << std::endl;
+				ec = nano::error_cli::invalid_arguments;
 			}
 		}
 		catch (std::exception const &)
@@ -1084,6 +1092,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		else
 		{
 			std::cerr << "Invalid configuration type " << type << ". Must be node, rpc, log or blocklist." << std::endl;
+			ec = nano::error_cli::invalid_arguments;
 		}
 
 		if (!filename.empty ())
@@ -1155,7 +1164,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		else
 		{
 			std::cerr << "Error initializing OpenCL" << std::endl;
-			ec = nano::error_cli::generic;
 		}
 	}
 	else if (vm.count ("key_create"))
@@ -1414,11 +1422,13 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 									if (nano::pub_key (key_result.value ()) != account)
 									{
 										std::cerr << boost::str (boost::format ("Invalid private key %1%\n") % key_result.value ().to_string ());
+										ec = nano::error_cli::generic;
 									}
 								}
 								else
 								{
 									std::cerr << boost::str (boost::format ("Unable to fetch private key for account %1% (%2%)\n") % account.to_account () % key_result.error ());
+									ec = key_result.error ();
 								}
 							}
 						}
