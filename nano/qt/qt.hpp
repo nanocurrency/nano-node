@@ -30,6 +30,10 @@ public:
 	void refresh_representative ();
 	void activate ();
 	void update_locked (bool, bool);
+
+	// Matches the lock button and password field to the shown wallet
+	void update_lock_toggle ();
+
 	QWidget * window;
 	QVBoxLayout * layout;
 	QLineEdit * password;
@@ -179,11 +183,38 @@ public:
 	QPushButton * create_account;
 	QPushButton * import_wallet;
 	QPushButton * backup_seed;
+	QPushButton * show_wallets;
 	QFrame * separator;
 	QLineEdit * account_key_line;
 	QPushButton * account_key_button;
 	QPushButton * back;
 	nano_qt::wallet & wallet;
+
+private:
+	// Refreshes the wallet balance now and every minute after
+	void ongoing_refresh_wallet_balance ();
+};
+// Lists the wallets in the store, switches the shown one and adds new ones
+class wallets_viewer
+{
+public:
+	wallets_viewer (nano_qt::wallet &);
+	void refresh ();
+	QWidget * window;
+	QVBoxLayout * layout;
+	QStandardItemModel * model;
+	QTableView * view;
+	QPushButton * use_wallet;
+	QPushButton * create_wallet;
+	QFrame * separator;
+	QLineEdit * seed;
+	QPushButton * restore_wallet;
+	QPushButton * back;
+	nano_qt::wallet & wallet;
+
+private:
+	// Adds a wallet to the store, restoring the accounts of seed when given, and shows it
+	nano::error add_wallet (std::optional<nano::raw_key> const & seed);
 };
 class import
 {
@@ -300,6 +331,12 @@ public:
 	wallet (QApplication &, nano_qt::eventloop_processor &, nano::node &, std::shared_ptr<nano::wallet::wallet> const &, nano::public_key const &);
 	void start ();
 	void refresh ();
+
+	// Shows an account of the shown wallet and reports it to selection_observer
+	void select_account (nano::account const &);
+	// Shows another wallet of the store with its first account, creating one in a wallet that has none
+	nano::error select_wallet (nano::wallet_id const &);
+
 	void update_connected ();
 	void empty_password ();
 	void change_rendering_ratio (nano::uint128_t const &);
@@ -320,6 +357,7 @@ public:
 	nano_qt::account_viewer account_viewer;
 	nano_qt::stats_viewer stats_viewer;
 	nano_qt::import import;
+	nano_qt::wallets_viewer wallets_viewer;
 
 	QApplication & application;
 	QLabel * status;
@@ -352,5 +390,15 @@ public:
 	void ongoing_refresh ();
 	std::atomic<bool> needs_balance_refresh;
 	std::atomic<bool> needs_deterministic_restore;
+
+	// Called with the wallet id and account each time the user picks an account
+	std::function<void (nano::wallet_id const &, nano::account const &)> selection_observer{ [] (nano::wallet_id const &, nano::account const &) {} };
+
+private:
+	// Id of the shown wallet, none once the wallet is destroyed
+	std::optional<nano::wallet_id> find_wallet_id () const;
+
+	// Mirrors lock changes of the shown wallet in the status line
+	void observe_lock ();
 };
 }
