@@ -5,6 +5,7 @@ add_executable(
   entry.cpp
   ledger.cpp
   message_sending.cpp
+  rep_weights.cpp
   stats.cpp
   vote_processing.cpp)
 

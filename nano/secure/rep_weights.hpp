@@ -5,15 +5,17 @@
 #include <nano/lib/utility.hpp>
 #include <nano/secure/fwd.hpp>
 
+#include <boost/unordered/unordered_flat_map.hpp>
+
 #include <memory>
 #include <shared_mutex>
 #include <span>
-#include <unordered_map>
 
 namespace nano
 {
 // Vote weight per representative
-using rep_weight_map = std::unordered_map<nano::account, nano::uint128_t>;
+// A flat hash table keeps every entry in one contiguous array, so a copy of the whole map is a single allocation and a lookup stays within that array
+using rep_weight_map = boost::unordered_flat_map<nano::account, nano::uint128_t>;
 
 class rep_weights
 {
@@ -51,9 +53,12 @@ public:
 	nano::container_info container_info () const;
 	bool empty () const;
 
+	/* Weight delegated to representatives, the sum of all account balances, including representatives below the cache minimum */
 	nano::uint128_t get_weight_committed () const;
+	/* Weight delegated to no one, the sum of all receivable amounts, including sends to the burn account */
 	nano::uint128_t get_weight_unused () const;
 
+	/* Release asserts that committed and unused weight add up to the whole supply, that `burn_balance` is counted as unused and that the cached weights do not exceed the committed weight */
 	void verify_consistency (nano::uint128_t burn_balance) const;
 
 private:
@@ -61,6 +66,8 @@ private:
 	nano::uint128_t const min_weight;
 
 	mutable std::shared_mutex mutex;
+
+	// Weight of every representative at or above the cache minimum
 	nano::rep_weight_map rep_amounts;
 
 	// Used for consistency checking, use higher precision types to detect overflows
