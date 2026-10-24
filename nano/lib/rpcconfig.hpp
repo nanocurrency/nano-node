@@ -6,6 +6,7 @@
 #include <nano/lib/threading.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <memory>
 #include <string>
 #include <thread>
@@ -47,6 +48,7 @@ public:
 	bool enable_control{ false };
 	uint8_t max_json_depth{ 20 };
 	uint64_t max_request_size{ 32 * 1024 * 1024 };
+	std::chrono::milliseconds drain_timeout{ std::chrono::seconds{ 5 } };
 	nano::rpc_logging_config rpc_logging;
 };
 
