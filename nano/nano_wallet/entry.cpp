@@ -10,6 +10,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/lib/walletconfig.hpp>
 #include <nano/lib/work.hpp>
+#include <nano/nano_wallet/appearance.hpp>
 #include <nano/nano_wallet/icon.hpp>
 #include <nano/nano_wallet/splash_screen.hpp>
 #include <nano/node/cli.hpp>
@@ -239,6 +240,7 @@ int main (int argc, char * const * argv)
 
 	QApplication application (argc, const_cast<char **> (argv));
 	nano::set_application_icon (application);
+	nano::set_application_appearance (application);
 
 	nano::wallet_daemon daemon;
 

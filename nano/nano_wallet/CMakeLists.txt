@@ -5,13 +5,14 @@ else()
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  set(PLATFORM_WALLET_SOURCE plat/default/icon.cpp)
+  set(PLATFORM_WALLET_SOURCE plat/default/icon.cpp plat/darwin/appearance.mm)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-  set(PLATFORM_WALLET_SOURCE plat/windows/icon.cpp ${CMAKE_SOURCE_DIR}/Nano.rc)
+  set(PLATFORM_WALLET_SOURCE plat/windows/icon.cpp plat/default/appearance.cpp
+                             ${CMAKE_SOURCE_DIR}/Nano.rc)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-  set(PLATFORM_WALLET_SOURCE plat/default/icon.cpp)
+  set(PLATFORM_WALLET_SOURCE plat/default/icon.cpp plat/default/appearance.cpp)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-  set(PLATFORM_WALLET_SOURCE plat/default/icon.cpp)
+  set(PLATFORM_WALLET_SOURCE plat/default/icon.cpp plat/default/appearance.cpp)
 else()
   error("Unknown platform: ${CMAKE_SYSTEM_NAME}")
 endif()
@@ -22,6 +23,7 @@ add_executable(
   nano_wallet
   ${PLATFORM_GUI_TARGET_PROPERTIES}
   ${PLATFORM_WALLET_SOURCE}
+  appearance.hpp
   entry.cpp
   icon.hpp
   splash_screen.cpp
@@ -32,6 +34,8 @@ target_link_libraries(nano_wallet Boost::process rpc node qt)
 
 if(WIN32)
   target_link_libraries(nano_wallet Qt5::WinExtras)
+elseif(APPLE)
+  target_link_libraries(nano_wallet "-framework AppKit")
 endif()
 
 set_target_properties(
