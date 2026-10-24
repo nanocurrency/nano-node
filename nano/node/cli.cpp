@@ -84,7 +84,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("confirmation_height_clear", "Clear confirmation height. Requires an <account> option that can be 'all' to clear all accounts")
 	("final_vote_clear", "Clear final votes")
 	("migrate_database_lmdb_to_rocksdb", "Migrates LMDB database to RocksDB")
-	("database_upgrade", "Upgrade the ledger database to the latest version without starting the node")
+	("upgrade_database", "Upgrade the ledger database to the latest version without starting the node")
 	("database_info", "Print information about the ledger database")
 	("populate_topo_index", "Build the topology index for an existing ledger and enable the topo_index flag. One-off operation, may take a long time.")
 	("drop_topo_index", "Drop the topology index and disable the topo_index flag. Required before enabling pruning on a ledger that has topo_index enabled.")
@@ -547,7 +547,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			std::cerr << "Migration failed: " << e.what () << std::endl;
 		}
 	}
-	else if (vm.count ("database_upgrade"))
+	else if (vm.count ("upgrade_database"))
 	{
 		nano::logger::initialize (nano::log_config::daemon_default (), data_path);
 
@@ -610,7 +610,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					std::cout << "Backend:          " << backend->get_vendor () << std::endl;
 					std::cout << "Version:          " << meta->version << std::endl;
 					std::cout << std::endl;
-					std::cout << "Note: ledger schema is outdated. Run --database_upgrade to upgrade. Flags and counts are not displayed for outdated schemas." << std::endl;
+					std::cout << "Note: ledger schema is outdated. Run --upgrade_database to upgrade. Flags and counts are not displayed for outdated schemas." << std::endl;
 				}
 				else
 				{
