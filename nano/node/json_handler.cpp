@@ -23,6 +23,7 @@
 #include <nano/node/epoch_upgrader.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/network.hpp>
+#include <nano/node/network_reachout.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/node_rpc_config.hpp>
@@ -3073,7 +3074,7 @@ void nano::json_handler::keepalive ()
 		uint16_t port;
 		if (!nano::parse_port (port_text, port))
 		{
-			node.network.reachout (address_text, port);
+			node.network_reachout.reachout (address_text, port);
 			response_l.put ("started", "1");
 		}
 		else

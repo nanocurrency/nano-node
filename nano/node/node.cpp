@@ -39,6 +39,7 @@
 #include <nano/node/message_processor.hpp>
 #include <nano/node/monitor.hpp>
 #include <nano/node/network.hpp>
+#include <nano/node/network_reachout.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -159,6 +160,8 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	//
 	network_impl{ std::make_unique<nano::network> (*this, config.peering_port.has_value () ? *config.peering_port : 0) },
 	network{ *network_impl },
+	network_reachout_impl{ std::make_unique<nano::network_reachout> (*this) },
+	network_reachout{ *network_reachout_impl },
 	loopback_channel{ create_loopback_channel () },
 	telemetry_impl{ std::make_unique<nano::telemetry> (flags, *this, network, observers, network_params, stats) },
 	telemetry{ *telemetry_impl },
@@ -538,6 +541,7 @@ void nano::node::process_local_async (std::shared_ptr<nano::block> const & block
 void nano::node::start ()
 {
 	network.start ();
+	network_reachout.start ();
 	message_processor.start ();
 
 	if (!flags.disable_rep_crawler)
@@ -645,6 +649,7 @@ void nano::node::stop ()
 	epoch_upgrader.stop ();
 	local_block_broadcaster.stop ();
 	message_processor.stop ();
+	network_reachout.stop ();
 	network.stop ();
 	monitor.stop ();
 	http_callbacks.stop ();
@@ -835,6 +840,11 @@ void nano::node::add_initial_peers ()
 	{
 		network.merge_peer (peer);
 	}
+}
+
+void nano::node::trigger_reachout ()
+{
+	network_reachout.trigger ();
 }
 
 void nano::node::start_election (std::shared_ptr<nano::block> const & block)

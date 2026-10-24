@@ -50,6 +50,7 @@ class monitor_config;
 class network;
 class network_config;
 class network_params;
+class network_reachout;
 class node;
 class node_config;
 class node_flags;

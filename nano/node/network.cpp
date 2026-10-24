@@ -12,7 +12,6 @@
 #include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
-#include <nano/node/peer_history.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/telemetry.hpp>
@@ -21,11 +20,6 @@
 #include <boost/asio/ip/address_v4.hpp>
 
 using namespace std::chrono_literals;
-
-namespace
-{
-auto constexpr reachout_preconfigured_log_interval = 1h;
-}
 
 // TODO: Return to static const and remove "disable_large_votes" when rolled out
 std::size_t nano::network::confirm_req_hashes_max{ 255 };
@@ -56,9 +50,6 @@ nano::network::~network ()
 	// All threads must be stopped before this destructor
 	debug_assert (!cleanup_thread.joinable ());
 	debug_assert (!keepalive_thread.joinable ());
-	debug_assert (!reachout_thread.joinable ());
-	debug_assert (!reachout_cached_thread.joinable ());
-	debug_assert (!reachout_preconfigured_thread.joinable ());
 }
 
 void nano::network::start ()
@@ -72,38 +63,6 @@ void nano::network::start ()
 		nano::thread_role::set (nano::thread_role::name::network_keepalive);
 		run_keepalive ();
 	});
-
-	if (!node.flags.disable_reachout && config.peer_reachout.count () > 0)
-	{
-		reachout_thread = std::thread ([this] () {
-			nano::thread_role::set (nano::thread_role::name::network_reachout);
-			run_reachout ();
-		});
-	}
-	else
-	{
-		node.logger.warn (nano::log::type::network, "Peer reachout is disabled");
-	}
-
-	if (!node.flags.disable_reachout && config.cached_peer_reachout.count () > 0)
-	{
-		reachout_cached_thread = std::thread ([this] () {
-			nano::thread_role::set (nano::thread_role::name::network_reachout);
-			run_reachout_cached ();
-		});
-	}
-	else
-	{
-		node.logger.warn (nano::log::type::network, "Cached peer reachout is disabled");
-	}
-
-	if (!node.flags.disable_reachout_preconfigured)
-	{
-		reachout_preconfigured_thread = std::thread ([this] () {
-			nano::thread_role::set (nano::thread_role::name::network_reachout);
-			run_reachout_preconfigured ();
-		});
-	}
 
 	if (!node.flags.disable_tcp_realtime)
 	{
@@ -128,9 +87,6 @@ void nano::network::stop ()
 
 	join_or_pass (keepalive_thread);
 	join_or_pass (cleanup_thread);
-	join_or_pass (reachout_thread);
-	join_or_pass (reachout_cached_thread);
-	join_or_pass (reachout_preconfigured_thread);
 
 	port = 0;
 }
@@ -142,7 +98,7 @@ void nano::network::run_cleanup ()
 	{
 		std::chrono::seconds const interval = node.network_params.network.is_dev_network () ? 1s : 5s;
 
-		condition.wait_for (lock, interval);
+		condition.wait_for (lock, interval, [this] { return stopped.load (); });
 		if (stopped)
 		{
 			return;
@@ -171,7 +127,7 @@ void nano::network::run_keepalive ()
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
-		condition.wait_for (lock, node.network_params.network.keepalive_period);
+		condition.wait_for (lock, node.network_params.network.keepalive_period, [this] { return stopped.load (); });
 		if (stopped)
 		{
 			return;
@@ -187,187 +143,6 @@ void nano::network::run_keepalive ()
 
 		lock.lock ();
 	}
-}
-
-void nano::network::run_reachout ()
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped)
-	{
-		condition.wait_for (lock, node.network_params.network.merge_period);
-		if (stopped)
-		{
-			return;
-		}
-		lock.unlock ();
-
-		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_reachout);
-
-		auto keepalive = tcp_channels.sample_keepalive ();
-		if (keepalive)
-		{
-			for (auto const & peer : keepalive->peers)
-			{
-				if (stopped)
-				{
-					return;
-				}
-
-				node.stats.inc (nano::stat::type::network, nano::stat::detail::reachout_live);
-
-				merge_peer (peer);
-
-				// Throttle reachout attempts
-				std::this_thread::sleep_for (node.network_params.network.merge_period);
-			}
-		}
-
-		lock.lock ();
-	}
-}
-
-void nano::network::run_reachout_cached ()
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped)
-	{
-		condition.wait_for (lock, node.network_params.network.merge_period);
-		if (stopped)
-		{
-			return;
-		}
-		lock.unlock ();
-
-		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_reachout_cached);
-
-		auto cached_peers = node.peer_history.peers ();
-		for (auto const & peer : cached_peers)
-		{
-			if (stopped)
-			{
-				return;
-			}
-
-			node.stats.inc (nano::stat::type::network, nano::stat::detail::reachout_cached);
-
-			merge_peer (peer);
-
-			// Throttle reachout attempts
-			std::this_thread::sleep_for (node.network_params.network.merge_period);
-		}
-
-		lock.lock ();
-	}
-}
-
-void nano::network::run_reachout_preconfigured ()
-{
-	nano::unique_lock<nano::mutex> lock{ mutex };
-	while (!stopped)
-	{
-		condition.wait_for (lock, 1s);
-		if (stopped)
-		{
-			return;
-		}
-		lock.unlock ();
-
-		node.stats.inc (nano::stat::type::network, nano::stat::detail::loop_reachout_preconfigured);
-
-		auto const target_interval = empty ()
-		? node.network_params.network.reachout_preconfigured_warmup_period
-		: node.network_params.network.reachout_preconfigured_period;
-
-		if (reachout_preconfigured_interval.elapse (target_interval))
-		{
-			reachout_preconfigured ();
-		}
-
-		lock.lock ();
-	}
-}
-
-void nano::network::trigger_reachout ()
-{
-	node.stats.inc (nano::stat::type::network, nano::stat::detail::trigger_reachout);
-	reachout_preconfigured_interval.reset ();
-	condition.notify_all ();
-}
-
-void nano::network::reachout (std::string const & address_a, uint16_t port_a, nano::transport::connect_callback callback_a)
-{
-	auto node_l (node.shared_from_this ());
-	resolver.async_resolve (address_a, std::to_string (port_a), [this, node_l, address_a, port_a, callback = std::move (callback_a)] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::results_type results) {
-		if (!ec)
-		{
-			for (auto const & i : results)
-			{
-				auto endpoint (nano::transport::map_endpoint_to_v6 (i.endpoint ()));
-				auto channel (find_channel (endpoint));
-				if (!channel)
-				{
-					tcp_channels.start_tcp (endpoint, callback);
-				}
-				else
-				{
-					send_keepalive (channel);
-				}
-			}
-		}
-		else
-		{
-			node.logger.error (nano::log::type::network, "Error resolving address for reachout: {}:{} ({})", address_a, port_a, ec.message ());
-		}
-	});
-}
-
-void nano::network::reachout_preconfigured ()
-{
-	if (node.config.preconfigured_peers.empty ())
-	{
-		return;
-	}
-
-	node.stats.inc (nano::stat::type::network, nano::stat::detail::reachout_preconfigured);
-
-	for (auto const & peer : node.config.preconfigured_peers)
-	{
-		reachout (peer, node.network_params.network.default_node_port, [node_l = node.shared_from_this (), peer] (nano::tcp_endpoint const & endpoint, std::error_code ec) {
-			auto should_log = [node_l, &peer] (bool success) {
-				auto logs = node_l->network.reachout_preconfigured_logs.lock ();
-				return (*logs)[peer].should_log (success);
-			};
-
-			if (ec)
-			{
-				// Log connection failures to explicitly configured peers, so misconfiguration is visible
-				if (should_log (false))
-				{
-					node_l->logger.warn (nano::log::type::network, "Failed to connect to preconfigured peer '{}' ({}): {}", peer, endpoint, ec.message ());
-				}
-			}
-			else
-			{
-				if (should_log (true))
-				{
-					node_l->logger.info (nano::log::type::network, "Connected to preconfigured peer '{}' ({})", peer, endpoint);
-				}
-			}
-		});
-	}
-}
-
-bool nano::network::reachout_preconfigured_log::should_log (bool success)
-{
-	auto const now = std::chrono::steady_clock::now ();
-
-	auto & last_log = success ? last_success : last_failure;
-	if (now - last_log >= reachout_preconfigured_log_interval)
-	{
-		last_log = now;
-		return true;
-	}
-	return false;
 }
 
 void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> const & channel) const

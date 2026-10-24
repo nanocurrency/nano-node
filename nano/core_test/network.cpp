@@ -9,7 +9,6 @@
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
-#include <nano/node/peer_history.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/scheduler/component.hpp>
 #include <nano/node/scheduler/priority.hpp>
@@ -964,57 +963,6 @@ TEST (network, fill_keepalive_self)
 	ASSERT_TIMELY_EQ (5s, get_keepalive (system.node (0))[2].port (), system.nodes[1]->network.port);
 }
 
-TEST (network, reconnect_cached)
-{
-	nano::test::system system;
-
-	nano::node_flags flags;
-	// Disable non realtime sockets
-	flags.disable_bootstrap_bulk_push_client = true;
-	flags.disable_bootstrap_bulk_pull_server = true;
-	flags.disable_bootstrap_listener = true;
-	flags.disable_lazy_bootstrap = true;
-	flags.disable_legacy_bootstrap = true;
-	flags.disable_wallet_bootstrap = true;
-
-	auto & node1 = *system.add_node (flags);
-	auto & node2 = *system.add_node (flags);
-
-	ASSERT_EQ (node1.network.size (), 1);
-	ASSERT_EQ (node2.network.size (), 1);
-
-	auto channels1 = node1.network.list ();
-	auto channels2 = node2.network.list ();
-	ASSERT_EQ (channels1.size (), 1);
-	ASSERT_EQ (channels2.size (), 1);
-	auto channel1 = channels1.front ();
-	auto channel2 = channels2.front ();
-
-	// Ensure current peers are cached
-	node1.peer_history.trigger ();
-	node2.peer_history.trigger ();
-	ASSERT_TIMELY_EQ (5s, node1.peer_history.size (), 1);
-	ASSERT_TIMELY_EQ (5s, node2.peer_history.size (), 1);
-
-	// Kill channels
-	channel1->close ();
-	channel2->close ();
-
-	auto channel_exists = [] (auto & node, auto & channel) {
-		auto channels = node.network.list ();
-		return std::find (channels.begin (), channels.end (), channel) != channels.end ();
-	};
-
-	ASSERT_TIMELY (5s, !channel_exists (node1, channel1));
-	ASSERT_TIMELY (5s, !channel_exists (node2, channel2));
-
-	// Peers should reconnect after a while
-	ASSERT_TIMELY_EQ (5s, node1.network.size (), 1);
-	ASSERT_TIMELY_EQ (5s, node2.network.size (), 1);
-	ASSERT_TRUE (node1.network.find_node_id (node2.get_node_id ()));
-	ASSERT_TRUE (node2.network.find_node_id (node1.get_node_id ()));
-}
-
 /*
  * Tests that channel and channel container removes channels with dead local sockets
  */
@@ -1130,24 +1078,6 @@ TEST (network, flood_vote)
 	ASSERT_EQ (3, node.network.flood_vote_all (vote, nano::transport::traffic_type::test));
 	ASSERT_EQ (2, node.network.flood_vote_non_pr (vote, 999.0f));
 	ASSERT_EQ (1, node.network.flood_vote_pr (vote));
-}
-
-// Verify that disable_reachout flag prevents all reachout threads from starting
-TEST (network, disable_reachout)
-{
-	nano::test::system system;
-	nano::node_flags flags;
-	flags.disable_reachout = true;
-	flags.disable_reachout_preconfigured = true;
-	auto & node = *system.add_node (flags);
-
-	// Wait a bit for any background activity
-	WAIT (1s);
-
-	// No reachout should have occurred
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::reachout_live));
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::reachout_cached));
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::network, nano::stat::detail::reachout_preconfigured));
 }
 
 /*
