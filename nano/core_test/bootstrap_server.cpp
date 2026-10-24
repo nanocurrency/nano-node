@@ -2,6 +2,7 @@
 #include <nano/messages/asc_pull.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/store/ledger/topology.hpp>
@@ -805,4 +806,56 @@ TEST (bootstrap_server, serve_topo_index_invalid_count)
 
 	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::bootstrap_server, nano::stat::detail::invalid), 2);
 	ASSERT_ALWAYS (1s, responses.size () == 0);
+}
+
+/*
+ * A blocks random response carries at most max_random_blocks even when the request names more blocks than that and the ledger holds them all.
+ * The request is filled to its hash capacity with unknown hashes first and the blocks of one chain after them, so unknown hashes would use up the cap first if they counted towards it.
+ * The response must hold exactly the first max_random_blocks chain blocks in request order, leaving the tail of the chain for a retry.
+ */
+TEST (bootstrap_server, serve_blocks_random_limit)
+{
+	nano::test::system system{};
+	auto & node = *system.add_node ();
+
+	responses_helper responses;
+	responses.connect (node.bootstrap_server);
+
+	// One chain holding more blocks than a blocks random response may carry
+	auto chains = nano::test::setup_chains (system, node, /* chain count */ 1, /* block count */ 110);
+	auto [account, blocks] = chains.front ();
+	ASSERT_GT (blocks.size (), nano::bootstrap_server::max_random_blocks);
+	ASSERT_LT (blocks.size (), nano::bootstrap_server::max_random_hashes);
+
+	// Fill the request to capacity, unknown hashes first so they would use up the limit if they counted towards it
+	std::deque<nano::block_hash> requested;
+	while (requested.size () < nano::bootstrap_server::max_random_hashes - blocks.size ())
+	{
+		requested.push_back (nano::test::random_hash ());
+	}
+	for (auto const & block : blocks)
+	{
+		requested.push_back (block->hash ());
+	}
+
+	nano::messages::asc_pull_req request{ node.network_params.network };
+	request.id = 7;
+	request.type = nano::messages::asc_pull_type::blocks_random;
+
+	nano::messages::asc_pull_req::blocks_random_payload payload{};
+	payload.hashes = requested;
+	request.payload = payload;
+	request.update_header ();
+
+	node.inbound (request, nano::test::fake_channel (node));
+
+	ASSERT_TIMELY_EQ (5s, responses.size (), 1);
+
+	// The response stops at the limit and holds the first known blocks in request order, dropping the tail of the chain
+	auto response_payload = std::get<nano::messages::asc_pull_ack::blocks_payload> (responses.get ().front ().payload);
+	ASSERT_EQ (response_payload.blocks.size (), nano::bootstrap_server::max_random_blocks);
+	for (std::size_t n = 0; n < response_payload.blocks.size (); ++n)
+	{
+		ASSERT_EQ (response_payload.blocks[n]->hash (), blocks[n]->hash ());
+	}
 }

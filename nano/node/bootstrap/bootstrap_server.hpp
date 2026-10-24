@@ -83,6 +83,7 @@ private:
 
 	/*
 	 * Blocks random request
+	 * Returns the requested blocks found in the ledger, in request order, at most `max_random_blocks` of them
 	 */
 	nano::messages::asc_pull_ack process (secure::transaction const &, nano::messages::asc_pull_req::id_t id, nano::messages::asc_pull_req::blocks_random_payload const & request) const;
 
@@ -119,6 +120,8 @@ public: // Config
 	constexpr static std::size_t max_frontiers = nano::messages::asc_pull_ack::frontiers_payload::max_frontiers;
 	constexpr static std::size_t max_topo_entries = nano::messages::asc_pull_ack::topo_index_payload::max_entries;
 	constexpr static std::size_t max_random_hashes = nano::messages::asc_pull_req::blocks_random_payload::max_hashes;
+	/** Maximum blocks in a blocks random response; requested blocks past it are left out */
+	constexpr static std::size_t max_random_blocks = 100;
 };
 
 nano::stat::detail to_stat_detail (nano::messages::asc_pull_type);

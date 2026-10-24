@@ -441,6 +441,8 @@ nano::messages::asc_pull_ack nano::bootstrap_server::process (secure::transactio
 
 nano::messages::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & transaction, nano::messages::asc_pull_req::id_t id, nano::messages::asc_pull_req::blocks_random_payload const & request) const
 {
+	static_assert (max_random_blocks <= max_blocks);
+
 	nano::messages::asc_pull_ack response{ network_constants };
 	response.id = id;
 	response.type = nano::messages::asc_pull_type::blocks_random;
@@ -448,6 +450,10 @@ nano::messages::asc_pull_ack nano::bootstrap_server::process (secure::transactio
 	nano::messages::asc_pull_ack::blocks_payload response_payload{};
 	for (auto const & hash : request.hashes)
 	{
+		if (response_payload.blocks.size () >= max_random_blocks)
+		{
+			break;
+		}
 		auto block = ledger.any.block_get (transaction, hash);
 		if (block)
 		{
