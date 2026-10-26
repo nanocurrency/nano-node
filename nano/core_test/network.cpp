@@ -14,6 +14,7 @@
 #include <nano/node/scheduler/priority.hpp>
 #include <nano/node/transport/fake.hpp>
 #include <nano/node/transport/inproc.hpp>
+#include <nano/node/transport/tcp_channel.hpp>
 #include <nano/node/transport/tcp_config.hpp>
 #include <nano/node/transport/tcp_listener.hpp>
 #include <nano/node/transport/tcp_socket.hpp>
@@ -1194,4 +1195,36 @@ TEST (network, sample_non_pr)
 		ASSERT_GT (entry.second, rounds / 2 * 8 / 10);
 		ASSERT_LT (entry.second, rounds / 2 * 12 / 10);
 	}
+}
+
+/*
+ * Excluding a live channel strikes its peer once, closes it and drops it from the container at once
+ */
+TEST (network, exclude)
+{
+	nano::test::system system (2);
+	auto & node0 = *system.nodes[0];
+	auto & node1 = *system.nodes[1];
+	auto const channel = node0.network.find_node_id (node1.get_node_id ());
+	ASSERT_NE (nullptr, channel);
+	auto const tcp_channel = std::dynamic_pointer_cast<nano::transport::tcp_channel> (channel);
+	ASSERT_NE (nullptr, tcp_channel);
+	auto const endpoint = nano::transport::map_endpoint_to_tcp (channel->get_remote_endpoint ());
+	ASSERT_TRUE (channel->alive ());
+	ASSERT_EQ (0, node0.network.excluded_peers.score (endpoint));
+
+	node0.network.exclude (channel);
+
+	// One strike, below the score limit, so the peer may still reconnect
+	ASSERT_EQ (1, node0.network.excluded_peers.score (endpoint));
+	ASSERT_FALSE (node0.network.excluded_peers.check (endpoint));
+
+	// Gone from the container at once, not by a later purge
+	auto const channels = node0.network.list ();
+	ASSERT_EQ (channels.end (), std::find (channels.begin (), channels.end (), channel));
+
+	// Closed, not merely dropped, and the other side sees the disconnect
+	ASSERT_FALSE (channel->alive ());
+	ASSERT_FALSE (tcp_channel->socket->alive ());
+	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::tcp_channels, nano::stat::detail::erase_dead) >= 1);
 }

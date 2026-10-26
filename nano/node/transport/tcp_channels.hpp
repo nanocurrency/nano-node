@@ -53,6 +53,7 @@ public:
 
 	create_result create (std::shared_ptr<nano::transport::tcp_socket> const &, std::shared_ptr<nano::transport::tcp_server> const &, nano::transport::peer_info const &);
 
+	// Closes and removes the channel at the endpoint, with its socket and server
 	void erase (nano::tcp_endpoint const &);
 	std::size_t size () const;
 	std::shared_ptr<nano::transport::tcp_channel> find_channel (nano::tcp_endpoint const &) const;
