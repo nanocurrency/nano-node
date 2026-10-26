@@ -4,6 +4,7 @@ add_executable(
   allocations.cpp
   entry.cpp
   ledger.cpp
+  message_processing.cpp
   message_sending.cpp
   rep_weights.cpp
   stats.cpp
