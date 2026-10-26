@@ -250,6 +250,23 @@ TEST (cli, wallet_seed_and_key)
 	ASSERT_NE (std::string::npos, decrypt (*id).find ("Pub: " + adhoc.pub.to_account () + " Prv: " + adhoc.prv.to_string () + "\n"));
 }
 
+/*
+ * Node flags that no longer have any effect still parse, so command lines written for older releases keep working.
+ */
+TEST (cli, deprecated_node_flags)
+{
+	boost::program_options::options_description description;
+	nano::add_node_flag_options (description);
+
+	// Each flag is a known option rather than a parse error
+	for (auto const flag : { "--disable_lazy_bootstrap", "--disable_legacy_bootstrap", "--disable_wallet_bootstrap", "--disable_bootstrap_bulk_pull_server", "--disable_bootstrap_bulk_push_client" })
+	{
+		char const * argv[] = { "nano_node", flag };
+		boost::program_options::variables_map vm;
+		ASSERT_NO_THROW (boost::program_options::store (boost::program_options::parse_command_line (2, argv, description), vm)) << flag;
+	}
+}
+
 namespace
 {
 std::string call_cli_command (boost::program_options::variables_map const & vm)

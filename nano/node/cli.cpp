@@ -131,9 +131,9 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_elections", "Disables starting elections and block confirmation; the node only processes and pulls blocks without confirming them")
 		("disable_bounded_backlog", "Disables the bounded backlog")
 		("disable_backup", "Disable wallet automatic backups")
-		("disable_lazy_bootstrap", "Disables lazy bootstrap")
-		("disable_legacy_bootstrap", "Disables legacy bootstrap")
-		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
+		("disable_lazy_bootstrap", "Deprecated, has no effect")
+		("disable_legacy_bootstrap", "Deprecated, has no effect")
+		("disable_wallet_bootstrap", "Deprecated, has no effect")
 		("disable_ongoing_bootstrap", "Disable ongoing bootstrap")
 		("disable_reachout", "Disable peer reachout")
 		("disable_reachout_preconfigured", "Disable preconfigured peer reachout")
@@ -142,8 +142,8 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_bootstrap_listener", "Disables bootstrap processing for TCP listener (not including realtime network TCP connections)")
 		("disable_providing_telemetry_metrics", "Disable using any node information in the telemetry_ack messages.")
 		("disable_block_processor_unchecked_deletion", "Disable deletion of unchecked blocks after processing")
-		("disable_bootstrap_bulk_pull_server", "Disables the legacy bulk pull server for bootstrap operations")
-		("disable_bootstrap_bulk_push_client", "Disables the legacy bulk push client for bootstrap operations")
+		("disable_bootstrap_bulk_pull_server", "Deprecated, has no effect")
+		("disable_bootstrap_bulk_push_client", "Deprecated, has no effect")
 		("disable_tcp_realtime", "Disables TCP realtime connections")
 		("disable_search_pending", "Disables the periodic search for pending transactions")
 		("disable_topo_index", "Initialize a fresh ledger without the topology index. Required for pruning. Has no effect on an existing ledger; use --drop_topo_index to disable on an existing ledger.")
@@ -171,16 +171,11 @@ void nano::update_flags (nano::node_flags & flags_a, boost::program_options::var
 	flags_a.disable_activate_successors = (vm.count ("disable_activate_successors") > 0);
 	flags_a.disable_elections = (vm.count ("disable_elections") > 0);
 	flags_a.disable_backup = (vm.count ("disable_backup") > 0);
-	flags_a.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
-	flags_a.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
-	flags_a.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 	flags_a.disable_ongoing_bootstrap = (vm.count ("disable_ongoing_bootstrap") > 0);
 	flags_a.disable_reachout = (vm.count ("disable_reachout") > 0);
 	flags_a.disable_reachout_preconfigured = (vm.count ("disable_reachout_preconfigured") > 0);
 	flags_a.disable_rep_crawler = (vm.count ("disable_rep_crawler") > 0);
 	flags_a.disable_request_loop = (vm.count ("disable_request_loop") > 0);
-	flags_a.disable_bootstrap_bulk_pull_server = (vm.count ("disable_bootstrap_bulk_pull_server") > 0);
-	flags_a.disable_bootstrap_bulk_push_client = (vm.count ("disable_bootstrap_bulk_push_client") > 0);
 	flags_a.disable_tcp_realtime = (vm.count ("disable_tcp_realtime") > 0);
 	flags_a.disable_search_pending = (vm.count ("disable_search_pending") > 0);
 	flags_a.disable_bounded_backlog = (vm.count ("disable_bounded_backlog") > 0);

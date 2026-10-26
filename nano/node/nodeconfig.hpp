@@ -143,12 +143,7 @@ public:
 	bool disable_activate_successors{ false };
 	bool disable_elections{ false };
 	bool disable_backup{ false };
-	bool disable_lazy_bootstrap{ false };
-	bool disable_legacy_bootstrap{ false };
-	bool disable_wallet_bootstrap{ false };
 	bool disable_bootstrap_listener{ false };
-	bool disable_bootstrap_bulk_pull_server{ false };
-	bool disable_bootstrap_bulk_push_client{ false };
 	bool disable_ongoing_bootstrap{ false };
 	bool disable_reachout{ false };
 	bool disable_reachout_preconfigured{ false };
