@@ -190,7 +190,7 @@ auto nano::transport::tcp_server::run_realtime () -> asio::awaitable<void>
 				channel->set_last_packet_received (std::chrono::steady_clock::now ());
 
 				// TODO: Throttle if not added
-				bool added = node.message_processor.put (std::move (message), channel);
+				bool added = node.message_processor.enqueue (std::move (message), channel);
 				node.stats.inc (nano::stat::type::tcp_server, added ? nano::stat::detail::message_queued : nano::stat::detail::message_dropped);
 			}
 			else

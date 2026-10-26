@@ -90,7 +90,7 @@ void nano::message_processor::stop ()
 	threads.clear ();
 }
 
-bool nano::message_processor::put (std::unique_ptr<nano::messages::message> message, std::shared_ptr<nano::transport::channel> const & channel)
+bool nano::message_processor::enqueue (std::unique_ptr<nano::messages::message> message, std::shared_ptr<nano::transport::channel> const & channel)
 {
 	release_assert (message != nullptr);
 	release_assert (channel != nullptr);

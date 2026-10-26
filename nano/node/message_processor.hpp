@@ -34,8 +34,10 @@ public:
 	void start ();
 	void stop ();
 
-	bool put (std::unique_ptr<nano::messages::message>, std::shared_ptr<nano::transport::channel> const &);
-	void process (nano::messages::message const &, std::shared_ptr<nano::transport::channel> const &);
+	// Queues a message from the channel for processing, false if the channel's queue is full and it was dropped
+	bool enqueue (std::unique_ptr<nano::messages::message> message, std::shared_ptr<nano::transport::channel> const & channel);
+	// Processes a message on the calling thread
+	void process (nano::messages::message const & message, std::shared_ptr<nano::transport::channel> const & channel);
 
 	nano::container_info container_info () const;
 
