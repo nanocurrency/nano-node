@@ -74,6 +74,7 @@ add_library(
   formatting.hpp
   formatting.cpp
   fwd.hpp
+  hashing.hpp
   id_dispenser.hpp
   interval.hpp
   ipc.hpp

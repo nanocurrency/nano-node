@@ -1,4 +1,5 @@
 #include <nano/lib/config.hpp>
+#include <nano/lib/hashing.hpp>
 #include <nano/lib/logging.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/thread_roles.hpp>
@@ -97,14 +98,7 @@ void nano::message_processor::stop ()
 
 auto nano::message_processor::shard_for (std::shared_ptr<nano::transport::channel> const & channel) -> shard_state &
 {
-	// The channel's address, mixed by the splitmix64 finalizer since allocations differ in too few bits to spread by themselves
-	uint64_t x = reinterpret_cast<uintptr_t> (channel.get ());
-	x ^= x >> 30;
-	x *= 0xbf58476d1ce4e5b9ULL;
-	x ^= x >> 27;
-	x *= 0x94d049bb133111ebULL;
-	x ^= x >> 31;
-	return shards[x % shards.size ()];
+	return shards[nano::pointer_hash (channel.get ()) % shards.size ()];
 }
 
 bool nano::message_processor::enqueue (std::unique_ptr<nano::messages::message> message, std::shared_ptr<nano::transport::channel> const & channel)

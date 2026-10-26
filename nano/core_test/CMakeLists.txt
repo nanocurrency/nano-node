@@ -41,6 +41,7 @@ add_executable(
   epochs.cpp
   fair_queue.cpp
   fork_cache.cpp
+  hashing.cpp
   inproc.cpp
   ipc.cpp
   ledger.cpp
