@@ -221,7 +221,7 @@ nano::container_info nano::message_processor::container_info () const
 
 nano::error nano::message_processor_config::serialize (nano::tomlconfig & toml) const
 {
-	toml.put ("threads", threads, "Number of threads to use for message processing. Each peer is served by one of them, so its messages are processed in the order they arrived. \ntype:uint64");
+	toml.put ("threads", threads, "Number of threads to use for message processing. \ntype:uint64");
 	toml.put ("max_queue", max_queue, "Maximum number of messages per peer to queue for processing. \ntype:uint64");
 
 	return toml.get_error ();

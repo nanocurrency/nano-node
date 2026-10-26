@@ -18,7 +18,7 @@ public:
 	nano::error serialize (nano::tomlconfig & toml) const;
 
 public:
-	size_t threads{ std::clamp (nano::hardware_concurrency () / 4, 1u, 2u) }; // Processing threads, each owning a share of the channels
+	size_t threads{ std::clamp (nano::hardware_concurrency () / 2, 2u, 6u) }; // Processing threads, each owning a share of the channels, one per two cores within two and six
 	size_t max_queue{ 64 }; // Messages queued per channel before further ones are dropped
 };
 
