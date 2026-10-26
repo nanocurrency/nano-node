@@ -37,9 +37,6 @@ public:
 	// Returns std::nullopt if the IP is rate capped on syn cookie requests,
 	// or if the endpoint already has a syn cookie query
 	std::optional<nano::uint256_union> assign (nano::endpoint const &);
-	// Returns false if valid, true if invalid (true on error convention)
-	// Also removes the syn cookie from the store if valid
-	bool validate (nano::endpoint const &, nano::account const &, nano::signature const &);
 	/** Get cookie associated with endpoint and erases that cookie from this container */
 	std::optional<nano::uint256_union> cookie (nano::endpoint const &);
 	std::size_t cookies_size () const;
@@ -144,7 +141,7 @@ public:
 	size_t flood_block_all (std::shared_ptr<nano::block> const &, nano::transport::traffic_type) const;
 	// Sends a block this node made to every principal representative and floods it to a fanout of the others
 	size_t flood_block_initial (std::shared_ptr<nano::block> const &) const;
-	// Floods the blocks one at a time, `delay` apart, and calls `callback` after the last
+	// Floods the blocks one at a time, `delay` apart, and calls `callback` after the last, so never for an empty deque
 	void flood_block_many (std::deque<std::shared_ptr<nano::block>>, nano::transport::traffic_type, std::chrono::milliseconds delay = 10ms, std::function<void ()> callback = nullptr) const;
 
 	// Sends the channel a keepalive carrying random peers
@@ -152,8 +149,6 @@ public:
 	// Sends the channel a keepalive carrying this node's own endpoints
 	void send_keepalive_self (std::shared_ptr<nano::transport::channel> const &) const;
 
-	// Connects to each endpoint of a keepalive that is worth reaching out to
-	void merge_peers (std::array<nano::endpoint, 8> const & ips);
 	// Connects to the endpoint if it is worth reaching out to, true when an attempt was started
 	bool merge_peer (nano::endpoint const & ip);
 
@@ -194,8 +189,6 @@ public:
 	// The draws are capped at twice the count and the version is checked after each draw, so the set can fall short even when enough channels qualify
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (std::size_t max_count, uint8_t minimum_version = 0) const;
 
-	// The next peer to try a bootstrap connection to
-	nano::tcp_endpoint bootstrap_peer ();
 	// Drops the channels idle since `cutoff` and fires the disconnect observer when none is left
 	void cleanup (std::chrono::steady_clock::time_point const & cutoff);
 	// The number of connected peers, one channel each
