@@ -8,6 +8,8 @@
 #include <nano/node/message_dispatcher.hpp>
 #include <nano/node/message_processor.hpp>
 
+#include <algorithm>
+
 using namespace std::chrono_literals;
 
 nano::message_processor::message_processor (message_processor_config const & config_a, nano::message_dispatcher & dispatcher_a, nano::stats & stats_a, nano::logger & logger_a) :
@@ -16,31 +18,38 @@ nano::message_processor::message_processor (message_processor_config const & con
 	stats{ stats_a },
 	logger{ logger_a }
 {
-	queue.max_size_query = [this] (auto const & origin) {
-		return config.max_queue;
-	};
+	// No threads would mean no processing at all, so there is always one shard
+	auto const shard_count = std::max<size_t> (config.threads, 1);
+	for (size_t n = 0; n < shard_count; ++n)
+	{
+		auto & shard = shards.emplace_back ();
 
-	queue.priority_query = [this] (auto const & origin) {
-		return 1;
-	};
+		shard.queue.max_size_query = [this] (auto const & origin) {
+			return config.max_queue;
+		};
+
+		shard.queue.priority_query = [this] (auto const & origin) {
+			return 1;
+		};
+	}
 }
 
 nano::message_processor::~message_processor ()
 {
-	debug_assert (threads.empty ());
+	debug_assert (std::none_of (shards.begin (), shards.end (), [] (auto const & shard) { return shard.thread.joinable (); }));
 }
 
 void nano::message_processor::start ()
 {
-	debug_assert (threads.empty ());
-
-	for (int n = 0; n < config.threads; ++n)
+	for (auto & shard : shards)
 	{
-		threads.emplace_back ([this] () {
+		debug_assert (!shard.thread.joinable ());
+
+		shard.thread = std::thread ([this, &shard] () {
 			nano::thread_role::set (nano::thread_role::name::message_processing);
 			try
 			{
-				run ();
+				run (shard);
 			}
 			catch (boost::system::error_code & ec)
 			{
@@ -68,20 +77,34 @@ void nano::message_processor::start ()
 
 void nano::message_processor::stop ()
 {
+	for (auto & shard : shards)
 	{
-		nano::lock_guard<nano::mutex> lock{ mutex };
-		stopped = true;
-	}
-	condition.notify_all ();
-
-	for (auto & thread : threads)
-	{
-		if (thread.joinable ())
 		{
-			thread.join ();
+			nano::lock_guard<nano::mutex> lock{ shard.mutex };
+			stopped = true;
+		}
+		shard.condition.notify_all ();
+	}
+
+	for (auto & shard : shards)
+	{
+		if (shard.thread.joinable ())
+		{
+			shard.thread.join ();
 		}
 	}
-	threads.clear ();
+}
+
+auto nano::message_processor::shard_for (std::shared_ptr<nano::transport::channel> const & channel) -> shard_state &
+{
+	// The channel's address, mixed by the splitmix64 finalizer since allocations differ in too few bits to spread by themselves
+	uint64_t x = reinterpret_cast<uintptr_t> (channel.get ());
+	x ^= x >> 30;
+	x *= 0xbf58476d1ce4e5b9ULL;
+	x ^= x >> 27;
+	x *= 0x94d049bb133111ebULL;
+	x ^= x >> 31;
+	return shards[x % shards.size ()];
 }
 
 bool nano::message_processor::enqueue (std::unique_ptr<nano::messages::message> message, std::shared_ptr<nano::transport::channel> const & channel)
@@ -90,18 +113,19 @@ bool nano::message_processor::enqueue (std::unique_ptr<nano::messages::message> 
 	release_assert (channel != nullptr);
 
 	auto const type = message->type ();
+	auto & shard = shard_for (channel);
 
 	bool added = false;
 	{
-		nano::lock_guard<nano::mutex> guard{ mutex };
-		added = queue.push ({ std::move (message), channel }, { nano::no_value{}, channel });
+		nano::lock_guard<nano::mutex> guard{ shard.mutex };
+		added = shard.queue.push ({ std::move (message), channel }, { nano::no_value{}, channel });
 	}
 	if (added)
 	{
 		stats.inc (nano::stat::type::message_processor, nano::stat::detail::process);
 		stats.inc (nano::stat::type::message_processor_type, to_stat_detail (type));
 
-		condition.notify_all ();
+		shard.condition.notify_one ();
 	}
 	else
 	{
@@ -111,45 +135,45 @@ bool nano::message_processor::enqueue (std::unique_ptr<nano::messages::message> 
 	return added;
 }
 
-void nano::message_processor::run ()
+void nano::message_processor::run (shard_state & shard)
 {
-	nano::unique_lock<nano::mutex> lock{ mutex };
+	nano::unique_lock<nano::mutex> lock{ shard.mutex };
 	while (!stopped)
 	{
 		stats.inc (nano::stat::type::message_processor, nano::stat::detail::loop);
 
-		if (!queue.empty ())
+		if (!shard.queue.empty ())
 		{
 			// Only log if component is under pressure
-			if (queue.size () > nano::queue_warning_threshold () && log_interval.elapse (15s))
+			if (shard.queue.size () > nano::queue_warning_threshold () && shard.log_interval.elapse (15s))
 			{
-				logger.info (nano::log::type::message_processor, "{} messages in processing queue", queue.size ());
+				logger.info (nano::log::type::message_processor, "{} messages in processing queue", shard.queue.size ());
 			}
 
-			run_batch (lock);
+			run_batch (shard, lock);
 			debug_assert (!lock.owns_lock ());
 			lock.lock ();
 		}
 		else
 		{
-			condition.wait (lock, [&] {
-				return stopped || !queue.empty ();
+			shard.condition.wait (lock, [&] {
+				return stopped || !shard.queue.empty ();
 			});
 		}
 	}
 }
 
-void nano::message_processor::run_batch (nano::unique_lock<nano::mutex> & lock)
+void nano::message_processor::run_batch (shard_state & shard, nano::unique_lock<nano::mutex> & lock)
 {
 	debug_assert (lock.owns_lock ());
-	debug_assert (!mutex.try_lock ());
-	debug_assert (!queue.empty ());
+	debug_assert (!shard.mutex.try_lock ());
+	debug_assert (!shard.queue.empty ());
 
 	nano::timer<std::chrono::milliseconds> timer;
 	timer.start ();
 
 	size_t const max_batch_size = 1024 * 4;
-	auto batch = queue.next_batch (max_batch_size);
+	auto batch = shard.queue.next_batch (max_batch_size);
 
 	lock.unlock ();
 
@@ -181,10 +205,13 @@ void nano::message_processor::process (nano::messages::message const & message, 
 
 nano::container_info nano::message_processor::container_info () const
 {
-	nano::lock_guard<nano::mutex> guard{ mutex };
-
 	nano::container_info info;
-	info.add ("queue", queue.container_info ());
+	size_t index = 0;
+	for (auto const & shard : shards)
+	{
+		nano::lock_guard<nano::mutex> guard{ shard.mutex };
+		info.add ("shard_" + std::to_string (index++), shard.queue.container_info ());
+	}
 	return info;
 }
 
@@ -194,7 +221,7 @@ nano::container_info nano::message_processor::container_info () const
 
 nano::error nano::message_processor_config::serialize (nano::tomlconfig & toml) const
 {
-	toml.put ("threads", threads, "Number of threads to use for message processing. \ntype:uint64");
+	toml.put ("threads", threads, "Number of threads to use for message processing. Each peer is served by one of them, so its messages are processed in the order they arrived. \ntype:uint64");
 	toml.put ("max_queue", max_queue, "Maximum number of messages per peer to queue for processing. \ntype:uint64");
 
 	return toml.get_error ();
