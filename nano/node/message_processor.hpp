@@ -18,17 +18,18 @@ public:
 	nano::error serialize (nano::tomlconfig & toml) const;
 
 public:
-	size_t threads{ std::clamp (nano::hardware_concurrency () / 4, 1u, 2u) };
-	size_t max_queue{ 64 };
+	size_t threads{ std::clamp (nano::hardware_concurrency () / 4, 1u, 2u) }; // Threads draining the queue
+	size_t max_queue{ 64 }; // Messages queued per channel before further ones are dropped
 };
 
 /*
+ * Queues the messages peers send and hands them to the dispatcher on a pool of threads.
  * If mutex locking is ever a performance bottleneck, using a lock-free queue in front of the priority queue should be considered.
  */
 class message_processor final
 {
 public:
-	explicit message_processor (message_processor_config const &, nano::node &);
+	message_processor (message_processor_config const &, nano::message_dispatcher &, nano::stats &, nano::logger &);
 	~message_processor ();
 
 	void start ();
@@ -36,7 +37,7 @@ public:
 
 	// Queues a message from the channel for processing, false if the channel's queue is full and it was dropped
 	bool enqueue (std::unique_ptr<nano::messages::message> message, std::shared_ptr<nano::transport::channel> const & channel);
-	// Processes a message on the calling thread
+	// Hands a message to the dispatcher on the calling thread
 	void process (nano::messages::message const & message, std::shared_ptr<nano::transport::channel> const & channel);
 
 	nano::container_info container_info () const;
@@ -47,7 +48,7 @@ private:
 
 private: // Dependencies
 	message_processor_config const & config;
-	nano::node & node;
+	nano::message_dispatcher & dispatcher;
 	nano::stats & stats;
 	nano::logger & logger;
 

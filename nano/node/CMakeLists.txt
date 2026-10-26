@@ -130,6 +130,8 @@ add_library(
   local_vote_history.hpp
   make_store.hpp
   make_store.cpp
+  message_dispatcher.hpp
+  message_dispatcher.cpp
   message_processor.hpp
   message_processor.cpp
   migrations.hpp
