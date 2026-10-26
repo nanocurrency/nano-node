@@ -176,6 +176,11 @@ public:
 				});
 				QApplication::postEvent (&processor, new nano_qt::eventloop_event ([&] () {
 					gui = std::make_shared<nano_qt::wallet> (application, processor, *node, wallet, wallet_config.account);
+					// Kept in the config, which is written on exit
+					gui->selection_observer = [&] (nano::wallet_id const & id, nano::account const & account) {
+						wallet_config.wallet = id;
+						wallet_config.account = account;
+					};
 					splash->close ();
 					gui->start ();
 					gui->client_window->show ();

@@ -154,6 +154,7 @@ nano_qt::accounts::accounts (nano_qt::wallet & wallet_a) :
 	create_account (new QPushButton ("Create account")),
 	import_wallet (new QPushButton ("Import wallet")),
 	backup_seed (new QPushButton ("Copy wallet seed to clipboard")),
+	show_wallets (new QPushButton ("Wallets")),
 	separator (new QFrame),
 	account_key_line (new QLineEdit),
 	account_key_button (new QPushButton ("Import adhoc key")),
@@ -175,6 +176,7 @@ nano_qt::accounts::accounts (nano_qt::wallet & wallet_a) :
 	layout->addWidget (create_account);
 	layout->addWidget (import_wallet);
 	layout->addWidget (backup_seed);
+	layout->addWidget (show_wallets);
 	layout->addWidget (separator);
 	layout->addWidget (account_key_line);
 	layout->addWidget (account_key_button);
@@ -185,10 +187,11 @@ nano_qt::accounts::accounts (nano_qt::wallet & wallet_a) :
 		auto selection (view->selectionModel ()->selection ().indexes ());
 		if (selection.size () == 1)
 		{
-			auto error (this->wallet.account.decode_account (model->item (selection[0].row (), 1)->text ().toStdString ()));
+			nano::account account_l;
+			auto error (account_l.decode_account (model->item (selection[0].row (), 1)->text ().toStdString ()));
 			(void)error;
 			debug_assert (!error);
-			this->wallet.refresh ();
+			this->wallet.select_account (account_l);
 		}
 	});
 	QObject::connect (account_key_button, &QPushButton::released, [this] () {
@@ -247,6 +250,10 @@ nano_qt::accounts::accounts (nano_qt::wallet & wallet_a) :
 	QObject::connect (import_wallet, &QPushButton::released, [this] () {
 		this->wallet.push_main_stack (this->wallet.import.window);
 	});
+	QObject::connect (show_wallets, &QPushButton::released, [this] () {
+		this->wallet.wallets_viewer.refresh ();
+		this->wallet.push_main_stack (this->wallet.wallets_viewer.window);
+	});
 	QObject::connect (backup_seed, &QPushButton::released, [this] () {
 		auto seed_result = this->wallet.wallet_m->get_seed ();
 		if (seed_result)
@@ -279,7 +286,7 @@ nano_qt::accounts::accounts (nano_qt::wallet & wallet_a) :
 		account_key_line->setText (value.trimmed ());
 		account_key_line->setCursorPosition (pos);
 	});
-	refresh_wallet_balance ();
+	ongoing_refresh_wallet_balance ();
 }
 
 void nano_qt::accounts::refresh_wallet_balance ()
@@ -298,9 +305,14 @@ void nano_qt::accounts::refresh_wallet_balance ()
 		final_text += "\nReady to receive: " + wallet.format_balance (pending);
 	}
 	wallet_balance_label->setText (QString (final_text.c_str ()));
+}
+
+void nano_qt::accounts::ongoing_refresh_wallet_balance ()
+{
+	refresh_wallet_balance ();
 	this->wallet.node.workers.post_delayed (std::chrono::seconds (60), [this] () {
 		this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this] () {
-			refresh_wallet_balance ();
+			ongoing_refresh_wallet_balance ();
 		}));
 	});
 }
@@ -338,6 +350,180 @@ void nano_qt::accounts::refresh ()
 			items.push_back (account);
 			model->appendRow (items);
 		}
+	}
+}
+
+nano_qt::wallets_viewer::wallets_viewer (nano_qt::wallet & wallet_a) :
+	window (new QWidget),
+	layout (new QVBoxLayout),
+	model (new QStandardItemModel),
+	view (new QTableView),
+	use_wallet (new QPushButton ("Use wallet")),
+	create_wallet (new QPushButton ("Create wallet")),
+	separator (new QFrame),
+	seed (new QLineEdit),
+	restore_wallet (new QPushButton ("Restore wallet from seed")),
+	back (new QPushButton ("Back")),
+	wallet (wallet_a)
+{
+	model->setHorizontalHeaderItem (0, new QStandardItem ("Balance"));
+	model->setHorizontalHeaderItem (1, new QStandardItem ("Accounts"));
+	model->setHorizontalHeaderItem (2, new QStandardItem ("Wallet"));
+	view->setEditTriggers (QAbstractItemView::NoEditTriggers);
+	view->setSelectionBehavior (QAbstractItemView::SelectRows);
+	view->setSelectionMode (QAbstractItemView::SingleSelection);
+	view->setModel (model);
+	view->verticalHeader ()->hide ();
+	view->horizontalHeader ()->setStretchLastSection (true);
+	separator->setFrameShape (QFrame::HLine);
+	separator->setFrameShadow (QFrame::Sunken);
+	seed->setPlaceholderText ("Seed");
+	layout->addWidget (view);
+	layout->addWidget (use_wallet);
+	layout->addWidget (create_wallet);
+	layout->addWidget (separator);
+	layout->addWidget (seed);
+	layout->addWidget (restore_wallet);
+	layout->addWidget (back);
+	window->setLayout (layout);
+	QObject::connect (use_wallet, &QPushButton::released, [this] () {
+		auto selection (view->selectionModel ()->selectedRows ());
+		if (selection.size () == 1)
+		{
+			nano::wallet_id id;
+			auto decode_error (id.decode_hex (model->item (selection[0].row (), 2)->text ().toStdString ()));
+			(void)decode_error;
+			debug_assert (!decode_error);
+			if (auto error = this->wallet.select_wallet (id))
+			{
+				show_button_error (*use_wallet);
+				use_wallet->setText (error.get_message ().c_str ());
+				this->wallet.node.workers.post_delayed (std::chrono::seconds (5), [this] () {
+					this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this] () {
+						show_button_ok (*use_wallet);
+						use_wallet->setText ("Use wallet");
+					}));
+				});
+				// Drops a wallet destroyed since the list was shown
+				refresh ();
+			}
+		}
+	});
+	QObject::connect (create_wallet, &QPushButton::released, [this] () {
+		if (auto error = add_wallet (std::nullopt))
+		{
+			show_button_error (*create_wallet);
+			create_wallet->setText (error.get_message ().c_str ());
+		}
+		else
+		{
+			show_button_success (*create_wallet);
+			create_wallet->setText ("New wallet was created");
+		}
+		this->wallet.node.workers.post_delayed (std::chrono::seconds (5), [this] () {
+			this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this] () {
+				show_button_ok (*create_wallet);
+				create_wallet->setText ("Create wallet");
+			}));
+		});
+	});
+	QObject::connect (restore_wallet, &QPushButton::released, [this] () {
+		auto const text = seed->text ().toStdString ();
+		auto const seed_l = nano::try_parse_raw_key (text);
+		if (!seed_l)
+		{
+			show_line_error (*seed);
+			show_button_error (*restore_wallet);
+			restore_wallet->setText (text.size () != 64 ? "Incorrect seed, length must be 64" : "Incorrect seed. Only HEX characters allowed");
+		}
+		else if (auto error = add_wallet (*seed_l))
+		{
+			show_button_error (*restore_wallet);
+			restore_wallet->setText (error.get_message ().c_str ());
+		}
+		else
+		{
+			seed->clear ();
+			show_line_ok (*seed);
+			show_button_success (*restore_wallet);
+			restore_wallet->setText ("Wallet was restored");
+		}
+		this->wallet.node.workers.post_delayed (std::chrono::seconds (5), [this] () {
+			this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this] () {
+				show_line_ok (*seed);
+				show_button_ok (*restore_wallet);
+				restore_wallet->setText ("Restore wallet from seed");
+			}));
+		});
+	});
+	QObject::connect (seed, &QLineEdit::textChanged, [this] (const QString & value) {
+		auto pos = seed->cursorPosition ();
+		seed->setText (value.trimmed ());
+		seed->setCursorPosition (pos);
+	});
+	QObject::connect (back, &QPushButton::released, [this] () {
+		this->wallet.pop_main_stack ();
+	});
+}
+
+nano::error nano_qt::wallets_viewer::add_wallet (std::optional<nano::raw_key> const & seed_a)
+{
+	auto const id = nano::random_wallet_id ();
+	auto created = wallet.node.wallets.create (id);
+	if (created == nullptr)
+	{
+		// create has logged the cause
+		return nano::error (nano::error_common::wallet_create_failed);
+	}
+	if (seed_a)
+	{
+		// Fails only on a locked wallet, and nothing else knows the new wallet's id to lock it
+		if (auto restored = created->change_seed (*seed_a); !restored)
+		{
+			wallet.node.wallets.destroy (id);
+			return restored.error ();
+		}
+		wallet.node.logger.info (nano::log::type::qt, "Restored wallet {} from a seed", id);
+	}
+	else
+	{
+		wallet.node.logger.info (nano::log::type::qt, "Created wallet {}", id);
+	}
+	return wallet.select_wallet (id);
+}
+
+void nano_qt::wallets_viewer::refresh ()
+{
+	model->removeRows (0, model->rowCount ());
+	// Sorted by id, as the store is unordered, so rows keep their place across refreshes
+	auto const all = wallet.node.wallets.all_wallets ();
+	std::vector<std::pair<nano::wallet_id, std::shared_ptr<nano::wallet::wallet>>> sorted (all.begin (), all.end ());
+	std::sort (sorted.begin (), sorted.end (), [] (auto const & lhs, auto const & rhs) {
+		return lhs.first < rhs.first;
+	});
+	auto block_transaction = wallet.node.ledger.tx_begin_read ();
+	for (auto const & [id, wallet_l] : sorted)
+	{
+		auto const accounts = wallet_l->accounts ();
+		nano::uint128_t balance{ 0 };
+		for (auto const & account : accounts)
+		{
+			balance += wallet.node.ledger.any.account_balance (block_transaction, account).value_or (0).number ();
+		}
+		QList<QStandardItem *> items;
+		items.push_back (new QStandardItem (wallet.format_balance (balance).c_str ()));
+		items.push_back (new QStandardItem (std::to_string (accounts.size ()).c_str ()));
+		items.push_back (new QStandardItem (id.to_string ().c_str ()));
+		if (wallet_l == wallet.wallet_m)
+		{
+			for (auto * item : items)
+			{
+				auto font = item->font ();
+				font.setBold (true);
+				item->setFont (font);
+			}
+		}
+		model->appendRow (items);
 	}
 }
 
@@ -411,7 +597,7 @@ nano_qt::import::import (nano_qt::wallet & wallet_a) :
 				{
 					if (auto account_result = this->wallet.wallet_m->change_seed (*seed_l))
 					{
-						this->wallet.account = account_result.value ();
+						this->wallet.select_account (account_result.value ());
 						successful = true;
 					}
 					else
@@ -435,7 +621,6 @@ nano_qt::import::import (nano_qt::wallet & wallet_a) :
 					show_line_ok (*seed);
 					show_button_success (*import_seed);
 					import_seed->setText ("Successful import of seed");
-					this->wallet.refresh ();
 					this->wallet.node.workers.post_delayed (std::chrono::seconds (5), [this] () {
 						this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this] () {
 							show_button_ok (*import_seed);
@@ -820,7 +1005,7 @@ nano_qt::account_viewer::account_viewer (nano_qt::wallet & wallet_a) :
 	balance_window (new QWidget),
 	balance_layout (new QHBoxLayout),
 	balance_label (new QLabel),
-	history (wallet_a.node.ledger, account, wallet_a),
+	history (wallet_a.node.ledger, wallet_a.account, wallet_a),
 	back (new QPushButton ("Back")),
 	account (wallet_a.account),
 	wallet (wallet_a)
@@ -844,6 +1029,7 @@ nano_qt::account_viewer::account_viewer (nano_qt::wallet & wallet_a) :
 		if (!account.decode_account (account_line->text ().toStdString ()))
 		{
 			show_line_ok (*account_line);
+			this->history.account = account;
 			this->history.refresh ();
 			auto balance (this->wallet.node.balance_pending (account, false));
 			auto final_text (std::string ("Balance (NANO): ") + wallet.format_balance (balance.first));
@@ -1094,6 +1280,7 @@ nano_qt::wallet::wallet (QApplication & application_a, nano_qt::eventloop_proces
 	account_viewer (*this),
 	stats_viewer (*this),
 	import (*this),
+	wallets_viewer (*this),
 	application (application_a),
 	status (new QLabel),
 	main_stack (new QStackedWidget),
@@ -1251,10 +1438,11 @@ void nano_qt::wallet::start ()
 						if (!this_l->wallet_m->is_locked ())
 						{
 							this_l->send_blocks_send->setEnabled (false);
-							this_l->node.workers.post ([this_w, account_l, actual] () {
+							// Taken now, as another wallet or account may be shown by the time the worker runs
+							this_l->node.workers.post ([this_w, wallet_l = this_l->wallet_m, source = this_l->account, account_l, actual] () {
 								if (auto this_l = this_w.lock ())
 								{
-									this_l->wallet_m->send_async (this_l->account, account_l, actual, [this_w] (std::shared_ptr<nano::block> const & block_a) {
+									wallet_l->send_async (source, account_l, actual, [this_w] (std::shared_ptr<nano::block> const & block_a) {
 										if (auto this_l = this_w.lock ())
 										{
 											auto succeeded (block_a != nullptr);
@@ -1449,18 +1637,29 @@ void nano_qt::wallet::start ()
 			}));
 		}
 	});
-	wallet_m->lock_observer = [this_w] (bool invalid, bool vulnerable) {
+	observe_lock ();
+	settings_button->setToolTip ("Unlock wallet, set password, change representative");
+}
+
+void nano_qt::wallet::observe_lock ()
+{
+	std::weak_ptr<nano_qt::wallet> this_w (shared_from_this ());
+	std::weak_ptr<nano::wallet::wallet> wallet_w (wallet_m);
+	wallet_m->lock_observer = [this_w, wallet_w] (bool invalid, bool vulnerable) {
 		if (auto this_l = this_w.lock ())
 		{
-			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, invalid, vulnerable] () {
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, wallet_w, invalid, vulnerable] () {
 				if (auto this_l = this_w.lock ())
 				{
-					this_l->settings.update_locked (invalid, vulnerable);
+					// A wallet switched away from keeps this observer, its changes must not reach the status line
+					if (this_l->wallet_m == wallet_w.lock ())
+					{
+						this_l->settings.update_locked (invalid, vulnerable);
+					}
 				}
 			}));
 		}
 	};
-	settings_button->setToolTip ("Unlock wallet, set password, change representative");
 }
 
 void nano_qt::wallet::refresh ()
@@ -1469,9 +1668,77 @@ void nano_qt::wallet::refresh ()
 	self.account_text->setText (QString (account.to_account ().c_str ()));
 	needs_balance_refresh = true;
 	accounts.refresh ();
+	// The history keeps its own copy of the account it shows
+	history.account = account;
 	history.refresh ();
 	account_viewer.history.refresh ();
 	settings.refresh_representative ();
+}
+
+void nano_qt::wallet::select_account (nano::account const & account_a)
+{
+	account = account_a;
+	refresh ();
+	// A wallet destroyed over RPC has no id left to report
+	if (auto id = find_wallet_id ())
+	{
+		selection_observer (*id, account);
+	}
+}
+
+nano::error nano_qt::wallet::select_wallet (nano::wallet_id const & id)
+{
+	auto wallet_l = node.wallets.open (id);
+	if (wallet_l == nullptr)
+	{
+		return nano::error (nano::error_common::wallet_not_found);
+	}
+	if (wallet_l == wallet_m)
+	{
+		return {};
+	}
+	auto const accounts_l = wallet_l->accounts ();
+	nano::account account_l;
+	if (!accounts_l.empty ())
+	{
+		account_l = accounts_l.front ();
+	}
+	else
+	{
+		// Creating an account needs the seed, so this fails on a locked wallet
+		auto inserted = wallet_l->deterministic_insert ();
+		if (!inserted)
+		{
+			return inserted.error ();
+		}
+		account_l = inserted.value ();
+	}
+	node.logger.info (nano::log::type::qt, "Switched to wallet {} with account {}", id, account_l);
+	wallet_m = wallet_l;
+	observe_lock ();
+	settings.update_locked (wallet_m->is_locked (), wallet_m->unlocked_with_empty_password ());
+	settings.update_lock_toggle ();
+	// Typed for the previous wallet, so submitting any of them would unlock, rekey or reseed the wrong one
+	settings.password->clear ();
+	settings.new_password->clear ();
+	settings.retype_password->clear ();
+	import.clear_line->clear ();
+	accounts.refresh_wallet_balance ();
+	select_account (account_l);
+	wallets_viewer.refresh ();
+	return {};
+}
+
+std::optional<nano::wallet_id> nano_qt::wallet::find_wallet_id () const
+{
+	for (auto const & [id, wallet_l] : node.wallets.all_wallets ())
+	{
+		if (wallet_l == wallet_m)
+		{
+			return id;
+		}
+	}
+	return std::nullopt;
 }
 
 void nano_qt::wallet::update_connected ()
@@ -1488,8 +1755,9 @@ void nano_qt::wallet::update_connected ()
 
 void nano_qt::wallet::empty_password ()
 {
-	this->node.workers.post_delayed (std::chrono::seconds (3), [this] () {
-		wallet_m->enter_password (std::string (""));
+	// Taken now, as another wallet may be shown by the time the delay runs out
+	this->node.workers.post_delayed (std::chrono::seconds (3), [wallet_l = wallet_m] () {
+		wallet_l->enter_password (std::string (""));
 	});
 }
 
@@ -1711,12 +1979,7 @@ nano_qt::settings::settings (nano_qt::wallet & wallet_a) :
 		new_representative->setCursorPosition (pos);
 	});
 
-	// initial state for lock toggle button
-	if (!this->wallet.wallet_m->is_locked ())
-	{
-		lock_toggle->setText ("Lock");
-		password->setDisabled (1);
-	}
+	update_lock_toggle ();
 
 	representative->setToolTip ("In the infrequent case where the network needs to make a global decision,\nyour wallet software performs a balance-weighted vote to determine\nthe outcome. Since not everyone can remain online and perform this duty,\nyour wallet names a representative that can vote with, but cannot spend,\nyour balance.");
 	refresh_representative ();
@@ -1740,6 +2003,13 @@ void nano_qt::settings::refresh_representative ()
 void nano_qt::settings::activate ()
 {
 	this->wallet.push_main_stack (window);
+}
+
+void nano_qt::settings::update_lock_toggle ()
+{
+	auto locked = this->wallet.wallet_m->is_locked ();
+	lock_toggle->setText (locked ? "Unlock" : "Lock");
+	password->setEnabled (locked);
 }
 
 void nano_qt::settings::update_locked (bool invalid, bool vulnerable)
@@ -1906,7 +2176,7 @@ nano_qt::advanced_actions::advanced_actions (nano_qt::wallet & wallet_a) :
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (search_for_receivables, &QPushButton::released, [this] () {
-		std::thread ([this] { this->wallet.wallet_m->search_receivable (); }).detach ();
+		std::thread ([wallet_l = this->wallet.wallet_m] { wallet_l->search_receivable (); }).detach ();
 	});
 	QObject::connect (bootstrap, &QPushButton::released, [this] () {
 	});

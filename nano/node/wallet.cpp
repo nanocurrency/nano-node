@@ -645,6 +645,17 @@ bool wallet_store::attempt_password (nano::store::transaction const & transactio
 	return result;
 }
 
+bool wallet_store::unlocked_with (nano::store::transaction const & transaction_a, std::string const & password_a) const
+{
+	// Derived before taking the mutex, the kdf is slow
+	auto const password_key = derive_key (transaction_a, password_a);
+	nano::lock_guard<std::recursive_mutex> lock{ mutex };
+	nano::raw_key live;
+	password.value (live);
+	// A failed attempt leaves its key as the live password, so a match alone does not mean unlocked
+	return live == password_key && valid_password (transaction_a);
+}
+
 void wallet_store::password_clear ()
 {
 	// Take the store mutex so the clear cannot be overwritten by an in-flight rekey or attempt_password
@@ -1559,6 +1570,12 @@ void wallet::lock ()
 	logger.info (nano::log::type::wallet, "Wallet locked");
 	store.password_clear ();
 	wallets.refresh_rep_keys_cache ();
+}
+
+bool wallet::unlocked_with_empty_password () const
+{
+	auto transaction = wallets.tx_begin_read ();
+	return store.unlocked_with (transaction, wallet_store::default_password);
 }
 
 void wallet::remove_account (nano::account const & account_a)
