@@ -102,3 +102,17 @@ TEST (inproc, send_callback)
 	ASSERT_FALSE (result);
 	ASSERT_EQ (size, keepalive.to_bytes ()->size ());
 }
+
+/*
+ * A channel between two nodes reports the destination as its peer, not the node it sends from
+ */
+TEST (inproc, describes_destination)
+{
+	nano::test::system system{ 2 };
+	auto & node0 = *system.nodes[0];
+	auto & node1 = *system.nodes[1];
+	nano::transport::inproc::channel channel{ node0, node1 };
+
+	ASSERT_EQ (node1.get_node_id (), channel.get_node_id ());
+	ASSERT_NE (node0.get_node_id (), channel.get_node_id ());
+}
