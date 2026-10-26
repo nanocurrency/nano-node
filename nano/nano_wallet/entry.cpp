@@ -318,6 +318,10 @@ int main (int argc, char * const * argv)
 				}
 			}
 		}
+		else if (ec)
+		{
+			result = 1;
+		}
 		return result;
 	}
 	catch (std::exception const & e)
