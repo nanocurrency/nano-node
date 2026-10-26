@@ -520,26 +520,25 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 
 		nano::logger::initialize (nano::log_config::daemon_default (), data_path);
 
-		nano::lmdb_config lmdb_config;
-		nano::rocksdb_config rocksdb_config;
-		{
-			nano::network_params network_params{ nano::get_active_network () };
-			nano::daemon_config daemon_config{ data_path, network_params };
-			if (!nano::read_node_config_toml (data_path, daemon_config, nano::config_overrides (vm)))
-			{
-				lmdb_config = daemon_config.node.lmdb_config;
-				rocksdb_config = daemon_config.node.rocksdb_config;
-			}
-		}
+		nano::network_params network_params{ nano::get_active_network () };
+		nano::daemon_config daemon_config{ data_path, network_params };
 
-		try
+		if (auto error = nano::read_node_config_toml (data_path, daemon_config, nano::config_overrides (vm)))
 		{
-			nano::migrate_lmdb_to_rocksdb (data_path, lmdb_config, rocksdb_config);
+			std::cerr << "Error reading config: " << error.get_message () << std::endl;
+			ec = nano::error_cli::reading_config;
 		}
-		catch (std::exception const & e)
+		else
 		{
-			nano::default_logger ().error (nano::log::type::migration, "Migration failed: {}", e.what ());
-			std::cerr << "Migration failed: " << e.what () << std::endl;
+			try
+			{
+				nano::migrate_lmdb_to_rocksdb (data_path, *daemon_config.node.lmdb_config, *daemon_config.node.rocksdb_config);
+			}
+			catch (std::exception const & e)
+			{
+				nano::default_logger ().error (nano::log::type::migration, "Migration failed: {}", e.what ());
+				std::cerr << "Migration failed: " << e.what () << std::endl;
+			}
 		}
 	}
 	else if (vm.count ("upgrade_database"))
