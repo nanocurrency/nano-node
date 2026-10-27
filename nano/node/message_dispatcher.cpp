@@ -15,10 +15,14 @@
 
 namespace
 {
-class process_visitor : public nano::messages::message_visitor
+/*
+ * Routes one message to the node component that handles its type.
+ * A message that goes nowhere, because no component takes its type, the node is not in a state to use it, or a component refuses it, is counted under `message_drop` by its type.
+ */
+class dispatch_visitor final : public nano::messages::message_visitor
 {
 public:
-	process_visitor (nano::node & node_a, std::shared_ptr<nano::transport::channel> const & channel_a) :
+	dispatch_visitor (nano::node & node_a, std::shared_ptr<nano::transport::channel> const & channel_a) :
 		node{ node_a },
 		channel{ channel_a }
 	{
@@ -26,13 +30,11 @@ public:
 
 	void keepalive (nano::messages::keepalive const & message) override
 	{
-		// Check for self reported peering port
-		auto self_report = message.peers[0];
-		if (self_report.address () == boost::asio::ip::address_v6{} && self_report.port () != 0)
+		// The first slot self-reports the port the peer listens on, which is what other peers get told
+		auto const & self_report = message.peers[0];
+		if (self_report.address ().is_unspecified () && self_report.port () != 0)
 		{
-			// Remember this for future forwarding to other peers
-			nano::endpoint peering_endpoint{ channel->get_remote_endpoint ().address (), self_report.port () };
-			channel->set_peering_endpoint (peering_endpoint);
+			channel->set_peering_endpoint ({ channel->get_remote_endpoint ().address (), self_report.port () });
 		}
 		channel->set_last_keepalive (message);
 	}
@@ -45,12 +47,14 @@ public:
 			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::publish, nano::stat::dir::in);
 			return;
 		}
-		// Put blocks that are being initially broadcasted in a separate queue, so that they won't have to compete with rebroadcasted blocks
-		// Both queues have the same priority and size, so the potential for exploiting this is limited
-		debug_assert (message.digest != 0 || channel->get_type () != nano::transport::transport_type::tcp); // Messages received from the network should have their digest set
-		bool added = node.block_processor.add (message.block, message.is_originator () ? nano::block_source::live_originator : nano::block_source::live, channel);
-		if (!added)
+
+		debug_assert (message.digest != 0 || channel->get_type () != nano::transport::transport_type::tcp); // A message from the network carries its digest
+
+		// Blocks broadcast by their originator queue apart from rebroadcasts
+		auto const source = message.is_originator () ? nano::block_source::live_originator : nano::block_source::live;
+		if (!node.block_processor.add (message.block, source, channel))
 		{
+			// Refused, so the block leaves the duplicate filter for a resend to get another chance
 			node.network.filter.clear (message.digest);
 			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::publish, nano::stat::dir::in);
 		}
@@ -58,14 +62,21 @@ public:
 
 	void confirm_req (nano::messages::confirm_req const & message) override
 	{
-		// Don't load nodes with disabled voting
-		if (node.is_voting ())
+		// A node that does not vote has no reply to give
+		if (!node.is_voting ())
 		{
-			if (!message.roots_hashes.empty ())
-			{
-				node.vote_replier.request (message.roots_hashes, channel);
-			}
+			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::confirm_req, nano::stat::dir::in);
+			return;
 		}
+
+		// A request without roots asks for nothing
+		if (message.roots_hashes.empty ())
+		{
+			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::confirm_req, nano::stat::dir::in);
+			return;
+		}
+
+		node.vote_replier.request (message.roots_hashes, channel);
 	}
 
 	void confirm_ack (nano::messages::confirm_ack const & message) override
@@ -76,50 +87,23 @@ public:
 			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
 			return;
 		}
-		// Ignore zero account votes
+
+		// Nobody holds the zero account, so a vote in its name is dropped
 		if (message.vote->account.is_zero ())
 		{
 			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::confirm_ack_zero_account, nano::stat::dir::in);
 			return;
 		}
 
-		debug_assert (message.digest != 0 || channel->get_type () != nano::transport::transport_type::tcp); // Messages received from the network should have their digest set
-		bool added = node.vote_processor.vote (message.vote, channel, message.is_rebroadcasted () ? nano::vote_source::rebroadcast : nano::vote_source::live);
-		if (!added)
+		debug_assert (message.digest != 0 || channel->get_type () != nano::transport::transport_type::tcp); // A message from the network carries its digest
+
+		auto const source = message.is_rebroadcasted () ? nano::vote_source::rebroadcast : nano::vote_source::live;
+		if (!node.vote_processor.vote (message.vote, channel, source))
 		{
+			// Refused, so the vote leaves the duplicate filter for a resend to get another chance
 			node.network.filter.clear (message.digest);
 			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
 		}
-	}
-
-	void bulk_pull (nano::messages::bulk_pull const &) override
-	{
-		debug_assert (false);
-	}
-
-	void bulk_pull_account (nano::messages::bulk_pull_account const &) override
-	{
-		debug_assert (false);
-	}
-
-	void bulk_push (nano::messages::bulk_push const &) override
-	{
-		debug_assert (false);
-	}
-
-	void frontier_req (nano::messages::frontier_req const &) override
-	{
-		debug_assert (false);
-	}
-
-	void node_id_handshake (nano::messages::node_id_handshake const & message) override
-	{
-		node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
-	}
-
-	void telemetry_req (nano::messages::telemetry_req const & message) override
-	{
-		// Ignore telemetry requests as telemetry is being periodically broadcasted since V25+
 	}
 
 	void telemetry_ack (nano::messages::telemetry_ack const & message) override
@@ -137,9 +121,15 @@ public:
 		node.bootstrap.process (message, channel);
 	}
 
+	// Every other type is dropped, telemetry requests among them since telemetry has been broadcast since V25
+	void default_handler (nano::messages::message const & message) override
+	{
+		node.stats.inc (nano::stat::type::message_drop, to_stat_detail (message.type ()), nano::stat::dir::in);
+	}
+
 private:
 	nano::node & node;
-	std::shared_ptr<nano::transport::channel> channel;
+	std::shared_ptr<nano::transport::channel> const & channel; // The dispatcher's argument, which outlives the visitor
 };
 }
 
@@ -153,6 +143,6 @@ void nano::node_message_dispatcher::dispatch (nano::messages::message const & me
 	debug_assert (message.header.network == node.network_params.network.current_network);
 	debug_assert (message.header.version_using >= node.network_params.network.protocol_version_min);
 
-	process_visitor visitor{ node, channel };
+	dispatch_visitor visitor{ node, channel };
 	message.visit (visitor);
 }

@@ -446,11 +446,6 @@ void nano::transport::tcp_server::realtime_message_visitor::confirm_ack (const n
 	process = true;
 }
 
-void nano::transport::tcp_server::realtime_message_visitor::frontier_req (const nano::messages::frontier_req & message)
-{
-	process = true;
-}
-
 void nano::transport::tcp_server::realtime_message_visitor::telemetry_req (const nano::messages::telemetry_req & message)
 {
 	process = true;
