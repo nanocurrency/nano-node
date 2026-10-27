@@ -214,9 +214,12 @@ TEST (peer_blocklist, disconnect_node_id)
 {
 	auto const test_start = std::chrono::steady_clock::now ();
 
-	nano::test::system system (2);
-	auto node0 = system.nodes[0];
-	auto node1 = system.nodes[1];
+	// Background reachout would redial the dropped peer and race the reconnect below
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_reachout = true;
+	auto node0 = system.add_node (flags);
+	auto node1 = system.add_node (flags);
 	ASSERT_NE (nullptr, node0->network.find_node_id (node1->get_node_id ()));
 
 	ASSERT_TRUE (node0->peer_blocklist.add (node1->get_node_id ()));
