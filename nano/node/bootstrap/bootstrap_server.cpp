@@ -95,17 +95,29 @@ bool nano::bootstrap_server::verify (const nano::messages::asc_pull_req & messag
 
 	struct verify_visitor
 	{
+		// The hash type byte comes straight off the wire, so any value the enum does not name is rejected here
+		static bool valid (nano::messages::asc_pull_req::hash_type type)
+		{
+			switch (type)
+			{
+				case nano::messages::asc_pull_req::hash_type::account:
+				case nano::messages::asc_pull_req::hash_type::block:
+					return true;
+			}
+			return false;
+		}
+
 		bool operator() (nano::messages::empty_payload const &) const
 		{
 			return false;
 		}
 		bool operator() (nano::messages::asc_pull_req::blocks_payload const & pld) const
 		{
-			return pld.count > 0 && pld.count <= max_blocks;
+			return pld.count > 0 && pld.count <= max_blocks && valid (pld.start_type);
 		}
 		bool operator() (nano::messages::asc_pull_req::account_info_payload const & pld) const
 		{
-			return !pld.target.is_zero ();
+			return !pld.target.is_zero () && valid (pld.target_type);
 		}
 		bool operator() (nano::messages::asc_pull_req::frontiers_payload const & pld) const
 		{
@@ -441,6 +453,8 @@ nano::messages::asc_pull_ack nano::bootstrap_server::process (secure::transactio
 
 nano::messages::asc_pull_ack nano::bootstrap_server::process (secure::transaction const & transaction, nano::messages::asc_pull_req::id_t id, nano::messages::asc_pull_req::blocks_random_payload const & request) const
 {
+	static_assert (max_random_blocks <= max_blocks);
+
 	nano::messages::asc_pull_ack response{ network_constants };
 	response.id = id;
 	response.type = nano::messages::asc_pull_type::blocks_random;
@@ -448,6 +462,10 @@ nano::messages::asc_pull_ack nano::bootstrap_server::process (secure::transactio
 	nano::messages::asc_pull_ack::blocks_payload response_payload{};
 	for (auto const & hash : request.hashes)
 	{
+		if (response_payload.blocks.size () >= max_random_blocks)
+		{
+			break;
+		}
 		auto block = ledger.any.block_get (transaction, hash);
 		if (block)
 		{

@@ -460,6 +460,11 @@ void asc_pull_ack::operator() (nano::object_stream & obs) const
  * asc_pull_ack::blocks_payload
  */
 
+// A payload travels with its length in the 16-bit header field, so each cap is checked against the largest serialization it allows, terminator included
+static_assert (asc_pull_ack::blocks_payload::max_blocks * (sizeof (nano::block_type) + nano::state_block::size) + sizeof (nano::block_type) <= std::numeric_limits<uint16_t>::max ());
+static_assert ((asc_pull_ack::frontiers_payload::max_frontiers + 1) * (sizeof (nano::account) + sizeof (nano::block_hash)) <= std::numeric_limits<uint16_t>::max ());
+static_assert ((asc_pull_ack::topo_index_payload::max_entries + 1) * (sizeof (uint64_t) + sizeof (nano::block_hash)) <= std::numeric_limits<uint16_t>::max ());
+
 void asc_pull_ack::blocks_payload::serialize (nano::stream & stream) const
 {
 	debug_assert (blocks.size () <= max_blocks);
