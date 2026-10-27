@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/assert.hpp>
+#include <nano/lib/hashing.hpp>
 
 #include <boost/lexical_cast.hpp>
 

@@ -89,7 +89,6 @@ private: // Visitors
 		void publish (nano::messages::publish const &) override;
 		void confirm_req (nano::messages::confirm_req const &) override;
 		void confirm_ack (nano::messages::confirm_ack const &) override;
-		void frontier_req (nano::messages::frontier_req const &) override;
 		void telemetry_req (nano::messages::telemetry_req const &) override;
 		void telemetry_ack (nano::messages::telemetry_ack const &) override;
 		void asc_pull_req (nano::messages::asc_pull_req const &) override;

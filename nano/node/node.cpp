@@ -36,6 +36,7 @@
 #include <nano/node/local_block_broadcaster.hpp>
 #include <nano/node/local_vote_history.hpp>
 #include <nano/node/make_store.hpp>
+#include <nano/node/message_dispatcher.hpp>
 #include <nano/node/message_processor.hpp>
 #include <nano/node/monitor.hpp>
 #include <nano/node/network.hpp>
@@ -151,7 +152,9 @@ nano::node::node (std::filesystem::path const & application_path_a, nano::node_c
 	ledger_notifications{ *ledger_notifications_impl },
 	outbound_limiter_impl{ std::make_unique<nano::bandwidth_limiter> (config, flags) },
 	outbound_limiter{ *outbound_limiter_impl },
-	message_processor_impl{ std::make_unique<nano::message_processor> (config.message_processor, *this) },
+	message_dispatcher_impl{ std::make_unique<nano::node_message_dispatcher> (*this) },
+	message_dispatcher{ *message_dispatcher_impl },
+	message_processor_impl{ std::make_unique<nano::message_processor> (config.message_processor, message_dispatcher, stats, logger) },
 	message_processor{ *message_processor_impl },
 	peer_blocklist_impl{ std::make_unique<nano::peer_blocklist> (*config.peer_blocklist) },
 	peer_blocklist{ *peer_blocklist_impl },

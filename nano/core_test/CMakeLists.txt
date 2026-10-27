@@ -41,6 +41,7 @@ add_executable(
   epochs.cpp
   fair_queue.cpp
   fork_cache.cpp
+  hashing.cpp
   inproc.cpp
   ipc.cpp
   ledger.cpp
@@ -51,6 +52,7 @@ add_executable(
   locks.cpp
   logging.cpp
   message.cpp
+  message_processor.cpp
   memory_pool.cpp
   migrations.cpp
   network.cpp
