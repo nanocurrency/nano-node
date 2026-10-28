@@ -5,6 +5,7 @@
 #include <nano/messages/fwd.hpp>
 #include <nano/messages/message.hpp>
 
+#include <deque>
 #include <limits>
 #include <memory>
 #include <utility>
@@ -114,6 +115,9 @@ public:
 	// Maximum total payload size that fits the 16 bit length field
 	constexpr static std::size_t max_payload = std::numeric_limits<uint16_t>::max ();
 
+	// Split votes into the acks they fit, by vote count and payload size, keeping their order
+	static std::deque<std::vector<std::shared_ptr<nano::vote>>> batch_votes (std::deque<std::shared_ptr<nano::vote>> const &);
+
 	// Wire flag set on the terminator of a request the relay did not take, which tells it from an answer with no votes
 	static uint8_t constexpr flag_refused = 1 << 0;
 
@@ -122,8 +126,17 @@ public:
 
 	// Terminator of a request the relay did not take
 	static vote_relay_ack refusal (nano::network_constants const &, id_t);
+	// Wire flag set on the last ack of a request, no more votes follow it; an empty ack ends a request as well
+	static uint8_t constexpr flag_completed = 1 << 1;
+	// Whether no more votes follow this ack, read from the flags
+	bool completed () const;
+	// Last ack of a request, carrying its final votes if any
+	static vote_relay_ack completion (nano::network_constants const &, id_t, std::vector<std::shared_ptr<nano::vote>> const &);
 
 private:
+	// Payload bytes ahead of the votes: id, flags and vote count
+	constexpr static std::size_t base_size = sizeof (id_t) + sizeof (uint8_t) + sizeof (uint8_t);
+
 	std::size_t payload_size () const;
 
 public: // Payload

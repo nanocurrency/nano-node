@@ -66,12 +66,21 @@ public:
 		});
 	}
 
-	// Whether a terminating empty ack was received for the given request id
+	// Whether an ack ending the request was received for the given id, one flagged as completed or an empty one
 	bool terminated (uint64_t id) const
 	{
 		nano::lock_guard<nano::mutex> lock{ mutex };
 		return std::any_of (acks.begin (), acks.end (), [id] (auto const & ack) {
-			return ack.id == id && ack.votes.empty ();
+			return ack.id == id && (ack.completed () || ack.votes.empty ());
+		});
+	}
+
+	// Number of acks received for the given request id
+	std::size_t count (uint64_t id) const
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		return std::count_if (acks.begin (), acks.end (), [id] (auto const & ack) {
+			return ack.id == id;
 		});
 	}
 
@@ -371,7 +380,7 @@ TEST (vote_relay, unsupported_any_rep)
 }
 
 /*
- * Votes already in the vote cache should be served immediately, followed by the terminating empty ack
+ * Votes already in the vote cache should be served immediately, in a single ack flagged as completed
  */
 TEST (vote_relay, serve_from_cache)
 {
@@ -393,6 +402,7 @@ TEST (vote_relay, serve_from_cache)
 	ASSERT_TRUE (node.vote_relay.request (req, channel));
 
 	ASSERT_TIMELY (5s, acks.terminated (42));
+	ASSERT_EQ (1, acks.count (42)); // The votes and the end of the request ride on one ack
 	auto votes = acks.votes (42);
 	ASSERT_EQ (1, votes.size ());
 	ASSERT_EQ (nano::dev::genesis_key.pub, votes[0]->account);
@@ -479,6 +489,7 @@ TEST (vote_relay, query_rep)
 
 	ASSERT_TIMELY (5s, acks.terminated (7));
 	ASSERT_FALSE (acks.refused (7));
+	ASSERT_EQ (1, acks.count (7)); // The vote and the end of the request ride on one ack
 	auto votes = acks.votes (7);
 	ASSERT_EQ (1, votes.size ());
 	ASSERT_EQ (nano::dev::genesis_key.pub, votes[0]->account);
@@ -994,6 +1005,7 @@ TEST (vote_relay, flush_threshold)
 	ASSERT_TRUE (node.vote_processor.vote (vote3, channel, nano::vote_source::live));
 	ASSERT_TIMELY (5s, acks.terminated (7));
 	ASSERT_EQ (3, acks.votes (7).size ());
+	ASSERT_EQ (2, acks.count (7)); // The flush and the completion, nothing else
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::done));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::timeout));
 }

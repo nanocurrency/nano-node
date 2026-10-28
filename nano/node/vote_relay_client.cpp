@@ -287,6 +287,7 @@ bool nano::vote_relay_client::process (nano::messages::vote_relay_ack const & ac
 
 	std::optional<nano::vote_relay_client_index::entry> entry;
 	bool refused = false;
+	bool completed = false;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		if (stopped)
@@ -296,7 +297,7 @@ bool nano::vote_relay_client::process (nano::messages::vote_relay_ack const & ac
 		entry = index.find (ack.id, channel);
 		if (entry)
 		{
-			// A refusal or an empty ack terminates the request, anything else accumulates
+			// A refusal ends the request, so does an ack flagged as completed or an empty one, anything else accumulates
 			if (ack.refused ())
 			{
 				refused = true;
@@ -304,8 +305,9 @@ bool nano::vote_relay_client::process (nano::messages::vote_relay_ack const & ac
 				// The relay had no room or does not serve such requests, the next rounds ask another one
 				index.cool_down (channel, std::chrono::steady_clock::now () + config.refusal_cooldown);
 			}
-			else if (ack.votes.empty ())
+			else if (ack.completed () || ack.votes.empty ())
 			{
+				completed = true;
 				index.erase (ack.id);
 			}
 			else
@@ -332,10 +334,13 @@ bool nano::vote_relay_client::process (nano::messages::vote_relay_ack const & ac
 		return true;
 	}
 
-	if (ack.votes.empty ())
+	if (completed)
 	{
 		stats.inc (nano::stat::type::vote_relay_client, nano::stat::detail::done);
-		logger.debug (nano::log::type::vote_relay_client, "Request: {} completed with {} votes received from relay: {}", ack.id, entry->votes, channel);
+		logger.debug (nano::log::type::vote_relay_client, "Request: {} completed with {} votes received from relay: {}", ack.id, entry->votes + ack.votes.size (), channel);
+	}
+	if (ack.votes.empty ())
+	{
 		return true;
 	}
 

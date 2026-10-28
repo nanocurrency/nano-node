@@ -183,6 +183,18 @@ bool vote_relay_ack::refused () const
 	return (flags & flag_refused) != 0;
 }
 
+vote_relay_ack vote_relay_ack::completion (nano::network_constants const & constants, id_t id_a, std::vector<std::shared_ptr<nano::vote>> const & votes_a)
+{
+	vote_relay_ack result{ constants, id_a, votes_a };
+	result.flags |= flag_completed;
+	return result;
+}
+
+bool vote_relay_ack::completed () const
+{
+	return (flags & flag_completed) != 0;
+}
+
 void vote_relay_ack::visit (message_visitor & visitor) const
 {
 	visitor.vote_relay_ack (*this);
@@ -245,9 +257,33 @@ std::size_t vote_relay_ack::vote_size (std::shared_ptr<nano::vote> const & vote)
 	return sizeof (uint8_t) + nano::vote::size (nano::narrow_cast<uint8_t> (vote->hashes.size ()));
 }
 
+std::deque<std::vector<std::shared_ptr<nano::vote>>> vote_relay_ack::batch_votes (std::deque<std::shared_ptr<nano::vote>> const & votes)
+{
+	std::deque<std::vector<std::shared_ptr<nano::vote>>> result;
+	std::vector<std::shared_ptr<nano::vote>> batch;
+	std::size_t payload{ base_size };
+	for (auto const & vote : votes)
+	{
+		auto const bytes = vote_size (vote);
+		if (batch.size () >= max_votes || payload + bytes > max_payload)
+		{
+			result.push_back (std::move (batch));
+			batch.clear ();
+			payload = base_size;
+		}
+		batch.push_back (vote);
+		payload += bytes;
+	}
+	if (!batch.empty ())
+	{
+		result.push_back (std::move (batch));
+	}
+	return result;
+}
+
 std::size_t vote_relay_ack::payload_size () const
 {
-	std::size_t result = sizeof (id) + sizeof (flags) + sizeof (uint8_t);
+	std::size_t result = base_size;
 	for (auto const & vote : votes)
 	{
 		result += vote_size (vote);
@@ -274,6 +310,7 @@ void vote_relay_ack::operator() (nano::object_stream & obs) const
 
 	obs.write ("id", id);
 	obs.write ("refused", refused ());
+	obs.write ("completed", completed ());
 	obs.write ("count", votes.size ());
 }
 }

@@ -1481,3 +1481,173 @@ TEST (message, vote_relay_ack_refusal)
 	ASSERT_TRUE (ack2.refused ());
 	ASSERT_TRUE (ack2.votes.empty ());
 }
+
+/*
+ * The last ack of a request carries its votes with the completed flag, the flag round-trips and neither a plain ack nor a refusal carries it
+ */
+TEST (message, vote_relay_ack_completion)
+{
+	nano::keypair key;
+	std::vector<std::shared_ptr<nano::vote>> votes{ nano::test::make_final_vote (key, std::vector<nano::block_hash>{ nano::block_hash{ 1 } }) };
+	auto ack = nano::messages::vote_relay_ack::completion (nano::dev::network_params.network, 654, votes);
+	ASSERT_TRUE (ack.completed ());
+	ASSERT_FALSE (ack.refused ());
+	ASSERT_EQ (1, ack.votes.size ());
+	ASSERT_FALSE ((nano::messages::vote_relay_ack{ nano::dev::network_params.network, 654, votes }).completed ());
+	ASSERT_FALSE (nano::messages::vote_relay_ack::refusal (nano::dev::network_params.network, 654).completed ());
+
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		ack.serialize (stream);
+	}
+
+	// The flag and the vote survive the round trip
+	bool error = false;
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	nano::messages::message_header header (error, stream2);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (bytes.size () - nano::messages::message_header::size, header.payload_length_bytes ());
+
+	nano::messages::vote_relay_ack ack2 (error, stream2, header);
+	ASSERT_FALSE (error);
+	ASSERT_TRUE (nano::at_end (stream2));
+	ASSERT_EQ (654, ack2.id);
+	ASSERT_TRUE (ack2.completed ());
+	ASSERT_EQ (1, ack2.votes.size ());
+	ASSERT_EQ (*votes[0], *ack2.votes[0]);
+}
+
+/*
+ * Small votes are split by count alone: every batch but the last holds max_votes, and the batches keep the votes in order
+ */
+TEST (message, vote_relay_ack_batch_votes_count)
+{
+	// No votes give no batches, whether an empty ack still goes out is up to the caller
+	ASSERT_TRUE (nano::messages::vote_relay_ack::batch_votes ({}).empty ());
+
+	// Single hash votes, two full acks worth and one more, far below the payload limit
+	nano::keypair key;
+	std::deque<std::shared_ptr<nano::vote>> votes;
+	for (uint64_t i = 0; i < 2 * nano::messages::vote_relay_ack::max_votes + 1; ++i)
+	{
+		votes.push_back (nano::test::make_final_vote (key, std::vector<nano::block_hash>{ nano::block_hash{ i + 1 } }));
+	}
+
+	auto const batches = nano::messages::vote_relay_ack::batch_votes (votes);
+
+	// Two full batches and the remainder
+	ASSERT_EQ (3, batches.size ());
+	ASSERT_EQ (nano::messages::vote_relay_ack::max_votes, batches[0].size ());
+	ASSERT_EQ (nano::messages::vote_relay_ack::max_votes, batches[1].size ());
+	ASSERT_EQ (1, batches[2].size ());
+
+	// Joined back together, the batches are the input in its order
+	std::deque<std::shared_ptr<nano::vote>> joined;
+	for (auto const & batch : batches)
+	{
+		joined.insert (joined.end (), batch.begin (), batch.end ());
+	}
+	ASSERT_EQ (votes, joined);
+}
+
+/*
+ * Large votes are split by payload size: each batch serializes as an ack within the 16 bit payload length, none of them had room for the vote that opens the next, and they read back as the input in its order
+ */
+TEST (message, vote_relay_ack_batch_votes_size)
+{
+	// Votes with the most hashes a vote holds, so the payload limit closes every batch long before max_votes
+	nano::keypair key;
+	std::deque<std::shared_ptr<nano::vote>> votes;
+	for (uint64_t i = 0; i < 20; ++i)
+	{
+		std::vector<nano::block_hash> hashes;
+		for (uint64_t j = 0; j < nano::vote::max_hashes; ++j)
+		{
+			hashes.emplace_back (i * 1000 + j + 1);
+		}
+		votes.push_back (nano::test::make_final_vote (key, hashes));
+	}
+
+	auto const batches = nano::messages::vote_relay_ack::batch_votes (votes);
+
+	// Seven such votes fit one ack, as vote_relay_ack_serialization_max_size shows, so twenty split into 7, 7 and 6
+	ASSERT_EQ (3, batches.size ());
+	ASSERT_EQ (7, batches[0].size ());
+	ASSERT_EQ (7, batches[1].size ());
+	ASSERT_EQ (6, batches[2].size ());
+
+	std::size_t next{ 0 };
+	for (std::size_t i = 0; i < batches.size (); ++i)
+	{
+		nano::messages::vote_relay_ack ack{ nano::dev::network_params.network, 1, batches[i] };
+		std::vector<uint8_t> bytes;
+		{
+			nano::vectorstream stream (bytes);
+			ack.serialize (stream);
+		}
+
+		// The ack fits the payload limit, and the vote opening the next batch would not have fit with it
+		auto const payload = bytes.size () - nano::messages::message_header::size;
+		ASSERT_LE (payload, nano::messages::vote_relay_ack::max_payload);
+		if (i + 1 < batches.size ())
+		{
+			ASSERT_GT (payload + nano::messages::vote_relay_ack::vote_size (batches[i + 1].front ()), nano::messages::vote_relay_ack::max_payload);
+		}
+
+		// The ack reads back at the length it declares, carrying the next votes of the input
+		bool error = false;
+		nano::bufferstream stream2 (bytes.data (), bytes.size ());
+		nano::messages::message_header header (error, stream2);
+		ASSERT_FALSE (error);
+		ASSERT_EQ (payload, header.payload_length_bytes ());
+		nano::messages::vote_relay_ack ack2 (error, stream2, header);
+		ASSERT_FALSE (error);
+		ASSERT_TRUE (nano::at_end (stream2));
+		for (auto const & vote : ack2.votes)
+		{
+			ASSERT_EQ (*votes[next++], *vote);
+		}
+	}
+	ASSERT_EQ (votes.size (), next);
+}
+
+/*
+ * Votes that fill the payload to the last byte stay in one ack, only the vote after them opens the next
+ */
+TEST (message, vote_relay_ack_batch_votes_exact_fit)
+{
+	// 13 votes holding 2005 hashes fill the payload exactly: 10 bytes of id, flags and count, 105 per vote for its hash count, account, signature and timestamp, 32 per hash
+	nano::keypair key;
+	std::deque<std::shared_ptr<nano::vote>> votes;
+	uint64_t next_hash{ 1 };
+	for (std::size_t i = 0; i < 13; ++i)
+	{
+		std::vector<nano::block_hash> hashes;
+		for (std::size_t j = 0; j < (i < 10 ? 154 : 155); ++j)
+		{
+			hashes.emplace_back (next_hash++);
+		}
+		votes.push_back (nano::test::make_final_vote (key, hashes));
+	}
+
+	// The 13 votes alone serialize to exactly max_payload
+	nano::messages::vote_relay_ack full{ nano::dev::network_params.network, 1, std::vector<std::shared_ptr<nano::vote>> (votes.begin (), votes.end ()) };
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		full.serialize (stream);
+	}
+	ASSERT_EQ (nano::messages::vote_relay_ack::max_payload, bytes.size () - nano::messages::message_header::size);
+
+	// One more vote, as small as a vote gets
+	votes.push_back (nano::test::make_final_vote (key, std::vector<nano::block_hash>{ nano::block_hash{ next_hash } }));
+
+	auto const batches = nano::messages::vote_relay_ack::batch_votes (votes);
+
+	// The full ack keeps all 13 votes, the extra one goes alone into the next
+	ASSERT_EQ (2, batches.size ());
+	ASSERT_EQ (13, batches[0].size ());
+	ASSERT_EQ (1, batches[1].size ());
+	ASSERT_EQ (votes.back (), batches[1].front ());
+}

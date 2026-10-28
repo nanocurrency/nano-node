@@ -156,7 +156,7 @@ private:
 /**
  * Requester side of the vote relay protocol.
  * Sends vote_relay_req messages to relay peers and queues the votes from their acks for processing as relay-sourced.
- * Requests are tracked until their terminating empty ack or the request timeout, acks matching no request are dropped and so are votes a request did not ask for.
+ * Requests are tracked until an ack flagged as completed or refused, an empty ack, or the request timeout, acks matching no request are dropped and so are votes a request did not ask for.
  * A relay with too many outstanding requests stops receiving new ones until it answers them or they expire, and one that refused a request is left alone for a cooldown.
  * Representatives whose votes arrived through a relay are remembered for as long as online representatives are, which puts a weight on what relays can reach.
  */

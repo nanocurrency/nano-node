@@ -41,7 +41,7 @@ public:
 /**
  * Serves vote relay requests, allowing peers to obtain votes from representatives they cannot reach directly.
  * Votes are first looked up in the local vote cache, representatives are queried with confirm_req for anything missing.
- * Votes are forwarded as they arrive, in acks of flush_threshold votes or after flush_interval, and every request is terminated with an empty ack once no more votes will be sent for it:
+ * Votes are forwarded as they arrive, in acks of flush_threshold votes or after flush_interval, and every request ends with an ack flagged as completed, carrying the last votes or empty, once no more votes will be sent for it:
  * when every queried representative answered, after idle_timeout without a vote, or at request_timeout.
  * A request the relay does not take gets its terminator with the refused flag set, so the requester can tell a refusal from an answer with no votes.
  * Every reply is sent from the relay's own thread, the vote processor threads only match votes to waiting requests.
@@ -91,11 +91,11 @@ private:
 	void process_votes (nano::processed_votes_batch const &);
 	// Send a reply the index handed out: its votes, followed by the terminator unless it is a flush
 	void answer (vote_relay_index::reply const &);
-	// Send votes batched into acks, terminated with an empty ack
+	// Send votes batched into acks, the last one flagged as completed, an empty one when there are none
 	void send_reply (std::shared_ptr<nano::transport::channel> const &, vote_relay_index::id_t, std::deque<std::shared_ptr<nano::vote>> const &);
 	// Send the terminator of a request the relay did not take, flagged as refused
 	void send_refusal (std::shared_ptr<nano::transport::channel> const &, vote_relay_index::id_t);
-	// Send votes batched into acks without the terminating empty ack
+	// Send votes batched into acks that leave the request open
 	void send_votes (std::shared_ptr<nano::transport::channel> const &, vote_relay_index::id_t, std::deque<std::shared_ptr<nano::vote>> const &);
 	// Send one ack and announce it on on_reply
 	void send_ack (std::shared_ptr<nano::transport::channel> const &, nano::messages::vote_relay_ack const &);
