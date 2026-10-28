@@ -513,6 +513,7 @@ enum class detail
 	// vote_relay_client
 	unsolicited,
 	relay_full,
+	refused,
 
 	// vote_solicitor
 	relay_request,

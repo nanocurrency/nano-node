@@ -43,6 +43,7 @@ public:
  * Votes are first looked up in the local vote cache, representatives are queried with confirm_req for anything missing.
  * Votes are forwarded as they arrive, in acks of flush_threshold votes or after flush_interval, and every request is terminated with an empty ack once no more votes will be sent for it:
  * when every queried representative answered, after idle_timeout without a vote, or at request_timeout.
+ * A request the relay does not take gets its terminator with the refused flag set, so the requester can tell a refusal from an answer with no votes.
  * Every reply is sent from the relay's own thread, the vote processor threads only match votes to waiting requests.
  */
 class vote_relay final
@@ -92,6 +93,8 @@ private:
 	void answer (vote_relay_index::reply const &);
 	// Send votes batched into acks, terminated with an empty ack
 	void send_reply (std::shared_ptr<nano::transport::channel> const &, vote_relay_index::id_t, std::deque<std::shared_ptr<nano::vote>> const &);
+	// Send the terminator of a request the relay did not take, flagged as refused
+	void send_refusal (std::shared_ptr<nano::transport::channel> const &, vote_relay_index::id_t);
 	// Send votes batched into acks without the terminating empty ack
 	void send_votes (std::shared_ptr<nano::transport::channel> const &, vote_relay_index::id_t, std::deque<std::shared_ptr<nano::vote>> const &);
 	// Send one ack and announce it on on_reply
