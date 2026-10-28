@@ -15,6 +15,7 @@
 #include <map>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -85,6 +86,14 @@ struct solicitation_limits final
 	std::size_t election_vote_requests{ 50 }; // Vote requests per election, a rep that voted for a different hash is exempt
 	std::size_t election_block_broadcasts{ 15 }; // Directed winner broadcasts per election, forks exempt likewise
 	std::size_t round_block_broadcasts{ 30 }; // Winner broadcasts per round across all elections
+};
+
+/** Elections, by winner hash, that each kind of message actually went out for, the election loop stamps their pacing with it */
+struct solicitation_result final
+{
+	std::unordered_set<nano::block_hash> block_broadcasts; // The winner reached at least one of its channels
+	std::unordered_set<nano::block_hash> vote_requests; // At least one confirm_req carrying the election went out
+	std::unordered_set<nano::block_hash> relay_requests; // The relay request covering the election went out
 };
 
 /**
@@ -176,7 +185,8 @@ public:
 	// Start a round against the currently reachable representatives and relays
 	nano::vote_solicitor_round prepare ();
 	// Send everything the round planned
-	void flush (nano::vote_solicitor_round const &);
+	// @return what went out, a message a channel or the relay client refused leaves its election due again next round
+	nano::solicitation_result flush (nano::vote_solicitor_round const &);
 
 	// Caps for a round, the per election broadcast cap is derived from the network fanout at each prepare
 	nano::solicitation_limits const limits;
