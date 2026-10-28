@@ -679,10 +679,12 @@ TEST (wallet, send_async)
 	std::thread thread ([&system] () {
 		ASSERT_TIMELY (10s, system.nodes[0]->balance (nano::dev::genesis_key.pub).is_zero ());
 	});
-	std::atomic<bool> success (false);
-	system.wallet (0)->send_async (nano::dev::genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max (), [&success] (std::shared_ptr<nano::block> const & block_a) { ASSERT_NE (nullptr, block_a); success = true; });
+	nano::test::shared_result<std::shared_ptr<nano::block>> result;
+	system.wallet (0)->send_async (nano::dev::genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max (), [result] (std::shared_ptr<nano::block> const & block) { result.set (block); });
 	thread.join ();
-	ASSERT_TIMELY (5s, success);
+	ASSERT_TIMELY (5s, result.is_set ());
+	auto const [block] = result.get ();
+	ASSERT_NE (nullptr, block);
 }
 
 TEST (wallet, spend)

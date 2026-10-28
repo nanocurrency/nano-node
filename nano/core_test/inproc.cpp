@@ -14,8 +14,6 @@
 
 #include <gtest/gtest.h>
 
-#include <atomic>
-
 using namespace std::chrono_literals;
 
 /*
@@ -91,17 +89,14 @@ TEST (inproc, send_callback)
 	nano::transport::inproc::channel channel{ node, node };
 
 	nano::messages::keepalive const keepalive{ nano::dev::network_params.network };
-	std::atomic<bool> called{ false };
-	boost::system::error_code result;
-	std::size_t size{ 0 };
-	channel.send (keepalive, nano::transport::traffic_type::test, [&] (boost::system::error_code const & ec, std::size_t size_a) {
-		result = ec;
-		size = size_a;
-		called = true;
+	nano::test::shared_result<boost::system::error_code, std::size_t> result;
+	channel.send (keepalive, nano::transport::traffic_type::test, [result] (boost::system::error_code const & ec, std::size_t size) {
+		result.set (ec, size);
 	});
-	ASSERT_TIMELY (5s, called);
-	ASSERT_FALSE (result);
-	ASSERT_EQ (size, keepalive.to_bytes ()->size ());
+	ASSERT_TIMELY (5s, result.is_set ());
+	auto const [ec, size] = result.get ();
+	ASSERT_FALSE (ec);
+	ASSERT_EQ (keepalive.to_bytes ()->size (), size);
 }
 
 /*
