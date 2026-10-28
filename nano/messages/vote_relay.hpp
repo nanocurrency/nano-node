@@ -110,14 +110,25 @@ public:
 
 	// Size of a single vote on the wire, including the hash count prefix
 	static std::size_t vote_size (std::shared_ptr<nano::vote> const &);
+
 	// Maximum total payload size that fits the 16 bit length field
 	constexpr static std::size_t max_payload = std::numeric_limits<uint16_t>::max ();
+
+	// Wire flag set on the terminator of a request the relay did not take, which tells it from an answer with no votes
+	static uint8_t constexpr flag_refused = 1 << 0;
+
+	// Whether the relay refused the request, read from the flags
+	bool refused () const;
+
+	// Terminator of a request the relay did not take
+	static vote_relay_ack refusal (nano::network_constants const &, id_t);
 
 private:
 	std::size_t payload_size () const;
 
 public: // Payload
 	id_t id{ 0 };
+	uint8_t flags{ 0 };
 	std::vector<std::shared_ptr<nano::vote>> votes;
 
 public: // Logging

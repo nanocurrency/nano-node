@@ -17,6 +17,7 @@
 #include <deque>
 #include <memory>
 #include <optional>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -38,6 +39,8 @@ public:
 	std::size_t max_requests{ 1024 * 4 };
 	// Maximum outstanding requests per relay before it stops receiving new ones, defaults to the relay's per-peer limit
 	std::size_t max_outstanding{ nano::vote_relay_config::default_max_outstanding };
+	// A relay that refused a request is not asked again for this long
+	std::chrono::milliseconds refusal_cooldown{ std::chrono::seconds{ 5 } };
 };
 
 /**
@@ -82,7 +85,7 @@ public:
 	// Stop tracking a request
 	// @return false if the id is unknown
 	bool erase (id_t);
-	// Remove and return requests past their deadline
+	// Remove and return requests past their deadline, cooldowns that ran out are dropped as well
 	std::deque<entry> evict (std::chrono::steady_clock::time_point now);
 	// Drop all requests, relayed representatives are kept
 	void clear ();
@@ -110,6 +113,13 @@ public:
 	std::deque<nano::account> relayed (std::chrono::steady_clock::time_point cutoff) const;
 	// Number of representatives tracked, stale ones included until trimmed
 	std::size_t relayed_size () const;
+
+	// Keep a relay out of the listings until the given time, it refused a request
+	void cool_down (std::shared_ptr<nano::transport::channel> const &, std::chrono::steady_clock::time_point until);
+	// Whether the relay is still to be left alone
+	bool cooling_down (std::shared_ptr<nano::transport::channel> const &, std::chrono::steady_clock::time_point now) const;
+	// Number of relays cooling down, expired ones included until evicted
+	std::size_t cooldown_size () const;
 
 private:
 	// clang-format off
@@ -140,13 +150,14 @@ private:
 
 	ordered_entries entries; // Tracked requests
 	ordered_relayed relayed_reps; // Representatives seen through relays, stale ones stay until trimmed
+	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::chrono::steady_clock::time_point> cooldowns; // Relays that refused a request, with the time they may be asked again
 };
 
 /**
  * Requester side of the vote relay protocol.
  * Sends vote_relay_req messages to relay peers and queues the votes from their acks for processing as relay-sourced.
  * Requests are tracked until their terminating empty ack or the request timeout, acks matching no request are dropped and so are votes a request did not ask for.
- * A relay with too many outstanding requests stops receiving new ones until it answers them or they expire.
+ * A relay with too many outstanding requests stops receiving new ones until it answers them or they expire, and one that refused a request is left alone for a cooldown.
  * Representatives whose votes arrived through a relay are remembered for as long as online representatives are, which puts a weight on what relays can reach.
  */
 class vote_relay_client final

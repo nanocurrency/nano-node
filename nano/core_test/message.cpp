@@ -1259,6 +1259,7 @@ TEST (message, vote_relay_ack_oversize)
 		nano::vectorstream stream (bytes);
 		ack.header.serialize (stream);
 		nano::write_big_endian (stream, uint64_t{ 1 });
+		nano::write (stream, uint8_t{ 0 });
 		nano::write (stream, nano::narrow_cast<uint8_t> (nano::messages::vote_relay_ack::max_votes + 1));
 	}
 
@@ -1448,4 +1449,35 @@ TEST (message, vote_relay_ack_serialization_max_size)
 	{
 		ASSERT_EQ (*votes[i], *ack2.votes[i]);
 	}
+}
+
+/*
+ * A refusal is an empty terminator with the refused flag set, the flag round-trips and a plain ack does not carry it
+ */
+TEST (message, vote_relay_ack_refusal)
+{
+	auto ack = nano::messages::vote_relay_ack::refusal (nano::dev::network_params.network, 321);
+	ASSERT_TRUE (ack.refused ());
+	ASSERT_TRUE (ack.votes.empty ());
+	ASSERT_FALSE ((nano::messages::vote_relay_ack{ nano::dev::network_params.network, 321, {} }).refused ());
+
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		ack.serialize (stream);
+	}
+
+	// The flag survives the round trip and the empty payload is still the declared length
+	bool error = false;
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	nano::messages::message_header header (error, stream2);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (bytes.size () - nano::messages::message_header::size, header.payload_length_bytes ());
+
+	nano::messages::vote_relay_ack ack2 (error, stream2, header);
+	ASSERT_FALSE (error);
+	ASSERT_TRUE (nano::at_end (stream2));
+	ASSERT_EQ (321, ack2.id);
+	ASSERT_TRUE (ack2.refused ());
+	ASSERT_TRUE (ack2.votes.empty ());
 }

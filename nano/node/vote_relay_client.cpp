@@ -67,6 +67,9 @@ std::deque<nano::vote_relay_client_index::entry> nano::vote_relay_client_index::
 	auto const end = by_deadline.upper_bound (now);
 	std::deque<entry> result{ by_deadline.begin (), end };
 	by_deadline.erase (by_deadline.begin (), end);
+	std::erase_if (cooldowns, [now] (auto const & item) {
+		return item.second <= now;
+	});
 	return result;
 }
 
@@ -128,6 +131,22 @@ std::size_t nano::vote_relay_client_index::relayed_size () const
 	return relayed_reps.size ();
 }
 
+void nano::vote_relay_client_index::cool_down (std::shared_ptr<nano::transport::channel> const & relay, std::chrono::steady_clock::time_point until)
+{
+	cooldowns[relay] = until;
+}
+
+bool nano::vote_relay_client_index::cooling_down (std::shared_ptr<nano::transport::channel> const & relay, std::chrono::steady_clock::time_point now) const
+{
+	auto it = cooldowns.find (relay);
+	return it != cooldowns.end () && it->second > now;
+}
+
+std::size_t nano::vote_relay_client_index::cooldown_size () const
+{
+	return cooldowns.size ();
+}
+
 /*
  * vote_relay_client
  */
@@ -160,6 +179,7 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::vote_relay_client::r
 		return channel->has_capability (nano::node_capabilities::vote_relay) && !channel->max (nano::transport::traffic_type::vote_relay);
 	});
 
+	auto const now = std::chrono::steady_clock::now ();
 	std::deque<std::shared_ptr<nano::transport::channel>> result;
 	nano::lock_guard<nano::mutex> guard{ mutex };
 	for (auto const & channel : channels)
@@ -168,8 +188,8 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::vote_relay_client::r
 		{
 			break;
 		}
-		// A relay that has not answered its previous requests is left alone until it catches up
-		if (index.outstanding (channel) < config.max_outstanding)
+		// A relay that has not answered its previous requests or refused one recently is left alone
+		if (index.outstanding (channel) < config.max_outstanding && !index.cooling_down (channel, now))
 		{
 			result.push_back (channel);
 		}
@@ -266,6 +286,7 @@ bool nano::vote_relay_client::process (nano::messages::vote_relay_ack const & ac
 	release_assert (channel != nullptr);
 
 	std::optional<nano::vote_relay_client_index::entry> entry;
+	bool refused = false;
 	{
 		nano::lock_guard<nano::mutex> guard{ mutex };
 		if (stopped)
@@ -275,8 +296,15 @@ bool nano::vote_relay_client::process (nano::messages::vote_relay_ack const & ac
 		entry = index.find (ack.id, channel);
 		if (entry)
 		{
-			// An empty ack terminates the request, anything else accumulates
-			if (ack.votes.empty ())
+			// A refusal or an empty ack terminates the request, anything else accumulates
+			if (ack.refused ())
+			{
+				refused = true;
+				index.erase (ack.id);
+				// The relay had no room or does not serve such requests, the next rounds ask another one
+				index.cool_down (channel, std::chrono::steady_clock::now () + config.refusal_cooldown);
+			}
+			else if (ack.votes.empty ())
 			{
 				index.erase (ack.id);
 			}
@@ -296,6 +324,13 @@ bool nano::vote_relay_client::process (nano::messages::vote_relay_ack const & ac
 	}
 
 	stats.inc (nano::stat::type::vote_relay_client, nano::stat::detail::reply);
+
+	if (refused)
+	{
+		stats.inc (nano::stat::type::vote_relay_client, nano::stat::detail::refused);
+		logger.debug (nano::log::type::vote_relay_client, "Request: {} refused by relay: {}", ack.id, channel);
+		return true;
+	}
 
 	if (ack.votes.empty ())
 	{
@@ -399,6 +434,7 @@ nano::container_info nano::vote_relay_client::container_info () const
 	nano::container_info info;
 	info.put ("requests", index.outstanding ());
 	info.put ("relayed", index.relayed_size ());
+	info.put ("cooldowns", index.cooldown_size ());
 	return info;
 }
 
@@ -411,6 +447,7 @@ nano::error nano::vote_relay_client_config::serialize (nano::tomlconfig & toml) 
 	toml.put ("request_timeout", request_timeout.count (), "Time to wait for a relay to finish a request before considering it lost. \ntype:milliseconds");
 	toml.put ("max_requests", max_requests, "Maximum number of relay requests waiting for their terminating ack. \ntype:uint64");
 	toml.put ("max_outstanding", max_outstanding, "Maximum number of outstanding requests per relay before it stops receiving new ones. \ntype:uint64");
+	toml.put ("refusal_cooldown", refusal_cooldown.count (), "Time a relay that refused a request is not asked again. \ntype:milliseconds");
 
 	return toml.get_error ();
 }
@@ -420,6 +457,7 @@ nano::error nano::vote_relay_client_config::deserialize (nano::tomlconfig & toml
 	toml.get_duration ("request_timeout", request_timeout);
 	toml.get ("max_requests", max_requests);
 	toml.get ("max_outstanding", max_outstanding);
+	toml.get_duration ("refusal_cooldown", refusal_cooldown);
 
 	return toml.get_error ();
 }

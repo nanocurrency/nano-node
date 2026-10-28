@@ -171,6 +171,18 @@ vote_relay_ack::vote_relay_ack (bool & error, nano::stream & stream, message_hea
 	error = deserialize (stream, uniquer);
 }
 
+vote_relay_ack vote_relay_ack::refusal (nano::network_constants const & constants, id_t id_a)
+{
+	vote_relay_ack result{ constants, id_a, {} };
+	result.flags |= flag_refused;
+	return result;
+}
+
+bool vote_relay_ack::refused () const
+{
+	return (flags & flag_refused) != 0;
+}
+
 void vote_relay_ack::visit (message_visitor & visitor) const
 {
 	visitor.vote_relay_ack (*this);
@@ -182,6 +194,7 @@ void vote_relay_ack::serialize (nano::stream & stream) const
 
 	header.serialize (stream);
 	nano::write_big_endian (stream, id);
+	nano::write (stream, flags);
 	nano::write (stream, nano::narrow_cast<uint8_t> (votes.size ()));
 	for (auto const & vote : votes)
 	{
@@ -197,6 +210,7 @@ bool vote_relay_ack::deserialize (nano::stream & stream, nano::vote_uniquer * un
 	try
 	{
 		nano::read_big_endian (stream, id);
+		nano::read (stream, flags);
 		uint8_t count{ 0 };
 		nano::read (stream, count);
 		if (count > max_votes)
@@ -233,7 +247,7 @@ std::size_t vote_relay_ack::vote_size (std::shared_ptr<nano::vote> const & vote)
 
 std::size_t vote_relay_ack::payload_size () const
 {
-	std::size_t result = sizeof (id) + sizeof (uint8_t);
+	std::size_t result = sizeof (id) + sizeof (flags) + sizeof (uint8_t);
 	for (auto const & vote : votes)
 	{
 		result += vote_size (vote);
@@ -259,6 +273,7 @@ void vote_relay_ack::operator() (nano::object_stream & obs) const
 	message::operator() (obs); // Write common data
 
 	obs.write ("id", id);
+	obs.write ("refused", refused ());
 	obs.write ("count", votes.size ());
 }
 }
