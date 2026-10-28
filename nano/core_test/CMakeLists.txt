@@ -52,6 +52,7 @@ add_executable(
   locks.cpp
   logging.cpp
   message.cpp
+  message_dispatcher.cpp
   message_processor.cpp
   memory_pool.cpp
   migrations.cpp

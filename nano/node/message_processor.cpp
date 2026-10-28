@@ -125,6 +125,7 @@ bool nano::message_processor::enqueue (std::unique_ptr<nano::messages::message> 
 	{
 		stats.inc (nano::stat::type::message_processor, nano::stat::detail::overfill);
 		stats.inc (nano::stat::type::message_processor_overfill, to_stat_detail (type));
+		stats.inc (nano::stat::type::message_drop, to_stat_detail (type), nano::stat::dir::in); // Counted with the inbound messages the dispatcher drops
 	}
 	return added;
 }

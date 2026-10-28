@@ -19,9 +19,9 @@ public:
 	void stop ();
 
 	/**
-	 * Process bootstrap messages coming from the network
+	 * Process bootstrap messages coming from the network, false if one answers no request in flight or carries a wrong or invalid payload
 	 */
-	void process (nano::messages::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> const &);
+	bool process (nano::messages::asc_pull_ack const & message, std::shared_ptr<nano::transport::channel> const &);
 
 	/**
 	 * Clears priority and blocking accounts state

@@ -136,10 +136,11 @@ TEST (message_processor, channel_overfill)
 	}
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::message_processor, nano::stat::detail::overfill, nano::stat::dir::in));
 
-	// One more is dropped and counted, overall and by message type
+	// One more is dropped and counted, overall and by message type, and with the inbound messages the dispatcher drops
 	ASSERT_FALSE (processor.enqueue (dispatcher.make (node, 0, max_queue + 1), full));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message_processor, nano::stat::detail::overfill, nano::stat::dir::in));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message_processor_overfill, nano::stat::detail::keepalive, nano::stat::dir::in));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::message_drop, nano::stat::detail::keepalive, nano::stat::dir::in));
 
 	// The other channel is not held back by the full one
 	ASSERT_TRUE (processor.enqueue (dispatcher.make (node, 1, 1), other));

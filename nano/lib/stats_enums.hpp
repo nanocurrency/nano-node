@@ -290,6 +290,8 @@ enum class detail
 
 	// dropped messages
 	confirm_ack_zero_account,
+	confirm_req_not_voting,
+	confirm_req_empty,
 
 	// bootstrap, callback
 	initiate,

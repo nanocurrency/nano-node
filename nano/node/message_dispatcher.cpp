@@ -66,18 +66,21 @@ public:
 		// A node that does not vote has no reply to give
 		if (!node.is_voting ())
 		{
-			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::confirm_req, nano::stat::dir::in);
+			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::confirm_req_not_voting, nano::stat::dir::in);
 			return;
 		}
 
 		// A request without roots asks for nothing
 		if (message.roots_hashes.empty ())
 		{
-			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::confirm_req, nano::stat::dir::in);
+			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::confirm_req_empty, nano::stat::dir::in);
 			return;
 		}
 
-		node.vote_replier.request (message.roots_hashes, channel);
+		if (!node.vote_replier.request (message.roots_hashes, channel))
+		{
+			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::confirm_req, nano::stat::dir::in);
+		}
 	}
 
 	void confirm_ack (nano::messages::confirm_ack const & message) override
@@ -109,17 +112,26 @@ public:
 
 	void telemetry_ack (nano::messages::telemetry_ack const & message) override
 	{
-		node.telemetry.process (message, channel);
+		if (!node.telemetry.process (message, channel))
+		{
+			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::telemetry_ack, nano::stat::dir::in);
+		}
 	}
 
 	void asc_pull_req (nano::messages::asc_pull_req const & message) override
 	{
-		node.bootstrap_server.request (message, channel);
+		if (!node.bootstrap_server.request (message, channel))
+		{
+			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::asc_pull_req, nano::stat::dir::in);
+		}
 	}
 
 	void asc_pull_ack (nano::messages::asc_pull_ack const & message) override
 	{
-		node.bootstrap.process (message, channel);
+		if (!node.bootstrap.process (message, channel))
+		{
+			node.stats.inc (nano::stat::type::message_drop, nano::stat::detail::asc_pull_ack, nano::stat::dir::in);
+		}
 	}
 
 	// Every other type is dropped, telemetry requests among them since telemetry has been broadcast since V25
