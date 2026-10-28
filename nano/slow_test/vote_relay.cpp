@@ -157,7 +157,7 @@ void report (relay_network const & net)
 	}
 
 	std::cout << std::left << std::setw (14) << "server" << std::right
-			  << w << "requests" << w << "overfill" << w << "cache" << w << "queries" << w << "unknown" << w << "duplicate" << w << "done" << w << "immediate" << w << "timeout" << w << "acks" << w << "votes"
+			  << w << "requests" << w << "overfill" << w << "cache" << w << "queries" << w << "unknown" << w << "duplicate" << w << "done" << w << "immediate" << w << "idle" << w << "timeout" << w << "acks" << w << "votes"
 			  << "\n";
 	for (auto const & [name, node] : net.relays)
 	{
@@ -170,6 +170,7 @@ void report (relay_network const & net)
 				  << w << count (*node, type::vote_relay, detail::duplicate)
 				  << w << count (*node, type::vote_relay, detail::done)
 				  << w << count (*node, type::vote_relay, detail::immediate)
+				  << w << count (*node, type::vote_relay, detail::idle)
 				  << w << count (*node, type::vote_relay, detail::timeout)
 				  << w << count (*node, type::vote_relay, detail::reply)
 				  << w << count (*node, type::vote_relay, detail::vote)

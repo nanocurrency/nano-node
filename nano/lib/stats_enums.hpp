@@ -502,6 +502,7 @@ enum class detail
 	rep_unknown,
 	reply_empty,
 	query,
+	flush,
 	immediate,
 
 	// vote_relay_client

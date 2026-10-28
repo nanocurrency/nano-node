@@ -112,6 +112,9 @@ protected:
 		return false;
 	}
 };
+
+// Limits that let only completion answer within a test: a lifetime, idle timeout and flush interval of 5s with a flush threshold of 8
+nano::vote_relay_index::request_limits const test_limits{ 5s, 5s, 5s, 8 };
 }
 
 /*
@@ -119,17 +122,17 @@ protected:
  */
 TEST (vote_relay_index, insert_queries)
 {
-	nano::vote_relay_index index;
+	nano::vote_relay_index index{ test_limits };
 	ASSERT_TRUE (index.empty ());
-	ASSERT_FALSE (index.next_deadline ().has_value ());
+	ASSERT_FALSE (index.next_due ().has_value ());
 
 	nano::account rep1{ 1 };
 	nano::account rep2{ 2 };
 	nano::block_hash hash1{ 100 };
 	nano::block_hash hash2{ 200 };
-	auto deadline = std::chrono::steady_clock::now () + 5s;
+	auto now = std::chrono::steady_clock::now ();
 
-	auto queries = index.insert (nullptr, 1, { { hash1, nano::root{ 100 }, { rep1 } }, { hash2, nano::root{ 200 }, { rep1, rep2 } } }, nano::vote_finality::final, deadline);
+	auto queries = index.insert (nullptr, 1, { { hash1, nano::root{ 100 }, { rep1 } }, { hash2, nano::root{ 200 }, { rep1, rep2 } } }, nano::vote_finality::final, now);
 	ASSERT_EQ (2, queries.size ());
 	ASSERT_EQ (rep1, queries[0].rep);
 	ASSERT_EQ (2, queries[0].roots_hashes.size ());
@@ -139,8 +142,8 @@ TEST (vote_relay_index, insert_queries)
 
 	ASSERT_EQ (1, index.size ());
 	ASSERT_EQ (2, index.pending_size ());
-	ASSERT_TRUE (index.next_deadline ().has_value ());
-	ASSERT_EQ (deadline, *index.next_deadline ());
+	ASSERT_TRUE (index.next_due ().has_value ());
+	ASSERT_EQ (now + 5s, *index.next_due ());
 }
 
 /*
@@ -148,26 +151,27 @@ TEST (vote_relay_index, insert_queries)
  */
 TEST (vote_relay_index, dedup)
 {
-	nano::vote_relay_index index;
+	nano::vote_relay_index index{ test_limits };
 
 	nano::keypair rep;
 	nano::block_hash hash{ 100 };
-	auto deadline = std::chrono::steady_clock::now () + 5s;
+	auto now = std::chrono::steady_clock::now ();
 
-	auto queries1 = index.insert (nullptr, 1, { { hash, nano::root{ 100 }, { rep.pub } } }, nano::vote_finality::final, deadline);
+	auto queries1 = index.insert (nullptr, 1, { { hash, nano::root{ 100 }, { rep.pub } } }, nano::vote_finality::final, now);
 	ASSERT_EQ (1, queries1.size ());
 
 	// Same (hash, rep) pair is already in flight
-	auto queries2 = index.insert (nullptr, 2, { { hash, nano::root{ 100 }, { rep.pub } } }, nano::vote_finality::final, deadline);
+	auto queries2 = index.insert (nullptr, 2, { { hash, nano::root{ 100 }, { rep.pub } } }, nano::vote_finality::final, now);
 	ASSERT_TRUE (queries2.empty ());
 	ASSERT_EQ (2, index.size ());
 
 	// A single vote satisfies both requests
 	auto vote = nano::test::make_final_vote (rep, std::vector<nano::block_hash>{ hash });
-	auto replies = index.vote (vote);
+	auto replies = index.vote (vote, now);
 	ASSERT_EQ (2, replies.size ());
 	for (auto const & reply : replies)
 	{
+		ASSERT_EQ (nano::vote_relay_index::outcome::completed, reply.result);
 		ASSERT_EQ (1, reply.votes.size ());
 		ASSERT_EQ (vote, reply.votes[0]);
 	}
@@ -180,22 +184,22 @@ TEST (vote_relay_index, dedup)
  */
 TEST (vote_relay_index, partial_completion)
 {
-	nano::vote_relay_index index;
+	nano::vote_relay_index index{ test_limits };
 
 	nano::keypair rep1;
 	nano::keypair rep2;
 	nano::block_hash hash{ 100 };
-	auto deadline = std::chrono::steady_clock::now () + 5s;
+	auto now = std::chrono::steady_clock::now ();
 
-	auto queries = index.insert (nullptr, 1, { { hash, nano::root{ 100 }, { rep1.pub, rep2.pub } } }, nano::vote_finality::final, deadline);
+	auto queries = index.insert (nullptr, 1, { { hash, nano::root{ 100 }, { rep1.pub, rep2.pub } } }, nano::vote_finality::final, now);
 	ASSERT_EQ (2, queries.size ());
 
 	auto vote1 = nano::test::make_final_vote (rep1, std::vector<nano::block_hash>{ hash });
-	ASSERT_TRUE (index.vote (vote1).empty ());
+	ASSERT_TRUE (index.vote (vote1, now).empty ());
 	ASSERT_EQ (1, index.size ());
 
 	auto vote2 = nano::test::make_final_vote (rep2, std::vector<nano::block_hash>{ hash });
-	auto replies = index.vote (vote2);
+	auto replies = index.vote (vote2, now);
 	ASSERT_EQ (1, replies.size ());
 	ASSERT_EQ (2, replies[0].votes.size ());
 	ASSERT_TRUE (index.empty ());
@@ -206,19 +210,19 @@ TEST (vote_relay_index, partial_completion)
  */
 TEST (vote_relay_index, multi_hash_vote)
 {
-	nano::vote_relay_index index;
+	nano::vote_relay_index index{ test_limits };
 
 	nano::keypair rep;
 	nano::block_hash hash1{ 100 };
 	nano::block_hash hash2{ 200 };
-	auto deadline = std::chrono::steady_clock::now () + 5s;
+	auto now = std::chrono::steady_clock::now ();
 
-	auto queries = index.insert (nullptr, 1, { { hash1, nano::root{ 100 }, { rep.pub } }, { hash2, nano::root{ 200 }, { rep.pub } } }, nano::vote_finality::final, deadline);
+	auto queries = index.insert (nullptr, 1, { { hash1, nano::root{ 100 }, { rep.pub } }, { hash2, nano::root{ 200 }, { rep.pub } } }, nano::vote_finality::final, now);
 	ASSERT_EQ (1, queries.size ());
 	ASSERT_EQ (2, queries[0].roots_hashes.size ());
 
 	auto vote = nano::test::make_final_vote (rep, std::vector<nano::block_hash>{ hash1, hash2 });
-	auto replies = index.vote (vote);
+	auto replies = index.vote (vote, now);
 	ASSERT_EQ (1, replies.size ());
 	ASSERT_EQ (1, replies[0].votes.size ());
 	ASSERT_TRUE (index.empty ());
@@ -229,38 +233,39 @@ TEST (vote_relay_index, multi_hash_vote)
  */
 TEST (vote_relay_index, finality)
 {
-	nano::vote_relay_index index;
+	nano::vote_relay_index index{ test_limits };
 
 	nano::keypair rep;
 	nano::block_hash hash{ 100 };
-	auto deadline = std::chrono::steady_clock::now () + 5s;
+	auto now = std::chrono::steady_clock::now ();
 
-	index.insert (nullptr, 1, { { hash, nano::root{ 100 }, { rep.pub } } }, nano::vote_finality::final, deadline);
+	index.insert (nullptr, 1, { { hash, nano::root{ 100 }, { rep.pub } } }, nano::vote_finality::final, now);
 
 	// Non-final vote does not satisfy a final-only request
 	auto vote_normal = nano::test::make_vote (rep, std::vector<nano::block_hash>{ hash }, nano::vote::timestamp_min, 0);
 	ASSERT_FALSE (vote_normal->is_final ());
-	ASSERT_TRUE (index.vote (vote_normal).empty ());
+	ASSERT_TRUE (index.vote (vote_normal, now).empty ());
 	ASSERT_EQ (1, index.size ());
 
 	// Final vote does
 	auto vote_final = nano::test::make_final_vote (rep, std::vector<nano::block_hash>{ hash });
-	ASSERT_EQ (1, index.vote (vote_final).size ());
+	ASSERT_EQ (1, index.vote (vote_final, now).size ());
 	ASSERT_TRUE (index.empty ());
 
 	// Non-final vote satisfies a request that includes non-final votes
-	index.insert (nullptr, 2, { { hash, nano::root{ 100 }, { rep.pub } } }, nano::vote_finality::any, deadline);
-	auto replies = index.vote (vote_normal);
+	index.insert (nullptr, 2, { { hash, nano::root{ 100 }, { rep.pub } } }, nano::vote_finality::any, now);
+	auto replies = index.vote (vote_normal, now);
 	ASSERT_EQ (1, replies.size ());
 	ASSERT_EQ (vote_normal, replies[0].votes[0]);
 }
 
 /*
- * Requests past their deadline should be evicted with whatever votes were accumulated
+ * Requests past their lifetime should be finished with whatever votes are still unsent
  */
-TEST (vote_relay_index, evict)
+TEST (vote_relay_index, lifetime)
 {
-	nano::vote_relay_index index;
+	// A lifetime of 1s under an idle timeout and flush interval of 5s, so only the lifetime can end the request
+	nano::vote_relay_index index{ { 1s, 5s, 5s, 8 } };
 
 	nano::keypair rep1;
 	nano::keypair rep2;
@@ -268,25 +273,27 @@ TEST (vote_relay_index, evict)
 	nano::block_hash hash2{ 200 };
 	auto now = std::chrono::steady_clock::now ();
 
-	index.insert (nullptr, 1, { { hash1, nano::root{ 100 }, { rep1.pub } }, { hash2, nano::root{ 200 }, { rep2.pub } } }, nano::vote_finality::final, now + 1s);
+	index.insert (nullptr, 1, { { hash1, nano::root{ 100 }, { rep1.pub } }, { hash2, nano::root{ 200 }, { rep2.pub } } }, nano::vote_finality::final, now);
 
-	// Partial answer before the deadline
+	// Partial answer before the lifetime ends
 	auto vote = nano::test::make_final_vote (rep1, std::vector<nano::block_hash>{ hash1 });
-	ASSERT_TRUE (index.vote (vote).empty ());
+	ASSERT_TRUE (index.vote (vote, now).empty ());
 
 	// Not expired yet
-	ASSERT_TRUE (index.evict (now).empty ());
+	ASSERT_TRUE (index.due (now).empty ());
 	ASSERT_EQ (1, index.size ());
 
-	auto evicted = index.evict (now + 2s);
-	ASSERT_EQ (1, evicted.size ());
-	ASSERT_EQ (1, evicted[0].id);
-	ASSERT_EQ (1, evicted[0].votes.size ());
-	ASSERT_EQ (vote, evicted[0].votes[0]);
+	// The lifetime ends the request, the unsent vote goes with it
+	auto expired = index.due (now + 2s);
+	ASSERT_EQ (1, expired.size ());
+	ASSERT_EQ (1, expired[0].id);
+	ASSERT_EQ (nano::vote_relay_index::outcome::expired, expired[0].result);
+	ASSERT_EQ (1, expired[0].votes.size ());
+	ASSERT_EQ (vote, expired[0].votes[0]);
 
 	ASSERT_TRUE (index.empty ());
 	ASSERT_EQ (0, index.pending_size ());
-	ASSERT_FALSE (index.next_deadline ().has_value ());
+	ASSERT_FALSE (index.next_due ().has_value ());
 }
 
 /*
@@ -294,17 +301,17 @@ TEST (vote_relay_index, evict)
  */
 TEST (vote_relay_index, replace)
 {
-	nano::vote_relay_index index;
+	nano::vote_relay_index index{ test_limits };
 
 	nano::keypair rep;
 	nano::block_hash hash{ 100 };
-	auto deadline = std::chrono::steady_clock::now () + 5s;
+	auto now = std::chrono::steady_clock::now ();
 
-	auto queries1 = index.insert (nullptr, 1, { { hash, nano::root{ 100 }, { rep.pub } } }, nano::vote_finality::final, deadline);
+	auto queries1 = index.insert (nullptr, 1, { { hash, nano::root{ 100 }, { rep.pub } } }, nano::vote_finality::final, now);
 	ASSERT_EQ (1, queries1.size ());
 
 	// Replacing removes the previous request together with its in-flight queries
-	auto queries2 = index.insert (nullptr, 1, { { hash, nano::root{ 100 }, { rep.pub } } }, nano::vote_finality::final, deadline);
+	auto queries2 = index.insert (nullptr, 1, { { hash, nano::root{ 100 }, { rep.pub } } }, nano::vote_finality::final, now);
 	ASSERT_EQ (1, queries2.size ());
 	ASSERT_EQ (1, index.size ());
 	ASSERT_EQ (1, index.pending_size ());
@@ -708,9 +715,10 @@ TEST (vote_relay_config, validation)
 		return config.deserialize (toml);
 	};
 
-	ASSERT_FALSE (deserialize ("batch_size = 64\nmax_reps = 64\n"));
+	ASSERT_FALSE (deserialize ("batch_size = 64\nmax_reps = 64\nflush_threshold = 8\n"));
 	ASSERT_TRUE (deserialize ("batch_size = 0\n"));
 	ASSERT_TRUE (deserialize ("max_reps = 0\n"));
+	ASSERT_TRUE (deserialize ("flush_threshold = 0\n"));
 }
 
 /*
@@ -812,4 +820,250 @@ TEST (vote_relay, refusal_cap)
 	}
 	ASSERT_EQ (3, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::overfill));
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::drop));
+}
+
+/*
+ * Unsent votes should be handed out as a flush once they reach the threshold, the request staying open until its last representative answers
+ */
+TEST (vote_relay_index, flush_threshold)
+{
+	// A threshold of 2 under long timeouts, so the threshold is the only thing that hands votes out early
+	nano::vote_relay_index index{ { 20s, 20s, 10s, 2 } };
+
+	nano::keypair rep1;
+	nano::keypair rep2;
+	nano::keypair rep3;
+	nano::block_hash hash{ 100 };
+	auto now = std::chrono::steady_clock::now ();
+
+	index.insert (nullptr, 1, { { hash, nano::root{ 100 }, { rep1.pub, rep2.pub, rep3.pub } } }, nano::vote_finality::final, now);
+
+	// The first vote waits for company and starts the flush interval
+	auto vote1 = nano::test::make_final_vote (rep1, std::vector<nano::block_hash>{ hash });
+	ASSERT_TRUE (index.vote (vote1, now).empty ());
+	ASSERT_EQ (now + 10s, *index.next_due ());
+
+	// The second vote reaches the threshold, both go out and the request stays open
+	auto vote2 = nano::test::make_final_vote (rep2, std::vector<nano::block_hash>{ hash });
+	auto replies = index.vote (vote2, now + 1s);
+	ASSERT_EQ (1, replies.size ());
+	ASSERT_EQ (nano::vote_relay_index::outcome::flush, replies[0].result);
+	ASSERT_EQ (2, replies[0].votes.size ());
+	ASSERT_EQ (1, index.size ());
+
+	// Nothing waits to go out any more, the next moment of interest is the lifetime
+	ASSERT_EQ (now + 20s, *index.next_due ());
+	ASSERT_TRUE (index.due (now + 15s).empty ());
+
+	// The last representative completes the request with its vote alone
+	auto vote3 = nano::test::make_final_vote (rep3, std::vector<nano::block_hash>{ hash });
+	replies = index.vote (vote3, now + 2s);
+	ASSERT_EQ (1, replies.size ());
+	ASSERT_EQ (nano::vote_relay_index::outcome::completed, replies[0].result);
+	ASSERT_EQ (1, replies[0].votes.size ());
+	ASSERT_EQ (vote3, replies[0].votes[0]);
+	ASSERT_TRUE (index.empty ());
+}
+
+/*
+ * A lone vote should go out once the flush interval passed, and the index should name that moment as the next one due
+ */
+TEST (vote_relay_index, flush_interval)
+{
+	// A flush interval of 3s under long timeouts and a high threshold, so only the interval hands the vote out
+	nano::vote_relay_index index{ { 20s, 20s, 3s, 8 } };
+
+	nano::keypair rep1;
+	nano::keypair rep2;
+	nano::block_hash hash{ 100 };
+	auto now = std::chrono::steady_clock::now ();
+
+	index.insert (nullptr, 1, { { hash, nano::root{ 100 }, { rep1.pub, rep2.pub } } }, nano::vote_finality::final, now);
+	ASSERT_EQ (now + 20s, *index.next_due ());
+
+	// The vote starts the flush interval, nothing goes out before it passed
+	auto vote = nano::test::make_final_vote (rep1, std::vector<nano::block_hash>{ hash });
+	ASSERT_TRUE (index.vote (vote, now + 1s).empty ());
+	ASSERT_EQ (now + 4s, *index.next_due ());
+	ASSERT_TRUE (index.due (now + 3s).empty ());
+
+	// The interval hands the vote out as a flush, the request stays open and waits for its lifetime again
+	auto replies = index.due (now + 4s);
+	ASSERT_EQ (1, replies.size ());
+	ASSERT_EQ (nano::vote_relay_index::outcome::flush, replies[0].result);
+	ASSERT_EQ (1, replies[0].votes.size ());
+	ASSERT_EQ (vote, replies[0].votes[0]);
+	ASSERT_EQ (1, index.size ());
+	ASSERT_EQ (now + 20s, *index.next_due ());
+
+	// With nothing unsent there is nothing due until another vote arrives
+	ASSERT_TRUE (index.due (now + 5s).empty ());
+}
+
+/*
+ * A request without a new vote for the idle timeout should be finished with whatever is still unsent, before its lifetime ends
+ */
+TEST (vote_relay_index, idle)
+{
+	// An idle timeout of 5s under a lifetime of 20s and a flush interval of 10s, so idleness ends the request with the vote still unsent
+	nano::vote_relay_index index{ { 20s, 5s, 10s, 8 } };
+
+	nano::keypair rep1;
+	nano::keypair rep2;
+	nano::block_hash hash{ 100 };
+	auto now = std::chrono::steady_clock::now ();
+
+	// An untouched request goes idle counting from its creation
+	index.insert (nullptr, 1, { { hash, nano::root{ 100 }, { rep1.pub, rep2.pub } } }, nano::vote_finality::final, now);
+	ASSERT_EQ (now + 5s, *index.next_due ());
+
+	// A vote pushes the idle timeout back
+	auto vote = nano::test::make_final_vote (rep1, std::vector<nano::block_hash>{ hash });
+	ASSERT_TRUE (index.vote (vote, now + 4s).empty ());
+	ASSERT_EQ (now + 9s, *index.next_due ());
+	ASSERT_TRUE (index.due (now + 8s).empty ());
+
+	// Idleness ends the request, the vote that never reached a flush goes with the terminator
+	auto replies = index.due (now + 9s);
+	ASSERT_EQ (1, replies.size ());
+	ASSERT_EQ (nano::vote_relay_index::outcome::idle, replies[0].result);
+	ASSERT_EQ (1, replies[0].votes.size ());
+	ASSERT_EQ (vote, replies[0].votes[0]);
+	ASSERT_TRUE (index.empty ());
+	ASSERT_EQ (0, index.pending_size ());
+}
+
+/*
+ * Votes should be forwarded as they arrive: once the unsent votes reach the flush threshold they go out in an ack while the request stays open, and the terminator follows the last representative's answer
+ */
+TEST (vote_relay, flush_threshold)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.vote_relay->enable = true;
+	config.vote_relay->flush_threshold = 2;
+	config.vote_relay->flush_interval = 10s;
+	config.vote_relay->request_timeout = 10s;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (config, flags);
+
+	// Three representatives the relay can query, which only answer when the test feeds their votes in
+	nano::keypair rep1;
+	nano::keypair rep2;
+	nano::keypair rep3;
+	for (auto const & rep : { rep1.pub, rep2.pub, rep3.pub })
+	{
+		node.rep_crawler.force_add_rep (rep, nano::test::fake_channel (node));
+	}
+
+	auto channel = nano::test::test_channel (node);
+	ack_collector acks;
+	acks.connect (channel);
+
+	nano::block_hash hash{ 100 };
+	nano::messages::vote_relay_req req{ nano::dev::network_params.network, 7, { { hash, nano::root{ 100 } } }, { rep1.pub, rep2.pub, rep3.pub } };
+	ASSERT_TRUE (node.vote_relay.request (req, channel));
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::query), 3);
+
+	// Two answers reach the threshold and go out at once, the request keeps waiting for the third
+	auto vote1 = nano::test::make_final_vote (rep1, std::vector<nano::block_hash>{ hash });
+	auto vote2 = nano::test::make_final_vote (rep2, std::vector<nano::block_hash>{ hash });
+	ASSERT_TRUE (node.vote_processor.vote (vote1, channel, nano::vote_source::live));
+	ASSERT_TRUE (node.vote_processor.vote (vote2, channel, nano::vote_source::live));
+	ASSERT_TIMELY_EQ (5s, acks.votes (7).size (), 2);
+	ASSERT_FALSE (acks.terminated (7));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::flush));
+
+	// The last answer completes the request, its vote travels with the terminator
+	auto vote3 = nano::test::make_final_vote (rep3, std::vector<nano::block_hash>{ hash });
+	ASSERT_TRUE (node.vote_processor.vote (vote3, channel, nano::vote_source::live));
+	ASSERT_TIMELY (5s, acks.terminated (7));
+	ASSERT_EQ (3, acks.votes (7).size ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::done));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::timeout));
+}
+
+/*
+ * A vote that arrives while others are still missing should be forwarded once the flush interval passed, the request staying open for the rest
+ */
+TEST (vote_relay, flush_interval)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.vote_relay->enable = true;
+	config.vote_relay->flush_interval = 300ms;
+	config.vote_relay->idle_timeout = 10s;
+	config.vote_relay->request_timeout = 10s;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (config, flags);
+
+	nano::keypair rep1;
+	nano::keypair rep2;
+	node.rep_crawler.force_add_rep (rep1.pub, nano::test::fake_channel (node));
+	node.rep_crawler.force_add_rep (rep2.pub, nano::test::fake_channel (node));
+
+	auto channel = nano::test::test_channel (node);
+	ack_collector acks;
+	acks.connect (channel);
+
+	nano::block_hash hash{ 100 };
+	nano::messages::vote_relay_req req{ nano::dev::network_params.network, 7, { { hash, nano::root{ 100 } } }, { rep1.pub, rep2.pub } };
+	ASSERT_TRUE (node.vote_relay.request (req, channel));
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::query), 2);
+
+	// One answer below the threshold goes out on its own once the interval passed, the request stays open
+	auto vote1 = nano::test::make_final_vote (rep1, std::vector<nano::block_hash>{ hash });
+	ASSERT_TRUE (node.vote_processor.vote (vote1, channel, nano::vote_source::live));
+	ASSERT_TIMELY_EQ (5s, acks.votes (7).size (), 1);
+	ASSERT_FALSE (acks.terminated (7));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::flush));
+
+	// The other answer completes it
+	auto vote2 = nano::test::make_final_vote (rep2, std::vector<nano::block_hash>{ hash });
+	ASSERT_TRUE (node.vote_processor.vote (vote2, channel, nano::vote_source::live));
+	ASSERT_TIMELY (5s, acks.terminated (7));
+	ASSERT_EQ (2, acks.votes (7).size ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::done));
+}
+
+/*
+ * A request whose representatives stop answering should end on the idle timeout rather than wait out its lifetime, the unsent vote travelling with the terminator
+ */
+TEST (vote_relay, idle)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.vote_relay->enable = true;
+	config.vote_relay->idle_timeout = 500ms;
+	config.vote_relay->flush_interval = 10s;
+	config.vote_relay->request_timeout = 10s;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node = *system.add_node (config, flags);
+
+	nano::keypair rep1;
+	nano::keypair rep2;
+	node.rep_crawler.force_add_rep (rep1.pub, nano::test::fake_channel (node));
+	node.rep_crawler.force_add_rep (rep2.pub, nano::test::fake_channel (node));
+
+	auto channel = nano::test::test_channel (node);
+	ack_collector acks;
+	acks.connect (channel);
+
+	nano::block_hash hash{ 100 };
+	nano::messages::vote_relay_req req{ nano::dev::network_params.network, 7, { { hash, nano::root{ 100 } } }, { rep1.pub, rep2.pub } };
+	ASSERT_TRUE (node.vote_relay.request (req, channel));
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::query), 2);
+
+	// One representative answers, the other never does, so the request ends idle well before its lifetime
+	auto vote1 = nano::test::make_final_vote (rep1, std::vector<nano::block_hash>{ hash });
+	ASSERT_TRUE (node.vote_processor.vote (vote1, channel, nano::vote_source::live));
+	ASSERT_TIMELY (5s, acks.terminated (7));
+	ASSERT_EQ (1, acks.votes (7).size ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::idle));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::flush));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::timeout));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::done));
 }
