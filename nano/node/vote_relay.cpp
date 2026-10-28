@@ -151,7 +151,7 @@ void nano::vote_relay::run ()
 			}
 			for (auto const & entry : refused_l)
 			{
-				send_reply (entry.channel, entry.id, {});
+				send_refusal (entry.channel, entry.id);
 			}
 
 			lock.lock ();
@@ -226,14 +226,14 @@ void nano::vote_relay::process (nano::messages::vote_relay_req const & message, 
 	if (message.reps.empty ())
 	{
 		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::unsupported);
-		send_reply (channel, message.id, {});
+		send_refusal (channel, message.id);
 		return;
 	}
 	// Bound the upstream work a single request can cause
 	if (message.reps.size () > config.max_reps)
 	{
 		stats.inc (nano::stat::type::vote_relay, nano::stat::detail::oversize);
-		send_reply (channel, message.id, {});
+		send_refusal (channel, message.id);
 		return;
 	}
 
@@ -351,7 +351,7 @@ void nano::vote_relay::process (nano::messages::vote_relay_req const & message, 
 	if (refused)
 	{
 		stats.inc (nano::stat::type::vote_relay, *refused);
-		send_reply (channel, message.id, {});
+		send_refusal (channel, message.id);
 		return;
 	}
 
@@ -457,9 +457,15 @@ void nano::vote_relay::send_reply (std::shared_ptr<nano::transport::channel> con
 	send_ack (channel, ack);
 }
 
+void nano::vote_relay::send_refusal (std::shared_ptr<nano::transport::channel> const & channel, nano::vote_relay_index::id_t id)
+{
+	stats.inc (nano::stat::type::vote_relay, nano::stat::detail::reply_empty);
+	send_ack (channel, nano::messages::vote_relay_ack::refusal (network_constants, id));
+}
+
 void nano::vote_relay::send_votes (std::shared_ptr<nano::transport::channel> const & channel, nano::vote_relay_index::id_t id, std::deque<std::shared_ptr<nano::vote>> const & votes)
 {
-	std::size_t constexpr base_size = sizeof (nano::vote_relay_index::id_t) + sizeof (uint8_t);
+	std::size_t constexpr base_size = sizeof (nano::vote_relay_index::id_t) + sizeof (uint8_t) + sizeof (uint8_t); // Id, flags and vote count
 
 	std::vector<std::shared_ptr<nano::vote>> batch;
 	std::size_t payload{ base_size };

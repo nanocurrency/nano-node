@@ -57,6 +57,15 @@ public:
 		return result;
 	}
 
+	// Whether a terminator flagged as refused was received for the given request id
+	bool refused (uint64_t id) const
+	{
+		nano::lock_guard<nano::mutex> lock{ mutex };
+		return std::any_of (acks.begin (), acks.end (), [id] (auto const & ack) {
+			return ack.id == id && ack.refused ();
+		});
+	}
+
 	// Whether a terminating empty ack was received for the given request id
 	bool terminated (uint64_t id) const
 	{
@@ -355,6 +364,7 @@ TEST (vote_relay, unsupported_any_rep)
 
 	// The relay thread refuses it and tells the requester that nothing will come
 	ASSERT_TIMELY (5s, acks.terminated (1));
+	ASSERT_TRUE (acks.refused (1));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::unsupported));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::reply_empty));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::process));
@@ -468,6 +478,7 @@ TEST (vote_relay, query_rep)
 	ASSERT_TRUE (node.vote_relay.request (req, channel));
 
 	ASSERT_TIMELY (5s, acks.terminated (7));
+	ASSERT_FALSE (acks.refused (7));
 	auto votes = acks.votes (7);
 	ASSERT_EQ (1, votes.size ());
 	ASSERT_EQ (nano::dev::genesis_key.pub, votes[0]->account);
@@ -512,6 +523,7 @@ TEST (vote_relay, timeout)
 	ASSERT_TRUE (node.vote_relay.request (req, channel));
 
 	ASSERT_TIMELY (5s, acks.terminated (7));
+	ASSERT_FALSE (acks.refused (7));
 	ASSERT_TRUE (acks.votes (7).empty ());
 
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::query));
@@ -668,6 +680,7 @@ TEST (vote_relay, max_reps)
 
 	// The relay thread refuses it before any processing
 	ASSERT_TIMELY (5s, acks.terminated (1));
+	ASSERT_TRUE (acks.refused (1));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::oversize));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::process));
 }
@@ -754,6 +767,7 @@ TEST (vote_relay, channel_limit)
 	nano::messages::vote_relay_req req2{ nano::dev::network_params.network, 2, { { nano::block_hash{ 2 }, nano::root{ 2 } } }, { rep } };
 	ASSERT_TRUE (node.vote_relay.request (req2, channel1));
 	ASSERT_TIMELY (5s, acks1.terminated (2));
+	ASSERT_TRUE (acks1.refused (2));
 	ASSERT_TRUE (acks1.votes (2).empty ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::overfill));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::query));

@@ -635,3 +635,63 @@ TEST (vote_relay_client, reachable_stake)
 	ASSERT_EQ (0, node.stake ().relayed);
 	ASSERT_EQ (weight, node.stake ().reachable);
 }
+
+/*
+ * A relay that refused a request should be kept out of the listings until its cooldown ran out, eviction then forgets it
+ */
+TEST (vote_relay_client_index, cooldown)
+{
+	nano::test::system system;
+	auto & node = *system.add_node ();
+
+	auto relay = nano::test::fake_channel (node);
+	auto other = nano::test::fake_channel (node);
+	nano::vote_relay_client_index index;
+	auto const now = std::chrono::steady_clock::now ();
+	ASSERT_FALSE (index.cooling_down (relay, now));
+
+	// Only the relay that refused is cooling down, and only until the given time
+	index.cool_down (relay, now + 1s);
+	ASSERT_TRUE (index.cooling_down (relay, now));
+	ASSERT_FALSE (index.cooling_down (other, now));
+	ASSERT_FALSE (index.cooling_down (relay, now + 1s));
+	ASSERT_EQ (1, index.cooldown_size ());
+
+	// Evicting past the cooldown drops it
+	ASSERT_TRUE (index.evict (now).empty ());
+	ASSERT_EQ (1, index.cooldown_size ());
+	ASSERT_TRUE (index.evict (now + 1s).empty ());
+	ASSERT_EQ (0, index.cooldown_size ());
+}
+
+/*
+ * A refused terminator should close the request without counting it as answered, and keep that relay out of the listings for the cooldown
+ */
+TEST (vote_relay_client, refused)
+{
+	nano::test::system system;
+
+	// A relay that refuses any request naming more than one representative
+	nano::node_config relay_config = system.default_config ();
+	relay_config.vote_relay->enable = true;
+	relay_config.vote_relay->max_reps = 1;
+	auto & relay_node = *system.add_node (relay_config);
+
+	nano::node_config config = system.default_config ();
+	config.vote_relay_client->refusal_cooldown = 500ms;
+	auto & node = *system.add_node (config);
+	ASSERT_TIMELY_EQ (5s, node.vote_relay_client.relays (8).size (), 1);
+	auto relay = node.vote_relay_client.relays (1)[0];
+
+	// The oversize request comes back refused, the request is gone and the relay is left alone
+	ASSERT_TRUE (node.vote_relay_client.request (relay, { nano::account{ 1 }, nano::account{ 2 } }, roots_hashes, nano::vote_finality::final));
+	ASSERT_TIMELY_EQ (5s, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::refused), 1);
+	ASSERT_EQ (0, node.vote_relay_client.outstanding ());
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::done));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::unsolicited));
+	ASSERT_EQ (1, relay_node.stats.count (nano::stat::type::vote_relay, nano::stat::detail::oversize));
+	ASSERT_TRUE (node.vote_relay_client.relays (8).empty ());
+
+	// Once the cooldown ran out the relay is offered again
+	ASSERT_TIMELY (5s, !node.vote_relay_client.relays (8).empty ());
+}

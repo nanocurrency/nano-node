@@ -509,6 +509,7 @@ enum class detail
 	unsolicited,
 	relay_full,
 	mismatch,
+	refused,
 
 	// vote_solicitor
 	relay_request,

@@ -253,6 +253,7 @@ std::vector<sample> make_samples ()
 		message->update_header ();
 		add ("vote_relay_ack empty", std::move (message));
 	}
+	add ("vote_relay_ack refused", std::make_unique<nano::messages::vote_relay_ack> (nano::messages::vote_relay_ack::refusal (network, 11)));
 	add ("vote_relay_ack", std::make_unique<nano::messages::vote_relay_ack> (network, 11, std::vector<std::shared_ptr<nano::vote>>{ nano::test::make_final_vote (key, random_hashes (1)) }));
 	{
 		std::vector<std::shared_ptr<nano::vote>> votes;
