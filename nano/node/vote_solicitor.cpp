@@ -331,15 +331,20 @@ std::deque<nano::relay_rep_selector::candidate> nano::vote_solicitor::relay_cand
 	return result;
 }
 
-void nano::vote_solicitor::flush (nano::vote_solicitor_round const & round)
+nano::solicitation_result nano::vote_solicitor::flush (nano::vote_solicitor_round const & round)
 {
+	nano::solicitation_result result;
+
 	for (auto const & [block, channels] : round.block_broadcasts ())
 	{
 		nano::messages::publish message{ network_constants, block };
 		for (auto const & channel : channels)
 		{
-			stats.inc (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out);
-			channel->send (message, nano::transport::traffic_type::block_broadcast);
+			if (channel->send (message, nano::transport::traffic_type::block_broadcast))
+			{
+				stats.inc (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out);
+				result.block_broadcasts.insert (block->hash ());
+			}
 		}
 	}
 
@@ -350,17 +355,24 @@ void nano::vote_solicitor::flush (nano::vote_solicitor_round const & round)
 			auto const end = std::min (offset + nano::network::confirm_req_hashes_max, roots_hashes.size ());
 			std::vector<std::pair<nano::block_hash, nano::root>> const batch (roots_hashes.begin () + offset, roots_hashes.begin () + end);
 
-			stats.inc (nano::stat::type::vote_solicitor, nano::stat::detail::request, nano::stat::dir::out);
 			nano::messages::confirm_req message{ network_constants, batch };
-			channel->send (message, nano::transport::traffic_type::confirmation_requests);
+			if (channel->send (message, nano::transport::traffic_type::confirmation_requests))
+			{
+				stats.inc (nano::stat::type::vote_solicitor, nano::stat::detail::request, nano::stat::dir::out);
+				for (auto const & [hash, root] : batch)
+				{
+					result.vote_requests.insert (hash);
+				}
+			}
 		}
 	}
 
 	auto const & relays = round.relays ();
 	if (relays.empty ())
 	{
-		return;
+		return result;
 	}
+
 	std::size_t next_relay = 0;
 	for (auto const & batch : round.relay_requests ())
 	{
@@ -374,9 +386,14 @@ void nano::vote_solicitor::flush (nano::vote_solicitor_round const & round)
 			if (vote_relay_client.request (relay, batch.reps, chunk, batch.finality))
 			{
 				stats.inc (nano::stat::type::vote_solicitor, nano::stat::detail::relay_request, nano::stat::dir::out);
+				for (auto const & [hash, root] : chunk)
+				{
+					result.relay_requests.insert (hash);
+				}
 			}
 		}
 	}
+	return result;
 }
 
 /*

@@ -25,6 +25,7 @@
 
 #include <deque>
 #include <sstream>
+#include <unordered_set>
 
 using namespace std::chrono_literals;
 
@@ -48,6 +49,44 @@ nano::election_snapshot make_snapshot (std::shared_ptr<nano::block> const & winn
 {
 	return { winner->qualified_root (), winner, quorum, std::move (votes) };
 }
+
+/**
+ * Channel that drops every message, what the solicitor planned for it never goes out
+ */
+class dropping_channel final : public nano::transport::channel
+{
+public:
+	explicit dropping_channel (nano::node & node) :
+		channel{ node }
+	{
+	}
+
+	nano::endpoint get_remote_endpoint () const override
+	{
+		return {};
+	}
+	nano::endpoint get_local_endpoint () const override
+	{
+		return {};
+	}
+	nano::transport::transport_type get_type () const override
+	{
+		return nano::transport::transport_type::fake;
+	}
+	void close () override
+	{
+	}
+	std::string to_string () const override
+	{
+		return "dropping_channel";
+	}
+
+protected:
+	bool send_buffer_impl (nano::shared_const_buffer const &, nano::transport::traffic_type, callback_t) override
+	{
+		return false;
+	}
+};
 
 nano::vote_info vote_for (nano::block_hash const & hash, bool final = false)
 {
@@ -259,12 +298,17 @@ TEST (vote_solicitor, flush)
 	ASSERT_EQ (0, confirm_reqs);
 	ASSERT_EQ (0, publishes);
 
-	node.vote_solicitor.flush (round);
+	auto const result = node.vote_solicitor.flush (round);
 
 	// Both requests are batched into a single confirm_req to the same channel
 	ASSERT_EQ (1, confirm_reqs);
 	ASSERT_EQ (2, confirm_req_hashes);
 	ASSERT_EQ (1, publishes);
+
+	// The result names the elections each message went out for
+	ASSERT_EQ (std::unordered_set<nano::block_hash>{ winner1->hash () }, result.block_broadcasts);
+	ASSERT_EQ ((std::unordered_set<nano::block_hash>{ winner1->hash (), winner2->hash () }), result.vote_requests);
+	ASSERT_TRUE (result.relay_requests.empty ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::request, nano::stat::dir::out));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out));
 }
@@ -518,9 +562,10 @@ TEST (vote_solicitor, flush_relay)
 		ASSERT_TRUE (round.relay_request (make_snapshot (make_winner (100 + i))));
 	}
 
-	node.vote_solicitor.flush (round);
+	auto const result = node.vote_solicitor.flush (round);
 
-	// One group split into two messages, one per relay
+	// One group split into two messages, one per relay, every hash reported as sent
+	ASSERT_EQ (nano::messages::vote_relay_req::max_hashes + 1, result.relay_requests.size ());
 	ASSERT_EQ (std::deque<std::size_t>{ nano::messages::vote_relay_req::max_hashes }, sizes1);
 	ASSERT_EQ (std::deque<std::size_t>{ 1 }, sizes2);
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::relay_request, nano::stat::dir::out));
@@ -625,4 +670,62 @@ TEST (vote_solicitor_config, validation)
 	ASSERT_TRUE (deserialize ("relay_reps = 32\nrelay_reps_observed = 30\nrelay_reps_explore = 4\n"));
 	// The hard cap exceeds what fits in a request
 	ASSERT_TRUE (deserialize ("relay_reps = 300\nrelay_reps_observed = 1\nrelay_reps_explore = 1\n"));
+}
+
+/*
+ * A chunk the client refuses should not be reported as sent, so the elections behind it stay due for a relay request
+ */
+TEST (vote_solicitor, flush_relay_refused)
+{
+	nano::test::system system;
+	nano::node_config config = system.default_config ();
+	config.vote_relay_client->max_outstanding = 1;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	flags.disable_request_loop = true;
+	auto & node = *system.add_node (config, flags);
+
+	auto relay = nano::test::test_channel (node);
+
+	// One relay and one more hash than fits a request, so the second chunk hits the outstanding cap
+	nano::account rep{ 1 };
+	nano::vote_solicitor_round round{ { .direct = {}, .relayed = { rep }, .relays = { relay } }, {} };
+	for (std::size_t i = 0; i < nano::messages::vote_relay_req::max_hashes + 1; ++i)
+	{
+		ASSERT_TRUE (round.relay_request (make_snapshot (make_winner (100 + i))));
+	}
+
+	// Only the hashes of the first chunk went out
+	auto const result = node.vote_solicitor.flush (round);
+	ASSERT_EQ (nano::messages::vote_relay_req::max_hashes, result.relay_requests.size ());
+	ASSERT_EQ (1, node.vote_relay_client.outstanding ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::relay_request, nano::stat::dir::out));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_relay_client, nano::stat::detail::relay_full));
+}
+
+/*
+ * A channel that drops the messages leaves nothing in the result, so the elections stay due for a request and a broadcast
+ */
+TEST (vote_solicitor, flush_dropped)
+{
+	nano::test::system system;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	flags.disable_request_loop = true;
+	auto & node = *system.add_node (flags);
+
+	// The only reachable representative sits behind a channel that drops everything
+	node.rep_crawler.force_add_rep (nano::dev::genesis_key.pub, std::make_shared<dropping_channel> (node));
+
+	auto round = node.vote_solicitor.prepare ();
+	auto winner = make_winner (100);
+	ASSERT_TRUE (round.request_votes (make_snapshot (winner)));
+	ASSERT_TRUE (round.broadcast_block (make_snapshot (winner)));
+
+	// Nothing went out, nothing is reported or counted
+	auto const result = node.vote_solicitor.flush (round);
+	ASSERT_TRUE (result.vote_requests.empty ());
+	ASSERT_TRUE (result.block_broadcasts.empty ());
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::request, nano::stat::dir::out));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::vote_solicitor, nano::stat::detail::broadcast, nano::stat::dir::out));
 }
