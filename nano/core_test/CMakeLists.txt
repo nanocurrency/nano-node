@@ -81,6 +81,7 @@ add_executable(
   rep_weight_store.cpp
   rpc_host.cpp
   scheduler_buckets.cpp
+  secure_memory.cpp
   stats.cpp
   signal_manager.cpp
   socket.cpp
